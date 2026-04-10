@@ -146,13 +146,20 @@ export function TabInfo({ formData, setFormData, errors, setErrors, handlerOptio
             testId="fk-handler"
           />
           <FKSelect
-            label="Đơn vị phụ trách"
+            label="Đơn vị thụ lý"
             value={formData.supervisingUnit}
             onChange={(v) => update("supervisingUnit", v)}
             options={UNIT_OPTIONS}
             placeholder="-- Chọn đơn vị --"
             canCreate={false}
             testId="fk-unit"
+          />
+          <FKSelect
+            label="Loại đơn thư"
+            masterClassType="02"
+            value={formData.petitionType}
+            onChange={(v) => update("petitionType", v)}
+            placeholder="-- Chọn loại đơn thư --"
           />
         </div>
       </Card>

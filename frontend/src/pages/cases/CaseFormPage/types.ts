@@ -64,7 +64,8 @@ export interface CaseFormData {
   status: string;             // Trạng thái
   priority: string;           // Mức độ ưu tiên
   handler: string;            // Điều tra viên chính (bắt buộc)
-  supervisingUnit: string;    // Đơn vị phụ trách
+  supervisingUnit: string;    // Đơn vị thụ lý
+  petitionType: string;       // Loại đơn thư (từ MasterClass type 02)
   caseClassification: string; // Phân loại vụ án
 
   // Thông tin người tố cáo/báo tin
@@ -209,6 +210,7 @@ export const INITIAL_FORM_DATA: CaseFormData = {
   priority: "",
   handler: "",
   supervisingUnit: "",
+  petitionType: "",
   caseClassification: "",
   reporter: "",
   reporterIdNumber: "",
