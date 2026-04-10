@@ -24,6 +24,7 @@ import { DelegationsModule } from './delegations/delegations.module';
 import { ConclusionsModule } from './conclusions/conclusions.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { InvestigationSupplementsModule } from './investigation-supplements/investigation-supplements.module';
+import { MasterClassModule } from './master-class/master-class.module';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { InvestigationSupplementsModule } from './investigation-supplements/inve
     ConclusionsModule,
     NotificationsModule,
     InvestigationSupplementsModule,
+    MasterClassModule,
   ],
   controllers: [AppController],
   providers: [AppService],

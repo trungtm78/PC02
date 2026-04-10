@@ -87,7 +87,7 @@ export function IncidentFormPage() {
               <div>
                 <FKSelect
                   label="Loại vụ việc"
-                  directoryType="INCIDENT_TYPE"
+                  masterClassType="01"
                   value={formData.incidentType}
                   onChange={(v) => update("incidentType", v)}
                   placeholder="Chọn loại vụ việc"

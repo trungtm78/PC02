@@ -35,6 +35,7 @@ import {
   Search,
   Star,
   X,
+  List,
 } from 'lucide-react';
 
 /* ─── Types ──────────────────────────────────────────────────── */
@@ -162,6 +163,7 @@ const menuSections: MenuSection[] = [
       { id: 'documents', label: 'Hồ sơ & Tài liệu', icon: FileText, path: '/documents' },
       { id: 'calendar', label: 'Lịch làm việc', icon: Calendar, path: '/calendar' },
       { id: 'directories', label: 'Danh mục', icon: Database, path: '/danh-muc' },
+      { id: 'master-class', label: 'Phân loại danh mục', icon: List, path: '/phan-loai' },
       { id: 'users', label: 'Người dùng', icon: Users, path: '/nguoi-dung' },
       { id: 'settings', label: 'Cài đặt hệ thống', icon: Settings, path: '/settings' },
     ],

@@ -1239,7 +1239,7 @@ export function TabStatistics({ formData, setFormData }: TabProps) {
             <input value={formData.stat_incidentWard} onChange={(e) => update("stat_incidentWard", e.target.value)} placeholder="Phường 1" className={inp()} />
           </div>
           <div>
-            <FKSelect label="Phân loại ban đầu" directoryType="CASE_CLASSIFICATION" value={formData.stat_initialClassification} onChange={(v) => update("stat_initialClassification", v)} placeholder="-- Chọn phân loại --" />
+            <FKSelect label="Phân loại ban đầu" masterClassType="07" value={formData.stat_initialClassification} onChange={(v) => update("stat_initialClassification", v)} placeholder="-- Chọn phân loại --" />
           </div>
         </div>
       </div>
@@ -1258,7 +1258,7 @@ export function TabStatistics({ formData, setFormData }: TabProps) {
             <FKSelect label="Tội danh phụ" directoryType="CRIME" value={formData.stat_secondaryCrime} onChange={(v) => update("stat_secondaryCrime", v)} placeholder="-- Chọn tội danh phụ --" />
           </div>
           <div>
-            <FKSelect label="Lĩnh vực" directoryType="CASE_CLASSIFICATION" value={formData.stat_crimeField} onChange={(v) => update("stat_crimeField", v)} placeholder="-- Chọn lĩnh vực --" />
+            <FKSelect label="Lĩnh vực" masterClassType="07" value={formData.stat_crimeField} onChange={(v) => update("stat_crimeField", v)} placeholder="-- Chọn lĩnh vực --" />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Phương thức thủ đoạn</label>
@@ -1323,10 +1323,10 @@ export function TabStatistics({ formData, setFormData }: TabProps) {
             </div>
           ))}
           <div>
-            <FKSelect label="Giới tính" directoryType="GENDER" value={formData.stat_suspectGender} onChange={(v) => update("stat_suspectGender", v)} placeholder="-- Chọn --" />
+            <FKSelect label="Giới tính" masterClassType="00" value={formData.stat_suspectGender} onChange={(v) => update("stat_suspectGender", v)} placeholder="-- Chọn --" />
           </div>
           <div>
-            <FKSelect label="Độ tuổi" directoryType="AGE_GROUP" value={formData.stat_suspectAge} onChange={(v) => update("stat_suspectAge", v)} placeholder="-- Chọn --" />
+            <FKSelect label="Độ tuổi" masterClassType="04" value={formData.stat_suspectAge} onChange={(v) => update("stat_suspectAge", v)} placeholder="-- Chọn --" />
           </div>
           {[
             { field: "stat_suspectEthnicity", label: "Dân tộc", placeholder: "Kinh" },
@@ -1339,7 +1339,7 @@ export function TabStatistics({ formData, setFormData }: TabProps) {
             </div>
           ))}
           <div>
-            <FKSelect label="Trình độ học vấn" directoryType="EDUCATION_LEVEL" value={formData.stat_suspectEducation} onChange={(v) => update("stat_suspectEducation", v)} placeholder="-- Chọn --" />
+            <FKSelect label="Trình độ học vấn" masterClassType="05" value={formData.stat_suspectEducation} onChange={(v) => update("stat_suspectEducation", v)} placeholder="-- Chọn --" />
           </div>
           {[
             { field: "stat_suspectCriminalRecord", label: "Tiền án tiền sự" },

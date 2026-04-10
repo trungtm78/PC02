@@ -94,7 +94,7 @@ export function SubjectModal({ subject, onClose, onSave }: SubjectModalProps) {
       <div className="grid grid-cols-2 gap-4">
         <FKSelect
           label="Giới tính"
-          directoryType="GENDER"
+          masterClassType="00"
           value={formData.gender ?? ""}
           onChange={(v) => update("gender", v)}
           placeholder="-- Chọn --"
@@ -219,7 +219,7 @@ export function EvidenceModal({ evidence, onClose, onSave }: EvidenceModalProps)
         />
         <FKSelect
           label="Loại vật chứng"
-          directoryType="EVIDENCE_TYPE"
+          masterClassType="06"
           value={formData.evidenceType ?? ""}
           onChange={(v) => update("evidenceType", v)}
           placeholder="-- Chọn loại --"

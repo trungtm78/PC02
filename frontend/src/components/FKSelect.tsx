@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { Plus, Search, ChevronDown, X, Loader2 } from "lucide-react";
 import { LABEL_BASE, FIELD_ERROR_TEXT } from "@/constants/styles";
 import { useDirectoryOptions } from "@/hooks/useDirectoryOptions";
+import { useMasterClassOptions } from "@/hooks/useMasterClassOptions";
 
 // ─── Vietnamese diacritics removal ──────────────────────────────────────────
 
@@ -73,6 +74,8 @@ interface FKSelectProps {
   searchPlaceholder?: string;
   /** Auto-fetch options from Directory API by type */
   directoryType?: string;
+  /** Auto-fetch options from MasterClass API by type code (00, 01, 02...) */
+  masterClassType?: string;
 }
 
 // ─── Component ──────────────────────────────────────────────────────────────
@@ -93,6 +96,7 @@ export function FKSelect({
   resource: _resource,
   searchPlaceholder,
   directoryType,
+  masterClassType,
 }: FKSelectProps) {
   testId = testId ?? dataTestId;
   const [isOpen, setIsOpen] = useState(false);
@@ -106,8 +110,16 @@ export function FKSelect({
   const { data: directoryOptions, isLoading: directoryLoading } =
     useDirectoryOptions(directoryType);
 
-  const options = directoryType ? (directoryOptions ?? []) : (optionsProp ?? []);
-  const loading = loadingProp || (directoryType ? directoryLoading : false);
+  // Auto-fetch from MasterClass API if masterClassType is set
+  const { data: masterClassOpts, isLoading: masterClassLoading } =
+    useMasterClassOptions(masterClassType);
+
+  const options = masterClassType
+    ? (masterClassOpts ?? [])
+    : directoryType
+      ? (directoryOptions ?? [])
+      : (optionsProp ?? []);
+  const loading = loadingProp || (directoryType ? directoryLoading : false) || (masterClassType ? masterClassLoading : false);
 
   // Find selected option label
   const selectedOption = options.find((o) => o.value === value);

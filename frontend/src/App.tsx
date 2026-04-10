@@ -9,6 +9,7 @@ import { MainLayout } from '@/layouts/MainLayout';
 const DashboardPage = lazy(() => import('@/pages/dashboard/DashboardPage'));
 const UserManagementPage = lazy(() => import('@/pages/users/UserManagementPage'));
 const DirectoriesPage = lazy(() => import('@/pages/directories/DirectoriesPage'));
+const MasterClassPage = lazy(() => import('@/pages/admin/MasterClassPage'));
 
 // Lazy-loaded pages — Quan ly doi tuong (TASK-2026-261224 / 261225)
 const ObjectListPage = lazy(() => import('@/pages/objects/ObjectListPage'));
@@ -88,6 +89,9 @@ function App() {
             } />
             <Route path="/danh-muc" element={
               <Suspense fallback={null}><DirectoriesPage /></Suspense>
+            } />
+            <Route path="/phan-loai" element={
+              <Suspense fallback={null}><MasterClassPage /></Suspense>
             } />
 
             {/* ── Quan ly vu an — Real implementations ───── */}

@@ -331,7 +331,7 @@ export function PetitionFormPage() {
                 <FKSelect
                   label="Loại đơn thư"
                   required
-                  directoryType="PETITION_TYPE"
+                  masterClassType="02"
                   value={formData.petitionType}
                   onChange={(v) => update("petitionType", v)}
                   placeholder="Chọn loại đơn thư"
@@ -342,7 +342,7 @@ export function PetitionFormPage() {
                 <FKSelect
                   label="Mức độ ưu tiên"
                   required
-                  directoryType="PRIORITY"
+                  masterClassType="03"
                   value={formData.priority}
                   onChange={(v) => update("priority", v)}
                   placeholder="Chọn mức độ"

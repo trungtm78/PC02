@@ -692,3 +692,26 @@ model Notification {
   @@index([userId, createdAt])
   @@map("notifications")
 }
+
+// ─────────────────────────────────────────────
+// MasterClass (Phân loại danh mục)
+// Type codes: 00=Giới tính, 01=Loại vụ việc, 02=Loại đơn thư,
+// 03=Mức độ ưu tiên, 04=Nhóm tuổi, 05=Trình độ học vấn,
+// 06=Loại vật chứng, 07=Phân loại vụ án, 08=Viện Kiểm sát
+// ─────────────────────────────────────────────
+
+model MasterClass {
+  id        String   @id @default(cuid())
+  type      String   // "00", "01", "02"...
+  code      String   // "NAM", "NU", "TC"...
+  name      String   // "Nam", "Nữ", "Tố cáo"...
+  order     Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([type, code])
+  @@index([type])
+  @@index([isActive])
+  @@map("master_classes")
+}
