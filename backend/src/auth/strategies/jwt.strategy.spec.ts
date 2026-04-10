@@ -1,0 +1,94 @@
+import { UnauthorizedException } from '@nestjs/common';
+import { JwtStrategy } from './jwt.strategy';
+import type { JwtPayload } from './jwt.strategy';
+
+// Mock dependencies
+const mockPrisma = {
+  user: {
+    findUnique: jest.fn(),
+  },
+};
+
+const mockConfigService = {
+  get: jest.fn().mockReturnValue('./keys/public.pem'),
+};
+
+// We need to test the validate method directly
+// The constructor reads the public key file, so we mock the strategy
+describe('JwtStrategy', () => {
+  let strategy: JwtStrategy;
+
+  beforeEach(() => {
+    // Create strategy instance by calling validate directly
+    // We bypass the constructor's file read by creating a minimal instance
+    strategy = Object.create(JwtStrategy.prototype);
+    (strategy as any).prisma = mockPrisma;
+    jest.clearAllMocks();
+  });
+
+  describe('validate', () => {
+    const validPayload: JwtPayload = {
+      sub: 'user-1',
+      email: 'test@pc02.local',
+      role: 'ADMIN',
+    };
+
+    const mockUser = {
+      id: 'user-1',
+      email: 'test@pc02.local',
+      username: 'admin',
+      isActive: true,
+      roleId: 'role-1',
+      role: { name: 'ADMIN' },
+    };
+
+    it('should reject refresh tokens used as access tokens', async () => {
+      const refreshPayload: JwtPayload = {
+        ...validPayload,
+        type: 'refresh',
+      };
+
+      await expect(strategy.validate(refreshPayload)).rejects.toThrow(
+        UnauthorizedException,
+      );
+      await expect(strategy.validate(refreshPayload)).rejects.toThrow(
+        'Refresh tokens cannot be used for API access',
+      );
+      // Should NOT query database at all
+      expect(mockPrisma.user.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('should accept valid access tokens (no type field)', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(mockUser);
+
+      const result = await strategy.validate(validPayload);
+
+      expect(result).toEqual({
+        id: 'user-1',
+        email: 'test@pc02.local',
+        username: 'admin',
+        role: 'ADMIN',
+        roleId: 'role-1',
+      });
+    });
+
+    it('should reject inactive users', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({
+        ...mockUser,
+        isActive: false,
+      });
+
+      await expect(strategy.validate(validPayload)).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
+
+    it('should reject non-existent users', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(null);
+
+      await expect(strategy.validate(validPayload)).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
+  });
+});

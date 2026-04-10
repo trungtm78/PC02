@@ -235,23 +235,14 @@ export class PetitionsService {
       }
     }
 
-    // Validate enteredById if provided
-    if (dto.enteredById) {
-      const user = await this.prisma.user.findUnique({
-        where: { id: dto.enteredById },
-      });
-      if (!user) {
-        throw new BadRequestException('Người nhập không tồn tại');
-      }
-    }
-
+    // enteredById is always the authenticated user (prevent forgery)
     const record = await this.prisma.petition.create({
       data: {
         stt: dto.stt,
         receivedDate: new Date(dto.receivedDate),
         senderName: dto.senderName,
         unit: dto.unit,
-        enteredById: dto.enteredById ?? actorId,
+        enteredById: actorId,
         senderBirthYear: dto.senderBirthYear,
         senderAddress: dto.senderAddress,
         senderPhone: dto.senderPhone,

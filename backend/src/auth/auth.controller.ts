@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Req,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import type { Request } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
@@ -17,6 +18,7 @@ export class AuthController {
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
   async login(@Body() dto: LoginDto, @Req() req: Request) {
     return this.authService.login(dto, {
       ipAddress: req.ip,
@@ -26,6 +28,7 @@ export class AuthController {
 
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { ttl: 60000, limit: 10 } })
   async refresh(@Body() dto: RefreshTokenDto, @Req() req: Request) {
     return this.authService.refreshToken(dto.refreshToken, {
       ipAddress: req.ip,

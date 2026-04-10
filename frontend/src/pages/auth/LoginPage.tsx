@@ -12,7 +12,7 @@ import logoCA from '@/assets/logo-cong-an.png';
 
 /* ── Constants ────────────────────────────────────────────────── */
 
-const STORAGE_KEY = 'pc02_remember_me';
+const STORAGE_KEY = 'pc02_remember_email';
 
 /* ── Validation schema ────────────────────────────────────────── */
 
@@ -23,32 +23,25 @@ const loginSchema = z.object({
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
-/* ── Helpers ─────────────────────────────────────────────────── */
+/* ── Helpers (email only, never store password) ──────────────── */
 
-function saveCredentials(username: string, password: string) {
+function saveEmail(username: string) {
   try {
-    const encoded = btoa(JSON.stringify({ username, password }));
-    localStorage.setItem(STORAGE_KEY, encoded);
+    localStorage.setItem(STORAGE_KEY, username);
   } catch {
     // ignore storage errors
   }
 }
 
-function loadCredentials(): { username: string; password: string } | null {
+function loadEmail(): string | null {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(atob(raw)) as { username?: string; password?: string };
-    if (parsed.username && parsed.password) {
-      return { username: parsed.username, password: parsed.password };
-    }
-    return null;
+    return localStorage.getItem(STORAGE_KEY);
   } catch {
     return null;
   }
 }
 
-function clearCredentials() {
+function clearEmail() {
   localStorage.removeItem(STORAGE_KEY);
 }
 
@@ -68,12 +61,11 @@ export default function LoginPage() {
     resolver: zodResolver(loginSchema),
   });
 
-  // Pre-fill form from saved credentials on mount
+  // Pre-fill email only (never password) on mount
   useEffect(() => {
-    const saved = loadCredentials();
-    if (saved) {
-      setValue('username', saved.username);
-      setValue('password', saved.password);
+    const savedEmail = loadEmail();
+    if (savedEmail) {
+      setValue('username', savedEmail);
       setRememberMe(true);
     }
   }, [setValue]);
@@ -90,9 +82,9 @@ export default function LoginPage() {
 
   const onSubmit = (values: LoginFormValues) => {
     if (rememberMe) {
-      saveCredentials(values.username, values.password);
+      saveEmail(values.username);
     } else {
-      clearCredentials();
+      clearEmail();
     }
     loginMutation.mutate(values);
   };

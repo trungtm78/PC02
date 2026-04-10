@@ -10,6 +10,7 @@ export interface JwtPayload {
   sub: string; // userId
   email: string;
   role: string;
+  type?: string; // 'refresh' for refresh tokens
   iat?: number;
   exp?: number;
 }
@@ -35,6 +36,11 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   }
 
   async validate(payload: JwtPayload) {
+    // Reject refresh tokens used as access tokens
+    if (payload.type === 'refresh') {
+      throw new UnauthorizedException('Refresh tokens cannot be used for API access');
+    }
+
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
       include: { role: true },
