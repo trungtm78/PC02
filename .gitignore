@@ -1,0 +1,20 @@
+node_modules/
+dist/
+build/
+.env
+.env.local
+*.pem
+!**/public.pem
+coverage/
+playwright-report/
+test-results/
+
+# Backend test coverage
+backend/src/coverage/
+
+# IDE / OS
+.vscode/
+.idea/
+*.swp
+Thumbs.db
+.DS_Store

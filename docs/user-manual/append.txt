@@ -1,0 +1,39 @@
+
+## 8. Quản lý Hồ sơ & Tài liệu (Mới - v1.1.0)
+**Chức năng mới** giúp lưu trữ và quản lý các tài liệu, hồ sơ liên quan đến Vụ án và Vụ việc.
+
+### 8.1 Truy cập
+- Từ menu chính, chọn **HỆ THỐNG** -> **Hồ sơ & Tài liệu**.
+
+### 8.2 Các chức năng chính
+#### 8.2.1 Xem danh sách tài liệu
+- Danh sách hiển thị tất cả tài liệu đã upload với thông tin: Tiêu đề, Loại, Kích thước, Vụ án/Vụ việc liên kết, NgườI upload.
+- Sử dụng thanh tìm kiếm để lọc tài liệu theo tiêu đề hoặc tên file (hỗ trợ tìm kiếm không dấu).
+- Các tài liệu đã xóa sẽ không hiển thị trong danh sách (Soft delete).
+
+#### 8.2.2 Upload tài liệu mới
+1. Nhấn nút **Upload tài liệu** ở góc phải trên.
+2. Chọn file từ máy tính (hỗ trợ: PDF, Word, Excel, Hình ảnh, Video, Âm thanh).
+3. **Lưu ý**: Kích thước tối đa cho phép là **10MB**.
+4. Điền thông tin:
+   - **Tiêu đề**: Bắt buộc, nên mô tả ngắn gọn nội dung tài liệu.
+   - **Loại tài liệu**: Chọn từ danh sách (Văn bản, Hình ảnh, Video, Âm thanh, Khác).
+   - **Liên kết Vụ án**: Chọn từ danh sách Vụ án hiện có (tuỳ chọn).
+   - **Liên kết Vụ việc**: Chọn từ danh sách Vụ việc hiện có (tuỳ chọn).
+   - **Mô tả**: Thông tin bổ sung về tài liệu (tuỳ chọn).
+5. Nhấn **Upload tài liệu** để hoàn tất.
+
+#### 8.2.3 Tải xuống tài liệu
+- Tại danh sách, nhấn icon **Download** trên dòng tài liệu cần tải.
+- File sẽ được tải về máy với tên gốc.
+
+#### 8.2.4 Xóa tài liệu
+- Nhấn icon **Thùng rác** trên dòng tài liệu cần xóa.
+- Xác nhận xóa trong hộp thoại hiện ra.
+- **Lưu ý**: Tài liệu bị xóa sẽ được ẩn khỏi danh sách nhưng vẫn được lưu trữ trong hệ thống (Soft delete).
+
+### 8.3 Hình ảnh minh họa
+- **sys-doc-list**: Danh sách tài liệu ban đầu.
+- **sys-doc-upload**: Modal upload với chọn Vụ án/Vụ việc.
+- **sys-doc-success**: Thông báo thành công sau upload.
+- **sys-doc-error**: Thông báo lỗi khi upload file quá lớn.
