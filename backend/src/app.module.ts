@@ -27,6 +27,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { InvestigationSupplementsModule } from './investigation-supplements/investigation-supplements.module';
 import { MasterClassModule } from './master-class/master-class.module';
 import { TeamsModule } from './teams/teams.module';
+import { SettingsModule } from './settings/settings.module';
 import { UnitScopeService } from './auth/services/unit-scope.service';
 import { DataScopeInterceptor } from './auth/interceptors/data-scope.interceptor';
 
@@ -57,6 +58,7 @@ import { DataScopeInterceptor } from './auth/interceptors/data-scope.interceptor
     InvestigationSupplementsModule,
     MasterClassModule,
     TeamsModule,
+    SettingsModule,
   ],
   controllers: [AppController],
   providers: [

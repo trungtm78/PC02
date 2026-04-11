@@ -362,19 +362,30 @@ model Incident {
   status          IncidentStatus @default(TIEP_NHAN)
   sourcePetitionId String?       // Nguồn gốc nếu từ đơn thư
 
-  // New fields for full VuViec workflow
-  doiTuongCaNhan    String?      // Tên cá nhân liên quan
-  doiTuongToChuc    String?      // Tên tổ chức liên quan
-  loaiDonVu         String?      // Loại đơn vụ
-  benVu             String?      // Bên vụ
-  donViGiaiQuyet    String?      // Đơn vị giải quyết
-  ngayDeXuat        DateTime?    // Ngày đề xuất
-  ketQuaXuLy        String?      // Kết quả xử lý
+  // Thông tin nguồn tin (Đ.144 BLTTHS 2015)
+  doiTuongCaNhan    String?      // Đối tượng bị tố giác (TT119 Mẫu 01)
+  doiTuongToChuc    String?      // Tổ chức liên quan
+  loaiDonVu         String?      // Loại nguồn tin (Đ.144: Tố giác/Tin báo/Kiến nghị khởi tố)
+  benVu             String?      // Người tố giác/báo tin (Đ.144 BLTTHS)
+  donViGiaiQuyet    String?      // Đơn vị thụ lý (Đ.145 BLTTHS)
+  ngayDeXuat        DateTime?    // Ngày tiếp nhận nguồn tin (Đ.146 BLTTHS)
+  ketQuaXuLy        String?      // Kết quả giải quyết nguồn tin
   tinhTrangHoSo     String?      // Tình trạng hồ sơ
-  tinhTrangThoiHieu String?      // Tình trạng thời hiệu
-  nguoiQuyetDinh    String?      // Người quyết định
+  tinhTrangThoiHieu String?      // Tình trạng thời hiệu truy cứu TNHS
+  nguoiQuyetDinh    String?      // Người ra quyết định (Thủ trưởng/Phó TT CQĐT)
   chuyenDenDonVi    String?      // Đơn vị được chuyển đến
   chuyenTuDonVi     String?      // Đơn vị chuyển đi (audit trail)
+
+  // Thông tin nghiệp vụ bổ sung theo BLTTHS
+  soQuyetDinh       String?      // Số quyết định (khởi tố/không khởi tố/TĐC/phục hồi)
+  ngayQuyetDinh     DateTime?    // Ngày ra quyết định
+  lyDoKhongKhoiTo   String?      // Lý do không khởi tố (Đ.157 BLTTHS: 7 căn cứ)
+  lyDoTamDinhChi    String?      // Lý do tạm đình chỉ (Đ.148: chờ giám định/tương trợ tư pháp)
+  diaChiXayRa       String?      // Địa điểm xảy ra sự việc
+  // Thông tin người tố giác/báo tin chi tiết
+  sdtNguoiToGiac    String?      // SĐT người tố giác
+  diaChiNguoiToGiac String?      // Địa chỉ người tố giác
+  cmndNguoiToGiac   String?      // CCCD/CMND người tố giác
 
   // Self-reference: nhập vào vụ khác
   mergedIntoId      String?
@@ -864,4 +875,21 @@ model DataAccessGrant {
   @@unique([granteeId, teamId, accessLevel])
   @@index([granteeId])
   @@map("data_access_grants")
+}
+
+// ─────────────────────────────────────────────
+// System Settings (Cấu hình thời hạn xử lý theo BLTTHS)
+// ─────────────────────────────────────────────
+
+model SystemSetting {
+  id          String   @id @default(cuid())
+  key         String   @unique   // Mã cấu hình
+  value       String              // Giá trị (string, parse khi dùng)
+  label       String              // Mô tả tiếng Việt
+  unit        String?             // Đơn vị: "ngay", "thang", "lan"
+  legalBasis  String?             // Cơ sở pháp lý (Điều luật)
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+
+  @@map("system_settings")
 }
