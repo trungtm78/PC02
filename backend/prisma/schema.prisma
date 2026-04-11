@@ -79,6 +79,9 @@ model User {
   petitionsEntered      Petition[] @relation("PetitionEnteredBy")
   petitionsAssigned     Petition[] @relation("PetitionAssignedTo")
   incidentsAssigned     Incident[] @relation("IncidentInvestigator")
+  incidentsCanBoNhap    Incident[] @relation("IncidentCanBoNhap")
+  incidentsCreated      Incident[] @relation("IncidentCreatedBy")
+  incidentStatusChanges IncidentStatusHistory[] @relation("IncidentStatusChangedBy")
   documents             Document[] // Tài liệu đã upload
   proposalsCreated      Proposal[] @relation("ProposalCreatedBy")
   guidanceRecords       GuidanceRecord[] @relation("GuidanceCreatedBy")
@@ -159,6 +162,7 @@ model Case {
   lawyers        Lawyer[]    // TASK-2026-261225
   petitions      Petition[]  @relation("PetitionLinkedCase")
   documents      Document[]  // TASK-2026-022601: Tài liệu liên quan
+  linkedIncidents Incident[] @relation("IncidentLinkedCase")
   proposals      Proposal[]
   delegations    Delegation[]
   conclusions    Conclusion[]
@@ -325,12 +329,21 @@ model Petition {
 // ─────────────────────────────────────────────
 
 enum IncidentStatus {
-  TIEP_NHAN        // Tiếp nhận (Pending)
-  DANG_XAC_MINH   // Đang xác minh (Investigating)
-  DA_GIAI_QUYET   // Đã giải quyết (Completed)
-  TAM_DINH_CHI    // Tạm đình chỉ (Suspended)
-  QUA_HAN         // Quá hạn (Overdue)
-  DA_CHUYEN_VU_AN // Đã chuyển thành vụ án (Converted to Case)
+  TIEP_NHAN           // Tiếp nhận
+  DANG_XAC_MINH       // Đang xác minh
+  DA_PHAN_CONG        // Đã lên phân công
+  DA_GIAI_QUYET       // Đã giải quyết
+  TAM_DINH_CHI        // Tạm đình chỉ
+  QUA_HAN             // Quá hạn
+  DA_CHUYEN_VU_AN     // Đã chuyển thành vụ án (khởi tố)
+  KHONG_KHOI_TO       // Không khởi tố
+  CHUYEN_XPHC         // Chuyển xử phạt hành chính
+  TDC_HET_THOI_HIEU   // TĐC hết thời hiệu
+  TDC_HTH_KHONG_KT    // TĐC hết thời hạn không khởi tố
+  PHUC_HOI_NGUON_TIN  // Phục hồi nguồn tin tố phạm
+  DA_CHUYEN_DON_VI    // Đã chuyển đơn vị khác
+  DA_NHAP_VU_KHAC     // Đã nhập vào vụ việc khác
+  PHAN_LOAI_DAN_SU    // Phân loại dân sự
 
   @@map("incident_status")
 }
@@ -347,8 +360,39 @@ model Incident {
   unitId          String?        // ID đơn vị thụ lý
   investigatorId  String?        // ID Điều tra viên thụ lý
   status          IncidentStatus @default(TIEP_NHAN)
-  // Nguồn gốc nếu từ đơn thư
-  sourcePetitionId String?
+  sourcePetitionId String?       // Nguồn gốc nếu từ đơn thư
+
+  // New fields for full VuViec workflow
+  doiTuongCaNhan    String?      // Tên cá nhân liên quan
+  doiTuongToChuc    String?      // Tên tổ chức liên quan
+  loaiDonVu         String?      // Loại đơn vụ
+  benVu             String?      // Bên vụ
+  donViGiaiQuyet    String?      // Đơn vị giải quyết
+  ngayDeXuat        DateTime?    // Ngày đề xuất
+  ketQuaXuLy        String?      // Kết quả xử lý
+  tinhTrangHoSo     String?      // Tình trạng hồ sơ
+  tinhTrangThoiHieu String?      // Tình trạng thời hiệu
+  nguoiQuyetDinh    String?      // Người quyết định
+  chuyenDenDonVi    String?      // Đơn vị được chuyển đến
+  chuyenTuDonVi     String?      // Đơn vị chuyển đi (audit trail)
+
+  // Self-reference: nhập vào vụ khác
+  mergedIntoId      String?
+  mergedInto        Incident?    @relation("IncidentMerge", fields: [mergedIntoId], references: [id])
+  mergedFrom        Incident[]   @relation("IncidentMerge")
+
+  // Liên kết rõ ràng với Case sau khởi tố
+  linkedCaseId      String?
+  linkedCase        Case?        @relation("IncidentLinkedCase", fields: [linkedCaseId], references: [id])
+
+  // Cán bộ nhập (FK)
+  canBoNhapId       String?
+  canBoNhap         User?        @relation("IncidentCanBoNhap", fields: [canBoNhapId], references: [id])
+
+  // Người tạo
+  createdById       String?
+  createdBy         User?        @relation("IncidentCreatedBy", fields: [createdById], references: [id])
+
   deletedAt       DateTime?
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
@@ -357,12 +401,33 @@ model Incident {
   assignedTeamId  String?
   assignedTeam    Team?          @relation("IncidentTeam", fields: [assignedTeamId], references: [id], onDelete: SetNull)
   petitions       Petition[]     @relation("PetitionLinkedIncident")
-  documents       Document[]     // TASK-2026-022601: Tài liệu liên quan
+  documents       Document[]     // Tài liệu liên quan
+  statusHistory   IncidentStatusHistory[]
 
   @@index([status])
   @@index([deletedAt])
   @@index([assignedTeamId])
+  @@index([ngayDeXuat])
   @@map("incidents")
+}
+
+// ─────────────────────────────────────────────
+// Incident Status History
+// ─────────────────────────────────────────────
+
+model IncidentStatusHistory {
+  id          String         @id @default(cuid())
+  incidentId  String
+  incident    Incident       @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  fromStatus  IncidentStatus
+  toStatus    IncidentStatus
+  changedById String
+  changedBy   User           @relation("IncidentStatusChangedBy", fields: [changedById], references: [id])
+  note        String?        // Lý do thay đổi
+  createdAt   DateTime       @default(now())
+
+  @@index([incidentId])
+  @@map("incident_status_history")
 }
 
 // ─────────────────────────────────────────────
