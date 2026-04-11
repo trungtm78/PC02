@@ -10,6 +10,7 @@ const DashboardPage = lazy(() => import('@/pages/dashboard/DashboardPage'));
 const UserManagementPage = lazy(() => import('@/pages/users/UserManagementPage'));
 const DirectoriesPage = lazy(() => import('@/pages/directories/DirectoriesPage'));
 const MasterClassPage = lazy(() => import('@/pages/admin/MasterClassPage'));
+const TeamsPage = lazy(() => import('@/pages/admin/TeamsPage'));
 
 // Lazy-loaded pages — Quan ly doi tuong (TASK-2026-261224 / 261225)
 const ObjectListPage = lazy(() => import('@/pages/objects/ObjectListPage'));
@@ -92,6 +93,9 @@ function App() {
             } />
             <Route path="/phan-loai" element={
               <Suspense fallback={null}><MasterClassPage /></Suspense>
+            } />
+            <Route path="/to-nhom" element={
+              <Suspense fallback={null}><TeamsPage /></Suspense>
             } />
 
             {/* ── Quan ly vu an — Real implementations ───── */}

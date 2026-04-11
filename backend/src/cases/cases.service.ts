@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
@@ -9,6 +10,8 @@ import { CreateCaseDto } from './dto/create-case.dto';
 import { UpdateCaseDto } from './dto/update-case.dto';
 import { QueryCasesDto } from './dto/query-cases.dto';
 import { Prisma, CaseStatus, PetitionStatus } from '@prisma/client';
+import type { DataScope } from '../auth/services/unit-scope.service';
+import { buildScopeFilter } from '../common/utils/scope-filter.util';
 
 type JsonInput = Prisma.InputJsonValue;
 type PrismaTx = Prisma.TransactionClient;
@@ -23,7 +26,7 @@ export class CasesService {
   // ─────────────────────────────────────────────
   // GET LIST
   // ─────────────────────────────────────────────
-  async getList(query: QueryCasesDto) {
+  async getList(query: QueryCasesDto, dataScope?: DataScope | null) {
     const {
       search,
       status,
@@ -97,6 +100,15 @@ export class CasesService {
       };
     }
 
+    // Apply data scope filter
+    const scopeFilter = buildScopeFilter(dataScope);
+    if (scopeFilter) {
+      where.AND = [
+        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+        scopeFilter as Prisma.CaseWhereInput,
+      ];
+    }
+
     // Validate sortBy against allowed fields
     const allowedSortFields = ['createdAt', 'updatedAt', 'name', 'deadline', 'status'];
     const orderByField = allowedSortFields.includes(sortBy) ? sortBy : 'createdAt';
@@ -142,7 +154,26 @@ export class CasesService {
   // ─────────────────────────────────────────────
   // GET DETAIL
   // ─────────────────────────────────────────────
-  async getById(id: string) {
+  private checkRecordInScope(
+    record: { investigatorId?: string | null; assignedTeamId?: string | null },
+    dataScope?: DataScope | null,
+  ) {
+    if (!dataScope) return; // admin or no scope = allow
+    const { userIds, teamIds } = dataScope;
+
+    const ownerMatch =
+      record.investigatorId && userIds.includes(record.investigatorId);
+    const teamMatch =
+      record.assignedTeamId && teamIds.includes(record.assignedTeamId);
+    const unassignedMatch =
+      !record.assignedTeamId && teamIds.length > 0;
+
+    if (!ownerMatch && !teamMatch && !unassignedMatch) {
+      throw new ForbiddenException('Bạn không có quyền truy cập bản ghi này');
+    }
+  }
+
+  async getById(id: string, dataScope?: DataScope | null) {
     const record = await this.prisma.case.findFirst({
       where: { id, deletedAt: null },
       include: {
@@ -174,6 +205,8 @@ export class CasesService {
     if (!record) {
       throw new NotFoundException(`Vụ án không tồn tại (id: ${id})`);
     }
+
+    this.checkRecordInScope(record, dataScope);
 
     return { success: true, data: record };
   }
@@ -342,6 +375,7 @@ export class CasesService {
     dto: UpdateCaseDto,
     actorId: string,
     meta?: { ipAddress?: string; userAgent?: string },
+    dataScope?: DataScope | null,
   ) {
     const existing = await this.prisma.case.findFirst({
       where: { id, deletedAt: null },
@@ -350,6 +384,8 @@ export class CasesService {
     if (!existing) {
       throw new NotFoundException(`Vụ án không tồn tại (id: ${id})`);
     }
+
+    this.checkRecordInScope(existing, dataScope);
 
     if (dto.investigatorId) {
       const user = await this.prisma.user.findUnique({
@@ -474,6 +510,7 @@ export class CasesService {
     id: string,
     actorId: string,
     meta?: { ipAddress?: string; userAgent?: string },
+    dataScope?: DataScope | null,
   ) {
     const existing = await this.prisma.case.findFirst({
       where: { id, deletedAt: null },
@@ -482,6 +519,8 @@ export class CasesService {
     if (!existing) {
       throw new NotFoundException(`Vụ án không tồn tại (id: ${id})`);
     }
+
+    this.checkRecordInScope(existing, dataScope);
 
     await this.prisma.case.update({
       where: { id },

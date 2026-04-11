@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
@@ -25,6 +26,9 @@ import { ConclusionsModule } from './conclusions/conclusions.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { InvestigationSupplementsModule } from './investigation-supplements/investigation-supplements.module';
 import { MasterClassModule } from './master-class/master-class.module';
+import { TeamsModule } from './teams/teams.module';
+import { UnitScopeService } from './auth/services/unit-scope.service';
+import { DataScopeInterceptor } from './auth/interceptors/data-scope.interceptor';
 
 @Module({
   imports: [
@@ -52,8 +56,16 @@ import { MasterClassModule } from './master-class/master-class.module';
     NotificationsModule,
     InvestigationSupplementsModule,
     MasterClassModule,
+    TeamsModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    UnitScopeService,
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: DataScopeInterceptor,
+    },
+  ],
 })
 export class AppModule {}

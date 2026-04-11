@@ -6,6 +6,7 @@
 export interface AuthUser {
   email: string;
   role: string;
+  teams?: Array<{ teamId: string; teamName: string; isLeader: boolean }>;
 }
 
 function parseJwtPayload(token: string): AuthUser | null {

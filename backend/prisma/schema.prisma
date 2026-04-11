@@ -90,6 +90,9 @@ model User {
   statusChanges         CaseStatusHistory[] @relation("StatusChangedBy")
   investigationSupplementsCreated InvestigationSupplement[] @relation("SupplementCreatedBy")
   notifications         Notification[]
+  userTeams             UserTeam[]
+  grantsReceived        DataAccessGrant[] @relation("GrantReceived")
+  grantsGiven           DataAccessGrant[] @relation("GrantGiven")
 
   @@map("users")
 }
@@ -149,6 +152,8 @@ model Case {
   updatedAt      DateTime   @updatedAt
 
   investigator   User?       @relation(fields: [investigatorId], references: [id], onDelete: SetNull)
+  assignedTeamId String?
+  assignedTeam   Team?       @relation("CaseTeam", fields: [assignedTeamId], references: [id], onDelete: SetNull)
   statusHistory  CaseStatusHistory[]
   subjects       Subject[]
   lawyers        Lawyer[]    // TASK-2026-261225
@@ -162,6 +167,7 @@ model Case {
   @@index([status])
   @@index([deadline])
   @@index([deletedAt])
+  @@index([assignedTeamId])
   @@map("cases")
 }
 
@@ -302,12 +308,15 @@ model Petition {
   assignedTo        User?          @relation("PetitionAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
   linkedCase        Case?          @relation("PetitionLinkedCase", fields: [linkedCaseId], references: [id], onDelete: SetNull)
   linkedIncident    Incident?      @relation("PetitionLinkedIncident", fields: [linkedIncidentId], references: [id], onDelete: SetNull)
+  assignedTeamId    String?
+  assignedTeam      Team?          @relation("PetitionTeam", fields: [assignedTeamId], references: [id], onDelete: SetNull)
 
   @@index([status])
   @@index([receivedDate])
   @@index([deadline])
   @@index([senderName])
   @@index([deletedAt])
+  @@index([assignedTeamId])
   @@map("petitions")
 }
 
@@ -345,11 +354,14 @@ model Incident {
   updatedAt       DateTime       @updatedAt
 
   investigator    User?          @relation("IncidentInvestigator", fields: [investigatorId], references: [id], onDelete: SetNull)
+  assignedTeamId  String?
+  assignedTeam    Team?          @relation("IncidentTeam", fields: [assignedTeamId], references: [id], onDelete: SetNull)
   petitions       Petition[]     @relation("PetitionLinkedIncident")
   documents       Document[]     // TASK-2026-022601: Tài liệu liên quan
 
   @@index([status])
   @@index([deletedAt])
+  @@index([assignedTeamId])
   @@map("incidents")
 }
 
@@ -714,4 +726,77 @@ model MasterClass {
   @@index([type])
   @@index([isActive])
   @@map("master_classes")
+}
+
+// ─────────────────────────────────────────────
+// Team (Tổ/Nhóm/Đơn vị)
+// ─────────────────────────────────────────────
+
+model Team {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  code      String   @unique
+  level     Int      @default(0)
+  parentId  String?
+  parent    Team?    @relation("TeamHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children  Team[]   @relation("TeamHierarchy")
+  order     Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members          UserTeam[]
+  casesAssigned    Case[]             @relation("CaseTeam")
+  petitionsAssigned Petition[]        @relation("PetitionTeam")
+  incidentsAssigned Incident[]        @relation("IncidentTeam")
+  grantsForUnit    DataAccessGrant[]  @relation("GrantUnit")
+
+  @@index([parentId])
+  @@index([level])
+  @@map("teams")
+}
+
+// ─────────────────────────────────────────────
+// UserTeam (Thành viên tổ/nhóm)
+// ─────────────────────────────────────────────
+
+model UserTeam {
+  userId   String
+  teamId   String
+  isLeader Boolean  @default(false)
+  joinedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@id([userId, teamId])
+  @@index([teamId])
+  @@map("user_teams")
+}
+
+// ─────────────────────────────────────────────
+// Data Access Grant (Ủy quyền truy cập dữ liệu)
+// ─────────────────────────────────────────────
+
+enum AccessLevel {
+  READ
+  WRITE
+}
+
+model DataAccessGrant {
+  id          String      @id @default(cuid())
+  granteeId   String
+  teamId      String
+  accessLevel AccessLevel
+  grantedById String
+  expiresAt   DateTime?
+  createdAt   DateTime    @default(now())
+
+  grantee   User @relation("GrantReceived", fields: [granteeId], references: [id], onDelete: Cascade)
+  team      Team @relation("GrantUnit", fields: [teamId], references: [id], onDelete: Cascade)
+  grantedBy User @relation("GrantGiven", fields: [grantedById], references: [id], onDelete: Cascade)
+
+  @@unique([granteeId, teamId, accessLevel])
+  @@index([granteeId])
+  @@map("data_access_grants")
 }

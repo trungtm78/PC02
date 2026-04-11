@@ -25,6 +25,7 @@ import {
   UpdateRoleDto,
 } from './dto/update-role-permissions.dto';
 import { QueryUsersDto } from './dto/query-users.dto';
+import { CreateDataGrantDto } from './dto/create-data-grant.dto';
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
 @Controller('admin')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -131,6 +132,40 @@ export class AdminController {
     @Req() req: Request,
   ) {
     return this.adminService.updateRolePermissions(roleId, dto, user.id, {
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+  }
+
+  // ── Data Access Grants ───────────────────────────────
+  @Get('data-grants')
+  @RequirePermissions({ action: 'read', subject: 'User' })
+  listDataAccessGrants() {
+    return this.adminService.listDataAccessGrants();
+  }
+
+  @Post('data-grants')
+  @RequirePermissions({ action: 'write', subject: 'User' })
+  createDataAccessGrant(
+    @Body() dto: CreateDataGrantDto,
+    @CurrentUser() user: AuthUser,
+    @Req() req: Request,
+  ) {
+    return this.adminService.createDataAccessGrant(dto, user.id, {
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+  }
+
+  @Delete('data-grants/:id')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions({ action: 'delete', subject: 'User' })
+  revokeDataAccessGrant(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthUser,
+    @Req() req: Request,
+  ) {
+    return this.adminService.revokeDataAccessGrant(id, user.id, {
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
     });

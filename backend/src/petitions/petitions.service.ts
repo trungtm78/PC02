@@ -12,6 +12,8 @@ import { QueryPetitionsDto } from './dto/query-petitions.dto';
 import { ConvertToIncidentDto } from './dto/convert-incident.dto';
 import { ConvertToCaseDto } from './dto/convert-case.dto';
 import { Prisma } from '@prisma/client';
+import type { DataScope } from '../auth/services/unit-scope.service';
+import { buildPetitionScopeFilter } from '../common/utils/scope-filter.util';
 
 // Enum values — inline to avoid dependency on Prisma client generation
 // These must match schema.prisma enum definitions exactly
@@ -41,7 +43,7 @@ export class PetitionsService {
   // ─────────────────────────────────────────────
   // GET LIST
   // ─────────────────────────────────────────────
-  async getList(query: QueryPetitionsDto) {
+  async getList(query: QueryPetitionsDto, dataScope?: DataScope | null) {
     const {
       search,
       status,
@@ -92,6 +94,15 @@ export class PetitionsService {
         ...(where.receivedDate as Prisma.DateTimeFilter | undefined),
         lte: new Date(toDate + 'T23:59:59.999Z'),
       };
+    }
+
+    // Apply data scope filter
+    const scopeFilter = buildPetitionScopeFilter(dataScope);
+    if (scopeFilter) {
+      where.AND = [
+        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+        scopeFilter as Prisma.PetitionWhereInput,
+      ];
     }
 
     const allowedSortFields = [
