@@ -36,11 +36,13 @@ export class UnitScopeService {
     for (const ut of userTeams) {
       teamIds.push(ut.teamId);
 
-      // If team is level 0 (group), expand to descendants
-      if (ut.team.level === 0) {
-        const descendants = await this.teamsService.getDescendantIds(ut.teamId);
-        teamIds.push(...descendants);
-      }
+      // Expand to all descendants regardless of level
+      // Level 0 (Nhóm) → expands to Tổ + Phường
+      // Level 1 (Tổ) → expands to Phường
+      // Level 2 (Phường) → no children, returns []
+      // Performance note: recursive N+1 queries, acceptable at current scale (MAX_DEPTH=3, <100 teams)
+      const descendants = await this.teamsService.getDescendantIds(ut.teamId);
+      teamIds.push(...descendants);
     }
 
     // Add teams from DataAccessGrants (active, not expired)
