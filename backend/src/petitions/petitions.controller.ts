@@ -32,8 +32,8 @@ export class PetitionsController {
   // GET /api/v1/petitions — Danh sách đơn thư
   @Get()
   @RequirePermissions({ action: 'read', subject: 'Petition' })
-  getList(@Query() query: QueryPetitionsDto) {
-    return this.petitionsService.getList(query);
+  getList(@Query() query: QueryPetitionsDto, @Req() req: Request) {
+    return this.petitionsService.getList(query, (req as any).dataScope);
   }
 
   // GET /api/v1/petitions/:id — Chi tiết đơn thư

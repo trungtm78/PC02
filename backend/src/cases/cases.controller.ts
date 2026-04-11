@@ -30,8 +30,8 @@ export class CasesController {
   // GET /api/v1/cases — Danh sách vụ án (paginated + filtered)
   @Get()
   @RequirePermissions({ action: 'read', subject: 'Case' })
-  getList(@Query() query: QueryCasesDto) {
-    return this.casesService.getList(query);
+  getList(@Query() query: QueryCasesDto, @Req() req: Request) {
+    return this.casesService.getList(query, (req as any).dataScope);
   }
 
   // GET /api/v1/cases/:id/status-history — Lịch sử thay đổi trạng thái
@@ -44,8 +44,8 @@ export class CasesController {
   // GET /api/v1/cases/:id — Chi tiết vụ án
   @Get(':id')
   @RequirePermissions({ action: 'read', subject: 'Case' })
-  getById(@Param('id') id: string) {
-    return this.casesService.getById(id);
+  getById(@Param('id') id: string, @Req() req: Request) {
+    return this.casesService.getById(id, (req as any).dataScope);
   }
 
   // POST /api/v1/cases — Tạo vụ án mới
@@ -74,7 +74,7 @@ export class CasesController {
     return this.casesService.update(id, dto, user.id, {
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
-    });
+    }, (req as any).dataScope);
   }
 
   // DELETE /api/v1/cases/:id — Xóa vụ án (soft delete)
@@ -89,6 +89,6 @@ export class CasesController {
     return this.casesService.delete(id, user.id, {
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
-    });
+    }, (req as any).dataScope);
   }
 }

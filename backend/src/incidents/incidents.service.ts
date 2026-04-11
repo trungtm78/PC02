@@ -12,6 +12,8 @@ import { QueryIncidentsDto } from './dto/query-incidents.dto';
 import { AssignInvestigatorDto } from './dto/assign-investigator.dto';
 import { ProsecuteIncidentDto } from './dto/prosecute-incident.dto';
 import { Prisma, IncidentStatus } from '@prisma/client';
+import type { DataScope } from '../auth/services/unit-scope.service';
+import { buildScopeFilter } from '../common/utils/scope-filter.util';
 
 @Injectable()
 export class IncidentsService {
@@ -23,7 +25,7 @@ export class IncidentsService {
   // ─────────────────────────────────────────────
   // GET LIST (AC-01)
   // ─────────────────────────────────────────────
-  async getList(query: QueryIncidentsDto) {
+  async getList(query: QueryIncidentsDto, dataScope?: DataScope | null) {
     const {
       search,
       status,
@@ -82,6 +84,15 @@ export class IncidentsService {
     // Filter theo unitId nếu districtId được dùng như alias
     if (districtId) {
       where.unitId = districtId;
+    }
+
+    // Apply data scope filter
+    const scopeFilter = buildScopeFilter(dataScope);
+    if (scopeFilter) {
+      where.AND = [
+        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+        scopeFilter as Prisma.IncidentWhereInput,
+      ];
     }
 
     const allowedSortFields = [

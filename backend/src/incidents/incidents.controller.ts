@@ -33,8 +33,8 @@ export class IncidentsController {
   // GET /api/v1/incidents — Danh sách vụ việc (AC-01)
   @Get()
   @RequirePermissions({ action: 'read', subject: 'Incident' })
-  getList(@Query() query: QueryIncidentsDto) {
-    return this.incidentsService.getList(query);
+  getList(@Query() query: QueryIncidentsDto, @Req() req: Request) {
+    return this.incidentsService.getList(query, (req as any).dataScope);
   }
 
   // GET /api/v1/incidents/investigators — Danh sách điều tra viên cho FK select
