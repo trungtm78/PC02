@@ -78,4 +78,27 @@ export class TeamsController {
       userAgent: req.headers['user-agent'],
     });
   }
+
+  // ── Members ────────────────────────────────────────────
+
+  @Post(':id/members')
+  @RequirePermissions({ action: 'edit', subject: 'Team' })
+  addMember(
+    @Param('id') id: string,
+    @Body('userId') userId: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.teamsService.addMember(id, userId, user.id);
+  }
+
+  @Delete(':id/members/:userId')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions({ action: 'edit', subject: 'Team' })
+  removeMember(
+    @Param('id') id: string,
+    @Param('userId') userId: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.teamsService.removeMember(id, userId, user.id);
+  }
 }
