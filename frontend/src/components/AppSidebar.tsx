@@ -95,7 +95,25 @@ const menuSections: MenuSection[] = [
         ],
       },
       { id: 'petitions', label: 'Quản lý đơn thư', icon: Mail, path: '/petitions' },
-      { id: 'incidents', label: 'Quản lý vụ việc', icon: AlertTriangle, path: '/incidents' },
+      {
+        id: 'incidents',
+        label: 'Quản lý vụ việc',
+        icon: AlertTriangle,
+        children: [
+          { id: 'incidents-list', label: 'Danh sách vụ việc', icon: FileText, path: '/vu-viec' },
+          { id: 'incidents-dang-xac-minh', label: 'Đang xác minh', icon: AlertTriangle, path: '/vu-viec?status=DANG_XAC_MINH' },
+          { id: 'incidents-da-phan-cong', label: 'Đã lên phân công', icon: AlertTriangle, path: '/vu-viec?status=DA_PHAN_CONG' },
+          { id: 'incidents-khong-khoi-to', label: 'Không khởi tố', icon: AlertTriangle, path: '/vu-viec?status=KHONG_KHOI_TO' },
+          { id: 'incidents-chuyen-xphc', label: 'Chuyển XPHC', icon: AlertTriangle, path: '/vu-viec?status=CHUYEN_XPHC' },
+          { id: 'incidents-tam-dinh-chi', label: 'Tạm đình chỉ', icon: AlertTriangle, path: '/vu-viec?status=TAM_DINH_CHI' },
+          { id: 'incidents-tdc-het-thoi-hieu', label: 'TĐC hết thời hiệu', icon: AlertTriangle, path: '/vu-viec?status=TDC_HET_THOI_HIEU' },
+          { id: 'incidents-tdc-hth-khong-kt', label: 'TĐC HTH không KT', icon: AlertTriangle, path: '/vu-viec?status=TDC_HTH_KHONG_KT' },
+          { id: 'incidents-phuc-hoi', label: 'Phục hồi nguồn tin', icon: AlertTriangle, path: '/vu-viec?status=PHUC_HOI_NGUON_TIN' },
+          { id: 'incidents-da-chuyen-dv', label: 'Đã chuyển đơn vị', icon: AlertTriangle, path: '/vu-viec?status=DA_CHUYEN_DON_VI' },
+          { id: 'incidents-da-nhap-vu-khac', label: 'Đã nhập vụ khác', icon: AlertTriangle, path: '/vu-viec?status=DA_NHAP_VU_KHAC' },
+          { id: 'incidents-phan-loai-dan-su', label: 'Phân loại dân sự', icon: AlertTriangle, path: '/vu-viec?status=PHAN_LOAI_DAN_SU' },
+        ],
+      },
     ],
   },
   {
@@ -185,6 +203,7 @@ export function AppSidebar() {
       suspects: counts.suspects,
       petitions: counts.petitions,
       incidents: counts.incidents,
+      'incidents-list': counts.incidents,
       'overdue-records': counts.overdueRecords,
     }),
     [counts],
@@ -248,6 +267,11 @@ export function AppSidebar() {
 
   const isActive = (path?: string) => {
     if (!path) return false;
+    // Handle paths with query strings (e.g. /vu-viec?status=DANG_XAC_MINH)
+    if (path.includes('?')) {
+      return (location.pathname + location.search) === path;
+    }
+    // For plain paths, match pathname only (and no query string active)
     return location.pathname === path;
   };
 

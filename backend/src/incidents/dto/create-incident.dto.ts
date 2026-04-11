@@ -53,4 +53,41 @@ export class CreateIncidentDto {
   @IsOptional()
   @IsString()
   sourcePetitionId?: string;
+
+  // New fields for full VuViec workflow
+  @IsOptional()
+  @IsString()
+  doiTuongCaNhan?: string;
+
+  @IsOptional()
+  @IsString()
+  doiTuongToChuc?: string;
+
+  @IsOptional()
+  @IsString()
+  loaiDonVu?: string;
+
+  @IsOptional()
+  @IsString()
+  benVu?: string;
+
+  @IsOptional()
+  @IsString()
+  donViGiaiQuyet?: string;
+
+  @IsOptional()
+  @IsDateString({}, { message: 'Ngày đề xuất không đúng định dạng' })
+  ngayDeXuat?: string;
+
+  @IsOptional()
+  @IsString()
+  canBoNhapId?: string;
+
+  @IsOptional()
+  @IsString()
+  assignedTeamId?: string;
+
+  @IsOptional()
+  @IsString()
+  linkedPetitionId?: string;
 }

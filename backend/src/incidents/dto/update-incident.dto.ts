@@ -4,9 +4,7 @@ import {
   IsDateString,
   MaxLength,
   MinLength,
-  IsEnum,
 } from 'class-validator';
-import { IncidentStatus } from '@prisma/client';
 
 export class UpdateIncidentDto {
   @IsOptional()
@@ -44,7 +42,53 @@ export class UpdateIncidentDto {
   @IsString()
   investigatorId?: string;
 
+  // Status removed — use PATCH /:id/status instead
+
   @IsOptional()
-  @IsEnum(IncidentStatus)
-  status?: IncidentStatus;
+  @IsString()
+  doiTuongCaNhan?: string;
+
+  @IsOptional()
+  @IsString()
+  doiTuongToChuc?: string;
+
+  @IsOptional()
+  @IsString()
+  loaiDonVu?: string;
+
+  @IsOptional()
+  @IsString()
+  benVu?: string;
+
+  @IsOptional()
+  @IsString()
+  donViGiaiQuyet?: string;
+
+  @IsOptional()
+  @IsDateString()
+  ngayDeXuat?: string;
+
+  @IsOptional()
+  @IsString()
+  ketQuaXuLy?: string;
+
+  @IsOptional()
+  @IsString()
+  tinhTrangHoSo?: string;
+
+  @IsOptional()
+  @IsString()
+  tinhTrangThoiHieu?: string;
+
+  @IsOptional()
+  @IsString()
+  nguoiQuyetDinh?: string;
+
+  @IsOptional()
+  @IsString()
+  canBoNhapId?: string;
+
+  @IsOptional()
+  @IsString()
+  assignedTeamId?: string;
 }

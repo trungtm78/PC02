@@ -5,6 +5,7 @@ import {
   Min,
   Max,
   IsEnum,
+  IsDateString,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { IncidentStatus } from '@prisma/client';
@@ -57,6 +58,35 @@ export class QueryIncidentsDto {
   @IsOptional()
   @IsString()
   wardId?: string;
+
+  // New filters for VuViec workflow
+  @IsOptional()
+  @IsString()
+  loaiDonVu?: string;
+
+  @IsOptional()
+  @IsString()
+  benVu?: string;
+
+  @IsOptional()
+  @IsString()
+  tinhTrangHoSo?: string;
+
+  @IsOptional()
+  @IsString()
+  tinhTrangThoiHieu?: string;
+
+  @IsOptional()
+  @IsString()
+  canBoNhapId?: string;
+
+  @IsOptional()
+  @IsDateString()
+  fromDateRange?: string; // Ngày đề xuất từ
+
+  @IsOptional()
+  @IsDateString()
+  toDateRange?: string; // Ngày đề xuất đến
 
   @IsOptional()
   @IsString()

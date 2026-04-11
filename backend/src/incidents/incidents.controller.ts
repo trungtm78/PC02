@@ -24,20 +24,31 @@ import { UpdateIncidentDto } from './dto/update-incident.dto';
 import { QueryIncidentsDto } from './dto/query-incidents.dto';
 import { AssignInvestigatorDto } from './dto/assign-investigator.dto';
 import { ProsecuteIncidentDto } from './dto/prosecute-incident.dto';
+import { UpdateStatusDto } from './dto/update-status.dto';
+import { MergeIncidentDto } from './dto/merge-incident.dto';
+import { TransferIncidentDto } from './dto/transfer-incident.dto';
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
+
 @Controller('incidents')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class IncidentsController {
   constructor(private readonly incidentsService: IncidentsService) {}
 
-  // GET /api/v1/incidents — Danh sách vụ việc (AC-01)
+  // GET /api/v1/incidents — Danh sách vụ việc
   @Get()
   @RequirePermissions({ action: 'read', subject: 'Incident' })
   getList(@Query() query: QueryIncidentsDto, @Req() req: Request) {
     return this.incidentsService.getList(query, (req as any).dataScope);
   }
 
-  // GET /api/v1/incidents/investigators — Danh sách điều tra viên cho FK select
+  // GET /api/v1/incidents/stats — Count theo status
+  @Get('stats')
+  @RequirePermissions({ action: 'read', subject: 'Incident' })
+  getStats(@Req() req: Request) {
+    return this.incidentsService.getStats((req as any).dataScope);
+  }
+
+  // GET /api/v1/incidents/investigators — Danh sách điều tra viên
   @Get('investigators')
   @RequirePermissions({ action: 'read', subject: 'Incident' })
   getInvestigators(@Query('search') search?: string) {
@@ -51,7 +62,7 @@ export class IncidentsController {
     return this.incidentsService.getById(id);
   }
 
-  // POST /api/v1/incidents — Tạo vụ việc mới (AC-02)
+  // POST /api/v1/incidents — Tạo vụ việc mới
   @Post()
   @RequirePermissions({ action: 'write', subject: 'Incident' })
   create(
@@ -95,7 +106,52 @@ export class IncidentsController {
     });
   }
 
-  // PATCH /api/v1/incidents/:id/assign — Phân công điều tra viên (AC-03)
+  // PATCH /api/v1/incidents/:id/status — Đổi trạng thái
+  @Patch(':id/status')
+  @RequirePermissions({ action: 'edit', subject: 'Incident' })
+  updateStatus(
+    @Param('id') id: string,
+    @Body() dto: UpdateStatusDto,
+    @CurrentUser() user: AuthUser,
+    @Req() req: Request,
+  ) {
+    return this.incidentsService.updateStatus(id, dto, user.id, {
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+  }
+
+  // PATCH /api/v1/incidents/:id/merge — Nhập vào vụ khác
+  @Patch(':id/merge')
+  @RequirePermissions({ action: 'edit', subject: 'Incident' })
+  mergeInto(
+    @Param('id') id: string,
+    @Body() dto: MergeIncidentDto,
+    @CurrentUser() user: AuthUser,
+    @Req() req: Request,
+  ) {
+    return this.incidentsService.mergeInto(id, dto, user.id, {
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+  }
+
+  // PATCH /api/v1/incidents/:id/transfer — Chuyển đơn vị
+  @Patch(':id/transfer')
+  @RequirePermissions({ action: 'edit', subject: 'Incident' })
+  transferUnit(
+    @Param('id') id: string,
+    @Body() dto: TransferIncidentDto,
+    @CurrentUser() user: AuthUser,
+    @Req() req: Request,
+  ) {
+    return this.incidentsService.transferUnit(id, dto, user.id, {
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+  }
+
+  // PATCH /api/v1/incidents/:id/assign — Phân công điều tra viên
   @Patch(':id/assign')
   @RequirePermissions({ action: 'edit', subject: 'Incident' })
   assignInvestigator(
@@ -110,7 +166,7 @@ export class IncidentsController {
     });
   }
 
-  // POST /api/v1/incidents/:id/prosecute — Khởi tố vụ việc → Vụ án (AC-04)
+  // POST /api/v1/incidents/:id/prosecute — Khởi tố vụ việc → Vụ án
   @Post(':id/prosecute')
   @RequirePermissions({ action: 'edit', subject: 'Incident' })
   prosecute(
