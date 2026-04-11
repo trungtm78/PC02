@@ -197,6 +197,7 @@ function CaseFormPage() {
           damageAmount:              formData.damageAmount,
           damageDescription:         formData.damageDescription,
           note:                      formData.note,
+          petitionType:              formData.petitionType,
           reporter:                  formData.reporter,
           reporterIdNumber:          formData.reporterIdNumber,
           reporterDateOfBirth:       formData.reporterDateOfBirth,

@@ -1075,6 +1075,40 @@ export default function CaseDetailPage() {
             </div>
           )}
         </div>
+
+        {/* Đơn thư liên kết */}
+        {caseData?.petitions && caseData.petitions.length > 0 && (
+          <div className="bg-white rounded-lg border border-slate-200 p-5">
+            <h3 className="font-semibold text-slate-800 mb-3 flex items-center gap-2">
+              <BookOpen className="w-4 h-4 text-purple-600" />
+              Đơn thư liên kết ({caseData.petitions.length})
+            </h3>
+            <div className="space-y-2">
+              {caseData.petitions.map((p: { id: string; stt: string; petitionType?: string; status: string; senderName: string; receivedDate: string }) => (
+                <div
+                  key={p.id}
+                  className="flex items-center justify-between p-3 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors cursor-pointer"
+                  onClick={() => navigate(`/don-thu`)}
+                >
+                  <div className="flex items-center gap-3">
+                    <FileText className="w-4 h-4 text-purple-600" />
+                    <div>
+                      <span className="font-medium text-sm text-slate-800">{p.stt}</span>
+                      {p.petitionType && (
+                        <span className="ml-2 text-xs text-purple-600 bg-purple-100 px-2 py-0.5 rounded-full">{p.petitionType}</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 text-xs text-slate-500">
+                    <span>{p.senderName}</span>
+                    <span>{new Date(p.receivedDate).toLocaleDateString("vi-VN")}</span>
+                    <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full">{p.status}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     );
   };

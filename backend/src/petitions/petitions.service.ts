@@ -552,25 +552,26 @@ export class PetitionsService {
       );
     }
 
-    // Create Case and update Petition atomically
-    const [caseRecord] = await this.prisma.$transaction([
-      this.prisma.case.create({
+    // Create Case and update Petition atomically in one transaction
+    const [caseRecord] = await this.prisma.$transaction(async (tx) => {
+      const newCase = await tx.case.create({
         data: {
           name: dto.caseName,
           crime: dto.crime,
           unit: dto.jurisdiction,
           status: CaseStatus.TIEP_NHAN,
         },
-      }),
-    ]);
+      });
 
-    // Update petition: link + update status
-    await this.prisma.petition.update({
-      where: { id: petitionId },
-      data: {
-        linkedCaseId: caseRecord.id,
-        status: PetitionStatus.DA_CHUYEN_VU_AN,
-      },
+      await tx.petition.update({
+        where: { id: petitionId },
+        data: {
+          linkedCaseId: newCase.id,
+          status: PetitionStatus.DA_CHUYEN_VU_AN,
+        },
+      });
+
+      return [newCase];
     });
 
     await this.audit.log({
