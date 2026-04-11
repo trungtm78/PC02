@@ -15,7 +15,8 @@ Hệ thống quản lý vụ án, đơn thư và đối tượng liên quan cho 
 
 - **Quản lý Hồ sơ vụ án** (Cases) - CRUD, phân công điều tra viên, theo dõi trạng thái, timeline
 - **Quản lý Đơn thư** (Petitions) - tiếp nhận, xử lý, chuyển đổi thành vụ án/vụ việc
-- **Quản lý Vụ việc** (Incidents) - theo dõi sự kiện, phân loại
+- **Quản lý Vụ việc** (Incidents) - 4 giai đoạn BCA (Tiếp nhận → Xác minh → Kết quả → TĐC/Phục hồi), 15 trạng thái, transition validation, merge/transfer, cấu hình thời hạn theo BLTTHS
+- **Cấu hình thời hạn** (SystemSetting) - 8 thời hạn xử lý theo BLTTHS 2015, admin có thể thay đổi
 - **Tự động tạo Đơn thư** khi tạo Hồ sơ có loại đơn thư, đồng bộ 2 chiều
 - **Quản lý Đối tượng** (Subjects) - bị can, nhân chứng, thông tin cá nhân
 - **Quản lý Luật sư** (Lawyers) - thông tin, phân công cho bị can

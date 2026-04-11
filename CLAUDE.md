@@ -8,11 +8,16 @@ Internal case management system (NestJS backend + React frontend) for managing l
 - Bi-directional sync: update Case petitionType syncs to linked Petition
 - STT auto-generation for Petitions (format: DT-YYYY-NNNNN)
 - Petition-to-Case conversion (convertToCase) with atomic transaction
+- Quản lý Vụ việc theo 4 giai đoạn BCA (TT28/2020/TT-BCA): Tiếp nhận, Xác minh, Kết quả, Tạm đình chỉ
+- 15 trạng thái vụ việc với transition map validation theo BLTTHS 2015
+- SystemSetting: cấu hình thời hạn xử lý với default theo BLTTHS (Đ.147, Đ.148, Đ.149)
+- Auto-deadline: tự tính thời hạn giải quyết khi tạo vụ việc
+- Team/Data Access Control: phân quyền theo tổ/nhóm/đơn vị
 
 ## Testing
 - Backend tests: `cd backend && npx jest --no-coverage`
 - Full test suite: `cd backend && npm test`
-- Test count: 223 tests across 11 suites
+- Test count: 310 tests across 14 suites
 
 ## Deploy Configuration (configured by /setup-deploy)
 - Platform: Render
