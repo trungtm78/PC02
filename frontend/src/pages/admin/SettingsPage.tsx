@@ -25,7 +25,7 @@ export function SettingsPage() {
       const res = await api.get<{ success: boolean; data: SettingItem[] }>("/settings");
       setSettings(res.data.data ?? []);
     } catch {
-      setError("Kh\u00F4ng th\u1EC3 t\u1EA3i c\u1EA5u h\u00ECnh");
+      setError("Không thể tải cấu hình");
     } finally {
       setIsLoading(false);
     }
@@ -55,7 +55,7 @@ export function SettingsPage() {
       setEditingKey(null);
       setEditValue("");
     } catch {
-      setError("Kh\u00F4ng th\u1EC3 l\u01B0u c\u1EA5u h\u00ECnh");
+      setError("Không thể lưu cấu hình");
     } finally {
       setIsSaving(false);
     }
@@ -67,8 +67,8 @@ export function SettingsPage() {
       <div className="flex items-center gap-3">
         <Settings className="w-6 h-6 text-slate-700" />
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">C\u1EA5u h\u00ECnh th\u1EDDi h\u1EA1n x\u1EED l\u00FD</h1>
-          <p className="text-slate-600 text-sm mt-1">Qu\u1EA3n l\u00FD c\u00E1c tham s\u1ED1 th\u1EDDi h\u1EA1n theo quy \u0111\u1ECBnh ph\u00E1p lu\u1EADt</p>
+          <h1 className="text-2xl font-bold text-slate-800">Cấu hình thời hạn xử lý</h1>
+          <p className="text-slate-600 text-sm mt-1">Quản lý các tham số thời hạn theo quy định pháp luật</p>
         </div>
       </div>
 
@@ -90,10 +90,10 @@ export function SettingsPage() {
             <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase">Label</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase">Gi\u00E1 tr\u1ECB</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase">\u0110\u01A1n v\u1ECB</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase">C\u01A1 s\u1EDF ph\u00E1p l\u00FD</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase w-28">Thao t\u00E1c</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase">Giá trị</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase">Đơn vị</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase">Cơ sở pháp lý</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase w-28">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
@@ -101,14 +101,14 @@ export function SettingsPage() {
                 <tr>
                   <td colSpan={5} className="px-6 py-16 text-center">
                     <Loader2 className="w-8 h-8 text-blue-500 mx-auto mb-3 animate-spin" />
-                    <p className="text-slate-500 font-medium">\u0110ang t\u1EA3i c\u1EA5u h\u00ECnh...</p>
+                    <p className="text-slate-500 font-medium">Đang tải cấu hình...</p>
                   </td>
                 </tr>
               ) : settings.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-6 py-16 text-center">
                     <Settings className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                    <p className="text-slate-600 font-medium">Ch\u01B0a c\u00F3 c\u1EA5u h\u00ECnh n\u00E0o</p>
+                    <p className="text-slate-600 font-medium">Chưa có cấu hình nào</p>
                   </td>
                 </tr>
               ) : (
@@ -138,7 +138,7 @@ export function SettingsPage() {
                             onClick={() => void saveEdit(item.key)}
                             disabled={isSaving}
                             className="p-2 text-green-600 hover:bg-green-50 rounded transition-colors disabled:opacity-50"
-                            title="L\u01B0u"
+                            title="Lưu"
                             data-testid={`btn-save-${item.key}`}
                           >
                             <Save className="w-4 h-4" />
@@ -146,7 +146,7 @@ export function SettingsPage() {
                           <button
                             onClick={cancelEdit}
                             className="p-2 text-slate-600 hover:bg-slate-100 rounded transition-colors"
-                            title="H\u1EE7y"
+                            title="Hủy"
                           >
                             <X className="w-4 h-4" />
                           </button>
@@ -157,7 +157,7 @@ export function SettingsPage() {
                           className="flex items-center gap-1 px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                           data-testid={`btn-edit-${item.key}`}
                         >
-                          <Edit className="w-3.5 h-3.5" />S\u1EEDa
+                          <Edit className="w-3.5 h-3.5" />Sửa
                         </button>
                       )}
                     </td>
