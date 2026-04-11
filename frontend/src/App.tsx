@@ -11,6 +11,7 @@ const UserManagementPage = lazy(() => import('@/pages/users/UserManagementPage')
 const DirectoriesPage = lazy(() => import('@/pages/directories/DirectoriesPage'));
 const MasterClassPage = lazy(() => import('@/pages/admin/MasterClassPage'));
 const TeamsPage = lazy(() => import('@/pages/admin/TeamsPage'));
+const AdminSettingsPage = lazy(() => import('@/pages/admin/SettingsPage'));
 
 // Lazy-loaded pages — Quan ly doi tuong (TASK-2026-261224 / 261225)
 const ObjectListPage = lazy(() => import('@/pages/objects/ObjectListPage'));
@@ -224,6 +225,9 @@ function App() {
             } />
             <Route path="/settings" element={
               <Suspense fallback={null}><SettingsPage /></Suspense>
+            } />
+            <Route path="/admin/settings" element={
+              <Suspense fallback={null}><AdminSettingsPage /></Suspense>
             } />
           </Route>
 

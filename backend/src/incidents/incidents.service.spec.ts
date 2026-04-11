@@ -25,7 +25,8 @@ import { IncidentsService } from './incidents.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { IncidentStatus } from '@prisma/client';
-import { TERMINAL_STATUSES, VALID_TRANSITIONS } from './incidents.constants';
+import { TERMINAL_STATUSES, VALID_TRANSITIONS, PHASE_STATUSES } from './incidents.constants';
+import { SettingsService } from '../settings/settings.service';
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
@@ -102,6 +103,10 @@ const mockAudit = {
   log: jest.fn().mockResolvedValue(undefined),
 };
 
+const mockSettings = {
+  getNumericValue: jest.fn().mockResolvedValue(20),
+};
+
 // ─── Test Suite ───────────────────────────────────────────────────────────────
 
 describe('IncidentsService', () => {
@@ -113,6 +118,7 @@ describe('IncidentsService', () => {
         IncidentsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AuditService, useValue: mockAudit },
+        { provide: SettingsService, useValue: mockSettings },
       ],
     }).compile();
 
@@ -286,6 +292,47 @@ describe('IncidentsService', () => {
         }),
       );
     });
+
+    it('should filter by phase=tiep-nhan', async () => {
+      mockPrisma.incident.findMany.mockResolvedValue([]);
+      mockPrisma.incident.count.mockResolvedValue(0);
+
+      await service.getList({ phase: 'tiep-nhan' } as any);
+
+      expect(mockPrisma.incident.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            status: { in: [IncidentStatus.TIEP_NHAN] },
+          }),
+        }),
+      );
+    });
+
+    it('should filter by phase=xac-minh', async () => {
+      mockPrisma.incident.findMany.mockResolvedValue([]);
+      mockPrisma.incident.count.mockResolvedValue(0);
+
+      await service.getList({ phase: 'xac-minh' } as any);
+
+      expect(mockPrisma.incident.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            status: { in: [IncidentStatus.DANG_XAC_MINH, IncidentStatus.DA_PHAN_CONG, IncidentStatus.QUA_HAN] },
+          }),
+        }),
+      );
+    });
+
+    it('should ignore invalid phase', async () => {
+      mockPrisma.incident.findMany.mockResolvedValue([]);
+      mockPrisma.incident.count.mockResolvedValue(0);
+
+      await service.getList({ phase: 'invalid-phase' } as any);
+
+      const callArgs = mockPrisma.incident.findMany.mock.calls[0][0];
+      // status should not be set to an { in: [...] } filter
+      expect(callArgs.where.status).toBeUndefined();
+    });
   });
 
   // ── getById ───────────────────────────────────────────────────────────────
@@ -389,6 +436,62 @@ describe('IncidentsService', () => {
       await service.create({ name: 'Test' } as any, 'actor-001');
 
       expect(mockPrisma.incident.create).toHaveBeenCalled();
+    });
+
+    it('should auto-calculate deadline from ngayDeXuat + settings', async () => {
+      mockPrisma.incident.create.mockResolvedValue(mockIncident);
+      mockSettings.getNumericValue.mockResolvedValue(20);
+
+      await service.create(
+        { name: 'Test', ngayDeXuat: '2026-01-01' } as any,
+        'actor-001',
+      );
+
+      expect(mockSettings.getNumericValue).toHaveBeenCalledWith('THOI_HAN_XAC_MINH', 20);
+      const createCall = mockPrisma.incident.create.mock.calls[0][0];
+      const deadline = createCall.data.deadline as Date;
+      expect(deadline.toISOString().slice(0, 10)).toBe('2026-01-21');
+    });
+
+    it('should not crash when ngayDeXuat is null', async () => {
+      mockPrisma.incident.create.mockResolvedValue(mockIncident);
+
+      await service.create(
+        { name: 'Test' } as any,
+        'actor-001',
+      );
+
+      const createCall = mockPrisma.incident.create.mock.calls[0][0];
+      expect(createCall.data.deadline).toBeUndefined();
+    });
+
+    it('should pass new fields (soQuyetDinh, diaChiXayRa, etc.) to prisma.incident.create', async () => {
+      mockPrisma.incident.create.mockResolvedValue(mockIncident);
+
+      await service.create(
+        {
+          name: 'Test',
+          soQuyetDinh: 'QD-001',
+          ngayQuyetDinh: '2026-03-15',
+          lyDoKhongKhoiTo: 'Khong du chung cu',
+          lyDoTamDinhChi: 'Cho ket qua giam dinh',
+          diaChiXayRa: '123 Nguyen Hue, Q1',
+          sdtNguoiToGiac: '0901234567',
+          diaChiNguoiToGiac: '456 Le Loi, Q3',
+          cmndNguoiToGiac: '079123456789',
+        } as any,
+        'actor-001',
+      );
+
+      const createCall = mockPrisma.incident.create.mock.calls[0][0];
+      expect(createCall.data.soQuyetDinh).toBe('QD-001');
+      expect(createCall.data.diaChiXayRa).toBe('123 Nguyen Hue, Q1');
+      expect(createCall.data.sdtNguoiToGiac).toBe('0901234567');
+      expect(createCall.data.diaChiNguoiToGiac).toBe('456 Le Loi, Q3');
+      expect(createCall.data.cmndNguoiToGiac).toBe('079123456789');
+      expect(createCall.data.lyDoKhongKhoiTo).toBe('Khong du chung cu');
+      expect(createCall.data.lyDoTamDinhChi).toBe('Cho ket qua giam dinh');
+      expect(createCall.data.ngayQuyetDinh).toEqual(new Date('2026-03-15'));
     });
   });
 
@@ -975,6 +1078,28 @@ describe('IncidentsService', () => {
       expect(targets).toContain(IncidentStatus.PHUC_HOI_NGUON_TIN);
       expect(targets).toContain(IncidentStatus.TDC_HET_THOI_HIEU);
       expect(targets).toContain(IncidentStatus.TDC_HTH_KHONG_KT);
+    });
+  });
+
+  // ── PHASE_STATUSES constant ───────────────────────────────────────────────
+
+  describe('PHASE_STATUSES (constants)', () => {
+    it('should map all 15 statuses to exactly one phase', () => {
+      const allStatuses = Object.values(PHASE_STATUSES).flat();
+      // Every status appears exactly once (no duplicates)
+      const uniqueStatuses = new Set(allStatuses);
+      expect(uniqueStatuses.size).toBe(allStatuses.length);
+      // Total count is 15
+      expect(allStatuses).toHaveLength(15);
+    });
+
+    it('should have 4 phases', () => {
+      const phases = Object.keys(PHASE_STATUSES);
+      expect(phases).toHaveLength(4);
+      expect(phases).toContain('tiep-nhan');
+      expect(phases).toContain('xac-minh');
+      expect(phases).toContain('ket-qua');
+      expect(phases).toContain('tam-dinh-chi');
     });
   });
 });

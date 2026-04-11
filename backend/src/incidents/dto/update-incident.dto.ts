@@ -91,4 +91,36 @@ export class UpdateIncidentDto {
   @IsOptional()
   @IsString()
   assignedTeamId?: string;
+
+  @IsOptional()
+  @IsString()
+  soQuyetDinh?: string;
+
+  @IsOptional()
+  @IsDateString()
+  ngayQuyetDinh?: string;
+
+  @IsOptional()
+  @IsString()
+  lyDoKhongKhoiTo?: string;
+
+  @IsOptional()
+  @IsString()
+  lyDoTamDinhChi?: string;
+
+  @IsOptional()
+  @IsString()
+  diaChiXayRa?: string;
+
+  @IsOptional()
+  @IsString()
+  sdtNguoiToGiac?: string;
+
+  @IsOptional()
+  @IsString()
+  diaChiNguoiToGiac?: string;
+
+  @IsOptional()
+  @IsString()
+  cmndNguoiToGiac?: string;
 }
