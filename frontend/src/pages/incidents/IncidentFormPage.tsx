@@ -1,14 +1,38 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "@/lib/api";
-import { ArrowLeft, Save, AlertCircle, Calendar, FileText } from "lucide-react";
+import { ArrowLeft, Save, AlertCircle, Calendar, FileText, Loader2 } from "lucide-react";
 import { FKSelect } from "@/components/FKSelect";
 
 interface FormData {
-  name: string; incidentType: string; description: string; fromDate: string; toDate: string; deadline: string;
+  name: string;
+  incidentType: string;
+  description: string;
+  fromDate: string;
+  toDate: string;
+  deadline: string;
+  doiTuongCaNhan: string;
+  doiTuongToChuc: string;
+  loaiDonVu: string;
+  benVu: string;
+  donViGiaiQuyet: string;
+  ngayDeXuat: string;
 }
 
-const INITIAL_FORM: FormData = { name: "", incidentType: "", description: "", fromDate: "", toDate: "", deadline: "" };
+const INITIAL_FORM: FormData = {
+  name: "",
+  incidentType: "",
+  description: "",
+  fromDate: "",
+  toDate: "",
+  deadline: "",
+  doiTuongCaNhan: "",
+  doiTuongToChuc: "",
+  loaiDonVu: "",
+  benVu: "",
+  donViGiaiQuyet: "",
+  ngayDeXuat: "",
+};
 
 export function IncidentFormPage() {
   const navigate = useNavigate();
@@ -17,6 +41,37 @@ export function IncidentFormPage() {
   const [formData, setFormData] = useState<FormData>(INITIAL_FORM);
   const [errors, setErrors] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoadingData, setIsLoadingData] = useState(false);
+
+  // Fetch existing data in edit mode
+  useEffect(() => {
+    if (!isEditMode || !id) return;
+    setIsLoadingData(true);
+    api.get<{ success: boolean; data: Record<string, unknown> }>(`/incidents/${id}`)
+      .then((res) => {
+        const d = res.data.data;
+        if (d) {
+          setFormData({
+            name: (d.name as string) ?? "",
+            incidentType: (d.incidentType as string) ?? "",
+            description: (d.description as string) ?? "",
+            fromDate: d.fromDate ? String(d.fromDate).split("T")[0] : "",
+            toDate: d.toDate ? String(d.toDate).split("T")[0] : "",
+            deadline: d.deadline ? String(d.deadline).split("T")[0] : "",
+            doiTuongCaNhan: (d.doiTuongCaNhan as string) ?? "",
+            doiTuongToChuc: (d.doiTuongToChuc as string) ?? "",
+            loaiDonVu: (d.loaiDonVu as string) ?? "",
+            benVu: (d.benVu as string) ?? "",
+            donViGiaiQuyet: (d.donViGiaiQuyet as string) ?? "",
+            ngayDeXuat: d.ngayDeXuat ? String(d.ngayDeXuat).split("T")[0] : "",
+          });
+        }
+      })
+      .catch(() => {
+        setErrors(["Không thể tải dữ liệu vụ việc"]);
+      })
+      .finally(() => setIsLoadingData(false));
+  }, [id, isEditMode]);
 
   const validateForm = (): boolean => {
     const newErrors: string[] = [];
@@ -31,7 +86,18 @@ export function IncidentFormPage() {
     if (!validateForm()) { window.scrollTo({ top: 0, behavior: "smooth" }); return; }
     setIsSubmitting(true);
     try {
-      const payload = { ...formData, fromDate: formData.fromDate || undefined, toDate: formData.toDate || undefined, deadline: formData.deadline || undefined };
+      const payload = {
+        ...formData,
+        fromDate: formData.fromDate || undefined,
+        toDate: formData.toDate || undefined,
+        deadline: formData.deadline || undefined,
+        ngayDeXuat: formData.ngayDeXuat || undefined,
+        doiTuongCaNhan: formData.doiTuongCaNhan || undefined,
+        doiTuongToChuc: formData.doiTuongToChuc || undefined,
+        loaiDonVu: formData.loaiDonVu || undefined,
+        benVu: formData.benVu || undefined,
+        donViGiaiQuyet: formData.donViGiaiQuyet || undefined,
+      };
       if (isEditMode) await api.put(`/incidents/${id}`, payload);
       else await api.post('/incidents', payload);
       navigate("/vu-viec");
@@ -43,6 +109,17 @@ export function IncidentFormPage() {
 
   const handleCancel = () => { if (confirm("Bạn có chắc muốn hủy? Dữ liệu chưa lưu sẽ mất.")) navigate("/vu-viec"); };
   const update = (field: keyof FormData, value: string) => setFormData((prev) => ({ ...prev, [field]: value }));
+
+  if (isLoadingData) {
+    return (
+      <div className="p-6 flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 text-blue-500 mx-auto mb-3 animate-spin" />
+          <p className="text-slate-500 font-medium">Đang tải dữ liệu vụ việc...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6" data-testid="incident-form-page">
@@ -72,6 +149,7 @@ export function IncidentFormPage() {
       )}
 
       <form onSubmit={(e) => void handleSubmit(e)} className="space-y-6">
+        {/* Thong tin vu viec */}
         <div className="bg-white rounded-lg border border-slate-200 shadow-sm">
           <div className="border-b border-slate-200 px-6 py-4"><h2 className="font-bold text-slate-800">Thông tin vụ việc</h2></div>
           <div className="p-6 space-y-4">
@@ -95,12 +173,21 @@ export function IncidentFormPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Hạn xử lý</label>
-                <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input type="date" value={formData.deadline} onChange={(e) => update("deadline", e.target.value)}
-                    className="w-full pl-9 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" data-testid="field-deadline" />
-                </div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Loại đơn vụ</label>
+                <input type="text" value={formData.loaiDonVu} onChange={(e) => update("loaiDonVu", e.target.value)}
+                  className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Nhập loại đơn vụ" data-testid="field-loaiDonVu" />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Bên vụ</label>
+                <input type="text" value={formData.benVu} onChange={(e) => update("benVu", e.target.value)}
+                  className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Nhập bên vụ" data-testid="field-benVu" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Đơn vị giải quyết</label>
+                <input type="text" value={formData.donViGiaiQuyet} onChange={(e) => update("donViGiaiQuyet", e.target.value)}
+                  className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Nhập đơn vị giải quyết" data-testid="field-donViGiaiQuyet" />
               </div>
             </div>
             <div>
@@ -111,10 +198,30 @@ export function IncidentFormPage() {
           </div>
         </div>
 
+        {/* Doi tuong */}
+        <div className="bg-white rounded-lg border border-slate-200 shadow-sm">
+          <div className="border-b border-slate-200 px-6 py-4"><h2 className="font-bold text-slate-800">Đối tượng liên quan</h2></div>
+          <div className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Đối tượng cá nhân</label>
+                <input type="text" value={formData.doiTuongCaNhan} onChange={(e) => update("doiTuongCaNhan", e.target.value)}
+                  className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Nhập tên đối tượng cá nhân" data-testid="field-doiTuongCaNhan" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Đối tượng tổ chức</label>
+                <input type="text" value={formData.doiTuongToChuc} onChange={(e) => update("doiTuongToChuc", e.target.value)}
+                  className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Nhập tên tổ chức" data-testid="field-doiTuongToChuc" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Thoi gian */}
         <div className="bg-white rounded-lg border border-slate-200 shadow-sm">
           <div className="border-b border-slate-200 px-6 py-4"><h2 className="font-bold text-slate-800">Thời gian</h2></div>
           <div className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Từ ngày</label>
                 <div className="relative">
@@ -131,10 +238,27 @@ export function IncidentFormPage() {
                     className="w-full pl-9 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" data-testid="field-toDate" />
                 </div>
               </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Hạn xử lý</label>
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input type="date" value={formData.deadline} onChange={(e) => update("deadline", e.target.value)}
+                    className="w-full pl-9 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" data-testid="field-deadline" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Ngày đề xuất</label>
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input type="date" value={formData.ngayDeXuat} onChange={(e) => update("ngayDeXuat", e.target.value)}
+                    className="w-full pl-9 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" data-testid="field-ngayDeXuat" />
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
+        {/* Actions */}
         <div className="flex items-center justify-end gap-3 bg-white rounded-lg border border-slate-200 shadow-sm p-6">
           <button type="button" onClick={handleCancel} className="px-6 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50" data-testid="btn-cancel">Hủy</button>
           <button type="submit" disabled={isSubmitting} className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-50" data-testid="btn-save">
