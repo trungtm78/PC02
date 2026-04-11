@@ -6,10 +6,10 @@ export const PHASE_STATUSES: Record<string, string[]> = {
 };
 
 export const PHASE_LABELS: Record<string, string> = {
-  'tiep-nhan': 'Ti\u1EBFp nh\u1EADn & Ph\u00E2n lo\u1EA1i',
-  'xac-minh': 'X\u00E1c minh & Gi\u1EA3i quy\u1EBFt',
-  'ket-qua': 'K\u1EBFt qu\u1EA3',
-  'tam-dinh-chi': 'T\u1EA1m \u0111\u00ECnh ch\u1EC9 & Ph\u1EE5c h\u1ED3i',
+  'tiep-nhan': 'Tiếp nhận & Phân loại',
+  'xac-minh': 'Xác minh & Giải quyết',
+  'ket-qua': 'Kết quả',
+  'tam-dinh-chi': 'Tạm đình chỉ & Phục hồi',
 };
 
 export const PHASE_ORDER = ['tiep-nhan', 'xac-minh', 'ket-qua', 'tam-dinh-chi'];

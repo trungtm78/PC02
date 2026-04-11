@@ -70,6 +70,14 @@ export class SettingsService {
       return { success: false, message: `Cấu hình '${key}' không tồn tại` };
     }
 
+    // Validate numeric settings have valid positive integer values
+    if (existing.unit === 'ngày' || existing.unit === 'lần') {
+      const num = parseInt(value, 10);
+      if (isNaN(num) || num < 0 || num > 365) {
+        return { success: false, message: `Giá trị phải là số nguyên từ 0 đến 365` };
+      }
+    }
+
     const updated = await this.prisma.systemSetting.update({
       where: { key },
       data: { value },

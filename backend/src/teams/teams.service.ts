@@ -140,6 +140,54 @@ export class TeamsService {
     return { success: true, message: 'Xóa tổ/nhóm thành công' };
   }
 
+  async addMember(teamId: string, userId: string, actorId: string) {
+    const team = await this.prisma.team.findUnique({ where: { id: teamId } });
+    if (!team) throw new NotFoundException(`Team not found (id: ${teamId})`);
+
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException(`User not found (id: ${userId})`);
+
+    const member = await this.prisma.userTeam.upsert({
+      where: { userId_teamId: { userId, teamId } },
+      update: {},
+      create: { userId, teamId, isLeader: false },
+      include: {
+        user: {
+          select: { id: true, firstName: true, lastName: true, username: true, email: true },
+        },
+      },
+    });
+
+    await this.audit.log({
+      userId: actorId,
+      action: 'TEAM_MEMBER_ADDED',
+      subject: 'Team',
+      subjectId: teamId,
+      metadata: { userId, teamName: team.name },
+    });
+
+    return member;
+  }
+
+  async removeMember(teamId: string, userId: string, actorId: string) {
+    const team = await this.prisma.team.findUnique({ where: { id: teamId } });
+    if (!team) throw new NotFoundException(`Team not found (id: ${teamId})`);
+
+    await this.prisma.userTeam.deleteMany({
+      where: { userId, teamId },
+    });
+
+    await this.audit.log({
+      userId: actorId,
+      action: 'TEAM_MEMBER_REMOVED',
+      subject: 'Team',
+      subjectId: teamId,
+      metadata: { userId, teamName: team.name },
+    });
+
+    return { success: true };
+  }
+
   /**
    * Recursively get all descendant team IDs.
    * depth=0 means start level; MAX_DEPTH prevents infinite loops.

@@ -56,6 +56,7 @@ describe('UnitScopeService', () => {
       mockPrisma.userTeam.findMany.mockResolvedValue([
         { teamId: 't1', team: { level: 1 } },
       ]);
+      mockTeamsService.getDescendantIds.mockResolvedValue([]);
       mockPrisma.dataAccessGrant.findMany.mockResolvedValue([]);
       mockTeamsService.getUserIdsForTeams.mockResolvedValue(['u1', 'u2']);
 
@@ -64,7 +65,7 @@ describe('UnitScopeService', () => {
       expect(result).not.toBeNull();
       expect(result!.teamIds).toContain('t1');
       expect(result!.userIds).toContain('user-1');
-      expect(mockTeamsService.getDescendantIds).not.toHaveBeenCalled();
+      expect(mockTeamsService.getDescendantIds).toHaveBeenCalledWith('t1');
     });
   });
 
@@ -95,6 +96,7 @@ describe('UnitScopeService', () => {
       mockPrisma.userTeam.findMany.mockResolvedValue([
         { teamId: 't1', team: { level: 1 } },
       ]);
+      mockTeamsService.getDescendantIds.mockResolvedValue([]);
       mockPrisma.dataAccessGrant.findMany.mockResolvedValue([
         { teamId: 't-granted' },
       ]);
@@ -115,6 +117,7 @@ describe('UnitScopeService', () => {
         { teamId: 't1', team: { level: 1 } },
         { teamId: 't2', team: { level: 1 } },
       ]);
+      mockTeamsService.getDescendantIds.mockResolvedValue([]);
       mockPrisma.dataAccessGrant.findMany.mockResolvedValue([]);
       mockTeamsService.getUserIdsForTeams.mockResolvedValue(['u1', 'u2', 'u3']);
 
@@ -123,6 +126,48 @@ describe('UnitScopeService', () => {
       expect(result!.teamIds).toContain('t1');
       expect(result!.teamIds).toContain('t2');
       expect(result!.teamIds).toHaveLength(2);
+    });
+  });
+
+  // ── Level 1 expansion (Tổ → Phường) ─────────────────────────────────────
+
+  describe('resolveScope - level 1 expansion', () => {
+    it('should expand descendants for level 1 (Tổ → Phường)', async () => {
+      mockPrisma.userTeam.findMany.mockResolvedValue([
+        { teamId: 'to-1', team: { level: 1 } },
+      ]);
+      mockTeamsService.getDescendantIds.mockResolvedValue([
+        'ward-1',
+        'ward-2',
+      ]);
+      mockPrisma.dataAccessGrant.findMany.mockResolvedValue([]);
+      mockTeamsService.getUserIdsForTeams.mockResolvedValue(['u1', 'u2']);
+
+      const result = await service.resolveScope('user-1', 'OFFICER');
+
+      expect(result!.teamIds).toContain('to-1');
+      expect(result!.teamIds).toContain('ward-1');
+      expect(result!.teamIds).toContain('ward-2');
+      expect(result!.teamIds).toHaveLength(3);
+      expect(mockTeamsService.getDescendantIds).toHaveBeenCalledWith('to-1');
+    });
+  });
+
+  // ── Level 2 leaf (Phường) ──────────────────────────────────────────────
+
+  describe('resolveScope - level 2 leaf', () => {
+    it('should return empty descendants for level 2 (Phường)', async () => {
+      mockPrisma.userTeam.findMany.mockResolvedValue([
+        { teamId: 'ward-1', team: { level: 2 } },
+      ]);
+      mockTeamsService.getDescendantIds.mockResolvedValue([]);
+      mockPrisma.dataAccessGrant.findMany.mockResolvedValue([]);
+      mockTeamsService.getUserIdsForTeams.mockResolvedValue(['u1']);
+
+      const result = await service.resolveScope('user-1', 'OFFICER');
+
+      expect(result!.teamIds).toEqual(['ward-1']);
+      expect(mockTeamsService.getDescendantIds).toHaveBeenCalledWith('ward-1');
     });
   });
 

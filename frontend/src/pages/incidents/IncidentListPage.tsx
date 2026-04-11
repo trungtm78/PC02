@@ -19,21 +19,21 @@ type IncidentStatus =
   | 'PHUC_HOI_NGUON_TIN' | 'DA_CHUYEN_DON_VI' | 'DA_NHAP_VU_KHAC' | 'PHAN_LOAI_DAN_SU';
 
 const STATUS_LABELS: Record<IncidentStatus, string> = {
-  TIEP_NHAN: "Ti\u1EBFp nh\u1EADn",
-  DANG_XAC_MINH: "\u0110ang x\u00E1c minh",
-  DA_PHAN_CONG: "\u0110\u00E3 ph\u00E2n c\u00F4ng",
-  DA_GIAI_QUYET: "\u0110\u00E3 gi\u1EA3i quy\u1EBFt",
-  TAM_DINH_CHI: "T\u1EA1m \u0111\u00ECnh ch\u1EC9",
-  QUA_HAN: "Qu\u00E1 h\u1EA1n",
-  DA_CHUYEN_VU_AN: "\u0110\u00E3 kh\u1EDFi t\u1ED1",
-  KHONG_KHOI_TO: "Kh\u00F4ng kh\u1EDFi t\u1ED1",
-  CHUYEN_XPHC: "Chuy\u1EC3n XPHC",
-  TDC_HET_THOI_HIEU: "T\u0110C h\u1EBFt th\u1EDDi hi\u1EC7u",
-  TDC_HTH_KHONG_KT: "T\u0110C HTH kh\u00F4ng KT",
-  PHUC_HOI_NGUON_TIN: "Ph\u1EE5c h\u1ED3i ngu\u1ED3n tin",
-  DA_CHUYEN_DON_VI: "\u0110\u00E3 chuy\u1EC3n \u0111\u01A1n v\u1ECB",
-  DA_NHAP_VU_KHAC: "\u0110\u00E3 nh\u1EADp v\u1EE5 kh\u00E1c",
-  PHAN_LOAI_DAN_SU: "Ph\u00E2n lo\u1EA1i d\u00E2n s\u1EF1",
+  TIEP_NHAN: "Tiếp nhận",
+  DANG_XAC_MINH: "Đang xác minh",
+  DA_PHAN_CONG: "Đã phân công",
+  DA_GIAI_QUYET: "Đã giải quyết",
+  TAM_DINH_CHI: "Tạm đình chỉ",
+  QUA_HAN: "Quá hạn",
+  DA_CHUYEN_VU_AN: "Đã khởi tố",
+  KHONG_KHOI_TO: "Không khởi tố",
+  CHUYEN_XPHC: "Chuyển XPHC",
+  TDC_HET_THOI_HIEU: "TĐC hết thời hiệu",
+  TDC_HTH_KHONG_KT: "TĐC HTH không KT",
+  PHUC_HOI_NGUON_TIN: "Phục hồi nguồn tin",
+  DA_CHUYEN_DON_VI: "Đã chuyển đơn vị",
+  DA_NHAP_VU_KHAC: "Đã nhập vụ khác",
+  PHAN_LOAI_DAN_SU: "Phân loại dân sự",
 };
 
 const STATUS_LABELS_VI = STATUS_LABELS;
@@ -61,11 +61,11 @@ const STATUS_COLORS: Record<IncidentStatus, string> = {
 // ─────────────────────────────────────────────────────────
 
 const PHASE_TABS: { value: string; label: string; activeColor: string }[] = [
-  { value: "all",          label: "T\u1EA5t c\u1EA3",                        activeColor: "bg-slate-700 text-white" },
-  { value: "tiep-nhan",    label: "Ti\u1EBFp nh\u1EADn",                     activeColor: "bg-slate-800 text-white" },
-  { value: "xac-minh",     label: "X\u00E1c minh",                           activeColor: "bg-amber-500 text-white" },
-  { value: "ket-qua",      label: "K\u1EBFt qu\u1EA3",                       activeColor: "bg-green-600 text-white" },
-  { value: "tam-dinh-chi", label: "T\u0110C & Ph\u1EE5c h\u1ED3i",          activeColor: "bg-orange-500 text-white" },
+  { value: "all",          label: "Tất cả",                        activeColor: "bg-slate-700 text-white" },
+  { value: "tiep-nhan",    label: "Tiếp nhận",                     activeColor: "bg-slate-800 text-white" },
+  { value: "xac-minh",     label: "Xác minh",                           activeColor: "bg-amber-500 text-white" },
+  { value: "ket-qua",      label: "Kết quả",                       activeColor: "bg-green-600 text-white" },
+  { value: "tam-dinh-chi", label: "TĐC & Phục hồi",          activeColor: "bg-orange-500 text-white" },
 ];
 
 // ─────────────────────────────────────────────────────────
@@ -123,7 +123,7 @@ function isOverdue(deadline?: string): boolean {
 }
 
 function formatDate(d?: string): string {
-  if (!d) return "\u2014";
+  if (!d) return "—";
   try { return new Date(d).toLocaleDateString("vi-VN"); } catch { return d; }
 }
 
@@ -250,18 +250,18 @@ export function IncidentListPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Qu\u1EA3n l\u00FD V\u1EE5 vi\u1EC7c</h1>
-          <p className="text-slate-600 text-sm mt-1">Ti\u1EBFp nh\u1EADn, x\u1EED l\u00FD v\u00E0 qu\u1EA3n l\u00FD c\u00E1c v\u1EE5 vi\u1EC7c \u0111i\u1EC1u tra</p>
+          <h1 className="text-2xl font-bold text-slate-800">Quản lý Vụ việc</h1>
+          <p className="text-slate-600 text-sm mt-1">Tiếp nhận, xử lý và quản lý các vụ việc điều tra</p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => void fetchIncidents()} className="p-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors" title="L\u00E0m m\u1EDBi" data-testid="btn-refresh">
+          <button onClick={() => void fetchIncidents()} className="p-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors" title="Làm mới" data-testid="btn-refresh">
             <RotateCcw className="w-4 h-4" />
           </button>
           <button className="flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700" data-testid="btn-export">
-            <Download className="w-4 h-4" />Xu\u1EA5t Excel
+            <Download className="w-4 h-4" />Xuất Excel
           </button>
           <button onClick={() => navigate("/vu-viec/new")} className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium" data-testid="btn-add-incident">
-            <Plus className="w-4 h-4" />Th\u00EAm m\u1EDBi
+            <Plus className="w-4 h-4" />Thêm mới
           </button>
         </div>
       </div>
@@ -270,13 +270,13 @@ export function IncidentListPage() {
       {overdueCount > 0 && (
         <div className="bg-red-50 border-2 border-red-300 rounded-lg p-4 flex items-center gap-3" data-testid="overdue-warning">
           <AlertTriangle className="w-5 h-5 text-red-600" />
-          <p className="text-sm font-medium text-red-800">C\u1EA3nh b\u00E1o: C\u00F3 <span className="font-bold">{overdueCount}</span> v\u1EE5 vi\u1EC7c \u0111\u00E3 qu\u00E1 h\u1EA1n x\u1EED l\u00FD</p>
+          <p className="text-sm font-medium text-red-800">Cảnh báo: Có <span className="font-bold">{overdueCount}</span> vụ việc đã quá hạn xử lý</p>
         </div>
       )}
 
       {/* Phase tabs */}
       <div className="bg-white rounded-lg border border-slate-200 p-4" data-testid="phase-filter-bar">
-        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-3">L\u1ECDc theo giai \u0111o\u1EA1n</p>
+        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-3">Lọc theo giai đoạn</p>
         <div className="flex flex-wrap gap-2">
           {PHASE_TABS.map((tab) => (
             <button
@@ -297,7 +297,7 @@ export function IncidentListPage() {
         {/* Sub-status chips within the selected phase */}
         {phaseStatuses.length > 0 && (
           <div className="mt-3 pt-3 border-t border-slate-100">
-            <p className="text-xs text-slate-500 mb-2">Tr\u1EA1ng th\u00E1i trong {currentPhaseLabel}:</p>
+            <p className="text-xs text-slate-500 mb-2">Trạng thái trong {currentPhaseLabel}:</p>
             <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => setSubStatusFilter("")}
@@ -308,7 +308,7 @@ export function IncidentListPage() {
                 }`}
                 data-testid="sub-status-all"
               >
-                T\u1EA5t c\u1EA3
+                Tất cả
               </button>
               {phaseStatuses.map((st) => {
                 const statusKey = st as IncidentStatus;
@@ -342,55 +342,55 @@ export function IncidentListPage() {
               type="text"
               value={quickSearch}
               onChange={(e) => { setQuickSearch(e.target.value); setPage(0); }}
-              placeholder="T\u00ECm ki\u1EBFm theo M\u00E3, T\u00EAn v\u1EE5 vi\u1EC7c, \u0110i\u1EC1u tra vi\u00EAn..."
+              placeholder="Tìm kiếm theo Mã, Tên vụ việc, Điều tra viên..."
               className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               data-testid="search-input"
             />
           </div>
           <button onClick={() => setShowAdvancedSearch(!showAdvancedSearch)} className={`flex items-center gap-2 px-4 py-2.5 border rounded-lg ${showAdvancedSearch ? 'border-blue-500 text-blue-700 bg-blue-50' : 'border-slate-300 text-slate-700 hover:bg-slate-50'}`} data-testid="btn-advanced-search">
-            <SlidersHorizontal className="w-4 h-4" />T\u00ECm ki\u1EBFm n\u00E2ng cao
+            <SlidersHorizontal className="w-4 h-4" />Tìm kiếm nâng cao
           </button>
         </div>
 
         {showAdvancedSearch && (
           <div className="mt-4 pt-4 border-t border-slate-200" data-testid="advanced-search-panel">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-medium text-slate-800 flex items-center gap-2"><SlidersHorizontal className="w-4 h-4" />B\u1ED9 l\u1ECDc n\u00E2ng cao</h3>
+              <h3 className="font-medium text-slate-800 flex items-center gap-2"><SlidersHorizontal className="w-4 h-4" />Bộ lọc nâng cao</h3>
               <button onClick={() => setShowAdvancedSearch(false)} className="p-1 hover:bg-slate-100 rounded"><X className="w-4 h-4 text-slate-600" /></button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">T\u1EEB kh\u00F3a</label>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Từ khóa</label>
                 <input type="text" value={advancedFilters.keyword} onChange={(e) => setAdvancedFilters({ ...advancedFilters, keyword: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Nh\u1EADp t\u1EEB kh\u00F3a..." data-testid="filter-keyword" />
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Nhập từ khóa..." data-testid="filter-keyword" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Lo\u1EA1i ngu\u1ED3n tin</label>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Loại nguồn tin</label>
                 <input type="text" value={advancedFilters.loaiDonVu} onChange={(e) => setAdvancedFilters({ ...advancedFilters, loaiDonVu: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Lo\u1EA1i ngu\u1ED3n tin..." data-testid="filter-loaiDonVu" />
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Loại nguồn tin..." data-testid="filter-loaiDonVu" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Ng\u01B0\u1EDDi t\u1ED1 gi\u00E1c/b\u00E1o tin</label>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Người tố giác/báo tin</label>
                 <input type="text" value={advancedFilters.benVu} onChange={(e) => setAdvancedFilters({ ...advancedFilters, benVu: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Ng\u01B0\u1EDDi t\u1ED1 gi\u00E1c/b\u00E1o tin..." data-testid="filter-benVu" />
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Người tố giác/báo tin..." data-testid="filter-benVu" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">T\u00ECnh tr\u1EA1ng h\u1ED3 s\u01A1</label>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Tình trạng hồ sơ</label>
                 <input type="text" value={advancedFilters.tinhTrangHoSo} onChange={(e) => setAdvancedFilters({ ...advancedFilters, tinhTrangHoSo: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="T\u00ECnh tr\u1EA1ng h\u1ED3 s\u01A1..." data-testid="filter-tinhTrangHoSo" />
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Tình trạng hồ sơ..." data-testid="filter-tinhTrangHoSo" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">T\u00ECnh tr\u1EA1ng th\u1EDDi hi\u1EC7u</label>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Tình trạng thời hiệu</label>
                 <input type="text" value={advancedFilters.tinhTrangThoiHieu} onChange={(e) => setAdvancedFilters({ ...advancedFilters, tinhTrangThoiHieu: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="T\u00ECnh tr\u1EA1ng th\u1EDDi hi\u1EC7u..." data-testid="filter-tinhTrangThoiHieu" />
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Tình trạng thời hiệu..." data-testid="filter-tinhTrangThoiHieu" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">C\u00E1n b\u1ED9 nh\u1EADp</label>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Cán bộ nhập</label>
                 <input type="text" value={advancedFilters.canBoNhap} onChange={(e) => setAdvancedFilters({ ...advancedFilters, canBoNhap: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="C\u00E1n b\u1ED9 nh\u1EADp..." data-testid="filter-canBoNhap" />
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Cán bộ nhập..." data-testid="filter-canBoNhap" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">T\u1EEB ng\u00E0y</label>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Từ ngày</label>
                 <div className="relative">
                   <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input type="date" value={advancedFilters.fromDate} onChange={(e) => setAdvancedFilters({ ...advancedFilters, fromDate: e.target.value })}
@@ -398,7 +398,7 @@ export function IncidentListPage() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">\u0110\u1EBFn ng\u00E0y</label>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Đến ngày</label>
                 <div className="relative">
                   <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input type="date" value={advancedFilters.toDate} onChange={(e) => setAdvancedFilters({ ...advancedFilters, toDate: e.target.value })}
@@ -407,7 +407,7 @@ export function IncidentListPage() {
               </div>
             </div>
             <div className="flex justify-end gap-2 mt-4">
-              <button onClick={clearAdvancedFilters} className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 text-sm">X\u00F3a b\u1ED9 l\u1ECDc</button>
+              <button onClick={clearAdvancedFilters} className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 text-sm">Xóa bộ lọc</button>
             </div>
           </div>
         )}
@@ -416,12 +416,12 @@ export function IncidentListPage() {
       {/* Table */}
       <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
         <div className="border-b border-slate-200 px-6 py-4">
-          <h2 className="font-bold text-slate-800">Danh s\u00E1ch V\u1EE5 vi\u1EC7c</h2>
+          <h2 className="font-bold text-slate-800">Danh sách Vụ việc</h2>
           <p className="text-sm text-slate-600 mt-1">
-            Hi\u1EC3n th\u1ECB {incidents.length} / {total} v\u1EE5 vi\u1EC7c
-            {selectedPhase !== "all" && <span className="ml-2 text-blue-600">(Giai \u0111o\u1EA1n: {currentPhaseLabel})</span>}
+            Hiển thị {incidents.length} / {total} vụ việc
+            {selectedPhase !== "all" && <span className="ml-2 text-blue-600">(Giai đoạn: {currentPhaseLabel})</span>}
             {urlStatus && <span className="ml-2 text-indigo-600">({STATUS_LABELS_VI[urlStatus as IncidentStatus] ?? urlStatus})</span>}
-            {overdueCount > 0 && <span className="ml-2 text-red-600">(<span className="font-medium">{overdueCount}</span> qu\u00E1 h\u1EA1n)</span>}
+            {overdueCount > 0 && <span className="ml-2 text-red-600">(<span className="font-medium">{overdueCount}</span> quá hạn)</span>}
           </p>
         </div>
 
@@ -430,18 +430,18 @@ export function IncidentListPage() {
             <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase w-12">STT</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase">M\u00E3 v\u1EE5 vi\u1EC7c</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase">T\u00EAn v\u1EE5 vi\u1EC7c</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase">\u0110\u1ED1i t\u01B0\u1EE3ng b\u1ECB t\u1ED1 gi\u00E1c</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase">T\u00F3m t\u1EAFt</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase">Lo\u1EA1i</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase">\u0110TV Th\u1EE5 l\u00FD</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase">\u0110\u01A1n v\u1ECB th\u1EE5 l\u00FD</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase">K\u1EBFt qu\u1EA3 gi\u1EA3i quy\u1EBFt</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase">Ng\u00E0y ti\u1EBFp nh\u1EADn</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase">H\u1EA1n x\u1EED l\u00FD</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase">Tr\u1EA1ng th\u00E1i</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase w-32">Thao t\u00E1c</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase">Mã vụ việc</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase">Tên vụ việc</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase">Đối tượng bị tố giác</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase">Tóm tắt</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase">Loại</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase">ĐTV Thụ lý</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase">Đơn vị thụ lý</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase">Kết quả giải quyết</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase">Ngày tiếp nhận</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase">Hạn xử lý</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase">Trạng thái</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase w-32">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
@@ -449,58 +449,58 @@ export function IncidentListPage() {
                 <tr>
                   <td colSpan={13} className="px-6 py-16 text-center">
                     <Loader2 className="w-8 h-8 text-blue-500 mx-auto mb-3 animate-spin" />
-                    <p className="text-slate-500 font-medium">\u0110ang t\u1EA3i d\u1EEF li\u1EC7u...</p>
+                    <p className="text-slate-500 font-medium">Đang tải dữ liệu...</p>
                   </td>
                 </tr>
               ) : incidents.length === 0 ? (
                 <tr>
                   <td colSpan={13} className="px-6 py-16 text-center">
                     <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                    <p className="text-slate-600 font-medium">Kh\u00F4ng t\u00ECm th\u1EA5y v\u1EE5 vi\u1EC7c n\u00E0o</p>
+                    <p className="text-slate-600 font-medium">Không tìm thấy vụ việc nào</p>
                     <p className="text-sm text-slate-400 mt-1">
-                      {selectedPhase !== "all" ? "Th\u1EED thay \u0111\u1ED5i giai \u0111o\u1EA1n ho\u1EB7c b\u1ED9 l\u1ECDc" : "B\u1EAFt \u0111\u1EA7u b\u1EB1ng c\u00E1ch th\u00EAm v\u1EE5 vi\u1EC7c m\u1EDBi"}
+                      {selectedPhase !== "all" ? "Thử thay đổi giai đoạn hoặc bộ lọc" : "Bắt đầu bằng cách thêm vụ việc mới"}
                     </p>
                   </td>
                 </tr>
               ) : (
                 incidents.map((incident, index) => {
                   const overdue = isOverdue(incident.deadline);
-                  const doiTuong = [incident.doiTuongCaNhan, incident.doiTuongToChuc].filter(Boolean).join(", ") || "\u2014";
+                  const doiTuong = [incident.doiTuongCaNhan, incident.doiTuongToChuc].filter(Boolean).join(", ") || "—";
                   return (
                     <tr key={incident.id} className={`hover:bg-slate-50 ${overdue ? "bg-red-50/40" : ""}`} data-testid="incident-row">
                       <td className="px-4 py-3 text-sm text-slate-700 font-medium">{page * PAGE_SIZE + index + 1}</td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium text-blue-600">{incident.code}</span>
-                          {overdue && <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-medium rounded-full" data-testid="overdue-badge">Qu\u00E1 h\u1EA1n</span>}
+                          {overdue && <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-medium rounded-full" data-testid="overdue-badge">Quá hạn</span>}
                         </div>
                       </td>
                       <td className="px-4 py-3 text-sm text-slate-700 max-w-[200px] truncate">{incident.name}</td>
                       <td className="px-4 py-3 text-sm text-slate-700 max-w-[150px] truncate">{doiTuong}</td>
-                      <td className="px-4 py-3 text-sm text-slate-500 max-w-[180px] truncate">{incident.description || "\u2014"}</td>
-                      <td className="px-4 py-3 text-sm text-slate-700">{incident.incidentType ?? "\u2014"}</td>
-                      <td className="px-4 py-3 text-sm text-slate-700">{incident.investigator ? `${incident.investigator.firstName ?? ""} ${incident.investigator.lastName ?? ""}`.trim() || incident.investigator.username : "\u2014"}</td>
-                      <td className="px-4 py-3 text-sm text-slate-700">{incident.donViGiaiQuyet ?? "\u2014"}</td>
-                      <td className="px-4 py-3 text-sm text-slate-700">{incident.ketQuaXuLy ?? "\u2014"}</td>
+                      <td className="px-4 py-3 text-sm text-slate-500 max-w-[180px] truncate">{incident.description || "—"}</td>
+                      <td className="px-4 py-3 text-sm text-slate-700">{incident.incidentType ?? "—"}</td>
+                      <td className="px-4 py-3 text-sm text-slate-700">{incident.investigator ? `${incident.investigator.firstName ?? ""} ${incident.investigator.lastName ?? ""}`.trim() || incident.investigator.username : "—"}</td>
+                      <td className="px-4 py-3 text-sm text-slate-700">{incident.donViGiaiQuyet ?? "—"}</td>
+                      <td className="px-4 py-3 text-sm text-slate-700">{incident.ketQuaXuLy ?? "—"}</td>
                       <td className="px-4 py-3 text-sm text-slate-700 whitespace-nowrap">{formatDate(incident.ngayDeXuat)}</td>
                       <td className="px-4 py-3 whitespace-nowrap"><span className={`text-sm ${overdue ? "text-red-600 font-medium" : "text-slate-700"}`}>{formatDate(incident.deadline)}</span></td>
                       <td className="px-4 py-3 whitespace-nowrap"><span className={`px-3 py-1.5 rounded-md text-xs font-medium ${STATUS_COLORS[incident.status] ?? "bg-slate-200 text-slate-700"}`}>{STATUS_LABELS_VI[incident.status] ?? incident.status}</span></td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <div className="flex items-center gap-1">
                           <button onClick={() => navigate(`/vu-viec/${incident.id}`)} className="p-2 text-blue-600 hover:bg-blue-50 rounded" title="Xem" data-testid={`btn-view-${incident.id}`}><Eye className="w-4 h-4" /></button>
-                          <button onClick={() => navigate(`/vu-viec/${incident.id}/edit`)} className="p-2 text-slate-600 hover:bg-slate-100 rounded" title="S\u1EEDa" data-testid={`btn-edit-${incident.id}`}><Edit className="w-4 h-4" /></button>
+                          <button onClick={() => navigate(`/vu-viec/${incident.id}/edit`)} className="p-2 text-slate-600 hover:bg-slate-100 rounded" title="Sửa" data-testid={`btn-edit-${incident.id}`}><Edit className="w-4 h-4" /></button>
                           <div className="relative">
-                            <button onClick={(e) => { e.stopPropagation(); setShowActionMenu(showActionMenu === incident.id ? null : incident.id); }} className="p-2 text-slate-600 hover:bg-slate-100 rounded" title="Thao t\u00E1c" data-testid="btn-action-menu"><MoreVertical className="w-4 h-4" /></button>
+                            <button onClick={(e) => { e.stopPropagation(); setShowActionMenu(showActionMenu === incident.id ? null : incident.id); }} className="p-2 text-slate-600 hover:bg-slate-100 rounded" title="Thao tác" data-testid="btn-action-menu"><MoreVertical className="w-4 h-4" /></button>
                             {showActionMenu === incident.id && (
                               <div className="absolute right-0 top-full mt-1 w-60 bg-white border border-slate-200 rounded-lg shadow-lg z-10" onClick={(e) => e.stopPropagation()}>
-                                <button onClick={() => handleActionClick(incident, "assign")} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 text-left" data-testid="btn-assign"><User className="w-4 h-4 text-blue-600" />Ph\u00E2n c\u00F4ng</button>
+                                <button onClick={() => handleActionClick(incident, "assign")} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 text-left" data-testid="btn-assign"><User className="w-4 h-4 text-blue-600" />Phân công</button>
                                 {VALID_TRANSITIONS[incident.status]?.length > 0 && (
                                   <button onClick={() => handleActionClick(incident, "transition")} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 text-left border-t border-slate-100" data-testid="btn-transition">
-                                    <ArrowRightLeft className="w-4 h-4 text-indigo-600" />Chuy\u1EC3n tr\u1EA1ng th\u00E1i
+                                    <ArrowRightLeft className="w-4 h-4 text-indigo-600" />Chuyển trạng thái
                                   </button>
                                 )}
                                 {incident.status === "DANG_XAC_MINH" && (
-                                  <button onClick={() => handleActionClick(incident, "prosecute")} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 text-left border-t border-slate-100" data-testid="btn-prosecute"><Scale className="w-4 h-4 text-red-600" />Kh\u1EDFi t\u1ED1</button>
+                                  <button onClick={() => handleActionClick(incident, "prosecute")} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 text-left border-t border-slate-100" data-testid="btn-prosecute"><Scale className="w-4 h-4 text-red-600" />Khởi tố</button>
                                 )}
                               </div>
                             )}
@@ -519,7 +519,7 @@ export function IncidentListPage() {
         {!isLoading && total > PAGE_SIZE && (
           <div className="border-t border-slate-200 px-6 py-4 flex items-center justify-between">
             <p className="text-sm text-slate-600">
-              Trang {page + 1} / {totalPages} ({total} k\u1EBFt qu\u1EA3)
+              Trang {page + 1} / {totalPages} ({total} kết quả)
             </p>
             <div className="flex items-center gap-2">
               <button
@@ -527,7 +527,7 @@ export function IncidentListPage() {
                 onClick={() => setPage((p) => Math.max(0, p - 1))}
                 className="flex items-center gap-1 px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <ChevronLeft className="w-4 h-4" />Tr\u01B0\u1EDBc
+                <ChevronLeft className="w-4 h-4" />Trước
               </button>
               <button
                 disabled={page >= totalPages - 1}
@@ -561,7 +561,7 @@ function StatusTransitionModal({ incident, onClose, onSuccess }: { incident: Inc
   const validTargets = VALID_TRANSITIONS[incident.status] ?? [];
 
   const handleSubmit = async () => {
-    if (!selectedStatus) { setErrors(["Vui l\u00F2ng ch\u1ECDn tr\u1EA1ng th\u00E1i m\u1EDBi"]); return; }
+    if (!selectedStatus) { setErrors(["Vui lòng chọn trạng thái mới"]); return; }
     setIsSubmitting(true);
     try {
       await api.patch(`/incidents/${incident.id}`, { status: selectedStatus });
@@ -571,7 +571,7 @@ function StatusTransitionModal({ incident, onClose, onSuccess }: { incident: Inc
       const msg = (err as { response?: { data?: { message?: string | string[] } } })?.response?.data?.message;
       if (Array.isArray(msg)) setErrors(msg);
       else if (typeof msg === "string") setErrors([msg]);
-      else setErrors(["C\u00F3 l\u1ED7i x\u1EA3y ra khi chuy\u1EC3n tr\u1EA1ng th\u00E1i"]);
+      else setErrors(["Có lỗi xảy ra khi chuyển trạng thái"]);
     } finally { setIsSubmitting(false); }
   };
 
@@ -580,14 +580,14 @@ function StatusTransitionModal({ incident, onClose, onSuccess }: { incident: Inc
       <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
         <div className="border-b border-slate-200 px-6 py-4 flex items-center justify-between">
           <div>
-            <h2 className="font-bold text-slate-800">Chuy\u1EC3n tr\u1EA1ng th\u00E1i</h2>
+            <h2 className="font-bold text-slate-800">Chuyển trạng thái</h2>
             <p className="text-sm text-slate-600 mt-1">{incident.code} - {incident.name}</p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded"><X className="w-5 h-5 text-slate-600" /></button>
         </div>
         <div className="p-6 space-y-4">
           <div className="mb-2">
-            <p className="text-sm text-slate-600">Tr\u1EA1ng th\u00E1i hi\u1EC7n t\u1EA1i: <span className={`inline-block px-3 py-1 rounded-md text-xs font-medium ${STATUS_COLORS[incident.status]}`}>{STATUS_LABELS_VI[incident.status]}</span></p>
+            <p className="text-sm text-slate-600">Trạng thái hiện tại: <span className={`inline-block px-3 py-1 rounded-md text-xs font-medium ${STATUS_COLORS[incident.status]}`}>{STATUS_LABELS_VI[incident.status]}</span></p>
           </div>
           {errors.length > 0 && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-3">
@@ -595,9 +595,9 @@ function StatusTransitionModal({ incident, onClose, onSuccess }: { incident: Inc
             </div>
           )}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Chuy\u1EC3n sang <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-medium text-slate-700 mb-2">Chuyển sang <span className="text-red-500">*</span></label>
             {validTargets.length === 0 ? (
-              <p className="text-sm text-slate-500 italic">Kh\u00F4ng c\u00F3 tr\u1EA1ng th\u00E1i n\u00E0o c\u00F3 th\u1EC3 chuy\u1EC3n t\u1EEB tr\u1EA1ng th\u00E1i hi\u1EC7n t\u1EA1i.</p>
+              <p className="text-sm text-slate-500 italic">Không có trạng thái nào có thể chuyển từ trạng thái hiện tại.</p>
             ) : (
               <div className="space-y-2">
                 {validTargets.map((st) => (
@@ -611,9 +611,9 @@ function StatusTransitionModal({ incident, onClose, onSuccess }: { incident: Inc
           </div>
         </div>
         <div className="border-t border-slate-200 px-6 py-4 flex justify-end gap-3">
-          <button onClick={onClose} className="px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50">H\u1EE7y</button>
+          <button onClick={onClose} className="px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50">Hủy</button>
           <button onClick={() => void handleSubmit()} disabled={isSubmitting || !selectedStatus} className="px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-50" data-testid="btn-confirm-transition">
-            {isSubmitting ? "\u0110ang x\u1EED l\u00FD..." : "X\u00E1c nh\u1EADn chuy\u1EC3n"}
+            {isSubmitting ? "Đang xử lý..." : "Xác nhận chuyển"}
           </button>
         </div>
       </div>
@@ -637,7 +637,7 @@ function AssignInvestigatorModal({ incident, onClose, onSuccess }: { incident: I
 
   const handleSubmit = async () => {
     const newErrors: string[] = [];
-    if (!formData.investigatorId) newErrors.push("\u0110i\u1EC1u tra vi\u00EAn l\u00E0 b\u1EAFt bu\u1ED9c");
+    if (!formData.investigatorId) newErrors.push("Điều tra viên là bắt buộc");
     if (newErrors.length > 0) { setErrors(newErrors); return; }
 
     setIsSubmitting(true);
@@ -646,7 +646,7 @@ function AssignInvestigatorModal({ incident, onClose, onSuccess }: { incident: I
       onSuccess(); onClose();
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string | string[] } } })?.response?.data?.message;
-      if (Array.isArray(msg)) setErrors(msg); else if (typeof msg === "string") setErrors([msg]); else setErrors(["C\u00F3 l\u1ED7i x\u1EA3y ra"]);
+      if (Array.isArray(msg)) setErrors(msg); else if (typeof msg === "string") setErrors([msg]); else setErrors(["Có lỗi xảy ra"]);
     } finally { setIsSubmitting(false); }
   };
 
@@ -654,21 +654,21 @@ function AssignInvestigatorModal({ incident, onClose, onSuccess }: { incident: I
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
         <div className="border-b border-slate-200 px-6 py-4 flex items-center justify-between">
-          <div><h2 className="font-bold text-slate-800">Ph\u00E2n c\u00F4ng \u0111i\u1EC1u tra vi\u00EAn</h2><p className="text-sm text-slate-600 mt-1">{incident.code}</p></div>
+          <div><h2 className="font-bold text-slate-800">Phân công điều tra viên</h2><p className="text-sm text-slate-600 mt-1">{incident.code}</p></div>
           <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded"><X className="w-5 h-5 text-slate-600" /></button>
         </div>
         <div className="p-6 space-y-4">
           {errors.length > 0 && <div className="bg-red-50 border border-red-200 rounded-lg p-3"><ul className="list-disc list-inside">{errors.map((e, i) => <li key={i} className="text-sm text-red-700">{e}</li>)}</ul></div>}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">\u0110i\u1EC1u tra vi\u00EAn <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-medium text-slate-700 mb-2">Điều tra viên <span className="text-red-500">*</span></label>
             <select value={formData.investigatorId} onChange={(e) => setFormData({ ...formData, investigatorId: e.target.value })}
               className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" data-testid="field-investigator">
-              <option value="">Ch\u1ECDn \u0111i\u1EC1u tra vi\u00EAn</option>
+              <option value="">Chọn điều tra viên</option>
               {investigators.map((inv) => <option key={inv.id} value={inv.id}>{inv.firstName} {inv.lastName} ({inv.username})</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">H\u1EA1n x\u1EED l\u00FD</label>
+            <label className="block text-sm font-medium text-slate-700 mb-2">Hạn xử lý</label>
             <div className="relative">
               <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input type="date" value={formData.deadline} onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
@@ -677,9 +677,9 @@ function AssignInvestigatorModal({ incident, onClose, onSuccess }: { incident: I
           </div>
         </div>
         <div className="border-t border-slate-200 px-6 py-4 flex justify-end gap-3">
-          <button onClick={onClose} className="px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50">H\u1EE7y</button>
+          <button onClick={onClose} className="px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50">Hủy</button>
           <button onClick={() => void handleSubmit()} disabled={isSubmitting} className="px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-50" data-testid="btn-confirm-assign">
-            {isSubmitting ? "\u0110ang x\u1EED l\u00FD..." : "X\u00E1c nh\u1EADn ph\u00E2n c\u00F4ng"}
+            {isSubmitting ? "Đang xử lý..." : "Xác nhận phân công"}
           </button>
         </div>
       </div>
@@ -698,8 +698,8 @@ function ProsecuteModal({ incident, onClose, onSuccess }: { incident: Incident; 
 
   const handleSubmit = async () => {
     const newErrors: string[] = [];
-    if (!formData.caseName) newErrors.push("T\u00EAn v\u1EE5 \u00E1n l\u00E0 b\u1EAFt bu\u1ED9c");
-    if (!formData.prosecutionDecision) newErrors.push("S\u1ED1 quy\u1EBFt \u0111\u1ECBnh l\u00E0 b\u1EAFt bu\u1ED9c");
+    if (!formData.caseName) newErrors.push("Tên vụ án là bắt buộc");
+    if (!formData.prosecutionDecision) newErrors.push("Số quyết định là bắt buộc");
     if (newErrors.length > 0) { setErrors(newErrors); return; }
 
     setIsSubmitting(true);
@@ -708,7 +708,7 @@ function ProsecuteModal({ incident, onClose, onSuccess }: { incident: Incident; 
       onSuccess(); onClose();
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string | string[] } } })?.response?.data?.message;
-      if (Array.isArray(msg)) setErrors(msg); else if (typeof msg === "string") setErrors([msg]); else setErrors(["C\u00F3 l\u1ED7i x\u1EA3y ra"]);
+      if (Array.isArray(msg)) setErrors(msg); else if (typeof msg === "string") setErrors([msg]); else setErrors(["Có lỗi xảy ra"]);
     } finally { setIsSubmitting(false); }
   };
 
@@ -716,42 +716,42 @@ function ProsecuteModal({ incident, onClose, onSuccess }: { incident: Incident; 
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-lg w-full">
         <div className="border-b border-slate-200 px-6 py-4 flex items-center justify-between">
-          <div><h2 className="font-bold text-slate-800">Kh\u1EDFi t\u1ED1 v\u1EE5 vi\u1EC7c</h2><p className="text-sm text-slate-600 mt-1">{incident.code}</p></div>
+          <div><h2 className="font-bold text-slate-800">Khởi tố vụ việc</h2><p className="text-sm text-slate-600 mt-1">{incident.code}</p></div>
           <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded"><X className="w-5 h-5 text-slate-600" /></button>
         </div>
         <div className="p-6 space-y-4">
           <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
             <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-            <div className="text-sm text-red-800"><p className="font-medium">L\u01B0u \u00FD:</p><p>V\u1EE5 vi\u1EC7c s\u1EBD \u0111\u01B0\u1EE3c chuy\u1EC3n th\u00E0nh V\u1EE5 \u00E1n v\u00E0 kh\u00F4ng th\u1EC3 ho\u00E0n t\u00E1c.</p></div>
+            <div className="text-sm text-red-800"><p className="font-medium">Lưu ý:</p><p>Vụ việc sẽ được chuyển thành Vụ án và không thể hoàn tác.</p></div>
           </div>
           {errors.length > 0 && <div className="bg-red-50 border border-red-200 rounded-lg p-3"><ul className="list-disc list-inside">{errors.map((e, i) => <li key={i} className="text-sm text-red-700">{e}</li>)}</ul></div>}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">T\u00EAn v\u1EE5 \u00E1n <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-medium text-slate-700 mb-2">Tên vụ án <span className="text-red-500">*</span></label>
             <input type="text" value={formData.caseName} onChange={(e) => setFormData({ ...formData, caseName: e.target.value })}
               className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" data-testid="field-case-name" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">S\u1ED1 quy\u1EBFt \u0111\u1ECBnh kh\u1EDFi t\u1ED1 <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-medium text-slate-700 mb-2">Số quyết định khởi tố <span className="text-red-500">*</span></label>
             <input type="text" value={formData.prosecutionDecision} onChange={(e) => setFormData({ ...formData, prosecutionDecision: e.target.value })}
               className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" data-testid="field-prosecution-decision" />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Ng\u00E0y kh\u1EDFi t\u1ED1</label>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Ngày khởi tố</label>
               <input type="date" value={formData.prosecutionDate} onChange={(e) => setFormData({ ...formData, prosecutionDate: e.target.value })}
                 className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">T\u1ED9i danh</label>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Tội danh</label>
               <input type="text" value={formData.crime} onChange={(e) => setFormData({ ...formData, crime: e.target.value })}
                 className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
           </div>
         </div>
         <div className="border-t border-slate-200 px-6 py-4 flex justify-end gap-3">
-          <button onClick={onClose} className="px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50">H\u1EE7y</button>
+          <button onClick={onClose} className="px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50">Hủy</button>
           <button onClick={() => void handleSubmit()} disabled={isSubmitting} className="px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium disabled:opacity-50" data-testid="btn-confirm-prosecute">
-            {isSubmitting ? "\u0110ang x\u1EED l\u00FD..." : "X\u00E1c nh\u1EADn kh\u1EDFi t\u1ED1"}
+            {isSubmitting ? "Đang xử lý..." : "Xác nhận khởi tố"}
           </button>
         </div>
       </div>

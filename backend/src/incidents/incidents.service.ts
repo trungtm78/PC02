@@ -77,10 +77,12 @@ export class IncidentsService {
       ];
     }
 
-    if (status) where.status = status;
-    // Phase filter: resolve server-side via PHASE_STATUSES (safe, no raw string split)
+    // Phase takes precedence over status (phase is a group of statuses)
+    // If both provided, phase wins — status is ignored
     if (phase && PHASE_STATUSES[phase]) {
       where.status = { in: PHASE_STATUSES[phase] };
+    } else if (status) {
+      where.status = status;
     }
     if (investigatorId) where.investigatorId = investigatorId;
     if (unitId) where.unitId = unitId;
