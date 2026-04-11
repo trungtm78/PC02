@@ -18,3 +18,4 @@ backend/src/coverage/
 *.swp
 Thumbs.db
 .DS_Store
+.gstack/
