@@ -486,18 +486,20 @@ describe('PetitionsService', () => {
 
     it('should create a Case with correct fields', async () => {
       mockPrisma.petition.findFirst.mockResolvedValue(mockPetition);
-      mockPrisma.$transaction.mockImplementation(async (ops: unknown) => {
-        const results: unknown[] = [];
-        for (const op of ops as unknown[]) {
-          results.push(await Promise.resolve(op));
-        }
-        return results;
-      });
-      mockPrisma.case.create.mockResolvedValue(mockCase);
-      mockPrisma.petition.update.mockResolvedValue({
-        ...mockPetition,
-        linkedCaseId: 'case-001',
-        status: PetitionStatus.DA_CHUYEN_VU_AN,
+      mockPrisma.$transaction.mockImplementation(async (fn: any) => {
+        const tx = {
+          case: {
+            create: jest.fn().mockResolvedValue(mockCase),
+          },
+          petition: {
+            update: jest.fn().mockResolvedValue({
+              ...mockPetition,
+              linkedCaseId: 'case-001',
+              status: PetitionStatus.DA_CHUYEN_VU_AN,
+            }),
+          },
+        };
+        return fn(tx);
       });
 
       await service.convertToCase('petition-001', validCaseDto, 'user-001');
