@@ -8,9 +8,10 @@ import { AuditService } from '../audit/audit.service';
 import { CreateCaseDto } from './dto/create-case.dto';
 import { UpdateCaseDto } from './dto/update-case.dto';
 import { QueryCasesDto } from './dto/query-cases.dto';
-import { Prisma, CaseStatus } from '@prisma/client';
+import { Prisma, CaseStatus, PetitionStatus } from '@prisma/client';
 
 type JsonInput = Prisma.InputJsonValue;
+type PrismaTx = Prisma.TransactionClient;
 
 @Injectable()
 export class CasesService {
@@ -154,6 +155,19 @@ export class CasesService {
             email: true,
           },
         },
+        petitions: {
+          where: { deletedAt: null },
+          orderBy: { createdAt: 'desc' },
+          select: {
+            id: true,
+            stt: true,
+            petitionType: true,
+            status: true,
+            senderName: true,
+            receivedDate: true,
+            createdAt: true,
+          },
+        },
       },
     });
 
@@ -162,6 +176,29 @@ export class CasesService {
     }
 
     return { success: true, data: record };
+  }
+
+  // ─────────────────────────────────────────────
+  // GENERATE STT (số tiếp nhận đơn thư)
+  // ─────────────────────────────────────────────
+  private async generateStt(tx: PrismaTx): Promise<string> {
+    const year = new Date().getFullYear();
+    const prefix = `DT-${year}-`;
+
+    const latest = await tx.petition.findFirst({
+      where: { stt: { startsWith: prefix } },
+      orderBy: { stt: 'desc' },
+      select: { stt: true },
+    });
+
+    let seq = 1;
+    if (latest) {
+      const parts = latest.stt.split('-');
+      const lastSeq = parseInt(parts[2], 10);
+      if (!isNaN(lastSeq)) seq = lastSeq + 1;
+    }
+
+    return `${prefix}${String(seq).padStart(5, '0')}`;
   }
 
   // ─────────────────────────────────────────────
@@ -182,6 +219,90 @@ export class CasesService {
       }
     }
 
+    const metadata = dto.metadata as Record<string, unknown> | undefined;
+    const petitionType = metadata?.petitionType as string | undefined;
+
+    // If petitionType exists, create Case + Petition atomically
+    if (petitionType) {
+      const { caseRecord, petition } = await this.prisma.$transaction(
+        async (tx) => {
+          const newCase = await tx.case.create({
+            data: {
+              name: dto.name,
+              crime: dto.crime,
+              status: dto.status ?? CaseStatus.TIEP_NHAN,
+              investigatorId: dto.investigatorId,
+              deadline: dto.deadline ? new Date(dto.deadline) : undefined,
+              unit: dto.unit,
+              subjectsCount: dto.subjectsCount ?? 0,
+              ...(dto.metadata !== undefined && {
+                metadata: dto.metadata as JsonInput,
+              }),
+            },
+            include: {
+              investigator: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  username: true,
+                },
+              },
+            },
+          });
+
+          const stt = await this.generateStt(tx);
+          const reporter = (metadata?.reporter as string) || 'Chưa xác định';
+
+          const newPetition = await tx.petition.create({
+            data: {
+              stt,
+              receivedDate: new Date(),
+              senderName: reporter,
+              petitionType,
+              status: PetitionStatus.MOI_TIEP_NHAN,
+              linkedCaseId: newCase.id,
+              enteredById: actorId,
+              unit: dto.unit,
+            },
+          });
+
+          return { caseRecord: newCase, petition: newPetition };
+        },
+      );
+
+      await this.audit.log({
+        userId: actorId,
+        action: 'CASE_CREATED',
+        subject: 'Case',
+        subjectId: caseRecord.id,
+        metadata: { name: caseRecord.name, status: caseRecord.status },
+        ipAddress: meta?.ipAddress,
+        userAgent: meta?.userAgent,
+      });
+
+      await this.audit.log({
+        userId: actorId,
+        action: 'PETITION_AUTO_CREATED',
+        subject: 'Petition',
+        subjectId: petition.id,
+        metadata: {
+          stt: petition.stt,
+          petitionType,
+          linkedCaseId: caseRecord.id,
+        },
+        ipAddress: meta?.ipAddress,
+        userAgent: meta?.userAgent,
+      });
+
+      return {
+        success: true,
+        data: { ...caseRecord, linkedPetition: petition },
+        message: 'Tạo vụ án thành công',
+      };
+    }
+
+    // No petitionType — create Case only
     const record = await this.prisma.case.create({
       data: {
         name: dto.name,
@@ -261,6 +382,52 @@ export class CasesService {
         },
       },
     });
+
+    // Sync petitionType with linked Petition
+    const updatedMetadata = dto.metadata as Record<string, unknown> | undefined;
+    const newPetitionType = updatedMetadata?.petitionType as string | undefined;
+    if (newPetitionType !== undefined) {
+      const linkedPetition = await this.prisma.petition.findFirst({
+        where: { linkedCaseId: id, deletedAt: null },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      if (linkedPetition) {
+        await this.prisma.petition.update({
+          where: { id: linkedPetition.id },
+          data: { petitionType: newPetitionType },
+        });
+      } else if (newPetitionType) {
+        // No linked Petition yet — create one
+        const reporter =
+          (updatedMetadata?.reporter as string) || 'Chưa xác định';
+        await this.prisma.$transaction(async (tx) => {
+          const stt = await this.generateStt(tx);
+          await tx.petition.create({
+            data: {
+              stt,
+              receivedDate: new Date(),
+              senderName: reporter,
+              petitionType: newPetitionType,
+              status: PetitionStatus.MOI_TIEP_NHAN,
+              linkedCaseId: id,
+              enteredById: actorId,
+              unit: record.unit,
+            },
+          });
+        });
+
+        await this.audit.log({
+          userId: actorId,
+          action: 'PETITION_AUTO_CREATED',
+          subject: 'Petition',
+          subjectId: id,
+          metadata: { petitionType: newPetitionType, linkedCaseId: id },
+          ipAddress: meta?.ipAddress,
+          userAgent: meta?.userAgent,
+        });
+      }
+    }
 
     // Ghi nhận riêng khi đổi trạng thái
     if (dto.status !== undefined && dto.status !== existing.status) {
