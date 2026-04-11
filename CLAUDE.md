@@ -3,9 +3,16 @@
 ## Project Overview
 Internal case management system (NestJS backend + React frontend) for managing legal cases, petitions, incidents.
 
+## Key Features
+- Auto-create Petition when creating a Case with petitionType (via metadata)
+- Bi-directional sync: update Case petitionType syncs to linked Petition
+- STT auto-generation for Petitions (format: DT-YYYY-NNNNN)
+- Petition-to-Case conversion (convertToCase) with atomic transaction
+
 ## Testing
 - Backend tests: `cd backend && npx jest --no-coverage`
 - Full test suite: `cd backend && npm test`
+- Test count: 223 tests across 11 suites
 
 ## Deploy Configuration (configured by /setup-deploy)
 - Platform: Render
