@@ -149,4 +149,9 @@ For OUT_OF_SCOPE API implementations:
 
 ---
 
+## 10 thông tin login vào hệ thống tham khảo
+https://pc02hcm.com/
+user: thanhhoai
+pwd:111111
+
 **End of PROJECT_CONTEXT.md**
