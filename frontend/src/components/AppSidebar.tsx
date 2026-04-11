@@ -164,6 +164,7 @@ const menuSections: MenuSection[] = [
       { id: 'calendar', label: 'Lịch làm việc', icon: Calendar, path: '/calendar' },
       { id: 'directories', label: 'Danh mục', icon: Database, path: '/danh-muc' },
       { id: 'master-class', label: 'Phân loại danh mục', icon: List, path: '/phan-loai' },
+      { id: 'teams', label: 'Tổ / Nhóm', icon: Users, path: '/to-nhom' },
       { id: 'users', label: 'Người dùng', icon: Users, path: '/nguoi-dung' },
       { id: 'settings', label: 'Cài đặt hệ thống', icon: Settings, path: '/settings' },
     ],
