@@ -90,4 +90,37 @@ export class CreateIncidentDto {
   @IsOptional()
   @IsString()
   linkedPetitionId?: string;
+
+  // Nghiệp vụ BLTTHS
+  @IsOptional()
+  @IsString()
+  soQuyetDinh?: string;
+
+  @IsOptional()
+  @IsDateString()
+  ngayQuyetDinh?: string;
+
+  @IsOptional()
+  @IsString()
+  lyDoKhongKhoiTo?: string;
+
+  @IsOptional()
+  @IsString()
+  lyDoTamDinhChi?: string;
+
+  @IsOptional()
+  @IsString()
+  diaChiXayRa?: string;
+
+  @IsOptional()
+  @IsString()
+  sdtNguoiToGiac?: string;
+
+  @IsOptional()
+  @IsString()
+  diaChiNguoiToGiac?: string;
+
+  @IsOptional()
+  @IsString()
+  cmndNguoiToGiac?: string;
 }

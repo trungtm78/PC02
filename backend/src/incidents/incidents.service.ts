@@ -17,13 +17,15 @@ import { TransferIncidentDto } from './dto/transfer-incident.dto';
 import { Prisma, IncidentStatus } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { buildScopeFilter } from '../common/utils/scope-filter.util';
-import { TERMINAL_STATUSES, VALID_TRANSITIONS } from './incidents.constants';
+import { TERMINAL_STATUSES, VALID_TRANSITIONS, PHASE_STATUSES } from './incidents.constants';
+import { SettingsService } from '../settings/settings.service';
 
 @Injectable()
 export class IncidentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly settings: SettingsService,
   ) {}
 
   // ─────────────────────────────────────────────
@@ -33,6 +35,7 @@ export class IncidentsService {
     const {
       search,
       status,
+      phase,
       investigatorId,
       unitId,
       overdue,
@@ -75,6 +78,10 @@ export class IncidentsService {
     }
 
     if (status) where.status = status;
+    // Phase filter: resolve server-side via PHASE_STATUSES (safe, no raw string split)
+    if (phase && PHASE_STATUSES[phase]) {
+      where.status = { in: PHASE_STATUSES[phase] };
+    }
     if (investigatorId) where.investigatorId = investigatorId;
     if (unitId) where.unitId = unitId;
     if (loaiDonVu) where.loaiDonVu = loaiDonVu;
@@ -137,6 +144,14 @@ export class IncidentsService {
           tinhTrangHoSo: true,
           tinhTrangThoiHieu: true,
           nguoiQuyetDinh: true,
+          soQuyetDinh: true,
+          ngayQuyetDinh: true,
+          lyDoKhongKhoiTo: true,
+          lyDoTamDinhChi: true,
+          diaChiXayRa: true,
+          sdtNguoiToGiac: true,
+          diaChiNguoiToGiac: true,
+          cmndNguoiToGiac: true,
           createdAt: true,
           updatedAt: true,
           investigator: {
@@ -222,6 +237,17 @@ export class IncidentsService {
 
     const code = await this.generateIncidentCode();
 
+    // Auto-calculate deadline: ngayTiepNhan + THOI_HAN_XAC_MINH (default 20 days)
+    let computedDeadline: Date | undefined;
+    if (dto.deadline) {
+      computedDeadline = new Date(dto.deadline);
+    } else if (dto.ngayDeXuat) {
+      const thoiHan = await this.settings.getNumericValue('THOI_HAN_XAC_MINH', 20);
+      const d = new Date(dto.ngayDeXuat);
+      d.setDate(d.getDate() + thoiHan);
+      computedDeadline = d;
+    }
+
     const record = await this.prisma.incident.create({
       data: {
         code,
@@ -230,7 +256,7 @@ export class IncidentsService {
         description: dto.description,
         fromDate: dto.fromDate ? new Date(dto.fromDate) : undefined,
         toDate: dto.toDate ? new Date(dto.toDate) : undefined,
-        deadline: dto.deadline ? new Date(dto.deadline) : undefined,
+        deadline: computedDeadline,
         unitId: dto.unitId,
         investigatorId: dto.investigatorId,
         sourcePetitionId: dto.sourcePetitionId,
@@ -243,6 +269,14 @@ export class IncidentsService {
         canBoNhapId: dto.canBoNhapId,
         assignedTeamId: dto.assignedTeamId,
         createdById: actorId,
+        soQuyetDinh: dto.soQuyetDinh,
+        ngayQuyetDinh: dto.ngayQuyetDinh ? new Date(dto.ngayQuyetDinh) : undefined,
+        lyDoKhongKhoiTo: dto.lyDoKhongKhoiTo,
+        lyDoTamDinhChi: dto.lyDoTamDinhChi,
+        diaChiXayRa: dto.diaChiXayRa,
+        sdtNguoiToGiac: dto.sdtNguoiToGiac,
+        diaChiNguoiToGiac: dto.diaChiNguoiToGiac,
+        cmndNguoiToGiac: dto.cmndNguoiToGiac,
         status: IncidentStatus.TIEP_NHAN,
       },
       include: {
@@ -298,6 +332,8 @@ export class IncidentsService {
       'doiTuongCaNhan', 'doiTuongToChuc', 'loaiDonVu', 'benVu',
       'donViGiaiQuyet', 'ketQuaXuLy', 'tinhTrangHoSo', 'tinhTrangThoiHieu',
       'nguoiQuyetDinh', 'canBoNhapId', 'assignedTeamId',
+      'soQuyetDinh', 'lyDoKhongKhoiTo', 'lyDoTamDinhChi',
+      'diaChiXayRa', 'sdtNguoiToGiac', 'diaChiNguoiToGiac', 'cmndNguoiToGiac',
     ];
     for (const f of fields) {
       if ((dto as Record<string, unknown>)[f] !== undefined) {
@@ -305,7 +341,7 @@ export class IncidentsService {
       }
     }
 
-    const dateFields = ['fromDate', 'toDate', 'deadline', 'ngayDeXuat'];
+    const dateFields = ['fromDate', 'toDate', 'deadline', 'ngayDeXuat', 'ngayQuyetDinh'];
     for (const f of dateFields) {
       if ((dto as Record<string, unknown>)[f] !== undefined) {
         const val = (dto as Record<string, unknown>)[f] as string | null;

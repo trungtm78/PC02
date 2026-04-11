@@ -59,6 +59,11 @@ export class QueryIncidentsDto {
   @IsString()
   wardId?: string;
 
+  // BCA phase filter (server-side resolve via PHASE_STATUSES)
+  @IsOptional()
+  @IsString()
+  phase?: string; // "tiep-nhan" | "xac-minh" | "ket-qua" | "tam-dinh-chi"
+
   // New filters for VuViec workflow
   @IsOptional()
   @IsString()
