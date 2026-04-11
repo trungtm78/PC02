@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.1.0] - 2026-04-12
+
+### Fixed
+- Phân quyền: user cấp Tổ (level 1) giờ thấy data của các Phường thuộc Tổ đó (bỏ điều kiện level === 0)
+- Settings: validate giá trị số 0-365 khi admin cập nhật thời hạn (chặn "-999" hoặc "abc")
+- Incidents: phase filter ưu tiên rõ ràng khi cả status và phase được truyền
+- Teams: validate userId tồn tại trước khi thêm thành viên (tránh 500 error)
+
+### Added
+- TeamsPage: panel quản lý thành viên khi click vào tổ/nhóm (thêm/gỡ user, search, isLeader badge)
+- Teams API: POST /teams/:id/members + DELETE /teams/:id/members/:userId với audit logging
+
 ## [0.4.0.0] - 2026-04-12
 
 ### Added
