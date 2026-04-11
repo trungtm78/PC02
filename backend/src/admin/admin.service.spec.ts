@@ -9,6 +9,7 @@ import {
 import { AdminService } from './admin.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { TeamsService } from '../teams/teams.service';
 import { UserStatus } from './dto/create-user.dto';
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
@@ -45,6 +46,16 @@ const mockAudit = {
   log: jest.fn().mockResolvedValue(undefined),
 };
 
+const mockTeamsService = {
+  getList: jest.fn(),
+  getById: jest.fn(),
+  create: jest.fn(),
+  update: jest.fn(),
+  delete: jest.fn(),
+  getDescendantIds: jest.fn().mockResolvedValue([]),
+  getUserIdsForTeams: jest.fn().mockResolvedValue([]),
+};
+
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe('AdminService', () => {
@@ -56,6 +67,7 @@ describe('AdminService', () => {
         AdminService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AuditService, useValue: mockAudit },
+        { provide: TeamsService, useValue: mockTeamsService },
       ],
     }).compile();
 

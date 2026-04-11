@@ -8,6 +8,7 @@ import {
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { TeamsService } from '../teams/teams.service';
 import { CreateUserDto, UserStatus } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import {
@@ -15,12 +16,15 @@ import {
   UpdateRoleDto,
 } from './dto/update-role-permissions.dto';
 import { QueryUsersDto } from './dto/query-users.dto';
+import { CreateDataGrantDto } from './dto/create-data-grant.dto';
+import { AccessLevel } from '@prisma/client';
 
 @Injectable()
 export class AdminService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly teamsService: TeamsService,
   ) {}
 
   // ──────────────────────────────────────────────────────
@@ -378,6 +382,154 @@ export class AdminService {
   async getAllPermissions() {
     return this.prisma.permission.findMany({
       orderBy: [{ subject: 'asc' }, { action: 'asc' }],
+    });
+  }
+
+  // ──────────────────────────────────────────────────────
+  // DATA ACCESS GRANTS
+  // ──────────────────────────────────────────────────────
+
+  async createDataAccessGrant(
+    dto: CreateDataGrantDto,
+    granterId: string,
+    meta: { ipAddress?: string; userAgent?: string } = {},
+  ) {
+    // Validate grantee exists
+    const grantee = await this.prisma.user.findUnique({
+      where: { id: dto.granteeId },
+    });
+    if (!grantee) throw new NotFoundException('Người được cấp quyền không tồn tại');
+
+    // Validate team exists
+    const team = await this.prisma.team.findUnique({
+      where: { id: dto.teamId },
+    });
+    if (!team) throw new NotFoundException('Tổ/nhóm không tồn tại');
+
+    // Check granter is leader of the team or an ancestor team
+    const granterTeams = await this.prisma.userTeam.findMany({
+      where: { userId: granterId, isLeader: true },
+      include: { team: true },
+    });
+
+    let isAuthorized = false;
+    for (const ut of granterTeams) {
+      if (ut.teamId === dto.teamId) {
+        isAuthorized = true;
+        break;
+      }
+      // Check if team is a descendant of a team the granter leads
+      const descendants = await this.teamsService.getDescendantIds(ut.teamId);
+      if (descendants.includes(dto.teamId)) {
+        isAuthorized = true;
+        break;
+      }
+    }
+
+    // Also allow admin role
+    const granterUser = await this.prisma.user.findUnique({
+      where: { id: granterId },
+      include: { role: true },
+    });
+    if (granterUser?.role?.name === 'ADMIN') isAuthorized = true;
+
+    if (!isAuthorized) {
+      throw new ForbiddenException(
+        'Bạn không có quyền cấp quyền truy cập cho tổ/nhóm này',
+      );
+    }
+
+    const grant = await this.prisma.dataAccessGrant.upsert({
+      where: {
+        granteeId_teamId_accessLevel: {
+          granteeId: dto.granteeId,
+          teamId: dto.teamId,
+          accessLevel: dto.accessLevel,
+        },
+      },
+      update: { grantedById: granterId },
+      create: {
+        granteeId: dto.granteeId,
+        teamId: dto.teamId,
+        accessLevel: dto.accessLevel,
+        grantedById: granterId,
+      },
+    });
+
+    await this.audit.log({
+      userId: granterId,
+      action: 'DATA_GRANT_CREATED',
+      subject: 'DataAccessGrant',
+      subjectId: grant.id,
+      metadata: {
+        granteeId: dto.granteeId,
+        teamId: dto.teamId,
+        accessLevel: dto.accessLevel,
+      },
+      ...meta,
+    });
+
+    return grant;
+  }
+
+  async revokeDataAccessGrant(
+    grantId: string,
+    revokerId: string,
+    meta: { ipAddress?: string; userAgent?: string } = {},
+  ) {
+    const grant = await this.prisma.dataAccessGrant.findUnique({
+      where: { id: grantId },
+    });
+    if (!grant) throw new NotFoundException('Quyền truy cập không tồn tại');
+
+    // Allow revoker if they are the granter or a team leader
+    const isGranter = grant.grantedById === revokerId;
+
+    let isLeader = false;
+    if (!isGranter) {
+      const leaderCheck = await this.prisma.userTeam.findFirst({
+        where: { userId: revokerId, teamId: grant.teamId, isLeader: true },
+      });
+      isLeader = !!leaderCheck;
+    }
+
+    // Also allow admin
+    const revokerUser = await this.prisma.user.findUnique({
+      where: { id: revokerId },
+      include: { role: true },
+    });
+    const isAdmin = revokerUser?.role?.name === 'ADMIN';
+
+    if (!isGranter && !isLeader && !isAdmin) {
+      throw new ForbiddenException('Bạn không có quyền thu hồi quyền truy cập này');
+    }
+
+    await this.prisma.dataAccessGrant.delete({ where: { id: grantId } });
+
+    await this.audit.log({
+      userId: revokerId,
+      action: 'DATA_GRANT_REVOKED',
+      subject: 'DataAccessGrant',
+      subjectId: grantId,
+      metadata: { granteeId: grant.granteeId, teamId: grant.teamId },
+      ...meta,
+    });
+
+    return { message: 'Thu hồi quyền truy cập thành công' };
+  }
+
+  async listDataAccessGrants() {
+    return this.prisma.dataAccessGrant.findMany({
+      include: {
+        grantee: {
+          select: { id: true, username: true, firstName: true, lastName: true },
+        },
+        team: { select: { id: true, name: true, code: true } },
+        grantedBy: {
+          select: { id: true, username: true, firstName: true, lastName: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
     });
   }
 }
