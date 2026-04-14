@@ -99,7 +99,14 @@ async function main() {
   }
 
   // ── Seed admin user ────────────────────────────────────────────────────────
-  const passwordHash = await bcrypt.hash('Admin@1234!', 12);
+  // Password MUST come from env var (never hardcoded)
+  const rawAdminPassword = process.env.SEED_ADMIN_PASSWORD;
+  if (!rawAdminPassword || rawAdminPassword.length < 8) {
+    console.error('\nERROR: SEED_ADMIN_PASSWORD env var required (min 8 chars).');
+    console.error('Set it in backend/.env or shell before running this seed.\n');
+    process.exit(1);
+  }
+  const passwordHash = await bcrypt.hash(rawAdminPassword, 12);
   const adminUser = await prisma.user.upsert({
     where: { email: 'admin@pc02.local' },
     update: {},

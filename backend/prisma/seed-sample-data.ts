@@ -153,7 +153,14 @@ async function main() {
     throw new Error('Chạy seed.ts trước để tạo roles!');
   }
 
-  const pwHash = await bcrypt.hash('DieuTra@2026!', 12);
+  // Password MUST come from env var (never hardcoded)
+  const rawOfficerPassword = process.env.SEED_OFFICER_PASSWORD;
+  if (!rawOfficerPassword || rawOfficerPassword.length < 8) {
+    console.error('\nERROR: SEED_OFFICER_PASSWORD env var required (min 8 chars).');
+    console.error('Set it in backend/.env or shell before running this seed.\n');
+    process.exit(1);
+  }
+  const pwHash = await bcrypt.hash(rawOfficerPassword, 12);
 
   const users = await Promise.all([
     prisma.user.upsert({
@@ -207,7 +214,7 @@ async function main() {
       },
     }),
   ]);
-  console.log(`   ✓ ${users.length} điều tra viên (mật khẩu: DieuTra@2026!)`);
+  console.log(`   ✓ ${users.length} điều tra viên (password: $SEED_OFFICER_PASSWORD)`);
 
   const [dtv1, dtv2, dtv3, dtv4, dtv5] = users;
 
@@ -514,13 +521,13 @@ async function main() {
   // ── Tổng kết ──────────────────────────────────────────────────────────────
   console.log('\n✅ Hoàn tất nạp dữ liệu mẫu!');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log('Tài khoản điều tra viên (mật khẩu: DieuTra@2026!):');
+  console.log('Tài khoản điều tra viên (password: $SEED_OFFICER_PASSWORD):');
   console.log('  dtv01@pc02.catp.gov.vn  (Nguyễn Văn Thành)');
   console.log('  dtv02@pc02.catp.gov.vn  (Trần Thị Mai)');
   console.log('  dtv03@pc02.catp.gov.vn  (Lê Minh Tuấn)');
   console.log('  dtv04@pc02.catp.gov.vn  (Phạm Văn Hùng)');
   console.log('  dtv05@pc02.catp.gov.vn  (Hoàng Thị Lan)');
-  console.log('Admin: admin@pc02.local / Admin@1234!');
+  console.log('Admin: admin@pc02.local (password: $SEED_ADMIN_PASSWORD)');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 }
 
