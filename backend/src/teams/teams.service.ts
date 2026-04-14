@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { CreateTeamDto } from './dto/create-team.dto';
@@ -143,7 +143,7 @@ export class TeamsService {
   async addMember(teamId: string, userId: string, actorId: string) {
     // Fix #1: Guard empty/undefined userId
     if (!userId || typeof userId !== 'string') {
-      throw new NotFoundException('userId is required');
+      throw new BadRequestException('userId is required');
     }
 
     const team = await this.prisma.team.findUnique({ where: { id: teamId } });
