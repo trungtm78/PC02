@@ -28,6 +28,7 @@ import { InvestigationSupplementsModule } from './investigation-supplements/inve
 import { MasterClassModule } from './master-class/master-class.module';
 import { TeamsModule } from './teams/teams.module';
 import { SettingsModule } from './settings/settings.module';
+import { FeatureFlagsModule } from './feature-flags/feature-flags.module';
 import { UnitScopeService } from './auth/services/unit-scope.service';
 import { DataScopeInterceptor } from './auth/interceptors/data-scope.interceptor';
 
@@ -59,6 +60,7 @@ import { DataScopeInterceptor } from './auth/interceptors/data-scope.interceptor
     MasterClassModule,
     TeamsModule,
     SettingsModule,
+    FeatureFlagsModule,
   ],
   controllers: [AppController],
   providers: [

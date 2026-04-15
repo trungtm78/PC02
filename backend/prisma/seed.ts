@@ -7,6 +7,7 @@
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import * as bcrypt from 'bcrypt';
+import { seedFeatureFlags } from './seed-feature-flags';
 
 const adapter = new PrismaPg({
   connectionString: process.env['DATABASE_URL'] ?? 'postgresql://pc02_admin:pc02_password@localhost:5432/pc02_db?schema=public',
@@ -199,6 +200,12 @@ async function main() {
       console.log('Seed lawyer already exists, skipped.');
     }
   }
+
+  // ── Feature flags (always seeded, idempotent) ─────────────────────────────
+  // Critical: without these rows the frontend /feature-flags endpoint returns
+  // an empty list and every sidebar menu disappears on a fresh deploy.
+  const seededFlags = await seedFeatureFlags(prisma);
+  console.log(`Seed feature flags: ${seededFlags} entries upserted.`);
 }
 
 main()
