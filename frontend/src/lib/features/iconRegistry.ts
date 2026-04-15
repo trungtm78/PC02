@@ -1,0 +1,95 @@
+import type { ComponentType } from 'react';
+import {
+  LayoutDashboard,
+  Scale,
+  TrendingUp,
+  BarChart3,
+  Settings,
+  Shield,
+  Briefcase,
+  FileText,
+  UsersRound,
+  Users,
+  User,
+  FolderOpen,
+  FolderTree,
+  FolderKanban,
+  Mail,
+  AlertTriangle,
+  Workflow,
+  Tags,
+  Calendar,
+  FileWarning,
+  HelpCircle,
+  ArrowRightLeft,
+  MessageSquareText,
+  MessagesSquare,
+  FileCheck,
+  Gavel,
+  MapPin,
+  Copy,
+  Filter,
+  Download,
+  FileSpreadsheet,
+  Activity,
+  Clock,
+  Database,
+  List,
+  Inbox,
+  Eye,
+  CheckCircle,
+  PauseCircle,
+} from 'lucide-react';
+
+type Icon = ComponentType<{ className?: string }>;
+
+/**
+ * String → lucide component map. FeatureMenuEntry.icon is a string so that
+ * feature modules can be declared as pure data without importing React icon
+ * components, which lets the registry stay tree-shakable.
+ */
+const REGISTRY: Record<string, Icon> = {
+  LayoutDashboard,
+  Scale,
+  TrendingUp,
+  BarChart3,
+  Settings,
+  Shield,
+  Briefcase,
+  FileText,
+  UsersRound,
+  Users,
+  User,
+  FolderOpen,
+  FolderTree,
+  FolderKanban,
+  Mail,
+  AlertTriangle,
+  Workflow,
+  Tags,
+  Calendar,
+  FileWarning,
+  ArrowRightLeft,
+  MessageSquareText,
+  MessagesSquare,
+  FileCheck,
+  Gavel,
+  MapPin,
+  Copy,
+  Filter,
+  Download,
+  FileSpreadsheet,
+  Activity,
+  Clock,
+  Database,
+  List,
+  Inbox,
+  Eye,
+  CheckCircle,
+  PauseCircle,
+};
+
+export function iconFor(name?: string): Icon {
+  if (!name) return HelpCircle;
+  return REGISTRY[name] ?? HelpCircle;
+}
