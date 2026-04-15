@@ -1,190 +1,26 @@
-import { useState, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useBadgeCounts } from '../hooks/useBadgeCounts';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
-  LayoutDashboard,
-  FolderOpen,
-  Users,
-  Mail,
-  AlertTriangle,
-  ArrowRightLeft,
-  MessageSquareText,
-  MessagesSquare,
-  Briefcase,
-  FileCheck,
-  MapPin,
-  Gavel,
-  Filter,
-  Download,
-  Activity,
-  FileText,
-  Calendar,
-  BarChart3,
-  Settings,
   ChevronDown,
   ChevronRight,
   ChevronLeft,
   ChevronUp,
-  Shield,
-  Copy,
   Clock,
-  TrendingUp,
-  FileSpreadsheet,
-  Scale,
-  Database,
   Search,
   Star,
   X,
-  List,
-  Inbox,
-  Eye,
-  CheckCircle,
-  PauseCircle,
+  AlertTriangle,
 } from 'lucide-react';
+import {
+  useMenuSections,
+  type ResolvedMenuItem,
+  type ResolvedMenuSection,
+} from '@/lib/features';
 
-/* ─── Types ──────────────────────────────────────────────────── */
-
-interface MenuItem {
-  id: string;
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-  path?: string;
-  badge?: number | string;
-  children?: MenuItem[];
-}
-
-interface MenuSection {
-  id: string;
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-  items: MenuItem[];
-}
-
-/* ─── Menu Data (~30 routes from ModernSidebar) ──────────────── */
-
-const menuSections: MenuSection[] = [
-  {
-    id: 'main',
-    label: 'Tổng quan',
-    icon: LayoutDashboard,
-    items: [
-      { id: 'dashboard', label: 'Tổng quan', icon: LayoutDashboard, path: '/dashboard' },
-    ],
-  },
-  {
-    id: 'business',
-    label: 'Nghiệp vụ chính',
-    icon: Scale,
-    items: [
-      {
-        id: 'cases',
-        label: 'Quản lý vụ án',
-        icon: FolderOpen,
-        children: [
-          { id: 'cases-list', label: 'Danh sách vụ án', icon: FileText, path: '/cases' },
-          { id: 'add-new-record', label: 'Thêm mới hồ sơ', icon: FileText, path: '/add-new-record' },
-          { id: 'comprehensive-list', label: 'Danh sách tổng hợp', icon: FileText, path: '/comprehensive-list' },
-          { id: 'initial-cases', label: 'Vụ án/việc ban đầu', icon: FileText, path: '/initial-cases' },
-        ],
-      },
-      {
-        id: 'people',
-        label: 'Quản lý đối tượng',
-        icon: Users,
-        children: [
-          { id: 'suspects', label: 'Bị can / Bị cáo', icon: Shield, path: '/people/suspects' },
-          { id: 'victims', label: 'Bị hại', icon: Users, path: '/people/victims' },
-          { id: 'witnesses', label: 'Nhân chứng', icon: Users, path: '/people/witnesses' },
-          { id: 'lawyers', label: 'Quản lý Luật sư', icon: Briefcase, path: '/lawyers' },
-        ],
-      },
-      { id: 'petitions', label: 'Quản lý đơn thư', icon: Mail, path: '/petitions' },
-      {
-        id: 'incidents',
-        label: 'Quản lý vụ việc',
-        icon: AlertTriangle,
-        children: [
-          { id: 'incidents-list', label: 'Tất cả vụ việc', icon: FileText, path: '/vu-viec' },
-          { id: 'incidents-tiep-nhan', label: 'Tiếp nhận & Phân loại', icon: Inbox, path: '/vu-viec?phase=tiep-nhan' },
-          { id: 'incidents-xac-minh', label: 'Xác minh & Giải quyết', icon: Eye, path: '/vu-viec?phase=xac-minh' },
-          { id: 'incidents-ket-qua', label: 'Kết quả', icon: CheckCircle, path: '/vu-viec?phase=ket-qua' },
-          { id: 'incidents-tam-dinh-chi', label: 'Tạm đình chỉ & Phục hồi', icon: PauseCircle, path: '/vu-viec?phase=tam-dinh-chi' },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'processing',
-    label: 'Quy trình xử lý',
-    icon: TrendingUp,
-    items: [
-      { id: 'transfer-return', label: 'Chuyển đổi & Trả HS', icon: ArrowRightLeft, path: '/transfer-return' },
-      { id: 'guidance', label: 'Hướng dẫn đơn', icon: MessageSquareText, path: '/guidance' },
-      { id: 'case-exchange', label: 'Trao đổi chuyên án', icon: MessagesSquare, path: '/case-exchange' },
-      { id: 'investigation-delegation', label: 'Ủy thác điều tra', icon: FileCheck, path: '/investigation-delegation' },
-    ],
-  },
-  {
-    id: 'classification',
-    label: 'Phân loại & Quản lý',
-    icon: Filter,
-    items: [
-      {
-        id: 'ward',
-        label: 'Hồ sơ phường/xã',
-        icon: MapPin,
-        children: [
-          { id: 'ward-incidents', label: 'Vụ việc phường/xã', icon: AlertTriangle, path: '/ward/incidents' },
-          { id: 'ward-cases', label: 'Vụ án phường/xã', icon: Shield, path: '/ward/cases' },
-        ],
-      },
-      { id: 'prosecutor-proposal', label: 'Kiến nghị VKS', icon: Gavel, path: '/prosecutor-proposal' },
-      {
-        id: 'classification-other',
-        label: 'Phân loại khác',
-        icon: Filter,
-        children: [
-          { id: 'classification-duplicates', label: 'Đơn trùng', icon: Copy, path: '/classification/duplicates' },
-          { id: 'classification-others', label: 'Trường hợp khác', icon: FileText, path: '/classification/others' },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'reports',
-    label: 'Báo cáo & Thống kê',
-    icon: BarChart3,
-    items: [
-      { id: 'export-reports', label: 'Xuất báo cáo', icon: Download, path: '/export-reports' },
-      {
-        id: 'statistics',
-        label: 'Thống kê',
-        icon: BarChart3,
-        children: [
-          { id: 'reports-monthly', label: 'Báo cáo tháng', icon: FileSpreadsheet, path: '/reports/monthly' },
-          { id: 'reports-quarterly', label: 'Báo cáo quý', icon: FileSpreadsheet, path: '/reports/quarterly' },
-          { id: 'statistics-district', label: 'Thống kê quận/huyện', icon: BarChart3, path: '/statistics/district' },
-        ],
-      },
-      { id: 'overdue-records', label: 'Hồ sơ trễ hạn', icon: AlertTriangle, path: '/settings/overdue-records' },
-      { id: 'activity-log', label: 'Nhật ký nghiệp vụ', icon: Activity, path: '/activity-log' },
-    ],
-  },
-  {
-    id: 'system',
-    label: 'Hệ thống',
-    icon: Settings,
-    items: [
-      { id: 'documents', label: 'Hồ sơ & Tài liệu', icon: FileText, path: '/documents' },
-      { id: 'calendar', label: 'Lịch làm việc', icon: Calendar, path: '/calendar' },
-      { id: 'directories', label: 'Danh mục', icon: Database, path: '/danh-muc' },
-      { id: 'master-class', label: 'Phân loại danh mục', icon: List, path: '/phan-loai' },
-      { id: 'teams', label: 'Tổ / Nhóm', icon: Users, path: '/to-nhom' },
-      { id: 'users', label: 'Người dùng', icon: Users, path: '/nguoi-dung' },
-      { id: 'settings', label: 'Cài đặt hệ thống', icon: Settings, path: '/settings' },
-    ],
-  },
-];
+// Aliases so the rest of the file (which pre-dates the refactor) reads unchanged.
+type MenuItem = ResolvedMenuItem;
+type MenuSection = ResolvedMenuSection;
 
 /* ─── Component ──────────────────────────────────────────────── */
 
@@ -192,6 +28,7 @@ export function AppSidebar() {
   const navigate = useNavigate();
   const location = useLocation();
   const { counts } = useBadgeCounts();
+  const menuSections = useMenuSections();
 
   // Map item id → live badge count from API
   const liveBadges: Record<string, number> = useMemo(
@@ -210,14 +47,55 @@ export function AppSidebar() {
     new Set(['main', 'business']),
   );
   const [expandedMenus, setExpandedMenus] = useState<Set<string>>(
-    new Set(['cases', 'people']),
+    new Set(['cases', 'subjects']),
   );
   const [searchQuery, setSearchQuery] = useState('');
   const [favorites, setFavorites] = useState<Set<string>>(new Set(['dashboard', 'cases-list']));
   const [isCompact, setIsCompact] = useState(false);
-  const [recentItems] = useState<string[]>(['cases-list', 'petitions', 'export-reports']);
+  const [recentItems, setRecentItems] = useState<string[]>(['cases-list', 'petitions', 'export-reports']);
   const [showRemoveFavoriteModal, setShowRemoveFavoriteModal] = useState(false);
   const [itemToRemove, setItemToRemove] = useState<{ id: string; label: string } | null>(null);
+
+  // Every id currently reachable in the live menu (from enabled features).
+  // Used to drop stale ids out of hardcoded initial state — otherwise a
+  // feature flag toggle or a renamed menu entry leaves dead entries in
+  // favorites/expanded/recent that the UI can't clean up.
+  const validIds = useMemo(() => {
+    const ids = new Set<string>();
+    const walk = (items: MenuItem[]) => {
+      for (const item of items) {
+        ids.add(item.id);
+        if (item.children) walk(item.children);
+      }
+    };
+    menuSections.forEach((s) => {
+      ids.add(s.id);
+      walk(s.items);
+    });
+    return ids;
+  }, [menuSections]);
+
+  // Prune stale ids once the menu is loaded. Fires whenever menuSections
+  // changes (flag toggle, hot reload, etc.) so state stays consistent.
+  useEffect(() => {
+    if (menuSections.length === 0) return;
+    setFavorites((prev) => {
+      const next = new Set([...prev].filter((id) => validIds.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+    setExpandedMenus((prev) => {
+      const next = new Set([...prev].filter((id) => validIds.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+    setExpandedSections((prev) => {
+      const next = new Set([...prev].filter((id) => validIds.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+    setRecentItems((prev) => {
+      const next = prev.filter((id) => validIds.has(id));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [validIds, menuSections]);
 
   const toggleSection = (sectionId: string) => {
     setExpandedSections((prev) => {
@@ -310,7 +188,7 @@ export function AppSidebar() {
       searchInItems(section.items, section.label);
     });
     return results;
-  }, [searchQuery]);
+  }, [searchQuery, menuSections]);
 
   /* ── Favorites ───────────────────────────────────────── */
 
@@ -324,7 +202,7 @@ export function AppSidebar() {
     };
     menuSections.forEach((section) => findFavorites(section.items));
     return items;
-  }, [favorites]);
+  }, [favorites, menuSections]);
 
   /* ── Render helpers ──────────────────────────────────── */
 
