@@ -110,7 +110,10 @@ async function main() {
   const passwordHash = await bcrypt.hash(rawAdminPassword, 12);
   const adminUser = await prisma.user.upsert({
     where: { email: 'admin@pc02.local' },
-    update: {},
+    // Keep passwordHash + isActive in sync with env on every seed run.
+    // Without this, rotating SEED_ADMIN_PASSWORD silently leaves the old
+    // hash in the DB and login starts failing with no obvious signal.
+    update: { passwordHash, isActive: true },
     create: {
       email: 'admin@pc02.local',
       username: 'admin',
