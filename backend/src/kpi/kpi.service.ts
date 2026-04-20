@@ -220,20 +220,20 @@ export class KpiService {
     const year = query.year ?? new Date().getFullYear();
     const dateRange = buildDateRange(year, query.quarter, query.month);
 
-    // Filter only RAT_NGHIEM_TRONG + DAC_BIET_NGHIEM_TRONG via metadata.severity
-    // (severity field will be added in UT-015 migration; for now we use metadata JSON filter)
-    const severityFilter = {
-      metadata: {
-        path: ['severity'],
-        in: ['RAT_NGHIEM_TRONG', 'DAC_BIET_NGHIEM_TRONG'],
-      },
-    };
-
     const baseWhere: Prisma.CaseWhereInput = {
-      deletedAt: null,
-      createdAt: dateRange,
-      ...(query.teamId ? { assignedTeamId: query.teamId } : {}),
-      ...severityFilter,
+      AND: [
+        {
+          deletedAt: null,
+          createdAt: dateRange,
+          ...(query.teamId ? { assignedTeamId: query.teamId } : {}),
+        },
+        {
+          OR: [
+            { metadata: { path: ['severity'], equals: 'RAT_NGHIEM_TRONG' } },
+            { metadata: { path: ['severity'], equals: 'DAC_BIET_NGHIEM_TRONG' } },
+          ],
+        },
+      ],
     };
 
     const [total, khamPha] = await Promise.all([
