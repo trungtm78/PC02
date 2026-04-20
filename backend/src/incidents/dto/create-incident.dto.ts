@@ -123,4 +123,22 @@ export class CreateIncidentDto {
   @IsOptional()
   @IsString()
   cmndNguoiToGiac?: string;
+
+  // Kết quả + tình trạng (accepted on create so the form can set them
+  // when a case is entered retrospectively with results already known)
+  @IsOptional()
+  @IsString()
+  ketQuaXuLy?: string;
+
+  @IsOptional()
+  @IsString()
+  tinhTrangHoSo?: string;
+
+  @IsOptional()
+  @IsString()
+  tinhTrangThoiHieu?: string;
+
+  @IsOptional()
+  @IsString()
+  nguoiQuyetDinh?: string;
 }

@@ -11,6 +11,12 @@ const queryClient = new QueryClient({
   },
 });
 
+// Compute route elements ONCE at module scope so React Router never sees
+// new element identities on re-render. Without this, every App re-render
+// (e.g. FeatureFlagsProvider loading) creates new <Route> elements →
+// React Router unmounts the active page → user sees blank flash → remount.
+const featureRouteElements = FEATURE_MODULES.flatMap((f) => f.renderRoutes());
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -39,7 +45,7 @@ function App() {
               </ProtectedRoute>
             }
           >
-            {FEATURE_MODULES.flatMap((feature) => feature.renderRoutes())}
+            {featureRouteElements}
           </Route>
 
           {/* Redirects */}
