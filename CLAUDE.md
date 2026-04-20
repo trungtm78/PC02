@@ -14,11 +14,12 @@ Internal case management system (NestJS backend + React frontend) for managing l
 - Auto-deadline: tự tính thời hạn giải quyết khi tạo vụ việc
 - Team/Data Access Control: phân quyền theo tổ/nhóm/đơn vị
 - Modular feature architecture: `src/features/*` (frontend) + `feature.manifest.ts` per module (backend). Auto-discovered via Vite `import.meta.glob` + central registry. Runtime on/off via `feature_flags` table + `@FeatureFlag(key)` guard. Build-time packs via `ENABLED_FEATURES` env.
+- KPI Dashboard (`/kpi`): 4 chỉ tiêu cứng TT28/2020/TT-BCA — thụ lý 100%, giải quyết >90%, khám phá >80%, án NT/ĐBNT >95%. Drill-down theo Tổ, biểu đồ 12 tháng.
 
 ## Testing
 - Backend tests: `cd backend && npx jest --no-coverage`
 - Full test suite: `cd backend && npm test`
-- Test count: 310 tests across 14 suites
+- Test count: 400 tests across 19 suites
 
 ## Deploy Configuration (configured by /setup-deploy)
 - Platform: Render
