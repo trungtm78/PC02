@@ -36,6 +36,7 @@ import { SETTINGS_MANIFEST } from '../settings/feature.manifest';
 import { WORKFLOW_MANIFEST } from '../workflow/feature.manifest';
 import { CLASSIFICATION_MANIFEST } from '../classification/feature.manifest';
 import { FEATURE_FLAGS_MANIFEST } from './feature.manifest';
+import { KPI_MANIFEST } from '../kpi/feature.manifest';
 
 export const FEATURE_REGISTRY: readonly FeatureManifest[] = [
   AUTH_MANIFEST,
@@ -64,6 +65,7 @@ export const FEATURE_REGISTRY: readonly FeatureManifest[] = [
   WORKFLOW_MANIFEST,
   CLASSIFICATION_MANIFEST,
   FEATURE_FLAGS_MANIFEST,
+  KPI_MANIFEST,
 ] as const;
 
 export function getManifest(key: string): FeatureManifest | undefined {

@@ -29,13 +29,14 @@ import { MasterClassModule } from './master-class/master-class.module';
 import { TeamsModule } from './teams/teams.module';
 import { SettingsModule } from './settings/settings.module';
 import { FeatureFlagsModule } from './feature-flags/feature-flags.module';
+import { KpiModule } from './kpi/kpi.module';
 import { UnitScopeService } from './auth/services/unit-scope.service';
 import { DataScopeInterceptor } from './auth/interceptors/data-scope.interceptor';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, envFilePath: '.env' }),
-    ThrottlerModule.forRoot([{ ttl: 60000, limit: 10 }]),
+    ThrottlerModule.forRoot([{ ttl: 60000, limit: 200 }]),
     PrismaModule,
     AuthModule,
     AuditModule,
@@ -61,6 +62,7 @@ import { DataScopeInterceptor } from './auth/interceptors/data-scope.interceptor
     TeamsModule,
     SettingsModule,
     FeatureFlagsModule,
+    KpiModule,
   ],
   controllers: [AppController],
   providers: [
