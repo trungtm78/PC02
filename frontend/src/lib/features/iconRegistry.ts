@@ -39,6 +39,7 @@ import {
   Eye,
   CheckCircle,
   PauseCircle,
+  Target,
 } from 'lucide-react';
 
 type Icon = ComponentType<{ className?: string }>;
@@ -87,6 +88,7 @@ const REGISTRY: Record<string, Icon> = {
   Eye,
   CheckCircle,
   PauseCircle,
+  Target,
 };
 
 export function iconFor(name?: string): Icon {
