@@ -39,8 +39,8 @@ export class PetitionsController {
   // GET /api/v1/petitions/:id — Chi tiết đơn thư
   @Get(':id')
   @RequirePermissions({ action: 'read', subject: 'Petition' })
-  getById(@Param('id') id: string) {
-    return this.petitionsService.getById(id);
+  getById(@Param('id') id: string, @Req() req: Request) {
+    return this.petitionsService.getById(id, (req as any).dataScope);
   }
 
   // POST /api/v1/petitions — Tạo đơn thư mới
