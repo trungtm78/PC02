@@ -13,11 +13,13 @@ Internal case management system (NestJS backend + React frontend) for managing l
 - SystemSetting: cấu hình thời hạn xử lý với default theo BLTTHS (Đ.147, Đ.148, Đ.149)
 - Auto-deadline: tự tính thời hạn giải quyết khi tạo vụ việc
 - Team/Data Access Control: phân quyền theo tổ/nhóm/đơn vị
+- Modular feature architecture: `src/features/*` (frontend) + `feature.manifest.ts` per module (backend). Auto-discovered via Vite `import.meta.glob` + central registry. Runtime on/off via `feature_flags` table + `@FeatureFlag(key)` guard. Build-time packs via `ENABLED_FEATURES` env.
+- KPI Dashboard (`/kpi`): 4 chỉ tiêu cứng TT28/2020/TT-BCA — thụ lý 100%, giải quyết >90%, khám phá >80%, án NT/ĐBNT >95%. Drill-down theo Tổ, biểu đồ 12 tháng.
 
 ## Testing
 - Backend tests: `cd backend && npx jest --no-coverage`
 - Full test suite: `cd backend && npm test`
-- Test count: 310 tests across 14 suites
+- Test count: 400 tests across 19 suites
 
 ## Deploy Configuration (configured by /setup-deploy)
 - Platform: Render
@@ -36,7 +38,9 @@ Internal case management system (NestJS backend + React frontend) for managing l
 
 ### Setup instructions
 1. Create Render Web Service connected to this repo
-2. Set build command: `cd backend && npm install && npm run build`
+2. Set build command: `cd backend && npm install && npm run build && npx prisma migrate deploy && npm run db:seed`
 3. Set start command: `cd backend && npm run start:prod`
 4. Add environment variables (DATABASE_URL, JWT_SECRET, etc.)
 5. After deploy, replace `TBD` and `{PRODUCTION_URL}` above with actual URL
+
+**CRITICAL:** `npm run db:seed` MUST run on every deploy so the `feature_flags` table is populated. Without it, `GET /api/v1/feature-flags` returns an empty array and the entire sidebar goes blank for every user. The seed is idempotent — running it twice is safe. To run only the feature-flag seed without touching other data, use `npm run db:seed:features`.

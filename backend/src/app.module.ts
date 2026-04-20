@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { ThrottlerModule } from '@nestjs/throttler';
-import { APP_INTERCEPTOR } from '@nestjs/core';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
@@ -28,13 +28,15 @@ import { InvestigationSupplementsModule } from './investigation-supplements/inve
 import { MasterClassModule } from './master-class/master-class.module';
 import { TeamsModule } from './teams/teams.module';
 import { SettingsModule } from './settings/settings.module';
+import { FeatureFlagsModule } from './feature-flags/feature-flags.module';
+import { KpiModule } from './kpi/kpi.module';
 import { UnitScopeService } from './auth/services/unit-scope.service';
 import { DataScopeInterceptor } from './auth/interceptors/data-scope.interceptor';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, envFilePath: '.env' }),
-    ThrottlerModule.forRoot([{ ttl: 60000, limit: 10 }]),
+    ThrottlerModule.forRoot([{ ttl: 60000, limit: 200 }]),
     PrismaModule,
     AuthModule,
     AuditModule,
@@ -59,11 +61,17 @@ import { DataScopeInterceptor } from './auth/interceptors/data-scope.interceptor
     MasterClassModule,
     TeamsModule,
     SettingsModule,
+    FeatureFlagsModule,
+    KpiModule,
   ],
   controllers: [AppController],
   providers: [
     AppService,
     UnitScopeService,
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
     {
       provide: APP_INTERCEPTOR,
       useClass: DataScopeInterceptor,

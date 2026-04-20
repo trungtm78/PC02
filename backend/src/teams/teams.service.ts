@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { CreateTeamDto } from './dto/create-team.dto';
@@ -141,6 +141,11 @@ export class TeamsService {
   }
 
   async addMember(teamId: string, userId: string, actorId: string) {
+    // Fix #1: Guard empty/undefined userId
+    if (!userId || typeof userId !== 'string') {
+      throw new BadRequestException('userId is required');
+    }
+
     const team = await this.prisma.team.findUnique({ where: { id: teamId } });
     if (!team) throw new NotFoundException(`Team not found (id: ${teamId})`);
 
@@ -158,13 +163,18 @@ export class TeamsService {
       },
     });
 
-    await this.audit.log({
-      userId: actorId,
-      action: 'TEAM_MEMBER_ADDED',
-      subject: 'Team',
-      subjectId: teamId,
-      metadata: { userId, teamName: team.name },
-    });
+    // Fix #7: Audit failure should not rollback the upsert
+    try {
+      await this.audit.log({
+        userId: actorId,
+        action: 'TEAM_MEMBER_ADDED',
+        subject: 'Team',
+        subjectId: teamId,
+        metadata: { userId, teamName: team.name },
+      });
+    } catch (err) {
+      console.error('Audit log failed for TEAM_MEMBER_ADDED:', err);
+    }
 
     return member;
   }
@@ -173,17 +183,26 @@ export class TeamsService {
     const team = await this.prisma.team.findUnique({ where: { id: teamId } });
     if (!team) throw new NotFoundException(`Team not found (id: ${teamId})`);
 
-    await this.prisma.userTeam.deleteMany({
+    // Fix #2: Check if membership exists before audit
+    const result = await this.prisma.userTeam.deleteMany({
       where: { userId, teamId },
     });
 
-    await this.audit.log({
-      userId: actorId,
-      action: 'TEAM_MEMBER_REMOVED',
-      subject: 'Team',
-      subjectId: teamId,
-      metadata: { userId, teamName: team.name },
-    });
+    if (result.count === 0) {
+      throw new NotFoundException(`User ${userId} is not a member of team ${teamId}`);
+    }
+
+    try {
+      await this.audit.log({
+        userId: actorId,
+        action: 'TEAM_MEMBER_REMOVED',
+        subject: 'Team',
+        subjectId: teamId,
+        metadata: { userId, teamName: team.name },
+      });
+    } catch (err) {
+      console.error('Audit log failed for TEAM_MEMBER_REMOVED:', err);
+    }
 
     return { success: true };
   }

@@ -27,6 +27,7 @@ import { ProsecuteIncidentDto } from './dto/prosecute-incident.dto';
 import { UpdateStatusDto } from './dto/update-status.dto';
 import { MergeIncidentDto } from './dto/merge-incident.dto';
 import { TransferIncidentDto } from './dto/transfer-incident.dto';
+import { DeleteIncidentDto } from './dto/delete-incident.dto';
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
 
 @Controller('incidents')
@@ -58,8 +59,8 @@ export class IncidentsController {
   // GET /api/v1/incidents/:id — Chi tiết vụ việc
   @Get(':id')
   @RequirePermissions({ action: 'read', subject: 'Incident' })
-  getById(@Param('id') id: string) {
-    return this.incidentsService.getById(id);
+  getById(@Param('id') id: string, @Req() req: Request) {
+    return this.incidentsService.getById(id, (req as any).dataScope);
   }
 
   // POST /api/v1/incidents — Tạo vụ việc mới
@@ -91,19 +92,26 @@ export class IncidentsController {
     });
   }
 
-  // DELETE /api/v1/incidents/:id — Xóa vụ việc (soft delete)
+  // DELETE /api/v1/incidents/:id — Xóa vụ việc (soft delete, 6 business rules)
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
   @RequirePermissions({ action: 'delete', subject: 'Incident' })
   delete(
     @Param('id') id: string,
+    @Body() dto: DeleteIncidentDto,
     @CurrentUser() user: AuthUser,
     @Req() req: Request,
   ) {
-    return this.incidentsService.delete(id, user.id, {
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
-    });
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any
+    const dataScope = (req as any).dataScope ?? null;
+    return this.incidentsService.delete(
+      id,
+      dto.reason,
+      user.id,
+      user.role,
+      { ipAddress: req.ip, userAgent: req.headers['user-agent'] },
+      dataScope,
+    );
   }
 
   // PATCH /api/v1/incidents/:id/status — Đổi trạng thái

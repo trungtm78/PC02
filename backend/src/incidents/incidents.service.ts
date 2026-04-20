@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   ConflictException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
@@ -176,7 +177,21 @@ export class IncidentsService {
   // ─────────────────────────────────────────────
   // GET DETAIL
   // ─────────────────────────────────────────────
-  async getById(id: string) {
+  private checkRecordInScope(
+    record: { investigatorId?: string | null; assignedTeamId?: string | null },
+    dataScope?: DataScope | null,
+  ) {
+    if (!dataScope) return;
+    const { userIds, teamIds } = dataScope;
+    const ownerMatch = record.investigatorId && userIds.includes(record.investigatorId);
+    const teamMatch = record.assignedTeamId && teamIds.includes(record.assignedTeamId);
+    const unassignedMatch = !record.assignedTeamId && teamIds.length > 0;
+    if (!ownerMatch && !teamMatch && !unassignedMatch) {
+      throw new ForbiddenException('Bạn không có quyền truy cập bản ghi này');
+    }
+  }
+
+  async getById(id: string, dataScope?: DataScope | null) {
     const record = await this.prisma.incident.findFirst({
       where: { id, deletedAt: null },
       include: {
@@ -214,6 +229,8 @@ export class IncidentsService {
     if (!record) {
       throw new NotFoundException(`Vụ việc không tồn tại (id: ${id})`);
     }
+
+    this.checkRecordInScope(record, dataScope);
 
     return { success: true, data: record };
   }
@@ -279,6 +296,10 @@ export class IncidentsService {
         sdtNguoiToGiac: dto.sdtNguoiToGiac,
         diaChiNguoiToGiac: dto.diaChiNguoiToGiac,
         cmndNguoiToGiac: dto.cmndNguoiToGiac,
+        ketQuaXuLy: dto.ketQuaXuLy,
+        tinhTrangHoSo: dto.tinhTrangHoSo,
+        tinhTrangThoiHieu: dto.tinhTrangThoiHieu,
+        nguoiQuyetDinh: dto.nguoiQuyetDinh,
         status: IncidentStatus.TIEP_NHAN,
       },
       include: {
@@ -379,30 +400,115 @@ export class IncidentsService {
   // ─────────────────────────────────────────────
   async delete(
     id: string,
+    reason: string,
     actorId: string,
+    actorRole: string,
     meta?: { ipAddress?: string; userAgent?: string },
+    dataScope?: DataScope | null,
   ) {
+    // 1. Fetch record with linked entities
     const existing = await this.prisma.incident.findFirst({
       where: { id, deletedAt: null },
+      include: {
+        petitions: { where: { deletedAt: null }, select: { id: true } },
+        documents: { select: { id: true } },
+        linkedCase: { select: { id: true } },
+      },
     });
-    if (!existing) throw new NotFoundException(`Vụ việc không tồn tại (id: ${id})`);
+    if (!existing) {
+      throw new NotFoundException(`Vụ việc không tồn tại (id: ${id})`);
+    }
 
+    // 2. Status check — only TIEP_NHAN can be deleted
+    if (existing.status !== IncidentStatus.TIEP_NHAN) {
+      throw new BadRequestException(
+        'Chỉ xóa được vụ việc ở trạng thái Tiếp nhận. ' +
+          'Vụ việc đã chuyển trạng thái không thể xóa.',
+      );
+    }
+
+    // 3. Linked records check
+    if (existing.petitions.length > 0) {
+      throw new BadRequestException(
+        `Không thể xóa: vụ việc đang liên kết ${existing.petitions.length} đơn thư`,
+      );
+    }
+    if (existing.documents.length > 0) {
+      throw new BadRequestException(
+        `Không thể xóa: vụ việc có ${existing.documents.length} tài liệu đính kèm`,
+      );
+    }
+    if (existing.linkedCaseId) {
+      throw new BadRequestException(
+        'Không thể xóa: vụ việc đã liên kết với vụ án',
+      );
+    }
+
+    // 4. Creator-or-admin check
+    const isCreator = existing.createdById === actorId;
+    const isAdmin = actorRole === 'ADMIN';
+    if (!isCreator && !isAdmin) {
+      throw new ForbiddenException(
+        'Chỉ người tạo vụ việc hoặc quản trị viên mới được xóa',
+      );
+    }
+
+    // 5. Time window check (default 72h, configurable via SystemSetting)
+    const maxHours = await this.settings.getNumericValue(
+      'THOI_HAN_XOA_VU_VIEC',
+      72,
+    );
+    const hoursElapsed =
+      (Date.now() - existing.createdAt.getTime()) / 3_600_000;
+    if (hoursElapsed > maxHours && !isAdmin) {
+      throw new BadRequestException(
+        `Đã quá ${maxHours} giờ kể từ khi tạo. Chỉ quản trị viên mới xóa được.`,
+      );
+    }
+
+    // 6. Scope check
+    const scopeFilter = buildScopeFilter(dataScope);
+    if (scopeFilter) {
+      const inScope = await this.prisma.incident.findFirst({
+        where: {
+          id,
+          deletedAt: null,
+          AND: [scopeFilter as Prisma.IncidentWhereInput],
+        },
+        select: { id: true },
+      });
+      if (!inScope) {
+        throw new ForbiddenException('Vụ việc ngoài phạm vi dữ liệu của bạn');
+      }
+    }
+
+    // 7. Soft delete
     await this.prisma.incident.update({
       where: { id },
       data: { deletedAt: new Date() },
     });
 
+    // 8. Audit log with reason
     await this.audit.log({
       userId: actorId,
       action: 'INCIDENT_DELETED',
       subject: 'Incident',
       subjectId: id,
-      metadata: { code: existing.code, softDelete: true },
+      metadata: {
+        code: existing.code,
+        name: existing.name,
+        reason,
+        softDelete: true,
+        hoursAfterCreation: Math.round(hoursElapsed),
+      },
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
     });
 
-    return { success: true, message: 'Xóa vụ việc thành công' };
+    return {
+      success: true,
+      message: `Đã xóa vụ việc ${existing.code}`,
+    };
   }
 
   // ─────────────────────────────────────────────

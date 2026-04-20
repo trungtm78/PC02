@@ -16,6 +16,11 @@ const mockPrisma = {
   },
   userTeam: {
     findMany: jest.fn(),
+    upsert: jest.fn(),
+    deleteMany: jest.fn(),
+  },
+  user: {
+    findUnique: jest.fn(),
   },
 };
 
@@ -209,6 +214,92 @@ describe('TeamsService', () => {
       const result = await service.getDescendantIds('leaf');
 
       expect(result).toEqual([]);
+    });
+  });
+
+  // ── addMember ────────────────────────────────────────────────────────────
+
+  describe('addMember', () => {
+    const fakeTeam = { id: 't1', name: 'Tổ 01' };
+    const fakeUser = { id: 'u1', firstName: 'Trung', lastName: 'Nguyen' };
+    const fakeMember = { userId: 'u1', teamId: 't1', isLeader: false, user: fakeUser };
+
+    it('adds member successfully', async () => {
+      mockPrisma.team.findUnique.mockResolvedValue(fakeTeam);
+      mockPrisma.user.findUnique.mockResolvedValue(fakeUser);
+      mockPrisma.userTeam.upsert.mockResolvedValue(fakeMember);
+
+      const result = await service.addMember('t1', 'u1', 'actor1');
+
+      expect(result).toEqual(fakeMember);
+      expect(mockPrisma.userTeam.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { userId_teamId: { userId: 'u1', teamId: 't1' } },
+          create: { userId: 'u1', teamId: 't1', isLeader: false },
+        }),
+      );
+    });
+
+    it('throws BadRequestException for empty userId', async () => {
+      await expect(service.addMember('t1', '', 'actor1')).rejects.toThrow('userId is required');
+    });
+
+    it('throws NotFoundException when team not found', async () => {
+      mockPrisma.team.findUnique.mockResolvedValue(null);
+      await expect(service.addMember('no-team', 'u1', 'actor1')).rejects.toThrow('Team not found');
+    });
+
+    it('throws NotFoundException when user not found', async () => {
+      mockPrisma.team.findUnique.mockResolvedValue(fakeTeam);
+      mockPrisma.user.findUnique.mockResolvedValue(null);
+      await expect(service.addMember('t1', 'no-user', 'actor1')).rejects.toThrow('User not found');
+    });
+
+    it('succeeds even when audit.log throws (audit failure resilience)', async () => {
+      mockPrisma.team.findUnique.mockResolvedValue(fakeTeam);
+      mockPrisma.user.findUnique.mockResolvedValue(fakeUser);
+      mockPrisma.userTeam.upsert.mockResolvedValue(fakeMember);
+      mockAudit.log.mockRejectedValueOnce(new Error('audit down'));
+
+      const result = await service.addMember('t1', 'u1', 'actor1');
+      expect(result).toEqual(fakeMember);
+    });
+  });
+
+  // ── removeMember ──────────────────────────────────────────────────────────
+
+  describe('removeMember', () => {
+    const fakeTeam = { id: 't1', name: 'Tổ 01' };
+
+    it('removes member successfully', async () => {
+      mockPrisma.team.findUnique.mockResolvedValue(fakeTeam);
+      mockPrisma.userTeam.deleteMany.mockResolvedValue({ count: 1 });
+
+      const result = await service.removeMember('t1', 'u1', 'actor1');
+      expect(result).toEqual({ success: true });
+      expect(mockPrisma.userTeam.deleteMany).toHaveBeenCalledWith({
+        where: { userId: 'u1', teamId: 't1' },
+      });
+    });
+
+    it('throws NotFoundException when team not found', async () => {
+      mockPrisma.team.findUnique.mockResolvedValue(null);
+      await expect(service.removeMember('no-team', 'u1', 'actor1')).rejects.toThrow('Team not found');
+    });
+
+    it('throws NotFoundException when user is not a member', async () => {
+      mockPrisma.team.findUnique.mockResolvedValue(fakeTeam);
+      mockPrisma.userTeam.deleteMany.mockResolvedValue({ count: 0 });
+      await expect(service.removeMember('t1', 'u1', 'actor1')).rejects.toThrow('is not a member');
+    });
+
+    it('succeeds even when audit.log throws', async () => {
+      mockPrisma.team.findUnique.mockResolvedValue(fakeTeam);
+      mockPrisma.userTeam.deleteMany.mockResolvedValue({ count: 1 });
+      mockAudit.log.mockRejectedValueOnce(new Error('audit down'));
+
+      const result = await service.removeMember('t1', 'u1', 'actor1');
+      expect(result).toEqual({ success: true });
     });
   });
 

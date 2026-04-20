@@ -1,10 +1,12 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+// Note: useSearchParams is only used for READING initial URL on mount.
+// URL writes use window.history.replaceState to avoid React Router re-renders.
 import { api } from "@/lib/api";
 import {
   Plus, Search, SlidersHorizontal, Download, RotateCcw, Eye, Edit, MoreVertical,
   Scale, AlertTriangle, X, Calendar, User, AlertCircle, ArrowRightLeft, FileText,
-  ChevronLeft, ChevronRight, Loader2,
+  ChevronLeft, ChevronRight, Loader2, Trash2,
 } from "lucide-react";
 import { PHASE_STATUSES, PHASE_LABELS, PHASE_ORDER } from "@/constants/incident-phases";
 
@@ -133,11 +135,18 @@ function formatDate(d?: string): string {
 
 export function IncidentListPage() {
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const urlPhase = searchParams.get("phase") ?? "all";
-  // Support sub-filter within a phase
-  const urlStatus = searchParams.get("status") ?? "";
+  const [searchParams] = useSearchParams();
 
+  // ── State-driven fetch: React state = source of truth ──────────
+  // URL is synced as a SECONDARY effect, never drives the fetch.
+  // This avoids timing issues where setSearchParams + useSearchParams
+  // round-trip through React Router causes stale or missing renders.
+  const [selectedPhase, setSelectedPhaseState] = useState<string>(
+    () => searchParams.get("phase") ?? "all",
+  );
+  const [statusFilter, setStatusFilterState] = useState<string>(
+    () => searchParams.get("status") ?? "",
+  );
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
@@ -148,6 +157,9 @@ export function IncidentListPage() {
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showProsecuteModal, setShowProsecuteModal] = useState(false);
   const [showTransitionModal, setShowTransitionModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteReason, setDeleteReason] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
 
   // Advanced filters
@@ -162,65 +174,92 @@ export function IncidentListPage() {
     toDate: "",
   });
 
-  const selectedPhase = urlPhase;
-
+  // Phase tab click: direct state update → triggers fetch via useEffect
   const setSelectedPhase = (value: string) => {
     setPage(0);
-    const next = new URLSearchParams();
-    if (value !== "all") {
-      next.set("phase", value);
-    }
-    setSearchParams(next);
+    setStatusFilterState("");
+    setSelectedPhaseState(value);
   };
 
+  // Sub-status chip click
   const setSubStatusFilter = (status: string) => {
     setPage(0);
-    const next = new URLSearchParams(searchParams);
-    if (status) {
-      next.set("status", status);
-    } else {
-      next.delete("status");
-    }
-    setSearchParams(next);
+    setStatusFilterState(status);
   };
 
-  const fetchIncidents = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const params: Record<string, string | number> = {
-        limit: PAGE_SIZE,
-        offset: page * PAGE_SIZE,
-      };
-      // If a specific status sub-filter is active, use it
-      if (urlStatus) {
-        params.status = urlStatus;
-      } else if (selectedPhase !== "all") {
-        // Send phase to API
-        params.phase = selectedPhase;
-      }
-      if (quickSearch.trim()) {
-        params.search = quickSearch.trim();
-      }
-      const res = await api.get<{ success: boolean; data: Incident[]; total: number }>('/incidents', { params });
-      setIncidents(res.data.data ?? []);
-      setTotal(res.data.total ?? 0);
-    } catch {
-      setIncidents([]);
-      setTotal(0);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [page, selectedPhase, urlStatus, quickSearch]);
+  // Sync state → URL bar (one-way). Uses window.history.replaceState
+  // instead of setSearchParams to avoid triggering React Router navigation
+  // which can cause stale state re-initialization after rapid toggles.
+  useEffect(() => {
+    const next = new URLSearchParams();
+    if (selectedPhase !== "all") next.set("phase", selectedPhase);
+    if (statusFilter) next.set("status", statusFilter);
+    const qs = next.toString();
+    const url = qs
+      ? `${window.location.pathname}?${qs}`
+      : window.location.pathname;
+    window.history.replaceState(null, "", url);
+  }, [selectedPhase, statusFilter]);
 
-  useEffect(() => { void fetchIncidents(); }, [fetchIncidents]);
+  // ── Fetch driven by React state, not URL ──────────────────────
+  const fetchIdRef = useRef(0);
+  const [refreshTick, setRefreshTick] = useState(0);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const fetchId = ++fetchIdRef.current;
+
+    const params: Record<string, string | number> = {
+      limit: PAGE_SIZE,
+      offset: page * PAGE_SIZE,
+    };
+    if (statusFilter) {
+      params.status = statusFilter;
+    } else if (selectedPhase !== "all") {
+      params.phase = selectedPhase;
+    }
+    if (quickSearch.trim()) {
+      params.search = quickSearch.trim();
+    }
+
+    setIsLoading(true);
+
+    // Debounce 300 ms — absorbs rapid tab clicks without sending extra requests
+    const debounceTimer = setTimeout(() => {
+      void api.get<{ success: boolean; data: Incident[]; total: number }>(
+        '/incidents',
+        { params, signal: controller.signal },
+      ).then((res) => {
+        if (fetchIdRef.current !== fetchId) return;
+        setIncidents(res.data.data ?? []);
+        setTotal(res.data.total ?? 0);
+        setIsLoading(false);
+      }).catch((err) => {
+        if (fetchIdRef.current !== fetchId) return;
+        if (controller.signal.aborted) { setIsLoading(false); return; }
+        // 429: keep existing data, just stop the spinner
+        const status = (err as { response?: { status?: number } })?.response?.status;
+        if (status === 429) { setIsLoading(false); return; }
+        console.error('[IncidentListPage] fetch failed:', err);
+        setIncidents([]);
+        setTotal(0);
+        setIsLoading(false);
+      });
+    }, 300);
+
+    return () => {
+      clearTimeout(debounceTimer);
+      controller.abort();
+    };
+  }, [page, selectedPhase, statusFilter, quickSearch, refreshTick]);
+
+  const handleSuccess = useCallback(() => setRefreshTick((t) => t + 1), []);
+
   useEffect(() => {
     const h = () => setShowActionMenu(null);
     document.addEventListener("click", h);
     return () => document.removeEventListener("click", h);
   }, []);
-
-  // Reset page when phase changes from URL
-  useEffect(() => { setPage(0); }, [urlPhase]);
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const overdueCount = incidents.filter((i) => isOverdue(i.deadline)).length;
@@ -232,8 +271,6 @@ export function IncidentListPage() {
     else if (action === "prosecute") setShowProsecuteModal(true);
     else if (action === "transition") setShowTransitionModal(true);
   }, []);
-
-  const handleSuccess = useCallback(() => { void fetchIncidents(); }, [fetchIncidents]);
 
   const clearAdvancedFilters = () => {
     setAdvancedFilters({ keyword: "", loaiDonVu: "", benVu: "", tinhTrangHoSo: "", tinhTrangThoiHieu: "", canBoNhap: "", fromDate: "", toDate: "" });
@@ -254,7 +291,7 @@ export function IncidentListPage() {
           <p className="text-slate-600 text-sm mt-1">Tiếp nhận, xử lý và quản lý các vụ việc điều tra</p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => void fetchIncidents()} className="p-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors" title="Làm mới" data-testid="btn-refresh">
+          <button onClick={() => setRefreshTick((t) => t + 1)} className="p-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors" title="Làm mới" data-testid="btn-refresh">
             <RotateCcw className="w-4 h-4" />
           </button>
           <button className="flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700" data-testid="btn-export">
@@ -302,7 +339,7 @@ export function IncidentListPage() {
               <button
                 onClick={() => setSubStatusFilter("")}
                 className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors border ${
-                  !urlStatus
+                  !statusFilter
                     ? "bg-slate-700 text-white border-transparent"
                     : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
                 }`}
@@ -318,7 +355,7 @@ export function IncidentListPage() {
                     key={st}
                     onClick={() => setSubStatusFilter(st)}
                     className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors border ${
-                      urlStatus === st
+                      statusFilter === st
                         ? `${colorClass} border-transparent`
                         : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
                     }`}
@@ -420,7 +457,7 @@ export function IncidentListPage() {
           <p className="text-sm text-slate-600 mt-1">
             Hiển thị {incidents.length} / {total} vụ việc
             {selectedPhase !== "all" && <span className="ml-2 text-blue-600">(Giai đoạn: {currentPhaseLabel})</span>}
-            {urlStatus && <span className="ml-2 text-indigo-600">({STATUS_LABELS_VI[urlStatus as IncidentStatus] ?? urlStatus})</span>}
+            {statusFilter && <span className="ml-2 text-indigo-600">({STATUS_LABELS_VI[statusFilter as IncidentStatus] ?? statusFilter})</span>}
             {overdueCount > 0 && <span className="ml-2 text-red-600">(<span className="font-medium">{overdueCount}</span> quá hạn)</span>}
           </p>
         </div>
@@ -502,6 +539,9 @@ export function IncidentListPage() {
                                 {incident.status === "DANG_XAC_MINH" && (
                                   <button onClick={() => handleActionClick(incident, "prosecute")} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 text-left border-t border-slate-100" data-testid="btn-prosecute"><Scale className="w-4 h-4 text-red-600" />Khởi tố</button>
                                 )}
+                                {incident.status === "TIEP_NHAN" && (
+                                  <button onClick={() => { setSelectedIncident(incident); setShowDeleteModal(true); setShowActionMenu(null); setDeleteReason(""); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 text-left border-t border-slate-100" data-testid="btn-delete"><Trash2 className="w-4 h-4" />Xóa vụ việc</button>
+                                )}
                               </div>
                             )}
                           </div>
@@ -545,6 +585,86 @@ export function IncidentListPage() {
       {showAssignModal && selectedIncident && <AssignInvestigatorModal incident={selectedIncident} onClose={() => setShowAssignModal(false)} onSuccess={handleSuccess} />}
       {showProsecuteModal && selectedIncident && <ProsecuteModal incident={selectedIncident} onClose={() => setShowProsecuteModal(false)} onSuccess={handleSuccess} />}
       {showTransitionModal && selectedIncident && <StatusTransitionModal incident={selectedIncident} onClose={() => setShowTransitionModal(false)} onSuccess={handleSuccess} />}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && selectedIncident && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" data-testid="delete-modal-overlay">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full" data-testid="delete-modal">
+            <div className="p-6">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Trash2 className="w-6 h-6 text-red-600" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-slate-800 mb-1">Xóa vụ việc</h3>
+                  <p className="text-sm text-slate-600 mb-1">
+                    Mã: <strong>{selectedIncident.code}</strong>
+                  </p>
+                  <p className="text-sm text-slate-600">
+                    {selectedIncident.name}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="text-sm text-amber-800">
+                  Vụ việc sẽ bị vô hiệu hóa (soft delete). Quản trị viên có thể khôi phục nếu cần.
+                </p>
+              </div>
+
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Lý do xóa <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={deleteReason}
+                  onChange={(e) => setDeleteReason(e.target.value)}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 text-sm"
+                  placeholder="Nhập lý do xóa (ít nhất 10 ký tự). Ví dụ: Nhập sai thông tin, trùng lặp với VV khác..."
+                  data-testid="delete-reason-input"
+                />
+                {deleteReason.length > 0 && deleteReason.length < 10 && (
+                  <p className="text-xs text-red-500 mt-1">Cần ít nhất 10 ký tự ({deleteReason.length}/10)</p>
+                )}
+              </div>
+            </div>
+
+            <div className="border-t border-slate-200 p-4 flex gap-3 justify-end">
+              <button
+                onClick={() => { setShowDeleteModal(false); setDeleteReason(""); }}
+                className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50"
+                data-testid="btn-cancel-delete"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={async () => {
+                  setIsDeleting(true);
+                  try {
+                    await api.delete(`/incidents/${selectedIncident.id}`, { data: { reason: deleteReason } });
+                    setIncidents((prev) => prev.filter((i) => i.id !== selectedIncident.id));
+                    setTotal((t) => t - 1);
+                    setShowDeleteModal(false);
+                    setDeleteReason("");
+                  } catch (err: unknown) {
+                    const msg = (err as { response?: { data?: { message?: string | string[] } } })?.response?.data?.message;
+                    const text = Array.isArray(msg) ? msg.join(', ') : (typeof msg === 'string' ? msg : 'Có lỗi xảy ra khi xóa');
+                    alert(text);
+                  } finally {
+                    setIsDeleting(false);
+                  }
+                }}
+                disabled={isDeleting || deleteReason.length < 10}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                data-testid="btn-confirm-delete"
+              >
+                {isDeleting ? "Đang xóa..." : "Xác nhận xóa"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -564,7 +684,7 @@ function StatusTransitionModal({ incident, onClose, onSuccess }: { incident: Inc
     if (!selectedStatus) { setErrors(["Vui lòng chọn trạng thái mới"]); return; }
     setIsSubmitting(true);
     try {
-      await api.patch(`/incidents/${incident.id}`, { status: selectedStatus });
+      await api.patch(`/incidents/${incident.id}/status`, { status: selectedStatus });
       onSuccess();
       onClose();
     } catch (err: unknown) {

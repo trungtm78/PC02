@@ -21,7 +21,8 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "db:seed": "ts-node prisma/seed.ts",
-    "db:seed:sample": "ts-node prisma/seed-sample-data.ts"
+    "db:seed:sample": "ts-node prisma/seed-sample-data.ts",
+    "db:seed:features": "ts-node prisma/seed-feature-flags.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",

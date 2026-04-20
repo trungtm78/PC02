@@ -25,8 +25,14 @@ async function main() {
   });
   console.log('Officer role:', officerRole.name);
 
-  // Create dtv test user
-  const passwordHash = await bcrypt.hash('DieuTra@PC02#2026', 12);
+  // Create dtv test user — password MUST come from env (never hardcoded)
+  const rawPassword = process.env.SEED_DTV_PASSWORD;
+  if (!rawPassword || rawPassword.length < 8) {
+    console.error('\nERROR: SEED_DTV_PASSWORD env var required (min 8 chars).');
+    console.error('Set it in backend/.env or shell before running this seed.\n');
+    process.exit(1);
+  }
+  const passwordHash = await bcrypt.hash(rawPassword, 12);
   const dtvUser = await prisma.user.upsert({
     where: { email: 'dtv@pc02.catp.gov.vn' },
     update: { passwordHash, isActive: true },

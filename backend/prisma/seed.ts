@@ -7,6 +7,7 @@
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import * as bcrypt from 'bcrypt';
+import { seedFeatureFlags } from './seed-feature-flags';
 
 const adapter = new PrismaPg({
   connectionString: process.env['DATABASE_URL'] ?? 'postgresql://pc02_admin:pc02_password@localhost:5432/pc02_db?schema=public',
@@ -99,10 +100,20 @@ async function main() {
   }
 
   // ── Seed admin user ────────────────────────────────────────────────────────
-  const passwordHash = await bcrypt.hash('Admin@1234!', 12);
+  // Password MUST come from env var (never hardcoded)
+  const rawAdminPassword = process.env.SEED_ADMIN_PASSWORD;
+  if (!rawAdminPassword || rawAdminPassword.length < 8) {
+    console.error('\nERROR: SEED_ADMIN_PASSWORD env var required (min 8 chars).');
+    console.error('Set it in backend/.env or shell before running this seed.\n');
+    process.exit(1);
+  }
+  const passwordHash = await bcrypt.hash(rawAdminPassword, 12);
   const adminUser = await prisma.user.upsert({
     where: { email: 'admin@pc02.local' },
-    update: {},
+    // Keep passwordHash + isActive in sync with env on every seed run.
+    // Without this, rotating SEED_ADMIN_PASSWORD silently leaves the old
+    // hash in the DB and login starts failing with no obvious signal.
+    update: { passwordHash, isActive: true },
     create: {
       email: 'admin@pc02.local',
       username: 'admin',
@@ -192,6 +203,12 @@ async function main() {
       console.log('Seed lawyer already exists, skipped.');
     }
   }
+
+  // ── Feature flags (always seeded, idempotent) ─────────────────────────────
+  // Critical: without these rows the frontend /feature-flags endpoint returns
+  // an empty list and every sidebar menu disappears on a fresh deploy.
+  const seededFlags = await seedFeatureFlags(prisma);
+  console.log(`Seed feature flags: ${seededFlags} entries upserted.`);
 }
 
 main()

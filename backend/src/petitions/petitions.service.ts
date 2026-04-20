@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   ConflictException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
@@ -169,10 +170,24 @@ export class PetitionsService {
     };
   }
 
+  private checkRecordInScope(
+    record: { enteredById?: string | null; assignedTeamId?: string | null },
+    dataScope?: DataScope | null,
+  ) {
+    if (!dataScope) return;
+    const { userIds, teamIds } = dataScope;
+    const ownerMatch = record.enteredById && userIds.includes(record.enteredById);
+    const teamMatch = record.assignedTeamId && teamIds.includes(record.assignedTeamId);
+    const unassignedMatch = !record.assignedTeamId && teamIds.length > 0;
+    if (!ownerMatch && !teamMatch && !unassignedMatch) {
+      throw new ForbiddenException('Bạn không có quyền truy cập bản ghi này');
+    }
+  }
+
   // ─────────────────────────────────────────────
   // GET DETAIL
   // ─────────────────────────────────────────────
-  async getById(id: string) {
+  async getById(id: string, dataScope?: DataScope | null) {
     const record = await this.prisma.petition.findFirst({
       where: { id, deletedAt: null },
       include: {
@@ -206,6 +221,8 @@ export class PetitionsService {
     if (!record) {
       throw new NotFoundException(`Đơn thư không tồn tại (id: ${id})`);
     }
+
+    this.checkRecordInScope(record, dataScope);
 
     return { success: true, data: record };
   }

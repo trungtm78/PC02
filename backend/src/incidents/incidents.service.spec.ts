@@ -20,7 +20,7 @@
  */
 
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import { NotFoundException, BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { IncidentsService } from './incidents.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
@@ -543,28 +543,133 @@ describe('IncidentsService', () => {
 
   // ── delete ────────────────────────────────────────────────────────────────
 
-  describe('delete', () => {
-    it('should soft delete incident', async () => {
-      mockPrisma.incident.findFirst.mockResolvedValue(mockIncident);
-      mockPrisma.incident.update.mockResolvedValue({ ...mockIncident, deletedAt: new Date() });
+  describe('delete (6 business rules)', () => {
+    const reason = 'Nhập sai thông tin, trùng lặp với VV-2026-00001';
+    const deletableIncident = {
+      ...mockIncident,
+      status: IncidentStatus.TIEP_NHAN,
+      createdById: 'actor-001',
+      createdAt: new Date(), // just created
+      petitions: [],
+      documents: [],
+      linkedCase: null,
+      linkedCaseId: null,
+    };
 
-      const result = await service.delete('inc-001', 'actor-001');
+    it('1. should soft delete TIEP_NHAN incident by its creator', async () => {
+      mockPrisma.incident.findFirst.mockResolvedValue(deletableIncident);
+      mockPrisma.incident.update.mockResolvedValue({ ...deletableIncident, deletedAt: new Date() });
+
+      const result = await service.delete('inc-001', reason, 'actor-001', 'OFFICER');
 
       expect(result.success).toBe(true);
-      expect(result.message).toContain('Xóa');
+      expect(result.message).toMatch(/xóa/i);
       expect(mockPrisma.incident.update).toHaveBeenCalledWith({
         where: { id: 'inc-001' },
         data: { deletedAt: expect.any(Date) },
       });
       expect(mockAudit.log).toHaveBeenCalledWith(
-        expect.objectContaining({ action: 'INCIDENT_DELETED' }),
+        expect.objectContaining({
+          action: 'INCIDENT_DELETED',
+          metadata: expect.objectContaining({ reason }),
+        }),
       );
     });
 
-    it('should throw NotFoundException when deleting non-existent incident', async () => {
+    it('2. should reject deletion of non-TIEP_NHAN incident', async () => {
+      mockPrisma.incident.findFirst.mockResolvedValue({
+        ...deletableIncident,
+        status: IncidentStatus.DANG_XAC_MINH,
+      });
+
+      await expect(
+        service.delete('inc-001', reason, 'actor-001', 'OFFICER'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('3. should reject deletion when petitions are linked', async () => {
+      mockPrisma.incident.findFirst.mockResolvedValue({
+        ...deletableIncident,
+        petitions: [{ id: 'pet-001' }],
+      });
+
+      await expect(
+        service.delete('inc-001', reason, 'actor-001', 'OFFICER'),
+      ).rejects.toThrow(/đơn thư/);
+    });
+
+    it('4. should reject deletion when documents are attached', async () => {
+      mockPrisma.incident.findFirst.mockResolvedValue({
+        ...deletableIncident,
+        documents: [{ id: 'doc-001' }],
+      });
+
+      await expect(
+        service.delete('inc-001', reason, 'actor-001', 'OFFICER'),
+      ).rejects.toThrow(/tài liệu/);
+    });
+
+    it('5. should reject deletion when linked to a case', async () => {
+      mockPrisma.incident.findFirst.mockResolvedValue({
+        ...deletableIncident,
+        linkedCaseId: 'case-001',
+        linkedCase: { id: 'case-001' },
+      });
+
+      await expect(
+        service.delete('inc-001', reason, 'actor-001', 'OFFICER'),
+      ).rejects.toThrow(/vụ án/);
+    });
+
+    it('6. should reject deletion by non-creator non-admin officer', async () => {
+      mockPrisma.incident.findFirst.mockResolvedValue(deletableIncident);
+
+      await expect(
+        service.delete('inc-001', reason, 'other-officer', 'OFFICER'),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('7. should allow admin to delete any officer\'s incident', async () => {
+      mockPrisma.incident.findFirst.mockResolvedValue(deletableIncident);
+      mockPrisma.incident.update.mockResolvedValue({ ...deletableIncident, deletedAt: new Date() });
+
+      const result = await service.delete('inc-001', reason, 'admin-001', 'ADMIN');
+
+      expect(result.success).toBe(true);
+    });
+
+    it('8. should reject officer deletion after 72h window', async () => {
+      mockSettings.getNumericValue.mockResolvedValue(72); // THOI_HAN_XOA_VU_VIEC
+      const oldIncident = {
+        ...deletableIncident,
+        createdAt: new Date(Date.now() - 73 * 3_600_000), // 73 hours ago
+      };
+      mockPrisma.incident.findFirst.mockResolvedValue(oldIncident);
+
+      await expect(
+        service.delete('inc-001', reason, 'actor-001', 'OFFICER'),
+      ).rejects.toThrow(/72 giờ/);
+    });
+
+    it('9. should allow admin deletion after 72h window (admin bypass)', async () => {
+      const oldIncident = {
+        ...deletableIncident,
+        createdAt: new Date(Date.now() - 100 * 3_600_000), // 100 hours ago
+      };
+      mockPrisma.incident.findFirst.mockResolvedValue(oldIncident);
+      mockPrisma.incident.update.mockResolvedValue({ ...oldIncident, deletedAt: new Date() });
+
+      const result = await service.delete('inc-001', reason, 'admin-001', 'ADMIN');
+
+      expect(result.success).toBe(true);
+    });
+
+    it('should throw NotFoundException for non-existent incident', async () => {
       mockPrisma.incident.findFirst.mockResolvedValue(null);
 
-      await expect(service.delete('nonexistent', 'actor-001')).rejects.toThrow(NotFoundException);
+      await expect(
+        service.delete('nonexistent', reason, 'actor-001', 'OFFICER'),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 

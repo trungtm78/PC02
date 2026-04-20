@@ -893,3 +893,22 @@ model SystemSetting {
 
   @@map("system_settings")
 }
+
+// ─────────────────────────────────────────────
+// Feature Flags (module bật/tắt runtime + feature pack)
+// ─────────────────────────────────────────────
+
+model FeatureFlag {
+  key         String   @id                   // e.g. "cases", "petitions", "incidents"
+  label       String                          // Tên hiển thị tiếng Việt
+  description String?                         // Mô tả ngắn
+  enabled     Boolean  @default(true)         // Bật/tắt toàn cục
+  domain      String?                         // Bounded context: "case-domain", "org-domain"...
+  rolloutPct  Int      @default(100)          // 0-100, dự phòng gradual rollout
+  metadata    Json?                           // Tuỳ biến (routes, permissions)
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+
+  @@index([enabled])
+  @@map("feature_flags")
+}

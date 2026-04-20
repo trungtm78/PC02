@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { ArrowLeft, Save, AlertCircle, Calendar, FileText, Loader2, ChevronDown, ChevronRight } from "lucide-react";
-import { FKSelect } from "@/components/FKSelect";
+import { FKSelect, type FKOption } from "@/components/FKSelect";
 import { getPhaseForStatus } from "@/constants/incident-phases";
 
 interface FormData {
@@ -18,17 +18,16 @@ interface FormData {
   benVu: string;
   donViGiaiQuyet: string;
   ngayDeXuat: string;
-  // New fields
   sdtNguoiToGiac: string;
   diaChiNguoiToGiac: string;
   cmndNguoiToGiac: string;
   diaChiXayRa: string;
-  canBoNhap: string;
-  investigatorName: string;
-  ketQuaGiaiQuyet: string;
+  canBoNhapId: string;
+  investigatorId: string;
+  ketQuaXuLy: string;
   soQuyetDinh: string;
   ngayQuyetDinh: string;
-  nguoiRaQuyetDinh: string;
+  nguoiQuyetDinh: string;
   lyDoKhongKhoiTo: string;
   lyDoTamDinhChi: string;
   tinhTrangThoiHieu: string;
@@ -52,12 +51,12 @@ const INITIAL_FORM: FormData = {
   diaChiNguoiToGiac: "",
   cmndNguoiToGiac: "",
   diaChiXayRa: "",
-  canBoNhap: "",
-  investigatorName: "",
-  ketQuaGiaiQuyet: "",
+  canBoNhapId: "",
+  investigatorId: "",
+  ketQuaXuLy: "",
   soQuyetDinh: "",
   ngayQuyetDinh: "",
-  nguoiRaQuyetDinh: "",
+  nguoiQuyetDinh: "",
   lyDoKhongKhoiTo: "",
   lyDoTamDinhChi: "",
   tinhTrangThoiHieu: "",
@@ -105,6 +104,7 @@ export function IncidentFormPage() {
   const [errors, setErrors] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(false);
+  const [userOptions, setUserOptions] = useState<FKOption[]>([]);
 
   // Section expanded states - compute defaults based on mode and status
   const currentPhase = getPhaseForStatus(currentStatus);
@@ -112,6 +112,20 @@ export function IncidentFormPage() {
   const [section2Open, setSection2Open] = useState(false);
   const [section3Open, setSection3Open] = useState(false);
   const [section4Open, setSection4Open] = useState(false);
+
+  // Load users for investigator / canBoNhap pickers
+  useEffect(() => {
+    api
+      .get<{ success: boolean; data: { id: string; firstName: string; lastName: string }[] }>(
+        "/admin/users",
+        { params: { limit: 200 } },
+      )
+      .then((res) => {
+        const users = res.data.data ?? [];
+        setUserOptions(users.map((u) => ({ value: u.id, label: `${u.lastName} ${u.firstName}` })));
+      })
+      .catch(() => setUserOptions([]));
+  }, []);
 
   // Fetch existing data in edit mode
   useEffect(() => {
@@ -140,12 +154,12 @@ export function IncidentFormPage() {
             diaChiNguoiToGiac: (d.diaChiNguoiToGiac as string) ?? "",
             cmndNguoiToGiac: (d.cmndNguoiToGiac as string) ?? "",
             diaChiXayRa: (d.diaChiXayRa as string) ?? "",
-            canBoNhap: (d.canBoNhap as string) ?? "",
-            investigatorName: (d.investigatorName as string) ?? "",
-            ketQuaGiaiQuyet: (d.ketQuaGiaiQuyet as string) ?? "",
+            canBoNhapId: (d.canBoNhapId as string) ?? "",
+            investigatorId: (d.investigatorId as string) ?? "",
+            ketQuaXuLy: (d.ketQuaXuLy as string) ?? "",
             soQuyetDinh: (d.soQuyetDinh as string) ?? "",
             ngayQuyetDinh: d.ngayQuyetDinh ? String(d.ngayQuyetDinh).split("T")[0] : "",
-            nguoiRaQuyetDinh: (d.nguoiRaQuyetDinh as string) ?? "",
+            nguoiQuyetDinh: (d.nguoiQuyetDinh as string) ?? "",
             lyDoKhongKhoiTo: (d.lyDoKhongKhoiTo as string) ?? "",
             lyDoTamDinhChi: (d.lyDoTamDinhChi as string) ?? "",
             tinhTrangThoiHieu: (d.tinhTrangThoiHieu as string) ?? "",
@@ -177,18 +191,37 @@ export function IncidentFormPage() {
     if (!validateForm()) { window.scrollTo({ top: 0, behavior: "smooth" }); return; }
     setIsSubmitting(true);
     try {
+      // Build payload explicitly — only fields that exist in CreateIncidentDto
+      // / UpdateIncidentDto. Empty strings → undefined so optional fields
+      // are omitted rather than sent as "".
+      const s = (v: string) => v || undefined;
       const payload = {
-        ...formData,
-        fromDate: formData.fromDate || undefined,
-        toDate: formData.toDate || undefined,
-        deadline: formData.deadline || undefined,
-        ngayDeXuat: formData.ngayDeXuat || undefined,
-        ngayQuyetDinh: formData.ngayQuyetDinh || undefined,
-        doiTuongCaNhan: formData.doiTuongCaNhan || undefined,
-        doiTuongToChuc: formData.doiTuongToChuc || undefined,
-        loaiDonVu: formData.loaiDonVu || undefined,
-        benVu: formData.benVu || undefined,
-        donViGiaiQuyet: formData.donViGiaiQuyet || undefined,
+        name: formData.name,
+        incidentType: s(formData.incidentType),
+        description: s(formData.description),
+        fromDate: s(formData.fromDate),
+        toDate: s(formData.toDate),
+        deadline: s(formData.deadline),
+        investigatorId: s(formData.investigatorId),
+        canBoNhapId: s(formData.canBoNhapId),
+        doiTuongCaNhan: s(formData.doiTuongCaNhan),
+        doiTuongToChuc: s(formData.doiTuongToChuc),
+        loaiDonVu: s(formData.loaiDonVu),
+        benVu: s(formData.benVu),
+        donViGiaiQuyet: s(formData.donViGiaiQuyet),
+        ngayDeXuat: s(formData.ngayDeXuat),
+        sdtNguoiToGiac: s(formData.sdtNguoiToGiac),
+        diaChiNguoiToGiac: s(formData.diaChiNguoiToGiac),
+        cmndNguoiToGiac: s(formData.cmndNguoiToGiac),
+        diaChiXayRa: s(formData.diaChiXayRa),
+        soQuyetDinh: s(formData.soQuyetDinh),
+        ngayQuyetDinh: s(formData.ngayQuyetDinh),
+        ketQuaXuLy: s(formData.ketQuaXuLy),
+        nguoiQuyetDinh: s(formData.nguoiQuyetDinh),
+        lyDoKhongKhoiTo: s(formData.lyDoKhongKhoiTo),
+        lyDoTamDinhChi: s(formData.lyDoTamDinhChi),
+        tinhTrangHoSo: s(formData.tinhTrangHoSo),
+        tinhTrangThoiHieu: s(formData.tinhTrangThoiHieu),
       };
       if (isEditMode) await api.put(`/incidents/${id}`, payload);
       else await api.post('/incidents', payload);
@@ -364,9 +397,14 @@ export function IncidentFormPage() {
                 className={inputClass} placeholder="Nhập đơn vị thụ lý" data-testid="field-donViGiaiQuyet" />
             </div>
             <div>
-              <label className={labelClass}>Điều tra viên</label>
-              <input type="text" value={formData.investigatorName} onChange={(e) => update("investigatorName", e.target.value)}
-                className={inputClass} placeholder="Tên điều tra viên" data-testid="field-investigatorName" />
+              <FKSelect
+                label="Điều tra viên"
+                value={formData.investigatorId}
+                onChange={(v) => update("investigatorId", v)}
+                options={userOptions}
+                placeholder="Chọn điều tra viên"
+                testId="field-investigatorId"
+              />
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -379,9 +417,14 @@ export function IncidentFormPage() {
               </div>
             </div>
             <div>
-              <label className={labelClass}>Cán bộ nhập</label>
-              <input type="text" value={formData.canBoNhap} onChange={(e) => update("canBoNhap", e.target.value)}
-                className={inputClass} placeholder="Cán bộ nhập liệu" data-testid="field-canBoNhap" />
+              <FKSelect
+                label="Cán bộ nhập"
+                value={formData.canBoNhapId}
+                onChange={(v) => update("canBoNhapId", v)}
+                options={userOptions}
+                placeholder="Chọn cán bộ nhập"
+                testId="field-canBoNhapId"
+              />
             </div>
           </div>
         </CollapsibleSection>
@@ -396,8 +439,8 @@ export function IncidentFormPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className={labelClass}>Kết quả giải quyết</label>
-              <input type="text" value={formData.ketQuaGiaiQuyet} onChange={(e) => update("ketQuaGiaiQuyet", e.target.value)}
-                className={inputClass} placeholder="Kết quả giải quyết vụ việc" data-testid="field-ketQuaGiaiQuyet" />
+              <input type="text" value={formData.ketQuaXuLy} onChange={(e) => update("ketQuaXuLy", e.target.value)}
+                className={inputClass} placeholder="Kết quả giải quyết vụ việc" data-testid="field-ketQuaXuLy" />
             </div>
             <div>
               <label className={labelClass}>Số quyết định</label>
@@ -416,8 +459,8 @@ export function IncidentFormPage() {
             </div>
             <div>
               <label className={labelClass}>Người ra quyết định</label>
-              <input type="text" value={formData.nguoiRaQuyetDinh} onChange={(e) => update("nguoiRaQuyetDinh", e.target.value)}
-                className={inputClass} placeholder="Người ra quyết định" data-testid="field-nguoiRaQuyetDinh" />
+              <input type="text" value={formData.nguoiQuyetDinh} onChange={(e) => update("nguoiQuyetDinh", e.target.value)}
+                className={inputClass} placeholder="Người ra quyết định" data-testid="field-nguoiQuyetDinh" />
             </div>
           </div>
           <div>

@@ -15,26 +15,33 @@ vi.mock('@/lib/api', () => ({
   api: {
     get: vi.fn((url: string) => {
       if (url.includes('stats')) {
+        // Match production wrapped envelope: { success, data }
         return Promise.resolve({
           data: {
-            totalCases: 1258,
-            newCases: 42,
-            overdueCases: 18,
-            processedCases: 1198,
-            totalIncidents: 0,
-            totalPetitions: 0,
+            success: true,
+            data: {
+              totalCases: 1258,
+              newCases: 42,
+              overdueCases: 18,
+              processedCases: 1198,
+              totalIncidents: 0,
+              totalPetitions: 0,
+            },
           },
         });
       }
       if (url.includes('charts')) {
         return Promise.resolve({
           data: {
-            monthly: [],
-            caseTypes: [],
+            success: true,
+            data: {
+              monthly: [],
+              caseTypes: [],
+            },
           },
         });
       }
-      return Promise.resolve({ data: {} });
+      return Promise.resolve({ data: { success: true, data: {} } });
     }),
   },
 }));
@@ -128,10 +135,10 @@ describe('DashboardPage', () => {
 
   it('should render chart section headings', async () => {
     render(<DashboardPage />);
-    
+
     await waitFor(() => {
-      expect(screen.getByText('Xu hướng vụ án theo tháng')).toBeInTheDocument();
-      expect(screen.getByText('Cơ cấu loại vụ án')).toBeInTheDocument();
+      expect(screen.getByText('Xu hướng theo tháng')).toBeInTheDocument();
+      expect(screen.getByText('Cơ cấu trạng thái vụ án')).toBeInTheDocument();
     });
   });
 });
