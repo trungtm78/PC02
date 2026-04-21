@@ -4,7 +4,7 @@ import { AuditService } from '../audit/audit.service';
 import { CreateConclusionDto } from './dto/create-conclusion.dto';
 import { ConclusionStatus, Prisma } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
-import { assertParentInScope } from '../common/utils/scope-filter.util';
+import { assertParentInScope, buildScopeFilter } from '../common/utils/scope-filter.util';
 import { IsOptional, IsString, IsInt, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -22,12 +22,17 @@ export class ConclusionsService {
     private readonly audit: AuditService,
   ) {}
 
-  async getList(query: QueryConclusionsDto) {
+  async getList(query: QueryConclusionsDto, dataScope?: DataScope | null) {
     const { caseId, status, limit = 50, offset = 0 } = query;
     const where: Prisma.ConclusionWhereInput = { deletedAt: null };
 
     if (caseId) where.caseId = caseId;
     if (status) where.status = status as ConclusionStatus;
+
+    const caseScope = buildScopeFilter(dataScope);
+    if (caseScope) {
+      (where as any).case = caseScope;
+    }
 
     const [data, total] = await Promise.all([
       this.prisma.conclusion.findMany({
@@ -90,9 +95,8 @@ export class ConclusionsService {
     return { success: true, data: record, message: 'Tạo kết luận thành công' };
   }
 
-  async update(id: string, dto: Partial<CreateConclusionDto>, actorId: string, meta?: { ipAddress?: string; userAgent?: string }) {
-    const existing = await this.prisma.conclusion.findFirst({ where: { id, deletedAt: null } });
-    if (!existing) throw new NotFoundException(`Kết luận không tồn tại (id: ${id})`);
+  async update(id: string, dto: Partial<CreateConclusionDto>, actorId: string, meta?: { ipAddress?: string; userAgent?: string }, dataScope?: DataScope | null) {
+    await this.getById(id, dataScope);
 
     const record = await this.prisma.conclusion.update({
       where: { id },
@@ -122,9 +126,8 @@ export class ConclusionsService {
     return { success: true, data: record, message: 'Cập nhật kết luận thành công' };
   }
 
-  async delete(id: string, actorId: string, meta?: { ipAddress?: string; userAgent?: string }) {
-    const existing = await this.prisma.conclusion.findFirst({ where: { id, deletedAt: null } });
-    if (!existing) throw new NotFoundException(`Kết luận không tồn tại (id: ${id})`);
+  async delete(id: string, actorId: string, meta?: { ipAddress?: string; userAgent?: string }, dataScope?: DataScope | null) {
+    await this.getById(id, dataScope);
 
     await this.prisma.conclusion.update({ where: { id }, data: { deletedAt: new Date() } });
 

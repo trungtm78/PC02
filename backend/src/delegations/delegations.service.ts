@@ -4,7 +4,7 @@ import { AuditService } from '../audit/audit.service';
 import { CreateDelegationDto } from './dto/create-delegation.dto';
 import { DelegationStatus, Prisma } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
-import { assertParentInScope, assertCreatorInScope } from '../common/utils/scope-filter.util';
+import { assertParentInScope, assertCreatorInScope, buildScopeFilter } from '../common/utils/scope-filter.util';
 import { IsOptional, IsString, IsInt, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -24,7 +24,7 @@ export class DelegationsService {
     private readonly audit: AuditService,
   ) {}
 
-  async getList(query: QueryDelegationsDto) {
+  async getList(query: QueryDelegationsDto, dataScope?: DataScope | null) {
     const { search, status, fromDate, toDate, limit = 20, offset = 0 } = query;
     const where: Prisma.DelegationWhereInput = { deletedAt: null };
 
@@ -38,6 +38,20 @@ export class DelegationsService {
     if (status) where.status = status as DelegationStatus;
     if (fromDate) where.createdAt = { ...(where.createdAt as any), gte: new Date(fromDate) };
     if (toDate) where.createdAt = { ...(where.createdAt as any), lte: new Date(toDate + 'T23:59:59.999Z') };
+
+    if (dataScope) {
+      const { userIds, teamIds } = dataScope;
+      const isDenyAll = userIds.length === 0 && teamIds.length === 0;
+      if (isDenyAll) {
+        (where as any).id = '__no_access__';
+      } else {
+        const caseScope = buildScopeFilter(dataScope);
+        const conditions: any[] = [];
+        if (caseScope) conditions.push({ relatedCase: caseScope });
+        if (userIds.length > 0) conditions.push({ relatedCase: null, createdById: { in: userIds } });
+        if (conditions.length > 0) (where as any).OR = conditions;
+      }
+    }
 
     const [data, total] = await Promise.all([
       this.prisma.delegation.findMany({
@@ -104,9 +118,8 @@ export class DelegationsService {
     return { success: true, data: record, message: 'Tạo ủy thác điều tra thành công' };
   }
 
-  async update(id: string, dto: Partial<CreateDelegationDto>, actorId: string, meta?: { ipAddress?: string; userAgent?: string }) {
-    const existing = await this.prisma.delegation.findFirst({ where: { id, deletedAt: null } });
-    if (!existing) throw new NotFoundException(`Ủy thác không tồn tại (id: ${id})`);
+  async update(id: string, dto: Partial<CreateDelegationDto>, actorId: string, meta?: { ipAddress?: string; userAgent?: string }, dataScope?: DataScope | null) {
+    await this.getById(id, dataScope);
 
     const record = await this.prisma.delegation.update({
       where: { id },
@@ -132,9 +145,8 @@ export class DelegationsService {
     return { success: true, data: record, message: 'Cập nhật ủy thác thành công' };
   }
 
-  async delete(id: string, actorId: string, meta?: { ipAddress?: string; userAgent?: string }) {
-    const existing = await this.prisma.delegation.findFirst({ where: { id, deletedAt: null } });
-    if (!existing) throw new NotFoundException(`Ủy thác không tồn tại (id: ${id})`);
+  async delete(id: string, actorId: string, meta?: { ipAddress?: string; userAgent?: string }, dataScope?: DataScope | null) {
+    const { data: existing } = await this.getById(id, dataScope);
 
     await this.prisma.delegation.update({ where: { id }, data: { deletedAt: new Date() } });
 

@@ -11,7 +11,7 @@ import { UpdateLawyerDto } from './dto/update-lawyer.dto';
 import { QueryLawyersDto } from './dto/query-lawyers.dto';
 import { Prisma } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
-import { assertParentInScope } from '../common/utils/scope-filter.util';
+import { assertParentInScope, buildScopeFilter } from '../common/utils/scope-filter.util';
 
 @Injectable()
 export class LawyersService {
@@ -23,7 +23,7 @@ export class LawyersService {
   // ─────────────────────────────────────────────
   // GET LIST
   // ─────────────────────────────────────────────
-  async getList(query: QueryLawyersDto) {
+  async getList(query: QueryLawyersDto, dataScope?: DataScope | null) {
     const {
       search,
       caseId,
@@ -49,6 +49,11 @@ export class LawyersService {
 
     if (caseId) where.caseId = caseId;
     if (subjectId) where.subjectId = subjectId;
+
+    const caseScope = buildScopeFilter(dataScope);
+    if (caseScope) {
+      (where as any).case = caseScope;
+    }
 
     const allowedSortFields = [
       'createdAt',
@@ -190,14 +195,9 @@ export class LawyersService {
     dto: UpdateLawyerDto,
     actorId: string,
     meta?: { ipAddress?: string; userAgent?: string },
+    dataScope?: DataScope | null,
   ) {
-    const existing = await this.prisma.lawyer.findFirst({
-      where: { id, deletedAt: null },
-    });
-
-    if (!existing) {
-      throw new NotFoundException(`Luật sư không tồn tại (id: ${id})`);
-    }
+    const { data: existing } = await this.getById(id, dataScope);
 
     // Check duplicate barNumber (exclude self)
     if (dto.barNumber && dto.barNumber !== existing.barNumber) {
@@ -278,14 +278,9 @@ export class LawyersService {
     id: string,
     actorId: string,
     meta?: { ipAddress?: string; userAgent?: string },
+    dataScope?: DataScope | null,
   ) {
-    const existing = await this.prisma.lawyer.findFirst({
-      where: { id, deletedAt: null },
-    });
-
-    if (!existing) {
-      throw new NotFoundException(`Luật sư không tồn tại (id: ${id})`);
-    }
+    const { data: existing } = await this.getById(id, dataScope);
 
     await this.prisma.lawyer.update({
       where: { id },

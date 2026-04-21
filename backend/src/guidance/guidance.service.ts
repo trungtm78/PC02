@@ -14,7 +14,7 @@ export class GuidanceService {
     private readonly audit: AuditService,
   ) {}
 
-  async getList(query: QueryGuidanceDto) {
+  async getList(query: QueryGuidanceDto, dataScope?: DataScope | null) {
     const { search, status, fromDate, toDate, limit = 20, offset = 0 } = query;
     const where: Prisma.GuidanceRecordWhereInput = { deletedAt: null };
 
@@ -29,6 +29,17 @@ export class GuidanceService {
     if (status) where.status = status as GuidanceStatus;
     if (fromDate) where.createdAt = { ...(where.createdAt as any), gte: new Date(fromDate) };
     if (toDate) where.createdAt = { ...(where.createdAt as any), lte: new Date(toDate + 'T23:59:59.999Z') };
+
+    if (dataScope) {
+      const { userIds, teamIds } = dataScope;
+      const isDenyAll = userIds.length === 0 && teamIds.length === 0;
+      if (isDenyAll) {
+        (where as any).id = '__no_access__';
+      } else if (userIds.length > 0) {
+        (where as any).createdById = { in: userIds };
+      }
+      // userIds=[] + teamIds non-empty: team leader, no user restriction — show all
+    }
 
     const [data, total] = await Promise.all([
       this.prisma.guidanceRecord.findMany({
@@ -83,9 +94,8 @@ export class GuidanceService {
     return { success: true, data: record, message: 'Tạo bản ghi hướng dẫn thành công' };
   }
 
-  async update(id: string, dto: Partial<CreateGuidanceDto>, actorId: string, meta?: { ipAddress?: string; userAgent?: string }) {
-    const existing = await this.prisma.guidanceRecord.findFirst({ where: { id, deletedAt: null } });
-    if (!existing) throw new NotFoundException(`Bản ghi hướng dẫn không tồn tại (id: ${id})`);
+  async update(id: string, dto: Partial<CreateGuidanceDto>, actorId: string, meta?: { ipAddress?: string; userAgent?: string }, dataScope?: DataScope | null) {
+    await this.getById(id, dataScope);
 
     const record = await this.prisma.guidanceRecord.update({
       where: { id },
@@ -113,9 +123,8 @@ export class GuidanceService {
     return { success: true, data: record, message: 'Cập nhật bản ghi hướng dẫn thành công' };
   }
 
-  async delete(id: string, actorId: string, meta?: { ipAddress?: string; userAgent?: string }) {
-    const existing = await this.prisma.guidanceRecord.findFirst({ where: { id, deletedAt: null } });
-    if (!existing) throw new NotFoundException(`Bản ghi hướng dẫn không tồn tại (id: ${id})`);
+  async delete(id: string, actorId: string, meta?: { ipAddress?: string; userAgent?: string }, dataScope?: DataScope | null) {
+    const { data: existing } = await this.getById(id, dataScope);
 
     await this.prisma.guidanceRecord.update({ where: { id }, data: { deletedAt: new Date() } });
 

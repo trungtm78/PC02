@@ -11,7 +11,7 @@ import { UpdateSubjectDto } from './dto/update-subject.dto';
 import { QuerySubjectsDto } from './dto/query-subjects.dto';
 import { Prisma, SubjectStatus, SubjectType } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
-import { assertParentInScope } from '../common/utils/scope-filter.util';
+import { assertParentInScope, buildScopeFilter } from '../common/utils/scope-filter.util';
 
 @Injectable()
 export class SubjectsService {
@@ -23,7 +23,7 @@ export class SubjectsService {
   // ─────────────────────────────────────────────
   // GET LIST
   // ─────────────────────────────────────────────
-  async getList(query: QuerySubjectsDto) {
+  async getList(query: QuerySubjectsDto, dataScope?: DataScope | null) {
     const {
       search,
       status,
@@ -72,6 +72,11 @@ export class SubjectsService {
         ...(where.createdAt as Prisma.DateTimeFilter | undefined),
         lte: new Date(toDate + 'T23:59:59.999Z'),
       };
+    }
+
+    const caseScope = buildScopeFilter(dataScope);
+    if (caseScope) {
+      (where as any).case = caseScope;
     }
 
     const allowedSortFields = ['createdAt', 'updatedAt', 'fullName', 'dateOfBirth', 'status'];
@@ -222,14 +227,9 @@ export class SubjectsService {
     dto: UpdateSubjectDto,
     actorId: string,
     meta?: { ipAddress?: string; userAgent?: string },
+    dataScope?: DataScope | null,
   ) {
-    const existing = await this.prisma.subject.findFirst({
-      where: { id, deletedAt: null },
-    });
-
-    if (!existing) {
-      throw new NotFoundException(`Đối tượng không tồn tại (id: ${id})`);
-    }
+    const { data: existing } = await this.getById(id, dataScope);
 
     // Check duplicate idNumber+type (exclude self) — EC-04
     const targetType = dto.type ?? existing.type;
@@ -308,14 +308,9 @@ export class SubjectsService {
     id: string,
     actorId: string,
     meta?: { ipAddress?: string; userAgent?: string },
+    dataScope?: DataScope | null,
   ) {
-    const existing = await this.prisma.subject.findFirst({
-      where: { id, deletedAt: null },
-    });
-
-    if (!existing) {
-      throw new NotFoundException(`Đối tượng không tồn tại (id: ${id})`);
-    }
+    const { data: existing } = await this.getById(id, dataScope);
 
     await this.prisma.subject.update({
       where: { id },

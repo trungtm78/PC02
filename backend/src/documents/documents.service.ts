@@ -13,7 +13,7 @@ import { Prisma } from '@prisma/client';
 import * as fs from 'fs';
 import * as path from 'path';
 import type { DataScope } from '../auth/services/unit-scope.service';
-import { assertParentInScope } from '../common/utils/scope-filter.util';
+import { assertParentInScope, buildScopeFilter } from '../common/utils/scope-filter.util';
 
 @Injectable()
 export class DocumentsService {
@@ -37,7 +37,7 @@ export class DocumentsService {
   // ─────────────────────────────────────────────
   // GET LIST
   // ─────────────────────────────────────────────
-  async getList(query: QueryDocumentsDto) {
+  async getList(query: QueryDocumentsDto, dataScope?: DataScope | null) {
     const {
       search,
       caseId,
@@ -64,6 +64,14 @@ export class DocumentsService {
     if (caseId) where.caseId = caseId;
     if (incidentId) where.incidentId = incidentId;
     if (documentType) where.documentType = documentType;
+
+    const caseScope = buildScopeFilter(dataScope);
+    if (caseScope) {
+      (where as any).OR = [
+        { case: caseScope },
+        { incident: caseScope },
+      ];
+    }
 
     const allowedSortFields = [
       'createdAt',
@@ -217,14 +225,9 @@ export class DocumentsService {
     dto: UpdateDocumentDto,
     actorId: string,
     meta?: { ipAddress?: string; userAgent?: string },
+    dataScope?: DataScope | null,
   ) {
-    const existing = await this.prisma.document.findFirst({
-      where: { id, deletedAt: null },
-    });
-
-    if (!existing) {
-      throw new NotFoundException(`Tài liệu không tồn tại (id: ${id})`);
-    }
+    await this.getById(id, dataScope);
 
     // Validate caseId if provided
     if (dto.caseId) {
@@ -286,14 +289,9 @@ export class DocumentsService {
     id: string,
     actorId: string,
     meta?: { ipAddress?: string; userAgent?: string },
+    dataScope?: DataScope | null,
   ) {
-    const existing = await this.prisma.document.findFirst({
-      where: { id, deletedAt: null },
-    });
-
-    if (!existing) {
-      throw new NotFoundException(`Tài liệu không tồn tại (id: ${id})`);
-    }
+    const { data: existing } = await this.getById(id, dataScope);
 
     await this.prisma.document.update({
       where: { id },

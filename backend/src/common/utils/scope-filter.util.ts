@@ -1,6 +1,9 @@
 import { ForbiddenException } from '@nestjs/common';
 import type { DataScope } from '../../auth/services/unit-scope.service';
 
+export const FORBIDDEN_MSG = 'Bạn không có quyền truy cập bản ghi này';
+const NO_ACCESS_SENTINEL = '__no_access__';
+
 /**
  * Build Prisma where-clause filter for Case/Incident scope.
  * Uses investigatorId for ownership.
@@ -28,7 +31,7 @@ export function buildScopeFilter(
 
   // Empty scope = no access
   if (conditions.length === 0) {
-    return { id: '__no_access__' };
+    return { id: NO_ACCESS_SENTINEL };
   }
 
   return { OR: conditions };
@@ -55,7 +58,7 @@ export function buildPetitionScopeFilter(
   }
 
   if (conditions.length === 0) {
-    return { id: '__no_access__' };
+    return { id: NO_ACCESS_SENTINEL };
   }
 
   return { OR: conditions };
@@ -77,21 +80,24 @@ export function assertParentInScope(
   const teamMatch = parent.assignedTeamId ? teamIds.includes(parent.assignedTeamId) : false;
   const unassigned = !parent.assignedTeamId && teamIds.length > 0;
   if (!ownerMatch && !teamMatch && !unassigned) {
-    throw new ForbiddenException('Bạn không có quyền truy cập bản ghi này');
+    throw new ForbiddenException(FORBIDDEN_MSG);
   }
 }
 
 /**
  * Throws 403 if the record's createdById is not in the user's allowed userIds.
  * Used for resources that have no caseId/teamId scope field.
+ * Deny-all scope ({ userIds: [], teamIds: [] }) always denies.
+ * Team-only scope ({ userIds: [], teamIds: [...] }) allows (team leader sees all creator-anchored records).
  */
 export function assertCreatorInScope(
   createdById: string | null | undefined,
   scope: DataScope | null | undefined,
 ): void {
   if (!scope) return;
-  const { userIds } = scope;
-  if (createdById && userIds.length > 0 && !userIds.includes(createdById)) {
-    throw new ForbiddenException('Bạn không có quyền truy cập bản ghi này');
+  const { userIds, teamIds } = scope;
+  const isDenyAll = userIds.length === 0 && teamIds.length === 0;
+  if (createdById && (isDenyAll || (userIds.length > 0 && !userIds.includes(createdById)))) {
+    throw new ForbiddenException(FORBIDDEN_MSG);
   }
 }
