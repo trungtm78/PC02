@@ -21,8 +21,8 @@ export class ExchangesController {
 
   @Get(':id')
   @RequirePermissions({ action: 'read', subject: 'Case' })
-  getById(@Param('id') id: string) {
-    return this.exchangesService.getById(id);
+  getById(@Param('id') id: string, @Req() req: Request) {
+    return this.exchangesService.getById(id, (req as any).dataScope);
   }
 
   @Get(':id/messages')

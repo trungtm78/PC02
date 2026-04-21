@@ -244,6 +244,25 @@ describe('SubjectsService', () => {
         /bad-id/,
       );
     });
+
+    it('throws ForbiddenException when parent case is out of scope', async () => {
+      mockPrisma.subject.findFirst.mockResolvedValue({
+        ...FAKE_SUBJECT,
+        case: { assignedTeamId: 'team-X', investigatorId: 'user-X' },
+      });
+      const scope = { userIds: ['u1'], teamIds: ['t1'] };
+      await expect(service.getById('sub-001', scope)).rejects.toThrow('Bạn không có quyền truy cập bản ghi này');
+    });
+
+    it('passes scope check when parent case team matches', async () => {
+      mockPrisma.subject.findFirst.mockResolvedValue({
+        ...FAKE_SUBJECT,
+        case: { assignedTeamId: 't1', investigatorId: null },
+      });
+      const scope = { userIds: [], teamIds: ['t1'] };
+      const result = await service.getById('sub-001', scope);
+      expect(result.success).toBe(true);
+    });
   });
 
   // ── create ────────────────────────────────────────────────────────────────

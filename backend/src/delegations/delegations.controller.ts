@@ -21,8 +21,8 @@ export class DelegationsController {
 
   @Get(':id')
   @RequirePermissions({ action: 'read', subject: 'Case' })
-  getById(@Param('id') id: string) {
-    return this.delegationsService.getById(id);
+  getById(@Param('id') id: string, @Req() req: Request) {
+    return this.delegationsService.getById(id, (req as any).dataScope);
   }
 
   @Post()

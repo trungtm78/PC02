@@ -63,8 +63,8 @@ export class DocumentsController {
   // GET /api/documents/:id — Chi tiết tài liệu
   @Get(':id')
   @RequirePermissions({ action: 'read', subject: 'Document' })
-  getById(@Param('id') id: string) {
-    return this.documentsService.getById(id);
+  getById(@Param('id') id: string, @Req() req: Request) {
+    return this.documentsService.getById(id, (req as any).dataScope);
   }
 
   // POST /api/documents — Upload tài liệu mới
@@ -160,8 +160,10 @@ export class DocumentsController {
   @RequirePermissions({ action: 'read', subject: 'Document' })
   async download(
     @Param('id') id: string,
+    @Req() req: Request,
     @Res() res: Response,
   ) {
+    await this.documentsService.getById(id, (req as any).dataScope);
     const result = await this.documentsService.getDownloadInfo(id);
     const { filePath, originalName, mimeType } = result.data;
 

@@ -4,6 +4,8 @@ import { AuditService } from '../audit/audit.service';
 import { CreateGuidanceDto } from './dto/create-guidance.dto';
 import { QueryGuidanceDto } from './dto/query-guidance.dto';
 import { GuidanceStatus, Prisma } from '@prisma/client';
+import type { DataScope } from '../auth/services/unit-scope.service';
+import { assertCreatorInScope } from '../common/utils/scope-filter.util';
 
 @Injectable()
 export class GuidanceService {
@@ -42,12 +44,13 @@ export class GuidanceService {
     return { success: true, data, total, page: Math.floor(offset / limit) + 1, pageSize: limit };
   }
 
-  async getById(id: string) {
+  async getById(id: string, dataScope?: DataScope | null) {
     const record = await this.prisma.guidanceRecord.findFirst({
       where: { id, deletedAt: null },
       include: { createdBy: { select: { id: true, firstName: true, lastName: true } } },
     });
     if (!record) throw new NotFoundException(`Bản ghi hướng dẫn không tồn tại (id: ${id})`);
+    assertCreatorInScope(record.createdById, dataScope);
     return { success: true, data: record };
   }
 

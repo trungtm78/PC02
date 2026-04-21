@@ -21,8 +21,8 @@ export class ConclusionsController {
 
   @Get(':id')
   @RequirePermissions({ action: 'read', subject: 'Case' })
-  getById(@Param('id') id: string) {
-    return this.conclusionsService.getById(id);
+  getById(@Param('id') id: string, @Req() req: Request) {
+    return this.conclusionsService.getById(id, (req as any).dataScope);
   }
 
   @Post()

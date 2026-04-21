@@ -4,6 +4,8 @@ import { AuditService } from '../audit/audit.service';
 import { CreateProposalDto } from './dto/create-proposal.dto';
 import { QueryProposalsDto } from './dto/query-proposals.dto';
 import { ProposalStatus, Prisma } from '@prisma/client';
+import type { DataScope } from '../auth/services/unit-scope.service';
+import { assertParentInScope, assertCreatorInScope } from '../common/utils/scope-filter.util';
 
 @Injectable()
 export class ProposalsService {
@@ -45,15 +47,20 @@ export class ProposalsService {
     return { success: true, data, total, page: Math.floor(offset / limit) + 1, pageSize: limit };
   }
 
-  async getById(id: string) {
+  async getById(id: string, dataScope?: DataScope | null) {
     const record = await this.prisma.proposal.findFirst({
       where: { id, deletedAt: null },
       include: {
         createdBy: { select: { id: true, firstName: true, lastName: true, username: true } },
-        relatedCase: { select: { id: true, name: true } },
+        relatedCase: { select: { id: true, name: true, assignedTeamId: true, investigatorId: true } },
       },
     });
     if (!record) throw new NotFoundException(`Đề xuất không tồn tại (id: ${id})`);
+    if (record.relatedCase) {
+      assertParentInScope(record.relatedCase, dataScope);
+    } else {
+      assertCreatorInScope(record.createdById, dataScope);
+    }
     return { success: true, data: record };
   }
 
