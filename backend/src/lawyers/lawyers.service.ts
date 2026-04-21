@@ -10,6 +10,8 @@ import { CreateLawyerDto } from './dto/create-lawyer.dto';
 import { UpdateLawyerDto } from './dto/update-lawyer.dto';
 import { QueryLawyersDto } from './dto/query-lawyers.dto';
 import { Prisma } from '@prisma/client';
+import type { DataScope } from '../auth/services/unit-scope.service';
+import { assertParentInScope } from '../common/utils/scope-filter.util';
 
 @Injectable()
 export class LawyersService {
@@ -92,11 +94,11 @@ export class LawyersService {
   // ─────────────────────────────────────────────
   // GET DETAIL
   // ─────────────────────────────────────────────
-  async getById(id: string) {
+  async getById(id: string, dataScope?: DataScope | null) {
     const record = await this.prisma.lawyer.findFirst({
       where: { id, deletedAt: null },
       include: {
-        case: { select: { id: true, name: true, status: true } },
+        case: { select: { id: true, name: true, status: true, assignedTeamId: true, investigatorId: true } },
         subject: { select: { id: true, fullName: true, type: true } },
       },
     });
@@ -104,6 +106,8 @@ export class LawyersService {
     if (!record) {
       throw new NotFoundException(`Luật sư không tồn tại (id: ${id})`);
     }
+
+    assertParentInScope(record.case, dataScope);
 
     return { success: true, data: record };
   }

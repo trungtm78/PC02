@@ -10,6 +10,8 @@ import { CreateSubjectDto } from './dto/create-subject.dto';
 import { UpdateSubjectDto } from './dto/update-subject.dto';
 import { QuerySubjectsDto } from './dto/query-subjects.dto';
 import { Prisma, SubjectStatus, SubjectType } from '@prisma/client';
+import type { DataScope } from '../auth/services/unit-scope.service';
+import { assertParentInScope } from '../common/utils/scope-filter.util';
 
 @Injectable()
 export class SubjectsService {
@@ -120,12 +122,12 @@ export class SubjectsService {
   // ─────────────────────────────────────────────
   // GET DETAIL
   // ─────────────────────────────────────────────
-  async getById(id: string) {
+  async getById(id: string, dataScope?: DataScope | null) {
     const record = await this.prisma.subject.findFirst({
       where: { id, deletedAt: null },
       include: {
         case: {
-          select: { id: true, name: true, status: true },
+          select: { id: true, name: true, status: true, assignedTeamId: true, investigatorId: true },
         },
       },
     });
@@ -133,6 +135,8 @@ export class SubjectsService {
     if (!record) {
       throw new NotFoundException(`Đối tượng không tồn tại (id: ${id})`);
     }
+
+    assertParentInScope(record.case, dataScope);
 
     return { success: true, data: record };
   }

@@ -3,6 +3,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { CreateConclusionDto } from './dto/create-conclusion.dto';
 import { ConclusionStatus, Prisma } from '@prisma/client';
+import type { DataScope } from '../auth/services/unit-scope.service';
+import { assertParentInScope } from '../common/utils/scope-filter.util';
 import { IsOptional, IsString, IsInt, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -44,15 +46,17 @@ export class ConclusionsService {
     return { success: true, data, total };
   }
 
-  async getById(id: string) {
+  async getById(id: string, dataScope?: DataScope | null) {
     const record = await this.prisma.conclusion.findFirst({
       where: { id, deletedAt: null },
       include: {
         author: { select: { id: true, firstName: true, lastName: true } },
         approvedBy: { select: { id: true, firstName: true, lastName: true } },
+        case: { select: { assignedTeamId: true, investigatorId: true } },
       },
     });
     if (!record) throw new NotFoundException(`Kết luận không tồn tại (id: ${id})`);
+    assertParentInScope(record.case, dataScope);
     return { success: true, data: record };
   }
 

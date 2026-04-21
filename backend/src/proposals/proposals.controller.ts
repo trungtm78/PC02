@@ -22,8 +22,8 @@ export class ProposalsController {
 
   @Get(':id')
   @RequirePermissions({ action: 'read', subject: 'Case' })
-  getById(@Param('id') id: string) {
-    return this.proposalsService.getById(id);
+  getById(@Param('id') id: string, @Req() req: Request) {
+    return this.proposalsService.getById(id, (req as any).dataScope);
   }
 
   @Post()

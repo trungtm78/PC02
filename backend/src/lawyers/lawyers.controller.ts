@@ -37,8 +37,8 @@ export class LawyersController {
   // GET /api/lawyers/:id — Chi tiết luật sư
   @Get(':id')
   @RequirePermissions({ action: 'read', subject: 'Lawyer' })
-  getById(@Param('id') id: string) {
-    return this.lawyersService.getById(id);
+  getById(@Param('id') id: string, @Req() req: Request) {
+    return this.lawyersService.getById(id, (req as any).dataScope);
   }
 
   // POST /api/lawyers — Tạo luật sư mới

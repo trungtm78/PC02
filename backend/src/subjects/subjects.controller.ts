@@ -37,8 +37,8 @@ export class SubjectsController {
   // GET /api/subjects/:id — Chi tiết đối tượng
   @Get(':id')
   @RequirePermissions({ action: 'read', subject: 'Subject' })
-  getById(@Param('id') id: string) {
-    return this.subjectsService.getById(id);
+  getById(@Param('id') id: string, @Req() req: Request) {
+    return this.subjectsService.getById(id, (req as any).dataScope);
   }
 
   // POST /api/subjects — Tạo đối tượng mới

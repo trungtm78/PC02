@@ -1,3 +1,4 @@
+import { ForbiddenException } from '@nestjs/common';
 import type { DataScope } from '../../auth/services/unit-scope.service';
 
 /**
@@ -58,4 +59,39 @@ export function buildPetitionScopeFilter(
   }
 
   return { OR: conditions };
+}
+
+/**
+ * Throws 403 if the child record's parent (Case or Incident) is out of scope.
+ * Pass the parent object (from an include) containing assignedTeamId + investigatorId.
+ * If parent is null/undefined (orphan record), check passes silently.
+ */
+export function assertParentInScope(
+  parent: { assignedTeamId?: string | null; investigatorId?: string | null } | null | undefined,
+  scope: DataScope | null | undefined,
+): void {
+  if (!scope) return;
+  if (!parent) return;
+  const { userIds, teamIds } = scope;
+  const ownerMatch = parent.investigatorId ? userIds.includes(parent.investigatorId) : false;
+  const teamMatch = parent.assignedTeamId ? teamIds.includes(parent.assignedTeamId) : false;
+  const unassigned = !parent.assignedTeamId && teamIds.length > 0;
+  if (!ownerMatch && !teamMatch && !unassigned) {
+    throw new ForbiddenException('Bạn không có quyền truy cập bản ghi này');
+  }
+}
+
+/**
+ * Throws 403 if the record's createdById is not in the user's allowed userIds.
+ * Used for resources that have no caseId/teamId scope field.
+ */
+export function assertCreatorInScope(
+  createdById: string | null | undefined,
+  scope: DataScope | null | undefined,
+): void {
+  if (!scope) return;
+  const { userIds } = scope;
+  if (createdById && userIds.length > 0 && !userIds.includes(createdById)) {
+    throw new ForbiddenException('Bạn không có quyền truy cập bản ghi này');
+  }
 }

@@ -3,6 +3,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { CreateDelegationDto } from './dto/create-delegation.dto';
 import { DelegationStatus, Prisma } from '@prisma/client';
+import type { DataScope } from '../auth/services/unit-scope.service';
+import { assertParentInScope, assertCreatorInScope } from '../common/utils/scope-filter.util';
 import { IsOptional, IsString, IsInt, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -54,15 +56,20 @@ export class DelegationsService {
     return { success: true, data, total, page: Math.floor(offset / limit) + 1, pageSize: limit };
   }
 
-  async getById(id: string) {
+  async getById(id: string, dataScope?: DataScope | null) {
     const record = await this.prisma.delegation.findFirst({
       where: { id, deletedAt: null },
       include: {
         createdBy: { select: { id: true, firstName: true, lastName: true } },
-        relatedCase: { select: { id: true, name: true } },
+        relatedCase: { select: { id: true, name: true, assignedTeamId: true, investigatorId: true } },
       },
     });
     if (!record) throw new NotFoundException(`Ủy thác không tồn tại (id: ${id})`);
+    if (record.relatedCase) {
+      assertParentInScope(record.relatedCase, dataScope);
+    } else {
+      assertCreatorInScope(record.createdById, dataScope);
+    }
     return { success: true, data: record };
   }
 

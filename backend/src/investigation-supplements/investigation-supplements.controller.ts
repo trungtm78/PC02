@@ -21,8 +21,8 @@ export class InvestigationSupplementsController {
 
   @Get(':id')
   @RequirePermissions({ action: 'read', subject: 'Case' })
-  getById(@Param('id') id: string) {
-    return this.service.getById(id);
+  getById(@Param('id') id: string, @Req() req: Request) {
+    return this.service.getById(id, (req as any).dataScope);
   }
 
   @Post()

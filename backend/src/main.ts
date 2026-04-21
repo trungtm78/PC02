@@ -21,11 +21,11 @@ async function bootstrap() {
   // Global exception filter — standardized error responses
   app.useGlobalFilters(new GlobalExceptionFilter());
 
-  // CORS for frontend dev
-  app.enableCors({
-    origin: ['http://localhost:5173', 'http://localhost:5179'],
-    credentials: true,
-  });
+  // CORS: env CORS_ORIGIN overrides localhost defaults (required for production)
+  const corsOrigins = process.env.CORS_ORIGIN
+    ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim())
+    : ['http://localhost:5173', 'http://localhost:5179'];
+  app.enableCors({ origin: corsOrigins, credentials: true });
 
   const port = process.env.PORT ?? 3000;
   await app.listen(port);

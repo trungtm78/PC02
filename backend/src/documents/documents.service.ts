@@ -12,6 +12,8 @@ import { QueryDocumentsDto } from './dto/query-documents.dto';
 import { Prisma } from '@prisma/client';
 import * as fs from 'fs';
 import * as path from 'path';
+import type { DataScope } from '../auth/services/unit-scope.service';
+import { assertParentInScope } from '../common/utils/scope-filter.util';
 
 @Injectable()
 export class DocumentsService {
@@ -115,12 +117,12 @@ export class DocumentsService {
   // ─────────────────────────────────────────────
   // GET DETAIL
   // ─────────────────────────────────────────────
-  async getById(id: string) {
+  async getById(id: string, dataScope?: DataScope | null) {
     const record = await this.prisma.document.findFirst({
       where: { id, deletedAt: null },
       include: {
-        case: { select: { id: true, name: true, status: true } },
-        incident: { select: { id: true, name: true, status: true } },
+        case: { select: { id: true, name: true, status: true, assignedTeamId: true, investigatorId: true } },
+        incident: { select: { id: true, name: true, status: true, assignedTeamId: true, investigatorId: true } },
         uploadedBy: { select: { id: true, firstName: true, lastName: true, username: true } },
       },
     });
@@ -128,6 +130,8 @@ export class DocumentsService {
     if (!record) {
       throw new NotFoundException(`Tài liệu không tồn tại (id: ${id})`);
     }
+
+    assertParentInScope(record.case ?? record.incident, dataScope);
 
     return { success: true, data: record };
   }

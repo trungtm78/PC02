@@ -3,6 +3,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { CreateExchangeDto, CreateExchangeMessageDto } from './dto/create-exchange.dto';
 import { ExchangeStatus, Prisma } from '@prisma/client';
+import type { DataScope } from '../auth/services/unit-scope.service';
+import { assertCreatorInScope } from '../common/utils/scope-filter.util';
 import { IsOptional, IsString, IsInt, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -63,7 +65,7 @@ export class ExchangesService {
     return { success: true, data: enriched, total, page: Math.floor(offset / limit) + 1, pageSize: limit };
   }
 
-  async getById(id: string) {
+  async getById(id: string, dataScope?: DataScope | null) {
     const record = await this.prisma.exchange.findFirst({
       where: { id, deletedAt: null },
       include: {
@@ -75,6 +77,7 @@ export class ExchangesService {
       },
     });
     if (!record) throw new NotFoundException(`Trao đổi không tồn tại (id: ${id})`);
+    assertCreatorInScope(record.createdById, dataScope);
     return { success: true, data: record };
   }
 
