@@ -232,6 +232,25 @@ describe('LawyersService', () => {
         NotFoundException,
       );
     });
+
+    it('throws ForbiddenException when linked case is out of scope', async () => {
+      mockPrisma.lawyer.findFirst.mockResolvedValue({
+        ...FAKE_LAWYER,
+        case: { assignedTeamId: 'team-X', investigatorId: 'user-X' },
+      });
+      const scope = { userIds: ['u1'], teamIds: ['t1'] };
+      await expect(service.getById('law-001', scope)).rejects.toThrow('Bạn không có quyền truy cập bản ghi này');
+    });
+
+    it('passes scope check when investigatorId matches', async () => {
+      mockPrisma.lawyer.findFirst.mockResolvedValue({
+        ...FAKE_LAWYER,
+        case: { assignedTeamId: null, investigatorId: 'u1' },
+      });
+      const scope = { userIds: ['u1'], teamIds: [] };
+      const result = await service.getById('law-001', scope);
+      expect(result.success).toBe(true);
+    });
   });
 
   // ── create ──────────────────────────────────────────────────────────────────

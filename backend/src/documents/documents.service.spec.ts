@@ -182,6 +182,27 @@ describe('DocumentsService', () => {
 
       await expect(service.getById('non-existent')).rejects.toThrow(NotFoundException);
     });
+
+    it('should throw ForbiddenException when case is out of scope', async () => {
+      mockPrismaService.document.findFirst.mockResolvedValue({
+        id: 'doc-1',
+        case: { assignedTeamId: 'team-X', investigatorId: 'user-X' },
+        incident: null,
+      });
+      const scope = { userIds: ['u1'], teamIds: ['t1'] };
+      await expect(service.getById('doc-1', scope)).rejects.toThrow('Bạn không có quyền truy cập bản ghi này');
+    });
+
+    it('should pass when incident is in scope (no case)', async () => {
+      mockPrismaService.document.findFirst.mockResolvedValue({
+        id: 'doc-1',
+        case: null,
+        incident: { assignedTeamId: 't1', investigatorId: null },
+      });
+      const scope = { userIds: [], teamIds: ['t1'] };
+      const result = await service.getById('doc-1', scope);
+      expect(result.success).toBe(true);
+    });
   });
 
   describe('create', () => {
