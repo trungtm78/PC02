@@ -51,4 +51,15 @@ describe('GuidanceService — scope enforcement', () => {
     const result = await service.getById('g-001', null);
     expect(result.success).toBe(true);
   });
+
+  it('throws ForbiddenException for deny-all scope {userIds:[], teamIds:[]}', async () => {
+    mockPrisma.guidanceRecord.findFirst.mockResolvedValue({ ...FAKE_GUIDANCE, createdById: 'user-X' });
+    await expect(service.getById('g-001', { userIds: [], teamIds: [] })).rejects.toThrow(ForbiddenException);
+  });
+
+  it('passes for team-leader scope {userIds:[], teamIds:[...]} (creator-anchored resource)', async () => {
+    mockPrisma.guidanceRecord.findFirst.mockResolvedValue({ ...FAKE_GUIDANCE, createdById: 'any-user' });
+    const result = await service.getById('g-001', { userIds: [], teamIds: ['t1'] });
+    expect(result.success).toBe(true);
+  });
 });

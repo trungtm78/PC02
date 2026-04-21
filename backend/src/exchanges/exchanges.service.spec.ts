@@ -51,4 +51,15 @@ describe('ExchangesService — scope enforcement', () => {
     const result = await service.getById('ex-001', null);
     expect(result.success).toBe(true);
   });
+
+  it('throws ForbiddenException for deny-all scope {userIds:[], teamIds:[]}', async () => {
+    mockPrisma.exchange.findFirst.mockResolvedValue({ ...FAKE_EXCHANGE, createdById: 'user-X' });
+    await expect(service.getById('ex-001', { userIds: [], teamIds: [] })).rejects.toThrow(ForbiddenException);
+  });
+
+  it('passes for team-leader scope {userIds:[], teamIds:[...]} (creator-anchored resource)', async () => {
+    mockPrisma.exchange.findFirst.mockResolvedValue({ ...FAKE_EXCHANGE, createdById: 'any-user' });
+    const result = await service.getById('ex-001', { userIds: [], teamIds: ['t1'] });
+    expect(result.success).toBe(true);
+  });
 });
