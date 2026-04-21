@@ -17,7 +17,8 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import type { Request, Response } from 'express';
+import type { Response } from 'express';
+import type { ScopedRequest } from '../auth/interfaces/scoped-request.interface';
 import { diskStorage } from 'multer';
 import { DocumentsService } from './documents.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -56,15 +57,15 @@ export class DocumentsController {
   // GET /api/documents — Danh sách tài liệu (paginated + filtered)
   @Get()
   @RequirePermissions({ action: 'read', subject: 'Document' })
-  getList(@Query() query: QueryDocumentsDto) {
-    return this.documentsService.getList(query);
+  getList(@Query() query: QueryDocumentsDto, @Req() req: ScopedRequest) {
+    return this.documentsService.getList(query, req.dataScope);
   }
 
   // GET /api/documents/:id — Chi tiết tài liệu
   @Get(':id')
   @RequirePermissions({ action: 'read', subject: 'Document' })
-  getById(@Param('id') id: string, @Req() req: Request) {
-    return this.documentsService.getById(id, (req as any).dataScope);
+  getById(@Param('id') id: string, @Req() req: ScopedRequest) {
+    return this.documentsService.getById(id, req.dataScope);
   }
 
   // POST /api/documents — Upload tài liệu mới
@@ -103,7 +104,7 @@ export class DocumentsController {
     @UploadedFile() file: Express.Multer.File,
     @Body() dto: CreateDocumentDto,
     @CurrentUser() user: AuthUser,
-    @Req() req: Request,
+    @Req() req: ScopedRequest,
   ) {
     if (!file) {
       throw new BadRequestException('File upload là bắt buộc');
@@ -132,12 +133,12 @@ export class DocumentsController {
     @Param('id') id: string,
     @Body() dto: UpdateDocumentDto,
     @CurrentUser() user: AuthUser,
-    @Req() req: Request,
+    @Req() req: ScopedRequest,
   ) {
     return this.documentsService.update(id, dto, user.id, {
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
-    });
+    }, req.dataScope);
   }
 
   // DELETE /api/documents/:id — Xóa tài liệu (soft delete)
@@ -147,12 +148,12 @@ export class DocumentsController {
   delete(
     @Param('id') id: string,
     @CurrentUser() user: AuthUser,
-    @Req() req: Request,
+    @Req() req: ScopedRequest,
   ) {
     return this.documentsService.delete(id, user.id, {
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
-    });
+    }, req.dataScope);
   }
 
   // GET /api/documents/:id/download — Tải xuống tài liệu
@@ -160,10 +161,10 @@ export class DocumentsController {
   @RequirePermissions({ action: 'read', subject: 'Document' })
   async download(
     @Param('id') id: string,
-    @Req() req: Request,
+    @Req() req: ScopedRequest,
     @Res() res: Response,
   ) {
-    await this.documentsService.getById(id, (req as any).dataScope);
+    await this.documentsService.getById(id, req.dataScope);
     const result = await this.documentsService.getDownloadInfo(id);
     const { filePath, originalName, mimeType } = result.data;
 

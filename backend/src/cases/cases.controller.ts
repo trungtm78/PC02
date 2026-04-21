@@ -12,7 +12,7 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import type { Request } from 'express';
+import type { ScopedRequest } from '../auth/interfaces/scoped-request.interface';
 import { CasesService } from './cases.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
@@ -30,8 +30,8 @@ export class CasesController {
   // GET /api/v1/cases — Danh sách vụ án (paginated + filtered)
   @Get()
   @RequirePermissions({ action: 'read', subject: 'Case' })
-  getList(@Query() query: QueryCasesDto, @Req() req: Request) {
-    return this.casesService.getList(query, (req as any).dataScope);
+  getList(@Query() query: QueryCasesDto, @Req() req: ScopedRequest) {
+    return this.casesService.getList(query, req.dataScope);
   }
 
   // GET /api/v1/cases/:id/status-history — Lịch sử thay đổi trạng thái
@@ -44,8 +44,8 @@ export class CasesController {
   // GET /api/v1/cases/:id — Chi tiết vụ án
   @Get(':id')
   @RequirePermissions({ action: 'read', subject: 'Case' })
-  getById(@Param('id') id: string, @Req() req: Request) {
-    return this.casesService.getById(id, (req as any).dataScope);
+  getById(@Param('id') id: string, @Req() req: ScopedRequest) {
+    return this.casesService.getById(id, req.dataScope);
   }
 
   // POST /api/v1/cases — Tạo vụ án mới
@@ -54,7 +54,7 @@ export class CasesController {
   create(
     @Body() dto: CreateCaseDto,
     @CurrentUser() user: AuthUser,
-    @Req() req: Request,
+    @Req() req: ScopedRequest,
   ) {
     return this.casesService.create(dto, user.id, {
       ipAddress: req.ip,
@@ -69,12 +69,12 @@ export class CasesController {
     @Param('id') id: string,
     @Body() dto: UpdateCaseDto,
     @CurrentUser() user: AuthUser,
-    @Req() req: Request,
+    @Req() req: ScopedRequest,
   ) {
     return this.casesService.update(id, dto, user.id, {
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
-    }, (req as any).dataScope);
+    }, req.dataScope);
   }
 
   // DELETE /api/v1/cases/:id — Xóa vụ án (soft delete)
@@ -84,11 +84,11 @@ export class CasesController {
   delete(
     @Param('id') id: string,
     @CurrentUser() user: AuthUser,
-    @Req() req: Request,
+    @Req() req: ScopedRequest,
   ) {
     return this.casesService.delete(id, user.id, {
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
-    }, (req as any).dataScope);
+    }, req.dataScope);
   }
 }

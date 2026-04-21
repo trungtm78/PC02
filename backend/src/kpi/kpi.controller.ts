@@ -1,11 +1,10 @@
 import { Controller, Get, Query, Req, UseGuards } from '@nestjs/common';
-import type { Request } from 'express';
 import { KpiService } from './kpi.service';
 import { QueryKpiDto } from './dto/query-kpi.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/permissions.decorator';
-import type { DataScope } from '../auth/services/unit-scope.service';
+import type { ScopedRequest } from '../auth/interfaces/scoped-request.interface';
 
 @Controller('kpi')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -30,8 +29,8 @@ export class KpiController {
   // Admin/lãnh đạo xem tất cả; cán bộ thường chỉ xem tổ trong phạm vi dataScope
   @Get('by-team')
   @RequirePermissions({ action: 'read', subject: 'Incident' })
-  getByTeam(@Query() query: QueryKpiDto, @Req() req: Request) {
-    const dataScope: DataScope | null = (req as any).dataScope ?? null;
+  getByTeam(@Query() query: QueryKpiDto, @Req() req: ScopedRequest) {
+    const dataScope = req.dataScope ?? null;
     const allowedTeamIds = dataScope ? dataScope.teamIds : null;
     return this.kpiService.getKpiByTeam(query, allowedTeamIds);
   }

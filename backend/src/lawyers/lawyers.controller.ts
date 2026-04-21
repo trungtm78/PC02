@@ -12,7 +12,7 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import type { Request } from 'express';
+import type { ScopedRequest } from '../auth/interfaces/scoped-request.interface';
 import { LawyersService } from './lawyers.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
@@ -30,15 +30,15 @@ export class LawyersController {
   // GET /api/lawyers — Danh sách luật sư (paginated + filtered)
   @Get()
   @RequirePermissions({ action: 'read', subject: 'Lawyer' })
-  getList(@Query() query: QueryLawyersDto) {
-    return this.lawyersService.getList(query);
+  getList(@Query() query: QueryLawyersDto, @Req() req: ScopedRequest) {
+    return this.lawyersService.getList(query, req.dataScope);
   }
 
   // GET /api/lawyers/:id — Chi tiết luật sư
   @Get(':id')
   @RequirePermissions({ action: 'read', subject: 'Lawyer' })
-  getById(@Param('id') id: string, @Req() req: Request) {
-    return this.lawyersService.getById(id, (req as any).dataScope);
+  getById(@Param('id') id: string, @Req() req: ScopedRequest) {
+    return this.lawyersService.getById(id, req.dataScope);
   }
 
   // POST /api/lawyers — Tạo luật sư mới
@@ -47,7 +47,7 @@ export class LawyersController {
   create(
     @Body() dto: CreateLawyerDto,
     @CurrentUser() user: AuthUser,
-    @Req() req: Request,
+    @Req() req: ScopedRequest,
   ) {
     return this.lawyersService.create(dto, user.id, {
       ipAddress: req.ip,
@@ -62,12 +62,12 @@ export class LawyersController {
     @Param('id') id: string,
     @Body() dto: UpdateLawyerDto,
     @CurrentUser() user: AuthUser,
-    @Req() req: Request,
+    @Req() req: ScopedRequest,
   ) {
     return this.lawyersService.update(id, dto, user.id, {
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
-    });
+    }, req.dataScope);
   }
 
   // DELETE /api/lawyers/:id — Xóa luật sư (soft delete)
@@ -77,11 +77,11 @@ export class LawyersController {
   delete(
     @Param('id') id: string,
     @CurrentUser() user: AuthUser,
-    @Req() req: Request,
+    @Req() req: ScopedRequest,
   ) {
     return this.lawyersService.delete(id, user.id, {
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
-    });
+    }, req.dataScope);
   }
 }

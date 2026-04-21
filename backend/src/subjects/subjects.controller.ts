@@ -12,7 +12,7 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import type { Request } from 'express';
+import type { ScopedRequest } from '../auth/interfaces/scoped-request.interface';
 import { SubjectsService } from './subjects.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
@@ -30,15 +30,15 @@ export class SubjectsController {
   // GET /api/subjects — Danh sách đối tượng (paginated + filtered)
   @Get()
   @RequirePermissions({ action: 'read', subject: 'Subject' })
-  getList(@Query() query: QuerySubjectsDto) {
-    return this.subjectsService.getList(query);
+  getList(@Query() query: QuerySubjectsDto, @Req() req: ScopedRequest) {
+    return this.subjectsService.getList(query, req.dataScope);
   }
 
   // GET /api/subjects/:id — Chi tiết đối tượng
   @Get(':id')
   @RequirePermissions({ action: 'read', subject: 'Subject' })
-  getById(@Param('id') id: string, @Req() req: Request) {
-    return this.subjectsService.getById(id, (req as any).dataScope);
+  getById(@Param('id') id: string, @Req() req: ScopedRequest) {
+    return this.subjectsService.getById(id, req.dataScope);
   }
 
   // POST /api/subjects — Tạo đối tượng mới
@@ -47,7 +47,7 @@ export class SubjectsController {
   create(
     @Body() dto: CreateSubjectDto,
     @CurrentUser() user: AuthUser,
-    @Req() req: Request,
+    @Req() req: ScopedRequest,
   ) {
     return this.subjectsService.create(dto, user.id, {
       ipAddress: req.ip,
@@ -62,12 +62,12 @@ export class SubjectsController {
     @Param('id') id: string,
     @Body() dto: UpdateSubjectDto,
     @CurrentUser() user: AuthUser,
-    @Req() req: Request,
+    @Req() req: ScopedRequest,
   ) {
     return this.subjectsService.update(id, dto, user.id, {
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
-    });
+    }, req.dataScope);
   }
 
   // DELETE /api/subjects/:id — Xóa đối tượng (soft delete)
@@ -77,11 +77,11 @@ export class SubjectsController {
   delete(
     @Param('id') id: string,
     @CurrentUser() user: AuthUser,
-    @Req() req: Request,
+    @Req() req: ScopedRequest,
   ) {
     return this.subjectsService.delete(id, user.id, {
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
-    });
+    }, req.dataScope);
   }
 }

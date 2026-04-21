@@ -13,7 +13,7 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import type { Request } from 'express';
+import type { ScopedRequest } from '../auth/interfaces/scoped-request.interface';
 import { IncidentsService } from './incidents.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
@@ -38,15 +38,15 @@ export class IncidentsController {
   // GET /api/v1/incidents — Danh sách vụ việc
   @Get()
   @RequirePermissions({ action: 'read', subject: 'Incident' })
-  getList(@Query() query: QueryIncidentsDto, @Req() req: Request) {
-    return this.incidentsService.getList(query, (req as any).dataScope);
+  getList(@Query() query: QueryIncidentsDto, @Req() req: ScopedRequest) {
+    return this.incidentsService.getList(query, req.dataScope);
   }
 
   // GET /api/v1/incidents/stats — Count theo status
   @Get('stats')
   @RequirePermissions({ action: 'read', subject: 'Incident' })
-  getStats(@Req() req: Request) {
-    return this.incidentsService.getStats((req as any).dataScope);
+  getStats(@Req() req: ScopedRequest) {
+    return this.incidentsService.getStats(req.dataScope);
   }
 
   // GET /api/v1/incidents/investigators — Danh sách điều tra viên
@@ -59,8 +59,8 @@ export class IncidentsController {
   // GET /api/v1/incidents/:id — Chi tiết vụ việc
   @Get(':id')
   @RequirePermissions({ action: 'read', subject: 'Incident' })
-  getById(@Param('id') id: string, @Req() req: Request) {
-    return this.incidentsService.getById(id, (req as any).dataScope);
+  getById(@Param('id') id: string, @Req() req: ScopedRequest) {
+    return this.incidentsService.getById(id, req.dataScope);
   }
 
   // POST /api/v1/incidents — Tạo vụ việc mới
@@ -69,7 +69,7 @@ export class IncidentsController {
   create(
     @Body() dto: CreateIncidentDto,
     @CurrentUser() user: AuthUser,
-    @Req() req: Request,
+    @Req() req: ScopedRequest,
   ) {
     return this.incidentsService.create(dto, user.id, {
       ipAddress: req.ip,
@@ -84,7 +84,7 @@ export class IncidentsController {
     @Param('id') id: string,
     @Body() dto: UpdateIncidentDto,
     @CurrentUser() user: AuthUser,
-    @Req() req: Request,
+    @Req() req: ScopedRequest,
   ) {
     return this.incidentsService.update(id, dto, user.id, {
       ipAddress: req.ip,
@@ -100,10 +100,10 @@ export class IncidentsController {
     @Param('id') id: string,
     @Body() dto: DeleteIncidentDto,
     @CurrentUser() user: AuthUser,
-    @Req() req: Request,
+    @Req() req: ScopedRequest,
   ) {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any
-    const dataScope = (req as any).dataScope ?? null;
+    const dataScope = req.dataScope ?? null;
     return this.incidentsService.delete(
       id,
       dto.reason,
@@ -121,7 +121,7 @@ export class IncidentsController {
     @Param('id') id: string,
     @Body() dto: UpdateStatusDto,
     @CurrentUser() user: AuthUser,
-    @Req() req: Request,
+    @Req() req: ScopedRequest,
   ) {
     return this.incidentsService.updateStatus(id, dto, user.id, {
       ipAddress: req.ip,
@@ -136,7 +136,7 @@ export class IncidentsController {
     @Param('id') id: string,
     @Body() dto: MergeIncidentDto,
     @CurrentUser() user: AuthUser,
-    @Req() req: Request,
+    @Req() req: ScopedRequest,
   ) {
     return this.incidentsService.mergeInto(id, dto, user.id, {
       ipAddress: req.ip,
@@ -151,7 +151,7 @@ export class IncidentsController {
     @Param('id') id: string,
     @Body() dto: TransferIncidentDto,
     @CurrentUser() user: AuthUser,
-    @Req() req: Request,
+    @Req() req: ScopedRequest,
   ) {
     return this.incidentsService.transferUnit(id, dto, user.id, {
       ipAddress: req.ip,
@@ -166,7 +166,7 @@ export class IncidentsController {
     @Param('id') id: string,
     @Body() dto: AssignInvestigatorDto,
     @CurrentUser() user: AuthUser,
-    @Req() req: Request,
+    @Req() req: ScopedRequest,
   ) {
     return this.incidentsService.assignInvestigator(id, dto, user.id, {
       ipAddress: req.ip,
@@ -181,7 +181,7 @@ export class IncidentsController {
     @Param('id') id: string,
     @Body() dto: ProsecuteIncidentDto,
     @CurrentUser() user: AuthUser,
-    @Req() req: Request,
+    @Req() req: ScopedRequest,
   ) {
     return this.incidentsService.prosecute(id, dto, user.id, {
       ipAddress: req.ip,

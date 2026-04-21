@@ -1,5 +1,5 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, Query, Req, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
-import type { Request } from 'express';
+import type { ScopedRequest } from '../auth/interfaces/scoped-request.interface';
 import { ExchangesService, QueryExchangesDto } from './exchanges.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
@@ -15,25 +15,25 @@ export class ExchangesController {
 
   @Get()
   @RequirePermissions({ action: 'read', subject: 'Case' })
-  getList(@Query() query: QueryExchangesDto) {
-    return this.exchangesService.getList(query);
+  getList(@Query() query: QueryExchangesDto, @Req() req: ScopedRequest) {
+    return this.exchangesService.getList(query, req.dataScope);
   }
 
   @Get(':id')
   @RequirePermissions({ action: 'read', subject: 'Case' })
-  getById(@Param('id') id: string, @Req() req: Request) {
-    return this.exchangesService.getById(id, (req as any).dataScope);
+  getById(@Param('id') id: string, @Req() req: ScopedRequest) {
+    return this.exchangesService.getById(id, req.dataScope);
   }
 
   @Get(':id/messages')
   @RequirePermissions({ action: 'read', subject: 'Case' })
-  getMessages(@Param('id') id: string) {
-    return this.exchangesService.getMessages(id);
+  getMessages(@Param('id') id: string, @Req() req: ScopedRequest) {
+    return this.exchangesService.getMessages(id, req.dataScope);
   }
 
   @Post()
   @RequirePermissions({ action: 'write', subject: 'Case' })
-  create(@Body() dto: CreateExchangeDto, @CurrentUser() user: AuthUser, @Req() req: Request) {
+  create(@Body() dto: CreateExchangeDto, @CurrentUser() user: AuthUser, @Req() req: ScopedRequest) {
     return this.exchangesService.create(dto, user.id, { ipAddress: req.ip, userAgent: req.headers['user-agent'] });
   }
 
@@ -45,14 +45,14 @@ export class ExchangesController {
 
   @Put(':id')
   @RequirePermissions({ action: 'edit', subject: 'Case' })
-  update(@Param('id') id: string, @Body() dto: Partial<CreateExchangeDto>, @CurrentUser() user: AuthUser, @Req() req: Request) {
-    return this.exchangesService.update(id, dto, user.id, { ipAddress: req.ip, userAgent: req.headers['user-agent'] });
+  update(@Param('id') id: string, @Body() dto: Partial<CreateExchangeDto>, @CurrentUser() user: AuthUser, @Req() req: ScopedRequest) {
+    return this.exchangesService.update(id, dto, user.id, { ipAddress: req.ip, userAgent: req.headers['user-agent'] }, req.dataScope);
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
   @RequirePermissions({ action: 'delete', subject: 'Case' })
-  delete(@Param('id') id: string, @CurrentUser() user: AuthUser, @Req() req: Request) {
-    return this.exchangesService.delete(id, user.id, { ipAddress: req.ip, userAgent: req.headers['user-agent'] });
+  delete(@Param('id') id: string, @CurrentUser() user: AuthUser, @Req() req: ScopedRequest) {
+    return this.exchangesService.delete(id, user.id, { ipAddress: req.ip, userAgent: req.headers['user-agent'] }, req.dataScope);
   }
 }
