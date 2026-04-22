@@ -4,7 +4,7 @@ import { AuditService } from '../audit/audit.service';
 import { CreateInvestigationSupplementDto } from './dto/create-investigation-supplement.dto';
 import { Prisma } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
-import { assertParentInScope } from '../common/utils/scope-filter.util';
+import { assertParentInScope, buildScopeFilter } from '../common/utils/scope-filter.util';
 import { IsOptional, IsString, IsInt, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -22,12 +22,17 @@ export class InvestigationSupplementsService {
     private readonly audit: AuditService,
   ) {}
 
-  async getList(query: QueryInvestigationSupplementsDto) {
+  async getList(query: QueryInvestigationSupplementsDto, dataScope?: DataScope | null) {
     const { caseId, type, limit = 50, offset = 0 } = query;
     const where: Prisma.InvestigationSupplementWhereInput = {};
 
     if (caseId) where.caseId = caseId;
     if (type) where.type = type;
+
+    const caseScope = buildScopeFilter(dataScope);
+    if (caseScope) {
+      (where as any).case = caseScope;
+    }
 
     const [data, total] = await Promise.all([
       this.prisma.investigationSupplement.findMany({
@@ -47,7 +52,7 @@ export class InvestigationSupplementsService {
 
   async getById(id: string, dataScope?: DataScope | null) {
     const record = await this.prisma.investigationSupplement.findFirst({
-      where: { id },
+      where: { id, deletedAt: null },
       include: {
         createdBy: { select: { id: true, firstName: true, lastName: true, username: true } },
         case: { select: { id: true, name: true, status: true, assignedTeamId: true, investigatorId: true } },
@@ -87,9 +92,8 @@ export class InvestigationSupplementsService {
     return { success: true, data: record, message: 'Tạo quyết định điều tra bổ sung thành công' };
   }
 
-  async delete(id: string, actorId: string, meta?: { ipAddress?: string; userAgent?: string }) {
-    const existing = await this.prisma.investigationSupplement.findFirst({ where: { id } });
-    if (!existing) throw new NotFoundException(`Quyết định điều tra bổ sung không tồn tại (id: ${id})`);
+  async delete(id: string, actorId: string, meta?: { ipAddress?: string; userAgent?: string }, dataScope?: DataScope | null) {
+    await this.getById(id, dataScope);
 
     await this.prisma.investigationSupplement.delete({ where: { id } });
 

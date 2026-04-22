@@ -22,7 +22,7 @@ export class ExchangesService {
     private readonly audit: AuditService,
   ) {}
 
-  async getList(query: QueryExchangesDto) {
+  async getList(query: QueryExchangesDto, dataScope?: DataScope | null) {
     const { search, status, limit = 20, offset = 0 } = query;
     const where: Prisma.ExchangeWhereInput = { deletedAt: null };
 
@@ -35,6 +35,17 @@ export class ExchangesService {
       ];
     }
     if (status) where.status = status as ExchangeStatus;
+
+    if (dataScope) {
+      const { userIds, teamIds } = dataScope;
+      const isDenyAll = userIds.length === 0 && teamIds.length === 0;
+      if (isDenyAll) {
+        (where as any).id = '__no_access__';
+      } else if (userIds.length > 0) {
+        (where as any).createdById = { in: userIds };
+      }
+      // userIds=[] + teamIds non-empty: team leader, no user restriction — show all
+    }
 
     const [data, total] = await Promise.all([
       this.prisma.exchange.findMany({
@@ -81,9 +92,8 @@ export class ExchangesService {
     return { success: true, data: record };
   }
 
-  async getMessages(exchangeId: string) {
-    const exchange = await this.prisma.exchange.findFirst({ where: { id: exchangeId, deletedAt: null } });
-    if (!exchange) throw new NotFoundException(`Trao đổi không tồn tại (id: ${exchangeId})`);
+  async getMessages(exchangeId: string, dataScope?: DataScope | null) {
+    await this.getById(exchangeId, dataScope);
 
     const messages = await this.prisma.exchangeMessage.findMany({
       where: { exchangeId },
@@ -141,9 +151,8 @@ export class ExchangesService {
     return { success: true, data: message, message: 'Gửi tin nhắn thành công' };
   }
 
-  async update(id: string, dto: Partial<CreateExchangeDto>, actorId: string, meta?: { ipAddress?: string; userAgent?: string }) {
-    const existing = await this.prisma.exchange.findFirst({ where: { id, deletedAt: null } });
-    if (!existing) throw new NotFoundException(`Trao đổi không tồn tại (id: ${id})`);
+  async update(id: string, dto: Partial<CreateExchangeDto>, actorId: string, meta?: { ipAddress?: string; userAgent?: string }, dataScope?: DataScope | null) {
+    await this.getById(id, dataScope);
 
     const record = await this.prisma.exchange.update({
       where: { id },
@@ -157,9 +166,8 @@ export class ExchangesService {
     return { success: true, data: record, message: 'Cập nhật trao đổi thành công' };
   }
 
-  async delete(id: string, actorId: string, meta?: { ipAddress?: string; userAgent?: string }) {
-    const existing = await this.prisma.exchange.findFirst({ where: { id, deletedAt: null } });
-    if (!existing) throw new NotFoundException(`Trao đổi không tồn tại (id: ${id})`);
+  async delete(id: string, actorId: string, meta?: { ipAddress?: string; userAgent?: string }, dataScope?: DataScope | null) {
+    await this.getById(id, dataScope);
 
     await this.prisma.exchange.update({ where: { id }, data: { deletedAt: new Date() } });
 

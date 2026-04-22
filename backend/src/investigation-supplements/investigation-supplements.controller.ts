@@ -1,5 +1,5 @@
 import { Controller, Get, Post, Delete, Body, Param, Query, Req, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
-import type { Request } from 'express';
+import type { ScopedRequest } from '../auth/interfaces/scoped-request.interface';
 import { InvestigationSupplementsService, QueryInvestigationSupplementsDto } from './investigation-supplements.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
@@ -15,26 +15,26 @@ export class InvestigationSupplementsController {
 
   @Get()
   @RequirePermissions({ action: 'read', subject: 'Case' })
-  getList(@Query() query: QueryInvestigationSupplementsDto) {
-    return this.service.getList(query);
+  getList(@Query() query: QueryInvestigationSupplementsDto, @Req() req: ScopedRequest) {
+    return this.service.getList(query, req.dataScope);
   }
 
   @Get(':id')
   @RequirePermissions({ action: 'read', subject: 'Case' })
-  getById(@Param('id') id: string, @Req() req: Request) {
-    return this.service.getById(id, (req as any).dataScope);
+  getById(@Param('id') id: string, @Req() req: ScopedRequest) {
+    return this.service.getById(id, req.dataScope);
   }
 
   @Post()
   @RequirePermissions({ action: 'write', subject: 'Case' })
-  create(@Body() dto: CreateInvestigationSupplementDto, @CurrentUser() user: AuthUser, @Req() req: Request) {
+  create(@Body() dto: CreateInvestigationSupplementDto, @CurrentUser() user: AuthUser, @Req() req: ScopedRequest) {
     return this.service.create(dto, user.id, { ipAddress: req.ip, userAgent: req.headers['user-agent'] });
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
   @RequirePermissions({ action: 'delete', subject: 'Case' })
-  delete(@Param('id') id: string, @CurrentUser() user: AuthUser, @Req() req: Request) {
-    return this.service.delete(id, user.id, { ipAddress: req.ip, userAgent: req.headers['user-agent'] });
+  delete(@Param('id') id: string, @CurrentUser() user: AuthUser, @Req() req: ScopedRequest) {
+    return this.service.delete(id, user.id, { ipAddress: req.ip, userAgent: req.headers['user-agent'] }, req.dataScope);
   }
 }

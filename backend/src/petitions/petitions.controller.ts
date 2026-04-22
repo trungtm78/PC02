@@ -12,7 +12,7 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import type { Request } from 'express';
+import type { ScopedRequest } from '../auth/interfaces/scoped-request.interface';
 import { PetitionsService } from './petitions.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
@@ -32,15 +32,15 @@ export class PetitionsController {
   // GET /api/v1/petitions — Danh sách đơn thư
   @Get()
   @RequirePermissions({ action: 'read', subject: 'Petition' })
-  getList(@Query() query: QueryPetitionsDto, @Req() req: Request) {
-    return this.petitionsService.getList(query, (req as any).dataScope);
+  getList(@Query() query: QueryPetitionsDto, @Req() req: ScopedRequest) {
+    return this.petitionsService.getList(query, req.dataScope);
   }
 
   // GET /api/v1/petitions/:id — Chi tiết đơn thư
   @Get(':id')
   @RequirePermissions({ action: 'read', subject: 'Petition' })
-  getById(@Param('id') id: string, @Req() req: Request) {
-    return this.petitionsService.getById(id, (req as any).dataScope);
+  getById(@Param('id') id: string, @Req() req: ScopedRequest) {
+    return this.petitionsService.getById(id, req.dataScope);
   }
 
   // POST /api/v1/petitions — Tạo đơn thư mới
@@ -49,7 +49,7 @@ export class PetitionsController {
   create(
     @Body() dto: CreatePetitionDto,
     @CurrentUser() user: AuthUser,
-    @Req() req: Request,
+    @Req() req: ScopedRequest,
   ) {
     return this.petitionsService.create(dto, user.id, {
       ipAddress: req.ip,
@@ -64,7 +64,7 @@ export class PetitionsController {
     @Param('id') id: string,
     @Body() dto: UpdatePetitionDto,
     @CurrentUser() user: AuthUser,
-    @Req() req: Request,
+    @Req() req: ScopedRequest,
   ) {
     return this.petitionsService.update(id, dto, user.id, {
       ipAddress: req.ip,
@@ -79,7 +79,7 @@ export class PetitionsController {
   delete(
     @Param('id') id: string,
     @CurrentUser() user: AuthUser,
-    @Req() req: Request,
+    @Req() req: ScopedRequest,
   ) {
     return this.petitionsService.delete(id, user.id, {
       ipAddress: req.ip,
@@ -94,7 +94,7 @@ export class PetitionsController {
     @Param('id') id: string,
     @Body() dto: ConvertToIncidentDto,
     @CurrentUser() user: AuthUser,
-    @Req() req: Request,
+    @Req() req: ScopedRequest,
   ) {
     return this.petitionsService.convertToIncident(id, dto, user.id, {
       ipAddress: req.ip,
@@ -109,7 +109,7 @@ export class PetitionsController {
     @Param('id') id: string,
     @Body() dto: ConvertToCaseDto,
     @CurrentUser() user: AuthUser,
-    @Req() req: Request,
+    @Req() req: ScopedRequest,
   ) {
     return this.petitionsService.convertToCase(id, dto, user.id, {
       ipAddress: req.ip,

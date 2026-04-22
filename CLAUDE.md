@@ -20,7 +20,7 @@ Internal case management system (NestJS backend + React frontend) for managing l
 ## Testing
 - Backend tests: `cd backend && npx jest --no-coverage`
 - Full test suite: `cd backend && npm test`
-- Test count: 454 tests across 25 suites
+- Test count: 463 tests across 26 suites
 
 ## Deploy Configuration (configured by /setup-deploy)
 - Platform: Render

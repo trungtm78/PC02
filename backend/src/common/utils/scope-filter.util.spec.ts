@@ -156,10 +156,16 @@ describe('assertCreatorInScope', () => {
     ).not.toThrow();
   });
 
-  it('passes (no-op) when userIds is empty — no restriction', () => {
+  it('passes when userIds is empty but teamIds has items (team-leader sees all creator-anchored records)', () => {
     expect(() =>
       assertCreatorInScope('user-X', { userIds: [], teamIds: ['t1'] }),
     ).not.toThrow();
+  });
+
+  it('throws ForbiddenException for deny-all scope (userIds:[], teamIds:[]) even when createdById is set', () => {
+    expect(() =>
+      assertCreatorInScope('user-X', { userIds: [], teamIds: [] }),
+    ).toThrow(ForbiddenException);
   });
 
   it('throws ForbiddenException when createdById not in userIds', () => {
