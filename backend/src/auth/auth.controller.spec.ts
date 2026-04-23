@@ -22,6 +22,8 @@ describe('AuthController — changePassword wiring', () => {
     })
       .overrideGuard(require('./guards/jwt-auth.guard').JwtAuthGuard)
       .useValue({ canActivate: () => true })
+      .overrideGuard(require('./guards/user-throttler.guard').UserThrottlerGuard)
+      .useValue({ canActivate: () => true })
       .compile();
 
     controller = module.get(AuthController);

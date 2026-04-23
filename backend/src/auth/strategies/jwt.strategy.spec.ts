@@ -38,6 +38,7 @@ describe('JwtStrategy', () => {
       email: 'test@pc02.local',
       username: 'admin',
       isActive: true,
+      tokenVersion: 0,
       roleId: 'role-1',
       role: { name: 'ADMIN' },
     };
@@ -89,6 +90,29 @@ describe('JwtStrategy', () => {
       await expect(strategy.validate(validPayload)).rejects.toThrow(
         UnauthorizedException,
       );
+    });
+
+    it('should reject tokens with stale tokenVersion (issued before password change)', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({ ...mockUser, tokenVersion: 1 });
+      const stalePayload: JwtPayload = { ...validPayload, tokenVersion: 0 };
+
+      await expect(strategy.validate(stalePayload)).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('should accept tokens whose tokenVersion matches the current user version', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({ ...mockUser, tokenVersion: 2 });
+      const freshPayload: JwtPayload = { ...validPayload, tokenVersion: 2 };
+
+      const result = await strategy.validate(freshPayload);
+      expect(result.id).toBe('user-1');
+    });
+
+    it('should treat missing tokenVersion in payload as 0 (backward compat)', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({ ...mockUser, tokenVersion: 0 });
+      const legacyPayload: JwtPayload = { ...validPayload }; // no tokenVersion field
+
+      const result = await strategy.validate(legacyPayload);
+      expect(result.id).toBe('user-1');
     });
   });
 });

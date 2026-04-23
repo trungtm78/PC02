@@ -7,6 +7,7 @@ import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { PermissionsGuard } from './guards/permissions.guard';
+import { UserThrottlerGuard } from './guards/user-throttler.guard';
 import { AuditModule } from '../audit/audit.module';
 
 @Module({
@@ -17,7 +18,7 @@ import { AuditModule } from '../audit/audit.module';
     ConfigModule,
     AuditModule,
   ],
-  providers: [AuthService, JwtStrategy, JwtAuthGuard, PermissionsGuard],
+  providers: [AuthService, JwtStrategy, JwtAuthGuard, PermissionsGuard, UserThrottlerGuard],
   controllers: [AuthController],
   exports: [AuthService, JwtAuthGuard, PermissionsGuard],
 })

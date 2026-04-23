@@ -10,6 +10,7 @@ export interface JwtPayload {
   sub: string; // userId
   email: string;
   role: string;
+  tokenVersion?: number; // absent in tokens issued before v0.5.4.0 — treated as 0
   type?: string; // 'refresh' for refresh tokens
   iat?: number;
   exp?: number;
@@ -48,6 +49,11 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
 
     if (!user || !user.isActive) {
       throw new UnauthorizedException('User not found or inactive');
+    }
+
+    // Tokens issued before password change carry an old tokenVersion and are rejected
+    if ((payload.tokenVersion ?? 0) !== user.tokenVersion) {
+      throw new UnauthorizedException('Token invalidated — please log in again');
     }
 
     return {

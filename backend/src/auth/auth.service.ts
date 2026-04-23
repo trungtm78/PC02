@@ -64,6 +64,7 @@ export class AuthService {
       user.id,
       user.email,
       user.role.name,
+      user.tokenVersion,
     );
 
     // Store hashed refresh token for rotation
@@ -134,6 +135,7 @@ export class AuthService {
       user.id,
       user.email,
       user.role.name,
+      user.tokenVersion,
     );
 
     // Rotate: store new refresh token hash
@@ -187,7 +189,7 @@ export class AuthService {
     await this.prisma.$transaction(async (tx) => {
       await tx.user.update({
         where: { id: userId },
-        data: { passwordHash: newHash, refreshTokenHash: null },
+        data: { passwordHash: newHash, refreshTokenHash: null, tokenVersion: { increment: 1 } },
       });
       await this.auditService.log({
         userId,
@@ -207,6 +209,7 @@ export class AuthService {
     userId: string,
     email: string,
     role: string,
+    tokenVersion: number,
   ): Promise<TokenPair> {
     const accessExpiry = this.configService.get<string>(
       'JWT_ACCESS_TOKEN_EXPIRES_IN',
@@ -221,6 +224,7 @@ export class AuthService {
       sub: userId,
       email,
       role,
+      tokenVersion,
     };
 
     const [accessToken, refreshToken] = await Promise.all([

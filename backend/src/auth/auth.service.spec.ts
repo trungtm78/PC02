@@ -48,7 +48,7 @@ describe('AuthService.changePassword', () => {
     expect(result.success).toBe(true);
     expect(mockTx.user.update).toHaveBeenCalledWith({
       where: { id: 'u1' },
-      data: { passwordHash: HASHED, refreshTokenHash: null },
+      data: { passwordHash: HASHED, refreshTokenHash: null, tokenVersion: { increment: 1 } },
     });
     expect(mockAudit.log).toHaveBeenCalledWith(expect.objectContaining({ action: 'PASSWORD_CHANGED' }), mockTx);
   });

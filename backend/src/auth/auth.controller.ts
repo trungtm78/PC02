@@ -14,6 +14,7 @@ import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { UserThrottlerGuard } from './guards/user-throttler.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
 import type { AuthUser } from './interfaces/auth-user.interface';
 
@@ -44,7 +45,7 @@ export class AuthController {
   @Post('change-password')
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { ttl: 60000, limit: 5 } })
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, UserThrottlerGuard)
   async changePassword(
     @Body() dto: ChangePasswordDto,
     @CurrentUser() user: AuthUser,

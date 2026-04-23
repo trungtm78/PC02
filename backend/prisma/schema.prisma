@@ -69,6 +69,7 @@ model User {
   isActive         Boolean    @default(true)
   roleId           String
   refreshTokenHash String?    // hashed refresh token for rotation
+  tokenVersion     Int        @default(0) // incremented on password change to invalidate existing JWTs
   lastLoginAt      DateTime?
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
