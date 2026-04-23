@@ -1,4 +1,4 @@
-import { IsString, IsEnum } from 'class-validator';
+import { IsString, IsEnum, IsOptional, IsDateString } from 'class-validator';
 import { AccessLevel } from '@prisma/client';
 
 export class CreateDataGrantDto {
@@ -10,4 +10,8 @@ export class CreateDataGrantDto {
 
   @IsEnum(AccessLevel)
   accessLevel: AccessLevel;
+
+  @IsOptional()
+  @IsDateString()
+  expiresAt?: string;
 }

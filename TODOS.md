@@ -14,20 +14,23 @@
 
 **Discovered:** 2026-04-20 (CSO security audit)
 
-### FINDING-010: change-password throttle is per-IP, not per-user
+### FINDING-013: DataAccessGrant.accessLevel not enforced in resolveScope
 **Priority:** P2
-**Details:** `@Throttle` on `POST /auth/change-password` keys on IP (NestJS default). Attacker with 6 IPs gets 30 attempts/minute against one user. Fix: custom `ThrottlerGuard` keyed on `user.id` post-JWT-auth.
-**Discovered:** 2026-04-23 (adversarial review v0.5.3.0)
+**Details:** `accessLevel` (READ/WRITE) is required in DTO, stored in DB, and shown in UI — but `resolveScope()` selects only `teamId`, treating READ and WRITE grants identically. Both grant the same data visibility. Write-scope enforcement (restricting mutations to WRITE grant holders) requires a `writeScope` concept threaded through all write-path services.
+**Fix:** Extend `DataScope` with optional `writeTeamIds`; populate from WRITE grants in `resolveScope`; check `writeTeamIds` in `assertParentInScope` and `assertCreatorInScope` for update/delete operations.
+**Discovered:** 2026-04-23 (eng review — outside voice finding)
 
-### FINDING-011: active JWT access tokens not invalidated on password change
-**Priority:** P2
-**Details:** Setting `refreshTokenHash: null` prevents new refresh cycles but existing access tokens stay valid until their `exp` (default 15m). Full invalidation requires a `tokenVersion` field on User + JWT payload inclusion + JwtAuthGuard version check.
-**Discovered:** 2026-04-23 (adversarial review v0.5.3.0)
+### PERF-002: GET /kpi/trend makes ~120 DB count queries per call
+**Priority:** P3 (acceptable at current scale with <10k rows + createdAt index)
+**Details:** `getKpiTrend()` runs 12 months × 4 KPIs × ~2.5 counts = ~120 `prisma.count()` calls. They run in 12 parallel batches (one per month), so it's 12 sequential DB round-trips. With a good index on `createdAt` this is fast. Will degrade as data grows.
+**Fix:** Refactor to raw SQL `GROUP BY EXTRACT(MONTH FROM "createdAt")` — reduces to 4 queries total.
+**Discovered:** 2026-04-23 (eng review)
 
-### FINDING-012: verify trust proxy config for accurate audit log IPs
-**Priority:** P3
-**Details:** `req.ip` returns the proxy IP (`127.0.0.1`) unless `app.set('trust proxy', 1)` is configured. Confirm `main.ts` sets trust proxy so audit log `ipAddress` fields reflect real client IPs on Render.
-**Discovered:** 2026-04-23 (adversarial review v0.5.3.0)
+### PERF-001: DataScopeInterceptor makes 5-15 DB queries per request (no caching)
+**Priority:** P3 (acceptable at current scale, trigger at >30 concurrent users)
+**Details:** `UnitScopeService.resolveScope()` is called on every authenticated API request. It does: `userTeam.findMany` + recursive `getDescendantIds` (N × MAX_DEPTH=3) + `dataAccessGrant.findMany` + `getUserIdsForTeams`. No in-memory cache. At 50 concurrent users this is ~750-1500 extra DB queries/second.
+**Fix:** Add TTL-based in-memory cache in `UnitScopeService` keyed on `userId`. Invalidate on team membership change or DataAccessGrant upsert. TTL=60s is safe.
+**Discovered:** 2026-04-23 (eng review)
 
 ---
 
@@ -39,5 +42,8 @@
 - **FINDING-007 (getMessages bypass)**: `GET /exchanges/:id/messages` had no scope check. Fixed in v0.5.2.0. **Completed:** v0.5.2.0 (2026-04-21)
 - **FINDING-008 (investigation-supplements deletedAt)**: `getById` missing `deletedAt: null` filter allowed soft-deleted records to be fetched. Fixed in v0.5.2.0. **Completed:** v0.5.2.0 (2026-04-21)
 - **FINDING-009 (CORS empty string)**: `CORS_ORIGIN=` (empty env var) produced `origin: [""]` blocking all production requests. Fixed in v0.5.2.0. **Completed:** v0.5.2.0 (2026-04-21)
+- **FINDING-010 (per-IP throttle)**: `POST /auth/change-password` throttle keyed on IP. Fixed in v0.5.3.0 — `UserThrottlerGuard` keys on `user.id` post-JWT. **Completed:** v0.5.3.0 (2026-04-23)
+- **FINDING-011 (JWT not invalidated on password change)**: Access tokens stayed valid after password change. Fixed in v0.5.3.0 — `tokenVersion` field added to User + JWT payload; `JwtStrategy` rejects stale tokens. **Completed:** v0.5.3.0 (2026-04-23)
+- **FINDING-012 (trust proxy)**: `req.ip` returned proxy IP without trust proxy config. Fixed in v0.5.3.0 — `app.set('trust proxy', 1)` added to `main.ts`. **Completed:** v0.5.3.0 (2026-04-23)
 - **FINDING-003 (Vite CVEs)**: 6 vulnerabilities (4 HIGH) in frontend devDeps. Fixed via `npm audit fix`. **Completed:** v0.5.1.0 (2026-04-21)
 - **FINDING-004 (CORS hardcoded)**: CORS origin hardcoded to localhost. Fixed via `CORS_ORIGIN` env var. **Completed:** v0.5.1.0 (2026-04-21)

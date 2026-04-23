@@ -45,7 +45,9 @@ export class UnitScopeService {
       teamIds.push(...descendants);
     }
 
-    // Add teams from DataAccessGrants (active, not expired)
+    // Add teams from DataAccessGrants (active, not expired).
+    // accessLevel (READ/WRITE) is stored but not yet differentiated here — both grant
+    // the same scope. Write-scope enforcement is tracked in TODOS.md (FINDING-013).
     const grants = await this.prisma.dataAccessGrant.findMany({
       where: {
         granteeId: userId,

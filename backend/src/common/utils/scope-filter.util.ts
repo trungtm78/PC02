@@ -25,7 +25,8 @@ export function buildScopeFilter(
 
   if (scope.teamIds.length > 0) {
     conditions.push({ assignedTeamId: { in: scope.teamIds } });
-    // Include unassigned records visible to teams
+    // Intake workflow: records not yet routed to a team are visible to all team members
+    // so officers can claim/assign incoming cases from any unit.
     conditions.push({ assignedTeamId: null });
   }
 
@@ -54,6 +55,7 @@ export function buildPetitionScopeFilter(
 
   if (scope.teamIds.length > 0) {
     conditions.push({ assignedTeamId: { in: scope.teamIds } });
+    // Intake workflow: unassigned petitions visible to all team members (same as buildScopeFilter).
     conditions.push({ assignedTeamId: null });
   }
 
@@ -87,6 +89,7 @@ export function assertParentInScope(
 /**
  * Throws 403 if the record's createdById is not in the user's allowed userIds.
  * Used for resources that have no caseId/teamId scope field.
+ * Null/undefined createdById always denies (orphan records are not accessible to scoped users).
  * Deny-all scope ({ userIds: [], teamIds: [] }) always denies.
  * Team-only scope ({ userIds: [], teamIds: [...] }) allows (team leader sees all creator-anchored records).
  */
@@ -95,9 +98,12 @@ export function assertCreatorInScope(
   scope: DataScope | null | undefined,
 ): void {
   if (!scope) return;
+  if (!createdById) {
+    throw new ForbiddenException(FORBIDDEN_MSG);
+  }
   const { userIds, teamIds } = scope;
   const isDenyAll = userIds.length === 0 && teamIds.length === 0;
-  if (createdById && (isDenyAll || (userIds.length > 0 && !userIds.includes(createdById)))) {
+  if (isDenyAll || (userIds.length > 0 && !userIds.includes(createdById))) {
     throw new ForbiddenException(FORBIDDEN_MSG);
   }
 }
