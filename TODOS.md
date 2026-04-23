@@ -14,6 +14,21 @@
 
 **Discovered:** 2026-04-20 (CSO security audit)
 
+### FINDING-010: change-password throttle is per-IP, not per-user
+**Priority:** P2
+**Details:** `@Throttle` on `POST /auth/change-password` keys on IP (NestJS default). Attacker with 6 IPs gets 30 attempts/minute against one user. Fix: custom `ThrottlerGuard` keyed on `user.id` post-JWT-auth.
+**Discovered:** 2026-04-23 (adversarial review v0.5.3.0)
+
+### FINDING-011: active JWT access tokens not invalidated on password change
+**Priority:** P2
+**Details:** Setting `refreshTokenHash: null` prevents new refresh cycles but existing access tokens stay valid until their `exp` (default 15m). Full invalidation requires a `tokenVersion` field on User + JWT payload inclusion + JwtAuthGuard version check.
+**Discovered:** 2026-04-23 (adversarial review v0.5.3.0)
+
+### FINDING-012: verify trust proxy config for accurate audit log IPs
+**Priority:** P3
+**Details:** `req.ip` returns the proxy IP (`127.0.0.1`) unless `app.set('trust proxy', 1)` is configured. Confirm `main.ts` sets trust proxy so audit log `ipAddress` fields reflect real client IPs on Render.
+**Discovered:** 2026-04-23 (adversarial review v0.5.3.0)
+
 ---
 
 ## Completed
