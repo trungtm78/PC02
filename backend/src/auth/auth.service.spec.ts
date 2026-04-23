@@ -50,7 +50,7 @@ describe('AuthService.changePassword', () => {
       where: { id: 'u1' },
       data: { passwordHash: HASHED, refreshTokenHash: null },
     });
-    expect(mockAudit.log).toHaveBeenCalledWith(expect.objectContaining({ action: 'PASSWORD_CHANGED' }));
+    expect(mockAudit.log).toHaveBeenCalledWith(expect.objectContaining({ action: 'PASSWORD_CHANGED' }), mockTx);
   });
 
   it('wraps DB update and audit log in a transaction', async () => {

@@ -196,7 +196,7 @@ export class AuthService {
         subjectId: userId,
         ipAddress: meta.ipAddress,
         userAgent: meta.userAgent,
-      });
+      }, tx);
     });
 
     return { success: true, message: 'Mật khẩu đã được cập nhật thành công' };
