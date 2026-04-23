@@ -20,7 +20,7 @@ api.interceptors.response.use(
   async (error) => {
     const original = error.config as typeof error.config & { _retry?: boolean };
     const url = original?.url ?? '';
-    const isAuthEndpoint = url.includes('/auth/login') || url.includes('/auth/refresh');
+    const isAuthEndpoint = url.includes('/auth/login') || url.includes('/auth/refresh') || url.includes('/auth/change-password');
     if (error.response?.status === 401 && !original._retry && !isAuthEndpoint) {
       original._retry = true;
       try {

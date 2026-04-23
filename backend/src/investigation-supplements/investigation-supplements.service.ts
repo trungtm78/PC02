@@ -51,8 +51,8 @@ export class InvestigationSupplementsService {
   }
 
   async getById(id: string, dataScope?: DataScope | null) {
-    const record = await this.prisma.investigationSupplement.findFirst({
-      where: { id, deletedAt: null },
+    const record = await this.prisma.investigationSupplement.findUnique({
+      where: { id },
       include: {
         createdBy: { select: { id: true, firstName: true, lastName: true, username: true } },
         case: { select: { id: true, name: true, status: true, assignedTeamId: true, investigatorId: true } },
