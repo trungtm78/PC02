@@ -1,9 +1,10 @@
-import { Suspense } from 'react';
+import { Suspense, useState, useRef, useEffect } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
-import { LogOut } from 'lucide-react';
+import { LogOut, KeyRound, ChevronDown } from 'lucide-react';
 import { AppSidebar } from '@/components/AppSidebar';
 import { NotificationDropdown } from '@/components/NotificationDropdown';
 import { GlobalSearchBar } from '@/components/GlobalSearchBar';
+import { ChangePasswordModal } from '@/components/ChangePasswordModal';
 import { authStore } from '@/stores/auth.store';
 import logoCA from '@/assets/logo-cong-an.png';
 
@@ -26,8 +27,22 @@ function getUserInitials(email: string | undefined): string {
 export function MainLayout() {
   const navigate = useNavigate();
   const user = authStore.getUser();
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
 
   const handleLogout = () => {
+    setDropdownOpen(false);
     if (window.confirm('Bạn có chắc chắn muốn đăng xuất?')) {
       authStore.clearTokens();
       navigate('/login', { replace: true });
@@ -66,27 +81,44 @@ export function MainLayout() {
           {/* Notification bell */}
           <NotificationDropdown />
 
-          {/* User avatar */}
-          <div className="flex items-center gap-3 pl-4 border-l border-slate-200">
-            <div className="w-9 h-9 bg-primary rounded-full flex items-center justify-center">
-              <span className="text-sm font-bold text-accent">
-                {getUserInitials(user?.email)}
-              </span>
-            </div>
-            <div className="hidden md:block">
-              <p className="text-sm font-semibold text-slate-800">{user?.email ?? '—'}</p>
-              <p className="text-xs text-slate-600">{user?.role ?? 'Người dùng'}</p>
-            </div>
-          </div>
+          {/* User menu */}
+          <div className="relative pl-4 border-l border-slate-200" ref={dropdownRef}>
+            <button
+              onClick={() => setDropdownOpen((v) => !v)}
+              className="flex items-center gap-3 hover:bg-slate-50 rounded-lg px-2 py-1 transition-colors"
+            >
+              <div className="w-9 h-9 bg-primary rounded-full flex items-center justify-center flex-shrink-0">
+                <span className="text-sm font-bold text-accent">
+                  {getUserInitials(user?.email)}
+                </span>
+              </div>
+              <div className="hidden md:block text-left">
+                <p className="text-sm font-semibold text-slate-800">{user?.email ?? '—'}</p>
+                <p className="text-xs text-slate-600">{user?.role ?? 'Người dùng'}</p>
+              </div>
+              <ChevronDown className="w-4 h-4 text-slate-400 hidden md:block" />
+            </button>
 
-          {/* Logout button */}
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-red-50 hover:text-red-600 rounded transition-colors"
-          >
-            <LogOut className="w-4 h-4" />
-            <span className="hidden lg:inline">Đăng xuất</span>
-          </button>
+            {dropdownOpen && (
+              <div className="absolute right-0 mt-1 w-52 bg-white border border-slate-200 rounded-xl shadow-lg z-50 overflow-hidden">
+                <button
+                  onClick={() => { setDropdownOpen(false); setChangePasswordOpen(true); }}
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                >
+                  <KeyRound className="w-4 h-4 text-slate-500" />
+                  Đổi mật khẩu
+                </button>
+                <div className="border-t border-slate-100" />
+                <button
+                  onClick={handleLogout}
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Đăng xuất
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
@@ -99,6 +131,11 @@ export function MainLayout() {
           </Suspense>
         </main>
       </div>
+
+      <ChangePasswordModal
+        open={changePasswordOpen}
+        onClose={() => setChangePasswordOpen(false)}
+      />
     </div>
   );
 }

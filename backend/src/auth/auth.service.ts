@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
@@ -8,6 +8,7 @@ import type { StringValue } from 'ms';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { LoginDto } from './dto/login.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { JwtPayload } from './strategies/jwt.strategy';
 
 export interface TokenPair {
@@ -150,6 +151,55 @@ export class AuthService {
     });
 
     return tokens;
+  }
+
+  // ── Change Password ────────────────────────────────────────────────────────
+  async changePassword(
+    userId: string,
+    dto: ChangePasswordDto,
+    meta: { ipAddress?: string; userAgent?: string },
+  ): Promise<{ success: boolean; message: string }> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+
+    if (!user || !user.isActive) {
+      throw new UnauthorizedException('Tài khoản không tồn tại hoặc đã bị vô hiệu hóa');
+    }
+
+    // Guard: accounts without local password (OAuth/SSO) have no hash to compare
+    if (!user.passwordHash) {
+      throw new BadRequestException('Tài khoản này không sử dụng đăng nhập bằng mật khẩu');
+    }
+
+    const currentValid = await bcrypt.compare(dto.currentPassword, user.passwordHash);
+    if (!currentValid) {
+      throw new UnauthorizedException('Mật khẩu hiện tại không đúng');
+    }
+
+    // Use bcrypt.compare (not string equality) to handle bcrypt's 72-byte truncation
+    const sameAsOld = await bcrypt.compare(dto.newPassword, user.passwordHash);
+    if (sameAsOld) {
+      throw new BadRequestException('Mật khẩu mới phải khác mật khẩu hiện tại');
+    }
+
+    const newHash = await bcrypt.hash(dto.newPassword, 12);
+
+    // Wrap DB write + audit in a single transaction: if audit fails, password change rolls back
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: userId },
+        data: { passwordHash: newHash, refreshTokenHash: null },
+      });
+      await this.auditService.log({
+        userId,
+        action: 'PASSWORD_CHANGED',
+        subject: 'User',
+        subjectId: userId,
+        ipAddress: meta.ipAddress,
+        userAgent: meta.userAgent,
+      });
+    });
+
+    return { success: true, message: 'Mật khẩu đã được cập nhật thành công' };
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────────
