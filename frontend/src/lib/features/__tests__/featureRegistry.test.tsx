@@ -5,7 +5,7 @@ import { FEATURE_MODULES, getFeatureModule } from '../featureRegistry';
 type RouteElement = ReactElement<{ path?: string }>;
 
 describe('FEATURE_MODULES registry', () => {
-  it('auto-discovers all 16 expected features', () => {
+  it('auto-discovers all 17 expected features', () => {
     const expected = [
       'admin',
       'calendar',
@@ -15,6 +15,7 @@ describe('FEATURE_MODULES registry', () => {
       'directory',
       'documents',
       'incidents',
+      'kpi',
       'lawyers',
       'master-class',
       'petitions',
