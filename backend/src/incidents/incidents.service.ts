@@ -584,11 +584,13 @@ export class IncidentsService {
     id: string,
     actorId: string,
     meta?: { ipAddress?: string; userAgent?: string },
+    dataScope?: DataScope | null,
   ) {
     const incident = await this.prisma.incident.findFirst({
       where: { id, deletedAt: null },
     });
     if (!incident) throw new NotFoundException(`Vụ việc không tồn tại (id: ${id})`);
+    this.checkRecordInScope(incident, dataScope);
 
     const maxExtensions = await this.settings.getNumericValue('SO_LAN_GIA_HAN_TOI_DA', 2);
     if (incident.soLanGiaHan >= maxExtensions) {
@@ -601,7 +603,10 @@ export class IncidentsService {
     const settingKey = incident.soLanGiaHan === 0 ? 'THOI_HAN_GIA_HAN_1' : 'THOI_HAN_GIA_HAN_2';
     const extensionDays = await this.settings.getNumericValue(settingKey, 60);
 
-    const currentDeadline = incident.deadline ?? new Date();
+    if (!incident.deadline) {
+      throw new BadRequestException('Vụ việc chưa có thời hạn — không thể gia hạn');
+    }
+    const currentDeadline = incident.deadline;
     const newDeadline = new Date(currentDeadline);
     newDeadline.setDate(newDeadline.getDate() + extensionDays);
 

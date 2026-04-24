@@ -1293,6 +1293,25 @@ describe('IncidentsService', () => {
 
       await expect(service.extendDeadline('no-such-id', 'actor-001', {})).rejects.toThrow(NotFoundException);
     });
+
+    it('incident with no deadline → throws BadRequestException', async () => {
+      const incident = { ...mockIncident, soLanGiaHan: 0, deadline: null };
+      mockPrisma.incident.findFirst.mockResolvedValue(incident);
+      mockSettings.getNumericValue.mockResolvedValueOnce(2); // SO_LAN_GIA_HAN_TOI_DA
+
+      await expect(service.extendDeadline('inc-001', 'actor-001', {})).rejects.toThrow(BadRequestException);
+      expect(mockPrisma.incident.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('out-of-scope incident → throws ForbiddenException when dataScope provided', async () => {
+      const incident = { ...mockIncident, soLanGiaHan: 0, deadline: baseDeadline, investigatorId: 'other-user', assignedTeamId: 'other-team' };
+      mockPrisma.incident.findFirst.mockResolvedValue(incident);
+      mockSettings.getNumericValue.mockResolvedValueOnce(2);
+
+      const dataScope = { teamIds: ['my-team'], userIds: ['actor-001'], writableTeamIds: ['my-team'] };
+      await expect(service.extendDeadline('inc-001', 'actor-001', {}, dataScope)).rejects.toThrow();
+      expect(mockPrisma.incident.updateMany).not.toHaveBeenCalled();
+    });
   });
 
   // ── PHASE_STATUSES constant ───────────────────────────────────────────────

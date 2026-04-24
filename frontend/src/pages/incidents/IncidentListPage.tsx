@@ -403,8 +403,13 @@ export function IncidentListPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Loại nguồn tin</label>
-                <input type="text" value={advancedFilters.loaiDonVu} onChange={(e) => setAdvancedFilters({ ...advancedFilters, loaiDonVu: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Loại nguồn tin..." data-testid="filter-loaiDonVu" />
+                <select value={advancedFilters.loaiDonVu} onChange={(e) => setAdvancedFilters({ ...advancedFilters, loaiDonVu: e.target.value })}
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" data-testid="filter-loaiDonVu">
+                  <option value="">-- Tất cả --</option>
+                  <option value="TO_GIAC">Tố giác của cá nhân (Đ.144 khoản 1a)</option>
+                  <option value="TIN_BAO">Tin báo của cơ quan, tổ chức (Đ.144 khoản 1b)</option>
+                  <option value="KIEN_NGHI_KHOI_TO">Kiến nghị khởi tố (Đ.144 khoản 1c)</option>
+                </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Người tố giác/báo tin</label>

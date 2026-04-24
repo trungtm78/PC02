@@ -183,10 +183,12 @@ export class IncidentsController {
     @CurrentUser() user: AuthUser,
     @Req() req: ScopedRequest,
   ) {
-    return this.incidentsService.extendDeadline(id, user.id, {
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
-    });
+    return this.incidentsService.extendDeadline(
+      id,
+      user.id,
+      { ipAddress: req.ip, userAgent: req.headers['user-agent'] },
+      req.dataScope,
+    );
   }
 
   // POST /api/v1/incidents/:id/prosecute — Khởi tố vụ việc → Vụ án
