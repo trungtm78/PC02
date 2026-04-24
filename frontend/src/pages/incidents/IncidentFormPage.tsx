@@ -304,9 +304,14 @@ export function IncidentFormPage() {
               />
             </div>
             <div>
-              <label className={labelClass}>Loại nguồn tin</label>
-              <input type="text" value={formData.loaiDonVu} onChange={(e) => update("loaiDonVu", e.target.value)}
-                className={inputClass} placeholder="Tố giác / Tin báo / Kiến nghị khởi tố" data-testid="field-loaiDonVu" />
+              <label className={labelClass}>Loại nguồn tin (Điều 144 BLTTHS)</label>
+              <select value={formData.loaiDonVu} onChange={(e) => update("loaiDonVu", e.target.value)}
+                className={inputClass} data-testid="field-loaiDonVu">
+                <option value="">-- Chọn loại nguồn tin --</option>
+                <option value="TO_GIAC">Tố giác của cá nhân (khoản 1a)</option>
+                <option value="TIN_BAO">Tin báo của cơ quan, tổ chức (khoản 1b)</option>
+                <option value="KIEN_NGHI_KHOI_TO">Kiến nghị khởi tố (khoản 1c)</option>
+              </select>
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -464,9 +469,18 @@ export function IncidentFormPage() {
             </div>
           </div>
           <div>
-            <label className={labelClass}>Lý do không khởi tố</label>
-            <textarea value={formData.lyDoKhongKhoiTo} onChange={(e) => update("lyDoKhongKhoiTo", e.target.value)} rows={3}
-              className={inputClass} placeholder="Lý do không khởi tố (nếu có)" data-testid="field-lyDoKhongKhoiTo" />
+            <label className={labelClass}>Lý do không khởi tố (Điều 157 BLTTHS)</label>
+            <select value={formData.lyDoKhongKhoiTo} onChange={(e) => update("lyDoKhongKhoiTo", e.target.value)}
+              className={inputClass} data-testid="field-lyDoKhongKhoiTo">
+              <option value="">-- Chọn căn cứ --</option>
+              <option value="KHONG_CO_SU_VIEC">Không có sự việc phạm tội (Đ.157 khoản 1a)</option>
+              <option value="HANH_VI_KHONG_CAU_THANH_TOI_PHAM">Hành vi không cấu thành tội phạm (khoản 1b)</option>
+              <option value="NGUOI_THUC_HIEN_CHUA_DU_TUOI">Người thực hiện chưa đủ tuổi TNHS (khoản 1c)</option>
+              <option value="NGUOI_PHAM_TOI_CHET">Người phạm tội đã chết (khoản 1d)</option>
+              <option value="HET_THOI_HIEU">Hết thời hiệu truy cứu TNHS (khoản 1đ)</option>
+              <option value="TOI_PHAM_DA_DUOC_XOA_AN_TICH">Tội phạm đã được đại xá (khoản 1e)</option>
+              <option value="TRUONG_HOP_KHAC">Trường hợp khác theo quy định BLTTHS (khoản 1g)</option>
+            </select>
           </div>
         </CollapsibleSection>
 

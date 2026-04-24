@@ -7,7 +7,7 @@ import {
   Max,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
-import { CaseStatus } from '@prisma/client';
+import { CaseStatus, CapDoToiPham } from '@prisma/client';
 
 export class QueryCasesDto {
   @IsOptional()
@@ -61,6 +61,11 @@ export class QueryCasesDto {
   @IsOptional()
   @IsString()
   wardId?: string;
+
+  // Lọc theo mức độ tội phạm (BLHS Điều 9)
+  @IsOptional()
+  @IsEnum(CapDoToiPham)
+  capDoToiPham?: CapDoToiPham;
 
   // Sort
   @IsOptional()

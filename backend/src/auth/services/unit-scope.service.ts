@@ -1,10 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { TeamsService } from '../../teams/teams.service';
+import { AccessLevel } from '@prisma/client';
 
 export interface DataScope {
-  teamIds: string[];
+  teamIds: string[];        // All readable teams (own + READ grants + WRITE grants)
   userIds: string[];
+  writableTeamIds: string[]; // Writable teams (own + WRITE grants only) — GAP-9
 }
 
 @Injectable()
@@ -17,6 +19,9 @@ export class UnitScopeService {
   /**
    * Resolve the data scope for a user based on their role and team memberships.
    * ADMIN role returns null (full access).
+   *
+   * GAP-9 fix: READ grants expand read scope only; WRITE grants expand both
+   * read and write scope. writableTeamIds is used by services to gate mutations.
    */
   async resolveScope(
     userId: string,
@@ -31,47 +36,57 @@ export class UnitScopeService {
       include: { team: true },
     });
 
-    const teamIds: string[] = [];
+    const ownTeamIds: string[] = [];
 
     for (const ut of userTeams) {
-      teamIds.push(ut.teamId);
+      ownTeamIds.push(ut.teamId);
 
       // Expand to all descendants regardless of level
-      // Level 0 (Nhóm) → expands to Tổ + Phường
-      // Level 1 (Tổ) → expands to Phường
-      // Level 2 (Phường) → no children, returns []
-      // Performance note: recursive N+1 queries, acceptable at current scale (MAX_DEPTH=3, <100 teams)
       const descendants = await this.teamsService.getDescendantIds(ut.teamId);
-      teamIds.push(...descendants);
+      ownTeamIds.push(...descendants);
     }
 
-    // Add teams from DataAccessGrants (active, not expired)
+    // Add teams from DataAccessGrants (active, not expired).
+    // READ grants: read scope only. WRITE grants: read + write scope.
     const grants = await this.prisma.dataAccessGrant.findMany({
       where: {
         granteeId: userId,
         team: { isActive: true },
         OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
       },
-      select: { teamId: true },
+      select: { teamId: true, accessLevel: true },
     });
 
+    const readOnlyGrantTeamIds: string[] = [];
+    const writeGrantTeamIds: string[] = [];
+
     for (const grant of grants) {
-      if (!teamIds.includes(grant.teamId)) {
-        teamIds.push(grant.teamId);
+      if (grant.accessLevel === AccessLevel.WRITE) {
+        writeGrantTeamIds.push(grant.teamId);
+      } else {
+        readOnlyGrantTeamIds.push(grant.teamId);
       }
     }
 
-    // Get unique team IDs
-    const uniqueTeamIds = [...new Set(teamIds)];
+    // All readable teams = own + READ grants + WRITE grants
+    const allReadTeamIds = [
+      ...new Set([...ownTeamIds, ...readOnlyGrantTeamIds, ...writeGrantTeamIds]),
+    ];
+    // All writable teams = own + WRITE grants only (READ grants cannot write)
+    const allWriteTeamIds = [...new Set([...ownTeamIds, ...writeGrantTeamIds])];
 
-    // Get user IDs for all teams
-    const userIds = await this.teamsService.getUserIdsForTeams(uniqueTeamIds);
+    // Get user IDs for all readable teams
+    const userIds = await this.teamsService.getUserIdsForTeams(allReadTeamIds);
 
     // Always include the user themselves
     if (!userIds.includes(userId)) {
       userIds.push(userId);
     }
 
-    return { teamIds: uniqueTeamIds, userIds };
+    return {
+      teamIds: allReadTeamIds,
+      userIds,
+      writableTeamIds: allWriteTeamIds,
+    };
   }
 }

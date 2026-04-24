@@ -8,9 +8,9 @@ import {
   Min,
   MaxLength,
 } from 'class-validator';
-import { CaseStatus } from '@prisma/client';
+import { CaseStatus, CapDoToiPham } from '@prisma/client';
 
-export { CaseStatus };
+export { CaseStatus, CapDoToiPham };
 
 export class CreateCaseDto {
   @IsString()
@@ -47,4 +47,16 @@ export class CreateCaseDto {
   @IsOptional()
   @IsObject()
   metadata?: Record<string, unknown>;
+
+  // Mức độ tội phạm (BLHS 2015 Điều 9) — dùng cho KPI-4
+  @IsOptional()
+  @IsEnum(CapDoToiPham, {
+    message: 'capDoToiPham phải là IT_NGHIEM_TRONG, NGHIEM_TRONG, RAT_NGHIEM_TRONG hoặc DAC_BIET_NGHIEM_TRONG',
+  })
+  capDoToiPham?: CapDoToiPham;
+
+  // Ngày quyết định khởi tố vụ án
+  @IsOptional()
+  @IsDateString()
+  ngayKhoiTo?: string;
 }

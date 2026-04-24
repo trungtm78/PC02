@@ -19,7 +19,8 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const original = error.config as typeof error.config & { _retry?: boolean };
-    const isAuthEndpoint = (original?.url ?? '').includes('/auth/');
+    const url = original?.url ?? '';
+    const isAuthEndpoint = url.includes('/auth/login') || url.includes('/auth/refresh') || url.includes('/auth/change-password');
     if (error.response?.status === 401 && !original._retry && !isAuthEndpoint) {
       original._retry = true;
       try {
@@ -49,4 +50,9 @@ export const authApi = {
     ),
   refresh: (refreshToken: string) =>
     api.post<{ accessToken: string }>('/auth/refresh', { refreshToken }),
+  changePassword: (currentPassword: string, newPassword: string) =>
+    api.post<{ success: boolean; message: string }>('/auth/change-password', {
+      currentPassword,
+      newPassword,
+    }),
 };

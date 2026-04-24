@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface AuditLogCreateInput {
@@ -15,9 +16,10 @@ export interface AuditLogCreateInput {
 export class AuditService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async log(input: AuditLogCreateInput): Promise<void> {
+  async log(input: AuditLogCreateInput, tx?: Prisma.TransactionClient): Promise<void> {
+    const client = tx ?? this.prisma;
     // Use $executeRaw to bypass Prisma's strict relation typing for userId
-    await this.prisma.$executeRaw`
+    await client.$executeRaw`
       INSERT INTO "audit_logs" (id, "userId", action, subject, "subjectId", metadata, "ipAddress", "userAgent", "createdAt")
       VALUES (
         gen_random_uuid()::text,

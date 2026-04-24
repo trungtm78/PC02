@@ -328,15 +328,21 @@ export function PetitionFormPage() {
           <div className="p-6 space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <FKSelect
-                  label="Loại đơn thư"
-                  required
-                  masterClassType="02"
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Loại đơn thư <span className="text-red-500">*</span>
+                </label>
+                <select
                   value={formData.petitionType}
-                  onChange={(v) => update("petitionType", v)}
-                  placeholder="Chọn loại đơn thư"
-                  testId="field-petitionType"
-                />
+                  onChange={(e) => update("petitionType", e.target.value)}
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                  data-testid="field-petitionType"
+                >
+                  <option value="">-- Chọn loại đơn thư --</option>
+                  <option value="TO_CAO">Tố cáo (Luật Tố cáo 2018)</option>
+                  <option value="KHIEU_NAI">Khiếu nại (Luật Khiếu nại 2011)</option>
+                  <option value="KIEN_NGHI">Kiến nghị</option>
+                  <option value="PHAN_ANH">Phản ánh</option>
+                </select>
               </div>
               <div>
                 <FKSelect

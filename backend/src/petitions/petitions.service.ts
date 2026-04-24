@@ -12,9 +12,10 @@ import { UpdatePetitionDto } from './dto/update-petition.dto';
 import { QueryPetitionsDto } from './dto/query-petitions.dto';
 import { ConvertToIncidentDto } from './dto/convert-incident.dto';
 import { ConvertToCaseDto } from './dto/convert-case.dto';
-import { Prisma } from '@prisma/client';
+import { Prisma, LoaiDon } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { buildPetitionScopeFilter } from '../common/utils/scope-filter.util';
+import { SettingsService } from '../settings/settings.service';
 
 // Enum values — inline to avoid dependency on Prisma client generation
 // These must match schema.prisma enum definitions exactly
@@ -39,6 +40,7 @@ export class PetitionsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly settings: SettingsService,
   ) {}
 
   // ─────────────────────────────────────────────
@@ -263,6 +265,30 @@ export class PetitionsService {
       }
     }
 
+    // Auto-calculate deadline by petition type — days read from SystemSettings (GAP-7)
+    let computedDeadline: Date | undefined;
+    let deadlineSettingKey: string | undefined;
+    let deadlineDays: number | undefined;
+    if (dto.deadline) {
+      computedDeadline = new Date(dto.deadline);
+    } else {
+      const base = new Date(dto.receivedDate);
+      let settingKey: string;
+      if (dto.petitionType === LoaiDon.TO_CAO) {
+        settingKey = 'THOI_HAN_TO_CAO';
+      } else if (dto.petitionType === LoaiDon.KHIEU_NAI) {
+        settingKey = 'THOI_HAN_KHIEU_NAI';
+      } else if (dto.petitionType === LoaiDon.KIEN_NGHI) {
+        settingKey = 'THOI_HAN_KIEN_NGHI';
+      } else {
+        settingKey = 'THOI_HAN_PHAN_ANH';
+      }
+      deadlineSettingKey = settingKey;
+      deadlineDays = await this.settings.getNumericValue(settingKey, 15);
+      base.setDate(base.getDate() + deadlineDays);
+      computedDeadline = base;
+    }
+
     // enteredById is always the authenticated user (prevent forgery)
     const record = await this.prisma.petition.create({
       data: {
@@ -282,7 +308,7 @@ export class PetitionsService {
         summary: dto.summary,
         detailContent: dto.detailContent,
         attachmentsNote: dto.attachmentsNote,
-        deadline: dto.deadline ? new Date(dto.deadline) : undefined,
+        deadline: computedDeadline,
         assignedToId: dto.assignedToId,
         notes: dto.notes,
         status: dto.status ?? PetitionStatus.MOI_TIEP_NHAN,
@@ -306,6 +332,7 @@ export class PetitionsService {
         stt: record.stt,
         senderName: record.senderName,
         status: record.status,
+        ...(deadlineSettingKey !== undefined && { deadlineDays, deadlineSettingKey }),
       },
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,

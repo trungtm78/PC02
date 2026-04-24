@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { IncidentStatus, CaseStatus, Prisma } from '@prisma/client';
+import { IncidentStatus, CaseStatus, CapDoToiPham, Prisma } from '@prisma/client';
 import { QueryKpiDto } from './dto/query-kpi.dto';
 
 // ─── KPI constants ────────────────────────────────────────────────────────────
@@ -221,19 +221,10 @@ export class KpiService {
     const dateRange = buildDateRange(year, query.quarter, query.month);
 
     const baseWhere: Prisma.CaseWhereInput = {
-      AND: [
-        {
-          deletedAt: null,
-          createdAt: dateRange,
-          ...(query.teamId ? { assignedTeamId: query.teamId } : {}),
-        },
-        {
-          OR: [
-            { metadata: { path: ['severity'], equals: 'RAT_NGHIEM_TRONG' } },
-            { metadata: { path: ['severity'], equals: 'DAC_BIET_NGHIEM_TRONG' } },
-          ],
-        },
-      ],
+      deletedAt: null,
+      createdAt: dateRange,
+      ...(query.teamId ? { assignedTeamId: query.teamId } : {}),
+      capDoToiPham: { in: [CapDoToiPham.RAT_NGHIEM_TRONG, CapDoToiPham.DAC_BIET_NGHIEM_TRONG] },
     };
 
     const [total, khamPha] = await Promise.all([

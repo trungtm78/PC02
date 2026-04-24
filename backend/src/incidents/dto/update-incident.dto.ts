@@ -2,9 +2,11 @@ import {
   IsString,
   IsOptional,
   IsDateString,
+  IsEnum,
   MaxLength,
   MinLength,
 } from 'class-validator';
+import { LoaiNguonTin, LyDoKhongKhoiTo } from '@prisma/client';
 
 export class UpdateIncidentDto {
   @IsOptional()
@@ -53,8 +55,8 @@ export class UpdateIncidentDto {
   doiTuongToChuc?: string;
 
   @IsOptional()
-  @IsString()
-  loaiDonVu?: string;
+  @IsEnum(LoaiNguonTin, { message: 'loaiDonVu phải là TO_GIAC, TIN_BAO hoặc KIEN_NGHI_KHOI_TO' })
+  loaiDonVu?: LoaiNguonTin;
 
   @IsOptional()
   @IsString()
@@ -101,8 +103,10 @@ export class UpdateIncidentDto {
   ngayQuyetDinh?: string;
 
   @IsOptional()
-  @IsString()
-  lyDoKhongKhoiTo?: string;
+  @IsEnum(LyDoKhongKhoiTo, {
+    message: 'lyDoKhongKhoiTo phải là một trong 7 căn cứ theo Điều 157 BLTTHS 2015',
+  })
+  lyDoKhongKhoiTo?: LyDoKhongKhoiTo;
 
   @IsOptional()
   @IsString()

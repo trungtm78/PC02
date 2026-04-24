@@ -89,7 +89,7 @@ export class IncidentsController {
     return this.incidentsService.update(id, dto, user.id, {
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
-    });
+    }, req.dataScope);
   }
 
   // DELETE /api/v1/incidents/:id — Xóa vụ việc (soft delete, 6 business rules)
@@ -126,7 +126,7 @@ export class IncidentsController {
     return this.incidentsService.updateStatus(id, dto, user.id, {
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
-    });
+    }, req.dataScope);
   }
 
   // PATCH /api/v1/incidents/:id/merge — Nhập vào vụ khác
@@ -141,7 +141,7 @@ export class IncidentsController {
     return this.incidentsService.mergeInto(id, dto, user.id, {
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
-    });
+    }, req.dataScope);
   }
 
   // PATCH /api/v1/incidents/:id/transfer — Chuyển đơn vị
@@ -156,7 +156,7 @@ export class IncidentsController {
     return this.incidentsService.transferUnit(id, dto, user.id, {
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
-    });
+    }, req.dataScope);
   }
 
   // PATCH /api/v1/incidents/:id/assign — Phân công điều tra viên
@@ -171,7 +171,24 @@ export class IncidentsController {
     return this.incidentsService.assignInvestigator(id, dto, user.id, {
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
-    });
+    }, req.dataScope);
+  }
+
+  // POST /api/v1/incidents/:id/extend — Gia hạn thời hạn (Điều 147 khoản 2-3 BLTTHS)
+  @Post(':id/extend')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions({ action: 'edit', subject: 'Incident' })
+  extendDeadline(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthUser,
+    @Req() req: ScopedRequest,
+  ) {
+    return this.incidentsService.extendDeadline(
+      id,
+      user.id,
+      { ipAddress: req.ip, userAgent: req.headers['user-agent'] },
+      req.dataScope,
+    );
   }
 
   // POST /api/v1/incidents/:id/prosecute — Khởi tố vụ việc → Vụ án
@@ -186,6 +203,6 @@ export class IncidentsController {
     return this.incidentsService.prosecute(id, dto, user.id, {
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
-    });
+    }, req.dataScope);
   }
 }

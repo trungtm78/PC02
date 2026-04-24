@@ -7,10 +7,10 @@ import {
   MaxLength,
   Matches,
 } from 'class-validator';
-import { PetitionStatus } from '@prisma/client';
+import { PetitionStatus, LoaiDon } from '@prisma/client';
 
 // Re-export so other modules can import from this DTO file
-export { PetitionStatus };
+export { PetitionStatus, LoaiDon };
 
 export class CreatePetitionDto {
   // Số tiếp nhận — unique, bắt buộc
@@ -68,9 +68,8 @@ export class CreatePetitionDto {
   suspectedAddress?: string;
 
   @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  petitionType?: string;
+  @IsEnum(LoaiDon, { message: 'petitionType phải là TO_CAO, KHIEU_NAI, KIEN_NGHI hoặc PHAN_ANH' })
+  petitionType?: LoaiDon;
 
   @IsOptional()
   @IsString()

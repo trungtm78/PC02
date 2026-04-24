@@ -439,6 +439,8 @@ export class AdminService {
       );
     }
 
+    const expiresAt = dto.expiresAt ? new Date(dto.expiresAt) : null;
+
     const grant = await this.prisma.dataAccessGrant.upsert({
       where: {
         granteeId_teamId_accessLevel: {
@@ -447,12 +449,13 @@ export class AdminService {
           accessLevel: dto.accessLevel,
         },
       },
-      update: { grantedById: granterId },
+      update: { grantedById: granterId, expiresAt },
       create: {
         granteeId: dto.granteeId,
         teamId: dto.teamId,
         accessLevel: dto.accessLevel,
         grantedById: granterId,
+        expiresAt,
       },
     });
 

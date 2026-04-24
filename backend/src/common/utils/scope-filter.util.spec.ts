@@ -144,10 +144,10 @@ describe('assertCreatorInScope', () => {
     expect(() => assertCreatorInScope('user-X', null)).not.toThrow();
   });
 
-  it('passes (no-op) when createdById is null', () => {
+  it('throws ForbiddenException when createdById is null (orphan record denies scoped users)', () => {
     expect(() =>
       assertCreatorInScope(null, { userIds: ['u1'], teamIds: [] }),
-    ).not.toThrow();
+    ).toThrow(ForbiddenException);
   });
 
   it('passes when createdById is in userIds', () => {
@@ -178,7 +178,7 @@ describe('assertCreatorInScope', () => {
     expect(() => assertCreatorInScope('user-X', undefined)).not.toThrow();
   });
 
-  it('passes (no-op) when createdById is undefined', () => {
-    expect(() => assertCreatorInScope(undefined, { userIds: ['u1'], teamIds: [] })).not.toThrow();
+  it('throws ForbiddenException when createdById is undefined (orphan record denies scoped users)', () => {
+    expect(() => assertCreatorInScope(undefined, { userIds: ['u1'], teamIds: [] })).toThrow(ForbiddenException);
   });
 });

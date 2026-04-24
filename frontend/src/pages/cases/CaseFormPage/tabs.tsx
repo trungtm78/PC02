@@ -133,6 +133,18 @@ export function TabInfo({ formData, setFormData, errors, setErrors, handlerOptio
             options={PRIORITY_OPTIONS}
             placeholder="-- Chọn mức độ --"
           />
+          <FormSelect
+            label="Mức độ tội phạm (BLHS 2015 Điều 9)"
+            value={formData.capDoToiPham ?? ""}
+            onChange={(v) => update("capDoToiPham", v)}
+            options={[
+              { value: "IT_NGHIEM_TRONG", label: "Ít nghiêm trọng (đến 3 năm)" },
+              { value: "NGHIEM_TRONG", label: "Nghiêm trọng (đến 7 năm)" },
+              { value: "RAT_NGHIEM_TRONG", label: "Rất nghiêm trọng (đến 15 năm)" },
+              { value: "DAC_BIET_NGHIEM_TRONG", label: "Đặc biệt nghiêm trọng (trên 15 năm / tử hình)" },
+            ]}
+            placeholder="-- Chọn mức độ tội phạm --"
+          />
           <FKSelect
             label="Điều tra viên chính"
             required

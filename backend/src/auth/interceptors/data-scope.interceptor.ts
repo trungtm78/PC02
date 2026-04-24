@@ -26,7 +26,7 @@ export class DataScopeInterceptor implements NestInterceptor {
       request.dataScope = scope;
     } else if (user?.id && !user?.role) {
       // JWT without role claim — deny-all scope rather than defaulting to admin
-      request.dataScope = { teamIds: [], userIds: [] };
+      request.dataScope = { teamIds: [], userIds: [], writableTeamIds: [] };
     }
 
     return next.handle();

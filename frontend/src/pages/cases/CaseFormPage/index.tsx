@@ -121,6 +121,7 @@ function CaseFormPage() {
           receiveTime:                 meta.receiveTime                 ?? prev.receiveTime,
           caseType:                    meta.caseType                    ?? prev.caseType,
           caseClassification:          meta.caseClassification          ?? prev.caseClassification,
+          capDoToiPham:                (d.capDoToiPham as string)        ?? prev.capDoToiPham,
           priority:                    meta.priority                    ?? prev.priority,
           description:                 meta.description                 ?? prev.description,
           investigationStartDate:      meta.investigationStartDate      ?? prev.investigationStartDate,
@@ -182,6 +183,7 @@ function CaseFormPage() {
         deadline:       formData.investigationDeadline || null,
         unit:           formData.supervisingUnit       || null,
         investigatorId: formData.handler               || null,
+        capDoToiPham:   formData.capDoToiPham          || undefined,
         // metadata chứa toàn bộ fields phụ không có column riêng trong DB
         metadata: {
           caseCode:                  formData.caseCode,

@@ -1,10 +1,14 @@
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/filters/http-exception.filter';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // Trust the first proxy hop (Render/nginx) so req.ip reflects real client IP in audit logs
+  app.set('trust proxy', 1);
 
   // Global API prefix — all resource controllers use relative paths
   app.setGlobalPrefix('api/v1', { exclude: ['/'] });
