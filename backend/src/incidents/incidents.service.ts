@@ -191,6 +191,20 @@ export class IncidentsService {
     }
   }
 
+  private checkWriteScope(
+    record: { investigatorId?: string | null; assignedTeamId?: string | null },
+    dataScope?: DataScope | null,
+  ) {
+    if (!dataScope) return;
+    const { userIds, writableTeamIds } = dataScope;
+    const ownerMatch = record.investigatorId && userIds.includes(record.investigatorId);
+    const teamMatch = record.assignedTeamId && writableTeamIds.includes(record.assignedTeamId);
+    const unassignedMatch = !record.assignedTeamId && writableTeamIds.length > 0;
+    if (!ownerMatch && !teamMatch && !unassignedMatch) {
+      throw new ForbiddenException('Bạn không có quyền chỉnh sửa bản ghi này');
+    }
+  }
+
   async getById(id: string, dataScope?: DataScope | null) {
     const record = await this.prisma.incident.findFirst({
       where: { id, deletedAt: null },
@@ -330,11 +344,13 @@ export class IncidentsService {
     dto: UpdateIncidentDto,
     actorId: string,
     meta?: { ipAddress?: string; userAgent?: string },
+    dataScope?: DataScope | null,
   ) {
     const existing = await this.prisma.incident.findFirst({
       where: { id, deletedAt: null },
     });
     if (!existing) throw new NotFoundException(`Vụ việc không tồn tại (id: ${id})`);
+    this.checkWriteScope(existing, dataScope);
 
     const fromDate = dto.fromDate ?? existing.fromDate?.toISOString();
     const toDate = dto.toDate ?? existing.toDate?.toISOString();
@@ -466,21 +482,8 @@ export class IncidentsService {
       );
     }
 
-    // 6. Scope check
-    const scopeFilter = buildScopeFilter(dataScope);
-    if (scopeFilter) {
-      const inScope = await this.prisma.incident.findFirst({
-        where: {
-          id,
-          deletedAt: null,
-          AND: [scopeFilter as Prisma.IncidentWhereInput],
-        },
-        select: { id: true },
-      });
-      if (!inScope) {
-        throw new ForbiddenException('Vụ việc ngoài phạm vi dữ liệu của bạn');
-      }
-    }
+    // 6. Write-scope check
+    this.checkWriteScope(existing, dataScope);
 
     // 7. Soft delete
     await this.prisma.incident.update({
@@ -519,11 +522,13 @@ export class IncidentsService {
     dto: UpdateStatusDto,
     actorId: string,
     meta?: { ipAddress?: string; userAgent?: string },
+    dataScope?: DataScope | null,
   ) {
     const existing = await this.prisma.incident.findFirst({
       where: { id, deletedAt: null },
     });
     if (!existing) throw new NotFoundException(`Vụ việc không tồn tại (id: ${id})`);
+    this.checkWriteScope(existing, dataScope);
 
     // Validate transition
     const allowed = VALID_TRANSITIONS[existing.status] ?? [];
@@ -590,7 +595,7 @@ export class IncidentsService {
       where: { id, deletedAt: null },
     });
     if (!incident) throw new NotFoundException(`Vụ việc không tồn tại (id: ${id})`);
-    this.checkRecordInScope(incident, dataScope);
+    this.checkWriteScope(incident, dataScope);
 
     const maxExtensions = await this.settings.getNumericValue('SO_LAN_GIA_HAN_TOI_DA', 2);
     if (incident.soLanGiaHan >= maxExtensions) {
@@ -602,6 +607,9 @@ export class IncidentsService {
     // First extension uses THOI_HAN_GIA_HAN_1, second uses THOI_HAN_GIA_HAN_2
     const settingKey = incident.soLanGiaHan === 0 ? 'THOI_HAN_GIA_HAN_1' : 'THOI_HAN_GIA_HAN_2';
     const extensionDays = await this.settings.getNumericValue(settingKey, 60);
+    if (extensionDays <= 0) {
+      throw new BadRequestException(`Cấu hình ${settingKey} không hợp lệ (giá trị phải > 0)`);
+    }
 
     if (!incident.deadline) {
       throw new BadRequestException('Vụ việc chưa có thời hạn — không thể gia hạn');
@@ -678,6 +686,7 @@ export class IncidentsService {
     dto: MergeIncidentDto,
     actorId: string,
     meta?: { ipAddress?: string; userAgent?: string },
+    dataScope?: DataScope | null,
   ) {
     if (id === dto.targetId) {
       throw new BadRequestException('Không thể nhập vụ việc vào chính nó');
@@ -690,6 +699,7 @@ export class IncidentsService {
 
     if (!source) throw new NotFoundException(`Vụ việc nguồn không tồn tại (id: ${id})`);
     if (!target) throw new NotFoundException(`Vụ việc đích không tồn tại (id: ${dto.targetId})`);
+    this.checkWriteScope(source, dataScope);
 
     if (source.status === IncidentStatus.DA_NHAP_VU_KHAC) {
       throw new BadRequestException('Vụ việc này đã được nhập vào vụ khác');
@@ -747,11 +757,13 @@ export class IncidentsService {
     dto: TransferIncidentDto,
     actorId: string,
     meta?: { ipAddress?: string; userAgent?: string },
+    dataScope?: DataScope | null,
   ) {
     const existing = await this.prisma.incident.findFirst({
       where: { id, deletedAt: null },
     });
     if (!existing) throw new NotFoundException(`Vụ việc không tồn tại (id: ${id})`);
+    this.checkWriteScope(existing, dataScope);
 
     await this.prisma.$transaction([
       this.prisma.incident.update({
@@ -794,11 +806,13 @@ export class IncidentsService {
     dto: AssignInvestigatorDto,
     actorId: string,
     meta?: { ipAddress?: string; userAgent?: string },
+    dataScope?: DataScope | null,
   ) {
     const existing = await this.prisma.incident.findFirst({
       where: { id, deletedAt: null },
     });
     if (!existing) throw new NotFoundException(`Vụ việc không tồn tại (id: ${id})`);
+    this.checkWriteScope(existing, dataScope);
 
     if (TERMINAL_STATUSES.includes(existing.status)) {
       throw new BadRequestException(
@@ -851,11 +865,13 @@ export class IncidentsService {
     dto: ProsecuteIncidentDto,
     actorId: string,
     meta?: { ipAddress?: string; userAgent?: string },
+    dataScope?: DataScope | null,
   ) {
     const existing = await this.prisma.incident.findFirst({
       where: { id, deletedAt: null },
     });
     if (!existing) throw new NotFoundException(`Vụ việc không tồn tại (id: ${id})`);
+    this.checkWriteScope(existing, dataScope);
 
     if (existing.status !== IncidentStatus.DANG_XAC_MINH &&
         existing.status !== IncidentStatus.DA_PHAN_CONG) {

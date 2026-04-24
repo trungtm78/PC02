@@ -1306,10 +1306,32 @@ describe('IncidentsService', () => {
     it('out-of-scope incident → throws ForbiddenException when dataScope provided', async () => {
       const incident = { ...mockIncident, soLanGiaHan: 0, deadline: baseDeadline, investigatorId: 'other-user', assignedTeamId: 'other-team' };
       mockPrisma.incident.findFirst.mockResolvedValue(incident);
-      mockSettings.getNumericValue.mockResolvedValueOnce(2);
+      // checkWriteScope throws before getNumericValue is called — no mock needed
 
       const dataScope = { teamIds: ['my-team'], userIds: ['actor-001'], writableTeamIds: ['my-team'] };
       await expect(service.extendDeadline('inc-001', 'actor-001', {}, dataScope)).rejects.toThrow();
+      expect(mockPrisma.incident.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('extensionDays=0 in SystemSettings → throws BadRequestException (FINDING-1)', async () => {
+      const incident = { ...mockIncident, soLanGiaHan: 0, deadline: baseDeadline };
+      mockPrisma.incident.findFirst.mockResolvedValue(incident);
+      mockSettings.getNumericValue
+        .mockResolvedValueOnce(2)  // SO_LAN_GIA_HAN_TOI_DA
+        .mockResolvedValueOnce(0); // THOI_HAN_GIA_HAN_1 = 0 (invalid config)
+
+      await expect(service.extendDeadline('inc-001', 'actor-001', {})).rejects.toThrow(BadRequestException);
+      expect(mockPrisma.incident.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('READ-grant scope cannot extend deadline (writableTeamIds enforcement)', async () => {
+      // Incident belongs to 'read-only-team' — actor has READ grant (team in teamIds, not writableTeamIds)
+      const incident = { ...mockIncident, soLanGiaHan: 0, deadline: baseDeadline, assignedTeamId: 'read-only-team', investigatorId: 'other-user' };
+      mockPrisma.incident.findFirst.mockResolvedValue(incident);
+      // checkWriteScope throws before getNumericValue is called — no mock needed
+
+      const readOnlyScope = { teamIds: ['read-only-team'], userIds: ['actor-001'], writableTeamIds: [] };
+      await expect(service.extendDeadline('inc-001', 'actor-001', {}, readOnlyScope)).rejects.toThrow(ForbiddenException);
       expect(mockPrisma.incident.updateMany).not.toHaveBeenCalled();
     });
   });

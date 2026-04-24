@@ -267,6 +267,8 @@ export class PetitionsService {
 
     // Auto-calculate deadline by petition type — days read from SystemSettings (GAP-7)
     let computedDeadline: Date | undefined;
+    let deadlineSettingKey: string | undefined;
+    let deadlineDays: number | undefined;
     if (dto.deadline) {
       computedDeadline = new Date(dto.deadline);
     } else {
@@ -281,7 +283,8 @@ export class PetitionsService {
       } else {
         settingKey = 'THOI_HAN_PHAN_ANH';
       }
-      const deadlineDays = await this.settings.getNumericValue(settingKey, 15);
+      deadlineSettingKey = settingKey;
+      deadlineDays = await this.settings.getNumericValue(settingKey, 15);
       base.setDate(base.getDate() + deadlineDays);
       computedDeadline = base;
     }
@@ -329,6 +332,7 @@ export class PetitionsService {
         stt: record.stt,
         senderName: record.senderName,
         status: record.status,
+        ...(deadlineSettingKey !== undefined && { deadlineDays, deadlineSettingKey }),
       },
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
