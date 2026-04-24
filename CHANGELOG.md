@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.6.0] - 2026-04-24
+
+### Added
+- **Từ viết tắt cá nhân (Text Expansion)**: Người dùng tự định nghĩa thư viện phím tắt cá nhân (ví dụ: `lvs` → `Lê Văn Sỹ`). Gõ phím tắt + F9 trong bất kỳ ô nhập liệu nào để mở rộng tự động. Hoạt động trên toàn bộ hệ thống (global F9 listener trong MainLayout).
+- **API abbreviations**: 5 endpoint — GET list, PUT upsert, DELETE remove, POST copy-from, GET users. Xác thực chỉ qua JwtAuthGuard (dữ liệu cá nhân).
+- **Copy từ người dùng khác**: Sao chép thư viện viết tắt từ user khác theo 2 chế độ — Gộp (merge, giữ phím tắt hiện tại) hoặc Thay thế hoàn toàn (replace dùng atomic `$transaction`).
+- **Settings tab "Từ viết tắt"**: Giao diện quản lý — bảng danh sách, form thêm/sửa, panel sao chép từ người dùng khác.
+- **Schema `UserAbbreviation`**: Bảng `user_abbreviations` với unique index `(userId, shortcut)`, FK cascade on delete.
+- **20 unit tests**: `abbreviations.service.spec.ts` (15) + `abbreviations.controller.spec.ts` (5).
+
 ## [0.5.5.0] - 2026-04-24
 
 ### Added

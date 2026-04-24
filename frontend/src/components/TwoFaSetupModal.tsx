@@ -44,8 +44,8 @@ export function TwoFaSetupModal({ open, onClose }: Props) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const setupError = setupMutation.error as { response?: { data?: { message?: string } } } | null;
-  const verifyError = verifyMutation.error as { response?: { data?: { message?: string } } } | null;
+  const setupError = setupMutation.error as { response?: { data?: { message?: string; error?: { message?: string } } } } | null;
+  const verifyError = verifyMutation.error as { response?: { data?: { message?: string; error?: { message?: string } } } } | null;
 
   if (!open) return null;
 
@@ -84,7 +84,7 @@ export function TwoFaSetupModal({ open, onClose }: Props) {
                 <div className="flex items-start gap-2 p-3 bg-red-50 rounded-lg">
                   <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
                   <p className="text-sm text-red-700">
-                    {setupError?.response?.data?.message ?? 'Không thể khởi tạo 2FA. Vui lòng thử lại.'}
+                    {setupError?.response?.data?.error?.message ?? setupError?.response?.data?.message ?? 'Không thể khởi tạo 2FA. Vui lòng thử lại.'}
                   </p>
                 </div>
               )}
@@ -132,7 +132,7 @@ export function TwoFaSetupModal({ open, onClose }: Props) {
                 <div className="flex items-start gap-2 p-3 bg-red-50 rounded-lg">
                   <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
                   <p className="text-sm text-red-700">
-                    {verifyError?.response?.data?.message ?? 'Mã không đúng. Vui lòng thử lại.'}
+                    {verifyError?.response?.data?.error?.message ?? verifyError?.response?.data?.message ?? 'Mã không đúng. Vui lòng thử lại.'}
                   </p>
                 </div>
               )}

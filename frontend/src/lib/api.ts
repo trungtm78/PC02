@@ -77,3 +77,33 @@ export const authApi = {
   disableTotp: () =>
     api.delete<{ success: boolean }>('/auth/2fa/disable'),
 };
+
+// ─── Abbreviations API ────────────────────────────────────────────────────────
+
+export type Abbreviation = {
+  id: string;
+  shortcut: string;
+  expansion: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AbbreviationUser = {
+  id: string;
+  email: string;
+  firstName: string | null;
+  lastName: string | null;
+};
+
+export const abbreviationsApi = {
+  list: () => api.get<Abbreviation[]>('/abbreviations'),
+  upsert: (shortcut: string, expansion: string) =>
+    api.put<Abbreviation>(`/abbreviations/${encodeURIComponent(shortcut)}`, {
+      shortcut,
+      expansion,
+    }),
+  remove: (shortcut: string) => api.delete(`/abbreviations/${encodeURIComponent(shortcut)}`),
+  copyFrom: (sourceUserId: string, replace = false) =>
+    api.post<{ copied: number }>('/abbreviations/copy', { sourceUserId, replace }),
+  listUsers: () => api.get<AbbreviationUser[]>('/abbreviations/users'),
+};

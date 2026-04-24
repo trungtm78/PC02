@@ -1,0 +1,4 @@
+-- This migration has no schema changes.
+-- The district slug normalization is handled by the standalone script:
+-- backend/prisma/migrations/20260425000002_normalize_case_district_slugs/migrate-district-slugs.ts
+-- Run manually: npx ts-node prisma/migrations/20260425000002_normalize_case_district_slugs/migrate-district-slugs.ts

@@ -30,6 +30,7 @@ import { TeamsModule } from './teams/teams.module';
 import { SettingsModule } from './settings/settings.module';
 import { FeatureFlagsModule } from './feature-flags/feature-flags.module';
 import { KpiModule } from './kpi/kpi.module';
+import { AbbreviationsModule } from './abbreviations/abbreviations.module';
 import { UnitScopeService } from './auth/services/unit-scope.service';
 import { DataScopeInterceptor } from './auth/interceptors/data-scope.interceptor';
 
@@ -63,6 +64,7 @@ import { DataScopeInterceptor } from './auth/interceptors/data-scope.interceptor
     SettingsModule,
     FeatureFlagsModule,
     KpiModule,
+    AbbreviationsModule,
   ],
   controllers: [AppController],
   providers: [

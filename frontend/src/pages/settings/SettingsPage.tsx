@@ -11,7 +11,9 @@ import {
   Save,
   ChevronRight,
   KeyRound,
+  Keyboard,
 } from 'lucide-react';
+import { AbbreviationsModule } from './modules/AbbreviationsModule';
 import { Button } from '@/components/ui/button';
 import { TwoFaSetupModal } from '@/components/TwoFaSetupModal';
 import { ChangePasswordModal } from '@/components/ChangePasswordModal';
@@ -53,6 +55,12 @@ const menuItems = [
     label: 'Bảo mật',
     icon: Lock,
     description: 'Cấu hình bảo mật và 2FA',
+  },
+  {
+    id: 'abbreviations',
+    label: 'Từ viết tắt',
+    icon: Keyboard,
+    description: 'Thư viện phím tắt cá nhân (F9)',
   },
 ];
 
@@ -381,6 +389,8 @@ export default function SettingsPage() {
         return <NotificationsModule />;
       case 'security':
         return <SecurityModule />;
+      case 'abbreviations':
+        return <AbbreviationsModule />;
       default:
         return <UserManagementModule />;
     }
