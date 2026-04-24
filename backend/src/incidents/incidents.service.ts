@@ -15,7 +15,7 @@ import { ProsecuteIncidentDto } from './dto/prosecute-incident.dto';
 import { UpdateStatusDto } from './dto/update-status.dto';
 import { MergeIncidentDto } from './dto/merge-incident.dto';
 import { TransferIncidentDto } from './dto/transfer-incident.dto';
-import { Prisma, IncidentStatus, LoaiNguonTin } from '@prisma/client';
+import { Prisma, IncidentStatus, LoaiNguonTin, LyDoKhongKhoiTo } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { buildScopeFilter } from '../common/utils/scope-filter.util';
 import { TERMINAL_STATUSES, VALID_TRANSITIONS, PHASE_STATUSES } from './incidents.constants';
@@ -533,10 +533,20 @@ export class IncidentsService {
       );
     }
 
+    // GAP-6: lyDoKhongKhoiTo required when transitioning to KHONG_KHOI_TO (Điều 157)
+    if (dto.status === IncidentStatus.KHONG_KHOI_TO && !dto.lyDoKhongKhoiTo) {
+      throw new BadRequestException(
+        'Bắt buộc cung cấp lý do không khởi tố (lyDoKhongKhoiTo) theo Điều 157 BLTTHS 2015',
+      );
+    }
+
     const [record] = await this.prisma.$transaction([
       this.prisma.incident.update({
         where: { id },
-        data: { status: dto.status },
+        data: {
+          status: dto.status,
+          ...(dto.lyDoKhongKhoiTo !== undefined && { lyDoKhongKhoiTo: dto.lyDoKhongKhoiTo }),
+        },
         include: {
           investigator: {
             select: { id: true, firstName: true, lastName: true, username: true },

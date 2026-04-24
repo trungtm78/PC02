@@ -67,6 +67,7 @@ export interface CaseFormData {
   supervisingUnit: string;    // Đơn vị thụ lý
   petitionType: string;       // Loại đơn thư (từ MasterClass type 02)
   caseClassification: string; // Phân loại vụ án
+  capDoToiPham: string;       // Mức độ tội phạm (BLHS 2015 Điều 9) — dùng cho KPI-4
 
   // Thông tin người tố cáo/báo tin
   reporter: string;           // Họ và tên người báo tin
@@ -212,6 +213,7 @@ export const INITIAL_FORM_DATA: CaseFormData = {
   supervisingUnit: "",
   petitionType: "",
   caseClassification: "",
+  capDoToiPham: "",
   reporter: "",
   reporterIdNumber: "",
   reporterDateOfBirth: "",

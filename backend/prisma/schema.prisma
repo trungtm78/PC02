@@ -149,6 +149,23 @@ enum LoaiDon {
   PHAN_ANH  // Phản ánh
 }
 
+enum CapDoToiPham {
+  IT_NGHIEM_TRONG          // Ít nghiêm trọng — phạt đến 3 năm (BLHS 2015 Điều 9 khoản 1)
+  NGHIEM_TRONG             // Nghiêm trọng — phạt đến 7 năm (Điều 9 khoản 2)
+  RAT_NGHIEM_TRONG         // Rất nghiêm trọng — phạt đến 15 năm (Điều 9 khoản 3)
+  DAC_BIET_NGHIEM_TRONG    // Đặc biệt nghiêm trọng — phạt trên 15 năm/tử hình (Điều 9 khoản 4)
+}
+
+enum LyDoKhongKhoiTo {
+  KHONG_CO_SU_VIEC                 // Không có sự việc phạm tội (Điều 157 khoản 1a)
+  HANH_VI_KHONG_CAU_THANH_TOI_PHAM // Hành vi không cấu thành tội phạm (Điều 157 khoản 1b)
+  NGUOI_THUC_HIEN_CHUA_DU_TUOI    // Người thực hiện chưa đủ tuổi TNHS (Điều 157 khoản 1c)
+  NGUOI_PHAM_TOI_CHET              // Người phạm tội đã chết (Điều 157 khoản 1d)
+  HET_THOI_HIEU                    // Hết thời hiệu truy cứu TNHS (Điều 157 khoản 1đ)
+  TOI_PHAM_DA_DUOC_XOA_AN_TICH    // Tội phạm đã được đại xá (Điều 157 khoản 1e)
+  TRUONG_HOP_KHAC                  // Trường hợp khác theo quy định BLTTHS (Điều 157 khoản 1g)
+}
+
 // ─────────────────────────────────────────────
 // Case Management
 // ─────────────────────────────────────────────
@@ -178,6 +195,8 @@ model Case {
   unit           String?
   subjectsCount  Int        @default(0)
   metadata       Json?                            // Lưu toàn bộ fields phụ của form (người báo tin, địa chỉ, mã hồ sơ, v.v.)
+  capDoToiPham   CapDoToiPham?                    // Mức độ tội phạm (BLHS 2015 Điều 9) — dùng cho KPI-4
+  ngayKhoiTo     DateTime?                        // Ngày quyết định khởi tố vụ án
   deletedAt      DateTime?                        // Soft delete
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
@@ -409,7 +428,7 @@ model Incident {
   ngayQuyetDinh     DateTime?    // Ngày ra quyết định
   soLanGiaHan       Int          @default(0) // Số lần đã gia hạn, tối đa 2 (Điều 147 khoản 2-3)
   ngayGiaHan        DateTime?              // Ngày gia hạn gần nhất
-  lyDoKhongKhoiTo   String?      // Lý do không khởi tố (Đ.157 BLTTHS: 7 căn cứ)
+  lyDoKhongKhoiTo   LyDoKhongKhoiTo? // Lý do không khởi tố (Điều 157 BLTTHS 2015: 7 căn cứ)
   lyDoTamDinhChi    String?      // Lý do tạm đình chỉ (Đ.148: chờ giám định/tương trợ tư pháp)
   diaChiXayRa       String?      // Địa điểm xảy ra sự việc
   // Thông tin người tố giác/báo tin chi tiết

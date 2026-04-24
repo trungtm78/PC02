@@ -9,7 +9,7 @@ import { AuditService } from '../audit/audit.service';
 import { CreateCaseDto } from './dto/create-case.dto';
 import { UpdateCaseDto } from './dto/update-case.dto';
 import { QueryCasesDto } from './dto/query-cases.dto';
-import { Prisma, CaseStatus, PetitionStatus, LoaiDon } from '@prisma/client';
+import { Prisma, CaseStatus, PetitionStatus, LoaiDon, CapDoToiPham } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { buildScopeFilter } from '../common/utils/scope-filter.util';
 
@@ -37,6 +37,7 @@ export class CasesService {
       overdue,
       districtId,
       wardId,
+      capDoToiPham,
       limit = 20,
       offset = 0,
       sortBy = 'createdAt',
@@ -87,6 +88,10 @@ export class CasesService {
       where.status = {
         notIn: [CaseStatus.DA_KET_LUAN, CaseStatus.DA_LUU_TRU, CaseStatus.DINH_CHI],
       };
+    }
+
+    if (capDoToiPham) {
+      where.capDoToiPham = capDoToiPham;
     }
 
     // Filter theo quận/huyện hoặc phường/xã (qua subjects)
@@ -268,6 +273,8 @@ export class CasesService {
               deadline: dto.deadline ? new Date(dto.deadline) : undefined,
               unit: dto.unit,
               subjectsCount: dto.subjectsCount ?? 0,
+              ...(dto.capDoToiPham !== undefined && { capDoToiPham: dto.capDoToiPham }),
+              ...(dto.ngayKhoiTo !== undefined && { ngayKhoiTo: new Date(dto.ngayKhoiTo) }),
               ...(dto.metadata !== undefined && {
                 metadata: dto.metadata as JsonInput,
               }),
@@ -345,6 +352,8 @@ export class CasesService {
         deadline: dto.deadline ? new Date(dto.deadline) : undefined,
         unit: dto.unit,
         subjectsCount: dto.subjectsCount ?? 0,
+        ...(dto.capDoToiPham !== undefined && { capDoToiPham: dto.capDoToiPham }),
+        ...(dto.ngayKhoiTo !== undefined && { ngayKhoiTo: new Date(dto.ngayKhoiTo) }),
         ...(dto.metadata !== undefined && { metadata: dto.metadata as JsonInput }),
       },
       include: {
@@ -407,6 +416,10 @@ export class CasesService {
       ...(dto.unit !== undefined && { unit: dto.unit }),
       ...(dto.subjectsCount !== undefined && { subjectsCount: dto.subjectsCount }),
       ...(dto.metadata !== undefined && { metadata: dto.metadata as JsonInput }),
+      ...(dto.capDoToiPham !== undefined && { capDoToiPham: dto.capDoToiPham }),
+      ...(dto.ngayKhoiTo !== undefined && {
+        ngayKhoiTo: dto.ngayKhoiTo ? new Date(dto.ngayKhoiTo) : null,
+      }),
     };
 
     const record = await this.prisma.case.update({

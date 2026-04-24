@@ -15,6 +15,7 @@ import { ConvertToCaseDto } from './dto/convert-case.dto';
 import { Prisma, LoaiDon } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { buildPetitionScopeFilter } from '../common/utils/scope-filter.util';
+import { SettingsService } from '../settings/settings.service';
 
 // Enum values — inline to avoid dependency on Prisma client generation
 // These must match schema.prisma enum definitions exactly
@@ -39,6 +40,7 @@ export class PetitionsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly settings: SettingsService,
   ) {}
 
   // ─────────────────────────────────────────────
@@ -263,18 +265,23 @@ export class PetitionsService {
       }
     }
 
-    // Auto-calculate deadline by petition type if not provided
+    // Auto-calculate deadline by petition type — days read from SystemSettings (GAP-7)
     let computedDeadline: Date | undefined;
     if (dto.deadline) {
       computedDeadline = new Date(dto.deadline);
     } else {
       const base = new Date(dto.receivedDate);
-      // Luật Tố cáo 2018 Điều 30: tố cáo = 30 ngày
-      // Luật Khiếu nại 2011 Điều 28: khiếu nại = 30 ngày
-      // Kiến nghị/Phản ánh: 15 ngày (chính sách nội bộ)
-      const deadlineDays = dto.petitionType === LoaiDon.TO_CAO || dto.petitionType === LoaiDon.KHIEU_NAI
-        ? 30
-        : 15;
+      let settingKey: string;
+      if (dto.petitionType === LoaiDon.TO_CAO) {
+        settingKey = 'THOI_HAN_TO_CAO';
+      } else if (dto.petitionType === LoaiDon.KHIEU_NAI) {
+        settingKey = 'THOI_HAN_KHIEU_NAI';
+      } else if (dto.petitionType === LoaiDon.KIEN_NGHI) {
+        settingKey = 'THOI_HAN_KIEN_NGHI';
+      } else {
+        settingKey = 'THOI_HAN_PHAN_ANH';
+      }
+      const deadlineDays = await this.settings.getNumericValue(settingKey, 15);
       base.setDate(base.getDate() + deadlineDays);
       computedDeadline = base;
     }

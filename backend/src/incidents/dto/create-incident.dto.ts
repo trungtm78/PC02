@@ -6,7 +6,7 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
-import { LoaiNguonTin } from '@prisma/client';
+import { LoaiNguonTin, LyDoKhongKhoiTo } from '@prisma/client';
 
 export class CreateIncidentDto {
   // Tên vụ việc — bắt buộc, 5–255 ký tự (Table 2.2.A)
@@ -103,8 +103,10 @@ export class CreateIncidentDto {
   ngayQuyetDinh?: string;
 
   @IsOptional()
-  @IsString()
-  lyDoKhongKhoiTo?: string;
+  @IsEnum(LyDoKhongKhoiTo, {
+    message: 'lyDoKhongKhoiTo phải là một trong 7 căn cứ theo Điều 157 BLTTHS 2015',
+  })
+  lyDoKhongKhoiTo?: LyDoKhongKhoiTo;
 
   @IsOptional()
   @IsString()

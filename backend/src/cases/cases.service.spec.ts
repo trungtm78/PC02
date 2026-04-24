@@ -21,7 +21,7 @@ import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { CasesService } from './cases.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
-import { CaseStatus, PetitionStatus } from '@prisma/client';
+import { CaseStatus, PetitionStatus, CapDoToiPham } from '@prisma/client';
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
@@ -542,6 +542,56 @@ describe('CasesService', () => {
       expect(result.success).toBe(true);
       expect(result.data).toHaveLength(1);
       expect(result.data[0].fromStatus).toBe(CaseStatus.TIEP_NHAN);
+    });
+  });
+
+  // ── GAP-5: capDoToiPham (BLHS 2015 Điều 9) ───────────────────────────────
+
+  describe('create — capDoToiPham (GAP-5)', () => {
+    it('creates case with capDoToiPham field stored', async () => {
+      const withSeverity = {
+        ...mockCase,
+        capDoToiPham: CapDoToiPham.RAT_NGHIEM_TRONG,
+      };
+      mockPrisma.user.findUnique.mockResolvedValue({ id: 'user-001' });
+      mockPrisma.case.create.mockResolvedValue(withSeverity);
+
+      const result = await service.create(
+        {
+          name: 'Vụ án rất nghiêm trọng',
+          capDoToiPham: CapDoToiPham.RAT_NGHIEM_TRONG,
+        },
+        'actor-001',
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.data.capDoToiPham).toBe(CapDoToiPham.RAT_NGHIEM_TRONG);
+      expect(mockPrisma.case.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ capDoToiPham: CapDoToiPham.RAT_NGHIEM_TRONG }),
+        }),
+      );
+    });
+
+    it('update sets capDoToiPham on existing case', async () => {
+      const existing = { ...mockCase, capDoToiPham: null };
+      const updated = { ...mockCase, capDoToiPham: CapDoToiPham.DAC_BIET_NGHIEM_TRONG };
+      mockPrisma.case.findFirst.mockResolvedValue(existing);
+      mockPrisma.user.findUnique.mockResolvedValue({ id: 'user-001' });
+      mockPrisma.case.update.mockResolvedValue(updated);
+
+      const result = await service.update(
+        'case-001',
+        { capDoToiPham: CapDoToiPham.DAC_BIET_NGHIEM_TRONG },
+        'actor-001',
+      );
+
+      expect(result.success).toBe(true);
+      expect(mockPrisma.case.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ capDoToiPham: CapDoToiPham.DAC_BIET_NGHIEM_TRONG }),
+        }),
+      );
     });
   });
 });

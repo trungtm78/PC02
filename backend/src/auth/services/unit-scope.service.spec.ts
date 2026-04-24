@@ -92,13 +92,13 @@ describe('UnitScopeService', () => {
   // ── Data access grants ─────────────────────────────────────────────────
 
   describe('resolveScope - with grants', () => {
-    it('includes teams from active grants', async () => {
+    it('includes teams from active READ grants in teamIds (readable)', async () => {
       mockPrisma.userTeam.findMany.mockResolvedValue([
         { teamId: 't1', team: { level: 1 } },
       ]);
       mockTeamsService.getDescendantIds.mockResolvedValue([]);
       mockPrisma.dataAccessGrant.findMany.mockResolvedValue([
-        { teamId: 't-granted' },
+        { teamId: 't-granted', accessLevel: 'READ' },
       ]);
       mockTeamsService.getUserIdsForTeams.mockResolvedValue(['u1']);
 
@@ -106,6 +106,72 @@ describe('UnitScopeService', () => {
 
       expect(result!.teamIds).toContain('t1');
       expect(result!.teamIds).toContain('t-granted');
+    });
+  });
+
+  // ── GAP-9: accessLevel enforcement (writableTeamIds) ────────────────────
+
+  describe('resolveScope - GAP-9 writableTeamIds', () => {
+    it('WRITE grant: team appears in both teamIds and writableTeamIds', async () => {
+      mockPrisma.userTeam.findMany.mockResolvedValue([
+        { teamId: 'own-team', team: { level: 1 } },
+      ]);
+      mockTeamsService.getDescendantIds.mockResolvedValue([]);
+      mockPrisma.dataAccessGrant.findMany.mockResolvedValue([
+        { teamId: 'write-team', accessLevel: 'WRITE' },
+      ]);
+      mockTeamsService.getUserIdsForTeams.mockResolvedValue(['u1', 'u2']);
+
+      const result = await service.resolveScope('user-1', 'OFFICER');
+
+      expect(result!.teamIds).toContain('write-team');          // readable
+      expect(result!.writableTeamIds).toContain('write-team'); // also writable
+      expect(result!.writableTeamIds).toContain('own-team');   // own team writable
+    });
+
+    it('READ grant: team appears in teamIds but NOT in writableTeamIds', async () => {
+      mockPrisma.userTeam.findMany.mockResolvedValue([
+        { teamId: 'own-team', team: { level: 1 } },
+      ]);
+      mockTeamsService.getDescendantIds.mockResolvedValue([]);
+      mockPrisma.dataAccessGrant.findMany.mockResolvedValue([
+        { teamId: 'readonly-team', accessLevel: 'READ' },
+      ]);
+      mockTeamsService.getUserIdsForTeams.mockResolvedValue(['u1']);
+
+      const result = await service.resolveScope('user-1', 'OFFICER');
+
+      expect(result!.teamIds).toContain('readonly-team');           // readable
+      expect(result!.writableTeamIds).not.toContain('readonly-team'); // NOT writable
+      expect(result!.writableTeamIds).toContain('own-team');         // own team writable
+    });
+
+    it('own teams always in writableTeamIds regardless of grants', async () => {
+      mockPrisma.userTeam.findMany.mockResolvedValue([
+        { teamId: 'my-team', team: { level: 1 } },
+      ]);
+      mockTeamsService.getDescendantIds.mockResolvedValue([]);
+      mockPrisma.dataAccessGrant.findMany.mockResolvedValue([]);
+      mockTeamsService.getUserIdsForTeams.mockResolvedValue(['u1']);
+
+      const result = await service.resolveScope('user-1', 'OFFICER');
+
+      expect(result!.writableTeamIds).toContain('my-team');
+    });
+
+    it('no grants: writableTeamIds equals own teamIds', async () => {
+      mockPrisma.userTeam.findMany.mockResolvedValue([
+        { teamId: 'team-a', team: { level: 1 } },
+        { teamId: 'team-b', team: { level: 1 } },
+      ]);
+      mockTeamsService.getDescendantIds.mockResolvedValue([]);
+      mockPrisma.dataAccessGrant.findMany.mockResolvedValue([]);
+      mockTeamsService.getUserIdsForTeams.mockResolvedValue(['u1', 'u2']);
+
+      const result = await service.resolveScope('user-1', 'OFFICER');
+
+      expect(result!.writableTeamIds).toEqual(expect.arrayContaining(['team-a', 'team-b']));
+      expect(result!.writableTeamIds).toHaveLength(2);
     });
   });
 

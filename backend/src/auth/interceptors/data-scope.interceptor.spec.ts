@@ -35,7 +35,7 @@ describe('DataScopeInterceptor', () => {
     const ctx = makeCtx({ id: 'u1' });
     await interceptor.intercept(ctx, mockHandler);
     expect(mockUnitScope.resolveScope).not.toHaveBeenCalled();
-    expect(ctx._request.dataScope).toEqual({ teamIds: [], userIds: [] });
+    expect(ctx._request.dataScope).toEqual({ teamIds: [], userIds: [], writableTeamIds: [] });
   });
 
   it('does not set dataScope for unauthenticated requests (public routes)', async () => {

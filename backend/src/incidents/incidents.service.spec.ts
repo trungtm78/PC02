@@ -790,6 +790,43 @@ describe('IncidentsService', () => {
         service.updateStatus('nonexistent', { status: IncidentStatus.DANG_XAC_MINH }, 'actor-001'),
       ).rejects.toThrow(NotFoundException);
     });
+
+    // GAP-6: lyDoKhongKhoiTo validation (Điều 157 BLTTHS 2015)
+    it('KHONG_KHOI_TO without lyDoKhongKhoiTo → throws BadRequestException', async () => {
+      mockPrisma.incident.findFirst.mockResolvedValue({
+        ...mockIncident,
+        status: IncidentStatus.DANG_XAC_MINH,
+      });
+
+      await expect(
+        service.updateStatus(
+          'inc-001',
+          { status: IncidentStatus.KHONG_KHOI_TO },
+          'actor-001',
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('KHONG_KHOI_TO with lyDoKhongKhoiTo → success, field saved', async () => {
+      mockPrisma.incident.findFirst.mockResolvedValue({
+        ...mockIncident,
+        status: IncidentStatus.DANG_XAC_MINH,
+      });
+      const updated = { ...mockIncident, status: IncidentStatus.KHONG_KHOI_TO, lyDoKhongKhoiTo: 'KHONG_CO_SU_VIEC' };
+      mockPrisma.$transaction.mockResolvedValue([updated, {}]);
+
+      const result = await service.updateStatus(
+        'inc-001',
+        { status: IncidentStatus.KHONG_KHOI_TO, lyDoKhongKhoiTo: 'KHONG_CO_SU_VIEC' as any },
+        'actor-001',
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.data.status).toBe(IncidentStatus.KHONG_KHOI_TO);
+      expect(mockAudit.log).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'INCIDENT_STATUS_CHANGED' }),
+      );
+    });
   });
 
   // ── mergeInto ─────────────────────────────────────────────────────────────

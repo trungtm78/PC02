@@ -25,6 +25,7 @@ import {
 import { PetitionsService } from './petitions.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { SettingsService } from '../settings/settings.service';
 import { PetitionStatus, LoaiDon } from '@prisma/client';
 
 // CaseStatus values — only used in mock fixture objects (not DTO-typed)
@@ -97,6 +98,10 @@ const mockAudit = {
   log: jest.fn().mockResolvedValue(undefined),
 };
 
+const mockSettings = {
+  getNumericValue: jest.fn(),
+};
+
 // ─── Test Suite ───────────────────────────────────────────────────────────────
 
 describe('PetitionsService', () => {
@@ -108,6 +113,7 @@ describe('PetitionsService', () => {
         PetitionsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AuditService, useValue: mockAudit },
+        { provide: SettingsService, useValue: mockSettings },
       ],
     }).compile();
 
@@ -237,37 +243,56 @@ describe('PetitionsService', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('TO_CAO petitionType → auto-deadline = receivedDate + 30 days', async () => {
+    it('TO_CAO petitionType → reads THOI_HAN_TO_CAO setting, auto-deadline = receivedDate + 30 days', async () => {
       mockPrisma.petition.findUnique.mockResolvedValue(null);
-      const created = { ...mockPetition, receivedDate: new Date('2026-02-01') };
-      mockPrisma.petition.create.mockResolvedValue(created);
+      mockPrisma.petition.create.mockResolvedValue({ ...mockPetition, receivedDate: new Date('2026-02-01') });
+      mockSettings.getNumericValue.mockResolvedValue(30);
 
       await service.create({ ...validDto, petitionType: LoaiDon.TO_CAO }, 'user-001');
 
+      expect(mockSettings.getNumericValue).toHaveBeenCalledWith('THOI_HAN_TO_CAO', 15);
       const callArgs = mockPrisma.petition.create.mock.calls[0][0];
       const expectedDeadline = new Date('2026-02-01');
       expectedDeadline.setDate(expectedDeadline.getDate() + 30);
       expect(callArgs.data.deadline).toEqual(expectedDeadline);
     });
 
-    it('KHIEU_NAI petitionType → auto-deadline = receivedDate + 30 days', async () => {
+    it('KHIEU_NAI petitionType → reads THOI_HAN_KHIEU_NAI setting, auto-deadline = receivedDate + 30 days', async () => {
       mockPrisma.petition.findUnique.mockResolvedValue(null);
       mockPrisma.petition.create.mockResolvedValue(mockPetition);
+      mockSettings.getNumericValue.mockResolvedValue(30);
 
       await service.create({ ...validDto, petitionType: LoaiDon.KHIEU_NAI }, 'user-001');
 
+      expect(mockSettings.getNumericValue).toHaveBeenCalledWith('THOI_HAN_KHIEU_NAI', 15);
       const callArgs = mockPrisma.petition.create.mock.calls[0][0];
       const expectedDeadline = new Date('2026-02-01');
       expectedDeadline.setDate(expectedDeadline.getDate() + 30);
       expect(callArgs.data.deadline).toEqual(expectedDeadline);
     });
 
-    it('KIEN_NGHI petitionType → auto-deadline = receivedDate + 15 days', async () => {
+    it('KIEN_NGHI petitionType → reads THOI_HAN_KIEN_NGHI setting, auto-deadline = receivedDate + 15 days', async () => {
       mockPrisma.petition.findUnique.mockResolvedValue(null);
       mockPrisma.petition.create.mockResolvedValue(mockPetition);
+      mockSettings.getNumericValue.mockResolvedValue(15);
 
       await service.create({ ...validDto, petitionType: LoaiDon.KIEN_NGHI }, 'user-001');
 
+      expect(mockSettings.getNumericValue).toHaveBeenCalledWith('THOI_HAN_KIEN_NGHI', 15);
+      const callArgs = mockPrisma.petition.create.mock.calls[0][0];
+      const expectedDeadline = new Date('2026-02-01');
+      expectedDeadline.setDate(expectedDeadline.getDate() + 15);
+      expect(callArgs.data.deadline).toEqual(expectedDeadline);
+    });
+
+    it('PHAN_ANH petitionType → reads THOI_HAN_PHAN_ANH setting, auto-deadline = receivedDate + 15 days', async () => {
+      mockPrisma.petition.findUnique.mockResolvedValue(null);
+      mockPrisma.petition.create.mockResolvedValue(mockPetition);
+      mockSettings.getNumericValue.mockResolvedValue(15);
+
+      await service.create({ ...validDto, petitionType: LoaiDon.PHAN_ANH }, 'user-001');
+
+      expect(mockSettings.getNumericValue).toHaveBeenCalledWith('THOI_HAN_PHAN_ANH', 15);
       const callArgs = mockPrisma.petition.create.mock.calls[0][0];
       const expectedDeadline = new Date('2026-02-01');
       expectedDeadline.setDate(expectedDeadline.getDate() + 15);
@@ -286,6 +311,7 @@ describe('PetitionsService', () => {
 
       const callArgs = mockPrisma.petition.create.mock.calls[0][0];
       expect(callArgs.data.deadline).toEqual(new Date(explicitDeadline));
+      expect(mockSettings.getNumericValue).not.toHaveBeenCalled();
     });
   });
 
