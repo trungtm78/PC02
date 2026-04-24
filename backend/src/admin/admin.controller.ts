@@ -170,4 +170,12 @@ export class AdminController {
       userAgent: req.headers['user-agent'],
     });
   }
+
+  // ── 2FA Admin Reset ──────────────────────────────────
+  @Post('users/:id/reset-2fa')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions({ action: 'write', subject: 'User' })
+  resetUserTwoFa(@Param('id') id: string, @CurrentUser() admin: AuthUser) {
+    return this.adminService.adminResetTwoFa(id, admin.id);
+  }
 }

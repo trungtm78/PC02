@@ -2,11 +2,13 @@ import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import type { StringValue } from 'ms';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { SettingsService } from '../settings/settings.service';
 import { LoginDto } from './dto/login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { JwtPayload } from './strategies/jwt.strategy';
@@ -17,6 +19,10 @@ export interface TokenPair {
   expiresIn: string;
 }
 
+// ISSUE-004: login() now returns either a full TokenPair or a 2FA pending response
+export type TwoFaPendingResponse = { pending: true; twoFaToken: string };
+export type LoginResponse = TokenPair | TwoFaPendingResponse;
+
 @Injectable()
 export class AuthService {
   private readonly privateKey: string;
@@ -26,6 +32,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly auditService: AuditService,
+    private readonly settingsService: SettingsService,
   ) {
     const privateKeyPath = this.configService.get<string>(
       'JWT_PRIVATE_KEY_PATH',
@@ -38,7 +45,7 @@ export class AuthService {
   async login(
     dto: LoginDto,
     meta: { ipAddress?: string; userAgent?: string },
-  ): Promise<TokenPair> {
+  ): Promise<LoginResponse> {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.username },
       include: { role: true },
@@ -60,6 +67,26 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    // 2FA check — if enabled, return pending token instead of full TokenPair
+    const is2FAEnabled = (await this.settingsService.getValue('TWO_FA_ENABLED')) === 'true';
+    if (is2FAEnabled) {
+      const jti = crypto.randomUUID();
+      const twoFaToken = await this.jwtService.signAsync(
+        { sub: user.id, type: '2fa_pending', jti } as object,
+        { algorithm: 'RS256', privateKey: this.privateKey, expiresIn: '5m' as StringValue },
+      );
+      await this.auditService.log({
+        userId: user.id,
+        action: 'USER_LOGIN_2FA_PENDING',
+        subject: 'User',
+        subjectId: user.id,
+        metadata: { email: user.email },
+        ipAddress: meta.ipAddress,
+        userAgent: meta.userAgent,
+      });
+      return { pending: true, twoFaToken };
+    }
+
     const tokens = await this.generateTokens(
       user.id,
       user.email,
@@ -74,7 +101,7 @@ export class AuthService {
       data: { refreshTokenHash: refreshHash, lastLoginAt: new Date() },
     });
 
-    // AC-STEP1-04: Audit log
+    // AC-STEP1-04: Audit log (USER_LOGIN only fires here when 2FA is off)
     await this.auditService.log({
       userId: user.id,
       action: 'USER_LOGIN',

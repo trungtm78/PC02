@@ -382,6 +382,48 @@ describe('SubjectsService', () => {
     });
   });
 
+  // ── create: districtName ─────────────────────────────────────────────────
+
+  describe('create — districtName', () => {
+    beforeEach(() => {
+      mockPrisma.subject.findFirst.mockResolvedValue(null);
+      mockPrisma.case.findFirst.mockResolvedValue(FAKE_CASE);
+      mockPrisma.directory.findFirst.mockResolvedValue(FAKE_CRIME);
+    });
+
+    it('stores districtName when provided', async () => {
+      mockPrisma.subject.create.mockResolvedValue({
+        ...FAKE_SUBJECT,
+        districtId: 'Q1',
+        districtName: 'Quận 1',
+      });
+
+      const result = await service.create(
+        { ...BASE_CREATE_DTO, districtId: 'Q1', districtName: 'Quận 1' },
+        'actor-1',
+      );
+
+      expect(result.success).toBe(true);
+      expect(mockPrisma.subject.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ districtName: 'Quận 1' }),
+        }),
+      );
+    });
+
+    it('stores null districtName when not provided', async () => {
+      mockPrisma.subject.create.mockResolvedValue({ ...FAKE_SUBJECT, districtName: null });
+
+      await service.create(BASE_CREATE_DTO, 'actor-1');
+
+      expect(mockPrisma.subject.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ districtName: null }),
+        }),
+      );
+    });
+  });
+
   // ── update ────────────────────────────────────────────────────────────────
 
   describe('update', () => {
@@ -550,6 +592,35 @@ describe('SubjectsService', () => {
           metadata: expect.objectContaining({
             fullName: FAKE_SUBJECT.fullName,
           }),
+        }),
+      );
+    });
+  });
+
+  // ── update: districtName ─────────────────────────────────────────────────
+
+  describe('update — districtName', () => {
+    beforeEach(() => {
+      mockPrisma.subject.findFirst.mockResolvedValue(FAKE_SUBJECT);
+      mockPrisma.case.findFirst.mockResolvedValue(FAKE_CASE);
+      mockPrisma.directory.findFirst.mockResolvedValue(FAKE_CRIME);
+      mockPrisma.subject.update.mockResolvedValue({
+        ...FAKE_SUBJECT,
+        districtName: 'Quận 3',
+      });
+    });
+
+    it('updates districtName correctly', async () => {
+      const result = await service.update(
+        'sub-001',
+        { districtName: 'Quận 3' },
+        'actor-1',
+      );
+
+      expect(result.success).toBe(true);
+      expect(mockPrisma.subject.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ districtName: 'Quận 3' }),
         }),
       );
     });

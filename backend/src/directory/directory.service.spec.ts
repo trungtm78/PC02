@@ -303,6 +303,53 @@ describe('DirectoryService', () => {
     });
   });
 
+  // ── findAll: isActive filter (cải cách hành chính) ───────────────────────
+
+  describe('findAll — isActive filter', () => {
+    it('returns only abolished entries when isActive=false', async () => {
+      const abolishedDistricts = [
+        {
+          id: 'd1',
+          type: 'DISTRICT',
+          code: 'Q1',
+          name: 'Quận 1',
+          isActive: false,
+          abolishedAt: new Date('2025-07-01'),
+        },
+        {
+          id: 'd2',
+          type: 'DISTRICT',
+          code: 'Q3',
+          name: 'Quận 3',
+          isActive: false,
+          abolishedAt: new Date('2025-07-01'),
+        },
+      ];
+      mockPrisma.directory.findMany.mockResolvedValue(abolishedDistricts);
+      mockPrisma.directory.count.mockResolvedValue(2);
+
+      const result = await service.findAll({ isActive: false, type: 'DISTRICT' });
+
+      expect(mockPrisma.directory.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ isActive: false, type: 'DISTRICT' }),
+        }),
+      );
+      expect(result.data.every((d: any) => d.isActive === false)).toBe(true);
+      expect(result.data.every((d: any) => d.abolishedAt !== null)).toBe(true);
+    });
+
+    it('returns all entries when isActive is not specified', async () => {
+      mockPrisma.directory.findMany.mockResolvedValue([]);
+      mockPrisma.directory.count.mockResolvedValue(0);
+
+      await service.findAll({});
+
+      const callArg = mockPrisma.directory.findMany.mock.calls[0][0];
+      expect(callArg.where).not.toHaveProperty('isActive');
+    });
+  });
+
   // ── seedSampleData ────────────────────────────────────────────────────────
 
   describe('seedSampleData', () => {

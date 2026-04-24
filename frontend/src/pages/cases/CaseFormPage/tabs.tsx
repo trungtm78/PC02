@@ -23,8 +23,10 @@ import {
   Save,
   CheckCircle,
   Info,
+  History,
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { FormInput, FormSelect, FormTextarea } from "@/components/form";
 import { Card, CardHeader, EmptyState, DataTable, ActionButtons, StatusBadge } from "@/components/shared";
@@ -35,8 +37,6 @@ import {
   CASE_TYPE_OPTIONS,
   PRIORITY_OPTIONS,
   STATUS_OPTIONS,
-  DISTRICT_OPTIONS,
-  WARD_OPTIONS,
   UNIT_OPTIONS,
   CASE_CLASSIFICATION_OPTIONS,
   INCIDENT_TYPE_OPTIONS,
@@ -68,6 +68,66 @@ function useFieldUpdater(
 
 export function TabInfo({ formData, setFormData, errors, setErrors, handlerOptions = [], handlerLoading = false }: TabProps) {
   const update = useFieldUpdater(formData, setFormData, errors, setErrors);
+
+  // ── Administrative reform: 2-tier address (Province → Ward) ──
+  // Records loaded from DB that already have a district are "existing legacy" — show read-only badge
+  const isExistingLegacy = !!formData.district;
+  const [legacyMode, setLegacyMode] = useState(!!formData.district);
+
+  const handleLegacyToggle = () => {
+    if (legacyMode && !isExistingLegacy) {
+      // Only clear district if user set it in this session — never clear DB-loaded values
+      update("district", "");
+    }
+    setLegacyMode((prev) => !prev);
+  };
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && e.key === "L") {
+        e.preventDefault();
+        handleLegacyToggle();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [legacyMode]);
+
+  // Active wards after reform — isActive=true must be explicit (no server-side default)
+  const { data: wardOptions } = useQuery({
+    queryKey: ["directories", "WARD", "active"],
+    queryFn: () =>
+      api.get("/directories?type=WARD&isActive=true").then((r) =>
+        (r.data.data ?? []).map((d: any) => ({ value: d.code, label: d.name }))
+      ),
+  });
+
+  // Abolished districts — lazy-loaded only when legacy toggle is open
+  const { data: districtOptions } = useQuery({
+    queryKey: ["directories", "DISTRICT", "legacy"],
+    queryFn: () =>
+      api.get("/directories?type=DISTRICT&isActive=false").then((r) =>
+        (r.data.data ?? []).map((d: any) => ({
+          value: d.code,
+          label: `${d.name} (trước ${d.abolishedAt ? new Date(d.abolishedAt).toLocaleDateString("vi-VN", { year: "numeric", month: "2-digit" }) : "07/2025"})`,
+        }))
+      ),
+    enabled: legacyMode && !isExistingLegacy,
+  });
+
+  // Legacy wards for the selected abolished district (cascade)
+  const { data: legacyWardOptions } = useQuery({
+    queryKey: ["directories", "WARD", "legacy", formData.district],
+    queryFn: () =>
+      api.get(`/directories?type=WARD&isActive=false&parentId=${formData.district}`).then((r) =>
+        (r.data.data ?? []).map((d: any) => ({ value: d.code, label: d.name }))
+      ),
+    enabled: legacyMode && !!formData.district && !isExistingLegacy,
+  });
+
+  const activeWardOptions = legacyMode && !isExistingLegacy && formData.district
+    ? (legacyWardOptions ?? [])
+    : (wardOptions ?? []);
 
   return (
     <div className="space-y-6" data-testid="tab-info">
@@ -361,20 +421,52 @@ export function TabInfo({ formData, setFormData, errors, setErrors, handlerOptio
             onChange={(v) => update("province", v)}
             placeholder="TP. Hồ Chí Minh"
           />
-          <FKSelect
-            label="Quận / Huyện"
-            value={formData.district}
-            onChange={(v) => update("district", v)}
-            options={DISTRICT_OPTIONS}
-            placeholder="-- Chọn quận/huyện --"
-            canCreate={false}
-            testId="fk-district"
-          />
+          {/* Legacy district — existing records show read-only badge; new records show toggle */}
+          <div className="md:col-span-2">
+            {isExistingLegacy ? (
+              <div className="flex items-center gap-2 mb-3">
+                <span className="inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded border bg-amber-50 border-amber-300 text-amber-700">
+                  <History className="w-3.5 h-3.5" />
+                  Địa chỉ cũ — {formData.district} (trước 01/07/2025)
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 mb-3">
+                <button
+                  type="button"
+                  onClick={handleLegacyToggle}
+                  aria-pressed={legacyMode}
+                  title="Ctrl+Shift+L để bật/tắt"
+                  className={`flex items-center gap-1.5 text-xs px-2 py-1 rounded border transition-colors ${
+                    legacyMode
+                      ? "bg-amber-50 border-amber-300 text-amber-700"
+                      : "border-gray-200 text-gray-400 hover:text-gray-600"
+                  }`}
+                >
+                  <History className="w-3.5 h-3.5" />
+                  {legacyMode ? "Dữ liệu cũ (có quận)" : "Nhập dữ liệu cũ"}
+                </button>
+              </div>
+            )}
+            {legacyMode && !isExistingLegacy && (
+              <div className="mb-3">
+                <FKSelect
+                  label="Quận / Huyện (địa chỉ cũ — trước 01/07/2025)"
+                  value={formData.district}
+                  onChange={(v) => update("district", v)}
+                  options={districtOptions ?? []}
+                  placeholder="-- Chọn quận/huyện --"
+                  canCreate={false}
+                  testId="fk-district"
+                />
+              </div>
+            )}
+          </div>
           <FKSelect
             label="Phường / Xã"
             value={formData.ward}
             onChange={(v) => update("ward", v)}
-            options={WARD_OPTIONS}
+            options={activeWardOptions}
             placeholder="-- Chọn phường/xã --"
             canCreate={false}
             testId="fk-ward"

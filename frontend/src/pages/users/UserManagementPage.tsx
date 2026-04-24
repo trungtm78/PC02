@@ -33,6 +33,7 @@ type User = {
   department: { id: string; name: string } | null;
   isActive: boolean;
   lastLoginAt: string | null;
+  totpEnabled?: boolean;
 };
 
 type Role = {
@@ -286,6 +287,16 @@ export default function UserManagementPage() {
 
   // ─── Permission handlers ───────────────────────────────────────────────────
 
+  const handleReset2Fa = async (user: User) => {
+    if (!window.confirm(`Đặt lại 2FA cho ${user.fullName ?? user.username}? Người dùng sẽ cần cài đặt lại 2FA.`)) return;
+    try {
+      await api.post(`/admin/users/${user.id}/reset-2fa`);
+      void loadUsers();
+    } catch {
+      alert('Không thể đặt lại 2FA. Vui lòng thử lại.');
+    }
+  };
+
   const handleTogglePerm = (subject: string, action: string) => {
     setPermMatrix((prev) => ({
       ...prev,
@@ -407,7 +418,7 @@ export default function UserManagementPage() {
             <table className="w-full">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200">
-                  {['Mã cán bộ', 'Họ tên', 'Email', 'Vai trò', 'Trạng thái', 'Đăng nhập cuối', 'Thao tác'].map(
+                  {['Mã cán bộ', 'Họ tên', 'Email', 'Vai trò', 'Trạng thái', '2FA', 'Đăng nhập cuối', 'Thao tác'].map(
                     (h) => (
                       <th
                         key={h}
@@ -422,14 +433,14 @@ export default function UserManagementPage() {
               <tbody>
                 {usersLoading ? (
                   <tr>
-                    <td colSpan={7} className="py-12 text-center">
+                    <td colSpan={8} className="py-12 text-center">
                       <Loader2 className="w-8 h-8 animate-spin text-[#003973] mx-auto mb-2" />
                       <p className="text-slate-600">Đang tải dữ liệu...</p>
                     </td>
                   </tr>
                 ) : users.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="py-12 text-center">
+                    <td colSpan={8} className="py-12 text-center">
                       <Users className="w-12 h-12 text-slate-300 mx-auto mb-2" />
                       <p className="text-slate-600 font-medium mb-1">Chưa có người dùng nào</p>
                       <p className="text-sm text-slate-500">
@@ -477,6 +488,16 @@ export default function UserManagementPage() {
                           </span>
                         )}
                       </td>
+                      <td className="py-4 px-6">
+                        {user.totpEnabled ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium">
+                            <Shield className="w-3 h-3" />
+                            Bật
+                          </span>
+                        ) : (
+                          <span className="text-xs text-slate-400">—</span>
+                        )}
+                      </td>
                       <td className="py-4 px-6 text-slate-600 text-sm">
                         {user.lastLoginAt
                           ? new Date(user.lastLoginAt).toLocaleString('vi-VN')
@@ -497,6 +518,15 @@ export default function UserManagementPage() {
                           >
                             <Edit2 className="w-4 h-4 text-slate-600" />
                           </button>
+                          {user.totpEnabled && (
+                            <button
+                              onClick={() => handleReset2Fa(user)}
+                              className="p-1.5 hover:bg-amber-50 rounded transition-colors"
+                              title="Đặt lại 2FA"
+                            >
+                              <Lock className="w-4 h-4 text-amber-600" />
+                            </button>
+                          )}
                           <button
                             onClick={() => {
                               setDeletingUser(user);

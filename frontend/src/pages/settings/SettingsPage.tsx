@@ -1,17 +1,20 @@
 import { useState } from 'react';
-import { 
-  Users, 
-  Shield, 
-  List, 
+import {
+  Users,
+  Shield,
+  List,
   Settings2,
   Bell,
   Lock,
   Smartphone,
   Mail,
   Save,
-  ChevronRight
+  ChevronRight,
+  KeyRound,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { TwoFaSetupModal } from '@/components/TwoFaSetupModal';
+import { ChangePasswordModal } from '@/components/ChangePasswordModal';
 
 // Settings menu items
 const menuItems = [
@@ -319,49 +322,43 @@ function NotificationsModule() {
   );
 }
 
-// Security Module (2FA Placeholder)
+// Security Module
 function SecurityModule() {
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
+  const [twoFaSetupOpen, setTwoFaSetupOpen] = useState(false);
+
   return (
     <div className="space-y-6">
       <h2 className="text-xl font-semibold text-slate-900">Cài đặt bảo mật</h2>
-      
+
       <div className="bg-white rounded-lg border border-slate-200 p-6 space-y-6">
         {/* Password Change */}
         <div>
-          <h3 className="font-medium text-slate-900 mb-4">Đổi mật khẩu</h3>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm text-slate-700 mb-1">Mật khẩu hiện tại</label>
-              <input type="password" className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
-            </div>
-            <div>
-              <label className="block text-sm text-slate-700 mb-1">Mật khẩu mới</label>
-              <input type="password" className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
-            </div>
-            <div>
-              <label className="block text-sm text-slate-700 mb-1">Xác nhận mật khẩu</label>
-              <input type="password" className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
-            </div>
-            <Button>Cập nhật mật khẩu</Button>
-          </div>
+          <h3 className="font-medium text-slate-900 mb-1">Đổi mật khẩu</h3>
+          <p className="text-sm text-slate-500 mb-4">Thay đổi mật khẩu đăng nhập của bạn.</p>
+          <Button variant="outline" onClick={() => setChangePasswordOpen(true)}>
+            <KeyRound className="w-4 h-4 mr-2" />
+            Đổi mật khẩu
+          </Button>
         </div>
-        
+
         <hr className="border-slate-200" />
-        
-        {/* 2FA Placeholder - OUT_OF_SCOPE */}
-        <div className="opacity-60">
-          <h3 className="font-medium text-slate-900 mb-4">Xác thực hai yếu tố (2FA)</h3>
-          <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
-            <p className="text-sm text-slate-600 mb-4">
-              Tăng cường bảo mật tài khoản bằng xác thực hai yếu tố.
-            </p>
-            <Button variant="outline" disabled>
-              <Lock className="w-4 h-4 mr-2" />
-              Kích hoạt 2FA (Đang phát triển)
-            </Button>
-          </div>
+
+        {/* 2FA */}
+        <div>
+          <h3 className="font-medium text-slate-900 mb-1">Xác thực hai yếu tố (2FA)</h3>
+          <p className="text-sm text-slate-500 mb-4">
+            Tăng cường bảo mật tài khoản bằng ứng dụng xác thực (Google Authenticator, Authy...).
+          </p>
+          <Button variant="outline" onClick={() => setTwoFaSetupOpen(true)}>
+            <Shield className="w-4 h-4 mr-2" />
+            Cài đặt 2FA
+          </Button>
         </div>
       </div>
+
+      <ChangePasswordModal open={changePasswordOpen} onClose={() => setChangePasswordOpen(false)} />
+      <TwoFaSetupModal open={twoFaSetupOpen} onClose={() => setTwoFaSetupOpen(false)} />
     </div>
   );
 }
