@@ -121,7 +121,12 @@ export default function DashboardPage() {
       setStats(statsRes.data.data);
       setCharts(chartsRes.data.data);
     } catch (err: any) {
-      setError(err?.response?.data?.message ?? 'Không thể tải dữ liệu dashboard');
+      const status = err?.response?.status;
+      if (status === 403) {
+        setError('no-team');
+      } else {
+        setError(err?.response?.data?.message ?? 'Không thể tải dữ liệu dashboard');
+      }
     } finally {
       setLoading(false);
     }
@@ -204,11 +209,19 @@ export default function DashboardPage() {
         </div>
 
         {/* Error */}
-        {error && (
+        {error === 'no-team' ? (
+          <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-amber-800">Bạn chưa được phân công vào tổ nào</p>
+              <p className="text-sm text-amber-700 mt-0.5">Liên hệ quản trị viên để được cấp quyền truy cập dữ liệu.</p>
+            </div>
+          </div>
+        ) : error ? (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
             {error}
           </div>
-        )}
+        ) : null}
 
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">

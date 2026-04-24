@@ -108,6 +108,8 @@ model User {
   grantsReceived        DataAccessGrant[] @relation("GrantReceived")
   grantsGiven           DataAccessGrant[] @relation("GrantGiven")
   abbreviations         UserAbbreviation[]
+  devices               UserDevice[]
+  overdueNotifications  OverdueNotification[]
 
   @@map("users")
 }
@@ -1000,4 +1002,40 @@ model UserAbbreviation {
   @@unique([userId, shortcut])
   @@index([userId])
   @@map("user_abbreviations")
+}
+
+// ─────────────────────────────────────────────
+// Push Notifications — FCM Devices
+// ─────────────────────────────────────────────
+
+model UserDevice {
+  id        String   @id @default(cuid())
+  userId    String
+  fcmToken  String   @unique
+  platform  String   // "android" | "ios"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("user_devices")
+}
+
+// ─────────────────────────────────────────────
+// Push Notifications — Overdue Dedup Table
+// ─────────────────────────────────────────────
+
+model OverdueNotification {
+  id           String   @id @default(cuid())
+  resourceType String   // "case" | "incident" | "petition"
+  resourceId   String
+  userId       String
+  notifiedAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([resourceType, resourceId, userId])
+  @@index([notifiedAt])
+  @@map("overdue_notifications")
 }
