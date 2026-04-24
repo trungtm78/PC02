@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import LoginPage from '@/pages/auth/LoginPage';
+import TwoFaPage from '@/pages/auth/TwoFaPage';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { MainLayout } from '@/layouts/MainLayout';
 import { FeatureFlagsProvider, FEATURE_MODULES } from '@/lib/features';
@@ -22,8 +23,9 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <Routes>
-          {/* Public route */}
+          {/* Public routes */}
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/auth/2fa" element={<TwoFaPage />} />
 
           {/* Protected routes under MainLayout — every page below comes
               from a feature module in src/features/*. Adding a new screen

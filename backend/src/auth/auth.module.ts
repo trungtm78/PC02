@@ -4,11 +4,18 @@ import { PassportModule } from '@nestjs/passport';
 import { ConfigModule } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
+import { TwoFaController } from './two-fa.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { TwoFaTokenGuard } from './guards/two-fa-token.guard';
 import { PermissionsGuard } from './guards/permissions.guard';
 import { UserThrottlerGuard } from './guards/user-throttler.guard';
+import { TwoFaService } from './services/two-fa.service';
+import { TotpEncryptionService } from './services/totp-encryption.service';
+import { OtpCodeService } from './services/otp-code.service';
 import { AuditModule } from '../audit/audit.module';
+import { SettingsModule } from '../settings/settings.module';
+import { EmailModule } from '../email/email.module';
 
 @Module({
   imports: [
@@ -17,9 +24,21 @@ import { AuditModule } from '../audit/audit.module';
     JwtModule.register({ signOptions: { algorithm: 'RS256' } }),
     ConfigModule,
     AuditModule,
+    SettingsModule,  // ISSUE-003: required for TWO_FA_ENABLED check in login()
+    EmailModule,     // required for Email OTP
   ],
-  providers: [AuthService, JwtStrategy, JwtAuthGuard, PermissionsGuard, UserThrottlerGuard],
-  controllers: [AuthController],
-  exports: [AuthService, JwtAuthGuard, PermissionsGuard],
+  providers: [
+    AuthService,
+    JwtStrategy,
+    JwtAuthGuard,
+    TwoFaTokenGuard,
+    PermissionsGuard,
+    UserThrottlerGuard,
+    TwoFaService,
+    TotpEncryptionService,
+    OtpCodeService,
+  ],
+  controllers: [AuthController, TwoFaController],
+  exports: [AuthService, JwtAuthGuard, PermissionsGuard, TwoFaService],
 })
 export class AuthModule {}

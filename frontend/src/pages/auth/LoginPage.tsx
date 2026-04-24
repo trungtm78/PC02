@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { AlertCircle, Lock, User, Eye, EyeOff } from 'lucide-react';
 
-import { authApi } from '@/lib/api';
+import { authApi, type LoginSuccess } from '@/lib/api';
 import { authStore } from '@/stores/auth.store';
 import logoCA from '@/assets/logo-cong-an.png';
 
@@ -74,7 +74,12 @@ export default function LoginPage() {
     mutationFn: ({ username, password }: LoginFormValues) =>
       authApi.login(username, password),
     onSuccess: (response) => {
-      const { accessToken, refreshToken } = response.data;
+      const data = response.data;
+      if ('pending' in data && data.pending) {
+        navigate('/auth/2fa', { state: { twoFaToken: data.twoFaToken }, replace: true });
+        return;
+      }
+      const { accessToken, refreshToken } = data as LoginSuccess;
       authStore.setTokens(accessToken, refreshToken);
       navigate('/dashboard', { replace: true });
     },

@@ -20,7 +20,7 @@ api.interceptors.response.use(
   async (error) => {
     const original = error.config as typeof error.config & { _retry?: boolean };
     const url = original?.url ?? '';
-    const isAuthEndpoint = url.includes('/auth/login') || url.includes('/auth/refresh') || url.includes('/auth/change-password');
+    const isAuthEndpoint = url.includes('/auth/login') || url.includes('/auth/refresh') || url.includes('/auth/change-password') || url.includes('/auth/2fa');
     if (error.response?.status === 401 && !original._retry && !isAuthEndpoint) {
       original._retry = true;
       try {
@@ -42,12 +42,13 @@ api.interceptors.response.use(
 );
 
 // Auth API
+export type LoginSuccess = { accessToken: string; refreshToken: string; expiresIn: string };
+export type TwoFaPending = { pending: true; twoFaToken: string };
+export type LoginResponse = LoginSuccess | TwoFaPending;
+
 export const authApi = {
   login: (username: string, password: string) =>
-    api.post<{ accessToken: string; refreshToken: string; expiresIn: string }>(
-      '/auth/login',
-      { username, password },
-    ),
+    api.post<LoginResponse>('/auth/login', { username, password }),
   refresh: (refreshToken: string) =>
     api.post<{ accessToken: string }>('/auth/refresh', { refreshToken }),
   changePassword: (currentPassword: string, newPassword: string) =>
@@ -55,4 +56,24 @@ export const authApi = {
       currentPassword,
       newPassword,
     }),
+  // 2FA — second factor step (uses twoFaToken, not accessToken)
+  sendEmailOtp: (twoFaToken: string) =>
+    api.post<{ success: boolean }>(
+      '/auth/2fa/send-email-otp',
+      {},
+      { headers: { Authorization: `Bearer ${twoFaToken}` } },
+    ),
+  verifyTwoFa: (twoFaToken: string, code: string, method: 'totp' | 'email_otp' | 'backup') =>
+    api.post<LoginSuccess>(
+      '/auth/2fa/verify',
+      { code, method },
+      { headers: { Authorization: `Bearer ${twoFaToken}` } },
+    ),
+  // 2FA — self-service setup (uses accessToken, must be authenticated)
+  setupTotp: () =>
+    api.post<{ qrCodeDataUrl: string; backupCodes: string[] }>('/auth/2fa/setup'),
+  verifySetup: (token: string) =>
+    api.post<{ success: boolean }>('/auth/2fa/verify-setup', { token }),
+  disableTotp: () =>
+    api.delete<{ success: boolean }>('/auth/2fa/disable'),
 };

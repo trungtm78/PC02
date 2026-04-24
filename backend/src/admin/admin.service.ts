@@ -535,4 +535,34 @@ export class AdminService {
       orderBy: { createdAt: 'desc' },
     });
   }
+
+  // ── 2FA Admin Reset ────────────────────────────────────────────────────────
+  async adminResetTwoFa(targetUserId: string, adminUserId: string) {
+    const target = await this.prisma.user.findUnique({ where: { id: targetUserId } });
+    if (!target) throw new NotFoundException('User không tồn tại');
+
+    await this.prisma.user.update({
+      where: { id: targetUserId },
+      data: {
+        totpSecret: null,
+        totpEnabled: false,
+        totpSetupPending: false,
+        totpSetupPendingAt: null,
+        backupCodes: [],
+        backupCodeSalts: [],
+        lastTotpCode: null,
+        twoFaSetupAt: null,
+      },
+    });
+
+    await this.audit.log({
+      userId: adminUserId,
+      action: 'ADMIN_2FA_RESET',
+      subject: 'User',
+      subjectId: targetUserId,
+      metadata: { targetUserId },
+    });
+
+    return { success: true, message: 'Đã reset 2FA cho user thành công' };
+  }
 }
