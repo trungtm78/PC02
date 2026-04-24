@@ -6,6 +6,7 @@ import { NotificationDropdown } from '@/components/NotificationDropdown';
 import { GlobalSearchBar } from '@/components/GlobalSearchBar';
 import { ChangePasswordModal } from '@/components/ChangePasswordModal';
 import { TwoFaSetupModal } from '@/components/TwoFaSetupModal';
+import { useAbbreviationExpander } from '@/hooks/useAbbreviationExpander';
 import { authStore } from '@/stores/auth.store';
 import logoCA from '@/assets/logo-cong-an.png';
 
@@ -26,6 +27,7 @@ function getUserInitials(email: string | undefined): string {
 }
 
 export function MainLayout() {
+  useAbbreviationExpander();
   const navigate = useNavigate();
   const user = authStore.getUser();
   const [dropdownOpen, setDropdownOpen] = useState(false);

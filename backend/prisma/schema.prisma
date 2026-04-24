@@ -107,6 +107,7 @@ model User {
   userTeams             UserTeam[]
   grantsReceived        DataAccessGrant[] @relation("GrantReceived")
   grantsGiven           DataAccessGrant[] @relation("GrantGiven")
+  abbreviations         UserAbbreviation[]
 
   @@map("users")
 }
@@ -980,4 +981,23 @@ model FeatureFlag {
 
   @@index([enabled])
   @@map("feature_flags")
+}
+
+// ─────────────────────────────────────────────
+// User Abbreviations (Text Expansion)
+// ─────────────────────────────────────────────
+
+model UserAbbreviation {
+  id        String   @id @default(cuid())
+  userId    String
+  shortcut  String
+  expansion String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, shortcut])
+  @@index([userId])
+  @@map("user_abbreviations")
 }
