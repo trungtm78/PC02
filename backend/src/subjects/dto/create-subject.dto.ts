@@ -52,6 +52,10 @@ export class CreateSubjectDto {
   wardId?: string;
 
   @IsString()
+  @IsOptional()
+  districtName?: string;
+
+  @IsString()
   @IsNotEmpty({ message: 'Vụ án không được để trống' })
   caseId: string;
 

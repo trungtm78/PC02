@@ -116,17 +116,19 @@ model User {
 // ─────────────────────────────────────────────
 
 model Directory {
-  id          String   @id @default(cuid())
-  type        String   // e.g. "CRIME", "ORG", "LOCATION", "STATUS"
-  code        String   // e.g. "VA", "T01"
-  name        String
-  description String?
-  parentId    String?
-  order       Int      @default(0)
-  isActive    Boolean  @default(true)
-  metadata    Json?    // Specific data for each type
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id             String    @id @default(cuid())
+  type           String    // e.g. "CRIME", "ORG", "LOCATION", "STATUS"
+  code           String    // e.g. "VA", "T01"
+  name           String
+  description    String?
+  parentId       String?
+  order          Int       @default(0)
+  isActive       Boolean   @default(true)
+  abolishedAt    DateTime?  // null = active; set = abolished from this date (cải cách hành chính)
+  replacedByCode String?   // code of successor unit after abolition
+  metadata       Json?     // Specific data for each type
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   @@unique([type, code])
   @@map("directories")
@@ -253,8 +255,9 @@ model Subject {
   phone         String?
   occupationId  String?       // FK → directories (type=OCCUPATION)
   nationalityId String?       // FK → directories (type=NATIONALITY)
-  districtId    String?       // FK → directories (type=DISTRICT)
+  districtId    String?       // FK → directories (type=DISTRICT) — legacy only
   wardId        String?       // FK → directories (type=WARD)
+  districtName  String?       // denormalized: "Quận 1" — preserved at creation time for post-reform display
   caseId        String                            // FK → cases (required)
   crimeId       String                            // FK → directories (type=CRIME, required)
   type          SubjectType   @default(SUSPECT)   // TASK-2026-261225

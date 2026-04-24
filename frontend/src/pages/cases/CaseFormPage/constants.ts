@@ -28,24 +28,8 @@ export const STATUS_OPTIONS = [
 ];
 
 // HANDLER_OPTIONS đã bị xóa — danh sách ĐTV được fetch từ API /admin/users trong CaseFormPage/index.tsx
-
-export const DISTRICT_OPTIONS = [
-  { value: "quan-1", label: "Quận 1" },
-  { value: "quan-3", label: "Quận 3" },
-  { value: "quan-5", label: "Quận 5" },
-  { value: "quan-10", label: "Quận 10" },
-  { value: "quan-tan-binh", label: "Quận Tân Bình" },
-  { value: "quan-binh-thanh", label: "Quận Bình Thạnh" },
-  { value: "quan-thu-duc", label: "TP. Thủ Đức" },
-];
-
-export const WARD_OPTIONS = [
-  { value: "phuong-ben-nghe", label: "Phường Bến Nghé" },
-  { value: "phuong-ben-thanh", label: "Phường Bến Thành" },
-  { value: "phuong-cau-ong-lanh", label: "Phường Cầu Ông Lãnh" },
-  { value: "phuong-da-kao", label: "Phường Đa Kao" },
-  { value: "phuong-nguyen-cu-trinh", label: "Phường Nguyễn Cư Trinh" },
-];
+// DISTRICT_OPTIONS và WARD_OPTIONS đã bị xóa — cải cách hành chính xóa bỏ cấp quận/huyện
+// Địa chỉ được load từ API /api/v1/directories?type=WARD&isActive=true (xem tabs.tsx)
 
 export const INCIDENT_TYPE_OPTIONS = [
   { value: "gay-roi-trat-tu", label: "Gây rối trật tự công cộng" },

@@ -104,6 +104,16 @@ async function main() {
   ]);
   console.log(`   ✓ ${districts.length} quận/huyện`);
 
+  // Cải cách hành chính: mark tất cả quận/huyện là đã bãi bỏ từ 01/07/2025
+  await prisma.directory.updateMany({
+    where: { type: 'DISTRICT' },
+    data: {
+      abolishedAt: new Date('2025-07-01T00:00:00.000Z'),
+      isActive: false,
+    },
+  });
+  console.log('   ✓ Đã đánh dấu tất cả quận/huyện là bãi bỏ từ 01/07/2025');
+
   // ── 4. MASTER DATA: Phường/Xã ─────────────────────────────────────────────
   console.log('📋 4. Nạp danh mục phường/xã...');
   const q1 = districts.find(d => d.code === 'Q1')!;
@@ -119,6 +129,14 @@ async function main() {
     upsertDir('WARD', 'P-PHU-THANH', 'Phường Phú Thạnh', qtb.id, 7),
   ]);
   console.log(`   ✓ ${wards.length} phường/xã`);
+
+  // Cải cách hành chính: mark wards con của quận đã bãi bỏ cũng là legacy
+  const districtIds = districts.map(d => d.id);
+  await prisma.directory.updateMany({
+    where: { type: 'WARD', parentId: { in: districtIds } },
+    data: { isActive: false },
+  });
+  console.log('   ✓ Đã đánh dấu phường/xã legacy (con của quận đã bãi bỏ) là isActive=false');
 
   // ── 5. MASTER DATA: Nghề nghiệp ───────────────────────────────────────────
   console.log('📋 5. Nạp danh mục nghề nghiệp...');

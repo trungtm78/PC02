@@ -195,6 +195,7 @@ export class SubjectsService {
         nationalityId: dto.nationalityId,
         districtId: dto.districtId,
         wardId: dto.wardId,
+        districtName: dto.districtName ?? null,
         caseId: dto.caseId,
         crimeId: dto.crimeId,
         type: dto.type ?? SubjectType.SUSPECT,  // TASK-2026-261225
@@ -277,6 +278,7 @@ export class SubjectsService {
         ...(dto.nationalityId !== undefined && { nationalityId: dto.nationalityId }),
         ...(dto.districtId !== undefined && { districtId: dto.districtId }),
         ...(dto.wardId !== undefined && { wardId: dto.wardId }),
+        ...(dto.districtName !== undefined && { districtName: dto.districtName }),
         ...(dto.caseId !== undefined && { caseId: dto.caseId }),
         ...(dto.crimeId !== undefined && { crimeId: dto.crimeId }),
         ...(dto.type !== undefined && { type: dto.type }),  // TASK-2026-261225
