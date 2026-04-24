@@ -1,0 +1,37 @@
+appId: ${APP_ID}
+tags:
+  - smoke
+  - auth
+
+---
+# Login happy path — verifies auth_api.dart fix (JSON encoding + Content-Type)
+# and login_screen.dart fix (Vietnamese error message)
+
+- launchApp
+- waitForAnimationToEnd
+
+# Login screen must load
+- assertVisible: "ĐĂNG NHẬP"
+
+# Fill credentials
+- tapOn: "Email"
+- inputText: "${TEST_USERNAME}"
+- tapOn: "Mật khẩu"
+- inputText: "${TEST_PASSWORD}"
+- hideKeyboard
+
+- takeScreenshot: 01_login_filled
+
+# Submit
+- tapOn: "ĐĂNG NHẬP"
+- waitForAnimationToEnd
+
+- takeScreenshot: 01_login_result
+
+# Must navigate away from login screen
+- assertNotVisible: "ĐĂNG NHẬP"
+# Must NOT show any raw error
+- assertNotVisible: "Exception"
+- assertNotVisible: "DioException"
+- assertNotVisible: "toString"
+- assertNotVisible: "SocketException"

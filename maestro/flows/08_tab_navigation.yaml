@@ -1,0 +1,28 @@
+appId: ${APP_ID}
+tags:
+  - navigation
+  - theme
+
+---
+# Verifies app_theme.dart fix: tab bar white text on navy AppBar
+# All main tabs must be navigable
+
+- runFlow: 01_login_success.yaml
+
+# Navigate each main tab and verify no crash
+- tapOn: "Vụ việc"
+- waitForAnimationToEnd
+- takeScreenshot: 08_tab_cases
+
+- tapOn: "Sự cố"
+- waitForAnimationToEnd
+- takeScreenshot: 08_tab_incidents
+
+- tapOn: "Đơn thư"
+- waitForAnimationToEnd
+- takeScreenshot: 08_tab_petitions
+
+# Each tab switch should not crash or show error
+- assertNotVisible: "Exception"
+- assertNotVisible: "RenderFlex overflowed"
+- assertNotVisible: "Scaffold"

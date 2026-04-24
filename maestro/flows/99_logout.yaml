@@ -1,0 +1,22 @@
+appId: ${APP_ID}
+tags:
+  - smoke
+  - auth
+
+---
+# Verifies logout flow returns to login screen
+
+- runFlow: 01_login_success.yaml
+
+# Open drawer or profile menu to find logout
+- tapOn: "Menu"
+- waitForAnimationToEnd
+- takeScreenshot: 99_menu_open
+
+- tapOn: "Đăng xuất"
+- waitForAnimationToEnd
+
+- takeScreenshot: 99_logged_out
+
+# Must return to login screen
+- assertVisible: "ĐĂNG NHẬP"

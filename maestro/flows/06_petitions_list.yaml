@@ -1,0 +1,20 @@
+appId: ${APP_ID}
+tags:
+  - smoke
+  - petitions
+  - data
+
+---
+# Verifies petitions_api.dart fix: API envelope unwrapping
+# Petitions list must show real data
+
+- runFlow: 01_login_success.yaml
+
+- tapOn: "Đơn thư"
+- waitForAnimationToEnd
+
+- takeScreenshot: 06_petitions_list
+
+- assertNotVisible: "null"
+- assertNotVisible: "undefined"
+- assertNotVisible: "Lỗi tải dữ liệu"

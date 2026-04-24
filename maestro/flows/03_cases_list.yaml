@@ -1,0 +1,25 @@
+appId: ${APP_ID}
+tags:
+  - smoke
+  - cases
+  - data
+
+---
+# Verifies cases_api.dart fix: API envelope unwrapping {data: [...]}
+# Cases list must show real data, not empty/null
+
+- runFlow: 01_login_success.yaml
+
+# Navigate to cases tab/screen
+- tapOn: "Vụ việc"
+- waitForAnimationToEnd
+
+- takeScreenshot: 03_cases_list
+
+# Must show data, not empty/error state
+- assertNotVisible: "null"
+- assertNotVisible: "undefined"
+- assertNotVisible: "Lỗi tải dữ liệu"
+
+# Must NOT show loading indefinitely (data should have loaded)
+- assertNotVisible: "CircularProgressIndicator"

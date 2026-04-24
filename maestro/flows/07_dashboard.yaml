@@ -1,0 +1,19 @@
+appId: ${APP_ID}
+tags:
+  - smoke
+  - dashboard
+
+---
+# Verifies dashboard_screen.dart: main screen loads after login
+# Tab bar must be visible and readable (white text on navy - theme fix)
+
+- runFlow: 01_login_success.yaml
+
+- takeScreenshot: 07_dashboard
+
+# Dashboard should have content (not blank)
+- assertNotVisible: "null"
+- assertNotVisible: "Lỗi"
+
+# Tab bar tabs must be present
+- assertVisible: "Vụ việc"
