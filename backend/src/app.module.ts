@@ -31,6 +31,9 @@ import { SettingsModule } from './settings/settings.module';
 import { FeatureFlagsModule } from './feature-flags/feature-flags.module';
 import { KpiModule } from './kpi/kpi.module';
 import { AbbreviationsModule } from './abbreviations/abbreviations.module';
+import { ScheduleModule } from '@nestjs/schedule';
+import { PushModule } from './push/push.module';
+import { SchedulerModule } from './scheduler/scheduler.module';
 import { UnitScopeService } from './auth/services/unit-scope.service';
 import { DataScopeInterceptor } from './auth/interceptors/data-scope.interceptor';
 
@@ -38,6 +41,7 @@ import { DataScopeInterceptor } from './auth/interceptors/data-scope.interceptor
   imports: [
     ConfigModule.forRoot({ isGlobal: true, envFilePath: '.env' }),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 200 }]),
+    ScheduleModule.forRoot(),
     PrismaModule,
     AuthModule,
     AuditModule,
@@ -65,6 +69,8 @@ import { DataScopeInterceptor } from './auth/interceptors/data-scope.interceptor
     FeatureFlagsModule,
     KpiModule,
     AbbreviationsModule,
+    PushModule,
+    SchedulerModule,
   ],
   controllers: [AppController],
   providers: [

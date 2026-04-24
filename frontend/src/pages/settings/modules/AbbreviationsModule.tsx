@@ -160,6 +160,7 @@ export function AbbreviationsModule() {
         <div className="flex gap-3">
           <input
             type="text"
+            aria-label="Phím tắt"
             placeholder="Phím tắt (vd: lvs)"
             value={shortcut}
             onChange={(e) => setShortcut(e.target.value)}
@@ -169,6 +170,7 @@ export function AbbreviationsModule() {
           />
           <input
             type="text"
+            aria-label="Nội dung mở rộng"
             placeholder="Nội dung mở rộng (vd: Lê Văn Sỹ)"
             value={expansion}
             onChange={(e) => setExpansion(e.target.value)}

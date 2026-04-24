@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0.0] - 2026-04-24
+
+### Added
+- **Flutter Mobile App (Android + iOS)**: Ứng dụng di động đầy đủ tính năng — xem tiến độ hồ sơ/vụ việc/đơn thư theo thời gian thực, nhận push notification khi quá hạn hoặc sắp đến hạn. Phân phối qua Firebase App Distribution. Material 3, Riverpod state management, GoRouter navigation.
+- **FCM Push Notification**: Backend FCM HTTP v1 — `PushService` gửi push đến tất cả thiết bị của user, tự xóa stale token (`INVALID_ARGUMENT`/`NOT_FOUND`). `DevicesController` (POST/DELETE `/devices`) đăng ký/hủy FCM token sau login/logout.
+- **DeadlineScheduler**: Cron job 07:00 mỗi ngày kiểm tra vụ án/vụ việc/đơn thư quá hạn và sắp đến hạn, gửi push notification đến điều tra viên phụ trách. Dedup bằng `OverdueNotification` table (1 lần/24h/hồ sơ). Null guard cho `investigatorId`. `Promise.allSettled` để tránh một thiết bị lỗi block các thiết bị khác.
+- **UserDevice + OverdueNotification schema**: 2 model mới trong Prisma — `user_devices` (FCM token per user, upsert by token), `overdue_notifications` (dedup tracking với unique constraint `resourceType+resourceId+userId`).
+- **CANH_BAO_SAP_HAN setting**: Key mới trong SystemSetting với default 7 ngày — ngưỡng cảnh báo sắp đến hạn, cấu hình từ web admin, Flutter app đọc qua `GET /settings`.
+- **5-tab Bottom Navigation**: Dashboard / Hồ sơ / Vụ việc / Đơn thư / Thông báo — unread badge count trên tab Thông báo. Drawer với logo PC02 + tên/vai trò người dùng + Đăng xuất.
+- **DeadlineBadge (3 màu)**: Đỏ (quá hạn), Vàng (≤ CANH_BAO_SAP_HAN ngày), Xanh (còn thời gian). Đọc ngưỡng từ Riverpod `deadlineSettingsProvider` (cache 1 lần khi khởi động).
+- **Offline Banner**: Banner "Không có kết nối" tự động hiện khi mất mạng (`connectivity_plus`).
+- **2FA Mobile Flow**: Màn hình nhập OTP 6 chữ số, auto-submit khi đủ 6 ký tự, back về Login xóa pending state.
+- **Shimmer Loading + Pull-to-Refresh**: Skeleton animation trên lần tải đầu, pull-to-refresh trên tất cả list screens.
+- **Optimistic Mark-Read**: Tap thông báo → đánh dấu đã đọc ngay (revert khi lỗi).
+- **8 Flutter unit tests**: `auth_provider_test.dart` (4) + `deadline_badge_test.dart` (4). 14 backend tests: `push.service.spec.ts` (5) + `deadline.scheduler.spec.ts` (8) + 1 devices controller test.
+
+### Fixed
+- **TwoFaSetupModal**: Phân biệt 409 "pending setup" vs "already enabled" — chỉ hiện nút "Huỷ setup cũ và bắt đầu lại" khi lỗi message chứa 'chờ xác nhận', tránh vô tình huỷ 2FA đã kích hoạt.
+- **DevicesController**: `DELETE /devices/:token` truyền `userId` vào `unregister()` để enforce ownership — tránh user xóa token của người khác.
+
 ## [0.5.6.0] - 2026-04-24
 
 ### Added

@@ -109,6 +109,7 @@ export class SettingsService {
       { key: 'THOI_HAN_KIEN_NGHI', value: '15', label: 'Thời hạn xử lý kiến nghị', unit: 'ngày', legalBasis: 'Quy chế nội bộ' },
       { key: 'THOI_HAN_PHAN_ANH', value: '15', label: 'Thời hạn xử lý phản ánh', unit: 'ngày', legalBasis: 'Quy chế nội bộ' },
       { key: 'TWO_FA_ENABLED', value: 'false', label: 'Bật xác thực 2 lớp (2FA)', unit: null, legalBasis: null },
+      { key: 'CANH_BAO_SAP_HAN', value: '7', label: 'Ngưỡng cảnh báo sắp đến hạn (app mobile)', unit: 'ngày', legalBasis: null },
     ];
 
     for (const d of defaults) {

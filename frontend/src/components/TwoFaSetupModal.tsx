@@ -26,6 +26,11 @@ export function TwoFaSetupModal({ open, onClose }: Props) {
     },
   });
 
+  const cancelPendingMutation = useMutation({
+    mutationFn: () => authApi.disableTotp(),
+    onSuccess: () => setupMutation.mutate(),
+  });
+
   const verifyMutation = useMutation({
     mutationFn: () => authApi.verifySetup(verifyToken),
     onSuccess: () => setStep('backup'),
@@ -44,7 +49,12 @@ export function TwoFaSetupModal({ open, onClose }: Props) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const setupError = setupMutation.error as { response?: { data?: { message?: string; error?: { message?: string } } } } | null;
+  const setupError = setupMutation.error as { response?: { status?: number; data?: { message?: string; error?: { message?: string } } } } | null;
+  const setup409Msg = setupError?.response?.data?.error?.message ?? setupError?.response?.data?.message ?? '';
+  // Only show destructive "cancel pending" action when there's an UNCONFIRMED setup,
+  // not when 2FA is already fully enabled on the account.
+  const isPendingSetup = setupError?.response?.status === 409 &&
+    setup409Msg.includes('chờ xác nhận');
   const verifyError = verifyMutation.error as { response?: { data?: { message?: string; error?: { message?: string } } } } | null;
 
   if (!open) return null;
@@ -83,14 +93,25 @@ export function TwoFaSetupModal({ open, onClose }: Props) {
               {setupError && (
                 <div className="flex items-start gap-2 p-3 bg-red-50 rounded-lg">
                   <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
-                  <p className="text-sm text-red-700">
-                    {setupError?.response?.data?.error?.message ?? setupError?.response?.data?.message ?? 'Không thể khởi tạo 2FA. Vui lòng thử lại.'}
-                  </p>
+                  <div className="flex-1">
+                    <p className="text-sm text-red-700">
+                      {setupError?.response?.data?.error?.message ?? setupError?.response?.data?.message ?? 'Không thể khởi tạo 2FA. Vui lòng thử lại.'}
+                    </p>
+                    {isPendingSetup && (
+                      <button
+                        onClick={() => cancelPendingMutation.mutate()}
+                        disabled={cancelPendingMutation.isPending}
+                        className="mt-2 text-sm font-medium text-red-700 underline underline-offset-2 hover:text-red-900 disabled:opacity-50"
+                      >
+                        {cancelPendingMutation.isPending ? 'Đang huỷ...' : 'Huỷ setup cũ và bắt đầu lại'}
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
               <button
                 onClick={() => setupMutation.mutate()}
-                disabled={setupMutation.isPending}
+                disabled={setupMutation.isPending || cancelPendingMutation.isPending}
                 className="w-full py-2.5 rounded-lg text-sm font-medium text-white transition-all disabled:opacity-50"
                 style={{ background: 'linear-gradient(135deg, #003973 0%, #002255 100%)' }}
               >
