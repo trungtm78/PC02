@@ -9,7 +9,7 @@ import { AuditService } from '../audit/audit.service';
 import { CreateCaseDto } from './dto/create-case.dto';
 import { UpdateCaseDto } from './dto/update-case.dto';
 import { QueryCasesDto } from './dto/query-cases.dto';
-import { Prisma, CaseStatus, PetitionStatus } from '@prisma/client';
+import { Prisma, CaseStatus, PetitionStatus, LoaiDon } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { buildScopeFilter } from '../common/utils/scope-filter.util';
 
@@ -253,7 +253,7 @@ export class CasesService {
     }
 
     const metadata = dto.metadata as Record<string, unknown> | undefined;
-    const petitionType = metadata?.petitionType as string | undefined;
+    const petitionType = metadata?.petitionType as LoaiDon | undefined;
 
     // If petitionType exists, create Case + Petition atomically
     if (petitionType) {
@@ -421,7 +421,7 @@ export class CasesService {
 
     // Sync petitionType with linked Petition
     const updatedMetadata = dto.metadata as Record<string, unknown> | undefined;
-    const newPetitionType = updatedMetadata?.petitionType as string | undefined;
+    const newPetitionType = updatedMetadata?.petitionType as LoaiDon | undefined;
     if (newPetitionType !== undefined) {
       const linkedPetition = await this.prisma.petition.findFirst({
         where: { linkedCaseId: id, deletedAt: null },

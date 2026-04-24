@@ -425,7 +425,7 @@ async function main() {
           stt: p.stt, senderName: p.senderName, unit: p.unit,
           summary: p.summary, status: p.status as any,
           receivedDate: p.receivedDate, deadline: p.deadline,
-          petitionType: 'Khiếu nại/Tố cáo',
+          petitionType: 'KHIEU_NAI' as any,
           enteredById: dtv1.id, assignedToId: dtv1.id,
         },
       });

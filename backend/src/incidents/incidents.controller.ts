@@ -174,6 +174,21 @@ export class IncidentsController {
     });
   }
 
+  // POST /api/v1/incidents/:id/extend — Gia hạn thời hạn (Điều 147 khoản 2-3 BLTTHS)
+  @Post(':id/extend')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions({ action: 'edit', subject: 'Incident' })
+  extendDeadline(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthUser,
+    @Req() req: ScopedRequest,
+  ) {
+    return this.incidentsService.extendDeadline(id, user.id, {
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+  }
+
   // POST /api/v1/incidents/:id/prosecute — Khởi tố vụ việc → Vụ án
   @Post(':id/prosecute')
   @RequirePermissions({ action: 'edit', subject: 'Incident' })

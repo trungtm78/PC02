@@ -15,7 +15,7 @@ import { ProsecuteIncidentDto } from './dto/prosecute-incident.dto';
 import { UpdateStatusDto } from './dto/update-status.dto';
 import { MergeIncidentDto } from './dto/merge-incident.dto';
 import { TransferIncidentDto } from './dto/transfer-incident.dto';
-import { Prisma, IncidentStatus } from '@prisma/client';
+import { Prisma, IncidentStatus, LoaiNguonTin } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { buildScopeFilter } from '../common/utils/scope-filter.util';
 import { TERMINAL_STATUSES, VALID_TRANSITIONS, PHASE_STATUSES } from './incidents.constants';
@@ -565,6 +565,69 @@ export class IncidentsService {
     });
 
     return { success: true, data: record, message: 'Cập nhật trạng thái thành công' };
+  }
+
+  // ─────────────────────────────────────────────
+  // EXTEND DEADLINE (Điều 147 khoản 2-3 BLTTHS 2015)
+  // ─────────────────────────────────────────────
+  async extendDeadline(
+    id: string,
+    actorId: string,
+    meta?: { ipAddress?: string; userAgent?: string },
+  ) {
+    const incident = await this.prisma.incident.findFirst({
+      where: { id, deletedAt: null },
+    });
+    if (!incident) throw new NotFoundException(`Vụ việc không tồn tại (id: ${id})`);
+
+    const maxExtensions = await this.settings.getNumericValue('SO_LAN_GIA_HAN_TOI_DA', 2);
+    if (incident.soLanGiaHan >= maxExtensions) {
+      throw new BadRequestException(
+        `Đã gia hạn tối đa ${maxExtensions} lần theo Điều 147 BLTTHS 2015`,
+      );
+    }
+
+    // First extension uses THOI_HAN_GIA_HAN_1, second uses THOI_HAN_GIA_HAN_2
+    const settingKey = incident.soLanGiaHan === 0 ? 'THOI_HAN_GIA_HAN_1' : 'THOI_HAN_GIA_HAN_2';
+    const extensionDays = await this.settings.getNumericValue(settingKey, 60);
+
+    const currentDeadline = incident.deadline ?? new Date();
+    const newDeadline = new Date(currentDeadline);
+    newDeadline.setDate(newDeadline.getDate() + extensionDays);
+
+    // Atomic: only update if soLanGiaHan hasn't changed since we read it (prevents double-extension race)
+    const atomicResult = await this.prisma.incident.updateMany({
+      where: { id, deletedAt: null, soLanGiaHan: incident.soLanGiaHan },
+      data: { deadline: newDeadline, soLanGiaHan: { increment: 1 }, ngayGiaHan: new Date() },
+    });
+    if (atomicResult.count === 0) {
+      throw new BadRequestException('Gia hạn thất bại — vui lòng thử lại (concurrent request detected)');
+    }
+    const updated = await this.prisma.incident.findFirst({
+      where: { id },
+      include: {
+        investigator: {
+          select: { id: true, firstName: true, lastName: true, username: true },
+        },
+      },
+    });
+    if (!updated) throw new NotFoundException(`Vụ việc không tồn tại sau khi cập nhật (id: ${id})`);
+
+    await this.audit.log({
+      userId: actorId,
+      action: 'INCIDENT_DEADLINE_EXTENDED',
+      subject: 'Incident',
+      subjectId: id,
+      metadata: {
+        soLanGiaHan: updated.soLanGiaHan,
+        extensionDays,
+        newDeadline: updated.deadline,
+      },
+      ipAddress: meta?.ipAddress,
+      userAgent: meta?.userAgent,
+    });
+
+    return { success: true, data: updated, message: `Gia hạn lần ${updated.soLanGiaHan} thành công` };
   }
 
   // ─────────────────────────────────────────────

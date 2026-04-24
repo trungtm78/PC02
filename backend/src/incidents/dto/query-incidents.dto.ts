@@ -8,7 +8,7 @@ import {
   IsDateString,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { IncidentStatus } from '@prisma/client';
+import { IncidentStatus, LoaiNguonTin } from '@prisma/client';
 
 export class QueryIncidentsDto {
   // Tìm kiếm tổng hợp: mã, tên, tên ĐTV
@@ -66,8 +66,8 @@ export class QueryIncidentsDto {
 
   // New filters for VuViec workflow
   @IsOptional()
-  @IsString()
-  loaiDonVu?: string;
+  @IsEnum(LoaiNguonTin)
+  loaiDonVu?: LoaiNguonTin;
 
   @IsOptional()
   @IsString()

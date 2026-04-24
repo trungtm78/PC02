@@ -71,6 +71,16 @@ model User {
   refreshTokenHash String?    // hashed refresh token for rotation
   tokenVersion     Int        @default(0) // incremented on password change to invalidate existing JWTs
   lastLoginAt      DateTime?
+  // 2FA fields
+  totpSecret           String?   // AES-256-GCM encrypted base32 secret
+  totpEnabled          Boolean   @default(false)
+  totpSetupPending     Boolean   @default(false)
+  totpSetupPendingAt   DateTime?
+  backupCodes          String[]
+  backupCodeSalts      String[]
+  lastTotpCode         String?   // replay protection — last used TOTP code in current window
+  twoFaSetupAt         DateTime?
+  twoFaUsedAt          DateTime? // OV-002: marks twoFaToken as consumed, survives restart
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
 
@@ -120,6 +130,23 @@ model Directory {
 
   @@unique([type, code])
   @@map("directories")
+}
+
+// ─────────────────────────────────────────────
+// Regulatory Compliance Enums (BLTTHS 2015 / Luật Tố cáo 2018)
+// ─────────────────────────────────────────────
+
+enum LoaiNguonTin {
+  TO_GIAC           // Tố giác của cá nhân (Điều 144 khoản 1a BLTTHS 2015)
+  TIN_BAO           // Tin báo của cơ quan, tổ chức (Điều 144 khoản 1b)
+  KIEN_NGHI_KHOI_TO // Kiến nghị khởi tố (Điều 144 khoản 1c)
+}
+
+enum LoaiDon {
+  TO_CAO    // Tố cáo (Luật Tố cáo 2018)
+  KHIEU_NAI // Khiếu nại (Luật Khiếu nại 2011)
+  KIEN_NGHI // Kiến nghị
+  PHAN_ANH  // Phản ánh
 }
 
 // ─────────────────────────────────────────────
@@ -290,7 +317,7 @@ model Petition {
   suspectedPerson   String?
   suspectedAddress  String?
   // Nội dung đơn
-  petitionType      String?        // Loại đơn: tố cáo, khiếu nại, kiến nghị, phản ánh
+  petitionType      LoaiDon?       // Loại đơn (Luật Tố cáo 2018 / Khiếu nại 2011)
   priority          String?        // Mức độ ưu tiên: Cao, Trung bình, Thấp
   summary           String?
   detailContent     String?
@@ -366,7 +393,7 @@ model Incident {
   // Thông tin nguồn tin (Đ.144 BLTTHS 2015)
   doiTuongCaNhan    String?      // Đối tượng bị tố giác (TT119 Mẫu 01)
   doiTuongToChuc    String?      // Tổ chức liên quan
-  loaiDonVu         String?      // Loại nguồn tin (Đ.144: Tố giác/Tin báo/Kiến nghị khởi tố)
+  loaiDonVu         LoaiNguonTin? // Loại nguồn tin (Điều 144 BLTTHS 2015)
   benVu             String?      // Người tố giác/báo tin (Đ.144 BLTTHS)
   donViGiaiQuyet    String?      // Đơn vị thụ lý (Đ.145 BLTTHS)
   ngayDeXuat        DateTime?    // Ngày tiếp nhận nguồn tin (Đ.146 BLTTHS)
@@ -380,6 +407,8 @@ model Incident {
   // Thông tin nghiệp vụ bổ sung theo BLTTHS
   soQuyetDinh       String?      // Số quyết định (khởi tố/không khởi tố/TĐC/phục hồi)
   ngayQuyetDinh     DateTime?    // Ngày ra quyết định
+  soLanGiaHan       Int          @default(0) // Số lần đã gia hạn, tối đa 2 (Điều 147 khoản 2-3)
+  ngayGiaHan        DateTime?              // Ngày gia hạn gần nhất
   lyDoKhongKhoiTo   String?      // Lý do không khởi tố (Đ.157 BLTTHS: 7 căn cứ)
   lyDoTamDinhChi    String?      // Lý do tạm đình chỉ (Đ.148: chờ giám định/tương trợ tư pháp)
   diaChiXayRa       String?      // Địa điểm xảy ra sự việc
@@ -876,6 +905,23 @@ model DataAccessGrant {
   @@unique([granteeId, teamId, accessLevel])
   @@index([granteeId])
   @@map("data_access_grants")
+}
+
+// ─────────────────────────────────────────────
+// OTP Code (Email OTP for 2FA fallback)
+// ─────────────────────────────────────────────
+
+model OtpCode {
+  id        String    @id @default(cuid())
+  userId    String
+  codeHash  String
+  salt      String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@map("otp_codes")
 }
 
 // ─────────────────────────────────────────────

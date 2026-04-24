@@ -25,7 +25,7 @@ import {
 import { PetitionsService } from './petitions.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
-import { PetitionStatus } from '@prisma/client';
+import { PetitionStatus, LoaiDon } from '@prisma/client';
 
 // CaseStatus values — only used in mock fixture objects (not DTO-typed)
 const CaseStatus = { TIEP_NHAN: 'TIEP_NHAN' } as const;
@@ -235,6 +235,57 @@ describe('PetitionsService', () => {
           'user-001',
         ),
       ).rejects.toThrow(BadRequestException);
+    });
+
+    it('TO_CAO petitionType → auto-deadline = receivedDate + 30 days', async () => {
+      mockPrisma.petition.findUnique.mockResolvedValue(null);
+      const created = { ...mockPetition, receivedDate: new Date('2026-02-01') };
+      mockPrisma.petition.create.mockResolvedValue(created);
+
+      await service.create({ ...validDto, petitionType: LoaiDon.TO_CAO }, 'user-001');
+
+      const callArgs = mockPrisma.petition.create.mock.calls[0][0];
+      const expectedDeadline = new Date('2026-02-01');
+      expectedDeadline.setDate(expectedDeadline.getDate() + 30);
+      expect(callArgs.data.deadline).toEqual(expectedDeadline);
+    });
+
+    it('KHIEU_NAI petitionType → auto-deadline = receivedDate + 30 days', async () => {
+      mockPrisma.petition.findUnique.mockResolvedValue(null);
+      mockPrisma.petition.create.mockResolvedValue(mockPetition);
+
+      await service.create({ ...validDto, petitionType: LoaiDon.KHIEU_NAI }, 'user-001');
+
+      const callArgs = mockPrisma.petition.create.mock.calls[0][0];
+      const expectedDeadline = new Date('2026-02-01');
+      expectedDeadline.setDate(expectedDeadline.getDate() + 30);
+      expect(callArgs.data.deadline).toEqual(expectedDeadline);
+    });
+
+    it('KIEN_NGHI petitionType → auto-deadline = receivedDate + 15 days', async () => {
+      mockPrisma.petition.findUnique.mockResolvedValue(null);
+      mockPrisma.petition.create.mockResolvedValue(mockPetition);
+
+      await service.create({ ...validDto, petitionType: LoaiDon.KIEN_NGHI }, 'user-001');
+
+      const callArgs = mockPrisma.petition.create.mock.calls[0][0];
+      const expectedDeadline = new Date('2026-02-01');
+      expectedDeadline.setDate(expectedDeadline.getDate() + 15);
+      expect(callArgs.data.deadline).toEqual(expectedDeadline);
+    });
+
+    it('explicit deadline overrides auto-deadline calculation', async () => {
+      mockPrisma.petition.findUnique.mockResolvedValue(null);
+      mockPrisma.petition.create.mockResolvedValue(mockPetition);
+
+      const explicitDeadline = '2026-06-30';
+      await service.create(
+        { ...validDto, petitionType: LoaiDon.TO_CAO, deadline: explicitDeadline },
+        'user-001',
+      );
+
+      const callArgs = mockPrisma.petition.create.mock.calls[0][0];
+      expect(callArgs.data.deadline).toEqual(new Date(explicitDeadline));
     });
   });
 

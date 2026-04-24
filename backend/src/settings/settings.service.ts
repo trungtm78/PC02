@@ -98,11 +98,12 @@ export class SettingsService {
       { key: 'THOI_HAN_XAC_MINH', value: '20', label: 'Thời hạn xác minh ban đầu', unit: 'ngày', legalBasis: 'Đ.147 BLTTHS 2015' },
       { key: 'THOI_HAN_GIA_HAN_1', value: '60', label: 'Thời hạn gia hạn lần 1', unit: 'ngày', legalBasis: 'Đ.147 khoản 2 BLTTHS' },
       { key: 'THOI_HAN_GIA_HAN_2', value: '60', label: 'Thời hạn gia hạn lần 2', unit: 'ngày', legalBasis: 'Đ.147 khoản 2 BLTTHS' },
-      { key: 'THOI_HAN_TOI_DA', value: '120', label: 'Thời hạn giải quyết tối đa', unit: 'ngày', legalBasis: 'Đ.147 BLTTHS (tổng cộng)' },
+      { key: 'THOI_HAN_TOI_DA', value: '140', label: 'Thời hạn giải quyết tối đa', unit: 'ngày', legalBasis: 'Đ.147 BLTTHS (20 + 60 + 60 = 140 ngày)' },
       { key: 'THOI_HAN_PHUC_HOI', value: '30', label: 'Thời hạn giải quyết sau phục hồi', unit: 'ngày', legalBasis: 'Đ.149 BLTTHS' },
       { key: 'THOI_HAN_PHAN_LOAI', value: '1', label: 'Thời hạn phân loại nguồn tin', unit: 'ngày', legalBasis: 'Đ.146 khoản 3 (24h)' },
       { key: 'SO_LAN_GIA_HAN_TOI_DA', value: '2', label: 'Số lần gia hạn tối đa', unit: 'lần', legalBasis: 'Đ.147 khoản 2 BLTTHS' },
       { key: 'THOI_HAN_GUI_QD_VKS', value: '1', label: 'Thời hạn gửi QĐ cho VKS', unit: 'ngày', legalBasis: 'Đ.148 khoản 2 (24h)' },
+      { key: 'TWO_FA_ENABLED', value: 'false', label: 'Bật xác thực 2 lớp (2FA)', unit: null, legalBasis: null },
     ];
 
     for (const d of defaults) {
