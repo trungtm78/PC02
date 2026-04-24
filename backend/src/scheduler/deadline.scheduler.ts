@@ -1,12 +1,27 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
+import { CaseStatus, IncidentStatus, PetitionStatus } from '@prisma/client';
 import { addDays, subHours } from 'date-fns';
 import { PrismaService } from '../prisma/prisma.service';
 import { PushService } from '../push/push.service';
 
-const TERMINAL_CASE_STATUSES = ['DINH_CHI', 'TAM_DINH_CHI', 'KHONG_KHOI_TO'] as const;
-const TERMINAL_INCIDENT_STATUSES = ['TAM_DINH_CHI', 'KET_THUC'] as const;
-const TERMINAL_PETITION_STATUSES = ['DA_GIAI_QUYET', 'KHONG_GIAI_QUYET', 'CHUYEN_DON'] as const;
+const TERMINAL_CASE_STATUSES: CaseStatus[] = [CaseStatus.DINH_CHI, CaseStatus.TAM_DINH_CHI, CaseStatus.DA_LUU_TRU];
+const TERMINAL_INCIDENT_STATUSES: IncidentStatus[] = [
+  IncidentStatus.TAM_DINH_CHI,
+  IncidentStatus.DA_CHUYEN_VU_AN,
+  IncidentStatus.KHONG_KHOI_TO,
+  IncidentStatus.CHUYEN_XPHC,
+  IncidentStatus.TDC_HET_THOI_HIEU,
+  IncidentStatus.TDC_HTH_KHONG_KT,
+  IncidentStatus.DA_CHUYEN_DON_VI,
+  IncidentStatus.DA_NHAP_VU_KHAC,
+  IncidentStatus.PHAN_LOAI_DAN_SU,
+];
+const TERMINAL_PETITION_STATUSES: PetitionStatus[] = [
+  PetitionStatus.DA_GIAI_QUYET,
+  PetitionStatus.DA_CHUYEN_VU_VIEC,
+  PetitionStatus.DA_CHUYEN_VU_AN,
+];
 
 @Injectable()
 export class DeadlineScheduler {
@@ -41,7 +56,7 @@ export class DeadlineScheduler {
     const overdue = await this.prisma.case.findMany({
       where: {
         deadline: { lt: today },
-        status: { notIn: TERMINAL_CASE_STATUSES as unknown as string[] },
+        status: { notIn: TERMINAL_CASE_STATUSES },
         deletedAt: null,
         investigatorId: { not: null },
       },
@@ -61,7 +76,7 @@ export class DeadlineScheduler {
     const near = await this.prisma.case.findMany({
       where: {
         deadline: { gte: today, lte: inWarnDays },
-        status: { notIn: TERMINAL_CASE_STATUSES as unknown as string[] },
+        status: { notIn: TERMINAL_CASE_STATUSES },
         deletedAt: null,
         investigatorId: { not: null },
       },
@@ -83,7 +98,7 @@ export class DeadlineScheduler {
     const overdue = await this.prisma.incident.findMany({
       where: {
         deadline: { lt: today },
-        status: { notIn: TERMINAL_INCIDENT_STATUSES as unknown as string[] },
+        status: { notIn: TERMINAL_INCIDENT_STATUSES },
         deletedAt: null,
         investigatorId: { not: null },
       },
@@ -103,7 +118,7 @@ export class DeadlineScheduler {
     const near = await this.prisma.incident.findMany({
       where: {
         deadline: { gte: today, lte: inWarnDays },
-        status: { notIn: TERMINAL_INCIDENT_STATUSES as unknown as string[] },
+        status: { notIn: TERMINAL_INCIDENT_STATUSES },
         deletedAt: null,
         investigatorId: { not: null },
       },
@@ -125,7 +140,7 @@ export class DeadlineScheduler {
     const overdue = await this.prisma.petition.findMany({
       where: {
         deadline: { lt: today },
-        status: { notIn: TERMINAL_PETITION_STATUSES as unknown as string[] },
+        status: { notIn: TERMINAL_PETITION_STATUSES },
         deletedAt: null,
         assignedToId: { not: null },
       },
@@ -145,7 +160,7 @@ export class DeadlineScheduler {
     const near = await this.prisma.petition.findMany({
       where: {
         deadline: { gte: today, lte: inWarnDays },
-        status: { notIn: TERMINAL_PETITION_STATUSES as unknown as string[] },
+        status: { notIn: TERMINAL_PETITION_STATUSES },
         deletedAt: null,
         assignedToId: { not: null },
       },
