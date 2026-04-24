@@ -6,12 +6,12 @@ class NotificationsApi {
   NotificationsApi(this._client);
 
   Future<List<AppNotification>> getNotifications({
-    int skip = 0,
-    int take = 30,
+    int offset = 0,
+    int limit = 30,
   }) async {
     final resp = await _client.dio.get('/notifications', queryParameters: {
-      'skip': skip,
-      'take': take,
+      'offset': offset,
+      'limit': limit,
     });
     final data = resp.data as Map<String, dynamic>;
     final items = data['data'] as List? ?? resp.data as List? ?? [];

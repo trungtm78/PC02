@@ -6,16 +6,14 @@ class PetitionsApi {
   PetitionsApi(this._client);
 
   Future<List<Petition>> getPetitions({
-    bool? overdue,
     String? status,
-    int skip = 0,
-    int take = 20,
+    int offset = 0,
+    int limit = 20,
   }) async {
     final resp = await _client.dio.get('/petitions', queryParameters: {
-      if (overdue == true) 'overdue': 'true',
       if (status != null) 'status': status,
-      'skip': skip,
-      'take': take,
+      'offset': offset,
+      'limit': limit,
     });
     final data = resp.data as Map<String, dynamic>;
     final items = data['data'] as List? ?? resp.data as List? ?? [];

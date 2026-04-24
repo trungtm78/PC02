@@ -7,13 +7,13 @@ class IncidentsApi {
 
   Future<List<Incident>> getIncidents({
     bool? overdue,
-    int skip = 0,
-    int take = 20,
+    int offset = 0,
+    int limit = 20,
   }) async {
     final resp = await _client.dio.get('/incidents', queryParameters: {
       if (overdue == true) 'overdue': 'true',
-      'skip': skip,
-      'take': take,
+      'offset': offset,
+      'limit': limit,
     });
     final data = resp.data as Map<String, dynamic>;
     final items = data['data'] as List? ?? resp.data as List? ?? [];

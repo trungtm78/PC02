@@ -20,7 +20,8 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('vi_VN', null);
   try {
-    await Firebase.initializeApp();
+    await Firebase.initializeApp()
+        .timeout(const Duration(seconds: 3));
   } catch (_) {}
   runApp(const ProviderScope(child: _AppInit()));
 }
