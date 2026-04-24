@@ -1,12 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
+import { CaseStatus, IncidentStatus, PetitionStatus } from '@prisma/client';
 import { addDays, subHours } from 'date-fns';
 import { PrismaService } from '../prisma/prisma.service';
 import { PushService } from '../push/push.service';
 
-const TERMINAL_CASE_STATUSES = ['DINH_CHI', 'TAM_DINH_CHI', 'KHONG_KHOI_TO'] as const;
-const TERMINAL_INCIDENT_STATUSES = ['TAM_DINH_CHI', 'KET_THUC'] as const;
-const TERMINAL_PETITION_STATUSES = ['DA_GIAI_QUYET', 'KHONG_GIAI_QUYET', 'CHUYEN_DON'] as const;
+const TERMINAL_CASE_STATUSES: CaseStatus[] = ['DINH_CHI', 'TAM_DINH_CHI', 'DA_LUU_TRU'];
+const TERMINAL_INCIDENT_STATUSES: IncidentStatus[] = ['TAM_DINH_CHI', 'DA_GIAI_QUYET', 'DA_CHUYEN_VU_AN', 'KHONG_KHOI_TO'];
+const TERMINAL_PETITION_STATUSES: PetitionStatus[] = ['DA_GIAI_QUYET', 'DA_CHUYEN_VU_VIEC', 'DA_CHUYEN_VU_AN'];
 
 @Injectable()
 export class DeadlineScheduler {
@@ -37,45 +38,127 @@ export class DeadlineScheduler {
     this.logger.log('DeadlineScheduler: done');
   }
 
+  /**
+   * Returns user IDs who should receive notifications for a record.
+   * Mirrors buildScopeFilter / buildPetitionScopeFilter web access logic:
+   *   - directUserId: investigatorId (cases/incidents) or enteredById (petitions) — always included
+   *   - Team members via UserTeam where teamId = assignedTeamId
+   *   - DataAccessGrant holders (READ/WRITE, non-expired) for the team
+   *   - Team-expanded users are filtered: inactive users and ADMIN role are excluded
+   *   - directUserId is kept regardless of role (they are directly assigned/entered)
+   */
+  async getTeamRecipients(
+    assignedTeamId: string | null,
+    directUserId: string | null,
+  ): Promise<string[]> {
+    const ids = new Set<string>();
+
+    if (directUserId) ids.add(directUserId);
+
+    if (assignedTeamId) {
+      const members = await this.prisma.userTeam.findMany({
+        where: { teamId: assignedTeamId },
+        select: { userId: true },
+      });
+      members.forEach((m) => ids.add(m.userId));
+
+      const grants = await this.prisma.dataAccessGrant.findMany({
+        where: {
+          teamId: assignedTeamId,
+          OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+        },
+        select: { granteeId: true },
+      });
+      grants.forEach((g) => ids.add(g.granteeId));
+    }
+
+    if (ids.size === 0) return [];
+
+    const teamExpandedIds = [...ids].filter((id) => id !== directUserId);
+
+    if (teamExpandedIds.length > 0) {
+      const filtered = await this.prisma.user.findMany({
+        where: {
+          id: { in: teamExpandedIds },
+          isActive: true,
+          role: { name: { not: 'ADMIN' } },
+        },
+        select: { id: true },
+      });
+
+      const result = new Set<string>(filtered.map((u) => u.id));
+      if (directUserId) result.add(directUserId);
+      return [...result];
+    }
+
+    return directUserId ? [directUserId] : [];
+  }
+
   private async checkCases(today: Date, inWarnDays: Date) {
     const overdue = await this.prisma.case.findMany({
       where: {
         deadline: { lt: today },
-        status: { notIn: TERMINAL_CASE_STATUSES as unknown as string[] },
+        status: { notIn: TERMINAL_CASE_STATUSES },
         deletedAt: null,
-        investigatorId: { not: null },
+        OR: [{ investigatorId: { not: null } }, { assignedTeamId: { not: null } }],
       },
-      select: { id: true, name: true, investigatorId: true },
+      select: { id: true, name: true, investigatorId: true, assignedTeamId: true },
     });
 
     for (const c of overdue) {
-      if (await this.isDuped('case', c.id, c.investigatorId!)) continue;
-      await this.pushService.sendToUser(c.investigatorId!, {
-        title: 'Vụ án quá hạn',
-        body: `${c.name} đã quá hạn giải quyết`,
-        data: { type: 'case_overdue', id: c.id, link: `/cases/${c.id}` },
-      });
-      await this.markNotified('case', c.id, c.investigatorId!);
+      const recipients = await this.getTeamRecipients(c.assignedTeamId, c.investigatorId);
+      for (const userId of recipients) {
+        if (await this.isDuped('case', c.id, userId)) continue;
+        await this.prisma.notification.create({
+          data: {
+            userId,
+            type: 'CASE_OVERDUE',
+            title: 'Vụ án quá hạn',
+            message: `${c.name} đã quá hạn giải quyết`,
+            link: `/cases/${c.id}`,
+            metadata: { caseId: c.id },
+          },
+        });
+        await this.pushService.sendToUser(userId, {
+          title: 'Vụ án quá hạn',
+          body: `${c.name} đã quá hạn giải quyết`,
+          data: { type: 'case_overdue', id: c.id, link: `/cases/${c.id}` },
+        });
+        await this.markNotified('case', c.id, userId);
+      }
     }
 
     const near = await this.prisma.case.findMany({
       where: {
         deadline: { gte: today, lte: inWarnDays },
-        status: { notIn: TERMINAL_CASE_STATUSES as unknown as string[] },
+        status: { notIn: TERMINAL_CASE_STATUSES },
         deletedAt: null,
-        investigatorId: { not: null },
+        OR: [{ investigatorId: { not: null } }, { assignedTeamId: { not: null } }],
       },
-      select: { id: true, name: true, investigatorId: true },
+      select: { id: true, name: true, investigatorId: true, assignedTeamId: true },
     });
 
     for (const c of near) {
-      if (await this.isDuped('case_near', c.id, c.investigatorId!)) continue;
-      await this.pushService.sendToUser(c.investigatorId!, {
-        title: 'Vụ án sắp đến hạn',
-        body: `${c.name} sắp đến hạn giải quyết`,
-        data: { type: 'case_near_deadline', id: c.id, link: `/cases/${c.id}` },
-      });
-      await this.markNotified('case_near', c.id, c.investigatorId!);
+      const recipients = await this.getTeamRecipients(c.assignedTeamId, c.investigatorId);
+      for (const userId of recipients) {
+        if (await this.isDuped('case_near', c.id, userId)) continue;
+        await this.prisma.notification.create({
+          data: {
+            userId,
+            type: 'CASE_DEADLINE_NEAR',
+            title: 'Vụ án sắp đến hạn',
+            message: `${c.name} sắp đến hạn giải quyết`,
+            link: `/cases/${c.id}`,
+            metadata: { caseId: c.id },
+          },
+        });
+        await this.pushService.sendToUser(userId, {
+          title: 'Vụ án sắp đến hạn',
+          body: `${c.name} sắp đến hạn giải quyết`,
+          data: { type: 'case_near_deadline', id: c.id, link: `/cases/${c.id}` },
+        });
+        await this.markNotified('case_near', c.id, userId);
+      }
     }
   }
 
@@ -83,83 +166,136 @@ export class DeadlineScheduler {
     const overdue = await this.prisma.incident.findMany({
       where: {
         deadline: { lt: today },
-        status: { notIn: TERMINAL_INCIDENT_STATUSES as unknown as string[] },
+        status: { notIn: TERMINAL_INCIDENT_STATUSES },
         deletedAt: null,
-        investigatorId: { not: null },
+        OR: [{ investigatorId: { not: null } }, { assignedTeamId: { not: null } }],
       },
-      select: { id: true, name: true, investigatorId: true },
+      select: { id: true, name: true, investigatorId: true, assignedTeamId: true },
     });
 
     for (const inc of overdue) {
-      if (await this.isDuped('incident', inc.id, inc.investigatorId!)) continue;
-      await this.pushService.sendToUser(inc.investigatorId!, {
-        title: 'Vụ việc quá hạn',
-        body: `${inc.name} đã quá hạn xử lý`,
-        data: { type: 'incident_overdue', id: inc.id, link: `/incidents/${inc.id}` },
-      });
-      await this.markNotified('incident', inc.id, inc.investigatorId!);
+      const recipients = await this.getTeamRecipients(inc.assignedTeamId, inc.investigatorId);
+      for (const userId of recipients) {
+        if (await this.isDuped('incident', inc.id, userId)) continue;
+        await this.prisma.notification.create({
+          data: {
+            userId,
+            type: 'INCIDENT_OVERDUE',
+            title: 'Vụ việc quá hạn',
+            message: `${inc.name} đã quá hạn xử lý`,
+            link: `/incidents/${inc.id}`,
+            metadata: { incidentId: inc.id },
+          },
+        });
+        await this.pushService.sendToUser(userId, {
+          title: 'Vụ việc quá hạn',
+          body: `${inc.name} đã quá hạn xử lý`,
+          data: { type: 'incident_overdue', id: inc.id, link: `/incidents/${inc.id}` },
+        });
+        await this.markNotified('incident', inc.id, userId);
+      }
     }
 
     const near = await this.prisma.incident.findMany({
       where: {
         deadline: { gte: today, lte: inWarnDays },
-        status: { notIn: TERMINAL_INCIDENT_STATUSES as unknown as string[] },
+        status: { notIn: TERMINAL_INCIDENT_STATUSES },
         deletedAt: null,
-        investigatorId: { not: null },
+        OR: [{ investigatorId: { not: null } }, { assignedTeamId: { not: null } }],
       },
-      select: { id: true, name: true, investigatorId: true },
+      select: { id: true, name: true, investigatorId: true, assignedTeamId: true },
     });
 
     for (const inc of near) {
-      if (await this.isDuped('incident_near', inc.id, inc.investigatorId!)) continue;
-      await this.pushService.sendToUser(inc.investigatorId!, {
-        title: 'Vụ việc sắp đến hạn',
-        body: `${inc.name} sắp đến hạn xử lý`,
-        data: { type: 'incident_near_deadline', id: inc.id, link: `/incidents/${inc.id}` },
-      });
-      await this.markNotified('incident_near', inc.id, inc.investigatorId!);
+      const recipients = await this.getTeamRecipients(inc.assignedTeamId, inc.investigatorId);
+      for (const userId of recipients) {
+        if (await this.isDuped('incident_near', inc.id, userId)) continue;
+        await this.prisma.notification.create({
+          data: {
+            userId,
+            type: 'INCIDENT_DEADLINE_NEAR',
+            title: 'Vụ việc sắp đến hạn',
+            message: `${inc.name} sắp đến hạn xử lý`,
+            link: `/incidents/${inc.id}`,
+            metadata: { incidentId: inc.id },
+          },
+        });
+        await this.pushService.sendToUser(userId, {
+          title: 'Vụ việc sắp đến hạn',
+          body: `${inc.name} sắp đến hạn xử lý`,
+          data: { type: 'incident_near_deadline', id: inc.id, link: `/incidents/${inc.id}` },
+        });
+        await this.markNotified('incident_near', inc.id, userId);
+      }
     }
   }
 
   private async checkPetitions(today: Date, inWarnDays: Date) {
+    // Petitions: directUserId = enteredById (mirrors buildPetitionScopeFilter ownership).
     const overdue = await this.prisma.petition.findMany({
       where: {
         deadline: { lt: today },
-        status: { notIn: TERMINAL_PETITION_STATUSES as unknown as string[] },
+        status: { notIn: TERMINAL_PETITION_STATUSES },
         deletedAt: null,
-        assignedToId: { not: null },
+        OR: [{ enteredById: { not: null } }, { assignedTeamId: { not: null } }],
       },
-      select: { id: true, senderName: true, assignedToId: true },
+      select: { id: true, senderName: true, enteredById: true, assignedTeamId: true },
     });
 
     for (const p of overdue) {
-      if (await this.isDuped('petition', p.id, p.assignedToId!)) continue;
-      await this.pushService.sendToUser(p.assignedToId!, {
-        title: 'Đơn thư quá hạn',
-        body: `Đơn của ${p.senderName} đã quá hạn xử lý`,
-        data: { type: 'petition_overdue', id: p.id, link: `/petitions/${p.id}` },
-      });
-      await this.markNotified('petition', p.id, p.assignedToId!);
+      const recipients = await this.getTeamRecipients(p.assignedTeamId, p.enteredById);
+      for (const userId of recipients) {
+        if (await this.isDuped('petition', p.id, userId)) continue;
+        await this.prisma.notification.create({
+          data: {
+            userId,
+            type: 'PETITION_OVERDUE',
+            title: 'Đơn thư quá hạn',
+            message: `Đơn của ${p.senderName} đã quá hạn xử lý`,
+            link: `/petitions/${p.id}`,
+            metadata: { petitionId: p.id },
+          },
+        });
+        await this.pushService.sendToUser(userId, {
+          title: 'Đơn thư quá hạn',
+          body: `Đơn của ${p.senderName} đã quá hạn xử lý`,
+          data: { type: 'petition_overdue', id: p.id, link: `/petitions/${p.id}` },
+        });
+        await this.markNotified('petition', p.id, userId);
+      }
     }
 
     const near = await this.prisma.petition.findMany({
       where: {
         deadline: { gte: today, lte: inWarnDays },
-        status: { notIn: TERMINAL_PETITION_STATUSES as unknown as string[] },
+        status: { notIn: TERMINAL_PETITION_STATUSES },
         deletedAt: null,
-        assignedToId: { not: null },
+        OR: [{ enteredById: { not: null } }, { assignedTeamId: { not: null } }],
       },
-      select: { id: true, senderName: true, assignedToId: true },
+      select: { id: true, senderName: true, enteredById: true, assignedTeamId: true },
     });
 
     for (const p of near) {
-      if (await this.isDuped('petition_near', p.id, p.assignedToId!)) continue;
-      await this.pushService.sendToUser(p.assignedToId!, {
-        title: 'Đơn thư sắp đến hạn',
-        body: `Đơn của ${p.senderName} sắp đến hạn xử lý`,
-        data: { type: 'petition_near_deadline', id: p.id, link: `/petitions/${p.id}` },
-      });
-      await this.markNotified('petition_near', p.id, p.assignedToId!);
+      const recipients = await this.getTeamRecipients(p.assignedTeamId, p.enteredById);
+      for (const userId of recipients) {
+        if (await this.isDuped('petition_near', p.id, userId)) continue;
+        await this.prisma.notification.create({
+          data: {
+            userId,
+            type: 'PETITION_DEADLINE_NEAR',
+            title: 'Đơn thư sắp đến hạn',
+            message: `Đơn của ${p.senderName} sắp đến hạn xử lý`,
+            link: `/petitions/${p.id}`,
+            metadata: { petitionId: p.id },
+          },
+        });
+        await this.pushService.sendToUser(userId, {
+          title: 'Đơn thư sắp đến hạn',
+          body: `Đơn của ${p.senderName} sắp đến hạn xử lý`,
+          data: { type: 'petition_near_deadline', id: p.id, link: `/petitions/${p.id}` },
+        });
+        await this.markNotified('petition_near', p.id, userId);
+      }
     }
   }
 

@@ -23,9 +23,9 @@ final _dashboardDataProvider =
 
   final results = await Future.wait([
     dashApi.getStats(),
-    casesApi.getCases(overdue: true, take: 5),
-    incidentsApi.getIncidents(overdue: true, take: 5),
-    petitionsApi.getPetitions(overdue: true, take: 5),
+    casesApi.getCases(overdue: true, limit: 5),
+    incidentsApi.getIncidents(overdue: true, limit: 5),
+    petitionsApi.getPetitions(limit: 5),
   ]);
 
   return _DashboardData(

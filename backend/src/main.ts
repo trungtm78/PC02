@@ -27,7 +27,7 @@ async function bootstrap() {
 
   // CORS: env CORS_ORIGIN overrides localhost defaults (required for production)
   const rawOrigins = (process.env.CORS_ORIGIN ?? '').split(',').map((o) => o.trim()).filter(Boolean);
-  const corsOrigins = rawOrigins.length > 0 ? rawOrigins : ['http://localhost:5173', 'http://localhost:5179'];
+  const corsOrigins = rawOrigins.length > 0 ? rawOrigins : ['http://localhost:5173', 'http://localhost:5179', 'http://localhost:8080'];
   app.enableCors({ origin: corsOrigins, credentials: true });
 
   const port = process.env.PORT ?? 3000;

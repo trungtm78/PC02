@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'api_client.dart';
 
@@ -6,10 +7,11 @@ class AuthApi {
   AuthApi(this._client);
 
   Future<Map<String, dynamic>> login(String username, String password) async {
-    final resp = await _client.dio.post('/auth/login', data: {
-      'username': username,
-      'password': password,
-    });
+    final resp = await _client.dio.post(
+      '/auth/login',
+      data: jsonEncode({'username': username, 'password': password}),
+      options: Options(contentType: 'application/json'),
+    );
     return resp.data as Map<String, dynamic>;
   }
 

@@ -1,0 +1,16 @@
+appId: ${APP_ID}
+tags:
+  - incidents
+  - data
+
+---
+- runFlow: 01_login_success.yaml
+
+- tapOn: "Vụ việc"
+- waitForAnimationToEnd
+
+- takeScreenshot: 05_vuviec_list
+
+- assertNotVisible: "null"
+- assertNotVisible: "undefined"
+- assertNotVisible: "Lỗi tải dữ liệu"

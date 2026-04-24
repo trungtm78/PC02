@@ -1,0 +1,15 @@
+appId: ${APP_ID}
+tags:
+  - smoke
+  - dashboard
+
+---
+# Assumes app is on dashboard (run after 01_login_success)
+- launchApp
+- waitForAnimationToEnd
+- takeScreenshot: 07_dashboard
+
+# Must not show raw error text
+- assertNotVisible: "null"
+- assertNotVisible: "Exception"
+- assertNotVisible: "Lỗi tải dữ liệu"

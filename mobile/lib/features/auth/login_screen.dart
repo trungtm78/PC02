@@ -39,9 +39,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (result == 'pending_2fa') {
         context.push('/login/2fa');
       } else {
-        // 2FA disabled — register FCM device now
-        final fcm = ref.read(fcmServiceProvider);
-        await fcm.init();
+        // 2FA disabled — try FCM registration, but don't block navigation on failure
+        try {
+          final fcm = ref.read(fcmServiceProvider);
+          await fcm.init();
+        } catch (_) {}
         if (mounted) context.go('/');
       }
     } catch (e) {

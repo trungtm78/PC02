@@ -1,0 +1,21 @@
+appId: ${APP_ID}
+tags:
+  - smoke
+
+---
+# Ensure we start from login screen by logging out if already logged in
+- launchApp
+- waitForAnimationToEnd
+
+# Tap hamburger position — if on dashboard, opens drawer; if on login, taps empty space
+- tapOn:
+    point: "5%,5%"
+    optional: true
+- waitForAnimationToEnd
+
+# Tap logout if drawer opened — shorthand matches accessibilityText too
+- tapOn:
+    text: "Đăng xuất"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: 00_initial_state

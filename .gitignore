@@ -20,3 +20,5 @@ backend/src/coverage/
 Thumbs.db
 .DS_Store
 .gstack/
+maestro/.env
+*.png

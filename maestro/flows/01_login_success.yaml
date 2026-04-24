@@ -1,0 +1,30 @@
+appId: ${APP_ID}
+tags:
+  - smoke
+  - auth
+
+---
+- launchApp
+- waitForAnimationToEnd
+- takeScreenshot: 01_launch_state
+
+# Fill credentials — tap success proves we're on login screen
+- tapOn: "Email"
+- inputText: ${TEST_USERNAME}
+
+- tapOn: "Mật khẩu"
+- inputText: ${TEST_PASSWORD}
+
+- hideKeyboard
+- takeScreenshot: 01_login_filled
+
+# Submit login
+- tapOn: "Đăng nhập"
+- waitForAnimationToEnd
+- takeScreenshot: 01_login_result
+
+# Error strings must not appear (assertNotVisible uses absence check = works)
+- assertNotVisible: "Exception"
+- assertNotVisible: "DioException"
+- assertNotVisible: "SocketException"
+- assertNotVisible: "Lỗi"

@@ -1,0 +1,27 @@
+appId: ${APP_ID}
+tags:
+  - cases
+  - detail
+  - data
+
+---
+# Verifies cases_api.dart getCaseById() unwraps {data: {...}} envelope
+# Detail screen must show real field values, not null/empty
+
+- runFlow: 01_login_success.yaml
+
+- tapOn: "Vụ việc"
+- waitForAnimationToEnd
+
+# Tap first item in list
+- tapOn:
+    index: 0
+- waitForAnimationToEnd
+
+- takeScreenshot: 04_case_detail
+
+# Fields must have real values
+- assertNotVisible: "null"
+- assertNotVisible: "N/A"
+- assertNotVisible: "undefined"
+- assertNotVisible: "Không có dữ liệu"

@@ -1,0 +1,23 @@
+appId: ${APP_ID}
+tags:
+  - smoke
+  - auth
+
+---
+# Assumes app is on dashboard (run after other tests)
+- launchApp
+- waitForAnimationToEnd
+
+# Open drawer
+- tapOn:
+    point: "5%,5%"
+- waitForAnimationToEnd
+- takeScreenshot: 99_menu_open
+
+- tapOn: "Đăng xuất"
+- waitForAnimationToEnd
+- takeScreenshot: 99_logged_out
+
+# Login screen should be visible again
+- tapOn: "Email"
+- assertNotVisible: "Exception"

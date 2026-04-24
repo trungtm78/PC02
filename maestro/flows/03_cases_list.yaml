@@ -1,0 +1,20 @@
+appId: ${APP_ID}
+tags:
+  - smoke
+  - cases
+  - data
+
+---
+# Assumes app is on dashboard (run after 01_login_success)
+- launchApp
+- waitForAnimationToEnd
+
+# Navigate to Cases (Hồ sơ tab = index 1, at ~30% x, bottom of screen)
+- tapOn:
+    point: "30%,96%"
+- waitForAnimationToEnd
+- takeScreenshot: 03_cases_list
+
+- assertNotVisible: "null"
+- assertNotVisible: "undefined"
+- assertNotVisible: "Lỗi tải dữ liệu"
