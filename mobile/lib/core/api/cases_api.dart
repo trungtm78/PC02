@@ -26,6 +26,7 @@ class CasesApi {
 
   Future<Map<String, dynamic>> getCaseById(String id) async {
     final resp = await _client.dio.get('/cases/$id');
-    return resp.data as Map<String, dynamic>;
+    final body = resp.data as Map<String, dynamic>;
+    return (body['data'] as Map<String, dynamic>?) ?? body;
   }
 }

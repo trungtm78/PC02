@@ -17,6 +17,11 @@ final appTheme = ThemeData(
     foregroundColor: Colors.white,
     elevation: 0,
   ),
+  tabBarTheme: const TabBarThemeData(
+    labelColor: Colors.white,
+    unselectedLabelColor: Colors.white60,
+    indicatorColor: Colors.white,
+  ),
   drawerTheme: const DrawerThemeData(
     backgroundColor: Colors.white,
   ),

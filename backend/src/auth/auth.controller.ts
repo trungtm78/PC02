@@ -24,7 +24,7 @@ export class AuthController {
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  @Throttle({ default: { ttl: 60000, limit: 5 } })
+  @Throttle({ default: { ttl: 60000, limit: 50 } })
   async login(@Body() dto: LoginDto, @Req() req: Request) {
     return this.authService.login(dto, {
       ipAddress: req.ip,

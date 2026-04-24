@@ -24,6 +24,7 @@ class PetitionsApi {
 
   Future<Map<String, dynamic>> getPetitionById(String id) async {
     final resp = await _client.dio.get('/petitions/$id');
-    return resp.data as Map<String, dynamic>;
+    final body = resp.data as Map<String, dynamic>;
+    return (body['data'] as Map<String, dynamic>?) ?? body;
   }
 }
