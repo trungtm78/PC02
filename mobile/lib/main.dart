@@ -1,5 +1,7 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -16,8 +18,12 @@ import 'features/petitions/petition_detail_screen.dart';
 import 'features/petitions/petitions_screen.dart';
 import 'shared/theme/app_theme.dart';
 
+// Kept alive to keep semantics enabled in debug builds (for Maestro testing).
+SemanticsHandle? _semanticsHandle;
+
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  final binding = WidgetsFlutterBinding.ensureInitialized();
+  if (kDebugMode) _semanticsHandle = binding.ensureSemantics();
   await initializeDateFormatting('vi_VN', null);
   try {
     await Firebase.initializeApp()

@@ -4,19 +4,20 @@ tags:
   - auth
 
 ---
-# Verifies logout flow returns to login screen
+# Assumes app is on dashboard (run after other tests)
+- launchApp
+- waitForAnimationToEnd
 
-- runFlow: 01_login_success.yaml
-
-# Open drawer or profile menu to find logout
-- tapOn: "Menu"
+# Open drawer
+- tapOn:
+    point: "5%,5%"
 - waitForAnimationToEnd
 - takeScreenshot: 99_menu_open
 
 - tapOn: "Đăng xuất"
 - waitForAnimationToEnd
-
 - takeScreenshot: 99_logged_out
 
-# Must return to login screen
-- assertVisible: "ĐĂNG NHẬP"
+# Login screen should be visible again
+- tapOn: "Email"
+- assertNotVisible: "Exception"

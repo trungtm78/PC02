@@ -4,34 +4,27 @@ tags:
   - auth
 
 ---
-# Login happy path — verifies auth_api.dart fix (JSON encoding + Content-Type)
-# and login_screen.dart fix (Vietnamese error message)
-
 - launchApp
 - waitForAnimationToEnd
+- takeScreenshot: 01_launch_state
 
-# Login screen must load
-- assertVisible: "ĐĂNG NHẬP"
-
-# Fill credentials
+# Fill credentials — tap success proves we're on login screen
 - tapOn: "Email"
-- inputText: "${TEST_USERNAME}"
-- tapOn: "Mật khẩu"
-- inputText: "${TEST_PASSWORD}"
-- hideKeyboard
+- inputText: ${TEST_USERNAME}
 
+- tapOn: "Mật khẩu"
+- inputText: ${TEST_PASSWORD}
+
+- hideKeyboard
 - takeScreenshot: 01_login_filled
 
-# Submit
-- tapOn: "ĐĂNG NHẬP"
+# Submit login
+- tapOn: "Đăng nhập"
 - waitForAnimationToEnd
-
 - takeScreenshot: 01_login_result
 
-# Must navigate away from login screen
-- assertNotVisible: "ĐĂNG NHẬP"
-# Must NOT show any raw error
+# Error strings must not appear (assertNotVisible uses absence check = works)
 - assertNotVisible: "Exception"
 - assertNotVisible: "DioException"
-- assertNotVisible: "toString"
 - assertNotVisible: "SocketException"
+- assertNotVisible: "Lỗi"

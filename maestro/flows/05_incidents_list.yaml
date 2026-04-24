@@ -1,19 +1,15 @@
 appId: ${APP_ID}
 tags:
-  - smoke
   - incidents
   - data
 
 ---
-# Verifies incidents_api.dart fix: API envelope unwrapping
-# Incidents list must show real data
-
 - runFlow: 01_login_success.yaml
 
-- tapOn: "Sự cố"
+- tapOn: "Vụ việc"
 - waitForAnimationToEnd
 
-- takeScreenshot: 05_incidents_list
+- takeScreenshot: 05_vuviec_list
 
 - assertNotVisible: "null"
 - assertNotVisible: "undefined"

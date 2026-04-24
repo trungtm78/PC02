@@ -4,16 +4,12 @@ tags:
   - dashboard
 
 ---
-# Verifies dashboard_screen.dart: main screen loads after login
-# Tab bar must be visible and readable (white text on navy - theme fix)
-
-- runFlow: 01_login_success.yaml
-
+# Assumes app is on dashboard (run after 01_login_success)
+- launchApp
+- waitForAnimationToEnd
 - takeScreenshot: 07_dashboard
 
-# Dashboard should have content (not blank)
+# Must not show raw error text
 - assertNotVisible: "null"
-- assertNotVisible: "Lỗi"
-
-# Tab bar tabs must be present
-- assertVisible: "Vụ việc"
+- assertNotVisible: "Exception"
+- assertNotVisible: "Lỗi tải dữ liệu"

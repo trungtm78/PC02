@@ -5,14 +5,14 @@ tags:
   - data
 
 ---
-# Verifies petitions_api.dart fix: API envelope unwrapping
-# Petitions list must show real data
-
-- runFlow: 01_login_success.yaml
-
-- tapOn: "Đơn thư"
+# Assumes app is on dashboard (run after 01_login_success)
+- launchApp
 - waitForAnimationToEnd
 
+# Navigate to Đơn thư (index 3, at ~70% x, bottom of screen)
+- tapOn:
+    point: "70%,96%"
+- waitForAnimationToEnd
 - takeScreenshot: 06_petitions_list
 
 - assertNotVisible: "null"
