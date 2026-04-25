@@ -20,13 +20,6 @@
 **Fix:** Extend `DataScope` with optional `writeTeamIds`; populate from WRITE grants in `resolveScope`; check `writeTeamIds` in `assertParentInScope` and `assertCreatorInScope` for update/delete operations.
 **Discovered:** 2026-04-23 (eng review — outside voice finding)
 
-### CONC-001: Optimistic locking not implemented on Case/Incident/Petition update endpoints
-**Priority:** P2 (BLOCKING for BAC-007 UAT scenario)
-**Details:** All 10 mutation endpoints on the three primary resources use `where: { id }` with no version check — last write wins silently. `updatedAt @updatedAt` already exists in schema (no migration needed). Surface area: Cases×1, Incidents×7 (update + updateStatus + extendDeadline + mergeInto + transferUnit + assignInvestigator + prosecute), Petitions×3 (update + convertToIncident + convertToCase).
-**Fix:** Add optional `expectedUpdatedAt?: Date` to UpdateCaseDto / UpdateIncidentDto / UpdatePetitionDto and specialized incident DTOs. In each mutation: add `updatedAt: expectedUpdatedAt` to `where:` when provided. Catch Prisma `P2025` → throw `ConflictException('Hồ sơ đã được chỉnh sửa bởi người dùng khác. Vui lòng tải lại trang và thử lại.')`. Handle 409 in frontend with a reload prompt. `extendDeadline` already uses `soLanGiaHan` as partial lock — complement (don't replace) with `updatedAt` check.
-**Assigned:** developer
-**Target:** Sprint N+1
-**Discovered:** 2026-04-25 (UAT SDLC design session — BAC-007 prerequisite)
 
 ### PERF-002: GET /kpi/trend makes ~120 DB count queries per call
 **Priority:** P3 (acceptable at current scale with <10k rows + createdAt index)
@@ -61,3 +54,4 @@
 - **SCHED-001 (duplicate notifications)**: markNotified() called after sendToUser() — push failure caused duplicate next-day notifications. Fixed in v0.8.0.0. **Completed:** 2026-04-25
 - **SCHED-002 (DB failure silences all notifications)**: systemSetting.findUnique not in try/catch — DB error at 07:00 killed all deadline notifications. Fixed in v0.8.0.0. **Completed:** 2026-04-25
 - **MOBILE-BUG-001 (petitions overdue tab)**: Tab "Quá hạn" returned all petitions, no overdue filter. Fixed with ?overdue=true backend param in v0.8.0.0. **Completed:** 2026-04-25
+- **CONC-001 (optimistic locking)**: 10 mutation endpoints (Cases×1, Incidents×6, Petitions×3) had last-write-wins. Added optional `expectedUpdatedAt` to DTOs; Prisma P2025 → 409 ConflictException; frontend captures `updatedAt` on load and shows conflict message. 33 new tests, 591 total pass. BAC-007 UAT scenario now unblocked. **Completed:** 2026-04-25
