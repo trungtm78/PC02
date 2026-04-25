@@ -7,10 +7,10 @@ class DashboardApi {
 
   Future<DashboardStats> getStats() async {
     final resp = await _client.dio.get('/dashboard/stats');
-    if (resp.data is! Map<String, dynamic>) return const DashboardStats(totalCases: 0, newCases: 0, overdueCases: 0, resolvedCases: 0);
-    final body = resp.data as Map<String, dynamic>;
-    final data = body['data'] as Map<String, dynamic>?;
-    if (data == null) return const DashboardStats(totalCases: 0, newCases: 0, overdueCases: 0, resolvedCases: 0);
-    return DashboardStats.fromJson(data);
+    if (resp.data is! Map) return const DashboardStats(totalCases: 0, newCases: 0, overdueCases: 0, resolvedCases: 0);
+    final body = Map<String, dynamic>.from(resp.data as Map);
+    final rawData = body['data'];
+    if (rawData == null || rawData is! Map) return const DashboardStats(totalCases: 0, newCases: 0, overdueCases: 0, resolvedCases: 0);
+    return DashboardStats.fromJson(Map<String, dynamic>.from(rawData));
   }
 }
