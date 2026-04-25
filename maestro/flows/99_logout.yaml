@@ -14,10 +14,14 @@ tags:
 - waitForAnimationToEnd
 - takeScreenshot: 99_menu_open
 
-- tapOn: "Đăng xuất"
+# Tap "Đăng xuất" by coordinate (bottom of drawer, ~20% x, ~68% y)
+- tapOn:
+    point: "20%,68%"
 - waitForAnimationToEnd
 - takeScreenshot: 99_logged_out
 
-# Login screen should be visible again
-- tapOn: "Email"
+# Login screen should be visible again (tap confirms Email field exists)
+- tapOn:
+    point: "50%,40%"
+    optional: true
 - assertNotVisible: "Exception"

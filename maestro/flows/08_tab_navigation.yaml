@@ -4,17 +4,22 @@ tags:
 
 ---
 - runFlow: 01_login_success.yaml
+- waitForAnimationToEnd
 
-# Navigate each main tab and verify no crash
-- tapOn: "Vụ việc"
+# Navigate each main tab by coordinate (avoids Vietnamese encoding issues on Windows)
+# Tab order: Tổng quan(10%), Hồ sơ(30%), Vụ việc(50%), Đơn thư(70%), Thông báo(90%)
+- tapOn:
+    point: "50%,96%"
 - waitForAnimationToEnd
 - takeScreenshot: 08_tab_cases
 
-- tapOn: "Đơn thư"
+- tapOn:
+    point: "70%,96%"
 - waitForAnimationToEnd
 - takeScreenshot: 08_tab_petitions
 
-- tapOn: "Thông báo"
+- tapOn:
+    point: "90%,96%"
 - waitForAnimationToEnd
 - takeScreenshot: 08_tab_notifications
 

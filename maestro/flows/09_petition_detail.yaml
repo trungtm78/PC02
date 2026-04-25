@@ -9,8 +9,11 @@ tags:
 # Petition detail must show senderName and status, not null
 
 - runFlow: 01_login_success.yaml
+- waitForAnimationToEnd
 
-- tapOn: "Đơn thư"
+# Tap "Đơn thư" tab by coordinate (70% x at bottom nav)
+- tapOn:
+    point: "70%,96%"
 - waitForAnimationToEnd
 
 - tapOn:
