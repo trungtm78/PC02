@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.0.0] - 2026-04-25
+
+### Added
+- **UAT gap recommendations implemented**: Biometric login (TouchID/FaceID) với `BiometricService` — lưu credentials vào Keychain/Keystore, tự động đăng nhập khi mở app. `BiometricPromptScreen` với animation, fallback PIN. Logout xóa credentials sinh trắc học (`BiometricService.clear()`).
+- **Petitions overdue filter**: Tab "Quá hạn" trong Đơn thư screen hiện trả đúng đơn thư đã qua hạn xử lý — backend `?overdue=true` filter (deadline < now, loại trừ terminal statuses). Trước đây hiển thị toàn bộ đơn thư không phân biệt.
+
+### Fixed
+- **CRITICAL — api_client isolate crash**: Queued requests trong khi refresh đang chạy (`_isRefreshing`) không wrap `await _refreshCompleter!.future` trong try/catch — khi refresh fail, `completeError()` làm crash isolate. Đã wrap + return early thay vì rethrow.
+- **SECURITY — MITM risk on token refresh**: Bare `Dio()` cho refresh request không có timeout, không có base config — dễ bị MITM. Thay bằng `Dio(BaseOptions(...))` với cùng timeout/baseUrl như client chính.
+- **Duplicate notifications**: `markNotified()` được gọi sau `pushService.sendToUser()` — nếu push throw, dedup record không tồn tại và notification lặp lại vào ngày hôm sau. Đã đảo thứ tự: `markNotified` → `notification.create` → `sendToUser` cho cả 6 notification block.
+- **Scheduler DB failure silences all notifications**: `systemSetting.findUnique` không có try/catch — DB hiccup lúc 07:00 kill toàn bộ deadline check. Thêm try/catch với fallback 7 ngày.
+- **Biometric credentials leak after logout**: `logout()` chỉ xóa token storage, không xóa biometric credentials — user tiếp theo có thể đăng nhập bằng sinh trắc học của user trước. Fix: `Future.wait([storage.clear(), biometricService.clear()])` trong logout.
+- **Auth test binding error**: `BiometricService()` inline trong `AuthNotifier` trigger `FlutterSecureStorage` platform binding trong unit test context → "Binding not initialized". Inject qua optional constructor parameter.
+
 ## [0.7.0.0] - 2026-04-25
 
 ### Added

@@ -47,3 +47,9 @@
 - **FINDING-012 (trust proxy)**: `req.ip` returned proxy IP without trust proxy config. Fixed in v0.5.3.0 — `app.set('trust proxy', 1)` added to `main.ts`. **Completed:** v0.5.3.0 (2026-04-23)
 - **FINDING-003 (Vite CVEs)**: 6 vulnerabilities (4 HIGH) in frontend devDeps. Fixed via `npm audit fix`. **Completed:** v0.5.1.0 (2026-04-21)
 - **FINDING-004 (CORS hardcoded)**: CORS origin hardcoded to localhost. Fixed via `CORS_ORIGIN` env var. **Completed:** v0.5.1.0 (2026-04-21)
+- **MOBILE-SEC-001 (api_client isolate crash)**: Queued Completer.future not wrapped in try/catch — completeError() on refresh failure could crash isolate. Fixed in v0.8.0.0. **Completed:** 2026-04-25
+- **MOBILE-SEC-002 (bare Dio() refresh)**: Bare `Dio()` for token refresh had no timeout/config — MITM risk. Fixed with configured Dio in v0.8.0.0. **Completed:** 2026-04-25
+- **MOBILE-SEC-003 (biometric credentials leak)**: logout() didn't call BiometricService.clear() — previous user's bio credentials persisted. Fixed in v0.8.0.0. **Completed:** 2026-04-25
+- **SCHED-001 (duplicate notifications)**: markNotified() called after sendToUser() — push failure caused duplicate next-day notifications. Fixed in v0.8.0.0. **Completed:** 2026-04-25
+- **SCHED-002 (DB failure silences all notifications)**: systemSetting.findUnique not in try/catch — DB error at 07:00 killed all deadline notifications. Fixed in v0.8.0.0. **Completed:** 2026-04-25
+- **MOBILE-BUG-001 (petitions overdue tab)**: Tab "Quá hạn" returned all petitions, no overdue filter. Fixed with ?overdue=true backend param in v0.8.0.0. **Completed:** 2026-04-25
