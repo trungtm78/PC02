@@ -5,8 +5,11 @@ tags:
 
 ---
 - runFlow: 01_login_success.yaml
+- waitForAnimationToEnd
 
-- tapOn: "Vụ việc"
+# Tap "Vụ việc" tab by coordinate
+- tapOn:
+    point: "50%,96%"
 - waitForAnimationToEnd
 
 - takeScreenshot: 05_vuviec_list

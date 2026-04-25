@@ -4,7 +4,8 @@ tags:
   - auth
 
 ---
-- launchApp
+- launchApp:
+    clearState: true
 - waitForAnimationToEnd
 - takeScreenshot: 01_launch_state
 

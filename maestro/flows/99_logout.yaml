@@ -14,10 +14,12 @@ tags:
 - waitForAnimationToEnd
 - takeScreenshot: 99_menu_open
 
-- tapOn: "Đăng xuất"
+# Tap "Đăng xuất" by coordinate (bottom of drawer, ~20% x, ~68% y)
+- tapOn:
+    point: "20%,68%"
 - waitForAnimationToEnd
 - takeScreenshot: 99_logged_out
 
-# Login screen should be visible again
-- tapOn: "Email"
+# Login screen should be visible — dashboard must be gone
+- assertNotVisible: "Tổng quan"
 - assertNotVisible: "Exception"

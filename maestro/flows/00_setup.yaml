@@ -4,10 +4,11 @@ tags:
 
 ---
 # Ensure we start from login screen by logging out if already logged in
-- launchApp
+- launchApp:
+    clearState: true
 - waitForAnimationToEnd
 
-# Tap hamburger position — if on dashboard, opens drawer; if on login, taps empty space
+# clearState ensures fresh start — no need to logout
 - tapOn:
     point: "5%,5%"
     optional: true
