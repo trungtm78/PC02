@@ -95,6 +95,7 @@ const mockPrisma = {
   },
   user: {
     findUnique: jest.fn(),
+    findMany: jest.fn(),
   },
   case: {
     create: jest.fn(),
@@ -284,7 +285,7 @@ describe('IncidentsService', () => {
 
       await service.getList(
         { limit: 20, offset: 0 },
-        { type: 'unit', unitIds: ['unit-001'], userIds: ['user-001'], teamIds: [] },
+        { userIds: ['user-001'], teamIds: [], writableTeamIds: [] },
       );
 
       expect(mockPrisma.incident.findMany).toHaveBeenCalledWith(
@@ -1014,7 +1015,7 @@ describe('IncidentsService', () => {
     it('should apply data scope filter when provided', async () => {
       mockPrisma.incident.groupBy.mockResolvedValue([]);
 
-      await service.getStats({ type: 'unit', unitIds: ['unit-001'], userIds: ['user-001'], teamIds: [] });
+      await service.getStats({ userIds: ['user-001'], teamIds: [], writableTeamIds: [] });
 
       expect(mockPrisma.incident.groupBy).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -1112,7 +1113,7 @@ describe('IncidentsService', () => {
 
       const result = await service.prosecute(
         'inc-001',
-        { caseName: 'Vu an moi', crime: 'Hinh su' },
+        { caseName: 'Vu an moi', prosecutionDecision: 'QD-001', crime: 'Hinh su' },
         'actor-001',
       );
 
@@ -1143,7 +1144,7 @@ describe('IncidentsService', () => {
 
       const result = await service.prosecute(
         'inc-001',
-        { caseName: 'Vu an', crime: 'Hinh su' },
+        { caseName: 'Vu an', prosecutionDecision: 'QD-001', crime: 'Hinh su' },
         'actor-001',
       );
 
@@ -1159,7 +1160,7 @@ describe('IncidentsService', () => {
       await expect(
         service.prosecute(
           'inc-001',
-          { caseName: 'Test', crime: 'Test' },
+          { caseName: 'Test', prosecutionDecision: 'QD-001', crime: 'Test' },
           'actor-001',
         ),
       ).rejects.toThrow(BadRequestException);
@@ -1174,7 +1175,7 @@ describe('IncidentsService', () => {
       await expect(
         service.prosecute(
           'inc-001',
-          { caseName: 'Test', crime: 'Test' },
+          { caseName: 'Test', prosecutionDecision: 'QD-001', crime: 'Test' },
           'actor-001',
         ),
       ).rejects.toThrow(BadRequestException);
@@ -1184,7 +1185,7 @@ describe('IncidentsService', () => {
       mockPrisma.incident.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.prosecute('nonexistent', { caseName: 'Test', crime: 'Test' }, 'actor-001'),
+        service.prosecute('nonexistent', { caseName: 'Test', prosecutionDecision: 'QD-001', crime: 'Test' }, 'actor-001'),
       ).rejects.toThrow(NotFoundException);
     });
   });

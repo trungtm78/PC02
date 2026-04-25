@@ -179,6 +179,20 @@ export class CasesService {
     }
   }
 
+  private checkWriteScope(
+    record: { investigatorId?: string | null; assignedTeamId?: string | null },
+    dataScope?: DataScope | null,
+  ) {
+    if (!dataScope) return;
+    const { userIds, writableTeamIds } = dataScope;
+    const ownerMatch = record.investigatorId && userIds.includes(record.investigatorId);
+    const teamMatch = record.assignedTeamId && writableTeamIds.includes(record.assignedTeamId);
+    const unassignedMatch = !record.assignedTeamId && writableTeamIds.length > 0;
+    if (!ownerMatch && !teamMatch && !unassignedMatch) {
+      throw new ForbiddenException('Bạn không có quyền chỉnh sửa bản ghi này');
+    }
+  }
+
   async getById(id: string, dataScope?: DataScope | null) {
     const record = await this.prisma.case.findFirst({
       where: { id, deletedAt: null },
@@ -395,7 +409,7 @@ export class CasesService {
       throw new NotFoundException(`Vụ án không tồn tại (id: ${id})`);
     }
 
-    this.checkRecordInScope(existing, dataScope);
+    this.checkWriteScope(existing, dataScope);
 
     if (dto.investigatorId) {
       const user = await this.prisma.user.findUnique({
@@ -547,7 +561,7 @@ export class CasesService {
       throw new NotFoundException(`Vụ án không tồn tại (id: ${id})`);
     }
 
-    this.checkRecordInScope(existing, dataScope);
+    this.checkWriteScope(existing, dataScope);
 
     await this.prisma.case.update({
       where: { id },

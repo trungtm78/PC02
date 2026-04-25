@@ -95,7 +95,8 @@ export class GuidanceService {
   }
 
   async update(id: string, dto: Partial<CreateGuidanceDto>, actorId: string, meta?: { ipAddress?: string; userAgent?: string }, dataScope?: DataScope | null) {
-    await this.getById(id, dataScope);
+    const { data: existing } = await this.getById(id, dataScope);
+    assertCreatorInScope(existing.createdById, dataScope, 'write');
 
     const record = await this.prisma.guidanceRecord.update({
       where: { id },
@@ -125,6 +126,7 @@ export class GuidanceService {
 
   async delete(id: string, actorId: string, meta?: { ipAddress?: string; userAgent?: string }, dataScope?: DataScope | null) {
     const { data: existing } = await this.getById(id, dataScope);
+    assertCreatorInScope(existing.createdById, dataScope, 'write');
 
     await this.prisma.guidanceRecord.update({ where: { id }, data: { deletedAt: new Date() } });
 

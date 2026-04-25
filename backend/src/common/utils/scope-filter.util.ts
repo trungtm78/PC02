@@ -70,19 +70,24 @@ export function buildPetitionScopeFilter(
  * Throws 403 if the child record's parent (Case or Incident) is out of scope.
  * Pass the parent object (from an include) containing assignedTeamId + investigatorId.
  * If parent is null/undefined (orphan record), check passes silently.
+ * Pass operation='write' on mutation paths — uses writableTeamIds instead of teamIds.
  */
 export function assertParentInScope(
   parent: { assignedTeamId?: string | null; investigatorId?: string | null } | null | undefined,
   scope: DataScope | null | undefined,
+  operation: 'read' | 'write' = 'read',
 ): void {
   if (!scope) return;
   if (!parent) return;
-  const { userIds, teamIds } = scope;
+  const { userIds, teamIds, writableTeamIds } = scope;
+  const effectiveTeamIds = operation === 'write' ? (writableTeamIds ?? teamIds) : teamIds;
   const ownerMatch = parent.investigatorId ? userIds.includes(parent.investigatorId) : false;
-  const teamMatch = parent.assignedTeamId ? teamIds.includes(parent.assignedTeamId) : false;
-  const unassigned = !parent.assignedTeamId && teamIds.length > 0;
+  const teamMatch = parent.assignedTeamId ? effectiveTeamIds.includes(parent.assignedTeamId) : false;
+  const unassigned = !parent.assignedTeamId && effectiveTeamIds.length > 0;
   if (!ownerMatch && !teamMatch && !unassigned) {
-    throw new ForbiddenException(FORBIDDEN_MSG);
+    throw new ForbiddenException(
+      operation === 'write' ? 'Bạn không có quyền chỉnh sửa bản ghi này' : FORBIDDEN_MSG,
+    );
   }
 }
 
@@ -92,18 +97,23 @@ export function assertParentInScope(
  * Null/undefined createdById always denies (orphan records are not accessible to scoped users).
  * Deny-all scope ({ userIds: [], teamIds: [] }) always denies.
  * Team-only scope ({ userIds: [], teamIds: [...] }) allows (team leader sees all creator-anchored records).
+ * Pass operation='write' on mutation paths — team bypass requires writableTeamIds instead of teamIds.
  */
 export function assertCreatorInScope(
   createdById: string | null | undefined,
   scope: DataScope | null | undefined,
+  operation: 'read' | 'write' = 'read',
 ): void {
   if (!scope) return;
   if (!createdById) {
     throw new ForbiddenException(FORBIDDEN_MSG);
   }
-  const { userIds, teamIds } = scope;
-  const isDenyAll = userIds.length === 0 && teamIds.length === 0;
+  const { userIds, teamIds, writableTeamIds } = scope;
+  const effectiveTeamIds = operation === 'write' ? (writableTeamIds ?? teamIds) : teamIds;
+  const isDenyAll = userIds.length === 0 && effectiveTeamIds.length === 0;
   if (isDenyAll || (userIds.length > 0 && !userIds.includes(createdById))) {
-    throw new ForbiddenException(FORBIDDEN_MSG);
+    throw new ForbiddenException(
+      operation === 'write' ? 'Bạn không có quyền chỉnh sửa bản ghi này' : FORBIDDEN_MSG,
+    );
   }
 }

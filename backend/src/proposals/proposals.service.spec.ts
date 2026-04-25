@@ -41,26 +41,26 @@ describe('ProposalsService — scope enforcement (dual-path logic)', () => {
   describe('case-linked proposal', () => {
     it('passes when relatedCase is in scope (teamId match)', async () => {
       mockPrisma.proposal.findFirst.mockResolvedValue(FAKE_PROPOSAL_WITH_CASE);
-      const result = await service.getById('prop-001', { userIds: [], teamIds: ['t1'] });
+      const result = await service.getById('prop-001', { userIds: [], teamIds: ['t1'], writableTeamIds: ['t1'] });
       expect(result.success).toBe(true);
     });
 
     it('throws ForbiddenException when relatedCase is out of scope', async () => {
       mockPrisma.proposal.findFirst.mockResolvedValue({ ...FAKE_PROPOSAL_WITH_CASE, relatedCase: { ...FAKE_PROPOSAL_WITH_CASE.relatedCase, assignedTeamId: 'team-X', investigatorId: 'user-X' } });
-      await expect(service.getById('prop-001', { userIds: ['u1'], teamIds: ['t1'] })).rejects.toThrow(ForbiddenException);
+      await expect(service.getById('prop-001', { userIds: ['u1'], teamIds: ['t1'], writableTeamIds: ['t1'] })).rejects.toThrow(ForbiddenException);
     });
   });
 
   describe('orphan proposal (no case)', () => {
     it('passes when createdById matches scope userIds', async () => {
       mockPrisma.proposal.findFirst.mockResolvedValue(FAKE_PROPOSAL_ORPHAN);
-      const result = await service.getById('prop-002', { userIds: ['u1'], teamIds: [] });
+      const result = await service.getById('prop-002', { userIds: ['u1'], teamIds: [], writableTeamIds: [] });
       expect(result.success).toBe(true);
     });
 
     it('throws ForbiddenException when createdById not in scope userIds', async () => {
       mockPrisma.proposal.findFirst.mockResolvedValue({ ...FAKE_PROPOSAL_ORPHAN, createdById: 'other' });
-      await expect(service.getById('prop-002', { userIds: ['u1'], teamIds: [] })).rejects.toThrow(ForbiddenException);
+      await expect(service.getById('prop-002', { userIds: ['u1'], teamIds: [], writableTeamIds: [] })).rejects.toThrow(ForbiddenException);
     });
   });
 

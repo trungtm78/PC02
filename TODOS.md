@@ -14,11 +14,6 @@
 
 **Discovered:** 2026-04-20 (CSO security audit)
 
-### FINDING-013: DataAccessGrant.accessLevel not enforced in resolveScope
-**Priority:** P2
-**Details:** `accessLevel` (READ/WRITE) is required in DTO, stored in DB, and shown in UI — but `resolveScope()` selects only `teamId`, treating READ and WRITE grants identically. Both grant the same data visibility. Write-scope enforcement (restricting mutations to WRITE grant holders) requires a `writeScope` concept threaded through all write-path services.
-**Fix:** Extend `DataScope` with optional `writeTeamIds`; populate from WRITE grants in `resolveScope`; check `writeTeamIds` in `assertParentInScope` and `assertCreatorInScope` for update/delete operations.
-**Discovered:** 2026-04-23 (eng review — outside voice finding)
 
 
 ### PERF-002: GET /kpi/trend makes ~120 DB count queries per call
@@ -54,4 +49,5 @@
 - **SCHED-001 (duplicate notifications)**: markNotified() called after sendToUser() — push failure caused duplicate next-day notifications. Fixed in v0.8.0.0. **Completed:** 2026-04-25
 - **SCHED-002 (DB failure silences all notifications)**: systemSetting.findUnique not in try/catch — DB error at 07:00 killed all deadline notifications. Fixed in v0.8.0.0. **Completed:** 2026-04-25
 - **MOBILE-BUG-001 (petitions overdue tab)**: Tab "Quá hạn" returned all petitions, no overdue filter. Fixed with ?overdue=true backend param in v0.8.0.0. **Completed:** 2026-04-25
+- **FINDING-013 (write-scope enforcement)**: `DataAccessGrant.accessLevel` READ/WRITE now enforced. `assertParentInScope`/`assertCreatorInScope` accept `operation='write'` param that uses `writableTeamIds` instead of `teamIds`. `checkWriteScope` added to Cases and Petitions services (Incidents already had it). All 9 child-resource services add write-scope check in update/delete paths. Petitions controller now passes `req.dataScope` to all write methods. 9 new tests in scope-filter.util.spec.ts. **Completed:** 2026-04-25
 - **CONC-001 (optimistic locking)**: 10 mutation endpoints (Cases×1, Incidents×6, Petitions×3) had last-write-wins. Added optional `expectedUpdatedAt` to DTOs; Prisma P2025 → 409 ConflictException; frontend captures `updatedAt` on load and shows conflict message. 33 new tests, 591 total pass. BAC-007 UAT scenario now unblocked. **Completed:** 2026-04-25

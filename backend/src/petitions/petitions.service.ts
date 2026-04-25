@@ -12,7 +12,7 @@ import { UpdatePetitionDto } from './dto/update-petition.dto';
 import { QueryPetitionsDto } from './dto/query-petitions.dto';
 import { ConvertToIncidentDto } from './dto/convert-incident.dto';
 import { ConvertToCaseDto } from './dto/convert-case.dto';
-import { Prisma, LoaiDon, PetitionStatus } from '@prisma/client';
+import { Prisma, LoaiDon } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { buildPetitionScopeFilter } from '../common/utils/scope-filter.util';
 import { SettingsService } from '../settings/settings.service';
@@ -194,6 +194,20 @@ export class PetitionsService {
     }
   }
 
+  private checkWriteScope(
+    record: { enteredById?: string | null; assignedTeamId?: string | null },
+    dataScope?: DataScope | null,
+  ) {
+    if (!dataScope) return;
+    const { userIds, writableTeamIds } = dataScope;
+    const ownerMatch = record.enteredById && userIds.includes(record.enteredById);
+    const teamMatch = record.assignedTeamId && writableTeamIds.includes(record.assignedTeamId);
+    const unassignedMatch = !record.assignedTeamId && writableTeamIds.length > 0;
+    if (!ownerMatch && !teamMatch && !unassignedMatch) {
+      throw new ForbiddenException('Bạn không có quyền chỉnh sửa bản ghi này');
+    }
+  }
+
   // ─────────────────────────────────────────────
   // GET DETAIL
   // ─────────────────────────────────────────────
@@ -357,6 +371,7 @@ export class PetitionsService {
     dto: UpdatePetitionDto,
     actorId: string,
     meta?: { ipAddress?: string; userAgent?: string },
+    dataScope?: DataScope | null,
   ) {
     const existing = await this.prisma.petition.findFirst({
       where: { id, deletedAt: null },
@@ -364,6 +379,8 @@ export class PetitionsService {
     if (!existing) {
       throw new NotFoundException(`Đơn thư không tồn tại (id: ${id})`);
     }
+
+    this.checkWriteScope(existing, dataScope);
 
     // Validate receivedDate if updating
     if (dto.receivedDate) {
@@ -477,6 +494,7 @@ export class PetitionsService {
     id: string,
     actorId: string,
     meta?: { ipAddress?: string; userAgent?: string },
+    dataScope?: DataScope | null,
   ) {
     const existing = await this.prisma.petition.findFirst({
       where: { id, deletedAt: null },
@@ -484,6 +502,8 @@ export class PetitionsService {
     if (!existing) {
       throw new NotFoundException(`Đơn thư không tồn tại (id: ${id})`);
     }
+
+    this.checkWriteScope(existing, dataScope);
 
     await this.prisma.petition.update({
       where: { id },
@@ -511,6 +531,7 @@ export class PetitionsService {
     dto: ConvertToIncidentDto,
     actorId: string,
     meta?: { ipAddress?: string; userAgent?: string },
+    dataScope?: DataScope | null,
   ) {
     const petition = await this.prisma.petition.findFirst({
       where: { id: petitionId, deletedAt: null },
@@ -519,6 +540,8 @@ export class PetitionsService {
     if (!petition) {
       throw new NotFoundException(`Đơn thư không tồn tại (id: ${petitionId})`);
     }
+
+    this.checkWriteScope(petition, dataScope);
 
     // Prevent re-conversion if already converted
     if (petition.linkedIncidentId) {
@@ -612,6 +635,7 @@ export class PetitionsService {
     dto: ConvertToCaseDto,
     actorId: string,
     meta?: { ipAddress?: string; userAgent?: string },
+    dataScope?: DataScope | null,
   ) {
     const petition = await this.prisma.petition.findFirst({
       where: { id: petitionId, deletedAt: null },
@@ -620,6 +644,8 @@ export class PetitionsService {
     if (!petition) {
       throw new NotFoundException(`Đơn thư không tồn tại (id: ${petitionId})`);
     }
+
+    this.checkWriteScope(petition, dataScope);
 
     // Prevent re-conversion
     if (petition.linkedCaseId) {

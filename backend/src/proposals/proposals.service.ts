@@ -112,7 +112,12 @@ export class ProposalsService {
   }
 
   async update(id: string, dto: Partial<CreateProposalDto>, actorId: string, meta?: { ipAddress?: string; userAgent?: string }, dataScope?: DataScope | null) {
-    await this.getById(id, dataScope);
+    const { data: existing } = await this.getById(id, dataScope);
+    if (existing.relatedCase) {
+      assertParentInScope(existing.relatedCase, dataScope, 'write');
+    } else {
+      assertCreatorInScope(existing.createdById, dataScope, 'write');
+    }
 
     const record = await this.prisma.proposal.update({
       where: { id },
@@ -143,6 +148,11 @@ export class ProposalsService {
 
   async delete(id: string, actorId: string, meta?: { ipAddress?: string; userAgent?: string }, dataScope?: DataScope | null) {
     const { data: existing } = await this.getById(id, dataScope);
+    if (existing.relatedCase) {
+      assertParentInScope(existing.relatedCase, dataScope, 'write');
+    } else {
+      assertCreatorInScope(existing.createdById, dataScope, 'write');
+    }
 
     await this.prisma.proposal.update({ where: { id }, data: { deletedAt: new Date() } });
 

@@ -231,6 +231,7 @@ export class SubjectsService {
     dataScope?: DataScope | null,
   ) {
     const { data: existing } = await this.getById(id, dataScope);
+    assertParentInScope(existing.case, dataScope, 'write');
 
     // Check duplicate idNumber+type (exclude self) — EC-04
     const targetType = dto.type ?? existing.type;
@@ -313,6 +314,7 @@ export class SubjectsService {
     dataScope?: DataScope | null,
   ) {
     const { data: existing } = await this.getById(id, dataScope);
+    assertParentInScope(existing.case, dataScope, 'write');
 
     await this.prisma.subject.update({
       where: { id },

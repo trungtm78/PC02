@@ -227,7 +227,8 @@ export class DocumentsService {
     meta?: { ipAddress?: string; userAgent?: string },
     dataScope?: DataScope | null,
   ) {
-    await this.getById(id, dataScope);
+    const { data: existing } = await this.getById(id, dataScope);
+    assertParentInScope(existing.case ?? existing.incident, dataScope, 'write');
 
     // Validate caseId if provided
     if (dto.caseId) {
@@ -292,6 +293,7 @@ export class DocumentsService {
     dataScope?: DataScope | null,
   ) {
     const { data: existing } = await this.getById(id, dataScope);
+    assertParentInScope(existing.case ?? existing.incident, dataScope, 'write');
 
     await this.prisma.document.update({
       where: { id },

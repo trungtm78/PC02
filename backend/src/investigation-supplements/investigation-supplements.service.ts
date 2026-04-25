@@ -93,7 +93,8 @@ export class InvestigationSupplementsService {
   }
 
   async delete(id: string, actorId: string, meta?: { ipAddress?: string; userAgent?: string }, dataScope?: DataScope | null) {
-    await this.getById(id, dataScope);
+    const { data: existing } = await this.getById(id, dataScope);
+    assertParentInScope(existing.case, dataScope, 'write');
 
     await this.prisma.investigationSupplement.delete({ where: { id } });
 

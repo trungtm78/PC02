@@ -250,7 +250,7 @@ describe('SubjectsService', () => {
         ...FAKE_SUBJECT,
         case: { assignedTeamId: 'team-X', investigatorId: 'user-X' },
       });
-      const scope = { userIds: ['u1'], teamIds: ['t1'] };
+      const scope = { userIds: ['u1'], teamIds: ['t1'], writableTeamIds: ['t1'] };
       await expect(service.getById('sub-001', scope)).rejects.toThrow('Bạn không có quyền truy cập bản ghi này');
     });
 
@@ -259,7 +259,7 @@ describe('SubjectsService', () => {
         ...FAKE_SUBJECT,
         case: { assignedTeamId: 't1', investigatorId: null },
       });
-      const scope = { userIds: [], teamIds: ['t1'] };
+      const scope = { userIds: [], teamIds: ['t1'], writableTeamIds: ['t1'] };
       const result = await service.getById('sub-001', scope);
       expect(result.success).toBe(true);
     });

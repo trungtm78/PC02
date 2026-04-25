@@ -152,7 +152,8 @@ export class ExchangesService {
   }
 
   async update(id: string, dto: Partial<CreateExchangeDto>, actorId: string, meta?: { ipAddress?: string; userAgent?: string }, dataScope?: DataScope | null) {
-    await this.getById(id, dataScope);
+    const { data: existing } = await this.getById(id, dataScope);
+    assertCreatorInScope(existing.createdById, dataScope, 'write');
 
     const record = await this.prisma.exchange.update({
       where: { id },
@@ -167,7 +168,8 @@ export class ExchangesService {
   }
 
   async delete(id: string, actorId: string, meta?: { ipAddress?: string; userAgent?: string }, dataScope?: DataScope | null) {
-    await this.getById(id, dataScope);
+    const { data: existing } = await this.getById(id, dataScope);
+    assertCreatorInScope(existing.createdById, dataScope, 'write');
 
     await this.prisma.exchange.update({ where: { id }, data: { deletedAt: new Date() } });
 

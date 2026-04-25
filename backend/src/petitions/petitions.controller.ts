@@ -69,7 +69,7 @@ export class PetitionsController {
     return this.petitionsService.update(id, dto, user.id, {
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
-    });
+    }, req.dataScope);
   }
 
   // DELETE /api/v1/petitions/:id — Xóa đơn thư (soft delete)
@@ -84,7 +84,7 @@ export class PetitionsController {
     return this.petitionsService.delete(id, user.id, {
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
-    });
+    }, req.dataScope);
   }
 
   // POST /api/v1/petitions/:id/convert-incident — Chuyển thành Vụ việc
@@ -99,7 +99,7 @@ export class PetitionsController {
     return this.petitionsService.convertToIncident(id, dto, user.id, {
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
-    });
+    }, req.dataScope);
   }
 
   // POST /api/v1/petitions/:id/convert-case — Chuyển thành Vụ án
@@ -114,6 +114,6 @@ export class PetitionsController {
     return this.petitionsService.convertToCase(id, dto, user.id, {
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
-    });
+    }, req.dataScope);
   }
 }
