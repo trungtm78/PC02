@@ -15,6 +15,6 @@ class DashboardStats {
         totalCases: json['totalCases'] as int? ?? 0,
         newCases: json['newCases'] as int? ?? 0,
         overdueCases: json['overdueCases'] as int? ?? 0,
-        resolvedCases: json['resolvedCases'] as int? ?? 0,
+        resolvedCases: json['processedCases'] as int? ?? 0,
       );
 }
