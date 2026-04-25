@@ -9,7 +9,8 @@ Hệ thống quản lý vụ án, đơn thư và đối tượng liên quan cho 
 | Frontend | React 19 + TypeScript 5 + Tailwind CSS 4 + Vite |
 | Backend | NestJS + TypeScript + Prisma ORM |
 | Database | PostgreSQL |
-| Testing | Jest (Backend Unit), Playwright (E2E) |
+| Testing | Jest (Backend Unit), Playwright (E2E), Maestro (Mobile E2E) |
+| Mobile | Flutter (Android + iOS) + Firebase FCM |
 
 ## Tính năng chính
 
@@ -24,6 +25,7 @@ Hệ thống quản lý vụ án, đơn thư và đối tượng liên quan cho 
 - **Quản lý tài liệu** (Documents) - đính kèm hồ sơ
 - **Kiểm toán** (Audit) - ghi log mọi thao tác
 - **Phân quyền** - JWT authentication, role-based access
+- **Flutter Mobile App** - Android + iOS, 5-tab navigation, push notifications FCM, 2FA OTP, offline banner, Maestro E2E tests (11 flows)
 
 ## Cài đặt
 
