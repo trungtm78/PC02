@@ -5,8 +5,12 @@ import { addDays, subHours } from 'date-fns';
 import { PrismaService } from '../prisma/prisma.service';
 import { PushService } from '../push/push.service';
 
-const TERMINAL_CASE_STATUSES: CaseStatus[] = ['DINH_CHI', 'TAM_DINH_CHI', 'DA_LUU_TRU'];
-const TERMINAL_INCIDENT_STATUSES: IncidentStatus[] = ['TAM_DINH_CHI', 'DA_GIAI_QUYET', 'DA_CHUYEN_VU_AN', 'KHONG_KHOI_TO'];
+const TERMINAL_CASE_STATUSES: CaseStatus[] = ['DINH_CHI', 'TAM_DINH_CHI', 'DA_LUU_TRU', 'DA_KET_LUAN'];
+const TERMINAL_INCIDENT_STATUSES: IncidentStatus[] = [
+  'TAM_DINH_CHI', 'DA_GIAI_QUYET', 'DA_CHUYEN_VU_AN', 'KHONG_KHOI_TO',
+  'CHUYEN_XPHC', 'TDC_HET_THOI_HIEU', 'TDC_HTH_KHONG_KT',
+  'PHUC_HOI_NGUON_TIN', 'DA_CHUYEN_DON_VI', 'DA_NHAP_VU_KHAC', 'PHAN_LOAI_DAN_SU',
+];
 const TERMINAL_PETITION_STATUSES: PetitionStatus[] = ['DA_GIAI_QUYET', 'DA_CHUYEN_VU_VIEC', 'DA_CHUYEN_VU_AN'];
 
 @Injectable()
@@ -27,7 +31,8 @@ export class DeadlineScheduler {
       where: { key: 'CANH_BAO_SAP_HAN' },
     });
     const warnDays = parseInt(thresholdSetting?.value ?? '7', 10);
-    const inWarnDays = addDays(today, warnDays);
+    const safeWarnDays = Number.isNaN(warnDays) ? 7 : warnDays;
+    const inWarnDays = addDays(today, safeWarnDays);
 
     await Promise.allSettled([
       this.checkCases(today, inWarnDays),
