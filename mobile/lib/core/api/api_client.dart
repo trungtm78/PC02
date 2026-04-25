@@ -88,7 +88,14 @@ class ApiClient {
       handler.resolve(retried);
     } catch (_) {
       _refreshCompleter!.completeError(Object());
-      await _storage.deleteAll();
+      await Future.wait([
+        _storage.delete(key: 'access_token'),
+        _storage.delete(key: 'refresh_token'),
+        _storage.delete(key: 'user_id'),
+        _storage.delete(key: 'user_name'),
+        _storage.delete(key: 'user_email'),
+        _storage.delete(key: 'user_role'),
+      ]);
       handler.next(err);
     } finally {
       _isRefreshing = false;

@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { CaseStatus, IncidentStatus, PetitionStatus } from '@prisma/client';
-import { addDays, differenceInDays, subHours } from 'date-fns';
+import { addDays, differenceInDays, startOfDay, subHours } from 'date-fns';
 import { PrismaService } from '../prisma/prisma.service';
 import { PushService } from '../push/push.service';
 
@@ -144,7 +144,7 @@ export class DeadlineScheduler {
     });
 
     for (const c of near) {
-      const daysLeft = c.deadline ? differenceInDays(c.deadline, today) : 0;
+      const daysLeft = c.deadline ? differenceInDays(startOfDay(c.deadline), startOfDay(today)) : 0;
       const dayStr = daysLeft <= 0 ? 'hôm nay' : `còn ${daysLeft} ngày`;
       const recipients = await this.getTeamRecipients(c.assignedTeamId, c.investigatorId);
       for (const userId of recipients) {
@@ -214,7 +214,7 @@ export class DeadlineScheduler {
     });
 
     for (const inc of near) {
-      const daysLeft = inc.deadline ? differenceInDays(inc.deadline, today) : 0;
+      const daysLeft = inc.deadline ? differenceInDays(startOfDay(inc.deadline), startOfDay(today)) : 0;
       const dayStr = daysLeft <= 0 ? 'hôm nay' : `còn ${daysLeft} ngày`;
       const recipients = await this.getTeamRecipients(inc.assignedTeamId, inc.investigatorId);
       for (const userId of recipients) {
@@ -285,7 +285,7 @@ export class DeadlineScheduler {
     });
 
     for (const p of near) {
-      const daysLeft = p.deadline ? differenceInDays(p.deadline, today) : 0;
+      const daysLeft = p.deadline ? differenceInDays(startOfDay(p.deadline), startOfDay(today)) : 0;
       const dayStr = daysLeft <= 0 ? 'hôm nay' : `còn ${daysLeft} ngày`;
       const recipients = await this.getTeamRecipients(p.assignedTeamId, p.enteredById);
       for (const userId of recipients) {

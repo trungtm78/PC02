@@ -33,5 +33,12 @@ class TokenStorage {
         'role': await _storage.read(key: 'user_role'),
       };
 
-  Future<void> clear() => _storage.deleteAll();
+  Future<void> clear() => Future.wait([
+        _storage.delete(key: 'access_token'),
+        _storage.delete(key: 'refresh_token'),
+        _storage.delete(key: 'user_id'),
+        _storage.delete(key: 'user_name'),
+        _storage.delete(key: 'user_email'),
+        _storage.delete(key: 'user_role'),
+      ]);
 }

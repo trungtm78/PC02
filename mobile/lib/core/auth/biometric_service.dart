@@ -43,9 +43,11 @@ class BiometricService {
     return (email: email, password: password);
   }
 
-  Future<void> clear() async {
-    await _storage.deleteAll();
-  }
+  Future<void> clear() => Future.wait([
+        _storage.delete(key: _kEnabled),
+        _storage.delete(key: _kEmail),
+        _storage.delete(key: _kPassword),
+      ]);
 }
 
 final biometricServiceProvider = Provider((_) => BiometricService());
