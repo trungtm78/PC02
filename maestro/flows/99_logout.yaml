@@ -20,8 +20,6 @@ tags:
 - waitForAnimationToEnd
 - takeScreenshot: 99_logged_out
 
-# Login screen should be visible again (tap confirms Email field exists)
-- tapOn:
-    point: "50%,40%"
-    optional: true
+# Login screen should be visible — dashboard must be gone
+- assertNotVisible: "Tổng quan"
 - assertNotVisible: "Exception"
