@@ -34,6 +34,7 @@ class CasesScreen extends ConsumerStatefulWidget {
 class _CasesScreenState extends ConsumerState<CasesScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabs;
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -64,13 +65,34 @@ class _CasesScreenState extends ConsumerState<CasesScreen>
       body: Column(
         children: [
           const OfflineBanner(),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+            child: TextField(
+              decoration: InputDecoration(
+                hintText: 'Tìm kiếm hồ sơ...',
+                prefixIcon: const Icon(Icons.search, size: 20),
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8)),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                isDense: true,
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, size: 18),
+                        onPressed: () => setState(() => _searchQuery = ''),
+                      )
+                    : null,
+              ),
+              onChanged: (v) => setState(() => _searchQuery = v),
+            ),
+          ),
           Expanded(
             child: TabBarView(
               controller: _tabs,
               children: [
-                _CaseList(tab: _CaseTab.all),
-                _CaseList(tab: _CaseTab.overdue),
-                _CaseList(tab: _CaseTab.near),
+                _CaseList(tab: _CaseTab.all, searchQuery: _searchQuery),
+                _CaseList(tab: _CaseTab.overdue, searchQuery: _searchQuery),
+                _CaseList(tab: _CaseTab.near, searchQuery: _searchQuery),
               ],
             ),
           ),
@@ -82,7 +104,8 @@ class _CasesScreenState extends ConsumerState<CasesScreen>
 
 class _CaseList extends ConsumerWidget {
   final _CaseTab tab;
-  const _CaseList({required this.tab});
+  final String searchQuery;
+  const _CaseList({required this.tab, required this.searchQuery});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -96,11 +119,20 @@ class _CaseList extends ConsumerWidget {
         onRetry: () => ref.invalidate(_casesProvider(tab)),
       ),
       data: (cases) {
-        if (cases.isEmpty) {
+        final filtered = searchQuery.isEmpty
+            ? cases
+            : cases
+                .where((c) =>
+                    c.name.toLowerCase().contains(searchQuery.toLowerCase()))
+                .toList();
+
+        if (filtered.isEmpty) {
           return EmptyState(
-            message: tab == _CaseTab.overdue
-                ? 'Không có hồ sơ quá hạn'
-                : 'Không có hồ sơ',
+            message: searchQuery.isNotEmpty
+                ? 'Không tìm thấy hồ sơ phù hợp'
+                : tab == _CaseTab.overdue
+                    ? 'Không có hồ sơ quá hạn'
+                    : 'Không có hồ sơ',
             icon: Icons.folder_open_outlined,
           );
         }
@@ -108,9 +140,9 @@ class _CaseList extends ConsumerWidget {
           onRefresh: () async => ref.invalidate(_casesProvider(tab)),
           child: ListView.separated(
             padding: const EdgeInsets.all(12),
-            itemCount: cases.length,
+            itemCount: filtered.length,
             separatorBuilder: (_, __) => const SizedBox(height: 8),
-            itemBuilder: (ctx, i) => _CaseCard(c: cases[i]),
+            itemBuilder: (ctx, i) => _CaseCard(c: filtered[i]),
           ),
         );
       },

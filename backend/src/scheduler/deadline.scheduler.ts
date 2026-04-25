@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { CaseStatus, IncidentStatus, PetitionStatus } from '@prisma/client';
-import { addDays, subHours } from 'date-fns';
+import { addDays, differenceInDays, subHours } from 'date-fns';
 import { PrismaService } from '../prisma/prisma.service';
 import { PushService } from '../push/push.service';
 
@@ -140,10 +140,12 @@ export class DeadlineScheduler {
         deletedAt: null,
         OR: [{ investigatorId: { not: null } }, { assignedTeamId: { not: null } }],
       },
-      select: { id: true, name: true, investigatorId: true, assignedTeamId: true },
+      select: { id: true, name: true, investigatorId: true, assignedTeamId: true, deadline: true },
     });
 
     for (const c of near) {
+      const daysLeft = c.deadline ? differenceInDays(c.deadline, today) : 0;
+      const dayStr = daysLeft <= 0 ? 'hôm nay' : `còn ${daysLeft} ngày`;
       const recipients = await this.getTeamRecipients(c.assignedTeamId, c.investigatorId);
       for (const userId of recipients) {
         if (await this.isDuped('case_near', c.id, userId)) continue;
@@ -152,7 +154,7 @@ export class DeadlineScheduler {
             userId,
             type: 'CASE_DEADLINE_NEAR',
             title: 'Vụ án sắp đến hạn',
-            message: `${c.name} sắp đến hạn giải quyết`,
+            message: `${c.name} — ${dayStr} đến hạn giải quyết`,
             link: `/cases/${c.id}`,
             metadata: { caseId: c.id },
           },
@@ -160,7 +162,7 @@ export class DeadlineScheduler {
         await this.pushService.sendToUser(userId, {
           title: 'Vụ án sắp đến hạn',
           body: `${c.name} sắp đến hạn giải quyết`,
-          data: { type: 'case_near_deadline', id: c.id, link: `/cases/${c.id}` },
+          data: { type: 'case_near_deadline', id: c.id, link: `/cases/${c.id}`, daysLeft },
         });
         await this.markNotified('case_near', c.id, userId);
       }
@@ -208,10 +210,12 @@ export class DeadlineScheduler {
         deletedAt: null,
         OR: [{ investigatorId: { not: null } }, { assignedTeamId: { not: null } }],
       },
-      select: { id: true, name: true, investigatorId: true, assignedTeamId: true },
+      select: { id: true, name: true, investigatorId: true, assignedTeamId: true, deadline: true },
     });
 
     for (const inc of near) {
+      const daysLeft = inc.deadline ? differenceInDays(inc.deadline, today) : 0;
+      const dayStr = daysLeft <= 0 ? 'hôm nay' : `còn ${daysLeft} ngày`;
       const recipients = await this.getTeamRecipients(inc.assignedTeamId, inc.investigatorId);
       for (const userId of recipients) {
         if (await this.isDuped('incident_near', inc.id, userId)) continue;
@@ -220,7 +224,7 @@ export class DeadlineScheduler {
             userId,
             type: 'INCIDENT_DEADLINE_NEAR',
             title: 'Vụ việc sắp đến hạn',
-            message: `${inc.name} sắp đến hạn xử lý`,
+            message: `${inc.name} — ${dayStr} đến hạn xử lý`,
             link: `/incidents/${inc.id}`,
             metadata: { incidentId: inc.id },
           },
@@ -228,7 +232,7 @@ export class DeadlineScheduler {
         await this.pushService.sendToUser(userId, {
           title: 'Vụ việc sắp đến hạn',
           body: `${inc.name} sắp đến hạn xử lý`,
-          data: { type: 'incident_near_deadline', id: inc.id, link: `/incidents/${inc.id}` },
+          data: { type: 'incident_near_deadline', id: inc.id, link: `/incidents/${inc.id}`, daysLeft },
         });
         await this.markNotified('incident_near', inc.id, userId);
       }
@@ -277,10 +281,12 @@ export class DeadlineScheduler {
         deletedAt: null,
         OR: [{ enteredById: { not: null } }, { assignedTeamId: { not: null } }],
       },
-      select: { id: true, senderName: true, enteredById: true, assignedTeamId: true },
+      select: { id: true, senderName: true, enteredById: true, assignedTeamId: true, deadline: true },
     });
 
     for (const p of near) {
+      const daysLeft = p.deadline ? differenceInDays(p.deadline, today) : 0;
+      const dayStr = daysLeft <= 0 ? 'hôm nay' : `còn ${daysLeft} ngày`;
       const recipients = await this.getTeamRecipients(p.assignedTeamId, p.enteredById);
       for (const userId of recipients) {
         if (await this.isDuped('petition_near', p.id, userId)) continue;
@@ -289,7 +295,7 @@ export class DeadlineScheduler {
             userId,
             type: 'PETITION_DEADLINE_NEAR',
             title: 'Đơn thư sắp đến hạn',
-            message: `Đơn của ${p.senderName} sắp đến hạn xử lý`,
+            message: `Đơn của ${p.senderName} — ${dayStr} đến hạn xử lý`,
             link: `/petitions/${p.id}`,
             metadata: { petitionId: p.id },
           },
@@ -297,7 +303,7 @@ export class DeadlineScheduler {
         await this.pushService.sendToUser(userId, {
           title: 'Đơn thư sắp đến hạn',
           body: `Đơn của ${p.senderName} sắp đến hạn xử lý`,
-          data: { type: 'petition_near_deadline', id: p.id, link: `/petitions/${p.id}` },
+          data: { type: 'petition_near_deadline', id: p.id, link: `/petitions/${p.id}`, daysLeft },
         });
         await this.markNotified('petition_near', p.id, userId);
       }

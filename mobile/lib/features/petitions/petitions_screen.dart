@@ -29,6 +29,7 @@ class PetitionsScreen extends ConsumerStatefulWidget {
 class _PetitionsScreenState extends ConsumerState<PetitionsScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabs;
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -55,12 +56,33 @@ class _PetitionsScreenState extends ConsumerState<PetitionsScreen>
       body: Column(
         children: [
           const OfflineBanner(),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+            child: TextField(
+              decoration: InputDecoration(
+                hintText: 'Tìm kiếm theo tên người gửi...',
+                prefixIcon: const Icon(Icons.search, size: 20),
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8)),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                isDense: true,
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, size: 18),
+                        onPressed: () => setState(() => _searchQuery = ''),
+                      )
+                    : null,
+              ),
+              onChanged: (v) => setState(() => _searchQuery = v),
+            ),
+          ),
           Expanded(
             child: TabBarView(
               controller: _tabs,
               children: [
-                _PetitionList(tab: _PetitionTab.active),
-                _PetitionList(tab: _PetitionTab.overdue),
+                _PetitionList(tab: _PetitionTab.active, searchQuery: _searchQuery),
+                _PetitionList(tab: _PetitionTab.overdue, searchQuery: _searchQuery),
               ],
             ),
           ),
@@ -72,7 +94,8 @@ class _PetitionsScreenState extends ConsumerState<PetitionsScreen>
 
 class _PetitionList extends ConsumerWidget {
   final _PetitionTab tab;
-  const _PetitionList({required this.tab});
+  final String searchQuery;
+  const _PetitionList({required this.tab, required this.searchQuery});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -97,11 +120,21 @@ class _PetitionList extends ConsumerWidget {
         onRetry: () => ref.invalidate(_petitionsProvider(tab)),
       ),
       data: (petitions) {
-        if (petitions.isEmpty) {
+        final filtered = searchQuery.isEmpty
+            ? petitions
+            : petitions
+                .where((p) => p.senderName
+                    .toLowerCase()
+                    .contains(searchQuery.toLowerCase()))
+                .toList();
+
+        if (filtered.isEmpty) {
           return EmptyState(
-            message: tab == _PetitionTab.overdue
-                ? 'Không có đơn thư quá hạn'
-                : 'Không có đơn thư đang xử lý',
+            message: searchQuery.isNotEmpty
+                ? 'Không tìm thấy đơn thư phù hợp'
+                : tab == _PetitionTab.overdue
+                    ? 'Không có đơn thư quá hạn'
+                    : 'Không có đơn thư đang xử lý',
             icon: Icons.mail_outlined,
           );
         }
@@ -109,10 +142,10 @@ class _PetitionList extends ConsumerWidget {
           onRefresh: () async => ref.invalidate(_petitionsProvider(tab)),
           child: ListView.separated(
             padding: const EdgeInsets.all(12),
-            itemCount: petitions.length,
+            itemCount: filtered.length,
             separatorBuilder: (_, __) => const SizedBox(height: 8),
             itemBuilder: (ctx, i) {
-              final p = petitions[i];
+              final p = filtered[i];
               return Card(
                 child: InkWell(
                   borderRadius: BorderRadius.circular(12),

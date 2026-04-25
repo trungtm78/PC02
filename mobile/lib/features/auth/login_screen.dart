@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/auth/auth_provider.dart';
+import '../../core/auth/biometric_service.dart';
 import '../../core/fcm/fcm_service.dart';
 import '../../shared/theme/app_theme.dart';
 
@@ -18,6 +19,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _passCtrl = TextEditingController();
   String? _error;
   bool _obscure = true;
+  bool _showBioButton = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkBiometric();
+  }
+
+  Future<void> _checkBiometric() async {
+    final svc = ref.read(biometricServiceProvider);
+    final available = await svc.isAvailable();
+    final enabled = await svc.isEnabled();
+    if (available && enabled && mounted) {
+      setState(() => _showBioButton = true);
+    }
+  }
 
   @override
   void dispose() {
@@ -30,24 +47,85 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _error = null);
 
+    final email = _emailCtrl.text.trim();
+    final password = _passCtrl.text;
+
     try {
-      final result = await ref
-          .read(authProvider.notifier)
-          .login(_emailCtrl.text.trim(), _passCtrl.text);
+      final result = await ref.read(authProvider.notifier).login(email, password);
 
       if (!mounted) return;
       if (result == 'pending_2fa') {
         context.push('/login/2fa');
       } else {
-        // 2FA disabled — try FCM registration, but don't block navigation on failure
         try {
           final fcm = ref.read(fcmServiceProvider);
           await fcm.init();
         } catch (_) {}
-        if (mounted) context.go('/');
+        if (mounted) {
+          await _offerBiometric(email, password);
+          if (mounted) context.go('/');
+        }
       }
     } catch (e) {
       setState(() => _error = 'Email hoặc mật khẩu không đúng');
+    }
+  }
+
+  Future<void> _offerBiometric(String email, String password) async {
+    final svc = ref.read(biometricServiceProvider);
+    if (!await svc.isAvailable()) return;
+    if (await svc.isEnabled()) return;
+
+    if (!mounted) return;
+    final enable = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Bật đăng nhập sinh trắc học?'),
+        content: const Text(
+            'Lần sau bạn có thể đăng nhập bằng vân tay hoặc khuôn mặt thay vì nhập mật khẩu.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Để sau'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.navy),
+            child: const Text('Bật', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    if (enable == true) {
+      await svc.saveCredentials(email, password);
+    }
+  }
+
+  Future<void> _loginWithBiometric() async {
+    final svc = ref.read(biometricServiceProvider);
+    try {
+      final ok = await svc.authenticate();
+      if (!ok || !mounted) return;
+
+      final creds = await svc.getCredentials();
+      if (creds == null) {
+        if (mounted) setState(() => _error = 'Không tìm thấy thông tin đăng nhập');
+        return;
+      }
+
+      setState(() => _error = null);
+      final result = await ref.read(authProvider.notifier).login(creds.email, creds.password);
+      if (!mounted) return;
+      if (result == 'pending_2fa') {
+        context.push('/login/2fa');
+      } else {
+        try {
+          await ref.read(fcmServiceProvider).init();
+        } catch (_) {}
+        if (mounted) context.go('/');
+      }
+    } catch (_) {
+      if (mounted) setState(() => _error = 'Xác thực sinh trắc học thất bại');
     }
   }
 
@@ -145,6 +223,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               style: TextStyle(fontSize: 16)),
                     ),
                   ),
+                  if (_showBioButton) ...[
+                    const SizedBox(height: 16),
+                    OutlinedButton.icon(
+                      onPressed: isLoading ? null : _loginWithBiometric,
+                      icon: const Icon(Icons.fingerprint, size: 22),
+                      label: const Text('Đăng nhập bằng sinh trắc học'),
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(double.infinity, 48),
+                        foregroundColor: AppColors.navy,
+                        side: const BorderSide(color: AppColors.navy),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
