@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0.0] - 2026-04-25
+
+### Added
+- **Team-scoped deadline notifications**: DeadlineScheduler gửi push đến toàn bộ tổ phụ trách (không chỉ điều tra viên trực tiếp) — tích hợp với DataAccessGrant và UserTeam. Loại trừ admin role và inactive user trong phân phối push.
+- **Maestro E2E test suite (11 flows)**: Full end-to-end coverage trên Android — login, wrong password, cases list, case detail, incidents list, petitions list, dashboard, tab navigation, petition detail, logout. Windows-compatible với Java direct invocation (bypass CMD classpath limit).
+- **Dashboard fix**: 4 stat cards bây giờ hiển thị số thật — fix response envelope unwrap + field name mismatch (`processedCases` vs `resolvedCases`).
+- **StatusChip localization**: Tất cả 22 enum value (CaseStatus + IncidentStatus) hiển thị tên tiếng Việt, màu theo ngữ nghĩa (đỏ = quá hạn, vàng = đình chỉ, xanh = hoàn thành, xanh navy = đang xử lý).
+- **Regression tests**: `dashboard_api_test.dart` (5 tests) + `status_chip_test.dart` (8 widget tests) — bảo vệ cả 2 bug vừa fix và 4 color branch của StatusChip.
+
+### Fixed
+- **Terminal statuses hoàn chỉnh**: `DA_KET_LUAN` thêm vào `TERMINAL_CASE_STATUSES` (hết thông báo cho vụ án đã kết luận). 7 incident terminal statuses còn thiếu được thêm vào (`CHUYEN_XPHC`, `TDC_HET_THOI_HIEU`, `TDC_HTH_KHONG_KT`, `PHUC_HOI_NGUON_TIN`, `DA_CHUYEN_DON_VI`, `DA_NHAP_VU_KHAC`, `PHAN_LOAI_DAN_SU`).
+- **NaN guard cho CANH_BAO_SAP_HAN**: `parseInt` với giá trị không hợp lệ fallback về 7 ngày thay vì tạo `Invalid Date` làm tắt toàn bộ cảnh báo sắp đến hạn.
+- **Dashboard API null safety**: Type guard trước khi cast `resp.data` — trả về stats rỗng thay vì crash khi API trả về non-map body.
+- **Maestro flows**: `clearState: true` để reset auth state giữa các flows. Coordinate-based tap thay cho Vietnamese Unicode text (Maestro 1.39.0 Windows bug). Logout assertion mạnh hơn.
+
 ## [0.6.0.0] - 2026-04-24
 
 ### Added
