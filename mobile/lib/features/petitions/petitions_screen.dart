@@ -15,7 +15,7 @@ final _petitionsProvider =
     FutureProvider.family.autoDispose<List<Petition>, _PetitionTab>(
         (ref, tab) async {
   final api = ref.read(petitionsApiProvider);
-  if (tab == _PetitionTab.overdue) return api.getPetitions();
+  if (tab == _PetitionTab.overdue) return api.getPetitions(overdue: true);
   return api.getPetitions(status: 'DANG_XU_LY');
 });
 

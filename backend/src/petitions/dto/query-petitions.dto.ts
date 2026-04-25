@@ -6,8 +6,9 @@ import {
   Max,
   IsEnum,
   IsDateString,
+  IsBoolean,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { PetitionStatus } from './create-petition.dto';
 
 export class QueryPetitionsDto {
@@ -55,4 +56,9 @@ export class QueryPetitionsDto {
   @IsOptional()
   @IsString()
   sortOrder?: 'asc' | 'desc' = 'desc';
+
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  overdue?: boolean;
 }

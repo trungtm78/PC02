@@ -54,6 +54,7 @@ export class PetitionsService {
       senderName,
       fromDate,
       toDate,
+      overdue,
       limit = 20,
       offset = 0,
       sortBy = 'createdAt',
@@ -97,6 +98,13 @@ export class PetitionsService {
         ...(where.receivedDate as Prisma.DateTimeFilter | undefined),
         lte: new Date(toDate + 'T23:59:59.999Z'),
       };
+    }
+
+    if (overdue) {
+      where.deadline = { lt: new Date() };
+      if (!status) {
+        where.status = { notIn: ['DA_GIAI_QUYET', 'DA_CHUYEN_VU_VIEC', 'DA_CHUYEN_VU_AN'] as any };
+      }
     }
 
     // Apply data scope filter

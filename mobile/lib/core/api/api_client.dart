@@ -51,7 +51,12 @@ class ApiClient {
     }
 
     if (_isRefreshing) {
-      await _refreshCompleter!.future;
+      try {
+        await _refreshCompleter!.future;
+      } catch (_) {
+        handler.next(err);
+        return;
+      }
       final token = await _storage.read(key: 'access_token');
       err.requestOptions.headers['Authorization'] = 'Bearer $token';
       try {
@@ -70,8 +75,13 @@ class ApiClient {
       final refreshToken = await _storage.read(key: 'refresh_token');
       if (refreshToken == null) throw Exception('no refresh token');
 
-      final resp = await Dio().post(
-        '$_baseUrl/auth/refresh',
+      final resp = await Dio(BaseOptions(
+        baseUrl: _baseUrl,
+        connectTimeout: const Duration(seconds: 15),
+        receiveTimeout: const Duration(seconds: 30),
+        contentType: 'application/json',
+      )).post(
+        '/auth/refresh',
         data: {'refreshToken': refreshToken},
       );
 

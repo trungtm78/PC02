@@ -27,9 +27,14 @@ export class DeadlineScheduler {
     this.logger.log('DeadlineScheduler: running deadline check');
     const today = new Date();
 
-    const thresholdSetting = await this.prisma.systemSetting.findUnique({
-      where: { key: 'CANH_BAO_SAP_HAN' },
-    });
+    let thresholdSetting: { value: string } | null = null;
+    try {
+      thresholdSetting = await this.prisma.systemSetting.findUnique({
+        where: { key: 'CANH_BAO_SAP_HAN' },
+      });
+    } catch (err) {
+      this.logger.error('DeadlineScheduler: failed to read CANH_BAO_SAP_HAN setting, using default 7', err);
+    }
     const warnDays = parseInt(thresholdSetting?.value ?? '7', 10);
     const safeWarnDays = Number.isNaN(warnDays) ? 7 : warnDays;
     const inWarnDays = addDays(today, safeWarnDays);
@@ -114,6 +119,7 @@ export class DeadlineScheduler {
       const recipients = await this.getTeamRecipients(c.assignedTeamId, c.investigatorId);
       for (const userId of recipients) {
         if (await this.isDuped('case', c.id, userId)) continue;
+        await this.markNotified('case', c.id, userId);
         await this.prisma.notification.create({
           data: {
             userId,
@@ -129,7 +135,6 @@ export class DeadlineScheduler {
           body: `${c.name} đã quá hạn giải quyết`,
           data: { type: 'case_overdue', id: c.id, link: `/cases/${c.id}` },
         });
-        await this.markNotified('case', c.id, userId);
       }
     }
 
@@ -149,6 +154,7 @@ export class DeadlineScheduler {
       const recipients = await this.getTeamRecipients(c.assignedTeamId, c.investigatorId);
       for (const userId of recipients) {
         if (await this.isDuped('case_near', c.id, userId)) continue;
+        await this.markNotified('case_near', c.id, userId);
         await this.prisma.notification.create({
           data: {
             userId,
@@ -164,7 +170,6 @@ export class DeadlineScheduler {
           body: `${c.name} sắp đến hạn giải quyết`,
           data: { type: 'case_near_deadline', id: c.id, link: `/cases/${c.id}`, daysLeft },
         });
-        await this.markNotified('case_near', c.id, userId);
       }
     }
   }
@@ -184,6 +189,7 @@ export class DeadlineScheduler {
       const recipients = await this.getTeamRecipients(inc.assignedTeamId, inc.investigatorId);
       for (const userId of recipients) {
         if (await this.isDuped('incident', inc.id, userId)) continue;
+        await this.markNotified('incident', inc.id, userId);
         await this.prisma.notification.create({
           data: {
             userId,
@@ -199,7 +205,6 @@ export class DeadlineScheduler {
           body: `${inc.name} đã quá hạn xử lý`,
           data: { type: 'incident_overdue', id: inc.id, link: `/incidents/${inc.id}` },
         });
-        await this.markNotified('incident', inc.id, userId);
       }
     }
 
@@ -219,6 +224,7 @@ export class DeadlineScheduler {
       const recipients = await this.getTeamRecipients(inc.assignedTeamId, inc.investigatorId);
       for (const userId of recipients) {
         if (await this.isDuped('incident_near', inc.id, userId)) continue;
+        await this.markNotified('incident_near', inc.id, userId);
         await this.prisma.notification.create({
           data: {
             userId,
@@ -234,7 +240,6 @@ export class DeadlineScheduler {
           body: `${inc.name} sắp đến hạn xử lý`,
           data: { type: 'incident_near_deadline', id: inc.id, link: `/incidents/${inc.id}`, daysLeft },
         });
-        await this.markNotified('incident_near', inc.id, userId);
       }
     }
   }
@@ -255,6 +260,7 @@ export class DeadlineScheduler {
       const recipients = await this.getTeamRecipients(p.assignedTeamId, p.enteredById);
       for (const userId of recipients) {
         if (await this.isDuped('petition', p.id, userId)) continue;
+        await this.markNotified('petition', p.id, userId);
         await this.prisma.notification.create({
           data: {
             userId,
@@ -270,7 +276,6 @@ export class DeadlineScheduler {
           body: `Đơn của ${p.senderName} đã quá hạn xử lý`,
           data: { type: 'petition_overdue', id: p.id, link: `/petitions/${p.id}` },
         });
-        await this.markNotified('petition', p.id, userId);
       }
     }
 
@@ -290,6 +295,7 @@ export class DeadlineScheduler {
       const recipients = await this.getTeamRecipients(p.assignedTeamId, p.enteredById);
       for (const userId of recipients) {
         if (await this.isDuped('petition_near', p.id, userId)) continue;
+        await this.markNotified('petition_near', p.id, userId);
         await this.prisma.notification.create({
           data: {
             userId,
@@ -305,7 +311,6 @@ export class DeadlineScheduler {
           body: `Đơn của ${p.senderName} sắp đến hạn xử lý`,
           data: { type: 'petition_near_deadline', id: p.id, link: `/petitions/${p.id}`, daysLeft },
         });
-        await this.markNotified('petition_near', p.id, userId);
       }
     }
   }
