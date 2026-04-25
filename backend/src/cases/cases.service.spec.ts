@@ -17,7 +17,7 @@
  */
 
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException, BadRequestException } from '@nestjs/common';
+import { NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { CasesService } from './cases.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
@@ -592,6 +592,51 @@ describe('CasesService', () => {
           data: expect.objectContaining({ capDoToiPham: CapDoToiPham.DAC_BIET_NGHIEM_TRONG }),
         }),
       );
+    });
+
+    describe('optimistic locking', () => {
+      const stalestamp = '2026-01-01T00:00:00.000Z';
+
+      it('throws ConflictException when P2025 with expectedUpdatedAt (stale version)', async () => {
+        mockPrisma.case.findFirst.mockResolvedValue(mockCase);
+        mockPrisma.case.update.mockRejectedValue({ code: 'P2025' });
+
+        await expect(
+          service.update('case-001', { name: 'Edited', expectedUpdatedAt: stalestamp }, 'actor-001'),
+        ).rejects.toThrow(ConflictException);
+      });
+
+      it('passes updatedAt in where clause when expectedUpdatedAt provided', async () => {
+        mockPrisma.case.findFirst.mockResolvedValue(mockCase);
+        mockPrisma.case.update.mockResolvedValue({ ...mockCase, name: 'Edited' });
+
+        await service.update('case-001', { name: 'Edited', expectedUpdatedAt: stalestamp }, 'actor-001');
+
+        expect(mockPrisma.case.update).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: expect.objectContaining({ id: 'case-001', updatedAt: new Date(stalestamp) }),
+          }),
+        );
+      });
+
+      it('does NOT add updatedAt to where clause when expectedUpdatedAt absent (backward compat)', async () => {
+        mockPrisma.case.findFirst.mockResolvedValue(mockCase);
+        mockPrisma.case.update.mockResolvedValue(mockCase);
+
+        await service.update('case-001', { name: 'Edited' }, 'actor-001');
+
+        const callArgs = mockPrisma.case.update.mock.calls[0][0];
+        expect(callArgs.where).not.toHaveProperty('updatedAt');
+      });
+
+      it('re-throws P2025 as-is when expectedUpdatedAt absent (no stale-version check intended)', async () => {
+        mockPrisma.case.findFirst.mockResolvedValue(mockCase);
+        mockPrisma.case.update.mockRejectedValue({ code: 'P2025' });
+
+        await expect(
+          service.update('case-001', { name: 'Edited' }, 'actor-001'),
+        ).rejects.toMatchObject({ code: 'P2025' });
+      });
     });
   });
 });

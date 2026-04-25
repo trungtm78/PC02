@@ -26,4 +26,8 @@ export class ProsecuteIncidentDto {
   @IsString()
   @MaxLength(255)
   crime?: string;
+
+  @IsOptional()
+  @IsDateString({}, { message: 'expectedUpdatedAt không đúng định dạng ISO 8601' })
+  expectedUpdatedAt?: string;
 }

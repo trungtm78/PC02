@@ -353,6 +353,42 @@ describe('PetitionsService', () => {
         ),
       ).rejects.toThrow(BadRequestException);
     });
+
+    describe('optimistic locking', () => {
+      const stalestamp = '2026-01-01T00:00:00.000Z';
+
+      it('throws ConflictException when P2025 with expectedUpdatedAt (stale version)', async () => {
+        mockPrisma.petition.findFirst.mockResolvedValue(mockPetition);
+        mockPrisma.petition.update.mockRejectedValue({ code: 'P2025' });
+
+        await expect(
+          service.update('petition-001', { senderName: 'Edited', expectedUpdatedAt: stalestamp }, 'user-001'),
+        ).rejects.toThrow(ConflictException);
+      });
+
+      it('passes updatedAt in where clause when expectedUpdatedAt provided', async () => {
+        mockPrisma.petition.findFirst.mockResolvedValue(mockPetition);
+        mockPrisma.petition.update.mockResolvedValue({ ...mockPetition, senderName: 'Edited' });
+
+        await service.update('petition-001', { senderName: 'Edited', expectedUpdatedAt: stalestamp }, 'user-001');
+
+        expect(mockPrisma.petition.update).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: expect.objectContaining({ id: 'petition-001', updatedAt: new Date(stalestamp) }),
+          }),
+        );
+      });
+
+      it('does NOT add updatedAt to where clause when expectedUpdatedAt absent (backward compat)', async () => {
+        mockPrisma.petition.findFirst.mockResolvedValue(mockPetition);
+        mockPrisma.petition.update.mockResolvedValue(mockPetition);
+
+        await service.update('petition-001', { senderName: 'Edited' }, 'user-001');
+
+        const callArgs = mockPrisma.petition.update.mock.calls[0][0];
+        expect(callArgs.where).not.toHaveProperty('updatedAt');
+      });
+    });
   });
 
   // ── delete ─────────────────────────────────────────────────────────────────

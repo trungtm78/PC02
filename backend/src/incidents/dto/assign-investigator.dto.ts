@@ -13,4 +13,8 @@ export class AssignInvestigatorDto {
   @IsOptional()
   @IsDateString({}, { message: 'Hạn xử lý không đúng định dạng' })
   deadline?: string;
+
+  @IsOptional()
+  @IsDateString({}, { message: 'expectedUpdatedAt không đúng định dạng ISO 8601' })
+  expectedUpdatedAt?: string;
 }

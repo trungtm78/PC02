@@ -69,6 +69,7 @@ function CaseFormPage() {
   const [formData, setFormData] = useState<CaseFormData>(INITIAL_FORM_DATA);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
+  const [recordUpdatedAt, setRecordUpdatedAt] = useState<string | null>(null);
 
   // ─── Fetch danh sách điều tra viên từ API ──────────────────────────────
   const [handlerOptions, setHandlerOptions] = useState<{ value: string; label: string }[]>([]);
@@ -145,6 +146,7 @@ function CaseFormPage() {
           ward:                        meta.ward                        ?? prev.ward,
           specificAddress:             meta.specificAddress             ?? prev.specificAddress,
         }));
+        setRecordUpdatedAt((d.updatedAt as string) ?? null);
       })
       .catch((err) => {
         console.error("[CaseFormPage] Failed to load case:", err);
@@ -217,13 +219,18 @@ function CaseFormPage() {
         },
       };
       if (isEditMode) {
-        await api.put(`/cases/${id}`, payload);
+        await api.put(`/cases/${id}`, { ...payload, expectedUpdatedAt: recordUpdatedAt ?? undefined });
       } else {
         await api.post("/cases", payload);
       }
       alert(isEditMode ? "Cập nhật hồ sơ thành công!" : "Lưu hồ sơ thành công!");
       navigate("/cases");
-    } catch (err) {
+    } catch (err: unknown) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 409) {
+        alert("Hồ sơ đã được chỉnh sửa bởi người dùng khác.\nVui lòng tải lại trang để xem phiên bản mới nhất trước khi chỉnh sửa.");
+        return;
+      }
       console.error("[CaseFormPage] Save error:", err);
       alert("Lưu hồ sơ thất bại. Vui lòng thử lại.");
     }

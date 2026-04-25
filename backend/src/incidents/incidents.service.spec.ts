@@ -542,6 +542,42 @@ describe('IncidentsService', () => {
         service.update('inc-001', { investigatorId: 'invalid-user' } as any, 'actor-001'),
       ).rejects.toThrow(BadRequestException);
     });
+
+    describe('optimistic locking', () => {
+      const stalestamp = '2026-01-01T00:00:00.000Z';
+
+      it('throws ConflictException when P2025 with expectedUpdatedAt (stale version)', async () => {
+        mockPrisma.incident.findFirst.mockResolvedValue(mockIncident);
+        mockPrisma.incident.update.mockRejectedValue({ code: 'P2025' });
+
+        await expect(
+          service.update('inc-001', { name: 'Edited', expectedUpdatedAt: stalestamp } as any, 'actor-001'),
+        ).rejects.toThrow(ConflictException);
+      });
+
+      it('passes updatedAt in where clause when expectedUpdatedAt provided', async () => {
+        mockPrisma.incident.findFirst.mockResolvedValue(mockIncident);
+        mockPrisma.incident.update.mockResolvedValue({ ...mockIncident, name: 'Edited' });
+
+        await service.update('inc-001', { name: 'Edited', expectedUpdatedAt: stalestamp } as any, 'actor-001');
+
+        expect(mockPrisma.incident.update).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: expect.objectContaining({ id: 'inc-001', updatedAt: new Date(stalestamp) }),
+          }),
+        );
+      });
+
+      it('does NOT add updatedAt to where clause when expectedUpdatedAt absent (backward compat)', async () => {
+        mockPrisma.incident.findFirst.mockResolvedValue(mockIncident);
+        mockPrisma.incident.update.mockResolvedValue(mockIncident);
+
+        await service.update('inc-001', { name: 'Edited' } as any, 'actor-001');
+
+        const callArgs = mockPrisma.incident.update.mock.calls[0][0];
+        expect(callArgs.where).not.toHaveProperty('updatedAt');
+      });
+    });
   });
 
   // ── delete ────────────────────────────────────────────────────────────────

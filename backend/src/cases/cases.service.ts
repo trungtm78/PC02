@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ConflictException,
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
@@ -422,15 +423,28 @@ export class CasesService {
       }),
     };
 
-    const record = await this.prisma.case.update({
-      where: { id },
-      data: updateData,
-      include: {
-        investigator: {
-          select: { id: true, firstName: true, lastName: true, username: true },
+    let record;
+    try {
+      record = await this.prisma.case.update({
+        where: {
+          id,
+          ...(dto.expectedUpdatedAt ? { updatedAt: new Date(dto.expectedUpdatedAt) } : {}),
         },
-      },
-    });
+        data: updateData,
+        include: {
+          investigator: {
+            select: { id: true, firstName: true, lastName: true, username: true },
+          },
+        },
+      });
+    } catch (e) {
+      if ((e as { code?: string })?.code === 'P2025' && dto.expectedUpdatedAt) {
+        throw new ConflictException(
+          'Hồ sơ đã được chỉnh sửa bởi người dùng khác. Vui lòng tải lại trang và thử lại.',
+        );
+      }
+      throw e;
+    }
 
     // Sync petitionType with linked Petition
     const updatedMetadata = dto.metadata as Record<string, unknown> | undefined;

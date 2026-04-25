@@ -127,4 +127,8 @@ export class UpdateIncidentDto {
   @IsOptional()
   @IsString()
   cmndNguoiToGiac?: string;
+
+  @IsOptional()
+  @IsDateString({}, { message: 'expectedUpdatedAt không đúng định dạng ISO 8601' })
+  expectedUpdatedAt?: string;
 }

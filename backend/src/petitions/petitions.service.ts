@@ -387,10 +387,15 @@ export class PetitionsService {
       }
     }
 
-    const record = await this.prisma.petition.update({
-      where: { id },
-      data: {
-        ...(dto.stt !== undefined && { stt: dto.stt }),
+    let record;
+    try {
+      record = await this.prisma.petition.update({
+        where: {
+          id,
+          ...(dto.expectedUpdatedAt ? { updatedAt: new Date(dto.expectedUpdatedAt) } : {}),
+        },
+        data: {
+          ...(dto.stt !== undefined && { stt: dto.stt }),
         ...(dto.receivedDate !== undefined && {
           receivedDate: new Date(dto.receivedDate),
         }),
@@ -439,6 +444,14 @@ export class PetitionsService {
         },
       },
     });
+    } catch (e) {
+      if ((e as { code?: string })?.code === 'P2025' && dto.expectedUpdatedAt) {
+        throw new ConflictException(
+          'Đơn thư đã được chỉnh sửa bởi người dùng khác. Vui lòng tải lại trang và thử lại.',
+        );
+      }
+      throw e;
+    }
 
     await this.audit.log({
       userId: actorId,
@@ -547,13 +560,25 @@ export class PetitionsService {
     ]);
 
     // Update petition: link + update status
-    await this.prisma.petition.update({
-      where: { id: petitionId },
-      data: {
-        linkedIncidentId: incident.id,
-        status: PetitionStatus.DA_CHUYEN_VU_VIEC,
-      },
-    });
+    try {
+      await this.prisma.petition.update({
+        where: {
+          id: petitionId,
+          ...(dto.expectedUpdatedAt ? { updatedAt: new Date(dto.expectedUpdatedAt) } : {}),
+        },
+        data: {
+          linkedIncidentId: incident.id,
+          status: PetitionStatus.DA_CHUYEN_VU_VIEC,
+        },
+      });
+    } catch (e) {
+      if ((e as { code?: string })?.code === 'P2025' && dto.expectedUpdatedAt) {
+        throw new ConflictException(
+          'Đơn thư đã được chỉnh sửa bởi người dùng khác. Vui lòng tải lại trang và thử lại.',
+        );
+      }
+      throw e;
+    }
 
     await this.audit.log({
       userId: actorId,
@@ -616,7 +641,9 @@ export class PetitionsService {
     }
 
     // Create Case and update Petition atomically in one transaction
-    const [caseRecord] = await this.prisma.$transaction(async (tx) => {
+    let caseRecord;
+    try {
+    [caseRecord] = await this.prisma.$transaction(async (tx) => {
       const newCase = await tx.case.create({
         data: {
           name: dto.caseName,
@@ -627,7 +654,10 @@ export class PetitionsService {
       });
 
       await tx.petition.update({
-        where: { id: petitionId },
+        where: {
+          id: petitionId,
+          ...(dto.expectedUpdatedAt ? { updatedAt: new Date(dto.expectedUpdatedAt) } : {}),
+        },
         data: {
           linkedCaseId: newCase.id,
           status: PetitionStatus.DA_CHUYEN_VU_AN,
@@ -636,6 +666,14 @@ export class PetitionsService {
 
       return [newCase];
     });
+    } catch (e) {
+      if ((e as { code?: string })?.code === 'P2025' && dto.expectedUpdatedAt) {
+        throw new ConflictException(
+          'Đơn thư đã được chỉnh sửa bởi người dùng khác. Vui lòng tải lại trang và thử lại.',
+        );
+      }
+      throw e;
+    }
 
     await this.audit.log({
       userId: actorId,

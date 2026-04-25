@@ -388,15 +388,28 @@ export class IncidentsService {
       }
     }
 
-    const record = await this.prisma.incident.update({
-      where: { id },
-      data: updateData,
-      include: {
-        investigator: {
-          select: { id: true, firstName: true, lastName: true, username: true },
+    let record;
+    try {
+      record = await this.prisma.incident.update({
+        where: {
+          id,
+          ...(dto.expectedUpdatedAt ? { updatedAt: new Date(dto.expectedUpdatedAt) } : {}),
         },
-      },
-    });
+        data: updateData,
+        include: {
+          investigator: {
+            select: { id: true, firstName: true, lastName: true, username: true },
+          },
+        },
+      });
+    } catch (e) {
+      if ((e as { code?: string })?.code === 'P2025' && dto.expectedUpdatedAt) {
+        throw new ConflictException(
+          'Vụ việc đã được chỉnh sửa bởi người dùng khác. Vui lòng tải lại trang và thử lại.',
+        );
+      }
+      throw e;
+    }
 
     await this.audit.log({
       userId: actorId,
@@ -545,29 +558,42 @@ export class IncidentsService {
       );
     }
 
-    const [record] = await this.prisma.$transaction([
-      this.prisma.incident.update({
-        where: { id },
-        data: {
-          status: dto.status,
-          ...(dto.lyDoKhongKhoiTo !== undefined && { lyDoKhongKhoiTo: dto.lyDoKhongKhoiTo }),
-        },
-        include: {
-          investigator: {
-            select: { id: true, firstName: true, lastName: true, username: true },
+    let record;
+    try {
+      [record] = await this.prisma.$transaction([
+        this.prisma.incident.update({
+          where: {
+            id,
+            ...(dto.expectedUpdatedAt ? { updatedAt: new Date(dto.expectedUpdatedAt) } : {}),
           },
-        },
-      }),
-      this.prisma.incidentStatusHistory.create({
-        data: {
-          incidentId: id,
-          fromStatus: existing.status,
-          toStatus: dto.status,
-          changedById: actorId,
-          note: dto.note,
-        },
-      }),
-    ]);
+          data: {
+            status: dto.status,
+            ...(dto.lyDoKhongKhoiTo !== undefined && { lyDoKhongKhoiTo: dto.lyDoKhongKhoiTo }),
+          },
+          include: {
+            investigator: {
+              select: { id: true, firstName: true, lastName: true, username: true },
+            },
+          },
+        }),
+        this.prisma.incidentStatusHistory.create({
+          data: {
+            incidentId: id,
+            fromStatus: existing.status,
+            toStatus: dto.status,
+            changedById: actorId,
+            note: dto.note,
+          },
+        }),
+      ]);
+    } catch (e) {
+      if ((e as { code?: string })?.code === 'P2025' && dto.expectedUpdatedAt) {
+        throw new ConflictException(
+          'Vụ việc đã được chỉnh sửa bởi người dùng khác. Vui lòng tải lại trang và thử lại.',
+        );
+      }
+      throw e;
+    }
 
     await this.audit.log({
       userId: actorId,
@@ -705,10 +731,14 @@ export class IncidentsService {
       throw new BadRequestException('Vụ việc này đã được nhập vào vụ khác');
     }
 
+    try {
     await this.prisma.$transaction([
       // Update source status + link
       this.prisma.incident.update({
-        where: { id },
+        where: {
+          id,
+          ...(dto.expectedUpdatedAt ? { updatedAt: new Date(dto.expectedUpdatedAt) } : {}),
+        },
         data: {
           status: IncidentStatus.DA_NHAP_VU_KHAC,
           mergedIntoId: dto.targetId,
@@ -735,6 +765,14 @@ export class IncidentsService {
         },
       }),
     ]);
+    } catch (e) {
+      if ((e as { code?: string })?.code === 'P2025' && dto.expectedUpdatedAt) {
+        throw new ConflictException(
+          'Vụ việc đã được chỉnh sửa bởi người dùng khác. Vui lòng tải lại trang và thử lại.',
+        );
+      }
+      throw e;
+    }
 
     await this.audit.log({
       userId: actorId,
@@ -765,9 +803,13 @@ export class IncidentsService {
     if (!existing) throw new NotFoundException(`Vụ việc không tồn tại (id: ${id})`);
     this.checkWriteScope(existing, dataScope);
 
+    try {
     await this.prisma.$transaction([
       this.prisma.incident.update({
-        where: { id },
+        where: {
+          id,
+          ...(dto.expectedUpdatedAt ? { updatedAt: new Date(dto.expectedUpdatedAt) } : {}),
+        },
         data: {
           status: IncidentStatus.DA_CHUYEN_DON_VI,
           chuyenDenDonVi: dto.donViMoi,
@@ -784,6 +826,14 @@ export class IncidentsService {
         },
       }),
     ]);
+    } catch (e) {
+      if ((e as { code?: string })?.code === 'P2025' && dto.expectedUpdatedAt) {
+        throw new ConflictException(
+          'Vụ việc đã được chỉnh sửa bởi người dùng khác. Vui lòng tải lại trang và thử lại.',
+        );
+      }
+      throw e;
+    }
 
     await this.audit.log({
       userId: actorId,
@@ -827,19 +877,32 @@ export class IncidentsService {
       throw new BadRequestException(`Điều tra viên không tồn tại (id: ${dto.investigatorId})`);
     }
 
-    const record = await this.prisma.incident.update({
-      where: { id },
-      data: {
-        investigatorId: dto.investigatorId,
-        deadline: dto.deadline ? new Date(dto.deadline) : existing.deadline,
-        status: IncidentStatus.DANG_XAC_MINH,
-      },
-      include: {
-        investigator: {
-          select: { id: true, firstName: true, lastName: true, username: true },
+    let record;
+    try {
+      record = await this.prisma.incident.update({
+        where: {
+          id,
+          ...(dto.expectedUpdatedAt ? { updatedAt: new Date(dto.expectedUpdatedAt) } : {}),
         },
-      },
-    });
+        data: {
+          investigatorId: dto.investigatorId,
+          deadline: dto.deadline ? new Date(dto.deadline) : existing.deadline,
+          status: IncidentStatus.DANG_XAC_MINH,
+        },
+        include: {
+          investigator: {
+            select: { id: true, firstName: true, lastName: true, username: true },
+          },
+        },
+      });
+    } catch (e) {
+      if ((e as { code?: string })?.code === 'P2025' && dto.expectedUpdatedAt) {
+        throw new ConflictException(
+          'Vụ việc đã được chỉnh sửa bởi người dùng khác. Vui lòng tải lại trang và thử lại.',
+        );
+      }
+      throw e;
+    }
 
     await this.audit.log({
       userId: actorId,
@@ -881,7 +944,9 @@ export class IncidentsService {
     }
 
     // FIXED: wrap in transaction for atomicity
-    const result = await this.prisma.$transaction(async (tx) => {
+    let result;
+    try {
+    result = await this.prisma.$transaction(async (tx) => {
       let caseRecord;
       try {
         caseRecord = await tx.case.create({
@@ -903,7 +968,10 @@ export class IncidentsService {
       }
 
       await tx.incident.update({
-        where: { id },
+        where: {
+          id,
+          ...(dto.expectedUpdatedAt ? { updatedAt: new Date(dto.expectedUpdatedAt) } : {}),
+        },
         data: {
           status: IncidentStatus.DA_CHUYEN_VU_AN,
           linkedCaseId: caseRecord.id,
@@ -922,6 +990,14 @@ export class IncidentsService {
 
       return caseRecord;
     });
+    } catch (e) {
+      if ((e as { code?: string })?.code === 'P2025' && dto.expectedUpdatedAt) {
+        throw new ConflictException(
+          'Vụ việc đã được chỉnh sửa bởi người dùng khác. Vui lòng tải lại trang và thử lại.',
+        );
+      }
+      throw e;
+    }
 
     await this.audit.log({
       userId: actorId,
