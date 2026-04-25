@@ -1,0 +1,29 @@
+appId: ${APP_ID}
+tags:
+  - petitions
+  - overdue
+  - regression
+
+---
+# Regression test: "Qua han" tab must only show overdue petitions
+# Fixed: was returning ALL petitions with no filter
+# Uses coordinates for Vietnamese tab label (Maestro 1.39 Windows Unicode limitation)
+- launchApp
+- waitForAnimationToEnd
+
+# Navigate to Don thu tab (4th bottom-nav tab, ~70% x bottom)
+- tapOn:
+    point: "70%,96%"
+- waitForAnimationToEnd
+- takeScreenshot: 10_petitions_active_tab
+
+# Tap second tab "Qua han" by coordinate (~75% x, ~17% y = top tab bar)
+- tapOn:
+    point: "75%,17%"
+- waitForAnimationToEnd
+- takeScreenshot: 10_petitions_overdue_tab
+
+# Verify no raw error strings appear
+- assertNotVisible: "null"
+- assertNotVisible: "undefined"
+- assertNotVisible: "Exception"

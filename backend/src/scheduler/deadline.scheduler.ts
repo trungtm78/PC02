@@ -168,7 +168,7 @@ export class DeadlineScheduler {
         await this.pushService.sendToUser(userId, {
           title: 'Vụ án sắp đến hạn',
           body: `${c.name} sắp đến hạn giải quyết`,
-          data: { type: 'case_near_deadline', id: c.id, link: `/cases/${c.id}`, daysLeft },
+          data: { type: 'case_near_deadline', id: c.id, link: `/cases/${c.id}`, daysLeft: String(daysLeft) },
         });
       }
     }
@@ -238,7 +238,7 @@ export class DeadlineScheduler {
         await this.pushService.sendToUser(userId, {
           title: 'Vụ việc sắp đến hạn',
           body: `${inc.name} sắp đến hạn xử lý`,
-          data: { type: 'incident_near_deadline', id: inc.id, link: `/incidents/${inc.id}`, daysLeft },
+          data: { type: 'incident_near_deadline', id: inc.id, link: `/incidents/${inc.id}`, daysLeft: String(daysLeft) },
         });
       }
     }
@@ -309,7 +309,7 @@ export class DeadlineScheduler {
         await this.pushService.sendToUser(userId, {
           title: 'Đơn thư sắp đến hạn',
           body: `Đơn của ${p.senderName} sắp đến hạn xử lý`,
-          data: { type: 'petition_near_deadline', id: p.id, link: `/petitions/${p.id}`, daysLeft },
+          data: { type: 'petition_near_deadline', id: p.id, link: `/petitions/${p.id}`, daysLeft: String(daysLeft) },
         });
       }
     }

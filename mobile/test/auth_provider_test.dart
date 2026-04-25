@@ -4,6 +4,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:pc02_mobile/core/api/auth_api.dart';
 import 'package:pc02_mobile/core/api/devices_api.dart';
 import 'package:pc02_mobile/core/auth/auth_provider.dart';
+import 'package:pc02_mobile/core/auth/biometric_service.dart';
 import 'package:pc02_mobile/core/auth/token_storage.dart';
 
 class MockAuthApi extends Mock implements AuthApi {}
@@ -12,19 +13,24 @@ class MockDevicesApi extends Mock implements DevicesApi {}
 
 class MockTokenStorage extends Mock implements TokenStorage {}
 
+class MockBiometricService extends Mock implements BiometricService {}
+
 void main() {
   late MockAuthApi authApi;
   late MockDevicesApi devicesApi;
   late MockTokenStorage storage;
+  late MockBiometricService biometricService;
 
   setUp(() {
     authApi = MockAuthApi();
     devicesApi = MockDevicesApi();
     storage = MockTokenStorage();
+    biometricService = MockBiometricService();
+    when(() => biometricService.clear()).thenAnswer((_) async {});
   });
 
   AuthNotifier makeNotifier() =>
-      AuthNotifier(authApi, devicesApi, storage);
+      AuthNotifier(authApi, devicesApi, storage, biometricService);
 
   group('AuthNotifier', () {
     test('login() stores tokens on success', () async {
@@ -62,7 +68,7 @@ void main() {
       expect(notifier.state.isAuthenticated, false);
     });
 
-    test('logout() clears tokens and deregisters FCM', () async {
+    test('logout() clears tokens, biometric credentials, and deregisters FCM', () async {
       when(() => devicesApi.unregister(any())).thenAnswer((_) async {});
       when(() => authApi.logout()).thenAnswer((_) async {});
       when(() => storage.clear()).thenAnswer((_) async {});
@@ -72,6 +78,7 @@ void main() {
 
       verify(() => devicesApi.unregister('tok')).called(1);
       verify(() => storage.clear()).called(1);
+      verify(() => biometricService.clear()).called(1);
       expect(notifier.state.isAuthenticated, false);
     });
 
