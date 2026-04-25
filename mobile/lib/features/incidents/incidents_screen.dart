@@ -28,6 +28,7 @@ class IncidentsScreen extends ConsumerStatefulWidget {
 class _IncidentsScreenState extends ConsumerState<IncidentsScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabs;
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -54,12 +55,33 @@ class _IncidentsScreenState extends ConsumerState<IncidentsScreen>
       body: Column(
         children: [
           const OfflineBanner(),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+            child: TextField(
+              decoration: InputDecoration(
+                hintText: 'Tìm kiếm vụ việc...',
+                prefixIcon: const Icon(Icons.search, size: 20),
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8)),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                isDense: true,
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, size: 18),
+                        onPressed: () => setState(() => _searchQuery = ''),
+                      )
+                    : null,
+              ),
+              onChanged: (v) => setState(() => _searchQuery = v),
+            ),
+          ),
           Expanded(
             child: TabBarView(
               controller: _tabs,
               children: [
-                _IncidentList(tab: _IncidentTab.all),
-                _IncidentList(tab: _IncidentTab.overdue),
+                _IncidentList(tab: _IncidentTab.all, searchQuery: _searchQuery),
+                _IncidentList(tab: _IncidentTab.overdue, searchQuery: _searchQuery),
               ],
             ),
           ),
@@ -71,7 +93,8 @@ class _IncidentsScreenState extends ConsumerState<IncidentsScreen>
 
 class _IncidentList extends ConsumerWidget {
   final _IncidentTab tab;
-  const _IncidentList({required this.tab});
+  final String searchQuery;
+  const _IncidentList({required this.tab, required this.searchQuery});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -99,11 +122,21 @@ class _IncidentList extends ConsumerWidget {
         onRetry: () => ref.invalidate(_incidentsProvider(tab)),
       ),
       data: (incidents) {
-        if (incidents.isEmpty) {
+        final filtered = searchQuery.isEmpty
+            ? incidents
+            : incidents
+                .where((inc) => inc.name
+                    .toLowerCase()
+                    .contains(searchQuery.toLowerCase()))
+                .toList();
+
+        if (filtered.isEmpty) {
           return EmptyState(
-            message: tab == _IncidentTab.overdue
-                ? 'Không có vụ việc quá hạn'
-                : 'Không có vụ việc',
+            message: searchQuery.isNotEmpty
+                ? 'Không tìm thấy vụ việc phù hợp'
+                : tab == _IncidentTab.overdue
+                    ? 'Không có vụ việc quá hạn'
+                    : 'Không có vụ việc',
             icon: Icons.report_outlined,
           );
         }
@@ -111,10 +144,10 @@ class _IncidentList extends ConsumerWidget {
           onRefresh: () async => ref.invalidate(_incidentsProvider(tab)),
           child: ListView.separated(
             padding: const EdgeInsets.all(12),
-            itemCount: incidents.length,
+            itemCount: filtered.length,
             separatorBuilder: (_, __) => const SizedBox(height: 8),
             itemBuilder: (ctx, i) {
-              final inc = incidents[i];
+              final inc = filtered[i];
               return Card(
                 child: InkWell(
                   borderRadius: BorderRadius.circular(12),

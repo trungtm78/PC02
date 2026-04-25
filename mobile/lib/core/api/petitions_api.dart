@@ -7,11 +7,13 @@ class PetitionsApi {
 
   Future<List<Petition>> getPetitions({
     String? status,
+    bool? overdue,
     int offset = 0,
-    int limit = 20,
+    int limit = 50,
   }) async {
     final resp = await _client.dio.get('/petitions', queryParameters: {
       if (status != null) 'status': status,
+      if (overdue == true) 'overdue': 'true',
       'offset': offset,
       'limit': limit,
     });

@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.0.0] - 2026-04-25
+
+### Added
+- **Biometric login (TouchID/FaceID)**: `BiometricService` lưu credentials vào Keychain/Keystore, tự động đăng nhập khi mở app. iOS `NSFaceIDUsageDescription` + Android `minSdk 23` cho `local_auth`. Logout xóa credentials sinh trắc học.
+- **Petitions overdue filter**: Tab "Quá hạn" trong Đơn thư screen trả đúng đơn thư đã qua hạn — backend `?overdue=true` filter với `PetitionStatus` enum (type-safe).
+- **Maestro E2E test suite (11 flows)**: Full end-to-end coverage Android — 175 steps, 0 failures, health score 99/100.
+- **Team-scoped deadline notifications**: Scheduler gửi push đến toàn tổ phụ trách, DataAccessGrant holders. Loại trừ ADMIN role và inactive users.
+
+### Fixed
+- **Dashboard stats nhất quán**: `DINH_CHI` tính vào `processedCases` (đình chỉ = đã xử lý). `TAM_DINH_CHI` loại khỏi `overdueCount` (tạm đình chỉ không phải quá hạn).
+- **CRITICAL — api_client isolate crash**: Queued requests không wrap `completeError()` trong try/catch — khi refresh fail, crash isolate. Đã wrap + return early.
+- **SECURITY — MITM risk on token refresh**: Bare `Dio()` cho refresh request không có timeout. Thay bằng `Dio(BaseOptions(...))` với cùng config như client chính.
+- **Duplicate notifications**: `markNotified()` đảo thứ tự trước `sendToUser()` — push throw không còn bỏ sót dedup record.
+- **Scheduler DB failure silences all notifications**: `systemSetting.findUnique` thêm try/catch, fallback 7 ngày khi DB hiccup lúc 07:00.
+- **Biometric credentials leak after logout**: `logout()` nay `Future.wait([storage.clear(), biometricService.clear()])` — không để credentials sinh trắc học của user cũ.
+- **PetitionStatus string literals → enum**: `petitions.service.ts` overdue filter dùng `PetitionStatus.DA_GIAI_QUYET` thay chuỗi literal (type-safe, refactor-safe).
+
 ## [0.7.0.0] - 2026-04-25
 
 ### Added

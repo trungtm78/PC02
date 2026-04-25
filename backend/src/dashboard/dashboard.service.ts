@@ -39,16 +39,17 @@ export class DashboardService {
               CaseStatus.DA_KET_LUAN,
               CaseStatus.DA_LUU_TRU,
               CaseStatus.DINH_CHI,
+              CaseStatus.TAM_DINH_CHI,
             ],
           },
         },
       }),
-      // Vụ án đã xử lý (kết luận hoặc lưu trữ)
+      // Vụ án đã xử lý (kết luận, lưu trữ, hoặc đình chỉ)
       this.prisma.case.count({
         where: {
           deletedAt: null,
           status: {
-            in: [CaseStatus.DA_KET_LUAN, CaseStatus.DA_LUU_TRU],
+            in: [CaseStatus.DA_KET_LUAN, CaseStatus.DA_LUU_TRU, CaseStatus.DINH_CHI],
           },
         },
       }),

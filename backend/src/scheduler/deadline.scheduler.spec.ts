@@ -283,6 +283,75 @@ describe('DeadlineScheduler', () => {
     );
   });
 
+  // ─── NaN guard ────────────────────────────────────────────────────────────
+
+  it('falls back to 7-day window when CANH_BAO_SAP_HAN value is non-numeric', async () => {
+    mockPrisma.systemSetting.findUnique.mockResolvedValue({ value: 'abc' });
+    mockPrisma.case.findMany.mockResolvedValue([]);
+    await expect(scheduler.checkDeadlines()).resolves.toBeUndefined();
+    // The scheduler should not throw; case.findMany is still called
+    expect(mockPrisma.case.findMany).toHaveBeenCalled();
+  });
+
+  // ─── Incident near-deadline ───────────────────────────────────────────────
+
+  it('notifies incident near-deadline with INCIDENT_DEADLINE_NEAR type', async () => {
+    const nearDeadline = new Date(TODAY);
+    nearDeadline.setDate(nearDeadline.getDate() + 3);
+    mockPrisma.incident.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ id: 'i2', name: 'Vụ việc B', investigatorId: 'u2', assignedTeamId: null, deadline: nearDeadline }]);
+
+    await scheduler.checkDeadlines();
+
+    expect(mockPrisma.notification.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ type: 'INCIDENT_DEADLINE_NEAR', userId: 'u2' }),
+      }),
+    );
+    expect(mockPushService.sendToUser).toHaveBeenCalledWith('u2', expect.objectContaining({
+      title: 'Vụ việc sắp đến hạn',
+      data: expect.objectContaining({ type: 'incident_near_deadline', daysLeft: '3' }),
+    }));
+  });
+
+  it('incident near-deadline dayStr is "hôm nay" when daysLeft is 0', async () => {
+    const sameDay = new Date(TODAY);
+    mockPrisma.incident.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ id: 'i3', name: 'Vụ việc C', investigatorId: 'u2', assignedTeamId: null, deadline: sameDay }]);
+
+    await scheduler.checkDeadlines();
+
+    expect(mockPrisma.notification.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ message: expect.stringContaining('hôm nay') }),
+      }),
+    );
+  });
+
+  // ─── Petition near-deadline ───────────────────────────────────────────────
+
+  it('notifies petition near-deadline with PETITION_DEADLINE_NEAR type', async () => {
+    const nearDeadline = new Date(TODAY);
+    nearDeadline.setDate(nearDeadline.getDate() + 2);
+    mockPrisma.petition.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ id: 'p2', senderName: 'Nguyễn B', enteredById: 'u3', assignedTeamId: null, deadline: nearDeadline }]);
+
+    await scheduler.checkDeadlines();
+
+    expect(mockPrisma.notification.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ type: 'PETITION_DEADLINE_NEAR', userId: 'u3' }),
+      }),
+    );
+    expect(mockPushService.sendToUser).toHaveBeenCalledWith('u3', expect.objectContaining({
+      title: 'Đơn thư sắp đến hạn',
+      data: expect.objectContaining({ type: 'petition_near_deadline', daysLeft: '2' }),
+    }));
+  });
+
   it('expired grant holder excluded (dataAccessGrant.findMany returns empty)', async () => {
     mockPrisma.case.findMany
       .mockResolvedValueOnce([{ id: 'c1', name: 'Vụ án A', investigatorId: null, assignedTeamId: 't1' }])

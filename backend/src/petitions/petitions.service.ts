@@ -12,7 +12,7 @@ import { UpdatePetitionDto } from './dto/update-petition.dto';
 import { QueryPetitionsDto } from './dto/query-petitions.dto';
 import { ConvertToIncidentDto } from './dto/convert-incident.dto';
 import { ConvertToCaseDto } from './dto/convert-case.dto';
-import { Prisma, LoaiDon } from '@prisma/client';
+import { Prisma, LoaiDon, PetitionStatus } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { buildPetitionScopeFilter } from '../common/utils/scope-filter.util';
 import { SettingsService } from '../settings/settings.service';
@@ -54,6 +54,7 @@ export class PetitionsService {
       senderName,
       fromDate,
       toDate,
+      overdue,
       limit = 20,
       offset = 0,
       sortBy = 'createdAt',
@@ -97,6 +98,13 @@ export class PetitionsService {
         ...(where.receivedDate as Prisma.DateTimeFilter | undefined),
         lte: new Date(toDate + 'T23:59:59.999Z'),
       };
+    }
+
+    if (overdue) {
+      where.deadline = { lt: new Date() };
+      if (!status) {
+        where.status = { notIn: [PetitionStatus.DA_GIAI_QUYET, PetitionStatus.DA_CHUYEN_VU_VIEC, PetitionStatus.DA_CHUYEN_VU_AN] };
+      }
     }
 
     // Apply data scope filter

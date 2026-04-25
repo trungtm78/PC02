@@ -3,6 +3,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../api/api_client.dart';
 import '../api/auth_api.dart';
 import '../api/devices_api.dart';
+import 'biometric_service.dart';
 import 'token_storage.dart';
 
 final _storageProvider = Provider((_) => const FlutterSecureStorage());
@@ -54,9 +55,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
   final AuthApi _authApi;
   final DevicesApi _devicesApi;
   final TokenStorage _tokenStorage;
+  final BiometricService _biometricService;
 
-  AuthNotifier(this._authApi, this._devicesApi, this._tokenStorage)
-      : super(const AuthState());
+  AuthNotifier(this._authApi, this._devicesApi, this._tokenStorage,
+      [BiometricService? biometricService])
+      : _biometricService = biometricService ?? BiometricService(),
+        super(const AuthState());
 
   Future<void> init() async {
     final token = await _tokenStorage.getAccessToken();
@@ -115,7 +119,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
       } catch (_) {}
     }
     await _authApi.logout();
-    await _tokenStorage.clear();
+    await Future.wait([
+      _tokenStorage.clear(),
+      _biometricService.clear(),
+    ]);
     state = const AuthState();
   }
 }
