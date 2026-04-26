@@ -119,7 +119,7 @@ export class ConclusionsService {
       action: 'CONCLUSION_UPDATED',
       subject: 'Conclusion',
       subjectId: id,
-      metadata: { changes: dto },
+      metadata: { before: { type: existing.type, status: existing.status }, after: dto },
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
     });

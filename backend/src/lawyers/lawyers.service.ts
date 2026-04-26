@@ -260,7 +260,7 @@ export class LawyersService {
       action: 'LAWYER_UPDATED',
       subject: 'Lawyer',
       subjectId: id,
-      metadata: { changes: dto },
+      metadata: { before: { fullName: existing.fullName, barNumber: existing.barNumber, caseId: existing.caseId }, after: dto },
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
     });

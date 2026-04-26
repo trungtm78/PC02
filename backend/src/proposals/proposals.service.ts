@@ -138,7 +138,7 @@ export class ProposalsService {
       action: 'PROPOSAL_UPDATED',
       subject: 'Proposal',
       subjectId: id,
-      metadata: { changes: dto },
+      metadata: { before: { status: existing.status, content: existing.content }, after: dto },
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
     });

@@ -116,7 +116,7 @@ export class GuidanceService {
       action: 'GUIDANCE_UPDATED',
       subject: 'GuidanceRecord',
       subjectId: id,
-      metadata: { changes: dto },
+      metadata: { before: { status: existing.status, guidedPerson: existing.guidedPerson }, after: dto },
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
     });

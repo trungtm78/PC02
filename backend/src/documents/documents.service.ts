@@ -271,7 +271,7 @@ export class DocumentsService {
       action: 'DOCUMENT_UPDATED',
       subject: 'Document',
       subjectId: id,
-      metadata: { changes: dto },
+      metadata: { before: { title: existing.title, documentType: existing.documentType }, after: dto },
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
     });

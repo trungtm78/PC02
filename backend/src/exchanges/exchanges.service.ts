@@ -164,6 +164,16 @@ export class ExchangesService {
       },
     });
 
+    await this.audit.log({
+      userId: actorId,
+      action: 'EXCHANGE_UPDATED',
+      subject: 'Exchange',
+      subjectId: id,
+      metadata: { before: { status: existing.status, subject: existing.subject, receiverUnit: existing.receiverUnit }, after: dto },
+      ipAddress: meta?.ipAddress,
+      userAgent: meta?.userAgent,
+    });
+
     return { success: true, data: record, message: 'Cập nhật trao đổi thành công' };
   }
 

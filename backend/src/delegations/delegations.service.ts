@@ -142,7 +142,7 @@ export class DelegationsService {
       action: 'DELEGATION_UPDATED',
       subject: 'Delegation',
       subjectId: id,
-      metadata: { changes: dto },
+      metadata: { before: { status: existing.status, receivingUnit: existing.receivingUnit }, after: dto },
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
     });

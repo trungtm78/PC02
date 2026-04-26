@@ -296,7 +296,7 @@ export class SubjectsService {
       action: 'SUBJECT_UPDATED',
       subject: 'Subject',
       subjectId: id,
-      metadata: { changes: dto },
+      metadata: { before: { fullName: existing.fullName, idNumber: existing.idNumber, status: existing.status }, after: dto },
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
     });
