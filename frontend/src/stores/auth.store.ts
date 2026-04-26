@@ -6,6 +6,7 @@
 export interface AuthUser {
   email: string;
   role: string;
+  canDispatch?: boolean;
   teams?: Array<{ teamId: string; teamName: string; isLeader: boolean }>;
 }
 
@@ -14,7 +15,11 @@ function parseJwtPayload(token: string): AuthUser | null {
     const parts = token.split('.');
     if (parts.length !== 3) return null;
     const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
-    return { email: payload.email as string, role: payload.role as string };
+    return {
+      email: payload.email as string,
+      role: payload.role as string,
+      canDispatch: payload.canDispatch === true,
+    };
   } catch {
     return null;
   }
