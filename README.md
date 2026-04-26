@@ -87,10 +87,36 @@ pc02-case-management/
 └── CLAUDE.md               # Hướng dẫn cho AI assistant
 ```
 
+## Deploy (Docker Compose)
+
+```bash
+# 1. Copy env template và điền secrets
+cp .env.production.example .env
+nano .env   # Điền DB_PASSWORD, TOTP_ENCRYPTION_KEY, SEED_*_PASSWORD, CORS_ORIGIN
+
+# 2. Copy RSA keys
+mkdir -p keys
+# copy private.pem + public.pem vào ./keys/
+
+# 3. Build và chạy
+docker compose up -d --build
+
+# 4. Xem logs
+docker compose logs -f backend
+
+# 5. Health check
+curl http://localhost/api/v1/health
+```
+
+**Mobile APK (production):**
+```bat
+build_mobile_prod.bat <SERVER_IP_OR_DOMAIN>
+```
+
 ## Testing
 
 ```bash
-# Backend unit tests (223 tests, 11 suites)
+# Backend unit tests (628 tests, 28 suites)
 cd backend && npx jest --no-coverage
 
 # Chạy test cụ thể
