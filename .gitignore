@@ -22,3 +22,7 @@ Thumbs.db
 .gstack/
 maestro/.env
 *.png
+
+# Docker production secrets (never commit)
+.env
+/keys/
