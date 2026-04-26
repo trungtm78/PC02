@@ -7,6 +7,7 @@ export interface DataScope {
   teamIds: string[];        // All readable teams (own + READ grants + WRITE grants)
   userIds: string[];
   writableTeamIds: string[]; // Writable teams (own + WRITE grants only) — GAP-9
+  canDispatch?: boolean;     // Supplementary: read all + assign/reassign any record
 }
 
 @Injectable()
@@ -26,6 +27,7 @@ export class UnitScopeService {
   async resolveScope(
     userId: string,
     roleName: string,
+    canDispatch = false,
   ): Promise<DataScope | null> {
     // Admin bypasses all scope restrictions
     if (roleName === 'ADMIN') return null;
@@ -87,6 +89,7 @@ export class UnitScopeService {
       teamIds: allReadTeamIds,
       userIds,
       writableTeamIds: allWriteTeamIds,
+      canDispatch,
     };
   }
 }

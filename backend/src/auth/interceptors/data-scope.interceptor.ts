@@ -22,6 +22,7 @@ export class DataScopeInterceptor implements NestInterceptor {
       const scope = await this.unitScopeService.resolveScope(
         user.id,
         user.role,
+        user.canDispatch ?? false,
       );
       request.dataScope = scope;
     } else if (user?.id && !user?.role) {

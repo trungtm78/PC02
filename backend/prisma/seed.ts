@@ -79,6 +79,11 @@ async function main() {
     { action: 'write', subject: 'Lawyer' },
     { action: 'edit', subject: 'Lawyer' },
     { action: 'delete', subject: 'Lawyer' },
+    // Team permissions — needed for dispatcher to read teams when assigning
+    { action: 'read', subject: 'Team' },
+    { action: 'write', subject: 'Team' },
+    { action: 'edit', subject: 'Team' },
+    { action: 'delete', subject: 'Team' },
   ];
 
   for (const perm of permissions) {
@@ -96,6 +101,21 @@ async function main() {
       where: { roleId_permissionId: { roleId: adminRole.id, permissionId: perm.id } },
       update: {},
       create: { roleId: adminRole.id, permissionId: perm.id },
+    });
+  }
+
+  // ── Grant OFFICER role: read permissions needed for dispatcher workflow ────
+  const officerReadPerms = await prisma.permission.findMany({
+    where: {
+      action: 'read',
+      subject: { in: ['Team', 'User', 'Case', 'Petition', 'Incident'] },
+    },
+  });
+  for (const perm of officerReadPerms) {
+    await prisma.rolePermission.upsert({
+      where: { roleId_permissionId: { roleId: officerRole.id, permissionId: perm.id } },
+      update: {},
+      create: { roleId: officerRole.id, permissionId: perm.id },
     });
   }
 
