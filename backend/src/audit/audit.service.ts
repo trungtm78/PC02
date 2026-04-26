@@ -35,6 +35,29 @@ export class AuditService {
     `;
   }
 
+  async wrapUpdate<T>(opts: {
+    fetchFn: () => Promise<T>;
+    updateFn: () => Promise<T>;
+    action: string;
+    subject: string;
+    subjectId: string;
+    userId: string;
+    meta?: { ipAddress?: string; userAgent?: string };
+  }): Promise<T> {
+    const before = await opts.fetchFn();
+    const after = await opts.updateFn();
+    await this.log({
+      userId: opts.userId,
+      action: opts.action,
+      subject: opts.subject,
+      subjectId: opts.subjectId,
+      metadata: { before: before as Record<string, unknown>, after: after as Record<string, unknown> },
+      ipAddress: opts.meta?.ipAddress,
+      userAgent: opts.meta?.userAgent,
+    });
+    return after;
+  }
+
   async findAll(params: {
     action?: string;
     userId?: string;
