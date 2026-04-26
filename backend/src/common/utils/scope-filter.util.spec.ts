@@ -10,6 +10,10 @@ describe('buildScopeFilter', () => {
     expect(buildScopeFilter(undefined)).toBeNull();
   });
 
+  it('returns null for dispatcher scope (canDispatch=true) — full read access', () => {
+    expect(buildScopeFilter({ userIds: ['u1'], teamIds: ['t1'], writableTeamIds: ['t1'], canDispatch: true })).toBeNull();
+  });
+
   it('returns deny-all sentinel for empty scope', () => {
     expect(buildScopeFilter({ userIds: [], teamIds: [], writableTeamIds: [] })).toEqual({ id: '__no_access__' });
   });
@@ -46,6 +50,10 @@ describe('buildScopeFilter', () => {
 describe('buildPetitionScopeFilter', () => {
   it('returns null for null scope', () => {
     expect(buildPetitionScopeFilter(null)).toBeNull();
+  });
+
+  it('returns null for dispatcher scope (canDispatch=true)', () => {
+    expect(buildPetitionScopeFilter({ userIds: [], teamIds: ['t1'], writableTeamIds: ['t1'], canDispatch: true })).toBeNull();
   });
 
   it('returns deny-all sentinel for empty scope', () => {
@@ -137,6 +145,15 @@ describe('assertParentInScope', () => {
       assertParentInScope({ assignedTeamId: null, investigatorId: null }, { userIds: ['u1'], teamIds: ['t1'], writableTeamIds: ['t1'] }),
     ).not.toThrow();
   });
+
+  it('passes for record outside scope when canDispatch=true — dispatcher read bypass', () => {
+    expect(() =>
+      assertParentInScope(
+        { assignedTeamId: 'other-team', investigatorId: 'other-user' },
+        { userIds: ['u1'], teamIds: ['t1'], writableTeamIds: ['t1'], canDispatch: true },
+      ),
+    ).not.toThrow();
+  });
 });
 
 describe('assertCreatorInScope', () => {
@@ -180,6 +197,12 @@ describe('assertCreatorInScope', () => {
 
   it('throws ForbiddenException when createdById is undefined (orphan record denies scoped users)', () => {
     expect(() => assertCreatorInScope(undefined, { userIds: ['u1'], teamIds: [], writableTeamIds: [] })).toThrow(ForbiddenException);
+  });
+
+  it('passes for any createdById when canDispatch=true — dispatcher read bypass', () => {
+    expect(() =>
+      assertCreatorInScope('unrelated-user', { userIds: ['u1'], teamIds: ['t1'], writableTeamIds: ['t1'], canDispatch: true }),
+    ).not.toThrow();
   });
 });
 

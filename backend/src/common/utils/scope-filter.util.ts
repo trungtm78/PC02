@@ -16,6 +16,8 @@ export function buildScopeFilter(
 ): Record<string, unknown> | null {
   // null scope = admin, no filtering
   if (scope === null || scope === undefined) return null;
+  // dispatcher: full read access — sees all records regardless of team
+  if (scope.canDispatch) return null;
 
   const conditions: Record<string, unknown>[] = [];
 
@@ -46,6 +48,7 @@ export function buildPetitionScopeFilter(
   scope: DataScope | null | undefined,
 ): Record<string, unknown> | null {
   if (scope === null || scope === undefined) return null;
+  if (scope.canDispatch) return null;
 
   const conditions: Record<string, unknown>[] = [];
 
@@ -78,6 +81,7 @@ export function assertParentInScope(
   operation: 'read' | 'write' = 'read',
 ): void {
   if (!scope) return;
+  if (scope.canDispatch) return;
   if (!parent) return;
   const { userIds, teamIds, writableTeamIds } = scope;
   const effectiveTeamIds = operation === 'write' ? (writableTeamIds ?? teamIds) : teamIds;
@@ -105,6 +109,7 @@ export function assertCreatorInScope(
   operation: 'read' | 'write' = 'read',
 ): void {
   if (!scope) return;
+  if (scope.canDispatch) return;
   if (!createdById) {
     throw new ForbiddenException(FORBIDDEN_MSG);
   }
