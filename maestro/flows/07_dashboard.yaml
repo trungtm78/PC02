@@ -6,6 +6,10 @@ tags:
 ---
 # Assumes app is on dashboard (run after 01_login_success)
 - launchApp
+# Wait for auth check + 4 API calls to complete before asserting
+- assertVisible:
+    text: "Tổng quan"
+    timeout: 8000
 - waitForAnimationToEnd
 - takeScreenshot: 07_dashboard
 
@@ -13,3 +17,5 @@ tags:
 - assertNotVisible: "null"
 - assertNotVisible: "Exception"
 - assertNotVisible: "Lỗi tải dữ liệu"
+# Dashboard must show stats section
+- assertVisible: "Tổng hồ sơ"
