@@ -160,10 +160,9 @@ export class IncidentsController {
     }, req.dataScope);
   }
 
-  // PATCH /api/v1/incidents/:id/assign — Phân công điều tra viên (dispatcher or owner)
+  // PATCH /api/v1/incidents/:id/assign — Phân công điều tra viên (dispatcher only)
   @Patch(':id/assign')
   @UseGuards(DispatchGuard)
-  @RequirePermissions({ action: 'edit', subject: 'Incident' })
   assignInvestigator(
     @Param('id') id: string,
     @Body() dto: AssignInvestigatorDto,

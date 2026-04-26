@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.0.0] - 2026-04-26
+
+### Added
+- **Dispatcher Permission Group (`canDispatch`)**: Điều tra viên OFFICER có `canDispatch=true` có thể xem và phân công vụ việc/vụ án/đơn thư của mọi tổ. `DispatchGuard` + `DataScope` bypass đảm bảo quyền truy cập xuyên tổ an toàn. JWT invalidation tức thì khi toggle `canDispatch`.
+- **Assign endpoints**: `PATCH /cases/:id/assign`, `PATCH /incidents/:id/assign`, `PATCH /petitions/:id/assign` — cho phép dispatcher phân công đội/điều tra viên mà không cần thuộc tổ đó.
+- **Frontend Assign UI**: `AssignModal` component + assign buttons trên Cases/Incidents/Petitions list pages. Admin toggle bật/tắt `canDispatch` trên User Management page.
+- **Docker Compose full-stack**: `docker-compose.yml` với 3 services (`db` PostgreSQL 16, `backend` NestJS, `frontend` nginx). Multi-stage Dockerfiles, `docker-entrypoint.sh` chạy migrate → seed → start. Nginx reverse proxy `/api/*` → backend.
+- **Mobile production build script**: `build_mobile_prod.bat` — build APK release với `--dart-define=API_BASE_URL=http://<SERVER>/api/v1`.
+- **Audit before/after state**: `AuditService.wrapUpdate()` helper + áp dụng cho 11 services — UPDATE log ghi lại state trước và sau thay đổi.
+- **GitHub Actions CI**: `.github/workflows/ci.yml` chạy 628 backend unit tests trên mỗi push/PR.
+- **UAT SDLC artifacts + Optimistic locking**: Checklist UAT đầy đủ + `version` field optimistic locking trên 10 mutation endpoints để ngăn concurrent write conflict.
+
+### Fixed
+- **FINDING-013 Security**: Enforce `DataAccessGrant.accessLevel` write-scope trên tất cả mutation paths — loại bỏ leo thang quyền.
+- **Incidents assign**: CUID validation (`@IsString()` thay `@IsUUID('4')`) + `investigatorId` optional (cho phép assign team trước, điều tra viên sau).
+- **Cases/Petitions assign DTOs**: Tương tự — CUID validation fix cho `assignedTeamId`, `assignedToId`, `investigatorId`.
+
 ## [0.8.0.0] - 2026-04-25
 
 ### Added
