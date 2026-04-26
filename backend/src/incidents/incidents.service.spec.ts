@@ -97,6 +97,12 @@ const mockPrisma = {
     findUnique: jest.fn(),
     findMany: jest.fn(),
   },
+  team: {
+    findFirst: jest.fn(),
+  },
+  userTeam: {
+    findFirst: jest.fn(),
+  },
   case: {
     create: jest.fn(),
   },
@@ -1089,6 +1095,32 @@ describe('IncidentsService', () => {
       await expect(
         service.assignInvestigator('nonexistent', { investigatorId: 'user-inv' }, 'actor-001'),
       ).rejects.toThrow(NotFoundException);
+    });
+
+    it('allows dispatcher (canDispatch=true) to assign incident outside own scope', async () => {
+      const outsideScope = { assignedTeamId: 'other-team', investigatorId: 'other-user' };
+      mockPrisma.incident.findFirst.mockResolvedValue({ ...mockIncident, ...outsideScope });
+      mockPrisma.user.findUnique.mockResolvedValue({ id: 'user-inv', firstName: 'X', lastName: 'Y' });
+      mockPrisma.incident.update.mockResolvedValue({ ...mockIncident, investigatorId: 'user-inv' });
+
+      const dispatcherScope = { teamIds: ['own-team'], userIds: ['actor-001'], writableTeamIds: ['own-team'], canDispatch: true };
+
+      await expect(
+        service.assignInvestigator('inc-001', { investigatorId: 'user-inv' }, 'actor-001', {}, dispatcherScope),
+      ).resolves.toMatchObject({ success: true });
+    });
+
+    it('throws BadRequestException when assignedTeamId provided but investigator not in team', async () => {
+      mockPrisma.incident.findFirst.mockResolvedValue({ ...mockIncident, assignedTeamId: null });
+      mockPrisma.user.findUnique.mockResolvedValue({ id: 'user-inv', firstName: 'X', lastName: 'Y' });
+      mockPrisma.team.findFirst.mockResolvedValue({ id: 'team-b', isActive: true });
+      mockPrisma.userTeam.findFirst.mockResolvedValue(null);
+
+      const dispatcherScope = { teamIds: ['own-team'], userIds: ['actor-001'], writableTeamIds: ['own-team'], canDispatch: true };
+
+      await expect(
+        service.assignInvestigator('inc-001', { investigatorId: 'user-inv', assignedTeamId: 'team-b' }, 'actor-001', {}, dispatcherScope),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 

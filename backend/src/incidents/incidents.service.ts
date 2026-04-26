@@ -182,6 +182,7 @@ export class IncidentsService {
     dataScope?: DataScope | null,
   ) {
     if (!dataScope) return;
+    if (dataScope.canDispatch) return; // dispatcher: full read access
     const { userIds, teamIds } = dataScope;
     const ownerMatch = record.investigatorId && userIds.includes(record.investigatorId);
     const teamMatch = record.assignedTeamId && teamIds.includes(record.assignedTeamId);
@@ -416,7 +417,7 @@ export class IncidentsService {
       action: 'INCIDENT_UPDATED',
       subject: 'Incident',
       subjectId: id,
-      metadata: { changes: dto },
+      metadata: { before: { status: existing.status, name: existing.name, investigatorId: existing.investigatorId, assignedTeamId: existing.assignedTeamId }, after: dto },
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
     });
@@ -862,7 +863,9 @@ export class IncidentsService {
       where: { id, deletedAt: null },
     });
     if (!existing) throw new NotFoundException(`Vụ việc không tồn tại (id: ${id})`);
-    this.checkWriteScope(existing, dataScope);
+    if (!dataScope?.canDispatch) {
+      this.checkWriteScope(existing, dataScope);
+    }
 
     if (TERMINAL_STATUSES.includes(existing.status)) {
       throw new BadRequestException(
@@ -877,6 +880,17 @@ export class IncidentsService {
       throw new BadRequestException(`Điều tra viên không tồn tại (id: ${dto.investigatorId})`);
     }
 
+    if (dto.assignedTeamId) {
+      const teamExists = await this.prisma.team.findFirst({
+        where: { id: dto.assignedTeamId, isActive: true },
+      });
+      if (!teamExists) throw new BadRequestException(`Tổ điều tra không tồn tại hoặc đã ngừng hoạt động (id: ${dto.assignedTeamId})`);
+      const member = await this.prisma.userTeam.findFirst({
+        where: { userId: dto.investigatorId, teamId: dto.assignedTeamId },
+      });
+      if (!member) throw new BadRequestException('Điều tra viên không thuộc tổ được chỉ định');
+    }
+
     let record;
     try {
       record = await this.prisma.incident.update({
@@ -885,6 +899,7 @@ export class IncidentsService {
           ...(dto.expectedUpdatedAt ? { updatedAt: new Date(dto.expectedUpdatedAt) } : {}),
         },
         data: {
+          ...(dto.assignedTeamId ? { assignedTeamId: dto.assignedTeamId } : {}),
           investigatorId: dto.investigatorId,
           deadline: dto.deadline ? new Date(dto.deadline) : existing.deadline,
           status: IncidentStatus.DANG_XAC_MINH,
@@ -910,8 +925,12 @@ export class IncidentsService {
       subject: 'Incident',
       subjectId: id,
       metadata: {
-        investigatorId: dto.investigatorId,
+        fromTeamId: existing.assignedTeamId ?? null,
+        toTeamId: dto.assignedTeamId ?? existing.assignedTeamId ?? null,
+        fromInvestigatorId: existing.investigatorId ?? null,
+        toInvestigatorId: dto.investigatorId,
         investigatorName: `${investigator.firstName ?? ''} ${investigator.lastName ?? ''}`.trim(),
+        dispatchedBy: actorId,
       },
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
