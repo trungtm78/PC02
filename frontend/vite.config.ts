@@ -2,9 +2,15 @@ import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import path from 'path'
+import fs from 'fs'
+
+const appVersion = fs.readFileSync(path.resolve(__dirname, '../VERSION'), 'utf-8').trim()
 
 // https://vite.dev/config/
 export default defineConfig({
+  define: {
+    __APP_VERSION__: JSON.stringify(appVersion),
+  },
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {

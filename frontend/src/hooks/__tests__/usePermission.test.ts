@@ -107,6 +107,38 @@ describe('usePermission', () => {
     });
   });
 
+  describe('canDispatch', () => {
+    it('should return true when user has canDispatch flag set', () => {
+      vi.mocked(authStore.getUser).mockReturnValue({ email: 'user@test.com', role: 'investigator', canDispatch: true });
+      const { result } = renderHook(() => usePermission());
+      expect(result.current.canDispatch).toBe(true);
+    });
+
+    it('should return true for ADMIN role (uppercase from JWT)', () => {
+      vi.mocked(authStore.getUser).mockReturnValue({ email: 'admin@test.com', role: 'ADMIN' });
+      const { result } = renderHook(() => usePermission());
+      expect(result.current.canDispatch).toBe(true);
+    });
+
+    it('should return true for admin role (lowercase)', () => {
+      vi.mocked(authStore.getUser).mockReturnValue({ email: 'admin@test.com', role: 'admin' });
+      const { result } = renderHook(() => usePermission());
+      expect(result.current.canDispatch).toBe(true);
+    });
+
+    it('should return false for non-admin without canDispatch flag', () => {
+      vi.mocked(authStore.getUser).mockReturnValue({ email: 'user@test.com', role: 'investigator', canDispatch: false });
+      const { result } = renderHook(() => usePermission());
+      expect(result.current.canDispatch).toBe(false);
+    });
+
+    it('should return false when user is not authenticated', () => {
+      vi.mocked(authStore.getUser).mockReturnValue(null);
+      const { result } = renderHook(() => usePermission());
+      expect(result.current.canDispatch).toBe(false);
+    });
+  });
+
   describe('userRole', () => {
     it('should return user role', () => {
       vi.mocked(authStore.getUser).mockReturnValue({ email: 'user@test.com', role: 'investigator' });
