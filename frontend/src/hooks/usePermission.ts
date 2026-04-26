@@ -102,12 +102,15 @@ export function usePermission() {
     [hasPermission]
   );
 
+  const canDispatch = user?.canDispatch === true || user?.role === 'admin';
+
   return {
     hasPermission,
     canCreate,
     canEdit,
     canDelete,
     canView,
+    canDispatch,
     userRole: user?.role || null,
   };
 }

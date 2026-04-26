@@ -11,6 +11,7 @@ export interface JwtPayload {
   email: string;
   role: string;
   tokenVersion?: number; // absent in tokens issued before v0.5.4.0 — treated as 0
+  canDispatch?: boolean;
   type?: string; // 'refresh' for refresh tokens
   iat?: number;
   exp?: number;
@@ -62,6 +63,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       username: user.username,
       role: user.role.name,
       roleId: user.roleId,
+      canDispatch: user.canDispatch,
     };
   }
 }

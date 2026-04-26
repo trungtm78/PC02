@@ -96,7 +96,8 @@ export class ConclusionsService {
   }
 
   async update(id: string, dto: Partial<CreateConclusionDto>, actorId: string, meta?: { ipAddress?: string; userAgent?: string }, dataScope?: DataScope | null) {
-    await this.getById(id, dataScope);
+    const { data: existing } = await this.getById(id, dataScope);
+    assertParentInScope(existing.case, dataScope, 'write');
 
     const record = await this.prisma.conclusion.update({
       where: { id },
@@ -118,7 +119,7 @@ export class ConclusionsService {
       action: 'CONCLUSION_UPDATED',
       subject: 'Conclusion',
       subjectId: id,
-      metadata: { changes: dto },
+      metadata: { before: { type: existing.type, status: existing.status }, after: dto },
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
     });
@@ -127,7 +128,8 @@ export class ConclusionsService {
   }
 
   async delete(id: string, actorId: string, meta?: { ipAddress?: string; userAgent?: string }, dataScope?: DataScope | null) {
-    await this.getById(id, dataScope);
+    const { data: existing } = await this.getById(id, dataScope);
+    assertParentInScope(existing.case, dataScope, 'write');
 
     await this.prisma.conclusion.update({ where: { id }, data: { deletedAt: new Date() } });
 

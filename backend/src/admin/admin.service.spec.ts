@@ -374,6 +374,46 @@ describe('AdminService', () => {
         }),
       );
     });
+
+    it('sets canDispatch and increments tokenVersion in same update (JWT invalidation)', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(existingUser);
+      mockPrisma.user.findFirst.mockResolvedValue(null);
+      mockPrisma.user.update.mockResolvedValue({
+        id: 'u1',
+        username: 'existing',
+        role: { id: 'r1', name: 'Admin' },
+      });
+
+      await service.updateUser('u1', { canDispatch: true }, 'req');
+      expect(mockPrisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            canDispatch: true,
+            tokenVersion: { increment: 1 },
+          }),
+        }),
+      );
+    });
+
+    it('clears canDispatch and increments tokenVersion when revoked', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(existingUser);
+      mockPrisma.user.findFirst.mockResolvedValue(null);
+      mockPrisma.user.update.mockResolvedValue({
+        id: 'u1',
+        username: 'existing',
+        role: { id: 'r1', name: 'Admin' },
+      });
+
+      await service.updateUser('u1', { canDispatch: false }, 'req');
+      expect(mockPrisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            canDispatch: false,
+            tokenVersion: { increment: 1 },
+          }),
+        }),
+      );
+    });
   });
 
   // ── getRoles ──────────────────────────────────────────────────────────────

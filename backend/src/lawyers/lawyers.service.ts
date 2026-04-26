@@ -198,6 +198,7 @@ export class LawyersService {
     dataScope?: DataScope | null,
   ) {
     const { data: existing } = await this.getById(id, dataScope);
+    assertParentInScope(existing.case, dataScope, 'write');
 
     // Check duplicate barNumber (exclude self)
     if (dto.barNumber && dto.barNumber !== existing.barNumber) {
@@ -259,7 +260,7 @@ export class LawyersService {
       action: 'LAWYER_UPDATED',
       subject: 'Lawyer',
       subjectId: id,
-      metadata: { changes: dto },
+      metadata: { before: { fullName: existing.fullName, barNumber: existing.barNumber, caseId: existing.caseId }, after: dto },
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
     });
@@ -281,6 +282,7 @@ export class LawyersService {
     dataScope?: DataScope | null,
   ) {
     const { data: existing } = await this.getById(id, dataScope);
+    assertParentInScope(existing.case, dataScope, 'write');
 
     await this.prisma.lawyer.update({
       where: { id },

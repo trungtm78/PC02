@@ -213,6 +213,11 @@ export class AdminService {
       data.refreshTokenHash = null; // force re-login
     }
 
+    if (dto.canDispatch !== undefined) {
+      data.canDispatch = dto.canDispatch;
+      data.tokenVersion = { increment: 1 }; // invalidate existing JWT immediately
+    }
+
     const updated = await this.prisma.user.update({
       where: { id },
       data,

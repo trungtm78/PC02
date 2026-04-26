@@ -152,7 +152,8 @@ export class ExchangesService {
   }
 
   async update(id: string, dto: Partial<CreateExchangeDto>, actorId: string, meta?: { ipAddress?: string; userAgent?: string }, dataScope?: DataScope | null) {
-    await this.getById(id, dataScope);
+    const { data: existing } = await this.getById(id, dataScope);
+    assertCreatorInScope(existing.createdById, dataScope, 'write');
 
     const record = await this.prisma.exchange.update({
       where: { id },
@@ -163,11 +164,22 @@ export class ExchangesService {
       },
     });
 
+    await this.audit.log({
+      userId: actorId,
+      action: 'EXCHANGE_UPDATED',
+      subject: 'Exchange',
+      subjectId: id,
+      metadata: { before: { status: existing.status, subject: existing.subject, receiverUnit: existing.receiverUnit }, after: dto },
+      ipAddress: meta?.ipAddress,
+      userAgent: meta?.userAgent,
+    });
+
     return { success: true, data: record, message: 'Cập nhật trao đổi thành công' };
   }
 
   async delete(id: string, actorId: string, meta?: { ipAddress?: string; userAgent?: string }, dataScope?: DataScope | null) {
-    await this.getById(id, dataScope);
+    const { data: existing } = await this.getById(id, dataScope);
+    assertCreatorInScope(existing.createdById, dataScope, 'write');
 
     await this.prisma.exchange.update({ where: { id }, data: { deletedAt: new Date() } });
 

@@ -30,6 +30,8 @@ import {
   Building2,
   AlertTriangle,
 } from "lucide-react";
+import { usePermission } from "@/hooks/usePermission";
+import { AssignModal } from "@/components/AssignModal";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -47,7 +49,10 @@ interface Petition {
   priority?: string;
   linkedCaseId?: string;
   linkedIncidentId?: string;
+  assignedTeamId?: string | null;
+  assignedToId?: string | null;
   createdAt: string;
+  updatedAt?: string;
 }
 
 type PetitionStatusLabel =
@@ -102,6 +107,7 @@ function formatDate(dateStr?: string): string {
 
 export function PetitionListPage() {
   const navigate = useNavigate();
+  const { canDispatch } = usePermission();
   const [petitions, setPetitions] = useState<Petition[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [quickSearch, setQuickSearch] = useState("");
@@ -111,6 +117,7 @@ export function PetitionListPage() {
   const [showConvertToCaseModal, setShowConvertToCaseModal] = useState(false);
   const [showGuideModal, setShowGuideModal] = useState(false);
   const [showArchiveModal, setShowArchiveModal] = useState(false);
+  const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedPetition, setSelectedPetition] = useState<Petition | null>(null);
 
   const [advancedFilters, setAdvancedFilters] = useState({
@@ -186,6 +193,9 @@ export function PetitionListPage() {
       setShowActionMenu(null);
 
       switch (action) {
+        case "assign":
+          setShowAssignModal(true);
+          break;
         case "convert-incident":
           setShowConvertToIncidentModal(true);
           break;
@@ -584,6 +594,16 @@ export function PetitionListPage() {
                                 className="absolute right-0 top-full mt-1 w-56 bg-white border border-slate-200 rounded-lg shadow-lg z-10"
                                 onClick={(e) => e.stopPropagation()}
                               >
+                                {canDispatch && (
+                                  <button
+                                    onClick={() => handleActionClick(petition, "assign")}
+                                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left"
+                                    data-testid="btn-assign"
+                                  >
+                                    <User className="w-4 h-4 text-blue-600" />
+                                    {petition.assignedTeamId ? 'Phân công lại' : 'Phân công'}
+                                  </button>
+                                )}
                                 <button
                                   onClick={() => handleActionClick(petition, "convert-incident")}
                                   className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left"
@@ -650,6 +670,18 @@ export function PetitionListPage() {
       </div>
 
       {/* Modals */}
+      {showAssignModal && selectedPetition && (
+        <AssignModal
+          open={showAssignModal}
+          onClose={() => setShowAssignModal(false)}
+          resourceType="petitions"
+          recordId={selectedPetition.id}
+          currentUpdatedAt={selectedPetition.updatedAt}
+          currentTeamId={selectedPetition.assignedTeamId}
+          currentInvestigatorId={selectedPetition.assignedToId}
+          onSuccess={() => { void fetchPetitions(); }}
+        />
+      )}
       {showConvertToIncidentModal && selectedPetition && (
         <ConvertToIncidentModal
           petition={selectedPetition}

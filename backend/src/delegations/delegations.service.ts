@@ -119,7 +119,12 @@ export class DelegationsService {
   }
 
   async update(id: string, dto: Partial<CreateDelegationDto>, actorId: string, meta?: { ipAddress?: string; userAgent?: string }, dataScope?: DataScope | null) {
-    await this.getById(id, dataScope);
+    const { data: existing } = await this.getById(id, dataScope);
+    if (existing.relatedCase) {
+      assertParentInScope(existing.relatedCase, dataScope, 'write');
+    } else {
+      assertCreatorInScope(existing.createdById, dataScope, 'write');
+    }
 
     const record = await this.prisma.delegation.update({
       where: { id },
@@ -137,7 +142,7 @@ export class DelegationsService {
       action: 'DELEGATION_UPDATED',
       subject: 'Delegation',
       subjectId: id,
-      metadata: { changes: dto },
+      metadata: { before: { status: existing.status, receivingUnit: existing.receivingUnit }, after: dto },
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
     });
@@ -147,6 +152,11 @@ export class DelegationsService {
 
   async delete(id: string, actorId: string, meta?: { ipAddress?: string; userAgent?: string }, dataScope?: DataScope | null) {
     const { data: existing } = await this.getById(id, dataScope);
+    if (existing.relatedCase) {
+      assertParentInScope(existing.relatedCase, dataScope, 'write');
+    } else {
+      assertCreatorInScope(existing.createdById, dataScope, 'write');
+    }
 
     await this.prisma.delegation.update({ where: { id }, data: { deletedAt: new Date() } });
 

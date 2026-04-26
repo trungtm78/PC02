@@ -1,4 +1,4 @@
-import { IsEnum, IsOptional, IsString } from 'class-validator';
+import { IsEnum, IsOptional, IsString, IsDateString } from 'class-validator';
 import { IncidentStatus, LyDoKhongKhoiTo } from '@prisma/client';
 
 export class UpdateStatusDto {
@@ -15,4 +15,8 @@ export class UpdateStatusDto {
     message: 'lyDoKhongKhoiTo phải là một trong 7 căn cứ theo Điều 157 BLTTHS 2015',
   })
   lyDoKhongKhoiTo?: LyDoKhongKhoiTo;
+
+  @IsOptional()
+  @IsDateString({}, { message: 'expectedUpdatedAt không đúng định dạng ISO 8601' })
+  expectedUpdatedAt?: string;
 }

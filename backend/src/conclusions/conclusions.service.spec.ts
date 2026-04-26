@@ -37,12 +37,12 @@ describe('ConclusionsService — scope enforcement', () => {
 
   it('throws ForbiddenException when parent case is out of scope', async () => {
     mockPrisma.conclusion.findFirst.mockResolvedValue({ ...FAKE_CONCLUSION, case: { assignedTeamId: 'team-X', investigatorId: 'user-X' } });
-    await expect(service.getById('con-001', { userIds: ['u1'], teamIds: ['t1'] })).rejects.toThrow(ForbiddenException);
+    await expect(service.getById('con-001', { userIds: ['u1'], teamIds: ['t1'], writableTeamIds: ['t1'] })).rejects.toThrow(ForbiddenException);
   });
 
   it('passes when parent case team matches scope', async () => {
     mockPrisma.conclusion.findFirst.mockResolvedValue(FAKE_CONCLUSION);
-    const result = await service.getById('con-001', { userIds: [], teamIds: ['t1'] });
+    const result = await service.getById('con-001', { userIds: [], teamIds: ['t1'], writableTeamIds: ['t1'] });
     expect(result.success).toBe(true);
   });
 

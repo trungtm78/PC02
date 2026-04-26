@@ -27,7 +27,7 @@ describe('DataScopeInterceptor', () => {
     (mockUnitScope.resolveScope as jest.Mock).mockResolvedValue(FAKE_SCOPE);
     const ctx = makeCtx({ id: 'u1', role: 'OFFICER' });
     await interceptor.intercept(ctx, mockHandler);
-    expect(mockUnitScope.resolveScope).toHaveBeenCalledWith('u1', 'OFFICER');
+    expect(mockUnitScope.resolveScope).toHaveBeenCalledWith('u1', 'OFFICER', false);
     expect(ctx._request.dataScope).toEqual(FAKE_SCOPE);
   });
 
@@ -50,5 +50,13 @@ describe('DataScopeInterceptor', () => {
     const ctx = makeCtx({ id: 'admin-1', role: 'ADMIN' });
     await interceptor.intercept(ctx, mockHandler);
     expect(ctx._request.dataScope).toBeNull();
+  });
+
+  it('forwards canDispatch=true to resolveScope when user has canDispatch flag', async () => {
+    (mockUnitScope.resolveScope as jest.Mock).mockResolvedValue({ ...FAKE_SCOPE, canDispatch: true });
+    const ctx = makeCtx({ id: 'u2', role: 'OFFICER', canDispatch: true });
+    await interceptor.intercept(ctx, mockHandler);
+    expect(mockUnitScope.resolveScope).toHaveBeenCalledWith('u2', 'OFFICER', true);
+    expect((ctx._request.dataScope as any).canDispatch).toBe(true);
   });
 });

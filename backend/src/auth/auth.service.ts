@@ -92,6 +92,7 @@ export class AuthService {
       user.email,
       user.role.name,
       user.tokenVersion,
+      user.canDispatch,
     );
 
     // Store hashed refresh token for rotation
@@ -163,6 +164,7 @@ export class AuthService {
       user.email,
       user.role.name,
       user.tokenVersion,
+      user.canDispatch,
     );
 
     // Rotate: store new refresh token hash
@@ -237,6 +239,7 @@ export class AuthService {
     email: string,
     role: string,
     tokenVersion: number,
+    canDispatch = false,
   ): Promise<TokenPair> {
     const accessExpiry = this.configService.get<string>(
       'JWT_ACCESS_TOKEN_EXPIRES_IN',
@@ -252,6 +255,7 @@ export class AuthService {
       email,
       role,
       tokenVersion,
+      canDispatch,
     };
 
     const [accessToken, refreshToken] = await Promise.all([

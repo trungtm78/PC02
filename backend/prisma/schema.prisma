@@ -70,6 +70,7 @@ model User {
   roleId           String
   refreshTokenHash String?    // hashed refresh token for rotation
   tokenVersion     Int        @default(0) // incremented on password change to invalidate existing JWTs
+  canDispatch      Boolean    @default(false) // supplementary permission: read all + assign/reassign any record
   lastLoginAt      DateTime?
   // 2FA fields
   totpSecret           String?   // AES-256-GCM encrypted base32 secret

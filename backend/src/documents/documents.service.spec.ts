@@ -189,7 +189,7 @@ describe('DocumentsService', () => {
         case: { assignedTeamId: 'team-X', investigatorId: 'user-X' },
         incident: null,
       });
-      const scope = { userIds: ['u1'], teamIds: ['t1'] };
+      const scope = { userIds: ['u1'], teamIds: ['t1'], writableTeamIds: ['t1'] };
       await expect(service.getById('doc-1', scope)).rejects.toThrow('Bạn không có quyền truy cập bản ghi này');
     });
 
@@ -199,7 +199,7 @@ describe('DocumentsService', () => {
         case: null,
         incident: { assignedTeamId: 't1', investigatorId: null },
       });
-      const scope = { userIds: [], teamIds: ['t1'] };
+      const scope = { userIds: [], teamIds: ['t1'], writableTeamIds: ['t1'] };
       const result = await service.getById('doc-1', scope);
       expect(result.success).toBe(true);
     });

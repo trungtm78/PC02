@@ -51,6 +51,7 @@ export function PetitionFormPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(isEditMode);
   const [userOptions, setUserOptions] = useState<UserOption[]>([]);
+  const [recordUpdatedAt, setRecordUpdatedAt] = useState<string | null>(null);
 
   // Load users for FKSelect
   useEffect(() => {
@@ -90,6 +91,7 @@ export function PetitionFormPage() {
           assignedToId: d.assignedToId ? String(d.assignedToId) : "",
           notes: (d.notes as string) ?? "",
         });
+        setRecordUpdatedAt((d.updatedAt as string) ?? null);
       })
       .catch(() => setErrors(["Không thể tải dữ liệu đơn thư. Vui lòng thử lại."]))
       .finally(() => setIsLoadingData(false));
@@ -146,16 +148,22 @@ export function PetitionFormPage() {
         notes: formData.notes || undefined,
       };
       if (isEditMode) {
-        await api.put(`/petitions/${id}`, payload);
+        await api.put(`/petitions/${id}`, { ...payload, expectedUpdatedAt: recordUpdatedAt ?? undefined });
       } else {
         await api.post("/petitions", payload);
       }
       navigate("/petitions");
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string | string[] } } })?.response?.data?.message;
-      if (Array.isArray(msg)) setErrors(msg);
-      else if (typeof msg === "string") setErrors([msg]);
-      else setErrors(["Có lỗi xảy ra khi lưu đơn thư. Vui lòng thử lại."]);
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 409) {
+        setErrors(["Đơn thư đã được chỉnh sửa bởi người dùng khác. Vui lòng tải lại trang để xem phiên bản mới nhất trước khi chỉnh sửa."]);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      } else {
+        const msg = (err as { response?: { data?: { message?: string | string[] } } })?.response?.data?.message;
+        if (Array.isArray(msg)) setErrors(msg);
+        else if (typeof msg === "string") setErrors([msg]);
+        else setErrors(["Có lỗi xảy ra khi lưu đơn thư. Vui lòng thử lại."]);
+      }
     } finally {
       setIsSubmitting(false);
     }

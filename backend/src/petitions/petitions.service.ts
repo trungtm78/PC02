@@ -12,7 +12,8 @@ import { UpdatePetitionDto } from './dto/update-petition.dto';
 import { QueryPetitionsDto } from './dto/query-petitions.dto';
 import { ConvertToIncidentDto } from './dto/convert-incident.dto';
 import { ConvertToCaseDto } from './dto/convert-case.dto';
-import { Prisma, LoaiDon, PetitionStatus } from '@prisma/client';
+import { AssignPetitionDto } from './dto/assign-petition.dto';
+import { Prisma, LoaiDon } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { buildPetitionScopeFilter } from '../common/utils/scope-filter.util';
 import { SettingsService } from '../settings/settings.service';
@@ -185,12 +186,27 @@ export class PetitionsService {
     dataScope?: DataScope | null,
   ) {
     if (!dataScope) return;
+    if (dataScope.canDispatch) return; // dispatcher: full read access
     const { userIds, teamIds } = dataScope;
     const ownerMatch = record.enteredById && userIds.includes(record.enteredById);
     const teamMatch = record.assignedTeamId && teamIds.includes(record.assignedTeamId);
     const unassignedMatch = !record.assignedTeamId && teamIds.length > 0;
     if (!ownerMatch && !teamMatch && !unassignedMatch) {
       throw new ForbiddenException('Bạn không có quyền truy cập bản ghi này');
+    }
+  }
+
+  private checkWriteScope(
+    record: { enteredById?: string | null; assignedTeamId?: string | null },
+    dataScope?: DataScope | null,
+  ) {
+    if (!dataScope) return;
+    const { userIds, writableTeamIds } = dataScope;
+    const ownerMatch = record.enteredById && userIds.includes(record.enteredById);
+    const teamMatch = record.assignedTeamId && writableTeamIds.includes(record.assignedTeamId);
+    const unassignedMatch = !record.assignedTeamId && writableTeamIds.length > 0;
+    if (!ownerMatch && !teamMatch && !unassignedMatch) {
+      throw new ForbiddenException('Bạn không có quyền chỉnh sửa bản ghi này');
     }
   }
 
@@ -357,6 +373,7 @@ export class PetitionsService {
     dto: UpdatePetitionDto,
     actorId: string,
     meta?: { ipAddress?: string; userAgent?: string },
+    dataScope?: DataScope | null,
   ) {
     const existing = await this.prisma.petition.findFirst({
       where: { id, deletedAt: null },
@@ -364,6 +381,8 @@ export class PetitionsService {
     if (!existing) {
       throw new NotFoundException(`Đơn thư không tồn tại (id: ${id})`);
     }
+
+    this.checkWriteScope(existing, dataScope);
 
     // Validate receivedDate if updating
     if (dto.receivedDate) {
@@ -387,10 +406,15 @@ export class PetitionsService {
       }
     }
 
-    const record = await this.prisma.petition.update({
-      where: { id },
-      data: {
-        ...(dto.stt !== undefined && { stt: dto.stt }),
+    let record;
+    try {
+      record = await this.prisma.petition.update({
+        where: {
+          id,
+          ...(dto.expectedUpdatedAt ? { updatedAt: new Date(dto.expectedUpdatedAt) } : {}),
+        },
+        data: {
+          ...(dto.stt !== undefined && { stt: dto.stt }),
         ...(dto.receivedDate !== undefined && {
           receivedDate: new Date(dto.receivedDate),
         }),
@@ -439,13 +463,21 @@ export class PetitionsService {
         },
       },
     });
+    } catch (e) {
+      if ((e as { code?: string })?.code === 'P2025' && dto.expectedUpdatedAt) {
+        throw new ConflictException(
+          'Đơn thư đã được chỉnh sửa bởi người dùng khác. Vui lòng tải lại trang và thử lại.',
+        );
+      }
+      throw e;
+    }
 
     await this.audit.log({
       userId: actorId,
       action: 'PETITION_UPDATED',
       subject: 'Petition',
       subjectId: id,
-      metadata: { changes: dto },
+      metadata: { before: { status: existing.status, senderName: existing.senderName, assignedTeamId: existing.assignedTeamId, assignedToId: existing.assignedToId }, after: dto },
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
     });
@@ -464,6 +496,7 @@ export class PetitionsService {
     id: string,
     actorId: string,
     meta?: { ipAddress?: string; userAgent?: string },
+    dataScope?: DataScope | null,
   ) {
     const existing = await this.prisma.petition.findFirst({
       where: { id, deletedAt: null },
@@ -471,6 +504,8 @@ export class PetitionsService {
     if (!existing) {
       throw new NotFoundException(`Đơn thư không tồn tại (id: ${id})`);
     }
+
+    this.checkWriteScope(existing, dataScope);
 
     await this.prisma.petition.update({
       where: { id },
@@ -498,6 +533,7 @@ export class PetitionsService {
     dto: ConvertToIncidentDto,
     actorId: string,
     meta?: { ipAddress?: string; userAgent?: string },
+    dataScope?: DataScope | null,
   ) {
     const petition = await this.prisma.petition.findFirst({
       where: { id: petitionId, deletedAt: null },
@@ -506,6 +542,8 @@ export class PetitionsService {
     if (!petition) {
       throw new NotFoundException(`Đơn thư không tồn tại (id: ${petitionId})`);
     }
+
+    this.checkWriteScope(petition, dataScope);
 
     // Prevent re-conversion if already converted
     if (petition.linkedIncidentId) {
@@ -547,13 +585,25 @@ export class PetitionsService {
     ]);
 
     // Update petition: link + update status
-    await this.prisma.petition.update({
-      where: { id: petitionId },
-      data: {
-        linkedIncidentId: incident.id,
-        status: PetitionStatus.DA_CHUYEN_VU_VIEC,
-      },
-    });
+    try {
+      await this.prisma.petition.update({
+        where: {
+          id: petitionId,
+          ...(dto.expectedUpdatedAt ? { updatedAt: new Date(dto.expectedUpdatedAt) } : {}),
+        },
+        data: {
+          linkedIncidentId: incident.id,
+          status: PetitionStatus.DA_CHUYEN_VU_VIEC,
+        },
+      });
+    } catch (e) {
+      if ((e as { code?: string })?.code === 'P2025' && dto.expectedUpdatedAt) {
+        throw new ConflictException(
+          'Đơn thư đã được chỉnh sửa bởi người dùng khác. Vui lòng tải lại trang và thử lại.',
+        );
+      }
+      throw e;
+    }
 
     await this.audit.log({
       userId: actorId,
@@ -587,6 +637,7 @@ export class PetitionsService {
     dto: ConvertToCaseDto,
     actorId: string,
     meta?: { ipAddress?: string; userAgent?: string },
+    dataScope?: DataScope | null,
   ) {
     const petition = await this.prisma.petition.findFirst({
       where: { id: petitionId, deletedAt: null },
@@ -595,6 +646,8 @@ export class PetitionsService {
     if (!petition) {
       throw new NotFoundException(`Đơn thư không tồn tại (id: ${petitionId})`);
     }
+
+    this.checkWriteScope(petition, dataScope);
 
     // Prevent re-conversion
     if (petition.linkedCaseId) {
@@ -616,7 +669,9 @@ export class PetitionsService {
     }
 
     // Create Case and update Petition atomically in one transaction
-    const [caseRecord] = await this.prisma.$transaction(async (tx) => {
+    let caseRecord;
+    try {
+    [caseRecord] = await this.prisma.$transaction(async (tx) => {
       const newCase = await tx.case.create({
         data: {
           name: dto.caseName,
@@ -627,7 +682,10 @@ export class PetitionsService {
       });
 
       await tx.petition.update({
-        where: { id: petitionId },
+        where: {
+          id: petitionId,
+          ...(dto.expectedUpdatedAt ? { updatedAt: new Date(dto.expectedUpdatedAt) } : {}),
+        },
         data: {
           linkedCaseId: newCase.id,
           status: PetitionStatus.DA_CHUYEN_VU_AN,
@@ -636,6 +694,14 @@ export class PetitionsService {
 
       return [newCase];
     });
+    } catch (e) {
+      if ((e as { code?: string })?.code === 'P2025' && dto.expectedUpdatedAt) {
+        throw new ConflictException(
+          'Đơn thư đã được chỉnh sửa bởi người dùng khác. Vui lòng tải lại trang và thử lại.',
+        );
+      }
+      throw e;
+    }
 
     await this.audit.log({
       userId: actorId,
@@ -660,5 +726,71 @@ export class PetitionsService {
       },
       message: 'Chuyển thành Vụ án thành công',
     };
+  }
+
+  // ─────────────────────────────────────────────
+  // ASSIGN (dispatcher only)
+  // ─────────────────────────────────────────────
+  async assignPetition(
+    id: string,
+    dto: AssignPetitionDto,
+    actorId: string,
+    meta?: { ipAddress?: string; userAgent?: string },
+  ) {
+    const existing = await this.prisma.petition.findFirst({
+      where: { id, deletedAt: null },
+    });
+    if (!existing) throw new NotFoundException(`Đơn thư không tồn tại (id: ${id})`);
+
+    const team = await this.prisma.team.findFirst({
+      where: { id: dto.assignedTeamId, isActive: true },
+    });
+    if (!team) throw new BadRequestException(`Tổ không tồn tại hoặc đã ngừng hoạt động (id: ${dto.assignedTeamId})`);
+
+    if (dto.assignedToId) {
+      const member = await this.prisma.userTeam.findFirst({
+        where: { userId: dto.assignedToId, teamId: dto.assignedTeamId },
+      });
+      if (!member) throw new BadRequestException('Cán bộ xử lý không thuộc tổ được chỉ định');
+    }
+
+    try {
+      await this.prisma.petition.update({
+        where: {
+          id,
+          ...(dto.expectedUpdatedAt ? { updatedAt: dto.expectedUpdatedAt } : {}),
+        },
+        data: {
+          assignedTeamId: dto.assignedTeamId,
+          assignedToId: dto.assignedToId ?? null,
+          ...(dto.deadline ? { deadline: new Date(dto.deadline) } : {}),
+        },
+      });
+    } catch (e) {
+      if ((e as { code?: string })?.code === 'P2025' && dto.expectedUpdatedAt) {
+        throw new ConflictException(
+          'Đơn thư đã được chỉnh sửa bởi người dùng khác. Vui lòng tải lại trang và thử lại.',
+        );
+      }
+      throw e;
+    }
+
+    await this.audit.log({
+      userId: actorId,
+      action: 'PETITION_ASSIGNED',
+      subject: 'Petition',
+      subjectId: id,
+      metadata: {
+        fromTeamId: existing.assignedTeamId ?? null,
+        toTeamId: dto.assignedTeamId,
+        fromAssignedToId: existing.assignedToId ?? null,
+        toAssignedToId: dto.assignedToId ?? null,
+        dispatchedBy: actorId,
+      },
+      ipAddress: meta?.ipAddress,
+      userAgent: meta?.userAgent,
+    });
+
+    return { success: true, message: 'Phân công đơn thư thành công' };
   }
 }

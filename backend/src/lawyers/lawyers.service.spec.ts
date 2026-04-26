@@ -238,7 +238,7 @@ describe('LawyersService', () => {
         ...FAKE_LAWYER,
         case: { assignedTeamId: 'team-X', investigatorId: 'user-X' },
       });
-      const scope = { userIds: ['u1'], teamIds: ['t1'] };
+      const scope = { userIds: ['u1'], teamIds: ['t1'], writableTeamIds: ['t1'] };
       await expect(service.getById('law-001', scope)).rejects.toThrow('Bạn không có quyền truy cập bản ghi này');
     });
 
@@ -247,7 +247,7 @@ describe('LawyersService', () => {
         ...FAKE_LAWYER,
         case: { assignedTeamId: null, investigatorId: 'u1' },
       });
-      const scope = { userIds: ['u1'], teamIds: [] };
+      const scope = { userIds: ['u1'], teamIds: [], writableTeamIds: [] };
       const result = await service.getById('law-001', scope);
       expect(result.success).toBe(true);
     });

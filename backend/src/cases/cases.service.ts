@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ConflictException,
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
@@ -9,6 +10,7 @@ import { AuditService } from '../audit/audit.service';
 import { CreateCaseDto } from './dto/create-case.dto';
 import { UpdateCaseDto } from './dto/update-case.dto';
 import { QueryCasesDto } from './dto/query-cases.dto';
+import { AssignCaseDto } from './dto/assign-case.dto';
 import { Prisma, CaseStatus, PetitionStatus, LoaiDon, CapDoToiPham } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { buildScopeFilter } from '../common/utils/scope-filter.util';
@@ -164,6 +166,7 @@ export class CasesService {
     dataScope?: DataScope | null,
   ) {
     if (!dataScope) return; // admin or no scope = allow
+    if (dataScope.canDispatch) return; // dispatcher: full read access
     const { userIds, teamIds } = dataScope;
 
     const ownerMatch =
@@ -175,6 +178,20 @@ export class CasesService {
 
     if (!ownerMatch && !teamMatch && !unassignedMatch) {
       throw new ForbiddenException('Bạn không có quyền truy cập bản ghi này');
+    }
+  }
+
+  private checkWriteScope(
+    record: { investigatorId?: string | null; assignedTeamId?: string | null },
+    dataScope?: DataScope | null,
+  ) {
+    if (!dataScope) return;
+    const { userIds, writableTeamIds } = dataScope;
+    const ownerMatch = record.investigatorId && userIds.includes(record.investigatorId);
+    const teamMatch = record.assignedTeamId && writableTeamIds.includes(record.assignedTeamId);
+    const unassignedMatch = !record.assignedTeamId && writableTeamIds.length > 0;
+    if (!ownerMatch && !teamMatch && !unassignedMatch) {
+      throw new ForbiddenException('Bạn không có quyền chỉnh sửa bản ghi này');
     }
   }
 
@@ -394,7 +411,7 @@ export class CasesService {
       throw new NotFoundException(`Vụ án không tồn tại (id: ${id})`);
     }
 
-    this.checkRecordInScope(existing, dataScope);
+    this.checkWriteScope(existing, dataScope);
 
     if (dto.investigatorId) {
       const user = await this.prisma.user.findUnique({
@@ -422,15 +439,28 @@ export class CasesService {
       }),
     };
 
-    const record = await this.prisma.case.update({
-      where: { id },
-      data: updateData,
-      include: {
-        investigator: {
-          select: { id: true, firstName: true, lastName: true, username: true },
+    let record;
+    try {
+      record = await this.prisma.case.update({
+        where: {
+          id,
+          ...(dto.expectedUpdatedAt ? { updatedAt: new Date(dto.expectedUpdatedAt) } : {}),
         },
-      },
-    });
+        data: updateData,
+        include: {
+          investigator: {
+            select: { id: true, firstName: true, lastName: true, username: true },
+          },
+        },
+      });
+    } catch (e) {
+      if ((e as { code?: string })?.code === 'P2025' && dto.expectedUpdatedAt) {
+        throw new ConflictException(
+          'Hồ sơ đã được chỉnh sửa bởi người dùng khác. Vui lòng tải lại trang và thử lại.',
+        );
+      }
+      throw e;
+    }
 
     // Sync petitionType with linked Petition
     const updatedMetadata = dto.metadata as Record<string, unknown> | undefined;
@@ -508,7 +538,7 @@ export class CasesService {
       action: 'CASE_UPDATED',
       subject: 'Case',
       subjectId: id,
-      metadata: { changes: dto },
+      metadata: { before: { status: existing.status, name: existing.name, investigatorId: existing.investigatorId, assignedTeamId: existing.assignedTeamId }, after: dto },
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
     });
@@ -533,7 +563,7 @@ export class CasesService {
       throw new NotFoundException(`Vụ án không tồn tại (id: ${id})`);
     }
 
-    this.checkRecordInScope(existing, dataScope);
+    this.checkWriteScope(existing, dataScope);
 
     await this.prisma.case.update({
       where: { id },
@@ -551,6 +581,71 @@ export class CasesService {
     });
 
     return { success: true, message: 'Xóa vụ án thành công' };
+  }
+
+  // ─────────────────────────────────────────────
+  // ASSIGN (dispatcher only)
+  // ─────────────────────────────────────────────
+  async assignCase(
+    id: string,
+    dto: AssignCaseDto,
+    actorId: string,
+    meta?: { ipAddress?: string; userAgent?: string },
+  ) {
+    const existing = await this.prisma.case.findFirst({
+      where: { id, deletedAt: null },
+    });
+    if (!existing) throw new NotFoundException(`Vụ án không tồn tại (id: ${id})`);
+
+    const team = await this.prisma.team.findFirst({
+      where: { id: dto.assignedTeamId, isActive: true },
+    });
+    if (!team) throw new BadRequestException(`Tổ điều tra không tồn tại hoặc đã ngừng hoạt động (id: ${dto.assignedTeamId})`);
+
+    if (dto.investigatorId) {
+      const member = await this.prisma.userTeam.findFirst({
+        where: { userId: dto.investigatorId, teamId: dto.assignedTeamId },
+      });
+      if (!member) throw new BadRequestException('Điều tra viên không thuộc tổ được chỉ định');
+    }
+
+    try {
+      await this.prisma.case.update({
+        where: {
+          id,
+          ...(dto.expectedUpdatedAt ? { updatedAt: dto.expectedUpdatedAt } : {}),
+        },
+        data: {
+          assignedTeamId: dto.assignedTeamId,
+          investigatorId: dto.investigatorId ?? null,
+        },
+      });
+    } catch (e) {
+      if ((e as { code?: string })?.code === 'P2025' && dto.expectedUpdatedAt) {
+        throw new ConflictException(
+          'Vụ án đã được chỉnh sửa bởi người dùng khác. Vui lòng tải lại trang và thử lại.',
+        );
+      }
+      throw e;
+    }
+
+    await this.audit.log({
+      userId: actorId,
+      action: 'CASE_ASSIGNED',
+      subject: 'Case',
+      subjectId: id,
+      metadata: {
+        fromTeamId: existing.assignedTeamId,
+        toTeamId: dto.assignedTeamId,
+        fromInvestigatorId: existing.investigatorId,
+        toInvestigatorId: dto.investigatorId ?? null,
+        dispatchedBy: actorId,
+      },
+      ipAddress: meta?.ipAddress,
+      userAgent: meta?.userAgent,
+    });
+
+    return { success: true, message: 'Phân công vụ án thành công' };
   }
 
   // ─────────────────────────────────────────────

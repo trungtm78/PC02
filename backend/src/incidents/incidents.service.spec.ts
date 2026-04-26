@@ -95,6 +95,13 @@ const mockPrisma = {
   },
   user: {
     findUnique: jest.fn(),
+    findMany: jest.fn(),
+  },
+  team: {
+    findFirst: jest.fn(),
+  },
+  userTeam: {
+    findFirst: jest.fn(),
   },
   case: {
     create: jest.fn(),
@@ -284,7 +291,7 @@ describe('IncidentsService', () => {
 
       await service.getList(
         { limit: 20, offset: 0 },
-        { type: 'unit', unitIds: ['unit-001'], userIds: ['user-001'], teamIds: [] },
+        { userIds: ['user-001'], teamIds: [], writableTeamIds: [] },
       );
 
       expect(mockPrisma.incident.findMany).toHaveBeenCalledWith(
@@ -541,6 +548,42 @@ describe('IncidentsService', () => {
       await expect(
         service.update('inc-001', { investigatorId: 'invalid-user' } as any, 'actor-001'),
       ).rejects.toThrow(BadRequestException);
+    });
+
+    describe('optimistic locking', () => {
+      const stalestamp = '2026-01-01T00:00:00.000Z';
+
+      it('throws ConflictException when P2025 with expectedUpdatedAt (stale version)', async () => {
+        mockPrisma.incident.findFirst.mockResolvedValue(mockIncident);
+        mockPrisma.incident.update.mockRejectedValue({ code: 'P2025' });
+
+        await expect(
+          service.update('inc-001', { name: 'Edited', expectedUpdatedAt: stalestamp } as any, 'actor-001'),
+        ).rejects.toThrow(ConflictException);
+      });
+
+      it('passes updatedAt in where clause when expectedUpdatedAt provided', async () => {
+        mockPrisma.incident.findFirst.mockResolvedValue(mockIncident);
+        mockPrisma.incident.update.mockResolvedValue({ ...mockIncident, name: 'Edited' });
+
+        await service.update('inc-001', { name: 'Edited', expectedUpdatedAt: stalestamp } as any, 'actor-001');
+
+        expect(mockPrisma.incident.update).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: expect.objectContaining({ id: 'inc-001', updatedAt: new Date(stalestamp) }),
+          }),
+        );
+      });
+
+      it('does NOT add updatedAt to where clause when expectedUpdatedAt absent (backward compat)', async () => {
+        mockPrisma.incident.findFirst.mockResolvedValue(mockIncident);
+        mockPrisma.incident.update.mockResolvedValue(mockIncident);
+
+        await service.update('inc-001', { name: 'Edited' } as any, 'actor-001');
+
+        const callArgs = mockPrisma.incident.update.mock.calls[0][0];
+        expect(callArgs.where).not.toHaveProperty('updatedAt');
+      });
     });
   });
 
@@ -978,7 +1021,7 @@ describe('IncidentsService', () => {
     it('should apply data scope filter when provided', async () => {
       mockPrisma.incident.groupBy.mockResolvedValue([]);
 
-      await service.getStats({ type: 'unit', unitIds: ['unit-001'], userIds: ['user-001'], teamIds: [] });
+      await service.getStats({ userIds: ['user-001'], teamIds: [], writableTeamIds: [] });
 
       expect(mockPrisma.incident.groupBy).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -1053,6 +1096,32 @@ describe('IncidentsService', () => {
         service.assignInvestigator('nonexistent', { investigatorId: 'user-inv' }, 'actor-001'),
       ).rejects.toThrow(NotFoundException);
     });
+
+    it('allows dispatcher (canDispatch=true) to assign incident outside own scope', async () => {
+      const outsideScope = { assignedTeamId: 'other-team', investigatorId: 'other-user' };
+      mockPrisma.incident.findFirst.mockResolvedValue({ ...mockIncident, ...outsideScope });
+      mockPrisma.user.findUnique.mockResolvedValue({ id: 'user-inv', firstName: 'X', lastName: 'Y' });
+      mockPrisma.incident.update.mockResolvedValue({ ...mockIncident, investigatorId: 'user-inv' });
+
+      const dispatcherScope = { teamIds: ['own-team'], userIds: ['actor-001'], writableTeamIds: ['own-team'], canDispatch: true };
+
+      await expect(
+        service.assignInvestigator('inc-001', { investigatorId: 'user-inv' }, 'actor-001', {}, dispatcherScope),
+      ).resolves.toMatchObject({ success: true });
+    });
+
+    it('throws BadRequestException when assignedTeamId provided but investigator not in team', async () => {
+      mockPrisma.incident.findFirst.mockResolvedValue({ ...mockIncident, assignedTeamId: null });
+      mockPrisma.user.findUnique.mockResolvedValue({ id: 'user-inv', firstName: 'X', lastName: 'Y' });
+      mockPrisma.team.findFirst.mockResolvedValue({ id: 'team-b', isActive: true });
+      mockPrisma.userTeam.findFirst.mockResolvedValue(null);
+
+      const dispatcherScope = { teamIds: ['own-team'], userIds: ['actor-001'], writableTeamIds: ['own-team'], canDispatch: true };
+
+      await expect(
+        service.assignInvestigator('inc-001', { investigatorId: 'user-inv', assignedTeamId: 'team-b' }, 'actor-001', {}, dispatcherScope),
+      ).rejects.toThrow(BadRequestException);
+    });
   });
 
   // ── prosecute ─────────────────────────────────────────────────────────────
@@ -1076,7 +1145,7 @@ describe('IncidentsService', () => {
 
       const result = await service.prosecute(
         'inc-001',
-        { caseName: 'Vu an moi', crime: 'Hinh su' },
+        { caseName: 'Vu an moi', prosecutionDecision: 'QD-001', crime: 'Hinh su' },
         'actor-001',
       );
 
@@ -1107,7 +1176,7 @@ describe('IncidentsService', () => {
 
       const result = await service.prosecute(
         'inc-001',
-        { caseName: 'Vu an', crime: 'Hinh su' },
+        { caseName: 'Vu an', prosecutionDecision: 'QD-001', crime: 'Hinh su' },
         'actor-001',
       );
 
@@ -1123,7 +1192,7 @@ describe('IncidentsService', () => {
       await expect(
         service.prosecute(
           'inc-001',
-          { caseName: 'Test', crime: 'Test' },
+          { caseName: 'Test', prosecutionDecision: 'QD-001', crime: 'Test' },
           'actor-001',
         ),
       ).rejects.toThrow(BadRequestException);
@@ -1138,7 +1207,7 @@ describe('IncidentsService', () => {
       await expect(
         service.prosecute(
           'inc-001',
-          { caseName: 'Test', crime: 'Test' },
+          { caseName: 'Test', prosecutionDecision: 'QD-001', crime: 'Test' },
           'actor-001',
         ),
       ).rejects.toThrow(BadRequestException);
@@ -1148,7 +1217,7 @@ describe('IncidentsService', () => {
       mockPrisma.incident.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.prosecute('nonexistent', { caseName: 'Test', crime: 'Test' }, 'actor-001'),
+        service.prosecute('nonexistent', { caseName: 'Test', prosecutionDecision: 'QD-001', crime: 'Test' }, 'actor-001'),
       ).rejects.toThrow(NotFoundException);
     });
   });

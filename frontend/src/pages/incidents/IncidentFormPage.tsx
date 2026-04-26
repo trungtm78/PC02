@@ -105,6 +105,7 @@ export function IncidentFormPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [userOptions, setUserOptions] = useState<FKOption[]>([]);
+  const [recordUpdatedAt, setRecordUpdatedAt] = useState<string | null>(null);
 
   // Section expanded states - compute defaults based on mode and status
   const currentPhase = getPhaseForStatus(currentStatus);
@@ -165,6 +166,7 @@ export function IncidentFormPage() {
             tinhTrangThoiHieu: (d.tinhTrangThoiHieu as string) ?? "",
             tinhTrangHoSo: (d.tinhTrangHoSo as string) ?? "",
           });
+          setRecordUpdatedAt((d.updatedAt as string) ?? null);
           // Auto-expand sections based on phase
           const phase = getPhaseForStatus(status);
           setSection2Open(true); // always expand in edit mode
@@ -223,12 +225,18 @@ export function IncidentFormPage() {
         tinhTrangHoSo: s(formData.tinhTrangHoSo),
         tinhTrangThoiHieu: s(formData.tinhTrangThoiHieu),
       };
-      if (isEditMode) await api.put(`/incidents/${id}`, payload);
+      if (isEditMode) await api.put(`/incidents/${id}`, { ...payload, expectedUpdatedAt: recordUpdatedAt ?? undefined });
       else await api.post('/incidents', payload);
       navigate("/vu-viec");
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string | string[] } } })?.response?.data?.message;
-      if (Array.isArray(msg)) setErrors(msg); else if (typeof msg === "string") setErrors([msg]); else setErrors(["Có lỗi xảy ra"]);
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 409) {
+        setErrors(["Vụ việc đã được chỉnh sửa bởi người dùng khác. Vui lòng tải lại trang để xem phiên bản mới nhất trước khi chỉnh sửa."]);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      } else {
+        const msg = (err as { response?: { data?: { message?: string | string[] } } })?.response?.data?.message;
+        if (Array.isArray(msg)) setErrors(msg); else if (typeof msg === "string") setErrors([msg]); else setErrors(["Có lỗi xảy ra"]);
+      }
     } finally { setIsSubmitting(false); }
   };
 

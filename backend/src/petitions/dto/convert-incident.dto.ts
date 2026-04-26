@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsNotEmpty, MaxLength } from 'class-validator';
+import { IsString, IsOptional, IsNotEmpty, MaxLength, IsDateString } from 'class-validator';
 
 export class ConvertToIncidentDto {
   @IsString()
@@ -18,4 +18,8 @@ export class ConvertToIncidentDto {
   @IsOptional()
   @IsString()
   assignedToId?: string;
+
+  @IsOptional()
+  @IsDateString({}, { message: 'expectedUpdatedAt không đúng định dạng ISO 8601' })
+  expectedUpdatedAt?: string;
 }

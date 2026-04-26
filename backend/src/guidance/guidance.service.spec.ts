@@ -37,12 +37,12 @@ describe('GuidanceService — scope enforcement', () => {
 
   it('throws ForbiddenException when createdById not in scope userIds', async () => {
     mockPrisma.guidanceRecord.findFirst.mockResolvedValue({ ...FAKE_GUIDANCE, createdById: 'other' });
-    await expect(service.getById('g-001', { userIds: ['u1'], teamIds: [] })).rejects.toThrow(ForbiddenException);
+    await expect(service.getById('g-001', { userIds: ['u1'], teamIds: [], writableTeamIds: [] })).rejects.toThrow(ForbiddenException);
   });
 
   it('passes when createdById matches scope userIds', async () => {
     mockPrisma.guidanceRecord.findFirst.mockResolvedValue(FAKE_GUIDANCE);
-    const result = await service.getById('g-001', { userIds: ['u1'], teamIds: [] });
+    const result = await service.getById('g-001', { userIds: ['u1'], teamIds: [], writableTeamIds: [] });
     expect(result.success).toBe(true);
   });
 
@@ -54,12 +54,12 @@ describe('GuidanceService — scope enforcement', () => {
 
   it('throws ForbiddenException for deny-all scope {userIds:[], teamIds:[]}', async () => {
     mockPrisma.guidanceRecord.findFirst.mockResolvedValue({ ...FAKE_GUIDANCE, createdById: 'user-X' });
-    await expect(service.getById('g-001', { userIds: [], teamIds: [] })).rejects.toThrow(ForbiddenException);
+    await expect(service.getById('g-001', { userIds: [], teamIds: [], writableTeamIds: [] })).rejects.toThrow(ForbiddenException);
   });
 
   it('passes for team-leader scope {userIds:[], teamIds:[...]} (creator-anchored resource)', async () => {
     mockPrisma.guidanceRecord.findFirst.mockResolvedValue({ ...FAKE_GUIDANCE, createdById: 'any-user' });
-    const result = await service.getById('g-001', { userIds: [], teamIds: ['t1'] });
+    const result = await service.getById('g-001', { userIds: [], teamIds: ['t1'], writableTeamIds: ['t1'] });
     expect(result.success).toBe(true);
   });
 });

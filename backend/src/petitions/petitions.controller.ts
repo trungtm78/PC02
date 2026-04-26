@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Patch,
   Delete,
   Body,
   Param,
@@ -16,6 +17,7 @@ import type { ScopedRequest } from '../auth/interfaces/scoped-request.interface'
 import { PetitionsService } from './petitions.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { DispatchGuard } from '../auth/guards/dispatch.guard';
 import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CreatePetitionDto } from './dto/create-petition.dto';
@@ -23,6 +25,7 @@ import { UpdatePetitionDto } from './dto/update-petition.dto';
 import { QueryPetitionsDto } from './dto/query-petitions.dto';
 import { ConvertToIncidentDto } from './dto/convert-incident.dto';
 import { ConvertToCaseDto } from './dto/convert-case.dto';
+import { AssignPetitionDto } from './dto/assign-petition.dto';
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
 @Controller('petitions')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -69,7 +72,7 @@ export class PetitionsController {
     return this.petitionsService.update(id, dto, user.id, {
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
-    });
+    }, req.dataScope);
   }
 
   // DELETE /api/v1/petitions/:id — Xóa đơn thư (soft delete)
@@ -84,7 +87,7 @@ export class PetitionsController {
     return this.petitionsService.delete(id, user.id, {
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
-    });
+    }, req.dataScope);
   }
 
   // POST /api/v1/petitions/:id/convert-incident — Chuyển thành Vụ việc
@@ -99,7 +102,7 @@ export class PetitionsController {
     return this.petitionsService.convertToIncident(id, dto, user.id, {
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
-    });
+    }, req.dataScope);
   }
 
   // POST /api/v1/petitions/:id/convert-case — Chuyển thành Vụ án
@@ -112,6 +115,21 @@ export class PetitionsController {
     @Req() req: ScopedRequest,
   ) {
     return this.petitionsService.convertToCase(id, dto, user.id, {
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    }, req.dataScope);
+  }
+
+  // PATCH /api/v1/petitions/:id/assign — Phân công / tái phân công đơn thư (dispatcher only)
+  @Patch(':id/assign')
+  @UseGuards(DispatchGuard)
+  assignPetition(
+    @Param('id') id: string,
+    @Body() dto: AssignPetitionDto,
+    @CurrentUser() user: AuthUser,
+    @Req() req: ScopedRequest,
+  ) {
+    return this.petitionsService.assignPetition(id, dto, user.id, {
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
     });

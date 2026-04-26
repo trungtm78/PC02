@@ -32,6 +32,7 @@ type User = {
   role: { id: string; name: string } | null;
   department: { id: string; name: string } | null;
   isActive: boolean;
+  canDispatch?: boolean;
   lastLoginAt: string | null;
   totpEnabled?: boolean;
 };
@@ -58,6 +59,7 @@ type FormData = {
   departmentId: string;
   roleId: string;
   isActive: boolean;
+  canDispatch: boolean;
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -93,6 +95,7 @@ const EMPTY_FORM: FormData = {
   departmentId: '',
   roleId: '',
   isActive: true,
+  canDispatch: false,
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -219,6 +222,7 @@ export default function UserManagementPage() {
       departmentId: user.department?.id ?? '',
       roleId: user.role?.id ?? '',
       isActive: user.isActive,
+      canDispatch: user.canDispatch ?? false,
     });
     setFormError('');
     setShowUserModal(true);
@@ -250,6 +254,7 @@ export default function UserManagementPage() {
         departmentId: formData.departmentId || undefined,
         roleId: formData.roleId || undefined,
         status: formData.isActive ? 'active' : 'inactive',
+        canDispatch: formData.canDispatch,
       };
       if (formData.password) payload.password = formData.password;
 
@@ -809,6 +814,22 @@ export default function UserManagementPage() {
                     <option value="inactive">Tạm khóa</option>
                   </select>
                 </div>
+              </div>
+              <div className="mt-4">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    id="field-can-dispatch"
+                    checked={formData.canDispatch}
+                    onChange={(e) => setFormData({ ...formData, canDispatch: e.target.checked })}
+                    className="w-4 h-4 text-[#003973] border-slate-300 rounded focus:ring-[#003973]"
+                  />
+                  <span className="text-sm font-medium text-slate-700">Quyền phân công công việc</span>
+                  <span className="text-xs text-slate-400">(Tổ trưởng / Trực ban)</span>
+                </label>
+                <p className="text-xs text-slate-500 mt-1 ml-7">
+                  Cho phép xem và phân công tất cả Vụ án, Vụ việc, Đơn thư kể cả thuộc tổ khác.
+                </p>
               </div>
             </div>
 

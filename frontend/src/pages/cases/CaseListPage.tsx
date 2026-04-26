@@ -23,7 +23,10 @@ import {
   Briefcase,
   FileText,
   ArrowRightLeft,
+  UserCheck,
 } from "lucide-react";
+import { usePermission } from "@/hooks/usePermission";
+import { AssignModal } from "@/components/AssignModal";
 
 // ─────────────────────────────────────────────────────────
 // API types — khớp với response của GET /api/v1/cases
@@ -48,6 +51,7 @@ interface CaseFromApi {
   deadline: string | null;
   unit: string | null;
   subjectsCount: number;
+  assignedTeamId: string | null;
   createdAt: string;
   updatedAt: string;
   investigator: {
@@ -73,6 +77,8 @@ interface Case {
   suspectCount: number;
   investigationDeadline: string | null;
   unit: string;
+  assignedTeamId: string | null;
+  updatedAt: string;
 }
 
 // ─────────────────────────────────────────────────────────
@@ -141,6 +147,8 @@ function mapApiCase(c: CaseFromApi): Case {
     suspectCount:         c.subjectsCount,
     investigationDeadline: c.deadline,
     unit:                 c.unit ?? "—",
+    assignedTeamId:       c.assignedTeamId,
+    updatedAt:            c.updatedAt,
   };
 }
 
@@ -171,6 +179,7 @@ function formatDeadline(deadline: string | null): string {
 // ─────────────────────────────────────────────────────────
 function CaseListPage() {
   const navigate = useNavigate();
+  const { canDispatch } = usePermission();
   const [caseList, setCaseList] = useState<Case[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -192,6 +201,10 @@ function CaseListPage() {
   const [deactivateDialogOpen, setDeactivateDialogOpen] = useState(false);
   const [caseToDeactivate, setCaseToDeactivate] = useState<Case | null>(null);
   const [deactivateLoading, setDeactivateLoading] = useState(false);
+
+  // ── Phân công (dispatcher only) ───────────────────────
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [selectedCase, setSelectedCase] = useState<Case | null>(null);
 
 
 
@@ -634,13 +647,28 @@ function CaseListPage() {
                                 </button>
                                 {showActionMenu === caseItem.id && (
                                   <div className="absolute right-0 top-full mt-1 w-56 bg-white border border-slate-200 rounded-lg shadow-lg z-20">
+                                    {/* Phân công (dispatcher only) */}
+                                    {canDispatch && (
+                                      <button
+                                        onClick={() => {
+                                          setShowActionMenu(null);
+                                          setSelectedCase(caseItem);
+                                          setShowAssignModal(true);
+                                        }}
+                                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left"
+                                        data-testid={`btn-assign-${caseItem.id}`}
+                                      >
+                                        <UserCheck className="w-4 h-4 text-green-600 flex-shrink-0" />
+                                        {caseItem.assignedTeamId ? "Phân công lại" : "Phân công"}
+                                      </button>
+                                    )}
                                     {/* Quản lý bị can */}
                                     <button
                                       onClick={() => {
                                         setShowActionMenu(null);
                                         navigate(`/cases/${caseItem.id}`, { state: { activeTab: "defendants" } });
                                       }}
-                                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left"
+                                      className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left${canDispatch ? " border-t border-slate-100" : ""}`}
                                       data-testid={`btn-manage-defendants-${caseItem.id}`}
                                     >
                                       <Users className="w-4 h-4 text-blue-600 flex-shrink-0" />
@@ -735,6 +763,19 @@ function CaseListPage() {
           </>
         )}
       </div>
+
+      {/* ── Modal phân công ────────────────────────────── */}
+      {showAssignModal && selectedCase && (
+        <AssignModal
+          open={showAssignModal}
+          onClose={() => { setShowAssignModal(false); setSelectedCase(null); }}
+          resourceType="cases"
+          recordId={selectedCase.id}
+          currentUpdatedAt={selectedCase.updatedAt}
+          currentTeamId={selectedCase.assignedTeamId}
+          onSuccess={() => { setShowAssignModal(false); setSelectedCase(null); void fetchCases(); }}
+        />
+      )}
 
       {/* ── Dialog xác nhận vô hiệu hóa ───────────────── */}
       {deactivateDialogOpen && caseToDeactivate && (

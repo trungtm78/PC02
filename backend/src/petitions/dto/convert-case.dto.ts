@@ -35,4 +35,8 @@ export class ConvertToCaseDto {
   @IsOptional()
   @IsDateString()
   prosecutionDate?: string;
+
+  @IsOptional()
+  @IsDateString({}, { message: 'expectedUpdatedAt không đúng định dạng ISO 8601' })
+  expectedUpdatedAt?: string;
 }

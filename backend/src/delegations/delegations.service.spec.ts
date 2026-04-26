@@ -41,26 +41,26 @@ describe('DelegationsService — scope enforcement (dual-path logic)', () => {
   describe('case-linked delegation', () => {
     it('passes when relatedCase is in scope (teamId match)', async () => {
       mockPrisma.delegation.findFirst.mockResolvedValue(FAKE_DELEGATION_WITH_CASE);
-      const result = await service.getById('del-001', { userIds: [], teamIds: ['t1'] });
+      const result = await service.getById('del-001', { userIds: [], teamIds: ['t1'], writableTeamIds: ['t1'] });
       expect(result.success).toBe(true);
     });
 
     it('throws ForbiddenException when relatedCase is out of scope', async () => {
       mockPrisma.delegation.findFirst.mockResolvedValue({ ...FAKE_DELEGATION_WITH_CASE, relatedCase: { ...FAKE_DELEGATION_WITH_CASE.relatedCase, assignedTeamId: 'team-X', investigatorId: 'user-X' } });
-      await expect(service.getById('del-001', { userIds: ['u1'], teamIds: ['t1'] })).rejects.toThrow(ForbiddenException);
+      await expect(service.getById('del-001', { userIds: ['u1'], teamIds: ['t1'], writableTeamIds: ['t1'] })).rejects.toThrow(ForbiddenException);
     });
   });
 
   describe('orphan delegation (no case)', () => {
     it('passes when createdById matches scope userIds', async () => {
       mockPrisma.delegation.findFirst.mockResolvedValue(FAKE_DELEGATION_ORPHAN);
-      const result = await service.getById('del-002', { userIds: ['u1'], teamIds: [] });
+      const result = await service.getById('del-002', { userIds: ['u1'], teamIds: [], writableTeamIds: [] });
       expect(result.success).toBe(true);
     });
 
     it('throws ForbiddenException when createdById not in scope userIds', async () => {
       mockPrisma.delegation.findFirst.mockResolvedValue({ ...FAKE_DELEGATION_ORPHAN, createdById: 'other' });
-      await expect(service.getById('del-002', { userIds: ['u1'], teamIds: [] })).rejects.toThrow(ForbiddenException);
+      await expect(service.getById('del-002', { userIds: ['u1'], teamIds: [], writableTeamIds: [] })).rejects.toThrow(ForbiddenException);
     });
   });
 

@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { api } from "@/lib/api";
+import { usePermission } from "@/hooks/usePermission";
+import { AssignModal } from "@/components/AssignModal";
 
 import {
   ArrowLeft,
@@ -690,6 +692,7 @@ export default function CaseDetailPage() {
   const navigate = useNavigate();
   const { id } = useParams();
   const location = useLocation();
+  const { canDispatch } = usePermission();
 
   // Đọc activeTab từ navigation state (khi navigate từ CaseListPage action menu)
   const initialTab = (() => {
@@ -699,6 +702,7 @@ export default function CaseDetailPage() {
   })();
 
   const [activeTab, setActiveTab] = useState<DetailTabId>(initialTab);
+  const [showAssignModal, setShowAssignModal] = useState(false);
 
   // Case data from API
   const [caseData, setCaseData] = useState<any>(null);
@@ -1450,6 +1454,16 @@ export default function CaseDetailPage() {
             <p className="text-slate-500 text-sm">Mã vụ án: <span className="font-semibold text-blue-600">{id}</span></p>
           </div>
           <div className="flex gap-3">
+            {canDispatch && (
+              <button
+                onClick={() => setShowAssignModal(true)}
+                className="px-4 py-2 border border-orange-300 text-orange-700 bg-orange-50 rounded-lg hover:bg-orange-100 transition-colors text-sm font-medium"
+                data-testid="btn-assign-case"
+              >
+                <Users className="w-4 h-4 inline mr-1.5" />
+                {caseData?.assignedTeamId ? 'Phân công lại' : 'Phân công'}
+              </button>
+            )}
             <button
               onClick={() => navigate(`/cases/${id}/edit`)}
               className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors text-sm font-medium"
@@ -1742,6 +1756,24 @@ export default function CaseDetailPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Assign Modal */}
+      {canDispatch && (
+        <AssignModal
+          open={showAssignModal}
+          onClose={() => setShowAssignModal(false)}
+          resourceType="cases"
+          recordId={id ?? ''}
+          currentUpdatedAt={caseData?.updatedAt}
+          currentTeamId={caseData?.assignedTeamId}
+          currentInvestigatorId={caseData?.investigatorId}
+          onSuccess={() => {
+            setShowAssignModal(false);
+            // Re-fetch case data
+            api.get(`/cases/${id}`).then((r: any) => setCaseData(r.data.data)).catch(() => {});
+          }}
+        />
       )}
     </div>
   );
