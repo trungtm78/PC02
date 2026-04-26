@@ -1,13 +1,13 @@
-import { IsString, IsNotEmpty, IsOptional, IsUUID } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class AssignPetitionDto {
-  @IsUUID('4')
+  @IsString()
   @IsNotEmpty()
   assignedTeamId: string;
 
   @IsOptional()
-  @IsUUID('4')
+  @IsString()
   assignedToId?: string;
 
   @IsOptional()

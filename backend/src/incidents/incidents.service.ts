@@ -873,11 +873,14 @@ export class IncidentsService {
       );
     }
 
-    const investigator = await this.prisma.user.findUnique({
-      where: { id: dto.investigatorId },
-    });
-    if (!investigator) {
-      throw new BadRequestException(`Điều tra viên không tồn tại (id: ${dto.investigatorId})`);
+    let investigator: { firstName: string | null; lastName: string | null } | null = null;
+    if (dto.investigatorId) {
+      investigator = await this.prisma.user.findUnique({
+        where: { id: dto.investigatorId },
+      });
+      if (!investigator) {
+        throw new BadRequestException(`Điều tra viên không tồn tại (id: ${dto.investigatorId})`);
+      }
     }
 
     if (dto.assignedTeamId) {
@@ -885,10 +888,12 @@ export class IncidentsService {
         where: { id: dto.assignedTeamId, isActive: true },
       });
       if (!teamExists) throw new BadRequestException(`Tổ điều tra không tồn tại hoặc đã ngừng hoạt động (id: ${dto.assignedTeamId})`);
-      const member = await this.prisma.userTeam.findFirst({
-        where: { userId: dto.investigatorId, teamId: dto.assignedTeamId },
-      });
-      if (!member) throw new BadRequestException('Điều tra viên không thuộc tổ được chỉ định');
+      if (dto.investigatorId) {
+        const member = await this.prisma.userTeam.findFirst({
+          where: { userId: dto.investigatorId, teamId: dto.assignedTeamId },
+        });
+        if (!member) throw new BadRequestException('Điều tra viên không thuộc tổ được chỉ định');
+      }
     }
 
     let record;
@@ -900,9 +905,9 @@ export class IncidentsService {
         },
         data: {
           ...(dto.assignedTeamId ? { assignedTeamId: dto.assignedTeamId } : {}),
-          investigatorId: dto.investigatorId,
+          ...(dto.investigatorId !== undefined ? { investigatorId: dto.investigatorId } : {}),
           deadline: dto.deadline ? new Date(dto.deadline) : existing.deadline,
-          status: IncidentStatus.DANG_XAC_MINH,
+          status: dto.investigatorId ? IncidentStatus.DANG_XAC_MINH : existing.status,
         },
         include: {
           investigator: {
@@ -929,7 +934,7 @@ export class IncidentsService {
         toTeamId: dto.assignedTeamId ?? existing.assignedTeamId ?? null,
         fromInvestigatorId: existing.investigatorId ?? null,
         toInvestigatorId: dto.investigatorId,
-        investigatorName: `${investigator.firstName ?? ''} ${investigator.lastName ?? ''}`.trim(),
+        investigatorName: investigator ? `${investigator.firstName ?? ''} ${investigator.lastName ?? ''}`.trim() : null,
         dispatchedBy: actorId,
       },
       ipAddress: meta?.ipAddress,
