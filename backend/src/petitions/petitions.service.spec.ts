@@ -90,7 +90,12 @@ const mockPrisma = {
   user: {
     findUnique: jest.fn(),
   },
-
+  team: {
+    findFirst: jest.fn(),
+  },
+  userTeam: {
+    findFirst: jest.fn(),
+  },
   $transaction: jest.fn() as any,
 };
 
@@ -660,6 +665,96 @@ describe('PetitionsService', () => {
       expect(mockAudit.log).toHaveBeenCalledWith(
         expect.objectContaining({ action: 'PETITION_DELETED' }),
       );
+    });
+  });
+
+  // ── assignPetition ─────────────────────────────────────────────────────────
+
+  describe('assignPetition', () => {
+    const mockTeam = { id: 'team-001', name: 'Tổ 1', isActive: true };
+    const existingPetition = {
+      ...mockPetition,
+      assignedTeamId: null,
+      assignedToId: null,
+    };
+
+    it('assigns petition and logs audit with from/to metadata', async () => {
+      mockPrisma.petition.findFirst.mockResolvedValue(existingPetition);
+      mockPrisma.team.findFirst.mockResolvedValue(mockTeam);
+      mockPrisma.userTeam.findFirst.mockResolvedValue({ userId: 'user-001', teamId: 'team-001' });
+      mockPrisma.petition.update.mockResolvedValue({ ...existingPetition, assignedTeamId: 'team-001', assignedToId: 'user-001' });
+
+      const result = await service.assignPetition(
+        'petition-001',
+        { assignedTeamId: 'team-001', assignedToId: 'user-001' },
+        'dispatcher-001',
+      );
+
+      expect(result.success).toBe(true);
+      expect(mockAudit.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'PETITION_ASSIGNED',
+          metadata: expect.objectContaining({
+            fromTeamId: null,
+            toTeamId: 'team-001',
+            fromAssignedToId: null,
+            toAssignedToId: 'user-001',
+            dispatchedBy: 'dispatcher-001',
+          }),
+        }),
+      );
+    });
+
+    it('throws NotFoundException when petition not found', async () => {
+      mockPrisma.petition.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.assignPetition('bad-id', { assignedTeamId: 'team-001' }, 'dispatcher-001'),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('throws ConflictException on P2025 with expectedUpdatedAt', async () => {
+      mockPrisma.petition.findFirst.mockResolvedValue(existingPetition);
+      mockPrisma.team.findFirst.mockResolvedValue(mockTeam);
+      mockPrisma.petition.update.mockRejectedValue({ code: 'P2025' });
+
+      await expect(
+        service.assignPetition('petition-001', { assignedTeamId: 'team-001', expectedUpdatedAt: new Date() }, 'dispatcher-001'),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('throws BadRequestException when team not found', async () => {
+      mockPrisma.petition.findFirst.mockResolvedValue(existingPetition);
+      mockPrisma.team.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.assignPetition('petition-001', { assignedTeamId: 'nonexistent-team' }, 'dispatcher-001'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('throws BadRequestException when assignedToId not member of team', async () => {
+      mockPrisma.petition.findFirst.mockResolvedValue(existingPetition);
+      mockPrisma.team.findFirst.mockResolvedValue(mockTeam);
+      mockPrisma.userTeam.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.assignPetition('petition-001', { assignedTeamId: 'team-001', assignedToId: 'user-999' }, 'dispatcher-001'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('assigns petition without assignedToId (team-only assignment)', async () => {
+      mockPrisma.petition.findFirst.mockResolvedValue(existingPetition);
+      mockPrisma.team.findFirst.mockResolvedValue(mockTeam);
+      mockPrisma.petition.update.mockResolvedValue({ ...existingPetition, assignedTeamId: 'team-001', assignedToId: null });
+
+      const result = await service.assignPetition(
+        'petition-001',
+        { assignedTeamId: 'team-001' },
+        'dispatcher-001',
+      );
+
+      expect(result.success).toBe(true);
+      expect(mockPrisma.userTeam.findFirst).not.toHaveBeenCalled();
     });
   });
 });
