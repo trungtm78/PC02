@@ -9,6 +9,8 @@ import {
   ChevronLeft, ChevronRight, Loader2, Trash2,
 } from "lucide-react";
 import { PHASE_STATUSES, PHASE_LABELS, PHASE_ORDER } from "@/constants/incident-phases";
+import { usePermission } from "@/hooks/usePermission";
+import { AssignModal } from "@/components/AssignModal";
 
 // ─────────────────────────────────────────────────────────
 // Status types & labels
@@ -111,6 +113,8 @@ interface Incident {
   ngayDeXuat?: string;
   createdAt: string;
   investigator?: { id: string; firstName?: string; lastName?: string; username: string };
+  assignedTeamId?: string | null;
+  updatedAt?: string;
 }
 
 // ─────────────────────────────────────────────────────────
@@ -147,6 +151,7 @@ export function IncidentListPage() {
   const [statusFilter, setStatusFilterState] = useState<string>(
     () => searchParams.get("status") ?? "",
   );
+  const { canDispatch } = usePermission();
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
@@ -535,7 +540,9 @@ export function IncidentListPage() {
                             <button onClick={(e) => { e.stopPropagation(); setShowActionMenu(showActionMenu === incident.id ? null : incident.id); }} className="p-2 text-slate-600 hover:bg-slate-100 rounded" title="Thao tác" data-testid="btn-action-menu"><MoreVertical className="w-4 h-4" /></button>
                             {showActionMenu === incident.id && (
                               <div className="absolute right-0 top-full mt-1 w-60 bg-white border border-slate-200 rounded-lg shadow-lg z-10" onClick={(e) => e.stopPropagation()}>
-                                <button onClick={() => handleActionClick(incident, "assign")} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 text-left" data-testid="btn-assign"><User className="w-4 h-4 text-blue-600" />Phân công</button>
+                                {canDispatch && (
+                                  <button onClick={() => handleActionClick(incident, "assign")} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 text-left" data-testid="btn-assign"><User className="w-4 h-4 text-blue-600" />{incident.assignedTeamId ? 'Phân công lại' : 'Phân công'}</button>
+                                )}
                                 {VALID_TRANSITIONS[incident.status]?.length > 0 && (
                                   <button onClick={() => handleActionClick(incident, "transition")} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 text-left border-t border-slate-100" data-testid="btn-transition">
                                     <ArrowRightLeft className="w-4 h-4 text-indigo-600" />Chuyển trạng thái
@@ -587,7 +594,17 @@ export function IncidentListPage() {
       </div>
 
       {/* Modals */}
-      {showAssignModal && selectedIncident && <AssignInvestigatorModal incident={selectedIncident} onClose={() => setShowAssignModal(false)} onSuccess={handleSuccess} />}
+      {showAssignModal && selectedIncident && (
+        <AssignModal
+          open={showAssignModal}
+          onClose={() => setShowAssignModal(false)}
+          resourceType="incidents"
+          recordId={selectedIncident.id}
+          currentUpdatedAt={selectedIncident.updatedAt}
+          currentTeamId={selectedIncident.assignedTeamId}
+          onSuccess={handleSuccess}
+        />
+      )}
       {showProsecuteModal && selectedIncident && <ProsecuteModal incident={selectedIncident} onClose={() => setShowProsecuteModal(false)} onSuccess={handleSuccess} />}
       {showTransitionModal && selectedIncident && <StatusTransitionModal incident={selectedIncident} onClose={() => setShowTransitionModal(false)} onSuccess={handleSuccess} />}
 
@@ -739,72 +756,6 @@ function StatusTransitionModal({ incident, onClose, onSuccess }: { incident: Inc
           <button onClick={onClose} className="px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50">Hủy</button>
           <button onClick={() => void handleSubmit()} disabled={isSubmitting || !selectedStatus} className="px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-50" data-testid="btn-confirm-transition">
             {isSubmitting ? "Đang xử lý..." : "Xác nhận chuyển"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────
-// Assign Modal (kept from original)
-// ─────────────────────────────────────────────────────────
-
-function AssignInvestigatorModal({ incident, onClose, onSuccess }: { incident: Incident; onClose: () => void; onSuccess: () => void }) {
-  const [formData, setFormData] = useState({ investigatorId: "", deadline: "" });
-  const [investigators, setInvestigators] = useState<{ id: string; firstName?: string; lastName?: string; username: string }[]>([]);
-  const [errors, setErrors] = useState<string[]>([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  useEffect(() => {
-    api.get<{ success: boolean; data: typeof investigators }>('/incidents/investigators').then((res) => setInvestigators(res.data.data ?? [])).catch(() => { });
-  }, []);
-
-  const handleSubmit = async () => {
-    const newErrors: string[] = [];
-    if (!formData.investigatorId) newErrors.push("Điều tra viên là bắt buộc");
-    if (newErrors.length > 0) { setErrors(newErrors); return; }
-
-    setIsSubmitting(true);
-    try {
-      await api.patch(`/incidents/${incident.id}/assign`, formData);
-      onSuccess(); onClose();
-    } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string | string[] } } })?.response?.data?.message;
-      if (Array.isArray(msg)) setErrors(msg); else if (typeof msg === "string") setErrors([msg]); else setErrors(["Có lỗi xảy ra"]);
-    } finally { setIsSubmitting(false); }
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-        <div className="border-b border-slate-200 px-6 py-4 flex items-center justify-between">
-          <div><h2 className="font-bold text-slate-800">Phân công điều tra viên</h2><p className="text-sm text-slate-600 mt-1">{incident.code}</p></div>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded"><X className="w-5 h-5 text-slate-600" /></button>
-        </div>
-        <div className="p-6 space-y-4">
-          {errors.length > 0 && <div className="bg-red-50 border border-red-200 rounded-lg p-3"><ul className="list-disc list-inside">{errors.map((e, i) => <li key={i} className="text-sm text-red-700">{e}</li>)}</ul></div>}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Điều tra viên <span className="text-red-500">*</span></label>
-            <select value={formData.investigatorId} onChange={(e) => setFormData({ ...formData, investigatorId: e.target.value })}
-              className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" data-testid="field-investigator">
-              <option value="">Chọn điều tra viên</option>
-              {investigators.map((inv) => <option key={inv.id} value={inv.id}>{inv.firstName} {inv.lastName} ({inv.username})</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Hạn xử lý</label>
-            <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input type="date" value={formData.deadline} onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
-                className="w-full pl-9 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" data-testid="field-deadline" />
-            </div>
-          </div>
-        </div>
-        <div className="border-t border-slate-200 px-6 py-4 flex justify-end gap-3">
-          <button onClick={onClose} className="px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50">Hủy</button>
-          <button onClick={() => void handleSubmit()} disabled={isSubmitting} className="px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-50" data-testid="btn-confirm-assign">
-            {isSubmitting ? "Đang xử lý..." : "Xác nhận phân công"}
           </button>
         </div>
       </div>
