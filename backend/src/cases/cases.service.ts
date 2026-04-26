@@ -10,6 +10,7 @@ import { AuditService } from '../audit/audit.service';
 import { CreateCaseDto } from './dto/create-case.dto';
 import { UpdateCaseDto } from './dto/update-case.dto';
 import { QueryCasesDto } from './dto/query-cases.dto';
+import { AssignCaseDto } from './dto/assign-case.dto';
 import { Prisma, CaseStatus, PetitionStatus, LoaiDon, CapDoToiPham } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { buildScopeFilter } from '../common/utils/scope-filter.util';
@@ -165,6 +166,7 @@ export class CasesService {
     dataScope?: DataScope | null,
   ) {
     if (!dataScope) return; // admin or no scope = allow
+    if (dataScope.canDispatch) return; // dispatcher: full read access
     const { userIds, teamIds } = dataScope;
 
     const ownerMatch =
@@ -536,7 +538,7 @@ export class CasesService {
       action: 'CASE_UPDATED',
       subject: 'Case',
       subjectId: id,
-      metadata: { changes: dto },
+      metadata: { before: { status: existing.status, name: existing.name, investigatorId: existing.investigatorId, assignedTeamId: existing.assignedTeamId }, after: dto },
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
     });
@@ -579,6 +581,71 @@ export class CasesService {
     });
 
     return { success: true, message: 'Xóa vụ án thành công' };
+  }
+
+  // ─────────────────────────────────────────────
+  // ASSIGN (dispatcher only)
+  // ─────────────────────────────────────────────
+  async assignCase(
+    id: string,
+    dto: AssignCaseDto,
+    actorId: string,
+    meta?: { ipAddress?: string; userAgent?: string },
+  ) {
+    const existing = await this.prisma.case.findFirst({
+      where: { id, deletedAt: null },
+    });
+    if (!existing) throw new NotFoundException(`Vụ án không tồn tại (id: ${id})`);
+
+    const team = await this.prisma.team.findFirst({
+      where: { id: dto.assignedTeamId, isActive: true },
+    });
+    if (!team) throw new BadRequestException(`Tổ điều tra không tồn tại hoặc đã ngừng hoạt động (id: ${dto.assignedTeamId})`);
+
+    if (dto.investigatorId) {
+      const member = await this.prisma.userTeam.findFirst({
+        where: { userId: dto.investigatorId, teamId: dto.assignedTeamId },
+      });
+      if (!member) throw new BadRequestException('Điều tra viên không thuộc tổ được chỉ định');
+    }
+
+    try {
+      await this.prisma.case.update({
+        where: {
+          id,
+          ...(dto.expectedUpdatedAt ? { updatedAt: dto.expectedUpdatedAt } : {}),
+        },
+        data: {
+          assignedTeamId: dto.assignedTeamId,
+          investigatorId: dto.investigatorId ?? null,
+        },
+      });
+    } catch (e) {
+      if ((e as { code?: string })?.code === 'P2025' && dto.expectedUpdatedAt) {
+        throw new ConflictException(
+          'Vụ án đã được chỉnh sửa bởi người dùng khác. Vui lòng tải lại trang và thử lại.',
+        );
+      }
+      throw e;
+    }
+
+    await this.audit.log({
+      userId: actorId,
+      action: 'CASE_ASSIGNED',
+      subject: 'Case',
+      subjectId: id,
+      metadata: {
+        fromTeamId: existing.assignedTeamId,
+        toTeamId: dto.assignedTeamId,
+        fromInvestigatorId: existing.investigatorId,
+        toInvestigatorId: dto.investigatorId ?? null,
+        dispatchedBy: actorId,
+      },
+      ipAddress: meta?.ipAddress,
+      userAgent: meta?.userAgent,
+    });
+
+    return { success: true, message: 'Phân công vụ án thành công' };
   }
 
   // ─────────────────────────────────────────────

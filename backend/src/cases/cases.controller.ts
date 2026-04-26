@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Patch,
   Delete,
   Body,
   Param,
@@ -16,11 +17,13 @@ import type { ScopedRequest } from '../auth/interfaces/scoped-request.interface'
 import { CasesService } from './cases.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { DispatchGuard } from '../auth/guards/dispatch.guard';
 import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CreateCaseDto } from './dto/create-case.dto';
 import { UpdateCaseDto } from './dto/update-case.dto';
 import { QueryCasesDto } from './dto/query-cases.dto';
+import { AssignCaseDto } from './dto/assign-case.dto';
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
 @Controller('cases')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -90,5 +93,20 @@ export class CasesController {
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
     }, req.dataScope);
+  }
+
+  // PATCH /api/v1/cases/:id/assign — Phân công / tái phân công vụ án (dispatcher only)
+  @Patch(':id/assign')
+  @UseGuards(DispatchGuard)
+  assignCase(
+    @Param('id') id: string,
+    @Body() dto: AssignCaseDto,
+    @CurrentUser() user: AuthUser,
+    @Req() req: ScopedRequest,
+  ) {
+    return this.casesService.assignCase(id, dto, user.id, {
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
   }
 }
