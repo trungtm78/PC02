@@ -1,0 +1,1199 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hướng Dẫn Sử Dụng — Hệ Thống PC02</title>
+<style>
+  :root {
+    --primary: #1a4f8a;
+    --primary-light: #2563c7;
+    --accent: #f59e0b;
+    --danger: #dc2626;
+    --success: #16a34a;
+    --warning: #d97706;
+    --gray-50: #f9fafb;
+    --gray-100: #f3f4f6;
+    --gray-200: #e5e7eb;
+    --gray-300: #d1d5db;
+    --gray-600: #4b5563;
+    --gray-700: #374151;
+    --gray-800: #1f2937;
+    --gray-900: #111827;
+    --sidebar-width: 280px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; font-size: 15px; color: var(--gray-800); background: var(--gray-50); line-height: 1.6; }
+
+  /* Layout */
+  .layout { display: flex; min-height: 100vh; }
+  .sidebar { width: var(--sidebar-width); background: var(--gray-900); color: #e5e7eb; position: fixed; top: 0; left: 0; height: 100vh; overflow-y: auto; z-index: 100; flex-shrink: 0; }
+  .main { margin-left: var(--sidebar-width); flex: 1; max-width: 960px; padding: 40px 48px; }
+
+  /* Sidebar */
+  .sidebar-header { padding: 24px 20px 16px; border-bottom: 1px solid #374151; }
+  .sidebar-header .logo { font-size: 20px; font-weight: 700; color: #fff; letter-spacing: .5px; }
+  .sidebar-header .subtitle { font-size: 11px; color: #9ca3af; text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
+  .sidebar nav { padding: 12px 0; }
+  .sidebar nav a { display: block; padding: 8px 20px; font-size: 13px; color: #d1d5db; text-decoration: none; border-left: 3px solid transparent; transition: all .15s; }
+  .sidebar nav a:hover { background: #374151; color: #fff; border-left-color: var(--accent); }
+  .sidebar nav .section-label { padding: 16px 20px 4px; font-size: 10px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 1.2px; }
+  .sidebar nav .sub { padding-left: 36px; font-size: 12px; }
+
+  /* Header */
+  .page-header { background: linear-gradient(135deg, var(--primary) 0%, #1e3a5f 100%); color: #fff; padding: 48px 0 40px; margin: -40px -48px 40px; border-radius: 0 0 12px 12px; }
+  .page-header-inner { padding: 0 48px; }
+  .page-header .badge { display: inline-block; background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.25); border-radius: 20px; padding: 4px 14px; font-size: 12px; letter-spacing: .5px; margin-bottom: 16px; }
+  .page-header h1 { font-size: 32px; font-weight: 700; line-height: 1.2; }
+  .page-header .subtitle { font-size: 15px; color: #93c5fd; margin-top: 8px; }
+  .page-header .meta { display: flex; gap: 24px; margin-top: 20px; font-size: 13px; color: #bfdbfe; flex-wrap: wrap; }
+  .page-header .meta span::before { content: '• '; opacity: .6; }
+  .page-header .meta span:first-child::before { content: ''; }
+
+  /* Sections */
+  .section { margin-bottom: 56px; }
+  h2.section-title { font-size: 22px; font-weight: 700; color: var(--primary); border-bottom: 3px solid var(--primary); padding-bottom: 10px; margin-bottom: 24px; display: flex; align-items: center; gap: 10px; }
+  h2.section-title .icon { font-size: 24px; }
+  h3.sub-title { font-size: 17px; font-weight: 600; color: var(--gray-800); margin: 28px 0 12px; padding-left: 12px; border-left: 4px solid var(--accent); }
+  h4.sub-sub { font-size: 14px; font-weight: 600; color: var(--gray-700); margin: 20px 0 8px; }
+  p { margin-bottom: 12px; color: var(--gray-700); }
+
+  /* Cards */
+  .card { background: #fff; border-radius: 10px; border: 1px solid var(--gray-200); padding: 20px 24px; margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+  .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .card h4 { font-size: 14px; font-weight: 600; color: var(--primary); margin-bottom: 8px; }
+  .card p { font-size: 13px; margin: 0; color: var(--gray-600); }
+  .card .num { font-size: 32px; font-weight: 700; color: var(--primary-light); line-height: 1; }
+  .card .num-label { font-size: 12px; color: var(--gray-600); margin-top: 4px; }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 13px; background: #fff; border-radius: 8px; overflow: hidden; border: 1px solid var(--gray-200); box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+  th { background: var(--primary); color: #fff; padding: 10px 14px; text-align: left; font-size: 12px; font-weight: 600; letter-spacing: .4px; }
+  td { padding: 9px 14px; border-bottom: 1px solid var(--gray-100); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  tr:nth-child(even) td { background: var(--gray-50); }
+  tr:hover td { background: #eff6ff; }
+
+  /* Badges / pills */
+  .badge { display: inline-block; border-radius: 20px; padding: 2px 10px; font-size: 11px; font-weight: 600; letter-spacing: .3px; }
+  .badge-blue { background: #dbeafe; color: #1d4ed8; }
+  .badge-green { background: #dcfce7; color: #166534; }
+  .badge-red { background: #fee2e2; color: #991b1b; }
+  .badge-yellow { background: #fef9c3; color: #854d0e; }
+  .badge-gray { background: #f3f4f6; color: #4b5563; }
+  .badge-purple { background: #f3e8ff; color: #6b21a8; }
+  .badge-orange { background: #ffedd5; color: #9a3412; }
+
+  /* Steps */
+  .steps { counter-reset: step; list-style: none; margin: 16px 0 20px; }
+  .steps li { counter-increment: step; padding: 10px 14px 10px 48px; position: relative; border-left: 2px solid var(--gray-200); margin-bottom: 8px; background: #fff; border-radius: 0 8px 8px 0; border: 1px solid var(--gray-200); border-left: 3px solid var(--primary-light); }
+  .steps li::before { content: counter(step); position: absolute; left: 12px; top: 50%; transform: translateY(-50%); background: var(--primary); color: #fff; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; }
+
+  /* Alerts */
+  .alert { border-radius: 8px; padding: 14px 18px; margin-bottom: 16px; font-size: 13px; display: flex; gap: 12px; align-items: flex-start; }
+  .alert-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+  .alert-info { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; }
+  .alert-warn { background: #fffbeb; border: 1px solid #fcd34d; color: #92400e; }
+  .alert-danger { background: #fef2f2; border: 1px solid #fca5a5; color: #991b1b; }
+  .alert-success { background: #f0fdf4; border: 1px solid #86efac; color: #166534; }
+
+  /* Code */
+  code { background: var(--gray-100); border: 1px solid var(--gray-200); border-radius: 4px; padding: 1px 6px; font-family: 'Consolas', 'Courier New', monospace; font-size: 12px; color: #be185d; }
+  pre { background: var(--gray-900); color: #e5e7eb; border-radius: 8px; padding: 16px; overflow-x: auto; font-size: 12px; margin-bottom: 16px; line-height: 1.5; }
+
+  /* Status flow */
+  .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 12px 0; }
+  .flow-arrow { color: var(--gray-300); font-size: 18px; }
+
+  /* Bullet list */
+  ul.bullets, ol.numbered { padding-left: 20px; margin: 8px 0 16px; color: var(--gray-700); font-size: 14px; }
+  ul.bullets li, ol.numbered li { margin-bottom: 6px; }
+
+  /* Timeline */
+  .timeline { border-left: 3px solid var(--primary-light); padding-left: 24px; margin: 16px 0; }
+  .timeline-item { margin-bottom: 20px; position: relative; }
+  .timeline-item::before { content: ''; position: absolute; left: -31px; top: 6px; width: 12px; height: 12px; background: var(--primary-light); border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 2px var(--primary-light); }
+  .timeline-item .date { font-size: 11px; color: var(--gray-600); font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
+  .timeline-item .title { font-weight: 600; font-size: 14px; color: var(--gray-800); margin: 2px 0 4px; }
+  .timeline-item .desc { font-size: 13px; color: var(--gray-600); }
+
+  /* Mobile screens */
+  .screen-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin: 16px 0; }
+  .screen-card { background: #fff; border: 1px solid var(--gray-200); border-radius: 10px; padding: 16px; text-align: center; }
+  .screen-card .phone-frame { width: 80px; height: 140px; background: var(--gray-100); border-radius: 12px; border: 2px solid var(--gray-300); margin: 0 auto 12px; display: flex; align-items: center; justify-content: center; font-size: 28px; }
+  .screen-card h5 { font-size: 13px; font-weight: 600; color: var(--gray-800); margin-bottom: 4px; }
+  .screen-card p { font-size: 11px; color: var(--gray-600); margin: 0; }
+
+  /* TOC */
+  #toc-float { display: none; }
+
+  /* Print */
+  @media print {
+    .sidebar { display: none; }
+    .main { margin-left: 0; max-width: 100%; padding: 20px; }
+    .page-header { margin: 0 0 20px; border-radius: 0; }
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .sidebar { transform: translateX(-100%); }
+    .main { margin-left: 0; padding: 20px; }
+    .page-header { margin: -20px -20px 20px; border-radius: 0; }
+    .page-header-inner { padding: 0 20px; }
+  }
+
+  /* Divider */
+  .divider { border: none; border-top: 1px solid var(--gray-200); margin: 40px 0; }
+
+  /* Highlight row */
+  .highlight-row td:first-child { font-weight: 600; color: var(--primary); }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<!-- ═══════════════ SIDEBAR ═══════════════ -->
+<aside class="sidebar">
+  <div class="sidebar-header">
+    <div class="logo">🛡 PC02</div>
+    <div class="subtitle">Hướng dẫn sử dụng</div>
+  </div>
+  <nav>
+    <div class="section-label">Tổng quan</div>
+    <a href="#gioi-thieu">Giới thiệu hệ thống</a>
+    <a href="#dang-nhap">Đăng nhập &amp; Bảo mật</a>
+    <a href="#dashboard">Dashboard tổng quan</a>
+
+    <div class="section-label">Nghiệp vụ chính</div>
+    <a href="#vu-an">Quản lý Vụ án</a>
+    <a href="#vu-viec">Quản lý Vụ việc</a>
+    <a href="#don-thu">Quản lý Đơn thư</a>
+    <a href="#doi-tuong">Đối tượng liên quan</a>
+
+    <div class="section-label">Modules nghiệp vụ</div>
+    <a href="#uy-thac" class="sub">Ủy thác điều tra</a>
+    <a href="#trao-doi" class="sub">Trao đổi / Thông báo</a>
+    <a href="#huong-dan" class="sub">Hướng dẫn giải quyết</a>
+    <a href="#de-xuat" class="sub">Đề xuất VKS</a>
+    <a href="#ket-luan" class="sub">Kết luận điều tra</a>
+    <a href="#tai-lieu" class="sub">Tài liệu đính kèm</a>
+    <a href="#nhan-chung" class="sub">Nhân chứng / Bị hại</a>
+
+    <div class="section-label">Quản trị &amp; Báo cáo</div>
+    <a href="#kpi">KPI Dashboard</a>
+    <a href="#bao-cao">Báo cáo thống kê</a>
+    <a href="#quan-tri">Quản trị hệ thống</a>
+
+    <div class="section-label">Ứng dụng Mobile</div>
+    <a href="#mobile">Tổng quan Mobile</a>
+    <a href="#mobile-login">Đăng nhập Mobile</a>
+    <a href="#mobile-features">Tính năng Mobile</a>
+    <a href="#mobile-notif">Thông báo đẩy</a>
+
+    <div class="section-label">Phụ lục</div>
+    <a href="#phu-luc-trangthai">Bảng trạng thái</a>
+    <a href="#phu-luc-thoihan">Thời hạn BLTTHS</a>
+    <a href="#phu-luc-kpi">Công thức KPI</a>
+    <a href="#phu-luc-loi">Xử lý lỗi thường gặp</a>
+  </nav>
+</aside>
+
+<!-- ═══════════════ MAIN CONTENT ═══════════════ -->
+<main class="main">
+
+<!-- ── COVER ── -->
+<div class="page-header">
+  <div class="page-header-inner">
+    <div class="badge">Phiên bản v0.8.0 · Nội bộ</div>
+    <h1>Hướng Dẫn Sử Dụng<br>Hệ Thống PC02</h1>
+    <div class="subtitle">Quản lý vụ án, vụ việc, đơn thư theo TT28/2020/TT-BCA &amp; BLTTHS 2015</div>
+    <div class="meta">
+      <span>Hệ Web + Ứng dụng Mobile</span>
+      <span>Cập nhật: tháng 04/2026</span>
+      <span>Dành cho Điều tra viên &amp; Tổ trưởng</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     1. GIỚI THIỆU
+═══════════════════════════════════════════ -->
+<section class="section" id="gioi-thieu">
+  <h2 class="section-title"><span class="icon">📋</span> 1. Giới Thiệu Hệ Thống</h2>
+
+  <p>Hệ thống PC02 là nền tảng quản lý nghiệp vụ điều tra nội bộ được xây dựng theo quy định <strong>TT28/2020/TT-BCA</strong> (Quy trình thụ lý, xác minh, giải quyết tố giác/tin báo/kiến nghị khởi tố) và <strong>BLTTHS 2015</strong> (Điều 147–149). Hệ thống hỗ trợ cán bộ điều tra theo dõi toàn bộ vòng đời vụ án từ tiếp nhận đơn thư đến kết luận.</p>
+
+  <div class="card-grid">
+    <div class="card">
+      <div class="num">3</div>
+      <div class="num-label">Nghiệp vụ chính: Vụ án · Vụ việc · Đơn thư</div>
+    </div>
+    <div class="card">
+      <div class="num">15</div>
+      <div class="num-label">Trạng thái vụ việc theo TT28</div>
+    </div>
+    <div class="card">
+      <div class="num">12</div>
+      <div class="num-label">Nguồn dữ liệu phân quyền theo tổ/nhóm</div>
+    </div>
+    <div class="card">
+      <div class="num">4</div>
+      <div class="num-label">Chỉ tiêu KPI cứng TT28/2020</div>
+    </div>
+  </div>
+
+  <h3 class="sub-title">Kiến trúc tổng quan</h3>
+  <table>
+    <tr><th>Thành phần</th><th>Công nghệ</th><th>Truy cập</th></tr>
+    <tr><td>Hệ web (frontend)</td><td>React + Vite</td><td><code>http://&lt;server&gt;:5173</code></td></tr>
+    <tr><td>Backend API</td><td>NestJS + Prisma + PostgreSQL</td><td><code>http://&lt;server&gt;:3000/api/v1</code></td></tr>
+    <tr><td>Ứng dụng Mobile</td><td>Flutter (iOS + Android)</td><td>Cài đặt APK / TestFlight</td></tr>
+  </table>
+
+  <figure style="margin:16px 0 20px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:16px 20px 12px;">
+    <p style="font-size:12px;font-weight:600;color:#374151;margin:0 0 10px;">📐 Sơ đồ kiến trúc hệ thống</p>
+    <img src="images/03-dashboard.png" alt="Màn hình Dashboard — Hệ thống PC02 đang chạy thực tế" style="width:100%;border-radius:8px;border:1px solid #e2e8f0;display:block;">
+    <figcaption style="font-size:11px;color:#6b7280;text-align:center;margin-top:8px;">Hình 1: Màn hình tổng quan Dashboard — Hệ thống Quản lý Vụ án PC02</figcaption>
+  </figure>
+
+  <h3 class="sub-title">Vai trò người dùng</h3>
+  <table>
+    <tr><th>Vai trò</th><th>Phạm vi dữ liệu</th><th>Quyền hạn</th></tr>
+    <tr>
+      <td><span class="badge badge-red">ADMIN</span></td>
+      <td>Toàn bộ hệ thống</td>
+      <td>Xem, tạo, sửa, xóa mọi dữ liệu; quản lý người dùng, tổ nhóm, danh mục</td>
+    </tr>
+    <tr>
+      <td><span class="badge badge-blue">OFFICER</span></td>
+      <td>Theo tổ được phân công và vụ án được giao</td>
+      <td>Xem và thao tác trên dữ liệu trong phạm vi được phân quyền</td>
+    </tr>
+  </table>
+
+  <div class="alert alert-info">
+    <span class="alert-icon">ℹ️</span>
+    <div>Phân quyền dữ liệu được kiểm soát qua <strong>DataScope</strong> — mỗi API call tự động lọc dữ liệu theo tổ/nhóm của người dùng đang đăng nhập. Người dùng chỉ thấy dữ liệu thuộc phạm vi được cấp quyền.</div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- ══════════════════════════════════════════
+     2. ĐĂNG NHẬP
+═══════════════════════════════════════════ -->
+<section class="section" id="dang-nhap">
+  <h2 class="section-title"><span class="icon">🔐</span> 2. Đăng Nhập &amp; Bảo Mật</h2>
+
+  <h3 class="sub-title">Đăng nhập hệ web</h3>
+  <ol class="steps">
+    <li>Mở trình duyệt, truy cập địa chỉ hệ thống.</li>
+    <li>Nhập <strong>Tên đăng nhập</strong> (username) và <strong>Mật khẩu</strong>.</li>
+    <li>Nhấn <strong>Đăng nhập</strong>. Hệ thống cấp JWT Token (15 phút) và Refresh Token (7 ngày).</li>
+    <li>Sau đăng nhập thành công, hệ thống chuyển đến trang Dashboard.</li>
+  </ol>
+
+  <div class="alert alert-warn">
+    <span class="alert-icon">⚠️</span>
+    <div><strong>Hết phiên:</strong> Sau 15 phút không hoạt động, Access Token hết hạn. Hệ thống tự động gia hạn bằng Refresh Token (nếu còn hiệu lực). Nếu cả hai đều hết hạn, hệ thống chuyển về trang đăng nhập.</div>
+  </div>
+
+  <h3 class="sub-title">Đổi mật khẩu</h3>
+  <ol class="steps">
+    <li>Nhấn vào biểu tượng người dùng (góc phải màn hình) → chọn <strong>Đổi mật khẩu</strong>.</li>
+    <li>Nhập mật khẩu hiện tại và mật khẩu mới (tối thiểu 8 ký tự).</li>
+    <li>Xác nhận. Tất cả phiên đăng nhập hiện tại sẽ bị đăng xuất (Token Version tăng).</li>
+  </ol>
+
+  <div class="alert alert-info">
+    <span class="alert-icon">🛡</span>
+    <div><strong>Bảo mật phiên:</strong> Sau khi đổi mật khẩu, tất cả thiết bị đang đăng nhập (kể cả mobile) sẽ bị đăng xuất tự động. Đây là thiết kế có chủ ý để bảo vệ tài khoản.</div>
+  </div>
+
+  <h3 class="sub-title">Giới hạn đăng nhập (Rate limiting)</h3>
+  <table>
+    <tr><th>Endpoint</th><th>Giới hạn</th><th>Khóa theo</th></tr>
+    <tr><td>POST /auth/login</td><td>10 lần / 60 giây</td><td>IP address</td></tr>
+    <tr><td>POST /auth/change-password</td><td>5 lần / 60 giây</td><td>User ID</td></tr>
+    <tr><td>POST /auth/refresh</td><td>20 lần / 60 giây</td><td>IP address</td></tr>
+  </table>
+</section>
+
+<hr class="divider">
+
+<!-- ══════════════════════════════════════════
+     3. DASHBOARD
+═══════════════════════════════════════════ -->
+<section class="section" id="dashboard">
+  <h2 class="section-title"><span class="icon">📊</span> 3. Dashboard Tổng Quan</h2>
+
+  <p>Màn hình chính sau khi đăng nhập hiển thị các số liệu tổng hợp theo phạm vi dữ liệu của người dùng.</p>
+
+  <div class="card-grid">
+    <div class="card">
+      <h4>Số liệu Vụ việc</h4>
+      <p>Tổng vụ việc đang xử lý, đã giải quyết, quá hạn, sắp hạn (7 ngày tới).</p>
+    </div>
+    <div class="card">
+      <h4>Đơn thư chờ xử lý</h4>
+      <p>Số đơn thư mới tiếp nhận chưa được chuyển đổi hoặc lưu trữ.</p>
+    </div>
+    <div class="card">
+      <h4>Thông báo gần đây</h4>
+      <p>Các cảnh báo deadline, vụ việc được giao mới, thay đổi trạng thái quan trọng.</p>
+    </div>
+    <div class="card">
+      <h4>Hoạt động gần đây</h4>
+      <p>Audit log 10 hành động gần nhất trên dữ liệu của tổ.</p>
+    </div>
+  </div>
+
+  <h3 class="sub-title">Thanh điều hướng (Sidebar)</h3>
+  <table>
+    <tr><th>Mục</th><th>Chức năng</th></tr>
+    <tr><td>Dashboard</td><td>Màn hình tổng quan</td></tr>
+    <tr><td>Vụ án</td><td>Danh sách và chi tiết các vụ án (Cases)</td></tr>
+    <tr><td>Vụ việc</td><td>Danh sách tin báo / tố giác / kiến nghị khởi tố (Incidents)</td></tr>
+    <tr><td>Đơn thư</td><td>Quản lý đơn thư tiếp nhận (Petitions)</td></tr>
+    <tr><td>KPI</td><td>Bảng đánh giá chỉ tiêu TT28/2020</td></tr>
+    <tr><td>Báo cáo</td><td>Xuất thống kê theo thời gian, tổ nhóm</td></tr>
+    <tr><td>Quản trị</td><td>Người dùng, phân quyền, danh mục (chỉ ADMIN)</td></tr>
+  </table>
+
+  <div class="alert alert-info">
+    <span class="alert-icon">💡</span>
+    <div>Các mục menu được kiểm soát bằng <strong>Feature Flags</strong>. Admin có thể bật/tắt từng module từ <strong>Quản trị → Feature Flags</strong> mà không cần triển khai lại hệ thống.</div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- ══════════════════════════════════════════
+     4. VỤ ÁN (CASES)
+═══════════════════════════════════════════ -->
+<section class="section" id="vu-an">
+  <h2 class="section-title"><span class="icon">📁</span> 4. Quản Lý Vụ Án</h2>
+
+  <p>Vụ án (Case) là đơn vị quản lý tổng hợp một vụ tội phạm, bao gồm các vụ việc con, đối tượng, tài liệu, và lịch sử xử lý.</p>
+
+  <h3 class="sub-title">Trạng thái vụ án</h3>
+  <figure style="margin:16px 0 20px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:16px 20px 12px;">
+    <p style="font-size:12px;font-weight:600;color:#374151;margin:0 0 10px;">Sơ đồ chuyển đổi trạng thái — Vụ án</p>
+    <img src="images/04-cases.png" alt="Danh sách Vụ án trong hệ thống" style="width:100%;border-radius:8px;border:1px solid #e2e8f0;display:block;">
+    <figcaption style="font-size:11px;color:#6b7280;text-align:center;margin-top:8px;">Hình 2: Màn hình Danh sách Vụ án — Quản lý theo trạng thái và giai đoạn TT28/2020</figcaption>
+  </figure>
+
+  <h3 class="sub-title">Tạo vụ án mới</h3>
+  <ol class="steps">
+    <li>Vào <strong>Vụ án → Tạo mới</strong> (hoặc nhấn nút <code>+</code> trên danh sách).</li>
+    <li>Điền các trường bắt buộc: <strong>Tên vụ án</strong>, <strong>Tội danh</strong>, <strong>Ngày khởi tố</strong>, <strong>Điều tra viên phụ trách</strong>.</li>
+    <li>Chọn <strong>Tổ điều tra</strong> phụ trách (assignedTeamId).</li>
+    <li>Nếu vụ án đến từ một đơn thư, chọn <strong>loại đơn thư</strong> (petitionType) — hệ thống tự tạo Đơn thư liên kết.</li>
+    <li>Nhấn <strong>Lưu</strong>. Vụ án tạo với trạng thái <code>DRAFT</code>.</li>
+  </ol>
+
+  <div class="alert alert-info">
+    <span class="alert-icon">🔗</span>
+    <div><strong>Tự động tạo Đơn thư:</strong> Khi tạo vụ án với <code>petitionType</code>, hệ thống tự động tạo Đơn thư liên kết (STT định dạng <code>DT-YYYY-NNNNN</code>) và đồng bộ hai chiều khi cập nhật trạng thái.</div>
+  </div>
+
+  <h3 class="sub-title">Cập nhật thông tin vụ án</h3>
+  <ol class="steps">
+    <li>Mở chi tiết vụ án, nhấn <strong>Chỉnh sửa</strong>.</li>
+    <li>Cập nhật các trường cần thay đổi.</li>
+    <li>Nhấn <strong>Lưu</strong>. Hệ thống kiểm tra xung đột đồng thời (optimistic locking).</li>
+  </ol>
+
+  <div class="alert alert-warn">
+    <span class="alert-icon">⚠️</span>
+    <div><strong>Xung đột đồng thời:</strong> Nếu có hai người cùng chỉnh sửa một vụ án, người lưu sau sẽ nhận thông báo <em>"Hồ sơ đã được chỉnh sửa bởi người dùng khác. Vui lòng tải lại trang và thử lại."</em> Nhấn <strong>Tải lại</strong> để xem phiên bản mới nhất, sau đó chỉnh sửa lại.</div>
+  </div>
+
+  <h3 class="sub-title">Phân công điều tra viên</h3>
+  <ol class="steps">
+    <li>Trong chi tiết vụ án, tìm phần <strong>Điều tra viên</strong>.</li>
+    <li>Nhấn <strong>Phân công</strong>, chọn điều tra viên từ danh sách (lọc theo tổ).</li>
+    <li>Xác nhận. Hệ thống ghi nhật ký và gửi thông báo cho điều tra viên được phân công.</li>
+  </ol>
+
+  <h3 class="sub-title">Các thao tác khác</h3>
+  <table>
+    <tr><th>Thao tác</th><th>Điều kiện</th><th>Mô tả</th></tr>
+    <tr><td>Xem lịch sử</td><td>Mọi trạng thái</td><td>Xem toàn bộ audit log thay đổi trên vụ án</td></tr>
+    <tr><td>Đính kèm tài liệu</td><td>Mọi trạng thái</td><td>Upload file PDF, Word, ảnh liên quan</td></tr>
+    <tr><td>Xem vụ việc con</td><td>Mọi trạng thái</td><td>Danh sách tất cả Incidents thuộc vụ án</td></tr>
+    <tr><td>Xem đối tượng</td><td>Mọi trạng thái</td><td>Danh sách bị can, bị hại, nhân chứng</td></tr>
+    <tr><td>Chuyển tổ</td><td>Không phải CLOSED/ARCHIVED</td><td>Chuyển vụ án sang tổ khác (ghi log)</td></tr>
+    <tr><td>Xóa mềm</td><td>Chỉ ADMIN hoặc chủ sở hữu</td><td>Đánh dấu deletedAt, ẩn khỏi danh sách</td></tr>
+  </table>
+</section>
+
+<hr class="divider">
+
+<!-- ══════════════════════════════════════════
+     5. VỤ VIỆC (INCIDENTS)
+═══════════════════════════════════════════ -->
+<section class="section" id="vu-viec">
+  <h2 class="section-title"><span class="icon">🔍</span> 5. Quản Lý Vụ Việc (Incidents)</h2>
+
+  <p>Vụ việc (Incident) là đơn vị xử lý trực tiếp một tin báo, tố giác tội phạm hoặc kiến nghị khởi tố theo 4 giai đoạn TT28/2020/TT-BCA. Mỗi vụ việc có thời hạn giải quyết theo BLTTHS 2015 và được theo dõi KPI.</p>
+
+  <h3 class="sub-title">4 giai đoạn xử lý (TT28/2020)</h3>
+  <div class="card-grid">
+    <div class="card">
+      <h4>1. Tiếp nhận</h4>
+      <p>Tiếp nhận tin báo/tố giác, ghi nhận thông tin ban đầu, phân công điều tra viên.</p>
+    </div>
+    <div class="card">
+      <h4>2. Xác minh</h4>
+      <p>Điều tra xác minh nội dung, thu thập chứng cứ, gặp gỡ nhân chứng.</p>
+    </div>
+    <div class="card">
+      <h4>3. Kết quả</h4>
+      <p>Ra quyết định: khởi tố vụ án, không khởi tố, chuyển cơ quan khác.</p>
+    </div>
+    <div class="card">
+      <h4>4. Tạm đình chỉ</h4>
+      <p>Tạm dừng xác minh khi chưa đủ điều kiện giải quyết, theo dõi tiếp.</p>
+    </div>
+  </div>
+
+  <figure style="margin:16px 0 20px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:16px 20px 12px;">
+    <p style="font-size:12px;font-weight:600;color:#374151;margin:0 0 10px;">Luồng xử lý Vụ việc theo 4 giai đoạn TT28/2020</p>
+    <img src="images/05-incidents.png" alt="Danh sách Vụ việc trong hệ thống" style="width:100%;border-radius:8px;border:1px solid #e2e8f0;display:block;">
+    <figcaption style="font-size:11px;color:#6b7280;text-align:center;margin-top:8px;">Hình 3: Danh sách Vụ việc — 4 giai đoạn xử lý theo TT28/2020/TT-BCA</figcaption>
+  </figure>
+
+  <h3 class="sub-title">15 trạng thái vụ việc</h3>
+  <table>
+    <tr><th>Trạng thái</th><th>Giai đoạn</th><th>Ý nghĩa</th></tr>
+    <tr><td><span class="badge badge-gray">RECEIVED</span></td><td>Tiếp nhận</td><td>Vừa tiếp nhận, chưa phân công</td></tr>
+    <tr><td><span class="badge badge-blue">ASSIGNED</span></td><td>Tiếp nhận</td><td>Đã phân công điều tra viên</td></tr>
+    <tr><td><span class="badge badge-yellow">VERIFYING</span></td><td>Xác minh</td><td>Đang trong quá trình xác minh</td></tr>
+    <tr><td><span class="badge badge-orange">EXTENDED</span></td><td>Xác minh</td><td>Đã gia hạn thời gian xác minh</td></tr>
+    <tr><td><span class="badge badge-purple">TRANSFERRED</span></td><td>Xác minh</td><td>Đã ủy thác / chuyển đơn vị khác</td></tr>
+    <tr><td><span class="badge badge-blue">PENDING_PROSECUTION</span></td><td>Kết quả</td><td>Đề xuất VKS phê chuẩn khởi tố</td></tr>
+    <tr><td><span class="badge badge-green">PROSECUTED</span></td><td>Kết quả</td><td>Đã khởi tố vụ án</td></tr>
+    <tr><td><span class="badge badge-red">NOT_PROSECUTED</span></td><td>Kết quả</td><td>Quyết định không khởi tố</td></tr>
+    <tr><td><span class="badge badge-gray">TRANSFERRED_OUT</span></td><td>Kết quả</td><td>Chuyển sang cơ quan khác xử lý</td></tr>
+    <tr><td><span class="badge badge-orange">SUSPENDED</span></td><td>Tạm đình chỉ</td><td>Tạm đình chỉ xác minh</td></tr>
+    <tr><td><span class="badge badge-blue">RESUMED</span></td><td>Tiếp nhận lại</td><td>Tiếp tục sau tạm đình chỉ</td></tr>
+    <tr><td><span class="badge badge-green">CLOSED</span></td><td>Kết thúc</td><td>Đã đóng hồ sơ</td></tr>
+    <tr><td><span class="badge badge-red">DINH_CHI</span></td><td>Đình chỉ</td><td>Đình chỉ điều tra (không tiếp tục)</td></tr>
+    <tr><td><span class="badge badge-gray">TAM_DINH_CHI</span></td><td>Tạm đình chỉ</td><td>Tạm đình chỉ điều tra (có thể phục hồi)</td></tr>
+    <tr><td><span class="badge badge-yellow">ARCHIVED</span></td><td>Lưu trữ</td><td>Lưu vào kho hồ sơ</td></tr>
+  </table>
+
+  <h3 class="sub-title">Tạo vụ việc mới</h3>
+  <ol class="steps">
+    <li>Vào <strong>Vụ việc → Tạo mới</strong>.</li>
+    <li>Chọn <strong>Vụ án</strong> cha (caseId) — bắt buộc.</li>
+    <li>Chọn <strong>Loại tin báo</strong>: Tin báo tội phạm / Tố giác / Kiến nghị khởi tố.</li>
+    <li>Nhập <strong>Nội dung tin báo</strong>, <strong>Người tố giác</strong>, <strong>Ngày tiếp nhận</strong>.</li>
+    <li>Nhấn <strong>Tạo</strong>. Hệ thống tự tính <strong>Thời hạn giải quyết</strong> theo SystemSetting (mặc định theo BLTTHS 2015 Điều 147).</li>
+  </ol>
+
+  <h3 class="sub-title">Gia hạn thời gian xác minh</h3>
+  <ol class="steps">
+    <li>Mở chi tiết vụ việc → tab <strong>Thời hạn</strong>.</li>
+    <li>Nhấn <strong>Gia hạn</strong>. Hệ thống hiện thị số lần gia hạn còn lại (mặc định 2 lần).</li>
+    <li>Nhập lý do gia hạn và thời gian gia hạn (ngày).</li>
+    <li>Xác nhận. Deadline mới được tính và ghi nhật ký.</li>
+  </ol>
+
+  <div class="alert alert-warn">
+    <span class="alert-icon">⏰</span>
+    <div><strong>Cảnh báo deadline:</strong> Hệ thống gửi thông báo tự động lúc <strong>07:00 sáng</strong> cho các vụ việc sắp hết hạn trong 7 ngày tới. Điều tra viên và tổ trưởng đều nhận thông báo.</div>
+  </div>
+
+  <h3 class="sub-title">Khởi tố vụ án (Prosecute)</h3>
+  <ol class="steps">
+    <li>Vụ việc phải ở trạng thái <code>PENDING_PROSECUTION</code>.</li>
+    <li>Nhấn <strong>Khởi tố</strong> → điền thông tin quyết định khởi tố (số quyết định, ngày, căn cứ pháp lý).</li>
+    <li>Xác nhận. Vụ việc chuyển sang <code>PROSECUTED</code> và liên kết với vụ án cha chuyển sang <code>PROSECUTED</code>.</li>
+  </ol>
+
+  <h3 class="sub-title">Nhập vụ việc (Merge)</h3>
+  <p>Khi hai vụ việc xác định là cùng đối tượng/vụ án, có thể gộp chúng lại:</p>
+  <ol class="steps">
+    <li>Mở vụ việc cần nhập → nhấn <strong>Nhập vào vụ việc khác</strong>.</li>
+    <li>Tìm và chọn vụ việc đích.</li>
+    <li>Xác nhận. Vụ việc nguồn đánh dấu <code>mergedIntoId</code>, không hiển thị nữa trong danh sách chính.</li>
+  </ol>
+
+  <h3 class="sub-title">Chuyển đơn vị (Transfer)</h3>
+  <ol class="steps">
+    <li>Nhấn <strong>Chuyển đơn vị</strong> trên chi tiết vụ việc.</li>
+    <li>Chọn đơn vị nhận và nhập lý do chuyển.</li>
+    <li>Xác nhận. Thông báo gửi đến điều tra viên đơn vị nhận.</li>
+  </ol>
+</section>
+
+<hr class="divider">
+
+<!-- ══════════════════════════════════════════
+     6. ĐƠN THƯ (PETITIONS)
+═══════════════════════════════════════════ -->
+<section class="section" id="don-thu">
+  <h2 class="section-title"><span class="icon">📬</span> 6. Quản Lý Đơn Thư</h2>
+
+  <p>Đơn thư (Petition) là bước đầu tiên trong quy trình tiếp nhận. Mỗi đơn thư được cấp số thứ tự tự động (<code>DT-YYYY-NNNNN</code>) và có thể được chuyển đổi thành vụ việc hoặc vụ án.</p>
+
+  <h3 class="sub-title">7 trạng thái đơn thư</h3>
+  <table>
+    <tr><th>Trạng thái</th><th>Mô tả</th></tr>
+    <tr><td><span class="badge badge-gray">RECEIVED</span></td><td>Vừa tiếp nhận, chưa xử lý</td></tr>
+    <tr><td><span class="badge badge-blue">PROCESSING</span></td><td>Đang xem xét nội dung</td></tr>
+    <tr><td><span class="badge badge-yellow">PENDING_REVIEW</span></td><td>Chờ tổ trưởng/lãnh đạo duyệt</td></tr>
+    <tr><td><span class="badge badge-green">CONVERTED_TO_INCIDENT</span></td><td>Đã chuyển thành vụ việc</td></tr>
+    <tr><td><span class="badge badge-purple">CONVERTED_TO_CASE</span></td><td>Đã chuyển thành vụ án</td></tr>
+    <tr><td><span class="badge badge-orange">TRANSFERRED</span></td><td>Chuyển đơn vị khác xử lý</td></tr>
+    <tr><td><span class="badge badge-red">ARCHIVED</span></td><td>Lưu trữ (không xử lý tiếp)</td></tr>
+  </table>
+
+  <figure style="margin:16px 0 20px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:16px 20px 12px;">
+    <p style="font-size:12px;font-weight:600;color:#374151;margin:0 0 10px;">Sơ đồ chuyển đổi Đơn thư</p>
+    <img src="images/06-petitions.png" alt="Danh sách Đơn thư trong hệ thống" style="width:100%;border-radius:8px;border:1px solid #e2e8f0;display:block;">
+    <figcaption style="font-size:11px;color:#6b7280;text-align:center;margin-top:8px;">Hình 4: Danh sách Đơn thư — Tiếp nhận và chuyển đổi thành Vụ án/Vụ việc</figcaption>
+  </figure>
+
+  <h3 class="sub-title">Tiếp nhận đơn thư mới</h3>
+  <ol class="steps">
+    <li>Vào <strong>Đơn thư → Tiếp nhận mới</strong>.</li>
+    <li>Nhập thông tin người gửi, nội dung đơn, ngày tiếp nhận, hình thức tiếp nhận.</li>
+    <li>Chọn loại đơn: <strong>Tố giác</strong> / <strong>Tin báo</strong> / <strong>Kiến nghị khởi tố</strong> / <strong>Đơn khiếu nại</strong>.</li>
+    <li>Nhấn <strong>Tiếp nhận</strong>. Hệ thống tự cấp số STT và ghi log.</li>
+  </ol>
+
+  <h3 class="sub-title">Chuyển đổi đơn thư thành Vụ việc</h3>
+  <ol class="steps">
+    <li>Mở chi tiết đơn thư → nhấn <strong>Chuyển thành Vụ việc</strong>.</li>
+    <li>Chọn <strong>Vụ án</strong> cha hoặc tạo vụ án mới.</li>
+    <li>Điền thêm thông tin vụ việc cần thiết.</li>
+    <li>Xác nhận. Đơn thư chuyển sang <code>CONVERTED_TO_INCIDENT</code>, vụ việc mới được tạo với liên kết trở lại đơn thư.</li>
+  </ol>
+
+  <h3 class="sub-title">Chuyển đổi đơn thư thành Vụ án</h3>
+  <ol class="steps">
+    <li>Nhấn <strong>Chuyển thành Vụ án</strong> (thao tác atomic transaction).</li>
+    <li>Điền thông tin vụ án mới.</li>
+    <li>Xác nhận. Hệ thống tạo vụ án và đồng thời tạo vụ việc con đầu tiên trong một transaction.</li>
+  </ol>
+
+  <div class="alert alert-info">
+    <span class="alert-icon">🔢</span>
+    <div><strong>Số thứ tự tự động:</strong> Định dạng <code>DT-2026-00001</code>. Số STT tăng dần theo năm, không bao giờ bị trùng (dùng database sequence). Đặt lại về <code>00001</code> mỗi năm mới.</div>
+  </div>
+
+  <h3 class="sub-title">Bộ lọc tìm kiếm đơn thư</h3>
+  <table>
+    <tr><th>Bộ lọc</th><th>Mô tả</th></tr>
+    <tr><td>Tìm kiếm text</td><td>Tìm theo tên người gửi, số STT, nội dung tóm tắt</td></tr>
+    <tr><td>Trạng thái</td><td>Lọc theo một hoặc nhiều trạng thái</td></tr>
+    <tr><td>Loại đơn</td><td>Tố giác / Tin báo / Kiến nghị / Khiếu nại</td></tr>
+    <tr><td>Quá hạn</td><td>Chỉ hiện đơn thư quá thời hạn xử lý (<code>?overdue=true</code>)</td></tr>
+    <tr><td>Khoảng thời gian</td><td>Lọc theo ngày tiếp nhận (fromDate - toDate)</td></tr>
+  </table>
+</section>
+
+<hr class="divider">
+
+<!-- ══════════════════════════════════════════
+     7. ĐỐI TƯỢNG LIÊN QUAN
+═══════════════════════════════════════════ -->
+<section class="section" id="doi-tuong">
+  <h2 class="section-title"><span class="icon">👤</span> 7. Đối Tượng Liên Quan</h2>
+
+  <p>Mỗi vụ án có thể có nhiều đối tượng liên quan theo các loại khác nhau. Cùng một người (cùng số CCCD) có thể vừa là Bị hại vừa là Nhân chứng trong các vụ án khác nhau — hệ thống phân biệt theo cặp <code>(idNumber, type)</code>.</p>
+
+  <h3 class="sub-title">Các loại đối tượng</h3>
+  <table>
+    <tr><th>Loại (SubjectType)</th><th>Mô tả</th></tr>
+    <tr><td><span class="badge badge-red">SUSPECT</span> — Bị can</td><td>Người bị tình nghi phạm tội, đang trong quá trình điều tra</td></tr>
+    <tr><td><span class="badge badge-orange">DEFENDANT</span> — Bị cáo</td><td>Bị can đã bị khởi tố, chuyển sang giai đoạn tố tụng</td></tr>
+    <tr><td><span class="badge badge-blue">VICTIM</span> — Bị hại</td><td>Người bị thiệt hại do hành vi phạm tội gây ra</td></tr>
+    <tr><td><span class="badge badge-green">WITNESS</span> — Nhân chứng</td><td>Người biết về sự việc, cung cấp lời khai</td></tr>
+    <tr><td><span class="badge badge-purple">LAWYER</span> — Luật sư</td><td>Người bào chữa / đại diện pháp lý</td></tr>
+    <tr><td><span class="badge badge-gray">RELATED_PERSON</span> — Liên quan</td><td>Người liên quan nhưng chưa xác định rõ vai trò</td></tr>
+  </table>
+
+  <h3 class="sub-title">Thêm đối tượng vào vụ án</h3>
+  <ol class="steps">
+    <li>Mở chi tiết vụ án → tab <strong>Đối tượng</strong>.</li>
+    <li>Nhấn <strong>Thêm đối tượng</strong>.</li>
+    <li>Nhập Số CCCD/CMND — hệ thống kiểm tra trùng trong cùng loại đối tượng.</li>
+    <li>Điền họ tên, ngày sinh, địa chỉ, tội danh liên quan.</li>
+    <li>Chọn loại đối tượng và trạng thái hiện tại.</li>
+    <li>Nhấn <strong>Lưu</strong>.</li>
+  </ol>
+
+  <div class="alert alert-warn">
+    <span class="alert-icon">⚠️</span>
+    <div><strong>Kiểm tra trùng lặp:</strong> Hệ thống từ chối tạo nếu cùng số CCCD và cùng loại đối tượng đã tồn tại trong cơ sở dữ liệu (EC-04). Có thể thêm cùng người với loại khác (ví dụ: vừa là Bị hại vừa là Nhân chứng trong vụ án khác).</div>
+  </div>
+
+  <h3 class="sub-title">Trạng thái đối tượng</h3>
+  <table>
+    <tr><th>Trạng thái</th><th>Ý nghĩa</th></tr>
+    <tr><td>INVESTIGATING</td><td>Đang xác minh / điều tra</td></tr>
+    <tr><td>ARRESTED</td><td>Đã bắt giữ</td></tr>
+    <tr><td>PROSECUTED</td><td>Đã truy tố</td></tr>
+    <tr><td>CONVICTED</td><td>Đã kết án</td></tr>
+    <tr><td>ACQUITTED</td><td>Trắng án</td></tr>
+    <tr><td>FUGITIVE</td><td>Đang trốn truy nã</td></tr>
+    <tr><td>RELEASED</td><td>Đã thả / không giữ</td></tr>
+  </table>
+</section>
+
+<hr class="divider">
+
+<!-- ══════════════════════════════════════════
+     8. MODULES NGHIỆP VỤ
+═══════════════════════════════════════════ -->
+<section class="section" id="uy-thac">
+  <h2 class="section-title"><span class="icon">📤</span> 8. Modules Nghiệp Vụ</h2>
+
+  <h3 class="sub-title" id="uy-thac">8.1 Ủy Thác Điều Tra</h3>
+  <p>Khi cần thu thập chứng cứ từ địa bàn khác, điều tra viên tạo ủy thác điều tra gửi đến đơn vị có thẩm quyền.</p>
+  <ol class="steps">
+    <li>Mở chi tiết Vụ việc → tab <strong>Ủy thác</strong> → <strong>Tạo ủy thác</strong>.</li>
+    <li>Điền đơn vị nhận, nội dung ủy thác, thời hạn thực hiện.</li>
+    <li>Nhấn <strong>Gửi</strong>. Hệ thống ghi log và gửi thông báo.</li>
+    <li>Theo dõi trạng thái: <code>SENT → IN_PROGRESS → COMPLETED / REJECTED</code>.</li>
+    <li>Khi nhận kết quả, cập nhật trạng thái và đính kèm tài liệu phản hồi.</li>
+  </ol>
+
+  <h3 class="sub-title" id="trao-doi">8.2 Trao Đổi / Thông Báo (Exchanges)</h3>
+  <p>Kênh liên lạc nội bộ giữa các cán bộ về một vụ việc cụ thể.</p>
+  <ol class="steps">
+    <li>Mở Vụ việc → tab <strong>Trao đổi</strong>.</li>
+    <li>Nhấn <strong>Tạo trao đổi</strong>, chọn người nhận trong đơn vị.</li>
+    <li>Nhập nội dung, đính kèm file nếu cần.</li>
+    <li>Nhấn <strong>Gửi</strong>. Người nhận nhận thông báo đẩy (nếu có app mobile).</li>
+  </ol>
+  <p>Xem tất cả tin nhắn trong một trao đổi: <strong>GET /exchanges/:id/messages</strong> (yêu cầu DataScope).</p>
+
+  <h3 class="sub-title" id="huong-dan">8.3 Hướng Dẫn Giải Quyết</h3>
+  <p>Tổ trưởng/lãnh đạo ghi chú hướng dẫn xử lý cho điều tra viên trên từng vụ việc.</p>
+  <ol class="steps">
+    <li>Mở Vụ việc → tab <strong>Hướng dẫn</strong>.</li>
+    <li>Nhấn <strong>Thêm hướng dẫn</strong>. Chỉ tổ trưởng mới có quyền tạo.</li>
+    <li>Nhập nội dung hướng dẫn, ngày thực hiện, người thực hiện.</li>
+    <li>Điều tra viên xem hướng dẫn và cập nhật trạng thái thực hiện.</li>
+  </ol>
+
+  <h3 class="sub-title" id="de-xuat">8.4 Đề Xuất VKS (Prosecution Requests)</h3>
+  <p>Khi đủ căn cứ khởi tố, tạo đề xuất gửi Viện Kiểm sát phê chuẩn.</p>
+  <ol class="steps">
+    <li>Vụ việc phải ở trạng thái <code>VERIFYING</code> hoặc <code>EXTENDED</code>.</li>
+    <li>Tab <strong>Đề xuất VKS</strong> → <strong>Tạo đề xuất</strong>.</li>
+    <li>Điền căn cứ pháp lý, nội dung đề xuất, tài liệu kèm theo.</li>
+    <li>Nhấn <strong>Gửi</strong>. Vụ việc chuyển sang <code>PENDING_PROSECUTION</code>.</li>
+    <li>Khi VKS phê chuẩn: thực hiện thao tác <strong>Khởi tố</strong> trên vụ việc.</li>
+  </ol>
+
+  <h3 class="sub-title" id="ket-luan">8.5 Kết Luận Điều Tra</h3>
+  <p>Tổng hợp kết quả điều tra khi vụ việc sắp kết thúc.</p>
+  <ol class="steps">
+    <li>Vụ việc ở trạng thái <code>PROSECUTED</code> hoặc <code>NOT_PROSECUTED</code>.</li>
+    <li>Tab <strong>Kết luận</strong> → <strong>Viết kết luận</strong>.</li>
+    <li>Nhập nội dung kết luận, kết quả điều tra, kiến nghị (nếu có).</li>
+    <li>Điều tra viên ký → Tổ trưởng phê duyệt → Chốt hồ sơ.</li>
+  </ol>
+
+  <h3 class="sub-title" id="tai-lieu">8.6 Tài Liệu Đính Kèm</h3>
+  <p>Mỗi Vụ án / Vụ việc / Đơn thư có thể đính kèm nhiều tài liệu.</p>
+  <table>
+    <tr><th>Loại tài liệu hỗ trợ</th><th>Kích thước tối đa</th></tr>
+    <tr><td>PDF, Word (.doc, .docx)</td><td>20 MB</td></tr>
+    <tr><td>Hình ảnh (JPG, PNG)</td><td>10 MB</td></tr>
+    <tr><td>Excel (.xlsx)</td><td>10 MB</td></tr>
+    <tr><td>Nén (.zip, .rar)</td><td>50 MB</td></tr>
+  </table>
+  <p>Tài liệu được lưu trữ có phân quyền — chỉ người trong cùng DataScope mới tải được.</p>
+</section>
+
+<hr class="divider">
+
+<!-- ══════════════════════════════════════════
+     9. KPI DASHBOARD
+═══════════════════════════════════════════ -->
+<section class="section" id="kpi">
+  <h2 class="section-title"><span class="icon">📈</span> 9. KPI Dashboard</h2>
+
+  <p>Bảng đánh giá 4 chỉ tiêu cứng theo TT28/2020/TT-BCA. Dữ liệu được tính theo thời gian thực dựa trên trạng thái vụ việc trong phạm vi DataScope của người dùng.</p>
+
+  <h3 class="sub-title">4 Chỉ tiêu KPI</h3>
+  <table>
+    <tr><th>KPI</th><th>Mục tiêu</th><th>Cách tính</th></tr>
+    <tr>
+      <td><strong>Tỷ lệ thụ lý</strong><br><span class="badge badge-blue">KPI-1</span></td>
+      <td>= 100%</td>
+      <td>Số vụ đã được phân công / Tổng vụ tiếp nhận × 100%</td>
+    </tr>
+    <tr>
+      <td><strong>Tỷ lệ giải quyết</strong><br><span class="badge badge-green">KPI-2</span></td>
+      <td>≥ 90%</td>
+      <td>Số vụ đã kết thúc (PROSECUTED + NOT_PROSECUTED + CLOSED) / Tổng vụ × 100%</td>
+    </tr>
+    <tr>
+      <td><strong>Tỷ lệ khám phá</strong><br><span class="badge badge-yellow">KPI-3</span></td>
+      <td>≥ 80%</td>
+      <td>Số vụ PROSECUTED / Tổng vụ PROSECUTED + NOT_PROSECUTED × 100%</td>
+    </tr>
+    <tr>
+      <td><strong>Án NT/ĐBNT</strong><br><span class="badge badge-purple">KPI-4</span></td>
+      <td>≥ 95%</td>
+      <td>Số vụ nghiêm trọng/đặc biệt đã giải quyết / Tổng án NT/ĐBNT × 100%</td>
+    </tr>
+  </table>
+
+  <figure style="margin:16px 0 20px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:16px 20px 12px;">
+    <p style="font-size:12px;font-weight:600;color:#374151;margin:0 0 10px;">Giao diện KPI Dashboard (minh họa)</p>
+    <img src="images/07-kpi.png" alt="KPI Dashboard thực tế hệ thống" style="width:100%;border-radius:8px;border:1px solid #e2e8f0;display:block;">
+    <figcaption style="font-size:11px;color:#6b7280;text-align:center;margin-top:8px;">Hình 5: KPI Dashboard — 4 chỉ tiêu cứng theo TT28/2020/TT-BCA</figcaption>
+  </figure>
+
+  <h3 class="sub-title">Biểu đồ xu hướng 12 tháng</h3>
+  <p>Phần <strong>Xu hướng KPI</strong> hiển thị biểu đồ đường cho từng chỉ tiêu theo 12 tháng liên tiếp. Dữ liệu được tính song song mỗi tháng (12 batches × 4 KPI).</p>
+
+  <h3 class="sub-title">Drill-down theo Tổ</h3>
+  <p>Admin có thể xem KPI chi tiết cho từng tổ/nhóm. Chọn <strong>Tổ</strong> từ dropdown trên trang KPI để lọc kết quả.</p>
+
+  <div class="alert alert-warn">
+    <span class="alert-icon">📊</span>
+    <div>KPI Dashboard phản ánh dữ liệu <strong>theo phạm vi DataScope</strong> của người dùng. Điều tra viên thấy KPI của tổ mình; Admin thấy KPI toàn đơn vị.</div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- ══════════════════════════════════════════
+     10. BÁO CÁO
+═══════════════════════════════════════════ -->
+<section class="section" id="bao-cao">
+  <h2 class="section-title"><span class="icon">📑</span> 10. Báo Cáo Thống Kê</h2>
+
+  <p>Module báo cáo cho phép xuất dữ liệu tổng hợp theo nhiều chiều.</p>
+
+  <div class="card-grid">
+    <div class="card">
+      <h4>Báo cáo tháng</h4>
+      <p>Số vụ tiếp nhận, giải quyết, tồn đọng trong tháng. Phân loại theo loại án, tổ nhóm.</p>
+    </div>
+    <div class="card">
+      <h4>Báo cáo quá hạn</h4>
+      <p>Danh sách vụ việc/đơn thư đã quá thời hạn giải quyết theo BLTTHS. Cảnh báo chi tiết.</p>
+    </div>
+    <div class="card">
+      <h4>Báo cáo theo tổ</h4>
+      <p>So sánh hiệu suất giữa các tổ điều tra. Drill-down đến từng điều tra viên.</p>
+    </div>
+    <div class="card">
+      <h4>Xuất Excel</h4>
+      <p>Xuất danh sách vụ việc/vụ án/đơn thư ra file .xlsx để báo cáo cấp trên.</p>
+    </div>
+  </div>
+
+  <h3 class="sub-title">Lọc báo cáo</h3>
+  <table>
+    <tr><th>Tham số</th><th>Mô tả</th></tr>
+    <tr><td>fromDate / toDate</td><td>Khoảng thời gian báo cáo</td></tr>
+    <tr><td>teamId</td><td>Lọc theo tổ cụ thể (Admin)</td></tr>
+    <tr><td>type</td><td>Loại: Tin báo / Tố giác / Kiến nghị</td></tr>
+    <tr><td>status</td><td>Lọc theo trạng thái xử lý</td></tr>
+    <tr><td>overdue</td><td>Chỉ hiện hồ sơ quá hạn</td></tr>
+  </table>
+</section>
+
+<hr class="divider">
+
+<!-- ══════════════════════════════════════════
+     11. QUẢN TRỊ HỆ THỐNG
+═══════════════════════════════════════════ -->
+<section class="section" id="quan-tri">
+  <h2 class="section-title"><span class="icon">⚙️</span> 11. Quản Trị Hệ Thống</h2>
+
+  <div class="alert alert-danger">
+    <span class="alert-icon">🔒</span>
+    <div>Các chức năng quản trị <strong>chỉ dành cho tài khoản ADMIN</strong>. Điều tra viên thông thường không có quyền truy cập mục này.</div>
+  </div>
+
+  <h3 class="sub-title">11.1 Quản lý Người dùng</h3>
+  <ol class="steps">
+    <li>Vào <strong>Quản trị → Người dùng</strong>.</li>
+    <li>Tìm kiếm theo tên, email, vai trò.</li>
+    <li>Nhấn <strong>Tạo mới</strong> để thêm cán bộ: nhập họ tên, username, email, mật khẩu tạm, vai trò (ADMIN/OFFICER).</li>
+    <li>Kích hoạt/vô hiệu hóa tài khoản bằng toggle <strong>Trạng thái</strong>.</li>
+    <li>Reset mật khẩu: nhấn <strong>Đặt lại mật khẩu</strong> → hệ thống gửi email mật khẩu tạm.</li>
+  </ol>
+
+  <h3 class="sub-title">11.2 Quản lý Tổ/Nhóm (Teams)</h3>
+  <p>Cấu trúc tổ nhóm hỗ trợ <strong>phân cấp đệ quy</strong> (tối đa 3 cấp): Phòng → Tổ → Nhóm.</p>
+  <ol class="steps">
+    <li>Vào <strong>Quản trị → Tổ nhóm</strong>.</li>
+    <li>Nhấn <strong>Tạo tổ</strong>, nhập tên tổ, chọn tổ cha (nếu có).</li>
+    <li>Thêm thành viên: chọn danh sách điều tra viên, chỉ định <strong>Tổ trưởng</strong>.</li>
+    <li>Cấu hình <strong>DataAccessGrant</strong>: chọn tổ nào được xem dữ liệu của tổ này (READ/WRITE).</li>
+  </ol>
+
+  <h3 class="sub-title">11.3 Phân quyền dữ liệu (DataAccessGrant)</h3>
+  <table>
+    <tr><th>Access Level</th><th>Quyền</th></tr>
+    <tr><td><span class="badge badge-blue">READ</span></td><td>Xem dữ liệu của tổ được cấp quyền. Không thể tạo/sửa/xóa.</td></tr>
+    <tr><td><span class="badge badge-green">WRITE</span></td><td>Xem, tạo, sửa, xóa dữ liệu của tổ được cấp quyền (trong phạm vi cho phép).</td></tr>
+  </table>
+  <figure style="margin:16px 0 20px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:16px 20px 12px;">
+    <p style="font-size:12px;font-weight:600;color:#374151;margin:0 0 10px;">Sơ đồ phân cấp Tổ/Nhóm và DataAccessGrant</p>
+    <img src="images/10-admin-teams.png" alt="Quản lý Tổ/Nhóm trong hệ thống" style="width:100%;border-radius:8px;border:1px solid #e2e8f0;display:block;">
+    <figcaption style="font-size:11px;color:#6b7280;text-align:center;margin-top:8px;">Hình 6: Quản lý Tổ/Nhóm — Phân quyền và DataAccessGrant theo đơn vị</figcaption>
+  </figure>
+  <p>Ví dụ: Tổ A muốn hỗ trợ Tổ B xem dữ liệu → Admin tạo DataAccessGrant từ Tổ B (beneficiary) đến Tổ A (grantor), level READ.</p>
+
+  <h3 class="sub-title">11.4 Danh mục hệ thống</h3>
+  <p>Các danh mục có thể cấu hình:</p>
+  <ul class="bullets">
+    <li><strong>Tội danh</strong> (Crime): danh sách tội danh theo BLHS, có thể bật/tắt từng loại.</li>
+    <li><strong>Đơn vị hành chính</strong>: Tỉnh → Quận/Huyện → Phường/Xã.</li>
+    <li><strong>Nghề nghiệp</strong>, <strong>Quốc tịch</strong>: danh mục tra cứu.</li>
+    <li><strong>Loại tài liệu</strong>: phân loại file đính kèm.</li>
+  </ul>
+
+  <h3 class="sub-title">11.5 Cài đặt hệ thống (SystemSetting)</h3>
+  <table>
+    <tr><th>Cài đặt</th><th>Mặc định</th><th>Mô tả</th></tr>
+    <tr><td>Thời hạn xác minh cơ bản</td><td>20 ngày (Điều 147)</td><td>Thời hạn giải quyết tin báo thông thường</td></tr>
+    <tr><td>Thời hạn xác minh phức tạp</td><td>40 ngày (Điều 148)</td><td>Vụ việc phức tạp cần gia hạn lần 1</td></tr>
+    <tr><td>Thời hạn gia hạn tối đa</td><td>60 ngày (Điều 149)</td><td>Gia hạn lần 2 cuối cùng</td></tr>
+    <tr><td>Số lần gia hạn tối đa</td><td>2 lần</td><td>Tổng số lần có thể gia hạn</td></tr>
+    <tr><td>Ngưỡng cảnh báo deadline</td><td>7 ngày</td><td>Gửi thông báo khi còn ít hơn X ngày</td></tr>
+  </table>
+
+  <h3 class="sub-title">11.6 Feature Flags</h3>
+  <p>Bật/tắt module mà không cần triển khai lại:</p>
+  <table>
+    <tr><th>Flag</th><th>Mô tả</th></tr>
+    <tr><td><code>feature.cases</code></td><td>Module Vụ án</td></tr>
+    <tr><td><code>feature.incidents</code></td><td>Module Vụ việc</td></tr>
+    <tr><td><code>feature.petitions</code></td><td>Module Đơn thư</td></tr>
+    <tr><td><code>feature.kpi</code></td><td>KPI Dashboard</td></tr>
+    <tr><td><code>feature.reports</code></td><td>Báo cáo thống kê</td></tr>
+    <tr><td><code>feature.audit</code></td><td>Audit log</td></tr>
+  </table>
+</section>
+
+<hr class="divider">
+
+<!-- ══════════════════════════════════════════
+     12. ỨNG DỤNG MOBILE
+═══════════════════════════════════════════ -->
+<section class="section" id="mobile">
+  <h2 class="section-title"><span class="icon">📱</span> 12. Ứng Dụng Mobile</h2>
+
+  <p>Ứng dụng PC02 Mobile (Flutter) hỗ trợ iOS và Android, cho phép điều tra viên theo dõi vụ việc ngay trên điện thoại khi đang công tác ngoài hiện trường.</p>
+
+  <div class="card-grid">
+    <div class="card">
+      <h4>Platform hỗ trợ</h4>
+      <p>Android 8.0+ · iOS 13+</p>
+    </div>
+    <div class="card">
+      <h4>Đăng nhập nhanh</h4>
+      <p>Vân tay / Face ID sau lần đăng nhập đầu tiên</p>
+    </div>
+    <div class="card">
+      <h4>Đồng bộ real-time</h4>
+      <p>Dữ liệu luôn đồng bộ với server qua JWT</p>
+    </div>
+    <div class="card">
+      <h4>Thông báo đẩy</h4>
+      <p>11 loại sự kiện — deadline, phân công, cập nhật</p>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="mobile-login">
+  <h3 class="sub-title">12.1 Đăng Nhập Mobile</h3>
+
+  <h4 class="sub-sub">Đăng nhập lần đầu</h4>
+  <ol class="steps">
+    <li>Mở ứng dụng PC02 trên điện thoại.</li>
+    <li>Nhập <strong>Tên đăng nhập</strong> và <strong>Mật khẩu</strong> (giống đăng nhập web).</li>
+    <li>Nhấn <strong>Đăng nhập</strong>.</li>
+    <li>Hệ thống yêu cầu thiết lập <strong>Sinh trắc học</strong> (vân tay/Face ID) nếu thiết bị hỗ trợ.</li>
+    <li>Chọn <strong>Thiết lập ngay</strong> để đăng nhập nhanh lần sau.</li>
+  </ol>
+
+  <h4 class="sub-sub">Đăng nhập bằng sinh trắc học</h4>
+  <ol class="steps">
+    <li>Mở ứng dụng → màn hình đăng nhập hiển thị biểu tượng vân tay/Face ID.</li>
+    <li>Chạm vào biểu tượng sinh trắc học.</li>
+    <li>Xác thực bằng vân tay hoặc khuôn mặt → đăng nhập tự động.</li>
+  </ol>
+
+  <div class="alert alert-warn">
+    <span class="alert-icon">🔐</span>
+    <div><strong>Bảo mật sinh trắc học:</strong> Thông tin vân tay/Face ID được lưu trong Secure Storage của thiết bị, <em>không bao giờ</em> gửi lên server. Khi đăng xuất, thông tin sinh trắc sẽ bị xóa khỏi thiết bị ngay lập tức.</div>
+  </div>
+
+  <h4 class="sub-sub">Đăng xuất</h4>
+  <ul class="bullets">
+    <li>Vào <strong>Cài đặt → Đăng xuất</strong>.</li>
+    <li>Hệ thống xóa Token, xóa thông tin sinh trắc, quay về màn hình đăng nhập.</li>
+    <li>Tất cả dữ liệu offline cũng bị xóa.</li>
+  </ul>
+</section>
+
+<section class="section" id="mobile-features">
+  <h3 class="sub-title">12.2 Tính Năng Mobile</h3>
+
+  <figure style="margin:16px 0 20px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:16px 20px 12px;">
+    <p style="font-size:12px;font-weight:600;color:#374151;margin:0 0 10px;">📱 Các màn hình chính — Ứng dụng PC02 Mobile (Android / iOS)</p>
+
+    <p style="font-size:11px;color:#64748b;margin:0 0 8px;font-weight:500;">Đăng nhập</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+      <img src="images/mobile/m01-login.png" alt="Màn hình đăng nhập mobile" style="width:calc(33.3% - 6px);border-radius:10px;border:1px solid #e2e8f0;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+      <img src="images/mobile/m02-login-filled.png" alt="Nhập thông tin đăng nhập" style="width:calc(33.3% - 6px);border-radius:10px;border:1px solid #e2e8f0;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+      <img src="images/mobile/m03-login-result.png" alt="Đăng nhập thành công" style="width:calc(33.3% - 6px);border-radius:10px;border:1px solid #e2e8f0;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+    </div>
+
+    <p style="font-size:11px;color:#64748b;margin:0 0 8px;font-weight:500;">Dashboard & Điều hướng</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+      <img src="images/mobile/m04-dashboard.png" alt="Dashboard mobile" style="width:calc(50% - 4px);border-radius:10px;border:1px solid #e2e8f0;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+      <img src="images/mobile/m05-menu.png" alt="Menu điều hướng" style="width:calc(50% - 4px);border-radius:10px;border:1px solid #e2e8f0;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+    </div>
+
+    <p style="font-size:11px;color:#64748b;margin:0 0 8px;font-weight:500;">Nghiệp vụ</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+      <img src="images/mobile/m06-cases.png" alt="Danh sách Vụ án mobile" style="width:calc(50% - 4px);border-radius:10px;border:1px solid #e2e8f0;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+      <img src="images/mobile/m07-petitions.png" alt="Danh sách Đơn thư mobile" style="width:calc(50% - 4px);border-radius:10px;border:1px solid #e2e8f0;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+    </div>
+
+    <p style="font-size:11px;color:#64748b;margin:0 0 8px;font-weight:500;">Đăng xuất</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <img src="images/mobile/m08-logout.png" alt="Màn hình đăng xuất" style="width:calc(33.3% - 6px);border-radius:10px;border:1px solid #e2e8f0;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+    </div>
+
+    <figcaption style="font-size:11px;color:#6b7280;text-align:center;margin-top:10px;">Hình 7: Ứng dụng PC02 Mobile — Đăng nhập, Dashboard, Điều hướng, Vụ án, Đơn thư, Đăng xuất (8 màn hình thực tế)</figcaption>
+  </figure>
+
+  <h4 class="sub-sub">Tìm kiếm trên Mobile</h4>
+  <p>Màn hình tìm kiếm hỗ trợ:</p>
+  <ul class="bullets">
+    <li>Tìm kiếm toàn văn theo tên vụ án, số STT đơn thư.</li>
+    <li>Lọc theo trạng thái, ngày tạo.</li>
+    <li>Lọc vụ việc quá hạn (chạm tab <strong>Quá hạn</strong>).</li>
+  </ul>
+
+  <h4 class="sub-sub">Xem chi tiết vụ việc</h4>
+  <p>Màn hình chi tiết hiển thị đầy đủ: thông tin cơ bản, trạng thái, deadline, lịch sử thay đổi, tài liệu đính kèm (xem/tải). Một số thao tác cập nhật phức tạp cần thực hiện trên web.</p>
+</section>
+
+<section class="section" id="mobile-notif">
+  <h3 class="sub-title">12.3 Thông Báo Đẩy</h3>
+
+  <p>Hệ thống gửi thông báo đẩy (FCM/APNs) cho các sự kiện sau:</p>
+  <table>
+    <tr><th>Sự kiện</th><th>Người nhận</th></tr>
+    <tr><td>Vụ việc mới được phân công</td><td>Điều tra viên được giao</td></tr>
+    <tr><td>Deadline sắp hết hạn (còn 7 ngày)</td><td>Điều tra viên + Tổ trưởng</td></tr>
+    <tr><td>Deadline đã quá hạn</td><td>Điều tra viên + Tổ trưởng + Lãnh đạo</td></tr>
+    <tr><td>Vụ việc thay đổi trạng thái</td><td>Điều tra viên phụ trách</td></tr>
+    <tr><td>Ủy thác điều tra mới</td><td>Điều tra viên đơn vị nhận</td></tr>
+    <tr><td>Kết quả ủy thác</td><td>Điều tra viên gửi ủy thác</td></tr>
+    <tr><td>Trao đổi mới</td><td>Người nhận tin nhắn</td></tr>
+    <tr><td>Hướng dẫn mới từ tổ trưởng</td><td>Điều tra viên trong tổ</td></tr>
+    <tr><td>Đơn thư mới cần xử lý</td><td>Tổ trưởng + Điều tra viên</td></tr>
+    <tr><td>Cập nhật đơn thư</td><td>Người tạo đơn thư</td></tr>
+    <tr><td>Vụ án được phân công</td><td>Điều tra viên được giao</td></tr>
+  </table>
+
+  <div class="alert alert-info">
+    <span class="alert-icon">⏰</span>
+    <div><strong>Lịch gửi thông báo deadline:</strong> Hệ thống tự động quét lúc <strong>07:00 sáng mỗi ngày</strong> và gửi thông báo cho tất cả vụ việc sắp hết hạn. Nếu gửi thất bại (lỗi mạng), hệ thống đánh dấu đã thông báo để <em>tránh gửi lặp</em> vào ngày hôm sau.</div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- ══════════════════════════════════════════
+     PHỤ LỤC
+═══════════════════════════════════════════ -->
+<section class="section" id="phu-luc-trangthai">
+  <h2 class="section-title"><span class="icon">📋</span> Phụ Lục A — Bảng Trạng Thái Đầy Đủ</h2>
+
+  <h3 class="sub-title">Trạng thái Vụ án (Case)</h3>
+  <table>
+    <tr><th>Code</th><th>Tên tiếng Việt</th><th>Chuyển sang</th></tr>
+    <tr><td><code>DRAFT</code></td><td>Bản nháp</td><td>OPEN</td></tr>
+    <tr><td><code>OPEN</code></td><td>Đang mở</td><td>UNDER_INVESTIGATION, ON_HOLD, TRANSFERRED</td></tr>
+    <tr><td><code>UNDER_INVESTIGATION</code></td><td>Đang điều tra</td><td>PROSECUTED, NOT_PROSECUTED, SUSPENDED, TRANSFERRED</td></tr>
+    <tr><td><code>PROSECUTED</code></td><td>Đã khởi tố</td><td>CLOSED, APPEALED</td></tr>
+    <tr><td><code>NOT_PROSECUTED</code></td><td>Không khởi tố</td><td>CLOSED, ARCHIVED</td></tr>
+    <tr><td><code>SUSPENDED</code></td><td>Tạm đình chỉ</td><td>UNDER_INVESTIGATION (phục hồi)</td></tr>
+    <tr><td><code>ON_HOLD</code></td><td>Tạm giữ</td><td>OPEN, CLOSED</td></tr>
+    <tr><td><code>TRANSFERRED</code></td><td>Đã chuyển</td><td>CLOSED</td></tr>
+    <tr><td><code>CLOSED</code></td><td>Đã đóng</td><td>ARCHIVED</td></tr>
+    <tr><td><code>ARCHIVED</code></td><td>Lưu trữ</td><td>(cuối cùng)</td></tr>
+    <tr><td><code>DISMISSED</code></td><td>Đình chỉ</td><td>ARCHIVED</td></tr>
+    <tr><td><code>APPEALED</code></td><td>Kháng cáo</td><td>PROSECUTED, NOT_PROSECUTED</td></tr>
+  </table>
+
+  <h3 class="sub-title">Trạng thái Đơn thư (Petition)</h3>
+  <table>
+    <tr><th>Code</th><th>Tên tiếng Việt</th></tr>
+    <tr><td><code>RECEIVED</code></td><td>Đã tiếp nhận</td></tr>
+    <tr><td><code>PROCESSING</code></td><td>Đang xử lý</td></tr>
+    <tr><td><code>PENDING_REVIEW</code></td><td>Chờ xem xét</td></tr>
+    <tr><td><code>CONVERTED_TO_INCIDENT</code></td><td>Đã tạo vụ việc</td></tr>
+    <tr><td><code>CONVERTED_TO_CASE</code></td><td>Đã tạo vụ án</td></tr>
+    <tr><td><code>TRANSFERRED</code></td><td>Đã chuyển</td></tr>
+    <tr><td><code>ARCHIVED</code></td><td>Lưu trữ</td></tr>
+  </table>
+</section>
+
+<section class="section" id="phu-luc-thoihan">
+  <h2 class="section-title"><span class="icon">⏱</span> Phụ Lục B — Thời Hạn BLTTHS 2015</h2>
+
+  <table>
+    <tr><th>Quy định</th><th>Loại vụ việc</th><th>Thời hạn</th><th>Gia hạn</th></tr>
+    <tr>
+      <td>Điều 147 khoản 1</td>
+      <td>Tin báo thông thường</td>
+      <td>20 ngày</td>
+      <td>Gia hạn 1: thêm 20 ngày</td>
+    </tr>
+    <tr>
+      <td>Điều 147 khoản 2</td>
+      <td>Tin báo phức tạp</td>
+      <td>20 ngày</td>
+      <td>Gia hạn 2: thêm 20 ngày (tối đa 60 ngày)</td>
+    </tr>
+    <tr>
+      <td>Điều 148</td>
+      <td>Tố giác có người bị bắt giữ</td>
+      <td>12 ngày</td>
+      <td>Không gia hạn</td>
+    </tr>
+    <tr>
+      <td>Điều 149</td>
+      <td>Kiến nghị khởi tố</td>
+      <td>20 ngày</td>
+      <td>Gia hạn 1 lần: thêm 20 ngày</td>
+    </tr>
+  </table>
+
+  <div class="alert alert-info">
+    <span class="alert-icon">📌</span>
+    <div>Admin có thể điều chỉnh các giá trị thời hạn mặc định tại <strong>Quản trị → Cài đặt hệ thống</strong>. Thay đổi chỉ áp dụng cho vụ việc mới tạo, không ảnh hưởng đến deadline đã tính.</div>
+  </div>
+</section>
+
+<section class="section" id="phu-luc-kpi">
+  <h2 class="section-title"><span class="icon">📐</span> Phụ Lục C — Công Thức KPI Chi Tiết</h2>
+
+  <table>
+    <tr><th>KPI</th><th>Tử số</th><th>Mẫu số</th><th>Ngưỡng đạt</th></tr>
+    <tr>
+      <td>Tỷ lệ thụ lý</td>
+      <td>Vụ đã phân công (status ≠ RECEIVED)</td>
+      <td>Tổng vụ tiếp nhận</td>
+      <td>= 100%</td>
+    </tr>
+    <tr>
+      <td>Tỷ lệ giải quyết</td>
+      <td>PROSECUTED + NOT_PROSECUTED + CLOSED + DISMISSED</td>
+      <td>Tổng vụ trong kỳ</td>
+      <td>≥ 90%</td>
+    </tr>
+    <tr>
+      <td>Tỷ lệ khám phá</td>
+      <td>PROSECUTED</td>
+      <td>PROSECUTED + NOT_PROSECUTED</td>
+      <td>≥ 80%</td>
+    </tr>
+    <tr>
+      <td>Án NT/ĐBNT</td>
+      <td>Án nghiêm trọng/đặc biệt đã giải quyết</td>
+      <td>Tổng án NT/ĐBNT</td>
+      <td>≥ 95%</td>
+    </tr>
+  </table>
+
+  <p>Phân loại <strong>Nghiêm trọng (NT)</strong> và <strong>Đặc biệt nghiêm trọng (ĐBNT)</strong> dựa trên tội danh (crime directory) — cần Admin cấu hình đúng category khi nhập danh mục tội danh.</p>
+</section>
+
+<section class="section" id="phu-luc-loi">
+  <h2 class="section-title"><span class="icon">🔧</span> Phụ Lục D — Xử Lý Lỗi Thường Gặp</h2>
+
+  <table>
+    <tr><th>Lỗi</th><th>Mã HTTP</th><th>Nguyên nhân</th><th>Cách xử lý</th></tr>
+    <tr>
+      <td>Không có quyền truy cập</td>
+      <td>403 Forbidden</td>
+      <td>Vụ việc không trong phạm vi DataScope của bạn</td>
+      <td>Liên hệ Admin để kiểm tra phân quyền tổ</td>
+    </tr>
+    <tr>
+      <td>Hồ sơ đã chỉnh sửa</td>
+      <td>409 Conflict</td>
+      <td>Người khác đã sửa cùng lúc (optimistic lock)</td>
+      <td>Nhấn Tải lại, xem lại thay đổi, lưu lại</td>
+    </tr>
+    <tr>
+      <td>Phiên đăng nhập hết hạn</td>
+      <td>401 Unauthorized</td>
+      <td>Access Token hết hạn, Refresh Token không còn hợp lệ</td>
+      <td>Đăng nhập lại</td>
+    </tr>
+    <tr>
+      <td>Dữ liệu không hợp lệ</td>
+      <td>400 Bad Request</td>
+      <td>Thiếu trường bắt buộc hoặc sai định dạng</td>
+      <td>Kiểm tra thông báo lỗi chi tiết, điền lại form</td>
+    </tr>
+    <tr>
+      <td>Trùng lặp CCCD</td>
+      <td>409 Conflict</td>
+      <td>Số CCCD đã tồn tại với cùng loại đối tượng</td>
+      <td>Kiểm tra danh sách đối tượng, hoặc dùng loại khác</td>
+    </tr>
+    <tr>
+      <td>Không tìm thấy</td>
+      <td>404 Not Found</td>
+      <td>Record đã bị xóa hoặc ID không tồn tại</td>
+      <td>Làm mới danh sách, kiểm tra đường dẫn</td>
+    </tr>
+    <tr>
+      <td>Quá nhiều yêu cầu</td>
+      <td>429 Too Many Requests</td>
+      <td>Gửi quá nhiều request trong thời gian ngắn</td>
+      <td>Đợi 60 giây và thử lại</td>
+    </tr>
+    <tr>
+      <td>Menu/Sidebar trống</td>
+      <td>N/A</td>
+      <td>Feature flags chưa được seed vào DB</td>
+      <td>Admin chạy <code>npm run db:seed:features</code> trên server</td>
+    </tr>
+    <tr>
+      <td>Không nhận thông báo đẩy (Mobile)</td>
+      <td>N/A</td>
+      <td>FCM Token chưa đăng ký hoặc bị thu hồi</td>
+      <td>Đăng xuất, đăng nhập lại để đăng ký token mới</td>
+    </tr>
+  </table>
+</section>
+
+<hr class="divider">
+
+<div style="text-align:center;padding:32px 0;color:var(--gray-600);font-size:13px;">
+  <p><strong>Hệ thống PC02 Case Management</strong> · Phiên bản v0.8.0</p>
+  <p>Tài liệu nội bộ — Không phổ biến ra bên ngoài</p>
+  <p style="margin-top:8px;color:var(--gray-300);">Cập nhật: 04/2026 · TT28/2020/TT-BCA &amp; BLTTHS 2015</p>
+</div>
+
+</main>
+</div>
+</body>
+</html>

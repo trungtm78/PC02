@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
@@ -9,6 +9,8 @@ import type { StringValue } from 'ms';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { SettingsService } from '../settings/settings.service';
+import { OtpCodeService } from './services/otp-code.service';
+import { EmailService } from '../email/email.service';
 import { LoginDto } from './dto/login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { JwtPayload } from './strategies/jwt.strategy';
@@ -25,6 +27,7 @@ export type LoginResponse = TokenPair | TwoFaPendingResponse;
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
   private readonly privateKey: string;
 
   constructor(
@@ -33,6 +36,8 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly auditService: AuditService,
     private readonly settingsService: SettingsService,
+    private readonly otpCodeService: OtpCodeService,
+    private readonly emailService: EmailService,
   ) {
     const privateKeyPath = this.configService.get<string>(
       'JWT_PRIVATE_KEY_PATH',
@@ -231,6 +236,55 @@ export class AuthService {
     });
 
     return { success: true, message: 'Mật khẩu đã được cập nhật thành công' };
+  }
+
+  // ── Forgot Password ────────────────────────────────────────────────────────
+  async forgotPassword(email: string): Promise<void> {
+    // Silent if user not found — do NOT throw NotFoundException
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user || !user.isActive) {
+      // Return silently — don't leak whether email exists
+      return;
+    }
+    const code = await this.otpCodeService.generate(user.id, 'PASSWORD_RESET');
+    try {
+      await this.emailService.sendPasswordResetEmail(email, code);
+    } catch (err) {
+      this.logger.error('Password reset email failed', err);
+      // Still return success to user — don't reveal SMTP issues
+    }
+  }
+
+  async resetPassword(email: string, otp: string, newPassword: string): Promise<void> {
+    const GENERIC_ERROR = 'Mã xác nhận không hợp lệ hoặc đã hết hạn';
+
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      throw new BadRequestException(GENERIC_ERROR); // same error as wrong OTP — no enum leak
+    }
+
+    const valid = await this.otpCodeService.verify(user.id, otp, 'PASSWORD_RESET');
+    if (!valid) {
+      throw new BadRequestException(GENERIC_ERROR);
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordHash,
+        tokenVersion: { increment: 1 }, // invalidate all existing JWTs (web + mobile)
+        refreshTokenHash: null,          // invalidate refresh tokens
+      },
+    });
+
+    await this.auditService.log({
+      userId: user.id,
+      action: 'PASSWORD_RESET',
+      subject: 'User',
+      subjectId: user.id,
+    });
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────────

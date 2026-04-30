@@ -39,4 +39,19 @@ export class EmailService implements OnModuleInit {
       throw new InternalServerErrorException('Không thể gửi email OTP. Vui lòng thử lại.');
     }
   }
+
+  async sendPasswordResetEmail(to: string, code: string): Promise<void> {
+    await this.transporter.sendMail({
+      from: `"PC02 System" <${this.config.get('EMAIL_FROM') ?? this.config.get('EMAIL_USER')}>`,
+      to,
+      subject: '[PC02] Mã xác thực đặt lại mật khẩu',
+      text: `Mã xác nhận đặt lại mật khẩu của bạn: ${code}\n\nMã có hiệu lực trong 15 phút.\n\nNếu bạn không yêu cầu đặt lại mật khẩu, hãy bỏ qua email này.`,
+      html: `<div style="font-family:sans-serif;max-width:480px;margin:auto;padding:24px">
+      <h2 style="color:#003973">Đặt lại mật khẩu PC02</h2>
+      <p>Mã xác nhận của bạn:</p>
+      <div style="font-size:32px;font-weight:bold;letter-spacing:8px;color:#003973;padding:16px;background:#f1f5f9;border-radius:8px;text-align:center">${code}</div>
+      <p style="color:#64748b;font-size:14px">Mã có hiệu lực trong <strong>15 phút</strong>. Nếu bạn không yêu cầu, hãy bỏ qua email này.</p>
+    </div>`,
+    });
+  }
 }

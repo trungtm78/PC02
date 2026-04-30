@@ -8,15 +8,15 @@ const OTP_TTL_MS = 10 * 60 * 1000; // 10 minutes
 export class OtpCodeService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async invalidatePrior(userId: string): Promise<void> {
+  async invalidatePrior(userId: string, purpose: string = 'TWO_FA'): Promise<void> {
     await this.prisma.otpCode.updateMany({
-      where: { userId, usedAt: null },
+      where: { userId, usedAt: null, purpose },
       data: { usedAt: new Date() },
     });
   }
 
-  async generate(userId: string): Promise<string> {
-    await this.invalidatePrior(userId);
+  async generate(userId: string, purpose: string = 'TWO_FA'): Promise<string> {
+    await this.invalidatePrior(userId, purpose);
 
     const code = crypto.randomInt(100000, 999999).toString();
     const salt = crypto.randomBytes(16).toString('hex');
@@ -31,18 +31,20 @@ export class OtpCodeService {
         codeHash,
         salt,
         expiresAt: new Date(Date.now() + OTP_TTL_MS),
+        purpose,
       },
     });
 
     return code;
   }
 
-  async verify(userId: string, plaintext: string): Promise<boolean> {
+  async verify(userId: string, plaintext: string, purpose: string = 'TWO_FA'): Promise<boolean> {
     const record = await this.prisma.otpCode.findFirst({
       where: {
         userId,
         usedAt: null,
         expiresAt: { gt: new Date() },
+        purpose,
       },
       orderBy: { createdAt: 'desc' },
     });

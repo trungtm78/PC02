@@ -16,11 +16,16 @@ const mockPrisma = {
   $transaction: jest.fn((cb: (tx: typeof mockTx) => Promise<unknown>) => cb(mockTx)),
 };
 const mockAudit = { log: jest.fn() };
+const mockOtpCodeService = { generate: jest.fn(), verify: jest.fn() };
+const mockEmailService = { sendPasswordResetEmail: jest.fn() };
 
 function makeService(): AuthService {
   const svc = Object.create(AuthService.prototype);
   (svc as any).prisma = mockPrisma;
   (svc as any).auditService = mockAudit;
+  (svc as any).otpCodeService = mockOtpCodeService;
+  (svc as any).emailService = mockEmailService;
+  (svc as any).logger = { error: jest.fn() };
   return svc as AuthService;
 }
 
@@ -123,5 +128,76 @@ describe('AuthService.changePassword', () => {
 
     const updateCall = mockTx.user.update.mock.calls[0][0] as { data: Record<string, unknown> };
     expect(updateCall.data).toHaveProperty('refreshTokenHash', null);
+  });
+});
+
+describe('forgotPassword + resetPassword', () => {
+  let service: AuthService;
+
+  beforeEach(() => {
+    service = makeService();
+    jest.clearAllMocks();
+    bcryptHash.mockResolvedValue(HASHED);
+  });
+
+  // Test 1: forgotPassword with non-existent email does NOT throw
+  it('forgotPassword with unknown email should NOT throw (silent)', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(null);
+
+    await expect(service.forgotPassword('unknown@email.com')).resolves.toBeUndefined();
+    expect(mockOtpCodeService.generate).not.toHaveBeenCalled();
+    expect(mockEmailService.sendPasswordResetEmail).not.toHaveBeenCalled();
+  });
+
+  // Test 2: resetPassword with expired/wrong OTP returns BadRequestException
+  it('resetPassword with wrong OTP should throw BadRequestException', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({ id: 'u1', isActive: true, passwordHash: HASHED });
+    mockOtpCodeService.verify.mockResolvedValue(false);
+
+    await expect(
+      service.resetPassword('user@example.com', '000000', 'NewPass@1'),
+    ).rejects.toThrow(BadRequestException);
+    expect(mockPrisma.user.update).not.toHaveBeenCalled();
+  });
+
+  // Test 3: resetPassword increments tokenVersion
+  it('resetPassword should increment tokenVersion', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({ id: 'u1', isActive: true, passwordHash: HASHED });
+    mockOtpCodeService.verify.mockResolvedValue(true);
+    mockPrisma.user.update.mockResolvedValue({});
+    mockAudit.log.mockResolvedValue(undefined);
+
+    await service.resetPassword('user@example.com', '123456', 'NewPass@1');
+
+    expect(mockPrisma.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ tokenVersion: { increment: 1 } }),
+      }),
+    );
+  });
+
+  // Test 4: resetPassword clears refreshTokenHash
+  it('resetPassword should clear refreshTokenHash', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({ id: 'u1', isActive: true, passwordHash: HASHED });
+    mockOtpCodeService.verify.mockResolvedValue(true);
+    mockPrisma.user.update.mockResolvedValue({});
+    mockAudit.log.mockResolvedValue(undefined);
+
+    await service.resetPassword('user@example.com', '123456', 'NewPass@1');
+
+    expect(mockPrisma.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ refreshTokenHash: null }),
+      }),
+    );
+  });
+
+  // Test 5: resetPassword returns SAME BadRequestException for email-not-found as for wrong OTP (no enum)
+  it('resetPassword with unknown email should throw same BadRequestException as wrong OTP', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(null);
+
+    await expect(
+      service.resetPassword('ghost@example.com', '123456', 'NewPass@1'),
+    ).rejects.toThrow(new BadRequestException('Mã xác nhận không hợp lệ hoặc đã hết hạn'));
   });
 });

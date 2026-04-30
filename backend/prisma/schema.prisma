@@ -1059,6 +1059,7 @@ model OtpCode {
   expiresAt DateTime
   usedAt    DateTime?
   createdAt DateTime  @default(now())
+  purpose   String    @default("TWO_FA")  // "TWO_FA" | "PASSWORD_RESET"
 
   @@index([userId])
   @@map("otp_codes")

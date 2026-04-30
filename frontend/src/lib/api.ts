@@ -76,6 +76,13 @@ export const authApi = {
     api.post<{ success: boolean }>('/auth/2fa/verify-setup', { token }),
   disableTotp: () =>
     api.delete<{ success: boolean }>('/auth/2fa/disable'),
+
+  // Forgot / reset password
+  forgotPassword: (email: string) =>
+    api.post<{ message: string }>('/auth/forgot-password', { email }),
+
+  resetPassword: (email: string, otp: string, newPassword: string) =>
+    api.post<{ message: string }>('/auth/reset-password', { email, otp, newPassword }),
 };
 
 // ─── Abbreviations API ────────────────────────────────────────────────────────
