@@ -1,0 +1,32 @@
+# ─────────────────────────────────────────────────────────
+# Git merge strategies để tránh conflict phổ biến
+# ─────────────────────────────────────────────────────────
+
+# CHANGELOG.md: dùng "union" — nối cả hai phiên bản thay vì conflict
+# Cần chỉnh tay sau merge nhưng không bị stuck ở conflict markers
+CHANGELOG.md merge=union
+
+# VERSION: khi conflict, luôn giữ phiên bản của branch hiện tại (ours)
+# PR creator phải tự bump version đúng — không để auto-resolve sai
+VERSION merge=ours-version
+
+# package-lock.json: tái tạo bằng npm install sau merge
+# Không merge tay — quá phức tạp và dễ sai
+backend/package-lock.json merge=npm-lockfile
+
+# Binary files — không merge, giữ nguyên (conflict sẽ chọn ours)
+backend/assets/templates/*.xlsx binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.pdf binary
+
+# Line endings: dùng LF trên Unix, CRLF trên Windows (auto-convert)
+* text=auto eol=lf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+# ─── Files không nên có conflict nếu follow đúng quy trình ───
+# schema.prisma: KHÔNG dùng auto-merge — cần review tay để tránh sai migration
+# seed.ts: KHÔNG dùng auto-merge — cần review tay để tránh duplicate seeds
