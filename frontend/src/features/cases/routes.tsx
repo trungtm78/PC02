@@ -8,6 +8,7 @@ const ComprehensiveListPage = lazy(
   () => import('@/pages/cases/ComprehensiveListPage'),
 );
 const InitialCasesPage = lazy(() => import('@/pages/cases/InitialCasesPage'));
+const CaseTdcBackfillPage = lazy(() => import('@/pages/cases/CaseTdcBackfillPage'));
 
 const wrap = (node: ReactElement): ReactElement => (
   <Suspense fallback={null}>{node}</Suspense>
@@ -44,6 +45,11 @@ export function renderCasesRoutes(): ReactElement[] {
       key="cases-initial"
       path="/initial-cases"
       element={wrap(<InitialCasesPage />)}
+    />,
+    <Route
+      key="cases-tdc-backfill"
+      path="/cases/tdac-backfill"
+      element={wrap(<CaseTdcBackfillPage />)}
     />,
   ];
 }
