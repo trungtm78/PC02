@@ -227,7 +227,7 @@ export default function TdacDraftDetailPage() {
     if (!id) return;
     setSaving(true);
     try {
-      await api.post(`/reports/tdac/drafts/${id}/submit`);
+      await api.post(`/reports/tdac/drafts/${id}/submit-review`);
       await fetchDraft();
     } catch {
       setError("Không thể gửi xét duyệt.");
