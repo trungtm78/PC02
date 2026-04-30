@@ -31,9 +31,12 @@ import { SettingsModule } from './settings/settings.module';
 import { FeatureFlagsModule } from './feature-flags/feature-flags.module';
 import { KpiModule } from './kpi/kpi.module';
 import { AbbreviationsModule } from './abbreviations/abbreviations.module';
+import { TdacModule } from './reports/tdac/tdac.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { PushModule } from './push/push.module';
 import { SchedulerModule } from './scheduler/scheduler.module';
+import { VksMeetingsModule } from './shared/vks-meetings/vks-meetings.module';
+import { ActionPlansModule } from './shared/action-plans/action-plans.module';
 import { UnitScopeService } from './auth/services/unit-scope.service';
 import { DataScopeInterceptor } from './auth/interceptors/data-scope.interceptor';
 
@@ -71,6 +74,9 @@ import { DataScopeInterceptor } from './auth/interceptors/data-scope.interceptor
     AbbreviationsModule,
     PushModule,
     SchedulerModule,
+    VksMeetingsModule,
+    ActionPlansModule,
+    TdacModule,
   ],
   controllers: [AppController],
   providers: [
