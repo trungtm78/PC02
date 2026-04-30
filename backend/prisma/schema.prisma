@@ -111,6 +111,12 @@ model User {
   abbreviations         UserAbbreviation[]
   devices               UserDevice[]
   overdueNotifications  OverdueNotification[]
+  vksMeetingsCreated    VksMeetingRecord[]     @relation("VksMeetingCreatedBy")
+  actionPlansCreated    SuspensionActionPlan[] @relation("ActionPlanCreatedBy")
+  reportTdcCreated      ReportTdcDraft[]       @relation("ReportCreatedBy")
+  reportTdcReviewed     ReportTdcDraft[]       @relation("ReportReviewedBy")
+  reportTdcApproved     ReportTdcDraft[]       @relation("ReportApprovedBy")
+  reportTdcRejected     ReportTdcDraft[]       @relation("ReportRejectedBy")
 
   @@map("users")
 }
@@ -173,6 +179,80 @@ enum LyDoKhongKhoiTo {
 }
 
 // ─────────────────────────────────────────────
+// TĐC Report Enums (Phụ lục 08 — BLTTHS 2015)
+// ─────────────────────────────────────────────
+
+enum LyDoTamDinhChiVuAn {
+  CHUA_XAC_DINH_BI_CAN          // 2.1 Chưa xác định được bị can (Điều 229.1.a)
+  KHONG_BIET_BI_CAN_O_DAU       // 2.2 Không biết rõ bị can đang ở đâu, hết thời hạn ĐT (Điều 229.1.b)
+  BI_CAN_BENH_TAM_THAN          // 2.3 Bị can bị bệnh tâm thần hoặc hiểm nghèo (Điều 229.1.c)
+  CHUA_CO_KET_QUA_GIAM_DINH     // 2.4 Chưa có kết quả trưng cầu giám định (Điều 229.1.d-1)
+  CHUA_CO_KET_QUA_DINH_GIA      // 2.5 Chưa có kết quả yêu cầu định giá tài sản (Điều 229.1.d-2)
+  CHUA_CO_KET_QUA_TUONG_TRO     // 2.6 Chưa có kết quả yêu cầu nước ngoài tương trợ TP (Điều 229.1.d-3)
+  YEU_CAU_TAI_LIEU_CHUA_CO      // 2.7 Đã yêu cầu cung cấp tài liệu nhưng chưa có kết quả (Điều 229.1.đ)
+  BAT_KHA_KHANG                 // 2.8 Bất khả kháng: thiên tai, dịch bệnh (Điều 229.1.e)
+
+  @@map("ly_do_tam_dinh_chi_vu_an")
+}
+
+enum KetQuaPhucHoiVuAn {
+  KET_LUAN_DE_NGHI_TRUY_TO      // 3.3.1 Kết luận điều tra đề nghị truy tố
+  DINH_CHI_DIEU_TRA             // 3.3.2 Đình chỉ điều tra
+  TAM_DINH_CHI_LAI              // 3.3.3 Tạm đình chỉ điều tra lại
+  DANG_DIEU_TRA_XAC_MINH        // 3.3.4 Đang điều tra, xác minh
+  CHUYEN_CO_QUAN_DIEU_TRA_KHAC  // 3.3.5 Chuyển cơ quan điều tra khác
+
+  @@map("ket_qua_phuc_hoi_vu_an")
+}
+
+enum LyDoTamDinhChiVuViec {
+  CHUA_CO_KET_QUA_GIAM_DINH     // 1 Chưa có kết quả trưng cầu giám định
+  CHUA_CO_KET_QUA_DINH_GIA      // 2 Chưa có kết quả yêu cầu định giá tài sản
+  CHUA_CO_KET_QUA_TUONG_TRO     // 3 Chưa có kết quả yêu cầu nước ngoài tương trợ TP
+  YEU_CAU_TAI_LIEU_CHUA_CO      // 4 Đã yêu cầu cung cấp tài liệu nhưng chưa có kết quả
+  BAT_KHA_KHANG                 // 5 Bất khả kháng: thiên tai, dịch bệnh
+  CAN_CU_KHAC                   // 6 Căn cứ tạm đình chỉ khác
+
+  @@map("ly_do_tam_dinh_chi_vu_viec")
+}
+
+enum KetQuaPhucHoiVuViec {
+  QUYET_DINH_KHOI_TO            // 3.3.1 Quyết định khởi tố VAHS
+  QUYET_DINH_KHONG_KHOI_TO      // 3.3.2 Quyết định không khởi tố VAHS
+  TAM_DINH_CHI_LAI              // 3.3.3 Tạm đình chỉ lại
+  DANG_XAC_MINH                 // 3.3.4 Đang xác minh
+  CHUYEN_CO_QUAN_KHAC           // 3.3.5 Chuyển cơ quan khác
+
+  @@map("ket_qua_phuc_hoi_vu_viec")
+}
+
+enum TienDoKhacPhuc {
+  DANG_THUC_HIEN  // Đang thực hiện
+  DAM_BAO         // Đảm bảo (tính vào row 5.5)
+  CHAM_TRE        // Chậm trễ
+  KHONG_DAT       // Không đạt
+
+  @@map("tien_do_khac_phuc")
+}
+
+enum ReportTdcType {
+  VU_AN    // Vụ án tạm đình chỉ điều tra
+  VU_VIEC  // Vụ việc tạm đình chỉ giải quyết
+
+  @@map("report_tdc_type")
+}
+
+enum ReportTdcStatus {
+  DRAFT       // Bản nháp
+  REVIEWING   // Đang xét duyệt
+  REJECTED    // Bị từ chối
+  APPROVED    // Đã phê duyệt
+  FINALIZED   // Đã khóa, immutable
+
+  @@map("report_tdc_status")
+}
+
+// ─────────────────────────────────────────────
 // Case Management
 // ─────────────────────────────────────────────
 
@@ -207,6 +287,20 @@ model Case {
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
 
+  // TĐC tracking fields (Phụ lục 08)
+  laCongNgheCao           Boolean              @default(false)
+  lyDoTamDinhChiText      String?              // Backup của giá trị String cũ trước migration
+  lyDoTamDinhChiVuAn      LyDoTamDinhChiVuAn?  // Enum mới thay thế lyDoTamDinhChi
+  soQuyetDinhTamDinhChi   String?
+  ngayTamDinhChi          DateTime?
+  soLanTamDinhChi         Int                  @default(0)
+  soLanGiaHan             Int                  @default(0)
+  daRaSoat                Boolean              @default(false)
+  ngayRaSoat              DateTime?
+  soQuyetDinhPhucHoi      String?
+  ngayPhucHoi             DateTime?
+  ketQuaPhucHoiVuAn       KetQuaPhucHoiVuAn?
+
   investigator   User?       @relation(fields: [investigatorId], references: [id], onDelete: SetNull)
   assignedTeamId String?
   assignedTeam   Team?       @relation("CaseTeam", fields: [assignedTeamId], references: [id], onDelete: SetNull)
@@ -220,11 +314,14 @@ model Case {
   delegations    Delegation[]
   conclusions    Conclusion[]
   supplements    InvestigationSupplement[]
+  vksMeetings    VksMeetingRecord[]
+  actionPlans    SuspensionActionPlan[]
 
   @@index([status])
   @@index([deadline])
   @@index([deletedAt])
   @@index([assignedTeamId])
+  @@index([lyDoTamDinhChiVuAn])
   @@map("cases")
 }
 
@@ -436,7 +533,17 @@ model Incident {
   soLanGiaHan       Int          @default(0) // Số lần đã gia hạn, tối đa 2 (Điều 147 khoản 2-3)
   ngayGiaHan        DateTime?              // Ngày gia hạn gần nhất
   lyDoKhongKhoiTo   LyDoKhongKhoiTo? // Lý do không khởi tố (Điều 157 BLTTHS 2015: 7 căn cứ)
-  lyDoTamDinhChi    String?      // Lý do tạm đình chỉ (Đ.148: chờ giám định/tương trợ tư pháp)
+  lyDoTamDinhChiText String?     // Backup của giá trị String cũ trước migration
+  lyDoTamDinhChiVuViec LyDoTamDinhChiVuViec? // Enum mới cho vụ việc
+  laCongNgheCaoVV   Boolean      @default(false)
+  soQuyetDinhTamDinhChiVV String?
+  ngayTamDinhChiVV  DateTime?
+  soLanTamDinhChiVV Int          @default(0)
+  daRaSoatVV        Boolean      @default(false)
+  ngayRaSoatVV      DateTime?
+  soQuyetDinhPhucHoiVV String?
+  ngayPhucHoiVV     DateTime?
+  ketQuaPhucHoiVuViec KetQuaPhucHoiVuViec?
   diaChiXayRa       String?      // Địa điểm xảy ra sự việc
   // Thông tin người tố giác/báo tin chi tiết
   sdtNguoiToGiac    String?      // SĐT người tố giác
@@ -470,11 +577,14 @@ model Incident {
   petitions       Petition[]     @relation("PetitionLinkedIncident")
   documents       Document[]     // Tài liệu liên quan
   statusHistory   IncidentStatusHistory[]
+  vksMeetings     VksMeetingRecord[] @relation("IncidentVksMeetings")
+  actionPlans     SuspensionActionPlan[] @relation("IncidentActionPlans")
 
   @@index([status])
   @@index([deletedAt])
   @@index([assignedTeamId])
   @@index([ngayDeXuat])
+  @@index([lyDoTamDinhChiVuViec])
   @@map("incidents")
 }
 
@@ -1043,4 +1153,84 @@ model OverdueNotification {
   @@unique([resourceType, resourceId, userId])
   @@index([notifiedAt])
   @@map("overdue_notifications")
+}
+
+// ─────────────────────────────────────────────
+// TĐC Report Sub-Models (Phụ lục 08)
+// ─────────────────────────────────────────────
+
+model VksMeetingRecord {
+  id             String    @id @default(cuid())
+  caseId         String?
+  incidentId     String?
+  ngayTrao       DateTime
+  noiDung        String
+  soQuyetDinh    String?
+  ketQua         String?
+  createdById    String
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  case           Case?     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  incident       Incident? @relation("IncidentVksMeetings", fields: [incidentId], references: [id], onDelete: Cascade)
+  createdBy      User      @relation("VksMeetingCreatedBy", fields: [createdById], references: [id])
+
+  @@index([caseId])
+  @@index([incidentId])
+  @@map("vks_meeting_records")
+}
+
+model SuspensionActionPlan {
+  id             String           @id @default(cuid())
+  caseId         String?
+  incidentId     String?
+  ngayLap        DateTime
+  bienPhap       String
+  thoiHan        DateTime?
+  tienDo         TienDoKhacPhuc   @default(DANG_THUC_HIEN)
+  ketQua         String?
+  createdById    String
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  case           Case?            @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  incident       Incident?        @relation("IncidentActionPlans", fields: [incidentId], references: [id], onDelete: Cascade)
+  createdBy      User             @relation("ActionPlanCreatedBy", fields: [createdById], references: [id])
+
+  @@index([caseId])
+  @@index([incidentId])
+  @@map("suspension_action_plans")
+}
+
+model ReportTdcDraft {
+  id             String          @id @default(cuid())
+  loaiBaoCao     ReportTdcType
+  fromDate       DateTime
+  toDate         DateTime
+  teamIds        String[]
+  status         ReportTdcStatus @default(DRAFT)
+  computedData   Json
+  adjustedData   Json?
+  notes          String?
+
+  createdById    String
+  reviewedById   String?
+  approvedById   String?
+  rejectedById   String?
+  createdAt      DateTime        @default(now())
+  reviewedAt     DateTime?
+  approvedAt     DateTime?
+  rejectedAt     DateTime?
+  rejectedReason String?
+  finalizedAt    DateTime?
+
+  createdBy      User            @relation("ReportCreatedBy",   fields: [createdById],   references: [id])
+  reviewedBy     User?           @relation("ReportReviewedBy",  fields: [reviewedById],  references: [id])
+  approvedBy     User?           @relation("ReportApprovedBy",  fields: [approvedById],  references: [id])
+  rejectedBy     User?           @relation("ReportRejectedBy",  fields: [rejectedById],  references: [id])
+
+  @@index([loaiBaoCao])
+  @@index([status])
+  @@index([fromDate, toDate])
+  @@map("report_tdc_drafts")
 }
