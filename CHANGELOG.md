@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.11.0.0] - 2026-05-01
+
+### Added
+- **Quên mật khẩu tự phục hồi** (`/forgot-password`): Cán bộ có thể tự reset mật khẩu bằng email OTP 6 chữ số, không cần liên hệ admin. Flow 2 bước: nhập email → nhận mã → nhập mã + mật khẩu mới. OTP hết hạn sau 15 phút, có countdown timer và nút Gửi lại sau 60s.
+- **OTP purpose scoping**: `OtpCode.purpose` field phân biệt `TWO_FA` và `PASSWORD_RESET` — tránh 2FA OTP bị kill khi user request reset password cùng lúc.
+- **Endpoints mới**: `POST /auth/forgot-password` (3 req/min) và `POST /auth/reset-password` (3 req/min). Password reset invalidate tất cả JWTs và refresh tokens (tokenVersion++).
+
+### Fixed
+- **Trang đăng nhập hiển thị đầy đủ dấu tiếng Việt**: 15+ chuỗi trên LoginPage.tsx đã được sửa đúng dấu (HỆ THỐNG QUẢN LÝ VỤ ÁN PC02, Mật khẩu, Đăng nhập...). `lang="vi"` cho `<html>`.
+- **OTP TTL nhất quán**: Đổi từ 10 phút lên 15 phút để khớp với nội dung email hướng dẫn.
+- **Throttle inversion**: `reset-password` đặt về 3 req/min (từ 5) — khớp với `forgot-password` và an toàn hơn.
+
 ## [0.10.0.0] - 2026-04-30
 
 ### Added
