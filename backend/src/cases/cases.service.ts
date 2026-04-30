@@ -11,7 +11,7 @@ import { CreateCaseDto } from './dto/create-case.dto';
 import { UpdateCaseDto } from './dto/update-case.dto';
 import { QueryCasesDto } from './dto/query-cases.dto';
 import { AssignCaseDto } from './dto/assign-case.dto';
-import { Prisma, CaseStatus, PetitionStatus, LoaiDon, CapDoToiPham } from '@prisma/client';
+import { Prisma, CaseStatus, PetitionStatus, LoaiDon, CapDoToiPham, LyDoTamDinhChiVuAn, KetQuaPhucHoiVuAn } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { buildScopeFilter } from '../common/utils/scope-filter.util';
 
@@ -422,6 +422,25 @@ export class CasesService {
       }
     }
 
+    // ── TAM_DINH_CHI validation & auto-fields ─────────────────────────────────
+    const MIGRATION_DATE = new Date('2026-04-30');
+    let tamDinhChiWarning: string | undefined;
+
+    if (dto.status === CaseStatus.TAM_DINH_CHI && dto.status !== existing.status) {
+      const lyDo = (dto as UpdateCaseDto & { lyDoTamDinhChiVuAn?: LyDoTamDinhChiVuAn }).lyDoTamDinhChiVuAn;
+      if (!lyDo) {
+        if (existing.createdAt < MIGRATION_DATE) {
+          // Soft-warn: case pre-dates migration — allow but warn (90-day grace period)
+          tamDinhChiWarning =
+            'Khuyến nghị: Vui lòng cập nhật lý do tạm đình chỉ theo quy định Điều 229 BLTTHS 2015 (áp dụng bắt buộc từ 30/04/2026)';
+        } else {
+          throw new BadRequestException(
+            'Vui lòng chọn lý do tạm đình chỉ theo quy định Điều 229 BLTTHS 2015',
+          );
+        }
+      }
+    }
+
     const updateData: Prisma.CaseUncheckedUpdateInput = {
       ...(dto.name !== undefined && { name: dto.name }),
       ...(dto.crime !== undefined && { crime: dto.crime }),
@@ -437,7 +456,55 @@ export class CasesService {
       ...(dto.ngayKhoiTo !== undefined && {
         ngayKhoiTo: dto.ngayKhoiTo ? new Date(dto.ngayKhoiTo) : null,
       }),
+      // ── TĐC fields ──────────────────────────────────────────────────────────
+      ...((dto as Record<string, unknown>).lyDoTamDinhChiVuAn !== undefined && {
+        lyDoTamDinhChiVuAn: (dto as Record<string, unknown>).lyDoTamDinhChiVuAn as LyDoTamDinhChiVuAn | null,
+      }),
+      ...((dto as Record<string, unknown>).soQuyetDinhTamDinhChi !== undefined && {
+        soQuyetDinhTamDinhChi: (dto as Record<string, unknown>).soQuyetDinhTamDinhChi as string | null,
+      }),
+      ...((dto as Record<string, unknown>).ngayTamDinhChi !== undefined && {
+        ngayTamDinhChi: (dto as Record<string, unknown>).ngayTamDinhChi
+          ? new Date((dto as Record<string, unknown>).ngayTamDinhChi as string)
+          : null,
+      }),
+      ...((dto as Record<string, unknown>).laCongNgheCao !== undefined && {
+        laCongNgheCao: (dto as Record<string, unknown>).laCongNgheCao as boolean,
+      }),
+      ...((dto as Record<string, unknown>).soLanGiaHan !== undefined && {
+        soLanGiaHan: (dto as Record<string, unknown>).soLanGiaHan as number,
+      }),
+      ...((dto as Record<string, unknown>).daRaSoat !== undefined && {
+        daRaSoat: (dto as Record<string, unknown>).daRaSoat as boolean,
+      }),
+      ...((dto as Record<string, unknown>).ngayRaSoat !== undefined && {
+        ngayRaSoat: (dto as Record<string, unknown>).ngayRaSoat
+          ? new Date((dto as Record<string, unknown>).ngayRaSoat as string)
+          : null,
+      }),
+      ...((dto as Record<string, unknown>).soQuyetDinhPhucHoi !== undefined && {
+        soQuyetDinhPhucHoi: (dto as Record<string, unknown>).soQuyetDinhPhucHoi as string | null,
+      }),
+      ...((dto as Record<string, unknown>).ngayPhucHoi !== undefined && {
+        ngayPhucHoi: (dto as Record<string, unknown>).ngayPhucHoi
+          ? new Date((dto as Record<string, unknown>).ngayPhucHoi as string)
+          : null,
+      }),
+      ...((dto as Record<string, unknown>).ketQuaPhucHoiVuAn !== undefined && {
+        ketQuaPhucHoiVuAn: (dto as Record<string, unknown>).ketQuaPhucHoiVuAn as KetQuaPhucHoiVuAn | null,
+      }),
+      ...((dto as Record<string, unknown>).lyDoTamDinhChiText !== undefined && {
+        lyDoTamDinhChiText: (dto as Record<string, unknown>).lyDoTamDinhChiText as string | null,
+      }),
     };
+
+    // Auto-set ngayTamDinhChi and increment soLanTamDinhChi when transitioning TO TAM_DINH_CHI
+    if (dto.status === CaseStatus.TAM_DINH_CHI && dto.status !== existing.status) {
+      if (!updateData.ngayTamDinhChi) {
+        updateData.ngayTamDinhChi = new Date();
+      }
+      updateData.soLanTamDinhChi = { increment: 1 };
+    }
 
     let record;
     try {
@@ -543,7 +610,12 @@ export class CasesService {
       userAgent: meta?.userAgent,
     });
 
-    return { success: true, data: record, message: 'Cập nhật vụ án thành công' };
+    return {
+      success: true,
+      data: record,
+      message: 'Cập nhật vụ án thành công',
+      ...(tamDinhChiWarning && { warning: tamDinhChiWarning }),
+    };
   }
 
   // ─────────────────────────────────────────────
@@ -646,6 +718,18 @@ export class CasesService {
     });
 
     return { success: true, message: 'Phân công vụ án thành công' };
+  }
+
+  // ─────────────────────────────────────────────
+  // TDC BACKFILL
+  // ─────────────────────────────────────────────
+  async tdcBackfill(id: string, lyDoTamDinhChiVuAn: string, userId: string) {
+    const caseRecord = await this.prisma.case.findUnique({ where: { id } });
+    if (!caseRecord) throw new NotFoundException('Case not found');
+    return this.prisma.case.update({
+      where: { id },
+      data: { lyDoTamDinhChiVuAn: lyDoTamDinhChiVuAn as any },
+    });
   }
 
   // ─────────────────────────────────────────────

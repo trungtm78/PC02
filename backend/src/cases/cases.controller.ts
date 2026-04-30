@@ -25,6 +25,11 @@ import { UpdateCaseDto } from './dto/update-case.dto';
 import { QueryCasesDto } from './dto/query-cases.dto';
 import { AssignCaseDto } from './dto/assign-case.dto';
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
+
+class TdcBackfillDto {
+  lyDoTamDinhChiVuAn: string;
+}
+
 @Controller('cases')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class CasesController {
@@ -93,6 +98,18 @@ export class CasesController {
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
     }, req.dataScope);
+  }
+
+  // PATCH /api/v1/cases/:id/tdc-backfill — Backfill TĐC lý do tạm đình chỉ
+  @Patch(':id/tdc-backfill')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions({ action: 'write', subject: 'Case' })
+  async tdcBackfill(
+    @Param('id') id: string,
+    @Body() dto: TdcBackfillDto,
+    @Req() req: any,
+  ) {
+    return this.casesService.tdcBackfill(id, dto.lyDoTamDinhChiVuAn, req.user.userId);
   }
 
   // PATCH /api/v1/cases/:id/assign — Phân công / tái phân công vụ án (dispatcher only)

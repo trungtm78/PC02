@@ -150,7 +150,8 @@ export class IncidentsService {
           soQuyetDinh: true,
           ngayQuyetDinh: true,
           lyDoKhongKhoiTo: true,
-          lyDoTamDinhChi: true,
+          lyDoTamDinhChiText: true,
+          lyDoTamDinhChiVuViec: true,
           diaChiXayRa: true,
           sdtNguoiToGiac: true,
           diaChiNguoiToGiac: true,
@@ -306,7 +307,7 @@ export class IncidentsService {
         soQuyetDinh: dto.soQuyetDinh,
         ngayQuyetDinh: dto.ngayQuyetDinh ? new Date(dto.ngayQuyetDinh) : undefined,
         lyDoKhongKhoiTo: dto.lyDoKhongKhoiTo,
-        lyDoTamDinhChi: dto.lyDoTamDinhChi,
+        lyDoTamDinhChiText: (dto as any).lyDoTamDinhChiText ?? (dto as any).lyDoTamDinhChi,
         diaChiXayRa: dto.diaChiXayRa,
         sdtNguoiToGiac: dto.sdtNguoiToGiac,
         diaChiNguoiToGiac: dto.diaChiNguoiToGiac,
@@ -372,8 +373,10 @@ export class IncidentsService {
       'doiTuongCaNhan', 'doiTuongToChuc', 'loaiDonVu', 'benVu',
       'donViGiaiQuyet', 'ketQuaXuLy', 'tinhTrangHoSo', 'tinhTrangThoiHieu',
       'nguoiQuyetDinh', 'canBoNhapId', 'assignedTeamId',
-      'soQuyetDinh', 'lyDoKhongKhoiTo', 'lyDoTamDinhChi',
+      'soQuyetDinh', 'lyDoKhongKhoiTo', 'lyDoTamDinhChiText',
       'diaChiXayRa', 'sdtNguoiToGiac', 'diaChiNguoiToGiac', 'cmndNguoiToGiac',
+      // ── TĐC VuViec fields ──────────────────────────────────────────────────
+      'lyDoTamDinhChiVuViec', 'laCongNgheCaoVV', 'daRaSoatVV', 'ketQuaPhucHoiVuViec',
     ];
     for (const f of fields) {
       if ((dto as Record<string, unknown>)[f] !== undefined) {
@@ -388,6 +391,7 @@ export class IncidentsService {
         updateData[f] = val ? new Date(val) : null;
       }
     }
+
 
     let record;
     try {
