@@ -1,0 +1,41 @@
+appId: ${APP_ID}
+tags:
+  - cases
+  - search
+  - new-feature
+
+---
+# Test search functionality added in feat/mobile
+# Cases screen now has a search text field at top
+
+- launchApp
+- waitForAnimationToEnd
+
+# Navigate to Cases tab (Hồ sơ)
+- tapOn:
+    point: "30%,96%"
+- waitForAnimationToEnd
+- takeScreenshot: 03b_cases_list_before_search
+
+# Verify search field exists (new feature)
+- assertVisible: "Tìm kiếm hồ sơ..."
+
+# Type a search query
+- tapOn: "Tìm kiếm hồ sơ..."
+- inputText: "Test"
+- waitForAnimationToEnd
+- takeScreenshot: 03b_search_active
+
+# Verify search is working — no crash, no error strings
+- assertNotVisible: "Exception"
+- assertNotVisible: "null"
+- assertNotVisible: "Lỗi tải dữ liệu"
+
+# Clear search using the X button (appears when text is non-empty)
+# Use tapOn text approach since id is unreliable across emulator versions
+- hideKeyboard
+- waitForAnimationToEnd
+
+# Verify list state after search
+- takeScreenshot: 03b_after_search
+- assertNotVisible: "Exception"
