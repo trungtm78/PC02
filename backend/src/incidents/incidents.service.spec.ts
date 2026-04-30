@@ -484,7 +484,7 @@ describe('IncidentsService', () => {
           soQuyetDinh: 'QD-001',
           ngayQuyetDinh: '2026-03-15',
           lyDoKhongKhoiTo: 'Khong du chung cu',
-          lyDoTamDinhChi: 'Cho ket qua giam dinh',
+          lyDoTamDinhChiText: 'Cho ket qua giam dinh',
           diaChiXayRa: '123 Nguyen Hue, Q1',
           sdtNguoiToGiac: '0901234567',
           diaChiNguoiToGiac: '456 Le Loi, Q3',
@@ -500,7 +500,7 @@ describe('IncidentsService', () => {
       expect(createCall.data.diaChiNguoiToGiac).toBe('456 Le Loi, Q3');
       expect(createCall.data.cmndNguoiToGiac).toBe('079123456789');
       expect(createCall.data.lyDoKhongKhoiTo).toBe('Khong du chung cu');
-      expect(createCall.data.lyDoTamDinhChi).toBe('Cho ket qua giam dinh');
+      expect(createCall.data.lyDoTamDinhChiText).toBe('Cho ket qua giam dinh');
       expect(createCall.data.ngayQuyetDinh).toEqual(new Date('2026-03-15'));
     });
   });

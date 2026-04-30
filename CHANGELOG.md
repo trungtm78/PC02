@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.10.0.0] - 2026-04-30
+
+### Added
+- **Báo cáo TĐC Phụ lục 08** (`/reports/tdac`): Tự động hóa thống kê Vụ án Tạm đình chỉ điều tra và Vụ việc Tạm đình chỉ giải quyết theo mẫu BCA. Preview bảng số liệu đúng format Phụ lục 08 với 35+ dòng phân tách theo tổ, export .xlsx từ template BCA.
+- **Draft/Review/Approve workflow**: Báo cáo TĐC đi qua luồng DRAFT → REVIEWING → APPROVED → FINALIZED với audit trail đầy đủ. Immutable sau khi khóa. Optimistic lock ngăn concurrent finalize.
+- **Capture lý do TĐC**: `SuspensionModal` và `ResumeModal` capture enum `lyDoTamDinhChiVuAn` (8 giá trị theo Điều 229 BLTTHS 2015) và `ketQuaPhucHoiVuAn` (5 giá trị). Soft-warn 90 ngày cho case cũ, bắt buộc cho case mới.
+- **Biên bản VKS và Kế hoạch khắc phục**: Tab mới trong Case/Incident Detail. API: `POST /cases/:id/vks-meetings`, `POST /cases/:id/action-plans` (và tương đương cho incidents).
+- **Backfill queue** (`/cases/tdac-backfill`): Màn hình cập nhật hàng loạt lý do TĐC cho ~28k case cũ chưa có enum. Banner nhắc trong Case Detail.
+- **Schema mới**: 7 enums (LyDoTamDinhChiVuAn, KetQuaPhucHoiVuAn, LyDoTamDinhChiVuViec, KetQuaPhucHoiVuViec, TienDoKhacPhuc, ReportTdcType, ReportTdcStatus), 3 models (VksMeetingRecord, SuspensionActionPlan, ReportTdcDraft), thêm TĐC fields vào Case và Incident.
+- **Permissions**: `approve:Report`, `write:Report` được seed sẵn.
+- **48 unit tests** cho tdac module: compute logic, state machine, permission enforcement.
+- **Excel template generator**: Script tạo Phụ lục 08 với header BCA, màu sắc phân cấp hàng, chữ ký CÁN BỘ THỐNG KÊ / THỦ TRƯỞNG ĐƠN VỊ.
+
+### Fixed
+- `Prisma.join([])` crash khi `teamIds` rỗng trong tất cả `$queryRaw` của TĐC service
+- Date validation trên preview endpoints (400 thay vì 500 khi thiếu fromDate/toDate)
+- Field rename `lyDoTamDinhChi → lyDoTamDinhChiText` trên Incident để tránh conflict với enum mới
+- `tdc-backfill` endpoint missing — frontend backfill page trả 404 mà không có endpoint này
+
 ## [0.9.0.0] - 2026-04-26
 
 ### Added

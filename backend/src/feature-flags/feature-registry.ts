@@ -37,6 +37,7 @@ import { WORKFLOW_MANIFEST } from '../workflow/feature.manifest';
 import { CLASSIFICATION_MANIFEST } from '../classification/feature.manifest';
 import { FEATURE_FLAGS_MANIFEST } from './feature.manifest';
 import { KPI_MANIFEST } from '../kpi/feature.manifest';
+import { TDAC_MANIFEST } from '../reports/tdac/feature.manifest';
 
 export const FEATURE_REGISTRY: readonly FeatureManifest[] = [
   AUTH_MANIFEST,
@@ -66,6 +67,7 @@ export const FEATURE_REGISTRY: readonly FeatureManifest[] = [
   CLASSIFICATION_MANIFEST,
   FEATURE_FLAGS_MANIFEST,
   KPI_MANIFEST,
+  TDAC_MANIFEST,
 ] as const;
 
 export function getManifest(key: string): FeatureManifest | undefined {

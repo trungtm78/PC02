@@ -43,7 +43,7 @@ export function usePermission() {
       if (!user) return false;
       
       // Admin role has all permissions
-      if (user.role === 'admin') return true;
+      if (user.role?.toUpperCase() === 'ADMIN') return true;
       
       // Check specific permission
       const permissions = MOCK_PERMISSIONS[resource];
@@ -102,7 +102,7 @@ export function usePermission() {
     [hasPermission]
   );
 
-  const canDispatch = user?.canDispatch === true || user?.role === 'admin';
+  const canDispatch = user?.canDispatch === true || user?.role?.toUpperCase() === 'ADMIN';
 
   return {
     hasPermission,

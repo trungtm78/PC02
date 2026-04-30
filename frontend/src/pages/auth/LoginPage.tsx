@@ -301,7 +301,7 @@ export default function LoginPage() {
             &copy; 2026 Cong an Thanh pho Ho Chi Minh
           </p>
           <p className="text-xs text-slate-500">
-            Phien ban 2.0.0 &bull; He thong PC02
+            Phien ban {__APP_VERSION__} &bull; He thong PC02
           </p>
         </div>
       </div>

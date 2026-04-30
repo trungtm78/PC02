@@ -460,7 +460,7 @@ export function AppSidebar() {
         <div className="p-3 border-t border-white/10 bg-black/20">
           <div className="text-xs text-white text-center">
             <p className="font-bold">PC02 - Quản lý vụ án</p>
-            <p className="text-white/60 mt-0.5">Công an nhân dân · v2.0.0</p>
+            <p className="text-white/60 mt-0.5">Công an nhân dân · v{__APP_VERSION__}</p>
           </div>
         </div>
       )}

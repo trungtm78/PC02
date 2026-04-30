@@ -84,11 +84,15 @@ async function main() {
     { action: 'write', subject: 'Team' },
     { action: 'edit', subject: 'Team' },
     { action: 'delete', subject: 'Team' },
+    // Report permissions — TĐC báo cáo
+    { action: 'read', subject: 'Report', description: 'Xem báo cáo TĐC' },
+    { action: 'write', subject: 'Report', description: 'Tạo và điều chỉnh báo cáo TĐC' },
+    { action: 'approve', subject: 'Report', description: 'Phê duyệt và khóa báo cáo TĐC' },
   ];
 
   for (const perm of permissions) {
     await prisma.permission.upsert({
-      where: { action_subject: perm },
+      where: { action_subject: { action: perm.action, subject: perm.subject } },
       update: {},
       create: perm,
     });
