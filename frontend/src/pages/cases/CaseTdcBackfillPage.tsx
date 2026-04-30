@@ -38,7 +38,7 @@ export default function CaseTdcBackfillPage() {
   const fetchCases = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.get("/cases?status=TAM_DINH_CHI&filter=tdac-missing-reason&limit=200");
+      const res = await api.get("/cases", { params: { status: "TAM_DINH_CHI" } });
       setCases(res.data.data ?? []);
     } catch {
       setCases([]);
