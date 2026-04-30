@@ -116,9 +116,9 @@ export default function TdacReportPage() {
     lastParams.current = params;
     setStale(false);
     try {
-      const res = await api.get<TdacReportData>("/reports/tdac/preview", {
+      const endpoint = activeTab === "VU_AN" ? "/reports/tdac/vu-an" : "/reports/tdac/vu-viec";
+      const res = await api.get<TdacReportData>(endpoint, {
         params: {
-          loaiBaoCao: activeTab,
           fromDate,
           toDate,
           teamIds: selectedTeamIds.join(",") || undefined,
