@@ -89,7 +89,7 @@ export class AuthController {
 
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
-  @Throttle({ default: { ttl: 60000, limit: 5 } })
+  @Throttle({ default: { ttl: 60000, limit: 3 } })  // 3/min — same as forgot-password, higher security
   async resetPassword(@Body() dto: ResetPasswordDto): Promise<{ message: string }> {
     await this.authService.resetPassword(dto.email, dto.otp, dto.newPassword);
     return { message: 'Đặt lại mật khẩu thành công' };

@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import * as crypto from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 
-const OTP_TTL_MS = 10 * 60 * 1000; // 10 minutes
+const OTP_TTL_MS = 15 * 60 * 1000; // 15 minutes (matches password reset email text)
 
 @Injectable()
 export class OtpCodeService {

@@ -49,7 +49,7 @@ export class EmailService implements OnModuleInit {
       html: `<div style="font-family:sans-serif;max-width:480px;margin:auto;padding:24px">
       <h2 style="color:#003973">Đặt lại mật khẩu PC02</h2>
       <p>Mã xác nhận của bạn:</p>
-      <div style="font-size:32px;font-weight:bold;letter-spacing:8px;color:#003973;padding:16px;background:#f1f5f9;border-radius:8px;text-align:center">${code}</div>
+      <div style="font-size:32px;font-weight:bold;letter-spacing:8px;color:#003973;padding:16px;background:#f1f5f9;border-radius:8px;text-align:center">${code.replace(/[^0-9]/g, '')}</div>
       <p style="color:#64748b;font-size:14px">Mã có hiệu lực trong <strong>15 phút</strong>. Nếu bạn không yêu cầu, hãy bỏ qua email này.</p>
     </div>`,
     });
