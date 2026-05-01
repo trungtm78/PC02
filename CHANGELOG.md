@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.12.0.0] - 2026-05-01
+
+### Added
+- **Xuất Excel đơn thư thật** (`GET /petitions/export`): Cán bộ có thể tải file Excel thực sự từ trang Xuất báo cáo. DataScope enforced — chỉ thấy đơn thư thuộc tổ mình. Rate limit 5/phút. Tối đa 500 bản ghi.
+- **Xuất Word chi tiết đơn thư** (`GET /petitions/:id/export-word`): File .docx với đầy đủ thông tin đơn thư, tên file tự động.
+- **Excel báo cáo tháng/quý (format BCA)**: `GET /reports/monthly/export` + `quarterly/export` — file Excel có header Phòng PC02, bảng số liệu, footer chữ ký Lãnh đạo.
+- **Thống kê 48 trường** (`GET /reports/stat48`): Tổng hợp 48 chỉ tiêu BCA từ Tab 9 của vụ án. SUM cho 12 trường số, COUNT BY VALUE cho 36 trường danh mục. File Excel 4 sheet tab (Nhóm 1-4). Cảnh báo DRAFT khi dữ liệu thiếu > 50%.
+- **Trang Thống kê 48 trường** (`/reports/stat48`): 4 accordion groups, banner cảnh báo dữ liệu thiếu, nút Xuất Excel.
+- **Biên nhận đơn thư PDF** (HTML print): Biên nhận chuẩn với logo Công An, thông tin đơn, ô chữ ký.
+
+### Fixed
+- **Bug xuất Excel đơn thư**: `handleExportExcel()` trước đây là UI stub — chỉ hiện thông báo "thành công" nhưng không tải file. Nay đã kết nối API thật.
+- **Bug xuất Word, xuất biên nhận**: Tương tự, đã fix tất cả 3 stub handlers trong ExportReportsPage.
+- **PermissionsGuard bị drop**: Method-level `@UseGuards(JwtAuthGuard)` trên các export endpoint làm mất class-level `PermissionsGuard`. Đã sửa để kế thừa đúng.
+- **ExcelJS write chưa có error handling**: Thêm try/catch cho tất cả `workbook.xlsx.write(res)` — tránh crash server khi download bị ngắt.
+- **Thiếu rate limit @Get(':id/export-word')**: Thêm `@Throttle(5/min)`.
+
+### Security
+- Tất cả export endpoints mới đều enforce DataScope (`buildPetitionScopeFilter`) — không thể export dữ liệu ngoài phạm vi tổ.
+
 ## [0.11.0.0] - 2026-05-01
 
 ### Added
