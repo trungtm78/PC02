@@ -31,6 +31,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { downloadCsv } from '@/lib/csv';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -390,7 +391,18 @@ export default function InvestigationDelegationPage() {
             {showAdvancedFilter ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
           </button>
 
-          <button data-testid="export-excel-btn" className="flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+          <button
+            data-testid="export-excel-btn"
+            onClick={() => {
+              const headers = ['STT', 'Số ủy thác', 'Ngày', 'Đơn vị nhận', 'Trạng thái', 'Nội dung', 'Người tạo'];
+              const rows = filteredData.map((d, i) => [
+                i + 1, d.delegationNumber, d.delegationDate, d.receivingUnit,
+                d.statusLabel, d.content, d.createdBy,
+              ]);
+              downloadCsv(rows, headers, `UyThacDieuTra_${new Date().toISOString().slice(0, 10)}.csv`);
+            }}
+            className="flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+          >
             <Download className="w-4 h-4" />
             Xuất Excel
           </button>

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router';
 import {
   Users,
   Shield,
@@ -111,8 +112,8 @@ function UserManagementModule() {
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                  <button className="text-blue-600 hover:text-blue-900 mr-3">Sửa</button>
-                  <button className="text-red-600 hover:text-red-900">Xóa</button>
+                  <button onClick={() => navigate('/users')} className="text-blue-600 hover:text-blue-900 mr-3">Sửa</button>
+                  <button onClick={() => { if (confirm('Bạn có chắc chắn muốn xóa người dùng này?')) navigate('/users'); }} className="text-red-600 hover:text-red-900">Xóa</button>
                 </td>
               </tr>
             ))}
@@ -373,6 +374,7 @@ function SecurityModule() {
 
 // Main Settings Page
 export default function SettingsPage() {
+  const navigate = useNavigate();
   const [activeModule, setActiveModule] = useState('users');
 
   const renderModule = () => {

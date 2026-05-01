@@ -17,6 +17,7 @@ import {
   Lock,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { downloadCsv } from '@/lib/csv';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -343,7 +344,18 @@ export default function UserManagementPage() {
             Người dùng &amp; Phân quyền
           </h2>
           <div className="flex gap-2">
-            <button className="flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors text-sm">
+            <button
+              onClick={() => {
+                const headers = ['STT', 'Username', 'Họ tên', 'Email', 'SĐT', 'Vai trò', 'Phòng ban', 'Trạng thái'];
+                const rows = users.map((u, i) => [
+                  i + 1, u.username, u.fullName ?? `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim(),
+                  u.email, (u as any).phone ?? '', u.role?.name ?? '', u.department?.name ?? '',
+                  u.isActive ? 'Hoạt động' : 'Tạm khóa',
+                ]);
+                downloadCsv(rows, headers, `NguoiDung_${new Date().toISOString().slice(0, 10)}.csv`);
+              }}
+              className="flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors text-sm"
+            >
               <Download className="w-4 h-4" />
               Xuất Excel
             </button>

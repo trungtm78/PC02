@@ -1079,10 +1079,12 @@ function ExportDocumentModal({
   };
 
   const handleDownloadPDF = () => {
-    alert("Tính năng xuất PDF đang được phát triển");
+    window.print();
   };
 
   return (
+    <>
+    <style>{`@media print { nav, aside, header, footer, button, .no-print { display: none !important; } body { background: white; } }`}</style>
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
         <div className="border-b border-slate-200 px-6 py-4 flex items-center justify-between">
@@ -1189,6 +1191,7 @@ function ExportDocumentModal({
         </div>
       </div>
     </div>
+    </>
   );
 }
 

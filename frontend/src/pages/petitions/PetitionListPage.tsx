@@ -108,6 +108,8 @@ function formatDate(dateStr?: string): string {
 export function PetitionListPage() {
   const navigate = useNavigate();
   const { canDispatch } = usePermission();
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 20;
   const [petitions, setPetitions] = useState<Petition[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [quickSearch, setQuickSearch] = useState("");
@@ -186,6 +188,8 @@ export function PetitionListPage() {
   });
 
   const overdueCount = filteredPetitions.filter((p) => isOverdue(p.deadline)).length;
+  const totalPages = Math.max(1, Math.ceil(filteredPetitions.length / PAGE_SIZE));
+  const displayedPetitions = filteredPetitions.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   const handleActionClick = useCallback(
     (petition: Petition, action: string) => {
@@ -420,7 +424,7 @@ export function PetitionListPage() {
               >
                 Xóa bộ lọc
               </button>
-              <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm">
+              <button onClick={() => { setCurrentPage(1); setShowAdvancedSearch(false); }} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm">
                 Áp dụng
               </button>
             </div>
@@ -493,7 +497,7 @@ export function PetitionListPage() {
                   </td>
                 </tr>
               ) : (
-                filteredPetitions.map((petition, index) => {
+                displayedPetitions.map((petition, index) => {
                   const overdue = isOverdue(petition.deadline);
                   return (
                     <tr
@@ -655,16 +659,10 @@ export function PetitionListPage() {
             Hiển thị <span className="font-medium">{filteredPetitions.length}</span> trên{" "}
             <span className="font-medium">{petitions.length}</span> đơn thư
           </div>
-          <div className="flex gap-2">
-            <button className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">
-              Trước
-            </button>
-            <button className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium">
-              1
-            </button>
-            <button className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">
-              Sau
-            </button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">Trước</button>
+            <span className="px-3 py-2 text-sm font-medium text-slate-700">Trang {currentPage}/{totalPages}</span>
+            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">Sau</button>
           </div>
         </div>
       </div>
