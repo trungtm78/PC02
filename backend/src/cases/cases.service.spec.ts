@@ -437,6 +437,56 @@ describe('CasesService', () => {
       );
     });
 
+    // ── [CONTRACT] InitialCasesPage "nhận xử lý" ──────────────────────────────
+    // These tests protect the exact flow: user clicks "Xác nhận nhận xử lý"
+    // → frontend calls PUT /cases/:id { status: DANG_DIEU_TRA }
+    // → case disappears from the TIEP_NHAN list
+
+    it('[CONTRACT] TIEP_NHAN → DANG_DIEU_TRA transition returns success', async () => {
+      mockPrisma.case.findFirst.mockResolvedValue(mockCase); // TIEP_NHAN
+      mockPrisma.case.update.mockResolvedValue({
+        ...mockCase,
+        status: CaseStatus.DANG_DIEU_TRA,
+      });
+      mockPrisma.caseStatusHistory.create.mockResolvedValue({});
+
+      const result = await service.update(
+        'case-001',
+        { status: CaseStatus.DANG_DIEU_TRA },
+        'actor-001',
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.data.status).toBe(CaseStatus.DANG_DIEU_TRA);
+    });
+
+    it('[CONTRACT] getList with status=TIEP_NHAN only returns pending cases', async () => {
+      mockPrisma.case.findMany.mockResolvedValue([mockCase]);
+      mockPrisma.case.count.mockResolvedValue(1);
+
+      await service.getList({ status: CaseStatus.TIEP_NHAN });
+
+      const callArgs = mockPrisma.case.findMany.mock.calls[0][0];
+      expect(callArgs.where).toMatchObject({ status: CaseStatus.TIEP_NHAN });
+    });
+
+    it('[CONTRACT] after TIEP_NHAN→DANG_DIEU_TRA, status history records the fromStatus', async () => {
+      mockPrisma.case.findFirst.mockResolvedValue(mockCase); // status = TIEP_NHAN
+      mockPrisma.case.update.mockResolvedValue({ ...mockCase, status: CaseStatus.DANG_DIEU_TRA });
+      mockPrisma.caseStatusHistory.create.mockResolvedValue({});
+
+      await service.update('case-001', { status: CaseStatus.DANG_DIEU_TRA }, 'actor-001');
+
+      expect(mockPrisma.caseStatusHistory.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          caseId: 'case-001',
+          fromStatus: CaseStatus.TIEP_NHAN,
+          toStatus: CaseStatus.DANG_DIEU_TRA,
+          changedById: 'actor-001',
+        }),
+      });
+    });
+
     it('should update linked petition when petitionType changes', async () => {
       mockPrisma.case.findFirst.mockResolvedValue(mockCase);
       mockPrisma.case.update.mockResolvedValue(mockCase);
