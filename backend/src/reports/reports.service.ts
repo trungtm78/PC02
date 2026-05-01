@@ -1,9 +1,65 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CaseStatus, IncidentStatus, PetitionStatus } from '@prisma/client';
 
+// ─────────────────────────────────────────────
+// Stat48 field definitions
+// ─────────────────────────────────────────────
+
+const NUMERIC_FIELDS = new Set([
+  'Thiệt hại (VNĐ)',
+  'Đã thu hồi (VNĐ)',
+  'Số bị hại',
+  'Số người chết',
+  'Số người bị thương',
+  'Số đối tượng',
+  'Đã bắt giữ',
+  'Đã tạm giam',
+  'Số ngày xử lý',
+  'Số nhân chứng',
+  'Tài sản thu giữ',
+  'Chứng cứ thu thập',
+]);
+
+const STAT_GROUPS = [
+  {
+    name: 'Nhóm 1: Nguồn tin',
+    fields: [
+      'Loại nguồn tin', 'Nguồn gốc', 'Loại người báo tin', 'Hình thức tiếp nhận',
+      'Mức độ khẩn', 'Đơn vị tiếp báo', 'Ngày xảy ra vụ việc', 'Giờ xảy ra vụ việc',
+      'Tỉnh/Thành phố', 'Quận/Huyện', 'Phường/Xã', 'Phân loại ban đầu',
+    ],
+  },
+  {
+    name: 'Nhóm 2: Tội phạm',
+    fields: [
+      'Tội danh chính', 'Tội danh phụ', 'Lĩnh vực', 'Phương thức thủ đoạn',
+      'Thiệt hại (VNĐ)', 'Đã thu hồi (VNĐ)', 'Số bị hại', 'Số người chết',
+      'Số người bị thương', 'Thiệt hại tài sản', 'Tội phạm có tổ chức', 'Tái phạm',
+    ],
+  },
+  {
+    name: 'Nhóm 3: Đối tượng',
+    fields: [
+      'Số đối tượng', 'Đã bắt giữ', 'Đã tạm giam', 'Giới tính',
+      'Độ tuổi', 'Dân tộc', 'Quốc tịch', 'Nghề nghiệp',
+      'Trình độ học vấn', 'Tiền án tiền sự', 'Liên quan ma túy', 'Sử dụng vũ khí',
+    ],
+  },
+  {
+    name: 'Nhóm 4: Kết quả',
+    fields: [
+      'Trạng thái xử lý', 'Kết quả điều tra', 'Kết quả truy tố', 'Kết quả xét xử',
+      'Mức án', 'Ngày kết thúc', 'Số ngày xử lý', 'Chứng cứ thu thập',
+      'Số nhân chứng', 'Tài sản thu giữ', 'Chuyển vụ án', 'Đã báo cáo',
+    ],
+  },
+];
+
 @Injectable()
 export class ReportsService {
+  private readonly logger = new Logger(ReportsService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   // ─────────────────────────────────────────────
@@ -389,6 +445,90 @@ export class ReportsService {
       success: true,
       data: records,
       total: records.length,
+    };
+  }
+
+  // ─────────────────────────────────────────────
+  // GET /api/v1/reports/stat48?fromDate=&toDate=&unit=
+  // ─────────────────────────────────────────────
+  async getStat48(fromDate: string, toDate: string, unit?: string) {
+    const from = new Date(fromDate);
+    const to = new Date(toDate + 'T23:59:59.999Z');
+
+    const cases = await this.prisma.case.findMany({
+      where: {
+        createdAt: { gte: from, lte: to },
+        deletedAt: null,
+        ...(unit ? { unit } : {}),
+      },
+      select: { metadata: true },
+    });
+
+    if (cases.length > 2000) {
+      this.logger.warn(
+        `getStat48: ${cases.length} cases — consider narrowing date range`,
+      );
+    }
+
+    const totalCases = cases.length;
+    const nullCount = cases.filter(
+      (c) => !(c.metadata as Record<string, unknown> | null)?.['stat48'],
+    ).length;
+    const nullRatePct =
+      totalCases > 0 ? Math.round((nullCount / totalCases) * 100) : 0;
+
+    const groups = STAT_GROUPS.map((group) => ({
+      name: group.name,
+      fields: group.fields.map((field) => {
+        const values = cases
+          .map((c) => {
+            const meta = c.metadata as Record<string, unknown> | null;
+            const stat48 = meta?.['stat48'] as Record<string, unknown> | undefined;
+            return stat48?.[field];
+          })
+          .filter((v) => v != null && v !== '');
+
+        const dataCount = values.length;
+
+        if (NUMERIC_FIELDS.has(field)) {
+          const total = values.reduce(
+            (a: number, b) => a + Number(b ?? 0),
+            0,
+          ) as number;
+          return {
+            field,
+            type: 'numeric' as const,
+            total,
+            dataCount,
+            nullCount: totalCases - dataCount,
+          };
+        } else {
+          const dist: Record<string, number> = {};
+          values.forEach((v) => {
+            const key = String(v);
+            dist[key] = (dist[key] ?? 0) + 1;
+          });
+          return {
+            field,
+            type: 'categorical' as const,
+            distribution: dist,
+            dataCount,
+            nullCount: totalCases - dataCount,
+          };
+        }
+      }),
+    }));
+
+    return {
+      success: true,
+      totalCases,
+      nullCount,
+      nullRatePct,
+      isDraft: nullRatePct > 50,
+      fromDate,
+      toDate,
+      unit,
+      groups,
     };
   }
 }

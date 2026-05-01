@@ -1,9 +1,12 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, Res, UseGuards } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
+import type { Response } from 'express';
 import { ReportsService } from './reports.service';
+import { ReportsExportService } from './reports-export.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/permissions.decorator';
-import { IsOptional, IsInt, IsString, Min, Max } from 'class-validator';
+import { IsOptional, IsInt, IsString, IsDateString, IsIn, Min, Max } from 'class-validator';
 import { Type } from 'class-transformer';
 
 class QueryMonthlyDto {
@@ -72,10 +75,29 @@ class QueryOverdueDto {
   minDaysOverdue?: number;
 }
 
+class Stat48QueryDto {
+  @IsDateString()
+  fromDate!: string;
+
+  @IsDateString()
+  toDate!: string;
+
+  @IsOptional()
+  @IsString()
+  unit?: string;
+
+  @IsOptional()
+  @IsIn(['json', 'excel'])
+  format?: string;
+}
+
 @Controller('reports')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class ReportsController {
-  constructor(private readonly reportsService: ReportsService) {}
+  constructor(
+    private readonly reportsService: ReportsService,
+    private readonly reportsExportService: ReportsExportService,
+  ) {}
 
   // GET /api/v1/reports/monthly?year=&month=
   @Get('monthly')
@@ -110,5 +132,42 @@ export class ReportsController {
       query.priority,
       query.minDaysOverdue,
     );
+  }
+
+  // GET /api/v1/reports/monthly/export
+  @Get('monthly/export')
+  @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
+  async exportMonthly(@Query() query: QueryMonthlyDto, @Res() res: Response) {
+    const year = query.year ?? new Date().getFullYear();
+    const data = await this.reportsService.getMonthly(year, query.month);
+    await this.reportsExportService.exportMonthly(data as any, res);
+  }
+
+  // GET /api/v1/reports/quarterly/export
+  @Get('quarterly/export')
+  @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
+  async exportQuarterly(@Query() query: QueryQuarterlyDto, @Res() res: Response) {
+    const year = query.year ?? new Date().getFullYear();
+    const data = await this.reportsService.getQuarterly(year, query.quarter);
+    await this.reportsExportService.exportQuarterly(data as any, res);
+  }
+
+  // GET /api/v1/reports/stat48?fromDate=&toDate=&unit=&format=
+  @Get('stat48')
+  @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { ttl: 60000, limit: 3 } })
+  async getStat48(@Query() query: Stat48QueryDto, @Res() res: Response) {
+    const data = await this.reportsService.getStat48(
+      query.fromDate,
+      query.toDate,
+      query.unit,
+    );
+    if (query.format === 'excel') {
+      await this.reportsExportService.exportStat48(data as any, res);
+    } else {
+      res.json(data);
+    }
   }
 }

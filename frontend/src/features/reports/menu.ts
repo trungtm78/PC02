@@ -14,6 +14,7 @@ export const reportsMenu: FeatureMenuEntry[] = [
       { section: 'reports', id: 'reports-overdue', label: 'Hồ sơ quá hạn', path: '/settings/overdue-records' },
       { section: 'reports', id: 'reports-activity', label: 'Nhật ký hoạt động', path: '/activity-log' },
       { section: 'reports', id: 'reports-tdac', label: 'Báo cáo TĐC', path: '/reports/tdac' },
+      { section: 'reports', id: 'reports-stat48', label: 'Thống kê 48 trường', path: '/reports/stat48' },
     ],
   },
 ];

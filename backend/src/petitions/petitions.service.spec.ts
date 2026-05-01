@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
 /**
  * PetitionsService Unit Tests
  * TASK-ID: TASK-2026-260202
@@ -665,6 +666,98 @@ describe('PetitionsService', () => {
       expect(mockAudit.log).toHaveBeenCalledWith(
         expect.objectContaining({ action: 'PETITION_DELETED' }),
       );
+    });
+  });
+
+  // ── exportToExcel ──────────────────────────────────────────────────────────
+
+  describe('exportToExcel', () => {
+    const buildMockRes = () => {
+      const res: any = {
+        setHeader: jest.fn(),
+        end: jest.fn(),
+        write: jest.fn(),
+      };
+      return res;
+    };
+
+    it('applies dataScope filter — non-admin users only see their team data', async () => {
+      const dataScope = {
+        userIds: ['user-002'],
+        teamIds: ['team-001'],
+        writableTeamIds: ['team-001'],
+        canDispatch: false,
+      };
+      mockPrisma.petition.findMany.mockResolvedValue([]);
+
+      // Mock ExcelJS write — we just need it not to throw
+      const mockWrite = jest.fn().mockResolvedValue(undefined);
+      jest.spyOn(require('exceljs'), 'Workbook').mockImplementation(() => ({
+        addWorksheet: () => ({
+          mergeCells: jest.fn(),
+          getCell: () => ({ value: null, font: {}, fill: {}, alignment: {}, border: {} }),
+          getRow: () => ({
+            getCell: () => ({ value: null, font: {}, fill: {}, alignment: {}, border: {} }),
+            height: 0,
+          }),
+          columns: [],
+        }),
+        xlsx: { write: mockWrite },
+      }));
+
+      const mockRes = buildMockRes();
+      await service.exportToExcel({}, dataScope as any, mockRes as any);
+
+      const callArgs = mockPrisma.petition.findMany.mock.calls[0][0];
+      // scopeFilter should be applied via AND
+      expect(callArgs.where.AND).toBeDefined();
+    });
+
+    it('limits to 500 records max', async () => {
+      mockPrisma.petition.findMany.mockResolvedValue([]);
+
+      jest.spyOn(require('exceljs'), 'Workbook').mockImplementation(() => ({
+        addWorksheet: () => ({
+          mergeCells: jest.fn(),
+          getCell: () => ({ value: null, font: {}, fill: {}, alignment: {}, border: {} }),
+          getRow: () => ({
+            getCell: () => ({ value: null, font: {}, fill: {}, alignment: {}, border: {} }),
+            height: 0,
+          }),
+          columns: [],
+        }),
+        xlsx: { write: jest.fn().mockResolvedValue(undefined) },
+      }));
+
+      const mockRes = buildMockRes();
+      await service.exportToExcel({}, null, mockRes as any);
+
+      const callArgs = mockPrisma.petition.findMany.mock.calls[0][0];
+      expect(callArgs.take).toBe(500);
+    });
+
+    it('returns empty workbook when no data found', async () => {
+      mockPrisma.petition.findMany.mockResolvedValue([]);
+
+      const mockWrite = jest.fn().mockResolvedValue(undefined);
+      jest.spyOn(require('exceljs'), 'Workbook').mockImplementation(() => ({
+        addWorksheet: () => ({
+          mergeCells: jest.fn(),
+          getCell: () => ({ value: null, font: {}, fill: {}, alignment: {}, border: {} }),
+          getRow: () => ({
+            getCell: () => ({ value: null, font: {}, fill: {}, alignment: {}, border: {} }),
+            height: 0,
+          }),
+          columns: [],
+        }),
+        xlsx: { write: mockWrite },
+      }));
+
+      const mockRes = buildMockRes();
+      await service.exportToExcel({}, null, mockRes as any);
+
+      // Write should have been called even with empty data
+      expect(mockWrite).toHaveBeenCalled();
     });
   });
 
