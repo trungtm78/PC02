@@ -133,7 +133,7 @@ describe('DashboardService', () => {
       expect(structure.length).toBeGreaterThanOrEqual(2);
       const investigating = structure.find((s: { name: string }) => s.name === 'Đang điều tra');
       expect(investigating).toBeDefined();
-      expect(investigating.value).toBe(5);
+      expect(investigating!.value).toBe(5);
     });
   });
 
