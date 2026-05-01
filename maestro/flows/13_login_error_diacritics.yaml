@@ -1,0 +1,35 @@
+appId: ${APP_ID}
+tags:
+  - auth
+  - smoke
+  - text-quality
+
+---
+# Test: Login error message có dấu tiếng Việt đúng
+# Validates: "Thông tin đăng nhập không chính xác" (not "Thong tin dang nhap...")
+- launchApp:
+    clearState: true
+- waitForAnimationToEnd
+- takeScreenshot: 13_login_start
+
+# Enter wrong credentials
+- tapOn: "Email"
+- inputText: "wrong@test.com"
+- tapOn: "Mật khẩu"
+- inputText: "wrongpassword123"
+- hideKeyboard
+- tapOn: "Đăng nhập"
+- waitForAnimationToEnd
+- takeScreenshot: 13_login_error
+
+# Verify error message is in proper Vietnamese (with diacritics)
+- assertNotVisible: "Thong tin dang nhap"
+- assertNotVisible: "Vui long thu lai"
+- assertNotVisible: "exception"
+- assertNotVisible: "DioException"
+- assertNotVisible: "SocketException"
+
+# The correct error should appear
+- assertVisible:
+    optional: true
+    text: "Thông tin đăng nhập không chính xác"
