@@ -175,9 +175,33 @@ export default function ActivityLogPage() {
   };
 
   const handleExport = () => {
-    const timestamp = new Date().toISOString().replace(/[-:]/g, "").replace("T", "_").split(".")[0];
-    const fileName = `NhatKy_${timestamp}.xlsx`;
-    alert(`Đang xuất ${filteredData.length} bản ghi nhật ký ra file: ${fileName}`);
+    if (filteredData.length === 0) {
+      alert('Không có dữ liệu để xuất!');
+      return;
+    }
+    const headers = ['STT', 'Thời gian', 'Người dùng', 'Vai trò', 'Hành động', 'Đối tượng', 'ID đối tượng', 'IP'];
+    const rows = filteredData.map((log, i) => [
+      i + 1,
+      new Date(log.timestamp).toLocaleString('vi-VN'),
+      log.user,
+      log.userRole,
+      log.actionLabel,
+      log.objectLabel,
+      log.objectId,
+      log.ipAddress,
+    ]);
+    const csv = [headers, ...rows]
+      .map(row => row.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `NhatKy_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   const formatDateTime = (dateTimeString: string) => {

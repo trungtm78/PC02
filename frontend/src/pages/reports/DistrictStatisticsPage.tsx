@@ -151,11 +151,24 @@ export default function DistrictStatisticsPage() {
   };
 
   const handleExport = () => {
-    if (!hasData) {
-      alert("Không có dữ liệu để xuất!");
+    if (!hasData || dailyChartData.length === 0) {
+      alert('Không có dữ liệu để xuất! Hãy tải dữ liệu trước.');
       return;
     }
-    alert("Đang xuất báo cáo Excel...");
+    const headers = ['Ngày', 'Vụ việc', 'Vụ án', 'Đã giải quyết'];
+    const rows = dailyChartData.map(d => [d.date, d.incidents ?? 0, d.cases ?? 0, d.resolved ?? 0]);
+    const csv = [headers, ...rows]
+      .map(row => row.map(v => `"${String(v ?? '')}"`).join(','))
+      .join('\n');
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ThongKeQuanHuyen_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   const handlePointClick = (data: any) => {

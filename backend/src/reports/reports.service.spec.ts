@@ -177,5 +177,70 @@ describe('ReportsService', () => {
       const callArgs = mockPrisma.case.findMany.mock.calls[0][0];
       expect(callArgs.where.unit).toBeUndefined();
     });
+
+    // ── API CONTRACT TESTS (protect frontend transform) ──────────────────────
+    // These tests document the exact response shape the frontend Stat48ReportPage
+    // transform function depends on. If the backend changes shape, these fail,
+    // reminding developers to also update the frontend transformer.
+
+    it('[CONTRACT] response uses nullCount (not casesWithoutData)', async () => {
+      mockPrisma.case.findMany.mockResolvedValue([
+        { metadata: null },
+        makeCaseWithStat48({ 'Loại nguồn tin': 'A' }),
+      ]);
+
+      const result = await service.getStat48('2025-01-01', '2025-12-31');
+
+      // Frontend reads: raw.nullCount, raw.nullRatePct
+      expect(result).toHaveProperty('nullCount', 1);
+      expect(result).toHaveProperty('nullRatePct', 50);
+      // NOT casesWithoutData or missingPercent
+      expect(result).not.toHaveProperty('casesWithoutData');
+      expect(result).not.toHaveProperty('missingPercent');
+    });
+
+    it('[CONTRACT] field shape uses .field (not .fieldName) and .dataCount (not .count)', async () => {
+      mockPrisma.case.findMany.mockResolvedValue([
+        makeCaseWithStat48({ 'Loại nguồn tin': 'Tin báo' }),
+      ]);
+
+      const result = await service.getStat48('2025-01-01', '2025-12-31');
+
+      const anyField = result.groups[0].fields[0];
+      expect(anyField).toHaveProperty('field');      // NOT fieldName
+      expect(anyField).toHaveProperty('dataCount');  // NOT count
+      expect(anyField).toHaveProperty('nullCount');  // NOT missing/missingCount
+      expect(anyField).not.toHaveProperty('fieldName');
+      expect(anyField).not.toHaveProperty('count');
+    });
+
+    it('[CONTRACT] categorical distribution is Record<string,number> (not array)', async () => {
+      mockPrisma.case.findMany.mockResolvedValue([
+        makeCaseWithStat48({ 'Loại nguồn tin': 'Tin báo' }),
+        makeCaseWithStat48({ 'Loại nguồn tin': 'Tin báo' }),
+        makeCaseWithStat48({ 'Loại nguồn tin': 'Tố giác' }),
+      ]);
+
+      const result = await service.getStat48('2025-01-01', '2025-12-31');
+
+      const group1 = result.groups.find((g) => g.name === 'Nhóm 1: Nguồn tin')!;
+      const field = group1.fields.find((f) => f.field === 'Loại nguồn tin')!;
+      // Backend returns plain object; frontend transform converts to [{value,count}] array
+      expect(field.distribution).toEqual(expect.any(Object));
+      expect(Array.isArray(field.distribution)).toBe(false);
+      expect(field.distribution).toHaveProperty('Tin báo', 2);
+      expect(field.distribution).toHaveProperty('Tố giác', 1);
+    });
+
+    it('[CONTRACT] group shape uses .name (not .groupName), no .groupIndex', async () => {
+      mockPrisma.case.findMany.mockResolvedValue([makeCaseWithStat48({})]);
+
+      const result = await service.getStat48('2025-01-01', '2025-12-31');
+
+      const group = result.groups[0];
+      expect(group).toHaveProperty('name');        // NOT groupName
+      expect(group).not.toHaveProperty('groupName');
+      expect(group).not.toHaveProperty('groupIndex');
+    });
   });
 });

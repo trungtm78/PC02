@@ -186,7 +186,38 @@ export default function Stat48ReportPage() {
       const params: Record<string, string> = { fromDate, toDate, format: 'json' };
       if (unit) params.unit = unit;
       const res = await api.get('/reports/stat48', { params });
-      setReportData(res.data);
+      const raw = res.data;
+      // Map backend shape → frontend Stat48Response
+      const transformed: Stat48Response = {
+        fromDate: raw.fromDate,
+        toDate: raw.toDate,
+        unit: raw.unit,
+        totalCases: raw.totalCases,
+        casesWithData: raw.totalCases - raw.nullCount,
+        casesWithoutData: raw.nullCount,
+        missingPercent: raw.nullRatePct,
+        isDraft: raw.isDraft,
+        groups: (raw.groups ?? []).map((g: any, gi: number) => ({
+          groupIndex: gi + 1,
+          groupName: g.name,
+          fields: (g.fields ?? []).map((f: any, fi: number) => ({
+            fieldIndex: fi + 1,
+            fieldName: f.field,
+            fieldType: f.type,
+            total: f.total,
+            count: f.dataCount,
+            missing: f.nullCount,
+            totalCount: f.dataCount,
+            missingCount: f.nullCount,
+            distribution: f.distribution
+              ? Object.entries(f.distribution as Record<string, number>)
+                  .map(([value, count]) => ({ value, count }))
+                  .sort((a, b) => b.count - a.count)
+              : undefined,
+          })),
+        })),
+      };
+      setReportData(transformed);
     } catch {
       setError('Không thể tải dữ liệu. Vui lòng thử lại.');
       setReportData(null);

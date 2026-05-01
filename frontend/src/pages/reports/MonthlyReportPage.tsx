@@ -79,8 +79,9 @@ export default function MonthlyReportPage() {
               onClick={async () => {
                 setIsExportingMonthly(true);
                 try {
+                  const [exportYear, exportMonth] = selectedMonth.split('-').map(Number);
                   const response = await api.get('/reports/monthly/export', {
-                    params: { year: selectedYear, month: selectedMonth },
+                    params: { year: exportYear, month: exportMonth },
                     responseType: 'blob',
                   });
                   const url = URL.createObjectURL(new Blob([response.data]));
