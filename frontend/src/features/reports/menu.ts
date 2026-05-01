@@ -15,6 +15,7 @@ export const reportsMenu: FeatureMenuEntry[] = [
       { section: 'reports', id: 'reports-activity', label: 'Nhật ký hoạt động', path: '/activity-log' },
       { section: 'reports', id: 'reports-tdac', label: 'Báo cáo TĐC', path: '/reports/tdac' },
       { section: 'reports', id: 'reports-stat48', label: 'Thống kê 48 trường', path: '/reports/stat48' },
+      { section: 'reports', id: 'reports-phu-luc-1-6', label: 'Phụ lục 1-6 BCA', path: '/reports/phu-luc-1-6' },
     ],
   },
 ];

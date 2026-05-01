@@ -300,6 +300,7 @@ model Case {
   soQuyetDinhPhucHoi      String?
   ngayPhucHoi             DateTime?
   ketQuaPhucHoiVuAn       KetQuaPhucHoiVuAn?
+  ngayHetThoiHieu         DateTime?            // Ngày hết thời hiệu truy cứu TNHS (dùng cho Phụ lục 5 vs 6)
 
   investigator   User?       @relation(fields: [investigatorId], references: [id], onDelete: SetNull)
   assignedTeamId String?
@@ -544,6 +545,7 @@ model Incident {
   soQuyetDinhPhucHoiVV String?
   ngayPhucHoiVV     DateTime?
   ketQuaPhucHoiVuViec KetQuaPhucHoiVuViec?
+  ngayHetThoiHieuVV   DateTime?    // Ngày hết thời hiệu truy cứu TNHS của vụ việc (Phụ lục 2 vs 3)
   diaChiXayRa       String?      // Địa điểm xảy ra sự việc
   // Thông tin người tố giác/báo tin chi tiết
   sdtNguoiToGiac    String?      // SĐT người tố giác
