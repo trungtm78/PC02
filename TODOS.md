@@ -30,6 +30,79 @@
 
 ---
 
+## Stub-Check Findings — 2026-05-01 (`/stub-check` scan on feat/mobile)
+
+### STUB-P1: Buttons/handlers làm không gì hết
+
+| ID | File | Line | Issue |
+|----|------|------|-------|
+| STUB-001 | `frontend/src/pages/incidents/IncidentListPage.tsx` | 302 | "Xuất Excel" (`btn-export`) thiếu `onClick` |
+| STUB-002 | `frontend/src/pages/workflow/CaseExchangePage.tsx` | 212 | "Xuất Excel" (`export-excel-btn`) thiếu `onClick` |
+| STUB-003 | `frontend/src/pages/workflow/CaseExchangePage.tsx` | 744 | Download đính kèm chat thiếu `onClick` |
+| STUB-004 | `frontend/src/pages/workflow/InvestigationDelegationPage.tsx` | 393 | "Xuất Excel" (`export-excel-btn`) thiếu `onClick` |
+| STUB-005 | `frontend/src/pages/settings/SettingsPage.tsx` | 114 | "Sửa" user thiếu `onClick` (→ navigate hoặc modal) |
+| STUB-006 | `frontend/src/pages/settings/SettingsPage.tsx` | 115 | "Xóa" user thiếu `onClick` (→ api.delete) |
+| STUB-007 | `frontend/src/pages/users/UserManagementPage.tsx` | 346 | "Xuất Excel" user list thiếu `onClick` |
+| STUB-008 | `frontend/src/pages/cases/CaseListPage.tsx` | 406 | "Xuất báo cáo" thiếu `onClick` |
+| STUB-009 | `frontend/src/pages/petitions/PetitionListPage.tsx` | 423 | "Áp dụng" filter nâng cao thiếu `onClick` |
+| STUB-010 | `frontend/src/pages/classification/ProsecutorProposalPage.tsx` | 1081 | `handleDownloadPDF` chỉ `alert("đang phát triển")` |
+| STUB-011 | `frontend/src/pages/cases/CaseListPage.tsx` | 752-758 | Pagination Trước/1/Sau thiếu `onClick` (stub display) |
+| STUB-012 | `frontend/src/pages/petitions/PetitionListPage.tsx` | 659-665 | Pagination Trước/1/Sau thiếu `onClick` (stub display) |
+| STUB-013 | `frontend/src/pages/workflow/CaseExchangePage.tsx` | 428-430 | Pagination Trước/1/Sau thiếu `onClick` (stub display) |
+| STUB-014 | `frontend/src/pages/workflow/TransferAndReturnPage.tsx` | 628-629 | Pagination Trước/Sau thiếu `onClick` (stub display) |
+
+**Fix pattern cho STUB-001, 002, 004, 007, 008:** client-side CSV từ `filteredData` — copy pattern từ `ActivityLogPage.tsx`.
+**Fix pattern cho STUB-005:** `navigate(\`/settings/users/${user.id}/edit\`)` hoặc mở modal.
+**Fix pattern cho STUB-006:** `api.delete(\`/users/${user.id}\`)` + confirm dialog.
+**Fix pattern cho STUB-009:** gọi `fetchData()` với filter state hiện tại.
+**Fix pattern cho STUB-003:** `window.open(att.url, '_blank')` hoặc `api.get` download stream.
+**Fix pattern cho STUB-011..014:** wiring pagination state (currentPage, setCurrentPage).
+**Fix pattern cho STUB-010:** `window.print()` với HTML template (tương tự receipt trong ExportReportsPage).
+
+---
+
+### STUB-P2: Giả thành công, không gọi API
+
+| ID | File | Line | Issue |
+|----|------|------|-------|
+| STUB-015 | `frontend/src/pages/cases/CaseFormPage/index.tsx` | 239 | `handleSaveDraft` — `console.log + alert()`, cần `api.put(/cases/:id, {status:'DRAFT'})` hoặc `localStorage` fallback |
+
+---
+
+### STUB-P3: Services/Controllers thiếu spec file
+
+**Services (7 thiếu spec):**
+- `src/calendar/calendar.service.ts`
+- `src/dashboard/dashboard.service.ts`
+- `src/notifications/notifications.service.ts`
+- `src/push/devices.service.ts`
+- `src/reports/tdac/tdac-export.service.ts`
+- `src/settings/settings.service.ts`
+- `src/shared/action-plans/action-plans.service.ts`
+
+**Controllers (27 thiếu spec)** — hầu hết controllers chưa có unit test. Ưu tiên cao nhất: `cases.controller.ts`, `petitions.controller.ts`, `incidents.controller.ts`, `reports.controller.ts`.
+
+---
+
+### STUB-P4: Code quality
+
+| ID | File | Line | Issue |
+|----|------|------|-------|
+| STUB-016 | `frontend/src/pages/cases/CaseFormPage/index.tsx` | 240 | `console.log("[CaseFormPage] Lưu nháp:", formData)` — debug log còn trong production |
+
+---
+
+### API Contract Risks (cần verify)
+
+| File | Line | Risk |
+|------|------|------|
+| `frontend/src/pages/cases/CaseDetailPage.tsx` | 768, 973 | `setCaseData(res.data.data)` — nếu `caseData` state có typed interface thì cần transform |
+| `frontend/src/pages/reports/TdacReportPage.tsx` | 127 | `setReportData(res.data)` — cần check interface vs backend shape |
+
+**Discovered:** 2026-05-01 (`/stub-check` automated scan, branch feat/mobile)
+
+---
+
 ## Completed
 
 - **FINDING-001 (IDOR)**: `getById` on 9 child resources lacked DataScope enforcement. Fixed in v0.5.1.0 — `assertParentInScope`/`assertCreatorInScope` added, 43 new tests. **Completed:** v0.5.1.0 (2026-04-21)

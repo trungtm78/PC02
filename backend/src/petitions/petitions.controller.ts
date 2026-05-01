@@ -9,10 +9,13 @@ import {
   Param,
   Query,
   Req,
+  Res,
   UseGuards,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
+import type { Response } from 'express';
 import type { ScopedRequest } from '../auth/interfaces/scoped-request.interface';
 import { PetitionsService } from './petitions.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -23,6 +26,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CreatePetitionDto } from './dto/create-petition.dto';
 import { UpdatePetitionDto } from './dto/update-petition.dto';
 import { QueryPetitionsDto } from './dto/query-petitions.dto';
+import { ExportPetitionsQueryDto } from './dto/export-petitions-query.dto';
 import { ConvertToIncidentDto } from './dto/convert-incident.dto';
 import { ConvertToCaseDto } from './dto/convert-case.dto';
 import { AssignPetitionDto } from './dto/assign-petition.dto';
@@ -39,11 +43,37 @@ export class PetitionsController {
     return this.petitionsService.getList(query, req.dataScope);
   }
 
+  // GET /api/v1/petitions/export — Xuất danh sách đơn thư ra Excel
+  @Get('export')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions({ action: 'read', subject: 'Petition' })
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
+  async exportExcel(
+    @Query() query: ExportPetitionsQueryDto,
+    @Req() req: ScopedRequest,
+    @Res() res: Response,
+  ): Promise<void> {
+    const user = (req as any).user as AuthUser | undefined;
+    await this.petitionsService.exportToExcel(query, req.dataScope, res, user?.id);
+  }
+
   // GET /api/v1/petitions/:id — Chi tiết đơn thư
   @Get(':id')
   @RequirePermissions({ action: 'read', subject: 'Petition' })
   getById(@Param('id') id: string, @Req() req: ScopedRequest) {
     return this.petitionsService.getById(id, req.dataScope);
+  }
+
+  // GET /api/v1/petitions/:id/export-word — Xuất đơn thư ra Word
+  @Get(':id/export-word')
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
+  @RequirePermissions({ action: 'read', subject: 'Petition' })
+  async exportWord(
+    @Param('id') id: string,
+    @Req() req: ScopedRequest,
+    @Res() res: Response,
+  ): Promise<void> {
+    await this.petitionsService.exportToWord(id, req.dataScope, res);
   }
 
   // POST /api/v1/petitions — Tạo đơn thư mới

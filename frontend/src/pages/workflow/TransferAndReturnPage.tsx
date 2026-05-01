@@ -104,6 +104,8 @@ function getStatusBadgeClass(status: string): string {
 export default function TransferAndReturnPage() {
   const location = useLocation();
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 20;
   const [quickSearch, setQuickSearch] = useState('');
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
   const [selectedRecords, setSelectedRecords] = useState<string[]>([]);
@@ -253,6 +255,9 @@ export default function TransferAndReturnPage() {
 
     return matchesQuickSearch && matchesType && matchesTeam && matchesStatus;
   });
+
+  const totalPages = Math.max(1, Math.ceil(filteredRecords.length / PAGE_SIZE));
+  const displayedRecords = filteredRecords.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   // ── Select logic ───────────────────────────────────────────────────────────
 
@@ -559,7 +564,7 @@ export default function TransferAndReturnPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
-                {filteredRecords.map((record) => (
+                {displayedRecords.map((record) => (
                   <tr
                     key={record.id}
                     data-record-id={record.id}
@@ -624,10 +629,10 @@ export default function TransferAndReturnPage() {
             Hiển thị <span className="font-medium">{filteredRecords.length}</span> trên{' '}
             <span className="font-medium">{allData.length}</span> hồ sơ
           </div>
-          <div className="flex gap-2">
-            <button className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">Trước</button>
-            <button className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium">1</button>
-            <button className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">Sau</button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">Trước</button>
+            <span className="px-3 py-2 text-sm font-medium text-slate-700">Trang {currentPage}/{totalPages}</span>
+            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">Sau</button>
           </div>
         </div>
       </div>

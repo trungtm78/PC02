@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router";
 import {
   Search,
   Download,
@@ -45,6 +46,7 @@ interface FilterData {
 }
 
 export default function WardIncidentsPage() {
+  const navigate = useNavigate();
   const [showAdvancedFilter, setShowAdvancedFilter] = useState(false);
 
   const [allData, setAllData] = useState<WardIncident[]>([]);
@@ -136,11 +138,27 @@ export default function WardIncidentsPage() {
   };
 
   const handleView = (incident: WardIncident) => {
-    alert(`Xem chi tiết vụ việc: ${incident.stt}\n${incident.incidentName}`);
+    navigate(`/incidents/${incident.id}`);
   };
 
   const handleExport = () => {
-    alert("Đang xuất danh sách vụ việc phường/xã ra Excel...");
+    const toExport = filteredData.length > 0 ? filteredData : allData;
+    if (toExport.length === 0) { alert('Không có dữ liệu để xuất!'); return; }
+    const headers = ['STT', 'Tên vụ việc', 'Loại', 'Địa điểm', 'Phường/xã',
+                     'Quận/huyện', 'Người báo cáo', 'Ngày tiếp nhận', 'Trạng thái', 'Ưu tiên'];
+    const rows = toExport.map(i => [
+      i.stt, i.incidentName, i.type, i.location,
+      i.ward, i.district, i.reportedBy, i.reportedDate, i.statusLabel, i.priorityLabel,
+    ]);
+    const csv = [headers, ...rows]
+      .map(row => row.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url;
+    a.download = `VuViecPhuongXa_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
   };
 
   const getStatusBadge = (status: WardIncident["status"], label: string) => {

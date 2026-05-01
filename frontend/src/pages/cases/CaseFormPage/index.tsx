@@ -69,6 +69,20 @@ function CaseFormPage() {
   const [formData, setFormData] = useState<CaseFormData>(INITIAL_FORM_DATA);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
+  const [showDraftBanner, setShowDraftBanner] = useState(false);
+
+  // Load draft from localStorage on mount (only when creating, not editing)
+  useEffect(() => {
+    if (!isEditMode) {
+      try {
+        const saved = localStorage.getItem('caseFormDraft');
+        if (saved) {
+          setFormData(JSON.parse(saved));
+          setShowDraftBanner(true);
+        }
+      } catch { /* ignore malformed draft */ }
+    }
+  }, [isEditMode]);
   const [recordUpdatedAt, setRecordUpdatedAt] = useState<string | null>(null);
 
   // ─── Fetch danh sách điều tra viên từ API ──────────────────────────────
@@ -223,6 +237,7 @@ function CaseFormPage() {
       } else {
         await api.post("/cases", payload);
       }
+      localStorage.removeItem('caseFormDraft');
       alert(isEditMode ? "Cập nhật hồ sơ thành công!" : "Lưu hồ sơ thành công!");
       navigate("/cases");
     } catch (err: unknown) {
@@ -237,8 +252,8 @@ function CaseFormPage() {
   };
 
   const handleSaveDraft = () => {
-    console.log("[CaseFormPage] Lưu nháp:", formData);
-    alert("Đã lưu nháp thành công!");
+    localStorage.setItem('caseFormDraft', JSON.stringify(formData));
+    setShowDraftBanner(false);
   };
 
   const handleCancel = () => {
@@ -296,6 +311,12 @@ function CaseFormPage() {
 
   return (
     <div className="h-full flex flex-col bg-slate-50" data-testid="case-form-page">
+      {showDraftBanner && !isEditMode && (
+        <div className="bg-amber-50 border-b border-amber-200 px-6 py-3 flex items-center justify-between">
+          <span className="text-sm text-amber-800">Bản nháp được tìm thấy từ lần trước — dữ liệu đã được khôi phục.</span>
+          <button onClick={() => { localStorage.removeItem('caseFormDraft'); setFormData(INITIAL_FORM_DATA); setShowDraftBanner(false); }} className="text-xs text-amber-600 hover:text-amber-800 underline ml-4">Bỏ qua</button>
+        </div>
+      )}
       {/* Header */}
       <PageHeader
         title={isEditMode ? "Chỉnh sửa hồ sơ" : "Thêm mới hồ sơ"}

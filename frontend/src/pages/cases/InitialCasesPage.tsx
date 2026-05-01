@@ -133,7 +133,21 @@ function InitialCasesPage() {
   const handleView = (caseItem: InitialCase) => { navigate(`/cases/${caseItem.id}`); };
   const handleEdit = (caseItem: InitialCase) => { navigate(`/cases/${caseItem.id}/edit`); };
   const handleAssign = (caseItem: InitialCase) => { setSelectedCase(caseItem); setShowAssignModal(true); };
-  const confirmAssign = () => { if (selectedCase) { alert(`Đã nhận xử lý hồ sơ ${selectedCase.caseNumber}`); setShowAssignModal(false); setSelectedCase(null); } };
+  const [assignLoading, setAssignLoading] = useState(false);
+  const confirmAssign = async () => {
+    if (!selectedCase) return;
+    setAssignLoading(true);
+    try {
+      await api.put(`/cases/${selectedCase.id}`, { status: 'DANG_DIEU_TRA' });
+      setCases(prev => prev.filter(c => c.id !== selectedCase.id));
+      setShowAssignModal(false);
+      setSelectedCase(null);
+    } catch {
+      alert('Nhận xử lý thất bại. Vui lòng thử lại.');
+    } finally {
+      setAssignLoading(false);
+    }
+  };
 
   const openDeleteDialog = (caseItem: InitialCase) => { setCaseToDelete(caseItem); setDeleteDialogOpen(true); };
   const closeDeleteDialog = () => { setDeleteDialogOpen(false); setCaseToDelete(null); };
@@ -351,7 +365,7 @@ function InitialCasesPage() {
             </div>
             <div className="p-6 border-t border-slate-200 flex items-center justify-end gap-3">
               <button onClick={() => setShowAssignModal(false)} className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors">Hủy bỏ</button>
-              <button onClick={confirmAssign} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium" data-testid="btn-confirm-assign">Xác nhận nhận xử lý</button>
+              <button onClick={confirmAssign} disabled={assignLoading} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-60 disabled:cursor-not-allowed" data-testid="btn-confirm-assign">{assignLoading ? 'Đang xử lý...' : 'Xác nhận nhận xử lý'}</button>
             </div>
           </div>
         </div>

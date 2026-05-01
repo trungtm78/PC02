@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
+import { downloadCsv } from "@/lib/csv";
 import {
   Search,
   Filter,
@@ -180,6 +181,8 @@ function formatDeadline(deadline: string | null): string {
 function CaseListPage() {
   const navigate = useNavigate();
   const { canDispatch } = usePermission();
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 20;
   const [caseList, setCaseList] = useState<Case[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -240,10 +243,12 @@ function CaseListPage() {
 
   const updateFilter = (key: string, value: string) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
+    setCurrentPage(1);
   };
 
   const clearFilters = () => {
     setFilters({ fromDate: "", toDate: "", unit: "", investigator: "", charges: "" });
+    setCurrentPage(1);
   };
 
   const hasActiveFilters = Object.values(filters).some((v) => v !== "");
@@ -268,6 +273,8 @@ function CaseListPage() {
   });
 
   const overdueCount = filteredCases.filter((c) => isOverdue(c.investigationDeadline)).length;
+  const totalPages = Math.max(1, Math.ceil(filteredCases.length / PAGE_SIZE));
+  const displayedCases = filteredCases.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   // ── Xử lý xóa ──────────────────────────────────────
   // ── Xử lý vô hiệu hóa ─────────────────────────────────
@@ -403,7 +410,18 @@ function CaseListPage() {
               {showAdvancedFilters ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
             </button>
 
-            <button className="flex items-center gap-2 px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors">
+            <button
+              onClick={() => {
+                const headers = ['STT', 'Mã vụ án', 'Tên vụ án', 'Điều tra viên', 'Đơn vị', 'Tội danh', 'Trạng thái', 'Hạn điều tra'];
+                const rows = filteredCases.map((c, i) => [
+                  i + 1, c.id.slice(0, 8).toUpperCase(), c.name, c.investigator,
+                  c.unit, c.charges, c.status,
+                  c.investigationDeadline ? new Date(c.investigationDeadline).toLocaleDateString('vi-VN') : '',
+                ]);
+                downloadCsv(rows, headers, `VuAn_${new Date().toISOString().slice(0, 10)}.csv`);
+              }}
+              className="flex items-center gap-2 px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+            >
               <Download className="w-4 h-4" />
               Xuất báo cáo
             </button>
@@ -543,7 +561,7 @@ function CaseListPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
-                  {filteredCases.length === 0 ? (
+                  {displayedCases.length === 0 ? (
                     <tr>
                       <td colSpan={9} className="px-6 py-12 text-center">
                         <div className="flex flex-col items-center gap-2" data-testid="no-results">
@@ -554,7 +572,7 @@ function CaseListPage() {
                       </td>
                     </tr>
                   ) : (
-                    filteredCases.map((caseItem) => {
+                    displayedCases.map((caseItem) => {
                       const overdue = isOverdue(caseItem.investigationDeadline);
                       const daysOverdue = getDaysOverdue(caseItem.investigationDeadline);
                       return (
@@ -748,16 +766,10 @@ function CaseListPage() {
                   </span>
                 )}
               </div>
-              <div className="flex gap-2">
-                <button className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">
-                  Trước
-                </button>
-                <button className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium">
-                  1
-                </button>
-                <button className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">
-                  Sau
-                </button>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">Trước</button>
+                <span className="px-3 py-2 text-sm font-medium text-slate-700">Trang {currentPage}/{totalPages}</span>
+                <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">Sau</button>
               </div>
             </div>
           </>

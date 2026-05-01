@@ -4,7 +4,11 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  Logger,
 } from '@nestjs/common';
+import { Response } from 'express';
+import * as ExcelJS from 'exceljs';
+import { Document, Paragraph, TextRun, Packer, HeadingLevel } from 'docx';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { CreatePetitionDto } from './dto/create-petition.dto';
@@ -13,6 +17,7 @@ import { QueryPetitionsDto } from './dto/query-petitions.dto';
 import { ConvertToIncidentDto } from './dto/convert-incident.dto';
 import { ConvertToCaseDto } from './dto/convert-case.dto';
 import { AssignPetitionDto } from './dto/assign-petition.dto';
+import { ExportPetitionsQueryDto } from './dto/export-petitions-query.dto';
 import { Prisma, LoaiDon } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { buildPetitionScopeFilter } from '../common/utils/scope-filter.util';
@@ -38,6 +43,8 @@ type CaseStatus = (typeof CaseStatus)[keyof typeof CaseStatus];
 
 @Injectable()
 export class PetitionsService {
+  private readonly logger = new Logger(PetitionsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
@@ -792,5 +799,261 @@ export class PetitionsService {
     });
 
     return { success: true, message: 'Phân công đơn thư thành công' };
+  }
+
+  // ─────────────────────────────────────────────
+  // EXPORT TO EXCEL
+  // ─────────────────────────────────────────────
+  async exportToExcel(
+    query: ExportPetitionsQueryDto,
+    dataScope: DataScope | null | undefined,
+    res: Response,
+    actorId?: string,
+  ): Promise<void> {
+    const where: Prisma.PetitionWhereInput = { deletedAt: null };
+
+    if (query.ids) {
+      where.id = { in: query.ids.split(',').map((s) => s.trim()).filter(Boolean) };
+    }
+    if (query.fromDate) {
+      where.receivedDate = {
+        ...(where.receivedDate as Prisma.DateTimeFilter | undefined),
+        gte: new Date(query.fromDate),
+      };
+    }
+    if (query.toDate) {
+      where.receivedDate = {
+        ...(where.receivedDate as Prisma.DateTimeFilter | undefined),
+        lte: new Date(query.toDate + 'T23:59:59.999Z'),
+      };
+    }
+    if (query.unit) {
+      where.unit = { contains: query.unit, mode: 'insensitive' };
+    }
+    if (query.status) {
+      where.status = query.status as Parameters<typeof buildPetitionScopeFilter>[0] extends never ? never : string as any;
+    }
+
+    // Apply data scope filter
+    const scopeFilter = buildPetitionScopeFilter(dataScope);
+    if (scopeFilter) {
+      where.AND = [
+        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+        scopeFilter as Prisma.PetitionWhereInput,
+      ];
+    }
+
+    const records = await this.prisma.petition.findMany({
+      where,
+      take: 500,
+      orderBy: { receivedDate: 'desc' },
+      select: {
+        id: true,
+        stt: true,
+        receivedDate: true,
+        senderName: true,
+        senderAddress: true,
+        summary: true,
+        petitionType: true,
+        status: true,
+        notes: true,
+        unit: true,
+        assignedTo: {
+          select: { id: true, firstName: true, lastName: true },
+        },
+      },
+    });
+
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('Danh sách đơn thư');
+
+    // Header row 1 — title
+    sheet.mergeCells('A1:J1');
+    const titleCell = sheet.getCell('A1');
+    titleCell.value = 'PHÒNG PC02 — DANH SÁCH ĐƠN THƯ';
+    titleCell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 14 };
+    titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1B2B4E' } };
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    sheet.getRow(1).height = 32;
+
+    // Column headers row 2
+    const headers = [
+      'STT', 'Mã đơn', 'Ngày tiếp nhận', 'Người gửi', 'Địa chỉ',
+      'Nội dung tóm tắt', 'Phân loại', 'Trạng thái', 'ĐTV phụ trách', 'Ghi chú',
+    ];
+    const headerRow = sheet.getRow(2);
+    headers.forEach((h, i) => {
+      const cell = headerRow.getCell(i + 1);
+      cell.value = h;
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1B2B4E' } };
+      cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      cell.border = {
+        top: { style: 'thin' }, left: { style: 'thin' },
+        bottom: { style: 'thin' }, right: { style: 'thin' },
+      };
+    });
+    headerRow.height = 24;
+
+    // Set column widths
+    sheet.columns = [
+      { width: 6 }, { width: 18 }, { width: 16 }, { width: 20 }, { width: 25 },
+      { width: 40 }, { width: 18 }, { width: 20 }, { width: 20 }, { width: 25 },
+    ];
+
+    // Data rows starting at row 3
+    records.forEach((rec, idx) => {
+      const row = sheet.getRow(idx + 3);
+      const assignedName = rec.assignedTo
+        ? `${rec.assignedTo.firstName ?? ''} ${rec.assignedTo.lastName ?? ''}`.trim()
+        : '';
+      const values = [
+        idx + 1,
+        rec.stt ?? '',
+        rec.receivedDate ? rec.receivedDate.toLocaleDateString('vi-VN') : '',
+        rec.senderName ?? '',
+        rec.senderAddress ?? '',
+        rec.summary ?? '',
+        rec.petitionType ?? '',
+        rec.status ?? '',
+        assignedName,
+        rec.notes ?? '',
+      ];
+      values.forEach((v, ci) => {
+        const cell = row.getCell(ci + 1);
+        cell.value = v;
+        cell.border = {
+          top: { style: 'thin' }, left: { style: 'thin' },
+          bottom: { style: 'thin' }, right: { style: 'thin' },
+        };
+        cell.alignment = { wrapText: true, vertical: 'top' };
+      });
+    });
+
+    if (actorId) {
+      await this.audit.log({
+        userId: actorId,
+        action: 'PETITION_EXPORTED',
+        subject: 'Petition',
+        subjectId: 'bulk',
+        metadata: { count: records.length, filters: { fromDate: query.fromDate, toDate: query.toDate, unit: query.unit, status: query.status } },
+      });
+    }
+
+    const filename = `DanhSachDonThu_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+
+    try {
+      await workbook.xlsx.write(res);
+    } catch (err) {
+      this.logger.error('ExcelJS write failed for petition export', err);
+      if (!res.headersSent) res.status(500).json({ error: 'Export failed' });
+      else res.destroy();
+    }
+  }
+
+  // ─────────────────────────────────────────────
+  // EXPORT TO WORD
+  // ─────────────────────────────────────────────
+  async exportToWord(
+    id: string,
+    dataScope: DataScope | null | undefined,
+    res: Response,
+  ): Promise<void> {
+    const result = await this.getById(id, dataScope);
+    const petition = result.data as {
+      id: string;
+      stt?: string | null;
+      receivedDate?: Date | null;
+      senderName?: string | null;
+      senderAddress?: string | null;
+      petitionType?: string | null;
+      summary?: string | null;
+      status?: string | null;
+      assignedTo?: { firstName?: string | null; lastName?: string | null } | null;
+    };
+
+    const doc = new Document({
+      sections: [
+        {
+          children: [
+            new Paragraph({
+              text: 'PHÒNG CẢNH SÁT HÌNH SỰ — PC02',
+              heading: HeadingLevel.HEADING_1,
+            }),
+            new Paragraph({
+              text: 'HỒ SƠ CHI TIẾT ĐƠN THƯ',
+              heading: HeadingLevel.HEADING_2,
+            }),
+            new Paragraph({
+              children: [
+                new TextRun({ text: 'Số đơn: ', bold: true }),
+                new TextRun(petition.stt ?? ''),
+              ],
+            }),
+            new Paragraph({
+              children: [
+                new TextRun({ text: 'Ngày tiếp nhận: ', bold: true }),
+                new TextRun(
+                  petition.receivedDate
+                    ? new Date(petition.receivedDate).toLocaleDateString('vi-VN')
+                    : '',
+                ),
+              ],
+            }),
+            new Paragraph({
+              children: [
+                new TextRun({ text: 'Người gửi: ', bold: true }),
+                new TextRun(petition.senderName ?? ''),
+              ],
+            }),
+            new Paragraph({
+              children: [
+                new TextRun({ text: 'Địa chỉ: ', bold: true }),
+                new TextRun(petition.senderAddress ?? ''),
+              ],
+            }),
+            new Paragraph({
+              children: [
+                new TextRun({ text: 'Phân loại: ', bold: true }),
+                new TextRun(petition.petitionType ?? ''),
+              ],
+            }),
+            new Paragraph({
+              children: [
+                new TextRun({ text: 'Nội dung: ', bold: true }),
+                new TextRun(petition.summary ?? ''),
+              ],
+            }),
+            new Paragraph({
+              children: [
+                new TextRun({ text: 'Trạng thái: ', bold: true }),
+                new TextRun(petition.status ?? ''),
+              ],
+            }),
+            new Paragraph({
+              children: [
+                new TextRun({ text: 'Cán bộ phụ trách: ', bold: true }),
+                new TextRun(
+                  petition.assignedTo
+                    ? `${petition.assignedTo.firstName ?? ''} ${petition.assignedTo.lastName ?? ''}`.trim()
+                    : '',
+                ),
+              ],
+            }),
+          ],
+        },
+      ],
+    });
+
+    const buffer = await Packer.toBuffer(doc);
+    const filename = `DonThu_${(petition.stt ?? id).replace(/\//g, '_')}.docx`;
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    );
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(buffer);
   }
 }

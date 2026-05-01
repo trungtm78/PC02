@@ -2,6 +2,44 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.12.0.0] - 2026-05-01
+
+### Added
+- **Xuất Excel đơn thư thật** (`GET /petitions/export`): Cán bộ có thể tải file Excel thực sự từ trang Xuất báo cáo. DataScope enforced — chỉ thấy đơn thư thuộc tổ mình. Rate limit 5/phút. Tối đa 500 bản ghi.
+- **Xuất Word chi tiết đơn thư** (`GET /petitions/:id/export-word`): File .docx với đầy đủ thông tin đơn thư, tên file tự động.
+- **Excel báo cáo tháng/quý (format BCA)**: `GET /reports/monthly/export` + `quarterly/export` — file Excel có header Phòng PC02, bảng số liệu, footer chữ ký Lãnh đạo.
+- **Thống kê 48 trường** (`GET /reports/stat48`): Tổng hợp 48 chỉ tiêu BCA từ Tab 9 của vụ án. SUM cho 12 trường số, COUNT BY VALUE cho 36 trường danh mục. File Excel 4 sheet tab (Nhóm 1-4). Cảnh báo DRAFT khi dữ liệu thiếu > 50%.
+- **Trang Thống kê 48 trường** (`/reports/stat48`): 4 accordion groups, banner cảnh báo dữ liệu thiếu, nút Xuất Excel.
+- **Biên nhận đơn thư PDF** (HTML print): Biên nhận chuẩn với logo Công An, thông tin đơn, ô chữ ký.
+
+### Fixed
+- **Bug xuất Excel đơn thư**: `handleExportExcel()` trước đây là UI stub — chỉ hiện thông báo "thành công" nhưng không tải file. Nay đã kết nối API thật.
+- **Bug xuất Word, xuất biên nhận**: Tương tự, đã fix tất cả 3 stub handlers trong ExportReportsPage.
+- **PermissionsGuard bị drop**: Method-level `@UseGuards(JwtAuthGuard)` trên các export endpoint làm mất class-level `PermissionsGuard`. Đã sửa để kế thừa đúng.
+- **ExcelJS write chưa có error handling**: Thêm try/catch cho tất cả `workbook.xlsx.write(res)` — tránh crash server khi download bị ngắt.
+- **Thiếu rate limit @Get(':id/export-word')**: Thêm `@Throttle(5/min)`.
+
+### Security
+- Tất cả export endpoints mới đều enforce DataScope (`buildPetitionScopeFilter`) — không thể export dữ liệu ngoài phạm vi tổ.
+
+---
+
+## [0.12.1.0] - 2026-05-01
+
+### Fixed
+- **Stub handlers frontend (16 items)**: Tất cả button/link không hoạt động đã được implement — Xuất Excel trên 5 trang (Vụ việc, Trao đổi chuyên án, Ủy thác điều tra, Người dùng, Danh sách vụ án), tải đính kèm chat, in PDF đề xuất, lưu nháp form vụ án vào localStorage, nút "Áp dụng" lọc, phân trang Trước/Sau trên 4 trang, điều hướng Sửa/Xóa trong SettingsPage.
+- **Báo cáo tháng — sai tham số month**: Tháng được gửi dạng "2026-02" thay vì số nguyên 2. Đã fix parse trước khi gửi API.
+- **Stat48ReportPage không hiển thị data**: Mismatch giữa shape backend (`nullCount`, `field`, `dataCount`) và interface frontend (`casesWithoutData`, `fieldName`, `count`). Đã thêm transform trong `fetchReport()`.
+- **Export ActivityLog, DistrictStats**: Stub `alert()` thay bằng CSV download client-side thực sự.
+- **CI/CD**: Thêm `npx prisma generate` sau `npm ci` trong workflow — sửa lỗi "Cannot find module .prisma/client/default" trên GitHub Actions.
+- **Node.js 20 → 22**: Cập nhật CI workflow để tránh deprecation warning.
+
+### Added
+- **34 backend spec files**: 7 service specs (calendar, dashboard, notifications, devices, tdac-export, settings, action-plans) và 27 controller specs mới với shared `controller-test-helpers.ts`. Tổng: 875 tests.
+- **Skill /stub-check**: Skill mới tự động scan frontend/backend tìm stub handlers, missing onClick, alert() stubs, console.log debug, và thiếu test coverage.
+- **CSV helper** (`frontend/src/lib/csv.ts`): Shared `downloadCsv()` cho tất cả export buttons.
+- **Pagination thực** trên 4 trang (CaseList, PetitionList, CaseExchange, TransferReturn): Client-side với PAGE_SIZE=20, reset khi filter thay đổi.
+
 ## [0.11.0.0] - 2026-05-01
 
 ### Added

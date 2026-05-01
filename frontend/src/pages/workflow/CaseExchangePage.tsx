@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { authStore } from '@/stores/auth.store';
+import { downloadCsv } from '@/lib/csv';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -79,6 +80,8 @@ const MAX_FILE_SIZE_MB = 10;
 export default function CaseExchangePage() {
   const [quickSearch, setQuickSearch] = useState('');
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 20;
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedExchange, setSelectedExchange] = useState<Exchange | null>(null);
   const [showThreadModal, setShowThreadModal] = useState(false);
@@ -160,6 +163,8 @@ export default function CaseExchangePage() {
       exchange.lastMessage.toLowerCase().includes(q)
     );
   });
+  const totalPages = Math.max(1, Math.ceil(filteredExchanges.length / PAGE_SIZE));
+  const displayedExchanges = filteredExchanges.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   const handleViewThread = (exchange: Exchange) => {
     setSelectedExchange(exchange);
@@ -209,7 +214,18 @@ export default function CaseExchangePage() {
             </button>
           </div>
           <div className="flex items-center gap-2">
-            <button data-testid="export-excel-btn" className="flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+            <button
+              data-testid="export-excel-btn"
+              onClick={() => {
+                const headers = ['STT', 'Mã hồ sơ', 'Loại', 'Đơn vị gửi', 'Đơn vị nhận', 'Ngày tạo', 'Trạng thái', 'Số tin nhắn'];
+                const rows = filteredExchanges.map((e, i) => [
+                  i + 1, e.recordCode, e.recordType, e.senderUnit, e.receiverUnit,
+                  e.createdDate, e.status, e.messageCount,
+                ]);
+                downloadCsv(rows, headers, `TraoDoiChuyenAn_${new Date().toISOString().slice(0, 10)}.csv`);
+              }}
+              className="flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            >
               <Download className="w-4 h-4" />
               Xuất Excel
             </button>
@@ -353,7 +369,7 @@ export default function CaseExchangePage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
-                {filteredExchanges.map((exchange) => (
+                {displayedExchanges.map((exchange) => (
                   <tr key={exchange.id} className={`transition-colors ${exchange.hasUnread ? 'bg-blue-50' : 'hover:bg-slate-50'}`}>
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-700 font-medium">{exchange.stt}</td>
                     <td className="px-4 py-3 whitespace-nowrap">
@@ -424,10 +440,10 @@ export default function CaseExchangePage() {
             Hiển thị <span className="font-medium">{filteredExchanges.length}</span> trên{' '}
             <span className="font-medium">{exchanges.length}</span> trao đổi
           </div>
-          <div className="flex gap-2">
-            <button className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">Trước</button>
-            <button className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium">1</button>
-            <button className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">Sau</button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">Trước</button>
+            <span className="px-4 py-2 text-sm font-medium text-slate-700">Trang {currentPage}/{totalPages}</span>
+            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">Sau</button>
           </div>
         </div>
       </div>
@@ -741,7 +757,7 @@ function ThreadModal({
                             <FileText className="w-4 h-4" />
                             <span className="text-sm flex-1">{att.name}</span>
                             <span className="text-xs">{att.size}</span>
-                            <button className="p-1 hover:bg-white/20 rounded"><Download className="w-4 h-4" /></button>
+                            <button className="p-1 hover:bg-white/20 rounded" onClick={() => window.open(`/api/v1/documents/${att.id}/download`, '_blank')} title={`Tải ${att.name}`}><Download className="w-4 h-4" /></button>
                           </div>
                         ))}
                       </div>

@@ -173,25 +173,58 @@ export default function ExportReportsPage() {
     }, 5000);
   };
 
-  const handleExportExcel = () => {
-    const exportCount = selectedIds.length > 0 ? selectedIds.length : filteredData.length;
-    const timestamp = new Date().toISOString().replace(/[-:]/g, "").replace("T", "_").split(".")[0];
-    const fileName = `DonThu_${timestamp}.xlsx`;
+  const [isExportingExcel, setIsExportingExcel] = useState(false);
+  const [exportingWordId, setExportingWordId] = useState<string | null>(null);
 
-    showNotification(
-      "success",
-      `Đã xuất ${exportCount} hồ sơ ra file Excel: ${fileName}`
-    );
+  const handleExportExcel = async () => {
+    if (isExportingExcel) return;
+    setIsExportingExcel(true);
+    try {
+      const ids = selectedIds.length > 0 ? selectedIds.join(',') : undefined;
+      const params: Record<string, string> = {};
+      if (ids) params.ids = ids;
+      if (filters.fromDate) params.fromDate = filters.fromDate;
+      if (filters.toDate) params.toDate = filters.toDate;
+      if (filters.unit) params.unit = filters.unit;
+
+      const response = await api.get('/petitions/export', { params, responseType: 'blob' });
+      const timestamp = new Date().toISOString().replace(/[-:T]/g, '').substring(0, 14);
+      const filename = `DonThu_${timestamp}.xlsx`;
+      const url = URL.createObjectURL(new Blob([response.data]));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showNotification('success', `Đã xuất ${selectedIds.length || filteredData.length} hồ sơ: ${filename}`);
+    } catch {
+      showNotification('error', 'Xuất Excel thất bại. Vui lòng thử lại.');
+    } finally {
+      setIsExportingExcel(false);
+    }
   };
 
-  const handleExportWord = (doc: Document) => {
-    const dateStr = new Date().toISOString().split("T")[0].replace(/-/g, "");
-    const fileName = `HoSo_DonThu_${doc.documentNumber.replace(/\//g, "_")}_${dateStr}.docx`;
-
-    showNotification(
-      "success",
-      `Đã xuất chi tiết hồ sơ ${doc.documentNumber} ra file Word: ${fileName}`
-    );
+  const handleExportWord = async (doc: Document) => {
+    if (exportingWordId) return;
+    setExportingWordId(doc.id);
+    try {
+      const response = await api.get(`/petitions/${doc.id}/export-word`, { responseType: 'blob' });
+      const url = URL.createObjectURL(new Blob([response.data]));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `DonThu_${(doc.documentNumber || doc.id).replace(/\//g, '_')}.docx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showNotification('success', `Đã xuất chi tiết ${doc.documentNumber} ra file Word`);
+    } catch {
+      showNotification('error', 'Xuất Word thất bại. Vui lòng thử lại.');
+    } finally {
+      setExportingWordId(null);
+    }
   };
 
   const validateReceiptForm = (): boolean => {
@@ -223,18 +256,62 @@ export default function ExportReportsPage() {
     return Object.keys(errors).length === 0;
   };
 
-  const handleExportReceipt = () => {
-    if (!validateReceiptForm()) {
+  // Print-based receipt handler — opens in a new window and triggers browser print
+  const handleExportReceiptFromModal = () => {
+    if (!validateReceiptForm()) return;
+
+    const receiptHTML = `<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Biên nhận đơn thư</title>
+  <style>
+    body { font-family: "Times New Roman", serif; margin: 2cm; }
+    .header { text-align: center; margin-bottom: 20px; }
+    .title { font-size: 18px; font-weight: bold; text-transform: uppercase; }
+    .field { margin: 8px 0; }
+    .label { font-weight: bold; }
+    .signature { margin-top: 40px; display: flex; justify-content: space-between; }
+    .sig-block { text-align: center; width: 40%; }
+    @media print { body { margin: 1cm; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div style="font-size:12px">CÔNG AN THÀNH PHỐ HỒ CHÍ MINH</div>
+    <div class="title">BIÊN NHẬN ĐƠN THƯ</div>
+  </div>
+  <div class="field"><span class="label">Số biên nhận:</span> ${receiptForm.receiptNumber}</div>
+  <div class="field"><span class="label">Ngày:</span> ${receiptForm.receiptDate ? new Date(receiptForm.receiptDate).toLocaleDateString('vi-VN') : ''}</div>
+  <div class="field"><span class="label">Người nhận:</span> ${receiptForm.receiverName}</div>
+  <div class="field"><span class="label">Người giao:</span> ${receiptForm.delivererName}</div>
+  <div class="field"><span class="label">Nội dung:</span> ${receiptForm.content}</div>
+  <div class="signature">
+    <div class="sig-block">
+      <div>Người nộp đơn</div>
+      <div style="margin-top:60px">(Ký, ghi rõ họ tên)</div>
+    </div>
+    <div class="sig-block">
+      <div>Hồ Chí Minh, ngày ___ tháng ___ năm ___</div>
+      <div style="margin-top:10px">CÁN BỘ TIẾP NHẬN</div>
+      <div style="margin-top:60px">(Ký, ghi rõ họ tên)</div>
+    </div>
+  </div>
+</body>
+</html>`;
+
+    const printWindow = window.open('', '_blank', 'width=800,height=600');
+    if (!printWindow) {
+      showNotification('error', 'Trình duyệt chặn popup. Vui lòng cho phép popup và thử lại.');
       return;
     }
-
-    const dateStr = new Date().toISOString().split("T")[0].replace(/-/g, "");
-    const fileName = `BienNhan_${receiptForm.receiptNumber.replace(/\//g, "_")}_${dateStr}.pdf`;
-
-    showNotification(
-      "success",
-      `Đã xuất biên nhận số ${receiptForm.receiptNumber} ra file: ${fileName}`
-    );
+    printWindow.document.write(receiptHTML);
+    printWindow.document.close();
+    printWindow.onload = () => {
+      setTimeout(() => {
+        printWindow.print();
+      }, 300);
+    };
 
     setShowReceiptModal(false);
     setReceiptForm({
@@ -245,6 +322,65 @@ export default function ExportReportsPage() {
       content: "",
     });
     setValidationErrors({});
+  };
+
+  // Print receipt for a specific petition row (no modal needed)
+  const handleExportReceipt = (petition?: typeof filteredData[0]) => {
+    const doc = petition || filteredData.find(d => selectedIds.includes(d.id));
+    if (!doc) { showNotification('error', 'Vui lòng chọn đơn thư cần in biên nhận'); return; }
+
+    const receiptHTML = `<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Biên nhận đơn thư</title>
+  <style>
+    body { font-family: "Times New Roman", serif; margin: 2cm; }
+    .header { text-align: center; margin-bottom: 20px; }
+    .title { font-size: 18px; font-weight: bold; text-transform: uppercase; }
+    .field { margin: 8px 0; }
+    .label { font-weight: bold; }
+    .signature { margin-top: 40px; display: flex; justify-content: space-between; }
+    .sig-block { text-align: center; width: 40%; }
+    @media print { body { margin: 1cm; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div style="font-size:12px">CÔNG AN THÀNH PHỐ HỒ CHÍ MINH</div>
+    <div class="title">BIÊN NHẬN ĐƠN THƯ</div>
+  </div>
+  <div class="field"><span class="label">Số đơn:</span> ${doc.documentNumber || ''}</div>
+  <div class="field"><span class="label">Ngày tiếp nhận:</span> ${doc.receivedDate ? new Date(doc.receivedDate).toLocaleDateString('vi-VN') : ''}</div>
+  <div class="field"><span class="label">Người gửi:</span> ${doc.sender || ''}</div>
+  <div class="field"><span class="label">Tóm tắt:</span> ${doc.summary || ''}</div>
+  <div class="field"><span class="label">Đơn vị:</span> ${doc.unit || ''}</div>
+  <div class="signature">
+    <div class="sig-block">
+      <div>Người nộp đơn</div>
+      <div style="margin-top:60px">(Ký, ghi rõ họ tên)</div>
+    </div>
+    <div class="sig-block">
+      <div>Hồ Chí Minh, ngày ___ tháng ___ năm ___</div>
+      <div style="margin-top:10px">CÁN BỘ TIẾP NHẬN</div>
+      <div style="margin-top:60px">(Ký, ghi rõ họ tên)</div>
+    </div>
+  </div>
+</body>
+</html>`;
+
+    const printWindow = window.open('', '_blank', 'width=800,height=600');
+    if (!printWindow) {
+      showNotification('error', 'Trình duyệt chặn popup. Vui lòng cho phép popup và thử lại.');
+      return;
+    }
+    printWindow.document.write(receiptHTML);
+    printWindow.document.close();
+    printWindow.onload = () => {
+      setTimeout(() => {
+        printWindow.print();
+      }, 300);
+    };
   };
 
   const formatDate = (dateString: string) => {
@@ -367,10 +503,23 @@ export default function ExportReportsPage() {
         <div className="flex items-center gap-3">
           <button
             onClick={handleExportExcel}
-            className="flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+            disabled={isExportingExcel}
+            className="flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            <FileSpreadsheet className="w-4 h-4" />
-            Xuất Excel
+            {isExportingExcel ? (
+              <>
+                <svg className="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                </svg>
+                Đang xuất...
+              </>
+            ) : (
+              <>
+                <FileSpreadsheet className="w-4 h-4" />
+                Xuất Excel
+              </>
+            )}
           </button>
 
           <button
@@ -641,10 +790,18 @@ export default function ExportReportsPage() {
                     <td className="px-4 py-3">
                       <button
                         onClick={() => handleExportWord(doc)}
-                        className="flex items-center gap-1.5 px-2.5 py-1.5 text-green-600 hover:bg-green-50 rounded transition-colors text-xs font-medium"
+                        disabled={exportingWordId === doc.id}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 text-green-600 hover:bg-green-50 rounded transition-colors text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                         title="Xuất Word chi tiết"
                       >
-                        <Download className="w-3.5 h-3.5" />
+                        {exportingWordId === doc.id ? (
+                          <svg className="animate-spin w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                          </svg>
+                        ) : (
+                          <Download className="w-3.5 h-3.5" />
+                        )}
                         Word
                       </button>
                     </td>
@@ -842,11 +999,11 @@ export default function ExportReportsPage() {
                 Hủy bỏ
               </button>
               <button
-                onClick={handleExportReceipt}
+                onClick={handleExportReceiptFromModal}
                 className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
               >
                 <Download className="w-4 h-4" />
-                Xuất biên nhận
+                In biên nhận
               </button>
             </div>
           </div>

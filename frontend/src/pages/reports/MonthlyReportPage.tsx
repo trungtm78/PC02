@@ -19,6 +19,7 @@ export default function MonthlyReportPage() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [reportData, setReportData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [isExportingMonthly, setIsExportingMonthly] = useState(false);
 
   const fetchReport = useCallback(async () => {
     setLoading(true);
@@ -74,9 +75,35 @@ export default function MonthlyReportPage() {
               <option value={2025}>2025</option>
               <option value={2026}>2026</option>
             </select>
-            <button className="flex items-center gap-2 px-4 py-2 bg-[#003973] text-white rounded-lg hover:bg-[#0052a3] transition-colors">
-              <Download className="w-4 h-4" />
-              Xuất báo cáo
+            <button
+              onClick={async () => {
+                setIsExportingMonthly(true);
+                try {
+                  const [exportYear, exportMonth] = selectedMonth.split('-').map(Number);
+                  const response = await api.get('/reports/monthly/export', {
+                    params: { year: exportYear, month: exportMonth },
+                    responseType: 'blob',
+                  });
+                  const url = URL.createObjectURL(new Blob([response.data]));
+                  const a = document.createElement('a');
+                  a.href = url;
+                  const [yr, mo] = selectedMonth.split('-');
+                  a.download = `BaoCao_Thang${mo}_${yr}.xlsx`;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+                } catch {
+                  alert('Xuất Excel thất bại. Vui lòng thử lại.');
+                } finally {
+                  setIsExportingMonthly(false);
+                }
+              }}
+              disabled={isExportingMonthly}
+              className="flex items-center gap-2 px-4 py-2 bg-[#003973] text-white rounded-lg hover:bg-[#0052a3] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              {isExportingMonthly ? 'Đang xuất...' : 'Xuất Excel'}
             </button>
           </div>
         </div>

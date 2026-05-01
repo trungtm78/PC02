@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 // Note: useSearchParams is only used for READING initial URL on mount.
 // URL writes use window.history.replaceState to avoid React Router re-renders.
 import { api } from "@/lib/api";
+import { downloadCsv } from "@/lib/csv";
 import {
   Plus, Search, SlidersHorizontal, Download, RotateCcw, Eye, Edit, MoreVertical,
   Scale, AlertTriangle, X, Calendar, User, AlertCircle, ArrowRightLeft, FileText,
@@ -299,7 +300,20 @@ export function IncidentListPage() {
           <button onClick={() => setRefreshTick((t) => t + 1)} className="p-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors" title="Làm mới" data-testid="btn-refresh">
             <RotateCcw className="w-4 h-4" />
           </button>
-          <button className="flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700" data-testid="btn-export">
+          <button
+            onClick={() => {
+              const headers = ['STT', 'Mã', 'Tên vụ việc', 'Loại', 'Trạng thái', 'Hạn xử lý', 'Điều tra viên'];
+              const rows = incidents.map((i, idx) => [
+                idx + 1, i.code ?? i.id?.slice(0, 8) ?? '', i.name,
+                (i as any).incidentType ?? '', i.status,
+                i.deadline ? new Date(i.deadline).toLocaleDateString('vi-VN') : '',
+                i.investigator ? `${(i.investigator as any).firstName ?? ''} ${(i.investigator as any).lastName ?? ''}`.trim() : '',
+              ]);
+              downloadCsv(rows, headers, `VuViec_${new Date().toISOString().slice(0, 10)}.csv`);
+            }}
+            className="flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700"
+            data-testid="btn-export"
+          >
             <Download className="w-4 h-4" />Xuất Excel
           </button>
           <button onClick={() => navigate("/vu-viec/new")} className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium" data-testid="btn-add-incident">

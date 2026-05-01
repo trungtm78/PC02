@@ -235,21 +235,41 @@ export default function WardCasesPage() {
         return;
       }
     }
-    alert(`Xem chi tiết vụ án: ${caseItem.stt}\n${caseItem.caseName}`);
+    navigate(`/cases/${caseItem.id}`);
   };
 
-  const handleDelete = (caseItem: WardCase) => {
+  const handleDelete = async (caseItem: WardCase) => {
     if (!userPermissions.isAdmin) {
       alert("Bạn không có quyền xóa hồ sơ này.");
       return;
     }
-    if (confirm(`Bạn có chắc chắn muốn xóa vụ án ${caseItem.stt}?`)) {
-      alert(`Đã xóa vụ án ${caseItem.stt}`);
+    if (!confirm(`Bạn có chắc chắn muốn xóa vụ án ${caseItem.stt}?`)) return;
+    try {
+      await api.delete(`/cases/${caseItem.id}`);
+      setAllData(prev => prev.filter(c => c.id !== caseItem.id));
+    } catch {
+      alert('Xóa thất bại. Vui lòng thử lại.');
     }
   };
 
   const handleExport = () => {
-    alert("Đang xuất danh sách vụ án phường/xã ra Excel...");
+    const toExport = filteredData.length > 0 ? filteredData : allData;
+    if (toExport.length === 0) { alert('Không có dữ liệu để xuất!'); return; }
+    const headers = ['STT', 'Tên vụ án', 'Tội danh', 'Phường/xã', 'Quận/huyện',
+                     'Người báo cáo', 'Ngày tiếp nhận', 'Trạng thái', 'Mức độ'];
+    const rows = toExport.map(c => [
+      c.stt, c.caseName, c.charge, c.ward, c.district,
+      c.reportedBy, c.reportedDate, c.statusLabel, c.severityLabel,
+    ]);
+    const csv = [headers, ...rows]
+      .map(row => row.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url;
+    a.download = `VuAnPhuongXa_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
   };
 
   const getStatusBadge = (status: WardCase["status"], label: string) => {

@@ -22,6 +22,7 @@ export default function QuarterlyReportPage() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [reportData, setReportData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [isExportingQuarterly, setIsExportingQuarterly] = useState(false);
 
   const fetchReport = useCallback(async () => {
     setLoading(true);
@@ -83,9 +84,36 @@ export default function QuarterlyReportPage() {
               <option value={2025}>2025</option>
               <option value={2026}>2026</option>
             </select>
-            <button className="flex items-center gap-2 px-4 py-2 bg-[#003973] text-white rounded-lg hover:bg-[#0052a3] transition-colors">
-              <Download className="w-4 h-4" />
-              Xuất báo cáo
+            <button
+              onClick={async () => {
+                setIsExportingQuarterly(true);
+                try {
+                  // selectedQuarter format: "Q1-2026" → quarter=1, year=2026
+                  const [qPart, yrPart] = selectedQuarter.split('-');
+                  const quarter = qPart.replace('Q', '');
+                  const response = await api.get('/reports/quarterly/export', {
+                    params: { year: yrPart ?? selectedYear, quarter },
+                    responseType: 'blob',
+                  });
+                  const url = URL.createObjectURL(new Blob([response.data]));
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `BaoCao_Quy${quarter}_${yrPart ?? selectedYear}.xlsx`;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+                } catch {
+                  alert('Xuất Excel thất bại. Vui lòng thử lại.');
+                } finally {
+                  setIsExportingQuarterly(false);
+                }
+              }}
+              disabled={isExportingQuarterly}
+              className="flex items-center gap-2 px-4 py-2 bg-[#003973] text-white rounded-lg hover:bg-[#0052a3] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              {isExportingQuarterly ? 'Đang xuất...' : 'Xuất Excel'}
             </button>
           </div>
         </div>
