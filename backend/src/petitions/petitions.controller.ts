@@ -66,6 +66,7 @@ export class PetitionsController {
 
   // GET /api/v1/petitions/:id/export-word — Xuất đơn thư ra Word
   @Get(':id/export-word')
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
   @RequirePermissions({ action: 'read', subject: 'Petition' })
   async exportWord(
     @Param('id') id: string,

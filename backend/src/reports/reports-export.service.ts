@@ -192,7 +192,7 @@ export class ReportsExportService {
 
     const filename = `BaoCaoThang_${data.year}${data.month ? '_T' + data.month : ''}_${Date.now()}.xlsx`;
     setXlsxHeaders(res, filename);
-    await workbook.xlsx.write(res);
+    try { await workbook.xlsx.write(res); } catch (err) { if (!res.headersSent) res.status(500).json({ error: "Export failed" }); else res.destroy(); }
   }
 
   // ── Quarterly export ────────────────────────────────────────────────────────
@@ -269,7 +269,7 @@ export class ReportsExportService {
 
     const filename = `BaoCaoQuy_${data.year}${data.quarter ? '_Q' + data.quarter : ''}_${Date.now()}.xlsx`;
     setXlsxHeaders(res, filename);
-    await workbook.xlsx.write(res);
+    try { await workbook.xlsx.write(res); } catch (err) { if (!res.headersSent) res.status(500).json({ error: "Export failed" }); else res.destroy(); }
   }
 
   // ── Stat48 export ───────────────────────────────────────────────────────────
@@ -353,6 +353,6 @@ export class ReportsExportService {
 
     const filename = `Stat48_${data.fromDate}_${data.toDate}${data.isDraft ? '_DRAFT' : ''}_${Date.now()}.xlsx`;
     setXlsxHeaders(res, filename);
-    await workbook.xlsx.write(res);
+    try { await workbook.xlsx.write(res); } catch (err) { if (!res.headersSent) res.status(500).json({ error: "Export failed" }); else res.destroy(); }
   }
 }

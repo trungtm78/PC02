@@ -136,7 +136,6 @@ export class ReportsController {
 
   // GET /api/v1/reports/monthly/export
   @Get('monthly/export')
-  @UseGuards(JwtAuthGuard)
   @Throttle({ default: { ttl: 60000, limit: 5 } })
   async exportMonthly(@Query() query: QueryMonthlyDto, @Res() res: Response) {
     const year = query.year ?? new Date().getFullYear();
@@ -146,7 +145,6 @@ export class ReportsController {
 
   // GET /api/v1/reports/quarterly/export
   @Get('quarterly/export')
-  @UseGuards(JwtAuthGuard)
   @Throttle({ default: { ttl: 60000, limit: 5 } })
   async exportQuarterly(@Query() query: QueryQuarterlyDto, @Res() res: Response) {
     const year = query.year ?? new Date().getFullYear();
@@ -156,7 +154,6 @@ export class ReportsController {
 
   // GET /api/v1/reports/stat48?fromDate=&toDate=&unit=&format=
   @Get('stat48')
-  @UseGuards(JwtAuthGuard)
   @Throttle({ default: { ttl: 60000, limit: 3 } })
   async getStat48(@Query() query: Stat48QueryDto, @Res() res: Response) {
     const data = await this.reportsService.getStat48(

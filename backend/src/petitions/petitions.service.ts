@@ -944,7 +944,13 @@ export class PetitionsService {
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
 
-    await workbook.xlsx.write(res);
+    try {
+      await workbook.xlsx.write(res);
+    } catch (err) {
+      this.logger.error('ExcelJS write failed for petition export', err);
+      if (!res.headersSent) res.status(500).json({ error: 'Export failed' });
+      else res.destroy();
+    }
   }
 
   // ─────────────────────────────────────────────
