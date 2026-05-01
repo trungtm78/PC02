@@ -280,7 +280,9 @@ export class ReportsExportService {
     const titleSuffix = data.isDraft ? ' [⚠ DRAFT]' : '';
 
     data.groups.forEach((group) => {
-      const sheet = workbook.addWorksheet(group.name.slice(0, 31)); // Excel sheet name max 31 chars
+      // Excel sheet name: max 31 chars, cannot contain * ? : \ / [ ]
+      const sheetName = group.name.replace(/[*?:/\\[\]]/g, '-').slice(0, 31);
+      const sheet = workbook.addWorksheet(sheetName);
 
       // Row 1: group name
       sheet.mergeCells('A1:E1');
