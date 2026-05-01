@@ -95,6 +95,35 @@ export default function OverdueRecordsPage() {
     setSelectedIds([]);
   };
 
+  const handleExportSelected = () => {
+    const toExport = selectedIds.length > 0
+      ? filteredRecords.filter(r => selectedIds.includes(r.id))
+      : filteredRecords;
+    if (toExport.length === 0) return;
+    const typeMap: Record<string, string> = { case: 'Vụ án', incident: 'Vụ việc', petition: 'Đơn thư' };
+    const priorityMap: Record<string, string> = { critical: 'Khẩn cấp', high: 'Cao', medium: 'Trung bình' };
+    const headers = ['STT', 'Mã hồ sơ', 'Loại', 'Tiêu đề', 'Điều tra viên', 'Đơn vị',
+                     'Ngày hết hạn', 'Ngày nhận', 'Số ngày trễ', 'Trạng thái', 'Mức độ ưu tiên'];
+    const rows = toExport.map((r, i) => [
+      i + 1, r.recordNumber, typeMap[r.recordType] ?? r.recordType,
+      r.title, r.assignedTo, r.unit,
+      new Date(r.dueDate).toLocaleDateString('vi-VN'),
+      new Date(r.receivedDate).toLocaleDateString('vi-VN'),
+      r.daysOverdue, r.status, priorityMap[r.priority] ?? r.priority,
+    ]);
+    const csv = [headers, ...rows]
+      .map(row => row.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `HoSoTreHan_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   const filteredRecords = records.filter((r) => {
     if (filters.priority && r.priority !== filters.priority) return false;
     if (filters.unit && !r.unit.includes(filters.unit)) return false;
@@ -280,7 +309,10 @@ export default function OverdueRecordsPage() {
             Đặt lại
           </button>
           {selectedIds.length > 0 && (
-            <button className="flex items-center gap-2 px-4 py-2 bg-[#003973] text-white rounded-lg hover:bg-[#0052a3] transition-colors">
+            <button
+              onClick={handleExportSelected}
+              className="flex items-center gap-2 px-4 py-2 bg-[#003973] text-white rounded-lg hover:bg-[#0052a3] transition-colors"
+            >
               <Download className="w-4 h-4" />
               Xuất ({selectedIds.length})
             </button>

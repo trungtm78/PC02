@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router";
 import {
   Search,
   Download,
@@ -50,6 +51,7 @@ const categories = [
 ];
 
 export default function OtherClassificationPage() {
+  const navigate = useNavigate();
   const [showAdvancedFilter, setShowAdvancedFilter] = useState(false);
 
   const [allData, setAllData] = useState<OtherCase[]>([]);
@@ -140,11 +142,27 @@ export default function OtherClassificationPage() {
   };
 
   const handleView = (item: OtherCase) => {
-    alert(`Xem chi tiết: ${item.stt}\n${item.caseName}`);
+    navigate(`/cases/${item.id}`);
   };
 
   const handleExport = () => {
-    alert("Đang xuất danh sách ra Excel...");
+    const toExport = filteredData.length > 0 ? filteredData : allData;
+    if (toExport.length === 0) { alert('Không có dữ liệu để xuất!'); return; }
+    const headers = ['STT', 'Tên vụ', 'Loại', 'Địa điểm', 'Phường/xã',
+                     'Quận/huyện', 'Người báo cáo', 'Ngày tiếp nhận', 'Trạng thái', 'Phân loại'];
+    const rows = toExport.map(c => [
+      c.stt, c.caseName, c.type, c.location,
+      c.ward, c.district, c.reportedBy, c.reportedDate, c.statusLabel, c.category,
+    ]);
+    const csv = [headers, ...rows]
+      .map(row => row.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url;
+    a.download = `PhanLoaiKhac_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
   };
 
   const getStatusBadge = (status: OtherCase["status"], label: string) => {

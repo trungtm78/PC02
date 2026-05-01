@@ -140,6 +140,26 @@ function ComprehensiveListPage() {
   const handleSelectAll = () => { if (selectedRecords.size === displayedData.length) { setSelectedRecords(new Set()); } else { setSelectedRecords(new Set(displayedData.map((r) => r.id))); } };
   const handleSelectRecord = (id: string) => { const n = new Set(selectedRecords); if (n.has(id)) n.delete(id); else n.add(id); setSelectedRecords(n); };
 
+  const handleExportRecords = (records: any[]) => {
+    if (records.length === 0) return;
+    const headers = ['STT', 'Mã hồ sơ', 'Loại', 'Đơn vị', 'Người tạo',
+                     'Ngày tiếp nhận', 'Hạn xử lý', 'Trạng thái'];
+    const rows = records.map((r, i) => [
+      i + 1, r.caseNumber, r.typeLabel ?? r.typeName,
+      r.district, r.createdBy,
+      r.receivedDate, r.deadline ?? '', r.statusLabel ?? r.status,
+    ]);
+    const csv = [headers, ...rows]
+      .map(row => row.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url;
+    a.download = `DanhSachTongHop_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
+  };
+
   const openDeleteDialog = (record: any) => {
     setRecordToDelete(record);
     setDeleteDialogOpen(true);
@@ -213,7 +233,7 @@ function ComprehensiveListPage() {
         </div>
         <div className="flex items-center gap-3">
           {selectedRecords.size > 0 && (
-            <button onClick={() => alert(`Xuất ${selectedRecords.size} hồ sơ đã chọn`)} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+            <button onClick={() => handleExportRecords(filteredData.filter(r => selectedRecords.has(r.id)))} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
               <FileDown className="w-4 h-4" />Xuất đã chọn ({selectedRecords.size})
             </button>
           )}
@@ -336,7 +356,7 @@ function ComprehensiveListPage() {
                           <button onClick={() => navigate(`/cases/${record.id}`)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Xem"><Eye className="w-4 h-4" /></button>
                           <button onClick={() => navigate(`/cases/${record.id}/edit`)} className="p-1.5 text-slate-600 hover:bg-slate-100 rounded transition-colors" title="Sửa" data-testid={`btn-edit-${record.id}`}><Edit className="w-4 h-4" /></button>
                           <button onClick={() => openDeleteDialog(record)} className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors" title="Xóa" data-testid={`btn-delete-${record.id}`}><Trash2 className="w-4 h-4" /></button>
-                          <button onClick={() => alert(`Xuất hồ sơ ${record.caseNumber}`)} className="p-1.5 text-green-600 hover:bg-green-50 rounded transition-colors" title="Xuất"><Download className="w-4 h-4" /></button>
+                          <button onClick={() => handleExportRecords([record])} className="p-1.5 text-green-600 hover:bg-green-50 rounded transition-colors" title="Xuất"><Download className="w-4 h-4" /></button>
                           {(record.type === "incident" || record.type === "case" || record.type === "petition") && (
                             <button
                               onClick={() => navigate("/transfer-return", {

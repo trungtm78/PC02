@@ -19,9 +19,11 @@ import { PrismaService } from '../prisma/prisma.service';
 const mockPrisma = {
   petition: {
     count: jest.fn(),
+    findMany: jest.fn().mockResolvedValue([]),
   },
   incident: {
     count: jest.fn(),
+    findMany: jest.fn().mockResolvedValue([]),
     groupBy: jest.fn(),
   },
   case: {
@@ -35,6 +37,51 @@ const mockPrisma = {
 
 function makeCaseWithStat48(stat48: Record<string, unknown>) {
   return { metadata: { stat48 } };
+}
+
+function makeOverdueCase(daysOverdue: number, overrides: Record<string, unknown> = {}) {
+  const now = new Date();
+  const deadline = new Date(now.getTime() - daysOverdue * 24 * 60 * 60 * 1000);
+  return {
+    id: `case-${daysOverdue}d`,
+    name: `Vụ án trễ ${daysOverdue} ngày`,
+    deadline,
+    createdAt: new Date(deadline.getTime() - 30 * 24 * 60 * 60 * 1000),
+    unit: 'Đội 1',
+    status: 'DANG_DIEU_TRA',
+    investigator: { id: 'inv-1', firstName: 'Nguyễn', lastName: 'Văn A' },
+    ...overrides,
+  };
+}
+
+function makeOverdueIncident(daysOverdue: number) {
+  const now = new Date();
+  const deadline = new Date(now.getTime() - daysOverdue * 24 * 60 * 60 * 1000);
+  return {
+    id: `incident-${daysOverdue}d`,
+    name: `Vụ việc trễ ${daysOverdue} ngày`,
+    deadline,
+    createdAt: new Date(deadline.getTime() - 10 * 24 * 60 * 60 * 1000),
+    unitId: 'unit-1',
+    status: 'DANG_XAC_MINH',
+    investigator: null,
+  };
+}
+
+function makeOverduePetition(daysOverdue: number) {
+  const now = new Date();
+  const deadline = new Date(now.getTime() - daysOverdue * 24 * 60 * 60 * 1000);
+  return {
+    id: `petition-${daysOverdue}d`,
+    stt: `DT-2026-00001`,
+    summary: `Đơn thư trễ ${daysOverdue} ngày`,
+    deadline,
+    receivedDate: new Date(deadline.getTime() - 15 * 24 * 60 * 60 * 1000),
+    unit: 'Đội 2',
+    status: 'DANG_XU_LY',
+    priority: null,
+    assignedTo: null,
+  };
 }
 
 // ─── Test Suite ───────────────────────────────────────────────────────────────
@@ -52,6 +99,107 @@ describe('ReportsService', () => {
 
     service = module.get<ReportsService>(ReportsService);
     jest.clearAllMocks();
+  });
+
+  // ── getOverdue ─────────────────────────────────────────────────────────────
+  // These tests protect the /reports/overdue endpoint used by OverdueRecordsPage.
+  // The frontend relies on: result.success, result.data[].id, recordType, title,
+  // assignedTo, unit, dueDate, receivedDate, daysOverdue, status, priority.
+
+  describe('getOverdue', () => {
+    beforeEach(() => {
+      mockPrisma.case.findMany.mockResolvedValue([]);
+      mockPrisma.incident.findMany.mockResolvedValue([]);
+      mockPrisma.petition.findMany.mockResolvedValue([]);
+    });
+
+    it('returns { success: true, data, total } shape (frontend contract)', async () => {
+      mockPrisma.case.findMany.mockResolvedValue([makeOverdueCase(5)]);
+      const result = await service.getOverdue();
+      expect(result).toHaveProperty('success', true);
+      expect(result).toHaveProperty('data');
+      expect(result).toHaveProperty('total');
+      expect(Array.isArray(result.data)).toBe(true);
+    });
+
+    it('each record has required frontend fields', async () => {
+      mockPrisma.case.findMany.mockResolvedValue([makeOverdueCase(10)]);
+      const result = await service.getOverdue();
+      const rec = result.data[0];
+      expect(rec).toHaveProperty('id');
+      expect(rec).toHaveProperty('recordType', 'case');
+      expect(rec).toHaveProperty('recordNumber');
+      expect(rec).toHaveProperty('title');
+      expect(rec).toHaveProperty('assignedTo');
+      expect(rec).toHaveProperty('unit');
+      expect(rec).toHaveProperty('dueDate');
+      expect(rec).toHaveProperty('receivedDate');
+      expect(rec).toHaveProperty('daysOverdue');
+      expect(rec).toHaveProperty('status');
+      expect(rec).toHaveProperty('priority');
+    });
+
+    it('assigns priority: critical when daysOverdue > 30', async () => {
+      mockPrisma.case.findMany.mockResolvedValue([makeOverdueCase(35)]);
+      const result = await service.getOverdue();
+      expect(result.data[0].priority).toBe('critical');
+    });
+
+    it('assigns priority: high when daysOverdue 15-30', async () => {
+      mockPrisma.case.findMany.mockResolvedValue([makeOverdueCase(20)]);
+      const result = await service.getOverdue();
+      expect(result.data[0].priority).toBe('high');
+    });
+
+    it('assigns priority: medium when daysOverdue <= 14', async () => {
+      mockPrisma.case.findMany.mockResolvedValue([makeOverdueCase(7)]);
+      const result = await service.getOverdue();
+      expect(result.data[0].priority).toBe('medium');
+    });
+
+    it('sorts result by daysOverdue descending (most overdue first)', async () => {
+      mockPrisma.case.findMany.mockResolvedValue([
+        makeOverdueCase(5),
+        makeOverdueCase(40),
+        makeOverdueCase(15),
+      ]);
+      const result = await service.getOverdue();
+      expect(result.data[0].daysOverdue).toBeGreaterThan(result.data[1].daysOverdue);
+      expect(result.data[1].daysOverdue).toBeGreaterThan(result.data[2].daysOverdue);
+    });
+
+    it('filters by minDaysOverdue', async () => {
+      mockPrisma.case.findMany.mockResolvedValue([
+        makeOverdueCase(3),
+        makeOverdueCase(10),
+        makeOverdueCase(25),
+      ]);
+      const result = await service.getOverdue(undefined, undefined, undefined, 7);
+      expect(result.data.every(r => r.daysOverdue >= 7)).toBe(true);
+      expect(result.data).toHaveLength(2);
+    });
+
+    it('filters by recordType=case (skips incidents and petitions)', async () => {
+      mockPrisma.case.findMany.mockResolvedValue([makeOverdueCase(5)]);
+      await service.getOverdue(undefined, 'case');
+      expect(mockPrisma.incident.findMany).not.toHaveBeenCalled();
+    });
+
+    it('uses investigator name when present, falls back to Chưa phân công', async () => {
+      mockPrisma.case.findMany.mockResolvedValue([makeOverdueCase(5)]);
+      const withInvestigator = await service.getOverdue();
+      expect(withInvestigator.data[0].assignedTo).toBe('Nguyễn Văn A');
+
+      mockPrisma.case.findMany.mockResolvedValue([makeOverdueCase(5, { investigator: null })]);
+      const withoutInvestigator = await service.getOverdue();
+      expect(withoutInvestigator.data[0].assignedTo).toBe('Chưa phân công');
+    });
+
+    it('returns empty data when no overdue records', async () => {
+      const result = await service.getOverdue();
+      expect(result.data).toHaveLength(0);
+      expect(result.total).toBe(0);
+    });
   });
 
   // ── getStat48 ──────────────────────────────────────────────────────────────
