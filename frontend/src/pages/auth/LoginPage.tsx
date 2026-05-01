@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { AlertCircle, CheckCircle2, Lock, User, Eye, EyeOff } from 'lucide-react';
 
-import { authApi, type LoginSuccess } from '@/lib/api';
+import { authApi, type LoginResponse } from '@/lib/api';
 import { authStore } from '@/stores/auth.store';
 import logoCA from '@/assets/logo-cong-an.png';
 
@@ -51,7 +51,7 @@ function loadEmail(): string {
 
 /* ── Component ────────────────────────────────────────────────── */
 
-export function LoginPage() {
+export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const successMessage = (location.state as { successMessage?: string })?.successMessage;
@@ -80,10 +80,10 @@ export function LoginPage() {
     mutationFn: (values: LoginFormValues) =>
       authApi.login(values.username, values.password),
     onSuccess: (data) => {
-      const result = data.data as LoginSuccess;
-      if (result.pending) {
+      const result = data.data as LoginResponse;
+      if ('pending' in result && result.pending) {
         navigate('/2fa', { state: { twoFaToken: result.twoFaToken } });
-      } else {
+      } else if ('accessToken' in result) {
         authStore.setTokens(result.accessToken, result.refreshToken);
         navigate('/dashboard');
       }

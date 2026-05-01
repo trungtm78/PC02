@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { AlertTriangle } from "lucide-react";
-import { SuspensionModal, SuspensionData } from "./SuspensionModal";
+import { SuspensionModal } from "./SuspensionModal";
+import type { SuspensionData } from "./SuspensionModal";
 import { api } from "@/lib/api";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
