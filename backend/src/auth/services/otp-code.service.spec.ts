@@ -44,7 +44,7 @@ describe('OtpCodeService', () => {
     const svc = new OtpCodeService(prisma);
     await svc.generate('user-1');
     expect(prisma.otpCode.updateMany).toHaveBeenCalledWith({
-      where: { userId: 'user-1', usedAt: null },
+      where: { userId: 'user-1', usedAt: null, purpose: 'TWO_FA' },
       data: { usedAt: expect.any(Date) },
     });
   });
@@ -75,5 +75,26 @@ describe('OtpCodeService', () => {
     const svc = new OtpCodeService(prisma);
     const result = await svc.verify('user-1', '123456');
     expect(result).toBe(false);
+  });
+
+  it('generate with PASSWORD_RESET purpose should NOT invalidate TWO_FA OTPs', async () => {
+    const prisma = makePrisma();
+    const svc = new OtpCodeService(prisma);
+
+    await svc.generate('user-1', 'PASSWORD_RESET');
+
+    // updateMany must be called exactly once — for PASSWORD_RESET purpose only
+    expect(prisma.otpCode.updateMany).toHaveBeenCalledTimes(1);
+    expect(prisma.otpCode.updateMany).toHaveBeenCalledWith({
+      where: { userId: 'user-1', usedAt: null, purpose: 'PASSWORD_RESET' },
+      data: { usedAt: expect.any(Date) },
+    });
+
+    // Must NOT have been called with TWO_FA purpose
+    const calls = (prisma.otpCode.updateMany as jest.Mock).mock.calls;
+    const calledWithTwoFa = calls.some(
+      (args: any[]) => args[0]?.where?.purpose === 'TWO_FA',
+    );
+    expect(calledWithTwoFa).toBe(false);
   });
 });

@@ -148,7 +148,7 @@ export class TwoFaService {
     });
     if (!user) throw new UnauthorizedException();
 
-    const code = await this.otpCode.generate(userId);
+    const code = await this.otpCode.generate(userId, 'TWO_FA');
     await this.email.sendTwoFaOtp(user.email, code);
   }
 
@@ -245,7 +245,7 @@ export class TwoFaService {
     code: string,
     _meta: { ipAddress?: string; userAgent?: string },
   ): Promise<boolean> {
-    return this.otpCode.verify(userId, code);
+    return this.otpCode.verify(userId, code, 'TWO_FA');
   }
 
   private async verifyBackup(

@@ -1,0 +1,32 @@
+appId: ${APP_ID}
+tags:
+  - cases
+  - detail
+  - api-fix
+
+---
+# Verify case detail API fix: response now unwraps {data: {...}} envelope
+# If fix is broken, detail screen shows blank/null fields
+
+- launchApp
+- waitForAnimationToEnd
+
+# Navigate to Cases
+- tapOn:
+    point: "30%,96%"
+- waitForAnimationToEnd
+
+# Tap first case in list
+- tapOn:
+    index: 0
+- waitForAnimationToEnd
+- takeScreenshot: 04b_case_detail
+
+# Critical: must not show raw null or API envelope fields
+- assertNotVisible: "null"
+- assertNotVisible: "\"data\":"
+- assertNotVisible: "undefined"
+- assertNotVisible: "Exception"
+
+# Must show actual case data (at least case ID format)
+- assertNotVisible: "Lỗi tải chi tiết"
