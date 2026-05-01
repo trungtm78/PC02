@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.13.0.0] - 2026-05-01
+
+### Added
+- **Phụ lục 1-6 BCA** (`GET /reports/phu-luc-1-6/preview` + `/export`): Cán bộ có thể xem và xuất Excel 6 loại danh sách hồ sơ theo quy định BCA — PL1 (vụ việc đang giải quyết), PL2/3 (vụ việc TĐC hết/còn thời hiệu), PL4 (vụ án đang điều tra), PL5/6 (vụ án TĐC hết/còn thời hiệu). Hỗ trợ filter theo đơn vị + kỳ ngày. Export Excel với multi-row per bị can.
+- **Trang Phụ lục 1-6 BCA** (`/reports/phu-luc-1-6`): Giao diện 6 tab, filter, preview bảng dữ liệu, nút Xuất Excel với progress indicator.
+- **Schema**: Thêm `ngayHetThoiHieu` (Case) và `ngayHetThoiHieuVV` (Incident) để phân biệt hồ sơ TĐC hết/còn thời hiệu truy cứu TNHS.
+- **BCA Excel Helper** (`backend/src/common/bca-excel.helper.ts`): Shared utility chuẩn hóa format Excel theo quy định BCA — header CÔNG AN TPHCM/PHÒNG PC02, alternating row colors (#EFF6FF/white), footer ký tên, print setup A4 landscape.
+
+### Changed
+- **Excel báo cáo tháng/quý**: Nâng cấp từ basic navy header lên BCA professional format đầy đủ (6 rows header, alternating rows, footer signature, print setup).
+- **Excel thống kê 48 trường (Stat48)**: Mỗi sheet tab nay có header CÔNG AN TPHCM/PHÒNG PC02 + footer ký tên.
+
 ## [0.12.0.0] - 2026-05-01
 
 ### Added
