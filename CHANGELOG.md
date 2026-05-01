@@ -22,6 +22,24 @@ All notable changes to this project will be documented in this file.
 ### Security
 - Tất cả export endpoints mới đều enforce DataScope (`buildPetitionScopeFilter`) — không thể export dữ liệu ngoài phạm vi tổ.
 
+---
+
+## [0.12.1.0] - 2026-05-01
+
+### Fixed
+- **Stub handlers frontend (16 items)**: Tất cả button/link không hoạt động đã được implement — Xuất Excel trên 5 trang (Vụ việc, Trao đổi chuyên án, Ủy thác điều tra, Người dùng, Danh sách vụ án), tải đính kèm chat, in PDF đề xuất, lưu nháp form vụ án vào localStorage, nút "Áp dụng" lọc, phân trang Trước/Sau trên 4 trang, điều hướng Sửa/Xóa trong SettingsPage.
+- **Báo cáo tháng — sai tham số month**: Tháng được gửi dạng "2026-02" thay vì số nguyên 2. Đã fix parse trước khi gửi API.
+- **Stat48ReportPage không hiển thị data**: Mismatch giữa shape backend (`nullCount`, `field`, `dataCount`) và interface frontend (`casesWithoutData`, `fieldName`, `count`). Đã thêm transform trong `fetchReport()`.
+- **Export ActivityLog, DistrictStats**: Stub `alert()` thay bằng CSV download client-side thực sự.
+- **CI/CD**: Thêm `npx prisma generate` sau `npm ci` trong workflow — sửa lỗi "Cannot find module .prisma/client/default" trên GitHub Actions.
+- **Node.js 20 → 22**: Cập nhật CI workflow để tránh deprecation warning.
+
+### Added
+- **34 backend spec files**: 7 service specs (calendar, dashboard, notifications, devices, tdac-export, settings, action-plans) và 27 controller specs mới với shared `controller-test-helpers.ts`. Tổng: 875 tests.
+- **Skill /stub-check**: Skill mới tự động scan frontend/backend tìm stub handlers, missing onClick, alert() stubs, console.log debug, và thiếu test coverage.
+- **CSV helper** (`frontend/src/lib/csv.ts`): Shared `downloadCsv()` cho tất cả export buttons.
+- **Pagination thực** trên 4 trang (CaseList, PetitionList, CaseExchange, TransferReturn): Client-side với PAGE_SIZE=20, reset khi filter thay đổi.
+
 ## [0.11.0.0] - 2026-05-01
 
 ### Added
