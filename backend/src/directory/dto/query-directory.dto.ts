@@ -28,7 +28,7 @@ export class QueryDirectoryDto {
 
   @IsInt()
   @Min(1)
-  @Max(200)
+  @Max(1000)
   @Type(() => Number)
   @IsOptional()
   limit?: number = 50;

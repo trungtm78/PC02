@@ -56,6 +56,39 @@ describe('DirectoryService', () => {
       expect(result.total).toBe(1);
     });
 
+    it('filters wards by parentId (Province → Ward hierarchy)', async () => {
+      const hcmWards = [
+        { id: 'w1', type: 'WARD', code: 'HCM_1_P1', name: 'Phường 1', parentId: 'province-hcm-id' },
+        { id: 'w2', type: 'WARD', code: 'HCM_2_P2', name: 'Phường 2', parentId: 'province-hcm-id' },
+      ];
+      mockPrisma.directory.findMany.mockResolvedValue(hcmWards);
+      mockPrisma.directory.count.mockResolvedValue(2);
+
+      await service.findAll({ type: 'WARD', parentId: 'province-hcm-id', limit: 1000, offset: 0 });
+
+      expect(mockPrisma.directory.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            type: 'WARD',
+            parentId: 'province-hcm-id',
+          }),
+          take: 1000,
+        }),
+      );
+    });
+
+    it('accepts limit up to 1000 (for ward cascade loading)', async () => {
+      mockPrisma.directory.findMany.mockResolvedValue([]);
+      mockPrisma.directory.count.mockResolvedValue(0);
+
+      // Should not throw — limit=1000 is within new @Max(1000)
+      await service.findAll({ type: 'WARD', limit: 1000, offset: 0 });
+
+      expect(mockPrisma.directory.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ take: 1000 }),
+      );
+    });
+
     it('filters by type', async () => {
       mockPrisma.directory.findMany.mockResolvedValue([]);
       mockPrisma.directory.count.mockResolvedValue(0);
