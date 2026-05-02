@@ -155,14 +155,17 @@ async function main() {
 
   console.log('Admin user created:', adminUser.email);
 
-  // ── Seed: Sample Directory entries for Crime (needed for Subject.crimeId FK) ─
+  // ── Seed: Sample Directory entry for Crime (needed for Subject.crimeId FK) ───
+  // seedDirectoryTypes() adds full BLHS crime list — this just ensures D173 exists
+  // for the sample Case/Subject data below
   const crimeDir = await prisma.directory.upsert({
-    where: { type_code: { type: 'CRIME', code: 'DIEU-173' } },
+    where: { type_code: { type: 'CRIME', code: 'D173' } },
     update: {},
     create: {
       type: 'CRIME',
-      code: 'DIEU-173',
-      name: 'Trộm cắp tài sản (Điều 173 BLHS)',
+      code: 'D173',
+      name: 'Trộm cắp tài sản (Điều 173)',
+      order: 23,
     },
   }).catch((e) => { console.warn('Crime directory upsert skipped:', e.message); return null; });
 

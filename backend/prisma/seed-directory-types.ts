@@ -141,6 +141,73 @@ const DIRECTORY_DATA: DirectoryEntry[] = [
   { type: 'UNIT', code: 'CA_DN',      name: 'Công an TP. Đà Nẵng', order: 4 },
   { type: 'UNIT', code: 'CA_HP',      name: 'Công an TP. Hải Phòng', order: 5 },
   { type: 'UNIT', code: 'CA_CT',      name: 'Công an TP. Cần Thơ', order: 6 },
+
+  // ── CRIME — Tội danh theo BLHS 2015 (sửa đổi 2017, 2022) ─────────────────
+  // Dùng cho PC02 — Phòng CSĐT tội phạm về trật tự xã hội
+  // Nguồn: Bộ Luật Hình Sự 2015 (Luật số 100/2015/QH13), sửa đổi theo Luật 12/2017/QH14
+
+  // Chương XIV: Xâm phạm tính mạng, sức khỏe, nhân phẩm, danh dự
+  { type: 'CRIME', code: 'D123',   name: 'Giết người (Điều 123)', order: 1 },
+  { type: 'CRIME', code: 'D125',   name: 'Giết người trong trạng thái tinh thần bị kích động mạnh (Điều 125)', order: 2 },
+  { type: 'CRIME', code: 'D126',   name: 'Giết người do vượt quá giới hạn phòng vệ chính đáng (Điều 126)', order: 3 },
+  { type: 'CRIME', code: 'D128',   name: 'Vô ý làm chết người (Điều 128)', order: 4 },
+  { type: 'CRIME', code: 'D134',   name: 'Cố ý gây thương tích (Điều 134)', order: 5 },
+  { type: 'CRIME', code: 'D135',   name: 'Cố ý gây thương tích trong trạng thái tinh thần bị kích động mạnh (Điều 135)', order: 6 },
+  { type: 'CRIME', code: 'D138',   name: 'Vô ý gây thương tích (Điều 138)', order: 7 },
+  { type: 'CRIME', code: 'D140',   name: 'Hành hạ người khác (Điều 140)', order: 8 },
+  { type: 'CRIME', code: 'D141',   name: 'Hiếp dâm (Điều 141)', order: 9 },
+  { type: 'CRIME', code: 'D142',   name: 'Hiếp dâm người dưới 16 tuổi (Điều 142)', order: 10 },
+  { type: 'CRIME', code: 'D143',   name: 'Cưỡng dâm (Điều 143)', order: 11 },
+  { type: 'CRIME', code: 'D145',   name: 'Giao cấu với người từ đủ 13 đến dưới 16 tuổi (Điều 145)', order: 12 },
+  { type: 'CRIME', code: 'D146',   name: 'Dâm ô đối với người dưới 16 tuổi (Điều 146)', order: 13 },
+  { type: 'CRIME', code: 'D150',   name: 'Mua bán người (Điều 150)', order: 14 },
+  { type: 'CRIME', code: 'D151',   name: 'Mua bán người dưới 16 tuổi (Điều 151)', order: 15 },
+
+  // Chương XV: Xâm phạm quyền tự do của con người
+  { type: 'CRIME', code: 'D157',   name: 'Bắt, giữ hoặc giam người trái pháp luật (Điều 157)', order: 16 },
+  { type: 'CRIME', code: 'D158',   name: 'Xâm phạm chỗ ở của người khác (Điều 158)', order: 17 },
+
+  // Chương XVI: Xâm phạm sở hữu
+  { type: 'CRIME', code: 'D168',   name: 'Cướp tài sản (Điều 168)', order: 18 },
+  { type: 'CRIME', code: 'D169',   name: 'Bắt cóc nhằm chiếm đoạt tài sản (Điều 169)', order: 19 },
+  { type: 'CRIME', code: 'D170',   name: 'Cưỡng đoạt tài sản (Điều 170)', order: 20 },
+  { type: 'CRIME', code: 'D171',   name: 'Cướp giật tài sản (Điều 171)', order: 21 },
+  { type: 'CRIME', code: 'D172',   name: 'Công nhiên chiếm đoạt tài sản (Điều 172)', order: 22 },
+  { type: 'CRIME', code: 'D173',   name: 'Trộm cắp tài sản (Điều 173)', order: 23 },
+  { type: 'CRIME', code: 'D174',   name: 'Lừa đảo chiếm đoạt tài sản (Điều 174)', order: 24 },
+  { type: 'CRIME', code: 'D175',   name: 'Lạm dụng tín nhiệm chiếm đoạt tài sản (Điều 175)', order: 25 },
+  { type: 'CRIME', code: 'D178',   name: 'Hủy hoại hoặc cố ý làm hư hỏng tài sản (Điều 178)', order: 26 },
+
+  // Chương XVII: Tội phạm kinh tế
+  { type: 'CRIME', code: 'D206',   name: 'Cho vay lãi nặng trong giao dịch dân sự (Điều 206)', order: 27 },
+  { type: 'CRIME', code: 'D215',   name: 'Vi phạm quy định về hoạt động ngân hàng (Điều 215)', order: 28 },
+
+  // Chương XVIII: Tội phạm ma túy
+  { type: 'CRIME', code: 'D249',   name: 'Tàng trữ trái phép chất ma túy (Điều 249)', order: 29 },
+  { type: 'CRIME', code: 'D250',   name: 'Vận chuyển trái phép chất ma túy (Điều 250)', order: 31 },
+  { type: 'CRIME', code: 'D251',   name: 'Mua bán trái phép chất ma túy (Điều 251)', order: 32 },
+  { type: 'CRIME', code: 'D252',   name: 'Chiếm đoạt chất ma túy (Điều 252)', order: 33 },
+  { type: 'CRIME', code: 'D255',   name: 'Tổ chức sử dụng trái phép chất ma túy (Điều 255)', order: 34 },
+  { type: 'CRIME', code: 'D256',   name: 'Chứa chấp việc sử dụng trái phép chất ma túy (Điều 256)', order: 35 },
+  { type: 'CRIME', code: 'D258',   name: 'Sử dụng trái phép chất ma túy (Điều 258)', order: 36 },
+
+  // Chương XIX: An toàn công cộng, trật tự công cộng
+  { type: 'CRIME', code: 'D260',   name: 'Vi phạm quy định về an toàn giao thông đường bộ (Điều 260)', order: 37 },
+  { type: 'CRIME', code: 'D304',   name: 'Tàng trữ, vận chuyển, sử dụng, mua bán trái phép vũ khí (Điều 304)', order: 38 },
+  { type: 'CRIME', code: 'D318',   name: 'Gây rối trật tự công cộng (Điều 318)', order: 38 },
+  { type: 'CRIME', code: 'D319',   name: 'Xâm phạm thi thể, mồ mả, hài cốt (Điều 319)', order: 41 },
+  { type: 'CRIME', code: 'D321',   name: 'Đánh bạc (Điều 321)', order: 42 },
+  { type: 'CRIME', code: 'D322',   name: 'Tổ chức đánh bạc hoặc gá bạc (Điều 322)', order: 43 },
+  { type: 'CRIME', code: 'D323',   name: 'Chứa chấp hoặc tiêu thụ tài sản do người khác phạm tội mà có (Điều 323)', order: 44 },
+  { type: 'CRIME', code: 'D324',   name: 'Rửa tiền (Điều 324)', order: 45 },
+
+  // Chương XXI: Tội phạm chức vụ
+  { type: 'CRIME', code: 'D353',   name: 'Tham ô tài sản (Điều 353)', order: 46 },
+  { type: 'CRIME', code: 'D354',   name: 'Nhận hối lộ (Điều 354)', order: 47 },
+  { type: 'CRIME', code: 'D358',   name: 'Lợi dụng chức vụ, quyền hạn gây ảnh hưởng (Điều 358)', order: 48 },
+
+  // Khác
+  { type: 'CRIME', code: 'KHAC',   name: 'Tội danh khác', order: 99 },
 ];
 
 export async function seedDirectoryTypes(prismaClient: PrismaClient): Promise<void> {
