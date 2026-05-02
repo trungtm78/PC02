@@ -13,11 +13,6 @@
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 
-const adapter = new PrismaPg({
-  connectionString: process.env['DATABASE_URL'] ?? 'postgresql://pc02_admin:pc02_password@localhost:5432/pc02_db?schema=public',
-});
-const prisma = new PrismaClient({ adapter });
-
 interface WardEntry {
   code: string;
   name: string;
@@ -467,7 +462,7 @@ async function loadWards(): Promise<WardEntry[]> {
   }
 }
 
-async function main() {
+export async function seedWards(prismaClient: PrismaClient): Promise<void> {
   console.log('Seeding Vietnam administrative wards...');
   const ALL_WARDS = await loadWards();
   console.log(`Total wards to seed: ${ALL_WARDS.length}`);
@@ -483,7 +478,7 @@ async function main() {
     await Promise.all(batch.map(async (ward) => {
       try {
         const hcm = ward.provinceCode === 'HCM';
-        const result = await prisma.directory.upsert({
+        const result = await prismaClient.directory.upsert({
           where: { type_code: { type: 'WARD', code: ward.code } },
           update: {
             name: ward.name,
@@ -518,17 +513,24 @@ async function main() {
     if (i % 2000 === 0) process.stdout.write(`  ${i}/${ALL_WARDS.length}...\n`);
   }
 
-  const total = await prisma.directory.count({ where: { type: 'WARD' } });
-  const hcmCount = await prisma.directory.count({ where: { type: 'WARD', metadata: { path: ['provinceCode'], equals: 'HCM' } } });
+  const total = await prismaClient.directory.count({ where: { type: 'WARD' } });
+  const hcmCount = await prismaClient.directory.count({ where: { type: 'WARD', metadata: { path: ['provinceCode'], equals: 'HCM' } } });
   console.log(`\nDone! ${created} created, ${updated} updated, ${skipped} skipped.`);
   console.log(`Total WARD entries in DB: ${total} (HCM: ${hcmCount})`);
 }
 
-main()
-  .catch((e) => {
-    console.error(e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
+// Standalone mode — run directly with: npx ts-node prisma/seed-wards.ts
+if (require.main === module) {
+  const adapter = new PrismaPg({
+    connectionString: process.env['DATABASE_URL'] ?? 'postgresql://pc02_admin:pc02_password@localhost:5432/pc02_db?schema=public',
   });
+  const standaloneClient = new PrismaClient({ adapter });
+  seedWards(standaloneClient)
+    .catch((e) => {
+      console.error(e);
+      process.exit(1);
+    })
+    .finally(async () => {
+      await standaloneClient.$disconnect();
+    });
+}

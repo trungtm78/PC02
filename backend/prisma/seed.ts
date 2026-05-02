@@ -8,6 +8,7 @@ import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import * as bcrypt from 'bcrypt';
 import { seedFeatureFlags } from './seed-feature-flags';
+import { seedWards } from './seed-wards';
 
 const adapter = new PrismaPg({
   connectionString: process.env['DATABASE_URL'] ?? 'postgresql://pc02_admin:pc02_password@localhost:5432/pc02_db?schema=public',
@@ -233,6 +234,10 @@ async function main() {
   // an empty list and every sidebar menu disappears on a fresh deploy.
   const seededFlags = await seedFeatureFlags(prisma);
   console.log(`Seed feature flags: ${seededFlags} entries upserted.`);
+
+  // ── Wards — 10,051 phường/xã toàn quốc (idempotent upsert) ───────────────
+  console.log('Seeding wards (may take ~2-3 min for 10,051 entries)...');
+  await seedWards(prisma);
 }
 
 main()
