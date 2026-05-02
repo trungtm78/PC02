@@ -216,6 +216,7 @@ export class ReportsService {
 
   // ─────────────────────────────────────────────
   // GET /api/v1/reports/district-stats?fromDate=&toDate=&district=
+  // Lưu ý: district = tên phường/xã (cải cách hành chính 2025 — không còn cấp quận/huyện)
   // ─────────────────────────────────────────────
   async getDistrictStats(fromDate?: string, toDate?: string, district?: string) {
     const from = fromDate ? new Date(fromDate) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);

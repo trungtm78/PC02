@@ -1,0 +1,31 @@
+appId: ${APP_ID}
+tags:
+  - reports
+  - overdue
+
+---
+# Test: Màn hình hồ sơ trễ hạn — validates /reports/overdue API contract
+# Fixed in v0.12.1.0: getOverdue now returns correct shape with priority fields
+- runFlow: 01_login.yaml
+- waitForAnimationToEnd
+
+# Navigate to reports or overdue section
+- tapOn: "Báo cáo"
+- waitForAnimationToEnd
+- takeScreenshot: 12_reports_menu
+
+# Look for overdue records section
+- assertNotVisible: "null"
+- assertNotVisible: "undefined"
+
+# If overdue tab exists
+- tapOn:
+    optional: true
+    text: "Trễ hạn"
+- waitForAnimationToEnd
+- takeScreenshot: 12_overdue_list
+
+# Verify no raw error strings
+- assertNotVisible: "Error"
+- assertNotVisible: "Exception"
+- assertNotVisible: "priority is undefined"

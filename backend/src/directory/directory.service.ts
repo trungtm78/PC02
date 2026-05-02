@@ -62,6 +62,15 @@ export class DirectoryService {
     return types.map((t) => t.type);
   }
 
+  async getTypeStats(): Promise<{ type: string; count: number }[]> {
+    const counts = await this.prisma.directory.groupBy({
+      by: ['type'],
+      _count: { id: true },
+      orderBy: { type: 'asc' },
+    });
+    return counts.map((c) => ({ type: c.type, count: c._count.id }));
+  }
+
   async create(dto: CreateDirectoryDto) {
     // EC-02: Unique code within type
     const existing = await this.prisma.directory.findUnique({

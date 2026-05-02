@@ -35,16 +35,8 @@ import { FKSelect } from "@/components/FKSelect";
 import type { TabProps, Subject, Evidence, MediaFile } from "./types";
 import {
   CASE_TYPE_OPTIONS,
-  PRIORITY_OPTIONS,
   STATUS_OPTIONS,
-  UNIT_OPTIONS,
-  CASE_CLASSIFICATION_OPTIONS,
-  INCIDENT_TYPE_OPTIONS,
-  INCIDENT_LEVEL_OPTIONS,
   CRIMINAL_TYPE_OPTIONS,
-  PROSECUTION_OFFICE_OPTIONS,
-  TDC_SOURCE_OPTIONS,
-  TDC_CASE_TYPE_OPTIONS,
   SUBJECT_TYPE_COLORS,
 } from "./constants";
 
@@ -172,12 +164,13 @@ export function TabInfo({ formData, setFormData, errors, setErrors, handlerOptio
             placeholder="-- Chọn loại --"
             data-testid="select-case-type"
           />
-          <FormSelect
+          <FKSelect
             label="Phân loại vụ án"
             value={formData.caseClassification}
             onChange={(v) => update("caseClassification", v)}
-            options={CASE_CLASSIFICATION_OPTIONS}
+            directoryType="CASE_CLASSIFICATION"
             placeholder="-- Chọn phân loại --"
+            canCreate={false}
           />
           <FormSelect
             label="Trạng thái"
@@ -186,12 +179,13 @@ export function TabInfo({ formData, setFormData, errors, setErrors, handlerOptio
             options={STATUS_OPTIONS}
             placeholder="-- Chọn trạng thái --"
           />
-          <FormSelect
+          <FKSelect
             label="Mức độ ưu tiên"
             value={formData.priority}
             onChange={(v) => update("priority", v)}
-            options={PRIORITY_OPTIONS}
+            directoryType="PRIORITY"
             placeholder="-- Chọn mức độ --"
+            canCreate={false}
           />
           <FormSelect
             label="Mức độ tội phạm (BLHS 2015 Điều 9)"
@@ -221,7 +215,7 @@ export function TabInfo({ formData, setFormData, errors, setErrors, handlerOptio
             label="Đơn vị thụ lý"
             value={formData.supervisingUnit}
             onChange={(v) => update("supervisingUnit", v)}
-            options={UNIT_OPTIONS}
+            directoryType="UNIT"
             placeholder="-- Chọn đơn vị --"
             canCreate={false}
             testId="fk-unit"
@@ -312,7 +306,7 @@ export function TabInfo({ formData, setFormData, errors, setErrors, handlerOptio
             label="VKS được phân công"
             value={formData.prosecutionOfficeAssigned}
             onChange={(v) => update("prosecutionOfficeAssigned", v)}
-            options={PROSECUTION_OFFICE_OPTIONS}
+            directoryType="PROSECUTION_OFFICE"
             placeholder="-- Chọn VKS --"
             canCreate={false}
             testId="fk-prosecution-assigned"
@@ -516,19 +510,21 @@ export function TabIncident({ formData, setFormData, errors, setErrors }: TabPro
           value={formData.incidentTime}
           onChange={(v) => update("incidentTime", v)}
         />
-        <FormSelect
+        <FKSelect
           label="Loại vụ việc"
           value={formData.incidentType}
           onChange={(v) => update("incidentType", v)}
-          options={INCIDENT_TYPE_OPTIONS}
+          directoryType="INCIDENT_TYPE"
           placeholder="-- Chọn loại --"
+          canCreate={false}
         />
-        <FormSelect
+        <FKSelect
           label="Mức độ nghiêm trọng"
           value={formData.incidentLevel}
           onChange={(v) => update("incidentLevel", v)}
-          options={INCIDENT_LEVEL_OPTIONS}
+          directoryType="INCIDENT_LEVEL"
           placeholder="-- Chọn mức độ --"
+          canCreate={false}
         />
         <FormInput
           label="Địa điểm xảy ra"
@@ -614,7 +610,7 @@ export function TabCase({ formData, setFormData, errors, setErrors }: TabProps) 
           label="Viện kiểm sát"
           value={formData.prosecutionOffice}
           onChange={(v) => update("prosecutionOffice", v)}
-          options={PROSECUTION_OFFICE_OPTIONS}
+          directoryType="PROSECUTION_OFFICE"
           placeholder="-- Chọn VKS --"
           canCreate={false}
           testId="fk-prosecution"
@@ -759,12 +755,13 @@ export function TabIncidentTDC({ formData, setFormData, errors, setErrors }: Tab
           onChange={(v) => update("tdcIncidentCode", v)}
           placeholder="TDC-VV-2026-001"
         />
-        <FormSelect
+        <FKSelect
           label="Nguồn tiếp nhận"
           value={formData.tdcSource}
           onChange={(v) => update("tdcSource", v)}
-          options={TDC_SOURCE_OPTIONS}
+          directoryType="TDC_SOURCE"
           placeholder="-- Chọn nguồn --"
+          canCreate={false}
         />
         <FormInput
           label="Ngày tiếp nhận"
@@ -819,12 +816,13 @@ export function TabCaseTDC({ formData, setFormData, errors, setErrors }: TabProp
           onChange={(v) => update("tdcCaseCode", v)}
           placeholder="TDC-VA-2026-001"
         />
-        <FormSelect
+        <FKSelect
           label="Loại vụ án TĐC"
           value={formData.tdcCaseType}
           onChange={(v) => update("tdcCaseType", v)}
-          options={TDC_CASE_TYPE_OPTIONS}
+          directoryType="TDC_CASE_TYPE"
           placeholder="-- Chọn loại --"
+          canCreate={false}
         />
         <FormInput
           label="Ngày kết thúc"
@@ -931,14 +929,6 @@ const DOC_TYPE_LABEL: Record<string, string> = {
   AM_THANH:  "Âm thanh",
   KHAC:      "Khác",
 };
-
-const DOC_TYPE_OPTIONS = [
-  { value: "VAN_BAN",  label: "Văn bản" },
-  { value: "HINH_ANH", label: "Hình ảnh" },
-  { value: "VIDEO",    label: "Video" },
-  { value: "AM_THANH", label: "Âm thanh" },
-  { value: "KHAC",     label: "Khác" },
-];
 
 function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
@@ -1061,14 +1051,14 @@ export function TabBusinessFiles({ caseId }: { caseId?: string }) {
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-700 mb-1">Loại tài liệu</label>
-              <select
+              <FKSelect
+                label="Loại tài liệu"
                 value={docType}
-                onChange={(e) => setDocType(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                {DOC_TYPE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
+                onChange={(v) => setDocType(v)}
+                directoryType="DOCUMENT_TYPE"
+                placeholder="-- Chọn loại --"
+                canCreate={false}
+              />
             </div>
             <div className="md:col-span-2">
               <label className="block text-xs font-medium text-slate-700 mb-1">Mô tả (tùy chọn)</label>

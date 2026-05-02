@@ -11,6 +11,7 @@ const TdacReportPage = lazy(() => import('@/pages/reports/TdacReportPage'));
 const TdacDraftsPage = lazy(() => import('@/pages/reports/TdacDraftsPage'));
 const TdacDraftDetailPage = lazy(() => import('@/pages/reports/TdacDraftDetailPage'));
 const Stat48ReportPage = lazy(() => import('@/pages/reports/Stat48ReportPage'));
+const PhuLuc16Page = lazy(() => import('@/pages/reports/PhuLuc16Page'));
 
 const wrap = (node: ReactElement): ReactElement => (
   <Suspense fallback={null}>{node}</Suspense>
@@ -28,5 +29,6 @@ export function renderReportsRoutes(): ReactElement[] {
     <Route key="reports-tdac-drafts" path="/reports/tdac/drafts" element={wrap(<TdacDraftsPage />)} />,
     <Route key="reports-tdac-draft-detail" path="/reports/tdac/drafts/:id" element={wrap(<TdacDraftDetailPage />)} />,
     <Route key="reports-stat48" path="/reports/stat48" element={wrap(<Stat48ReportPage />)} />,
+    <Route key="reports-phu-luc-1-6" path="/reports/phu-luc-1-6" element={wrap(<PhuLuc16Page />)} />,
   ];
 }

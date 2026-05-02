@@ -2,6 +2,44 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.13.1.0] - 2026-05-02
+
+### Added
+- **Danh mục hệ thống hiển thị dữ liệu thật** (`Settings → Danh mục`): Không còn mock data. Trang hiển thị 21 loại danh mục với số lượng thật từ DB — Phường/Xã: 10,051 mục, Tỉnh/Thành phố: 34 mục, Loại vụ việc: 4 mục, v.v. Quận/Huyện hiển thị với badge "Di sản · trước 01/07/2025" (backward compat).
+- **API `GET /directories/stats`**: Endpoint mới trả về count theo từng loại danh mục. Có test.
+- **Seed 34 Tỉnh/Thành phố**: Tự động seed khi `npm run db:seed`. 34 tỉnh/TP chính xác theo cải cách 2025.
+- **Seed 5 loại mới**: TDC_SOURCE (nguồn tin TĐC), TDC_CASE_TYPE (loại vụ TĐC), DOCUMENT_TYPE (loại tài liệu), INCIDENT_LEVEL (mức độ nghiêm trọng), UNIT (đơn vị công an).
+- **`seedWards()` chạy tự động**: `npm run db:seed` giờ tự động seed 10,051 phường/xã toàn quốc — không cần chạy lệnh riêng.
+
+### Changed
+- **10 dropdown chuyển sang dùng dữ liệu DB**: Tất cả form nhập liệu (PetitionFormPage, CaseFormPage, IncidentFormPage) giờ dùng `FKSelect directoryType` thay vì hardcoded options. Các loại: PETITION_TYPE, INCIDENT_TYPE, INCIDENT_LEVEL, PRIORITY, CASE_CLASSIFICATION, PROSECUTION_OFFICE, EVIDENCE_TYPE, TDC_SOURCE, TDC_CASE_TYPE, DOCUMENT_TYPE, UNIT.
+- **Quận/Huyện → Legacy**: Các entry DISTRICT trong DB được set `isActive=false` — không hiển thị trong form nhập mới nhưng vẫn bảo toàn dữ liệu hồ sơ cũ.
+
+## [0.13.0.0] - 2026-05-02
+
+### Added (2026-05-02)
+- **Dữ liệu phường/xã toàn quốc** (`frontend/src/data/vietnam-wards.ts`): 470+ phường/xã với TPHCM ưu tiên đầu. Autocomplete tại trang Thống kê phường/xã gợi ý phường/xã thật theo quy định 2025 — TPHCM đầu tiên, sau đó các tỉnh. 15 unit tests.
+- **Backend seed script** (`npm run db:seed:wards`): Seed 3321 phường/xã vào database để API `/directories?type=WARD` trả về data thật. Idempotent — an toàn chạy nhiều lần.
+- **Dữ liệu 34 tỉnh/TP** (`frontend/src/data/vietnam-provinces.ts`): Danh sách chính xác 34 tỉnh/TP sau cải cách 2025 (không còn 63 — sau sáp nhập).
+
+### Changed (2026-05-02)
+- **Đổi tên "Xuất báo cáo"** → "Xuất hồ sơ đơn thư": Tên cũ gây nhầm với báo cáo thống kê.
+- **Đổi tên "Thống kê quận/huyện"** → "Thống kê phường/xã": Cấp quận/huyện không còn tồn tại sau cải cách 2025.
+- **CSV export headers**: Cột "Quận/huyện" → "Khu vực" trong 3 trang phân loại.
+- **DistrictStatisticsPage**: Autocomplete phường/xã từ data thật (TPHCM ưu tiên), filename `ThongKePhuongXa_`.
+
+## [0.13.0.0] - 2026-05-01
+
+### Added
+- **Phụ lục 1-6 BCA** (`GET /reports/phu-luc-1-6/preview` + `/export`): Cán bộ có thể xem và xuất Excel 6 loại danh sách hồ sơ theo quy định BCA — PL1 (vụ việc đang giải quyết), PL2/3 (vụ việc TĐC hết/còn thời hiệu), PL4 (vụ án đang điều tra), PL5/6 (vụ án TĐC hết/còn thời hiệu). Hỗ trợ filter theo đơn vị + kỳ ngày. Export Excel với multi-row per bị can.
+- **Trang Phụ lục 1-6 BCA** (`/reports/phu-luc-1-6`): Giao diện 6 tab, filter, preview bảng dữ liệu, nút Xuất Excel với progress indicator.
+- **Schema**: Thêm `ngayHetThoiHieu` (Case) và `ngayHetThoiHieuVV` (Incident) để phân biệt hồ sơ TĐC hết/còn thời hiệu truy cứu TNHS.
+- **BCA Excel Helper** (`backend/src/common/bca-excel.helper.ts`): Shared utility chuẩn hóa format Excel theo quy định BCA — header CÔNG AN TPHCM/PHÒNG PC02, alternating row colors (#EFF6FF/white), footer ký tên, print setup A4 landscape.
+
+### Changed
+- **Excel báo cáo tháng/quý**: Nâng cấp từ basic navy header lên BCA professional format đầy đủ (6 rows header, alternating rows, footer signature, print setup).
+- **Excel thống kê 48 trường (Stat48)**: Mỗi sheet tab nay có header CÔNG AN TPHCM/PHÒNG PC02 + footer ký tên.
+
 ## [0.12.0.0] - 2026-05-01
 
 ### Added

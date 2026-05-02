@@ -148,8 +148,8 @@ export default function OtherClassificationPage() {
   const handleExport = () => {
     const toExport = filteredData.length > 0 ? filteredData : allData;
     if (toExport.length === 0) { alert('Không có dữ liệu để xuất!'); return; }
-    const headers = ['STT', 'Tên vụ', 'Loại', 'Địa điểm', 'Phường/xã',
-                     'Quận/huyện', 'Người báo cáo', 'Ngày tiếp nhận', 'Trạng thái', 'Phân loại'];
+    const headers = ['STT', 'Tên vụ', 'Loại', 'Địa điểm', 'Phường/Xã',
+                     'Khu vực', 'Người báo cáo', 'Ngày tiếp nhận', 'Trạng thái', 'Phân loại'];
     const rows = toExport.map(c => [
       c.stt, c.caseName, c.type, c.location,
       c.ward, c.district, c.reportedBy, c.reportedDate, c.statusLabel, c.category,

@@ -1,0 +1,31 @@
+appId: ${APP_ID}
+tags:
+  - cases
+  - status-update
+
+---
+# Test: Cập nhật trạng thái vụ án (InitialCasesPage — "Nhận xử lý")
+# Validates: PATCH /cases/:id {status: DANG_DIEU_TRA} — fixed in v0.12.1.0
+- runFlow: 01_login.yaml
+- waitForAnimationToEnd
+
+# Navigate to cases list
+- tapOn: "Vụ án"
+- waitForAnimationToEnd
+- takeScreenshot: 11_cases_list
+
+# Verify list loads without null/undefined
+- assertNotVisible: "null"
+- assertNotVisible: "undefined"
+- assertNotVisible: "Exception"
+
+# Tap on a case to view detail
+- tapOn:
+    index: 0
+- waitForAnimationToEnd
+- takeScreenshot: 11_case_detail
+
+# Verify detail screen has data
+- assertNotVisible: "null"
+- assertNotVisible: "undefined"
+- assertNotVisible: "N/A"

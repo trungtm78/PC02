@@ -35,6 +35,12 @@ export class DirectoryController {
     return this.directoryService.findTypes();
   }
 
+  @Get('stats')
+  @RequirePermissions({ action: 'read', subject: 'Directory' })
+  getStats() {
+    return this.directoryService.getTypeStats();
+  }
+
   @Get(':id')
   @RequirePermissions({ action: 'read', subject: 'Directory' })
   findOne(@Param('id') id: string) {

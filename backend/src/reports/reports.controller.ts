@@ -52,7 +52,7 @@ class QueryDistrictStatsDto {
 
   @IsOptional()
   @IsString()
-  district?: string;
+  district?: string; // Tên phường/xã (cải cách 2025: không còn cấp quận/huyện)
 }
 
 class QueryOverdueDto {

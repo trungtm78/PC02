@@ -312,14 +312,15 @@ export function IncidentFormPage() {
               />
             </div>
             <div>
-              <label className={labelClass}>Loại nguồn tin (Điều 144 BLTTHS)</label>
-              <select value={formData.loaiDonVu} onChange={(e) => update("loaiDonVu", e.target.value)}
-                className={inputClass} data-testid="field-loaiDonVu">
-                <option value="">-- Chọn loại nguồn tin --</option>
-                <option value="TO_GIAC">Tố giác của cá nhân (khoản 1a)</option>
-                <option value="TIN_BAO">Tin báo của cơ quan, tổ chức (khoản 1b)</option>
-                <option value="KIEN_NGHI_KHOI_TO">Kiến nghị khởi tố (khoản 1c)</option>
-              </select>
+              <FKSelect
+                label="Loại nguồn tin (Điều 144 BLTTHS)"
+                value={formData.loaiDonVu}
+                onChange={(v) => update("loaiDonVu", v)}
+                directoryType="TDC_SOURCE"
+                placeholder="-- Chọn loại nguồn tin --"
+                canCreate={false}
+                testId="field-loaiDonVu"
+              />
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
