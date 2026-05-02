@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.13.0.0] - 2026-05-02
+
+### Added (2026-05-02)
+- **Dữ liệu phường/xã toàn quốc** (`frontend/src/data/vietnam-wards.ts`): 470+ phường/xã với TPHCM ưu tiên đầu. Autocomplete tại trang Thống kê phường/xã gợi ý phường/xã thật theo quy định 2025 — TPHCM đầu tiên, sau đó các tỉnh. 15 unit tests.
+- **Backend seed script** (`npm run db:seed:wards`): Seed 3321 phường/xã vào database để API `/directories?type=WARD` trả về data thật. Idempotent — an toàn chạy nhiều lần.
+- **Dữ liệu 34 tỉnh/TP** (`frontend/src/data/vietnam-provinces.ts`): Danh sách chính xác 34 tỉnh/TP sau cải cách 2025 (không còn 63 — sau sáp nhập).
+
+### Changed (2026-05-02)
+- **Đổi tên "Xuất báo cáo"** → "Xuất hồ sơ đơn thư": Tên cũ gây nhầm với báo cáo thống kê.
+- **Đổi tên "Thống kê quận/huyện"** → "Thống kê phường/xã": Cấp quận/huyện không còn tồn tại sau cải cách 2025.
+- **CSV export headers**: Cột "Quận/huyện" → "Khu vực" trong 3 trang phân loại.
+- **DistrictStatisticsPage**: Autocomplete phường/xã từ data thật (TPHCM ưu tiên), filename `ThongKePhuongXa_`.
+
 ## [0.13.0.0] - 2026-05-01
 
 ### Added
