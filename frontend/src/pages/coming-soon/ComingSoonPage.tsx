@@ -150,9 +150,9 @@ const moduleMap: Record<string, ModuleInfo> = {
     description: 'Xem và xuất báo cáo nghiệp vụ hàng quý.',
   },
   '/statistics/district': {
-    label: 'Thống kê quận/huyện',
+    label: 'Thống kê phường/xã',
     icon: BarChart3,
-    description: 'Thống kê tình hình an ninh theo quận/huyện.',
+    description: 'Thống kê tình hình an ninh theo phường/xã.',
   },
   '/settings/overdue-records': {
     label: 'Hồ sơ trễ hạn',

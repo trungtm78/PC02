@@ -255,7 +255,7 @@ export default function WardCasesPage() {
   const handleExport = () => {
     const toExport = filteredData.length > 0 ? filteredData : allData;
     if (toExport.length === 0) { alert('Không có dữ liệu để xuất!'); return; }
-    const headers = ['STT', 'Tên vụ án', 'Tội danh', 'Phường/xã', 'Quận/huyện',
+    const headers = ['STT', 'Tên vụ án', 'Tội danh', 'Phường/Xã', 'Khu vực',
                      'Người báo cáo', 'Ngày tiếp nhận', 'Trạng thái', 'Mức độ'];
     const rows = toExport.map(c => [
       c.stt, c.caseName, c.charge, c.ward, c.district,

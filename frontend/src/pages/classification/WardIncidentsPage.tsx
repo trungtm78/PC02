@@ -144,8 +144,8 @@ export default function WardIncidentsPage() {
   const handleExport = () => {
     const toExport = filteredData.length > 0 ? filteredData : allData;
     if (toExport.length === 0) { alert('Không có dữ liệu để xuất!'); return; }
-    const headers = ['STT', 'Tên vụ việc', 'Loại', 'Địa điểm', 'Phường/xã',
-                     'Quận/huyện', 'Người báo cáo', 'Ngày tiếp nhận', 'Trạng thái', 'Ưu tiên'];
+    const headers = ['STT', 'Tên vụ việc', 'Loại', 'Địa điểm', 'Phường/Xã',
+                     'Khu vực', 'Người báo cáo', 'Ngày tiếp nhận', 'Trạng thái', 'Ưu tiên'];
     const rows = toExport.map(i => [
       i.stt, i.incidentName, i.type, i.location,
       i.ward, i.district, i.reportedBy, i.reportedDate, i.statusLabel, i.priorityLabel,
