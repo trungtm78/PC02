@@ -107,7 +107,7 @@ function formatDate(dateStr?: string): string {
 
 export function PetitionListPage() {
   const navigate = useNavigate();
-  const { canDispatch } = usePermission();
+  const { canDispatch, canEdit } = usePermission();
   const [currentPage, setCurrentPage] = useState(1);
   const PAGE_SIZE = 20;
   const [petitions, setPetitions] = useState<Petition[]>([]);
@@ -450,6 +450,9 @@ export function PetitionListPage() {
           <table className="w-full" data-testid="petition-table">
             <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
+                <th className="px-3 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider w-28 sticky left-0 bg-slate-50 z-10 border-r border-slate-200">
+                  Thao tác
+                </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider w-12">
                   STT
                 </th>
@@ -474,9 +477,6 @@ export function PetitionListPage() {
                 <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">
                   Hạn xử lý
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider w-32">
-                  Thao tác
-                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
@@ -499,55 +499,22 @@ export function PetitionListPage() {
               ) : (
                 displayedPetitions.map((petition, index) => {
                   const overdue = isOverdue(petition.deadline);
+                  const canEditRow = canEdit('petitions');
                   return (
                     <tr
                       key={petition.id}
-                      className={`hover:bg-slate-50 transition-colors ${overdue ? "bg-red-50/40" : ""}`}
                       data-testid="petition-row"
+                      tabIndex={canEditRow ? 0 : undefined}
+                      role={canEditRow ? "button" : undefined}
+                      onClick={canEditRow ? () => navigate(`/petitions/${petition.id}/edit`) : undefined}
+                      onKeyDown={canEditRow ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/petitions/${petition.id}/edit`); } } : undefined}
+                      className={`transition-colors ${overdue ? "bg-red-50/40" : ""} ${canEditRow ? "cursor-pointer hover:bg-blue-50" : "hover:bg-slate-50"}`}
                     >
-                      <td className="px-4 py-3 text-sm text-slate-700 font-medium">
-                        {index + 1}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-blue-600">
-                            {petition.stt}
-                          </span>
-                          {overdue && (
-                            <span
-                              className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-medium rounded-full"
-                              data-testid="overdue-badge"
-                            >
-                              Quá hạn
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-700">
-                        {formatDate(petition.receivedDate)}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-slate-700">
-                        {petition.unit ?? "—"}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-700 font-medium">
-                        {petition.senderName}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-700">
-                        {petition.suspectedPerson ?? "—"}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <span
-                          className={`px-3 py-1.5 rounded-md text-xs font-medium ${STATUS_COLORS[petition.status]}`}
-                        >
-                          {STATUS_LABELS[petition.status]}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <span className={`text-sm ${overdue ? "text-red-600 font-medium" : "text-slate-700"}`}>
-                          {formatDate(petition.deadline)}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
+                      {/* Thao tác — FIRST, sticky */}
+                      <td
+                        className={`px-3 py-3 whitespace-nowrap sticky left-0 z-10 border-r border-slate-100 ${overdue ? "bg-red-50/40" : "bg-white"}`}
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <div className="flex items-center gap-1">
                           <button
                             onClick={() => navigate(`/petitions/${petition.id}`)}
@@ -595,7 +562,7 @@ export function PetitionListPage() {
                             </button>
                             {showActionMenu === petition.id && (
                               <div
-                                className="absolute right-0 top-full mt-1 w-56 bg-white border border-slate-200 rounded-lg shadow-lg z-10"
+                                className="absolute right-0 top-full mt-1 w-56 bg-white border border-slate-200 rounded-lg shadow-lg z-20"
                                 onClick={(e) => e.stopPropagation()}
                               >
                                 {canDispatch && (
@@ -644,6 +611,24 @@ export function PetitionListPage() {
                             )}
                           </div>
                         </div>
+                      </td>
+                      {/* Regular columns */}
+                      <td className="px-4 py-3 text-sm text-slate-700 font-medium">{index + 1}</td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-blue-600">{petition.stt}</span>
+                          {overdue && <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-medium rounded-full" data-testid="overdue-badge">Quá hạn</span>}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-700">{formatDate(petition.receivedDate)}</td>
+                      <td className="px-4 py-3 text-sm text-slate-700">{petition.unit ?? "—"}</td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-700 font-medium">{petition.senderName}</td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-700">{petition.suspectedPerson ?? "—"}</td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span className={`px-3 py-1.5 rounded-md text-xs font-medium ${STATUS_COLORS[petition.status]}`}>{STATUS_LABELS[petition.status]}</span>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span className={`text-sm ${overdue ? "text-red-600 font-medium" : "text-slate-700"}`}>{formatDate(petition.deadline)}</span>
                       </td>
                     </tr>
                   );

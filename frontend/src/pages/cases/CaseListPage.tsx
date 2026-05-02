@@ -180,7 +180,7 @@ function formatDeadline(deadline: string | null): string {
 // ─────────────────────────────────────────────────────────
 function CaseListPage() {
   const navigate = useNavigate();
-  const { canDispatch } = usePermission();
+  const { canDispatch, canEdit } = usePermission();
   const [currentPage, setCurrentPage] = useState(1);
   const PAGE_SIZE = 20;
   const [caseList, setCaseList] = useState<Case[]>([]);
@@ -531,6 +531,9 @@ function CaseListPage() {
               <table className="w-full" data-testid="case-table">
                 <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>
+                    <th className="px-3 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider w-28 sticky left-0 bg-slate-50 z-10 border-r border-slate-200">
+                      Thao tác
+                    </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">
                       Mã vụ án
                     </th>
@@ -555,9 +558,6 @@ function CaseListPage() {
                     <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">
                       Ngày tạo
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">
-                      Thao tác
-                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
@@ -575,67 +575,22 @@ function CaseListPage() {
                     displayedCases.map((caseItem) => {
                       const overdue = isOverdue(caseItem.investigationDeadline);
                       const daysOverdue = getDaysOverdue(caseItem.investigationDeadline);
+                      const canEditRow = canEdit('cases');
                       return (
                         <tr
                           key={caseItem.id}
-                          className={`hover:bg-slate-50 transition-colors ${overdue ? "bg-red-50/50" : ""}`}
                           data-testid={`case-row-${caseItem.id}`}
+                          tabIndex={canEditRow ? 0 : undefined}
+                          role={canEditRow ? "button" : undefined}
+                          onClick={canEditRow ? () => navigate(`/cases/${caseItem.id}/edit`) : undefined}
+                          onKeyDown={canEditRow ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/cases/${caseItem.id}/edit`); } } : undefined}
+                          className={`transition-colors ${overdue ? "bg-red-50/50" : ""} ${canEditRow ? "cursor-pointer hover:bg-blue-50" : "hover:bg-slate-50"}`}
                         >
-                          <td className="px-4 py-4 whitespace-nowrap">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-medium text-blue-600 font-mono">
-                                {caseItem.id.slice(0, 8)}…
-                              </span>
-                              {overdue && (
-                                <span
-                                  className="px-2 py-0.5 text-xs font-bold text-white bg-red-600 rounded animate-pulse"
-                                  data-testid={`overdue-badge-${caseItem.id}`}
-                                  title={`Quá hạn ${daysOverdue} ngày`}
-                                >
-                                  Quá hạn
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-4 py-4">
-                            <span className="text-sm text-slate-800 line-clamp-2">
-                              {caseItem.name}
-                            </span>
-                          </td>
-                          <td className="px-4 py-4 whitespace-nowrap">
-                            <span
-                              className={`px-2.5 py-1 rounded-full text-xs font-medium ${caseItem.statusColor}`}
-                            >
-                              {caseItem.status}
-                            </span>
-                          </td>
-                          <td className="px-4 py-4">
-                            <span className="text-sm text-slate-700 line-clamp-1">
-                              {caseItem.charges}
-                            </span>
-                          </td>
-                          <td className="px-4 py-4 whitespace-nowrap">
-                            <span className="text-sm font-medium text-slate-800">
-                              {caseItem.suspectCount}
-                            </span>
-                          </td>
-                          <td className="px-4 py-4 whitespace-nowrap">
-                            <span className={`text-sm ${overdue ? "text-red-600 font-medium" : "text-slate-600"}`}>
-                              {formatDeadline(caseItem.investigationDeadline)}
-                              {overdue && <span className="ml-1">(-{daysOverdue} ngày)</span>}
-                            </span>
-                          </td>
-                          <td className="px-4 py-4 whitespace-nowrap">
-                            <span className="text-sm text-slate-700">
-                              {caseItem.investigator}
-                            </span>
-                          </td>
-                          <td className="px-4 py-4 whitespace-nowrap">
-                            <span className="text-sm text-slate-600">
-                              {caseItem.dateCreated}
-                            </span>
-                          </td>
-                          <td className="px-4 py-4 whitespace-nowrap">
+                          {/* Thao tác — FIRST, sticky */}
+                          <td
+                            className={`px-3 py-4 whitespace-nowrap sticky left-0 z-10 border-r border-slate-100 ${overdue ? "bg-red-50/50" : "bg-white"}`}
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             <div className="flex items-center gap-1">
                               <button
                                 onClick={() => navigate(`/cases/${caseItem.id}`)}
@@ -656,7 +611,7 @@ function CaseListPage() {
                               {/* ⋮ Action menu */}
                               <div className="relative" ref={showActionMenu === caseItem.id ? actionMenuRef : null}>
                                 <button
-                                  onClick={() => setShowActionMenu(showActionMenu === caseItem.id ? null : caseItem.id)}
+                                  onClick={(e) => { e.stopPropagation(); setShowActionMenu(showActionMenu === caseItem.id ? null : caseItem.id); }}
                                   className="p-2 text-slate-600 hover:bg-slate-100 rounded transition-colors"
                                   title="Thao tác khác"
                                   data-testid={`btn-more-${caseItem.id}`}
@@ -747,6 +702,24 @@ function CaseListPage() {
                               </div>
                             </div>
                           </td>
+                          {/* Regular columns */}
+                          <td className="px-4 py-4 whitespace-nowrap">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium text-blue-600 font-mono">{caseItem.id.slice(0, 8)}…</span>
+                              {overdue && <span className="px-2 py-0.5 text-xs font-bold text-white bg-red-600 rounded animate-pulse" data-testid={`overdue-badge-${caseItem.id}`} title={`Quá hạn ${daysOverdue} ngày`}>Quá hạn</span>}
+                            </div>
+                          </td>
+                          <td className="px-4 py-4"><span className="text-sm text-slate-800 line-clamp-2">{caseItem.name}</span></td>
+                          <td className="px-4 py-4 whitespace-nowrap"><span className={`px-2.5 py-1 rounded-full text-xs font-medium ${caseItem.statusColor}`}>{caseItem.status}</span></td>
+                          <td className="px-4 py-4"><span className="text-sm text-slate-700 line-clamp-1">{caseItem.charges}</span></td>
+                          <td className="px-4 py-4 whitespace-nowrap"><span className="text-sm font-medium text-slate-800">{caseItem.suspectCount}</span></td>
+                          <td className="px-4 py-4 whitespace-nowrap">
+                            <span className={`text-sm ${overdue ? "text-red-600 font-medium" : "text-slate-600"}`}>
+                              {formatDeadline(caseItem.investigationDeadline)}{overdue && <span className="ml-1">(-{daysOverdue} ngày)</span>}
+                            </span>
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap"><span className="text-sm text-slate-700">{caseItem.investigator}</span></td>
+                          <td className="px-4 py-4 whitespace-nowrap"><span className="text-sm text-slate-600">{caseItem.dateCreated}</span></td>
                         </tr>
                       );
                     })
