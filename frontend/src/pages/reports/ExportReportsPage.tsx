@@ -453,9 +453,9 @@ export default function ExportReportsPage() {
       )}
 
       <div>
-        <h1 className="text-2xl font-bold text-slate-800">Xuất báo cáo</h1>
+        <h1 className="text-2xl font-bold text-slate-800">Xuất hồ sơ đơn thư</h1>
         <p className="text-slate-600 text-sm mt-1">
-          Xuất danh sách hồ sơ, chi tiết và biên nhận theo mẫu chuẩn
+          Xuất danh sách đơn thư ra Excel, chi tiết ra Word và in biên nhận tiếp nhận
         </p>
       </div>
 
