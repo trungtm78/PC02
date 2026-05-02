@@ -1,6 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import SettingsPage from '../SettingsPage';
+
+const renderWithRouter = (ui: React.ReactElement) => {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter>{ui}</MemoryRouter>
+    </QueryClientProvider>
+  );
+};
 
 // Mock usePermission hook (not used in SettingsPage but may be in future)
 vi.mock('@/hooks/usePermission', () => ({
@@ -18,14 +29,14 @@ describe('SettingsPage', () => {
   });
 
   it('should render settings page with sidebar', () => {
-    render(<SettingsPage />);
+    renderWithRouter(<SettingsPage />);
     
     expect(screen.getByText('Cài đặt hệ thống')).toBeInTheDocument();
     expect(screen.getByText('Quản lý cấu hình')).toBeInTheDocument();
   });
 
   it('should render all menu items in sidebar', () => {
-    render(<SettingsPage />);
+    renderWithRouter(<SettingsPage />);
     
     const menuItems = ['NgườI dùng', 'Phân quyền', 'Danh mục', 'Tham số', 'Thông báo', 'Bảo mật'];
     menuItems.forEach(item => {
@@ -34,13 +45,13 @@ describe('SettingsPage', () => {
   });
 
   it('should display user management module by default', () => {
-    render(<SettingsPage />);
+    renderWithRouter(<SettingsPage />);
     
     expect(screen.getByText('Quản lý ngườI dùng')).toBeInTheDocument();
   });
 
   it('should switch to permissions module when clicking menu', async () => {
-    render(<SettingsPage />);
+    renderWithRouter(<SettingsPage />);
     
     fireEvent.click(screen.getByTestId('settings-menu-permissions'));
     
@@ -50,7 +61,7 @@ describe('SettingsPage', () => {
   });
 
   it('should switch to directories module when clicking menu', async () => {
-    render(<SettingsPage />);
+    renderWithRouter(<SettingsPage />);
     
     fireEvent.click(screen.getByTestId('settings-menu-directories'));
     
@@ -60,7 +71,7 @@ describe('SettingsPage', () => {
   });
 
   it('should switch to parameters module when clicking menu', async () => {
-    render(<SettingsPage />);
+    renderWithRouter(<SettingsPage />);
     
     fireEvent.click(screen.getByTestId('settings-menu-parameters'));
     
@@ -70,7 +81,7 @@ describe('SettingsPage', () => {
   });
 
   it('should switch to notifications module when clicking menu', async () => {
-    render(<SettingsPage />);
+    renderWithRouter(<SettingsPage />);
     
     fireEvent.click(screen.getByTestId('settings-menu-notifications'));
     
@@ -80,7 +91,7 @@ describe('SettingsPage', () => {
   });
 
   it('should switch to security module when clicking menu', async () => {
-    render(<SettingsPage />);
+    renderWithRouter(<SettingsPage />);
     
     fireEvent.click(screen.getByTestId('settings-menu-security'));
     
@@ -90,7 +101,7 @@ describe('SettingsPage', () => {
   });
 
   it('should render user management table with correct headers', () => {
-    render(<SettingsPage />);
+    renderWithRouter(<SettingsPage />);
     
     const headers = ['Tên', 'Email', 'Vai trò', 'Trạng thái', 'Thao tác'];
     headers.forEach(header => {
@@ -99,13 +110,13 @@ describe('SettingsPage', () => {
   });
 
   it('should render add user button in user management', () => {
-    render(<SettingsPage />);
+    renderWithRouter(<SettingsPage />);
     
     expect(screen.getByText('Thêm ngườI dùng')).toBeInTheDocument();
   });
 
   it('should render role selector in permissions module', async () => {
-    render(<SettingsPage />);
+    renderWithRouter(<SettingsPage />);
     
     fireEvent.click(screen.getByTestId('settings-menu-permissions'));
     
@@ -118,7 +129,7 @@ describe('SettingsPage', () => {
   });
 
   it('should render directories with counts', async () => {
-    render(<SettingsPage />);
+    renderWithRouter(<SettingsPage />);
     
     fireEvent.click(screen.getByTestId('settings-menu-directories'));
     
@@ -130,7 +141,7 @@ describe('SettingsPage', () => {
   });
 
   it('should render parameters with input fields', async () => {
-    render(<SettingsPage />);
+    renderWithRouter(<SettingsPage />);
     
     fireEvent.click(screen.getByTestId('settings-menu-parameters'));
     
@@ -142,7 +153,7 @@ describe('SettingsPage', () => {
   });
 
   it('should render notification toggles', async () => {
-    render(<SettingsPage />);
+    renderWithRouter(<SettingsPage />);
     
     fireEvent.click(screen.getByTestId('settings-menu-notifications'));
     
@@ -154,12 +165,12 @@ describe('SettingsPage', () => {
   });
 
   it('should render security settings with password change', async () => {
-    render(<SettingsPage />);
+    renderWithRouter(<SettingsPage />);
     
     fireEvent.click(screen.getByTestId('settings-menu-security'));
     
     await waitFor(() => {
-      expect(screen.getByText('Đổi mật khẩu')).toBeInTheDocument();
+      expect(screen.getAllByText('Đổi mật khẩu').length).toBeGreaterThan(0);
       expect(screen.getByText('Xác thực hai yếu tố (2FA)')).toBeInTheDocument();
     });
   });

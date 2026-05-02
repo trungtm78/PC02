@@ -80,6 +80,7 @@ describe('FEATURE_MODULES registry', () => {
       '/cases',
       '/cases/:id',
       '/cases/:id/edit',
+      '/cases/tdac-backfill',
       '/comprehensive-list',
       '/initial-cases',
     ]);
