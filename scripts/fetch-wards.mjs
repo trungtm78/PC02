@@ -183,12 +183,16 @@ async function main() {
   const provinces = await fetchJSON(`${BASE}/p/`);
   console.log(`  Got ${provinces.length} provinces (old 63-province structure)`);
 
-  // Verify all provinces are mapped
+  // Verify all provinces are mapped — exit(1) if any are missing to prevent silent P-code data
   const unmapped = provinces.filter(p => !PROVINCE_MAP.has(p.code));
   if (unmapped.length > 0) {
-    console.warn(`  ⚠️  Unmapped provinces (will use fallback P{code}):`);
-    unmapped.forEach(p => console.warn(`    ${p.code}: ${p.name}`));
+    console.error(`\n❌ ERROR: ${unmapped.length} province(s) not in PROVINCE_MAP:`);
+    unmapped.forEach(p => console.error(`   Code ${p.code}: ${p.name}`));
+    console.error('\nFix PROVINCE_MAP in fetch-wards.mjs before running again.');
+    console.error('These provinces would generate fallback P{code} entries in the output.\n');
+    process.exit(1);
   }
+  console.log(`  ✅ All ${provinces.length} provinces correctly mapped to 34 new tỉnh/TP`);
 
   // Build district → province mapping
   console.log('Building district→province mapping...');
@@ -261,7 +265,7 @@ async function main() {
   }
 
   if (unmappedCount > 10) {
-    console.warn(`  ⚠️  Total unmapped wards: ${unmappedCount}`);
+    console.error(`  ❌ Total unmapped wards: ${unmappedCount} (check district→province mapping)`);
   }
 
   // Sort: TPHCM first, then other priority provinces, then rest alphabetically
