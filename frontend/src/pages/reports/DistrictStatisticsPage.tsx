@@ -1,13 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { searchWards } from '@/data/vietnam-wards';
+import { ProvinceWardSelect } from '@/components/ProvinceWardSelect';
 import { useNavigate } from "react-router";
 import {
   Search,
   RotateCcw,
   Download,
   Calendar,
-  Building2,
   AlertCircle,
   TrendingUp,
   BarChart3,
@@ -33,7 +32,8 @@ import { api } from "@/lib/api";
 interface FilterData {
   fromDate: string;
   toDate: string;
-  district: string;
+  province: string;  // province code (HCM, HN, ...) for ProvinceWardSelect
+  district: string;  // ward name sent to API as ?district=
 }
 
 interface DailyData {
@@ -56,12 +56,11 @@ export default function DistrictStatisticsPage() {
   const navigate = useNavigate();
   const [hasData, setHasData] = useState(false);
   const [selectedPoint, setSelectedPoint] = useState<DailyData | null>(null);
-  const [wardSuggestions, setWardSuggestions] = useState<string[]>([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
 
   const [filter, setFilter] = useState<FilterData>({
     fromDate: "",
     toDate: "",
+    province: "",
     district: "",
   });
 
@@ -145,6 +144,7 @@ export default function DistrictStatisticsPage() {
     setFilter({
       fromDate: "",
       toDate: "",
+      province: "",
       district: "",
     });
     setErrors({});
@@ -256,61 +256,23 @@ export default function DistrictStatisticsPage() {
             )}
           </div>
 
-          {/* Phường/Xã — autocomplete */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
-              Phường/Xã <span className="text-red-500">*</span>
-            </label>
-            <div className="relative">
-              <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input
-                type="text"
-                value={filter.district}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setFilter({ ...filter, district: val });
-                  if (errors.district) setErrors({ ...errors, district: "" });
-                  const suggestions = searchWards(val, 8).map(w => w.name);
-                  setWardSuggestions(suggestions);
-                  setShowSuggestions(suggestions.length > 0);
-                }}
-                onFocus={() => {
-                  if (!filter.district) {
-                    // Show HCMC wards by default
-                    const suggestions = searchWards('Phường', 8).map(w => w.name);
-                    setWardSuggestions(suggestions);
-                    setShowSuggestions(true);
-                  }
-                }}
-                onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-                placeholder="Nhập tên phường/xã (ưu tiên TPHCM)..."
-                autoComplete="off"
-                className={`w-full pl-9 pr-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 ${
-                  errors.district
-                    ? "border-red-300 focus:ring-red-500"
-                    : "border-slate-300 focus:ring-blue-500"
-                }`}
-              />
-              {showSuggestions && wardSuggestions.length > 0 && (
-                <ul className="absolute z-20 left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                  {wardSuggestions.map((name, i) => (
-                    <li
-                      key={i}
-                      onMouseDown={() => {
-                        setFilter({ ...filter, district: name });
-                        setShowSuggestions(false);
-                      }}
-                      className="px-4 py-2 text-sm hover:bg-blue-50 cursor-pointer text-slate-700"
-                    >
-                      {name}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-            {errors.district && (
-              <p className="text-xs text-red-600 mt-1">{errors.district}</p>
-            )}
+          {/* Tỉnh/TP + Phường/Xã — cascade từ DB (thay thế hardcoded autocomplete) */}
+          <div className="col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <ProvinceWardSelect
+              provinceCode={filter.province}
+              ward={filter.district}
+              onProvinceChange={(code) => {
+                setFilter({ ...filter, province: code, district: '' });
+                if (errors.district) setErrors({ ...errors, district: '' });
+              }}
+              onWardChange={(name) => {
+                setFilter({ ...filter, district: name });
+                if (errors.district) setErrors({ ...errors, district: '' });
+              }}
+              errors={{ ward: errors.district }}
+              required
+              testIdPrefix="stats-ward"
+            />
           </div>
 
           {/* Nút hành động */}
