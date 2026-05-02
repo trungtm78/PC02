@@ -19,6 +19,7 @@ const mockPrisma = {
     update: jest.fn(),
     delete: jest.fn(),
     upsert: jest.fn(),
+    groupBy: jest.fn(),
   },
 };
 
@@ -239,6 +240,43 @@ describe('DirectoryService', () => {
 
       const result = await service.findTypes();
       expect(result).toEqual(['CRIME', 'ORG']);
+    });
+  });
+
+  // ── getTypeStats ──────────────────────────────────────────────────────────
+
+  describe('getTypeStats', () => {
+    it('returns count per type from groupBy', async () => {
+      mockPrisma.directory.groupBy.mockResolvedValue([
+        { type: 'WARD', _count: { id: 10051 } },
+        { type: 'PROVINCE', _count: { id: 34 } },
+        { type: 'CRIME', _count: { id: 15 } },
+      ]);
+
+      const result = await service.getTypeStats();
+      expect(result).toEqual([
+        { type: 'WARD', count: 10051 },
+        { type: 'PROVINCE', count: 34 },
+        { type: 'CRIME', count: 15 },
+      ]);
+    });
+
+    it('returns empty array when no directory entries exist', async () => {
+      mockPrisma.directory.groupBy.mockResolvedValue([]);
+      const result = await service.getTypeStats();
+      expect(result).toEqual([]);
+    });
+
+    it('includes DISTRICT type (legacy — isActive=false) in count', async () => {
+      mockPrisma.directory.groupBy.mockResolvedValue([
+        { type: 'DISTRICT', _count: { id: 24 } },
+        { type: 'WARD', _count: { id: 10051 } },
+      ]);
+
+      const result = await service.getTypeStats();
+      const district = result.find((r) => r.type === 'DISTRICT');
+      expect(district).toBeDefined();
+      expect(district!.count).toBe(24);
     });
   });
 
