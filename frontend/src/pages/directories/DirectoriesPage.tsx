@@ -104,6 +104,10 @@ export default function DirectoriesPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletingItem, setDeletingItem] = useState<Directory | null>(null);
 
+  // ─── Hierarchy drill-down (PROVINCE → WARD children) ───────────────────────
+  const [drillParentId, setDrillParentId] = useState<string | null>(null);
+  const [drillParentName, setDrillParentName] = useState<string>('');
+
   // ─── Load available types from API ─────────────────────────────────────────
   useEffect(() => {
     api.get('/directories/types')
@@ -136,6 +140,7 @@ export default function DirectoriesPage() {
       const params: Record<string, string | number> = { type: activeType, limit: PAGE_SIZE, offset };
       if (searchQuery) params.search = searchQuery;
       if (filterStatus !== 'all') params.isActive = filterStatus === 'active' ? 'true' : 'false';
+      if (drillParentId) params.parentId = drillParentId;
       const res = await api.get('/directories', { params });
       setItems(res.data.data ?? []);
       setTotal(res.data.total ?? 0);
@@ -144,7 +149,7 @@ export default function DirectoriesPage() {
     } finally {
       setLoading(false);
     }
-  }, [activeType, searchQuery, filterStatus, currentPage]);
+  }, [activeType, searchQuery, filterStatus, currentPage, drillParentId]);
 
   useEffect(() => {
     void loadItems();
@@ -299,6 +304,8 @@ export default function DirectoriesPage() {
                       setSearchQuery('');
                       setFilterStatus('all');
                       setCurrentPage(1);
+                      setDrillParentId(null);
+                      setDrillParentName('');
                     }}
                     className={`w-full text-left p-4 border-l-4 transition-all ${
                       active
@@ -333,6 +340,26 @@ export default function DirectoriesPage() {
         {/* Right: Table */}
         <div className="col-span-3">
           <div className="bg-white rounded-lg border border-slate-200">
+            {/* Breadcrumb when drilling into province wards */}
+            {drillParentId && (
+              <div className="px-4 py-2 border-b border-blue-100 bg-blue-50 flex items-center gap-2 text-sm">
+                <button
+                  onClick={() => {
+                    setDrillParentId(null);
+                    setDrillParentName('');
+                    setActiveType('PROVINCE');
+                    setCurrentPage(1);
+                  }}
+                  className="text-blue-600 hover:underline flex items-center gap-1"
+                >
+                  ← Tỉnh/Thành phố
+                </button>
+                <span className="text-slate-400">›</span>
+                <span className="font-medium text-slate-800">{drillParentName}</span>
+                <span className="text-slate-500 ml-auto text-xs">{total.toLocaleString('vi-VN')} phường/xã</span>
+              </div>
+            )}
+
             {/* Filters */}
             <div className="p-4 border-b border-slate-200 bg-slate-50">
               <div className="flex gap-3">
@@ -433,6 +460,23 @@ export default function DirectoriesPage() {
                         </td>
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-2">
+                            {/* Drill-down button: visible only for PROVINCE type */}
+                            {activeType === 'PROVINCE' && !drillParentId && (
+                              <button
+                                onClick={() => {
+                                  setDrillParentId(item.id);
+                                  setDrillParentName(item.name);
+                                  setActiveType('WARD');
+                                  setCurrentPage(1);
+                                  setSearchQuery('');
+                                }}
+                                className="px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded border border-blue-200 transition-colors"
+                                title="Xem phường/xã của tỉnh này"
+                                data-testid="btn-drill-down"
+                              >
+                                Xem phường/xã →
+                              </button>
+                            )}
                             <button
                               onClick={() => handleOpenEdit(item)}
                               className="p-1.5 hover:bg-slate-100 rounded transition-colors"
