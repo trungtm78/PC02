@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Database,
   FolderTree,
@@ -16,6 +16,7 @@ import {
   Filter,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { useDirectoryOptions } from '@/hooks/useDirectoryOptions';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -108,6 +109,13 @@ export default function DirectoriesPage() {
   const [drillParentId, setDrillParentId] = useState<string | null>(null);
   const [drillParentName, setDrillParentName] = useState<string>('');
 
+  // ─── Form modal: parent selector state ────────────────────────────────────
+  const [formParentType, setFormParentType] = useState<string>('');
+
+  // ─── Filter: parent cascade state ─────────────────────────────────────────
+  const [filterParentType, setFilterParentType] = useState<string>('');
+  const [filterParentId, setFilterParentId] = useState<string>('');
+
   // ─── Load available types from API ─────────────────────────────────────────
   useEffect(() => {
     api.get('/directories/types')
@@ -131,6 +139,20 @@ export default function DirectoriesPage() {
       .finally(() => setTypesLoading(false));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ─── Parent options for form modal (loads when formParentType changes) ───────
+  const { data: formParentOptions = [], isLoading: formParentLoading } =
+    useDirectoryOptions(formParentType || undefined, { limit: 500, returnId: true });
+
+  // ─── Parent options for filter cascade (loads when filterParentType changes) ─
+  const { data: filterParentOptions = [] } =
+    useDirectoryOptions(filterParentType || undefined, { limit: 500, returnId: true });
+
+  // Map parentId → label for display in table
+  const filterParentMap = useMemo(
+    () => Object.fromEntries(filterParentOptions.map(o => [o.value, o.label])),
+    [filterParentOptions],
+  );
+
   // ─── Load data ─────────────────────────────────────────────────────────────
 
   const loadItems = useCallback(async () => {
@@ -141,6 +163,7 @@ export default function DirectoriesPage() {
       if (searchQuery) params.search = searchQuery;
       if (filterStatus !== 'all') params.isActive = filterStatus === 'active' ? 'true' : 'false';
       if (drillParentId) params.parentId = drillParentId;
+      else if (filterParentId) params.parentId = filterParentId;
       const res = await api.get('/directories', { params });
       setItems(res.data.data ?? []);
       setTotal(res.data.total ?? 0);
@@ -149,7 +172,7 @@ export default function DirectoriesPage() {
     } finally {
       setLoading(false);
     }
-  }, [activeType, searchQuery, filterStatus, currentPage, drillParentId]);
+  }, [activeType, searchQuery, filterStatus, currentPage, drillParentId, filterParentId]);
 
   useEffect(() => {
     void loadItems();
@@ -160,6 +183,7 @@ export default function DirectoriesPage() {
   const handleOpenAdd = () => {
     setEditingItem(null);
     setFormData({ ...EMPTY_FORM, type: activeType });
+    setFormParentType('');
     setFormError('');
     setShowModal(true);
   };
@@ -175,6 +199,14 @@ export default function DirectoriesPage() {
       order: item.order,
       isActive: item.isActive,
     });
+    // Pre-populate parent type selector if item has a parent
+    if (item.parentId) {
+      api.get(`/directories/${item.parentId}`)
+        .then(res => setFormParentType(res.data?.type ?? ''))
+        .catch(() => setFormParentType(''));
+    } else {
+      setFormParentType('');
+    }
     setFormError('');
     setShowModal(true);
   };
@@ -306,6 +338,8 @@ export default function DirectoriesPage() {
                       setCurrentPage(1);
                       setDrillParentId(null);
                       setDrillParentName('');
+                      setFilterParentType('');
+                      setFilterParentId('');
                     }}
                     className={`w-full text-left p-4 border-l-4 transition-all ${
                       active
@@ -386,6 +420,54 @@ export default function DirectoriesPage() {
                   </select>
                 </div>
               </div>
+
+              {/* ── Filter theo danh mục cha ────────────────────────────────── */}
+              {!drillParentId && (
+                <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-200">
+                  <FolderTree className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                  <select
+                    value={filterParentType}
+                    onChange={(e) => {
+                      setFilterParentType(e.target.value);
+                      setFilterParentId('');
+                      setCurrentPage(1);
+                    }}
+                    className="px-3 py-1.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] text-sm bg-white"
+                    data-testid="filter-parentType"
+                  >
+                    <option value="">-- Lọc theo loại cha --</option>
+                    {availableTypes.map((typeId) => (
+                      <option key={typeId} value={typeId}>
+                        {DIRECTORY_TYPE_LABELS[typeId] ?? typeId}
+                      </option>
+                    ))}
+                  </select>
+
+                  {filterParentType && filterParentOptions.length > 0 && (
+                    <select
+                      value={filterParentId}
+                      onChange={(e) => { setFilterParentId(e.target.value); setCurrentPage(1); }}
+                      className="px-3 py-1.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] text-sm flex-1 bg-white"
+                      data-testid="filter-parentId"
+                    >
+                      <option value="">-- Tất cả --</option>
+                      {filterParentOptions.map((opt) => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                  )}
+
+                  {filterParentId && (
+                    <button
+                      onClick={() => { setFilterParentType(''); setFilterParentId(''); setCurrentPage(1); }}
+                      className="p-1.5 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600"
+                      title="Xóa filter cha"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Table */}
@@ -393,7 +475,7 @@ export default function DirectoriesPage() {
               <table className="w-full">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200">
-                    {['Mã', 'Tên danh mục', 'Mô tả', 'Thứ tự', 'Trạng thái', 'Thao tác'].map(
+                    {['Mã', 'Tên danh mục', ...(filterParentId || drillParentId ? ['Cha'] : []), 'Mô tả', 'Thứ tự', 'Trạng thái', 'Thao tác'].map(
                       (h) => (
                         <th
                           key={h}
@@ -437,6 +519,19 @@ export default function DirectoriesPage() {
                         <td className="py-3 px-4">
                           <div className="font-medium text-slate-800 text-sm">{item.name}</div>
                         </td>
+                        {/* Parent badge column — only visible when filtering by parent or drilling */}
+                        {(filterParentId || drillParentId) && (
+                          <td className="py-3 px-4">
+                            {item.parentId ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs border border-blue-100">
+                                <FolderTree className="w-3 h-3" />
+                                {filterParentMap[item.parentId]
+                                  ? filterParentMap[item.parentId].split(' (')[0]
+                                  : item.parentId.slice(0, 8) + '...'}
+                              </span>
+                            ) : '—'}
+                          </td>
+                        )}
                         <td className="py-3 px-4">
                           <div className="text-sm text-slate-600 line-clamp-1 max-w-xs">
                             {item.description ?? '—'}
@@ -577,6 +672,70 @@ export default function DirectoriesPage() {
                     </option>
                   ))}
                 </select>
+              </div>
+
+              {/* ── Quan hệ cha-con (tùy chọn) ─────────────────────────────── */}
+              <div className="border border-slate-200 rounded-lg p-3 bg-slate-50 space-y-3">
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                  Danh mục cha (tùy chọn)
+                </p>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Loại danh mục cha
+                  </label>
+                  <select
+                    value={formParentType}
+                    onChange={(e) => {
+                      setFormParentType(e.target.value);
+                      setFormData({ ...formData, parentId: '' });
+                    }}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] text-sm bg-white"
+                    data-testid="dir-field-parentType"
+                  >
+                    <option value="">-- Không có danh mục cha --</option>
+                    {availableTypes.map((typeId) => (
+                      <option key={typeId} value={typeId}>
+                        {DIRECTORY_TYPE_LABELS[typeId] ?? typeId}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {formParentType && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Chọn danh mục cha
+                    </label>
+                    {formParentLoading ? (
+                      <div className="flex items-center gap-2 text-slate-400 text-sm py-2">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Đang tải...
+                      </div>
+                    ) : formParentOptions.length === 0 ? (
+                      <p className="text-xs text-amber-600 py-1">
+                        Không có danh mục loại "{DIRECTORY_TYPE_LABELS[formParentType] ?? formParentType}"
+                      </p>
+                    ) : (
+                      <select
+                        value={formData.parentId}
+                        onChange={(e) => setFormData({ ...formData, parentId: e.target.value })}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] text-sm bg-white"
+                        data-testid="dir-field-parentId"
+                      >
+                        <option value="">-- Chọn danh mục cha --</option>
+                        {formParentOptions.map((opt) => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                )}
+
+                {formData.parentId && !formParentType && (
+                  <p className="text-xs text-slate-500">
+                    Có danh mục cha (id: {formData.parentId.slice(0, 8)}...)
+                  </p>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
