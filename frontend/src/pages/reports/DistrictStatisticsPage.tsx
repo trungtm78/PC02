@@ -125,7 +125,7 @@ export default function DistrictStatisticsPage() {
     }
 
     if (!filter.district) {
-      newErrors.district = "Vui lòng chọn đơn vị";
+      newErrors.district = "Vui lòng nhập tên phường/xã";
     }
 
     setErrors(newErrors);
@@ -186,9 +186,9 @@ export default function DistrictStatisticsPage() {
     <div className="p-6 space-y-6">
       {/* Tiêu đề */}
       <div>
-        <h1 className="text-2xl font-bold text-slate-800">Thống kê quận/huyện</h1>
+        <h1 className="text-2xl font-bold text-slate-800">Thống kê phường/xã</h1>
         <p className="text-slate-600 text-sm mt-1">
-          Báo cáo chi tiết theo đơn vị hành chính
+          Báo cáo chi tiết theo đơn vị hành chính cấp phường/xã (theo cải cách hành chính 2025)
         </p>
       </div>
 
@@ -253,14 +253,15 @@ export default function DistrictStatisticsPage() {
             )}
           </div>
 
-          {/* Đơn vị */}
+          {/* Phường/Xã */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">
-              Đơn vị <span className="text-red-500">*</span>
+              Phường/Xã <span className="text-red-500">*</span>
             </label>
             <div className="relative">
               <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <select
+              <input
+                type="text"
                 value={filter.district}
                 onChange={(e) => {
                   setFilter({ ...filter, district: e.target.value });
@@ -268,23 +269,13 @@ export default function DistrictStatisticsPage() {
                     setErrors({ ...errors, district: "" });
                   }
                 }}
-                className={`w-full pl-9 pr-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 bg-white ${
+                placeholder="Nhập tên phường/xã..."
+                className={`w-full pl-9 pr-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 ${
                   errors.district
                     ? "border-red-300 focus:ring-red-500"
                     : "border-slate-300 focus:ring-blue-500"
                 }`}
-              >
-                <option value="">-- Chọn đơn vị --</option>
-                <option value="Quận 1">Quận 1</option>
-                <option value="Quận 3">Quận 3</option>
-                <option value="Quận 5">Quận 5</option>
-                <option value="Quận 10">Quận 10</option>
-                <option value="Quận Tân Bình">Quận Tân Bình</option>
-                <option value="Quận Bình Thạnh">Quận Bình Thạnh</option>
-                <option value="Quận Phú Nhuận">Quận Phú Nhuận</option>
-                <option value="Huyện Củ Chi">Huyện Củ Chi</option>
-                <option value="Huyện Hóc Môn">Huyện Hóc Môn</option>
-              </select>
+              />
             </div>
             {errors.district && (
               <p className="text-xs text-red-600 mt-1">{errors.district}</p>
@@ -379,7 +370,7 @@ export default function DistrictStatisticsPage() {
               Biểu đồ hồ sơ theo ngày
             </h2>
             <p className="text-sm text-slate-600 mt-1">
-              {filter.district && `Đơn vị: ${filter.district}`} • {filter.fromDate} đến{" "}
+              {filter.district && `Phường/Xã: ${filter.district}`} • {filter.fromDate} đến{" "}
               {filter.toDate}
             </p>
           </div>
