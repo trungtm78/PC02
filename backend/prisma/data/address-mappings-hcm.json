@@ -1,0 +1,2186 @@
+[
+  {
+    "oldWard": "phường tân định",
+    "oldDistrict": "quận 1",
+    "newWard": "phường tân định",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 1) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường đa kao",
+    "oldDistrict": "quận 1",
+    "newWard": "phường đa kao",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 1) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường bến nghé",
+    "oldDistrict": "quận 1",
+    "newWard": "phường bến nghé",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 1) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường bến thành",
+    "oldDistrict": "quận 1",
+    "newWard": "phường bến thành",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 1) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường nguyễn thái bình",
+    "oldDistrict": "quận 1",
+    "newWard": "phường nguyễn thái bình",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 1) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường phạm ngũ lão",
+    "oldDistrict": "quận 1",
+    "newWard": "phường phạm ngũ lão",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 1) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường cầu ông lãnh",
+    "oldDistrict": "quận 1",
+    "newWard": "phường cầu ông lãnh",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 1) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường cô giang",
+    "oldDistrict": "quận 1",
+    "newWard": "phường cô giang",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 1) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường nguyễn cư trinh",
+    "oldDistrict": "quận 1",
+    "newWard": "phường nguyễn cư trinh",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 1) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường cầu kho",
+    "oldDistrict": "quận 1",
+    "newWard": "phường cầu kho",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 1) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường thạnh xuân",
+    "oldDistrict": "quận 12",
+    "newWard": "phường thạnh xuân",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 12) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường thạnh lộc",
+    "oldDistrict": "quận 12",
+    "newWard": "phường thạnh lộc",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 12) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường hiệp thành",
+    "oldDistrict": "quận 12",
+    "newWard": "phường hiệp thành",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 12) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường thới an",
+    "oldDistrict": "quận 12",
+    "newWard": "phường thới an",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 12) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường tân chánh hiệp",
+    "oldDistrict": "quận 12",
+    "newWard": "phường tân chánh hiệp",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 12) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường an phú đông",
+    "oldDistrict": "quận 12",
+    "newWard": "phường an phú đông",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 12) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường tân thới hiệp",
+    "oldDistrict": "quận 12",
+    "newWard": "phường tân thới hiệp",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 12) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường trung mỹ tây",
+    "oldDistrict": "quận 12",
+    "newWard": "phường trung mỹ tây",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 12) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường tân hưng thuận",
+    "oldDistrict": "quận 12",
+    "newWard": "phường tân hưng thuận",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 12) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường đông hưng thuận",
+    "oldDistrict": "quận 12",
+    "newWard": "phường đông hưng thuận",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 12) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường tân thới nhất",
+    "oldDistrict": "quận 12",
+    "newWard": "phường tân thới nhất",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 12) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 15",
+    "oldDistrict": "quận gò vấp",
+    "newWard": "phường gò vấp",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Gò Vấp sáp nhập thành phường gò vấp",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường 17",
+    "oldDistrict": "quận gò vấp",
+    "newWard": "phường gò vấp",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Gò Vấp sáp nhập thành phường gò vấp",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường 6",
+    "oldDistrict": "quận gò vấp",
+    "newWard": "phường gò vấp",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Gò Vấp sáp nhập thành phường gò vấp",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường 16",
+    "oldDistrict": "quận gò vấp",
+    "newWard": "phường gò vấp",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Gò Vấp sáp nhập thành phường gò vấp",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường 12",
+    "oldDistrict": "quận gò vấp",
+    "newWard": "phường gò vấp",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Gò Vấp sáp nhập thành phường gò vấp",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường 14",
+    "oldDistrict": "quận gò vấp",
+    "newWard": "phường gò vấp",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Gò Vấp sáp nhập thành phường gò vấp",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường 10",
+    "oldDistrict": "quận gò vấp",
+    "newWard": "phường gò vấp",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Gò Vấp sáp nhập thành phường gò vấp",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường 5",
+    "oldDistrict": "quận gò vấp",
+    "newWard": "phường gò vấp",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Gò Vấp sáp nhập thành phường gò vấp",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường 1",
+    "oldDistrict": "quận gò vấp",
+    "newWard": "phường gò vấp",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Gò Vấp sáp nhập thành phường gò vấp",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường 8",
+    "oldDistrict": "quận gò vấp",
+    "newWard": "phường gò vấp",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Gò Vấp sáp nhập thành phường gò vấp",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường 11",
+    "oldDistrict": "quận gò vấp",
+    "newWard": "phường gò vấp",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Gò Vấp sáp nhập thành phường gò vấp",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường 3",
+    "oldDistrict": "quận gò vấp",
+    "newWard": "phường gò vấp",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Gò Vấp sáp nhập thành phường gò vấp",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường 13",
+    "oldDistrict": "quận bình thạnh",
+    "newWard": "phường bình thạnh",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Bình Thạnh sáp nhập thành phường bình thạnh",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường 11",
+    "oldDistrict": "quận bình thạnh",
+    "newWard": "phường bình thạnh",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Bình Thạnh sáp nhập thành phường bình thạnh",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường 27",
+    "oldDistrict": "quận bình thạnh",
+    "newWard": "phường bình thạnh",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Bình Thạnh sáp nhập thành phường bình thạnh",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường 26",
+    "oldDistrict": "quận bình thạnh",
+    "newWard": "phường bình thạnh",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Bình Thạnh sáp nhập thành phường bình thạnh",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường 12",
+    "oldDistrict": "quận bình thạnh",
+    "newWard": "phường bình thạnh",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Bình Thạnh sáp nhập thành phường bình thạnh",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường 25",
+    "oldDistrict": "quận bình thạnh",
+    "newWard": "phường bình thạnh",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Bình Thạnh sáp nhập thành phường bình thạnh",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường 5",
+    "oldDistrict": "quận bình thạnh",
+    "newWard": "phường bình thạnh",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Bình Thạnh sáp nhập thành phường bình thạnh",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường 7",
+    "oldDistrict": "quận bình thạnh",
+    "newWard": "phường bình thạnh",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Bình Thạnh sáp nhập thành phường bình thạnh",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường 14",
+    "oldDistrict": "quận bình thạnh",
+    "newWard": "phường bình thạnh",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Bình Thạnh sáp nhập thành phường bình thạnh",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường 2",
+    "oldDistrict": "quận bình thạnh",
+    "newWard": "phường bình thạnh",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Bình Thạnh sáp nhập thành phường bình thạnh",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường 1",
+    "oldDistrict": "quận bình thạnh",
+    "newWard": "phường bình thạnh",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Bình Thạnh sáp nhập thành phường bình thạnh",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường 17",
+    "oldDistrict": "quận bình thạnh",
+    "newWard": "phường bình thạnh",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Bình Thạnh sáp nhập thành phường bình thạnh",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường 22",
+    "oldDistrict": "quận bình thạnh",
+    "newWard": "phường bình thạnh",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Bình Thạnh sáp nhập thành phường bình thạnh",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường 19",
+    "oldDistrict": "quận bình thạnh",
+    "newWard": "phường bình thạnh",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Bình Thạnh sáp nhập thành phường bình thạnh",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường 28",
+    "oldDistrict": "quận bình thạnh",
+    "newWard": "phường bình thạnh",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Bình Thạnh sáp nhập thành phường bình thạnh",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường 2",
+    "oldDistrict": "quận tân bình",
+    "newWard": "phường tân bình",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Tân Bình sáp nhập thành phường tân bình",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường 4",
+    "oldDistrict": "quận tân bình",
+    "newWard": "phường tân bình",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Tân Bình sáp nhập thành phường tân bình",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường 12",
+    "oldDistrict": "quận tân bình",
+    "newWard": "phường tân bình",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Tân Bình sáp nhập thành phường tân bình",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường 13",
+    "oldDistrict": "quận tân bình",
+    "newWard": "phường tân bình",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Tân Bình sáp nhập thành phường tân bình",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường 1",
+    "oldDistrict": "quận tân bình",
+    "newWard": "phường tân bình",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Tân Bình sáp nhập thành phường tân bình",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường 3",
+    "oldDistrict": "quận tân bình",
+    "newWard": "phường tân bình",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Tân Bình sáp nhập thành phường tân bình",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường 11",
+    "oldDistrict": "quận tân bình",
+    "newWard": "phường tân bình",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Tân Bình sáp nhập thành phường tân bình",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường 7",
+    "oldDistrict": "quận tân bình",
+    "newWard": "phường tân bình",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Tân Bình sáp nhập thành phường tân bình",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường 5",
+    "oldDistrict": "quận tân bình",
+    "newWard": "phường tân bình",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Tân Bình sáp nhập thành phường tân bình",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường 10",
+    "oldDistrict": "quận tân bình",
+    "newWard": "phường tân bình",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Tân Bình sáp nhập thành phường tân bình",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường 6",
+    "oldDistrict": "quận tân bình",
+    "newWard": "phường tân bình",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Tân Bình sáp nhập thành phường tân bình",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường 8",
+    "oldDistrict": "quận tân bình",
+    "newWard": "phường tân bình",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Tân Bình sáp nhập thành phường tân bình",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường 9",
+    "oldDistrict": "quận tân bình",
+    "newWard": "phường tân bình",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Tân Bình sáp nhập thành phường tân bình",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường 14",
+    "oldDistrict": "quận tân bình",
+    "newWard": "phường tân bình",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Tân Bình sáp nhập thành phường tân bình",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường 15",
+    "oldDistrict": "quận tân bình",
+    "newWard": "phường tân bình",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Tân Bình sáp nhập thành phường tân bình",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường tân sơn nhì",
+    "oldDistrict": "quận tân phú",
+    "newWard": "phường tân phú",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Tân Phú sáp nhập thành phường tân phú",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường tây thạnh",
+    "oldDistrict": "quận tân phú",
+    "newWard": "phường tân phú",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Tân Phú sáp nhập thành phường tân phú",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường sơn kỳ",
+    "oldDistrict": "quận tân phú",
+    "newWard": "phường tân phú",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Tân Phú sáp nhập thành phường tân phú",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường tân quý",
+    "oldDistrict": "quận tân phú",
+    "newWard": "phường tân phú",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Tân Phú sáp nhập thành phường tân phú",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường tân thành",
+    "oldDistrict": "quận tân phú",
+    "newWard": "phường tân phú",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Tân Phú sáp nhập thành phường tân phú",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường phú thọ hòa",
+    "oldDistrict": "quận tân phú",
+    "newWard": "phường tân phú",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Tân Phú sáp nhập thành phường tân phú",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường phú thạnh",
+    "oldDistrict": "quận tân phú",
+    "newWard": "phường tân phú",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Tân Phú sáp nhập thành phường tân phú",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường phú trung",
+    "oldDistrict": "quận tân phú",
+    "newWard": "phường tân phú",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Tân Phú sáp nhập thành phường tân phú",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường hòa thạnh",
+    "oldDistrict": "quận tân phú",
+    "newWard": "phường tân phú",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Tân Phú sáp nhập thành phường tân phú",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường hiệp tân",
+    "oldDistrict": "quận tân phú",
+    "newWard": "phường tân phú",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Tân Phú sáp nhập thành phường tân phú",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường tân thới hòa",
+    "oldDistrict": "quận tân phú",
+    "newWard": "phường tân phú",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Tân Phú sáp nhập thành phường tân phú",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường 4",
+    "oldDistrict": "quận phú nhuận",
+    "newWard": "phường phú nhuận",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Phú Nhuận sáp nhập thành phường phú nhuận",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường 5",
+    "oldDistrict": "quận phú nhuận",
+    "newWard": "phường phú nhuận",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Phú Nhuận sáp nhập thành phường phú nhuận",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường 9",
+    "oldDistrict": "quận phú nhuận",
+    "newWard": "phường phú nhuận",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Phú Nhuận sáp nhập thành phường phú nhuận",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường 7",
+    "oldDistrict": "quận phú nhuận",
+    "newWard": "phường phú nhuận",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Phú Nhuận sáp nhập thành phường phú nhuận",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường 1",
+    "oldDistrict": "quận phú nhuận",
+    "newWard": "phường phú nhuận",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Phú Nhuận sáp nhập thành phường phú nhuận",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường 2",
+    "oldDistrict": "quận phú nhuận",
+    "newWard": "phường phú nhuận",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Phú Nhuận sáp nhập thành phường phú nhuận",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường 8",
+    "oldDistrict": "quận phú nhuận",
+    "newWard": "phường phú nhuận",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Phú Nhuận sáp nhập thành phường phú nhuận",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường 15",
+    "oldDistrict": "quận phú nhuận",
+    "newWard": "phường phú nhuận",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Phú Nhuận sáp nhập thành phường phú nhuận",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường 10",
+    "oldDistrict": "quận phú nhuận",
+    "newWard": "phường phú nhuận",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Phú Nhuận sáp nhập thành phường phú nhuận",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường 11",
+    "oldDistrict": "quận phú nhuận",
+    "newWard": "phường phú nhuận",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Phú Nhuận sáp nhập thành phường phú nhuận",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường 13",
+    "oldDistrict": "quận phú nhuận",
+    "newWard": "phường phú nhuận",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Phú Nhuận sáp nhập thành phường phú nhuận",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường linh xuân",
+    "oldDistrict": "thành phố thủ đức",
+    "newWard": "phường linh xuân",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Thành phố Thủ Đức) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường bình chiểu",
+    "oldDistrict": "thành phố thủ đức",
+    "newWard": "phường bình chiểu",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Thành phố Thủ Đức) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường linh trung",
+    "oldDistrict": "thành phố thủ đức",
+    "newWard": "phường linh trung",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Thành phố Thủ Đức) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường tam bình",
+    "oldDistrict": "thành phố thủ đức",
+    "newWard": "phường tam bình",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Thành phố Thủ Đức) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường tam phú",
+    "oldDistrict": "thành phố thủ đức",
+    "newWard": "phường tam phú",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Thành phố Thủ Đức) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường hiệp bình phước",
+    "oldDistrict": "thành phố thủ đức",
+    "newWard": "phường hiệp bình phước",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Thành phố Thủ Đức) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường hiệp bình chánh",
+    "oldDistrict": "thành phố thủ đức",
+    "newWard": "phường hiệp bình chánh",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Thành phố Thủ Đức) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường linh chiểu",
+    "oldDistrict": "thành phố thủ đức",
+    "newWard": "phường linh chiểu",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Thành phố Thủ Đức) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường linh tây",
+    "oldDistrict": "thành phố thủ đức",
+    "newWard": "phường linh tây",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Thành phố Thủ Đức) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường linh đông",
+    "oldDistrict": "thành phố thủ đức",
+    "newWard": "phường linh đông",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Thành phố Thủ Đức) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường bình thọ",
+    "oldDistrict": "thành phố thủ đức",
+    "newWard": "phường bình thọ",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Thành phố Thủ Đức) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường trường thọ",
+    "oldDistrict": "thành phố thủ đức",
+    "newWard": "phường trường thọ",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Thành phố Thủ Đức) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường long bình",
+    "oldDistrict": "thành phố thủ đức",
+    "newWard": "phường long bình",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Thành phố Thủ Đức) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường long thạnh mỹ",
+    "oldDistrict": "thành phố thủ đức",
+    "newWard": "phường long thạnh mỹ",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Thành phố Thủ Đức) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường tân phú",
+    "oldDistrict": "thành phố thủ đức",
+    "newWard": "phường tân phú",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Thành phố Thủ Đức) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường hiệp phú",
+    "oldDistrict": "thành phố thủ đức",
+    "newWard": "phường hiệp phú",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Thành phố Thủ Đức) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường tăng nhơn phú a",
+    "oldDistrict": "thành phố thủ đức",
+    "newWard": "phường tăng nhơn phú a",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Thành phố Thủ Đức) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường tăng nhơn phú b",
+    "oldDistrict": "thành phố thủ đức",
+    "newWard": "phường tăng nhơn phú b",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Thành phố Thủ Đức) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường phước long b",
+    "oldDistrict": "thành phố thủ đức",
+    "newWard": "phường phước long b",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Thành phố Thủ Đức) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường phước long a",
+    "oldDistrict": "thành phố thủ đức",
+    "newWard": "phường phước long a",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Thành phố Thủ Đức) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường trường thạnh",
+    "oldDistrict": "thành phố thủ đức",
+    "newWard": "phường trường thạnh",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Thành phố Thủ Đức) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường long phước",
+    "oldDistrict": "thành phố thủ đức",
+    "newWard": "phường long phước",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Thành phố Thủ Đức) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường long trường",
+    "oldDistrict": "thành phố thủ đức",
+    "newWard": "phường long trường",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Thành phố Thủ Đức) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường phước bình",
+    "oldDistrict": "thành phố thủ đức",
+    "newWard": "phường phước bình",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Thành phố Thủ Đức) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường phú hữu",
+    "oldDistrict": "thành phố thủ đức",
+    "newWard": "phường phú hữu",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Thành phố Thủ Đức) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường thảo điền",
+    "oldDistrict": "thành phố thủ đức",
+    "newWard": "phường thảo điền",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Thành phố Thủ Đức) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường an phú",
+    "oldDistrict": "thành phố thủ đức",
+    "newWard": "phường an phú",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Thành phố Thủ Đức) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường an khánh",
+    "oldDistrict": "thành phố thủ đức",
+    "newWard": "phường an khánh",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Thành phố Thủ Đức) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường bình trưng đông",
+    "oldDistrict": "thành phố thủ đức",
+    "newWard": "phường bình trưng đông",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Thành phố Thủ Đức) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường bình trưng tây",
+    "oldDistrict": "thành phố thủ đức",
+    "newWard": "phường bình trưng tây",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Thành phố Thủ Đức) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường cát lái",
+    "oldDistrict": "thành phố thủ đức",
+    "newWard": "phường cát lái",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Thành phố Thủ Đức) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường thạnh mỹ lợi",
+    "oldDistrict": "thành phố thủ đức",
+    "newWard": "phường thạnh mỹ lợi",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Thành phố Thủ Đức) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường an lợi đông",
+    "oldDistrict": "thành phố thủ đức",
+    "newWard": "phường an lợi đông",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Thành phố Thủ Đức) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường thủ thiêm",
+    "oldDistrict": "thành phố thủ đức",
+    "newWard": "phường thủ thiêm",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Thành phố Thủ Đức) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 14",
+    "oldDistrict": "quận 3",
+    "newWard": "phường 14",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 3) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 12",
+    "oldDistrict": "quận 3",
+    "newWard": "phường 12",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 3) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 11",
+    "oldDistrict": "quận 3",
+    "newWard": "phường 11",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 3) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường võ thị sáu",
+    "oldDistrict": "quận 3",
+    "newWard": "phường võ thị sáu",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 3) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 9",
+    "oldDistrict": "quận 3",
+    "newWard": "phường 9",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 3) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 4",
+    "oldDistrict": "quận 3",
+    "newWard": "phường 4",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 3) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 5",
+    "oldDistrict": "quận 3",
+    "newWard": "phường 5",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 3) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 3",
+    "oldDistrict": "quận 3",
+    "newWard": "phường 3",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 3) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 2",
+    "oldDistrict": "quận 3",
+    "newWard": "phường 2",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 3) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 1",
+    "oldDistrict": "quận 3",
+    "newWard": "phường 1",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 3) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 15",
+    "oldDistrict": "quận 10",
+    "newWard": "phường 15",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 10) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 13",
+    "oldDistrict": "quận 10",
+    "newWard": "phường 13",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 10) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 14",
+    "oldDistrict": "quận 10",
+    "newWard": "phường 14",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 10) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 12",
+    "oldDistrict": "quận 10",
+    "newWard": "phường 12",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 10) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 10",
+    "oldDistrict": "quận 10",
+    "newWard": "phường 10",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 10) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 9",
+    "oldDistrict": "quận 10",
+    "newWard": "phường 9",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 10) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 1",
+    "oldDistrict": "quận 10",
+    "newWard": "phường 1",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 10) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 8",
+    "oldDistrict": "quận 10",
+    "newWard": "phường 8",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 10) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 2",
+    "oldDistrict": "quận 10",
+    "newWard": "phường 2",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 10) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 4",
+    "oldDistrict": "quận 10",
+    "newWard": "phường 4",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 10) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 6",
+    "oldDistrict": "quận 10",
+    "newWard": "phường 6",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 10) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 15",
+    "oldDistrict": "quận 11",
+    "newWard": "phường 15",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 11) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 5",
+    "oldDistrict": "quận 11",
+    "newWard": "phường 5",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 11) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 14",
+    "oldDistrict": "quận 11",
+    "newWard": "phường 14",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 11) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 11",
+    "oldDistrict": "quận 11",
+    "newWard": "phường 11",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 11) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 3",
+    "oldDistrict": "quận 11",
+    "newWard": "phường 3",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 11) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 10",
+    "oldDistrict": "quận 11",
+    "newWard": "phường 10",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 11) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 8",
+    "oldDistrict": "quận 11",
+    "newWard": "phường 8",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 11) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 7",
+    "oldDistrict": "quận 11",
+    "newWard": "phường 7",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 11) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 1",
+    "oldDistrict": "quận 11",
+    "newWard": "phường 1",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 11) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 16",
+    "oldDistrict": "quận 11",
+    "newWard": "phường 16",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 11) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 13",
+    "oldDistrict": "quận 4",
+    "newWard": "phường 13",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 4) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 9",
+    "oldDistrict": "quận 4",
+    "newWard": "phường 9",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 4) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 8",
+    "oldDistrict": "quận 4",
+    "newWard": "phường 8",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 4) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 18",
+    "oldDistrict": "quận 4",
+    "newWard": "phường 18",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 4) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 4",
+    "oldDistrict": "quận 4",
+    "newWard": "phường 4",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 4) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 3",
+    "oldDistrict": "quận 4",
+    "newWard": "phường 3",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 4) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 16",
+    "oldDistrict": "quận 4",
+    "newWard": "phường 16",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 4) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 2",
+    "oldDistrict": "quận 4",
+    "newWard": "phường 2",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 4) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 15",
+    "oldDistrict": "quận 4",
+    "newWard": "phường 15",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 4) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 1",
+    "oldDistrict": "quận 4",
+    "newWard": "phường 1",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 4) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 4",
+    "oldDistrict": "quận 5",
+    "newWard": "phường 4",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 5) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 9",
+    "oldDistrict": "quận 5",
+    "newWard": "phường 9",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 5) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 2",
+    "oldDistrict": "quận 5",
+    "newWard": "phường 2",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 5) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 12",
+    "oldDistrict": "quận 5",
+    "newWard": "phường 12",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 5) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 7",
+    "oldDistrict": "quận 5",
+    "newWard": "phường 7",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 5) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 1",
+    "oldDistrict": "quận 5",
+    "newWard": "phường 1",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 5) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 11",
+    "oldDistrict": "quận 5",
+    "newWard": "phường 11",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 5) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 14",
+    "oldDistrict": "quận 5",
+    "newWard": "phường 14",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 5) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 5",
+    "oldDistrict": "quận 5",
+    "newWard": "phường 5",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 5) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 13",
+    "oldDistrict": "quận 5",
+    "newWard": "phường 13",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 5) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 14",
+    "oldDistrict": "quận 6",
+    "newWard": "phường 14",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 6) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 13",
+    "oldDistrict": "quận 6",
+    "newWard": "phường 13",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 6) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 9",
+    "oldDistrict": "quận 6",
+    "newWard": "phường 9",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 6) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 12",
+    "oldDistrict": "quận 6",
+    "newWard": "phường 12",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 6) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 2",
+    "oldDistrict": "quận 6",
+    "newWard": "phường 2",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 6) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 11",
+    "oldDistrict": "quận 6",
+    "newWard": "phường 11",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 6) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 8",
+    "oldDistrict": "quận 6",
+    "newWard": "phường 8",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 6) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 1",
+    "oldDistrict": "quận 6",
+    "newWard": "phường 1",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 6) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 7",
+    "oldDistrict": "quận 6",
+    "newWard": "phường 7",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 6) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 10",
+    "oldDistrict": "quận 6",
+    "newWard": "phường 10",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 6) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường rạch ông",
+    "oldDistrict": "quận 8",
+    "newWard": "phường rạch ông",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 8) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường hưng phú",
+    "oldDistrict": "quận 8",
+    "newWard": "phường hưng phú",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 8) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 4",
+    "oldDistrict": "quận 8",
+    "newWard": "phường 4",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 8) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường xóm củi",
+    "oldDistrict": "quận 8",
+    "newWard": "phường xóm củi",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 8) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 5",
+    "oldDistrict": "quận 8",
+    "newWard": "phường 5",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 8) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 14",
+    "oldDistrict": "quận 8",
+    "newWard": "phường 14",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 8) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 6",
+    "oldDistrict": "quận 8",
+    "newWard": "phường 6",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 8) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 15",
+    "oldDistrict": "quận 8",
+    "newWard": "phường 15",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 8) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 16",
+    "oldDistrict": "quận 8",
+    "newWard": "phường 16",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 8) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường 7",
+    "oldDistrict": "quận 8",
+    "newWard": "phường 7",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 8) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường bình hưng hòa",
+    "oldDistrict": "quận bình tân",
+    "newWard": "phường bình tân",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Bình Tân sáp nhập thành phường bình tân",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường bình hưng hoà a",
+    "oldDistrict": "quận bình tân",
+    "newWard": "phường bình tân",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Bình Tân sáp nhập thành phường bình tân",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường bình hưng hoà b",
+    "oldDistrict": "quận bình tân",
+    "newWard": "phường bình tân",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Bình Tân sáp nhập thành phường bình tân",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường bình trị đông",
+    "oldDistrict": "quận bình tân",
+    "newWard": "phường bình tân",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Bình Tân sáp nhập thành phường bình tân",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường bình trị đông a",
+    "oldDistrict": "quận bình tân",
+    "newWard": "phường bình tân",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Bình Tân sáp nhập thành phường bình tân",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường bình trị đông b",
+    "oldDistrict": "quận bình tân",
+    "newWard": "phường bình tân",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Bình Tân sáp nhập thành phường bình tân",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường tân tạo",
+    "oldDistrict": "quận bình tân",
+    "newWard": "phường bình tân",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Bình Tân sáp nhập thành phường bình tân",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường tân tạo a",
+    "oldDistrict": "quận bình tân",
+    "newWard": "phường bình tân",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Bình Tân sáp nhập thành phường bình tân",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường an lạc",
+    "oldDistrict": "quận bình tân",
+    "newWard": "phường bình tân",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Bình Tân sáp nhập thành phường bình tân",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường an lạc a",
+    "oldDistrict": "quận bình tân",
+    "newWard": "phường bình tân",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Quận Bình Tân sáp nhập thành phường bình tân",
+    "needsReview": false
+  },
+  {
+    "oldWard": "phường tân thuận đông",
+    "oldDistrict": "quận 7",
+    "newWard": "phường tân thuận đông",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 7) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường tân thuận tây",
+    "oldDistrict": "quận 7",
+    "newWard": "phường tân thuận tây",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 7) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường tân kiểng",
+    "oldDistrict": "quận 7",
+    "newWard": "phường tân kiểng",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 7) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường tân hưng",
+    "oldDistrict": "quận 7",
+    "newWard": "phường tân hưng",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 7) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường bình thuận",
+    "oldDistrict": "quận 7",
+    "newWard": "phường bình thuận",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 7) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường tân quy",
+    "oldDistrict": "quận 7",
+    "newWard": "phường tân quy",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 7) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường phú thuận",
+    "oldDistrict": "quận 7",
+    "newWard": "phường phú thuận",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 7) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường tân phú",
+    "oldDistrict": "quận 7",
+    "newWard": "phường tân phú",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 7) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường tân phong",
+    "oldDistrict": "quận 7",
+    "newWard": "phường tân phong",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 7) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "phường phú mỹ",
+    "oldDistrict": "quận 7",
+    "newWard": "phường phú mỹ",
+    "province": "HCM",
+    "note": "Chỉ xóa cấp quận (Quận 7) — tên phường giữ nguyên",
+    "needsReview": true
+  },
+  {
+    "oldWard": "thị trấn củ chi",
+    "oldDistrict": "huyện củ chi",
+    "newWard": "phường củ chi",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Củ Chi sáp nhập thành phường củ chi",
+    "needsReview": false
+  },
+  {
+    "oldWard": "xã phú mỹ hưng",
+    "oldDistrict": "huyện củ chi",
+    "newWard": "phường củ chi",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Củ Chi sáp nhập thành phường củ chi",
+    "needsReview": false
+  },
+  {
+    "oldWard": "xã an phú",
+    "oldDistrict": "huyện củ chi",
+    "newWard": "phường củ chi",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Củ Chi sáp nhập thành phường củ chi",
+    "needsReview": false
+  },
+  {
+    "oldWard": "xã trung lập thượng",
+    "oldDistrict": "huyện củ chi",
+    "newWard": "phường củ chi",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Củ Chi sáp nhập thành phường củ chi",
+    "needsReview": false
+  },
+  {
+    "oldWard": "xã an nhơn tây",
+    "oldDistrict": "huyện củ chi",
+    "newWard": "phường củ chi",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Củ Chi sáp nhập thành phường củ chi",
+    "needsReview": false
+  },
+  {
+    "oldWard": "xã nhuận đức",
+    "oldDistrict": "huyện củ chi",
+    "newWard": "phường củ chi",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Củ Chi sáp nhập thành phường củ chi",
+    "needsReview": false
+  },
+  {
+    "oldWard": "xã phạm văn cội",
+    "oldDistrict": "huyện củ chi",
+    "newWard": "phường củ chi",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Củ Chi sáp nhập thành phường củ chi",
+    "needsReview": false
+  },
+  {
+    "oldWard": "xã phú hòa đông",
+    "oldDistrict": "huyện củ chi",
+    "newWard": "phường củ chi",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Củ Chi sáp nhập thành phường củ chi",
+    "needsReview": false
+  },
+  {
+    "oldWard": "xã trung lập hạ",
+    "oldDistrict": "huyện củ chi",
+    "newWard": "phường củ chi",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Củ Chi sáp nhập thành phường củ chi",
+    "needsReview": false
+  },
+  {
+    "oldWard": "xã trung an",
+    "oldDistrict": "huyện củ chi",
+    "newWard": "phường củ chi",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Củ Chi sáp nhập thành phường củ chi",
+    "needsReview": false
+  },
+  {
+    "oldWard": "xã phước thạnh",
+    "oldDistrict": "huyện củ chi",
+    "newWard": "phường củ chi",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Củ Chi sáp nhập thành phường củ chi",
+    "needsReview": false
+  },
+  {
+    "oldWard": "xã phước hiệp",
+    "oldDistrict": "huyện củ chi",
+    "newWard": "phường củ chi",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Củ Chi sáp nhập thành phường củ chi",
+    "needsReview": false
+  },
+  {
+    "oldWard": "xã tân an hội",
+    "oldDistrict": "huyện củ chi",
+    "newWard": "phường củ chi",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Củ Chi sáp nhập thành phường củ chi",
+    "needsReview": false
+  },
+  {
+    "oldWard": "xã phước vĩnh an",
+    "oldDistrict": "huyện củ chi",
+    "newWard": "phường củ chi",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Củ Chi sáp nhập thành phường củ chi",
+    "needsReview": false
+  },
+  {
+    "oldWard": "xã thái mỹ",
+    "oldDistrict": "huyện củ chi",
+    "newWard": "phường củ chi",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Củ Chi sáp nhập thành phường củ chi",
+    "needsReview": false
+  },
+  {
+    "oldWard": "xã tân thạnh tây",
+    "oldDistrict": "huyện củ chi",
+    "newWard": "phường củ chi",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Củ Chi sáp nhập thành phường củ chi",
+    "needsReview": false
+  },
+  {
+    "oldWard": "xã hòa phú",
+    "oldDistrict": "huyện củ chi",
+    "newWard": "phường củ chi",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Củ Chi sáp nhập thành phường củ chi",
+    "needsReview": false
+  },
+  {
+    "oldWard": "xã tân thạnh đông",
+    "oldDistrict": "huyện củ chi",
+    "newWard": "phường củ chi",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Củ Chi sáp nhập thành phường củ chi",
+    "needsReview": false
+  },
+  {
+    "oldWard": "xã bình mỹ",
+    "oldDistrict": "huyện củ chi",
+    "newWard": "phường củ chi",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Củ Chi sáp nhập thành phường củ chi",
+    "needsReview": false
+  },
+  {
+    "oldWard": "xã tân phú trung",
+    "oldDistrict": "huyện củ chi",
+    "newWard": "phường củ chi",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Củ Chi sáp nhập thành phường củ chi",
+    "needsReview": false
+  },
+  {
+    "oldWard": "xã tân thông hội",
+    "oldDistrict": "huyện củ chi",
+    "newWard": "phường củ chi",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Củ Chi sáp nhập thành phường củ chi",
+    "needsReview": false
+  },
+  {
+    "oldWard": "thị trấn hóc môn",
+    "oldDistrict": "huyện hóc môn",
+    "newWard": "phường hóc môn",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Hóc Môn sáp nhập thành phường hóc môn",
+    "needsReview": false
+  },
+  {
+    "oldWard": "xã tân hiệp",
+    "oldDistrict": "huyện hóc môn",
+    "newWard": "phường hóc môn",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Hóc Môn sáp nhập thành phường hóc môn",
+    "needsReview": false
+  },
+  {
+    "oldWard": "xã nhị bình",
+    "oldDistrict": "huyện hóc môn",
+    "newWard": "phường hóc môn",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Hóc Môn sáp nhập thành phường hóc môn",
+    "needsReview": false
+  },
+  {
+    "oldWard": "xã đông thạnh",
+    "oldDistrict": "huyện hóc môn",
+    "newWard": "phường hóc môn",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Hóc Môn sáp nhập thành phường hóc môn",
+    "needsReview": false
+  },
+  {
+    "oldWard": "xã tân thới nhì",
+    "oldDistrict": "huyện hóc môn",
+    "newWard": "phường hóc môn",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Hóc Môn sáp nhập thành phường hóc môn",
+    "needsReview": false
+  },
+  {
+    "oldWard": "xã thới tam thôn",
+    "oldDistrict": "huyện hóc môn",
+    "newWard": "phường hóc môn",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Hóc Môn sáp nhập thành phường hóc môn",
+    "needsReview": false
+  },
+  {
+    "oldWard": "xã xuân thới sơn",
+    "oldDistrict": "huyện hóc môn",
+    "newWard": "phường hóc môn",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Hóc Môn sáp nhập thành phường hóc môn",
+    "needsReview": false
+  },
+  {
+    "oldWard": "xã tân xuân",
+    "oldDistrict": "huyện hóc môn",
+    "newWard": "phường hóc môn",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Hóc Môn sáp nhập thành phường hóc môn",
+    "needsReview": false
+  },
+  {
+    "oldWard": "xã xuân thới đông",
+    "oldDistrict": "huyện hóc môn",
+    "newWard": "phường hóc môn",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Hóc Môn sáp nhập thành phường hóc môn",
+    "needsReview": false
+  },
+  {
+    "oldWard": "xã trung chánh",
+    "oldDistrict": "huyện hóc môn",
+    "newWard": "phường hóc môn",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Hóc Môn sáp nhập thành phường hóc môn",
+    "needsReview": false
+  },
+  {
+    "oldWard": "xã xuân thới thượng",
+    "oldDistrict": "huyện hóc môn",
+    "newWard": "phường hóc môn",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Hóc Môn sáp nhập thành phường hóc môn",
+    "needsReview": false
+  },
+  {
+    "oldWard": "xã bà điểm",
+    "oldDistrict": "huyện hóc môn",
+    "newWard": "phường hóc môn",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Hóc Môn sáp nhập thành phường hóc môn",
+    "needsReview": false
+  },
+  {
+    "oldWard": "thị trấn tân túc",
+    "oldDistrict": "huyện bình chánh",
+    "newWard": "phường bình chánh",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Bình Chánh sáp nhập thành phường bình chánh",
+    "needsReview": false
+  },
+  {
+    "oldWard": "xã phạm văn hai",
+    "oldDistrict": "huyện bình chánh",
+    "newWard": "phường bình chánh",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Bình Chánh sáp nhập thành phường bình chánh",
+    "needsReview": false
+  },
+  {
+    "oldWard": "xã vĩnh lộc a",
+    "oldDistrict": "huyện bình chánh",
+    "newWard": "phường bình chánh",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Bình Chánh sáp nhập thành phường bình chánh",
+    "needsReview": false
+  },
+  {
+    "oldWard": "xã vĩnh lộc b",
+    "oldDistrict": "huyện bình chánh",
+    "newWard": "phường bình chánh",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Bình Chánh sáp nhập thành phường bình chánh",
+    "needsReview": false
+  },
+  {
+    "oldWard": "xã bình lợi",
+    "oldDistrict": "huyện bình chánh",
+    "newWard": "phường bình chánh",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Bình Chánh sáp nhập thành phường bình chánh",
+    "needsReview": false
+  },
+  {
+    "oldWard": "xã lê minh xuân",
+    "oldDistrict": "huyện bình chánh",
+    "newWard": "phường bình chánh",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Bình Chánh sáp nhập thành phường bình chánh",
+    "needsReview": false
+  },
+  {
+    "oldWard": "xã tân nhựt",
+    "oldDistrict": "huyện bình chánh",
+    "newWard": "phường bình chánh",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Bình Chánh sáp nhập thành phường bình chánh",
+    "needsReview": false
+  },
+  {
+    "oldWard": "xã tân kiên",
+    "oldDistrict": "huyện bình chánh",
+    "newWard": "phường bình chánh",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Bình Chánh sáp nhập thành phường bình chánh",
+    "needsReview": false
+  },
+  {
+    "oldWard": "xã bình hưng",
+    "oldDistrict": "huyện bình chánh",
+    "newWard": "phường bình chánh",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Bình Chánh sáp nhập thành phường bình chánh",
+    "needsReview": false
+  },
+  {
+    "oldWard": "xã phong phú",
+    "oldDistrict": "huyện bình chánh",
+    "newWard": "phường bình chánh",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Bình Chánh sáp nhập thành phường bình chánh",
+    "needsReview": false
+  },
+  {
+    "oldWard": "xã an phú tây",
+    "oldDistrict": "huyện bình chánh",
+    "newWard": "phường bình chánh",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Bình Chánh sáp nhập thành phường bình chánh",
+    "needsReview": false
+  },
+  {
+    "oldWard": "xã hưng long",
+    "oldDistrict": "huyện bình chánh",
+    "newWard": "phường bình chánh",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Bình Chánh sáp nhập thành phường bình chánh",
+    "needsReview": false
+  },
+  {
+    "oldWard": "xã đa phước",
+    "oldDistrict": "huyện bình chánh",
+    "newWard": "phường bình chánh",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Bình Chánh sáp nhập thành phường bình chánh",
+    "needsReview": false
+  },
+  {
+    "oldWard": "xã tân quý tây",
+    "oldDistrict": "huyện bình chánh",
+    "newWard": "phường bình chánh",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Bình Chánh sáp nhập thành phường bình chánh",
+    "needsReview": false
+  },
+  {
+    "oldWard": "xã bình chánh",
+    "oldDistrict": "huyện bình chánh",
+    "newWard": "phường bình chánh",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Bình Chánh sáp nhập thành phường bình chánh",
+    "needsReview": false
+  },
+  {
+    "oldWard": "xã quy đức",
+    "oldDistrict": "huyện bình chánh",
+    "newWard": "phường bình chánh",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Bình Chánh sáp nhập thành phường bình chánh",
+    "needsReview": false
+  },
+  {
+    "oldWard": "thị trấn nhà bè",
+    "oldDistrict": "huyện nhà bè",
+    "newWard": "phường nhà bè",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Nhà Bè sáp nhập thành phường nhà bè",
+    "needsReview": false
+  },
+  {
+    "oldWard": "xã phước kiển",
+    "oldDistrict": "huyện nhà bè",
+    "newWard": "phường nhà bè",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Nhà Bè sáp nhập thành phường nhà bè",
+    "needsReview": false
+  },
+  {
+    "oldWard": "xã phước lộc",
+    "oldDistrict": "huyện nhà bè",
+    "newWard": "phường nhà bè",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Nhà Bè sáp nhập thành phường nhà bè",
+    "needsReview": false
+  },
+  {
+    "oldWard": "xã nhơn đức",
+    "oldDistrict": "huyện nhà bè",
+    "newWard": "phường nhà bè",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Nhà Bè sáp nhập thành phường nhà bè",
+    "needsReview": false
+  },
+  {
+    "oldWard": "xã phú xuân",
+    "oldDistrict": "huyện nhà bè",
+    "newWard": "phường nhà bè",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Nhà Bè sáp nhập thành phường nhà bè",
+    "needsReview": false
+  },
+  {
+    "oldWard": "xã long thới",
+    "oldDistrict": "huyện nhà bè",
+    "newWard": "phường nhà bè",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Nhà Bè sáp nhập thành phường nhà bè",
+    "needsReview": false
+  },
+  {
+    "oldWard": "xã hiệp phước",
+    "oldDistrict": "huyện nhà bè",
+    "newWard": "phường nhà bè",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Nhà Bè sáp nhập thành phường nhà bè",
+    "needsReview": false
+  },
+  {
+    "oldWard": "thị trấn cần thạnh",
+    "oldDistrict": "huyện cần giờ",
+    "newWard": "phường cần giờ",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Cần Giờ sáp nhập thành phường cần giờ",
+    "needsReview": false
+  },
+  {
+    "oldWard": "xã bình khánh",
+    "oldDistrict": "huyện cần giờ",
+    "newWard": "phường cần giờ",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Cần Giờ sáp nhập thành phường cần giờ",
+    "needsReview": false
+  },
+  {
+    "oldWard": "xã tam thôn hiệp",
+    "oldDistrict": "huyện cần giờ",
+    "newWard": "phường cần giờ",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Cần Giờ sáp nhập thành phường cần giờ",
+    "needsReview": false
+  },
+  {
+    "oldWard": "xã an thới đông",
+    "oldDistrict": "huyện cần giờ",
+    "newWard": "phường cần giờ",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Cần Giờ sáp nhập thành phường cần giờ",
+    "needsReview": false
+  },
+  {
+    "oldWard": "xã thạnh an",
+    "oldDistrict": "huyện cần giờ",
+    "newWard": "phường cần giờ",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Cần Giờ sáp nhập thành phường cần giờ",
+    "needsReview": false
+  },
+  {
+    "oldWard": "xã long hòa",
+    "oldDistrict": "huyện cần giờ",
+    "newWard": "phường cần giờ",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Cần Giờ sáp nhập thành phường cần giờ",
+    "needsReview": false
+  },
+  {
+    "oldWard": "xã lý nhơn",
+    "oldDistrict": "huyện cần giờ",
+    "newWard": "phường cần giờ",
+    "province": "HCM",
+    "note": "NQ 1279/NQ-UBTVQH15: Huyện Cần Giờ sáp nhập thành phường cần giờ",
+    "needsReview": false
+  }
+]
