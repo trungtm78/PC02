@@ -42,12 +42,33 @@ type FormData = {
   isActive: boolean;
 };
 
-const DIRECTORY_TYPES = [
-  { id: 'CRIME', label: 'Tội danh' },
-  { id: 'ORG', label: 'Đơn vị' },
-  { id: 'LOCATION', label: 'Địa bàn' },
-  { id: 'STATUS', label: 'Trạng thái' },
-];
+// Labels for all known directory types — unknown types fall back to their key
+const DIRECTORY_TYPE_LABELS: Record<string, string> = {
+  WARD:               'Phường/Xã',
+  PROVINCE:           'Tỉnh/Thành phố',
+  DISTRICT:           'Quận/Huyện (cũ)',
+  UNIT:               'Đơn vị công an',
+  CRIME:              'Tội danh (BLHS)',
+  INCIDENT_TYPE:      'Loại vụ việc',
+  INCIDENT_LEVEL:     'Mức độ nghiêm trọng',
+  CASE_CLASSIFICATION:'Phân loại vụ án',
+  TDC_SOURCE:         'Nguồn tin TĐC',
+  TDC_CASE_TYPE:      'Loại vụ TĐC',
+  PROSECUTION_OFFICE: 'Viện kiểm sát',
+  PRIORITY:           'Mức độ ưu tiên',
+  PETITION_TYPE:      'Loại đơn thư',
+  DOCUMENT_TYPE:      'Loại tài liệu',
+  EVIDENCE_TYPE:      'Loại vật chứng',
+  OCCUPATION:         'Ngành nghề',
+  NATIONALITY:        'Quốc tịch',
+  GENDER:             'Giới tính',
+  AGE_GROUP:          'Nhóm tuổi',
+  EDUCATION_LEVEL:    'Trình độ học vấn',
+  ORG:                'Tổ chức/Đơn vị',
+  // Legacy types still in DB
+  LOCATION:           'Địa bàn (cũ)',
+  STATUS:             'Trạng thái (cũ)',
+};
 
 const EMPTY_FORM: FormData = {
   type: 'CRIME',
@@ -63,6 +84,8 @@ const EMPTY_FORM: FormData = {
 
 export default function DirectoriesPage() {
   const [activeType, setActiveType] = useState('CRIME');
+  const [availableTypes, setAvailableTypes] = useState<string[]>([]);
+  const [typesLoading, setTypesLoading] = useState(true);
   const [items, setItems] = useState<Directory[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -78,12 +101,37 @@ export default function DirectoriesPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletingItem, setDeletingItem] = useState<Directory | null>(null);
 
+  // ─── Load available types from API ─────────────────────────────────────────
+  useEffect(() => {
+    api.get('/directories/types')
+      .then((res) => {
+        const types: string[] = res.data ?? [];
+        // Sort: priority types first, then alphabetical
+        const priority = ['WARD', 'PROVINCE', 'CRIME', 'INCIDENT_TYPE', 'PETITION_TYPE', 'PRIORITY', 'UNIT'];
+        const sorted = [
+          ...priority.filter(t => types.includes(t)),
+          ...types.filter(t => !priority.includes(t)).sort(),
+        ];
+        setAvailableTypes(sorted);
+        if (sorted.length > 0 && !sorted.includes(activeType)) {
+          setActiveType(sorted[0]);
+        }
+      })
+      .catch(() => {
+        // Fallback to static list if API unavailable
+        setAvailableTypes(['CRIME', 'ORG', 'LOCATION', 'STATUS']);
+      })
+      .finally(() => setTypesLoading(false));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ─── Load data ─────────────────────────────────────────────────────────────
 
   const loadItems = useCallback(async () => {
     setLoading(true);
     try {
-      const params: Record<string, string | number> = { type: activeType, limit: 100, offset: 0 };
+      // WARD has 10,051 entries — use larger limit; other types fit in 200
+      const limit = activeType === 'WARD' ? 200 : 100;
+      const params: Record<string, string | number> = { type: activeType, limit, offset: 0 };
       if (searchQuery) params.search = searchQuery;
       if (filterStatus !== 'all') params.isActive = filterStatus === 'active' ? 'true' : 'false';
       const res = await api.get('/directories', { params });
@@ -232,13 +280,20 @@ export default function DirectoriesPage() {
               </h3>
             </div>
             <div className="divide-y divide-slate-200">
-              {DIRECTORY_TYPES.map((dt) => {
-                const active = activeType === dt.id;
+              {typesLoading ? (
+                <div className="p-4 text-slate-400 text-sm flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Đang tải...
+                </div>
+              ) : availableTypes.map((typeId) => {
+                const active = activeType === typeId;
+                const label = DIRECTORY_TYPE_LABELS[typeId] ?? typeId;
+                const isLegacy = typeId === 'DISTRICT' || typeId === 'LOCATION' || typeId === 'STATUS';
                 return (
                   <button
-                    key={dt.id}
+                    key={typeId}
                     onClick={() => {
-                      setActiveType(dt.id);
+                      setActiveType(typeId);
                       setSearchQuery('');
                       setFilterStatus('all');
                     }}
@@ -246,7 +301,7 @@ export default function DirectoriesPage() {
                       active
                         ? 'bg-[#003973]/5 border-[#003973]'
                         : 'border-transparent hover:bg-slate-50'
-                    }`}
+                    } ${isLegacy ? 'opacity-60' : ''}`}
                   >
                     <div className="flex items-center gap-3">
                       <FolderTree
@@ -258,7 +313,7 @@ export default function DirectoriesPage() {
                             active ? 'text-[#003973]' : 'text-slate-800'
                           }`}
                         >
-                          {dt.label}
+                          {label}
                         </div>
                         {active && (
                           <div className="text-xs text-slate-500 mt-0.5">{total} mục</div>
@@ -446,8 +501,10 @@ export default function DirectoriesPage() {
                   disabled={!!editingItem}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] text-sm disabled:bg-slate-50"
                 >
-                  {DIRECTORY_TYPES.map((dt) => (
-                    <option key={dt.id} value={dt.id}>{dt.label}</option>
+                  {availableTypes.map((typeId) => (
+                    <option key={typeId} value={typeId}>
+                      {DIRECTORY_TYPE_LABELS[typeId] ?? typeId}
+                    </option>
                   ))}
                 </select>
               </div>
