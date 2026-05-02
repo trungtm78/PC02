@@ -76,8 +76,18 @@ describe('AddressMappingService', () => {
       );
     });
 
-    it('returns null when no mapping found', async () => {
+    it('uses district-level fallback when ward not in DB but district is unambiguous', async () => {
+      // phường 14 not in DB but all phường of quận phú nhuận → same newWard
+      mockPrisma.addressMapping.findFirst.mockResolvedValue(null); // no exact match
+      mockPrisma.addressMapping.findMany.mockResolvedValue([{ newWard: 'phường phú nhuận' }]); // 1 distinct newWard
+      const result = await service.lookup({ ward: 'phường 14', district: 'quận phú nhuận', province: 'HCM' });
+      expect(result).not.toBeNull();
+      expect(result?.newWard).toBe('phường phú nhuận');
+    });
+
+    it('returns null when no mapping found and district is ambiguous', async () => {
       mockPrisma.addressMapping.findFirst.mockResolvedValue(null);
+      mockPrisma.addressMapping.findMany.mockResolvedValue([]); // no district records
       const result = await service.lookup({ ward: 'phường xyz', district: 'quận abc' });
       expect(result).toBeNull();
     });

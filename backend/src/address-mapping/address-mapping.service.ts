@@ -27,17 +27,54 @@ export class AddressMappingService {
     return { data, total, limit, offset };
   }
 
-  /** Tra cứu mapping cho F10 hotkey — case-insensitive */
+  /** Tra cứu mapping cho F10 hotkey — case-insensitive, với district-level fallback */
   async lookup(dto: LookupAddressMappingDto) {
     const { ward, district, province = 'HCM' } = dto;
-    return this.prisma.addressMapping.findFirst({
+    const districtNorm = district.toLowerCase().trim();
+    const wardNorm = ward.toLowerCase().trim();
+
+    // Bước 1: Exact match (oldWard + oldDistrict)
+    const exact = await this.prisma.addressMapping.findFirst({
       where: {
-        oldWard: { equals: ward.toLowerCase().trim(), mode: 'insensitive' },
-        oldDistrict: { equals: district.toLowerCase().trim(), mode: 'insensitive' },
+        oldWard: { equals: wardNorm, mode: 'insensitive' },
+        oldDistrict: { equals: districtNorm, mode: 'insensitive' },
         province,
         isActive: true,
       },
     });
+    if (exact) return exact;
+
+    // Bước 2: District-level fallback
+    // Nếu không tìm thấy phường cụ thể, kiểm tra xem tất cả phường trong quận đó
+    // có cùng map về 1 phường mới không (quận đã sáp nhập hoàn toàn)
+    const districtNewWards = await this.prisma.addressMapping.findMany({
+      where: {
+        oldDistrict: { equals: districtNorm, mode: 'insensitive' },
+        province,
+        isActive: true,
+      },
+      select: { newWard: true },
+      distinct: ['newWard'],
+    });
+
+    if (districtNewWards.length === 1) {
+      // Tất cả phường trong quận này → cùng 1 phường mới
+      // (trường hợp phường chưa có trong data nhưng quận đã sáp nhập hoàn toàn)
+      return {
+        id: 'district-fallback',
+        oldWard: wardNorm,
+        oldDistrict: districtNorm,
+        newWard: districtNewWards[0].newWard,
+        province,
+        note: `Fallback theo quận: ${districtNorm} → ${districtNewWards[0].newWard}`,
+        isActive: true,
+        needsReview: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+    }
+
+    return null;
   }
 
   async create(dto: CreateAddressMappingDto) {
