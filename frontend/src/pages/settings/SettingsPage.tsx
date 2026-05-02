@@ -14,8 +14,10 @@ import {
   ChevronRight,
   KeyRound,
   Keyboard,
+  MapPin,
 } from 'lucide-react';
 import { AbbreviationsModule } from './modules/AbbreviationsModule';
+import { AddressMappingModule } from './modules/AddressMappingModule';
 import { Button } from '@/components/ui/button';
 import { TwoFaSetupModal } from '@/components/TwoFaSetupModal';
 import { ChangePasswordModal } from '@/components/ChangePasswordModal';
@@ -63,6 +65,12 @@ const menuItems = [
     label: 'Từ viết tắt',
     icon: Keyboard,
     description: 'Thư viện phím tắt cá nhân (F9)',
+  },
+  {
+    id: 'address-mapping',
+    label: 'Cải cách địa chỉ',
+    icon: MapPin,
+    description: 'Mapping địa chỉ cũ → mới (F10)',
   },
 ];
 
@@ -493,6 +501,8 @@ export default function SettingsPage() {
         return <SecurityModule />;
       case 'abbreviations':
         return <AbbreviationsModule />;
+      case 'address-mapping':
+        return <AddressMappingModule />;
       default:
         return <UserManagementModule />;
     }

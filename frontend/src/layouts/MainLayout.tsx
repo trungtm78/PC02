@@ -7,6 +7,8 @@ import { GlobalSearchBar } from '@/components/GlobalSearchBar';
 import { ChangePasswordModal } from '@/components/ChangePasswordModal';
 import { TwoFaSetupModal } from '@/components/TwoFaSetupModal';
 import { useAbbreviationExpander } from '@/hooks/useAbbreviationExpander';
+import { useAddressConverter } from '@/hooks/useAddressConverter';
+import { AddressConversionDialog } from '@/components/AddressConversionDialog';
 import { authStore } from '@/stores/auth.store';
 import logoCA from '@/assets/logo-cong-an.png';
 
@@ -28,6 +30,7 @@ function getUserInitials(email: string | undefined): string {
 
 export function MainLayout() {
   useAbbreviationExpander();
+  const { preview: addressPreview, applyConversion, cancelConversion } = useAddressConverter('F10');
   const navigate = useNavigate();
   const user = authStore.getUser();
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -151,6 +154,14 @@ export function MainLayout() {
         open={twoFaSetupOpen}
         onClose={() => setTwoFaSetupOpen(false)}
       />
+      {/* F10 Address Converter Dialog */}
+      {addressPreview && (
+        <AddressConversionDialog
+          preview={addressPreview}
+          onApply={applyConversion}
+          onCancel={cancelConversion}
+        />
+      )}
     </div>
   );
 }
