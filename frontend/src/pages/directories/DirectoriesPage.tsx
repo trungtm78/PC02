@@ -82,12 +82,15 @@ const EMPTY_FORM: FormData = {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
+const PAGE_SIZE = 50;
+
 export default function DirectoriesPage() {
   const [activeType, setActiveType] = useState('CRIME');
   const [availableTypes, setAvailableTypes] = useState<string[]>([]);
   const [typesLoading, setTypesLoading] = useState(true);
   const [items, setItems] = useState<Directory[]>([]);
   const [total, setTotal] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
@@ -129,9 +132,8 @@ export default function DirectoriesPage() {
   const loadItems = useCallback(async () => {
     setLoading(true);
     try {
-      // WARD has 10,051 entries — use larger limit; other types fit in 200
-      const limit = activeType === 'WARD' ? 200 : 100;
-      const params: Record<string, string | number> = { type: activeType, limit, offset: 0 };
+      const offset = (currentPage - 1) * PAGE_SIZE;
+      const params: Record<string, string | number> = { type: activeType, limit: PAGE_SIZE, offset };
       if (searchQuery) params.search = searchQuery;
       if (filterStatus !== 'all') params.isActive = filterStatus === 'active' ? 'true' : 'false';
       const res = await api.get('/directories', { params });
@@ -142,7 +144,7 @@ export default function DirectoriesPage() {
     } finally {
       setLoading(false);
     }
-  }, [activeType, searchQuery, filterStatus]);
+  }, [activeType, searchQuery, filterStatus, currentPage]);
 
   useEffect(() => {
     void loadItems();
@@ -296,6 +298,7 @@ export default function DirectoriesPage() {
                       setActiveType(typeId);
                       setSearchQuery('');
                       setFilterStatus('all');
+                      setCurrentPage(1);
                     }}
                     className={`w-full text-left p-4 border-l-4 transition-all ${
                       active
@@ -339,7 +342,7 @@ export default function DirectoriesPage() {
                     type="text"
                     placeholder="Tìm theo mã hoặc tên..."
                     value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
                     className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] text-sm"
                   />
                 </div>
@@ -347,7 +350,7 @@ export default function DirectoriesPage() {
                   <Filter className="w-4 h-4 text-slate-500" />
                   <select
                     value={filterStatus}
-                    onChange={(e) => setFilterStatus(e.target.value)}
+                    onChange={(e) => { setFilterStatus(e.target.value); setCurrentPage(1); }}
                     className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] text-sm"
                   >
                     <option value="all">Tất cả</option>
@@ -457,11 +460,34 @@ export default function DirectoriesPage() {
               </table>
             </div>
 
-            {/* Footer */}
-            {!loading && items.length > 0 && (
-              <div className="p-4 border-t border-slate-200 text-sm text-slate-600">
-                Hiển thị <span className="font-medium">{items.length}</span> trong tổng số{' '}
-                <span className="font-medium">{total}</span> mục
+            {/* Pagination Footer */}
+            {!loading && total > 0 && (
+              <div className="p-4 border-t border-slate-200 flex items-center justify-between text-sm text-slate-600">
+                <span>
+                  Hiển thị{' '}
+                  <span className="font-medium">{(currentPage - 1) * PAGE_SIZE + 1}</span>–
+                  <span className="font-medium">{Math.min(currentPage * PAGE_SIZE, total)}</span>{' '}
+                  trong tổng số <span className="font-medium">{total.toLocaleString('vi-VN')}</span> mục
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1.5 rounded border border-slate-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 text-xs font-medium"
+                  >
+                    ← Trước
+                  </button>
+                  <span className="text-xs text-slate-500">
+                    Trang {currentPage}/{Math.ceil(total / PAGE_SIZE)}
+                  </span>
+                  <button
+                    onClick={() => setCurrentPage(p => Math.min(Math.ceil(total / PAGE_SIZE), p + 1))}
+                    disabled={currentPage >= Math.ceil(total / PAGE_SIZE)}
+                    className="px-3 py-1.5 rounded border border-slate-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 text-xs font-medium"
+                  >
+                    Sau →
+                  </button>
+                </div>
               </div>
             )}
           </div>
