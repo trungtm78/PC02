@@ -109,3 +109,34 @@ describe('WARD_NAMES_HCM_FIRST', () => {
     expect(hcmIdx).toBeLessThan(50); // Should be near start
   });
 });
+
+// ─── Regression tests: province mapping correctness ───────────────────────────
+// These tests guard against bugs like P19/P37/P70/P91 (unmapped provinces).
+// If fetch-wards.mjs PROVINCE_MAP has a regression, these tests fail immediately.
+describe('province mapping correctness (regression)', () => {
+  it('no fallback P{number} province codes in Tier 1 data', () => {
+    // P-codes like P19, P37 indicate unmapped provinces from fetch-wards.mjs
+    const fallbackCodes = VIETNAM_WARDS.filter(w => /^P\d+/.test(w.provinceCode));
+    expect(fallbackCodes).toHaveLength(0);
+  });
+
+  it('HCM (Tier 1) includes wards from merged Bình Dương + BRVT — at least 200 wards', () => {
+    // After 2025 reform: HCM absorbed Bình Dương (74) + Bà Rịa-Vũng Tàu (77)
+    // Combined ward count should be well above the original 22 wards
+    expect(HCMC_WARDS.length).toBeGreaterThan(200);
+  });
+
+  it('Tier 1 data contains exactly the 6 priority provinces (HCM, HN, DN, HP, CT, HUE)', () => {
+    // VIETNAM_WARDS = Tier 1 only (priority provinces for immediate load)
+    // All 32 provinces are in wards-full.json (lazy loaded)
+    const TIER1_EXPECTED = ['HCM', 'HN', 'DN', 'HP', 'CT', 'HUE'];
+    const actualProvinceCodes = [...new Set(VIETNAM_WARDS.map(w => w.provinceCode))];
+    for (const expected of TIER1_EXPECTED) {
+      expect(actualProvinceCodes).toContain(expected);
+    }
+    // No unexpected provinces leak into Tier 1
+    for (const code of actualProvinceCodes) {
+      expect(TIER1_EXPECTED).toContain(code);
+    }
+  });
+});
