@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.13.1.0] - 2026-05-02
+
+### Added
+- **Danh mục hệ thống hiển thị dữ liệu thật** (`Settings → Danh mục`): Không còn mock data. Trang hiển thị 21 loại danh mục với số lượng thật từ DB — Phường/Xã: 10,051 mục, Tỉnh/Thành phố: 34 mục, Loại vụ việc: 4 mục, v.v. Quận/Huyện hiển thị với badge "Di sản · trước 01/07/2025" (backward compat).
+- **API `GET /directories/stats`**: Endpoint mới trả về count theo từng loại danh mục. Có test.
+- **Seed 34 Tỉnh/Thành phố**: Tự động seed khi `npm run db:seed`. 34 tỉnh/TP chính xác theo cải cách 2025.
+- **Seed 5 loại mới**: TDC_SOURCE (nguồn tin TĐC), TDC_CASE_TYPE (loại vụ TĐC), DOCUMENT_TYPE (loại tài liệu), INCIDENT_LEVEL (mức độ nghiêm trọng), UNIT (đơn vị công an).
+- **`seedWards()` chạy tự động**: `npm run db:seed` giờ tự động seed 10,051 phường/xã toàn quốc — không cần chạy lệnh riêng.
+
+### Changed
+- **10 dropdown chuyển sang dùng dữ liệu DB**: Tất cả form nhập liệu (PetitionFormPage, CaseFormPage, IncidentFormPage) giờ dùng `FKSelect directoryType` thay vì hardcoded options. Các loại: PETITION_TYPE, INCIDENT_TYPE, INCIDENT_LEVEL, PRIORITY, CASE_CLASSIFICATION, PROSECUTION_OFFICE, EVIDENCE_TYPE, TDC_SOURCE, TDC_CASE_TYPE, DOCUMENT_TYPE, UNIT.
+- **Quận/Huyện → Legacy**: Các entry DISTRICT trong DB được set `isActive=false` — không hiển thị trong form nhập mới nhưng vẫn bảo toàn dữ liệu hồ sơ cũ.
+
 ## [0.13.0.0] - 2026-05-02
 
 ### Added (2026-05-02)
