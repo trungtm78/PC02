@@ -50,7 +50,7 @@ export class AddressMappingController {
 
   @Post('crawl')
   @RequirePermissions({ action: 'write', subject: 'Directory' })
-  crawlAndSync() {
-    return this.service.crawlAndSync();
+  crawlAndSync(@Body('province') province?: string) {
+    return this.service.crawlAndSync(province ?? 'HCM');
   }
 }

@@ -99,15 +99,88 @@ export class AddressMappingService {
   }
 
   /** Crawl từ provinces.open-api.vn và sync vào DB */
-  async crawlAndSync() {
-    // Gọi API fetch để lấy data mới nhất
-    // Logic tương tự scripts/crawl-address-mappings.mjs
-    // Trả về stats để admin review
-    const existing = await this.prisma.addressMapping.count();
+  async crawlAndSync(province = 'HCM') {
+    const BASE = 'https://provinces.open-api.vn/api';
+
+    // Mapping quận/huyện cũ → phường mới (Nghị quyết 1279/NQ-UBTVQH15)
+    const DISTRICT_TO_NEW_WARD: Record<string, string | null> = {
+      'quận phú nhuận':  'phường phú nhuận',
+      'quận bình thạnh': 'phường bình thạnh',
+      'quận gò vấp':     'phường gò vấp',
+      'quận tân bình':   'phường tân bình',
+      'quận tân phú':    'phường tân phú',
+      'quận bình tân':   'phường bình tân',
+      'huyện bình chánh': 'phường bình chánh',
+      'huyện hóc môn':   'phường hóc môn',
+      'huyện củ chi':    'phường củ chi',
+      'huyện nhà bè':    'phường nhà bè',
+      'huyện cần giờ':   'phường cần giờ',
+      // Quận số — chưa có văn bản chính thức → chỉ xóa cấp quận
+      'quận 1': null, 'quận 2': null, 'quận 3': null, 'quận 4': null,
+      'quận 5': null, 'quận 6': null, 'quận 7': null, 'quận 8': null,
+      'quận 9': null, 'quận 10': null, 'quận 11': null, 'quận 12': null,
+      'thành phố thủ đức': null,
+    };
+
+    // Province code → API code
+    const PROVINCE_API_CODE: Record<string, number> = { HCM: 79 };
+    const apiCode = PROVINCE_API_CODE[province];
+    if (!apiCode) throw new Error(`Province ${province} not supported for crawl`);
+
+    // Fetch province data with full depth
+    const res = await fetch(`${BASE}/p/${apiCode}?depth=3`, {
+      headers: { 'User-Agent': 'PC02-AddressMapper/1.0' },
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status} from provinces.open-api.vn`);
+
+    const data = await res.json() as {
+      districts: Array<{
+        name: string;
+        wards: Array<{ name: string; codename: string }>;
+      }>;
+    };
+
+    const districts = data.districts ?? [];
+
+    let created = 0;
+    let updated = 0;
+    let skipped = 0;
+
+    for (const district of districts) {
+      const districtKey = district.name.toLowerCase().trim();
+      const newWard = DISTRICT_TO_NEW_WARD[districtKey];
+
+      if (newWard === undefined) {
+        // District không có trong mapping → bỏ qua
+        skipped += (district.wards ?? []).length;
+        continue;
+      }
+
+      for (const ward of district.wards ?? []) {
+        const oldWard = ward.name.toLowerCase().trim();
+        const resolvedNewWard = newWard ?? oldWard; // null = giữ tên phường
+        const note = newWard
+          ? `NQ 1279/NQ-UBTVQH15: ${district.name} sáp nhập thành ${newWard}`
+          : `Chỉ xóa cấp quận (${district.name}) — tên phường giữ nguyên`;
+        const needsReview = newWard === null;
+
+        const upserted = await this.prisma.addressMapping.upsert({
+          where: { oldWard_oldDistrict_province: { oldWard, oldDistrict: districtKey, province } },
+          update: { newWard: resolvedNewWard, note, needsReview },
+          create: { oldWard, oldDistrict: districtKey, newWard: resolvedNewWard, province, note, needsReview, isActive: true },
+        });
+
+        const timeDiff = upserted.updatedAt.getTime() - upserted.createdAt.getTime();
+        if (timeDiff < 1000) created++;
+        else updated++;
+      }
+    }
+
+    const total = await this.prisma.addressMapping.count({ where: { province } });
     return {
-      message: 'Crawl feature: run node scripts/crawl-address-mappings.mjs --apply',
-      existingRecords: existing,
-      hint: 'Run crawl script then re-seed to update mappings',
+      success: true,
+      message: `Crawl hoàn tất từ provinces.open-api.vn`,
+      stats: { created, updated, skipped, total, needsReview: await this.prisma.addressMapping.count({ where: { province, needsReview: true } }) },
     };
   }
 

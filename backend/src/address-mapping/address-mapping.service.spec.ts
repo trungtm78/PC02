@@ -12,6 +12,7 @@ const mockPrisma = {
     create: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
+    upsert: jest.fn(),
   },
 };
 
@@ -124,6 +125,60 @@ describe('AddressMappingService', () => {
     it('throws NotFoundException for missing mapping', async () => {
       mockPrisma.addressMapping.findUnique.mockResolvedValue(null);
       await expect(service.remove('nonexistent')).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('crawlAndSync', () => {
+    it('returns success stats after crawl', async () => {
+      const mockFetch = jest.spyOn(global, 'fetch').mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          districts: [
+            {
+              name: 'Quận Phú Nhuận',
+              wards: [
+                { name: 'Phường 14', codename: 'phuong_14' },
+                { name: 'Phường 13', codename: 'phuong_13' },
+              ],
+            },
+          ],
+        }),
+      } as Response);
+
+      mockPrisma.addressMapping.upsert.mockResolvedValue({
+        ...SAMPLE_MAPPING,
+        createdAt: new Date(Date.now() - 5000),
+        updatedAt: new Date(), // existing record
+      });
+      mockPrisma.addressMapping.count.mockResolvedValue(10);
+
+      const result = await service.crawlAndSync('HCM');
+      expect(result.success).toBe(true);
+      expect(result.stats).toHaveProperty('created');
+      expect(result.stats).toHaveProperty('updated');
+      expect(mockPrisma.addressMapping.upsert).toHaveBeenCalledTimes(2);
+
+      mockFetch.mockRestore();
+    });
+
+    it('fetches data for quận phú nhuận correctly', async () => {
+      const mockFetch = jest.spyOn(global, 'fetch').mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          districts: [{ name: 'Quận Phú Nhuận', wards: [{ name: 'Phường 14', codename: 'p14' }] }],
+        }),
+      } as Response);
+      mockPrisma.addressMapping.upsert.mockResolvedValue({ ...SAMPLE_MAPPING, createdAt: new Date(), updatedAt: new Date() });
+      mockPrisma.addressMapping.count.mockResolvedValue(1);
+
+      await service.crawlAndSync('HCM');
+
+      const upsertCall = mockPrisma.addressMapping.upsert.mock.calls[0][0];
+      expect(upsertCall.create.oldWard).toBe('phường 14');
+      expect(upsertCall.create.newWard).toBe('phường phú nhuận');
+      expect(upsertCall.create.needsReview).toBe(false);
+
+      mockFetch.mockRestore();
     });
   });
 });
