@@ -391,4 +391,58 @@ describe('ReportsService', () => {
       expect(group).not.toHaveProperty('groupIndex');
     });
   });
+
+  // ── getDistrictStats — ward filter ────────────────────────────────────────
+
+  describe('getDistrictStats', () => {
+    beforeEach(() => {
+      mockPrisma.case.count.mockResolvedValue(3);
+      mockPrisma.petition.count.mockResolvedValue(1);
+      mockPrisma.incident.count.mockResolvedValue(2);
+      mockPrisma.case.groupBy.mockResolvedValue([]);
+      mockPrisma.incident.groupBy.mockResolvedValue([]);
+    });
+
+    it('passes metadata.ward filter when district param is provided', async () => {
+      await service.getDistrictStats('2026-01-01', '2026-01-03', 'Phường Bến Nghé');
+
+      // Case count should be called with metadata ward filter
+      const caseCalls = mockPrisma.case.count.mock.calls;
+      expect(caseCalls.length).toBeGreaterThan(0);
+      const firstCall = caseCalls[0][0];
+      expect(firstCall.where).toMatchObject({
+        metadata: { path: ['ward'], equals: 'Phường Bến Nghé' },
+      });
+    });
+
+    it('does NOT apply metadata filter when district is undefined', async () => {
+      await service.getDistrictStats('2026-01-01', '2026-01-03', undefined);
+
+      const caseCalls = mockPrisma.case.count.mock.calls;
+      const firstCall = caseCalls[0][0];
+      // Should NOT have metadata key when no district
+      expect(firstCall.where.metadata).toBeUndefined();
+    });
+
+    it('applies ward filter to caseStatusCounts groupBy', async () => {
+      await service.getDistrictStats('2026-01-01', '2026-01-03', 'Phường 1');
+
+      const groupByCalls = mockPrisma.case.groupBy.mock.calls;
+      expect(groupByCalls.length).toBeGreaterThan(0);
+      const groupByCall = groupByCalls[0][0];
+      expect(groupByCall.where).toMatchObject({
+        metadata: { path: ['ward'], equals: 'Phường 1' },
+      });
+    });
+
+    it('returns correct structure in response', async () => {
+      const result = await service.getDistrictStats('2026-01-01', '2026-01-02', 'Phường 2');
+
+      expect(result.success).toBe(true);
+      expect(result.data).toHaveProperty('daily');
+      expect(result.data).toHaveProperty('incidentStatus');
+      expect(result.data).toHaveProperty('caseStatus');
+      expect(result.filters.district).toBe('Phường 2');
+    });
+  });
 });
