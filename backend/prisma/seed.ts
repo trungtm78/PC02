@@ -9,6 +9,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import * as bcrypt from 'bcrypt';
 import { seedFeatureFlags } from './seed-feature-flags';
 import { seedWards } from './seed-wards';
+import { seedDirectoryTypes } from './seed-directory-types';
 
 const adapter = new PrismaPg({
   connectionString: process.env['DATABASE_URL'] ?? 'postgresql://pc02_admin:pc02_password@localhost:5432/pc02_db?schema=public',
@@ -228,6 +229,11 @@ async function main() {
       console.log('Seed lawyer already exists, skipped.');
     }
   }
+
+  // ── Directory types (PROVINCE, INCIDENT_TYPE, PETITION_TYPE, v.v.) ──────────
+  // Critical: without this, form dropdowns show empty and Danh mục has no types.
+  console.log('Seeding directory types...');
+  await seedDirectoryTypes(prisma);
 
   // ── Feature flags (always seeded, idempotent) ─────────────────────────────
   // Critical: without these rows the frontend /feature-flags endpoint returns

@@ -1,17 +1,12 @@
 /**
- * Seed Missing Directory Types
- * Creates directory entries for FK selects that currently use hardcoded options.
- * Run: npx ts-node prisma/seed-directory-types.ts
+ * Seed Directory Types — all FK selects (PROVINCE, WARD-types, INCIDENT_TYPE, etc.)
+ * Run standalone: npx ts-node prisma/seed-directory-types.ts
+ * Or called from seed.ts via seedDirectoryTypes(prisma)
  * Idempotent: uses upsert on type+code unique constraint.
  */
 
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
-
-const adapter = new PrismaPg({
-  connectionString: process.env['DATABASE_URL'] ?? 'postgresql://pc02_admin:pc02_password@localhost:5432/pc02_db?schema=public',
-});
-const prisma = new PrismaClient({ adapter });
 
 interface DirectoryEntry {
   type: string;
@@ -148,14 +143,14 @@ const DIRECTORY_DATA: DirectoryEntry[] = [
   { type: 'UNIT', code: 'CA_CT',      name: 'Công an TP. Cần Thơ', order: 6 },
 ];
 
-async function main() {
-  console.log(`Seeding ${DIRECTORY_DATA.length} directory entries...`);
+export async function seedDirectoryTypes(prismaClient: PrismaClient): Promise<void> {
+  console.log(`Seeding ${DIRECTORY_DATA.length} directory type entries...`);
 
   let created = 0;
   let existing = 0;
 
   for (const entry of DIRECTORY_DATA) {
-    const result = await prisma.directory.upsert({
+    const result = await prismaClient.directory.upsert({
       where: { type_code: { type: entry.type, code: entry.code } },
       update: { name: entry.name, order: entry.order, isActive: true },
       create: {
@@ -175,7 +170,7 @@ async function main() {
   }
 
   // Mark DISTRICT entries as legacy (no longer used for new records — cải cách 2025)
-  const districtUpdated = await prisma.directory.updateMany({
+  const districtUpdated = await prismaClient.directory.updateMany({
     where: { type: 'DISTRICT' },
     data: { isActive: false },
   });
@@ -186,18 +181,25 @@ async function main() {
   // Summary by type
   const types = [...new Set(DIRECTORY_DATA.map(d => d.type))];
   for (const type of types) {
-    const count = await prisma.directory.count({ where: { type } });
+    const count = await prismaClient.directory.count({ where: { type } });
     console.log(`  ${type}: ${count} entries`);
   }
 
-  console.log(`Done. ${created} created, ${existing} already existed.`);
+  console.log(`Directory types done. ${created} created, ${existing} already existed.`);
 }
 
-main()
-  .catch((e) => {
-    console.error(e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
+// Standalone mode — run directly with: npx ts-node prisma/seed-directory-types.ts
+if (require.main === module) {
+  const adapter = new PrismaPg({
+    connectionString: process.env['DATABASE_URL'] ?? 'postgresql://pc02_admin:pc02_password@localhost:5432/pc02_db?schema=public',
   });
+  const standaloneClient = new PrismaClient({ adapter });
+  seedDirectoryTypes(standaloneClient)
+    .catch((e) => {
+      console.error(e);
+      process.exit(1);
+    })
+    .finally(async () => {
+      await standaloneClient.$disconnect();
+    });
+}
