@@ -7,7 +7,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import {
-  ArrowLeft, Save, AlertCircle, Calendar, User, Building2,
+  ArrowLeft, Save, AlertCircle, Calendar, User,
   FileText, MapPin, Phone, Mail, ChevronDown,
 } from "lucide-react";
 import { FKSelect } from "@/components/FKSelect";

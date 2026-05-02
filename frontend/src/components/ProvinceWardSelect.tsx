@@ -110,10 +110,9 @@ export function ProvinceWardSelect({
         required={required}
         value={ward}
         onChange={onWardChange}
-        options={wardOptions}
+        options={selectedProvince ? wardOptions : []}
         loading={wardsLoading}
         placeholder={wardPlaceholder}
-        disabled={!selectedProvince || wardsLoading}
         canCreate={false}
         error={errors?.ward}
         testId={testIdPrefix ? `${testIdPrefix}-ward` : 'fk-ward'}

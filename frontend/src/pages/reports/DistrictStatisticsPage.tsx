@@ -178,7 +178,7 @@ export default function DistrictStatisticsPage() {
       return;
     }
     const headers = ['Ngày', 'Vụ việc', 'Vụ án', 'Đã giải quyết'];
-    const rows = dailyChartData.map(d => [d.date, d.incidents ?? 0, d.cases ?? 0, d.resolved ?? 0]);
+    const rows = dailyChartData.map(d => [d.date, d.details?.incidents ?? 0, d.details?.cases ?? 0, d.count ?? 0]);
     const csv = [headers, ...rows]
       .map(row => row.map(v => `"${String(v ?? '')}"`).join(','))
       .join('\n');

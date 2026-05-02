@@ -13,7 +13,6 @@ import {
   Download,
   Upload,
   Video,
-  Building2,
   Scale,
   Mail,
   DollarSign,
@@ -118,9 +117,8 @@ export function TabInfo({ formData, setFormData, errors, setErrors, handlerOptio
     enabled: legacyMode && !!formData.district && !isExistingLegacy,
   });
 
-  const activeWardOptions = legacyMode && !isExistingLegacy && formData.district
-    ? (legacyWardOptions ?? [])
-    : (wardOptions ?? []);
+  // activeWardOptions removed — ward selection now handled by ProvinceWardSelect
+  void wardOptions; void legacyWardOptions;
 
   return (
     <div className="space-y-6" data-testid="tab-info">
