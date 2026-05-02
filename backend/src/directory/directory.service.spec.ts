@@ -161,14 +161,36 @@ describe('DirectoryService', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
-    it('throws BadRequestException when parent has different type', async () => {
+    it('allows cross-type parent-child (e.g. PROVINCE → WARD)', async () => {
+      // PROVINCE parent for a WARD child — now allowed (same-type constraint removed)
+      mockPrisma.directory.findUnique
+        .mockResolvedValueOnce(null) // no duplicate type+code
+        .mockResolvedValueOnce({ id: 'province-id', type: 'PROVINCE', code: 'HCM' }); // valid parent (different type)
+      mockPrisma.directory.create.mockResolvedValue({
+        id: 'new-ward',
+        type: 'WARD',
+        code: 'HCM_TEST',
+        name: 'Test Ward',
+        parentId: 'province-id',
+      });
+
+      const result = await service.create({
+        type: 'WARD',
+        code: 'HCM_TEST',
+        name: 'Test Ward',
+        parentId: 'province-id',
+      });
+      expect(result.parentId).toBe('province-id');
+    });
+
+    it('still throws NotFoundException when parentId does not exist (regardless of type)', async () => {
       mockPrisma.directory.findUnique
         .mockResolvedValueOnce(null) // no dup
-        .mockResolvedValueOnce({ id: 'p1', type: 'ORG' }); // parent with wrong type
+        .mockResolvedValueOnce(null); // parent not found
 
       await expect(
-        service.create({ ...createDto, parentId: 'p1' }),
-      ).rejects.toThrow(BadRequestException);
+        service.create({ type: 'WARD', code: 'W1', name: 'W', parentId: 'ghost-id' }),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 
