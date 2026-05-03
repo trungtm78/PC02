@@ -85,7 +85,7 @@ export class CasesService {
     }
 
     // Filter quá hạn
-    if (overdue === 'true') {
+    if (overdue) {
       where.deadline = { lt: new Date() };
       where.status = {
         notIn: [CaseStatus.DA_KET_LUAN, CaseStatus.DA_LUU_TRU, CaseStatus.DINH_CHI],

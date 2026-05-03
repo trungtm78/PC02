@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsOptional,
   IsString,
   IsInt,
@@ -7,7 +8,7 @@ import {
   IsEnum,
   IsDateString,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { IncidentStatus, LoaiNguonTin } from '@prisma/client';
 
 export class QueryIncidentsDto {
@@ -46,8 +47,9 @@ export class QueryIncidentsDto {
 
   // Lọc theo quá hạn
   @IsOptional()
-  @IsString()
-  overdue?: string; // "true" to filter overdue incidents
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  overdue?: boolean;
 
   // Lọc theo quận/huyện
   @IsOptional()

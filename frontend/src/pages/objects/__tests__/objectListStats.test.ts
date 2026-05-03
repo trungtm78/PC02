@@ -7,11 +7,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-
-// ─── Types (mirror from ObjectListPage.tsx) ───────────────────────────────────
-
-type SubjectStatus = "INVESTIGATING" | "DETAINED" | "RELEASED" | "WANTED";
-type SubjectType = "SUSPECT" | "VICTIM" | "WITNESS";
+import { SubjectStatus, SubjectType } from "@/shared/enums/subject-status";
 
 interface Subject {
   id: string;
@@ -31,25 +27,25 @@ const TYPE_CONFIG: Record<SubjectType, { label: string; btnLabel: string }> = {
 
 function computeSuspectStats(subjects: Subject[]) {
   return {
-    detained:     subjects.filter((s) => s.status === "DETAINED").length,
-    wanted:       subjects.filter((s) => s.status === "WANTED").length,
-    investigating: subjects.filter((s) => s.status === "INVESTIGATING").length,
+    detained:     subjects.filter((s) => s.status === SubjectStatus.DETAINED).length,
+    wanted:       subjects.filter((s) => s.status === SubjectStatus.WANTED).length,
+    investigating: subjects.filter((s) => s.status === SubjectStatus.INVESTIGATING).length,
   };
 }
 
 function computeVictimStats(subjects: Subject[]) {
   return {
-    compensated: subjects.filter((s) => s.status === "RELEASED").length,
-    processing:  subjects.filter((s) => s.status === "INVESTIGATING").length,
+    compensated: subjects.filter((s) => s.status === SubjectStatus.RELEASED).length,
+    processing:  subjects.filter((s) => s.status === SubjectStatus.INVESTIGATING).length,
     damage:      0, // placeholder until backend provides field
   };
 }
 
 function computeWitnessStats(subjects: Subject[]) {
   return {
-    declared: subjects.filter((s) => s.status === "RELEASED").length,
-    pending:  subjects.filter((s) => s.status === "INVESTIGATING").length,
-    refused:  subjects.filter((s) => s.status === "WANTED").length,
+    declared: subjects.filter((s) => s.status === SubjectStatus.RELEASED).length,
+    pending:  subjects.filter((s) => s.status === SubjectStatus.INVESTIGATING).length,
+    refused:  subjects.filter((s) => s.status === SubjectStatus.WANTED).length,
   };
 }
 

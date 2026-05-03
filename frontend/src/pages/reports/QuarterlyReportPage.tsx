@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Download, FileSpreadsheet, TrendingUp, Award } from "lucide-react";
+import { FileSpreadsheet, TrendingUp, Award } from "lucide-react";
 import {
   BarChart,
   Bar,

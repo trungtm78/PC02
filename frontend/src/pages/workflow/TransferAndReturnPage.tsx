@@ -7,7 +7,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Search,
   SlidersHorizontal,
@@ -103,6 +103,13 @@ function getStatusBadgeClass(status: string): string {
  */
 export default function TransferAndReturnPage() {
   const location = useLocation();
+  const navigate = useNavigate();
+
+  const handleViewRecord = (record: { id: string; recordType: string }) => {
+    if (record.recordType === 'Vụ án') navigate(`/cases/${record.id}`);
+    else if (record.recordType === 'Vụ việc') navigate(`/vu-viec/${record.id}`);
+    else if (record.recordType === 'Đơn thư') navigate(`/petitions/${record.id}`);
+  };
 
   const [currentPage, setCurrentPage] = useState(1);
   const PAGE_SIZE = 20;
@@ -568,11 +575,14 @@ export default function TransferAndReturnPage() {
                   <tr
                     key={record.id}
                     data-record-id={record.id}
-                    className={`transition-colors ${
-                      selectedRecords.includes(record.id) ? 'bg-blue-50' : 'hover:bg-slate-50'
+                    onClick={() => handleViewRecord(record)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleViewRecord(record); } }}
+                    tabIndex={0}
+                    className={`cursor-pointer transition-colors ${
+                      selectedRecords.includes(record.id) ? 'bg-blue-50 hover:bg-blue-100' : 'hover:bg-blue-50'
                     } ${record.isClosed ? 'opacity-60' : ''}`}
                   >
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                       <input
                         type="checkbox"
                         data-testid={`record-checkbox-${record.id}`}
@@ -581,9 +591,13 @@ export default function TransferAndReturnPage() {
                         className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-2 focus:ring-blue-500"
                       />
                     </td>
-                    <td className="px-3 py-3 whitespace-nowrap sticky left-12 z-10 bg-white border-r border-slate-100">
+                    <td
+                      className="px-3 py-3 whitespace-nowrap sticky left-12 z-10 bg-white border-r border-slate-100"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <button
                         data-testid={`view-record-${record.id}`}
+                        onClick={() => handleViewRecord(record)}
                         className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors"
                         title="Xem chi tiết"
                       >

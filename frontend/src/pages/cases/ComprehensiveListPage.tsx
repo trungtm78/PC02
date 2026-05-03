@@ -17,13 +17,25 @@ import {
   User,
   RotateCcw,
   FileDown,
-  AlertCircle,
-  CheckCircle,
-  Clock,
-  XCircle,
   X,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { CaseStatus, IncidentStatus, PetitionStatus } from "@/shared/enums/generated";
+import {
+  CASE_STATUS_LABEL,
+  CASE_STATUS_BADGE,
+  INCIDENT_STATUS_LABEL,
+  INCIDENT_STATUS_BADGE,
+  PETITION_STATUS_LABEL,
+  PETITION_STATUS_BADGE,
+  BADGE_DEFAULT,
+  TERMINAL_CASE_STATUSES,
+  TERMINAL_INCIDENT_STATUSES,
+  TERMINAL_PETITION_STATUSES,
+} from "@/shared/enums/status-labels";
+
+const RECORD_TYPE = { CASE: 'case', INCIDENT: 'incident', PETITION: 'petition' } as const;
+type RecordType = (typeof RECORD_TYPE)[keyof typeof RECORD_TYPE];
 
 interface FilterData {
   quickSearch: string;
@@ -45,7 +57,6 @@ function ComprehensiveListPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const recordsPerPage = 10;
 
-  // ── Real data state ────────────────────────────────────────────────────────
   const [allData, setAllData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -60,43 +71,42 @@ function ComprehensiveListPage() {
         ]);
         const cases = (casesRes.data.data ?? []).map((c: any) => ({
           ...c,
-          recordType: "case",
-          typeName: "Vụ án",
-          // map API fields for UI
-          type: "case",
+          recordType: RECORD_TYPE.CASE,
+          type: RECORD_TYPE.CASE,
           typeLabel: "Vụ án",
           receivedDate: c.createdAt ? new Date(c.createdAt).toISOString().split("T")[0] : "",
           district: c.unit ?? "",
-          status: c.status ?? "pending",
-          statusLabel: c.status ?? "",
+          status: c.status ?? CaseStatus.TIEP_NHAN,
+          statusLabel: CASE_STATUS_LABEL[c.status as CaseStatus] ?? c.status ?? "",
+          statusBadge: CASE_STATUS_BADGE[c.status as CaseStatus] ?? BADGE_DEFAULT,
           createdBy: c.investigator ? `${c.investigator.firstName ?? ""} ${c.investigator.lastName ?? ""}`.trim() : "",
           deadline: c.deadline ?? c.dueDate ?? "",
           caseNumber: c.caseNumber ?? c.id?.slice(0, 8).toUpperCase() ?? "",
         }));
         const incidents = (incidentsRes.data.data ?? []).map((i: any) => ({
           ...i,
-          recordType: "incident",
-          typeName: "Vụ việc",
-          type: "incident",
+          recordType: RECORD_TYPE.INCIDENT,
+          type: RECORD_TYPE.INCIDENT,
           typeLabel: "Vụ việc",
           receivedDate: i.createdAt ? new Date(i.createdAt).toISOString().split("T")[0] : "",
           district: i.unitId ?? "",
-          status: i.status ?? "pending",
-          statusLabel: i.status ?? "",
+          status: i.status ?? IncidentStatus.TIEP_NHAN,
+          statusLabel: INCIDENT_STATUS_LABEL[i.status as IncidentStatus] ?? i.status ?? "",
+          statusBadge: INCIDENT_STATUS_BADGE[i.status as IncidentStatus] ?? BADGE_DEFAULT,
           createdBy: i.investigator ? `${i.investigator.firstName ?? ""} ${i.investigator.lastName ?? ""}`.trim() : "",
           deadline: i.deadline ?? i.dueDate ?? "",
           caseNumber: i.code ?? i.id?.slice(0, 8).toUpperCase() ?? "",
         }));
         const petitions = (petitionsRes.data.data ?? []).map((p: any) => ({
           ...p,
-          recordType: "petition",
-          typeName: "Đơn thư",
-          type: "petition",
+          recordType: RECORD_TYPE.PETITION,
+          type: RECORD_TYPE.PETITION,
           typeLabel: "Đơn thư",
           receivedDate: p.receivedDate ? new Date(p.receivedDate).toISOString().split("T")[0] : "",
           district: p.unit ?? "",
-          status: p.status ?? "pending",
-          statusLabel: p.status ?? "",
+          status: p.status ?? PetitionStatus.MOI_TIEP_NHAN,
+          statusLabel: PETITION_STATUS_LABEL[p.status as PetitionStatus] ?? p.status ?? "",
+          statusBadge: PETITION_STATUS_BADGE[p.status as PetitionStatus] ?? BADGE_DEFAULT,
           createdBy: p.assignedTo ? `${p.assignedTo.firstName ?? ""} ${p.assignedTo.lastName ?? ""}`.trim() : "",
           deadline: p.deadline ?? p.dueDate ?? "",
           caseNumber: p.stt ?? p.id?.slice(0, 8).toUpperCase() ?? "",
@@ -111,7 +121,6 @@ function ComprehensiveListPage() {
     fetchAll();
   }, []);
 
-  // ── Dialog xóa ─────────────────────────────────────────
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [recordToDelete, setRecordToDelete] = useState<any | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -148,9 +157,9 @@ function ComprehensiveListPage() {
     const headers = ['STT', 'Mã hồ sơ', 'Loại', 'Đơn vị', 'Người tạo',
                      'Ngày tiếp nhận', 'Hạn xử lý', 'Trạng thái'];
     const rows = records.map((r, i) => [
-      i + 1, r.caseNumber, r.typeLabel ?? r.typeName,
+      i + 1, r.caseNumber, r.typeLabel,
       r.district, r.createdBy,
-      r.receivedDate, r.deadline ?? '', r.statusLabel ?? r.status,
+      r.receivedDate, r.deadline ?? '', r.statusLabel,
     ]);
     const csv = [headers, ...rows]
       .map(row => row.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','))
@@ -163,18 +172,13 @@ function ComprehensiveListPage() {
     document.body.removeChild(a); URL.revokeObjectURL(url);
   };
 
-  const openDeleteDialog = (record: any) => {
-    setRecordToDelete(record);
-    setDeleteDialogOpen(true);
-  };
-
-  const closeDeleteDialog = () => {
-    setDeleteDialogOpen(false);
-    setRecordToDelete(null);
-  };
+  const openDeleteDialog = (record: any) => { setRecordToDelete(record); setDeleteDialogOpen(true); };
+  const closeDeleteDialog = () => { setDeleteDialogOpen(false); setRecordToDelete(null); };
 
   const handleDelete = async (item: any) => {
-    const endpoint = item.recordType === "case" ? "cases" : item.recordType === "incident" ? "incidents" : "petitions";
+    const endpoint = item.recordType === RECORD_TYPE.CASE ? "cases"
+      : item.recordType === RECORD_TYPE.INCIDENT ? "incidents"
+      : "petitions";
     await api.delete(`/${endpoint}/${item.id}`);
     setAllData((prev) => prev.filter((x) => x.id !== item.id));
   };
@@ -193,38 +197,44 @@ function ComprehensiveListPage() {
     }
   };
 
-  const getStatusBadge = (status: string, label: string) => {
-    const styles: Record<string, string> = {
-      pending: "bg-amber-100 text-amber-800 border-amber-300",
-      processing: "bg-blue-100 text-blue-800 border-blue-300",
-      completed: "bg-green-100 text-green-800 border-green-300",
-      suspended: "bg-slate-100 text-slate-800 border-slate-300",
-      overdue: "bg-red-100 text-red-800 border-red-300",
+  const getStatusBadge = (badgeStyle: string, label: string) => (
+    <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium border ${badgeStyle}`}>
+      {label}
+    </span>
+  );
+
+  const getTypeBadge = (type: RecordType, label: string) => {
+    const styles: Record<RecordType, string> = {
+      [RECORD_TYPE.PETITION]: "bg-purple-50 text-purple-700 border-purple-200",
+      [RECORD_TYPE.INCIDENT]: "bg-orange-50 text-orange-700 border-orange-200",
+      [RECORD_TYPE.CASE]:     "bg-red-50 text-red-700 border-red-200",
     };
-    const icons: Record<string, React.ReactNode> = {
-      pending: <Clock className="w-3.5 h-3.5" />,
-      processing: <AlertCircle className="w-3.5 h-3.5" />,
-      completed: <CheckCircle className="w-3.5 h-3.5" />,
-      suspended: <XCircle className="w-3.5 h-3.5" />,
-      overdue: <AlertCircle className="w-3.5 h-3.5" />,
-    };
-    const style = styles[status] ?? "bg-slate-100 text-slate-800 border-slate-300";
-    const icon = icons[status] ?? <AlertCircle className="w-3.5 h-3.5" />;
-    return (<span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border ${style}`}>{icon}{label || status}</span>);
+    return (
+      <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium border ${styles[type] ?? "bg-slate-50 text-slate-700 border-slate-200"}`}>
+        {label}
+      </span>
+    );
   };
 
-  const getTypeBadge = (type: string, label: string) => {
-    const styles: Record<string, string> = {
-      petition: "bg-purple-50 text-purple-700 border-purple-200",
-      incident: "bg-orange-50 text-orange-700 border-orange-200",
-      case: "bg-red-50 text-red-700 border-red-200",
-    };
-    const style = styles[type] ?? "bg-slate-50 text-slate-700 border-slate-200";
-    return (<span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium border ${style}`}>{label}</span>);
+  const isOverdue = (deadline: string, record: any): boolean => {
+    if (!deadline || new Date(deadline) >= new Date()) return false;
+    const s = record.status;
+    if (record.recordType === RECORD_TYPE.CASE) return !TERMINAL_CASE_STATUSES.includes(s as CaseStatus);
+    if (record.recordType === RECORD_TYPE.INCIDENT) return !TERMINAL_INCIDENT_STATUSES.includes(s as IncidentStatus);
+    return !TERMINAL_PETITION_STATUSES.includes(s as PetitionStatus);
   };
 
-  const isOverdue = (deadline: string, status: string) => deadline && new Date(deadline) < new Date() && status !== "completed" && status !== "suspended";
-  const formatDate = (dateString: string) => { if (!dateString) return ""; try { return new Date(dateString).toLocaleDateString("vi-VN"); } catch { return dateString; } };
+  const getNavigatePath = (record: any, mode: 'view' | 'edit') => {
+    const base = record.recordType === RECORD_TYPE.CASE ? '/cases'
+      : record.recordType === RECORD_TYPE.INCIDENT ? '/incidents'
+      : '/petitions';
+    return mode === 'edit' ? `${base}/${record.id}/edit` : `${base}/${record.id}`;
+  };
+
+  const formatDate = (dateString: string) => {
+    if (!dateString) return "";
+    try { return new Date(dateString).toLocaleDateString("vi-VN"); } catch { return dateString; }
+  };
 
   return (
     <div className="p-6 space-y-6" data-testid="comprehensive-list-page">
@@ -275,21 +285,46 @@ function ComprehensiveListPage() {
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Loại hồ sơ</label>
                 <select value={filters.type} onChange={(e) => setFilters({ ...filters, type: e.target.value })} className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-                  <option value="">Tất cả</option><option value="petition">Đơn thư</option><option value="incident">Vụ việc</option><option value="case">Vụ án</option>
+                  <option value="">Tất cả</option>
+                  <option value={RECORD_TYPE.PETITION}>Đơn thư</option>
+                  <option value={RECORD_TYPE.INCIDENT}>Vụ việc</option>
+                  <option value={RECORD_TYPE.CASE}>Vụ án</option>
                 </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Đơn vị</label>
                 <div className="relative"><Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <select value={filters.district} onChange={(e) => setFilters({ ...filters, district: e.target.value })} className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-                    <option value="">Tất cả</option><option value="Quận 1">Quận 1</option><option value="Quận 3">Quận 3</option><option value="Quận 5">Quận 5</option><option value="Quận 10">Quận 10</option><option value="Quận Tân Bình">Quận Tân Bình</option><option value="Quận Bình Thạnh">Quận Bình Thạnh</option><option value="Huyện Củ Chi">Huyện Củ Chi</option>
+                    <option value="">Tất cả</option>
+                    <option value="Quận 1">Quận 1</option>
+                    <option value="Quận 3">Quận 3</option>
+                    <option value="Quận 5">Quận 5</option>
+                    <option value="Quận 10">Quận 10</option>
+                    <option value="Quận Tân Bình">Quận Tân Bình</option>
+                    <option value="Quận Bình Thạnh">Quận Bình Thạnh</option>
+                    <option value="Huyện Củ Chi">Huyện Củ Chi</option>
                   </select>
                 </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Trạng thái</label>
                 <select value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })} className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-                  <option value="">Tất cả</option><option value="pending">Chờ xử lý</option><option value="processing">Đang xử lý</option><option value="completed">Đã hoàn thành</option><option value="suspended">Tạm đình chỉ</option><option value="overdue">Quá hạn</option>
+                  <option value="">Tất cả</option>
+                  <optgroup label="Vụ án">
+                    {Object.entries(CASE_STATUS_LABEL).map(([v, l]) => (
+                      <option key={v} value={v}>{l}</option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="Vụ việc">
+                    {Object.entries(INCIDENT_STATUS_LABEL).map(([v, l]) => (
+                      <option key={v} value={v}>{l}</option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="Đơn thư">
+                    {Object.entries(PETITION_STATUS_LABEL).map(([v, l]) => (
+                      <option key={v} value={v}>{l}</option>
+                    ))}
+                  </optgroup>
                 </select>
               </div>
               <div>
@@ -341,8 +376,8 @@ function ComprehensiveListPage() {
                   displayedData.map((record, index) => (
                     <tr
                       key={record.id}
-                      onClick={canEditRow ? () => navigate(`/cases/${record.id}/edit`) : undefined}
-                      onKeyDown={canEditRow ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/cases/${record.id}/edit`); } } : undefined}
+                      onClick={canEditRow ? () => navigate(getNavigatePath(record, 'edit')) : undefined}
+                      onKeyDown={canEditRow ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(getNavigatePath(record, 'edit')); } } : undefined}
                       tabIndex={canEditRow ? 0 : undefined}
                       className={`transition-colors ${canEditRow ? "cursor-pointer hover:bg-blue-50" : "hover:bg-slate-50"}`}
                     >
@@ -352,28 +387,23 @@ function ComprehensiveListPage() {
                         onClick={(e) => e.stopPropagation()}
                       >
                         <div className="flex items-center gap-2">
-                          <button onClick={() => navigate(`/cases/${record.id}`)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Xem"><Eye className="w-4 h-4" /></button>
-                          <button onClick={() => navigate(`/cases/${record.id}/edit`)} className="p-1.5 text-slate-600 hover:bg-slate-100 rounded transition-colors" title="Sửa" data-testid={`btn-edit-${record.id}`}><Edit className="w-4 h-4" /></button>
+                          <button onClick={() => navigate(getNavigatePath(record, 'view'))} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Xem"><Eye className="w-4 h-4" /></button>
+                          <button onClick={() => navigate(getNavigatePath(record, 'edit'))} className="p-1.5 text-slate-600 hover:bg-slate-100 rounded transition-colors" title="Sửa" data-testid={`btn-edit-${record.id}`}><Edit className="w-4 h-4" /></button>
                           <button onClick={() => openDeleteDialog(record)} className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors" title="Xóa" data-testid={`btn-delete-${record.id}`}><Trash2 className="w-4 h-4" /></button>
                           <button onClick={() => handleExportRecords([record])} className="p-1.5 text-green-600 hover:bg-green-50 rounded transition-colors" title="Xuất"><Download className="w-4 h-4" /></button>
-                          {(record.type === "incident" || record.type === "case" || record.type === "petition") && (
-                            <button
-                              onClick={() => navigate("/transfer-return", {
-                                state: {
-                                  preselectedRecord: {
-                                    id: record.id,
-                                    caseNumber: record.caseNumber,
-                                  },
-                                  sourceScreen: "comprehensive-list",
-                                },
-                              })}
-                              className="p-1.5 text-purple-600 hover:bg-purple-50 rounded transition-colors"
-                              title="Chuyển xử lý"
-                              data-testid={`btn-transfer-${record.id}`}
-                            >
-                              <Send className="w-4 h-4" />
-                            </button>
-                          )}
+                          <button
+                            onClick={() => navigate("/transfer-return", {
+                              state: {
+                                preselectedRecord: { id: record.id, caseNumber: record.caseNumber },
+                                sourceScreen: "comprehensive-list",
+                              },
+                            })}
+                            className="p-1.5 text-purple-600 hover:bg-purple-50 rounded transition-colors"
+                            title="Chuyển xử lý"
+                            data-testid={`btn-transfer-${record.id}`}
+                          >
+                            <Send className="w-4 h-4" />
+                          </button>
                         </div>
                       </td>
                       <td className="px-4 py-3 text-sm text-slate-600">{startIndex + index + 1}</td>
@@ -381,12 +411,12 @@ function ComprehensiveListPage() {
                       <td className="px-4 py-3">{getTypeBadge(record.type, record.typeLabel)}</td>
                       <td className="px-4 py-3 text-sm text-slate-700">{formatDate(record.receivedDate)}</td>
                       <td className="px-4 py-3 text-sm text-slate-700">{record.district}</td>
-                      <td className="px-4 py-3">{getStatusBadge(record.status, record.statusLabel)}</td>
+                      <td className="px-4 py-3">{getStatusBadge(record.statusBadge, record.statusLabel)}</td>
                       <td className="px-4 py-3 text-sm text-slate-700">{record.createdBy}</td>
                       <td className="px-4 py-3">
                         <div className="flex flex-col gap-1">
-                          <span className={`text-sm ${isOverdue(record.deadline, record.status) ? "text-red-600 font-medium" : "text-slate-700"}`}>{formatDate(record.deadline)}</span>
-                          {isOverdue(record.deadline, record.status) && <span className="text-xs text-red-600">Quá hạn</span>}
+                          <span className={`text-sm ${isOverdue(record.deadline, record) ? "text-red-600 font-medium" : "text-slate-700"}`}>{formatDate(record.deadline)}</span>
+                          {isOverdue(record.deadline, record) && <span className="text-xs text-red-600">Quá hạn</span>}
                         </div>
                       </td>
                     </tr>
@@ -402,7 +432,9 @@ function ComprehensiveListPage() {
             <div className="text-sm text-slate-600">Hiển thị {startIndex + 1} - {Math.min(startIndex + recordsPerPage, filteredData.length)} trong số {filteredData.length} hồ sơ</div>
             <div className="flex items-center gap-2">
               <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-3 py-1.5 border border-slate-300 rounded text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">Trước</button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (<button key={page} onClick={() => setCurrentPage(page)} className={`px-3 py-1.5 border rounded text-sm transition-colors ${currentPage === page ? "bg-blue-600 text-white border-blue-600" : "border-slate-300 text-slate-700 hover:bg-slate-50"}`}>{page}</button>))}
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                <button key={page} onClick={() => setCurrentPage(page)} className={`px-3 py-1.5 border rounded text-sm transition-colors ${currentPage === page ? "bg-blue-600 text-white border-blue-600" : "border-slate-300 text-slate-700 hover:bg-slate-50"}`}>{page}</button>
+              ))}
               <button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="px-3 py-1.5 border border-slate-300 rounded text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">Sau</button>
             </div>
           </div>
@@ -430,7 +462,7 @@ function ComprehensiveListPage() {
               </div>
             </div>
             <div className="p-6 space-y-4">
-              <p className="text-slate-700">Bạn có chắc chắn muốn xóa vụ án này? Thao tác này không thể hoàn tác.</p>
+              <p className="text-slate-700">Bạn có chắc chắn muốn xóa hồ sơ này? Thao tác này không thể hoàn tác.</p>
               <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
                 <p className="text-sm font-medium text-red-900">Số hồ sơ: <span className="font-bold">{recordToDelete.caseNumber}</span></p>
                 <p className="text-sm text-red-800 mt-1">Loại: {recordToDelete.typeLabel} — Đơn vị: {recordToDelete.district}</p>

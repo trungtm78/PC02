@@ -18,6 +18,7 @@ import {
 import { QueryUsersDto } from './dto/query-users.dto';
 import { CreateDataGrantDto } from './dto/create-data-grant.dto';
 import { AccessLevel } from '@prisma/client';
+import { ROLE_NAMES } from '../common/constants/role.constants';
 
 @Injectable()
 export class AdminService {
@@ -439,7 +440,7 @@ export class AdminService {
       where: { id: granterId },
       include: { role: true },
     });
-    if (granterUser?.role?.name === 'ADMIN') isAuthorized = true;
+    if (granterUser?.role?.name === ROLE_NAMES.ADMIN) isAuthorized = true;
 
     if (!isAuthorized) {
       throw new ForbiddenException(
@@ -509,7 +510,7 @@ export class AdminService {
       where: { id: revokerId },
       include: { role: true },
     });
-    const isAdmin = revokerUser?.role?.name === 'ADMIN';
+    const isAdmin = revokerUser?.role?.name === ROLE_NAMES.ADMIN;
 
     if (!isGranter && !isLeader && !isAdmin) {
       throw new ForbiddenException('Bạn không có quyền thu hồi quyền truy cập này');

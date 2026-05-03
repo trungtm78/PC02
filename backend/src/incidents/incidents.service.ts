@@ -20,6 +20,8 @@ import type { DataScope } from '../auth/services/unit-scope.service';
 import { buildScopeFilter } from '../common/utils/scope-filter.util';
 import { TERMINAL_STATUSES, VALID_TRANSITIONS, PHASE_STATUSES } from './incidents.constants';
 import { SettingsService } from '../settings/settings.service';
+import { ROLE_NAMES } from '../common/constants/role.constants';
+import { SETTINGS_KEY } from '../common/constants/settings-keys.constants';
 
 @Injectable()
 export class IncidentsService {
@@ -101,7 +103,7 @@ export class IncidentsService {
     }
 
     // Filter quá hạn — use TERMINAL_STATUSES constant
-    if (overdue === 'true') {
+    if (overdue) {
       where.deadline = { lt: new Date() };
       where.status = { notIn: TERMINAL_STATUSES };
     }
@@ -480,7 +482,7 @@ export class IncidentsService {
 
     // 4. Creator-or-admin check
     const isCreator = existing.createdById === actorId;
-    const isAdmin = actorRole === 'ADMIN';
+    const isAdmin = actorRole === ROLE_NAMES.ADMIN;
     if (!isCreator && !isAdmin) {
       throw new ForbiddenException(
         'Chỉ người tạo vụ việc hoặc quản trị viên mới được xóa',
@@ -489,7 +491,7 @@ export class IncidentsService {
 
     // 5. Time window check (default 72h, configurable via SystemSetting)
     const maxHours = await this.settings.getNumericValue(
-      'THOI_HAN_XOA_VU_VIEC',
+      SETTINGS_KEY.THOI_HAN_XOA_VU_VIEC,
       72,
     );
     const hoursElapsed =

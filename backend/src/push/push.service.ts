@@ -1,6 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { GoogleAuth } from 'google-auth-library';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  STALE_TOKEN_FCM_ERRORS,
+  type FcmError,
+} from '../common/constants/fcm-error.constants';
 
 export interface PushPayload {
   title: string;
@@ -55,7 +59,7 @@ export class PushService {
       if (!response.ok) {
         const err = await response.json() as { error?: { status?: string } };
         const status = err?.error?.status;
-        if (status === 'INVALID_ARGUMENT' || status === 'NOT_FOUND' || status === 'UNREGISTERED') {
+        if (status && STALE_TOKEN_FCM_ERRORS.includes(status as FcmError)) {
           this.logger.warn(`Stale FCM token detected, removing device ${deviceId}`);
           await this.prisma.userDevice.delete({ where: { id: deviceId } }).catch(() => {});
         }

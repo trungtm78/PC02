@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router";
+import { CASE_PHASE } from "@/shared/enums/case-phase";
 import {
   Search,
   Download,
@@ -205,9 +206,9 @@ export default function WardIncidentsPage() {
   };
 
   const totalCount = filteredData.length;
-  const pendingCount = filteredData.filter((i) => i.status === "pending").length;
-  const investigatingCount = filteredData.filter((i) => i.status === "investigating").length;
-  const resolvedCount = filteredData.filter((i) => i.status === "resolved").length;
+  const pendingCount = filteredData.filter((i) => i.status === CASE_PHASE.PENDING).length;
+  const investigatingCount = filteredData.filter((i) => i.status === CASE_PHASE.INVESTIGATING).length;
+  const resolvedCount = filteredData.filter((i) => i.status === CASE_PHASE.RESOLVED).length;
 
   return (
     <div className="p-6 space-y-6" data-testid="ward-incidents-page">

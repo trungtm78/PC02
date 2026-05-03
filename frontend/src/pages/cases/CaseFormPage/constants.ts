@@ -48,22 +48,8 @@ export const INCIDENT_LEVEL_OPTIONS = [
   { value: "dac-biet-nghiem-trong", label: "Đặc biệt nghiêm trọng" },
 ];
 
-// values khớp với field crime lưu plain string trong DB (seed-sample-data.ts)
-export const CRIMINAL_TYPE_OPTIONS = [
-  { value: "Giết người (Điều 123 BLHS)",                       label: "Giết người (Điều 123 BLHS)" },
-  { value: "Cố ý gây thương tích (Điều 134 BLHS)",             label: "Cố ý gây thương tích (Điều 134 BLHS)" },
-  { value: "Cướp tài sản (Điều 168 BLHS)",                     label: "Cướp tài sản (Điều 168 BLHS)" },
-  { value: "Cưỡng đoạt tài sản (Điều 170 BLHS)",               label: "Cưỡng đoạt tài sản (Điều 170 BLHS)" },
-  { value: "Trộm cắp tài sản (Điều 173 BLHS)",                 label: "Trộm cắp tài sản (Điều 173 BLHS)" },
-  { value: "Lừa đảo chiếm đoạt tài sản (Điều 174 BLHS)",       label: "Lừa đảo chiếm đoạt tài sản (Điều 174 BLHS)" },
-  { value: "Hủy hoại tài sản (Điều 178 BLHS)",                 label: "Hủy hoại tài sản (Điều 178 BLHS)" },
-  { value: "Tàng trữ trái phép chất ma túy (Điều 193 BLHS)",   label: "Tàng trữ trái phép chất ma túy (Điều 193 BLHS)" },
-  { value: "Vận chuyển trái phép chất ma túy (Điều 194 BLHS)", label: "Vận chuyển trái phép chất ma túy (Điều 194 BLHS)" },
-  { value: "Sản xuất trái phép chất ma túy (Điều 248 BLHS)",   label: "Sản xuất trái phép chất ma túy (Điều 248 BLHS)" },
-  { value: "Vi phạm quy định về tham gia GTĐB (Điều 260 BLHS)",label: "Vi phạm quy định về tham gia GTĐB (Điều 260 BLHS)" },
-  { value: "Lợi dụng quyền tự do dân chủ (Điều 331 BLHS)",     label: "Lợi dụng quyền tự do dân chủ (Điều 331 BLHS)" },
-  { value: "Tội danh khác",                                     label: "Tội danh khác" },
-];
+// CRIMINAL_TYPE_OPTIONS removed — fetched dynamically from MasterClass API type '07'
+// via FKSelect masterClassType="07" prop. Seed: backend/prisma/seed-master-classes.ts
 
 export const PROSECUTION_OFFICE_OPTIONS = [
   { value: "vks-quan-1", label: "VKSND Quận 1" },

@@ -13,6 +13,7 @@
 import { useState } from "react";
 import { api } from '@/lib/api';
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { SubjectType } from "@/shared/enums/subject-status";
 import {
   Users,
   User,
@@ -52,8 +53,8 @@ import {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type SubjectType = "SUSPECT" | "VICTIM" | "WITNESS";
-type SubjectStatus = "INVESTIGATING" | "DETAINED" | "RELEASED" | "WANTED";
+import type { SubjectStatus as SubjectStatusType } from "@/shared/enums/subject-status";
+type SubjectStatus = SubjectStatusType;
 type Gender = "MALE" | "FEMALE" | "OTHER";
 
 interface Subject {
@@ -156,8 +157,8 @@ function SubjectMiniForm({
   serverError,
 }: SubjectFormProps) {
   const typeLabel =
-    subjectType === "VICTIM" ? "Nạn nhân" :
-    subjectType === "WITNESS" ? "Người làm chứng" : "Bị can";
+    subjectType === SubjectType.VICTIM ? "Nạn nhân" :
+    subjectType === SubjectType.WITNESS ? "Người làm chứng" : "Bị can";
 
   const [form, setForm] = useState<SubjectFormData>(() =>
     initial
@@ -211,8 +212,8 @@ function SubjectMiniForm({
   };
 
   const accentIcon =
-    subjectType === "VICTIM" ? <Heart className="w-4 h-4 text-orange-600" /> :
-    subjectType === "WITNESS" ? <EyeIcon className="w-4 h-4 text-teal-600" /> :
+    subjectType === SubjectType.VICTIM ? <Heart className="w-4 h-4 text-orange-600" /> :
+    subjectType === SubjectType.WITNESS ? <EyeIcon className="w-4 h-4 text-teal-600" /> :
     <ShieldAlert className="w-4 h-4 text-red-600" />;
 
   return (
@@ -327,7 +328,7 @@ function SubjectMiniForm({
             </div>
 
             {/* Trạng thái (chỉ cho SUSPECT) */}
-            {subjectType === "SUSPECT" && (
+            {subjectType === SubjectType.SUSPECT && (
               <div>
                 <label className={LABEL_BASE}>Trạng thái</label>
                 <select
@@ -635,26 +636,26 @@ function SubjectSubList({ caseId, subjectType, crimeOptions, loadingCrimes }: Su
   const subjects = data?.data ?? [];
 
   const typeLabel =
-    subjectType === "VICTIM" ? "Nạn nhân" :
-    subjectType === "WITNESS" ? "Người làm chứng" : "Bị can";
+    subjectType === SubjectType.VICTIM ? "Nạn nhân" :
+    subjectType === SubjectType.WITNESS ? "Người làm chứng" : "Bị can";
 
   const accentColor =
-    subjectType === "VICTIM" ? "bg-orange-100 text-orange-700" :
-    subjectType === "WITNESS" ? "bg-teal-100 text-teal-700" :
+    subjectType === SubjectType.VICTIM ? "bg-orange-100 text-orange-700" :
+    subjectType === SubjectType.WITNESS ? "bg-teal-100 text-teal-700" :
     "bg-red-100 text-red-700";
 
   const btnColor =
-    subjectType === "VICTIM" ? "bg-orange-600 hover:bg-orange-700" :
-    subjectType === "WITNESS" ? "bg-teal-600 hover:bg-teal-700" :
+    subjectType === SubjectType.VICTIM ? "bg-orange-600 hover:bg-orange-700" :
+    subjectType === SubjectType.WITNESS ? "bg-teal-600 hover:bg-teal-700" :
     "bg-red-600 hover:bg-red-700";
 
   const iconColor =
-    subjectType === "VICTIM" ? "text-orange-600" :
-    subjectType === "WITNESS" ? "text-teal-600" : "text-red-600";
+    subjectType === SubjectType.VICTIM ? "text-orange-600" :
+    subjectType === SubjectType.WITNESS ? "text-teal-600" : "text-red-600";
 
   const bgIcon =
-    subjectType === "VICTIM" ? "bg-orange-100" :
-    subjectType === "WITNESS" ? "bg-teal-100" : "bg-red-100";
+    subjectType === SubjectType.VICTIM ? "bg-orange-100" :
+    subjectType === SubjectType.WITNESS ? "bg-teal-100" : "bg-red-100";
 
   return (
     <div className="space-y-3">
@@ -722,7 +723,7 @@ function SubjectSubList({ caseId, subjectType, crimeOptions, loadingCrimes }: Su
                       </span>
                     )}
                   </div>
-                  {subjectType === "SUSPECT" && (
+                  {subjectType === SubjectType.SUSPECT && (
                     <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLOR[s.status]}`}>
                       {STATUS_LABEL[s.status]}
                     </span>

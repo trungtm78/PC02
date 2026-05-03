@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { TeamsService } from '../../teams/teams.service';
 import { AccessLevel } from '@prisma/client';
+import { ROLE_NAMES } from '../../common/constants/role.constants';
 
 export interface DataScope {
   teamIds: string[];        // All readable teams (own + READ grants + WRITE grants)
@@ -30,7 +31,7 @@ export class UnitScopeService {
     canDispatch = false,
   ): Promise<DataScope | null> {
     // Admin bypasses all scope restrictions
-    if (roleName === 'ADMIN') return null;
+    if (roleName === ROLE_NAMES.ADMIN) return null;
 
     // Get user's team memberships
     const userTeams = await this.prisma.userTeam.findMany({

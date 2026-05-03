@@ -8,6 +8,7 @@ import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { IsOptional, IsInt, IsString, IsDateString, IsIn, Min, Max } from 'class-validator';
 import { Type } from 'class-transformer';
+import { EXPORT_FORMAT } from '../common/constants/export-format.constants';
 
 class QueryMonthlyDto {
   @IsOptional()
@@ -161,7 +162,7 @@ export class ReportsController {
       query.toDate,
       query.unit,
     );
-    if (query.format === 'excel') {
+    if (query.format === EXPORT_FORMAT.EXCEL) {
       await this.reportsExportService.exportStat48(data as any, res);
     } else {
       res.json(data);

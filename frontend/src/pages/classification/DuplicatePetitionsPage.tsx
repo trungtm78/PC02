@@ -21,6 +21,7 @@ import {
   Copy,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { DUPLICATE_PETITION_STATUS } from "@/shared/enums/duplicate-petition-status";
 
 interface DuplicatePetition {
   id: string;
@@ -152,10 +153,10 @@ export default function DuplicatePetitionsPage() {
 
   const statusCounts = {
     total: allData.length,
-    pending: allData.filter((d) => d.status === "Chờ xử lý").length,
-    reviewing: allData.filter((d) => d.status === "Đang xem xét").length,
-    merged: allData.filter((d) => d.status === "Đã hợp nhất").length,
-    separated: allData.filter((d) => d.status === "Tách riêng").length,
+    pending: allData.filter((d) => d.status === DUPLICATE_PETITION_STATUS.PENDING).length,
+    reviewing: allData.filter((d) => d.status === DUPLICATE_PETITION_STATUS.REVIEWING).length,
+    merged: allData.filter((d) => d.status === DUPLICATE_PETITION_STATUS.MERGED).length,
+    separated: allData.filter((d) => d.status === DUPLICATE_PETITION_STATUS.SPLIT).length,
   };
 
   return (
@@ -326,10 +327,11 @@ export default function DuplicatePetitionsPage() {
                   className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] bg-white text-sm"
                 >
                   <option value="">Tất cả</option>
-                  <option value="Chờ xử lý">Chờ xử lý</option>
-                  <option value="Đang xem xét">Đang xem xét</option>
-                  <option value="Đã hợp nhất">Đã hợp nhất</option>
-                  <option value="Tách riêng">Tách riêng</option>
+                  {Object.values(DUPLICATE_PETITION_STATUS).map((status) => (
+                    <option key={status} value={status}>
+                      {status}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -404,7 +406,7 @@ export default function DuplicatePetitionsPage() {
                         >
                           <Eye className="w-4 h-4" />
                         </button>
-                        {dup.status === "Chờ xử lý" && (
+                        {dup.status === DUPLICATE_PETITION_STATUS.PENDING && (
                           <button
                             onClick={() => handleProcess(dup)}
                             data-testid={`process-btn-${dup.id}`}
@@ -730,7 +732,7 @@ function DuplicateDetailModal({
 
         <div className="border-t border-slate-200 px-6 py-4 flex justify-between">
           <div>
-            {duplicate.status === "Chờ xử lý" && (
+            {duplicate.status === DUPLICATE_PETITION_STATUS.PENDING && (
               <button
                 onClick={onProcess}
                 data-testid="detail-process-btn"

@@ -9,6 +9,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { api } from '@/lib/api';
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { SubjectStatus, SubjectType } from "@/shared/enums/subject-status";
 import {
   Search,
   Plus,
@@ -51,9 +52,8 @@ import {
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type SubjectStatus = "INVESTIGATING" | "DETAINED" | "RELEASED" | "WANTED";
 type Gender = "MALE" | "FEMALE" | "OTHER";
-export type SubjectType = "SUSPECT" | "VICTIM" | "WITNESS"; // TASK-2026-261225
+export type { SubjectType } from "@/shared/enums/subject-status";
 
 interface Subject {
   id: string;
@@ -760,16 +760,16 @@ export default function ObjectListPage({ subjectType = "SUSPECT" }: ObjectListPa
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
   // SUSPECT stats
-  const statDetained = subjects.filter((s) => s.status === "DETAINED").length;
-  const statWanted   = subjects.filter((s) => s.status === "WANTED").length;
-  const statInvestigating = subjects.filter((s) => s.status === "INVESTIGATING").length;
+  const statDetained = subjects.filter((s) => s.status === SubjectStatus.DETAINED).length;
+  const statWanted   = subjects.filter((s) => s.status === SubjectStatus.WANTED).length;
+  const statInvestigating = subjects.filter((s) => s.status === SubjectStatus.INVESTIGATING).length;
 
   // VICTIM stats (derived from status mapping — business logic per UI_Specs TABLE 2.2.A)
   // COMPENSATED ≡ RELEASED for victim (bồi thường xong → trả tự do)
   // PROCESSING  ≡ INVESTIGATING for victim (đang xử lý bồi thường)
   // DAMAGE      ≡ sum of damageAmount field — currently mock: count of DETAINED records as proxy
-  const statVictimCompensated = subjects.filter((s) => s.status === "RELEASED").length;
-  const statVictimProcessing  = subjects.filter((s) => s.status === "INVESTIGATING").length;
+  const statVictimCompensated = subjects.filter((s) => s.status === SubjectStatus.RELEASED).length;
+  const statVictimProcessing  = subjects.filter((s) => s.status === SubjectStatus.INVESTIGATING).length;
   // damageTotal: use placeholder 0 until backend provides damage field
   const statVictimDamage = 0;
 
@@ -777,9 +777,9 @@ export default function ObjectListPage({ subjectType = "SUSPECT" }: ObjectListPa
   // DECLARED ≡ RELEASED for witness (đã khai báo xong)
   // PENDING  ≡ INVESTIGATING for witness (chờ khai báo)
   // REFUSED  ≡ WANTED for witness (từ chối khai báo)
-  const statWitnessDeclared  = subjects.filter((s) => s.status === "RELEASED").length;
-  const statWitnessPending   = subjects.filter((s) => s.status === "INVESTIGATING").length;
-  const statWitnessRefused   = subjects.filter((s) => s.status === "WANTED").length;
+  const statWitnessDeclared  = subjects.filter((s) => s.status === SubjectStatus.RELEASED).length;
+  const statWitnessPending   = subjects.filter((s) => s.status === SubjectStatus.INVESTIGATING).length;
+  const statWitnessRefused   = subjects.filter((s) => s.status === SubjectStatus.WANTED).length;
 
   // ── Create mutation ──
   const createMutation = useMutation({
@@ -922,7 +922,7 @@ export default function ObjectListPage({ subjectType = "SUSPECT" }: ObjectListPa
           </div>
 
           {/* Cards 2-4: dynamic per subjectType */}
-          {subjectType === "SUSPECT" && (
+          {subjectType === SubjectType.SUSPECT && (
             <>
               {/* Card 2: Tạm giam */}
               <div
@@ -977,7 +977,7 @@ export default function ObjectListPage({ subjectType = "SUSPECT" }: ObjectListPa
             </>
           )}
 
-          {subjectType === "VICTIM" && (
+          {subjectType === SubjectType.VICTIM && (
             <>
               {/* Card 2: Đã bồi thường */}
               <div
@@ -1039,7 +1039,7 @@ export default function ObjectListPage({ subjectType = "SUSPECT" }: ObjectListPa
             </>
           )}
 
-          {subjectType === "WITNESS" && (
+          {subjectType === SubjectType.WITNESS && (
             <>
               {/* Card 2: Đã khai báo */}
               <div

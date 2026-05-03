@@ -20,7 +20,15 @@ Internal case management system (NestJS backend + React frontend) for managing l
 ## Testing
 - Backend tests: `cd backend && npx jest --no-coverage`
 - Full test suite: `cd backend && npm test`
-- Test count: 474 tests across 28 suites
+- Frontend tests: `cd frontend && npx vitest run --no-coverage`
+- Test count: 936 backend + 247 frontend = 1183 total
+
+## Shared Enum Infrastructure
+- **Generator**: `cd backend && npm run gen:enums` — re-generates `frontend/src/shared/enums/generated.ts` from `schema.prisma`. Runs automatically on `npm run build`.
+- **Frontend shared enums**: `frontend/src/shared/enums/` — typed constants for all Prisma enums + status labels + badge styles. Never hardcode enum string literals.
+- **Backend constants**: `backend/src/common/constants/` — `ROLE_NAMES`, `TOKEN_TYPE`, `SETTINGS_KEY`, `TWO_FA_METHOD`, `FCM_ERROR`, `EXPORT_FORMAT`. Constants with `WIRE FORMAT` JSDoc comment must never be renamed without migration.
+- **Status labels**: `frontend/src/shared/enums/status-labels.ts` — CASE/INCIDENT/PETITION status Vietnamese labels + Tailwind badge classes.
+- **Rule**: All enum comparisons must use constants/enum values, never string literals. Verified by grep guard in CI.
 
 ## Deploy Configuration (configured by /setup-deploy)
 - Platform: Render

@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { ROLE_NAMES } from "@/shared/enums/roles";
+import { CASE_PHASE } from "@/shared/enums/case-phase";
 import {
   Search,
   Download,
@@ -70,7 +72,7 @@ function getUserPermissions(): UserPermissions {
     };
   }
 
-  const isAdmin = user.role === "ADMIN" || user.role === "SYSTEM";
+  const isAdmin = user.role === ROLE_NAMES.ADMIN || user.role === ROLE_NAMES.SYSTEM;
 
   if (isAdmin) {
     return {
@@ -317,8 +319,8 @@ export default function WardCasesPage() {
   };
 
   const totalCount = filteredData.length;
-  const pendingCount = filteredData.filter((c) => c.status === "pending").length;
-  const investigatingCount = filteredData.filter((c) => c.status === "investigating").length;
+  const pendingCount = filteredData.filter((c) => c.status === CASE_PHASE.PENDING).length;
+  const investigatingCount = filteredData.filter((c) => c.status === CASE_PHASE.INVESTIGATING).length;
   const criticalCount = filteredData.filter((c) => c.severity === "critical").length;
 
   if (!hasPageAccess) {

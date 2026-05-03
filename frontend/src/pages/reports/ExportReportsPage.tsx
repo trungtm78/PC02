@@ -324,65 +324,6 @@ export default function ExportReportsPage() {
     setValidationErrors({});
   };
 
-  // Print receipt for a specific petition row (no modal needed)
-  const handleExportReceipt = (petition?: typeof filteredData[0]) => {
-    const doc = petition || filteredData.find(d => selectedIds.includes(d.id));
-    if (!doc) { showNotification('error', 'Vui lòng chọn đơn thư cần in biên nhận'); return; }
-
-    const receiptHTML = `<!DOCTYPE html>
-<html lang="vi">
-<head>
-  <meta charset="UTF-8">
-  <title>Biên nhận đơn thư</title>
-  <style>
-    body { font-family: "Times New Roman", serif; margin: 2cm; }
-    .header { text-align: center; margin-bottom: 20px; }
-    .title { font-size: 18px; font-weight: bold; text-transform: uppercase; }
-    .field { margin: 8px 0; }
-    .label { font-weight: bold; }
-    .signature { margin-top: 40px; display: flex; justify-content: space-between; }
-    .sig-block { text-align: center; width: 40%; }
-    @media print { body { margin: 1cm; } }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <div style="font-size:12px">CÔNG AN THÀNH PHỐ HỒ CHÍ MINH</div>
-    <div class="title">BIÊN NHẬN ĐƠN THƯ</div>
-  </div>
-  <div class="field"><span class="label">Số đơn:</span> ${doc.documentNumber || ''}</div>
-  <div class="field"><span class="label">Ngày tiếp nhận:</span> ${doc.receivedDate ? new Date(doc.receivedDate).toLocaleDateString('vi-VN') : ''}</div>
-  <div class="field"><span class="label">Người gửi:</span> ${doc.sender || ''}</div>
-  <div class="field"><span class="label">Tóm tắt:</span> ${doc.summary || ''}</div>
-  <div class="field"><span class="label">Đơn vị:</span> ${doc.unit || ''}</div>
-  <div class="signature">
-    <div class="sig-block">
-      <div>Người nộp đơn</div>
-      <div style="margin-top:60px">(Ký, ghi rõ họ tên)</div>
-    </div>
-    <div class="sig-block">
-      <div>Hồ Chí Minh, ngày ___ tháng ___ năm ___</div>
-      <div style="margin-top:10px">CÁN BỘ TIẾP NHẬN</div>
-      <div style="margin-top:60px">(Ký, ghi rõ họ tên)</div>
-    </div>
-  </div>
-</body>
-</html>`;
-
-    const printWindow = window.open('', '_blank', 'width=800,height=600');
-    if (!printWindow) {
-      showNotification('error', 'Trình duyệt chặn popup. Vui lòng cho phép popup và thử lại.');
-      return;
-    }
-    printWindow.document.write(receiptHTML);
-    printWindow.document.close();
-    printWindow.onload = () => {
-      setTimeout(() => {
-        printWindow.print();
-      }, 300);
-    };
-  };
-
   const formatDate = (dateString: string) => {
     // Already formatted on fetch; return as-is or reformat if raw
     if (!dateString) return "";

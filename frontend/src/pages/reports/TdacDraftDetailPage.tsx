@@ -16,10 +16,12 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { authStore } from "@/stores/auth.store";
+import { ROLE_NAMES } from "@/shared/enums/roles";
+import { ReportTdcStatus } from "@/shared/enums/report-tdc-status";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type DraftStatus = "DRAFT" | "REVIEWING" | "REJECTED" | "APPROVED" | "FINALIZED";
+type DraftStatus = ReportTdcStatus;
 
 interface TimelineEvent {
   id: string;
@@ -169,7 +171,7 @@ export default function TdacDraftDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const user = authStore.getUser();
-  const isAdmin = user?.role === "ADMIN" || user?.role === "TRUONG_DON_VI";
+  const isAdmin = user?.role === ROLE_NAMES.ADMIN || user?.role === ROLE_NAMES.HEAD_UNIT;
 
   const [draft, setDraft] = useState<DraftDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -203,7 +205,7 @@ export default function TdacDraftDetailPage() {
   useEffect(() => { fetchDraft(); }, [fetchDraft]);
 
   const isEditable =
-    draft?.status === "DRAFT" || draft?.status === "REVIEWING";
+    draft?.status === ReportTdcStatus.DRAFT || draft?.status === ReportTdcStatus.REVIEWING;
 
   const canEdit = isEditable;
 
@@ -399,7 +401,7 @@ export default function TdacDraftDetailPage() {
       </div>
 
       {/* Rejected reason banner */}
-      {draft.status === "REJECTED" && draft.rejectedReason && (
+      {draft.status === ReportTdcStatus.REJECTED && draft.rejectedReason && (
         <div className="mb-5 flex items-start gap-3 bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-red-700">
           <XCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
           <div>
@@ -566,7 +568,7 @@ export default function TdacDraftDetailPage() {
       {/* ── Action bar */}
       <div className="mt-6 flex items-center justify-end gap-3 flex-wrap">
         {/* DRAFT: Save + Submit */}
-        {draft.status === "DRAFT" && (
+        {draft.status === ReportTdcStatus.DRAFT && (
           <>
             <button
               onClick={handleSave}
@@ -588,7 +590,7 @@ export default function TdacDraftDetailPage() {
         )}
 
         {/* REVIEWING: Approve + Reject (admin only) */}
-        {draft.status === "REVIEWING" && isAdmin && (
+        {draft.status === ReportTdcStatus.REVIEWING && isAdmin && (
           <>
             {canEdit && (
               <button
@@ -620,7 +622,7 @@ export default function TdacDraftDetailPage() {
         )}
 
         {/* REJECTED: Reopen */}
-        {draft.status === "REJECTED" && (
+        {draft.status === ReportTdcStatus.REJECTED && (
           <button
             onClick={handleReopen}
             disabled={saving}
@@ -632,7 +634,7 @@ export default function TdacDraftDetailPage() {
         )}
 
         {/* APPROVED: Finalize */}
-        {draft.status === "APPROVED" && isAdmin && (
+        {draft.status === ReportTdcStatus.APPROVED && isAdmin && (
           <button
             onClick={handleFinalize}
             disabled={saving}
@@ -644,7 +646,7 @@ export default function TdacDraftDetailPage() {
         )}
 
         {/* FINALIZED: Download */}
-        {draft.status === "FINALIZED" && (
+        {draft.status === ReportTdcStatus.FINALIZED && (
           <button
             onClick={handleDownload}
             className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"

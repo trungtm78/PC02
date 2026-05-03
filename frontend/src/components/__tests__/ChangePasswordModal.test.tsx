@@ -111,7 +111,7 @@ describe('ChangePasswordModal', () => {
       target: { value: 'Test' },
     });
     // Close via X button
-    fireEvent.click(screen.getByTitle ? screen.getAllByRole('button')[0] : screen.getAllByRole('button')[0]);
+    fireEvent.click(screen.getAllByRole('button')[0]);
     expect(onClose).toHaveBeenCalled();
   });
 });

@@ -6,8 +6,9 @@ import { AlertCircle, Mail, Shield, KeyRound } from 'lucide-react';
 import { authApi } from '@/lib/api';
 import { authStore } from '@/stores/auth.store';
 import logoCA from '@/assets/logo-cong-an.png';
+import { TWO_FA_METHOD, type TwoFaMethod } from '@/shared/enums/two-fa-methods';
 
-type Method = 'totp' | 'email_otp' | 'backup';
+type Method = TwoFaMethod;
 
 export default function TwoFaPage() {
   const navigate = useNavigate();
@@ -15,7 +16,7 @@ export default function TwoFaPage() {
   const twoFaToken: string | undefined = (location.state as { twoFaToken?: string } | null)?.twoFaToken;
 
   const [code, setCode] = useState('');
-  const [method, setMethod] = useState<Method>('totp');
+  const [method, setMethod] = useState<Method>(TWO_FA_METHOD.TOTP);
   const [emailSent, setEmailSent] = useState(false);
 
   // Redirect if arrived without a twoFaToken
@@ -61,8 +62,8 @@ export default function TwoFaPage() {
     verifyMutation.reset();
   };
 
-  const maxLen = method === 'backup' ? 10 : 6;
-  const placeholder = method === 'backup' ? 'Nhập mã dự phòng' : 'Nhập 6 chữ số';
+  const maxLen = method === TWO_FA_METHOD.BACKUP ? 10 : 6;
+  const placeholder = method === TWO_FA_METHOD.BACKUP ? 'Nhập mã dự phòng' : 'Nhập 6 chữ số';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-100 via-blue-50 to-slate-50 flex items-center justify-center p-4">
@@ -103,7 +104,7 @@ export default function TwoFaPage() {
                 type="button"
                 onClick={() => switchMethod('totp')}
                 className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-medium transition-all ${
-                  method === 'totp'
+                  method === TWO_FA_METHOD.TOTP
                     ? 'bg-[#003973] text-white shadow-sm'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
@@ -115,7 +116,7 @@ export default function TwoFaPage() {
                 type="button"
                 onClick={() => switchMethod('email_otp')}
                 className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-medium transition-all ${
-                  method === 'email_otp'
+                  method === TWO_FA_METHOD.EMAIL_OTP
                     ? 'bg-[#003973] text-white shadow-sm'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
@@ -127,7 +128,7 @@ export default function TwoFaPage() {
                 type="button"
                 onClick={() => switchMethod('backup')}
                 className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-medium transition-all ${
-                  method === 'backup'
+                  method === TWO_FA_METHOD.BACKUP
                     ? 'bg-[#003973] text-white shadow-sm'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
@@ -138,7 +139,7 @@ export default function TwoFaPage() {
             </div>
 
             {/* Email OTP send button */}
-            {method === 'email_otp' && (
+            {method === TWO_FA_METHOD.EMAIL_OTP && (
               <div className="mb-4">
                 {emailSent ? (
                   <p className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-4 py-2 text-center">
@@ -162,9 +163,9 @@ export default function TwoFaPage() {
 
             {/* Method hint */}
             <p className="text-xs text-slate-500 mb-3">
-              {method === 'totp' && 'Mở ứng dụng xác thực (Google Authenticator, Authy...) để lấy mã 6 chữ số.'}
-              {method === 'email_otp' && 'Nhập mã 6 chữ số đã gửi vào email.'}
-              {method === 'backup' && 'Nhập một trong các mã dự phòng bạn đã lưu khi kích hoạt 2FA.'}
+              {method === TWO_FA_METHOD.TOTP && 'Mở ứng dụng xác thực (Google Authenticator, Authy...) để lấy mã 6 chữ số.'}
+              {method === TWO_FA_METHOD.EMAIL_OTP && 'Nhập mã 6 chữ số đã gửi vào email.'}
+              {method === TWO_FA_METHOD.BACKUP && 'Nhập một trong các mã dự phòng bạn đã lưu khi kích hoạt 2FA.'}
             </p>
 
             {/* Error */}
@@ -180,9 +181,9 @@ export default function TwoFaPage() {
             {/* Form */}
             <form onSubmit={handleSubmit} className="space-y-4">
               <input
-                type={method === 'backup' ? 'text' : 'text'}
-                inputMode={method === 'backup' ? 'text' : 'numeric'}
-                pattern={method === 'backup' ? undefined : '[0-9]*'}
+                type={method === TWO_FA_METHOD.BACKUP ? 'text' : 'text'}
+                inputMode={method === TWO_FA_METHOD.BACKUP ? 'text' : 'numeric'}
+                pattern={method === TWO_FA_METHOD.BACKUP ? undefined : '[0-9]*'}
                 maxLength={maxLen}
                 placeholder={placeholder}
                 value={code}

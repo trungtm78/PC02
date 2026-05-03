@@ -18,28 +18,10 @@ import { ConvertToIncidentDto } from './dto/convert-incident.dto';
 import { ConvertToCaseDto } from './dto/convert-case.dto';
 import { AssignPetitionDto } from './dto/assign-petition.dto';
 import { ExportPetitionsQueryDto } from './dto/export-petitions-query.dto';
-import { Prisma, LoaiDon } from '@prisma/client';
+import { Prisma, LoaiDon, PetitionStatus, CaseStatus } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { buildPetitionScopeFilter } from '../common/utils/scope-filter.util';
 import { SettingsService } from '../settings/settings.service';
-
-// Enum values — inline to avoid dependency on Prisma client generation
-// These must match schema.prisma enum definitions exactly
-const PetitionStatus = {
-  MOI_TIEP_NHAN: 'MOI_TIEP_NHAN',
-  DANG_XU_LY: 'DANG_XU_LY',
-  CHO_PHE_DUYET: 'CHO_PHE_DUYET',
-  DA_LUU_DON: 'DA_LUU_DON',
-  DA_GIAI_QUYET: 'DA_GIAI_QUYET',
-  DA_CHUYEN_VU_VIEC: 'DA_CHUYEN_VU_VIEC',
-  DA_CHUYEN_VU_AN: 'DA_CHUYEN_VU_AN',
-} as const;
-type PetitionStatus = (typeof PetitionStatus)[keyof typeof PetitionStatus];
-
-const CaseStatus = {
-  TIEP_NHAN: 'TIEP_NHAN',
-} as const;
-type CaseStatus = (typeof CaseStatus)[keyof typeof CaseStatus];
 
 @Injectable()
 export class PetitionsService {

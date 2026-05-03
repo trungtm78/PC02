@@ -36,7 +36,6 @@ import type { TabProps, Subject, Evidence, MediaFile } from "./types";
 import {
   CASE_TYPE_OPTIONS,
   STATUS_OPTIONS,
-  CRIMINAL_TYPE_OPTIONS,
   SUBJECT_TYPE_COLORS,
 } from "./constants";
 
@@ -584,7 +583,7 @@ export function TabCase({ formData, setFormData, errors, setErrors }: TabProps) 
           label="Tội danh chính"
           value={formData.criminalType}
           onChange={(v) => update("criminalType", v)}
-          options={CRIMINAL_TYPE_OPTIONS}
+          masterClassType="07"
           placeholder="Tìm kiếm tội danh..."
           canCreate={false}
           testId="fk-criminal-type"
@@ -593,7 +592,7 @@ export function TabCase({ formData, setFormData, errors, setErrors }: TabProps) 
           label="Tội danh phụ"
           value={formData.criminalSecondaryType}
           onChange={(v) => update("criminalSecondaryType", v)}
-          options={CRIMINAL_TYPE_OPTIONS}
+          masterClassType="07"
           placeholder="Tội danh phụ (nếu có)..."
           canCreate={false}
           testId="fk-criminal-secondary"

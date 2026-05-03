@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { SETTINGS_KEY } from '../common/constants/settings-keys.constants';
 
 @Injectable()
 export class SettingsService {
@@ -42,14 +43,14 @@ export class SettingsService {
 
   async getDeadlines() {
     const keys = [
-      'THOI_HAN_XAC_MINH',
-      'THOI_HAN_GIA_HAN_1',
-      'THOI_HAN_GIA_HAN_2',
-      'THOI_HAN_TOI_DA',
-      'THOI_HAN_PHUC_HOI',
-      'THOI_HAN_PHAN_LOAI',
-      'SO_LAN_GIA_HAN_TOI_DA',
-      'THOI_HAN_GUI_QD_VKS',
+      SETTINGS_KEY.THOI_HAN_XAC_MINH,
+      SETTINGS_KEY.THOI_HAN_GIA_HAN_1,
+      SETTINGS_KEY.THOI_HAN_GIA_HAN_2,
+      SETTINGS_KEY.THOI_HAN_TOI_DA,
+      SETTINGS_KEY.THOI_HAN_PHUC_HOI,
+      SETTINGS_KEY.THOI_HAN_PHAN_LOAI,
+      SETTINGS_KEY.SO_LAN_GIA_HAN_TOI_DA,
+      SETTINGS_KEY.THOI_HAN_GUI_QD_VKS,
     ];
 
     const settings = await this.prisma.systemSetting.findMany({

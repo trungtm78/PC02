@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import SettingsPage from '../SettingsPage';
+import { api } from '@/lib/api';
 
 const renderWithRouter = (ui: React.ReactElement) => {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -12,6 +13,22 @@ const renderWithRouter = (ui: React.ReactElement) => {
     </QueryClientProvider>
   );
 };
+
+// Mock api — SettingsPage DirectoriesModule calls api.get('/directories/stats')
+vi.mock('@/lib/api', () => ({
+  api: {
+    get: vi.fn(),
+    post: vi.fn().mockResolvedValue({ data: {} }),
+    put: vi.fn().mockResolvedValue({ data: {} }),
+    delete: vi.fn().mockResolvedValue({ data: {} }),
+  },
+  authApi: {
+    get: vi.fn().mockResolvedValue({ data: {} }),
+    post: vi.fn().mockResolvedValue({ data: {} }),
+    sendEmailOtp: vi.fn().mockResolvedValue({ data: {} }),
+    verifyTwoFa: vi.fn().mockResolvedValue({ data: {} }),
+  },
+}));
 
 // Mock usePermission hook (not used in SettingsPage but may be in future)
 vi.mock('@/hooks/usePermission', () => ({
@@ -23,9 +40,25 @@ vi.mock('@/hooks/usePermission', () => ({
   }),
 }));
 
+const mockDirectoriesStats = [
+  { type: 'CRIME', count: 12 },
+  { type: 'INCIDENT_TYPE', count: 6 },
+  { type: 'UNIT', count: 8 },
+  { type: 'CASE_CLASSIFICATION', count: 4 },
+  { type: 'PROSECUTION_OFFICE', count: 5 },
+];
+
 describe('SettingsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Re-setup api.get after clearAllMocks (clearAllMocks resets mockImplementation)
+    vi.mocked(api.get).mockImplementation((url: string) => {
+      if (url.includes('/directories/stats')) {
+        // Component reads res.data, so wrap in axios-style response
+        return Promise.resolve({ data: mockDirectoriesStats });
+      }
+      return Promise.resolve({ data: {} });
+    });
   });
 
   it('should render settings page with sidebar', () => {
@@ -109,10 +142,9 @@ describe('SettingsPage', () => {
     });
   });
 
-  it('should render add user button in user management', () => {
+  it('should render navigate-to-users button in user management', () => {
     renderWithRouter(<SettingsPage />);
-    
-    expect(screen.getByText('Thêm ngườI dùng')).toBeInTheDocument();
+    expect(screen.getByText('Đến trang Quản lý người dùng')).toBeInTheDocument();
   });
 
   it('should render role selector in permissions module', async () => {
@@ -130,13 +162,18 @@ describe('SettingsPage', () => {
 
   it('should render directories with counts', async () => {
     renderWithRouter(<SettingsPage />);
-    
+
     fireEvent.click(screen.getByTestId('settings-menu-directories'));
-    
+
     await waitFor(() => {
-      expect(screen.getByText('Loại vụ án')).toBeInTheDocument();
-      expect(screen.getByText('Trạng thái vụ án')).toBeInTheDocument();
+      // Page title is always shown when directories module loads
+      expect(screen.getByText('Danh mục hệ thống')).toBeInTheDocument();
+    });
+    // After the API resolves, expect the count to appear
+    await waitFor(() => {
+      // CRIME type: count=12 → "12 mục"; INCIDENT_TYPE → "Loại vụ việc"
       expect(screen.getByText('12 mục')).toBeInTheDocument();
+      expect(screen.getByText('Loại vụ việc')).toBeInTheDocument();
     });
   });
 
