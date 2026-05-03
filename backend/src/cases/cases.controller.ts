@@ -9,10 +9,13 @@ import {
   Param,
   Query,
   Req,
+  Res,
   UseGuards,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import { Response } from 'express';
+import { Throttle } from '@nestjs/throttler';
 import type { ScopedRequest } from '../auth/interfaces/scoped-request.interface';
 import { CasesService } from './cases.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -40,6 +43,32 @@ export class CasesController {
   @RequirePermissions({ action: 'read', subject: 'Case' })
   getList(@Query() query: QueryCasesDto, @Req() req: ScopedRequest) {
     return this.casesService.getList(query, req.dataScope);
+  }
+
+  // GET /api/v1/cases/export/ward — Xuất vụ án theo phường/xã
+  @Get('export/ward')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions({ action: 'read', subject: 'Case' })
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
+  async exportWard(
+    @Query() query: { unitId?: string; fromDate?: string; toDate?: string },
+    @Req() req: ScopedRequest,
+    @Res() res: Response,
+  ): Promise<void> {
+    await this.casesService.exportWardCases(query, req.dataScope, res);
+  }
+
+  // GET /api/v1/cases/export/other-classification — Xuất phân loại khác
+  @Get('export/other-classification')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions({ action: 'read', subject: 'Case' })
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
+  async exportOther(
+    @Query() query: { fromDate?: string; toDate?: string; category?: string },
+    @Req() req: ScopedRequest,
+    @Res() res: Response,
+  ): Promise<void> {
+    await this.casesService.exportOtherClassification(query, req.dataScope, res);
   }
 
   // GET /api/v1/cases/:id/status-history — Lịch sử thay đổi trạng thái
