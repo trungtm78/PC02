@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { CaseStatus } from "@/shared/enums/generated";
 import { ROLE_NAMES } from "@/shared/enums/roles";
 import { CASE_PHASE } from "@/shared/enums/case-phase";
 import {
@@ -153,9 +154,14 @@ export default function WardCasesPage() {
         reportedDate: c.createdAt ? new Date(c.createdAt).toLocaleDateString("vi-VN") : "",
         status: (() => {
           const statusMap: Record<string, string> = {
-            TIEP_NHAN: "pending", DANG_XAC_MINH: "investigating", DANG_DIEU_TRA: "investigating",
-            DA_KET_LUAN: "resolved", DA_LUU_TRU: "resolved", DINH_CHI: "resolved",
-            DANG_TRUY_TO: "prosecuted", DANG_XET_XU: "prosecuted", DA_CHUYEN: "transferred",
+            [CaseStatus.TIEP_NHAN]: "pending",
+            [CaseStatus.DANG_XAC_MINH]: "investigating",
+            [CaseStatus.DANG_DIEU_TRA]: "investigating",
+            [CaseStatus.DA_KET_LUAN]: "resolved",
+            [CaseStatus.DA_LUU_TRU]: "resolved",
+            [CaseStatus.DINH_CHI]: "resolved",
+            [CaseStatus.DANG_TRUY_TO]: "prosecuted",
+            [CaseStatus.DANG_XET_XU]: "prosecuted",
           };
           return statusMap[c.status] ?? "pending";
         })() as WardCase["status"],

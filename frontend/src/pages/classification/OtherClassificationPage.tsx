@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router";
+import { CaseStatus } from "@/shared/enums/generated";
 import { CASE_PHASE } from "@/shared/enums/case-phase";
 import {
   Search,
@@ -85,11 +86,11 @@ export default function OtherClassificationPage() {
           reportedDate: c.createdAt ? new Date(c.createdAt).toLocaleDateString("vi-VN") : "",
           status: (() => {
             const m: Record<string, string> = {
-              TIEP_NHAN: "pending",
-              DANG_XAC_MINH: "processing",
-              DA_LUU_TRU: "archived",
-              DINH_CHI: "archived",
-              DA_KET_LUAN: "resolved",
+              [CaseStatus.TIEP_NHAN]: "pending",
+              [CaseStatus.DANG_XAC_MINH]: "processing",
+              [CaseStatus.DA_LUU_TRU]: "archived",
+              [CaseStatus.DINH_CHI]: "archived",
+              [CaseStatus.DA_KET_LUAN]: "resolved",
             };
             return m[c.status] ?? "pending";
           })() as OtherCase["status"],

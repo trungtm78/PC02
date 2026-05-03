@@ -628,7 +628,7 @@ function ProposalFormModal({
     unit: proposal?.unit || "",
     createdBy: proposal?.createdBy || "",
     sentDate: proposal?.sentDate ? proposal.sentDate.split("/").reverse().join("-") : "",
-    status: proposal?.status || "Chờ gửi",
+    status: proposal?.status || PROPOSAL_STATUS_LABEL[ProposalStatus.CHO_GUI],
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -838,7 +838,7 @@ function ProposalFormModal({
               )}
             </div>
 
-            {formData.status !== "Chờ gửi" && (
+            {formData.status !== PROPOSAL_STATUS_LABEL[ProposalStatus.CHO_GUI] && (
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Ngày gửi</label>
                 <div className="relative">
@@ -922,13 +922,13 @@ function ProposalDetailModal({
 }) {
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case "Chờ gửi":
+      case PROPOSAL_STATUS_LABEL[ProposalStatus.CHO_GUI]:
         return <Clock className="w-5 h-5 text-slate-600" />;
-      case "Đã gửi":
+      case PROPOSAL_STATUS_LABEL[ProposalStatus.DA_GUI]:
         return <Send className="w-5 h-5 text-amber-600" />;
-      case "Đã có phản hồi":
+      case PROPOSAL_STATUS_LABEL[ProposalStatus.CO_PHAN_HOI]:
         return <FileCheck className="w-5 h-5 text-blue-600" />;
-      case "Đã xử lý":
+      case PROPOSAL_STATUS_LABEL[ProposalStatus.DA_XU_LY]:
         return <CheckCircle className="w-5 h-5 text-green-600" />;
       default:
         return null;

@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router";
+import { IncidentStatus } from "@/shared/enums/generated";
 import { CASE_PHASE } from "@/shared/enums/case-phase";
 import {
   Search,
@@ -80,11 +81,11 @@ export default function WardIncidentsPage() {
           reportedDate: item.createdAt ? new Date(item.createdAt).toLocaleDateString("vi-VN") : "",
           status: (() => {
             const m: Record<string, string> = {
-              TIEP_NHAN: "pending",
-              DANG_XAC_MINH: "investigating",
-              DA_GIAI_QUYET: "resolved",
-              TAM_DINH_CHI: "closed",
-              QUA_HAN: "closed",
+              [IncidentStatus.TIEP_NHAN]: "pending",
+              [IncidentStatus.DANG_XAC_MINH]: "investigating",
+              [IncidentStatus.DA_GIAI_QUYET]: "resolved",
+              [IncidentStatus.TAM_DINH_CHI]: "closed",
+              [IncidentStatus.QUA_HAN]: "closed",
             };
             return m[item.status] ?? "pending";
           })() as WardIncident["status"],

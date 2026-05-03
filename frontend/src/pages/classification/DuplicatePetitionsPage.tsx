@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
+import { PetitionStatus } from "@/shared/enums/generated";
+import { DUPLICATE_PETITION_STATUS } from "@/shared/enums/duplicate-petition-status";
 import {
   Search,
   Download,
@@ -89,11 +91,11 @@ export default function DuplicatePetitionsPage() {
           suggestedOriginals: [],
           status: (() => {
             const m: Record<string, string> = {
-              MOI_TIEP_NHAN: "Chờ xử lý",
-              DANG_XU_LY: "Đang xem xét",
-              DA_GIAI_QUYET: "Tách riêng",
+              [PetitionStatus.MOI_TIEP_NHAN]: DUPLICATE_PETITION_STATUS.PENDING,
+              [PetitionStatus.DANG_XU_LY]: DUPLICATE_PETITION_STATUS.REVIEWING,
+              [PetitionStatus.DA_GIAI_QUYET]: DUPLICATE_PETITION_STATUS.SPLIT,
             };
-            return m[p.status] ?? "Chờ xử lý";
+            return m[p.status] ?? DUPLICATE_PETITION_STATUS.PENDING;
           })() as DuplicatePetition["status"],
           statusColor: "text-amber-600",
         }));
