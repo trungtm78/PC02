@@ -4,9 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## [0.13.5.1] - 2026-05-03
 
+### Added
+- **Web: Xuất Excel BCA format cho 5 màn hình Phân loại & Quản lý** — `WardIncidentsPage`, `WardCasesPage`, `OtherClassificationPage`, `ProsecutorProposalPage`, `DuplicatePetitionsPage` giờ xuất file `.xlsx` đầy đủ BCA format (6-row letterhead, navy headers, alternating rows, footer signature, A4 landscape) thay vì CSV thô. 5 backend endpoints mới với throttle 5 req/phút.
+- **Web: Petitions export chuẩn hóa BCA format** — `DanhSachDonThu_*.xlsx` từ `/petitions/export` giờ có đầy đủ letterhead và footer, đồng nhất với Monthly/Quarterly/Stat48 reports.
+
 ### Fixed
 - **Web: Trang "Vụ việc theo phường/xã" không còn redirect về login khi click Xem** — Tạo `IncidentDetailPage` + đăng ký route `/vu-viec/:id` và alias `/incidents/:id`. Cùng fix luôn `TransferAndReturnPage` và `IncidentListPage` (đều navigate đến route chưa tồn tại này).
-- **Web: Enum constants trong 5 màn hình Phân loại & Quản lý** — `WardIncidentsPage`, `WardCasesPage`, `OtherClassificationPage`, `DuplicatePetitionsPage`, `ProsecutorProposalPage` không còn dùng hardcoded string literals làm status map keys; tất cả dùng `IncidentStatus`/`CaseStatus`/`PetitionStatus` từ shared enums. `DuplicatePetitionsPage` còn dùng `DUPLICATE_PETITION_STATUS` constants thay vì raw label strings.
+- **Web: Enum constants trong 5 màn hình Phân loại & Quản lý** — `WardIncidentsPage`, `WardCasesPage`, `OtherClassificationPage`, `DuplicatePetitionsPage`, `ProsecutorProposalPage` không còn dùng hardcoded string literals làm status map keys; tất cả dùng `IncidentStatus`/`CaseStatus`/`PetitionStatus` từ shared enums.
+- **Web: statusLabel hiển thị tiếng Việt** thay vì enum constant raw string (TIEP_NHAN → Tiếp nhận).
 
 ## [0.13.5.0] - 2026-05-03
 
