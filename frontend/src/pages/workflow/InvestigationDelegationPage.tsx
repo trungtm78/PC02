@@ -8,6 +8,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { CASE_PHASE } from '@/shared/enums/case-phase';
 import {
   Search,
   Plus,
@@ -163,7 +164,7 @@ export default function InvestigationDelegationPage() {
   // ── Stats ──────────────────────────────────────────────────────────────────
 
   const totalCount = filteredData.length;
-  const pendingCount = filteredData.filter((d) => d.status === 'pending').length;
+  const pendingCount = filteredData.filter((d) => d.status === CASE_PHASE.PENDING).length;
   const receivedCount = filteredData.filter((d) => d.status === 'received').length;
   const completedCount = filteredData.filter((d) => d.status === 'completed').length;
 

@@ -7,6 +7,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { CASE_PHASE } from '@/shared/enums/case-phase';
 import {
   Search,
   Plus,
@@ -160,7 +161,7 @@ export default function PetitionGuidancePage() {
 
   const totalCount = filteredData.length;
   const completedCount = filteredData.filter((g) => g.status === 'completed').length;
-  const pendingCount = filteredData.filter((g) => g.status === 'pending').length;
+  const pendingCount = filteredData.filter((g) => g.status === CASE_PHASE.PENDING).length;
   const todayCount = filteredData.filter((g) => g.date === new Date().toISOString().split('T')[0]).length;
 
   // ── Handlers ───────────────────────────────────────────────────────────────

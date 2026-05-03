@@ -260,7 +260,7 @@ export default function KpiDashboardPage() {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" />
                 <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
-                <Tooltip formatter={(v: number) => `${v}%`} />
+                <Tooltip formatter={(v) => `${v}%`} />
                 <Legend />
                 <Line type="monotone" dataKey="KPI-1" stroke="#16a34a" strokeWidth={2} dot={false} />
                 <Line type="monotone" dataKey="KPI-2" stroke="#2563eb" strokeWidth={2} dot={false} />

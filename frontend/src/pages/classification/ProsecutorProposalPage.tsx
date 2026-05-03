@@ -21,19 +21,26 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import {
+  ProposalStatus,
+  PROPOSAL_STATUS_LABEL,
+} from "@/shared/enums/proposal-status";
+import { CASE_TYPE, type CaseType } from "@/shared/enums/case-types";
+
+type ProposalStatusLabel = (typeof PROPOSAL_STATUS_LABEL)[ProposalStatus];
 
 interface Proposal {
   id: string;
   stt: number;
   proposalNumber: string;
   relatedCase: string;
-  caseType: "Vụ án" | "Vụ việc" | "Đơn thư";
+  caseType: CaseType;
   content: string;
   createdDate: string;
   sentDate?: string;
   unit: string;
   createdBy: string;
-  status: "Chờ gửi" | "Đã gửi" | "Đã có phản hồi" | "Đã xử lý";
+  status: ProposalStatusLabel;
   statusColor: string;
   response?: string;
   responseDate?: string;
@@ -62,26 +69,24 @@ export default function ProsecutorProposalPage() {
     setLoading(true);
     try {
       const res = await api.get("/proposals?limit=100");
-      const statusMap: Record<string, string> = {
-        CHO_GUI: "Chờ gửi",
-        DA_GUI: "Đã gửi",
-        CO_PHAN_HOI: "Đã có phản hồi",
-        DA_XU_LY: "Đã xử lý",
-      };
-      const statusColorMap: Record<string, string> = {
-        "Chờ gửi": "bg-slate-400 text-white",
-        "Đã gửi": "bg-amber-500 text-white",
-        "Đã có phản hồi": "bg-blue-600 text-white",
-        "Đã xử lý": "bg-green-600 text-white",
+      const statusColorMap: Record<ProposalStatusLabel, string> = {
+        [PROPOSAL_STATUS_LABEL.CHO_GUI]: "bg-slate-400 text-white",
+        [PROPOSAL_STATUS_LABEL.DA_GUI]: "bg-amber-500 text-white",
+        [PROPOSAL_STATUS_LABEL.CO_PHAN_HOI]: "bg-blue-600 text-white",
+        [PROPOSAL_STATUS_LABEL.DA_XU_LY]: "bg-green-600 text-white",
       };
       const mapped: Proposal[] = (res.data.data ?? []).map((p: any, i: number) => {
-        const status = (statusMap[p.status] ?? "Chờ gửi") as Proposal["status"];
+        const apiStatus = p.status as ProposalStatus | undefined;
+        const status: ProposalStatusLabel =
+          apiStatus && apiStatus in PROPOSAL_STATUS_LABEL
+            ? PROPOSAL_STATUS_LABEL[apiStatus]
+            : PROPOSAL_STATUS_LABEL[ProposalStatus.CHO_GUI];
         return {
           id: p.id,
           stt: i + 1,
           proposalNumber: p.proposalNumber,
           relatedCase: p.relatedCase?.name ?? "",
-          caseType: (p.caseType ?? "Vụ án") as Proposal["caseType"],
+          caseType: (p.caseType ?? CASE_TYPE.CASE) as CaseType,
           content: p.content,
           createdDate: p.createdAt ? new Date(p.createdAt).toLocaleDateString("vi-VN") : "",
           sentDate: p.sentDate ? new Date(p.sentDate).toLocaleDateString("vi-VN") : undefined,
@@ -157,13 +162,13 @@ export default function ProsecutorProposalPage() {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case "Chờ gửi":
+      case PROPOSAL_STATUS_LABEL.CHO_GUI:
         return <Clock className="w-4 h-4" />;
-      case "Đã gửi":
+      case PROPOSAL_STATUS_LABEL.DA_GUI:
         return <Send className="w-4 h-4" />;
-      case "Đã có phản hồi":
+      case PROPOSAL_STATUS_LABEL.CO_PHAN_HOI:
         return <FileCheck className="w-4 h-4" />;
-      case "Đã xử lý":
+      case PROPOSAL_STATUS_LABEL.DA_XU_LY:
         return <CheckCircle className="w-4 h-4" />;
       default:
         return null;
@@ -172,10 +177,10 @@ export default function ProsecutorProposalPage() {
 
   const statusCounts = {
     total: allProposals.length,
-    pending: allProposals.filter((p) => p.status === "Chờ gửi").length,
-    sent: allProposals.filter((p) => p.status === "Đã gửi").length,
-    responded: allProposals.filter((p) => p.status === "Đã có phản hồi").length,
-    completed: allProposals.filter((p) => p.status === "Đã xử lý").length,
+    pending: allProposals.filter((p) => p.status === PROPOSAL_STATUS_LABEL.CHO_GUI).length,
+    sent: allProposals.filter((p) => p.status === PROPOSAL_STATUS_LABEL.DA_GUI).length,
+    responded: allProposals.filter((p) => p.status === PROPOSAL_STATUS_LABEL.CO_PHAN_HOI).length,
+    completed: allProposals.filter((p) => p.status === PROPOSAL_STATUS_LABEL.DA_XU_LY).length,
   };
 
   const handleExportExcel = () => {
@@ -381,10 +386,11 @@ export default function ProsecutorProposalPage() {
                   className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] bg-white text-sm"
                 >
                   <option value="">Tất cả</option>
-                  <option value="Chờ gửi">Chờ gửi</option>
-                  <option value="Đã gửi">Đã gửi</option>
-                  <option value="Đã có phản hồi">Đã có phản hồi</option>
-                  <option value="Đã xử lý">Đã xử lý</option>
+                  {Object.values(PROPOSAL_STATUS_LABEL).map((label) => (
+                    <option key={label} value={label}>
+                      {label}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -497,9 +503,9 @@ export default function ProsecutorProposalPage() {
                       <div className="flex items-center gap-2">
                         <span
                           className={`px-2 py-0.5 rounded text-xs font-medium ${
-                            proposal.caseType === "Vụ án"
+                            proposal.caseType === CASE_TYPE.CASE
                               ? "bg-red-100 text-red-700"
-                              : proposal.caseType === "Vụ việc"
+                              : proposal.caseType === CASE_TYPE.INCIDENT
                               ? "bg-purple-100 text-purple-700"
                               : "bg-blue-100 text-blue-700"
                           }`}
@@ -733,10 +739,11 @@ function ProposalFormModal({
                 onChange={(e) => setFormData({ ...formData, status: e.target.value as Proposal["status"] })}
                 className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] bg-white"
               >
-                <option value="Chờ gửi">Chờ gửi</option>
-                <option value="Đã gửi">Đã gửi</option>
-                <option value="Đã có phản hồi">Đã có phản hồi</option>
-                <option value="Đã xử lý">Đã xử lý</option>
+                {Object.values(PROPOSAL_STATUS_LABEL).map((label) => (
+                  <option key={label} value={label}>
+                    {label}
+                  </option>
+                ))}
               </select>
             </div>
 

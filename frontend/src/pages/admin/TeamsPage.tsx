@@ -91,7 +91,7 @@ export default function TeamsPage() {
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [userSearch, setUserSearch] = useState('');
   const [showUserSearch, setShowUserSearch] = useState(false);
-  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const { data: teams = [], isLoading } = useQuery<Team[]>({

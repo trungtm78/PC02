@@ -4,6 +4,7 @@ import { api } from "@/lib/api";
 import { ArrowLeft, Save, AlertCircle, Calendar, FileText, Loader2, ChevronDown, ChevronRight } from "lucide-react";
 import { FKSelect, type FKOption } from "@/components/FKSelect";
 import { getPhaseForStatus } from "@/constants/incident-phases";
+import { LY_DO_KHONG_KHOI_TO_OPTIONS } from "@/shared/enums/status-labels";
 
 interface FormData {
   name: string;
@@ -100,15 +101,13 @@ export function IncidentFormPage() {
   const { id } = useParams<{ id: string }>();
   const isEditMode = !!id;
   const [formData, setFormData] = useState<FormData>(INITIAL_FORM);
-  const [currentStatus, setCurrentStatus] = useState<string>("");
   const [errors, setErrors] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [userOptions, setUserOptions] = useState<FKOption[]>([]);
   const [recordUpdatedAt, setRecordUpdatedAt] = useState<string | null>(null);
 
-  // Section expanded states - compute defaults based on mode and status
-  const currentPhase = getPhaseForStatus(currentStatus);
+  // Section expanded states
   const [section1Open, setSection1Open] = useState(true);
   const [section2Open, setSection2Open] = useState(false);
   const [section3Open, setSection3Open] = useState(false);
@@ -136,8 +135,6 @@ export function IncidentFormPage() {
       .then((res) => {
         const d = res.data.data;
         if (d) {
-          const status = (d.status as string) ?? "";
-          setCurrentStatus(status);
           setFormData({
             name: (d.name as string) ?? "",
             incidentType: (d.incidentType as string) ?? "",
@@ -477,20 +474,15 @@ export function IncidentFormPage() {
                 className={inputClass} placeholder="Người ra quyết định" data-testid="field-nguoiQuyetDinh" />
             </div>
           </div>
-          <div>
-            <label className={labelClass}>Lý do không khởi tố (Điều 157 BLTTHS)</label>
-            <select value={formData.lyDoKhongKhoiTo} onChange={(e) => update("lyDoKhongKhoiTo", e.target.value)}
-              className={inputClass} data-testid="field-lyDoKhongKhoiTo">
-              <option value="">-- Chọn căn cứ --</option>
-              <option value="KHONG_CO_SU_VIEC">Không có sự việc phạm tội (Đ.157 khoản 1a)</option>
-              <option value="HANH_VI_KHONG_CAU_THANH_TOI_PHAM">Hành vi không cấu thành tội phạm (khoản 1b)</option>
-              <option value="NGUOI_THUC_HIEN_CHUA_DU_TUOI">Người thực hiện chưa đủ tuổi TNHS (khoản 1c)</option>
-              <option value="NGUOI_PHAM_TOI_CHET">Người phạm tội đã chết (khoản 1d)</option>
-              <option value="HET_THOI_HIEU">Hết thời hiệu truy cứu TNHS (khoản 1đ)</option>
-              <option value="TOI_PHAM_DA_DUOC_XOA_AN_TICH">Tội phạm đã được đại xá (khoản 1e)</option>
-              <option value="TRUONG_HOP_KHAC">Trường hợp khác theo quy định BLTTHS (khoản 1g)</option>
-            </select>
-          </div>
+          <FKSelect
+            label="Lý do không khởi tố (Điều 157 BLTTHS)"
+            value={formData.lyDoKhongKhoiTo}
+            onChange={(v) => update("lyDoKhongKhoiTo", v)}
+            options={LY_DO_KHONG_KHOI_TO_OPTIONS}
+            placeholder="-- Chọn căn cứ --"
+            canCreate={false}
+            testId="field-lyDoKhongKhoiTo"
+          />
         </CollapsibleSection>
 
         {/* Section 4: Tam dinh chi & Phuc hoi */}

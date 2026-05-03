@@ -3,6 +3,12 @@ import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { api } from "@/lib/api";
 import { usePermission } from "@/hooks/usePermission";
 import { AssignModal } from "@/components/AssignModal";
+import {
+  ConclusionStatus,
+  CONCLUSION_STATUS_LABEL,
+} from "@/shared/enums/conclusion-status";
+
+type ConclusionStatusLabel = (typeof CONCLUSION_STATUS_LABEL)[ConclusionStatus];
 
 import {
   ArrowLeft,
@@ -81,7 +87,7 @@ interface Conclusion {
   content: string;
   author: string;
   approvedBy: string;
-  status: "Dự thảo" | "Đã duyệt" | "Chờ duyệt";
+  status: ConclusionStatusLabel;
 }
 
 // ─── API helpers ─────────────────────────────────────────────────────────────
@@ -206,7 +212,12 @@ function conclusionApiToLocal(c: any): Conclusion {
     content: c.content,
     author: c.author ? `${c.author.firstName ?? ""} ${c.author.lastName ?? ""}`.trim() : "",
     approvedBy: c.approvedBy ? `${c.approvedBy.firstName ?? ""} ${c.approvedBy.lastName ?? ""}`.trim() : "",
-    status: c.status === "DA_DUYET" ? "Đã duyệt" : c.status === "CHO_DUYET" ? "Chờ duyệt" : "Dự thảo",
+    status:
+      c.status === ConclusionStatus.DA_DUYET
+        ? CONCLUSION_STATUS_LABEL[ConclusionStatus.DA_DUYET]
+        : c.status === ConclusionStatus.CHO_DUYET
+        ? CONCLUSION_STATUS_LABEL[ConclusionStatus.CHO_DUYET]
+        : CONCLUSION_STATUS_LABEL[ConclusionStatus.DU_THAO],
   };
 }
 
@@ -577,7 +588,7 @@ function ConclusionModal({
       content: "",
       author: "",
       approvedBy: "",
-      status: "Dự thảo",
+      status: CONCLUSION_STATUS_LABEL[ConclusionStatus.DU_THAO],
     }
   );
 
@@ -642,9 +653,11 @@ function ConclusionModal({
                 onChange={(e) => setForm({ ...form, status: e.target.value as Conclusion["status"] })}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
               >
-                <option value="Dự thảo">Dự thảo</option>
-                <option value="Chờ duyệt">Chờ duyệt</option>
-                <option value="Đã duyệt">Đã duyệt</option>
+                {Object.values(CONCLUSION_STATUS_LABEL).map((label) => (
+                  <option key={label} value={label}>
+                    {label}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
@@ -922,15 +935,15 @@ export default function CaseDetailPage() {
   const handleSaveConclusion = async (c: Conclusion) => {
     try {
       const STATUS_API_MAP: Record<string, string> = {
-        "Dự thảo": "DU_THAO",
-        "Chờ duyệt": "CHO_DUYET",
-        "Đã duyệt": "DA_DUYET",
+        [CONCLUSION_STATUS_LABEL[ConclusionStatus.DU_THAO]]: ConclusionStatus.DU_THAO,
+        [CONCLUSION_STATUS_LABEL[ConclusionStatus.CHO_DUYET]]: ConclusionStatus.CHO_DUYET,
+        [CONCLUSION_STATUS_LABEL[ConclusionStatus.DA_DUYET]]: ConclusionStatus.DA_DUYET,
       };
       if (editingConclusion) {
         await api.put(`/conclusions/${c.id}`, {
           type: c.type,
           content: c.content,
-          status: STATUS_API_MAP[c.status] ?? "DU_THAO",
+          status: STATUS_API_MAP[c.status] ?? ConclusionStatus.DU_THAO,
           notes: "",
         });
       } else {
@@ -938,7 +951,7 @@ export default function CaseDetailPage() {
           caseId: id,
           type: c.type,
           content: c.content,
-          status: STATUS_API_MAP[c.status] ?? "DU_THAO",
+          status: STATUS_API_MAP[c.status] ?? ConclusionStatus.DU_THAO,
         });
       }
       await fetchConclusions();
@@ -1392,8 +1405,8 @@ export default function CaseDetailPage() {
               </div>
               <div className="flex items-center gap-2">
                 <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-                  c.status === "Đã duyệt" ? "bg-green-100 text-green-700" :
-                  c.status === "Chờ duyệt" ? "bg-amber-100 text-amber-700" :
+                  c.status === CONCLUSION_STATUS_LABEL[ConclusionStatus.DA_DUYET] ? "bg-green-100 text-green-700" :
+                  c.status === CONCLUSION_STATUS_LABEL[ConclusionStatus.CHO_DUYET] ? "bg-amber-100 text-amber-700" :
                   "bg-slate-100 text-slate-700"
                 }`}>
                   {c.status}

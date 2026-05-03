@@ -9,19 +9,10 @@ import {
   Scale, AlertTriangle, X, Calendar, User, AlertCircle, ArrowRightLeft, FileText,
   ChevronLeft, ChevronRight, Loader2, Trash2,
 } from "lucide-react";
-import { PHASE_STATUSES, PHASE_LABELS, PHASE_ORDER } from "@/constants/incident-phases";
+import { PHASE_STATUSES, PHASE_LABELS } from "@/constants/incident-phases";
 import { usePermission } from "@/hooks/usePermission";
 import { AssignModal } from "@/components/AssignModal";
-
-// ─────────────────────────────────────────────────────────
-// Status types & labels
-// ─────────────────────────────────────────────────────────
-
-type IncidentStatus =
-  | 'TIEP_NHAN' | 'DANG_XAC_MINH' | 'DA_PHAN_CONG' | 'DA_GIAI_QUYET'
-  | 'TAM_DINH_CHI' | 'QUA_HAN' | 'DA_CHUYEN_VU_AN' | 'KHONG_KHOI_TO'
-  | 'CHUYEN_XPHC' | 'TDC_HET_THOI_HIEU' | 'TDC_HTH_KHONG_KT'
-  | 'PHUC_HOI_NGUON_TIN' | 'DA_CHUYEN_DON_VI' | 'DA_NHAP_VU_KHAC' | 'PHAN_LOAI_DAN_SU';
+import { IncidentStatus } from "@/shared/enums/generated";
 
 const STATUS_LABELS: Record<IncidentStatus, string> = {
   TIEP_NHAN: "Tiếp nhận",
@@ -558,10 +549,10 @@ export function IncidentListPage() {
                                     <ArrowRightLeft className="w-4 h-4 text-indigo-600" />Chuyển trạng thái
                                   </button>
                                 )}
-                                {incident.status === "DANG_XAC_MINH" && (
+                                {incident.status === IncidentStatus.DANG_XAC_MINH && (
                                   <button onClick={() => handleActionClick(incident, "prosecute")} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 text-left border-t border-slate-100" data-testid="btn-prosecute"><Scale className="w-4 h-4 text-red-600" />Khởi tố</button>
                                 )}
-                                {incident.status === "TIEP_NHAN" && (
+                                {incident.status === IncidentStatus.TIEP_NHAN && (
                                   <button onClick={() => { setSelectedIncident(incident); setShowDeleteModal(true); setShowActionMenu(null); setDeleteReason(""); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 text-left border-t border-slate-100" data-testid="btn-delete"><Trash2 className="w-4 h-4" />Xóa vụ việc</button>
                                 )}
                               </div>

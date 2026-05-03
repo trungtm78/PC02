@@ -2,10 +2,11 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { FilePlus, Eye, Download, AlertCircle } from "lucide-react";
 import { api } from "@/lib/api";
+import { ReportTdcStatus } from "@/shared/enums/report-tdc-status";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type DraftStatus = "DRAFT" | "REVIEWING" | "REJECTED" | "APPROVED" | "FINALIZED";
+type DraftStatus = ReportTdcStatus;
 type LoaiBaoCao = "VU_AN" | "VU_VIEC";
 
 interface DraftItem {
@@ -212,7 +213,7 @@ export default function TdacDraftsPage() {
                           <Eye className="w-3.5 h-3.5" />
                           Xem
                         </button>
-                        {draft.status === "FINALIZED" && (
+                        {draft.status === ReportTdcStatus.FINALIZED && (
                           <button
                             onClick={() => downloadDraft(draft.id)}
                             className="flex items-center gap-1 px-2 py-1 text-xs border border-green-300 rounded text-green-700 hover:bg-green-50 transition-colors"

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { usePermission } from "@/hooks/usePermission";
+import { CASE_PHASE } from "@/shared/enums/case-phase";
 import {
   Search,
   Calendar,
@@ -128,8 +129,8 @@ function InitialCasesPage() {
     return true;
   });
 
-  const pendingCount = filteredData.filter((c) => c.status === "pending").length;
-  const overdueCount = filteredData.filter((c) => c.status === "overdue").length;
+  const pendingCount = filteredData.filter((c) => c.status === CASE_PHASE.PENDING).length;
+  const overdueCount = filteredData.filter((c) => c.status === CASE_PHASE.OVERDUE).length;
   const urgentCount = filteredData.filter((c) => c.priority !== "normal").length;
 
   const handleResetFilters = () => { setFilters({ quickSearch: "", fromDate: "", toDate: "", district: "", type: "" }); };
@@ -170,7 +171,7 @@ function InitialCasesPage() {
   };
 
   const getStatusBadge = (status: InitialCase["status"]) => {
-    if (status === "overdue") {
+    if (status === CASE_PHASE.OVERDUE) {
       return (<span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-bold bg-red-600 text-white border-2 border-red-700 shadow-sm"><AlertTriangle className="w-4 h-4" />QUÁ HẠN</span>);
     }
     return (<span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-bold bg-amber-500 text-white border-2 border-amber-600 shadow-sm"><Clock className="w-4 h-4" />CHỜ NHẬN</span>);
@@ -309,7 +310,7 @@ function InitialCasesPage() {
               <tbody className="divide-y divide-slate-200">
                 {filteredData.map((caseItem, index) => {
                   const daysRemaining = getDaysRemaining(caseItem.deadline);
-                  const isOverdue = caseItem.status === "overdue";
+                  const isOverdue = caseItem.status === CASE_PHASE.OVERDUE;
                   return (
                     <tr
                       key={caseItem.id}
