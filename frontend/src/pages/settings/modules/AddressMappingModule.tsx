@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { MapPin, Plus, Edit2, Trash2, RefreshCw, Search, X, Save, Loader2, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { usePermission } from '@/hooks/usePermission';
 
 interface AddressMapping {
   id: string;
@@ -28,6 +29,8 @@ const EMPTY_FORM: FormData = {
 };
 
 export function AddressMappingModule() {
+  const { canEdit } = usePermission();
+  const canEditRow = canEdit('settings');
   const [items, setItems] = useState<AddressMapping[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -185,7 +188,8 @@ export function AddressMappingModule() {
           <table className="w-full">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200">
-                {['Phường/Xã cũ', 'Quận/Huyện cũ', '→ Phường/Xã mới', 'Tỉnh', 'Ghi chú', 'Trạng thái', 'Thao tác'].map(h => (
+                <th className="text-left py-3 px-3 font-semibold text-slate-700 text-sm w-24 sticky left-0 bg-slate-50 z-10 border-r border-slate-200">Thao tác</th>
+                {['Phường/Xã cũ', 'Quận/Huyện cũ', '→ Phường/Xã mới', 'Tỉnh', 'Ghi chú', 'Trạng thái'].map(h => (
                   <th key={h} className="text-left py-3 px-4 font-semibold text-slate-700 text-sm">{h}</th>
                 ))}
               </tr>
@@ -196,7 +200,22 @@ export function AddressMappingModule() {
               ) : items.length === 0 ? (
                 <tr><td colSpan={7} className="py-8 text-center text-slate-400">Không có dữ liệu</td></tr>
               ) : items.map(item => (
-                <tr key={item.id} className={`hover:bg-slate-50 ${item.needsReview ? 'bg-amber-50/30' : ''}`}>
+                <tr
+                  key={item.id}
+                  onClick={canEditRow ? () => handleOpenEdit(item) : undefined}
+                  onKeyDown={canEditRow ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleOpenEdit(item); } } : undefined}
+                  tabIndex={canEditRow ? 0 : undefined}
+                  className={`transition-colors ${canEditRow ? "cursor-pointer hover:bg-blue-50" : "hover:bg-slate-50"} ${item.needsReview ? 'bg-amber-50/30' : ''}`}
+                >
+                  <td
+                    className="py-2.5 px-3 sticky left-0 z-10 bg-white border-r border-slate-100"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="flex gap-1">
+                      <button onClick={() => handleOpenEdit(item)} className="p-1.5 hover:bg-slate-100 rounded"><Edit2 className="w-4 h-4 text-slate-600" /></button>
+                      <button onClick={() => handleDelete(item.id)} className="p-1.5 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4 text-red-500" /></button>
+                    </div>
+                  </td>
                   <td className="py-2.5 px-4 font-mono text-sm text-slate-700">{item.oldWard}</td>
                   <td className="py-2.5 px-4 text-sm text-slate-500">{item.oldDistrict}</td>
                   <td className="py-2.5 px-4">
@@ -214,12 +233,6 @@ export function AddressMappingModule() {
                         <CheckCircle2 className="w-3 h-3" />OK
                       </span>
                     )}
-                  </td>
-                  <td className="py-2.5 px-4">
-                    <div className="flex gap-1">
-                      <button onClick={() => handleOpenEdit(item)} className="p-1.5 hover:bg-slate-100 rounded"><Edit2 className="w-4 h-4 text-slate-600" /></button>
-                      <button onClick={() => handleDelete(item.id)} className="p-1.5 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4 text-red-500" /></button>
-                    </div>
                   </td>
                 </tr>
               ))}

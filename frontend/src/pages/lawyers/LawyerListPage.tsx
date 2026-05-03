@@ -25,6 +25,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { FKSelect, type FKOption } from "@/components/FKSelect";
+import { usePermission } from "@/hooks/usePermission";
 import {
   LABEL_BASE,
   INPUT_BASE,
@@ -338,6 +339,8 @@ const PAGE_SIZE = 20;
 
 export default function LawyerListPage() {
   const queryClient = useQueryClient();
+  const { canEdit } = usePermission();
+  const canEditRow = canEdit('lawyers');
 
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -521,6 +524,7 @@ export default function LawyerListPage() {
               <table className="w-full" data-testid="lawyer-list-table">
                 <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>
+                    <th className="px-3 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider w-28 sticky left-0 bg-slate-50 z-10 border-r border-slate-200">Thao tác</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">STT</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Số thẻ LS</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Họ và tên</th>
@@ -528,12 +532,44 @@ export default function LawyerListPage() {
                     <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Điện thoại</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Vụ án</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Bị can</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider w-28">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
-                  {lawyers.map((lawyer, idx) => (
-                    <tr key={lawyer.id} className="hover:bg-slate-50 transition-colors" data-testid={`lawyer-row-${lawyer.id}`}>
+                  {lawyers.map((lawyer, idx) => {
+                    const handleEditLawyer = () => { setEditLawyer(lawyer); setFormError(undefined); setShowForm(true); };
+                    return (
+                    <tr
+                      key={lawyer.id}
+                      onClick={canEditRow ? handleEditLawyer : undefined}
+                      onKeyDown={canEditRow ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleEditLawyer(); } } : undefined}
+                      tabIndex={canEditRow ? 0 : undefined}
+                      className={`transition-colors ${canEditRow ? "cursor-pointer hover:bg-blue-50" : "hover:bg-slate-50"}`}
+                      data-testid={`lawyer-row-${lawyer.id}`}
+                    >
+                      {/* Thao tác — FIRST, sticky */}
+                      <td
+                        className="px-3 py-3 whitespace-nowrap sticky left-0 z-10 bg-white border-r border-slate-100"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={handleEditLawyer}
+                            className={BTN_ICON_BLUE}
+                            title="Chỉnh sửa"
+                            data-testid={`btn-edit-lawyer-${lawyer.id}`}
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => setDeleteLawyer(lawyer)}
+                            className={BTN_ICON_RED}
+                            title="Xóa"
+                            data-testid={`btn-delete-lawyer-${lawyer.id}`}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
                       <td className="px-4 py-3 text-sm text-slate-700">{(page - 1) * PAGE_SIZE + idx + 1}</td>
                       <td className="px-4 py-3">
                         <span className="text-sm font-medium text-blue-600">{lawyer.barNumber}</span>
@@ -572,28 +608,9 @@ export default function LawyerListPage() {
                       <td className="px-4 py-3 text-sm text-slate-700">
                         {lawyer.subject?.fullName ?? <span className="text-xs text-slate-400">Chưa gán</span>}
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={() => { setEditLawyer(lawyer); setFormError(undefined); setShowForm(true); }}
-                            className={BTN_ICON_BLUE}
-                            title="Chỉnh sửa"
-                            data-testid={`btn-edit-lawyer-${lawyer.id}`}
-                          >
-                            <Pencil className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => setDeleteLawyer(lawyer)}
-                            className={BTN_ICON_RED}
-                            title="Xóa"
-                            data-testid={`btn-delete-lawyer-${lawyer.id}`}
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

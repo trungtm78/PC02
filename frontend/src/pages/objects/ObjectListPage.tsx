@@ -26,6 +26,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { FKSelect, type FKOption } from "@/components/FKSelect";
+import { usePermission } from "@/hooks/usePermission";
 import {
   LABEL_BASE,
   INPUT_BASE,
@@ -670,6 +671,8 @@ interface ObjectListPageProps {
 export default function ObjectListPage({ subjectType = "SUSPECT" }: ObjectListPageProps) {
   const queryClient = useQueryClient();
   const typeConfig = TYPE_CONFIG[subjectType];
+  const { canEdit } = usePermission();
+  const canEditRow = canEdit('objects');
 
   // ── Filter state ──
   const [search, setSearch] = useState("");
@@ -1219,6 +1222,9 @@ export default function ObjectListPage({ subjectType = "SUSPECT" }: ObjectListPa
               <table className="w-full">
                 <thead className="bg-slate-50 border-b-2 border-slate-200">
                   <tr>
+                    <th className="px-3 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wide w-28 sticky left-0 bg-slate-50 z-10 border-r border-slate-200">
+                      Thao tác
+                    </th>
                     <th className="px-4 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wide">
                       Họ tên / CCCD
                     </th>
@@ -1234,17 +1240,42 @@ export default function ObjectListPage({ subjectType = "SUSPECT" }: ObjectListPa
                     <th className="px-4 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wide">
                       Trạng thái
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wide">
-                      Thao tác
-                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
                   {subjects.map((s) => (
                     <tr
                       key={s.id}
-                      className="hover:bg-slate-50 transition-colors"
+                      onClick={canEditRow ? () => handleOpenEdit(s) : undefined}
+                      onKeyDown={canEditRow ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleOpenEdit(s); } } : undefined}
+                      tabIndex={canEditRow ? 0 : undefined}
+                      className={`transition-colors ${canEditRow ? "cursor-pointer hover:bg-blue-50" : "hover:bg-slate-50"}`}
                     >
+                      {/* Thao tác — FIRST, sticky */}
+                      <td
+                        className="px-3 py-3 whitespace-nowrap sticky left-0 z-10 bg-white border-r border-slate-100"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => handleOpenEdit(s)}
+                            className={BTN_ICON_BLUE}
+                            title="Chỉnh sửa"
+                            data-testid={`btn-edit-${s.id}`}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => setDeleteSubject(s)}
+                            className={BTN_ICON_RED}
+                            title="Xóa"
+                            data-testid={`btn-delete-${s.id}`}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+
                       {/* Họ tên / CCCD */}
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
@@ -1298,28 +1329,6 @@ export default function ObjectListPage({ subjectType = "SUSPECT" }: ObjectListPa
                       {/* Trạng thái */}
                       <td className="px-4 py-3">
                         <StatusBadge status={s.status} />
-                      </td>
-
-                      {/* Thao tác */}
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={() => handleOpenEdit(s)}
-                            className={BTN_ICON_BLUE}
-                            title="Chỉnh sửa"
-                            data-testid={`btn-edit-${s.id}`}
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => setDeleteSubject(s)}
-                            className={BTN_ICON_RED}
-                            title="Xóa"
-                            data-testid={`btn-delete-${s.id}`}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
                       </td>
                     </tr>
                   ))}
