@@ -549,7 +549,7 @@ export function IncidentListPage() {
                           <div className="relative">
                             <button onClick={(e) => { e.stopPropagation(); setShowActionMenu(showActionMenu === incident.id ? null : incident.id); }} className="p-2 text-slate-600 hover:bg-slate-100 rounded" title="Thao tác" data-testid="btn-action-menu"><MoreVertical className="w-4 h-4" /></button>
                             {showActionMenu === incident.id && (
-                              <div className="absolute left-0 top-full mt-1 w-60 bg-white border border-slate-200 rounded-lg shadow-lg z-50" onClick={(e) => e.stopPropagation()}>
+                              <div className="absolute left-10 top-full mt-1 w-60 bg-white border border-slate-200 rounded-lg shadow-lg z-50" onClick={(e) => e.stopPropagation()}>
                                 {canDispatch && (
                                   <button onClick={() => handleActionClick(incident, "assign")} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 text-left" data-testid="btn-assign"><User className="w-4 h-4 text-blue-600" />{incident.assignedTeamId ? 'Phân công lại' : 'Phân công'}</button>
                                 )}
