@@ -1,17 +1,42 @@
-import { defineConfig } from 'vitest/config'
+import { defineConfig, type Plugin } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import path from 'path'
 import fs from 'fs'
 
-const appVersion = fs.readFileSync(path.resolve(__dirname, '../VERSION'), 'utf-8').trim()
+const VERSION_FILE = path.resolve(__dirname, '../VERSION')
+
+function readVersion() {
+  return fs.readFileSync(VERSION_FILE, 'utf-8').trim()
+}
+
+// Watch ../VERSION and trigger full-reload + update __APP_VERSION__ when it changes.
+function versionWatcher(): Plugin {
+  return {
+    name: 'version-watcher',
+    configureServer(server) {
+      server.watcher.add(VERSION_FILE)
+      server.watcher.on('change', (file) => {
+        if (file.replace(/\\/g, '/') === VERSION_FILE.replace(/\\/g, '/')) {
+          const newVersion = readVersion()
+          // Update the define so new module requests get the fresh value
+          if (server.config.define) {
+            server.config.define['__APP_VERSION__'] = JSON.stringify(newVersion)
+          }
+          server.ws.send({ type: 'full-reload' })
+          server.config.logger.info(`[version-watcher] VERSION changed → ${newVersion}`)
+        }
+      })
+    },
+  }
+}
 
 // https://vite.dev/config/
 export default defineConfig({
   define: {
-    __APP_VERSION__: JSON.stringify(appVersion),
+    __APP_VERSION__: JSON.stringify(readVersion()),
   },
-  plugins: [react(), tailwindcss()],
+  plugins: [react(), tailwindcss(), versionWatcher()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
