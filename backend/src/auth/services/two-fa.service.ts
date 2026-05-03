@@ -20,6 +20,12 @@ import { OtpCodeService } from './otp-code.service';
 import { EmailService } from '../../email/email.service';
 import { SettingsService } from '../../settings/settings.service';
 import type { TokenPair } from '../auth.service';
+import { TOKEN_TYPE } from '../../common/constants/token-types.constants';
+import { SETTINGS_KEY } from '../../common/constants/settings-keys.constants';
+import {
+  TWO_FA_METHOD,
+  TwoFaMethod,
+} from '../../common/constants/two-fa-methods.constants';
 
 const SETUP_PENDING_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
@@ -155,7 +161,7 @@ export class TwoFaService {
   // ── Verify 2FA ─────────────────────────────────────────────────────────────
   async verify(
     userId: string,
-    dto: { code: string; method: 'totp' | 'email_otp' | 'backup' },
+    dto: { code: string; method: TwoFaMethod },
     meta: { ipAddress?: string; userAgent?: string },
   ): Promise<TokenPair> {
     const user = await this.prisma.user.findUnique({
@@ -166,11 +172,11 @@ export class TwoFaService {
 
     let verified = false;
 
-    if (dto.method === 'totp') {
+    if (dto.method === TWO_FA_METHOD.TOTP) {
       verified = await this.verifyTotp(user, dto.code, meta);
-    } else if (dto.method === 'email_otp') {
+    } else if (dto.method === TWO_FA_METHOD.EMAIL_OTP) {
       verified = await this.verifyEmailOtp(userId, dto.code, meta);
-    } else if (dto.method === 'backup') {
+    } else if (dto.method === TWO_FA_METHOD.BACKUP) {
       verified = await this.verifyBackup(user, dto.code, meta);
     }
 
@@ -286,7 +292,7 @@ export class TwoFaService {
 
   // ── Disable TOTP (user self-service, only when 2FA system is off) ──────────
   async disableTotp(userId: string): Promise<void> {
-    const is2FAEnabled = await this.settings.getValue('TWO_FA_ENABLED') === 'true';
+    const is2FAEnabled = await this.settings.getValue(SETTINGS_KEY.TWO_FA_ENABLED) === 'true';
     if (is2FAEnabled) {
       throw new BadRequestException('Không thể tắt 2FA khi hệ thống yêu cầu 2FA bắt buộc');
     }
@@ -362,7 +368,7 @@ export class TwoFaService {
         privateKey: this.privateKey,
         expiresIn: accessExpiry as any,
       }),
-      this.jwtService.signAsync({ ...payload, type: 'refresh' } as object, {
+      this.jwtService.signAsync({ ...payload, type: TOKEN_TYPE.REFRESH } as object, {
         algorithm: 'RS256',
         privateKey: this.privateKey,
         expiresIn: refreshExpiry as any,

@@ -4,14 +4,33 @@ import { CaseStatus, IncidentStatus, PetitionStatus } from '@prisma/client';
 import { addDays, differenceInDays, startOfDay, subHours } from 'date-fns';
 import { PrismaService } from '../prisma/prisma.service';
 import { PushService } from '../push/push.service';
+import { ROLE_NAMES } from '../common/constants/role.constants';
+import { SETTINGS_KEY } from '../common/constants/settings-keys.constants';
 
-const TERMINAL_CASE_STATUSES: CaseStatus[] = ['DINH_CHI', 'TAM_DINH_CHI', 'DA_LUU_TRU', 'DA_KET_LUAN'];
-const TERMINAL_INCIDENT_STATUSES: IncidentStatus[] = [
-  'TAM_DINH_CHI', 'DA_GIAI_QUYET', 'DA_CHUYEN_VU_AN', 'KHONG_KHOI_TO',
-  'CHUYEN_XPHC', 'TDC_HET_THOI_HIEU', 'TDC_HTH_KHONG_KT',
-  'PHUC_HOI_NGUON_TIN', 'DA_CHUYEN_DON_VI', 'DA_NHAP_VU_KHAC', 'PHAN_LOAI_DAN_SU',
+const TERMINAL_CASE_STATUSES: CaseStatus[] = [
+  CaseStatus.DINH_CHI,
+  CaseStatus.TAM_DINH_CHI,
+  CaseStatus.DA_LUU_TRU,
+  CaseStatus.DA_KET_LUAN,
 ];
-const TERMINAL_PETITION_STATUSES: PetitionStatus[] = ['DA_GIAI_QUYET', 'DA_CHUYEN_VU_VIEC', 'DA_CHUYEN_VU_AN'];
+const TERMINAL_INCIDENT_STATUSES: IncidentStatus[] = [
+  IncidentStatus.TAM_DINH_CHI,
+  IncidentStatus.DA_GIAI_QUYET,
+  IncidentStatus.DA_CHUYEN_VU_AN,
+  IncidentStatus.KHONG_KHOI_TO,
+  IncidentStatus.CHUYEN_XPHC,
+  IncidentStatus.TDC_HET_THOI_HIEU,
+  IncidentStatus.TDC_HTH_KHONG_KT,
+  IncidentStatus.PHUC_HOI_NGUON_TIN,
+  IncidentStatus.DA_CHUYEN_DON_VI,
+  IncidentStatus.DA_NHAP_VU_KHAC,
+  IncidentStatus.PHAN_LOAI_DAN_SU,
+];
+const TERMINAL_PETITION_STATUSES: PetitionStatus[] = [
+  PetitionStatus.DA_GIAI_QUYET,
+  PetitionStatus.DA_CHUYEN_VU_VIEC,
+  PetitionStatus.DA_CHUYEN_VU_AN,
+];
 
 @Injectable()
 export class DeadlineScheduler {
@@ -91,7 +110,7 @@ export class DeadlineScheduler {
         where: {
           id: { in: teamExpandedIds },
           isActive: true,
-          role: { name: { not: 'ADMIN' } },
+          role: { name: { not: ROLE_NAMES.ADMIN } },
         },
         select: { id: true },
       });

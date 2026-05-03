@@ -273,7 +273,7 @@ describe('IncidentsService', () => {
       mockPrisma.incident.findMany.mockResolvedValue([]);
       mockPrisma.incident.count.mockResolvedValue(0);
 
-      await service.getList({ overdue: 'true' } as any);
+      await service.getList({ overdue: true } as any);
 
       expect(mockPrisma.incident.findMany).toHaveBeenCalledWith(
         expect.objectContaining({

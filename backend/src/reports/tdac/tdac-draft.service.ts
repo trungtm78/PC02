@@ -4,7 +4,7 @@ import {
   BadRequestException,
   ConflictException,
 } from '@nestjs/common';
-import { ReportTdcDraft } from '@prisma/client';
+import { ReportTdcDraft, ReportTdcStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateDraftDto, AdjustDraftDto } from './dto/create-draft.dto';
 
@@ -21,7 +21,7 @@ export class TdacDraftService {
         toDate: new Date(dto.toDate),
         teamIds: dto.teamIds,
         computedData,
-        status: 'DRAFT',
+        status: ReportTdcStatus.DRAFT,
         createdById: userId,
       },
     });
@@ -45,7 +45,7 @@ export class TdacDraftService {
 
   async update(id: string, dto: AdjustDraftDto, _userId: string): Promise<ReportTdcDraft> {
     const draft = await this.findOne(id);
-    if (draft.status === 'FINALIZED') {
+    if (draft.status === ReportTdcStatus.FINALIZED) {
       throw new BadRequestException('Cannot update a FINALIZED draft');
     }
     return this.prisma.reportTdcDraft.update({
@@ -59,13 +59,13 @@ export class TdacDraftService {
 
   async submitReview(id: string, userId: string): Promise<ReportTdcDraft> {
     const draft = await this.findOne(id);
-    if (draft.status !== 'DRAFT') {
+    if (draft.status !== ReportTdcStatus.DRAFT) {
       throw new BadRequestException(`Cannot submit review: draft is in status ${draft.status}`);
     }
     return this.prisma.reportTdcDraft.update({
       where: { id },
       data: {
-        status: 'REVIEWING',
+        status: ReportTdcStatus.REVIEWING,
         reviewedById: userId,
         reviewedAt: new Date(),
       },
@@ -74,13 +74,13 @@ export class TdacDraftService {
 
   async approve(id: string, userId: string): Promise<ReportTdcDraft> {
     const draft = await this.findOne(id);
-    if (draft.status !== 'REVIEWING') {
+    if (draft.status !== ReportTdcStatus.REVIEWING) {
       throw new BadRequestException(`Cannot approve: draft is in status ${draft.status}`);
     }
     return this.prisma.reportTdcDraft.update({
       where: { id },
       data: {
-        status: 'APPROVED',
+        status: ReportTdcStatus.APPROVED,
         approvedById: userId,
         approvedAt: new Date(),
       },
@@ -89,13 +89,13 @@ export class TdacDraftService {
 
   async reject(id: string, userId: string, reason: string): Promise<ReportTdcDraft> {
     const draft = await this.findOne(id);
-    if (draft.status !== 'REVIEWING') {
+    if (draft.status !== ReportTdcStatus.REVIEWING) {
       throw new BadRequestException(`Cannot reject: draft is in status ${draft.status}`);
     }
     return this.prisma.reportTdcDraft.update({
       where: { id },
       data: {
-        status: 'REJECTED',
+        status: ReportTdcStatus.REJECTED,
         rejectedById: userId,
         rejectedAt: new Date(),
         rejectedReason: reason,
@@ -107,13 +107,13 @@ export class TdacDraftService {
 
   async reopen(id: string, _userId: string): Promise<ReportTdcDraft> {
     const draft = await this.findOne(id);
-    if (draft.status !== 'REJECTED') {
+    if (draft.status !== ReportTdcStatus.REJECTED) {
       throw new BadRequestException(`Cannot reopen: draft is in status ${draft.status}`);
     }
     return this.prisma.reportTdcDraft.update({
       where: { id },
       data: {
-        status: 'DRAFT',
+        status: ReportTdcStatus.DRAFT,
         rejectedById: null,
         rejectedAt: null,
         rejectedReason: null,
@@ -124,9 +124,9 @@ export class TdacDraftService {
   async finalize(id: string, _userId: string): Promise<ReportTdcDraft> {
     // Optimistic lock: only update if still APPROVED
     const result = await this.prisma.reportTdcDraft.updateMany({
-      where: { id, status: 'APPROVED' },
+      where: { id, status: ReportTdcStatus.APPROVED },
       data: {
-        status: 'FINALIZED',
+        status: ReportTdcStatus.FINALIZED,
         finalizedAt: new Date(),
       },
     });

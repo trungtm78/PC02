@@ -5,6 +5,7 @@ import { ConfigService } from '@nestjs/config';
 import * as fs from 'fs';
 import * as path from 'path';
 import { PrismaService } from '../../prisma/prisma.service';
+import { TOKEN_TYPE } from '../../common/constants/token-types.constants';
 
 export interface JwtPayload {
   sub: string; // userId
@@ -39,7 +40,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
 
   async validate(payload: JwtPayload) {
     // Reject refresh tokens used as access tokens
-    if (payload.type === 'refresh') {
+    if (payload.type === TOKEN_TYPE.REFRESH) {
       throw new UnauthorizedException('Refresh tokens cannot be used for API access');
     }
 

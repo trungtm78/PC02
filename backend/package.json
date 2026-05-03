@@ -6,7 +6,7 @@
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
-    "build": "nest build",
+    "build": "npm run gen:enums && nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",
@@ -20,6 +20,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
+    "gen:enums": "node scripts/generate-shared-enums.cjs",
     "db:seed": "ts-node prisma/seed.ts",
     "db:seed:sample": "ts-node prisma/seed-sample-data.ts",
     "db:seed:features": "ts-node prisma/seed-feature-flags.ts",

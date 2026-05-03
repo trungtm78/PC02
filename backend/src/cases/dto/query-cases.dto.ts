@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsOptional,
   IsString,
   IsEnum,
@@ -49,8 +50,9 @@ export class QueryCasesDto {
 
   // Lọc theo quá hạn
   @IsOptional()
-  @IsString()
-  overdue?: string; // "true" to filter overdue cases
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  overdue?: boolean;
 
   // Lọc theo quận/huyện (thông qua subjects)
   @IsOptional()

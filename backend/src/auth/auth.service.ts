@@ -14,6 +14,8 @@ import { EmailService } from '../email/email.service';
 import { LoginDto } from './dto/login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { JwtPayload } from './strategies/jwt.strategy';
+import { TOKEN_TYPE } from '../common/constants/token-types.constants';
+import { SETTINGS_KEY } from '../common/constants/settings-keys.constants';
 
 export interface TokenPair {
   accessToken: string;
@@ -73,11 +75,11 @@ export class AuthService {
     }
 
     // 2FA check — if enabled, return pending token instead of full TokenPair
-    const is2FAEnabled = (await this.settingsService.getValue('TWO_FA_ENABLED')) === 'true';
+    const is2FAEnabled = (await this.settingsService.getValue(SETTINGS_KEY.TWO_FA_ENABLED)) === 'true';
     if (is2FAEnabled) {
       const jti = crypto.randomUUID();
       const twoFaToken = await this.jwtService.signAsync(
-        { sub: user.id, type: '2fa_pending', jti } as object,
+        { sub: user.id, type: TOKEN_TYPE.TWO_FA_PENDING, jti } as object,
         { algorithm: 'RS256', privateKey: this.privateKey, expiresIn: '5m' as StringValue },
       );
       await this.auditService.log({
@@ -318,7 +320,7 @@ export class AuthService {
         privateKey: this.privateKey,
         expiresIn: accessExpiry as StringValue,
       }),
-      this.jwtService.signAsync({ ...payload, type: 'refresh' } as object, {
+      this.jwtService.signAsync({ ...payload, type: TOKEN_TYPE.REFRESH } as object, {
         algorithm: 'RS256',
         privateKey: this.privateKey,
         expiresIn: refreshExpiry as StringValue,

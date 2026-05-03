@@ -2,6 +2,7 @@ import { Injectable, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 import { SettingsService } from '../../settings/settings.service';
+import { SETTINGS_KEY } from '../../common/constants/settings-keys.constants';
 
 const IV_LENGTH = 12; // AES-256-GCM standard IV length
 const AUTH_TAG_LENGTH = 16;
@@ -21,7 +22,7 @@ export class TotpEncryptionService implements OnModuleInit {
       this.keyBuffer = Buffer.from(keyHex, 'hex');
     }
 
-    const enabled = await this.settings.getValue('TWO_FA_ENABLED');
+    const enabled = await this.settings.getValue(SETTINGS_KEY.TWO_FA_ENABLED);
     if (enabled === 'true' && !keyHex) {
       throw new Error('TOTP_ENCRYPTION_KEY is required when TWO_FA_ENABLED=true');
     }
