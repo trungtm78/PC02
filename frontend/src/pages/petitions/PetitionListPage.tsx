@@ -562,7 +562,7 @@ export function PetitionListPage() {
                             </button>
                             {showActionMenu === petition.id && (
                               <div
-                                className="absolute right-0 top-full mt-1 w-56 bg-white border border-slate-200 rounded-lg shadow-lg z-20"
+                                className="absolute right-0 top-full mt-1 w-56 bg-white border border-slate-200 rounded-lg shadow-lg z-50"
                                 onClick={(e) => e.stopPropagation()}
                               >
                                 {canDispatch && (
