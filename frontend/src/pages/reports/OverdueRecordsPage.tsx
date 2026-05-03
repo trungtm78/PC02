@@ -412,6 +412,9 @@ export default function OverdueRecordsPage() {
                       className="w-4 h-4 text-[#003973] border-slate-300 rounded focus:ring-2 focus:ring-[#003973]"
                     />
                   </th>
+                  <th className="text-left py-3 px-3 font-semibold text-slate-700 w-24 sticky left-12 bg-slate-50 z-10 border-r border-slate-200">
+                    Thao tác
+                  </th>
                   <th className="text-left py-3 px-4 font-semibold text-slate-700">Số hồ sơ</th>
                   <th className="text-left py-3 px-4 font-semibold text-slate-700">Tiêu đề</th>
                   <th className="text-left py-3 px-4 font-semibold text-slate-700">Loại</th>
@@ -423,9 +426,6 @@ export default function OverdueRecordsPage() {
                   <th className="text-center py-3 px-4 font-semibold text-slate-700">Trễ hạn</th>
                   <th className="text-center py-3 px-4 font-semibold text-slate-700">
                     Mức độ
-                  </th>
-                  <th className="text-center py-3 px-4 font-semibold text-slate-700">
-                    Thao tác
                   </th>
                 </tr>
               </thead>
@@ -440,15 +440,30 @@ export default function OverdueRecordsPage() {
                   filteredRecords.map((record) => (
                     <tr
                       key={record.id}
-                      className="border-b border-slate-200 hover:bg-slate-50 transition-colors"
+                      onClick={() => navigate(`/cases/${record.id}`)}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/cases/${record.id}`); } }}
+                      tabIndex={0}
+                      className="border-b border-slate-200 cursor-pointer hover:bg-blue-50 transition-colors"
                     >
-                      <td className="py-4 px-4">
+                      <td className="py-4 px-4" onClick={(e) => e.stopPropagation()}>
                         <input
                           type="checkbox"
                           checked={selectedIds.includes(record.id)}
                           onChange={() => handleSelectOne(record.id)}
                           className="w-4 h-4 text-[#003973] border-slate-300 rounded focus:ring-2 focus:ring-[#003973]"
                         />
+                      </td>
+                      <td
+                        className="py-4 px-3 sticky left-12 z-10 bg-white border-r border-slate-100"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <button
+                          onClick={() => navigate(`/cases/${record.id}`)}
+                          className="inline-flex items-center gap-1 px-2 py-1 text-sm text-[#003973] hover:bg-blue-50 rounded transition-colors"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                          Xem
+                        </button>
                       </td>
                       <td className="py-4 px-4">
                         <span className="font-semibold text-[#003973]">{record.recordNumber}</span>
@@ -486,15 +501,6 @@ export default function OverdueRecordsPage() {
                         {getOverdueBadge(record.daysOverdue)}
                       </td>
                       <td className="py-4 px-4 text-center">{getPriorityBadge(record.priority)}</td>
-                      <td className="py-4 px-4 text-center">
-                        <button
-                          onClick={() => navigate(`/cases/${record.id}`)}
-                          className="inline-flex items-center gap-1 px-3 py-1 text-sm text-[#003973] hover:bg-blue-50 rounded transition-colors"
-                        >
-                          <ExternalLink className="w-4 h-4" />
-                          Xem
-                        </button>
-                      </td>
                     </tr>
                   ))
                 )}
