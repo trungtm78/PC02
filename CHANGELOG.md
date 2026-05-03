@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.13.4.0] - 2026-05-03
+
+### Changed
+- **Chuẩn hóa so sánh enum/constant toàn codebase**: Loại bỏ 60+ hardcoded string/number literal trong business logic (cả backend lẫn frontend), thay bằng typed constants và Prisma enum values. Không còn so sánh `'ADMIN'`, `'refresh'`, `'TWO_FA_ENABLED'`, `'DRAFT'`... bằng literal.
+- **Shared enum infrastructure**: Generator script tự động sinh `shared/enums/generated.ts` từ Prisma schema (24 enum, 7 constant files). Frontend import từ đây thay vì khai báo lại.
+- **Status badges ComprehensiveListPage**: Fix 3 bugs nghiêm trọng — badge luôn xám (key mismatch), filter status không lọc được, label hiển thị raw `TIEP_NHAN`. Tất cả 32 status values giờ render đúng màu + label tiếng Việt.
+- **IncidentFormPage Lý do không khởi tố**: Chuyển `<select>` hardcode → FKSelect searchable với `LY_DO_KHONG_KHOI_TO_OPTIONS` từ `shared/enums/status-labels`.
+- **Frontend shared enums**: Thêm `permissions.ts`, `status-labels.ts`, `roles.ts`, `case-types.ts`, `case-phase.ts`, `proposal-status.ts`, `conclusion-status.ts`, `subject-status.ts`, `duplicate-petition-status.ts`, `report-tdc-status.ts`, `two-fa-methods.ts`, `locales/vi.ts`.
+- **Backend constants**: `ROLE_NAMES`, `TOKEN_TYPE`, `SETTINGS_KEY`, `TWO_FA_METHOD`, `FCM_ERROR`, `EXPORT_FORMAT` — wire-format documented với JSDoc cảnh báo.
+- **SettingsPage test**: Fix API mock + sửa assertion sai để test pass.
+- **TS error fixes**: 8 pre-existing TypeScript errors (unused imports/vars, type mismatch).
+- **CaseFormPage**: `CRIMINAL_TYPE_OPTIONS` chuyển sang fetch từ MasterClass API (type '07') thay hardcode.
+
+### Fixed
+- **ComprehensiveListPage**: Navigate path `/cases/${id}` cho mọi entity → đúng route theo từng loại (cases/incidents/petitions).
+- **IncidentFormPage**: Xóa `currentStatus` state không dùng.
+- **usePermission**: Tách `MOCK_PERMISSIONS` ra `shared/enums/permissions.ts` để reuse.
+
+### Added
+- 3 tests mới: `enums-sync.spec.ts` (verify generated.ts vs schema.prisma), `jwt-wire-format.spec.ts` (pin `TOKEN_TYPE.REFRESH = 'refresh'`), `settings-keys.spec.ts` (pin settings keys).
+- `useMasterClassOptions.test.ts`: 5 tests cho hook.
+- Backend seed: 13 BLHS crime type entries (MasterClass '07') + 9 VKS offices (MasterClass '08').
+
 ## [0.13.3.0] - 2026-05-03
 
 ### Changed
