@@ -349,6 +349,9 @@ export default function DuplicatePetitionsPage() {
           <table className="w-full" data-testid="duplicates-table">
             <thead className="bg-[#003973]/5 border-b border-slate-200">
               <tr>
+                <th className="px-3 py-3 text-left text-xs font-medium text-[#003973] uppercase tracking-wider w-28 sticky left-0 bg-[#eef2f7] z-10 border-r border-slate-200">
+                  Thao tác
+                </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-[#003973] uppercase tracking-wider w-16">
                   STT
                 </th>
@@ -370,9 +373,6 @@ export default function DuplicatePetitionsPage() {
                 <th className="px-4 py-3 text-left text-xs font-medium text-[#003973] uppercase tracking-wider">
                   Trạng thái
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-[#003973] uppercase tracking-wider w-40">
-                  Thao tác
-                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
@@ -384,7 +384,38 @@ export default function DuplicatePetitionsPage() {
                 </tr>
               ) : (
                 filteredDuplicates.map((dup) => (
-                  <tr key={dup.id} className="hover:bg-slate-50 transition-colors">
+                  <tr
+                    key={dup.id}
+                    onClick={() => handleViewDetail(dup)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleViewDetail(dup); } }}
+                    tabIndex={0}
+                    className="cursor-pointer hover:bg-blue-50 transition-colors"
+                  >
+                    <td
+                      className="px-3 py-3 whitespace-nowrap sticky left-0 z-10 bg-white border-r border-slate-100"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleViewDetail(dup)}
+                          data-testid={`view-btn-${dup.id}`}
+                          className="p-2 text-[#003973] hover:bg-[#003973]/10 rounded transition-colors"
+                          title="Xem chi tiết"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        {dup.status === "Chờ xử lý" && (
+                          <button
+                            onClick={() => handleProcess(dup)}
+                            data-testid={`process-btn-${dup.id}`}
+                            className="p-2 text-green-600 hover:bg-green-50 rounded transition-colors"
+                            title="Xử lý"
+                          >
+                            <FileCheck className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-700 font-medium">
                       {dup.stt}
                     </td>
@@ -469,28 +500,6 @@ export default function DuplicatePetitionsPage() {
                       >
                         {dup.status}
                       </span>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => handleViewDetail(dup)}
-                          data-testid={`view-btn-${dup.id}`}
-                          className="p-2 text-[#003973] hover:bg-[#003973]/10 rounded transition-colors"
-                          title="Xem chi tiết"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
-                        {dup.status === "Chờ xử lý" && (
-                          <button
-                            onClick={() => handleProcess(dup)}
-                            data-testid={`process-btn-${dup.id}`}
-                            className="p-2 text-green-600 hover:bg-green-50 rounded transition-colors"
-                            title="Xử lý"
-                          >
-                            <FileCheck className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
                     </td>
                   </tr>
                 ))

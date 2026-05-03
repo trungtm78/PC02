@@ -357,6 +357,7 @@ export default function CaseExchangePage() {
             <table className="w-full" data-testid="exchange-table">
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
+                  <th className="px-3 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider w-20 sticky left-0 bg-slate-50 z-10 border-r border-slate-200">Thao tác</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider w-16">STT</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Mã hồ sơ</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Đơn vị gửi</th>
@@ -365,12 +366,30 @@ export default function CaseExchangePage() {
                   <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Tin nhắn cuối</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Số tin nhắn</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Trạng thái</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider w-32">Thao tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
                 {displayedExchanges.map((exchange) => (
-                  <tr key={exchange.id} className={`transition-colors ${exchange.hasUnread ? 'bg-blue-50' : 'hover:bg-slate-50'}`}>
+                  <tr
+                    key={exchange.id}
+                    onClick={() => handleViewThread(exchange)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleViewThread(exchange); } }}
+                    tabIndex={0}
+                    className={`cursor-pointer transition-colors ${exchange.hasUnread ? 'bg-blue-50 hover:bg-blue-100' : 'hover:bg-blue-50'}`}
+                  >
+                    <td
+                      className="px-3 py-3 whitespace-nowrap sticky left-0 z-10 bg-white border-r border-slate-100"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <button
+                        data-testid={`view-thread-${exchange.id}`}
+                        onClick={() => handleViewThread(exchange)}
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                        title="Xem hội thoại"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                    </td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-700 font-medium">{exchange.stt}</td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       <div className="flex items-center gap-2">
@@ -416,16 +435,6 @@ export default function CaseExchangePage() {
                           <span className="w-2 h-2 bg-blue-600 rounded-full" title="Có tin nhắn mới" />
                         )}
                       </div>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <button
-                        data-testid={`view-thread-${exchange.id}`}
-                        onClick={() => handleViewThread(exchange)}
-                        className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                        title="Xem hội thoại"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
                     </td>
                   </tr>
                 ))}

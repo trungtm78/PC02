@@ -552,6 +552,7 @@ export default function TransferAndReturnPage() {
                       className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-2 focus:ring-blue-500"
                     />
                   </th>
+                  <th className="px-3 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider w-16 sticky left-12 bg-slate-50 z-10 border-r border-slate-200">Thao tác</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider w-16">STT</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Loại hồ sơ</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Mã hồ sơ</th>
@@ -560,7 +561,6 @@ export default function TransferAndReturnPage() {
                   <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Người phụ trách</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Ngày tạo</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Trạng thái</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider w-20">Thao tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
@@ -580,6 +580,15 @@ export default function TransferAndReturnPage() {
                         onChange={(e) => handleSelectRecord(record.id, e.target.checked)}
                         className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-2 focus:ring-blue-500"
                       />
+                    </td>
+                    <td className="px-3 py-3 whitespace-nowrap sticky left-12 z-10 bg-white border-r border-slate-100">
+                      <button
+                        data-testid={`view-record-${record.id}`}
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                        title="Xem chi tiết"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-700 font-medium">{record.stt}</td>
                     <td className="px-4 py-3 whitespace-nowrap">
@@ -606,15 +615,6 @@ export default function TransferAndReturnPage() {
                       <span className={`px-3 py-1.5 rounded-md text-xs font-medium ${getStatusBadgeClass(record.status)}`}>
                         {getStatusLabel(record.recordType, record.status)}
                       </span>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <button
-                        data-testid={`view-record-${record.id}`}
-                        className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                        title="Xem chi tiết"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
                     </td>
                   </tr>
                 ))}

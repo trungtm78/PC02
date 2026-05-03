@@ -466,6 +466,7 @@ export default function PetitionGuidancePage() {
             <table className="w-full" data-testid="guidance-table">
               <thead className="bg-slate-50 border-b-2 border-slate-200">
                 <tr>
+                  <th className="px-3 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider w-24 sticky left-0 bg-slate-50 z-10 border-r border-slate-200">Thao tác</th>
                   <th className="px-4 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">STT</th>
                   <th className="px-4 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Ngày</th>
                   <th className="px-4 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Vấn đề</th>
@@ -473,7 +474,6 @@ export default function PetitionGuidancePage() {
                   <th className="px-4 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Người nhập</th>
                   <th className="px-4 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Người được hướng dẫn</th>
                   <th className="px-4 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Trạng thái</th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Thao tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
@@ -487,7 +487,38 @@ export default function PetitionGuidancePage() {
                   </tr>
                 ) : (
                   filteredData.map((guidance) => (
-                    <tr key={guidance.id} className="hover:bg-slate-50 transition-colors">
+                    <tr
+                      key={guidance.id}
+                      onClick={() => openViewModal(guidance)}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openViewModal(guidance); } }}
+                      tabIndex={0}
+                      className="cursor-pointer hover:bg-blue-50 transition-colors"
+                    >
+                      <td
+                        className="px-3 py-3 whitespace-nowrap sticky left-0 z-10 bg-white border-r border-slate-100"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="flex items-center gap-2">
+                          <button
+                            data-testid={`view-guidance-${guidance.id}`}
+                            onClick={() => openViewModal(guidance)}
+                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                            title="Xem chi tiết"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          {guidance.status !== 'cancelled' && (
+                            <button
+                              data-testid={`edit-guidance-${guidance.id}`}
+                              onClick={() => openEditModal(guidance)}
+                              className="p-1.5 text-slate-600 hover:bg-slate-100 rounded transition-colors"
+                              title="Sửa thông tin"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
                       <td className="px-4 py-3">
                         <span className="text-sm font-bold text-blue-600">{guidance.stt}</span>
                       </td>
@@ -517,28 +548,6 @@ export default function PetitionGuidancePage() {
                       </td>
                       <td className="px-4 py-3">
                         {getStatusBadge(guidance.status, guidance.statusLabel)}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <button
-                            data-testid={`view-guidance-${guidance.id}`}
-                            onClick={() => openViewModal(guidance)}
-                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                            title="Xem chi tiết"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
-                          {guidance.status !== 'cancelled' && (
-                            <button
-                              data-testid={`edit-guidance-${guidance.id}`}
-                              onClick={() => openEditModal(guidance)}
-                              className="p-1.5 text-slate-600 hover:bg-slate-100 rounded transition-colors"
-                              title="Sửa thông tin"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
                       </td>
                     </tr>
                   ))

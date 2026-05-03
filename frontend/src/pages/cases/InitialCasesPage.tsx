@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { usePermission } from "@/hooks/usePermission";
 import {
   Search,
   Calendar,
@@ -43,6 +44,8 @@ interface FilterData {
 
 function InitialCasesPage() {
   const navigate = useNavigate();
+  const { canEdit } = usePermission();
+  const canEditRow = canEdit('cases');
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedCase, setSelectedCase] = useState<InitialCase | null>(null);
   const [filters, setFilters] = useState<FilterData>({ quickSearch: "", fromDate: "", toDate: "", district: "", type: "" });
@@ -291,6 +294,7 @@ function InitialCasesPage() {
             <table className="w-full" data-testid="initial-cases-table">
               <thead className="bg-slate-50 border-b-2 border-slate-200">
                 <tr>
+                  <th className="px-3 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider w-56 sticky left-0 bg-slate-50 z-10 border-r border-slate-200">Thao tác</th>
                   <th className="px-4 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">STT</th>
                   <th className="px-4 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Số hồ sơ</th>
                   <th className="px-4 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Loại</th>
@@ -300,7 +304,6 @@ function InitialCasesPage() {
                   <th className="px-4 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Mức độ</th>
                   <th className="px-4 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Hạn xử lý</th>
                   <th className="px-4 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Trạng thái</th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Thao tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
@@ -308,7 +311,27 @@ function InitialCasesPage() {
                   const daysRemaining = getDaysRemaining(caseItem.deadline);
                   const isOverdue = caseItem.status === "overdue";
                   return (
-                    <tr key={caseItem.id} className={`hover:bg-slate-50 transition-colors ${isOverdue ? "bg-red-50/50" : ""}`} data-testid={`initial-row-${caseItem.id}`}>
+                    <tr
+                      key={caseItem.id}
+                      onClick={canEditRow ? () => handleEdit(caseItem) : undefined}
+                      onKeyDown={canEditRow ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleEdit(caseItem); } } : undefined}
+                      tabIndex={canEditRow ? 0 : undefined}
+                      className={`transition-colors ${canEditRow ? "cursor-pointer hover:bg-blue-50" : "hover:bg-slate-50"} ${isOverdue ? "bg-red-50/50" : ""}`}
+                      data-testid={`initial-row-${caseItem.id}`}
+                    >
+                      <td
+                        className="px-3 py-4 whitespace-nowrap sticky left-0 z-10 bg-white border-r border-slate-100"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="flex items-center gap-2">
+                          <button onClick={() => handleAssign(caseItem)} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium" data-testid={`btn-assign-${caseItem.id}`}>
+                            <CheckCircle className="w-4 h-4" />Nhận
+                          </button>
+                          <button onClick={() => handleView(caseItem)} className="p-1.5 text-slate-600 hover:bg-slate-100 rounded transition-colors" title="Xem chi tiết"><Eye className="w-4 h-4" /></button>
+                          <button onClick={() => handleEdit(caseItem)} className="p-1.5 text-amber-600 hover:bg-amber-50 rounded transition-colors" title="Chỉnh sửa" data-testid={`btn-edit-${caseItem.id}`}><Edit className="w-4 h-4" /></button>
+                          <button onClick={() => openDeleteDialog(caseItem)} className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors" title="Xóa" data-testid={`btn-delete-${caseItem.id}`}><Trash2 className="w-4 h-4" /></button>
+                        </div>
+                      </td>
                       <td className="px-4 py-4 text-sm text-slate-600 font-medium">{index + 1}</td>
                       <td className="px-4 py-4"><span className="text-sm font-bold text-blue-600">{caseItem.caseNumber}</span></td>
                       <td className="px-4 py-4">{getTypeBadge(caseItem.type, caseItem.typeLabel)}</td>
@@ -323,16 +346,6 @@ function InitialCasesPage() {
                         </div>
                       </td>
                       <td className="px-4 py-4">{getStatusBadge(caseItem.status)}</td>
-                      <td className="px-4 py-4">
-                        <div className="flex items-center gap-2">
-                          <button onClick={() => handleAssign(caseItem)} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium" data-testid={`btn-assign-${caseItem.id}`}>
-                            <CheckCircle className="w-4 h-4" />Nhận xử lý
-                          </button>
-                          <button onClick={() => handleView(caseItem)} className="p-1.5 text-slate-600 hover:bg-slate-100 rounded transition-colors" title="Xem chi tiết"><Eye className="w-4 h-4" /></button>
-                          <button onClick={() => handleEdit(caseItem)} className="p-1.5 text-amber-600 hover:bg-amber-50 rounded transition-colors" title="Chỉnh sửa" data-testid={`btn-edit-${caseItem.id}`}><Edit className="w-4 h-4" /></button>
-                          <button onClick={() => openDeleteDialog(caseItem)} className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors" title="Xóa" data-testid={`btn-delete-${caseItem.id}`}><Trash2 className="w-4 h-4" /></button>
-                        </div>
-                      </td>
                     </tr>
                   );
                 })}

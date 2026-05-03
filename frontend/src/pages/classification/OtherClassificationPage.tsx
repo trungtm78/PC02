@@ -407,6 +407,9 @@ export default function OtherClassificationPage() {
           <table className="w-full" data-testid="other-classification-table">
             <thead className="bg-[#003973]/5 border-b-2 border-[#003973]/20">
               <tr>
+                <th className="px-3 py-3 text-left text-xs font-bold text-[#003973] uppercase tracking-wider w-20 sticky left-0 bg-[#eef2f7] z-10 border-r border-slate-200">
+                  Thao tác
+                </th>
                 <th className="px-4 py-3 text-left text-xs font-bold text-[#003973] uppercase tracking-wider">
                   STT
                 </th>
@@ -428,9 +431,6 @@ export default function OtherClassificationPage() {
                 <th className="px-4 py-3 text-left text-xs font-bold text-[#003973] uppercase tracking-wider">
                   Trạng thái
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-bold text-[#003973] uppercase tracking-wider">
-                  Thao tác
-                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
@@ -450,7 +450,26 @@ export default function OtherClassificationPage() {
                 </tr>
               ) : (
                 filteredData.map((item) => (
-                  <tr key={item.id} className="hover:bg-slate-50 transition-colors">
+                  <tr
+                    key={item.id}
+                    onClick={() => handleView(item)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleView(item); } }}
+                    tabIndex={0}
+                    className="cursor-pointer hover:bg-blue-50 transition-colors"
+                  >
+                    <td
+                      className="px-3 py-3 whitespace-nowrap sticky left-0 z-10 bg-white border-r border-slate-100"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <button
+                        onClick={() => handleView(item)}
+                        data-testid={`view-btn-${item.id}`}
+                        className="p-1.5 text-[#003973] hover:bg-[#003973]/10 rounded transition-colors"
+                        title="Xem chi tiết"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                    </td>
                     <td className="px-4 py-3">
                       <span className="text-sm font-bold text-[#003973]">{item.stt}</span>
                     </td>
@@ -483,16 +502,6 @@ export default function OtherClassificationPage() {
                       </div>
                     </td>
                     <td className="px-4 py-3">{getStatusBadge(item.status, item.statusLabel)}</td>
-                    <td className="px-4 py-3">
-                      <button
-                        onClick={() => handleView(item)}
-                        data-testid={`view-btn-${item.id}`}
-                        className="p-1.5 text-[#003973] hover:bg-[#003973]/10 rounded transition-colors"
-                        title="Xem chi tiết"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
-                    </td>
                   </tr>
                 ))
               )}
