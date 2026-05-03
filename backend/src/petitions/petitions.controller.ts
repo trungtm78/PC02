@@ -57,6 +57,19 @@ export class PetitionsController {
     await this.petitionsService.exportToExcel(query, req.dataScope, res, user?.id);
   }
 
+  // GET /api/v1/petitions/export/duplicates — Xuất danh sách đơn trùng lặp ra Excel
+  @Get('export/duplicates')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions({ action: 'read', subject: 'Petition' })
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
+  async exportDuplicates(
+    @Query() query: { status?: string; criteria?: string; fromDate?: string; toDate?: string },
+    @Req() req: ScopedRequest,
+    @Res() res: Response,
+  ): Promise<void> {
+    await this.petitionsService.exportDuplicates(query, req.dataScope, res);
+  }
+
   // GET /api/v1/petitions/:id — Chi tiết đơn thư
   @Get(':id')
   @RequirePermissions({ action: 'read', subject: 'Petition' })

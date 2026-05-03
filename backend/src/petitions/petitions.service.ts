@@ -22,6 +22,7 @@ import { Prisma, LoaiDon, PetitionStatus, CaseStatus } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { buildPetitionScopeFilter } from '../common/utils/scope-filter.util';
 import { SettingsService } from '../settings/settings.service';
+import { BcaExcelHelper } from '../common/bca-excel.helper';
 
 @Injectable()
 export class PetitionsService {
@@ -846,50 +847,33 @@ export class PetitionsService {
       },
     });
 
-    const workbook = new ExcelJS.Workbook();
-    const sheet = workbook.addWorksheet('Danh sách đơn thư');
-
-    // Header row 1 — title
-    sheet.mergeCells('A1:J1');
-    const titleCell = sheet.getCell('A1');
-    titleCell.value = 'PHÒNG PC02 — DANH SÁCH ĐƠN THƯ';
-    titleCell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 14 };
-    titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1B2B4E' } };
-    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
-    sheet.getRow(1).height = 32;
-
-    // Column headers row 2
-    const headers = [
+    const COL_COUNT = 10;
+    const COLUMN_HEADERS = [
       'STT', 'Mã đơn', 'Ngày tiếp nhận', 'Người gửi', 'Địa chỉ',
       'Nội dung tóm tắt', 'Phân loại', 'Trạng thái', 'ĐTV phụ trách', 'Ghi chú',
     ];
-    const headerRow = sheet.getRow(2);
-    headers.forEach((h, i) => {
-      const cell = headerRow.getCell(i + 1);
-      cell.value = h;
-      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1B2B4E' } };
-      cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
-      cell.border = {
-        top: { style: 'thin' }, left: { style: 'thin' },
-        bottom: { style: 'thin' }, right: { style: 'thin' },
-      };
-    });
-    headerRow.height = 24;
+    const COLUMN_WIDTHS = [6, 18, 16, 20, 25, 40, 18, 20, 20, 25];
 
-    // Set column widths
-    sheet.columns = [
-      { width: 6 }, { width: 18 }, { width: 16 }, { width: 20 }, { width: 25 },
-      { width: 40 }, { width: 18 }, { width: 20 }, { width: 20 }, { width: 25 },
-    ];
+    const fromStr = query.fromDate ? new Date(query.fromDate).toLocaleDateString('vi-VN') : '';
+    const toStr = query.toDate ? new Date(query.toDate).toLocaleDateString('vi-VN') : '';
+    const period = fromStr && toStr ? `Từ ngày ${fromStr} đến ngày ${toStr}` : 'Tất cả thời gian';
 
-    // Data rows starting at row 3
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('Danh sách đơn thư');
+
+    // Rows 1–6: BCA letterhead
+    BcaExcelHelper.addHeader(sheet, COL_COUNT, 'DANH SÁCH ĐƠN THƯ', period);
+
+    // Row 7: column headers
+    const headerRow = sheet.getRow(7);
+    BcaExcelHelper.addColumnHeaders(headerRow, COLUMN_HEADERS, COLUMN_WIDTHS);
+
+    // Data rows from row 8
     records.forEach((rec, idx) => {
-      const row = sheet.getRow(idx + 3);
       const assignedName = rec.assignedTo
         ? `${rec.assignedTo.firstName ?? ''} ${rec.assignedTo.lastName ?? ''}`.trim()
         : '';
-      const values = [
+      const dataRow = sheet.addRow([
         idx + 1,
         rec.stt ?? '',
         rec.receivedDate ? rec.receivedDate.toLocaleDateString('vi-VN') : '',
@@ -900,17 +884,14 @@ export class PetitionsService {
         rec.status ?? '',
         assignedName,
         rec.notes ?? '',
-      ];
-      values.forEach((v, ci) => {
-        const cell = row.getCell(ci + 1);
-        cell.value = v;
-        cell.border = {
-          top: { style: 'thin' }, left: { style: 'thin' },
-          bottom: { style: 'thin' }, right: { style: 'thin' },
-        };
-        cell.alignment = { wrapText: true, vertical: 'top' };
-      });
+      ]);
+      BcaExcelHelper.styleDataRow(dataRow, idx % 2 === 1, COL_COUNT);
     });
+
+    // Footer + print setup
+    const lastDataRow = sheet.lastRow?.number ?? 7;
+    BcaExcelHelper.addFooter(sheet, lastDataRow + 2, COL_COUNT);
+    BcaExcelHelper.setPrintSetup(sheet);
 
     if (actorId) {
       await this.audit.log({
@@ -930,6 +911,105 @@ export class PetitionsService {
       await workbook.xlsx.write(res);
     } catch (err) {
       this.logger.error('ExcelJS write failed for petition export', err);
+      if (!res.headersSent) res.status(500).json({ error: 'Export failed' });
+      else res.destroy();
+    }
+  }
+
+  // ─────────────────────────────────────────────
+  // EXPORT DUPLICATES (Đơn trùng lặp)
+  // ─────────────────────────────────────────────
+  async exportDuplicates(
+    query: { status?: string; criteria?: string; fromDate?: string; toDate?: string },
+    dataScope: DataScope | null | undefined,
+    res: Response,
+  ): Promise<void> {
+    const PETITION_STATUS_LABELS: Record<string, string> = {
+      MOI_TIEP_NHAN: 'Mới tiếp nhận',
+      DANG_XU_LY: 'Đang xử lý',
+      CHO_PHE_DUYET: 'Chờ phê duyệt',
+      DA_LUU_DON: 'Đã lưu đơn',
+      DA_GIAI_QUYET: 'Đã giải quyết',
+      DA_CHUYEN_VU_VIEC: 'Đã chuyển vụ việc',
+      DA_CHUYEN_VU_AN: 'Đã chuyển vụ án',
+    };
+
+    const where: Prisma.PetitionWhereInput = { deletedAt: null };
+    if (query.status) where.status = query.status as Parameters<typeof buildPetitionScopeFilter>[0] extends never ? never : string as any;
+    if (query.fromDate) {
+      where.receivedDate = { ...(where.receivedDate as any), gte: new Date(query.fromDate) };
+    }
+    if (query.toDate) {
+      where.receivedDate = { ...(where.receivedDate as any), lte: new Date(query.toDate + 'T23:59:59.999Z') };
+    }
+
+    const scopeFilter = buildPetitionScopeFilter(dataScope);
+    if (scopeFilter) {
+      where.AND = [
+        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+        scopeFilter as Prisma.PetitionWhereInput,
+      ];
+    }
+
+    const records = await this.prisma.petition.findMany({
+      where,
+      take: 500,
+      orderBy: { receivedDate: 'desc' },
+      select: {
+        id: true,
+        stt: true,
+        senderName: true,
+        summary: true,
+        receivedDate: true,
+        status: true,
+        assignedTo: { select: { firstName: true, lastName: true } },
+      },
+    });
+
+    const COL_COUNT = 7;
+    const HEADERS = ['STT', 'Mã đơn', 'Người nộp', 'Tóm tắt nội dung', 'Ngày tiếp nhận', 'Trạng thái', 'ĐTV xử lý'];
+    const WIDTHS = [6, 18, 22, 45, 16, 20, 22];
+
+    const fromStr = query.fromDate ? new Date(query.fromDate).toLocaleDateString('vi-VN') : '';
+    const toStr = query.toDate ? new Date(query.toDate).toLocaleDateString('vi-VN') : '';
+    const period = fromStr && toStr ? `Từ ngày ${fromStr} đến ngày ${toStr}` : 'Tất cả thời gian';
+
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('Đơn trùng lặp');
+
+    BcaExcelHelper.addHeader(sheet, COL_COUNT, 'DANH SÁCH ĐƠN TRÙNG LẶP', period);
+
+    const headerRow = sheet.getRow(7);
+    BcaExcelHelper.addColumnHeaders(headerRow, HEADERS, WIDTHS);
+
+    records.forEach((rec, idx) => {
+      const assignedName = rec.assignedTo
+        ? `${rec.assignedTo.lastName ?? ''} ${rec.assignedTo.firstName ?? ''}`.trim()
+        : '';
+      const dataRow = sheet.addRow([
+        idx + 1,
+        rec.stt ?? '',
+        rec.senderName ?? '',
+        rec.summary ?? '',
+        rec.receivedDate ? rec.receivedDate.toLocaleDateString('vi-VN') : '',
+        PETITION_STATUS_LABELS[rec.status] ?? rec.status ?? '',
+        assignedName,
+      ]);
+      BcaExcelHelper.styleDataRow(dataRow, idx % 2 === 1, COL_COUNT);
+    });
+
+    const lastDataRow = sheet.lastRow?.number ?? 7;
+    BcaExcelHelper.addFooter(sheet, lastDataRow + 2, COL_COUNT);
+    BcaExcelHelper.setPrintSetup(sheet);
+
+    const filename = `DonTrungLap_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+
+    try {
+      await workbook.xlsx.write(res);
+    } catch (err) {
+      this.logger.error('ExcelJS write failed for duplicate export', err);
       if (!res.headersSent) res.status(500).json({ error: 'Export failed' });
       else res.destroy();
     }
