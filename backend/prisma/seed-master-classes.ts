@@ -58,24 +58,43 @@ const DATA: Entry[] = [
   { type: '06', code: 'MT', name: 'Ma túy', order: 5 },
   { type: '06', code: 'KHAC', name: 'Khác', order: 6 },
 
-  // 07 - Phân loại vụ án
+  // 07 - Phân loại vụ án (broad categories)
   { type: '07', code: 'HS', name: 'Hình sự', order: 1 },
   { type: '07', code: 'KT', name: 'Kinh tế', order: 2 },
   { type: '07', code: 'MT', name: 'Ma túy', order: 3 },
   { type: '07', code: 'ANTT', name: 'An ninh trật tự', order: 4 },
   { type: '07', code: 'KHAC', name: 'Khác', order: 5 },
+  // 07 - Tội danh cụ thể (BLHS 2015) — dùng cho dropdown crime field trong CaseFormPage
+  { type: '07', code: 'D123', name: 'Giết người (Điều 123 BLHS)', order: 10 },
+  { type: '07', code: 'D134', name: 'Cố ý gây thương tích (Điều 134 BLHS)', order: 11 },
+  { type: '07', code: 'D168', name: 'Cướp tài sản (Điều 168 BLHS)', order: 12 },
+  { type: '07', code: 'D170', name: 'Cưỡng đoạt tài sản (Điều 170 BLHS)', order: 13 },
+  { type: '07', code: 'D173', name: 'Trộm cắp tài sản (Điều 173 BLHS)', order: 14 },
+  { type: '07', code: 'D174', name: 'Lừa đảo chiếm đoạt tài sản (Điều 174 BLHS)', order: 15 },
+  { type: '07', code: 'D178', name: 'Hủy hoại tài sản (Điều 178 BLHS)', order: 16 },
+  { type: '07', code: 'D193', name: 'Tàng trữ trái phép chất ma túy (Điều 193 BLHS)', order: 17 },
+  { type: '07', code: 'D194', name: 'Vận chuyển trái phép chất ma túy (Điều 194 BLHS)', order: 18 },
+  { type: '07', code: 'D248', name: 'Sản xuất trái phép chất ma túy (Điều 248 BLHS)', order: 19 },
+  { type: '07', code: 'D260', name: 'Vi phạm quy định về tham gia GTĐB (Điều 260 BLHS)', order: 20 },
+  { type: '07', code: 'D331', name: 'Lợi dụng quyền tự do dân chủ (Điều 331 BLHS)', order: 21 },
+  { type: '07', code: 'D-KHAC', name: 'Tội danh khác', order: 99 },
 
   // 08 - Viện Kiểm sát
   { type: '08', code: 'VKS-TC', name: 'Viện Kiểm sát nhân dân tối cao', order: 1 },
-  { type: '08', code: 'VKS-TP', name: 'Viện Kiểm sát nhân dân TP.HCM', order: 2 },
-  { type: '08', code: 'VKS-HN', name: 'Viện Kiểm sát nhân dân TP. Hà Nội', order: 3 },
-  { type: '08', code: 'VKS-DN', name: 'Viện Kiểm sát nhân dân TP. Đà Nẵng', order: 4 },
+  { type: '08', code: 'VKS-TP', name: 'VKSND TP.HCM', order: 2 },
+  { type: '08', code: 'VKS-Q1', name: 'VKSND Quận 1', order: 3 },
+  { type: '08', code: 'VKS-Q3', name: 'VKSND Quận 3', order: 4 },
+  { type: '08', code: 'VKS-Q5', name: 'VKSND Quận 5', order: 5 },
+  { type: '08', code: 'VKS-Q10', name: 'VKSND Quận 10', order: 6 },
+  { type: '08', code: 'VKS-TPHCM', name: 'VKSND TP.HCM', order: 7 },
+  { type: '08', code: 'VKS-HN', name: 'Viện Kiểm sát nhân dân TP. Hà Nội', order: 8 },
+  { type: '08', code: 'VKS-DN', name: 'Viện Kiểm sát nhân dân TP. Đà Nẵng', order: 9 },
 ];
 
-async function main() {
+export async function seedMasterClasses(client: PrismaClient) {
   console.log(`Seeding ${DATA.length} master class entries...`);
   for (const e of DATA) {
-    await prisma.masterClass.upsert({
+    await client.masterClass.upsert({
       where: { type_code: { type: e.type, code: e.code } },
       update: { name: e.name, order: e.order, isActive: true },
       create: { type: e.type, code: e.code, name: e.name, order: e.order, isActive: true },
@@ -83,10 +102,15 @@ async function main() {
   }
   const types = [...new Set(DATA.map(d => d.type))];
   for (const t of types) {
-    const c = await prisma.masterClass.count({ where: { type: t } });
+    const c = await client.masterClass.count({ where: { type: t } });
     console.log(`  Type ${t}: ${c} entries`);
   }
-  console.log('Done.');
+  return DATA.length;
+}
+
+async function main() {
+  const count = await seedMasterClasses(prisma);
+  console.log(`Done. Seeded ${count} entries.`);
 }
 
 main()

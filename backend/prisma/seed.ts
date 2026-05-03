@@ -10,6 +10,7 @@ import * as bcrypt from 'bcrypt';
 import { seedFeatureFlags } from './seed-feature-flags';
 import { seedWards } from './seed-wards';
 import { seedDirectoryTypes } from './seed-directory-types';
+import { seedMasterClasses } from './seed-master-classes';
 
 const adapter = new PrismaPg({
   connectionString: process.env['DATABASE_URL'] ?? 'postgresql://pc02_admin:pc02_password@localhost:5432/pc02_db?schema=public',
@@ -239,6 +240,11 @@ async function main() {
   // Critical: without this, form dropdowns show empty and Danh mục has no types.
   console.log('Seeding directory types...');
   await seedDirectoryTypes(prisma);
+
+  // ── Master classes (categories for form dropdowns: crime types, VKS, etc.) ───
+  console.log('Seeding master classes...');
+  const masterCount = await seedMasterClasses(prisma);
+  console.log(`Seed master classes: ${masterCount} entries upserted.`);
 
   // ── Feature flags (always seeded, idempotent) ─────────────────────────────
   // Critical: without these rows the frontend /feature-flags endpoint returns
