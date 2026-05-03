@@ -222,6 +222,12 @@ export class ReportsService {
     const from = fromDate ? new Date(fromDate) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     const to = toDate ? new Date(toDate + 'T23:59:59.999Z') : new Date();
 
+    // Ward filter: Case stores province/ward in metadata JSON field
+    // Prisma JSON path query: metadata->>'ward' = district
+    const caseWardFilter = district
+      ? { metadata: { path: ['ward'], equals: district } }
+      : {};
+
     // Daily breakdown for date range
     const dayCount = Math.ceil((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24));
     const limitDays = Math.min(dayCount, 31); // max 31 days for chart
@@ -237,12 +243,18 @@ export class ReportsService {
         const [petitions, incidents, cases] = await Promise.all([
           this.prisma.petition.count({
             where: { deletedAt: null, createdAt: { gte: dayStart, lte: dayEnd } },
+            // Note: Petition has no direct ward field — not filtered by ward yet
           }),
           this.prisma.incident.count({
             where: { deletedAt: null, createdAt: { gte: dayStart, lte: dayEnd } },
+            // Note: Incident has no direct ward field — not filtered by ward yet
           }),
           this.prisma.case.count({
-            where: { deletedAt: null, createdAt: { gte: dayStart, lte: dayEnd } },
+            where: {
+              deletedAt: null,
+              createdAt: { gte: dayStart, lte: dayEnd },
+              ...caseWardFilter,
+            },
           }),
         ]);
 
@@ -260,6 +272,7 @@ export class ReportsService {
       where: {
         deletedAt: null,
         createdAt: { gte: from, lte: to },
+        // Incident ward filter not yet implemented (no direct ward field)
       },
       _count: { id: true },
     });
@@ -273,12 +286,13 @@ export class ReportsService {
       DA_CHUYEN_VU_AN: 'Đã chuyển vụ án',
     };
 
-    // Case status breakdown
+    // Case status breakdown — apply ward filter
     const caseStatusCounts = await this.prisma.case.groupBy({
       by: ['status'],
       where: {
         deletedAt: null,
         createdAt: { gte: from, lte: to },
+        ...caseWardFilter,
       },
       _count: { id: true },
     });

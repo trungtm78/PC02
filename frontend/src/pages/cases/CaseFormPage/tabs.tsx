@@ -13,7 +13,6 @@ import {
   Download,
   Upload,
   Video,
-  Building2,
   Scale,
   Mail,
   DollarSign,
@@ -32,6 +31,7 @@ import { FormInput, FormSelect, FormTextarea } from "@/components/form";
 import { Card, CardHeader, EmptyState, DataTable, ActionButtons, StatusBadge } from "@/components/shared";
 import type { ColumnDef } from "@/components/shared";
 import { FKSelect } from "@/components/FKSelect";
+import { ProvinceWardSelect } from "@/components/ProvinceWardSelect";
 import type { TabProps, Subject, Evidence, MediaFile } from "./types";
 import {
   CASE_TYPE_OPTIONS,
@@ -117,9 +117,8 @@ export function TabInfo({ formData, setFormData, errors, setErrors, handlerOptio
     enabled: legacyMode && !!formData.district && !isExistingLegacy,
   });
 
-  const activeWardOptions = legacyMode && !isExistingLegacy && formData.district
-    ? (legacyWardOptions ?? [])
-    : (wardOptions ?? []);
+  // activeWardOptions removed — ward selection now handled by ProvinceWardSelect
+  void wardOptions; void legacyWardOptions;
 
   return (
     <div className="space-y-6" data-testid="tab-info">
@@ -408,12 +407,13 @@ export function TabInfo({ formData, setFormData, errors, setErrors, handlerOptio
       <Card>
         <CardHeader title="Khu vực xảy ra" />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <FormInput
-            label="Tỉnh / Thành phố"
-            icon={<Building2 className="w-4 h-4" />}
-            value={formData.province}
-            onChange={(v) => update("province", v)}
-            placeholder="TP. Hồ Chí Minh"
+          <ProvinceWardSelect
+            provinceCode={formData.province ?? ''}
+            ward={formData.ward ?? ''}
+            onProvinceChange={(code) => update("province", code)}
+            onWardChange={(w) => update("ward", w)}
+            errors={{ province: errors?.province, ward: errors?.ward }}
+            testIdPrefix="case-address"
           />
           {/* Legacy district — existing records show read-only badge; new records show toggle */}
           <div className="md:col-span-2">
@@ -456,15 +456,7 @@ export function TabInfo({ formData, setFormData, errors, setErrors, handlerOptio
               </div>
             )}
           </div>
-          <FKSelect
-            label="Phường / Xã"
-            value={formData.ward}
-            onChange={(v) => update("ward", v)}
-            options={activeWardOptions}
-            placeholder="-- Chọn phường/xã --"
-            canCreate={false}
-            testId="fk-ward"
-          />
+          {/* Ward is now handled by ProvinceWardSelect above */}
           <FormInput
             label="Địa chỉ cụ thể"
             icon={<MapPin className="w-4 h-4" />}

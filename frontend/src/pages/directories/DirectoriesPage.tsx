@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Database,
   FolderTree,
@@ -16,6 +16,7 @@ import {
   Filter,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { useDirectoryOptions } from '@/hooks/useDirectoryOptions';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -42,12 +43,33 @@ type FormData = {
   isActive: boolean;
 };
 
-const DIRECTORY_TYPES = [
-  { id: 'CRIME', label: 'Tội danh' },
-  { id: 'ORG', label: 'Đơn vị' },
-  { id: 'LOCATION', label: 'Địa bàn' },
-  { id: 'STATUS', label: 'Trạng thái' },
-];
+// Labels for all known directory types — unknown types fall back to their key
+const DIRECTORY_TYPE_LABELS: Record<string, string> = {
+  WARD:               'Phường/Xã',
+  PROVINCE:           'Tỉnh/Thành phố',
+  DISTRICT:           'Quận/Huyện (cũ)',
+  UNIT:               'Đơn vị công an',
+  CRIME:              'Tội danh (BLHS)',
+  INCIDENT_TYPE:      'Loại vụ việc',
+  INCIDENT_LEVEL:     'Mức độ nghiêm trọng',
+  CASE_CLASSIFICATION:'Phân loại vụ án',
+  TDC_SOURCE:         'Nguồn tin TĐC',
+  TDC_CASE_TYPE:      'Loại vụ TĐC',
+  PROSECUTION_OFFICE: 'Viện kiểm sát',
+  PRIORITY:           'Mức độ ưu tiên',
+  PETITION_TYPE:      'Loại đơn thư',
+  DOCUMENT_TYPE:      'Loại tài liệu',
+  EVIDENCE_TYPE:      'Loại vật chứng',
+  OCCUPATION:         'Ngành nghề',
+  NATIONALITY:        'Quốc tịch',
+  GENDER:             'Giới tính',
+  AGE_GROUP:          'Nhóm tuổi',
+  EDUCATION_LEVEL:    'Trình độ học vấn',
+  ORG:                'Tổ chức/Đơn vị',
+  // Legacy types still in DB
+  LOCATION:           'Địa bàn (cũ)',
+  STATUS:             'Trạng thái (cũ)',
+};
 
 const EMPTY_FORM: FormData = {
   type: 'CRIME',
@@ -61,10 +83,15 @@ const EMPTY_FORM: FormData = {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
+const PAGE_SIZE = 50;
+
 export default function DirectoriesPage() {
   const [activeType, setActiveType] = useState('CRIME');
+  const [availableTypes, setAvailableTypes] = useState<string[]>([]);
+  const [typesLoading, setTypesLoading] = useState(true);
   const [items, setItems] = useState<Directory[]>([]);
   const [total, setTotal] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
@@ -78,14 +105,65 @@ export default function DirectoriesPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletingItem, setDeletingItem] = useState<Directory | null>(null);
 
+  // ─── Hierarchy drill-down (PROVINCE → WARD children) ───────────────────────
+  const [drillParentId, setDrillParentId] = useState<string | null>(null);
+  const [drillParentName, setDrillParentName] = useState<string>('');
+
+  // ─── Form modal: parent selector state ────────────────────────────────────
+  const [formParentType, setFormParentType] = useState<string>('');
+
+  // ─── Filter: parent cascade state ─────────────────────────────────────────
+  const [filterParentType, setFilterParentType] = useState<string>('');
+  const [filterParentId, setFilterParentId] = useState<string>('');
+
+  // ─── Load available types from API ─────────────────────────────────────────
+  useEffect(() => {
+    api.get('/directories/types')
+      .then((res) => {
+        const types: string[] = res.data ?? [];
+        // Sort: priority types first, then alphabetical
+        const priority = ['WARD', 'PROVINCE', 'CRIME', 'INCIDENT_TYPE', 'PETITION_TYPE', 'PRIORITY', 'UNIT'];
+        const sorted = [
+          ...priority.filter(t => types.includes(t)),
+          ...types.filter(t => !priority.includes(t)).sort(),
+        ];
+        setAvailableTypes(sorted);
+        if (sorted.length > 0 && !sorted.includes(activeType)) {
+          setActiveType(sorted[0]);
+        }
+      })
+      .catch(() => {
+        // Fallback to static list if API unavailable
+        setAvailableTypes(['CRIME', 'ORG', 'LOCATION', 'STATUS']);
+      })
+      .finally(() => setTypesLoading(false));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ─── Parent options for form modal (loads when formParentType changes) ───────
+  const { data: formParentOptions = [], isLoading: formParentLoading } =
+    useDirectoryOptions(formParentType || undefined, { limit: 500, returnId: true });
+
+  // ─── Parent options for filter cascade (loads when filterParentType changes) ─
+  const { data: filterParentOptions = [] } =
+    useDirectoryOptions(filterParentType || undefined, { limit: 500, returnId: true });
+
+  // Map parentId → label for display in table
+  const filterParentMap = useMemo(
+    () => Object.fromEntries(filterParentOptions.map(o => [o.value, o.label])),
+    [filterParentOptions],
+  );
+
   // ─── Load data ─────────────────────────────────────────────────────────────
 
   const loadItems = useCallback(async () => {
     setLoading(true);
     try {
-      const params: Record<string, string | number> = { type: activeType, limit: 100, offset: 0 };
+      const offset = (currentPage - 1) * PAGE_SIZE;
+      const params: Record<string, string | number> = { type: activeType, limit: PAGE_SIZE, offset };
       if (searchQuery) params.search = searchQuery;
       if (filterStatus !== 'all') params.isActive = filterStatus === 'active' ? 'true' : 'false';
+      if (drillParentId) params.parentId = drillParentId;
+      else if (filterParentId) params.parentId = filterParentId;
       const res = await api.get('/directories', { params });
       setItems(res.data.data ?? []);
       setTotal(res.data.total ?? 0);
@@ -94,7 +172,7 @@ export default function DirectoriesPage() {
     } finally {
       setLoading(false);
     }
-  }, [activeType, searchQuery, filterStatus]);
+  }, [activeType, searchQuery, filterStatus, currentPage, drillParentId, filterParentId]);
 
   useEffect(() => {
     void loadItems();
@@ -105,6 +183,7 @@ export default function DirectoriesPage() {
   const handleOpenAdd = () => {
     setEditingItem(null);
     setFormData({ ...EMPTY_FORM, type: activeType });
+    setFormParentType('');
     setFormError('');
     setShowModal(true);
   };
@@ -120,6 +199,14 @@ export default function DirectoriesPage() {
       order: item.order,
       isActive: item.isActive,
     });
+    // Pre-populate parent type selector if item has a parent
+    if (item.parentId) {
+      api.get(`/directories/${item.parentId}`)
+        .then(res => setFormParentType(res.data?.type ?? ''))
+        .catch(() => setFormParentType(''));
+    } else {
+      setFormParentType('');
+    }
     setFormError('');
     setShowModal(true);
   };
@@ -232,21 +319,33 @@ export default function DirectoriesPage() {
               </h3>
             </div>
             <div className="divide-y divide-slate-200">
-              {DIRECTORY_TYPES.map((dt) => {
-                const active = activeType === dt.id;
+              {typesLoading ? (
+                <div className="p-4 text-slate-400 text-sm flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Đang tải...
+                </div>
+              ) : availableTypes.map((typeId) => {
+                const active = activeType === typeId;
+                const label = DIRECTORY_TYPE_LABELS[typeId] ?? typeId;
+                const isLegacy = typeId === 'DISTRICT' || typeId === 'LOCATION' || typeId === 'STATUS';
                 return (
                   <button
-                    key={dt.id}
+                    key={typeId}
                     onClick={() => {
-                      setActiveType(dt.id);
+                      setActiveType(typeId);
                       setSearchQuery('');
                       setFilterStatus('all');
+                      setCurrentPage(1);
+                      setDrillParentId(null);
+                      setDrillParentName('');
+                      setFilterParentType('');
+                      setFilterParentId('');
                     }}
                     className={`w-full text-left p-4 border-l-4 transition-all ${
                       active
                         ? 'bg-[#003973]/5 border-[#003973]'
                         : 'border-transparent hover:bg-slate-50'
-                    }`}
+                    } ${isLegacy ? 'opacity-60' : ''}`}
                   >
                     <div className="flex items-center gap-3">
                       <FolderTree
@@ -258,7 +357,7 @@ export default function DirectoriesPage() {
                             active ? 'text-[#003973]' : 'text-slate-800'
                           }`}
                         >
-                          {dt.label}
+                          {label}
                         </div>
                         {active && (
                           <div className="text-xs text-slate-500 mt-0.5">{total} mục</div>
@@ -275,6 +374,26 @@ export default function DirectoriesPage() {
         {/* Right: Table */}
         <div className="col-span-3">
           <div className="bg-white rounded-lg border border-slate-200">
+            {/* Breadcrumb when drilling into province wards */}
+            {drillParentId && (
+              <div className="px-4 py-2 border-b border-blue-100 bg-blue-50 flex items-center gap-2 text-sm">
+                <button
+                  onClick={() => {
+                    setDrillParentId(null);
+                    setDrillParentName('');
+                    setActiveType('PROVINCE');
+                    setCurrentPage(1);
+                  }}
+                  className="text-blue-600 hover:underline flex items-center gap-1"
+                >
+                  ← Tỉnh/Thành phố
+                </button>
+                <span className="text-slate-400">›</span>
+                <span className="font-medium text-slate-800">{drillParentName}</span>
+                <span className="text-slate-500 ml-auto text-xs">{total.toLocaleString('vi-VN')} phường/xã</span>
+              </div>
+            )}
+
             {/* Filters */}
             <div className="p-4 border-b border-slate-200 bg-slate-50">
               <div className="flex gap-3">
@@ -284,7 +403,7 @@ export default function DirectoriesPage() {
                     type="text"
                     placeholder="Tìm theo mã hoặc tên..."
                     value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
                     className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] text-sm"
                   />
                 </div>
@@ -292,7 +411,7 @@ export default function DirectoriesPage() {
                   <Filter className="w-4 h-4 text-slate-500" />
                   <select
                     value={filterStatus}
-                    onChange={(e) => setFilterStatus(e.target.value)}
+                    onChange={(e) => { setFilterStatus(e.target.value); setCurrentPage(1); }}
                     className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] text-sm"
                   >
                     <option value="all">Tất cả</option>
@@ -301,6 +420,54 @@ export default function DirectoriesPage() {
                   </select>
                 </div>
               </div>
+
+              {/* ── Filter theo danh mục cha ────────────────────────────────── */}
+              {!drillParentId && (
+                <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-200">
+                  <FolderTree className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                  <select
+                    value={filterParentType}
+                    onChange={(e) => {
+                      setFilterParentType(e.target.value);
+                      setFilterParentId('');
+                      setCurrentPage(1);
+                    }}
+                    className="px-3 py-1.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] text-sm bg-white"
+                    data-testid="filter-parentType"
+                  >
+                    <option value="">-- Lọc theo loại cha --</option>
+                    {availableTypes.map((typeId) => (
+                      <option key={typeId} value={typeId}>
+                        {DIRECTORY_TYPE_LABELS[typeId] ?? typeId}
+                      </option>
+                    ))}
+                  </select>
+
+                  {filterParentType && filterParentOptions.length > 0 && (
+                    <select
+                      value={filterParentId}
+                      onChange={(e) => { setFilterParentId(e.target.value); setCurrentPage(1); }}
+                      className="px-3 py-1.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] text-sm flex-1 bg-white"
+                      data-testid="filter-parentId"
+                    >
+                      <option value="">-- Tất cả --</option>
+                      {filterParentOptions.map((opt) => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                  )}
+
+                  {filterParentId && (
+                    <button
+                      onClick={() => { setFilterParentType(''); setFilterParentId(''); setCurrentPage(1); }}
+                      className="p-1.5 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600"
+                      title="Xóa filter cha"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Table */}
@@ -308,7 +475,7 @@ export default function DirectoriesPage() {
               <table className="w-full">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200">
-                    {['Mã', 'Tên danh mục', 'Mô tả', 'Thứ tự', 'Trạng thái', 'Thao tác'].map(
+                    {['Mã', 'Tên danh mục', ...(filterParentId || drillParentId ? ['Cha'] : []), 'Mô tả', 'Thứ tự', 'Trạng thái', 'Thao tác'].map(
                       (h) => (
                         <th
                           key={h}
@@ -352,6 +519,19 @@ export default function DirectoriesPage() {
                         <td className="py-3 px-4">
                           <div className="font-medium text-slate-800 text-sm">{item.name}</div>
                         </td>
+                        {/* Parent badge column — only visible when filtering by parent or drilling */}
+                        {(filterParentId || drillParentId) && (
+                          <td className="py-3 px-4">
+                            {item.parentId ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs border border-blue-100">
+                                <FolderTree className="w-3 h-3" />
+                                {filterParentMap[item.parentId]
+                                  ? filterParentMap[item.parentId].split(' (')[0]
+                                  : item.parentId.slice(0, 8) + '...'}
+                              </span>
+                            ) : '—'}
+                          </td>
+                        )}
                         <td className="py-3 px-4">
                           <div className="text-sm text-slate-600 line-clamp-1 max-w-xs">
                             {item.description ?? '—'}
@@ -375,6 +555,23 @@ export default function DirectoriesPage() {
                         </td>
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-2">
+                            {/* Drill-down button: visible only for PROVINCE type */}
+                            {activeType === 'PROVINCE' && !drillParentId && (
+                              <button
+                                onClick={() => {
+                                  setDrillParentId(item.id);
+                                  setDrillParentName(item.name);
+                                  setActiveType('WARD');
+                                  setCurrentPage(1);
+                                  setSearchQuery('');
+                                }}
+                                className="px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded border border-blue-200 transition-colors"
+                                title="Xem phường/xã của tỉnh này"
+                                data-testid="btn-drill-down"
+                              >
+                                Xem phường/xã →
+                              </button>
+                            )}
                             <button
                               onClick={() => handleOpenEdit(item)}
                               className="p-1.5 hover:bg-slate-100 rounded transition-colors"
@@ -402,11 +599,34 @@ export default function DirectoriesPage() {
               </table>
             </div>
 
-            {/* Footer */}
-            {!loading && items.length > 0 && (
-              <div className="p-4 border-t border-slate-200 text-sm text-slate-600">
-                Hiển thị <span className="font-medium">{items.length}</span> trong tổng số{' '}
-                <span className="font-medium">{total}</span> mục
+            {/* Pagination Footer */}
+            {!loading && total > 0 && (
+              <div className="p-4 border-t border-slate-200 flex items-center justify-between text-sm text-slate-600">
+                <span>
+                  Hiển thị{' '}
+                  <span className="font-medium">{(currentPage - 1) * PAGE_SIZE + 1}</span>–
+                  <span className="font-medium">{Math.min(currentPage * PAGE_SIZE, total)}</span>{' '}
+                  trong tổng số <span className="font-medium">{total.toLocaleString('vi-VN')}</span> mục
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1.5 rounded border border-slate-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 text-xs font-medium"
+                  >
+                    ← Trước
+                  </button>
+                  <span className="text-xs text-slate-500">
+                    Trang {currentPage}/{Math.ceil(total / PAGE_SIZE)}
+                  </span>
+                  <button
+                    onClick={() => setCurrentPage(p => Math.min(Math.ceil(total / PAGE_SIZE), p + 1))}
+                    disabled={currentPage >= Math.ceil(total / PAGE_SIZE)}
+                    className="px-3 py-1.5 rounded border border-slate-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 text-xs font-medium"
+                  >
+                    Sau →
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -446,10 +666,76 @@ export default function DirectoriesPage() {
                   disabled={!!editingItem}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] text-sm disabled:bg-slate-50"
                 >
-                  {DIRECTORY_TYPES.map((dt) => (
-                    <option key={dt.id} value={dt.id}>{dt.label}</option>
+                  {availableTypes.map((typeId) => (
+                    <option key={typeId} value={typeId}>
+                      {DIRECTORY_TYPE_LABELS[typeId] ?? typeId}
+                    </option>
                   ))}
                 </select>
+              </div>
+
+              {/* ── Quan hệ cha-con (tùy chọn) ─────────────────────────────── */}
+              <div className="border border-slate-200 rounded-lg p-3 bg-slate-50 space-y-3">
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                  Danh mục cha (tùy chọn)
+                </p>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Loại danh mục cha
+                  </label>
+                  <select
+                    value={formParentType}
+                    onChange={(e) => {
+                      setFormParentType(e.target.value);
+                      setFormData({ ...formData, parentId: '' });
+                    }}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] text-sm bg-white"
+                    data-testid="dir-field-parentType"
+                  >
+                    <option value="">-- Không có danh mục cha --</option>
+                    {availableTypes.map((typeId) => (
+                      <option key={typeId} value={typeId}>
+                        {DIRECTORY_TYPE_LABELS[typeId] ?? typeId}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {formParentType && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Chọn danh mục cha
+                    </label>
+                    {formParentLoading ? (
+                      <div className="flex items-center gap-2 text-slate-400 text-sm py-2">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Đang tải...
+                      </div>
+                    ) : formParentOptions.length === 0 ? (
+                      <p className="text-xs text-amber-600 py-1">
+                        Không có danh mục loại "{DIRECTORY_TYPE_LABELS[formParentType] ?? formParentType}"
+                      </p>
+                    ) : (
+                      <select
+                        value={formData.parentId}
+                        onChange={(e) => setFormData({ ...formData, parentId: e.target.value })}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] text-sm bg-white"
+                        data-testid="dir-field-parentId"
+                      >
+                        <option value="">-- Chọn danh mục cha --</option>
+                        {formParentOptions.map((opt) => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                )}
+
+                {formData.parentId && !formParentType && (
+                  <p className="text-xs text-slate-500">
+                    Có danh mục cha (id: {formData.parentId.slice(0, 8)}...)
+                  </p>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">

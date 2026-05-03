@@ -9,6 +9,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import * as bcrypt from 'bcrypt';
 import { seedFeatureFlags } from './seed-feature-flags';
 import { seedWards } from './seed-wards';
+import { seedDirectoryTypes } from './seed-directory-types';
 
 const adapter = new PrismaPg({
   connectionString: process.env['DATABASE_URL'] ?? 'postgresql://pc02_admin:pc02_password@localhost:5432/pc02_db?schema=public',
@@ -133,33 +134,38 @@ async function main() {
     process.exit(1);
   }
   const passwordHash = await bcrypt.hash(rawAdminPassword, 12);
-  const adminUser = await prisma.user.upsert({
-    where: { email: 'admin@pc02.local' },
-    // Keep passwordHash + isActive in sync with env on every seed run.
-    // Without this, rotating SEED_ADMIN_PASSWORD silently leaves the old
-    // hash in the DB and login starts failing with no obvious signal.
-    update: { passwordHash, isActive: true },
-    create: {
-      email: 'admin@pc02.local',
-      username: 'admin',
-      passwordHash,
-      firstName: 'System',
-      lastName: 'Admin',
-      roleId: adminRole.id,
-      isActive: true,
-    },
-  });
+  // Use find+create/update instead of upsert to avoid Prisma adapter P2011 issue
+  const existingAdmin = await prisma.user.findUnique({ where: { email: 'admin@pc02.local' } });
+  const adminUser = existingAdmin
+    ? await prisma.user.update({
+        where: { email: 'admin@pc02.local' },
+        data: { passwordHash, isActive: true, roleId: adminRole.id },
+      })
+    : await prisma.user.create({
+        data: {
+          email: 'admin@pc02.local',
+          username: 'admin',
+          passwordHash,
+          firstName: 'System',
+          lastName: 'Admin',
+          roleId: adminRole.id,
+          isActive: true,
+        },
+      });
 
   console.log('Admin user created:', adminUser.email);
 
-  // ── Seed: Sample Directory entries for Crime (needed for Subject.crimeId FK) ─
+  // ── Seed: Sample Directory entry for Crime (needed for Subject.crimeId FK) ───
+  // seedDirectoryTypes() adds full BLHS crime list — this just ensures D173 exists
+  // for the sample Case/Subject data below
   const crimeDir = await prisma.directory.upsert({
-    where: { type_code: { type: 'CRIME', code: 'DIEU-173' } },
+    where: { type_code: { type: 'CRIME', code: 'D173' } },
     update: {},
     create: {
       type: 'CRIME',
-      code: 'DIEU-173',
-      name: 'Trộm cắp tài sản (Điều 173 BLHS)',
+      code: 'D173',
+      name: 'Trộm cắp tài sản (Điều 173)',
+      order: 23,
     },
   }).catch((e) => { console.warn('Crime directory upsert skipped:', e.message); return null; });
 
@@ -228,6 +234,11 @@ async function main() {
       console.log('Seed lawyer already exists, skipped.');
     }
   }
+
+  // ── Directory types (PROVINCE, INCIDENT_TYPE, PETITION_TYPE, v.v.) ──────────
+  // Critical: without this, form dropdowns show empty and Danh mục has no types.
+  console.log('Seeding directory types...');
+  await seedDirectoryTypes(prisma);
 
   // ── Feature flags (always seeded, idempotent) ─────────────────────────────
   // Critical: without these rows the frontend /feature-flags endpoint returns

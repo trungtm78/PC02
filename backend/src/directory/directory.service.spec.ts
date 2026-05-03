@@ -56,6 +56,39 @@ describe('DirectoryService', () => {
       expect(result.total).toBe(1);
     });
 
+    it('filters wards by parentId (Province → Ward hierarchy)', async () => {
+      const hcmWards = [
+        { id: 'w1', type: 'WARD', code: 'HCM_1_P1', name: 'Phường 1', parentId: 'province-hcm-id' },
+        { id: 'w2', type: 'WARD', code: 'HCM_2_P2', name: 'Phường 2', parentId: 'province-hcm-id' },
+      ];
+      mockPrisma.directory.findMany.mockResolvedValue(hcmWards);
+      mockPrisma.directory.count.mockResolvedValue(2);
+
+      await service.findAll({ type: 'WARD', parentId: 'province-hcm-id', limit: 1000, offset: 0 });
+
+      expect(mockPrisma.directory.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            type: 'WARD',
+            parentId: 'province-hcm-id',
+          }),
+          take: 1000,
+        }),
+      );
+    });
+
+    it('accepts limit up to 1000 (for ward cascade loading)', async () => {
+      mockPrisma.directory.findMany.mockResolvedValue([]);
+      mockPrisma.directory.count.mockResolvedValue(0);
+
+      // Should not throw — limit=1000 is within new @Max(1000)
+      await service.findAll({ type: 'WARD', limit: 1000, offset: 0 });
+
+      expect(mockPrisma.directory.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ take: 1000 }),
+      );
+    });
+
     it('filters by type', async () => {
       mockPrisma.directory.findMany.mockResolvedValue([]);
       mockPrisma.directory.count.mockResolvedValue(0);
@@ -128,14 +161,36 @@ describe('DirectoryService', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
-    it('throws BadRequestException when parent has different type', async () => {
+    it('allows cross-type parent-child (e.g. PROVINCE → WARD)', async () => {
+      // PROVINCE parent for a WARD child — now allowed (same-type constraint removed)
+      mockPrisma.directory.findUnique
+        .mockResolvedValueOnce(null) // no duplicate type+code
+        .mockResolvedValueOnce({ id: 'province-id', type: 'PROVINCE', code: 'HCM' }); // valid parent (different type)
+      mockPrisma.directory.create.mockResolvedValue({
+        id: 'new-ward',
+        type: 'WARD',
+        code: 'HCM_TEST',
+        name: 'Test Ward',
+        parentId: 'province-id',
+      });
+
+      const result = await service.create({
+        type: 'WARD',
+        code: 'HCM_TEST',
+        name: 'Test Ward',
+        parentId: 'province-id',
+      });
+      expect(result.parentId).toBe('province-id');
+    });
+
+    it('still throws NotFoundException when parentId does not exist (regardless of type)', async () => {
       mockPrisma.directory.findUnique
         .mockResolvedValueOnce(null) // no dup
-        .mockResolvedValueOnce({ id: 'p1', type: 'ORG' }); // parent with wrong type
+        .mockResolvedValueOnce(null); // parent not found
 
       await expect(
-        service.create({ ...createDto, parentId: 'p1' }),
-      ).rejects.toThrow(BadRequestException);
+        service.create({ type: 'WARD', code: 'W1', name: 'W', parentId: 'ghost-id' }),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 

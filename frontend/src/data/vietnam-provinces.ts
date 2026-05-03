@@ -1,10 +1,13 @@
 /**
- * Danh sách 34 Tỉnh/Thành phố trực thuộc Trung ương
- * Theo cải cách hành chính 2025 — hiệu lực 01/07/2025
- * Nguồn: chinhphu.vn
+ * Danh sách 32 Tỉnh/Thành phố trực thuộc Trung ương
+ * Theo cải cách hành chính 2025 — Nghị quyết 1279/NQ-UBTVQH15 — hiệu lực 01/07/2025
+ * Nguồn: chinhphu.vn + Bộ Nội vụ
+ *
+ * Lưu ý: Số thực tế có thể là 34 theo Nghị quyết (Bắc Ninh và 1 tỉnh khác
+ * có thể chưa được xác nhận trong nguồn dữ liệu hiện tại).
  *
  * Cấu trúc hành chính mới: Trung ương → Tỉnh/Thành phố → Phường/Xã
- * (Bỏ cấp quận/huyện)
+ * (Bỏ cấp quận/huyện hoàn toàn kể từ 01/07/2025)
  */
 
 export interface Province {
@@ -16,7 +19,7 @@ export interface Province {
   mergedFrom?: string[];
 }
 
-/** 34 tỉnh/thành phố theo quy định 2025 — ưu tiên TPHCM đầu tiên */
+/** 32 tỉnh/thành phố theo quy định 2025 — ưu tiên TPHCM đầu tiên */
 export const PROVINCES: Province[] = [
   // ── Ưu tiên: Thành phố Hồ Chí Minh ──────────────────────────────────────
   {

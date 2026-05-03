@@ -152,7 +152,7 @@ export function IncidentListPage() {
   const [statusFilter, setStatusFilterState] = useState<string>(
     () => searchParams.get("status") ?? "",
   );
-  const { canDispatch } = usePermission();
+  const { canDispatch, canEdit } = usePermission();
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
@@ -490,6 +490,7 @@ export function IncidentListPage() {
           <table className="w-full" data-testid="incident-table">
             <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
+                <th className="px-3 py-3 text-left text-xs font-medium text-slate-600 uppercase w-28 sticky left-0 bg-slate-50 z-10 border-r border-slate-200">Thao tác</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase w-12">STT</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase">Mã vụ việc</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase">Tên vụ việc</th>
@@ -502,7 +503,6 @@ export function IncidentListPage() {
                 <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase">Ngày tiếp nhận</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase">Hạn xử lý</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase">Trạng thái</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase w-32">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
@@ -527,33 +527,29 @@ export function IncidentListPage() {
                 incidents.map((incident, index) => {
                   const overdue = isOverdue(incident.deadline);
                   const doiTuong = [incident.doiTuongCaNhan, incident.doiTuongToChuc].filter(Boolean).join(", ") || "—";
+                  const canEditRow = canEdit('incidents');
                   return (
-                    <tr key={incident.id} className={`hover:bg-slate-50 ${overdue ? "bg-red-50/40" : ""}`} data-testid="incident-row">
-                      <td className="px-4 py-3 text-sm text-slate-700 font-medium">{page * PAGE_SIZE + index + 1}</td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-blue-600">{incident.code}</span>
-                          {overdue && <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-medium rounded-full" data-testid="overdue-badge">Quá hạn</span>}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-slate-700 max-w-[200px] truncate">{incident.name}</td>
-                      <td className="px-4 py-3 text-sm text-slate-700 max-w-[150px] truncate">{doiTuong}</td>
-                      <td className="px-4 py-3 text-sm text-slate-500 max-w-[180px] truncate">{incident.description || "—"}</td>
-                      <td className="px-4 py-3 text-sm text-slate-700">{incident.incidentType ?? "—"}</td>
-                      <td className="px-4 py-3 text-sm text-slate-700">{incident.investigator ? `${incident.investigator.firstName ?? ""} ${incident.investigator.lastName ?? ""}`.trim() || incident.investigator.username : "—"}</td>
-                      <td className="px-4 py-3 text-sm text-slate-700">{incident.donViGiaiQuyet ?? "—"}</td>
-                      <td className="px-4 py-3 text-sm text-slate-700">{incident.ketQuaXuLy ?? "—"}</td>
-                      <td className="px-4 py-3 text-sm text-slate-700 whitespace-nowrap">{formatDate(incident.ngayDeXuat)}</td>
-                      <td className="px-4 py-3 whitespace-nowrap"><span className={`text-sm ${overdue ? "text-red-600 font-medium" : "text-slate-700"}`}>{formatDate(incident.deadline)}</span></td>
-                      <td className="px-4 py-3 whitespace-nowrap"><span className={`px-3 py-1.5 rounded-md text-xs font-medium ${STATUS_COLORS[incident.status] ?? "bg-slate-200 text-slate-700"}`}>{STATUS_LABELS_VI[incident.status] ?? incident.status}</span></td>
-                      <td className="px-4 py-3 whitespace-nowrap">
+                    <tr
+                      key={incident.id}
+                      data-testid="incident-row"
+                      tabIndex={canEditRow ? 0 : undefined}
+                      role={canEditRow ? "button" : undefined}
+                      onClick={canEditRow ? () => navigate(`/vu-viec/${incident.id}/edit`) : undefined}
+                      onKeyDown={canEditRow ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/vu-viec/${incident.id}/edit`); } } : undefined}
+                      className={`transition-colors ${overdue ? "bg-red-50/40" : ""} ${canEditRow ? "cursor-pointer hover:bg-blue-50" : "hover:bg-slate-50"}`}
+                    >
+                      {/* Thao tác — FIRST, sticky, stopPropagation prevents row-click */}
+                      <td
+                        className={`px-3 py-3 whitespace-nowrap sticky left-0 z-10 border-r border-slate-100 ${overdue ? "bg-red-50/40" : "bg-white"}`}
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <div className="flex items-center gap-1">
                           <button onClick={() => navigate(`/vu-viec/${incident.id}`)} className="p-2 text-blue-600 hover:bg-blue-50 rounded" title="Xem" data-testid={`btn-view-${incident.id}`}><Eye className="w-4 h-4" /></button>
                           <button onClick={() => navigate(`/vu-viec/${incident.id}/edit`)} className="p-2 text-slate-600 hover:bg-slate-100 rounded" title="Sửa" data-testid={`btn-edit-${incident.id}`}><Edit className="w-4 h-4" /></button>
                           <div className="relative">
                             <button onClick={(e) => { e.stopPropagation(); setShowActionMenu(showActionMenu === incident.id ? null : incident.id); }} className="p-2 text-slate-600 hover:bg-slate-100 rounded" title="Thao tác" data-testid="btn-action-menu"><MoreVertical className="w-4 h-4" /></button>
                             {showActionMenu === incident.id && (
-                              <div className="absolute right-0 top-full mt-1 w-60 bg-white border border-slate-200 rounded-lg shadow-lg z-10" onClick={(e) => e.stopPropagation()}>
+                              <div className="absolute right-0 top-full mt-1 w-60 bg-white border border-slate-200 rounded-lg shadow-lg z-20" onClick={(e) => e.stopPropagation()}>
                                 {canDispatch && (
                                   <button onClick={() => handleActionClick(incident, "assign")} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 text-left" data-testid="btn-assign"><User className="w-4 h-4 text-blue-600" />{incident.assignedTeamId ? 'Phân công lại' : 'Phân công'}</button>
                                 )}
@@ -573,6 +569,24 @@ export function IncidentListPage() {
                           </div>
                         </div>
                       </td>
+                      {/* Regular columns — same order as before */}
+                      <td className="px-4 py-3 text-sm text-slate-700 font-medium">{page * PAGE_SIZE + index + 1}</td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-blue-600">{incident.code}</span>
+                          {overdue && <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-medium rounded-full" data-testid="overdue-badge">Quá hạn</span>}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-slate-700 max-w-[200px] truncate">{incident.name}</td>
+                      <td className="px-4 py-3 text-sm text-slate-700 max-w-[150px] truncate">{doiTuong}</td>
+                      <td className="px-4 py-3 text-sm text-slate-500 max-w-[180px] truncate">{incident.description || "—"}</td>
+                      <td className="px-4 py-3 text-sm text-slate-700">{incident.incidentType ?? "—"}</td>
+                      <td className="px-4 py-3 text-sm text-slate-700">{incident.investigator ? `${incident.investigator.firstName ?? ""} ${incident.investigator.lastName ?? ""}`.trim() || incident.investigator.username : "—"}</td>
+                      <td className="px-4 py-3 text-sm text-slate-700">{incident.donViGiaiQuyet ?? "—"}</td>
+                      <td className="px-4 py-3 text-sm text-slate-700">{incident.ketQuaXuLy ?? "—"}</td>
+                      <td className="px-4 py-3 text-sm text-slate-700 whitespace-nowrap">{formatDate(incident.ngayDeXuat)}</td>
+                      <td className="px-4 py-3 whitespace-nowrap"><span className={`text-sm ${overdue ? "text-red-600 font-medium" : "text-slate-700"}`}>{formatDate(incident.deadline)}</span></td>
+                      <td className="px-4 py-3 whitespace-nowrap"><span className={`px-3 py-1.5 rounded-md text-xs font-medium ${STATUS_COLORS[incident.status] ?? "bg-slate-200 text-slate-700"}`}>{STATUS_LABELS_VI[incident.status] ?? incident.status}</span></td>
                     </tr>
                   );
                 })

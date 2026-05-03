@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router';
-import api from '@/lib/api';
+import { api } from '@/lib/api';
 import {
   Users,
   Shield,
@@ -14,8 +13,10 @@ import {
   ChevronRight,
   KeyRound,
   Keyboard,
+  MapPin,
 } from 'lucide-react';
 import { AbbreviationsModule } from './modules/AbbreviationsModule';
+import { AddressMappingModule } from './modules/AddressMappingModule';
 import { Button } from '@/components/ui/button';
 import { TwoFaSetupModal } from '@/components/TwoFaSetupModal';
 import { ChangePasswordModal } from '@/components/ChangePasswordModal';
@@ -63,6 +64,12 @@ const menuItems = [
     label: 'Từ viết tắt',
     icon: Keyboard,
     description: 'Thư viện phím tắt cá nhân (F9)',
+  },
+  {
+    id: 'address-mapping',
+    label: 'Cải cách địa chỉ',
+    icon: MapPin,
+    description: 'Mapping địa chỉ cũ → mới (F10)',
   },
 ];
 
@@ -113,8 +120,8 @@ function UserManagementModule() {
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                  <button onClick={() => navigate('/users')} className="text-blue-600 hover:text-blue-900 mr-3">Sửa</button>
-                  <button onClick={() => { if (confirm('Bạn có chắc chắn muốn xóa người dùng này?')) navigate('/users'); }} className="text-red-600 hover:text-red-900">Xóa</button>
+                  <button className="text-blue-600 hover:text-blue-900 mr-3">Sửa</button>
+                  <button className="text-red-600 hover:text-red-900">Xóa</button>
                 </td>
               </tr>
             ))}
@@ -474,7 +481,6 @@ function SecurityModule() {
 
 // Main Settings Page
 export default function SettingsPage() {
-  const navigate = useNavigate();
   const [activeModule, setActiveModule] = useState('users');
 
   const renderModule = () => {
@@ -493,6 +499,8 @@ export default function SettingsPage() {
         return <SecurityModule />;
       case 'abbreviations':
         return <AbbreviationsModule />;
+      case 'address-mapping':
+        return <AddressMappingModule />;
       default:
         return <UserManagementModule />;
     }

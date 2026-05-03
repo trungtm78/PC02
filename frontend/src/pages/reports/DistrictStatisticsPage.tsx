@@ -1,13 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState, useEffect, useCallback, useMemo } from "react";
-import { searchWards } from '@/data/vietnam-wards';
+import { useState, useEffect, useCallback } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api";
 import { useNavigate } from "react-router";
 import {
   Search,
   RotateCcw,
   Download,
   Calendar,
-  Building2,
   AlertCircle,
   TrendingUp,
   BarChart3,
@@ -28,12 +28,12 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import { api } from "@/lib/api";
 
 interface FilterData {
   fromDate: string;
   toDate: string;
-  district: string;
+  province: string;  // province code (HCM, HN, ...) for ProvinceWardSelect
+  district: string;  // ward name sent to API as ?district=
 }
 
 interface DailyData {
@@ -56,13 +56,31 @@ export default function DistrictStatisticsPage() {
   const navigate = useNavigate();
   const [hasData, setHasData] = useState(false);
   const [selectedPoint, setSelectedPoint] = useState<DailyData | null>(null);
-  const [wardSuggestions, setWardSuggestions] = useState<string[]>([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
 
   const [filter, setFilter] = useState<FilterData>({
     fromDate: "",
     toDate: "",
+    province: "",
     district: "",
+  });
+
+  // Load 32 tỉnh/TP từ DB
+  const { data: provincesData } = useQuery({
+    queryKey: ['report-filter', 'provinces'],
+    queryFn: () => api.get('/directories?type=PROVINCE&limit=100&isActive=true')
+      .then(r => (r.data?.data ?? []) as { id: string; code: string; name: string }[]),
+    staleTime: 10 * 60 * 1000,
+  });
+
+  // Load phường/xã của tỉnh được chọn (qua parentId)
+  const selectedProvinceEntry = (provincesData ?? []).find(p => p.code === filter.province);
+  const { data: wardsData, isLoading: wardsLoading } = useQuery({
+    queryKey: ['report-filter', 'wards', selectedProvinceEntry?.id],
+    queryFn: () => api.get(
+      `/directories?type=WARD&parentId=${selectedProvinceEntry!.id}&limit=1000&isActive=true`
+    ).then(r => (r.data?.data ?? []) as { id: string; name: string }[]),
+    enabled: !!selectedProvinceEntry?.id,
+    staleTime: 5 * 60 * 1000,
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -145,6 +163,7 @@ export default function DistrictStatisticsPage() {
     setFilter({
       fromDate: "",
       toDate: "",
+      province: "",
       district: "",
     });
     setErrors({});
@@ -159,7 +178,7 @@ export default function DistrictStatisticsPage() {
       return;
     }
     const headers = ['Ngày', 'Vụ việc', 'Vụ án', 'Đã giải quyết'];
-    const rows = dailyChartData.map(d => [d.date, d.incidents ?? 0, d.cases ?? 0, d.resolved ?? 0]);
+    const rows = dailyChartData.map(d => [d.date, d.details?.incidents ?? 0, d.details?.cases ?? 0, d.count ?? 0]);
     const csv = [headers, ...rows]
       .map(row => row.map(v => `"${String(v ?? '')}"`).join(','))
       .join('\n');
@@ -256,58 +275,51 @@ export default function DistrictStatisticsPage() {
             )}
           </div>
 
-          {/* Phường/Xã — autocomplete */}
+          {/* Tỉnh/TP */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              Tỉnh/Thành phố
+            </label>
+            <select
+              value={filter.province}
+              onChange={(e) => {
+                setFilter({ ...filter, province: e.target.value, district: '' });
+                if (errors.district) setErrors({ ...errors, district: '' });
+              }}
+              className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
+              data-testid="stats-province"
+            >
+              <option value="">-- Chọn tỉnh/TP --</option>
+              {(provincesData ?? []).map(p => (
+                <option key={p.code} value={p.code}>{p.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Phường/Xã — load theo tỉnh đã chọn */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">
               Phường/Xã <span className="text-red-500">*</span>
             </label>
-            <div className="relative">
-              <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input
-                type="text"
-                value={filter.district}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setFilter({ ...filter, district: val });
-                  if (errors.district) setErrors({ ...errors, district: "" });
-                  const suggestions = searchWards(val, 8).map(w => w.name);
-                  setWardSuggestions(suggestions);
-                  setShowSuggestions(suggestions.length > 0);
-                }}
-                onFocus={() => {
-                  if (!filter.district) {
-                    // Show HCMC wards by default
-                    const suggestions = searchWards('Phường', 8).map(w => w.name);
-                    setWardSuggestions(suggestions);
-                    setShowSuggestions(true);
-                  }
-                }}
-                onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-                placeholder="Nhập tên phường/xã (ưu tiên TPHCM)..."
-                autoComplete="off"
-                className={`w-full pl-9 pr-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 ${
-                  errors.district
-                    ? "border-red-300 focus:ring-red-500"
-                    : "border-slate-300 focus:ring-blue-500"
-                }`}
-              />
-              {showSuggestions && wardSuggestions.length > 0 && (
-                <ul className="absolute z-20 left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                  {wardSuggestions.map((name, i) => (
-                    <li
-                      key={i}
-                      onMouseDown={() => {
-                        setFilter({ ...filter, district: name });
-                        setShowSuggestions(false);
-                      }}
-                      className="px-4 py-2 text-sm hover:bg-blue-50 cursor-pointer text-slate-700"
-                    >
-                      {name}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+            <select
+              value={filter.district}
+              onChange={(e) => {
+                setFilter({ ...filter, district: e.target.value });
+                if (errors.district) setErrors({ ...errors, district: '' });
+              }}
+              disabled={!filter.province || wardsLoading}
+              className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none focus:ring-2 text-sm bg-white disabled:bg-slate-50 disabled:text-slate-400 ${
+                errors.district ? 'border-red-300 focus:ring-red-500' : 'border-slate-300 focus:ring-blue-500'
+              }`}
+              data-testid="stats-ward"
+            >
+              <option value="">
+                {!filter.province ? '-- Chọn tỉnh/TP trước --' : wardsLoading ? 'Đang tải...' : '-- Chọn phường/xã --'}
+              </option>
+              {(wardsData ?? []).map(w => (
+                <option key={w.id} value={w.name}>{w.name}</option>
+              ))}
+            </select>
             {errors.district && (
               <p className="text-xs text-red-600 mt-1">{errors.district}</p>
             )}

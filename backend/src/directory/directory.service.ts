@@ -82,7 +82,7 @@ export class DirectoryService {
       );
     }
 
-    // Validate parentId if provided
+    // Validate parentId if provided — allow cross-type (e.g. PROVINCE → WARD)
     if (dto.parentId) {
       const parent = await this.prisma.directory.findUnique({
         where: { id: dto.parentId },
@@ -91,11 +91,8 @@ export class DirectoryService {
         throw new NotFoundException(
           `Danh mục cha #${dto.parentId} không tồn tại`,
         );
-      if (parent.type !== dto.type) {
-        throw new BadRequestException(
-          `Danh mục cha phải cùng loại "${dto.type}"`,
-        );
-      }
+      // Note: same-type constraint removed — cross-type hierarchies are valid
+      // (e.g. PROVINCE as parent of WARD entries)
     }
 
     return this.prisma.directory.create({

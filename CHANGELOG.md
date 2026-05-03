@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.13.2.0] - 2026-05-03
+
+### Changed
+- **Cột Thao tác lên đầu bảng** (Danh sách Vụ việc, Vụ án, Đơn thư): Không cần scroll ngang để tìm nút thao tác. Cột được ghim (sticky) ở bên trái.
+- **Click vào row → màn hình sửa**: Click vào bất kỳ chỗ nào trên dòng sẽ chuyển sang màn hình chỉnh sửa (nếu có quyền). Phím Enter/Space cũng hoạt động (accessibility).
+- **Codex CLI**: Cài đặt `@openai/codex` v0.128.0 cho code review độc lập.
+
+### Fixed
+- **Thống kê phường/xã** (`DistrictStatisticsPage`): Thay FKSelect combobox bằng native select — tỉnh/TP giờ chọn được bình thường.
+- **Ward filter backend**: `getDistrictStats()` giờ lọc cases theo `metadata.ward` khi có param `district`.
+- **Settings page**: Fix import `api` default → named, fix ProvinceWardSelect `disabled` prop.
+- **Crawl địa chỉ**: Fix `Transform`/`Type` import từ `class-validator` → `class-transformer` — nút "Cập nhật từ API" hoạt động.
+- **Address converter F10**: District-level fallback — phường 14 quận Phú Nhuận → phường Phú Nhuận.
+
+### Added
+- **Chuyển đổi địa chỉ 2025** (F10): Nhấn F10 trong bất kỳ text field nào → convert địa chỉ cũ (có quận/huyện) sang mới. Dialog xác nhận trước/sau.
+- **Mapping địa chỉ** (`Settings → Cải cách địa chỉ`): Quản lý 273 mapping TPHCM. Nút "Cập nhật từ API" crawl dữ liệu mới từ provinces.open-api.vn.
+- **Tội danh BLHS**: 47 tội danh chính xác theo BLHS 2015 (sửa đổi 2017/2022), 5 nhóm: tính mạng, sở hữu, kinh tế, ma túy, TTXH.
+- **Quản lý danh mục cha-con**: Quan hệ PROVINCE → WARD, admin screen drill-down, cascade select trong form địa chỉ.
+
 ## [0.13.1.0] - 2026-05-02
 
 ### Added

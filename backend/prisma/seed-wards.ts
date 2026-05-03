@@ -467,6 +467,19 @@ export async function seedWards(prismaClient: PrismaClient): Promise<void> {
   const ALL_WARDS = await loadWards();
   console.log(`Total wards to seed: ${ALL_WARDS.length}`);
 
+  // Build provinceCode → province DB id map for parentId linking
+  const provinces = await prismaClient.directory.findMany({
+    where: { type: 'PROVINCE' },
+    select: { id: true, code: true },
+  });
+  const provinceCodeToId = new Map(provinces.map(p => [p.code, p.id]));
+  console.log(`  Province map: ${provinceCodeToId.size} provinces found`);
+
+  if (provinceCodeToId.size === 0) {
+    console.warn('  ⚠️  No PROVINCE entries in DB — wards will have parentId=null.');
+    console.warn('  Run seed-directory-types.ts first to populate provinces.');
+  }
+
   let created = 0;
   let updated = 0;
   let skipped = 0;
@@ -478,12 +491,15 @@ export async function seedWards(prismaClient: PrismaClient): Promise<void> {
     await Promise.all(batch.map(async (ward) => {
       try {
         const hcm = ward.provinceCode === 'HCM';
+        // Link ward to its parent province via parentId
+        const parentId = provinceCodeToId.get(ward.provinceCode) ?? null;
         const result = await prismaClient.directory.upsert({
           where: { type_code: { type: 'WARD', code: ward.code } },
           update: {
             name: ward.name,
             isActive: true,
             order: hcm ? 0 : 1,
+            parentId,
             metadata: {
               provinceCode: ward.provinceCode,
               province: ward.province,
@@ -496,6 +512,7 @@ export async function seedWards(prismaClient: PrismaClient): Promise<void> {
             name: ward.name,
             order: hcm ? 0 : 1,
             isActive: true,
+            parentId,
             metadata: {
               provinceCode: ward.provinceCode,
               province: ward.province,
@@ -514,9 +531,10 @@ export async function seedWards(prismaClient: PrismaClient): Promise<void> {
   }
 
   const total = await prismaClient.directory.count({ where: { type: 'WARD' } });
+  const linked = await prismaClient.directory.count({ where: { type: 'WARD', parentId: { not: null } } });
   const hcmCount = await prismaClient.directory.count({ where: { type: 'WARD', metadata: { path: ['provinceCode'], equals: 'HCM' } } });
   console.log(`\nDone! ${created} created, ${updated} updated, ${skipped} skipped.`);
-  console.log(`Total WARD entries in DB: ${total} (HCM: ${hcmCount})`);
+  console.log(`Total WARD entries in DB: ${total} (linked to province: ${linked}, HCM: ${hcmCount})`);
 }
 
 // Standalone mode — run directly with: npx ts-node prisma/seed-wards.ts

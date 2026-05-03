@@ -9,6 +9,7 @@ import { AuthModule } from './auth/auth.module';
 import { AuditModule } from './audit/audit.module';
 import { AdminModule } from './admin/admin.module';
 import { DirectoryModule } from './directory/directory.module';
+import { AddressMappingModule } from './address-mapping/address-mapping.module';
 import { CasesModule } from './cases/cases.module';
 import { SubjectsModule } from './subjects/subjects.module';
 import { LawyersModule } from './lawyers/lawyers.module';
@@ -50,6 +51,7 @@ import { DataScopeInterceptor } from './auth/interceptors/data-scope.interceptor
     AuditModule,
     AdminModule,
     DirectoryModule,
+    AddressMappingModule,
     CasesModule,
     SubjectsModule,
     LawyersModule,

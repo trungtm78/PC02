@@ -1237,3 +1237,25 @@ model ReportTdcDraft {
   @@index([fromDate, toDate])
   @@map("report_tdc_drafts")
 }
+
+
+// ─── AddressMapping — Bảng mapping địa chỉ cũ → mới (cải cách 2025) ─────────
+model AddressMapping {
+  id          String   @id @default(cuid())
+  // Địa chỉ cũ (trước 01/07/2025 — có cấp quận/huyện)
+  oldWard     String   // VD: "phường 14", "xã Long Bình" (lowercase)
+  oldDistrict String   // VD: "quận phú nhuận", "huyện nhà bè" (lowercase)
+  // Địa chỉ mới (sau cải cách 2025 — chỉ còn phường/xã + tỉnh/TP)
+  newWard     String   // VD: "phường phú nhuận" (lowercase)
+  province    String   // Province code: "HCM", "HN", v.v.
+  note        String?  // Ghi chú nguồn (VD: "NQ 1279/NQ-UBTVQH15")
+  isActive    Boolean  @default(true)
+  needsReview Boolean  @default(false) // Đánh dấu cần review sau crawl
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([oldWard, oldDistrict, province])
+  @@index([province, oldDistrict])
+  @@index([needsReview])
+  @@map("address_mappings")
+}
