@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.13.5.1] - 2026-05-03
+
+### Fixed
+- **Web: Trang "Vụ việc theo phường/xã" không còn redirect về login khi click Xem** — Tạo `IncidentDetailPage` + đăng ký route `/vu-viec/:id` và alias `/incidents/:id`. Cùng fix luôn `TransferAndReturnPage` và `IncidentListPage` (đều navigate đến route chưa tồn tại này).
+- **Web: Enum constants trong 5 màn hình Phân loại & Quản lý** — `WardIncidentsPage`, `WardCasesPage`, `OtherClassificationPage`, `DuplicatePetitionsPage`, `ProsecutorProposalPage` không còn dùng hardcoded string literals làm status map keys; tất cả dùng `IncidentStatus`/`CaseStatus`/`PetitionStatus` từ shared enums. `DuplicatePetitionsPage` còn dùng `DUPLICATE_PETITION_STATUS` constants thay vì raw label strings.
+
 ## [0.13.5.0] - 2026-05-03
 
 ### Fixed
