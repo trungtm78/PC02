@@ -159,12 +159,12 @@ export default function TdacDraftsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200">
+                <th className="text-left py-3 px-3 font-semibold text-slate-700 w-32 sticky left-0 bg-slate-50 z-10 border-r border-slate-200">Hành động</th>
                 <th className="text-left py-3 px-4 font-semibold text-slate-700">Kỳ báo cáo</th>
                 <th className="text-left py-3 px-4 font-semibold text-slate-700">Loại</th>
                 <th className="text-center py-3 px-4 font-semibold text-slate-700">Trạng thái</th>
                 <th className="text-left py-3 px-4 font-semibold text-slate-700">Người tạo</th>
                 <th className="text-left py-3 px-4 font-semibold text-slate-700">Ngày tạo</th>
-                <th className="text-center py-3 px-4 font-semibold text-slate-700">Hành động</th>
               </tr>
             </thead>
             <tbody>
@@ -193,7 +193,35 @@ export default function TdacDraftsPage() {
                 </tr>
               ) : (
                 drafts.map((draft) => (
-                  <tr key={draft.id} className="border-b border-slate-100 hover:bg-slate-50">
+                  <tr
+                    key={draft.id}
+                    onClick={() => navigate(`/reports/tdac/drafts/${draft.id}`)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/reports/tdac/drafts/${draft.id}`); } }}
+                    tabIndex={0}
+                    className="border-b border-slate-100 cursor-pointer hover:bg-blue-50 transition-colors"
+                  >
+                    <td
+                      className="py-3 px-3 sticky left-0 z-10 bg-white border-r border-slate-100"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => navigate(`/reports/tdac/drafts/${draft.id}`)}
+                          className="flex items-center gap-1 px-2 py-1 text-xs border border-slate-300 rounded text-slate-700 hover:border-[#003973] hover:text-[#003973] transition-colors"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          Xem
+                        </button>
+                        {draft.status === "FINALIZED" && (
+                          <button
+                            onClick={() => downloadDraft(draft.id)}
+                            className="flex items-center gap-1 px-2 py-1 text-xs border border-green-300 rounded text-green-700 hover:bg-green-50 transition-colors"
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
                     <td className="py-3 px-4 text-slate-800">
                       {formatPeriod(draft.fromDate, draft.toDate)}
                     </td>
@@ -205,26 +233,6 @@ export default function TdacDraftsPage() {
                     </td>
                     <td className="py-3 px-4 text-slate-700">{getCreatorName(draft)}</td>
                     <td className="py-3 px-4 text-slate-600">{formatDate(draft.createdAt)}</td>
-                    <td className="py-3 px-4 text-center">
-                      <div className="flex items-center justify-center gap-2">
-                        <button
-                          onClick={() => navigate(`/reports/tdac/drafts/${draft.id}`)}
-                          className="flex items-center gap-1 px-3 py-1.5 text-xs border border-slate-300 rounded-lg text-slate-700 hover:border-[#003973] hover:text-[#003973] transition-colors"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                          Xem
-                        </button>
-                        {draft.status === "FINALIZED" && (
-                          <button
-                            onClick={() => downloadDraft(draft.id)}
-                            className="flex items-center gap-1 px-3 py-1.5 text-xs border border-green-300 rounded-lg text-green-700 hover:bg-green-50 transition-colors"
-                          >
-                            <Download className="w-3.5 h-3.5" />
-                            Tải về
-                          </button>
-                        )}
-                      </div>
-                    </td>
                   </tr>
                 ))
               )}

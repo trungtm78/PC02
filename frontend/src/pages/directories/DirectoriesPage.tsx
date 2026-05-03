@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useDirectoryOptions } from '@/hooks/useDirectoryOptions';
+import { usePermission } from '@/hooks/usePermission';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -86,6 +87,8 @@ const EMPTY_FORM: FormData = {
 const PAGE_SIZE = 50;
 
 export default function DirectoriesPage() {
+  const { canEdit } = usePermission();
+  const canEditRow = canEdit('directories');
   const [activeType, setActiveType] = useState('CRIME');
   const [availableTypes, setAvailableTypes] = useState<string[]>([]);
   const [typesLoading, setTypesLoading] = useState(true);
@@ -475,7 +478,8 @@ export default function DirectoriesPage() {
               <table className="w-full">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200">
-                    {['Mã', 'Tên danh mục', ...(filterParentId || drillParentId ? ['Cha'] : []), 'Mô tả', 'Thứ tự', 'Trạng thái', 'Thao tác'].map(
+                    <th className="text-left py-3 px-3 font-semibold text-slate-700 text-sm w-28 sticky left-0 bg-slate-50 z-10 border-r border-slate-200">Thao tác</th>
+                    {['Mã', 'Tên danh mục', ...(filterParentId || drillParentId ? ['Cha'] : []), 'Mô tả', 'Thứ tự', 'Trạng thái'].map(
                       (h) => (
                         <th
                           key={h}
@@ -490,14 +494,14 @@ export default function DirectoriesPage() {
                 <tbody>
                   {loading ? (
                     <tr>
-                      <td colSpan={6} className="py-12 text-center">
+                      <td colSpan={7} className="py-12 text-center">
                         <Loader2 className="w-8 h-8 animate-spin text-[#003973] mx-auto mb-2" />
                         <p className="text-slate-600">Đang tải dữ liệu...</p>
                       </td>
                     </tr>
                   ) : items.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="py-12 text-center">
+                      <td colSpan={7} className="py-12 text-center">
                         <FolderTree className="w-12 h-12 text-slate-300 mx-auto mb-2" />
                         <p className="text-slate-600 font-medium mb-1">Chưa có danh mục nào</p>
                         <p className="text-sm text-slate-500">
@@ -509,8 +513,54 @@ export default function DirectoriesPage() {
                     items.map((item) => (
                       <tr
                         key={item.id}
-                        className="border-b border-slate-200 hover:bg-slate-50 transition-colors"
+                        onClick={canEditRow ? () => handleOpenEdit(item) : undefined}
+                        onKeyDown={canEditRow ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleOpenEdit(item); } } : undefined}
+                        tabIndex={canEditRow ? 0 : undefined}
+                        className={`border-b border-slate-200 transition-colors ${canEditRow ? "cursor-pointer hover:bg-blue-50" : "hover:bg-slate-50"}`}
                       >
+                        {/* Thao tác — FIRST, sticky */}
+                        <td
+                          className="py-3 px-3 whitespace-nowrap sticky left-0 z-10 bg-white border-r border-slate-100"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="flex items-center gap-2">
+                            {/* Drill-down button: visible only for PROVINCE type */}
+                            {activeType === 'PROVINCE' && !drillParentId && (
+                              <button
+                                onClick={() => {
+                                  setDrillParentId(item.id);
+                                  setDrillParentName(item.name);
+                                  setActiveType('WARD');
+                                  setCurrentPage(1);
+                                  setSearchQuery('');
+                                }}
+                                className="px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded border border-blue-200 transition-colors"
+                                title="Xem phường/xã của tỉnh này"
+                                data-testid="btn-drill-down"
+                              >
+                                Xem phường/xã →
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleOpenEdit(item)}
+                              className="p-1.5 hover:bg-slate-100 rounded transition-colors"
+                              title="Chỉnh sửa"
+                            >
+                              <Edit2 className="w-4 h-4 text-slate-600" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                setDeletingItem(item);
+                                setShowDeleteConfirm(true);
+                              }}
+                              className="p-1.5 hover:bg-red-50 rounded transition-colors"
+                              title="Xóa"
+                              data-testid="btn-delete"
+                            >
+                              <Trash2 className="w-4 h-4 text-red-600" />
+                            </button>
+                          </div>
+                        </td>
                         <td className="py-3 px-4">
                           <span className="font-mono text-sm font-medium text-[#003973]">
                             {item.code}
@@ -552,45 +602,6 @@ export default function DirectoriesPage() {
                               Vô hiệu
                             </span>
                           )}
-                        </td>
-                        <td className="py-3 px-4">
-                          <div className="flex items-center gap-2">
-                            {/* Drill-down button: visible only for PROVINCE type */}
-                            {activeType === 'PROVINCE' && !drillParentId && (
-                              <button
-                                onClick={() => {
-                                  setDrillParentId(item.id);
-                                  setDrillParentName(item.name);
-                                  setActiveType('WARD');
-                                  setCurrentPage(1);
-                                  setSearchQuery('');
-                                }}
-                                className="px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded border border-blue-200 transition-colors"
-                                title="Xem phường/xã của tỉnh này"
-                                data-testid="btn-drill-down"
-                              >
-                                Xem phường/xã →
-                              </button>
-                            )}
-                            <button
-                              onClick={() => handleOpenEdit(item)}
-                              className="p-1.5 hover:bg-slate-100 rounded transition-colors"
-                              title="Chỉnh sửa"
-                            >
-                              <Edit2 className="w-4 h-4 text-slate-600" />
-                            </button>
-                            <button
-                              onClick={() => {
-                                setDeletingItem(item);
-                                setShowDeleteConfirm(true);
-                              }}
-                              className="p-1.5 hover:bg-red-50 rounded transition-colors"
-                              title="Xóa"
-                              data-testid="btn-delete"
-                            >
-                              <Trash2 className="w-4 h-4 text-red-600" />
-                            </button>
-                          </div>
                         </td>
                       </tr>
                     ))

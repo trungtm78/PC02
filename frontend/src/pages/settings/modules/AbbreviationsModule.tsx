@@ -205,6 +205,9 @@ export function AbbreviationsModule() {
           <table className="w-full">
             <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
+                <th className="px-3 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider w-24 sticky left-0 bg-slate-50 z-10 border-r border-slate-200">
+                  Thao tác
+                </th>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider w-32">
                   Phím tắt
                 </th>
@@ -214,25 +217,22 @@ export function AbbreviationsModule() {
                 <th className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider w-32">
                   Ngày tạo
                 </th>
-                <th className="px-5 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider w-24">
-                  Thao tác
-                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {abbrevs.map((a) => (
-                <tr key={a.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="px-5 py-3">
-                    <span className="font-mono text-sm font-medium text-[#003973] bg-blue-50 px-2 py-0.5 rounded">
-                      {a.shortcut}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3 text-sm text-slate-800">{a.expansion}</td>
-                  <td className="px-5 py-3 text-xs text-slate-500">
-                    {new Date(a.createdAt).toLocaleDateString('vi-VN')}
-                  </td>
-                  <td className="px-5 py-3 text-right">
-                    <div className="flex items-center justify-end gap-2">
+                <tr
+                  key={a.id}
+                  onClick={() => handleEdit(a.shortcut, a.expansion)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleEdit(a.shortcut, a.expansion); } }}
+                  tabIndex={0}
+                  className="cursor-pointer hover:bg-blue-50 transition-colors"
+                >
+                  <td
+                    className="px-3 py-3 sticky left-0 z-10 bg-white border-r border-slate-100"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="flex items-center gap-2">
                       <button
                         onClick={() => handleEdit(a.shortcut, a.expansion)}
                         className="p-1.5 rounded hover:bg-blue-50 text-blue-600 transition-colors"
@@ -248,6 +248,15 @@ export function AbbreviationsModule() {
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
+                  </td>
+                  <td className="px-5 py-3">
+                    <span className="font-mono text-sm font-medium text-[#003973] bg-blue-50 px-2 py-0.5 rounded">
+                      {a.shortcut}
+                    </span>
+                  </td>
+                  <td className="px-5 py-3 text-sm text-slate-800">{a.expansion}</td>
+                  <td className="px-5 py-3 text-xs text-slate-500">
+                    {new Date(a.createdAt).toLocaleDateString('vi-VN')}
                   </td>
                 </tr>
               ))}

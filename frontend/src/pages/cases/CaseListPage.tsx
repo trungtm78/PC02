@@ -619,7 +619,7 @@ function CaseListPage() {
                                   <MoreVertical className="w-4 h-4" />
                                 </button>
                                 {showActionMenu === caseItem.id && (
-                                  <div className="absolute right-0 top-full mt-1 w-56 bg-white border border-slate-200 rounded-lg shadow-lg z-20">
+                                  <div className="absolute left-10 top-full mt-1 w-56 bg-white border border-slate-200 rounded-lg shadow-lg z-50" onClick={(e) => e.stopPropagation()}>
                                     {/* Phân công (dispatcher only) */}
                                     {canDispatch && (
                                       <button

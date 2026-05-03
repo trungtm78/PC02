@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { api } from "@/lib/api";
 import { MASTER_CLASS_TYPE_LIST } from "@/constants/master-class-types";
 import { Search, Plus, Pencil, Trash2, FolderTree, Save, X } from "lucide-react";
+import { usePermission } from "@/hooks/usePermission";
 
 interface MasterClassEntry {
   id: string;
@@ -21,6 +22,8 @@ interface FormData {
 const INITIAL_FORM: FormData = { code: "", name: "", order: 0 };
 
 export default function MasterClassPage() {
+  const { canEdit } = usePermission();
+  const canEditRow = canEdit('settings');
   const [selectedType, setSelectedType] = useState(MASTER_CLASS_TYPE_LIST[0].code);
   const [entries, setEntries] = useState<MasterClassEntry[]>([]);
   const [search, setSearch] = useState("");
@@ -170,16 +173,29 @@ export default function MasterClassPage() {
             <table className="w-full">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200">
+                  <th className="px-3 py-3 text-left text-xs font-medium text-slate-600 uppercase w-28 sticky left-0 bg-slate-50 z-10 border-r border-slate-200">Thao tác</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase w-24">Mã</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase">Tên</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase w-24">Thứ tự</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase w-24">Trạng thái</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-600 uppercase w-24">Thao tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
                 {filtered.map(entry => (
-                  <tr key={entry.id} className="hover:bg-slate-50">
+                  <tr
+                    key={entry.id}
+                    onClick={canEditRow ? () => openEdit(entry) : undefined}
+                    onKeyDown={canEditRow ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openEdit(entry); } } : undefined}
+                    tabIndex={canEditRow ? 0 : undefined}
+                    className={`transition-colors ${canEditRow ? "cursor-pointer hover:bg-blue-50" : "hover:bg-slate-50"}`}
+                  >
+                    <td
+                      className="px-3 py-3 whitespace-nowrap sticky left-0 z-10 bg-white border-r border-slate-100"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <button onClick={() => openEdit(entry)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded mr-1"><Pencil className="w-4 h-4" /></button>
+                      <button onClick={() => setDeleteId(entry.id)} className="p-1.5 text-red-600 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>
+                    </td>
                     <td className="px-4 py-3 text-sm font-mono text-slate-700">{entry.code}</td>
                     <td className="px-4 py-3 text-sm text-slate-800 font-medium">{entry.name}</td>
                     <td className="px-4 py-3 text-sm text-slate-600">{entry.order}</td>
@@ -187,10 +203,6 @@ export default function MasterClassPage() {
                       <span className={`px-2 py-1 rounded text-xs font-medium ${entry.isActive ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"}`}>
                         {entry.isActive ? "Hoạt động" : "Tắt"}
                       </span>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <button onClick={() => openEdit(entry)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded mr-1"><Pencil className="w-4 h-4" /></button>
-                      <button onClick={() => setDeleteId(entry.id)} className="p-1.5 text-red-600 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>
                     </td>
                   </tr>
                 ))}

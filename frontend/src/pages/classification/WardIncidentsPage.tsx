@@ -426,6 +426,9 @@ export default function WardIncidentsPage() {
           <table className="w-full" data-testid="ward-incidents-table">
             <thead className="bg-[#003973]/5 border-b-2 border-[#003973]/20">
               <tr>
+                <th className="px-3 py-3 text-left text-xs font-bold text-[#003973] uppercase tracking-wider w-20 sticky left-0 bg-[#eef2f7] z-10 border-r border-slate-200">
+                  Thao tác
+                </th>
                 <th className="px-4 py-3 text-left text-xs font-bold text-[#003973] uppercase tracking-wider">
                   STT
                 </th>
@@ -450,9 +453,6 @@ export default function WardIncidentsPage() {
                 <th className="px-4 py-3 text-left text-xs font-bold text-[#003973] uppercase tracking-wider">
                   Trạng thái
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-bold text-[#003973] uppercase tracking-wider">
-                  Thao tác
-                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
@@ -474,7 +474,26 @@ export default function WardIncidentsPage() {
                 </tr>
               ) : (
                 filteredData.map((incident) => (
-                  <tr key={incident.id} className="hover:bg-slate-50 transition-colors">
+                  <tr
+                    key={incident.id}
+                    onClick={() => handleView(incident)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleView(incident); } }}
+                    tabIndex={0}
+                    className="cursor-pointer hover:bg-blue-50 transition-colors"
+                  >
+                    <td
+                      className="px-3 py-3 whitespace-nowrap sticky left-0 z-10 bg-white border-r border-slate-100"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <button
+                        onClick={() => handleView(incident)}
+                        data-testid={`view-btn-${incident.id}`}
+                        className="p-1.5 text-[#003973] hover:bg-[#003973]/10 rounded transition-colors"
+                        title="Xem chi tiết"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                    </td>
                     <td className="px-4 py-3">
                       <span className="text-sm font-bold text-[#003973]">{incident.stt}</span>
                     </td>
@@ -515,16 +534,6 @@ export default function WardIncidentsPage() {
                     </td>
                     <td className="px-4 py-3">
                       {getStatusBadge(incident.status, incident.statusLabel)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <button
-                        onClick={() => handleView(incident)}
-                        data-testid={`view-btn-${incident.id}`}
-                        className="p-1.5 text-[#003973] hover:bg-[#003973]/10 rounded transition-colors"
-                        title="Xem chi tiết"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
                     </td>
                   </tr>
                 ))

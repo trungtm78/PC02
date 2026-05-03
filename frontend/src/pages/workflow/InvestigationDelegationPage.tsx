@@ -507,13 +507,13 @@ export default function InvestigationDelegationPage() {
             <table className="w-full" data-testid="delegation-table">
               <thead className="bg-slate-50 border-b-2 border-slate-200">
                 <tr>
+                  <th className="px-3 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider w-24 sticky left-0 bg-slate-50 z-10 border-r border-slate-200">Thao tác</th>
                   <th className="px-4 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Số ủy thác</th>
                   <th className="px-4 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Nội dung</th>
                   <th className="px-4 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Ngày ủy thác</th>
                   <th className="px-4 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Đơn vị nhận</th>
                   <th className="px-4 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Người tạo</th>
                   <th className="px-4 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Trạng thái</th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Thao tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
@@ -527,7 +527,38 @@ export default function InvestigationDelegationPage() {
                   </tr>
                 ) : (
                   filteredData.map((delegation) => (
-                    <tr key={delegation.id} className="hover:bg-slate-50 transition-colors">
+                    <tr
+                      key={delegation.id}
+                      onClick={() => openViewModal(delegation)}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openViewModal(delegation); } }}
+                      tabIndex={0}
+                      className="cursor-pointer hover:bg-blue-50 transition-colors"
+                    >
+                      <td
+                        className="px-3 py-3 whitespace-nowrap sticky left-0 z-10 bg-white border-r border-slate-100"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="flex items-center gap-2">
+                          <button
+                            data-testid={`view-delegation-${delegation.id}`}
+                            onClick={() => openViewModal(delegation)}
+                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                            title="Xem chi tiết"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          {delegation.status !== 'completed' && (
+                            <button
+                              data-testid={`edit-delegation-${delegation.id}`}
+                              onClick={() => openEditModal(delegation)}
+                              className="p-1.5 text-slate-600 hover:bg-slate-100 rounded transition-colors"
+                              title="Sửa thông tin"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           <FileText className="w-4 h-4 text-blue-500" />
@@ -563,28 +594,6 @@ export default function InvestigationDelegationPage() {
                       </td>
                       <td className="px-4 py-3">
                         {getStatusBadge(delegation.status, delegation.statusLabel)}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <button
-                            data-testid={`view-delegation-${delegation.id}`}
-                            onClick={() => openViewModal(delegation)}
-                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                            title="Xem chi tiết"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
-                          {delegation.status !== 'completed' && (
-                            <button
-                              data-testid={`edit-delegation-${delegation.id}`}
-                              onClick={() => openEditModal(delegation)}
-                              className="p-1.5 text-slate-600 hover:bg-slate-100 rounded transition-colors"
-                              title="Sửa thông tin"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
                       </td>
                     </tr>
                   ))

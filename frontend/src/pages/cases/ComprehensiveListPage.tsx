@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { usePermission } from "@/hooks/usePermission";
 import {
   Search,
   Filter,
@@ -36,6 +37,8 @@ interface FilterData {
 
 function ComprehensiveListPage() {
   const navigate = useNavigate();
+  const { canEdit } = usePermission();
+  const canEditRow = canEdit('cases');
   const [showAdvancedFilter, setShowAdvancedFilter] = useState(false);
   const [selectedRecords, setSelectedRecords] = useState<Set<string>>(new Set());
   const [filters, setFilters] = useState<FilterData>({ quickSearch: "", fromDate: "", toDate: "", district: "", status: "", createdBy: "", type: "" });
@@ -320,6 +323,7 @@ function ComprehensiveListPage() {
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
                   <th className="w-12 px-4 py-3"><input type="checkbox" checked={selectedRecords.size === displayedData.length && displayedData.length > 0} onChange={handleSelectAll} className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-2 focus:ring-blue-500" /></th>
+                  <th className="px-3 py-3 text-left text-xs font-medium text-slate-700 uppercase tracking-wider w-40 sticky left-12 bg-slate-50 z-10 border-r border-slate-200">Thao tác</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase tracking-wider">STT</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase tracking-wider">Số hồ sơ</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase tracking-wider">Loại hồ sơ</th>
@@ -328,7 +332,6 @@ function ComprehensiveListPage() {
                   <th className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase tracking-wider">Trạng thái</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase tracking-wider">Người nhập</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase tracking-wider">Hạn xử lý</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase tracking-wider">Thao tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
@@ -336,22 +339,18 @@ function ComprehensiveListPage() {
                   <tr><td colSpan={10} className="px-4 py-16 text-center"><FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" /><p className="text-slate-500 font-medium">Không tìm thấy hồ sơ nào</p><p className="text-sm text-slate-400 mt-1">Thử điều chỉnh bộ lọc hoặc thêm hồ sơ mới</p></td></tr>
                 ) : (
                   displayedData.map((record, index) => (
-                    <tr key={record.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="px-4 py-3"><input type="checkbox" checked={selectedRecords.has(record.id)} onChange={() => handleSelectRecord(record.id)} className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-2 focus:ring-blue-500" /></td>
-                      <td className="px-4 py-3 text-sm text-slate-600">{startIndex + index + 1}</td>
-                      <td className="px-4 py-3"><span className="text-sm font-medium text-blue-600 hover:text-blue-700 cursor-pointer">{record.caseNumber}</span></td>
-                      <td className="px-4 py-3">{getTypeBadge(record.type, record.typeLabel)}</td>
-                      <td className="px-4 py-3 text-sm text-slate-700">{formatDate(record.receivedDate)}</td>
-                      <td className="px-4 py-3 text-sm text-slate-700">{record.district}</td>
-                      <td className="px-4 py-3">{getStatusBadge(record.status, record.statusLabel)}</td>
-                      <td className="px-4 py-3 text-sm text-slate-700">{record.createdBy}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex flex-col gap-1">
-                          <span className={`text-sm ${isOverdue(record.deadline, record.status) ? "text-red-600 font-medium" : "text-slate-700"}`}>{formatDate(record.deadline)}</span>
-                          {isOverdue(record.deadline, record.status) && <span className="text-xs text-red-600">Quá hạn</span>}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
+                    <tr
+                      key={record.id}
+                      onClick={canEditRow ? () => navigate(`/cases/${record.id}/edit`) : undefined}
+                      onKeyDown={canEditRow ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/cases/${record.id}/edit`); } } : undefined}
+                      tabIndex={canEditRow ? 0 : undefined}
+                      className={`transition-colors ${canEditRow ? "cursor-pointer hover:bg-blue-50" : "hover:bg-slate-50"}`}
+                    >
+                      <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}><input type="checkbox" checked={selectedRecords.has(record.id)} onChange={() => handleSelectRecord(record.id)} className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-2 focus:ring-blue-500" /></td>
+                      <td
+                        className="px-3 py-3 whitespace-nowrap sticky left-12 z-10 bg-white border-r border-slate-100"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <div className="flex items-center gap-2">
                           <button onClick={() => navigate(`/cases/${record.id}`)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Xem"><Eye className="w-4 h-4" /></button>
                           <button onClick={() => navigate(`/cases/${record.id}/edit`)} className="p-1.5 text-slate-600 hover:bg-slate-100 rounded transition-colors" title="Sửa" data-testid={`btn-edit-${record.id}`}><Edit className="w-4 h-4" /></button>
@@ -375,6 +374,19 @@ function ComprehensiveListPage() {
                               <Send className="w-4 h-4" />
                             </button>
                           )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-slate-600">{startIndex + index + 1}</td>
+                      <td className="px-4 py-3"><span className="text-sm font-medium text-blue-600 hover:text-blue-700 cursor-pointer">{record.caseNumber}</span></td>
+                      <td className="px-4 py-3">{getTypeBadge(record.type, record.typeLabel)}</td>
+                      <td className="px-4 py-3 text-sm text-slate-700">{formatDate(record.receivedDate)}</td>
+                      <td className="px-4 py-3 text-sm text-slate-700">{record.district}</td>
+                      <td className="px-4 py-3">{getStatusBadge(record.status, record.statusLabel)}</td>
+                      <td className="px-4 py-3 text-sm text-slate-700">{record.createdBy}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-col gap-1">
+                          <span className={`text-sm ${isOverdue(record.deadline, record.status) ? "text-red-600 font-medium" : "text-slate-700"}`}>{formatDate(record.deadline)}</span>
+                          {isOverdue(record.deadline, record.status) && <span className="text-xs text-red-600">Quá hạn</span>}
                         </div>
                       </td>
                     </tr>

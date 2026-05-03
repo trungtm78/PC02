@@ -489,6 +489,9 @@ export default function ActivityLogPage() {
           <table className="w-full">
             <thead className="bg-slate-50 border-b-2 border-slate-200">
               <tr>
+                <th className="px-3 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider w-28 sticky left-0 bg-slate-50 z-10 border-r border-slate-200">
+                  Thao tác
+                </th>
                 <th className="px-4 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">
                   Thời gian
                 </th>
@@ -507,9 +510,6 @@ export default function ActivityLogPage() {
                 <th className="px-4 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">
                   IP
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  Thao tác
-                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
@@ -523,7 +523,26 @@ export default function ActivityLogPage() {
                 </tr>
               ) : (
                 filteredData.map((log) => (
-                  <tr key={log.id} className="hover:bg-slate-50 transition-colors">
+                  <tr
+                    key={log.id}
+                    onClick={() => handleViewDetail(log)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleViewDetail(log); } }}
+                    tabIndex={0}
+                    className="cursor-pointer hover:bg-blue-50 transition-colors"
+                  >
+                    <td
+                      className="px-3 py-3 whitespace-nowrap sticky left-0 z-10 bg-white border-r border-slate-100"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <button
+                        onClick={() => handleViewDetail(log)}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors text-xs font-medium"
+                        title="Xem chi tiết"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        Chi tiết
+                      </button>
+                    </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1.5">
                         <Clock className="w-3.5 h-3.5 text-slate-400" />
@@ -560,16 +579,6 @@ export default function ActivityLogPage() {
                     </td>
                     <td className="px-4 py-3">
                       <span className="text-xs font-mono text-slate-600">{log.ipAddress}</span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <button
-                        onClick={() => handleViewDetail(log)}
-                        className="flex items-center gap-1.5 px-2.5 py-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors text-xs font-medium"
-                        title="Xem chi tiết"
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                        Chi tiết
-                      </button>
                     </td>
                   </tr>
                 ))

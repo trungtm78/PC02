@@ -649,6 +649,7 @@ export default function DocumentsPage() {
               <table className="w-full" data-testid="document-list-table">
                 <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>
+                    <th className="px-3 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider w-24 sticky left-0 bg-slate-50 z-10 border-r border-slate-200">Thao tác</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">STT</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Tài liệu</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Loại</th>
@@ -657,7 +658,6 @@ export default function DocumentsPage() {
                     <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Vụ việc</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">NgườI upload</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Ngày upload</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider w-28">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
@@ -665,6 +665,27 @@ export default function DocumentsPage() {
                     const FileIcon = getFileIcon(doc.mimeType);
                     return (
                       <tr key={doc.id} className="hover:bg-slate-50 transition-colors" data-testid={`document-row-${doc.id}`}>
+                        {/* Thao tác — FIRST, sticky */}
+                        <td className="px-3 py-3 whitespace-nowrap sticky left-0 z-10 bg-white border-r border-slate-100">
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => handleDownload(doc)}
+                              className={BTN_ICON_BLUE}
+                              title="Tải xuống"
+                              data-testid={`btn-download-${doc.id}`}
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => setDeleteDocument(doc)}
+                              className={BTN_ICON_RED}
+                              title="Xóa"
+                              data-testid={`btn-delete-${doc.id}`}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
                         <td className="px-4 py-3 text-sm text-slate-700">{(page - 1) * PAGE_SIZE + idx + 1}</td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
@@ -699,26 +720,6 @@ export default function DocumentsPage() {
                         </td>
                         <td className="px-4 py-3 text-sm text-slate-700">
                           {new Date(doc.createdAt).toLocaleDateString('vi-VN')}
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-1">
-                            <button
-                              onClick={() => handleDownload(doc)}
-                              className={BTN_ICON_BLUE}
-                              title="Tải xuống"
-                              data-testid={`btn-download-${doc.id}`}
-                            >
-                              <Download className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => setDeleteDocument(doc)}
-                              className={BTN_ICON_RED}
-                              title="Xóa"
-                              data-testid={`btn-delete-${doc.id}`}
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
                         </td>
                       </tr>
                     );

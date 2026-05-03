@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.13.3.0] - 2026-05-03
+
+### Changed
+- **UX cột Thao tác toàn hệ thống**: Chuẩn hóa cột Thao tác lên ĐẦU + sticky bên trái cho **22 màn hình danh sách** (ngoài 3 trang chính đã làm trước). Click row → mở modal sửa hoặc navigate sang màn hình edit (nếu có quyền).
+  - **Group A (8 trang modal-edit)**: Quản lý Đối tượng (+Nạn nhân, Nhân chứng), Quản lý Luật sư, Danh mục, MasterClass, Quản lý Người dùng, Tài liệu, Mapping địa chỉ, Phím tắt.
+  - **Group B (11 trang workflow)**: Danh sách tổng hợp, Hồ sơ ban đầu, Đơn trùng, Vụ án/Vụ việc theo phường, Phân loại khác, Kiến nghị VKS, Trao đổi chuyên án, Ủy thác điều tra, Chuyển/nhận hồ sơ, Hướng dẫn đơn thư.
+  - **Group C (3 trang report)**: Nhật ký hoạt động, Bản nháp TĐC, Hồ sơ trễ hạn.
+- **Action dropdown menu**: Z-index `z-20` → `z-50` (không bị sidebar đè), mở từ `right-0` → `left-10` (không che icon ⋮ row khác).
+
+### Fixed
+- **SettingsPage UserManagementModule**: Nút Sửa/Xóa giờ navigate sang `/nguoi-dung` (trước đó chỉ là stub).
+
+### Added
+- **3 spec files mới**: `address-mapping.controller.spec.ts` (8 tests), `phu-luc-1-6.controller.spec.ts` (3 tests), `phu-luc-1-6-export.service.spec.ts` (2 tests). Test count: 904 → 917.
+
 ## [0.13.2.0] - 2026-05-03
 
 ### Changed

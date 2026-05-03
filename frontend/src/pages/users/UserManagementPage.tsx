@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { downloadCsv } from '@/lib/csv';
+import { usePermission } from '@/hooks/usePermission';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -102,6 +103,8 @@ const EMPTY_FORM: FormData = {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function UserManagementPage() {
+  const { canEdit } = usePermission();
+  const canEditRow = canEdit('users');
   const [activeTab, setActiveTab] = useState<'users-list' | 'roles-permissions'>('users-list');
 
   // --- Users state ---
@@ -435,7 +438,8 @@ export default function UserManagementPage() {
             <table className="w-full">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200">
-                  {['Mã cán bộ', 'Họ tên', 'Email', 'Vai trò', 'Trạng thái', '2FA', 'Đăng nhập cuối', 'Thao tác'].map(
+                  <th className="text-left py-3 px-3 font-semibold text-slate-700 text-sm w-32 sticky left-0 bg-slate-50 z-10 border-r border-slate-200">Thao tác</th>
+                  {['Mã cán bộ', 'Họ tên', 'Email', 'Vai trò', 'Trạng thái', '2FA', 'Đăng nhập cuối'].map(
                     (h) => (
                       <th
                         key={h}
@@ -469,8 +473,51 @@ export default function UserManagementPage() {
                   users.map((user) => (
                     <tr
                       key={user.id}
-                      className="border-b border-slate-200 hover:bg-slate-50 transition-colors"
+                      onClick={canEditRow ? () => handleOpenEditModal(user) : undefined}
+                      onKeyDown={canEditRow ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleOpenEditModal(user); } } : undefined}
+                      tabIndex={canEditRow ? 0 : undefined}
+                      className={`border-b border-slate-200 transition-colors ${canEditRow ? "cursor-pointer hover:bg-blue-50" : "hover:bg-slate-50"}`}
                     >
+                      {/* Thao tác — FIRST, sticky */}
+                      <td
+                        className="py-3 px-3 whitespace-nowrap sticky left-0 z-10 bg-white border-r border-slate-100"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="flex items-center gap-2">
+                          <button
+                            className="p-1.5 hover:bg-slate-100 rounded transition-colors"
+                            title="Xem chi tiết"
+                          >
+                            <Eye className="w-4 h-4 text-slate-600" />
+                          </button>
+                          <button
+                            onClick={() => handleOpenEditModal(user)}
+                            className="p-1.5 hover:bg-slate-100 rounded transition-colors"
+                            title="Chỉnh sửa"
+                          >
+                            <Edit2 className="w-4 h-4 text-slate-600" />
+                          </button>
+                          {user.totpEnabled && (
+                            <button
+                              onClick={() => handleReset2Fa(user)}
+                              className="p-1.5 hover:bg-amber-50 rounded transition-colors"
+                              title="Đặt lại 2FA"
+                            >
+                              <Lock className="w-4 h-4 text-amber-600" />
+                            </button>
+                          )}
+                          <button
+                            onClick={() => {
+                              setDeletingUser(user);
+                              setShowDeleteConfirm(true);
+                            }}
+                            className="p-1.5 hover:bg-red-50 rounded transition-colors"
+                            title="Xóa người dùng"
+                          >
+                            <Trash2 className="w-4 h-4 text-red-600" />
+                          </button>
+                        </div>
+                      </td>
                       <td className="py-4 px-6">
                         <span className="font-mono text-slate-800 text-sm">{user.workId ?? '—'}</span>
                       </td>
@@ -519,42 +566,6 @@ export default function UserManagementPage() {
                         {user.lastLoginAt
                           ? new Date(user.lastLoginAt).toLocaleString('vi-VN')
                           : '—'}
-                      </td>
-                      <td className="py-4 px-6">
-                        <div className="flex items-center gap-2">
-                          <button
-                            className="p-1.5 hover:bg-slate-100 rounded transition-colors"
-                            title="Xem chi tiết"
-                          >
-                            <Eye className="w-4 h-4 text-slate-600" />
-                          </button>
-                          <button
-                            onClick={() => handleOpenEditModal(user)}
-                            className="p-1.5 hover:bg-slate-100 rounded transition-colors"
-                            title="Chỉnh sửa"
-                          >
-                            <Edit2 className="w-4 h-4 text-slate-600" />
-                          </button>
-                          {user.totpEnabled && (
-                            <button
-                              onClick={() => handleReset2Fa(user)}
-                              className="p-1.5 hover:bg-amber-50 rounded transition-colors"
-                              title="Đặt lại 2FA"
-                            >
-                              <Lock className="w-4 h-4 text-amber-600" />
-                            </button>
-                          )}
-                          <button
-                            onClick={() => {
-                              setDeletingUser(user);
-                              setShowDeleteConfirm(true);
-                            }}
-                            className="p-1.5 hover:bg-red-50 rounded transition-colors"
-                            title="Xóa người dùng"
-                          >
-                            <Trash2 className="w-4 h-4 text-red-600" />
-                          </button>
-                        </div>
                       </td>
                     </tr>
                   ))
