@@ -3,6 +3,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../api/api_client.dart';
 import '../api/auth_api.dart';
 import '../api/devices_api.dart';
+import '../constants/app_constants.dart';
 import 'biometric_service.dart';
 import 'token_storage.dart';
 
@@ -79,10 +80,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
           isLoading: false,
           pendingTwoFaToken: data['twoFaToken'] as String?,
         );
-        return 'pending_2fa';
+        return AppAuthResult.pending2fa;
       }
       await _finalize(data);
-      return 'success';
+      return AppAuthResult.success;
     } catch (_) {
       state = state.copyWith(isLoading: false);
       rethrow;
