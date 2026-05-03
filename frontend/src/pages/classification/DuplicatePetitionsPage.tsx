@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { PetitionStatus } from "@/shared/enums/generated";
 import { DUPLICATE_PETITION_STATUS } from "@/shared/enums/duplicate-petition-status";
 import {
@@ -66,6 +66,7 @@ export default function DuplicatePetitionsPage() {
 
   const [allData, setAllData] = useState<DuplicatePetition[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isExporting, setIsExporting] = useState(false);
 
   const [filters, setFilters] = useState({
     criteria: "",
@@ -160,6 +161,33 @@ export default function DuplicatePetitionsPage() {
     separated: allData.filter((d) => d.status === DUPLICATE_PETITION_STATUS.SPLIT).length,
   };
 
+  const handleExport = useCallback(async () => {
+    setIsExporting(true);
+    try {
+      const res = await api.get('/petitions/export/duplicates', {
+        params: {
+          status: filters.status || undefined,
+          criteria: filters.criteria || undefined,
+          fromDate: filters.fromDate || undefined,
+          toDate: filters.toDate || undefined,
+        },
+        responseType: 'blob',
+      });
+      const url = URL.createObjectURL(res.data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `DonTrungLap_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      alert('Xuất Excel thất bại. Vui lòng thử lại.');
+    } finally {
+      setIsExporting(false);
+    }
+  }, [filters]);
+
   return (
     <div className="p-6 space-y-6" data-testid="duplicate-petitions-page">
       <div>
@@ -249,11 +277,13 @@ export default function DuplicatePetitionsPage() {
           </div>
           <div className="flex items-center gap-2">
             <button
+              onClick={handleExport}
+              disabled={isExporting}
               data-testid="export-excel-btn"
-              className="flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              className="flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <Download className="w-4 h-4" />
-              Xuất Excel
+              {isExporting ? 'Đang xuất...' : 'Xuất Excel'}
             </button>
             <button
               onClick={() => setFilters({ criteria: "", fromDate: "", toDate: "", status: "" })}

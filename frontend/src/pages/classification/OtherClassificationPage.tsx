@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router";
 import { CaseStatus } from "@/shared/enums/generated";
 import { CASE_STATUS_LABEL } from "@/shared/enums/status-labels";
@@ -59,6 +59,7 @@ export default function OtherClassificationPage() {
 
   const [allData, setAllData] = useState<OtherCase[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isExporting, setIsExporting] = useState(false);
 
   const [filters, setFilters] = useState<FilterData>({
     quickSearch: "",
@@ -148,25 +149,31 @@ export default function OtherClassificationPage() {
     navigate(`/cases/${item.id}`);
   };
 
-  const handleExport = () => {
-    const toExport = filteredData.length > 0 ? filteredData : allData;
-    if (toExport.length === 0) { alert('Không có dữ liệu để xuất!'); return; }
-    const headers = ['STT', 'Tên vụ', 'Loại', 'Địa điểm', 'Phường/Xã',
-                     'Khu vực', 'Người báo cáo', 'Ngày tiếp nhận', 'Trạng thái', 'Phân loại'];
-    const rows = toExport.map(c => [
-      c.stt, c.caseName, c.type, c.location,
-      c.ward, c.district, c.reportedBy, c.reportedDate, c.statusLabel, c.category,
-    ]);
-    const csv = [headers, ...rows]
-      .map(row => row.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','))
-      .join('\n');
-    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url;
-    a.download = `PhanLoaiKhac_${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(a); a.click();
-    document.body.removeChild(a); URL.revokeObjectURL(url);
-  };
+  const handleExport = useCallback(async () => {
+    setIsExporting(true);
+    try {
+      const res = await api.get('/cases/export/other-classification', {
+        params: {
+          fromDate: filters.fromDate || undefined,
+          toDate: filters.toDate || undefined,
+          category: filters.category || undefined,
+        },
+        responseType: 'blob',
+      });
+      const url = URL.createObjectURL(res.data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `PhanLoaiKhac_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      alert('Xuất Excel thất bại. Vui lòng thử lại.');
+    } finally {
+      setIsExporting(false);
+    }
+  }, [filters]);
 
   const getStatusBadge = (status: OtherCase["status"], label: string) => {
     const styles = {
@@ -280,11 +287,12 @@ export default function OtherClassificationPage() {
 
           <button
             onClick={handleExport}
+            disabled={isExporting}
             data-testid="export-excel-btn"
-            className="flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            className="flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
             <Download className="w-4 h-4" />
-            Xuất Excel
+            {isExporting ? 'Đang xuất...' : 'Xuất Excel'}
           </button>
 
           <button

@@ -57,6 +57,7 @@ export default function ProsecutorProposalPage() {
 
   const [allProposals, setAllProposals] = useState<Proposal[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isExporting, setIsExporting] = useState(false);
 
   const [filters, setFilters] = useState({
     status: "",
@@ -183,30 +184,35 @@ export default function ProsecutorProposalPage() {
     completed: allProposals.filter((p) => p.status === PROPOSAL_STATUS_LABEL.DA_XU_LY).length,
   };
 
-  const handleExportExcel = () => {
-    const headers = ["Mã kiến nghị", "Mã hồ sơ", "Loại", "Nội dung", "Ngày tạo", "Đơn vị VKS", "Trạng thái"];
-    const csvContent = [
-      headers.join(","),
-      ...filteredProposals.map((p) =>
-        [
-          p.proposalNumber,
-          p.relatedCase,
-          p.caseType,
-          `"${(p.content ?? "").replace(/"/g, '""')}"`,
-          p.createdDate,
-          p.unit,
-          p.status,
-        ].join(",")
-      ),
-    ].join("\n");
-
-    const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = `kien-nghi-vks-${new Date().toISOString().split("T")[0]}.csv`;
-    link.click();
-    URL.revokeObjectURL(link.href);
-  };
+  const handleExportExcel = useCallback(async () => {
+    setIsExporting(true);
+    try {
+      const statusEnum = filters.status
+        ? (Object.entries(PROPOSAL_STATUS_LABEL).find(([, v]) => v === filters.status)?.[0] ?? undefined)
+        : undefined;
+      const res = await api.get("/proposals/export", {
+        params: {
+          status: statusEnum,
+          unit: (filters as any).unit || undefined,
+          fromDate: (filters as any).fromDate || undefined,
+          toDate: (filters as any).toDate || undefined,
+        },
+        responseType: "blob",
+      });
+      const url = URL.createObjectURL(res.data);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `KienNghiVKS_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      alert("Xuat Excel that bai. Vui long thu lai.");
+    } finally {
+      setIsExporting(false);
+    }
+  }, [filters]);
 
   return (
     <div className="p-6 space-y-6" data-testid="prosecutor-proposal-page">
@@ -306,11 +312,12 @@ export default function ProsecutorProposalPage() {
           <div className="flex items-center gap-2">
             <button
               onClick={handleExportExcel}
+              disabled={isExporting}
               data-testid="export-excel-btn"
-              className="flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              className="flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <Download className="w-4 h-4" />
-              Xuất Excel
+              {isExporting ? 'Đang xuất...' : 'Xuất Excel'}
             </button>
             <button
               onClick={() => setFilters({ status: "", fromDate: "", toDate: "", unit: "" })}
