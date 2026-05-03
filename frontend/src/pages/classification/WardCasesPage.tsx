@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { CaseStatus } from "@/shared/enums/generated";
+import { CASE_STATUS_LABEL } from "@/shared/enums/status-labels";
 import { ROLE_NAMES } from "@/shared/enums/roles";
 import { CASE_PHASE } from "@/shared/enums/case-phase";
 import {
@@ -165,7 +166,7 @@ export default function WardCasesPage() {
           };
           return statusMap[c.status] ?? "pending";
         })() as WardCase["status"],
-        statusLabel: c.status ?? "",
+        statusLabel: CASE_STATUS_LABEL[c.status as CaseStatus] ?? c.status ?? "",
         severity: "medium" as const,
         severityLabel: "Trung bình",
       }));

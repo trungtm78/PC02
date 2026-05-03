@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router";
 import { CaseStatus } from "@/shared/enums/generated";
+import { CASE_STATUS_LABEL } from "@/shared/enums/status-labels";
 import { CASE_PHASE } from "@/shared/enums/case-phase";
 import {
   Search,
@@ -94,7 +95,7 @@ export default function OtherClassificationPage() {
             };
             return m[c.status] ?? "pending";
           })() as OtherCase["status"],
-          statusLabel: c.status ?? "",
+          statusLabel: CASE_STATUS_LABEL[c.status as CaseStatus] ?? c.status ?? "",
           category: c.crime ?? "Khác",
           notes: "",
         }));

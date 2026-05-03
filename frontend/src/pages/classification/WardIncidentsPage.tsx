@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router";
 import { IncidentStatus } from "@/shared/enums/generated";
+import { INCIDENT_STATUS_LABEL } from "@/shared/enums/status-labels";
 import { CASE_PHASE } from "@/shared/enums/case-phase";
 import {
   Search,
@@ -89,7 +90,7 @@ export default function WardIncidentsPage() {
             };
             return m[item.status] ?? "pending";
           })() as WardIncident["status"],
-          statusLabel: item.status ?? "",
+          statusLabel: INCIDENT_STATUS_LABEL[item.status as IncidentStatus] ?? item.status ?? "",
           priority: "medium" as const,
           priorityLabel: "Trung bình",
           description: item.description ?? "",
