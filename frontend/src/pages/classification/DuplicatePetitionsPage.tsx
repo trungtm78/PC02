@@ -23,7 +23,6 @@ import {
   Copy,
 } from "lucide-react";
 import { api } from "@/lib/api";
-import { DUPLICATE_PETITION_STATUS } from "@/shared/enums/duplicate-petition-status";
 
 interface DuplicatePetition {
   id: string;
