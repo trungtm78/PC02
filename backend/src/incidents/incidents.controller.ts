@@ -9,10 +9,13 @@ import {
   Param,
   Query,
   Req,
+  Res,
   UseGuards,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import { Response } from 'express';
+import { Throttle } from '@nestjs/throttler';
 import type { ScopedRequest } from '../auth/interfaces/scoped-request.interface';
 import { IncidentsService } from './incidents.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -55,6 +58,19 @@ export class IncidentsController {
   @RequirePermissions({ action: 'read', subject: 'Incident' })
   getInvestigators(@Query('search') search?: string) {
     return this.incidentsService.getInvestigators(search);
+  }
+
+  // GET /api/v1/incidents/export/ward — Xuất vụ việc theo phường/xã ra Excel
+  @Get('export/ward')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions({ action: 'read', subject: 'Incident' })
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
+  async exportWard(
+    @Query() query: { unitId?: string; fromDate?: string; toDate?: string },
+    @Req() req: ScopedRequest,
+    @Res() res: Response,
+  ): Promise<void> {
+    await this.incidentsService.exportWardIncidents(query, req.dataScope, res);
   }
 
   // GET /api/v1/incidents/:id — Chi tiết vụ việc

@@ -5,6 +5,8 @@ import {
   ConflictException,
   ForbiddenException,
 } from '@nestjs/common';
+import { Response } from 'express';
+import * as ExcelJS from 'exceljs';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { CreateIncidentDto } from './dto/create-incident.dto';
@@ -22,6 +24,7 @@ import { TERMINAL_STATUSES, VALID_TRANSITIONS, PHASE_STATUSES } from './incident
 import { SettingsService } from '../settings/settings.service';
 import { ROLE_NAMES } from '../common/constants/role.constants';
 import { SETTINGS_KEY } from '../common/constants/settings-keys.constants';
+import { BcaExcelHelper } from '../common/bca-excel.helper';
 
 @Injectable()
 export class IncidentsService {
@@ -1118,5 +1121,114 @@ export class IncidentsService {
     // Final fallback: use timestamp-based suffix
     const ts = Date.now().toString().slice(-5);
     return `${prefix}${ts}`;
+  }
+
+  // ─────────────────────────────────────────────
+  // EXPORT WARD INCIDENTS (Vụ việc theo phường/xã)
+  // ─────────────────────────────────────────────
+  async exportWardIncidents(
+    query: { unitId?: string; fromDate?: string; toDate?: string },
+    dataScope: DataScope | null | undefined,
+    res: Response,
+  ): Promise<void> {
+    const STATUS_LABELS: Record<string, string> = {
+      TIEP_NHAN: 'Tiếp nhận',
+      DANG_XAC_MINH: 'Đang xác minh',
+      DA_PHAN_CONG: 'Đã phân công',
+      DA_GIAI_QUYET: 'Đã giải quyết',
+      TAM_DINH_CHI: 'Tạm đình chỉ',
+      QUA_HAN: 'Quá hạn',
+      DA_CHUYEN_VU_AN: 'Đã chuyển vụ án',
+      KHONG_KHOI_TO: 'Không khởi tố',
+      CHUYEN_XPHC: 'Chuyển XPHC',
+      TDC_HET_THOI_HIEU: 'TĐC hết thời hiệu',
+      TDC_HTH_KHONG_KT: 'TĐC không khởi tố',
+      PHUC_HOI_NGUON_TIN: 'Phục hồi nguồn tin',
+      DA_CHUYEN_DON_VI: 'Đã chuyển đơn vị',
+      DA_NHAP_VU_KHAC: 'Đã nhập vụ khác',
+      PHAN_LOAI_DAN_SU: 'Phân loại dân sự',
+    };
+
+    const where: Prisma.IncidentWhereInput = { deletedAt: null };
+    if (query.unitId) where.unitId = query.unitId;
+    if (query.fromDate) {
+      where.createdAt = { ...(where.createdAt as any), gte: new Date(query.fromDate) };
+    }
+    if (query.toDate) {
+      where.createdAt = { ...(where.createdAt as any), lte: new Date(query.toDate + 'T23:59:59.999Z') };
+    }
+
+    const scopeFilter = buildScopeFilter(dataScope);
+    if (scopeFilter) {
+      where.AND = [
+        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+        scopeFilter as Prisma.IncidentWhereInput,
+      ];
+    }
+
+    const records = await this.prisma.incident.findMany({
+      where,
+      take: 500,
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        name: true,
+        incidentType: true,
+        description: true,
+        diaChiXayRa: true,
+        createdAt: true,
+        status: true,
+        unitId: true,
+        investigator: { select: { firstName: true, lastName: true } },
+      },
+    });
+
+    const COL_COUNT = 8;
+    const HEADERS = ['STT', 'Tên vụ việc', 'Loại', 'Địa điểm', 'ĐTV phụ trách', 'Ngày tiếp nhận', 'Trạng thái', 'Đơn vị'];
+    const WIDTHS = [6, 30, 20, 25, 20, 16, 20, 20];
+
+    const fromStr = query.fromDate ? new Date(query.fromDate).toLocaleDateString('vi-VN') : '';
+    const toStr = query.toDate ? new Date(query.toDate).toLocaleDateString('vi-VN') : '';
+    const period = fromStr && toStr ? `Từ ngày ${fromStr} đến ngày ${toStr}` : 'Tất cả thời gian';
+
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('Vụ việc theo phường xã');
+
+    BcaExcelHelper.addHeader(sheet, COL_COUNT, 'DANH SÁCH VỤ VIỆC THEO PHƯỜNG/XÃ', period);
+
+    const headerRow = sheet.getRow(7);
+    BcaExcelHelper.addColumnHeaders(headerRow, HEADERS, WIDTHS);
+
+    records.forEach((rec, idx) => {
+      const investigatorName = rec.investigator
+        ? `${rec.investigator.lastName ?? ''} ${rec.investigator.firstName ?? ''}`.trim()
+        : '';
+      const dataRow = sheet.addRow([
+        idx + 1,
+        rec.name ?? '',
+        rec.incidentType ?? '',
+        rec.diaChiXayRa ?? '',
+        investigatorName,
+        rec.createdAt ? rec.createdAt.toLocaleDateString('vi-VN') : '',
+        STATUS_LABELS[rec.status] ?? rec.status ?? '',
+        rec.unitId ?? '',
+      ]);
+      BcaExcelHelper.styleDataRow(dataRow, idx % 2 === 1, COL_COUNT);
+    });
+
+    const lastDataRow = sheet.lastRow?.number ?? 7;
+    BcaExcelHelper.addFooter(sheet, lastDataRow + 2, COL_COUNT);
+    BcaExcelHelper.setPrintSetup(sheet);
+
+    const filename = `VuViecPhuongXa_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+
+    try {
+      await workbook.xlsx.write(res);
+    } catch (err) {
+      if (!res.headersSent) res.status(500).json({ error: 'Export failed' });
+      else res.destroy();
+    }
   }
 }
