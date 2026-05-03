@@ -73,15 +73,16 @@ const menuItems = [
   },
 ];
 
-// User Management Module
+// User Management Module — redirects to real admin page at /nguoi-dung
 function UserManagementModule() {
+  const goToUserAdmin = () => { window.location.href = '/nguoi-dung'; };
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-semibold text-slate-900">Quản lý ngườI dùng</h2>
-        <Button>
+        <Button onClick={goToUserAdmin}>
           <Users className="w-4 h-4 mr-2" />
-          Thêm ngườI dùng
+          Đến trang Quản lý người dùng
         </Button>
       </div>
       
@@ -120,8 +121,8 @@ function UserManagementModule() {
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                  <button className="text-blue-600 hover:text-blue-900 mr-3">Sửa</button>
-                  <button className="text-red-600 hover:text-red-900">Xóa</button>
+                  <button onClick={goToUserAdmin} className="text-blue-600 hover:text-blue-900 mr-3">Sửa</button>
+                  <button onClick={goToUserAdmin} className="text-red-600 hover:text-red-900">Xóa</button>
                 </td>
               </tr>
             ))}
