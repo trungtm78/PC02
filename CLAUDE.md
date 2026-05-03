@@ -53,3 +53,59 @@ Internal case management system (NestJS backend + React frontend) for managing l
 5. After deploy, replace `TBD` and `{PRODUCTION_URL}` above with actual URL
 
 **CRITICAL:** `npm run db:seed` MUST run on every deploy so the `feature_flags` table is populated. Without it, `GET /api/v1/feature-flags` returns an empty array and the entire sidebar goes blank for every user. The seed is idempotent — running it twice is safe. To run only the feature-flag seed without touching other data, use `npm run db:seed:features`.
+
+## Git Branching Convention
+
+**Model:** Simplified Trunk-based development. `main` là nhánh duy nhất thường trú — luôn deployable.
+
+### Quy tắc đặt tên nhánh
+
+| Loại | Pattern | Ví dụ |
+|------|---------|-------|
+| Feature mới | `feat/short-description` | `feat/export-pdf-report` |
+| Bug fix | `fix/short-description` | `fix/overdue-filter-broken` |
+| Hotfix production | `hotfix/short-description` | `hotfix/login-500-error` |
+| Refactor / cleanup | `refactor/short-description` | `refactor/enum-constants` |
+| Chore / tooling | `chore/short-description` | `chore/update-dependencies` |
+| Release preparation | `release/vX.Y.Z` | `release/v1.0.0` *(hiếm dùng)* |
+
+### Quy tắc sử dụng
+
+1. **1 branch = 1 mục đích rõ ràng.** Không dùng chung branch cho nhiều feature không liên quan.
+2. **Sống ngắn.** Branch nên được PR và merge trong vòng 1-3 ngày. Branch tồn tại > 1 tuần là dấu hiệu scope quá lớn — tách nhỏ.
+3. **Branch từ `main`, merge về `main`.** Không có `develop` hay long-running integration branch.
+4. **Squash merge khi PR.** Mỗi PR tạo ra 1 commit gọn trên `main` với commit message chuẩn (Conventional Commits).
+5. **Xóa branch sau khi merge.** `git push origin --delete <branch>` hoặc tick "Delete branch" trên GitHub PR.
+6. **Không commit thẳng vào `main`.** Mọi thay đổi qua PR, dù nhỏ.
+
+### Commit Message Convention (Conventional Commits)
+
+```
+<type>(<scope>): <description>
+
+feat(cases):     tính năng mới liên quan Cases
+fix(auth):       bug fix
+refactor(backend): tái cấu trúc không thay đổi behavior
+chore(deps):     update dependency, config
+docs:            chỉ thay đổi tài liệu
+test:            thêm/sửa test
+perf:            cải thiện performance
+```
+
+### Workflow nhanh
+
+```bash
+# Bắt đầu task mới
+git checkout main && git pull
+git checkout -b feat/ten-feature-ngan
+
+# ... code, commit thường xuyên ...
+
+# Khi xong
+git push -u origin feat/ten-feature-ngan
+gh pr create --base main --title "feat: ..."
+
+# Sau khi merge
+git checkout main && git pull
+git branch -d feat/ten-feature-ngan
+```
