@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.13.5.0] - 2026-05-03
+
+### Fixed
+- **Mobile: PetitionStatus labels hiển thị đúng tiếng Việt** — `StatusChip` trước đây thiếu toàn bộ 5 `PetitionStatus` values (`MOI_TIEP_NHAN`, `DANG_XU_LY`, `CHO_PHE_DUYET`, `DA_LUU_DON`, `DA_CHUYEN_VU_VIEC`), hiển thị raw code string thay vì nhãn tiếng Việt.
+
+### Changed
+- **Mobile: Chuẩn hóa constants** — Thay thế 22 hardcoded string literals trong business logic Flutter bằng typed constants (`AppStatus`, `AppAuthResult`, `kStatusLabels`, `kGreenStatuses`, `kYellowStatuses`, `kNavyStatuses`). Color logic từ fragile `startsWith/contains` → explicit Sets — không còn silent regression khi backend thêm enum value.
+- **Mobile tests** — 16 unit tests mới gồm regression pins cho 2 bugs phát hiện trong eng-review (khongKhoiTo và dangTruyTo bị gán vào hai color groups cùng lúc).
+
 ## [0.13.4.0] - 2026-05-03
 
 ### Changed

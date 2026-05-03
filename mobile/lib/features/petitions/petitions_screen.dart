@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
+import '../../core/constants/app_constants.dart';
 import '../../core/models/petition.dart';
 import '../../shared/widgets/deadline_badge.dart';
 import '../../shared/widgets/empty_state.dart';
@@ -16,7 +17,7 @@ final _petitionsProvider =
         (ref, tab) async {
   final api = ref.read(petitionsApiProvider);
   if (tab == _PetitionTab.overdue) return api.getPetitions(overdue: true);
-  return api.getPetitions(status: 'DANG_XU_LY');
+  return api.getPetitions(status: AppStatus.dangXuLy);
 });
 
 class PetitionsScreen extends ConsumerStatefulWidget {

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/auth/auth_provider.dart';
 import '../../core/auth/biometric_service.dart';
+import '../../core/constants/app_constants.dart';
 import '../../core/fcm/fcm_service.dart';
 import '../../shared/theme/app_theme.dart';
 
@@ -54,7 +55,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       final result = await ref.read(authProvider.notifier).login(email, password);
 
       if (!mounted) return;
-      if (result == 'pending_2fa') {
+      if (result == AppAuthResult.pending2fa) {
         context.push('/login/2fa');
       } else {
         try {
@@ -116,7 +117,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       setState(() => _error = null);
       final result = await ref.read(authProvider.notifier).login(creds.email, creds.password);
       if (!mounted) return;
-      if (result == 'pending_2fa') {
+      if (result == AppAuthResult.pending2fa) {
         context.push('/login/2fa');
       } else {
         try {
