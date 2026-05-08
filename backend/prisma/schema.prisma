@@ -323,6 +323,8 @@ model Case {
   @@index([deletedAt])
   @@index([assignedTeamId])
   @@index([lyDoTamDinhChiVuAn])
+  @@index([createdAt])
+  @@index([unitId])
   @@map("cases")
 }
 
@@ -587,6 +589,8 @@ model Incident {
   @@index([assignedTeamId])
   @@index([ngayDeXuat])
   @@index([lyDoTamDinhChiVuViec])
+  @@index([createdAt])
+  @@index([unitId])
   @@map("incidents")
 }
 
@@ -693,6 +697,8 @@ model Proposal {
 
   @@index([status])
   @@index([deletedAt])
+  @@index([createdAt])
+  @@index([createdById])
   @@map("proposals")
 }
 

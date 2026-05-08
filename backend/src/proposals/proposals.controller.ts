@@ -1,4 +1,6 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, Req, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, Req, Res, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
+import type { Response } from 'express';
+import { Throttle } from '@nestjs/throttler';
 import type { ScopedRequest } from '../auth/interfaces/scoped-request.interface';
 import { ProposalsService } from './proposals.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -18,6 +20,18 @@ export class ProposalsController {
   @RequirePermissions({ action: 'read', subject: 'Case' })
   getList(@Query() query: QueryProposalsDto, @Req() req: ScopedRequest) {
     return this.proposalsService.getList(query, req.dataScope);
+  }
+
+  @Get('export')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions({ action: 'read', subject: 'Case' })
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
+  async exportExcel(
+    @Query() query: { status?: string; unit?: string; fromDate?: string; toDate?: string },
+    @Req() req: ScopedRequest,
+    @Res() res: Response,
+  ): Promise<void> {
+    await this.proposalsService.exportToExcel(query, req.dataScope, res);
   }
 
   @Get(':id')

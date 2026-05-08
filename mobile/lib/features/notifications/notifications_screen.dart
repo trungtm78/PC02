@@ -1,14 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import '../../core/api/notifications_api.dart';
-import '../../core/auth/auth_provider.dart';
+import '../../core/api/providers.dart';
 import '../../core/models/notification.dart';
 import '../../shared/widgets/empty_state.dart';
 import '../../shared/widgets/offline_banner.dart';
-
-final notificationsApiProvider =
-    Provider((ref) => NotificationsApi(ref.read(apiClientProvider)));
 
 final _notificationsProvider =
     FutureProvider.autoDispose<List<AppNotification>>((ref) {

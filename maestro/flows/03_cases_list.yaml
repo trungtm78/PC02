@@ -5,8 +5,7 @@ tags:
   - data
 
 ---
-# Assumes app is on dashboard (run after 01_login_success)
-- launchApp
+- runFlow: 01_login_success.yaml
 - waitForAnimationToEnd
 
 # Navigate to Cases (Hồ sơ tab = index 1, at ~30% x, bottom of screen)

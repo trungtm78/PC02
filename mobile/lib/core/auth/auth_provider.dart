@@ -1,27 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import '../api/api_client.dart';
 import '../api/auth_api.dart';
 import '../api/devices_api.dart';
+import '../api/providers.dart';
 import '../constants/app_constants.dart';
 import 'biometric_service.dart';
 import 'token_storage.dart';
-
-final _storageProvider = Provider((_) => const FlutterSecureStorage());
-
-final apiClientProvider = Provider((ref) {
-  final storage = ref.read(_storageProvider);
-  return ApiClient(storage);
-});
-
-final tokenStorageProvider = Provider((ref) {
-  final storage = ref.read(_storageProvider);
-  return TokenStorage(storage);
-});
-
-final authApiProvider = Provider((ref) => AuthApi(ref.read(apiClientProvider)));
-final devicesApiProvider =
-    Provider((ref) => DevicesApi(ref.read(apiClientProvider)));
 
 class AuthState {
   final bool isAuthenticated;

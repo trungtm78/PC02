@@ -4,8 +4,7 @@ tags:
   - auth
 
 ---
-# Assumes app is on dashboard (run after other tests)
-- launchApp
+- runFlow: 01_login_success.yaml
 - waitForAnimationToEnd
 
 # Open drawer

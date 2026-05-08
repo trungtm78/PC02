@@ -6,7 +6,7 @@ tags:
 ---
 # Test: Màn hình hồ sơ trễ hạn — validates /reports/overdue API contract
 # Fixed in v0.12.1.0: getOverdue now returns correct shape with priority fields
-- runFlow: 01_login.yaml
+- runFlow: 01_login_success.yaml
 - waitForAnimationToEnd
 
 # Navigate to reports or overdue section

@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../shared/widgets/deadline_badge.dart';
 import '../../shared/widgets/status_chip.dart';
-import '../dashboard/dashboard_screen.dart';
+import '../../core/api/providers.dart';
 
 final _petitionDetailProvider =
     FutureProvider.family.autoDispose<Map<String, dynamic>, String>(

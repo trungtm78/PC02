@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { CaseStatus } from "@/shared/enums/generated";
+import { CASE_STATUS_LABEL } from "@/shared/enums/status-labels";
 import { ROLE_NAMES } from "@/shared/enums/roles";
 import { CASE_PHASE } from "@/shared/enums/case-phase";
 import {
@@ -102,6 +104,7 @@ export default function WardCasesPage() {
 
   const [allData, setAllData] = useState<WardCase[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isExporting, setIsExporting] = useState(false);
 
   const [filters, setFilters] = useState<FilterData>({
     quickSearch: "",
@@ -153,13 +156,18 @@ export default function WardCasesPage() {
         reportedDate: c.createdAt ? new Date(c.createdAt).toLocaleDateString("vi-VN") : "",
         status: (() => {
           const statusMap: Record<string, string> = {
-            TIEP_NHAN: "pending", DANG_XAC_MINH: "investigating", DANG_DIEU_TRA: "investigating",
-            DA_KET_LUAN: "resolved", DA_LUU_TRU: "resolved", DINH_CHI: "resolved",
-            DANG_TRUY_TO: "prosecuted", DANG_XET_XU: "prosecuted", DA_CHUYEN: "transferred",
+            [CaseStatus.TIEP_NHAN]: "pending",
+            [CaseStatus.DANG_XAC_MINH]: "investigating",
+            [CaseStatus.DANG_DIEU_TRA]: "investigating",
+            [CaseStatus.DA_KET_LUAN]: "resolved",
+            [CaseStatus.DA_LUU_TRU]: "resolved",
+            [CaseStatus.DINH_CHI]: "resolved",
+            [CaseStatus.DANG_TRUY_TO]: "prosecuted",
+            [CaseStatus.DANG_XET_XU]: "prosecuted",
           };
           return statusMap[c.status] ?? "pending";
         })() as WardCase["status"],
-        statusLabel: c.status ?? "",
+        statusLabel: CASE_STATUS_LABEL[c.status as CaseStatus] ?? c.status ?? "",
         severity: "medium" as const,
         severityLabel: "Trung bình",
       }));
@@ -254,25 +262,31 @@ export default function WardCasesPage() {
     }
   };
 
-  const handleExport = () => {
-    const toExport = filteredData.length > 0 ? filteredData : allData;
-    if (toExport.length === 0) { alert('Không có dữ liệu để xuất!'); return; }
-    const headers = ['STT', 'Tên vụ án', 'Tội danh', 'Phường/Xã', 'Khu vực',
-                     'Người báo cáo', 'Ngày tiếp nhận', 'Trạng thái', 'Mức độ'];
-    const rows = toExport.map(c => [
-      c.stt, c.caseName, c.charge, c.ward, c.district,
-      c.reportedBy, c.reportedDate, c.statusLabel, c.severityLabel,
-    ]);
-    const csv = [headers, ...rows]
-      .map(row => row.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','))
-      .join('\n');
-    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url;
-    a.download = `VuAnPhuongXa_${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(a); a.click();
-    document.body.removeChild(a); URL.revokeObjectURL(url);
-  };
+  const handleExport = useCallback(async () => {
+    setIsExporting(true);
+    try {
+      const res = await api.get('/cases/export/ward', {
+        params: {
+          unitId: filters.wardId || filters.districtId || undefined,
+          fromDate: filters.fromDate || undefined,
+          toDate: filters.toDate || undefined,
+        },
+        responseType: 'blob',
+      });
+      const url = URL.createObjectURL(res.data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `VuAnPhuongXa_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      alert('Xuất Excel thất bại. Vui lòng thử lại.');
+    } finally {
+      setIsExporting(false);
+    }
+  }, [filters]);
 
   const getStatusBadge = (status: WardCase["status"], label: string) => {
     const styles = {
@@ -470,11 +484,12 @@ export default function WardCasesPage() {
 
           <button
             onClick={handleExport}
+            disabled={isExporting}
             data-testid="export-excel-btn"
-            className="flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            className="flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
             <Download className="w-4 h-4" />
-            Xuất Excel
+            {isExporting ? 'Đang xuất...' : 'Xuất Excel'}
           </button>
 
           <button

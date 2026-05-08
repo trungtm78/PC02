@@ -109,3 +109,14 @@ gh pr create --base main --title "feat: ..."
 git checkout main && git pull
 git branch -d feat/ten-feature-ngan
 ```
+
+## GBrain Configuration (configured by /setup-gbrain)
+- Engine: pglite (local PGLite, single-machine)
+- Config file: `~/.gbrain/config.json`
+- Database path: `~/.gbrain/brain.pglite/`
+- Setup date: 2026-05-08 (Windows repair path — fixed PATH + re-registered MCP with `.exe` suffix)
+- MCP registered: yes (Claude Code, user scope) — `C:\Users\Than Minh Trung\.bun\bin\gbrain.exe serve`
+- Memory sync: off (no `~/.gstack/.git`; run `/setup-gbrain` and pick a sync mode to enable)
+- Current repo policy: unset (run `/setup-gbrain --repo` from this directory to set)
+- Pages indexed: 0 — run `/sync-gbrain --full` to import this repo's code surface
+- Platform: Windows. The skill is Mac-targeted; if you redo setup, expect manual fixups (PATH propagation, `gbrain put` requires `--content` instead of stdin pipe).

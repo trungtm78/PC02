@@ -4,8 +4,7 @@ tags:
   - dashboard
 
 ---
-# Assumes app is on dashboard (run after 01_login_success)
-- launchApp
+- runFlow: 01_login_success.yaml
 # Wait for auth check + 4 API calls to complete before asserting
 - waitForAnimationToEnd:
     timeout: 8000

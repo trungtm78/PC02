@@ -8,7 +8,7 @@ tags:
 # Test search functionality added in feat/mobile
 # Cases screen now has a search text field at top
 
-- launchApp
+- runFlow: 01_login_success.yaml
 - waitForAnimationToEnd
 
 # Navigate to Cases tab (Hồ sơ)
