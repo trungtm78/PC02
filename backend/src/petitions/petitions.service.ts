@@ -23,6 +23,7 @@ import type { DataScope } from '../auth/services/unit-scope.service';
 import { buildPetitionScopeFilter } from '../common/utils/scope-filter.util';
 import { SettingsService } from '../settings/settings.service';
 import { BcaExcelHelper } from '../common/bca-excel.helper';
+import { PETITION_STATUS_LABEL } from '../common/constants/status-labels.constants';
 
 @Injectable()
 export class PetitionsService {
@@ -924,18 +925,10 @@ export class PetitionsService {
     dataScope: DataScope | null | undefined,
     res: Response,
   ): Promise<void> {
-    const PETITION_STATUS_LABELS: Record<string, string> = {
-      MOI_TIEP_NHAN: 'Mới tiếp nhận',
-      DANG_XU_LY: 'Đang xử lý',
-      CHO_PHE_DUYET: 'Chờ phê duyệt',
-      DA_LUU_DON: 'Đã lưu đơn',
-      DA_GIAI_QUYET: 'Đã giải quyết',
-      DA_CHUYEN_VU_VIEC: 'Đã chuyển vụ việc',
-      DA_CHUYEN_VU_AN: 'Đã chuyển vụ án',
-    };
-
     const where: Prisma.PetitionWhereInput = { deletedAt: null };
-    if (query.status) where.status = query.status as Parameters<typeof buildPetitionScopeFilter>[0] extends never ? never : string as any;
+    if (query.status && (Object.values(PetitionStatus) as string[]).includes(query.status)) {
+      where.status = query.status as PetitionStatus;
+    }
     if (query.fromDate) {
       where.receivedDate = { ...(where.receivedDate as any), gte: new Date(query.fromDate) };
     }
@@ -951,20 +944,53 @@ export class PetitionsService {
       ];
     }
 
-    const records = await this.prisma.petition.findMany({
-      where,
-      take: 500,
-      orderBy: { receivedDate: 'desc' },
-      select: {
-        id: true,
-        stt: true,
-        senderName: true,
-        summary: true,
-        receivedDate: true,
-        status: true,
-        assignedTo: { select: { firstName: true, lastName: true } },
+    // Resolve criteria → groupBy key. Default to senderName.
+    // Accepts both English field names and Vietnamese UI labels for compatibility.
+    type DupKey = 'senderName' | 'senderPhone' | 'senderAddress' | 'suspectedPerson';
+    const CRITERIA_MAP: Record<string, DupKey> = {
+      senderName: 'senderName',
+      'Họ tên': 'senderName',
+      senderPhone: 'senderPhone',
+      'Số điện thoại': 'senderPhone',
+      senderAddress: 'senderAddress',
+      'Địa chỉ': 'senderAddress',
+      suspectedPerson: 'suspectedPerson',
+      'Bị đơn trùng': 'suspectedPerson',
+    };
+    const dupKey: DupKey = (query.criteria && CRITERIA_MAP[query.criteria]) || 'senderName';
+
+    // Step 1: find duplicate values within the filtered scope (count >= 2, non-null/non-empty).
+    const groups = await (this.prisma.petition.groupBy as any)({
+      by: [dupKey],
+      where: {
+        ...where,
+        [dupKey]: { not: null, notIn: [''] },
       },
+      _count: { _all: true },
+      having: { [dupKey]: { _count: { gt: 1 } } },
     });
+    const dupValues: string[] = (groups as Array<Record<string, unknown>>)
+      .map((g) => g[dupKey])
+      .filter((v): v is string => typeof v === 'string' && v.length > 0);
+
+    // Step 2: fetch petitions whose dupKey value is in dupValues. If no duplicate groups
+    // were found, return an empty Excel rather than the entire petition list.
+    const records = dupValues.length > 0
+      ? await this.prisma.petition.findMany({
+          where: { ...where, [dupKey]: { in: dupValues } },
+          take: 500,
+          orderBy: [{ [dupKey]: 'asc' }, { receivedDate: 'desc' }],
+          select: {
+            id: true,
+            stt: true,
+            senderName: true,
+            summary: true,
+            receivedDate: true,
+            status: true,
+            assignedTo: { select: { firstName: true, lastName: true } },
+          },
+        })
+      : [];
 
     const COL_COUNT = 7;
     const HEADERS = ['STT', 'Mã đơn', 'Người nộp', 'Tóm tắt nội dung', 'Ngày tiếp nhận', 'Trạng thái', 'ĐTV xử lý'];
@@ -992,7 +1018,7 @@ export class PetitionsService {
         rec.senderName ?? '',
         rec.summary ?? '',
         rec.receivedDate ? rec.receivedDate.toLocaleDateString('vi-VN') : '',
-        PETITION_STATUS_LABELS[rec.status] ?? rec.status ?? '',
+        PETITION_STATUS_LABEL[rec.status as PetitionStatus] ?? rec.status ?? '',
         assignedName,
       ]);
       BcaExcelHelper.styleDataRow(dataRow, idx % 2 === 1, COL_COUNT);

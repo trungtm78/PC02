@@ -17,6 +17,7 @@ import { Prisma, CaseStatus, PetitionStatus, LoaiDon, CapDoToiPham, LyDoTamDinhC
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { buildScopeFilter } from '../common/utils/scope-filter.util';
 import { BcaExcelHelper } from '../common/bca-excel.helper';
+import { CASE_STATUS_LABEL } from '../common/constants/status-labels.constants';
 
 type JsonInput = Prisma.InputJsonValue;
 type PrismaTx = Prisma.TransactionClient;
@@ -792,21 +793,9 @@ export class CasesService {
     title: string,
     filename: string,
   ): Promise<void> {
-    const STATUS_LABELS: Record<string, string> = {
-      TIEP_NHAN: 'Tiếp nhận',
-      DANG_XAC_MINH: 'Đang xác minh',
-      DA_XAC_MINH: 'Đã xác minh',
-      DANG_DIEU_TRA: 'Đang điều tra',
-      TAM_DINH_CHI: 'Tạm đình chỉ',
-      DINH_CHI: 'Đình chỉ',
-      DA_KET_LUAN: 'Đã kết luận',
-      DANG_TRUY_TO: 'Đang truy tố',
-      DANG_XET_XU: 'Đang xét xử',
-      DA_LUU_TRU: 'Đã lưu trữ',
-    };
-
     const where: Prisma.CaseWhereInput = { deletedAt: null };
-    if (query.unitId) where.unitId = query.unitId;
+    if (query.unitId) where.unit = query.unitId;
+    if (query.category) where.crime = { contains: query.category, mode: 'insensitive' };
     if (query.fromDate) {
       where.createdAt = { ...(where.createdAt as any), gte: new Date(query.fromDate) };
     }
@@ -828,10 +817,9 @@ export class CasesService {
       orderBy: { createdAt: 'desc' },
       select: {
         id: true,
-        caseCode: true,
         name: true,
-        crimeType: true,
-        unitId: true,
+        crime: true,
+        unit: true,
         createdAt: true,
         status: true,
         investigator: { select: { firstName: true, lastName: true } },
@@ -860,13 +848,13 @@ export class CasesService {
         : '';
       const dataRow = sheet.addRow([
         idx + 1,
-        rec.caseCode ?? '',
+        rec.id ?? '',
         rec.name ?? '',
-        rec.crimeType ?? '',
-        rec.unitId ?? '',
+        rec.crime ?? '',
+        rec.unit ?? '',
         investigatorName,
         rec.createdAt ? rec.createdAt.toLocaleDateString('vi-VN') : '',
-        STATUS_LABELS[rec.status] ?? rec.status ?? '',
+        CASE_STATUS_LABEL[rec.status as CaseStatus] ?? rec.status ?? '',
       ]);
       BcaExcelHelper.styleDataRow(dataRow, idx % 2 === 1, COL_COUNT);
     });

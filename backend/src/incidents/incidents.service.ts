@@ -25,6 +25,7 @@ import { SettingsService } from '../settings/settings.service';
 import { ROLE_NAMES } from '../common/constants/role.constants';
 import { SETTINGS_KEY } from '../common/constants/settings-keys.constants';
 import { BcaExcelHelper } from '../common/bca-excel.helper';
+import { INCIDENT_STATUS_LABEL } from '../common/constants/status-labels.constants';
 
 @Injectable()
 export class IncidentsService {
@@ -1131,24 +1132,6 @@ export class IncidentsService {
     dataScope: DataScope | null | undefined,
     res: Response,
   ): Promise<void> {
-    const STATUS_LABELS: Record<string, string> = {
-      TIEP_NHAN: 'Tiếp nhận',
-      DANG_XAC_MINH: 'Đang xác minh',
-      DA_PHAN_CONG: 'Đã phân công',
-      DA_GIAI_QUYET: 'Đã giải quyết',
-      TAM_DINH_CHI: 'Tạm đình chỉ',
-      QUA_HAN: 'Quá hạn',
-      DA_CHUYEN_VU_AN: 'Đã chuyển vụ án',
-      KHONG_KHOI_TO: 'Không khởi tố',
-      CHUYEN_XPHC: 'Chuyển XPHC',
-      TDC_HET_THOI_HIEU: 'TĐC hết thời hiệu',
-      TDC_HTH_KHONG_KT: 'TĐC không khởi tố',
-      PHUC_HOI_NGUON_TIN: 'Phục hồi nguồn tin',
-      DA_CHUYEN_DON_VI: 'Đã chuyển đơn vị',
-      DA_NHAP_VU_KHAC: 'Đã nhập vụ khác',
-      PHAN_LOAI_DAN_SU: 'Phân loại dân sự',
-    };
-
     const where: Prisma.IncidentWhereInput = { deletedAt: null };
     if (query.unitId) where.unitId = query.unitId;
     if (query.fromDate) {
@@ -1210,7 +1193,7 @@ export class IncidentsService {
         rec.diaChiXayRa ?? '',
         investigatorName,
         rec.createdAt ? rec.createdAt.toLocaleDateString('vi-VN') : '',
-        STATUS_LABELS[rec.status] ?? rec.status ?? '',
+        INCIDENT_STATUS_LABEL[rec.status as IncidentStatus] ?? rec.status ?? '',
         rec.unitId ?? '',
       ]);
       BcaExcelHelper.styleDataRow(dataRow, idx % 2 === 1, COL_COUNT);

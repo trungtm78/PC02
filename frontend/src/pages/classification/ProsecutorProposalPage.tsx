@@ -193,9 +193,9 @@ export default function ProsecutorProposalPage() {
       const res = await api.get("/proposals/export", {
         params: {
           status: statusEnum,
-          unit: (filters as any).unit || undefined,
-          fromDate: (filters as any).fromDate || undefined,
-          toDate: (filters as any).toDate || undefined,
+          unit: filters.unit || undefined,
+          fromDate: filters.fromDate || undefined,
+          toDate: filters.toDate || undefined,
         },
         responseType: "blob",
       });
@@ -208,7 +208,7 @@ export default function ProsecutorProposalPage() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch {
-      alert("Xuat Excel that bai. Vui long thu lai.");
+      alert("Xuất Excel thất bại. Vui lòng thử lại.");
     } finally {
       setIsExporting(false);
     }

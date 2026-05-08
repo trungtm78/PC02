@@ -3,46 +3,11 @@ import { useNavigate, useParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { usePermission } from "@/hooks/usePermission";
 import { IncidentStatus } from "@/shared/enums/generated";
+import { INCIDENT_STATUS_LABEL, INCIDENT_STATUS_BADGE, BADGE_DEFAULT } from "@/shared/enums/status-labels";
 import {
   ArrowLeft, Edit, Calendar, FileText, User, MapPin, Clock,
   AlertCircle, Loader2,
 } from "lucide-react";
-
-const STATUS_LABELS: Record<IncidentStatus, string> = {
-  TIEP_NHAN: "Tiếp nhận",
-  DANG_XAC_MINH: "Đang xác minh",
-  DA_PHAN_CONG: "Đã phân công",
-  DA_GIAI_QUYET: "Đã giải quyết",
-  TAM_DINH_CHI: "Tạm đình chỉ",
-  QUA_HAN: "Quá hạn",
-  DA_CHUYEN_VU_AN: "Đã khởi tố",
-  KHONG_KHOI_TO: "Không khởi tố",
-  CHUYEN_XPHC: "Chuyển XPHC",
-  TDC_HET_THOI_HIEU: "TĐC hết thời hiệu",
-  TDC_HTH_KHONG_KT: "TĐC HTH không KT",
-  PHUC_HOI_NGUON_TIN: "Phục hồi nguồn tin",
-  DA_CHUYEN_DON_VI: "Đã chuyển đơn vị",
-  DA_NHAP_VU_KHAC: "Đã nhập vụ khác",
-  PHAN_LOAI_DAN_SU: "Phân loại dân sự",
-};
-
-const STATUS_COLORS: Record<IncidentStatus, string> = {
-  TIEP_NHAN: "bg-slate-800 text-white",
-  DANG_XAC_MINH: "bg-amber-500 text-white",
-  DA_PHAN_CONG: "bg-blue-600 text-white",
-  DA_GIAI_QUYET: "bg-green-600 text-white",
-  TAM_DINH_CHI: "bg-orange-500 text-white",
-  QUA_HAN: "bg-red-600 text-white",
-  DA_CHUYEN_VU_AN: "bg-purple-600 text-white",
-  KHONG_KHOI_TO: "bg-gray-600 text-white",
-  CHUYEN_XPHC: "bg-cyan-600 text-white",
-  TDC_HET_THOI_HIEU: "bg-rose-500 text-white",
-  TDC_HTH_KHONG_KT: "bg-rose-400 text-white",
-  PHUC_HOI_NGUON_TIN: "bg-teal-600 text-white",
-  DA_CHUYEN_DON_VI: "bg-indigo-500 text-white",
-  DA_NHAP_VU_KHAC: "bg-violet-500 text-white",
-  PHAN_LOAI_DAN_SU: "bg-lime-600 text-white",
-};
 
 interface IncidentDetail {
   id: string;
@@ -146,8 +111,8 @@ export default function IncidentDetailPage() {
     );
   }
 
-  const statusLabel = STATUS_LABELS[incident.status] ?? incident.status;
-  const statusColor = STATUS_COLORS[incident.status] ?? "bg-slate-600 text-white";
+  const statusLabel = INCIDENT_STATUS_LABEL[incident.status] ?? incident.status;
+  const statusColor = INCIDENT_STATUS_BADGE[incident.status] ?? BADGE_DEFAULT;
   const investigatorName = incident.investigator
     ? `${incident.investigator.lastName ?? ""} ${incident.investigator.firstName ?? ""}`.trim()
     : undefined;
@@ -172,7 +137,7 @@ export default function IncidentDetailPage() {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColor}`}>
+          <span className={`px-3 py-1 rounded-full text-xs font-medium border ${statusColor}`}>
             {statusLabel}
           </span>
           {canEdit && (

@@ -14,7 +14,7 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import { Response } from 'express';
+import type { Response } from 'express';
 import { Throttle } from '@nestjs/throttler';
 import type { ScopedRequest } from '../auth/interfaces/scoped-request.interface';
 import { IncidentsService } from './incidents.service';

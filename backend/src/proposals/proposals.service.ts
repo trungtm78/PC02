@@ -9,6 +9,7 @@ import { ProposalStatus, Prisma } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { assertParentInScope, assertCreatorInScope, buildScopeFilter } from '../common/utils/scope-filter.util';
 import { BcaExcelHelper } from '../common/bca-excel.helper';
+import { PROPOSAL_STATUS_LABEL } from '../common/constants/status-labels.constants';
 
 @Injectable()
 export class ProposalsService {
@@ -180,13 +181,6 @@ export class ProposalsService {
     dataScope: DataScope | null | undefined,
     res: Response,
   ): Promise<void> {
-    const STATUS_LABELS: Record<string, string> = {
-      [ProposalStatus.CHO_GUI]: 'Chờ gửi',
-      [ProposalStatus.DA_GUI]: 'Đã gửi',
-      [ProposalStatus.CO_PHAN_HOI]: 'Đã có phản hồi',
-      [ProposalStatus.DA_XU_LY]: 'Đã xử lý',
-    };
-
     const where: Prisma.ProposalWhereInput = { deletedAt: null };
     if (query.status) where.status = query.status as ProposalStatus;
     if (query.unit) where.unit = { contains: query.unit, mode: 'insensitive' };
@@ -245,7 +239,7 @@ export class ProposalsService {
         rec.unit ?? '',
         creatorName,
         rec.sentDate ? rec.sentDate.toLocaleDateString('vi-VN') : '',
-        STATUS_LABELS[rec.status] ?? rec.status ?? '',
+        PROPOSAL_STATUS_LABEL[rec.status as ProposalStatus] ?? rec.status ?? '',
         rec.response ?? '',
       ]);
       BcaExcelHelper.styleDataRow(dataRow, idx % 2 === 1, COL_COUNT);
