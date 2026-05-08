@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.13.5.2] - 2026-05-08
+
+### Changed
+- **Backend: Tách status labels thành shared constants** — Tạo `backend/src/common/constants/status-labels.constants.ts` gom `CASE_STATUS_LABEL`, `INCIDENT_STATUS_LABEL`, `PETITION_STATUS_LABEL`, `PROPOSAL_STATUS_LABEL`. Các services thay `Record<string,string>` inline bằng constant chung. Đồng thời đổi field exports (`caseCode→id`, `crimeType→crime`, `unitId→unit`) đồng bộ với schema scalar fields.
+- **Backend schema: Thêm performance indexes** — `Case.@@index([createdAt, unitId])`, `Incident.@@index([createdAt, unitId])`, `Proposal.@@index([createdAt, createdById])` — tăng tốc filter export theo ngày + đơn vị.
+- **Mobile: Centralize API providers** — Tạo `mobile/lib/core/api/providers.dart` làm single source of truth cho 10 providers (apiClient, tokenStorage, 8 *ApiProvider). Feature screens không còn khai báo inline + import lẫn nhau qua dashboard_screen. Cross-feature dependency smell được loại bỏ.
+- **Mobile: Force-unwrap hardening** — Thay pattern `deadline!.X()` (đã null-check) bằng local capture `final d = deadline; ... d.X()` trong Case/Incident/Petition models + DeadlineBadge widget. Identical bytecode, clearer intent.
+
+### Fixed
+- **Web: Maestro flow login chain** — 7 flows (`03_cases_list`, `03b_cases_search`, `04b_case_detail_api`, `06_petitions_list`, `07_dashboard`, `10_petitions_overdue`, `99_logout`) trước đây dùng `launchApp` raw → false-positive PASS trên login screen vì assertions yếu. Đổi thành `runFlow: 01_login_success.yaml` để chain login đúng nghiệp vụ.
+- **Web: Maestro biometric dialog dismissal** — `01_login_success.yaml` thêm `tapOn: "Để sau"` (optional) sau Đăng nhập để dismiss biometric setup prompt block dashboard navigation.
+
+### Documentation
+- **Mobile: REFACTOR-FINDINGS.md** — Catalog 9 latent bugs (BUG-1: 2FA không init FCM, BUG-2: NotificationRouter dead code, BUG-3: auth coupled với devices API, ...) + 5 performance hotspots + 7 deferred refactor phases với design specs ready cho session sau.
+- **CLAUDE.md: GBrain Configuration block** — Document local PGLite engine, MCP registration, Windows-specific quirks (PATH propagation, gbrain put requires --content).
+
 ## [0.13.5.1] - 2026-05-03
 
 ### Added
