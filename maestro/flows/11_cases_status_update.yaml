@@ -6,7 +6,7 @@ tags:
 ---
 # Test: Cập nhật trạng thái vụ án (InitialCasesPage — "Nhận xử lý")
 # Validates: PATCH /cases/:id {status: DANG_DIEU_TRA} — fixed in v0.12.1.0
-- runFlow: 01_login.yaml
+- runFlow: 01_login_success.yaml
 - waitForAnimationToEnd
 
 # Navigate to cases list
