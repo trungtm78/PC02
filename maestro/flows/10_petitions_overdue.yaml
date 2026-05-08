@@ -8,7 +8,7 @@ tags:
 # Regression test: "Qua han" tab must only show overdue petitions
 # Fixed: was returning ALL petitions with no filter
 # Uses coordinates for Vietnamese tab label (Maestro 1.39 Windows Unicode limitation)
-- launchApp
+- runFlow: 01_login_success.yaml
 - waitForAnimationToEnd
 
 # Navigate to Don thu tab (4th bottom-nav tab, ~70% x bottom)

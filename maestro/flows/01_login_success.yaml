@@ -24,6 +24,12 @@ tags:
 - waitForAnimationToEnd
 - takeScreenshot: 01_login_result
 
+# Dismiss biometric setup prompt if it appears (post-login dialog)
+- tapOn:
+    text: "Để sau"
+    optional: true
+- waitForAnimationToEnd
+
 # Error strings must not appear (assertNotVisible uses absence check = works)
 - assertNotVisible: "Exception"
 - assertNotVisible: "DioException"
