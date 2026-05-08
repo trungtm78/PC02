@@ -324,7 +324,7 @@ model Case {
   @@index([assignedTeamId])
   @@index([lyDoTamDinhChiVuAn])
   @@index([createdAt])
-  @@index([unitId])
+  @@index([unit])
   @@map("cases")
 }
 
