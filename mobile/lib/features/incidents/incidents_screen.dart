@@ -7,7 +7,7 @@ import '../../shared/widgets/deadline_badge.dart';
 import '../../shared/widgets/empty_state.dart';
 import '../../shared/widgets/offline_banner.dart';
 import '../../shared/widgets/status_chip.dart';
-import '../dashboard/dashboard_screen.dart';
+import '../../core/api/providers.dart';
 
 enum _IncidentTab { all, overdue }
 

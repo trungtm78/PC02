@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../core/api/cases_api.dart';
-import '../../core/api/dashboard_api.dart';
-import '../../core/api/incidents_api.dart';
-import '../../core/api/petitions_api.dart';
+import '../../core/api/providers.dart';
 import '../../core/auth/auth_provider.dart';
 import '../../core/models/case.dart';
 import '../../core/models/dashboard_stats.dart';
@@ -35,15 +32,6 @@ final _dashboardDataProvider =
     overduePetitions: results[3] as List<Petition>,
   );
 });
-
-final dashboardApiProvider =
-    Provider((ref) => DashboardApi(ref.read(apiClientProvider)));
-final casesApiProvider =
-    Provider((ref) => CasesApi(ref.read(apiClientProvider)));
-final incidentsApiProvider =
-    Provider((ref) => IncidentsApi(ref.read(apiClientProvider)));
-final petitionsApiProvider =
-    Provider((ref) => PetitionsApi(ref.read(apiClientProvider)));
 
 class _DashboardData {
   final DashboardStats stats;

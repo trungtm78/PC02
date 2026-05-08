@@ -1,10 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../api/api_client.dart';
-import '../api/settings_api.dart';
-import '../auth/auth_provider.dart';
-
-final settingsApiProvider =
-    Provider((ref) => SettingsApi(ref.read(apiClientProvider)));
+import '../api/providers.dart';
 
 final deadlineThresholdProvider = FutureProvider<int>((ref) async {
   final api = ref.read(settingsApiProvider);
