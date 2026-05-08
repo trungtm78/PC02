@@ -10,12 +10,13 @@ class DeadlineBadge extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (deadline == null) return const SizedBox.shrink();
+    final d = deadline;
+    if (d == null) return const SizedBox.shrink();
 
     final threshold = ref.watch(deadlineThresholdProvider).valueOrNull ?? 7;
     final now = DateTime.now();
-    final daysLeft = deadline!.difference(now).inDays;
-    final isOverdue = deadline!.isBefore(now);
+    final daysLeft = d.difference(now).inDays;
+    final isOverdue = d.isBefore(now);
 
     Color color;
     String label;

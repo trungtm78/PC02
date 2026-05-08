@@ -15,11 +15,15 @@ class Case {
     this.investigatorName,
   });
 
-  bool get isOverdue => deadline != null && deadline!.isBefore(DateTime.now());
+  bool get isOverdue {
+    final d = deadline;
+    return d != null && d.isBefore(DateTime.now());
+  }
 
   int? get daysUntilDeadline {
-    if (deadline == null) return null;
-    return deadline!.difference(DateTime.now()).inDays;
+    final d = deadline;
+    if (d == null) return null;
+    return d.difference(DateTime.now()).inDays;
   }
 
   factory Case.fromJson(Map<String, dynamic> json) => Case(
