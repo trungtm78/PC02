@@ -201,3 +201,112 @@ describe('forgotPassword + resetPassword', () => {
     ).rejects.toThrow(new BadRequestException('Mã xác nhận không hợp lệ hoặc đã hết hạn'));
   });
 });
+
+describe('AuthService.getProfile', () => {
+  let service: AuthService;
+
+  beforeEach(() => {
+    service = makeService();
+    jest.clearAllMocks();
+  });
+
+  function userFixture(opts: {
+    teams?: Array<{ teamId: string; teamName: string; isLeader: boolean; joinedAt?: Date }>;
+    isActive?: boolean;
+  } = {}) {
+    return {
+      id: 'u1',
+      email: 'a@b.com',
+      username: 'a',
+      firstName: 'A',
+      lastName: 'B',
+      isActive: opts.isActive !== false,
+      canDispatch: false,
+      role: { name: 'OFFICER' },
+      userTeams: (opts.teams ?? []).map((t) => ({
+        teamId: t.teamId,
+        isLeader: t.isLeader,
+        joinedAt: t.joinedAt ?? new Date('2024-01-01'),
+        team: { id: t.teamId, name: t.teamName },
+      })),
+    };
+  }
+
+  it('returns leader team as primaryTeam when user has a leader role', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(
+      userFixture({
+        teams: [
+          { teamId: 't1', teamName: 'Đội 1', isLeader: false, joinedAt: new Date('2024-01-01') },
+          { teamId: 't2', teamName: 'Đội 2', isLeader: true, joinedAt: new Date('2024-06-01') },
+        ],
+      }),
+    );
+
+    const profile = await service.getProfile('u1');
+
+    expect(profile.primaryTeam).toEqual({ teamId: 't2', teamName: 'Đội 2' });
+    expect(profile.teams).toHaveLength(2);
+  });
+
+  it('falls back to oldest-joined team when no leader exists', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(
+      userFixture({
+        teams: [
+          { teamId: 't1', teamName: 'Đội 1', isLeader: false, joinedAt: new Date('2024-01-01') },
+          { teamId: 't2', teamName: 'Đội 2', isLeader: false, joinedAt: new Date('2024-06-01') },
+        ],
+      }),
+    );
+
+    const profile = await service.getProfile('u1');
+
+    expect(profile.primaryTeam).toEqual({ teamId: 't1', teamName: 'Đội 1' });
+  });
+
+  it('returns primaryTeam=null when user has no team', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(userFixture({ teams: [] }));
+
+    const profile = await service.getProfile('u1');
+
+    expect(profile.primaryTeam).toBeNull();
+    expect(profile.teams).toEqual([]);
+  });
+
+  it('handles single team membership', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(
+      userFixture({
+        teams: [{ teamId: 't1', teamName: 'Đội 1', isLeader: false }],
+      }),
+    );
+
+    const profile = await service.getProfile('u1');
+
+    expect(profile.primaryTeam).toEqual({ teamId: 't1', teamName: 'Đội 1' });
+    expect(profile.teams).toEqual([{ teamId: 't1', teamName: 'Đội 1', isLeader: false }]);
+  });
+
+  it('throws UnauthorizedException when user not found', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(null);
+
+    await expect(service.getProfile('ghost')).rejects.toThrow(UnauthorizedException);
+  });
+
+  it('throws UnauthorizedException when user is inactive', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(userFixture({ isActive: false }));
+
+    await expect(service.getProfile('u1')).rejects.toThrow(UnauthorizedException);
+  });
+
+  it('returns role name and canDispatch flag', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({
+      ...userFixture({ teams: [] }),
+      canDispatch: true,
+      role: { name: 'COMMANDER' },
+    });
+
+    const profile = await service.getProfile('u1');
+
+    expect(profile.role).toBe('COMMANDER');
+    expect(profile.canDispatch).toBe(true);
+  });
+});
