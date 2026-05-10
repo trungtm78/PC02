@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.13.6.0] - 2026-05-10
+
+### Added
+- **Web: Pre-fill defaults across mọi form "tạo mới"** — Khi mở form thêm mới Vụ án/Vụ việc/Đơn thư/Đề xuất VKS/Hướng dẫn đơn/Ủy thác, các field "Ngày tiếp nhận", "Cán bộ thụ lý/nhập", "Đơn vị thụ lý" tự động điền sẵn theo current user + đội/tổ. User chỉ phải chỉnh sửa khi thực sự khác. Cả FK (`assignedTeamId`) lẫn text label đều được điền — đảm bảo record mới hiện đúng trong scope filter của user thay vì biến mất.
+- **Backend: GET /auth/me** — Endpoint mới trả về profile + danh sách team (id, name, leader flag) + primary team. FE cache trong sessionStorage và dùng cho form pre-fill. JWT giữ nguyên (chỉ chứa role/email/canDispatch) — không bump tokenVersion khi admin đổi team.
+- **Frontend: useFormDefaults() hook + useAuthHydration() hook** — Centralize 1 source of truth cho default values, 1 effect duy nhất quản hydration profile từ /auth/me. Login/2FA/refresh chỉ set tokens; hydration tự fire qua custom event.
+- **Frontend: lib/dates.ts** — `today()` và `toDateInput()` util format theo local timezone (+07 Việt Nam). Thay 8 site đang dùng `new Date().toISOString().split('T')[0]` — khắc phục bug late-night hiển thị "hôm qua" trong `<input type="date">`.
+
+### Changed
+- **Backend: CreateCaseDto + CreatePetitionDto thêm assignedTeamId** — Form FE submit kèm FK Team. Service create() persist field này → DataScope filter theo tổ hoạt động đúng cho record mới (trước đây `assignedTeamId=null` khiến record không xuất hiện trong "vụ án của tổ tôi").
+- **Frontend: AuthUser interface mở rộng** — Thêm `id`, `firstName`, `lastName`, `teams[]`, `primaryTeam`. `authStore.getUser()` ưu tiên cached profile, fallback JWT decode (back-compat cho session cũ).
+- **Web: Logo BCA "Bảo Vệ ANTT" làm favicon** — Tab trình duyệt hiện logo công an thay vì icon Vite mặc định. Logo serve từ `frontend/public/logo-cong-an.png`.
+
+### Tests
+- **Backend: +10 test** — `auth.service.getProfile()` (5 case: leader/oldest/no-team/single/not-found/inactive/canDispatch) + `auth.controller.me()` (2 case wiring).
+- **Frontend: +33 test** — `dates.ts` (12), `useFormDefaults` (7), `useAuthHydration` (5), `auth.store` (7), `PetitionFormPage` integration (3).
+- **Total: 1228 tests pass** (945 BE + 283 FE).
+
+### Tooling
+- **start_here_be.bat** — Script khởi động riêng backend: kill port 3000 cũ, start `npm run start:dev` trong cửa sổ mới.
+- **Mobile: minSdk theo Flutter default** — `mobile/android/app/build.gradle.kts`: `minSdk = flutter.minSdkVersion` thay vì hard-code 23 → mở rộng device support theo Flutter SDK.
+
 ## [0.13.5.2] - 2026-05-08
 
 ### Changed
