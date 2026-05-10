@@ -109,6 +109,7 @@ model User {
   grantsReceived        DataAccessGrant[] @relation("GrantReceived")
   grantsGiven           DataAccessGrant[] @relation("GrantGiven")
   abbreviations         UserAbbreviation[]
+  shortcuts             UserShortcut[]
   devices               UserDevice[]
   overdueNotifications  OverdueNotification[]
   vksMeetingsCreated    VksMeetingRecord[]     @relation("VksMeetingCreatedBy")
@@ -1126,6 +1127,29 @@ model UserAbbreviation {
   @@unique([userId, shortcut])
   @@index([userId])
   @@map("user_abbreviations")
+}
+
+// ─────────────────────────────────────────────
+// Per-user keyboard shortcut overrides
+// FE registry holds defaults; only user-customized bindings persist here.
+// (userId, action) unique → one override per user per action.
+// (userId, binding) unique → DB-enforced conflict prevention (race-safe).
+// ─────────────────────────────────────────────
+
+model UserShortcut {
+  id        String   @id @default(cuid())
+  userId    String
+  action    String
+  binding   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, action])
+  @@unique([userId, binding])
+  @@index([userId])
+  @@map("user_shortcuts")
 }
 
 // ─────────────────────────────────────────────

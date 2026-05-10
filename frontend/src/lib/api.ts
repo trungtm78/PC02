@@ -112,6 +112,29 @@ export type AbbreviationUser = {
   lastName: string | null;
 };
 
+// ─── User Shortcuts API ────────────────────────────────────────────────────────
+
+export type UserShortcut = {
+  id: string;
+  action: string;
+  binding: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export const userShortcutsApi = {
+  list: () => api.get<UserShortcut[]>('/user-shortcuts'),
+  upsert: (action: string, binding: string) =>
+    api.put<UserShortcut>(`/user-shortcuts/${encodeURIComponent(action)}`, { binding }),
+  remove: (action: string) => api.delete(`/user-shortcuts/${encodeURIComponent(action)}`),
+  resetAll: () => api.post<{ deleted: number }>('/user-shortcuts/reset'),
+  swap: (fromAction: string, toAction: string) =>
+    api.post<{ success: boolean; from: { action: string; binding: string }; to: { action: string; binding: string } }>(
+      '/user-shortcuts/swap',
+      { fromAction, toAction },
+    ),
+};
+
 export const abbreviationsApi = {
   list: () => api.get<Abbreviation[]>('/abbreviations'),
   upsert: (shortcut: string, expansion: string) =>
