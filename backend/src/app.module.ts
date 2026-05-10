@@ -32,6 +32,7 @@ import { SettingsModule } from './settings/settings.module';
 import { FeatureFlagsModule } from './feature-flags/feature-flags.module';
 import { KpiModule } from './kpi/kpi.module';
 import { AbbreviationsModule } from './abbreviations/abbreviations.module';
+import { UserShortcutsModule } from './user-shortcuts/user-shortcuts.module';
 import { TdacModule } from './reports/tdac/tdac.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { PushModule } from './push/push.module';
@@ -74,6 +75,7 @@ import { DataScopeInterceptor } from './auth/interceptors/data-scope.interceptor
     FeatureFlagsModule,
     KpiModule,
     AbbreviationsModule,
+    UserShortcutsModule,
     PushModule,
     SchedulerModule,
     VksMeetingsModule,

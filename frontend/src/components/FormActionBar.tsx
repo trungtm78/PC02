@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import {
   ArrowLeft,
   X,
@@ -8,6 +8,8 @@ import {
   CheckCircle,
   Loader2,
 } from "lucide-react";
+import { useShortcut } from "@/hooks/useShortcut";
+import { ShortcutHint } from "@/components/ShortcutCheatSheet";
 
 interface FormActionBarProps {
   onBack: () => void;
@@ -49,7 +51,7 @@ export function FormActionBar({
     }, 5000);
   };
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     if (isSaveDisabled) return;
 
     setIsSaving(true);
@@ -61,7 +63,12 @@ export function FormActionBar({
     } finally {
       setIsSaving(false);
     }
-  };
+  }, [isSaveDisabled, onSave]);
+
+  // Wire keyboard shortcuts — Save and Cancel via the central registry.
+  // `enabled: !isSaveDisabled` ensures Ctrl+Shift+S during loading/invalid does not fire.
+  useShortcut('save', () => { void handleSave(); }, { enabled: !isSaveDisabled });
+  useShortcut('cancel', () => { if (!isSaving) onCancel(); });
 
   const completionPercentage =
     requiredFieldsCount > 0
@@ -164,6 +171,7 @@ export function FormActionBar({
                   <>
                     <Save className="w-4 h-4" />
                     {saveButtonText}
+                    <ShortcutHint action="save" className="ml-1" />
                   </>
                 )}
               </button>

@@ -9,6 +9,9 @@ import { TwoFaSetupModal } from '@/components/TwoFaSetupModal';
 import { useAbbreviationExpander } from '@/hooks/useAbbreviationExpander';
 import { useAddressConverter } from '@/hooks/useAddressConverter';
 import { AddressConversionDialog } from '@/components/AddressConversionDialog';
+import { useShortcut } from '@/hooks/useShortcut';
+import { useUserShortcutBroadcast } from '@/hooks/useUserShortcuts';
+import { ShortcutCheatSheet } from '@/components/ShortcutCheatSheet';
 import { authStore } from '@/stores/auth.store';
 import logoCA from '@/assets/logo-cong-an.png';
 
@@ -30,7 +33,8 @@ function getUserInitials(email: string | undefined): string {
 
 export function MainLayout() {
   useAbbreviationExpander();
-  const { preview: addressPreview, applyConversion, cancelConversion } = useAddressConverter('F10');
+  useUserShortcutBroadcast(); // cross-tab sync for shortcut bindings
+  const { preview: addressPreview, applyConversion, cancelConversion } = useAddressConverter();
   const navigate = useNavigate();
   const user = authStore.getUser();
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -55,6 +59,9 @@ export function MainLayout() {
       navigate('/login', { replace: true });
     }
   };
+
+  // Wire global shortcuts
+  useShortcut('logout', handleLogout);
 
   return (
     <div className="h-screen flex flex-col bg-[#F7F6F2]">
@@ -162,6 +169,8 @@ export function MainLayout() {
           onCancel={cancelConversion}
         />
       )}
+      {/* `?` keyboard cheat sheet (discoverability layer) */}
+      <ShortcutCheatSheet />
     </div>
   );
 }
