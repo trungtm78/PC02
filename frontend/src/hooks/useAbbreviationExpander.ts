@@ -1,5 +1,6 @@
-import { useEffect } from 'react';
+import { useCallback } from 'react';
 import { useAbbreviationMap } from './useAbbreviations';
+import { useShortcut } from './useShortcut';
 
 function getLastWordRange(el: HTMLInputElement | HTMLTextAreaElement): {
   word: string;
@@ -32,10 +33,8 @@ function setNativeValue(el: HTMLInputElement | HTMLTextAreaElement, value: strin
 export function useAbbreviationExpander() {
   const abbrevMap = useAbbreviationMap();
 
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key !== 'F9') return;
-
+  const handler = useCallback(
+    (e: KeyboardEvent) => {
       const el = document.activeElement;
       if (!(el instanceof HTMLInputElement) && !(el instanceof HTMLTextAreaElement)) return;
       if ((el as HTMLInputElement).type === 'password') return;
@@ -51,9 +50,9 @@ export function useAbbreviationExpander() {
       const newValue = el.value.slice(0, start) + expansion + el.value.slice(end);
       setNativeValue(el, newValue);
       el.setSelectionRange(start + expansion.length, start + expansion.length);
-    }
+    },
+    [abbrevMap],
+  );
 
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [abbrevMap]);
+  useShortcut('expandAbbreviation', handler);
 }

@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { AbbreviationsModule } from './modules/AbbreviationsModule';
 import { AddressMappingModule } from './modules/AddressMappingModule';
+import { ShortcutsModule } from './modules/ShortcutsModule';
 import { Button } from '@/components/ui/button';
 import { TwoFaSetupModal } from '@/components/TwoFaSetupModal';
 import { ChangePasswordModal } from '@/components/ChangePasswordModal';
@@ -70,6 +71,12 @@ const menuItems = [
     label: 'Cải cách địa chỉ',
     icon: MapPin,
     description: 'Mapping địa chỉ cũ → mới (F10)',
+  },
+  {
+    id: 'shortcuts',
+    label: 'Phím tắt',
+    icon: KeyRound,
+    description: 'Tùy chỉnh phím tắt thao tác',
   },
 ];
 
@@ -502,6 +509,8 @@ export default function SettingsPage() {
         return <AbbreviationsModule />;
       case 'address-mapping':
         return <AddressMappingModule />;
+      case 'shortcuts':
+        return <ShortcutsModule />;
       default:
         return <UserManagementModule />;
     }

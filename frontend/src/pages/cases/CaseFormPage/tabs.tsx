@@ -28,6 +28,7 @@ import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { today } from "@/lib/dates";
+import { useShortcut } from "@/hooks/useShortcut";
 import { FormInput, FormSelect, FormTextarea } from "@/components/form";
 import { Card, CardHeader, EmptyState, DataTable, ActionButtons, StatusBadge } from "@/components/shared";
 import type { ColumnDef } from "@/components/shared";
@@ -74,16 +75,8 @@ export function TabInfo({ formData, setFormData, errors, setErrors, handlerOptio
     setLegacyMode((prev) => !prev);
   };
 
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.shiftKey && e.key === "L") {
-        e.preventDefault();
-        handleLegacyToggle();
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [legacyMode]);
+  // Migrated to centralized shortcut registry (Ctrl+Shift+L default).
+  useShortcut('toggleLegacyMode', handleLegacyToggle);
 
   // Active wards after reform — isActive=true must be explicit (no server-side default)
   const { data: wardOptions } = useQuery({
