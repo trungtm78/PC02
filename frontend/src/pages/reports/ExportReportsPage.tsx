@@ -21,6 +21,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { today } from "@/lib/dates";
 
 interface Document {
   id: string;
@@ -81,7 +82,7 @@ export default function ExportReportsPage() {
 
   const [receiptForm, setReceiptForm] = useState<ReceiptFormData>({
     receiptNumber: "",
-    receiptDate: new Date().toISOString().split("T")[0],
+    receiptDate: today(),
     receiverName: "",
     delivererName: "",
     content: "",
@@ -316,7 +317,7 @@ export default function ExportReportsPage() {
     setShowReceiptModal(false);
     setReceiptForm({
       receiptNumber: "",
-      receiptDate: new Date().toISOString().split("T")[0],
+      receiptDate: today(),
       receiverName: "",
       delivererName: "",
       content: "",
@@ -468,7 +469,7 @@ export default function ExportReportsPage() {
               setShowReceiptModal(true);
               setReceiptForm({
                 receiptNumber: "",
-                receiptDate: new Date().toISOString().split("T")[0],
+                receiptDate: today(),
                 receiverName: "",
                 delivererName: "",
                 content: "",

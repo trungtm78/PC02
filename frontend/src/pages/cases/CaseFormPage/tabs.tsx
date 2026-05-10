@@ -27,6 +27,7 @@ import {
 import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { today } from "@/lib/dates";
 import { FormInput, FormSelect, FormTextarea } from "@/components/form";
 import { Card, CardHeader, EmptyState, DataTable, ActionButtons, StatusBadge } from "@/components/shared";
 import type { ColumnDef } from "@/components/shared";
@@ -1559,7 +1560,7 @@ export function TabMedia({
   onDelete: (id: string) => void;
 }) {
   const [isDragging, setIsDragging] = useState(false);
-  const [recordDate, setRecordDate] = useState(new Date().toISOString().split("T")[0]);
+  const [recordDate, setRecordDate] = useState(today());
 
   const allowedTypes = ["mp3", "mp4", "avi", "wav", "mov", "wmv"];
 
@@ -1594,7 +1595,7 @@ export function TabMedia({
           <input
             type="date"
             value={recordDate}
-            max={new Date().toISOString().split("T")[0]}
+            max={today()}
             onChange={(e) => setRecordDate(e.target.value)}
             className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
           />

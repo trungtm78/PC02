@@ -97,6 +97,12 @@ export class CreatePetitionDto {
   @IsString()
   assignedToId?: string;
 
+  // FK Team (Petition.assignedTeamId) — paired with `unit` text label.
+  // FE pre-fills both so DataScope team-filter matches the user's primary team.
+  @IsOptional()
+  @IsString()
+  assignedTeamId?: string;
+
   @IsOptional()
   @IsString()
   notes?: string;

@@ -64,7 +64,8 @@ export interface CaseFormData {
   status: string;             // Trạng thái
   priority: string;           // Mức độ ưu tiên
   handler: string;            // Điều tra viên chính (bắt buộc)
-  supervisingUnit: string;    // Đơn vị thụ lý
+  supervisingUnit: string;    // Đơn vị thụ lý (text label, lưu vào Case.unit)
+  assignedTeamId: string;     // FK Team đơn vị thụ lý (Case.assignedTeamId) — DataScope hoạt động dựa trên field này
   petitionType: string;       // Loại đơn thư (từ MasterClass type 02)
   caseClassification: string; // Phân loại vụ án
   capDoToiPham: string;       // Mức độ tội phạm (BLHS 2015 Điều 9) — dùng cho KPI-4
@@ -211,6 +212,7 @@ export const INITIAL_FORM_DATA: CaseFormData = {
   priority: "",
   handler: "",
   supervisingUnit: "",
+  assignedTeamId: "",
   petitionType: "",
   caseClassification: "",
   capDoToiPham: "",

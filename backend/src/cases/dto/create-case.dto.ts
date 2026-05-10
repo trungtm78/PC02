@@ -39,6 +39,12 @@ export class CreateCaseDto {
   @MaxLength(255)
   unit?: string;
 
+  // FK Team (Case.assignedTeamId) — paired with `unit` text label.
+  // Forms pre-fill both so DataScope team-filter matches the user's primary team.
+  @IsOptional()
+  @IsString()
+  assignedTeamId?: string;
+
   @IsOptional()
   @IsInt()
   @Min(0)

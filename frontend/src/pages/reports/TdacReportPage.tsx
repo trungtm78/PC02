@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { FileSpreadsheet, Eye, FilePlus, AlertCircle, ChevronDown, ChevronRight } from "lucide-react";
 import { api } from "@/lib/api";
+import { today } from "@/lib/dates";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -79,7 +80,7 @@ export default function TdacReportPage() {
     d.setDate(1);
     return d.toISOString().slice(0, 10);
   });
-  const [toDate, setToDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [toDate, setToDate] = useState(() => today());
   const [teams, setTeams] = useState<Team[]>([]);
   const [selectedTeamIds, setSelectedTeamIds] = useState<string[]>([]);
   const [reportData, setReportData] = useState<TdacReportData | null>(null);

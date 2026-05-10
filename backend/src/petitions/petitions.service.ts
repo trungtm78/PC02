@@ -325,6 +325,7 @@ export class PetitionsService {
         attachmentsNote: dto.attachmentsNote,
         deadline: computedDeadline,
         assignedToId: dto.assignedToId,
+        ...(dto.assignedTeamId !== undefined && { assignedTeamId: dto.assignedTeamId }),
         notes: dto.notes,
         status: dto.status ?? PetitionStatus.MOI_TIEP_NHAN,
       },

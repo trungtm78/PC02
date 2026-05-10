@@ -30,6 +30,8 @@ import {
   UserCheck,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { useFormDefaults } from '@/hooks/useFormDefaults';
+import { today } from '@/lib/dates';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -93,6 +95,8 @@ export default function PetitionGuidancePage() {
     unit: '',
     status: '',
   });
+
+  const defaults = useFormDefaults();
 
   const [formData, setFormData] = useState<GuidanceFormData>({
     guidedPerson: '',
@@ -162,7 +166,7 @@ export default function PetitionGuidancePage() {
   const totalCount = filteredData.length;
   const completedCount = filteredData.filter((g) => g.status === 'completed').length;
   const pendingCount = filteredData.filter((g) => g.status === CASE_PHASE.PENDING).length;
-  const todayCount = filteredData.filter((g) => g.date === new Date().toISOString().split('T')[0]).length;
+  const todayCount = filteredData.filter((g) => g.date === today()).length;
 
   // ── Handlers ───────────────────────────────────────────────────────────────
 
@@ -173,7 +177,14 @@ export default function PetitionGuidancePage() {
   const openAddModal = () => {
     setEditingMode('add');
     setSelectedGuidance(null);
-    setFormData({ guidedPerson: '', guidedPersonPhone: '', subject: '', guidanceContent: '', notes: '', unit: '' });
+    setFormData({
+      guidedPerson: '',
+      guidedPersonPhone: '',
+      subject: '',
+      guidanceContent: '',
+      notes: '',
+      unit: defaults.primaryTeamName ?? '',
+    });
     setFormErrors({});
     setShowGuidanceModal(true);
   };

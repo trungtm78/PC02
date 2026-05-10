@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { downloadCsv } from '@/lib/csv';
+import { today, toDateInput } from '@/lib/dates';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -124,7 +125,7 @@ export default function InvestigationDelegationPage() {
         id: d.id,
         stt: i + 1,
         delegationNumber: d.delegationNumber,
-        delegationDate: d.delegationDate ? new Date(d.delegationDate).toISOString().split('T')[0] : '',
+        delegationDate: toDateInput(d.delegationDate),
         receivingUnit: d.receivingUnit,
         status: (statusMap[d.status] ?? 'pending') as DelegationStatus,
         statusLabel: statusMap[d.status] === 'completed' ? 'Đã hoàn thành' : statusMap[d.status] === 'received' ? 'Đã nhận' : 'Chờ xử lý',
@@ -212,7 +213,7 @@ export default function InvestigationDelegationPage() {
     setFormData({
       delegationNumber: '',
       content: '',
-      delegationDate: new Date().toISOString().split('T')[0],
+      delegationDate: today(),
       receivingUnit: '',
       status: 'pending',
       relatedCase: '',
