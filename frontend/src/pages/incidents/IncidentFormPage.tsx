@@ -5,6 +5,8 @@ import { ArrowLeft, Save, AlertCircle, Calendar, FileText, Loader2, ChevronDown,
 import { FKSelect, type FKOption } from "@/components/FKSelect";
 import { getPhaseForStatus } from "@/constants/incident-phases";
 import { LY_DO_KHONG_KHOI_TO_OPTIONS } from "@/shared/enums/status-labels";
+import { useFormDefaults } from "@/hooks/useFormDefaults";
+import { toDateInput } from "@/lib/dates";
 
 interface FormData {
   name: string;
@@ -17,7 +19,8 @@ interface FormData {
   doiTuongToChuc: string;
   loaiDonVu: string;
   benVu: string;
-  donViGiaiQuyet: string;
+  donViGiaiQuyet: string;     // Text label
+  assignedTeamId: string;     // FK Team for DataScope
   ngayDeXuat: string;
   sdtNguoiToGiac: string;
   diaChiNguoiToGiac: string;
@@ -47,6 +50,7 @@ const INITIAL_FORM: FormData = {
   loaiDonVu: "",
   benVu: "",
   donViGiaiQuyet: "",
+  assignedTeamId: "",
   ngayDeXuat: "",
   sdtNguoiToGiac: "",
   diaChiNguoiToGiac: "",
@@ -113,6 +117,22 @@ export function IncidentFormPage() {
   const [section3Open, setSection3Open] = useState(false);
   const [section4Open, setSection4Open] = useState(false);
 
+  const defaults = useFormDefaults();
+
+  // Apply defaults on create mode (today, current user, primary team).
+  // `prev.x ||` guard preserves user typing if they type before profile loads.
+  useEffect(() => {
+    if (isEditMode || !defaults.isLoaded) return;
+    setFormData((prev) => ({
+      ...prev,
+      ngayDeXuat:     prev.ngayDeXuat     || defaults.today,
+      canBoNhapId:    prev.canBoNhapId    || defaults.userId           || "",
+      investigatorId: prev.investigatorId || defaults.userId           || "",
+      donViGiaiQuyet: prev.donViGiaiQuyet || defaults.primaryTeamName  || "",
+      assignedTeamId: prev.assignedTeamId || defaults.primaryTeamId    || "",
+    }));
+  }, [isEditMode, defaults.isLoaded, defaults.today, defaults.userId, defaults.primaryTeamId, defaults.primaryTeamName]);
+
   // Load users for investigator / canBoNhap pickers
   useEffect(() => {
     api
@@ -139,15 +159,16 @@ export function IncidentFormPage() {
             name: (d.name as string) ?? "",
             incidentType: (d.incidentType as string) ?? "",
             description: (d.description as string) ?? "",
-            fromDate: d.fromDate ? String(d.fromDate).split("T")[0] : "",
-            toDate: d.toDate ? String(d.toDate).split("T")[0] : "",
-            deadline: d.deadline ? String(d.deadline).split("T")[0] : "",
+            fromDate: toDateInput(d.fromDate as string | null | undefined),
+            toDate: toDateInput(d.toDate as string | null | undefined),
+            deadline: toDateInput(d.deadline as string | null | undefined),
             doiTuongCaNhan: (d.doiTuongCaNhan as string) ?? "",
             doiTuongToChuc: (d.doiTuongToChuc as string) ?? "",
             loaiDonVu: (d.loaiDonVu as string) ?? "",
             benVu: (d.benVu as string) ?? "",
             donViGiaiQuyet: (d.donViGiaiQuyet as string) ?? "",
-            ngayDeXuat: d.ngayDeXuat ? String(d.ngayDeXuat).split("T")[0] : "",
+            assignedTeamId: (d.assignedTeamId as string) ?? "",
+            ngayDeXuat: toDateInput(d.ngayDeXuat as string | null | undefined),
             sdtNguoiToGiac: (d.sdtNguoiToGiac as string) ?? "",
             diaChiNguoiToGiac: (d.diaChiNguoiToGiac as string) ?? "",
             cmndNguoiToGiac: (d.cmndNguoiToGiac as string) ?? "",
@@ -156,7 +177,7 @@ export function IncidentFormPage() {
             investigatorId: (d.investigatorId as string) ?? "",
             ketQuaXuLy: (d.ketQuaXuLy as string) ?? "",
             soQuyetDinh: (d.soQuyetDinh as string) ?? "",
-            ngayQuyetDinh: d.ngayQuyetDinh ? String(d.ngayQuyetDinh).split("T")[0] : "",
+            ngayQuyetDinh: toDateInput(d.ngayQuyetDinh as string | null | undefined),
             nguoiQuyetDinh: (d.nguoiQuyetDinh as string) ?? "",
             lyDoKhongKhoiTo: (d.lyDoKhongKhoiTo as string) ?? "",
             lyDoTamDinhChi: (d.lyDoTamDinhChi as string) ?? "",
@@ -208,6 +229,7 @@ export function IncidentFormPage() {
         loaiDonVu: s(formData.loaiDonVu),
         benVu: s(formData.benVu),
         donViGiaiQuyet: s(formData.donViGiaiQuyet),
+        assignedTeamId: s(formData.assignedTeamId),
         ngayDeXuat: s(formData.ngayDeXuat),
         sdtNguoiToGiac: s(formData.sdtNguoiToGiac),
         diaChiNguoiToGiac: s(formData.diaChiNguoiToGiac),

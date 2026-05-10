@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "@/lib/api";
+import { useFormDefaults } from "@/hooks/useFormDefaults";
+import { toDateInput } from "@/lib/dates";
 import {
   X,
   Save,
@@ -71,6 +73,8 @@ function CaseFormPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [showDraftBanner, setShowDraftBanner] = useState(false);
 
+  const defaults = useFormDefaults();
+
   // Load draft from localStorage on mount (only when creating, not editing)
   useEffect(() => {
     if (!isEditMode) {
@@ -83,6 +87,19 @@ function CaseFormPage() {
       } catch { /* ignore malformed draft */ }
     }
   }, [isEditMode]);
+
+  // Apply form defaults (today, current user, primary team) on create mode once profile is hydrated.
+  // `prev.x ||` guard preserves user keystrokes if they typed before profile loaded.
+  useEffect(() => {
+    if (isEditMode || !defaults.isLoaded) return;
+    setFormData((prev) => ({
+      ...prev,
+      receiveDate:     prev.receiveDate     || defaults.today,
+      handler:         prev.handler         || defaults.userId            || "",
+      supervisingUnit: prev.supervisingUnit || defaults.primaryTeamName   || "",
+      assignedTeamId:  prev.assignedTeamId  || defaults.primaryTeamId     || "",
+    }));
+  }, [isEditMode, defaults.isLoaded, defaults.today, defaults.userId, defaults.primaryTeamId, defaults.primaryTeamName]);
   const [recordUpdatedAt, setRecordUpdatedAt] = useState<string | null>(null);
 
   // ─── Fetch danh sách điều tra viên từ API ──────────────────────────────
@@ -126,9 +143,10 @@ function CaseFormPage() {
           criminalType:          d.crime               ?? prev.criminalType,
           status:                d.status              ?? prev.status,
           investigationDeadline: d.deadline
-                                   ? new Date(d.deadline).toISOString().split("T")[0]
+                                   ? toDateInput(d.deadline as string)
                                    : prev.investigationDeadline,
           supervisingUnit:       d.unit                ?? prev.supervisingUnit,
+          assignedTeamId:        d.assignedTeamId      ?? d.assignedTeam?.id ?? prev.assignedTeamId,
           handler:               d.investigatorId      ?? d.investigator?.id ?? prev.handler,
           // ── Fields phụ từ metadata JSONB ────────────────────────────────
           caseCode:                    meta.caseCode                    ?? prev.caseCode,
@@ -198,6 +216,7 @@ function CaseFormPage() {
         status:         formData.status               || undefined,
         deadline:       formData.investigationDeadline || null,
         unit:           formData.supervisingUnit       || null,
+        assignedTeamId: formData.assignedTeamId       || null,
         investigatorId: formData.handler               || null,
         capDoToiPham:   formData.capDoToiPham          || undefined,
         // metadata chứa toàn bộ fields phụ không có column riêng trong DB
@@ -290,7 +309,7 @@ function CaseFormPage() {
       size: `${(file.size / 1024 / 1024).toFixed(2)} MB`,
       uploadDate: new Date().toLocaleString("vi-VN"),
       uploader: "Nguyễn Văn A",
-      recordDate: new Date().toISOString().split("T")[0],
+      recordDate: defaults.today,
     };
     setMediaFiles([...mediaFiles, newFile]);
   };

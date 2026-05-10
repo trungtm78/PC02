@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 // URL writes use window.history.replaceState to avoid React Router re-renders.
 import { api } from "@/lib/api";
 import { downloadCsv } from "@/lib/csv";
+import { today } from "@/lib/dates";
 import {
   Plus, Search, SlidersHorizontal, Download, RotateCcw, Eye, Edit, MoreVertical,
   Scale, AlertTriangle, X, Calendar, User, AlertCircle, ArrowRightLeft, FileText,
@@ -787,7 +788,7 @@ function StatusTransitionModal({ incident, onClose, onSuccess }: { incident: Inc
 // ─────────────────────────────────────────────────────────
 
 function ProsecuteModal({ incident, onClose, onSuccess }: { incident: Incident; onClose: () => void; onSuccess: () => void }) {
-  const [formData, setFormData] = useState({ caseName: incident.name, prosecutionDecision: "", prosecutionDate: new Date().toISOString().split("T")[0], crime: "" });
+  const [formData, setFormData] = useState({ caseName: incident.name, prosecutionDecision: "", prosecutionDate: today(), crime: "" });
   const [errors, setErrors] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 

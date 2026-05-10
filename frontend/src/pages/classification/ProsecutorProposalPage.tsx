@@ -21,6 +21,8 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { useFormDefaults } from "@/hooks/useFormDefaults";
+import { today } from "@/lib/dates";
 import {
   ProposalStatus,
   PROPOSAL_STATUS_LABEL,
@@ -627,16 +629,22 @@ function ProposalFormModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [formData, setFormData] = useState({
+  const defaults = useFormDefaults();
+  // On create mode, pre-fill sentDate=today, unit=primary team name, createdBy=user fullname.
+  // On edit mode (proposal !== null), respect existing values.
+  const isCreate = !proposal;
+  const [formData, setFormData] = useState(() => ({
     proposalNumber: proposal?.proposalNumber || "",
     relatedCase: proposal?.relatedCase || "",
     caseType: proposal?.caseType || "",
     content: proposal?.content || "",
-    unit: proposal?.unit || "",
-    createdBy: proposal?.createdBy || "",
-    sentDate: proposal?.sentDate ? proposal.sentDate.split("/").reverse().join("-") : "",
+    unit: proposal?.unit || (isCreate ? (defaults.primaryTeamName ?? "") : ""),
+    createdBy: proposal?.createdBy || (isCreate ? (defaults.userId ?? "") : ""),
+    sentDate: proposal?.sentDate
+      ? proposal.sentDate.split("/").reverse().join("-")
+      : (isCreate ? today() : ""),
     status: proposal?.status || PROPOSAL_STATUS_LABEL[ProposalStatus.CHO_GUI],
-  });
+  }));
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 

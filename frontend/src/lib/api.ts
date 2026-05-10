@@ -1,4 +1,5 @@
 import axios from 'axios';
+import type { AuthUser } from '@/stores/auth.store';
 
 export const api = axios.create({
   baseURL: '/api/v1',
@@ -27,12 +28,17 @@ api.interceptors.response.use(
         const refreshToken = localStorage.getItem('refreshToken');
         if (!refreshToken) throw new Error('No refresh token');
         const { data } = await api.post('/auth/refresh', { refreshToken });
+        // Update sessionStorage AND notify subscribers (useAuthHydration may need to re-fetch profile)
         sessionStorage.setItem('accessToken', data.accessToken);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('pc02:auth-token-changed'));
+        }
         original.headers.Authorization = `Bearer ${data.accessToken}`;
         return api(original);
       } catch {
         // Refresh failed - clear tokens and redirect to login
         sessionStorage.removeItem('accessToken');
+        sessionStorage.removeItem('authProfile');
         localStorage.removeItem('refreshToken');
         window.location.href = '/login';
       }
@@ -83,6 +89,10 @@ export const authApi = {
 
   resetPassword: (email: string, otp: string, newPassword: string) =>
     api.post<{ message: string }>('/auth/reset-password', { email, otp, newPassword }),
+
+  // Returns the authenticated user's profile + team membership.
+  // FE forms use this for "create" mode pre-fill (current user, primary team).
+  me: () => api.get<AuthUser>('/auth/me'),
 };
 
 // ─── Abbreviations API ────────────────────────────────────────────────────────

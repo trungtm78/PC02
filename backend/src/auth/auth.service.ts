@@ -289,6 +289,55 @@ export class AuthService {
     });
   }
 
+  // ── Profile ────────────────────────────────────────────────────────────────
+  /**
+   * Returns the authenticated user's profile + team membership.
+   * Used by FE to pre-fill "create" forms (current user, primary team).
+   * Profile is fetched fresh on login + on first boot if missing — never stored in JWT.
+   */
+  async getProfile(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        role: true,
+        userTeams: {
+          include: { team: true },
+          orderBy: { joinedAt: 'asc' },
+        },
+      },
+    });
+
+    if (!user || !user.isActive) {
+      throw new UnauthorizedException('User not found or inactive');
+    }
+
+    const teams = user.userTeams.map((ut) => ({
+      teamId: ut.teamId,
+      teamName: ut.team.name,
+      isLeader: ut.isLeader,
+    }));
+
+    // primaryTeam: leader-team first, else oldest-joined team, else null
+    const leaderTeam = teams.find((t) => t.isLeader);
+    const primaryTeam = leaderTeam
+      ? { teamId: leaderTeam.teamId, teamName: leaderTeam.teamName }
+      : teams.length > 0
+      ? { teamId: teams[0].teamId, teamName: teams[0].teamName }
+      : null;
+
+    return {
+      id: user.id,
+      email: user.email,
+      username: user.username,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: user.role.name,
+      canDispatch: user.canDispatch,
+      teams,
+      primaryTeam,
+    };
+  }
+
   // ── Helpers ────────────────────────────────────────────────────────────────
   private async generateTokens(
     userId: string,

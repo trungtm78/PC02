@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { api } from "@/lib/api";
+import { today } from "@/lib/dates";
 import { usePermission } from "@/hooks/usePermission";
 import { AssignModal } from "@/components/AssignModal";
 import {
@@ -584,7 +585,7 @@ function ConclusionModal({
     conclusion ?? {
       id: "",
       type: "Kết luận điều tra",
-      date: new Date().toISOString().split("T")[0],
+      date: today(),
       content: "",
       author: "",
       approvedBy: "",

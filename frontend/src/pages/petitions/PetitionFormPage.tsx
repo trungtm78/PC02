@@ -11,6 +11,8 @@ import {
   FileText, MapPin, Phone, Mail, ChevronDown,
 } from "lucide-react";
 import { FKSelect } from "@/components/FKSelect";
+import { useFormDefaults } from "@/hooks/useFormDefaults";
+import { today, toDateInput } from "@/lib/dates";
 
 interface UserOption {
   id: string;
@@ -20,7 +22,8 @@ interface UserOption {
 }
 
 interface FormData {
-  stt: string; receivedDate: string; unit: string; senderName: string;
+  stt: string; receivedDate: string; unit: string; assignedTeamId: string;
+  senderName: string;
   senderBirthYear: string; senderAddress: string; senderPhone: string;
   senderEmail: string; suspectedPerson: string; suspectedAddress: string;
   petitionType: string; priority: string; summary: string;
@@ -29,7 +32,7 @@ interface FormData {
 }
 
 const INITIAL_FORM: FormData = {
-  stt: "", receivedDate: new Date().toISOString().split("T")[0], unit: "",
+  stt: "", receivedDate: today(), unit: "", assignedTeamId: "",
   senderName: "", senderBirthYear: "", senderAddress: "", senderPhone: "",
   senderEmail: "", suspectedPerson: "", suspectedAddress: "", petitionType: "",
   priority: "", summary: "", detailContent: "", attachmentsNote: "",
@@ -53,6 +56,21 @@ export function PetitionFormPage() {
   const [userOptions, setUserOptions] = useState<UserOption[]>([]);
   const [recordUpdatedAt, setRecordUpdatedAt] = useState<string | null>(null);
 
+  const defaults = useFormDefaults();
+
+  // Apply defaults on create mode (today, primary team text + FK).
+  // assignedToId intentionally NOT defaulted — petition assignment is a dispatcher decision,
+  // pre-filling self bypasses the workflow.
+  useEffect(() => {
+    if (isEditMode || !defaults.isLoaded) return;
+    setFormData((prev) => ({
+      ...prev,
+      receivedDate:   prev.receivedDate   || defaults.today,
+      unit:           prev.unit           || defaults.primaryTeamName  || "",
+      assignedTeamId: prev.assignedTeamId || defaults.primaryTeamId    || "",
+    }));
+  }, [isEditMode, defaults.isLoaded, defaults.today, defaults.primaryTeamId, defaults.primaryTeamName]);
+
   // Load users for FKSelect
   useEffect(() => {
     api
@@ -72,9 +90,10 @@ export function PetitionFormPage() {
         setFormData({
           stt: (d.stt as string) ?? "",
           receivedDate: d.receivedDate
-            ? (d.receivedDate as string).split("T")[0]
-            : new Date().toISOString().split("T")[0],
+            ? toDateInput(d.receivedDate as string)
+            : today(),
           unit: (d.unit as string) ?? "",
+          assignedTeamId: (d.assignedTeamId as string) ?? "",
           senderName: (d.senderName as string) ?? "",
           senderBirthYear: d.senderBirthYear ? String(d.senderBirthYear) : "",
           senderAddress: (d.senderAddress as string) ?? "",
@@ -87,7 +106,7 @@ export function PetitionFormPage() {
           summary: (d.summary as string) ?? "",
           detailContent: (d.detailContent as string) ?? "",
           attachmentsNote: (d.attachmentsNote as string) ?? "",
-          deadline: d.deadline ? (d.deadline as string).split("T")[0] : "",
+          deadline: toDateInput(d.deadline as string | null | undefined),
           assignedToId: d.assignedToId ? String(d.assignedToId) : "",
           notes: (d.notes as string) ?? "",
         });
@@ -131,6 +150,7 @@ export function PetitionFormPage() {
         stt: formData.stt,
         receivedDate: formData.receivedDate,
         unit: formData.unit || undefined,
+        assignedTeamId: formData.assignedTeamId || undefined,
         senderName: formData.senderName,
         senderBirthYear: formData.senderBirthYear || undefined,
         senderAddress: formData.senderAddress || undefined,
@@ -239,7 +259,7 @@ export function PetitionFormPage() {
                 <label className="block text-sm font-medium text-slate-700 mb-2">Ngày tiếp nhận <span className="text-red-500">*</span></label>
                 <div className="relative">
                   <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input type="date" value={formData.receivedDate} onChange={(e) => update("receivedDate", e.target.value)} max={new Date().toISOString().split("T")[0]} className="w-full pl-9 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" data-testid="field-receivedDate" />
+                  <input type="date" value={formData.receivedDate} onChange={(e) => update("receivedDate", e.target.value)} max={today()} className="w-full pl-9 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" data-testid="field-receivedDate" />
                 </div>
               </div>
               <div>

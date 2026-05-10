@@ -6,6 +6,7 @@ import ForgotPasswordPage from '@/pages/auth/ForgotPasswordPage';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { MainLayout } from '@/layouts/MainLayout';
 import { FeatureFlagsProvider, FEATURE_MODULES } from '@/lib/features';
+import { useAuthHydration } from '@/hooks/useAuthHydration';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -20,6 +21,9 @@ const queryClient = new QueryClient({
 const featureRouteElements = FEATURE_MODULES.flatMap((f) => f.renderRoutes());
 
 function App() {
+  // Hydrates user profile from /auth/me whenever a token exists without a cached profile.
+  // Single source of truth — Login/2FA/refresh only manage tokens.
+  useAuthHydration();
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>

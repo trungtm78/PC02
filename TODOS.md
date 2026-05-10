@@ -28,6 +28,12 @@
 **Fix:** Add TTL-based in-memory cache in `UnitScopeService` keyed on `userId`. Invalidate on team membership change or DataAccessGrant upsert. TTL=60s is safe.
 **Discovered:** 2026-04-23 (eng review)
 
+### SCHEMA-001: Case.unit + Case.assignedTeamId redundancy (also Incident.unitId + donViGiaiQuyet)
+**Priority:** P3 (consistency / tech debt)
+**Details:** `Case.unit` (String, free-text) song song `Case.assignedTeamId` (FK Team) đại diện cùng concept "đơn vị thụ lý". Tương tự `Incident.unitId` (String) + `Incident.donViGiaiQuyet` (text). Form FE hiện điền cả hai để workaround. Long-term redundancy gây nhầm lẫn (which is source of truth) và rủi ro inconsistency (text rename không cập nhật FK).
+**Fix:** Consolidate về 1 FK + display label gián tiếp qua join. Migration cần backfill `assignedTeamId` từ `unit` text qua name-match (lossy nếu không match được team hiện hữu).
+**Discovered:** 2026-05-09 (eng review during plan-defaults work)
+
 ---
 
 ## Stub-Check Findings — 2026-05-01 (`/stub-check` scan on feat/mobile)

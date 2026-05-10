@@ -4,6 +4,7 @@ import { FormInput, FormSelect, FormTextarea } from "@/components/form";
 import { FKSelect } from "@/components/FKSelect";
 import type { Subject, Evidence } from "./types";
 import { SUBJECT_TYPE_OPTIONS, EVIDENCE_STATUS_OPTIONS } from "./constants";
+import { today } from "@/lib/dates";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Subject Modal – Thêm/Sửa đối tượng (Bị can, Bị hại, Luật sư, Nhân chứng)
@@ -173,7 +174,7 @@ export function EvidenceModal({ evidence, onClose, onSave }: EvidenceModalProps)
       quantity: 1,
       unit: "cái",
       storageLocation: "",
-      receivedDate: "",
+      receivedDate: today(),
       status: "dang-luu-giu",
       evidenceType: "",
       entryOrder: "",
