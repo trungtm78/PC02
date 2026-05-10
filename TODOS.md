@@ -109,8 +109,23 @@
 
 ---
 
+## Web
+
+### SHORTCUTS-001: Wire 7 remaining shortcut actions to handlers
+**Priority:** P2
+**Details:** Phase 4 of `/feat/keyboard-shortcuts-manager` migrated 3 existing (F9/F10/Ctrl+Shift+L) and wired 4 new (save, cancel, logout, showCheatSheet). 7 actions defined in registry but not wired to handlers: `saveDraft`, `search`, `newRecord`, `delete`, `print`, `export`, `refreshList`. Handlers exist in their respective pages; just need `useShortcut('action', handler)` call.
+**Files:**
+- `saveDraft` → `frontend/src/pages/cases/CaseFormPage/index.tsx` after `handleSaveDraft`
+- `search` → `frontend/src/components/GlobalSearchBar.tsx` (focus input)
+- `newRecord` → list pages (CaseListPage, IncidentListPage, PetitionListPage)
+- `delete` → CaseDetailPage / IncidentDetailPage (record context)
+- `print` / `export` → ExportReportsPage
+- `refreshList` → list pages (queryClient.invalidateQueries)
+**Discovered:** 2026-05-10 (autoplan Phase 4 leverage point)
+
 ## Completed
 
+- **SHORTCUTS-FOUNDATION**: Settings module 9 quản lý phím tắt — UserShortcut DB model, registry, useShortcut hook, ShortcutsModule UI, ShortcutCheatSheet overlay (`?`), kbd hints in FormActionBar, BroadcastChannel cross-tab sync, Save/Cancel/Logout wired. **Completed:** v0.13.7.0 (2026-05-10)
 - **FINDING-001 (IDOR)**: `getById` on 9 child resources lacked DataScope enforcement. Fixed in v0.5.1.0 — `assertParentInScope`/`assertCreatorInScope` added, 43 new tests. **Completed:** v0.5.1.0 (2026-04-21)
 - **FINDING-005 (IDOR write/list)**: `update`, `delete`, and `getList` on 9 child resources lacked DataScope enforcement. Fixed in v0.5.2.0 — scope pre-flight on write ops + `buildScopeFilter` on list queries. **Completed:** v0.5.2.0 (2026-04-21)
 - **FINDING-006 (assertCreatorInScope deny-all)**: deny-all scope `{userIds:[],teamIds:[]}` was not enforced by `assertCreatorInScope` (userIds.length > 0 short-circuit). Fixed in v0.5.2.0. **Completed:** v0.5.2.0 (2026-04-21)

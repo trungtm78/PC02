@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.13.7.0] - 2026-05-10
+
+### Added
+- **Phím tắt (Settings module 9)** — màn hình `Cài đặt → Phím tắt` cho phép user tùy chỉnh 14 hành động trên 4 nhóm (Trong form / Trong danh sách / Trong nhập liệu / Toàn cục). Mỗi hàng có 2 cách đổi: gõ trực tiếp `Ctrl+Shift+S`/`Alt+8`/`?` hoặc click "Bắt phím" để hệ thống capture. Cảnh báo khi conflict với browser (Ctrl+S/P/F5...) hoặc với hành động khác — nếu trùng action, có nút **Hoán đổi 2 phím** atomic. Reset từng phím hoặc reset toàn bộ. Filter input + counter "Đã tùy chỉnh: X/14" hiển thị tiến độ.
+- **Bảng phím tắt (`?` overlay)** — nhấn `?` bất kỳ đâu để mở modal liệt kê tất cả phím tắt + hành động hiện tại + link sang Settings.
+- **Hint phím tắt cạnh nút Lưu** — `<kbd>Ctrl+Shift+S</kbd>` hiển thị inline trên thanh form action; user thấy phím tắt mà không cần mở Settings.
+- **Đồng bộ phím tắt đa thiết bị** — DB lưu override per-user; sync giữa các tab cùng browser qua BroadcastChannel (~500ms). Login từ máy khác → setting follow.
+
+### Changed
+- **F9 (mở rộng từ viết tắt) + F10 (chuyển đổi địa chỉ) + Ctrl+Shift+L (toggle Quận/Huyện cũ)** — chuyển từ hardcoded `addEventListener` sang central registry. User có thể đổi binding nếu muốn; pattern hiện hữu giữ nguyên.
+- **Lưu (Ctrl+Shift+S) + Hủy (Esc)** trong FormActionBar — thay vì chỉ click chuột, mọi form sử dụng FormActionBar (Case/Petition/Incident/Proposal) tự động có 2 phím tắt này.
+- **Đăng xuất (Ctrl+Shift+Q)** — phím tắt toàn cục từ MainLayout.
+
+### Tooling
+- **react-hotkeys-hook@5.3.2** — thay thế ~470 LOC custom listener engineering bằng thư viện đã được test với React 18 StrictMode (5M+ weekly DL).
+- **Backend `UserShortcut` model** — Prisma migration với `@@unique([userId, action])` và `@@unique([userId, binding])` (DB-enforced race-safe). REST endpoints: `GET/PUT/DELETE /user-shortcuts`, `POST /user-shortcuts/reset`, `POST /user-shortcuts/swap` (atomic via `prisma.$transaction`).
+
+### Tests
+- **+46 tests** (21 BE user-shortcuts service+controller, 25 FE registry serialize/parse/normalize).
+- **Total: 1274 tests pass** (966 BE + 308 FE).
+
 ## [0.13.6.0] - 2026-05-10
 
 ### Added
