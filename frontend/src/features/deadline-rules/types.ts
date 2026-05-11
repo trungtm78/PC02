@@ -11,6 +11,7 @@ export interface DeadlineRuleVersion {
   documentIssuer: string;
   documentDate: string | null;
   attachmentId: string | null;
+  documentUrl: string | null;
   migrationConfidence: string | null;
   reason: string;
   status: DeadlineRuleStatus;
@@ -65,6 +66,7 @@ export interface ProposeRuleInput {
   documentIssuer: string;
   documentDate?: string;
   attachmentId?: string;
+  documentUrl?: string;
   reason: string;
   effectiveFrom?: string;
 }

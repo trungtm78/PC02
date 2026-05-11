@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Save, Send, AlertCircle, Loader2 } from 'lucide-react';
+import { ArrowLeft, Save, Send, AlertCircle, Loader2, Lightbulb, X } from 'lucide-react';
 import { deadlineRulesApi, DEADLINE_RULES_QUERY_KEYS } from '@/features/deadline-rules/api';
 import {
   DOCUMENT_TYPES,
@@ -9,6 +9,34 @@ import {
   type ProposeRuleInput,
 } from '@/features/deadline-rules/types';
 import { DEADLINE_RULE_KEY_LABEL, DEADLINE_RULE_KEY_UNIT } from '@/shared/enums/status-labels';
+import { DocumentUrlInput } from '@/features/deadline-rules/components/DocumentUrlInput';
+
+/**
+ * Pre-fill suggestions surfaced on `?prefill=migration` flow when admin clicks
+ * "Bổ sung tài liệu" from MigrationCleanupPage. Mirrors backend constant
+ * `MIGRATED_RULE_URL_HINTS` in law-source-hints.constants.ts — kept in sync
+ * manually (10-12 entries, low churn). If list grows, generate from backend.
+ */
+interface MigratedRuleHint {
+  docType: string;
+  number: string;
+  issuer: string;
+  date: string;
+  url: string;
+}
+
+const MIGRATED_RULE_URL_HINTS: Record<string, MigratedRuleHint> = {
+  THOI_HAN_XAC_MINH:     { docType: 'BLTTHS', number: '101/2015/QH13', issuer: 'Quốc hội', date: '2015-11-27', url: 'https://vbpl.vn/bo-luat-to-tung-hinh-su-2015' },
+  THOI_HAN_GIA_HAN_1:    { docType: 'BLTTHS', number: '101/2015/QH13', issuer: 'Quốc hội', date: '2015-11-27', url: 'https://vbpl.vn/bo-luat-to-tung-hinh-su-2015' },
+  THOI_HAN_GIA_HAN_2:    { docType: 'BLTTHS', number: '101/2015/QH13', issuer: 'Quốc hội', date: '2015-11-27', url: 'https://vbpl.vn/bo-luat-to-tung-hinh-su-2015' },
+  THOI_HAN_TOI_DA:       { docType: 'BLTTHS', number: '101/2015/QH13', issuer: 'Quốc hội', date: '2015-11-27', url: 'https://vbpl.vn/bo-luat-to-tung-hinh-su-2015' },
+  THOI_HAN_PHUC_HOI:     { docType: 'BLTTHS', number: '101/2015/QH13', issuer: 'Quốc hội', date: '2015-11-27', url: 'https://vbpl.vn/bo-luat-to-tung-hinh-su-2015' },
+  THOI_HAN_PHAN_LOAI:    { docType: 'BLTTHS', number: '101/2015/QH13', issuer: 'Quốc hội', date: '2015-11-27', url: 'https://vbpl.vn/bo-luat-to-tung-hinh-su-2015' },
+  SO_LAN_GIA_HAN_TOI_DA: { docType: 'BLTTHS', number: '101/2015/QH13', issuer: 'Quốc hội', date: '2015-11-27', url: 'https://vbpl.vn/bo-luat-to-tung-hinh-su-2015' },
+  THOI_HAN_GUI_QD_VKS:   { docType: 'BLTTHS', number: '101/2015/QH13', issuer: 'Quốc hội', date: '2015-11-27', url: 'https://vbpl.vn/bo-luat-to-tung-hinh-su-2015' },
+  THOI_HAN_TO_CAO:       { docType: 'Khác',   number: '25/2018/QH14', issuer: 'Quốc hội', date: '2018-06-12', url: 'https://vbpl.vn/luat-to-cao-2018' },
+  THOI_HAN_KHIEU_NAI:    { docType: 'Khác',   number: '02/2011/QH13', issuer: 'Quốc hội', date: '2011-11-11', url: 'https://vbpl.vn/luat-khieu-nai-2011' },
+};
 
 interface FormState {
   value: string;
@@ -18,6 +46,7 @@ interface FormState {
   documentNumber: string;
   documentIssuer: string;
   documentDate: string;
+  documentUrl: string;
   reason: string;
   effectiveFrom: string;
 }
@@ -30,6 +59,7 @@ const EMPTY_FORM: FormState = {
   documentNumber: '',
   documentIssuer: 'BCA',
   documentDate: '',
+  documentUrl: '',
   reason: '',
   effectiveFrom: '',
 };
@@ -44,10 +74,18 @@ const EMPTY_FORM: FormState = {
  */
 export default function ProposeDeadlineRulePage() {
   const { key } = useParams<{ key: string }>();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [error, setError] = useState<string | null>(null);
+
+  // Migration cleanup banner: shown when admin lands via ?prefill=migration AND
+  // a hint exists for this ruleKey. Admin must click "Dùng đề xuất" to apply —
+  // banner never auto-overwrites form fields (per autoplan Design consensus).
+  const prefillRequested = searchParams.get('prefill') === 'migration';
+  const prefillHint = key && prefillRequested ? MIGRATED_RULE_URL_HINTS[key] : null;
+  const [bannerDismissed, setBannerDismissed] = useState(false);
 
   // Preload from active rule of this key
   const activeQ = useQuery({
@@ -119,6 +157,26 @@ export default function ProposeDeadlineRulePage() {
       setError('Lý do đề xuất phải có ít nhất 20 ký tự');
       return null;
     }
+    // Optional documentUrl: only submit if present + parses as URL with public TLD.
+    // Server re-validates strictly; this catches obvious mistakes before round-trip.
+    let documentUrl: string | undefined;
+    if (form.documentUrl.trim()) {
+      try {
+        const u = new URL(form.documentUrl.trim());
+        if (u.protocol !== 'http:' && u.protocol !== 'https:') {
+          setError('URL phải bắt đầu bằng http:// hoặc https://');
+          return null;
+        }
+        if (!u.hostname.includes('.')) {
+          setError('URL phải có tên miền hợp lệ (vd: vbpl.vn)');
+          return null;
+        }
+        documentUrl = form.documentUrl.trim();
+      } catch {
+        setError('URL không hợp lệ');
+        return null;
+      }
+    }
     setError(null);
     return {
       ruleKey: key,
@@ -129,9 +187,23 @@ export default function ProposeDeadlineRulePage() {
       documentNumber: form.documentNumber.trim(),
       documentIssuer: form.documentIssuer,
       documentDate: form.documentDate || undefined,
+      documentUrl,
       reason: form.reason.trim(),
       effectiveFrom: form.effectiveFrom || undefined,
     };
+  };
+
+  const applyPrefillHint = () => {
+    if (!prefillHint) return;
+    setForm((prev) => ({
+      ...prev,
+      documentType: prefillHint.docType,
+      documentNumber: prefillHint.number,
+      documentIssuer: prefillHint.issuer,
+      documentDate: prefillHint.date,
+      documentUrl: prefillHint.url,
+    }));
+    setBannerDismissed(true);
   };
 
   const handleSaveDraft = () => {
@@ -171,6 +243,50 @@ export default function ProposeDeadlineRulePage() {
         <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-2">
           <AlertCircle className="w-4 h-4 text-red-600" />
           <p className="text-sm text-red-700">{error}</p>
+        </div>
+      )}
+
+      {prefillHint && !bannerDismissed && (
+        <div
+          role="status"
+          className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-start gap-3"
+          data-testid="prefill-banner"
+        >
+          <Lightbulb className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-blue-900">Đề xuất giá trị từ migration hints</p>
+            <p className="text-xs text-blue-700 mt-1">
+              {prefillHint.docType} {prefillHint.number} · {prefillHint.issuer} · {prefillHint.date}
+              {prefillHint.url && (
+                <>
+                  {' · '}
+                  <span className="underline">{new URL(prefillHint.url).hostname}</span>
+                </>
+              )}
+            </p>
+            <p className="text-[11px] text-blue-600 mt-1 italic">
+              Áp dụng để pre-fill 4 trường văn bản. Bạn có thể sửa sau khi áp dụng.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button
+              type="button"
+              onClick={applyPrefillHint}
+              className="px-3 py-1.5 text-xs bg-blue-600 text-white hover:bg-blue-700 rounded"
+              data-testid="prefill-apply"
+            >
+              Dùng đề xuất
+            </button>
+            <button
+              type="button"
+              onClick={() => setBannerDismissed(true)}
+              className="p-1.5 text-slate-500 hover:bg-slate-100 rounded"
+              title="Bỏ qua"
+              data-testid="prefill-dismiss"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       )}
 
@@ -300,6 +416,13 @@ export default function ProposeDeadlineRulePage() {
               onChange={(e) => setForm({ ...form, documentDate: e.target.value })}
               className="px-2 py-2 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               data-testid="input-doc-date"
+            />
+          </div>
+          <div className="mt-3 pt-3 border-t border-slate-100">
+            <DocumentUrlInput
+              value={form.documentUrl}
+              onChange={(url) => setForm({ ...form, documentUrl: url })}
+              disabled={isPending}
             />
           </div>
         </fieldset>

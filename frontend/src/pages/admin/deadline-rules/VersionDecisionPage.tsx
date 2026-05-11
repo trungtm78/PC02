@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, CheckCircle, XCircle, Send, Trash2, AlertCircle, Loader2 } from 'lucide-react';
+import { ArrowLeft, CheckCircle, XCircle, Send, Trash2, AlertCircle, Loader2, ExternalLink } from 'lucide-react';
 import { deadlineRulesApi, DEADLINE_RULES_QUERY_KEYS } from '@/features/deadline-rules/api';
 import { StatusBadge } from '@/features/deadline-rules/components/StatusBadge';
 import { DiffViewer } from '@/features/deadline-rules/components/DiffViewer';
@@ -215,6 +215,29 @@ export default function VersionDecisionPage() {
                 </div>
               )}
             </dl>
+            {version.documentUrl && (
+              <div className="mt-3 pt-3 border-t border-slate-100">
+                <a
+                  href={version.documentUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-sm text-blue-700 hover:text-blue-900 hover:underline"
+                  data-testid="document-url-link"
+                >
+                  <ExternalLink className="w-4 h-4 flex-shrink-0" />
+                  <span>Mở văn bản gốc</span>
+                  <span className="text-xs text-slate-500 ml-1">
+                    ({(() => {
+                      try {
+                        return new URL(version.documentUrl).hostname;
+                      } catch {
+                        return 'liên kết';
+                      }
+                    })()})
+                  </span>
+                </a>
+              </div>
+            )}
           </div>
 
           {/* Review notes (if any) */}
