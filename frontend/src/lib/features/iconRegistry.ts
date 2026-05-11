@@ -40,6 +40,7 @@ import {
   CheckCircle,
   PauseCircle,
   Target,
+  ClipboardList,
 } from 'lucide-react';
 
 type Icon = ComponentType<{ className?: string }>;
@@ -89,6 +90,7 @@ const REGISTRY: Record<string, Icon> = {
   CheckCircle,
   PauseCircle,
   Target,
+  ClipboardList,
 };
 
 export function iconFor(name?: string): Icon {

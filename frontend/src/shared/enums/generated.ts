@@ -214,6 +214,11 @@ export const NotificationType = {
   INCIDENT_OVERDUE: 'INCIDENT_OVERDUE',
   DOCUMENT_UPLOADED: 'DOCUMENT_UPLOADED',
   SYSTEM: 'SYSTEM',
+  DEADLINE_RULE_SUBMITTED: 'DEADLINE_RULE_SUBMITTED',
+  DEADLINE_RULE_APPROVED: 'DEADLINE_RULE_APPROVED',
+  DEADLINE_RULE_REJECTED: 'DEADLINE_RULE_REJECTED',
+  DEADLINE_RULE_ACTIVATED: 'DEADLINE_RULE_ACTIVATED',
+  DEADLINE_RULE_STALE_REVIEW: 'DEADLINE_RULE_STALE_REVIEW',
 } as const;
 export type NotificationType = (typeof NotificationType)[keyof typeof NotificationType];
 
@@ -225,3 +230,13 @@ export const DocumentType = {
   KHAC: 'KHAC',
 } as const;
 export type DocumentType = (typeof DocumentType)[keyof typeof DocumentType];
+
+export const DeadlineRuleStatus = {
+  draft: 'draft',
+  submitted: 'submitted',
+  approved: 'approved',
+  active: 'active',
+  superseded: 'superseded',
+  rejected: 'rejected',
+} as const;
+export type DeadlineRuleStatus = (typeof DeadlineRuleStatus)[keyof typeof DeadlineRuleStatus];
