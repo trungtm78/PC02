@@ -90,7 +90,7 @@ export default function MigrationCleanupPage() {
               </div>
             </div>
             <Link
-              to={`/admin/deadline-rules/${encodeURIComponent(r.ruleKey)}/propose`}
+              to={`/admin/deadline-rules/${encodeURIComponent(r.ruleKey)}/propose?prefill=migration`}
               className="px-3 py-2 text-sm bg-amber-600 text-white hover:bg-amber-700 rounded whitespace-nowrap"
               data-testid={`btn-cleanup-${r.ruleKey}`}
             >
