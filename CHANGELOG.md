@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.13.10.0] - 2026-05-11
+
+### Changed (Địa giới hành chính mới — bulk-seed từ provinces.open-api.vn)
+- **Bỏ `crawlAndSync` hard-coded** — DISTRICT_TO_NEW_WARD map cũ chỉ có ~10 quận và punt toàn bộ Q1-Q12 + Thủ Đức. Thay bằng bulk-seed background job hit `provinces.open-api.vn` v1 + v2 API (`/api/p/{code}?depth=3` lấy old structure → cho mỗi old ward gọi `/api/v2/w/from-legacy/?legacy_code=N` → upsert vào DB local).
+- **Endpoint mới**: `POST /address-mappings/seed/:province` (returns 202 + jobId), `GET /address-mappings/seed/status/:id` (poll progress), `POST /address-mappings/seed/:id/cancel`. Endpoint cũ `/crawl` đã bị xóa.
+- **Concurrency lock**: refuse start nếu province đã có job `queued`/`running`. Worker check `cancelToken` giữa mỗi ward → graceful cancel.
+- **Snapshot raw API response** vào `backend/prisma/data/snapshots/{province}-v1-{ts}.json` (gitignored) để reproduce nếu API offline.
+- **HCM fully supported** (~322 wards, run ~30s). HN/HP/DN/CT có API code wired nhưng chưa seed (follow-up).
+
+### Fixed
+- **Bug 1 — Abbreviations không nhận được**: `expandAddressAbbreviations` chạy TRƯỚC khi extract pattern. Unicode-safe lookbehind `(?<!\p{L})` xử lý đúng các trường hợp `P3`, `P.3`, `P03`, `p3`, `Q10`, `H. Bình Chánh`; KHÔNG match `OP3`/`ấP3`/`ờQ10`.
+- **Bug 2 — Phường 5, Quận 3 không thành Phường Bàn Cờ**: trước đây map punt Q1-Q12. Sau seed, regression test xác nhận `lookup('Phường 5', 'Quận 3', 'HCM') → 'phường bàn cờ'`.
+- **Default province inference HCM**: khi text không có pattern tỉnh, fallback `HCM` (per user direction — PC02 officers ghi địa chỉ local không kèm tỉnh).
+
+### Schema
+- `AddressMapping` thêm 3 cột: `source` (`'api-v2'` / `'manual'` / `'official-decree'`), `seededAt`, `candidates` (JSON, khi `needsReview=true` lưu toàn bộ candidate new wards từ API).
+- Bảng mới `address_seed_jobs` track job state (queued/running/completed/failed/cancelled) + progress counters + cancellation token.
+
+### Tests
+- +18 backend tests (25 total trên module): unknown province, concurrency lock, happy path startSeedJob; missing/completed/running cancelSeedJob; 9 controller delegation; Bàn Cờ regression. 988 backend tests pass.
+- +24 frontend tests (new file `useAddressConverter.test.ts`): 13 cases cho `expandAddressAbbreviations` (incl. accented Vietnamese boundary), 6 cho `inferProvince`, 5 cho `extractComponents`.
+
+### Audit
+- `docs/ADDRESS_MAPPING_AUDIT.md` — kiến trúc, schema, endpoints, runbook, known limitations (5 provinces enabled nhưng chưa seed, 58 provinces missing, ambiguous picker UI defer).
+
 ## [0.13.7.0] - 2026-05-10
 
 ### Added

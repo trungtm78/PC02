@@ -1,10 +1,28 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, Logger } from '@nestjs/common';
+import { mkdirSync, writeFileSync } from 'fs';
+import { join } from 'path';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateAddressMappingDto } from './dto/create-address-mapping.dto';
 import { QueryAddressMappingDto, LookupAddressMappingDto } from './dto/query-address-mapping.dto';
 
+// Province code → /api/v1 numeric code (provinces.open-api.vn).
+// HCM = 79 is the only fully-tested entry; HN/DN/HP/CT to be enabled by follow-up PRs
+// when those wards are reform-mapped.
+const PROVINCE_API_CODE: Record<string, number> = {
+  HCM: 79,
+  HN: 1,
+  HP: 31,
+  DN: 48,
+  CT: 92,
+};
+
+const PROVINCES_API_BASE = 'https://provinces.open-api.vn/api';
+const FETCH_USER_AGENT = 'PC02-AddressMapper/1.0';
+const SNAPSHOT_DIR = join(process.cwd(), 'prisma', 'data', 'snapshots');
+
 @Injectable()
 export class AddressMappingService {
+  private readonly logger = new Logger(AddressMappingService.name);
   constructor(private readonly prisma: PrismaService) {}
 
   async findAll(query: QueryAddressMappingDto) {
@@ -98,90 +116,213 @@ export class AddressMappingService {
     return { message: `Đã xóa mapping #${id}` };
   }
 
-  /** Crawl từ provinces.open-api.vn và sync vào DB */
-  async crawlAndSync(province = 'HCM') {
-    const BASE = 'https://provinces.open-api.vn/api';
-
-    // Mapping quận/huyện cũ → phường mới (Nghị quyết 1279/NQ-UBTVQH15)
-    const DISTRICT_TO_NEW_WARD: Record<string, string | null> = {
-      'quận phú nhuận':  'phường phú nhuận',
-      'quận bình thạnh': 'phường bình thạnh',
-      'quận gò vấp':     'phường gò vấp',
-      'quận tân bình':   'phường tân bình',
-      'quận tân phú':    'phường tân phú',
-      'quận bình tân':   'phường bình tân',
-      'huyện bình chánh': 'phường bình chánh',
-      'huyện hóc môn':   'phường hóc môn',
-      'huyện củ chi':    'phường củ chi',
-      'huyện nhà bè':    'phường nhà bè',
-      'huyện cần giờ':   'phường cần giờ',
-      // Quận số — chưa có văn bản chính thức → chỉ xóa cấp quận
-      'quận 1': null, 'quận 2': null, 'quận 3': null, 'quận 4': null,
-      'quận 5': null, 'quận 6': null, 'quận 7': null, 'quận 8': null,
-      'quận 9': null, 'quận 10': null, 'quận 11': null, 'quận 12': null,
-      'thành phố thủ đức': null,
-    };
-
-    // Province code → API code
-    const PROVINCE_API_CODE: Record<string, number> = { HCM: 79 };
+  /**
+   * Start a bulk-seed-from-API job for a province. Returns immediately with
+   * a job ID; actual work happens in a background worker via setImmediate.
+   *
+   * Concurrency-locked: refuses if any queued/running job exists for the
+   * same province. Caller polls /seed/status/:id for progress.
+   */
+  async startSeedJob(province: string, triggeredBy: string) {
     const apiCode = PROVINCE_API_CODE[province];
-    if (!apiCode) throw new Error(`Province ${province} not supported for crawl`);
-
-    // Fetch province data with full depth
-    const res = await fetch(`${BASE}/p/${apiCode}?depth=3`, {
-      headers: { 'User-Agent': 'PC02-AddressMapper/1.0' },
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status} from provinces.open-api.vn`);
-
-    const data = await res.json() as {
-      districts: Array<{
-        name: string;
-        wards: Array<{ name: string; codename: string }>;
-      }>;
-    };
-
-    const districts = data.districts ?? [];
-
-    let created = 0;
-    let updated = 0;
-    let skipped = 0;
-
-    for (const district of districts) {
-      const districtKey = district.name.toLowerCase().trim();
-      const newWard = DISTRICT_TO_NEW_WARD[districtKey];
-
-      if (newWard === undefined) {
-        // District không có trong mapping → bỏ qua
-        skipped += (district.wards ?? []).length;
-        continue;
-      }
-
-      for (const ward of district.wards ?? []) {
-        const oldWard = ward.name.toLowerCase().trim();
-        const resolvedNewWard = newWard ?? oldWard; // null = giữ tên phường
-        const note = newWard
-          ? `NQ 1279/NQ-UBTVQH15: ${district.name} sáp nhập thành ${newWard}`
-          : `Chỉ xóa cấp quận (${district.name}) — tên phường giữ nguyên`;
-        const needsReview = newWard === null;
-
-        const upserted = await this.prisma.addressMapping.upsert({
-          where: { oldWard_oldDistrict_province: { oldWard, oldDistrict: districtKey, province } },
-          update: { newWard: resolvedNewWard, note, needsReview },
-          create: { oldWard, oldDistrict: districtKey, newWard: resolvedNewWard, province, note, needsReview, isActive: true },
-        });
-
-        const timeDiff = upserted.updatedAt.getTime() - upserted.createdAt.getTime();
-        if (timeDiff < 1000) created++;
-        else updated++;
-      }
+    if (!apiCode) {
+      throw new ConflictException(`Province '${province}' chưa được hỗ trợ. Hỗ trợ: ${Object.keys(PROVINCE_API_CODE).join(', ')}`);
     }
+    const running = await this.prisma.addressSeedJob.findFirst({
+      where: { province, status: { in: ['queued', 'running'] } },
+    });
+    if (running) {
+      throw new ConflictException(`Đang có job chạy cho ${province} (id=${running.id}, status=${running.status})`);
+    }
+    const job = await this.prisma.addressSeedJob.create({
+      data: { province, status: 'queued', triggeredBy },
+    });
+    // Kick off background worker without awaiting.
+    setImmediate(() => {
+      void this.runSeedJob(job.id, apiCode, province).catch((err) => {
+        this.logger.error(`Seed job ${job.id} crashed: ${err?.message ?? err}`);
+      });
+    });
+    return { jobId: job.id, statusUrl: `/address-mappings/seed/status/${job.id}` };
+  }
 
-    const total = await this.prisma.addressMapping.count({ where: { province } });
-    return {
-      success: true,
-      message: `Crawl hoàn tất từ provinces.open-api.vn`,
-      stats: { created, updated, skipped, total, needsReview: await this.prisma.addressMapping.count({ where: { province, needsReview: true } }) },
-    };
+  async getSeedJobStatus(id: string) {
+    const job = await this.prisma.addressSeedJob.findUnique({ where: { id } });
+    if (!job) throw new NotFoundException(`Seed job ${id} không tồn tại`);
+    return job;
+  }
+
+  async cancelSeedJob(id: string) {
+    const job = await this.prisma.addressSeedJob.findUnique({ where: { id } });
+    if (!job) throw new NotFoundException(`Seed job ${id} không tồn tại`);
+    if (job.status !== 'queued' && job.status !== 'running') {
+      throw new ConflictException(`Job đã ${job.status}, không thể hủy`);
+    }
+    await this.prisma.addressSeedJob.update({
+      where: { id },
+      data: { cancelToken: 'requested' },
+    });
+    return { ok: true, message: 'Cancellation requested. Worker sẽ dừng ở batch tiếp theo.' };
+  }
+
+  /**
+   * Background worker: enumerates old structure via v1 API, then for each
+   * old ward calls v2 from-legacy to get new ward(s). Stores raw API
+   * responses to backend/prisma/data/snapshots/{province}-v1-{ts}.json
+   * for offline reproducibility (Codex/CEO finding).
+   */
+  private async runSeedJob(jobId: string, apiCode: number, province: string): Promise<void> {
+    const errors: Array<{ wardCode?: number; error: string }> = [];
+    let mapped = 0;
+    let needsReviewCount = 0;
+    let total = 0;
+
+    try {
+      await this.prisma.addressSeedJob.update({
+        where: { id: jobId },
+        data: { status: 'running' },
+      });
+
+      // 1. Fetch v1 (old structure with old codes).
+      const v1Res = await fetch(`${PROVINCES_API_BASE}/p/${apiCode}?depth=3`, {
+        headers: { 'User-Agent': FETCH_USER_AGENT },
+        signal: AbortSignal.timeout(30000),
+        redirect: 'follow',
+      });
+      if (!v1Res.ok) throw new Error(`v1 API HTTP ${v1Res.status}`);
+      const v1Data = (await v1Res.json()) as {
+        districts: Array<{ name: string; wards: Array<{ name: string; code: number }> }>;
+      };
+
+      // Snapshot raw response for reproducibility.
+      try {
+        mkdirSync(SNAPSHOT_DIR, { recursive: true });
+        const snapPath = join(SNAPSHOT_DIR, `${province}-v1-${Date.now()}.json`);
+        writeFileSync(snapPath, JSON.stringify(v1Data, null, 2));
+      } catch (snapErr: any) {
+        this.logger.warn(`Snapshot write failed (non-fatal): ${snapErr.message}`);
+      }
+
+      total = (v1Data.districts ?? []).reduce((acc, d) => acc + (d.wards?.length ?? 0), 0);
+      await this.prisma.addressSeedJob.update({
+        where: { id: jobId },
+        data: { totalWards: total },
+      });
+
+      // 2. Walk each old ward → call v2 from-legacy.
+      for (const district of v1Data.districts ?? []) {
+        const oldDistrictName = district.name.toLowerCase().trim();
+        for (const ward of district.wards ?? []) {
+          // Honor cancellation between every ward (cheap check, ~1ms DB query).
+          const job = await this.prisma.addressSeedJob.findUnique({ where: { id: jobId } });
+          if (job?.cancelToken === 'requested') {
+            await this.prisma.addressSeedJob.update({
+              where: { id: jobId },
+              data: { status: 'cancelled', completedAt: new Date(), errorLog: JSON.stringify(errors), mappedCount: mapped, needsReview: needsReviewCount },
+            });
+            this.logger.log(`Seed job ${jobId} cancelled at ward ${ward.code}`);
+            return;
+          }
+
+          const oldWardName = ward.name.toLowerCase().trim();
+          const oldWardCode = ward.code;
+
+          try {
+            const v2Res = await fetch(
+              `${PROVINCES_API_BASE}/v2/w/from-legacy/?legacy_code=${oldWardCode}`,
+              {
+                headers: { 'User-Agent': FETCH_USER_AGENT },
+                signal: AbortSignal.timeout(5000),
+                redirect: 'follow',
+              },
+            );
+            if (!v2Res.ok) {
+              errors.push({ wardCode: oldWardCode, error: `v2 HTTP ${v2Res.status}` });
+              continue;
+            }
+            const matches = (await v2Res.json()) as Array<{ ward: { name: string; code: number } }>;
+            if (!matches || matches.length === 0) {
+              continue;
+            }
+
+            const candidates = matches.map((m) => m.ward.name);
+            const isAmbiguous = matches.length > 1;
+            if (isAmbiguous) needsReviewCount++;
+
+            const primaryNew = matches[0].ward.name.toLowerCase().trim();
+            const note = isAmbiguous
+              ? `Old ward split: → ${candidates.join(', ')} (cần admin review)`
+              : 'API-seeded từ provinces.open-api.vn v2';
+
+            await this.prisma.addressMapping.upsert({
+              where: { oldWard_oldDistrict_province: { oldWard: oldWardName, oldDistrict: oldDistrictName, province } },
+              create: {
+                oldWard: oldWardName,
+                oldDistrict: oldDistrictName,
+                newWard: primaryNew,
+                province,
+                note,
+                needsReview: isAmbiguous,
+                source: 'api-v2',
+                seededAt: new Date(),
+                candidates: isAmbiguous ? (candidates as any) : undefined,
+                isActive: true,
+              },
+              update: {
+                newWard: primaryNew,
+                note,
+                needsReview: isAmbiguous,
+                source: 'api-v2',
+                seededAt: new Date(),
+                candidates: isAmbiguous ? (candidates as any) : null,
+                isActive: true,
+              },
+            });
+            mapped++;
+
+            // Update progress every 25 rows so the admin sees movement.
+            if (mapped % 25 === 0) {
+              await this.prisma.addressSeedJob.update({
+                where: { id: jobId },
+                data: { mappedCount: mapped, errorCount: errors.length, needsReview: needsReviewCount },
+              });
+            }
+          } catch (err: any) {
+            errors.push({ wardCode: oldWardCode, error: err?.message ?? String(err) });
+          }
+
+          // Polite throttle between API calls. Codex flagged 50ms as overly polite;
+          // 10ms is a reasonable middle ground for an unmaintained-but-online API.
+          await new Promise((r) => setTimeout(r, 10));
+        }
+      }
+
+      await this.prisma.addressSeedJob.update({
+        where: { id: jobId },
+        data: {
+          status: 'completed',
+          completedAt: new Date(),
+          mappedCount: mapped,
+          errorCount: errors.length,
+          needsReview: needsReviewCount,
+          errorLog: errors.length ? JSON.stringify(errors).slice(0, 5000) : null,
+        },
+      });
+      this.logger.log(`Seed job ${jobId} completed: ${mapped} mapped, ${errors.length} errors, ${needsReviewCount} need review`);
+    } catch (err: any) {
+      this.logger.error(`Seed job ${jobId} failed: ${err?.message ?? err}`);
+      await this.prisma.addressSeedJob.update({
+        where: { id: jobId },
+        data: {
+          status: 'failed',
+          completedAt: new Date(),
+          mappedCount: mapped,
+          errorCount: errors.length,
+          needsReview: needsReviewCount,
+          errorLog: JSON.stringify({ fatalError: err?.message ?? String(err), partial: errors.slice(0, 50) }).slice(0, 5000),
+        },
+      });
+    }
   }
 
   async getStats() {

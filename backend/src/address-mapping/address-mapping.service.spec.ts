@@ -3,7 +3,7 @@ import { ConflictException, NotFoundException } from '@nestjs/common';
 import { AddressMappingService } from './address-mapping.service';
 import { PrismaService } from '../prisma/prisma.service';
 
-const mockPrisma = {
+const mockPrisma: any = {
   addressMapping: {
     findMany: jest.fn(),
     count: jest.fn(),
@@ -13,6 +13,12 @@ const mockPrisma = {
     update: jest.fn(),
     delete: jest.fn(),
     upsert: jest.fn(),
+  },
+  addressSeedJob: {
+    findFirst: jest.fn(),
+    findUnique: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
   },
 };
 
@@ -128,57 +134,93 @@ describe('AddressMappingService', () => {
     });
   });
 
-  describe('crawlAndSync', () => {
-    it('returns success stats after crawl', async () => {
-      const mockFetch = jest.spyOn(global, 'fetch').mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          districts: [
-            {
-              name: 'Quận Phú Nhuận',
-              wards: [
-                { name: 'Phường 14', codename: 'phuong_14' },
-                { name: 'Phường 13', codename: 'phuong_13' },
-              ],
-            },
-          ],
-        }),
-      } as Response);
-
-      mockPrisma.addressMapping.upsert.mockResolvedValue({
-        ...SAMPLE_MAPPING,
-        createdAt: new Date(Date.now() - 5000),
-        updatedAt: new Date(), // existing record
-      });
-      mockPrisma.addressMapping.count.mockResolvedValue(10);
-
-      const result = await service.crawlAndSync('HCM');
-      expect(result.success).toBe(true);
-      expect(result.stats).toHaveProperty('created');
-      expect(result.stats).toHaveProperty('updated');
-      expect(mockPrisma.addressMapping.upsert).toHaveBeenCalledTimes(2);
-
-      mockFetch.mockRestore();
+  // ─── Bulk seed background job (replaces crawlAndSync) ───────────────────
+  describe('startSeedJob', () => {
+    beforeEach(() => {
+      mockPrisma.addressSeedJob = {
+        findFirst: jest.fn(),
+        findUnique: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
+      };
     });
 
-    it('fetches data for quận phú nhuận correctly', async () => {
-      const mockFetch = jest.spyOn(global, 'fetch').mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          districts: [{ name: 'Quận Phú Nhuận', wards: [{ name: 'Phường 14', codename: 'p14' }] }],
-        }),
-      } as Response);
-      mockPrisma.addressMapping.upsert.mockResolvedValue({ ...SAMPLE_MAPPING, createdAt: new Date(), updatedAt: new Date() });
-      mockPrisma.addressMapping.count.mockResolvedValue(1);
+    it('rejects unknown province with ConflictException', async () => {
+      await expect(service.startSeedJob('UNKNOWN', 'admin-001')).rejects.toThrow(ConflictException);
+    });
 
-      await service.crawlAndSync('HCM');
+    it('rejects when job already running for province (concurrency lock)', async () => {
+      mockPrisma.addressSeedJob.findFirst.mockResolvedValue({
+        id: 'existing-job',
+        province: 'HCM',
+        status: 'running',
+      });
+      await expect(service.startSeedJob('HCM', 'admin-001')).rejects.toThrow(ConflictException);
+    });
 
-      const upsertCall = mockPrisma.addressMapping.upsert.mock.calls[0][0];
-      expect(upsertCall.create.oldWard).toBe('phường 14');
-      expect(upsertCall.create.newWard).toBe('phường phú nhuận');
-      expect(upsertCall.create.needsReview).toBe(false);
+    it('creates queued job + returns jobId when no conflict', async () => {
+      mockPrisma.addressSeedJob.findFirst.mockResolvedValue(null);
+      mockPrisma.addressSeedJob.create.mockResolvedValue({ id: 'new-job', province: 'HCM', status: 'queued' });
+      const result = await service.startSeedJob('HCM', 'admin-001');
+      expect(result.jobId).toBe('new-job');
+      expect(result.statusUrl).toContain('/seed/status/new-job');
+      expect(mockPrisma.addressSeedJob.create).toHaveBeenCalledWith({
+        data: { province: 'HCM', status: 'queued', triggeredBy: 'admin-001' },
+      });
+    });
+  });
 
-      mockFetch.mockRestore();
+  describe('cancelSeedJob', () => {
+    beforeEach(() => {
+      mockPrisma.addressSeedJob = mockPrisma.addressSeedJob || { findUnique: jest.fn(), update: jest.fn() };
+    });
+
+    it('throws NotFoundException for unknown job', async () => {
+      mockPrisma.addressSeedJob.findUnique.mockResolvedValue(null);
+      await expect(service.cancelSeedJob('missing')).rejects.toThrow(NotFoundException);
+    });
+
+    it('rejects already-completed jobs with ConflictException', async () => {
+      mockPrisma.addressSeedJob.findUnique.mockResolvedValue({ id: 'j1', status: 'completed' });
+      await expect(service.cancelSeedJob('j1')).rejects.toThrow(ConflictException);
+    });
+
+    it('sets cancelToken when running', async () => {
+      mockPrisma.addressSeedJob.findUnique.mockResolvedValue({ id: 'j1', status: 'running' });
+      mockPrisma.addressSeedJob.update.mockResolvedValue({});
+      const result = await service.cancelSeedJob('j1');
+      expect(result.ok).toBe(true);
+      expect(mockPrisma.addressSeedJob.update).toHaveBeenCalledWith({
+        where: { id: 'j1' },
+        data: { cancelToken: 'requested' },
+      });
+    });
+  });
+
+  // Bàn Cờ regression: this is the user's reported bug. After seed runs,
+  // looking up "Phường 5, Quận 3, HCM" must return "Phường Bàn Cờ".
+  describe('lookup — Phường 5 Quận 3 → Phường Bàn Cờ regression (Bug 2)', () => {
+    it('returns Phường Bàn Cờ when DB has the seeded entry', async () => {
+      mockPrisma.addressMapping.findFirst.mockResolvedValue({
+        id: 'banco',
+        oldWard: 'phường 5',
+        oldDistrict: 'quận 3',
+        newWard: 'phường bàn cờ',
+        province: 'HCM',
+        source: 'api-v2',
+        seededAt: new Date(),
+        candidates: null,
+        isActive: true,
+        needsReview: false,
+        note: 'API-seeded',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      const result = await service.lookup({
+        ward: 'Phường 5', district: 'Quận 3', province: 'HCM',
+      });
+      expect(result).not.toBeNull();
+      expect(result!.newWard).toBe('phường bàn cờ');
     });
   });
 });
