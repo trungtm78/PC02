@@ -1,161 +1,168 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
 /**
  * SettingsService Unit Tests
  *
- * getAll:
- *   - returns { success: true, data } array of all settings
- *
- * getValue:
- *   - fetches from Prisma and returns the matching value
- *   - returns null when key does not exist
- *
- * updateValue:
- *   - returns success: false when key does not exist
- *   - normalizes numeric string to parsed integer before storing
- *   - returns success: false for out-of-range numeric value
+ * Coverage:
+ *   - getAll returns all rows
+ *   - getValue returns value for non-deadline keys; null when missing
+ *   - getNumericValue returns parsed integer; uses fallback when missing
+ *   - HARD-GUARD: all read/write methods THROW BadRequest for the 12 deadline
+ *     rule keys (post-20260511_deadline_rule_versioning migration; the
+ *     authoritative source is DeadlineRulesService)
+ *   - updateValue normalizes numeric strings, range-validates 0..365
+ *   - seed inserts only non-deadline ops keys AND deletes any stray deadline keys
  */
 
 import { Test, TestingModule } from '@nestjs/testing';
+import { BadRequestException } from '@nestjs/common';
 import { SettingsService } from './settings.service';
 import { PrismaService } from '../prisma/prisma.service';
-
-// ─── Mock Prisma ──────────────────────────────────────────────────────────────
 
 const mockPrisma = {
   systemSetting: {
     findMany: jest.fn().mockResolvedValue([]),
     findUnique: jest.fn().mockResolvedValue(null),
     update: jest.fn(),
-    upsert: jest.fn(),
+    upsert: jest.fn().mockResolvedValue({}),
+    deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
   },
 };
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
 function makeSetting(key: string, value: string, unit: string | null = 'ngày') {
-  return {
-    id: `setting-${key}`,
-    key,
-    value,
-    label: `Label for ${key}`,
-    unit,
-    legalBasis: null,
-  };
+  return { id: `setting-${key}`, key, value, label: `Label for ${key}`, unit, legalBasis: null };
 }
-
-// ─── Test Suite ───────────────────────────────────────────────────────────────
 
 describe('SettingsService', () => {
   let service: SettingsService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        SettingsService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
+      providers: [SettingsService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
-
-    service = module.get<SettingsService>(SettingsService);
+    service = module.get(SettingsService);
     jest.clearAllMocks();
     mockPrisma.systemSetting.findMany.mockResolvedValue([]);
     mockPrisma.systemSetting.findUnique.mockResolvedValue(null);
+    mockPrisma.systemSetting.upsert.mockResolvedValue({});
+    mockPrisma.systemSetting.deleteMany.mockResolvedValue({ count: 0 });
   });
-
-  // ── getAll ─────────────────────────────────────────────────────────────────
 
   describe('getAll', () => {
-    it('returns { success: true, data } with all settings', async () => {
-      mockPrisma.systemSetting.findMany.mockResolvedValue([
-        makeSetting('THOI_HAN_XAC_MINH', '20'),
-        makeSetting('THOI_HAN_TOI_DA', '140'),
-      ]);
-
-      const result = await service.getAll();
-
-      expect(result).toHaveProperty('success', true);
-      expect(result.data).toHaveLength(2);
-      expect(result.data[0].key).toBe('THOI_HAN_XAC_MINH');
-    });
-
-    it('returns empty data array when no settings exist', async () => {
+    it('returns all settings', async () => {
+      mockPrisma.systemSetting.findMany.mockResolvedValue([makeSetting('TWO_FA_ENABLED', 'false', null)]);
       const result = await service.getAll();
       expect(result.success).toBe(true);
-      expect(result.data).toHaveLength(0);
+      expect(result.data).toHaveLength(1);
     });
   });
 
-  // ── getValue ───────────────────────────────────────────────────────────────
-
-  describe('getValue', () => {
-    it('returns the value string for an existing key', async () => {
-      mockPrisma.systemSetting.findMany.mockResolvedValue([
-        makeSetting('THOI_HAN_XAC_MINH', '20'),
-      ]);
-
-      const result = await service.getValue('THOI_HAN_XAC_MINH');
-
-      expect(result).toBe('20');
+  describe('getValue (non-deadline keys)', () => {
+    it('returns the value for an ops key', async () => {
+      mockPrisma.systemSetting.findMany.mockResolvedValue([makeSetting('TWO_FA_ENABLED', 'true', null)]);
+      expect(await service.getValue('TWO_FA_ENABLED')).toBe('true');
     });
 
-    it('returns null when the key does not exist', async () => {
-      mockPrisma.systemSetting.findMany.mockResolvedValue([]);
-
-      const result = await service.getValue('NONEXISTENT_KEY');
-
-      expect(result).toBeNull();
+    it('returns null when key missing', async () => {
+      expect(await service.getValue('UNKNOWN_OPS_KEY')).toBeNull();
     });
   });
 
-  // ── updateValue ────────────────────────────────────────────────────────────
+  describe('hard-guard for the 12 deadline keys', () => {
+    const deadlineKeys = [
+      'THOI_HAN_XAC_MINH',
+      'THOI_HAN_GIA_HAN_1',
+      'THOI_HAN_GIA_HAN_2',
+      'THOI_HAN_TOI_DA',
+      'THOI_HAN_PHUC_HOI',
+      'THOI_HAN_PHAN_LOAI',
+      'SO_LAN_GIA_HAN_TOI_DA',
+      'THOI_HAN_GUI_QD_VKS',
+      'THOI_HAN_TO_CAO',
+      'THOI_HAN_KHIEU_NAI',
+      'THOI_HAN_KIEN_NGHI',
+      'THOI_HAN_PHAN_ANH',
+    ];
 
-  describe('updateValue', () => {
-    it('returns success: false with message when key does not exist', async () => {
+    it.each(deadlineKeys)('getValue throws BadRequest for %s', async (key) => {
+      await expect(service.getValue(key)).rejects.toThrow(BadRequestException);
+    });
+
+    it.each(deadlineKeys)('getNumericValue throws BadRequest for %s', async (key) => {
+      await expect(service.getNumericValue(key, 20)).rejects.toThrow(BadRequestException);
+    });
+
+    it.each(deadlineKeys)('updateValue throws BadRequest for %s', async (key) => {
+      await expect(service.updateValue(key, '25')).rejects.toThrow(BadRequestException);
+    });
+
+    it('error message hints at the correct migration', async () => {
+      try {
+        await service.getValue('THOI_HAN_XAC_MINH');
+      } catch (e) {
+        expect((e as Error).message).toContain('DeadlineRulesService');
+      }
+    });
+  });
+
+  describe('updateValue (non-deadline keys)', () => {
+    it('returns success: false when key not found', async () => {
       mockPrisma.systemSetting.findUnique.mockResolvedValue(null);
-
-      const result = await service.updateValue('MISSING_KEY', '10');
-
+      const result = await service.updateValue('UNKNOWN_OPS', '10');
       expect(result.success).toBe(false);
-      expect(result).toHaveProperty('message');
     });
 
-    it('calls prisma.update and returns success: true on valid update', async () => {
-      const existing = makeSetting('THOI_HAN_XAC_MINH', '20', 'ngày');
-      const updated = makeSetting('THOI_HAN_XAC_MINH', '30', 'ngày');
+    it('updates and normalizes numeric value for unit=ngày', async () => {
+      const existing = makeSetting('CANH_BAO_SAP_HAN', '7', 'ngày');
       mockPrisma.systemSetting.findUnique.mockResolvedValue(existing);
-      mockPrisma.systemSetting.update.mockResolvedValue(updated);
+      mockPrisma.systemSetting.update.mockResolvedValue({ ...existing, value: '10' });
 
-      const result = await service.updateValue('THOI_HAN_XAC_MINH', '30');
-
+      const result = await service.updateValue('CANH_BAO_SAP_HAN', '10');
       expect(result.success).toBe(true);
       expect(mockPrisma.systemSetting.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { key: 'THOI_HAN_XAC_MINH' },
-          data: { value: '30' },
-        }),
+        expect.objectContaining({ data: { value: '10' } }),
       );
     });
 
-    it('normalizes float string to parsed integer (e.g. "3.7" → stored as "3")', async () => {
-      const existing = makeSetting('THOI_HAN_XAC_MINH', '20', 'ngày');
+    it('normalizes float to int (3.7 → 3)', async () => {
+      const existing = makeSetting('CANH_BAO_SAP_HAN', '7', 'ngày');
       mockPrisma.systemSetting.findUnique.mockResolvedValue(existing);
       mockPrisma.systemSetting.update.mockResolvedValue({ ...existing, value: '3' });
-
-      await service.updateValue('THOI_HAN_XAC_MINH', '3.7');
-
-      const updateCall = mockPrisma.systemSetting.update.mock.calls[0][0];
-      expect(updateCall.data.value).toBe('3');
+      await service.updateValue('CANH_BAO_SAP_HAN', '3.7');
+      expect(mockPrisma.systemSetting.update.mock.calls[0][0].data.value).toBe('3');
     });
 
-    it('returns success: false for out-of-range value (> 365)', async () => {
-      const existing = makeSetting('THOI_HAN_XAC_MINH', '20', 'ngày');
-      mockPrisma.systemSetting.findUnique.mockResolvedValue(existing);
-
-      const result = await service.updateValue('THOI_HAN_XAC_MINH', '999');
-
+    it('rejects values out of range (>365)', async () => {
+      mockPrisma.systemSetting.findUnique.mockResolvedValue(makeSetting('CANH_BAO_SAP_HAN', '7', 'ngày'));
+      const result = await service.updateValue('CANH_BAO_SAP_HAN', '999');
       expect(result.success).toBe(false);
       expect(mockPrisma.systemSetting.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('seed', () => {
+    it('upserts ops keys only and deletes stray deadline keys', async () => {
+      await service.seed();
+      expect(mockPrisma.systemSetting.upsert).toHaveBeenCalled();
+      expect(mockPrisma.systemSetting.deleteMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ key: expect.any(Object) }) }),
+      );
+    });
+
+    it('seeds exactly the 3 ops settings', async () => {
+      await service.seed();
+      const upsertCalls = mockPrisma.systemSetting.upsert.mock.calls.map((c) => c[0].where.key);
+      expect(upsertCalls).toContain('TWO_FA_ENABLED');
+      expect(upsertCalls).toContain('CANH_BAO_SAP_HAN');
+      expect(upsertCalls).toContain('THOI_HAN_XOA_VU_VIEC');
+      expect(upsertCalls).not.toContain('THOI_HAN_XAC_MINH');
+    });
+  });
+
+  describe('getDeadlines (deprecated)', () => {
+    it('returns deprecation hint', async () => {
+      const result = await service.getDeadlines();
+      expect(result.success).toBe(false);
+      expect(result.message).toContain('/api/v1/deadline-rules');
     });
   });
 });

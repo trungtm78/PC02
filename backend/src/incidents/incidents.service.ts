@@ -22,6 +22,7 @@ import type { DataScope } from '../auth/services/unit-scope.service';
 import { buildScopeFilter } from '../common/utils/scope-filter.util';
 import { TERMINAL_STATUSES, VALID_TRANSITIONS, PHASE_STATUSES } from './incidents.constants';
 import { SettingsService } from '../settings/settings.service';
+import { DeadlineRulesService } from '../deadline-rules/deadline-rules.service';
 import { ROLE_NAMES } from '../common/constants/role.constants';
 import { SETTINGS_KEY } from '../common/constants/settings-keys.constants';
 import { BcaExcelHelper } from '../common/bca-excel.helper';
@@ -33,6 +34,7 @@ export class IncidentsService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly settings: SettingsService,
+    private readonly deadlineRules: DeadlineRulesService,
   ) {}
 
   // ─────────────────────────────────────────────
@@ -278,16 +280,30 @@ export class IncidentsService {
 
     const code = await this.generateIncidentCode();
 
-    // Auto-calculate deadline: ngayTiepNhan + THOI_HAN_XAC_MINH (default 20 days)
+    // Auto-calculate deadline: ngayTiepNhan + THOI_HAN_XAC_MINH (via versioning workflow)
+    // Snapshot the active rule version's id + max-extensions count so future
+    // policy changes don't retroactively alter this incident's deadline math.
     let computedDeadline: Date | undefined;
+    let deadlineRuleVersionId: string | null = null;
+    let maxExtensionsSnapshot: number | null = null;
     if (dto.deadline) {
       computedDeadline = new Date(dto.deadline);
     } else if (dto.ngayDeXuat) {
-      const thoiHan = await this.settings.getNumericValue('THOI_HAN_XAC_MINH', 20);
+      const xacMinhRule = await this.deadlineRules.getActive('THOI_HAN_XAC_MINH');
+      if (!xacMinhRule) {
+        throw new BadRequestException(
+          'Không có quy tắc THOI_HAN_XAC_MINH đang hiệu lực. Liên hệ admin chạy seed/migration.',
+        );
+      }
       const d = new Date(dto.ngayDeXuat);
-      d.setDate(d.getDate() + thoiHan);
+      d.setDate(d.getDate() + xacMinhRule.value);
       computedDeadline = d;
+      deadlineRuleVersionId = xacMinhRule.id;
     }
+
+    // Always snapshot max-extensions count at creation time (frozen even when admin lowers limit later)
+    const maxExtRule = await this.deadlineRules.getActive('SO_LAN_GIA_HAN_TOI_DA');
+    if (maxExtRule) maxExtensionsSnapshot = maxExtRule.value;
 
     const record = await this.prisma.incident.create({
       data: {
@@ -298,6 +314,8 @@ export class IncidentsService {
         fromDate: dto.fromDate ? new Date(dto.fromDate) : undefined,
         toDate: dto.toDate ? new Date(dto.toDate) : undefined,
         deadline: computedDeadline,
+        deadlineRuleVersionId: deadlineRuleVersionId ?? undefined,
+        maxExtensionsSnapshot: maxExtensionsSnapshot ?? undefined,
         unitId: dto.unitId,
         investigatorId: dto.investigatorId,
         sourcePetitionId: dto.sourcePetitionId,
@@ -634,16 +652,28 @@ export class IncidentsService {
     if (!incident) throw new NotFoundException(`Vụ việc không tồn tại (id: ${id})`);
     this.checkWriteScope(incident, dataScope);
 
-    const maxExtensions = await this.settings.getNumericValue('SO_LAN_GIA_HAN_TOI_DA', 2);
+    // Max-extensions: use snapshot taken at incident creation (frozen). Falls
+    // back to current active rule for incidents created before the migration
+    // (will already be backfilled but defensive).
+    let maxExtensions = incident.maxExtensionsSnapshot;
+    if (maxExtensions == null) {
+      maxExtensions = await this.deadlineRules.getActiveValue('SO_LAN_GIA_HAN_TOI_DA', 2);
+    }
     if (incident.soLanGiaHan >= maxExtensions) {
       throw new BadRequestException(
         `Đã gia hạn tối đa ${maxExtensions} lần theo Điều 147 BLTTHS 2015`,
       );
     }
 
-    // First extension uses THOI_HAN_GIA_HAN_1, second uses THOI_HAN_GIA_HAN_2
+    // Extension days: live-read active rule (admin policy for extensions follows current rule).
+    // Snapshot the rule version id used into giaHan1/2RuleVersionId so the historical
+    // chain is preserved for VKS audit reconstruction.
     const settingKey = incident.soLanGiaHan === 0 ? 'THOI_HAN_GIA_HAN_1' : 'THOI_HAN_GIA_HAN_2';
-    const extensionDays = await this.settings.getNumericValue(settingKey, 60);
+    const extensionRule = await this.deadlineRules.getActive(settingKey);
+    if (!extensionRule) {
+      throw new BadRequestException(`Không có quy tắc ${settingKey} đang hiệu lực`);
+    }
+    const extensionDays = extensionRule.value;
     if (extensionDays <= 0) {
       throw new BadRequestException(`Cấu hình ${settingKey} không hợp lệ (giá trị phải > 0)`);
     }
@@ -656,9 +686,15 @@ export class IncidentsService {
     newDeadline.setDate(newDeadline.getDate() + extensionDays);
 
     // Atomic: only update if soLanGiaHan hasn't changed since we read it (prevents double-extension race)
+    const snapshotField = incident.soLanGiaHan === 0 ? 'giaHan1RuleVersionId' : 'giaHan2RuleVersionId';
     const atomicResult = await this.prisma.incident.updateMany({
       where: { id, deletedAt: null, soLanGiaHan: incident.soLanGiaHan },
-      data: { deadline: newDeadline, soLanGiaHan: { increment: 1 }, ngayGiaHan: new Date() },
+      data: {
+        deadline: newDeadline,
+        soLanGiaHan: { increment: 1 },
+        ngayGiaHan: new Date(),
+        [snapshotField]: extensionRule.id,
+      } as Prisma.IncidentUncheckedUpdateManyInput,
     });
     if (atomicResult.count === 0) {
       throw new BadRequestException('Gia hạn thất bại — vui lòng thử lại (concurrent request detected)');
@@ -681,6 +717,7 @@ export class IncidentsService {
       metadata: {
         soLanGiaHan: updated.soLanGiaHan,
         extensionDays,
+        extensionRuleVersionId: extensionRule.id,
         newDeadline: updated.deadline,
       },
       ipAddress: meta?.ipAddress,

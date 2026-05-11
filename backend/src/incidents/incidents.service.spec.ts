@@ -27,6 +27,7 @@ import { AuditService } from '../audit/audit.service';
 import { IncidentStatus, LoaiNguonTin } from '@prisma/client';
 import { TERMINAL_STATUSES, VALID_TRANSITIONS, PHASE_STATUSES } from './incidents.constants';
 import { SettingsService } from '../settings/settings.service';
+import { DeadlineRulesService } from '../deadline-rules/deadline-rules.service';
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
@@ -117,6 +118,22 @@ const mockSettings = {
   getNumericValue: jest.fn().mockResolvedValue(20),
 };
 
+// DeadlineRulesService mock — replaces the old settings.getNumericValue path
+// for the 12 versioned legal-deadline keys. Returns a stable v1-like object.
+const mockDeadlineRules = {
+  getActive: jest.fn().mockImplementation((key: string) =>
+    Promise.resolve({
+      id: `rule_init_${key}`,
+      ruleKey: key,
+      value: key === 'SO_LAN_GIA_HAN_TOI_DA' ? 2 : key === 'THOI_HAN_PHAN_LOAI' ? 1 : 20,
+      status: 'active',
+    }),
+  ),
+  getActiveValue: jest.fn().mockImplementation((key: string, fallback?: number) =>
+    Promise.resolve(key === 'SO_LAN_GIA_HAN_TOI_DA' ? 2 : key === 'THOI_HAN_PHAN_LOAI' ? 1 : fallback ?? 20),
+  ),
+};
+
 // ─── Test Suite ───────────────────────────────────────────────────────────────
 
 describe('IncidentsService', () => {
@@ -129,6 +146,7 @@ describe('IncidentsService', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AuditService, useValue: mockAudit },
         { provide: SettingsService, useValue: mockSettings },
+        { provide: DeadlineRulesService, useValue: mockDeadlineRules },
       ],
     }).compile();
 
@@ -448,19 +466,22 @@ describe('IncidentsService', () => {
       expect(mockPrisma.incident.create).toHaveBeenCalled();
     });
 
-    it('should auto-calculate deadline from ngayDeXuat + settings', async () => {
+    it('should auto-calculate deadline from ngayDeXuat + active rule version', async () => {
       mockPrisma.incident.create.mockResolvedValue(mockIncident);
-      mockSettings.getNumericValue.mockResolvedValue(20);
 
       await service.create(
         { name: 'Test', ngayDeXuat: '2026-01-01' } as any,
         'actor-001',
       );
 
-      expect(mockSettings.getNumericValue).toHaveBeenCalledWith('THOI_HAN_XAC_MINH', 20);
+      expect(mockDeadlineRules.getActive).toHaveBeenCalledWith('THOI_HAN_XAC_MINH');
+      expect(mockDeadlineRules.getActive).toHaveBeenCalledWith('SO_LAN_GIA_HAN_TOI_DA');
       const createCall = mockPrisma.incident.create.mock.calls[0][0];
       const deadline = createCall.data.deadline as Date;
       expect(deadline.toISOString().slice(0, 10)).toBe('2026-01-21');
+      // snapshots the rule version id + max extensions count
+      expect(createCall.data.deadlineRuleVersionId).toBe('rule_init_THOI_HAN_XAC_MINH');
+      expect(createCall.data.maxExtensionsSnapshot).toBe(2);
     });
 
     it('should not crash when ngayDeXuat is null', async () => {
@@ -1300,26 +1321,29 @@ describe('IncidentsService', () => {
   describe('extendDeadline', () => {
     const baseDeadline = new Date('2026-03-01');
 
-    it('first extension: soLanGiaHan=0 → success, becomes 1, deadline+=60d, ngayGiaHan set', async () => {
-      const incident = { ...mockIncident, soLanGiaHan: 0, deadline: baseDeadline };
+    it('first extension: soLanGiaHan=0 → success, becomes 1, deadline+=60d, snapshots rule version', async () => {
+      const incident = { ...mockIncident, soLanGiaHan: 0, deadline: baseDeadline, maxExtensionsSnapshot: 2 };
       const updated = { ...incident, soLanGiaHan: 1, ngayGiaHan: new Date() };
       mockPrisma.incident.findFirst
-        .mockResolvedValueOnce(incident)  // existence check
-        .mockResolvedValueOnce(updated);  // post-update fetch
-      mockSettings.getNumericValue
-        .mockResolvedValueOnce(2)   // SO_LAN_GIA_HAN_TOI_DA
-        .mockResolvedValueOnce(60); // THOI_HAN_GIA_HAN_1
+        .mockResolvedValueOnce(incident)
+        .mockResolvedValueOnce(updated);
+      mockDeadlineRules.getActive.mockImplementationOnce((key: string) =>
+        Promise.resolve({ id: `rule_init_${key}`, ruleKey: key, value: 60, status: 'active' }),
+      );
       mockPrisma.incident.updateMany.mockResolvedValue({ count: 1 });
 
       const result = await service.extendDeadline('inc-001', 'actor-001', {});
 
       expect(result.success).toBe(true);
-      // deadline should be baseDeadline + 60 days
       const expectedDeadline = new Date(baseDeadline);
       expectedDeadline.setDate(expectedDeadline.getDate() + 60);
       expect(mockPrisma.incident.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ deadline: expectedDeadline, soLanGiaHan: { increment: 1 } }),
+          data: expect.objectContaining({
+            deadline: expectedDeadline,
+            soLanGiaHan: { increment: 1 },
+            giaHan1RuleVersionId: 'rule_init_THOI_HAN_GIA_HAN_1',
+          }),
         }),
       );
       expect(mockAudit.log).toHaveBeenCalledWith(
@@ -1327,15 +1351,12 @@ describe('IncidentsService', () => {
       );
     });
 
-    it('second extension: soLanGiaHan=1 → success, becomes 2', async () => {
-      const incident = { ...mockIncident, soLanGiaHan: 1, deadline: baseDeadline };
+    it('second extension: soLanGiaHan=1 → success, becomes 2, snapshots giaHan2RuleVersionId', async () => {
+      const incident = { ...mockIncident, soLanGiaHan: 1, deadline: baseDeadline, maxExtensionsSnapshot: 2 };
       const updated = { ...incident, soLanGiaHan: 2, ngayGiaHan: new Date() };
       mockPrisma.incident.findFirst
-        .mockResolvedValueOnce(incident)  // existence check
-        .mockResolvedValueOnce(updated);  // post-update fetch
-      mockSettings.getNumericValue
-        .mockResolvedValueOnce(2)   // SO_LAN_GIA_HAN_TOI_DA
-        .mockResolvedValueOnce(60); // THOI_HAN_GIA_HAN_2
+        .mockResolvedValueOnce(incident)
+        .mockResolvedValueOnce(updated);
       mockPrisma.incident.updateMany.mockResolvedValue({ count: 1 });
 
       const result = await service.extendDeadline('inc-001', 'actor-001', {});
@@ -1343,15 +1364,17 @@ describe('IncidentsService', () => {
       expect(result.success).toBe(true);
       expect(mockPrisma.incident.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ soLanGiaHan: { increment: 1 } }),
+          data: expect.objectContaining({
+            soLanGiaHan: { increment: 1 },
+            giaHan2RuleVersionId: 'rule_init_THOI_HAN_GIA_HAN_2',
+          }),
         }),
       );
     });
 
-    it('third attempt: soLanGiaHan=2 → throws BadRequestException', async () => {
-      const incident = { ...mockIncident, soLanGiaHan: 2, deadline: baseDeadline };
+    it('third attempt: soLanGiaHan=2 → throws BadRequestException using maxExtensionsSnapshot', async () => {
+      const incident = { ...mockIncident, soLanGiaHan: 2, deadline: baseDeadline, maxExtensionsSnapshot: 2 };
       mockPrisma.incident.findFirst.mockResolvedValue(incident);
-      mockSettings.getNumericValue.mockResolvedValueOnce(2); // SO_LAN_GIA_HAN_TOI_DA
 
       await expect(service.extendDeadline('inc-001', 'actor-001', {})).rejects.toThrow(BadRequestException);
       expect(mockPrisma.incident.updateMany).not.toHaveBeenCalled();
@@ -1359,35 +1382,31 @@ describe('IncidentsService', () => {
 
     it('incident not found → throws NotFoundException', async () => {
       mockPrisma.incident.findFirst.mockResolvedValue(null);
-
       await expect(service.extendDeadline('no-such-id', 'actor-001', {})).rejects.toThrow(NotFoundException);
     });
 
     it('incident with no deadline → throws BadRequestException', async () => {
-      const incident = { ...mockIncident, soLanGiaHan: 0, deadline: null };
+      const incident = { ...mockIncident, soLanGiaHan: 0, deadline: null, maxExtensionsSnapshot: 2 };
       mockPrisma.incident.findFirst.mockResolvedValue(incident);
-      mockSettings.getNumericValue.mockResolvedValueOnce(2); // SO_LAN_GIA_HAN_TOI_DA
-
       await expect(service.extendDeadline('inc-001', 'actor-001', {})).rejects.toThrow(BadRequestException);
       expect(mockPrisma.incident.updateMany).not.toHaveBeenCalled();
     });
 
     it('out-of-scope incident → throws ForbiddenException when dataScope provided', async () => {
-      const incident = { ...mockIncident, soLanGiaHan: 0, deadline: baseDeadline, investigatorId: 'other-user', assignedTeamId: 'other-team' };
+      const incident = { ...mockIncident, soLanGiaHan: 0, deadline: baseDeadline, investigatorId: 'other-user', assignedTeamId: 'other-team', maxExtensionsSnapshot: 2 };
       mockPrisma.incident.findFirst.mockResolvedValue(incident);
-      // checkWriteScope throws before getNumericValue is called — no mock needed
 
       const dataScope = { teamIds: ['my-team'], userIds: ['actor-001'], writableTeamIds: ['my-team'] };
       await expect(service.extendDeadline('inc-001', 'actor-001', {}, dataScope)).rejects.toThrow();
       expect(mockPrisma.incident.updateMany).not.toHaveBeenCalled();
     });
 
-    it('extensionDays=0 in SystemSettings → throws BadRequestException (FINDING-1)', async () => {
-      const incident = { ...mockIncident, soLanGiaHan: 0, deadline: baseDeadline };
+    it('extensionDays=0 in active rule → throws BadRequestException', async () => {
+      const incident = { ...mockIncident, soLanGiaHan: 0, deadline: baseDeadline, maxExtensionsSnapshot: 2 };
       mockPrisma.incident.findFirst.mockResolvedValue(incident);
-      mockSettings.getNumericValue
-        .mockResolvedValueOnce(2)  // SO_LAN_GIA_HAN_TOI_DA
-        .mockResolvedValueOnce(0); // THOI_HAN_GIA_HAN_1 = 0 (invalid config)
+      mockDeadlineRules.getActive.mockImplementationOnce((key: string) =>
+        Promise.resolve({ id: `rule_init_${key}`, ruleKey: key, value: 0, status: 'active' }),
+      );
 
       await expect(service.extendDeadline('inc-001', 'actor-001', {})).rejects.toThrow(BadRequestException);
       expect(mockPrisma.incident.updateMany).not.toHaveBeenCalled();
