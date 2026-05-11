@@ -192,6 +192,74 @@ describe('DeadlineRulesService', () => {
         ),
       ).rejects.toThrow(BadRequestException);
     });
+
+    it('accepts a valid documentUrl on a government domain', async () => {
+      const created = makeRule({ id: 'new_v', status: 'draft', documentUrl: 'https://vbpl.vn/bo-luat-to-tung-hinh-su-2015' });
+      prisma.deadlineRuleVersion.create.mockResolvedValue(created);
+
+      const result = await service.propose(
+        {
+          ruleKey: 'THOI_HAN_XAC_MINH',
+          value: 25,
+          label: 'x',
+          legalBasis: 'x',
+          documentType: 'TT',
+          documentNumber: '28/2020',
+          documentIssuer: 'BCA',
+          documentUrl: 'https://vbpl.vn/bo-luat-to-tung-hinh-su-2015',
+          reason: 'Cập nhật theo Thông tư 28/2020/TT-BCA Điều 11 khoản 2',
+        } as any,
+        'user_a',
+      );
+
+      expect(result.success).toBe(true);
+      expect(prisma.deadlineRuleVersion.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ documentUrl: 'https://vbpl.vn/bo-luat-to-tung-hinh-su-2015' }),
+        }),
+      );
+    });
+
+    it('rejects documentUrl pointing to localhost (private host SSRF defense)', async () => {
+      await expect(
+        service.propose(
+          {
+            ruleKey: 'THOI_HAN_XAC_MINH',
+            value: 25,
+            label: 'x',
+            legalBasis: 'x',
+            documentType: 'TT',
+            documentNumber: '28/2020',
+            documentIssuer: 'BCA',
+            documentUrl: 'http://localhost:3000/some-page',
+            reason: 'A reason long enough to pass validation',
+          } as any,
+          'user_a',
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects documentUrl with non-http(s) scheme via service-side guard', async () => {
+      // class-validator @IsUrl with protocols:['http','https'] catches this at the
+      // controller boundary, but the service-side assertDocumentUrlSafe also rejects
+      // it as defense-in-depth for internal callers bypassing the global pipe.
+      await expect(
+        service.propose(
+          {
+            ruleKey: 'THOI_HAN_XAC_MINH',
+            value: 25,
+            label: 'x',
+            legalBasis: 'x',
+            documentType: 'TT',
+            documentNumber: '28/2020',
+            documentIssuer: 'BCA',
+            documentUrl: 'ftp://example.com/doc.pdf',
+            reason: 'A reason long enough to pass validation',
+          } as any,
+          'user_a',
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
   });
 
   // ── submit ─────────────────────────────────────────────────────────────────

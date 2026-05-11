@@ -8,6 +8,7 @@ import {
   MinLength,
   MaxLength,
   IsDateString,
+  IsUrl,
 } from 'class-validator';
 import { DOCUMENT_TYPES, DOCUMENT_ISSUERS } from './propose-rule.dto';
 
@@ -57,6 +58,21 @@ export class UpdateDraftDto {
   @IsOptional()
   @IsString()
   attachmentId?: string;
+
+  /** Optional URL — same strict validation as ProposeRuleDto.documentUrl. */
+  @IsOptional()
+  @IsUrl(
+    {
+      protocols: ['http', 'https'],
+      require_protocol: true,
+      require_tld: true,
+      require_host: true,
+      disallow_auth: true,
+    },
+    { message: 'URL phải bắt đầu bằng http:// hoặc https:// và có tên miền công khai hợp lệ' },
+  )
+  @MaxLength(2000)
+  documentUrl?: string;
 
   @IsOptional()
   @IsString()

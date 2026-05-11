@@ -261,6 +261,7 @@ export class DeadlineRulesService {
     if (!DEADLINE_RULE_KEY_SET.has(dto.ruleKey)) {
       throw new BadRequestException(`'${dto.ruleKey}' is not a deadline rule key`);
     }
+    if (dto.documentUrl) this.assertDocumentUrlSafe(dto.documentUrl);
     const effectiveFrom = dto.effectiveFrom ? this.clampEffectiveFrom(new Date(dto.effectiveFrom)) : null;
 
     const created = await this.prisma.deadlineRuleVersion.create({
@@ -274,6 +275,7 @@ export class DeadlineRulesService {
         documentIssuer: dto.documentIssuer,
         documentDate: dto.documentDate ? new Date(dto.documentDate) : null,
         attachmentId: dto.attachmentId,
+        documentUrl: dto.documentUrl,
         reason: dto.reason,
         status: 'draft',
         effectiveFrom,
@@ -321,6 +323,10 @@ export class DeadlineRulesService {
       data.attachment = dto.attachmentId
         ? { connect: { id: dto.attachmentId } }
         : { disconnect: true };
+    }
+    if (dto.documentUrl !== undefined) {
+      if (dto.documentUrl) this.assertDocumentUrlSafe(dto.documentUrl);
+      data.documentUrl = dto.documentUrl || null;
     }
     if (dto.reason !== undefined) data.reason = dto.reason;
     if (dto.effectiveFrom !== undefined) {
@@ -681,6 +687,39 @@ export class DeadlineRulesService {
       throw new BadRequestException(`Ngày hiệu lực không được lùi quá ${this.MAX_PAST_DAYS} ngày`);
     }
     return date;
+  }
+
+  /**
+   * Defense-in-depth URL validation. DTO `@IsUrl({...})` already filters most
+   * bad URLs at the controller boundary, but we re-parse here to:
+   *   1. Catch payloads that bypass the global pipe (internal callers)
+   *   2. Reject private/internal hosts that `require_tld` alone may not catch
+   *      (validator.js accepts hosts like `internal.local` because TLD is present)
+   * This is intentionally redundant with the DTO — security in layers.
+   */
+  private assertDocumentUrlSafe(url: string): void {
+    let parsed: URL;
+    try {
+      parsed = new URL(url);
+    } catch {
+      throw new BadRequestException('URL không hợp lệ');
+    }
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      throw new BadRequestException('URL phải bắt đầu bằng http:// hoặc https://');
+    }
+    const host = parsed.hostname.toLowerCase();
+    if (
+      host === 'localhost' ||
+      host.startsWith('127.') ||
+      host.startsWith('10.') ||
+      host.startsWith('192.168.') ||
+      /^172\.(1[6-9]|2\d|3[0-1])\./.test(host) ||
+      host.endsWith('.local') ||
+      host.endsWith('.internal') ||
+      host === '0.0.0.0'
+    ) {
+      throw new BadRequestException('URL không được trỏ về localhost hoặc địa chỉ nội bộ');
+    }
   }
 
   private async findActiveApproverIds(): Promise<string[]> {

@@ -8,6 +8,7 @@ import {
   MinLength,
   MaxLength,
   IsDateString,
+  IsUrl,
 } from 'class-validator';
 import { DEADLINE_RULE_KEYS } from '../constants/deadline-rule-keys.constants';
 
@@ -61,6 +62,29 @@ export class ProposeRuleDto {
   @IsOptional()
   @IsString()
   attachmentId?: string;
+
+  /**
+   * Optional URL pointing to the official legal document source (vbpl.vn,
+   * chinhphu.vn, quochoi.vn, ...). Validator is intentionally strict:
+   *   - http/https only (rejects ftp://, javascript:, data:, file://)
+   *   - require_tld eliminates http://localhost and intranet hosts
+   *   - require_host blocks bare-protocol URLs
+   *   - disallow_auth rejects http://user:pass@host phishing patterns
+   * Service layer adds private-IP rejection (defense in depth).
+   */
+  @IsOptional()
+  @IsUrl(
+    {
+      protocols: ['http', 'https'],
+      require_protocol: true,
+      require_tld: true,
+      require_host: true,
+      disallow_auth: true,
+    },
+    { message: 'URL phải bắt đầu bằng http:// hoặc https:// và có tên miền công khai hợp lệ' },
+  )
+  @MaxLength(2000)
+  documentUrl?: string;
 
   @IsString()
   @MinLength(20, { message: 'Lý do phải có ít nhất 20 ký tự để đảm bảo audit trail' })
