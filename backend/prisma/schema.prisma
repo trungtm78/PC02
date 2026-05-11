@@ -14,11 +14,11 @@ datasource db {
 // ─────────────────────────────────────────────
 
 model Role {
-  id          String           @id @default(cuid())
-  name        String           @unique
+  id          String   @id @default(cuid())
+  name        String   @unique
   description String?
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   users       User[]
   permissions RolePermission[]
@@ -27,14 +27,14 @@ model Role {
 }
 
 model Permission {
-  id          String           @id @default(cuid())
-  action      String           // e.g. "read", "write", "delete"
-  subject     String           // e.g. "Case", "User", "AuditLog"
-  conditions  Json?            // ABAC conditions (optional JSON)
+  id          String   @id @default(cuid())
+  action      String // e.g. "read", "write", "delete"
+  subject     String // e.g. "Case", "User", "AuditLog"
+  conditions  Json? // ABAC conditions (optional JSON)
   description String?
-  createdAt   DateTime         @default(now())
+  createdAt   DateTime @default(now())
 
-  roles       RolePermission[]
+  roles RolePermission[]
 
   @@unique([action, subject])
   @@map("permissions")
@@ -45,8 +45,8 @@ model RolePermission {
   permissionId String
   assignedAt   DateTime @default(now())
 
-  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
 
   @@id([roleId, permissionId])
   @@map("role_permissions")
@@ -57,67 +57,70 @@ model RolePermission {
 // ─────────────────────────────────────────────
 
 model User {
-  id               String     @id @default(cuid())
-  email            String     @unique
-  username         String     @unique
-  passwordHash     String
-  firstName        String?
-  lastName         String?
-  workId           String?    // Mã cán bộ (e.g. PC02-001)
-  phone            String?
-  departmentId     String?    // ID đơn vị từ danh mục
-  isActive         Boolean    @default(true)
-  roleId           String
-  refreshTokenHash String?    // hashed refresh token for rotation
-  tokenVersion     Int        @default(0) // incremented on password change to invalidate existing JWTs
-  canDispatch      Boolean    @default(false) // supplementary permission: read all + assign/reassign any record
-  lastLoginAt      DateTime?
+  id                 String    @id @default(cuid())
+  email              String    @unique
+  username           String    @unique
+  passwordHash       String
+  firstName          String?
+  lastName           String?
+  workId             String? // Mã cán bộ (e.g. PC02-001)
+  phone              String?
+  departmentId       String? // ID đơn vị từ danh mục
+  isActive           Boolean   @default(true)
+  roleId             String
+  refreshTokenHash   String? // hashed refresh token for rotation
+  tokenVersion       Int       @default(0) // incremented on password change to invalidate existing JWTs
+  canDispatch        Boolean   @default(false) // supplementary permission: read all + assign/reassign any record
+  lastLoginAt        DateTime?
   // 2FA fields
-  totpSecret           String?   // AES-256-GCM encrypted base32 secret
-  totpEnabled          Boolean   @default(false)
-  totpSetupPending     Boolean   @default(false)
-  totpSetupPendingAt   DateTime?
-  backupCodes          String[]
-  backupCodeSalts      String[]
-  lastTotpCode         String?   // replay protection — last used TOTP code in current window
-  twoFaSetupAt         DateTime?
-  twoFaUsedAt          DateTime? // OV-002: marks twoFaToken as consumed, survives restart
-  createdAt        DateTime   @default(now())
-  updatedAt        DateTime   @updatedAt
+  totpSecret         String? // AES-256-GCM encrypted base32 secret
+  totpEnabled        Boolean   @default(false)
+  totpSetupPending   Boolean   @default(false)
+  totpSetupPendingAt DateTime?
+  backupCodes        String[]
+  backupCodeSalts    String[]
+  lastTotpCode       String? // replay protection — last used TOTP code in current window
+  twoFaSetupAt       DateTime?
+  twoFaUsedAt        DateTime? // OV-002: marks twoFaToken as consumed, survives restart
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
-  role                  Role       @relation(fields: [roleId], references: [id])
-  auditLogs             AuditLog[]
-  cases                 Case[]
-  petitionsEntered      Petition[] @relation("PetitionEnteredBy")
-  petitionsAssigned     Petition[] @relation("PetitionAssignedTo")
-  incidentsAssigned     Incident[] @relation("IncidentInvestigator")
-  incidentsCanBoNhap    Incident[] @relation("IncidentCanBoNhap")
-  incidentsCreated      Incident[] @relation("IncidentCreatedBy")
-  incidentStatusChanges IncidentStatusHistory[] @relation("IncidentStatusChangedBy")
-  documents             Document[] // Tài liệu đã upload
-  proposalsCreated      Proposal[] @relation("ProposalCreatedBy")
-  guidanceRecords       GuidanceRecord[] @relation("GuidanceCreatedBy")
-  exchangesCreated      Exchange[] @relation("ExchangeCreatedBy")
-  exchangeMessages      ExchangeMessage[] @relation("ExchangeMessageSender")
-  delegationsCreated    Delegation[] @relation("DelegationCreatedBy")
-  conclusionsAuthored   Conclusion[] @relation("ConclusionAuthor")
-  conclusionsApproved   Conclusion[] @relation("ConclusionApprover")
-  statusChanges         CaseStatusHistory[] @relation("StatusChangedBy")
+  role                            Role                      @relation(fields: [roleId], references: [id])
+  auditLogs                       AuditLog[]
+  cases                           Case[]
+  petitionsEntered                Petition[]                @relation("PetitionEnteredBy")
+  petitionsAssigned               Petition[]                @relation("PetitionAssignedTo")
+  incidentsAssigned               Incident[]                @relation("IncidentInvestigator")
+  incidentsCanBoNhap              Incident[]                @relation("IncidentCanBoNhap")
+  incidentsCreated                Incident[]                @relation("IncidentCreatedBy")
+  incidentStatusChanges           IncidentStatusHistory[]   @relation("IncidentStatusChangedBy")
+  documents                       Document[] // Tài liệu đã upload
+  proposalsCreated                Proposal[]                @relation("ProposalCreatedBy")
+  guidanceRecords                 GuidanceRecord[]          @relation("GuidanceCreatedBy")
+  exchangesCreated                Exchange[]                @relation("ExchangeCreatedBy")
+  exchangeMessages                ExchangeMessage[]         @relation("ExchangeMessageSender")
+  delegationsCreated              Delegation[]              @relation("DelegationCreatedBy")
+  conclusionsAuthored             Conclusion[]              @relation("ConclusionAuthor")
+  conclusionsApproved             Conclusion[]              @relation("ConclusionApprover")
+  statusChanges                   CaseStatusHistory[]       @relation("StatusChangedBy")
   investigationSupplementsCreated InvestigationSupplement[] @relation("SupplementCreatedBy")
-  notifications         Notification[]
-  userTeams             UserTeam[]
-  grantsReceived        DataAccessGrant[] @relation("GrantReceived")
-  grantsGiven           DataAccessGrant[] @relation("GrantGiven")
-  abbreviations         UserAbbreviation[]
-  shortcuts             UserShortcut[]
-  devices               UserDevice[]
-  overdueNotifications  OverdueNotification[]
-  vksMeetingsCreated    VksMeetingRecord[]     @relation("VksMeetingCreatedBy")
-  actionPlansCreated    SuspensionActionPlan[] @relation("ActionPlanCreatedBy")
-  reportTdcCreated      ReportTdcDraft[]       @relation("ReportCreatedBy")
-  reportTdcReviewed     ReportTdcDraft[]       @relation("ReportReviewedBy")
-  reportTdcApproved     ReportTdcDraft[]       @relation("ReportApprovedBy")
-  reportTdcRejected     ReportTdcDraft[]       @relation("ReportRejectedBy")
+  notifications                   Notification[]
+  userTeams                       UserTeam[]
+  grantsReceived                  DataAccessGrant[]         @relation("GrantReceived")
+  grantsGiven                     DataAccessGrant[]         @relation("GrantGiven")
+  abbreviations                   UserAbbreviation[]
+  shortcuts                       UserShortcut[]
+  devices                         UserDevice[]
+  overdueNotifications            OverdueNotification[]
+  vksMeetingsCreated              VksMeetingRecord[]        @relation("VksMeetingCreatedBy")
+  actionPlansCreated              SuspensionActionPlan[]    @relation("ActionPlanCreatedBy")
+  reportTdcCreated                ReportTdcDraft[]          @relation("ReportCreatedBy")
+  reportTdcReviewed               ReportTdcDraft[]          @relation("ReportReviewedBy")
+  reportTdcApproved               ReportTdcDraft[]          @relation("ReportApprovedBy")
+  reportTdcRejected               ReportTdcDraft[]          @relation("ReportRejectedBy")
+  // Deadline rule versioning
+  deadlineRulesProposed           DeadlineRuleVersion[]     @relation("DeadlineRuleProposer")
+  deadlineRulesReviewed           DeadlineRuleVersion[]     @relation("DeadlineRuleReviewer")
 
   @@map("users")
 }
@@ -128,16 +131,16 @@ model User {
 
 model Directory {
   id             String    @id @default(cuid())
-  type           String    // e.g. "CRIME", "ORG", "LOCATION", "STATUS"
-  code           String    // e.g. "VA", "T01"
+  type           String // e.g. "CRIME", "ORG", "LOCATION", "STATUS"
+  code           String // e.g. "VA", "T01"
   name           String
   description    String?
   parentId       String?
   order          Int       @default(0)
   isActive       Boolean   @default(true)
-  abolishedAt    DateTime?  // null = active; set = abolished from this date (cải cách hành chính)
-  replacedByCode String?   // code of successor unit after abolition
-  metadata       Json?     // Specific data for each type
+  abolishedAt    DateTime? // null = active; set = abolished from this date (cải cách hành chính)
+  replacedByCode String? // code of successor unit after abolition
+  metadata       Json? // Specific data for each type
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
@@ -150,33 +153,33 @@ model Directory {
 // ─────────────────────────────────────────────
 
 enum LoaiNguonTin {
-  TO_GIAC           // Tố giác của cá nhân (Điều 144 khoản 1a BLTTHS 2015)
-  TIN_BAO           // Tin báo của cơ quan, tổ chức (Điều 144 khoản 1b)
+  TO_GIAC // Tố giác của cá nhân (Điều 144 khoản 1a BLTTHS 2015)
+  TIN_BAO // Tin báo của cơ quan, tổ chức (Điều 144 khoản 1b)
   KIEN_NGHI_KHOI_TO // Kiến nghị khởi tố (Điều 144 khoản 1c)
 }
 
 enum LoaiDon {
-  TO_CAO    // Tố cáo (Luật Tố cáo 2018)
+  TO_CAO // Tố cáo (Luật Tố cáo 2018)
   KHIEU_NAI // Khiếu nại (Luật Khiếu nại 2011)
   KIEN_NGHI // Kiến nghị
-  PHAN_ANH  // Phản ánh
+  PHAN_ANH // Phản ánh
 }
 
 enum CapDoToiPham {
-  IT_NGHIEM_TRONG          // Ít nghiêm trọng — phạt đến 3 năm (BLHS 2015 Điều 9 khoản 1)
-  NGHIEM_TRONG             // Nghiêm trọng — phạt đến 7 năm (Điều 9 khoản 2)
-  RAT_NGHIEM_TRONG         // Rất nghiêm trọng — phạt đến 15 năm (Điều 9 khoản 3)
-  DAC_BIET_NGHIEM_TRONG    // Đặc biệt nghiêm trọng — phạt trên 15 năm/tử hình (Điều 9 khoản 4)
+  IT_NGHIEM_TRONG // Ít nghiêm trọng — phạt đến 3 năm (BLHS 2015 Điều 9 khoản 1)
+  NGHIEM_TRONG // Nghiêm trọng — phạt đến 7 năm (Điều 9 khoản 2)
+  RAT_NGHIEM_TRONG // Rất nghiêm trọng — phạt đến 15 năm (Điều 9 khoản 3)
+  DAC_BIET_NGHIEM_TRONG // Đặc biệt nghiêm trọng — phạt trên 15 năm/tử hình (Điều 9 khoản 4)
 }
 
 enum LyDoKhongKhoiTo {
-  KHONG_CO_SU_VIEC                 // Không có sự việc phạm tội (Điều 157 khoản 1a)
+  KHONG_CO_SU_VIEC // Không có sự việc phạm tội (Điều 157 khoản 1a)
   HANH_VI_KHONG_CAU_THANH_TOI_PHAM // Hành vi không cấu thành tội phạm (Điều 157 khoản 1b)
-  NGUOI_THUC_HIEN_CHUA_DU_TUOI    // Người thực hiện chưa đủ tuổi TNHS (Điều 157 khoản 1c)
-  NGUOI_PHAM_TOI_CHET              // Người phạm tội đã chết (Điều 157 khoản 1d)
-  HET_THOI_HIEU                    // Hết thời hiệu truy cứu TNHS (Điều 157 khoản 1đ)
-  TOI_PHAM_DA_DUOC_XOA_AN_TICH    // Tội phạm đã được đại xá (Điều 157 khoản 1e)
-  TRUONG_HOP_KHAC                  // Trường hợp khác theo quy định BLTTHS (Điều 157 khoản 1g)
+  NGUOI_THUC_HIEN_CHUA_DU_TUOI // Người thực hiện chưa đủ tuổi TNHS (Điều 157 khoản 1c)
+  NGUOI_PHAM_TOI_CHET // Người phạm tội đã chết (Điều 157 khoản 1d)
+  HET_THOI_HIEU // Hết thời hiệu truy cứu TNHS (Điều 157 khoản 1đ)
+  TOI_PHAM_DA_DUOC_XOA_AN_TICH // Tội phạm đã được đại xá (Điều 157 khoản 1e)
+  TRUONG_HOP_KHAC // Trường hợp khác theo quy định BLTTHS (Điều 157 khoản 1g)
 }
 
 // ─────────────────────────────────────────────
@@ -184,71 +187,71 @@ enum LyDoKhongKhoiTo {
 // ─────────────────────────────────────────────
 
 enum LyDoTamDinhChiVuAn {
-  CHUA_XAC_DINH_BI_CAN          // 2.1 Chưa xác định được bị can (Điều 229.1.a)
-  KHONG_BIET_BI_CAN_O_DAU       // 2.2 Không biết rõ bị can đang ở đâu, hết thời hạn ĐT (Điều 229.1.b)
-  BI_CAN_BENH_TAM_THAN          // 2.3 Bị can bị bệnh tâm thần hoặc hiểm nghèo (Điều 229.1.c)
-  CHUA_CO_KET_QUA_GIAM_DINH     // 2.4 Chưa có kết quả trưng cầu giám định (Điều 229.1.d-1)
-  CHUA_CO_KET_QUA_DINH_GIA      // 2.5 Chưa có kết quả yêu cầu định giá tài sản (Điều 229.1.d-2)
-  CHUA_CO_KET_QUA_TUONG_TRO     // 2.6 Chưa có kết quả yêu cầu nước ngoài tương trợ TP (Điều 229.1.d-3)
-  YEU_CAU_TAI_LIEU_CHUA_CO      // 2.7 Đã yêu cầu cung cấp tài liệu nhưng chưa có kết quả (Điều 229.1.đ)
-  BAT_KHA_KHANG                 // 2.8 Bất khả kháng: thiên tai, dịch bệnh (Điều 229.1.e)
+  CHUA_XAC_DINH_BI_CAN // 2.1 Chưa xác định được bị can (Điều 229.1.a)
+  KHONG_BIET_BI_CAN_O_DAU // 2.2 Không biết rõ bị can đang ở đâu, hết thời hạn ĐT (Điều 229.1.b)
+  BI_CAN_BENH_TAM_THAN // 2.3 Bị can bị bệnh tâm thần hoặc hiểm nghèo (Điều 229.1.c)
+  CHUA_CO_KET_QUA_GIAM_DINH // 2.4 Chưa có kết quả trưng cầu giám định (Điều 229.1.d-1)
+  CHUA_CO_KET_QUA_DINH_GIA // 2.5 Chưa có kết quả yêu cầu định giá tài sản (Điều 229.1.d-2)
+  CHUA_CO_KET_QUA_TUONG_TRO // 2.6 Chưa có kết quả yêu cầu nước ngoài tương trợ TP (Điều 229.1.d-3)
+  YEU_CAU_TAI_LIEU_CHUA_CO // 2.7 Đã yêu cầu cung cấp tài liệu nhưng chưa có kết quả (Điều 229.1.đ)
+  BAT_KHA_KHANG // 2.8 Bất khả kháng: thiên tai, dịch bệnh (Điều 229.1.e)
 
   @@map("ly_do_tam_dinh_chi_vu_an")
 }
 
 enum KetQuaPhucHoiVuAn {
-  KET_LUAN_DE_NGHI_TRUY_TO      // 3.3.1 Kết luận điều tra đề nghị truy tố
-  DINH_CHI_DIEU_TRA             // 3.3.2 Đình chỉ điều tra
-  TAM_DINH_CHI_LAI              // 3.3.3 Tạm đình chỉ điều tra lại
-  DANG_DIEU_TRA_XAC_MINH        // 3.3.4 Đang điều tra, xác minh
-  CHUYEN_CO_QUAN_DIEU_TRA_KHAC  // 3.3.5 Chuyển cơ quan điều tra khác
+  KET_LUAN_DE_NGHI_TRUY_TO // 3.3.1 Kết luận điều tra đề nghị truy tố
+  DINH_CHI_DIEU_TRA // 3.3.2 Đình chỉ điều tra
+  TAM_DINH_CHI_LAI // 3.3.3 Tạm đình chỉ điều tra lại
+  DANG_DIEU_TRA_XAC_MINH // 3.3.4 Đang điều tra, xác minh
+  CHUYEN_CO_QUAN_DIEU_TRA_KHAC // 3.3.5 Chuyển cơ quan điều tra khác
 
   @@map("ket_qua_phuc_hoi_vu_an")
 }
 
 enum LyDoTamDinhChiVuViec {
-  CHUA_CO_KET_QUA_GIAM_DINH     // 1 Chưa có kết quả trưng cầu giám định
-  CHUA_CO_KET_QUA_DINH_GIA      // 2 Chưa có kết quả yêu cầu định giá tài sản
-  CHUA_CO_KET_QUA_TUONG_TRO     // 3 Chưa có kết quả yêu cầu nước ngoài tương trợ TP
-  YEU_CAU_TAI_LIEU_CHUA_CO      // 4 Đã yêu cầu cung cấp tài liệu nhưng chưa có kết quả
-  BAT_KHA_KHANG                 // 5 Bất khả kháng: thiên tai, dịch bệnh
-  CAN_CU_KHAC                   // 6 Căn cứ tạm đình chỉ khác
+  CHUA_CO_KET_QUA_GIAM_DINH // 1 Chưa có kết quả trưng cầu giám định
+  CHUA_CO_KET_QUA_DINH_GIA // 2 Chưa có kết quả yêu cầu định giá tài sản
+  CHUA_CO_KET_QUA_TUONG_TRO // 3 Chưa có kết quả yêu cầu nước ngoài tương trợ TP
+  YEU_CAU_TAI_LIEU_CHUA_CO // 4 Đã yêu cầu cung cấp tài liệu nhưng chưa có kết quả
+  BAT_KHA_KHANG // 5 Bất khả kháng: thiên tai, dịch bệnh
+  CAN_CU_KHAC // 6 Căn cứ tạm đình chỉ khác
 
   @@map("ly_do_tam_dinh_chi_vu_viec")
 }
 
 enum KetQuaPhucHoiVuViec {
-  QUYET_DINH_KHOI_TO            // 3.3.1 Quyết định khởi tố VAHS
-  QUYET_DINH_KHONG_KHOI_TO      // 3.3.2 Quyết định không khởi tố VAHS
-  TAM_DINH_CHI_LAI              // 3.3.3 Tạm đình chỉ lại
-  DANG_XAC_MINH                 // 3.3.4 Đang xác minh
-  CHUYEN_CO_QUAN_KHAC           // 3.3.5 Chuyển cơ quan khác
+  QUYET_DINH_KHOI_TO // 3.3.1 Quyết định khởi tố VAHS
+  QUYET_DINH_KHONG_KHOI_TO // 3.3.2 Quyết định không khởi tố VAHS
+  TAM_DINH_CHI_LAI // 3.3.3 Tạm đình chỉ lại
+  DANG_XAC_MINH // 3.3.4 Đang xác minh
+  CHUYEN_CO_QUAN_KHAC // 3.3.5 Chuyển cơ quan khác
 
   @@map("ket_qua_phuc_hoi_vu_viec")
 }
 
 enum TienDoKhacPhuc {
-  DANG_THUC_HIEN  // Đang thực hiện
-  DAM_BAO         // Đảm bảo (tính vào row 5.5)
-  CHAM_TRE        // Chậm trễ
-  KHONG_DAT       // Không đạt
+  DANG_THUC_HIEN // Đang thực hiện
+  DAM_BAO // Đảm bảo (tính vào row 5.5)
+  CHAM_TRE // Chậm trễ
+  KHONG_DAT // Không đạt
 
   @@map("tien_do_khac_phuc")
 }
 
 enum ReportTdcType {
-  VU_AN    // Vụ án tạm đình chỉ điều tra
-  VU_VIEC  // Vụ việc tạm đình chỉ giải quyết
+  VU_AN // Vụ án tạm đình chỉ điều tra
+  VU_VIEC // Vụ việc tạm đình chỉ giải quyết
 
   @@map("report_tdc_type")
 }
 
 enum ReportTdcStatus {
-  DRAFT       // Bản nháp
-  REVIEWING   // Đang xét duyệt
-  REJECTED    // Bị từ chối
-  APPROVED    // Đã phê duyệt
-  FINALIZED   // Đã khóa, immutable
+  DRAFT // Bản nháp
+  REVIEWING // Đang xét duyệt
+  REJECTED // Bị từ chối
+  APPROVED // Đã phê duyệt
+  FINALIZED // Đã khóa, immutable
 
   @@map("report_tdc_status")
 }
@@ -258,66 +261,66 @@ enum ReportTdcStatus {
 // ─────────────────────────────────────────────
 
 enum CaseStatus {
-  TIEP_NHAN        // Tiếp nhận
-  DANG_XAC_MINH   // Đang xác minh
-  DA_XAC_MINH     // Đã xác minh
-  DANG_DIEU_TRA   // Đang điều tra
-  TAM_DINH_CHI    // Tạm đình chỉ
-  DINH_CHI        // Đình chỉ
-  DA_KET_LUAN     // Đã kết luận
-  DANG_TRUY_TO    // Đang truy tố
-  DANG_XET_XU     // Đang xét xử
-  DA_LUU_TRU      // Đã lưu trữ
+  TIEP_NHAN // Tiếp nhận
+  DANG_XAC_MINH // Đang xác minh
+  DA_XAC_MINH // Đã xác minh
+  DANG_DIEU_TRA // Đang điều tra
+  TAM_DINH_CHI // Tạm đình chỉ
+  DINH_CHI // Đình chỉ
+  DA_KET_LUAN // Đã kết luận
+  DANG_TRUY_TO // Đang truy tố
+  DANG_XET_XU // Đang xét xử
+  DA_LUU_TRU // Đã lưu trữ
 
   @@map("case_status")
 }
 
 model Case {
-  id             String     @id @default(cuid())
+  id             String        @id @default(cuid())
   name           String
   crime          String?
-  status         CaseStatus @default(TIEP_NHAN)
-  investigatorId String?                          // FK → users (nullable)
+  status         CaseStatus    @default(TIEP_NHAN)
+  investigatorId String? // FK → users (nullable)
   deadline       DateTime?
   unit           String?
-  subjectsCount  Int        @default(0)
-  metadata       Json?                            // Lưu toàn bộ fields phụ của form (người báo tin, địa chỉ, mã hồ sơ, v.v.)
-  capDoToiPham   CapDoToiPham?                    // Mức độ tội phạm (BLHS 2015 Điều 9) — dùng cho KPI-4
-  ngayKhoiTo     DateTime?                        // Ngày quyết định khởi tố vụ án
-  deletedAt      DateTime?                        // Soft delete
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
+  subjectsCount  Int           @default(0)
+  metadata       Json? // Lưu toàn bộ fields phụ của form (người báo tin, địa chỉ, mã hồ sơ, v.v.)
+  capDoToiPham   CapDoToiPham? // Mức độ tội phạm (BLHS 2015 Điều 9) — dùng cho KPI-4
+  ngayKhoiTo     DateTime? // Ngày quyết định khởi tố vụ án
+  deletedAt      DateTime? // Soft delete
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   // TĐC tracking fields (Phụ lục 08)
-  laCongNgheCao           Boolean              @default(false)
-  lyDoTamDinhChiText      String?              // Backup của giá trị String cũ trước migration
-  lyDoTamDinhChiVuAn      LyDoTamDinhChiVuAn?  // Enum mới thay thế lyDoTamDinhChi
-  soQuyetDinhTamDinhChi   String?
-  ngayTamDinhChi          DateTime?
-  soLanTamDinhChi         Int                  @default(0)
-  soLanGiaHan             Int                  @default(0)
-  daRaSoat                Boolean              @default(false)
-  ngayRaSoat              DateTime?
-  soQuyetDinhPhucHoi      String?
-  ngayPhucHoi             DateTime?
-  ketQuaPhucHoiVuAn       KetQuaPhucHoiVuAn?
-  ngayHetThoiHieu         DateTime?            // Ngày hết thời hiệu truy cứu TNHS (dùng cho Phụ lục 5 vs 6)
+  laCongNgheCao         Boolean             @default(false)
+  lyDoTamDinhChiText    String? // Backup của giá trị String cũ trước migration
+  lyDoTamDinhChiVuAn    LyDoTamDinhChiVuAn? // Enum mới thay thế lyDoTamDinhChi
+  soQuyetDinhTamDinhChi String?
+  ngayTamDinhChi        DateTime?
+  soLanTamDinhChi       Int                 @default(0)
+  soLanGiaHan           Int                 @default(0)
+  daRaSoat              Boolean             @default(false)
+  ngayRaSoat            DateTime?
+  soQuyetDinhPhucHoi    String?
+  ngayPhucHoi           DateTime?
+  ketQuaPhucHoiVuAn     KetQuaPhucHoiVuAn?
+  ngayHetThoiHieu       DateTime? // Ngày hết thời hiệu truy cứu TNHS (dùng cho Phụ lục 5 vs 6)
 
-  investigator   User?       @relation(fields: [investigatorId], references: [id], onDelete: SetNull)
-  assignedTeamId String?
-  assignedTeam   Team?       @relation("CaseTeam", fields: [assignedTeamId], references: [id], onDelete: SetNull)
-  statusHistory  CaseStatusHistory[]
-  subjects       Subject[]
-  lawyers        Lawyer[]    // TASK-2026-261225
-  petitions      Petition[]  @relation("PetitionLinkedCase")
-  documents      Document[]  // TASK-2026-022601: Tài liệu liên quan
-  linkedIncidents Incident[] @relation("IncidentLinkedCase")
-  proposals      Proposal[]
-  delegations    Delegation[]
-  conclusions    Conclusion[]
-  supplements    InvestigationSupplement[]
-  vksMeetings    VksMeetingRecord[]
-  actionPlans    SuspensionActionPlan[]
+  investigator    User?                     @relation(fields: [investigatorId], references: [id], onDelete: SetNull)
+  assignedTeamId  String?
+  assignedTeam    Team?                     @relation("CaseTeam", fields: [assignedTeamId], references: [id], onDelete: SetNull)
+  statusHistory   CaseStatusHistory[]
+  subjects        Subject[]
+  lawyers         Lawyer[] // TASK-2026-261225
+  petitions       Petition[]                @relation("PetitionLinkedCase")
+  documents       Document[] // TASK-2026-022601: Tài liệu liên quan
+  linkedIncidents Incident[]                @relation("IncidentLinkedCase")
+  proposals       Proposal[]
+  delegations     Delegation[]
+  conclusions     Conclusion[]
+  supplements     InvestigationSupplement[]
+  vksMeetings     VksMeetingRecord[]
+  actionPlans     SuspensionActionPlan[]
 
   @@index([status])
   @@index([deadline])
@@ -334,18 +337,18 @@ model Case {
 // ─────────────────────────────────────────────
 
 enum SubjectStatus {
-  INVESTIGATING  // Đang điều tra
-  DETAINED       // Đang tạm giam
-  RELEASED       // Đã thả
-  WANTED         // Đang truy nã
+  INVESTIGATING // Đang điều tra
+  DETAINED // Đang tạm giam
+  RELEASED // Đã thả
+  WANTED // Đang truy nã
 
   @@map("subject_status")
 }
 
 enum SubjectType {
-  SUSPECT   // Bị can / Bị cáo
-  VICTIM    // Bị hại
-  WITNESS   // Nhân chứng
+  SUSPECT // Bị can / Bị cáo
+  VICTIM // Bị hại
+  WITNESS // Nhân chứng
 
   @@map("subject_type")
 }
@@ -354,26 +357,26 @@ model Subject {
   id            String        @id @default(cuid())
   fullName      String
   dateOfBirth   DateTime
-  gender        String        @default("MALE")   // "MALE" | "FEMALE" | "OTHER"
-  idNumber      String                            // CCCD/CMND 9 or 12 digits (unique per type per case)
+  gender        String        @default("MALE") // "MALE" | "FEMALE" | "OTHER"
+  idNumber      String // CCCD/CMND 9 or 12 digits (unique per type per case)
   address       String
   phone         String?
-  occupationId  String?       // FK → directories (type=OCCUPATION)
-  nationalityId String?       // FK → directories (type=NATIONALITY)
-  districtId    String?       // FK → directories (type=DISTRICT) — legacy only
-  wardId        String?       // FK → directories (type=WARD)
-  districtName  String?       // denormalized: "Quận 1" — preserved at creation time for post-reform display
-  caseId        String                            // FK → cases (required)
-  crimeId       String                            // FK → directories (type=CRIME, required)
-  type          SubjectType   @default(SUSPECT)   // TASK-2026-261225
+  occupationId  String? // FK → directories (type=OCCUPATION)
+  nationalityId String? // FK → directories (type=NATIONALITY)
+  districtId    String? // FK → directories (type=DISTRICT) — legacy only
+  wardId        String? // FK → directories (type=WARD)
+  districtName  String? // denormalized: "Quận 1" — preserved at creation time for post-reform display
+  caseId        String // FK → cases (required)
+  crimeId       String // FK → directories (type=CRIME, required)
+  type          SubjectType   @default(SUSPECT) // TASK-2026-261225
   status        SubjectStatus @default(INVESTIGATING)
   notes         String?
-  deletedAt     DateTime?                         // Soft delete
+  deletedAt     DateTime? // Soft delete
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
-  case          Case          @relation(fields: [caseId], references: [id])
-  lawyers       Lawyer[]      // Lawyers assigned to this subject
+  case    Case     @relation(fields: [caseId], references: [id])
+  lawyers Lawyer[] // Lawyers assigned to this subject
 
   @@index([caseId])
   @@index([crimeId])
@@ -388,19 +391,19 @@ model Subject {
 // ─────────────────────────────────────────────
 
 model Lawyer {
-  id          String    @id @default(cuid())
-  fullName    String
-  lawFirm     String?                          // Văn phòng luật sư
-  barNumber   String    @unique                // Số thẻ luật sư
-  phone       String?
-  caseId      String                           // FK → cases (required)
-  subjectId   String?                          // FK → subjects (nullable — one lawyer can defend multiple)
-  deletedAt   DateTime?                        // Soft delete
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id        String    @id @default(cuid())
+  fullName  String
+  lawFirm   String? // Văn phòng luật sư
+  barNumber String    @unique // Số thẻ luật sư
+  phone     String?
+  caseId    String // FK → cases (required)
+  subjectId String? // FK → subjects (nullable — one lawyer can defend multiple)
+  deletedAt DateTime? // Soft delete
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
-  case        Case      @relation(fields: [caseId], references: [id])
-  subject     Subject?  @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  case    Case     @relation(fields: [caseId], references: [id])
+  subject Subject? @relation(fields: [subjectId], references: [id], onDelete: SetNull)
 
   @@index([caseId])
   @@index([subjectId])
@@ -413,62 +416,66 @@ model Lawyer {
 // ─────────────────────────────────────────────
 
 enum PetitionStatus {
-  MOI_TIEP_NHAN    // Mới tiếp nhận
-  DANG_XU_LY      // Đang xử lý
-  CHO_PHE_DUYET   // Chờ phê duyệt
-  DA_LUU_DON      // Đã lưu đơn
-  DA_GIAI_QUYET   // Đã giải quyết
+  MOI_TIEP_NHAN // Mới tiếp nhận
+  DANG_XU_LY // Đang xử lý
+  CHO_PHE_DUYET // Chờ phê duyệt
+  DA_LUU_DON // Đã lưu đơn
+  DA_GIAI_QUYET // Đã giải quyết
   DA_CHUYEN_VU_VIEC // Đã chuyển thành Vụ việc
-  DA_CHUYEN_VU_AN  // Đã chuyển thành Vụ án
+  DA_CHUYEN_VU_AN // Đã chuyển thành Vụ án
 
   @@map("petition_status")
 }
 
 model Petition {
-  id                String         @id @default(cuid())
+  id               String         @id @default(cuid())
   // Số tiếp nhận — duy nhất, format: DT-{YEAR}-{SEQ}
-  stt               String         @unique
+  stt              String         @unique
   // Ngày tiếp nhận
-  receivedDate      DateTime
+  receivedDate     DateTime
   // Đơn vị tiếp nhận
-  unit              String?
+  unit             String?
   // Người nhập
-  enteredById       String?        // FK → users
+  enteredById      String? // FK → users
   // Người gửi đơn
-  senderName        String
-  senderBirthYear   String?
-  senderAddress     String?
-  senderPhone       String?
-  senderEmail       String?
+  senderName       String
+  senderBirthYear  String?
+  senderAddress    String?
+  senderPhone      String?
+  senderEmail      String?
   // Nghi vấn đối tượng
-  suspectedPerson   String?
-  suspectedAddress  String?
+  suspectedPerson  String?
+  suspectedAddress String?
   // Nội dung đơn
-  petitionType      LoaiDon?       // Loại đơn (Luật Tố cáo 2018 / Khiếu nại 2011)
-  priority          String?        // Mức độ ưu tiên: Cao, Trung bình, Thấp
-  summary           String?
-  detailContent     String?
-  attachmentsNote   String?        // Ghi chú tài liệu đính kèm (file storage out-of-scope)
+  petitionType     LoaiDon? // Loại đơn (Luật Tố cáo 2018 / Khiếu nại 2011)
+  priority         String? // Mức độ ưu tiên: Cao, Trung bình, Thấp
+  summary          String?
+  detailContent    String?
+  attachmentsNote  String? // Ghi chú tài liệu đính kèm (file storage out-of-scope)
   // Phân công
-  deadline          DateTime?
-  assignedToId      String?        // FK → users
-  notes             String?
+  deadline         DateTime?
+  assignedToId     String? // FK → users
+  notes            String?
   // Trạng thái
-  status            PetitionStatus @default(MOI_TIEP_NHAN)
+  status           PetitionStatus @default(MOI_TIEP_NHAN)
   // Liên kết sau khi chuyển đổi
-  linkedCaseId      String?        // FK → cases (sau khi chuyển thành Vụ án)
-  linkedIncidentId  String?        // FK → incidents (sau khi chuyển thành Vụ việc)
+  linkedCaseId     String? // FK → cases (sau khi chuyển thành Vụ án)
+  linkedIncidentId String? // FK → incidents (sau khi chuyển thành Vụ việc)
   // Soft delete
-  deletedAt         DateTime?
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
+  deletedAt        DateTime?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
 
-  enteredBy         User?          @relation("PetitionEnteredBy", fields: [enteredById], references: [id], onDelete: SetNull)
-  assignedTo        User?          @relation("PetitionAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
-  linkedCase        Case?          @relation("PetitionLinkedCase", fields: [linkedCaseId], references: [id], onDelete: SetNull)
-  linkedIncident    Incident?      @relation("PetitionLinkedIncident", fields: [linkedIncidentId], references: [id], onDelete: SetNull)
-  assignedTeamId    String?
-  assignedTeam      Team?          @relation("PetitionTeam", fields: [assignedTeamId], references: [id], onDelete: SetNull)
+  enteredBy      User?     @relation("PetitionEnteredBy", fields: [enteredById], references: [id], onDelete: SetNull)
+  assignedTo     User?     @relation("PetitionAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+  linkedCase     Case?     @relation("PetitionLinkedCase", fields: [linkedCaseId], references: [id], onDelete: SetNull)
+  linkedIncident Incident? @relation("PetitionLinkedIncident", fields: [linkedIncidentId], references: [id], onDelete: SetNull)
+  assignedTeamId String?
+  assignedTeam   Team?     @relation("PetitionTeam", fields: [assignedTeamId], references: [id], onDelete: SetNull)
+
+  // Deadline Rule Versioning snapshot — rule used to compute initial deadline at creation
+  deadlineRuleVersionId String?
+  deadlineRuleVersion   DeadlineRuleVersion? @relation("PetitionInitialRule", fields: [deadlineRuleVersionId], references: [id], onDelete: Restrict)
 
   @@index([status])
   @@index([receivedDate])
@@ -476,6 +483,7 @@ model Petition {
   @@index([senderName])
   @@index([deletedAt])
   @@index([assignedTeamId])
+  @@index([deadlineRuleVersionId])
   @@map("petitions")
 }
 
@@ -484,106 +492,118 @@ model Petition {
 // ─────────────────────────────────────────────
 
 enum IncidentStatus {
-  TIEP_NHAN           // Tiếp nhận
-  DANG_XAC_MINH       // Đang xác minh
-  DA_PHAN_CONG        // Đã lên phân công
-  DA_GIAI_QUYET       // Đã giải quyết
-  TAM_DINH_CHI        // Tạm đình chỉ
-  QUA_HAN             // Quá hạn
-  DA_CHUYEN_VU_AN     // Đã chuyển thành vụ án (khởi tố)
-  KHONG_KHOI_TO       // Không khởi tố
-  CHUYEN_XPHC         // Chuyển xử phạt hành chính
-  TDC_HET_THOI_HIEU   // TĐC hết thời hiệu
-  TDC_HTH_KHONG_KT    // TĐC hết thời hạn không khởi tố
-  PHUC_HOI_NGUON_TIN  // Phục hồi nguồn tin tố phạm
-  DA_CHUYEN_DON_VI    // Đã chuyển đơn vị khác
-  DA_NHAP_VU_KHAC     // Đã nhập vào vụ việc khác
-  PHAN_LOAI_DAN_SU    // Phân loại dân sự
+  TIEP_NHAN // Tiếp nhận
+  DANG_XAC_MINH // Đang xác minh
+  DA_PHAN_CONG // Đã lên phân công
+  DA_GIAI_QUYET // Đã giải quyết
+  TAM_DINH_CHI // Tạm đình chỉ
+  QUA_HAN // Quá hạn
+  DA_CHUYEN_VU_AN // Đã chuyển thành vụ án (khởi tố)
+  KHONG_KHOI_TO // Không khởi tố
+  CHUYEN_XPHC // Chuyển xử phạt hành chính
+  TDC_HET_THOI_HIEU // TĐC hết thời hiệu
+  TDC_HTH_KHONG_KT // TĐC hết thời hạn không khởi tố
+  PHUC_HOI_NGUON_TIN // Phục hồi nguồn tin tố phạm
+  DA_CHUYEN_DON_VI // Đã chuyển đơn vị khác
+  DA_NHAP_VU_KHAC // Đã nhập vào vụ việc khác
+  PHAN_LOAI_DAN_SU // Phân loại dân sự
 
   @@map("incident_status")
 }
 
 model Incident {
-  id              String         @id @default(cuid())
-  code            String         @unique  // VV-{YEAR}-{SEQ}
-  name            String
-  incidentType    String?        // Loại vụ việc
-  description     String?
-  fromDate        DateTime?      // Ngày bắt đầu vụ việc
-  toDate          DateTime?      // Ngày xảy ra/kết thúc vụ việc
-  deadline        DateTime?      // Hạn xử lý
-  unitId          String?        // ID đơn vị thụ lý
-  investigatorId  String?        // ID Điều tra viên thụ lý
-  status          IncidentStatus @default(TIEP_NHAN)
-  sourcePetitionId String?       // Nguồn gốc nếu từ đơn thư
+  id               String         @id @default(cuid())
+  code             String         @unique // VV-{YEAR}-{SEQ}
+  name             String
+  incidentType     String? // Loại vụ việc
+  description      String?
+  fromDate         DateTime? // Ngày bắt đầu vụ việc
+  toDate           DateTime? // Ngày xảy ra/kết thúc vụ việc
+  deadline         DateTime? // Hạn xử lý
+  unitId           String? // ID đơn vị thụ lý
+  investigatorId   String? // ID Điều tra viên thụ lý
+  status           IncidentStatus @default(TIEP_NHAN)
+  sourcePetitionId String? // Nguồn gốc nếu từ đơn thư
 
   // Thông tin nguồn tin (Đ.144 BLTTHS 2015)
-  doiTuongCaNhan    String?      // Đối tượng bị tố giác (TT119 Mẫu 01)
-  doiTuongToChuc    String?      // Tổ chức liên quan
+  doiTuongCaNhan    String? // Đối tượng bị tố giác (TT119 Mẫu 01)
+  doiTuongToChuc    String? // Tổ chức liên quan
   loaiDonVu         LoaiNguonTin? // Loại nguồn tin (Điều 144 BLTTHS 2015)
-  benVu             String?      // Người tố giác/báo tin (Đ.144 BLTTHS)
-  donViGiaiQuyet    String?      // Đơn vị thụ lý (Đ.145 BLTTHS)
-  ngayDeXuat        DateTime?    // Ngày tiếp nhận nguồn tin (Đ.146 BLTTHS)
-  ketQuaXuLy        String?      // Kết quả giải quyết nguồn tin
-  tinhTrangHoSo     String?      // Tình trạng hồ sơ
-  tinhTrangThoiHieu String?      // Tình trạng thời hiệu truy cứu TNHS
-  nguoiQuyetDinh    String?      // Người ra quyết định (Thủ trưởng/Phó TT CQĐT)
-  chuyenDenDonVi    String?      // Đơn vị được chuyển đến
-  chuyenTuDonVi     String?      // Đơn vị chuyển đi (audit trail)
+  benVu             String? // Người tố giác/báo tin (Đ.144 BLTTHS)
+  donViGiaiQuyet    String? // Đơn vị thụ lý (Đ.145 BLTTHS)
+  ngayDeXuat        DateTime? // Ngày tiếp nhận nguồn tin (Đ.146 BLTTHS)
+  ketQuaXuLy        String? // Kết quả giải quyết nguồn tin
+  tinhTrangHoSo     String? // Tình trạng hồ sơ
+  tinhTrangThoiHieu String? // Tình trạng thời hiệu truy cứu TNHS
+  nguoiQuyetDinh    String? // Người ra quyết định (Thủ trưởng/Phó TT CQĐT)
+  chuyenDenDonVi    String? // Đơn vị được chuyển đến
+  chuyenTuDonVi     String? // Đơn vị chuyển đi (audit trail)
 
   // Thông tin nghiệp vụ bổ sung theo BLTTHS
-  soQuyetDinh       String?      // Số quyết định (khởi tố/không khởi tố/TĐC/phục hồi)
-  ngayQuyetDinh     DateTime?    // Ngày ra quyết định
-  soLanGiaHan       Int          @default(0) // Số lần đã gia hạn, tối đa 2 (Điều 147 khoản 2-3)
-  ngayGiaHan        DateTime?              // Ngày gia hạn gần nhất
-  lyDoKhongKhoiTo   LyDoKhongKhoiTo? // Lý do không khởi tố (Điều 157 BLTTHS 2015: 7 căn cứ)
-  lyDoTamDinhChiText String?     // Backup của giá trị String cũ trước migration
-  lyDoTamDinhChiVuViec LyDoTamDinhChiVuViec? // Enum mới cho vụ việc
-  laCongNgheCaoVV   Boolean      @default(false)
+  soQuyetDinh             String? // Số quyết định (khởi tố/không khởi tố/TĐC/phục hồi)
+  ngayQuyetDinh           DateTime? // Ngày ra quyết định
+  soLanGiaHan             Int                   @default(0) // Số lần đã gia hạn, tối đa 2 (Điều 147 khoản 2-3)
+  ngayGiaHan              DateTime? // Ngày gia hạn gần nhất
+  lyDoKhongKhoiTo         LyDoKhongKhoiTo? // Lý do không khởi tố (Điều 157 BLTTHS 2015: 7 căn cứ)
+  lyDoTamDinhChiText      String? // Backup của giá trị String cũ trước migration
+  lyDoTamDinhChiVuViec    LyDoTamDinhChiVuViec? // Enum mới cho vụ việc
+  laCongNgheCaoVV         Boolean               @default(false)
   soQuyetDinhTamDinhChiVV String?
-  ngayTamDinhChiVV  DateTime?
-  soLanTamDinhChiVV Int          @default(0)
-  daRaSoatVV        Boolean      @default(false)
-  ngayRaSoatVV      DateTime?
-  soQuyetDinhPhucHoiVV String?
-  ngayPhucHoiVV     DateTime?
-  ketQuaPhucHoiVuViec KetQuaPhucHoiVuViec?
-  ngayHetThoiHieuVV   DateTime?    // Ngày hết thời hiệu truy cứu TNHS của vụ việc (Phụ lục 2 vs 3)
-  diaChiXayRa       String?      // Địa điểm xảy ra sự việc
+  ngayTamDinhChiVV        DateTime?
+  soLanTamDinhChiVV       Int                   @default(0)
+  daRaSoatVV              Boolean               @default(false)
+  ngayRaSoatVV            DateTime?
+  soQuyetDinhPhucHoiVV    String?
+  ngayPhucHoiVV           DateTime?
+  ketQuaPhucHoiVuViec     KetQuaPhucHoiVuViec?
+  ngayHetThoiHieuVV       DateTime? // Ngày hết thời hiệu truy cứu TNHS của vụ việc (Phụ lục 2 vs 3)
+  diaChiXayRa             String? // Địa điểm xảy ra sự việc
   // Thông tin người tố giác/báo tin chi tiết
-  sdtNguoiToGiac    String?      // SĐT người tố giác
-  diaChiNguoiToGiac String?      // Địa chỉ người tố giác
-  cmndNguoiToGiac   String?      // CCCD/CMND người tố giác
+  sdtNguoiToGiac          String? // SĐT người tố giác
+  diaChiNguoiToGiac       String? // Địa chỉ người tố giác
+  cmndNguoiToGiac         String? // CCCD/CMND người tố giác
 
   // Self-reference: nhập vào vụ khác
-  mergedIntoId      String?
-  mergedInto        Incident?    @relation("IncidentMerge", fields: [mergedIntoId], references: [id])
-  mergedFrom        Incident[]   @relation("IncidentMerge")
+  mergedIntoId String?
+  mergedInto   Incident?  @relation("IncidentMerge", fields: [mergedIntoId], references: [id])
+  mergedFrom   Incident[] @relation("IncidentMerge")
 
   // Liên kết rõ ràng với Case sau khởi tố
-  linkedCaseId      String?
-  linkedCase        Case?        @relation("IncidentLinkedCase", fields: [linkedCaseId], references: [id])
+  linkedCaseId String?
+  linkedCase   Case?   @relation("IncidentLinkedCase", fields: [linkedCaseId], references: [id])
+
+  // Deadline Rule Versioning snapshots — set at incident creation + each gia hạn
+  // - deadlineRuleVersionId: active rule used to compute initial deadline (THOI_HAN_XAC_MINH at creation)
+  // - maxExtensionsSnapshot: SO_LAN_GIA_HAN_TOI_DA value at creation — frozen so admin lowering limit doesn't retroactively block
+  // - giaHan1RuleVersionId / giaHan2RuleVersionId: rule used for each gia hạn (snapshot when granted)
+  deadlineRuleVersionId String?
+  deadlineRuleVersion   DeadlineRuleVersion? @relation("IncidentInitialRule", fields: [deadlineRuleVersionId], references: [id], onDelete: Restrict)
+  maxExtensionsSnapshot Int?
+  giaHan1RuleVersionId  String?
+  giaHan1RuleVersion    DeadlineRuleVersion? @relation("IncidentGiaHan1Rule", fields: [giaHan1RuleVersionId], references: [id], onDelete: Restrict)
+  giaHan2RuleVersionId  String?
+  giaHan2RuleVersion    DeadlineRuleVersion? @relation("IncidentGiaHan2Rule", fields: [giaHan2RuleVersionId], references: [id], onDelete: Restrict)
 
   // Cán bộ nhập (FK)
-  canBoNhapId       String?
-  canBoNhap         User?        @relation("IncidentCanBoNhap", fields: [canBoNhapId], references: [id])
+  canBoNhapId String?
+  canBoNhap   User?   @relation("IncidentCanBoNhap", fields: [canBoNhapId], references: [id])
 
   // Người tạo
-  createdById       String?
-  createdBy         User?        @relation("IncidentCreatedBy", fields: [createdById], references: [id])
+  createdById String?
+  createdBy   User?   @relation("IncidentCreatedBy", fields: [createdById], references: [id])
 
-  deletedAt       DateTime?
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
-  investigator    User?          @relation("IncidentInvestigator", fields: [investigatorId], references: [id], onDelete: SetNull)
-  assignedTeamId  String?
-  assignedTeam    Team?          @relation("IncidentTeam", fields: [assignedTeamId], references: [id], onDelete: SetNull)
-  petitions       Petition[]     @relation("PetitionLinkedIncident")
-  documents       Document[]     // Tài liệu liên quan
-  statusHistory   IncidentStatusHistory[]
-  vksMeetings     VksMeetingRecord[] @relation("IncidentVksMeetings")
-  actionPlans     SuspensionActionPlan[] @relation("IncidentActionPlans")
+  investigator   User?                   @relation("IncidentInvestigator", fields: [investigatorId], references: [id], onDelete: SetNull)
+  assignedTeamId String?
+  assignedTeam   Team?                   @relation("IncidentTeam", fields: [assignedTeamId], references: [id], onDelete: SetNull)
+  petitions      Petition[]              @relation("PetitionLinkedIncident")
+  documents      Document[] // Tài liệu liên quan
+  statusHistory  IncidentStatusHistory[]
+  vksMeetings    VksMeetingRecord[]      @relation("IncidentVksMeetings")
+  actionPlans    SuspensionActionPlan[]  @relation("IncidentActionPlans")
 
   @@index([status])
   @@index([deletedAt])
@@ -592,6 +612,9 @@ model Incident {
   @@index([lyDoTamDinhChiVuViec])
   @@index([createdAt])
   @@index([unitId])
+  @@index([deadlineRuleVersionId])
+  @@index([giaHan1RuleVersionId])
+  @@index([giaHan2RuleVersionId])
   @@map("incidents")
 }
 
@@ -607,7 +630,7 @@ model IncidentStatusHistory {
   toStatus    IncidentStatus
   changedById String
   changedBy   User           @relation("IncidentStatusChangedBy", fields: [changedById], references: [id])
-  note        String?        // Lý do thay đổi
+  note        String? // Lý do thay đổi
   createdAt   DateTime       @default(now())
 
   @@index([incidentId])
@@ -619,40 +642,41 @@ model IncidentStatusHistory {
 // ─────────────────────────────────────────────
 
 enum DocumentType {
-  VAN_BAN     // Văn bản
-  HINH_ANH    // Hình ảnh
-  VIDEO       // Video
-  AM_THANH    // Âm thanh
-  KHAC        // Khác
+  VAN_BAN // Văn bản
+  HINH_ANH // Hình ảnh
+  VIDEO // Video
+  AM_THANH // Âm thanh
+  KHAC // Khác
 
   @@map("document_type")
 }
 
 model Document {
-  id          String       @id @default(cuid())
-  title       String       // Tiêu đề tài liệu
-  description String?      // Mô tả
-  fileName    String       // Tên file lưu trữ
-  originalName String      // Tên file gốc
-  mimeType    String       // MIME type
-  size        Int          // Kích thước file (bytes)
-  filePath    String       // Đường dẫn file (local storage)
+  id           String       @id @default(cuid())
+  title        String // Tiêu đề tài liệu
+  description  String? // Mô tả
+  fileName     String // Tên file lưu trữ
+  originalName String // Tên file gốc
+  mimeType     String // MIME type
+  size         Int // Kích thước file (bytes)
+  filePath     String // Đường dẫn file (local storage)
   documentType DocumentType @default(VAN_BAN)
-  
+
   // Liên kết
-  caseId      String?      // FK → cases (nullable)
-  incidentId  String?      // FK → incidents (nullable)
-  uploadedById String      // FK → users (required)
-  
+  caseId       String? // FK → cases (nullable)
+  incidentId   String? // FK → incidents (nullable)
+  uploadedById String // FK → users (required)
+
   // Soft delete
-  deletedAt   DateTime?
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
   // Relations
-  case        Case?        @relation(fields: [caseId], references: [id], onDelete: SetNull)
-  incident    Incident?    @relation(fields: [incidentId], references: [id], onDelete: SetNull)
-  uploadedBy  User         @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
+  case                    Case?                 @relation(fields: [caseId], references: [id], onDelete: SetNull)
+  incident                Incident?             @relation(fields: [incidentId], references: [id], onDelete: SetNull)
+  uploadedBy              User                  @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
+  deadlineRuleAttachments DeadlineRuleVersion[] @relation("DeadlineRuleAttachment")
 
   @@index([caseId])
   @@index([incidentId])
@@ -668,10 +692,10 @@ model Document {
 // ─────────────────────────────────────────────
 
 enum ProposalStatus {
-  CHO_GUI      // Chờ gửi
-  DA_GUI       // Đã gửi
-  CO_PHAN_HOI  // Đã có phản hồi
-  DA_XU_LY    // Đã xử lý
+  CHO_GUI // Chờ gửi
+  DA_GUI // Đã gửi
+  CO_PHAN_HOI // Đã có phản hồi
+  DA_XU_LY // Đã xử lý
 
   @@map("proposal_status")
 }
@@ -679,22 +703,22 @@ enum ProposalStatus {
 model Proposal {
   id             String         @id @default(cuid())
   proposalNumber String         @unique // Format: DX-{YEAR}-{SEQ}
-  relatedCaseId  String?        // FK → cases (nullable)
-  caseType       String?        // "Vụ án" | "Vụ việc" | "Đơn thư"
-  content        String         // Nội dung đề xuất
-  unit           String?        // Đơn vị gửi
-  createdById    String?        // FK → users
+  relatedCaseId  String? // FK → cases (nullable)
+  caseType       String? // "Vụ án" | "Vụ việc" | "Đơn thư"
+  content        String // Nội dung đề xuất
+  unit           String? // Đơn vị gửi
+  createdById    String? // FK → users
   status         ProposalStatus @default(CHO_GUI)
-  sentDate       DateTime?      // Ngày gửi VKS
-  response       String?        // Nội dung phản hồi
-  responseDate   DateTime?      // Ngày có phản hồi
+  sentDate       DateTime? // Ngày gửi VKS
+  response       String? // Nội dung phản hồi
+  responseDate   DateTime? // Ngày có phản hồi
   notes          String?
   deletedAt      DateTime?
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
-  relatedCase    Case?          @relation(fields: [relatedCaseId], references: [id], onDelete: SetNull)
-  createdBy      User?          @relation("ProposalCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  relatedCase Case? @relation(fields: [relatedCaseId], references: [id], onDelete: SetNull)
+  createdBy   User? @relation("ProposalCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
 
   @@index([status])
   @@index([deletedAt])
@@ -708,29 +732,29 @@ model Proposal {
 // ─────────────────────────────────────────────
 
 enum GuidanceStatus {
-  PENDING    // Đang chờ
-  COMPLETED  // Đã hoàn thành
-  CANCELLED  // Đã hủy
+  PENDING // Đang chờ
+  COMPLETED // Đã hoàn thành
+  CANCELLED // Đã hủy
 
   @@map("guidance_status")
 }
 
 model GuidanceRecord {
-  id               String         @id @default(cuid())
-  date             DateTime       @default(now())
-  unit             String?
-  createdById      String?        // FK → users
-  guidedPerson     String         // Tên người được hướng dẫn
-  guidedPersonPhone String?       // SĐT người được hướng dẫn
-  subject          String?        // Chủ đề hướng dẫn
-  guidanceContent  String         // Nội dung hướng dẫn
-  notes            String?
-  status           GuidanceStatus @default(PENDING)
-  deletedAt        DateTime?
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
+  id                String         @id @default(cuid())
+  date              DateTime       @default(now())
+  unit              String?
+  createdById       String? // FK → users
+  guidedPerson      String // Tên người được hướng dẫn
+  guidedPersonPhone String? // SĐT người được hướng dẫn
+  subject           String? // Chủ đề hướng dẫn
+  guidanceContent   String // Nội dung hướng dẫn
+  notes             String?
+  status            GuidanceStatus @default(PENDING)
+  deletedAt         DateTime?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
 
-  createdBy        User?          @relation("GuidanceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdBy User? @relation("GuidanceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
 
   @@index([status])
   @@index([deletedAt])
@@ -742,28 +766,28 @@ model GuidanceRecord {
 // ─────────────────────────────────────────────
 
 enum ExchangeStatus {
-  OPEN       // Đang mở
-  CLOSED     // Đã đóng
-  PENDING    // Chờ xử lý
+  OPEN // Đang mở
+  CLOSED // Đã đóng
+  PENDING // Chờ xử lý
 
   @@map("exchange_status")
 }
 
 model Exchange {
   id           String         @id @default(cuid())
-  recordCode   String?        // Mã hồ sơ liên quan
-  recordType   String?        // "Vụ án" | "Vụ việc" | "Đơn thư"
-  senderUnit   String?        // Đơn vị gửi
-  receiverUnit String?        // Đơn vị nhận
-  subject      String?        // Tiêu đề trao đổi
+  recordCode   String? // Mã hồ sơ liên quan
+  recordType   String? // "Vụ án" | "Vụ việc" | "Đơn thư"
+  senderUnit   String? // Đơn vị gửi
+  receiverUnit String? // Đơn vị nhận
+  subject      String? // Tiêu đề trao đổi
   status       ExchangeStatus @default(OPEN)
-  createdById  String?        // FK → users
+  createdById  String? // FK → users
   deletedAt    DateTime?
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
 
-  createdBy    User?          @relation("ExchangeCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  messages     ExchangeMessage[]
+  createdBy User?             @relation("ExchangeCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  messages  ExchangeMessage[]
 
   @@index([status])
   @@index([deletedAt])
@@ -772,14 +796,14 @@ model Exchange {
 
 model ExchangeMessage {
   id          String   @id @default(cuid())
-  exchangeId  String   // FK → exchanges
-  senderId    String?  // FK → users
+  exchangeId  String // FK → exchanges
+  senderId    String? // FK → users
   content     String
-  attachments Json?    // [{ id, name, size, type, url }]
+  attachments Json? // [{ id, name, size, type, url }]
   createdAt   DateTime @default(now())
 
-  exchange    Exchange @relation(fields: [exchangeId], references: [id], onDelete: Cascade)
-  sender      User?    @relation("ExchangeMessageSender", fields: [senderId], references: [id], onDelete: SetNull)
+  exchange Exchange @relation(fields: [exchangeId], references: [id], onDelete: Cascade)
+  sender   User?    @relation("ExchangeMessageSender", fields: [senderId], references: [id], onDelete: SetNull)
 
   @@index([exchangeId])
   @@map("exchange_messages")
@@ -790,30 +814,30 @@ model ExchangeMessage {
 // ─────────────────────────────────────────────
 
 enum DelegationStatus {
-  PENDING    // Chờ xử lý
-  RECEIVED   // Đã nhận
-  COMPLETED  // Đã hoàn thành
+  PENDING // Chờ xử lý
+  RECEIVED // Đã nhận
+  COMPLETED // Đã hoàn thành
 
   @@map("delegation_status")
 }
 
 model Delegation {
-  id              String           @id @default(cuid())
-  delegationNumber String          @unique // Format: UT-{SEQ}/{YEAR}
-  delegationDate  DateTime         @default(now())
-  receivingUnit   String           // Đơn vị nhận ủy thác
-  content         String           // Nội dung ủy thác
-  createdById     String?          // FK → users
-  status          DelegationStatus @default(PENDING)
-  completedDate   DateTime?
-  relatedCaseId   String?          // FK → cases
-  notes           String?
-  deletedAt       DateTime?
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  id               String           @id @default(cuid())
+  delegationNumber String           @unique // Format: UT-{SEQ}/{YEAR}
+  delegationDate   DateTime         @default(now())
+  receivingUnit    String // Đơn vị nhận ủy thác
+  content          String // Nội dung ủy thác
+  createdById      String? // FK → users
+  status           DelegationStatus @default(PENDING)
+  completedDate    DateTime?
+  relatedCaseId    String? // FK → cases
+  notes            String?
+  deletedAt        DateTime?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
 
-  createdBy       User?            @relation("DelegationCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  relatedCase     Case?            @relation(fields: [relatedCaseId], references: [id], onDelete: SetNull)
+  createdBy   User? @relation("DelegationCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  relatedCase Case? @relation(fields: [relatedCaseId], references: [id], onDelete: SetNull)
 
   @@index([status])
   @@index([deletedAt])
@@ -825,29 +849,29 @@ model Delegation {
 // ─────────────────────────────────────────────
 
 enum ConclusionStatus {
-  DU_THAO    // Dự thảo
-  CHO_DUYET  // Chờ duyệt
-  DA_DUYET   // Đã duyệt
+  DU_THAO // Dự thảo
+  CHO_DUYET // Chờ duyệt
+  DA_DUYET // Đã duyệt
 
   @@map("conclusion_status")
 }
 
 model Conclusion {
-  id           String            @id @default(cuid())
-  caseId       String            // FK → cases (required)
-  type         String            // Loại kết luận: "Kết luận sơ bộ", "Kết luận chính thức", ...
-  content      String            // Nội dung kết luận
-  authorId     String?           // FK → users (người soạn)
-  approvedById String?           // FK → users (người duyệt)
-  status       ConclusionStatus  @default(DU_THAO)
+  id           String           @id @default(cuid())
+  caseId       String // FK → cases (required)
+  type         String // Loại kết luận: "Kết luận sơ bộ", "Kết luận chính thức", ...
+  content      String // Nội dung kết luận
+  authorId     String? // FK → users (người soạn)
+  approvedById String? // FK → users (người duyệt)
+  status       ConclusionStatus @default(DU_THAO)
   notes        String?
   deletedAt    DateTime?
-  createdAt    DateTime          @default(now())
-  updatedAt    DateTime          @updatedAt
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
 
-  case         Case              @relation(fields: [caseId], references: [id])
-  author       User?             @relation("ConclusionAuthor", fields: [authorId], references: [id], onDelete: SetNull)
-  approvedBy   User?             @relation("ConclusionApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  case       Case  @relation(fields: [caseId], references: [id])
+  author     User? @relation("ConclusionAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+  approvedBy User? @relation("ConclusionApprover", fields: [approvedById], references: [id], onDelete: SetNull)
 
   @@index([caseId])
   @@index([status])
@@ -860,15 +884,15 @@ model Conclusion {
 // ─────────────────────────────────────────────
 
 model CaseStatusHistory {
-  id          String     @id @default(cuid())
+  id          String      @id @default(cuid())
   caseId      String
-  fromStatus  CaseStatus?           // null nếu là lần đầu tiên (tạo mới)
+  fromStatus  CaseStatus? // null nếu là lần đầu tiên (tạo mới)
   toStatus    CaseStatus
-  changedById String?               // FK → users (nullable)
-  changedAt   DateTime   @default(now())
+  changedById String? // FK → users (nullable)
+  changedAt   DateTime    @default(now())
 
-  case        Case       @relation(fields: [caseId], references: [id], onDelete: Cascade)
-  changedBy   User?      @relation("StatusChangedBy", fields: [changedById], references: [id], onDelete: SetNull)
+  case      Case  @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  changedBy User? @relation("StatusChangedBy", fields: [changedById], references: [id], onDelete: SetNull)
 
   @@index([caseId])
   @@index([changedAt])
@@ -881,18 +905,18 @@ model CaseStatusHistory {
 // ─────────────────────────────────────────────
 
 model InvestigationSupplement {
-  id               String    @id @default(cuid())
-  caseId           String
-  type             String    // "Điều tra bổ sung" | "Điều tra lại"
-  decisionNumber   String
-  decisionDate     DateTime?
-  reason           String
-  deadline         DateTime?
-  createdById      String?
-  createdAt        DateTime  @default(now())
+  id             String    @id @default(cuid())
+  caseId         String
+  type           String // "Điều tra bổ sung" | "Điều tra lại"
+  decisionNumber String
+  decisionDate   DateTime?
+  reason         String
+  deadline       DateTime?
+  createdById    String?
+  createdAt      DateTime  @default(now())
 
-  case             Case      @relation(fields: [caseId], references: [id], onDelete: Cascade)
-  createdBy        User?     @relation("SupplementCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  case      Case  @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  createdBy User? @relation("SupplementCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
 
   @@index([caseId])
   @@index([createdAt])
@@ -906,15 +930,15 @@ model InvestigationSupplement {
 model AuditLog {
   id        String   @id @default(cuid())
   userId    String?
-  action    String   // e.g. "USER_LOGIN", "USER_LOGOUT", "CASE_CREATED"
-  subject   String?  // entity type affected
-  subjectId String?  // entity id affected
-  metadata  Json?    // additional context (IP, user-agent, etc.)
+  action    String // e.g. "USER_LOGIN", "USER_LOGOUT", "CASE_CREATED"
+  subject   String? // entity type affected
+  subjectId String? // entity id affected
+  metadata  Json? // additional context (IP, user-agent, etc.)
   ipAddress String?
   userAgent String?
   createdAt DateTime @default(now())
 
-  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([action])
@@ -939,6 +963,12 @@ enum NotificationType {
   INCIDENT_OVERDUE
   DOCUMENT_UPLOADED
   SYSTEM
+  // Deadline Rule Versioning workflow
+  DEADLINE_RULE_SUBMITTED
+  DEADLINE_RULE_APPROVED
+  DEADLINE_RULE_REJECTED
+  DEADLINE_RULE_ACTIVATED
+  DEADLINE_RULE_STALE_REVIEW
 }
 
 model Notification {
@@ -948,12 +978,12 @@ model Notification {
   title     String
   message   String
   isRead    Boolean          @default(false)
-  link      String?          // optional deep-link URL
-  metadata  Json?            // extra context (caseId, petitionId, etc.)
+  link      String? // optional deep-link URL
+  metadata  Json? // extra context (caseId, petitionId, etc.)
   createdAt DateTime         @default(now())
   readAt    DateTime?
 
-  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, isRead])
   @@index([userId, createdAt])
@@ -969,9 +999,9 @@ model Notification {
 
 model MasterClass {
   id        String   @id @default(cuid())
-  type      String   // "00", "01", "02"...
-  code      String   // "NAM", "NU", "TC"...
-  name      String   // "Nam", "Nữ", "Tố cáo"...
+  type      String // "00", "01", "02"...
+  code      String // "NAM", "NU", "TC"...
+  name      String // "Nam", "Nữ", "Tố cáo"...
   order     Int      @default(0)
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
@@ -1000,11 +1030,11 @@ model Team {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  members          UserTeam[]
-  casesAssigned    Case[]             @relation("CaseTeam")
+  members           UserTeam[]
+  casesAssigned     Case[]            @relation("CaseTeam")
   petitionsAssigned Petition[]        @relation("PetitionTeam")
   incidentsAssigned Incident[]        @relation("IncidentTeam")
-  grantsForUnit    DataAccessGrant[]  @relation("GrantUnit")
+  grantsForUnit     DataAccessGrant[] @relation("GrantUnit")
 
   @@index([parentId])
   @@index([level])
@@ -1068,7 +1098,7 @@ model OtpCode {
   expiresAt DateTime
   usedAt    DateTime?
   createdAt DateTime  @default(now())
-  purpose   String    @default("TWO_FA")  // "TWO_FA" | "PASSWORD_RESET"
+  purpose   String    @default("TWO_FA") // "TWO_FA" | "PASSWORD_RESET"
 
   @@index([userId])
   @@map("otp_codes")
@@ -1079,16 +1109,97 @@ model OtpCode {
 // ─────────────────────────────────────────────
 
 model SystemSetting {
-  id          String   @id @default(cuid())
-  key         String   @unique   // Mã cấu hình
-  value       String              // Giá trị (string, parse khi dùng)
-  label       String              // Mô tả tiếng Việt
-  unit        String?             // Đơn vị: "ngay", "thang", "lan"
-  legalBasis  String?             // Cơ sở pháp lý (Điều luật)
-  updatedAt   DateTime @updatedAt
-  createdAt   DateTime @default(now())
+  id         String   @id @default(cuid())
+  key        String   @unique // Mã cấu hình
+  value      String // Giá trị (string, parse khi dùng)
+  label      String // Mô tả tiếng Việt
+  unit       String? // Đơn vị: "ngay", "thang", "lan"
+  legalBasis String? // Cơ sở pháp lý (Điều luật)
+  updatedAt  DateTime @updatedAt
+  createdAt  DateTime @default(now())
 
   @@map("system_settings")
+}
+
+// ─────────────────────────────────────────────
+// Deadline Rule Versioning (BLTTHS legal compliance)
+// Replaces direct SystemSetting CRUD for the 12 deadline keys with a
+// propose → submit → approve → activate workflow. Incident/Petition records
+// snapshot the rule version that produced their deadline so VKS audits can
+// reconstruct historical state.
+//
+// Concurrency invariants are enforced by partial unique indexes (added in
+// migration SQL): only 1 active / submitted / approved version per ruleKey
+// at any time. See migration deadline_rule_versioning.
+// ─────────────────────────────────────────────
+
+enum DeadlineRuleStatus {
+  draft // Bản nháp — proposer is still editing
+  submitted // Đã gửi duyệt — awaiting approver
+  approved // Đã duyệt, chưa hiệu lực — waiting for effectiveFrom
+  active // Đang hiệu lực — current rule of record
+  superseded // Đã thay thế — historical record
+  rejected // Bị từ chối
+
+  @@map("deadline_rule_status")
+}
+
+model DeadlineRuleVersion {
+  id         String @id @default(cuid())
+  ruleKey    String // Must match SETTINGS_KEY (THOI_HAN_XAC_MINH, etc.)
+  value      Int // Always interpreted as days for THOI_HAN_*, lần for SO_LAN_*
+  label      String // Vietnamese display name
+  legalBasis String // E.g. "Điều 147 BLTTHS 2015"
+
+  // Structured document reference (replaces free-text documentRef)
+  documentType        String // 'TT' | 'NĐ' | 'CV' | 'QĐ' | 'BLTTHS' | 'Khác'
+  documentNumber      String // E.g. "28/2020", "INITIAL"
+  documentIssuer      String // 'BCA' | 'VKSNDTC' | 'TANDTC' | 'Chính phủ' | 'Khác'
+  documentDate        DateTime? // Ngày ban hành (optional)
+  attachmentId        String? // FK → Document model (optional, defer attachment UI to v2)
+  attachment          Document? @relation("DeadlineRuleAttachment", fields: [attachmentId], references: [id], onDelete: SetNull)
+  migrationConfidence String? // 'legacy-default' for migrated v1 rows; null otherwise
+
+  reason String // Mandatory — why this change
+
+  status        DeadlineRuleStatus @default(draft)
+  effectiveFrom DateTime? // Set when approved; status='active' requires this (CHECK constraint)
+  effectiveTo   DateTime? // Set when superseded
+
+  // Self-referential supersedes chain
+  supersedesId String?
+  supersedes   DeadlineRuleVersion?  @relation("DeadlineRuleChain", fields: [supersedesId], references: [id], onDelete: SetNull)
+  supersededBy DeadlineRuleVersion[] @relation("DeadlineRuleChain")
+
+  // Proposer — NULLABLE to support SYSTEM migration actor
+  proposedById   String?
+  proposedBy     User?    @relation("DeadlineRuleProposer", fields: [proposedById], references: [id], onDelete: SetNull)
+  proposedByType String   @default("USER") // 'USER' | 'SYSTEM'
+  proposedAt     DateTime @default(now())
+
+  // Reviewer (approver or rejecter)
+  reviewedById String?
+  reviewedBy   User?     @relation("DeadlineRuleReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt   DateTime?
+  reviewNotes  String?
+
+  // Back-relations to Incident/Petition snapshots (named — 3 FKs into Incident)
+  incidentsInitial Incident[] @relation("IncidentInitialRule")
+  incidentsGiaHan1 Incident[] @relation("IncidentGiaHan1Rule")
+  incidentsGiaHan2 Incident[] @relation("IncidentGiaHan2Rule")
+  petitionsInitial Petition[] @relation("PetitionInitialRule")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ruleKey, status])
+  @@index([ruleKey, effectiveFrom])
+  @@index([status, proposedAt])
+  @@index([attachmentId])
+  // Partial unique indexes added via raw SQL in migration:
+  //   one active per ruleKey, one submitted per ruleKey, one approved-pending per ruleKey
+  //   plus CHECK (status != 'active' OR effectiveFrom IS NOT NULL)
+  @@map("deadline_rule_versions")
 }
 
 // ─────────────────────────────────────────────
@@ -1096,13 +1207,13 @@ model SystemSetting {
 // ─────────────────────────────────────────────
 
 model FeatureFlag {
-  key         String   @id                   // e.g. "cases", "petitions", "incidents"
-  label       String                          // Tên hiển thị tiếng Việt
-  description String?                         // Mô tả ngắn
-  enabled     Boolean  @default(true)         // Bật/tắt toàn cục
-  domain      String?                         // Bounded context: "case-domain", "org-domain"...
-  rolloutPct  Int      @default(100)          // 0-100, dự phòng gradual rollout
-  metadata    Json?                           // Tuỳ biến (routes, permissions)
+  key         String   @id // e.g. "cases", "petitions", "incidents"
+  label       String // Tên hiển thị tiếng Việt
+  description String? // Mô tả ngắn
+  enabled     Boolean  @default(true) // Bật/tắt toàn cục
+  domain      String? // Bounded context: "case-domain", "org-domain"...
+  rolloutPct  Int      @default(100) // 0-100, dự phòng gradual rollout
+  metadata    Json? // Tuỳ biến (routes, permissions)
   updatedAt   DateTime @updatedAt
   createdAt   DateTime @default(now())
 
@@ -1160,7 +1271,7 @@ model UserDevice {
   id        String   @id @default(cuid())
   userId    String
   fcmToken  String   @unique
-  platform  String   // "android" | "ios"
+  platform  String // "android" | "ios"
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1176,7 +1287,7 @@ model UserDevice {
 
 model OverdueNotification {
   id           String   @id @default(cuid())
-  resourceType String   // "case" | "incident" | "petition"
+  resourceType String // "case" | "incident" | "petition"
   resourceId   String
   userId       String
   notifiedAt   DateTime @default(now())
@@ -1193,20 +1304,20 @@ model OverdueNotification {
 // ─────────────────────────────────────────────
 
 model VksMeetingRecord {
-  id             String    @id @default(cuid())
-  caseId         String?
-  incidentId     String?
-  ngayTrao       DateTime
-  noiDung        String
-  soQuyetDinh    String?
-  ketQua         String?
-  createdById    String
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  id          String   @id @default(cuid())
+  caseId      String?
+  incidentId  String?
+  ngayTrao    DateTime
+  noiDung     String
+  soQuyetDinh String?
+  ketQua      String?
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  case           Case?     @relation(fields: [caseId], references: [id], onDelete: Cascade)
-  incident       Incident? @relation("IncidentVksMeetings", fields: [incidentId], references: [id], onDelete: Cascade)
-  createdBy      User      @relation("VksMeetingCreatedBy", fields: [createdById], references: [id])
+  case      Case?     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  incident  Incident? @relation("IncidentVksMeetings", fields: [incidentId], references: [id], onDelete: Cascade)
+  createdBy User      @relation("VksMeetingCreatedBy", fields: [createdById], references: [id])
 
   @@index([caseId])
   @@index([incidentId])
@@ -1214,21 +1325,21 @@ model VksMeetingRecord {
 }
 
 model SuspensionActionPlan {
-  id             String           @id @default(cuid())
-  caseId         String?
-  incidentId     String?
-  ngayLap        DateTime
-  bienPhap       String
-  thoiHan        DateTime?
-  tienDo         TienDoKhacPhuc   @default(DANG_THUC_HIEN)
-  ketQua         String?
-  createdById    String
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
+  id          String         @id @default(cuid())
+  caseId      String?
+  incidentId  String?
+  ngayLap     DateTime
+  bienPhap    String
+  thoiHan     DateTime?
+  tienDo      TienDoKhacPhuc @default(DANG_THUC_HIEN)
+  ketQua      String?
+  createdById String
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
 
-  case           Case?            @relation(fields: [caseId], references: [id], onDelete: Cascade)
-  incident       Incident?        @relation("IncidentActionPlans", fields: [incidentId], references: [id], onDelete: Cascade)
-  createdBy      User             @relation("ActionPlanCreatedBy", fields: [createdById], references: [id])
+  case      Case?     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  incident  Incident? @relation("IncidentActionPlans", fields: [incidentId], references: [id], onDelete: Cascade)
+  createdBy User      @relation("ActionPlanCreatedBy", fields: [createdById], references: [id])
 
   @@index([caseId])
   @@index([incidentId])
@@ -1236,31 +1347,31 @@ model SuspensionActionPlan {
 }
 
 model ReportTdcDraft {
-  id             String          @id @default(cuid())
-  loaiBaoCao     ReportTdcType
-  fromDate       DateTime
-  toDate         DateTime
-  teamIds        String[]
-  status         ReportTdcStatus @default(DRAFT)
-  computedData   Json
-  adjustedData   Json?
-  notes          String?
+  id           String          @id @default(cuid())
+  loaiBaoCao   ReportTdcType
+  fromDate     DateTime
+  toDate       DateTime
+  teamIds      String[]
+  status       ReportTdcStatus @default(DRAFT)
+  computedData Json
+  adjustedData Json?
+  notes        String?
 
   createdById    String
   reviewedById   String?
   approvedById   String?
   rejectedById   String?
-  createdAt      DateTime        @default(now())
+  createdAt      DateTime  @default(now())
   reviewedAt     DateTime?
   approvedAt     DateTime?
   rejectedAt     DateTime?
   rejectedReason String?
   finalizedAt    DateTime?
 
-  createdBy      User            @relation("ReportCreatedBy",   fields: [createdById],   references: [id])
-  reviewedBy     User?           @relation("ReportReviewedBy",  fields: [reviewedById],  references: [id])
-  approvedBy     User?           @relation("ReportApprovedBy",  fields: [approvedById],  references: [id])
-  rejectedBy     User?           @relation("ReportRejectedBy",  fields: [rejectedById],  references: [id])
+  createdBy  User  @relation("ReportCreatedBy", fields: [createdById], references: [id])
+  reviewedBy User? @relation("ReportReviewedBy", fields: [reviewedById], references: [id])
+  approvedBy User? @relation("ReportApprovedBy", fields: [approvedById], references: [id])
+  rejectedBy User? @relation("ReportRejectedBy", fields: [rejectedById], references: [id])
 
   @@index([loaiBaoCao])
   @@index([status])
@@ -1268,25 +1379,24 @@ model ReportTdcDraft {
   @@map("report_tdc_drafts")
 }
 
-
 // ─── AddressMapping — Bảng mapping địa chỉ cũ → mới (cải cách 2025) ─────────
 model AddressMapping {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   // Địa chỉ cũ (trước 01/07/2025 — có cấp quận/huyện)
-  oldWard     String   // VD: "phường 14", "xã Long Bình" (lowercase)
-  oldDistrict String   // VD: "quận phú nhuận", "huyện nhà bè" (lowercase)
+  oldWard     String // VD: "phường 14", "xã Long Bình" (lowercase)
+  oldDistrict String // VD: "quận phú nhuận", "huyện nhà bè" (lowercase)
   // Địa chỉ mới (sau cải cách 2025 — chỉ còn phường/xã + tỉnh/TP)
-  newWard     String   // VD: "phường phú nhuận" (lowercase)
-  province    String   // Province code: "HCM", "HN", v.v.
-  note        String?  // Ghi chú nguồn (VD: "NQ 1279/NQ-UBTVQH15")
-  isActive    Boolean  @default(true)
-  needsReview Boolean  @default(false) // Đánh dấu cần review sau crawl
+  newWard     String // VD: "phường phú nhuận" (lowercase)
+  province    String // Province code: "HCM", "HN", v.v.
+  note        String? // Ghi chú nguồn (VD: "NQ 1279/NQ-UBTVQH15")
+  isActive    Boolean   @default(true)
+  needsReview Boolean   @default(false) // Đánh dấu cần review sau crawl
   // Provenance & ambiguity tracking (added v0.13.10.0)
-  source      String   @default("manual") // 'api-v2' | 'manual' | 'official-decree'
-  seededAt    DateTime?                   // when the row was last touched by bulkSeedFromApi
-  candidates  Json?                       // when needsReview, all candidate new wards from API
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  source      String    @default("manual") // 'api-v2' | 'manual' | 'official-decree'
+  seededAt    DateTime? // when the row was last touched by bulkSeedFromApi
+  candidates  Json? // when needsReview, all candidate new wards from API
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   @@unique([oldWard, oldDistrict, province])
   @@index([province, oldDistrict])
@@ -1297,18 +1407,18 @@ model AddressMapping {
 // Tracks bulk-seed jobs run by admin against provinces.open-api.vn.
 // Status flow: queued → running → completed | failed | cancelled
 model AddressSeedJob {
-  id           String   @id @default(cuid())
-  province     String   // 'HCM' | 'HN' | ...
-  status       String   // 'queued' | 'running' | 'completed' | 'failed' | 'cancelled'
-  startedAt    DateTime @default(now())
-  completedAt  DateTime?
-  totalWards   Int      @default(0)
-  mappedCount  Int      @default(0)
-  errorCount   Int      @default(0)
-  needsReview  Int      @default(0)
-  cancelToken  String?  // Set to 'requested' to signal worker to abort
-  errorLog     String?  // JSON array of {wardCode, error}
-  triggeredBy  String   // userId
+  id          String    @id @default(cuid())
+  province    String // 'HCM' | 'HN' | ...
+  status      String // 'queued' | 'running' | 'completed' | 'failed' | 'cancelled'
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+  totalWards  Int       @default(0)
+  mappedCount Int       @default(0)
+  errorCount  Int       @default(0)
+  needsReview Int       @default(0)
+  cancelToken String? // Set to 'requested' to signal worker to abort
+  errorLog    String? // JSON array of {wardCode, error}
+  triggeredBy String // userId
 
   @@index([province, status])
   @@map("address_seed_jobs")

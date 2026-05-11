@@ -1,31 +1,41 @@
-import { useState, useEffect } from "react";
-import { api } from "@/lib/api";
-import { Settings, Edit, Save, X, Loader2, AlertCircle } from "lucide-react";
+import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { api } from '@/lib/api';
+import { Settings, Edit, Save, X, Loader2, AlertCircle, ArrowRight, ShieldAlert } from 'lucide-react';
 
 interface SettingItem {
   key: string;
   label: string;
   value: string;
-  unit: string;
-  legalBasis: string;
+  unit: string | null;
+  legalBasis: string | null;
 }
 
+/**
+ * SettingsPage — manages NON-DEADLINE ops settings only.
+ *
+ * Post 20260511_deadline_rule_versioning migration, the 12 deadline keys
+ * (THOI_HAN_*, SO_LAN_GIA_HAN_TOI_DA) moved to /admin/deadline-rules with a
+ * proper versioning workflow. This page now handles ops keys: TWO_FA_ENABLED,
+ * CANH_BAO_SAP_HAN, THOI_HAN_XOA_VU_VIEC. The redirect banner points users to
+ * the new feature.
+ */
 export function SettingsPage() {
   const [settings, setSettings] = useState<SettingItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [error, setError] = useState('');
   const [editingKey, setEditingKey] = useState<string | null>(null);
-  const [editValue, setEditValue] = useState("");
+  const [editValue, setEditValue] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
   const fetchSettings = async () => {
     setIsLoading(true);
-    setError("");
+    setError('');
     try {
-      const res = await api.get<{ success: boolean; data: SettingItem[] }>("/settings");
+      const res = await api.get<{ success: boolean; data: SettingItem[] }>('/settings');
       setSettings(res.data.data ?? []);
     } catch {
-      setError("Không thể tải cấu hình");
+      setError('Không thể tải cấu hình');
     } finally {
       setIsLoading(false);
     }
@@ -39,23 +49,19 @@ export function SettingsPage() {
     setEditingKey(item.key);
     setEditValue(item.value);
   };
-
   const cancelEdit = () => {
     setEditingKey(null);
-    setEditValue("");
+    setEditValue('');
   };
-
   const saveEdit = async (key: string) => {
     setIsSaving(true);
     try {
       await api.put(`/settings/${key}`, { value: editValue });
-      setSettings((prev) =>
-        prev.map((s) => (s.key === key ? { ...s, value: editValue } : s))
-      );
+      setSettings((prev) => prev.map((s) => (s.key === key ? { ...s, value: editValue } : s)));
       setEditingKey(null);
-      setEditValue("");
+      setEditValue('');
     } catch {
-      setError("Không thể lưu cấu hình");
+      setError('Không thể lưu cấu hình');
     } finally {
       setIsSaving(false);
     }
@@ -67,23 +73,42 @@ export function SettingsPage() {
       <div className="flex items-center gap-3">
         <Settings className="w-6 h-6 text-slate-700" />
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Cấu hình thời hạn xử lý</h1>
-          <p className="text-slate-600 text-sm mt-1">Quản lý các tham số thời hạn theo quy định pháp luật</p>
+          <h1 className="text-2xl font-bold text-slate-800">Cấu hình hệ thống</h1>
+          <p className="text-slate-600 text-sm mt-1">Tham số vận hành — 2FA, ngưỡng cảnh báo, chính sách xóa</p>
         </div>
       </div>
 
-      {/* Error */}
+      {/* Migration banner — points users to the new deadline-rules workflow */}
+      <Link
+        to="/admin/deadline-rules"
+        className="block bg-blue-50 border border-blue-200 rounded-lg p-4 hover:bg-blue-100 transition"
+        data-testid="redirect-banner"
+      >
+        <div className="flex items-center gap-3">
+          <ShieldAlert className="w-6 h-6 text-blue-600 flex-shrink-0" />
+          <div className="flex-1">
+            <div className="text-sm font-semibold text-blue-900">
+              Cấu hình thời hạn xử lý đã chuyển sang quy trình mới
+            </div>
+            <p className="text-xs text-blue-700 mt-1">
+              12 quy tắc theo BLTTHS / Luật Tố cáo / Luật Khiếu nại nay dùng workflow đề xuất → duyệt → hiệu lực,
+              kèm audit trail VKS-defensible. Trang này chỉ giữ các tham số vận hành nội bộ (2FA, cảnh báo, v.v.)
+            </p>
+          </div>
+          <ArrowRight className="w-5 h-5 text-blue-600" />
+        </div>
+      </Link>
+
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-2">
           <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
           <p className="text-sm text-red-700">{error}</p>
-          <button onClick={() => setError("")} className="ml-auto p-1 hover:bg-red-100 rounded">
+          <button type="button" onClick={() => setError('')} className="ml-auto p-1 hover:bg-red-100 rounded">
             <X className="w-4 h-4 text-red-600" />
           </button>
         </div>
       )}
 
-      {/* Table */}
       <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full" data-testid="settings-table">
@@ -129,12 +154,13 @@ export function SettingsPage() {
                         <span className="text-slate-700 font-mono">{item.value}</span>
                       )}
                     </td>
-                    <td className="px-6 py-4 text-sm text-slate-600">{item.unit}</td>
-                    <td className="px-6 py-4 text-sm text-slate-600 max-w-[300px]">{item.legalBasis}</td>
+                    <td className="px-6 py-4 text-sm text-slate-600">{item.unit ?? '—'}</td>
+                    <td className="px-6 py-4 text-sm text-slate-600 max-w-[300px]">{item.legalBasis ?? '—'}</td>
                     <td className="px-6 py-4">
                       {editingKey === item.key ? (
                         <div className="flex items-center gap-1">
                           <button
+                            type="button"
                             onClick={() => void saveEdit(item.key)}
                             disabled={isSaving}
                             className="p-2 text-green-600 hover:bg-green-50 rounded transition-colors disabled:opacity-50"
@@ -144,6 +170,7 @@ export function SettingsPage() {
                             <Save className="w-4 h-4" />
                           </button>
                           <button
+                            type="button"
                             onClick={cancelEdit}
                             className="p-2 text-slate-600 hover:bg-slate-100 rounded transition-colors"
                             title="Hủy"
@@ -153,6 +180,7 @@ export function SettingsPage() {
                         </div>
                       ) : (
                         <button
+                          type="button"
                           onClick={() => startEdit(item)}
                           className="flex items-center gap-1 px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                           data-testid={`btn-edit-${item.key}`}

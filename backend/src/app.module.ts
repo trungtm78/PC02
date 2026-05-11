@@ -29,6 +29,7 @@ import { InvestigationSupplementsModule } from './investigation-supplements/inve
 import { MasterClassModule } from './master-class/master-class.module';
 import { TeamsModule } from './teams/teams.module';
 import { SettingsModule } from './settings/settings.module';
+import { DeadlineRulesModule } from './deadline-rules/deadline-rules.module';
 import { FeatureFlagsModule } from './feature-flags/feature-flags.module';
 import { KpiModule } from './kpi/kpi.module';
 import { AbbreviationsModule } from './abbreviations/abbreviations.module';
@@ -72,6 +73,7 @@ import { DataScopeInterceptor } from './auth/interceptors/data-scope.interceptor
     MasterClassModule,
     TeamsModule,
     SettingsModule,
+    DeadlineRulesModule,
     FeatureFlagsModule,
     KpiModule,
     AbbreviationsModule,

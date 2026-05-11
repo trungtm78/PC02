@@ -3,7 +3,7 @@
  * Source of truth: Prisma schema (via generated.ts).
  * Used by: ComprehensiveListPage, and any future aggregate or detail view.
  */
-import { CaseStatus, IncidentStatus, PetitionStatus, LyDoKhongKhoiTo } from './generated';
+import { CaseStatus, IncidentStatus, PetitionStatus, LyDoKhongKhoiTo, DeadlineRuleStatus } from './generated';
 
 // ── Vietnamese labels ───────────────────────────────────────────
 
@@ -141,3 +141,58 @@ export const LY_DO_KHONG_KHOI_TO_LABEL: Record<LyDoKhongKhoiTo, string> = {
 export const LY_DO_KHONG_KHOI_TO_OPTIONS = Object.entries(LY_DO_KHONG_KHOI_TO_LABEL).map(
   ([value, label]) => ({ value, label }),
 );
+
+// ── DeadlineRuleStatus (6 workflow states + migrated-needs-doc virtual state) ──
+
+export const DEADLINE_RULE_STATUS_LABEL: Record<DeadlineRuleStatus, string> = {
+  [DeadlineRuleStatus.draft]:       'Bản nháp',
+  [DeadlineRuleStatus.submitted]:   'Chờ duyệt',
+  [DeadlineRuleStatus.approved]:    'Đã duyệt (chờ hiệu lực)',
+  [DeadlineRuleStatus.active]:      'Đang hiệu lực',
+  [DeadlineRuleStatus.superseded]:  'Đã thay thế',
+  [DeadlineRuleStatus.rejected]:    'Bị từ chối',
+};
+
+export const DEADLINE_RULE_STATUS_BADGE_CLASS: Record<DeadlineRuleStatus, string> = {
+  [DeadlineRuleStatus.draft]:       'bg-slate-100 text-slate-600',
+  [DeadlineRuleStatus.submitted]:   'bg-blue-100 text-blue-700',
+  [DeadlineRuleStatus.approved]:    'bg-violet-100 text-violet-700',
+  [DeadlineRuleStatus.active]:      'bg-green-100 text-green-700',
+  [DeadlineRuleStatus.superseded]:  'bg-slate-100 text-slate-400',
+  [DeadlineRuleStatus.rejected]:    'bg-red-100 text-red-700',
+};
+
+/** Migration-cleanup virtual sub-status: rule is active but legalBasis is INITIAL_MIGRATION. */
+export const MIGRATED_NEEDS_DOC_BADGE_CLASS = 'bg-amber-100 text-amber-700';
+export const MIGRATED_NEEDS_DOC_LABEL = 'Cần bổ sung tài liệu';
+
+// 12 deadline rule keys with their Vietnamese display labels
+export const DEADLINE_RULE_KEY_LABEL: Record<string, string> = {
+  THOI_HAN_XAC_MINH:        'Thời hạn xác minh ban đầu',
+  THOI_HAN_GIA_HAN_1:       'Thời hạn gia hạn lần 1',
+  THOI_HAN_GIA_HAN_2:       'Thời hạn gia hạn lần 2',
+  THOI_HAN_TOI_DA:          'Thời hạn giải quyết tối đa',
+  THOI_HAN_PHUC_HOI:        'Thời hạn giải quyết sau phục hồi',
+  THOI_HAN_PHAN_LOAI:       'Thời hạn phân loại nguồn tin',
+  SO_LAN_GIA_HAN_TOI_DA:    'Số lần gia hạn tối đa',
+  THOI_HAN_GUI_QD_VKS:      'Thời hạn gửi QĐ cho VKS',
+  THOI_HAN_TO_CAO:          'Thời hạn giải quyết tố cáo',
+  THOI_HAN_KHIEU_NAI:       'Thời hạn giải quyết khiếu nại',
+  THOI_HAN_KIEN_NGHI:       'Thời hạn xử lý kiến nghị',
+  THOI_HAN_PHAN_ANH:        'Thời hạn xử lý phản ánh',
+};
+
+export const DEADLINE_RULE_KEY_UNIT: Record<string, string> = {
+  THOI_HAN_XAC_MINH:        'ngày',
+  THOI_HAN_GIA_HAN_1:       'ngày',
+  THOI_HAN_GIA_HAN_2:       'ngày',
+  THOI_HAN_TOI_DA:          'ngày',
+  THOI_HAN_PHUC_HOI:        'ngày',
+  THOI_HAN_PHAN_LOAI:       'ngày',
+  SO_LAN_GIA_HAN_TOI_DA:    'lần',
+  THOI_HAN_GUI_QD_VKS:      'ngày',
+  THOI_HAN_TO_CAO:          'ngày',
+  THOI_HAN_KHIEU_NAI:       'ngày',
+  THOI_HAN_KIEN_NGHI:       'ngày',
+  THOI_HAN_PHAN_ANH:        'ngày',
+};

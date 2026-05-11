@@ -2,7 +2,49 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.13.10.0] - 2026-05-11
+## [0.14.0.0] - 2026-05-11
+
+### Added — Quy trình quản lý phiên bản quy tắc thời hạn (Deadline Rule Versioning)
+- **Workflow mới `/admin/deadline-rules`**: admin đề xuất sửa quy tắc thời hạn → người duyệt khác (DEADLINE_APPROVER) review → kích hoạt theo ngày hiệu lực. 6 trang admin mới: danh sách quy tắc, lịch sử phiên bản, đề xuất sửa, hàng đợi duyệt, trang quyết định (diff + impact preview), cleanup tài liệu khởi tạo.
+- **Snapshot phiên bản tại lúc tạo vụ việc/đơn thư**: `Incident.deadlineRuleVersionId`, `Incident.giaHan1RuleVersionId`, `Incident.giaHan2RuleVersionId`, `Incident.maxExtensionsSnapshot`, `Petition.deadlineRuleVersionId` — mỗi vụ việc/đơn thư giữ phiên bản quy tắc đã áp dụng để truy ngược lại được cho VKS audit.
+- **Maker-checker enforcement ở 3 lớp**: UI disabled button (proposer === viewer), service throws ForbiddenException, partial unique index ở DB. Phòng race condition với `pg_advisory_xact_lock(hashtext(ruleKey))` + Serializable transaction.
+- **Audit log tích hợp**: 8 action mới (`DEADLINE_RULE_PROPOSED/SUBMITTED/APPROVED/REJECTED/ACTIVATED/SUPERSEDED/STALE_REVIEW_NOTIFIED/DRAFT_DELETED`) ghi qua `AuditService` hiện có. Không tạo bảng audit riêng.
+- **2 cron schedulers mới**: `deadline-rule-activator` (00:01 UTC mỗi ngày — promote `approved` → `active` khi đến ngày hiệu lực, ORDER BY effectiveFrom ASC cho multi-day catch-up); `deadline-rule-stale-notifier` (09:00 UTC mỗi ngày — push notification cho approvers nếu submitted > 24h).
+- **5 NotificationType enum mới**: `DEADLINE_RULE_SUBMITTED/APPROVED/REJECTED/ACTIVATED/STALE_REVIEW` — gửi qua `NotificationsService` hiện có cho approver/proposer.
+- **Role + permissions mới**: `DEADLINE_APPROVER` role (separation-of-duties checker), 3 permissions (`read:`, `write:`, `approve:DeadlineRuleVersion`). ADMIN có cả 3, DEADLINE_APPROVER có read+approve (KHÔNG write — checker không được tự đề xuất), OFFICER có read.
+- **Structured documentRef**: thay free-text bằng 4 trường (`documentType` enum 6 giá trị, `documentNumber`, `documentIssuer` enum 6 giá trị, `documentDate` optional) — VKS-defensible. Hỗ trợ attachment FK tới `Document` (UI defer v2).
+- **Impact preview bucketed**: trang quyết định hiển thị 3 buckets — không ảnh hưởng (đã snapshot), sẽ áp dụng khi gia hạn (in-flight), sẽ áp dụng cho vụ việc tạo mới. Drill-down top-5 hạn xử lý gần nhất.
+- **Aging buckets cho hàng đợi duyệt**: mới (<1 ngày, green), đang chờ (1-3 ngày, amber), quá hạn duyệt (>3 ngày, red).
+
+### Changed — Loại bỏ silent-stale risk
+- **DELETE 12 deadline keys khỏi `system_settings`** trong migration: `THOI_HAN_XAC_MINH`, `THOI_HAN_GIA_HAN_1/2`, `THOI_HAN_TOI_DA`, `THOI_HAN_PHUC_HOI`, `THOI_HAN_PHAN_LOAI`, `SO_LAN_GIA_HAN_TOI_DA`, `THOI_HAN_GUI_QD_VKS`, `THOI_HAN_TO_CAO/KHIEU_NAI/KIEN_NGHI/PHAN_ANH`. Nguồn sự thật runtime giờ là `deadline_rule_versions` table.
+- **`SettingsService.getValue/getNumericValue/updateValue` throw `BadRequestException` cho 12 deadline keys** — bảo vệ contract. Bất kỳ caller nào (cũ hay mới) đụng tới deadline key qua SettingsService sẽ fail loud thay vì trả về giá trị stale. CI grep guard recommend bổ sung.
+- **`incidents.service.create` (line 286)** đọc `DeadlineRulesService.getActive('THOI_HAN_XAC_MINH')` thay vì `settings.getNumericValue`, snapshot `deadlineRuleVersionId` + `maxExtensionsSnapshot` vào incident record.
+- **`incidents.service.extendDeadline` (line 637)**: max-count check đọc `incident.maxExtensionsSnapshot` (frozen từ creation time — admin lowering limit không retroactively block); extension days đọc live từ active rule, snapshot rule-version-id vào `giaHan1RuleVersionId`/`giaHan2RuleVersionId`.
+- **`petitions.service.create` (line 302)**: đọc `DeadlineRulesService.getActive(petitionTypeKey)`, snapshot `deadlineRuleVersionId` vào petition record.
+- **`SettingsService.seed()`** chỉ seed 3 ops keys (`TWO_FA_ENABLED`, `CANH_BAO_SAP_HAN`, `THOI_HAN_XOA_VU_VIEC`), và `deleteMany` 12 deadline keys phòng hờ ai insert lại.
+- **`SettingsPage` (`/admin/settings`)** strip toàn bộ deadline rows + thêm banner redirect prominent tới `/admin/deadline-rules`. Trang cũ giờ chỉ quản lý ops settings.
+- **Enum generator regex** mở rộng cho phép lowercase identifiers (vd: `draft`, `submitted`) để generate `DeadlineRuleStatus` từ Prisma schema.
+
+### Migration safety
+- **Migration atomic `20260511120000_deadline_rule_versioning`**:
+  - Tạo `deadline_rule_status` enum + `deadline_rule_versions` table
+  - 3 partial unique indexes (one-active, one-submitted, one-approved-pending per `ruleKey`) — DB-level concurrency guarantee
+  - CHECK constraint `status != 'active' OR effectiveFrom IS NOT NULL`
+  - 5 enum values vào `NotificationType`
+  - 4 FK columns trên `incidents` + `petitions` + indexes, ON DELETE RESTRICT
+  - Seed 12 v1 active versions từ `system_settings` (proposedByType='SYSTEM', migrationConfidence='legacy-default')
+  - Backfill `deadlineRuleVersionId` cho mọi Incident/Petition không-soft-deleted
+  - DELETE 12 deadline keys khỏi `system_settings`
+  - RBAC seed (3 permissions + DEADLINE_APPROVER role + role assignments cho ADMIN/DEADLINE_APPROVER/OFFICER)
+  - Idempotent: mọi INSERT dùng `WHERE NOT EXISTS`, mọi enum/index dùng `IF NOT EXISTS` hoặc DO block với `EXCEPTION WHEN duplicate_object`.
+- **Fresh DB seeder mới** `prisma/seed-deadline-rules.ts`: idempotent seed 12 v1 versions với deterministic IDs (`rule_init_{key}`). Gọi từ `seed.ts` chính.
+
+### Tests
+- **Backend: 1047 tests pass** (added 111 tests): `deadline-rules.service.spec.ts` (40 cases — state gates, maker-checker, race translation, multi-day catch-up, stale notif), 2 scheduler specs, updated `settings.service.spec.ts` cho hard-guard 12 deadline keys (parameterized), updated `incidents.service.spec.ts` + `petitions.service.spec.ts` cho `DeadlineRulesService` mock + snapshot assertions.
+- **Frontend: 357 tests pass** (added 25 tests cho deadline-rules feature): `StatusBadge` (6 statuses + virtual sub-status), `DiffViewer` (hero diff, stacked field, unchanged collapse), `ImpactPreviewPanel` (buckets, drilldown), `DeadlineRulesListPage` (5 — summary strip, badges, links), `ApprovalQueuePage` (3 — aging buckets), `ProposeDeadlineRulePage` (4 — preload, validation, submit).
+
+
 
 ### Changed (Địa giới hành chính mới — bulk-seed từ provinces.open-api.vn)
 - **Bỏ `crawlAndSync` hard-coded** — DISTRICT_TO_NEW_WARD map cũ chỉ có ~10 quận và punt toàn bộ Q1-Q12 + Thủ Đức. Thay bằng bulk-seed background job hit `provinces.open-api.vn` v1 + v2 API (`/api/p/{code}?depth=3` lấy old structure → cho mỗi old ward gọi `/api/v2/w/from-legacy/?legacy_code=N` → upsert vào DB local).

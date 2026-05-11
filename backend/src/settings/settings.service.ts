@@ -1,6 +1,26 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { SETTINGS_KEY } from '../common/constants/settings-keys.constants';
+import {
+  DEADLINE_RULE_KEY_SET,
+  DEADLINE_RULE_KEYS,
+} from '../deadline-rules/constants/deadline-rule-keys.constants';
+
+/**
+ * Hard-guard: the 12 deadline rule keys are managed by DeadlineRulesService
+ * (table `deadline_rule_versions`) post-migration `20260511_deadline_rule_versioning`.
+ * Any call here for those keys is a contract violation — surface it loudly
+ * rather than silently returning stale data.
+ */
+function assertNotDeadlineKey(key: string): void {
+  if (DEADLINE_RULE_KEY_SET.has(key)) {
+    throw new BadRequestException(
+      `[contract] '${key}' is a deadline rule managed by DeadlineRulesService. ` +
+        `Call deadlineRules.getActiveValue('${key}') instead. ` +
+        `Direct settings access for this key was removed in migration 20260511_deadline_rule_versioning.`,
+    );
+  }
+}
 
 @Injectable()
 export class SettingsService {
@@ -18,12 +38,12 @@ export class SettingsService {
   }
 
   async getValue(key: string): Promise<string | null> {
-    // Check cache (TTL 5 min)
+    assertNotDeadlineKey(key);
+
     if (Date.now() - this.cacheTimestamp < this.CACHE_TTL_MS && this.cache.has(key)) {
       return this.cache.get(key) ?? null;
     }
 
-    // Refresh entire cache
     const settings = await this.prisma.systemSetting.findMany();
     this.cache.clear();
     for (const s of settings) {
@@ -35,51 +55,42 @@ export class SettingsService {
   }
 
   async getNumericValue(key: string, fallback: number): Promise<number> {
+    assertNotDeadlineKey(key);
     const val = await this.getValue(key);
     if (val === null) return fallback;
     const num = parseInt(val, 10);
     return isNaN(num) ? fallback : num;
   }
 
+  /**
+   * @deprecated The legacy /settings/deadlines endpoint returns deadline data
+   * via DeadlineRulesService.listActive() now. This method is preserved only
+   * to keep the route URL stable — internally it proxies a deprecation hint.
+   */
   async getDeadlines() {
-    const keys = [
-      SETTINGS_KEY.THOI_HAN_XAC_MINH,
-      SETTINGS_KEY.THOI_HAN_GIA_HAN_1,
-      SETTINGS_KEY.THOI_HAN_GIA_HAN_2,
-      SETTINGS_KEY.THOI_HAN_TOI_DA,
-      SETTINGS_KEY.THOI_HAN_PHUC_HOI,
-      SETTINGS_KEY.THOI_HAN_PHAN_LOAI,
-      SETTINGS_KEY.SO_LAN_GIA_HAN_TOI_DA,
-      SETTINGS_KEY.THOI_HAN_GUI_QD_VKS,
-    ];
-
-    const settings = await this.prisma.systemSetting.findMany({
-      where: { key: { in: keys } },
-    });
-
-    const result: Record<string, { value: string; label: string; unit: string | null; legalBasis: string | null }> = {};
-    for (const s of settings) {
-      result[s.key] = { value: s.value, label: s.label, unit: s.unit, legalBasis: s.legalBasis };
-    }
-
-    return { success: true, data: result };
+    return {
+      success: false,
+      message:
+        'Endpoint chuyển sang /api/v1/deadline-rules. Vui lòng cập nhật client gọi getActiveDeadlineRules thay thế.',
+      data: {},
+    };
   }
 
   async updateValue(key: string, value: string) {
+    assertNotDeadlineKey(key);
+
     const existing = await this.prisma.systemSetting.findUnique({ where: { key } });
     if (!existing) {
       return { success: false, message: `Cấu hình '${key}' không tồn tại` };
     }
 
-    // Validate numeric settings have valid positive integer values
-    // Fix #4: Store String(num) to prevent "3.7" → parseInt 3 but stored as "3.7"
     let normalizedValue = value;
     if (existing.unit === 'ngày' || existing.unit === 'lần') {
       const num = parseInt(value, 10);
       if (isNaN(num) || num < 0 || num > 365) {
         return { success: false, message: `Giá trị phải là số nguyên từ 0 đến 365` };
       }
-      normalizedValue = String(num); // Store the parsed integer, not raw input
+      normalizedValue = String(num);
     }
 
     const updated = await this.prisma.systemSetting.update({
@@ -87,40 +98,37 @@ export class SettingsService {
       data: { value: normalizedValue },
     });
 
-    // Invalidate cache
     this.cache.clear();
     this.cacheTimestamp = 0;
 
     return { success: true, data: updated, message: 'Cập nhật cấu hình thành công' };
   }
 
+  /**
+   * Seed only non-deadline ops settings. Deadline rules (12 keys) are seeded
+   * by `seedDeadlineRules.ts` into `deadline_rule_versions`.
+   */
   async seed() {
     const defaults = [
-      { key: 'THOI_HAN_XAC_MINH', value: '20', label: 'Thời hạn xác minh ban đầu', unit: 'ngày', legalBasis: 'Đ.147 BLTTHS 2015' },
-      { key: 'THOI_HAN_GIA_HAN_1', value: '60', label: 'Thời hạn gia hạn lần 1', unit: 'ngày', legalBasis: 'Đ.147 khoản 2 BLTTHS' },
-      { key: 'THOI_HAN_GIA_HAN_2', value: '60', label: 'Thời hạn gia hạn lần 2', unit: 'ngày', legalBasis: 'Đ.147 khoản 2 BLTTHS' },
-      { key: 'THOI_HAN_TOI_DA', value: '140', label: 'Thời hạn giải quyết tối đa', unit: 'ngày', legalBasis: 'Đ.147 BLTTHS (20 + 60 + 60 = 140 ngày)' },
-      { key: 'THOI_HAN_PHUC_HOI', value: '30', label: 'Thời hạn giải quyết sau phục hồi', unit: 'ngày', legalBasis: 'Đ.149 BLTTHS' },
-      { key: 'THOI_HAN_PHAN_LOAI', value: '1', label: 'Thời hạn phân loại nguồn tin', unit: 'ngày', legalBasis: 'Đ.146 khoản 3 (24h)' },
-      { key: 'SO_LAN_GIA_HAN_TOI_DA', value: '2', label: 'Số lần gia hạn tối đa', unit: 'lần', legalBasis: 'Đ.147 khoản 2 BLTTHS' },
-      { key: 'THOI_HAN_GUI_QD_VKS', value: '1', label: 'Thời hạn gửi QĐ cho VKS', unit: 'ngày', legalBasis: 'Đ.148 khoản 2 (24h)' },
-      // GAP-7: Luật Tố cáo 2018 / Luật Khiếu nại 2011 deadlines
-      { key: 'THOI_HAN_TO_CAO', value: '30', label: 'Thời hạn giải quyết tố cáo', unit: 'ngày', legalBasis: 'Luật Tố cáo 2018 Điều 30 khoản 1' },
-      { key: 'THOI_HAN_KHIEU_NAI', value: '30', label: 'Thời hạn giải quyết khiếu nại', unit: 'ngày', legalBasis: 'Luật Khiếu nại 2011 Điều 28 khoản 1' },
-      { key: 'THOI_HAN_KIEN_NGHI', value: '15', label: 'Thời hạn xử lý kiến nghị', unit: 'ngày', legalBasis: 'Quy chế nội bộ' },
-      { key: 'THOI_HAN_PHAN_ANH', value: '15', label: 'Thời hạn xử lý phản ánh', unit: 'ngày', legalBasis: 'Quy chế nội bộ' },
-      { key: 'TWO_FA_ENABLED', value: 'false', label: 'Bật xác thực 2 lớp (2FA)', unit: null, legalBasis: null },
-      { key: 'CANH_BAO_SAP_HAN', value: '7', label: 'Ngưỡng cảnh báo sắp đến hạn (app mobile)', unit: 'ngày', legalBasis: null },
+      { key: SETTINGS_KEY.TWO_FA_ENABLED, value: 'false', label: 'Bật xác thực 2 lớp (2FA)', unit: null, legalBasis: null },
+      { key: SETTINGS_KEY.CANH_BAO_SAP_HAN, value: '7', label: 'Ngưỡng cảnh báo sắp đến hạn (app mobile)', unit: 'ngày', legalBasis: null },
+      { key: SETTINGS_KEY.THOI_HAN_XOA_VU_VIEC, value: '180', label: 'Số ngày giữ vụ việc đã xóa mềm', unit: 'ngày', legalBasis: 'Quy chế nội bộ' },
     ];
 
     for (const d of defaults) {
       await this.prisma.systemSetting.upsert({
         where: { key: d.key },
         create: d,
-        update: {}, // Don't overwrite admin edits
+        update: {},
       });
     }
 
-    return { success: true, message: `Seeded ${defaults.length} settings` };
+    // Defensive cleanup: if any deadline keys exist in system_settings post-migration
+    // (e.g. someone manually inserted them), remove them.
+    await this.prisma.systemSetting.deleteMany({
+      where: { key: { in: [...DEADLINE_RULE_KEYS] } },
+    });
+
+    return { success: true, message: `Seeded ${defaults.length} ops settings (deadline rules managed by DeadlineRulesService)` };
   }
 }

@@ -22,6 +22,7 @@ import { Prisma, LoaiDon, PetitionStatus, CaseStatus } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { buildPetitionScopeFilter } from '../common/utils/scope-filter.util';
 import { SettingsService } from '../settings/settings.service';
+import { DeadlineRulesService } from '../deadline-rules/deadline-rules.service';
 import { BcaExcelHelper } from '../common/bca-excel.helper';
 import { PETITION_STATUS_LABEL } from '../common/constants/status-labels.constants';
 
@@ -33,6 +34,7 @@ export class PetitionsService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly settings: SettingsService,
+    private readonly deadlineRules: DeadlineRulesService,
   ) {}
 
   // ─────────────────────────────────────────────
@@ -284,6 +286,7 @@ export class PetitionsService {
     let computedDeadline: Date | undefined;
     let deadlineSettingKey: string | undefined;
     let deadlineDays: number | undefined;
+    let deadlineRuleVersionId: string | null = null;
     if (dto.deadline) {
       computedDeadline = new Date(dto.deadline);
     } else {
@@ -299,7 +302,14 @@ export class PetitionsService {
         settingKey = 'THOI_HAN_PHAN_ANH';
       }
       deadlineSettingKey = settingKey;
-      deadlineDays = await this.settings.getNumericValue(settingKey, 15);
+      const rule = await this.deadlineRules.getActive(settingKey);
+      if (!rule) {
+        throw new BadRequestException(
+          `Không có quy tắc '${settingKey}' đang hiệu lực. Liên hệ admin chạy seed/migration.`,
+        );
+      }
+      deadlineDays = rule.value;
+      deadlineRuleVersionId = rule.id;
       base.setDate(base.getDate() + deadlineDays);
       computedDeadline = base;
     }
@@ -324,6 +334,7 @@ export class PetitionsService {
         detailContent: dto.detailContent,
         attachmentsNote: dto.attachmentsNote,
         deadline: computedDeadline,
+        deadlineRuleVersionId: deadlineRuleVersionId ?? undefined,
         assignedToId: dto.assignedToId,
         ...(dto.assignedTeamId !== undefined && { assignedTeamId: dto.assignedTeamId }),
         notes: dto.notes,

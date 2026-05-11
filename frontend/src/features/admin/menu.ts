@@ -10,6 +10,13 @@ export const adminMenu: FeatureMenuEntry[] = [
   },
   {
     section: 'admin',
+    id: 'deadline-rules',
+    label: 'Quy tắc thời hạn',
+    path: '/admin/deadline-rules',
+    icon: 'ClipboardList',
+  },
+  {
+    section: 'admin',
     id: 'admin-settings',
     label: 'Cấu hình admin',
     path: '/admin/settings',
