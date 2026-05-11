@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.14.1.0] - 2026-05-11
+
+### Added — URL tham khảo cho mỗi phiên bản quy tắc thời hạn (Phase 1 hybrid)
+- **Cột `documentUrl`** trên `deadline_rule_versions` (optional) — admin lưu link tới văn bản pháp luật chính thức (vbpl.vn, chinhphu.vn, quochoi.vn...) cho mỗi đề xuất rule version. Cockpit hiển thị URL như external anchor với `rel="noopener noreferrer"`.
+- **`DocumentUrlInput` component**: blur-time validation, inline ✓/⚠ feedback, domain hint chip ("Cơ sở dữ liệu pháp luật quốc gia") khi URL match `LAW_SOURCE_HINTS`, amber sub-chip "không phải nguồn chính thức" cho `thuvienphapluat.vn`. A11y: `aria-invalid`, `aria-describedby`, `role="alert"` trên error.
+- **Migration cleanup prefill banner**: từ `/admin/deadline-rules/migration-cleanup` click "Bổ sung tài liệu" → navigate `?prefill=migration` → ProposePage hiển thị dismissible blue banner ("Đề xuất giá trị từ migration hints" + "Dùng đề xuất" + X dismiss). KHÔNG auto-overwrite form fields — admin phải click apply (per autoplan Design consensus).
+
+### Changed — URL validation security hardening
+- **DTO `@IsUrl({ protocols: ['http','https'], require_tld, require_protocol, require_host, disallow_auth })`**: reject `ftp://`, `javascript:`, `data:`, `file://`, intranet hosts, basic-auth phishing patterns.
+- **Service `assertDocumentUrlSafe()`**: defense-in-depth — parse via `new URL()`, reject hostnames `localhost`, `127.x.x.x`, `10.x.x.x`, `192.168.x.x`, `172.16-31.x.x`, `*.local`, `*.internal`, `0.0.0.0`. SSRF protection layer even though current feature doesn't fetch URLs (future-proofs against fetch-based extensions).
+
+### Migration safety
+- **`20260511160000_add_deadline_rule_url`**: simple `ALTER TABLE ... ADD COLUMN IF NOT EXISTS "documentUrl" TEXT`. Idempotent. Postgres takes brief ACCESS EXCLUSIVE lock; table is small (~12-30 rows), <1ms. No backfill needed (nullable column).
+
+### Tests
+- **Backend: 1050 tests pass** (+3 in `deadline-rules.service.spec.ts`): documentUrl roundtrip on valid URL, reject `http://localhost` private-host, reject `ftp://` non-http-scheme.
+- **Frontend: 364 tests pass** (+7 in `DocumentUrlInput.test.tsx`): empty/untouched state, valid vbpl.vn green hint, javascript: error, localhost error, thuvienphapluat amber non-official chip, onChange callback, no error before blur.
+
+### Out of scope (Phase 2 conditional)
+File upload attachment (`DocumentAttachmentPicker`, multipart UI, MIME restrict, Render persistent storage) deferred per autoplan USER CHALLENGE #1 resolution — bring back if VKS audit asks for cached PDF within 3 months, OR vbpl.vn URL breaks, OR ≥2 admins request file upload.
+
 ## [0.14.0.0] - 2026-05-11
 
 ### Added — Quy trình quản lý phiên bản quy tắc thời hạn (Deadline Rule Versioning)
