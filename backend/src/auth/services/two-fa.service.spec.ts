@@ -129,6 +129,41 @@ describe('TwoFaService.verify()', () => {
     await expect(svc.verify('user-1', { code: 'wrongcode', method: 'backup' }, meta)).rejects.toThrow(UnauthorizedException);
     expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: 'USER_2FA_FAILED' }));
   });
+
+  it('backup method: mixed array (legacy sha256 + bcrypt) → only bcrypt entry can match', async () => {
+    // Simulates the transient state where pre-migration sha256 entries coexist
+    // with newly issued bcrypt codes (e.g., admin manually re-seeded one entry).
+    const code = 'realcode1234';
+    const bcryptHash = bcrypt.hashSync(code, 4);
+    const legacyHash = 'a'.repeat(64); // 64-char hex, no $2 prefix
+    const { svc } = makeService({
+      backupCodes: [legacyHash, bcryptHash],
+      backupCodeSalts: ['', ''],
+    });
+    const result = await svc.verify('user-1', { code, method: 'backup' }, meta);
+    expect(result).toHaveProperty('accessToken');
+  });
+
+  it('backup method: all-legacy array (mid-migration / post-invalidation) → always 401', async () => {
+    // Post-deploy-pre-migration state, or post-migration if someone re-introduces
+    // sha256 entries by hand. Legacy entries must never match bcrypt.compare.
+    const { svc, audit } = makeService({
+      backupCodes: ['b'.repeat(64), 'c'.repeat(64), 'd'.repeat(64)],
+      backupCodeSalts: ['', '', ''],
+    });
+    await expect(
+      svc.verify('user-1', { code: 'whateverlegacycode', method: 'backup' }, meta),
+    ).rejects.toThrow(UnauthorizedException);
+    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: 'USER_2FA_FAILED' }));
+  });
+
+  it('backup method: empty array → returns 401 without bcrypt comparisons', async () => {
+    const { svc, audit } = makeService({ backupCodes: [], backupCodeSalts: [] });
+    await expect(
+      svc.verify('user-1', { code: 'anycode', method: 'backup' }, meta),
+    ).rejects.toThrow(UnauthorizedException);
+    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: 'USER_2FA_FAILED' }));
+  });
 });
 
 describe('TwoFaService.setupTotp()', () => {
