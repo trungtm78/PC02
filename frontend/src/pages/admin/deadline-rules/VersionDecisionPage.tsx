@@ -1,11 +1,24 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, CheckCircle, XCircle, Send, Trash2, AlertCircle, Loader2, ExternalLink } from 'lucide-react';
+import {
+  ArrowLeft,
+  CheckCircle,
+  XCircle,
+  Send,
+  Trash2,
+  AlertCircle,
+  Loader2,
+  ExternalLink,
+  Undo2,
+  Pencil,
+  MessageSquare,
+} from 'lucide-react';
 import { deadlineRulesApi, DEADLINE_RULES_QUERY_KEYS } from '@/features/deadline-rules/api';
 import { StatusBadge } from '@/features/deadline-rules/components/StatusBadge';
 import { DiffViewer } from '@/features/deadline-rules/components/DiffViewer';
 import { ImpactPreviewPanel } from '@/features/deadline-rules/components/ImpactPreviewPanel';
+import { ReasonRequiredModal } from '@/features/deadline-rules/components/ReasonRequiredModal';
 import { authStore } from '@/stores/auth.store';
 import { DEADLINE_RULE_KEY_LABEL } from '@/shared/enums/status-labels';
 
@@ -32,11 +45,14 @@ export default function VersionDecisionPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const user = authStore.getUser();
+  const user = authStore.getProfile();
   const [rejectNotes, setRejectNotes] = useState('');
   const [showRejectForm, setShowRejectForm] = useState(false);
   const [approveEffectiveFrom, setApproveEffectiveFrom] = useState('');
   const [actionError, setActionError] = useState<string | null>(null);
+  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+  const [showRequestChangesModal, setShowRequestChangesModal] = useState(false);
+  const [modalError, setModalError] = useState<string | null>(null);
 
   const versionQ = useQuery({
     queryKey: DEADLINE_RULES_QUERY_KEYS.detail(id!),
@@ -98,6 +114,38 @@ export default function VersionDecisionPage() {
     },
     onError: handleErr,
   });
+  // Proposer pulls a submitted version back to draft so they can edit it.
+  const withdrawMut = useMutation({
+    mutationFn: (withdrawNotes: string) =>
+      deadlineRulesApi.withdraw(id!, { withdrawNotes }),
+    onSuccess: () => {
+      invalidateAll();
+      setShowWithdrawModal(false);
+      setModalError(null);
+      setActionError(null);
+    },
+    onError: (e: { response?: { data?: { message?: string } }; message?: string }) => {
+      console.error('[deadline-rules] withdraw failed', e);
+      setModalError(e.response?.data?.message ?? e.message ?? 'Thu hồi thất bại');
+    },
+  });
+  // Approver sends a submitted version back to draft with a note for proposer.
+  const requestChangesMut = useMutation({
+    mutationFn: (reviewNotes: string) =>
+      deadlineRulesApi.requestChanges(id!, { reviewNotes }),
+    onSuccess: () => {
+      invalidateAll();
+      setShowRequestChangesModal(false);
+      setModalError(null);
+      setActionError(null);
+    },
+    onError: (e: { response?: { data?: { message?: string } }; message?: string }) => {
+      console.error('[deadline-rules] requestChanges failed', e);
+      setModalError(
+        e.response?.data?.message ?? e.message ?? 'Yêu cầu sửa đổi thất bại',
+      );
+    },
+  });
 
   if (versionQ.isLoading) {
     return (
@@ -121,9 +169,24 @@ export default function VersionDecisionPage() {
   const activeForKey = activeQ.data?.data.find((r) => r.ruleKey === version.ruleKey) ?? null;
   const isSelfReview = user?.id === version.proposedById;
   const isProposer = isSelfReview;
-  const isPending = approveMut.isPending || rejectMut.isPending || submitMut.isPending || deleteMut.isPending;
+  const isPending =
+    approveMut.isPending ||
+    rejectMut.isPending ||
+    submitMut.isPending ||
+    deleteMut.isPending ||
+    withdrawMut.isPending ||
+    requestChangesMut.isPending;
   const showReviewActions = version.status === 'submitted';
   const showProposerActions = version.status === 'draft' && isProposer;
+  // C3 fix: reviewedAt is only a TERMINAL review marker when status is terminal.
+  // A draft with reviewedAt set means an approver requested changes — render the
+  // pinned banner instead, and DON'T leak "Duyệt bởi" into the header.
+  const TERMINAL_REVIEW_STATUSES = ['approved', 'active', 'rejected', 'superseded'] as const;
+  const isTerminallyReviewed =
+    !!version.reviewedAt &&
+    (TERMINAL_REVIEW_STATUSES as readonly string[]).includes(version.status);
+  const isPendingChangesRequest =
+    version.status === 'draft' && !!version.reviewedAt && !!version.reviewNotes;
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-5 pb-32" data-testid="version-decision-page">
@@ -151,7 +214,7 @@ export default function VersionDecisionPage() {
         <div className="text-right text-xs text-slate-500 space-y-0.5">
           <div>Đề xuất: {fmtUser(version.proposedBy)}</div>
           <div>Tại: {fmtDateTime(version.proposedAt)}</div>
-          {version.reviewedAt && (
+          {isTerminallyReviewed && (
             <>
               <div>Duyệt bởi: {fmtUser(version.reviewedBy)}</div>
               <div>Tại: {fmtDateTime(version.reviewedAt)}</div>
@@ -160,13 +223,66 @@ export default function VersionDecisionPage() {
         </div>
       </div>
 
-      {/* Maker-checker info banner */}
+      {/* Pinned banner: approver requested changes — proposer must fix and resubmit.
+          Full-width above content (not sidebar) so it's impossible to miss. */}
+      {isPendingChangesRequest && (
+        <div
+          role="alert"
+          className="bg-amber-50 border border-amber-300 rounded-lg p-4 flex items-start gap-3"
+          data-testid="changes-requested-banner"
+        >
+          <MessageSquare className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-amber-900">
+              Approver yêu cầu sửa đổi
+              {version.reviewedBy && (
+                <span className="font-normal text-amber-800">
+                  {' '}— {fmtUser(version.reviewedBy)}, {fmtDateTime(version.reviewedAt)}
+                </span>
+              )}
+            </p>
+            <p className="text-sm text-amber-800 mt-1 whitespace-pre-wrap">
+              {version.reviewNotes}
+            </p>
+          </div>
+          {isProposer && (
+            <button
+              type="button"
+              onClick={() => navigate(`/admin/deadline-rules/edit/${version.id}`)}
+              disabled={isPending}
+              className="flex items-center gap-1 px-3 py-1.5 text-sm bg-blue-600 text-white hover:bg-blue-700 rounded disabled:opacity-50"
+              data-testid="btn-edit-from-banner"
+            >
+              <Pencil className="w-4 h-4" />
+              Sửa nháp
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Maker-checker info banner with self-withdraw action */}
       {showReviewActions && isSelfReview && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center gap-2" data-testid="self-review-banner">
+        <div
+          className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3"
+          data-testid="self-review-banner"
+        >
           <AlertCircle className="w-4 h-4 text-blue-600 flex-shrink-0" />
-          <p className="text-sm text-blue-800">
-            Đề xuất do bạn tạo — chờ quản trị viên khác duyệt.
+          <p className="text-sm text-blue-800 flex-1">
+            Đề xuất do bạn tạo — chờ quản trị viên khác duyệt. Bạn có thể thu hồi để sửa khi chưa ai review.
           </p>
+          <button
+            type="button"
+            onClick={() => {
+              setModalError(null);
+              setShowWithdrawModal(true);
+            }}
+            disabled={isPending}
+            className="flex items-center gap-1 px-3 py-1.5 text-sm border border-slate-300 text-slate-700 bg-white hover:bg-slate-50 rounded disabled:opacity-50 flex-shrink-0"
+            data-testid="btn-withdraw"
+          >
+            <Undo2 className="w-4 h-4" />
+            Thu hồi để sửa
+          </button>
         </div>
       )}
 
@@ -240,20 +356,28 @@ export default function VersionDecisionPage() {
             )}
           </div>
 
-          {/* Review notes (if any) */}
-          {version.reviewNotes && (
+          {/* Sidebar Review notes — only for TERMINAL review states.
+              Pending-changes-request renders as a full-width banner above instead. */}
+          {version.reviewNotes && isTerminallyReviewed && (
             <div className="bg-white border border-slate-200 rounded-lg p-4">
               <h3 className="text-sm font-semibold text-slate-800 mb-2">Ghi chú duyệt</h3>
               <p className="text-sm text-slate-700 whitespace-pre-wrap">{version.reviewNotes}</p>
             </div>
           )}
+          {/* Proposer's withdraw note — shown for transparency when version is back in draft. */}
+          {version.withdrawNotes && version.status === 'draft' && (
+            <div className="bg-white border border-slate-200 rounded-lg p-4" data-testid="withdraw-notes-card">
+              <h3 className="text-sm font-semibold text-slate-800 mb-2">Lý do thu hồi (của người đề xuất)</h3>
+              <p className="text-sm text-slate-700 whitespace-pre-wrap">{version.withdrawNotes}</p>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Sticky action footer */}
+      {/* Sticky action footer (approver). Mobile: stacks vertically; date-row above buttons. */}
       {showReviewActions && (
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 shadow-lg p-4">
-          <div className="max-w-6xl mx-auto flex items-center justify-end gap-3">
+          <div className="max-w-6xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-end gap-2 sm:gap-3">
             {showRejectForm ? (
               <>
                 <input
@@ -285,7 +409,7 @@ export default function VersionDecisionPage() {
               </>
             ) : (
               <>
-                <div className="flex-1 flex items-center gap-2">
+                <div className="flex items-center gap-2 sm:flex-1">
                   <label className="text-xs text-slate-600">Hiệu lực từ:</label>
                   <input
                     type="date"
@@ -294,40 +418,56 @@ export default function VersionDecisionPage() {
                     className="px-2 py-1 border border-slate-300 rounded text-xs"
                     data-testid="input-approve-effective-from"
                   />
-                  <span className="text-xs text-slate-500">(để trống = áp dụng ngay)</span>
+                  <span className="text-xs text-slate-500 hidden sm:inline">(để trống = áp dụng ngay)</span>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setShowRejectForm(true)}
-                  disabled={isPending || isSelfReview}
-                  title={isSelfReview ? 'Bạn là người đề xuất phiên bản này. Quy trình maker-checker yêu cầu một người duyệt khác.' : ''}
-                  className="flex items-center gap-1 px-4 py-2 text-sm border border-red-300 text-red-700 hover:bg-red-50 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-                  data-testid="btn-show-reject"
-                >
-                  <XCircle className="w-4 h-4" />
-                  Từ chối
-                </button>
-                <button
-                  type="button"
-                  onClick={() => approveMut.mutate()}
-                  disabled={isPending || isSelfReview}
-                  title={isSelfReview ? 'Bạn là người đề xuất phiên bản này. Quy trình maker-checker yêu cầu một người duyệt khác.' : ''}
-                  className="flex items-center gap-1 px-4 py-2 text-sm bg-green-600 text-white hover:bg-green-700 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-                  data-testid="btn-approve"
-                >
-                  {approveMut.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
-                  Duyệt
-                </button>
+                <div className="flex flex-wrap items-center gap-2 sm:gap-3 justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setShowRejectForm(true)}
+                    disabled={isPending || isSelfReview}
+                    title={isSelfReview ? 'Bạn là người đề xuất phiên bản này. Quy trình maker-checker yêu cầu một người duyệt khác.' : ''}
+                    className="flex items-center gap-1 px-4 py-2 text-sm border border-red-300 text-red-700 hover:bg-red-50 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                    data-testid="btn-show-reject"
+                  >
+                    <XCircle className="w-4 h-4" />
+                    Từ chối
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setModalError(null);
+                      setShowRequestChangesModal(true);
+                    }}
+                    disabled={isPending || isSelfReview}
+                    title={isSelfReview ? 'Bạn là người đề xuất phiên bản này — không thể tự yêu cầu sửa.' : ''}
+                    className="flex items-center gap-1 px-4 py-2 text-sm border border-blue-300 text-blue-700 bg-blue-50 hover:bg-blue-100 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                    data-testid="btn-request-changes"
+                  >
+                    <MessageSquare className="w-4 h-4" />
+                    Yêu cầu sửa đổi
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => approveMut.mutate()}
+                    disabled={isPending || isSelfReview}
+                    title={isSelfReview ? 'Bạn là người đề xuất phiên bản này. Quy trình maker-checker yêu cầu một người duyệt khác.' : ''}
+                    className="flex items-center gap-1 px-4 py-2 text-sm bg-green-600 text-white hover:bg-green-700 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                    data-testid="btn-approve"
+                  >
+                    {approveMut.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                    Duyệt
+                  </button>
+                </div>
               </>
             )}
           </div>
         </div>
       )}
 
-      {/* Proposer (draft) actions footer */}
+      {/* Proposer (draft) actions footer. When in request-changes state, "Sửa nháp" is the primary CTA. */}
       {showProposerActions && (
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 shadow-lg p-4">
-          <div className="max-w-6xl mx-auto flex items-center justify-end gap-3">
+          <div className="max-w-6xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-end gap-2 sm:gap-3">
             <button
               type="button"
               onClick={() => deleteMut.mutate()}
@@ -340,17 +480,65 @@ export default function VersionDecisionPage() {
             </button>
             <button
               type="button"
+              onClick={() => navigate(`/admin/deadline-rules/edit/${version.id}`)}
+              disabled={isPending}
+              className={
+                isPendingChangesRequest
+                  ? 'flex items-center gap-1 px-4 py-2 text-sm bg-blue-600 text-white hover:bg-blue-700 rounded disabled:opacity-50'
+                  : 'flex items-center gap-1 px-4 py-2 text-sm border border-slate-300 text-slate-700 bg-white hover:bg-slate-50 rounded disabled:opacity-50'
+              }
+              data-testid="btn-edit-draft"
+            >
+              <Pencil className="w-4 h-4" />
+              Sửa nháp
+            </button>
+            <button
+              type="button"
               onClick={() => submitMut.mutate()}
               disabled={isPending}
-              className="flex items-center gap-1 px-4 py-2 text-sm bg-blue-600 text-white hover:bg-blue-700 rounded disabled:opacity-50"
+              className={
+                isPendingChangesRequest
+                  ? 'flex items-center gap-1 px-4 py-2 text-sm border border-blue-300 text-blue-700 bg-blue-50 hover:bg-blue-100 rounded disabled:opacity-50'
+                  : 'flex items-center gap-1 px-4 py-2 text-sm bg-blue-600 text-white hover:bg-blue-700 rounded disabled:opacity-50'
+              }
               data-testid="btn-submit-draft"
             >
               {submitMut.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-              Gửi duyệt
+              {isPendingChangesRequest ? 'Gửi duyệt lại' : 'Gửi duyệt'}
             </button>
           </div>
         </div>
       )}
+
+      {/* Reason-required modals — shared component, prop-driven */}
+      <ReasonRequiredModal
+        open={showWithdrawModal}
+        onClose={() => {
+          setShowWithdrawModal(false);
+          setModalError(null);
+        }}
+        onSubmit={(reason) => withdrawMut.mutate(reason)}
+        isPending={withdrawMut.isPending}
+        errorMessage={modalError}
+        title="Thu hồi đề xuất để sửa"
+        description="Đề xuất sẽ quay về trạng thái nháp. Bạn có thể sửa và gửi duyệt lại. Ghi rõ lý do để inspector hiểu sau này."
+        placeholder="Vd: Sai số liệu — cần cập nhật theo TT mới của BCA"
+        variant="withdraw"
+      />
+      <ReasonRequiredModal
+        open={showRequestChangesModal}
+        onClose={() => {
+          setShowRequestChangesModal(false);
+          setModalError(null);
+        }}
+        onSubmit={(reason) => requestChangesMut.mutate(reason)}
+        isPending={requestChangesMut.isPending}
+        errorMessage={modalError}
+        title="Yêu cầu người đề xuất sửa đổi"
+        description="Đề xuất sẽ quay về trạng thái nháp với ghi chú này hiển thị cho người đề xuất. Họ sửa và gửi lại để bạn duyệt."
+        placeholder="Vd: Cần bổ sung Điều 147 khoản 2 BLTTHS làm căn cứ"
+        variant="request-changes"
+      />
     </div>
   );
 }

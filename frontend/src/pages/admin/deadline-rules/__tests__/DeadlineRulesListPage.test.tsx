@@ -82,6 +82,8 @@ describe('DeadlineRulesListPage', () => {
           documentNumber: '101/2015',
           documentIssuer: 'Quốc hội',
           documentDate: null,
+          documentUrl: null,
+          withdrawNotes: null,
           attachmentId: null,
           migrationConfidence: null,
           reason: 'Seed',
