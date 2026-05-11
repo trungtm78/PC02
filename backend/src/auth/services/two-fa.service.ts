@@ -79,18 +79,19 @@ export class TwoFaService {
     const secret = totpGenerateSecret();
     const encryptedSecret = this.encryption.encrypt(secret);
 
-    // Generate 10 backup codes (12-char hex each)
+    // Generate 10 backup codes (12-char hex each). Hash with bcrypt cost 12 so a
+    // DB breach can't be brute-forced with GPUs — bcrypt embeds its own salt,
+    // backupCodeSalts is kept as parallel empty strings only to preserve schema parity.
     const plainCodes: string[] = [];
     const backupCodes: string[] = [];
     const backupCodeSalts: string[] = [];
 
     for (let i = 0; i < 10; i++) {
       const code = crypto.randomBytes(6).toString('hex');
-      const salt = crypto.randomBytes(16).toString('hex');
-      const hash = crypto.createHash('sha256').update(salt + code).digest('hex');
+      const hash = await bcrypt.hash(code, 12);
       plainCodes.push(code);
       backupCodes.push(hash);
-      backupCodeSalts.push(salt);
+      backupCodeSalts.push('');
     }
 
     await this.prisma.user.update({
@@ -263,17 +264,12 @@ export class TwoFaService {
 
     let matchIdx = -1;
 
-    // OV-004: iterate ALL codes without early exit; use timingSafeEqual
+    // OV-004: iterate ALL entries without early exit so response time does not
+    // leak which index matched. bcrypt.compare is constant-time per call.
+    // Legacy sha256-hashed entries (pre-bcrypt migration) silently fail here —
+    // users must regenerate via 2FA re-setup.
     for (let i = 0; i < user.backupCodes.length; i++) {
-      const computed = crypto
-        .createHash('sha256')
-        .update(user.backupCodeSalts[i] + code)
-        .digest('hex');
-
-      const isMatch = crypto.timingSafeEqual(
-        Buffer.from(computed, 'hex'),
-        Buffer.from(user.backupCodes[i], 'hex'),
-      );
+      const isMatch = await bcrypt.compare(code, user.backupCodes[i]);
       if (isMatch) matchIdx = i;
     }
 

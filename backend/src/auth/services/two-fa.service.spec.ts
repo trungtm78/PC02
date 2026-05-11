@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, ForbiddenException, UnauthorizedException } from '@nestjs/common';
-import * as crypto from 'crypto';
+import * as bcrypt from 'bcrypt';
 
 jest.mock('otplib', () => ({
   generateSecret: jest.fn().mockReturnValue('JBSWY3DPEHPK3PXP'),
@@ -113,10 +113,9 @@ describe('TwoFaService.verify()', () => {
   });
 
   it('backup method: correct backup code → removes from arrays, returns TokenPair', async () => {
-    const salt = 'aabb' + '0'.repeat(28);
     const code = 'abc123def456';
-    const hash = crypto.createHash('sha256').update(salt + code).digest('hex');
-    const { svc, prisma } = makeService({ backupCodes: [hash], backupCodeSalts: [salt] });
+    const hash = bcrypt.hashSync(code, 4); // cost 4 for test speed; prod uses 12
+    const { svc, prisma } = makeService({ backupCodes: [hash], backupCodeSalts: [''] });
     const result = await svc.verify('user-1', { code, method: 'backup' }, meta);
     expect(result).toHaveProperty('accessToken');
     expect(prisma.user.update).toHaveBeenCalledWith(
@@ -125,9 +124,8 @@ describe('TwoFaService.verify()', () => {
   });
 
   it('backup method: wrong code → throws 401, logs USER_2FA_FAILED', async () => {
-    const salt = 'aabb' + '0'.repeat(28);
-    const hash = crypto.createHash('sha256').update(salt + 'rightcode').digest('hex');
-    const { svc, audit } = makeService({ backupCodes: [hash], backupCodeSalts: [salt] });
+    const hash = bcrypt.hashSync('rightcode', 4);
+    const { svc, audit } = makeService({ backupCodes: [hash], backupCodeSalts: [''] });
     await expect(svc.verify('user-1', { code: 'wrongcode', method: 'backup' }, meta)).rejects.toThrow(UnauthorizedException);
     expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: 'USER_2FA_FAILED' }));
   });
