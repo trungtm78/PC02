@@ -58,6 +58,7 @@ const SHARED_ENUMS = [
   'CapDoToiPham',
   'NotificationType',
   'DocumentType',
+  'DeadlineRuleStatus',
 ];
 
 function parseEnums(schemaSource) {
@@ -74,8 +75,10 @@ function parseEnums(schemaSource) {
       if (!noComment) continue;
       // Skip Prisma directives (@@map, @@index, etc.)
       if (noComment.startsWith('@@')) continue;
-      // Match a single identifier — Prisma enum values are bare identifiers
-      const identMatch = noComment.match(/^([A-Z][A-Z0-9_]*)$/);
+      // Match a single identifier — Prisma enum values are bare identifiers.
+      // Allow both UPPER_CASE and lowercase (lowercase used by status-style enums
+      // like DeadlineRuleStatus where Vietnamese labels are mapped via status-labels.ts).
+      const identMatch = noComment.match(/^([A-Za-z][A-Za-z0-9_]*)$/);
       if (identMatch) {
         values.push(identMatch[1]);
       }

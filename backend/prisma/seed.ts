@@ -11,6 +11,7 @@ import { seedFeatureFlags } from './seed-feature-flags';
 import { seedWards } from './seed-wards';
 import { seedDirectoryTypes } from './seed-directory-types';
 import { seedMasterClasses } from './seed-master-classes';
+import { seedDeadlineRules } from './seed-deadline-rules';
 
 const adapter = new PrismaPg({
   connectionString: process.env['DATABASE_URL'] ?? 'postgresql://pc02_admin:pc02_password@localhost:5432/pc02_db?schema=public',
@@ -91,6 +92,10 @@ async function main() {
     { action: 'read', subject: 'Report', description: 'Xem báo cáo TĐC' },
     { action: 'write', subject: 'Report', description: 'Tạo và điều chỉnh báo cáo TĐC' },
     { action: 'approve', subject: 'Report', description: 'Phê duyệt và khóa báo cáo TĐC' },
+    // DeadlineRuleVersion — versioning workflow for legal deadlines
+    { action: 'read', subject: 'DeadlineRuleVersion', description: 'Xem quy tắc thời hạn xử lý' },
+    { action: 'write', subject: 'DeadlineRuleVersion', description: 'Đề xuất sửa quy tắc thời hạn (maker)' },
+    { action: 'approve', subject: 'DeadlineRuleVersion', description: 'Duyệt và kích hoạt quy tắc thời hạn (checker)' },
   ];
 
   for (const perm of permissions) {
@@ -115,7 +120,7 @@ async function main() {
   const officerReadPerms = await prisma.permission.findMany({
     where: {
       action: 'read',
-      subject: { in: ['Team', 'User', 'Case', 'Petition', 'Incident'] },
+      subject: { in: ['Team', 'User', 'Case', 'Petition', 'Incident', 'DeadlineRuleVersion'] },
     },
   });
   for (const perm of officerReadPerms) {
@@ -125,6 +130,31 @@ async function main() {
       create: { roleId: officerRole.id, permissionId: perm.id },
     });
   }
+
+  // ── DEADLINE_APPROVER role: separation-of-duties checker for legal rules ───
+  const deadlineApproverRole = await prisma.role.upsert({
+    where: { name: 'DEADLINE_APPROVER' },
+    update: {},
+    create: {
+      name: 'DEADLINE_APPROVER',
+      description: 'Người duyệt quy tắc thời hạn xử lý (legal compliance approver)',
+    },
+  });
+  const approverPerms = await prisma.permission.findMany({
+    where: { subject: 'DeadlineRuleVersion', action: { in: ['read', 'approve'] } },
+  });
+  for (const perm of approverPerms) {
+    await prisma.rolePermission.upsert({
+      where: { roleId_permissionId: { roleId: deadlineApproverRole.id, permissionId: perm.id } },
+      update: {},
+      create: { roleId: deadlineApproverRole.id, permissionId: perm.id },
+    });
+  }
+  console.log('Role created:', deadlineApproverRole.name);
+
+  // ── Seed initial DeadlineRuleVersion rows (idempotent) ─────────────────────
+  const deadlineSeedResult = await seedDeadlineRules(prisma);
+  console.log(`DeadlineRules seeded: ${deadlineSeedResult.created} created, ${deadlineSeedResult.skipped} skipped`);
 
   // ── Seed admin user ────────────────────────────────────────────────────────
   // Password MUST come from env var (never hardcoded)
