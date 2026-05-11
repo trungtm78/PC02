@@ -1158,6 +1158,7 @@ model DeadlineRuleVersion {
   documentDate        DateTime? // Ngày ban hành (optional)
   attachmentId        String? // FK → Document model (optional, defer attachment UI to v2)
   attachment          Document? @relation("DeadlineRuleAttachment", fields: [attachmentId], references: [id], onDelete: SetNull)
+  documentUrl         String? // URL tham khảo văn bản pháp luật (http/https, public TLD, validated DTO+service)
   migrationConfidence String? // 'legacy-default' for migrated v1 rows; null otherwise
 
   reason String // Mandatory — why this change
