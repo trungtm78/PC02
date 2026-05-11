@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.14.2.0] - 2026-05-11
+
+### Security — CSO audit hardening (5 findings)
+- **2FA backup codes** giờ hash bằng `bcrypt` cost 12 thay vì SHA-256 + salt một vòng. Tấn công bằng GPU brute-force trên DB bị rò rỉ giờ chậm hơn ~6 bậc. Migration `20260511180000_invalidate_legacy_backup_codes` tự động xoá codes cũ cho user có 2FA bật — họ cần re-setup để nhận codes mới hashed bằng bcrypt. Khi deploy, `docker-entrypoint.sh` chạy `prisma migrate deploy` nên migration tự kick in.
+- **Frontend `axios` 1.13.5 → 1.16.x** vá GHSA-3w6x-2g7m-8v23 (prototype pollution trong `parseReviver`) và GHSA-q8qp-cvcw-x6jj (credential injection qua HTTP adapter prototype pollution). HIGH severity, direct prod dep.
+- **Frontend `postcss` < 8.5.10** vá GHSA-qx2v-qp2m-jg93 (XSS qua unescaped `</style>` trong CSS stringify). Vite dev-tool path.
+- **Backend `hono` + `@hono/node-server`** transitive vulns vá qua `npm overrides` mà không phải downgrade Prisma 7. Bao gồm: middleware bypass qua serveStatic, body-limit bypass trên chunked requests, JWT NumericDate validation, JSX HTML injection, cache cross-user leakage. Tất cả là dev-only path qua `@prisma/dev`, không expose runtime nhưng dọn cho sạch.
+- **CI Actions pinned theo SHA**: `actions/checkout@34e1148` (v4.3.1) + `actions/setup-node@49933ea` (v4.4.0). Phòng tag-reassignment attack kiểu tj-actions/changed-files 2025.
+
+Tests: 1050/1050 backend Jest + 364/364 frontend Vitest pass. `npm audit`: 0 vulnerabilities ở cả hai side.
+
 ## [0.14.1.0] - 2026-05-11
 
 ### Added — URL tham khảo cho mỗi phiên bản quy tắc thời hạn (Phase 1 hybrid)
