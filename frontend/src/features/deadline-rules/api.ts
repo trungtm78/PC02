@@ -65,6 +65,18 @@ export const deadlineRulesApi = {
       .post<Envelope<DeadlineRuleVersion>>(`/deadline-rules/${id}/reject`, input)
       .then((r) => r.data),
 
+  /** Proposer pulls a submitted version back to draft so they can edit + resubmit. */
+  withdraw: (id: string, input: { withdrawNotes: string }) =>
+    api
+      .post<Envelope<DeadlineRuleVersion>>(`/deadline-rules/${id}/withdraw`, input)
+      .then((r) => r.data),
+
+  /** Approver sends a submitted version back to draft for proposer to fix. */
+  requestChanges: (id: string, input: { reviewNotes: string }) =>
+    api
+      .post<Envelope<DeadlineRuleVersion>>(`/deadline-rules/${id}/request-changes`, input)
+      .then((r) => r.data),
+
   deleteDraft: (id: string) =>
     api.delete<Envelope<null>>(`/deadline-rules/${id}`).then((r) => r.data),
 };

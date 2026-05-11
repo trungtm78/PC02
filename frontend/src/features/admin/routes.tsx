@@ -41,6 +41,11 @@ export function renderAdminRoutes(): ReactElement[] {
       element={wrap(<ProposeDeadlineRulePage />)}
     />,
     <Route
+      key="deadline-rules-edit"
+      path="/admin/deadline-rules/edit/:id"
+      element={wrap(<ProposeDeadlineRulePage />)}
+    />,
+    <Route
       key="deadline-rules-version"
       path="/admin/deadline-rules/version/:id"
       element={wrap(<VersionDecisionPage />)}

@@ -1,4 +1,4 @@
-import { type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { X } from "lucide-react";
 import {
   MODAL_OVERLAY,
@@ -58,11 +58,44 @@ export function Modal({
   footer,
   maxWidth = "max-w-2xl",
 }: ModalProps) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  // A11y: Escape to close, autofocus first focusable element, restore focus on close.
+  useEffect(() => {
+    if (!open) return;
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        onClose();
+      }
+    };
+    document.addEventListener("keydown", handleKey);
+
+    // Autofocus first focusable element in the container.
+    requestAnimationFrame(() => {
+      const focusable = containerRef.current?.querySelector<HTMLElement>(
+        'input, textarea, select, button:not([data-testid="modal-close-btn"]), [tabindex]:not([tabindex="-1"])',
+      );
+      focusable?.focus();
+    });
+
+    return () => {
+      document.removeEventListener("keydown", handleKey);
+      previouslyFocused?.focus?.();
+    };
+  }, [open, onClose]);
+
   if (!open) return null;
 
   return (
     <div className={MODAL_OVERLAY} onClick={onClose} data-testid="modal-overlay">
       <div
+        ref={containerRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
         className={`bg-white rounded-lg shadow-xl ${maxWidth} w-full max-h-[90vh] overflow-hidden`}
         onClick={(e) => e.stopPropagation()}
         data-testid="modal-container"
@@ -74,6 +107,7 @@ export function Modal({
             onClick={onClose}
             className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
             data-testid="modal-close-btn"
+            aria-label="Đóng"
           >
             <X className="w-5 h-5 text-slate-600" />
           </button>
