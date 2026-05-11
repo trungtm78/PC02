@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, Req, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
 import { AddressMappingService } from './address-mapping.service';
 import { CreateAddressMappingDto } from './dto/create-address-mapping.dto';
 import { QueryAddressMappingDto, LookupAddressMappingDto } from './dto/query-address-mapping.dto';
@@ -48,9 +48,28 @@ export class AddressMappingController {
     return this.service.remove(id);
   }
 
-  @Post('crawl')
+  // ─── Bulk-seed background job (replaces old `crawlAndSync`) ──────────────
+  // Endpoint returns immediately with a job ID; the worker fetches data from
+  // provinces.open-api.vn in the background. Admin polls /seed/status/:id
+  // to track progress, /seed/:id/cancel to abort.
+
+  @Post('seed/:province')
+  @HttpCode(HttpStatus.ACCEPTED) // 202: accepted, processing
   @RequirePermissions({ action: 'write', subject: 'Directory' })
-  crawlAndSync(@Body('province') province?: string) {
-    return this.service.crawlAndSync(province ?? 'HCM');
+  startSeed(@Param('province') province: string, @Req() req: any) {
+    const userId = req.user?.id ?? 'unknown';
+    return this.service.startSeedJob(province.toUpperCase(), userId);
+  }
+
+  @Get('seed/status/:id')
+  @RequirePermissions({ action: 'read', subject: 'Directory' })
+  seedStatus(@Param('id') id: string) {
+    return this.service.getSeedJobStatus(id);
+  }
+
+  @Post('seed/:id/cancel')
+  @RequirePermissions({ action: 'write', subject: 'Directory' })
+  cancelSeed(@Param('id') id: string) {
+    return this.service.cancelSeedJob(id);
   }
 }

@@ -1281,6 +1281,10 @@ model AddressMapping {
   note        String?  // Ghi chú nguồn (VD: "NQ 1279/NQ-UBTVQH15")
   isActive    Boolean  @default(true)
   needsReview Boolean  @default(false) // Đánh dấu cần review sau crawl
+  // Provenance & ambiguity tracking (added v0.13.10.0)
+  source      String   @default("manual") // 'api-v2' | 'manual' | 'official-decree'
+  seededAt    DateTime?                   // when the row was last touched by bulkSeedFromApi
+  candidates  Json?                       // when needsReview, all candidate new wards from API
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -1288,4 +1292,24 @@ model AddressMapping {
   @@index([province, oldDistrict])
   @@index([needsReview])
   @@map("address_mappings")
+}
+
+// Tracks bulk-seed jobs run by admin against provinces.open-api.vn.
+// Status flow: queued → running → completed | failed | cancelled
+model AddressSeedJob {
+  id           String   @id @default(cuid())
+  province     String   // 'HCM' | 'HN' | ...
+  status       String   // 'queued' | 'running' | 'completed' | 'failed' | 'cancelled'
+  startedAt    DateTime @default(now())
+  completedAt  DateTime?
+  totalWards   Int      @default(0)
+  mappedCount  Int      @default(0)
+  errorCount   Int      @default(0)
+  needsReview  Int      @default(0)
+  cancelToken  String?  // Set to 'requested' to signal worker to abort
+  errorLog     String?  // JSON array of {wardCode, error}
+  triggeredBy  String   // userId
+
+  @@index([province, status])
+  @@map("address_seed_jobs")
 }

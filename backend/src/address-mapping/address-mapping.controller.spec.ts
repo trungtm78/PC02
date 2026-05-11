@@ -9,7 +9,9 @@ const mockService = {
   create: jest.fn(),
   update: jest.fn(),
   remove: jest.fn(),
-  crawlAndSync: jest.fn(),
+  startSeedJob: jest.fn(),
+  getSeedJobStatus: jest.fn(),
+  cancelSeedJob: jest.fn(),
 };
 
 describe('AddressMappingController — delegation', () => {
@@ -66,15 +68,22 @@ describe('AddressMappingController — delegation', () => {
     expect(mockService.remove).toHaveBeenCalledWith('m1');
   });
 
-  it('crawlAndSync() defaults province to HCM when not provided', async () => {
-    mockService.crawlAndSync.mockResolvedValue({ success: true, stats: { created: 0 } });
-    await controller.crawlAndSync(undefined);
-    expect(mockService.crawlAndSync).toHaveBeenCalledWith('HCM');
+  it('startSeed() uppercases province + passes user id to service', async () => {
+    mockService.startSeedJob.mockResolvedValue({ jobId: 'job1', statusUrl: '/x' });
+    const req = { user: { id: 'admin-001' } };
+    await controller.startSeed('hcm', req as any);
+    expect(mockService.startSeedJob).toHaveBeenCalledWith('HCM', 'admin-001');
   });
 
-  it('crawlAndSync() passes custom province when provided', async () => {
-    mockService.crawlAndSync.mockResolvedValue({ success: true, stats: { created: 10 } });
-    await controller.crawlAndSync('HN');
-    expect(mockService.crawlAndSync).toHaveBeenCalledWith('HN');
+  it('seedStatus() delegates to service.getSeedJobStatus', async () => {
+    mockService.getSeedJobStatus.mockResolvedValue({ id: 'job1', status: 'running' });
+    await controller.seedStatus('job1');
+    expect(mockService.getSeedJobStatus).toHaveBeenCalledWith('job1');
+  });
+
+  it('cancelSeed() delegates to service.cancelSeedJob', async () => {
+    mockService.cancelSeedJob.mockResolvedValue({ ok: true });
+    await controller.cancelSeed('job1');
+    expect(mockService.cancelSeedJob).toHaveBeenCalledWith('job1');
   });
 });

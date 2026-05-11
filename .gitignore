@@ -13,6 +13,9 @@ test-results/
 # Backend test coverage
 backend/src/coverage/
 
+# Address-mapping API snapshots — runtime artifacts (~50KB per province per run)
+backend/prisma/data/snapshots/*.json
+
 # IDE / OS
 .vscode/
 .idea/
