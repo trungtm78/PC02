@@ -24,6 +24,8 @@ export interface DeadlineRuleVersion {
   reviewedById: string | null;
   reviewedAt: string | null;
   reviewNotes: string | null;
+  /** Proposer-initiated withdraw note (separate from reviewer's reviewNotes). */
+  withdrawNotes: string | null;
   createdAt: string;
   updatedAt: string;
   // Eager-loaded relations (present in list / detail views)

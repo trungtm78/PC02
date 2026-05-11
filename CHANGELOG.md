@@ -2,6 +2,38 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.14.3.0] - 2026-05-11
+
+### Added — Workflow "Sửa đề xuất quy tắc sau khi đã gửi duyệt"
+Trước thay đổi này, một khi proposer bấm "Gửi duyệt ngay" cho một phiên bản quy tắc thời hạn, họ kẹt cứng — không sửa được, không xóa được, chỉ chờ approver từ chối rồi tạo nháp mới (mất context, audit ồn).
+
+Giờ có **hai con đường đối xứng** đưa version submitted về lại draft để proposer sửa và gửi lại:
+
+- **Proposer tự thu hồi** — trên trang version-detail của một đề xuất đã submit, banner xanh hiện button "Thu hồi để sửa". Click → modal yêu cầu lý do ≥ 10 ký tự → status về `draft`, audit `WITHDRAWN`, approver được báo "đề xuất đã rút lại". Chỉ làm được khi chưa có ai review.
+- **Approver yêu cầu sửa đổi** — bên cạnh "Từ chối"/"Duyệt" có thêm button "Yêu cầu sửa đổi". Click → modal yêu cầu note ≥ 10 ký tự → status về `draft` với `reviewedAt + reviewNotes` set, audit `CHANGES_REQUESTED`, proposer được báo "approver yêu cầu sửa: <note>".
+- **Sửa nháp UI** — proposer click "Sửa nháp" trên footer draft → mở route mới `/admin/deadline-rules/edit/:id`, form prefill với data cũ, title "Sửa bản nháp đề xuất". Khi đang ở draft sau request-changes, banner vàng pinned trên đầu form hiển thị ghi chú của approver. Save gọi `updateDraft`; "Gửi duyệt lại" gọi `updateDraft + submit`.
+- **Cycle clean** — khi proposer resubmit, backend `submit()` tự xóa `reviewedAt/reviewedById/reviewNotes` để vòng lặp tiếp theo bắt đầu sạch. Audit log giữ lại toàn bộ chuỗi: PROPOSED → SUBMITTED → (WITHDRAWN | CHANGES_REQUESTED) → DRAFT_UPDATED → SUBMITTED → APPROVED.
+- **Notification mới** — hai loại `DEADLINE_RULE_WITHDRAWN` (báo approver) và `DEADLINE_RULE_CHANGES_REQUESTED` (báo proposer) thêm vào enum.
+
+### Changed — Hardening on existing flow
+- **Race window**: `withdraw()` + `requestChanges()` bọc trong Serializable transaction với advisory lock trên `hashtext(ruleKey)` cùng key với `approve()` — concurrent decisions on same rule serialize đúng. Catch cả `P2025` lẫn `P2034` → friendly 409 thay vì 500.
+- **Notification scheduling**: notify chạy SAU khi transaction commit (setImmediate ngoài $transaction callback) thay vì trong — phòng case transaction fail mà notification đã bắn.
+- **DTO validation**: `withdrawNotes` + `reviewNotes` bắt buộc trim + ≥ 10 ký tự thực (không cho whitespace-only) + Vietnamese error messages.
+- **VersionDecisionPage UI semantics**: chỉ hiển thị "Duyệt bởi" trong header khi status là terminal (approved/active/rejected/superseded). Khi `draft + reviewedAt` (post-request-changes) hiển thị banner vàng full-width trên top thay vì sidebar card — proposer không thể bỏ qua note của approver.
+- **Mobile footer** sticky action bar dùng `flex-col sm:flex-row` chống overflow khi 4 button.
+
+### Added — Infrastructure
+- **`ReasonRequiredModal`** shared component (`features/deadline-rules/components/`) — prop-driven, dùng cho cả withdraw + request-changes.
+- **Base Modal a11y** (`components/shared/Modal.tsx`) — Escape key đóng, focus trap, `role="dialog" aria-modal="true"`, autofocus first input, restore focus on close.
+- **`BTN_OUTLINE_SLATE`** token mới ở `constants/styles.ts`.
+- **RBAC permissions mới**: `withdraw_own` (cho proposer) + `request_changes` (cho approver) trên subject `DeadlineRuleVersion`. ADMIN có cả hai; DEADLINE_APPROVER có `request_changes + approve`.
+- **`deadline-rules.controller.spec.ts`** — 15 smoke tests cover toàn bộ 13 endpoint của controller.
+
+### Fixed — Stub-check + contract clarification
+- 3 report pages (`MonthlyReportPage`, `QuarterlyReportPage`, `TdacReportPage`) thêm comment giải thích backend trả raw shape (không envelope wrap) — chống regression khi future dev tưởng cần `.data.data`.
+
+Tests: 1075/1075 backend Jest pass + 379/379 frontend Vitest pass. Migrations applied locally. No new TypeScript errors trong deadline-rules feature.
+
 ## [0.14.1.0] - 2026-05-11
 
 ### Added — URL tham khảo cho mỗi phiên bản quy tắc thời hạn (Phase 1 hybrid)

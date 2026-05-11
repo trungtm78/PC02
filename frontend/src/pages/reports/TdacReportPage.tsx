@@ -125,6 +125,8 @@ export default function TdacReportPage() {
           teamIds: selectedTeamIds.join(",") || undefined,
         },
       });
+      // Backend /reports/tdac/* returns raw TdacReportData — no envelope wrap.
+      // Do NOT add `.data.data` here. See tdac.controller.ts:57+67.
       setReportData(res.data);
     } catch {
       setError("Không thể tải dữ liệu báo cáo. Vui lòng thử lại.");

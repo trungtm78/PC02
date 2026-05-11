@@ -25,6 +25,8 @@ export default function MonthlyReportPage() {
     setLoading(true);
     try {
       const res = await api.get(`/reports/monthly?year=${selectedYear}`);
+      // Backend /reports/monthly returns raw `{data, totals}` — no envelope wrap.
+      // Do NOT add `.data.data` here. See reports.controller.ts:104.
       setReportData(res.data);
     } catch {
       setReportData(null);

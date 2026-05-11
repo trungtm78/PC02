@@ -43,6 +43,8 @@ function makeVersion(overrides: Partial<DeadlineRuleVersion> = {}): DeadlineRule
     documentNumber: '28/2020',
     documentIssuer: 'BCA',
     documentDate: null,
+    documentUrl: null,
+    withdrawNotes: null,
     attachmentId: null,
     migrationConfidence: null,
     reason: 'Some reason',

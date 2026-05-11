@@ -96,6 +96,10 @@ async function main() {
     { action: 'read', subject: 'DeadlineRuleVersion', description: 'Xem quy tắc thời hạn xử lý' },
     { action: 'write', subject: 'DeadlineRuleVersion', description: 'Đề xuất sửa quy tắc thời hạn (maker)' },
     { action: 'approve', subject: 'DeadlineRuleVersion', description: 'Duyệt và kích hoạt quy tắc thời hạn (checker)' },
+    // Withdraw + request-changes — symmetric maker/checker recall workflow.
+    // If new roles ever propose deadline rules, they MUST also get withdraw_own.
+    { action: 'withdraw_own', subject: 'DeadlineRuleVersion', description: 'Thu hồi đề xuất quy tắc của chính mình (maker)' },
+    { action: 'request_changes', subject: 'DeadlineRuleVersion', description: 'Yêu cầu sửa đổi đề xuất quy tắc (checker)' },
   ];
 
   for (const perm of permissions) {
@@ -141,7 +145,7 @@ async function main() {
     },
   });
   const approverPerms = await prisma.permission.findMany({
-    where: { subject: 'DeadlineRuleVersion', action: { in: ['read', 'approve'] } },
+    where: { subject: 'DeadlineRuleVersion', action: { in: ['read', 'approve', 'request_changes'] } },
   });
   for (const perm of approverPerms) {
     await prisma.rolePermission.upsert({

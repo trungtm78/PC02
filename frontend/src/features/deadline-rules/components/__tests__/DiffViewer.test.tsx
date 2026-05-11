@@ -14,6 +14,8 @@ function makeVersion(overrides: Partial<DeadlineRuleVersion> = {}): DeadlineRule
     documentNumber: '101/2015/QH13',
     documentIssuer: 'Quốc hội',
     documentDate: null,
+    documentUrl: null,
+    withdrawNotes: null,
     attachmentId: null,
     migrationConfidence: null,
     reason: 'Test reason — long enough to satisfy audit requirements',

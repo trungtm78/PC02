@@ -21,6 +21,8 @@ import { UpdateDraftDto } from './dto/update-draft.dto';
 import { ApproveRuleDto } from './dto/approve-rule.dto';
 import { RejectRuleDto } from './dto/reject-rule.dto';
 import { QueryRulesDto } from './dto/query-rules.dto';
+import { WithdrawRuleDto } from './dto/withdraw-rule.dto';
+import { RequestChangesDto } from './dto/request-changes.dto';
 import {
   DEADLINE_RULE_KEYS,
   DEADLINE_RULE_KEY_SET,
@@ -360,11 +362,19 @@ export class DeadlineRulesService {
       throw new ForbiddenException('Chỉ người đề xuất mới được gửi duyệt');
     }
 
-    // Partial unique index "one submitted per ruleKey" enforces invariant
+    // Partial unique index "one submitted per ruleKey" enforces invariant.
+    // Clear reviewedAt/reviewNotes/reviewedById so a prior "requestChanges" cycle
+    // (which sets those) doesn't leak into the new submission's audit identity.
     try {
       const updated = await this.prisma.deadlineRuleVersion.update({
         where: { id, status: 'draft' as DeadlineRuleStatus },
-        data: { status: 'submitted', proposedAt: new Date() },
+        data: {
+          status: 'submitted',
+          proposedAt: new Date(),
+          reviewedAt: null,
+          reviewedById: null,
+          reviewNotes: null,
+        },
       });
 
       await this.audit.log({
@@ -540,6 +550,172 @@ export class DeadlineRulesService {
     });
 
     return { success: true, data: updated, message: 'Đã từ chối đề xuất' };
+  }
+
+  /**
+   * Proposer-initiated withdraw — submitted → draft so they can edit and resubmit.
+   * Symmetric with approver's `requestChanges`. Required when proposer realizes
+   * they need to fix something before anyone reviews.
+   *
+   * Concurrency: Serializable + advisory lock on ruleKey (same lock key as
+   * approve/requestChanges so all decisions on the same rule serialize). P2025
+   * and P2034 both translate to friendly 409.
+   *
+   * Notification scheduling happens AFTER $transaction commits to avoid sending
+   * for a transaction that ultimately failed.
+   */
+  async withdraw(id: string, dto: WithdrawRuleDto, userId: string, meta?: AuditMeta) {
+    let updated: DeadlineRuleVersion;
+    let ruleKey: string;
+    try {
+      const result = await this.prisma.$transaction(
+        async (tx) => {
+          const existing = await tx.deadlineRuleVersion.findUnique({ where: { id } });
+          if (!existing) throw new NotFoundException(`Không tìm thấy phiên bản (id: ${id})`);
+          if (existing.status !== 'submitted') {
+            throw new ConflictException(
+              `Chỉ có thể thu hồi bản đang chờ duyệt. Trạng thái: ${existing.status}`,
+            );
+          }
+          if (existing.proposedById !== userId) {
+            throw new ForbiddenException('Chỉ người đề xuất mới được thu hồi');
+          }
+          // Defense: if approver already decided (race), don't allow recall.
+          if (existing.reviewedAt !== null) {
+            throw new ConflictException('Đã có quyết định — không thể thu hồi');
+          }
+
+          // Lock on ruleKey (matches approve()) so approve and withdraw serialize.
+          await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${existing.ruleKey}))`;
+
+          const u = await tx.deadlineRuleVersion.update({
+            where: { id, status: 'submitted' as DeadlineRuleStatus },
+            data: { status: 'draft', withdrawNotes: dto.withdrawNotes },
+          });
+
+          await this.audit.log(
+            {
+              userId,
+              action: DEADLINE_RULE_ACTIONS.WITHDRAWN,
+              subject: 'DeadlineRuleVersion',
+              subjectId: id,
+              metadata: {
+                ruleKey: existing.ruleKey,
+                value: existing.value,
+                withdrawNotes: dto.withdrawNotes,
+              },
+              ipAddress: meta?.ipAddress,
+              userAgent: meta?.userAgent,
+            },
+            tx,
+          );
+
+          return { updated: u, ruleKey: existing.ruleKey };
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 10000 },
+      );
+      updated = result.updated;
+      ruleKey = result.ruleKey;
+    } catch (e) {
+      const code = (e as Prisma.PrismaClientKnownRequestError).code;
+      if (code === 'P2025' || code === 'P2034') {
+        throw new ConflictException(
+          'Trạng thái phiên bản đã đổi (có thể approver vừa quyết định) — vui lòng tải lại trang',
+        );
+      }
+      throw e;
+    }
+
+    // Post-commit notification — fire-and-forget so transaction commit can complete first.
+    setImmediate(() => {
+      this.notifyApproversWithdrawn(updated).catch((err) =>
+        this.logger.error(`notifyApproversWithdrawn failed: ${String(err)}`),
+      );
+    });
+
+    return { success: true, data: updated, message: 'Đã thu hồi — bạn có thể sửa và gửi lại' };
+  }
+
+  /**
+   * Approver-initiated request-changes — submitted → draft with required note.
+   * This IS a review decision (sets reviewedAt + reviewNotes + reviewedById) but
+   * the row stays editable so proposer can fix per the note. On resubmit those
+   * fields get cleared by `submit()` so the next cycle starts clean.
+   *
+   * Concurrency identical to withdraw + approve (lock on ruleKey).
+   */
+  async requestChanges(id: string, dto: RequestChangesDto, userId: string, meta?: AuditMeta) {
+    let updated: DeadlineRuleVersion;
+    try {
+      const result = await this.prisma.$transaction(
+        async (tx) => {
+          const existing = await tx.deadlineRuleVersion.findUnique({ where: { id } });
+          if (!existing) throw new NotFoundException(`Không tìm thấy phiên bản (id: ${id})`);
+          if (existing.status !== 'submitted') {
+            throw new ConflictException(
+              `Chỉ có thể yêu cầu sửa khi bản đang chờ duyệt. Trạng thái: ${existing.status}`,
+            );
+          }
+          if (existing.proposedById === userId) {
+            throw new ForbiddenException(
+              'Bạn là người đề xuất phiên bản này — không thể tự yêu cầu sửa',
+            );
+          }
+
+          await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${existing.ruleKey}))`;
+
+          const u = await tx.deadlineRuleVersion.update({
+            where: { id, status: 'submitted' as DeadlineRuleStatus },
+            data: {
+              status: 'draft',
+              reviewedById: userId,
+              reviewedAt: new Date(),
+              reviewNotes: dto.reviewNotes,
+            },
+          });
+
+          await this.audit.log(
+            {
+              userId,
+              action: DEADLINE_RULE_ACTIONS.CHANGES_REQUESTED,
+              subject: 'DeadlineRuleVersion',
+              subjectId: id,
+              metadata: {
+                ruleKey: existing.ruleKey,
+                reviewNotes: dto.reviewNotes,
+              },
+              ipAddress: meta?.ipAddress,
+              userAgent: meta?.userAgent,
+            },
+            tx,
+          );
+
+          return { updated: u };
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 10000 },
+      );
+      updated = result.updated;
+    } catch (e) {
+      const code = (e as Prisma.PrismaClientKnownRequestError).code;
+      if (code === 'P2025' || code === 'P2034') {
+        throw new ConflictException(
+          'Trạng thái phiên bản đã đổi — vui lòng tải lại trang',
+        );
+      }
+      throw e;
+    }
+
+    setImmediate(() => {
+      this.notifyProposerChangesRequested(updated, userId).catch((err) =>
+        this.logger.error(`notifyProposerChangesRequested failed: ${String(err)}`),
+      );
+    });
+
+    return {
+      success: true,
+      data: updated,
+      message: 'Đã yêu cầu sửa đổi — đề xuất quay về nháp cho người đề xuất',
+    };
   }
 
   async deleteDraft(id: string, userId: string, meta?: AuditMeta) {
@@ -778,5 +954,55 @@ export class DeadlineRulesService {
         metadata: { ruleKey: version.ruleKey, versionId: version.id },
       })
       .catch((err) => this.logger.error(`notifyProposer failed: ${String(err)}`));
+  }
+
+  /**
+   * Tell approvers the submitted proposal has been withdrawn by the proposer.
+   * Their queue item is gone; nothing to act on. Includes proposer's reason.
+   */
+  private async notifyApproversWithdrawn(version: DeadlineRuleVersion): Promise<void> {
+    const targets = (await this.findActiveApproverIds()).filter(
+      (id) => id !== version.proposedById,
+    );
+    if (targets.length === 0) return;
+    const title = 'Đề xuất đã thu hồi';
+    const message = `Đề xuất cho '${version.ruleKey}' đã được người đề xuất rút lại. Lý do: ${version.withdrawNotes ?? '—'}`;
+    for (const userId of targets) {
+      await this.notifications
+        .create({
+          userId,
+          type: NotificationType.DEADLINE_RULE_WITHDRAWN,
+          title,
+          message,
+          link: `/admin/deadline-rules/version/${version.id}`,
+          metadata: { ruleKey: version.ruleKey, versionId: version.id },
+        })
+        .catch((err) =>
+          this.logger.error(`notifyApproversWithdrawn (user=${userId}) failed: ${String(err)}`),
+        );
+    }
+  }
+
+  /**
+   * Tell the proposer an approver wants changes before approving. The note is
+   * required (≥10 chars) so the proposer knows what to fix.
+   */
+  private async notifyProposerChangesRequested(
+    version: DeadlineRuleVersion,
+    actorId: string,
+  ): Promise<void> {
+    if (!version.proposedById || version.proposedById === actorId) return;
+    await this.notifications
+      .create({
+        userId: version.proposedById,
+        type: NotificationType.DEADLINE_RULE_CHANGES_REQUESTED,
+        title: 'Approver yêu cầu sửa đổi đề xuất',
+        message: `Đề xuất cho '${version.ruleKey}' cần được sửa. Ghi chú: ${version.reviewNotes ?? '—'}`,
+        link: `/admin/deadline-rules/version/${version.id}`,
+        metadata: { ruleKey: version.ruleKey, versionId: version.id },
+      })
+      .catch((err) =>
+        this.logger.error(`notifyProposerChangesRequested failed: ${String(err)}`),
+      );
   }
 }
