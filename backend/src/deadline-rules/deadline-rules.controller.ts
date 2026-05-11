@@ -21,6 +21,8 @@ import { UpdateDraftDto } from './dto/update-draft.dto';
 import { ApproveRuleDto } from './dto/approve-rule.dto';
 import { RejectRuleDto } from './dto/reject-rule.dto';
 import { QueryRulesDto } from './dto/query-rules.dto';
+import { WithdrawRuleDto } from './dto/withdraw-rule.dto';
+import { RequestChangesDto } from './dto/request-changes.dto';
 
 /**
  * Routes (mounted at `/api/v1` global prefix):
@@ -37,6 +39,8 @@ import { QueryRulesDto } from './dto/query-rules.dto';
  *   POST   /deadline-rules/:id/submit             draft → submitted
  *   POST   /deadline-rules/:id/approve            submitted → approved/active (DEADLINE_APPROVER only)
  *   POST   /deadline-rules/:id/reject             submitted → rejected (DEADLINE_APPROVER only)
+ *   POST   /deadline-rules/:id/withdraw           submitted → draft (proposer only, with reason)
+ *   POST   /deadline-rules/:id/request-changes    submitted → draft (approver only, with note)
  *   DELETE /deadline-rules/:id                    delete draft
  */
 @Controller('deadline-rules')
@@ -131,6 +135,28 @@ export class DeadlineRulesController {
     @Req() req: ExpressLikeRequest,
   ) {
     return this.service.reject(id, dto, user.id, extractMeta(req));
+  }
+
+  @Post(':id/withdraw')
+  @RequirePermissions({ action: 'withdraw_own', subject: 'DeadlineRuleVersion' })
+  withdraw(
+    @Param('id') id: string,
+    @Body() dto: WithdrawRuleDto,
+    @CurrentUser() user: AuthUser,
+    @Req() req: ExpressLikeRequest,
+  ) {
+    return this.service.withdraw(id, dto, user.id, extractMeta(req));
+  }
+
+  @Post(':id/request-changes')
+  @RequirePermissions({ action: 'request_changes', subject: 'DeadlineRuleVersion' })
+  requestChanges(
+    @Param('id') id: string,
+    @Body() dto: RequestChangesDto,
+    @CurrentUser() user: AuthUser,
+    @Req() req: ExpressLikeRequest,
+  ) {
+    return this.service.requestChanges(id, dto, user.id, extractMeta(req));
   }
 
   @Delete(':id')
