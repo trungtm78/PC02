@@ -40,6 +40,30 @@ export class EmailService implements OnModuleInit {
     }
   }
 
+  async sendEventReminder(to: string, eventTitle: string, occurrenceDate: Date): Promise<void> {
+    const dateStr = occurrenceDate.toISOString().slice(0, 10);
+    try {
+      await this.transporter.sendMail({
+        from: `"PC02 System" <${this.config.get('EMAIL_FROM') ?? this.config.get('SMTP_FROM') ?? 'noreply@pc02hcm.com'}>`,
+        to,
+        subject: `[PC02] Nhắc nhở: ${eventTitle}`,
+        text: `Bạn có sự kiện sắp diễn ra: ${eventTitle}\nNgày: ${dateStr}\n\nXem chi tiết trong ứng dụng PC02.`,
+        html: `<div style="font-family:sans-serif;max-width:480px;margin:auto;padding:24px">
+          <h2 style="color:#003973">Nhắc nhở sự kiện</h2>
+          <p>Bạn có sự kiện sắp diễn ra:</p>
+          <div style="padding:16px;background:#f1f5f9;border-radius:8px;border-left:4px solid #003973">
+            <div style="font-size:18px;font-weight:bold;color:#003973">${eventTitle}</div>
+            <div style="color:#64748b;margin-top:4px">Ngày ${dateStr}</div>
+          </div>
+          <p style="color:#64748b;font-size:14px;margin-top:16px">Xem chi tiết trong ứng dụng PC02.</p>
+        </div>`,
+      });
+    } catch (err) {
+      // Reminder send failure is non-fatal — log and continue.
+      this.logger.warn(`Failed to send event reminder email to ${to}: ${(err as Error).message}`);
+    }
+  }
+
   async sendPasswordResetEmail(to: string, code: string): Promise<void> {
     await this.transporter.sendMail({
       from: `"PC02 System" <${this.config.get('EMAIL_FROM') ?? this.config.get('EMAIL_USER')}>`,
