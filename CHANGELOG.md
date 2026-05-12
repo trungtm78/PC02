@@ -2,6 +2,84 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.17.0.0] - 2026-05-13
+
+### Added — Calendar Events v2, Phase 2a (backend CRUD + RRULE expansion)
+
+Đây là **PR 2a** trong chuỗi 3-PR phased. Phase 2 ban đầu plan ship 1 PR lớn (backend + frontend + cron) trong ~10 ngày. Em tách thành 2a (backend, đã ship) + 2b (frontend + cron dispatcher) để risk thấp + value ship sớm. Feature flag default ON, nhưng UI chưa rewrite nên user chưa thấy gì khác — backend endpoints sẵn sàng cho frontend PR 2b gọi.
+
+#### Backend modules — full CRUD
+
+**`event-categories`** (extends PR 1 read-only skeleton):
+- `POST /api/v1/event-categories` — admin tạo category mới (10/min throttle anti-spam)
+- `PATCH /api/v1/event-categories/:id` — sửa name/color/icon/sortOrder (slug và isSystem là read-only, service strip silently)
+- `DELETE /api/v1/event-categories/:id` — chặn nếu `isSystem=true` (403) hoặc còn event tham chiếu (409)
+- DTOs: `CreateCategoryDto` (slug regex `^[a-z0-9_-]+$`, color regex `^#[0-9a-fA-F]{6}$`), `UpdateCategoryDto` (PartialType, whitelist)
+
+**`calendar-events`** (full CRUD with scope authorization):
+- `POST /api/v1/calendar-events` — tạo event (20/min throttle per user)
+  - SYSTEM scope: require ADMIN role
+  - TEAM scope: require user là tổ trưởng của teamId (qua `userTeam.isLeader=true` DB lookup) HOẶC admin
+  - PERSONAL scope: backend **force `userId = currentUser.id`** (ignore any client-sent userId — prevent spoofing onto another user)
+- `PATCH /api/v1/calendar-events/:id` — update với owner+scope check (SYSTEM events require ADMIN even if createdById match)
+- `DELETE /api/v1/calendar-events/:id` — soft delete (set `deletedAt`), giữ audit history
+- `DELETE /api/v1/calendar-events/:id/occurrence/:date` — exclude 1 occurrence của recurring series (RFC 5545 EXDATE pattern), tạo override row `excluded=true`
+- Per-user cap: `PERSONAL` events ≥ 1000 → 409 (Eng review fix #3)
+- RRULE safety: DTO reject `FREQ=DAILY/HOURLY/MINUTELY/SECONDLY` nếu không có `recurrenceEndDate`/`UNTIL`/`COUNT` (Eng review fix #4)
+- DataScope filtering trong `findInRange`: admin thấy tất, non-admin thấy SYSTEM + own TEAM events (qua `userTeam` DB lookup, NOT JWT) + own PERSONAL events
+
+#### RRULE expansion (`expandOccurrences()`)
+
+- Sử dụng `rrule` npm package (RFC 5545 iCalendar standard)
+- Non-recurring event: 1 occurrence trên `startDate` nếu trong range
+- Recurring event: `RRule.between(from, to, true)` expand thành các occurrence dates
+- **Hard cap 500 occurrences/event** — DoS protection (Eng review)
+- Apply override rows: `excluded=true` → skip occurrence (EXDATE), `overrideFields` JSON → modify title/time per occurrence (PR 2b sẽ build UI)
+- Malformed RRULE → graceful fallback (single occurrence on startDate)
+
+#### `calendar.service` integration
+
+- `GET /api/v1/calendar/events?year=&month=` giờ expand recurring events đúng cách:
+  - Query mở rộng: lấy events có `startDate <= toDate AND (recurrenceEndDate IS NULL OR >= fromDate)` — catch recurring series bắt đầu trước window nhưng có occurrences trong window
+  - Output id format: `event-{eventId}-{YYYY-MM-DD}` — distinct per occurrence
+  - Trước đây: 1 row recurring = 1 calendar event hiển thị. Giờ: 1 row recurring + FREQ=WEEKLY trong tháng = ~4 calendar events.
+
+#### Architecture
+
+- `CalendarEventsModule` import `TeamsModule` + provide `UnitScopeService` (chuẩn pattern existing scope-aware modules)
+- `CalendarModule` import `CalendarEventsModule` để `CalendarService` dùng `expandOccurrences()` qua DI thay vì duplicate logic
+
+### Tests
+
+40 backend tests mới (12 event-categories + 24 calendar-events + 4 PR 1 spec updates trong calendar.service):
+- Event-categories CRUD: create with default sortOrder, slug uniqueness conflict, update strips slug/isSystem, delete refuses isSystem + non-empty + missing
+- Calendar-events scope rules: SYSTEM admin-only, TEAM leader/admin, PERSONAL force userId
+- Per-user cap reject at 1000 PERSONAL
+- RRULE safety: DAILY without endDate rejected, YEARLY unbounded OK
+- DataScope: admin sees all, non-admin filters by SYSTEM+OR(own TEAM, own PERSONAL)
+- Update owner check + admin override + updatedById tracking
+- Soft delete + occurrence exclude
+- expandOccurrences: 1-off, year-only, weekly, daily-with-end, EXDATE skip, 500-iter cap
+
+**Full backend suite: 1131/1131 pass** (+40 từ PR 1's 1091), `tsc --noEmit` exit 0.
+
+### Out of scope cho PR 2a (defer to PR 2b)
+
+- Frontend: CalendarPage rewrite (2-step wizard EventFormModal, RecurrenceBuilder UI, ReminderEditor, scope border/icon, recurring delete dialog)
+- Frontend: EventCategoriesModule in Settings, 3 API clients, 2 react-query hooks
+- Backend `event-reminders`: CRUD POST/DELETE + cron dispatcher với mutex + `PushService.sendToUser` + email integration
+- Backend prune cron: daily 02:00 DELETE event_reminder_dispatches WHERE sentAt < 90d
+- Lunar date computed display
+- DataScope verification with concurrent tests (timezone drift, cascade delete)
+
+### Deploy notes
+
+- Tất cả 3 feature flag mới vẫn ON từ PR 1 → endpoints `/event-categories`, `/calendar-events`, `/events/:id/reminders` (read-only) accessible
+- POST/PATCH/DELETE endpoints mới đều cần permission `Calendar:write|edit|delete` (đã seed trong PR 1)
+- KHÔNG có migration mới — schema giữ nguyên từ PR 1
+- Backward compat: `GET /api/v1/calendar/events` (legacy frontend gọi) vẫn hoạt động đúng cũ + thêm expanded recurring events nếu admin đã tạo
+- Nếu cần kill switch: `UPDATE feature_flags SET enabled=false WHERE key IN ('event_categories_v2','calendar_events_v2')` trên VM → routes trả 404
+
 ## [0.16.0.0] - 2026-05-13
 
 ### Added — Calendar Events v2, Phase 1 (schema + dual-read foundation)
