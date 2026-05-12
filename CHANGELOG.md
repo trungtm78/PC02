@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.15.1.0] - 2026-05-12
+
+### Added — CI/CD Pipeline (GitHub Actions → Viettel Cloud VM)
+- `.github/workflows/deploy.yml`: 3-job pipeline (test → build → deploy) tự động chạy khi push `main` hoặc tag `v*`. Tag thêm job thứ 4 tạo GitHub Release với CHANGELOG section extract tự động.
+- `scripts/deploy/deploy.sh`: orchestrate deploy trên VM — extract tarball, symlink shared resources, pg_dump pre-deploy backup, `prisma migrate deploy` fail-safe, atomic symlink switch, restart backend, health check, prune giữ 5 release.
+- `scripts/deploy/rollback.sh`: switch current symlink về release trước hoặc release cụ thể, restart backend, health check.
+- `scripts/deploy/health-check.sh`: 5 retries × 2s curl `/api/v1/health`.
+- `scripts/deploy/migrate-existing.sh`: 1-time migration script chuyển VM từ layout SCP cũ sang release-based.
+- `docs/DEPLOY.md`: hướng dẫn full pipeline + rollback + troubleshoot.
+- VM layout mới: `/home/pc02/releases/<sha>/`, `current` symlink, `shared/` cho `.env`/keys/uploads persist qua deploy.
+
+### Fixed
+- `init_rls` migration: rename timestamp `00000000000000` → `99999999999999` để chạy CUỐI cùng (sau khi tables tồn tại). Migration ban đầu fail vì reference table `users` chưa được tạo.
+- `CLAUDE.md`: update Deploy Configuration section từ Render placeholder → Viettel Cloud VM thực tế với GitHub Actions pipeline.
+
+### Changed
+- Backend `pc02-backend.service` systemd unit giờ trỏ `WorkingDirectory=/home/pc02/current/backend` (theo symlink), restart `RestartSec=10` giữ nguyên.
+- `/etc/sudoers.d/pc02`: thêm permission `cp`, `chown` cho user `pc02` để deploy script copy frontend dist vào `/var/www/pc02` không cần root.
+
+### Notes
+- Pre-deploy DB backup: `/var/backups/pc02/pre-deploy-<sha>-*.sql.gz` cho mỗi deploy (cùng cron daily 02:30 ICT đã có).
+- Migration auto-run với fail-safe: nếu `prisma migrate deploy` fail, symlink KHÔNG switch → backend cũ vẫn chạy.
+- Rollback DB: dùng `pg_restore` từ `/var/backups/pc02/pre-deploy-<sha>-*.sql.gz` (Prisma không hỗ trợ auto down migration).
+- VM phải cài `rsync` (Ubuntu 24.04 minimized không có sẵn).
+
 ## [0.15.0.0] - 2026-05-12
 
 ### Added — Lịch ngày đặc biệt (Holidays)
