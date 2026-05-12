@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { MapPin, Plus, Edit2, Trash2, RefreshCw, Search, X, Save, Loader2, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { MapPin, Plus, Edit2, Trash2, RefreshCw, Search, X, Save, Loader2, AlertTriangle, CheckCircle2, StopCircle } from 'lucide-react';
 import { api } from '@/lib/api';
 import { usePermission } from '@/hooks/usePermission';
 
@@ -28,6 +28,31 @@ const EMPTY_FORM: FormData = {
   oldWard: '', oldDistrict: '', newWard: '', province: 'HCM', note: '', needsReview: false,
 };
 
+type SeedProvince = 'HCM' | 'HN' | 'HP' | 'DN' | 'CT';
+type SeedJobStatus = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
+
+interface SeedJob {
+  jobId: string;
+  province: SeedProvince;
+  status: SeedJobStatus;
+  totalWards: number;
+  mappedCount: number;
+  errorCount: number;
+  needsReview: number;
+  errorLog?: string | null;
+}
+
+const SUPPORTED_SEED_PROVINCES: Array<{ code: SeedProvince; label: string }> = [
+  { code: 'HCM', label: 'TP. Hồ Chí Minh' },
+  { code: 'HN', label: 'Hà Nội' },
+  { code: 'HP', label: 'Hải Phòng' },
+  { code: 'DN', label: 'Đà Nẵng' },
+  { code: 'CT', label: 'Cần Thơ' },
+];
+
+const SEED_POLL_INTERVAL_MS = 2000;
+const TERMINAL_STATUSES: SeedJobStatus[] = ['completed', 'failed', 'cancelled'];
+
 export function AddressMappingModule() {
   const { canEdit } = usePermission();
   const canEditRow = canEdit('settings');
@@ -44,8 +69,9 @@ export function AddressMappingModule() {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
 
-  const [crawling, setCrawling] = useState(false);
-  const [crawlResult, setCrawlResult] = useState<string>('');
+  const [seedProvince, setSeedProvince] = useState<SeedProvince>('HCM');
+  const [seedJob, setSeedJob] = useState<SeedJob | null>(null);
+  const [seedError, setSeedError] = useState<string>('');
 
   const loadItems = useCallback(async () => {
     setLoading(true);
@@ -109,19 +135,72 @@ export function AddressMappingModule() {
     void loadItems();
   };
 
-  const handleCrawl = async () => {
-    setCrawling(true);
-    setCrawlResult('');
+  const isSeedJobActive = seedJob?.status === 'queued' || seedJob?.status === 'running';
+
+  const handleStartSeed = async () => {
+    setSeedError('');
     try {
-      const res = await api.post('/address-mappings/crawl');
-      setCrawlResult(res.data.message ?? 'Cập nhật thành công');
-      void loadItems();
-    } catch {
-      setCrawlResult('Lỗi khi crawl dữ liệu');
-    } finally {
-      setCrawling(false);
+      const res = await api.post(`/address-mappings/seed/${seedProvince}`);
+      const jobId = res.data?.jobId as string | undefined;
+      if (!jobId) {
+        setSeedError('Không nhận được jobId từ server');
+        return;
+      }
+      setSeedJob({
+        jobId,
+        province: seedProvince,
+        status: 'queued',
+        totalWards: 0,
+        mappedCount: 0,
+        errorCount: 0,
+        needsReview: 0,
+      });
+    } catch (e: unknown) {
+      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setSeedError(msg ?? 'Không khởi động được job seed');
     }
   };
+
+  const handleCancelSeed = async () => {
+    if (!seedJob || !isSeedJobActive) return;
+    try {
+      await api.post(`/address-mappings/seed/${seedJob.jobId}/cancel`);
+    } catch (e: unknown) {
+      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setSeedError(msg ?? 'Không hủy được job');
+    }
+  };
+
+  // Poll seed job status every 2s while queued/running.
+  useEffect(() => {
+    if (!seedJob || TERMINAL_STATUSES.includes(seedJob.status)) return;
+    const jobId = seedJob.jobId;
+    const interval = setInterval(async () => {
+      try {
+        const res = await api.get(`/address-mappings/seed/status/${jobId}`);
+        const data = res.data as Partial<SeedJob> & { status?: SeedJobStatus; id?: string };
+        setSeedJob((prev) => {
+          if (!prev || prev.jobId !== jobId) return prev;
+          return {
+            ...prev,
+            status: data.status ?? prev.status,
+            totalWards: data.totalWards ?? prev.totalWards,
+            mappedCount: data.mappedCount ?? prev.mappedCount,
+            errorCount: data.errorCount ?? prev.errorCount,
+            needsReview: data.needsReview ?? prev.needsReview,
+            errorLog: data.errorLog ?? prev.errorLog,
+          };
+        });
+        if (data.status && TERMINAL_STATUSES.includes(data.status)) {
+          void loadItems();
+        }
+      } catch {
+        // Job có thể bị xóa khỏi DB hoặc backend restart; dừng polling.
+        setSeedJob(null);
+      }
+    }, SEED_POLL_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, [seedJob, loadItems]);
 
   return (
     <div className="space-y-4">
@@ -130,10 +209,24 @@ export function AddressMappingModule() {
           <h2 className="text-xl font-semibold text-slate-900">Mapping địa chỉ cải cách 2025</h2>
           <p className="text-sm text-slate-500 mt-0.5">Chuyển đổi địa chỉ cũ (có quận/huyện) sang mới theo NQ 1279/NQ-UBTVQH15</p>
         </div>
-        <div className="flex gap-2">
-          <button onClick={handleCrawl} disabled={crawling}
+        <div className="flex gap-2 items-center">
+          <label className="flex items-center gap-1 text-sm">
+            <span className="sr-only">Tỉnh/TP để seed</span>
+            <select
+              aria-label="Tỉnh/TP để seed"
+              value={seedProvince}
+              onChange={(e) => setSeedProvince(e.target.value as SeedProvince)}
+              disabled={isSeedJobActive}
+              className="px-2 py-2 text-sm border border-slate-300 rounded-lg disabled:opacity-50"
+            >
+              {SUPPORTED_SEED_PROVINCES.map((p) => (
+                <option key={p.code} value={p.code}>{p.code} — {p.label}</option>
+              ))}
+            </select>
+          </label>
+          <button onClick={handleStartSeed} disabled={isSeedJobActive}
             className="flex items-center gap-2 px-3 py-2 text-sm border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-50">
-            {crawling ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+            {isSeedJobActive ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
             Cập nhật từ API
           </button>
           <button onClick={handleOpenAdd}
@@ -163,8 +256,49 @@ export function AddressMappingModule() {
         </div>
       )}
 
-      {crawlResult && (
-        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">{crawlResult}</div>
+      {seedError && (
+        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{seedError}</div>
+      )}
+
+      {seedJob && (
+        <div
+          className={`p-3 rounded-lg border text-sm flex items-center justify-between gap-3 ${
+            seedJob.status === 'completed' ? 'bg-green-50 border-green-200 text-green-800' :
+            seedJob.status === 'failed' ? 'bg-red-50 border-red-200 text-red-800' :
+            seedJob.status === 'cancelled' ? 'bg-slate-50 border-slate-200 text-slate-700' :
+            'bg-blue-50 border-blue-200 text-blue-800'
+          }`}
+        >
+          <div className="flex items-center gap-3 flex-1">
+            {isSeedJobActive && <Loader2 className="w-4 h-4 animate-spin" />}
+            <div className="flex-1">
+              <div className="font-medium">
+                Job {seedJob.province} · {seedJob.status}
+              </div>
+              <div className="text-xs">
+                Đã map <span data-testid="seed-progress">{seedJob.mappedCount}/{seedJob.totalWards || '?'}</span>
+                {seedJob.needsReview > 0 && ` · ${seedJob.needsReview} cần review`}
+                {seedJob.errorCount > 0 && ` · ${seedJob.errorCount} lỗi`}
+              </div>
+            </div>
+          </div>
+          {isSeedJobActive ? (
+            <button
+              onClick={handleCancelSeed}
+              className="flex items-center gap-1 px-2 py-1 text-xs border border-current rounded hover:bg-white/40"
+            >
+              <StopCircle className="w-3 h-3" />Hủy
+            </button>
+          ) : (
+            <button
+              onClick={() => setSeedJob(null)}
+              className="p-1 hover:bg-white/40 rounded"
+              aria-label="Đóng thông báo job"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
       )}
 
       {/* Filter */}
