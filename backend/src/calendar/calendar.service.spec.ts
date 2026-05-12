@@ -27,7 +27,26 @@ const mockPrisma = {
   petition: {
     findMany: jest.fn().mockResolvedValue([]),
   },
+  holiday: {
+    findMany: jest.fn().mockResolvedValue([]),
+  },
 };
+
+function makeHoliday(
+  id: string,
+  date: Date,
+  category: 'NATIONAL' | 'POLICE' | 'MILITARY' | 'INTERNATIONAL' | 'OTHER',
+) {
+  return {
+    id,
+    title: `Holiday ${id}`,
+    shortTitle: `H${id}`,
+    date,
+    category,
+    isOfficialDayOff: category === 'NATIONAL',
+    description: `Mô tả ${id}`,
+  };
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -61,6 +80,7 @@ describe('CalendarService', () => {
     mockPrisma.case.findMany.mockResolvedValue([]);
     mockPrisma.incident.findMany.mockResolvedValue([]);
     mockPrisma.petition.findMany.mockResolvedValue([]);
+    mockPrisma.holiday.findMany.mockResolvedValue([]);
   });
 
   // ── getEvents ──────────────────────────────────────────────────────────────
@@ -129,6 +149,20 @@ describe('CalendarService', () => {
       expect(result.data[0].date).toBe('2026-06-01');
       expect(result.data[1].date).toBe('2026-06-15');
       expect(result.data[2].date).toBe('2026-06-30');
+    });
+
+    it('maps holidays with category metadata into CalendarEvents', async () => {
+      const date = new Date('2026-08-19T00:00:00.000Z');
+      mockPrisma.holiday.findMany.mockResolvedValue([makeHoliday('h1', date, 'POLICE')]);
+
+      const result = await service.getEvents(2026, 8);
+      const ev = result.data.find((e) => e.id === 'holiday-h1');
+      expect(ev).toBeDefined();
+      expect(ev!.type).toBe('holiday');
+      expect(ev!.date).toBe('2026-08-19');
+      expect(ev!.holidayCategory).toBe('POLICE');
+      expect(ev!.isOfficialDayOff).toBe(false);
+      expect(ev!.title).toBe('Hh1'); // uses shortTitle when available
     });
 
     it('queries Prisma with year-only range when month is not provided', async () => {
