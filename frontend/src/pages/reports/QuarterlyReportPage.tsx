@@ -28,6 +28,8 @@ export default function QuarterlyReportPage() {
     setLoading(true);
     try {
       const res = await api.get(`/reports/quarterly?year=${selectedYear}`);
+      // Backend /reports/quarterly returns raw `{data, totals}` — no envelope wrap.
+      // Do NOT add `.data.data` here. See reports.controller.ts:112.
       setReportData(res.data);
     } catch {
       setReportData(null);

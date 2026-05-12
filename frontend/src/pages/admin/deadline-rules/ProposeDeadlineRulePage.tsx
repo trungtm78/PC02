@@ -7,6 +7,7 @@ import {
   DOCUMENT_TYPES,
   DOCUMENT_ISSUERS,
   type ProposeRuleInput,
+  type UpdateDraftInput,
 } from '@/features/deadline-rules/types';
 import { DEADLINE_RULE_KEY_LABEL, DEADLINE_RULE_KEY_UNIT } from '@/shared/enums/status-labels';
 import { DocumentUrlInput } from '@/features/deadline-rules/components/DocumentUrlInput';
@@ -73,30 +74,43 @@ const EMPTY_FORM: FormState = {
  * the truth (effectiveFrom clamps, key whitelist, etc.).
  */
 export default function ProposeDeadlineRulePage() {
-  const { key } = useParams<{ key: string }>();
+  // Two routes drive this page:
+  //   - /admin/deadline-rules/:key/propose       → create mode (key = ruleKey, no editId)
+  //   - /admin/deadline-rules/edit/:id           → edit mode (id = versionId, ruleKey from loaded version)
+  const { key: keyParam, id: editId } = useParams<{ key?: string; id?: string }>();
+  const isEditMode = !!editId;
+
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
-  const [error, setError] = useState<string | null>(null);
+  // Two error channels — keeps silent-click bug from coming back.
+  // fieldErrors: per-input messages rendered inline + in a summary above buttons.
+  // submitError: server/mutation failure not tied to a single field (auth, network, conflict).
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<keyof FormState, string>>>({});
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   // Migration cleanup banner: shown when admin lands via ?prefill=migration AND
   // a hint exists for this ruleKey. Admin must click "Dùng đề xuất" to apply —
   // banner never auto-overwrites form fields (per autoplan Design consensus).
+  // Suppressed in edit mode (existing draft has its own data).
   const prefillRequested = searchParams.get('prefill') === 'migration';
-  const prefillHint = key && prefillRequested ? MIGRATED_RULE_URL_HINTS[key] : null;
+  const prefillHint = !isEditMode && keyParam && prefillRequested ? MIGRATED_RULE_URL_HINTS[keyParam] : null;
   const [bannerDismissed, setBannerDismissed] = useState(false);
 
-  // Preload from active rule of this key
+  // ── Create mode: preload defaults from current active rule of this key ─────
   const activeQ = useQuery({
     queryKey: DEADLINE_RULES_QUERY_KEYS.active,
     queryFn: () => deadlineRulesApi.listActive(),
     staleTime: 30_000,
+    enabled: !isEditMode,
   });
 
   useEffect(() => {
-    if (!key || !activeQ.data) return;
-    const current = activeQ.data.data.find((r) => r.ruleKey === key);
+    // Gate on !isEditMode — edit mode's loaded draft must NOT be clobbered by
+    // active-rule defaults (CEO/Eng review C7).
+    if (isEditMode || !keyParam || !activeQ.data) return;
+    const current = activeQ.data.data.find((r) => r.ruleKey === keyParam);
     if (current) {
       setForm((prev) => ({
         ...prev,
@@ -105,57 +119,141 @@ export default function ProposeDeadlineRulePage() {
         legalBasis: current.legalBasis,
       }));
     }
-  }, [key, activeQ.data]);
+  }, [isEditMode, keyParam, activeQ.data]);
 
+  // ── Edit mode: load draft from the server and prefill the form ─────────────
+  const editVersionQ = useQuery({
+    queryKey: DEADLINE_RULES_QUERY_KEYS.detail(editId ?? ''),
+    queryFn: () => deadlineRulesApi.getById(editId!),
+    enabled: isEditMode,
+  });
+
+  useEffect(() => {
+    if (!isEditMode || !editVersionQ.data) return;
+    const v = editVersionQ.data.data;
+    // Bookmark protection: if version is no longer a draft (already submitted /
+    // approved / etc.), redirect to the read-only version page.
+    if (v.status !== 'draft') {
+      navigate(`/admin/deadline-rules/version/${v.id}`, { replace: true });
+      return;
+    }
+    setForm({
+      value: String(v.value),
+      label: v.label,
+      legalBasis: v.legalBasis,
+      documentType: v.documentType,
+      documentNumber: v.documentNumber,
+      documentIssuer: v.documentIssuer,
+      documentDate: v.documentDate ? v.documentDate.slice(0, 10) : '',
+      documentUrl: v.documentUrl ?? '',
+      reason: v.reason ?? '',
+      effectiveFrom: v.effectiveFrom ? v.effectiveFrom.slice(0, 10) : '',
+    });
+  }, [isEditMode, editVersionQ.data, navigate]);
+
+  // Effective ruleKey: from URL in create mode, from loaded version in edit mode.
+  const effectiveKey = isEditMode ? editVersionQ.data?.data.ruleKey : keyParam;
+  // Approver's "request-changes" note pinned to the form when proposer reopens
+  // a draft that was sent back. Cleared on resubmit by backend submit() (C2).
+  const requestChangesNote = isEditMode ? editVersionQ.data?.data.reviewNotes ?? null : null;
+
+  // ── Mutations (mode-aware) ─────────────────────────────────────────────────
   const saveDraftMut = useMutation({
-    mutationFn: (input: ProposeRuleInput) => deadlineRulesApi.propose(input),
+    mutationFn: (input: ProposeRuleInput) => {
+      if (isEditMode && editId) {
+        // updateDraft uses partial UpdateDraftInput; reuse ProposeRuleInput fields.
+        const dto: UpdateDraftInput = { ...input };
+        return deadlineRulesApi.updateDraft(editId, dto);
+      }
+      return deadlineRulesApi.propose(input);
+    },
     onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: DEADLINE_RULES_QUERY_KEYS.active });
+      if (isEditMode && editId) {
+        queryClient.invalidateQueries({ queryKey: DEADLINE_RULES_QUERY_KEYS.detail(editId) });
+      }
       navigate(`/admin/deadline-rules/version/${res.data.id}`);
     },
-    onError: (e: { response?: { data?: { message?: string } }; message?: string }) =>
-      setError(e.response?.data?.message ?? e.message ?? 'Lưu thất bại'),
+    onError: (e: { response?: { data?: { message?: string } }; message?: string }) => {
+      console.error('[deadline-rules] save-draft failed', e);
+      setSubmitError(e.response?.data?.message ?? e.message ?? 'Lưu thất bại');
+    },
   });
 
   const submitMut = useMutation({
     mutationFn: async (input: ProposeRuleInput) => {
+      if (isEditMode && editId) {
+        // Edit mode: write latest fields to the draft, then transition draft → submitted.
+        // If submit fails mid-flight, the updateDraft already applied → user can retry from draft.
+        const dto: UpdateDraftInput = { ...input };
+        await deadlineRulesApi.updateDraft(editId, dto);
+        return deadlineRulesApi.submit(editId);
+      }
       const created = await deadlineRulesApi.propose(input);
       return deadlineRulesApi.submit(created.data.id);
     },
     onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: DEADLINE_RULES_QUERY_KEYS.active });
       queryClient.invalidateQueries({ queryKey: DEADLINE_RULES_QUERY_KEYS.summary });
+      if (isEditMode && editId) {
+        queryClient.invalidateQueries({ queryKey: DEADLINE_RULES_QUERY_KEYS.detail(editId) });
+      }
       navigate(`/admin/deadline-rules/version/${res.data.id}`);
     },
-    onError: (e: { response?: { data?: { message?: string } }; message?: string }) =>
-      setError(e.response?.data?.message ?? e.message ?? 'Gửi duyệt thất bại'),
+    onError: (e: { response?: { data?: { message?: string } }; message?: string }) => {
+      console.error('[deadline-rules] submit failed', e);
+      setSubmitError(e.response?.data?.message ?? e.message ?? 'Gửi duyệt thất bại');
+    },
   });
 
-  if (!key) {
-    return <div className="p-6 text-red-600">Thiếu mã quy tắc</div>;
+  // Loading guard for edit mode while we fetch the existing draft.
+  if (isEditMode && editVersionQ.isLoading) {
+    return (
+      <div className="p-6 flex items-center gap-2 text-slate-600" data-testid="edit-mode-loading">
+        <Loader2 className="w-4 h-4 animate-spin" /> Đang tải bản nháp...
+      </div>
+    );
   }
 
+  if (!effectiveKey) {
+    return <div className="p-6 text-red-600">Thiếu mã quy tắc</div>;
+  }
+  // Bind to a local const so TypeScript narrows away undefined inside callbacks.
+  const ruleKeyForSubmit: string = effectiveKey;
+
+  // Maps fieldErrors keys to data-testid stems so scrollIntoView can land on the right input.
+  const FIELD_TESTID_MAP: Record<keyof FormState, string> = {
+    value: 'input-value',
+    label: 'input-label',
+    legalBasis: 'input-legal-basis',
+    documentType: 'select-doc-type',
+    documentNumber: 'input-doc-number',
+    documentIssuer: 'select-doc-issuer',
+    documentDate: 'input-doc-date',
+    documentUrl: 'input-doc-url',
+    reason: 'input-reason',
+    effectiveFrom: 'input-effective-from',
+  };
+
   const validate = (): ProposeRuleInput | null => {
+    // Collect every failing field in one pass so the user sees ALL problems, not just the first.
+    // Keep error strings stable — existing tests grep them via getByText(/.../) regex.
+    const errors: Partial<Record<keyof FormState, string>> = {};
     const valueNum = parseInt(form.value, 10);
     if (isNaN(valueNum) || valueNum < 1) {
-      setError('Giá trị phải là số nguyên dương');
-      return null;
+      errors.value = 'Giá trị phải là số nguyên dương';
     }
     if (!form.label.trim()) {
-      setError('Tên hiển thị không được trống');
-      return null;
+      errors.label = 'Tên hiển thị không được trống';
     }
     if (!form.legalBasis.trim()) {
-      setError('Căn cứ pháp lý không được trống');
-      return null;
+      errors.legalBasis = 'Căn cứ pháp lý không được trống';
     }
     if (!form.documentNumber.trim()) {
-      setError('Số/ký hiệu văn bản không được trống');
-      return null;
+      errors.documentNumber = 'Số/ký hiệu văn bản không được trống';
     }
     if (form.reason.trim().length < 20) {
-      setError('Lý do đề xuất phải có ít nhất 20 ký tự');
-      return null;
+      errors.reason = 'Lý do đề xuất phải có ít nhất 20 ký tự';
     }
     // Optional documentUrl: only submit if present + parses as URL with public TLD.
     // Server re-validates strictly; this catches obvious mistakes before round-trip.
@@ -164,22 +262,31 @@ export default function ProposeDeadlineRulePage() {
       try {
         const u = new URL(form.documentUrl.trim());
         if (u.protocol !== 'http:' && u.protocol !== 'https:') {
-          setError('URL phải bắt đầu bằng http:// hoặc https://');
-          return null;
+          errors.documentUrl = 'URL phải bắt đầu bằng http:// hoặc https://';
+        } else if (!u.hostname.includes('.')) {
+          errors.documentUrl = 'URL phải có tên miền hợp lệ (vd: vbpl.vn)';
+        } else {
+          documentUrl = form.documentUrl.trim();
         }
-        if (!u.hostname.includes('.')) {
-          setError('URL phải có tên miền hợp lệ (vd: vbpl.vn)');
-          return null;
-        }
-        documentUrl = form.documentUrl.trim();
       } catch {
-        setError('URL không hợp lệ');
-        return null;
+        errors.documentUrl = 'URL không hợp lệ';
       }
     }
-    setError(null);
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      setSubmitError(null);
+      // Scroll first failing field into view so the error is impossible to miss.
+      const firstKey = (Object.keys(errors) as Array<keyof FormState>)[0];
+      const testid = FIELD_TESTID_MAP[firstKey];
+      if (testid && typeof document !== 'undefined') {
+        document.querySelector(`[data-testid="${testid}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      return null;
+    }
+    setFieldErrors({});
+    setSubmitError(null);
     return {
-      ruleKey: key,
+      ruleKey: ruleKeyForSubmit,
       value: valueNum,
       label: form.label.trim(),
       legalBasis: form.legalBasis.trim(),
@@ -191,6 +298,19 @@ export default function ProposeDeadlineRulePage() {
       reason: form.reason.trim(),
       effectiveFrom: form.effectiveFrom || undefined,
     };
+  };
+
+  // Clears the field-level error for `key` on every keystroke so the red state
+  // doesn't linger after the user fixed the input.
+  const updateField = <K extends keyof FormState>(k: K, v: FormState[K]) => {
+    setForm((prev) => ({ ...prev, [k]: v }));
+    if (fieldErrors[k]) {
+      setFieldErrors((prev) => {
+        const next = { ...prev };
+        delete next[k];
+        return next;
+      });
+    }
   };
 
   const applyPrefillHint = () => {
@@ -216,9 +336,10 @@ export default function ProposeDeadlineRulePage() {
     if (input) submitMut.mutate(input);
   };
 
-  const isLoading = activeQ.isLoading;
+  const isLoading = isEditMode ? false : activeQ.isLoading;
   const isPending = saveDraftMut.isPending || submitMut.isPending;
-  const unit = DEADLINE_RULE_KEY_UNIT[key] ?? 'ngày';
+  const unit = DEADLINE_RULE_KEY_UNIT[ruleKeyForSubmit] ?? 'ngày';
+  const pageTitle = isEditMode ? 'Sửa bản nháp đề xuất' : 'Đề xuất sửa quy tắc';
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6" data-testid="propose-rule-page">
@@ -232,17 +353,36 @@ export default function ProposeDeadlineRulePage() {
       </button>
 
       <div>
-        <h1 className="text-2xl font-bold text-slate-800">Đề xuất sửa quy tắc</h1>
+        <h1 className="text-2xl font-bold text-slate-800" data-testid="page-title">{pageTitle}</h1>
         <p className="text-slate-600 text-sm mt-1">
-          <span className="font-mono text-blue-700">{key}</span> —{' '}
-          {DEADLINE_RULE_KEY_LABEL[key] ?? 'Quy tắc thời hạn'}
+          <span className="font-mono text-blue-700">{ruleKeyForSubmit}</span> —{' '}
+          {DEADLINE_RULE_KEY_LABEL[ruleKeyForSubmit] ?? 'Quy tắc thời hạn'}
         </p>
       </div>
 
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-2">
+      {/* Approver's request-changes note pinned above the form in edit mode.
+          Cleared by backend submit() when proposer resubmits (C2 fix). */}
+      {requestChangesNote && (
+        <div
+          role="alert"
+          className="bg-amber-50 border border-amber-300 rounded-lg p-4 flex items-start gap-3"
+          data-testid="request-changes-banner"
+        >
+          <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-amber-900">Approver yêu cầu sửa đổi</p>
+            <p className="text-sm text-amber-800 mt-1 whitespace-pre-wrap">{requestChangesNote}</p>
+            <p className="text-xs text-amber-700 mt-2 italic">
+              Sửa theo ghi chú trên và gửi duyệt lại. Ghi chú sẽ tự xóa khi bạn submit.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {submitError && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-2" data-testid="submit-error">
           <AlertCircle className="w-4 h-4 text-red-600" />
-          <p className="text-sm text-red-700">{error}</p>
+          <p className="text-sm text-red-700">{submitError}</p>
         </div>
       )}
 
@@ -302,13 +442,16 @@ export default function ProposeDeadlineRulePage() {
               min={1}
               max={3650}
               value={form.value}
-              onChange={(e) => setForm({ ...form, value: e.target.value })}
-              className="w-32 px-3 py-2 border border-slate-300 rounded text-2xl font-mono font-bold text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
+              onChange={(e) => updateField('value', e.target.value)}
+              className={`w-32 px-3 py-2 border rounded text-2xl font-mono font-bold text-center focus:outline-none focus:ring-2 ${fieldErrors.value ? 'border-red-300 focus:ring-red-500' : 'border-slate-300 focus:ring-blue-500'}`}
               data-testid="input-value"
               disabled={isLoading}
             />
             <span className="text-slate-600">{unit}</span>
           </div>
+          {fieldErrors.value && (
+            <p data-testid="error-value" className="text-xs text-red-600 mt-1">{fieldErrors.value}</p>
+          )}
         </div>
 
         {/* effectiveFrom */}
@@ -336,11 +479,14 @@ export default function ProposeDeadlineRulePage() {
           <input
             type="text"
             value={form.label}
-            onChange={(e) => setForm({ ...form, label: e.target.value })}
-            className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            onChange={(e) => updateField('label', e.target.value)}
+            className={`w-full px-3 py-2 border rounded text-sm focus:outline-none focus:ring-2 ${fieldErrors.label ? 'border-red-300 focus:ring-red-500' : 'border-slate-300 focus:ring-blue-500'}`}
             maxLength={200}
             data-testid="input-label"
           />
+          {fieldErrors.label && (
+            <p data-testid="error-label" className="text-xs text-red-600 mt-1">{fieldErrors.label}</p>
+          )}
         </div>
 
         {/* legalBasis */}
@@ -351,12 +497,15 @@ export default function ProposeDeadlineRulePage() {
           <input
             type="text"
             value={form.legalBasis}
-            onChange={(e) => setForm({ ...form, legalBasis: e.target.value })}
+            onChange={(e) => updateField('legalBasis', e.target.value)}
             placeholder="Vd: Điều 147 BLTTHS 2015 (sửa đổi 2021)"
-            className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className={`w-full px-3 py-2 border rounded text-sm focus:outline-none focus:ring-2 ${fieldErrors.legalBasis ? 'border-red-300 focus:ring-red-500' : 'border-slate-300 focus:ring-blue-500'}`}
             maxLength={500}
             data-testid="input-legal-basis"
           />
+          {fieldErrors.legalBasis && (
+            <p data-testid="error-legal-basis" className="text-xs text-red-600 mt-1">{fieldErrors.legalBasis}</p>
+          )}
         </div>
 
         {/* documentRef (structured) */}
@@ -385,12 +534,15 @@ export default function ProposeDeadlineRulePage() {
               <input
                 type="text"
                 value={form.documentNumber}
-                onChange={(e) => setForm({ ...form, documentNumber: e.target.value })}
+                onChange={(e) => updateField('documentNumber', e.target.value)}
                 placeholder="Vd: 28/2020"
-                className="w-full px-2 py-2 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={`w-full px-2 py-2 border rounded text-sm focus:outline-none focus:ring-2 ${fieldErrors.documentNumber ? 'border-red-300 focus:ring-red-500' : 'border-slate-300 focus:ring-blue-500'}`}
                 maxLength={100}
                 data-testid="input-doc-number"
               />
+              {fieldErrors.documentNumber && (
+                <p data-testid="error-doc-number" className="text-xs text-red-600 mt-1">{fieldErrors.documentNumber}</p>
+              )}
             </div>
             <div>
               <label className="block text-xs text-slate-600 mb-1">Cơ quan ban hành</label>
@@ -434,17 +586,42 @@ export default function ProposeDeadlineRulePage() {
           </label>
           <textarea
             value={form.reason}
-            onChange={(e) => setForm({ ...form, reason: e.target.value })}
+            onChange={(e) => updateField('reason', e.target.value)}
             rows={5}
             placeholder="Vd: Cập nhật theo Thông tư 28/2020/TT-BCA Điều 11 khoản 2 do BCA mới ban hành thay thế quy định cũ..."
-            className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className={`w-full px-3 py-2 border rounded text-sm focus:outline-none focus:ring-2 ${fieldErrors.reason ? 'border-red-300 focus:ring-red-500' : 'border-slate-300 focus:ring-blue-500'}`}
             minLength={20}
             maxLength={2000}
             data-testid="input-reason"
           />
-          <p className="text-xs text-slate-500 mt-1">Tối thiểu 20 ký tự — phục vụ audit VKS.</p>
+          {fieldErrors.reason ? (
+            <p data-testid="error-reason" className="text-xs text-red-600 mt-1">{fieldErrors.reason}</p>
+          ) : (
+            <p className="text-xs text-slate-500 mt-1">Tối thiểu 20 ký tự — phục vụ audit VKS.</p>
+          )}
         </div>
       </div>
+
+      {/* Sticky form-error summary — sits directly above the button cluster
+          so a click that fails validation cannot disappear into the void.
+          Counts errors only; specific messages appear inline below each input
+          so we don't duplicate text that breaks getByText regex assertions. */}
+      {(submitError || Object.keys(fieldErrors).length > 0) && (
+        <div
+          data-testid="form-error-summary"
+          role="alert"
+          className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-2"
+        >
+          <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+          <div className="text-sm text-red-700">
+            {submitError ?? (
+              <span>
+                Có <span className="font-medium">{Object.keys(fieldErrors).length}</span> trường cần sửa bên trên trước khi gửi.
+              </span>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="flex items-center justify-end gap-2">
         <button

@@ -369,6 +369,190 @@ describe('DeadlineRulesService', () => {
     });
   });
 
+  // ── withdraw ───────────────────────────────────────────────────────────────
+
+  describe('withdraw', () => {
+    it('transitions submitted → draft when proposer self-withdraws with reason', async () => {
+      prisma.deadlineRuleVersion.findUnique.mockResolvedValue(
+        makeRule({ status: 'submitted', proposedById: 'user_a', reviewedAt: null }),
+      );
+      prisma.deadlineRuleVersion.update.mockResolvedValue(
+        makeRule({ status: 'draft', proposedById: 'user_a', withdrawNotes: 'Sai số liệu cần sửa' }),
+      );
+
+      const result = await service.withdraw(
+        'rule_v1',
+        { withdrawNotes: 'Sai số liệu cần sửa lại' },
+        'user_a',
+      );
+      expect(result.success).toBe(true);
+      expect(result.data.status).toBe('draft');
+      expect(prisma.deadlineRuleVersion.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            status: 'draft',
+            withdrawNotes: 'Sai số liệu cần sửa lại',
+          }),
+        }),
+      );
+      expect(audit.log).toHaveBeenCalledWith(
+        expect.objectContaining({ action: DEADLINE_RULE_ACTIONS.WITHDRAWN }),
+        expect.anything(),
+      );
+    });
+
+    it('blocks withdraw when status is not submitted', async () => {
+      prisma.deadlineRuleVersion.findUnique.mockResolvedValue(
+        makeRule({ status: 'active', proposedById: 'user_a' }),
+      );
+      await expect(
+        service.withdraw('rule_v1', { withdrawNotes: 'Đã muộn cần sửa lại' }, 'user_a'),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('blocks withdraw by non-proposer', async () => {
+      prisma.deadlineRuleVersion.findUnique.mockResolvedValue(
+        makeRule({ status: 'submitted', proposedById: 'user_a' }),
+      );
+      await expect(
+        service.withdraw('rule_v1', { withdrawNotes: 'Tôi không phải đề xuất' }, 'user_b'),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('blocks withdraw if approver already reviewed (race window)', async () => {
+      prisma.deadlineRuleVersion.findUnique.mockResolvedValue(
+        makeRule({
+          status: 'submitted',
+          proposedById: 'user_a',
+          reviewedAt: new Date(),
+          reviewedById: 'user_b',
+          reviewNotes: 'OK',
+        }),
+      );
+      await expect(
+        service.withdraw('rule_v1', { withdrawNotes: 'Muốn rút sau khi approver xem' }, 'user_a'),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('returns 409 when Prisma update affects 0 rows (status changed mid-flight)', async () => {
+      prisma.deadlineRuleVersion.findUnique.mockResolvedValue(
+        makeRule({ status: 'submitted', proposedById: 'user_a', reviewedAt: null }),
+      );
+      const p2025 = new Error('Record not found') as Error & { code?: string };
+      p2025.code = 'P2025';
+      prisma.deadlineRuleVersion.update.mockRejectedValue(p2025);
+      await expect(
+        service.withdraw('rule_v1', { withdrawNotes: 'Race với approve' }, 'user_a'),
+      ).rejects.toThrow(ConflictException);
+    });
+  });
+
+  // ── requestChanges ─────────────────────────────────────────────────────────
+
+  describe('requestChanges', () => {
+    it('transitions submitted → draft with reviewer fields set (CHANGES_REQUESTED audit)', async () => {
+      prisma.deadlineRuleVersion.findUnique.mockResolvedValue(
+        makeRule({ status: 'submitted', proposedById: 'user_a' }),
+      );
+      prisma.deadlineRuleVersion.update.mockResolvedValue(
+        makeRule({
+          status: 'draft',
+          proposedById: 'user_a',
+          reviewedById: 'user_b',
+          reviewedAt: new Date(),
+          reviewNotes: 'Cần bổ sung Điều 147',
+        }),
+      );
+
+      const result = await service.requestChanges(
+        'rule_v1',
+        { reviewNotes: 'Cần bổ sung Điều 147 khoản 2' },
+        'user_b',
+      );
+      expect(result.success).toBe(true);
+      expect(prisma.deadlineRuleVersion.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            status: 'draft',
+            reviewedById: 'user_b',
+            reviewNotes: 'Cần bổ sung Điều 147 khoản 2',
+          }),
+        }),
+      );
+      expect(audit.log).toHaveBeenCalledWith(
+        expect.objectContaining({ action: DEADLINE_RULE_ACTIONS.CHANGES_REQUESTED }),
+        expect.anything(),
+      );
+    });
+
+    it('blocks requestChanges when status is not submitted', async () => {
+      prisma.deadlineRuleVersion.findUnique.mockResolvedValue(
+        makeRule({ status: 'draft', proposedById: 'user_a' }),
+      );
+      await expect(
+        service.requestChanges('rule_v1', { reviewNotes: 'Note dài đủ' }, 'user_b'),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('blocks self-request-changes (approver === proposer)', async () => {
+      prisma.deadlineRuleVersion.findUnique.mockResolvedValue(
+        makeRule({ status: 'submitted', proposedById: 'user_a' }),
+      );
+      await expect(
+        service.requestChanges('rule_v1', { reviewNotes: 'Tự yêu cầu sửa' }, 'user_a'),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('returns 409 when P2034 Serializable conflict', async () => {
+      prisma.deadlineRuleVersion.findUnique.mockResolvedValue(
+        makeRule({ status: 'submitted', proposedById: 'user_a' }),
+      );
+      const p2034 = new Error('Serialization failure') as Error & { code?: string };
+      p2034.code = 'P2034';
+      prisma.deadlineRuleVersion.update.mockRejectedValue(p2034);
+      await expect(
+        service.requestChanges('rule_v1', { reviewNotes: 'Race với approve' }, 'user_b'),
+      ).rejects.toThrow(ConflictException);
+    });
+  });
+
+  // ── submit cycle reset (C2 fix) ────────────────────────────────────────────
+
+  describe('submit (cycle reset after request-changes)', () => {
+    it('clears reviewedAt/reviewedById/reviewNotes when resubmitting from request-changes state', async () => {
+      prisma.deadlineRuleVersion.findUnique.mockResolvedValue(
+        makeRule({
+          status: 'draft',
+          proposedById: 'user_a',
+          reviewedById: 'user_b',
+          reviewedAt: new Date(),
+          reviewNotes: 'Approver requested changes earlier',
+        }),
+      );
+      prisma.deadlineRuleVersion.update.mockResolvedValue(
+        makeRule({
+          status: 'submitted',
+          proposedById: 'user_a',
+          reviewedAt: null,
+          reviewedById: null,
+          reviewNotes: null,
+        }),
+      );
+
+      await service.submit('rule_v1', 'user_a');
+      expect(prisma.deadlineRuleVersion.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            status: 'submitted',
+            reviewedAt: null,
+            reviewedById: null,
+            reviewNotes: null,
+          }),
+        }),
+      );
+    });
+  });
+
   // ── deleteDraft ────────────────────────────────────────────────────────────
 
   describe('deleteDraft', () => {

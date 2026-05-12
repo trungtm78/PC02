@@ -969,6 +969,8 @@ enum NotificationType {
   DEADLINE_RULE_REJECTED
   DEADLINE_RULE_ACTIVATED
   DEADLINE_RULE_STALE_REVIEW
+  DEADLINE_RULE_WITHDRAWN
+  DEADLINE_RULE_CHANGES_REQUESTED
 }
 
 model Notification {
@@ -1178,11 +1180,14 @@ model DeadlineRuleVersion {
   proposedByType String   @default("USER") // 'USER' | 'SYSTEM'
   proposedAt     DateTime @default(now())
 
-  // Reviewer (approver or rejecter)
+  // Reviewer (approver or rejecter or changes-requester)
   reviewedById String?
   reviewedBy   User?     @relation("DeadlineRuleReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
   reviewedAt   DateTime?
   reviewNotes  String?
+
+  // Proposer-initiated withdraw note (separate from reviewer's reviewNotes)
+  withdrawNotes String?
 
   // Back-relations to Incident/Petition snapshots (named — 3 FKs into Incident)
   incidentsInitial Incident[] @relation("IncidentInitialRule")

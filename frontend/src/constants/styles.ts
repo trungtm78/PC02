@@ -60,6 +60,9 @@ export const BTN_SECONDARY =
 export const BTN_OUTLINE_BLUE =
   "px-4 py-2.5 border border-blue-300 text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors";
 
+export const BTN_OUTLINE_SLATE =
+  "px-4 py-2.5 border border-slate-300 text-slate-700 bg-white rounded-lg hover:bg-slate-50 transition-colors";
+
 export const BTN_DANGER =
   "px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors";
 
