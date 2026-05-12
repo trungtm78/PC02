@@ -50,6 +50,13 @@ vi.mock('@/lib/api', () => ({
       }),
     ),
   },
+  // PR 2b: CreateEventModal calls eventCategoriesApi + calendarEventsApi.
+  eventCategoriesApi: {
+    list: vi.fn(() => Promise.resolve({ data: [{ id: 'cat-1', slug: 'personal', name: 'Cá nhân', color: '#003973' }] })),
+  },
+  calendarEventsApi: {
+    create: vi.fn(() => Promise.resolve({ data: { id: 'new' } })),
+  },
 }));
 
 // Mock Modal component. IMPORTANT: the real Modal uses an `open` prop, not
@@ -108,19 +115,22 @@ describe('CalendarPage', () => {
 
   it('should render add event button when user has permission', () => {
     render(<CalendarPage />);
-    
-    expect(screen.getByTestId('add-event-btn')).toBeInTheDocument();
-    expect(screen.getByText('Thêm sự kiện')).toBeInTheDocument();
+
+    // PR 2b: header button reroutes to API-backed CreateEventModal.
+    expect(screen.getByTestId('create-event-api-btn')).toBeInTheDocument();
+    expect(screen.getByText('Tạo sự kiện')).toBeInTheDocument();
   });
 
-  it('should open modal when clicking add event button', async () => {
+  it('should open API-backed create modal when clicking add event button', async () => {
     render(<CalendarPage />);
-    
-    fireEvent.click(screen.getByTestId('add-event-btn'));
-    
+
+    fireEvent.click(screen.getByTestId('create-event-api-btn'));
+
     await waitFor(() => {
-      expect(screen.getByTestId('modal')).toBeInTheDocument();
-      expect(screen.getByTestId('modal-title')).toHaveTextContent('Thêm sự kiện mới');
+      // CreateEventModal uses its own DOM (not the legacy <Modal>), so look
+      // for the heading + the save button data-testid.
+      expect(screen.getByText('Tạo sự kiện mới')).toBeInTheDocument();
+      expect(screen.getByTestId('create-event-save')).toBeInTheDocument();
     });
   });
 
