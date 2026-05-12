@@ -5,11 +5,13 @@ export interface CalendarEvent {
   id: string;
   title: string;
   date: string; // YYYY-MM-DD
-  type: 'deadline' | 'hearing' | 'meeting' | 'other';
+  type: 'deadline' | 'hearing' | 'meeting' | 'other' | 'holiday';
   description?: string;
   caseId?: string;
   incidentId?: string;
   petitionId?: string;
+  holidayCategory?: 'NATIONAL' | 'POLICE' | 'MILITARY' | 'INTERNATIONAL' | 'OTHER';
+  isOfficialDayOff?: boolean;
 }
 
 @Injectable()
@@ -33,7 +35,7 @@ export class CalendarService {
       toDate = new Date(targetYear, 11, 31, 23, 59, 59, 999);
     }
 
-    const [cases, incidents, petitions] = await Promise.all([
+    const [cases, incidents, petitions, holidays] = await Promise.all([
       this.prisma.case.findMany({
         where: {
           deletedAt: null,
@@ -54,6 +56,18 @@ export class CalendarService {
           deadline: { gte: fromDate, lte: toDate },
         },
         select: { id: true, stt: true, summary: true, deadline: true, status: true },
+      }),
+      this.prisma.holiday.findMany({
+        where: { date: { gte: fromDate, lte: toDate } },
+        select: {
+          id: true,
+          title: true,
+          shortTitle: true,
+          date: true,
+          category: true,
+          isOfficialDayOff: true,
+          description: true,
+        },
       }),
     ]);
 
@@ -92,6 +106,18 @@ export class CalendarService {
         type: 'deadline',
         description: `Hạn xử lý đơn thư: ${p.stt}`,
         petitionId: p.id,
+      });
+    }
+
+    for (const h of holidays) {
+      events.push({
+        id: `holiday-${h.id}`,
+        title: h.shortTitle ?? h.title,
+        date: h.date.toISOString().slice(0, 10),
+        type: 'holiday',
+        description: h.description ?? h.title,
+        holidayCategory: h.category,
+        isOfficialDayOff: h.isOfficialDayOff,
       });
     }
 

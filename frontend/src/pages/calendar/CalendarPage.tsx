@@ -15,7 +15,8 @@ import { api } from '@/lib/api';
 
 const COLORS = { navy: '#1B2B4E', gold: '#D4AF37', slate: '#64748B' };
 
-export type EventType = 'deadline' | 'hearing' | 'meeting' | 'other';
+export type EventType = 'deadline' | 'hearing' | 'meeting' | 'other' | 'holiday';
+export type HolidayCategory = 'NATIONAL' | 'POLICE' | 'MILITARY' | 'INTERNATIONAL' | 'OTHER';
 
 export interface CalendarEvent {
   id: string;
@@ -26,6 +27,8 @@ export interface CalendarEvent {
   caseId?: string;
   incidentId?: string;
   petitionId?: string;
+  holidayCategory?: HolidayCategory;
+  isOfficialDayOff?: boolean;
 }
 
 const eventTypeLabels: Record<EventType, string> = {
@@ -33,6 +36,7 @@ const eventTypeLabels: Record<EventType, string> = {
   hearing: 'Phiên tòa',
   meeting: 'Cuộc họp',
   other: 'Khác',
+  holiday: 'Ngày lễ',
 };
 
 const eventTypeColors: Record<EventType, string> = {
@@ -40,7 +44,31 @@ const eventTypeColors: Record<EventType, string> = {
   hearing: '#8B5CF6',
   meeting: '#3B82F6',
   other: '#64748B',
+  holiday: '#DA251D', // Đỏ cờ Việt Nam
 };
+
+const holidayCategoryColors: Record<HolidayCategory, string> = {
+  NATIONAL: '#DA251D',      // Đỏ cờ
+  POLICE: '#1B4D8E',        // Xanh CAND
+  MILITARY: '#2E7D32',      // Xanh QĐND
+  INTERNATIONAL: '#F59E0B', // Cam
+  OTHER: '#64748B',
+};
+
+const holidayCategoryLabels: Record<HolidayCategory, string> = {
+  NATIONAL: 'Quốc gia',
+  POLICE: 'Công an',
+  MILITARY: 'Quân đội',
+  INTERNATIONAL: 'Quốc tế',
+  OTHER: 'Khác',
+};
+
+function getEventColor(event: CalendarEvent): string {
+  if (event.type === 'holiday' && event.holidayCategory) {
+    return holidayCategoryColors[event.holidayCategory];
+  }
+  return eventTypeColors[event.type];
+}
 
 // Calendar day cell component
 interface DayCellProps {
@@ -85,7 +113,7 @@ function DayCell({ date, isCurrentMonth, isToday, events, onClick }: DayCellProp
           <div
             key={event.id}
             className="text-xs px-2 py-1 rounded truncate text-white"
-            style={{ backgroundColor: eventTypeColors[event.type] }}
+            style={{ backgroundColor: getEventColor(event) }}
             title={event.title}
           >
             {event.title}
@@ -337,11 +365,13 @@ function UpcomingEvents({ events, onEventClick }: UpcomingEventsProps) {
                     <p className="text-sm text-slate-500 mt-1 line-clamp-2">{event.description}</p>
                   )}
                   <div className="flex items-center gap-3 mt-2">
-                    <span 
+                    <span
                       className="text-xs px-2 py-0.5 rounded-full text-white"
-                      style={{ backgroundColor: eventTypeColors[event.type] }}
+                      style={{ backgroundColor: getEventColor(event) }}
                     >
-                      {eventTypeLabels[event.type]}
+                      {event.type === 'holiday' && event.holidayCategory
+                        ? `${eventTypeLabels.holiday} • ${holidayCategoryLabels[event.holidayCategory]}`
+                        : eventTypeLabels[event.type]}
                     </span>
                     <span className="text-xs text-slate-500 flex items-center gap-1">
                       <CalendarIcon className="w-3 h-3" />

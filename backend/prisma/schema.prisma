@@ -1429,3 +1429,36 @@ model AddressSeedJob {
   @@index([province, status])
   @@map("address_seed_jobs")
 }
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Holiday: Ngày nghỉ lễ / ngày đặc biệt (Quốc gia, Công an, Quân đội)
+// Hiển thị trên trang Lịch làm việc cùng các deadline.
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum HolidayCategory {
+  NATIONAL // Lễ quốc gia: Tết, 30/4, 1/5, 2/9, Giỗ Tổ
+  POLICE // Ngày truyền thống ngành Công an
+  MILITARY // Ngày truyền thống Quân đội
+  INTERNATIONAL // 8/3, 20/10, 20/11, 1/5 quốc tế lao động
+  OTHER
+}
+
+model Holiday {
+  id               String          @id @default(cuid())
+  date             DateTime        @db.Date // Ngày dương lịch
+  title            String // "Tết Nguyên Đán", "Ngày truyền thống CAND"
+  shortTitle       String? // Hiển thị compact trên ô lịch nhỏ
+  category         HolidayCategory
+  isOfficialDayOff Boolean         @default(false) // Có được nghỉ chính thức không
+  description      String? // Mô tả chi tiết
+  isRecurring      Boolean         @default(true) // Lặp lại hàng năm (cố định theo dương lịch)
+  lunarDate        String? // Ghi chú âm lịch nếu cần (vd: "Mùng 1 Tết Âm")
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  @@unique([date, title])
+  @@index([category])
+  @@index([date])
+  @@map("holidays")
+}

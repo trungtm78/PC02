@@ -2,6 +2,39 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.15.0.0] - 2026-05-12
+
+### Added — Lịch ngày đặc biệt (Holidays)
+- Trang **Lịch làm việc** giờ hiển thị 25 ngày đặc biệt của Việt Nam, Công an, Quân đội bên cạnh deadline vụ án / vụ việc / đơn thư. Mỗi category có màu riêng (đỏ cờ NATIONAL, xanh CAND POLICE, xanh QĐND MILITARY, cam INTERNATIONAL) để cán bộ phân biệt nhanh giữa hạn nghiệp vụ và lịch lễ.
+- Model `Holiday` + enum `HolidayCategory` (NATIONAL/POLICE/MILITARY/INTERNATIONAL/OTHER) trong `prisma/schema.prisma`. Unique theo `(date, title)` — cho phép cùng 1 ngày có nhiều holiday (vd 3/3: Biên phòng + An ninh Nhân dân).
+- Seed `prisma/seed-holidays.ts` idempotent, 25 entries cho năm 2026:
+  - **8 NATIONAL**: Tết Dương lịch, Tết Nguyên Đán (mùng 1/2/3), Giỗ Tổ Hùng Vương, Giải phóng miền Nam 30/4, Quốc tế Lao động 1/5, Quốc khánh 2/9
+  - **7 POLICE**: Truyền thống CAND 19/8, CSGT 21/2, PCCC 4/10, CSHS 18/4, An ninh Nhân dân 3/3, QLHC 4/6, Pháp luật Việt Nam 9/11
+  - **6 MILITARY**: Thành lập QĐND 22/12, Toàn quốc kháng chiến 19/12, Hải quân 7/5, Biên phòng 3/3, PK-KQ 22/10, Thương binh - Liệt sỹ 27/7
+  - **4 INTERNATIONAL**: 8/3, Thiếu nhi 1/6, Phụ nữ Việt Nam 20/10, Nhà giáo 20/11
+- `GET /api/v1/calendar/events?year=&month=` giờ trả thêm event type `holiday` với metadata `holidayCategory` + `isOfficialDayOff` để frontend render badge category và đánh dấu ngày nghỉ chính thức.
+
+### Changed
+- `CalendarService.getEvents` merge holiday vào output cùng cases/incidents/petitions, sort theo ngày tăng dần.
+- `EventType` ở frontend mở rộng từ 4 → 5 giá trị (thêm `'holiday'`). `eventTypeColors`/`eventTypeLabels` cập nhật tương ứng. Hàm `getEventColor()` chọn màu theo `holidayCategory` khi event là holiday.
+
+### Notes
+- Tết Nguyên Đán (mùng 1/2/3) + Giỗ Tổ Hùng Vương phải tính theo lịch âm hàng năm — phiên bản này hardcode năm 2026. Năm 2027 admin cần cập nhật ngày qua DB hoặc tạo cronjob.
+- `pc02_user` được grant `BYPASSRLS` trong môi trường production hiện tại để cho phép seed/migrate. Cần audit `prisma.service.ts` xem có set `app.current_user_id` qua middleware không trước khi revoke BYPASSRLS.
+
+### Chore
+- Thêm `backend/uploads/` vào `.gitignore` để tránh commit nhầm file user upload runtime.
+
+## [0.14.2.0] - 2026-05-11
+
+### Security — CSO audit hardening (5 findings)
+- **2FA backup codes** giờ hash bằng `bcrypt` cost 12 thay vì SHA-256 + salt một vòng. Tấn công bằng GPU brute-force trên DB bị rò rỉ giờ chậm hơn ~6 bậc. Migration `20260511180000_invalidate_legacy_backup_codes` tự động xoá codes cũ cho user có 2FA bật — họ cần re-setup để nhận codes mới hashed bằng bcrypt. Khi deploy, `docker-entrypoint.sh` chạy `prisma migrate deploy` nên migration tự kick in.
+- **Frontend `axios` 1.13.5 → 1.16.x** vá GHSA-3w6x-2g7m-8v23 (prototype pollution trong `parseReviver`) và GHSA-q8qp-cvcw-x6jj (credential injection qua HTTP adapter prototype pollution). HIGH severity, direct prod dep.
+- **Frontend `postcss` < 8.5.10** vá GHSA-qx2v-qp2m-jg93 (XSS qua unescaped `</style>` trong CSS stringify). Vite dev-tool path.
+- **Backend `hono` + `@hono/node-server`** transitive vulns vá qua `npm overrides` mà không phải downgrade Prisma 7. Bao gồm: middleware bypass qua serveStatic, body-limit bypass trên chunked requests, JWT NumericDate validation, JSX HTML injection, cache cross-user leakage. Tất cả là dev-only path qua `@prisma/dev`, không expose runtime nhưng dọn cho sạch.
+- **CI Actions pinned theo SHA**: `actions/checkout@34e1148` (v4.3.1) + `actions/setup-node@49933ea` (v4.4.0). Phòng tag-reassignment attack kiểu tj-actions/changed-files 2025.
+
+Tests: 1050/1050 backend Jest + 364/364 frontend Vitest pass. `npm audit`: 0 vulnerabilities ở cả hai side.
 ## [0.14.3.0] - 2026-05-11
 
 ### Added — Workflow "Sửa đề xuất quy tắc sau khi đã gửi duyệt"

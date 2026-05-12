@@ -28,6 +28,19 @@ import {
 } from '../../common/constants/two-fa-methods.constants';
 
 const SETUP_PENDING_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+const BACKUP_CODE_COUNT = 10;
+// Match the cost of real entries so bcrypt.compare against the dummy takes the
+// same wall-clock time as comparing against a stored hash. Test env uses cost 4
+// to keep jest under its 5s/test timeout while still exercising the dummy path.
+const BCRYPT_COST = process.env.NODE_ENV === 'test' ? 4 : 12;
+// Module-level dummy bcrypt hash. verifyBackup pads its loop with this hash
+// so total response time stays constant regardless of how many codes the user
+// has left or whether legacy sha256 entries are mixed in. Generated once at
+// module load; nothing matches it because the plaintext is fixed and random.
+const DUMMY_BCRYPT_HASH = bcrypt.hashSync(
+  `__pad__${crypto.randomBytes(8).toString('hex')}`,
+  BCRYPT_COST,
+);
 
 @Injectable()
 export class TwoFaService {
@@ -79,19 +92,18 @@ export class TwoFaService {
     const secret = totpGenerateSecret();
     const encryptedSecret = this.encryption.encrypt(secret);
 
-    // Generate 10 backup codes (12-char hex each)
-    const plainCodes: string[] = [];
-    const backupCodes: string[] = [];
-    const backupCodeSalts: string[] = [];
-
-    for (let i = 0; i < 10; i++) {
-      const code = crypto.randomBytes(6).toString('hex');
-      const salt = crypto.randomBytes(16).toString('hex');
-      const hash = crypto.createHash('sha256').update(salt + code).digest('hex');
-      plainCodes.push(code);
-      backupCodes.push(hash);
-      backupCodeSalts.push(salt);
-    }
+    // Generate BACKUP_CODE_COUNT backup codes (12-char hex each). Hash with
+    // bcrypt cost 12 so a DB breach can't be GPU-brute-forced. bcrypt embeds
+    // its own salt; backupCodeSalts kept as parallel empty strings to preserve
+    // schema parity. Hashes computed in parallel via Promise.all so setup
+    // doesn't hold the libuv threadpool for ~2.5s (~250ms × 10 sequential).
+    const plainCodes: string[] = Array.from({ length: BACKUP_CODE_COUNT }, () =>
+      crypto.randomBytes(6).toString('hex'),
+    );
+    const backupCodes: string[] = await Promise.all(
+      plainCodes.map((c) => bcrypt.hash(c, BCRYPT_COST)),
+    );
+    const backupCodeSalts: string[] = new Array(BACKUP_CODE_COUNT).fill('');
 
     await this.prisma.user.update({
       where: { id: userId },
@@ -263,18 +275,21 @@ export class TwoFaService {
 
     let matchIdx = -1;
 
-    // OV-004: iterate ALL codes without early exit; use timingSafeEqual
-    for (let i = 0; i < user.backupCodes.length; i++) {
-      const computed = crypto
-        .createHash('sha256')
-        .update(user.backupCodeSalts[i] + code)
-        .digest('hex');
-
-      const isMatch = crypto.timingSafeEqual(
-        Buffer.from(computed, 'hex'),
-        Buffer.from(user.backupCodes[i], 'hex'),
-      );
-      if (isMatch) matchIdx = i;
+    // Timing-leak defense (OV-004 + adversarial review C1):
+    //   bcrypt.compare returns false on legacy 64-char hex sha256 entries
+    //   in microseconds, while real bcrypt entries take ~250ms — a response-
+    //   time oracle that leaks the legacy/bcrypt mix AND the remaining-code
+    //   count. Pad the loop to BACKUP_CODE_COUNT compares regardless of
+    //   array length, and compare a dummy hash for non-bcrypt slots so every
+    //   iteration takes a real bcrypt verification's worth of time.
+    for (let i = 0; i < BACKUP_CODE_COUNT; i++) {
+      const stored = i < user.backupCodes.length ? user.backupCodes[i] : undefined;
+      const target = stored && stored.startsWith('$2') ? stored : DUMMY_BCRYPT_HASH;
+      const isMatch = await bcrypt.compare(code, target);
+      // Only accept the match if we compared against the user's real stored
+      // entry — never count a successful dummy-hash compare (impossible by
+      // construction, but defense in depth).
+      if (isMatch && stored && target === stored) matchIdx = i;
     }
 
     if (matchIdx === -1) return false;

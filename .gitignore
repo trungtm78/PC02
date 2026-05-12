@@ -29,3 +29,6 @@ maestro/.env
 # Docker production secrets (never commit)
 .env
 /keys/
+
+# Runtime user uploads — never commit
+backend/uploads/
