@@ -2,6 +2,65 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.16.0.0] - 2026-05-13
+
+### Added — Calendar Events v2, Phase 1 (schema + dual-read foundation)
+
+Đây là PR 1 trong chuỗi 3 PR phased (theo /autoplan recommendation, replace Big Bang ban đầu). Mục tiêu PR 1: tạo schema mới SONG SONG với Holiday, không drop. Backend dual-read cả 2 nguồn nên frontend hiện tại không thấy thay đổi gì. PR 2 sẽ build full UI + CRUD + RRULE + reminders. PR 3 sẽ migrate data Holiday → CalendarEvent và drop bảng cũ.
+
+#### Schema (Prisma + migration `20260513120000_calendar_events_v2_phase1`)
+- **`EventCategory`** — bảng category động thay thế dần `HolidayCategory` enum. 5 default rows (`isSystem=true`, không cho xóa): national, police, military, international, other.
+- **`CalendarEvent`** — bảng event mới với 3-tier scope (SYSTEM/TEAM/PERSONAL), recurrence rule (RRULE string), category FK, audit fields (createdBy/updatedBy), soft delete (`deletedAt`). FK `userId` dùng `SetNull` (KHÔNG Cascade) để giữ audit history khi deactivate user.
+- **`CalendarEventOccurrenceOverride`** — thin override table cho RFC 5545 RECURRENCE-ID + EXDATE pattern. Replace self-FK approach (eng review #3 — 50 bytes vs 500/row).
+- **`EventReminder`** + **`EventReminderDispatch`** — FCM/email reminder tracking với UNIQUE `(reminderId, occurrenceDate)` chống duplicate dispatch.
+- **2 enums mới**: `EventScope`, `ReminderChannel`.
+- **4 partial indexes** trên `calendar_events` cho hot query paths (eng review #9):
+  - `(startDate) WHERE scope='SYSTEM' AND deletedAt IS NULL`
+  - `(startDate, teamId) WHERE scope='TEAM' AND deletedAt IS NULL`
+  - `(startDate, userId) WHERE scope='PERSONAL' AND deletedAt IS NULL`
+  - `(sentAt)` trên `event_reminder_dispatches` cho prune cron tương lai.
+- **KHÔNG đụng `Holiday` + `HolidayCategory` enum** — vẫn tồn tại song song.
+
+#### Backend modules (skeleton, gated by feature flags)
+- `event-categories` module — `GET /api/v1/event-categories` + `GET /:id`. Gated bởi `@FeatureFlag('event_categories_v2')`. PR 2 sẽ thêm POST/PATCH/DELETE.
+- `calendar-events` module — `GET /api/v1/calendar-events?year=&month=` skeleton. Gated bởi `@FeatureFlag('calendar_events_v2')`. PR 2 sẽ thêm CRUD + scope filtering + RRULE expansion.
+- `event-reminders` module — `GET /api/v1/events/:eventId/reminders` (current user only). Gated bởi `@FeatureFlag('event_reminders_v2')`. PR 2 sẽ thêm POST/DELETE + cron dispatcher với mutex (eng review #2) + Push/Email integration (qua `PushService.sendToUser` — không phải `firebase-admin` như plan ban đầu hiểu lầm).
+- Cả 3 feature flag mặc định **enabled=true** trong seed nhưng được toggle off bằng `gstack-config` hoặc `UPDATE feature_flags SET enabled=false WHERE key='...'` trước khi deploy nếu cần.
+
+#### Calendar dual-read (`backend/src/calendar/calendar.service.ts`)
+- `GET /api/v1/calendar/events?year=&month=` giờ đọc CẢ `prisma.holiday.findMany` (legacy) lẫn `prisma.calendarEvent.findMany` (mới), merge và sort theo date.
+- Event type mới `'event'` cùng các field `categorySlug/categoryName/categoryColor/scope` để frontend render khác với `'holiday'` cũ.
+- **Permission subject đổi từ `'Case'` → `'Calendar'`** (eng review #5 — `'Case'` là sai contract, lẽ ra phải là `'Calendar'` resource riêng).
+
+#### Permissions + seed
+- Thêm 4 permissions mới: `Calendar:{read,write,edit,delete}` với description tiếng Việt.
+- ADMIN role tự động được grant đầy đủ (loop existing).
+- OFFICER role giờ có `Calendar:read` (everyone needs to see calendar).
+- `seed-event-categories.ts` — idempotent upsert 5 default categories, mounted vào main seed chain.
+
+### Tests
+- 11 backend tests mới:
+  - `event-categories.service.spec.ts` (4 cases: list sorted, list empty, findOne hit, findOne miss)
+  - `calendar-events.service.spec.ts` (2 cases: findInRange filtered + include category, empty range)
+  - `event-reminders.service.spec.ts` (2 cases: listForEvent owned, empty)
+  - `calendar.service.spec.ts` (+4 cases mới cho dual-read: merges holidays + events, filters soft-deleted, queries same date range, maps to type='event' with shortTitle preference)
+- **Full backend suite: 1091/1091 pass** + `tsc --noEmit` clean.
+
+### Out of scope cho PR 1 (defer to PR 2)
+- POST/PATCH/DELETE endpoints cho event-categories, calendar-events, event-reminders.
+- Frontend rewrite CalendarPage + EventCategoriesModule UI.
+- RRULE recurrence expansion logic.
+- Cron dispatcher với mutex + PushService integration.
+- Per-user PERSONAL event cap + Throttle.
+- DataScope filtering (SYSTEM/TEAM/PERSONAL).
+- Migration 25 holiday → CalendarEvent (defer PR 3).
+- Documentation updates trong CLAUDE.md (sẽ làm khi PR 2 ship full feature).
+
+### Deploy notes
+- Tất cả feature flag mới default ON, nhưng vì frontend chưa gọi endpoints mới nên UI không thấy gì. Backend chỉ thay đổi 1 chỗ: calendar.service đọc thêm `calendar_events` table (sẽ rỗng cho đến khi admin tạo event). Risk thấp.
+- Sau deploy chạy: `cd /home/pc02/current/backend && npm run db:seed` (đã include seed-event-categories chain).
+- Migration `20260513120000_calendar_events_v2_phase1` chỉ CREATE TABLE, không touch Holiday → safe rollback qua pg_dump nếu cần.
+
 ## [0.15.1.1] - 2026-05-13
 
 ### Fixed
