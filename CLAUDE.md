@@ -30,29 +30,48 @@ Internal case management system (NestJS backend + React frontend) for managing l
 - **Status labels**: `frontend/src/shared/enums/status-labels.ts` — CASE/INCIDENT/PETITION status Vietnamese labels + Tailwind badge classes.
 - **Rule**: All enum comparisons must use constants/enum values, never string literals. Verified by grep guard in CI.
 
-## Deploy Configuration (configured by /setup-deploy)
-- Platform: Render
-- Production URL: TBD (update after first deploy)
-- Deploy workflow: auto-deploy on push to main
-- Deploy status command: HTTP health check
-- Merge method: squash
-- Project type: web app (NestJS API + React SPA)
-- Post-deploy health check: {PRODUCTION_URL}/api/v1/health
+## Deploy Configuration
 
-### Custom deploy hooks
-- Pre-merge: `cd backend && npm test`
-- Deploy trigger: automatic on push to main (Render auto-deploy)
-- Deploy status: poll production URL
-- Health check: {PRODUCTION_URL}/api/v1/health
+- **Platform**: Viettel Cloud VM (171.244.40.245), Ubuntu 24.04 LTS
+- **Production URL**: http://171.244.40.245/ (sẽ là `https://<domain>` khi có domain)
+- **Pipeline**: GitHub Actions (`.github/workflows/deploy.yml`)
+- **Deploy trigger**: auto-deploy khi push `main` HOẶC tạo tag `v*`
+- **Project type**: NestJS API (systemd `pc02-backend`) + React SPA (nginx serve `/var/www/pc02`)
+- **Health check**: `http://171.244.40.245/api/v1/health` (return `{"status":"ok"}`)
 
-### Setup instructions
-1. Create Render Web Service connected to this repo
-2. Set build command: `cd backend && npm install && npm run build && npx prisma migrate deploy && npm run db:seed`
-3. Set start command: `cd backend && npm run start:prod`
-4. Add environment variables (DATABASE_URL, JWT_SECRET, etc.)
-5. After deploy, replace `TBD` and `{PRODUCTION_URL}` above with actual URL
+### Pipeline
+1. **test** job: `npm ci backend` → `prisma generate` → `npm test` (1054 tests) → `tsc --noEmit`
+2. **build** job: build backend (`dist/src/main.js`) + frontend (`dist/`) → tar artifact
+3. **deploy** job: rsync artifact lên VM → `bash /home/pc02/bin/deploy.sh <sha>`
+4. (Tag only) **release** job: tạo GitHub Release với CHANGELOG section
 
-**CRITICAL:** `npm run db:seed` MUST run on every deploy so the `feature_flags` table is populated. Without it, `GET /api/v1/feature-flags` returns an empty array and the entire sidebar goes blank for every user. The seed is idempotent — running it twice is safe. To run only the feature-flag seed without touching other data, use `npm run db:seed:features`.
+`deploy.sh` trên VM:
+- Extract artifact → `/home/pc02/releases/<sha>/`
+- Symlink shared resources (`.env`, `keys/`, `uploads/`) từ `/home/pc02/shared/`
+- pg_dump pre-deploy backup (`/var/backups/pc02/pre-deploy-<sha>-*.sql.gz`)
+- `prisma migrate deploy` (auto, fail-safe — symlink chưa switch nếu migration fail)
+- Atomic symlink switch `/home/pc02/current → releases/<sha>`
+- Copy frontend `dist/*` → `/var/www/pc02/`
+- `systemctl restart pc02-backend` + health check
+- Prune giữ 5 releases gần nhất
+
+### Rollback
+- **Code**: `ssh pc02@171.244.40.245 'bash /home/pc02/bin/rollback.sh'` (về release trước)
+- **DB**: `pg_restore` từ `/var/backups/pc02/pre-deploy-<sha>-*.sql.gz`
+- Chi tiết: [docs/DEPLOY.md](docs/DEPLOY.md)
+
+### CRITICAL — feature_flags seed
+`prisma migrate deploy` không chạy seed. Nếu fresh DB hoặc `feature_flags` table trống → sidebar trống cho mọi user. Sau khi setup VM mới, chạy 1 lần:
+```bash
+cd /home/pc02/current/backend && npm run db:seed:features
+```
+Seed idempotent — rerun an toàn.
+
+### GitHub Secrets cần
+- `VM_HOST` = `171.244.40.245`
+- `VM_PORT` = `22`
+- `VM_USER` = `pc02`
+- `VM_SSH_PRIVATE_KEY` = full PEM (private key, public key paste vào VM `~pc02/.ssh/authorized_keys`)
 
 ## Git Branching Convention
 

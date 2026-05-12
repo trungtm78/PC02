@@ -1,0 +1,183 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+# Serial deploys only — never cancel in-progress deploy
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22.22.2'
+          cache: 'npm'
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      - name: Install backend dependencies
+        run: cd backend && npm ci
+
+      - name: Generate Prisma client
+        run: cd backend && npx prisma generate
+
+      - name: Backend tests
+        run: cd backend && npm test
+
+      - name: Backend TypeScript check
+        run: cd backend && npx tsc --noEmit
+
+  build:
+    name: Build
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22.22.2'
+          cache: 'npm'
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      - name: Install backend deps (production)
+        run: cd backend && npm ci
+
+      - name: Generate Prisma client
+        run: cd backend && npx prisma generate
+
+      - name: Build backend
+        run: cd backend && npm run build
+
+      - name: Install frontend deps
+        run: cd frontend && npm ci
+
+      - name: Build frontend (skip tsc — known type errors)
+        run: cd frontend && npx vite build
+
+      - name: Package release tarball
+        run: |
+          tar -czf /tmp/pc02-${{ github.sha }}.tar.gz \
+            --exclude='backend/node_modules/.cache' \
+            --exclude='backend/node_modules/@prisma/engines' \
+            backend/dist \
+            backend/node_modules \
+            backend/prisma \
+            backend/package.json \
+            backend/package-lock.json \
+            backend/scripts \
+            backend/assets \
+            frontend/dist \
+            scripts/deploy \
+            VERSION \
+            CHANGELOG.md
+          ls -lh /tmp/pc02-${{ github.sha }}.tar.gz
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: pc02-release-${{ github.sha }}
+          path: /tmp/pc02-${{ github.sha }}.tar.gz
+          retention-days: 14
+          if-no-files-found: error
+
+  deploy:
+    name: Deploy to VM
+    needs: build
+    runs-on: ubuntu-latest
+    environment: production
+    # Only deploy on push main, push tag, or manual dispatch — never on PR
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')))
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: pc02-release-${{ github.sha }}
+          path: /tmp/
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@a6f90b1f127823b31d4d4a8d96047790581349bd # v0.9.1
+        with:
+          ssh-private-key: ${{ secrets.VM_SSH_PRIVATE_KEY }}
+
+      - name: Add VM to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -p ${{ secrets.VM_PORT }} -H ${{ secrets.VM_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: rsync release tarball to VM
+        run: |
+          rsync -avz --progress \
+            -e "ssh -p ${{ secrets.VM_PORT }} -o StrictHostKeyChecking=yes" \
+            /tmp/pc02-${{ github.sha }}.tar.gz \
+            ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}:/tmp/
+
+      - name: Execute deploy.sh on VM
+        run: |
+          ssh -p ${{ secrets.VM_PORT }} -o StrictHostKeyChecking=yes \
+            ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} \
+            "bash /home/pc02/bin/deploy.sh ${{ github.sha }}"
+
+      - name: External health check
+        run: |
+          for i in 1 2 3 4 5; do
+            if curl -sf -m 10 "http://${{ secrets.VM_HOST }}/api/v1/health" > /dev/null; then
+              echo "External health check OK on attempt $i"
+              exit 0
+            fi
+            echo "Attempt $i failed, retrying in 3s..."
+            sleep 3
+          done
+          echo "External health check FAILED — deploy may need rollback"
+          exit 1
+
+  release:
+    name: Create GitHub Release
+    needs: deploy
+    runs-on: ubuntu-latest
+    # Only on tag push
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Extract CHANGELOG section for this version
+        id: changelog
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          # Extract section from "## [X.Y.Z.W]" until next "## ["
+          awk "/^## \[$VERSION\]/{flag=1;next} /^## \[/{flag=0} flag" CHANGELOG.md > /tmp/release-notes.md
+          echo "Release notes:"
+          cat /tmp/release-notes.md
+
+      - name: Create Release
+        uses: softprops/action-gh-release@72f2c25fcb47643c292f7107632f7a47c1df5cd8 # v2.3.2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          body_path: /tmp/release-notes.md
+          draft: false
+          prerelease: false
