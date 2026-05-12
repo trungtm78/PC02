@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.15.0.0] - 2026-05-12
+
+### Added — Lịch ngày đặc biệt (Holidays)
+- Trang **Lịch làm việc** giờ hiển thị 25 ngày đặc biệt của Việt Nam, Công an, Quân đội bên cạnh deadline vụ án / vụ việc / đơn thư. Mỗi category có màu riêng (đỏ cờ NATIONAL, xanh CAND POLICE, xanh QĐND MILITARY, cam INTERNATIONAL) để cán bộ phân biệt nhanh giữa hạn nghiệp vụ và lịch lễ.
+- Model `Holiday` + enum `HolidayCategory` (NATIONAL/POLICE/MILITARY/INTERNATIONAL/OTHER) trong `prisma/schema.prisma`. Unique theo `(date, title)` — cho phép cùng 1 ngày có nhiều holiday (vd 3/3: Biên phòng + An ninh Nhân dân).
+- Seed `prisma/seed-holidays.ts` idempotent, 25 entries cho năm 2026:
+  - **8 NATIONAL**: Tết Dương lịch, Tết Nguyên Đán (mùng 1/2/3), Giỗ Tổ Hùng Vương, Giải phóng miền Nam 30/4, Quốc tế Lao động 1/5, Quốc khánh 2/9
+  - **7 POLICE**: Truyền thống CAND 19/8, CSGT 21/2, PCCC 4/10, CSHS 18/4, An ninh Nhân dân 3/3, QLHC 4/6, Pháp luật Việt Nam 9/11
+  - **6 MILITARY**: Thành lập QĐND 22/12, Toàn quốc kháng chiến 19/12, Hải quân 7/5, Biên phòng 3/3, PK-KQ 22/10, Thương binh - Liệt sỹ 27/7
+  - **4 INTERNATIONAL**: 8/3, Thiếu nhi 1/6, Phụ nữ Việt Nam 20/10, Nhà giáo 20/11
+- `GET /api/v1/calendar/events?year=&month=` giờ trả thêm event type `holiday` với metadata `holidayCategory` + `isOfficialDayOff` để frontend render badge category và đánh dấu ngày nghỉ chính thức.
+
+### Changed
+- `CalendarService.getEvents` merge holiday vào output cùng cases/incidents/petitions, sort theo ngày tăng dần.
+- `EventType` ở frontend mở rộng từ 4 → 5 giá trị (thêm `'holiday'`). `eventTypeColors`/`eventTypeLabels` cập nhật tương ứng. Hàm `getEventColor()` chọn màu theo `holidayCategory` khi event là holiday.
+
+### Notes
+- Tết Nguyên Đán (mùng 1/2/3) + Giỗ Tổ Hùng Vương phải tính theo lịch âm hàng năm — phiên bản này hardcode năm 2026. Năm 2027 admin cần cập nhật ngày qua DB hoặc tạo cronjob.
+- `pc02_user` được grant `BYPASSRLS` trong môi trường production hiện tại để cho phép seed/migrate. Cần audit `prisma.service.ts` xem có set `app.current_user_id` qua middleware không trước khi revoke BYPASSRLS.
+
+### Chore
+- Thêm `backend/uploads/` vào `.gitignore` để tránh commit nhầm file user upload runtime.
+
 ## [0.14.2.0] - 2026-05-11
 
 ### Security — CSO audit hardening (5 findings)
