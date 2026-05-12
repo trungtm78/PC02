@@ -75,9 +75,9 @@ jobs:
 
       - name: Package release tarball
         run: |
+          # Include @prisma/engines — required for `prisma migrate deploy` on VM
           tar -czf /tmp/pc02-${{ github.sha }}.tar.gz \
             --exclude='backend/node_modules/.cache' \
-            --exclude='backend/node_modules/@prisma/engines' \
             backend/dist \
             backend/node_modules \
             backend/prisma \
