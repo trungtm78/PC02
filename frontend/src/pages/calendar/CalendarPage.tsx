@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/shared/Modal';
 import { usePermission } from '@/hooks/usePermission';
 import { api } from '@/lib/api';
+import { CreateEventModal } from './components/CreateEventModal';
 
 const COLORS = { navy: '#1B2B4E', gold: '#D4AF37', slate: '#64748B' };
 
@@ -397,23 +398,25 @@ export default function CalendarPage() {
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
 
   const { canCreate, canDelete } = usePermission();
+  const [isCreateApiModalOpen, setIsCreateApiModalOpen] = useState(false);
+  const [createApiDefaultDate, setCreateApiDefaultDate] = useState<string>('');
 
-  // Fetch events from API when month changes
+  const fetchEvents = useCallback(async () => {
+    try {
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth() + 1;
+      const res = await api.get<{ success: boolean; data: CalendarEvent[] }>(
+        `/calendar/events?year=${year}&month=${month}`,
+      );
+      setEvents(res.data.data ?? []);
+    } catch {
+      setEvents([]);
+    }
+  }, [currentDate]);
+
   useEffect(() => {
-    const fetchEvents = async () => {
-      try {
-        const year = currentDate.getFullYear();
-        const month = currentDate.getMonth() + 1;
-        const res = await api.get<{ success: boolean; data: CalendarEvent[] }>(
-          `/calendar/events?year=${year}&month=${month}`,
-        );
-        setEvents(res.data.data ?? []);
-      } catch {
-        setEvents([]);
-      }
-    };
-    fetchEvents();
-  }, [currentDate.getFullYear(), currentDate.getMonth()]);
+    void fetchEvents();
+  }, [fetchEvents]);
 
   // Calendar data
   const calendarData = useMemo(() => {
@@ -526,19 +529,27 @@ export default function CalendarPage() {
           </div>
           
           {canCreate('calendar') && (
-            <Button 
-              onClick={() => {
-                setSelectedDate(new Date());
-                setEditingEvent(null);
-                setIsModalOpen(true);
-              }}
-              data-testid="add-event-btn"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Thêm sự kiện
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                onClick={() => {
+                  setCreateApiDefaultDate(new Date().toISOString().slice(0, 10));
+                  setIsCreateApiModalOpen(true);
+                }}
+                data-testid="create-event-api-btn"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Tạo sự kiện
+              </Button>
+            </div>
           )}
         </div>
+
+        <CreateEventModal
+          isOpen={isCreateApiModalOpen}
+          onClose={() => setIsCreateApiModalOpen(false)}
+          defaultDate={createApiDefaultDate}
+          onCreated={fetchEvents}
+        />
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Calendar Grid */}

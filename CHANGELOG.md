@@ -2,6 +2,76 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.18.0.0] - 2026-05-13
+
+### Added — Calendar Events v2, Phase 2b (reminders + frontend module + admin UI)
+
+PR 2b ship phần còn lại của plan Phase 2: event reminder backend (CRUD + cron dispatcher + prune) + frontend admin UI (EventCategoriesModule + CreateEventModal in CalendarPage). PR 3 còn lại sẽ migrate 25 holidays sang CalendarEvent rồi drop bảng cũ.
+
+#### Backend — event-reminders module hoàn chỉnh
+
+- **CRUD endpoints:**
+  - `POST /events/:eventId/reminders` (throttle 20/min): user tự tạo reminder
+  - `GET /events/:eventId/reminders`: list reminders của current user
+  - `DELETE /events/:eventId/reminders/:reminderId`: owner-only delete
+  - DTO: `CreateReminderDto` với `minutesBefore` (1-43200 phút, max 30 ngày) và `channels[]` (FCM/EMAIL)
+  - Reject duplicate `(eventId, userId, minutesBefore)` → 409
+- **Cron dispatcher** (`@Cron('*/5 * * * *')`):
+  - **In-process mutex** (`this.running` flag) chống overlap khi FCM chậm (Eng review fix #2)
+  - Window `[now, now + 6 minutes]` (chứ không 1 giờ như plan gốc — giảm số INSERT duplicate)
+  - Insert `EventReminderDispatch` row BEFORE send → UNIQUE `(reminderId, occurrenceDate)` catches concurrent claims atomically
+  - Gửi qua `PushService.sendToUser()` (FCM HTTP v1) + `EmailService.sendEventReminder()` (mới)
+  - Mỗi send wrapped try/catch — không break loop nếu 1 user fail
+  - PR 2b chỉ xử lý non-recurring events (recurring + RRULE expansion trong cron defer cho tương lai — acceptable tradeoff: events vẫn hiện trên calendar, chỉ không gửi reminder)
+- **Prune cron** (`@Cron('0 2 * * *')`): xóa `event_reminder_dispatches` cũ hơn 90 ngày
+- **EmailService.sendEventReminder()**: HTML email với event title + ngày, log warn nếu fail (non-fatal)
+
+#### Frontend — EventCategoriesModule (Settings)
+
+- Mount vào Settings menu với icon Tag — admin tạo/sửa/xóa category dynamic
+- Color picker: 8 preset swatches + native `<input type=color>` + hex validation regex
+- isSystem categories: badge "Hệ thống" + nút Xóa ẩn (chỉ Sửa được)
+- Form: slug required khi tạo mới (regex `^[a-z0-9_-]+$`), slug read-only khi edit
+- Whitelist update: chỉ POST `{name, color, icon, sortOrder}` (không slug, không isSystem — service strip silently)
+- 5 frontend tests cover: list render, system badge, delete button disabled, POST create, PATCH update (slug excluded)
+
+#### Frontend — CreateEventModal (CalendarPage)
+
+- Button "Tạo sự kiện" trong CalendarPage header — opens modal API-backed (POST `/calendar-events`)
+- Form fields: title, date, category dropdown (từ `eventCategoriesApi.list()`), allDay toggle + start/end time, scope (admin chọn SYSTEM/PERSONAL — user thường chỉ PERSONAL), recurrence preset 4 options (Không lặp/Hàng năm/Hàng tháng/Hàng tuần), recurrence end date, description
+- Success → refetch calendar events (legacy endpoint dual-read trả expanded recurring + holidays)
+
+#### API clients (`frontend/src/lib/api.ts`)
+
+- `eventCategoriesApi`: list/get/create/update/remove
+- `calendarEventsApi`: list/create/update/remove/excludeOccurrence (cho occurrence EXDATE)
+- `eventRemindersApi`: list/create/remove (cho event-id-scoped reminders)
+- Type-safe payload + response interfaces (`EventCategory`, `CalendarEvent`, `EventReminder`, `EventScope`, `ReminderChannel`)
+
+### Tests
+- Backend: 14 new tests trong `event-reminders.service.spec` (CRUD + dispatcher mutex + duplicate dispatch UNIQUE + prune cron) → 1143/1143 pass total (+12 từ PR 2a)
+- Frontend: 5 new tests trong `EventCategoriesModule.test.tsx` → 390/390 pass total (+5 từ PR 2a)
+- `tsc --noEmit` clean trên file em touch (4 pre-existing errors ở files unrelated giữ nguyên)
+
+### Out of scope (deferred to PR 2c hoặc PR 3)
+
+- Frontend **EventFormModal 2-step wizard** (PR 2b ship 1-step CreateEventModal là MVP đủ dùng)
+- Frontend **RecurrenceBuilder visual UI** (PR 2b ship 4-radio preset là đủ, custom RRULE textarea bị drop theo Design review)
+- Frontend **ReminderEditor** inline trong CalendarPage (PR 2b ship API-backed CRUD nhưng UI chưa expose — user tạo reminder qua admin tools/API call)
+- Frontend **CalendarPage filter chips** (scope SYSTEM/TEAM/PERSONAL toggle) — defer
+- Frontend **recurring delete confirm dialog** (Cả series vs chỉ ngày này) — defer, hiện tại DELETE soft delete cả series
+- Frontend **scope visual border/icon** trên day cell — defer
+- Cron dispatcher RRULE-aware: hiện chỉ fire cho non-recurring events. Recurring reminder defer
+- PR 3: migrate 25 holidays → CalendarEvent + DROP TABLE holiday + DROP TYPE HolidayCategory
+
+### Deploy notes
+
+- KHÔNG có migration mới (schema giữ nguyên từ PR 1)
+- `@Cron` decorators tự register khi backend khởi động — dispatcher fire mỗi 5 phút, prune fire daily 02:00
+- Cron schedule single-instance OK vì 1 VM. Nếu scale-out → cần lock external (Redis SETNX hoặc DB advisory lock)
+- Reminder dispatch tới user cần `userDevice` row có valid FCM token + `user.email` không null. User chưa setup FCM thì FCM send skip, chỉ gửi email
+- Sau deploy chạy 1 lần: nothing special — feature flag từ PR 1 vẫn enabled, endpoints mới accessible ngay
+
 ## [0.17.0.0] - 2026-05-13
 
 ### Added — Calendar Events v2, Phase 2a (backend CRUD + RRULE expansion)

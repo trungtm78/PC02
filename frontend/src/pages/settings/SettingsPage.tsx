@@ -14,9 +14,11 @@ import {
   KeyRound,
   Keyboard,
   MapPin,
+  Tag,
 } from 'lucide-react';
 import { AbbreviationsModule } from './modules/AbbreviationsModule';
 import { AddressMappingModule } from './modules/AddressMappingModule';
+import { EventCategoriesModule } from './modules/EventCategoriesModule';
 import { ShortcutsModule } from './modules/ShortcutsModule';
 import { Button } from '@/components/ui/button';
 import { TwoFaSetupModal } from '@/components/TwoFaSetupModal';
@@ -77,6 +79,12 @@ const menuItems = [
     label: 'Phím tắt',
     icon: KeyRound,
     description: 'Tùy chỉnh phím tắt thao tác',
+  },
+  {
+    id: 'event-categories',
+    label: 'Danh mục sự kiện',
+    icon: Tag,
+    description: 'Phân loại sự kiện calendar với màu tùy chỉnh',
   },
 ];
 
@@ -511,6 +519,8 @@ export default function SettingsPage() {
         return <AddressMappingModule />;
       case 'shortcuts':
         return <ShortcutsModule />;
+      case 'event-categories':
+        return <EventCategoriesModule />;
       default:
         return <UserManagementModule />;
     }
