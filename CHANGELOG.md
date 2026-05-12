@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.15.1.1] - 2026-05-13
+
+### Fixed
+- **Mapping địa chỉ cải cách 2025 — "Cập nhật từ API" không chạy được**: frontend `AddressMappingModule` vẫn gọi endpoint cũ `POST /address-mappings/crawl` (đã bị xóa từ v0.13.10.0, thay bằng async background job pattern `POST /address-mappings/seed/:province`). Request trả 404 → catch block nuốt error → user thấy mơ hồ "không có kết quả". Bug đã được flag trong `docs/ADDRESS_MAPPING_AUDIT.md:123` nhưng frontend bị bỏ quên.
+- Frontend giờ:
+  - Có province selector (HCM/HN/HP/DN/CT) cho user chọn tỉnh muốn seed.
+  - Gọi `POST /address-mappings/seed/:province` → nhận `jobId` → poll `GET /address-mappings/seed/status/:id` mỗi 2s.
+  - Hiển thị progress (`mapped/total`, số `needsReview`, số `errorCount`) trong banner màu theo status (xanh dương = running, xanh lá = completed, đỏ = failed, xám = cancelled).
+  - Nút "Hủy" gọi `POST /address-mappings/seed/:id/cancel` khi job đang chạy.
+  - Tự refresh table khi job đạt terminal status.
+  - Disable nút "Cập nhật từ API" + province selector khi job đang queued/running.
+
+### Tests
+- Thêm `frontend/src/pages/settings/modules/__tests__/AddressMappingModule.test.tsx` — 6 test cases bám TDD: verify endpoint mới, province selection, polling cadence, progress display, refresh-on-complete, button disabled trong khi job active. Cũng có regression guard `expect(api.post).not.toHaveBeenCalledWith('/address-mappings/crawl')` để bug này không quay lại.
+
 ## [0.15.1.0] - 2026-05-12
 
 ### Added — CI/CD Pipeline (GitHub Actions → Viettel Cloud VM)
