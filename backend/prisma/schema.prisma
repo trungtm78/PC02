@@ -121,6 +121,11 @@ model User {
   // Deadline rule versioning
   deadlineRulesProposed           DeadlineRuleVersion[]     @relation("DeadlineRuleProposer")
   deadlineRulesReviewed           DeadlineRuleVersion[]     @relation("DeadlineRuleReviewer")
+  // Calendar Events v2 (PR 1 schema only)
+  personalCalendarEvents          CalendarEvent[]           @relation("PersonalEvents")
+  calendarEventsCreated           CalendarEvent[]           @relation("CalendarEventCreatedBy")
+  calendarEventsUpdated           CalendarEvent[]           @relation("CalendarEventUpdatedBy")
+  eventReminders                  EventReminder[]           @relation("EventReminders")
 
   @@map("users")
 }
@@ -1037,6 +1042,7 @@ model Team {
   petitionsAssigned Petition[]        @relation("PetitionTeam")
   incidentsAssigned Incident[]        @relation("IncidentTeam")
   grantsForUnit     DataAccessGrant[] @relation("GrantUnit")
+  calendarEvents    CalendarEvent[] // Calendar Events v2 (PR 1)
 
   @@index([parentId])
   @@index([level])
@@ -1430,7 +1436,6 @@ model AddressSeedJob {
   @@map("address_seed_jobs")
 }
 
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Holiday: Ngày nghỉ lễ / ngày đặc biệt (Quốc gia, Công an, Quân đội)
 // Hiển thị trên trang Lịch làm việc cùng các deadline.
@@ -1461,4 +1466,129 @@ model Holiday {
   @@index([category])
   @@index([date])
   @@map("holidays")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Calendar Events v2 (PR 1 — schema only, gated by feature flag `calendar_events_v2`)
+//
+// Schema mới song song với Holiday. Holiday giữ nguyên trong PR 1.
+// PR 2 implement full service/controller. PR 3 migrate data + drop Holiday.
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum EventScope {
+  SYSTEM // Sự kiện toàn ngành — admin tạo, mọi user thấy
+  TEAM // Sự kiện cấp tổ — tổ trưởng/admin tạo, chỉ thành viên tổ thấy
+  PERSONAL // Sự kiện cá nhân — user tự tạo, chỉ mình thấy
+}
+
+enum ReminderChannel {
+  FCM
+  EMAIL
+}
+
+model EventCategory {
+  id        String   @id @default(cuid())
+  slug      String   @unique // "national", "police", "military", "international", "other", ...
+  name      String // "Quốc gia", "Ngành Công an", "Quân đội", ...
+  color     String // hex "#DC2626"
+  icon      String? // lucide icon name, optional
+  isSystem  Boolean  @default(false) // true → không cho xóa (5 default categories)
+  sortOrder Int      @default(100)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  events CalendarEvent[]
+
+  @@index([sortOrder])
+  @@map("event_categories")
+}
+
+model CalendarEvent {
+  id               String    @id @default(cuid())
+  title            String
+  shortTitle       String?
+  description      String?
+  startDate        DateTime  @db.Date
+  endDate          DateTime? @db.Date // multi-day events
+  startTime        String? // "HH:MM" — null khi allDay
+  endTime          String?
+  allDay           Boolean   @default(true)
+  isOfficialDayOff Boolean   @default(false)
+  lunarDate        String?
+
+  categoryId String
+  category   EventCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  scope  EventScope
+  teamId String? // required khi scope=TEAM
+  team   Team?      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  userId String? // required khi scope=PERSONAL
+  user   User?      @relation("PersonalEvents", fields: [userId], references: [id], onDelete: SetNull)
+
+  recurrenceRule    String? // RRULE string RFC 5545, e.g. "FREQ=YEARLY"
+  recurrenceEndDate DateTime? @db.Date // when to stop recurring (null = forever)
+
+  createdById String
+  createdBy   User      @relation("CalendarEventCreatedBy", fields: [createdById], references: [id])
+  updatedById String?
+  updatedBy   User?     @relation("CalendarEventUpdatedBy", fields: [updatedById], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  reminders EventReminder[]
+  overrides CalendarEventOccurrenceOverride[]
+
+  @@index([startDate])
+  @@index([categoryId])
+  @@index([deletedAt])
+  // Partial indexes added in migration SQL (Prisma doesn't support partial indexes natively)
+  @@map("calendar_events")
+}
+
+// Thin override table for RFC 5545 RECURRENCE-ID + EXDATE pattern.
+// Replaces self-FK `recurrenceParentId` approach (Eng review #3) — 50 bytes vs 500 per override.
+model CalendarEventOccurrenceOverride {
+  id             String        @id @default(cuid())
+  eventId        String
+  event          CalendarEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  occurrenceDate DateTime      @db.Date // The original recurrence date being overridden
+  excluded       Boolean       @default(false) // EXDATE: skip this occurrence
+  overrideFields Json? // { title?, description?, startTime?, endTime?, ... }
+  createdAt      DateTime      @default(now())
+
+  @@unique([eventId, occurrenceDate])
+  @@index([eventId])
+  @@map("calendar_event_occurrence_overrides")
+}
+
+model EventReminder {
+  id            String            @id @default(cuid())
+  eventId       String
+  event         CalendarEvent     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  userId        String // user nhận reminder
+  user          User              @relation("EventReminders", fields: [userId], references: [id], onDelete: Cascade)
+  minutesBefore Int // 30 = 30 phút trước, 1440 = 1 ngày, 10080 = 1 tuần
+  channels      ReminderChannel[] // [FCM] | [EMAIL] | [FCM, EMAIL]
+  createdAt     DateTime          @default(now())
+
+  dispatches EventReminderDispatch[]
+
+  @@index([eventId])
+  @@index([userId])
+  @@map("event_reminders")
+}
+
+model EventReminderDispatch {
+  id             String            @id @default(cuid())
+  reminderId     String
+  reminder       EventReminder     @relation(fields: [reminderId], references: [id], onDelete: Cascade)
+  occurrenceDate DateTime          @db.Date // occurrence cụ thể của recurring event
+  sentAt         DateTime          @default(now())
+  channels       ReminderChannel[]
+
+  @@unique([reminderId, occurrenceDate])
+  @@index([reminderId])
+  @@index([sentAt]) // cho prune cron daily 02:00 (Eng audit #10)
+  @@map("event_reminder_dispatches")
 }

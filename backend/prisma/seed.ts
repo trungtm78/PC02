@@ -12,6 +12,7 @@ import { seedWards } from './seed-wards';
 import { seedDirectoryTypes } from './seed-directory-types';
 import { seedMasterClasses } from './seed-master-classes';
 import { seedDeadlineRules } from './seed-deadline-rules';
+import { seedEventCategories } from './seed-event-categories';
 
 const adapter = new PrismaPg({
   connectionString: process.env['DATABASE_URL'] ?? 'postgresql://pc02_admin:pc02_password@localhost:5432/pc02_db?schema=public',
@@ -100,6 +101,12 @@ async function main() {
     // If new roles ever propose deadline rules, they MUST also get withdraw_own.
     { action: 'withdraw_own', subject: 'DeadlineRuleVersion', description: 'Thu hồi đề xuất quy tắc của chính mình (maker)' },
     { action: 'request_changes', subject: 'DeadlineRuleVersion', description: 'Yêu cầu sửa đổi đề xuất quy tắc (checker)' },
+    // Calendar permissions (PR 1 v0.16.0.0) — replaces 'Case' gate on /calendar/events.
+    // PR 2 adds POST/PATCH/DELETE on /calendar-events with these subjects.
+    { action: 'read', subject: 'Calendar', description: 'Xem lịch + sự kiện calendar' },
+    { action: 'write', subject: 'Calendar', description: 'Tạo sự kiện calendar (PR 2)' },
+    { action: 'edit', subject: 'Calendar', description: 'Sửa sự kiện calendar (PR 2)' },
+    { action: 'delete', subject: 'Calendar', description: 'Xóa sự kiện calendar (PR 2)' },
   ];
 
   for (const perm of permissions) {
@@ -121,10 +128,11 @@ async function main() {
   }
 
   // ── Grant OFFICER role: read permissions needed for dispatcher workflow ────
+  // Calendar:read added in PR 1 (v0.16.0.0) — everyone needs to see the calendar.
   const officerReadPerms = await prisma.permission.findMany({
     where: {
       action: 'read',
-      subject: { in: ['Team', 'User', 'Case', 'Petition', 'Incident', 'DeadlineRuleVersion'] },
+      subject: { in: ['Team', 'User', 'Case', 'Petition', 'Incident', 'DeadlineRuleVersion', 'Calendar'] },
     },
   });
   for (const perm of officerReadPerms) {
@@ -285,6 +293,12 @@ async function main() {
   // an empty list and every sidebar menu disappears on a fresh deploy.
   const seededFlags = await seedFeatureFlags(prisma);
   console.log(`Seed feature flags: ${seededFlags} entries upserted.`);
+
+  // ── Event categories (PR 1, v0.16.0.0) — 5 default isSystem categories ────
+  // Holiday seed (25 entries for 2026) keeps using its own HolidayCategory enum;
+  // PR 3 will migrate those rows to CalendarEvent and point them at these categories.
+  const seededCategories = await seedEventCategories(prisma);
+  console.log(`Seed event categories: ${seededCategories} default rows upserted.`);
 
   // ── Wards — 10,051 phường/xã toàn quốc (idempotent upsert) ───────────────
   console.log('Seeding wards (may take ~2-3 min for 10,051 entries)...');

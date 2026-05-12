@@ -35,6 +35,9 @@ import { KpiModule } from './kpi/kpi.module';
 import { AbbreviationsModule } from './abbreviations/abbreviations.module';
 import { UserShortcutsModule } from './user-shortcuts/user-shortcuts.module';
 import { TdacModule } from './reports/tdac/tdac.module';
+import { EventCategoriesModule } from './event-categories/event-categories.module';
+import { CalendarEventsModule } from './calendar-events/calendar-events.module';
+import { EventRemindersModule } from './event-reminders/event-reminders.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { PushModule } from './push/push.module';
 import { SchedulerModule } from './scheduler/scheduler.module';
@@ -83,6 +86,9 @@ import { DataScopeInterceptor } from './auth/interceptors/data-scope.interceptor
     VksMeetingsModule,
     ActionPlansModule,
     TdacModule,
+    EventCategoriesModule,
+    CalendarEventsModule,
+    EventRemindersModule,
   ],
   controllers: [AppController],
   providers: [
