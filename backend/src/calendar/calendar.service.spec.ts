@@ -30,6 +30,9 @@ const mockPrisma = {
   holiday: {
     findMany: jest.fn().mockResolvedValue([]),
   },
+  calendarEvent: {
+    findMany: jest.fn().mockResolvedValue([]),
+  },
 };
 
 function makeHoliday(
@@ -81,6 +84,7 @@ describe('CalendarService', () => {
     mockPrisma.incident.findMany.mockResolvedValue([]);
     mockPrisma.petition.findMany.mockResolvedValue([]);
     mockPrisma.holiday.findMany.mockResolvedValue([]);
+    mockPrisma.calendarEvent.findMany.mockResolvedValue([]);
   });
 
   // ── getEvents ──────────────────────────────────────────────────────────────
@@ -172,6 +176,72 @@ describe('CalendarService', () => {
       // From 2026-01-01 to 2026-12-31
       expect(caseCall.where.deadline.gte.getFullYear()).toBe(2026);
       expect(caseCall.where.deadline.gte.getMonth()).toBe(0); // January
+    });
+
+    // ── PR 1: dual-read from new CalendarEvent table alongside legacy Holiday ──
+    describe('dual-read (PR 1)', () => {
+      it('also queries calendarEvent and merges results with holidays', async () => {
+        const date = new Date('2026-02-21T00:00:00.000Z');
+        mockPrisma.holiday.findMany.mockResolvedValue([makeHoliday('legacy1', date, 'POLICE')]);
+        mockPrisma.calendarEvent.findMany.mockResolvedValue([
+          {
+            id: 'ev1',
+            title: 'Sự kiện mới',
+            shortTitle: null,
+            description: null,
+            startDate: date,
+            isOfficialDayOff: false,
+            scope: 'SYSTEM',
+            deletedAt: null,
+            category: { slug: 'police', name: 'Ngành Công an', color: '#1e40af' },
+          },
+        ]);
+
+        const result = await service.getEvents(2026, 2);
+
+        const ids = result.data.map((e) => e.id);
+        expect(ids).toContain('holiday-legacy1');
+        expect(ids).toContain('event-ev1');
+        expect(mockPrisma.calendarEvent.findMany).toHaveBeenCalled();
+      });
+
+      it('filters soft-deleted calendar events (deletedAt is null)', async () => {
+        await service.getEvents(2026, 2);
+        const callArgs = mockPrisma.calendarEvent.findMany.mock.calls[0][0];
+        expect(callArgs.where.deletedAt).toBeNull();
+      });
+
+      it('queries calendarEvent with the same date range as other queries', async () => {
+        await service.getEvents(2026, 3);
+        const calendarCall = mockPrisma.calendarEvent.findMany.mock.calls[0][0];
+        expect(calendarCall.where.startDate.gte.getFullYear()).toBe(2026);
+        expect(calendarCall.where.startDate.gte.getMonth()).toBe(2); // March (0-indexed)
+      });
+
+      it('maps a CalendarEvent into the CalendarEvent output shape with type=event', async () => {
+        const date = new Date('2026-08-19T00:00:00.000Z');
+        mockPrisma.calendarEvent.findMany.mockResolvedValue([
+          {
+            id: 'ev-cand-80',
+            title: 'Kỷ niệm 80 năm CAND',
+            shortTitle: 'CAND 80',
+            description: 'Lễ kỷ niệm toàn ngành',
+            startDate: date,
+            isOfficialDayOff: false,
+            scope: 'SYSTEM',
+            deletedAt: null,
+            category: { slug: 'police', name: 'Ngành Công an', color: '#1e40af' },
+          },
+        ]);
+
+        const result = await service.getEvents(2026, 8);
+        const ev = result.data.find((e) => e.id === 'event-ev-cand-80');
+        expect(ev).toBeDefined();
+        expect(ev!.type).toBe('event');
+        expect(ev!.date).toBe('2026-08-19');
+        expect(ev!.title).toBe('CAND 80'); // shortTitle preferred
+        expect(ev!.description).toBe('Lễ kỷ niệm toàn ngành');
+      });
     });
   });
 });

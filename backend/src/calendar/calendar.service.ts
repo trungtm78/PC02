@@ -5,13 +5,18 @@ export interface CalendarEvent {
   id: string;
   title: string;
   date: string; // YYYY-MM-DD
-  type: 'deadline' | 'hearing' | 'meeting' | 'other' | 'holiday';
+  type: 'deadline' | 'hearing' | 'meeting' | 'other' | 'holiday' | 'event';
   description?: string;
   caseId?: string;
   incidentId?: string;
   petitionId?: string;
   holidayCategory?: 'NATIONAL' | 'POLICE' | 'MILITARY' | 'INTERNATIONAL' | 'OTHER';
   isOfficialDayOff?: boolean;
+  // PR 1 dual-read fields (only set when type === 'event')
+  categorySlug?: string;
+  categoryName?: string;
+  categoryColor?: string;
+  scope?: 'SYSTEM' | 'TEAM' | 'PERSONAL';
 }
 
 @Injectable()
@@ -35,7 +40,7 @@ export class CalendarService {
       toDate = new Date(targetYear, 11, 31, 23, 59, 59, 999);
     }
 
-    const [cases, incidents, petitions, holidays] = await Promise.all([
+    const [cases, incidents, petitions, holidays, calendarEvents] = await Promise.all([
       this.prisma.case.findMany({
         where: {
           deletedAt: null,
@@ -68,6 +73,15 @@ export class CalendarService {
           isOfficialDayOff: true,
           description: true,
         },
+      }),
+      // PR 1: dual-read from new CalendarEvent table. PR 2 will add recurrence
+      // expansion + scope filtering. PR 3 will remove the Holiday read above.
+      this.prisma.calendarEvent.findMany({
+        where: {
+          deletedAt: null,
+          startDate: { gte: fromDate, lte: toDate },
+        },
+        include: { category: true },
       }),
     ]);
 
@@ -118,6 +132,22 @@ export class CalendarService {
         description: h.description ?? h.title,
         holidayCategory: h.category,
         isOfficialDayOff: h.isOfficialDayOff,
+      });
+    }
+
+    // PR 1 dual-read: events from new CalendarEvent table.
+    for (const ev of calendarEvents) {
+      events.push({
+        id: `event-${ev.id}`,
+        title: ev.shortTitle ?? ev.title,
+        date: ev.startDate.toISOString().slice(0, 10),
+        type: 'event',
+        description: ev.description ?? undefined,
+        isOfficialDayOff: ev.isOfficialDayOff,
+        categorySlug: ev.category?.slug,
+        categoryName: ev.category?.name,
+        categoryColor: ev.category?.color,
+        scope: ev.scope,
       });
     }
 

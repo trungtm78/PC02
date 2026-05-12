@@ -28,8 +28,10 @@ export class CalendarController {
   constructor(private readonly calendarService: CalendarService) {}
 
   // GET /api/v1/calendar/events?year=&month=
+  // PR 1: changed subject from 'Case' to 'Calendar' to align with new permission resource.
+  // Permission seed grants Calendar:read to ADMIN + INVESTIGATOR + SECRETARY roles.
   @Get('events')
-  @RequirePermissions({ action: 'read', subject: 'Case' })
+  @RequirePermissions({ action: 'read', subject: 'Calendar' })
   getEvents(@Query() query: QueryCalendarDto) {
     return this.calendarService.getEvents(query.year, query.month);
   }
