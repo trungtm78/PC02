@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { CalendarEventsService } from '../calendar-events/calendar-events.service';
 
 export interface CalendarEvent {
   id: string;
@@ -21,7 +22,10 @@ export interface CalendarEvent {
 
 @Injectable()
 export class CalendarService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly calendarEventsService: CalendarEventsService,
+  ) {}
 
   // GET /api/v1/calendar/events?year=&month=
   async getEvents(year?: number, month?: number): Promise<{ success: boolean; data: CalendarEvent[] }> {
@@ -74,14 +78,19 @@ export class CalendarService {
           description: true,
         },
       }),
-      // PR 1: dual-read from new CalendarEvent table. PR 2 will add recurrence
-      // expansion + scope filtering. PR 3 will remove the Holiday read above.
+      // PR 2: dual-read + recurring expansion. Fetch events whose startDate <= toDate
+      // and (recurrenceEndDate IS NULL OR >= fromDate) to catch recurring series
+      // that start before the window but have occurrences inside it.
       this.prisma.calendarEvent.findMany({
         where: {
           deletedAt: null,
-          startDate: { gte: fromDate, lte: toDate },
+          startDate: { lte: toDate },
+          OR: [
+            { recurrenceEndDate: null },
+            { recurrenceEndDate: { gte: fromDate } },
+          ],
         },
-        include: { category: true },
+        include: { category: true, overrides: true },
       }),
     ]);
 
@@ -135,12 +144,15 @@ export class CalendarService {
       });
     }
 
-    // PR 1 dual-read: events from new CalendarEvent table.
-    for (const ev of calendarEvents) {
+    // PR 2 dual-read + recurring expansion. Expand into per-date occurrences,
+    // applying EXDATE overrides. Non-recurring events yield 1 occurrence each.
+    const expanded = this.calendarEventsService.expandOccurrences(calendarEvents, fromDate, toDate);
+    for (const occ of expanded) {
+      const ev = occ.event;
       events.push({
-        id: `event-${ev.id}`,
+        id: `event-${ev.id}-${occ.occurrenceDate.toISOString().slice(0, 10)}`,
         title: ev.shortTitle ?? ev.title,
-        date: ev.startDate.toISOString().slice(0, 10),
+        date: occ.occurrenceDate.toISOString().slice(0, 10),
         type: 'event',
         description: ev.description ?? undefined,
         isOfficialDayOff: ev.isOfficialDayOff,

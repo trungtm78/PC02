@@ -13,6 +13,7 @@
 
 import { Test, TestingModule } from '@nestjs/testing';
 import { CalendarService } from './calendar.service';
+import { CalendarEventsService } from '../calendar-events/calendar-events.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 // ─── Mock Prisma ──────────────────────────────────────────────────────────────
@@ -74,6 +75,7 @@ describe('CalendarService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CalendarService,
+        CalendarEventsService,
         { provide: PrismaService, useValue: mockPrisma },
       ],
     }).compile();
@@ -190,10 +192,13 @@ describe('CalendarService', () => {
             shortTitle: null,
             description: null,
             startDate: date,
+            recurrenceRule: null,
+            recurrenceEndDate: null,
             isOfficialDayOff: false,
             scope: 'SYSTEM',
             deletedAt: null,
             category: { slug: 'police', name: 'Ngành Công an', color: '#1e40af' },
+            overrides: [],
           },
         ]);
 
@@ -201,7 +206,8 @@ describe('CalendarService', () => {
 
         const ids = result.data.map((e) => e.id);
         expect(ids).toContain('holiday-legacy1');
-        expect(ids).toContain('event-ev1');
+        // PR 2 changes id format to include occurrence date suffix
+        expect(ids.some((id) => id.startsWith('event-ev1'))).toBe(true);
         expect(mockPrisma.calendarEvent.findMany).toHaveBeenCalled();
       });
 
@@ -211,11 +217,15 @@ describe('CalendarService', () => {
         expect(callArgs.where.deletedAt).toBeNull();
       });
 
-      it('queries calendarEvent with the same date range as other queries', async () => {
+      it('queries calendarEvent within window with recurring-aware filter (PR 2)', async () => {
         await service.getEvents(2026, 3);
         const calendarCall = mockPrisma.calendarEvent.findMany.mock.calls[0][0];
-        expect(calendarCall.where.startDate.gte.getFullYear()).toBe(2026);
-        expect(calendarCall.where.startDate.gte.getMonth()).toBe(2); // March (0-indexed)
+        // PR 2: where uses startDate.lte + OR on recurrenceEndDate to catch recurring series.
+        expect(calendarCall.where.startDate.lte.getFullYear()).toBe(2026);
+        expect(calendarCall.where.OR).toEqual([
+          { recurrenceEndDate: null },
+          { recurrenceEndDate: { gte: expect.any(Date) } },
+        ]);
       });
 
       it('maps a CalendarEvent into the CalendarEvent output shape with type=event', async () => {
@@ -227,6 +237,9 @@ describe('CalendarService', () => {
             shortTitle: 'CAND 80',
             description: 'Lễ kỷ niệm toàn ngành',
             startDate: date,
+            recurrenceRule: null,
+            recurrenceEndDate: null,
+            overrides: [],
             isOfficialDayOff: false,
             scope: 'SYSTEM',
             deletedAt: null,
@@ -235,7 +248,8 @@ describe('CalendarService', () => {
         ]);
 
         const result = await service.getEvents(2026, 8);
-        const ev = result.data.find((e) => e.id === 'event-ev-cand-80');
+        // PR 2: id format = event-{eventId}-{YYYY-MM-DD}
+        const ev = result.data.find((e) => e.id === 'event-ev-cand-80-2026-08-19');
         expect(ev).toBeDefined();
         expect(ev!.type).toBe('event');
         expect(ev!.date).toBe('2026-08-19');
