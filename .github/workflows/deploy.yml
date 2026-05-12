@@ -76,13 +76,18 @@ jobs:
       - name: Package release tarball
         run: |
           # Include @prisma/engines — required for `prisma migrate deploy` on VM
+          # Include prisma.config.ts + tsconfig — required for ts-node seed scripts
           tar -czf /tmp/pc02-${{ github.sha }}.tar.gz \
             --exclude='backend/node_modules/.cache' \
             backend/dist \
             backend/node_modules \
             backend/prisma \
+            backend/prisma.config.ts \
             backend/package.json \
             backend/package-lock.json \
+            backend/tsconfig.json \
+            backend/tsconfig.build.json \
+            backend/nest-cli.json \
             backend/scripts \
             backend/assets \
             frontend/dist \
