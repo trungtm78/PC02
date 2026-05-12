@@ -147,3 +147,118 @@ export const abbreviationsApi = {
     api.post<{ copied: number }>('/abbreviations/copy', { sourceUserId, replace }),
   listUsers: () => api.get<AbbreviationUser[]>('/abbreviations/users'),
 };
+
+// ─── Calendar Events v2 API ───────────────────────────────────────────────────
+
+export type EventScope = 'SYSTEM' | 'TEAM' | 'PERSONAL';
+export type ReminderChannel = 'FCM' | 'EMAIL';
+
+export type EventCategory = {
+  id: string;
+  slug: string;
+  name: string;
+  color: string;
+  icon: string | null;
+  isSystem: boolean;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CreateCategoryPayload = {
+  slug: string;
+  name: string;
+  color: string;
+  icon?: string;
+  sortOrder?: number;
+};
+
+export type UpdateCategoryPayload = Partial<Omit<CreateCategoryPayload, 'slug'>>;
+
+export const eventCategoriesApi = {
+  list: () => api.get<EventCategory[]>('/event-categories'),
+  get: (id: string) => api.get<EventCategory>(`/event-categories/${id}`),
+  create: (payload: CreateCategoryPayload) => api.post<EventCategory>('/event-categories', payload),
+  update: (id: string, payload: UpdateCategoryPayload) => api.patch<EventCategory>(`/event-categories/${id}`, payload),
+  remove: (id: string) => api.delete(`/event-categories/${id}`),
+};
+
+export type CalendarEvent = {
+  id: string;
+  title: string;
+  shortTitle: string | null;
+  description: string | null;
+  startDate: string;
+  endDate: string | null;
+  startTime: string | null;
+  endTime: string | null;
+  allDay: boolean;
+  isOfficialDayOff: boolean;
+  lunarDate: string | null;
+  categoryId: string;
+  category?: EventCategory;
+  scope: EventScope;
+  teamId: string | null;
+  userId: string | null;
+  recurrenceRule: string | null;
+  recurrenceEndDate: string | null;
+  createdById: string;
+  updatedById: string | null;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+};
+
+export type CreateEventPayload = {
+  title: string;
+  shortTitle?: string;
+  description?: string;
+  startDate: string; // YYYY-MM-DD
+  endDate?: string;
+  startTime?: string; // HH:MM
+  endTime?: string;
+  allDay: boolean;
+  isOfficialDayOff?: boolean;
+  lunarDate?: string;
+  categoryId: string;
+  scope: EventScope;
+  teamId?: string;
+  recurrenceRule?: string;
+  recurrenceEndDate?: string;
+};
+
+export type UpdateEventPayload = Partial<CreateEventPayload>;
+
+export const calendarEventsApi = {
+  list: (year: number, month?: number) => {
+    const params = new URLSearchParams({ year: String(year) });
+    if (month !== undefined) params.set('month', String(month));
+    return api.get<CalendarEvent[]>(`/calendar-events?${params}`);
+  },
+  create: (payload: CreateEventPayload) => api.post<CalendarEvent>('/calendar-events', payload),
+  update: (id: string, payload: UpdateEventPayload) => api.patch<CalendarEvent>(`/calendar-events/${id}`, payload),
+  remove: (id: string) => api.delete(`/calendar-events/${id}`),
+  excludeOccurrence: (id: string, date: string) => api.delete(`/calendar-events/${id}/occurrence/${date}`),
+};
+
+export type EventReminder = {
+  id: string;
+  eventId: string;
+  userId: string;
+  minutesBefore: number;
+  channels: ReminderChannel[];
+  createdAt: string;
+};
+
+export type CreateReminderPayload = {
+  minutesBefore: number;
+  channels: ReminderChannel[];
+};
+
+export const eventRemindersApi = {
+  list: (eventId: string) => api.get<EventReminder[]>(`/events/${eventId}/reminders`),
+  create: (eventId: string, payload: CreateReminderPayload) =>
+    api.post<EventReminder>(`/events/${eventId}/reminders`, payload),
+  remove: (eventId: string, reminderId: string) =>
+    api.delete(`/events/${eventId}/reminders/${reminderId}`),
+};
