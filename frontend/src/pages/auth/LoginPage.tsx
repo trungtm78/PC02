@@ -8,7 +8,6 @@ import { AlertCircle, CheckCircle2, Lock, User, Eye, EyeOff } from 'lucide-react
 
 import { authApi, type LoginResponse } from '@/lib/api';
 import { authStore } from '@/stores/auth.store';
-import MobileDownloadSection from '@/components/MobileDownloadSection';
 import logoCA from '@/assets/logo-cong-an.png';
 
 /* ── Constants ────────────────────────────────────────────────── */
@@ -324,8 +323,15 @@ export default function LoginPage() {
               </p>
             </div>
 
-            {/* Tải ứng dụng di động — hidden trên mobile viewport */}
-            <MobileDownloadSection />
+            {/*
+              "Tải ứng dụng di động" section is intentionally OFF.
+              Anh chốt: UI chưa cần show download cho đến khi nginx /downloads/
+              (PR3) ship + HTTPS migration (PR2.5) ổn định.
+              Re-enable: `import MobileDownloadSection from '@/components/MobileDownloadSection'`
+              + render `<MobileDownloadSection />` below this comment.
+              Underlying code (component, helper, tests, vi.ts strings) is kept
+              in place so re-enabling is a 2-line edit.
+            */}
           </div>
         </div>
 
