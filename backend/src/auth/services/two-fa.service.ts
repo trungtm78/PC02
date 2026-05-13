@@ -19,8 +19,9 @@ import { TotpEncryptionService } from './totp-encryption.service';
 import { OtpCodeService } from './otp-code.service';
 import { EmailService } from '../../email/email.service';
 import { SettingsService } from '../../settings/settings.service';
-import type { TokenPair } from '../auth.service';
+import type { TokenPair, ChangePasswordPendingResponse } from '../auth.service';
 import { TOKEN_TYPE } from '../../common/constants/token-types.constants';
+import type { StringValue } from 'ms';
 import { SETTINGS_KEY } from '../../common/constants/settings-keys.constants';
 import {
   TWO_FA_METHOD,
@@ -175,7 +176,7 @@ export class TwoFaService {
     userId: string,
     dto: { code: string; method: TwoFaMethod },
     meta: { ipAddress?: string; userAgent?: string },
-  ): Promise<TokenPair> {
+  ): Promise<TokenPair | ChangePasswordPendingResponse> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: { role: true },
@@ -205,10 +206,16 @@ export class TwoFaService {
       throw new UnauthorizedException('Mã xác thực không hợp lệ');
     }
 
-    // OV-002: mark twoFaToken as consumed (persisted — survives restart)
+    // OV-002 + Codex #7: mark twoFaToken as consumed (must run regardless to
+    // prevent replay), but only set lastLoginAt when the login fully completes
+    // (no forced password change pending). Otherwise lastLoginAt would imply
+    // a successful session even though firstLoginChangePassword hasn't run.
+    const willBeBlockedOnChangePw = !!user.mustChangePassword;
     await this.prisma.user.update({
       where: { id: userId },
-      data: { twoFaUsedAt: new Date(), lastLoginAt: new Date() },
+      data: willBeBlockedOnChangePw
+        ? { twoFaUsedAt: new Date() }
+        : { twoFaUsedAt: new Date(), lastLoginAt: new Date() },
     });
 
     await this.audit.log({
@@ -216,10 +223,53 @@ export class TwoFaService {
       action: 'USER_2FA_VERIFIED',
       subject: 'User',
       subjectId: userId,
-      metadata: { method: dto.method },
+      metadata: {
+        method: dto.method,
+        // Codex #7: distinguish "passed 2FA AND completed login" vs
+        // "passed 2FA, blocked on forced-change" so compliance queries
+        // don't count the latter as a completed session.
+        ...(willBeBlockedOnChangePw && { blockedPendingChange: true }),
+      },
       ipAddress: meta.ipAddress,
       userAgent: meta.userAgent,
     });
+
+    // C2 critical: re-check mustChangePassword AFTER 2FA succeeds. Without
+    // this, a user with both 2FA enabled AND mustChangePassword=true would
+    // skip the forced password change entirely (login returns twoFaToken,
+    // 2FA verify returns full tokens — the change-pw gate never fires).
+    if (user.mustChangePassword) {
+      const jti = crypto.randomUUID();
+      // Codex #2: bind to user.tokenVersion at issue time so a later admin
+      // reset invalidates this token via ChangePasswordPendingGuard.
+      const changePasswordToken = await this.jwtService.signAsync(
+        {
+          sub: user.id,
+          type: TOKEN_TYPE.CHANGE_PASSWORD_PENDING,
+          jti,
+          tokenVersion: user.tokenVersion,
+        } as object,
+        {
+          algorithm: 'RS256',
+          privateKey: this.privateKey,
+          expiresIn: '15m' as StringValue,
+        },
+      );
+      await this.audit.log({
+        userId,
+        action: 'USER_LOGIN_BLOCKED_PENDING_PASSWORD_CHANGE',
+        subject: 'User',
+        subjectId: userId,
+        metadata: { email: user.email, postOtp: true },
+        ipAddress: meta.ipAddress,
+        userAgent: meta.userAgent,
+      });
+      return {
+        pending: true,
+        changePasswordToken,
+        reason: 'MUST_CHANGE_PASSWORD',
+      };
+    }
 
     // USER_LOGIN fires here (after both factors) — NOT in AuthService.login()
     await this.audit.log({

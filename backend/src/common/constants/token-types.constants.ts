@@ -15,8 +15,10 @@
  * `jwt.strategy.ts`.
  */
 export const TOKEN_TYPE = {
+  ACCESS: 'access',
   REFRESH: 'refresh',
   TWO_FA_PENDING: '2fa_pending',
+  CHANGE_PASSWORD_PENDING: 'change_password_pending',
 } as const;
 
 export type TokenType = (typeof TOKEN_TYPE)[keyof typeof TOKEN_TYPE];

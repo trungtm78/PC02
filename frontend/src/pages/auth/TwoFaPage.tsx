@@ -33,7 +33,19 @@ export default function TwoFaPage() {
   const verifyMutation = useMutation({
     mutationFn: () => authApi.verifyTwoFa(twoFaToken, code.trim(), method),
     onSuccess: (response) => {
-      const { accessToken, refreshToken } = response.data;
+      const data = response.data as
+        | { accessToken: string; refreshToken: string; expiresIn: string }
+        | { pending: true; changePasswordToken: string; reason: 'MUST_CHANGE_PASSWORD' };
+      // C2: TwoFaService.verify may return changePasswordToken pending instead
+      // of TokenPair when the user has mustChangePassword=true.
+      if ('pending' in data && data.pending) {
+        navigate('/auth/first-login-change-password', {
+          state: { changePasswordToken: data.changePasswordToken },
+          replace: true,
+        });
+        return;
+      }
+      const { accessToken, refreshToken } = data;
       authStore.setTokens(accessToken, refreshToken);
       navigate('/dashboard', { replace: true });
     },

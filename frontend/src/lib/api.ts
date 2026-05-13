@@ -6,8 +6,13 @@ export const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-// Attach access token to every request
+// Attach access token to every request UNLESS the caller already set
+// Authorization (per-request bearer for pending-token flows: 2FA, first-login
+// change-password). Codex challenge #5 fix — without this guard, stale
+// sessionStorage tokens silently overwrote the changePasswordToken /
+// twoFaToken and the backend guard rejected with 401.
 api.interceptors.request.use((config) => {
+  if (config.headers.Authorization) return config;
   const token = sessionStorage.getItem('accessToken');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -21,7 +26,12 @@ api.interceptors.response.use(
   async (error) => {
     const original = error.config as typeof error.config & { _retry?: boolean };
     const url = original?.url ?? '';
-    const isAuthEndpoint = url.includes('/auth/login') || url.includes('/auth/refresh') || url.includes('/auth/change-password') || url.includes('/auth/2fa');
+    const isAuthEndpoint =
+      url.includes('/auth/login') ||
+      url.includes('/auth/refresh') ||
+      url.includes('/auth/change-password') ||
+      url.includes('/auth/first-login-change-password') ||
+      url.includes('/auth/2fa');
     if (error.response?.status === 401 && !original._retry && !isAuthEndpoint) {
       original._retry = true;
       try {
@@ -50,7 +60,13 @@ api.interceptors.response.use(
 // Auth API
 export type LoginSuccess = { accessToken: string; refreshToken: string; expiresIn: string };
 export type TwoFaPending = { pending: true; twoFaToken: string };
-export type LoginResponse = LoginSuccess | TwoFaPending;
+// D1: when user must change password on first login (after admin create or admin reset).
+export type ChangePasswordPending = {
+  pending: true;
+  changePasswordToken: string;
+  reason: 'MUST_CHANGE_PASSWORD';
+};
+export type LoginResponse = LoginSuccess | TwoFaPending | ChangePasswordPending;
 
 export const authApi = {
   login: (username: string, password: string) =>
@@ -62,6 +78,15 @@ export const authApi = {
       currentPassword,
       newPassword,
     }),
+  // D1: first-login forced change. Token is the change_password_pending JWT from
+  // the login response (or 2FA verify response). On success the backend returns
+  // a real LoginSuccess TokenPair — user is fully logged in.
+  firstLoginChangePassword: (changePasswordToken: string, newPassword: string) =>
+    api.post<LoginSuccess>(
+      '/auth/first-login-change-password',
+      { newPassword },
+      { headers: { Authorization: `Bearer ${changePasswordToken}` } },
+    ),
   // 2FA — second factor step (uses twoFaToken, not accessToken)
   sendEmailOtp: (twoFaToken: string) =>
     api.post<{ success: boolean }>(

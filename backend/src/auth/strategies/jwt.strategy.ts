@@ -43,6 +43,12 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     if (payload.type === TOKEN_TYPE.REFRESH) {
       throw new UnauthorizedException('Refresh tokens cannot be used for API access');
     }
+    // C1 fix: reject any non-access typed token (2fa_pending, change_password_pending, etc.)
+    // Pre-feature, only refresh was rejected; pending tokens slipped through and could
+    // be presented as Authorization: Bearer to call business APIs.
+    if (payload.type && payload.type !== TOKEN_TYPE.ACCESS) {
+      throw new UnauthorizedException('Pending tokens cannot be used for API access');
+    }
 
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },

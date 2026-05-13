@@ -90,3 +90,43 @@ export const fields = {
 } as const;
 
 export type FieldKey = keyof typeof fields;
+
+// ── First-login forced password change (D1) ──────────────────────────────────
+
+export const firstLoginPasswordChange = {
+  title: 'Đổi mật khẩu lần đầu',
+  hint: 'Anh/chị phải đổi mật khẩu trước khi sử dụng hệ thống. Mật khẩu tạm thời chỉ dùng để đăng nhập lần đầu — vui lòng đặt mật khẩu mới của riêng anh/chị. Quản trị viên không thể xem mật khẩu mới.',
+  newPasswordLabel: 'Mật khẩu mới',
+  confirmPasswordLabel: 'Nhập lại mật khẩu mới',
+  submitButton: 'Đổi mật khẩu và vào hệ thống',
+  submitting: 'Đang đổi mật khẩu...',
+  successMessage: 'Đổi mật khẩu thành công. Đang chuyển vào hệ thống sau 3 giây...',
+  errorWeak: 'Mật khẩu chưa đủ mạnh, vui lòng kiểm tra danh sách yêu cầu bên trên.',
+  errorSameAsTemp: 'Mật khẩu mới không được trùng mật khẩu tạm thời.',
+  errorMismatch: 'Hai mật khẩu chưa trùng nhau.',
+  errorTokenExpired: 'Phiên đổi mật khẩu đã hết hạn. Vui lòng đăng nhập lại.',
+  errorNetwork: 'Không kết nối được máy chủ. Mật khẩu chưa được đổi, vui lòng thử lại.',
+  countdownLabel: (minutes: number) => `Phiên đổi mật khẩu hết hạn sau ${minutes} phút.`,
+  countdownExpiringSoon: (minutes: number) => `Còn ${minutes} phút trước khi phiên hết hạn — vui lòng hoàn tất.`,
+  showPassword: 'Hiện mật khẩu mới',
+  hidePassword: 'Ẩn mật khẩu mới',
+  showConfirmPassword: 'Hiện xác nhận mật khẩu',
+  hideConfirmPassword: 'Ẩn xác nhận mật khẩu',
+} as const;
+
+// ── Admin temp password handover modal (F1) ──────────────────────────────────
+
+export const tempPasswordHandover = {
+  title: 'Mật khẩu tạm thời',
+  warning:
+    '⚠ Mật khẩu này chỉ hiển thị MỘT LẦN. Sau khi đóng, hệ thống không thể xem lại — anh/chị phải reset lại nếu mất.',
+  userLabel: 'Cán bộ',
+  copyButton: 'Sao chép mật khẩu',
+  copySuccess: '✓ Đã sao chép mật khẩu tạm thời.',
+  copyFallback:
+    'Trình duyệt không hỗ trợ tự động sao chép. Vui lòng bôi đen mật khẩu bên trên và nhấn Ctrl+C.',
+  acknowledgeCheckbox:
+    'Tôi đã bàn giao mật khẩu cho cán bộ và hiểu rằng mật khẩu sẽ không hiển thị lại.',
+  closeButton: 'Đóng',
+  passwordLabel: 'Mật khẩu',
+} as const;

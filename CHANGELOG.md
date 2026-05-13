@@ -2,6 +2,70 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.21.0.0] - 2026-05-13
+
+### Added — Auth Hardening v1: Force first-login password change
+
+Đóng lỗ hổng impersonation cho hệ thống nội bộ PC02: trước đây admin gõ password khi tạo user → admin biết password đó vĩnh viễn → có thể login dưới danh nghĩa cán bộ trước khi cán bộ sử dụng tài khoản lần đầu. Audit log không phân biệt được. Đối với hệ thống quản lý hồ sơ vụ việc hình sự, đây là vi phạm nguyên tắc non-repudiation.
+
+**Tính năng cho cán bộ và admin**
+- Cán bộ phải đổi mật khẩu khi đăng nhập lần đầu, qua trang riêng `/auth/first-login-change-password` (giống TwoFaPage pattern). Mật khẩu tạm chỉ dùng được 1 lần để đăng nhập, sau đó cán bộ tự đặt mật khẩu riêng — quản trị viên không thể xem mật khẩu mới.
+- Admin không còn gõ password khi tạo user. Hệ thống sinh tự động mật khẩu tạm 16 ký tự (1 chữ hoa, 1 chữ thường, 1 số, 1 ký tự đặc biệt từ `!@#$%^&*`, loại bỏ I/O/l/0/1 cho dễ đọc), hiển thị 1 lần trong modal không tắt được — phải copy hoặc tick "tôi đã bàn giao" mới đóng được. Cùng UX cho luồng reset password.
+- Lần đầu login: trang dedicated với hint compliance, password strength checklist real-time (a11y: aria-live), confirm password field, countdown 15 phút trước khi token hết hạn.
+
+**Bảo mật được vá**
+
+3 lỗi nghiêm trọng đã tồn tại từ trước được phát hiện và fix trong PR này:
+- `JwtStrategy` chỉ reject `refresh` token; pending token (`2fa_pending`) có thể dùng làm access token gọi business API. Đã sửa: reject mọi token có type không phải `access`.
+- Admin reset password không bump `tokenVersion` → user vẫn dùng được access token cũ 15 phút sau khi reset. Đã sửa: tokenVersion increment trên mọi password reset.
+- `refreshToken()` không so sánh `payload.tokenVersion` với `user.tokenVersion` → migration force re-login không hiệu quả với user đang giữ refresh token. Đã sửa: enforce tokenVersion trên refresh path.
+
+**Token binding chống race condition**
+
+Pending token (`2fa_pending` và `change_password_pending`) đều bind `tokenVersion` vào payload tại thời điểm phát hành. Guard so sánh `payload.tokenVersion === user.tokenVersion`. Admin reset xen vào giữa quy trình → token cũ bị từ chối. Đồng thời `firstLoginChangePassword` dùng `updateMany WHERE tokenVersion=expected` (optimistic lock) để chống replay race khi 2 request đồng thời với cùng token. Admin reset cũng dùng cơ chế tương tự để 2 admin reset song song không cùng thành công.
+
+**Audit cho compliance**
+
+5 sự kiện audit mới:
+- `ADMIN_PASSWORD_RESET` — admin reset password user khác (metadata: targetUsername, tempPasswordGenerated)
+- `FIRST_LOGIN_PASSWORD_CHANGED` — user hoàn tất đổi password lần đầu
+- `USER_LOGIN_BLOCKED_PENDING_PASSWORD_CHANGE` — mỗi lần login bị chặn vì cần đổi password (signal brute-force)
+- `USER_LOGIN` cũng emit khi forced-change hoàn tất (metadata `viaForcedChange:true`) — compliance query trên USER_LOGIN không miss session này
+- `USER_2FA_VERIFIED` metadata `blockedPendingChange:true` khi user pass 2FA nhưng còn pending change-pw
+
+Tất cả ghi trong cùng `prisma.$transaction` với DB update → audit và state luôn nhất quán.
+
+### Changed
+
+- `CreateUserDto` và `UpdateUserDto`: xóa field `password`, thêm `resetPassword: boolean` flag cho `UpdateUserDto`. Admin gọi `PATCH /admin/users/:id { resetPassword: true }` để trigger reset.
+- `AuthService.resetPassword` (forgot-password OTP): clear `mustChangePassword` flag để user qua self-reset không bị block bởi forced-change cũ.
+- bcrypt cost: extract `hashPassword()` shared util — prod cost 12, test cost 4 (tests/auth giờ chạy nhanh hơn ~20s).
+- Frontend `api.ts` interceptor: không override `Authorization` header nếu request đã set sẵn (bảo vệ pending token call).
+
+### Fixed (pre-existing bugs caught during /autoplan + Codex review)
+
+- [CRITICAL] `JwtStrategy.validate()` chấp nhận pending token làm access token (ảnh hưởng 2FA đã ship trước đó).
+- [CRITICAL] `refreshToken()` không enforce tokenVersion → migration tokenVersion bump không thực sự log out user.
+- [HIGH] `AdminService.updateUser` không bump tokenVersion trên password reset → 15-min bypass window.
+- [HIGH] Audit log không trong `$transaction` với DB write trên admin path → có thể audit miss khi DB write thành công.
+
+### Migration & deployment
+
+2 migrations chạy tuần tự trên deploy:
+1. `20260513160000_add_must_change_password` — thêm 2 columns `mustChangePassword` (default false) và `passwordChangedAt` (nullable) vào `users`. User cũ không bị backfill — không bị forced-change.
+2. `20260513160100_force_token_invalidation` — `UPDATE users SET tokenVersion = tokenVersion + 1` cho tất cả users. **Tác động ops: mọi user đang login sẽ bị đăng xuất 1 lần khi deploy.** Cần thiết để vá lỗ hổng JwtStrategy. Flag trong deploy notes — chấp nhận được cho hệ thống nội bộ.
+
+### Test surface
+
+- Backend: 1203 tests pass (+17 mới so với baseline 1186) — JwtStrategy, ChangePasswordPendingGuard, TwoFaTokenGuard, temp-password generator, password-hash util, AdminService refactor (createUser + updateUser), AuthService.login + firstLoginChangePassword + refreshToken tokenVersion + AuthService.resetPassword.
+- Frontend: 409 tests pass (+19 mới so với baseline 390) — PasswordStrengthChecklist, TempPasswordHandoverModal (clipboard, non-dismissible, ESC blocked), api.ts interceptor (#5 fix).
+
+### Review pipeline
+
+- **/autoplan**: Phase 1 CEO + Phase 2 Design + Phase 3 Eng dual voices (Codex + Claude subagent) → 3 CRITICAL findings caught (JwtStrategy bypass, 2FA verify recheck, admin tokenVersion). User Challenge gate qua, scope Option B (F1 + F3 must-haves).
+- **Codex challenge round 1**: 7 findings (2 CRITICAL + 3 HIGH + 2 LOW) — all fixed via TDD.
+- **Codex review round 2**: 3 findings (2 P1 + 1 P2) — all fixed via TDD. Catch chính chỗ em miss ở round 1: token binding cần áp dụng consistently cho cả 2 pending types + end-to-end (guard → service).
+
 ## [0.20.0.0] - 2026-05-13
 
 ### Changed — Calendar Events v2, Phase 3 (drop legacy Holiday table)
