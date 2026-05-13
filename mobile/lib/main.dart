@@ -7,6 +7,8 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'core/api/api_base_url.dart';
 import 'core/auth/auth_provider.dart';
+import 'core/fcm/notification_router.dart';
+import 'core/logging/log.dart';
 import 'features/auth/first_login_change_password_screen.dart';
 import 'features/auth/login_screen.dart';
 import 'features/auth/two_fa_screen.dart';
@@ -20,7 +22,11 @@ import 'features/petitions/petition_detail_screen.dart';
 import 'features/petitions/petitions_screen.dart';
 import 'shared/theme/app_theme.dart';
 
-// Kept alive to keep semantics enabled in debug builds (for Maestro testing).
+// Kept alive to keep semantics enabled in debug builds for Maestro E2E flows.
+// Reading this field is intentionally absent — its only job is anchoring the
+// SemanticsHandle so it survives garbage collection. Removing the field would
+// also break the Maestro selector tree.
+// ignore: unused_element
 SemanticsHandle? _semanticsHandle;
 
 void main() async {
@@ -30,9 +36,13 @@ void main() async {
   if (kDebugMode) _semanticsHandle = binding.ensureSemantics();
   await initializeDateFormatting('vi_VN', null);
   try {
-    await Firebase.initializeApp()
-        .timeout(const Duration(seconds: 3));
-  } catch (_) {}
+    await Firebase.initializeApp().timeout(const Duration(seconds: 3));
+  } catch (e, st) {
+    // BUG-4: Firebase init failure is non-fatal (the app still works without
+    // FCM) but absolutely worth a debug log — otherwise silently-broken
+    // push registration is invisible during development.
+    logError('firebase.init', e, st);
+  }
   runApp(const ProviderScope(child: _AppInit()));
 }
 
@@ -62,6 +72,10 @@ class PC02App extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = _buildRouter(ref);
+    // BUG-2: wire FCM deep-link handler so tapping a push notification while
+    // app is backgrounded routes to /cases/:id (or whatever `link` payload
+    // the server sent) instead of dropping the user on the dashboard.
+    NotificationRouter.init(router);
     return MaterialApp.router(
       title: 'PC02 Quản lý',
       theme: appTheme,
