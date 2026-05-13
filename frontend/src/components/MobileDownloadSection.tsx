@@ -1,6 +1,6 @@
 import { Component, type ReactNode } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { Smartphone, Apple } from 'lucide-react';
+import { SiAndroid, SiApple } from 'react-icons/si';
 
 import { getMobileDownloadConfig } from '@/lib/mobile-download';
 import { mobileDownload as t } from '@/locales/vi';
@@ -62,7 +62,7 @@ function AndroidColumn({ url }: { url: string | null }) {
         <ComingSoonPlaceholder />
       )}
       <div className="mt-2 flex items-center gap-1.5 text-xs text-slate-700">
-        <Smartphone className="w-3.5 h-3.5" aria-hidden="true" />
+        <SiAndroid className="w-3.5 h-3.5 text-[#3DDC84]" aria-hidden="true" />
         {t.androidLabel}
       </div>
       {url && (
@@ -103,7 +103,7 @@ function IosColumn({
           />
         </QRBoundary>
         <div className="mt-2 flex items-center gap-1.5 text-xs text-slate-700">
-          <Apple className="w-3.5 h-3.5" aria-hidden="true" />
+          <SiApple className="w-3.5 h-3.5 text-slate-800" aria-hidden="true" />
           {t.iosLabel}
         </div>
       </div>
@@ -121,10 +121,10 @@ function IosColumn({
           opacity: 0.4,
         }}
       >
-        <Apple className="w-8 h-8 text-slate-600" aria-hidden="true" />
+        <SiApple className="w-10 h-10 text-slate-800" aria-hidden="true" />
       </div>
-      <div className="mt-2 flex items-center gap-1.5 text-xs text-slate-600">
-        <Apple className="w-3.5 h-3.5" aria-hidden="true" />
+      <div className="mt-2 flex items-center gap-1.5 text-xs text-slate-700">
+        <SiApple className="w-3.5 h-3.5 text-slate-800" aria-hidden="true" />
         {t.iosLabel}
       </div>
     </div>
@@ -132,20 +132,17 @@ function IosColumn({
 }
 
 function ComingSoonPlaceholder() {
-  // slate-600 instead of slate-400 — adversarial review flagged 2.8:1 contrast
-  // (below WCAG AA 4.5:1) on the lighter color. slate-600 on slate-100 = 7.1:1
-  // (AAA). The placeholder is muted by the dashed border + lighter bg, not by
-  // the text color.
+  // Env-unset state. Anh dropped the "Sắp ra mắt" caption — the dashed border
+  // + brand-colored Android logo are enough to signal "Android app exists but
+  // QR not configured yet". Screen reader still gets explicit context via
+  // aria-label so sighted vs assistive-tech parity holds.
   return (
     <div
       role="img"
       aria-label={t.placeholderAriaLabel('Android')}
-      className="w-24 h-24 bg-slate-100 border border-dashed border-slate-300 rounded flex flex-col items-center justify-center gap-1"
+      className="w-24 h-24 bg-slate-100 border border-dashed border-slate-300 rounded flex items-center justify-center"
     >
-      <Smartphone className="w-8 h-8 text-slate-600" aria-hidden="true" />
-      <span className="text-xs text-slate-600 italic">
-        {t.androidComingSoon}
-      </span>
+      <SiAndroid className="w-10 h-10 text-[#3DDC84]" aria-hidden="true" />
     </div>
   );
 }
