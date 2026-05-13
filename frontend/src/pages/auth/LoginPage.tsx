@@ -8,6 +8,7 @@ import { AlertCircle, CheckCircle2, Lock, User, Eye, EyeOff } from 'lucide-react
 
 import { authApi, type LoginResponse } from '@/lib/api';
 import { authStore } from '@/stores/auth.store';
+import MobileDownloadSection from '@/components/MobileDownloadSection';
 import logoCA from '@/assets/logo-cong-an.png';
 
 /* ── Constants ────────────────────────────────────────────────── */
@@ -322,6 +323,9 @@ export default function LoginPage() {
                 Mọi thông tin đều được mã hóa và bảo mật theo quy định.
               </p>
             </div>
+
+            {/* Tải ứng dụng di động — hidden trên mobile viewport */}
+            <MobileDownloadSection />
           </div>
         </div>
 
