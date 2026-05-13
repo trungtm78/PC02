@@ -3,6 +3,7 @@
 /// KHÔNG THAY ĐỔI GIÁ TRỊ — đây là wire-protocol với auth_provider.dart.
 abstract final class AppAuthResult {
   static const pending2fa = 'pending_2fa';
+  static const pendingChangePassword = 'pending_change_password';
   static const success = 'success';
 }
 

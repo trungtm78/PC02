@@ -29,6 +29,19 @@ class AuthApi {
     return resp.data as Map<String, dynamic>;
   }
 
+  // POST /auth/first-login-change-password — requires { newPassword } + Bearer changePasswordToken
+  Future<Map<String, dynamic>> firstLoginChangePassword(
+    String changePasswordToken,
+    String newPassword,
+  ) async {
+    final resp = await _client.dio.post(
+      '/auth/first-login-change-password',
+      data: {'newPassword': newPassword},
+      options: Options(headers: {'Authorization': 'Bearer $changePasswordToken'}),
+    );
+    return resp.data as Map<String, dynamic>;
+  }
+
   Future<void> logout() async {
     try {
       await _client.dio.post('/auth/logout');

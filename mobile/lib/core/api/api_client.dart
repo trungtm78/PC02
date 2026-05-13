@@ -1,11 +1,9 @@
 import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'api_base_url.dart';
 
-const _baseUrl = String.fromEnvironment(
-  'API_BASE_URL',
-  defaultValue: 'http://10.0.2.2:3000/api/v1',
-);
+const _baseUrl = apiBaseUrl;
 
 class ApiClient {
   late final Dio _dio;

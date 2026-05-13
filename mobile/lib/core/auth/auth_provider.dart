@@ -11,12 +11,14 @@ class AuthState {
   final bool isLoading;
   final Map<String, String?>? user;
   final String? pendingTwoFaToken;
+  final String? pendingChangePasswordToken;
 
   const AuthState({
     this.isAuthenticated = false,
     this.isLoading = false,
     this.user,
     this.pendingTwoFaToken,
+    this.pendingChangePasswordToken,
   });
 
   AuthState copyWith({
@@ -24,6 +26,7 @@ class AuthState {
     bool? isLoading,
     Map<String, String?>? user,
     String? pendingTwoFaToken,
+    String? pendingChangePasswordToken,
     bool clearPending = false,
   }) =>
       AuthState(
@@ -32,6 +35,9 @@ class AuthState {
         user: user ?? this.user,
         pendingTwoFaToken:
             clearPending ? null : pendingTwoFaToken ?? this.pendingTwoFaToken,
+        pendingChangePasswordToken: clearPending
+            ? null
+            : pendingChangePasswordToken ?? this.pendingChangePasswordToken,
       );
 }
 
@@ -59,6 +65,13 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       final data = await _authApi.login(email, password);
       if (data['pending'] == true) {
+        if (data['reason'] == 'MUST_CHANGE_PASSWORD') {
+          state = state.copyWith(
+            isLoading: false,
+            pendingChangePasswordToken: data['changePasswordToken'] as String?,
+          );
+          return AppAuthResult.pendingChangePassword;
+        }
         state = state.copyWith(
           isLoading: false,
           pendingTwoFaToken: data['twoFaToken'] as String?,
@@ -73,12 +86,36 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  Future<void> verify2fa(String code) async {
+  Future<String> firstLoginChangePassword(String newPassword) async {
+    state = state.copyWith(isLoading: true);
+    final token = state.pendingChangePasswordToken!;
+    try {
+      final data = await _authApi.firstLoginChangePassword(token, newPassword);
+      state = state.copyWith(clearPending: true);
+      await _finalize(data);
+      return AppAuthResult.success;
+    } catch (_) {
+      // Clear pendingChangePasswordToken on ANY error so 401 (expired) and
+      // 409 (admin superseded) both route the user back to login cleanly.
+      state = AuthState(isAuthenticated: false, isLoading: false);
+      rethrow;
+    }
+  }
+
+  Future<String> verify2fa(String code) async {
     state = state.copyWith(isLoading: true);
     try {
       final token = state.pendingTwoFaToken!;
       final data = await _authApi.verify2fa(token, code);
+      if (data['pending'] == true && data['reason'] == 'MUST_CHANGE_PASSWORD') {
+        state = state.copyWith(
+          isLoading: false,
+          pendingChangePasswordToken: data['changePasswordToken'] as String?,
+        );
+        return AppAuthResult.pendingChangePassword;
+      }
       await _finalize(data);
+      return AppAuthResult.success;
     } catch (_) {
       state = state.copyWith(isLoading: false);
       rethrow;
