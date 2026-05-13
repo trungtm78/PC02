@@ -130,3 +130,19 @@ export const tempPasswordHandover = {
   closeButton: 'Đóng',
   passwordLabel: 'Mật khẩu',
 } as const;
+
+// ── Mobile app download (LoginPage section) ──────────────────────────────────
+
+export const mobileDownload = {
+  sectionTitle: 'Tải ứng dụng di động',
+  androidLabel: 'Android',
+  androidDownloadLink: 'Tải APK trực tiếp',
+  androidComingSoon: 'Sắp ra mắt',
+  iosLabel: 'iOS',
+  // No iOS status caption — visual placeholder communicates disabled state;
+  // screen readers still get context via placeholderAriaLabel below.
+  qrAriaLabel: (platform: string) => `Mã QR tải ứng dụng ${platform}`,
+  placeholderAriaLabel: (platform: string) =>
+    `Ứng dụng ${platform} chưa sẵn sàng`,
+  qrErrorFallback: (url: string) => `Truy cập trực tiếp: ${url}`,
+} as const;
