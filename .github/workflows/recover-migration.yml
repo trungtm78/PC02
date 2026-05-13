@@ -66,6 +66,15 @@ jobs:
              echo "=== calendar_events row count ===" && \
              psql "$PSQL_URL" -c "SELECT count(*) AS calendar_event_rows FROM calendar_events;" 2>&1 || true && \
              echo "" && \
+             echo "=== event_categories rows (migration depends on slug lookup!) ===" && \
+             psql "$PSQL_URL" -c "SELECT id, slug, name FROM event_categories ORDER BY slug;" 2>&1 || true && \
+             echo "" && \
+             echo "=== Distinct holiday categories (need matching slugs in event_categories) ===" && \
+             psql "$PSQL_URL" -c "SELECT DISTINCT category::text, lower(category::text) AS expected_slug FROM holidays;" 2>&1 || true && \
+             echo "" && \
+             echo "=== Does admin user exist? ===" && \
+             psql "$PSQL_URL" -c "SELECT id, email FROM users WHERE email = '\''admin@pc02.local'\'';" 2>&1 || true && \
+             echo "" && \
              echo "=== prisma migrate status ===" && \
              npx prisma migrate status 2>&1 || true'
 
