@@ -93,6 +93,81 @@ describe('TwoFaService.verify()', () => {
     expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: 'USER_LOGIN' }));
   });
 
+  // C2 critical: 2FA verify must re-check mustChangePassword AFTER OTP success.
+  // Otherwise a user with both 2FA enabled AND mustChangePassword=true will
+  // bypass the forced password change (login returns twoFaToken first,
+  // then 2FA verify hands out real tokens with no second gate).
+  it('returns changePasswordToken pending instead of TokenPair when mustChangePassword=true (post-OTP)', async () => {
+    const { svc, jwtService } = makeService({
+      totpEnabled: true,
+      mustChangePassword: true,
+    });
+    jwtService.signAsync.mockResolvedValue('CHANGE_PW_TOKEN');
+
+    const result = await svc.verify('user-1', { code: '123456', method: 'totp' }, meta);
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        pending: true,
+        reason: 'MUST_CHANGE_PASSWORD',
+        changePasswordToken: 'CHANGE_PW_TOKEN',
+      }),
+    );
+    expect((result as any).accessToken).toBeUndefined();
+  });
+
+  it('audits USER_LOGIN_BLOCKED_PENDING_PASSWORD_CHANGE when blocking post-OTP', async () => {
+    const { svc, audit } = makeService({
+      totpEnabled: true,
+      mustChangePassword: true,
+    });
+    await svc.verify('user-1', { code: '123456', method: 'totp' }, meta);
+    expect(audit.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'USER_LOGIN_BLOCKED_PENDING_PASSWORD_CHANGE',
+      }),
+    );
+    // USER_LOGIN should NOT have fired (pending response, not full login)
+    const allCalls = audit.log.mock.calls.map((c: any[]) => c[0].action);
+    expect(allCalls).not.toContain('USER_LOGIN');
+  });
+
+  // Codex challenge #7: when blocked on mustChangePassword, lastLoginAt
+  // must NOT be updated. The user has not actually logged in — they still
+  // have to complete the forced-change page first. firstLoginChangePassword
+  // sets lastLoginAt at THAT point.
+  it('does NOT update lastLoginAt when mustChangePassword=true (Codex #7)', async () => {
+    const { svc, prisma } = makeService({
+      totpEnabled: true,
+      mustChangePassword: true,
+    });
+    await svc.verify('user-1', { code: '123456', method: 'totp' }, meta);
+    // The single update we expect is the twoFaUsedAt single-use marker —
+    // it must NOT carry lastLoginAt for the blocked path.
+    const updateCalls = prisma.user.update.mock.calls;
+    for (const call of updateCalls) {
+      expect(call[0].data.lastLoginAt).toBeUndefined();
+    }
+  });
+
+  // Audit hygiene: USER_2FA_VERIFIED must indicate when login is still
+  // pending the forced-change so compliance can distinguish "fully logged
+  // in" from "passed 2FA but blocked on change-pw".
+  it('USER_2FA_VERIFIED metadata flags blockedPendingChange=true on the blocked path', async () => {
+    const { svc, audit } = makeService({
+      totpEnabled: true,
+      mustChangePassword: true,
+    });
+    await svc.verify('user-1', { code: '123456', method: 'totp' }, meta);
+    const verifiedCall = audit.log.mock.calls.find(
+      (c: any[]) => c[0].action === 'USER_2FA_VERIFIED',
+    );
+    expect(verifiedCall).toBeDefined();
+    expect(verifiedCall[0].metadata).toEqual(
+      expect.objectContaining({ blockedPendingChange: true }),
+    );
+  });
+
   it('totp method: replayed code (0 rows updated) → throws ForbiddenException', async () => {
     const { svc, prisma } = makeService({ totpEnabled: true });
     prisma.$executeRaw.mockResolvedValue(0);

@@ -8,13 +8,15 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
-import { STRONG_PASSWORD_REGEX, STRONG_PASSWORD_MSG } from '../../auth/constants/password.constants';
 
 export enum UserStatus {
   ACTIVE = 'active',
   INACTIVE = 'inactive',
 }
 
+// F1: admin no longer chooses the password. Backend generates a random temp
+// password (returned ONCE in the response) and the user is forced to change
+// it on first login. See AdminService.createUser + temp-password.util.
 export class CreateUserDto {
   @IsString()
   @IsNotEmpty()
@@ -28,12 +30,6 @@ export class CreateUserDto {
   @IsEmail({}, { message: 'Email không đúng định dạng' })
   @IsNotEmpty()
   email: string;
-
-  @IsString()
-  @IsNotEmpty()
-  @MinLength(8, { message: 'Mật khẩu tối thiểu 8 ký tự' })
-  @Matches(STRONG_PASSWORD_REGEX, { message: STRONG_PASSWORD_MSG })
-  password: string;
 
   @IsString()
   @IsOptional()

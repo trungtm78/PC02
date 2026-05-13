@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, BadRequestException, Logger } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException, ConflictException, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
@@ -25,7 +25,20 @@ export interface TokenPair {
 
 // ISSUE-004: login() now returns either a full TokenPair or a 2FA pending response
 export type TwoFaPendingResponse = { pending: true; twoFaToken: string };
-export type LoginResponse = TokenPair | TwoFaPendingResponse;
+// C2 / D1: when admin reset or first-login forces a password change, login()
+// (or 2FA verify, post-OTP) returns this pending response. The frontend
+// redirects to /auth/first-login-change-password and exchanges the token
+// for a new password. The token is single-use via the state-derived check
+// (`user.mustChangePassword=false` after the change clears the flag).
+export type ChangePasswordPendingResponse = {
+  pending: true;
+  changePasswordToken: string;
+  reason: 'MUST_CHANGE_PASSWORD';
+};
+export type LoginResponse =
+  | TokenPair
+  | TwoFaPendingResponse
+  | ChangePasswordPendingResponse;
 
 @Injectable()
 export class AuthService {
@@ -78,8 +91,17 @@ export class AuthService {
     const is2FAEnabled = (await this.settingsService.getValue(SETTINGS_KEY.TWO_FA_ENABLED)) === 'true';
     if (is2FAEnabled) {
       const jti = crypto.randomUUID();
+      // Codex review round 2 #B: bind tokenVersion to twoFaToken so admin
+      // password reset (which bumps tokenVersion) invalidates in-flight 2FA
+      // tokens. Without this, an attacker with the old password could complete
+      // 2FA after a reset and slip into the forced-change flow.
       const twoFaToken = await this.jwtService.signAsync(
-        { sub: user.id, type: TOKEN_TYPE.TWO_FA_PENDING, jti } as object,
+        {
+          sub: user.id,
+          type: TOKEN_TYPE.TWO_FA_PENDING,
+          jti,
+          tokenVersion: user.tokenVersion,
+        } as object,
         { algorithm: 'RS256', privateKey: this.privateKey, expiresIn: '5m' as StringValue },
       );
       await this.auditService.log({
@@ -92,6 +114,19 @@ export class AuthService {
         userAgent: meta.userAgent,
       });
       return { pending: true, twoFaToken };
+    }
+
+    // C2 / D1: when 2FA is disabled, check mustChangePassword here. When 2FA
+    // is enabled, the same check runs again inside TwoFaService.verify after
+    // OTP success — both paths gate the real TokenPair behind the forced
+    // password change.
+    if (user.mustChangePassword) {
+      return this.issueChangePasswordPending(
+        user.id,
+        user.email,
+        user.tokenVersion,
+        meta,
+      );
     }
 
     const tokens = await this.generateTokens(
@@ -118,6 +153,173 @@ export class AuthService {
       metadata: { email: user.email, role: user.role.name },
       ipAddress: meta.ipAddress,
       userAgent: meta.userAgent,
+    });
+
+    return tokens;
+  }
+
+  // ── Change-password pending response (D1 / C2 helper) ─────────────────────
+  // Issues a short-lived JWT (`change_password_pending`) scoped solely to
+  // POST /auth/first-login-change-password. The guard rejects it for any
+  // other endpoint (defense-in-depth on top of the C1 JwtStrategy fix).
+  // F3 audit: every blocked login emits USER_LOGIN_BLOCKED_PENDING_PASSWORD_CHANGE.
+  async issueChangePasswordPending(
+    userId: string,
+    email: string,
+    tokenVersion: number,
+    meta: { ipAddress?: string; userAgent?: string },
+  ): Promise<ChangePasswordPendingResponse> {
+    const jti = crypto.randomUUID();
+    // Codex #2: bind to tokenVersion so a re-reset (which bumps tokenVersion)
+    // immediately invalidates this older token in ChangePasswordPendingGuard.
+    const changePasswordToken = await this.jwtService.signAsync(
+      {
+        sub: userId,
+        type: TOKEN_TYPE.CHANGE_PASSWORD_PENDING,
+        jti,
+        tokenVersion,
+      } as object,
+      {
+        algorithm: 'RS256',
+        privateKey: this.privateKey,
+        expiresIn: '15m' as StringValue,
+      },
+    );
+    await this.auditService.log({
+      userId,
+      action: 'USER_LOGIN_BLOCKED_PENDING_PASSWORD_CHANGE',
+      subject: 'User',
+      subjectId: userId,
+      metadata: { email },
+      ipAddress: meta.ipAddress,
+      userAgent: meta.userAgent,
+    });
+    return {
+      pending: true,
+      changePasswordToken,
+      reason: 'MUST_CHANGE_PASSWORD',
+    };
+  }
+
+  // ── First-login forced password change (D1) ───────────────────────────────
+  // Called from POST /auth/first-login-change-password (gated by
+  // ChangePasswordPendingGuard). User exchanges the change_password_pending
+  // token + new password for a real TokenPair (full login completes here).
+  //
+  // `expectedTokenVersion` MUST come from the JWT payload (set by the guard
+  // on req.user). Using the freshly-loaded user.tokenVersion here is racy:
+  // a concurrent admin re-reset between guard and this call would silently
+  // accept the stale token (Codex review round 2 #A).
+  async firstLoginChangePassword(
+    userId: string,
+    expectedTokenVersion: number,
+    dto: { newPassword: string },
+    meta: { ipAddress?: string; userAgent?: string },
+  ): Promise<TokenPair> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { role: true },
+    });
+    if (!user || !user.isActive) {
+      throw new UnauthorizedException(
+        'Tài khoản không tồn tại hoặc đã bị vô hiệu hóa',
+      );
+    }
+    if (!user.mustChangePassword) {
+      // The guard already rejects this case; this is defense-in-depth in case
+      // the guard is bypassed (e.g. internal call from another service).
+      throw new BadRequestException('Không cần đổi mật khẩu lần đầu');
+    }
+    if (!user.passwordHash) {
+      throw new BadRequestException(
+        'Tài khoản này không sử dụng đăng nhập bằng mật khẩu',
+      );
+    }
+
+    // Reject "change to the temp password I just received" (it's the same hash).
+    const sameAsTemp = await bcrypt.compare(dto.newPassword, user.passwordHash);
+    if (sameAsTemp) {
+      throw new BadRequestException(
+        'Mật khẩu mới không được trùng mật khẩu tạm thời',
+      );
+    }
+
+    const newHash = await bcrypt.hash(dto.newPassword, 12);
+
+    // H2 + Codex #3 + Codex review round 2 #A: update + audit transactional,
+    // with optimistic lock on tokenVersion. The WHERE constraint uses the
+    // version FROM THE JWT PAYLOAD (passed in by the guard) so a concurrent
+    // admin re-reset that bumped the DB version between guard and this call
+    // correctly fails this update with count=0.
+    await this.prisma.$transaction(async (tx) => {
+      const result = await tx.user.updateMany({
+        where: { id: userId, tokenVersion: expectedTokenVersion },
+        data: {
+          passwordHash: newHash,
+          mustChangePassword: false,
+          passwordChangedAt: new Date(),
+          tokenVersion: { increment: 1 },
+          refreshTokenHash: null,
+          lastLoginAt: new Date(),
+        },
+      });
+      if (result.count === 0) {
+        throw new ConflictException(
+          'Mật khẩu đã được đổi bởi yêu cầu khác hoặc admin vừa reset lại — vui lòng đăng nhập lại',
+        );
+      }
+      await this.auditService.log(
+        {
+          userId,
+          action: 'FIRST_LOGIN_PASSWORD_CHANGED',
+          subject: 'User',
+          subjectId: userId,
+          metadata: { email: user.email },
+          ipAddress: meta.ipAddress,
+          userAgent: meta.userAgent,
+        },
+        tx,
+      );
+      // Codex review round 2 #C: the forced-change flow IS a completed
+      // login (TokenPair issued, lastLoginAt set). Emit USER_LOGIN so
+      // audit queries keyed on USER_LOGIN see this as a completed session,
+      // consistent with the normal login and post-2FA paths.
+      await this.auditService.log(
+        {
+          userId,
+          action: 'USER_LOGIN',
+          subject: 'User',
+          subjectId: userId,
+          metadata: {
+            email: user.email,
+            role: user.role.name,
+            viaForcedChange: true,
+          },
+          ipAddress: meta.ipAddress,
+          userAgent: meta.userAgent,
+        },
+        tx,
+      );
+    });
+
+    // Issue a fresh TokenPair with the new tokenVersion (post-increment).
+    // We use expectedTokenVersion+1 because the update was bound to that value.
+    const tokens = await this.generateTokens(
+      user.id,
+      user.email,
+      user.role.name,
+      expectedTokenVersion + 1,
+      user.canDispatch,
+    );
+
+    // Codex challenge #1 fix: persist the refresh token hash so /auth/refresh
+    // works after the access token expires. Without this update, the user
+    // appears logged in but is silently logged out 15 min later because
+    // refreshToken() requires a stored hash to compare against.
+    const refreshHash = await bcrypt.hash(tokens.refreshToken, 10);
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { refreshTokenHash: refreshHash },
     });
 
     return tokens;
@@ -151,6 +353,18 @@ export class AuthService {
 
     if (!user || !user.isActive || !user.refreshTokenHash) {
       throw new UnauthorizedException('Token revoked or user inactive');
+    }
+
+    // Codex challenge #4 fix: enforce tokenVersion on refresh path. Without
+    // this, the deploy migration that bumps every user's tokenVersion (to
+    // invalidate the C1 pre-existing pending-token bug) does NOT actually
+    // log refresh-token holders out — they just mint fresh tokens at the
+    // current version. Legacy tokens (no tokenVersion in payload) are
+    // treated as version 0, matching JwtStrategy behavior.
+    if ((payload.tokenVersion ?? 0) !== user.tokenVersion) {
+      throw new UnauthorizedException(
+        'Refresh token invalidated — please log in again',
+      );
     }
 
     const tokenValid = await bcrypt.compare(
@@ -278,6 +492,13 @@ export class AuthService {
         passwordHash,
         tokenVersion: { increment: 1 }, // invalidate all existing JWTs (web + mobile)
         refreshTokenHash: null,          // invalidate refresh tokens
+        // H5: self-reset legitimately satisfies the "user owns their own
+        // password" invariant. If admin had previously set mustChangePassword=true
+        // and the user goes through forgot-password instead of the forced flow,
+        // we must clear the flag — otherwise login() blocks them with a temp
+        // password they no longer have.
+        mustChangePassword: false,
+        passwordChangedAt: new Date(),
       },
     });
 

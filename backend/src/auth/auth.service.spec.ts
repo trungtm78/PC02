@@ -9,7 +9,11 @@ const bcryptHash = bcrypt.hash as jest.Mock;
 const HASHED = '$2b$12$hashedpassword';
 
 const mockTx = {
-  user: { update: jest.fn() },
+  user: {
+    update: jest.fn(),
+    // Codex #3: optimistic lock uses updateMany; default returns count=1 (success).
+    updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+  },
 };
 const mockPrisma = {
   user: { findUnique: jest.fn(), update: jest.fn() },
@@ -18,6 +22,11 @@ const mockPrisma = {
 const mockAudit = { log: jest.fn() };
 const mockOtpCodeService = { generate: jest.fn(), verify: jest.fn() };
 const mockEmailService = { sendPasswordResetEmail: jest.fn() };
+const mockSettingsService = { getValue: jest.fn() };
+const mockJwtService = { signAsync: jest.fn() };
+const mockConfigService = {
+  get: jest.fn((_key: string, def?: unknown) => def ?? '15m'),
+};
 
 function makeService(): AuthService {
   const svc = Object.create(AuthService.prototype);
@@ -25,11 +34,401 @@ function makeService(): AuthService {
   (svc as any).auditService = mockAudit;
   (svc as any).otpCodeService = mockOtpCodeService;
   (svc as any).emailService = mockEmailService;
+  (svc as any).settingsService = mockSettingsService;
+  (svc as any).jwtService = mockJwtService;
+  (svc as any).configService = mockConfigService;
+  (svc as any).privateKey = 'TEST_PRIVATE_KEY';
   (svc as any).logger = { error: jest.fn() };
   return svc as AuthService;
 }
 
 const META = { ipAddress: '127.0.0.1', userAgent: 'jest' };
+
+describe('AuthService.login (mustChangePassword pending branch — C2)', () => {
+  let service: AuthService;
+  const baseUser = {
+    id: 'u1',
+    email: 'cb@pc02.local',
+    isActive: true,
+    passwordHash: HASHED,
+    role: { name: 'OFFICER' },
+    tokenVersion: 0,
+    canDispatch: false,
+    mustChangePassword: false,
+  };
+
+  beforeEach(() => {
+    service = makeService();
+    jest.clearAllMocks();
+    bcryptHash.mockResolvedValue(HASHED);
+    mockSettingsService.getValue.mockResolvedValue('false'); // 2FA disabled by default
+    mockJwtService.signAsync.mockResolvedValue('SIGNED_JWT_TOKEN');
+  });
+
+  it('returns pending changePasswordToken when user.mustChangePassword=true (no 2FA)', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({
+      ...baseUser,
+      mustChangePassword: true,
+    });
+    bcryptCompare.mockResolvedValue(true); // password correct
+
+    const result = await service.login(
+      { username: 'cb@pc02.local', password: 'Temp@1234' } as any,
+      META,
+    );
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        pending: true,
+        reason: 'MUST_CHANGE_PASSWORD',
+        changePasswordToken: expect.any(String),
+      }),
+    );
+    // Should NOT have issued real tokens
+    expect((result as any).accessToken).toBeUndefined();
+    expect((result as any).refreshToken).toBeUndefined();
+  });
+
+  it('issues normal TokenPair when mustChangePassword=false (regression)', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({
+      ...baseUser,
+      mustChangePassword: false,
+    });
+    bcryptCompare.mockResolvedValue(true);
+    mockJwtService.signAsync
+      .mockResolvedValueOnce('access_token_x')
+      .mockResolvedValueOnce('refresh_token_y');
+    mockPrisma.user.update.mockResolvedValue({});
+
+    const result = await service.login(
+      { username: 'cb@pc02.local', password: 'Good@1234' } as any,
+      META,
+    );
+
+    expect((result as any).accessToken).toBeDefined();
+    expect((result as any).refreshToken).toBeDefined();
+    expect((result as any).pending).toBeUndefined();
+  });
+
+  // F3 audit: every blocked login emits USER_LOGIN_BLOCKED_PENDING_PASSWORD_CHANGE
+  it('audits USER_LOGIN_BLOCKED_PENDING_PASSWORD_CHANGE on each pending response', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({
+      ...baseUser,
+      mustChangePassword: true,
+    });
+    bcryptCompare.mockResolvedValue(true);
+
+    await service.login(
+      { username: 'cb@pc02.local', password: 'Temp@1234' } as any,
+      META,
+    );
+
+    expect(mockAudit.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'u1',
+        action: 'USER_LOGIN_BLOCKED_PENDING_PASSWORD_CHANGE',
+      }),
+    );
+  });
+
+  // C2 critical: 2FA branch must NOT short-circuit the mustChangePassword check
+  // when 2FA is enabled. Login still returns twoFaToken first; the mustChangePassword
+  // re-check happens AFTER 2FA verify (covered in TwoFaService.verify spec).
+  it('still returns twoFaToken pending when 2FA is enabled, even with mustChangePassword=true', async () => {
+    mockSettingsService.getValue.mockResolvedValue('true'); // 2FA enabled
+    mockPrisma.user.findUnique.mockResolvedValue({
+      ...baseUser,
+      mustChangePassword: true,
+    });
+    bcryptCompare.mockResolvedValue(true);
+
+    const result = await service.login(
+      { username: 'cb@pc02.local', password: 'Temp@1234' } as any,
+      META,
+    );
+
+    // 2FA pending takes precedence — the second check happens post-OTP
+    expect((result as any).pending).toBe(true);
+    expect((result as any).twoFaToken).toBeDefined();
+    expect((result as any).changePasswordToken).toBeUndefined();
+  });
+});
+
+describe('AuthService.firstLoginChangePassword (D1 / new endpoint)', () => {
+  let service: AuthService;
+  const baseUser = {
+    id: 'u1',
+    email: 'cb@pc02.local',
+    isActive: true,
+    passwordHash: HASHED,
+    mustChangePassword: true,
+    role: { name: 'OFFICER' },
+    tokenVersion: 0,
+    canDispatch: false,
+  };
+
+  beforeEach(() => {
+    service = makeService();
+    jest.clearAllMocks();
+    bcryptHash.mockResolvedValue(HASHED + '_NEW');
+    mockJwtService.signAsync.mockResolvedValue('NEW_TOKEN');
+  });
+
+  it('throws when user not found or inactive', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(null);
+    await expect(
+      (service as any).firstLoginChangePassword('u1', 0, { newPassword: 'New@2026A' }, META),
+    ).rejects.toThrow(UnauthorizedException);
+  });
+
+  it('throws BadRequestException when mustChangePassword is already false', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({
+      ...baseUser,
+      mustChangePassword: false,
+    });
+    await expect(
+      (service as any).firstLoginChangePassword('u1', 0, { newPassword: 'New@2026A' }, META),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('rejects when newPassword is the same as the current temp password', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(baseUser);
+    bcryptCompare.mockResolvedValue(true); // newPassword matches current hash
+    await expect(
+      (service as any).firstLoginChangePassword('u1', 0, { newPassword: 'TempThatWas@123' }, META),
+    ).rejects.toThrow(BadRequestException);
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('on success: updates hash, clears mustChangePassword, increments tokenVersion, returns TokenPair', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(baseUser);
+    bcryptCompare.mockResolvedValue(false); // new pw is different from current
+    mockTx.user.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.user.update.mockResolvedValue({});
+
+    const result = await (service as any).firstLoginChangePassword(
+      'u1',
+      0,
+      { newPassword: 'New@2026A' },
+      META,
+    );
+
+    expect(mockTx.user.updateMany).toHaveBeenCalledWith({
+      where: { id: 'u1', tokenVersion: 0 },
+      data: expect.objectContaining({
+        passwordHash: HASHED + '_NEW',
+        mustChangePassword: false,
+        passwordChangedAt: expect.any(Date),
+        tokenVersion: { increment: 1 },
+        refreshTokenHash: null,
+      }),
+    });
+    expect((result as any).accessToken).toBeDefined();
+    expect((result as any).refreshToken).toBeDefined();
+  });
+
+  // Codex challenge #3 + review round 2 #A: optimistic-lock WHERE uses the
+  // tokenVersion FROM THE JWT PAYLOAD (passed in as expectedTokenVersion),
+  // not the freshly-loaded user.tokenVersion. This closes the race where
+  // admin re-resets between guard and service.
+  it('uses updateMany with WHERE tokenVersion=payload (not fresh DB value) — Codex #3 + #A', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({
+      ...baseUser,
+      tokenVersion: 9, // DB is at 9 (admin re-reset bumped it)
+    });
+    bcryptCompare.mockResolvedValue(false);
+    mockTx.user.updateMany = jest.fn().mockResolvedValue({ count: 0 });
+    // expectedTokenVersion=7 (from the user's stale T1 payload) must propagate
+    // into the WHERE so the update matches 0 rows and throws.
+    await expect(
+      (service as any).firstLoginChangePassword(
+        'u1',
+        7,
+        { newPassword: 'New@2026A' },
+        META,
+      ),
+    ).rejects.toThrow(/yêu cầu khác|reset lại|concurrent|superseded|already/i);
+    expect(mockTx.user.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'u1', tokenVersion: 7 },
+        data: expect.objectContaining({ tokenVersion: { increment: 1 } }),
+      }),
+    );
+  });
+
+  it('throws ConflictException when updateMany matches 0 rows (concurrent change won)', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({
+      ...baseUser,
+      tokenVersion: 7,
+    });
+    bcryptCompare.mockResolvedValue(false);
+    mockTx.user.updateMany = jest.fn().mockResolvedValue({ count: 0 });
+
+    await expect(
+      (service as any).firstLoginChangePassword(
+        'u1',
+        0,
+        { newPassword: 'New@2026A' },
+        META,
+      ),
+    ).rejects.toThrow(/yêu cầu khác|reset lại|concurrent|superseded|already/i);
+  });
+
+  // Codex challenge #1: refreshTokenHash MUST be stored after issuing the new
+  // refresh token. Otherwise the user appears logged in but refresh fails after
+  // ~15 min (access token expiry), forcing immediate re-login and ruining
+  // first-impression UX.
+  it('stores the new refreshTokenHash after issuing the TokenPair', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(baseUser);
+    bcryptCompare.mockResolvedValue(false);
+    mockTx.user.updateMany.mockResolvedValue({ count: 1 });
+    mockJwtService.signAsync
+      .mockResolvedValueOnce('access_x')
+      .mockResolvedValueOnce('refresh_y');
+    mockPrisma.user.update.mockResolvedValue({});
+
+    await (service as any).firstLoginChangePassword(
+      'u1',
+      0,
+      { newPassword: 'New@2026A' },
+      META,
+    );
+
+    // After the transactional update, a separate prisma.user.update must run
+    // to persist the new refresh token hash (rotation pattern from login()).
+    const calls = mockPrisma.user.update.mock.calls;
+    const refreshUpdate = calls.find(
+      (c: any[]) =>
+        c[0]?.where?.id === 'u1' &&
+        c[0]?.data?.refreshTokenHash &&
+        typeof c[0].data.refreshTokenHash === 'string',
+    );
+    expect(refreshUpdate).toBeDefined();
+  });
+
+  // Codex review round 2 #C: when forced-change completes the user IS
+  // logged in (TokenPair issued, lastLoginAt set). Audit queries on
+  // USER_LOGIN must see this event too so compliance can count first-login
+  // completions as completed sessions.
+  it('emits USER_LOGIN audit (transactional) after a successful forced change (Codex #C)', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(baseUser);
+    bcryptCompare.mockResolvedValue(false);
+    mockTx.user.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.user.update.mockResolvedValue({});
+
+    await (service as any).firstLoginChangePassword(
+      'u1',
+      0,
+      { newPassword: 'New@2026A' },
+      META,
+    );
+
+    // Both events must fire — FIRST_LOGIN_PASSWORD_CHANGED for the action,
+    // USER_LOGIN for the resulting session.
+    const actions = mockAudit.log.mock.calls.map((c: any[]) => c[0].action);
+    expect(actions).toContain('FIRST_LOGIN_PASSWORD_CHANGED');
+    expect(actions).toContain('USER_LOGIN');
+    // USER_LOGIN metadata flags the path so it's distinguishable.
+    const userLoginCall = mockAudit.log.mock.calls.find(
+      (c: any[]) => c[0].action === 'USER_LOGIN',
+    );
+    expect(userLoginCall[0].metadata).toEqual(
+      expect.objectContaining({ viaForcedChange: true }),
+    );
+  });
+
+  // F3: explicit FIRST_LOGIN_PASSWORD_CHANGED audit, transactional with the update
+  it('audits FIRST_LOGIN_PASSWORD_CHANGED inside the same transaction as the update', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(baseUser);
+    bcryptCompare.mockResolvedValue(false);
+    mockTx.user.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.user.update.mockResolvedValue({});
+
+    await (service as any).firstLoginChangePassword(
+      'u1',
+      0,
+      { newPassword: 'New@2026A' },
+      META,
+    );
+
+    expect(mockAudit.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'u1',
+        action: 'FIRST_LOGIN_PASSWORD_CHANGED',
+      }),
+      mockTx,
+    );
+    expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('AuthService.refreshToken (Codex challenge #4 — tokenVersion enforcement)', () => {
+  let service: AuthService;
+  const baseUser = {
+    id: 'u1',
+    email: 'cb@pc02.local',
+    isActive: true,
+    refreshTokenHash: 'old_refresh_hash',
+    role: { name: 'OFFICER' },
+    tokenVersion: 5, // current DB value
+    canDispatch: false,
+  };
+
+  beforeEach(() => {
+    service = makeService();
+    jest.clearAllMocks();
+    bcryptHash.mockResolvedValue(HASHED);
+    bcryptCompare.mockResolvedValue(true);
+    mockPrisma.user.update.mockResolvedValue({});
+    mockJwtService.signAsync
+      .mockResolvedValueOnce('new_access')
+      .mockResolvedValueOnce('new_refresh');
+    // Mock JwtService.verify (synchronous in NestJS).
+    (mockJwtService as any).verify = jest.fn();
+  });
+
+  // Codex #4 finding: previously refreshToken() never compared payload.tokenVersion
+  // to user.tokenVersion. After the deploy migration bumps every user's
+  // tokenVersion, a still-valid refresh token issued before the bump must be
+  // rejected — otherwise the migration's "force re-login" intent is bypassed.
+  it('rejects a refresh token whose payload.tokenVersion is less than user.tokenVersion (post-migration / post-reset)', async () => {
+    (mockJwtService as any).verify.mockReturnValue({
+      sub: 'u1',
+      type: 'refresh',
+      tokenVersion: 4, // stale — was issued before tokenVersion bumped to 5
+    });
+    mockPrisma.user.findUnique.mockResolvedValue(baseUser);
+
+    await expect(
+      service.refreshToken('any.refresh.token', META),
+    ).rejects.toThrow(UnauthorizedException);
+  });
+
+  it('accepts a refresh token whose payload.tokenVersion matches user.tokenVersion', async () => {
+    (mockJwtService as any).verify.mockReturnValue({
+      sub: 'u1',
+      type: 'refresh',
+      tokenVersion: 5, // matches
+    });
+    mockPrisma.user.findUnique.mockResolvedValue(baseUser);
+
+    const result = await service.refreshToken('any.refresh.token', META);
+    expect((result as any).accessToken).toBeDefined();
+  });
+
+  it('treats a refresh token without tokenVersion (legacy pre-feature) as version 0 and rejects when DB > 0', async () => {
+    (mockJwtService as any).verify.mockReturnValue({
+      sub: 'u1',
+      type: 'refresh',
+      // no tokenVersion field — legacy token
+    });
+    mockPrisma.user.findUnique.mockResolvedValue(baseUser); // tokenVersion: 5
+
+    await expect(
+      service.refreshToken('legacy.token', META),
+    ).rejects.toThrow(UnauthorizedException);
+  });
+});
 
 describe('AuthService.changePassword', () => {
   let service: AuthService;

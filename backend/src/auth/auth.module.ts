@@ -8,6 +8,7 @@ import { TwoFaController } from './two-fa.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { TwoFaTokenGuard } from './guards/two-fa-token.guard';
+import { ChangePasswordPendingGuard } from './guards/change-password-pending.guard';
 import { PermissionsGuard } from './guards/permissions.guard';
 import { UserThrottlerGuard } from './guards/user-throttler.guard';
 import { TwoFaService } from './services/two-fa.service';
@@ -32,6 +33,7 @@ import { EmailModule } from '../email/email.module';
     JwtStrategy,
     JwtAuthGuard,
     TwoFaTokenGuard,
+    ChangePasswordPendingGuard,
     PermissionsGuard,
     UserThrottlerGuard,
     TwoFaService,

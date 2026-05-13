@@ -17,6 +17,13 @@ export interface TwoFaPayload {
   jti: string;
   iat: number;
   exp: number;
+  // Codex review round 2 #B: bind to user.tokenVersion at issue time. If admin
+  // resets the password (which bumps tokenVersion) during the 5-min 2FA TTL,
+  // the in-flight twoFaToken is rejected here — otherwise an attacker with
+  // the OLD password could slip past the reset by completing 2FA on the old
+  // session and then go through the forced-change flow without knowing the
+  // admin's new temp password.
+  tokenVersion?: number;
 }
 
 @Injectable()
@@ -69,13 +76,20 @@ export class TwoFaTokenGuard implements CanActivate {
     // If twoFaUsedAt > token.iat, this token (or an earlier one from the same session) was already used.
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
-      select: { id: true, isActive: true, twoFaUsedAt: true },
+      select: { id: true, isActive: true, twoFaUsedAt: true, tokenVersion: true },
     });
     if (!user || !user.isActive) {
       throw new UnauthorizedException('User not found or inactive');
     }
     if (user.twoFaUsedAt && user.twoFaUsedAt.getTime() > payload.iat * 1000) {
       throw new UnauthorizedException('twoFaToken already used');
+    }
+    // Codex review round 2 #B: tokenVersion guard. Admin password reset
+    // (or any tokenVersion bump) must invalidate in-flight twoFaTokens.
+    if ((payload.tokenVersion ?? 0) !== user.tokenVersion) {
+      throw new UnauthorizedException(
+        'twoFaToken invalidated by admin reset — please log in again',
+      );
     }
 
     // OV-003: set req.user so UserThrottlerGuard.getTracker() resolves to userId, not IP

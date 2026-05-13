@@ -15,8 +15,10 @@ import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { FirstLoginChangePasswordDto } from './dto/first-login-change-password.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { UserThrottlerGuard } from './guards/user-throttler.guard';
+import { ChangePasswordPendingGuard } from './guards/change-password-pending.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
 import type { AuthUser } from './interfaces/auth-user.interface';
 
@@ -84,6 +86,35 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   async me(@CurrentUser() user: AuthUser) {
     return this.authService.getProfile(user.id);
+  }
+
+  // D1: forced first-login password change. ChangePasswordPendingGuard
+  // validates the change_password_pending JWT and enforces state-derived
+  // single-use (mustChangePassword=true required). UserThrottlerGuard then
+  // rate-limits per-user (5/min). Returns a real TokenPair on success —
+  // user is fully logged in, no extra dance required.
+  @Post('first-login-change-password')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
+  @UseGuards(ChangePasswordPendingGuard, UserThrottlerGuard)
+  async firstLoginChangePassword(
+    @Body() dto: FirstLoginChangePasswordDto,
+    @CurrentUser() user: AuthUser & { tokenVersion?: number },
+    @Req() req: Request,
+  ) {
+    // Codex review round 2 #A: pass the JWT payload's tokenVersion through
+    // so the service's optimistic lock uses the token-bound value, not a
+    // freshly loaded one that may have been bumped by a concurrent admin
+    // re-reset.
+    return this.authService.firstLoginChangePassword(
+      user.id,
+      user.tokenVersion ?? 0,
+      dto,
+      {
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      },
+    );
   }
 
   @Post('forgot-password')
