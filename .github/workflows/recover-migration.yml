@@ -51,18 +51,22 @@ jobs:
         run: |
           ssh -p ${{ secrets.VM_PORT }} -o StrictHostKeyChecking=yes \
             ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} \
-            "cd /home/pc02/current/backend && \
-             echo '=== _prisma_migrations table (failed migrations) ===' && \
-             sudo -u postgres psql pc02_case_mgmt -c \"SELECT migration_name, finished_at, applied_steps_count, LEFT(logs, 200) AS logs_excerpt FROM _prisma_migrations WHERE finished_at IS NULL OR logs LIKE '%error%' OR logs LIKE '%fail%';\" && \
-             echo '' && \
-             echo '=== Does holidays table still exist? ===' && \
-             sudo -u postgres psql pc02_case_mgmt -c '\dt holidays' 2>&1 || true && \
-             echo '' && \
-             echo '=== Does calendar_events table exist? ===' && \
-             sudo -u postgres psql pc02_case_mgmt -c '\dt calendar_events' 2>&1 || true && \
-             echo '' && \
-             echo '=== prisma migrate status ===' && \
-             npx prisma migrate status 2>&1 || true"
+            'cd /home/pc02/current/backend && \
+             export DATABASE_URL=$(grep "^DATABASE_URL=" .env | cut -d= -f2- | tr -d "\"'\''") && \
+             echo "=== _prisma_migrations failed entries ===" && \
+             psql "$DATABASE_URL" -c "SELECT migration_name, finished_at, applied_steps_count, LEFT(logs, 200) AS logs_excerpt FROM _prisma_migrations WHERE finished_at IS NULL OR logs LIKE '\''%error%'\'' OR logs LIKE '\''%fail%'\'';" 2>&1 || true && \
+             echo "" && \
+             echo "=== Does holidays table still exist? ===" && \
+             psql "$DATABASE_URL" -c "SELECT to_regclass('\''public.holidays'\'') AS holidays_table_or_null;" 2>&1 || true && \
+             echo "" && \
+             echo "=== Holiday row count (if table exists) ===" && \
+             psql "$DATABASE_URL" -c "SELECT count(*) AS holiday_rows FROM holidays;" 2>&1 || true && \
+             echo "" && \
+             echo "=== calendar_events row count ===" && \
+             psql "$DATABASE_URL" -c "SELECT count(*) AS calendar_event_rows FROM calendar_events;" 2>&1 || true && \
+             echo "" && \
+             echo "=== prisma migrate status ===" && \
+             npx prisma migrate status 2>&1 || true'
 
       - name: Resolve as APPLIED
         if: inputs.mode == 'resolve-applied'
