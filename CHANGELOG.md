@@ -2,6 +2,47 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.20.0.0] - 2026-05-13
+
+### Changed — Calendar Events v2, Phase 3 (drop legacy Holiday table)
+
+**Final PR của chuỗi 3-PR phased migration.** Plan ban đầu chia thành 3 PR để giảm risk: PR 1 add new schema song song với Holiday, PR 2a/2b/2c build full feature, **PR 3 migrate data + drop legacy**. Đến PR 3 hệ thống đã production-stable với CalendarEvent table, an toàn migrate 25 holiday rows sang rồi drop bảng cũ.
+
+#### Migration `20260513140000_calendar_events_v2_phase3_drop_holiday`
+
+Chạy trong 1 transaction để không có partial state:
+
+1. **INSERT INTO calendar_events SELECT FROM holidays** với mapping:
+   - `id` giữ nguyên (cùng `cuid` format)
+   - `categoryId` lookup từ `event_categories` qua `slug = lower(category::text)` (NATIONAL → "national", v.v.)
+   - `scope = 'SYSTEM'`
+   - `recurrenceRule = 'FREQ=YEARLY'` nếu `isRecurring=true`, else `NULL`
+   - `createdById` = admin user ID (admin@pc02.local)
+   - `WHERE NOT EXISTS` guard cho idempotency (chạy lại migration không double-insert)
+2. **PL/pgSQL verification block** raise exception nếu `migrated_count < holiday_count` (data integrity guard)
+3. **DROP TABLE holidays**
+4. **DROP TYPE HolidayCategory**
+
+Pre-deploy `pg_dump` backup từ pipeline cover rollback nếu cần.
+
+#### Code cleanup
+
+- **`backend/prisma/schema.prisma`**: xóa `model Holiday` + `enum HolidayCategory` (replaced bằng comment chỉ ra migration file)
+- **`backend/prisma/seed-holidays.ts`**: DELETED (25 holiday seed entries giờ là 25 SYSTEM events trong calendar_events)
+- **`backend/src/calendar/calendar.service.ts`**: bỏ `prisma.holiday.findMany` từ Promise.all, giờ chỉ query 3 deadline sources + `calendar_events`. Output `type='event'` cho mọi entry (PR 2 đã thay `type='holiday'` ra rồi).
+- **`backend/src/calendar/calendar.service.spec.ts`**: bỏ `makeHoliday()` helper + `mockPrisma.holiday` mock + `'maps holidays with category metadata'` test. Rename describe block "dual-read (PR 1)" → "calendar events (PR 3 — Holiday dropped)".
+
+#### Tests
+- **Backend: 1144/1144 pass** (-1 từ PR 2c's 1145 vì xóa 1 test holiday-specific)
+- `tsc --noEmit` clean
+
+#### Deploy notes
+
+- **Migration drop is destructive** — pre-deploy pg_dump backup essential. Pipeline default đã có `pg_dump pre-deploy-<sha>.sql.gz`.
+- Sau deploy verify: `SELECT COUNT(*) FROM calendar_events WHERE scope='SYSTEM';` phải = 25 (migrated holidays) + bất kỳ SYSTEM events nào admin đã tạo từ PR 2a/2b/2c.
+- KHÔNG cần manual seed sau deploy (migration self-contained).
+- Rollback strategy: `pg_restore` từ backup trước migration nếu cần (Prisma không hỗ trợ auto-down migration).
+
 ## [0.19.0.0] - 2026-05-13
 
 ### Added — Calendar Events v2, Phase 2c (UI polish + RRULE-aware cron)
