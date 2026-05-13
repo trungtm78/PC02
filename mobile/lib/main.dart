@@ -5,7 +5,11 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'core/api/api_base_url.dart';
 import 'core/auth/auth_provider.dart';
+import 'core/fcm/notification_router.dart';
+import 'core/logging/log.dart';
+import 'features/auth/first_login_change_password_screen.dart';
 import 'features/auth/login_screen.dart';
 import 'features/auth/two_fa_screen.dart';
 import 'features/cases/case_detail_screen.dart';
@@ -18,17 +22,27 @@ import 'features/petitions/petition_detail_screen.dart';
 import 'features/petitions/petitions_screen.dart';
 import 'shared/theme/app_theme.dart';
 
-// Kept alive to keep semantics enabled in debug builds (for Maestro testing).
+// Kept alive to keep semantics enabled in debug builds for Maestro E2E flows.
+// Reading this field is intentionally absent — its only job is anchoring the
+// SemanticsHandle so it survives garbage collection. Removing the field would
+// also break the Maestro selector tree.
+// ignore: unused_element
 SemanticsHandle? _semanticsHandle;
 
 void main() async {
   final binding = WidgetsFlutterBinding.ensureInitialized();
+  // Refuse to run a release build that points at a dev/emulator API URL.
+  assertProductionApiUrl(apiBaseUrl);
   if (kDebugMode) _semanticsHandle = binding.ensureSemantics();
   await initializeDateFormatting('vi_VN', null);
   try {
-    await Firebase.initializeApp()
-        .timeout(const Duration(seconds: 3));
-  } catch (_) {}
+    await Firebase.initializeApp().timeout(const Duration(seconds: 3));
+  } catch (e, st) {
+    // BUG-4: Firebase init failure is non-fatal (the app still works without
+    // FCM) but absolutely worth a debug log — otherwise silently-broken
+    // push registration is invisible during development.
+    logError('firebase.init', e, st);
+  }
   runApp(const ProviderScope(child: _AppInit()));
 }
 
@@ -58,6 +72,10 @@ class PC02App extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = _buildRouter(ref);
+    // BUG-2: wire FCM deep-link handler so tapping a push notification while
+    // app is backgrounded routes to /cases/:id (or whatever `link` payload
+    // the server sent) instead of dropping the user on the dashboard.
+    NotificationRouter.init(router);
     return MaterialApp.router(
       title: 'PC02 Quản lý',
       theme: appTheme,
@@ -70,15 +88,22 @@ class PC02App extends ConsumerWidget {
     return GoRouter(
       initialLocation: '/login',
       redirect: (context, state) {
-        final isAuth = ref.read(authProvider).isAuthenticated;
-        final isLoginRoute = state.matchedLocation.startsWith('/login');
-        if (!isAuth && !isLoginRoute) return '/login';
-        if (isAuth && state.matchedLocation == '/login') return '/';
+        final authState = ref.read(authProvider);
+        final isAuth = authState.isAuthenticated;
+        final loc = state.matchedLocation;
+        final isPublicRoute = loc.startsWith('/login') ||
+            loc == '/auth/first-login-change-password';
+        if (!isAuth && !isPublicRoute) return '/login';
+        if (isAuth && loc == '/login') return '/';
         return null;
       },
       routes: [
         GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
         GoRoute(path: '/login/2fa', builder: (_, __) => const TwoFaScreen()),
+        GoRoute(
+          path: '/auth/first-login-change-password',
+          builder: (_, __) => const FirstLoginChangePasswordScreen(),
+        ),
         ShellRoute(
           builder: (context, state, child) => _Shell(child: child),
           routes: [

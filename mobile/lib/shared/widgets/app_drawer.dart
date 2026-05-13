@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/auth/auth_provider.dart';
-import '../../core/fcm/fcm_service.dart';
 import '../theme/app_theme.dart';
 
 class AppDrawer extends ConsumerWidget {
@@ -56,10 +55,10 @@ class AppDrawer extends ConsumerWidget {
               title: const Text('Đăng xuất',
                   style: TextStyle(color: Colors.red)),
               onTap: () async {
-                final fcm = ref.read(fcmServiceProvider);
-                await ref
-                    .read(authProvider.notifier)
-                    .logout(fcmToken: fcm.currentToken);
+                // BUG-3: FCM cleanup runs inside AuthNotifier.logout() via
+                // the onLogout callback wired in authProvider — no need to
+                // reach across modules here.
+                await ref.read(authProvider.notifier).logout();
                 if (context.mounted) context.go('/login');
               },
             ),

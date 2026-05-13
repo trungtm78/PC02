@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:local_auth/local_auth.dart';
+import '../logging/log.dart';
 
 const _storage = FlutterSecureStorage();
 
@@ -14,7 +15,10 @@ class BiometricService {
   Future<bool> isAvailable() async {
     try {
       return await _auth.canCheckBiometrics || await _auth.isDeviceSupported();
-    } catch (_) {
+    } catch (e, st) {
+      // BUG-4: log so dev sees platform-channel quirks (e.g. emulator missing
+      // biometric HAL). Returning false is the right runtime behavior.
+      logError('biometric.isAvailable', e, st);
       return false;
     }
   }

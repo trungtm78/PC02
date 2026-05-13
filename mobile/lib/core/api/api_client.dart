@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../logging/log.dart';
+import 'api_base_url.dart';
+import 'refresh_decision.dart';
 
-const _baseUrl = String.fromEnvironment(
-  'API_BASE_URL',
-  defaultValue: 'http://10.0.2.2:3000/api/v1',
-);
+const _baseUrl = apiBaseUrl;
 
 class ApiClient {
   late final Dio _dio;
@@ -50,10 +50,25 @@ class ApiClient {
       return;
     }
 
+    // v0.21 hardening: admin-reset / forced-logout 401s carry an explicit
+    // INVALID_TOKEN_VERSION code. Refreshing in that case is futile — both
+    // tokens share the stale tokenVersion. Clear immediately so caller hits
+    // the login redirect cleanly instead of looping.
+    if (!shouldAttemptTokenRefresh(err)) {
+      logDebug('api.refresh',
+          'skipping refresh (INVALID_TOKEN_VERSION) — clearing tokens');
+      await _clearAllAuthState();
+      handler.next(err);
+      return;
+    }
+
     if (_isRefreshing) {
       try {
         await _refreshCompleter!.future;
-      } catch (_) {
+      } catch (e, st) {
+        // BUG-4: previously silent. Sibling request's refresh attempt
+        // failed; don't try our own, surface the original 401.
+        logError('api.refresh.sibling', e, st);
         handler.next(err);
         return;
       }
@@ -62,7 +77,8 @@ class ApiClient {
       try {
         final resp = await _dio.fetch(err.requestOptions);
         handler.resolve(resp);
-      } catch (e) {
+      } catch (e, st) {
+        logError('api.refresh.retry', e, st);
         handler.next(err);
       }
       return;
@@ -96,9 +112,21 @@ class ApiClient {
       err.requestOptions.headers['Authorization'] = 'Bearer $newAccess';
       final retried = await _dio.fetch(err.requestOptions);
       handler.resolve(retried);
-    } catch (_) {
+    } catch (e, st) {
+      // BUG-4: refresh failed (network, refresh token expired, tokenVersion
+      // bumped between request issue and refresh response). Clear all auth
+      // state + surface 401 so router redirects to /login.
+      logError('api.refresh.lead', e, st);
       _refreshCompleter!.completeError(Object());
-      await Future.wait([
+      await _clearAllAuthState();
+      handler.next(err);
+    } finally {
+      _isRefreshing = false;
+      _refreshCompleter = null;
+    }
+  }
+
+  Future<void> _clearAllAuthState() => Future.wait([
         _storage.delete(key: 'access_token'),
         _storage.delete(key: 'refresh_token'),
         _storage.delete(key: 'user_id'),
@@ -106,10 +134,4 @@ class ApiClient {
         _storage.delete(key: 'user_email'),
         _storage.delete(key: 'user_role'),
       ]);
-      handler.next(err);
-    } finally {
-      _isRefreshing = false;
-      _refreshCompleter = null;
-    }
-  }
 }

@@ -45,6 +45,7 @@ import { VksMeetingsModule } from './shared/vks-meetings/vks-meetings.module';
 import { ActionPlansModule } from './shared/action-plans/action-plans.module';
 import { UnitScopeService } from './auth/services/unit-scope.service';
 import { DataScopeInterceptor } from './auth/interceptors/data-scope.interceptor';
+import { TestFixturesModule } from './test-fixtures/test-fixtures.module';
 
 @Module({
   imports: [
@@ -89,6 +90,8 @@ import { DataScopeInterceptor } from './auth/interceptors/data-scope.interceptor
     EventCategoriesModule,
     CalendarEventsModule,
     EventRemindersModule,
+    // Conditional: only registers when E2E_TEST_MODE=true.
+    TestFixturesModule.forRoot(),
   ],
   controllers: [AppController],
   providers: [

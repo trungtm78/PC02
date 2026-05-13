@@ -1,0 +1,125 @@
+appId: vn.gov.pc02.mobile
+name: "05 — Admin re-reset password mid-flow returns 409 (Codex C7)"
+tags:
+  - auth
+  - first-login
+  - critical
+env:
+  TEST_EMAIL: e2e+stale409@test.pc02.local
+  TEMP_PASSWORD_V1: TempPass1!
+  TEMP_PASSWORD_V2: TempPass2!
+  NEW_PASSWORD: NewStr0ngPw!
+---
+# Seed user with mustChangePassword=true and the FIRST temp password.
+- evalScript: |
+    const apiBase = MAESTRO_API_BASE_URL || 'http://10.0.2.2:3000/api/v1';
+    const token = MAESTRO_TEST_SEED_TOKEN;
+    if (!token) { throw new Error('MAESTRO_TEST_SEED_TOKEN env not set'); }
+    const r = http.post(apiBase + '/test/seed-user', {
+      headers: {
+        'x-test-seed-token': token,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        email: TEST_EMAIL,
+        password: TEMP_PASSWORD_V1,
+        mustChangePassword: true,
+      }),
+    });
+    if (r.status !== 200) {
+      throw new Error('seed v1 failed: ' + r.status + ' ' + r.body);
+    }
+
+- launchApp:
+    appId: vn.gov.pc02.mobile
+    clearState: true
+    clearKeychain: true
+
+# Login with temp v1 → mobile lands on first-login screen and holds a
+# changePasswordToken bound to current tokenVersion.
+- tapOn:
+    id: "login-email-field"
+- inputText: ${TEST_EMAIL}
+- hideKeyboard
+- tapOn:
+    id: "login-password-field"
+- inputText: ${TEMP_PASSWORD_V1}
+- hideKeyboard
+- tapOn:
+    id: "login-submit-button"
+- assertVisible:
+    id: "first-login-instruction-banner"
+    timeout: 10000
+
+# SIMULATE ADMIN ACTION: re-seed user with new temp pw AND bump tokenVersion.
+# This invalidates the changePasswordToken mobile is currently holding.
+- evalScript: |
+    const apiBase = MAESTRO_API_BASE_URL || 'http://10.0.2.2:3000/api/v1';
+    const token = MAESTRO_TEST_SEED_TOKEN;
+    const r = http.post(apiBase + '/test/seed-user', {
+      headers: {
+        'x-test-seed-token': token,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        email: TEST_EMAIL,
+        password: TEMP_PASSWORD_V2,
+        mustChangePassword: true,
+        bumpTokenVersion: true,
+      }),
+    });
+    if (r.status !== 200) {
+      throw new Error('re-seed failed: ' + r.status + ' ' + r.body);
+    }
+
+# User (oblivious) tries to submit the form. Backend returns 409.
+# Mobile MUST: show toast, clear pending state, route back to /login.
+- tapOn:
+    id: "first-login-new-password-field"
+- inputText: ${NEW_PASSWORD}
+- hideKeyboard
+- tapOn:
+    id: "first-login-confirm-password-field"
+- inputText: ${NEW_PASSWORD}
+- hideKeyboard
+- tapOn:
+    id: "first-login-submit-button"
+
+# Assertion: we're back on login screen, not stuck on first-login or dashboard.
+- assertVisible:
+    id: "login-email-field"
+    timeout: 10000
+- assertNotVisible:
+    id: "first-login-instruction-banner"
+- assertNotVisible:
+    id: "dashboard-scaffold"
+
+# Anh logs in with the NEW temp pw → first-login screen again.
+- tapOn:
+    id: "login-email-field"
+- inputText: ${TEST_EMAIL}
+- hideKeyboard
+- tapOn:
+    id: "login-password-field"
+- inputText: ${TEMP_PASSWORD_V2}
+- hideKeyboard
+- tapOn:
+    id: "login-submit-button"
+- assertVisible:
+    id: "first-login-instruction-banner"
+    timeout: 10000
+
+# This time submit succeeds.
+- tapOn:
+    id: "first-login-new-password-field"
+- inputText: ${NEW_PASSWORD}
+- hideKeyboard
+- tapOn:
+    id: "first-login-confirm-password-field"
+- inputText: ${NEW_PASSWORD}
+- hideKeyboard
+- tapOn:
+    id: "first-login-submit-button"
+- assertVisible:
+    id: "dashboard-scaffold"
+    timeout: 15000

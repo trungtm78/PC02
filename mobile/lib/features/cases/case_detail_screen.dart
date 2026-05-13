@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../shared/widgets/deadline_badge.dart';
 import '../../shared/widgets/status_chip.dart';
 import '../../core/api/providers.dart';
+import '../../core/util/safe_json.dart';
 
 final _caseDetailProvider =
     FutureProvider.family.autoDispose<Map<String, dynamic>, String>(
@@ -66,7 +67,8 @@ class CaseDetailScreen extends ConsumerWidget {
               if (c['investigator'] != null)
                 _InfoRow(
                   label: 'Điều tra viên',
-                  value: (c['investigator'] as Map)['fullName'] as String? ?? '',
+                  value:
+                      readNestedString(c, ['investigator', 'fullName']) ?? '',
                 ),
               if (c['createdAt'] != null)
                 _InfoRow(

@@ -31,11 +31,36 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        create("release") {
+            val ksPath = System.getenv("MOBILE_KEYSTORE_PATH")
+            val ksPass = System.getenv("MOBILE_KEYSTORE_PASSWORD")
+            val ksAlias = System.getenv("MOBILE_KEY_ALIAS")
+            if (ksPath.isNullOrBlank() || ksPass.isNullOrBlank() || ksAlias.isNullOrBlank()) {
+                // Secrets missing → fall back to debug keystore so `flutter run`
+                // and local dev keep working. CI release builds MUST set all
+                // three env vars; mobile-build.yml fails the job if they're
+                // empty before invoking flutter build.
+                println("⚠️  Release signing secrets missing; falling back to debug keystore (OK for local dev).")
+            } else {
+                keyAlias = ksAlias
+                keyPassword = ksPass
+                storeFile = file(ksPath)
+                storePassword = ksPass
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            val ksPath = System.getenv("MOBILE_KEYSTORE_PATH")
+            signingConfig = if (ksPath.isNullOrBlank()) {
+                signingConfigs.getByName("debug")
+            } else {
+                signingConfigs.getByName("release")
+            }
+            isMinifyEnabled = true
+            isShrinkResources = true
         }
     }
 }

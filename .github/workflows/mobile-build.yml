@@ -1,0 +1,157 @@
+name: Mobile Build
+
+# Signed Android APK build pipeline. Pilot APK is downloaded manually from
+# the workflow run page; PR3 will add nginx upload step.
+#
+# Security controls (per Eng review consensus):
+# - Only workflow_dispatch OR `mobile-v*` tags can trigger signed builds.
+# - PR/fork builds are blocked from signing — they never see the keystore.
+# - Keystore is decoded from base64 secret into a runner-temp file and
+#   removed at end. The secret never appears in logs (env-var injection only).
+# - Production env is `production` — protected with required reviewers in
+#   GitHub repo settings (operator confirms before signing).
+# - Job fails fast if any of the 3 secrets is missing (no half-signed APK).
+
+on:
+  push:
+    tags: ['mobile-v*']
+  workflow_dispatch:
+    inputs:
+      api_base_url:
+        description: 'API_BASE_URL passed via --dart-define'
+        required: true
+        default: 'http://171.244.40.245/api/v1'
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Flutter test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Setup Java
+        uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v4.7.1
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@e938fdf56512cc96ef2f59a7f2a2a23b5f9f3eea # v2.16.0
+        with:
+          flutter-version: '3.27.x'
+          channel: 'stable'
+
+      - name: Install deps
+        run: cd mobile && flutter pub get
+
+      - name: Run unit tests
+        run: cd mobile && flutter test
+
+      - name: Static analysis (warnings only — does not fail build)
+        run: cd mobile && flutter analyze || true
+
+  build-signed-apk:
+    name: Build signed APK
+    needs: test
+    runs-on: ubuntu-latest
+    environment: production
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/mobile-v'))
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Validate required secrets
+        env:
+          KEYSTORE_BASE64: ${{ secrets.MOBILE_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.MOBILE_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.MOBILE_KEY_ALIAS }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ] || [ -z "$KEYSTORE_PASSWORD" ] || [ -z "$KEY_ALIAS" ]; then
+            echo "::error::Missing one of: MOBILE_KEYSTORE_BASE64, MOBILE_KEYSTORE_PASSWORD, MOBILE_KEY_ALIAS"
+            exit 1
+          fi
+
+      - name: Setup Java
+        uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v4.7.1
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@e938fdf56512cc96ef2f59a7f2a2a23b5f9f3eea # v2.16.0
+        with:
+          flutter-version: '3.27.x'
+          channel: 'stable'
+
+      - name: Decode keystore to runner-temp
+        env:
+          KEYSTORE_BASE64: ${{ secrets.MOBILE_KEYSTORE_BASE64 }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/pc02-mobile-release.jks"
+          # Sanity check decoded file is a JKS by reading magic bytes
+          file "$RUNNER_TEMP/pc02-mobile-release.jks" | grep -q 'Java KeyStore' || { echo "::error::Decoded keystore is not a JKS"; exit 1; }
+
+      - name: Install Flutter deps
+        run: cd mobile && flutter pub get
+
+      - name: Determine API_BASE_URL
+        id: api
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "url=${{ inputs.api_base_url }}" >> $GITHUB_OUTPUT
+          else
+            # Tag push: use default pilot URL. Override via workflow_dispatch when domain ready.
+            echo "url=http://171.244.40.245/api/v1" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build release APK
+        env:
+          MOBILE_KEYSTORE_PATH: ${{ runner.temp }}/pc02-mobile-release.jks
+          MOBILE_KEYSTORE_PASSWORD: ${{ secrets.MOBILE_KEYSTORE_PASSWORD }}
+          MOBILE_KEY_ALIAS: ${{ secrets.MOBILE_KEY_ALIAS }}
+        run: |
+          cd mobile
+          flutter build apk --release \
+            --dart-define=API_BASE_URL='${{ steps.api.outputs.url }}'
+
+      - name: Verify APK signed with production key (not debug)
+        run: |
+          APK=mobile/build/app/outputs/flutter-apk/app-release.apk
+          ls -lh "$APK"
+          # apksigner ships with Android build-tools; locate via Flutter SDK
+          APKSIGNER=$(find "$ANDROID_SDK_ROOT/build-tools" -name 'apksigner' 2>/dev/null | sort -V | tail -1)
+          if [ -z "$APKSIGNER" ]; then APKSIGNER=$(which apksigner); fi
+          "$APKSIGNER" verify --print-certs "$APK" | tee /tmp/sig-info.txt
+          if grep -qi 'CN=Android Debug' /tmp/sig-info.txt; then
+            echo "::error::APK is signed with DEBUG cert — secret pipeline broken"
+            exit 1
+          fi
+
+      - name: SHA-256 of APK (for publishing)
+        id: sha
+        run: |
+          APK=mobile/build/app/outputs/flutter-apk/app-release.apk
+          SHA=$(sha256sum "$APK" | cut -d' ' -f1)
+          echo "sha256=$SHA" >> $GITHUB_OUTPUT
+          echo "APK SHA-256: $SHA"
+
+      - name: Upload signed APK artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: pc02-mobile-release-${{ github.sha }}
+          path: mobile/build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 30
+
+      - name: Cleanup keystore from runner
+        if: always()
+        run: rm -f "$RUNNER_TEMP/pc02-mobile-release.jks"
+
+      - name: Summary
+        run: |
+          echo "### Mobile APK built ✓" >> $GITHUB_STEP_SUMMARY
+          echo "- SHA-256: \`${{ steps.sha.outputs.sha256 }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- API_BASE_URL: \`${{ steps.api.outputs.url }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Artifact: \`pc02-mobile-release-${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
