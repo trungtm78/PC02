@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/auth/auth_provider.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/fcm/fcm_service.dart';
+import '../../core/testing/maestro_keys.dart';
 import '../../shared/theme/app_theme.dart';
 
 class TwoFaScreen extends ConsumerStatefulWidget {
@@ -74,47 +75,56 @@ class _TwoFaScreenState extends ConsumerState<TwoFaScreen> {
                 style: TextStyle(color: Colors.grey[600]),
               ),
               const SizedBox(height: 32),
-              TextField(
-                controller: _ctrl,
-                keyboardType: TextInputType.number,
-                maxLength: 6,
-                autofocus: true,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 28,
-                  letterSpacing: 12,
-                  fontWeight: FontWeight.bold,
+              Semantics(
+                identifier: MaestroKeys.twoFaOtpField,
+                textField: true,
+                child: TextField(
+                  controller: _ctrl,
+                  keyboardType: TextInputType.number,
+                  maxLength: 6,
+                  autofocus: true,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 28,
+                    letterSpacing: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  decoration: InputDecoration(
+                    border: const OutlineInputBorder(),
+                    hintText: '000000',
+                    counterText: '',
+                    errorText: _error,
+                  ),
+                  onChanged: (v) {
+                    if (v.length == 6) _submit(v);
+                  },
                 ),
-                decoration: InputDecoration(
-                  border: const OutlineInputBorder(),
-                  hintText: '000000',
-                  counterText: '',
-                  errorText: _error,
-                ),
-                onChanged: (v) {
-                  if (v.length == 6) _submit(v);
-                },
               ),
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
                 height: 48,
-                child: ElevatedButton(
-                  onPressed: isLoading ? null : () => _submit(_ctrl.text),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.navy,
-                    foregroundColor: Colors.white,
+                child: Semantics(
+                  identifier: MaestroKeys.twoFaSubmitButton,
+                  button: true,
+                  child: ElevatedButton(
+                    onPressed: isLoading ? null : () => _submit(_ctrl.text),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.navy,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: isLoading
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text('Xác nhận',
+                            style: TextStyle(fontSize: 16)),
                   ),
-                  child: isLoading
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Text('Xác nhận', style: TextStyle(fontSize: 16)),
                 ),
               ),
             ],

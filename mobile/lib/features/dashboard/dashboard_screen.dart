@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/api/providers.dart';
 import '../../core/auth/auth_provider.dart';
+import '../../core/testing/maestro_keys.dart';
 import '../../core/models/case.dart';
 import '../../core/models/dashboard_stats.dart';
 import '../../core/models/incident.dart';
@@ -55,7 +56,10 @@ class DashboardScreen extends ConsumerWidget {
     final data = ref.watch(_dashboardDataProvider);
     final user = ref.watch(authProvider).user;
 
-    return Scaffold(
+    return Semantics(
+      identifier: MaestroKeys.dashboardScaffold,
+      container: true,
+      child: Scaffold(
       appBar: AppBar(
         title: const Text('Tổng quan'),
         actions: [
@@ -131,6 +135,7 @@ class DashboardScreen extends ConsumerWidget {
           ),
         ],
       ),
+    ),
     );
   }
 }

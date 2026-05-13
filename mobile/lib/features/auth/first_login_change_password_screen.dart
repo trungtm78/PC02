@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/auth/auth_provider.dart';
 import '../../core/auth/password_strength.dart';
 import '../../core/fcm/fcm_service.dart';
+import '../../core/testing/maestro_keys.dart';
 import '../../shared/theme/app_theme.dart';
 
 /// Forced first-login password change screen. Reached when login() or
@@ -132,114 +133,143 @@ class _FirstLoginChangePasswordScreenState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppColors.yellow.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                      color: AppColors.yellow.withValues(alpha: 0.4)),
-                ),
-                child: const Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(Icons.key, color: AppColors.yellow, size: 20),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'Anh/chị phải đổi mật khẩu trước khi sử dụng hệ thống. '
-                        'Mật khẩu mới phải khác mật khẩu tạm và đáp ứng quy tắc bên dưới.',
-                        style: TextStyle(fontSize: 13, height: 1.4),
+              Semantics(
+                identifier: MaestroKeys.firstLoginInstructionBanner,
+                container: true,
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.yellow.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                        color: AppColors.yellow.withValues(alpha: 0.4)),
+                  ),
+                  child: const Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.key, color: AppColors.yellow, size: 20),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Anh/chị phải đổi mật khẩu trước khi sử dụng hệ thống. '
+                          'Mật khẩu mới phải khác mật khẩu tạm và đáp ứng quy tắc bên dưới.',
+                          style: TextStyle(fontSize: 13, height: 1.4),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 24),
-              TextField(
-                controller: _newCtrl,
-                obscureText: _obscureNew,
-                autofocus: true,
-                decoration: InputDecoration(
-                  labelText: 'Mật khẩu mới',
-                  prefixIcon: const Icon(Icons.lock_outline),
-                  border: const OutlineInputBorder(),
-                  suffixIcon: IconButton(
-                    icon: Icon(_obscureNew
-                        ? Icons.visibility
-                        : Icons.visibility_off),
-                    onPressed: () =>
-                        setState(() => _obscureNew = !_obscureNew),
+              Semantics(
+                identifier: MaestroKeys.firstLoginNewPasswordField,
+                textField: true,
+                obscured: _obscureNew,
+                child: TextField(
+                  controller: _newCtrl,
+                  obscureText: _obscureNew,
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    labelText: 'Mật khẩu mới',
+                    prefixIcon: const Icon(Icons.lock_outline),
+                    border: const OutlineInputBorder(),
+                    suffixIcon: IconButton(
+                      icon: Icon(_obscureNew
+                          ? Icons.visibility
+                          : Icons.visibility_off),
+                      onPressed: () =>
+                          setState(() => _obscureNew = !_obscureNew),
+                    ),
                   ),
                 ),
               ),
               const SizedBox(height: 12),
               _StrengthChecklist(password: _newCtrl.text),
               const SizedBox(height: 16),
-              TextField(
-                controller: _confirmCtrl,
-                obscureText: _obscureConfirm,
-                decoration: InputDecoration(
-                  labelText: 'Xác nhận mật khẩu',
-                  prefixIcon: const Icon(Icons.lock_outline),
-                  border: const OutlineInputBorder(),
-                  errorText: _mismatchError,
-                  suffixIcon: IconButton(
-                    icon: Icon(_obscureConfirm
-                        ? Icons.visibility
-                        : Icons.visibility_off),
-                    onPressed: () => setState(
-                        () => _obscureConfirm = !_obscureConfirm),
+              Semantics(
+                identifier: MaestroKeys.firstLoginConfirmPasswordField,
+                textField: true,
+                obscured: _obscureConfirm,
+                child: TextField(
+                  controller: _confirmCtrl,
+                  obscureText: _obscureConfirm,
+                  decoration: InputDecoration(
+                    labelText: 'Xác nhận mật khẩu',
+                    prefixIcon: const Icon(Icons.lock_outline),
+                    border: const OutlineInputBorder(),
+                    errorText: _mismatchError,
+                    suffixIcon: IconButton(
+                      icon: Icon(_obscureConfirm
+                          ? Icons.visibility
+                          : Icons.visibility_off),
+                      onPressed: () => setState(
+                          () => _obscureConfirm = !_obscureConfirm),
+                    ),
                   ),
+                  onSubmitted: (_) => _submit(),
                 ),
-                onSubmitted: (_) => _submit(),
               ),
+              if (_mismatchError != null)
+                Semantics(
+                  identifier: MaestroKeys.firstLoginMismatchText,
+                  liveRegion: true,
+                  child: const SizedBox.shrink(),
+                ),
               if (_error != null) ...[
                 const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.red.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(6),
-                    border:
-                        Border.all(color: AppColors.red.withValues(alpha: 0.3)),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Icon(Icons.error_outline,
-                          color: AppColors.red, size: 18),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(_error!,
-                            style: const TextStyle(
-                                color: AppColors.red, fontSize: 13)),
-                      ),
-                    ],
+                Semantics(
+                  identifier: MaestroKeys.firstLoginErrorText,
+                  liveRegion: true,
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.red.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                          color: AppColors.red.withValues(alpha: 0.3)),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.error_outline,
+                            color: AppColors.red, size: 18),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(_error!,
+                              style: const TextStyle(
+                                  color: AppColors.red, fontSize: 13)),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
               const SizedBox(height: 24),
               SizedBox(
                 height: 48,
-                child: ElevatedButton(
-                  onPressed: _canSubmit ? _submit : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.navy,
-                    foregroundColor: Colors.white,
-                    disabledBackgroundColor: Colors.grey[300],
+                child: Semantics(
+                  identifier: MaestroKeys.firstLoginSubmitButton,
+                  button: true,
+                  enabled: _canSubmit,
+                  child: ElevatedButton(
+                    onPressed: _canSubmit ? _submit : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.navy,
+                      foregroundColor: Colors.white,
+                      disabledBackgroundColor: Colors.grey[300],
+                    ),
+                    child: _submitting
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text('Đổi mật khẩu',
+                            style: TextStyle(fontSize: 16)),
                   ),
-                  child: _submitting
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Text('Đổi mật khẩu',
-                          style: TextStyle(fontSize: 16)),
                 ),
               ),
             ],
@@ -254,33 +284,56 @@ class _StrengthChecklist extends StatelessWidget {
   final String password;
   const _StrengthChecklist({required this.password});
 
+  // Order MUST match passwordRules order in lib/core/auth/password_strength.dart.
+  // Maestro flows assert by per-rule identifier so re-ordering rules without
+  // updating these keys would silently break flows.
+  static const _ruleKeys = <String>[
+    MaestroKeys.firstLoginRuleLength,
+    MaestroKeys.firstLoginRuleUpper,
+    MaestroKeys.firstLoginRuleDigit,
+    MaestroKeys.firstLoginRuleSpecial,
+  ];
+
   @override
   Widget build(BuildContext context) {
+    assert(_ruleKeys.length == passwordRules.length,
+        '_ruleKeys must stay in lockstep with passwordRules');
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: passwordRules.map((rule) {
-        final passed = rule.test(password);
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 2),
-          child: Row(
-            children: [
-              Icon(
-                passed ? Icons.check_circle : Icons.radio_button_unchecked,
-                size: 16,
-                color: passed ? AppColors.green : Colors.grey[400],
+      children: [
+        for (var i = 0; i < passwordRules.length; i++)
+          Semantics(
+            identifier: _ruleKeys[i],
+            // value: 'passed' / 'pending' lets Maestro assert per-rule state.
+            value: passwordRules[i].test(password) ? 'passed' : 'pending',
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Row(
+                children: [
+                  Icon(
+                    passwordRules[i].test(password)
+                        ? Icons.check_circle
+                        : Icons.radio_button_unchecked,
+                    size: 16,
+                    color: passwordRules[i].test(password)
+                        ? AppColors.green
+                        : Colors.grey[400],
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    passwordRules[i].label,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: passwordRules[i].test(password)
+                          ? AppColors.green
+                          : Colors.grey[600],
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 8),
-              Text(
-                rule.label,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: passed ? AppColors.green : Colors.grey[600],
-                ),
-              ),
-            ],
+            ),
           ),
-        );
-      }).toList(),
+      ],
     );
   }
 }

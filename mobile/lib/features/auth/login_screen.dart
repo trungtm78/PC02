@@ -5,6 +5,7 @@ import '../../core/auth/auth_provider.dart';
 import '../../core/auth/biometric_service.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/fcm/fcm_service.dart';
+import '../../core/testing/maestro_keys.dart';
 import '../../shared/theme/app_theme.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -169,75 +170,99 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     style: TextStyle(color: Colors.grey[600], fontSize: 13),
                   ),
                   const SizedBox(height: 40),
-                  TextFormField(
-                    controller: _emailCtrl,
-                    keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(
-                      labelText: 'Email',
-                      prefixIcon: Icon(Icons.email_outlined),
-                      border: OutlineInputBorder(),
+                  Semantics(
+                    identifier: MaestroKeys.loginEmailField,
+                    textField: true,
+                    child: TextFormField(
+                      controller: _emailCtrl,
+                      keyboardType: TextInputType.emailAddress,
+                      decoration: const InputDecoration(
+                        labelText: 'Email',
+                        prefixIcon: Icon(Icons.email_outlined),
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (v) =>
+                          v == null || v.isEmpty ? 'Nhập email' : null,
                     ),
-                    validator: (v) =>
-                        v == null || v.isEmpty ? 'Nhập email' : null,
                   ),
                   const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _passCtrl,
-                    obscureText: _obscure,
-                    decoration: InputDecoration(
-                      labelText: 'Mật khẩu',
-                      prefixIcon: const Icon(Icons.lock_outline),
-                      border: const OutlineInputBorder(),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                            _obscure ? Icons.visibility : Icons.visibility_off),
-                        onPressed: () => setState(() => _obscure = !_obscure),
+                  Semantics(
+                    identifier: MaestroKeys.loginPasswordField,
+                    textField: true,
+                    obscured: _obscure,
+                    child: TextFormField(
+                      controller: _passCtrl,
+                      obscureText: _obscure,
+                      decoration: InputDecoration(
+                        labelText: 'Mật khẩu',
+                        prefixIcon: const Icon(Icons.lock_outline),
+                        border: const OutlineInputBorder(),
+                        suffixIcon: IconButton(
+                          icon: Icon(_obscure
+                              ? Icons.visibility
+                              : Icons.visibility_off),
+                          onPressed: () =>
+                              setState(() => _obscure = !_obscure),
+                        ),
                       ),
+                      validator: (v) =>
+                          v == null || v.isEmpty ? 'Nhập mật khẩu' : null,
+                      onFieldSubmitted: (_) => _submit(),
                     ),
-                    validator: (v) =>
-                        v == null || v.isEmpty ? 'Nhập mật khẩu' : null,
-                    onFieldSubmitted: (_) => _submit(),
                   ),
                   if (_error != null) ...[
                     const SizedBox(height: 12),
-                    Text(
-                      _error!,
-                      style: const TextStyle(color: Colors.red, fontSize: 13),
+                    Semantics(
+                      identifier: MaestroKeys.loginErrorText,
+                      liveRegion: true,
+                      child: Text(
+                        _error!,
+                        style:
+                            const TextStyle(color: Colors.red, fontSize: 13),
+                      ),
                     ),
                   ],
                   const SizedBox(height: 24),
                   SizedBox(
                     width: double.infinity,
                     height: 48,
-                    child: ElevatedButton(
-                      onPressed: isLoading ? null : _submit,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.navy,
-                        foregroundColor: Colors.white,
+                    child: Semantics(
+                      identifier: MaestroKeys.loginSubmitButton,
+                      button: true,
+                      child: ElevatedButton(
+                        onPressed: isLoading ? null : _submit,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.navy,
+                          foregroundColor: Colors.white,
+                        ),
+                        child: isLoading
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Text('Đăng nhập',
+                                style: TextStyle(fontSize: 16)),
                       ),
-                      child: isLoading
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Text('Đăng nhập',
-                              style: TextStyle(fontSize: 16)),
                     ),
                   ),
                   if (_showBioButton) ...[
                     const SizedBox(height: 16),
-                    OutlinedButton.icon(
-                      onPressed: isLoading ? null : _loginWithBiometric,
-                      icon: const Icon(Icons.fingerprint, size: 22),
-                      label: const Text('Đăng nhập bằng sinh trắc học'),
-                      style: OutlinedButton.styleFrom(
-                        minimumSize: const Size(double.infinity, 48),
-                        foregroundColor: AppColors.navy,
-                        side: const BorderSide(color: AppColors.navy),
+                    Semantics(
+                      identifier: MaestroKeys.loginBiometricButton,
+                      button: true,
+                      child: OutlinedButton.icon(
+                        onPressed: isLoading ? null : _loginWithBiometric,
+                        icon: const Icon(Icons.fingerprint, size: 22),
+                        label: const Text('Đăng nhập bằng sinh trắc học'),
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size(double.infinity, 48),
+                          foregroundColor: AppColors.navy,
+                          side: const BorderSide(color: AppColors.navy),
+                        ),
                       ),
                     ),
                   ],
