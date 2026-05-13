@@ -185,6 +185,79 @@ describe('EventRemindersService', () => {
       expect(mockEmail.sendEventReminder).toHaveBeenCalledWith('u1@pc02.local', 'Họp giao ban', expect.any(Date));
     });
 
+    it('fires reminder for recurring event when an occurrence falls in the window', async () => {
+      // FREQ=WEEKLY starting today at minute 0 (allDay). minutesBefore=30 → trigger 30 min before today's occurrence.
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      // Event start time is 30 minutes from now (today at NOW+30min).
+      const eventStart = new Date(Date.now() + 30 * 60 * 1000);
+      const startDateOnly = new Date(eventStart);
+      startDateOnly.setHours(0, 0, 0, 0);
+
+      mockPrisma.eventReminder.findMany.mockResolvedValue([
+        {
+          id: 'r1',
+          eventId: 'e1',
+          userId: 'u1',
+          minutesBefore: 30,
+          channels: ['FCM'],
+          event: {
+            id: 'e1',
+            title: 'Họp giao ban hàng tuần',
+            startDate: startDateOnly,
+            startTime: `${String(eventStart.getHours()).padStart(2, '0')}:${String(eventStart.getMinutes()).padStart(2, '0')}`,
+            allDay: false,
+            recurrenceRule: 'FREQ=WEEKLY',
+            recurrenceEndDate: null,
+            deletedAt: null,
+            overrides: [],
+          },
+          user: { id: 'u1', email: 'u1@pc02.local' },
+        },
+      ]);
+      mockPrisma.eventReminderDispatch.create.mockResolvedValue({ id: 'd-week' });
+
+      await service.runDispatcher();
+
+      expect(mockPrisma.eventReminderDispatch.create).toHaveBeenCalled();
+      expect(mockPush.sendToUser).toHaveBeenCalled();
+    });
+
+    it('skips recurring occurrence excluded via override (EXDATE)', async () => {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const eventStart = new Date(Date.now() + 30 * 60 * 1000);
+      const startDateOnly = new Date(eventStart);
+      startDateOnly.setHours(0, 0, 0, 0);
+
+      mockPrisma.eventReminder.findMany.mockResolvedValue([
+        {
+          id: 'r1',
+          eventId: 'e1',
+          userId: 'u1',
+          minutesBefore: 30,
+          channels: ['FCM'],
+          event: {
+            id: 'e1',
+            title: 'Hủy 1 buổi',
+            startDate: startDateOnly,
+            startTime: `${String(eventStart.getHours()).padStart(2, '0')}:${String(eventStart.getMinutes()).padStart(2, '0')}`,
+            allDay: false,
+            recurrenceRule: 'FREQ=DAILY',
+            recurrenceEndDate: null,
+            deletedAt: null,
+            overrides: [{ occurrenceDate: startDateOnly, excluded: true, overrideFields: null }],
+          },
+          user: { id: 'u1', email: 'u1@pc02.local' },
+        },
+      ]);
+
+      await service.runDispatcher();
+
+      expect(mockPrisma.eventReminderDispatch.create).not.toHaveBeenCalled();
+      expect(mockPush.sendToUser).not.toHaveBeenCalled();
+    });
+
     it('does NOT send when occurrence is outside the [now, now+6min] window', async () => {
       const now = new Date();
       const farFuture = new Date(now.getTime() + 2 * 60 * 60 * 1000); // 2 hours later

@@ -13,11 +13,13 @@ import { Modal } from '@/components/shared/Modal';
 import { usePermission } from '@/hooks/usePermission';
 import { api } from '@/lib/api';
 import { CreateEventModal } from './components/CreateEventModal';
+import { RecurringDeleteDialog } from './components/RecurringDeleteDialog';
 
 const COLORS = { navy: '#1B2B4E', gold: '#D4AF37', slate: '#64748B' };
 
-export type EventType = 'deadline' | 'hearing' | 'meeting' | 'other' | 'holiday';
+export type EventType = 'deadline' | 'hearing' | 'meeting' | 'other' | 'holiday' | 'event';
 export type HolidayCategory = 'NATIONAL' | 'POLICE' | 'MILITARY' | 'INTERNATIONAL' | 'OTHER';
+export type EventScopeFE = 'SYSTEM' | 'TEAM' | 'PERSONAL';
 
 export interface CalendarEvent {
   id: string;
@@ -30,6 +32,10 @@ export interface CalendarEvent {
   petitionId?: string;
   holidayCategory?: HolidayCategory;
   isOfficialDayOff?: boolean;
+  // PR 2c — for type='event' from new calendar_events table:
+  scope?: EventScopeFE;
+  categorySlug?: string;
+  categoryColor?: string;
 }
 
 const eventTypeLabels: Record<EventType, string> = {
@@ -38,6 +44,7 @@ const eventTypeLabels: Record<EventType, string> = {
   meeting: 'Cuộc họp',
   other: 'Khác',
   holiday: 'Ngày lễ',
+  event: 'Sự kiện', // PR 2c — new calendar_events table entries
 };
 
 const eventTypeColors: Record<EventType, string> = {
@@ -46,6 +53,7 @@ const eventTypeColors: Record<EventType, string> = {
   meeting: '#3B82F6',
   other: '#64748B',
   holiday: '#DA251D', // Đỏ cờ Việt Nam
+  event: '#003973', // PR 2c — fallback color cho new events khi categoryColor null
 };
 
 const holidayCategoryColors: Record<HolidayCategory, string> = {
@@ -68,7 +76,24 @@ function getEventColor(event: CalendarEvent): string {
   if (event.type === 'holiday' && event.holidayCategory) {
     return holidayCategoryColors[event.holidayCategory];
   }
+  // PR 2c — type='event' uses dynamic category color from API
+  if (event.type === 'event' && event.categoryColor) {
+    return event.categoryColor;
+  }
   return eventTypeColors[event.type];
+}
+
+/**
+ * PR 2c: scope visual treatment for event-type events.
+ * - SYSTEM: solid border (default)
+ * - TEAM: dashed border + small users icon
+ * - PERSONAL: dotted border + small user icon
+ */
+function getScopeBorderStyle(scope?: EventScopeFE): string {
+  if (!scope) return '';
+  if (scope === 'TEAM') return 'border border-dashed border-white/60';
+  if (scope === 'PERSONAL') return 'border border-dotted border-white/60';
+  return ''; // SYSTEM: no extra border, just solid background
 }
 
 // Calendar day cell component
@@ -113,9 +138,9 @@ function DayCell({ date, isCurrentMonth, isToday, events, onClick }: DayCellProp
         {events.slice(0, 3).map((event) => (
           <div
             key={event.id}
-            className="text-xs px-2 py-1 rounded truncate text-white"
+            className={`text-xs px-2 py-1 rounded truncate text-white ${getScopeBorderStyle(event.scope)}`}
             style={{ backgroundColor: getEventColor(event) }}
-            title={event.title}
+            title={`${event.title}${event.scope ? ` (${event.scope})` : ''}`}
           >
             {event.title}
           </div>
@@ -401,6 +426,19 @@ export default function CalendarPage() {
   const [isCreateApiModalOpen, setIsCreateApiModalOpen] = useState(false);
   const [createApiDefaultDate, setCreateApiDefaultDate] = useState<string>('');
 
+  // PR 2c — scope filter chips. Default: show all scopes + legacy holidays/deadlines.
+  const [scopeFilter, setScopeFilter] = useState<Set<EventScopeFE | 'LEGACY'>>(
+    new Set(['SYSTEM', 'TEAM', 'PERSONAL', 'LEGACY']),
+  );
+
+  // PR 2c — recurring delete dialog state.
+  const [deleteDialog, setDeleteDialog] = useState<{
+    eventId: string;
+    occurrenceDate: string;
+    title: string;
+    isRecurring: boolean;
+  } | null>(null);
+
   const fetchEvents = useCallback(async () => {
     try {
       const year = currentDate.getFullYear();
@@ -460,10 +498,28 @@ export default function CalendarPage() {
   }, []);
 
   const handleEventClick = useCallback((event: CalendarEvent) => {
+    // PR 2c — new event-type events route to RecurringDeleteDialog instead of
+    // the legacy local-state EventModal (which never persisted anything).
+    if (event.type === 'event') {
+      // Inline what handleEventDelete does (no closure dep on `events` yet at this point).
+      if (!event.id.startsWith('event-')) return;
+      const dateSuffix = event.id.slice(-10);
+      const eventId = event.id.slice('event-'.length, event.id.length - 11);
+      const occurrenceDates = new Set(
+        events.filter((e) => e.id.startsWith(`event-${eventId}-`)).map((e) => e.id.slice(-10)),
+      );
+      setDeleteDialog({
+        eventId,
+        occurrenceDate: dateSuffix,
+        title: event.title,
+        isRecurring: occurrenceDates.size > 1,
+      });
+      return;
+    }
     setEditingEvent(event);
     setSelectedDate(new Date(event.date));
     setIsModalOpen(true);
-  }, []);
+  }, [events]);
 
   const handleSaveEvent = useCallback((eventData: Partial<CalendarEvent>) => {
     if (eventData.id) {
@@ -490,10 +546,34 @@ export default function CalendarPage() {
     setEvents(prev => prev.filter(e => e.id !== eventId));
   }, []);
 
+  // PR 2c — apply scope filter. Legacy events (deadline/hearing/meeting/other/holiday)
+  // have no scope field — bucket them under 'LEGACY'.
+  const filteredEvents = useMemo(() => {
+    return events.filter((e) => {
+      if (e.type === 'event' && e.scope) {
+        return scopeFilter.has(e.scope);
+      }
+      return scopeFilter.has('LEGACY');
+    });
+  }, [events, scopeFilter]);
+
   const getEventsForDate = useCallback((date: Date) => {
     const dateStr = date.toISOString().split('T')[0];
-    return events.filter(e => e.date === dateStr);
-  }, [events]);
+    return filteredEvents.filter(e => e.date === dateStr);
+  }, [filteredEvents]);
+
+  const toggleScope = (s: EventScopeFE | 'LEGACY') => {
+    setScopeFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(s)) next.delete(s);
+      else next.add(s);
+      return next;
+    });
+  };
+
+  // PR 2c: event-type click handling is inlined into handleEventClick below
+  // (recurring delete dialog path). Kept dedicated function for clarity if
+  // future code needs to open the dialog without going through handleEventClick.
 
   const monthYearLabel = currentDate.toLocaleDateString('vi-VN', { 
     month: 'long', 
@@ -550,6 +630,43 @@ export default function CalendarPage() {
           defaultDate={createApiDefaultDate}
           onCreated={fetchEvents}
         />
+
+        {deleteDialog && (
+          <RecurringDeleteDialog
+            isOpen={true}
+            onClose={() => setDeleteDialog(null)}
+            eventId={deleteDialog.eventId}
+            occurrenceDate={deleteDialog.occurrenceDate}
+            eventTitle={deleteDialog.title}
+            isRecurring={deleteDialog.isRecurring}
+            onDeleted={fetchEvents}
+          />
+        )}
+
+        {/* PR 2c — scope filter chips */}
+        <div className="flex gap-2 mb-4 text-sm flex-wrap" data-testid="scope-filter-chips">
+          {([
+            { value: 'LEGACY', label: 'Deadline + Lễ', desc: 'Vụ án/Vụ việc/Đơn thư + ngày lễ' },
+            { value: 'SYSTEM', label: 'Hệ thống', desc: 'Sự kiện toàn cơ quan' },
+            { value: 'TEAM', label: 'Tổ', desc: 'Sự kiện cấp tổ' },
+            { value: 'PERSONAL', label: 'Cá nhân', desc: 'Sự kiện riêng của tôi' },
+          ] as const).map((s) => (
+            <label
+              key={s.value}
+              title={s.desc}
+              className="cursor-pointer px-3 py-1 border border-slate-300 rounded-full has-[:checked]:bg-[#003973] has-[:checked]:text-white has-[:checked]:border-[#003973]"
+            >
+              <input
+                type="checkbox"
+                className="sr-only"
+                checked={scopeFilter.has(s.value)}
+                onChange={() => toggleScope(s.value)}
+                data-testid={`scope-chip-${s.value}`}
+              />
+              {s.label}
+            </label>
+          ))}
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Calendar Grid */}
