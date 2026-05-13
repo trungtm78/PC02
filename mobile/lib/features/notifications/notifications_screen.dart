@@ -2,16 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../core/api/providers.dart';
+import '../../core/logging/log.dart';
 import '../../core/models/notification.dart';
+import '../../shared/theme/app_theme.dart';
 import '../../shared/widgets/empty_state.dart';
 import '../../shared/widgets/offline_banner.dart';
+import 'unread_count.dart';
 
 final _notificationsProvider =
     FutureProvider.autoDispose<List<AppNotification>>((ref) {
   return ref.read(notificationsApiProvider).getNotifications();
 });
 
-final _unreadCountProvider = StateProvider<int>((ref) => 0);
+/// BUG-8: derived from the notifications future. Replaces the dead
+/// StateProvider<int> that was declared but never written/read.
+final unreadNotificationCountProvider = Provider.autoDispose<int>((ref) {
+  final async = ref.watch(_notificationsProvider);
+  return async.maybeWhen(data: unreadCount, orElse: () => 0);
+});
 
 class NotificationsScreen extends ConsumerWidget {
   const NotificationsScreen({super.key});
@@ -19,10 +27,34 @@ class NotificationsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final data = ref.watch(_notificationsProvider);
+    final unread = ref.watch(unreadNotificationCountProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Thông báo'),
+        title: Row(
+          children: [
+            const Text('Thông báo'),
+            if (unread > 0) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppColors.red,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  unread > 99 ? '99+' : '$unread',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -95,7 +127,9 @@ class _NotificationTileState extends ConsumerState<_NotificationTile> {
       await ref
           .read(notificationsApiProvider)
           .markRead(widget.notification.id);
-    } catch (_) {
+    } catch (e, st) {
+      // BUG-4: log non-fatal mark-read failure + revert optimistic update.
+      logError('notifications.markRead', e, st);
       setState(() => _isRead = false);
     }
   }
@@ -106,7 +140,7 @@ class _NotificationTileState extends ConsumerState<_NotificationTile> {
     return InkWell(
       onTap: _markRead,
       child: Container(
-        color: _isRead ? null : Colors.blue.withOpacity(0.04),
+        color: _isRead ? null : Colors.blue.withValues(alpha: 0.04),
         padding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
