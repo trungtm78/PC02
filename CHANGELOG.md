@@ -2,6 +2,78 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.19.0.0] - 2026-05-13
+
+### Added — Calendar Events v2, Phase 2c (UI polish + RRULE-aware cron)
+
+PR 2c hoàn thiện full UI surface theo design review wishlist + cho phép cron dispatcher fire reminders cho recurring events.
+
+#### Backend — RRULE-aware reminder dispatcher
+
+`computeOccurrencesInWindow()` (mới trong `event-reminders.service`):
+- Non-recurring: 1 occurrence trên `combineDateTime(startDate, startTime)` nếu trong trigger window
+- Recurring: `rrulestr(rrule, { dtstart })` rồi `between(searchFrom, searchTo, inc=true)` với search range ±7 ngày quanh trigger window (forgiving với DTSTART TZ jitter), hard cap 100 occurrences/event/window
+- Apply EXDATE overrides: nếu `override.excluded=true` → skip
+- Forgiving tolerance: `startRangeFrom` trừ 60s khỏi exact trigger time → catches occurrences mà rrule trả về minute-aligned (không có ms) khi `now` có sub-second precision. UNIQUE constraint trên `EventReminderDispatch` ngăn double-fire.
+
+Trước PR 2c: dispatcher skip mọi recurring events (`if (ev.recurrenceRule) continue`). Sau PR 2c: dispatcher fire đúng cho FREQ=WEEKLY/MONTHLY/YEARLY/DAILY (với endDate guard).
+
+#### Frontend — RecurrenceBuilder (visual UI)
+
+Thay 4-radio preset cũ trong `CreateEventModal` bằng `RecurrenceBuilder`:
+- 5 preset radio: Không lặp / Hàng năm / Hàng tháng / Hàng tuần / **Tùy chỉnh**
+- Khi chọn Tùy chỉnh: BYDAY checkboxes T2-CN + INTERVAL number (1-52 tuần)
+- Live preview text: "Lặp lại vào T2, T4 mỗi 2 tuần"
+- `buildRRule()` helper convert preset + custom config → RFC 5545 RRULE string
+
+#### Frontend — ReminderEditor (inline trong CreateEventModal)
+
+- Compact list với 4 preset (15p / 1h / 1d / 1w) + channels FCM/Email checkbox
+- Prevent duplicate `minutesBefore` cho cùng event
+- Sau khi event tạo thành công, modal best-effort POST từng reminder qua `eventRemindersApi.create()` (1 reminder fail không break flow)
+
+#### Frontend — RecurringDeleteDialog (data integrity critical)
+
+Component dialog 2-button:
+- **"Chỉ xóa ngày này"** → `calendarEventsApi.excludeOccurrence(eventId, date)` (insert EXDATE override row, soft skip 1 occurrence)
+- **"Xóa cả chuỗi sự kiện"** → `calendarEventsApi.remove(eventId)` (soft delete parent)
+- Non-recurring events: chỉ hiển thị 1 button "Xóa sự kiện"
+- Wired vào CalendarPage `handleEventClick`: khi user click event có id format `event-{cuid}-{YYYY-MM-DD}`, parse eventId + date, detect recurring iff cùng eventId xuất hiện trên nhiều ngày trong view → mở dialog với option phù hợp
+
+Prevents the design review concern: "user xóa recurring event = nuke 52 occurrences silently".
+
+#### Frontend — Filter chips (scope toggle)
+
+Trong CalendarPage giữa header và calendar grid:
+- 4 chips: "Deadline + Lễ" / "Hệ thống" / "Tổ" / "Cá nhân"
+- LEGACY chip cover deadline + holiday từ Holiday table (giữ backward compat)
+- SYSTEM/TEAM/PERSONAL chips cover events từ CalendarEvent table với scope tương ứng
+- Toggle bằng click — `filteredEvents` reactive memo
+
+#### Frontend — Scope visual treatment trên day cell
+
+`getScopeBorderStyle(scope)`:
+- SYSTEM: solid border (mặc định)
+- TEAM: `border-dashed border-white/60`
+- PERSONAL: `border-dotted border-white/60`
+
+User phân biệt scope ngay từ day cell mà không cần click vào event.
+
+### Tests
+- Backend: 2 new tests cho RRULE-aware dispatcher (fire recurring + skip EXDATE) → 1145/1145 pass total
+- Frontend: 390/390 pass (RecurringDeleteDialog + RecurrenceBuilder + ReminderEditor compile + integrate; visual tests defer cho user-facing manual verify)
+- `tsc --noEmit` file em touch clean
+
+### Out of scope (defer to future PR nếu cần)
+- 2-step wizard cho EventFormModal (hiện tại 1-step modal đủ dùng)
+- Mobile-specific bottom sheet (modal scroll OK trên mobile)
+- Cron concurrency lock across multiple VM instances (single VM hiện tại OK)
+
+### Deploy notes
+- KHÔNG migration mới — schema giữ từ PR 1
+- Cron sẽ tự pick up logic mới khi backend restart sau deploy
+- Frontend bundle increase ~30KB do `rrule` import — acceptable
+
 ## [0.18.0.0] - 2026-05-13
 
 ### Added — Calendar Events v2, Phase 2b (reminders + frontend module + admin UI)

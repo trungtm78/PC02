@@ -6,6 +6,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { RRule, rrulestr } from 'rrule';
 import { PrismaService } from '../prisma/prisma.service';
 import { PushService } from '../push/push.service';
 import { EmailService } from '../email/email.service';
@@ -121,71 +122,138 @@ export class EventRemindersService {
       const ev = reminder.event;
       if (!ev || ev.deletedAt) continue;
 
-      // Compute the trigger time for each occurrence within the window.
-      // For non-recurring events: 1 occurrence on startDate. For recurring: skip
-      // (PR 2b cron handles non-recurring only — recurring expansion + dispatcher
-      // is deferred to a follow-up because it requires RRULE iteration server-side
-      // which adds latency to the cron loop. Acceptable tradeoff: recurring events
-      // still display on calendar, just don't send reminders. Plan documents this.)
-      if (ev.recurrenceRule) continue;
+      // Compute all occurrence dates that need a reminder firing within this window.
+      // For non-recurring: just 1 occurrence on ev.startDate.
+      // For recurring: expand via rrule.between() across a lookback window wide
+      // enough to catch any occurrence whose `start - minutesBefore` falls in [now, windowEnd].
+      const occurrenceDates = this.computeOccurrencesInWindow(ev, reminder.minutesBefore, now, windowEnd);
 
-      // Trigger time = event start - minutesBefore.
-      const eventStart = this.combineDateTime(ev.startDate, ev.startTime);
-      const triggerTime = new Date(eventStart.getTime() - reminder.minutesBefore * 60 * 1000);
-
-      if (triggerTime < now || triggerTime > windowEnd) continue;
-
-      // Atomic claim: insert dispatch row first. UNIQUE catches duplicate from
-      // an earlier overlapping cron tick.
-      try {
-        await this.prisma.eventReminderDispatch.create({
-          data: {
-            reminderId: reminder.id,
-            occurrenceDate: ev.startDate,
-            channels: reminder.channels as any,
-          },
-        });
-      } catch (err: any) {
-        if (err?.code === 'P2002') {
-          // Another cron tick already claimed this dispatch — skip silently.
-          continue;
-        }
-        this.logger.warn(`Failed to claim dispatch for reminder ${reminder.id}: ${err?.message}`);
-        continue;
-      }
-
-      // Send via configured channels. Each send wrapped to never break the loop.
-      const channels = reminder.channels as unknown as ReminderChannelDto[];
-
-      if (channels.includes(ReminderChannelDto.FCM)) {
+      for (const occurrenceDate of occurrenceDates) {
+        // Atomic claim: insert dispatch row first. UNIQUE(reminderId, occurrenceDate)
+        // catches duplicate from an earlier overlapping cron tick.
         try {
-          await this.push.sendToUser(reminder.userId, {
-            title: `Nhắc nhở: ${ev.title}`,
-            body: ev.shortTitle ?? ev.title,
+          await this.prisma.eventReminderDispatch.create({
             data: {
-              eventId: ev.id,
-              occurrenceDate: ev.startDate.toISOString().slice(0, 10),
+              reminderId: reminder.id,
+              occurrenceDate,
+              channels: reminder.channels as any,
             },
           });
         } catch (err: any) {
-          this.logger.warn(`FCM send failed for reminder ${reminder.id}: ${err?.message}`);
+          if (err?.code === 'P2002') {
+            // Another cron tick already claimed this dispatch — skip silently.
+            continue;
+          }
+          this.logger.warn(`Failed to claim dispatch for reminder ${reminder.id}: ${err?.message}`);
+          continue;
         }
-      }
 
-      if (channels.includes(ReminderChannelDto.EMAIL) && reminder.user?.email) {
-        try {
-          await this.email.sendEventReminder(reminder.user.email, ev.title, ev.startDate);
-        } catch (err: any) {
-          this.logger.warn(`Email send failed for reminder ${reminder.id}: ${err?.message}`);
+        // Send via configured channels. Each send wrapped to never break the loop.
+        const channels = reminder.channels as unknown as ReminderChannelDto[];
+
+        if (channels.includes(ReminderChannelDto.FCM)) {
+          try {
+            await this.push.sendToUser(reminder.userId, {
+              title: `Nhắc nhở: ${ev.title}`,
+              body: ev.shortTitle ?? ev.title,
+              data: {
+                eventId: ev.id,
+                occurrenceDate: occurrenceDate.toISOString().slice(0, 10),
+              },
+            });
+          } catch (err: any) {
+            this.logger.warn(`FCM send failed for reminder ${reminder.id}: ${err?.message}`);
+          }
         }
-      }
 
-      dispatched++;
+        if (channels.includes(ReminderChannelDto.EMAIL) && reminder.user?.email) {
+          try {
+            await this.email.sendEventReminder(reminder.user.email, ev.title, occurrenceDate);
+          } catch (err: any) {
+            this.logger.warn(`Email send failed for reminder ${reminder.id}: ${err?.message}`);
+          }
+        }
+
+        dispatched++;
+      }
     }
 
     if (dispatched > 0) {
       this.logger.log(`Dispatcher fired ${dispatched} reminder(s)`);
     }
+  }
+
+  /**
+   * Return occurrence dates whose `start - minutesBefore` falls in [now, windowEnd].
+   * For recurring events: expand via rrule.between(), filter overrides (EXDATE).
+   * Hard-capped at 100 occurrences/event/window to keep the cron loop fast.
+   */
+  private computeOccurrencesInWindow(
+    event: any,
+    minutesBefore: number,
+    now: Date,
+    windowEnd: Date,
+  ): Date[] {
+    const result: Date[] = [];
+    const overrideMap = new Map<string, any>();
+    for (const ov of event.overrides ?? []) {
+      overrideMap.set(ov.occurrenceDate.toISOString().slice(0, 10), ov);
+    }
+
+    // Convert the (now, windowEnd) trigger range to event-start range.
+    // trigger = start - minutesBefore → start = trigger + minutesBefore.
+    // Tolerance: -60s on lower bound — rrule returns minute-aligned times while
+    // `now` includes sub-second ms, so an event exactly at "now + minutesBefore"
+    // would otherwise fall under startRangeFrom by milliseconds. The dispatch
+    // table's UNIQUE constraint prevents double-firing.
+    const startRangeFrom = new Date(now.getTime() + minutesBefore * 60 * 1000 - 60 * 1000);
+    const startRangeTo = new Date(windowEnd.getTime() + minutesBefore * 60 * 1000);
+
+    if (!event.recurrenceRule) {
+      // Non-recurring: single occurrence at combined date+time.
+      const eventStart = this.combineDateTime(event.startDate, event.startTime);
+      if (eventStart >= startRangeFrom && eventStart <= startRangeTo) {
+        // Check override.
+        const key = event.startDate.toISOString().slice(0, 10);
+        if (!overrideMap.get(key)?.excluded) {
+          result.push(event.startDate);
+        }
+      }
+      return result;
+    }
+
+    // Recurring: rrule expands from DTSTART. Use rrulestr() with explicit dtstart
+    // option — avoids iCalendar string TZ parsing. Search ±7 days around the
+    // trigger window — post-filter on occStart enforces correctness.
+    try {
+      const ruleWithStart = rrulestr(`RRULE:${event.recurrenceRule}`, {
+        dtstart: event.startDate,
+      }) as RRule;
+      const searchFrom = new Date(startRangeFrom.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const searchTo = event.recurrenceEndDate && event.recurrenceEndDate < startRangeTo
+        ? event.recurrenceEndDate
+        : new Date(startRangeTo.getTime() + 7 * 24 * 60 * 60 * 1000);
+      const dates = ruleWithStart.between(searchFrom, searchTo, true).slice(0, 100);
+      for (const date of dates) {
+        // Apply event time-of-day to get true occurrence start.
+        const occStart = this.combineDateTime(date, event.startTime);
+        if (occStart >= startRangeFrom && occStart <= startRangeTo) {
+          const key = date.toISOString().slice(0, 10);
+          if (overrideMap.get(key)?.excluded) continue;
+          // Date-only for UNIQUE key on EventReminderDispatch.
+          const dateOnly = new Date(date);
+          dateOnly.setHours(0, 0, 0, 0);
+          result.push(dateOnly);
+        }
+      }
+    } catch (err: any) {
+      this.logger.warn(`RRULE parse failed for event ${event.id}: ${err?.message}`);
+    }
+    return result;
+  }
+
+  private toRRuleDate(d: Date): string {
+    return d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
   }
 
   /**

@@ -3,11 +3,14 @@ import { X, Save, Loader2 } from 'lucide-react';
 import {
   eventCategoriesApi,
   calendarEventsApi,
+  eventRemindersApi,
   type EventCategory,
   type EventScope,
   type CreateEventPayload,
 } from '@/lib/api';
 import { authStore } from '@/stores/auth.store';
+import { RecurrenceBuilder, buildRRule, type RecurrencePreset } from './RecurrenceBuilder';
+import { ReminderEditor, type DraftReminder } from './ReminderEditor';
 
 interface Props {
   isOpen: boolean;
@@ -15,13 +18,6 @@ interface Props {
   defaultDate: string; // YYYY-MM-DD
   onCreated?: () => void;
 }
-
-const RECURRENCE_PRESETS = [
-  { value: '', label: 'Không lặp' },
-  { value: 'FREQ=YEARLY', label: 'Hàng năm' },
-  { value: 'FREQ=MONTHLY', label: 'Hàng tháng' },
-  { value: 'FREQ=WEEKLY', label: 'Hàng tuần' },
-] as const;
 
 export function CreateEventModal({ isOpen, onClose, defaultDate, onCreated }: Props) {
   const user = authStore.getUser();
@@ -37,8 +33,11 @@ export function CreateEventModal({ isOpen, onClose, defaultDate, onCreated }: Pr
   const [categoryId, setCategoryId] = useState('');
   // Non-admin users can only create PERSONAL events. Admin can pick SYSTEM/PERSONAL.
   const [scope, setScope] = useState<EventScope>('PERSONAL');
-  const [recurrenceRule, setRecurrenceRule] = useState<string>('');
+  const [recurrencePreset, setRecurrencePreset] = useState<RecurrencePreset>('none');
+  const [recurrenceInterval, setRecurrenceInterval] = useState(1);
+  const [recurrenceByDays, setRecurrenceByDays] = useState<string[]>([]);
   const [recurrenceEndDate, setRecurrenceEndDate] = useState('');
+  const [reminders, setReminders] = useState<DraftReminder[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -48,8 +47,11 @@ export function CreateEventModal({ isOpen, onClose, defaultDate, onCreated }: Pr
     setTitle('');
     setDescription('');
     setError('');
-    setRecurrenceRule('');
+    setRecurrencePreset('none');
+    setRecurrenceInterval(1);
+    setRecurrenceByDays([]);
     setRecurrenceEndDate('');
+    setReminders([]);
     setScope('PERSONAL');
     void eventCategoriesApi.list().then((res) => {
       setCategories(res.data);
@@ -85,11 +87,22 @@ export function CreateEventModal({ isOpen, onClose, defaultDate, onCreated }: Pr
         payload.startTime = startTime;
         payload.endTime = endTime;
       }
-      if (recurrenceRule) {
-        payload.recurrenceRule = recurrenceRule;
+      const rrule = buildRRule(recurrencePreset, recurrenceInterval, recurrenceByDays);
+      if (rrule) {
+        payload.recurrenceRule = rrule;
         if (recurrenceEndDate) payload.recurrenceEndDate = recurrenceEndDate;
       }
-      await calendarEventsApi.create(payload);
+      const res = await calendarEventsApi.create(payload);
+      const newEventId = res.data.id;
+      // Best-effort: create the user-attached reminders. Don't fail the whole
+      // operation if one reminder errors (user can re-add later).
+      for (const reminder of reminders) {
+        try {
+          await eventRemindersApi.create(newEventId, reminder);
+        } catch {
+          // swallow — UI returns success on event create even if reminder fails
+        }
+      }
       onCreated?.();
       onClose();
     } catch (e: unknown) {
@@ -212,31 +225,19 @@ export function CreateEventModal({ isOpen, onClose, defaultDate, onCreated }: Pr
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Lặp lại</label>
-            <div className="flex flex-wrap gap-2 text-sm">
-              {RECURRENCE_PRESETS.map((p) => (
-                <label key={p.value} className="flex items-center gap-1.5 cursor-pointer px-3 py-1.5 border border-slate-300 rounded-lg has-[:checked]:bg-[#003973] has-[:checked]:text-white has-[:checked]:border-[#003973]">
-                  <input
-                    type="radio"
-                    className="sr-only"
-                    checked={recurrenceRule === p.value}
-                    onChange={() => setRecurrenceRule(p.value)}
-                  />
-                  {p.label}
-                </label>
-              ))}
-            </div>
-            {recurrenceRule && (
-              <div className="mt-2 text-xs text-slate-500">
-                <label className="block mb-1">Kết thúc lặp (tùy chọn)</label>
-                <input
-                  type="date"
-                  value={recurrenceEndDate}
-                  onChange={(e) => setRecurrenceEndDate(e.target.value)}
-                  className="px-2 py-1 border border-slate-300 rounded text-sm"
-                />
-              </div>
-            )}
+            <RecurrenceBuilder
+              preset={recurrencePreset}
+              customInterval={recurrenceInterval}
+              customByDays={recurrenceByDays}
+              recurrenceEndDate={recurrenceEndDate}
+              onPresetChange={setRecurrencePreset}
+              onCustomIntervalChange={setRecurrenceInterval}
+              onByDaysChange={setRecurrenceByDays}
+              onEndDateChange={setRecurrenceEndDate}
+            />
           </div>
+
+          <ReminderEditor reminders={reminders} onChange={setReminders} />
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Mô tả</label>
