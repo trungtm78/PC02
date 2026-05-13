@@ -16,6 +16,43 @@
 
 
 
+### AUTH-001: Bundle 2FA enforcement với Auth Hardening v2
+**Priority:** P2
+**Details:** Plan `plans/2fa-toan-he-thong-totp-email-otp.md` đã READY TO IMPLEMENT. Hiện tại `TWO_FA_ENABLED` setting default false, không bắt buộc. Sau khi v0.21 ship Auth Hardening v1, bundle 2FA enforcement cho ADMIN role + privileged subjects vào v0.22.
+**Fix:** Force enrollment + verify gate cho mọi privileged action. State machine `login → 2FA → forced-change` đã chứng minh hoạt động ở v0.21.
+**Discovered:** 2026-05-13 (Auth Hardening v1 /autoplan CEO review)
+
+### AUTH-002: Stricter password policy (12 char + breached check + history)
+**Priority:** P3
+**Details:** Hiện tại policy là 8 char + 1 upper + 1 digit + 1 special (STRONG_PASSWORD_REGEX). Codex `/autoplan` review khuyến nghị nâng cấp:
+1. Min length 12 (NIST 800-63B)
+2. Block top-10k common passwords (zxcvbn hoặc HaveIBeenPwned API)
+3. PasswordHistory table chống reuse 3 password gần nhất
+4. Standardize reset-password regex (hiện tại auth.controller.ts:31 dùng regex YẾU hơn — chỉ require upper + digit, không special char)
+**Discovered:** 2026-05-13 (Codex /autoplan eng review F4)
+
+### AUTH-003: Activation-link onboarding alternative
+**Priority:** P3 (research, not implementation)
+**Details:** Modern pattern (Okta, Auth0, Google Workspace): admin tạo user → system email/SMS one-time activation link → user tự đặt password lần đầu. Eliminate admin-known-password window hoàn toàn (v0.21 chỉ giảm risk, không loại bỏ).
+**Blocker:** Verify constraint với PC02 IT-security:
+- Cán bộ có email cá nhân được dùng cho hệ thống không?
+- SMS gateway có sẵn không?
+- Field unit (vùng xa) network reliability?
+Nếu có → adopt. Nếu không → keep current admin-handover model.
+**Discovered:** 2026-05-13 (Codex /autoplan CEO review F5 — dismissed without consideration in v0.21 plan)
+
+### AUTH-004: Verify regulatory framework with PC02 IT-security
+**Priority:** P2
+**Details:** Memory dự án và CLAUDE.md cite "TT 31/2017/TT-BCA" — Codex web search confirm đây thực ra là **TT 31/2017/TT-BTTTT** và **explicitly excludes systems managed by Bộ Công an** khỏi scope. Khung pháp lý đúng cho hệ thống BCA: NĐ 85/2016/NĐ-CP + TT 12/2022/TT-BTTTT + nội quy nội bộ BCA (không publicly indexed).
+**Fix:** Anh trao đổi với IT-security của PC02 để verify đúng khung pháp lý áp dụng, update CLAUDE.md + memory.
+**Discovered:** 2026-05-13 (Codex /autoplan CEO review F5)
+
+### AUTH-005: Mojibake trong Vietnamese strings (login + auth controller)
+**Priority:** P3 (cosmetic, codebase quality)
+**Details:** `frontend/src/pages/auth/LoginPage.tsx:74-76,142` và `backend/src/auth/auth.controller.ts:39` có Vietnamese strings bị mojibake (UTF-8 ↔ Windows-1258 conversion fail). Ví dụ: `'Vui lòng nhập email hợp lềE'` (đúng: `'hợp lệ'`), `'HềETHỐNG'` (đúng: `'HỆ THỐNG'`).
+**Fix:** Sweep `git grep -P '[\x{ED} ]E'` để tìm pattern, replace bằng đúng tiếng Việt UTF-8. ~30 min.
+**Discovered:** 2026-05-13 (Both Codex + Claude subagent /autoplan Design review flagged)
+
 ### PERF-002: GET /kpi/trend makes ~120 DB count queries per call
 **Priority:** P3 (acceptable at current scale with <10k rows + createdAt index)
 **Details:** `getKpiTrend()` runs 12 months × 4 KPIs × ~2.5 counts = ~120 `prisma.count()` calls. They run in 12 parallel batches (one per month), so it's 12 sequential DB round-trips. With a good index on `createdAt` this is fast. Will degrade as data grows.
