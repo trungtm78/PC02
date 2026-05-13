@@ -21,6 +21,7 @@ on:
           - inspect
           - resolve-applied
           - resolve-rolled-back
+          - seed-event-categories
       migration:
         description: 'Migration name (only required for resolve modes)'
         required: false
@@ -89,6 +90,24 @@ jobs:
              echo '' && \
              echo '=== Verifying state ===' && \
              npx prisma migrate status 2>&1 || true"
+
+      - name: Seed event_categories
+        if: inputs.mode == 'seed-event-categories'
+        run: |
+          # Build a single multi-VALUES INSERT (one logical statement) and pass via psql -c.
+          # No heredoc — keeps YAML parser happy.
+          # ON CONFLICT (slug) makes it idempotent.
+          SEED_SQL='INSERT INTO event_categories (id, slug, name, color, icon, "isSystem", "sortOrder", "createdAt", "updatedAt") VALUES (substring(md5(random()::text || clock_timestamp()::text), 1, 25), '"'"'national'"'"', '"'"'Quốc gia'"'"', '"'"'#dc2626'"'"', '"'"'flag'"'"', true, 10, NOW(), NOW()), (substring(md5(random()::text || clock_timestamp()::text), 1, 25), '"'"'police'"'"', '"'"'Ngành Công an'"'"', '"'"'#1e40af'"'"', '"'"'shield'"'"', true, 20, NOW(), NOW()), (substring(md5(random()::text || clock_timestamp()::text), 1, 25), '"'"'military'"'"', '"'"'Quân đội'"'"', '"'"'#15803d'"'"', '"'"'star'"'"', true, 30, NOW(), NOW()), (substring(md5(random()::text || clock_timestamp()::text), 1, 25), '"'"'international'"'"', '"'"'Quốc tế'"'"', '"'"'#ea580c'"'"', '"'"'globe'"'"', true, 40, NOW(), NOW()), (substring(md5(random()::text || clock_timestamp()::text), 1, 25), '"'"'other'"'"', '"'"'Khác'"'"', '"'"'#64748b'"'"', '"'"'calendar'"'"', true, 100, NOW(), NOW()) ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name, color = EXCLUDED.color, icon = EXCLUDED.icon, "isSystem" = EXCLUDED."isSystem";'
+          ssh -p ${{ secrets.VM_PORT }} -o StrictHostKeyChecking=yes \
+            ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} \
+            "cd /home/pc02/current/backend && \
+             export DATABASE_URL=\$(grep '^DATABASE_URL=' .env | cut -d= -f2- | tr -d '\"') && \
+             export PSQL_URL=\"\${DATABASE_URL%%\\?*}\" && \
+             echo '=== Seeding event_categories (idempotent ON CONFLICT) ===' && \
+             psql \"\$PSQL_URL\" -c \"$SEED_SQL\" 2>&1 && \
+             echo '' && \
+             echo '=== Verifying seed ===' && \
+             psql \"\$PSQL_URL\" -c 'SELECT id, slug, name FROM event_categories ORDER BY slug;' 2>&1"
 
       - name: Resolve as ROLLED-BACK
         if: inputs.mode == 'resolve-rolled-back'
