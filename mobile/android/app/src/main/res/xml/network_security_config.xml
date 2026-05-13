@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  TEMP for PR1 pilot HTTP. REMOVE in PR2.5 when production domain + HTTPS are
+  ready. The default policy is HTTPS-only — we only allowlist the specific
+  pilot IP so a stale cleartext config can't accidentally apply to anything
+  else. Tracking: plan stage PR2.5 explicitly REMOVES this file.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">171.244.40.245</domain>
+    </domain-config>
+</network-security-config>
