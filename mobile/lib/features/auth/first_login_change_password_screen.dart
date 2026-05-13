@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/auth/auth_provider.dart';
 import '../../core/auth/password_strength.dart';
-import '../../core/fcm/fcm_service.dart';
+import '../../core/logging/log.dart';
 import '../../core/testing/maestro_keys.dart';
 import '../../shared/theme/app_theme.dart';
 
@@ -82,10 +82,7 @@ class _FirstLoginChangePasswordScreenState
           .read(authProvider.notifier)
           .firstLoginChangePassword(_newCtrl.text);
       if (!mounted) return;
-      // Init FCM after real tokens are stored.
-      try {
-        await ref.read(fcmServiceProvider).init();
-      } catch (_) {}
+      // BUG-1: FCM init handled by AuthNotifier callback now.
       if (mounted) context.go('/');
     } on DioException catch (e) {
       if (!mounted) return;
@@ -104,7 +101,9 @@ class _FirstLoginChangePasswordScreenState
           _submitting = false;
         });
       }
-    } catch (_) {
+    } catch (e, st) {
+      // BUG-4: non-DioException path (likely a Dart-level network/timeout).
+      logError('firstLoginChangePassword.network', e, st);
       if (!mounted) return;
       setState(() {
         _error = 'Lỗi mạng. Vui lòng kiểm tra kết nối.';

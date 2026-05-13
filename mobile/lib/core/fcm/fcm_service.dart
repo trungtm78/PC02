@@ -3,6 +3,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../api/devices_api.dart';
 import '../api/providers.dart';
+import '../logging/log.dart';
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {}
@@ -46,7 +47,25 @@ class FcmService {
     final platform = Platform.isIOS ? 'ios' : 'android';
     try {
       await _devicesApi.register(token, platform);
-    } catch (_) {}
+    } catch (e, st) {
+      // BUG-4: swallow no more — log so dev sees registration churn.
+      logError('fcm.register', e, st);
+    }
+  }
+
+  /// Called by AuthNotifier.onLogout (BUG-3 decouple). Deregister the current
+  /// device on the backend so push targeting can be cleaned up; clear the
+  /// in-memory token so a fresh login re-registers from scratch. Server
+  /// failure is logged, not propagated — logout must not be blocked by it.
+  Future<void> cleanup() async {
+    final token = _currentToken;
+    _currentToken = null;
+    if (token == null) return;
+    try {
+      await _devicesApi.unregister(token);
+    } catch (e, st) {
+      logError('fcm.unregister', e, st);
+    }
   }
 }
 

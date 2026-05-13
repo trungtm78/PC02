@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/auth/auth_provider.dart';
 import '../../core/auth/biometric_service.dart';
 import '../../core/constants/app_constants.dart';
-import '../../core/fcm/fcm_service.dart';
+import '../../core/logging/log.dart';
 import '../../core/testing/maestro_keys.dart';
 import '../../shared/theme/app_theme.dart';
 
@@ -61,10 +61,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       } else if (result == AppAuthResult.pendingChangePassword) {
         context.go('/auth/first-login-change-password');
       } else {
-        try {
-          final fcm = ref.read(fcmServiceProvider);
-          await fcm.init();
-        } catch (_) {}
+        // BUG-1: FCM init no longer called inline — AuthNotifier._finalize()
+        // invokes the onLoginFinalized callback (wired in authProvider) so
+        // every login path registers exactly once.
         if (mounted) {
           await _offerBiometric(email, password);
           if (mounted) context.go('/');
@@ -125,12 +124,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       } else if (result == AppAuthResult.pendingChangePassword) {
         context.go('/auth/first-login-change-password');
       } else {
-        try {
-          await ref.read(fcmServiceProvider).init();
-        } catch (_) {}
+        // BUG-1: FCM init handled by AuthNotifier callback now.
         if (mounted) context.go('/');
       }
-    } catch (_) {
+    } catch (e, st) {
+      // BUG-4: log biometric/login failure; user sees friendly error.
+      logError('auth.biometricLogin', e, st);
       if (mounted) setState(() => _error = 'Xác thực sinh trắc học thất bại');
     }
   }

@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/auth/auth_provider.dart';
 import '../../core/constants/app_constants.dart';
-import '../../core/fcm/fcm_service.dart';
 import '../../core/testing/maestro_keys.dart';
 import '../../shared/theme/app_theme.dart';
 
@@ -37,8 +36,7 @@ class _TwoFaScreenState extends ConsumerState<TwoFaScreen> {
         return;
       }
 
-      final fcm = ref.read(fcmServiceProvider);
-      await fcm.init();
+      // BUG-1: FCM init handled by AuthNotifier callback now.
       context.go('/');
     } catch (e) {
       setState(() => _error = 'Mã OTP không đúng hoặc đã hết hạn');

@@ -2,14 +2,11 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:pc02_mobile/core/api/auth_api.dart';
-import 'package:pc02_mobile/core/api/devices_api.dart';
 import 'package:pc02_mobile/core/auth/auth_provider.dart';
 import 'package:pc02_mobile/core/auth/biometric_service.dart';
 import 'package:pc02_mobile/core/auth/token_storage.dart';
 
 class MockAuthApi extends Mock implements AuthApi {}
-
-class MockDevicesApi extends Mock implements DevicesApi {}
 
 class MockTokenStorage extends Mock implements TokenStorage {}
 
@@ -17,20 +14,27 @@ class MockBiometricService extends Mock implements BiometricService {}
 
 void main() {
   late MockAuthApi authApi;
-  late MockDevicesApi devicesApi;
   late MockTokenStorage storage;
   late MockBiometricService biometricService;
+  late int onLoginFinalizedCallCount;
+  late int onLogoutCallCount;
 
   setUp(() {
     authApi = MockAuthApi();
-    devicesApi = MockDevicesApi();
     storage = MockTokenStorage();
     biometricService = MockBiometricService();
+    onLoginFinalizedCallCount = 0;
+    onLogoutCallCount = 0;
     when(() => biometricService.clear()).thenAnswer((_) async {});
   });
 
-  AuthNotifier makeNotifier() =>
-      AuthNotifier(authApi, devicesApi, storage, biometricService);
+  AuthNotifier makeNotifier() => AuthNotifier(
+        authApi: authApi,
+        tokenStorage: storage,
+        biometricService: biometricService,
+        onLoginFinalized: () async => onLoginFinalizedCallCount++,
+        onLogout: () async => onLogoutCallCount++,
+      );
 
   group('AuthNotifier', () {
     test('login() stores tokens on success', () async {
@@ -192,18 +196,91 @@ void main() {
       expect(notifier.state.isAuthenticated, false);
     });
 
-    test('logout() clears tokens, biometric credentials, and deregisters FCM', () async {
-      when(() => devicesApi.unregister(any())).thenAnswer((_) async {});
+    test('logout() clears tokens + biometric, fires onLogout callback (BUG-3: no DevicesApi reference)', () async {
       when(() => authApi.logout()).thenAnswer((_) async {});
       when(() => storage.clear()).thenAnswer((_) async {});
 
       final notifier = makeNotifier();
-      await notifier.logout(fcmToken: 'tok');
+      await notifier.logout();
 
-      verify(() => devicesApi.unregister('tok')).called(1);
+      // AuthNotifier no longer takes DevicesApi — onLogout callback is the
+      // single decoupled hook for FCM cleanup + device deregister.
+      expect(onLogoutCallCount, 1);
       verify(() => storage.clear()).called(1);
       verify(() => biometricService.clear()).called(1);
       expect(notifier.state.isAuthenticated, false);
+    });
+
+    test('login() success fires onLoginFinalized callback (BUG-1: FCM init for normal login)', () async {
+      when(() => authApi.login(any(), any())).thenAnswer((_) async => {
+            'accessToken': 'at',
+            'refreshToken': 'rt',
+            'user': {'id': 'u1', 'fullName': 'T', 'email': 'a@b.c', 'role': 'ADMIN'},
+          });
+      when(() => storage.saveTokens(
+            accessToken: any(named: 'accessToken'),
+            refreshToken: any(named: 'refreshToken'),
+          )).thenAnswer((_) async {});
+      when(() => storage.saveUser(any())).thenAnswer((_) async {});
+      when(() => storage.getUser()).thenAnswer((_) async =>
+          {'id': 'u1', 'fullName': 'T', 'email': 'a@b.c', 'role': 'ADMIN'});
+
+      final notifier = makeNotifier();
+      await notifier.login('a@b.c', 'p');
+
+      expect(onLoginFinalizedCallCount, 1);
+    });
+
+    test('verify2fa() success fires onLoginFinalized callback (BUG-1: FCM init for 2FA login)', () async {
+      when(() => authApi.login(any(), any())).thenAnswer((_) async => {
+            'pending': true,
+            'twoFaToken': 'tok',
+          });
+      when(() => authApi.verify2fa(any(), any())).thenAnswer((_) async => {
+            'accessToken': 'at',
+            'refreshToken': 'rt',
+            'user': {'id': 'u1', 'fullName': 'T', 'email': 'a@b.c', 'role': 'ADMIN'},
+          });
+      when(() => storage.saveTokens(
+            accessToken: any(named: 'accessToken'),
+            refreshToken: any(named: 'refreshToken'),
+          )).thenAnswer((_) async {});
+      when(() => storage.saveUser(any())).thenAnswer((_) async {});
+      when(() => storage.getUser()).thenAnswer((_) async =>
+          {'id': 'u1', 'fullName': 'T', 'email': 'a@b.c', 'role': 'ADMIN'});
+
+      final notifier = makeNotifier();
+      await notifier.login('a@b.c', 'p');
+      await notifier.verify2fa('123456');
+
+      // Login itself returned pending → no finalize. verify2fa finalize → 1 call.
+      expect(onLoginFinalizedCallCount, 1);
+    });
+
+    test('firstLoginChangePassword() success fires onLoginFinalized callback (BUG-1: FCM init for forced-change path)', () async {
+      when(() => authApi.login(any(), any())).thenAnswer((_) async => {
+            'pending': true,
+            'changePasswordToken': 't',
+            'reason': 'MUST_CHANGE_PASSWORD',
+          });
+      when(() => authApi.firstLoginChangePassword(any(), any())).thenAnswer((_) async => {
+            'accessToken': 'at',
+            'refreshToken': 'rt',
+            'user': {'id': 'u1', 'fullName': 'T', 'email': 'a@b.c', 'role': 'ADMIN'},
+          });
+      when(() => storage.saveTokens(
+            accessToken: any(named: 'accessToken'),
+            refreshToken: any(named: 'refreshToken'),
+          )).thenAnswer((_) async {});
+      when(() => storage.saveUser(any())).thenAnswer((_) async {});
+      when(() => storage.getUser()).thenAnswer((_) async =>
+          {'id': 'u1', 'fullName': 'T', 'email': 'a@b.c', 'role': 'ADMIN'});
+
+      final notifier = makeNotifier();
+      await notifier.login('a@b.c', 'temp');
+      await notifier.firstLoginChangePassword('NewStrong1!');
+
+      expect(onLoginFinalizedCallCount, 1);
     });
 
     test('init() restores auth state from stored token', () async {
