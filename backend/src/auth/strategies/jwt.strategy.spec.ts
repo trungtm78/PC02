@@ -114,5 +114,50 @@ describe('JwtStrategy', () => {
       const result = await strategy.validate(legacyPayload);
       expect(result.id).toBe('user-1');
     });
+
+    // C1 — pre-existing JwtAuthGuard bug fix
+    // Pending tokens (2fa_pending, change_password_pending) must NOT be usable as access tokens.
+    // Reason: previously only `type === 'refresh'` was rejected, so a leaked twoFaToken or
+    // changePasswordToken could be presented as Authorization: Bearer to call business APIs.
+    it('should reject 2fa_pending tokens used as access tokens', async () => {
+      const pendingPayload: JwtPayload = {
+        ...validPayload,
+        type: '2fa_pending',
+      };
+
+      await expect(strategy.validate(pendingPayload)).rejects.toThrow(
+        UnauthorizedException,
+      );
+      await expect(strategy.validate(pendingPayload)).rejects.toThrow(
+        'Pending tokens cannot be used for API access',
+      );
+      expect(mockPrisma.user.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('should reject change_password_pending tokens used as access tokens', async () => {
+      const pendingPayload: JwtPayload = {
+        ...validPayload,
+        type: 'change_password_pending',
+      };
+
+      await expect(strategy.validate(pendingPayload)).rejects.toThrow(
+        UnauthorizedException,
+      );
+      await expect(strategy.validate(pendingPayload)).rejects.toThrow(
+        'Pending tokens cannot be used for API access',
+      );
+      expect(mockPrisma.user.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('should accept tokens with explicit type=access', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(mockUser);
+      const explicitAccess: JwtPayload = {
+        ...validPayload,
+        type: 'access',
+      };
+
+      const result = await strategy.validate(explicitAccess);
+      expect(result.id).toBe('user-1');
+    });
   });
 });
