@@ -1,0 +1,89 @@
+name: Recover Migration
+
+# Manual emergency workflow to inspect or resolve a Prisma P3009 (failed migration)
+# state on the production DB without needing direct SSH access from the operator.
+#
+# Usage:
+#   gh workflow run recover-migration.yml -f mode=inspect
+#   gh workflow run recover-migration.yml -f mode=resolve-applied -f migration=20260513140000_calendar_events_v2_phase3_drop_holiday
+#   gh workflow run recover-migration.yml -f mode=resolve-rolled-back -f migration=...
+#
+# Or trigger via GitHub web UI: Actions → Recover Migration → Run workflow
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Action to perform'
+        required: true
+        type: choice
+        options:
+          - inspect
+          - resolve-applied
+          - resolve-rolled-back
+      migration:
+        description: 'Migration name (only required for resolve modes)'
+        required: false
+        default: '20260513140000_calendar_events_v2_phase3_drop_holiday'
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  recover:
+    name: Recover Migration
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@a6f90b1f127823b31d4d4a8d96047790581349bd # v0.9.1
+        with:
+          ssh-private-key: ${{ secrets.VM_SSH_PRIVATE_KEY }}
+
+      - name: Add VM to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -p ${{ secrets.VM_PORT }} -H ${{ secrets.VM_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Inspect DB state
+        if: inputs.mode == 'inspect'
+        run: |
+          ssh -p ${{ secrets.VM_PORT }} -o StrictHostKeyChecking=yes \
+            ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} \
+            "cd /home/pc02/current/backend && \
+             echo '=== _prisma_migrations table (failed migrations) ===' && \
+             sudo -u postgres psql pc02_case_mgmt -c \"SELECT migration_name, finished_at, applied_steps_count, LEFT(logs, 200) AS logs_excerpt FROM _prisma_migrations WHERE finished_at IS NULL OR logs LIKE '%error%' OR logs LIKE '%fail%';\" && \
+             echo '' && \
+             echo '=== Does holidays table still exist? ===' && \
+             sudo -u postgres psql pc02_case_mgmt -c '\dt holidays' 2>&1 || true && \
+             echo '' && \
+             echo '=== Does calendar_events table exist? ===' && \
+             sudo -u postgres psql pc02_case_mgmt -c '\dt calendar_events' 2>&1 || true && \
+             echo '' && \
+             echo '=== prisma migrate status ===' && \
+             npx prisma migrate status 2>&1 || true"
+
+      - name: Resolve as APPLIED
+        if: inputs.mode == 'resolve-applied'
+        run: |
+          ssh -p ${{ secrets.VM_PORT }} -o StrictHostKeyChecking=yes \
+            ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} \
+            "cd /home/pc02/current/backend && \
+             echo '=== Marking ${{ inputs.migration }} as APPLIED ===' && \
+             npx prisma migrate resolve --applied ${{ inputs.migration }} && \
+             echo '' && \
+             echo '=== Verifying state ===' && \
+             npx prisma migrate status 2>&1 || true"
+
+      - name: Resolve as ROLLED-BACK
+        if: inputs.mode == 'resolve-rolled-back'
+        run: |
+          ssh -p ${{ secrets.VM_PORT }} -o StrictHostKeyChecking=yes \
+            ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} \
+            "cd /home/pc02/current/backend && \
+             echo '=== Marking ${{ inputs.migration }} as ROLLED-BACK ===' && \
+             npx prisma migrate resolve --rolled-back ${{ inputs.migration }} && \
+             echo '' && \
+             echo '=== Verifying state ===' && \
+             npx prisma migrate status 2>&1 || true"
