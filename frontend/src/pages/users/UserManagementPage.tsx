@@ -15,10 +15,12 @@ import {
   Save,
   AlertTriangle,
   Lock,
+  KeyRound,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { downloadCsv } from '@/lib/csv';
 import { usePermission } from '@/hooks/usePermission';
+import { TempPasswordHandoverModal } from '@/components/TempPasswordHandoverModal';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -57,7 +59,8 @@ type FormData = {
   email: string;
   phone: string;
   username: string;
-  password: string;
+  // F1 (D1): admin no longer chooses the password. Backend generates it on
+  // create and on explicit reset, returns plaintext ONCE via TempPasswordHandoverModal.
   departmentId: string;
   roleId: string;
   isActive: boolean;
@@ -93,7 +96,6 @@ const EMPTY_FORM: FormData = {
   email: '',
   phone: '',
   username: '',
-  password: '',
   departmentId: '',
   roleId: '',
   isActive: true,
@@ -125,6 +127,14 @@ export default function UserManagementPage() {
   // --- Delete confirm ---
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletingUser, setDeletingUser] = useState<User | null>(null);
+
+  // F1: temp password handover modal state. Set after admin create or reset
+  // returns the system-generated temp password — admin sees it ONCE here.
+  const [tempPasswordHandover, setTempPasswordHandover] = useState<{
+    tempPassword: string;
+    userDisplayName: string;
+    userEmail: string;
+  } | null>(null);
 
   // --- Roles state ---
   const [roles, setRoles] = useState<Role[]>([]);
@@ -222,7 +232,6 @@ export default function UserManagementPage() {
       email: user.email,
       phone: user.phone ?? '',
       username: user.username,
-      password: '',
       departmentId: user.department?.id ?? '',
       roleId: user.role?.id ?? '',
       isActive: user.isActive,
@@ -235,10 +244,6 @@ export default function UserManagementPage() {
   const handleSaveUser = async () => {
     if (!formData.fullName || !formData.email || !formData.username) {
       setFormError('Vui lòng điền đầy đủ các trường bắt buộc.');
-      return;
-    }
-    if (!editingUser && !formData.password) {
-      setFormError('Mật khẩu là bắt buộc khi tạo tài khoản mới.');
       return;
     }
     setSaving(true);
@@ -260,14 +265,27 @@ export default function UserManagementPage() {
         status: formData.isActive ? 'active' : 'inactive',
         canDispatch: formData.canDispatch,
       };
-      if (formData.password) payload.password = formData.password;
 
       if (editingUser) {
+        // Edit doesn't touch password — that goes through "Đặt lại mật khẩu" button.
         await api.patch(`/admin/users/${editingUser.id}`, payload);
+        setShowUserModal(false);
       } else {
-        await api.post('/admin/users', payload);
+        // F1: backend generates temp password and returns it ONCE in the
+        // response. Show TempPasswordHandoverModal before closing this modal.
+        const res = await api.post<{ tempPassword: string; username: string; email: string }>(
+          '/admin/users',
+          payload,
+        );
+        setShowUserModal(false);
+        if (res.data.tempPassword) {
+          setTempPasswordHandover({
+            tempPassword: res.data.tempPassword,
+            userDisplayName: formData.fullName,
+            userEmail: res.data.email ?? formData.email,
+          });
+        }
       }
-      setShowUserModal(false);
       void loadUsers();
     } catch (err: unknown) {
       const msg =
@@ -276,6 +294,34 @@ export default function UserManagementPage() {
       setFormError(Array.isArray(msg) ? msg.join(', ') : msg);
     } finally {
       setSaving(false);
+    }
+  };
+
+  // F1: admin reset password. Calls PATCH with {resetPassword:true} →
+  // backend generates new temp pw, returns plaintext once → show modal.
+  const handleResetPassword = async (user: User) => {
+    if (
+      !window.confirm(
+        `Đặt lại mật khẩu cho ${user.fullName ?? user.username}?\n\n` +
+          'Hệ thống sẽ tạo mật khẩu tạm mới và buộc cán bộ đổi mật khẩu khi đăng nhập lần tới.',
+      )
+    ) {
+      return;
+    }
+    try {
+      const res = await api.patch<{ tempPassword?: string }>(
+        `/admin/users/${user.id}`,
+        { resetPassword: true },
+      );
+      if (res.data.tempPassword) {
+        setTempPasswordHandover({
+          tempPassword: res.data.tempPassword,
+          userDisplayName: user.fullName ?? user.username,
+          userEmail: user.email,
+        });
+      }
+    } catch {
+      alert('Không thể đặt lại mật khẩu. Vui lòng thử lại.');
     }
   };
 
@@ -506,6 +552,14 @@ export default function UserManagementPage() {
                               <Lock className="w-4 h-4 text-amber-600" />
                             </button>
                           )}
+                          {/* F1: admin reset password — generates new temp pw, shown ONCE */}
+                          <button
+                            onClick={() => void handleResetPassword(user)}
+                            className="p-1.5 hover:bg-amber-50 rounded transition-colors"
+                            title="Đặt lại mật khẩu (tạo mật khẩu tạm mới)"
+                          >
+                            <KeyRound className="w-4 h-4 text-amber-700" />
+                          </button>
                           <button
                             onClick={() => {
                               setDeletingUser(user);
@@ -791,20 +845,15 @@ export default function UserManagementPage() {
                 </div>
               </div>
 
-              <div>
-                <label htmlFor="field-password" className="block text-sm font-medium text-slate-700 mb-1">
-                  Mật khẩu {!editingUser && <span className="text-red-600">*</span>}
-                  {editingUser && <span className="text-slate-400 font-normal">(để trống = giữ nguyên)</span>}
-                </label>
-                <input
-                  id="field-password"
-                  type="password"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  placeholder={editingUser ? 'Để trống nếu không đổi mật khẩu' : 'Nhập mật khẩu'}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] text-sm"
-                />
-              </div>
+              {/* F1: password field removed. Backend generates temp password on
+                  create — admin sees it ONCE via TempPasswordHandoverModal.
+                  For existing users, use the "Đặt lại mật khẩu" row action. */}
+              {!editingUser && (
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-800">
+                  Hệ thống sẽ tự động tạo mật khẩu tạm cho cán bộ. Mật khẩu sẽ
+                  hiển thị MỘT LẦN ngay sau khi lưu — vui lòng copy và bàn giao.
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -879,6 +928,16 @@ export default function UserManagementPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── Temp Password Handover Modal (F1) ── */}
+      {tempPasswordHandover && (
+        <TempPasswordHandoverModal
+          tempPassword={tempPasswordHandover.tempPassword}
+          userDisplayName={tempPasswordHandover.userDisplayName}
+          userEmail={tempPasswordHandover.userEmail}
+          onAcknowledged={() => setTempPasswordHandover(null)}
+        />
       )}
 
       {/* ── Delete Confirm Modal ── */}

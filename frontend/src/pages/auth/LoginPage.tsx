@@ -82,7 +82,19 @@ export default function LoginPage() {
     onSuccess: (data) => {
       const result = data.data as LoginResponse;
       if ('pending' in result && result.pending) {
-        navigate('/2fa', { state: { twoFaToken: result.twoFaToken } });
+        // D1: forced first-login password change (admin-set or admin-reset).
+        if ('reason' in result && result.reason === 'MUST_CHANGE_PASSWORD') {
+          navigate('/auth/first-login-change-password', {
+            state: { changePasswordToken: result.changePasswordToken },
+            replace: true,
+          });
+          return;
+        }
+        // 2FA pending — second factor required.
+        if ('twoFaToken' in result) {
+          navigate('/auth/2fa', { state: { twoFaToken: result.twoFaToken } });
+          return;
+        }
       } else if ('accessToken' in result) {
         authStore.setTokens(result.accessToken, result.refreshToken);
         navigate('/dashboard');
