@@ -28,29 +28,10 @@ const mockPrisma = {
   petition: {
     findMany: jest.fn().mockResolvedValue([]),
   },
-  holiday: {
-    findMany: jest.fn().mockResolvedValue([]),
-  },
   calendarEvent: {
     findMany: jest.fn().mockResolvedValue([]),
   },
 };
-
-function makeHoliday(
-  id: string,
-  date: Date,
-  category: 'NATIONAL' | 'POLICE' | 'MILITARY' | 'INTERNATIONAL' | 'OTHER',
-) {
-  return {
-    id,
-    title: `Holiday ${id}`,
-    shortTitle: `H${id}`,
-    date,
-    category,
-    isOfficialDayOff: category === 'NATIONAL',
-    description: `Mô tả ${id}`,
-  };
-}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -85,7 +66,6 @@ describe('CalendarService', () => {
     mockPrisma.case.findMany.mockResolvedValue([]);
     mockPrisma.incident.findMany.mockResolvedValue([]);
     mockPrisma.petition.findMany.mockResolvedValue([]);
-    mockPrisma.holiday.findMany.mockResolvedValue([]);
     mockPrisma.calendarEvent.findMany.mockResolvedValue([]);
   });
 
@@ -157,20 +137,6 @@ describe('CalendarService', () => {
       expect(result.data[2].date).toBe('2026-06-30');
     });
 
-    it('maps holidays with category metadata into CalendarEvents', async () => {
-      const date = new Date('2026-08-19T00:00:00.000Z');
-      mockPrisma.holiday.findMany.mockResolvedValue([makeHoliday('h1', date, 'POLICE')]);
-
-      const result = await service.getEvents(2026, 8);
-      const ev = result.data.find((e) => e.id === 'holiday-h1');
-      expect(ev).toBeDefined();
-      expect(ev!.type).toBe('holiday');
-      expect(ev!.date).toBe('2026-08-19');
-      expect(ev!.holidayCategory).toBe('POLICE');
-      expect(ev!.isOfficialDayOff).toBe(false);
-      expect(ev!.title).toBe('Hh1'); // uses shortTitle when available
-    });
-
     it('queries Prisma with year-only range when month is not provided', async () => {
       await service.getEvents(2026);
 
@@ -180,11 +146,10 @@ describe('CalendarService', () => {
       expect(caseCall.where.deadline.gte.getMonth()).toBe(0); // January
     });
 
-    // ── PR 1: dual-read from new CalendarEvent table alongside legacy Holiday ──
-    describe('dual-read (PR 1)', () => {
-      it('also queries calendarEvent and merges results with holidays', async () => {
+    // ── PR 3: Holiday table dropped. CalendarEvent is the only source. ──
+    describe('calendar events (PR 3 — Holiday dropped)', () => {
+      it('queries calendarEvent and surfaces events with type=event', async () => {
         const date = new Date('2026-02-21T00:00:00.000Z');
-        mockPrisma.holiday.findMany.mockResolvedValue([makeHoliday('legacy1', date, 'POLICE')]);
         mockPrisma.calendarEvent.findMany.mockResolvedValue([
           {
             id: 'ev1',
@@ -205,8 +170,6 @@ describe('CalendarService', () => {
         const result = await service.getEvents(2026, 2);
 
         const ids = result.data.map((e) => e.id);
-        expect(ids).toContain('holiday-legacy1');
-        // PR 2 changes id format to include occurrence date suffix
         expect(ids.some((id) => id.startsWith('event-ev1'))).toBe(true);
         expect(mockPrisma.calendarEvent.findMany).toHaveBeenCalled();
       });

@@ -44,7 +44,9 @@ export class CalendarService {
       toDate = new Date(targetYear, 11, 31, 23, 59, 59, 999);
     }
 
-    const [cases, incidents, petitions, holidays, calendarEvents] = await Promise.all([
+    // PR 3: Holiday table removed — 25 holiday rows migrated to CalendarEvent
+    // with scope=SYSTEM. Only query 3 deadline sources + the unified calendar_events.
+    const [cases, incidents, petitions, calendarEvents] = await Promise.all([
       this.prisma.case.findMany({
         where: {
           deletedAt: null,
@@ -66,21 +68,8 @@ export class CalendarService {
         },
         select: { id: true, stt: true, summary: true, deadline: true, status: true },
       }),
-      this.prisma.holiday.findMany({
-        where: { date: { gte: fromDate, lte: toDate } },
-        select: {
-          id: true,
-          title: true,
-          shortTitle: true,
-          date: true,
-          category: true,
-          isOfficialDayOff: true,
-          description: true,
-        },
-      }),
-      // PR 2: dual-read + recurring expansion. Fetch events whose startDate <= toDate
-      // and (recurrenceEndDate IS NULL OR >= fromDate) to catch recurring series
-      // that start before the window but have occurrences inside it.
+      // Fetch events whose startDate <= toDate AND (recurrenceEndDate IS NULL
+      // OR >= fromDate) to catch recurring series starting before the window.
       this.prisma.calendarEvent.findMany({
         where: {
           deletedAt: null,
@@ -132,20 +121,11 @@ export class CalendarService {
       });
     }
 
-    for (const h of holidays) {
-      events.push({
-        id: `holiday-${h.id}`,
-        title: h.shortTitle ?? h.title,
-        date: h.date.toISOString().slice(0, 10),
-        type: 'holiday',
-        description: h.description ?? h.title,
-        holidayCategory: h.category,
-        isOfficialDayOff: h.isOfficialDayOff,
-      });
-    }
+    // PR 3: Holiday table dropped. All 25 holiday entries now live in calendar_events
+    // with scope=SYSTEM and surface through expandOccurrences() below with type='event'.
 
-    // PR 2 dual-read + recurring expansion. Expand into per-date occurrences,
-    // applying EXDATE overrides. Non-recurring events yield 1 occurrence each.
+    // Recurring expansion. Expand into per-date occurrences, applying EXDATE
+    // overrides. Non-recurring events yield 1 occurrence each.
     const expanded = this.calendarEventsService.expandOccurrences(calendarEvents, fromDate, toDate);
     for (const occ of expanded) {
       const ev = occ.event;
