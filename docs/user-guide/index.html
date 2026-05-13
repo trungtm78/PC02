@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Hướng dẫn sử dụng — Hệ thống Quản lý Vụ án PC02</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Helvetica Neue", Arial, sans-serif;
+      color: #1f2937;
+      background: #f8fafc;
+      line-height: 1.6;
+      font-size: 15px;
+    }
+    a { color: #003973; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── Layout ── */
+    .layout { display: flex; min-height: 100vh; }
+    .sidebar {
+      width: 300px;
+      background: #fff;
+      border-right: 1px solid #e2e8f0;
+      padding: 24px 16px;
+      position: sticky;
+      top: 0;
+      align-self: flex-start;
+      height: 100vh;
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+    .main { flex: 1; padding: 32px 48px; max-width: 1100px; }
+
+    /* ── Header ── */
+    .doc-header {
+      background: linear-gradient(135deg, #003973 0%, #002255 100%);
+      color: #fff;
+      padding: 32px 48px;
+      margin: -32px -48px 32px;
+      border-bottom: 4px solid #F59E0B;
+    }
+    .doc-header h1 { margin: 0 0 8px; font-size: 28px; }
+    .doc-header .subtitle { opacity: 0.85; font-size: 15px; margin: 0; }
+    .doc-header .meta { margin-top: 16px; font-size: 13px; opacity: 0.75; }
+
+    /* ── Sidebar TOC ── */
+    .sidebar h2 { font-size: 14px; text-transform: uppercase; color: #64748b; letter-spacing: 0.05em; margin: 16px 0 8px; }
+    .sidebar h2:first-child { margin-top: 0; }
+    .sidebar ul { list-style: none; padding: 0; margin: 0; }
+    .sidebar > ul > li { margin: 2px 0; }
+    .sidebar a {
+      display: block;
+      padding: 6px 12px;
+      border-radius: 6px;
+      color: #334155;
+      font-size: 14px;
+    }
+    .sidebar a:hover { background: #f1f5f9; text-decoration: none; color: #003973; }
+    .sidebar a.section { font-weight: 600; color: #003973; margin-top: 12px; }
+    .sidebar a.sub { padding-left: 24px; font-size: 13px; color: #475569; }
+
+    /* ── Part header ── */
+    .part {
+      background: linear-gradient(135deg, #003973 0%, #1e3a8a 100%);
+      color: #fff;
+      padding: 28px 32px;
+      border-radius: 12px;
+      margin: 48px 0 24px;
+    }
+    .part .part-num { font-size: 13px; text-transform: uppercase; opacity: 0.85; letter-spacing: 0.1em; margin-bottom: 4px; }
+    .part h2 { margin: 0; font-size: 26px; }
+    .part p { margin: 8px 0 0; opacity: 0.9; font-size: 15px; }
+
+    /* ── Module section ── */
+    .module {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 28px;
+      margin-bottom: 24px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+    .module > h3 {
+      margin: 0 0 6px;
+      font-size: 22px;
+      color: #003973;
+      padding-bottom: 12px;
+      border-bottom: 2px solid #F59E0B;
+    }
+    .module > .intro { color: #475569; margin: 0 0 24px; }
+
+    /* ── Route card ── */
+    .route {
+      margin: 24px 0;
+      padding-top: 24px;
+      border-top: 1px solid #f1f5f9;
+    }
+    .route:first-of-type { border-top: none; padding-top: 0; }
+    .route h4 {
+      margin: 0 0 4px;
+      font-size: 18px;
+      color: #1e293b;
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .route .path {
+      font-family: ui-monospace, "SF Mono", Consolas, "Liberation Mono", monospace;
+      font-size: 12px;
+      background: #f1f5f9;
+      color: #475569;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: 400;
+    }
+    .route .desc { margin: 8px 0 12px; }
+    .route .actions {
+      background: #fef3c7;
+      border-left: 3px solid #F59E0B;
+      padding: 10px 14px;
+      border-radius: 4px;
+      margin: 12px 0;
+      font-size: 14px;
+    }
+    .route .actions strong { color: #92400e; }
+    .route .actions ul { margin: 4px 0 0; padding-left: 20px; }
+    .route .actions li { margin: 3px 0; }
+
+    /* ── Screenshot ── */
+    .screenshot {
+      margin: 16px 0;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #f8fafc;
+    }
+    .screenshot img { display: block; width: 100%; height: auto; }
+    .screenshot .caption {
+      padding: 8px 14px;
+      background: #f1f5f9;
+      font-size: 12px;
+      color: #64748b;
+      border-top: 1px solid #e2e8f0;
+    }
+
+    /* ── Tip / Note boxes ── */
+    .tip, .warn, .note {
+      padding: 12px 16px;
+      border-radius: 6px;
+      margin: 16px 0;
+      font-size: 14px;
+    }
+    .tip { background: #ecfdf5; border-left: 3px solid #10b981; color: #065f46; }
+    .warn { background: #fef2f2; border-left: 3px solid #dc2626; color: #991b1b; }
+    .note { background: #eff6ff; border-left: 3px solid #3b82f6; color: #1e3a8a; }
+    .tip strong, .warn strong, .note strong { font-weight: 600; }
+
+    /* ── Table ── */
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; }
+    th, td { text-align: left; padding: 8px 12px; border: 1px solid #e2e8f0; font-size: 14px; }
+    th { background: #f8fafc; font-weight: 600; color: #334155; }
+
+    /* ── Code / kbd ── */
+    code { background: #f1f5f9; padding: 1px 6px; border-radius: 3px; font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 13px; color: #be185d; }
+    kbd { background: #1e293b; color: #f8fafc; padding: 2px 6px; border-radius: 4px; font-size: 12px; font-family: ui-monospace, monospace; }
+
+    /* ── Print ── */
+    @media print {
+      body { background: #fff; font-size: 12px; }
+      .sidebar { display: none; }
+      .main { padding: 0; max-width: none; }
+      .doc-header { background: #003973 !important; -webkit-print-color-adjust: exact; }
+      .module { page-break-inside: avoid; box-shadow: none; }
+      .route { page-break-inside: avoid; }
+      .screenshot img { max-height: 600px; object-fit: contain; }
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 900px) {
+      .layout { flex-direction: column; }
+      .sidebar { width: 100%; height: auto; position: static; border-right: none; border-bottom: 1px solid #e2e8f0; }
+      .main { padding: 24px 16px; }
+      .doc-header { padding: 24px 16px; margin: -24px -16px 24px; }
+    }
+  </style>
+</head>
+<body>
+<div class="layout">
+
+<!-- ═══════════════════════════ SIDEBAR TOC ═══════════════════════════ -->
+<aside class="sidebar">
+  <h2>Mục lục</h2>
+  <ul>
+    <li><a href="#gioi-thieu" class="section">Giới thiệu</a></li>
+    <li><a href="#dang-nhap" class="section">Đăng nhập hệ thống</a></li>
+
+    <li><a href="#phan-1" class="section">Phần 1 — Cán bộ điều tra</a></li>
+    <li><a href="#mod-core" class="sub">1.1 Tổng quan / KPI / Lịch</a></li>
+    <li><a href="#mod-cases" class="sub">1.2 Quản lý vụ án</a></li>
+    <li><a href="#mod-incidents" class="sub">1.3 Quản lý vụ việc</a></li>
+    <li><a href="#mod-petitions" class="sub">1.4 Quản lý đơn thư</a></li>
+    <li><a href="#mod-subjects" class="sub">1.5 Đối tượng liên quan</a></li>
+    <li><a href="#mod-lawyers" class="sub">1.6 Luật sư</a></li>
+    <li><a href="#mod-workflow" class="sub">1.7 Quy trình xử lý</a></li>
+    <li><a href="#mod-classification" class="sub">1.8 Phân loại &amp; Quản lý</a></li>
+    <li><a href="#mod-reports" class="sub">1.9 Báo cáo &amp; Thống kê</a></li>
+    <li><a href="#mod-system" class="sub">1.10 Tài liệu &amp; Danh mục</a></li>
+
+    <li><a href="#phan-2" class="section">Phần 2 — Quản trị viên</a></li>
+    <li><a href="#mod-admin-users" class="sub">2.1 Người dùng</a></li>
+    <li><a href="#mod-admin-teams" class="sub">2.2 Tổ/Đội công tác</a></li>
+    <li><a href="#mod-admin-deadline" class="sub">2.3 Quy tắc thời hạn</a></li>
+    <li><a href="#mod-admin-settings" class="sub">2.4 Cấu hình admin</a></li>
+
+    <li><a href="#phu-luc" class="section">Phụ lục</a></li>
+  </ul>
+</aside>
+
+<!-- ═══════════════════════════ MAIN CONTENT ═══════════════════════════ -->
+<main class="main">
+
+<header class="doc-header">
+  <h1>Hướng dẫn sử dụng Hệ thống Quản lý Vụ án PC02</h1>
+  <p class="subtitle">Phòng Cảnh sát Hình sự — Công an Thành phố Hồ Chí Minh</p>
+  <div class="meta">
+    Phiên bản: v0.21.0.0 &middot; Cập nhật: 13/05/2026 &middot;
+    Tài liệu nội bộ — không phát hành ngoài đơn vị
+  </div>
+</header>
+
+<!-- ─── GIỚI THIỆU ─── -->
+<section class="module" id="gioi-thieu">
+  <h3>Giới thiệu</h3>
+  <p class="intro">Hệ thống Quản lý Vụ án PC02 là phần mềm nội bộ phục vụ công tác tiếp nhận, phân loại, điều tra
+  và báo cáo vụ án/vụ việc/đơn thư theo quy định của Bộ Luật Tố tụng Hình sự 2015 (BLTTHS) và Thông tư 28/2020/TT-BCA.</p>
+
+  <h4>Phạm vi nghiệp vụ</h4>
+  <ul>
+    <li><strong>Vụ án</strong> — quản lý hồ sơ vụ án hình sự từ lúc khởi tố đến kết thúc điều tra.</li>
+    <li><strong>Vụ việc</strong> — quản lý 4 giai đoạn xử lý theo Thông tư 28: Tiếp nhận → Xác minh → Kết quả → Tạm đình chỉ.</li>
+    <li><strong>Đơn thư</strong> — tiếp nhận, phân loại, chuyển xử lý đơn khiếu nại, tố giác.</li>
+    <li><strong>Đối tượng</strong> — quản lý danh sách nghi phạm, bị hại, nhân chứng liên quan.</li>
+    <li><strong>Báo cáo</strong> — KPI 4 chỉ tiêu cứng TT28, báo cáo tháng/quý, phụ lục 1-6 BCA, thống kê 48 trường.</li>
+  </ul>
+
+  <h4>Đối tượng sử dụng</h4>
+  <table>
+    <thead><tr><th>Vai trò</th><th>Mô tả</th><th>Phần đọc</th></tr></thead>
+    <tbody>
+      <tr><td><strong>OFFICER</strong></td><td>Điều tra viên trực tiếp xử lý hồ sơ</td><td>Phần 1</td></tr>
+      <tr><td><strong>DEADLINE_APPROVER</strong></td><td>Lãnh đạo phê duyệt gia hạn thời hạn</td><td>Phần 1 + 2.3</td></tr>
+      <tr><td><strong>ADMIN</strong></td><td>Quản trị hệ thống, phân quyền, cấu hình</td><td>Phần 1 + Phần 2 đầy đủ</td></tr>
+    </tbody>
+  </table>
+
+  <div class="note">
+    <strong>Lưu ý:</strong> Quyền truy cập dữ liệu phân theo <em>Tổ/Đội</em> và <em>điều tra viên phụ trách</em>.
+    Cán bộ chỉ xem được hồ sơ trong phạm vi tổ mình; lãnh đạo có thể xem toàn đơn vị.
+  </div>
+</section>
+
+<!-- ─── ĐĂNG NHẬP ─── -->
+<section class="module" id="dang-nhap">
+  <h3>Đăng nhập hệ thống</h3>
+  <p class="intro">Truy cập trang đăng nhập bằng tài khoản nội bộ <code>email@pc02.local</code>. Mọi cán bộ được cấp tài khoản
+  từ quản trị viên với mật khẩu tạm thời — anh/chị <strong>bắt buộc đổi mật khẩu lần đầu</strong> trước khi vào hệ thống.</p>
+
+  <div class="route">
+    <h4>Màn hình đăng nhập <span class="path">/login</span></h4>
+    <p class="desc">Nhập email và mật khẩu. Nếu sai 5 lần liên tiếp, tài khoản sẽ bị khoá tạm thời 15 phút.</p>
+    <div class="screenshot">
+      <img src="screenshots/login.png" alt="Màn hình đăng nhập" />
+      <div class="caption">Hình 1 — Màn hình đăng nhập hệ thống PC02</div>
+    </div>
+    <div class="actions">
+      <strong>Các bước:</strong>
+      <ul>
+        <li>Nhập email công vụ (ví dụ <code>officer1@pc02.local</code>)</li>
+        <li>Nhập mật khẩu, nhấn <kbd>Đăng nhập</kbd></li>
+        <li>Đổi mật khẩu lần đầu nếu được yêu cầu</li>
+        <li>Nếu quên mật khẩu — liên hệ quản trị viên để reset</li>
+      </ul>
+    </div>
+    <div class="warn">
+      <strong>Cảnh báo:</strong> Không chia sẻ mật khẩu cho bất kỳ ai. Mọi thao tác trong hệ thống đều được ghi
+      <em>Nhật ký hoạt động</em> kèm tên người thực hiện.
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════ PHẦN 1 — END USER ═══════════════════════ -->
+<div class="part" id="phan-1">
+  <div class="part-num">Phần 1</div>
+  <h2>Hướng dẫn cán bộ điều tra</h2>
+  <p>Các chức năng dành cho điều tra viên trực tiếp xử lý hồ sơ vụ án, vụ việc, đơn thư.</p>
+</div>
+
+<!-- 1.1 CORE -->
+<section class="module" id="mod-core">
+  <h3>1.1 Tổng quan, KPI &amp; Lịch công tác</h3>
+  <p class="intro">Nhóm chức năng "định hướng" — giúp cán bộ nắm bắt nhanh tình hình hồ sơ, chỉ tiêu công tác và lịch làm việc.</p>
+
+  <div class="route">
+    <h4>Tổng quan (Dashboard) <span class="path">/dashboard</span></h4>
+    <p class="desc">Trang chủ sau khi đăng nhập. Hiển thị 6 thẻ thống kê tổng hợp (Tổng hồ sơ, Hồ sơ mới, Quá hạn,
+    Đã xử lý, Tổng vụ việc, Tổng đơn thư), biểu đồ xu hướng 12 tháng và cơ cấu trạng thái vụ án.</p>
+    <div class="screenshot">
+      <img src="screenshots/dashboard.png" alt="Dashboard tổng quan" />
+      <div class="caption">Hình 2 — Dashboard tổng quan hệ thống</div>
+    </div>
+    <div class="actions">
+      <strong>Tác vụ chính:</strong>
+      <ul>
+        <li>Theo dõi số hồ sơ <strong>quá hạn</strong> để ưu tiên xử lý</li>
+        <li>Nhấn <kbd>Làm mới</kbd> ở góc trên phải để cập nhật số liệu mới nhất</li>
+        <li>Nhấn vào thẻ thống kê để chuyển sang trang danh sách tương ứng</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="route">
+    <h4>Chỉ tiêu KPI <span class="path">/kpi</span></h4>
+    <p class="desc">Dashboard 4 chỉ tiêu cứng theo Thông tư 28/2020/TT-BCA: tỷ lệ thụ lý 100%, giải quyết &gt; 90%,
+    khám phá &gt; 80%, án nghiêm trọng/đặc biệt nghiêm trọng &gt; 95%. Hỗ trợ drill-down theo Tổ và biểu đồ 12 tháng.</p>
+    <div class="screenshot">
+      <img src="screenshots/kpi.png" alt="Chỉ tiêu KPI" />
+      <div class="caption">Hình 3 — Dashboard chỉ tiêu KPI theo TT28</div>
+    </div>
+    <div class="actions">
+      <strong>Tác vụ chính:</strong>
+      <ul>
+        <li>Xem nhanh % đạt/chưa đạt từng chỉ tiêu</li>
+        <li>Drill-down: nhấn vào tổ/đội để xem chi tiết</li>
+        <li>Xuất báo cáo KPI (nếu cần) qua mục <em>Báo cáo &amp; Thống kê</em></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="route">
+    <h4>Lịch công tác <span class="path">/calendar</span></h4>
+    <p class="desc">Lịch chung của đơn vị + lịch cá nhân — sự kiện họp, gia hạn, hết hạn xử lý, nhắc nhở.
+    Hỗ trợ chu kỳ lặp (RRULE) và đồng bộ holiday quốc gia.</p>
+    <div class="screenshot">
+      <img src="screenshots/calendar.png" alt="Lịch công tác" />
+      <div class="caption">Hình 4 — Lịch công tác — view tháng/tuần/ngày</div>
+    </div>
+    <div class="actions">
+      <strong>Tác vụ chính:</strong>
+      <ul>
+        <li>Chuyển view: <kbd>Tháng</kbd> / <kbd>Tuần</kbd> / <kbd>Ngày</kbd></li>
+        <li>Nhấn vào ô trống để tạo sự kiện mới</li>
+        <li>Click vào sự kiện để chỉnh sửa hoặc xoá</li>
+        <li>Sự kiện có RRULE sẽ hiển thị biểu tượng lặp</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 1.2 CASES -->
+<section class="module" id="mod-cases">
+  <h3>1.2 Quản lý vụ án</h3>
+  <p class="intro">Quản lý toàn bộ hồ sơ vụ án hình sự — từ giai đoạn tiếp nhận đến kết thúc điều tra.
+  Bao gồm 4 màn hình: danh sách thường, thêm mới, danh sách tổng hợp (gồm vụ việc + đơn thư đã chuyển thành án), và hồ sơ tiếp nhận.</p>
+
+  <div class="route">
+    <h4>Danh sách vụ án <span class="path">/cases</span></h4>
+    <p class="desc">Liệt kê toàn bộ vụ án trong phạm vi quyền hạn. Hỗ trợ lọc theo trạng thái, điều tra viên, tổ, thời gian.
+    Mỗi dòng hiển thị mã hồ sơ, tội danh, người phụ trách, trạng thái, deadline.</p>
+    <div class="screenshot">
+      <img src="screenshots/cases-list.png" alt="Danh sách vụ án" />
+      <div class="caption">Hình 5 — Danh sách vụ án có lọc và phân trang</div>
+    </div>
+    <div class="actions">
+      <strong>Tác vụ chính:</strong>
+      <ul>
+        <li>Tìm kiếm theo mã hồ sơ hoặc tội danh</li>
+        <li>Lọc theo trạng thái, tổ phụ trách, khoảng ngày</li>
+        <li>Nhấn dòng để mở chi tiết vụ án</li>
+        <li>Xuất danh sách ra Excel/PDF (nút <kbd>Xuất file</kbd>)</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="route">
+    <h4>Thêm mới hồ sơ <span class="path">/add-new-record</span></h4>
+    <p class="desc">Form khai báo vụ án mới — gồm thông tin chung (mã, tội danh, điều luật), đối tượng (nghi phạm, bị hại),
+    điều tra viên phụ trách, deadline. Nếu khai báo trường <em>petitionType</em> sẽ tự động tạo đơn thư liên kết.</p>
+    <div class="screenshot">
+      <img src="screenshots/cases-new.png" alt="Thêm mới hồ sơ" />
+      <div class="caption">Hình 6 — Form thêm mới hồ sơ vụ án</div>
+    </div>
+    <div class="actions">
+      <strong>Các bước:</strong>
+      <ul>
+        <li>Nhập mã hồ sơ (hoặc để hệ thống tự sinh)</li>
+        <li>Chọn tội danh từ danh mục Điều luật</li>
+        <li>Khai báo nghi phạm, bị hại (có thể chọn từ danh sách đối tượng có sẵn)</li>
+        <li>Chọn điều tra viên phụ trách + tổ</li>
+        <li>Nhấn <kbd>Lưu</kbd> — hệ thống tự tính deadline theo BLTTHS</li>
+      </ul>
+    </div>
+    <div class="tip">
+      <strong>Mẹo:</strong> Nếu vụ án xuất phát từ <em>đơn thư</em>, hãy tạo từ màn hình
+      <em>Danh sách đơn thư</em> bằng nút <kbd>Chuyển thành vụ án</kbd> — hệ thống tự liên kết hai bên.
+    </div>
+  </div>
+
+  <div class="route">
+    <h4>Danh sách tổng hợp <span class="path">/comprehensive-list</span></h4>
+    <p class="desc">View tổng hợp: vụ án + vụ việc + đơn thư trong cùng một bảng. Dùng để lãnh đạo nắm tình hình
+    toàn bộ hồ sơ đơn vị mà không phải chuyển qua lại 3 màn hình.</p>
+    <div class="screenshot">
+      <img src="screenshots/cases-comprehensive.png" alt="Danh sách tổng hợp" />
+      <div class="caption">Hình 7 — Danh sách tổng hợp vụ án/vụ việc/đơn thư</div>
+    </div>
+  </div>
+
+  <div class="route">
+    <h4>Hồ sơ tiếp nhận <span class="path">/initial-cases</span></h4>
+    <p class="desc">Hồ sơ ở giai đoạn đầu (chưa khởi tố) — đang trong quá trình xác minh/thẩm tra trước khi quyết định
+    có nâng cấp thành vụ án hay không. Đây là "vùng chờ" để cán bộ phân loại.</p>
+    <div class="screenshot">
+      <img src="screenshots/cases-initial.png" alt="Hồ sơ tiếp nhận" />
+      <div class="caption">Hình 8 — Danh sách hồ sơ tiếp nhận chờ phân loại</div>
+    </div>
+  </div>
+</section>
+
+<!-- 1.3 INCIDENTS -->
+<section class="module" id="mod-incidents">
+  <h3>1.3 Quản lý vụ việc</h3>
+  <p class="intro">Quản lý vụ việc theo 4 giai đoạn BCA (Thông tư 28/2020/TT-BCA): <strong>Tiếp nhận → Xác minh → Kết quả → Tạm đình chỉ</strong>.
+  Hệ thống có 15 trạng thái vụ việc với transition map kiểm tra hợp lệ theo BLTTHS 2015.</p>
+
+  <div class="route">
+    <h4>Danh sách vụ việc <span class="path">/vu-viec</span></h4>
+    <p class="desc">Liệt kê vụ việc theo giai đoạn. Mỗi dòng hiển thị mã, loại tin báo, người tiếp nhận, trạng thái,
+    deadline xử lý (tự tính theo Điều 147/148/149 BLTTHS).</p>
+    <div class="screenshot">
+      <img src="screenshots/incidents-list.png" alt="Danh sách vụ việc" />
+      <div class="caption">Hình 9 — Danh sách vụ việc theo 4 giai đoạn</div>
+    </div>
+    <div class="actions">
+      <strong>Tác vụ chính:</strong>
+      <ul>
+        <li>Lọc theo giai đoạn: <em>Tiếp nhận</em>, <em>Xác minh</em>, <em>Kết quả</em>, <em>Tạm đình chỉ</em></li>
+        <li>Xem hồ sơ <strong>sắp quá hạn</strong> (highlight đỏ) để ưu tiên xử lý</li>
+        <li>Chuyển trạng thái qua menu hành động — hệ thống tự kiểm tra hợp lệ</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="route">
+    <h4>Thêm vụ việc mới <span class="path">/vu-viec/new</span></h4>
+    <p class="desc">Form tiếp nhận tin báo, kiến nghị khởi tố, tố giác tội phạm. Sau khi lưu, hệ thống tự tính deadline
+    20 ngày (Điều 147) hoặc 2 tháng (Điều 148) tuỳ loại.</p>
+    <div class="screenshot">
+      <img src="screenshots/incidents-new.png" alt="Thêm vụ việc" />
+      <div class="caption">Hình 10 — Form tiếp nhận vụ việc mới</div>
+    </div>
+    <div class="actions">
+      <strong>Các bước:</strong>
+      <ul>
+        <li>Chọn loại tin báo (tố giác / kiến nghị khởi tố / tin báo tội phạm)</li>
+        <li>Nhập nội dung tin báo, người tố giác, ngày tiếp nhận</li>
+        <li>Phân công điều tra viên xác minh</li>
+        <li>Lưu — hệ thống chuyển vụ việc vào giai đoạn <em>Tiếp nhận</em></li>
+      </ul>
+    </div>
+    <div class="note">
+      <strong>Quy định:</strong> Deadline mặc định theo BLTTHS Điều 147 (20 ngày), Điều 148 (2 tháng), Điều 149 (4 tháng).
+      Có thể gia hạn nếu được lãnh đạo phê duyệt — xem mục <em>Quy tắc thời hạn</em>.
+    </div>
+  </div>
+</section>
+
+<!-- 1.4 PETITIONS -->
+<section class="module" id="mod-petitions">
+  <h3>1.4 Quản lý đơn thư</h3>
+  <p class="intro">Tiếp nhận, phân loại và xử lý đơn khiếu nại, tố giác. STT đơn được tự sinh theo định dạng
+  <code>DT-YYYY-NNNNN</code>. Đơn thư có thể <strong>chuyển thành vụ án</strong> qua thao tác atomic transaction.</p>
+
+  <div class="route">
+    <h4>Danh sách đơn thư <span class="path">/petitions</span></h4>
+    <p class="desc">Liệt kê đơn thư theo trạng thái xử lý. Hỗ trợ lọc theo loại đơn, người gửi, ngày tiếp nhận,
+    cán bộ phụ trách.</p>
+    <div class="screenshot">
+      <img src="screenshots/petitions-list.png" alt="Danh sách đơn thư" />
+      <div class="caption">Hình 11 — Danh sách đơn thư đã tiếp nhận</div>
+    </div>
+    <div class="actions">
+      <strong>Tác vụ chính:</strong>
+      <ul>
+        <li>Tìm theo STT đơn (<code>DT-2026-00001</code>) hoặc tên người gửi</li>
+        <li>Chuyển đơn sang trạng thái <em>Đang xử lý</em>, <em>Đã trả lời</em>, <em>Khép lại</em></li>
+        <li>Nhấn <kbd>Chuyển thành vụ án</kbd> để nâng cấp đơn thành hồ sơ vụ án</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="route">
+    <h4>Tiếp nhận đơn mới <span class="path">/petitions/new</span></h4>
+    <p class="desc">Form tiếp nhận đơn — nhập thông tin người gửi, nội dung khiếu nại/tố giác, loại đơn,
+    cán bộ thụ lý ban đầu.</p>
+    <div class="screenshot">
+      <img src="screenshots/petitions-new.png" alt="Tiếp nhận đơn mới" />
+      <div class="caption">Hình 12 — Form tiếp nhận đơn thư mới</div>
+    </div>
+  </div>
+</section>
+
+<!-- 1.5 SUBJECTS -->
+<section class="module" id="mod-subjects">
+  <h3>1.5 Đối tượng liên quan</h3>
+  <p class="intro">Quản lý danh mục cá nhân/tổ chức liên quan đến hồ sơ — nghi phạm, bị hại, nhân chứng.
+  Một đối tượng có thể xuất hiện trong nhiều vụ án/vụ việc khác nhau với vai trò khác nhau.</p>
+
+  <div class="route">
+    <h4>Danh sách đối tượng <span class="path">/objects</span></h4>
+    <p class="desc">Danh sách tổng hợp tất cả đối tượng đã được khai báo trong hệ thống — bất kể vai trò.
+    Dùng để tra cứu hồ sơ liên quan trước khi khởi tạo vụ án mới.</p>
+    <div class="screenshot">
+      <img src="screenshots/subjects-objects.png" alt="Danh sách đối tượng" />
+      <div class="caption">Hình 13 — Danh sách tổng hợp đối tượng</div>
+    </div>
+  </div>
+
+  <div class="route">
+    <h4>Nghi phạm <span class="path">/people/suspects</span></h4>
+    <p class="desc">Danh sách đối tượng có vai trò <em>nghi phạm</em> trong ít nhất một hồ sơ. Hỗ trợ tra cứu
+    tiền án tiền sự, các vụ liên quan trước đây.</p>
+    <div class="screenshot">
+      <img src="screenshots/subjects-suspects.png" alt="Nghi phạm" />
+      <div class="caption">Hình 14 — Danh sách nghi phạm</div>
+    </div>
+  </div>
+
+  <div class="route">
+    <h4>Bị hại <span class="path">/people/victims</span></h4>
+    <p class="desc">Danh sách đối tượng có vai trò <em>bị hại</em>. Dùng để liên hệ, gửi giấy mời, theo dõi
+    tình trạng giải quyết hồ sơ liên quan.</p>
+    <div class="screenshot">
+      <img src="screenshots/subjects-victims.png" alt="Bị hại" />
+      <div class="caption">Hình 15 — Danh sách bị hại</div>
+    </div>
+  </div>
+
+  <div class="route">
+    <h4>Nhân chứng <span class="path">/people/witnesses</span></h4>
+    <p class="desc">Danh sách đối tượng có vai trò <em>nhân chứng</em>. Hỗ trợ tra cứu khi cần triệu tập lại
+    hoặc đối chứng giữa nhiều hồ sơ.</p>
+    <div class="screenshot">
+      <img src="screenshots/subjects-witnesses.png" alt="Nhân chứng" />
+      <div class="caption">Hình 16 — Danh sách nhân chứng</div>
+    </div>
+  </div>
+</section>
+
+<!-- 1.6 LAWYERS -->
+<section class="module" id="mod-lawyers">
+  <h3>1.6 Luật sư</h3>
+  <p class="intro">Quản lý danh sách luật sư bào chữa được đăng ký tham gia bào chữa trong các vụ án. Lưu thông tin
+  liên hệ, văn phòng, mã thẻ luật sư.</p>
+
+  <div class="route">
+    <h4>Danh sách luật sư <span class="path">/lawyers</span></h4>
+    <p class="desc">Liệt kê luật sư đang tham gia bào chữa. Mỗi luật sư có thể đứng tên bào chữa trong nhiều vụ.</p>
+    <div class="screenshot">
+      <img src="screenshots/lawyers.png" alt="Danh sách luật sư" />
+      <div class="caption">Hình 17 — Danh sách luật sư bào chữa</div>
+    </div>
+  </div>
+</section>
+
+<!-- 1.7 WORKFLOW -->
+<section class="module" id="mod-workflow">
+  <h3>1.7 Quy trình xử lý</h3>
+  <p class="intro">Các thao tác phối hợp công tác — luân chuyển hồ sơ, hướng dẫn nghiệp vụ, trao đổi vụ án giữa các đơn vị,
+  uỷ quyền điều tra.</p>
+
+  <div class="route">
+    <h4>Luân chuyển / Trả lại <span class="path">/transfer-return</span></h4>
+    <p class="desc">Theo dõi việc luân chuyển hồ sơ giữa các tổ/đơn vị hoặc trả lại VKS/CQĐT cấp trên. Mỗi lần chuyển
+    đều có biên bản và lý do.</p>
+    <div class="screenshot">
+      <img src="screenshots/workflow-transfer.png" alt="Luân chuyển trả lại" />
+      <div class="caption">Hình 18 — Theo dõi luân chuyển và trả lại hồ sơ</div>
+    </div>
+  </div>
+
+  <div class="route">
+    <h4>Hướng dẫn nghiệp vụ <span class="path">/guidance</span></h4>
+    <p class="desc">Văn bản hướng dẫn nghiệp vụ do lãnh đạo ban hành xuống cấp dưới — gắn với từng hồ sơ cụ thể
+    hoặc loại tội danh.</p>
+    <div class="screenshot">
+      <img src="screenshots/workflow-guidance.png" alt="Hướng dẫn nghiệp vụ" />
+      <div class="caption">Hình 19 — Hướng dẫn nghiệp vụ</div>
+    </div>
+  </div>
+
+  <div class="route">
+    <h4>Trao đổi vụ án <span class="path">/case-exchange</span></h4>
+    <p class="desc">Theo dõi việc phối hợp/trao đổi vụ án giữa các đơn vị (PC02 ↔ công an cấp huyện, VKS, các phòng nghiệp vụ khác).</p>
+    <div class="screenshot">
+      <img src="screenshots/workflow-exchange.png" alt="Trao đổi vụ án" />
+      <div class="caption">Hình 20 — Trao đổi vụ án liên đơn vị</div>
+    </div>
+  </div>
+
+  <div class="route">
+    <h4>Uỷ quyền điều tra <span class="path">/investigation-delegation</span></h4>
+    <p class="desc">Quản lý văn bản uỷ quyền điều tra — khi vụ án/vụ việc được CQĐT cấp trên uỷ quyền xuống PC02 thụ lý
+    hoặc PC02 uỷ quyền cho cấp huyện.</p>
+    <div class="screenshot">
+      <img src="screenshots/workflow-delegation.png" alt="Uỷ quyền điều tra" />
+      <div class="caption">Hình 21 — Uỷ quyền điều tra</div>
+    </div>
+  </div>
+</section>
+
+<!-- 1.8 CLASSIFICATION -->
+<section class="module" id="mod-classification">
+  <h3>1.8 Phân loại &amp; Quản lý</h3>
+  <p class="intro">Các view phân loại hồ sơ theo nhiều tiêu chí khác nhau — theo phường/xã, theo đề xuất VKS,
+  theo đơn trùng lặp, hoặc theo phân loại tuỳ chỉnh.</p>
+
+  <div class="route">
+    <h4>Vụ án theo phường/xã <span class="path">/ward/cases</span></h4>
+    <p class="desc">Hồ sơ vụ án được phân nhóm theo phường/xã nơi xảy ra — phục vụ thống kê địa bàn, báo cáo Quận uỷ/UBND.</p>
+    <div class="screenshot">
+      <img src="screenshots/class-ward-cases.png" alt="Vụ án theo phường xã" />
+      <div class="caption">Hình 22 — Vụ án theo phường/xã</div>
+    </div>
+  </div>
+
+  <div class="route">
+    <h4>Vụ việc theo phường/xã <span class="path">/ward/incidents</span></h4>
+    <p class="desc">Tương tự, nhưng phân nhóm vụ việc thay vì vụ án.</p>
+    <div class="screenshot">
+      <img src="screenshots/class-ward-incidents.png" alt="Vụ việc theo phường xã" />
+      <div class="caption">Hình 23 — Vụ việc theo phường/xã</div>
+    </div>
+  </div>
+
+  <div class="route">
+    <h4>Đề xuất VKS <span class="path">/prosecutor-proposal</span></h4>
+    <p class="desc">Hồ sơ có đề xuất gửi Viện Kiểm sát — truy tố, đình chỉ điều tra, gia hạn, v.v. Theo dõi trạng thái phê duyệt từ VKS.</p>
+    <div class="screenshot">
+      <img src="screenshots/class-prosecutor.png" alt="Đề xuất VKS" />
+      <div class="caption">Hình 24 — Hồ sơ có đề xuất VKS</div>
+    </div>
+  </div>
+
+  <div class="route">
+    <h4>Đơn trùng lặp <span class="path">/classification/duplicates</span></h4>
+    <p class="desc">Hệ thống phát hiện đơn thư có nội dung/người gửi trùng lặp với đơn đã tiếp nhận trước đó —
+    giúp cán bộ tránh xử lý lặp.</p>
+    <div class="screenshot">
+      <img src="screenshots/class-duplicates.png" alt="Đơn trùng lặp" />
+      <div class="caption">Hình 25 — Phát hiện đơn thư trùng lặp</div>
+    </div>
+  </div>
+
+  <div class="route">
+    <h4>Phân loại khác <span class="path">/classification/others</span></h4>
+    <p class="desc">Các phân loại tuỳ chỉnh khác do quản trị viên cấu hình — ví dụ phân loại theo tội danh đặc thù,
+    theo dạng vụ án đặc biệt.</p>
+    <div class="screenshot">
+      <img src="screenshots/class-others.png" alt="Phân loại khác" />
+      <div class="caption">Hình 26 — Phân loại tuỳ chỉnh khác</div>
+    </div>
+  </div>
+</section>
+
+<!-- 1.9 REPORTS -->
+<section class="module" id="mod-reports">
+  <h3>1.9 Báo cáo &amp; Thống kê</h3>
+  <p class="intro">Hệ thống cung cấp 9 loại báo cáo/thống kê khác nhau — từ xuất hồ sơ Excel cho đến phụ lục 1-6 BCA
+  định kỳ. Tất cả đều có thể xuất file (Excel/PDF) và in.</p>
+
+  <div class="route">
+    <h4>Xuất hồ sơ đơn thư <span class="path">/export-reports</span></h4>
+    <p class="desc">Xuất danh sách đơn thư theo khoảng thời gian, loại đơn, trạng thái — kết quả là file Excel
+    để cán bộ làm báo cáo lên lãnh đạo.</p>
+    <div class="screenshot">
+      <img src="screenshots/reports-export.png" alt="Xuất hồ sơ đơn thư" />
+      <div class="caption">Hình 27 — Xuất hồ sơ đơn thư ra Excel</div>
+    </div>
+  </div>
+
+  <div class="route">
+    <h4>Báo cáo tháng <span class="path">/reports/monthly</span></h4>
+    <p class="desc">Báo cáo tổng hợp công tác tháng — số vụ án mới, số vụ giải quyết, tỷ lệ khám phá, danh sách hồ sơ quá hạn.</p>
+    <div class="screenshot">
+      <img src="screenshots/reports-monthly.png" alt="Báo cáo tháng" />
+      <div class="caption">Hình 28 — Báo cáo công tác tháng</div>
+    </div>
+  </div>
+
+  <div class="route">
+    <h4>Báo cáo quý <span class="path">/reports/quarterly</span></h4>
+    <p class="desc">Báo cáo công tác quý — tương tự báo cáo tháng nhưng phạm vi 3 tháng, có thêm so sánh quý trước.</p>
+    <div class="screenshot">
+      <img src="screenshots/reports-quarterly.png" alt="Báo cáo quý" />
+      <div class="caption">Hình 29 — Báo cáo công tác quý</div>
+    </div>
+  </div>
+
+  <div class="route">
+    <h4>Thống kê phường/xã <span class="path">/statistics/district</span></h4>
+    <p class="desc">Thống kê số liệu hồ sơ theo địa bàn phường/xã — bao gồm cả vụ án và vụ việc, có biểu đồ heatmap.</p>
+    <div class="screenshot">
+      <img src="screenshots/reports-district.png" alt="Thống kê phường xã" />
+      <div class="caption">Hình 30 — Thống kê theo phường/xã</div>
+    </div>
+  </div>
+
+  <div class="route">
+    <h4>Hồ sơ quá hạn <span class="path">/settings/overdue-records</span></h4>
+    <p class="desc">Danh sách <strong>tất cả hồ sơ đã quá hạn xử lý</strong> hoặc sắp quá hạn (cảnh báo đỏ).
+    Cán bộ phải ưu tiên giải quyết — nếu cần gia hạn, đề xuất qua mục Quy tắc thời hạn.</p>
+    <div class="screenshot">
+      <img src="screenshots/reports-overdue.png" alt="Hồ sơ quá hạn" />
+      <div class="caption">Hình 31 — Danh sách hồ sơ quá hạn</div>
+    </div>
+    <div class="warn">
+      <strong>Quan trọng:</strong> Hồ sơ quá hạn ảnh hưởng trực tiếp tới chỉ tiêu KPI của tổ/đơn vị —
+      anh/chị phải xử lý dứt điểm hoặc xin gia hạn kịp thời.
+    </div>
+  </div>
+
+  <div class="route">
+    <h4>Nhật ký hoạt động <span class="path">/activity-log</span></h4>
+    <p class="desc">Lịch sử tất cả thao tác trên hệ thống — ai làm gì, lúc nào, thay đổi gì. Dùng để truy vết khi có sự cố,
+    hoặc kiểm tra tuân thủ.</p>
+    <div class="screenshot">
+      <img src="screenshots/reports-activity.png" alt="Nhật ký hoạt động" />
+      <div class="caption">Hình 32 — Nhật ký hoạt động hệ thống</div>
+    </div>
+    <div class="note">
+      <strong>Lưu ý:</strong> Mọi thao tác CRUD trên hồ sơ đều được ghi log. Không thể xoá log từ giao diện —
+      chỉ ADMIN có quyền truy vấn dữ liệu cũ trên 2 năm.
+    </div>
+  </div>
+
+  <div class="route">
+    <h4>Báo cáo TĐC <span class="path">/reports/tdac</span></h4>
+    <p class="desc">Báo cáo Tổng đội Cảnh sát — báo cáo chuyên đề định kỳ gửi lãnh đạo Tổng đội.</p>
+    <div class="screenshot">
+      <img src="screenshots/reports-tdac.png" alt="Báo cáo TĐC" />
+      <div class="caption">Hình 33 — Báo cáo Tổng đội Cảnh sát</div>
+    </div>
+  </div>
+
+  <div class="route">
+    <h4>Thống kê 48 trường <span class="path">/reports/stat48</span></h4>
+    <p class="desc">Báo cáo thống kê 48 trường dữ liệu chi tiết theo mẫu BCA — phục vụ tổng hợp số liệu nghiệp vụ
+    gửi lên cấp trên.</p>
+    <div class="screenshot">
+      <img src="screenshots/reports-stat48.png" alt="Thống kê 48 trường" />
+      <div class="caption">Hình 34 — Thống kê 48 trường BCA</div>
+    </div>
+  </div>
+
+  <div class="route">
+    <h4>Phụ lục 1-6 BCA <span class="path">/reports/phu-luc-1-6</span></h4>
+    <p class="desc">Bộ 6 phụ lục báo cáo theo quy định BCA — thường xuất định kỳ hàng quý/năm gửi cấp Bộ.</p>
+    <div class="screenshot">
+      <img src="screenshots/reports-phu-luc.png" alt="Phụ lục 1-6 BCA" />
+      <div class="caption">Hình 35 — Phụ lục 1-6 BCA</div>
+    </div>
+  </div>
+</section>
+
+<!-- 1.10 SYSTEM -->
+<section class="module" id="mod-system">
+  <h3>1.10 Tài liệu, Danh mục &amp; Cấu hình</h3>
+  <p class="intro">Các tiện ích hỗ trợ — kho tài liệu hồ sơ scan, danh mục tra cứu chuẩn (điều luật, đơn vị, phường xã),
+  lớp phân loại tuỳ chỉnh, và cấu hình hệ thống cấp người dùng.</p>
+
+  <div class="route">
+    <h4>Tài liệu hồ sơ <span class="path">/documents</span></h4>
+    <p class="desc">Kho lưu trữ file scan, ảnh hiện trường, video, PDF biên bản — gắn với từng hồ sơ vụ án/vụ việc/đơn thư.
+    Hỗ trợ tải lên, xem trực tuyến, tải về.</p>
+    <div class="screenshot">
+      <img src="screenshots/documents.png" alt="Tài liệu hồ sơ" />
+      <div class="caption">Hình 36 — Kho tài liệu hồ sơ</div>
+    </div>
+  </div>
+
+  <div class="route">
+    <h4>Danh mục tra cứu <span class="path">/danh-muc</span></h4>
+    <p class="desc">Tra cứu nhanh các danh mục chuẩn của hệ thống — Điều luật BLHS, danh sách phường/xã, đơn vị công an,
+    loại tội danh, loại đối tượng.</p>
+    <div class="screenshot">
+      <img src="screenshots/directory.png" alt="Danh mục tra cứu" />
+      <div class="caption">Hình 37 — Danh mục tra cứu chuẩn</div>
+    </div>
+  </div>
+
+  <div class="route">
+    <h4>Lớp phân loại <span class="path">/phan-loai</span></h4>
+    <p class="desc">Quản lý các lớp phân loại tuỳ chỉnh (master class) — dùng cho phân loại đặc thù theo từng đơn vị.</p>
+    <div class="screenshot">
+      <img src="screenshots/master-class.png" alt="Lớp phân loại" />
+      <div class="caption">Hình 38 — Lớp phân loại tuỳ chỉnh</div>
+    </div>
+  </div>
+
+  <div class="route">
+    <h4>Cấu hình hệ thống <span class="path">/settings</span></h4>
+    <p class="desc">Cấu hình cá nhân — đổi mật khẩu, cài đặt 2FA, thiết lập thông báo, ngôn ngữ giao diện.</p>
+    <div class="screenshot">
+      <img src="screenshots/settings.png" alt="Cấu hình hệ thống" />
+      <div class="caption">Hình 39 — Cấu hình hệ thống cá nhân</div>
+    </div>
+    <div class="tip">
+      <strong>Khuyến nghị:</strong> Bật <em>Xác thực hai yếu tố (2FA)</em> để bảo vệ tài khoản — đặc biệt với
+      tài khoản có quyền cao như ADMIN hoặc DEADLINE_APPROVER.
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════ PHẦN 2 — ADMIN ═══════════════════════ -->
+<div class="part" id="phan-2">
+  <div class="part-num">Phần 2</div>
+  <h2>Hướng dẫn quản trị viên</h2>
+  <p>Các chức năng dành riêng cho quản trị viên hệ thống (vai trò ADMIN) — quản lý người dùng, phân quyền tổ/đội,
+  cấu hình quy tắc thời hạn và thiết lập cấp hệ thống.</p>
+</div>
+
+<section class="module" id="mod-admin-users">
+  <h3>2.1 Quản lý người dùng</h3>
+  <p class="intro">Tạo, sửa, khoá/mở tài khoản cán bộ. Cấp mật khẩu tạm thời lần đầu, gán vai trò (ADMIN/OFFICER/DEADLINE_APPROVER),
+  phân vào tổ/đội.</p>
+
+  <div class="route">
+    <h4>Danh sách người dùng <span class="path">/nguoi-dung</span></h4>
+    <p class="desc">Quản lý toàn bộ tài khoản trong hệ thống.</p>
+    <div class="screenshot">
+      <img src="screenshots/admin-users.png" alt="Quản lý người dùng" />
+      <div class="caption">Hình 40 — Quản lý tài khoản người dùng</div>
+    </div>
+    <div class="actions">
+      <strong>Tác vụ chính:</strong>
+      <ul>
+        <li><strong>Tạo tài khoản:</strong> Nhập email, họ tên, chọn vai trò + tổ. Hệ thống sinh mật khẩu tạm thời —
+        copy giao cho cán bộ (chỉ hiển thị 1 lần)</li>
+        <li><strong>Reset mật khẩu:</strong> Tạo mật khẩu tạm thời mới khi cán bộ quên</li>
+        <li><strong>Khoá tài khoản:</strong> Khi cán bộ nghỉ việc/chuyển đơn vị</li>
+        <li><strong>Đổi vai trò/tổ:</strong> Khi cán bộ luân chuyển vị trí công tác</li>
+      </ul>
+    </div>
+    <div class="warn">
+      <strong>Bảo mật:</strong> Mật khẩu tạm thời chỉ hiển thị MỘT LẦN sau khi tạo. Quản trị viên không thể xem lại —
+      phải reset nếu mất.
+    </div>
+  </div>
+</section>
+
+<section class="module" id="mod-admin-teams">
+  <h3>2.2 Tổ/Đội công tác</h3>
+  <p class="intro">Quản lý cơ cấu tổ/đội trong đơn vị. Mỗi cán bộ thuộc đúng 1 tổ; phân quyền dữ liệu (Data Scope)
+  dựa trên tổ này.</p>
+
+  <div class="route">
+    <h4>Danh sách tổ/đội <span class="path">/to-nhom</span></h4>
+    <p class="desc">Tạo, sửa, xoá tổ/đội. Thiết lập tổ trưởng và phạm vi nghiệp vụ.</p>
+    <div class="screenshot">
+      <img src="screenshots/admin-teams.png" alt="Tổ đội công tác" />
+      <div class="caption">Hình 41 — Quản lý tổ/đội công tác</div>
+    </div>
+    <div class="actions">
+      <strong>Tác vụ chính:</strong>
+      <ul>
+        <li>Tạo tổ mới khi có cơ cấu tổ chức thay đổi</li>
+        <li>Phân tổ trưởng — tổ trưởng có quyền xem toàn bộ hồ sơ của tổ</li>
+        <li>Thay đổi tổ của cán bộ qua mục <em>Quản lý người dùng</em></li>
+      </ul>
+    </div>
+    <div class="note">
+      <strong>Phân quyền dữ liệu:</strong> Cán bộ OFFICER chỉ xem hồ sơ trong tổ của mình. Tổ trưởng xem toàn bộ tổ.
+      ADMIN xem toàn đơn vị. Cơ chế này được enforce ở cả 12 resource (Cases, Incidents, Petitions + child resources).
+    </div>
+  </div>
+</section>
+
+<section class="module" id="mod-admin-deadline">
+  <h3>2.3 Quy tắc thời hạn</h3>
+  <p class="intro">Cấu hình các quy tắc tính deadline tự động cho hồ sơ — theo loại vụ án, tội danh, giai đoạn xử lý.
+  Mặc định theo BLTTHS Điều 147 (20 ngày), 148 (2 tháng), 149 (4 tháng).</p>
+
+  <div class="route">
+    <h4>Quy tắc thời hạn <span class="path">/admin/deadline-rules</span></h4>
+    <p class="desc">Danh sách các quy tắc đang áp dụng. Có thể thêm quy tắc tuỳ chỉnh cho loại vụ án/tội danh đặc thù.</p>
+    <div class="screenshot">
+      <img src="screenshots/admin-deadline.png" alt="Quy tắc thời hạn" />
+      <div class="caption">Hình 42 — Cấu hình quy tắc thời hạn xử lý</div>
+    </div>
+    <div class="actions">
+      <strong>Tác vụ chính:</strong>
+      <ul>
+        <li>Xem danh sách quy tắc hiện hành</li>
+        <li>Tạo quy tắc mới (loại hồ sơ + số ngày + giai đoạn áp dụng)</li>
+        <li>Phê duyệt/từ chối đề xuất gia hạn từ điều tra viên</li>
+        <li>Kiểm tra log gia hạn trong <em>Nhật ký hoạt động</em></li>
+      </ul>
+    </div>
+    <div class="warn">
+      <strong>Quan trọng:</strong> Thay đổi quy tắc thời hạn ảnh hưởng tất cả hồ sơ tạo mới sau thời điểm thay đổi.
+      Hồ sơ hiện có giữ nguyên deadline đã tính.
+    </div>
+  </div>
+</section>
+
+<section class="module" id="mod-admin-settings">
+  <h3>2.4 Cấu hình admin</h3>
+  <p class="intro">Cấu hình ở cấp hệ thống — SystemSetting (key-value), Feature Flags (bật/tắt module), thông số phòng chống dò mật khẩu, retention log.</p>
+
+  <div class="route">
+    <h4>Cấu hình admin <span class="path">/admin/settings</span></h4>
+    <p class="desc">Quản lý các cấu hình toàn cục.</p>
+    <div class="screenshot">
+      <img src="screenshots/admin-settings.png" alt="Cấu hình admin" />
+      <div class="caption">Hình 43 — Cấu hình hệ thống cấp admin</div>
+    </div>
+    <div class="actions">
+      <strong>Các cấu hình thường dùng:</strong>
+      <ul>
+        <li><strong>SystemSetting:</strong> các tham số dạng key-value (thời hạn mặc định, ngưỡng cảnh báo, v.v.)</li>
+        <li><strong>Feature Flags:</strong> bật/tắt module (Calendar, KPI, Documents…) mà không cần redeploy</li>
+        <li><strong>2FA bắt buộc:</strong> ép tất cả tài khoản phải bật 2FA</li>
+        <li><strong>Retention log:</strong> thời gian lưu trữ nhật ký hoạt động</li>
+      </ul>
+    </div>
+    <div class="tip">
+      <strong>Mẹo:</strong> Trước khi tắt một module qua Feature Flag, hãy thông báo trước cho người dùng —
+      module bị tắt sẽ biến mất khỏi sidebar của tất cả tài khoản ngay lập tức.
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════ PHỤ LỤC ═══════════════════════ -->
+<section class="module" id="phu-luc">
+  <h3>Phụ lục</h3>
+
+  <h4>A. Bảng vai trò &amp; quyền hạn</h4>
+  <table>
+    <thead>
+      <tr><th>Vai trò</th><th>Phạm vi dữ liệu</th><th>Quyền chính</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>OFFICER</td>
+        <td>Hồ sơ trong tổ</td>
+        <td>Tạo/sửa hồ sơ thuộc tổ; xem báo cáo tổ; không xem hồ sơ tổ khác</td>
+      </tr>
+      <tr>
+        <td>Tổ trưởng</td>
+        <td>Toàn bộ tổ</td>
+        <td>Như OFFICER + xem tất cả hồ sơ của tổ; phân công điều tra viên trong tổ</td>
+      </tr>
+      <tr>
+        <td>DEADLINE_APPROVER</td>
+        <td>Theo phân công</td>
+        <td>Phê duyệt/từ chối đề xuất gia hạn thời hạn</td>
+      </tr>
+      <tr>
+        <td>ADMIN</td>
+        <td>Toàn đơn vị</td>
+        <td>Quản lý người dùng/tổ/đội/quy tắc/cấu hình; xem toàn bộ hồ sơ; xem nhật ký hoạt động</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h4>B. Tham chiếu pháp lý</h4>
+  <table>
+    <thead><tr><th>Văn bản</th><th>Áp dụng cho</th></tr></thead>
+    <tbody>
+      <tr><td>BLTTHS 2015 — Điều 147</td><td>Thời hạn xác minh tố giác: 20 ngày</td></tr>
+      <tr><td>BLTTHS 2015 — Điều 148</td><td>Tạm đình chỉ giải quyết: 2 tháng</td></tr>
+      <tr><td>BLTTHS 2015 — Điều 149</td><td>Gia hạn xác minh: tối đa 4 tháng</td></tr>
+      <tr><td>Thông tư 28/2020/TT-BCA</td><td>4 giai đoạn xử lý vụ việc + 4 chỉ tiêu KPI cứng</td></tr>
+    </tbody>
+  </table>
+
+  <h4>C. Liên hệ hỗ trợ</h4>
+  <ul>
+    <li><strong>Sự cố kỹ thuật:</strong> liên hệ quản trị viên hệ thống đơn vị</li>
+    <li><strong>Quên mật khẩu:</strong> đề nghị ADMIN reset qua mục <em>Quản lý người dùng</em></li>
+    <li><strong>Đề xuất tính năng:</strong> gửi qua email tới đầu mối phụ trách hệ thống</li>
+  </ul>
+
+  <h4>D. Phiên bản hệ thống</h4>
+  <p>Tài liệu này áp dụng cho phiên bản <strong>v0.21.0.0</strong> (cập nhật 13/05/2026). Khi hệ thống nâng cấp,
+  tài liệu sẽ được sửa đổi tương ứng — kiểm tra phiên bản hiện hành ở góc dưới trái của sidebar.</p>
+</section>
+
+<footer style="margin: 48px 0 24px; padding: 24px; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; color: #64748b; font-size: 13px; text-align: center;">
+  Tài liệu hướng dẫn nội bộ — Phòng Cảnh sát Hình sự, Công an TP. Hồ Chí Minh<br />
+  Phiên bản v0.21.0.0 &middot; Cập nhật 13/05/2026
+</footer>
+
+</main>
+</div>
+</body>
+</html>
