@@ -5,7 +5,9 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'core/api/api_base_url.dart';
 import 'core/auth/auth_provider.dart';
+import 'features/auth/first_login_change_password_screen.dart';
 import 'features/auth/login_screen.dart';
 import 'features/auth/two_fa_screen.dart';
 import 'features/cases/case_detail_screen.dart';
@@ -23,6 +25,8 @@ SemanticsHandle? _semanticsHandle;
 
 void main() async {
   final binding = WidgetsFlutterBinding.ensureInitialized();
+  // Refuse to run a release build that points at a dev/emulator API URL.
+  assertProductionApiUrl(apiBaseUrl);
   if (kDebugMode) _semanticsHandle = binding.ensureSemantics();
   await initializeDateFormatting('vi_VN', null);
   try {
@@ -70,15 +74,22 @@ class PC02App extends ConsumerWidget {
     return GoRouter(
       initialLocation: '/login',
       redirect: (context, state) {
-        final isAuth = ref.read(authProvider).isAuthenticated;
-        final isLoginRoute = state.matchedLocation.startsWith('/login');
-        if (!isAuth && !isLoginRoute) return '/login';
-        if (isAuth && state.matchedLocation == '/login') return '/';
+        final authState = ref.read(authProvider);
+        final isAuth = authState.isAuthenticated;
+        final loc = state.matchedLocation;
+        final isPublicRoute = loc.startsWith('/login') ||
+            loc == '/auth/first-login-change-password';
+        if (!isAuth && !isPublicRoute) return '/login';
+        if (isAuth && loc == '/login') return '/';
         return null;
       },
       routes: [
         GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
         GoRoute(path: '/login/2fa', builder: (_, __) => const TwoFaScreen()),
+        GoRoute(
+          path: '/auth/first-login-change-password',
+          builder: (_, __) => const FirstLoginChangePasswordScreen(),
+        ),
         ShellRoute(
           builder: (context, state, child) => _Shell(child: child),
           routes: [

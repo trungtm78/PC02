@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/auth/auth_provider.dart';
+import '../../core/constants/app_constants.dart';
 import '../../core/fcm/fcm_service.dart';
 import '../../shared/theme/app_theme.dart';
 
@@ -27,8 +28,13 @@ class _TwoFaScreenState extends ConsumerState<TwoFaScreen> {
     setState(() => _error = null);
 
     try {
-      await ref.read(authProvider.notifier).verify2fa(code);
+      final result = await ref.read(authProvider.notifier).verify2fa(code);
       if (!mounted) return;
+
+      if (result == AppAuthResult.pendingChangePassword) {
+        context.go('/auth/first-login-change-password');
+        return;
+      }
 
       final fcm = ref.read(fcmServiceProvider);
       await fcm.init();

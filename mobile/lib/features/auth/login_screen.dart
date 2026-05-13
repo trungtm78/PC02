@@ -57,6 +57,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (!mounted) return;
       if (result == AppAuthResult.pending2fa) {
         context.push('/login/2fa');
+      } else if (result == AppAuthResult.pendingChangePassword) {
+        context.go('/auth/first-login-change-password');
       } else {
         try {
           final fcm = ref.read(fcmServiceProvider);
@@ -119,6 +121,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (!mounted) return;
       if (result == AppAuthResult.pending2fa) {
         context.push('/login/2fa');
+      } else if (result == AppAuthResult.pendingChangePassword) {
+        context.go('/auth/first-login-change-password');
       } else {
         try {
           await ref.read(fcmServiceProvider).init();
