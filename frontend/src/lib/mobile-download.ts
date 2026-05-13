@@ -19,7 +19,13 @@ export interface MobileDownloadConfig {
 function normalize(value: string | undefined): string | null {
   if (!value) return null;
   const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
+  if (trimmed.length === 0) return null;
+  // Reject anything that's not plain http(s). Build-time injection isn't a
+  // defense — a leaked .env.local or future runtime-config refactor could
+  // feed `javascript:alert(1)` straight into an <a href> on the pre-auth
+  // login page. Whitelist scheme to defang that class of bug.
+  if (!/^https?:\/\//i.test(trimmed)) return null;
+  return trimmed;
 }
 
 export function getMobileDownloadConfig(): MobileDownloadConfig {

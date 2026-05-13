@@ -51,4 +51,35 @@ describe('getMobileDownloadConfig', () => {
     vi.stubEnv('VITE_MOBILE_ANDROID_URL', '   ');
     expect(getMobileDownloadConfig().androidUrl).toBeNull();
   });
+
+  // Security: env-fed URLs end up as <a href>. javascript:/data: would XSS the
+  // pre-auth login page if env got compromised (leaked .env.local, future
+  // runtime-config). Whitelist http(s) only.
+  it('rejects javascript: scheme to prevent XSS via env compromise', () => {
+    vi.stubEnv('VITE_MOBILE_ANDROID_URL', 'javascript:alert(1)');
+    expect(getMobileDownloadConfig().androidUrl).toBeNull();
+  });
+
+  it('rejects data: scheme', () => {
+    vi.stubEnv(
+      'VITE_MOBILE_ANDROID_URL',
+      'data:text/html,<script>alert(1)</script>',
+    );
+    expect(getMobileDownloadConfig().androidUrl).toBeNull();
+  });
+
+  it('rejects relative paths (must be absolute http(s))', () => {
+    vi.stubEnv('VITE_MOBILE_ANDROID_URL', '/downloads/latest.apk');
+    expect(getMobileDownloadConfig().androidUrl).toBeNull();
+  });
+
+  it('accepts https URLs', () => {
+    vi.stubEnv(
+      'VITE_MOBILE_ANDROID_URL',
+      'https://pc02.example.com/downloads/latest.apk',
+    );
+    expect(getMobileDownloadConfig().androidUrl).toBe(
+      'https://pc02.example.com/downloads/latest.apk',
+    );
+  });
 });

@@ -36,7 +36,10 @@ export default function MobileDownloadSection() {
       </h2>
       <div className="grid grid-cols-2 gap-4">
         <AndroidColumn url={config.androidUrl} />
-        <IosColumn />
+        <IosColumn
+          available={config.iosAvailable}
+          url={config.iosUrl}
+        />
       </div>
     </section>
   );
@@ -75,13 +78,42 @@ function AndroidColumn({ url }: { url: string | null }) {
   );
 }
 
-function IosColumn() {
+function IosColumn({
+  available,
+  url,
+}: {
+  available: boolean;
+  url: string | null;
+}) {
+  // When iOS ships (Apple Dev account + TestFlight/App Store), set
+  // `iosAvailable: true` in mobile-download.ts. The column flips to render a
+  // real QR + link, same shape as Android. Until then, the striped greyed
+  // placeholder communicates "not yet" — no "Đang phát triển" caption per
+  // /plan-design-review (cleaner, less defeatist).
+  if (available && url) {
+    return (
+      <div className="flex flex-col items-center">
+        <QRBoundary url={url}>
+          <QRCodeSVG
+            value={url}
+            size={96}
+            level="M"
+            aria-label={t.qrAriaLabel(t.iosLabel)}
+            role="img"
+          />
+        </QRBoundary>
+        <div className="mt-2 flex items-center gap-1.5 text-xs text-slate-700">
+          <Apple className="w-3.5 h-3.5" aria-hidden="true" />
+          {t.iosLabel}
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="flex flex-col items-center">
       <div
         role="img"
         aria-label={t.placeholderAriaLabel(t.iosLabel)}
-        tabIndex={-1}
         className="w-24 h-24 rounded flex items-center justify-center"
         style={{
           backgroundImage:
@@ -89,9 +121,9 @@ function IosColumn() {
           opacity: 0.4,
         }}
       >
-        <Apple className="w-8 h-8 text-slate-500" aria-hidden="true" />
+        <Apple className="w-8 h-8 text-slate-600" aria-hidden="true" />
       </div>
-      <div className="mt-2 flex items-center gap-1.5 text-xs text-slate-500">
+      <div className="mt-2 flex items-center gap-1.5 text-xs text-slate-600">
         <Apple className="w-3.5 h-3.5" aria-hidden="true" />
         {t.iosLabel}
       </div>
@@ -100,14 +132,18 @@ function IosColumn() {
 }
 
 function ComingSoonPlaceholder() {
+  // slate-600 instead of slate-400 — adversarial review flagged 2.8:1 contrast
+  // (below WCAG AA 4.5:1) on the lighter color. slate-600 on slate-100 = 7.1:1
+  // (AAA). The placeholder is muted by the dashed border + lighter bg, not by
+  // the text color.
   return (
     <div
       role="img"
       aria-label={t.placeholderAriaLabel('Android')}
       className="w-24 h-24 bg-slate-100 border border-dashed border-slate-300 rounded flex flex-col items-center justify-center gap-1"
     >
-      <Smartphone className="w-8 h-8 text-slate-400" aria-hidden="true" />
-      <span className="text-xs text-slate-400 italic">
+      <Smartphone className="w-8 h-8 text-slate-600" aria-hidden="true" />
+      <span className="text-xs text-slate-600 italic">
         {t.androidComingSoon}
       </span>
     </div>
