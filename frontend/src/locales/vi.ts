@@ -137,10 +137,10 @@ export const mobileDownload = {
   sectionTitle: 'Tải ứng dụng di động',
   androidLabel: 'Android',
   androidDownloadLink: 'Tải APK trực tiếp',
-  androidComingSoon: 'Sắp ra mắt',
   iosLabel: 'iOS',
-  // No iOS status caption — visual placeholder communicates disabled state;
-  // screen readers still get context via placeholderAriaLabel below.
+  // No "Sắp ra mắt" / "Đang phát triển" status captions — placeholder visuals
+  // (dashed border + brand logo / striped overlay) communicate disabled state.
+  // Screen readers receive explicit context via placeholderAriaLabel below.
   qrAriaLabel: (platform: string) => `Mã QR tải ứng dụng ${platform}`,
   placeholderAriaLabel: (platform: string) =>
     `Ứng dụng ${platform} chưa sẵn sàng`,

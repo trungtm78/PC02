@@ -23,13 +23,24 @@ describe('MobileDownloadSection', () => {
     ).toBeInTheDocument();
   });
 
-  it('renders "Sắp ra mắt" placeholder + no QR when env is unset', () => {
+  it('renders placeholder (no QR) when env is unset', () => {
     vi.stubEnv('VITE_MOBILE_ANDROID_URL', '');
     render(<MobileDownloadSection />);
-    expect(screen.getByText('Sắp ra mắt')).toBeInTheDocument();
+    // No QR — placeholder visual takes its slot. The placeholder is reachable
+    // by aria-label so screen readers know the Android app exists but isn't
+    // yet configured for download.
     expect(
       screen.queryByRole('img', { name: 'Mã QR tải ứng dụng Android' }),
     ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('img', { name: 'Ứng dụng Android chưa sẵn sàng' }),
+    ).toBeInTheDocument();
+  });
+
+  it('does NOT render "Sắp ra mắt" caption (anh dropped for cleaner UI)', () => {
+    vi.stubEnv('VITE_MOBILE_ANDROID_URL', '');
+    render(<MobileDownloadSection />);
+    expect(screen.queryByText('Sắp ra mắt')).not.toBeInTheDocument();
   });
 
   it('renders the "Tải APK trực tiếp" link pointing at env URL when set', () => {
