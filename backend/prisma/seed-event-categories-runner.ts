@@ -12,6 +12,7 @@
  *
  * Idempotent (seed-event-categories.ts uses upsert by slug).
  */
+import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { seedEventCategories } from './seed-event-categories';
