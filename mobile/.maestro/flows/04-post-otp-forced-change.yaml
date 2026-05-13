@@ -1,0 +1,91 @@
+appId: vn.gov.pc02.mobile
+name: "04 — Post-OTP forced password change (Codex C2 CRITICAL)"
+tags:
+  - auth
+  - first-login
+  - 2fa
+  - critical
+env:
+  TEST_EMAIL: e2e+postotpchange@test.pc02.local
+  TEMP_PASSWORD: TempPass1!
+  NEW_PASSWORD: NewStr0ngPw!
+---
+# Seed user with BOTH mustChangePassword=true AND twoFaEnabled=true.
+# Backend's two-fa.service can return MUST_CHANGE_PASSWORD response after OTP
+# verify (file-verified at two-fa.service.ts:243). Pre-Codex-C2 fix, mobile
+# always called _finalize() on the response → crashed on missing accessToken.
+- evalScript: |
+    const apiBase = MAESTRO_API_BASE_URL || 'http://10.0.2.2:3000/api/v1';
+    const token = MAESTRO_TEST_SEED_TOKEN;
+    if (!token) { throw new Error('MAESTRO_TEST_SEED_TOKEN env not set'); }
+    const r = http.post(apiBase + '/test/seed-user', {
+      headers: {
+        'x-test-seed-token': token,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        email: TEST_EMAIL,
+        password: TEMP_PASSWORD,
+        mustChangePassword: true,
+        twoFaEnabled: true,
+      }),
+    });
+    if (r.status !== 200) {
+      throw new Error('seed failed: ' + r.status + ' ' + r.body);
+    }
+    const data = json(r.body);
+    output.otp = data.currentTotpCode;
+
+- launchApp:
+    appId: vn.gov.pc02.mobile
+    clearState: true
+    clearKeychain: true
+
+# Phase A: Login with temp pw.
+- tapOn:
+    id: "login-email-field"
+- inputText: ${TEST_EMAIL}
+- hideKeyboard
+- tapOn:
+    id: "login-password-field"
+- inputText: ${TEMP_PASSWORD}
+- hideKeyboard
+- tapOn:
+    id: "login-submit-button"
+
+# Phase B: 2FA prompt.
+- assertVisible:
+    id: "2fa-otp-field"
+    timeout: 10000
+- tapOn:
+    id: "2fa-otp-field"
+- inputText: ${output.otp}
+- hideKeyboard
+- tapOn:
+    id: "2fa-submit-button"
+
+# Phase C: After OTP verify, we MUST land on first-login screen, NOT
+# dashboard (Codex C2 regression assertion). Pre-fix this would either
+# show generic OTP error or crash.
+- assertVisible:
+    id: "first-login-instruction-banner"
+    timeout: 10000
+- assertNotVisible:
+    id: "dashboard-scaffold"
+
+# Phase D: Complete forced-change flow.
+- tapOn:
+    id: "first-login-new-password-field"
+- inputText: ${NEW_PASSWORD}
+- hideKeyboard
+- tapOn:
+    id: "first-login-confirm-password-field"
+- inputText: ${NEW_PASSWORD}
+- hideKeyboard
+- tapOn:
+    id: "first-login-submit-button"
+
+# Phase E: Dashboard reached.
+- assertVisible:
+    id: "dashboard-scaffold"
+    timeout: 15000

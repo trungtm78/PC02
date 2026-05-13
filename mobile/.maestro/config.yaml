@@ -1,0 +1,22 @@
+# Maestro top-level config — applied to every flow under this directory.
+#
+# Run locally:
+#   maestro test mobile/.maestro/flows/
+#
+# Run a single flow:
+#   maestro test mobile/.maestro/flows/03-first-login-change-password.yaml
+#
+# All flows depend on a backend running with E2E_TEST_MODE=true and a known
+# TEST_SEED_TOKEN. The CI workflow (.github/workflows/mobile-e2e.yml) spins
+# up a fresh backend per run. For local runs the developer must export:
+#   export MAESTRO_API_BASE_URL=http://10.0.2.2:3000/api/v1
+#   export MAESTRO_TEST_SEED_TOKEN=<matches backend env>
+flows: flows/
+executionOrder:
+  continueOnFailure: false
+  flowsOrder:
+    - 01-normal-login
+    - 02-login-2fa
+    - 03-first-login-change-password
+    - 04-post-otp-forced-change
+    - 05-stale-token-409-superseded

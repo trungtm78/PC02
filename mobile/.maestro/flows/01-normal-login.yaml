@@ -1,0 +1,64 @@
+appId: vn.gov.pc02.mobile
+name: "01 — Normal login flow (Codex C1 + happy path)"
+tags:
+  - smoke
+  - auth
+env:
+  TEST_EMAIL: e2e+normal@test.pc02.local
+  TEST_PASSWORD: Test1234!Aa
+---
+# Step 1: Seed a fresh test user without forced-change or 2FA.
+# Idempotent — re-running this flow upserts the same user.
+- evalScript: |
+    const apiBase = MAESTRO_API_BASE_URL || 'http://10.0.2.2:3000/api/v1';
+    const token = MAESTRO_TEST_SEED_TOKEN;
+    if (!token) { throw new Error('MAESTRO_TEST_SEED_TOKEN env not set'); }
+    const r = http.post(apiBase + '/test/seed-user', {
+      headers: {
+        'x-test-seed-token': token,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        email: TEST_EMAIL,
+        password: TEST_PASSWORD,
+        mustChangePassword: false,
+        twoFaEnabled: false,
+      }),
+    });
+    if (r.status !== 200) {
+      throw new Error('seed failed: ' + r.status + ' ' + r.body);
+    }
+
+# Step 2: Launch app fresh — clears any previously stored access token.
+- launchApp:
+    appId: vn.gov.pc02.mobile
+    clearState: true
+    clearKeychain: true
+
+# Step 3: Enter credentials. Selectors target Semantics identifiers (stable
+# across Vietnamese label changes) rather than text matching.
+- assertVisible:
+    id: "login-email-field"
+- tapOn:
+    id: "login-email-field"
+- inputText: ${TEST_EMAIL}
+- hideKeyboard
+- tapOn:
+    id: "login-password-field"
+- inputText: ${TEST_PASSWORD}
+- hideKeyboard
+
+# Step 4: Submit.
+- tapOn:
+    id: "login-submit-button"
+
+# Step 5: Verify we reached the dashboard (post-auth shell scaffold).
+# Timeout generous because cold launch + login round-trip + dashboard fetch
+# can exceed 10s on emulator.
+- assertVisible:
+    id: "dashboard-scaffold"
+    timeout: 15000
+
+# Step 6: Sanity — login screen is gone (no double-render or race).
+- assertNotVisible:
+    id: "login-submit-button"

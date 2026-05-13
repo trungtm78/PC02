@@ -1,0 +1,206 @@
+name: Mobile E2E
+
+# Runs Maestro flows against a Flutter Android emulator with a real backend
+# spun up in the same job. Triggers:
+#   - workflow_dispatch (manual)
+#   - push to feat/mobile-* branches
+#   - pull_request affecting mobile/ or backend/src/auth/
+#
+# Why a real backend (not mocked):
+#   Codex C1 / C2 / C7 bugs all live at the contract boundary between mobile
+#   and backend. Mocking the backend would have HIDDEN them. The seed-user
+#   endpoint in test-fixtures lets flows arrange real state in seconds.
+#
+# Cost note:
+#   Android emulator on ubuntu-latest needs nested virt. The reactivecircus
+#   action sets that up + caches the AVD. Run time: ~12-15 min cold, ~6 min
+#   warm. Not free for forks — set repo secret MAESTRO_E2E_ENABLED=true if
+#   you want this to run on PRs. Otherwise it runs only on workflow_dispatch
+#   + protected branches.
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 'feat/mobile-**'
+  pull_request:
+    paths:
+      - 'mobile/**'
+      - 'backend/src/auth/**'
+      - 'backend/src/test-fixtures/**'
+      - '.github/workflows/mobile-e2e.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    name: Maestro on Android emulator
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # Backend will listen here; mobile builds with --dart-define matching.
+      # 10.0.2.2 is the Android emulator alias for the host loopback.
+      BACKEND_PORT: 3000
+      API_BASE_URL: http://10.0.2.2:3000/api/v1
+      E2E_TEST_MODE: "true"
+      NODE_ENV: test
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: pc02_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=5s
+          --health-timeout=3s
+          --health-retries=10
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Enable KVM for nested virt (Android emulator)
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Setup Node.js (backend)
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22.22.2'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Setup Java (Android build + apksigner)
+        uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v4.7.1
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@e938fdf56512cc96ef2f59a7f2a2a23b5f9f3eea # v2.16.0
+        with:
+          flutter-version: '3.27.x'
+          channel: 'stable'
+
+      - name: Install backend deps + generate Prisma client
+        working-directory: backend
+        run: |
+          npm ci
+          npx prisma generate
+
+      - name: Generate TEST_SEED_TOKEN
+        run: |
+          # Random 32-byte hex token, only valid for this job.
+          echo "TEST_SEED_TOKEN=$(openssl rand -hex 32)" >> $GITHUB_ENV
+
+      - name: Apply Prisma migrations + seed core tables
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/pc02_test?schema=public
+        run: |
+          npx prisma migrate deploy
+          # Seed roles + minimum directory data so seed-user can find INVESTIGATOR.
+          npm run db:seed || echo "::warning::db:seed exited non-zero — flows may fail if roles missing"
+
+      - name: Start backend in background
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/pc02_test?schema=public
+          NODE_ENV: test
+          E2E_TEST_MODE: "true"
+          TEST_SEED_TOKEN: ${{ env.TEST_SEED_TOKEN }}
+          JWT_ACCESS_SECRET: test-access-secret-for-e2e-only-not-prod
+          JWT_REFRESH_SECRET: test-refresh-secret-for-e2e-only-not-prod
+          JWT_TOTP_SECRET: test-totp-secret-for-e2e-only-not-prod
+          TOTP_ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+          PORT: ${{ env.BACKEND_PORT }}
+        run: |
+          npm run build
+          nohup node dist/src/main.js > /tmp/backend.log 2>&1 &
+          echo $! > /tmp/backend.pid
+          # Wait for /health to be reachable (max 60s).
+          for i in $(seq 1 30); do
+            if curl -sf "http://localhost:$BACKEND_PORT/api/v1/health" > /dev/null; then
+              echo "Backend up after ${i}s"
+              break
+            fi
+            sleep 2
+          done
+          curl -sf "http://localhost:$BACKEND_PORT/api/v1/health" || { echo "::error::Backend did not start"; cat /tmp/backend.log; exit 1; }
+
+      - name: Install Flutter deps
+        working-directory: mobile
+        run: flutter pub get
+
+      - name: Build debug APK with E2E config
+        working-directory: mobile
+        run: |
+          # Debug build so Semantics tree is fully populated (release strips
+          # accessibility info unless --no-strip is passed). Build is also
+          # faster than release for E2E iteration.
+          flutter build apk --debug \
+            --dart-define=API_BASE_URL=${{ env.API_BASE_URL }}
+
+      - name: Install Maestro CLI
+        run: |
+          curl -fLsS "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> $GITHUB_PATH
+
+      - name: Run Maestro flows on Android emulator
+        uses: reactivecircus/android-emulator-runner@1dcd0090116d15e7c562f8db72807de5e036a4ed # v2.34.0
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          ram-size: 4096M
+          heap-size: 1024M
+          disk-size: 6144M
+          # Faster boot in CI: skip animations + audio.
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: |
+            # Install the APK we built.
+            adb install -r mobile/build/app/outputs/flutter-apk/app-debug.apk
+
+            # Wait for Flutter to fully initialize before letting Maestro start.
+            sleep 5
+
+            # Run flows. Maestro inherits env vars from this step.
+            export MAESTRO_API_BASE_URL="${{ env.API_BASE_URL }}"
+            export MAESTRO_TEST_SEED_TOKEN="${{ env.TEST_SEED_TOKEN }}"
+            maestro test --format=junit --output=/tmp/maestro-junit.xml mobile/.maestro/flows/
+
+      - name: Upload Maestro JUnit report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: maestro-junit
+          path: /tmp/maestro-junit.xml
+          if-no-files-found: warn
+
+      - name: Upload Maestro screenshots + recordings on failure
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: maestro-debug
+          path: |
+            ~/.maestro/tests/
+            /tmp/backend.log
+          if-no-files-found: warn
+
+      - name: Stop backend
+        if: always()
+        run: |
+          if [ -f /tmp/backend.pid ]; then
+            kill $(cat /tmp/backend.pid) 2>/dev/null || true
+          fi
