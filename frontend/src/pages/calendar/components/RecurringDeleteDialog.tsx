@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { AlertTriangle, Trash2, X, Loader2 } from 'lucide-react';
 import { calendarEventsApi } from '@/lib/api';
 
+type EventScopeFE = 'SYSTEM' | 'TEAM' | 'PERSONAL';
+
 interface Props {
   isOpen: boolean;
   onClose: () => void;
@@ -11,7 +13,23 @@ interface Props {
   eventTitle: string;
   isRecurring: boolean;
   onDeleted?: () => void;
+  // v0.21.7.0 — extended context cho user trước khi confirm xóa.
+  // Tất cả optional để legacy events (deadline/holiday không có category/scope)
+  // vẫn render OK với fields cơ bản.
+  description?: string;
+  categoryName?: string;
+  categoryColor?: string;
+  scope?: EventScopeFE;
+  allDay?: boolean;
+  startTime?: string; // "HH:MM"
+  endTime?: string;
 }
+
+const SCOPE_LABEL: Record<EventScopeFE, string> = {
+  SYSTEM: '🏛️ Toàn cơ quan',
+  TEAM: '👥 Cấp tổ',
+  PERSONAL: '🧑 Cá nhân',
+};
 
 /**
  * Confirmation dialog for deleting a calendar event.
@@ -31,6 +49,13 @@ export function RecurringDeleteDialog({
   eventTitle,
   isRecurring,
   onDeleted,
+  description,
+  categoryName,
+  categoryColor,
+  scope,
+  allDay,
+  startTime,
+  endTime,
 }: Props) {
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState('');
@@ -85,11 +110,45 @@ export function RecurringDeleteDialog({
             <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded">{error}</div>
           )}
 
-          <p className="text-slate-700 text-sm">
-            Sự kiện: <strong>{eventTitle}</strong>
-            <br />
-            Ngày: {occurrenceDate}
-          </p>
+          <div className="space-y-2 text-sm">
+            <div>
+              <p className="text-slate-500 text-xs uppercase tracking-wide">Sự kiện</p>
+              <p className="font-semibold text-slate-800">{eventTitle}</p>
+            </div>
+
+            {(categoryName || scope) && (
+              <div className="flex items-center gap-2 flex-wrap">
+                {categoryName && (
+                  <span
+                    className="inline-flex items-center px-2 py-0.5 rounded text-xs text-white"
+                    style={{ backgroundColor: categoryColor || '#64748b' }}
+                  >
+                    {categoryName}
+                  </span>
+                )}
+                {scope && (
+                  <span className="text-xs text-slate-600">{SCOPE_LABEL[scope]}</span>
+                )}
+              </div>
+            )}
+
+            <div>
+              <p className="text-slate-500 text-xs uppercase tracking-wide">Thời gian</p>
+              <p className="text-slate-700">
+                {occurrenceDate}
+                {allDay === false && startTime && (
+                  <> • {startTime}{endTime ? ` - ${endTime}` : ''}</>
+                )}
+              </p>
+            </div>
+
+            {description && (
+              <div>
+                <p className="text-slate-500 text-xs uppercase tracking-wide">Mô tả</p>
+                <p className="text-slate-700 line-clamp-3">{description}</p>
+              </div>
+            )}
+          </div>
 
           {isRecurring ? (
             <div className="text-sm text-slate-600 bg-amber-50 border border-amber-200 rounded p-3">

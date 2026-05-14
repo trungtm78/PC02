@@ -14,6 +14,7 @@ import { usePermission } from '@/hooks/usePermission';
 import { api } from '@/lib/api';
 import { CreateEventModal } from './components/CreateEventModal';
 import { RecurringDeleteDialog } from './components/RecurringDeleteDialog';
+import { filterEvents } from './utils/filterEvents';
 
 const COLORS = { navy: '#1B2B4E', gold: '#D4AF37', slate: '#64748B' };
 
@@ -36,6 +37,12 @@ export interface CalendarEvent {
   scope?: EventScopeFE;
   categorySlug?: string;
   categoryColor?: string;
+  // v0.21.7.0 — extended context (category label, time, recurrence)
+  categoryName?: string;
+  allDay?: boolean;
+  startTime?: string; // "HH:MM"
+  endTime?: string;
+  isRecurring?: boolean;
 }
 
 const eventTypeLabels: Record<EventType, string> = {
@@ -390,7 +397,7 @@ function UpcomingEvents({ events, onEventClick }: UpcomingEventsProps) {
                   {event.description && (
                     <p className="text-sm text-slate-500 mt-1 line-clamp-2">{event.description}</p>
                   )}
-                  <div className="flex items-center gap-3 mt-2">
+                  <div className="flex items-center gap-2 mt-2 flex-wrap">
                     <span
                       className="text-xs px-2 py-0.5 rounded-full text-white"
                       style={{ backgroundColor: getEventColor(event) }}
@@ -399,10 +406,35 @@ function UpcomingEvents({ events, onEventClick }: UpcomingEventsProps) {
                         ? `${eventTypeLabels.holiday} • ${holidayCategoryLabels[event.holidayCategory]}`
                         : eventTypeLabels[event.type]}
                     </span>
+                    {/* v0.21.7.0 — category badge (separate from type) */}
+                    {event.categoryName && (
+                      <span
+                        className="text-xs px-2 py-0.5 rounded-full text-white"
+                        style={{ backgroundColor: event.categoryColor || '#64748b' }}
+                      >
+                        {event.categoryName}
+                      </span>
+                    )}
+                    {/* v0.21.7.0 — scope label */}
+                    {event.scope && (
+                      <span className="text-xs text-slate-600">
+                        {event.scope === 'SYSTEM' && '🏛️ Toàn cơ quan'}
+                        {event.scope === 'TEAM' && '👥 Cấp tổ'}
+                        {event.scope === 'PERSONAL' && '🧑 Cá nhân'}
+                      </span>
+                    )}
                     <span className="text-xs text-slate-500 flex items-center gap-1">
                       <CalendarIcon className="w-3 h-3" />
                       {new Date(event.date).toLocaleDateString('vi-VN')}
+                      {/* v0.21.7.0 — time if not all-day */}
+                      {event.allDay === false && event.startTime && (
+                        <> • {event.startTime}{event.endTime ? `–${event.endTime}` : ''}</>
+                      )}
                     </span>
+                    {/* v0.21.7.0 — recurring badge */}
+                    {event.isRecurring && (
+                      <span className="text-xs text-slate-500" title="Sự kiện lặp lại hằng năm">🔁</span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -431,12 +463,26 @@ export default function CalendarPage() {
     new Set(['SYSTEM', 'TEAM', 'PERSONAL', 'LEGACY']),
   );
 
+  // v0.21.7.0 — top-level kind filter (Lịch vs Sự kiện) + category filter
+  const [kindFilter, setKindFilter] = useState<'all' | 'lich' | 'sukien'>('all');
+  const [categoryFilter, setCategoryFilter] = useState<Set<string>>(
+    new Set(['national', 'police', 'military', 'international', 'other']),
+  );
+
   // PR 2c — recurring delete dialog state.
+  // v0.21.7.0: enriched với category/scope/time để dialog hiển thị đủ context
   const [deleteDialog, setDeleteDialog] = useState<{
     eventId: string;
     occurrenceDate: string;
     title: string;
     isRecurring: boolean;
+    description?: string;
+    categoryName?: string;
+    categoryColor?: string;
+    scope?: EventScopeFE;
+    allDay?: boolean;
+    startTime?: string;
+    endTime?: string;
   } | null>(null);
 
   const fetchEvents = useCallback(async () => {
@@ -513,6 +559,14 @@ export default function CalendarPage() {
         occurrenceDate: dateSuffix,
         title: event.title,
         isRecurring: occurrenceDates.size > 1,
+        // v0.21.7.0 — pass full context vào dialog
+        description: event.description,
+        categoryName: event.categoryName,
+        categoryColor: event.categoryColor,
+        scope: event.scope,
+        allDay: event.allDay,
+        startTime: event.startTime,
+        endTime: event.endTime,
       });
       return;
     }
@@ -546,16 +600,12 @@ export default function CalendarPage() {
     setEvents(prev => prev.filter(e => e.id !== eventId));
   }, []);
 
-  // PR 2c — apply scope filter. Legacy events (deadline/hearing/meeting/other/holiday)
-  // have no scope field — bucket them under 'LEGACY'.
-  const filteredEvents = useMemo(() => {
-    return events.filter((e) => {
-      if (e.type === 'event' && e.scope) {
-        return scopeFilter.has(e.scope);
-      }
-      return scopeFilter.has('LEGACY');
-    });
-  }, [events, scopeFilter]);
+  // v0.21.7.0 — apply 3-level filter (kind + scope + category) via extracted
+  // pure function (testable in isolation, see utils/filterEvents.spec.ts).
+  const filteredEvents = useMemo(
+    () => filterEvents(events, kindFilter, scopeFilter, categoryFilter),
+    [events, kindFilter, scopeFilter, categoryFilter],
+  );
 
   const getEventsForDate = useCallback((date: Date) => {
     const dateStr = date.toISOString().split('T')[0];
@@ -567,6 +617,16 @@ export default function CalendarPage() {
       const next = new Set(prev);
       if (next.has(s)) next.delete(s);
       else next.add(s);
+      return next;
+    });
+  };
+
+  // v0.21.7.0 — toggle category chip
+  const toggleCategory = (slug: string) => {
+    setCategoryFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(slug)) next.delete(slug);
+      else next.add(slug);
       return next;
     });
   };
@@ -639,12 +699,42 @@ export default function CalendarPage() {
             occurrenceDate={deleteDialog.occurrenceDate}
             eventTitle={deleteDialog.title}
             isRecurring={deleteDialog.isRecurring}
+            description={deleteDialog.description}
+            categoryName={deleteDialog.categoryName}
+            categoryColor={deleteDialog.categoryColor}
+            scope={deleteDialog.scope}
+            allDay={deleteDialog.allDay}
+            startTime={deleteDialog.startTime}
+            endTime={deleteDialog.endTime}
             onDeleted={fetchEvents}
           />
         )}
 
+        {/* v0.21.7.0 — top-level kind segmented control */}
+        <div className="flex gap-1 mb-3" data-testid="kind-filter">
+          {([
+            { value: 'all', label: 'Tất cả' },
+            { value: 'lich', label: 'Lịch' },
+            { value: 'sukien', label: 'Sự kiện' },
+          ] as const).map((k) => (
+            <button
+              key={k.value}
+              onClick={() => setKindFilter(k.value)}
+              className={`px-4 py-1.5 text-sm font-medium border first:rounded-l-lg last:rounded-r-lg ${
+                kindFilter === k.value
+                  ? 'bg-[#003973] text-white border-[#003973]'
+                  : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+              }`}
+              data-testid={`kind-chip-${k.value}`}
+            >
+              {k.label}
+            </button>
+          ))}
+        </div>
+
         {/* PR 2c — scope filter chips */}
-        <div className="flex gap-2 mb-4 text-sm flex-wrap" data-testid="scope-filter-chips">
+        <div className="flex gap-2 mb-3 text-sm flex-wrap items-center" data-testid="scope-filter-chips">
+          <span className="text-xs text-slate-500 uppercase tracking-wide mr-1">Phạm vi:</span>
           {([
             { value: 'LEGACY', label: 'Deadline + Lễ', desc: 'Vụ án/Vụ việc/Đơn thư + ngày lễ' },
             { value: 'SYSTEM', label: 'Hệ thống', desc: 'Sự kiện toàn cơ quan' },
@@ -664,6 +754,33 @@ export default function CalendarPage() {
                 data-testid={`scope-chip-${s.value}`}
               />
               {s.label}
+            </label>
+          ))}
+        </div>
+
+        {/* v0.21.7.0 — category filter chips */}
+        <div className="flex gap-2 mb-4 text-sm flex-wrap items-center overflow-x-auto" data-testid="category-filter-chips">
+          <span className="text-xs text-slate-500 uppercase tracking-wide mr-1">Danh mục:</span>
+          {([
+            { value: 'national', label: 'Quốc gia', color: '#dc2626' },
+            { value: 'police', label: 'Công an', color: '#1e40af' },
+            { value: 'military', label: 'Quân đội', color: '#15803d' },
+            { value: 'international', label: 'Quốc tế', color: '#ea580c' },
+            { value: 'other', label: 'Khác', color: '#64748b' },
+          ] as const).map((c) => (
+            <label
+              key={c.value}
+              className="cursor-pointer px-3 py-1 border rounded-full text-xs flex items-center gap-1.5"
+              style={categoryFilter.has(c.value) ? { backgroundColor: c.color, color: 'white', borderColor: c.color } : { borderColor: '#cbd5e1', color: '#475569' }}
+            >
+              <input
+                type="checkbox"
+                className="sr-only"
+                checked={categoryFilter.has(c.value)}
+                onChange={() => toggleCategory(c.value)}
+                data-testid={`category-chip-${c.value}`}
+              />
+              {c.label}
             </label>
           ))}
         </div>

@@ -219,6 +219,67 @@ describe('CalendarService', () => {
         expect(ev!.title).toBe('CAND 80'); // shortTitle preferred
         expect(ev!.description).toBe('Lễ kỷ niệm toàn ngành');
       });
+
+      // v0.21.7.0 — calendar UI fixes: response includes time + recurring fields
+      // so frontend RecurringDeleteDialog + UpcomingEvents có đủ context.
+      it('includes allDay + startTime + endTime + isRecurring fields trong response (v0.21.7.0)', async () => {
+        mockPrisma.calendarEvent.findMany.mockResolvedValue([
+          {
+            id: 'ev-meeting',
+            title: 'Họp giao ban',
+            shortTitle: null,
+            description: 'Họp giao ban tuần',
+            startDate: new Date('2026-05-20T00:00:00.000Z'),
+            allDay: false,
+            startTime: '08:30',
+            endTime: '10:00',
+            recurrenceRule: 'FREQ=WEEKLY',
+            recurrenceEndDate: null,
+            overrides: [],
+            isOfficialDayOff: false,
+            scope: 'TEAM',
+            deletedAt: null,
+            category: { slug: 'other', name: 'Khác', color: '#64748b' },
+          },
+        ]);
+
+        const result = await service.getEvents(2026, 5);
+        const ev = result.data.find((e) => e.id === 'event-ev-meeting-2026-05-20');
+        expect(ev).toBeDefined();
+        expect(ev!.allDay).toBe(false);
+        expect(ev!.startTime).toBe('08:30');
+        expect(ev!.endTime).toBe('10:00');
+        expect(ev!.isRecurring).toBe(true);
+      });
+
+      it('isRecurring=false khi recurrenceRule null (v0.21.7.0)', async () => {
+        mockPrisma.calendarEvent.findMany.mockResolvedValue([
+          {
+            id: 'ev-once',
+            title: 'Sự kiện 1 lần',
+            shortTitle: null,
+            description: null,
+            startDate: new Date('2026-06-10T00:00:00.000Z'),
+            allDay: true,
+            startTime: null,
+            endTime: null,
+            recurrenceRule: null,
+            recurrenceEndDate: null,
+            overrides: [],
+            isOfficialDayOff: false,
+            scope: 'PERSONAL',
+            deletedAt: null,
+            category: { slug: 'other', name: 'Khác', color: '#64748b' },
+          },
+        ]);
+
+        const result = await service.getEvents(2026, 6);
+        const ev = result.data.find((e) => e.id === 'event-ev-once-2026-06-10');
+        expect(ev).toBeDefined();
+        expect(ev!.isRecurring).toBe(false);
+        expect(ev!.allDay).toBe(true);
+        expect(ev!.startTime).toBeUndefined();
+      });
     });
   });
 });
