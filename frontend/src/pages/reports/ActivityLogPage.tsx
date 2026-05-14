@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useCallback } from "react";
 import { api } from "@/lib/api";
+import { getRoleLabel } from "@/shared/enums/role-labels";
+import { getAuditActionLabel } from "@/shared/enums/audit-action-labels";
 import {
   Search,
   Download,
@@ -58,7 +60,7 @@ interface FilterData {
 }
 
 // Map AuditLog from API to local LogEntry shape
-function auditLogToEntry(log: any): LogEntry {
+export function auditLogToEntry(log: any): LogEntry {
   const actionMap: Record<string, ActionType> = {
     CASE_CREATED: "create",
     CASE_UPDATED: "update",
@@ -93,13 +95,13 @@ function auditLogToEntry(log: any): LogEntry {
     timestamp: log.createdAt ?? "",
     user: userName,
     userId: log.userId ?? "",
-    userRole: log.user?.role?.name ?? "",
+    userRole: getRoleLabel(log.user?.role?.name),
     actionType: actionMap[action] ?? "view",
-    actionLabel: action.replace(/_/g, " "),
+    actionLabel: getAuditActionLabel(action),
     objectType: objectTypeMap[subject] ?? "case",
     objectId: log.subjectId ?? "",
     objectLabel: `${subject} ${log.subjectId?.slice(0, 8) ?? ""}`,
-    description: action.replace(/_/g, " "),
+    description: getAuditActionLabel(action),
     ipAddress: log.ipAddress ?? "",
     details: log.metadata ? { metadata: log.metadata } : undefined,
   };
