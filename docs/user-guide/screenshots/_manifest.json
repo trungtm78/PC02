@@ -1,0 +1,390 @@
+[
+  {
+    "id": "login",
+    "path": "/login",
+    "label": "Đăng nhập",
+    "audience": "user",
+    "module": "auth",
+    "skipAuth": true,
+    "ok": true,
+    "file": "C:\\PC02\\pc02-case-management\\docs\\user-guide\\screenshots\\login.png"
+  },
+  {
+    "id": "dashboard",
+    "path": "/dashboard",
+    "label": "Tổng quan (Dashboard)",
+    "audience": "user",
+    "module": "core",
+    "ok": true,
+    "file": "C:\\PC02\\pc02-case-management\\docs\\user-guide\\screenshots\\dashboard.png"
+  },
+  {
+    "id": "kpi",
+    "path": "/kpi",
+    "label": "Chỉ tiêu KPI",
+    "audience": "user",
+    "module": "core",
+    "ok": true,
+    "file": "C:\\PC02\\pc02-case-management\\docs\\user-guide\\screenshots\\kpi.png"
+  },
+  {
+    "id": "calendar",
+    "path": "/calendar",
+    "label": "Lịch công tác",
+    "audience": "user",
+    "module": "core",
+    "ok": true,
+    "file": "C:\\PC02\\pc02-case-management\\docs\\user-guide\\screenshots\\calendar.png"
+  },
+  {
+    "id": "cases-list",
+    "path": "/cases",
+    "label": "Danh sách vụ án",
+    "audience": "user",
+    "module": "cases",
+    "ok": true,
+    "file": "C:\\PC02\\pc02-case-management\\docs\\user-guide\\screenshots\\cases-list.png"
+  },
+  {
+    "id": "cases-new",
+    "path": "/add-new-record",
+    "label": "Thêm mới hồ sơ vụ án",
+    "audience": "user",
+    "module": "cases",
+    "ok": true,
+    "file": "C:\\PC02\\pc02-case-management\\docs\\user-guide\\screenshots\\cases-new.png"
+  },
+  {
+    "id": "cases-comprehensive",
+    "path": "/comprehensive-list",
+    "label": "Danh sách tổng hợp",
+    "audience": "user",
+    "module": "cases",
+    "ok": true,
+    "file": "C:\\PC02\\pc02-case-management\\docs\\user-guide\\screenshots\\cases-comprehensive.png"
+  },
+  {
+    "id": "cases-initial",
+    "path": "/initial-cases",
+    "label": "Hồ sơ tiếp nhận",
+    "audience": "user",
+    "module": "cases",
+    "ok": true,
+    "file": "C:\\PC02\\pc02-case-management\\docs\\user-guide\\screenshots\\cases-initial.png"
+  },
+  {
+    "id": "incidents-list",
+    "path": "/vu-viec",
+    "label": "Danh sách vụ việc",
+    "audience": "user",
+    "module": "incidents",
+    "ok": true,
+    "file": "C:\\PC02\\pc02-case-management\\docs\\user-guide\\screenshots\\incidents-list.png"
+  },
+  {
+    "id": "incidents-new",
+    "path": "/vu-viec/new",
+    "label": "Thêm vụ việc mới",
+    "audience": "user",
+    "module": "incidents",
+    "ok": true,
+    "file": "C:\\PC02\\pc02-case-management\\docs\\user-guide\\screenshots\\incidents-new.png"
+  },
+  {
+    "id": "petitions-list",
+    "path": "/petitions",
+    "label": "Danh sách đơn thư",
+    "audience": "user",
+    "module": "petitions",
+    "ok": true,
+    "file": "C:\\PC02\\pc02-case-management\\docs\\user-guide\\screenshots\\petitions-list.png"
+  },
+  {
+    "id": "petitions-new",
+    "path": "/petitions/new",
+    "label": "Tiếp nhận đơn mới",
+    "audience": "user",
+    "module": "petitions",
+    "ok": true,
+    "file": "C:\\PC02\\pc02-case-management\\docs\\user-guide\\screenshots\\petitions-new.png"
+  },
+  {
+    "id": "subjects-objects",
+    "path": "/objects",
+    "label": "Danh sách đối tượng",
+    "audience": "user",
+    "module": "subjects",
+    "ok": true,
+    "file": "C:\\PC02\\pc02-case-management\\docs\\user-guide\\screenshots\\subjects-objects.png"
+  },
+  {
+    "id": "subjects-suspects",
+    "path": "/people/suspects",
+    "label": "Nghi phạm",
+    "audience": "user",
+    "module": "subjects",
+    "ok": true,
+    "file": "C:\\PC02\\pc02-case-management\\docs\\user-guide\\screenshots\\subjects-suspects.png"
+  },
+  {
+    "id": "subjects-victims",
+    "path": "/people/victims",
+    "label": "Bị hại",
+    "audience": "user",
+    "module": "subjects",
+    "ok": true,
+    "file": "C:\\PC02\\pc02-case-management\\docs\\user-guide\\screenshots\\subjects-victims.png"
+  },
+  {
+    "id": "subjects-witnesses",
+    "path": "/people/witnesses",
+    "label": "Nhân chứng",
+    "audience": "user",
+    "module": "subjects",
+    "ok": true,
+    "file": "C:\\PC02\\pc02-case-management\\docs\\user-guide\\screenshots\\subjects-witnesses.png"
+  },
+  {
+    "id": "lawyers",
+    "path": "/lawyers",
+    "label": "Luật sư",
+    "audience": "user",
+    "module": "lawyers",
+    "ok": true,
+    "file": "C:\\PC02\\pc02-case-management\\docs\\user-guide\\screenshots\\lawyers.png"
+  },
+  {
+    "id": "workflow-transfer",
+    "path": "/transfer-return",
+    "label": "Luân chuyển / Trả lại",
+    "audience": "user",
+    "module": "workflow",
+    "ok": true,
+    "file": "C:\\PC02\\pc02-case-management\\docs\\user-guide\\screenshots\\workflow-transfer.png"
+  },
+  {
+    "id": "workflow-guidance",
+    "path": "/guidance",
+    "label": "Hướng dẫn nghiệp vụ",
+    "audience": "user",
+    "module": "workflow",
+    "ok": true,
+    "file": "C:\\PC02\\pc02-case-management\\docs\\user-guide\\screenshots\\workflow-guidance.png"
+  },
+  {
+    "id": "workflow-exchange",
+    "path": "/case-exchange",
+    "label": "Trao đổi vụ án",
+    "audience": "user",
+    "module": "workflow",
+    "ok": true,
+    "file": "C:\\PC02\\pc02-case-management\\docs\\user-guide\\screenshots\\workflow-exchange.png"
+  },
+  {
+    "id": "workflow-delegation",
+    "path": "/investigation-delegation",
+    "label": "Ủy quyền điều tra",
+    "audience": "user",
+    "module": "workflow",
+    "ok": true,
+    "file": "C:\\PC02\\pc02-case-management\\docs\\user-guide\\screenshots\\workflow-delegation.png"
+  },
+  {
+    "id": "class-ward-cases",
+    "path": "/ward/cases",
+    "label": "Vụ án theo phường/xã",
+    "audience": "user",
+    "module": "classification",
+    "ok": true,
+    "file": "C:\\PC02\\pc02-case-management\\docs\\user-guide\\screenshots\\class-ward-cases.png"
+  },
+  {
+    "id": "class-ward-incidents",
+    "path": "/ward/incidents",
+    "label": "Vụ việc theo phường/xã",
+    "audience": "user",
+    "module": "classification",
+    "ok": true,
+    "file": "C:\\PC02\\pc02-case-management\\docs\\user-guide\\screenshots\\class-ward-incidents.png"
+  },
+  {
+    "id": "class-prosecutor",
+    "path": "/prosecutor-proposal",
+    "label": "Đề xuất VKS",
+    "audience": "user",
+    "module": "classification",
+    "ok": true,
+    "file": "C:\\PC02\\pc02-case-management\\docs\\user-guide\\screenshots\\class-prosecutor.png"
+  },
+  {
+    "id": "class-duplicates",
+    "path": "/classification/duplicates",
+    "label": "Đơn trùng lặp",
+    "audience": "user",
+    "module": "classification",
+    "ok": true,
+    "file": "C:\\PC02\\pc02-case-management\\docs\\user-guide\\screenshots\\class-duplicates.png"
+  },
+  {
+    "id": "class-others",
+    "path": "/classification/others",
+    "label": "Phân loại khác",
+    "audience": "user",
+    "module": "classification",
+    "ok": true,
+    "file": "C:\\PC02\\pc02-case-management\\docs\\user-guide\\screenshots\\class-others.png"
+  },
+  {
+    "id": "reports-export",
+    "path": "/export-reports",
+    "label": "Xuất hồ sơ đơn thư",
+    "audience": "user",
+    "module": "reports",
+    "ok": true,
+    "file": "C:\\PC02\\pc02-case-management\\docs\\user-guide\\screenshots\\reports-export.png"
+  },
+  {
+    "id": "reports-monthly",
+    "path": "/reports/monthly",
+    "label": "Báo cáo tháng",
+    "audience": "user",
+    "module": "reports",
+    "ok": true,
+    "file": "C:\\PC02\\pc02-case-management\\docs\\user-guide\\screenshots\\reports-monthly.png"
+  },
+  {
+    "id": "reports-quarterly",
+    "path": "/reports/quarterly",
+    "label": "Báo cáo quý",
+    "audience": "user",
+    "module": "reports",
+    "ok": true,
+    "file": "C:\\PC02\\pc02-case-management\\docs\\user-guide\\screenshots\\reports-quarterly.png"
+  },
+  {
+    "id": "reports-district",
+    "path": "/statistics/district",
+    "label": "Thống kê phường/xã",
+    "audience": "user",
+    "module": "reports",
+    "ok": true,
+    "file": "C:\\PC02\\pc02-case-management\\docs\\user-guide\\screenshots\\reports-district.png"
+  },
+  {
+    "id": "reports-overdue",
+    "path": "/settings/overdue-records",
+    "label": "Hồ sơ quá hạn",
+    "audience": "user",
+    "module": "reports",
+    "ok": true,
+    "file": "C:\\PC02\\pc02-case-management\\docs\\user-guide\\screenshots\\reports-overdue.png"
+  },
+  {
+    "id": "reports-activity",
+    "path": "/activity-log",
+    "label": "Nhật ký hoạt động",
+    "audience": "user",
+    "module": "reports",
+    "ok": true,
+    "file": "C:\\PC02\\pc02-case-management\\docs\\user-guide\\screenshots\\reports-activity.png"
+  },
+  {
+    "id": "reports-tdac",
+    "path": "/reports/tdac",
+    "label": "Báo cáo TĐC",
+    "audience": "user",
+    "module": "reports",
+    "ok": true,
+    "file": "C:\\PC02\\pc02-case-management\\docs\\user-guide\\screenshots\\reports-tdac.png"
+  },
+  {
+    "id": "reports-stat48",
+    "path": "/reports/stat48",
+    "label": "Thống kê 48 trường",
+    "audience": "user",
+    "module": "reports",
+    "ok": true,
+    "file": "C:\\PC02\\pc02-case-management\\docs\\user-guide\\screenshots\\reports-stat48.png"
+  },
+  {
+    "id": "reports-phu-luc",
+    "path": "/reports/phu-luc-1-6",
+    "label": "Phụ lục 1-6 BCA",
+    "audience": "user",
+    "module": "reports",
+    "ok": true,
+    "file": "C:\\PC02\\pc02-case-management\\docs\\user-guide\\screenshots\\reports-phu-luc.png"
+  },
+  {
+    "id": "documents",
+    "path": "/documents",
+    "label": "Tài liệu hồ sơ",
+    "audience": "user",
+    "module": "system",
+    "ok": true,
+    "file": "C:\\PC02\\pc02-case-management\\docs\\user-guide\\screenshots\\documents.png"
+  },
+  {
+    "id": "directory",
+    "path": "/danh-muc",
+    "label": "Danh mục tra cứu",
+    "audience": "user",
+    "module": "system",
+    "ok": true,
+    "file": "C:\\PC02\\pc02-case-management\\docs\\user-guide\\screenshots\\directory.png"
+  },
+  {
+    "id": "master-class",
+    "path": "/phan-loai",
+    "label": "Lớp phân loại",
+    "audience": "user",
+    "module": "system",
+    "ok": true,
+    "file": "C:\\PC02\\pc02-case-management\\docs\\user-guide\\screenshots\\master-class.png"
+  },
+  {
+    "id": "settings",
+    "path": "/settings",
+    "label": "Cấu hình hệ thống",
+    "audience": "user",
+    "module": "system",
+    "ok": true,
+    "file": "C:\\PC02\\pc02-case-management\\docs\\user-guide\\screenshots\\settings.png"
+  },
+  {
+    "id": "admin-users",
+    "path": "/nguoi-dung",
+    "label": "Quản lý người dùng",
+    "audience": "admin",
+    "module": "admin",
+    "ok": true,
+    "file": "C:\\PC02\\pc02-case-management\\docs\\user-guide\\screenshots\\admin-users.png"
+  },
+  {
+    "id": "admin-teams",
+    "path": "/to-nhom",
+    "label": "Tổ/Đội công tác",
+    "audience": "admin",
+    "module": "admin",
+    "ok": true,
+    "file": "C:\\PC02\\pc02-case-management\\docs\\user-guide\\screenshots\\admin-teams.png"
+  },
+  {
+    "id": "admin-deadline",
+    "path": "/admin/deadline-rules",
+    "label": "Quy tắc thời hạn",
+    "audience": "admin",
+    "module": "admin",
+    "ok": true,
+    "file": "C:\\PC02\\pc02-case-management\\docs\\user-guide\\screenshots\\admin-deadline.png"
+  },
+  {
+    "id": "admin-settings",
+    "path": "/admin/settings",
+    "label": "Cấu hình admin",
+    "audience": "admin",
+    "module": "admin",
+    "ok": true,
+    "file": "C:\\PC02\\pc02-case-management\\docs\\user-guide\\screenshots\\admin-settings.png"
+  }
+]
