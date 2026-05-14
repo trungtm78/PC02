@@ -77,8 +77,16 @@ jobs:
         run: |
           # Include @prisma/engines — required for `prisma migrate deploy` on VM
           # Include prisma.config.ts + tsconfig — required for ts-node seed scripts
+          # Include backend/src — `npm run db:seed` (ts-node prisma/seed.ts) imports
+          #   feature-registry from src/feature-flags/, which transitively pulls in
+          #   ~30+ feature.manifest.ts files across src/. Excludes *.spec.ts to
+          #   keep tarball lean (~2.4MB src → ~1.5MB without specs).
           tar -czf /tmp/pc02-${{ github.sha }}.tar.gz \
             --exclude='backend/node_modules/.cache' \
+            --exclude='backend/src/**/*.spec.ts' \
+            --exclude='backend/src/**/__tests__' \
+            --exclude='backend/src/test-fixtures' \
+            --exclude='backend/src/test-utils' \
             backend/dist \
             backend/node_modules \
             backend/prisma \
@@ -89,6 +97,7 @@ jobs:
             backend/tsconfig.build.json \
             backend/nest-cli.json \
             backend/scripts \
+            backend/src \
             backend/assets \
             frontend/dist \
             scripts/deploy \

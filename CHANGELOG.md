@@ -2,6 +2,32 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.21.5.0] - 2026-05-14
+
+### Fixed — Deploy bundle thiếu backend/src → seed script fail trên prod
+
+v0.21.4.0 ship `seed-permissions.ts` vào prisma/ (chỗ deploy bundle có ship). Em tưởng đã đủ. Nhưng khi chạy `npm run db:seed` trên VM thì lỗi khác xuất hiện ở step kế tiếp:
+
+```
+prisma/seed-feature-flags.ts(18): Cannot find module '../src/feature-flags/feature-registry'
+```
+
+**Root cause sâu hơn**: KHÔNG CHỈ `seed-permissions.ts` mà nhiều file trong `prisma/` import từ `backend/src/`. Cụ thể `seed-feature-flags.ts` import `feature-registry.ts` → transitive imports tới ~30+ `feature.manifest.ts` files trên toàn `backend/src/`. Bundle ship qua deploy.yml KHÔNG ship `backend/src/` → ts-node fail.
+
+**Fix**: Thêm `backend/src` vào tarball trong `.github/workflows/deploy.yml`. Exclude tests + fixtures để bundle gọn (raw `src/` 2.4MB → sau exclude ~1.5MB → compressed ~175KB).
+
+Excludes:
+- `backend/src/**/*.spec.ts` — unit tests
+- `backend/src/**/__tests__` — integration test dirs
+- `backend/src/test-fixtures` — test data
+- `backend/src/test-utils` — test helpers
+
+Sau v0.21.5.0 deploy, `npm run db:seed` trên VM sẽ chạy success. Permission grant đã đẩy lên DB qua SQL workaround tại 2026-05-14 06:50 UTC, nên seed re-run chỉ idempotent confirm — không thay đổi data thêm.
+
+**Lesson learned thứ 2**: deploy bundle phải ship cả `backend/src` raw TS để bất kỳ `ts-node` runtime script nào (seed, migration helpers, etc.) đều resolve được imports. Pure-dist tarball không đủ.
+
+---
+
 ## [0.21.4.0] - 2026-05-14
 
 ### Fixed — Seed import broken on prod (hot-hot-fix v0.21.3.0)
