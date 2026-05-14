@@ -13,6 +13,11 @@
 export { PROPOSAL_STATUS_LABEL as proposalStatus } from '@/shared/enums/proposal-status';
 export { CONCLUSION_STATUS_LABEL as conclusionStatus } from '@/shared/enums/conclusion-status';
 export { REPORT_TDC_STATUS_LABEL as reportTdcStatus } from '@/shared/enums/report-tdc-status';
+export { ROLE_LABEL as roles, getRoleLabel } from '@/shared/enums/role-labels';
+export {
+  AUDIT_ACTION_LABEL as auditActions,
+  getAuditActionLabel,
+} from '@/shared/enums/audit-action-labels';
 
 // ── Error messages ────────────────────────────────────────────────────────────
 

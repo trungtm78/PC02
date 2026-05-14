@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.21.1.0] - 2026-05-14
+
+### Fixed — UI hiển thị enum constants thay vì tiếng Việt
+
+Cán bộ điều tra mở màn hình "Chỉnh sửa người dùng" tại phần "Gán vai trò" đang thấy raw constants `ADMIN`, `INVESTIGATOR`, `TRUONG_DON_VI` thay vì label tiếng Việt. Tương tự, Activity Log hiển thị action như "CASE CREATED", "USER LOGIN" — không có ý nghĩa với người dùng cuối. Bản vá rà soát toàn bộ hệ thống và chuẩn hóa hiển thị end-user sang tiếng Việt.
+
+**Cán bộ điều tra giờ thấy**
+- Vai trò: "Quản trị viên", "Điều tra viên", "Trưởng đơn vị", "Hệ thống" thay vì `ADMIN/INVESTIGATOR/TRUONG_DON_VI/SYSTEM` ở mọi nơi (badge bảng users, dropdown gán vai trò trong Edit user, ma trận phân quyền, dialog xác nhận lưu, file CSV xuất ra).
+- Hành động trong Nhật ký hoạt động: "Tạo vụ án" / "Tiếp nhận đơn thư" / "Đăng nhập" / "Đổi mật khẩu" / "Chuyển đơn thư thành vụ án" thay vì `CASE_CREATED / PETITION_CREATED / USER_LOGIN / PASSWORD_CHANGED / PETITION_CONVERTED_TO_CASE`. Áp dụng cả ở danh sách log lẫn drawer chi tiết.
+
+**Cài đặt kỹ thuật**
+- Hai map mới `ROLE_LABEL` (4 vai trò) và `AUDIT_ACTION_LABEL` (~60 hành động backend) trong `frontend/src/shared/enums/`, kèm helper `getRoleLabel(name)` / `getAuditActionLabel(action)` có graceful fallback — backend thêm enum mới sẽ không crash UI mà hiển thị raw text như cũ cho tới khi label được bổ sung.
+- Re-export từ `locales/vi.ts` theo cùng pattern các status label hiện có.
+- 16 test mới (8 role + 8 audit-action + 8 cho mapper `auditLogToEntry` của ActivityLogPage). Full suite vẫn green: 453/453 frontend + 1211 backend.
+
+### Changed
+- `ActivityLogPage.tsx`: export `auditLogToEntry` mapper và centralize translation tại điểm map API → row → mọi display site (list, drawer, CSV) cùng dùng output đã dịch.
+- `UserManagementPage.tsx`: 5 site dùng helper `getRoleLabel(role.name)` thay vì raw `role.name`.
+
+### Notes
+- `SettingsPage.tsx` không đụng — roles array là hardcoded tiếng Việt từ trước, audit ban đầu đánh giá nhầm là raw display.
+- Không có thay đổi backend, không migration. Pure frontend i18n cleanup.
+
+---
+
 ## [0.21.0.0] - 2026-05-13
 
 ### Added — Auth Hardening v1: Force first-login password change

@@ -21,6 +21,7 @@ import { api } from '@/lib/api';
 import { downloadCsv } from '@/lib/csv';
 import { usePermission } from '@/hooks/usePermission';
 import { TempPasswordHandoverModal } from '@/components/TempPasswordHandoverModal';
+import { getRoleLabel } from '@/shared/enums/role-labels';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -398,7 +399,7 @@ export default function UserManagementPage() {
                 const headers = ['STT', 'Username', 'Họ tên', 'Email', 'SĐT', 'Vai trò', 'Phòng ban', 'Trạng thái'];
                 const rows = users.map((u, i) => [
                   i + 1, u.username, u.fullName ?? `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim(),
-                  u.email, (u as any).phone ?? '', u.role?.name ?? '', u.department?.name ?? '',
+                  u.email, (u as any).phone ?? '', getRoleLabel(u.role?.name), u.department?.name ?? '',
                   u.isActive ? 'Hoạt động' : 'Tạm khóa',
                 ]);
                 downloadCsv(rows, headers, `NguoiDung_${new Date().toISOString().slice(0, 10)}.csv`);
@@ -587,7 +588,7 @@ export default function UserManagementPage() {
                         {user.role ? (
                           <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-medium">
                             <Shield className="w-3 h-3" />
-                            {user.role.name}
+                            {getRoleLabel(user.role.name)}
                           </span>
                         ) : (
                           <span className="text-xs text-slate-400">—</span>
@@ -657,7 +658,7 @@ export default function UserManagementPage() {
                       }`}
                     >
                       <div className="flex items-start justify-between mb-1">
-                        <span className="font-semibold text-slate-800 text-sm">{role.name}</span>
+                        <span className="font-semibold text-slate-800 text-sm">{getRoleLabel(role.name)}</span>
                         <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded">
                           {role._count?.users ?? 0} người
                         </span>
@@ -676,7 +677,7 @@ export default function UserManagementPage() {
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="font-semibold text-slate-800 flex items-center gap-2">
                       <Lock className="w-4 h-4 text-[#003973]" />
-                      Ma trận phân quyền: {selectedRole.name}
+                      Ma trận phân quyền: {getRoleLabel(selectedRole.name)}
                     </h3>
                     <button
                       onClick={() => setShowSaveConfirm(true)}
@@ -990,7 +991,7 @@ export default function UserManagementPage() {
               </h3>
               <p className="text-slate-600 text-center mb-6">
                 Bạn có chắc chắn muốn lưu thay đổi phân quyền cho vai trò{' '}
-                <strong>{selectedRole?.name}</strong>?
+                <strong>{getRoleLabel(selectedRole?.name)}</strong>?
               </p>
               <div className="flex gap-3">
                 <button
