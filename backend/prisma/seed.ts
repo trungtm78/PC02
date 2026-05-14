@@ -13,6 +13,7 @@ import { seedDirectoryTypes } from './seed-directory-types';
 import { seedMasterClasses } from './seed-master-classes';
 import { seedDeadlineRules } from './seed-deadline-rules';
 import { seedEventCategories } from './seed-event-categories';
+import { SEED_PERMISSIONS } from '../src/seed/seed-permissions';
 
 const adapter = new PrismaPg({
   connectionString: process.env['DATABASE_URL'] ?? 'postgresql://pc02_admin:pc02_password@localhost:5432/pc02_db?schema=public',
@@ -42,74 +43,8 @@ async function main() {
   console.log('Roles created:', adminRole.name, officerRole.name);
 
   // ── Permissions ────────────────────────────────────────────────────────────
-  const permissions = [
-    { action: 'read', subject: 'User' },
-    { action: 'write', subject: 'User' },
-    { action: 'delete', subject: 'User' },
-    { action: 'read', subject: 'AuditLog' },
-    { action: 'read', subject: 'Case' },
-    { action: 'write', subject: 'Case' },
-    { action: 'edit', subject: 'Case' },
-    { action: 'delete', subject: 'Case' },
-    // Directory permissions
-    { action: 'read', subject: 'Directory' },
-    { action: 'write', subject: 'Directory' },
-    { action: 'delete', subject: 'Directory' },
-    // Role/permission management
-    { action: 'read', subject: 'Role' },
-    { action: 'write', subject: 'Role' },
-    { action: 'delete', subject: 'Role' },
-    // Document permissions (TASK-2026-022601)
-    { action: 'read', subject: 'Document' },
-    { action: 'write', subject: 'Document' },
-    { action: 'edit', subject: 'Document' },
-    { action: 'delete', subject: 'Document' },
-    // Subject permissions (Bị can / Bị hại / Nhân chứng)
-    { action: 'read', subject: 'Subject' },
-    { action: 'write', subject: 'Subject' },
-    { action: 'edit', subject: 'Subject' },
-    { action: 'delete', subject: 'Subject' },
-    // Petition permissions (Đơn thư)
-    { action: 'read', subject: 'Petition' },
-    { action: 'write', subject: 'Petition' },
-    { action: 'edit', subject: 'Petition' },
-    { action: 'delete', subject: 'Petition' },
-    // Incident permissions (Vụ việc)
-    { action: 'read', subject: 'Incident' },
-    { action: 'write', subject: 'Incident' },
-    { action: 'edit', subject: 'Incident' },
-    { action: 'delete', subject: 'Incident' },
-    // Lawyer permissions (Luật sư)
-    { action: 'read', subject: 'Lawyer' },
-    { action: 'write', subject: 'Lawyer' },
-    { action: 'edit', subject: 'Lawyer' },
-    { action: 'delete', subject: 'Lawyer' },
-    // Team permissions — needed for dispatcher to read teams when assigning
-    { action: 'read', subject: 'Team' },
-    { action: 'write', subject: 'Team' },
-    { action: 'edit', subject: 'Team' },
-    { action: 'delete', subject: 'Team' },
-    // Report permissions — TĐC báo cáo
-    { action: 'read', subject: 'Report', description: 'Xem báo cáo TĐC' },
-    { action: 'write', subject: 'Report', description: 'Tạo và điều chỉnh báo cáo TĐC' },
-    { action: 'approve', subject: 'Report', description: 'Phê duyệt và khóa báo cáo TĐC' },
-    // DeadlineRuleVersion — versioning workflow for legal deadlines
-    { action: 'read', subject: 'DeadlineRuleVersion', description: 'Xem quy tắc thời hạn xử lý' },
-    { action: 'write', subject: 'DeadlineRuleVersion', description: 'Đề xuất sửa quy tắc thời hạn (maker)' },
-    { action: 'approve', subject: 'DeadlineRuleVersion', description: 'Duyệt và kích hoạt quy tắc thời hạn (checker)' },
-    // Withdraw + request-changes — symmetric maker/checker recall workflow.
-    // If new roles ever propose deadline rules, they MUST also get withdraw_own.
-    { action: 'withdraw_own', subject: 'DeadlineRuleVersion', description: 'Thu hồi đề xuất quy tắc của chính mình (maker)' },
-    { action: 'request_changes', subject: 'DeadlineRuleVersion', description: 'Yêu cầu sửa đổi đề xuất quy tắc (checker)' },
-    // Calendar permissions (PR 1 v0.16.0.0) — replaces 'Case' gate on /calendar/events.
-    // PR 2 adds POST/PATCH/DELETE on /calendar-events with these subjects.
-    { action: 'read', subject: 'Calendar', description: 'Xem lịch + sự kiện calendar' },
-    { action: 'write', subject: 'Calendar', description: 'Tạo sự kiện calendar (PR 2)' },
-    { action: 'edit', subject: 'Calendar', description: 'Sửa sự kiện calendar (PR 2)' },
-    { action: 'delete', subject: 'Calendar', description: 'Xóa sự kiện calendar (PR 2)' },
-  ];
-
-  for (const perm of permissions) {
+  // Source of truth: src/seed/seed-permissions.ts (tested via seed-permissions.spec.ts)
+  for (const perm of SEED_PERMISSIONS) {
     await prisma.permission.upsert({
       where: { action_subject: { action: perm.action, subject: perm.subject } },
       update: {},

@@ -2,6 +2,32 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.21.3.0] - 2026-05-14
+
+### Fixed — Permission seed thiếu `Setting` → admin pages 403 (ISSUE-001 từ QA)
+
+QA toàn hệ thống (`/qa-only` 2026-05-14) phát hiện 2 admin endpoints trả 403 cho super-admin:
+1. `GET /api/v1/settings` → trang `/admin/settings` không tải được cấu hình hệ thống
+2. `GET /api/v1/calendar/events` → trang `/calendar` không tải được sự kiện
+
+**Root cause #1 (ISSUE-001)**: `SettingsController` require permission `Setting:read`/`Setting:write` nhưng `prisma/seed.ts` chưa bao giờ khai báo subject `Setting` trong mảng permissions. Kết quả: row permission không tồn tại trong DB → admin role grant qua `findMany()` không có → MỌI user (kể cả super-admin) đều 403.
+
+**Root cause #2 (ISSUE-002)**: `Calendar:read` đã có trong seed (PR 1 v0.16.0.0). Bug là prod DB chưa được re-seed sau khi PR 1 ship → admin role chưa được assign Calendar:read rolePermission. Fix code không cần — chỉ cần re-run seed trên prod.
+
+**Fixes**
+- Add `Setting:read` + `Setting:write` permissions vào seed registry
+- Refactor: extract permissions array từ `prisma/seed.ts` ra `src/seed/seed-permissions.ts` để testable mà không cần DB connection
+- 8 unit tests mới (`seed-permissions.spec.ts`) khẳng định mọi controller subject (Setting, Calendar, Case, User, Petition, Incident, Subject, Lawyer) đều có permission tương ứng + không duplicate
+- Test pattern này catch class lỗi giống ISSUE-001 trước khi merge
+
+**Operational note**: Sau khi v0.21.3.0 deploy lên prod, **PHẢI re-run seed**:
+```bash
+ssh pc02vm 'cd /home/pc02/current/backend && npm run db:seed'
+```
+Seed idempotent — chỉ thêm permissions mới + grant cho ADMIN, không xóa data.
+
+---
+
 ## [0.21.2.0] - 2026-05-14
 
 ### Fixed — Hot-fix v0.21.1.0: roles thực tế của hệ thống + 2 dropdown miss
