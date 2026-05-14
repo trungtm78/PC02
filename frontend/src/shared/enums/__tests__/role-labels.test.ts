@@ -17,6 +17,14 @@ describe('ROLE_LABEL', () => {
   it('maps SYSTEM to "Hệ thống"', () => {
     expect(ROLE_LABEL.SYSTEM).toBe('Hệ thống');
   });
+
+  it('maps OFFICER to "Cán bộ điều tra" (real seed role)', () => {
+    expect(ROLE_LABEL.OFFICER).toBe('Cán bộ điều tra');
+  });
+
+  it('maps DEADLINE_APPROVER to "Người phê duyệt thời hạn" (real seed role)', () => {
+    expect(ROLE_LABEL.DEADLINE_APPROVER).toBe('Người phê duyệt thời hạn');
+  });
 });
 
 describe('getRoleLabel', () => {

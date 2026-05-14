@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.21.2.0] - 2026-05-14
+
+### Fixed — Hot-fix v0.21.1.0: roles thực tế của hệ thống + 2 dropdown miss
+
+v0.21.1.0 add Vietnamese labels cho `ADMIN/SYSTEM/INVESTIGATOR/TRUONG_DON_VI` theo `role.constants.ts`. Nhưng production DB seed (`backend/prisma/seed.ts`) thực sự chỉ tạo 3 roles: `ADMIN`, `OFFICER`, `DEADLINE_APPROVER`. Frontend constant file bị stale → labels không match → user vẫn thấy raw constants `OFFICER`, `DEADLINE_APPROVER` trong dropdown "Gán vai trò".
+
+Đồng thời v0.21.1.0 miss 2 dropdown trong UserManagementPage.tsx — chỉ fix 5/7 site:
+- Line 468 (filter "Tất cả vai trò" trên top toolbar)
+- Line 872 (modal Add/Edit User → "Gán vai trò" select)
+
+**Fixes**
+- `ROLE_LABEL` thêm: `OFFICER → Cán bộ điều tra`, `DEADLINE_APPROVER → Người phê duyệt thời hạn`. Giữ legacy keys (SYSTEM/INVESTIGATOR/TRUONG_DON_VI) làm fallback cho env có seed khác.
+- 2 site miss tại UserManagementPage.tsx (filter dropdown + Edit user modal) giờ wrap `getRoleLabel()`.
+- 2 unit tests mới khẳng định OFFICER + DEADLINE_APPROVER label đúng.
+
+Tổng cộng UserManagementPage giờ cover 7/7 role display sites.
+
+---
+
 ## [0.21.1.0] - 2026-05-14
 
 ### Fixed — UI hiển thị enum constants thay vì tiếng Việt
