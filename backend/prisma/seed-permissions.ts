@@ -9,7 +9,13 @@
  * Reference: ISSUE-001 in `.gstack/qa-reports/qa-report-pc02-prod-2026-05-14.md`
  * — `Setting` was missing here, breaking /admin/settings for every role.
  *
- * Consumed by `prisma/seed.ts`. Tested by `seed-permissions.spec.ts`.
+ * Consumed by `prisma/seed.ts`. Tested by `src/seed/seed-permissions.spec.ts`.
+ *
+ * Located in `prisma/` (not `src/`) because the deploy bundle (deploy.yml)
+ * ships `backend/prisma/` but NOT `backend/src/` raw TypeScript. Seed runs
+ * via `ts-node prisma/seed.ts` on the VM and needs all imports inside the
+ * prisma directory to resolve. v0.21.3.0 broke this by importing from
+ * `../src/seed/` — fixed in v0.21.4.0 by colocating here.
  */
 
 export interface SeedPermission {

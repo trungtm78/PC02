@@ -13,7 +13,7 @@ import { seedDirectoryTypes } from './seed-directory-types';
 import { seedMasterClasses } from './seed-master-classes';
 import { seedDeadlineRules } from './seed-deadline-rules';
 import { seedEventCategories } from './seed-event-categories';
-import { SEED_PERMISSIONS } from '../src/seed/seed-permissions';
+import { SEED_PERMISSIONS } from './seed-permissions';
 
 const adapter = new PrismaPg({
   connectionString: process.env['DATABASE_URL'] ?? 'postgresql://pc02_admin:pc02_password@localhost:5432/pc02_db?schema=public',

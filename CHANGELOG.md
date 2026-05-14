@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.21.4.0] - 2026-05-14
+
+### Fixed — Seed import broken on prod (hot-hot-fix v0.21.3.0)
+
+v0.21.3.0 ship Setting permission registry vào `src/seed/seed-permissions.ts` rồi `prisma/seed.ts` import từ `../src/seed/seed-permissions`. Code build + tests local pass, deploy lên VM thành công, NHƯNG `npm run db:seed` trên prod fail vì:
+
+```
+TSError: Cannot find module '../src/seed/seed-permissions'
+```
+
+**Root cause**: `.github/workflows/deploy.yml` tarball CHỈ ship `backend/dist/` + `backend/prisma/`, KHÔNG ship `backend/src/` (raw TypeScript). Seed runs via `ts-node prisma/seed.ts` cần resolve import tại runtime → `src/seed/` không tồn tại trên VM → throw.
+
+**Fix**: Colocate `seed-permissions.ts` vào `prisma/` cùng chỗ với `seed.ts`. Mọi import của seed runtime từ giờ phải nằm trong `prisma/` directory. Test file (`src/seed/seed-permissions.spec.ts`) update import path → `../../prisma/seed-permissions`.
+
+Sau v0.21.4.0 deploy, em sẽ re-run seed:
+```bash
+ssh pc02vm 'cd /home/pc02/current/backend && npm run db:seed'
+```
+
+**Lesson learned**: thêm vào memory để tránh tương lai — seed runtime imports phải nằm trong `prisma/`.
+
+---
+
 ## [0.21.3.0] - 2026-05-14
 
 ### Fixed — Permission seed thiếu `Setting` → admin pages 403 (ISSUE-001 từ QA)

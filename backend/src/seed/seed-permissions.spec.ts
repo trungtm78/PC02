@@ -10,7 +10,7 @@
  * seed. If a new controller is added that needs a new subject, this test
  * fails until the seed declares it.
  */
-import { SEED_PERMISSIONS } from './seed-permissions';
+import { SEED_PERMISSIONS } from '../../prisma/seed-permissions';
 
 function hasPerm(action: string, subject: string): boolean {
   return SEED_PERMISSIONS.some(
