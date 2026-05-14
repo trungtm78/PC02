@@ -2,6 +2,47 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.21.6.0] - 2026-05-14
+
+### Added — 12 ngày lễ + truyền thống Việt Nam còn thiếu trong calendar
+
+Migration cũ đã seed 25 events (Tết, Quốc khánh, các ngày phổ biến) nhưng còn thiếu nhiều ngày quan trọng anh chỉ ra. v0.21.6.0 bổ sung 12 events đã verify từ nguồn chính thức (qdnd.vn, congan.*.gov.vn, baochinhphu.vn) — không invent dates.
+
+**National — Quốc gia** (5 mới):
+- 3/2 Ngày thành lập Đảng Cộng sản Việt Nam (1930)
+- 26/3 Ngày thành lập Đoàn TNCS Hồ Chí Minh (1931)
+- 19/5 Ngày sinh Chủ tịch Hồ Chí Minh (1890)
+- 28/6 Ngày Gia đình Việt Nam (QĐ 72/2001/QĐ-TTg)
+- 10/10 Ngày Giải phóng Thủ đô Hà Nội (1954)
+
+**Police — Công An** (3 mới, ngoài 7 events đã có):
+- 15/4 Ngày truyền thống Cảnh sát Cơ động (1974, Luật CSCĐ công nhận)
+- 26/6 Ngày Toàn dân Phòng chống Ma túy (QĐ 93/2001/QĐ-TTg)
+- 10/8 Ngày truyền thống lực lượng Cảnh sát Kinh tế (1956, Thông tư 1001/TTg)
+
+**Military — Quân đội** (4 mới, ngoài 6 events đã có):
+- 19/3 Ngày truyền thống Bộ đội Đặc công (1967)
+- 29/6 Ngày truyền thống Binh chủng Pháo binh (1946)
+- 11/7 Ngày truyền thống ngành Hậu cần Quân đội (Sắc lệnh 121/SL của Bác Hồ, 1950)
+- 23/9 Ngày Nam Bộ Kháng chiến (1945)
+
+**Implementation**
+- `prisma/seed-vn-events.ts` — VN_EVENTS array + `seedVnEvents()` upsert function (idempotent, deterministic ID `evt_*`)
+- `prisma/seed-vn-events-runner.ts` — standalone runner, không cần SEED_ADMIN_PASSWORD env var
+- `npm run db:seed:events` — chạy riêng VN events seed
+- Main `npm run db:seed` cũng include VN events (wired vào main seed.ts)
+- 9 unit tests guard registry (uniqueness, format, category coverage, anchor events)
+
+**Operational**
+Sau khi v0.21.6.0 deploy, chạy:
+```bash
+ssh pc02vm 'cd /home/pc02/current/backend && DATABASE_URL=$(grep DATABASE_URL /home/pc02/shared/.env | cut -d= -f2-) npm run db:seed:events'
+```
+
+Idempotent — re-run an toàn, không tạo duplicate. Mỗi event recurring FREQ=YEARLY tự lặp mọi năm sau.
+
+---
+
 ## [0.21.5.0] - 2026-05-14
 
 ### Fixed — Deploy bundle thiếu backend/src → seed script fail trên prod

@@ -24,7 +24,8 @@
     "db:seed": "ts-node prisma/seed.ts",
     "db:seed:sample": "ts-node prisma/seed-sample-data.ts",
     "db:seed:features": "ts-node prisma/seed-feature-flags.ts",
-    "db:seed:wards": "ts-node prisma/seed-wards.ts"
+    "db:seed:wards": "ts-node prisma/seed-wards.ts",
+    "db:seed:events": "ts-node prisma/seed-vn-events-runner.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
