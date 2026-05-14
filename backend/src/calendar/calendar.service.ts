@@ -18,6 +18,12 @@ export interface CalendarEvent {
   categoryName?: string;
   categoryColor?: string;
   scope?: 'SYSTEM' | 'TEAM' | 'PERSONAL';
+  // v0.21.7.0 — Calendar UI fixes: time + recurrence cho UpcomingEvents
+  //            sidebar + RecurringDeleteDialog extended context.
+  allDay?: boolean;
+  startTime?: string; // "HH:MM"
+  endTime?: string;
+  isRecurring?: boolean; // derived from recurrenceRule != null
 }
 
 @Injectable()
@@ -140,6 +146,11 @@ export class CalendarService {
         categoryName: ev.category?.name,
         categoryColor: ev.category?.color,
         scope: ev.scope,
+        // v0.21.7.0 — pass-through time + recurrence flag
+        allDay: ev.allDay ?? true,
+        startTime: ev.startTime ?? undefined,
+        endTime: ev.endTime ?? undefined,
+        isRecurring: ev.recurrenceRule != null,
       });
     }
 

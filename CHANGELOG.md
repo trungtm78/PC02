@@ -2,6 +2,50 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.21.7.0] - 2026-05-14
+
+### Fixed — Calendar UI: phân loại Lịch/Sự kiện + sidebar context + delete dialog
+
+Anh kiểm tra UI `/calendar` sau v0.21.6.0 và phát hiện 3 vấn đề UX. v0.21.7.0 fix cả 3 trong 1 PR.
+
+**Bug 1 — Phân loại 2 levels**
+Hiện chỉ có scope filter (Hệ thống/Tổ/Cá nhân) — trộn ngày lễ định kỳ với event công việc cùng một bucket. Thêm:
+- Top-level **kind toggle "Tất cả / Lịch / Sự kiện"** trên cùng calendar
+  - Lịch = `type='holiday'` OR `(type='event' AND scope='SYSTEM')`
+  - Sự kiện = deadline/hearing/meeting/other OR (type='event' AND scope IN TEAM/PERSONAL)
+- **Category filter chips** song song với scope chips: Quốc gia (đỏ) / Công an (xanh navy) / Quân đội (xanh lá) / Quốc tế (cam) / Khác. Bypass cho legacy events (không có categorySlug).
+
+**Bug 2 — Sidebar "Sự kiện sắp tới" bổ sung context**
+Mỗi item trong sidebar giờ hiển thị:
+- Category badge (màu theo `categoryColor` từ API)
+- Scope label: 🏛️ Toàn cơ quan / 👥 Cấp tổ / 🧑 Cá nhân
+- Time (nếu `allDay=false`): "08:30–10:00"
+- Recurring icon 🔁 nếu event lặp lại hằng năm
+
+**Bug 3 — Delete dialog enriched context**
+Click event ở sidebar mở `RecurringDeleteDialog` với đầy đủ thông tin trước khi confirm xóa:
+- Category badge color-coded
+- Scope label
+- Time range
+- Description (line-clamp-3)
+- Recurring warning
+
+Anh đã chốt qua AskUserQuestion: giữ flow click→popup-xóa, KHÔNG tạo modal xem chi tiết riêng.
+
+**Implementation**
+- `backend/src/calendar/calendar.service.ts` — response thêm `categoryName`, `allDay`, `startTime`, `endTime`, `isRecurring`. Additive, không breaking.
+- `frontend/src/pages/calendar/utils/filterEvents.ts` — NEW pure function (12 unit tests pin logic).
+- `frontend/src/pages/calendar/CalendarPage.tsx` — kindFilter + categoryFilter state, toggleCategory, UI chips, sidebar enrichment, handleEventClick pass full event.
+- `frontend/src/pages/calendar/components/RecurringDeleteDialog.tsx` — 7 new optional props + conditional rendering (11 unit tests).
+
+**Tests**
+- 12 new unit tests cho `filterEvents` (kind, category, combined)
+- 11 new component tests cho `RecurringDeleteDialog` (all fields + graceful omit)
+- 2 new backend service tests (response shape includes new fields, isRecurring derivation)
+- Total: 478/478 frontend + 1230/1230 backend pass.
+
+---
+
 ## [0.21.6.0] - 2026-05-14
 
 ### Added — 12 ngày lễ + truyền thống Việt Nam còn thiếu trong calendar
