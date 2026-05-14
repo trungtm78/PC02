@@ -13,6 +13,7 @@ import { seedDirectoryTypes } from './seed-directory-types';
 import { seedMasterClasses } from './seed-master-classes';
 import { seedDeadlineRules } from './seed-deadline-rules';
 import { seedEventCategories } from './seed-event-categories';
+import { seedVnEvents } from './seed-vn-events';
 import { SEED_PERMISSIONS } from './seed-permissions';
 
 const adapter = new PrismaPg({
@@ -234,6 +235,13 @@ async function main() {
   // PR 3 will migrate those rows to CalendarEvent and point them at these categories.
   const seededCategories = await seedEventCategories(prisma);
   console.log(`Seed event categories: ${seededCategories} default rows upserted.`);
+
+  // ── VN events (v0.21.6.0) — ngày lễ + truyền thống Công An + Quân đội ────
+  // Bổ sung 13 events ngoài 25 events đã có từ migration cũ. Idempotent.
+  const vnEventsResult = await seedVnEvents(prisma, adminUser.id);
+  console.log(
+    `Seed VN events: ${vnEventsResult.created} created, ${vnEventsResult.updated} updated.`,
+  );
 
   // ── Wards — 10,051 phường/xã toàn quốc (idempotent upsert) ───────────────
   console.log('Seeding wards (may take ~2-3 min for 10,051 entries)...');
