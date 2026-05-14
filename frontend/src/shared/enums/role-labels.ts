@@ -7,7 +7,11 @@
  * until labeled.
  */
 export const ROLE_LABEL: Record<string, string> = {
+  // Real seed roles in production DB (backend/prisma/seed.ts)
   ADMIN: 'Quản trị viên',
+  OFFICER: 'Cán bộ điều tra',
+  DEADLINE_APPROVER: 'Người phê duyệt thời hạn',
+  // Legacy / role.constants.ts (kept for safety; not in current seed)
   SYSTEM: 'Hệ thống',
   INVESTIGATOR: 'Điều tra viên',
   TRUONG_DON_VI: 'Trưởng đơn vị',

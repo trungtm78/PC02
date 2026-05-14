@@ -465,7 +465,7 @@ export default function UserManagementPage() {
               >
                 <option value="all">Tất cả vai trò</option>
                 {roles.map((r) => (
-                  <option key={r.id} value={r.id}>{r.name}</option>
+                  <option key={r.id} value={r.id}>{getRoleLabel(r.name)}</option>
                 ))}
               </select>
               <select
@@ -869,7 +869,7 @@ export default function UserManagementPage() {
                   >
                     <option value="">-- Chọn vai trò --</option>
                     {roles.map((r) => (
-                      <option key={r.id} value={r.id}>{r.name}</option>
+                      <option key={r.id} value={r.id}>{getRoleLabel(r.name)}</option>
                     ))}
                   </select>
                 </div>
