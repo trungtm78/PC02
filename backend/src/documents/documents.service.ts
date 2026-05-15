@@ -321,7 +321,13 @@ export class DocumentsService {
   // ─────────────────────────────────────────────
   // DOWNLOAD
   // ─────────────────────────────────────────────
-  async getDownloadInfo(id: string) {
+  // Sprint 2 / S2.1: optional `actor` cho audit log. Caller (controller) pass
+  // user.id + meta để log "ai download file gì khi nào" — fill gap audit
+  // trước đây không track downloads.
+  async getDownloadInfo(
+    id: string,
+    actor?: { userId: string; ipAddress?: string; userAgent?: string },
+  ) {
     const record = await this.prisma.document.findFirst({
       where: { id, deletedAt: null },
     });
@@ -334,6 +340,22 @@ export class DocumentsService {
 
     if (!fs.existsSync(fullPath)) {
       throw new NotFoundException('File không tồn tại trên hệ thống');
+    }
+
+    if (actor) {
+      await this.audit.log({
+        userId: actor.userId,
+        action: 'DOCUMENT_DOWNLOADED',
+        subject: 'Document',
+        subjectId: id,
+        metadata: {
+          fileName: record.originalName,
+          mimeType: record.mimeType,
+          size: record.size,
+        },
+        ipAddress: actor.ipAddress,
+        userAgent: actor.userAgent,
+      });
     }
 
     return {

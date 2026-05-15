@@ -1168,7 +1168,19 @@ export class IncidentsService {
     query: { unitId?: string; fromDate?: string; toDate?: string },
     dataScope: DataScope | null | undefined,
     res: Response,
+    actor?: { userId: string; ipAddress?: string; userAgent?: string },
   ): Promise<void> {
+    // Sprint 2 / S2.1 — audit log data export
+    if (actor) {
+      await this.audit.log({
+        userId: actor.userId,
+        action: 'INCIDENT_EXPORTED',
+        subject: 'Incident',
+        metadata: { format: 'xlsx', kind: 'ward', filters: query },
+        ipAddress: actor.ipAddress,
+        userAgent: actor.userAgent,
+      });
+    }
     const where: Prisma.IncidentWhereInput = { deletedAt: null };
     if (query.unitId) where.unitId = query.unitId;
     if (query.fromDate) {

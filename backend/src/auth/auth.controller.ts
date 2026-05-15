@@ -67,6 +67,19 @@ export class AuthController {
     });
   }
 
+  // Sprint 2 / S2.3 — Backend logout: clear refreshTokenHash + audit log.
+  // Frontend gọi endpoint này TRƯỚC khi clear localStorage. Sau khi clear hash,
+  // refresh token cũ không dùng được nữa (refresh-token check fail).
+  @Post('logout')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  async logout(@CurrentUser() user: AuthUser, @Req() req: Request) {
+    return this.authService.logout(user.id, {
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+  }
+
   @Post('change-password')
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { ttl: 60000, limit: 5 } })
