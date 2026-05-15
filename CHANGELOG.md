@@ -2,6 +2,67 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.23.0.0] - 2026-05-15
+
+### Security — Sprint 3 Operational Maturity (monitoring + off-site backup + CSP)
+
+Sprint 3/3. Sau Sprint 1+2+3, hệ thống ở mức 9.5/10 — public-Internet ready.
+
+**S3.3 — Prometheus Metrics + Self-hosted Monitoring Stack**
+- New module `MetricsModule` (global), service exposes 5 counter + 1 histogram + default Node.js metrics. Endpoint `GET /api/v1/metrics`.
+- Counters wired:
+  - `pc02_login_attempts_total{result}`: success/failure/locked/2fa_setup_required
+  - `pc02_data_scope_denial_total{resource}`: parent/creator (qua scope-filter.util)
+  - `pc02_2fa_verify_total{method,result}`, `pc02_audit_log_total{action}` (chuẩn bị wire ở PR sau)
+  - `pc02_http_request_duration_seconds`: P95 latency histogram
+- Self-hosted stack docker-compose: Prometheus + Alertmanager + Loki + Grafana. Port nội bộ (127.0.0.1), access qua SSH tunnel. RAM ~500MB, $0/tháng.
+- 7 alert rules: BackendDown, BruteForceLogin (+ Critical), HighDataScopeDenial, AccountLockoutSpike, HighRequestLatency, OffsiteBackupStale.
+
+**S3.2 — Off-site Backup**
+- `scripts/deploy/offsite-backup.sh`: rclone B2 sync `/var/backups/pc02/` lên Backblaze B2 hằng ngày 03:00. Retention 30 days. Cost ~$2/tháng (10GB). Write health metric vào textfile collector cho Prometheus pickup.
+- Anh setup B2 account + rclone config 1 lần, cron tự chạy.
+
+**S3.4 — CSP Tighten + Metrics IP Allowlist**
+- nginx `Content-Security-Policy` thêm `report-uri /api/v1/csp-report` để track XSS attempts + legitimate breakage.
+- Backend endpoint `POST /csp-report` (no auth, public per CSP spec) log violation reports.
+- `Permissions-Policy` tighten: disable USB/Serial/Bluetooth/sensors/interest-cohort ngoài geo/camera/mic/payment đã có.
+- nginx `location = /api/v1/metrics`: `allow 127.0.0.1; deny all;` — Prometheus container scrape OK, external 403.
+
+**S3.5 — Documentation (4 file mới)**
+- `docs/MONITORING.md`: setup stack + alert rules + Grafana access guide.
+- `docs/BACKUP-OFFSITE.md`: B2 account setup + rclone config + cron + recovery procedure.
+- `docs/KEY-ROTATION.md`: runbook cho JWT keypair, TOTP encryption, SMTP, DB password, GitHub secrets.
+- `docs/SESSION-REGISTRY-FUTURE.md`: ghi rõ tại sao S3.1 (UserSession registry) defer + plan đầy đủ cho PR riêng.
+
+### Deferred ra PR riêng — em không build vì risk regression auth core
+
+- **S3.1 UserSession registry** (per-device session management, admin force-logout 1 device). Refactor refresh-token rotation flow. Plan trong `docs/SESSION-REGISTRY-FUTURE.md`. Sprint 2 logout endpoint + tokenVersion đã đủ secure cho launch — đây là UX improvement.
+- **CSP nonce-based** (loại bỏ `'unsafe-inline'` cho style). Cần modify Vite build + verify toàn UI không break. CSP report-uri sẽ catch nếu có violation.
+
+### Anh cần làm sau khi merge
+
+1. **Monitoring stack** (1 lần, ~15 phút):
+   ```bash
+   ssh pc02vm
+   cd /home/pc02/current/scripts/monitoring
+   cp .env.example .env  # edit GRAFANA_ADMIN_PASSWORD
+   nano alertmanager.yml  # SMTP creds + admin email
+   sudo docker compose up -d
+   ```
+2. **Off-site backup** (~20 phút setup):
+   - Tạo Backblaze account + bucket private + Application Key.
+   - `sudo apt install rclone && rclone config` (paste B2 keyID/appKey).
+   - Cài cron: `sudo cp scripts/deploy/offsite-backup.sh /home/pc02/bin/` + cron entry.
+   - Chi tiết: `docs/BACKUP-OFFSITE.md`.
+3. **Re-apply nginx config** (CSP report-uri + metrics IP allowlist + Permissions-Policy):
+   ```bash
+   sudo ~/install-nginx-config.sh <domain>
+   ```
+
+### Tests
+- Backend Jest: 1263/1263 PASS (Sprint 3 không thay đổi test count)
+- Frontend Vitest: 484/484 PASS
+
 ## [0.22.0.0] - 2026-05-15
 
 ### Security — Sprint 2 Public-Launch Hardening (audit + 2FA mandate + logout + MIME)

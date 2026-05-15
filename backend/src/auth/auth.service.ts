@@ -21,6 +21,7 @@ import {
   LOCKOUT_DURATION_MS,
 } from '../common/constants/auth-policy.constants';
 import { getBcryptCost } from './utils/password-hash.util';
+import { MetricsService } from '../metrics/metrics.service';
 
 export interface TokenPair {
   accessToken: string;
@@ -66,6 +67,7 @@ export class AuthService {
     private readonly settingsService: SettingsService,
     private readonly otpCodeService: OtpCodeService,
     private readonly emailService: EmailService,
+    private readonly metrics: MetricsService,
   ) {
     const privateKeyPath = this.configService.get<string>(
       'JWT_PRIVATE_KEY_PATH',
@@ -85,12 +87,14 @@ export class AuthService {
     });
 
     if (!user || !user.isActive) {
+      this.metrics.loginAttempts.inc({ result: 'failure' });
       throw new UnauthorizedException('Invalid credentials');
     }
 
     // S1.2 account lockout — reject early nếu đang lock.
     // Skip bcrypt.compare để không leak timing info phân biệt locked vs wrong-pw.
     if (user.lockedUntil && user.lockedUntil > new Date()) {
+      this.metrics.loginAttempts.inc({ result: 'locked' });
       const remainingMs = user.lockedUntil.getTime() - Date.now();
       const remainingMinutes = Math.max(1, Math.ceil(remainingMs / 60000));
       throw new UnauthorizedException(
@@ -113,6 +117,7 @@ export class AuthService {
         },
       });
 
+      this.metrics.loginAttempts.inc({ result: willLock ? 'locked' : 'failure' });
       await this.auditService.log({
         userId: user.id,
         action: willLock ? 'USER_LOGIN_LOCKED' : 'USER_LOGIN_FAILED',
@@ -143,6 +148,7 @@ export class AuthService {
         } as object,
         { algorithm: 'RS256', privateKey: this.privateKey, expiresIn: '15m' as StringValue },
       );
+      this.metrics.loginAttempts.inc({ result: '2fa_setup_required' });
       await this.auditService.log({
         userId: user.id,
         action: 'USER_2FA_SETUP_REQUIRED',
@@ -220,6 +226,7 @@ export class AuthService {
       },
     });
 
+    this.metrics.loginAttempts.inc({ result: 'success' });
     // AC-STEP1-04: Audit log (USER_LOGIN only fires here when 2FA is off)
     await this.auditService.log({
       userId: user.id,

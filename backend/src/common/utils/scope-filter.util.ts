@@ -4,6 +4,21 @@ import type { DataScope } from '../../auth/services/unit-scope.service';
 export const FORBIDDEN_MSG = 'Bạn không có quyền truy cập bản ghi này';
 const NO_ACCESS_SENTINEL = '__no_access__';
 
+// Sprint 3 / S3.3 — module-level metrics hook. Service-level inject sẽ khó vì
+// scope-filter là pure utility. Wire qua module-level singleton (set bởi
+// metrics.service onModuleInit) — keep utility pure cho test.
+let denialCounter: { inc: (labels: { resource: string }) => void } | null = null;
+export function setScopeDenialCounter(counter: typeof denialCounter): void {
+  denialCounter = counter;
+}
+function recordDenial(resource: string): void {
+  try {
+    denialCounter?.inc({ resource });
+  } catch {
+    // never fail security gate due to metrics issue
+  }
+}
+
 /**
  * Build Prisma where-clause filter for Case/Incident scope.
  * Uses investigatorId for ownership.
@@ -89,6 +104,7 @@ export function assertParentInScope(
   const teamMatch = parent.assignedTeamId ? effectiveTeamIds.includes(parent.assignedTeamId) : false;
   const unassigned = !parent.assignedTeamId && effectiveTeamIds.length > 0;
   if (!ownerMatch && !teamMatch && !unassigned) {
+    recordDenial('parent');
     throw new ForbiddenException(
       operation === 'write' ? 'Bạn không có quyền chỉnh sửa bản ghi này' : FORBIDDEN_MSG,
     );
@@ -117,6 +133,7 @@ export function assertCreatorInScope(
   const effectiveTeamIds = operation === 'write' ? (writableTeamIds ?? teamIds) : teamIds;
   const isDenyAll = userIds.length === 0 && effectiveTeamIds.length === 0;
   if (isDenyAll || (userIds.length > 0 && !userIds.includes(createdById))) {
+    recordDenial('creator');
     throw new ForbiddenException(
       operation === 'write' ? 'Bạn không có quyền chỉnh sửa bản ghi này' : FORBIDDEN_MSG,
     );
