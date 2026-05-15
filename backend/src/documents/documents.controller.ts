@@ -17,6 +17,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import type { ScopedRequest } from '../auth/interfaces/scoped-request.interface';
 import { diskStorage } from 'multer';
@@ -70,6 +71,10 @@ export class DocumentsController {
   }
 
   // POST /api/documents — Upload tài liệu mới
+  // Sprint 1 / S1.3 — Throttle 10 upload/phút/user để chống storage abuse
+  // (1000 file × 10MB = 10GB nếu không cap). Identity dùng JWT user qua
+  // global throttler — không cần UserThrottlerGuard riêng.
+  @Throttle({ default: { ttl: 60000, limit: 10 } })
   @Post()
   @UseInterceptors(
     FileInterceptor('file', {

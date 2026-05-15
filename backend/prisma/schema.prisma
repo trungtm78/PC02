@@ -70,6 +70,13 @@ model User {
   roleId             String
   refreshTokenHash   String? // hashed refresh token for rotation
   tokenVersion       Int       @default(0) // incremented on password change to invalidate existing JWTs
+  // Sprint 1 / S1.2 — account lockout: counter tăng theo mỗi lần fail password,
+  // reset về 0 khi login success. Khi đạt MAX_FAILED_LOGIN_ATTEMPTS thì set
+  // lockedUntil = now + LOCKOUT_DURATION_MS. Locked user bị reject ở login
+  // gate trước khi bcrypt.compare chạy.
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+  lastFailedLoginAt   DateTime?
   canDispatch        Boolean   @default(false) // supplementary permission: read all + assign/reassign any record
   lastLoginAt        DateTime?
   // 2FA fields

@@ -36,4 +36,20 @@ describe('TwoFaController — delegation', () => {
     await controller.disable(user as any);
     expect(service.disableTotp).toHaveBeenCalledWith('u1');
   });
+
+  // Sprint 1 / S1.4 — Regression: 2FA verify must keep its 5/min rate-limit
+  // to prevent brute-force của 6-digit OTP space (1M).
+  it('verify endpoint keeps @Throttle({ default: { limit: 5, ttl: 60000 } })', () => {
+    const limit = Reflect.getMetadata('THROTTLER:LIMITdefault', TwoFaController.prototype.verify);
+    const ttl = Reflect.getMetadata('THROTTLER:TTLdefault', TwoFaController.prototype.verify);
+    expect(limit).toBe(5);
+    expect(ttl).toBe(60000);
+  });
+
+  it('send-email-otp endpoint keeps @Throttle({ default: { limit: 3, ttl: 60000 } })', () => {
+    const limit = Reflect.getMetadata('THROTTLER:LIMITdefault', TwoFaController.prototype.sendEmailOtp);
+    const ttl = Reflect.getMetadata('THROTTLER:TTLdefault', TwoFaController.prototype.sendEmailOtp);
+    expect(limit).toBe(3);
+    expect(ttl).toBe(60000);
+  });
 });

@@ -27,6 +27,21 @@ describe('DocumentsController — delegation', () => {
     expect(mockService.getList).toHaveBeenCalledWith({}, req.dataScope);
   });
 
+  // Sprint 1 / S1.3 — File upload throttle: chống abuse upload spam.
+  // Verify metadata key trùng pattern @nestjs/throttler dùng (THROTTLER:LIMIT + name).
+  it('upload endpoint has @Throttle({ default: { ttl: 60000, limit: 10 } })', () => {
+    const limit = Reflect.getMetadata(
+      'THROTTLER:LIMITdefault',
+      DocumentsController.prototype.create,
+    );
+    const ttl = Reflect.getMetadata(
+      'THROTTLER:TTLdefault',
+      DocumentsController.prototype.create,
+    );
+    expect(limit).toBe(10);
+    expect(ttl).toBe(60000);
+  });
+
   it('getById() delegates to service.getById with id and dataScope', async () => {
     mockService.getById.mockResolvedValue({ data: {} });
     const req = makeReq();
