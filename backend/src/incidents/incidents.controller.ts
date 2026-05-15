@@ -67,10 +67,15 @@ export class IncidentsController {
   @Throttle({ default: { ttl: 60000, limit: 5 } })
   async exportWard(
     @Query() query: { unitId?: string; fromDate?: string; toDate?: string },
+    @CurrentUser() user: AuthUser,
     @Req() req: ScopedRequest,
     @Res() res: Response,
   ): Promise<void> {
-    await this.incidentsService.exportWardIncidents(query, req.dataScope, res);
+    await this.incidentsService.exportWardIncidents(query, req.dataScope, res, {
+      userId: user.id,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
   }
 
   // GET /api/v1/incidents/:id — Chi tiết vụ việc

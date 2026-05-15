@@ -2,6 +2,52 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.22.0.0] - 2026-05-15
+
+### Security — Sprint 2 Public-Launch Hardening (audit + 2FA mandate + logout + MIME)
+
+Sprint 2/3 trên roadmap. Đóng audit trail + auth maturity gaps trước khi public.
+
+**S2.4 — 2FA Setup Mandate (cho TOÀN BỘ user)**
+- Schema mới: `users.twoFaSetupRequired` (default `true` cho user mới, `false` cho user cũ qua migration). Seed admin = `false`.
+- Token type mới: `TOKEN_TYPE.TWO_FA_SETUP_PENDING = '2fa_setup_pending'`. Sống 15 phút, bind to tokenVersion, JwtStrategy reject làm access token.
+- Login flow mới: nếu `!totpEnabled && (TWO_FA_ENABLED || twoFaSetupRequired)` → return `{ pending: true, twoFaSetupToken, reason: 'TWO_FA_SETUP_REQUIRED' }`.
+- Guard mới: `TwoFaSetupTokenGuard` (tương tự `TwoFaTokenGuard` nhưng check type=`2fa_setup_pending`, không single-use).
+- 2 endpoint mới gated by setup token:
+  - `POST /auth/2fa/initial-setup` — wrap setupTotp() trả QR + backup codes.
+  - `POST /auth/2fa/initial-setup/verify` — verify first OTP, enable totp, clear `twoFaSetupRequired`, trả TokenPair (login flow hoàn tất).
+- Audit log mới: `USER_2FA_SETUP_REQUIRED` khi login fire setup-pending; `USER_2FA_INITIAL_SETUP_COMPLETED` khi user xong.
+- 4 test mới cho login mandate flow.
+
+**S2.3 — Backend Logout Endpoint**
+- `POST /auth/logout` (gated by `JwtAuthGuard`): clear `user.refreshTokenHash` → refresh token cũ không refresh được nữa. Server-side revocation thay cho frontend-only clear localStorage.
+- Audit log `USER_LOGOUT` với ip + user agent.
+- Frontend `MainLayout.handleLogout` gọi backend trước khi clear local tokens (best-effort try/catch).
+- 3 test backend.
+
+**S2.2 — Magic-byte MIME Validation**
+- Dependency mới: `file-type` (ESM-only — dùng dynamic import).
+- `POST /documents` upload: sau khi multer ghi file, đọc magic bytes thật. Nếu detected MIME không khớp `ALLOWED_MIME_TYPES` → xoá file giả mạo + throw 400.
+- Bypass cho `text/plain` (no magic bytes).
+- Protect: attacker upload `.html` đặt Content-Type=image/png không còn bypass whitelist.
+
+**S2.1 — Audit Log Additions**
+- `DOCUMENT_DOWNLOADED`: log khi user download tài liệu (fileName + mimeType + size + ip + UA).
+- `CASE_EXPORTED`: log khi user export vụ án ward Excel.
+- `INCIDENT_EXPORTED`: log khi user export vụ việc ward Excel.
+- Petitions đã có `PETITION_EXPORTED` từ trước.
+- Admin actions đã cover đầy đủ (USER_CREATED/UPDATED/DELETED, ADMIN_PASSWORD_RESET, ROLE_PERMISSIONS_UPDATED, DATA_GRANT_CREATED/REVOKED, ADMIN_2FA_RESET).
+
+### Anh cần làm sau khi merge
+
+1. Migration `20260515070000_add_2fa_setup_required` tự apply qua prisma migrate deploy.
+2. Bật `TWO_FA_ENABLED=true` trong settings (qua admin UI hoặc psql) khi sẵn sàng force toàn bộ user setup 2FA.
+3. Khi user login lần tới, frontend cần handle `reason: 'TWO_FA_SETUP_REQUIRED'` → redirect /auth/2fa-setup. **Frontend page cho initial setup flow chưa làm — em ship backend trước, frontend wire-up có thể làm sau** (tạm thời user bị stuck ở response nếu chưa có UI page).
+
+### Tests
+- Backend Jest: 1263/1263 PASS (+7 mới: 4 mandate + 3 logout)
+- Frontend Vitest: 484/484 PASS
+
 ## [0.21.9.0] - 2026-05-15
 
 ### Security — Sprint 1 Public-Launch Hardening (4 hạng mục)

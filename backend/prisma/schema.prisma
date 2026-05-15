@@ -82,6 +82,10 @@ model User {
   // 2FA fields
   totpSecret         String? // AES-256-GCM encrypted base32 secret
   totpEnabled        Boolean   @default(false)
+  // Sprint 2 / S2.4 — buộc user setup 2FA trước khi dùng app.
+  // Default true cho user MỚI (login đầu tiên redirect setup). Existing users
+  // được seed false để không break flow hiện tại; admin có thể bật cho ai cần.
+  twoFaSetupRequired Boolean   @default(true)
   totpSetupPending   Boolean   @default(false)
   totpSetupPendingAt DateTime?
   backupCodes        String[]

@@ -19,6 +19,9 @@ export const TOKEN_TYPE = {
   REFRESH: 'refresh',
   TWO_FA_PENDING: '2fa_pending',
   CHANGE_PASSWORD_PENDING: 'change_password_pending',
+  // Sprint 2 / S2.4 — issued bởi login() khi user chưa setup 2FA nhưng setting
+  // bắt buộc. Scope tới endpoints `/auth/2fa/initial-setup` + `/initial-setup/verify`.
+  TWO_FA_SETUP_PENDING: '2fa_setup_pending',
 } as const;
 
 export type TokenType = (typeof TOKEN_TYPE)[keyof typeof TOKEN_TYPE];
