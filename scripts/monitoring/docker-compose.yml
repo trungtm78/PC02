@@ -1,0 +1,75 @@
+# Sprint 3 / S3.3 — Self-hosted monitoring stack cho PC02.
+#
+# Chạy chung VM với prod backend (ports 9090/9091/3001 bound chỉ 127.0.0.1, không
+# expose Internet). Anh access Grafana qua SSH tunnel:
+#   ssh -L 3001:127.0.0.1:3001 pc02vm
+#   open http://localhost:3001
+#
+# Setup:
+#   cd scripts/monitoring
+#   cp .env.example .env  # edit GRAFANA_ADMIN_PASSWORD
+#   sudo docker compose up -d
+#
+# Resources: ~500MB RAM, <5% CPU steady state.
+# Retention: Prometheus 30d, Loki 14d (configurable trong volumes).
+
+services:
+  prometheus:
+    image: prom/prometheus:v3.0.1
+    container_name: pc02-prometheus
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prom-data:/prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=30d
+      - --web.enable-lifecycle
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  alertmanager:
+    image: prom/alertmanager:v0.28.0
+    container_name: pc02-alertmanager
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:9093:9093"
+    volumes:
+      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - am-data:/alertmanager
+
+  loki:
+    image: grafana/loki:3.3.2
+    container_name: pc02-loki
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3100:3100"
+    volumes:
+      - ./loki.yml:/etc/loki/loki.yml:ro
+      - loki-data:/loki
+    command: -config.file=/etc/loki/loki.yml
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    container_name: pc02-grafana
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_ROOT_URL=http://localhost:3001
+    volumes:
+      - ./grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+      - grafana-data:/var/lib/grafana
+
+volumes:
+  prom-data:
+  am-data:
+  loki-data:
+  grafana-data:

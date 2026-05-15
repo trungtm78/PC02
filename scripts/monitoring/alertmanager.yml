@@ -1,0 +1,37 @@
+# Sprint 3 / S3.3 — Alertmanager routing config.
+# Anh cần điền SMTP creds (env hoặc trực tiếp). Optional: webhook Telegram/Slack.
+
+global:
+  smtp_smarthost: 'smtp.gmail.com:587'  # đổi sang prod SMTP của anh
+  smtp_from: 'pc02-alerts@yourdomain.gov.vn'
+  smtp_auth_username: 'CHANGE_ME'
+  smtp_auth_password: 'CHANGE_ME'
+  resolve_timeout: 5m
+
+route:
+  receiver: 'admin-email'
+  group_by: ['alertname', 'category']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  routes:
+    - match:
+        severity: critical
+      receiver: 'admin-email'
+      group_wait: 10s
+      repeat_interval: 1h
+
+receivers:
+  - name: 'admin-email'
+    email_configs:
+      - to: 'admin@yourdomain.gov.vn'
+        send_resolved: true
+        headers:
+          Subject: '[PC02 {{ .Status | toUpper }}] {{ .GroupLabels.alertname }}'
+
+inhibit_rules:
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'instance']

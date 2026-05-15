@@ -27,6 +27,13 @@ const mockJwtService = { signAsync: jest.fn() };
 const mockConfigService = {
   get: jest.fn((_key: string, def?: unknown) => def ?? '15m'),
 };
+// Sprint 3 / S3.3 — metrics: chỉ cần inc() no-op cho tests
+const mockMetrics = {
+  loginAttempts: { inc: jest.fn() },
+  dataScopeDenials: { inc: jest.fn() },
+  twoFaVerify: { inc: jest.fn() },
+  auditLog: { inc: jest.fn() },
+};
 
 function makeService(): AuthService {
   const svc = Object.create(AuthService.prototype);
@@ -37,6 +44,7 @@ function makeService(): AuthService {
   (svc as any).settingsService = mockSettingsService;
   (svc as any).jwtService = mockJwtService;
   (svc as any).configService = mockConfigService;
+  (svc as any).metrics = mockMetrics;
   (svc as any).privateKey = 'TEST_PRIVATE_KEY';
   (svc as any).logger = { error: jest.fn() };
   return svc as AuthService;
