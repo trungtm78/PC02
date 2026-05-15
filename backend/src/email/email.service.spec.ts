@@ -45,4 +45,25 @@ describe('EmailService', () => {
       InternalServerErrorException,
     );
   });
+
+  it('sendEventReminder escapes HTML in event title (XSS in mail clients)', async () => {
+    const { svc, sendMail } = makeService();
+    await svc.sendEventReminder(
+      'user@example.com',
+      '<script>alert(1)</script>',
+      new Date('2026-06-01'),
+    );
+    const call = sendMail.mock.calls[0][0];
+    expect(call.html).not.toContain('<script>alert(1)</script>');
+    expect(call.html).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
+    // plain-text body keeps the raw title (no HTML injection risk there)
+    expect(call.text).toContain('<script>alert(1)</script>');
+  });
+
+  it('sendEventReminder escapes special HTML chars (&, ", \', <, >)', async () => {
+    const { svc, sendMail } = makeService();
+    await svc.sendEventReminder('user@example.com', `A & B "C" 'D' <E>`, new Date('2026-06-01'));
+    const call = sendMail.mock.calls[0][0];
+    expect(call.html).toContain('A &amp; B &quot;C&quot; &#39;D&#39; &lt;E&gt;');
+  });
 });

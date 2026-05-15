@@ -47,10 +47,15 @@ log "Shared resources symlinked"
 # 4. DB backup trước khi migrate (safety net)
 BACKUP_FILE="/var/backups/pc02/pre-deploy-${RELEASE_SHA}-$(date +%Y%m%d_%H%M%S).sql.gz"
 mkdir -p /var/backups/pc02
+chmod 700 /var/backups/pc02 2>/dev/null || true
 sudo -u postgres pg_dump -Fc -Z9 pc02_case_mgmt > "$BACKUP_FILE" 2>/dev/null || {
     log "WARNING: pre-deploy backup failed (non-fatal, continuing)"
 }
-[ -f "$BACKUP_FILE" ] && log "Pre-deploy backup: $BACKUP_FILE ($(du -h "$BACKUP_FILE" | cut -f1))"
+if [ -f "$BACKUP_FILE" ]; then
+    # SEC: backups chứa PII + TOTP secrets — chỉ root đọc.
+    chmod 600 "$BACKUP_FILE" || log "WARNING: chmod 600 backup failed"
+    log "Pre-deploy backup: $BACKUP_FILE ($(du -h "$BACKUP_FILE" | cut -f1))"
+fi
 
 # 5. Run prisma migrate deploy (BEFORE switching symlink — rollback path stays clean if fail)
 cd "$NEW_DIR/backend"

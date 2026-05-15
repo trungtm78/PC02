@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { today } from "@/lib/dates";
+import { escapeHtml } from "@/lib/html-escape";
 
 interface Document {
   id: string;
@@ -282,11 +283,11 @@ export default function ExportReportsPage() {
     <div style="font-size:12px">CÔNG AN THÀNH PHỐ HỒ CHÍ MINH</div>
     <div class="title">BIÊN NHẬN ĐƠN THƯ</div>
   </div>
-  <div class="field"><span class="label">Số biên nhận:</span> ${receiptForm.receiptNumber}</div>
-  <div class="field"><span class="label">Ngày:</span> ${receiptForm.receiptDate ? new Date(receiptForm.receiptDate).toLocaleDateString('vi-VN') : ''}</div>
-  <div class="field"><span class="label">Người nhận:</span> ${receiptForm.receiverName}</div>
-  <div class="field"><span class="label">Người giao:</span> ${receiptForm.delivererName}</div>
-  <div class="field"><span class="label">Nội dung:</span> ${receiptForm.content}</div>
+  <div class="field"><span class="label">Số biên nhận:</span> ${escapeHtml(receiptForm.receiptNumber)}</div>
+  <div class="field"><span class="label">Ngày:</span> ${escapeHtml(receiptForm.receiptDate ? new Date(receiptForm.receiptDate).toLocaleDateString('vi-VN') : '')}</div>
+  <div class="field"><span class="label">Người nhận:</span> ${escapeHtml(receiptForm.receiverName)}</div>
+  <div class="field"><span class="label">Người giao:</span> ${escapeHtml(receiptForm.delivererName)}</div>
+  <div class="field"><span class="label">Nội dung:</span> ${escapeHtml(receiptForm.content)}</div>
   <div class="signature">
     <div class="sig-block">
       <div>Người nộp đơn</div>

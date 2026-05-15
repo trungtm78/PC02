@@ -7,7 +7,14 @@ const http = require('http');
 const BASE = 'http://localhost:5173';
 const API  = 'http://localhost:3000/api/v1';
 const IMG  = path.join(__dirname, 'images');
-const CREDS = { username: 'admin@pc02.local', password: '8buYJnZqMFUv3jWsdMaGvd5b' };
+const CREDS = {
+  username: process.env.SCREENSHOT_USERNAME || 'admin@pc02.local',
+  password: process.env.SCREENSHOT_PASSWORD,
+};
+if (!CREDS.password) {
+  console.error('ERROR: set SCREENSHOT_PASSWORD env var before running.');
+  process.exit(1);
+}
 
 if (!fs.existsSync(IMG)) fs.mkdirSync(IMG, { recursive: true });
 

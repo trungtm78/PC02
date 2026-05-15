@@ -30,6 +30,7 @@ import { UpdateDocumentDto } from './dto/update-document.dto';
 import { QueryDocumentsDto } from './dto/query-documents.dto';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as crypto from 'crypto';
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
 // Max file size: 10MB
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -82,7 +83,8 @@ export class DocumentsController {
         },
         filename: (req, file, cb) => {
           const timestamp = Date.now();
-          const random = Math.random().toString(36).substring(2, 10);
+          // SEC: crypto.randomBytes thay vì Math.random — defense-in-depth chống enumeration.
+          const random = crypto.randomBytes(8).toString('hex');
           const ext = path.extname(file.originalname);
           cb(null, `${timestamp}-${random}${ext}`);
         },

@@ -23,6 +23,7 @@ import type { TokenPair, ChangePasswordPendingResponse } from '../auth.service';
 import { TOKEN_TYPE } from '../../common/constants/token-types.constants';
 import type { StringValue } from 'ms';
 import { SETTINGS_KEY } from '../../common/constants/settings-keys.constants';
+import { getBcryptCost } from '../utils/password-hash.util';
 import {
   TWO_FA_METHOD,
   TwoFaMethod,
@@ -440,7 +441,7 @@ export class TwoFaService {
       }),
     ]);
 
-    const refreshHash = await bcrypt.hash(refreshToken, 10);
+    const refreshHash = await bcrypt.hash(refreshToken, getBcryptCost());
     await this.prisma.user.update({
       where: { id: user.id },
       data: { refreshTokenHash: refreshHash },

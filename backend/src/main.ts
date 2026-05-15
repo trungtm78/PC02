@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { ValidationPipe } from '@nestjs/common';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/filters/http-exception.filter';
 
@@ -9,6 +10,20 @@ async function bootstrap() {
 
   // Trust the first proxy hop (Render/nginx) so req.ip reflects real client IP in audit logs
   app.set('trust proxy', 1);
+
+  // Security headers: nosniff, X-Frame-Options DENY, Referrer-Policy, HSTS (TLS-only env).
+  // CSP disabled here — frontend is served by nginx, not the API; API responses are JSON +
+  // file streams. Content-Disposition: attachment is set per-download in the controller.
+  app.use(
+    helmet({
+      contentSecurityPolicy: false,
+      crossOriginResourcePolicy: { policy: 'same-site' },
+      strictTransportSecurity: {
+        maxAge: 31536000,
+        includeSubDomains: true,
+      },
+    }),
+  );
 
   // Global API prefix — all resource controllers use relative paths
   app.setGlobalPrefix('api/v1', { exclude: ['/'] });

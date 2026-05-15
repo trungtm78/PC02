@@ -12,9 +12,17 @@
  */
 
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { VksMeetingsService } from './vks-meetings.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import type { DataScope } from '../../auth/services/unit-scope.service';
+
+const scopeTeamA: DataScope = {
+  userIds: ['user-1'],
+  teamIds: ['team-A'],
+  writableTeamIds: ['team-A'],
+  canDispatch: false,
+};
 
 // ─── Mock Prisma ──────────────────────────────────────────────────────────────
 
@@ -264,6 +272,69 @@ describe('VksMeetingsService', () => {
       }
 
       expect(mockPrisma.vksMeetingRecord.delete).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── DataScope enforcement (CSO finding F2 — IDOR) ────────────────────────
+
+  describe('DataScope enforcement', () => {
+    const otherTeamCase = { id: CASE_ID, assignedTeamId: 'team-B', investigatorId: 'user-2' };
+    const otherTeamIncident = { id: INCIDENT_ID, assignedTeamId: 'team-B', investigatorId: 'user-2' };
+
+    it('createForCase: denies cross-team write', async () => {
+      mockPrisma.case.findUnique.mockResolvedValue(otherTeamCase);
+      await expect(
+        service.createForCase(CASE_ID, MEETING_DTO as any, USER_ID, scopeTeamA),
+      ).rejects.toThrow(ForbiddenException);
+      expect(mockPrisma.vksMeetingRecord.create).not.toHaveBeenCalled();
+    });
+
+    it('createForIncident: denies cross-team write', async () => {
+      mockPrisma.incident.findUnique.mockResolvedValue(otherTeamIncident);
+      await expect(
+        service.createForIncident(INCIDENT_ID, MEETING_DTO as any, USER_ID, scopeTeamA),
+      ).rejects.toThrow(ForbiddenException);
+      expect(mockPrisma.vksMeetingRecord.create).not.toHaveBeenCalled();
+    });
+
+    it('findAllForCase: denies cross-team read', async () => {
+      mockPrisma.case.findUnique.mockResolvedValue(otherTeamCase);
+      await expect(service.findAllForCase(CASE_ID, scopeTeamA)).rejects.toThrow(ForbiddenException);
+      expect(mockPrisma.vksMeetingRecord.findMany).not.toHaveBeenCalled();
+    });
+
+    it('findAllForIncident: denies cross-team read', async () => {
+      mockPrisma.incident.findUnique.mockResolvedValue(otherTeamIncident);
+      await expect(service.findAllForIncident(INCIDENT_ID, scopeTeamA)).rejects.toThrow(ForbiddenException);
+      expect(mockPrisma.vksMeetingRecord.findMany).not.toHaveBeenCalled();
+    });
+
+    it('delete: denies removing record attached to cross-team case', async () => {
+      mockPrisma.vksMeetingRecord.findUnique.mockResolvedValue({
+        ...makeMeetingRecord(),
+        case: otherTeamCase,
+        incident: null,
+      });
+      await expect(service.delete(RECORD_ID, scopeTeamA)).rejects.toThrow(ForbiddenException);
+      expect(mockPrisma.vksMeetingRecord.delete).not.toHaveBeenCalled();
+    });
+
+    it('null scope (admin) bypasses checks', async () => {
+      mockPrisma.case.findUnique.mockResolvedValue(otherTeamCase);
+      mockPrisma.vksMeetingRecord.create.mockResolvedValue(makeMeetingRecord());
+      await expect(
+        service.createForCase(CASE_ID, MEETING_DTO as any, USER_ID, null),
+      ).resolves.toBeDefined();
+    });
+
+    it('matching team allows access', async () => {
+      mockPrisma.case.findUnique.mockResolvedValue({
+        id: CASE_ID, assignedTeamId: 'team-A', investigatorId: 'user-1',
+      });
+      mockPrisma.vksMeetingRecord.create.mockResolvedValue(makeMeetingRecord());
+      await expect(
+        service.createForCase(CASE_ID, MEETING_DTO as any, USER_ID, scopeTeamA),
+      ).resolves.toBeDefined();
     });
   });
 });
