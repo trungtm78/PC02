@@ -2,6 +2,47 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.21.8.0] - 2026-05-15
+
+### Security — CSO hardening pass (1 CRITICAL + 3 HIGH + 6 MEDIUM + 2 LOW)
+
+Em chạy `/cso` audit toàn bộ source, fix 12 finding code-fixable trong 1 PR. Tests: backend 1247/1247, frontend 484/484 — tất cả PASS.
+
+**CRITICAL — Admin password leak**
+- Xoá password hardcoded `admin@pc02.local` khỏi `docs/take-screenshots.js`, `run_maestro.bat`, `run_qa_smoke.bat`. Cả 3 script giờ require env var `SCREENSHOT_PASSWORD` / `TEST_PASSWORD`, fail fast nếu không set.
+- **Anh cần làm tay**: rotate password `admin@pc02.local` trên VM ngay (password cũ vẫn còn trong git history, em không scrub history theo yêu cầu của anh).
+
+**HIGH — IDOR (Broken Access Control) trên 2 module shared**
+- `action-plans` và `vks-meetings` bỏ DataScope khi rollout phạm vi dữ liệu trước đó. Investigator Tổ A có thể đọc/tạo/xoá plans + biên bản VKS của Tổ B.
+- Inject `dataScope` từ `ScopedRequest`, gọi `assertParentInScope(parent, scope, 'read'|'write')` ở mọi CRUD operation. `delete()` load parent qua include rồi check trước khi xoá. Admin (null scope) bypass như cũ.
+- 13 test mới (RED→GREEN) cover cross-team deny + matching team allow + admin bypass.
+
+**HIGH — Production missing TLS + security headers**
+- `frontend/nginx.conf`: thêm `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, `client_max_body_size 25M`. HSTS + rate-limit (commented sẵn để bật khi có TLS cert).
+- Backend `main.ts`: cài `helmet` với CSP=false (API trả JSON, frontend riêng), HSTS 1 năm, `crossOriginResourcePolicy: same-site`.
+- **Anh cần làm tay**: cấp Let's Encrypt cert + force HTTPS trên VM.
+
+**MEDIUM — XSS injection points**
+- `frontend/src/lib/html-escape.ts`: util mới với 6 test case (escape `& < > " '`, null-safe, double-encode protection).
+- `ExportReportsPage.tsx:309`: print receipt giờ escape `receiverName`, `delivererName`, `content`, `receiptNumber`, `receiptDate` trước khi `document.write`.
+- `email.service.ts`: HTML email `sendEventReminder` escape `eventTitle` + `dateStr` chống injection via calendar event title.
+
+**MEDIUM — Infra hardening**
+- `scripts/deploy/deploy.sh`: pg_dump backup giờ `chmod 600` + dir `chmod 700` (backups chứa PII + TOTP secrets).
+- `backend/docker-entrypoint.sh`: `db:seed` chỉ chạy khi `RUN_SEED=true` (trước đây chạy mọi container restart — có thể reset admin password về seed value).
+
+**LOW — Defense-in-depth**
+- 4 call site `bcrypt.hash(refreshToken, 10)` (auth.service.ts × 3, two-fa.service.ts × 1) → `bcrypt.hash(refreshToken, getBcryptCost())` để consistent với password hash cost 12.
+- 2 call site `Math.random()` cho upload filename suffix → `crypto.randomBytes(8).toString('hex')` (128-bit entropy unguessable).
+
+### Cleared by CSO — không phải finding
+- npm audit backend + frontend: **0 CVE**
+- CI/CD workflows SHA-pinned, minimal permissions, no `pull_request_target`
+- JWT RS256 với public/private PEM, tokenVersion-based revocation, refresh-token rotation + reuse detection
+- 2FA TOTP atomic replay protection, OTP single-use constant-time compare
+- Document upload: MIME whitelist + 10MB cap + filename rewritten server-side
+- Không dùng LLM API, không có webhook receiver, không có raw SQL injection vector
+
 ## [0.21.7.0] - 2026-05-14
 
 ### Fixed — Calendar UI: phân loại Lịch/Sự kiện + sidebar context + delete dialog

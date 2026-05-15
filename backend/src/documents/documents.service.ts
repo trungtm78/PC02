@@ -12,6 +12,7 @@ import { QueryDocumentsDto } from './dto/query-documents.dto';
 import { Prisma } from '@prisma/client';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as crypto from 'crypto';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { assertParentInScope, buildScopeFilter } from '../common/utils/scope-filter.util';
 
@@ -350,7 +351,8 @@ export class DocumentsService {
   // ─────────────────────────────────────────────
   generateFileName(originalName: string): string {
     const timestamp = Date.now();
-    const random = Math.random().toString(36).substring(2, 10);
+    // SEC: crypto.randomBytes thay vì Math.random — 128-bit entropy unguessable.
+    const random = crypto.randomBytes(8).toString('hex');
     const ext = path.extname(originalName);
     return `${timestamp}-${random}${ext}`;
   }

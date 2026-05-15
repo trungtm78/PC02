@@ -5,6 +5,7 @@ import {
   Delete,
   Body,
   Param,
+  Req,
   UseGuards,
   HttpCode,
   HttpStatus,
@@ -14,6 +15,7 @@ import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { RequirePermissions } from '../../auth/decorators/permissions.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import type { AuthUser } from '../../auth/interfaces/auth-user.interface';
+import type { ScopedRequest } from '../../auth/interfaces/scoped-request.interface';
 import { ActionPlansService } from './action-plans.service';
 import { CreateActionPlanDto } from './dto/create-action-plan.dto';
 
@@ -24,8 +26,8 @@ export class CaseActionPlansController {
 
   @Get()
   @RequirePermissions({ action: 'read', subject: 'Case' })
-  findAll(@Param('caseId') caseId: string) {
-    return this.actionPlansService.findAllForCase(caseId);
+  findAll(@Param('caseId') caseId: string, @Req() req: ScopedRequest) {
+    return this.actionPlansService.findAllForCase(caseId, req.dataScope);
   }
 
   @Post()
@@ -34,15 +36,16 @@ export class CaseActionPlansController {
     @Param('caseId') caseId: string,
     @Body() dto: CreateActionPlanDto,
     @CurrentUser() user: AuthUser,
+    @Req() req: ScopedRequest,
   ) {
-    return this.actionPlansService.createForCase(caseId, dto, user.id);
+    return this.actionPlansService.createForCase(caseId, dto, user.id, req.dataScope);
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
   @RequirePermissions({ action: 'write', subject: 'Case' })
-  delete(@Param('id') id: string) {
-    return this.actionPlansService.delete(id);
+  delete(@Param('id') id: string, @Req() req: ScopedRequest) {
+    return this.actionPlansService.delete(id, req.dataScope);
   }
 }
 
@@ -53,8 +56,8 @@ export class IncidentActionPlansController {
 
   @Get()
   @RequirePermissions({ action: 'read', subject: 'Case' })
-  findAll(@Param('incidentId') incidentId: string) {
-    return this.actionPlansService.findAllForIncident(incidentId);
+  findAll(@Param('incidentId') incidentId: string, @Req() req: ScopedRequest) {
+    return this.actionPlansService.findAllForIncident(incidentId, req.dataScope);
   }
 
   @Post()
@@ -63,14 +66,15 @@ export class IncidentActionPlansController {
     @Param('incidentId') incidentId: string,
     @Body() dto: CreateActionPlanDto,
     @CurrentUser() user: AuthUser,
+    @Req() req: ScopedRequest,
   ) {
-    return this.actionPlansService.createForIncident(incidentId, dto, user.id);
+    return this.actionPlansService.createForIncident(incidentId, dto, user.id, req.dataScope);
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
   @RequirePermissions({ action: 'write', subject: 'Case' })
-  delete(@Param('id') id: string) {
-    return this.actionPlansService.delete(id);
+  delete(@Param('id') id: string, @Req() req: ScopedRequest) {
+    return this.actionPlansService.delete(id, req.dataScope);
   }
 }

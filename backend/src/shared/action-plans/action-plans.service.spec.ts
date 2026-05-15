@@ -24,9 +24,10 @@
  */
 
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { ActionPlansService } from './action-plans.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import type { DataScope } from '../../auth/services/unit-scope.service';
 
 // ─── Mock Prisma ──────────────────────────────────────────────────────────────
 
@@ -43,6 +44,19 @@ const mockPrisma = {
     findUnique: jest.fn().mockResolvedValue(null),
     delete: jest.fn(),
   },
+};
+
+const scopeTeamA: DataScope = {
+  userIds: ['user-1'],
+  teamIds: ['team-A'],
+  writableTeamIds: ['team-A'],
+  canDispatch: false,
+};
+const scopeTeamB: DataScope = {
+  userIds: ['user-2'],
+  teamIds: ['team-B'],
+  writableTeamIds: ['team-B'],
+  canDispatch: false,
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -186,14 +200,94 @@ describe('ActionPlansService', () => {
 
     it('calls prisma.suspensionActionPlan.delete when plan exists', async () => {
       const plan = makeActionPlan();
-      mockPrisma.suspensionActionPlan.findUnique.mockResolvedValue(plan);
+      mockPrisma.suspensionActionPlan.findUnique.mockResolvedValue({
+        ...plan,
+        case: { id: 'case-1', assignedTeamId: 'team-A', investigatorId: 'user-1' },
+        incident: null,
+      });
       mockPrisma.suspensionActionPlan.delete.mockResolvedValue(plan);
 
-      await service.delete('plan-1');
+      await service.delete('plan-1', scopeTeamA);
 
       expect(mockPrisma.suspensionActionPlan.delete).toHaveBeenCalledWith({
         where: { id: 'plan-1' },
       });
     });
+  });
+
+  // ── DataScope enforcement (CSO finding F1/F2 — IDOR) ──────────────────────
+
+  describe('DataScope enforcement', () => {
+    const otherTeamCase = { id: 'case-1', assignedTeamId: 'team-B', investigatorId: 'user-2' };
+    const otherTeamIncident = { id: 'incident-1', assignedTeamId: 'team-B', investigatorId: 'user-2' };
+
+    beforeEach(() => {
+      mockPrisma.case.findUnique.mockResolvedValue(otherTeamCase);
+      mockPrisma.incident.findUnique.mockResolvedValue(otherTeamIncident);
+    });
+
+    it('createForCase: denies cross-team write', async () => {
+      await expect(
+        service.createForCase('case-1', makeDto(), 'user-1', scopeTeamA),
+      ).rejects.toThrow(ForbiddenException);
+      expect(mockPrisma.suspensionActionPlan.create).not.toHaveBeenCalled();
+    });
+
+    it('createForIncident: denies cross-team write', async () => {
+      await expect(
+        service.createForIncident('incident-1', makeDto(), 'user-1', scopeTeamA),
+      ).rejects.toThrow(ForbiddenException);
+      expect(mockPrisma.suspensionActionPlan.create).not.toHaveBeenCalled();
+    });
+
+    it('findAllForCase: denies cross-team read', async () => {
+      await expect(service.findAllForCase('case-1', scopeTeamA)).rejects.toThrow(ForbiddenException);
+      expect(mockPrisma.suspensionActionPlan.findMany).not.toHaveBeenCalled();
+    });
+
+    it('findAllForIncident: denies cross-team read', async () => {
+      await expect(service.findAllForIncident('incident-1', scopeTeamA)).rejects.toThrow(ForbiddenException);
+      expect(mockPrisma.suspensionActionPlan.findMany).not.toHaveBeenCalled();
+    });
+
+    it('delete: denies removing plan attached to cross-team case', async () => {
+      mockPrisma.suspensionActionPlan.findUnique.mockResolvedValue({
+        ...makeActionPlan(),
+        case: otherTeamCase,
+        incident: null,
+      });
+      await expect(service.delete('plan-1', scopeTeamA)).rejects.toThrow(ForbiddenException);
+      expect(mockPrisma.suspensionActionPlan.delete).not.toHaveBeenCalled();
+    });
+
+    it('delete: denies removing plan attached to cross-team incident', async () => {
+      mockPrisma.suspensionActionPlan.findUnique.mockResolvedValue({
+        ...makeActionPlan({ caseId: null, incidentId: 'incident-1' }),
+        case: null,
+        incident: otherTeamIncident,
+      });
+      await expect(service.delete('plan-1', scopeTeamA)).rejects.toThrow(ForbiddenException);
+      expect(mockPrisma.suspensionActionPlan.delete).not.toHaveBeenCalled();
+    });
+
+    it('null scope (admin) bypasses all checks', async () => {
+      mockPrisma.suspensionActionPlan.create.mockResolvedValue(makeActionPlan());
+      await expect(
+        service.createForCase('case-1', makeDto(), 'admin-id', null),
+      ).resolves.toBeDefined();
+      expect(mockPrisma.suspensionActionPlan.create).toHaveBeenCalled();
+    });
+
+    it('matching team allows access', async () => {
+      mockPrisma.case.findUnique.mockResolvedValue({
+        id: 'case-1', assignedTeamId: 'team-A', investigatorId: 'user-1',
+      });
+      mockPrisma.suspensionActionPlan.create.mockResolvedValue(makeActionPlan());
+      await expect(
+        service.createForCase('case-1', makeDto(), 'user-1', scopeTeamA),
+      ).resolves.toBeDefined();
+    });
+
+    void scopeTeamB; // referenced for future cross-team test parameterization
   });
 });

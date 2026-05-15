@@ -5,6 +5,7 @@ import {
   Delete,
   Body,
   Param,
+  Req,
   UseGuards,
   HttpCode,
   HttpStatus,
@@ -14,6 +15,7 @@ import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { RequirePermissions } from '../../auth/decorators/permissions.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import type { AuthUser } from '../../auth/interfaces/auth-user.interface';
+import type { ScopedRequest } from '../../auth/interfaces/scoped-request.interface';
 import { VksMeetingsService } from './vks-meetings.service';
 import { CreateVksMeetingDto } from './dto/create-vks-meeting.dto';
 
@@ -24,8 +26,8 @@ export class CaseVksMeetingsController {
 
   @Get()
   @RequirePermissions({ action: 'read', subject: 'Case' })
-  findAll(@Param('caseId') caseId: string) {
-    return this.vksMeetingsService.findAllForCase(caseId);
+  findAll(@Param('caseId') caseId: string, @Req() req: ScopedRequest) {
+    return this.vksMeetingsService.findAllForCase(caseId, req.dataScope);
   }
 
   @Post()
@@ -34,15 +36,16 @@ export class CaseVksMeetingsController {
     @Param('caseId') caseId: string,
     @Body() dto: CreateVksMeetingDto,
     @CurrentUser() user: AuthUser,
+    @Req() req: ScopedRequest,
   ) {
-    return this.vksMeetingsService.createForCase(caseId, dto, user.id);
+    return this.vksMeetingsService.createForCase(caseId, dto, user.id, req.dataScope);
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
   @RequirePermissions({ action: 'write', subject: 'Case' })
-  delete(@Param('id') id: string) {
-    return this.vksMeetingsService.delete(id);
+  delete(@Param('id') id: string, @Req() req: ScopedRequest) {
+    return this.vksMeetingsService.delete(id, req.dataScope);
   }
 }
 
@@ -53,8 +56,8 @@ export class IncidentVksMeetingsController {
 
   @Get()
   @RequirePermissions({ action: 'read', subject: 'Case' })
-  findAll(@Param('incidentId') incidentId: string) {
-    return this.vksMeetingsService.findAllForIncident(incidentId);
+  findAll(@Param('incidentId') incidentId: string, @Req() req: ScopedRequest) {
+    return this.vksMeetingsService.findAllForIncident(incidentId, req.dataScope);
   }
 
   @Post()
@@ -63,14 +66,15 @@ export class IncidentVksMeetingsController {
     @Param('incidentId') incidentId: string,
     @Body() dto: CreateVksMeetingDto,
     @CurrentUser() user: AuthUser,
+    @Req() req: ScopedRequest,
   ) {
-    return this.vksMeetingsService.createForIncident(incidentId, dto, user.id);
+    return this.vksMeetingsService.createForIncident(incidentId, dto, user.id, req.dataScope);
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
   @RequirePermissions({ action: 'write', subject: 'Case' })
-  delete(@Param('id') id: string) {
-    return this.vksMeetingsService.delete(id);
+  delete(@Param('id') id: string, @Req() req: ScopedRequest) {
+    return this.vksMeetingsService.delete(id, req.dataScope);
   }
 }

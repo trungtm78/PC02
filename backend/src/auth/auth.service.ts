@@ -16,6 +16,7 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 import { JwtPayload } from './strategies/jwt.strategy';
 import { TOKEN_TYPE } from '../common/constants/token-types.constants';
 import { SETTINGS_KEY } from '../common/constants/settings-keys.constants';
+import { getBcryptCost } from './utils/password-hash.util';
 
 export interface TokenPair {
   accessToken: string;
@@ -138,7 +139,7 @@ export class AuthService {
     );
 
     // Store hashed refresh token for rotation
-    const refreshHash = await bcrypt.hash(tokens.refreshToken, 10);
+    const refreshHash = await bcrypt.hash(tokens.refreshToken, getBcryptCost());
     await this.prisma.user.update({
       where: { id: user.id },
       data: { refreshTokenHash: refreshHash, lastLoginAt: new Date() },
@@ -316,7 +317,7 @@ export class AuthService {
     // works after the access token expires. Without this update, the user
     // appears logged in but is silently logged out 15 min later because
     // refreshToken() requires a stored hash to compare against.
-    const refreshHash = await bcrypt.hash(tokens.refreshToken, 10);
+    const refreshHash = await bcrypt.hash(tokens.refreshToken, getBcryptCost());
     await this.prisma.user.update({
       where: { id: user.id },
       data: { refreshTokenHash: refreshHash },
@@ -389,7 +390,7 @@ export class AuthService {
     );
 
     // Rotate: store new refresh token hash
-    const newRefreshHash = await bcrypt.hash(tokens.refreshToken, 10);
+    const newRefreshHash = await bcrypt.hash(tokens.refreshToken, getBcryptCost());
     await this.prisma.user.update({
       where: { id: user.id },
       data: { refreshTokenHash: newRefreshHash },

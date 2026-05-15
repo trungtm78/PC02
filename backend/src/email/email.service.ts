@@ -3,6 +3,19 @@ import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
 
+const HTML_ESCAPE: Record<string, string> = {
+  '&': '&amp;',
+  '<': '&lt;',
+  '>': '&gt;',
+  '"': '&quot;',
+  "'": '&#39;',
+};
+
+function escapeHtml(input: unknown): string {
+  if (input === null || input === undefined) return '';
+  return String(input).replace(/[&<>"']/g, (ch) => HTML_ESCAPE[ch] ?? ch);
+}
+
 @Injectable()
 export class EmailService implements OnModuleInit {
   private readonly logger = new Logger(EmailService.name);
@@ -42,6 +55,8 @@ export class EmailService implements OnModuleInit {
 
   async sendEventReminder(to: string, eventTitle: string, occurrenceDate: Date): Promise<void> {
     const dateStr = occurrenceDate.toISOString().slice(0, 10);
+    const safeTitle = escapeHtml(eventTitle);
+    const safeDate = escapeHtml(dateStr);
     try {
       await this.transporter.sendMail({
         from: `"PC02 System" <${this.config.get('EMAIL_FROM') ?? this.config.get('SMTP_FROM') ?? 'noreply@pc02hcm.com'}>`,
@@ -52,8 +67,8 @@ export class EmailService implements OnModuleInit {
           <h2 style="color:#003973">Nhắc nhở sự kiện</h2>
           <p>Bạn có sự kiện sắp diễn ra:</p>
           <div style="padding:16px;background:#f1f5f9;border-radius:8px;border-left:4px solid #003973">
-            <div style="font-size:18px;font-weight:bold;color:#003973">${eventTitle}</div>
-            <div style="color:#64748b;margin-top:4px">Ngày ${dateStr}</div>
+            <div style="font-size:18px;font-weight:bold;color:#003973">${safeTitle}</div>
+            <div style="color:#64748b;margin-top:4px">Ngày ${safeDate}</div>
           </div>
           <p style="color:#64748b;font-size:14px;margin-top:16px">Xem chi tiết trong ứng dụng PC02.</p>
         </div>`,
