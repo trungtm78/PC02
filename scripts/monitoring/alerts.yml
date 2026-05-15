@@ -1,0 +1,74 @@
+# Sprint 3 / S3.3 — Alertmanager rules cho PC02 security + availability.
+
+groups:
+  - name: pc02_security
+    interval: 30s
+    rules:
+      - alert: BruteForceLogin
+        expr: sum by (instance) (rate(pc02_login_attempts_total{result="failure"}[5m])) > 4
+        for: 2m
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "Brute-force login attack pattern (>4 fail/sec trong 5m)"
+          description: "{{ $value | humanize }} fail logins/sec — kiểm tra audit log + xem có nên block IP."
+
+      - alert: BruteForceLoginCritical
+        expr: sum by (instance) (rate(pc02_login_attempts_total{result="failure"}[5m])) > 20
+        for: 1m
+        labels:
+          severity: critical
+          category: security
+        annotations:
+          summary: "CRITICAL: brute-force >20 fail/sec"
+
+      - alert: HighDataScopeDenial
+        expr: sum by (resource) (rate(pc02_data_scope_denial_total[10m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "Possible IDOR probe trên {{ $labels.resource }} ({{ $value | humanize }} deny/sec)"
+          description: "Cross-team data access đang bị từ chối liên tục — kiểm tra user audit log."
+
+      - alert: AccountLockoutSpike
+        expr: increase(pc02_login_attempts_total{result="locked"}[15m]) > 5
+        for: 5m
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "Spike account lockouts ({{ $value }} trong 15 phút)"
+
+  - name: pc02_availability
+    interval: 30s
+    rules:
+      - alert: BackendDown
+        expr: up{job="pc02-backend"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: availability
+        annotations:
+          summary: "PC02 backend không reachable"
+          description: "Prometheus không scrape được /api/v1/metrics > 1 phút."
+
+      - alert: HighRequestLatency
+        expr: histogram_quantile(0.95, sum by (le, route) (rate(pc02_http_request_duration_seconds_bucket[5m]))) > 2
+        for: 5m
+        labels:
+          severity: warning
+          category: performance
+        annotations:
+          summary: "P95 latency >2s trên {{ $labels.route }}"
+
+      - alert: OffsiteBackupStale
+        expr: time() - pc02_offsite_backup_last_success_timestamp > 86400 * 2
+        for: 10m
+        labels:
+          severity: warning
+          category: backup
+        annotations:
+          summary: "Off-site backup > 2 ngày chưa thành công"

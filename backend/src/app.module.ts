@@ -7,6 +7,7 @@ import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { AuditModule } from './audit/audit.module';
+import { MetricsModule } from './metrics/metrics.module';
 import { AdminModule } from './admin/admin.module';
 import { DirectoryModule } from './directory/directory.module';
 import { AddressMappingModule } from './address-mapping/address-mapping.module';
@@ -53,6 +54,7 @@ import { TestFixturesModule } from './test-fixtures/test-fixtures.module';
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 200 }]),
     ScheduleModule.forRoot(),
     PrismaModule,
+    MetricsModule, // Sprint 3 / S3.3 — Global module phải import sớm
     AuthModule,
     AuditModule,
     AdminModule,
