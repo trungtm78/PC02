@@ -51,6 +51,11 @@ const ALLOWED_MIME_TYPES = [
   'text/plain',
 ];
 
+// Sprint 2 / S2.2 — Magic-byte MIME map cho file-type lib. file-type không
+// detect được text/plain (no magic bytes), nên text/plain bypass magic-byte
+// check (vẫn pass Content-Type whitelist + ext check).
+const MAGIC_BYTE_BYPASS = new Set(['text/plain']);
+
 @Controller('documents')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class DocumentsController {
@@ -107,7 +112,7 @@ export class DocumentsController {
     }),
   )
   @RequirePermissions({ action: 'write', subject: 'Document' })
-  create(
+  async create(
     @UploadedFile() file: Express.Multer.File,
     @Body() dto: CreateDocumentDto,
     @CurrentUser() user: AuthUser,
@@ -115,6 +120,21 @@ export class DocumentsController {
   ) {
     if (!file) {
       throw new BadRequestException('File upload là bắt buộc');
+    }
+
+    // Sprint 2 / S2.2 — Magic-byte validation: Content-Type header attacker-controlled.
+    // file-type đọc magic bytes thật, kháng MIME spoofing attack.
+    if (!MAGIC_BYTE_BYPASS.has(file.mimetype)) {
+      // ESM-only lib — dùng dynamic import vì backend là CommonJS
+      const { fileTypeFromFile } = await import('file-type');
+      const detected = await fileTypeFromFile(file.path);
+      if (!detected || !ALLOWED_MIME_TYPES.includes(detected.mime)) {
+        // Xoá file giả mạo khỏi disk để khỏi tốn storage + tránh leak path
+        try { fs.unlinkSync(file.path); } catch { /* swallow — file có thể đã bị xoá */ }
+        throw new BadRequestException(
+          `Magic-byte không khớp Content-Type (declared: ${file.mimetype}, detected: ${detected?.mime ?? 'unknown'})`,
+        );
+      }
     }
 
     // Populate file info from multer
@@ -168,16 +188,22 @@ export class DocumentsController {
   @RequirePermissions({ action: 'read', subject: 'Document' })
   async download(
     @Param('id') id: string,
+    @CurrentUser() user: AuthUser,
     @Req() req: ScopedRequest,
     @Res() res: Response,
   ) {
     await this.documentsService.getById(id, req.dataScope);
-    const result = await this.documentsService.getDownloadInfo(id);
+    // Sprint 2 / S2.1 — pass actor để audit log fire DOCUMENT_DOWNLOADED.
+    const result = await this.documentsService.getDownloadInfo(id, {
+      userId: user.id,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
     const { filePath, originalName, mimeType } = result.data;
 
     res.setHeader('Content-Type', mimeType);
     res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(originalName)}"`);
-    
+
     const fileStream = fs.createReadStream(filePath);
     fileStream.pipe(res);
   }

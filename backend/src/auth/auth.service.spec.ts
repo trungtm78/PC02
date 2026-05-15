@@ -134,11 +134,14 @@ describe('AuthService.login (mustChangePassword pending branch — C2)', () => {
   // C2 critical: 2FA branch must NOT short-circuit the mustChangePassword check
   // when 2FA is enabled. Login still returns twoFaToken first; the mustChangePassword
   // re-check happens AFTER 2FA verify (covered in TwoFaService.verify spec).
+  // Sprint 2 / S2.4: this test assumes user.totpEnabled=true (already set up 2FA);
+  // otherwise login() returns setup-pending (TWO_FA_SETUP_REQUIRED) first.
   it('still returns twoFaToken pending when 2FA is enabled, even with mustChangePassword=true', async () => {
     mockSettingsService.getValue.mockResolvedValue('true'); // 2FA enabled
     mockPrisma.user.findUnique.mockResolvedValue({
       ...baseUser,
       mustChangePassword: true,
+      totpEnabled: true, // user đã setup 2FA, không phải initial-setup flow
     });
     bcryptCompare.mockResolvedValue(true);
 
@@ -880,6 +883,162 @@ describe('AuthService.login (account lockout — Sprint 1 S1.2)', () => {
           lockedUntil: null,
           lastFailedLoginAt: null,
         }),
+      }),
+    );
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// Sprint 2 — S2.4: 2FA Setup Mandate
+//
+// Khi TWO_FA_ENABLED=true mà user chưa totpEnabled (hoặc user.twoFaSetupRequired=true),
+// login() return `{ pending: true, twoFaSetupToken, reason: 'TWO_FA_SETUP_REQUIRED' }`.
+// Frontend redirect /auth/2fa-setup. User scan QR + verify first OTP → real TokenPair.
+// ───────────────────────────────────────────────────────────────────────────
+
+// ───────────────────────────────────────────────────────────────────────────
+// Sprint 2 — S2.3: Backend Logout Endpoint
+// ───────────────────────────────────────────────────────────────────────────
+
+describe('AuthService.logout (Sprint 2 S2.3)', () => {
+  let service: AuthService;
+
+  beforeEach(() => {
+    service = makeService();
+    jest.clearAllMocks();
+    mockPrisma.user.update.mockResolvedValue({});
+  });
+
+  it('clears refreshTokenHash → refresh token cũ không dùng được', async () => {
+    await service.logout('u1', META);
+
+    expect(mockPrisma.user.update).toHaveBeenCalledWith({
+      where: { id: 'u1' },
+      data: { refreshTokenHash: null },
+    });
+  });
+
+  it('audits USER_LOGOUT with ip + user agent', async () => {
+    await service.logout('u1', META);
+
+    expect(mockAudit.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'u1',
+        action: 'USER_LOGOUT',
+        ipAddress: META.ipAddress,
+        userAgent: META.userAgent,
+      }),
+    );
+  });
+
+  it('returns { success: true }', async () => {
+    const result = await service.logout('u1', META);
+    expect(result).toEqual({ success: true });
+  });
+});
+
+describe('AuthService.login (2FA setup mandate — Sprint 2 S2.4)', () => {
+  let service: AuthService;
+  const baseUser = {
+    id: 'u1',
+    email: 'cb@pc02.local',
+    isActive: true,
+    passwordHash: HASHED,
+    role: { name: 'OFFICER' },
+    tokenVersion: 0,
+    canDispatch: false,
+    mustChangePassword: false,
+    failedLoginAttempts: 0,
+    lockedUntil: null,
+    lastFailedLoginAt: null,
+    totpEnabled: false,
+    twoFaSetupRequired: false,
+  };
+
+  beforeEach(() => {
+    service = makeService();
+    jest.clearAllMocks();
+    bcryptHash.mockResolvedValue(HASHED);
+    mockJwtService.signAsync.mockResolvedValue('SETUP_TOKEN');
+    mockPrisma.user.update.mockResolvedValue({});
+  });
+
+  it('returns setup-pending token when TWO_FA_ENABLED=true and user has not enabled totp', async () => {
+    mockSettingsService.getValue.mockResolvedValue('true');
+    mockPrisma.user.findUnique.mockResolvedValue({
+      ...baseUser,
+      totpEnabled: false,
+    });
+    bcryptCompare.mockResolvedValue(true);
+
+    const result = await service.login(
+      { username: 'cb@pc02.local', password: 'correct' } as any,
+      META,
+    );
+
+    expect(result).toMatchObject({
+      pending: true,
+      reason: 'TWO_FA_SETUP_REQUIRED',
+      twoFaSetupToken: expect.any(String),
+    });
+    expect((result as any).twoFaToken).toBeUndefined();
+    expect((result as any).accessToken).toBeUndefined();
+  });
+
+  it('returns setup-pending when user.twoFaSetupRequired=true even if TWO_FA_ENABLED=false', async () => {
+    mockSettingsService.getValue.mockResolvedValue('false');
+    mockPrisma.user.findUnique.mockResolvedValue({
+      ...baseUser,
+      twoFaSetupRequired: true,
+      totpEnabled: false,
+    });
+    bcryptCompare.mockResolvedValue(true);
+
+    const result = await service.login(
+      { username: 'cb@pc02.local', password: 'correct' } as any,
+      META,
+    );
+
+    expect(result).toMatchObject({
+      pending: true,
+      reason: 'TWO_FA_SETUP_REQUIRED',
+    });
+  });
+
+  it('falls back to normal 2FA verify flow when user.totpEnabled=true', async () => {
+    mockSettingsService.getValue.mockResolvedValue('true');
+    mockPrisma.user.findUnique.mockResolvedValue({
+      ...baseUser,
+      totpEnabled: true,
+    });
+    bcryptCompare.mockResolvedValue(true);
+
+    const result = await service.login(
+      { username: 'cb@pc02.local', password: 'correct' } as any,
+      META,
+    );
+
+    expect((result as any).twoFaToken).toBeDefined();
+    expect((result as any).reason).toBeUndefined();
+  });
+
+  it('audits USER_2FA_SETUP_REQUIRED when setup-pending fires', async () => {
+    mockSettingsService.getValue.mockResolvedValue('true');
+    mockPrisma.user.findUnique.mockResolvedValue({
+      ...baseUser,
+      totpEnabled: false,
+    });
+    bcryptCompare.mockResolvedValue(true);
+
+    await service.login(
+      { username: 'cb@pc02.local', password: 'correct' } as any,
+      META,
+    );
+
+    expect(mockAudit.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'u1',
+        action: 'USER_2FA_SETUP_REQUIRED',
       }),
     );
   });

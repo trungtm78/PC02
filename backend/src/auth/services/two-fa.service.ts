@@ -415,6 +415,53 @@ export class TwoFaService {
     return { success: true };
   }
 
+  // ── Sprint 2 / S2.4 — Initial Setup Flow ────────────────────────────────
+  //
+  // Khi login() trả `TWO_FA_SETUP_REQUIRED` + setupToken, frontend gọi 2 endpoint:
+  //   1. POST /auth/initial-2fa-setup        → wrap setupTotp() trả QR + backup codes
+  //   2. POST /auth/initial-2fa-setup/verify → verify first OTP, enable totp,
+  //                                            clear twoFaSetupRequired, trả TokenPair
+  // ──────────────────────────────────────────────────────────────────────────
+
+  async initialSetup(userId: string): Promise<{ qrCodeDataUrl: string; backupCodes: string[] }> {
+    // Reuse logic của setupTotp — không cần thêm gì khác, user state giống nhau.
+    return this.setupTotp(userId);
+  }
+
+  async completeInitialSetup(
+    userId: string,
+    token: string,
+    meta: { ipAddress?: string; userAgent?: string },
+  ): Promise<TokenPair> {
+    // 1. Verify TOTP code (same as verifySetup) — sẽ throw nếu invalid.
+    await this.verifySetup(userId, token);
+
+    // 2. Clear twoFaSetupRequired flag (user xong initial setup, lần sau login bình thường).
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { twoFaSetupRequired: false },
+    });
+
+    // 3. Audit log đặc thù cho initial-setup completion (distinguishable từ USER_2FA_SETUP
+    //    của settings-page re-setup).
+    await this.audit.log({
+      userId,
+      action: 'USER_2FA_INITIAL_SETUP_COMPLETED',
+      subject: 'User',
+      subjectId: userId,
+      ipAddress: meta.ipAddress,
+      userAgent: meta.userAgent,
+    });
+
+    // 4. Issue real TokenPair — login flow hoàn tất.
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { role: true },
+    });
+    if (!user) throw new UnauthorizedException();
+    return this.generateTokenPair(user);
+  }
+
   // ── Token Generation (mirrors AuthService private helper) ──────────────────
   private async generateTokenPair(user: {
     id: string;

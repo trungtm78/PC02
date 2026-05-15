@@ -129,6 +129,9 @@ async function main() {
           lastName: 'Admin',
           roleId: adminRole.id,
           isActive: true,
+          // Sprint 2 / S2.4: seed admin không bị force setup 2FA ở first login
+          // (dev/setup convenience). Khi prod ready, admin nên setup manual qua /settings.
+          twoFaSetupRequired: false,
         },
       });
 

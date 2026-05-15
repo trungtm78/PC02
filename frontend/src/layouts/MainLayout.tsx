@@ -13,6 +13,7 @@ import { useShortcut } from '@/hooks/useShortcut';
 import { useUserShortcutBroadcast } from '@/hooks/useUserShortcuts';
 import { ShortcutCheatSheet } from '@/components/ShortcutCheatSheet';
 import { authStore } from '@/stores/auth.store';
+import { api } from '@/lib/api';
 import logoCA from '@/assets/logo-cong-an.png';
 
 function LoadingFallback() {
@@ -52,9 +53,16 @@ export function MainLayout() {
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     setDropdownOpen(false);
     if (window.confirm('Bạn có chắc chắn muốn đăng xuất?')) {
+      // Sprint 2 / S2.3 — gọi backend logout TRƯỚC khi clear local tokens để
+      // server-side clear refreshTokenHash. Best-effort: nếu fail vẫn clear local.
+      try {
+        await api.post('/auth/logout');
+      } catch {
+        // Token có thể đã expired hoặc server lỗi — vẫn cleanup local.
+      }
       authStore.clearTokens();
       navigate('/login', { replace: true });
     }

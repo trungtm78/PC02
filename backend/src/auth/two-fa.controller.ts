@@ -13,6 +13,7 @@ import type { Request } from 'express';
 import { TwoFaService } from './services/two-fa.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { TwoFaTokenGuard } from './guards/two-fa-token.guard';
+import { TwoFaSetupTokenGuard } from './guards/two-fa-setup-token.guard';
 import { UserThrottlerGuard } from './guards/user-throttler.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { VerifyTwoFaDto } from './dto/verify-2fa.dto';
@@ -63,6 +64,36 @@ export class TwoFaController {
   verify(@Req() req: Request, @Body() dto: VerifyTwoFaDto) {
     const userId = (req as any)['twoFaUserId'] as string;
     return this.twoFaService.verify(userId, dto, {
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+  }
+
+  // ── Sprint 2 / S2.4 — Initial 2FA Setup Flow ─────────────────────────────
+  //
+  // 2 endpoint mới gated by TwoFaSetupTokenGuard (accept setup token issued bởi
+  // login() khi user chưa enable totp + 2FA bắt buộc). Khác `/setup` + `/verify-setup`
+  // ở chỗ:
+  //   - Không cần access token (user chưa logged-in xong).
+  //   - completeInitialSetup() trả TokenPair real (login flow hoàn tất).
+  //   - Clear `twoFaSetupRequired = false` sau khi verify thành công.
+
+  @Post('initial-setup')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(TwoFaSetupTokenGuard, UserThrottlerGuard)
+  @Throttle({ default: { ttl: 60000, limit: 3 } })
+  initialSetup(@Req() req: Request) {
+    const userId = (req as any)['twoFaSetupUserId'] as string;
+    return this.twoFaService.initialSetup(userId);
+  }
+
+  @Post('initial-setup/verify')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(TwoFaSetupTokenGuard, UserThrottlerGuard)
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
+  completeInitialSetup(@Req() req: Request, @Body() dto: VerifySetupDto) {
+    const userId = (req as any)['twoFaSetupUserId'] as string;
+    return this.twoFaService.completeInitialSetup(userId, dto.token, {
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
     });

@@ -30,6 +30,13 @@ export interface TokenPair {
 
 // ISSUE-004: login() now returns either a full TokenPair or a 2FA pending response
 export type TwoFaPendingResponse = { pending: true; twoFaToken: string };
+// Sprint 2 / S2.4 — login khi user chưa setup 2FA + bắt buộc setup.
+// Frontend redirect /auth/2fa-setup. Token scope tới initial-setup endpoints.
+export type TwoFaSetupPendingResponse = {
+  pending: true;
+  twoFaSetupToken: string;
+  reason: 'TWO_FA_SETUP_REQUIRED';
+};
 // C2 / D1: when admin reset or first-login forces a password change, login()
 // (or 2FA verify, post-OTP) returns this pending response. The frontend
 // redirects to /auth/first-login-change-password and exchanges the token
@@ -43,6 +50,7 @@ export type ChangePasswordPendingResponse = {
 export type LoginResponse =
   | TokenPair
   | TwoFaPendingResponse
+  | TwoFaSetupPendingResponse
   | ChangePasswordPendingResponse;
 
 @Injectable()
@@ -117,6 +125,40 @@ export class AuthService {
 
     // 2FA check — if enabled, return pending token instead of full TokenPair
     const is2FAEnabled = (await this.settingsService.getValue(SETTINGS_KEY.TWO_FA_ENABLED)) === 'true';
+
+    // Sprint 2 / S2.4 — setup mandate: nếu user chưa enable totp nhưng 2FA
+    // bắt buộc (system-wide OR per-user flag), return setup-pending response để
+    // frontend redirect tới /auth/2fa-setup. KHÔNG bypass — login chưa hoàn tất.
+    const needsSetup =
+      !user.totpEnabled &&
+      (is2FAEnabled || (user as { twoFaSetupRequired?: boolean }).twoFaSetupRequired === true);
+    if (needsSetup) {
+      const setupJti = crypto.randomUUID();
+      const twoFaSetupToken = await this.jwtService.signAsync(
+        {
+          sub: user.id,
+          type: TOKEN_TYPE.TWO_FA_SETUP_PENDING,
+          jti: setupJti,
+          tokenVersion: user.tokenVersion,
+        } as object,
+        { algorithm: 'RS256', privateKey: this.privateKey, expiresIn: '15m' as StringValue },
+      );
+      await this.auditService.log({
+        userId: user.id,
+        action: 'USER_2FA_SETUP_REQUIRED',
+        subject: 'User',
+        subjectId: user.id,
+        metadata: { email: user.email },
+        ipAddress: meta.ipAddress,
+        userAgent: meta.userAgent,
+      });
+      return {
+        pending: true,
+        twoFaSetupToken,
+        reason: 'TWO_FA_SETUP_REQUIRED',
+      };
+    }
+
     if (is2FAEnabled) {
       const jti = crypto.randomUUID();
       // Codex review round 2 #B: bind tokenVersion to twoFaToken so admin
@@ -190,6 +232,29 @@ export class AuthService {
     });
 
     return tokens;
+  }
+
+  // ── Sprint 2 / S2.3 — Backend logout ──────────────────────────────────────
+  //
+  // Clear refreshTokenHash để refresh token cũ không refresh được nữa. Server-side
+  // revocation — khắc phục gap "frontend chỉ clear localStorage" pre-S2.3.
+  async logout(
+    userId: string,
+    meta: { ipAddress?: string; userAgent?: string },
+  ): Promise<{ success: true }> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { refreshTokenHash: null },
+    });
+    await this.auditService.log({
+      userId,
+      action: 'USER_LOGOUT',
+      subject: 'User',
+      subjectId: userId,
+      ipAddress: meta.ipAddress,
+      userAgent: meta.userAgent,
+    });
+    return { success: true };
   }
 
   // ── Change-password pending response (D1 / C2 helper) ─────────────────────
