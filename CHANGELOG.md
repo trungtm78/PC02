@@ -2,6 +2,46 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.21.9.0] - 2026-05-15
+
+### Security — Sprint 1 Public-Launch Hardening (4 hạng mục)
+
+Sprint 1/3 trên roadmap "Public Internet Readiness". Mục tiêu: từ 7.5/10 (internal-VPN-ready) lên ngưỡng đủ để mở Internet (still cần Sprint 2+3 cho audit/session/monitoring).
+
+**S1.2 — Account Lockout**
+- Schema mới: `users.failedLoginAttempts`, `lockedUntil`, `lastFailedLoginAt` (migration `20260515060000_add_account_lockout_fields`).
+- Login fail 5 lần liên tiếp → khoá 15 phút. Locked user bị reject TRƯỚC khi bcrypt.compare chạy (không leak timing info phân biệt locked vs wrong-pw).
+- Audit log mới: `USER_LOGIN_LOCKED` khi threshold trigger; `USER_LOGIN_FAILED` giữ nguyên cho fail thường.
+- Success login reset counter + clear lockout state.
+- Constants: `MAX_FAILED_LOGIN_ATTEMPTS=5`, `LOCKOUT_DURATION_MS=15*60*1000` trong `auth-policy.constants.ts`.
+- 6 test mới (RED→GREEN): increment counter, lock trigger, audit fire, locked reject, expire reset, success reset.
+
+**S1.3 — File Upload Throttle**
+- `POST /api/v1/documents` thêm `@Throttle({ default: { ttl: 60000, limit: 10 } })` chống storage abuse (1000 file × 10MB = 10GB nếu không cap).
+- 1 reflection test verify metadata còn nguyên (prevent regression).
+
+**S1.4 — 2FA Verify Throttle (regression tests)**
+- `/auth/2fa/verify` đã có `limit: 5/min` + `/auth/2fa/send-email-otp` đã có `limit: 3/min` — em add 2 reflection test để prevent regression.
+- Tính brute-force: 5/min × 6-digit OTP (1M space) × 10-min TTL = 0.005% chance success.
+
+**S1.1 — nginx Golden Template + S1.5 — Deploy artifacts**
+- File mới `scripts/deploy/nginx-pc02.conf`: production-grade nginx config với TLS, HSTS preload, CSP, X-Frame-Options DENY, Permissions-Policy, rate-limit zones (api 10r/s, login 3r/s), `client_max_body_size 25M`, immutable cache cho hashed assets.
+- File mới `scripts/deploy/install-nginx-config.sh`: idempotent installer — backup config cũ, render template với domain, validate `nginx -t`, reload, health check.
+- File mới `docs/PUBLIC-LAUNCH.md`: full step-by-step guide cho anh: certbot, install nginx, migration verify, 6 acceptance tests (TLS, headers, lockout, rate limit, upload throttle, request size cap), rollback procedure.
+
+### Anh cần làm tay sau khi merge
+
+1. Trỏ A record domain về `171.244.40.245`.
+2. `ssh pc02vm` rồi `sudo certbot --nginx -d <domain> --redirect` cấp Let's Encrypt.
+3. Copy + chạy `scripts/deploy/install-nginx-config.sh <domain>` để apply config.
+4. Verify SSL Labs A + securityheaders.com A+.
+5. Rotate password `admin@pc02.local` (lần CUỐI cùng plaintext qua mạng — sau khi TLS lên thì sang HTTPS).
+6. (Optional) Scrub git history password cũ bằng `git filter-repo`.
+
+### Tests
+- Backend Jest: 1256/1256 PASS (+9 mới)
+- Frontend Vitest: 484/484 PASS (4 jsdom errors pre-existing)
+
 ## [0.21.8.0] - 2026-05-15
 
 ### Security — CSO hardening pass (1 CRITICAL + 3 HIGH + 6 MEDIUM + 2 LOW)

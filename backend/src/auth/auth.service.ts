@@ -16,6 +16,10 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 import { JwtPayload } from './strategies/jwt.strategy';
 import { TOKEN_TYPE } from '../common/constants/token-types.constants';
 import { SETTINGS_KEY } from '../common/constants/settings-keys.constants';
+import {
+  MAX_FAILED_LOGIN_ATTEMPTS,
+  LOCKOUT_DURATION_MS,
+} from '../common/constants/auth-policy.constants';
 import { getBcryptCost } from './utils/password-hash.util';
 
 export interface TokenPair {
@@ -76,12 +80,35 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    // S1.2 account lockout — reject early nếu đang lock.
+    // Skip bcrypt.compare để không leak timing info phân biệt locked vs wrong-pw.
+    if (user.lockedUntil && user.lockedUntil > new Date()) {
+      const remainingMs = user.lockedUntil.getTime() - Date.now();
+      const remainingMinutes = Math.max(1, Math.ceil(remainingMs / 60000));
+      throw new UnauthorizedException(
+        `Tài khoản đã bị khoá tạm thời. Thử lại sau ${remainingMinutes} phút.`,
+      );
+    }
+
     const passwordValid = await bcrypt.compare(dto.password, user.passwordHash);
     if (!passwordValid) {
-      // Log failed attempt (no userId since unverified)
+      // S1.2: increment counter, lock nếu đạt threshold.
+      const newAttempts = user.failedLoginAttempts + 1;
+      const willLock = newAttempts >= MAX_FAILED_LOGIN_ATTEMPTS;
+      const now = new Date();
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          failedLoginAttempts: newAttempts,
+          lastFailedLoginAt: now,
+          lockedUntil: willLock ? new Date(now.getTime() + LOCKOUT_DURATION_MS) : user.lockedUntil,
+        },
+      });
+
       await this.auditService.log({
-        action: 'USER_LOGIN_FAILED',
-        metadata: { email: dto.username },
+        userId: user.id,
+        action: willLock ? 'USER_LOGIN_LOCKED' : 'USER_LOGIN_FAILED',
+        metadata: { email: dto.username, attempts: newAttempts },
         ipAddress: meta.ipAddress,
         userAgent: meta.userAgent,
       });
@@ -138,11 +165,17 @@ export class AuthService {
       user.canDispatch,
     );
 
-    // Store hashed refresh token for rotation
+    // Store hashed refresh token for rotation + reset lockout state (S1.2)
     const refreshHash = await bcrypt.hash(tokens.refreshToken, getBcryptCost());
     await this.prisma.user.update({
       where: { id: user.id },
-      data: { refreshTokenHash: refreshHash, lastLoginAt: new Date() },
+      data: {
+        refreshTokenHash: refreshHash,
+        lastLoginAt: new Date(),
+        failedLoginAttempts: 0,
+        lockedUntil: null,
+        lastFailedLoginAt: null,
+      },
     });
 
     // AC-STEP1-04: Audit log (USER_LOGIN only fires here when 2FA is off)

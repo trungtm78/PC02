@@ -709,3 +709,178 @@ describe('AuthService.getProfile', () => {
     expect(profile.canDispatch).toBe(true);
   });
 });
+
+// ───────────────────────────────────────────────────────────────────────────
+// Sprint 1 — S1.2: Account Lockout
+//
+// Behaviour spec: after MAX_FAILED_LOGIN_ATTEMPTS (5) consecutive failures,
+// the account is locked for LOCKOUT_DURATION_MS (15 phút). Locked users
+// cannot login even with correct password; bcrypt.compare must NOT be
+// called for locked accounts. Success login resets counter to 0.
+// ───────────────────────────────────────────────────────────────────────────
+
+describe('AuthService.login (account lockout — Sprint 1 S1.2)', () => {
+  let service: AuthService;
+  const NOW = new Date('2026-05-15T10:00:00.000Z');
+  const baseUser = {
+    id: 'u1',
+    email: 'cb@pc02.local',
+    isActive: true,
+    passwordHash: HASHED,
+    role: { name: 'OFFICER' },
+    tokenVersion: 0,
+    canDispatch: false,
+    mustChangePassword: false,
+    failedLoginAttempts: 0,
+    lockedUntil: null,
+    lastFailedLoginAt: null,
+  };
+
+  beforeEach(() => {
+    service = makeService();
+    jest.clearAllMocks();
+    jest.useFakeTimers();
+    jest.setSystemTime(NOW);
+    mockSettingsService.getValue.mockResolvedValue('false'); // 2FA off
+    mockJwtService.signAsync.mockResolvedValue('SIGNED');
+    bcryptHash.mockResolvedValue(HASHED);
+    mockPrisma.user.update.mockResolvedValue({});
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('increments failedLoginAttempts on wrong password', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({ ...baseUser });
+    bcryptCompare.mockResolvedValue(false);
+
+    await expect(
+      service.login({ username: 'cb@pc02.local', password: 'wrong' } as any, META),
+    ).rejects.toThrow(UnauthorizedException);
+
+    expect(mockPrisma.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'u1' },
+        data: expect.objectContaining({
+          failedLoginAttempts: 1,
+          lastFailedLoginAt: NOW,
+        }),
+      }),
+    );
+  });
+
+  it('locks account after 5 consecutive failures (sets lockedUntil = now + 15min)', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({
+      ...baseUser,
+      failedLoginAttempts: 4,
+    });
+    bcryptCompare.mockResolvedValue(false);
+
+    await expect(
+      service.login({ username: 'cb@pc02.local', password: 'wrong' } as any, META),
+    ).rejects.toThrow(UnauthorizedException);
+
+    const expectedLockUntil = new Date(NOW.getTime() + 15 * 60 * 1000);
+    expect(mockPrisma.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'u1' },
+        data: expect.objectContaining({
+          failedLoginAttempts: 5,
+          lockedUntil: expectedLockUntil,
+          lastFailedLoginAt: NOW,
+        }),
+      }),
+    );
+  });
+
+  it('audits USER_LOGIN_LOCKED when lockout triggers', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({
+      ...baseUser,
+      failedLoginAttempts: 4,
+    });
+    bcryptCompare.mockResolvedValue(false);
+
+    await expect(
+      service.login({ username: 'cb@pc02.local', password: 'wrong' } as any, META),
+    ).rejects.toThrow();
+
+    expect(mockAudit.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'USER_LOGIN_LOCKED',
+        userId: 'u1',
+      }),
+    );
+  });
+
+  it('rejects login when account is currently locked (skips bcrypt.compare)', async () => {
+    const futureLock = new Date(NOW.getTime() + 5 * 60 * 1000); // 5 phút tới
+    mockPrisma.user.findUnique.mockResolvedValue({
+      ...baseUser,
+      failedLoginAttempts: 5,
+      lockedUntil: futureLock,
+    });
+
+    await expect(
+      service.login({ username: 'cb@pc02.local', password: 'correct' } as any, META),
+    ).rejects.toThrow(/khoá|locked/i);
+
+    expect(bcryptCompare).not.toHaveBeenCalled();
+  });
+
+  it('allows login after lockedUntil expires and resets counter on success', async () => {
+    const expiredLock = new Date(NOW.getTime() - 1000); // 1 giây trước
+    mockPrisma.user.findUnique.mockResolvedValue({
+      ...baseUser,
+      failedLoginAttempts: 5,
+      lockedUntil: expiredLock,
+    });
+    bcryptCompare.mockResolvedValue(true);
+    mockJwtService.signAsync
+      .mockResolvedValueOnce('access_token')
+      .mockResolvedValueOnce('refresh_token');
+
+    const result = await service.login(
+      { username: 'cb@pc02.local', password: 'correct' } as any,
+      META,
+    );
+
+    expect((result as any).accessToken).toBeDefined();
+    // Login success must reset lockout state
+    expect(mockPrisma.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          failedLoginAttempts: 0,
+          lockedUntil: null,
+          lastFailedLoginAt: null,
+        }),
+      }),
+    );
+  });
+
+  it('resets failedLoginAttempts to 0 on successful login (even when no prior lock)', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({
+      ...baseUser,
+      failedLoginAttempts: 3,
+    });
+    bcryptCompare.mockResolvedValue(true);
+    mockJwtService.signAsync
+      .mockResolvedValueOnce('access_token')
+      .mockResolvedValueOnce('refresh_token');
+
+    await service.login(
+      { username: 'cb@pc02.local', password: 'correct' } as any,
+      META,
+    );
+
+    expect(mockPrisma.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          failedLoginAttempts: 0,
+          lockedUntil: null,
+          lastFailedLoginAt: null,
+        }),
+      }),
+    );
+  });
+});
