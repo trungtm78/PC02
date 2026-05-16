@@ -21,6 +21,7 @@ import {
   LOCKOUT_DURATION_MS,
 } from '../common/constants/auth-policy.constants';
 import { getBcryptCost } from './utils/password-hash.util';
+import { classifyIdentifier } from './utils/identifier-classifier';
 import { MetricsService } from '../metrics/metrics.service';
 
 export interface TokenPair {
@@ -81,10 +82,22 @@ export class AuthService {
     dto: LoginDto,
     meta: { ipAddress?: string; userAgent?: string },
   ): Promise<LoginResponse> {
-    const user = await this.prisma.user.findUnique({
-      where: { email: dto.username },
-      include: { role: true },
-    });
+    // Multi-field login (post-/autoplan): classify identifier shape → query đúng
+    // field cụ thể. KHÔNG dùng findFirst+OR (collision DoS attack — User A
+    // workId='0934314279' + User B phone='0934314279' → OR trả random).
+    // Phone field KHÔNG @unique (vợ chồng share), nên dùng findFirst với
+    // orderBy deterministic. Email/workId/username @unique → findUnique safe.
+    const { field, value } = classifyIdentifier(dto.username);
+    const user = field === 'phone'
+      ? await this.prisma.user.findFirst({
+          where: { phone: value },
+          orderBy: { id: 'asc' },
+          include: { role: true },
+        })
+      : await this.prisma.user.findUnique({
+          where: { [field]: value } as any,
+          include: { role: true },
+        });
 
     if (!user || !user.isActive) {
       this.metrics.loginAttempts.inc({ result: 'failure' });
@@ -199,7 +212,7 @@ export class AuthService {
     if (user.mustChangePassword) {
       return this.issueChangePasswordPending(
         user.id,
-        user.email,
+        user.email ?? user.username,
         user.tokenVersion,
         meta,
       );
@@ -207,7 +220,7 @@ export class AuthService {
 
     const tokens = await this.generateTokens(
       user.id,
-      user.email,
+      user.email ?? user.username,
       user.role.name,
       user.tokenVersion,
       user.canDispatch,
@@ -412,7 +425,7 @@ export class AuthService {
     // We use expectedTokenVersion+1 because the update was bound to that value.
     const tokens = await this.generateTokens(
       user.id,
-      user.email,
+      user.email ?? user.username,
       user.role.name,
       expectedTokenVersion + 1,
       user.canDispatch,
@@ -488,7 +501,7 @@ export class AuthService {
 
     const tokens = await this.generateTokens(
       user.id,
-      user.email,
+      user.email ?? user.username,
       user.role.name,
       user.tokenVersion,
       user.canDispatch,
@@ -666,7 +679,9 @@ export class AuthService {
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────────
-  private async generateTokens(
+  // Public — used bởi EnrollmentService.consumeEnrollmentToken (post-/autoplan)
+  // sau khi user set password mới qua magic link.
+  async generateTokens(
     userId: string,
     email: string,
     role: string,

@@ -16,8 +16,11 @@ const STORAGE_KEY = 'pc02_remember_email';
 
 /* ── Validation schema ────────────────────────────────────────── */
 
+// Multi-field login (post-/autoplan): backend regex disambiguator classifies
+// input thành email/phone/workId/username → mỗi field 1 lookup riêng (chống
+// collision DoS). Frontend chỉ cần non-empty + tối thiểu 3 ký tự.
 const loginSchema = z.object({
-  username: z.string().email('Vui lòng nhập email hợp lệ'),
+  username: z.string().min(3, 'Vui lòng nhập ít nhất 3 ký tự'),
   password: z.string().min(6, 'Mật khẩu tối thiểu 6 ký tự'),
 });
 
@@ -192,23 +195,27 @@ export default function LoginPage() {
 
             {/* Form đăng nhập */}
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-5" noValidate>
-              {/* Email field */}
+              {/* Identifier field — multi-field login: workId / số điện thoại / email / username */}
               <div>
                 <label htmlFor="username" className="block text-sm font-medium text-slate-700 mb-2">
-                  Email / Số điện thoại <span className="text-red-500">*</span>
+                  Tài khoản đăng nhập <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                   <input
                     id="username"
-                    type="email"
-                    placeholder="Nhập email hoặc số điện thoại"
+                    type="text"
+                    inputMode="text"
+                    placeholder="Số hiệu / SĐT / email / tên đăng nhập"
                     autoComplete="username"
                     className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] focus:border-transparent transition-all text-sm"
-                    aria-describedby={errors.username ? 'username-error' : undefined}
+                    aria-describedby={errors.username ? 'username-error' : 'username-help'}
                     {...register('username')}
                   />
                 </div>
+                <p id="username-help" className="text-xs text-slate-500 mt-1">
+                  Dùng số hiệu ngành (vd: 277-794), số điện thoại, email hoặc tên đăng nhập.
+                </p>
                 {errors.username && (
                   <p id="username-error" className="text-xs text-red-600 mt-1">
                     {errors.username.message}

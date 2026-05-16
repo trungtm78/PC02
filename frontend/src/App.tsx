@@ -4,6 +4,7 @@ import LoginPage from '@/pages/auth/LoginPage';
 import TwoFaPage from '@/pages/auth/TwoFaPage';
 import ForgotPasswordPage from '@/pages/auth/ForgotPasswordPage';
 import FirstLoginChangePasswordPage from '@/pages/auth/FirstLoginChangePasswordPage';
+import EnrollPage from '@/pages/auth/EnrollPage';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { MainLayout } from '@/layouts/MainLayout';
 import { FeatureFlagsProvider, FEATURE_MODULES } from '@/lib/features';
@@ -33,6 +34,7 @@ function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/auth/2fa" element={<TwoFaPage />} />
           <Route path="/auth/first-login-change-password" element={<FirstLoginChangePasswordPage />} />
+          <Route path="/auth/enroll" element={<EnrollPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
           {/* Protected routes under MainLayout — every page below comes

@@ -58,13 +58,18 @@ model RolePermission {
 
 model User {
   id                 String    @id @default(cuid())
-  email              String    @unique
+  // Magic link enrollment (post-/autoplan): email nullable cho user không có email.
+  // Login lookup multi-field qua regex disambiguator (auth.service.ts) — workId/phone/email/username.
+  email              String?   @unique
   username           String    @unique
   passwordHash       String
   firstName          String?
   lastName           String?
-  workId             String? // Mã cán bộ (e.g. PC02-001)
-  phone              String?
+  workId             String?   @unique // Mã cán bộ (XXX-XXX) — partial unique cho non-null
+  phone              String? // KHÔNG @unique (vợ chồng share — CEO finding #10)
+  // Magic link enrollment fields. Token bcrypt-hash + TTL 72h. NULL sau khi user consume.
+  enrollmentTokenHash String?
+  enrollmentExpiresAt DateTime?
   departmentId       String? // ID đơn vị từ danh mục
   isActive           Boolean   @default(true)
   roleId             String
@@ -142,8 +147,31 @@ model User {
   calendarEventsCreated           CalendarEvent[]           @relation("CalendarEventCreatedBy")
   calendarEventsUpdated           CalendarEvent[]           @relation("CalendarEventUpdatedBy")
   eventReminders                  EventReminder[]           @relation("EventReminders")
+  // Magic link enrollment audit (post-/autoplan)
+  enrollmentTokensReceived        EnrollmentTokenAudit[]    @relation("EnrollmentTokenSubject")
+  enrollmentTokensGenerated       EnrollmentTokenAudit[]    @relation("EnrollmentTokenGenerator")
 
   @@map("users")
+}
+
+// Magic link enrollment audit (post-/autoplan).
+// Track admin gen + user click — không lưu plaintext token.
+model EnrollmentTokenAudit {
+  id          String    @id @default(cuid())
+  userId      String
+  generatedBy String
+  generatedAt DateTime  @default(now())
+  consumedAt  DateTime?
+  consumedIp  String?
+  consumedUa  String?
+  expiresAt   DateTime
+  channelHint String?
+  user        User      @relation("EnrollmentTokenSubject", fields: [userId], references: [id], onDelete: Cascade)
+  generator   User      @relation("EnrollmentTokenGenerator", fields: [generatedBy], references: [id])
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("enrollment_token_audits")
 }
 
 // ─────────────────────────────────────────────

@@ -14,9 +14,11 @@ export enum UserStatus {
   INACTIVE = 'inactive',
 }
 
-// F1: admin no longer chooses the password. Backend generates a random temp
-// password (returned ONCE in the response) and the user is forced to change
-// it on first login. See AdminService.createUser + temp-password.util.
+// Magic link enrollment (post-/autoplan): admin tạo user → backend gen
+// enrollment link 1-time (TTL 72h) → admin gửi user qua channel bất kỳ
+// (Zalo cá nhân, SMS, email, in QR). User click → tự đặt password.
+// Email là OPTIONAL — nhiều cán bộ Tổ 2 Đội 1 không có email công vụ.
+// Service-level validate: phải có ≥1 trong (workId, phone, email).
 export class CreateUserDto {
   @IsString()
   @IsNotEmpty()
@@ -28,8 +30,8 @@ export class CreateUserDto {
   username: string;
 
   @IsEmail({}, { message: 'Email không đúng định dạng' })
-  @IsNotEmpty()
-  email: string;
+  @IsOptional()
+  email?: string;
 
   @IsString()
   @IsOptional()

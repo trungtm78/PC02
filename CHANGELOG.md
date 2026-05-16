@@ -2,6 +2,32 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.24.0.0] - 2026-05-16
+
+### Onboarding — Magic Link Enrollment + Multi-Field Login (T2Đ1 unblock, NIST SP 800-63B compliant)
+
+Phát hiện: file Excel T2Đ1 có 12 cán bộ Tổ 2 Đội 1, chỉ 5/12 có email công vụ (41%), 12/12 có phone. Hệ thống cũ yêu cầu email NOT NULL → admin không thể tạo user thiếu email. Mode B (bulk default password) vi phạm NIST SP 800-63B §5.1.1.1 (shared bcrypt hash cho batch user → fail audit ngành A05).
+
+Plan v2 sau `/autoplan` dual-voice review (Claude subagent ×4):
+- **Magic link** thay Mode B password — admin gen link 1-time, gửi qua bất kỳ channel nào (Zalo personal, SMS, email, in QR/PDF), user click → tự đặt password.
+- **Multi-field login** với regex disambiguator — chống collision DoS attack (Eng review finding: User A `workId='0934314279'` + User B `phone='0934314279'` → `findFirst+OR` trả random user).
+
+**Backend:**
+- Schema: `email` nullable, `workId` `@unique` (partial index NOT NULL), thêm `enrollmentTokenHash`, `enrollmentExpiresAt`, model `EnrollmentTokenAudit` (track admin gen + user consume).
+- `identifier-classifier.ts`: pure function classify input → `email`/`phone`/`workId`/`username` field, mỗi field 1 `findUnique`/`findFirst` lookup riêng.
+- `EnrollmentService` (mới): `generateEnrollmentLink` (256-bit random token, bcrypt hash, TTL 72h, audit) + `consumeEnrollmentToken` (verify + bcrypt compare + transactional update + issue real TokenPair).
+- `AdminService.createUser` replace `tempPassword` → auto-gen enrollment link, return `{ url, qrPayload, expiresAt }` cho admin copy/QR. Validate ≥1 trong (workId/phone/email).
+- Endpoints: `POST /auth/enroll` (public, rate-limit 5/min), `POST /admin/users/:id/regenerate-enrollment-link` (admin auth).
+
+**Frontend:**
+- `EnrollPage` mới (route `/auth/enroll?token=...&uid=...`): form đặt password lần đầu, strength meter, redirect dashboard sau success.
+- `LoginPage` label "Tài khoản đăng nhập" thay "Email / Số điện thoại", placeholder "Số hiệu / SĐT / email / tên đăng nhập", helper text, schema chấp nhận non-email.
+- `authApi.enroll` API client.
+
+**Tests**: backend Jest 1247 → 1307 (+60: identifier-classifier 13, EnrollmentService 15, AdminService createUser 7 mới, multi-field login 6, audit fixtures adjust). Frontend Vitest 484/484. TS clean.
+
+**Security**: NIST SP 800-63B compliant — token plaintext KHÔNG BAO GIỜ lưu (chỉ bcrypt hash trên user record). User tự đặt password (strong meter), admin không biết. Replace Mode B violation.
+
 ## [0.23.1.0] - 2026-05-16
 
 ### Security HOTFIX — Metrics endpoint IP allowlist (defense-in-depth)
