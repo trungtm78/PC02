@@ -1,21 +1,21 @@
-import { Controller, Get, Res } from '@nestjs/common';
+import { Controller, Get, Res, UseGuards } from '@nestjs/common';
 import type { Response } from 'express';
 import { MetricsService } from './metrics.service';
+import { MetricsIpAllowlistGuard } from './metrics.guard';
 
 /**
  * Sprint 3 / S3.3 — GET /api/v1/metrics exposes Prometheus exposition format.
  *
- * KHÔNG gated bởi JwtAuthGuard — Prometheus scrape job dùng IP allowlist tại
- * nginx level (chỉ 127.0.0.1 từ Prometheus container trong cùng VM được phép).
+ * Two-layer protection:
+ *   1. Application-level: MetricsIpAllowlistGuard (defense-in-depth).
+ *   2. nginx-level: `location = /api/v1/metrics { allow 127.0.0.1; deny all; }`
+ *      trong scripts/deploy/nginx-pc02.conf.
  *
- * Production nginx config phải block external access:
- *   location = /api/v1/metrics {
- *     allow 127.0.0.1;
- *     deny all;
- *     proxy_pass http://127.0.0.1:3000;
- *   }
+ * Hotfix history: Sprint 3 chỉ có nginx-level guard. Prod ship 2026-05-15 có
+ * exposure window đến khi anh apply nginx config — guard này đóng gap đó.
  */
 @Controller('metrics')
+@UseGuards(MetricsIpAllowlistGuard)
 export class MetricsController {
   constructor(private readonly metrics: MetricsService) {}
 
