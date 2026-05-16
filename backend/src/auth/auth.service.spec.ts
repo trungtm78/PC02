@@ -16,7 +16,7 @@ const mockTx = {
   },
 };
 const mockPrisma = {
-  user: { findUnique: jest.fn(), update: jest.fn() },
+  user: { findUnique: jest.fn(), findFirst: jest.fn(), update: jest.fn() },
   $transaction: jest.fn((cb: (tx: typeof mockTx) => Promise<unknown>) => cb(mockTx)),
 };
 const mockAudit = { log: jest.fn() };
@@ -1049,5 +1049,114 @@ describe('AuthService.login (2FA setup mandate — Sprint 2 S2.4)', () => {
         action: 'USER_2FA_SETUP_REQUIRED',
       }),
     );
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// Multi-field login (post-/autoplan): identifier classifier routes lookup
+// to specific Prisma field. Eliminates findFirst+OR collision DoS.
+// ───────────────────────────────────────────────────────────────────────────
+
+describe('AuthService.login (multi-field identifier — post-/autoplan)', () => {
+  let service: AuthService;
+  const baseUser = {
+    id: 'u1',
+    email: 'cb@pc02.local',
+    username: 'cb.tungh',
+    workId: '277-794',
+    phone: '0934314279',
+    isActive: true,
+    passwordHash: HASHED,
+    role: { name: 'OFFICER' },
+    tokenVersion: 0,
+    canDispatch: false,
+    mustChangePassword: false,
+    failedLoginAttempts: 0,
+    lockedUntil: null,
+    lastFailedLoginAt: null,
+    totpEnabled: true, // skip 2FA setup mandate path
+    twoFaSetupRequired: false,
+  };
+
+  beforeEach(() => {
+    service = makeService();
+    jest.clearAllMocks();
+    bcryptHash.mockResolvedValue(HASHED);
+    bcryptCompare.mockResolvedValue(true);
+    mockSettingsService.getValue.mockResolvedValue('false');
+    mockJwtService.signAsync
+      .mockResolvedValueOnce('access_token')
+      .mockResolvedValueOnce('refresh_token');
+    mockPrisma.user.update.mockResolvedValue({});
+  });
+
+  it('login bằng email → query email field', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(baseUser);
+    await service.login(
+      { username: 'cb@pc02.local', password: 'pw' } as any,
+      META,
+    );
+    expect(mockPrisma.user.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { email: 'cb@pc02.local' } }),
+    );
+  });
+
+  it('login bằng workId XXX-XXX → query workId field', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(baseUser);
+    await service.login(
+      { username: '277-794', password: 'pw' } as any,
+      META,
+    );
+    expect(mockPrisma.user.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { workId: '277-794' } }),
+    );
+  });
+
+  it('login bằng phone 10 chữ số → query phone field qua findFirst (phone không @unique)', async () => {
+    mockPrisma.user.findFirst.mockResolvedValue(baseUser);
+    await service.login(
+      { username: '0934314279', password: 'pw' } as any,
+      META,
+    );
+    expect(mockPrisma.user.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { phone: '0934314279' },
+        orderBy: { id: 'asc' },
+      }),
+    );
+    // KHÔNG gọi findUnique cho phone path
+    expect(mockPrisma.user.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('login bằng phone format có space → normalize trước query', async () => {
+    mockPrisma.user.findFirst.mockResolvedValue(baseUser);
+    await service.login(
+      { username: '0934 314 279', password: 'pw' } as any,
+      META,
+    );
+    expect(mockPrisma.user.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { phone: '0934314279' } }),
+    );
+  });
+
+  it('login bằng username (fallback) → query username field', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(baseUser);
+    await service.login(
+      { username: 'cb.tungh', password: 'pw' } as any,
+      META,
+    );
+    expect(mockPrisma.user.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { username: 'cb.tungh' } }),
+    );
+  });
+
+  // Collision-resolution test: workId-shape string KHÔNG match phone field
+  it('collision-safe: identifier shape XXX-XXX không bao giờ query phone field', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(null); // user không tồn tại
+    await expect(
+      service.login({ username: '277-794', password: 'pw' } as any, META),
+    ).rejects.toThrow();
+    // KHÔNG gọi findFirst với phone — tránh collision với user khác phone
+    expect(mockPrisma.user.findFirst).not.toHaveBeenCalled();
   });
 });

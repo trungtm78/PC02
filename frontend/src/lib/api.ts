@@ -115,6 +115,12 @@ export const authApi = {
   resetPassword: (email: string, otp: string, newPassword: string) =>
     api.post<{ message: string }>('/auth/reset-password', { email, otp, newPassword }),
 
+  // Magic link enrollment (post-/autoplan): user click link → POST với
+  // uid+token+newPassword → backend issue real TokenPair (NIST compliant,
+  // single-use, 72h TTL).
+  enroll: (uid: string, token: string, newPassword: string) =>
+    api.post<LoginSuccess>('/auth/enroll', { uid, token, newPassword }),
+
   // Returns the authenticated user's profile + team membership.
   // FE forms use this for "create" mode pre-fill (current user, primary team).
   me: () => api.get<AuthUser>('/auth/me'),

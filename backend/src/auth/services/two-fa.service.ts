@@ -69,7 +69,7 @@ export class TwoFaService {
   async setupTotp(userId: string): Promise<{ qrCodeDataUrl: string; backupCodes: string[] }> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, email: true, totpEnabled: true, totpSetupPending: true, totpSetupPendingAt: true },
+      select: { id: true, email: true, username: true, totpEnabled: true, totpSetupPending: true, totpSetupPendingAt: true },
     });
     if (!user) throw new UnauthorizedException();
 
@@ -118,7 +118,7 @@ export class TwoFaService {
       },
     });
 
-    const otpUri = totpGenerateURI({ label: user.email, issuer: 'PC02', secret, strategy: 'totp' });
+    const otpUri = totpGenerateURI({ label: user.email ?? user.username, issuer: 'PC02', secret, strategy: 'totp' });
     const qrCodeDataUrl = await QRCode.toDataURL(otpUri);
 
     return { qrCodeDataUrl, backupCodes: plainCodes };
@@ -167,6 +167,13 @@ export class TwoFaService {
       select: { email: true },
     });
     if (!user) throw new UnauthorizedException();
+    if (!user.email) {
+      // Email OTP không khả dụng nếu user không có email công vụ.
+      // Khuyến cáo dùng TOTP authenticator app thay thế.
+      throw new ConflictException(
+        'Tài khoản chưa có email — không gửi được Email OTP. Vui lòng dùng TOTP authenticator.',
+      );
+    }
 
     const code = await this.otpCode.generate(userId, 'TWO_FA');
     await this.email.sendTwoFaOtp(user.email, code);
@@ -465,7 +472,8 @@ export class TwoFaService {
   // ── Token Generation (mirrors AuthService private helper) ──────────────────
   private async generateTokenPair(user: {
     id: string;
-    email: string;
+    email: string | null;
+    username: string;
     tokenVersion: number;
     role: { name: string };
     refreshTokenHash?: string | null;
@@ -473,7 +481,12 @@ export class TwoFaService {
     const accessExpiry = this.config.get<string>('JWT_ACCESS_TOKEN_EXPIRES_IN', '15m');
     const refreshExpiry = this.config.get<string>('JWT_REFRESH_TOKEN_EXPIRES_IN', '7d');
 
-    const payload = { sub: user.id, email: user.email, role: user.role.name, tokenVersion: user.tokenVersion };
+    const payload = {
+      sub: user.id,
+      email: user.email ?? user.username,
+      role: user.role.name,
+      tokenVersion: user.tokenVersion,
+    };
 
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload as object, {

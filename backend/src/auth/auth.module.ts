@@ -15,6 +15,11 @@ import { UserThrottlerGuard } from './guards/user-throttler.guard';
 import { TwoFaService } from './services/two-fa.service';
 import { TotpEncryptionService } from './services/totp-encryption.service';
 import { OtpCodeService } from './services/otp-code.service';
+import { EnrollmentService } from './services/enrollment.service';
+import {
+  EnrollmentController,
+  AdminEnrollmentController,
+} from './enrollment.controller';
 import { AuditModule } from '../audit/audit.module';
 import { SettingsModule } from '../settings/settings.module';
 import { EmailModule } from '../email/email.module';
@@ -41,8 +46,20 @@ import { EmailModule } from '../email/email.module';
     TwoFaService,
     TotpEncryptionService,
     OtpCodeService,
+    EnrollmentService,
   ],
-  controllers: [AuthController, TwoFaController],
-  exports: [AuthService, JwtAuthGuard, PermissionsGuard, TwoFaService],
+  controllers: [
+    AuthController,
+    TwoFaController,
+    EnrollmentController,
+    AdminEnrollmentController,
+  ],
+  exports: [
+    AuthService,
+    JwtAuthGuard,
+    PermissionsGuard,
+    TwoFaService,
+    EnrollmentService,
+  ],
 })
 export class AuthModule {}
