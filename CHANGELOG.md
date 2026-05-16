@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.23.1.0] - 2026-05-16
+
+### Security HOTFIX — Metrics endpoint IP allowlist (defense-in-depth)
+
+Phát hiện bởi `/qa` trên prod 2026-05-16: `GET http://171.244.40.245/api/v1/metrics` trả 200 cho mọi IP Internet → leak Prometheus internals (login attempts counter, CPU/memory, 2FA stats, audit log volume) cho attacker.
+
+Root cause: Sprint 3 ship MetricsModule với chỉ 1 lớp protection (nginx `allow 127.0.0.1; deny all;`). Anh chưa apply nginx config mới lên VM → exposure window.
+
+**Fix 2 lớp:**
+- **App-level guard mới**: `MetricsIpAllowlistGuard` reject mọi request không từ 127.0.0.1/::1 (override qua env `METRICS_ALLOWED_IPS=10.0.0.5,10.0.0.6` cho Prometheus VM khác). Active ngay sau auto-deploy, không depend nginx.
+- **VM ops parallel**: `scripts/deploy/hotfix-metrics-allowlist.sh` inject `location = /api/v1/metrics { allow 127.0.0.1; deny all; }` vào current nginx config (idempotent + backup).
+
+**Tests**: 7 test mới cover IPv4 loopback, IPv6 ::1, IPv4-mapped IPv6, public IP reject, env override, empty IP defense.
+
+Backend Jest: 1270/1270 PASS.
+
 ## [0.23.0.0] - 2026-05-15
 
 ### Security — Sprint 3 Operational Maturity (monitoring + off-site backup + CSP)

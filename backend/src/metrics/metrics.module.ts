@@ -1,6 +1,7 @@
 import { Global, Module } from '@nestjs/common';
 import { MetricsController } from './metrics.controller';
 import { MetricsService } from './metrics.service';
+import { MetricsIpAllowlistGuard } from './metrics.guard';
 
 /**
  * Sprint 3 / S3.3 — Global module: MetricsService available cho mọi feature
@@ -10,7 +11,7 @@ import { MetricsService } from './metrics.service';
 @Global()
 @Module({
   controllers: [MetricsController],
-  providers: [MetricsService],
+  providers: [MetricsService, MetricsIpAllowlistGuard],
   exports: [MetricsService],
 })
 export class MetricsModule {}
