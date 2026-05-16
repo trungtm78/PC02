@@ -153,6 +153,84 @@ export type UserShortcut = {
   updatedAt: string;
 };
 
+// ─── Admin bulk import (v0.25.0.0) ────────────────────────────────────────────
+
+export interface BulkImportPreviewRow {
+  rowIndex: number;
+  fullName: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  username: string | null;
+  workId: string | null;
+  phone: string | null;
+  email: string | null;
+  roleName: string | null;
+  roleId: string | null;
+  departmentName: string | null;
+  departmentId: string | null;
+  warnings: string[];
+  errors: string[];
+}
+
+export interface BulkImportPreviewResult {
+  previewToken: string;
+  rows: BulkImportPreviewRow[];
+  totalRows: number;
+  validRows: number;
+  errorRows: number;
+  headerMapping: Record<string, string>;
+  sheetName: string;
+  globalWarnings: string[];
+}
+
+export interface BulkImportJobStatus {
+  id: string;
+  status: 'queued' | 'processing' | 'done' | 'failed' | 'cancelled';
+  progress: number;
+  totalRows: number;
+  successRows: number;
+  errorRows: number;
+  rowOutcomes?: Array<{
+    rowIndex: number;
+    userId?: string;
+    enrollmentUrl?: string;
+    expiresAt?: string;
+    error?: string;
+  }>;
+  errorMessage?: string;
+  startedAt?: string;
+  finishedAt?: string;
+  hasEnriched: boolean;
+}
+
+export const adminBulkApi = {
+  preview: (file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return api.post<BulkImportPreviewResult>('/admin/users/bulk-import/preview', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+  confirm: (previewToken: string, rows: Omit<BulkImportPreviewRow, 'warnings' | 'errors' | 'fullName' | 'firstName' | 'lastName' | 'roleName' | 'departmentName'>[], generatePdfs = true) =>
+    api.post<{ jobId: string; status: string }>('/admin/users/bulk-import/confirm', {
+      previewToken,
+      rows: rows.map((r) => ({
+        rowIndex: r.rowIndex,
+        username: r.username,
+        workId: r.workId,
+        phone: r.phone,
+        email: r.email,
+        roleId: r.roleId,
+        departmentId: r.departmentId,
+      })),
+      generatePdfs,
+    }),
+  getJob: (jobId: string) => api.get<BulkImportJobStatus>(`/admin/users/bulk-jobs/${jobId}`),
+  downloadEnrichedUrl: (jobId: string) => `/api/v1/admin/users/bulk-jobs/${jobId}/enriched.xlsx`,
+  downloadZipUrl: (jobId: string) => `/api/v1/admin/users/bulk-jobs/${jobId}/handover-pdfs.zip`,
+  templateUrl: '/api/v1/admin/users/bulk-import/template.xlsx',
+};
+
 export const userShortcutsApi = {
   list: () => api.get<UserShortcut[]>('/user-shortcuts'),
   upsert: (action: string, binding: string) =>

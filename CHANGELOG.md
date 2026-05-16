@@ -2,6 +2,44 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.25.0.0] - 2026-05-16
+
+### Onboarding — Bulk User Import + Fix Single-Create UI Broken (T2Đ1 5-min TTFU)
+
+Sau v0.24.0.0 ship magic link enrollment, phát hiện 2 vấn đề ngay:
+1. **Single-create UI broken trong prod**: backend đổi response `tempPassword` → `enrollment` nhưng frontend `UserManagementPage.tsx:282` vẫn ref `tempPassword` → modal hiện `undefined`. P0 bug — anh tạo single user không nhận được link.
+2. **Manual onboarding 12+ cán bộ tốn thời gian**: gõ tay 12 user × 30s = ~6 phút admin work, nhân lên cho 5 tổ sau = TTFU không scalable.
+
+Plan v0.25.0.0 — bulk import + UI fix trong cùng PR (autoplan reviewed, anh giữ MAX scope sau dual-voice premise gate):
+
+**Backend (NestJS + Prisma):**
+- Migration `20260516130000_add_bulk_import_jobs`: model `BulkImportJob` durable audit trail (source filename + SHA-256 + row outcomes JSON + file paths + 24h TTL)
+- `bulk-import.parser.ts`: ExcelJS-based parser (xlsx + csv), header auto-detect tiếng Việt + English diacritics-insensitive, skip "Hướng dẫn" sheet, **`sanitizeForExcel()` chặn Excel formula injection** (prefix `'` cho cell `= + - @`)
+- `bulk-import.service.ts`: validate per-row (≥1 workId/phone/email, dup check DB + batch, role/dept resolve, workId format hint), magic-byte check xlsx, file size 2MB / 100 row limit
+- `bulk-import.processor.ts`: in-memory sequential queue (no Redis dependency), row-level transaction (split-brain safe), progress update DB realtime, gen enriched file + PDF ZIP (autoplan E5: accept pdfkit stall in single-VM context)
+- `bulk-enrichment.writer.ts`: ExcelJS preserve column values + thêm 2 cột `Link đăng ký` + `Hết hạn`, formula sanitize applied
+- `enrollment-pdf.service.ts`: pdfkit + Be Vietnam Pro font embed (140KB asset), QR code + URL fallback, A6 layout
+- 5 endpoints: `POST /admin/users/bulk-import/preview`, `POST /admin/users/bulk-import/confirm`, `GET /admin/users/bulk-jobs/:id`, `GET .../enriched.xlsx`, `GET .../handover-pdfs.zip`, `GET /admin/users/bulk-import/template.xlsx`
+- IDOR fix (autoplan E6): chỉ `generatedBy=actorId` download enriched/zip (admin role không bypass), audit `ENROLLMENT_LINKS_EXPORTED` mỗi GET với count + downloadCount tracking, Content-Disposition `attachment`
+- `AdminService.createUserCore` extract (autoplan E4) — reuse single + bulk, transaction boundary explicit, bcrypt placeholder hash chỉ 1× per user
+
+**Frontend (React + Vite):**
+- `EnrollmentLinkModal.tsx` mới — replace `TempPasswordHandoverModal` cho create flow. URL + QR code + Copy button với **HTTP fallback** (input readonly + Ctrl+C khi `navigator.clipboard` unavailable trên prod HTTP), ESC blocked until acknowledged checkbox
+- `BulkImportWizard.tsx` 4-step modal:
+  - Step 1: drag-drop upload xlsx/csv + template download link
+  - Step 2: preview table inline edit + per-row validation badges (lỗi/cảnh báo/OK) + summary strip "N dòng · M sẵn sàng · K lỗi"
+  - Step 3: progress bar polling 2s → 8s backoff + Page Visibility pause + ARIA live
+  - Step 4: **primary CTA "Tải Excel có sẵn link"** (zero-extra-step UX) + secondary ZIP PDF + reset button
+- Desktop-only ≥768px (autoplan Design S3 decision)
+- `UserManagementPage.tsx`: fix `tempPassword` → `enrollment` mapping, thêm button "Import Excel"
+- `authedDownload()` helper: fetch với Bearer token (file binary endpoint không proxy được qua axios)
+
+**Tests**: backend 1307 → **1326** (+19 parser tests: header VN/EN, formula sanitize, splitFullName, normalizePhone, sheet skip "Hướng dẫn"). Frontend 484/484 PASS. TS clean cả 2 stack.
+
+**Security**: Excel formula injection blocked (`'` prefix), magic-byte xlsx validate, path traversal UUID check, IDOR audit + Content-Disposition, temp file `chmod 600` + 24h TTL.
+
+**Deploy**: Redis KHÔNG cần (in-memory sequential queue thay BullMQ — giảm 1 dependency VM). Temp dir `/tmp/pc02-bulk/` permission 600. Be Vietnam Pro font 140KB ship qua tarball `backend/assets/fonts/`.
+
 ## [0.24.0.0] - 2026-05-16
 
 ### Onboarding — Magic Link Enrollment + Multi-Field Login (T2Đ1 unblock, NIST SP 800-63B compliant)
