@@ -16,11 +16,14 @@ import {
   AlertTriangle,
   Lock,
   KeyRound,
+  Upload,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { downloadCsv } from '@/lib/csv';
 import { usePermission } from '@/hooks/usePermission';
 import { TempPasswordHandoverModal } from '@/components/TempPasswordHandoverModal';
+import { EnrollmentLinkModal, type EnrollmentHandover } from '@/components/EnrollmentLinkModal';
+import { BulkImportWizard } from '@/components/BulkImportWizard';
 import { getRoleLabel } from '@/shared/enums/role-labels';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -129,13 +132,23 @@ export default function UserManagementPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletingUser, setDeletingUser] = useState<User | null>(null);
 
-  // F1: temp password handover modal state. Set after admin create or reset
-  // returns the system-generated temp password — admin sees it ONCE here.
+  // F1 legacy: temp password handover modal — chỉ còn dùng cho admin reset
+  // password path (PATCH với resetPassword:true vẫn trả tempPassword).
   const [tempPasswordHandover, setTempPasswordHandover] = useState<{
     tempPassword: string;
     userDisplayName: string;
     userEmail: string;
   } | null>(null);
+
+  // v0.24+ magic link: create user trả `enrollment` object (URL + QR + expiresAt).
+  // Replace TempPasswordHandover cho create flow. Reset path còn dùng legacy.
+  const [enrollmentHandover, setEnrollmentHandover] = useState<{
+    user: { fullName: string; workId?: string | null; phone?: string | null; email?: string | null };
+    enrollment: EnrollmentHandover;
+  } | null>(null);
+
+  // v0.25 bulk import wizard
+  const [showBulkImport, setShowBulkImport] = useState(false);
 
   // --- Roles state ---
   const [roles, setRoles] = useState<Role[]>([]);
@@ -272,18 +285,25 @@ export default function UserManagementPage() {
         await api.patch(`/admin/users/${editingUser.id}`, payload);
         setShowUserModal(false);
       } else {
-        // F1: backend generates temp password and returns it ONCE in the
-        // response. Show TempPasswordHandoverModal before closing this modal.
-        const res = await api.post<{ tempPassword: string; username: string; email: string }>(
-          '/admin/users',
-          payload,
-        );
+        // v0.24+ magic link: backend trả `enrollment` object thay `tempPassword`.
+        const res = await api.post<{
+          id: string;
+          username: string;
+          email?: string;
+          workId?: string | null;
+          phone?: string | null;
+          enrollment?: { url: string; qrPayload: string; expiresAt: string };
+        }>('/admin/users', payload);
         setShowUserModal(false);
-        if (res.data.tempPassword) {
-          setTempPasswordHandover({
-            tempPassword: res.data.tempPassword,
-            userDisplayName: formData.fullName,
-            userEmail: res.data.email ?? formData.email,
+        if (res.data.enrollment) {
+          setEnrollmentHandover({
+            user: {
+              fullName: formData.fullName,
+              workId: res.data.workId ?? formData.workId ?? null,
+              phone: res.data.phone ?? formData.phone ?? null,
+              email: res.data.email ?? formData.email ?? null,
+            },
+            enrollment: res.data.enrollment,
           });
         }
       }
@@ -408,6 +428,14 @@ export default function UserManagementPage() {
             >
               <Download className="w-4 h-4" />
               Xuất Excel
+            </button>
+            <button
+              onClick={() => setShowBulkImport(true)}
+              data-testid="btn-bulk-import"
+              className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors text-sm"
+            >
+              <Upload className="w-4 h-4" />
+              Import Excel
             </button>
             <button
               onClick={handleOpenAddModal}
@@ -931,7 +959,7 @@ export default function UserManagementPage() {
         </div>
       )}
 
-      {/* ── Temp Password Handover Modal (F1) ── */}
+      {/* ── Temp Password Handover (legacy reset path) ── */}
       {tempPasswordHandover && (
         <TempPasswordHandoverModal
           tempPassword={tempPasswordHandover.tempPassword}
@@ -940,6 +968,24 @@ export default function UserManagementPage() {
           onAcknowledged={() => setTempPasswordHandover(null)}
         />
       )}
+
+      {/* ── Enrollment Link Handover (v0.24+ create flow) ── */}
+      {enrollmentHandover && (
+        <EnrollmentLinkModal
+          user={enrollmentHandover.user}
+          enrollment={enrollmentHandover.enrollment}
+          onAcknowledged={() => setEnrollmentHandover(null)}
+        />
+      )}
+
+      {/* ── Bulk Import Wizard (v0.25) ── */}
+      <BulkImportWizard
+        open={showBulkImport}
+        onClose={() => setShowBulkImport(false)}
+        onComplete={() => loadUsers()}
+        roles={roles}
+      />
+
 
       {/* ── Delete Confirm Modal ── */}
       {showDeleteConfirm && deletingUser && (

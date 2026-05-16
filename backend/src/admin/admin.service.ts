@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { TeamsService } from '../teams/teams.service';
@@ -116,30 +117,32 @@ export class AdminService {
     return user;
   }
 
-  async createUser(
+  /**
+   * Core create user logic — reusable bởi cả single create (admin.controller)
+   * và bulk import (BulkImportProcessor). Caller chịu trách nhiệm transaction
+   * boundary (per autoplan Eng E4).
+   *
+   * Enrollment link gen LUÔN outside transaction để tránh 25s tx timeout với
+   * bulk × 100 user. Caller phải gọi `enrollmentService.generateEnrollmentLink`
+   * riêng sau khi tx commit.
+   */
+  async createUserCore(
     dto: CreateUserDto,
     requesterId: string,
+    tx: Prisma.TransactionClient,
     meta: { ipAddress?: string; userAgent?: string } = {},
-  ) {
-    // Magic link enrollment (post-/autoplan, NIST SP 800-63B compliant):
-    // admin tạo user → backend gen 1-time enrollment link (TTL 72h) → admin
-    // gửi user qua channel bất kỳ (Zalo, SMS, email, in QR) → user click
-    // → tự đặt password. Replace shared-default-password violation từ Mode B.
-
+  ): Promise<{ id: string; username: string; email: string | null; firstName: string | null; lastName: string | null; workId: string | null; phone: string | null; isActive: boolean; role: { id: string; name: string }; createdAt: Date }> {
     // Validation: phải có ÍT NHẤT 1 trong (workId / phone / email).
-    // Email nullable cho cán bộ không có email công vụ (T2Đ1: 7/12 user).
     if (!dto.workId && !dto.phone && !dto.email) {
       throw new BadRequestException(
         'Phải có ít nhất 1 trong: số hiệu ngành (workId), số điện thoại, email.',
       );
     }
 
-    // EC-02: Check duplicate username/email. Skip email khi null.
+    // EC-02: duplicate username/email check
     const orClauses: Record<string, unknown>[] = [{ username: dto.username }];
     if (dto.email) orClauses.push({ email: dto.email });
-    const existing = await this.prisma.user.findFirst({
-      where: { OR: orClauses },
-    });
+    const existing = await tx.user.findFirst({ where: { OR: orClauses } });
     if (existing) {
       throw new ConflictException(
         existing.username === dto.username
@@ -148,83 +151,81 @@ export class AdminService {
       );
     }
 
-    // workId @unique (partial): chặn duplicate trước khi insert để tránh
-    // Prisma P2002 vứt error xấu lên frontend.
     if (dto.workId) {
-      const dupWorkId = await this.prisma.user.findFirst({
-        where: { workId: dto.workId },
-      });
+      const dupWorkId = await tx.user.findFirst({ where: { workId: dto.workId } });
       if (dupWorkId) {
         throw new ConflictException(`Số hiệu ngành "${dto.workId}" đã tồn tại`);
       }
     }
 
-    // Verify role exists
-    const role = await this.prisma.role.findUnique({
-      where: { id: dto.roleId },
-    });
+    const role = await tx.role.findUnique({ where: { id: dto.roleId } });
     if (!role) throw new NotFoundException(`Role #${dto.roleId} không tồn tại`);
 
-    // Placeholder passwordHash: bcrypt hash của random 32-byte token được
-    // throw away ngay. bcrypt.compare KHÔNG BAO GIỜ match được — user phải
-    // qua enrollment link để set password thật (consumeEnrollmentToken).
-    // mustChangePassword=true cũng đủ để login() block trước khi compare,
-    // nhưng defense-in-depth: cả 2 layer fail.
+    // Placeholder bcrypt hash — bcrypt.compare KHÔNG BAO GIỜ match. User phải
+    // qua enrollment link để set password thật.
     const placeholderHash = await bcrypt.hash(
       crypto.randomBytes(32).toString('base64'),
       getBcryptCost(),
     );
 
-    const user = await this.prisma.$transaction(async (tx) => {
-      const created = await tx.user.create({
-        data: {
-          username: dto.username,
-          email: dto.email,
-          passwordHash: placeholderHash,
-          mustChangePassword: true,
-          firstName: dto.firstName,
-          lastName: dto.lastName,
-          workId: dto.workId,
-          phone: dto.phone,
-          departmentId: dto.departmentId,
-          roleId: dto.roleId,
-          isActive: dto.status !== UserStatus.INACTIVE,
-        },
-        select: {
-          id: true,
-          username: true,
-          email: true,
-          firstName: true,
-          lastName: true,
-          workId: true,
-          phone: true,
-          isActive: true,
-          role: { select: { id: true, name: true } },
-          createdAt: true,
-        },
-      });
-
-      await this.audit.log(
-        {
-          userId: requesterId,
-          action: 'USER_CREATED',
-          subject: 'User',
-          subjectId: created.id,
-          metadata: {
-            createdUsername: created.username,
-            email: created.email,
-            enrollmentLinkGenerated: true,
-          },
-          ...meta,
-        },
-        tx,
-      );
-
-      return created;
+    const created = await tx.user.create({
+      data: {
+        username: dto.username,
+        email: dto.email,
+        passwordHash: placeholderHash,
+        mustChangePassword: true,
+        firstName: dto.firstName,
+        lastName: dto.lastName,
+        workId: dto.workId,
+        phone: dto.phone,
+        departmentId: dto.departmentId,
+        roleId: dto.roleId,
+        isActive: dto.status !== UserStatus.INACTIVE,
+      },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        workId: true,
+        phone: true,
+        isActive: true,
+        role: { select: { id: true, name: true } },
+        createdAt: true,
+      },
     });
 
-    // Magic link auto-gen — admin sees URL + QR ONCE qua modal, gửi user
-    // qua channel chọn. Token plaintext KHÔNG BAO GIỜ persisted.
+    await this.audit.log(
+      {
+        userId: requesterId,
+        action: 'USER_CREATED',
+        subject: 'User',
+        subjectId: created.id,
+        metadata: {
+          createdUsername: created.username,
+          email: created.email,
+          enrollmentLinkGenerated: true,
+        },
+        ...meta,
+      },
+      tx,
+    );
+
+    return created;
+  }
+
+  async createUser(
+    dto: CreateUserDto,
+    requesterId: string,
+    meta: { ipAddress?: string; userAgent?: string } = {},
+  ) {
+    // Magic link enrollment (v0.24.0.0, NIST SP 800-63B compliant).
+    // createUserCore extract pattern (autoplan Eng E4) — enrollment outside tx.
+    const user = await this.prisma.$transaction((tx) =>
+      this.createUserCore(dto, requesterId, tx, meta),
+    );
+
     const enrollment = await this.enrollmentService.generateEnrollmentLink(
       user.id,
       requesterId,
