@@ -109,7 +109,8 @@ export class BulkImportProcessor {
           email: row.email ?? undefined,
           firstName: row.firstName ?? undefined,
           lastName: row.lastName ?? undefined,
-          workId: row.workId ?? undefined,
+          // workId required: rows missing workId đã bị filter qua errors check ở trên.
+          workId: row.workId!,
           phone: row.phone ?? undefined,
           departmentId: row.departmentId ?? undefined,
           roleId: row.roleId!,

@@ -44,7 +44,9 @@ test.describe('UAT-01: User Management Full Flow', () => {
       email: `uat${ts}@pc02.local`,
       fullName: `UAT User ${ts}`,
       password: 'Test@12345!',
+      workId: `uat-${ts}`,
     };
+    await page.locator('#field-workId').fill(user.workId);
     await page.locator('#field-username').fill(user.username);
     await page.locator('#field-email').fill(user.email);
     await page.locator('#field-fullName').fill(user.fullName);

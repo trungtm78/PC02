@@ -133,6 +133,7 @@ test.describe('AC-01: User Management', () => {
       email: `test${timestamp}@pc02.local`,
       password: 'Test@12345!',
       fullName: `Test User ${timestamp}`,
+      workId: `e2e-${timestamp}`,
     };
 
     // Mở modal thêm user
@@ -142,7 +143,8 @@ test.describe('AC-01: User Management', () => {
       path: 'tests/screenshots/user-management-step02-modal-open.png',
     });
 
-    // Điền form
+    // Điền form (workId bắt buộc; email optional sau v0.26)
+    await page.locator('#field-workId').fill(newUser.workId);
     await page.locator('#field-username').fill(newUser.username);
     await page.locator('#field-email').fill(newUser.email);
     await page.locator('#field-password').fill(newUser.password);
@@ -164,6 +166,7 @@ test.describe('AC-01: User Management', () => {
 
   test('EC-02: Tạo username/email đã tồn tại → báo lỗi', async ({ page }) => {
     await page.getByRole('button', { name: /thêm người dùng/i }).click();
+    await page.locator('#field-workId').fill(`dup-${Date.now()}`);
     await page.locator('#field-email').fill(ADMIN.email); // email admin đã tồn tại
     await page.locator('#field-username').fill('admin');
     await page.locator('#field-password').fill('Admin@1234!');
@@ -183,6 +186,7 @@ test.describe('AC-01: User Management', () => {
     await adminPage.getByRole('button', { name: /thêm người dùng/i }).click();
     const ts = Date.now();
     const inactiveEmail = `inactive${ts}@pc02.local`;
+    await adminPage.locator('#field-workId').fill(`inact-${ts}`);
     await adminPage.locator('#field-email').fill(inactiveEmail);
     await adminPage.locator('#field-username').fill(`inactive${ts % 10000}`);
     await adminPage.locator('#field-password').fill('Test@12345!');

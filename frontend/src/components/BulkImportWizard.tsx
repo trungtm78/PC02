@@ -302,7 +302,7 @@ export function BulkImportWizard({ open, onClose, onComplete, roles }: Props) {
                       <th className="px-2 py-2 text-left font-medium text-slate-700">#</th>
                       <th className="px-2 py-2 text-left font-medium text-slate-700">Username</th>
                       <th className="px-2 py-2 text-left font-medium text-slate-700">Họ tên</th>
-                      <th className="px-2 py-2 text-left font-medium text-slate-700">Số hiệu</th>
+                      <th className="px-2 py-2 text-left font-medium text-slate-700">Số hiệu <span className="text-red-600">*</span></th>
                       <th className="px-2 py-2 text-left font-medium text-slate-700">SĐT</th>
                       <th className="px-2 py-2 text-left font-medium text-slate-700">Email</th>
                       <th className="px-2 py-2 text-left font-medium text-slate-700">Vai trò</th>
@@ -327,7 +327,8 @@ export function BulkImportWizard({ open, onClose, onComplete, roles }: Props) {
                             type="text"
                             value={row.workId ?? ''}
                             onChange={(e) => updateRow(row.rowIndex, { workId: e.target.value || null })}
-                            className="w-full border border-slate-200 rounded px-1.5 py-0.5"
+                            title={!row.workId ? 'Mã cán bộ là bắt buộc' : undefined}
+                            className={`w-full rounded px-1.5 py-0.5 border ${!row.workId ? 'border-red-400 bg-red-50' : 'border-slate-200'}`}
                           />
                         </td>
                         <td className="px-2 py-1.5">

@@ -184,9 +184,9 @@ export class BulkImportService {
         warnings.push(`SĐT "${raw.phone}" không đúng định dạng — bỏ qua field`);
       }
 
-      // ≥1 of workId/phone/email
-      if (!raw.workId && !phone && !raw.email) {
-        errors.push('Phải có ít nhất 1 trong: số hiệu / SĐT / email');
+      // workId (Mã cán bộ) là bắt buộc — consistency với single-create flow.
+      if (!raw.workId) {
+        errors.push('Thiếu Mã cán bộ (workId) — bắt buộc');
       }
 
       // workId format hint (warn only)

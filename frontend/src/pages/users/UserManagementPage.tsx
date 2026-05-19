@@ -256,8 +256,8 @@ export default function UserManagementPage() {
   };
 
   const handleSaveUser = async () => {
-    if (!formData.fullName || !formData.email || !formData.username) {
-      setFormError('Vui lòng điền đầy đủ các trường bắt buộc.');
+    if (!formData.fullName || !formData.workId || !formData.username) {
+      setFormError('Vui lòng nhập Họ tên, Mã cán bộ, Tên đăng nhập.');
       return;
     }
     setSaving(true);
@@ -268,10 +268,10 @@ export default function UserManagementPage() {
       const firstName = nameParts.length > 1 ? nameParts.slice(0, -1).join(' ') : nameParts[0];
       const lastName  = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
       const payload: Record<string, unknown> = {
-        workId: formData.workId || undefined,
+        workId: formData.workId,
         firstName,
         lastName: lastName || undefined,
-        email: formData.email,
+        email: formData.email || undefined,
         phone: formData.phone || undefined,
         username: formData.username,
         departmentId: formData.departmentId || undefined,
@@ -804,7 +804,7 @@ export default function UserManagementPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="field-workId" className="block text-sm font-medium text-slate-700 mb-1">
-                    Mã cán bộ
+                    Mã cán bộ <span className="text-red-600">*</span>
                   </label>
                   <input
                     id="field-workId"
@@ -848,7 +848,7 @@ export default function UserManagementPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="field-email" className="block text-sm font-medium text-slate-700 mb-1">
-                    Email <span className="text-red-600">*</span>
+                    Email
                   </label>
                   <input
                     id="field-email"
