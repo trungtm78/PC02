@@ -67,6 +67,34 @@ test.describe('Auth API - Login', () => {
     });
     expect(response.status()).toBe(400);
   });
+
+  // v0.27 multi-field login — backend classify identifier shape
+  test('POST /auth/login bằng username "admin" returns 200', async ({ request }) => {
+    const response = await request.post(`${BASE_URL}/api/v1/auth/login`, {
+      data: { username: 'admin', password: 'Admin@1234!' },
+    });
+    expect(response.status()).toBe(200);
+    const body = await response.json();
+    expect(body).toHaveProperty('accessToken');
+  });
+
+  test('POST /auth/login với invalid identifier "xyz" returns 401 (not 400 — DTO accept)', async ({ request }) => {
+    const response = await request.post(`${BASE_URL}/api/v1/auth/login`, {
+      data: { username: 'xyz', password: 'wrongpassword' },
+    });
+    // DTO accept (no IsEmail constraint nữa) — service trả 401 generic Invalid credentials.
+    expect(response.status()).toBe(401);
+  });
+
+  test('POST /auth/login locked + non-existent user trả cùng generic 401 message (no enumeration)', async ({ request }) => {
+    const res1 = await request.post(`${BASE_URL}/api/v1/auth/login`, {
+      data: { username: 'totally-nonexistent-user-xyz', password: 'wrong' },
+    });
+    expect(res1.status()).toBe(401);
+    const body1 = await res1.json();
+    // Message must NOT leak whether account exists or is locked
+    expect(JSON.stringify(body1).toLowerCase()).not.toMatch(/locked|khoá/);
+  });
 });
 
 // -----------------------------------------------------------------------

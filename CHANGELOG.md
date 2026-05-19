@@ -2,6 +2,45 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.27.0.0] - 2026-05-19
+
+### Multi-field Login Unblock + Security Hardening + Canonicalization
+
+T2Đ1 reality (post-v0.26): workId required ở mọi flow tạo user, nhưng login form lại reject workId/phone/username vì `LoginDto.username` decorator `@IsEmail()` chặn ở NestJS ValidationPipe trước khi tới service. /autoplan Eng dual voices (Codex + Claude subagent) verdict BLOCK / NEEDS REVISION → mở rộng scope từ 1-line DTO → 6-file fix gồm canonicalization + timing oracle + audit metadata.
+
+**Backend (auth + admin):**
+- `login.dto.ts`: `@IsEmail()` → `@IsString() @MinLength(3) @MaxLength(254)`. Backend `classifyIdentifier()` shape-detect → route field-specific query (đã ship v0.24 nhưng bị DTO chặn).
+- `identifier-classifier.ts`:
+  - Expand `WORKID_PATTERN` để accept cả `XXX-XXX` (vd `277-794`) lẫn `PREFIX-PREFIX-NNN` (vd `PC02-DTV-001`) — legacy seed users login được.
+  - Thêm `canonicalizeVietnamPhone()` — `0934...` / `84934...` / `+84934...` → `+84934...` canonical.
+- `admin.service.ts` (createUserCore + updateUser): email `trim().toLowerCase()` + phone canonicalize TRƯỚC duplicate check và write. Mixed-case email không còn gây login fail.
+- `auth.service.ts` login flow:
+  - **Timing oracle defense**: non-existent/inactive user vẫn chạy `bcrypt.compare(password, DUMMY_BCRYPT_HASH)` để equalize timing ~80ms → prevent username enumeration via response timing.
+  - **Unified error message**: locked account trả `Invalid credentials` thay vì leak "Tài khoản đã bị khoá tạm thời" — không leak lock state qua response body.
+  - **Audit metadata rename**: `USER_LOGIN_FAILED` / `USER_LOGIN_LOCKED` audit log đổi từ `{ email: dto.username }` → `{ identifier: dto.username, shape: field }`. Forensic queries phản ánh đúng identifier shape.
+  - Thêm action mới `USER_LOGIN_LOCKED_ATTEMPT` audit khi user attempt login lúc đang locked.
+
+**Migration:**
+- `prisma/migrations/20260519100000_canonicalize_email_phone/migration.sql`:
+  - `UPDATE users SET email = LOWER(TRIM(email))` (idempotent).
+  - Phone Vietnam canonicalize: strip separators, `0XXX` → `+84XXX`, `84XXX` → `+84XXX`, foreign digits → prepend `+`.
+  - Idempotent: re-run an toàn.
+
+**Tests:**
+- New: `login.dto.spec.ts` (12 cases) — class-validator covers 4 shapes + bounds.
+- Extended: `identifier-classifier.spec.ts` — PC02-DTV legacy format, phone canonicalization 4 variants.
+- Extended: `admin.service.spec.ts` — email lowercase + phone canonicalize at write.
+- Extended: `auth.service.spec.ts` — unified lock message, timing oracle dummy bcrypt, audit identifier+shape metadata.
+- E2E: `auth.e2e.spec.ts` — login bằng username, invalid identifier 401, no enumeration leak.
+
+Backend 1326 → **1351 PASS** (+25 cases). Frontend 484/484 unchanged. TS clean cả 2 stack.
+
+**Frontend:** verify-only — zod `.min(3)` + `type="text"` + placeholder "Số hiệu / SĐT / email / tên đăng nhập" đã ready từ v0.24.
+
+**Out-of-scope (defer):** phone DB index (N nhỏ), rate-limit per-identifier (Cloudflare layer), audit retroactive `metadata.email` migration, DTO field rename `username` → `identifier`.
+
+**Security note:** Widening login attack surface (workId/phone/email/username) đã được audit và hardening đồng thời (timing oracle + unified message). NIST SP 800-63B accept-then-verify pattern.
+
 ## [0.26.0.0] - 2026-05-19
 
 ### Admin User Form — Mã cán bộ bắt buộc, Email optional

@@ -824,7 +824,9 @@ describe('AuthService.login (account lockout — Sprint 1 S1.2)', () => {
     );
   });
 
-  it('rejects login when account is currently locked (skips bcrypt.compare)', async () => {
+  // v0.27: unified error message ('Invalid credentials') cho mọi failure mode
+  // — không leak lock state qua response body (enumeration oracle defense).
+  it('rejects login when account is currently locked với unified message (no lock state leak)', async () => {
     const futureLock = new Date(NOW.getTime() + 5 * 60 * 1000); // 5 phút tới
     mockPrisma.user.findUnique.mockResolvedValue({
       ...baseUser,
@@ -832,11 +834,51 @@ describe('AuthService.login (account lockout — Sprint 1 S1.2)', () => {
       lockedUntil: futureLock,
     });
 
+    // Verify: response message phải KHÔNG chứa từ "khoá" hoặc "locked"
     await expect(
       service.login({ username: 'cb@pc02.local', password: 'correct' } as any, META),
-    ).rejects.toThrow(/khoá|locked/i);
+    ).rejects.toThrow('Invalid credentials');
 
+    // Skip bcrypt khi locked để tránh slow-down attacker (rate-limit per-account đã handle).
     expect(bcryptCompare).not.toHaveBeenCalled();
+  });
+
+  // v0.27: Timing oracle defense — non-existent user vẫn chạy bcrypt.compare với dummy hash
+  // để equalize timing với valid-user-wrong-password path.
+  it('runs dummy bcrypt.compare when user not found (timing equalization)', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(null);
+    mockPrisma.user.findFirst.mockResolvedValue(null);
+    bcryptCompare.mockResolvedValue(false);
+
+    await expect(
+      service.login({ username: 'nonexistent@pc02.local', password: 'attempt' } as any, META),
+    ).rejects.toThrow('Invalid credentials');
+
+    // Dummy bcrypt phải được gọi để equalize timing
+    expect(bcryptCompare).toHaveBeenCalled();
+  });
+
+  // v0.27: Audit metadata field name reflects reality (identifier có thể là workId/phone/email/username)
+  it('audit log USER_LOGIN_FAILED uses identifier + shape fields (not email)', async () => {
+    bcryptCompare.mockResolvedValue(false);
+    mockPrisma.user.findUnique.mockResolvedValue({
+      ...baseUser,
+      failedLoginAttempts: 0,
+    });
+
+    await expect(
+      service.login({ username: '277-794', password: 'wrong' } as any, META),
+    ).rejects.toThrow('Invalid credentials');
+
+    expect(mockAudit.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'USER_LOGIN_FAILED',
+        metadata: expect.objectContaining({
+          identifier: '277-794',
+          shape: 'workId',
+        }),
+      }),
+    );
   });
 
   it('allows login after lockedUntil expires and resets counter on success', async () => {
@@ -1112,7 +1154,8 @@ describe('AuthService.login (multi-field identifier — post-/autoplan)', () => 
     );
   });
 
-  it('login bằng phone 10 chữ số → query phone field qua findFirst (phone không @unique)', async () => {
+  // v0.27: phone canonicalize về +84 trước khi query
+  it('login bằng phone 10 chữ số → canonicalize +84 + query phone field qua findFirst (phone không @unique)', async () => {
     mockPrisma.user.findFirst.mockResolvedValue(baseUser);
     await service.login(
       { username: '0934314279', password: 'pw' } as any,
@@ -1120,7 +1163,7 @@ describe('AuthService.login (multi-field identifier — post-/autoplan)', () => 
     );
     expect(mockPrisma.user.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { phone: '0934314279' },
+        where: { phone: '+84934314279' },
         orderBy: { id: 'asc' },
       }),
     );
@@ -1128,14 +1171,14 @@ describe('AuthService.login (multi-field identifier — post-/autoplan)', () => 
     expect(mockPrisma.user.findUnique).not.toHaveBeenCalled();
   });
 
-  it('login bằng phone format có space → normalize trước query', async () => {
+  it('login bằng phone format có space → normalize + canonicalize trước query', async () => {
     mockPrisma.user.findFirst.mockResolvedValue(baseUser);
     await service.login(
       { username: '0934 314 279', password: 'pw' } as any,
       META,
     );
     expect(mockPrisma.user.findFirst).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { phone: '0934314279' } }),
+      expect.objectContaining({ where: { phone: '+84934314279' } }),
     );
   });
 
