@@ -17,8 +17,8 @@ export enum UserStatus {
 // Magic link enrollment (post-/autoplan): admin tạo user → backend gen
 // enrollment link 1-time (TTL 72h) → admin gửi user qua channel bất kỳ
 // (Zalo cá nhân, SMS, email, in QR). User click → tự đặt password.
-// Email là OPTIONAL — nhiều cán bộ Tổ 2 Đội 1 không có email công vụ.
-// Service-level validate: phải có ≥1 trong (workId, phone, email).
+// workId (Mã cán bộ / số hiệu ngành) là BẮT BUỘC — khóa định danh nội bộ.
+// Email và phone là OPTIONAL — nhiều cán bộ Tổ 2 Đội 1 không có email công vụ.
 export class CreateUserDto {
   @IsString()
   @IsNotEmpty()
@@ -42,8 +42,8 @@ export class CreateUserDto {
   lastName?: string;
 
   @IsString()
-  @IsOptional()
-  workId?: string;
+  @IsNotEmpty({ message: 'Mã cán bộ là bắt buộc' })
+  workId: string;
 
   @IsString()
   @IsOptional()

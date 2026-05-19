@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.26.0.0] - 2026-05-19
+
+### Admin User Form — Mã cán bộ bắt buộc, Email optional
+
+Thực tế T2Đ1: nhiều cán bộ không có email công vụ → email không nên là rào cản. Ngược lại, Mã cán bộ (workId / số hiệu ngành) là khóa định danh nội bộ duy nhất, BẮT BUỘC để định danh đúng cán bộ và liên kết hồ sơ. Áp dụng đồng nhất ở mọi flow tạo/sửa user.
+
+**Backend (NestJS):**
+- `create-user.dto.ts`: `workId` chuyển từ `@IsOptional()` sang `@IsNotEmpty()`. Email vẫn `@IsOptional()`.
+- `update-user.dto.ts`: override `workId` required (PartialType làm field optional trở lại, cần override explicit) — admin edit user cũ cũng phải bổ sung workId (forced migration).
+- `admin.service.ts` `createUserCore`: bỏ rule "≥1 trong workId/phone/email", thay bằng defensive check workId. Thêm duplicate workId check trong `updateUser` flow (parallel với email/username uniqueness).
+- `bulk/bulk-import.service.ts`: row thiếu workId → push blocking error "Thiếu Mã cán bộ (workId) — bắt buộc". workId format hint (XXX-XXX) vẫn warn-only.
+- `bulk/bulk-import.processor.ts`: `workId: row.workId!` (non-null assert, rows missing workId đã bị filter qua errors check trước đó).
+
+**Frontend (React):**
+- `UserManagementPage.tsx`: validation check `!formData.workId` thay cho `!formData.email`. Error message: "Vui lòng nhập Họ tên, Mã cán bộ, Tên đăng nhập." Label "Mã cán bộ *" có asterisk, label "Email" bỏ asterisk. Email rỗng gửi `undefined` (tránh `@IsEmail` reject empty string).
+- `BulkImportWizard.tsx`: header column "Số hiệu *" + input cell border đỏ + tooltip "Mã cán bộ là bắt buộc" khi rỗng.
+
+**Tests:**
+- `admin.service.spec.ts`: thay test "rejects khi thiếu workId/phone/email" → "rejects khi thiếu workId". Thêm workId vào `createDto` base + tất cả updateUser test calls.
+- `e2e/admin.e2e.spec.ts` + `uat/admin.uat.spec.ts`: thêm `#field-workId` fill ở tất cả create flow.
+
+Backend 1326/1326 PASS, Frontend 484/484 PASS, TS clean cả 2 stack.
+
+**Breaking UX:** Admin edit bất kỳ user cũ nào chưa có workId sẽ bị forced bổ sung. Đây là forced migration có chủ ý — không cần data migration script.
+
 ## [0.25.0.0] - 2026-05-16
 
 ### Onboarding — Bulk User Import + Fix Single-Create UI Broken (T2Đ1 5-min TTFU)

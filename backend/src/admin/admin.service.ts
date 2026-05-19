@@ -132,11 +132,9 @@ export class AdminService {
     tx: Prisma.TransactionClient,
     meta: { ipAddress?: string; userAgent?: string } = {},
   ): Promise<{ id: string; username: string; email: string | null; firstName: string | null; lastName: string | null; workId: string | null; phone: string | null; isActive: boolean; role: { id: string; name: string }; createdAt: Date }> {
-    // Validation: phải có ÍT NHẤT 1 trong (workId / phone / email).
-    if (!dto.workId && !dto.phone && !dto.email) {
-      throw new BadRequestException(
-        'Phải có ít nhất 1 trong: số hiệu ngành (workId), số điện thoại, email.',
-      );
+    // Defensive: workId bắt buộc (DTO validator đã enforce, đây là safety net).
+    if (!dto.workId) {
+      throw new BadRequestException('Mã cán bộ (workId) là bắt buộc.');
     }
 
     // EC-02: duplicate username/email check
@@ -151,11 +149,9 @@ export class AdminService {
       );
     }
 
-    if (dto.workId) {
-      const dupWorkId = await tx.user.findFirst({ where: { workId: dto.workId } });
-      if (dupWorkId) {
-        throw new ConflictException(`Số hiệu ngành "${dto.workId}" đã tồn tại`);
-      }
+    const dupWorkId = await tx.user.findFirst({ where: { workId: dto.workId } });
+    if (dupWorkId) {
+      throw new ConflictException(`Số hiệu ngành "${dto.workId}" đã tồn tại`);
     }
 
     const role = await tx.role.findUnique({ where: { id: dto.roleId } });
@@ -257,6 +253,13 @@ export class AdminService {
       });
       if (dup)
         throw new ConflictException(`Username "${dto.username}" đã tồn tại`);
+    }
+    if (dto.workId && dto.workId !== user.workId) {
+      const dup = await this.prisma.user.findFirst({
+        where: { workId: dto.workId, id: { not: id } },
+      });
+      if (dup)
+        throw new ConflictException(`Số hiệu ngành "${dto.workId}" đã tồn tại`);
     }
 
     const data: Record<string, unknown> = {

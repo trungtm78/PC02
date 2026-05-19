@@ -158,6 +158,7 @@ describe('AdminService', () => {
     const createDto = {
       username: 'newuser',
       email: 'new@pc02.local',
+      workId: '278-001',
       firstName: 'Văn',
       lastName: 'A',
       roleId: 'role-1',
@@ -280,8 +281,8 @@ describe('AdminService', () => {
     });
 
     // Magic link: email là optional cho cán bộ không có email công vụ.
-    // Service phải accept user chỉ có workId hoặc phone.
-    it('accepts dto KHÔNG có email (chỉ có workId + phone)', async () => {
+    // Service phải accept user chỉ có workId (không có email).
+    it('accepts dto KHÔNG có email (chỉ có workId)', async () => {
       mockPrisma.user.create.mockResolvedValue({
         id: 'new-id',
         username: 'tungh',
@@ -299,16 +300,18 @@ describe('AdminService', () => {
       expect(result.enrollment).toBeDefined();
     });
 
-    // Validation: phải có ÍT NHẤT 1 trong (workId / phone / email).
-    it('rejects khi KHÔNG có workId/phone/email (BadRequestException)', async () => {
-      const dtoEmpty = {
+    // workId là bắt buộc — DTO validator + service-level safety net.
+    it('rejects khi KHÔNG có workId (BadRequestException)', async () => {
+      const dtoNoWorkId = {
         username: 'nobody',
         firstName: 'No',
         lastName: 'Body',
+        email: 'nobody@pc02.local',
+        phone: '0909000000',
         roleId: 'role-1',
       };
       await expect(
-        service.createUser(dtoEmpty, 'requester-1'),
+        service.createUser(dtoNoWorkId as any, 'requester-1'),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -426,7 +429,7 @@ describe('AdminService', () => {
 
       const result = await service.updateUser(
         'u1',
-        { email: 'new@pc02.local', firstName: 'Updated' },
+        { email: 'new@pc02.local', firstName: 'Updated', workId: '278-001' },
         'requester-1',
       );
       expect(result.email).toBe('new@pc02.local');
@@ -439,7 +442,7 @@ describe('AdminService', () => {
     it('throws NotFoundException when user not found', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
       await expect(
-        service.updateUser('bad-id', { firstName: 'X' }, 'req'),
+        service.updateUser('bad-id', { firstName: 'X', workId: '278-001' }, 'req'),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -451,7 +454,7 @@ describe('AdminService', () => {
       });
 
       await expect(
-        service.updateUser('u1', { email: 'dup@pc02.local' }, 'req'),
+        service.updateUser('u1', { email: 'dup@pc02.local', workId: '278-001' }, 'req'),
       ).rejects.toThrow(ConflictException);
     });
 
@@ -464,7 +467,7 @@ describe('AdminService', () => {
       });
 
       await expect(
-        service.updateUser('u1', { username: 'taken' }, 'req'),
+        service.updateUser('u1', { username: 'taken', workId: '278-001' }, 'req'),
       ).rejects.toThrow(ConflictException);
     });
 
@@ -580,7 +583,7 @@ describe('AdminService', () => {
 
       await service.updateUser(
         'u1',
-        { canDispatch: true },
+        { canDispatch: true, workId: '278-001' },
         'requester-1',
       );
       expect(mockPrisma.user.update).toHaveBeenCalledWith(
@@ -602,7 +605,7 @@ describe('AdminService', () => {
         role: { id: 'r1', name: 'Admin' },
       });
 
-      await service.updateUser('u1', { status: UserStatus.INACTIVE }, 'req');
+      await service.updateUser('u1', { status: UserStatus.INACTIVE, workId: '278-001' }, 'req');
       expect(mockPrisma.user.update).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({ isActive: false }),
@@ -619,7 +622,7 @@ describe('AdminService', () => {
         role: { id: 'r1', name: 'Admin' },
       });
 
-      await service.updateUser('u1', { canDispatch: true }, 'req');
+      await service.updateUser('u1', { canDispatch: true, workId: '278-001' }, 'req');
       expect(mockPrisma.user.update).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
@@ -639,7 +642,7 @@ describe('AdminService', () => {
         role: { id: 'r1', name: 'Admin' },
       });
 
-      await service.updateUser('u1', { canDispatch: false }, 'req');
+      await service.updateUser('u1', { canDispatch: false, workId: '278-001' }, 'req');
       expect(mockPrisma.user.update).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
