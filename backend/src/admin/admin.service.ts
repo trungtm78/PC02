@@ -17,6 +17,7 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { generateTempPassword } from '../auth/utils/temp-password.util';
 import { hashPassword } from '../auth/utils/password-hash.util';
 import { getBcryptCost } from '../auth/utils/password-hash.util';
+import { canonicalizeVietnamPhone } from '../auth/utils/identifier-classifier';
 import {
   UpdateRolePermissionsDto,
   UpdateRoleDto,
@@ -137,15 +138,23 @@ export class AdminService {
       throw new BadRequestException('Mã cán bộ (workId) là bắt buộc.');
     }
 
-    // EC-02: duplicate username/email check
+    // v0.27 canonicalize email + phone TRƯỚC duplicate check (đảm bảo case-insensitive
+    // và format-insensitive uniqueness). Lưu vào canonicalEmail/canonicalPhone, dùng
+    // xuyên suốt phần còn lại của method.
+    const canonicalEmail = dto.email?.trim().toLowerCase() || null;
+    const canonicalPhone = dto.phone
+      ? canonicalizeVietnamPhone(dto.phone.replace(/[\s.-]/g, ''))
+      : null;
+
+    // EC-02: duplicate username/email check (dùng canonical email)
     const orClauses: Record<string, unknown>[] = [{ username: dto.username }];
-    if (dto.email) orClauses.push({ email: dto.email });
+    if (canonicalEmail) orClauses.push({ email: canonicalEmail });
     const existing = await tx.user.findFirst({ where: { OR: orClauses } });
     if (existing) {
       throw new ConflictException(
         existing.username === dto.username
           ? `Username "${dto.username}" đã tồn tại`
-          : `Email "${dto.email}" đã tồn tại`,
+          : `Email "${canonicalEmail}" đã tồn tại`,
       );
     }
 
@@ -167,13 +176,13 @@ export class AdminService {
     const created = await tx.user.create({
       data: {
         username: dto.username,
-        email: dto.email,
+        email: canonicalEmail,
         passwordHash: placeholderHash,
         mustChangePassword: true,
         firstName: dto.firstName,
         lastName: dto.lastName,
         workId: dto.workId,
-        phone: dto.phone,
+        phone: canonicalPhone,
         departmentId: dto.departmentId,
         roleId: dto.roleId,
         isActive: dto.status !== UserStatus.INACTIVE,
@@ -240,12 +249,20 @@ export class AdminService {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new NotFoundException(`User #${id} không tồn tại`);
 
+    // v0.27 canonicalize email + phone (nếu provided) cho consistency.
+    const canonicalEmail = dto.email !== undefined
+      ? (dto.email?.trim().toLowerCase() || null)
+      : undefined;
+    const canonicalPhone = dto.phone !== undefined
+      ? (dto.phone ? canonicalizeVietnamPhone(dto.phone.replace(/[\s.-]/g, '')) : null)
+      : undefined;
+
     // EC-02: Check uniqueness on change
-    if (dto.email && dto.email !== user.email) {
+    if (canonicalEmail && canonicalEmail !== user.email) {
       const dup = await this.prisma.user.findFirst({
-        where: { email: dto.email, id: { not: id } },
+        where: { email: canonicalEmail, id: { not: id } },
       });
-      if (dup) throw new ConflictException(`Email "${dto.email}" đã tồn tại`);
+      if (dup) throw new ConflictException(`Email "${canonicalEmail}" đã tồn tại`);
     }
     if (dto.username && dto.username !== user.username) {
       const dup = await this.prisma.user.findFirst({
@@ -264,11 +281,11 @@ export class AdminService {
 
     const data: Record<string, unknown> = {
       ...(dto.username && { username: dto.username }),
-      ...(dto.email && { email: dto.email }),
+      ...(canonicalEmail !== undefined && { email: canonicalEmail }),
       ...(dto.firstName !== undefined && { firstName: dto.firstName }),
       ...(dto.lastName !== undefined && { lastName: dto.lastName }),
       ...(dto.workId !== undefined && { workId: dto.workId }),
-      ...(dto.phone !== undefined && { phone: dto.phone }),
+      ...(canonicalPhone !== undefined && { phone: canonicalPhone }),
       ...(dto.departmentId !== undefined && { departmentId: dto.departmentId }),
       ...(dto.roleId && { roleId: dto.roleId }),
       ...(dto.status !== undefined && {

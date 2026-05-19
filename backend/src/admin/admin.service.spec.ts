@@ -325,6 +325,56 @@ describe('AdminService', () => {
         service.createUser(dtoWithWorkId, 'requester-1'),
       ).rejects.toThrow(ConflictException);
     });
+
+    // v0.27: canonicalize email at write — lowercase + trim.
+    it('canonicalize email at write: lowercase + trim', async () => {
+      await service.createUser(
+        { ...createDto, email: '  Admin@PC02.LOCAL  ' },
+        'requester-1',
+      );
+      expect(mockPrisma.user.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ email: 'admin@pc02.local' }),
+        }),
+      );
+    });
+
+    // v0.27: canonicalize phone at write — Vietnam format to +84.
+    it('canonicalize phone at write: 0934... → +84934...', async () => {
+      await service.createUser(
+        { ...createDto, phone: '0934314279' },
+        'requester-1',
+      );
+      expect(mockPrisma.user.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ phone: '+84934314279' }),
+        }),
+      );
+    });
+
+    it('canonicalize phone at write: 84934... → +84934...', async () => {
+      await service.createUser(
+        { ...createDto, phone: '84934314279' },
+        'requester-1',
+      );
+      expect(mockPrisma.user.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ phone: '+84934314279' }),
+        }),
+      );
+    });
+
+    it('canonicalize phone at write: separators stripped first', async () => {
+      await service.createUser(
+        { ...createDto, phone: '0934 314 279' },
+        'requester-1',
+      );
+      expect(mockPrisma.user.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ phone: '+84934314279' }),
+        }),
+      );
+    });
   });
 
   // ── deleteUser ────────────────────────────────────────────────────────────

@@ -55,6 +55,13 @@ export type LoginResponse =
   | TwoFaSetupPendingResponse
   | ChangePasswordPendingResponse;
 
+// v0.27: Dummy bcrypt hash dùng cho timing oracle defense. Khi user không tồn tại
+// (hoặc bị inactive), chạy bcrypt.compare với hash này để equalize timing ~80ms,
+// prevent username enumeration via response timing. Hash này KHÔNG bao giờ match.
+// Generated 1 lần với cost 12 — cố ý expensive để match production bcrypt cost.
+const DUMMY_BCRYPT_HASH =
+  '$2b$12$LiNxOIVPp/2NkBcb98t5JeM4hcsfXTRvKjjPbAxKkS/bRu1S5R8DC';
+
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
@@ -101,18 +108,25 @@ export class AuthService {
 
     if (!user || !user.isActive) {
       this.metrics.loginAttempts.inc({ result: 'failure' });
+      // v0.27 timing oracle defense: run dummy bcrypt.compare để equalize timing với
+      // valid-user-wrong-password path (~80ms). Prevents username enumeration via timing.
+      await bcrypt.compare(dto.password, DUMMY_BCRYPT_HASH);
       throw new UnauthorizedException('Invalid credentials');
     }
 
     // S1.2 account lockout — reject early nếu đang lock.
-    // Skip bcrypt.compare để không leak timing info phân biệt locked vs wrong-pw.
+    // v0.27: unified 'Invalid credentials' message — KHÔNG leak lock state qua response
+    // body (enumeration oracle defense). Skip bcrypt để tránh giúp attacker dù 1 phần.
     if (user.lockedUntil && user.lockedUntil > new Date()) {
       this.metrics.loginAttempts.inc({ result: 'locked' });
-      const remainingMs = user.lockedUntil.getTime() - Date.now();
-      const remainingMinutes = Math.max(1, Math.ceil(remainingMs / 60000));
-      throw new UnauthorizedException(
-        `Tài khoản đã bị khoá tạm thời. Thử lại sau ${remainingMinutes} phút.`,
-      );
+      await this.auditService.log({
+        userId: user.id,
+        action: 'USER_LOGIN_LOCKED_ATTEMPT',
+        metadata: { identifier: dto.username, shape: field },
+        ipAddress: meta.ipAddress,
+        userAgent: meta.userAgent,
+      });
+      throw new UnauthorizedException('Invalid credentials');
     }
 
     const passwordValid = await bcrypt.compare(dto.password, user.passwordHash);
@@ -131,10 +145,11 @@ export class AuthService {
       });
 
       this.metrics.loginAttempts.inc({ result: willLock ? 'locked' : 'failure' });
+      // v0.27: audit metadata rename email → identifier + shape (field từ classifier).
       await this.auditService.log({
         userId: user.id,
         action: willLock ? 'USER_LOGIN_LOCKED' : 'USER_LOGIN_FAILED',
-        metadata: { email: dto.username, attempts: newAttempts },
+        metadata: { identifier: dto.username, shape: field, attempts: newAttempts },
         ipAddress: meta.ipAddress,
         userAgent: meta.userAgent,
       });
