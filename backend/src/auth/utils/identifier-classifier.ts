@@ -27,6 +27,10 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // (seed-sample-data + seed-dtv-user dùng PC02-DTV-001..005). Cả 2 đều @unique trong DB.
 // PC02 = uppercase + digit mixed → [A-Z0-9]{2,8}; DTV = pure uppercase. Both allowed.
 const WORKID_PATTERN = /^(?:\d{3}-\d{3}|[A-Z][A-Z0-9]{1,7}-[A-Z][A-Z0-9]{1,7}-\d{2,4})$/;
+// v0.28: workId thuần số 3-8 chars — Mã cán bộ ngành công an (vd `33445433`, `001`).
+// An toàn không collision phone (yêu cầu ≥9 chars sau normalize).
+// workId 9+ chars sẽ route phone shape, được handle bằng fallback chain ở auth.service.
+const WORKID_DIGITS_PATTERN = /^\d{3,8}$/;
 const PHONE_NORMALIZE_PATTERN = /[\s.-]/g;
 const PHONE_SHAPE_PATTERN = /^\+?[0-9]{9,15}$/;
 
@@ -49,7 +53,7 @@ export function classifyIdentifier(input: string): ClassifiedIdentifier {
   if (EMAIL_PATTERN.test(trimmed)) {
     return { field: 'email', value: trimmed.toLowerCase() };
   }
-  if (WORKID_PATTERN.test(trimmed)) {
+  if (WORKID_PATTERN.test(trimmed) || WORKID_DIGITS_PATTERN.test(trimmed)) {
     return { field: 'workId', value: trimmed };
   }
   const normalizedPhone = trimmed.replace(PHONE_NORMALIZE_PATTERN, '');

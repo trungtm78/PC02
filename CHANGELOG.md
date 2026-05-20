@@ -2,6 +2,38 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.28.0.0] - 2026-05-20
+
+### workId Pure-Digit Support — Login bằng Mã cán bộ thuần số
+
+Bug discovered sau khi anh set workId = `33445433` (8 chữ số) cho admin trên prod: login bằng `33445433` trả 401. Root cause: classifier (v0.27) chỉ accept workId shape có dấu `-` (`XXX-XXX` hoặc `PREFIX-PREFIX-NNN`); pure-digit không match → fallback route to username field → admin không có username `33445433` → 401. Thực tế Mã cán bộ ngành công an là thuần số độ dài tùy ý — classifier cần expand.
+
+**Backend (3 files):**
+- `identifier-classifier.ts`: thêm `WORKID_DIGITS_PATTERN = /^\d{3,8}$/` route pure-digit 3-8 chars → workId field (an toàn không collision phone, yêu cầu ≥9 digits sau normalize).
+- `auth.service.ts` login flow: defensive **workId fallback chain** — nếu classifier route `phone` hoặc `username` mà primary query miss, thử workId field 1 lần trước khi reject. Handle edge case workId 9+ digits (trùng shape phone) hoặc identifier không xác định. KHÔNG fallback khi `field=email` (email shape rõ ràng).
+- `create-user.dto.ts`: username regex thêm negative lookahead `^(?!^\d+$)[a-z0-9_]+$` — cấm username thuần số (defense-in-depth chống collision Mã cán bộ shape).
+
+**Tests:**
+- New: `create-user.dto.spec.ts` (7 cases) — username thuần số rejected, alphanumeric mix accepted.
+- Extended: `identifier-classifier.spec.ts` — 6 cases pure-digit boundaries (3 chars min, 8 chars max, 9+ digits → phone wins).
+- Extended: `auth.service.spec.ts` — 3 cases fallback chain (phone miss → workId, username miss → workId, email KHÔNG fallback).
+
+Backend 1351 → **1367 PASS** (+16 cases). Frontend 484 unchanged. TS clean cả 2 stack.
+
+**Routing rules sau v0.28:**
+1. `<local>@<domain>` → email
+2. `XXX-XXX` hoặc `PREFIX-PREFIX-NNN` → workId
+3. **`\d{3,8}` (pure digit 3-8 chars) → workId** (NEW)
+4. `\+?[0-9]{9,15}` (≥9 digits) → phone (canonicalize +84)
+5. Everything else → username (fallback)
+6. Fallback chain (service-side): phone/username miss → thử workId trước khi 401
+
+**Manual QA cần test sau deploy:**
+- Login workId `33445433` (admin) → success.
+- Login workId `277-794` / `PC02-DTV-001` → success (regression).
+- Login phone `0934314279` → success (không bị workId precedence steal).
+- Tạo user mới với username `12345` → bị reject ở admin form.
+
 ## [0.27.0.0] - 2026-05-19
 
 ### Multi-field Login Unblock + Security Hardening + Canonicalization

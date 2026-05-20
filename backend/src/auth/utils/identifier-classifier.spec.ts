@@ -61,6 +61,36 @@ describe('classifyIdentifier (multi-field login disambiguator)', () => {
     expect(classifyIdentifier('PC02-DTV').field).toBe('username');
   });
 
+  // v0.28: workId thuần số (Mã cán bộ ngành công an, độ dài tùy ý).
+  // 3-8 digits → workId (an toàn vì phone yêu cầu ≥9 sau normalize).
+  it('classify workId — pure digit 8 chars (vd 33445433)', () => {
+    expect(classifyIdentifier('33445433')).toEqual({
+      field: 'workId',
+      value: '33445433',
+    });
+  });
+
+  it('classify workId — pure digit 3 chars boundary (vd 001)', () => {
+    expect(classifyIdentifier('001').field).toBe('workId');
+  });
+
+  it('classify workId — pure digit 5 chars (vd 12345)', () => {
+    expect(classifyIdentifier('12345').field).toBe('workId');
+  });
+
+  it('classify workId — pure digit 8 chars max boundary', () => {
+    expect(classifyIdentifier('12345678').field).toBe('workId');
+  });
+
+  it('classify workId — pure digit 2 chars (quá ngắn) → username', () => {
+    expect(classifyIdentifier('12').field).toBe('username');
+  });
+
+  it('classify phone wins over workId for pure-digit ≥9 chars (vd 123456789)', () => {
+    // 9 digits không bắt đầu bằng 0 → canonicalize +123456789 (foreign).
+    expect(classifyIdentifier('123456789').field).toBe('phone');
+  });
+
   // v0.27: Vietnam phone canonicalization — mọi format đều canonicalize về +84
   it('phone canonicalize — local 0934 → +84934', () => {
     expect(classifyIdentifier('0934314279').value).toBe('+84934314279');
