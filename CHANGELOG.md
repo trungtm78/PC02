@@ -2,6 +2,43 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.30.0.2] - 2026-05-20
+
+### Hot-fix: Centralize API error parsing (UX visibility)
+
+**User report:** "thêm vụ việc mới phát sinh lỗi" — toast hiển thị "Có lỗi xảy ra" mỗi lần API fail, người dùng không biết lỗi thật là gì.
+
+**Root cause:** `backend/src/common/filters/http-exception.filter.ts:42-51` wrap mọi error response thành `{ success: false, error: { code, message, details } }`. 30 file frontend lại đọc thẳng `response.data.message` → luôn `undefined` → fallback "Có lỗi xảy ra". Mọi error message thật (validation, FK violation, BLTTHS check, conflict, 2FA mandate, deadline rule missing, ...) đều bị nuốt mất.
+
+### Added
+- `frontend/src/lib/api-errors.ts` — single source of truth `extractApiError(err, fallback)`:
+  - Đọc đúng `data.error.message` + expand `details[]` thành messages array (cho ValidationPipe arrays)
+  - Legacy NestJS shape (`data.message: string|string[]`) vẫn hoạt động (defensive backwards-compat)
+  - Network error (no response) → message Việt rõ ràng
+  - Trả `{ message, messages, code, status }` — frontend dùng `.message` cho toast/alert, `.messages` cho form-level error list, `.status` cho special-case (401/403/429)
+- `frontend/src/lib/__tests__/api-errors.test.ts` — 8 unit tests cover wrapped/legacy/network/raw
+
+### Changed
+- Refactor 30 file FE dùng `extractApiError()` thay 38 chỗ inline parsing:
+  - **Forms:** IncidentFormPage, PetitionFormPage, ChangePasswordModal, AssignModal, CreateEventModal, RecurringDeleteDialog
+  - **Lists:** IncidentListPage (3 sites: delete + status change + prosecute), PetitionListPage (×2: convert variants)
+  - **Auth:** LoginPage, TwoFaPage, EnrollPage, ForgotPasswordPage, FirstLoginChangePasswordPage, TwoFaSetupModal
+  - **Admin:** UserManagementPage (×3), DirectoriesPage (×2), MasterClassPage, ProposeDeadlineRulePage, VersionDecisionPage
+  - **Cases:** CaseDetailPage (×3), CaseFormPage/tabs, CaseTdcBackfillPage, VksMeetingsTab, ActionPlanTab, TdcBackfillBanner
+  - **Misc:** BulkImportWizard (×2), DashboardPage (giữ logic 403 → 'no-team'), Settings modules (Address/EventCategories/Shortcuts)
+- Net diff: +299 / -169 lines (giảm 55 dòng nhờ DRY)
+
+### Fixed
+- Toast "Có lỗi xảy ra" giờ chỉ xuất hiện khi backend thật sự không trả message (network down, CORS, etc.) — không còn che mọi error message hợp lệ
+- DashboardPage 403 handling vẫn dẫn đến state `'no-team'` (preserve special-case behavior)
+
+### Tests
+- Frontend: 247 → 255 (+8 new from api-errors.test.ts). 515/515 pass, tsc --noEmit clean.
+- Backend: unchanged (936 tests)
+
+### Known Follow-up (out of scope)
+- Underlying bug thực sự làm POST /incidents fail trong môi trường anh user vẫn chưa biết — chỉ sau khi deploy bản này anh user sẽ thấy được error message thật để fix tiếp.
+
 ## [0.30.0.1] - 2026-05-20
 
 ### Hot-fix: Audit diff fields missing + Date corruption + UX

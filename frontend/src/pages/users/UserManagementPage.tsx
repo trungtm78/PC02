@@ -19,6 +19,7 @@ import {
   Upload,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { extractApiError } from '@/lib/api-errors';
 import { downloadCsv } from '@/lib/csv';
 import { usePermission } from '@/hooks/usePermission';
 import { TempPasswordHandoverModal } from '@/components/TempPasswordHandoverModal';
@@ -309,10 +310,7 @@ export default function UserManagementPage() {
       }
       void loadUsers();
     } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        'Có lỗi xảy ra. Vui lòng thử lại.';
-      setFormError(Array.isArray(msg) ? msg.join(', ') : msg);
+      setFormError(extractApiError(err, 'Có lỗi xảy ra. Vui lòng thử lại.').messages.join(', '));
     } finally {
       setSaving(false);
     }
@@ -354,10 +352,7 @@ export default function UserManagementPage() {
       setDeletingUser(null);
       void loadUsers();
     } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        'Không thể xóa người dùng.';
-      alert(msg);
+      alert(extractApiError(err, 'Không thể xóa người dùng.').message);
     }
   };
 
@@ -393,10 +388,7 @@ export default function UserManagementPage() {
       await api.patch(`/admin/roles/${selectedRole.id}/permissions`, { permissions });
       setShowSaveConfirm(false);
     } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        'Lỗi khi lưu phân quyền.';
-      alert(msg);
+      alert(extractApiError(err, 'Lỗi khi lưu phân quyền.').message);
     } finally {
       setPermSaving(false);
     }

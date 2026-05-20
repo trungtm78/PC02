@@ -3,6 +3,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Save, Send, AlertCircle, Loader2, Lightbulb, X } from 'lucide-react';
 import { deadlineRulesApi, DEADLINE_RULES_QUERY_KEYS } from '@/features/deadline-rules/api';
+import { extractApiError } from '@/lib/api-errors';
 import {
   DOCUMENT_TYPES,
   DOCUMENT_ISSUERS,
@@ -174,9 +175,9 @@ export default function ProposeDeadlineRulePage() {
       }
       navigate(`/admin/deadline-rules/version/${res.data.id}`);
     },
-    onError: (e: { response?: { data?: { message?: string } }; message?: string }) => {
+    onError: (e: unknown) => {
       console.error('[deadline-rules] save-draft failed', e);
-      setSubmitError(e.response?.data?.message ?? e.message ?? 'Lưu thất bại');
+      setSubmitError(extractApiError(e, 'Lưu thất bại').message);
     },
   });
 
@@ -200,9 +201,9 @@ export default function ProposeDeadlineRulePage() {
       }
       navigate(`/admin/deadline-rules/version/${res.data.id}`);
     },
-    onError: (e: { response?: { data?: { message?: string } }; message?: string }) => {
+    onError: (e: unknown) => {
       console.error('[deadline-rules] submit failed', e);
-      setSubmitError(e.response?.data?.message ?? e.message ?? 'Gửi duyệt thất bại');
+      setSubmitError(extractApiError(e, 'Gửi duyệt thất bại').message);
     },
   });
 

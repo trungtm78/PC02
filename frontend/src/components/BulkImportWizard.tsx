@@ -16,6 +16,7 @@ import {
   type BulkImportPreviewRow,
   type BulkImportJobStatus,
 } from '@/lib/api';
+import { extractApiError } from '@/lib/api-errors';
 import { authStore } from '@/stores/auth.store';
 
 interface Props {
@@ -137,10 +138,7 @@ export function BulkImportWizard({ open, onClose, onComplete, roles }: Props) {
       setEditedRows(res.data.rows);
       setStep('preview');
     } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        'Lỗi parse file. Vui lòng kiểm tra format.';
-      setUploadError(Array.isArray(msg) ? msg.join(', ') : msg);
+      setUploadError(extractApiError(err, 'Lỗi parse file. Vui lòng kiểm tra format.').messages.join(', '));
     } finally {
       setUploading(false);
     }
@@ -168,10 +166,7 @@ export function BulkImportWizard({ open, onClose, onComplete, roles }: Props) {
       setJobId(res.data.jobId);
       setStep('processing');
     } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        'Lỗi xử lý. Vui lòng thử lại.';
-      setSubmitError(Array.isArray(msg) ? msg.join(', ') : msg);
+      setSubmitError(extractApiError(err, 'Lỗi xử lý. Vui lòng thử lại.').messages.join(', '));
     } finally {
       setSubmitting(false);
     }

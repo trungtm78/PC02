@@ -6,6 +6,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "@/lib/api";
+import { extractApiError } from "@/lib/api-errors";
 import {
   ArrowLeft, Save, AlertCircle, Calendar, User,
   FileText, MapPin, Phone, Mail, ChevronDown,
@@ -179,10 +180,7 @@ export function PetitionFormPage() {
         setErrors(["Đơn thư đã được chỉnh sửa bởi người dùng khác. Vui lòng tải lại trang để xem phiên bản mới nhất trước khi chỉnh sửa."]);
         window.scrollTo({ top: 0, behavior: "smooth" });
       } else {
-        const msg = (err as { response?: { data?: { message?: string | string[] } } })?.response?.data?.message;
-        if (Array.isArray(msg)) setErrors(msg);
-        else if (typeof msg === "string") setErrors([msg]);
-        else setErrors(["Có lỗi xảy ra khi lưu đơn thư. Vui lòng thử lại."]);
+        setErrors(extractApiError(err, "Có lỗi xảy ra khi lưu đơn thư. Vui lòng thử lại.").messages);
       }
     } finally {
       setIsSubmitting(false);

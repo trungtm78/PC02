@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { AlertCircle, CheckCircle2, Lock, User, Eye, EyeOff } from 'lucide-react';
 
 import { authApi, type LoginResponse } from '@/lib/api';
+import { extractApiError } from '@/lib/api-errors';
 import { authStore } from '@/stores/auth.store';
 import logoCA from '@/assets/logo-cong-an.png';
 
@@ -114,12 +115,9 @@ export default function LoginPage() {
     loginMutation.mutate(values);
   };
 
-  const errorMessage = (() => {
-    const err = loginMutation.error as { response?: { data?: { message?: string } } } | null;
-    if (!err) return 'Thông tin đăng nhập không chính xác. Vui lòng thử lại.';
-    const serverMsg = err?.response?.data?.message;
-    return serverMsg ?? 'Thông tin đăng nhập không chính xác. Vui lòng thử lại.';
-  })();
+  const errorMessage = loginMutation.error
+    ? extractApiError(loginMutation.error, 'Thông tin đăng nhập không chính xác. Vui lòng thử lại.').message
+    : 'Thông tin đăng nhập không chính xác. Vui lòng thử lại.';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-100 via-blue-50 to-slate-50 flex items-center justify-center p-4">

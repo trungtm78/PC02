@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { AlertTriangle, Trash2, X, Loader2 } from 'lucide-react';
 import { calendarEventsApi } from '@/lib/api';
+import { extractApiError } from '@/lib/api-errors';
 
 type EventScopeFE = 'SYSTEM' | 'TEAM' | 'PERSONAL';
 
@@ -70,8 +71,7 @@ export function RecurringDeleteDialog({
       onDeleted?.();
       onClose();
     } catch (e: unknown) {
-      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      setError(msg ?? 'Không xóa được');
+      setError(extractApiError(e, 'Không xóa được').message);
     } finally {
       setDeleting(false);
     }
@@ -85,8 +85,7 @@ export function RecurringDeleteDialog({
       onDeleted?.();
       onClose();
     } catch (e: unknown) {
-      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      setError(msg ?? 'Không xóa được');
+      setError(extractApiError(e, 'Không xóa được').message);
     } finally {
       setDeleting(false);
     }

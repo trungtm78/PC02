@@ -8,6 +8,7 @@ import {
   type EventScope,
   type CreateEventPayload,
 } from '@/lib/api';
+import { extractApiError } from '@/lib/api-errors';
 import { authStore } from '@/stores/auth.store';
 import { RecurrenceBuilder, buildRRule, type RecurrencePreset } from './RecurrenceBuilder';
 import { ReminderEditor, type DraftReminder } from './ReminderEditor';
@@ -106,8 +107,7 @@ export function CreateEventModal({ isOpen, onClose, defaultDate, onCreated }: Pr
       onCreated?.();
       onClose();
     } catch (e: unknown) {
-      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      setError(msg ?? 'Lỗi khi tạo sự kiện');
+      setError(extractApiError(e, 'Lỗi khi tạo sự kiện').message);
     } finally {
       setSaving(false);
     }

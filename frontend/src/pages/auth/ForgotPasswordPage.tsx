@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { AlertCircle, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { authApi } from '@/lib/api';
+import { extractApiError } from '@/lib/api-errors';
 import logoCA from '@/assets/logo-cong-an.png';
 
 /* ── Schemas ──────────────────────────────────────────────────── */
@@ -134,15 +135,8 @@ export function ForgotPasswordPage() {
   };
 
   /* Error helpers */
-  const forgotError = (() => {
-    const err = forgotMutation.error as { response?: { data?: { message?: string } } } | null;
-    return err?.response?.data?.message ?? 'Không thể gửi mã xác nhận. Vui lòng thử lại.';
-  })();
-
-  const resetError = (() => {
-    const err = resetMutation.error as { response?: { data?: { message?: string } } } | null;
-    return err?.response?.data?.message ?? 'Không thể đặt lại mật khẩu. Vui lòng thử lại.';
-  })();
+  const forgotError = extractApiError(forgotMutation.error, 'Không thể gửi mã xác nhận. Vui lòng thử lại.').message;
+  const resetError = extractApiError(resetMutation.error, 'Không thể đặt lại mật khẩu. Vui lòng thử lại.').message;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-100 via-blue-50 to-slate-50 flex items-center justify-center p-4">

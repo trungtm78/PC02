@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { api } from "@/lib/api";
+import { extractApiError } from "@/lib/api-errors";
 import { today } from "@/lib/dates";
 import { usePermission } from "@/hooks/usePermission";
 import { AssignModal } from "@/components/AssignModal";
@@ -902,11 +903,8 @@ export default function CaseDetailPage() {
       setShowDefendantModal(false);
       setEditingDefendant(null);
       await fetchDefendants();
-    } catch (err: any) {
-      const msg = err?.response?.data?.message;
-      setDefendantError(
-        Array.isArray(msg) ? msg.join(", ") : (msg ?? "Lưu bị can thất bại. Vui lòng thử lại.")
-      );
+    } catch (err: unknown) {
+      setDefendantError(extractApiError(err, "Lưu bị can thất bại. Vui lòng thử lại.").messages.join(", "));
     }
   };
 
@@ -927,9 +925,8 @@ export default function CaseDetailPage() {
       setShowLawyerModal(false);
       setEditingLawyer(null);
       await fetchLawyers();
-    } catch (err: any) {
-      const msg = err?.response?.data?.message;
-      alert(Array.isArray(msg) ? msg.join(", ") : (msg ?? "Lưu luật sư thất bại. Vui lòng thử lại."));
+    } catch (err: unknown) {
+      alert(extractApiError(err, "Lưu luật sư thất bại. Vui lòng thử lại.").messages.join(", "));
     }
   };
 
@@ -987,8 +984,8 @@ export default function CaseDetailPage() {
       setCaseData(res.data.data);
       setShowProgressModal(false);
       if (activeTab === "timeline") fetchTimeline();
-    } catch (e: any) {
-      setProgressError(e?.response?.data?.message ?? "Lưu thất bại, thử lại.");
+    } catch (e: unknown) {
+      setProgressError(extractApiError(e, "Lưu thất bại, thử lại.").message);
     } finally {
       setProgressSaving(false);
     }

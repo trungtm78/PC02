@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '@/lib/api';
+import { extractApiError } from '@/lib/api-errors';
 import { Modal } from '@/components/shared/Modal';
 import { BTN_PRIMARY, BTN_SECONDARY } from '@/constants/styles';
 
@@ -90,8 +91,7 @@ export function AssignModal({
       onSuccess();
       onClose();
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      setError(msg ?? 'Phân công thất bại. Vui lòng thử lại.');
+      setError(extractApiError(err, 'Phân công thất bại. Vui lòng thử lại.').message);
     } finally {
       setLoading(false);
     }

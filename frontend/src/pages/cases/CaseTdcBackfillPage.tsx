@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, AlertTriangle, Save, RefreshCw } from "lucide-react";
 import { api } from "@/lib/api";
+import { extractApiError } from "@/lib/api-errors";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -89,11 +90,10 @@ export default function CaseTdcBackfillPage() {
           return next;
         });
       }, 1500);
-    } catch (err: any) {
-      const msg = err?.response?.data?.message;
+    } catch (err: unknown) {
       setErrorIds((prev) => ({
         ...prev,
-        [caseId]: Array.isArray(msg) ? msg.join(", ") : (msg ?? "Lưu thất bại."),
+        [caseId]: extractApiError(err, "Lưu thất bại.").messages.join(", "),
       }));
     } finally {
       setSavingIds((prev) => {

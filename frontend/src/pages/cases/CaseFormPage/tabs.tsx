@@ -27,6 +27,7 @@ import {
 import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { extractApiError } from "@/lib/api-errors";
 import { today } from "@/lib/dates";
 import { useShortcut } from "@/hooks/useShortcut";
 import { FormInput, FormSelect, FormTextarea } from "@/components/form";
@@ -965,8 +966,8 @@ export function TabBusinessFiles({ caseId }: { caseId?: string }) {
       if (fileRef.current) fileRef.current.value = "";
       setShowForm(false);
       await fetchDocs();
-    } catch (e: any) {
-      setError(e?.response?.data?.message ?? "Upload thất bại");
+    } catch (e: unknown) {
+      setError(extractApiError(e, "Upload thất bại").message);
     } finally {
       setUploading(false);
     }

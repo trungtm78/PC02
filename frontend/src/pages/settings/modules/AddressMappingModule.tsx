@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { MapPin, Plus, Edit2, Trash2, RefreshCw, Search, X, Save, Loader2, AlertTriangle, CheckCircle2, StopCircle } from 'lucide-react';
 import { api } from '@/lib/api';
+import { extractApiError } from '@/lib/api-errors';
 import { usePermission } from '@/hooks/usePermission';
 
 interface AddressMapping {
@@ -122,8 +123,7 @@ export function AddressMappingModule() {
       setShowModal(false);
       void loadItems();
     } catch (e: unknown) {
-      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      setFormError(msg ?? 'Lỗi khi lưu mapping');
+      setFormError(extractApiError(e, 'Lỗi khi lưu mapping').message);
     } finally {
       setSaving(false);
     }
@@ -156,8 +156,7 @@ export function AddressMappingModule() {
         needsReview: 0,
       });
     } catch (e: unknown) {
-      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      setSeedError(msg ?? 'Không khởi động được job seed');
+      setSeedError(extractApiError(e, 'Không khởi động được job seed').message);
     }
   };
 
@@ -166,8 +165,7 @@ export function AddressMappingModule() {
     try {
       await api.post(`/address-mappings/seed/${seedJob.jobId}/cancel`);
     } catch (e: unknown) {
-      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      setSeedError(msg ?? 'Không hủy được job');
+      setSeedError(extractApiError(e, 'Không hủy được job').message);
     }
   };
 

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { X, Shield, CheckCircle2, AlertCircle, Copy } from 'lucide-react';
 import { authApi } from '@/lib/api';
+import { extractApiError } from '@/lib/api-errors';
 
 interface Props {
   open: boolean;
@@ -49,13 +50,13 @@ export function TwoFaSetupModal({ open, onClose }: Props) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const setupError = setupMutation.error as { response?: { status?: number; data?: { message?: string; error?: { message?: string } } } } | null;
-  const setup409Msg = setupError?.response?.data?.error?.message ?? setupError?.response?.data?.message ?? '';
+  const setupErrorNorm = setupMutation.error ? extractApiError(setupMutation.error) : null;
+  const setupErrorStatus = setupErrorNorm?.status;
   // Only show destructive "cancel pending" action when there's an UNCONFIRMED setup,
   // not when 2FA is already fully enabled on the account.
-  const isPendingSetup = setupError?.response?.status === 409 &&
-    setup409Msg.includes('chờ xác nhận');
-  const verifyError = verifyMutation.error as { response?: { data?: { message?: string; error?: { message?: string } } } } | null;
+  const isPendingSetup = setupErrorStatus === 409 &&
+    (setupErrorNorm?.message ?? '').includes('chờ xác nhận');
+  const verifyErrorNorm = verifyMutation.error ? extractApiError(verifyMutation.error) : null;
 
   if (!open) return null;
 
@@ -90,12 +91,12 @@ export function TwoFaSetupModal({ open, onClose }: Props) {
                 <li>Bước 2: Nhập mã 6 chữ số để xác nhận</li>
                 <li>Bước 3: Lưu các mã dự phòng để sử dụng khi mất điện thoại</li>
               </ul>
-              {setupError && (
+              {setupErrorNorm && (
                 <div className="flex items-start gap-2 p-3 bg-red-50 rounded-lg">
                   <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
                   <div className="flex-1">
                     <p className="text-sm text-red-700">
-                      {setupError?.response?.data?.error?.message ?? setupError?.response?.data?.message ?? 'Không thể khởi tạo 2FA. Vui lòng thử lại.'}
+                      {setupErrorNorm.message || 'Không thể khởi tạo 2FA. Vui lòng thử lại.'}
                     </p>
                     {isPendingSetup && (
                       <button
@@ -149,11 +150,11 @@ export function TwoFaSetupModal({ open, onClose }: Props) {
               <p className="text-sm text-slate-600">
                 Nhập mã 6 chữ số từ ứng dụng xác thực để hoàn tất cài đặt.
               </p>
-              {verifyError && (
+              {verifyErrorNorm && (
                 <div className="flex items-start gap-2 p-3 bg-red-50 rounded-lg">
                   <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
                   <p className="text-sm text-red-700">
-                    {verifyError?.response?.data?.error?.message ?? verifyError?.response?.data?.message ?? 'Mã không đúng. Vui lòng thử lại.'}
+                    {verifyErrorNorm.message || 'Mã không đúng. Vui lòng thử lại.'}
                   </p>
                 </div>
               )}

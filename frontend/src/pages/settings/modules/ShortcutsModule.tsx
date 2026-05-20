@@ -20,6 +20,7 @@ import {
   useUserShortcutList,
   useUserShortcutMap,
 } from '@/hooks/useUserShortcuts';
+import { extractApiError } from '@/lib/api-errors';
 
 // Group ordering by frequency-of-use for case officer (per autoplan Design D9).
 const GROUP_ORDER = ['Trong form', 'Trong danh sách', 'Trong nhập liệu', 'Toàn cục'] as const;
@@ -208,8 +209,8 @@ export function ShortcutsModule() {
             setRowState((prev) => ({ ...prev, [action]: { ...prev[action], flash: false } }));
           }, 600);
         },
-        onError: (err: any) => {
-          const msg = err?.response?.data?.message ?? 'Không lưu được. Thử lại?';
+        onError: (err: unknown) => {
+          const msg = extractApiError(err, 'Không lưu được. Thử lại?').message;
           setRowState((prev) => ({
             ...prev,
             [action]: { ...prev[action], warning: { kind: 'invalid', message: msg } },
