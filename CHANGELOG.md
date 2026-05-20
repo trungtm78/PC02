@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.30.0.1] - 2026-05-20
+
+### Hot-fix: Audit diff fields missing + Date corruption + UX
+
+**User report:** sau khi deploy v0.30.0.0, mở row USER_UPDATED → vẫn không thấy giá trị cũ/mới.
+
+**3 root causes phát hiện qua inspect DB row mới nhất (`2fe513f1`):**
+
+1. **`userSelect` thiếu fields `workId, phone, departmentId`** → khi admin đổi 1 trong 3 field này, cả `before` và `after` snapshot đều KHÔNG có field đó → diff rỗng. Fix: expand `userSelect` cover tất cả editable fields.
+
+2. **`updatedAt` bị corrupt thành `{}`** trong audit metadata → `sanitizeMetadataRecursive` treat `Date` như plain object (`typeof === 'object'`) và `Object.entries(date) === []` → empty object. Fix: detect `Date instanceof` → `toISOString()`.
+
+3. **Legacy badge fires sai** cho row mới nhưng user save không đổi gì (before === after → diff = []). Fix: distinguish via `metadata.fields` key:
+   - `metadata.fields` exists → "Bản ghi cũ (trước v0.30)" badge (xám)
+   - `metadata === null` + diff rỗng → "Người dùng đã lưu nhưng không thay đổi giá trị nào" badge (xanh thông tin)
+
+**Tests:** +2 backend Date serialization tests. Total 1396→**1402** PASS. Frontend 507 PASS.
+
 ## [0.30.0.0] - 2026-05-20
 
 ### Fix: Audit diff inline display "Field: old → new"

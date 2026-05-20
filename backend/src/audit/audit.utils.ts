@@ -52,6 +52,9 @@ export function sanitizePII<T extends Record<string, unknown>>(
  */
 export function sanitizeMetadataRecursive(value: unknown): unknown {
   if (value === null || value === undefined) return value;
+  // v0.30.0.1 hot-fix: Date is `typeof === 'object'` but Object.entries() returns
+  // [] → corrupts to {}. Serialize as ISO string instead.
+  if (value instanceof Date) return value.toISOString();
   if (Array.isArray(value)) {
     return value.map(sanitizeMetadataRecursive);
   }
