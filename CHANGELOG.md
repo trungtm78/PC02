@@ -2,6 +2,49 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.30.0.0] - 2026-05-20
+
+### Fix: Audit diff inline display "Field: old → new"
+
+**Bug user reported:** Trên `/activity-log`, click row UPDATE → modal KHÔNG hiện diff "giá trị cũ → giá trị mới". User muốn format inline `Tên: Nguyen → Nguyễn` (mỗi field 1 dòng).
+
+**Root cause:** 4 services log audit metadata với shape sai → `computeFieldDiff()` trả `[]` rỗng:
+- `AdminService.updateUser`: `metadata: { fields: Object.keys(data) }` — chỉ field names, không có before/after values.
+- `CasesService.update`, `IncidentsService.update`, `PetitionsService.update`: `metadata: { before: { status, name, investigatorId, assignedTeamId }, after: dto }` — partial subset 4 fields + after là DTO (chỉ field user gửi), miss 15+ fields.
+
+**Backend fix — 4 services refactor sang `audit.wrapUpdate()`:**
+- `admin.service.ts`: Non-reset branch dùng `wrapUpdate` (preserve `$transaction` + optimistic lock). Reset branch (`ADMIN_PASSWORD_RESET`) giữ nguyên direct `audit.log` (incompatible với `updateMany` return type).
+- `cases.service.ts`: `CASE_UPDATED` qua `wrapUpdate` với full Case include. Preserve `try/catch (P2025) → ConflictException`. KEEP `CASE_STATUS_CHANGED` + `PETITION_AUTO_CREATED` audit (different actions, history value).
+- `incidents.service.ts`: `INCIDENT_UPDATED` qua `wrapUpdate`. Preserve P2025 translation.
+- `petitions.service.ts`: `PETITION_UPDATED` qua `wrapUpdate`. Preserve P2025 translation.
+
+**Frontend (inline diff display):**
+- `audit-field-labels.ts` (NEW): 80+ Vietnamese labels cho User/Case/Incident/Petition fields (firstName→"Họ", workId→"Mã cán bộ", status→"Trạng thái", etc.). Fallback raw field name.
+- `ActivityLogPage.tsx` modal:
+  - Replace 3-column table với **inline list** `Field: oldValue → newValue` + border-left color (xanh added, đỏ removed, vàng modified).
+  - Auto-detect long values (>60 chars) → stacked layout (label trên, old block / arrow / new block).
+  - `formatAuditValue()` helper: null/'' → "—", object → JSON.stringify.
+  - **Legacy badge** cho pre-v0.30 UPDATE rows (no before/after): "Bản ghi cũ (trước v0.30) — không có chi tiết thay đổi" thay vì raw JSON.
+
+**TDD discipline:**
+- 3 cycles RED → GREEN, mỗi service refactor có spec test mới assert `wrapUpdate` được call với fetchFn + updateFn (không phải `audit.log` direct).
+- 23 new frontend tests cho audit-field-labels (coverage check + per-resource categories + fallback).
+
+**Tests:** Backend 1396 → **1400** PASS (+4). Frontend 484 → **507** PASS (+23). `tsc --noEmit` clean cả 2.
+
+**Plan agent review applied (4 critical findings, all addressed):**
+1. C1 — KHÔNG wrap resetPassword path (incompatible với optimistic lock + updateMany).
+2. C2 — KEEP `PETITION_AUTO_CREATED` + `CASE_STATUS_CHANGED` audits (chỉ replace `CASE_UPDATED`).
+3. C3 — `wrapUpdate` OWNS updateFn → P2025 try/catch wrap quanh `wrapUpdate` call.
+4. C4 — Chấp nhận noise duplicate field `status` trong CASE_UPDATED diff (history table có giá trị riêng).
+
+**Risks accepted:**
+- +1 SELECT mỗi UPDATE (4 services × ~100 updates/day = 400 extra SELECTs/day — negligible).
+- Existing pre-v0.30 audit rows không có diff → legacy badge fallback (no backfill).
+- audit_logs.metadata size tăng ~5KB/row cho Case/Incident với ~30 fields (acceptable trong audit budget).
+
+**No DB migration** — pure code change, safe rollback via revert.
+
 ## [0.29.0.0] - 2026-05-20
 
 ### Audit Log UI Refactor + PII Sanitize + Expanded Coverage

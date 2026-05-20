@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import { api } from "@/lib/api";
 import { getRoleLabel } from "@/shared/enums/role-labels";
 import { getAuditActionLabel } from "@/shared/enums/audit-action-labels";
+import { getFieldLabel } from "@/shared/enums/audit-field-labels";
 import {
   Search,
   Download,
@@ -64,6 +65,19 @@ interface FilterData {
   user: string;
   actionType: string;
   objectType: string;
+}
+
+// v0.30: Format an audit field value for human display in the inline diff.
+// null/undefined → "—", string → as-is, Date string ISO → as-is, object → JSON.
+export function formatAuditValue(v: unknown): string {
+  if (v === null || v === undefined || v === '') return '—';
+  if (typeof v === 'string') return v;
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+  try {
+    return JSON.stringify(v);
+  } catch {
+    return String(v);
+  }
 }
 
 // Map AuditLog from API to local LogEntry shape
@@ -721,56 +735,87 @@ export default function ActivityLogPage() {
                 </div>
               )}
 
-              {/* v0.29: Field diff highlight với màu (xanh=thêm, đỏ=bỏ, vàng=đổi) */}
+              {/* v0.30: Inline diff "Field: old → new" với border-l màu theo changeType.
+                  Long values (>60 chars) → stacked layout (label trên, old/arrow/new dưới). */}
               {selectedLog.details?.changedFields && selectedLog.details.changedFields.length > 0 && (
                 <div className="pt-4 border-t border-slate-200">
                   <h4 className="text-sm font-bold text-slate-700 uppercase mb-3">Trường thay đổi</h4>
-                  <div className="overflow-x-auto rounded border border-slate-200">
-                    <table className="w-full text-xs">
-                      <thead className="bg-slate-50">
-                        <tr>
-                          <th className="px-3 py-2 text-left font-medium text-slate-700">Trường</th>
-                          <th className="px-3 py-2 text-left font-medium text-slate-700">Giá trị cũ</th>
-                          <th className="px-3 py-2 text-left font-medium text-slate-700">Giá trị mới</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {selectedLog.details.changedFields.map((cf, i) => {
-                          const rowClass =
-                            cf.changeType === 'added'
-                              ? 'bg-green-50'
-                              : cf.changeType === 'removed'
-                              ? 'bg-red-50'
-                              : 'bg-amber-50';
-                          const oldClass =
-                            cf.changeType === 'removed'
-                              ? 'text-red-700'
-                              : cf.changeType === 'modified'
-                              ? 'text-slate-500 line-through'
-                              : 'text-slate-400';
-                          const newClass =
-                            cf.changeType === 'added'
-                              ? 'text-green-700'
-                              : cf.changeType === 'modified'
-                              ? 'text-amber-700'
-                              : 'text-slate-400';
-                          return (
-                            <tr key={`${cf.field}-${i}`} className={`border-t border-slate-200 ${rowClass}`}>
-                              <td className="px-3 py-2 font-medium text-slate-800">{cf.field}</td>
-                              <td className={`px-3 py-2 ${oldClass}`}>
-                                {cf.changeType === 'added' ? '—' : <code className="text-xs">{JSON.stringify(cf.oldValue)}</code>}
-                              </td>
-                              <td className={`px-3 py-2 ${newClass}`}>
-                                {cf.changeType === 'removed' ? '—' : <code className="text-xs">{JSON.stringify(cf.newValue)}</code>}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+                  <div>
+                    {selectedLog.details.changedFields.map((cf, i) => {
+                      const borderClass =
+                        cf.changeType === 'added'
+                          ? 'border-l-green-500 bg-green-50'
+                          : cf.changeType === 'removed'
+                          ? 'border-l-red-500 bg-red-50'
+                          : 'border-l-amber-500 bg-amber-50';
+                      const oldStr = formatAuditValue(cf.oldValue);
+                      const newStr = formatAuditValue(cf.newValue);
+                      const isLong = oldStr.length > 60 || newStr.length > 60;
+                      const valueClass = 'break-words whitespace-pre-wrap';
+                      const label = getFieldLabel(cf.field);
+                      return (
+                        <div
+                          key={`${cf.field}-${i}`}
+                          className={`border-l-4 ${borderClass} px-3 py-2 mb-2 rounded-r text-sm`}
+                          data-testid={`changed-field-${cf.field}`}
+                        >
+                          <span className="font-medium text-slate-800">{label}</span>
+                          {isLong ? (
+                            <div className="mt-1 space-y-1">
+                              {cf.changeType !== 'added' && (
+                                <div className={`text-slate-500 line-through ${valueClass}`}>{oldStr}</div>
+                              )}
+                              {cf.changeType === 'modified' && <div className="text-slate-400">↓</div>}
+                              {cf.changeType !== 'removed' && (
+                                <div className={`text-slate-900 font-medium ${valueClass}`}>
+                                  {cf.changeType === 'added' && '+ '}
+                                  {newStr}
+                                </div>
+                              )}
+                              {cf.changeType === 'removed' && (
+                                <div className="text-red-700 text-xs italic">(đã xoá)</div>
+                              )}
+                            </div>
+                          ) : (
+                            <>
+                              {': '}
+                              {cf.changeType === 'added' ? (
+                                <span className="text-green-700 font-medium">+ {newStr}</span>
+                              ) : cf.changeType === 'removed' ? (
+                                <>
+                                  <span className="text-slate-500 line-through mr-2">{oldStr}</span>
+                                  <span className="text-red-700 text-xs italic">(đã xoá)</span>
+                                </>
+                              ) : (
+                                <>
+                                  <span className="text-slate-500 line-through mr-2">{oldStr}</span>
+                                  <span className="text-slate-400">→</span>
+                                  <span className="text-slate-900 ml-2 font-medium">{newStr}</span>
+                                </>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
+
+              {/* v0.30: Legacy fallback — UPDATE rows pre-v0.30 không có before/after.
+                  Show informative badge thay vì raw JSON dump. */}
+              {selectedLog.details?.changedFields !== undefined &&
+                selectedLog.details.changedFields.length === 0 &&
+                selectedLog.actionType === 'update' && (
+                  <div className="pt-4 border-t border-slate-200">
+                    <div
+                      className="bg-slate-100 border border-slate-300 text-slate-600 px-4 py-3 rounded text-sm italic"
+                      data-testid="legacy-audit-badge"
+                    >
+                      Bản ghi cũ (trước v0.30) — không có chi tiết thay đổi
+                    </div>
+                  </div>
+                )}
 
               {/* Metadata (fallback raw JSON cho actions không phải before/after pair) */}
               {selectedLog.details?.metadata && Object.keys(selectedLog.details.metadata).length > 0 && (

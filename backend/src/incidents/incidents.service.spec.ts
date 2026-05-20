@@ -112,6 +112,19 @@ const mockPrisma = {
 
 const mockAudit = {
   log: jest.fn().mockResolvedValue(undefined),
+  // v0.30: INCIDENT_UPDATED now uses wrapUpdate.
+  wrapUpdate: jest.fn(async (opts: any) => {
+    await opts.fetchFn();
+    const after = await opts.updateFn();
+    await mockAudit.log({
+      userId: opts.userId,
+      action: opts.action,
+      subject: opts.subject,
+      subjectId: opts.subjectId,
+      metadata: { before: {}, after: {} },
+    });
+    return after;
+  }),
 };
 
 const mockSettings = {
@@ -539,6 +552,25 @@ describe('IncidentsService', () => {
       expect(result.data.name).toBe('Updated');
       expect(mockAudit.log).toHaveBeenCalledWith(
         expect.objectContaining({ action: 'INCIDENT_UPDATED' }),
+      );
+    });
+
+    // v0.30: INCIDENT_UPDATED must go through wrapUpdate for inline diff display.
+    it('v0.30: uses audit.wrapUpdate (not audit.log direct) for INCIDENT_UPDATED', async () => {
+      mockPrisma.incident.findFirst.mockResolvedValue(mockIncident);
+      mockPrisma.incident.update.mockResolvedValue({ ...mockIncident, name: 'Updated' });
+
+      await service.update('inc-001', { name: 'Updated' } as any, 'actor-001');
+
+      expect(mockAudit.wrapUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'INCIDENT_UPDATED',
+          subject: 'Incident',
+          subjectId: 'inc-001',
+          userId: 'actor-001',
+          fetchFn: expect.any(Function),
+          updateFn: expect.any(Function),
+        }),
       );
     });
 

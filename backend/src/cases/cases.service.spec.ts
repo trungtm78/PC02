@@ -66,6 +66,7 @@ const mockPrisma = {
     findMany: jest.fn(),
     count: jest.fn(),
     findFirst: jest.fn(),
+    findUnique: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
   },
@@ -92,6 +93,21 @@ const mockPrisma = {
 
 const mockAudit = {
   log: jest.fn().mockResolvedValue(undefined),
+  // v0.30: CASE_UPDATED now uses wrapUpdate to capture full before/after.
+  wrapUpdate: jest.fn(async (opts: any) => {
+    await opts.fetchFn();
+    const after = await opts.updateFn();
+    await mockAudit.log({
+      userId: opts.userId,
+      action: opts.action,
+      subject: opts.subject,
+      subjectId: opts.subjectId,
+      metadata: { before: {}, after: {} },
+      ipAddress: opts.meta?.ipAddress,
+      userAgent: opts.meta?.userAgent,
+    });
+    return after;
+  }),
 };
 
 // ─── Test Suite ───────────────────────────────────────────────────────────────
@@ -400,6 +416,29 @@ describe('CasesService', () => {
       expect(result.data.name).toBe('Updated name');
       expect(mockAudit.log).toHaveBeenCalledWith(
         expect.objectContaining({ action: 'CASE_UPDATED' }),
+      );
+    });
+
+    // v0.30: CASE_UPDATED must go through wrapUpdate so the audit row carries
+    // full before/after snapshot for inline diff display.
+    it('v0.30: uses audit.wrapUpdate (not audit.log direct) for CASE_UPDATED', async () => {
+      mockPrisma.case.findFirst.mockResolvedValue(mockCase);
+      mockPrisma.case.update.mockResolvedValue({
+        ...mockCase,
+        name: 'Updated name',
+      });
+
+      await service.update('case-001', { name: 'Updated name' }, 'actor-001');
+
+      expect(mockAudit.wrapUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'CASE_UPDATED',
+          subject: 'Case',
+          subjectId: 'case-001',
+          userId: 'actor-001',
+          fetchFn: expect.any(Function),
+          updateFn: expect.any(Function),
+        }),
       );
     });
 

@@ -317,7 +317,20 @@ export class AdminService {
     // use updateMany with WHERE tokenVersion=expected as an optimistic lock
     // so concurrent admin resets don't both succeed (which would give two
     // admins different temp passwords, only one of which actually works).
+    // v0.30: non-reset branch uses audit.wrapUpdate so audit row carries full
+    // before/after snapshot (sanitized — passwordHash etc. stripped by wrapUpdate).
     const expectedVersion = user.tokenVersion;
+    const userSelect = {
+      id: true,
+      username: true,
+      email: true,
+      firstName: true,
+      lastName: true,
+      isActive: true,
+      canDispatch: true,
+      role: { select: { id: true, name: true } },
+      updatedAt: true,
+    } as const;
     const updated = await this.prisma.$transaction(async (tx) => {
       if (dto.resetPassword) {
         const result = await tx.user.updateMany({
@@ -329,31 +342,10 @@ export class AdminService {
             'User vừa được admin khác cập nhật hoặc reset lại — vui lòng tải lại trang và thử lại',
           );
         }
-      } else {
-        await tx.user.update({ where: { id }, data });
-      }
-
-      const u = await tx.user.findUnique({
-        where: { id },
-        select: {
-          id: true,
-          username: true,
-          email: true,
-          firstName: true,
-          lastName: true,
-          isActive: true,
-          canDispatch: true,
-          role: { select: { id: true, name: true } },
-          updatedAt: true,
-        },
-      });
-      if (!u) {
-        // Should be impossible given the WHERE id check above, but Prisma's
-        // findUnique returns nullable so satisfy the type system.
-        throw new NotFoundException(`User #${id} không tồn tại`);
-      }
-
-      if (dto.resetPassword) {
+        const u = await tx.user.findUnique({ where: { id }, select: userSelect });
+        if (!u) {
+          throw new NotFoundException(`User #${id} không tồn tại`);
+        }
         await this.audit.log(
           {
             userId: requesterId,
@@ -368,21 +360,21 @@ export class AdminService {
           },
           tx,
         );
-      } else {
-        await this.audit.log(
-          {
-            userId: requesterId,
-            action: 'USER_UPDATED',
-            subject: 'User',
-            subjectId: id,
-            metadata: { fields: Object.keys(data) },
-            ...meta,
-          },
-          tx,
-        );
+        return u;
       }
 
-      return u;
+      // v0.30: non-reset branch — wrapUpdate captures full before/after for diff UI.
+      return this.audit.wrapUpdate({
+        tx,
+        fetchFn: () => tx.user.findUnique({ where: { id }, select: userSelect }) as Promise<unknown>,
+        updateFn: () =>
+          tx.user.update({ where: { id }, data, select: userSelect }) as unknown as Promise<unknown>,
+        action: 'USER_UPDATED',
+        subject: 'User',
+        subjectId: id,
+        userId: requesterId,
+        meta,
+      }) as unknown as typeof userSelect extends never ? never : Awaited<ReturnType<typeof tx.user.findUnique>>;
     });
 
     return tempPassword ? { ...updated, tempPassword } : updated;

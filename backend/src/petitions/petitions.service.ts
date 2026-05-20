@@ -409,63 +409,80 @@ export class PetitionsService {
       }
     }
 
+    // v0.30: PETITION_UPDATED via wrapUpdate — full before/after for inline diff.
+    const petitionData = {
+      ...(dto.stt !== undefined && { stt: dto.stt }),
+      ...(dto.receivedDate !== undefined && {
+        receivedDate: new Date(dto.receivedDate),
+      }),
+      ...(dto.senderName !== undefined && { senderName: dto.senderName }),
+      ...(dto.unit !== undefined && { unit: dto.unit }),
+      ...(dto.senderBirthYear !== undefined && {
+        senderBirthYear: dto.senderBirthYear,
+      }),
+      ...(dto.senderAddress !== undefined && {
+        senderAddress: dto.senderAddress,
+      }),
+      ...(dto.senderPhone !== undefined && { senderPhone: dto.senderPhone }),
+      ...(dto.senderEmail !== undefined && { senderEmail: dto.senderEmail }),
+      ...(dto.suspectedPerson !== undefined && {
+        suspectedPerson: dto.suspectedPerson,
+      }),
+      ...(dto.suspectedAddress !== undefined && {
+        suspectedAddress: dto.suspectedAddress,
+      }),
+      ...(dto.petitionType !== undefined && {
+        petitionType: dto.petitionType,
+      }),
+      ...(dto.priority !== undefined && { priority: dto.priority }),
+      ...(dto.summary !== undefined && { summary: dto.summary }),
+      ...(dto.detailContent !== undefined && {
+        detailContent: dto.detailContent,
+      }),
+      ...(dto.attachmentsNote !== undefined && {
+        attachmentsNote: dto.attachmentsNote,
+      }),
+      ...(dto.deadline !== undefined && {
+        deadline: dto.deadline ? new Date(dto.deadline) : null,
+      }),
+      ...(dto.assignedToId !== undefined && {
+        assignedToId: dto.assignedToId,
+      }),
+      ...(dto.notes !== undefined && { notes: dto.notes }),
+      ...(dto.status !== undefined && { status: dto.status }),
+    };
+    const petitionInclude = {
+      enteredBy: {
+        select: { id: true, firstName: true, lastName: true, username: true },
+      },
+      assignedTo: {
+        select: { id: true, firstName: true, lastName: true, username: true },
+      },
+    } as const;
+
     let record;
     try {
-      record = await this.prisma.petition.update({
-        where: {
-          id,
-          ...(dto.expectedUpdatedAt ? { updatedAt: new Date(dto.expectedUpdatedAt) } : {}),
-        },
-        data: {
-          ...(dto.stt !== undefined && { stt: dto.stt }),
-        ...(dto.receivedDate !== undefined && {
-          receivedDate: new Date(dto.receivedDate),
-        }),
-        ...(dto.senderName !== undefined && { senderName: dto.senderName }),
-        ...(dto.unit !== undefined && { unit: dto.unit }),
-        ...(dto.senderBirthYear !== undefined && {
-          senderBirthYear: dto.senderBirthYear,
-        }),
-        ...(dto.senderAddress !== undefined && {
-          senderAddress: dto.senderAddress,
-        }),
-        ...(dto.senderPhone !== undefined && { senderPhone: dto.senderPhone }),
-        ...(dto.senderEmail !== undefined && { senderEmail: dto.senderEmail }),
-        ...(dto.suspectedPerson !== undefined && {
-          suspectedPerson: dto.suspectedPerson,
-        }),
-        ...(dto.suspectedAddress !== undefined && {
-          suspectedAddress: dto.suspectedAddress,
-        }),
-        ...(dto.petitionType !== undefined && {
-          petitionType: dto.petitionType,
-        }),
-        ...(dto.priority !== undefined && { priority: dto.priority }),
-        ...(dto.summary !== undefined && { summary: dto.summary }),
-        ...(dto.detailContent !== undefined && {
-          detailContent: dto.detailContent,
-        }),
-        ...(dto.attachmentsNote !== undefined && {
-          attachmentsNote: dto.attachmentsNote,
-        }),
-        ...(dto.deadline !== undefined && {
-          deadline: dto.deadline ? new Date(dto.deadline) : null,
-        }),
-        ...(dto.assignedToId !== undefined && {
-          assignedToId: dto.assignedToId,
-        }),
-        ...(dto.notes !== undefined && { notes: dto.notes }),
-        ...(dto.status !== undefined && { status: dto.status }),
-      },
-      include: {
-        enteredBy: {
-          select: { id: true, firstName: true, lastName: true, username: true },
-        },
-        assignedTo: {
-          select: { id: true, firstName: true, lastName: true, username: true },
-        },
-      },
-    });
+      record = await this.audit.wrapUpdate({
+        fetchFn: () =>
+          this.prisma.petition.findUnique({
+            where: { id },
+            include: petitionInclude,
+          }),
+        updateFn: () =>
+          this.prisma.petition.update({
+            where: {
+              id,
+              ...(dto.expectedUpdatedAt ? { updatedAt: new Date(dto.expectedUpdatedAt) } : {}),
+            },
+            data: petitionData,
+            include: petitionInclude,
+          }),
+        action: 'PETITION_UPDATED',
+        subject: 'Petition',
+        subjectId: id,
+        userId: actorId,
+        meta: { ipAddress: meta?.ipAddress, userAgent: meta?.userAgent },
+      });
     } catch (e) {
       if ((e as { code?: string })?.code === 'P2025' && dto.expectedUpdatedAt) {
         throw new ConflictException(
@@ -474,16 +491,6 @@ export class PetitionsService {
       }
       throw e;
     }
-
-    await this.audit.log({
-      userId: actorId,
-      action: 'PETITION_UPDATED',
-      subject: 'Petition',
-      subjectId: id,
-      metadata: { before: { status: existing.status, senderName: existing.senderName, assignedTeamId: existing.assignedTeamId, assignedToId: existing.assignedToId }, after: dto },
-      ipAddress: meta?.ipAddress,
-      userAgent: meta?.userAgent,
-    });
 
     return {
       success: true,

@@ -47,6 +47,26 @@ const mockPrisma = {
 
 const mockAudit = {
   log: jest.fn().mockResolvedValue(undefined),
+  // v0.30: USER_UPDATED non-reset branch now uses wrapUpdate (fetch+update+log audit).
+  // Mock impl runs the callbacks to mirror real behavior so existing assertions
+  // (mockAudit.log called with USER_UPDATED) continue to pass.
+  wrapUpdate: jest.fn(async (opts: any) => {
+    await opts.fetchFn();
+    const after = await opts.updateFn();
+    await mockAudit.log(
+      {
+        userId: opts.userId,
+        action: opts.action,
+        subject: opts.subject,
+        subjectId: opts.subjectId,
+        metadata: { before: {}, after: {} },
+        ipAddress: opts.meta?.ipAddress,
+        userAgent: opts.meta?.userAgent,
+      },
+      opts.tx,
+    );
+    return after;
+  }),
 };
 
 const mockTeamsService = {
@@ -477,15 +497,57 @@ describe('AdminService', () => {
         fn(mockPrisma),
       );
 
-      const result = await service.updateUser(
+      const result = (await service.updateUser(
         'u1',
         { email: 'new@pc02.local', firstName: 'Updated', workId: '278-001' },
         'requester-1',
-      );
+      )) as { email: string };
       expect(result.email).toBe('new@pc02.local');
       expect(mockAudit.log).toHaveBeenCalledWith(
         expect.objectContaining({ action: 'USER_UPDATED' }),
         expect.anything(), // tx (audit is now transactional)
+      );
+    });
+
+    // v0.30: USER_UPDATED non-reset branch must go through wrapUpdate so the
+    // audit row carries full before/after snapshot for inline diff display.
+    it('v0.30: uses audit.wrapUpdate (not audit.log direct) for USER_UPDATED', async () => {
+      mockPrisma.user.findUnique
+        .mockResolvedValueOnce(existingUser)
+        .mockResolvedValue({
+          id: 'u1',
+          username: 'existing',
+          email: 'new@pc02.local',
+          firstName: 'New',
+          role: { id: 'r1', name: 'Admin' },
+        });
+      mockPrisma.user.findFirst.mockResolvedValue(null);
+      mockPrisma.user.update.mockResolvedValue({
+        id: 'u1',
+        username: 'existing',
+        email: 'new@pc02.local',
+        firstName: 'New',
+        role: { id: 'r1', name: 'Admin' },
+      });
+      mockPrisma.$transaction.mockImplementation(async (fn: any) =>
+        fn(mockPrisma),
+      );
+
+      await service.updateUser(
+        'u1',
+        { firstName: 'New', workId: '278-001' },
+        'requester-1',
+      );
+
+      expect(mockAudit.wrapUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'USER_UPDATED',
+          subject: 'User',
+          subjectId: 'u1',
+          userId: 'requester-1',
+          fetchFn: expect.any(Function),
+          updateFn: expect.any(Function),
+        }),
       );
     });
 
