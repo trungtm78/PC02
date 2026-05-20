@@ -29,8 +29,9 @@ export class AuditController {
       subjectId: query.subjectId,
       subject: query.subject,
       search: query.search,
-      dateFrom: query.dateFrom ? new Date(query.dateFrom) : undefined,
-      dateTo: query.dateTo ? new Date(query.dateTo) : undefined,
+      // v0.29 fix: normalize date-only input để dateTo `2026-05-20` cover hết ngày.
+      dateFrom: query.dateFrom ? normalizeStartOfDay(query.dateFrom) : undefined,
+      dateTo: query.dateTo ? normalizeEndOfDay(query.dateTo) : undefined,
       limit: query.limit,
       offset: query.offset,
     });
@@ -67,10 +68,11 @@ export class AuditController {
       subjectId: query.subjectId,
       subject: query.subject,
       search: query.search,
-      dateFrom: query.dateFrom ? new Date(query.dateFrom) : undefined,
-      dateTo: query.dateTo ? new Date(query.dateTo) : undefined,
+      dateFrom: query.dateFrom ? normalizeStartOfDay(query.dateFrom) : undefined,
+      dateTo: query.dateTo ? normalizeEndOfDay(query.dateTo) : undefined,
       limit: 10000,
       offset: 0,
+      forExport: true,
     });
 
     // Audit-of-export: log this export action itself.
@@ -117,6 +119,29 @@ export class AuditController {
     if (!row) throw new NotFoundException('Audit log not found');
     return row;
   }
+}
+
+/**
+ * v0.29 fix: date-only input → ISO timestamp start-of-day (UTC).
+ * Ex: "2026-05-20" → "2026-05-20T00:00:00.000Z"
+ */
+function normalizeStartOfDay(input: string): Date {
+  const d = new Date(input);
+  // Nếu input đã có timezone/time → giữ nguyên. Date-only → set start of day.
+  if (input.length <= 10) {
+    return new Date(input + 'T00:00:00.000Z');
+  }
+  return d;
+}
+
+/**
+ * v0.29 fix: date-only input → end-of-day (UTC). Khắc phục bug dateTo bỏ sót logs.
+ */
+function normalizeEndOfDay(input: string): Date {
+  if (input.length <= 10) {
+    return new Date(input + 'T23:59:59.999Z');
+  }
+  return new Date(input);
 }
 
 /**

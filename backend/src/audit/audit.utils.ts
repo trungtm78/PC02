@@ -38,6 +38,34 @@ export function sanitizePII<T extends Record<string, unknown>>(
   return out as Partial<T>;
 }
 
+/**
+ * v0.29: Recursive sanitize cho mọi audit metadata.
+ *
+ * Applied trong AuditService.log() để mọi audit write (direct hay qua wrapUpdate)
+ * đều redact PII. Recursive walk nested objects (e.g., metadata.before/after).
+ *
+ * Edge cases:
+ * - Arrays: walk each element, return new array.
+ * - Primitives (string/number/bool/null): return as-is.
+ * - Nested object: filter PII keys + recurse.
+ * - Circular reference: caught by JSON.stringify downstream (acceptable for v0.29).
+ */
+export function sanitizeMetadataRecursive(value: unknown): unknown {
+  if (value === null || value === undefined) return value;
+  if (Array.isArray(value)) {
+    return value.map(sanitizeMetadataRecursive);
+  }
+  if (typeof value === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      if (PII_PATTERN.test(k)) continue;
+      out[k] = sanitizeMetadataRecursive(v);
+    }
+    return out;
+  }
+  return value;
+}
+
 export type FieldChangeType = 'added' | 'removed' | 'modified';
 
 export interface ChangedField {

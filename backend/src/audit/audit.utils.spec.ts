@@ -1,4 +1,4 @@
-import { sanitizePII, computeFieldDiff, PII_PATTERN } from './audit.utils';
+import { sanitizePII, computeFieldDiff, PII_PATTERN, sanitizeMetadataRecursive } from './audit.utils';
 
 describe('audit.utils', () => {
   describe('PII_PATTERN', () => {
@@ -133,6 +133,45 @@ describe('audit.utils', () => {
       expect(diff).toHaveLength(1);
       expect(diff[0].field).toBe('permissions');
       expect(diff[0].changeType).toBe('modified');
+    });
+  });
+
+  describe('sanitizeMetadataRecursive (v0.29 codex fix)', () => {
+    it('returns null/undefined as-is', () => {
+      expect(sanitizeMetadataRecursive(null)).toBe(null);
+      expect(sanitizeMetadataRecursive(undefined)).toBe(undefined);
+    });
+
+    it('returns primitives as-is', () => {
+      expect(sanitizeMetadataRecursive('foo')).toBe('foo');
+      expect(sanitizeMetadataRecursive(42)).toBe(42);
+      expect(sanitizeMetadataRecursive(true)).toBe(true);
+    });
+
+    it('strips PII keys recursively in nested before/after objects', () => {
+      const input = {
+        before: { email: 'a@b.com', passwordHash: 'old_hash', totpSecret: 'secret' },
+        after: { email: 'a@b.com', passwordHash: 'new_hash', totpSecret: 'secret2' },
+        identifier: '277-001',
+      };
+      const result = sanitizeMetadataRecursive(input) as any;
+      expect(result.before).toEqual({ email: 'a@b.com' });
+      expect(result.after).toEqual({ email: 'a@b.com' });
+      expect(result.identifier).toBe('277-001');
+      expect(JSON.stringify(result)).not.toContain('passwordHash');
+      expect(JSON.stringify(result)).not.toContain('totpSecret');
+    });
+
+    it('walks arrays', () => {
+      const input = {
+        history: [
+          { event: 'login', passwordHash: 'hash1' },
+          { event: 'logout', refreshTokenHash: 'token1' },
+        ],
+      };
+      const result = sanitizeMetadataRecursive(input) as any;
+      expect(result.history[0]).toEqual({ event: 'login' });
+      expect(result.history[1]).toEqual({ event: 'logout' });
     });
   });
 });

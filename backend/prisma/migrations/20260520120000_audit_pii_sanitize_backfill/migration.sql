@@ -33,9 +33,10 @@ WHERE metadata IS NOT NULL
     metadata::text ~* '(passwordhash|refreshtokenhash|totpsecret|enrollmenttokenhash|backupcode|backupcodesalt|recoverycode|twofasecret|magicLinkTokenHash)'
   );
 
--- Audit the migration itself (meta-audit)
+-- Audit the migration itself (meta-audit).
+-- v0.29 fix: idempotent — chỉ insert 1 lần (WHERE NOT EXISTS check by metadata->>'migration').
 INSERT INTO audit_logs (id, "userId", action, subject, metadata, "createdAt")
-VALUES (
+SELECT
   gen_random_uuid()::text,
   NULL,
   'AUDIT_PII_BACKFILL',
@@ -45,4 +46,8 @@ VALUES (
     'note', 'Scrubbed pre-v0.29 PII from audit_logs.metadata'
   ),
   NOW()
+WHERE NOT EXISTS (
+  SELECT 1 FROM audit_logs
+  WHERE action = 'AUDIT_PII_BACKFILL'
+    AND metadata->>'migration' = '20260520120000_audit_pii_sanitize_backfill'
 );

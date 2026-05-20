@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { sanitizePII, computeFieldDiff, ChangedField } from './audit.utils';
+import { sanitizePII, computeFieldDiff, ChangedField, sanitizeMetadataRecursive } from './audit.utils';
 
 export interface AuditLogCreateInput {
   userId?: string;
@@ -23,11 +23,14 @@ export interface FindAllParams {
   dateTo?: Date;
   limit?: number;
   offset?: number;
+  /** v0.29 fix: internal-only flag để bypass LIMIT_MAX clamp cho export endpoint. */
+  forExport?: boolean;
 }
 
 // v0.29 bounds — defense in depth. Controller DTO cũng validate, đây là safety net.
 const LIMIT_MIN = 1;
 const LIMIT_MAX = 100;
+const LIMIT_EXPORT_MAX = 10000;
 const LIMIT_DEFAULT = 20;
 
 @Injectable()
@@ -39,6 +42,11 @@ export class AuditService {
     tx?: Prisma.TransactionClient,
   ): Promise<void> {
     const client = tx ?? this.prisma;
+    // v0.29: sanitize metadata ở log() để mọi caller (kể cả audit.log direct, không
+    // qua wrapUpdate) đều được protect. Recursive cho before/after nested objects.
+    const safeMetadata = input.metadata
+      ? sanitizeMetadataRecursive(input.metadata)
+      : null;
     // Use $executeRaw to bypass Prisma's strict relation typing for userId
     await client.$executeRaw`
       INSERT INTO "audit_logs" (id, "userId", action, subject, "subjectId", metadata, "ipAddress", "userAgent", "createdAt")
@@ -48,7 +56,7 @@ export class AuditService {
         ${input.action},
         ${input.subject ?? null},
         ${input.subjectId ?? null},
-        ${input.metadata ? JSON.stringify(input.metadata) : null}::jsonb,
+        ${safeMetadata ? JSON.stringify(safeMetadata) : null}::jsonb,
         ${input.ipAddress ?? null},
         ${input.userAgent ?? null},
         NOW()
@@ -105,10 +113,12 @@ export class AuditService {
       dateTo,
     } = params;
 
-    // v0.29: clamp limit ∈ [LIMIT_MIN, LIMIT_MAX], offset ≥ 0.
+    // v0.29: clamp limit. Public list path: [LIMIT_MIN, LIMIT_MAX=100].
+    // Export path (forExport=true): up to LIMIT_EXPORT_MAX=10k for CSV bulk download.
+    const maxLimit = params.forExport ? LIMIT_EXPORT_MAX : LIMIT_MAX;
     let limit = params.limit ?? LIMIT_DEFAULT;
     if (!Number.isFinite(limit)) limit = LIMIT_DEFAULT;
-    limit = Math.max(LIMIT_MIN, Math.min(LIMIT_MAX, Math.floor(limit)));
+    limit = Math.max(LIMIT_MIN, Math.min(maxLimit, Math.floor(limit)));
     let offset = params.offset ?? 0;
     if (!Number.isFinite(offset)) offset = 0;
     offset = Math.max(0, Math.floor(offset));
@@ -131,10 +141,12 @@ export class AuditService {
           ...(dateTo && { lte: dateTo }),
         },
       }),
-      // v0.29: search via action ILIKE + jsonb-text ILIKE (Postgres-specific via raw).
-      // Prisma doesn't natively support `metadata::text ILIKE`, so use OR with action
-      // ILIKE here (good enough until full-text upgrade). Frontend free-text mostly
-      // matches action names and identifiers stored at top level.
+      // v0.29: search via action/subject/subjectId ILIKE (Prisma compatible).
+      // Metadata::text full-text search (using GIN trigram index từ migration)
+      // sẽ implement bằng $queryRaw trong v0.30 — Prisma findMany không native
+      // support `metadata::text ILIKE`. GIN index không waste vì PostgreSQL planner
+      // có thể dùng nó cho future raw queries.
+      // PII sanitized at write nên search KHÔNG match hash/token/secret values.
       ...(escapedSearch && {
         OR: [
           { action: { contains: escapedSearch, mode: 'insensitive' } },

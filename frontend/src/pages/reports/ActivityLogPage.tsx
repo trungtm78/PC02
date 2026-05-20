@@ -190,34 +190,32 @@ export default function ActivityLogPage() {
     setShowDetailDrawer(true);
   };
 
-  const handleExport = () => {
-    if (filteredData.length === 0) {
-      alert('Không có dữ liệu để xuất!');
-      return;
+  const handleExport = async () => {
+    // v0.29 fix: redirect to backend /audit-logs/export.csv endpoint —
+    // backend đã sanitize formula injection (=/+/-/@/tab/CR), apply same filters,
+    // cap 10k rows, audit-of-export, streaming. KHÔNG client-side generate (bypass sanitize).
+    try {
+      const params = new URLSearchParams();
+      if (filters.fromDate) params.set('dateFrom', filters.fromDate);
+      if (filters.toDate) params.set('dateTo', filters.toDate);
+      if (filters.actionType) params.set('action', filters.actionType.toUpperCase());
+      if (filters.quickSearch) params.set('search', filters.quickSearch);
+
+      const res = await api.get(`/audit-logs/export.csv?${params}`, {
+        responseType: 'blob',
+      });
+      const blob = new Blob([res.data], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `NhatKy_${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      alert('Không thể xuất audit log. Vui lòng thử lại.');
     }
-    const headers = ['STT', 'Thời gian', 'Người dùng', 'Vai trò', 'Hành động', 'Đối tượng', 'ID đối tượng', 'IP'];
-    const rows = filteredData.map((log, i) => [
-      i + 1,
-      new Date(log.timestamp).toLocaleString('vi-VN'),
-      log.user,
-      log.userRole,
-      log.actionLabel,
-      log.objectLabel,
-      log.objectId,
-      log.ipAddress,
-    ]);
-    const csv = [headers, ...rows]
-      .map(row => row.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','))
-      .join('\n');
-    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `NhatKy_${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
   };
 
   const formatDateTime = (dateTimeString: string) => {
