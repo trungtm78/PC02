@@ -320,12 +320,18 @@ export class AdminService {
     // v0.30: non-reset branch uses audit.wrapUpdate so audit row carries full
     // before/after snapshot (sanitized — passwordHash etc. stripped by wrapUpdate).
     const expectedVersion = user.tokenVersion;
+    // v0.30.0.1 hot-fix: expand select to include ALL editable fields (workId,
+    // phone, departmentId) so audit before/after capture diff for those fields.
+    // Previously workId edits showed empty diff because both snapshots lacked the field.
     const userSelect = {
       id: true,
       username: true,
       email: true,
       firstName: true,
       lastName: true,
+      workId: true,
+      phone: true,
+      departmentId: true,
       isActive: true,
       canDispatch: true,
       role: { select: { id: true, name: true } },

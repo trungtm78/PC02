@@ -802,17 +802,38 @@ export default function ActivityLogPage() {
                 </div>
               )}
 
-              {/* v0.30: Legacy fallback — UPDATE rows pre-v0.30 không có before/after.
-                  Show informative badge thay vì raw JSON dump. */}
+              {/* v0.30: Legacy fallback — UPDATE rows pre-v0.30 KHÔNG có before/after.
+                  Detect via `metadata.fields` key (old shape) hoặc `metadata.before`
+                  partial subset. Show informative badge thay vì raw JSON dump.
+                  v0.30.0.1: distinguish "legacy" vs "no-changes" (user clicked Save
+                  without modifications) — second gets a friendlier message. */}
               {selectedLog.details?.changedFields !== undefined &&
                 selectedLog.details.changedFields.length === 0 &&
-                selectedLog.actionType === 'update' && (
+                selectedLog.actionType === 'update' &&
+                selectedLog.details.metadata?.fields !== undefined && (
                   <div className="pt-4 border-t border-slate-200">
                     <div
                       className="bg-slate-100 border border-slate-300 text-slate-600 px-4 py-3 rounded text-sm italic"
                       data-testid="legacy-audit-badge"
                     >
                       Bản ghi cũ (trước v0.30) — không có chi tiết thay đổi
+                    </div>
+                  </div>
+                )}
+
+              {/* v0.30.0.1: "No changes" — user saved form without modifying any field.
+                  metadata is null (before/after were stripped by backend), changedFields=[].
+                  NOT legacy. */}
+              {selectedLog.details?.changedFields !== undefined &&
+                selectedLog.details.changedFields.length === 0 &&
+                selectedLog.actionType === 'update' &&
+                !selectedLog.details.metadata && (
+                  <div className="pt-4 border-t border-slate-200">
+                    <div
+                      className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded text-sm italic"
+                      data-testid="no-changes-badge"
+                    >
+                      Người dùng đã lưu nhưng không thay đổi giá trị nào.
                     </div>
                   </div>
                 )}

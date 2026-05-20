@@ -173,5 +173,26 @@ describe('audit.utils', () => {
       expect(result.history[0]).toEqual({ event: 'login' });
       expect(result.history[1]).toEqual({ event: 'logout' });
     });
+
+    // v0.30.0.1 hot-fix: Date is typeof 'object' but Object.entries() returns []
+    // → previously corrupted to `{}`, breaking audit metadata for date fields
+    // (updatedAt, createdAt, deadline). Should serialize as ISO string.
+    it('v0.30.0.1: serializes Date instances as ISO string (not {})', () => {
+      const date = new Date('2026-05-20T07:00:00.000Z');
+      expect(sanitizeMetadataRecursive(date)).toBe('2026-05-20T07:00:00.000Z');
+    });
+
+    it('v0.30.0.1: Date inside nested object serialized correctly', () => {
+      const input = {
+        before: { name: 'A', deadline: new Date('2026-06-01T00:00:00.000Z') },
+        after: { name: 'B', deadline: new Date('2026-07-01T00:00:00.000Z') },
+      };
+      const result = sanitizeMetadataRecursive(input) as any;
+      expect(result.before.deadline).toBe('2026-06-01T00:00:00.000Z');
+      expect(result.after.deadline).toBe('2026-07-01T00:00:00.000Z');
+      // Critical: Date must NOT become empty object {}
+      expect(result.before.deadline).not.toEqual({});
+      expect(result.after.deadline).not.toEqual({});
+    });
   });
 });
