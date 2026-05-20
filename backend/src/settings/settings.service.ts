@@ -1,5 +1,6 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { AuditService } from '../audit/audit.service';
 import { SETTINGS_KEY } from '../common/constants/settings-keys.constants';
 import {
   DEADLINE_RULE_KEY_SET,
@@ -28,7 +29,10 @@ export class SettingsService {
   private cacheTimestamp = 0;
   private readonly CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes — single-instance assumption
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
+  ) {}
 
   async getAll() {
     const settings = await this.prisma.systemSetting.findMany({
@@ -76,7 +80,12 @@ export class SettingsService {
     };
   }
 
-  async updateValue(key: string, value: string) {
+  async updateValue(
+    key: string,
+    value: string,
+    actorId?: string,
+    meta?: { ipAddress?: string; userAgent?: string },
+  ) {
     assertNotDeadlineKey(key);
 
     const existing = await this.prisma.systemSetting.findUnique({ where: { key } });
@@ -100,6 +109,22 @@ export class SettingsService {
 
     this.cache.clear();
     this.cacheTimestamp = 0;
+
+    // v0.29: audit log setting change with before/after value pair.
+    if (actorId) {
+      await this.audit.log({
+        userId: actorId,
+        action: 'SETTING_UPDATED',
+        subject: 'SystemSetting',
+        subjectId: key,
+        metadata: {
+          before: { key, value: existing.value },
+          after: { key, value: normalizedValue },
+        },
+        ipAddress: meta?.ipAddress,
+        userAgent: meta?.userAgent,
+      });
+    }
 
     return { success: true, data: updated, message: 'Cập nhật cấu hình thành công' };
   }

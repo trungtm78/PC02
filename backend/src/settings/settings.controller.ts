@@ -6,7 +6,9 @@ import {
   Body,
   UseGuards,
   Post,
+  Req,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import { SettingsService } from './settings.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
@@ -34,8 +36,18 @@ export class SettingsController {
   // PUT /api/v1/settings/:key — update setting value (admin only)
   @Put(':key')
   @RequirePermissions({ action: 'write', subject: 'Setting' })
-  updateValue(@Param('key') key: string, @Body('value') value: string) {
-    return this.settingsService.updateValue(key, value);
+  updateValue(
+    @Param('key') key: string,
+    @Body('value') value: string,
+    @Req() req: Request,
+  ) {
+    const userId = (req as any).user?.sub;
+    const ipAddress = req.ip;
+    const userAgent = req.headers['user-agent'];
+    return this.settingsService.updateValue(key, value, userId, {
+      ipAddress,
+      userAgent,
+    });
   }
 
   // POST /api/v1/settings/seed — seed defaults (admin only)

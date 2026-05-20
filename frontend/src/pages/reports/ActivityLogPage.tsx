@@ -47,6 +47,13 @@ interface LogEntry {
     before?: Record<string, any>;
     after?: Record<string, any>;
     metadata?: Record<string, any>;
+    // v0.29: backend computeFieldDiff result attached to each row
+    changedFields?: Array<{
+      field: string;
+      oldValue: unknown;
+      newValue: unknown;
+      changeType: 'added' | 'removed' | 'modified';
+    }>;
   };
 }
 
@@ -103,7 +110,11 @@ export function auditLogToEntry(log: any): LogEntry {
     objectLabel: `${subject} ${log.subjectId?.slice(0, 8) ?? ""}`,
     description: getAuditActionLabel(action),
     ipAddress: log.ipAddress ?? "",
-    details: log.metadata ? { metadata: log.metadata } : undefined,
+    details: (log.metadata || log.changedFields) ? {
+      metadata: log.metadata,
+      // v0.29: backend now attaches changedFields[] computed from before/after diff
+      changedFields: log.changedFields,
+    } : undefined,
   };
 }
 
@@ -130,16 +141,19 @@ export default function ActivityLogPage() {
         limit: String(PAGE_SIZE),
         offset: String((page - 1) * PAGE_SIZE),
       });
-      if (filters.fromDate) params.set("fromDate", filters.fromDate);
-      if (filters.toDate) params.set("toDate", filters.toDate);
+      // v0.29: backend uses dateFrom/dateTo (ISO 8601) — fix mismatch with v0.28
+      if (filters.fromDate) params.set("dateFrom", filters.fromDate);
+      if (filters.toDate) params.set("dateTo", filters.toDate);
       if (filters.actionType) params.set("action", filters.actionType.toUpperCase());
+      // v0.29: free-text search via backend (escapes %/_)
+      if (filters.quickSearch) params.set("search", filters.quickSearch);
       const res = await api.get(`/audit-logs?${params}`);
       const data = res.data.data ?? res.data ?? [];
       setAllData(Array.isArray(data) ? data.map(auditLogToEntry) : []);
     } catch {
       setAllData([]);
     }
-  }, [page, filters.fromDate, filters.toDate, filters.actionType]);
+  }, [page, filters.fromDate, filters.toDate, filters.actionType, filters.quickSearch]);
 
   useEffect(() => {
     fetchLogs();
@@ -709,8 +723,59 @@ export default function ActivityLogPage() {
                 </div>
               )}
 
-              {/* Metadata */}
-              {selectedLog.details?.metadata && (
+              {/* v0.29: Field diff highlight với màu (xanh=thêm, đỏ=bỏ, vàng=đổi) */}
+              {selectedLog.details?.changedFields && selectedLog.details.changedFields.length > 0 && (
+                <div className="pt-4 border-t border-slate-200">
+                  <h4 className="text-sm font-bold text-slate-700 uppercase mb-3">Trường thay đổi</h4>
+                  <div className="overflow-x-auto rounded border border-slate-200">
+                    <table className="w-full text-xs">
+                      <thead className="bg-slate-50">
+                        <tr>
+                          <th className="px-3 py-2 text-left font-medium text-slate-700">Trường</th>
+                          <th className="px-3 py-2 text-left font-medium text-slate-700">Giá trị cũ</th>
+                          <th className="px-3 py-2 text-left font-medium text-slate-700">Giá trị mới</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {selectedLog.details.changedFields.map((cf, i) => {
+                          const rowClass =
+                            cf.changeType === 'added'
+                              ? 'bg-green-50'
+                              : cf.changeType === 'removed'
+                              ? 'bg-red-50'
+                              : 'bg-amber-50';
+                          const oldClass =
+                            cf.changeType === 'removed'
+                              ? 'text-red-700'
+                              : cf.changeType === 'modified'
+                              ? 'text-slate-500 line-through'
+                              : 'text-slate-400';
+                          const newClass =
+                            cf.changeType === 'added'
+                              ? 'text-green-700'
+                              : cf.changeType === 'modified'
+                              ? 'text-amber-700'
+                              : 'text-slate-400';
+                          return (
+                            <tr key={`${cf.field}-${i}`} className={`border-t border-slate-200 ${rowClass}`}>
+                              <td className="px-3 py-2 font-medium text-slate-800">{cf.field}</td>
+                              <td className={`px-3 py-2 ${oldClass}`}>
+                                {cf.changeType === 'added' ? '—' : <code className="text-xs">{JSON.stringify(cf.oldValue)}</code>}
+                              </td>
+                              <td className={`px-3 py-2 ${newClass}`}>
+                                {cf.changeType === 'removed' ? '—' : <code className="text-xs">{JSON.stringify(cf.newValue)}</code>}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Metadata (fallback raw JSON cho actions không phải before/after pair) */}
+              {selectedLog.details?.metadata && Object.keys(selectedLog.details.metadata).length > 0 && (
                 <div className="pt-4 border-t border-slate-200">
                   <h4 className="text-sm font-bold text-slate-700 uppercase mb-3">Thông tin bổ sung</h4>
                   <pre className="text-xs bg-blue-50 text-blue-900 p-3 rounded border border-blue-200 overflow-x-auto">

@@ -26,6 +26,21 @@ const mockPrisma = {
 
 const mockAudit = {
   log: jest.fn().mockResolvedValue(undefined),
+  // v0.29: TeamsService.update now uses audit.wrapUpdate for before/after diff
+  wrapUpdate: jest.fn(async (opts: any) => {
+    await opts.fetchFn();
+    const after = await opts.updateFn();
+    await mockAudit.log({
+      userId: opts.userId,
+      action: opts.action,
+      subject: opts.subject,
+      subjectId: opts.subjectId,
+      metadata: { before: {}, after: {} },
+      ipAddress: opts.meta?.ipAddress,
+      userAgent: opts.meta?.userAgent,
+    });
+    return after;
+  }),
 };
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
