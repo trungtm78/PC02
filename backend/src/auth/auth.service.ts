@@ -95,7 +95,7 @@ export class AuthService {
     // Phone field KHÔNG @unique (vợ chồng share), nên dùng findFirst với
     // orderBy deterministic. Email/workId/username @unique → findUnique safe.
     const { field, value } = classifyIdentifier(dto.username);
-    const user = field === 'phone'
+    let user = field === 'phone'
       ? await this.prisma.user.findFirst({
           where: { phone: value },
           orderBy: { id: 'asc' },
@@ -105,6 +105,18 @@ export class AuthService {
           where: { [field]: value } as any,
           include: { role: true },
         });
+
+    // v0.28 workId fallback chain — Mã cán bộ độ dài tùy ý có thể mistake là phone
+    // (9+ digits) hoặc username (shape không xác định). Khi primary miss, defensive
+    // thử workId field 1 lần. KHÔNG fallback khi field=email (email shape rõ ràng)
+    // hoặc field=workId (đã là primary path).
+    if (!user && (field === 'phone' || field === 'username')) {
+      const fallbackValue = dto.username.trim();
+      user = await this.prisma.user.findUnique({
+        where: { workId: fallbackValue } as any,
+        include: { role: true },
+      });
+    }
 
     if (!user || !user.isActive) {
       this.metrics.loginAttempts.inc({ result: 'failure' });

@@ -1202,4 +1202,65 @@ describe('AuthService.login (multi-field identifier — post-/autoplan)', () => 
     // KHÔNG gọi findFirst với phone — tránh collision với user khác phone
     expect(mockPrisma.user.findFirst).not.toHaveBeenCalled();
   });
+
+  // v0.28: workId fallback chain — nếu phone shape (9+ digit) primary miss
+  // → thử workId field (trường hợp Mã cán bộ độ dài tùy ý ≥9 chars).
+  it('v0.28 fallback: phone primary miss → thử workId field', async () => {
+    // 10-digit pure not starting with 0/84/+ → phone shape, but user actually
+    // has workId = "1234567890". Primary phone query miss → fallback workId query find user.
+    mockPrisma.user.findFirst.mockResolvedValue(null); // primary phone query miss
+    mockPrisma.user.findUnique.mockResolvedValue(baseUser); // fallback workId hit
+    bcryptCompare.mockResolvedValue(true);
+    mockJwtService.signAsync
+      .mockResolvedValueOnce('access_token')
+      .mockResolvedValueOnce('refresh_token');
+
+    const result = await service.login(
+      { username: '1234567890', password: 'pw' } as any,
+      META,
+    );
+
+    expect((result as any).accessToken).toBeDefined();
+    // Fallback gọi findUnique với { workId: '1234567890' }
+    expect(mockPrisma.user.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { workId: '1234567890' } }),
+    );
+  });
+
+  it('v0.28 fallback: username primary miss → thử workId field', async () => {
+    // username shape (no digits/letters mixed) → primary username query miss → fallback workId.
+    mockPrisma.user.findUnique.mockReset();
+    mockPrisma.user.findUnique
+      .mockResolvedValueOnce(null) // primary username query miss
+      .mockResolvedValueOnce(baseUser); // fallback workId hit
+    bcryptCompare.mockResolvedValue(true);
+    mockJwtService.signAsync
+      .mockResolvedValueOnce('access_token')
+      .mockResolvedValueOnce('refresh_token');
+
+    const result = await service.login(
+      { username: 'someweirdcode', password: 'pw' } as any,
+      META,
+    );
+
+    expect((result as any).accessToken).toBeDefined();
+    // 2 calls: primary username, fallback workId
+    expect(mockPrisma.user.findUnique).toHaveBeenCalledTimes(2);
+  });
+
+  it('v0.28 fallback: KHÔNG fallback workId khi field=email', async () => {
+    // Email shape rõ ràng → không ambiguous, không cần extra fallback query.
+    mockPrisma.user.findUnique.mockResolvedValue(null); // primary email miss
+    bcryptCompare.mockResolvedValue(false);
+
+    await expect(
+      service.login({ username: 'admin@pc02.local', password: 'pw' } as any, META),
+    ).rejects.toThrow('Invalid credentials');
+
+    // Chỉ 1 call (primary email), không fallback workId.
+    expect(mockPrisma.user.findUnique).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.user.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { email: 'admin@pc02.local' } }),
+    );
+  });
 });

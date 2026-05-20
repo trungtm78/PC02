@@ -24,8 +24,12 @@ export class CreateUserDto {
   @IsNotEmpty()
   @MinLength(3)
   @MaxLength(20)
-  @Matches(/^[a-z0-9_]+$/, {
-    message: 'username chỉ được chứa chữ thường, số và dấu _',
+  // v0.28: username phải có ít nhất 1 ký tự chữ — KHÔNG được thuần số.
+  // Lý do: chống collision với Mã cán bộ (workId) thuần số (Mã cán bộ độ dài tùy ý).
+  // Negative lookahead `(?!^\d+$)` reject pattern thuần digit, vẫn cho phép mix.
+  @Matches(/^(?!^\d+$)[a-z0-9_]+$/, {
+    message:
+      'username phải có ít nhất 1 ký tự chữ (không được thuần số) — tránh nhầm Mã cán bộ',
   })
   username: string;
 
