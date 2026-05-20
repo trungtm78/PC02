@@ -252,6 +252,7 @@ export function FKSelect({
         <div className="flex items-center gap-1">
           {value && (
             <button
+              type="button"
               onClick={handleClear}
               className="p-0.5 hover:bg-slate-100 rounded"
               data-testid={testId ? `${testId}-clear` : undefined}
@@ -301,6 +302,7 @@ export function FKSelect({
               filteredOptions.map((option, index) => (
                 <button
                   key={option.value}
+                  type="button"
                   data-option-index={index}
                   onClick={() => handleSelect(option.value)}
                   className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${
@@ -322,6 +324,7 @@ export function FKSelect({
           {canCreate && onCreateNew && (
             <div className="border-t border-slate-200 p-2">
               <button
+                type="button"
                 onClick={() => {
                   setIsOpen(false);
                   setSearchQuery("");

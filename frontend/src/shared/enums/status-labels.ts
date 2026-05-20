@@ -3,7 +3,7 @@
  * Source of truth: Prisma schema (via generated.ts).
  * Used by: ComprehensiveListPage, and any future aggregate or detail view.
  */
-import { CaseStatus, IncidentStatus, PetitionStatus, LyDoKhongKhoiTo, DeadlineRuleStatus } from './generated';
+import { CaseStatus, IncidentStatus, PetitionStatus, LyDoKhongKhoiTo, LoaiNguonTin, DeadlineRuleStatus } from './generated';
 
 // ── Vietnamese labels ───────────────────────────────────────────
 
@@ -139,6 +139,22 @@ export const LY_DO_KHONG_KHOI_TO_LABEL: Record<LyDoKhongKhoiTo, string> = {
 };
 
 export const LY_DO_KHONG_KHOI_TO_OPTIONS = Object.entries(LY_DO_KHONG_KHOI_TO_LABEL).map(
+  ([value, label]) => ({ value, label }),
+);
+
+// ── LoaiNguonTin (Điều 144 BLTTHS 2015 — 3 căn cứ tiếp nhận nguồn tin) ──
+// Hardcoded enum dropdown options (NOT a directory lookup). Pre-v0.30.0.3 this
+// field was wired through FKSelect directoryType="TDC_SOURCE" + seed entries
+// with codes that did NOT match the Prisma enum — every submission failed
+// validation. See plan doc + PR #75 for the regression history.
+
+export const LOAI_NGUON_TIN_LABEL: Record<LoaiNguonTin, string> = {
+  [LoaiNguonTin.TO_GIAC]:           'Tố giác của cá nhân (Đ.144 khoản 1a)',
+  [LoaiNguonTin.TIN_BAO]:           'Tin báo của cơ quan, tổ chức (Đ.144 khoản 1b)',
+  [LoaiNguonTin.KIEN_NGHI_KHOI_TO]: 'Kiến nghị khởi tố (Đ.144 khoản 1c)',
+};
+
+export const LOAI_NGUON_TIN_OPTIONS = Object.entries(LOAI_NGUON_TIN_LABEL).map(
   ([value, label]) => ({ value, label }),
 );
 

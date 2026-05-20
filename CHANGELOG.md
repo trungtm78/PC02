@@ -2,6 +2,39 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.30.0.3] - 2026-05-20
+
+### Hot-fix: loaiDonVu enum mismatch — form "Thêm vụ việc mới" submit thành công
+
+**User report:** sau khi deploy v0.30.0.2 (error parsing fix), anh thấy được error THẬT: `loaiDonVu phải là TO_GIAC, TIN_BAO hoặc KIEN_NGHI_KHOI_TO`. Form không submit được khi chọn "Loại nguồn tin (Điều 144 BLTTHS)".
+
+**3 lớp lỗi xếp chồng:**
+1. **Frontend hook trả label thay vì code** — `useDirectoryOptions.ts:26` default returns `{value: d.name}` (Vietnamese label) thay vì `d.code`.
+2. **Seed directory codes lệch enum** — `seed-directory-types.ts:111-115` dùng `TO_GIAC_CA_NHAN`, `TIN_BAO_CO_QUAN` (long codes) trong khi Prisma enum `LoaiNguonTin` chỉ có `TO_GIAC`, `TIN_BAO`, `KIEN_NGHI_KHOI_TO`.
+3. **Sai kiến trúc** — "Loại nguồn tin" là enum BLTTHS 2015 cố định (3 căn cứ), không phải user-managed taxonomy → không nên đi qua directory lookup.
+
+### Added
+- `LOAI_NGUON_TIN_LABEL` + `LOAI_NGUON_TIN_OPTIONS` ở [frontend/src/shared/enums/status-labels.ts](frontend/src/shared/enums/status-labels.ts) — labels Việt theo Đ.144 khoản 1a/1b/1c, derive options từ Prisma enum (DRY pattern khớp `LY_DO_KHONG_KHOI_TO_OPTIONS`).
+- Test file [frontend/src/pages/incidents/__tests__/IncidentFormPage.test.tsx](frontend/src/pages/incidents/__tests__/IncidentFormPage.test.tsx) — 3 tests (regression guard: enum value vs label, options visible, omit khi không chọn).
+
+### Changed
+- [IncidentFormPage.tsx:334-342](frontend/src/pages/incidents/IncidentFormPage.tsx#L334-L342) — FKSelect cho `loaiDonVu` swap prop `directoryType="TDC_SOURCE"` → `options={LOAI_NGUON_TIN_OPTIONS}`. Nhất quán pattern với `lyDoKhongKhoiTo` cùng file (line 499-507).
+
+### Fixed
+- **Bonus FKSelect type=button fix** — Option buttons, clear button, create-new button trong [FKSelect.tsx](frontend/src/components/FKSelect.tsx) trước đây thiếu `type="button"` → click trong `<form>` mặc định submit form. Trước đây dormant với `lyDoKhongKhoiTo` vì user hiếm chọn rồi click ngay. Discovered khi viết regression test.
+
+### Removed
+- 4 entries TDC_SOURCE khỏi seed code [backend/prisma/seed-directory-types.ts:111-115](backend/prisma/seed-directory-types.ts#L111-L115) — không còn UI tham chiếu. Orphan rows trong prod DB defer cleanup (P3 TODO).
+
+### Tests
+- Frontend: 515 → 518 (+3 new). 518/518 pass, tsc --noEmit clean.
+- Backend: 90/90 incidents.service tests pass (DTO không đổi).
+
+### Known follow-up
+- Hook `useDirectoryOptions.ts:26` default returning label thay vì code — footgun latent (P2 TODO). Audit FKSelect+directoryType callsites trước khi thay default.
+- Prod DB còn 4 row orphan `directory_entries WHERE type='TDC_SOURCE'` (cosmetic, P3 TODO).
+- Generator script `gen-enums.ts` chưa auto-emit `*_OPTIONS` arrays — manual setup tiếp tục cho enum dropdowns (P3 TODO).
+
 ## [0.30.0.2] - 2026-05-20
 
 ### Hot-fix: Centralize API error parsing (UX visibility)
