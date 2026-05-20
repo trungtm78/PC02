@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Tag, Plus, Edit2, Trash2, X, Save, Loader2, Lock } from 'lucide-react';
 import { eventCategoriesApi, type EventCategory, type CreateCategoryPayload } from '@/lib/api';
+import { extractApiError } from '@/lib/api-errors';
 import { usePermission } from '@/hooks/usePermission';
 
 const COLOR_PRESETS = ['#dc2626', '#1e40af', '#15803d', '#ea580c', '#7c3aed', '#0891b2', '#db2777', '#64748b'];
@@ -108,8 +109,7 @@ export function EventCategoriesModule() {
       setShowModal(false);
       void loadItems();
     } catch (e: unknown) {
-      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      setFormError(msg ?? 'Lỗi khi lưu danh mục');
+      setFormError(extractApiError(e, 'Lỗi khi lưu danh mục').message);
     } finally {
       setSaving(false);
     }
@@ -122,8 +122,7 @@ export function EventCategoriesModule() {
       await eventCategoriesApi.remove(item.id);
       void loadItems();
     } catch (e: unknown) {
-      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Không xóa được';
-      alert(msg);
+      alert(extractApiError(e, 'Không xóa được').message);
     }
   };
 

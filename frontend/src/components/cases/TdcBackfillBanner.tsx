@@ -3,6 +3,7 @@ import { AlertTriangle } from "lucide-react";
 import { SuspensionModal } from "./SuspensionModal";
 import type { SuspensionData } from "./SuspensionModal";
 import { api } from "@/lib/api";
+import { extractApiError } from "@/lib/api-errors";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -39,9 +40,8 @@ export function TdcBackfillBanner({ caseId, status, lyDoTamDinhChiVuAn, onUpdate
       });
       setShowModal(false);
       onUpdated?.();
-    } catch (err: any) {
-      const msg = err?.response?.data?.message;
-      setError(Array.isArray(msg) ? msg.join(", ") : (msg ?? "Cập nhật thất bại."));
+    } catch (err: unknown) {
+      setError(extractApiError(err, "Cập nhật thất bại.").messages.join(", "));
     } finally {
       setSaving(false);
     }

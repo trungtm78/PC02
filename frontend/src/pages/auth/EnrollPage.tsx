@@ -5,6 +5,7 @@ import axios from 'axios';
 import { Eye, EyeOff, AlertCircle, ShieldCheck, KeyRound } from 'lucide-react';
 
 import { authApi } from '@/lib/api';
+import { extractApiError } from '@/lib/api-errors';
 import { authStore } from '@/stores/auth.store';
 import logoCA from '@/assets/logo-cong-an.png';
 import {
@@ -71,18 +72,14 @@ export default function EnrollPage() {
     if (!err) return null;
     if (axios.isAxiosError(err)) {
       if (!err.response) return 'Mất kết nối — vui lòng thử lại.';
-      const status = err.response.status;
-      const msg = err.response?.data?.message as string | undefined;
+      const { status, message } = extractApiError(err, 'Có lỗi xảy ra. Vui lòng thử lại.');
       if (status === 401) {
-        return (
-          msg ??
-          'Link không hợp lệ hoặc đã hết hạn. Vui lòng yêu cầu admin gửi lại.'
-        );
+        return message || 'Link không hợp lệ hoặc đã hết hạn. Vui lòng yêu cầu admin gửi lại.';
       }
       if (status === 429) {
         return 'Quá nhiều yêu cầu. Vui lòng chờ 1 phút rồi thử lại.';
       }
-      return msg ?? 'Có lỗi xảy ra. Vui lòng thử lại.';
+      return message;
     }
     return 'Mất kết nối — vui lòng thử lại.';
   })();

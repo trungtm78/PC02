@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { api } from "@/lib/api";
+import { extractApiError } from "@/lib/api-errors";
 import { MASTER_CLASS_TYPE_LIST } from "@/constants/master-class-types";
 import { Search, Plus, Pencil, Trash2, FolderTree, Save, X } from "lucide-react";
 import { usePermission } from "@/hooks/usePermission";
@@ -88,8 +89,7 @@ export default function MasterClassPage() {
       fetchEntries();
       fetchCounts();
     } catch (err: unknown) {
-      const e = err as { response?: { data?: { message?: string } } };
-      alert(e.response?.data?.message ?? "Lỗi khi lưu");
+      alert(extractApiError(err, "Lỗi khi lưu").message);
     }
   };
 

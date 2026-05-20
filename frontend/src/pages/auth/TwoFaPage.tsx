@@ -4,6 +4,7 @@ import { useMutation } from '@tanstack/react-query';
 import { AlertCircle, Mail, Shield, KeyRound } from 'lucide-react';
 
 import { authApi } from '@/lib/api';
+import { extractApiError } from '@/lib/api-errors';
 import { authStore } from '@/stores/auth.store';
 import logoCA from '@/assets/logo-cong-an.png';
 import { TWO_FA_METHOD, type TwoFaMethod } from '@/shared/enums/two-fa-methods';
@@ -51,17 +52,13 @@ export default function TwoFaPage() {
     },
   });
 
-  const errorMessage = (() => {
-    const err = verifyMutation.error as { response?: { data?: { message?: string } } } | null;
-    if (!err) return null;
-    return err?.response?.data?.message ?? 'Mã xác thực không đúng. Vui lòng thử lại.';
-  })();
+  const errorMessage = verifyMutation.error
+    ? extractApiError(verifyMutation.error, 'Mã xác thực không đúng. Vui lòng thử lại.').message
+    : null;
 
-  const sendOtpError = (() => {
-    const err = sendOtpMutation.error as { response?: { data?: { message?: string } } } | null;
-    if (!err) return null;
-    return err?.response?.data?.message ?? 'Không thể gửi mã OTP. Vui lòng thử lại.';
-  })();
+  const sendOtpError = sendOtpMutation.error
+    ? extractApiError(sendOtpMutation.error, 'Không thể gửi mã OTP. Vui lòng thử lại.').message
+    : null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

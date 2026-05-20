@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Eye, EyeOff, Check, X } from 'lucide-react';
 import { authApi } from '@/lib/api';
-import axios from 'axios';
+import { extractApiError } from '@/lib/api-errors';
 
 interface Props {
   open: boolean;
@@ -50,12 +50,7 @@ export function ChangePasswordModal({ open, onClose }: Props) {
       await authApi.changePassword(currentPassword, newPassword);
       setSuccess(true);
     } catch (err) {
-      if (axios.isAxiosError(err)) {
-        const msg = err.response?.data?.message as string | undefined;
-        setError(msg ?? 'Có lỗi xảy ra, vui lòng thử lại');
-      } else {
-        setError('Có lỗi xảy ra, vui lòng thử lại');
-      }
+      setError(extractApiError(err, 'Có lỗi xảy ra, vui lòng thử lại').message);
     } finally {
       setLoading(false);
     }

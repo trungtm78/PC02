@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Plus, Trash2, X, Save, MessageSquare } from "lucide-react";
 import { api } from "@/lib/api";
+import { extractApiError } from "@/lib/api-errors";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -87,9 +88,8 @@ export function VksMeetingsTab({ entityId, entityType, isReadOnly = false }: Pro
       setShowModal(false);
       setForm(EMPTY_FORM);
       await fetchMeetings();
-    } catch (err: any) {
-      const msg = err?.response?.data?.message;
-      setFormError(Array.isArray(msg) ? msg.join(", ") : (msg ?? "Lưu thất bại. Vui lòng thử lại."));
+    } catch (err: unknown) {
+      setFormError(extractApiError(err, "Lưu thất bại. Vui lòng thử lại.").messages.join(", "));
     } finally {
       setSaving(false);
     }

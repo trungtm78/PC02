@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 // Note: useSearchParams is only used for READING initial URL on mount.
 // URL writes use window.history.replaceState to avoid React Router re-renders.
 import { api } from "@/lib/api";
+import { extractApiError } from "@/lib/api-errors";
 import { downloadCsv } from "@/lib/csv";
 import { today } from "@/lib/dates";
 import {
@@ -690,9 +691,7 @@ export function IncidentListPage() {
                     setShowDeleteModal(false);
                     setDeleteReason("");
                   } catch (err: unknown) {
-                    const msg = (err as { response?: { data?: { message?: string | string[] } } })?.response?.data?.message;
-                    const text = Array.isArray(msg) ? msg.join(', ') : (typeof msg === 'string' ? msg : 'Có lỗi xảy ra khi xóa');
-                    alert(text);
+                    alert(extractApiError(err, 'Có lỗi xảy ra khi xóa').messages.join(', '));
                   } finally {
                     setIsDeleting(false);
                   }
@@ -730,10 +729,7 @@ function StatusTransitionModal({ incident, onClose, onSuccess }: { incident: Inc
       onSuccess();
       onClose();
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string | string[] } } })?.response?.data?.message;
-      if (Array.isArray(msg)) setErrors(msg);
-      else if (typeof msg === "string") setErrors([msg]);
-      else setErrors(["Có lỗi xảy ra khi chuyển trạng thái"]);
+      setErrors(extractApiError(err, "Có lỗi xảy ra khi chuyển trạng thái").messages);
     } finally { setIsSubmitting(false); }
   };
 
@@ -803,8 +799,7 @@ function ProsecuteModal({ incident, onClose, onSuccess }: { incident: Incident; 
       await api.post(`/incidents/${incident.id}/prosecute`, formData);
       onSuccess(); onClose();
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string | string[] } } })?.response?.data?.message;
-      if (Array.isArray(msg)) setErrors(msg); else if (typeof msg === "string") setErrors([msg]); else setErrors(["Có lỗi xảy ra"]);
+      setErrors(extractApiError(err).messages);
     } finally { setIsSubmitting(false); }
   };
 

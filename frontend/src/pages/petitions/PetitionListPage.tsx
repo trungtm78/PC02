@@ -9,6 +9,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
+import { extractApiError } from "@/lib/api-errors";
 import {
   Plus,
   Search,
@@ -735,12 +736,7 @@ function ConvertToIncidentModal({
       onSuccess(petition.id);
       onClose();
     } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { message?: string | string[] } } })
-          ?.response?.data?.message;
-      if (Array.isArray(msg)) setErrors(msg);
-      else if (typeof msg === "string") setErrors([msg]);
-      else setErrors(["Có lỗi xảy ra khi chuyển đổi"]);
+      setErrors(extractApiError(err, "Có lỗi xảy ra khi chuyển đổi").messages);
     } finally {
       setIsSubmitting(false);
     }
@@ -877,12 +873,7 @@ function ConvertToCaseModal({
       onSuccess(petition.id);
       onClose();
     } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { message?: string | string[] } } })
-          ?.response?.data?.message;
-      if (Array.isArray(msg)) setErrors(msg);
-      else if (typeof msg === "string") setErrors([msg]);
-      else setErrors(["Có lỗi xảy ra khi chuyển đổi"]);
+      setErrors(extractApiError(err, "Có lỗi xảy ra khi chuyển đổi").messages);
     } finally {
       setIsSubmitting(false);
     }

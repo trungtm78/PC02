@@ -16,6 +16,7 @@ import {
   Filter,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { extractApiError } from '@/lib/api-errors';
 import { useDirectoryOptions } from '@/hooks/useDirectoryOptions';
 import { usePermission } from '@/hooks/usePermission';
 
@@ -239,10 +240,7 @@ export default function DirectoriesPage() {
       setShowModal(false);
       void loadItems();
     } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        'Có lỗi xảy ra. Vui lòng thử lại.';
-      setFormError(Array.isArray(msg) ? msg.join(', ') : msg);
+      setFormError(extractApiError(err, 'Có lỗi xảy ra. Vui lòng thử lại.').messages.join(', '));
     } finally {
       setSaving(false);
     }
@@ -256,10 +254,7 @@ export default function DirectoriesPage() {
       setDeletingItem(null);
       void loadItems();
     } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        'Không thể xóa danh mục.';
-      alert(msg);
+      alert(extractApiError(err, 'Không thể xóa danh mục.').message);
     }
   };
 

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "@/lib/api";
+import { extractApiError } from "@/lib/api-errors";
 import { ArrowLeft, Save, AlertCircle, Calendar, FileText, Loader2, ChevronDown, ChevronRight } from "lucide-react";
 import { FKSelect, type FKOption } from "@/components/FKSelect";
 import { getPhaseForStatus } from "@/constants/incident-phases";
@@ -253,8 +254,7 @@ export function IncidentFormPage() {
         setErrors(["Vụ việc đã được chỉnh sửa bởi người dùng khác. Vui lòng tải lại trang để xem phiên bản mới nhất trước khi chỉnh sửa."]);
         window.scrollTo({ top: 0, behavior: "smooth" });
       } else {
-        const msg = (err as { response?: { data?: { message?: string | string[] } } })?.response?.data?.message;
-        if (Array.isArray(msg)) setErrors(msg); else if (typeof msg === "string") setErrors([msg]); else setErrors(["Có lỗi xảy ra"]);
+        setErrors(extractApiError(err).messages);
       }
     } finally { setIsSubmitting(false); }
   };

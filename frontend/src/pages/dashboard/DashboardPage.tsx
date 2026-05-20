@@ -24,6 +24,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { authStore } from '@/stores/auth.store';
 import { api } from '@/lib/api';
+import { extractApiError } from '@/lib/api-errors';
 
 const COLORS = {
   navy: '#1B2B4E',
@@ -120,12 +121,12 @@ export default function DashboardPage() {
       ]);
       setStats(statsRes.data.data);
       setCharts(chartsRes.data.data);
-    } catch (err: any) {
-      const status = err?.response?.status;
-      if (status === 403) {
+    } catch (err: unknown) {
+      const normalized = extractApiError(err, 'Không thể tải dữ liệu dashboard');
+      if (normalized.status === 403) {
         setError('no-team');
       } else {
-        setError(err?.response?.data?.message ?? 'Không thể tải dữ liệu dashboard');
+        setError(normalized.message);
       }
     } finally {
       setLoading(false);

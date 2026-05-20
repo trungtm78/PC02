@@ -15,6 +15,7 @@ import {
   MessageSquare,
 } from 'lucide-react';
 import { deadlineRulesApi, DEADLINE_RULES_QUERY_KEYS } from '@/features/deadline-rules/api';
+import { extractApiError } from '@/lib/api-errors';
 import { StatusBadge } from '@/features/deadline-rules/components/StatusBadge';
 import { DiffViewer } from '@/features/deadline-rules/components/DiffViewer';
 import { ImpactPreviewPanel } from '@/features/deadline-rules/components/ImpactPreviewPanel';
@@ -77,8 +78,8 @@ export default function VersionDecisionPage() {
     queryClient.invalidateQueries({ queryKey: DEADLINE_RULES_QUERY_KEYS.detail(id!) });
   };
 
-  const handleErr = (e: { response?: { data?: { message?: string } }; message?: string }) => {
-    setActionError(e.response?.data?.message ?? e.message ?? 'Thao tác thất bại');
+  const handleErr = (e: unknown) => {
+    setActionError(extractApiError(e, 'Thao tác thất bại').message);
   };
 
   const approveMut = useMutation({
@@ -124,9 +125,9 @@ export default function VersionDecisionPage() {
       setModalError(null);
       setActionError(null);
     },
-    onError: (e: { response?: { data?: { message?: string } }; message?: string }) => {
+    onError: (e: unknown) => {
       console.error('[deadline-rules] withdraw failed', e);
-      setModalError(e.response?.data?.message ?? e.message ?? 'Thu hồi thất bại');
+      setModalError(extractApiError(e, 'Thu hồi thất bại').message);
     },
   });
   // Approver sends a submitted version back to draft with a note for proposer.
@@ -139,11 +140,9 @@ export default function VersionDecisionPage() {
       setModalError(null);
       setActionError(null);
     },
-    onError: (e: { response?: { data?: { message?: string } }; message?: string }) => {
+    onError: (e: unknown) => {
       console.error('[deadline-rules] requestChanges failed', e);
-      setModalError(
-        e.response?.data?.message ?? e.message ?? 'Yêu cầu sửa đổi thất bại',
-      );
+      setModalError(extractApiError(e, 'Yêu cầu sửa đổi thất bại').message);
     },
   });
 

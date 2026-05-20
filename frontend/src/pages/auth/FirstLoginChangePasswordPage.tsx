@@ -5,6 +5,7 @@ import axios from 'axios';
 import { Eye, EyeOff, AlertCircle, ShieldCheck, KeyRound } from 'lucide-react';
 
 import { authApi } from '@/lib/api';
+import { extractApiError } from '@/lib/api-errors';
 import { authStore } from '@/stores/auth.store';
 import logoCA from '@/assets/logo-cong-an.png';
 import { firstLoginPasswordChange as t } from '@/locales/vi';
@@ -88,10 +89,10 @@ export default function FirstLoginChangePasswordPage() {
     if (axios.isAxiosError(err)) {
       if (err.response?.status === 401) return t.errorTokenExpired;
       if (!err.response) return t.errorNetwork;
-      const msg = err.response?.data?.message as string | undefined;
+      const msg = extractApiError(err, t.errorWeak).message;
       // Map known backend error to local copy
-      if (msg?.toLowerCase().includes('trùng mật khẩu tạm')) return t.errorSameAsTemp;
-      return msg ?? t.errorWeak;
+      if (msg.toLowerCase().includes('trùng mật khẩu tạm')) return t.errorSameAsTemp;
+      return msg;
     }
     return t.errorNetwork;
   })();
