@@ -108,11 +108,11 @@ const DIRECTORY_DATA: DirectoryEntry[] = [
   { type: 'PROVINCE', code: 'TYN', name: 'Tây Ninh', order: 31 },
   { type: 'PROVINCE', code: 'VL',  name: 'Vĩnh Long', order: 32 },
 
-  // ── TDC_SOURCE (Loại nguồn tin — Điều 144 BLTTHS 2015) ───────────────────
-  { type: 'TDC_SOURCE', code: 'TO_GIAC_CA_NHAN',     name: 'Tố giác của cá nhân (khoản 1a)', order: 1 },
-  { type: 'TDC_SOURCE', code: 'TIN_BAO_CO_QUAN',      name: 'Tin báo của cơ quan, tổ chức (khoản 1b)', order: 2 },
-  { type: 'TDC_SOURCE', code: 'KIEN_NGHI_KHOI_TO',    name: 'Kiến nghị khởi tố (khoản 1c)', order: 3 },
-  { type: 'TDC_SOURCE', code: 'CO_QUAN_PHAT_HIEN',    name: 'Cơ quan có thẩm quyền phát hiện', order: 4 },
+  // ── TDC_SOURCE entries removed in v0.30.0.3 ─────────────────────────────
+  // The "Loại nguồn tin" field now uses hardcoded LOAI_NGUON_TIN_OPTIONS
+  // (frontend/src/shared/enums/status-labels.ts) derived from the Prisma enum
+  // LoaiNguonTin. Directory codes here never matched the enum (TO_GIAC_CA_NHAN
+  // vs TO_GIAC), so every form submission failed @IsEnum validation. See PR #75.
 
   // ── TDC_CASE_TYPE (Loại vụ TĐC) ─────────────────────────────────────────
   { type: 'TDC_CASE_TYPE', code: 'KHOI_TO_TU_TO_GIAC', name: 'Khởi tố từ tố giác', order: 1 },

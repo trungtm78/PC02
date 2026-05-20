@@ -5,7 +5,7 @@ import { extractApiError } from "@/lib/api-errors";
 import { ArrowLeft, Save, AlertCircle, Calendar, FileText, Loader2, ChevronDown, ChevronRight } from "lucide-react";
 import { FKSelect, type FKOption } from "@/components/FKSelect";
 import { getPhaseForStatus } from "@/constants/incident-phases";
-import { LY_DO_KHONG_KHOI_TO_OPTIONS } from "@/shared/enums/status-labels";
+import { LY_DO_KHONG_KHOI_TO_OPTIONS, LOAI_NGUON_TIN_OPTIONS } from "@/shared/enums/status-labels";
 import { useFormDefaults } from "@/hooks/useFormDefaults";
 import { toDateInput } from "@/lib/dates";
 
@@ -335,7 +335,7 @@ export function IncidentFormPage() {
                 label="Loại nguồn tin (Điều 144 BLTTHS)"
                 value={formData.loaiDonVu}
                 onChange={(v) => update("loaiDonVu", v)}
-                directoryType="TDC_SOURCE"
+                options={LOAI_NGUON_TIN_OPTIONS}
                 placeholder="-- Chọn loại nguồn tin --"
                 canCreate={false}
                 testId="field-loaiDonVu"
