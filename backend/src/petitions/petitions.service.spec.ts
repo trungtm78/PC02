@@ -103,6 +103,19 @@ const mockPrisma = {
 
 const mockAudit = {
   log: jest.fn().mockResolvedValue(undefined),
+  // v0.30: PETITION_UPDATED now uses wrapUpdate.
+  wrapUpdate: jest.fn(async (opts: any) => {
+    await opts.fetchFn();
+    const after = await opts.updateFn();
+    await mockAudit.log({
+      userId: opts.userId,
+      action: opts.action,
+      subject: opts.subject,
+      subjectId: opts.subjectId,
+      metadata: { before: {}, after: {} },
+    });
+    return after;
+  }),
 };
 
 const mockSettings = {
@@ -348,6 +361,28 @@ describe('PetitionsService', () => {
       );
 
       expect(result.success).toBe(true);
+    });
+
+    // v0.30: PETITION_UPDATED must go through wrapUpdate for inline diff display.
+    it('v0.30: uses audit.wrapUpdate (not audit.log direct) for PETITION_UPDATED', async () => {
+      mockPrisma.petition.findFirst.mockResolvedValue(mockPetition);
+      mockPrisma.petition.update.mockResolvedValue({
+        ...mockPetition,
+        senderName: 'Updated Name',
+      });
+
+      await service.update('petition-001', { senderName: 'Updated Name' }, 'user-001');
+
+      expect(mockAudit.wrapUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'PETITION_UPDATED',
+          subject: 'Petition',
+          subjectId: 'petition-001',
+          userId: 'user-001',
+          fetchFn: expect.any(Function),
+          updateFn: expect.any(Function),
+        }),
+      );
     });
 
     it('should throw NotFoundException when petition not found', async () => {

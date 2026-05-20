@@ -512,19 +512,39 @@ export class CasesService {
       updateData.soLanTamDinhChi = { increment: 1 };
     }
 
+    // v0.30: CASE_UPDATED via wrapUpdate so audit captures full before/after for inline diff.
+    // The fetchFn re-reads full Case (relations included); +1 SELECT/update — negligible.
+    // P2025 try/catch wraps the whole wrapUpdate call to preserve optimistic-lock translation.
     let record;
     try {
-      record = await this.prisma.case.update({
-        where: {
-          id,
-          ...(dto.expectedUpdatedAt ? { updatedAt: new Date(dto.expectedUpdatedAt) } : {}),
-        },
-        data: updateData,
-        include: {
-          investigator: {
-            select: { id: true, firstName: true, lastName: true, username: true },
-          },
-        },
+      record = await this.audit.wrapUpdate({
+        fetchFn: () =>
+          this.prisma.case.findUnique({
+            where: { id },
+            include: {
+              investigator: {
+                select: { id: true, firstName: true, lastName: true, username: true },
+              },
+            },
+          }),
+        updateFn: () =>
+          this.prisma.case.update({
+            where: {
+              id,
+              ...(dto.expectedUpdatedAt ? { updatedAt: new Date(dto.expectedUpdatedAt) } : {}),
+            },
+            data: updateData,
+            include: {
+              investigator: {
+                select: { id: true, firstName: true, lastName: true, username: true },
+              },
+            },
+          }),
+        action: 'CASE_UPDATED',
+        subject: 'Case',
+        subjectId: id,
+        userId: actorId,
+        meta: { ipAddress: meta?.ipAddress, userAgent: meta?.userAgent },
       });
     } catch (e) {
       if ((e as { code?: string })?.code === 'P2025' && dto.expectedUpdatedAt) {
@@ -606,15 +626,7 @@ export class CasesService {
       });
     }
 
-    await this.audit.log({
-      userId: actorId,
-      action: 'CASE_UPDATED',
-      subject: 'Case',
-      subjectId: id,
-      metadata: { before: { status: existing.status, name: existing.name, investigatorId: existing.investigatorId, assignedTeamId: existing.assignedTeamId }, after: dto },
-      ipAddress: meta?.ipAddress,
-      userAgent: meta?.userAgent,
-    });
+    // v0.30: CASE_UPDATED audit moved into wrapUpdate above. KEEP CASE_STATUS_CHANGED + PETITION_AUTO_CREATED.
 
     return {
       success: true,

@@ -417,19 +417,37 @@ export class IncidentsService {
     }
 
 
+    // v0.30: INCIDENT_UPDATED via wrapUpdate — full before/after snapshot for inline diff.
     let record;
     try {
-      record = await this.prisma.incident.update({
-        where: {
-          id,
-          ...(dto.expectedUpdatedAt ? { updatedAt: new Date(dto.expectedUpdatedAt) } : {}),
-        },
-        data: updateData,
-        include: {
-          investigator: {
-            select: { id: true, firstName: true, lastName: true, username: true },
-          },
-        },
+      record = await this.audit.wrapUpdate({
+        fetchFn: () =>
+          this.prisma.incident.findUnique({
+            where: { id },
+            include: {
+              investigator: {
+                select: { id: true, firstName: true, lastName: true, username: true },
+              },
+            },
+          }),
+        updateFn: () =>
+          this.prisma.incident.update({
+            where: {
+              id,
+              ...(dto.expectedUpdatedAt ? { updatedAt: new Date(dto.expectedUpdatedAt) } : {}),
+            },
+            data: updateData,
+            include: {
+              investigator: {
+                select: { id: true, firstName: true, lastName: true, username: true },
+              },
+            },
+          }),
+        action: 'INCIDENT_UPDATED',
+        subject: 'Incident',
+        subjectId: id,
+        userId: actorId,
+        meta: { ipAddress: meta?.ipAddress, userAgent: meta?.userAgent },
       });
     } catch (e) {
       if ((e as { code?: string })?.code === 'P2025' && dto.expectedUpdatedAt) {
@@ -439,16 +457,6 @@ export class IncidentsService {
       }
       throw e;
     }
-
-    await this.audit.log({
-      userId: actorId,
-      action: 'INCIDENT_UPDATED',
-      subject: 'Incident',
-      subjectId: id,
-      metadata: { before: { status: existing.status, name: existing.name, investigatorId: existing.investigatorId, assignedTeamId: existing.assignedTeamId }, after: dto },
-      ipAddress: meta?.ipAddress,
-      userAgent: meta?.userAgent,
-    });
 
     return { success: true, data: record, message: 'Cập nhật vụ việc thành công' };
   }
