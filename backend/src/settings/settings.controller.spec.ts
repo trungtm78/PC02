@@ -30,10 +30,16 @@ describe('SettingsController — delegation', () => {
     expect(mockService.getDeadlines).toHaveBeenCalled();
   });
 
-  it('updateValue() delegates to service.updateValue with key and value', async () => {
+  it('updateValue() delegates to service.updateValue with key, value, userId, meta', async () => {
     mockService.updateValue.mockResolvedValue({ success: true });
-    await controller.updateValue('DEADLINE_DAYS', '30');
-    expect(mockService.updateValue).toHaveBeenCalledWith('DEADLINE_DAYS', '30');
+    const mockReq = { ip: '127.0.0.1', headers: { 'user-agent': 'jest' }, user: { sub: 'admin' } } as any;
+    await controller.updateValue('DEADLINE_DAYS', '30', mockReq);
+    expect(mockService.updateValue).toHaveBeenCalledWith(
+      'DEADLINE_DAYS',
+      '30',
+      'admin',
+      expect.objectContaining({ ipAddress: '127.0.0.1', userAgent: 'jest' }),
+    );
   });
 
   it('seed() delegates to service.seed', async () => {

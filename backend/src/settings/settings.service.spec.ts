@@ -32,12 +32,20 @@ function makeSetting(key: string, value: string, unit: string | null = 'ngày') 
   return { id: `setting-${key}`, key, value, label: `Label for ${key}`, unit, legalBasis: null };
 }
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { AuditService } = require('../audit/audit.service');
+
 describe('SettingsService', () => {
   let service: SettingsService;
+  const mockAudit = { log: jest.fn().mockResolvedValue(undefined), wrapUpdate: jest.fn() };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [SettingsService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [
+        SettingsService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: AuditService, useValue: mockAudit },
+      ],
     }).compile();
     service = module.get(SettingsService);
     jest.clearAllMocks();

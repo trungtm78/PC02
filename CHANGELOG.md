@@ -2,6 +2,57 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.29.0.0] - 2026-05-20
+
+### Audit Log UI Refactor + PII Sanitize + Expanded Coverage
+
+/autoplan dual voices (Codex + Claude subagent) verdict BLOCK → plan rewritten. Refactor existing `/activity-log` UI thay vì duplicate route, sanitize PII at write (passwordHash/refreshTokenHash/totpSecret/backupCodes/etc.) + backfill scrub existing audit_logs metadata, expand audit coverage cho TeamsService (before/after diff) + SettingsService (SETTING_UPDATED), DTO-validated query params, free-text search, CSV export với formula injection protection.
+
+**Backend (audit hardening):**
+- `audit.utils.ts` (NEW): `sanitizePII()` regex-based skip pattern `/(hash|secret|token|password|backup_?code|recovery|otp_?code|2fa)/i` (future-proof không phải literal list); `computeFieldDiff()` pure function classify added/removed/modified, skip PII + meta fields.
+- `audit.service.ts`:
+  - `wrapUpdate()` apply `sanitizePII` TRƯỚC khi log → PII never lands in DB.
+  - `wrapUpdate()` accept `tx?: Prisma.TransactionClient` → atomic fetch+update+log.
+  - `findAll()` orderBy DESC (fix v0.28 bug 'asc'), clamp `limit ∈ [1,100]` + `offset ≥ 0`, attach `changedFields[]` per row, strip raw before/after from list response.
+  - Add `findById()` for detail modal, `distinctActions()` + `distinctSubjects()` for filter dropdowns.
+- `audit.controller.ts`: `QueryAuditLogsDto` (class-validator), new endpoints: `GET /audit-logs/:id`, `/actions`, `/subjects`, `/export.csv` (streaming, formula sanitization OWASP, audit-of-export).
+- `teams.service.ts`: TEAM_UPDATED giờ dùng `wrapUpdate` capture before/after (was: `{ changes: dto }` only).
+- `settings.service.ts`: `updateValue()` thêm audit `SETTING_UPDATED` với before/after value.
+- `settings.controller.ts`: pass actorId + ipAddress + userAgent xuống service.
+- `settings.module.ts`: import AuditModule.
+
+**Migration (backfill + index):**
+- `20260520120000_audit_pii_sanitize_backfill`: idempotent UPDATE strip PII keys khỏi existing `audit_logs.metadata.before/after`. Meta-audit insert `AUDIT_PII_BACKFILL` row tracking migration.
+- `20260520121000_audit_jsonb_search_index`: `CREATE EXTENSION pg_trgm`; GIN trigram index `metadata::text gin_trgm_ops` cho search ILIKE; composite `(subject, subjectId, createdAt DESC)` cho forensic timeline. Without CONCURRENTLY (Prisma tx limitation, ~1k rows acceptable).
+
+**Frontend (refactor existing /activity-log):**
+- `ActivityLogPage.tsx`:
+  - Fix backend param mismatch: `fromDate` → `dateFrom`, `toDate` → `dateTo`.
+  - Pass `search` query đến backend (escaped %/_).
+  - Display `changedFields[]` từ API response — table với màu (xanh=added, đỏ=removed, vàng=modified). Old value strikethrough khi modified.
+  - Raw JSON metadata view collapsible (fallback cho actions không phải before/after pair).
+- LogEntry type extends với `changedFields?: ChangedField[]`.
+
+**Tests:**
+- `audit.utils.spec.ts` (NEW): 13 cases — PII_PATTERN regex, sanitizePII null/undefined/flat object, computeFieldDiff added/removed/modified/skip-PII/skip-meta/nested.
+- `audit.service.spec.ts` (NEW): 13 cases — log() + tx, wrapUpdate sanitize + tx, findAll orderBy desc + clamps + dateRange + changedFields + search escape.
+- Updated `settings.service.spec.ts` + `settings.controller.spec.ts` cho new AuditService dependency + actor params.
+- Updated `teams.service.spec.ts` mockAudit.wrapUpdate stub.
+- Updated `audit.controller.spec.ts` cho DTO-based query.
+
+Backend 1367 → **1392 PASS** (+25 cases). Frontend 484/484 unchanged. TS clean cả 2 stack.
+
+**Security hardening summary (addressing /autoplan critical findings):**
+1. PII sanitize at write + backfill scrub existing → ILIKE search KHÔNG match hash/token/secret.
+2. PII regex pattern covers `*hash`, `*secret`, `*token`, `*password`, `*backupCode`, `*recovery`, `*otpCode`, `*2fa` — future-proof.
+3. DTO clamps limit/offset → DoS protection + NaN safety.
+4. Search input escape `%`/`_` → wildcard injection bypass blocked, cap 200 chars.
+5. CSV formula injection sanitization (prefix `'` cho `=`/`+`/`-`/`@`/tab/CR) → Excel formula execution blocked.
+6. Authorization remains admin-only `read:AuditLog` phase 1 (defer per-team DataScope to v0.30).
+7. Audit-of-export logs `AUDIT_LOG_EXPORTED` action with rowCount + filters.
+
+**Out of scope (defer v0.30):** Audit log retention/archive, DataScope per-team audit visibility, full real-time WebSocket stream, alert rules, schema-evolution field rename handling, mobile responsive UI, label generation from Prisma `///` comments.
+
 ## [0.28.0.0] - 2026-05-20
 
 ### workId Pure-Digit Support — Login bằng Mã cán bộ thuần số

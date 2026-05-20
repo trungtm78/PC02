@@ -88,29 +88,27 @@ export class TeamsService {
     const existing = await this.prisma.team.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException(`Team not found (id: ${id})`);
 
-    const team = await this.prisma.team.update({
-      where: { id },
-      data: {
-        ...(dto.name !== undefined && { name: dto.name }),
-        ...(dto.code !== undefined && { code: dto.code }),
-        ...(dto.level !== undefined && { level: dto.level }),
-        ...(dto.parentId !== undefined && { parentId: dto.parentId }),
-        ...(dto.order !== undefined && { order: dto.order }),
-        ...(dto.isActive !== undefined && { isActive: dto.isActive }),
-      },
-    });
-
-    await this.audit.log({
-      userId: actorId,
+    // v0.29: use wrapUpdate to capture before/after diff (was: changes: dto only).
+    return this.audit.wrapUpdate({
+      fetchFn: async () => existing,
+      updateFn: async () =>
+        this.prisma.team.update({
+          where: { id },
+          data: {
+            ...(dto.name !== undefined && { name: dto.name }),
+            ...(dto.code !== undefined && { code: dto.code }),
+            ...(dto.level !== undefined && { level: dto.level }),
+            ...(dto.parentId !== undefined && { parentId: dto.parentId }),
+            ...(dto.order !== undefined && { order: dto.order }),
+            ...(dto.isActive !== undefined && { isActive: dto.isActive }),
+          },
+        }),
       action: 'TEAM_UPDATED',
       subject: 'Team',
       subjectId: id,
-      metadata: { changes: dto },
-      ipAddress: meta?.ipAddress,
-      userAgent: meta?.userAgent,
+      userId: actorId,
+      meta,
     });
-
-    return team;
   }
 
   async delete(
