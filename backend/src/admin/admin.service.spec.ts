@@ -269,6 +269,27 @@ describe('AdminService', () => {
       expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
     });
 
+    // v0.32.0.1 — regression: pre-fix CreateUserDto thiếu canDispatch field,
+    // ValidationPipe forbidNonWhitelisted throw 400 "property canDispatch should not exist".
+    it('v0.32.0.1: persists canDispatch=true when admin tích "Quyền phân công" checkbox', async () => {
+      const dtoWithDispatch = { ...createDto, canDispatch: true };
+      await service.createUser(dtoWithDispatch, 'requester-1');
+      expect(mockPrisma.user.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ canDispatch: true }),
+        }),
+      );
+    });
+
+    it('v0.32.0.1: defaults canDispatch=false when checkbox unchecked (omitted)', async () => {
+      await service.createUser(createDto, 'requester-1');
+      expect(mockPrisma.user.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ canDispatch: false }),
+        }),
+      );
+    });
+
     it('EC-02: throws ConflictException for duplicate username', async () => {
       mockPrisma.user.findFirst.mockResolvedValueOnce({
         id: 'old',

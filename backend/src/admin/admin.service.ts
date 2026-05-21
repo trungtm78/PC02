@@ -186,6 +186,7 @@ export class AdminService {
         departmentId: dto.departmentId,
         roleId: dto.roleId,
         isActive: dto.status !== UserStatus.INACTIVE,
+        canDispatch: dto.canDispatch ?? false, // v0.32.0.1
       },
       select: {
         id: true,
@@ -196,6 +197,7 @@ export class AdminService {
         workId: true,
         phone: true,
         isActive: true,
+        canDispatch: true, // v0.32.0.1
         role: { select: { id: true, name: true } },
         createdAt: true,
       },
@@ -210,6 +212,7 @@ export class AdminService {
         metadata: {
           createdUsername: created.username,
           email: created.email,
+          canDispatch: created.canDispatch, // v0.32.0.1
           enrollmentLinkGenerated: true,
         },
         ...meta,

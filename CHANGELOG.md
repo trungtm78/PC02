@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.32.0.1] - 2026-05-21
+
+### Fixed
+- **Tạo người dùng mới với "Quyền phân công công việc" trả 400** (`property canDispatch should not exist`). Bug latent từ thời `canDispatch` được thêm vào `User` schema + `UpdateUserDto` nhưng quên thêm vào `CreateUserDto`. `ValidationPipe` global bật `forbidNonWhitelisted: true` → field undeclared bị reject. Admin không thể assign quyền dispatcher cho user mới ngay từ form tạo, phải tạo trước rồi edit sau.
+
+### Changed
+- `CreateUserDto`: thêm `canDispatch?: boolean` (mirror `UpdateUserDto:18-20`).
+- `AdminService.createUserCore()`: persist `canDispatch: dto.canDispatch ?? false` + echo trong `select` + ghi vào audit metadata.
+
+### Tests
+- +2 BE regression tests (canDispatch=true persists, omitted defaults false). Suite: **1450 BE pass**.
+
+---
+
 ## [0.32.0.0] - 2026-05-21
 
 ### Feat: Khôi phục dữ liệu đã xóa — Case + Incident + Petition (greenfield)
