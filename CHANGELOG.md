@@ -2,6 +2,59 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.31.0.0] - 2026-05-21
+
+### Bổ sung Loại nguồn tin chi tiết — Đ.144 BLTTHS + TT 28/2020/TT-BCA Đ.6
+
+**Background:** Sau v0.30.0.3 (fix `loaiDonVu` enum mismatch), dropdown "Loại nguồn tin" hoạt động với 3 enum chính theo Đ.144 BLTTHS 2015. v0.31.0.0 bổ sung 2 chiều metadata độc lập để đầy đủ theo quy định nhà nước:
+- **Nguồn phát tin** (cascading sub-types) — ai gửi tin chi tiết theo từng loại chính
+- **Phương thức tiếp nhận** — cách tin được tiếp nhận theo TT28 Đ.6 (5 phương thức)
+
+### Added
+
+- Prisma enum [`NguonPhatTin`](backend/prisma/schema.prisma) — 10 giá trị (cascading từ `LoaiNguonTin`):
+  - **TO_GIAC (Đ.144 K1):** `CA_NHAN_TO_GIAC`
+  - **TIN_BAO (Đ.144 K2):** `CO_QUAN_NHA_NUOC`, `TO_CHUC`, `CA_NHAN_BAO_TIN`, `PHUONG_TIEN_TRUYEN_THONG`
+  - **KIEN_NGHI_KHOI_TO (Đ.144 K3):** `VIEN_KIEM_SAT`, `THANH_TRA`, `KIEM_TOAN`, `TOA_AN`, `CO_QUAN_KHAC`
+- Prisma enum [`PhuongThucTiepNhan`](backend/prisma/schema.prisma) — 5 giá trị theo TT 28/2020/TT-BCA Đ.6:
+  - `TRUC_TIEP_BANG_LOI`, `TRUC_TIEP_BANG_VAN_BAN`, `DIEN_THOAI`, `BUU_DIEN`, `PHUONG_TIEN_DIEN_TU`
+- 2 column nullable trên `Incident`: `nguonPhatTin`, `phuongThucTiepNhan`
+- Migration: `20260521094750_add_nguon_phat_tin_phuong_thuc_tiep_nhan` (safe, no backfill)
+- Custom DTO validator [`@IsNguonPhatTinMatchLoaiDonVu()`](backend/src/common/validators/nguon-phat-tin-match.validator.ts) — defense in depth: BE reject (400) nếu cặp `(loaiDonVu, nguonPhatTin)` mismatch (vd `TIN_BAO + VIEN_KIEM_SAT`). Bypass UI cũng không qua được.
+- Frontend constants & helper trong [`status-labels.ts`](frontend/src/shared/enums/status-labels.ts):
+  - `NGUON_PHAT_TIN_LABEL` (10 entries) + `NGUON_PHAT_TIN_BY_LOAI` (cascading map)
+  - `getNguonPhatTinOptions(loaiDonVu)` — pure helper, internal guard (no cast at call site)
+  - `PHUONG_THUC_TIEP_NHAN_LABEL` + `PHUONG_THUC_TIEP_NHAN_OPTIONS`
+- 2 FKSelect mới trong [`IncidentFormPage.tsx`](frontend/src/pages/incidents/IncidentFormPage.tsx) section "Tiếp nhận nguồn tin"
+- useEffect cascading auto-reset: khi user đổi `loaiDonVu`, `nguonPhatTin` tự reset nếu value không thuộc group mới
+
+### Changed
+
+- [`generate-shared-enums.cjs`](backend/scripts/generate-shared-enums.cjs) — whitelist thêm `NguonPhatTin`, `PhuongThucTiepNhan` (27 enums shared, +2)
+
+### Tests (TDD RED → GREEN, 16 new tests)
+
+- Backend [`nguon-phat-tin-match.validator.spec.ts`](backend/src/common/validators/__tests__/nguon-phat-tin-match.validator.spec.ts) — 10 tests cover happy paths + 3 mismatch + skip rules
+- Backend [`incidents.service.spec.ts`](backend/src/incidents/incidents.service.spec.ts) — +1 test (91/91 pass): create persists cả 2 field
+- Frontend [`IncidentFormPage.test.tsx`](frontend/src/pages/incidents/__tests__/IncidentFormPage.test.tsx) — +9 tests:
+  - Test 4: cascading visible options (TIN_BAO → 4)
+  - Test 5: auto-reset khi đổi loaiDonVu (TIN_BAO+TO_CHUC → TO_GIAC clears)
+  - Test 6: phương thức submit payload DIEN_THOAI
+  - Test 7: edit-mode load preserve cả 2 field
+  - Test 8 (5 sub-tests): `getNguonPhatTinOptions` helper pure function unit tests
+
+**Suite totals:** Backend 1413/1413 + Frontend 527/527 pass + tsc --noEmit clean.
+
+### Known follow-up (TODOS)
+
+- **P2:** Hiển thị 2 field mới trong IncidentListPage table + filter
+- **P3:** Excel export TT28 thêm 2 cột (template Excel TDC)
+
+### Reference
+
+- Điều 144 BLTTHS 2015 — định nghĩa tố giác / tin báo / kiến nghị khởi tố
+- Thông tư 28/2020/TT-BCA Điều 6 — 5 phương thức tiếp nhận nguồn tin
+
 ## [0.30.0.3] - 2026-05-20
 
 ### Hot-fix: loaiDonVu enum mismatch — form "Thêm vụ việc mới" submit thành công

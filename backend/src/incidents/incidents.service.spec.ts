@@ -537,6 +537,25 @@ describe('IncidentsService', () => {
       expect(createCall.data.lyDoTamDinhChiText).toBe('Cho ket qua giam dinh');
       expect(createCall.data.ngayQuyetDinh).toEqual(new Date('2026-03-15'));
     });
+
+    // v0.31.0.0 — Đ.144 BLTTHS + TT 28/2020/TT-BCA Đ.6 sub-types.
+    it('persists nguonPhatTin and phuongThucTiepNhan enum values', async () => {
+      mockPrisma.incident.create.mockResolvedValue(mockIncident);
+
+      await service.create(
+        {
+          name: 'Vu test cascading enum',
+          loaiDonVu: LoaiNguonTin.TIN_BAO,
+          nguonPhatTin: 'TO_CHUC',
+          phuongThucTiepNhan: 'DIEN_THOAI',
+        } as any,
+        'actor-001',
+      );
+
+      const createCall = mockPrisma.incident.create.mock.calls[0][0];
+      expect(createCall.data.nguonPhatTin).toBe('TO_CHUC');
+      expect(createCall.data.phuongThucTiepNhan).toBe('DIEN_THOAI');
+    });
   });
 
   // ── update ────────────────────────────────────────────────────────────────

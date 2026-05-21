@@ -194,6 +194,29 @@ export const LoaiNguonTin = {
 } as const;
 export type LoaiNguonTin = (typeof LoaiNguonTin)[keyof typeof LoaiNguonTin];
 
+export const NguonPhatTin = {
+  CA_NHAN_TO_GIAC: 'CA_NHAN_TO_GIAC',
+  CO_QUAN_NHA_NUOC: 'CO_QUAN_NHA_NUOC',
+  TO_CHUC: 'TO_CHUC',
+  CA_NHAN_BAO_TIN: 'CA_NHAN_BAO_TIN',
+  PHUONG_TIEN_TRUYEN_THONG: 'PHUONG_TIEN_TRUYEN_THONG',
+  VIEN_KIEM_SAT: 'VIEN_KIEM_SAT',
+  THANH_TRA: 'THANH_TRA',
+  KIEM_TOAN: 'KIEM_TOAN',
+  TOA_AN: 'TOA_AN',
+  CO_QUAN_KHAC: 'CO_QUAN_KHAC',
+} as const;
+export type NguonPhatTin = (typeof NguonPhatTin)[keyof typeof NguonPhatTin];
+
+export const PhuongThucTiepNhan = {
+  TRUC_TIEP_BANG_LOI: 'TRUC_TIEP_BANG_LOI',
+  TRUC_TIEP_BANG_VAN_BAN: 'TRUC_TIEP_BANG_VAN_BAN',
+  DIEN_THOAI: 'DIEN_THOAI',
+  BUU_DIEN: 'BUU_DIEN',
+  PHUONG_TIEN_DIEN_TU: 'PHUONG_TIEN_DIEN_TU',
+} as const;
+export type PhuongThucTiepNhan = (typeof PhuongThucTiepNhan)[keyof typeof PhuongThucTiepNhan];
+
 export const CapDoToiPham = {
   IT_NGHIEM_TRONG: 'IT_NGHIEM_TRONG',
   NGHIEM_TRONG: 'NGHIEM_TRONG',

@@ -135,3 +135,184 @@ describe('IncidentFormPage — loaiDonVu enum dropdown (v0.30.0.3 regression)', 
     expect(payload.loaiDonVu).toBeUndefined();
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// v0.31.0.0 — nguonPhatTin (cascading) + phuongThucTiepNhan (independent)
+// Per Đ.144 BLTTHS 2015 + TT 28/2020/TT-BCA Đ.6.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('IncidentFormPage — nguonPhatTin cascading + phuongThucTiepNhan (v0.31.0.0)', () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+    localStorage.clear();
+    authStore.setProfile(SAMPLE_PROFILE);
+  });
+
+  afterEach(() => {
+    sessionStorage.clear();
+    localStorage.clear();
+    vi.clearAllMocks();
+  });
+
+  it('Test 4 — shows only allowed nguonPhatTin options for selected loaiDonVu (TIN_BAO → 4 options)', async () => {
+    await renderForm();
+
+    // Pick TIN_BAO.
+    fireEvent.click(await screen.findByTestId('field-loaiDonVu-trigger'));
+    await act(async () => {
+      fireEvent.click(await screen.findByTestId('field-loaiDonVu-option-TIN_BAO'));
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId('field-loaiDonVu-trigger')).toHaveTextContent(/Tin báo/),
+    );
+
+    // Open nguonPhatTin dropdown.
+    fireEvent.click(screen.getByTestId('field-nguonPhatTin-trigger'));
+
+    // 4 TIN_BAO options must appear.
+    expect(await screen.findByTestId('field-nguonPhatTin-option-CO_QUAN_NHA_NUOC')).toBeInTheDocument();
+    expect(screen.getByTestId('field-nguonPhatTin-option-TO_CHUC')).toBeInTheDocument();
+    expect(screen.getByTestId('field-nguonPhatTin-option-CA_NHAN_BAO_TIN')).toBeInTheDocument();
+    expect(screen.getByTestId('field-nguonPhatTin-option-PHUONG_TIEN_TRUYEN_THONG')).toBeInTheDocument();
+
+    // TO_GIAC group options must NOT appear (CA_NHAN_TO_GIAC).
+    expect(screen.queryByTestId('field-nguonPhatTin-option-CA_NHAN_TO_GIAC')).not.toBeInTheDocument();
+    // KIEN_NGHI_KHOI_TO group options must NOT appear (VIEN_KIEM_SAT).
+    expect(screen.queryByTestId('field-nguonPhatTin-option-VIEN_KIEM_SAT')).not.toBeInTheDocument();
+  });
+
+  it('Test 5 — auto-resets nguonPhatTin when loaiDonVu changes to a group without the picked value', async () => {
+    await renderForm();
+
+    // Pick TIN_BAO + TO_CHUC.
+    fireEvent.click(await screen.findByTestId('field-loaiDonVu-trigger'));
+    await act(async () => {
+      fireEvent.click(await screen.findByTestId('field-loaiDonVu-option-TIN_BAO'));
+    });
+    fireEvent.click(screen.getByTestId('field-nguonPhatTin-trigger'));
+    await act(async () => {
+      fireEvent.click(await screen.findByTestId('field-nguonPhatTin-option-TO_CHUC'));
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId('field-nguonPhatTin-trigger')).toHaveTextContent(/Tổ chức/),
+    );
+
+    // Change loaiDonVu to TO_GIAC (group does NOT include TO_CHUC).
+    fireEvent.click(screen.getByTestId('field-loaiDonVu-trigger'));
+    await act(async () => {
+      fireEvent.click(await screen.findByTestId('field-loaiDonVu-option-TO_GIAC'));
+    });
+
+    // nguonPhatTin trigger should clear (back to placeholder).
+    await waitFor(() => {
+      const triggerText = screen.getByTestId('field-nguonPhatTin-trigger').textContent ?? '';
+      expect(triggerText).not.toMatch(/Tổ chức/);
+      expect(triggerText).toMatch(/Chọn nguồn phát tin/);
+    });
+  });
+
+  it('Test 6 — sends phuongThucTiepNhan enum value (DIEN_THOAI) in POST payload', async () => {
+    await renderForm();
+
+    fireEvent.change(screen.getByTestId('field-name'), {
+      target: { value: 'Vụ test phuong thuc tiep nhan' },
+    });
+
+    // Pick DIEN_THOAI.
+    fireEvent.click(screen.getByTestId('field-phuongThucTiepNhan-trigger'));
+    await act(async () => {
+      fireEvent.click(await screen.findByTestId('field-phuongThucTiepNhan-option-DIEN_THOAI'));
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId('field-phuongThucTiepNhan-trigger')).toHaveTextContent(/điện thoại/i),
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('btn-save-top'));
+    });
+
+    await waitFor(() => expect(api.post).toHaveBeenCalled());
+    const [, payload] = (api.post as any).mock.calls[0];
+    expect(payload.phuongThucTiepNhan).toBe('DIEN_THOAI');
+  });
+
+  it('Test 7 — edit-mode load preserves both nguonPhatTin and phuongThucTiepNhan from DB', async () => {
+    // Mock GET /incidents/:id to return existing record with both fields set.
+    (api.get as any).mockImplementation((url: string) => {
+      if (url === '/incidents/inc-edit-1') {
+        return Promise.resolve({
+          data: {
+            success: true,
+            data: {
+              id: 'inc-edit-1',
+              name: 'Vụ edit',
+              loaiDonVu: 'TIN_BAO',
+              nguonPhatTin: 'TO_CHUC',
+              phuongThucTiepNhan: 'BUU_DIEN',
+              updatedAt: new Date().toISOString(),
+            },
+          },
+        });
+      }
+      return Promise.resolve({ data: { success: true, data: [] } });
+    });
+
+    const { IncidentFormPage } = await import('../IncidentFormPage');
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={['/vu-viec/inc-edit-1']}>
+          <Routes>
+            <Route path="/vu-viec/:id" element={<IncidentFormPage />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    // Trigger labels reflect loaded values.
+    await waitFor(() => {
+      expect(screen.getByTestId('field-loaiDonVu-trigger')).toHaveTextContent(/Tin báo/);
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId('field-nguonPhatTin-trigger')).toHaveTextContent(/Tổ chức/);
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId('field-phuongThucTiepNhan-trigger')).toHaveTextContent(/bưu điện/i);
+    });
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Test 8 — getNguonPhatTinOptions helper (pure function unit test)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('getNguonPhatTinOptions helper (pure)', () => {
+  it('returns empty array for empty loaiDonVu', async () => {
+    const { getNguonPhatTinOptions } = await import('@/shared/enums/status-labels');
+    expect(getNguonPhatTinOptions('')).toEqual([]);
+  });
+
+  it('returns empty array for unknown loaiDonVu', async () => {
+    const { getNguonPhatTinOptions } = await import('@/shared/enums/status-labels');
+    expect(getNguonPhatTinOptions('NOT_AN_ENUM_VALUE')).toEqual([]);
+  });
+
+  it('returns 1 option for TO_GIAC (Đ.144 K1)', async () => {
+    const { getNguonPhatTinOptions } = await import('@/shared/enums/status-labels');
+    const opts = getNguonPhatTinOptions('TO_GIAC');
+    expect(opts).toHaveLength(1);
+    expect(opts[0].value).toBe('CA_NHAN_TO_GIAC');
+  });
+
+  it('returns 4 options for TIN_BAO (Đ.144 K2)', async () => {
+    const { getNguonPhatTinOptions } = await import('@/shared/enums/status-labels');
+    expect(getNguonPhatTinOptions('TIN_BAO')).toHaveLength(4);
+  });
+
+  it('returns 5 options for KIEN_NGHI_KHOI_TO (Đ.144 K3)', async () => {
+    const { getNguonPhatTinOptions } = await import('@/shared/enums/status-labels');
+    expect(getNguonPhatTinOptions('KIEN_NGHI_KHOI_TO')).toHaveLength(5);
+  });
+});

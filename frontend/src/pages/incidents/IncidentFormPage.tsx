@@ -5,7 +5,14 @@ import { extractApiError } from "@/lib/api-errors";
 import { ArrowLeft, Save, AlertCircle, Calendar, FileText, Loader2, ChevronDown, ChevronRight } from "lucide-react";
 import { FKSelect, type FKOption } from "@/components/FKSelect";
 import { getPhaseForStatus } from "@/constants/incident-phases";
-import { LY_DO_KHONG_KHOI_TO_OPTIONS, LOAI_NGUON_TIN_OPTIONS } from "@/shared/enums/status-labels";
+import {
+  LY_DO_KHONG_KHOI_TO_OPTIONS,
+  LOAI_NGUON_TIN_OPTIONS,
+  NGUON_PHAT_TIN_BY_LOAI,
+  PHUONG_THUC_TIEP_NHAN_OPTIONS,
+  getNguonPhatTinOptions,
+} from "@/shared/enums/status-labels";
+import type { LoaiNguonTin, NguonPhatTin } from "@/shared/enums/generated";
 import { useFormDefaults } from "@/hooks/useFormDefaults";
 import { toDateInput } from "@/lib/dates";
 
@@ -19,6 +26,8 @@ interface FormData {
   doiTuongCaNhan: string;
   doiTuongToChuc: string;
   loaiDonVu: string;
+  nguonPhatTin: string;
+  phuongThucTiepNhan: string;
   benVu: string;
   donViGiaiQuyet: string;     // Text label
   assignedTeamId: string;     // FK Team for DataScope
@@ -49,6 +58,8 @@ const INITIAL_FORM: FormData = {
   doiTuongCaNhan: "",
   doiTuongToChuc: "",
   loaiDonVu: "",
+  nguonPhatTin: "",
+  phuongThucTiepNhan: "",
   benVu: "",
   donViGiaiQuyet: "",
   assignedTeamId: "",
@@ -120,6 +131,18 @@ export function IncidentFormPage() {
 
   const defaults = useFormDefaults();
 
+  // v0.31.0.0 — Cascading guard: khi user đổi `loaiDonVu`, reset `nguonPhatTin`
+  // nếu giá trị đang chọn không thuộc group mới. UX để user không submit value
+  // mismatch (defense-in-depth — BE validator vẫn reject nếu UI bị bypass).
+  useEffect(() => {
+    setFormData((prev) => {
+      if (!prev.loaiDonVu || !prev.nguonPhatTin) return prev;
+      const allowed = NGUON_PHAT_TIN_BY_LOAI[prev.loaiDonVu as LoaiNguonTin] ?? [];
+      if (allowed.includes(prev.nguonPhatTin as NguonPhatTin)) return prev;
+      return { ...prev, nguonPhatTin: "" };
+    });
+  }, [formData.loaiDonVu]);
+
   // Apply defaults on create mode (today, current user, primary team).
   // `prev.x ||` guard preserves user typing if they type before profile loads.
   useEffect(() => {
@@ -166,6 +189,8 @@ export function IncidentFormPage() {
             doiTuongCaNhan: (d.doiTuongCaNhan as string) ?? "",
             doiTuongToChuc: (d.doiTuongToChuc as string) ?? "",
             loaiDonVu: (d.loaiDonVu as string) ?? "",
+            nguonPhatTin: (d.nguonPhatTin as string) ?? "",
+            phuongThucTiepNhan: (d.phuongThucTiepNhan as string) ?? "",
             benVu: (d.benVu as string) ?? "",
             donViGiaiQuyet: (d.donViGiaiQuyet as string) ?? "",
             assignedTeamId: (d.assignedTeamId as string) ?? "",
@@ -228,6 +253,8 @@ export function IncidentFormPage() {
         doiTuongCaNhan: s(formData.doiTuongCaNhan),
         doiTuongToChuc: s(formData.doiTuongToChuc),
         loaiDonVu: s(formData.loaiDonVu),
+        nguonPhatTin: s(formData.nguonPhatTin),
+        phuongThucTiepNhan: s(formData.phuongThucTiepNhan),
         benVu: s(formData.benVu),
         donViGiaiQuyet: s(formData.donViGiaiQuyet),
         assignedTeamId: s(formData.assignedTeamId),
@@ -339,6 +366,31 @@ export function IncidentFormPage() {
                 placeholder="-- Chọn loại nguồn tin --"
                 canCreate={false}
                 testId="field-loaiDonVu"
+              />
+            </div>
+          </div>
+          {/* v0.31.0.0 — sub-types theo Đ.144 BLTTHS + TT 28/2020/TT-BCA Đ.6 */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <FKSelect
+                label="Nguồn phát tin"
+                value={formData.nguonPhatTin}
+                onChange={(v) => update("nguonPhatTin", v)}
+                options={getNguonPhatTinOptions(formData.loaiDonVu)}
+                placeholder={formData.loaiDonVu ? "-- Chọn nguồn phát tin --" : "Vui lòng chọn Loại nguồn tin trước"}
+                canCreate={false}
+                testId="field-nguonPhatTin"
+              />
+            </div>
+            <div>
+              <FKSelect
+                label="Phương thức tiếp nhận (TT28 Đ.6)"
+                value={formData.phuongThucTiepNhan}
+                onChange={(v) => update("phuongThucTiepNhan", v)}
+                options={PHUONG_THUC_TIEP_NHAN_OPTIONS}
+                placeholder="-- Chọn phương thức tiếp nhận --"
+                canCreate={false}
+                testId="field-phuongThucTiepNhan"
               />
             </div>
           </div>
