@@ -27,6 +27,7 @@ import { CreateCaseDto } from './dto/create-case.dto';
 import { UpdateCaseDto } from './dto/update-case.dto';
 import { QueryCasesDto } from './dto/query-cases.dto';
 import { AssignCaseDto } from './dto/assign-case.dto';
+import { DeleteCaseDto } from './dto/delete-case.dto'; // v0.31.0.2
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
 
 class TdcBackfillDto {
@@ -119,19 +120,35 @@ export class CasesController {
     }, req.dataScope);
   }
 
-  // DELETE /api/v1/cases/:id — Xóa vụ án (soft delete)
+  // GET /api/v1/cases/:id/delete-preflight — v0.31.0.2 kiểm tra điều kiện xóa
+  @Get(':id/delete-preflight')
+  @RequirePermissions({ action: 'delete', subject: 'Case' })
+  previewDelete(@Param('id') id: string, @Req() req: ScopedRequest) {
+    return this.casesService.previewDelete(id, req.dataScope);
+  }
+
+  // DELETE /api/v1/cases/:id — Xóa vụ án (soft delete + reason — v0.31.0.2)
+  // Mirror DELETE /incidents/:id pattern. Body bắt buộc { reason: string 10-500 chars }.
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
   @RequirePermissions({ action: 'delete', subject: 'Case' })
   delete(
     @Param('id') id: string,
+    @Body() dto: DeleteCaseDto,
     @CurrentUser() user: AuthUser,
     @Req() req: ScopedRequest,
   ) {
-    return this.casesService.delete(id, user.id, {
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
-    }, req.dataScope);
+    return this.casesService.delete(
+      id,
+      dto.reason,
+      user.id,
+      user.role,
+      {
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      },
+      req.dataScope,
+    );
   }
 
   // PATCH /api/v1/cases/:id/tdc-backfill — Backfill TĐC lý do tạm đình chỉ

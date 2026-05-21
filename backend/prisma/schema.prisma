@@ -153,6 +153,8 @@ model User {
   // Bulk import jobs (v0.25.0.0) — admin upload xlsx/csv → batch create users.
   // Durable audit trail thay BullMQ Redis-only (Eng review E1).
   bulkImportJobs                  BulkImportJob[]           @relation("BulkImportJobGenerator")
+  // v0.31.0.2: track Case creator để áp quyền xóa (creator-or-admin)
+  casesCreated                    Case[]                    @relation("CaseCreator")
 
   @@map("users")
 }
@@ -419,6 +421,11 @@ model Case {
   ketQuaPhucHoiVuAn     KetQuaPhucHoiVuAn?
   ngayHetThoiHieu       DateTime? // Ngày hết thời hiệu truy cứu TNHS (dùng cho Phụ lục 5 vs 6)
 
+  // v0.31.0.2: creator track cho delete-with-reason (creator-or-admin check)
+  // Legacy rows (pre-migration) = NULL → ADMIN-only delete (specific error message)
+  createdById     String?
+  createdBy       User?                     @relation("CaseCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
   investigator    User?                     @relation(fields: [investigatorId], references: [id], onDelete: SetNull)
   assignedTeamId  String?
   assignedTeam    Team?                     @relation("CaseTeam", fields: [assignedTeamId], references: [id], onDelete: SetNull)
@@ -442,6 +449,7 @@ model Case {
   @@index([lyDoTamDinhChiVuAn])
   @@index([createdAt])
   @@index([unit])
+  @@index([createdById])
   @@map("cases")
 }
 

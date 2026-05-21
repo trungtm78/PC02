@@ -32,6 +32,7 @@ describe('SETTINGS_KEY wire format', () => {
     ['THOI_HAN_PHAN_ANH', 'THOI_HAN_PHAN_ANH'],
     ['CANH_BAO_SAP_HAN', 'CANH_BAO_SAP_HAN'],
     ['THOI_HAN_XOA_VU_VIEC', 'THOI_HAN_XOA_VU_VIEC'],
+    ['THOI_HAN_XOA_VU_AN', 'THOI_HAN_XOA_VU_AN'],
   ] as const)('%s key value is %s', (key, expected) => {
     expect(SETTINGS_KEY[key]).toBe(expected);
   });

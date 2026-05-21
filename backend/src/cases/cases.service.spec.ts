@@ -17,11 +17,13 @@
  */
 
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import { NotFoundException, BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { CasesService } from './cases.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
-import { CaseStatus, PetitionStatus, CapDoToiPham } from '@prisma/client';
+import { SettingsService } from '../settings/settings.service';
+import { CaseStatus, PetitionStatus, CapDoToiPham, Prisma } from '@prisma/client';
+import { ROLE_NAMES } from '../common/constants/role.constants';
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
@@ -91,6 +93,11 @@ const mockPrisma = {
   $transaction: jest.fn() as any,
 };
 
+// v0.31.0.2: SettingsService mock for THOI_HAN_XOA_VU_AN
+const mockSettings = {
+  getNumericValue: jest.fn().mockResolvedValue(72),
+};
+
 const mockAudit = {
   log: jest.fn().mockResolvedValue(undefined),
   // v0.30: CASE_UPDATED now uses wrapUpdate to capture full before/after.
@@ -121,6 +128,7 @@ describe('CasesService', () => {
         CasesService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AuditService, useValue: mockAudit },
+        { provide: SettingsService, useValue: mockSettings }, // v0.31.0.2
       ],
     }).compile();
 
@@ -584,35 +592,244 @@ describe('CasesService', () => {
     });
   });
 
-  // ── delete ─────────────────────────────────────────────────────────────────
+  // ── delete (v0.31.0.2 — 8-step chain, transactional, mirror Incident) ─────
 
-  describe('delete', () => {
-    it('should soft delete case', async () => {
-      mockPrisma.case.findFirst.mockResolvedValue(mockCase);
-      mockPrisma.case.update.mockResolvedValue({
+  describe('delete (v0.31.0.2)', () => {
+    const REASON = 'Xóa dữ liệu test nhập sai';
+    const ACTOR_ID = 'creator-001';
+
+    // Common mock setup: case with createdById = ACTOR_ID, all linked counts = 0
+    const setupBasicCase = (overrides: Record<string, unknown> = {}) => {
+      const baseCase = {
         ...mockCase,
-        deletedAt: new Date(),
+        createdById: ACTOR_ID,
+        createdAt: new Date(),
+        subjects: [],
+        lawyers: [],
+        conclusions: [],
+        documents: [],
+        linkedIncidents: [],
+        ...overrides,
+      };
+      mockPrisma.case.findFirst.mockResolvedValue(baseCase);
+      mockPrisma.$transaction.mockImplementation(async (cb: any) => {
+        // v0.31.0.2 codex P1 fix: tx.case.findFirst returns _count for in-tx re-check
+        const tx = {
+          case: {
+            findFirst: jest.fn().mockResolvedValue({
+              _count: {
+                subjects: baseCase.subjects.length,
+                lawyers: baseCase.lawyers.length,
+                conclusions: baseCase.conclusions.length,
+                documents: baseCase.documents.length,
+                linkedIncidents: baseCase.linkedIncidents.length,
+              },
+            }),
+            update: jest.fn().mockResolvedValue({ ...baseCase, deletedAt: new Date() }),
+          },
+        };
+        await cb(tx);
+        return undefined;
       });
+      return baseCase;
+    };
 
-      const result = await service.delete('case-001', 'actor-001');
-
+    it('BE-10: soft deletes case + audit logged in transaction with reason', async () => {
+      setupBasicCase();
+      const result = await service.delete('case-001', REASON, ACTOR_ID, ROLE_NAMES.INVESTIGATOR);
       expect(result.success).toBe(true);
-      expect(result.message).toContain('Xóa');
-      expect(mockPrisma.case.update).toHaveBeenCalledWith({
-        where: { id: 'case-001' },
-        data: { deletedAt: expect.any(Date) },
-      });
+      expect(mockPrisma.$transaction).toHaveBeenCalled();
       expect(mockAudit.log).toHaveBeenCalledWith(
-        expect.objectContaining({ action: 'CASE_DELETED' }),
+        expect.objectContaining({
+          action: 'CASE_DELETED',
+          metadata: expect.objectContaining({ reason: REASON, softDelete: true }),
+        }),
+        expect.anything(),
       );
     });
 
-    it('should throw NotFoundException when deleting non-existent case', async () => {
+    it('throws NotFoundException khi case không tồn tại', async () => {
       mockPrisma.case.findFirst.mockResolvedValue(null);
-
       await expect(
-        service.delete('nonexistent', 'actor-001'),
+        service.delete('nonexistent', REASON, ACTOR_ID, ROLE_NAMES.INVESTIGATOR),
       ).rejects.toThrow(NotFoundException);
+    });
+
+    it('BE-1: throws BadRequest khi status !== TIEP_NHAN', async () => {
+      setupBasicCase({ status: CaseStatus.DANG_DIEU_TRA });
+      await expect(
+        service.delete('case-001', REASON, ACTOR_ID, ROLE_NAMES.INVESTIGATOR),
+      ).rejects.toThrow(/Tiếp nhận/);
+    });
+
+    it('BE-2: throws khi subjects.length > 0', async () => {
+      setupBasicCase({ subjects: [{ id: 's1' }, { id: 's2' }] });
+      await expect(
+        service.delete('case-001', REASON, ACTOR_ID, ROLE_NAMES.INVESTIGATOR),
+      ).rejects.toThrow(/2 đối tượng/);
+    });
+
+    it('BE-3: throws khi lawyers.length > 0', async () => {
+      setupBasicCase({ lawyers: [{ id: 'l1' }] });
+      await expect(
+        service.delete('case-001', REASON, ACTOR_ID, ROLE_NAMES.INVESTIGATOR),
+      ).rejects.toThrow(/1 luật sư/);
+    });
+
+    it('BE-4: throws khi conclusions.length > 0', async () => {
+      setupBasicCase({ conclusions: [{ id: 'c1' }] });
+      await expect(
+        service.delete('case-001', REASON, ACTOR_ID, ROLE_NAMES.INVESTIGATOR),
+      ).rejects.toThrow(/kết luận/);
+    });
+
+    it('BE-5: throws khi documents.length > 0', async () => {
+      setupBasicCase({ documents: [{ id: 'd1' }, { id: 'd2' }, { id: 'd3' }] });
+      await expect(
+        service.delete('case-001', REASON, ACTOR_ID, ROLE_NAMES.INVESTIGATOR),
+      ).rejects.toThrow(/3 tài liệu/);
+    });
+
+    it('BE-6: throws khi linkedIncidents.length > 0', async () => {
+      setupBasicCase({ linkedIncidents: [{ id: 'i1' }] });
+      await expect(
+        service.delete('case-001', REASON, ACTOR_ID, ROLE_NAMES.INVESTIGATOR),
+      ).rejects.toThrow(/vụ việc/);
+    });
+
+    it('BE-7a: throws Forbidden khi không phải creator/admin', async () => {
+      setupBasicCase({ createdById: 'other-user' });
+      await expect(
+        service.delete('case-001', REASON, ACTOR_ID, ROLE_NAMES.INVESTIGATOR),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('BE-7b: throws specific NULL message khi createdById is null (legacy data)', async () => {
+      setupBasicCase({ createdById: null });
+      await expect(
+        service.delete('case-001', REASON, ACTOR_ID, ROLE_NAMES.INVESTIGATOR),
+      ).rejects.toThrow(/dữ liệu cũ/);
+    });
+
+    it('BE-8: throws BadRequest khi quá window và không phải admin', async () => {
+      const oldCase = setupBasicCase({
+        createdAt: new Date(Date.now() - 100 * 3_600_000), // 100h ago
+      });
+      mockSettings.getNumericValue.mockResolvedValueOnce(72);
+      await expect(
+        service.delete('case-001', REASON, ACTOR_ID, ROLE_NAMES.INVESTIGATOR),
+      ).rejects.toThrow(/72 giờ/);
+    });
+
+    it('BE-9: ADMIN bypasses window even when overdue', async () => {
+      setupBasicCase({
+        createdById: 'someone-else',
+        createdAt: new Date(Date.now() - 500 * 3_600_000),
+      });
+      mockSettings.getNumericValue.mockResolvedValueOnce(72);
+      const result = await service.delete('case-001', REASON, 'admin-id', ROLE_NAMES.ADMIN);
+      expect(result.success).toBe(true);
+    });
+
+    it('BE-11b: TOCTOU — concurrent subject insert detected in-transaction (codex P1 fix)', async () => {
+      // Setup: initial findFirst returns 0 subjects, but in-tx count returns 2
+      setupBasicCase();
+      mockPrisma.$transaction.mockImplementationOnce(async (cb: any) => {
+        const tx = {
+          case: {
+            findFirst: jest.fn().mockResolvedValue({
+              _count: { subjects: 2, lawyers: 0, conclusions: 0, documents: 0, linkedIncidents: 0 },
+            }),
+            update: jest.fn(),
+          },
+        };
+        await cb(tx);
+      });
+      await expect(
+        service.delete('case-001', REASON, ACTOR_ID, ROLE_NAMES.INVESTIGATOR),
+      ).rejects.toThrow(/2 đối tượng.*vừa được thêm/);
+    });
+
+    it('BE-11: TOCTOU — concurrent status change → P2025 → BadRequest', async () => {
+      setupBasicCase();
+      const p2025 = new Prisma.PrismaClientKnownRequestError(
+        'Record to update not found',
+        { code: 'P2025', clientVersion: '7.8.0' },
+      );
+      mockPrisma.$transaction.mockRejectedValueOnce(p2025);
+      await expect(
+        service.delete('case-001', REASON, ACTOR_ID, ROLE_NAMES.INVESTIGATOR),
+      ).rejects.toThrow(/đã đổi trạng thái/);
+    });
+
+    it('BE-12: DataScope deny → ForbiddenException via checkWriteScope', async () => {
+      setupBasicCase({ assignedTeamId: 'team-A', investigatorId: 'someone-else' });
+      // Scope excludes team-A and doesn't match investigator
+      const restrictiveScope = {
+        userIds: ['other-user'],
+        writableTeamIds: ['team-B'], // doesn't include team-A
+      } as any;
+      await expect(
+        service.delete('case-001', REASON, ACTOR_ID, ROLE_NAMES.INVESTIGATOR, undefined, restrictiveScope),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('BE: only counts ACTIVE linked subjects (deletedAt:null filter)', async () => {
+      setupBasicCase();
+      // Verify findFirst was called with deletedAt:null filter on subjects
+      await service.delete('case-001', REASON, ACTOR_ID, ROLE_NAMES.INVESTIGATOR);
+      expect(mockPrisma.case.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          include: expect.objectContaining({
+            subjects: { where: { deletedAt: null }, select: { id: true } },
+            lawyers: { where: { deletedAt: null }, select: { id: true } },
+            conclusions: { where: { deletedAt: null }, select: { id: true } },
+            documents: { where: { deletedAt: null }, select: { id: true } },
+            linkedIncidents: { where: { deletedAt: null }, select: { id: true } },
+          }),
+        }),
+      );
+    });
+  });
+
+  // ── previewDelete (v0.31.0.2) ──────────────────────────────────────────────
+
+  describe('previewDelete (v0.31.0.2)', () => {
+    it('BE-13a: returns canDelete=true với no blockers', async () => {
+      mockPrisma.case.findFirst.mockResolvedValue({
+        ...mockCase,
+        subjects: [], lawyers: [], conclusions: [], documents: [], linkedIncidents: [],
+      });
+      const result = await service.previewDelete('case-001');
+      expect(result.canDelete).toBe(true);
+      expect(result.reasonsIfBlocked).toEqual([]);
+      expect(result.blockers).toEqual({
+        subjects: 0, lawyers: 0, conclusions: 0, documents: 0, linkedIncidents: 0,
+      });
+    });
+
+    it('BE-13b: returns canDelete=false với linked entities + status reason', async () => {
+      mockPrisma.case.findFirst.mockResolvedValue({
+        ...mockCase,
+        status: CaseStatus.DANG_DIEU_TRA,
+        subjects: [{ id: 's1' }, { id: 's2' }],
+        lawyers: [],
+        conclusions: [{ id: 'c1' }],
+        documents: [],
+        linkedIncidents: [],
+      });
+      const result = await service.previewDelete('case-001');
+      expect(result.canDelete).toBe(false);
+      expect(result.blockers.subjects).toBe(2);
+      expect(result.blockers.conclusions).toBe(1);
+      expect(result.reasonsIfBlocked.length).toBeGreaterThanOrEqual(3); // status + subjects + conclusions
+      expect(result.reasonsIfBlocked.some((r) => /Tiếp nhận/.test(r))).toBe(true);
+      expect(result.reasonsIfBlocked.some((r) => /2 đối tượng/.test(r))).toBe(true);
+    });
+
+    it('throws NotFoundException khi case không tồn tại', async () => {
+      mockPrisma.case.findFirst.mockResolvedValue(null);
+      await expect(service.previewDelete('nonexistent')).rejects.toThrow(NotFoundException);
     });
   });
 

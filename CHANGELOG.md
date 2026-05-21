@@ -2,6 +2,65 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.31.0.2] - 2026-05-21
+
+### Feat: Xóa vụ án với ghi nhận lý do (mirror Incident + autoplan hardening)
+
+**User report:** Tại màn hình Danh sách vụ án không thể xóa data test mới tiếp nhận; cần flow giống Vụ việc — modal ghi nhận lý do trước khi xóa.
+
+**Plan v0.31.0.2 passed `/autoplan` review (CEO + Design + Eng subagents).** 4 CRITICAL fixes absorbed: audit log transactional, FK migration online-safe (NOT VALID + VALIDATE), soft-deleted entity filter trên ALL 5 linked check, status TOCTOU atomic guard.
+
+### Added
+- **`Case.createdById` field** (nullable FK → users) — online migration với `NOT VALID + VALIDATE CONSTRAINT` pattern (production lock-free). Legacy rows = NULL → ADMIN-only delete với specific error message.
+- **`DELETE /cases/:id` body** `{ reason: string }` — bắt buộc 10-500 ký tự. Mirror `DELETE /incidents/:id` (v0.21.x).
+- **`GET /cases/:id/delete-preflight`** — UI pre-flight kiểm tra trạng thái + linked entity counts (subjects/lawyers/conclusions/documents/linkedIncidents) trước khi user nhập lý do. Tiết kiệm round-trip 400.
+- **SystemSetting `THOI_HAN_XOA_VU_AN`** (default 72h) — cấu hình thời hạn creator được tự xóa. ADMIN bypass window.
+- **Audit log `CASE_DELETED`** wrapped trong `$transaction` với soft delete — guaranteed atomic, no orphan deletion possible.
+- **Modal "Xóa vụ án" (frontend)**:
+  - Pre-flight blocker banner (red, list 5 entity counts)
+  - 4 quick-fill reason chips ("Nhập sai", "Trùng lặp", "Sai phân loại", "Dữ liệu test")
+  - Always-visible character counter `{n}/500` (color-shift: red <10, slate 10-480, amber >480)
+  - **Inline error banner** (replaces `window.alert`) — modal stays open, reason preserved cho retry
+  - **autoFocus textarea + focus return** to triggering ⋮ button on close (keyboard a11y)
+  - Esc key closes modal
+- **Success banner** ở top trang sau xóa (green, auto-dismiss 5s, click X to dismiss).
+
+### Changed
+- **`Case.delete()` service** — refactor từ minimal 6-step sang full 8-step validation chain (mirror `incidents.service.ts:469-563`):
+  1. Fetch với linked entity counts (ALL filter `deletedAt:null`)
+  2. Status check (only TIEP_NHAN)
+  3. 5-entity linked records check (subjects/lawyers/conclusions/documents/linkedIncidents)
+  4. Creator-or-admin check (specific NULL message)
+  5. Time window check (72h default, ADMIN bypass)
+  6. DataScope write-scope check
+  7. **Atomic soft delete** với `where:{status:TIEP_NHAN}` (catches P2025 → "đã đổi trạng thái")
+  8. **Audit log in same `$transaction`**
+- **"Xóa vụ án" button** — visible always trong action menu, disabled với tooltip khi `status !== TIEP_NHAN` (thay vì hide entirely — discoverability). Tooltip giải thích status hiện tại.
+- **`Case.create()`** — set `createdById: actorId` cho new cases.
+
+### Removed
+- Dialog "Vô hiệu hóa vụ án" cũ (single-action, no reason) — thay bằng full modal trên.
+
+### Tests
+- +13 backend (cases.service.spec.ts) — 8-step chain + previewDelete + TOCTOU + DataScope.
+- +1 settings spec (`THOI_HAN_XOA_VU_AN` seeded).
+- +5 frontend (CaseListPage.test.tsx integration) — status guard, modal autofocus + preflight, inline error (NOT alert), blockers disabled.
+- Suite: 1430 BE pass, 542 FE pass.
+
+### Migration safety (prod)
+- `ALTER TABLE cases ADD COLUMN createdById TEXT` — PG13+ metadata-only, instant.
+- `ADD CONSTRAINT ... FOREIGN KEY ... NOT VALID` — brief ACCESS EXCLUSIVE, no table scan.
+- `VALIDATE CONSTRAINT` — SHARE UPDATE EXCLUSIVE, allows concurrent reads/writes.
+- `CREATE INDEX` — plain (acceptable vì cases < 10k rows). Tách CONCURRENTLY khi table lớn.
+
+### Deferred to TODOS (4 added)
+- P3: Backfill script `Case.createdById` từ audit log lịch sử.
+- P2: Test data mode (`isTestData: true` flag bypass 8-step chain for ADMIN).
+- P2: Extract `SoftDeleteWithReasonService<T>` base class (trigger khi N=3 entities — Petition next).
+- P2: Backport UX deltas (inline error banner, visible disabled, chips, counter, focus) → IncidentListPage delete modal.
+
+---
+
 ## [0.31.0.1] - 2026-05-21
 
 ### Hot-fix: Action dropdown (⋮) bị clip ở 3 list page — React Portal escape

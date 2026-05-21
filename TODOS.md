@@ -1,5 +1,33 @@
 # TODOS
 
+## v0.31.0.2 follow-ups (Case delete /autoplan)
+
+### CASE-DEL-001: Backfill `Case.createdById` từ audit log lịch sử
+**Priority:** P3
+**Details:** Migration v0.31.0.2 add field `Case.createdById` nullable. Legacy rows = NULL → ADMIN-only delete. Build best-effort backfill script đọc `audit_logs.action='CASE_CREATED'` để gán `createdById = userId` cho các vụ án cũ. Pre-audit-log records sẽ vẫn NULL.
+**Files:** `backend/scripts/backfill-case-created-by.ts`
+**Effort:** ~30min
+**Discovered:** 2026-05-21 (/autoplan CEO Finding 2)
+
+### CASE-DEL-002: Test data mode (`isTestData` flag bypass 8-step chain)
+**Priority:** P2
+**Details:** Add `isTestData: boolean @default(false)` cho Case + Incident + Petition. Seed test data với flag=true. Delete bypasses 8-step validation chain khi flag=true AND actor=ADMIN. Audit action `CASE_DELETED_TEST` để tách signal khỏi production deletes. Keeps real audit log clean cho procuracy review.
+**Effort:** ~2h
+**Discovered:** 2026-05-21 (/autoplan CEO Finding 3)
+
+### CASE-DEL-003: Extract `SoftDeleteWithReasonService<T>` base class
+**Priority:** P2
+**Details:** Currently 2 copies of 95 LOC validation chain (Incident + Case). Khi Petition delete-with-reason lands (v0.32-0.33), extract abstract base class trong `backend/src/common/services/` với hooks: `getLinkedEntities()`, `getDeletableStatuses()`, `getTimeWindowSettingKey()`, `getAuditAction()`. Frontend: `<DeleteWithReasonModal entityLabel="vụ X">` shared component trong `frontend/src/shared/components/`.
+**Trigger:** 3rd entity (Petition) adoption.
+**Effort:** ~4h refactor + retest existing 25+ tests.
+**Discovered:** 2026-05-21 (/autoplan CEO Finding 1)
+
+### CASE-DEL-004: Backport UX deltas → IncidentListPage delete modal
+**Priority:** P2
+**Details:** v0.31.0.2 CaseListPage delete modal có deltas vs IncidentListPage benchmark: inline error banner (NOT `window.alert`), visible disabled + tooltip (status guard), quick-fill reason chips, char counter, autoFocus + focus return on Esc/close. Backport same UX → `frontend/src/pages/incidents/IncidentListPage.tsx:643-752`.
+**Effort:** ~2h
+**Discovered:** 2026-05-21 (/autoplan Design Review)
+
 ## Security
 
 ### FINDING-002: Git history contains `.env.test` credentials
