@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { usePermission } from "@/hooks/usePermission";
 import { AssignModal } from "@/components/AssignModal";
+import { ActionMenuPortal } from "@/components/ActionMenuPortal";
 
 // ─────────────────────────────────────────────────────────
 // API types — khớp với response của GET /api/v1/cases
@@ -196,9 +197,8 @@ function CaseListPage() {
     charges: "",
   });
 
-  // ── Action dropdown menu ──────────────────────────────
-  const [showActionMenu, setShowActionMenu] = useState<string | null>(null);
-  const actionMenuRef = useRef<HTMLDivElement>(null);
+  // ── Action dropdown menu (v0.31.0.1 — Portal-based, state-anchor) ────
+  const [openMenu, setOpenMenu] = useState<{ id: string; anchor: HTMLElement } | null>(null);
 
   // ── Vô hiệu hóa (soft delete) ────────────────────────
   const [deactivateDialogOpen, setDeactivateDialogOpen] = useState(false);
@@ -211,16 +211,7 @@ function CaseListPage() {
 
 
 
-  // ── Click-outside để đóng dropdown ───────────────────
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (actionMenuRef.current && !actionMenuRef.current.contains(e.target as Node)) {
-        setShowActionMenu(null);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  // v0.31.0.1 — click-outside handled internally by ActionMenuPortal.
 
   // ── Fetch data từ API ─────────────────────────────────
   const fetchCases = useCallback(async () => {
@@ -281,7 +272,7 @@ function CaseListPage() {
   const openDeactivateDialog = (caseItem: Case) => {
     setCaseToDeactivate(caseItem);
     setDeactivateDialogOpen(true);
-    setShowActionMenu(null);
+    setOpenMenu(null);
   };
 
   const closeDeactivateDialog = () => {
@@ -608,98 +599,22 @@ function CaseListPage() {
                               >
                                 <Edit className="w-4 h-4" />
                               </button>
-                              {/* ⋮ Action menu */}
-                              <div className="relative" ref={showActionMenu === caseItem.id ? actionMenuRef : null}>
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); setShowActionMenu(showActionMenu === caseItem.id ? null : caseItem.id); }}
-                                  className="p-2 text-slate-600 hover:bg-slate-100 rounded transition-colors"
-                                  title="Thao tác khác"
-                                  data-testid={`btn-more-${caseItem.id}`}
-                                >
-                                  <MoreVertical className="w-4 h-4" />
-                                </button>
-                                {showActionMenu === caseItem.id && (
-                                  <div className="absolute left-10 top-full mt-1 w-56 bg-white border border-slate-200 rounded-lg shadow-lg z-50" onClick={(e) => e.stopPropagation()}>
-                                    {/* Phân công (dispatcher only) */}
-                                    {canDispatch && (
-                                      <button
-                                        onClick={() => {
-                                          setShowActionMenu(null);
-                                          setSelectedCase(caseItem);
-                                          setShowAssignModal(true);
-                                        }}
-                                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left"
-                                        data-testid={`btn-assign-${caseItem.id}`}
-                                      >
-                                        <UserCheck className="w-4 h-4 text-green-600 flex-shrink-0" />
-                                        {caseItem.assignedTeamId ? "Phân công lại" : "Phân công"}
-                                      </button>
-                                    )}
-                                    {/* Quản lý bị can */}
-                                    <button
-                                      onClick={() => {
-                                        setShowActionMenu(null);
-                                        navigate(`/cases/${caseItem.id}`, { state: { activeTab: "defendants" } });
-                                      }}
-                                      className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left${canDispatch ? " border-t border-slate-100" : ""}`}
-                                      data-testid={`btn-manage-defendants-${caseItem.id}`}
-                                    >
-                                      <Users className="w-4 h-4 text-blue-600 flex-shrink-0" />
-                                      Quản lý bị can
-                                    </button>
-                                    {/* Quản lý luật sư */}
-                                    <button
-                                      onClick={() => {
-                                        setShowActionMenu(null);
-                                        navigate(`/cases/${caseItem.id}`, { state: { activeTab: "lawyers" } });
-                                      }}
-                                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left border-t border-slate-100"
-                                      data-testid={`btn-manage-lawyers-${caseItem.id}`}
-                                    >
-                                      <Briefcase className="w-4 h-4 text-purple-600 flex-shrink-0" />
-                                      Quản lý luật sư
-                                    </button>
-                                    {/* Kết luận điều tra */}
-                                    <button
-                                      onClick={() => {
-                                        setShowActionMenu(null);
-                                        navigate(`/cases/${caseItem.id}`, { state: { activeTab: "conclusion" } });
-                                      }}
-                                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left border-t border-slate-100"
-                                      data-testid={`btn-conclusion-${caseItem.id}`}
-                                    >
-                                      <FileText className="w-4 h-4 text-green-600 flex-shrink-0" />
-                                      Kết luận điều tra
-                                    </button>
-                                    {/* Chuyển xử lý */}
-                                    <button
-                                      onClick={() => {
-                                        setShowActionMenu(null);
-                                        navigate("/transfer-return", {
-                                          state: {
-                                            preselectedRecord: { id: caseItem.id, caseNumber: caseItem.id.slice(0, 8).toUpperCase() },
-                                            sourceScreen: "cases",
-                                          },
-                                        });
-                                      }}
-                                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left border-t border-slate-100"
-                                      data-testid={`btn-transfer-${caseItem.id}`}
-                                    >
-                                      <ArrowRightLeft className="w-4 h-4 text-slate-500 flex-shrink-0" />
-                                      Chuyển xử lý
-                                    </button>
-                                    {/* Vô hiệu hóa */}
-                                    <button
-                                      onClick={() => openDeactivateDialog(caseItem)}
-                                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors text-left border-t border-slate-100"
-                                      data-testid={`btn-deactivate-${caseItem.id}`}
-                                    >
-                                      <Trash2 className="w-4 h-4 flex-shrink-0" />
-                                      Vô hiệu hóa
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
+                              {/* ⋮ Action menu (v0.31.0.1 — Portal rendered at component level below) */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setOpenMenu(
+                                    openMenu?.id === caseItem.id
+                                      ? null
+                                      : { id: caseItem.id, anchor: e.currentTarget },
+                                  );
+                                }}
+                                className="p-2 text-slate-600 hover:bg-slate-100 rounded transition-colors"
+                                title="Thao tác khác"
+                                data-testid={`btn-more-${caseItem.id}`}
+                              >
+                                <MoreVertical className="w-4 h-4" />
+                              </button>
                             </div>
                           </td>
                           {/* Regular columns */}
@@ -748,6 +663,87 @@ function CaseListPage() {
           </>
         )}
       </div>
+
+      {/* v0.31.0.1 — Action menu via Portal (escapes parent overflow-hidden) */}
+      {openMenu && (() => {
+        const caseItem = caseList.find((c) => c.id === openMenu.id);
+        if (!caseItem) return null;
+        return (
+          <ActionMenuPortal anchor={openMenu.anchor} open={true} onClose={() => setOpenMenu(null)}>
+            {canDispatch && (
+              <button
+                onClick={() => {
+                  setOpenMenu(null);
+                  setSelectedCase(caseItem);
+                  setShowAssignModal(true);
+                }}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left"
+                data-testid={`btn-assign-${caseItem.id}`}
+              >
+                <UserCheck className="w-4 h-4 text-green-600 flex-shrink-0" />
+                {caseItem.assignedTeamId ? "Phân công lại" : "Phân công"}
+              </button>
+            )}
+            <button
+              onClick={() => {
+                setOpenMenu(null);
+                navigate(`/cases/${caseItem.id}`, { state: { activeTab: "defendants" } });
+              }}
+              className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left${canDispatch ? " border-t border-slate-100" : ""}`}
+              data-testid={`btn-manage-defendants-${caseItem.id}`}
+            >
+              <Users className="w-4 h-4 text-blue-600 flex-shrink-0" />
+              Quản lý bị can
+            </button>
+            <button
+              onClick={() => {
+                setOpenMenu(null);
+                navigate(`/cases/${caseItem.id}`, { state: { activeTab: "lawyers" } });
+              }}
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left border-t border-slate-100"
+              data-testid={`btn-manage-lawyers-${caseItem.id}`}
+            >
+              <Briefcase className="w-4 h-4 text-purple-600 flex-shrink-0" />
+              Quản lý luật sư
+            </button>
+            <button
+              onClick={() => {
+                setOpenMenu(null);
+                navigate(`/cases/${caseItem.id}`, { state: { activeTab: "conclusion" } });
+              }}
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left border-t border-slate-100"
+              data-testid={`btn-conclusion-${caseItem.id}`}
+            >
+              <FileText className="w-4 h-4 text-green-600 flex-shrink-0" />
+              Kết luận điều tra
+            </button>
+            <button
+              onClick={() => {
+                setOpenMenu(null);
+                navigate("/transfer-return", {
+                  state: {
+                    preselectedRecord: { id: caseItem.id, caseNumber: caseItem.id.slice(0, 8).toUpperCase() },
+                    sourceScreen: "cases",
+                  },
+                });
+              }}
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left border-t border-slate-100"
+              data-testid={`btn-transfer-${caseItem.id}`}
+            >
+              <ArrowRightLeft className="w-4 h-4 text-slate-500 flex-shrink-0" />
+              Chuyển xử lý
+            </button>
+            <button
+              onClick={() => openDeactivateDialog(caseItem)}
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors text-left border-t border-slate-100"
+              data-testid={`btn-deactivate-${caseItem.id}`}
+            >
+              <Trash2 className="w-4 h-4 flex-shrink-0" />
+              Vô hiệu hóa
+            </button>
+          </ActionMenuPortal>
+        );
+      })()}
 
       {/* ── Modal phân công ────────────────────────────── */}
       {showAssignModal && selectedCase && (

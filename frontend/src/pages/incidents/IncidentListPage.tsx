@@ -14,6 +14,7 @@ import {
 import { PHASE_STATUSES, PHASE_LABELS } from "@/constants/incident-phases";
 import { usePermission } from "@/hooks/usePermission";
 import { AssignModal } from "@/components/AssignModal";
+import { ActionMenuPortal } from "@/components/ActionMenuPortal";
 import { IncidentStatus } from "@/shared/enums/generated";
 
 const STATUS_LABELS: Record<IncidentStatus, string> = {
@@ -152,7 +153,9 @@ export function IncidentListPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [quickSearch, setQuickSearch] = useState("");
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
-  const [showActionMenu, setShowActionMenu] = useState<string | null>(null);
+  // v0.31.0.1: state-based anchor for ActionMenuPortal (replaces showActionMenu).
+  // Click handler passes `e.currentTarget` so portal can position itself.
+  const [openMenu, setOpenMenu] = useState<{ id: string; anchor: HTMLElement } | null>(null);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showProsecuteModal, setShowProsecuteModal] = useState(false);
   const [showTransitionModal, setShowTransitionModal] = useState(false);
@@ -254,18 +257,16 @@ export function IncidentListPage() {
 
   const handleSuccess = useCallback(() => setRefreshTick((t) => t + 1), []);
 
-  useEffect(() => {
-    const h = () => setShowActionMenu(null);
-    document.addEventListener("click", h);
-    return () => document.removeEventListener("click", h);
-  }, []);
+  // v0.31.0.1: document-click handler removed — ActionMenuPortal manages
+  // click-outside detection internally via mousedown listener (more reliable
+  // than bubbled click, fires before menu item click handlers).
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const overdueCount = incidents.filter((i) => isOverdue(i.deadline)).length;
 
   const handleActionClick = useCallback((incident: Incident, action: string) => {
     setSelectedIncident(incident);
-    setShowActionMenu(null);
+    setOpenMenu(null);
     if (action === "assign") setShowAssignModal(true);
     else if (action === "prosecute") setShowProsecuteModal(true);
     else if (action === "transition") setShowTransitionModal(true);
@@ -539,27 +540,19 @@ export function IncidentListPage() {
                         <div className="flex items-center gap-1">
                           <button onClick={() => navigate(`/vu-viec/${incident.id}`)} className="p-2 text-blue-600 hover:bg-blue-50 rounded" title="Xem" data-testid={`btn-view-${incident.id}`}><Eye className="w-4 h-4" /></button>
                           <button onClick={() => navigate(`/vu-viec/${incident.id}/edit`)} className="p-2 text-slate-600 hover:bg-slate-100 rounded" title="Sửa" data-testid={`btn-edit-${incident.id}`}><Edit className="w-4 h-4" /></button>
-                          <div className="relative">
-                            <button onClick={(e) => { e.stopPropagation(); setShowActionMenu(showActionMenu === incident.id ? null : incident.id); }} className="p-2 text-slate-600 hover:bg-slate-100 rounded" title="Thao tác" data-testid="btn-action-menu"><MoreVertical className="w-4 h-4" /></button>
-                            {showActionMenu === incident.id && (
-                              <div className="absolute left-10 top-full mt-1 w-60 bg-white border border-slate-200 rounded-lg shadow-lg z-50" onClick={(e) => e.stopPropagation()}>
-                                {canDispatch && (
-                                  <button onClick={() => handleActionClick(incident, "assign")} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 text-left" data-testid="btn-assign"><User className="w-4 h-4 text-blue-600" />{incident.assignedTeamId ? 'Phân công lại' : 'Phân công'}</button>
-                                )}
-                                {VALID_TRANSITIONS[incident.status]?.length > 0 && (
-                                  <button onClick={() => handleActionClick(incident, "transition")} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 text-left border-t border-slate-100" data-testid="btn-transition">
-                                    <ArrowRightLeft className="w-4 h-4 text-indigo-600" />Chuyển trạng thái
-                                  </button>
-                                )}
-                                {incident.status === IncidentStatus.DANG_XAC_MINH && (
-                                  <button onClick={() => handleActionClick(incident, "prosecute")} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 text-left border-t border-slate-100" data-testid="btn-prosecute"><Scale className="w-4 h-4 text-red-600" />Khởi tố</button>
-                                )}
-                                {incident.status === IncidentStatus.TIEP_NHAN && (
-                                  <button onClick={() => { setSelectedIncident(incident); setShowDeleteModal(true); setShowActionMenu(null); setDeleteReason(""); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 text-left border-t border-slate-100" data-testid="btn-delete"><Trash2 className="w-4 h-4" />Xóa vụ việc</button>
-                                )}
-                              </div>
-                            )}
-                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenMenu(
+                                openMenu?.id === incident.id ? null : { id: incident.id, anchor: e.currentTarget },
+                              );
+                            }}
+                            className="p-2 text-slate-600 hover:bg-slate-100 rounded"
+                            title="Thao tác"
+                            data-testid="btn-action-menu"
+                          >
+                            <MoreVertical className="w-4 h-4" />
+                          </button>
                         </div>
                       </td>
                       {/* Regular columns — same order as before */}
@@ -613,6 +606,57 @@ export function IncidentListPage() {
           </div>
         )}
       </div>
+
+      {/* v0.31.0.1 — Action menu via Portal (escapes parent overflow-hidden) */}
+      {openMenu && (() => {
+        const incident = incidents.find((i) => i.id === openMenu.id);
+        if (!incident) return null;
+        return (
+          <ActionMenuPortal anchor={openMenu.anchor} open={true} onClose={() => setOpenMenu(null)}>
+            {canDispatch && (
+              <button
+                onClick={() => handleActionClick(incident, "assign")}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 text-left"
+                data-testid="btn-assign"
+              >
+                <User className="w-4 h-4 text-blue-600" />{incident.assignedTeamId ? 'Phân công lại' : 'Phân công'}
+              </button>
+            )}
+            {VALID_TRANSITIONS[incident.status]?.length > 0 && (
+              <button
+                onClick={() => handleActionClick(incident, "transition")}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 text-left border-t border-slate-100"
+                data-testid="btn-transition"
+              >
+                <ArrowRightLeft className="w-4 h-4 text-indigo-600" />Chuyển trạng thái
+              </button>
+            )}
+            {incident.status === IncidentStatus.DANG_XAC_MINH && (
+              <button
+                onClick={() => handleActionClick(incident, "prosecute")}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 text-left border-t border-slate-100"
+                data-testid="btn-prosecute"
+              >
+                <Scale className="w-4 h-4 text-red-600" />Khởi tố
+              </button>
+            )}
+            {incident.status === IncidentStatus.TIEP_NHAN && (
+              <button
+                onClick={() => {
+                  setSelectedIncident(incident);
+                  setShowDeleteModal(true);
+                  setOpenMenu(null);
+                  setDeleteReason("");
+                }}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 text-left border-t border-slate-100"
+                data-testid="btn-delete"
+              >
+                <Trash2 className="w-4 h-4" />Xóa vụ việc
+              </button>
+            )}
+          </ActionMenuPortal>
+        );
+      })()}
 
       {/* Modals */}
       {showAssignModal && selectedIncident && (

@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import { usePermission } from "@/hooks/usePermission";
 import { AssignModal } from "@/components/AssignModal";
+import { ActionMenuPortal } from "@/components/ActionMenuPortal";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -115,7 +116,8 @@ export function PetitionListPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [quickSearch, setQuickSearch] = useState("");
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
-  const [showActionMenu, setShowActionMenu] = useState<string | null>(null);
+  // v0.31.0.1 — state-based anchor for ActionMenuPortal
+  const [openMenu, setOpenMenu] = useState<{ id: string; anchor: HTMLElement } | null>(null);
   const [showConvertToIncidentModal, setShowConvertToIncidentModal] = useState(false);
   const [showConvertToCaseModal, setShowConvertToCaseModal] = useState(false);
   const [showGuideModal, setShowGuideModal] = useState(false);
@@ -195,7 +197,7 @@ export function PetitionListPage() {
   const handleActionClick = useCallback(
     (petition: Petition, action: string) => {
       setSelectedPetition(petition);
-      setShowActionMenu(null);
+      setOpenMenu(null);
 
       switch (action) {
         case "assign":
@@ -227,12 +229,7 @@ export function PetitionListPage() {
     [fetchPetitions]
   );
 
-  // Close action menu on outside click
-  useEffect(() => {
-    const handler = () => setShowActionMenu(null);
-    document.addEventListener("click", handler);
-    return () => document.removeEventListener("click", handler);
-  }, []);
+  // v0.31.0.1 — click-outside handled internally by ActionMenuPortal.
 
   return (
     <div className="p-6 space-y-6" data-testid="petition-list-page">
@@ -547,70 +544,21 @@ export function PetitionListPage() {
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
-                          <div className="relative">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setShowActionMenu(
-                                  showActionMenu === petition.id ? null : petition.id
-                                );
-                              }}
-                              className="p-2 text-slate-600 hover:bg-slate-100 rounded transition-colors"
-                              title="Thao tác khác"
-                              data-testid="btn-action-menu"
-                            >
-                              <MoreVertical className="w-4 h-4" />
-                            </button>
-                            {showActionMenu === petition.id && (
-                              <div
-                                className="absolute left-10 top-full mt-1 w-56 bg-white border border-slate-200 rounded-lg shadow-lg z-50"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                {canDispatch && (
-                                  <button
-                                    onClick={() => handleActionClick(petition, "assign")}
-                                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left"
-                                    data-testid="btn-assign"
-                                  >
-                                    <User className="w-4 h-4 text-blue-600" />
-                                    {petition.assignedTeamId ? 'Phân công lại' : 'Phân công'}
-                                  </button>
-                                )}
-                                <button
-                                  onClick={() => handleActionClick(petition, "convert-incident")}
-                                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left"
-                                  data-testid="btn-convert-incident"
-                                >
-                                  <FileText className="w-4 h-4 text-purple-600" />
-                                  Chuyển thành Vụ việc
-                                </button>
-                                <button
-                                  onClick={() => handleActionClick(petition, "convert-case")}
-                                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left border-t border-slate-100"
-                                  data-testid="btn-convert-case"
-                                >
-                                  <Scale className="w-4 h-4 text-red-600" />
-                                  Chuyển thành Vụ án
-                                </button>
-                                <button
-                                  onClick={() => handleActionClick(petition, "guide")}
-                                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left border-t border-slate-100"
-                                  data-testid="btn-guide"
-                                >
-                                  <BookOpen className="w-4 h-4 text-blue-600" />
-                                  Hướng dẫn
-                                </button>
-                                <button
-                                  onClick={() => handleActionClick(petition, "archive")}
-                                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left border-t border-slate-100"
-                                  data-testid="btn-archive"
-                                >
-                                  <Archive className="w-4 h-4 text-slate-600" />
-                                  Lưu đơn
-                                </button>
-                              </div>
-                            )}
-                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenMenu(
+                                openMenu?.id === petition.id
+                                  ? null
+                                  : { id: petition.id, anchor: e.currentTarget },
+                              );
+                            }}
+                            className="p-2 text-slate-600 hover:bg-slate-100 rounded transition-colors"
+                            title="Thao tác khác"
+                            data-testid="btn-action-menu"
+                          >
+                            <MoreVertical className="w-4 h-4" />
+                          </button>
                         </div>
                       </td>
                       {/* Regular columns */}
@@ -654,6 +602,58 @@ export function PetitionListPage() {
       </div>
 
       {/* Modals */}
+      {/* v0.31.0.1 — Action menu via Portal */}
+      {openMenu && (() => {
+        const petition = displayedPetitions.find((p) => p.id === openMenu.id);
+        if (!petition) return null;
+        return (
+          <ActionMenuPortal anchor={openMenu.anchor} open={true} onClose={() => setOpenMenu(null)}>
+            {canDispatch && (
+              <button
+                onClick={() => handleActionClick(petition, "assign")}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left"
+                data-testid="btn-assign"
+              >
+                <User className="w-4 h-4 text-blue-600" />
+                {petition.assignedTeamId ? 'Phân công lại' : 'Phân công'}
+              </button>
+            )}
+            <button
+              onClick={() => handleActionClick(petition, "convert-incident")}
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left"
+              data-testid="btn-convert-incident"
+            >
+              <FileText className="w-4 h-4 text-purple-600" />
+              Chuyển thành Vụ việc
+            </button>
+            <button
+              onClick={() => handleActionClick(petition, "convert-case")}
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left border-t border-slate-100"
+              data-testid="btn-convert-case"
+            >
+              <Scale className="w-4 h-4 text-red-600" />
+              Chuyển thành Vụ án
+            </button>
+            <button
+              onClick={() => handleActionClick(petition, "guide")}
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left border-t border-slate-100"
+              data-testid="btn-guide"
+            >
+              <BookOpen className="w-4 h-4 text-blue-600" />
+              Hướng dẫn
+            </button>
+            <button
+              onClick={() => handleActionClick(petition, "archive")}
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left border-t border-slate-100"
+              data-testid="btn-archive"
+            >
+              <Archive className="w-4 h-4 text-slate-600" />
+              Lưu đơn
+            </button>
+          </ActionMenuPortal>
+        );
+      })()}
+
       {showAssignModal && selectedPetition && (
         <AssignModal
           open={showAssignModal}
