@@ -2,6 +2,54 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.31.0.1] - 2026-05-21
+
+### Hot-fix: Action dropdown (⋮) bị clip ở 3 list page — React Portal escape
+
+**User report:** Click button 3 chấm (⋮) ở `/vu-viec` → submenu bị che mất (truncated bởi container cha).
+
+**Root cause:** CSS overflow chain ở 3 list page (IncidentListPage, CaseListPage, PetitionListPage):
+- Outer card wrapper `overflow-hidden` (rounded corners + shadow)
+- Inner table wrapper `overflow-x-auto` (horizontal scroll)
+- CSS spec: khi `overflow-x` là `auto/scroll/hidden`, browser TỰ ÉP `overflow-y` từ `visible` thành `auto` — kể cả explicit `overflow-y: visible` không thoát được
+- Inline `absolute z-50` dropdown bị clip bởi cả 2 layer overflow
+
+**Fix:** Render dropdown qua React Portal (`createPortal` to `document.body`) — thoát ALL parent overflow constraints. Industry-standard pattern (Radix, Headless UI, Floating UI dùng).
+
+### Added
+
+- `<ActionMenuPortal>` shared component ([frontend/src/components/ActionMenuPortal.tsx](frontend/src/components/ActionMenuPortal.tsx)) — reusable cho future list pages:
+  - State-based anchor prop (`anchor: HTMLElement | null`) — inline JSX trong `.map()`, không cần extract per-row component
+  - Auto-position từ `getBoundingClientRect()` của anchor
+  - rAF-throttled scroll/resize listener (smooth ở low-end devices)
+  - Defensive close khi anchor detached khỏi DOM mid-open
+  - Click-outside detection (mousedown listener)
+  - Escape key handler
+  - z-index 9999 (escape any stacking context)
+
+### Changed
+
+- `IncidentListPage`, `CaseListPage`, `PetitionListPage`: replace inline absolute dropdown JSX bằng `<ActionMenuPortal>` invocation. State `showActionMenu: string` → `openMenu: {id, anchor}`. Click-outside useEffect removed (Portal handles internally).
+
+### Tests (TDD RED → GREEN, +10 new)
+
+- `frontend/src/components/__tests__/ActionMenuPortal.test.tsx` — 8 tests (closed/open/position align right+left/click-outside/menu-item-no-close/Escape/anchor-detached)
+- `frontend/src/pages/incidents/__tests__/IncidentListPage.test.tsx` — 2 integration tests (bootstrap new test file): click ⋮ → portal opens, click outside → portal closes
+
+**Suite:** 527 → 537 FE pass + tsc --noEmit clean. Backend unchanged (1413/1413).
+
+### Reference
+
+- Commits trước (prior CSS-only attempts đã fail vì CSS spec):
+  - `d81cdbe fix(ui): action dropdown z-20 → z-50 to render above sidebar`
+  - `5d6622e fix(ui): action dropdown mở sang phải (left-0) thay vì sang trái`
+  - `ef92357 fix(ui): action dropdown left-0 → left-10 to clear ⋮ button column`
+
+### Known follow-up
+
+- **P3:** Smart collision detection — auto flip menu UP nếu near bottom viewport (Floating UI middleware pattern)
+- **P3:** Keyboard navigation — ArrowDown/Up navigate menu items + Enter trigger (FKSelect:190-228 đã có pattern, có thể clone)
+
 ## [0.31.0.0] - 2026-05-21
 
 ### Bổ sung Loại nguồn tin chi tiết — Đ.144 BLTTHS + TT 28/2020/TT-BCA Đ.6
