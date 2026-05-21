@@ -2,6 +2,52 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.32.0.0] - 2026-05-21
+
+### Feat: Khôi phục dữ liệu đã xóa — Case + Incident + Petition (greenfield)
+
+**User report:** "Quản trị có thể khôi phục vụ án đã xóa không?". Trước đây CHƯA — soft delete chỉ set `deletedAt`, không có UI/API restore. Admin phải SSH + UPDATE SQL trực tiếp. Modal delete v0.31.0.2 nói dối ("Quản trị viên có thể khôi phục" — kỹ thuật được, thực tế không có flow).
+
+**Plan v0.32.0.0 passed `/plan-eng-review` (4 findings → all resolved).**
+
+### Added
+- **Trang `/admin/khoi-phuc`** (RestorePage) — admin-only, 3 tabs (Vụ án / Vụ việc / Đơn thư), search box, modal khôi phục với:
+  - Reason textarea 10-500 ký tự (audit trail)
+  - Hiển thị "Lý do xóa gốc" (đối chiếu delete reason với restore reason)
+  - Inline error banner (no `window.alert`)
+  - Char counter `{n}/500` color-shifted
+  - autoFocus + Esc + focus return on close
+  - Success banner 5s auto-dismiss
+- **API endpoints** (3 entities × 2 endpoints = 6):
+  - `GET /api/v1/cases/admin/deleted` — paginated list, enriched delete audit (single batched query, no N+1)
+  - `POST /api/v1/cases/:id/restore` body `{ reason }` — transactional với P2025 guard cho concurrent restore
+  - Tương tự `/incidents/...` và `/petitions/...`
+- **DTOs**: `RestoreCaseDto`, `RestoreIncidentDto`, `RestorePetitionDto` (reason 10-500 chars validation)
+- **Permission seed (P1 fix from /plan-eng-review D1)**: `seed-permissions.ts` thêm 3 rows `{action:'restore', subject:'Case'|'Incident'|'Petition'}`. ADMIN tự động được grant qua role-permission mapping. Pre-fix: missing seed → 403 cho cả ADMIN.
+- **Audit log actions**: `CASE_RESTORED`, `INCIDENT_RESTORED`, `PETITION_RESTORED` — metadata `{ reason, hoursAfterDeletion, name|code|stt }`.
+- **Sidebar menu**: "Khôi phục dữ liệu" trong admin section (icon RotateCcw).
+
+### Changed
+- **Delete modal wording (Case + Incident v0.31.0.2)**: cập nhật từ "Quản trị viên có thể khôi phục nếu cần" → "Quản trị viên có thể khôi phục tại trang Khôi phục dữ liệu (/admin/khoi-phuc)" — không còn nói dối UX.
+
+### Tests
+- **+15 backend**: 4 cho Cases.restore (R1-R4) + 2 listDeleted (R5-R6) + 4 cho Incidents.restore (R7a-d) + 4 cho Petitions.restore (R8a-d) + 3 cho permission seed (R9 Case/Incident/Petition). Suite: **1448 BE pass**.
+- **+4 frontend**: integration tests cho RestorePage (FE-R1 tabs+list, FE-R2 modal+validation, FE-R3 success flow, FE-R4 non-admin block). Suite: **546 FE pass**.
+
+### Architecture decisions (per /plan-eng-review)
+- **D1 — Permission seed shipped explicit** (not deferred to manual SQL post-deploy).
+- **D2 — Decorator-only auth check** (no hard-coded `if (role !== ADMIN)` duplicate). PermissionsGuard + permission table = single source of truth, future-proof cho admin grant restore cho role khác.
+- **D3 — Restore as-is** (status giữ nguyên, không validate status enum, không auto-reset). NOT in scope: status integrity check cho edge case manual SQL hack.
+- **D4 — Full test mirror** cho Incident + Petition (4 paths mỗi entity, không phải chỉ 1 happy path).
+
+### NOT in scope (TODOS for v0.32.x+)
+- Child entity restore (Subject, Lawyer, Document, Conclusion, Proposal, GuidanceRecord, Exchange, Delegation, CalendarEvent) — 9 entities còn lại. Parent only.
+- Cascade restore (children auto-restore khi parent restored) — explicit decision: parent only.
+- Bulk restore UI.
+- Permission UI để chỉnh `restore` permission cho role khác (assume seeded cố định cho ADMIN).
+
+---
+
 ## [0.31.0.2] - 2026-05-21
 
 ### Feat: Xóa vụ án với ghi nhận lý do (mirror Incident + autoplan hardening)

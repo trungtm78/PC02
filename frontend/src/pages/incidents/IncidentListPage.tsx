@@ -695,7 +695,7 @@ export function IncidentListPage() {
 
               <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
                 <p className="text-sm text-amber-800">
-                  Vụ việc sẽ bị vô hiệu hóa (soft delete). Quản trị viên có thể khôi phục nếu cần.
+                  Vụ việc sẽ bị vô hiệu hóa (soft delete). Quản trị viên có thể khôi phục tại trang Khôi phục dữ liệu (/admin/khoi-phuc).
                 </p>
               </div>
 

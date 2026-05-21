@@ -3,6 +3,7 @@ import { Route } from 'react-router-dom';
 
 const UserManagementPage = lazy(() => import('@/pages/users/UserManagementPage'));
 const AdminSettingsPage = lazy(() => import('@/pages/admin/SettingsPage'));
+const RestorePage = lazy(() => import('@/pages/admin/RestorePage')); // v0.32.0.0
 const DeadlineRulesListPage = lazy(() => import('@/pages/admin/deadline-rules/DeadlineRulesListPage'));
 const ProposeDeadlineRulePage = lazy(() => import('@/pages/admin/deadline-rules/ProposeDeadlineRulePage'));
 const VersionDecisionPage = lazy(() => import('@/pages/admin/deadline-rules/VersionDecisionPage'));
@@ -18,6 +19,7 @@ export function renderAdminRoutes(): ReactElement[] {
   return [
     <Route key="users" path="/nguoi-dung" element={wrap(<UserManagementPage />)} />,
     <Route key="admin-settings" path="/admin/settings" element={wrap(<AdminSettingsPage />)} />,
+    <Route key="admin-restore" path="/admin/khoi-phuc" element={wrap(<RestorePage />)} />,
     // Deadline Rule Versioning workflow
     <Route key="deadline-rules-list" path="/admin/deadline-rules" element={wrap(<DeadlineRulesListPage />)} />,
     <Route

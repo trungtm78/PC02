@@ -22,4 +22,11 @@ export const adminMenu: FeatureMenuEntry[] = [
     path: '/admin/settings',
     icon: 'Settings',
   },
+  {
+    section: 'admin',
+    id: 'admin-restore',
+    label: 'Khôi phục dữ liệu',
+    path: '/admin/khoi-phuc',
+    icon: 'RotateCcw',
+  },
 ];

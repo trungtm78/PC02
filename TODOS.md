@@ -1,5 +1,14 @@
 # TODOS
 
+## v0.32.0.0 follow-ups (Restore deleted data)
+
+### RESTORE-001: Khôi phục child entities (Subject/Lawyer/Document/Conclusion/...)
+**Priority:** P2
+**Details:** v0.32.0.0 ship restore cho 3 parent entities (Case/Incident/Petition). 9 child entities còn có `deletedAt` nhưng chưa có restore: Subject, Lawyer, Document, Conclusion, Proposal, GuidanceRecord, Exchange, Delegation, CalendarEvent. Khi admin restore parent, children đã xóa vẫn xóa — admin phải SSH SQL để khôi phục từng cái.
+**Approach:** Add `restore()` + `listDeleted()` methods + endpoints + audit actions `<ENTITY>_RESTORED` cho 9 entities. Frontend: thêm tab "Khác" trong `/admin/khoi-phuc` với dropdown chọn entity type, hoặc thêm action "Xem records đã xóa" trong detail page của parent.
+**Effort:** ~6h (9 entities × ~30min mỗi cái + 1h frontend tabs).
+**Discovered:** 2026-05-21 (/office-hours D2 explicit defer)
+
 ## v0.31.0.2 follow-ups (Case delete /autoplan)
 
 ### CASE-DEL-001: Backfill `Case.createdById` từ audit log lịch sử

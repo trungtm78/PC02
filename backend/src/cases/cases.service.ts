@@ -891,6 +891,120 @@ export class CasesService {
   }
 
   // ─────────────────────────────────────────────
+  // RESTORE (v0.32.0.0) — khôi phục soft-deleted Case (ADMIN only via @RequirePermissions)
+  // Mirror DELETE pattern: transactional, P2025 concurrent guard, audit log với reason.
+  // ─────────────────────────────────────────────
+  async restore(
+    id: string,
+    reason: string,
+    actorId: string,
+    meta?: { ipAddress?: string; userAgent?: string },
+  ) {
+    // 1. Fetch — chỉ records đang ở trạng thái đã xóa mềm
+    const existing = await this.prisma.case.findFirst({
+      where: { id, deletedAt: { not: null } },
+    });
+    if (!existing) {
+      throw new NotFoundException(
+        `Vụ án không tồn tại hoặc chưa bị xóa (id: ${id})`,
+      );
+    }
+
+    const hoursAfterDeletion =
+      (Date.now() - existing.deletedAt!.getTime()) / 3_600_000;
+
+    // 2+3. Atomic transaction: restore + audit (no orphan if audit throws)
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.case.update({
+          where: { id, deletedAt: { not: null } },
+          data: { deletedAt: null },
+        });
+        await this.audit.log(
+          {
+            userId: actorId,
+            action: 'CASE_RESTORED',
+            subject: 'Case',
+            subjectId: id,
+            metadata: {
+              name: existing.name,
+              reason,
+              hoursAfterDeletion: Math.round(hoursAfterDeletion),
+            },
+            ipAddress: meta?.ipAddress,
+            userAgent: meta?.userAgent,
+          },
+          tx,
+        );
+      });
+    } catch (err) {
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === 'P2025'
+      ) {
+        throw new BadRequestException(
+          'Vụ án đã được khôi phục bởi quản trị viên khác. Tải lại danh sách.',
+        );
+      }
+      throw err;
+    }
+
+    return { success: true, message: 'Khôi phục vụ án thành công' };
+  }
+
+  // ─────────────────────────────────────────────
+  // LIST DELETED — paginated list deleted Cases + enriched delete audit
+  // ─────────────────────────────────────────────
+  async listDeleted(query: { limit?: number; offset?: number; search?: string }) {
+    const limit = Math.min(query.limit ?? 20, 100);
+    const offset = query.offset ?? 0;
+    const search = query.search?.trim();
+
+    const where: Prisma.CaseWhereInput = {
+      deletedAt: { not: null },
+      ...(search && {
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { id: { contains: search } },
+        ],
+      }),
+    };
+
+    const [data, total] = await Promise.all([
+      this.prisma.case.findMany({
+        where,
+        orderBy: { deletedAt: 'desc' },
+        skip: offset,
+        take: limit,
+        include: {
+          createdBy: { select: { id: true, firstName: true, lastName: true, username: true } },
+        },
+      }),
+      this.prisma.case.count({ where }),
+    ]);
+
+    // Enrich với audit của delete gần nhất (batched, single query — no N+1)
+    const ids = data.map((c) => c.id);
+    const deleteAudits = ids.length > 0
+      ? await this.prisma.$queryRaw<Array<{ subjectId: string; userId: string | null; metadata: unknown; createdAt: Date }>>`
+          SELECT DISTINCT ON ("subjectId") "subjectId", "userId", metadata, "createdAt"
+          FROM "audit_logs"
+          WHERE action = 'CASE_DELETED' AND "subjectId" = ANY(${ids})
+          ORDER BY "subjectId", "createdAt" DESC
+        `
+      : [];
+    const audMap = new Map(deleteAudits.map((a) => [a.subjectId, a]));
+
+    return {
+      success: true,
+      data: data.map((c) => ({ ...c, deleteAudit: audMap.get(c.id) ?? null })),
+      total,
+      page: Math.floor(offset / limit) + 1,
+      pageSize: limit,
+    };
+  }
+
+  // ─────────────────────────────────────────────
   // ASSIGN (dispatcher only)
   // ─────────────────────────────────────────────
   async assignCase(

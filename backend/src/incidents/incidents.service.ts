@@ -1273,4 +1273,115 @@ export class IncidentsService {
       else res.destroy();
     }
   }
+
+  // ─────────────────────────────────────────────
+  // RESTORE (v0.32.0.0) — khôi phục soft-deleted Incident (ADMIN only)
+  // ─────────────────────────────────────────────
+  async restore(
+    id: string,
+    reason: string,
+    actorId: string,
+    meta?: { ipAddress?: string; userAgent?: string },
+  ) {
+    const existing = await this.prisma.incident.findFirst({
+      where: { id, deletedAt: { not: null } },
+    });
+    if (!existing) {
+      throw new NotFoundException(
+        `Vụ việc không tồn tại hoặc chưa bị xóa (id: ${id})`,
+      );
+    }
+
+    const hoursAfterDeletion =
+      (Date.now() - existing.deletedAt!.getTime()) / 3_600_000;
+
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.incident.update({
+          where: { id, deletedAt: { not: null } },
+          data: { deletedAt: null },
+        });
+        await this.audit.log(
+          {
+            userId: actorId,
+            action: 'INCIDENT_RESTORED',
+            subject: 'Incident',
+            subjectId: id,
+            metadata: {
+              code: existing.code,
+              name: existing.name,
+              reason,
+              hoursAfterDeletion: Math.round(hoursAfterDeletion),
+            },
+            ipAddress: meta?.ipAddress,
+            userAgent: meta?.userAgent,
+          },
+          tx,
+        );
+      });
+    } catch (err) {
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === 'P2025'
+      ) {
+        throw new BadRequestException(
+          'Vụ việc đã được khôi phục bởi quản trị viên khác. Tải lại danh sách.',
+        );
+      }
+      throw err;
+    }
+
+    return { success: true, message: 'Khôi phục vụ việc thành công' };
+  }
+
+  // ─────────────────────────────────────────────
+  // LIST DELETED — paginated với enriched delete audit
+  // ─────────────────────────────────────────────
+  async listDeleted(query: { limit?: number; offset?: number; search?: string }) {
+    const limit = Math.min(query.limit ?? 20, 100);
+    const offset = query.offset ?? 0;
+    const search = query.search?.trim();
+
+    const where: Prisma.IncidentWhereInput = {
+      deletedAt: { not: null },
+      ...(search && {
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { code: { contains: search, mode: 'insensitive' } },
+        ],
+      }),
+    };
+
+    const [data, total] = await Promise.all([
+      this.prisma.incident.findMany({
+        where,
+        orderBy: { deletedAt: 'desc' },
+        skip: offset,
+        take: limit,
+        include: {
+          createdBy: { select: { id: true, firstName: true, lastName: true, username: true } },
+        },
+      }),
+      this.prisma.incident.count({ where }),
+    ]);
+
+    const ids = data.map((c) => c.id);
+    const deleteAudits = ids.length > 0
+      ? await this.prisma.$queryRaw<Array<{ subjectId: string; userId: string | null; metadata: unknown; createdAt: Date }>>`
+          SELECT DISTINCT ON ("subjectId") "subjectId", "userId", metadata, "createdAt"
+          FROM "audit_logs"
+          WHERE action = 'INCIDENT_DELETED' AND "subjectId" = ANY(${ids})
+          ORDER BY "subjectId", "createdAt" DESC
+        `
+      : [];
+    const audMap = new Map(deleteAudits.map((a) => [a.subjectId, a]));
+
+    return {
+      success: true,
+      data: data.map((c) => ({ ...c, deleteAudit: audMap.get(c.id) ?? null })),
+      total,
+      page: Math.floor(offset / limit) + 1,
+      pageSize: limit,
+    };
+  }
 }

@@ -28,6 +28,7 @@ import { UpdateCaseDto } from './dto/update-case.dto';
 import { QueryCasesDto } from './dto/query-cases.dto';
 import { AssignCaseDto } from './dto/assign-case.dto';
 import { DeleteCaseDto } from './dto/delete-case.dto'; // v0.31.0.2
+import { RestoreCaseDto } from './dto/restore-case.dto'; // v0.32.0.0
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
 
 class TdcBackfillDto {
@@ -125,6 +126,33 @@ export class CasesController {
   @RequirePermissions({ action: 'delete', subject: 'Case' })
   previewDelete(@Param('id') id: string, @Req() req: ScopedRequest) {
     return this.casesService.previewDelete(id, req.dataScope);
+  }
+
+  // GET /api/v1/cases/admin/deleted — v0.32.0.0 list các vụ án đã xóa mềm (ADMIN)
+  @Get('admin/deleted')
+  @RequirePermissions({ action: 'restore', subject: 'Case' })
+  listDeleted(@Query() query: { limit?: number; offset?: number; search?: string }) {
+    return this.casesService.listDeleted({
+      limit: query.limit ? Number(query.limit) : undefined,
+      offset: query.offset ? Number(query.offset) : undefined,
+      search: query.search,
+    });
+  }
+
+  // POST /api/v1/cases/:id/restore — v0.32.0.0 khôi phục (ADMIN via @RequirePermissions)
+  @Post(':id/restore')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions({ action: 'restore', subject: 'Case' })
+  restore(
+    @Param('id') id: string,
+    @Body() dto: RestoreCaseDto,
+    @CurrentUser() user: AuthUser,
+    @Req() req: ScopedRequest,
+  ) {
+    return this.casesService.restore(id, dto.reason, user.id, {
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
   }
 
   // DELETE /api/v1/cases/:id — Xóa vụ án (soft delete + reason — v0.31.0.2)
