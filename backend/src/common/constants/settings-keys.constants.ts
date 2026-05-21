@@ -33,6 +33,7 @@ export const SETTINGS_KEY = {
   // Ops thresholds
   CANH_BAO_SAP_HAN: 'CANH_BAO_SAP_HAN',
   THOI_HAN_XOA_VU_VIEC: 'THOI_HAN_XOA_VU_VIEC',
+  THOI_HAN_XOA_VU_AN: 'THOI_HAN_XOA_VU_AN',
 } as const;
 
 export type SettingsKey = (typeof SETTINGS_KEY)[keyof typeof SETTINGS_KEY];

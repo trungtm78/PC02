@@ -156,12 +156,13 @@ describe('SettingsService', () => {
       );
     });
 
-    it('seeds exactly the 3 ops settings', async () => {
+    it('seeds exactly the 4 ops settings (incl. THOI_HAN_XOA_VU_AN v0.31.0.2)', async () => {
       await service.seed();
       const upsertCalls = mockPrisma.systemSetting.upsert.mock.calls.map((c) => c[0].where.key);
       expect(upsertCalls).toContain('TWO_FA_ENABLED');
       expect(upsertCalls).toContain('CANH_BAO_SAP_HAN');
       expect(upsertCalls).toContain('THOI_HAN_XOA_VU_VIEC');
+      expect(upsertCalls).toContain('THOI_HAN_XOA_VU_AN');
       expect(upsertCalls).not.toContain('THOI_HAN_XAC_MINH');
     });
   });

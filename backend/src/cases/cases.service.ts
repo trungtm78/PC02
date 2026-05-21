@@ -9,15 +9,19 @@ import { Response } from 'express';
 import * as ExcelJS from 'exceljs';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { SettingsService } from '../settings/settings.service';
 import { CreateCaseDto } from './dto/create-case.dto';
 import { UpdateCaseDto } from './dto/update-case.dto';
 import { QueryCasesDto } from './dto/query-cases.dto';
 import { AssignCaseDto } from './dto/assign-case.dto';
+import type { DeleteCasePreflightResponse } from './dto/delete-case-preflight.response';
 import { Prisma, CaseStatus, PetitionStatus, LoaiDon, CapDoToiPham, LyDoTamDinhChiVuAn, KetQuaPhucHoiVuAn } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { buildScopeFilter } from '../common/utils/scope-filter.util';
 import { BcaExcelHelper } from '../common/bca-excel.helper';
 import { CASE_STATUS_LABEL } from '../common/constants/status-labels.constants';
+import { ROLE_NAMES } from '../common/constants/role.constants';
+import { SETTINGS_KEY } from '../common/constants/settings-keys.constants';
 
 type JsonInput = Prisma.InputJsonValue;
 type PrismaTx = Prisma.TransactionClient;
@@ -27,6 +31,7 @@ export class CasesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly settings: SettingsService, // v0.31.0.2: THOI_HAN_XOA_VU_AN
   ) {}
 
   // ─────────────────────────────────────────────
@@ -291,6 +296,7 @@ export class CasesService {
               crime: dto.crime,
               status: dto.status ?? CaseStatus.TIEP_NHAN,
               investigatorId: dto.investigatorId,
+              createdById: actorId, // v0.31.0.2: creator track
               deadline: dto.deadline ? new Date(dto.deadline) : undefined,
               unit: dto.unit,
               ...(dto.assignedTeamId !== undefined && { assignedTeamId: dto.assignedTeamId }),
@@ -371,6 +377,7 @@ export class CasesService {
         crime: dto.crime,
         status: dto.status ?? CaseStatus.TIEP_NHAN,
         investigatorId: dto.investigatorId,
+        createdById: actorId, // v0.31.0.2: creator track
         deadline: dto.deadline ? new Date(dto.deadline) : undefined,
         unit: dto.unit,
         ...(dto.assignedTeamId !== undefined && { assignedTeamId: dto.assignedTeamId }),
@@ -637,40 +644,198 @@ export class CasesService {
   }
 
   // ─────────────────────────────────────────────
-  // DELETE (soft delete)
+  // DELETE (soft delete với reason + 8-step validation chain — v0.31.0.2)
+  // Mirror Incident.delete pattern (incidents.service.ts:469-563) + autoplan hardening:
+  //   - Wrapped in $transaction (no orphan deletion if audit insert fails)
+  //   - Atomic status TOCTOU guard via where:{status:TIEP_NHAN}
+  //   - ALL linked entity counts filter deletedAt:null
+  //   - Specific NULL createdById error message for legacy data
   // ─────────────────────────────────────────────
   async delete(
     id: string,
+    reason: string,
     actorId: string,
+    actorRole: string,
     meta?: { ipAddress?: string; userAgent?: string },
     dataScope?: DataScope | null,
   ) {
+    // 1. Fetch with linked entity counts (ALL filtered deletedAt:null)
     const existing = await this.prisma.case.findFirst({
       where: { id, deletedAt: null },
+      include: {
+        subjects: { where: { deletedAt: null }, select: { id: true } },
+        lawyers: { where: { deletedAt: null }, select: { id: true } },
+        conclusions: { where: { deletedAt: null }, select: { id: true } },
+        documents: { where: { deletedAt: null }, select: { id: true } },
+        linkedIncidents: { where: { deletedAt: null }, select: { id: true } },
+      },
     });
-
     if (!existing) {
       throw new NotFoundException(`Vụ án không tồn tại (id: ${id})`);
     }
 
+    // 2. Status check — chỉ TIEP_NHAN xóa được
+    if (existing.status !== CaseStatus.TIEP_NHAN) {
+      throw new BadRequestException(
+        'Chỉ xóa được vụ án ở trạng thái Tiếp nhận. ' +
+          'Vụ án đã chuyển trạng thái không thể xóa.',
+      );
+    }
+
+    // 3. Linked records check (5 entity types)
+    if (existing.subjects.length > 0) {
+      throw new BadRequestException(
+        `Không thể xóa: vụ án có ${existing.subjects.length} đối tượng. Xóa các đối tượng trước.`,
+      );
+    }
+    if (existing.lawyers.length > 0) {
+      throw new BadRequestException(
+        `Không thể xóa: vụ án có ${existing.lawyers.length} luật sư đăng ký. Xóa các luật sư trước.`,
+      );
+    }
+    if (existing.conclusions.length > 0) {
+      throw new BadRequestException(
+        `Không thể xóa: vụ án có ${existing.conclusions.length} kết luận điều tra.`,
+      );
+    }
+    if (existing.documents.length > 0) {
+      throw new BadRequestException(
+        `Không thể xóa: vụ án có ${existing.documents.length} tài liệu đính kèm.`,
+      );
+    }
+    if (existing.linkedIncidents.length > 0) {
+      throw new BadRequestException(
+        `Không thể xóa: vụ án đang liên kết ${existing.linkedIncidents.length} vụ việc.`,
+      );
+    }
+
+    // 4. Creator-or-admin check (with specific NULL message for legacy rows)
+    const isAdmin = actorRole === ROLE_NAMES.ADMIN;
+    if (!isAdmin) {
+      if (existing.createdById === null) {
+        throw new ForbiddenException(
+          'Vụ án không có thông tin người tạo (dữ liệu cũ). Chỉ quản trị viên mới được xóa.',
+        );
+      }
+      if (existing.createdById !== actorId) {
+        throw new ForbiddenException(
+          'Chỉ người tạo vụ án hoặc quản trị viên mới được xóa.',
+        );
+      }
+    }
+
+    // 5. Time window check (default 72h, configurable via SystemSetting)
+    const maxHours = await this.settings.getNumericValue(
+      SETTINGS_KEY.THOI_HAN_XOA_VU_AN,
+      72,
+    );
+    const hoursElapsed =
+      (Date.now() - existing.createdAt.getTime()) / 3_600_000;
+    if (hoursElapsed > maxHours && !isAdmin) {
+      throw new BadRequestException(
+        `Đã quá ${maxHours} giờ kể từ khi tạo vụ án. Chỉ quản trị viên mới xóa được.`,
+      );
+    }
+
+    // 6. Write-scope check
     this.checkWriteScope(existing, dataScope);
 
-    await this.prisma.case.update({
-      where: { id },
-      data: { deletedAt: new Date() },
-    });
+    // 7+8. ATOMIC transaction: soft delete (with status TOCTOU guard) + audit log
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        // Atomic status guard — concurrent transition out of TIEP_NHAN aborts
+        await tx.case.update({
+          where: {
+            id,
+            status: CaseStatus.TIEP_NHAN,
+            deletedAt: null,
+          },
+          data: { deletedAt: new Date() },
+        });
 
-    await this.audit.log({
-      userId: actorId,
-      action: 'CASE_DELETED',
-      subject: 'Case',
-      subjectId: id,
-      metadata: { name: existing.name, softDelete: true },
-      ipAddress: meta?.ipAddress,
-      userAgent: meta?.userAgent,
-    });
+        // Audit in same transaction — no orphan deletion possible
+        await this.audit.log(
+          {
+            userId: actorId,
+            action: 'CASE_DELETED',
+            subject: 'Case',
+            subjectId: id,
+            metadata: {
+              name: existing.name,
+              reason,
+              softDelete: true,
+              hoursAfterCreation: Math.round(hoursElapsed),
+            },
+            ipAddress: meta?.ipAddress,
+            userAgent: meta?.userAgent,
+          },
+          tx,
+        );
+      });
+    } catch (err) {
+      // P2025: record not found by uniquely-identified `where` → status changed concurrently
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === 'P2025'
+      ) {
+        throw new BadRequestException(
+          'Vụ án đã đổi trạng thái trong lúc thực hiện. Vui lòng tải lại danh sách.',
+        );
+      }
+      throw err;
+    }
 
     return { success: true, message: 'Xóa vụ án thành công' };
+  }
+
+  // ─────────────────────────────────────────────
+  // DELETE PREFLIGHT — kiểm tra điều kiện xóa trước khi user nhập reason
+  // ─────────────────────────────────────────────
+  async previewDelete(
+    id: string,
+    dataScope?: DataScope | null,
+  ): Promise<DeleteCasePreflightResponse> {
+    const existing = await this.prisma.case.findFirst({
+      where: { id, deletedAt: null },
+      include: {
+        subjects: { where: { deletedAt: null }, select: { id: true } },
+        lawyers: { where: { deletedAt: null }, select: { id: true } },
+        conclusions: { where: { deletedAt: null }, select: { id: true } },
+        documents: { where: { deletedAt: null }, select: { id: true } },
+        linkedIncidents: { where: { deletedAt: null }, select: { id: true } },
+      },
+    });
+    if (!existing) {
+      throw new NotFoundException(`Vụ án không tồn tại (id: ${id})`);
+    }
+    this.checkRecordInScope(existing, dataScope);
+
+    const blockers = {
+      subjects: existing.subjects.length,
+      lawyers: existing.lawyers.length,
+      conclusions: existing.conclusions.length,
+      documents: existing.documents.length,
+      linkedIncidents: existing.linkedIncidents.length,
+    };
+
+    const reasonsIfBlocked: string[] = [];
+    if (existing.status !== CaseStatus.TIEP_NHAN) {
+      reasonsIfBlocked.push(
+        `Trạng thái hiện tại không cho phép xóa (chỉ Tiếp nhận). Hiện: ${CASE_STATUS_LABEL[existing.status] ?? existing.status}.`,
+      );
+    }
+    if (blockers.subjects > 0) reasonsIfBlocked.push(`${blockers.subjects} đối tượng đang liên kết.`);
+    if (blockers.lawyers > 0) reasonsIfBlocked.push(`${blockers.lawyers} luật sư đang liên kết.`);
+    if (blockers.conclusions > 0) reasonsIfBlocked.push(`${blockers.conclusions} kết luận điều tra.`);
+    if (blockers.documents > 0) reasonsIfBlocked.push(`${blockers.documents} tài liệu đính kèm.`);
+    if (blockers.linkedIncidents > 0) reasonsIfBlocked.push(`${blockers.linkedIncidents} vụ việc liên kết.`);
+
+    return {
+      canDelete: reasonsIfBlocked.length === 0,
+      status: existing.status,
+      blockers,
+      reasonsIfBlocked,
+    };
   }
 
   // ─────────────────────────────────────────────

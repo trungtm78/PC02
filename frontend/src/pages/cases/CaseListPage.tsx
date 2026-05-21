@@ -71,6 +71,7 @@ interface Case {
   id: string;
   name: string;
   status: string;
+  statusRaw: CaseStatus; // v0.31.0.2: raw enum cho delete guard
   statusColor: string;
   investigator: string;
   dateCreated: string;
@@ -141,6 +142,7 @@ function mapApiCase(c: CaseFromApi): Case {
     id:                   c.id,
     name:                 c.name,
     status:               STATUS_LABEL[c.status] ?? c.status,
+    statusRaw:            c.status,
     statusColor:          STATUS_COLOR[c.status] ?? "text-slate-600 bg-slate-50",
     investigator:         investigatorName,
     dateCreated:          new Date(c.createdAt).toLocaleDateString("vi-VN"),
@@ -200,10 +202,20 @@ function CaseListPage() {
   // ── Action dropdown menu (v0.31.0.1 — Portal-based, state-anchor) ────
   const [openMenu, setOpenMenu] = useState<{ id: string; anchor: HTMLElement } | null>(null);
 
-  // ── Vô hiệu hóa (soft delete) ────────────────────────
-  const [deactivateDialogOpen, setDeactivateDialogOpen] = useState(false);
-  const [caseToDeactivate, setCaseToDeactivate] = useState<Case | null>(null);
-  const [deactivateLoading, setDeactivateLoading] = useState(false);
+  // ── Xóa vụ án — v0.31.0.2 (mirror Incident + UX deltas: preflight, banner, chips, focus) ────
+  const [caseToDelete, setCaseToDelete] = useState<Case | null>(null);
+  const [deleteReason, setDeleteReason] = useState("");
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [preflight, setPreflight] = useState<{
+    canDelete: boolean;
+    blockers: Record<string, number>;
+    reasonsIfBlocked: string[];
+  } | null>(null);
+  const [preflightLoading, setPreflightLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const deleteTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const deleteTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   // ── Phân công (dispatcher only) ───────────────────────
   const [showAssignModal, setShowAssignModal] = useState(false);
@@ -267,33 +279,82 @@ function CaseListPage() {
   const totalPages = Math.max(1, Math.ceil(filteredCases.length / PAGE_SIZE));
   const displayedCases = filteredCases.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
-  // ── Xử lý xóa ──────────────────────────────────────
-  // ── Xử lý vô hiệu hóa ─────────────────────────────────
-  const openDeactivateDialog = (caseItem: Case) => {
-    setCaseToDeactivate(caseItem);
-    setDeactivateDialogOpen(true);
+  // ── Xóa vụ án (v0.31.0.2) — mirror Incident + UX deltas ────────────────
+  const openDeleteModal = (caseItem: Case, trigger: HTMLButtonElement | null) => {
+    setCaseToDelete(caseItem);
+    setDeleteReason("");
+    setDeleteError(null);
+    setPreflight(null);
     setOpenMenu(null);
+    deleteTriggerRef.current = trigger;
+    // Fire preflight check
+    setPreflightLoading(true);
+    api
+      .get<{ success: boolean; data: { canDelete: boolean; blockers: Record<string, number>; reasonsIfBlocked: string[] } }>(
+        `/cases/${caseItem.id}/delete-preflight`,
+      )
+      .then((res) => setPreflight(res.data.data ?? res.data as unknown as typeof preflight))
+      .catch((err) => {
+        console.error("[CaseListPage] Preflight failed:", err);
+        // Preflight failure không block — chỉ cảnh báo
+        setDeleteError("Không thể kiểm tra điều kiện xóa. Có thể submit nếu bạn chắc chắn.");
+      })
+      .finally(() => setPreflightLoading(false));
   };
 
-  const closeDeactivateDialog = () => {
-    setDeactivateDialogOpen(false);
-    setCaseToDeactivate(null);
-  };
-
-  const confirmDeactivate = async () => {
-    if (!caseToDeactivate) return;
-    setDeactivateLoading(true);
-    try {
-      await api.delete(`/cases/${caseToDeactivate.id}`);
-      setCaseList((prev) => prev.filter((c) => c.id !== caseToDeactivate.id));
-      closeDeactivateDialog();
-    } catch (err) {
-      console.error("[CaseListPage] Deactivate error:", err);
-      alert("Vô hiệu hóa vụ án thất bại. Vui lòng thử lại.");
-    } finally {
-      setDeactivateLoading(false);
+  const closeDeleteModal = () => {
+    setCaseToDelete(null);
+    setDeleteReason("");
+    setDeleteError(null);
+    setPreflight(null);
+    // Return focus to triggering ⋮ button for keyboard a11y
+    if (deleteTriggerRef.current) {
+      deleteTriggerRef.current.focus();
+      deleteTriggerRef.current = null;
     }
   };
+
+  const confirmDelete = async () => {
+    if (!caseToDelete || deleteReason.trim().length < 10) return;
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      await api.delete(`/cases/${caseToDelete.id}`, { data: { reason: deleteReason.trim() } });
+      setCaseList((prev) => prev.filter((c) => c.id !== caseToDelete.id));
+      setSuccessMessage(`Đã xóa vụ án "${caseToDelete.name.slice(0, 50)}${caseToDelete.name.length > 50 ? "…" : ""}". Quản trị viên có thể khôi phục nếu cần.`);
+      closeDeleteModal();
+      // Auto-dismiss success banner sau 5s
+      setTimeout(() => setSuccessMessage(null), 5000);
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string | string[] } } };
+      const msg = e?.response?.data?.message;
+      const text = Array.isArray(msg) ? msg.join(", ") : msg ?? "Xóa vụ án thất bại. Vui lòng thử lại.";
+      setDeleteError(text);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  // Escape handler + autofocus
+  useEffect(() => {
+    if (!caseToDelete) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !isDeleting) closeDeleteModal();
+    };
+    document.addEventListener("keydown", onKey);
+    // Focus textarea after mount
+    setTimeout(() => deleteTextareaRef.current?.focus(), 50);
+    return () => document.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [caseToDelete, isDeleting]);
+
+  // 4 quick-fill chips (Vietnamese audit-friendly templates)
+  const QUICK_REASONS = [
+    "Nhập sai thông tin vụ án",
+    "Trùng lặp với vụ án khác",
+    "Sai phân loại ban đầu",
+    "Dữ liệu test thử nghiệm",
+  ];
 
   // ── Render ──────────────────────────────────────────
   return (
@@ -325,6 +386,21 @@ function CaseListPage() {
           </button>
         </div>
       </div>
+
+      {/* ── Success banner (v0.31.0.2 — sau xóa) ─────────────────────── */}
+      {successMessage && (
+        <div
+          className="bg-green-50 border-2 border-green-300 rounded-lg p-3 flex items-center gap-3"
+          data-testid="success-banner"
+          role="status"
+        >
+          <UserCheck className="w-5 h-5 text-green-600 flex-shrink-0" />
+          <p className="text-sm font-medium text-green-800 flex-1">{successMessage}</p>
+          <button onClick={() => setSuccessMessage(null)} className="p-1 hover:bg-green-100 rounded" aria-label="Đóng">
+            <X className="w-4 h-4 text-green-700" />
+          </button>
+        </div>
+      )}
 
       {/* ── Cảnh báo quá hạn ───────────────────────────── */}
       {overdueCount > 0 && (
@@ -733,14 +809,33 @@ function CaseListPage() {
               <ArrowRightLeft className="w-4 h-4 text-slate-500 flex-shrink-0" />
               Chuyển xử lý
             </button>
-            <button
-              onClick={() => openDeactivateDialog(caseItem)}
-              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors text-left border-t border-slate-100"
-              data-testid={`btn-deactivate-${caseItem.id}`}
-            >
-              <Trash2 className="w-4 h-4 flex-shrink-0" />
-              Vô hiệu hóa
-            </button>
+            {/* v0.31.0.2: "Xóa vụ án" — visible always, disabled khi status !== TIEP_NHAN */}
+            {(() => {
+              const canDelete = caseItem.statusRaw === "TIEP_NHAN";
+              return (
+                <button
+                  onClick={(e) => {
+                    if (!canDelete) return;
+                    openDeleteModal(caseItem, e.currentTarget as HTMLButtonElement);
+                  }}
+                  disabled={!canDelete}
+                  title={
+                    canDelete
+                      ? "Xóa vụ án (cần ghi nhận lý do)"
+                      : `Chỉ xóa được khi trạng thái = Tiếp nhận. Hiện tại: ${caseItem.status}.`
+                  }
+                  className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left border-t border-slate-100 transition-colors ${
+                    canDelete
+                      ? "text-red-600 hover:bg-red-50"
+                      : "text-slate-400 cursor-not-allowed bg-slate-50"
+                  }`}
+                  data-testid={`btn-delete-${caseItem.id}`}
+                >
+                  <Trash2 className="w-4 h-4 flex-shrink-0" />
+                  Xóa vụ án
+                </button>
+              );
+            })()}
           </ActionMenuPortal>
         );
       })()}
@@ -758,71 +853,143 @@ function CaseListPage() {
         />
       )}
 
-      {/* ── Dialog xác nhận vô hiệu hóa ───────────────── */}
-      {deactivateDialogOpen && caseToDeactivate && (
-        <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-          data-testid="deactivate-dialog"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="deactivate-dialog-title"
-        >
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
-            {/* Header */}
-            <div className="p-6 border-b border-slate-200">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
-                    <Trash2 className="w-5 h-5 text-red-600" />
-                  </div>
-                  <h3 id="deactivate-dialog-title" className="text-lg font-bold text-slate-800">
-                    Vô hiệu hóa vụ án
-                  </h3>
+      {/* ── Delete vụ án modal (v0.31.0.2) ────────────────────── */}
+      {caseToDelete && (() => {
+        const reasonLen = deleteReason.length;
+        const reasonValid = reasonLen >= 10;
+        const blocked = preflight && !preflight.canDelete;
+        const canSubmit = reasonValid && !isDeleting && !blocked;
+        return (
+          <div
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            data-testid="delete-modal-overlay"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-modal-title"
+          >
+            <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto" data-testid="delete-modal">
+              {/* Header */}
+              <div className="p-5 border-b border-slate-200 flex items-start gap-4">
+                <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Trash2 className="w-6 h-6 text-red-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 id="delete-modal-title" className="text-lg font-bold text-slate-800">Xóa vụ án</h3>
+                  <p className="text-sm text-slate-600 mt-0.5 font-mono">
+                    Mã: <strong>{caseToDelete.id.slice(0, 12)}…</strong>
+                  </p>
+                  <p className="text-sm text-slate-600 mt-0.5 line-clamp-2">{caseToDelete.name}</p>
                 </div>
                 <button
-                  onClick={closeDeactivateDialog}
-                  className="p-1 hover:bg-slate-100 rounded transition-colors"
+                  onClick={closeDeleteModal}
+                  disabled={isDeleting}
+                  className="p-1 hover:bg-slate-100 rounded transition-colors disabled:opacity-50"
                   aria-label="Đóng"
                 >
                   <X className="w-5 h-5 text-slate-500" />
                 </button>
               </div>
-            </div>
 
-            {/* Body */}
-            <div className="p-6 space-y-4">
-              <p className="text-slate-700">
-                Vụ án này sẽ bị vô hiệu hóa và không còn hiển thị trong danh sách. Bạn có chắc chắn muốn thực hiện?
-              </p>
-              <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-                <p className="text-sm font-medium text-red-900">
-                  Mã vụ án: <span className="font-bold font-mono">{caseToDeactivate.id.slice(0, 12)}…</span>
-                </p>
-                <p className="text-sm text-red-800 mt-1 line-clamp-2">{caseToDeactivate.name}</p>
+              {/* Body */}
+              <div className="p-5 space-y-4">
+                {/* Pre-flight blocker banner */}
+                {preflightLoading && (
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-600" data-testid="preflight-loading">
+                    Đang kiểm tra điều kiện xóa...
+                  </div>
+                )}
+                {blocked && (
+                  <div className="p-3 bg-red-50 border border-red-300 rounded-lg" data-testid="delete-blockers">
+                    <p className="text-sm font-semibold text-red-900 mb-2">Không thể xóa — phải xử lý các vướng mắc sau:</p>
+                    <ul className="list-disc list-inside text-sm text-red-800 space-y-1">
+                      {preflight.reasonsIfBlocked.map((r, i) => (
+                        <li key={i}>{r}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {!blocked && !preflightLoading && (
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                    <p className="text-sm text-amber-800">
+                      Vụ án sẽ bị xóa mềm (soft delete) và ghi vào nhật ký kiểm toán. Quản trị viên có thể khôi phục nếu cần.
+                    </p>
+                  </div>
+                )}
+
+                {/* Quick-fill chips */}
+                <div className="flex flex-wrap gap-2" data-testid="quick-reason-chips">
+                  {QUICK_REASONS.map((r) => (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => { setDeleteReason(r); deleteTextareaRef.current?.focus(); }}
+                      className="px-3 py-1 text-xs rounded-full bg-slate-100 text-slate-700 hover:bg-blue-100 hover:text-blue-700 transition-colors"
+                    >
+                      {r}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Reason textarea + counter */}
+                <div>
+                  <label htmlFor="delete-reason-input" className="block text-sm font-medium text-slate-700 mb-1">
+                    Lý do xóa <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    id="delete-reason-input"
+                    ref={deleteTextareaRef}
+                    value={deleteReason}
+                    onChange={(e) => setDeleteReason(e.target.value.slice(0, 500))}
+                    rows={3}
+                    maxLength={500}
+                    disabled={isDeleting}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 text-sm disabled:bg-slate-50"
+                    placeholder="Nhập lý do xóa (ít nhất 10 ký tự). Ví dụ: Nhập sai thông tin, trùng lặp với vụ án khác..."
+                    data-testid="delete-reason-input"
+                  />
+                  <div className="flex items-center justify-between mt-1">
+                    {!reasonValid && reasonLen > 0 ? (
+                      <p className="text-xs text-red-500">Cần ít nhất 10 ký tự</p>
+                    ) : (
+                      <span />
+                    )}
+                    <p className={`text-xs ${reasonLen < 10 ? "text-red-500" : reasonLen > 480 ? "text-amber-600" : "text-slate-500"}`} data-testid="reason-counter">
+                      {reasonLen}/500
+                    </p>
+                  </div>
+                </div>
+
+                {/* Inline error banner (replaces alert) */}
+                {deleteError && (
+                  <div className="p-3 bg-red-50 border border-red-300 rounded-lg" data-testid="delete-error-banner">
+                    <p className="text-sm text-red-800">{deleteError}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="border-t border-slate-200 p-4 flex gap-3 justify-end">
+                <button
+                  onClick={closeDeleteModal}
+                  disabled={isDeleting}
+                  className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-50"
+                  data-testid="btn-cancel-delete"
+                >
+                  Hủy
+                </button>
+                <button
+                  onClick={() => void confirmDelete()}
+                  disabled={!canSubmit}
+                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  data-testid="btn-confirm-delete"
+                >
+                  {isDeleting ? "Đang xóa..." : "Xác nhận xóa"}
+                </button>
               </div>
             </div>
-
-            {/* Footer */}
-            <div className="p-6 border-t border-slate-200 flex items-center justify-end gap-3">
-              <button
-                onClick={closeDeactivateDialog}
-                className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors font-medium"
-                data-testid="btn-cancel-deactivate"
-              >
-                Hủy bỏ
-              </button>
-              <button
-                onClick={() => void confirmDeactivate()}
-                disabled={deactivateLoading}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                data-testid="btn-confirm-deactivate"
-              >
-                {deactivateLoading ? "Đang xử lý..." : "Vô hiệu hóa"}
-              </button>
-            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
     </div>
   );
