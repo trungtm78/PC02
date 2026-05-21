@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsEmail,
   IsEnum,
   IsNotEmpty,
@@ -64,4 +65,11 @@ export class CreateUserDto {
   @IsEnum(UserStatus)
   @IsOptional()
   status?: UserStatus;
+
+  // v0.32.0.1: dispatcher permission cho phép user xem + assign tất cả
+  // vụ án/vụ việc/đơn thư của tổ khác (Tổ trưởng / Trực ban). Frontend
+  // checkbox trong CreateUserModal. Mirror UpdateUserDto:18-20 pattern.
+  @IsBoolean()
+  @IsOptional()
+  canDispatch?: boolean;
 }
