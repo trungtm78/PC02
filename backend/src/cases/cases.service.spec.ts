@@ -613,8 +613,20 @@ describe('CasesService', () => {
       };
       mockPrisma.case.findFirst.mockResolvedValue(baseCase);
       mockPrisma.$transaction.mockImplementation(async (cb: any) => {
+        // v0.31.0.2 codex P1 fix: tx.case.findFirst returns _count for in-tx re-check
         const tx = {
-          case: { update: jest.fn().mockResolvedValue({ ...baseCase, deletedAt: new Date() }) },
+          case: {
+            findFirst: jest.fn().mockResolvedValue({
+              _count: {
+                subjects: baseCase.subjects.length,
+                lawyers: baseCase.lawyers.length,
+                conclusions: baseCase.conclusions.length,
+                documents: baseCase.documents.length,
+                linkedIncidents: baseCase.linkedIncidents.length,
+              },
+            }),
+            update: jest.fn().mockResolvedValue({ ...baseCase, deletedAt: new Date() }),
+          },
         };
         await cb(tx);
         return undefined;
@@ -717,6 +729,25 @@ describe('CasesService', () => {
       mockSettings.getNumericValue.mockResolvedValueOnce(72);
       const result = await service.delete('case-001', REASON, 'admin-id', ROLE_NAMES.ADMIN);
       expect(result.success).toBe(true);
+    });
+
+    it('BE-11b: TOCTOU — concurrent subject insert detected in-transaction (codex P1 fix)', async () => {
+      // Setup: initial findFirst returns 0 subjects, but in-tx count returns 2
+      setupBasicCase();
+      mockPrisma.$transaction.mockImplementationOnce(async (cb: any) => {
+        const tx = {
+          case: {
+            findFirst: jest.fn().mockResolvedValue({
+              _count: { subjects: 2, lawyers: 0, conclusions: 0, documents: 0, linkedIncidents: 0 },
+            }),
+            update: jest.fn(),
+          },
+        };
+        await cb(tx);
+      });
+      await expect(
+        service.delete('case-001', REASON, ACTOR_ID, ROLE_NAMES.INVESTIGATOR),
+      ).rejects.toThrow(/2 đối tượng.*vừa được thêm/);
     });
 
     it('BE-11: TOCTOU — concurrent status change → P2025 → BadRequest', async () => {

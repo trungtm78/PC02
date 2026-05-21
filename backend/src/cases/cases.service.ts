@@ -740,9 +740,61 @@ export class CasesService {
     // 6. Write-scope check
     this.checkWriteScope(existing, dataScope);
 
-    // 7+8. ATOMIC transaction: soft delete (with status TOCTOU guard) + audit log
+    // 7+8. ATOMIC transaction: re-check linked records (TOCTOU fix per codex P1)
+    // + soft delete (status TOCTOU guard) + audit log
     try {
       await this.prisma.$transaction(async (tx) => {
+        // Re-fetch counts inside transaction — guards against concurrent inserts of
+        // subjects/lawyers/conclusions/documents/linkedIncidents between initial check
+        // and transaction commit.
+        const inTxCounts = await tx.case.findFirst({
+          where: { id, deletedAt: null },
+          select: {
+            _count: {
+              select: {
+                subjects: { where: { deletedAt: null } },
+                lawyers: { where: { deletedAt: null } },
+                conclusions: { where: { deletedAt: null } },
+                documents: { where: { deletedAt: null } },
+                linkedIncidents: { where: { deletedAt: null } },
+              },
+            },
+          },
+        });
+        if (!inTxCounts) {
+          // Already soft-deleted by concurrent request — let outer P2025 path handle
+          throw new Prisma.PrismaClientKnownRequestError(
+            'Record to update not found',
+            { code: 'P2025', clientVersion: '7.8.0' },
+          );
+        }
+        const c = inTxCounts._count;
+        if (c.subjects > 0) {
+          throw new BadRequestException(
+            `Không thể xóa: vụ án có ${c.subjects} đối tượng (vừa được thêm). Tải lại danh sách.`,
+          );
+        }
+        if (c.lawyers > 0) {
+          throw new BadRequestException(
+            `Không thể xóa: vụ án có ${c.lawyers} luật sư (vừa được thêm). Tải lại danh sách.`,
+          );
+        }
+        if (c.conclusions > 0) {
+          throw new BadRequestException(
+            `Không thể xóa: vụ án có ${c.conclusions} kết luận điều tra (vừa được thêm).`,
+          );
+        }
+        if (c.documents > 0) {
+          throw new BadRequestException(
+            `Không thể xóa: vụ án có ${c.documents} tài liệu đính kèm (vừa được thêm).`,
+          );
+        }
+        if (c.linkedIncidents > 0) {
+          throw new BadRequestException(
+            `Không thể xóa: vụ án vừa được liên kết với ${c.linkedIncidents} vụ việc.`,
+          );
+        }
+
         // Atomic status guard — concurrent transition out of TIEP_NHAN aborts
         await tx.case.update({
           where: {
