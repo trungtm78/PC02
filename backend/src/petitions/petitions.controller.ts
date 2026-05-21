@@ -101,7 +101,7 @@ export class PetitionsController {
     return this.petitionsService.create(dto, user.id, {
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
-    });
+    }, req.dataScope); // v0.33: ward officer auto-set
   }
 
   // PUT /api/v1/petitions/:id — Cập nhật đơn thư

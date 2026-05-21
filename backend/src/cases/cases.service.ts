@@ -272,6 +272,7 @@ export class CasesService {
     dto: CreateCaseDto,
     actorId: string,
     meta?: { ipAddress?: string; userAgent?: string },
+    dataScope?: DataScope | null,
   ) {
     // Validate investigatorId if provided
     if (dto.investigatorId) {
@@ -282,6 +283,11 @@ export class CasesService {
         throw new BadRequestException('Điều tra viên không tồn tại');
       }
     }
+
+    // v0.33.0.0: nếu user là ward officer → force-set assignedTeamId = ward team
+    // (silent override khi dto.assignedTeamId mismatch — UX safer per D-eng-fix M3)
+    const forcedTeamId = dataScope?.isWardOfficer ? dataScope.wardTeamId : null;
+    const effectiveAssignedTeamId = forcedTeamId ?? dto.assignedTeamId;
 
     const metadata = dto.metadata as Record<string, unknown> | undefined;
     const petitionType = metadata?.petitionType as LoaiDon | undefined;
@@ -299,7 +305,7 @@ export class CasesService {
               createdById: actorId, // v0.31.0.2: creator track
               deadline: dto.deadline ? new Date(dto.deadline) : undefined,
               unit: dto.unit,
-              ...(dto.assignedTeamId !== undefined && { assignedTeamId: dto.assignedTeamId }),
+              ...(effectiveAssignedTeamId !== undefined && { assignedTeamId: effectiveAssignedTeamId }),
               subjectsCount: dto.subjectsCount ?? 0,
               ...(dto.capDoToiPham !== undefined && { capDoToiPham: dto.capDoToiPham }),
               ...(dto.ngayKhoiTo !== undefined && { ngayKhoiTo: new Date(dto.ngayKhoiTo) }),

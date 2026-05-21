@@ -2,6 +2,64 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.33.0.0] - 2026-05-21
+
+### Feat: Per-ward scoping (Hybrid via Team.wardId) + Phase 5-lite edit window + reset workflow
+
+Plan v7 passed `/office-hours` + `/autoplan v2` + `/plan-design-review` + `/codex review` (48 decisions, 8 user challenges resolved). Architecture switch: anh nhắc dùng existing Team hierarchy thay vì add `User.assignedWardId` → 22 files → 12 files. Phase 5 reshape: 3-reviewer consensus → warning-only thay vì hard-block.
+
+### Added
+- **`Team.wardId String?`** FK → Directory(WARD) + `IsWardDirectory` validator (defense in depth — FK không enforce type=WARD).
+- **`Team.editWindowHours Int?`** — per-team override cho edit window.
+- **Hybrid ward scoping** — cán bộ thuộc team có `wardId` set = ward officer. Auto-detected qua `DataScope.isWardOfficer` flag computed trong `UnitScopeService.resolveScope()`. KHÔNG cần `User.assignedWardId` mới.
+- **Ward officer scope strict (codex Crit 1):** `buildScopeFilter` exclude intake (assignedTeamId=null) cho ward officer. Pre-fix: ward officer thấy intake records của cả hệ — vi phạm scope.
+- **Auto-set `assignedTeamId`** trong `Case/Incident/Petition create()` khi user là ward officer (silent override of dto.assignedTeamId).
+- **`SystemSetting THOI_HAN_EDIT_VU_VAN`** default 24 giờ — config edit window global. Seeded idempotent.
+- **`EditWindowResetRequest` model + `/edit-window/requests` endpoints** (Phase 5b):
+  - POST: ward officer tạo request (dedupe via partial unique index, max 20 pending/user)
+  - GET: ADMIN/HEAD_UNIT (filter by descendant teams) xem queue
+  - POST bulk-approve: per-request authorize + atomic transaction + immutable audit log
+  - POST :id/reject với note
+- **Audit actions `RESET_REQUEST_APPROVED` / `RESET_REQUEST_REJECTED`** với metadata `{ requestId, reviewNote, previousStatus, bulkBatchSize, requesterId }`.
+- **Permission seed `review_reset_request:EditWindowResetRequest`** — ADMIN auto-grant.
+- **TeamsPage form** — thêm 2 inputs: `wardId` (text — TODO async combobox FE v0.33.0.1) + `editWindowHours` (number).
+- **SettingsPage** auto-renders new key `THOI_HAN_EDIT_VU_VAN` qua existing GET /settings endpoint.
+- **class-validator Nest DI** — `useContainer(app.select(AppModule))` trong main.ts cho `IsWardDirectory` validator inject PrismaService.
+
+### Changed
+- `DataScope` interface: thêm `isWardOfficer: boolean` + `wardTeamId: string | null`.
+- `UnitScopeService.resolveScope` compute ward team membership từ UserTeam join.
+- `buildScopeFilter` + `buildPetitionScopeFilter`: ward officer KHÔNG include `{assignedTeamId: null}` trong OR clause.
+- `cases.service.create()` / `incidents.service.create()` / `petitions.service.create()`: accept new `dataScope` param + force `assignedTeamId` từ ward team nếu user là ward officer.
+
+### Tests
+- +4 BE (scope-filter ward officer exclude/include intake, settings/permission seed). Suite: **1454 BE pass + 546 FE pass**.
+
+### Phase 5-lite (NOT hard-block) — INFRA ONLY in v0.33.0.0
+Hết 24h → form VẪN cho sửa (warning-only). **v0.33.0.0 ships infrastructure only:** `EditWindowService.isAfterEditWindow()` exists nhưng update paths (cases/incidents/petitions) CHƯA integrate audit flag `editedAfterWindow`. Reset request workflow endpoints sẵn sàng nhưng KHÔNG có frontend UX (defer EW-002 v0.33.0.1). Approving a reset hiện KHÔNG affect anything (since không block). Backend infrastructure đầy đủ cho v0.33.0.1 + frontend integration.
+
+### Known limitations (codex review documented)
+- **Single ward invariant:** `UnitScopeService.resolveScope` picks first ward team silently nếu user thuộc nhiều ward teams. Per anh D3 single-ward decision em chưa enforce throw — admin phải tự ensure user thuộc đúng 1 ward team. TODO WARD-007 add validation guard.
+- **Reset workflow frontend defer:** NotificationBell + EditWindowRequestsPage + EditWindowBadge → PR v0.33.0.1. Admin có thể gọi `POST /edit-window/requests/bulk-approve` qua API trực tiếp tạm thời.
+
+### TODOS (10 added)
+- WARD-001 multi ward-team per user
+- WARD-002 bulk import ward officers
+- WARD-003 ward filter dropdown
+- WARD-004 backfill historical
+- WARD-005 cross-ward subject lookup
+- WARD-006 getDescendantIds recursive CTE (hiện cap MAX_DEPTH=3)
+- EW-001 notification email/SMS
+- EW-002 reset workflow UX (NotificationBell + EditWindowRequestsPage + EditWindowBadge — PR v0.33.0.1)
+- EW-006 retention policy reset requests
+- DESIGN-001 create DESIGN.md
+
+### NOT in scope PR v0.33.0.0 (defer v0.33.0.1)
+- **NotificationBell + EditWindowRequestsPage + EditWindowBadge frontend** — backend endpoints + module sẵn sàng, frontend defer để keep PR shippable. Admin có thể gọi API trực tiếp tạm thời.
+- **TeamsPage async-search ward combobox** — hiện text input plain. Async combobox defer.
+
+---
+
 ## [0.32.0.1] - 2026-05-21
 
 ### Fixed

@@ -97,7 +97,7 @@ export class IncidentsController {
     return this.incidentsService.create(dto, user.id, {
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
-    });
+    }, req.dataScope); // v0.33
   }
 
   // PUT /api/v1/incidents/:id — Cập nhật vụ việc

@@ -271,3 +271,36 @@ describe('assertCreatorInScope (write operation)', () => {
     ).not.toThrow();
   });
 });
+
+// v0.33.0.0 codex Crit 1: ward officer scope strict — exclude intake
+describe('buildScopeFilter — ward officer (v0.33.0.0)', () => {
+  it('excludes unassigned (intake) records cho ward officer', () => {
+    const wardScope = {
+      userIds: ['u1'],
+      teamIds: ['ward-team-bn'],
+      writableTeamIds: ['ward-team-bn'],
+      isWardOfficer: true,
+      wardTeamId: 'ward-team-bn',
+    };
+    const filter = buildScopeFilter(wardScope as any);
+    const conditions = (filter as any).OR as Array<Record<string, unknown>>;
+    const hasNull = conditions.some(
+      (c) => 'assignedTeamId' in c && c.assignedTeamId === null,
+    );
+    expect(hasNull).toBe(false);
+  });
+
+  it('PC02 user (not ward officer) vẫn thấy intake (assignedTeamId:null)', () => {
+    const pc02Scope = {
+      userIds: ['u1'],
+      teamIds: ['pc02-team'],
+      writableTeamIds: ['pc02-team'],
+    };
+    const filter = buildScopeFilter(pc02Scope as any);
+    const conditions = (filter as any).OR as Array<Record<string, unknown>>;
+    const hasNull = conditions.some(
+      (c) => 'assignedTeamId' in c && c.assignedTeamId === null,
+    );
+    expect(hasNull).toBe(true);
+  });
+});

@@ -103,7 +103,7 @@ export class CasesController {
     return this.casesService.create(dto, user.id, {
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
-    });
+    }, req.dataScope); // v0.33: pass dataScope cho ward officer auto-set assignedTeamId
   }
 
   // PUT /api/v1/cases/:id — Cập nhật vụ án

@@ -39,6 +39,7 @@ describe('PetitionsController — delegation', () => {
       {},
       mockUser.id,
       expect.objectContaining({ ipAddress: '127.0.0.1' }),
+      expect.anything(), // v0.33: dataScope param
     );
   });
 

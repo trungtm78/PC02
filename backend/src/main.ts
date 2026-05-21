@@ -1,12 +1,16 @@
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { ValidationPipe } from '@nestjs/common';
+import { useContainer } from 'class-validator';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/filters/http-exception.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // v0.33.0.0: enable Nest DI for class-validator constraints (cho IsWardDirectory)
+  useContainer(app.select(AppModule), { fallbackOnErrors: true });
 
   // Trust the first proxy hop (Render/nginx) so req.ip reflects real client IP in audit logs
   app.set('trust proxy', 1);

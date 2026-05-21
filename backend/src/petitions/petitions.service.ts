@@ -253,7 +253,11 @@ export class PetitionsService {
     dto: CreatePetitionDto,
     actorId: string,
     meta?: { ipAddress?: string; userAgent?: string },
+    dataScope?: DataScope | null,
   ) {
+    // v0.33.0.0: ward officer auto-set assignedTeamId
+    const effectiveAssignedTeamId =
+      (dataScope?.isWardOfficer ? dataScope.wardTeamId : null) ?? dto.assignedTeamId;
     // Validate receivedDate is not in the future
     const receivedDate = new Date(dto.receivedDate);
     const today = new Date();
@@ -336,7 +340,7 @@ export class PetitionsService {
         deadline: computedDeadline,
         deadlineRuleVersionId: deadlineRuleVersionId ?? undefined,
         assignedToId: dto.assignedToId,
-        ...(dto.assignedTeamId !== undefined && { assignedTeamId: dto.assignedTeamId }),
+        ...(effectiveAssignedTeamId !== undefined && { assignedTeamId: effectiveAssignedTeamId }),
         notes: dto.notes,
         status: dto.status ?? PetitionStatus.MOI_TIEP_NHAN,
       },

@@ -63,6 +63,9 @@ export class TeamsService {
         parentId: dto.parentId,
         order: dto.order ?? 0,
         isActive: dto.isActive ?? true,
+        // v0.33.0.0: Hybrid scoping + edit window override
+        wardId: dto.wardId ?? null,
+        editWindowHours: dto.editWindowHours ?? null,
       },
     });
 
@@ -101,6 +104,9 @@ export class TeamsService {
             ...(dto.parentId !== undefined && { parentId: dto.parentId }),
             ...(dto.order !== undefined && { order: dto.order }),
             ...(dto.isActive !== undefined && { isActive: dto.isActive }),
+            // v0.33.0.0: allow update wardId/editWindowHours (null = clear)
+            ...(dto.wardId !== undefined && { wardId: dto.wardId }),
+            ...(dto.editWindowHours !== undefined && { editWindowHours: dto.editWindowHours }),
           },
         }),
       action: 'TEAM_UPDATED',

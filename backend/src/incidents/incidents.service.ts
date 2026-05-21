@@ -266,7 +266,11 @@ export class IncidentsService {
     dto: CreateIncidentDto,
     actorId: string,
     meta?: { ipAddress?: string; userAgent?: string },
+    dataScope?: DataScope | null,
   ) {
+    // v0.33.0.0: ward officer auto-set assignedTeamId
+    const effectiveAssignedTeamId =
+      (dataScope?.isWardOfficer ? dataScope.wardTeamId : null) ?? dto.assignedTeamId;
     if (dto.fromDate && dto.toDate) {
       if (new Date(dto.fromDate) > new Date(dto.toDate)) {
         throw new BadRequestException('Từ ngày không được lớn hơn Đến ngày');
@@ -328,7 +332,7 @@ export class IncidentsService {
         donViGiaiQuyet: dto.donViGiaiQuyet,
         ngayDeXuat: dto.ngayDeXuat ? new Date(dto.ngayDeXuat) : undefined,
         canBoNhapId: dto.canBoNhapId,
-        assignedTeamId: dto.assignedTeamId,
+        assignedTeamId: effectiveAssignedTeamId, // v0.33: ward officer override
         createdById: actorId,
         soQuyetDinh: dto.soQuyetDinh,
         ngayQuyetDinh: dto.ngayQuyetDinh ? new Date(dto.ngayQuyetDinh) : undefined,

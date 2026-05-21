@@ -9,6 +9,12 @@ export interface DataScope {
   userIds: string[];
   writableTeamIds: string[]; // Writable teams (own + WRITE grants only) — GAP-9
   canDispatch?: boolean;     // Supplementary: read all + assign/reassign any record
+  // v0.33.0.0: true nếu user thuộc ≥1 Team có wardId set (= cán bộ phường).
+  // Ward officer scope strict: KHÔNG thấy unassigned (intake) records — codex Crit 1.
+  isWardOfficer?: boolean;
+  // v0.33.0.0: nếu isWardOfficer, đây là teamId của ward team đầu tiên.
+  // Service dùng để force-set assignedTeamId khi ward officer create record.
+  wardTeamId?: string | null;
 }
 
 @Injectable()
@@ -86,11 +92,19 @@ export class UnitScopeService {
       userIds.push(userId);
     }
 
+    // v0.33.0.0: detect ward team membership (Team.wardId != null)
+    // userTeams already loaded with .team relation. Find first ward team.
+    const wardTeamUt = userTeams.find((ut) => ut.team.wardId !== null);
+    const isWardOfficer = !!wardTeamUt;
+    const wardTeamId = wardTeamUt?.teamId ?? null;
+
     return {
       teamIds: allReadTeamIds,
       userIds,
       writableTeamIds: allWriteTeamIds,
       canDispatch,
+      isWardOfficer,
+      wardTeamId,
     };
   }
 }

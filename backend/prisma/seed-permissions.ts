@@ -116,4 +116,9 @@ export const SEED_PERMISSIONS: readonly SeedPermission[] = [
   { action: 'restore', subject: 'Case', description: 'Khôi phục vụ án đã xóa mềm' },
   { action: 'restore', subject: 'Incident', description: 'Khôi phục vụ việc đã xóa mềm' },
   { action: 'restore', subject: 'Petition', description: 'Khôi phục đơn thư đã xóa mềm' },
+
+  // ── Edit window reset request review (v0.33.0.0 Phase 5b) ─────────────
+  // ADMIN + HEAD_UNIT review reset requests. ADMIN auto-grant via seed.ts ALL block.
+  // HEAD_UNIT grant via admin role-permission UI sau (defer per autoplan).
+  { action: 'review_reset_request', subject: 'EditWindowResetRequest', description: 'Duyệt/từ chối yêu cầu reset bộ đếm sửa dữ liệu cấp phường' },
 ];

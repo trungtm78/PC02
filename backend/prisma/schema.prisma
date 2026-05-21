@@ -155,6 +155,9 @@ model User {
   bulkImportJobs                  BulkImportJob[]           @relation("BulkImportJobGenerator")
   // v0.31.0.2: track Case creator để áp quyền xóa (creator-or-admin)
   casesCreated                    Case[]                    @relation("CaseCreator")
+  // v0.33.0.0 Phase 5b: edit window reset requests
+  resetRequestsRequested          EditWindowResetRequest[]  @relation("ResetRequestRequester")
+  resetRequestsReviewed           EditWindowResetRequest[]  @relation("ResetRequestReviewer")
 
   @@map("users")
 }
@@ -227,6 +230,9 @@ model Directory {
   metadata       Json? // Specific data for each type
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
+
+  // v0.33.0.0: inverse — Teams gắn ward (geographic teams)
+  teams          Team[]    @relation("TeamWard")
 
   @@unique([type, code])
   @@map("directories")
@@ -1152,6 +1158,11 @@ model Team {
   children  Team[]   @relation("TeamHierarchy")
   order     Int      @default(0)
   isActive  Boolean  @default(true)
+  // v0.33.0.0: Hybrid ward scoping — Team có thể là functional (wardId=null) hoặc geographic (wardId set)
+  wardId    String?
+  ward      Directory? @relation("TeamWard", fields: [wardId], references: [id], onDelete: SetNull)
+  // v0.33.0.0: per-team override cho edit window (giờ). NULL = dùng SystemSetting THOI_HAN_EDIT_VU_VAN default.
+  editWindowHours Int?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1164,7 +1175,28 @@ model Team {
 
   @@index([parentId])
   @@index([level])
+  @@index([wardId])
   @@map("teams")
+}
+
+// v0.33.0.0 Phase 5b: ward officer reset request workflow
+model EditWindowResetRequest {
+  id            String   @id @default(cuid())
+  subjectType   String   // 'Case' | 'Incident' | 'Petition'
+  subjectId     String
+  requestedById String
+  requestedBy   User     @relation("ResetRequestRequester", fields: [requestedById], references: [id], onDelete: Cascade)
+  reason        String
+  status        String   @default("PENDING") // PENDING | APPROVED | REJECTED
+  reviewedById  String?
+  reviewedBy    User?    @relation("ResetRequestReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewNote    String?
+  createdAt     DateTime @default(now())
+  reviewedAt    DateTime?
+
+  @@index([status])
+  @@index([subjectType, subjectId])
+  @@map("edit_window_reset_requests")
 }
 
 // ─────────────────────────────────────────────
