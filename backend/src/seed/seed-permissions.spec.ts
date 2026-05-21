@@ -72,6 +72,12 @@ describe('SEED_PERMISSIONS', () => {
     });
   });
 
+  describe('Edit window reset request review (v0.33.0.0 Phase 5b)', () => {
+    it('declares review_reset_request:EditWindowResetRequest', () => {
+      expect(hasPerm('review_reset_request', 'EditWindowResetRequest')).toBe(true);
+    });
+  });
+
   it('has no duplicate (action, subject) pairs', () => {
     const seen = new Set<string>();
     for (const p of SEED_PERMISSIONS) {

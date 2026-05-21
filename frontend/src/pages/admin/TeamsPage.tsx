@@ -26,6 +26,8 @@ interface Team {
   parentId: string | null;
   order: number;
   isActive: boolean;
+  wardId?: string | null; // v0.33.0.0: Hybrid ward scoping
+  editWindowHours?: number | null; // v0.33.0.0: per-team override
   createdAt: string;
   updatedAt: string;
   parent?: Team | null;
@@ -40,6 +42,8 @@ interface TeamFormData {
   parentId?: string;
   order?: number;
   isActive?: boolean;
+  wardId?: string | null;          // v0.33.0.0
+  editWindowHours?: number | null; // v0.33.0.0
 }
 
 interface TeamMember {
@@ -214,6 +218,8 @@ export default function TeamsPage() {
       parentId: team.parentId ?? undefined,
       order: team.order,
       isActive: team.isActive,
+      wardId: team.wardId ?? null,
+      editWindowHours: team.editWindowHours ?? null,
     });
     setShowForm(true);
   };
@@ -581,6 +587,47 @@ export default function TeamsPage() {
                   </option>
                 ))}
               </select>
+            </div>
+            {/* v0.33.0.0: Phường công tác (geographic team marker) */}
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">
+                Phường công tác (tùy chọn)
+              </label>
+              <input
+                type="text"
+                value={formData.wardId ?? ''}
+                onChange={(e) =>
+                  setFormData({ ...formData, wardId: e.target.value || null })
+                }
+                placeholder="ID directory WARD (vd: ben-nghe-id)"
+                className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
+              />
+              <p className="text-[10px] text-slate-500 mt-1">
+                Để trống = Tổ chức năng (PC02). Gán = Tổ địa lý (Công an Phường). Cán bộ thuộc Tổ này → scope theo phường.
+              </p>
+            </div>
+            {/* v0.33.0.0: editWindowHours override (Phase 5-lite) */}
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">
+                Thời hạn sửa dữ liệu (giờ, tùy chọn)
+              </label>
+              <input
+                type="number"
+                min={1}
+                max={168}
+                value={formData.editWindowHours ?? ''}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    editWindowHours: e.target.value ? Number(e.target.value) : null,
+                  })
+                }
+                placeholder="24 (default)"
+                className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
+              />
+              <p className="text-[10px] text-slate-500 mt-1">
+                Để trống = dùng cấu hình hệ thống (THOI_HAN_EDIT_VU_VAN). Override cho Tổ này nếu cần khác.
+              </p>
             </div>
             <div className="col-span-2 flex gap-2 justify-end">
               <button

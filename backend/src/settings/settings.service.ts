@@ -140,6 +140,8 @@ export class SettingsService {
       { key: SETTINGS_KEY.THOI_HAN_XOA_VU_VIEC, value: '180', label: 'Số ngày giữ vụ việc đã xóa mềm', unit: 'ngày', legalBasis: 'Quy chế nội bộ' },
       // v0.31.0.2: số giờ creator có thể tự xóa vụ án (status=TIEP_NHAN). Ngoài window → chỉ ADMIN.
       { key: SETTINGS_KEY.THOI_HAN_XOA_VU_AN, value: '72', label: 'Số giờ creator được tự xóa vụ án sau khi tạo', unit: 'giờ', legalBasis: 'Quy chế nội bộ' },
+      // v0.33.0.0 Phase 5-lite: edit window cho ward officer
+      { key: SETTINGS_KEY.THOI_HAN_EDIT_VU_VAN, value: '24', label: 'Số giờ cán bộ phường khuyến nghị sửa dữ liệu (warning-only, override per-Team)', unit: 'giờ', legalBasis: 'Quy chế nội bộ' },
     ];
 
     for (const d of defaults) {

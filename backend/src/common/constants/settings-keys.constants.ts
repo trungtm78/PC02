@@ -34,6 +34,8 @@ export const SETTINGS_KEY = {
   CANH_BAO_SAP_HAN: 'CANH_BAO_SAP_HAN',
   THOI_HAN_XOA_VU_VIEC: 'THOI_HAN_XOA_VU_VIEC',
   THOI_HAN_XOA_VU_AN: 'THOI_HAN_XOA_VU_AN',
+  // v0.33.0.0 Phase 5-lite: edit window cho ward officer (giờ, override per-Team)
+  THOI_HAN_EDIT_VU_VAN: 'THOI_HAN_EDIT_VU_VAN',
 } as const;
 
 export type SettingsKey = (typeof SETTINGS_KEY)[keyof typeof SETTINGS_KEY];

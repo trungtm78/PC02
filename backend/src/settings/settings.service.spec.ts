@@ -163,6 +163,7 @@ describe('SettingsService', () => {
       expect(upsertCalls).toContain('CANH_BAO_SAP_HAN');
       expect(upsertCalls).toContain('THOI_HAN_XOA_VU_VIEC');
       expect(upsertCalls).toContain('THOI_HAN_XOA_VU_AN');
+      expect(upsertCalls).toContain('THOI_HAN_EDIT_VU_VAN');
       expect(upsertCalls).not.toContain('THOI_HAN_XAC_MINH');
     });
   });

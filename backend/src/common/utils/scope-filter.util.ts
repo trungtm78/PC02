@@ -42,9 +42,12 @@ export function buildScopeFilter(
 
   if (scope.teamIds.length > 0) {
     conditions.push({ assignedTeamId: { in: scope.teamIds } });
-    // Intake workflow: records not yet routed to a team are visible to all team members
-    // so officers can claim/assign incoming cases from any unit.
-    conditions.push({ assignedTeamId: null });
+    // v0.33.0.0 codex Crit 1: ward officer EXCLUDED từ intake (unassigned records).
+    // Cán bộ phường chỉ thấy records assignedTeamId IN ward team mình.
+    // PC02 user (non-ward) vẫn thấy intake để claim/assign.
+    if (!scope.isWardOfficer) {
+      conditions.push({ assignedTeamId: null });
+    }
   }
 
   // Empty scope = no access
@@ -73,8 +76,10 @@ export function buildPetitionScopeFilter(
 
   if (scope.teamIds.length > 0) {
     conditions.push({ assignedTeamId: { in: scope.teamIds } });
-    // Intake workflow: unassigned petitions visible to all team members (same as buildScopeFilter).
-    conditions.push({ assignedTeamId: null });
+    // v0.33.0.0 codex Crit 1: ward officer EXCLUDED từ intake — same as buildScopeFilter
+    if (!scope.isWardOfficer) {
+      conditions.push({ assignedTeamId: null });
+    }
   }
 
   if (conditions.length === 0) {
@@ -102,7 +107,9 @@ export function assertParentInScope(
   const effectiveTeamIds = operation === 'write' ? (writableTeamIds ?? teamIds) : teamIds;
   const ownerMatch = parent.investigatorId ? userIds.includes(parent.investigatorId) : false;
   const teamMatch = parent.assignedTeamId ? effectiveTeamIds.includes(parent.assignedTeamId) : false;
-  const unassigned = !parent.assignedTeamId && effectiveTeamIds.length > 0;
+  // v0.33.0.0 codex HIGH 5: ward officer KHÔNG được pass unassigned parent (same logic as buildScopeFilter)
+  const isWardOfficer = (scope as any).isWardOfficer === true;
+  const unassigned = !parent.assignedTeamId && effectiveTeamIds.length > 0 && !isWardOfficer;
   if (!ownerMatch && !teamMatch && !unassigned) {
     recordDenial('parent');
     throw new ForbiddenException(
