@@ -240,6 +240,37 @@ enum LoaiNguonTin {
   KIEN_NGHI_KHOI_TO // Kiến nghị khởi tố (Điều 144 khoản 1c)
 }
 
+// Nguồn phát tin — chi tiết chủ thể tố giác/báo tin/kiến nghị (Đ.144 BLTTHS 2015)
+// Cascading từ LoaiNguonTin — FE+BE single source of truth tại
+// frontend/src/shared/enums/status-labels.ts NGUON_PHAT_TIN_BY_LOAI và
+// backend/src/common/validators/nguon-phat-tin-match.validator.ts NGUON_PHAT_TIN_BY_LOAI
+enum NguonPhatTin {
+  // For TO_GIAC (Đ.144 K1):
+  CA_NHAN_TO_GIAC // Cá nhân tố giác
+
+  // For TIN_BAO (Đ.144 K2):
+  CO_QUAN_NHA_NUOC // Cơ quan nhà nước
+  TO_CHUC // Tổ chức (doanh nghiệp, đoàn thể)
+  CA_NHAN_BAO_TIN // Cá nhân báo tin
+  PHUONG_TIEN_TRUYEN_THONG // Phương tiện thông tin đại chúng (báo, đài)
+
+  // For KIEN_NGHI_KHOI_TO (Đ.144 K3):
+  VIEN_KIEM_SAT // Viện kiểm sát nhân dân
+  THANH_TRA // Cơ quan thanh tra
+  KIEM_TOAN // Cơ quan kiểm toán
+  TOA_AN // Tòa án nhân dân
+  CO_QUAN_KHAC // Cơ quan nhà nước khác
+}
+
+// Phương thức tiếp nhận nguồn tin (TT 28/2020/TT-BCA Điều 6)
+enum PhuongThucTiepNhan {
+  TRUC_TIEP_BANG_LOI // Bằng lời trực tiếp tại trụ sở
+  TRUC_TIEP_BANG_VAN_BAN // Bằng văn bản trực tiếp (đơn, công văn)
+  DIEN_THOAI // Qua điện thoại
+  BUU_DIEN // Qua bưu điện / giao liên
+  PHUONG_TIEN_DIEN_TU // Qua mạng / email / phương tiện thông tin đại chúng
+}
+
 enum LoaiDon {
   TO_CAO // Tố cáo (Luật Tố cáo 2018)
   KHIEU_NAI // Khiếu nại (Luật Khiếu nại 2011)
@@ -611,6 +642,8 @@ model Incident {
   doiTuongCaNhan    String? // Đối tượng bị tố giác (TT119 Mẫu 01)
   doiTuongToChuc    String? // Tổ chức liên quan
   loaiDonVu         LoaiNguonTin? // Loại nguồn tin (Điều 144 BLTTHS 2015)
+  nguonPhatTin      NguonPhatTin? // Sub-type cascading từ loaiDonVu (Đ.144 BLTTHS) — v0.31.0.0
+  phuongThucTiepNhan PhuongThucTiepNhan? // Phương thức tiếp nhận (TT 28/2020/TT-BCA Đ.6) — v0.31.0.0
   benVu             String? // Người tố giác/báo tin (Đ.144 BLTTHS)
   donViGiaiQuyet    String? // Đơn vị thụ lý (Đ.145 BLTTHS)
   ngayDeXuat        DateTime? // Ngày tiếp nhận nguồn tin (Đ.146 BLTTHS)

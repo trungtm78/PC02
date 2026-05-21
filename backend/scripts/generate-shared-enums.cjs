@@ -55,6 +55,8 @@ const SHARED_ENUMS = [
   'KetQuaPhucHoiVuViec',
   'LoaiDon',
   'LoaiNguonTin',
+  'NguonPhatTin',
+  'PhuongThucTiepNhan',
   'CapDoToiPham',
   'NotificationType',
   'DocumentType',

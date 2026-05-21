@@ -322,6 +322,8 @@ export class IncidentsService {
         doiTuongCaNhan: dto.doiTuongCaNhan,
         doiTuongToChuc: dto.doiTuongToChuc,
         loaiDonVu: dto.loaiDonVu,
+        nguonPhatTin: dto.nguonPhatTin,
+        phuongThucTiepNhan: dto.phuongThucTiepNhan,
         benVu: dto.benVu,
         donViGiaiQuyet: dto.donViGiaiQuyet,
         ngayDeXuat: dto.ngayDeXuat ? new Date(dto.ngayDeXuat) : undefined,
@@ -394,7 +396,7 @@ export class IncidentsService {
     const updateData: Record<string, unknown> = {};
     const fields = [
       'name', 'incidentType', 'description', 'unitId', 'investigatorId',
-      'doiTuongCaNhan', 'doiTuongToChuc', 'loaiDonVu', 'benVu',
+      'doiTuongCaNhan', 'doiTuongToChuc', 'loaiDonVu', 'nguonPhatTin', 'phuongThucTiepNhan', 'benVu',
       'donViGiaiQuyet', 'ketQuaXuLy', 'tinhTrangHoSo', 'tinhTrangThoiHieu',
       'nguoiQuyetDinh', 'canBoNhapId', 'assignedTeamId',
       'soQuyetDinh', 'lyDoKhongKhoiTo', 'lyDoTamDinhChiText',

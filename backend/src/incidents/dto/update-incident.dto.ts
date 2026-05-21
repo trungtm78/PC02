@@ -6,7 +6,8 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
-import { LoaiNguonTin, LyDoKhongKhoiTo } from '@prisma/client';
+import { LoaiNguonTin, LyDoKhongKhoiTo, NguonPhatTin, PhuongThucTiepNhan } from '@prisma/client';
+import { IsNguonPhatTinMatchLoaiDonVu } from '../../common/validators/nguon-phat-tin-match.validator';
 
 export class UpdateIncidentDto {
   @IsOptional()
@@ -57,6 +58,18 @@ export class UpdateIncidentDto {
   @IsOptional()
   @IsEnum(LoaiNguonTin, { message: 'loaiDonVu phải là TO_GIAC, TIN_BAO hoặc KIEN_NGHI_KHOI_TO' })
   loaiDonVu?: LoaiNguonTin;
+
+  // v0.31.0.0 — cùng pattern với create-dto.
+  @IsOptional()
+  @IsEnum(NguonPhatTin, { message: 'nguonPhatTin không hợp lệ (Đ.144 BLTTHS)' })
+  @IsNguonPhatTinMatchLoaiDonVu()
+  nguonPhatTin?: NguonPhatTin;
+
+  @IsOptional()
+  @IsEnum(PhuongThucTiepNhan, {
+    message: 'phuongThucTiepNhan phải là một trong 5 phương thức TT 28/2020/TT-BCA Đ.6',
+  })
+  phuongThucTiepNhan?: PhuongThucTiepNhan;
 
   @IsOptional()
   @IsString()

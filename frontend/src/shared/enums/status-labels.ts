@@ -3,7 +3,7 @@
  * Source of truth: Prisma schema (via generated.ts).
  * Used by: ComprehensiveListPage, and any future aggregate or detail view.
  */
-import { CaseStatus, IncidentStatus, PetitionStatus, LyDoKhongKhoiTo, LoaiNguonTin, DeadlineRuleStatus } from './generated';
+import { CaseStatus, IncidentStatus, PetitionStatus, LyDoKhongKhoiTo, LoaiNguonTin, NguonPhatTin, PhuongThucTiepNhan, DeadlineRuleStatus } from './generated';
 
 // ── Vietnamese labels ───────────────────────────────────────────
 
@@ -155,6 +155,61 @@ export const LOAI_NGUON_TIN_LABEL: Record<LoaiNguonTin, string> = {
 };
 
 export const LOAI_NGUON_TIN_OPTIONS = Object.entries(LOAI_NGUON_TIN_LABEL).map(
+  ([value, label]) => ({ value, label }),
+);
+
+// ── NguonPhatTin (Đ.144 BLTTHS 2015 — chủ thể chi tiết, cascading từ LoaiNguonTin) ─
+// FE+BE single source of truth. Mirror tại
+// backend/src/common/validators/nguon-phat-tin-match.validator.ts NGUON_PHAT_TIN_BY_LOAI.
+// Keep in sync — drift caught by Test 8 (FE helper unit) + BE validator spec.
+
+export const NGUON_PHAT_TIN_LABEL: Record<NguonPhatTin, string> = {
+  [NguonPhatTin.CA_NHAN_TO_GIAC]:           'Cá nhân tố giác',
+  [NguonPhatTin.CO_QUAN_NHA_NUOC]:          'Cơ quan nhà nước',
+  [NguonPhatTin.TO_CHUC]:                   'Tổ chức (doanh nghiệp, đoàn thể)',
+  [NguonPhatTin.CA_NHAN_BAO_TIN]:           'Cá nhân báo tin',
+  [NguonPhatTin.PHUONG_TIEN_TRUYEN_THONG]:  'Phương tiện thông tin đại chúng',
+  [NguonPhatTin.VIEN_KIEM_SAT]:             'Viện kiểm sát nhân dân',
+  [NguonPhatTin.THANH_TRA]:                 'Cơ quan thanh tra',
+  [NguonPhatTin.KIEM_TOAN]:                 'Cơ quan kiểm toán',
+  [NguonPhatTin.TOA_AN]:                    'Tòa án nhân dân',
+  [NguonPhatTin.CO_QUAN_KHAC]:              'Cơ quan nhà nước khác',
+};
+
+export const NGUON_PHAT_TIN_BY_LOAI: Record<LoaiNguonTin, NguonPhatTin[]> = {
+  [LoaiNguonTin.TO_GIAC]:           [NguonPhatTin.CA_NHAN_TO_GIAC],
+  [LoaiNguonTin.TIN_BAO]:           [
+    NguonPhatTin.CO_QUAN_NHA_NUOC, NguonPhatTin.TO_CHUC,
+    NguonPhatTin.CA_NHAN_BAO_TIN,  NguonPhatTin.PHUONG_TIEN_TRUYEN_THONG,
+  ],
+  [LoaiNguonTin.KIEN_NGHI_KHOI_TO]: [
+    NguonPhatTin.VIEN_KIEM_SAT, NguonPhatTin.THANH_TRA,
+    NguonPhatTin.KIEM_TOAN,     NguonPhatTin.TOA_AN,
+    NguonPhatTin.CO_QUAN_KHAC,
+  ],
+};
+
+// Helper for form: returns filtered options based on currently-selected loaiDonVu.
+// Accepts plain string (no cast at call site) — internal guard handles invalid/empty.
+export function getNguonPhatTinOptions(loaiDonVu: string) {
+  if (!loaiDonVu || !(loaiDonVu in NGUON_PHAT_TIN_BY_LOAI)) return [];
+  return NGUON_PHAT_TIN_BY_LOAI[loaiDonVu as LoaiNguonTin].map((value) => ({
+    value,
+    label: NGUON_PHAT_TIN_LABEL[value],
+  }));
+}
+
+// ── PhuongThucTiepNhan (TT 28/2020/TT-BCA Điều 6 — 5 phương thức) ──────────────
+
+export const PHUONG_THUC_TIEP_NHAN_LABEL: Record<PhuongThucTiepNhan, string> = {
+  [PhuongThucTiepNhan.TRUC_TIEP_BANG_LOI]:     'Bằng lời trực tiếp',
+  [PhuongThucTiepNhan.TRUC_TIEP_BANG_VAN_BAN]: 'Bằng văn bản trực tiếp',
+  [PhuongThucTiepNhan.DIEN_THOAI]:             'Qua điện thoại',
+  [PhuongThucTiepNhan.BUU_DIEN]:               'Qua bưu điện / giao liên',
+  [PhuongThucTiepNhan.PHUONG_TIEN_DIEN_TU]:    'Qua mạng / email / phương tiện điện tử',
+};
+
+export const PHUONG_THUC_TIEP_NHAN_OPTIONS = Object.entries(PHUONG_THUC_TIEP_NHAN_LABEL).map(
   ([value, label]) => ({ value, label }),
 );
 
