@@ -28,7 +28,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { SettingsService } from '../settings/settings.service';
 import { DeadlineRulesService } from '../deadline-rules/deadline-rules.service';
-import { PetitionStatus, LoaiDon } from '@prisma/client';
+import { PetitionStatus, LoaiDon, Prisma } from '@prisma/client';
 
 // CaseStatus values — only used in mock fixture objects (not DTO-typed)
 const CaseStatus = { TIEP_NHAN: 'TIEP_NHAN' } as const;
@@ -893,6 +893,65 @@ describe('PetitionsService', () => {
 
       expect(result.success).toBe(true);
       expect(mockPrisma.userTeam.findFirst).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── restore (v0.32.0.0) ────────────────────────────────────────────────
+  describe('restore (v0.32.0.0)', () => {
+    const REASON = 'Khôi phục đơn thư do test';
+    const ACTOR_ID = 'admin-001';
+
+    const setupDeletedPetition = () => {
+      const deleted = {
+        id: 'petition-001',
+        stt: 'DT-2026-00001',
+        senderName: 'Nguyễn Văn A',
+        deletedAt: new Date(Date.now() - 24 * 3_600_000),
+      } as any;
+      mockPrisma.petition.findFirst.mockResolvedValue(deleted);
+      mockPrisma.$transaction.mockImplementation(async (cb: any) => {
+        const tx = { petition: { update: jest.fn().mockResolvedValue({ ...deleted, deletedAt: null }) } };
+        await cb(tx);
+      });
+      return deleted;
+    };
+
+    it('BE-R8a: throws NotFound khi record không tồn tại', async () => {
+      mockPrisma.petition.findFirst.mockResolvedValue(null);
+      await expect(service.restore('nope', REASON, ACTOR_ID)).rejects.toThrow(NotFoundException);
+    });
+
+    it('BE-R8b: throws NotFound khi chưa bị xóa (filter deletedAt:{not:null})', async () => {
+      mockPrisma.petition.findFirst.mockResolvedValue(null);
+      await expect(service.restore('p-001', REASON, ACTOR_ID)).rejects.toThrow(/chưa bị xóa/);
+      expect(mockPrisma.petition.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'p-001', deletedAt: { not: null } },
+        }),
+      );
+    });
+
+    it('BE-R8c: success — set deletedAt=null + audit PETITION_RESTORED', async () => {
+      setupDeletedPetition();
+      const result = await service.restore('petition-001', REASON, ACTOR_ID);
+      expect(result.success).toBe(true);
+      expect(mockAudit.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'PETITION_RESTORED',
+          metadata: expect.objectContaining({ reason: REASON, hoursAfterDeletion: expect.any(Number) }),
+        }),
+        expect.anything(),
+      );
+    });
+
+    it('BE-R8d: concurrent restore (P2025) → BadRequest', async () => {
+      setupDeletedPetition();
+      const p2025 = new Prisma.PrismaClientKnownRequestError(
+        'Record not found',
+        { code: 'P2025', clientVersion: '7.8.0' },
+      );
+      mockPrisma.$transaction.mockRejectedValueOnce(p2025);
+      await expect(service.restore('petition-001', REASON, ACTOR_ID)).rejects.toThrow(/đã được khôi phục/);
     });
   });
 });

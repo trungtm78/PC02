@@ -32,6 +32,7 @@ import { UpdateStatusDto } from './dto/update-status.dto';
 import { MergeIncidentDto } from './dto/merge-incident.dto';
 import { TransferIncidentDto } from './dto/transfer-incident.dto';
 import { DeleteIncidentDto } from './dto/delete-incident.dto';
+import { RestoreIncidentDto } from './dto/restore-incident.dto'; // v0.32.0.0
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
 
 @Controller('incidents')
@@ -134,6 +135,33 @@ export class IncidentsController {
       { ipAddress: req.ip, userAgent: req.headers['user-agent'] },
       dataScope,
     );
+  }
+
+  // GET /api/v1/incidents/admin/deleted — v0.32.0.0 list vụ việc đã xóa mềm (ADMIN)
+  @Get('admin/deleted')
+  @RequirePermissions({ action: 'restore', subject: 'Incident' })
+  listDeleted(@Query() query: { limit?: number; offset?: number; search?: string }) {
+    return this.incidentsService.listDeleted({
+      limit: query.limit ? Number(query.limit) : undefined,
+      offset: query.offset ? Number(query.offset) : undefined,
+      search: query.search,
+    });
+  }
+
+  // POST /api/v1/incidents/:id/restore — v0.32.0.0 khôi phục (ADMIN)
+  @Post(':id/restore')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions({ action: 'restore', subject: 'Incident' })
+  restore(
+    @Param('id') id: string,
+    @Body() dto: RestoreIncidentDto,
+    @CurrentUser() user: AuthUser,
+    @Req() req: ScopedRequest,
+  ) {
+    return this.incidentsService.restore(id, dto.reason, user.id, {
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
   }
 
   // PATCH /api/v1/incidents/:id/status — Đổi trạng thái

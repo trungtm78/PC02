@@ -30,6 +30,7 @@ import { ExportPetitionsQueryDto } from './dto/export-petitions-query.dto';
 import { ConvertToIncidentDto } from './dto/convert-incident.dto';
 import { ConvertToCaseDto } from './dto/convert-case.dto';
 import { AssignPetitionDto } from './dto/assign-petition.dto';
+import { RestorePetitionDto } from './dto/restore-petition.dto'; // v0.32.0.0
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
 @Controller('petitions')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -131,6 +132,33 @@ export class PetitionsController {
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
     }, req.dataScope);
+  }
+
+  // GET /api/v1/petitions/admin/deleted — v0.32.0.0 list đơn thư đã xóa mềm (ADMIN)
+  @Get('admin/deleted')
+  @RequirePermissions({ action: 'restore', subject: 'Petition' })
+  listDeleted(@Query() query: { limit?: number; offset?: number; search?: string }) {
+    return this.petitionsService.listDeleted({
+      limit: query.limit ? Number(query.limit) : undefined,
+      offset: query.offset ? Number(query.offset) : undefined,
+      search: query.search,
+    });
+  }
+
+  // POST /api/v1/petitions/:id/restore — v0.32.0.0 khôi phục (ADMIN)
+  @Post(':id/restore')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions({ action: 'restore', subject: 'Petition' })
+  restore(
+    @Param('id') id: string,
+    @Body() dto: RestorePetitionDto,
+    @CurrentUser() user: AuthUser,
+    @Req() req: ScopedRequest,
+  ) {
+    return this.petitionsService.restore(id, dto.reason, user.id, {
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
   }
 
   // POST /api/v1/petitions/:id/convert-incident — Chuyển thành Vụ việc

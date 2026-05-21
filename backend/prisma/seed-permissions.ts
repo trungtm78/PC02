@@ -109,4 +109,11 @@ export const SEED_PERMISSIONS: readonly SeedPermission[] = [
   // /admin/settings to 403 for every role including super-admin.
   { action: 'read', subject: 'Setting', description: 'Xem cấu hình hệ thống (system settings page)' },
   { action: 'write', subject: 'Setting', description: 'Sửa cấu hình hệ thống + seed defaults' },
+
+  // ── Restore (v0.32.0.0) — khôi phục records đã soft-delete ────────────
+  // Gắn duy nhất cho ADMIN qua role-permission mapping (xem grant block below).
+  // Missing seed → @RequirePermissions trả 403 cho mọi user kể cả ADMIN.
+  { action: 'restore', subject: 'Case', description: 'Khôi phục vụ án đã xóa mềm' },
+  { action: 'restore', subject: 'Incident', description: 'Khôi phục vụ việc đã xóa mềm' },
+  { action: 'restore', subject: 'Petition', description: 'Khôi phục đơn thư đã xóa mềm' },
 ];

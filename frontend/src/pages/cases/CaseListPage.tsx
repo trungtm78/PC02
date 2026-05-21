@@ -321,7 +321,7 @@ function CaseListPage() {
     try {
       await api.delete(`/cases/${caseToDelete.id}`, { data: { reason: deleteReason.trim() } });
       setCaseList((prev) => prev.filter((c) => c.id !== caseToDelete.id));
-      setSuccessMessage(`Đã xóa vụ án "${caseToDelete.name.slice(0, 50)}${caseToDelete.name.length > 50 ? "…" : ""}". Quản trị viên có thể khôi phục nếu cần.`);
+      setSuccessMessage(`Đã xóa vụ án "${caseToDelete.name.slice(0, 50)}${caseToDelete.name.length > 50 ? "…" : ""}". Quản trị viên có thể khôi phục tại trang /admin/khoi-phuc.`);
       closeDeleteModal();
       // Auto-dismiss success banner sau 5s
       setTimeout(() => setSuccessMessage(null), 5000);
@@ -911,7 +911,7 @@ function CaseListPage() {
                 {!blocked && !preflightLoading && (
                   <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
                     <p className="text-sm text-amber-800">
-                      Vụ án sẽ bị xóa mềm (soft delete) và ghi vào nhật ký kiểm toán. Quản trị viên có thể khôi phục nếu cần.
+                      Vụ án sẽ bị xóa mềm (soft delete) và ghi vào nhật ký kiểm toán. Quản trị viên có thể khôi phục tại trang Khôi phục dữ liệu (/admin/khoi-phuc).
                     </p>
                   </div>
                 )}

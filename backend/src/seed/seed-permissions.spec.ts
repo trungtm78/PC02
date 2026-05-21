@@ -60,6 +60,18 @@ describe('SEED_PERMISSIONS', () => {
     });
   });
 
+  describe('Restore (v0.32.0.0) — required cho POST /<entity>/:id/restore endpoints', () => {
+    it('declares restore:Case (BE-R9)', () => {
+      expect(hasPerm('restore', 'Case')).toBe(true);
+    });
+    it('declares restore:Incident', () => {
+      expect(hasPerm('restore', 'Incident')).toBe(true);
+    });
+    it('declares restore:Petition', () => {
+      expect(hasPerm('restore', 'Petition')).toBe(true);
+    });
+  });
+
   it('has no duplicate (action, subject) pairs', () => {
     const seen = new Set<string>();
     for (const p of SEED_PERMISSIONS) {

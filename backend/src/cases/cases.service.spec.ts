@@ -1043,4 +1043,92 @@ describe('CasesService', () => {
       );
     });
   });
+
+  // ── restore (v0.32.0.0) ─────────────────────────────────────────────────
+  describe('restore (v0.32.0.0)', () => {
+    const REASON = 'Khôi phục theo yêu cầu của thủ trưởng';
+    const ACTOR_ID = 'admin-001';
+
+    const setupDeletedCase = () => {
+      const deleted = { ...mockCase, deletedAt: new Date(Date.now() - 24 * 3_600_000) };
+      mockPrisma.case.findFirst.mockResolvedValue(deleted);
+      mockPrisma.$transaction.mockImplementation(async (cb: any) => {
+        const tx = { case: { update: jest.fn().mockResolvedValue({ ...deleted, deletedAt: null }) } };
+        await cb(tx);
+      });
+      return deleted;
+    };
+
+    it('BE-R1: throws NotFound khi record không tồn tại', async () => {
+      mockPrisma.case.findFirst.mockResolvedValue(null);
+      await expect(service.restore('nope', REASON, ACTOR_ID)).rejects.toThrow(NotFoundException);
+    });
+
+    it('BE-R2: findFirst filter deletedAt:{not:null} — chưa bị xóa thì coi như không tìm thấy', async () => {
+      mockPrisma.case.findFirst.mockResolvedValue(null);
+      await expect(service.restore('case-001', REASON, ACTOR_ID)).rejects.toThrow(/chưa bị xóa/);
+      expect(mockPrisma.case.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'case-001', deletedAt: { not: null } },
+        }),
+      );
+    });
+
+    it('BE-R3: success — set deletedAt=null + audit CASE_RESTORED với reason', async () => {
+      setupDeletedCase();
+      const result = await service.restore('case-001', REASON, ACTOR_ID);
+      expect(result.success).toBe(true);
+      expect(mockAudit.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'CASE_RESTORED',
+          metadata: expect.objectContaining({ reason: REASON, hoursAfterDeletion: expect.any(Number) }),
+        }),
+        expect.anything(),
+      );
+    });
+
+    it('BE-R4: concurrent restore (P2025) → BadRequest "đã được khôi phục"', async () => {
+      setupDeletedCase();
+      const p2025 = new Prisma.PrismaClientKnownRequestError(
+        'Record to update not found',
+        { code: 'P2025', clientVersion: '7.8.0' },
+      );
+      mockPrisma.$transaction.mockRejectedValueOnce(p2025);
+      await expect(service.restore('case-001', REASON, ACTOR_ID)).rejects.toThrow(/đã được khôi phục/);
+    });
+  });
+
+  // ── listDeleted (v0.32.0.0) ─────────────────────────────────────────────
+  describe('listDeleted (v0.32.0.0)', () => {
+    it('BE-R5: returns paginated với deleteAudit enriched', async () => {
+      const deleted = { ...mockCase, deletedAt: new Date() };
+      mockPrisma.case.findMany.mockResolvedValue([deleted]);
+      mockPrisma.case.count.mockResolvedValue(1);
+      (mockPrisma as any).$queryRaw = jest.fn().mockResolvedValue([
+        { subjectId: 'case-001', userId: 'u1', metadata: { reason: 'Test xóa' }, createdAt: new Date() },
+      ]);
+      const result = await service.listDeleted({ limit: 20, offset: 0 });
+      expect(result.success).toBe(true);
+      expect(result.total).toBe(1);
+      expect(result.data[0].deleteAudit).toBeTruthy();
+      expect(result.data[0].deleteAudit?.metadata).toMatchObject({ reason: 'Test xóa' });
+    });
+
+    it('BE-R6: search filter applied', async () => {
+      mockPrisma.case.findMany.mockResolvedValue([]);
+      mockPrisma.case.count.mockResolvedValue(0);
+      (mockPrisma as any).$queryRaw = jest.fn().mockResolvedValue([]);
+      await service.listDeleted({ search: 'tham nhũng' });
+      expect(mockPrisma.case.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            deletedAt: { not: null },
+            OR: expect.arrayContaining([
+              expect.objectContaining({ name: { contains: 'tham nhũng', mode: 'insensitive' } }),
+            ]),
+          }),
+        }),
+      );
+    });
+  });
 });
