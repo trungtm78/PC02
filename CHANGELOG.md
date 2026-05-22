@@ -2,6 +2,51 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.37.0.0] - 2026-05-22
+
+### Fix sprint: 10/12 audit findings RESOLVED (5 ship-blockers + 5 deferred)
+
+Sprint kết quả audit 2026-05-22 (verdict NO-GO → GO sau 1 day TDD-discipline execution). Plan reviewed qua /autoplan v2 dual voices (Claude + Codex GPT-5.5) trên Phase 1 CEO + Phase 3 Eng, 2 critical + 8 high methodology findings được fix trước execution. 4 user challenges (D/E/F + premise gate) confirmed bởi anh.
+
+### Fixed
+- **[P0-001] Orphan Document scope bypass — crown-jewel hồ sơ leaked cross-tenant.** `assertParentInScope(null, scope)` previously silent pass. Now throws ForbiddenException with metric `parent-null`. Admin (scope=null) + canDispatch bypass preserved. Affects Document, VKS-Meetings, Action-Plans (3 services với nullable parent). +5 spec tests, 0 regression in 1494 backend tests. `backend/src/common/utils/scope-filter.util.ts:105`.
+- **[P0-002] Login admin trả HTTP 500.** Root cause: dev DB schema drift — migration `20260516120000_magic_link_enrollment` recorded as applied trong `_prisma_migrations` table nhưng DDL không execute (enrollment columns missing trên `users`). Fixed via manual `ALTER TABLE`. Exposed bởi P1-004 stack trace logging. Not a code bug — environmental.
+- **[P1-002] Petition→Case convert race condition.** Full fix: (a) `convert-case.dto.ts` `expectedUpdatedAt` required (was optional), (b) `petitions.service.ts:705` always apply optimistic lock, (c) catch both P2025 + P2002 → ConflictException, (d) `PetitionListPage.tsx:866` FE sends `petition.updatedAt`, (e) Prisma migration `20260522172600_petition_linked_case_unique` partial unique index `WHERE linkedCaseId IS NOT NULL` + pre-migration safety check (DO $$ raises if historical duplicates exist), (f) `rollback.sql` included. +3 spec tests.
+- **[P1-003] feature_flags seed deploy automation.** New `backend/prisma/seed-features-if-empty.ts` — idempotent Node script (not psql per /autoplan ENG-5). Reuses app's PrismaPg adapter + dotenv auto-load. `deploy.sh` step 9b invokes AFTER atomic symlink switch + AFTER systemctl restart + AFTER health check. Tested: 28 rows → skipped.
+- **[P1-004] GlobalExceptionFilter nuốt stack trace — root cause that BLOCKED P0-002 debug.** New `formatErrorWithCauseChain()` helper walks `Error.cause` recursively (max depth 10 guard). Logs server-side ONLY for non-HttpException OR HttpException ≥500. Stack NEVER leaked to client response (verified via spec). Handles non-Error throws (string/number). +7 spec tests covering: raw Error, 500 HttpException, 400/404 no-log, cause chain, server-only stack, non-Error throws.
+- **[P1-005] Migration silent drift verification.** New deploy.sh step 5b: post-`migrate deploy` runs `prisma migrate status`, captures log, counts "have not yet been applied" lines. Non-blocking warn for now (operational gate before promote to fatal).
+- **[P2-001] Ward officer write-scope inconsistent.** Added `&& !isWardOfficer` to `unassignedMatch` check trong `petitions.service.ts:206 checkWriteScope`. Consistent với `buildScopeFilter` design intent (ward officer excluded from intake).
+- **[P2-003] Frontend vitest không chạy trong CI.** New `frontend-test` job trong `.github/workflows/ci.yml` runs `vitest run` + `tsc --noEmit` on every PR + push to main.
+
+### Resolved (false positive)
+- **[P1-001]** 2 broken FE tests — re-run vitest 3/3 stable 546 PASS. Original audit baseline flaky due to RTK wrapper output capture.
+- **[P3-001]** TOTP `epochTolerance:30` — verified otplib v13 types: option IS valid (seconds tolerance), not legacy. Reverted attempted fix.
+
+### Deferred (Tier-2 post-launch)
+- **[P3-002]** `/auth/2fa/disable` no current-TOTP-code confirm. Mitigation existing: system-enforced 2FA blocks endpoint via early-throw. Defer DTO+verify+spec rework.
+
+### Accepted-risk
+- **[P2-002]** exceljs/uuid CVE GHSA-w5hq-g745-h8pq. exceljs 4.4.0 (latest) uses uuid 8.3.2 v4-random only (CVE affects v3/v5/v6 buf param). Override attempt failed (lockfile pinning). Exploitability LOW. Wait for exceljs upstream bump.
+
+### Methodology highlights
+- TDD discipline applied strictly per /test-driven-development skill: RED-GREEN-REFACTOR for all 5 ship-block fixes. Watched each test fail FIRST, then minimal code to pass.
+- Cross-model /autoplan review caught 2 critical + 8 high methodology gaps BEFORE execution (e.g., "blanket-stub failing tests = hiding signal" → classify each, "Promise.all on pglite = false confidence" → use real Postgres or DB constraint, "temp logger.debug = PII risk" → Jest spec first).
+- `P1-004` filter fix enabled `P0-002` root cause discovery in single iteration — observability fix paid for itself.
+
+### Test results
+- Backend jest: 1471 → **1494 PASS, 0 FAIL** (+23 regression tests)
+- Frontend vitest: 544 + 2 fail → **546 PASS, 0 FAIL** (+0, flaky resolved)
+- TypeScript: backend + frontend clean
+- Migrations: 39 → 40 (new petition unique index migration, includes rollback.sql)
+
+### Artifacts
+- [docs/uat-review-2026-05-22-exec.md](docs/uat-review-2026-05-22-exec.md) — original audit report (now historical)
+- [scripts/audit/findings.json](scripts/audit/findings.json) — all 12 findings với status update
+- [docs/audit-hypothesis-2026-05-22.md](docs/audit-hypothesis-2026-05-22.md) — Phase 0 threat model
+- `C:\Users\Than Minh Trung\.claude\plans\t-i-mu-n-th-c-hi-n-lucky-star.md` — full fix sprint plan + /autoplan review results (not committed, dev artifact)
+
+---
+
 ## [0.33.0.0] - 2026-05-21
 
 ### Feat: Per-ward scoping (Hybrid via Team.wardId) + Phase 5-lite edit window + reset workflow
