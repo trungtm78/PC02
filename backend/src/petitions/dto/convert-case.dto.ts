@@ -36,7 +36,9 @@ export class ConvertToCaseDto {
   @IsDateString()
   prosecutionDate?: string;
 
-  @IsOptional()
+  // P1-002 fix: required (was optional) — prevents race when 2 user click convert simultaneously.
+  // Frontend MUST send petition.updatedAt to enable optimistic lock at petitions.service.ts:705.
   @IsDateString({}, { message: 'expectedUpdatedAt không đúng định dạng ISO 8601' })
-  expectedUpdatedAt?: string;
+  @IsNotEmpty({ message: 'expectedUpdatedAt là bắt buộc để chống race condition' })
+  expectedUpdatedAt: string;
 }

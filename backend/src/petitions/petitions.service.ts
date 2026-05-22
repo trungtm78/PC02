@@ -200,10 +200,12 @@ export class PetitionsService {
     dataScope?: DataScope | null,
   ) {
     if (!dataScope) return;
-    const { userIds, writableTeamIds } = dataScope;
+    const { userIds, writableTeamIds, isWardOfficer } = dataScope;
     const ownerMatch = record.enteredById && userIds.includes(record.enteredById);
     const teamMatch = record.assignedTeamId && writableTeamIds.includes(record.assignedTeamId);
-    const unassignedMatch = !record.assignedTeamId && writableTeamIds.length > 0;
+    // P2-001 fix: ward officer EXCLUDED from intake (unassigned) per scope-filter design intent.
+    // Without this, WO could convert unassigned petition if they obtain ID (even though list filter hides it).
+    const unassignedMatch = !record.assignedTeamId && writableTeamIds.length > 0 && !isWardOfficer;
     if (!ownerMatch && !teamMatch && !unassignedMatch) {
       throw new ForbiddenException('Bạn không có quyền chỉnh sửa bản ghi này');
     }
@@ -704,7 +706,8 @@ export class PetitionsService {
       await tx.petition.update({
         where: {
           id: petitionId,
-          ...(dto.expectedUpdatedAt ? { updatedAt: new Date(dto.expectedUpdatedAt) } : {}),
+          // P1-002 fix: always-lock (was conditional). DTO requires expectedUpdatedAt.
+          updatedAt: new Date(dto.expectedUpdatedAt),
         },
         data: {
           linkedCaseId: newCase.id,
@@ -715,7 +718,10 @@ export class PetitionsService {
       return [newCase];
     });
     } catch (e) {
-      if ((e as { code?: string })?.code === 'P2025' && dto.expectedUpdatedAt) {
+      // P1-002: P2025 = row not found với updatedAt mismatch → race detected.
+      // P2002 = unique constraint violation (partial index on linkedCaseId) → race detected at DB.
+      const code = (e as { code?: string })?.code;
+      if (code === 'P2025' || code === 'P2002') {
         throw new ConflictException(
           'Đơn thư đã được chỉnh sửa bởi người dùng khác. Vui lòng tải lại trang và thử lại.',
         );
