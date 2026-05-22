@@ -38,7 +38,7 @@ export class EditWindowService {
       });
       if (team?.editWindowHours != null) return team.editWindowHours;
     }
-    return this.settings.getNumericValue(SETTINGS_KEY.THOI_HAN_EDIT_VU_VAN, 24);
+    return this.settings.getNumericValue(SETTINGS_KEY.THOI_HAN_EDIT_VU_VAN, 168);
   }
 
   async isAfterEditWindow(record: {
@@ -50,7 +50,7 @@ export class EditWindowService {
     if (!record.assignedTeam?.wardId) return false;
     const window =
       record.assignedTeam.editWindowHours ??
-      (await this.settings.getNumericValue(SETTINGS_KEY.THOI_HAN_EDIT_VU_VAN, 24));
+      (await this.settings.getNumericValue(SETTINGS_KEY.THOI_HAN_EDIT_VU_VAN, 168));
     const hoursElapsed = (Date.now() - record.createdAt.getTime()) / 3_600_000;
     return hoursElapsed > window;
   }

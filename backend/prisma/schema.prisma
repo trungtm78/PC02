@@ -458,6 +458,10 @@ model Case {
   createdById     String?
   createdBy       User?                     @relation("CaseCreator", fields: [createdById], references: [id], onDelete: SetNull)
 
+  // v0.36.0.0 Phase 5-lite: warning flag — set true khi update sau Team.editWindowHours
+  // (mặc định 168h theo BLTTHS Đ.147). Read-only audit, không enforce.
+  editedAfterWindow Boolean @default(false)
+
   investigator    User?                     @relation(fields: [investigatorId], references: [id], onDelete: SetNull)
   assignedTeamId  String?
   assignedTeam    Team?                     @relation("CaseTeam", fields: [assignedTeamId], references: [id], onDelete: SetNull)
@@ -630,6 +634,9 @@ model Petition {
   deadlineRuleVersionId String?
   deadlineRuleVersion   DeadlineRuleVersion? @relation("PetitionInitialRule", fields: [deadlineRuleVersionId], references: [id], onDelete: Restrict)
 
+  // v0.36.0.0 Phase 5-lite: warning flag (audit-only)
+  editedAfterWindow Boolean @default(false)
+
   @@index([status])
   @@index([receivedDate])
   @@index([deadline])
@@ -759,6 +766,9 @@ model Incident {
   statusHistory  IncidentStatusHistory[]
   vksMeetings    VksMeetingRecord[]      @relation("IncidentVksMeetings")
   actionPlans    SuspensionActionPlan[]  @relation("IncidentActionPlans")
+
+  // v0.36.0.0 Phase 5-lite: warning flag (audit-only)
+  editedAfterWindow Boolean @default(false)
 
   @@index([status])
   @@index([deletedAt])

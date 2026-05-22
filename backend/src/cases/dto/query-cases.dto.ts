@@ -64,6 +64,11 @@ export class QueryCasesDto {
   @IsString()
   wardId?: string;
 
+  // v0.36.0.0: Lọc theo phường công tác (Team.wardId — cross-ward view cho PC02/ADMIN)
+  @IsOptional()
+  @IsString()
+  wardTeamId?: string;
+
   // Lọc theo mức độ tội phạm (BLHS Điều 9)
   @IsOptional()
   @IsEnum(CapDoToiPham)
