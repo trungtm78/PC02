@@ -7,10 +7,9 @@ export const classificationMenu: FeatureMenuEntry[] = [
     label: 'Phân loại & Quản lý',
     icon: 'FolderKanban',
     children: [
-      { section: 'workflow', id: 'classification-ward-cases', label: 'Vụ án theo phường/xã', path: '/ward/cases' },
-      { section: 'workflow', id: 'classification-ward-incidents', label: 'Vụ việc theo phường/xã', path: '/ward/incidents' },
+      // v0.37.1: 3 items lạc chỗ moved to correct entity menus (cases, incidents, petitions).
+      // Routes unchanged — only menu position. Bookmarks won't break.
       { section: 'workflow', id: 'classification-prosecutor', label: 'Đề xuất VKS', path: '/prosecutor-proposal' },
-      { section: 'workflow', id: 'classification-duplicates', label: 'Đơn trùng lặp', path: '/classification/duplicates' },
       { section: 'workflow', id: 'classification-others', label: 'Phân loại khác', path: '/classification/others' },
     ],
   },

@@ -1086,6 +1086,11 @@ export class IncidentsService {
             crime: dto.crime,
             status: 'TIEP_NHAN',
             investigatorId: existing.investigatorId,
+            // v0.37.1 PR-INC — provenance gap fix per eng review HIGH finding:
+            // Incident prosecution path was creating Case without caseProvenance,
+            // which would fail the NOT NULL constraint in PR-PROV-2 (Contract).
+            caseProvenance: 'FROM_INCIDENT' as const,
+            linkedIncidentId: id,
           },
         });
       } catch (err: unknown) {

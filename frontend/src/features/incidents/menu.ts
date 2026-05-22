@@ -9,6 +9,8 @@ export const incidentsMenu: FeatureMenuEntry[] = [
     children: [
       { section: 'business', id: 'incidents-list', label: 'Danh sách vụ việc', path: '/vu-viec' },
       { section: 'business', id: 'incidents-new', label: 'Thêm vụ việc mới', path: '/vu-viec/new' },
+      // v0.37.1: filter view moved from "Phân loại & Quản lý" — fix wrong placement.
+      { section: 'business', id: 'incidents-ward', label: 'Vụ việc theo phường/xã', path: '/ward/incidents' },
     ],
   },
 ];
