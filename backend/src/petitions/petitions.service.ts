@@ -764,6 +764,10 @@ export class PetitionsService {
           crime: dto.crime,
           unit: dto.jurisdiction,
           status: CaseStatus.TIEP_NHAN,
+          // v0.37.1 PR-AUDIT — close provenance gap: convertToCase was creating Case
+          // without caseProvenance, which would fail NOT NULL contract in PR-PROV-2.
+          caseProvenance: 'FROM_PETITION' as const,
+          linkedPetitionId: petitionId,
         },
       });
 

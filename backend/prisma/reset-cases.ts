@@ -73,11 +73,12 @@ async function main() {
       unit: 'Công an Quận 7',
       investigatorId: dtv1.id,
       deadline: daysFromNow(30),
+      caseProvenance: 'DIRECT_DISCOVERY' as const, // v0.37.1: dev seeds default to direct discovery
       metadata: {
         caseCode: 'HS-2026-001',
         receiveDate: formatDate(daysAgo(2)),
         receiveTime: '08:30',
-        caseType: 'vu-an',
+        // v0.37.1: caseType removed from metadata (vestigial); caseProvenance now top-level field on Case.
         caseClassification: 'hinh-su',
         priority: 'trung-binh',
         description: 'Bị hại báo bị mất 1 xe máy Honda Vision BKS 59G1-12345 tại bãi giữ xe chung cư. Camera ghi hình nghi phạm là nam thanh niên khoảng 25 tuổi.',
@@ -113,7 +114,7 @@ async function main() {
         caseCode: 'HS-2026-002',
         receiveDate: formatDate(daysAgo(3)),
         receiveTime: '14:00',
-        caseType: 'vu-an',
+        // v0.37.1: caseType removed from metadata (vestigial); caseProvenance now top-level field on Case.
         caseClassification: 'hinh-su',
         priority: 'cao',
         description: 'Bị hại bị lừa đảo đầu tư vào sàn Forex giả, mất tổng cộng 2 tỷ đồng. Đối tượng sử dụng website giả mạo và nhóm Zalo để thao túng nạn nhân.',
@@ -148,7 +149,7 @@ async function main() {
         caseCode: 'HS-2026-003',
         receiveDate: formatDate(daysAgo(5)),
         receiveTime: '22:45',
-        caseType: 'vu-an',
+        // v0.37.1: caseType removed from metadata (vestigial); caseProvenance now top-level field on Case.
         caseClassification: 'hinh-su',
         priority: 'cao',
         description: 'Tổ công tác CA phường Tây Thạnh phát hiện đối tượng Lê Văn Dũng (SN 1990) tàng trữ 0.5 gram heroin tại nhà riêng. Đối tượng đã bị bắt giữ.',
@@ -184,7 +185,7 @@ async function main() {
         caseCode: 'HS-2026-004',
         receiveDate: formatDate(daysAgo(10)),
         receiveTime: '19:30',
-        caseType: 'vu-an',
+        // v0.37.1: caseType removed from metadata (vestigial); caseProvenance now top-level field on Case.
         caseClassification: 'hinh-su',
         priority: 'cao',
         description: 'Bị hại bị 2 đối tượng đi xe máy cướp giật điện thoại iPhone 15 Pro Max khi đang đi bộ tại khu vực chợ Bến Thành. Camera an ninh đã ghi hình rõ mặt 2 đối tượng.',
@@ -220,7 +221,7 @@ async function main() {
         caseCode: 'HS-2026-005',
         receiveDate: formatDate(daysAgo(15)),
         receiveTime: '03:00',
-        caseType: 'vu-an',
+        // v0.37.1: caseType removed from metadata (vestigial); caseProvenance now top-level field on Case.
         caseClassification: 'hinh-su',
         priority: 'khan-cap',
         description: 'Phá đường dây ma túy liên tỉnh từ Campuchia về TP.HCM. Thu giữ 5kg heroin, 2000 viên ma túy tổng hợp. 4 đối tượng đã bị bắt giữ.',
@@ -256,7 +257,7 @@ async function main() {
         caseCode: 'HS-2026-006',
         receiveDate: formatDate(daysAgo(20)),
         receiveTime: '09:00',
-        caseType: 'vu-an',
+        // v0.37.1: caseType removed from metadata (vestigial); caseProvenance now top-level field on Case.
         caseClassification: 'hinh-su',
         priority: 'cao',
         description: 'Đối tượng伪造 giấy tờ đất đai, lừa đảo bán đất cho 5 nạn nhân với tổng số tiền 5 tỷ đồng. Đất thực tế thuộc sở hữu của người khác.',
@@ -292,7 +293,7 @@ async function main() {
         caseCode: 'HS-2026-007',
         receiveDate: formatDate(daysAgo(7)),
         receiveTime: '23:45',
-        caseType: 'vu-an',
+        // v0.37.1: caseType removed from metadata (vestigial); caseProvenance now top-level field on Case.
         caseClassification: 'hinh-su',
         priority: 'cao',
         description: 'Xô xát tại quán nhậu trên đường Bùi Viện, bị can dùng chai bia đánh bị hại gây thương tích 15% cơ thể. Bị can đã bị bắt giữ.',
@@ -328,7 +329,7 @@ async function main() {
         caseCode: 'HS-2026-008',
         receiveDate: formatDate(daysAgo(12)),
         receiveTime: '06:30',
-        caseType: 'vu-an',
+        // v0.37.1: caseType removed from metadata (vestigial); caseProvenance now top-level field on Case.
         caseClassification: 'hinh-su',
         priority: 'khan-cap',
         description: 'Bị can Võ Văn Bình dùng dao giết vợ là Võ Thị Cẩm Vân tại nhà riêng. Nghi ngờ do mâu thuẫn gia đình kéo dài. Bị can đã đầu thú.',
@@ -364,7 +365,7 @@ async function main() {
         caseCode: 'HS-2026-009',
         receiveDate: formatDate(daysAgo(90)),
         receiveTime: '15:20',
-        caseType: 'vu-an',
+        // v0.37.1: caseType removed from metadata (vestigial); caseProvenance now top-level field on Case.
         caseClassification: 'hinh-su',
         priority: 'trung-binh',
         description: 'Bị can trộm hàng hóa trị giá 15 triệu đồng tại siêu thị Coopmart. Camera ghi hình rõ ràng. Bị can đã thú nhận và trả lại hàng.',
@@ -400,7 +401,7 @@ async function main() {
         caseCode: 'HS-2026-010',
         receiveDate: formatDate(daysAgo(60)),
         receiveTime: '21:00',
-        caseType: 'vu-an',
+        // v0.37.1: caseType removed from metadata (vestigial); caseProvenance now top-level field on Case.
         caseClassification: 'hinh-su',
         priority: 'thap',
         description: 'Đối tượng tàng trữ 0.1 gram ma túy cho mục đích sử dụng cá nhân. Sau khi giám định, đối tượng là người nghiện ma túy.',
@@ -436,7 +437,7 @@ async function main() {
         caseCode: 'HS-2026-011',
         receiveDate: formatDate(daysAgo(35)),
         receiveTime: '07:00',
-        caseType: 'vu-an',
+        // v0.37.1: caseType removed from metadata (vestigial); caseProvenance now top-level field on Case.
         caseClassification: 'hinh-su',
         priority: 'cao',
         description: 'Trộm laptop và tiền mặt tại phòng trọ. Nghi phạm là người thuê phòng kế bên đã bỏ trốn.',
@@ -472,7 +473,7 @@ async function main() {
         caseCode: 'HS-2026-012',
         receiveDate: formatDate(daysAgo(40)),
         receiveTime: '16:00',
-        caseType: 'vu-an',
+        // v0.37.1: caseType removed from metadata (vestigial); caseProvenance now top-level field on Case.
         caseClassification: 'hinh-su',
         priority: 'cao',
         description: 'Nhóm học sinh ép bạn cùng lớp nộp tiền mỗi tuần. Tổng số tiền 5 triệu đồng trong 2 tháng.',
@@ -508,7 +509,7 @@ async function main() {
         caseCode: 'HS-2026-013',
         receiveDate: formatDate(daysAgo(8)),
         receiveTime: '02:30',
-        caseType: 'vu-an',
+        // v0.37.1: caseType removed from metadata (vestigial); caseProvenance now top-level field on Case.
         caseClassification: 'hinh-su',
         priority: 'cao',
         description: 'Xe máy chạy tốc độ cao tông vào dải phân cách trên đường Lê Văn Sỹ, tài xế tử vong. Nghi ngờ tài xế có sử dụng rượu bia.',
@@ -544,7 +545,7 @@ async function main() {
         caseCode: 'HS-2026-014',
         receiveDate: formatDate(daysAgo(15)),
         receiveTime: '11:30',
-        caseType: 'vu-an',
+        // v0.37.1: caseType removed from metadata (vestigial); caseProvenance now top-level field on Case.
         caseClassification: 'hinh-su',
         priority: 'trung-binh',
         description: 'Trộm xe đạp điện tại bãi xe trường học. Camera ghi hình nghi phạm là học sinh trường khác.',
@@ -580,7 +581,7 @@ async function main() {
         caseCode: 'HS-2026-015',
         receiveDate: formatDate(daysAgo(20)),
         receiveTime: '10:00',
-        caseType: 'vu-an',
+        // v0.37.1: caseType removed from metadata (vestigial); caseProvenance now top-level field on Case.
         caseClassification: 'hinh-su',
         priority: 'trung-binh',
         description: 'Lập website bán hàng online giả mạo thương hiệu lớn, lừa đảo 50 khách hàng với tổng số tiền 300 triệu đồng.',
