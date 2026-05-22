@@ -5,13 +5,14 @@ import { FEATURE_MODULES, getFeatureModule } from '../featureRegistry';
 type RouteElement = ReactElement<{ path?: string }>;
 
 describe('FEATURE_MODULES registry', () => {
-  it('auto-discovers all 19 expected features', () => {
+  it('auto-discovers all 20 expected features', () => {
     const expected = [
       'admin',
       'admin-units', // v0.34.0.0 — read-only browser cho Tỉnh/Phường
       'calendar',
       'cases',
       'classification',
+      'comprehensive', // v0.37.1 — cross-entity views (Tổng hợp menu)
       'dashboard',
       'directory',
       'documents',
@@ -78,13 +79,14 @@ describe('FEATURE_MODULES registry', () => {
       .filter(Boolean)
       .sort();
     expect(paths).toEqual([
+      // v0.37.1: /add-new-record kept as legacy redirect to /cases/new
+      // /comprehensive-list and /initial-cases moved to features/comprehensive (PR-MENU-TONGHOP)
       '/add-new-record',
       '/cases',
       '/cases/:id',
       '/cases/:id/edit',
+      '/cases/new',
       '/cases/tdac-backfill',
-      '/comprehensive-list',
-      '/initial-cases',
     ]);
   });
 

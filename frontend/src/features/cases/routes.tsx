@@ -1,13 +1,10 @@
 import { lazy, Suspense, type ReactElement } from 'react';
-import { Route } from 'react-router-dom';
+import { Route, Navigate } from 'react-router-dom';
 
 const CaseListPage = lazy(() => import('@/pages/cases/CaseListPage'));
 const CaseFormPage = lazy(() => import('@/pages/cases/CaseFormPage'));
 const CaseDetailPage = lazy(() => import('@/pages/cases/CaseDetailPage'));
-const ComprehensiveListPage = lazy(
-  () => import('@/pages/cases/ComprehensiveListPage'),
-);
-const InitialCasesPage = lazy(() => import('@/pages/cases/InitialCasesPage'));
+// v0.37.1: ComprehensiveListPage + InitialCasesPage routes moved to features/comprehensive/routes.tsx
 const CaseTdcBackfillPage = lazy(() => import('@/pages/cases/CaseTdcBackfillPage'));
 
 const wrap = (node: ReactElement): ReactElement => (
@@ -31,21 +28,19 @@ export function renderCasesRoutes(): ReactElement[] {
       path="/cases/:id/edit"
       element={wrap(<CaseFormPage />)}
     />,
+    // v0.37.1: canonical path is /cases/new. Old /add-new-record redirects.
+    // Keep 1-2 releases for bookmarks/links, then remove.
     <Route
       key="cases-new"
-      path="/add-new-record"
+      path="/cases/new"
       element={wrap(<CaseFormPage />)}
     />,
     <Route
-      key="cases-comprehensive"
-      path="/comprehensive-list"
-      element={wrap(<ComprehensiveListPage />)}
+      key="cases-new-legacy-redirect"
+      path="/add-new-record"
+      element={<Navigate to="/cases/new" replace />}
     />,
-    <Route
-      key="cases-initial"
-      path="/initial-cases"
-      element={wrap(<InitialCasesPage />)}
-    />,
+    // v0.37.1: /comprehensive-list and /initial-cases moved to features/comprehensive/routes.tsx
     <Route
       key="cases-tdc-backfill"
       path="/cases/tdac-backfill"

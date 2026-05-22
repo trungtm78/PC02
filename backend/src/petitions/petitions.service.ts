@@ -195,6 +195,70 @@ export class PetitionsService {
     }
   }
 
+  // v0.37.1 PR-PICK — list Petitions eligible for linking from a new Case.
+  // Returns only: not soft-deleted + not yet linked to any Case + in user's DataScope.
+  // Used by CaseFormPage Petition picker (CaseProvenancePicker → /petitions/linkable).
+  async listLinkable(
+    query: { search?: string; limit?: number },
+    dataScope?: DataScope | null,
+  ) {
+    const limit = Math.min(query.limit ?? 50, 100);
+    const search = (query.search ?? '').trim();
+
+    const baseWhere: Prisma.PetitionWhereInput = {
+      deletedAt: null,
+      linkedCaseId: null,
+    };
+
+    // Scope filter: same OR pattern as cases.service.create (FROM_PETITION branch)
+    if (dataScope && !dataScope.canDispatch) {
+      const orConditions: Prisma.PetitionWhereInput[] = [];
+      if (dataScope.userIds.length > 0) {
+        orConditions.push({ enteredById: { in: dataScope.userIds } });
+      }
+      if (dataScope.writableTeamIds.length > 0) {
+        orConditions.push({ assignedTeamId: { in: dataScope.writableTeamIds } });
+        if (!dataScope.isWardOfficer) {
+          orConditions.push({ assignedTeamId: null });
+        }
+      }
+      if (orConditions.length === 0) {
+        return { data: [] };
+      }
+      baseWhere.OR = orConditions;
+    }
+
+    // Search across STT (prefix-style — petitioners search by SỐ TT) and senderName (contains).
+    if (search.length > 0) {
+      baseWhere.AND = [
+        baseWhere.OR ? { OR: baseWhere.OR } : {},
+        {
+          OR: [
+            { stt: { startsWith: search, mode: 'insensitive' as const } },
+            { senderName: { contains: search, mode: 'insensitive' as const } },
+          ],
+        },
+      ];
+      delete baseWhere.OR;
+    }
+
+    const rows = await this.prisma.petition.findMany({
+      where: baseWhere,
+      take: limit,
+      orderBy: { receivedDate: 'desc' },
+      select: {
+        id: true,
+        stt: true,
+        senderName: true,
+        receivedDate: true,
+        petitionType: true,
+        updatedAt: true,
+      },
+    });
+
+    return { data: rows };
+  }
+
   private checkWriteScope(
     record: { enteredById?: string | null; assignedTeamId?: string | null },
     dataScope?: DataScope | null,
@@ -700,6 +764,10 @@ export class PetitionsService {
           crime: dto.crime,
           unit: dto.jurisdiction,
           status: CaseStatus.TIEP_NHAN,
+          // v0.37.1 PR-AUDIT — close provenance gap: convertToCase was creating Case
+          // without caseProvenance, which would fail NOT NULL contract in PR-PROV-2.
+          caseProvenance: 'FROM_PETITION' as const,
+          linkedPetitionId: petitionId,
         },
       });
 

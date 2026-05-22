@@ -19,6 +19,7 @@ import {
   X,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { mapCaseToInitialType } from "./utils/case-provenance-mapper";
 
 interface InitialCase {
   id: string;
@@ -77,9 +78,8 @@ function InitialCasesPage() {
           const isOverdue = deadline && new Date(deadline) < new Date();
           const status: "pending" | "overdue" = isOverdue ? "overdue" : "pending";
 
-          // Map type
-          const typeRaw = (c.type ?? c.caseType ?? "CASE").toUpperCase();
-          const type: "incident" | "case" = typeRaw.includes("INCIDENT") || typeRaw.includes("VU_VIEC") ? "incident" : "case";
+          // Map type — v0.37.1: prefer caseProvenance, legacy fallback during soak
+          const type = mapCaseToInitialType(c);
           const typeLabel = type === "incident" ? "Vụ việc" : "Vụ án";
 
           return {

@@ -61,6 +61,7 @@ const SHARED_ENUMS = [
   'NotificationType',
   'DocumentType',
   'DeadlineRuleStatus',
+  'CaseProvenance', // v0.37.1
 ];
 
 function parseEnums(schemaSource) {

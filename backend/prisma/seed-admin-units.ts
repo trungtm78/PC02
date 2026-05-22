@@ -15,6 +15,7 @@ import { PrismaClient } from '@prisma/client';
 import { readFileSync } from 'fs';
 import * as path from 'path';
 import { verifyChecksum } from './lib/checksum';
+import { findOrphanIds } from './seed-admin-units-helpers';
 
 // v0.34.0.1: bump v2024-1279 → v2025-1300 (pull live từ provinces.open-api.vn v2,
 // post NQ 60/NQ-CP 25/04/2025 — 34 tỉnh / 3,321 phường tên địa danh chính danh).
@@ -143,8 +144,10 @@ export async function seedAdminUnits(
         });
 
         // 3. Upsert provinces (snapshot: UPDATE in place by (type, code))
+        const datasetProvinceCodes = new Set<string>();
         let addedProvinces = 0;
         for (const p of dataset.provinces) {
+          datasetProvinceCodes.add(p.code);
           const existing = await tx.directory.findUnique({
             where: { type_code: { type: 'PROVINCE', code: p.code } },
             select: { id: true },
@@ -236,19 +239,33 @@ export async function seedAdminUnits(
           }
         }
 
-        // 6. Detect abolished — DB rows active nhưng dataset không có
+        // 6. Detect abolished WARDs — DB rows active nhưng dataset không có
         const allDbWards = await tx.directory.findMany({
           where: { type: 'WARD', isActive: true },
           select: { id: true, code: true },
         });
-        const toAbolish = allDbWards.filter((w) => !datasetWardCodes.has(w.code));
+        const wardOrphanIds = findOrphanIds(allDbWards, datasetWardCodes);
         let abolishedWards = 0;
-        if (toAbolish.length > 0) {
+        if (wardOrphanIds.length > 0) {
           await tx.directory.updateMany({
-            where: { id: { in: toAbolish.map((w) => w.id) } },
+            where: { id: { in: wardOrphanIds } },
             data: { isActive: false, abolishedAt: new Date() },
           });
-          abolishedWards = toAbolish.length;
+          abolishedWards = wardOrphanIds.length;
+        }
+
+        // 6b. Detect abolished PROVINCEs — symmetry with wards (v0.37.0.2 fix:
+        // pre-reform legacy provinces were leaking into UI as empty-tree rows).
+        const allDbProvinces = await tx.directory.findMany({
+          where: { type: 'PROVINCE', isActive: true },
+          select: { id: true, code: true },
+        });
+        const provinceOrphanIds = findOrphanIds(allDbProvinces, datasetProvinceCodes);
+        if (provinceOrphanIds.length > 0) {
+          await tx.directory.updateMany({
+            where: { id: { in: provinceOrphanIds } },
+            data: { isActive: false, abolishedAt: new Date() },
+          });
         }
 
         // 7. Finalize ledger

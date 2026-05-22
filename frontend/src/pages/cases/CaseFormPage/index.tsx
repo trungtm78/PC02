@@ -152,7 +152,7 @@ function CaseFormPage() {
           caseCode:                    meta.caseCode                    ?? prev.caseCode,
           receiveDate:                 meta.receiveDate                 ?? prev.receiveDate,
           receiveTime:                 meta.receiveTime                 ?? prev.receiveTime,
-          caseType:                    meta.caseType                    ?? prev.caseType,
+          // v0.37.1: caseType removed (vestigial). caseProvenance set via Nguồn vụ án Card (sub-5).
           caseClassification:          meta.caseClassification          ?? prev.caseClassification,
           capDoToiPham:                (d.capDoToiPham as string)        ?? prev.capDoToiPham,
           priority:                    meta.priority                    ?? prev.priority,
@@ -195,7 +195,14 @@ function CaseFormPage() {
     if (formData.receiveDate && new Date(formData.receiveDate) > new Date()) {
       newErrors.receiveDate = "Ngày tiếp nhận không được ở tương lai";
     }
-    if (!formData.caseType) newErrors.caseType = "Vui lòng chọn loại hồ sơ";
+    // v0.37.1 Decision 7A 10/10 — validation 10/10 (multi-channel error display)
+    if (!formData.caseProvenance) {
+      newErrors.caseProvenance = "Vui lòng chọn Nguồn vụ án (BLTTHS Đ.143)";
+    } else if (formData.caseProvenance === "FROM_PETITION" && !formData.linkedPetitionId) {
+      newErrors.linkedPetitionId = "Vui lòng chọn Đơn thư gốc";
+    } else if (formData.caseProvenance === "FROM_INCIDENT" && !formData.linkedIncidentId) {
+      newErrors.linkedIncidentId = "Vui lòng chọn Vụ việc gốc";
+    }
     if (!formData.caseTitle.trim()) newErrors.caseTitle = "Vui lòng nhập tiêu đề hồ sơ";
     if (!formData.handler) newErrors.handler = "Vui lòng chọn điều tra viên";
     setErrors(newErrors);
@@ -224,7 +231,7 @@ function CaseFormPage() {
           caseCode:                  formData.caseCode,
           receiveDate:               formData.receiveDate,
           receiveTime:               formData.receiveTime,
-          caseType:                  formData.caseType,
+          // v0.37.1: caseType removed from metadata payload.
           caseClassification:        formData.caseClassification,
           priority:                  formData.priority,
           description:               formData.description,
@@ -234,7 +241,7 @@ function CaseFormPage() {
           damageAmount:              formData.damageAmount,
           damageDescription:         formData.damageDescription,
           note:                      formData.note,
-          petitionType:              formData.petitionType,
+          // v0.37.1: petitionType removed — moved to linked Petition record.
           reporter:                  formData.reporter,
           reporterIdNumber:          formData.reporterIdNumber,
           reporterDateOfBirth:       formData.reporterDateOfBirth,

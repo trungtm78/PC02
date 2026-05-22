@@ -15,7 +15,7 @@ import { UpdateCaseDto } from './dto/update-case.dto';
 import { QueryCasesDto } from './dto/query-cases.dto';
 import { AssignCaseDto } from './dto/assign-case.dto';
 import type { DeleteCasePreflightResponse } from './dto/delete-case-preflight.response';
-import { Prisma, CaseStatus, PetitionStatus, LoaiDon, CapDoToiPham, LyDoTamDinhChiVuAn, KetQuaPhucHoiVuAn } from '@prisma/client';
+import { Prisma, CaseStatus, PetitionStatus, LoaiDon, CapDoToiPham, LyDoTamDinhChiVuAn, KetQuaPhucHoiVuAn, CaseProvenance } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { buildScopeFilter } from '../common/utils/scope-filter.util';
 import { BcaExcelHelper } from '../common/bca-excel.helper';
@@ -300,113 +300,200 @@ export class CasesService {
     const effectiveAssignedTeamId = forcedTeamId ?? dto.assignedTeamId;
 
     const metadata = dto.metadata as Record<string, unknown> | undefined;
-    const petitionType = metadata?.petitionType as LoaiDon | undefined;
+    const legacyPetitionType = metadata?.petitionType as LoaiDon | undefined;
 
-    // If petitionType exists, create Case + Petition atomically
-    if (petitionType) {
-      const { caseRecord, petition } = await this.prisma.$transaction(
-        async (tx) => {
-          const newCase = await tx.case.create({
-            data: {
-              name: dto.name,
-              crime: dto.crime,
-              status: dto.status ?? CaseStatus.TIEP_NHAN,
-              investigatorId: dto.investigatorId,
-              createdById: actorId, // v0.31.0.2: creator track
-              deadline: dto.deadline ? new Date(dto.deadline) : undefined,
-              unit: dto.unit,
-              ...(effectiveAssignedTeamId !== undefined && { assignedTeamId: effectiveAssignedTeamId }),
-              subjectsCount: dto.subjectsCount ?? 0,
-              ...(dto.capDoToiPham !== undefined && { capDoToiPham: dto.capDoToiPham }),
-              ...(dto.ngayKhoiTo !== undefined && { ngayKhoiTo: new Date(dto.ngayKhoiTo) }),
-              ...(dto.metadata !== undefined && {
-                metadata: dto.metadata as JsonInput,
-              }),
-            },
-            include: {
-              investigator: {
-                select: {
-                  id: true,
-                  firstName: true,
-                  lastName: true,
-                  username: true,
-                },
-              },
-            },
-          });
-
-          const stt = await this.generateStt(tx);
-          const reporter = (metadata?.reporter as string) || 'Chưa xác định';
-
-          const newPetition = await tx.petition.create({
-            data: {
-              stt,
-              receivedDate: new Date(),
-              senderName: reporter,
-              petitionType,
-              status: PetitionStatus.MOI_TIEP_NHAN,
-              linkedCaseId: newCase.id,
-              enteredById: actorId,
-              unit: dto.unit,
-            },
-          });
-
-          return { caseRecord: newCase, petition: newPetition };
+    // ── v0.37.1 Compat shim (Deploy-1 only) ────────────────────────────────
+    // If legacy payload arrives without caseProvenance, audit-warn and default
+    // to OTHER_LEGAL_SOURCE. DO NOT auto-create phantom Petition (provenance violation).
+    let effectiveProvenance = dto.caseProvenance;
+    let scrubbedMetadata = dto.metadata;
+    if (legacyPetitionType && !effectiveProvenance) {
+      await this.audit.log({
+        userId: actorId,
+        action: 'LEGACY_PAYLOAD_RECEIVED',
+        subject: 'Case',
+        metadata: {
+          reason: 'metadata.petitionType received without caseProvenance — legacy payload (v0.37.1 compat shim)',
+          legacyPetitionType,
         },
-      );
+        ipAddress: meta?.ipAddress,
+        userAgent: meta?.userAgent,
+      });
+      // Strip the legacy field; default to OTHER_LEGAL_SOURCE for safety
+      const scrubbed = { ...metadata } as Record<string, unknown>;
+      delete scrubbed.petitionType;
+      scrubbedMetadata = scrubbed;
+      effectiveProvenance = CaseProvenance.OTHER_LEGAL_SOURCE;
+    }
+
+    // Common base case data shared across all branches
+    const baseCaseData = {
+      name: dto.name,
+      crime: dto.crime,
+      status: dto.status ?? CaseStatus.TIEP_NHAN,
+      investigatorId: dto.investigatorId,
+      createdById: actorId, // v0.31.0.2: creator track
+      deadline: dto.deadline ? new Date(dto.deadline) : undefined,
+      unit: dto.unit,
+      ...(effectiveAssignedTeamId !== undefined && { assignedTeamId: effectiveAssignedTeamId }),
+      subjectsCount: dto.subjectsCount ?? 0,
+      ...(dto.capDoToiPham !== undefined && { capDoToiPham: dto.capDoToiPham }),
+      ...(dto.ngayKhoiTo !== undefined && { ngayKhoiTo: new Date(dto.ngayKhoiTo) }),
+      ...(scrubbedMetadata !== undefined && { metadata: scrubbedMetadata as JsonInput }),
+      ...(effectiveProvenance !== undefined && { caseProvenance: effectiveProvenance }),
+      ...(dto.sourceDocumentNote !== undefined && { sourceDocumentNote: dto.sourceDocumentNote }),
+    };
+
+    const caseInclude = {
+      investigator: {
+        select: { id: true, firstName: true, lastName: true, username: true },
+      },
+    };
+
+    // ── FROM_PETITION: link existing Petition (IDOR-safe + optimistic lock) ──
+    if (effectiveProvenance === CaseProvenance.FROM_PETITION) {
+      // Build scope filter for Petition (DataScope): same OR conditions as petitions.service checkWriteScope
+      const petitionScopeOR: Prisma.PetitionWhereInput[] = [];
+      if (dataScope && !dataScope.canDispatch) {
+        if (dataScope.userIds.length > 0) {
+          petitionScopeOR.push({ enteredById: { in: dataScope.userIds } });
+        }
+        if (dataScope.writableTeamIds.length > 0) {
+          petitionScopeOR.push({ assignedTeamId: { in: dataScope.writableTeamIds } });
+          if (!dataScope.isWardOfficer) {
+            petitionScopeOR.push({ assignedTeamId: null });
+          }
+        }
+      }
+
+      const caseRecord = await this.prisma.$transaction(async (tx) => {
+        const petition = await tx.petition.findFirst({
+          where: {
+            id: dto.linkedPetitionId!,
+            deletedAt: null,
+            linkedCaseId: null,
+            ...(petitionScopeOR.length > 0 ? { OR: petitionScopeOR } : {}),
+          },
+        });
+        if (!petition) {
+          // Consistent 404 — no enumeration leak (not-found vs out-of-scope indistinguishable)
+          throw new NotFoundException('Đơn thư không tồn tại hoặc không nằm trong phạm vi của bạn');
+        }
+
+        const newCase = await tx.case.create({
+          data: { ...baseCaseData, linkedPetitionId: petition.id },
+          include: caseInclude,
+        });
+
+        // Atomic state check via WHERE updatedAt + linkedCaseId=null
+        try {
+          await tx.petition.update({
+            where: {
+              id: petition.id,
+              updatedAt: new Date(dto.expectedPetitionUpdatedAt!),
+            },
+            data: {
+              linkedCaseId: newCase.id,
+              status: PetitionStatus.DA_CHUYEN_VU_AN,
+            },
+          });
+        } catch (e) {
+          const code = (e as { code?: string })?.code;
+          if (code === 'P2025' || code === 'P2002') {
+            throw new ConflictException(
+              'Đơn thư đã được chỉnh sửa hoặc link bởi người dùng khác. Vui lòng tải lại trang và thử lại.',
+            );
+          }
+          throw e;
+        }
+
+        return newCase;
+      });
 
       await this.audit.log({
         userId: actorId,
         action: 'CASE_CREATED',
         subject: 'Case',
         subjectId: caseRecord.id,
-        metadata: { name: caseRecord.name, status: caseRecord.status },
+        metadata: { name: caseRecord.name, status: caseRecord.status, caseProvenance: effectiveProvenance, linkedPetitionId: dto.linkedPetitionId },
         ipAddress: meta?.ipAddress,
         userAgent: meta?.userAgent,
+      });
+
+      return { success: true, data: caseRecord, message: 'Tạo vụ án thành công' };
+    }
+
+    // ── FROM_INCIDENT: link existing Incident (IDOR-safe + optimistic lock) ──
+    if (effectiveProvenance === CaseProvenance.FROM_INCIDENT) {
+      const incidentScopeOR: Prisma.IncidentWhereInput[] = [];
+      if (dataScope && !dataScope.canDispatch) {
+        if (dataScope.userIds.length > 0) {
+          incidentScopeOR.push({ investigatorId: { in: dataScope.userIds } });
+        }
+        if (dataScope.writableTeamIds.length > 0) {
+          incidentScopeOR.push({ assignedTeamId: { in: dataScope.writableTeamIds } });
+          if (!dataScope.isWardOfficer) {
+            incidentScopeOR.push({ assignedTeamId: null });
+          }
+        }
+      }
+
+      const caseRecord = await this.prisma.$transaction(async (tx) => {
+        const incident = await tx.incident.findFirst({
+          where: {
+            id: dto.linkedIncidentId!,
+            deletedAt: null,
+            linkedCaseId: null,
+            ...(incidentScopeOR.length > 0 ? { OR: incidentScopeOR } : {}),
+          },
+        });
+        if (!incident) {
+          throw new NotFoundException('Vụ việc không tồn tại hoặc không nằm trong phạm vi của bạn');
+        }
+
+        const newCase = await tx.case.create({
+          data: { ...baseCaseData, linkedIncidentId: incident.id },
+          include: caseInclude,
+        });
+
+        try {
+          await tx.incident.update({
+            where: {
+              id: incident.id,
+              updatedAt: new Date(dto.expectedIncidentUpdatedAt!),
+            },
+            data: { linkedCaseId: newCase.id },
+          });
+        } catch (e) {
+          const code = (e as { code?: string })?.code;
+          if (code === 'P2025' || code === 'P2002') {
+            throw new ConflictException(
+              'Vụ việc đã được chỉnh sửa hoặc link bởi người dùng khác. Vui lòng tải lại trang và thử lại.',
+            );
+          }
+          throw e;
+        }
+
+        return newCase;
       });
 
       await this.audit.log({
         userId: actorId,
-        action: 'PETITION_AUTO_CREATED',
-        subject: 'Petition',
-        subjectId: petition.id,
-        metadata: {
-          stt: petition.stt,
-          petitionType,
-          linkedCaseId: caseRecord.id,
-        },
+        action: 'CASE_CREATED',
+        subject: 'Case',
+        subjectId: caseRecord.id,
+        metadata: { name: caseRecord.name, status: caseRecord.status, caseProvenance: effectiveProvenance, linkedIncidentId: dto.linkedIncidentId },
         ipAddress: meta?.ipAddress,
         userAgent: meta?.userAgent,
       });
 
-      return {
-        success: true,
-        data: { ...caseRecord, linkedPetition: petition },
-        message: 'Tạo vụ án thành công',
-      };
+      return { success: true, data: caseRecord, message: 'Tạo vụ án thành công' };
     }
 
-    // No petitionType — create Case only
+    // ── DIRECT_DISCOVERY / TRANSFERRED / OTHER_LEGAL_SOURCE: simple Case create ──
     const record = await this.prisma.case.create({
-      data: {
-        name: dto.name,
-        crime: dto.crime,
-        status: dto.status ?? CaseStatus.TIEP_NHAN,
-        investigatorId: dto.investigatorId,
-        createdById: actorId, // v0.31.0.2: creator track
-        deadline: dto.deadline ? new Date(dto.deadline) : undefined,
-        unit: dto.unit,
-        ...(dto.assignedTeamId !== undefined && { assignedTeamId: dto.assignedTeamId }),
-        subjectsCount: dto.subjectsCount ?? 0,
-        ...(dto.capDoToiPham !== undefined && { capDoToiPham: dto.capDoToiPham }),
-        ...(dto.ngayKhoiTo !== undefined && { ngayKhoiTo: new Date(dto.ngayKhoiTo) }),
-        ...(dto.metadata !== undefined && { metadata: dto.metadata as JsonInput }),
-      },
-      include: {
-        investigator: {
-          select: { id: true, firstName: true, lastName: true, username: true },
-        },
-      },
+      data: baseCaseData,
+      include: caseInclude,
     });
 
     await this.audit.log({
@@ -414,7 +501,7 @@ export class CasesService {
       action: 'CASE_CREATED',
       subject: 'Case',
       subjectId: record.id,
-      metadata: { name: record.name, status: record.status },
+      metadata: { name: record.name, status: record.status, caseProvenance: effectiveProvenance },
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
     });
