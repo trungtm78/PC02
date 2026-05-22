@@ -265,3 +265,12 @@ export const DeadlineRuleStatus = {
   rejected: 'rejected',
 } as const;
 export type DeadlineRuleStatus = (typeof DeadlineRuleStatus)[keyof typeof DeadlineRuleStatus];
+
+export const CaseProvenance = {
+  FROM_PETITION: 'FROM_PETITION',
+  FROM_INCIDENT: 'FROM_INCIDENT',
+  DIRECT_DISCOVERY: 'DIRECT_DISCOVERY',
+  TRANSFERRED: 'TRANSFERRED',
+  OTHER_LEGAL_SOURCE: 'OTHER_LEGAL_SOURCE',
+} as const;
+export type CaseProvenance = (typeof CaseProvenance)[keyof typeof CaseProvenance];

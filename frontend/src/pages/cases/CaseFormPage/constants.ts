@@ -1,10 +1,7 @@
 // ─── Select options for CaseForm tabs (Tiếng Việt có dấu chuẩn) ─────────────
 
-export const CASE_TYPE_OPTIONS = [
-  { value: "don-thu", label: "Đơn thư" },
-  { value: "vu-viec", label: "Vụ việc" },
-  { value: "vu-an", label: "Vụ án" },
-];
+// v0.37.1: CASE_TYPE_OPTIONS removed (vestigial). Replaced by CASE_PROVENANCE_OPTIONS
+// (added in sub-5 for Nguồn vụ án Card). The 5 provenance values map to BLTTHS Đ.143.
 
 export const PRIORITY_OPTIONS = [
   { value: "thap", label: "Thấp" },

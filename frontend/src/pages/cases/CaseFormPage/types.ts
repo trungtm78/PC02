@@ -58,7 +58,7 @@ export interface CaseFormData {
   caseCode: string;           // Mã hồ sơ (bắt buộc, unique, HS-YYYY-NNN)
   receiveDate: string;        // Ngày tiếp nhận (bắt buộc, không tương lai)
   receiveTime: string;        // Giờ tiếp nhận
-  caseType: string;           // Loại hồ sơ (bắt buộc)
+  // v0.37.1: 'caseType' (vestigial) removed; replaced by 'caseProvenance' in sub-5 (Nguồn vụ án Card).
   caseTitle: string;          // Tiêu đề hồ sơ (bắt buộc)
   description: string;        // Mô tả chi tiết
   status: string;             // Trạng thái
@@ -66,7 +66,7 @@ export interface CaseFormData {
   handler: string;            // Điều tra viên chính (bắt buộc)
   supervisingUnit: string;    // Đơn vị thụ lý (text label, lưu vào Case.unit)
   assignedTeamId: string;     // FK Team đơn vị thụ lý (Case.assignedTeamId) — DataScope hoạt động dựa trên field này
-  petitionType: string;       // Loại đơn thư (từ MasterClass type 02)
+  // v0.37.1: 'petitionType' (LoaiDon) removed — now a property of linked Petition, not Case.
   caseClassification: string; // Phân loại vụ án
   capDoToiPham: string;       // Mức độ tội phạm (BLHS 2015 Điều 9) — dùng cho KPI-4
 
@@ -205,7 +205,6 @@ export const INITIAL_FORM_DATA: CaseFormData = {
   caseCode: "",
   receiveDate: "",
   receiveTime: "",
-  caseType: "",
   caseTitle: "",
   description: "",
   status: "",
@@ -213,7 +212,6 @@ export const INITIAL_FORM_DATA: CaseFormData = {
   handler: "",
   supervisingUnit: "",
   assignedTeamId: "",
-  petitionType: "",
   caseClassification: "",
   capDoToiPham: "",
   reporter: "",

@@ -37,7 +37,6 @@ import { FKSelect } from "@/components/FKSelect";
 import { ProvinceWardSelect } from "@/components/ProvinceWardSelect";
 import type { TabProps, Subject, Evidence, MediaFile } from "./types";
 import {
-  CASE_TYPE_OPTIONS,
   STATUS_OPTIONS,
   SUBJECT_TYPE_COLORS,
 } from "./constants";
@@ -128,16 +127,7 @@ export function TabInfo({ formData, setFormData, errors, setErrors, handlerOptio
             value={formData.receiveTime}
             onChange={(v) => update("receiveTime", v)}
           />
-          <FormSelect
-            label="Loại hồ sơ"
-            required
-            value={formData.caseType}
-            onChange={(v) => update("caseType", v)}
-            options={CASE_TYPE_OPTIONS}
-            error={errors.caseType}
-            placeholder="-- Chọn loại --"
-            data-testid="select-case-type"
-          />
+          {/* v0.37.1: "Loại hồ sơ" FormSelect removed (vestigial). Replaced by "Nguồn vụ án" Card at top of form (sub-5). */}
           <FKSelect
             label="Phân loại vụ án"
             value={formData.caseClassification}
@@ -194,13 +184,7 @@ export function TabInfo({ formData, setFormData, errors, setErrors, handlerOptio
             canCreate={false}
             testId="fk-unit"
           />
-          <FKSelect
-            label="Loại đơn thư"
-            masterClassType="02"
-            value={formData.petitionType}
-            onChange={(v) => update("petitionType", v)}
-            placeholder="-- Chọn loại đơn thư --"
-          />
+          {/* v0.37.1: "Loại đơn thư" (petitionType LoaiDon) removed — now property of linked Petition record, not Case. Captured via Petition picker in Nguồn vụ án Card (sub-6). */}
         </div>
       </Card>
 

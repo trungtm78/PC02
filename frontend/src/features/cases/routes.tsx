@@ -1,5 +1,5 @@
 import { lazy, Suspense, type ReactElement } from 'react';
-import { Route } from 'react-router-dom';
+import { Route, Navigate } from 'react-router-dom';
 
 const CaseListPage = lazy(() => import('@/pages/cases/CaseListPage'));
 const CaseFormPage = lazy(() => import('@/pages/cases/CaseFormPage'));
@@ -31,10 +31,17 @@ export function renderCasesRoutes(): ReactElement[] {
       path="/cases/:id/edit"
       element={wrap(<CaseFormPage />)}
     />,
+    // v0.37.1: canonical path is /cases/new. Old /add-new-record redirects.
+    // Keep 1-2 releases for bookmarks/links, then remove.
     <Route
       key="cases-new"
-      path="/add-new-record"
+      path="/cases/new"
       element={wrap(<CaseFormPage />)}
+    />,
+    <Route
+      key="cases-new-legacy-redirect"
+      path="/add-new-record"
+      element={<Navigate to="/cases/new" replace />}
     />,
     <Route
       key="cases-comprehensive"
