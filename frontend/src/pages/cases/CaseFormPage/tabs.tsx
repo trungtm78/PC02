@@ -79,16 +79,10 @@ export function TabInfo({ formData, setFormData, errors, setErrors, handlerOptio
   // Migrated to centralized shortcut registry (Ctrl+Shift+L default).
   useShortcut('toggleLegacyMode', handleLegacyToggle);
 
-  // Active wards after reform — isActive=true must be explicit (no server-side default)
-  const { data: wardOptions } = useQuery({
-    queryKey: ["directories", "WARD", "active"],
-    queryFn: () =>
-      api.get("/directories?type=WARD&isActive=true").then((r) =>
-        (r.data.data ?? []).map((d: any) => ({ value: d.code, label: d.name }))
-      ),
-  });
-
   // Abolished districts — lazy-loaded only when legacy toggle is open
+  // Note: ward selection (post-reform) handled by ProvinceWardSelect below. The
+  // dead `wardOptions` + `legacyWardOptions` queries were removed in v0.34.0.2
+  // — they pulled 10k entries from /directories on every form mount.
   const { data: districtOptions } = useQuery({
     queryKey: ["directories", "DISTRICT", "legacy"],
     queryFn: () =>
@@ -100,19 +94,6 @@ export function TabInfo({ formData, setFormData, errors, setErrors, handlerOptio
       ),
     enabled: legacyMode && !isExistingLegacy,
   });
-
-  // Legacy wards for the selected abolished district (cascade)
-  const { data: legacyWardOptions } = useQuery({
-    queryKey: ["directories", "WARD", "legacy", formData.district],
-    queryFn: () =>
-      api.get(`/directories?type=WARD&isActive=false&parentId=${formData.district}`).then((r) =>
-        (r.data.data ?? []).map((d: any) => ({ value: d.code, label: d.name }))
-      ),
-    enabled: legacyMode && !!formData.district && !isExistingLegacy,
-  });
-
-  // activeWardOptions removed — ward selection now handled by ProvinceWardSelect
-  void wardOptions; void legacyWardOptions;
 
   return (
     <div className="space-y-6" data-testid="tab-info">

@@ -1,20 +1,24 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { api } from '@/lib/api';
 import { Loader2 } from 'lucide-react';
+import { api } from '@/lib/api';
+import { FKSelect } from './FKSelect';
 
 /**
- * SingleWardPicker — 2-tier cascade (Tỉnh → Phường) returning ward DB id.
- * v0.34.0.0
+ * SingleWardPicker — 2-tier smart cascade (Tỉnh → Phường) returning ward DB id.
+ * v0.34.0.2 — refactored to FKSelect (autocomplete + fuzzy + Vietnamese diacritics)
  *
- * Replaces plain text wardId input in TeamsPage.
+ * Replaces plain text wardId input in TeamsPage. Used by any form needing
+ * single-ward selection.
  *
- * Design decisions from /autoplan Phase 2 Design consensus:
+ * Design decisions:
+ * - FKSelect underneath gives search-as-you-type, keyboard nav, diacritics
+ *   stripping for matching (Phase 2 D1 search-first + D6 a11y)
  * - D3 reverse lookup: if `value` is set on mount but provinces not loaded,
- *   call GET /admin-units/wards/:id to pre-render province + ward labels
- *   immediately (no layout shift, no flash of empty dropdown)
- * - D5 cascade: choosing province resets ward; ward search-as-you-type
- * - D7 tablet-first: 44px touch targets; native <select> fallback < 768px
+ *   call GET /admin-units/wards/:id to derive selected provinceId immediately
+ *   so both dropdowns render with correct labels (no flash of empty)
+ * - D5 cascade: choosing province resets ward
+ * - D7 tablet-friendly: FKSelect input has 44px+ touch target
  */
 
 interface Province {
@@ -40,7 +44,7 @@ interface SingleWardPickerProps {
   onChange: (wardId: string | null) => void;
   label?: string;
   helperText?: string;
-  disabled?: boolean;
+  required?: boolean;
   testIdPrefix?: string;
 }
 
@@ -49,25 +53,22 @@ export function SingleWardPicker({
   onChange,
   label,
   helperText,
-  disabled = false,
+  required = false,
   testIdPrefix = 'ward-picker',
 }: SingleWardPickerProps) {
-  // Local state: selected province id (independent from form value — ward picker
-  // owns this to support cascade reset)
   const [selectedProvinceId, setSelectedProvinceId] = useState<string | null>(null);
 
-  // 1. Load all provinces (cached 1h — list ~34 items)
+  // 1. Load all provinces (cached 1h)
   const { data: provinces, isLoading: provincesLoading } = useQuery({
     queryKey: ['admin-units', 'provinces'],
     queryFn: async () => {
       const res = await api.get<Province[]>('/admin-units/provinces');
       return res.data;
     },
-    staleTime: 60 * 60 * 1000, // 1h
+    staleTime: 60 * 60 * 1000,
   });
 
-  // 2. D3 reverse lookup: if `value` set but no province selected yet, fetch
-  // ward + province to pre-fill labels immediately
+  // 2. D3 reverse lookup: if `value` set but no province selected yet
   const { data: initialWard, isLoading: initialWardLoading } = useQuery({
     queryKey: ['admin-units', 'ward', value],
     queryFn: async () => {
@@ -79,7 +80,7 @@ export function SingleWardPicker({
     staleTime: 60 * 60 * 1000,
   });
 
-  // Sync: when reverse lookup completes, set selectedProvinceId
+  // Sync: when reverse lookup completes, derive selectedProvinceId
   useEffect(() => {
     if (initialWard?.province?.id && !selectedProvinceId) {
       setSelectedProvinceId(initialWard.province.id);
@@ -97,41 +98,49 @@ export function SingleWardPicker({
       return res.data;
     },
     enabled: !!selectedProvinceId,
-    staleTime: 5 * 60 * 1000, // 5min
+    staleTime: 5 * 60 * 1000,
   });
 
-  // 4. Sort + display options
-  const provinceOptions = useMemo(() => provinces ?? [], [provinces]);
-  const wardOptions = useMemo(() => wards ?? [], [wards]);
+  // Convert to FKSelect options
+  const provinceOptions = useMemo(
+    () =>
+      (provinces ?? []).map((p) => ({
+        value: p.id,
+        label: p.name,
+      })),
+    [provinces],
+  );
 
-  // 5. Handle province change → reset ward
-  const handleProvinceChange = (provinceId: string) => {
-    setSelectedProvinceId(provinceId || null);
-    onChange(null); // reset selected ward when province changes
-  };
+  const wardOptions = useMemo(
+    () =>
+      (wards ?? []).map((w) => ({
+        value: w.id,
+        label: w.officialCode ? `${w.name} (${w.officialCode})` : w.name,
+      })),
+    [wards],
+  );
 
-  const handleWardChange = (wardId: string) => {
-    onChange(wardId || null);
-  };
+  const wardPlaceholder = !selectedProvinceId
+    ? '-- Chọn tỉnh/TP trước --'
+    : wardsLoading
+      ? 'Đang tải phường/xã...'
+      : wardOptions.length === 0
+        ? 'Không có phường/xã'
+        : '-- Tìm hoặc chọn phường/xã --';
 
-  const handleClear = () => {
-    setSelectedProvinceId(null);
-    onChange(null);
-  };
-
-  // Render
+  // Skeleton shown only during cold-cache reverse lookup (no layout shift)
   const showReverseLookupSkeleton = !!value && !selectedProvinceId && initialWardLoading;
 
   return (
-    <div data-testid={`${testIdPrefix}-container`}>
+    <div data-testid={`${testIdPrefix}-container`} className="space-y-2">
       {label && (
-        <label className="block text-xs font-medium text-slate-600 mb-1">
+        <label className="block text-xs font-medium text-slate-600">
           {label}
+          {required && <span className="text-red-500 ml-0.5">*</span>}
         </label>
       )}
 
       {showReverseLookupSkeleton ? (
-        // D3 fix: no layout shift while reverse lookup loads
         <div
           className="flex items-center gap-2 px-3 py-2 border border-slate-300 rounded-md text-sm bg-slate-50 min-h-[44px]"
           data-testid={`${testIdPrefix}-skeleton`}
@@ -140,70 +149,38 @@ export function SingleWardPicker({
           <span className="text-slate-500">Đang tải phường đã chọn...</span>
         </div>
       ) : (
-        <div className="flex flex-col sm:flex-row gap-2">
-          {/* Province dropdown */}
-          <select
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <FKSelect
+            label="Tỉnh / Thành phố"
             value={selectedProvinceId ?? ''}
-            onChange={(e) => handleProvinceChange(e.target.value)}
-            disabled={disabled || provincesLoading}
-            className="flex-1 px-3 py-2 border border-slate-300 rounded-md text-sm min-h-[44px] disabled:bg-slate-100"
-            data-testid={`${testIdPrefix}-province`}
-            aria-label="Tỉnh / Thành phố"
-          >
-            <option value="">
-              {provincesLoading ? 'Đang tải tỉnh/TP...' : '-- Chọn Tỉnh / TP --'}
-            </option>
-            {provinceOptions.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-
-          {/* Ward dropdown */}
-          <select
+            onChange={(provinceId) => {
+              setSelectedProvinceId(provinceId || null);
+              onChange(null); // reset ward when province changes
+            }}
+            options={provinceOptions}
+            loading={provincesLoading}
+            placeholder="-- Tìm hoặc chọn tỉnh/TP --"
+            searchPlaceholder="Nhập tên tỉnh/TP..."
+            canCreate={false}
+            testId={`${testIdPrefix}-province`}
+            required={required}
+          />
+          <FKSelect
+            label="Phường / Xã"
             value={value ?? ''}
-            onChange={(e) => handleWardChange(e.target.value)}
-            disabled={disabled || !selectedProvinceId || wardsLoading}
-            className="flex-1 px-3 py-2 border border-slate-300 rounded-md text-sm min-h-[44px] disabled:bg-slate-100"
-            data-testid={`${testIdPrefix}-ward`}
-            aria-label="Phường / Xã"
-          >
-            <option value="">
-              {!selectedProvinceId
-                ? '-- Chọn tỉnh trước --'
-                : wardsLoading
-                  ? 'Đang tải phường...'
-                  : wardOptions.length === 0
-                    ? 'Không có phường'
-                    : '-- Chọn Phường / Xã --'}
-            </option>
-            {wardOptions.map((w) => (
-              <option key={w.id} value={w.id}>
-                {w.name}
-                {w.officialCode ? ` (${w.officialCode})` : ''}
-              </option>
-            ))}
-          </select>
-
-          {/* Clear button */}
-          {value && !disabled && (
-            <button
-              type="button"
-              onClick={handleClear}
-              className="px-3 py-2 text-xs text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-md min-h-[44px]"
-              data-testid={`${testIdPrefix}-clear`}
-              aria-label="Xóa lựa chọn"
-            >
-              Xóa
-            </button>
-          )}
+            onChange={(wardId) => onChange(wardId || null)}
+            options={wardOptions}
+            loading={wardsLoading}
+            placeholder={wardPlaceholder}
+            searchPlaceholder="Nhập tên phường/xã..."
+            canCreate={false}
+            testId={`${testIdPrefix}-ward`}
+            required={required}
+          />
         </div>
       )}
 
-      {helperText && (
-        <p className="text-[10px] text-slate-500 mt-1">{helperText}</p>
-      )}
+      {helperText && <p className="text-[10px] text-slate-500">{helperText}</p>}
     </div>
   );
 }

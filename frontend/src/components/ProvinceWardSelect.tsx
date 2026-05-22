@@ -26,15 +26,20 @@ interface WardEntry {
 }
 
 /**
- * Cascade address select: Tỉnh/TP → Phường/Xã
+ * Cascade address select: Tỉnh/TP → Phường/Xã (LEGACY — stores codes/names as strings).
+ *
+ * v0.34.0.2: switched from /directories endpoint → /admin-units to pick up only
+ * active post-reform 2025 entries (filter abolished legacy automatically) and
+ * give consistent smart-search behaviour with SingleWardPicker.
  *
  * Architecture:
- *   Province (32 entries) → fetched by type=PROVINCE
- *   Ward (up to 1000/province) → fetched by parentId={province.id}
- *                                  after province is selected
+ *   Province (34 entries) → GET /admin-units/provinces
+ *   Ward (up to ~600/province) → GET /admin-units/wards?provinceId=X
  *
  * Province code (HCM, HN, ...) is stored in formData for stability.
  * Province id is looked up at query time from the province list.
+ *
+ * For new code prefer SingleWardPicker (returns wardId DB id, not stringly typed).
  */
 export function ProvinceWardSelect({
   provinceCode,
@@ -45,14 +50,14 @@ export function ProvinceWardSelect({
   required = false,
   testIdPrefix = '',
 }: ProvinceWardSelectProps) {
-  // Step 1: Load all 32 provinces (small list — cache 10 min)
+  // Step 1: Load all 34 provinces từ admin-units (cached 1h)
   const { data: provinces, isLoading: provincesLoading } = useQuery({
-    queryKey: ['directories', 'PROVINCE', 'all'],
+    queryKey: ['admin-units', 'provinces'],
     queryFn: async () => {
-      const res = await api.get('/directories?type=PROVINCE&limit=100&isActive=true');
-      return (res.data?.data ?? []) as ProvinceEntry[];
+      const res = await api.get<ProvinceEntry[]>('/admin-units/provinces');
+      return res.data;
     },
-    staleTime: 10 * 60 * 1000,
+    staleTime: 60 * 60 * 1000,
   });
 
   const provinceOptions = (provinces ?? []).map(p => ({
@@ -63,14 +68,14 @@ export function ProvinceWardSelect({
   // Step 2: Look up province DB id by code (stable — codes don't change)
   const selectedProvince = (provinces ?? []).find(p => p.code === provinceCode);
 
-  // Step 3: Load wards for selected province only — up to 1000 (max province HN=647)
+  // Step 3: Load wards for selected province (admin-units endpoint = active only)
   const { data: wards, isLoading: wardsLoading } = useQuery({
-    queryKey: ['directories', 'WARD', selectedProvince?.id],
+    queryKey: ['admin-units', 'wards', selectedProvince?.id],
     queryFn: async () => {
-      const res = await api.get(
-        `/directories?type=WARD&parentId=${selectedProvince!.id}&limit=1000&isActive=true`,
-      );
-      return (res.data?.data ?? []) as WardEntry[];
+      const res = await api.get<WardEntry[]>('/admin-units/wards', {
+        params: { provinceId: selectedProvince!.id },
+      });
+      return res.data;
     },
     enabled: !!selectedProvince?.id,
     staleTime: 5 * 60 * 1000,
