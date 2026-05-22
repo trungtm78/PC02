@@ -1,6 +1,6 @@
 {
   "name": "backend",
-  "version": "0.36.0.0",
+  "version": "0.37.0.2",
   "description": "",
   "author": "",
   "private": true,
@@ -25,6 +25,7 @@
     "db:seed:sample": "ts-node prisma/seed-sample-data.ts",
     "db:seed:features": "ts-node prisma/seed-feature-flags.ts",
     "db:seed:wards": "ts-node prisma/seed-wards.ts",
+    "db:seed:admin-units": "ts-node prisma/seed-admin-units-runner.ts",
     "db:seed:events": "ts-node prisma/seed-vn-events-runner.ts"
   },
   "dependencies": {
@@ -112,6 +113,10 @@
       "ts"
     ],
     "rootDir": "src",
+    "roots": [
+      "<rootDir>",
+      "<rootDir>/../prisma"
+    ],
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"

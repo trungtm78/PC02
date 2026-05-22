@@ -115,6 +115,18 @@ if ! npx ts-node prisma/seed-features-if-empty.ts; then
     # Non-fatal: deploy continues. Sidebar may be empty if fresh DB + seed failed.
 fi
 
+# 9c. v0.37.0.2 — idempotent admin-units seed AFTER health check.
+# seedAdminUnits skip nếu ledger version đã ACTIVE → no-op for steady state.
+# Imports v2025-1300 lần đầu (fresh DB) hoặc khi dataset version bump (next release).
+# FATAL per Eng review Decision T2A: admin-units thiếu = bug user-facing (sidebar/forms broken).
+# For one-time migration from legacy seedWards data (10k pre-reform wards), run manually:
+#   ssh pc02vm "cd /home/pc02/current/backend && npx ts-node prisma/seed-admin-units-runner.ts --clean-slate"
+log "Checking admin-units seed state..."
+if ! npx ts-node prisma/seed-admin-units-runner.ts; then
+    log "ERROR: admin-units seed failed — aborting deploy (deploy considered unhealthy)"
+    exit 1
+fi
+
 # 10. Prune old releases (keep latest 5)
 KEEP=5
 TOTAL=$(ls -1d "$RELEASES_DIR"/*/ 2>/dev/null | wc -l)
