@@ -64,21 +64,27 @@ export default function DistrictStatisticsPage() {
     district: "",
   });
 
-  // Load 32 tỉnh/TP từ DB
+  // v0.34.0.2: Load 34 tỉnh/TP từ /admin-units (chỉ active post-reform — không kéo
+  // theo 10k entries legacy abolished từ /directories)
   const { data: provincesData } = useQuery({
-    queryKey: ['report-filter', 'provinces'],
-    queryFn: () => api.get('/directories?type=PROVINCE&limit=100&isActive=true')
-      .then(r => (r.data?.data ?? []) as { id: string; code: string; name: string }[]),
-    staleTime: 10 * 60 * 1000,
+    queryKey: ['admin-units', 'provinces'],
+    queryFn: () =>
+      api
+        .get<{ id: string; code: string; name: string }[]>('/admin-units/provinces')
+        .then((r) => r.data),
+    staleTime: 60 * 60 * 1000,
   });
 
-  // Load phường/xã của tỉnh được chọn (qua parentId)
+  // Load phường/xã của tỉnh được chọn
   const selectedProvinceEntry = (provincesData ?? []).find(p => p.code === filter.province);
   const { data: wardsData, isLoading: wardsLoading } = useQuery({
-    queryKey: ['report-filter', 'wards', selectedProvinceEntry?.id],
-    queryFn: () => api.get(
-      `/directories?type=WARD&parentId=${selectedProvinceEntry!.id}&limit=1000&isActive=true`
-    ).then(r => (r.data?.data ?? []) as { id: string; name: string }[]),
+    queryKey: ['admin-units', 'wards', selectedProvinceEntry?.id],
+    queryFn: () =>
+      api
+        .get<{ id: string; name: string }[]>('/admin-units/wards', {
+          params: { provinceId: selectedProvinceEntry!.id },
+        })
+        .then((r) => r.data),
     enabled: !!selectedProvinceEntry?.id,
     staleTime: 5 * 60 * 1000,
   });
