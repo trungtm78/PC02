@@ -30,11 +30,18 @@ describe('TwoFaController — delegation', () => {
     expect(service.setupTotp).toHaveBeenCalledWith('u1');
   });
 
-  it('disable() delegates to service.disableTotp with user id', async () => {
+  it('disable() delegates to service.disableTotp with user id + currentTotpCode (P3-002)', async () => {
+    service.disableTotp.mockResolvedValue({ success: true } as any);
+    const user = { id: 'u1', email: 'a@b.com', role: 'OFFICER', roleId: 'r1' };
+    await controller.disable(user as any, { currentTotpCode: '123456' });
+    expect(service.disableTotp).toHaveBeenCalledWith('u1', '123456');
+  });
+
+  it('disable() passes undefined when body omitted (idempotent disable for already-off users)', async () => {
     service.disableTotp.mockResolvedValue({ success: true } as any);
     const user = { id: 'u1', email: 'a@b.com', role: 'OFFICER', roleId: 'r1' };
     await controller.disable(user as any);
-    expect(service.disableTotp).toHaveBeenCalledWith('u1');
+    expect(service.disableTotp).toHaveBeenCalledWith('u1', undefined);
   });
 
   // Sprint 1 / S1.4 — Regression: 2FA verify must keep its 5/min rate-limit

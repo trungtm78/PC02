@@ -137,6 +137,7 @@ export class TwoFaService {
     }
 
     const secret = this.encryption.decrypt(user.totpSecret);
+    // epochTolerance: 30 (seconds) = accept ±30s clock drift. Valid otplib v13 option (verified types-BBT_82HF.d.ts).
     const verifyResult = await totpVerify({ token, secret, strategy: 'totp', epochTolerance: 30 });
     if (!verifyResult.valid) {
       throw new BadRequestException('Mã TOTP không hợp lệ');
@@ -364,10 +365,35 @@ export class TwoFaService {
   }
 
   // ── Disable TOTP (user self-service, only when 2FA system is off) ──────────
-  async disableTotp(userId: string): Promise<void> {
+  // P3-002 fix: require currentTotpCode confirmation — prevents session-token-only attacker
+  // from silently disabling 2FA (e.g., XSS / leaked log token theft). Pattern matches
+  // GitHub/Google: disable second factor requires proving you still have it.
+  async disableTotp(userId: string, currentTotpCode?: string): Promise<void> {
     const is2FAEnabled = await this.settings.getValue(SETTINGS_KEY.TWO_FA_ENABLED) === 'true';
     if (is2FAEnabled) {
       throw new BadRequestException('Không thể tắt 2FA khi hệ thống yêu cầu 2FA bắt buộc');
+    }
+
+    // P3-002: require current TOTP code IF user currently has TOTP enabled.
+    // If totpEnabled=false (idempotent disable), skip — nothing to verify.
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { totpEnabled: true, totpSecret: true, lastTotpCode: true },
+    });
+    if (user?.totpEnabled && user.totpSecret) {
+      if (!currentTotpCode) {
+        throw new BadRequestException(
+          'Vui lòng nhập mã TOTP hiện tại để xác nhận tắt 2FA',
+        );
+      }
+      const verified = await this.verifyTotp(
+        { id: userId, totpEnabled: true, totpSecret: user.totpSecret, lastTotpCode: user.lastTotpCode },
+        currentTotpCode,
+        { ipAddress: undefined, userAgent: undefined },
+      );
+      if (!verified) {
+        throw new BadRequestException('Mã TOTP không hợp lệ');
+      }
     }
 
     await this.prisma.user.update({

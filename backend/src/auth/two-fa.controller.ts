@@ -44,8 +44,13 @@ export class TwoFaController {
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, UserThrottlerGuard)
   @Throttle({ default: { ttl: 60000, limit: 3 } })
-  disable(@CurrentUser() user: AuthUser) {
-    return this.twoFaService.disableTotp(user.id);
+  // P3-002 fix: accept optional currentTotpCode in body to confirm before disable.
+  // Service throws BadRequest if totpEnabled=true and code missing/invalid.
+  disable(
+    @CurrentUser() user: AuthUser,
+    @Body() body: { currentTotpCode?: string } = {},
+  ) {
+    return this.twoFaService.disableTotp(user.id, body.currentTotpCode);
   }
 
   @Post('send-email-otp')

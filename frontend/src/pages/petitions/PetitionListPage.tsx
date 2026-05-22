@@ -863,6 +863,8 @@ function ConvertToCaseModal({
     setIsSubmitting(true);
     try {
       await api.post(`/petitions/${petition.id}/convert-case`, {
+        // P1-002 fix: optimistic lock guard — backend rejects với 409 nếu petition đã thay đổi.
+        expectedUpdatedAt: petition.updatedAt,
         caseName: formData.caseName,
         crime: formData.crime,
         jurisdiction: formData.jurisdiction,

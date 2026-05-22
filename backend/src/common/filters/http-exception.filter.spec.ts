@@ -4,6 +4,8 @@ import {
   HttpStatus,
   BadRequestException,
   NotFoundException,
+  InternalServerErrorException,
+  Logger,
 } from '@nestjs/common';
 import type { ArgumentsHost } from '@nestjs/common';
 
@@ -102,5 +104,69 @@ describe('GlobalExceptionFilter', () => {
     expect(response.timestamp >= before).toBe(true);
     expect(response.timestamp <= after).toBe(true);
     expect(response.path).toBe('/api/v1/test');
+  });
+
+  // ── P1-004 — Logging server-side stack trace for non-HttpException + 500s ──
+  describe('logging (P1-004)', () => {
+    let loggerErrorSpy: jest.SpyInstance;
+
+    beforeEach(() => {
+      loggerErrorSpy = jest.spyOn(Logger.prototype, 'error').mockImplementation();
+    });
+
+    afterEach(() => {
+      loggerErrorSpy.mockRestore();
+    });
+
+    it('logs stack trace for non-HttpException (raw Error)', () => {
+      const exception = new Error('Database connection lost');
+      filter.catch(exception, mockHost);
+      expect(loggerErrorSpy).toHaveBeenCalledTimes(1);
+      const [message, stack] = loggerErrorSpy.mock.calls[0];
+      expect(String(message)).toMatch(/unhandled|exception/i);
+      expect(String(stack)).toContain('Database connection lost');
+    });
+
+    it('logs stack for HttpException status >= 500', () => {
+      const exception = new InternalServerErrorException('cache miss');
+      filter.catch(exception, mockHost);
+      expect(loggerErrorSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('does NOT log for HttpException status < 500 (NotFound)', () => {
+      filter.catch(new NotFoundException('x'), mockHost);
+      expect(loggerErrorSpy).not.toHaveBeenCalled();
+    });
+
+    it('does NOT log for HttpException status < 500 (BadRequest)', () => {
+      filter.catch(new BadRequestException('x'), mockHost);
+      expect(loggerErrorSpy).not.toHaveBeenCalled();
+    });
+
+    it('walks Error.cause chain and logs all causes (per ENG-4)', () => {
+      const root = new Error('root cause leaf');
+      const wrapped = new Error('wrapped middle', { cause: root });
+      filter.catch(wrapped, mockHost);
+      expect(loggerErrorSpy).toHaveBeenCalled();
+      const allArgs = loggerErrorSpy.mock.calls.flat().map(String).join(' ');
+      expect(allArgs).toContain('root cause leaf');
+      expect(allArgs).toContain('wrapped middle');
+    });
+
+    it('keeps stack server-side only — does NOT leak to client response (per CEO-7)', () => {
+      const exception = new Error('sensitive internal detail');
+      filter.catch(exception, mockHost);
+      const response = mockJson.mock.calls[0][0];
+      const responseStr = JSON.stringify(response);
+      expect(responseStr).not.toContain('sensitive internal detail');
+      expect(responseStr).not.toMatch(/at\s+\w+\s+\(.+:\d+:\d+\)/);
+    });
+
+    it('logs non-Error throws (string) safely without crash', () => {
+      filter.catch('something threw a string', mockHost);
+      expect(loggerErrorSpy).toHaveBeenCalledTimes(1);
+      const allArgs = loggerErrorSpy.mock.calls.flat().map(String).join(' ');
+      expect(allArgs).toContain('something threw a string');
+    });
   });
 });

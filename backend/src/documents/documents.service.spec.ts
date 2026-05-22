@@ -193,6 +193,35 @@ describe('DocumentsService', () => {
       await expect(service.getById('doc-1', scope)).rejects.toThrow('Bạn không có quyền truy cập bản ghi này');
     });
 
+    it('P0-001: throws ForbiddenException khi orphan document (case=null AND incident=null) cho scoped user', async () => {
+      // Crown-jewel security regression: pre-fix, orphan document silently bypassed scope check
+      // → any authenticated user with Document.read permission download được file blob.
+      // Sau fix scope-filter line 105: assertParentInScope(null) throws.
+      mockPrismaService.document.findFirst.mockResolvedValue({
+        id: 'orphan-doc-1',
+        title: 'Crown-jewel kết luận điều tra',
+        case: null,
+        incident: null,
+        uploadedBy: { id: 'user-X', fullName: 'Original Uploader', username: 'uploader' },
+      });
+      const scope = { userIds: ['u1'], teamIds: ['t1'], writableTeamIds: ['t1'] };
+      await expect(service.getById('orphan-doc-1', scope)).rejects.toThrow(
+        'Bạn không có quyền truy cập bản ghi này',
+      );
+    });
+
+    it('P0-001: admin (scope=null) vẫn read được orphan document cho data recovery', async () => {
+      mockPrismaService.document.findFirst.mockResolvedValue({
+        id: 'orphan-doc-1',
+        title: 'Orphan',
+        case: null,
+        incident: null,
+        uploadedBy: { id: 'user-1', fullName: 'X', username: 'x' },
+      });
+      const result = await service.getById('orphan-doc-1', null);
+      expect(result.success).toBe(true);
+    });
+
     it('should pass when incident is in scope (no case)', async () => {
       mockPrismaService.document.findFirst.mockResolvedValue({
         id: 'doc-1',

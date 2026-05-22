@@ -561,6 +561,8 @@ describe('PetitionsService', () => {
       caseName: 'Vụ án từ đơn thư',
       crime: 'Tham nhũng',
       jurisdiction: 'Công an cấp Quận/Huyện',
+      // P1-002 fix: expectedUpdatedAt now required for optimistic lock
+      expectedUpdatedAt: '2026-05-22T10:00:00.000Z',
     };
 
     it('AC-03: should convert petition to case successfully', async () => {
@@ -588,7 +590,7 @@ describe('PetitionsService', () => {
       await expect(
         service.convertToCase(
           'petition-001',
-          { caseName: '', crime: 'Test', jurisdiction: 'Test' },
+          { caseName: '', crime: 'Test', jurisdiction: 'Test', expectedUpdatedAt: '2026-05-22T10:00:00.000Z' },
           'user-001',
         ),
       ).rejects.toThrow(BadRequestException);
@@ -600,7 +602,7 @@ describe('PetitionsService', () => {
       await expect(
         service.convertToCase(
           'petition-001',
-          { caseName: 'Test', crime: '', jurisdiction: 'Test' },
+          { caseName: 'Test', crime: '', jurisdiction: 'Test', expectedUpdatedAt: '2026-05-22T10:00:00.000Z' },
           'user-001',
         ),
       ).rejects.toThrow(BadRequestException);
@@ -612,7 +614,7 @@ describe('PetitionsService', () => {
       await expect(
         service.convertToCase(
           'petition-001',
-          { caseName: 'Test', crime: 'Test', jurisdiction: '' },
+          { caseName: 'Test', crime: 'Test', jurisdiction: '', expectedUpdatedAt: '2026-05-22T10:00:00.000Z' },
           'user-001',
         ),
       ).rejects.toThrow(BadRequestException);
@@ -674,6 +676,68 @@ describe('PetitionsService', () => {
           action: 'PETITION_CONVERTED_TO_CASE',
         }),
       );
+    });
+
+    // P1-002 fix: race condition regression tests
+    it('P1-002: applies optimistic lock with expectedUpdatedAt in tx.petition.update WHERE', async () => {
+      const stamp = '2026-05-22T10:00:00.000Z';
+      mockPrisma.petition.findFirst.mockResolvedValue(mockPetition);
+      const updateMock = jest.fn().mockResolvedValue({
+        ...mockPetition,
+        linkedCaseId: 'case-001',
+        status: PetitionStatus.DA_CHUYEN_VU_AN,
+      });
+      mockPrisma.$transaction.mockImplementation(async (fn: any) => {
+        const tx = {
+          case: { create: jest.fn().mockResolvedValue(mockCase) },
+          petition: { update: updateMock },
+        };
+        return fn(tx);
+      });
+
+      await service.convertToCase(
+        'petition-001',
+        { ...validCaseDto, expectedUpdatedAt: stamp },
+        'user-001',
+      );
+
+      expect(updateMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            id: 'petition-001',
+            updatedAt: new Date(stamp),
+          }),
+        }),
+      );
+    });
+
+    it('P1-002: throws ConflictException khi P2002 unique constraint violation (race detected at DB)', async () => {
+      const stamp = '2026-05-22T10:00:00.000Z';
+      mockPrisma.petition.findFirst.mockResolvedValue(mockPetition);
+      // Simulate 2nd concurrent call: tx commits but Prisma throws P2002 from partial unique index
+      mockPrisma.$transaction.mockRejectedValue({ code: 'P2002' });
+
+      await expect(
+        service.convertToCase(
+          'petition-001',
+          { ...validCaseDto, expectedUpdatedAt: stamp },
+          'user-001',
+        ),
+      ).rejects.toThrow('Đơn thư đã được chỉnh sửa bởi người dùng khác');
+    });
+
+    it('P1-002: throws ConflictException khi P2025 (updatedAt mismatch — optimistic lock fired)', async () => {
+      const staleStamp = '2026-01-01T00:00:00.000Z';
+      mockPrisma.petition.findFirst.mockResolvedValue(mockPetition);
+      mockPrisma.$transaction.mockRejectedValue({ code: 'P2025' });
+
+      await expect(
+        service.convertToCase(
+          'petition-001',
+          { ...validCaseDto, expectedUpdatedAt: staleStamp },
+          'user-001',
+        ),
+      ).rejects.toThrow('Đơn thư đã được chỉnh sửa bởi người dùng khác');
     });
   });
 

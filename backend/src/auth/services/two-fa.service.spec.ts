@@ -308,13 +308,25 @@ describe('TwoFaService.disableTotp()', () => {
     await expect(svc.disableTotp('user-1')).rejects.toThrow(BadRequestException);
   });
 
-  it('resets TOTP fields when TWO_FA_ENABLED=false', async () => {
+  it('P3-002: resets TOTP fields when user totpEnabled=false (idempotent, no code needed)', async () => {
     const { svc, prisma } = makeService();
+    // Simulate user that already has 2FA disabled — disable should be no-op without code
+    prisma.user.findUnique.mockResolvedValue({ totpEnabled: false, totpSecret: null, lastTotpCode: null });
     await svc.disableTotp('user-1');
     expect(prisma.user.update).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ totpEnabled: false, totpSecret: null }),
       }),
     );
+  });
+
+  it('P3-002: rejects disable when totpEnabled=true and currentTotpCode missing', async () => {
+    const { svc, prisma } = makeService();
+    prisma.user.findUnique.mockResolvedValue({
+      totpEnabled: true,
+      totpSecret: 'encrypted-secret',
+      lastTotpCode: null,
+    });
+    await expect(svc.disableTotp('user-1')).rejects.toThrow('Vui lòng nhập mã TOTP hiện tại');
   });
 });
