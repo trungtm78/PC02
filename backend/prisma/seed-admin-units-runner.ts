@@ -67,6 +67,19 @@ if (require.main === module) {
     const dryRun = args.includes('--dry-run');
     const cleanSlate = args.includes('--clean-slate');
 
+    // --dry-run does not touch the DB — verify dataset file only, no DATABASE_URL required.
+    // This lets CI smoke step run without provisioning a database.
+    if (dryRun) {
+      try {
+        const out = await runSeed({ prisma: null as any, dryRun: true });
+        console.log(`[seed-admin-units-runner] --dry-run OK: ${CURRENT_VERSION} dataset valid`);
+        return;
+      } catch (e) {
+        console.error('[seed-admin-units-runner] --dry-run failed:', e);
+        process.exit(1);
+      }
+    }
+
     const dbUrl = process.env.DATABASE_URL;
     if (!dbUrl) {
       console.error('[seed-admin-units-runner] DATABASE_URL missing');
@@ -77,15 +90,12 @@ if (require.main === module) {
     const prisma = new PrismaClient({ adapter });
 
     try {
-      const out = await runSeed({ prisma, force, dryRun, cleanSlate });
-      if (out.dryRun) {
-        console.log(`[seed-admin-units-runner] --dry-run OK: ${CURRENT_VERSION} dataset valid`);
-      } else {
-        if (out.cleaned !== undefined) {
-          console.log(`[seed-admin-units-runner] --clean-slate: deleted ${out.cleaned} legacy rows`);
-        }
-        console.log('[seed-admin-units-runner] Result:', JSON.stringify(out.result, null, 2));
+      // dryRun handled above with early return — here force/cleanSlate paths only.
+      const out = await runSeed({ prisma, force, cleanSlate });
+      if (out.cleaned !== undefined) {
+        console.log(`[seed-admin-units-runner] --clean-slate: deleted ${out.cleaned} legacy rows`);
       }
+      console.log('[seed-admin-units-runner] Result:', JSON.stringify(out.result, null, 2));
     } catch (e) {
       console.error('[seed-admin-units-runner] Failed:', e);
       process.exit(1);
