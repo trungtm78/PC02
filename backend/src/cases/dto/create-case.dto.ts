@@ -5,12 +5,15 @@ import {
   IsInt,
   IsDateString,
   IsObject,
+  IsISO8601,
+  IsNotEmpty,
+  ValidateIf,
   Min,
   MaxLength,
 } from 'class-validator';
-import { CaseStatus, CapDoToiPham } from '@prisma/client';
+import { CaseStatus, CapDoToiPham, CaseProvenance } from '@prisma/client';
 
-export { CaseStatus, CapDoToiPham };
+export { CaseStatus, CapDoToiPham, CaseProvenance };
 
 export class CreateCaseDto {
   @IsString()
@@ -65,4 +68,38 @@ export class CreateCaseDto {
   @IsOptional()
   @IsDateString()
   ngayKhoiTo?: string;
+
+  // v0.37.1 — Provenance model fields (BLTTHS Đ.143 mapping)
+  // caseProvenance is technically optional in Deploy-1 (compat shim allows old payload),
+  // but service layer enforces presence except when metadata.petitionType triggers legacy fallback.
+  @IsOptional()
+  @IsEnum(CaseProvenance)
+  caseProvenance?: CaseProvenance;
+
+  // Required when caseProvenance === FROM_PETITION
+  @ValidateIf((o) => o.caseProvenance === CaseProvenance.FROM_PETITION)
+  @IsString()
+  @IsNotEmpty({ message: 'linkedPetitionId required when caseProvenance is FROM_PETITION' })
+  linkedPetitionId?: string;
+
+  // Required when caseProvenance === FROM_INCIDENT
+  @ValidateIf((o) => o.caseProvenance === CaseProvenance.FROM_INCIDENT)
+  @IsString()
+  @IsNotEmpty({ message: 'linkedIncidentId required when caseProvenance is FROM_INCIDENT' })
+  linkedIncidentId?: string;
+
+  // Required when caseProvenance === FROM_PETITION (for optimistic lock on Petition.updatedAt)
+  @ValidateIf((o) => o.caseProvenance === CaseProvenance.FROM_PETITION)
+  @IsISO8601()
+  expectedPetitionUpdatedAt?: string;
+
+  // Required when caseProvenance === FROM_INCIDENT
+  @ValidateIf((o) => o.caseProvenance === CaseProvenance.FROM_INCIDENT)
+  @IsISO8601()
+  expectedIncidentUpdatedAt?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  sourceDocumentNote?: string;
 }

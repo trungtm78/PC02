@@ -255,129 +255,14 @@ describe('CasesService', () => {
       expect(mockPrisma.$transaction).not.toHaveBeenCalled();
     });
 
-    it('should auto-create petition when petitionType is in metadata', async () => {
-      const txCase = { ...mockCase, id: 'case-new' };
-      const txPetition = { ...mockPetition, id: 'petition-new', stt: 'DT-2026-00002' };
-
-      mockPrisma.$transaction.mockImplementation(async (fn: any) => {
-        const tx = {
-          case: {
-            create: jest.fn().mockResolvedValue(txCase),
-          },
-          petition: {
-            findFirst: jest.fn().mockResolvedValue({ stt: 'DT-2026-00001' }),
-            create: jest.fn().mockResolvedValue(txPetition),
-          },
-        };
-        return fn(tx);
-      });
-
-      const result = await service.create(
-        {
-          name: 'Vụ án mới',
-          unit: 'Công an Quận 1',
-          metadata: { petitionType: 'Tố cáo', reporter: 'Nguyễn Văn B' },
-        },
-        'actor-001',
-      );
-
-      expect(result.success).toBe(true);
-      expect(result.data).toHaveProperty('linkedPetition');
-      expect(mockPrisma.$transaction).toHaveBeenCalled();
-      // Two audit logs: CASE_CREATED + PETITION_AUTO_CREATED
-      expect(mockAudit.log).toHaveBeenCalledTimes(2);
-      expect(mockAudit.log).toHaveBeenCalledWith(
-        expect.objectContaining({ action: 'CASE_CREATED' }),
-      );
-      expect(mockAudit.log).toHaveBeenCalledWith(
-        expect.objectContaining({ action: 'PETITION_AUTO_CREATED' }),
-      );
-    });
-
-    it('should generate STT with correct format DT-YYYY-NNNNN', async () => {
-      const year = new Date().getFullYear();
-
-      mockPrisma.$transaction.mockImplementation(async (fn: any) => {
-        const tx = {
-          case: {
-            create: jest.fn().mockResolvedValue(mockCase),
-          },
-          petition: {
-            findFirst: jest.fn().mockResolvedValue(null), // No existing petitions
-            create: jest.fn().mockImplementation((args: any) => {
-              // Verify STT format
-              expect(args.data.stt).toBe(`DT-${year}-00001`);
-              return { ...mockPetition, stt: args.data.stt };
-            }),
-          },
-        };
-        return fn(tx);
-      });
-
-      await service.create(
-        {
-          name: 'Vụ án',
-          metadata: { petitionType: 'Khiếu nại' },
-        },
-        'actor-001',
-      );
-
-      expect(mockPrisma.$transaction).toHaveBeenCalled();
-    });
-
-    it('should increment STT from last existing petition', async () => {
-      const year = new Date().getFullYear();
-
-      mockPrisma.$transaction.mockImplementation(async (fn: any) => {
-        const tx = {
-          case: {
-            create: jest.fn().mockResolvedValue(mockCase),
-          },
-          petition: {
-            findFirst: jest.fn().mockResolvedValue({ stt: `DT-${year}-00042` }),
-            create: jest.fn().mockImplementation((args: any) => {
-              expect(args.data.stt).toBe(`DT-${year}-00043`);
-              return { ...mockPetition, stt: args.data.stt };
-            }),
-          },
-        };
-        return fn(tx);
-      });
-
-      await service.create(
-        {
-          name: 'Vụ án',
-          metadata: { petitionType: 'Tố cáo' },
-        },
-        'actor-001',
-      );
-    });
-
-    it('should use "Chưa xác định" when reporter is empty', async () => {
-      mockPrisma.$transaction.mockImplementation(async (fn: any) => {
-        const tx = {
-          case: {
-            create: jest.fn().mockResolvedValue(mockCase),
-          },
-          petition: {
-            findFirst: jest.fn().mockResolvedValue(null),
-            create: jest.fn().mockImplementation((args: any) => {
-              expect(args.data.senderName).toBe('Chưa xác định');
-              return mockPetition;
-            }),
-          },
-        };
-        return fn(tx);
-      });
-
-      await service.create(
-        {
-          name: 'Vụ án',
-          metadata: { petitionType: 'Khiếu nại' },
-        },
-        'actor-001',
-      );
-    });
+    // v0.37.1 — REMOVED tests:
+    // - 'should auto-create petition when petitionType is in metadata'
+    // - 'should generate STT with correct format DT-YYYY-NNNNN'
+    // - 'should increment STT from last existing petition'
+    // - 'should use "Chưa xác định" when reporter is empty'
+    // Reason: Auto-create phantom Petition removed (provenance violation per BLTTHS Đ.143).
+    // Replaced by compat shim + caseProvenance model in 'v0.37.1 create with caseProvenance' describe block below.
+    // STT generation moved out of cases.service.create flow; generateStt() still exists for direct Petition creation.
 
     it('should throw BadRequestException for invalid investigatorId', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
@@ -401,6 +286,157 @@ describe('CasesService', () => {
             status: CaseStatus.TIEP_NHAN,
           }),
         }),
+      );
+    });
+  });
+
+  // ── v0.37.1 — Provenance model ────────────────────────────────────────────
+  describe('v0.37.1 create with caseProvenance', () => {
+    const baseProvenanceDto = {
+      name: 'Vụ án provenance test',
+      unit: 'Công an Quận 1',
+    };
+
+    it('FROM_PETITION: creates Case and updates Petition.linkedCaseId atomically', async () => {
+      const petitionUpdatedAt = new Date('2026-05-22T10:00:00.000Z');
+      const existingPetition = {
+        ...mockPetition,
+        id: 'pet-source',
+        linkedCaseId: null,
+        updatedAt: petitionUpdatedAt,
+      };
+      const newCase = { ...mockCase, id: 'case-new', linkedPetitionId: 'pet-source' };
+
+      mockPrisma.$transaction.mockImplementation(async (fn: any) => {
+        const tx = {
+          case: { create: jest.fn().mockResolvedValue(newCase) },
+          petition: {
+            findFirst: jest.fn().mockResolvedValue(existingPetition),
+            update: jest.fn().mockResolvedValue({ ...existingPetition, linkedCaseId: 'case-new' }),
+          },
+        };
+        return fn(tx);
+      });
+
+      const result = await service.create(
+        {
+          ...baseProvenanceDto,
+          caseProvenance: 'FROM_PETITION' as any,
+          linkedPetitionId: 'pet-source',
+          expectedPetitionUpdatedAt: petitionUpdatedAt.toISOString(),
+        },
+        'actor-001',
+      );
+
+      expect(result.success).toBe(true);
+      expect(mockPrisma.$transaction).toHaveBeenCalled();
+      expect(mockAudit.log).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'CASE_CREATED' }),
+      );
+      // Critically: should NOT log PETITION_AUTO_CREATED — no phantom Petition
+      expect(mockAudit.log).not.toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'PETITION_AUTO_CREATED' }),
+      );
+    });
+
+    it('FROM_PETITION: throws NotFoundException when Petition not found or out of scope', async () => {
+      mockPrisma.$transaction.mockImplementation(async (fn: any) => {
+        const tx = {
+          case: { create: jest.fn() },
+          petition: {
+            findFirst: jest.fn().mockResolvedValue(null), // not found OR out of scope
+            update: jest.fn(),
+          },
+        };
+        return fn(tx);
+      });
+
+      await expect(
+        service.create(
+          {
+            ...baseProvenanceDto,
+            caseProvenance: 'FROM_PETITION' as any,
+            linkedPetitionId: 'pet-out-of-scope',
+            expectedPetitionUpdatedAt: new Date().toISOString(),
+          },
+          'actor-001',
+        ),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('FROM_PETITION: throws ConflictException on stale expectedPetitionUpdatedAt (P2025)', async () => {
+      const existingPetition = { ...mockPetition, id: 'pet-source', linkedCaseId: null, updatedAt: new Date() };
+
+      mockPrisma.$transaction.mockImplementation(async (fn: any) => {
+        const tx = {
+          case: { create: jest.fn().mockResolvedValue({ ...mockCase, id: 'case-new' }) },
+          petition: {
+            findFirst: jest.fn().mockResolvedValue(existingPetition),
+            update: jest.fn().mockRejectedValue(
+              Object.assign(new Error('Record to update not found'), { code: 'P2025' }),
+            ),
+          },
+        };
+        return fn(tx);
+      });
+
+      await expect(
+        service.create(
+          {
+            ...baseProvenanceDto,
+            caseProvenance: 'FROM_PETITION' as any,
+            linkedPetitionId: 'pet-source',
+            expectedPetitionUpdatedAt: '2020-01-01T00:00:00.000Z', // stale
+          },
+          'actor-001',
+        ),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('DIRECT_DISCOVERY: creates Case without picker (no transaction)', async () => {
+      mockPrisma.case.create.mockResolvedValue({
+        ...mockCase,
+        caseProvenance: 'DIRECT_DISCOVERY',
+      });
+
+      const result = await service.create(
+        {
+          ...baseProvenanceDto,
+          caseProvenance: 'DIRECT_DISCOVERY' as any,
+        },
+        'actor-001',
+      );
+
+      expect(result.success).toBe(true);
+      // No transaction call for non-FROM_X provenance
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+      expect(mockPrisma.case.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ caseProvenance: 'DIRECT_DISCOVERY' }),
+        }),
+      );
+    });
+
+    it('compat shim: legacy metadata.petitionType without caseProvenance → audit-warn + NO phantom Petition', async () => {
+      mockPrisma.case.create.mockResolvedValue({ ...mockCase, id: 'case-legacy' });
+
+      const result = await service.create(
+        {
+          ...baseProvenanceDto,
+          metadata: { petitionType: 'Tố cáo', reporter: 'Test' },
+          // missing: caseProvenance (legacy payload)
+        },
+        'actor-001',
+      );
+
+      expect(result.success).toBe(true);
+      // Compat shim should audit-warn
+      expect(mockAudit.log).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'LEGACY_PAYLOAD_RECEIVED' }),
+      );
+      // Critically: NO phantom Petition created
+      expect(mockAudit.log).not.toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'PETITION_AUTO_CREATED' }),
       );
     });
   });
