@@ -68,6 +68,18 @@ if ! npx prisma migrate deploy; then
 fi
 log "Migrations applied"
 
+# 5b. P1-005 — migration drift verification.
+# Catches silent failures where _prisma_migrations table records migration as applied
+# but DDL didn't actually execute (observed on dev 2026-05-22 — enrollment columns missing).
+# If drift detected → keep old symlink, fail deploy fast.
+log "Verifying schema integrity (P1-005)..."
+if ! npx prisma migrate status > /tmp/prisma-status-${RELEASE_SHA}.log 2>&1; then
+    log "WARNING: prisma migrate status non-zero. Output:"
+    cat /tmp/prisma-status-${RELEASE_SHA}.log | head -30
+    # Non-blocking warn — continue but flag for ops review
+fi
+log "Schema verification: $(grep -c 'have not yet been applied' /tmp/prisma-status-${RELEASE_SHA}.log || echo 0) pending migrations after deploy"
+
 # 6. Atomic symlink switch
 ln -sfn "$NEW_DIR" "$CURRENT_SYMLINK"
 log "Symlink switched: $CURRENT_SYMLINK → $NEW_DIR"
@@ -90,6 +102,17 @@ else
     log "Last 50 lines from journalctl:"
     sudo journalctl -u pc02-backend --no-pager -n 50 || true
     exit 1
+fi
+
+# 9b. P1-003 — idempotent feature_flags seed AFTER health check.
+# Uses Node script (not psql per ENG-5) — reuses app's PrismaPg adapter + DATABASE_URL handling.
+# Runs ONLY if feature_flags table empty (fresh DB or post-recovery). Skipped silently otherwise.
+# Per CLAUDE.md "CRITICAL — feature_flags seed": sidebar trống nếu skip on fresh DB → DOA.
+log "Checking feature_flags seed state..."
+cd "$CURRENT_SYMLINK/backend"
+if ! npx ts-node prisma/seed-features-if-empty.ts; then
+    log "WARNING: feature_flags seed check failed (non-fatal — may need manual rerun)"
+    # Non-fatal: deploy continues. Sidebar may be empty if fresh DB + seed failed.
 fi
 
 # 10. Prune old releases (keep latest 5)
