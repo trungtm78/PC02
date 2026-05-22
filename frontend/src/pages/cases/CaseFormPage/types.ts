@@ -58,7 +58,13 @@ export interface CaseFormData {
   caseCode: string;           // Mã hồ sơ (bắt buộc, unique, HS-YYYY-NNN)
   receiveDate: string;        // Ngày tiếp nhận (bắt buộc, không tương lai)
   receiveTime: string;        // Giờ tiếp nhận
-  // v0.37.1: 'caseType' (vestigial) removed; replaced by 'caseProvenance' in sub-5 (Nguồn vụ án Card).
+  // v0.37.1: Provenance model — BLTTHS Đ.143 source classification (Card "Nguồn vụ án" ở đầu form)
+  caseProvenance: string;     // Nguồn vụ án (CaseProvenance enum, required)
+  linkedPetitionId: string;   // FK Petition gốc (required khi caseProvenance=FROM_PETITION)
+  linkedIncidentId: string;   // FK Incident gốc (required khi caseProvenance=FROM_INCIDENT)
+  sourceDocumentNote: string; // Ghi chú nguồn (optional, dùng cho DIRECT_DISCOVERY/TRANSFERRED/OTHER)
+  expectedPetitionUpdatedAt: string; // Optimistic lock token (ISO 8601) khi link Petition
+  expectedIncidentUpdatedAt: string; // Optimistic lock token (ISO 8601) khi link Incident
   caseTitle: string;          // Tiêu đề hồ sơ (bắt buộc)
   description: string;        // Mô tả chi tiết
   status: string;             // Trạng thái
@@ -205,6 +211,13 @@ export const INITIAL_FORM_DATA: CaseFormData = {
   caseCode: "",
   receiveDate: "",
   receiveTime: "",
+  // v0.37.1 — Provenance (default empty = require user choice; never silent default)
+  caseProvenance: "",
+  linkedPetitionId: "",
+  linkedIncidentId: "",
+  sourceDocumentNote: "",
+  expectedPetitionUpdatedAt: "",
+  expectedIncidentUpdatedAt: "",
   caseTitle: "",
   description: "",
   status: "",

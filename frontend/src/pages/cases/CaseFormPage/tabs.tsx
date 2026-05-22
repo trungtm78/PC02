@@ -39,6 +39,7 @@ import type { TabProps, Subject, Evidence, MediaFile } from "./types";
 import {
   STATUS_OPTIONS,
   SUBJECT_TYPE_COLORS,
+  CASE_PROVENANCE_OPTIONS,
 } from "./constants";
 
 // ─── Helper ──────────────────────────────────────────────────────────────────
@@ -96,6 +97,39 @@ export function TabInfo({ formData, setFormData, errors, setErrors, handlerOptio
 
   return (
     <div className="space-y-6" data-testid="tab-info">
+      {/* ── v0.37.1: Nguồn vụ án Card (BLTTHS Đ.143) ─────────────────────── */}
+      {/* Decision 1A 10/10: separate Card at top of form to maximize visual */}
+      {/* hierarchy for legal provenance. Source-first per nghiệp vụ. */}
+      <Card>
+        <CardHeader title="Nguồn vụ án (BLTTHS Đ.143)" />
+        <div className="space-y-3">
+          <p className="text-sm text-gray-600">
+            Theo Điều 143 BLTTHS 2015: nguồn tin về tội phạm gồm tố giác, tin báo,
+            kiến nghị khởi tố, tự thú, hoặc CQĐT phát hiện trực tiếp. Chọn nguồn
+            phù hợp để hệ thống ghi nhận đúng căn cứ pháp lý.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <FormSelect
+              label="Nguồn vụ án"
+              required
+              value={formData.caseProvenance}
+              onChange={(v) => update("caseProvenance", v)}
+              options={CASE_PROVENANCE_OPTIONS}
+              error={errors.caseProvenance}
+              placeholder="-- Chọn nguồn --"
+              data-testid="select-case-provenance"
+            />
+            {/* Conditional picker/textarea added in sub-6 (Decisions 2A/2B/2C) */}
+          </div>
+          {/* Helper text — show selected option's legal-basis description */}
+          {formData.caseProvenance && (
+            <p className="text-xs text-gray-500 italic">
+              {CASE_PROVENANCE_OPTIONS.find((o) => o.value === formData.caseProvenance)?.helperText}
+            </p>
+          )}
+        </div>
+      </Card>
+
       {/* ── Nhóm 1: Thông tin hồ sơ ── */}
       <Card>
         <CardHeader title="Thông tin hồ sơ" />

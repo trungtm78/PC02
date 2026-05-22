@@ -1,7 +1,43 @@
 // ─── Select options for CaseForm tabs (Tiếng Việt có dấu chuẩn) ─────────────
 
 // v0.37.1: CASE_TYPE_OPTIONS removed (vestigial). Replaced by CASE_PROVENANCE_OPTIONS
-// (added in sub-5 for Nguồn vụ án Card). The 5 provenance values map to BLTTHS Đ.143.
+// below — the 5 provenance values map to BLTTHS Article 143 (Nguồn tin về tội phạm).
+// Each option has helperText referencing the legal basis to guide cán bộ điều tra.
+import { CaseProvenance } from '@/shared/enums/generated';
+
+export interface CaseProvenanceOption {
+  value: typeof CaseProvenance[keyof typeof CaseProvenance];
+  label: string;
+  helperText: string;
+}
+
+export const CASE_PROVENANCE_OPTIONS: CaseProvenanceOption[] = [
+  {
+    value: CaseProvenance.FROM_PETITION,
+    label: 'Khởi tố từ Đơn thư',
+    helperText: 'Vụ án khởi tố trên cơ sở Đơn thư (tố giác, khiếu nại, kiến nghị) đã được tiếp nhận và xác minh. BLTTHS Đ.143 điểm a, b.',
+  },
+  {
+    value: CaseProvenance.FROM_INCIDENT,
+    label: 'Khởi tố từ Vụ việc',
+    helperText: 'Vụ án khởi tố từ Vụ việc đang giải quyết đã được xác minh có dấu hiệu tội phạm. BLTTHS Đ.143.',
+  },
+  {
+    value: CaseProvenance.DIRECT_DISCOVERY,
+    label: 'CQĐT phát hiện trực tiếp',
+    helperText: 'CQĐT phát hiện trực tiếp tội phạm trong quá trình công tác (tuần tra, kiểm tra hành chính, ...). BLTTHS Đ.143 điểm c.',
+  },
+  {
+    value: CaseProvenance.TRANSFERRED,
+    label: 'Chuyển từ cơ quan khác',
+    helperText: 'Vụ án chuyển từ cơ quan khác (CQĐT cấp trên, VKS, Tòa án, ...) kèm theo hồ sơ. Ghi chú số văn bản chuyển trong "Ghi chú nguồn".',
+  },
+  {
+    value: CaseProvenance.OTHER_LEGAL_SOURCE,
+    label: 'Nguồn pháp lý khác',
+    helperText: 'Kiến nghị khởi tố của VKS, người phạm tội tự thú, hoặc nguồn pháp lý hợp pháp khác. Ghi rõ căn cứ trong "Ghi chú nguồn".',
+  },
+];
 
 export const PRIORITY_OPTIONS = [
   { value: "thap", label: "Thấp" },
