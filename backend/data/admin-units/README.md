@@ -4,12 +4,18 @@ Reference geography cho PC02 case management. **KHÔNG gọi live API từ produ
 
 ## Current active version
 
-- **`v2024-1279.json`** — 32 tỉnh/TP + 10,051 phường/xã
+- **`v2025-1300.json`** — 34 tỉnh/TP + 3,321 phường/xã (CHÍNH DANH sau cải cách 2025)
 - **Effective from:** 2025-07-01
-- **Legal basis:** Nghị quyết 1279/NQ-UBTVQH15 ngày 12/06/2024 + NQ 60/2025 sắp xếp ĐVHC cấp xã
-- **Source:** [provinces.open-api.vn](https://provinces.open-api.vn/api) cross-check [dvhcvn.gov.vn](https://dvhcvn.gov.vn)
-- **Downloaded:** 2026-05-22 by `scripts/generate-admin-units-dataset.ts` từ `frontend/src/data/wards-full.json`
-- **Checksum:** `v2024-1279.sha256` (SHA256 hex, 1 line)
+- **Legal basis:** Nghị quyết 60/NQ-CP ngày 25/04/2025 sắp xếp ĐVHC cấp xã + NQ 1279/QH15
+- **Source:** [provinces.open-api.vn](https://provinces.open-api.vn/api/v2) API v2 (đã refresh post NQ 60/2025) cross-check [dvhcvn.gov.vn](https://dvhcvn.gov.vn)
+- **Downloaded:** 2026-05-22 by `scripts/generate-admin-units-dataset.ts` (live API v2 pull)
+- **Checksum:** `v2025-1300.sha256` (SHA256 hex, 1 line)
+
+### Khác biệt so v2024-1279 (legacy, đã abolish):
+
+- v2024-1279 dùng nguồn `frontend/src/data/wards-full.json` (snapshot trước cải cách) → 10,051 entries gồm 241 phường tên kiểu cũ ("Phường 1, 2, 3..." mỗi quận TPHCM cũ).
+- v2025-1300 pull trực tiếp từ provinces.open-api.vn v2 (sau cải cách 2025) → 3,321 entries TÊN ĐỊA DANH thật ("Phường Bến Nghé, Phường Tân Định, Phường Sài Gòn..."). Số phường giảm vì sáp nhập.
+- Snapshot import detect version mới → UPDATE rows match code, INSERT phường mới, **isActive=false + abolishedAt** cho 9,700+ legacy entries không có trong v2025-1300 (preserves FK integrity với records cũ).
 
 ## How dataset is loaded
 
