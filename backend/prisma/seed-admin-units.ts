@@ -16,7 +16,11 @@ import { readFileSync } from 'fs';
 import * as path from 'path';
 import { verifyChecksum } from './lib/checksum';
 
-const CURRENT_VERSION = 'v2024-1279';
+// v0.34.0.1: bump v2024-1279 → v2025-1300 (pull live từ provinces.open-api.vn v2,
+// post NQ 60/NQ-CP 25/04/2025 — 34 tỉnh / 3,321 phường tên địa danh chính danh).
+// Snapshot import sẽ detect version mới → re-import + abolish 10k legacy entries
+// (gồm 241 "Phường 1, 2, 3..." cũ trước cải cách).
+const CURRENT_VERSION = 'v2025-1300';
 const DATASET_DIR = path.join(__dirname, '..', 'data', 'admin-units');
 
 interface DatasetProvince {
