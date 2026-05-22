@@ -137,6 +137,7 @@ export class TwoFaService {
     }
 
     const secret = this.encryption.decrypt(user.totpSecret);
+    // epochTolerance: 30 (seconds) = accept ±30s clock drift. Valid otplib v13 option (verified types-BBT_82HF.d.ts).
     const verifyResult = await totpVerify({ token, secret, strategy: 'totp', epochTolerance: 30 });
     if (!verifyResult.valid) {
       throw new BadRequestException('Mã TOTP không hợp lệ');
