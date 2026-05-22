@@ -345,8 +345,8 @@ function CaseFormPage() {
       )}
       {/* Header */}
       <PageHeader
-        title={isEditMode ? "Chỉnh sửa hồ sơ" : "Thêm mới hồ sơ"}
-        subtitle={isEditMode ? "Cập nhật thông tin hồ sơ vụ án / vụ việc" : "Nhập đầy đủ thông tin hồ sơ vụ án / vụ việc"}
+        title={isEditMode ? "Chỉnh sửa vụ án" : "Khởi tố vụ án mới"}
+        subtitle={isEditMode ? "Cập nhật thông tin vụ án" : "Nhập đầy đủ thông tin vụ án — chọn Nguồn vụ án (BLTTHS Đ.143) trước"}
         actions={
           <>
             <button

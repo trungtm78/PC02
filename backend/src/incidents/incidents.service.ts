@@ -209,6 +209,69 @@ export class IncidentsService {
     }
   }
 
+  // v0.37.1.1 PROV-004 — list Incidents eligible for linking from a new Case.
+  // Returns only: not soft-deleted + not yet linked to any Case + in user's DataScope.
+  // Used by CaseFormPage Incident picker (CaseProvenancePicker → /incidents/linkable).
+  // Mirror of petitions.service.listLinkable.
+  async listLinkable(
+    query: { search?: string; limit?: number },
+    dataScope?: DataScope | null,
+  ) {
+    const limit = Math.min(query.limit ?? 50, 100);
+    const search = (query.search ?? '').trim();
+
+    const baseWhere: Prisma.IncidentWhereInput = {
+      deletedAt: null,
+      linkedCaseId: null,
+    };
+
+    if (dataScope && !dataScope.canDispatch) {
+      const orConditions: Prisma.IncidentWhereInput[] = [];
+      if (dataScope.userIds.length > 0) {
+        orConditions.push({ investigatorId: { in: dataScope.userIds } });
+      }
+      if (dataScope.writableTeamIds.length > 0) {
+        orConditions.push({ assignedTeamId: { in: dataScope.writableTeamIds } });
+        if (!dataScope.isWardOfficer) {
+          orConditions.push({ assignedTeamId: null });
+        }
+      }
+      if (orConditions.length === 0) {
+        return { data: [] };
+      }
+      baseWhere.OR = orConditions;
+    }
+
+    // Search across code (prefix) + name (contains)
+    if (search.length > 0) {
+      baseWhere.AND = [
+        baseWhere.OR ? { OR: baseWhere.OR } : {},
+        {
+          OR: [
+            { code: { startsWith: search, mode: 'insensitive' as const } },
+            { name: { contains: search, mode: 'insensitive' as const } },
+          ],
+        },
+      ];
+      delete baseWhere.OR;
+    }
+
+    const rows = await this.prisma.incident.findMany({
+      where: baseWhere,
+      take: limit,
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        ngayDeXuat: true,
+        updatedAt: true,
+      },
+    });
+
+    return { data: rows };
+  }
+
   private checkWriteScope(
     record: { investigatorId?: string | null; assignedTeamId?: string | null },
     dataScope?: DataScope | null,

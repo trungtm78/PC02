@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.37.1.1] - 2026-05-23
+
+### Added
+- **[incidents] `GET /incidents/linkable`** — endpoint cho Incident picker trên màn Khởi tố vụ án mới khi chọn "Khởi tố từ Vụ việc". Trả Vụ việc chưa link Vụ án + trong phạm vi DataScope. Mirror pattern của `/petitions/linkable` (v0.37.1.0 PR-PICK). Closes PROV-004 P1 follow-up.
+
+### Changed
+- **[cases] Form title đổi từ "Thêm mới hồ sơ" → "Khởi tố vụ án mới"** để khớp với menu label. Subtitle nhấn mạnh phải chọn Nguồn vụ án (BLTTHS Đ.143) trước. Closes ISSUE-001 từ QA report v0.37.1.0.
+
+### Fixed
+- **[cases] FE Incident picker dùng đúng schema fields** (`name` + `ngayDeXuat` thay vì `crime` + `receivedDate`) khớp với Incident model trong Prisma. Bug discovered khi build PROV-004 endpoint.
+
+### Internal
+- New `backend/src/incidents/dto/list-linkable.dto.ts` (query DTO).
+- Service method `incidents.service.listLinkable()` mirror `petitions.service.listLinkable()` pattern với DataScope OR filter (IDOR-safe).
+- Tests: 234 backend tests pass (cases + petitions + incidents modules).
+- Note QA finding ISSUE-002 (404 trên /ward/petitions) confirmed false positive via network capture — không có 404 thật trên page đó, chỉ là leftover console từ /incidents/linkable 404 trước khi navigate sang.
+
 ## [0.37.1.0] - 2026-05-23
 
 ### Added
