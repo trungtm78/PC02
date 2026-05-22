@@ -33,6 +33,7 @@ import { MergeIncidentDto } from './dto/merge-incident.dto';
 import { TransferIncidentDto } from './dto/transfer-incident.dto';
 import { DeleteIncidentDto } from './dto/delete-incident.dto';
 import { RestoreIncidentDto } from './dto/restore-incident.dto'; // v0.32.0.0
+import { ListLinkableIncidentDto } from './dto/list-linkable.dto'; // v0.37.1.1 PROV-004
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
 
 @Controller('incidents')
@@ -45,6 +46,16 @@ export class IncidentsController {
   @RequirePermissions({ action: 'read', subject: 'Incident' })
   getList(@Query() query: QueryIncidentsDto, @Req() req: ScopedRequest) {
     return this.incidentsService.getList(query, req.dataScope);
+  }
+
+  // v0.37.1.1 PROV-004 — GET /api/v1/incidents/linkable
+  // Returns unlinked Incidents in user's scope for Case form Incident picker.
+  // Used by CaseFormPage CaseProvenancePicker when caseProvenance=FROM_INCIDENT.
+  // Mirror of /petitions/linkable (PR-PICK).
+  @Get('linkable')
+  @RequirePermissions({ action: 'read', subject: 'Incident' })
+  listLinkable(@Query() query: ListLinkableIncidentDto, @Req() req: ScopedRequest) {
+    return this.incidentsService.listLinkable(query, req.dataScope);
   }
 
   // GET /api/v1/incidents/stats — Count theo status

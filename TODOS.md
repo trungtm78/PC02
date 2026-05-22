@@ -26,10 +26,9 @@
 **Discovered:** /autoplan eng review consensus.
 
 ### PROV-004: Real /incidents/linkable endpoint
-**Priority:** P1
-**Details:** PR-PICK shipped `/petitions/linkable` but `/incidents/linkable` was not built — IncidentPicker on CaseFormPage references the URL but endpoint returns 404 until built. Same shape as petitions version: scope-filtered, unlinked, search by code+crime.
-**Effort:** ~1.5h (mirror petitions/linkable pattern).
-**Discovered:** PR-PICK scope decision (defer to follow-up).
+**Priority:** ~~P1~~ DONE
+**Details:** Shipped v0.37.1.1 — endpoint mirror /petitions/linkable pattern (DTO + controller + service.listLinkable() with DataScope OR filter). Search by code (prefix) + name (contains). FE picker updated to use Incident schema fields (name, ngayDeXuat).
+**Completed:** v0.37.1.1 (2026-05-23)
 
 ### PROV-005: Trigram index on senderName for /petitions/linkable
 **Priority:** P3

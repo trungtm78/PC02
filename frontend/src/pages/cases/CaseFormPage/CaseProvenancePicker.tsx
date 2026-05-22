@@ -41,8 +41,8 @@ interface PetitionRow {
 interface IncidentRow {
   id: string;
   code: string;
-  crime?: string;
-  receivedDate?: string;
+  name?: string;
+  ngayDeXuat?: string;
   updatedAt: string;
 }
 
@@ -256,10 +256,10 @@ function IncidentPicker({
       renderRow={(r) => (
         <>
           <span className="font-mono text-xs text-gray-500">{r.code}</span>
-          {r.crime && <span className="ml-2">— {r.crime}</span>}
-          {r.receivedDate && (
+          {r.name && <span className="ml-2">— {r.name}</span>}
+          {r.ngayDeXuat && (
             <span className="ml-2 text-xs text-gray-400">
-              ({new Date(r.receivedDate).toLocaleDateString('vi-VN')})
+              ({new Date(r.ngayDeXuat).toLocaleDateString('vi-VN')})
             </span>
           )}
         </>
