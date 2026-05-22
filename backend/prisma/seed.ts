@@ -9,6 +9,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import * as bcrypt from 'bcrypt';
 import { seedFeatureFlags } from './seed-feature-flags';
 import { seedWards } from './seed-wards';
+import { seedAdminUnits } from './seed-admin-units';
 import { seedDirectoryTypes } from './seed-directory-types';
 import { seedMasterClasses } from './seed-master-classes';
 import { seedDeadlineRules } from './seed-deadline-rules';
@@ -246,9 +247,37 @@ async function main() {
     `Seed VN events: ${vnEventsResult.created} created, ${vnEventsResult.updated} updated.`,
   );
 
-  // ── Wards — 10,051 phường/xã toàn quốc (idempotent upsert) ───────────────
-  console.log('Seeding wards (may take ~2-3 min for 10,051 entries)...');
-  await seedWards(prisma);
+  // ── Admin units snapshot import (v0.34.0.0) ──────────────────────────────
+  // Replaces legacy seedWards (hardcoded 347 fallback). Reads signed dataset
+  // backend/data/admin-units/{version}.json + SHA256 checksum, atomic
+  // transaction, idempotent via admin_unit_dataset_imports ledger.
+  //
+  // PRODUCTION: fail-loud. Bad dataset (missing file, checksum mismatch,
+  // transaction failure) MUST stop deploy — geography correctness is
+  // legal-grade for case records. Per /codex post-impl finding #1.
+  //
+  // DEV/TEST: fallback to legacy seedWards keeps local environments working
+  // when dataset is absent. Gated explicitly on NODE_ENV.
+  console.log('Seeding admin units from signed dataset...');
+  try {
+    const result = await seedAdminUnits(prisma);
+    if (!result.skipped) {
+      console.log(
+        `Admin units: +${result.addedProvinces} provinces, +${result.addedWards} wards, ~${result.updatedWards} updated, -${result.abolishedWards} abolished`,
+      );
+    }
+  } catch (err) {
+    const isProd = process.env.NODE_ENV === 'production';
+    if (isProd) {
+      // Fail-loud in production — do NOT fall back to legacy seedWards.
+      // Bad geography in police records is unacceptable.
+      console.error('Admin units seed FAILED in production:', err);
+      throw err;
+    }
+    // Dev/test: log + fall back (preserves local dev convenience)
+    console.warn('Admin units seed failed (dev fallback to seedWards):', err);
+    await seedWards(prisma);
+  }
 }
 
 main()

@@ -234,8 +234,34 @@ model Directory {
   // v0.33.0.0: inverse — Teams gắn ward (geographic teams)
   teams          Team[]    @relation("TeamWard")
 
+  // v0.34.0.0: snapshot pattern metadata (WARD/PROVINCE only — NULL cho type khác)
+  officialCode   String? // mã chính danh Bộ Nội vụ (vd "26506" cho Phường 1 TPHCM)
+  sourceVersion  String? // vd "v2024-1279" — version dataset đã import row này
+  legalBasis    String? // vd "Nghị quyết 1279/QH15 ngày 12/06/2024"
+  importedAt     DateTime? // thời điểm import từ dataset
+
   @@unique([type, code])
+  // v0.34.0.0: partial index on (type, officialCode) created via separate CONCURRENTLY
+  // migration (20260522092131_directories_official_code_index_concurrent). NOT modeled
+  // as @@index here — Prisma would generate a duplicate non-partial index on drift check.
   @@map("directories")
+}
+
+// v0.34.0.0: Dataset import ledger (state machine cho snapshot import)
+// Mỗi version chỉ có 1 ACTIVE row tại 1 thời điểm (partial unique index)
+model AdminUnitDatasetImport {
+  version          String    @id // vd "v2024-1279"
+  status           String // IMPORTING | ACTIVE | SUPERSEDED | FAILED
+  checksum         String // SHA256 hex
+  addedProvinces   Int       @default(0)
+  addedWards       Int       @default(0)
+  updatedWards     Int       @default(0)
+  abolishedWards   Int       @default(0)
+  importedAt       DateTime  @default(now())
+  completedAt      DateTime?
+  errorMessage     String?
+
+  @@map("admin_unit_dataset_imports")
 }
 
 // ─────────────────────────────────────────────

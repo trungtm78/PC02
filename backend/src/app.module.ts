@@ -45,6 +45,7 @@ import { SchedulerModule } from './scheduler/scheduler.module';
 import { VksMeetingsModule } from './shared/vks-meetings/vks-meetings.module';
 import { ActionPlansModule } from './shared/action-plans/action-plans.module';
 import { EditWindowModule } from './edit-window/edit-window.module'; // v0.33.0.0
+import { AdminUnitsModule } from './admin-units/admin-units.module'; // v0.34.0.0
 import { UnitScopeService } from './auth/services/unit-scope.service';
 import { DataScopeInterceptor } from './auth/interceptors/data-scope.interceptor';
 import { TestFixturesModule } from './test-fixtures/test-fixtures.module';
@@ -90,6 +91,7 @@ import { TestFixturesModule } from './test-fixtures/test-fixtures.module';
     VksMeetingsModule,
     ActionPlansModule,
     EditWindowModule, // v0.33.0.0
+    AdminUnitsModule, // v0.34.0.0
     TdacModule,
     EventCategoriesModule,
     CalendarEventsModule,
