@@ -20,7 +20,7 @@ import { verifyChecksum } from './lib/checksum';
 // post NQ 60/NQ-CP 25/04/2025 — 34 tỉnh / 3,321 phường tên địa danh chính danh).
 // Snapshot import sẽ detect version mới → re-import + abolish 10k legacy entries
 // (gồm 241 "Phường 1, 2, 3..." cũ trước cải cách).
-const CURRENT_VERSION = 'v2025-1300';
+export const CURRENT_VERSION = 'v2025-1300';
 const DATASET_DIR = path.join(__dirname, '..', 'data', 'admin-units');
 
 interface DatasetProvince {
@@ -60,7 +60,7 @@ export interface SeedResult {
 /**
  * Load dataset file + verify checksum. Throws on any I/O or checksum error.
  */
-function loadDataset(version: string): Dataset {
+export function loadDataset(version: string): Dataset {
   const jsonPath = path.join(DATASET_DIR, `${version}.json`);
   const shaPath = path.join(DATASET_DIR, `${version}.sha256`);
   verifyChecksum(jsonPath, shaPath);
