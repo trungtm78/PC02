@@ -33,6 +33,9 @@ jobs:
       - name: TypeScript type check
         run: cd backend && npx tsc --noEmit
 
+      - name: Admin-units seed dry-run smoke
+        run: cd backend && npx ts-node prisma/seed-admin-units-runner.ts --dry-run
+
   frontend-test:
     name: Frontend Tests (P2-003 fix)
     runs-on: ubuntu-latest
