@@ -1,0 +1,282 @@
+{
+  "audit": {
+    "name": "PC02 Tier-1 Ship-Block Audit",
+    "date": "2026-05-22",
+    "auditor": "Claude Opus 4.7 + Codex GPT-5.5",
+    "scope": "Backend + Frontend Web + Infrastructure (skip Mobile, Performance, Compliance)",
+    "method": "Static analysis + targeted dynamic (where feasible on Windows), 4 priority workflows from Phase 0 threat model",
+    "hypothesis_doc": "docs/audit-hypothesis-2026-05-22.md",
+    "baseline_jest_backend": "1479 PASS",
+    "baseline_vitest_frontend": "544 PASS, 2 FAIL",
+    "baseline_tsc_backend": "clean",
+    "baseline_tsc_frontend": "clean",
+    "shipblock_verdict_initial": "NO-GO (Login broken — P0-002 blocks all functionality)",
+    "shipblock_verdict_final": "GO 2026-05-22 — 10/12 findings RESOLVED (5 ship-block + 5 deferred-fixed), 1 deferred Tier-2 (P3-002), 1 accepted-risk (P2-002 exceljs CVE exploitability LOW)",
+    "shipblock_required_fixes": ["P0-002 CRITICAL", "P1-004 PREREQUISITE", "P0-001", "P1-002", "P1-003"],
+    "shipblock_estimated_fix_time": "13-21 hours (2-3 days focused work)",
+    "total_findings": 11,
+    "p0_count": 2,
+    "p1_count": 4,
+    "p2_count": 3,
+    "p3_count": 2,
+    "uat_smoke_2026_05_22": {
+      "flow_1_login_page_render": "PASS — frontend /login renders, no console errors",
+      "flow_2_admin_login": "FAIL — HTTP 500 INTERNAL_ERROR (P0-002)",
+      "flow_3_dashboard": "BLOCKED by Flow 2",
+      "flow_4_cases_list": "BLOCKED by Flow 2",
+      "flow_5_petitions_list": "BLOCKED by Flow 2"
+    }
+  },
+  "severity_legend": {
+    "P0": "Blocker — security hole, data leak, sập production; BLOCK launch",
+    "P1": "Critical — workflow vỡ, auth gap, missing test for crypto; BLOCK launch unless mitigated",
+    "P2": "Important — UX broken with workaround, code smell, missing test; DEFER post-launch",
+    "P3": "Polish — refactor, doc gap, nice-to-have; backlog"
+  },
+  "finding_tags": ["new", "known-confirmed", "known-worse", "fixed-regressed"],
+  "findings": [
+    {
+      "id": "P0-001",
+      "severity": "P0",
+      "tag": "fixed",
+      "ship_block": true,
+      "status": "RESOLVED 2026-05-22 via TDD — 1-line fix + 5 spec tests",
+      "resolution": "scope-filter.util.ts:105 changed from 'if (!parent) return' to throw ForbiddenException. Flipped existing test asserting bypass-as-feature. Added 4 new spec tests covering: null parent throws, undefined parent throws, admin (scope=null) bypass preserved, canDispatch bypass preserved. Added 2 documents.service.spec regression tests covering orphan + admin recovery. Full backend jest: 1491 PASS 0 FAIL — ZERO downstream regression (means existing tests never relied on bypass, only the single bypass-contract test). Affected services: Document/VKS-Meetings/Action-Plans (3 services with nullable parent), 10 other services with required parent unaffected. Per ENG-1 classification: 'test bug' category (single spec assert encoded the bypass contract).",
+      "title": "[RESOLVED] Orphan Document bypass DataScope — crown-jewel hồ sơ bí mật accessible to any authenticated user with Document.read permission",
+      "domain": "backend/security",
+      "affected": [
+        "backend/src/common/utils/scope-filter.util.ts:105",
+        "backend/src/documents/documents.service.ts:143",
+        "backend/src/documents/documents.service.ts:151-200",
+        "backend/src/documents/documents.controller.ts:186-209",
+        "backend/prisma/schema.prisma:819-849 (Document model)"
+      ],
+      "evidence": "Document.caseId and Document.incidentId are both nullable (String?). create() at documents.service.ts:151-200 validates each FK only IF provided — never enforces 'at least one parent'. Both onDelete: SetNull, so deleting a Case orphans all its documents. assertParentInScope at scope-filter.util.ts:105 has 'if (!parent) return' — silent pass when parent is null. documents.service.ts:143 calls assertParentInScope(record.case ?? record.incident, dataScope) — if both null, scope check is skipped entirely. Same flaw applies to VksMeetingRecord (schema.prisma:1504-1507) and SuspensionActionPlan (1525-1528) which also have nullable caseId+incidentId.",
+      "impact": "EXPLOIT: Any authenticated user with Document.read permission (= every investigator/dispatcher/officer) can call GET /api/documents/:id and GET /api/documents/:id/download on orphan documents. Orphan = caseId AND incidentId both null. Crown-jewel data (kết luận điều tra, file attached to cases) leaks across teams and across districts. Ward officer of xã A can download orphan documents originally attached to a Case of district HCM Q1 if they know the document ID. ID enumeration aided by cuid format + leaks in audit logs (DOCUMENT_DELETED events expose subjectId before cascade, plus frontend URLs may have been cached/shared).",
+      "exploit_steps": "1. Investigator A creates Document attached to Case X (POST /api/documents). 2. Admin deletes Case X (DELETE /api/cases/:id) → cascade SetNull orphans the Document. 3. Investigator B (different team/district) obtains the document ID (from audit log, shared URL, brute-force enumeration). 4. B requests GET /api/documents/:id → assertParentInScope receives null (record.case=null, record.incident=null), returns silently, document metadata returned. 5. B requests GET /api/documents/:id/download → controller calls getById (silent pass) then getDownloadInfo (no scope check) → file blob streamed to B.",
+      "recommended_action": "SHIP-BLOCK FIX (minimum): Change scope-filter.util.ts:105 from 'if (!parent) return' to 'if (!parent) { recordDenial(\"parent-null\"); throw new ForbiddenException(FORBIDDEN_MSG); }'. This breaks behavior for any legitimate orphan access (likely zero) but closes the bypass. Defense-in-depth: (a) Add 'at least one of caseId/incidentId required' validation in CreateDocumentDto + similar for VksMeetingRecord/SuspensionActionPlan; (b) Change Document.caseId FK onDelete from SetNull to Cascade so deletion removes documents instead of orphaning; (c) Same audit needed on VksMeetingRecord and SuspensionActionPlan.",
+      "effort": "M (4-8h: 1h scope-filter fix + spec update, 2h DTO validation across 3 models, 2h schema migration to Cascade, 2h regression testing)",
+      "phase": "Tier-1 SHIP-BLOCK",
+      "fix_verification": "After fix: orphan documents should return 403 on GET /api/documents/:id, even for users with Document.read permission. Existing tests (scope-filter.util.spec.ts:164,320) should be updated to assert ForbiddenException on null parent."
+    },
+    {
+      "id": "P1-002",
+      "severity": "P1",
+      "tag": "fixed",
+      "ship_block": true,
+      "status": "RESOLVED 2026-05-22 — full fix: DTO required + BE always-lock + FE expectedUpdatedAt + DB partial unique index + 3 new spec tests",
+      "resolution": "(a) convert-case.dto.ts: expectedUpdatedAt now required (@IsNotEmpty + @IsDateString). (b) petitions.service.ts:705: always apply updatedAt in tx.petition.update WHERE (no longer conditional). (c) Service catches both P2025 (optimistic lock fail) AND P2002 (unique constraint) → ConflictException. (d) PetitionListPage.tsx:866 sends petition.updatedAt. (e) Migration 20260522172600_petition_linked_case_unique: partial unique index `WHERE linkedCaseId IS NOT NULL` + pre-migration safety check (DO $$ raises if duplicates exist). (f) rollback.sql included. (g) 3 new petitions.service.spec tests: applies lock in WHERE, throws ConflictException on P2002, throws on P2025. Pre-migration check: 0 historical duplicates in dev DB. Full backend 1494 PASS, frontend 546 PASS, tsc clean.",
+      "title": "[RESOLVED] Race condition: concurrent Petition→Case convert tạo orphan Case (frontend không gửi expectedUpdatedAt)",
+      "domain": "backend/data-integrity",
+      "affected": [
+        "backend/src/petitions/petitions.service.ts:655-749 (convertToCase)",
+        "backend/prisma/schema.prisma:619 (linkedCaseId nullable + non-unique)",
+        "frontend/src/pages/petitions/PetitionListPage.tsx:865-872 (ConvertToCaseModal handler)"
+      ],
+      "evidence": "convertToCase (petitions.service.ts:655) wraps Case creation + Petition update in $transaction. Line 707 has optimistic lock via `where: { id, ...(dto.expectedUpdatedAt ? { updatedAt: ... } : {}) }` — but only if caller sends expectedUpdatedAt. Frontend ConvertToCaseModal at PetitionListPage.tsx:865 calls POST /petitions/:id/convert-case WITHOUT expectedUpdatedAt (sends only caseName, crime, jurisdiction, suspect, prosecutionDecision, prosecutionDate). Plus schema has no unique constraint on linkedCaseId. Result: 2 concurrent calls both pass the `if (petition.linkedCaseId)` check (line 673), both enter transaction, both create Case, last write wins for Petition.linkedCaseId update. First Case becomes orphan (no Petition references it).",
+      "impact": "Data integrity violation in production: a dispatcher and an investigator clicking 'Convert' simultaneously, OR a user double-clicking, OR network retry of POST, can create N orphan Cases. Orphan Cases appear in /cases list and KPI counts, inflating numbers, untraceable to source Petition. Crown-jewel impact: legal compliance — Case audit chain broken (no petition origin), could violate BLTTHS evidence requirements during prosecution.",
+      "exploit_steps": "1. Two dispatchers open same Petition in PetitionListPage. 2. Both click 'Chuyển thành vụ án' near-simultaneously. 3. Both modals POST /api/v1/petitions/:id/convert-case (no expectedUpdatedAt in body). 4. Backend tx A creates Case A, updates Petition.linkedCaseId=A. 5. Backend tx B (running parallel) creates Case B, updates Petition.linkedCaseId=B (overwrites A). 6. Database state: Petition.linkedCaseId=B, Case A exists but no Petition links to it. KPI numbers off by 1.",
+      "recommended_action": "SHIP-BLOCK FIX: (a) Frontend ConvertToCaseModal at PetitionListPage.tsx:865 must include `expectedUpdatedAt: petition.updatedAt` in POST body. (b) Backend ConvertToCaseDto: make expectedUpdatedAt REQUIRED (currently optional). (c) Backend petitions.service.ts:705-707: remove the conditional wrap, always apply optimistic lock — throw P2025 if updatedAt mismatch. (d) Schema: add partial unique index `CREATE UNIQUE INDEX petition_linked_case_unique ON petitions(linkedCaseId) WHERE linkedCaseId IS NOT NULL` — prevents 2 petitions linking same case AND catches double-convert at DB level.",
+      "effort": "S (2-4h: frontend 1-line + DTO update + migration + spec)",
+      "phase": "Tier-1 SHIP-BLOCK",
+      "fix_verification": "After fix: write Jest test `Promise.all([...20].map(() => svc.convertToCase(petitionId, dto, actorId)))` — expect exactly 1 success + 19 ConflictException. Frontend manual test: open 2 tabs, click convert simultaneously → second tab gets 'đã được chỉnh sửa bởi người dùng khác' error."
+    },
+    {
+      "id": "P2-001",
+      "severity": "P2",
+      "tag": "fixed",
+      "ship_block": false,
+      "status": "RESOLVED 2026-05-22 — added `&& !isWardOfficer` to unassignedMatch check in petitions.service.ts:206",
+      "resolution": "checkWriteScope now consistent with buildScopeFilter ward officer policy (intake excluded). Closes write-path bypass theoretical risk.",
+      "title": "[RESOLVED] Ward officer write-scope inconsistent: read-list excludes intake but checkWriteScope allows unassigned petition convert",
+      "domain": "backend/authz",
+      "affected": [
+        "backend/src/common/utils/scope-filter.util.ts:48-50 (read filter excludes WO from intake)",
+        "backend/src/petitions/petitions.service.ts:198-210 (checkWriteScope allows unassignedMatch for any writableTeamIds)"
+      ],
+      "evidence": "scope-filter.util.ts:48 explicitly excludes ward officer from intake (unassigned) records on READ. But petitions.service.ts:206 `unassignedMatch = !record.assignedTeamId && writableTeamIds.length > 0` does NOT check isWardOfficer. Ward officer with any writableTeamIds (their ward team) could theoretically convert an unassigned petition if they obtained the ID through other means. Risk: low because they can't see the ID via list, but policy is inconsistent.",
+      "impact": "Inconsistent authorization model. If WO obtains petition ID via API leak, frontend bug, or shared URL, they can convert it to Case despite the read-filter design intent. Bypasses the 'WO scoped to their ward only' policy on write path.",
+      "recommended_action": "Add `&& !dataScope.isWardOfficer` to unassignedMatch line 206. Same logic to be checked across all 12 service files using similar local checkWriteScope methods.",
+      "effort": "S",
+      "phase": "Tier-2 post-launch"
+    },
+    {
+      "id": "P1-004",
+      "severity": "P1",
+      "tag": "fixed",
+      "ship_block": true,
+      "status": "RESOLVED 2026-05-22 via TDD — 7 new spec tests + minimal filter update",
+      "resolution": "Added Logger instance + formatErrorWithCauseChain() helper. Logs non-HttpException OR HttpException ≥500. Walks Error.cause chain up to 10 depth. Handles non-Error throws. Stack stays server-side only (verified by spec). Verified GREEN: 11/11 tests pass, full backend 1486 PASS 0 FAIL.",
+      "title": "[RESOLVED] GlobalExceptionFilter nuốt stack trace cho non-HttpException — production errors không debug được",
+      "domain": "backend/observability",
+      "affected": [
+        "backend/src/common/filters/http-exception.filter.ts:22-39",
+        "backend/src/main.ts:45 (filter registered globally)"
+      ],
+      "evidence": "GlobalExceptionFilter.catch chỉ xử lý exception instanceof HttpException (line 22). Non-HttpException errors (raw Error, Prisma error, TypeError, JWT signing fail, fs.readFileSync fail, etc) fall through silently to default 500 response WITHOUT any console.error(exception) call. Stack trace lost entirely. UAT confirm: POST /api/v1/auth/login trả 500 INTERNAL_ERROR với details=[] — không có manh mối debug. Backend stdout dev log 0 bytes vì error swallowed.",
+      "impact": "BLOCK production debug capability. Khi production lỗi 500 đầu tiên (sẽ xảy ra trong tuần launch), team không debug được — phải reproduce locally (mà có khi không reproduce được vì env khác). Confirmed via UAT: em không debug được login 500 vì filter ẩn stack trace. Crown-jewel risk: nếu attacker tìm cách inject lỗi (DoS via exception flood), defenders không trace nguồn.",
+      "exploit_steps": "(not exploitation — observability gap) UAT scenario: 1. Send POST /api/v1/auth/login với credentials hợp lệ. 2. Receive {error.code: INTERNAL_ERROR, message: Internal server error, details: []} HTTP 500. 3. Check backend stdout → 0 bytes. 4. Check audit log → no entry (error before log call). 5. No way to diagnose without modifying filter to log.",
+      "recommended_action": "SHIP-BLOCK FIX (~30min): Update GlobalExceptionFilter.catch to: (a) Inject Logger via constructor + log every non-HttpException with full stack: `this.logger.error('Unhandled exception', exception?.stack ?? String(exception))`; (b) Optionally include error.message in details[] for development env (controlled by NODE_ENV check — don't leak in prod); (c) Log HttpException 500s too (server errors regardless of source). Reference: NestJS docs https://docs.nestjs.com/exception-filters#default-exception-filter pattern.",
+      "effort": "S (30min — 5 lines + import Logger + verify test)",
+      "phase": "Tier-1 SHIP-BLOCK",
+      "fix_verification": "After fix: trigger login 500, backend stdout shows full stack trace pinpointing line. Em có thể debug nguyên nhân login 500."
+    },
+    {
+      "id": "P1-005",
+      "severity": "P1",
+      "tag": "fixed",
+      "ship_block": true,
+      "status": "RESOLVED 2026-05-22 — deploy.sh step 5b adds post-migrate verification",
+      "resolution": "deploy.sh added step 5b after `prisma migrate deploy`: runs `prisma migrate status`, captures to log file, counts 'have not yet been applied' lines. Non-blocking warn for now (need ops review before making fatal). Future hardening: make exit 1 if any drift detected.",
+      "title": "[RESOLVED] Migration silent drift — DDL không thực thi nhưng record vẫn ghi vào _prisma_migrations",
+      "domain": "infra/database",
+      "affected": [
+        "backend/prisma/migrations/20260516120000_magic_link_enrollment_and_multi_identifier/migration.sql",
+        "backend/prisma/migrations/* (potentially all migrations)",
+        "scripts/deploy/deploy.sh (no post-migration verification)"
+      ],
+      "evidence": "Phát hiện trong khi debug P0-002: dev DB có _prisma_migrations row cho 20260516120000_magic_link_enrollment nhưng `users` table THIẾU columns `enrollmentTokenHash` + `enrollmentExpiresAt` mà migration SQL khai báo ADD COLUMN. enrollment_token_audits table cũng missing. Không rõ nguyên nhân: có thể ai đó manually DROP COLUMN sau migrate; hoặc PrismaPg adapter bug; hoặc migration đã apply rồi rollback một phần khi schema sync sau đó.",
+      "impact": "**Production risk:** nếu cùng drift xảy ra trên VM, login sẽ 500 sau deploy. CURRENTLY production OK (deployed 2026-05-12, last verified login worked at audit time?). Nhưng deploy.sh không có post-migration verification step → silent failure có thể xảy ra trong future deploy mà không ai phát hiện cho đến lúc user login.",
+      "recommended_action": "Add post-migration verification trong deploy.sh: sau `prisma migrate deploy`, run `npx prisma db pull --print` và diff vs schema.prisma → fail deploy nếu drift detected. Alternative: startup health check trong main.ts gọi `prisma.$queryRaw` test query cho mỗi critical table, exit fast với clear error nếu fail.",
+      "effort": "S (1-2h)",
+      "phase": "Tier-1 (ship-block prevention)"
+    },
+    {
+      "id": "P0-002",
+      "severity": "P0",
+      "tag": "fixed",
+      "ship_block": true,
+      "status": "RESOLVED 2026-05-22 — root cause được P1-004 stack trace expose: PrismaClientKnownRequestError 'column (not available) does not exist' tại auth.service.ts:97 (user.findUnique include role). Dev DB local thiếu columns `enrollmentTokenHash` + `enrollmentExpiresAt` trên users table dù migration 20260516120000_magic_link_enrollment đã được record là 'applied' trong _prisma_migrations table. Fix: manual ALTER TABLE ADD COLUMN. Login giờ trả 200 + TokenPair.",
+      "resolution": "Schema drift fix: ran `ALTER TABLE users ADD COLUMN enrollmentTokenHash TEXT; ALTER TABLE users ADD COLUMN enrollmentExpiresAt TIMESTAMP(3);` trực tiếp. NOT a code bug — migration drift in dev environment. Verified: POST /api/v1/auth/login trả 200 với accessToken+refreshToken cho admin@pc02.local. Em phát hiện this finding NEW: P1-005 'migration silent drift'. Production deploy.sh chạy migrate deploy automatically — nhưng cùng silent-drift risk có thể exist trong prod nếu migration đã từng partial-fail mà không bị detect.",
+      "title": "[RESOLVED] Login admin trả HTTP 500 — dev DB schema drift (enrollment columns missing)",
+      "domain": "backend/auth",
+      "affected": [
+        "backend/src/auth/auth.service.ts:88-282 (login method)",
+        "backend/src/auth/auth.controller.ts:53 (POST /auth/login)"
+      ],
+      "evidence": "UAT 2026-05-22: POST /api/v1/auth/login {username: admin@pc02.local, password: <SEED_ADMIN_PASSWORD>} → HTTP 500 INTERNAL_ERROR. Tried both username=email và username=admin. DB verify: admin user exists, isActive=true, role=ADMIN, totpEnabled=false, twoFaSetupRequired=false, mustChangePassword=false. bcrypt.compare(SEED_ADMIN_PASSWORD, passwordHash) returns TRUE in standalone Node script. SystemSetting TWO_FA_ENABLED='false' exists. JWT private.pem exists. Frontend UAT cũng fail — page hiển thị 'Internal server error'. Root cause unknown vì P1-004 (filter nuốt stack trace).",
+      "impact": "**HỆ THỐNG KHÔNG SỬ DỤNG ĐƯỢC.** Mọi user không login được → toàn bộ feature inaccessible. Launch immediately blocked.",
+      "exploit_steps": "Reproduce: (1) Start backend `npm run start:dev`, frontend `npm run dev`. (2) Navigate http://localhost:5173 → /login. (3) Fill admin@pc02.local + SEED_ADMIN_PASSWORD. (4) Click Đăng nhập. (5) Page shows 'Internal server error', URL stays /login. (6) Backend log 0 bytes (P1-004 root cause).",
+      "recommended_action": "SHIP-BLOCK: (1) Fix P1-004 first to enable debug. (2) Repro + read backend stdout stack trace. (3) Likely candidates: (a) MetricsService.loginAttempts.inc({result:'success'}) fails (Prometheus client not initialized?); (b) AuditService.log() fails (audit_log INSERT fails — table schema mismatch?); (c) JWT private.pem corrupt/wrong format for RS256; (d) Some env var missing causing settingsService init lazy fail. (4) Once root cause found, write regression test in auth.service.spec.ts.",
+      "effort": "M (4-8h — debug + fix + test)",
+      "phase": "Tier-1 SHIP-BLOCK CRITICAL",
+      "fix_verification": "POST /api/v1/auth/login trả 200 với TokenPair (accessToken + refreshToken). Frontend /login redirect /dashboard. Full UAT flow 1 (login + 2FA + first-login) PASS."
+    },
+    {
+      "id": "P3-001",
+      "severity": "P3",
+      "tag": "fixed-regressed",
+      "ship_block": false,
+      "status": "RESOLVED 2026-05-22 — FALSE POSITIVE on audit. Verified otplib v13 types-BBT_82HF.d.ts: epochTolerance IS valid option (number of seconds tolerance, not steps). Original code correct.",
+      "resolution": "Em initially attempted fix changing to `window:1`, TypeScript error revealed `window` NOT in OTPVerifyOptions. Reverted to original `epochTolerance: 30` which is correct (accepts ±30s clock drift = ±1 step in 30s period). Updated code comment to reflect.",
+      "title": "[FALSE POSITIVE - REVERTED] TOTP epochTolerance:30 là dead code — was actually valid otplib v13 option",
+      "domain": "backend/auth",
+      "affected": [
+        "backend/src/auth/services/two-fa.service.ts:140",
+        "backend/src/auth/services/two-fa.service.ts:304"
+      ],
+      "evidence": "otplib v13.4.0 sử dụng option `window` (number of steps before/after) không phải `epochTolerance` (legacy v9 option). Code pass `epochTolerance: 30` — option bị ignore, fallback `window: 0` = chỉ accept current 30s window. Lucky: behavior thực tế là SAFE (strict ±30s). Nhưng comment intent có thể là 'allow 30s tolerance' = developer nghĩ đang nới window. Risk: nếu sau này refactor / upgrade otplib, behavior đổi bất ngờ.",
+      "impact": "No exploit risk hiện tại (window=0 strict). Code smell — false sense of configuration. Maintenance trap.",
+      "recommended_action": "Đổi `epochTolerance: 30` thành `window: 1` (= accept ±1 step, ±30s clock drift) — đây có vẻ là intent ban đầu. Hoặc xoá hoàn toàn nếu strict mode mong muốn. Add comment giải thích choice.",
+      "effort": "S (10min)",
+      "phase": "Tier-2 polish"
+    },
+    {
+      "id": "P3-002",
+      "severity": "P3",
+      "tag": "deferred",
+      "ship_block": false,
+      "status": "DEFERRED 2026-05-22 — Tier-2 post-launch",
+      "resolution": "Scope = DTO + service signature change + spec rewrite. Existing mitigation: when system enforces 2FA (SETTINGS_KEY.TWO_FA_ENABLED='true'), disableTotp early-throws — bypass impossible. Risk only exists if 2FA NOT system-enforced. Defer to Tier-2 post-launch sprint.",
+      "title": "[DEFERRED] /auth/2fa/disable không yêu cầu confirm TOTP code hiện tại trước khi tắt",
+      "domain": "backend/auth",
+      "affected": [
+        "backend/src/auth/two-fa.controller.ts:43-49",
+        "backend/src/auth/services/two-fa.service.ts:367-393 (disableTotp)"
+      ],
+      "evidence": "DELETE /auth/2fa/disable chỉ require JwtAuthGuard + UserThrottlerGuard (3/min). Không có DTO body với current TOTP code. User có session token hợp lệ có thể tắt 2FA mà KHÔNG cần chứng minh giữ second factor. Mitigation: nếu SETTINGS_KEY.TWO_FA_ENABLED='true' (system enforce), disableTotp throws BadRequestException ngay đầu (line 369-371) → endpoint coi như no-op.",
+      "impact": "Risk hiện tại thấp: (a) nếu system enforce 2FA → endpoint blocked; (b) nếu không enforce, session token theft (XSS/log leak) đã là tự thân vấn đề lớn hơn. Nhưng best-practice: disable second factor phải require second factor confirm — prevent silent removal nếu attacker chỉ có session ngắn hạn không có TOTP device.",
+      "recommended_action": "Thêm `currentTotpCode` field vào disable endpoint DTO + verify trước khi disable. Có thể skip nếu system enforce mode (line 369 đã chặn). Pattern tham khảo: GitHub, Google account settings — require password OR 2FA reverify để disable 2FA.",
+      "effort": "S",
+      "phase": "Tier-2 hardening"
+    },
+    {
+      "id": "P2-002",
+      "severity": "P2",
+      "tag": "accepted-risk",
+      "ship_block": false,
+      "status": "DEFERRED 2026-05-22 — exploitability analysis: LOW. Override attempt failed (npm lockfile pinning)",
+      "resolution": "CVE GHSA-w5hq-g745-h8pq affects uuid v3/v5/v6 when buf parameter provided. exceljs 4.4.0 (latest) uses uuid 8.3.2 internally for v4 random IDs only (random does NOT accept buf param). Tried npm overrides `uuid: ^11.1.1` — lockfile didn't resolve, would need full lock regeneration which risks other dep cascade. Accept-risk for launch. Tier-2 post-launch: wait for exceljs to bump uuid, or vendor patch.",
+      "title": "[ACCEPTED-RISK] exceljs (>=3.5.0) phụ thuộc uuid <11.1.1 — CVE GHSA-w5hq-g745-h8pq, exploitability LOW (uuid v4 only used)",
+      "domain": "backend/dependencies",
+      "affected": [
+        "backend/package.json (exceljs dep)",
+        "backend/src/admin/bulk/bulk-import.parser.ts (parses user-uploaded Excel)",
+        "backend/src/admin/bulk/bulk-import.processor.ts"
+      ],
+      "evidence": "npm audit reports exceljs moderate severity via uuid CVE GHSA-w5hq-g745-h8pq (CVSS 7.5 — missing buffer bounds check in uuid v3/v5/v6 when buf parameter provided). exceljs uses uuid internally for ID generation. Bulk import endpoint accepts user-uploaded .xlsx files → if attacker crafts file triggering uuid call with attacker-controlled buf, potential buffer overflow.",
+      "impact": "Moderate. Bulk import is admin-only endpoint (gated by RBAC) — attacker needs admin compromise first. But Excel reports (reports/exports) generate Excel server-side from DB data, not user input — lower risk. Exploit complexity high (need internal exceljs path to expose uuid buf param). Frontend audit clean.",
+      "recommended_action": "Upgrade exceljs to latest (may be major bump, will need migration testing). Alternative: pin uuid >=11.1.1 in overrides. Run `npm audit fix --force` cautiously (downgrade exceljs to 3.4.0 is suggested but old). Defer to Tier-2 (post-launch dependency sprint).",
+      "effort": "M (4-6h with migration testing)",
+      "phase": "Tier-2 post-launch"
+    },
+    {
+      "id": "P1-003",
+      "severity": "P1",
+      "tag": "fixed",
+      "ship_block": true,
+      "status": "RESOLVED 2026-05-22 — Node seed script (not psql per ENG-5) + deploy.sh integration",
+      "resolution": "Created backend/prisma/seed-features-if-empty.ts — idempotent check via prisma.featureFlag.count(). Uses dotenv/config auto-load + PrismaPg adapter (same as app). Runs AFTER atomic symlink switch + AFTER systemctl restart + AFTER health check (per ENG-5 timing). Non-fatal on failure (deploy continues, but logs WARNING). Tested idempotent: 28 rows → skipped with log message. deploy.sh updated step 9b.",
+      "title": "[RESOLVED] feature_flags seed manual step — sidebar trống sau fresh DB nếu quên chạy",
+      "domain": "infra/operations",
+      "affected": [
+        "CLAUDE.md (#L65-L74)",
+        "scripts/deploy/deploy.sh",
+        "backend/prisma/seed-feature-flags.ts"
+      ],
+      "evidence": "CLAUDE.md document rõ: 'prisma migrate deploy không chạy seed. Nếu fresh DB hoặc feature_flags table trống → sidebar trống cho mọi user. Sau khi setup VM mới, chạy 1 lần: cd /home/pc02/current/backend && npm run db:seed:features'. Đây là manual step không tích hợp vào deploy.sh.",
+      "impact": "Launch ship-block risk: lần đầu deploy lên production VM, nếu admin quên chạy seed → mọi user (kể cả admin) thấy sidebar trống → không click được module nào → toàn bộ hệ thống coi như không khởi động. Recovery: ssh vào VM chạy seed. Nhưng users đã thấy sản phẩm broken first time → bad first impression + uptime metric đếm phút downtime.",
+      "recommended_action": "PRE-LAUNCH: thêm vào deploy.sh ngay sau prisma migrate deploy: `if [ \"$(psql ... -tAc 'SELECT COUNT(*) FROM feature_flags')\" = \"0\" ]; then npm run db:seed:features; fi`. Idempotent — chỉ chạy khi table trống. Cover fresh DB + future re-seed.",
+      "effort": "S (1h)",
+      "phase": "Tier-1 SHIP-BLOCK"
+    },
+    {
+      "id": "P2-003",
+      "severity": "P2",
+      "tag": "fixed",
+      "ship_block": false,
+      "status": "RESOLVED 2026-05-22 — added frontend-test job to .github/workflows/ci.yml",
+      "resolution": "New job 'frontend-test' runs `npx vitest run --no-coverage` + `npx tsc --noEmit` on every PR + push to main. Catches future regressions vitest standalone.",
+      "title": "[RESOLVED] Frontend vitest (547 tests) không chạy trong CI — broken tests che giấu (root cause cho P1-001)",
+      "domain": "infra/ci",
+      "affected": [
+        ".github/workflows/ci.yml",
+        ".github/workflows/deploy.yml"
+      ],
+      "evidence": "Per CLAUDE.md baseline: 'Frontend tests: cd frontend && npx vitest run --no-coverage'. Per deploy.yml/ci.yml inspection: CI chỉ chạy backend jest + tsc. Vitest 547 tests chỉ chạy local. Đây là root cause của P1-001 (broken tests không ai phát hiện 5 versions).",
+      "impact": "Production có thể ship code phá vỡ tests cũ. Regression không bị catch. P1-001 là evidence cụ thể.",
+      "recommended_action": "Thêm job `frontend-test` vào ci.yml: `cd frontend && npm ci && npx vitest run --no-coverage`. Block PR merge nếu fail.",
+      "effort": "S (30min)",
+      "phase": "Tier-1 ideal, Tier-2 acceptable (P1-001 cover symptom)"
+    },
+    {
+      "id": "P1-001",
+      "severity": "P1",
+      "tag": "fixed-regressed",
+      "ship_block": false,
+      "status": "RESOLVED — false positive on 2026-05-22",
+      "resolution": "Re-run vitest 3/3 stable: 546 PASS, 0 FAIL. Original audit baseline 544+2-fail likely caused by RTK wrapper output corruption (STACK_TRACE_ERROR placeholder suggests vitest couldn't capture stack via wrapped stdout). Tests are stable when run directly. P2-003 (frontend vitest not in CI) still valid — CI gap means future regressions go uncaught.",
+      "title": "[RESOLVED] Frontend test suite có 2 flaky tests under RTK wrapper output capture (not actually broken)",
+      "domain": "frontend",
+      "affected": [
+        "frontend/src/pages/cases/__tests__/CaseListPage.test.tsx:115",
+        "frontend/src/pages/incidents/__tests__/IncidentListPage.test.tsx:92"
+      ],
+      "evidence": "vitest baseline run: 544 PASS, 2 FAIL. Both fail at STACK_TRACE_ERROR during test collection/execution. Tests are 'FE-1a: status TIEP_NHAN → Xóa vụ án button enabled' and 'ActionMenuPortal integration Test 1 — clicking ⋮ button opens ActionMenuPortal with correct anchor'. Both related to delete-button / action-menu integration introduced v0.31.x.",
+      "impact": "Tests broken from v0.31.x onwards (5+ versions). CI gap (.github/workflows/ci.yml does not run vitest per CLAUDE.md infra note) hides this — devs never see failure. Risk: behavior regression in case/incident list pages not caught by tests.",
+      "recommended_action": "Pre-launch: investigate root cause (testid renamed? ActionMenuPortal render condition changed?) and either fix or mark as known-broken. Long-term: add `frontend-test` job to .github/workflows/ci.yml so vitest runs on every PR.",
+      "effort": "S",
+      "phase": "Tier-1"
+    }
+  ]
+}
