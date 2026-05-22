@@ -15,6 +15,7 @@ import {
   Shield,
   Loader2,
 } from 'lucide-react';
+import { SingleWardPicker } from '@/components/SingleWardPicker'; // v0.34.0.0
 
 /* ─── Types ──────────────────────────────────────────── */
 
@@ -588,24 +589,14 @@ export default function TeamsPage() {
                 ))}
               </select>
             </div>
-            {/* v0.33.0.0: Phường công tác (geographic team marker) */}
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">
-                Phường công tác (tùy chọn)
-              </label>
-              <input
-                type="text"
-                value={formData.wardId ?? ''}
-                onChange={(e) =>
-                  setFormData({ ...formData, wardId: e.target.value || null })
-                }
-                placeholder="ID directory WARD (vd: ben-nghe-id)"
-                className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
-              />
-              <p className="text-[10px] text-slate-500 mt-1">
-                Để trống = Tổ chức năng (PC02). Gán = Tổ địa lý (Công an Phường). Cán bộ thuộc Tổ này → scope theo phường.
-              </p>
-            </div>
+            {/* v0.34.0.0: Phường công tác — SingleWardPicker 2-tier cascade */}
+            <SingleWardPicker
+              value={formData.wardId ?? null}
+              onChange={(wardId) => setFormData({ ...formData, wardId })}
+              label="Phường công tác (tùy chọn)"
+              helperText="Để trống = Tổ chức năng (PC02). Chọn phường = Tổ địa lý (Công an Phường). Cán bộ thuộc Tổ này → scope theo phường."
+              testIdPrefix="team-form-ward"
+            />
             {/* v0.33.0.0: editWindowHours override (Phase 5-lite) */}
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1">

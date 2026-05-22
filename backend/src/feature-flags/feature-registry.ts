@@ -41,6 +41,7 @@ import { TDAC_MANIFEST } from '../reports/tdac/feature.manifest';
 import { EVENT_CATEGORIES_MANIFEST } from '../event-categories/feature.manifest';
 import { CALENDAR_EVENTS_V2_MANIFEST } from '../calendar-events/feature.manifest';
 import { EVENT_REMINDERS_MANIFEST } from '../event-reminders/feature.manifest';
+import { ADMIN_UNITS_MANIFEST } from '../admin-units/feature.manifest'; // v0.34.0.0
 
 export const FEATURE_REGISTRY: readonly FeatureManifest[] = [
   AUTH_MANIFEST,
@@ -74,6 +75,7 @@ export const FEATURE_REGISTRY: readonly FeatureManifest[] = [
   EVENT_CATEGORIES_MANIFEST,
   CALENDAR_EVENTS_V2_MANIFEST,
   EVENT_REMINDERS_MANIFEST,
+  ADMIN_UNITS_MANIFEST, // v0.34.0.0
 ] as const;
 
 export function getManifest(key: string): FeatureManifest | undefined {

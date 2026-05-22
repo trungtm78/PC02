@@ -98,6 +98,7 @@ jobs:
             backend/nest-cli.json \
             backend/scripts \
             backend/src \
+            backend/data \
             backend/assets \
             frontend/dist \
             scripts/deploy \
