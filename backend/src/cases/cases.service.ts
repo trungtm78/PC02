@@ -1019,8 +1019,17 @@ export class CasesService {
     actorId: string,
     meta?: { ipAddress?: string; userAgent?: string },
   ) {
+    // v0.35a: include assignedTeam.wardId + ward để compute escalation FROM ward (Phase 3 Codex #2)
     const existing = await this.prisma.case.findFirst({
       where: { id, deletedAt: null },
+      include: {
+        assignedTeam: {
+          select: {
+            wardId: true,
+            ward: { select: { name: true } },
+          },
+        },
+      },
     });
     if (!existing) throw new NotFoundException(`Vụ án không tồn tại (id: ${id})`);
 
@@ -1071,6 +1080,36 @@ export class CasesService {
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
     });
+
+    // v0.35a: emit CASE_ESCALATED_FROM_WARD nếu ward team → non-ward team.
+    // Scope filter (v0.33) tự lock CAP ra khỏi access. Audit cho supervisor visibility.
+    const existingWithTeam = existing as typeof existing & {
+      assignedTeam: { wardId: string | null; ward: { name: string } | null } | null;
+    };
+    const wasInWardTeam = existingWithTeam.assignedTeam?.wardId != null;
+    const isReassigning = dto.assignedTeamId !== existing.assignedTeamId;
+    if (wasInWardTeam && isReassigning) {
+      const newTeam = await this.prisma.team.findUnique({
+        where: { id: dto.assignedTeamId },
+        select: { wardId: true },
+      });
+      if (newTeam && newTeam.wardId == null) {
+        await this.audit.log({
+          userId: actorId,
+          action: 'CASE_ESCALATED_FROM_WARD',
+          subject: 'Case',
+          subjectId: id,
+          metadata: {
+            oldTeamId: existing.assignedTeamId,
+            newTeamId: dto.assignedTeamId,
+            oldWardId: existingWithTeam.assignedTeam!.wardId,
+            oldWardName: existingWithTeam.assignedTeam!.ward?.name ?? null,
+          },
+          ipAddress: meta?.ipAddress,
+          userAgent: meta?.userAgent,
+        });
+      }
+    }
 
     return { success: true, message: 'Phân công vụ án thành công' };
   }

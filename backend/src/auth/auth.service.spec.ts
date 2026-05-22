@@ -621,7 +621,16 @@ describe('AuthService.getProfile', () => {
   });
 
   function userFixture(opts: {
-    teams?: Array<{ teamId: string; teamName: string; isLeader: boolean; joinedAt?: Date }>;
+    teams?: Array<{
+      teamId: string;
+      teamName: string;
+      isLeader: boolean;
+      joinedAt?: Date;
+      teamCode?: string;
+      teamIsActive?: boolean;
+      wardId?: string | null;
+      ward?: { id: string; name: string; officialCode: string | null; code: string } | null;
+    }>;
     isActive?: boolean;
   } = {}) {
     return {
@@ -637,7 +646,14 @@ describe('AuthService.getProfile', () => {
         teamId: t.teamId,
         isLeader: t.isLeader,
         joinedAt: t.joinedAt ?? new Date('2024-01-01'),
-        team: { id: t.teamId, name: t.teamName },
+        team: {
+          id: t.teamId,
+          name: t.teamName,
+          code: t.teamCode ?? `TC-${t.teamId}`,
+          isActive: t.teamIsActive !== false,
+          wardId: t.wardId ?? null,
+          ward: t.ward ?? null,
+        },
       })),
     };
   }
@@ -718,6 +734,126 @@ describe('AuthService.getProfile', () => {
 
     expect(profile.role).toBe('COMMANDER');
     expect(profile.canDispatch).toBe(true);
+  });
+
+  // ── v0.35a — ward officer identity (BE-AUTH1..4) ──────────────────────────
+  describe('ward officer identity (v0.35a)', () => {
+    const wardBN = {
+      id: 'ward-bn',
+      name: 'Phường Bến Nghé',
+      officialCode: '27298',
+      code: 'HCM_27298_PHUONG_BEN_NGHE',
+    };
+
+    it('BE-AUTH1: returns isWardOfficer=true + wardTeam when user belongs to team with wardId set', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(
+        userFixture({
+          teams: [
+            {
+              teamId: 't-pbn',
+              teamName: 'Tổ CAP Phường Bến Nghé',
+              teamCode: 'P-BN',
+              isLeader: false,
+              wardId: 'ward-bn',
+              ward: wardBN,
+            },
+          ],
+        }),
+      );
+
+      const profile = await service.getProfile('u1');
+
+      expect(profile.isWardOfficer).toBe(true);
+      expect(profile.wardTeam).toEqual({
+        id: 't-pbn',
+        name: 'Tổ CAP Phường Bến Nghé',
+        code: 'P-BN',
+        ward: wardBN,
+      });
+    });
+
+    it('BE-AUTH2: returns isWardOfficer=false + wardTeam=null when user has only functional team (no wardId)', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(
+        userFixture({
+          teams: [
+            {
+              teamId: 't-pc02',
+              teamName: 'Đội 1 PC02',
+              isLeader: false,
+              wardId: null, // functional team
+              ward: null,
+            },
+          ],
+        }),
+      );
+
+      const profile = await service.getProfile('u1');
+
+      expect(profile.isWardOfficer).toBe(false);
+      expect(profile.wardTeam).toBeNull();
+    });
+
+    it('BE-AUTH3: returns isWardOfficer=false when user has no team', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(userFixture({ teams: [] }));
+
+      const profile = await service.getProfile('u1');
+
+      expect(profile.isWardOfficer).toBe(false);
+      expect(profile.wardTeam).toBeNull();
+    });
+
+    it('BE-AUTH4: stale ward team — team.isActive=false → wardTeam=null (Phase 3 Codex #7)', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(
+        userFixture({
+          teams: [
+            {
+              teamId: 't-pbn',
+              teamName: 'Tổ CAP Phường Bến Nghé',
+              isLeader: false,
+              teamIsActive: false, // admin deactivated team
+              wardId: 'ward-bn',
+              ward: wardBN,
+            },
+          ],
+        }),
+      );
+
+      const profile = await service.getProfile('u1');
+
+      expect(profile.isWardOfficer).toBe(false);
+      expect(profile.wardTeam).toBeNull();
+    });
+
+    it('prefers first active ward team when user has multiple ward teams', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(
+        userFixture({
+          teams: [
+            {
+              teamId: 't-pbn',
+              teamName: 'Tổ CAP Bến Nghé',
+              isLeader: false,
+              wardId: 'ward-bn',
+              ward: wardBN,
+              joinedAt: new Date('2024-01-01'),
+            },
+            {
+              teamId: 't-ptd',
+              teamName: 'Tổ CAP Tân Định',
+              isLeader: false,
+              wardId: 'ward-td',
+              ward: { id: 'ward-td', name: 'Phường Tân Định', officialCode: '27295', code: 'X' },
+              joinedAt: new Date('2024-06-01'),
+            },
+          ],
+        }),
+      );
+
+      const profile = await service.getProfile('u1');
+
+      // Order: oldest joinedAt → ward Bến Nghé first
+      expect(profile.isWardOfficer).toBe(true);
+      expect(profile.wardTeam?.id).toBe('t-pbn');
+    });
   });
 });
 

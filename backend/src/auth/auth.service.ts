@@ -668,7 +668,14 @@ export class AuthService {
       include: {
         role: true,
         userTeams: {
-          include: { team: true },
+          include: {
+            team: {
+              // v0.35a: derive ward officer identity from team.wardId
+              include: {
+                ward: { select: { id: true, name: true, officialCode: true, code: true } },
+              },
+            },
+          },
           orderBy: { joinedAt: 'asc' },
         },
       },
@@ -692,6 +699,20 @@ export class AuthService {
       ? { teamId: teams[0].teamId, teamName: teams[0].teamName }
       : null;
 
+    // v0.35a: ward officer identity — first active UserTeam có team.wardId set.
+    // Stale handling (Phase 3 Codex #7): inactive team → wardTeam=null.
+    const wardUt = user.userTeams.find(
+      (ut) => ut.team.wardId != null && ut.team.isActive,
+    );
+    const wardTeam = wardUt
+      ? {
+          id: wardUt.team.id,
+          name: wardUt.team.name,
+          code: wardUt.team.code,
+          ward: wardUt.team.ward,
+        }
+      : null;
+
     return {
       id: user.id,
       email: user.email,
@@ -702,6 +723,8 @@ export class AuthService {
       canDispatch: user.canDispatch,
       teams,
       primaryTeam,
+      isWardOfficer: wardTeam != null,
+      wardTeam,
     };
   }
 

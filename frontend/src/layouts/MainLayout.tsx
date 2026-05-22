@@ -1,6 +1,6 @@
 import { Suspense, useState, useRef, useEffect } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
-import { LogOut, KeyRound, ChevronDown, ShieldCheck } from 'lucide-react';
+import { LogOut, KeyRound, ChevronDown, ShieldCheck, MapPin } from 'lucide-react';
 import { AppSidebar } from '@/components/AppSidebar';
 import { NotificationDropdown } from '@/components/NotificationDropdown';
 import { GlobalSearchBar } from '@/components/GlobalSearchBar';
@@ -100,6 +100,20 @@ export function MainLayout() {
 
         {/* Right section */}
         <div className="flex items-center gap-4 ml-auto">
+          {/* v0.35a: Ward team badge cho cán bộ phường (mobile-first per Phase 2/3 review) */}
+          {user?.wardTeam && (
+            <div
+              className="flex items-center gap-1 px-2 py-1 bg-indigo-50 text-indigo-800 rounded text-xs cursor-help"
+              title={`Bạn thuộc ${user.wardTeam.name}. Hồ sơ tạo mới sẽ tự gắn đơn vị này. Khi PC02 chuyển hồ sơ sang đội thụ lý khác, hồ sơ sẽ không còn hiển thị với tài khoản phường.`}
+              data-testid="ward-team-badge"
+              aria-label={`Tổ phường: ${user.wardTeam.name}`}
+            >
+              <MapPin className="w-3 h-3" aria-hidden="true" />
+              <span className="font-medium hidden md:inline">{user.wardTeam.name}</span>
+              <span className="font-medium md:hidden">{user.wardTeam.code}</span>
+            </div>
+          )}
+
           {/* Notification bell */}
           <NotificationDropdown />
 
