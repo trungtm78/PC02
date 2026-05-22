@@ -195,7 +195,14 @@ function CaseFormPage() {
     if (formData.receiveDate && new Date(formData.receiveDate) > new Date()) {
       newErrors.receiveDate = "Ngày tiếp nhận không được ở tương lai";
     }
-    // v0.37.1: caseType validation removed. caseProvenance validation added in sub-5/sub-8.
+    // v0.37.1 Decision 7A 10/10 — validation 10/10 (multi-channel error display)
+    if (!formData.caseProvenance) {
+      newErrors.caseProvenance = "Vui lòng chọn Nguồn vụ án (BLTTHS Đ.143)";
+    } else if (formData.caseProvenance === "FROM_PETITION" && !formData.linkedPetitionId) {
+      newErrors.linkedPetitionId = "Vui lòng chọn Đơn thư gốc";
+    } else if (formData.caseProvenance === "FROM_INCIDENT" && !formData.linkedIncidentId) {
+      newErrors.linkedIncidentId = "Vui lòng chọn Vụ việc gốc";
+    }
     if (!formData.caseTitle.trim()) newErrors.caseTitle = "Vui lòng nhập tiêu đề hồ sơ";
     if (!formData.handler) newErrors.handler = "Vui lòng chọn điều tra viên";
     setErrors(newErrors);

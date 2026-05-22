@@ -41,6 +41,7 @@ import {
   SUBJECT_TYPE_COLORS,
   CASE_PROVENANCE_OPTIONS,
 } from "./constants";
+import { CaseProvenancePicker } from "./CaseProvenancePicker";
 
 // ─── Helper ──────────────────────────────────────────────────────────────────
 
@@ -95,8 +96,22 @@ export function TabInfo({ formData, setFormData, errors, setErrors, handlerOptio
     enabled: legacyMode && !isExistingLegacy,
   });
 
+  // Decision 6A 10/10 (a11y): aria-live region announces conditional field appearance for screen readers.
+  const provenanceAnnouncement = formData.caseProvenance === 'FROM_PETITION'
+    ? 'Đã hiển thị thêm trường: Chọn Đơn thư gốc'
+    : formData.caseProvenance === 'FROM_INCIDENT'
+    ? 'Đã hiển thị thêm trường: Chọn Vụ việc gốc'
+    : formData.caseProvenance
+    ? 'Đã hiển thị thêm trường: Ghi chú nguồn'
+    : '';
+
   return (
     <div className="space-y-6" data-testid="tab-info">
+      {/* Decision 6A 10/10 — aria-live region (visually hidden, screen-reader only) */}
+      <div aria-live="polite" className="sr-only" data-testid="provenance-announce">
+        {provenanceAnnouncement}
+      </div>
+
       {/* ── v0.37.1: Nguồn vụ án Card (BLTTHS Đ.143) ─────────────────────── */}
       {/* Decision 1A 10/10: separate Card at top of form to maximize visual */}
       {/* hierarchy for legal provenance. Source-first per nghiệp vụ. */}
@@ -108,7 +123,7 @@ export function TabInfo({ formData, setFormData, errors, setErrors, handlerOptio
             kiến nghị khởi tố, tự thú, hoặc CQĐT phát hiện trực tiếp. Chọn nguồn
             phù hợp để hệ thống ghi nhận đúng căn cứ pháp lý.
           </p>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
             <FormSelect
               label="Nguồn vụ án"
               required
@@ -119,7 +134,19 @@ export function TabInfo({ formData, setFormData, errors, setErrors, handlerOptio
               placeholder="-- Chọn nguồn --"
               data-testid="select-case-provenance"
             />
-            {/* Conditional picker/textarea added in sub-6 (Decisions 2A/2B/2C) */}
+            {/* Conditional picker/textarea — sub-6 Decisions 2A/2B/2C 10/10 */}
+            <div className="md:col-span-2">
+              <CaseProvenancePicker
+                provenance={formData.caseProvenance}
+                linkedPetitionId={formData.linkedPetitionId}
+                linkedIncidentId={formData.linkedIncidentId}
+                sourceDocumentNote={formData.sourceDocumentNote}
+                expectedPetitionUpdatedAt={formData.expectedPetitionUpdatedAt}
+                expectedIncidentUpdatedAt={formData.expectedIncidentUpdatedAt}
+                errors={errors}
+                update={update}
+              />
+            </div>
           </div>
           {/* Helper text — show selected option's legal-basis description */}
           {formData.caseProvenance && (
