@@ -31,6 +31,7 @@ import { ConvertToIncidentDto } from './dto/convert-incident.dto';
 import { ConvertToCaseDto } from './dto/convert-case.dto';
 import { AssignPetitionDto } from './dto/assign-petition.dto';
 import { RestorePetitionDto } from './dto/restore-petition.dto'; // v0.32.0.0
+import { ListLinkableDto } from './dto/list-linkable.dto'; // v0.37.1
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
 @Controller('petitions')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -42,6 +43,15 @@ export class PetitionsController {
   @RequirePermissions({ action: 'read', subject: 'Petition' })
   getList(@Query() query: QueryPetitionsDto, @Req() req: ScopedRequest) {
     return this.petitionsService.getList(query, req.dataScope);
+  }
+
+  // v0.37.1 PR-PICK — GET /api/v1/petitions/linkable
+  // Returns unlinked Petitions in user's scope for Case form Petition picker.
+  // Used by CaseFormPage CaseProvenancePicker when caseProvenance=FROM_PETITION.
+  @Get('linkable')
+  @RequirePermissions({ action: 'read', subject: 'Petition' })
+  listLinkable(@Query() query: ListLinkableDto, @Req() req: ScopedRequest) {
+    return this.petitionsService.listLinkable(query, req.dataScope);
   }
 
   // GET /api/v1/petitions/export — Xuất danh sách đơn thư ra Excel
