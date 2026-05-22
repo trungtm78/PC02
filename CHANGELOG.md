@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.37.0.2] - 2026-05-22
+
+### Fixed
+- **[admin-units] /admin-units tree view thiếu phường — DB chứa pre-reform legacy data thay vì v2025-1300.** Diagnostic phát hiện dev DB có 10,058 wards / 32 provinces (pre-reform commune-level), ledger empty (seedAdminUnits chưa bao giờ chạy). Fix: standalone runner `prisma/seed-admin-units-runner.ts` với 3 flags: `--dry-run` (CI smoke), `--force` (UPDATE ledger SUPERSEDED), `--clean-slate` (DELETE legacy + supersede + re-import). Verified on dev: 10,090 legacy rows deleted, 34 provinces + 3,321 wards imported, HCM=168. +9 jest tests (mocked orchestration). Idempotent re-run skips correctly.
+- **[deploy] Step 9c — admin-units auto-seed FATAL.** Mirrors P1-003 feature_flags pattern. `scripts/deploy/deploy.sh` invokes `npx ts-node prisma/seed-admin-units-runner.ts` AFTER health check. Per Eng review Decision T2A: FATAL (deploy fails if seed errors). One-time legacy migration: manual SSH `--clean-slate` post-deploy on production.
+
+### Changed
+- **[ci] Backend tests workflow gets admin-units dry-run smoke step.** Validates dataset file readable + SHA256 checksum on every PR. Catches dataset corruption/typo before merge.
+- **[seed] Export `seedAdminUnits.ts` internals (`loadDataset`, `CURRENT_VERSION`).** Required for runner orchestration. No semantic change to existing seed flow.
+
+### Internal
+- jest config: add `roots: [<rootDir>, <rootDir>/../prisma]` để discover prisma/*.spec.ts (runner spec).
+
 ## [0.37.0.0] - 2026-05-22
 
 ### Fix sprint: 10/12 audit findings RESOLVED (5 ship-blockers + 5 deferred)
