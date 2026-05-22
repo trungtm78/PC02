@@ -102,7 +102,14 @@ export function assertParentInScope(
 ): void {
   if (!scope) return;
   if (scope.canDispatch) return;
-  if (!parent) return;
+  // P0-001 fix: null parent = orphan record (caseId+incidentId both null on Document/VKS/ActionPlan/Delegation).
+  // Previously: silent pass → cross-tenant data leak. Now: deny by default. Admin (scope=null) bypassed above.
+  if (!parent) {
+    recordDenial('parent-null');
+    throw new ForbiddenException(
+      operation === 'write' ? 'Bạn không có quyền chỉnh sửa bản ghi này' : FORBIDDEN_MSG,
+    );
+  }
   const { userIds, teamIds, writableTeamIds } = scope;
   const effectiveTeamIds = operation === 'write' ? (writableTeamIds ?? teamIds) : teamIds;
   const ownerMatch = parent.investigatorId ? userIds.includes(parent.investigatorId) : false;

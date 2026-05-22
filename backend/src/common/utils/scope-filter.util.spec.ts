@@ -86,10 +86,27 @@ describe('assertParentInScope', () => {
     ).not.toThrow();
   });
 
-  it('passes (no-op) when parent is null — orphan record', () => {
+  it('P0-001: throws ForbiddenException when parent is null — orphan record (bypass fix)', () => {
     expect(() =>
       assertParentInScope(null, { userIds: ['u1'], teamIds: ['t1'], writableTeamIds: ['t1'] }),
-    ).not.toThrow();
+    ).toThrow(ForbiddenException);
+  });
+
+  it('P0-001: throws ForbiddenException when parent is undefined — orphan record (bypass fix)', () => {
+    expect(() =>
+      assertParentInScope(undefined, { userIds: ['u1'], teamIds: ['t1'], writableTeamIds: ['t1'] }),
+    ).toThrow(ForbiddenException);
+  });
+
+  it('P0-001: admin bypass still works on null parent (no scope provided)', () => {
+    // Admin (scope=null) bypasses ALL checks including null parent — preserves orphan recovery flow
+    expect(() => assertParentInScope(null, null)).not.toThrow();
+    expect(() => assertParentInScope(undefined, undefined)).not.toThrow();
+  });
+
+  it('P0-001: canDispatch bypass still works on null parent (dispatcher read-all)', () => {
+    const dispatcherScope = { userIds: ['d1'], teamIds: [], writableTeamIds: [], canDispatch: true };
+    expect(() => assertParentInScope(null, dispatcherScope)).not.toThrow();
   });
 
   it('passes when investigatorId matches userIds', () => {
