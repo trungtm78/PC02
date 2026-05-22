@@ -78,10 +78,12 @@ describe('FEATURE_MODULES registry', () => {
       .filter(Boolean)
       .sort();
     expect(paths).toEqual([
+      // v0.37.1: /add-new-record kept as legacy redirect to /cases/new
       '/add-new-record',
       '/cases',
       '/cases/:id',
       '/cases/:id/edit',
+      '/cases/new',
       '/cases/tdac-backfill',
       '/comprehensive-list',
       '/initial-cases',
