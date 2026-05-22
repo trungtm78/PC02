@@ -11,7 +11,31 @@
     "baseline_tsc_backend": "clean",
     "baseline_tsc_frontend": "clean",
     "shipblock_verdict_initial": "NO-GO (Login broken — P0-002 blocks all functionality)",
-    "shipblock_verdict_final": "GO 2026-05-22 — 10/12 findings RESOLVED (5 ship-block + 5 deferred-fixed), 1 deferred Tier-2 (P3-002), 1 accepted-risk (P2-002 exceljs CVE exploitability LOW)",
+    "shipblock_verdict_final": "GO 2026-05-22 — 11/12 findings RESOLVED (5 ship-block + 6 Tier-2), 1 accepted-risk (P2-002 exceljs CVE exploitability LOW). Day 6 added: P3-002 promoted from deferred to fixed, Tier-2 G1 security deep dive confirms magic-link + reset-password + bulk-import IDOR + calendar RRule all SECURE.",
+    "day6_uat_smoke": {
+      "flow_1_login_page": "PASS",
+      "flow_2_login_admin": "PASS (token returned, redirect /dashboard)",
+      "flow_3_dashboard": "PASS (no console errors)",
+      "flow_4_cases_list": "PASS (28 elements rendered)",
+      "flow_5_petitions_list": "PASS (6 elements)",
+      "flow_6_incidents_list": "PASS",
+      "flow_7_kpi_dashboard": "PASS",
+      "flow_8_deadline_rules": "PASS",
+      "flow_10_comprehensive_list": "PASS",
+      "flow_11_calendar": "PASS",
+      "flow_12_edit_window_requests": "PASS (note: URL is /admin/yeu-cau-reset not /admin/edit-window-requests)",
+      "flow_5b_admin_settings": "PASS",
+      "flow_9_case_status_transition": "SKIP (need detail page form interaction)",
+      "flow_13_f10_address_conversion": "PARTIAL (F10 pressed, dialog open not verified)",
+      "flow_14_logout_cross_tab": "PARTIAL (profile button click, dropdown pattern unclear)",
+      "flow_15_abbreviation_expansion": "SKIP (needs form input interaction)"
+    },
+    "day6_security_deep_dive": {
+      "magic_link_enrollment": "SECURE — 256-bit entropy, bcrypt hash, single-use atomic tx, tokenVersion increment, 72h TTL",
+      "reset_password_leak": "SECURE — silent on email-not-found, unified GENERIC_ERROR no enumeration leak, 3/min throttle",
+      "bulk_import_IDOR": "SECURE — autoplan E6 fix (generator-only, no admin bypass), Content-Disposition attachment header",
+      "calendar_rrule_injection": "DEFENDED — MAX_OCCURRENCES 500 cap, validateRecurrenceSafety rejects unbounded DAILY/HOURLY/MINUTELY without UNTIL/COUNT/endDate"
+    }
     "shipblock_required_fixes": ["P0-002 CRITICAL", "P1-004 PREREQUISITE", "P0-001", "P1-002", "P1-003"],
     "shipblock_estimated_fix_time": "13-21 hours (2-3 days focused work)",
     "total_findings": 11,
@@ -184,11 +208,11 @@
     {
       "id": "P3-002",
       "severity": "P3",
-      "tag": "deferred",
+      "tag": "fixed",
       "ship_block": false,
-      "status": "DEFERRED 2026-05-22 — Tier-2 post-launch",
-      "resolution": "Scope = DTO + service signature change + spec rewrite. Existing mitigation: when system enforces 2FA (SETTINGS_KEY.TWO_FA_ENABLED='true'), disableTotp early-throws — bypass impossible. Risk only exists if 2FA NOT system-enforced. Defer to Tier-2 post-launch sprint.",
-      "title": "[DEFERRED] /auth/2fa/disable không yêu cầu confirm TOTP code hiện tại trước khi tắt",
+      "status": "RESOLVED 2026-05-22 — Day 6 promoted from deferred to fixed",
+      "resolution": "service.disableTotp(userId, currentTotpCode?) — if totpEnabled=true, requires currentTotpCode and verifies via verifyTotp(). Idempotent disable (already-off users) still works. Controller accepts body { currentTotpCode }. 2 new spec tests. Backend 1496 PASS.",
+      "title": "[RESOLVED] /auth/2fa/disable không yêu cầu confirm TOTP code hiện tại trước khi tắt",
       "domain": "backend/auth",
       "affected": [
         "backend/src/auth/two-fa.controller.ts:43-49",
