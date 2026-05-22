@@ -35,7 +35,7 @@
       "reset_password_leak": "SECURE — silent on email-not-found, unified GENERIC_ERROR no enumeration leak, 3/min throttle",
       "bulk_import_IDOR": "SECURE — autoplan E6 fix (generator-only, no admin bypass), Content-Disposition attachment header",
       "calendar_rrule_injection": "DEFENDED — MAX_OCCURRENCES 500 cap, validateRecurrenceSafety rejects unbounded DAILY/HOURLY/MINUTELY without UNTIL/COUNT/endDate"
-    }
+    },
     "shipblock_required_fixes": ["P0-002 CRITICAL", "P1-004 PREREQUISITE", "P0-001", "P1-002", "P1-003"],
     "shipblock_estimated_fix_time": "13-21 hours (2-3 days focused work)",
     "total_findings": 11,
