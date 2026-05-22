@@ -48,6 +48,7 @@ export class CasesService {
       overdue,
       districtId,
       wardId,
+      wardTeamId,
       capDoToiPham,
       limit = 20,
       offset = 0,
@@ -113,6 +114,15 @@ export class CasesService {
           ...(districtId && { districtId }),
           ...(wardId && { wardId }),
         },
+      };
+    }
+
+    // v0.36.0.0: filter theo phường công tác (Team.wardId) — cross-ward view PC02/ADMIN.
+    // Ward officer's scope filter (v0.33) đã restrict tới wardTeam mình → wardTeamId
+    // query của ward officer effectively no-op (intersection của 2 filter cùng team).
+    if (wardTeamId) {
+      where.assignedTeam = {
+        is: { wardId: wardTeamId },
       };
     }
 

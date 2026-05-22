@@ -49,6 +49,7 @@ export class PetitionsService {
       fromDate,
       toDate,
       overdue,
+      wardTeamId,
       limit = 20,
       offset = 0,
       sortBy = 'createdAt',
@@ -99,6 +100,11 @@ export class PetitionsService {
       if (!status) {
         where.status = { notIn: [PetitionStatus.DA_GIAI_QUYET, PetitionStatus.DA_CHUYEN_VU_VIEC, PetitionStatus.DA_CHUYEN_VU_AN] };
       }
+    }
+
+    // v0.36.0.0: filter theo phường công tác (Team.wardId) — cross-ward view PC02/ADMIN
+    if (wardTeamId) {
+      where.assignedTeam = { is: { wardId: wardTeamId } };
     }
 
     // Apply data scope filter
@@ -751,8 +757,17 @@ export class PetitionsService {
     actorId: string,
     meta?: { ipAddress?: string; userAgent?: string },
   ) {
+    // v0.36.0.0: include assignedTeam.wardId + ward để compute escalation FROM ward
     const existing = await this.prisma.petition.findFirst({
       where: { id, deletedAt: null },
+      include: {
+        assignedTeam: {
+          select: {
+            wardId: true,
+            ward: { select: { name: true } },
+          },
+        },
+      },
     });
     if (!existing) throw new NotFoundException(`Đơn thư không tồn tại (id: ${id})`);
 
@@ -804,6 +819,35 @@ export class PetitionsService {
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
     });
+
+    // v0.36.0.0: emit PETITION_ESCALATED_FROM_WARD khi ward team → non-ward team
+    const existingWithTeam = existing as typeof existing & {
+      assignedTeam: { wardId: string | null; ward: { name: string } | null } | null;
+    };
+    const wasInWardTeam = existingWithTeam.assignedTeam?.wardId != null;
+    const isReassigning = dto.assignedTeamId !== existing.assignedTeamId;
+    if (wasInWardTeam && isReassigning) {
+      const newTeam = await this.prisma.team.findUnique({
+        where: { id: dto.assignedTeamId },
+        select: { wardId: true },
+      });
+      if (newTeam && newTeam.wardId == null) {
+        await this.audit.log({
+          userId: actorId,
+          action: 'PETITION_ESCALATED_FROM_WARD',
+          subject: 'Petition',
+          subjectId: id,
+          metadata: {
+            oldTeamId: existing.assignedTeamId,
+            newTeamId: dto.assignedTeamId,
+            oldWardId: existingWithTeam.assignedTeam!.wardId,
+            oldWardName: existingWithTeam.assignedTeam!.ward?.name ?? null,
+          },
+          ipAddress: meta?.ipAddress,
+          userAgent: meta?.userAgent,
+        });
+      }
+    }
 
     return { success: true, message: 'Phân công đơn thư thành công' };
   }

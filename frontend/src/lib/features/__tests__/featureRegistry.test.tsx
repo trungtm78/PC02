@@ -5,7 +5,7 @@ import { FEATURE_MODULES, getFeatureModule } from '../featureRegistry';
 type RouteElement = ReactElement<{ path?: string }>;
 
 describe('FEATURE_MODULES registry', () => {
-  it('auto-discovers all 18 expected features', () => {
+  it('auto-discovers all 19 expected features', () => {
     const expected = [
       'admin',
       'admin-units', // v0.34.0.0 — read-only browser cho Tỉnh/Phường
@@ -15,6 +15,7 @@ describe('FEATURE_MODULES registry', () => {
       'dashboard',
       'directory',
       'documents',
+      'edit-window-requests', // v0.36.0.0 — admin queue Phase 5-lite reset requests
       'incidents',
       'kpi',
       'lawyers',

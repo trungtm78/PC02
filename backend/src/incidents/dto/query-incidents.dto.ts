@@ -61,6 +61,11 @@ export class QueryIncidentsDto {
   @IsString()
   wardId?: string;
 
+  // v0.36.0.0: Lọc theo phường công tác (Team.wardId — cross-ward view cho PC02/ADMIN)
+  @IsOptional()
+  @IsString()
+  wardTeamId?: string;
+
   // BCA phase filter (server-side resolve via PHASE_STATUSES)
   @IsOptional()
   @IsString()

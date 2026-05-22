@@ -50,6 +50,7 @@ export class IncidentsService {
       overdue,
       districtId,
       wardId,
+      wardTeamId,
       loaiDonVu,
       benVu,
       tinhTrangHoSo,
@@ -115,6 +116,13 @@ export class IncidentsService {
     }
 
     if (districtId) where.unitId = districtId;
+
+    // v0.36.0.0: filter theo phường công tác (Team.wardId) — cross-ward view PC02/ADMIN
+    if (wardTeamId) {
+      where.assignedTeam = { is: { wardId: wardTeamId } };
+    }
+    // (wardId chưa được dùng — kept cho future Subject-level filter)
+    void wardId;
 
     // Apply data scope filter
     const scopeFilter = buildScopeFilter(dataScope);
@@ -920,8 +928,17 @@ export class IncidentsService {
     meta?: { ipAddress?: string; userAgent?: string },
     dataScope?: DataScope | null,
   ) {
+    // v0.36.0.0: include assignedTeam.wardId + ward để compute escalation FROM ward
     const existing = await this.prisma.incident.findFirst({
       where: { id, deletedAt: null },
+      include: {
+        assignedTeam: {
+          select: {
+            wardId: true,
+            ward: { select: { name: true } },
+          },
+        },
+      },
     });
     if (!existing) throw new NotFoundException(`Vụ việc không tồn tại (id: ${id})`);
     if (!dataScope?.canDispatch) {
@@ -1001,6 +1018,35 @@ export class IncidentsService {
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
     });
+
+    // v0.36.0.0: emit INCIDENT_ESCALATED_FROM_WARD khi ward team → non-ward team
+    const existingWithTeam = existing as typeof existing & {
+      assignedTeam: { wardId: string | null; ward: { name: string } | null } | null;
+    };
+    const wasInWardTeam = existingWithTeam.assignedTeam?.wardId != null;
+    const isReassigning = dto.assignedTeamId && dto.assignedTeamId !== existing.assignedTeamId;
+    if (wasInWardTeam && isReassigning) {
+      const newTeam = await this.prisma.team.findUnique({
+        where: { id: dto.assignedTeamId! },
+        select: { wardId: true },
+      });
+      if (newTeam && newTeam.wardId == null) {
+        await this.audit.log({
+          userId: actorId,
+          action: 'INCIDENT_ESCALATED_FROM_WARD',
+          subject: 'Incident',
+          subjectId: id,
+          metadata: {
+            oldTeamId: existing.assignedTeamId,
+            newTeamId: dto.assignedTeamId!,
+            oldWardId: existingWithTeam.assignedTeam!.wardId,
+            oldWardName: existingWithTeam.assignedTeam!.ward?.name ?? null,
+          },
+          ipAddress: meta?.ipAddress,
+          userAgent: meta?.userAgent,
+        });
+      }
+    }
 
     return { success: true, data: record, message: 'Phân công điều tra viên thành công' };
   }

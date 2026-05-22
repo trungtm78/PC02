@@ -141,7 +141,9 @@ export class SettingsService {
       // v0.31.0.2: số giờ creator có thể tự xóa vụ án (status=TIEP_NHAN). Ngoài window → chỉ ADMIN.
       { key: SETTINGS_KEY.THOI_HAN_XOA_VU_AN, value: '72', label: 'Số giờ creator được tự xóa vụ án sau khi tạo', unit: 'giờ', legalBasis: 'Quy chế nội bộ' },
       // v0.33.0.0 Phase 5-lite: edit window cho ward officer
-      { key: SETTINGS_KEY.THOI_HAN_EDIT_VU_VAN, value: '24', label: 'Số giờ cán bộ phường khuyến nghị sửa dữ liệu (warning-only, override per-Team)', unit: 'giờ', legalBasis: 'Quy chế nội bộ' },
+      // v0.36.0.0: bump default 24h → 168h (7 ngày) per /autoplan UC1 — BLTTHS Đ.147
+      // cho 20 ngày verify tin báo, 24h là quá ngắn cho điều tra thực tế.
+      { key: SETTINGS_KEY.THOI_HAN_EDIT_VU_VAN, value: '168', label: 'Số giờ cán bộ phường khuyến nghị sửa dữ liệu (warning-only, override per-Team). Default 168h = 7 ngày (BLTTHS Đ.147 verify 20 ngày).', unit: 'giờ', legalBasis: 'BLTTHS Đ.147 + Quy chế nội bộ' },
     ];
 
     for (const d of defaults) {

@@ -61,4 +61,9 @@ export class QueryPetitionsDto {
   @Transform(({ value }) => value === 'true' || value === true)
   @IsBoolean()
   overdue?: boolean;
+
+  // v0.36.0.0: Lọc theo phường công tác (Team.wardId — cross-ward view PC02/ADMIN)
+  @IsOptional()
+  @IsString()
+  wardTeamId?: string;
 }
