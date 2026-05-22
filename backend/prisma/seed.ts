@@ -11,6 +11,7 @@ import { seedFeatureFlags } from './seed-feature-flags';
 import { seedWards } from './seed-wards';
 import { seedAdminUnits } from './seed-admin-units';
 import { seedDirectoryTypes } from './seed-directory-types';
+import { seedTestCapUser } from './seed-test-cap-user'; // v0.35a dev-only
 import { seedMasterClasses } from './seed-master-classes';
 import { seedDeadlineRules } from './seed-deadline-rules';
 import { seedEventCategories } from './seed-event-categories';
@@ -277,6 +278,28 @@ async function main() {
     // Dev/test: log + fall back (preserves local dev convenience)
     console.warn('Admin units seed failed (dev fallback to seedWards):', err);
     await seedWards(prisma);
+  }
+
+  // ── CAP test user (v0.35a) — TRIPLE-GATED dev-only ───────────────────────
+  // Phase 3 CRITICAL (Codex #10 + Claude E3): NODE_ENV !== production AND
+  // !== test AND explicit SEED_TEST_CAP_USER=true. Production deploy NEVER
+  // invokes (predictable account + password would be security incident).
+  const isCapProd = process.env.NODE_ENV === 'production';
+  const isCapTest = process.env.NODE_ENV === 'test';
+  const capSeedOptIn = process.env.SEED_TEST_CAP_USER === 'true';
+  if (isCapProd) {
+    console.log('Skip seedTestCapUser — NODE_ENV=production');
+  } else if (isCapTest) {
+    console.log('Skip seedTestCapUser — NODE_ENV=test (test runner)');
+  } else if (!capSeedOptIn) {
+    console.log('Skip seedTestCapUser — set SEED_TEST_CAP_USER=true to enable (dev only)');
+  } else {
+    try {
+      await seedTestCapUser(prisma);
+    } catch (err) {
+      console.error('[seedTestCapUser] failed:', err);
+      // Don't block whole seed for CAP test user issue — just log.
+    }
   }
 }
 

@@ -154,6 +154,44 @@ describe('assertParentInScope', () => {
       ),
     ).not.toThrow();
   });
+
+  // ── v0.35a UC4 audit-only: Subject scope cho ward officer ─────────────
+  describe('ward officer Subject scope (v0.35a)', () => {
+    const wardOfficerScope = {
+      userIds: ['cap-u1'],
+      teamIds: ['team-ward-bn'],
+      writableTeamIds: ['team-ward-bn'],
+      isWardOfficer: true,
+      wardTeamId: 'team-ward-bn',
+    };
+
+    it('BE-SUB1: ward officer passes assertParentInScope khi Case thuộc ward team mình', () => {
+      expect(() =>
+        assertParentInScope(
+          { assignedTeamId: 'team-ward-bn', investigatorId: null },
+          wardOfficerScope,
+        ),
+      ).not.toThrow();
+    });
+
+    it('BE-SUB2: ward officer throws Forbidden khi Case của ward team khác', () => {
+      expect(() =>
+        assertParentInScope(
+          { assignedTeamId: 'team-ward-td', investigatorId: null },
+          wardOfficerScope,
+        ),
+      ).toThrow(ForbiddenException);
+    });
+
+    it('BE-SUB3: ward officer throws Forbidden khi Case đã escalate sang đội PC02 (FROM_WARD scenario)', () => {
+      expect(() =>
+        assertParentInScope(
+          { assignedTeamId: 'team-pc02-doi1', investigatorId: 'pc02-detective' },
+          wardOfficerScope,
+        ),
+      ).toThrow(ForbiddenException);
+    });
+  });
 });
 
 describe('assertCreatorInScope', () => {

@@ -15,6 +15,19 @@ export interface AuthTeam {
   isLeader: boolean;
 }
 
+// v0.35a: ward officer identity from /auth/me
+export interface AuthWardTeam {
+  id: string;
+  name: string;
+  code: string;
+  ward: {
+    id: string;
+    name: string;
+    officialCode: string | null;
+    code: string;
+  } | null;
+}
+
 export interface AuthUser {
   id: string;
   email: string;
@@ -25,6 +38,9 @@ export interface AuthUser {
   canDispatch?: boolean;
   teams: AuthTeam[];
   primaryTeam: { teamId: string; teamName: string } | null;
+  // v0.35a additive: missing fields → undefined, components use optional chaining
+  isWardOfficer?: boolean;
+  wardTeam?: AuthWardTeam | null;
 }
 
 /** Minimal subset decoded from JWT — used as fallback when profile not yet hydrated. */

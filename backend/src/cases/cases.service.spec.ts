@@ -82,6 +82,7 @@ const mockPrisma = {
   },
   team: {
     findFirst: jest.fn(),
+    findUnique: jest.fn(),
   },
   userTeam: {
     findFirst: jest.fn(),
@@ -1041,6 +1042,84 @@ describe('CasesService', () => {
           metadata: expect.objectContaining({ toInvestigatorId: null }),
         }),
       );
+    });
+
+    // ── v0.35a: CASE_ESCALATED_FROM_WARD audit (BE-ESC1..3) ─────────────────
+    describe('escalation from ward audit (v0.35a)', () => {
+      const wardCase = {
+        ...existingCase,
+        assignedTeamId: 'team-ward-bn',
+        assignedTeam: {
+          wardId: 'ward-bn',
+          ward: { name: 'Phường Bến Nghé' },
+        },
+      };
+      const pc02Team = { id: 'team-pc02-doi1', isActive: true, wardId: null };
+      const otherWardTeam = { id: 'team-ward-td', isActive: true, wardId: 'ward-td' };
+
+      it('BE-ESC1: emits CASE_ESCALATED_FROM_WARD when ward team → non-ward (PC02) team', async () => {
+        mockPrisma.case.findFirst.mockResolvedValue(wardCase);
+        mockPrisma.team.findFirst.mockResolvedValue(pc02Team); // assignment target
+        mockPrisma.team.findUnique.mockResolvedValue({ wardId: null }); // escalation check
+        mockPrisma.case.update.mockResolvedValue({ ...wardCase, assignedTeamId: 'team-pc02-doi1' });
+
+        await service.assignCase(
+          'case-001',
+          { assignedTeamId: 'team-pc02-doi1' },
+          'dispatcher-001',
+        );
+
+        const auditCalls = (mockAudit.log as jest.Mock).mock.calls.map((c) => c[0]);
+        const escalation = auditCalls.find((c: any) => c.action === 'CASE_ESCALATED_FROM_WARD');
+        expect(escalation).toBeDefined();
+        expect(escalation.metadata).toEqual(
+          expect.objectContaining({
+            oldTeamId: 'team-ward-bn',
+            newTeamId: 'team-pc02-doi1',
+            oldWardId: 'ward-bn',
+            oldWardName: 'Phường Bến Nghé',
+          }),
+        );
+      });
+
+      it('BE-ESC2: does NOT emit FROM_WARD when ward team → another ward team (still ward)', async () => {
+        mockPrisma.case.findFirst.mockResolvedValue(wardCase);
+        mockPrisma.team.findFirst.mockResolvedValue(otherWardTeam);
+        mockPrisma.team.findUnique.mockResolvedValue({ wardId: 'ward-td' });
+        mockPrisma.case.update.mockResolvedValue({ ...wardCase, assignedTeamId: 'team-ward-td' });
+
+        await service.assignCase(
+          'case-001',
+          { assignedTeamId: 'team-ward-td' },
+          'dispatcher-001',
+        );
+
+        const auditCalls = (mockAudit.log as jest.Mock).mock.calls.map((c) => c[0]);
+        const escalation = auditCalls.find((c: any) => c.action === 'CASE_ESCALATED_FROM_WARD');
+        expect(escalation).toBeUndefined();
+      });
+
+      it('BE-ESC3: does NOT emit FROM_WARD when non-ward team → non-ward team (PC02 internal reassign)', async () => {
+        const pc02Case = {
+          ...existingCase,
+          assignedTeamId: 'team-pc02-old',
+          assignedTeam: { wardId: null, ward: null },
+        };
+        mockPrisma.case.findFirst.mockResolvedValue(pc02Case);
+        mockPrisma.team.findFirst.mockResolvedValue(pc02Team);
+        mockPrisma.team.findUnique.mockResolvedValue({ wardId: null });
+        mockPrisma.case.update.mockResolvedValue({ ...pc02Case, assignedTeamId: 'team-pc02-doi1' });
+
+        await service.assignCase(
+          'case-001',
+          { assignedTeamId: 'team-pc02-doi1' },
+          'dispatcher-001',
+        );
+
+        const auditCalls = (mockAudit.log as jest.Mock).mock.calls.map((c) => c[0]);
+        const escalation = auditCalls.find((c: any) => c.action === 'CASE_ESCALATED_FROM_WARD');
+        expect(escalation).toBeUndefined();
+      });
     });
   });
 
