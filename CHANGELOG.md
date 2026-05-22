@@ -2,6 +2,52 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.37.1.0] - 2026-05-23
+
+### Added
+- **[cases] Provenance model (BLTTHS Điều 143).** Vụ án giờ phải chỉ rõ "Nguồn vụ án" — 5 lựa chọn: Khởi tố từ Đơn thư / Khởi tố từ Vụ việc / CQĐT phát hiện trực tiếp / Chuyển từ cơ quan khác / Nguồn pháp lý khác. Khi chọn "Đơn thư" hay "Vụ việc", hệ thống link chính xác bản ghi gốc thay vì tạo phantom Petition như trước.
+- **[cases] Card "Nguồn vụ án" trên màn Khởi tố vụ án mới.** Source-first hierarchy: cán bộ điều tra phải xác định nguồn pháp lý trước khi nhập thông tin vụ án. Mỗi lựa chọn có tooltip giải thích pháp lý + helper text.
+- **[cases] Petition picker + Incident picker** với autocomplete tìm kiếm theo STT/người gửi (Đơn thư) hoặc mã (Vụ việc). Chỉ hiển thị bản ghi trong phạm vi DataScope của user, chưa link Vụ án nào.
+- **[cases] Empty state 3-option exit** trên Petition picker: nếu không có Đơn thư phù hợp, user có thể (1) Tiếp nhận Đơn thư mới, (2) Chọn nguồn khác, (3) Bỏ trống + ghi chú "Nguồn pháp lý khác".
+- **[cases] Graceful degradation cho picker:** nếu API lỗi 2 lần, picker chuyển sang text input cho user nhập STT/mã trực tiếp (backend vẫn validate IDOR + tồn tại).
+- **[menu] "Tổng hợp" menu mới** chứa "Danh sách tổng hợp" + "Hồ sơ mới tiếp nhận" (trước nằm sai chỗ trong "Quản lý vụ án").
+- **[menu] "Đơn thư theo phường/xã"** — page mới đối xứng với "Vụ án theo phường/xã" + "Vụ việc theo phường/xã".
+- **[petitions] `GET /petitions/linkable`** — endpoint cho Petition picker, trả Đơn thư chưa link + trong phạm vi DataScope.
+- **[scripts] `backfill-case-provenance.ts`** — backfill caseProvenance cho Case records cũ theo precedence: linked Petition → FROM_PETITION; linked Incident → FROM_INCIDENT; metadata.petitionType orphan → flag INCONSISTENT; else OTHER_LEGAL_SOURCE.
+- **[scripts] `audit-case-provenance.ts`** — 3 query audit (vestigial metadata.caseType, phantom Petition heuristic, mirror link drift) cho compliance review.
+
+### Changed
+- **[menu] Luật sư chuyển thành child của Đối tượng liên quan** (cùng nhóm với Nghi phạm/Bị hại/Nhân chứng).
+- **[menu] "Phân loại & Quản lý" gọn lại:** 3 items lạc chỗ (Vụ án theo phường/xã, Vụ việc theo phường/xã, Đơn trùng lặp) chuyển về menu entity tương ứng. Menu này giờ chỉ chứa entity riêng (Đề xuất VKS, Phân loại khác).
+- **[menu] "Thêm mới hồ sơ" đổi tên thành "Khởi tố vụ án mới"** — label phản ánh đúng chức năng (chỉ tạo Vụ án, không phải "hồ sơ vạn năng").
+- **[cases] Route `/add-new-record` redirect sang `/cases/new`** (canonical path). Legacy path giữ 1-2 release để không break bookmark.
+- **[cases] `InitialCasesPage` đọc `caseProvenance`** thay vì `metadata.caseType` (vestigial) để phân loại Vụ án/Vụ việc trên inbox.
+
+### Fixed
+- **[cases] Phantom Petition tự sinh khi tạo Vụ án — vi phạm BLTTHS Điều 143 về truy nguyên nguồn tin.** Trước: backend tự tạo Petition record không có biên bản tiếp nhận đơn thư thực tế khi user nhập `metadata.petitionType`. Sau: bỏ logic auto-create, thay bằng `linkedPetitionId` link tới Petition CÓ THẬT. Backward-compatibility shim accept payload cũ trong Deploy-1, audit-warn + default OTHER_LEGAL_SOURCE.
+- **[cases] IDOR vulnerability trên link Petition/Incident.** Sau: service `findFirst` với DataScope predicate trong cùng transaction; trả 404 nhất quán (not-found vs out-of-scope không phân biệt được) chống enumeration leak.
+- **[incidents] `prosecute()` (khởi tố Vụ án từ Vụ việc) giờ set caseProvenance=FROM_INCIDENT + linkedIncidentId.** Trước: tạo Case không có provenance — sẽ fail NOT NULL constraint ở Deploy-2 Contract phase.
+- **[petitions] `convertToCase()` set caseProvenance=FROM_PETITION + linkedPetitionId.** Phát hiện qua 10x provenance audit pass.
+
+### Removed
+- **[cases] Field "Loại hồ sơ" (vestigial dropdown 3 options)** trên màn Tạo Vụ án. Field này chỉ lưu vào `Case.metadata.caseType` JSON, không có backend logic đọc — dead UX. Thay bằng "Nguồn vụ án" provenance model.
+- **[cases] Field "Loại đơn thư" (LoaiDon enum)** trên màn Tạo Vụ án. Field này thuộc về Petition record (linkedPetitionId.petitionType), không nên đứng độc lập trên Case.
+
+### Migrations
+- `20260522230000_expand_case_provenance` — ADD enum `case_provenance` + 4 nullable columns trên `cases` table + 2 FKs NOT VALID (validate ở Deploy-2 Contract) + audit table `case_provenance_backfill_audit`.
+- `20260522230001_case_provenance_indexes_concurrent` — 3 indexes CONCURRENTLY trên `caseProvenance` + `linkedPetitionId` + `linkedIncidentId`.
+
+### Deploy notes
+- **Multi-phase deploy:** v0.37.1.0 = Deploy-1 (Expand). Pending Deploy-2 (Contract) sau 1-day soak window: SET NOT NULL trên caseProvenance + VALIDATE FKs + remove backward-compat shim.
+- **Backfill required:** chạy `npx tsx backend/scripts/backfill-case-provenance.ts --dry-run` để preview, rồi apply, trước khi Deploy-2.
+- **Mobile compat:** GET-only endpoints, không break. Mobile app không cần update.
+
+### Internal
+- 12 new tests (DTO + mapper + service spec rewrites) — total 1522 backend + 562 frontend pass.
+- `CaseProvenance` enum trong shared/enums (gen:enums regenerated).
+- New `CaseProvenancePicker` component (FE) với 6 design decisions 10/10 (Card riêng, conditional pickers, empty state, state memory, error fallback, a11y aria-live, validation).
+- New `comprehensive` feature module — auto-discovered via `import.meta.glob`.
+
 ## [0.37.0.3] - 2026-05-22
 
 ### Fixed

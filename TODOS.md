@@ -1,5 +1,42 @@
 # TODOS
 
+## v0.37.1 follow-ups (Case Provenance — multi-phase deploy)
+
+### PROV-001: PR-PROV-2 Contract phase (post-1-day-soak)
+**Priority:** P0
+**Details:** v0.37.1.0 ships Deploy-1 (Expand) with nullable `caseProvenance` + FKs NOT VALID + backward-compat shim. Per plan v2.4 multi-phase deploy strategy, Contract phase must run after 1-day soak window in production: VALIDATE FK constraints, SET NOT NULL on `caseProvenance`, add CHECK constraint for source-type↔FK consistency, remove compat shim from `cases.service.create()` (legacy `metadata.petitionType` payload no longer accepted — returns 400).
+**Pre-flight:**
+- Run `npx tsx backend/scripts/audit-case-provenance.ts` → verify Q1/Q2/Q3 results clean
+- Run `npx tsx backend/scripts/backfill-case-provenance.ts --dry-run` then apply
+- Monitor `audit_logs.action='LEGACY_PAYLOAD_RECEIVED'` count must hit 0 across soak window
+**Effort:** ~2h (new migration `20260524000000_contract_case_provenance` + service shim removal + 2-3 spec updates).
+**Discovered:** plan v2.4 multi-phase deploy design (post-/autoplan eng review CRITICAL #2).
+
+### PROV-002: Add caseSourceType "FROM_SELF_SURRENDER" + "PROSECUTOR_PROPOSAL"
+**Priority:** P2
+**Details:** Current `CaseProvenance` enum has 5 values mapping coarsely to BLTTHS Đ.143. Codex review flagged: TRANSFERRED is procedural, OTHER_LEGAL_SOURCE hides legally distinct grounds (tự thú, kiến nghị khởi tố VKS, media report). Future enum expansion to map 1:1 với 6 căn cứ Đ.143.
+**Approach:** ADD enum values + migration + UI options + backfill rule.
+**Effort:** ~3h.
+**Discovered:** /autoplan Phase 3 Eng review (Codex finding, deferred to follow-up).
+
+### PROV-003: Mirror link drift audit script (recurring)
+**Priority:** P3
+**Details:** `audit-case-provenance.ts` Q3 detects Petition.linkedCaseId ↔ Case.linkedPetitionId drift. Schedule weekly cron to alert on new drift.
+**Effort:** ~1h (wrap script in cron + alert hook).
+**Discovered:** /autoplan eng review consensus.
+
+### PROV-004: Real /incidents/linkable endpoint
+**Priority:** P1
+**Details:** PR-PICK shipped `/petitions/linkable` but `/incidents/linkable` was not built — IncidentPicker on CaseFormPage references the URL but endpoint returns 404 until built. Same shape as petitions version: scope-filtered, unlinked, search by code+crime.
+**Effort:** ~1.5h (mirror petitions/linkable pattern).
+**Discovered:** PR-PICK scope decision (defer to follow-up).
+
+### PROV-005: Trigram index on senderName for /petitions/linkable
+**Priority:** P3
+**Details:** PR-PICK uses default ILIKE for senderName search. Eng review suggested trigram index (pg_trgm extension) for faster fuzzy search on 50k+ Petitions. Current scope fine for now.
+**Effort:** ~30min (raw SQL migration + verify).
+**Discovered:** /autoplan Phase 3 Eng (Codex).
+
 ## v0.32.0.0 follow-ups (Restore deleted data)
 
 ### RESTORE-001: Khôi phục child entities (Subject/Lawyer/Document/Conclusion/...)
