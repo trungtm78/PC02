@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.37.0.3] - 2026-05-22
+
+### Fixed
+- **[admin-units] /admin-units tree view vẫn hiện 6 tỉnh rỗng sau cải cách 2025 (Bình Phước, Long An, Ninh Thuận, Quảng Bình, Quảng Ninh-cũ, Tây Ninh).** Root cause: `seedAdminUnits` chỉ abolish orphan WARDs (line 244), không xử lý PROVINCEs → các tỉnh đã sáp nhập v2024-1279 vẫn `isActive=true` với 0 wards. Fix: extracted `findOrphanIds` pure helper + apply same supersede logic to PROVINCEs (new Step 6b). +4 jest tests on helper. Production manually fixed via UPDATE (6 rows deactivated); future deploys idempotent.
+
+### Internal
+- New `prisma/seed-admin-units-helpers.ts` — extracted pure function `findOrphanIds<T>` cho unit testability. Cả ward + province abolish steps dùng chung helper.
+
 ## [0.37.0.2] - 2026-05-22
 
 ### Fixed
