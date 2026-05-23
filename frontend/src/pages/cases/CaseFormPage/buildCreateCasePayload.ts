@@ -1,4 +1,5 @@
 import type { CaseFormData, Subject, Evidence } from './types';
+import { parseVND, parsePhone } from '../../../shared/utils/formatters';
 
 // PR 1 v0.38.0.0 — Sub-entity inline DTOs (match backend CreateSubjectInlineDto/CreateEvidenceInlineDto)
 export interface SubjectPayload {
@@ -91,14 +92,14 @@ export function buildCreateCasePayload(
       investigationStartDate: formData.investigationStartDate,
       prosecutionOfficeAssigned: formData.prosecutionOfficeAssigned,
       relatedCaseCode: formData.relatedCaseCode,
-      damageAmount: formData.damageAmount,
+      damageAmount: parseVND(formData.damageAmount) ?? undefined,
       damageDescription: formData.damageDescription,
       note: formData.note,
       reporter: formData.reporter,
       reporterIdNumber: formData.reporterIdNumber,
       reporterDateOfBirth: formData.reporterDateOfBirth,
       reporterGender: formData.reporterGender,
-      reporterPhone: formData.reporterPhone,
+      reporterPhone: parsePhone(formData.reporterPhone) || undefined,
       reporterEmail: formData.reporterEmail,
       reporterAddress: formData.reporterAddress,
       reporterNationality: formData.reporterNationality,
@@ -146,7 +147,7 @@ export function buildCreateCasePayload(
         gender: s.gender,
         idNumber: s.idNumber,
         address: s.address,
-        phone: s.phone,
+        phone: s.phone ? parsePhone(s.phone) : undefined,
         occupationId: s.occupation,
         nationalityId: s.nationality,
         crimeId: crimeId as string,

@@ -63,7 +63,9 @@ export function mergeCaseApiToFormData(
     investigationStartDate:      meta.investigationStartDate      ?? prev.investigationStartDate,
     prosecutionOfficeAssigned:   meta.prosecutionOfficeAssigned   ?? prev.prosecutionOfficeAssigned,
     relatedCaseCode:             meta.relatedCaseCode             ?? prev.relatedCaseCode,
-    damageAmount:                meta.damageAmount                ?? prev.damageAmount,
+    // v0.39 — damageAmount stored as number in BE since input-mask refactor.
+    // Convert to string for form state (types.ts declares string).
+    damageAmount:                meta.damageAmount != null ? String(meta.damageAmount) : prev.damageAmount,
     damageDescription:           meta.damageDescription           ?? prev.damageDescription,
     note:                        meta.note                        ?? prev.note,
     reporter:                    meta.reporter                    ?? prev.reporter,

@@ -4,6 +4,7 @@ import { api } from "@/lib/api";
 import { extractApiError } from "@/lib/api-errors";
 import { ArrowLeft, Save, AlertCircle, Calendar, FileText, Loader2, ChevronDown, ChevronRight, Target } from "lucide-react";
 import { FKSelect, type FKOption } from "@/components/FKSelect";
+import { PhoneInput } from "@/components/inputs/PhoneInput";
 import { getPhaseForStatus } from "@/constants/incident-phases";
 import {
   LY_DO_KHONG_KHOI_TO_OPTIONS,
@@ -411,8 +412,8 @@ export function IncidentFormPage() {
             </div>
             <div>
               <label className={labelClass}>SĐT người tố giác</label>
-              <input type="text" value={formData.sdtNguoiToGiac} onChange={(e) => update("sdtNguoiToGiac", e.target.value)}
-                className={inputClass} placeholder="Số điện thoại" data-testid="field-sdtNguoiToGiac" />
+              <PhoneInput value={formData.sdtNguoiToGiac} onValueChange={(v) => update("sdtNguoiToGiac", v)}
+                className={inputClass} placeholder="09xx xxx xxx" data-testid="field-sdtNguoiToGiac" />
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -2,6 +2,33 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.38.0.0] - 2026-05-24
+
+**UX Refactor — Mask Format Input Số (Currency / Phone / Integer)**
+
+22 trường nhập số trải rộng qua Cases, Incidents, Petitions được nâng cấp thành mask-format-as-you-type. Số tiền hiển thị với dấu phân cách hàng nghìn (`1.000.000.000 ₫`), số điện thoại tự format `0901 234 567`, field số đếm chặn ký tự không hợp lệ tại input level. TDD full: 41 test mới (unit + integration), 630/630 tests green.
+
+### Added
+- **[frontend] CurrencyInput component** — [frontend/src/components/inputs/CurrencyInput.tsx](frontend/src/components/inputs/CurrencyInput.tsx). `NumericFormat` với `thousandSeparator="."`, `decimalSeparator=","`, `suffix=" ₫"`, `decimalScale=0`, `allowNegative=false`. Gọi `onValueChange(v.value)` với raw string không có separator — parse tại boundary submit.
+- **[frontend] PhoneInput component** — [frontend/src/components/inputs/PhoneInput.tsx](frontend/src/components/inputs/PhoneInput.tsx). `PatternFormat` với `format="#### ### ###"` (không phải NumericFormat — NumericFormat strip leading 0, phá format số VN `0901234567`). Tự động gọi `hydrateLegacyPhone` để normalize data cũ `+84 xxx xxx xxx` → `0xxxxxxxxx`.
+- **[frontend] IntegerInput component** — [frontend/src/components/inputs/IntegerInput.tsx](frontend/src/components/inputs/IntegerInput.tsx). `NumericFormat` với `decimalScale=0`, `allowNegative=false`, prop `min`/`max` optional. Dùng cho 15 trường `stat_*` frontend-only (không POST lên BE).
+- **[frontend] Form wrappers** — `FormCurrency`, `FormPhone`, `FormInteger` trong [frontend/src/components/form/](frontend/src/components/form/) — label + icon + error wrapper thống nhất với `FormInput` pattern.
+- **[frontend] Display components** — `CurrencyDisplay` + `PhoneDisplay` trong [frontend/src/components/displays/](frontend/src/components/displays/) — read-only display với em-dash fallback khi `null`/`undefined`.
+- **[frontend] formatters.ts utilities** — [frontend/src/shared/utils/formatters.ts](frontend/src/shared/utils/formatters.ts): `formatVND`, `parseVND`, `formatPhone`, `parsePhone`, `hydrateLegacyPhone`. 18 unit tests cover tất cả edge cases.
+- **[e2e] input-mask Playwright spec** — [tests/e2e/input-mask.e2e.spec.ts](tests/e2e/input-mask.e2e.spec.ts): 3 scenarios (@input-mask) kiểm tra currency format khi type, phone preserve leading 0, submit boundary gửi number không phải string.
+
+### Fixed
+- **[cases] damageAmount gửi BE là number không phải string** — [buildCreateCasePayload.ts:95](frontend/src/pages/cases/CaseFormPage/buildCreateCasePayload.ts#L95): `parseVND(formData.damageAmount) ?? undefined` đảm bảo `metadata.damageAmount` là `number` (hoặc `undefined` nếu rỗng). Trước đây gửi string `"1000000"` — backend lưu metadata JSON blob nên accept, nhưng sẽ break nếu có type check sau.
+- **[cases] reporterPhone + subject.phone gửi BE đã strip space** — `parsePhone(formData.reporterPhone)` và `parsePhone(s.phone)` trong buildCreateCasePayload đảm bảo DB nhận `"0901234567"` không phải `"0901 234 567"`.
+- **[cases] mergeCaseApiToFormData convert damageAmount số → string** — [mergeCaseApiToFormData.ts:68](frontend/src/pages/cases/CaseFormPage/mergeCaseApiToFormData.ts#L68): BE trả về `meta.damageAmount` có thể là number, convert `String(meta.damageAmount)` cho form state. Form state luôn là string (AD-1).
+- **[petitions] senderPhone regex đơn giản hoá** — Regex `/^[0-9\s+()-]{10,15}$/` cũ cho phép nhiều format không nhất quán. Thay bằng `/^0\d{9}$/` — PhoneInput handle blocking tại input level.
+
+### Changed
+- **[cases/tabs.tsx] 17 input fields → mask components** — damageAmount → `FormCurrency`, reporterPhone → `FormPhone`, stat_damageAmount/stat_recoveredAmount → `CurrencyInput`, 11 trường stat_count → `IntegerInput`. [frontend/src/pages/cases/CaseFormPage/tabs.tsx](frontend/src/pages/cases/CaseFormPage/tabs.tsx).
+- **[cases/modals.tsx] Subject phone + Evidence quantity** — Subject `phone` → `FormPhone`, Evidence `quantity` → `FormInteger`. [frontend/src/pages/cases/CaseFormPage/modals.tsx](frontend/src/pages/cases/CaseFormPage/modals.tsx).
+- **[incidents] sdtNguoiToGiac → PhoneInput** — [IncidentFormPage.tsx](frontend/src/pages/incidents/IncidentFormPage.tsx): số ĐT người tố giác dùng `PhoneInput` với `PatternFormat`.
+- **[petitions] senderPhone → PhoneInput** — [PetitionFormPage.tsx](frontend/src/pages/petitions/PetitionFormPage.tsx): thay `<input>` + regex validation bằng `PhoneInput` component.
+
 ## [0.37.3.0] - 2026-05-23
 
 **UAT Round 1 fix** — fix 4 backend bug từ UAT comprehensive v2 (781 TC chạy thực trên prod 171.244.40.245, 263 PASS / 518 FAIL / 0 SKIP). 92% failures là test infrastructure (rate limit + placeholder ID). 4 backend bugs real được verify qua 3 Explore agents + plan-eng-review.

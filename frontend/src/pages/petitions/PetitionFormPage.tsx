@@ -12,6 +12,7 @@ import {
   FileText, MapPin, Phone, Mail, ChevronDown,
 } from "lucide-react";
 import { FKSelect } from "@/components/FKSelect";
+import { PhoneInput } from "@/components/inputs/PhoneInput";
 import { useFormDefaults } from "@/hooks/useFormDefaults";
 import { today, toDateInput } from "@/lib/dates";
 import { LOAI_DON_OPTIONS } from "@/shared/enums/status-labels";
@@ -142,8 +143,8 @@ export function PetitionFormPage() {
     if (!formData.detailContent.trim()) newErrors.push("Nội dung chi tiết là bắt buộc");
     if (formData.senderEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.senderEmail))
       newErrors.push("Email không đúng định dạng");
-    if (formData.senderPhone && !/^[0-9\s+()-]{10,15}$/.test(formData.senderPhone.replace(/\s/g, "")))
-      newErrors.push("Số điện thoại không đúng định dạng (10–11 số)");
+    if (formData.senderPhone && !/^0\d{9}$/.test(formData.senderPhone))
+      newErrors.push("Số điện thoại không đúng định dạng (10 số, bắt đầu bằng 0)");
     setErrors(newErrors);
     return newErrors.length === 0;
   };
@@ -313,7 +314,7 @@ export function PetitionFormPage() {
                 <label className="block text-sm font-medium text-slate-700 mb-2">Số điện thoại</label>
                 <div className="relative">
                   <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input type="text" value={formData.senderPhone} onChange={(e) => update("senderPhone", e.target.value)} className="w-full pl-9 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Nhập số điện thoại" data-testid="field-senderPhone" />
+                  <PhoneInput value={formData.senderPhone} onValueChange={(v) => update("senderPhone", v)} className="w-full pl-9 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="09xx xxx xxx" data-testid="field-senderPhone" />
                 </div>
               </div>
               <div>

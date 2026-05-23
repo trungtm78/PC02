@@ -140,3 +140,56 @@ describe('buildCreateCasePayload (hotfix #112 regressions)', () => {
     expect(payload.documentIds).toBeUndefined();
   });
 });
+
+/**
+ * v0.39 Input mask refactor — regression tests.
+ * AD-1: form state lưu raw string. AD-1 + AD-2: parse tại boundary submit.
+ * damageAmount (currency) → number. *Phone fields → strip space.
+ */
+describe('buildCreateCasePayload — v0.39 input-mask formatting boundary', () => {
+  it('parses string damageAmount "1000000" to number 1000000 in metadata', () => {
+    const payload = buildCreateCasePayload({
+      ...baseValid,
+      damageAmount: '1000000',
+    });
+    expect(payload.metadata.damageAmount).toBe(1000000);
+  });
+
+  it('returns undefined damageAmount when form value is empty string', () => {
+    const payload = buildCreateCasePayload({
+      ...baseValid,
+      damageAmount: '',
+    });
+    expect(payload.metadata.damageAmount).toBeUndefined();
+  });
+
+  it('strips spaces from reporterPhone before submit', () => {
+    const payload = buildCreateCasePayload({
+      ...baseValid,
+      reporterPhone: '0901 234 567',
+    });
+    expect(payload.metadata.reporterPhone).toBe('0901234567');
+  });
+
+  it('strips spaces from subject.phone in subjects[] mapping', () => {
+    const payload = buildCreateCasePayload(baseValid, {
+      subjects: [
+        {
+          id: 'sub-1',
+          name: 'Nguyễn Văn A',
+          dateOfBirth: '1990-01-01',
+          gender: 'M',
+          idNumber: '123456789',
+          address: 'Hà Nội',
+          phone: '0901 234 567',
+          occupation: 'occ-1',
+          nationality: 'nat-1',
+          type: 'Bị can',
+          criminalRecord: '',
+          crimeId: 'crime-1',
+        } as never,
+      ],
+    });
+    expect(payload.subjects?.[0].phone).toBe('0901234567');
+  });
+});
