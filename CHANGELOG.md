@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.37.2.6] - 2026-05-23
+
+**P1 hotfix** — TAM_DINH_CHI / PHUC_HOI vụ án workflow broken trên prod. Phát hiện trong UAT comprehensive Case management 2026-05-23.
+
+### Fixed
+- **[cases] PUT `/cases/:id` với `status=TAM_DINH_CHI` reject 400 "Validation failed"** — `cases.service.update()` casts dto to `Record<string,unknown>` để access 8 trường BLTTHS Điều 229 (`lyDoTamDinhChiVuAn`, `lyDoTamDinhChiText`, `soQuyetDinhTamDinhChi`, `ngayTamDinhChi`) và Phục hồi (`daRaSoat`, `ngayRaSoat`, `soQuyetDinhPhucHoi`, `ketQuaPhucHoiVuAn`). Không trường nào declared trong UpdateCaseDto. ValidationPipe `forbidNonWhitelisted: true` strips/rejects → toàn bộ TAM_DINH_CHI + Phục hồi flow broken kể từ khi feature ship. Fix: declare 8 fields trong [UpdateCaseDto](backend/src/cases/dto/update-case.dto.ts) với proper class-validator decorators (`@IsEnum(LyDoTamDinhChiVuAn)`, `@IsEnum(KetQuaPhucHoiVuAn)`, `@IsString @MaxLength`, `@IsDateString`, `@IsBoolean`).
+
+### Added
+- **[tests] `update-case.dto.spec.ts`** — 8 vitest cases regression cover: lyDoTamDinhChiVuAn valid/invalid enum, lyDoTamDinhChiText/soQuyetDinhTamDinhChi/ngayTamDinhChi string+date validation, daRaSoat/ngayRaSoat/soQuyetDinhPhucHoi PHUC_HOI fields, ketQuaPhucHoiVuAn enum valid/invalid, daRaSoat non-boolean rejected.
+
+### Test coverage
+- Backend cases module: 84 tests pass (was 76, +8 new).
+- TypeScript: clean.
+
+### Discovered
+UAT comprehensive Case management 2026-05-23 (Phase B / B6). Em apply `uat-test-writer` Iron rule #5: P1 bug → stop UAT current phase + TDD red-green + ship separate PR. Resume UAT post-deploy.
+
+### Followups (deferred)
+- Other status flows có thể có DTO mismatch tương tự (chưa scan). Defer to follow-up audit.
+
 ## [0.37.2.5] - 2026-05-23
 
 Cleanup loạt followups sau UAT 2026-05-23 — P1 EditMode load + P1 phantom Petition guard + P2 Cases form Decision 7A.
