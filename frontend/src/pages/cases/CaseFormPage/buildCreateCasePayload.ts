@@ -126,23 +126,33 @@ export function buildCreateCasePayload(
   }
 
   // PR 1 v0.38.0.0 — Wire sub-entity arrays vào payload (atomic create)
-  // Map frontend Subject/Evidence shape → backend inline DTO shape.
-  // crimeId BẮT BUỘC cho Subject — UI cần collect từ user. Nếu không có, BE reject 400.
+  // HOTFIX (codex P1 post-merge): chỉ include subjects với crimeId hợp lệ +
+  // skip "Luật sư" (LAWYER không tồn tại trong Prisma SubjectType enum).
+  // Lawyers nên submit qua separate Lawyer model API trong future PR.
   if (options?.subjects && options.subjects.length > 0) {
-    payload.subjects = options.subjects.map((s) => ({
-      fullName: s.name,
-      dateOfBirth: s.dateOfBirth,
-      gender: s.gender,
-      idNumber: s.idNumber,
-      address: s.address,
-      phone: s.phone,
-      occupationId: s.occupation, // assumes Subject.occupation chứa FK id (cần verify modal)
-      nationalityId: s.nationality,
-      // wardId: TBD nếu modal collect
-      crimeId: (s as Subject & { crimeId?: string }).crimeId ?? '', // BE validate non-empty
-      type: subjectTypeToEnum(s.type),
-      notes: s.criminalRecord, // map field gần nhất; có thể cần thêm field
-    }));
+    const validSubjects = options.subjects
+      .filter((s) => s.type !== 'Luật sư') // LAWYER không có trong SubjectType
+      .map((s) => {
+        const crimeId = (s as Subject & { crimeId?: string }).crimeId;
+        return { s, crimeId };
+      })
+      .filter(({ crimeId }) => crimeId && crimeId.length > 0); // Skip nếu thiếu crimeId
+
+    if (validSubjects.length > 0) {
+      payload.subjects = validSubjects.map(({ s, crimeId }) => ({
+        fullName: s.name,
+        dateOfBirth: s.dateOfBirth,
+        gender: s.gender,
+        idNumber: s.idNumber,
+        address: s.address,
+        phone: s.phone,
+        occupationId: s.occupation,
+        nationalityId: s.nationality,
+        crimeId: crimeId as string,
+        type: subjectTypeToEnum(s.type),
+        notes: s.criminalRecord,
+      }));
+    }
   }
 
   if (options?.evidences && options.evidences.length > 0) {
@@ -161,14 +171,20 @@ export function buildCreateCasePayload(
     }));
   }
 
-  if (options?.documentIds && options.documentIds.length > 0) {
-    payload.documentIds = options.documentIds;
-  }
+  // HOTFIX: documentIds disabled — MediaFile.id local-only ("MF-${Date.now()}"),
+  // file chưa được upload to backend. Linking fake IDs sẽ throw 400.
+  // Future PR cần: 1) actual upload trên handleUploadMedia, 2) lưu real Document.id
+  // vào MediaFile state. Tạm thời SKIP để wizard không bị 400.
+  // if (options?.documentIds && options.documentIds.length > 0) {
+  //   payload.documentIds = options.documentIds;
+  // }
 
   return payload;
 }
 
 // Map frontend Subject.type ("Bị can"/"Bị hại"/...) → Prisma SubjectType enum
+// HOTFIX: LAWYER removed — Prisma SubjectType chỉ có SUSPECT/VICTIM/WITNESS.
+// Lawyers filtered out trước khi mapping ở caller.
 function subjectTypeToEnum(uiType: string): string {
   switch (uiType) {
     case 'Bị can':
@@ -177,8 +193,6 @@ function subjectTypeToEnum(uiType: string): string {
       return 'VICTIM';
     case 'Nhân chứng':
       return 'WITNESS';
-    case 'Luật sư':
-      return 'LAWYER'; // verify SubjectType có giá trị này
     default:
       return 'SUSPECT';
   }
