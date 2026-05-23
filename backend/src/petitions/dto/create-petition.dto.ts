@@ -68,7 +68,9 @@ export class CreatePetitionDto {
   suspectedAddress?: string;
 
   @IsOptional()
-  @IsEnum(LoaiDon, { message: 'petitionType phải là TO_CAO, KHIEU_NAI, KIEN_NGHI hoặc PHAN_ANH' })
+  @IsEnum(LoaiDon, {
+    message: 'Loại đơn thư không hợp lệ — chọn: Tố cáo, Khiếu nại, Kiến nghị hoặc Phản ánh (BLTTHS / Luật Tố cáo 2018 / Luật Khiếu nại 2011)',
+  })
   petitionType?: LoaiDon;
 
   @IsOptional()
