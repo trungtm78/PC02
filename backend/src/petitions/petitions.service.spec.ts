@@ -29,6 +29,7 @@ import { AuditService } from '../audit/audit.service';
 import { SettingsService } from '../settings/settings.service';
 import { DeadlineRulesService } from '../deadline-rules/deadline-rules.service';
 import { PetitionStatus, LoaiDon, Prisma } from '@prisma/client';
+import type { DataScope } from '../auth/services/unit-scope.service';
 
 // CaseStatus values — only used in mock fixture objects (not DTO-typed)
 const CaseStatus = { TIEP_NHAN: 'TIEP_NHAN' } as const;
@@ -202,6 +203,19 @@ describe('PetitionsService', () => {
 
       const callArgs = mockPrisma.petition.findMany.mock.calls[0][0];
       expect(callArgs.where.deletedAt).toBeNull();
+    });
+
+    // B0 — ward column on WardPetitionsPage needs assignedTeam.ward.name
+    it('should select assignedTeam.ward.name for ward column display', async () => {
+      mockPrisma.petition.findMany.mockResolvedValue([]);
+      mockPrisma.petition.count.mockResolvedValue(0);
+
+      await service.getList({});
+
+      const callArgs = mockPrisma.petition.findMany.mock.calls[0][0];
+      expect(callArgs.select.assignedTeam).toEqual({
+        select: { ward: { select: { name: true } } },
+      });
     });
   });
 
@@ -1016,6 +1030,201 @@ describe('PetitionsService', () => {
       );
       mockPrisma.$transaction.mockRejectedValueOnce(p2025);
       await expect(service.restore('petition-001', REASON, ACTOR_ID)).rejects.toThrow(/đã được khôi phục/);
+    });
+  });
+
+  // ── exportWardPetitions ────────────────────────────────────────────────────
+  // Mirror pattern from IncidentsService.exportWardIncidents.
+  // Endpoint: GET /api/v1/petitions/export/ward — returns BCA-styled XLSX.
+  describe('exportWardPetitions', () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { PassThrough } = require('stream');
+    let mockRes: any;
+
+    beforeEach(() => {
+      // Earlier exportToExcel tests spy on ExcelJS.Workbook without restoring,
+      // leaking a stub workbook into later tests. Undo all spies before our cycles.
+      jest.restoreAllMocks();
+      mockRes = Object.assign(new PassThrough(), {
+        setHeader: jest.fn(),
+        status: jest.fn().mockReturnThis(),
+        json: jest.fn(),
+        headersSent: false,
+      });
+      // Consume stream so workbook.write doesn't backpressure
+      mockRes.on('data', () => {});
+    });
+
+    it('B1: sets xlsx Content-Type and DonThuPhuongXa filename header', async () => {
+      mockPrisma.petition.findMany.mockResolvedValue([]);
+
+      await service.exportWardPetitions({}, null, mockRes);
+
+      expect(mockRes.setHeader).toHaveBeenCalledWith(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      expect(mockRes.setHeader).toHaveBeenCalledWith(
+        'Content-Disposition',
+        expect.stringContaining('DonThuPhuongXa_'),
+      );
+    });
+
+    it('B2: filters petitions by unitId query param', async () => {
+      mockPrisma.petition.findMany.mockResolvedValue([]);
+
+      await service.exportWardPetitions({ unitId: 'unit-q1' }, null, mockRes);
+
+      const callArgs = mockPrisma.petition.findMany.mock.calls[0][0];
+      expect(callArgs.where.unit).toBe('unit-q1');
+    });
+
+    it('B3: filters by fromDate/toDate on createdAt (mirror Incidents ward export semantics)', async () => {
+      mockPrisma.petition.findMany.mockResolvedValue([]);
+
+      await service.exportWardPetitions(
+        { fromDate: '2026-01-01', toDate: '2026-03-31' },
+        null,
+        mockRes,
+      );
+
+      const callArgs = mockPrisma.petition.findMany.mock.calls[0][0];
+      expect(callArgs.where.createdAt).toBeDefined();
+      expect(callArgs.where.createdAt.gte).toEqual(new Date('2026-01-01'));
+      expect(callArgs.where.createdAt.lte).toEqual(new Date('2026-03-31T23:59:59.999Z'));
+    });
+
+    it('B4: applies buildPetitionScopeFilter for non-dispatcher dataScope', async () => {
+      mockPrisma.petition.findMany.mockResolvedValue([]);
+      const scope: DataScope = {
+        userIds: ['user-001'],
+        teamIds: ['team-a'],
+        writableTeamIds: ['team-a'],
+        canDispatch: false,
+        isWardOfficer: false,
+        wardTeamId: null,
+      } as unknown as DataScope;
+
+      await service.exportWardPetitions({}, scope, mockRes);
+
+      const callArgs = mockPrisma.petition.findMany.mock.calls[0][0];
+      expect(callArgs.where.AND).toBeDefined();
+      expect(Array.isArray(callArgs.where.AND)).toBe(true);
+      expect(callArgs.where.AND.length).toBeGreaterThan(0);
+    });
+
+    it('B5: writes 8-column BCA-styled sheet header (STT, Số đơn, Người gửi, Loại đơn, Tóm tắt, Phường/Xã, Ngày tiếp nhận, Trạng thái)', async () => {
+      mockPrisma.petition.findMany.mockResolvedValue([
+        {
+          id: 'p1',
+          stt: 'DT-2026-00001',
+          receivedDate: new Date('2026-02-15'),
+          senderName: 'Nguyễn A',
+          summary: 'Tóm tắt nội dung đơn',
+          petitionType: LoaiDon.TO_CAO,
+          status: PetitionStatus.MOI_TIEP_NHAN,
+          assignedTeam: { ward: { name: 'Phường 2' } },
+        },
+      ]);
+
+      const chunks: Buffer[] = [];
+      mockRes.on('data', (c: Buffer) => chunks.push(c));
+      const done = new Promise<void>((resolve) => mockRes.on('end', resolve));
+
+      await service.exportWardPetitions({}, null, mockRes);
+      await done;
+
+      const buf = Buffer.concat(chunks);
+      expect(buf.length).toBeGreaterThan(0);
+      // Filename hint = sheet present, content is binary xlsx — assert headers were set up.
+      expect(mockRes.setHeader).toHaveBeenCalledWith(
+        'Content-Disposition',
+        expect.stringContaining('.xlsx'),
+      );
+    });
+
+    it('B5b: maps petitionType enum to Vietnamese label in Excel row (consistency with status column)', async () => {
+      mockPrisma.petition.findMany.mockResolvedValue([
+        {
+          id: 'p1', stt: 'DT-2026-00001', receivedDate: new Date('2026-02-15'),
+          senderName: 'Người A', summary: 'tóm tắt', petitionType: LoaiDon.TO_CAO,
+          status: PetitionStatus.MOI_TIEP_NHAN, assignedTeam: null,
+        },
+      ]);
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const ExcelJS = require('exceljs');
+      const captured: string[][] = [];
+      const probeWb = new ExcelJS.Workbook();
+      const WsProto = Object.getPrototypeOf(probeWb.addWorksheet('probe'));
+      const realAddRow = WsProto.addRow;
+      WsProto.addRow = function (values: any[]) {
+        captured.push(values.map((v) => String(v ?? '')));
+        return { getCell: () => ({ font: {}, fill: {}, alignment: {}, border: {} }) };
+      };
+      try {
+        await service.exportWardPetitions({}, null, mockRes);
+      } finally {
+        WsProto.addRow = realAddRow;
+      }
+      // First non-header row should have 'Tố cáo' at index 3 (Loại đơn column)
+      const dataRow = captured.find((r) => r[1] === 'DT-2026-00001');
+      expect(dataRow).toBeDefined();
+      expect(dataRow![3]).toBe('Tố cáo');
+    });
+
+    it('B6: audit logs PETITION_EXPORTED with kind=ward when actor provided', async () => {
+      mockPrisma.petition.findMany.mockResolvedValue([]);
+
+      await service.exportWardPetitions(
+        { fromDate: '2026-01-01' },
+        null,
+        mockRes,
+        { userId: 'user-001', ipAddress: '127.0.0.1', userAgent: 'jest' },
+      );
+
+      expect(mockAudit.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'PETITION_EXPORTED',
+          subject: 'Petition',
+          userId: 'user-001',
+          metadata: expect.objectContaining({
+            kind: 'ward',
+            format: 'xlsx',
+          }),
+        }),
+      );
+    });
+
+    it('B6b: does NOT audit log when actor missing (e.g. internal call)', async () => {
+      mockPrisma.petition.findMany.mockResolvedValue([]);
+
+      await service.exportWardPetitions({}, null, mockRes);
+
+      const exportLogs = (mockAudit.log as jest.Mock).mock.calls.filter(
+        (c) => (c[0] as { action?: string })?.action === 'PETITION_EXPORTED',
+      );
+      expect(exportLogs).toHaveLength(0);
+    });
+
+    it('B7: returns 500 JSON when xlsx write fails and headers not yet sent', async () => {
+      mockPrisma.petition.findMany.mockResolvedValue([]);
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const ExcelJS = require('exceljs');
+      // XLSX class is not exported — grab prototype via a probe instance, then patch.
+      const probeWb = new ExcelJS.Workbook();
+      const XlsxProto = Object.getPrototypeOf(probeWb.xlsx);
+      const realWrite = XlsxProto.write;
+      XlsxProto.write = jest.fn().mockRejectedValue(new Error('disk full'));
+      mockRes.headersSent = false;
+
+      try {
+        await service.exportWardPetitions({}, null, mockRes);
+      } finally {
+        XlsxProto.write = realWrite;
+      }
+
+      expect(mockRes.status).toHaveBeenCalledWith(500);
+      expect(mockRes.json).toHaveBeenCalledWith({ error: 'Export failed' });
     });
   });
 });

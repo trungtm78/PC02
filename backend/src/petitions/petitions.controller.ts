@@ -68,6 +68,25 @@ export class PetitionsController {
     await this.petitionsService.exportToExcel(query, req.dataScope, res, user?.id);
   }
 
+  // GET /api/v1/petitions/export/ward — Xuất danh sách đơn thư theo phường/xã ra Excel
+  // Mirror /cases/export/ward + /incidents/export/ward pattern
+  @Get('export/ward')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions({ action: 'read', subject: 'Petition' })
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
+  async exportWardPetitions(
+    @Query() query: { unitId?: string; fromDate?: string; toDate?: string },
+    @Req() req: ScopedRequest,
+    @Res() res: Response,
+  ): Promise<void> {
+    const user = (req as any).user as AuthUser | undefined;
+    await this.petitionsService.exportWardPetitions(query, req.dataScope, res, user ? {
+      userId: user.id,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    } : undefined);
+  }
+
   // GET /api/v1/petitions/export/duplicates — Xuất danh sách đơn trùng lặp ra Excel
   @Get('export/duplicates')
   @HttpCode(HttpStatus.OK)
