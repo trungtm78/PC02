@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.39.0.0] - 2026-05-24
+
+**CaseFormPage — Fix Data-Loss Tab 2-9 + Xóa Tab 9 Fake Save**
+
+78 trường form từ Tab 2-9 (Vụ việc, Vụ án, TĐC, Thống kê) bị bỏ qua hoàn toàn khi người dùng nhấn "Lưu hồ sơ" — dữ liệu nhập vào silently dropped. Cùng lúc, nút "Lưu thống kê" ở Tab 9 thực ra là fake (setTimeout 800ms + alert, không gọi API nào), khiến người dùng tưởng dữ liệu đã được lưu nhưng thực ra mất hoàn toàn.
+
+### Fixed
+- **[cases] Tab 2-9 data-loss — 78 fields không được serialized vào API payload** — [buildCreateCasePayload.ts](frontend/src/pages/cases/CaseFormPage/buildCreateCasePayload.ts): Thêm tất cả trường Tab 2 (9 fields vụ việc: `incidentCode`, `incidentDate`, `incidentTime`, `incidentLocation`, `incidentDescription`, `incidentType`, `incidentLevel`, `incidentCause`, `incidentMethod`), Tab 3 (10 fields vụ án: `criminalCode`, `criminalDate`, `criminalLocation`, `criminalSecondaryType`, `accusation`, `prosecutionOffice`, `courtName`, `courtHearingDate`, `verdict`, `sentence`), Tab 5 (6 fields TĐC vụ việc: `tdcIncidentCode`, `tdcSource`, `tdcReceiveDate`, `tdcContent`, `tdcResult`, `tdcTransferDate`), Tab 6 (4 fields TĐC vụ án: `tdcCaseCode`, `tdcCaseType`, `tdcProcessingResult`, `tdcClosedDate`), Tab 9 (48 trường `stat_*` thống kê) vào `metadata` JSON. Không cần backend migration — `CreateCaseDto.metadata: Record<string, unknown>` đã nhận any JSON.
+- **[cases] Tab 2-9 không được restore khi mở Edit** — [mergeCaseApiToFormData.ts](frontend/src/pages/cases/CaseFormPage/mergeCaseApiToFormData.ts): Thêm restore mapping `meta.field ?? prev.field` cho cùng 78 fields. `stat_damageAmount` dùng `String()` cast để handle backend trả về number.
+- **[cases] Tab 9 fake save button** — [tabs.tsx](frontend/src/pages/cases/CaseFormPage/tabs.tsx): Xóa `handleSave` (setTimeout 800ms + alert "Đã lưu", không gọi API), thay bằng hint text "Dữ liệu thống kê được lưu cùng khi bấm 'Lưu hồ sơ' bên trên."
+
+### Changed
+- **[cases/tabs.tsx] Dead code cleanup** — Xóa `validate()` function, `validationErrors`/`setValidationErrors` useState, `StatFieldError` component, tất cả usages (12 điểm). Code trở nên unreachable sau khi xóa `handleSave`.
+
+### Added
+- **[test] Tab 2-9 data-loss regression tests** — [buildCreateCasePayload.test.ts](frontend/src/pages/cases/CaseFormPage/__tests__/buildCreateCasePayload.test.ts): 7 tests mới kiểm tra từng tab group + `stat_damageAmount` raw-string asymmetry.
+- **[test] mergeCaseApiToFormData test suite** — [mergeCaseApiToFormData.test.ts](frontend/src/pages/cases/CaseFormPage/__tests__/mergeCaseApiToFormData.test.ts): File test mới (8 tests) kiểm tra restore logic cho Tab 2/3/5/6/9 + fallback to prev + number→string coerce.
+
 ## [0.38.0.0] - 2026-05-24
 
 **UX Refactor — Mask Format Input Số (Currency / Phone / Integer)**
