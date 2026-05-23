@@ -142,6 +142,56 @@ describe('buildCreateCasePayload (hotfix #112 regressions)', () => {
 });
 
 /**
+ * Tab 2-9 data-loss fix — regression tests.
+ * Bug: buildCreateCasePayload only included Tab 1 fields in metadata.
+ * All Tab 2-9 fields were silently dropped on CREATE and never restored on EDIT.
+ */
+describe('Tab 2-9 fields wired into metadata (data-loss fix)', () => {
+  it('Tab 2: incidentCode and incidentDate appear in metadata', () => {
+    const p = buildCreateCasePayload({ ...baseValid, incidentCode: 'VV-001', incidentDate: '2026-05-24' });
+    expect(p.metadata.incidentCode).toBe('VV-001');
+    expect(p.metadata.incidentDate).toBe('2026-05-24');
+  });
+
+  it('Tab 2: empty fields omitted from metadata (falsy → undefined)', () => {
+    const p = buildCreateCasePayload(baseValid);
+    expect(p.metadata.incidentCode).toBeUndefined();
+  });
+
+  it('Tab 3: criminalCode in metadata, criminalType NOT duplicated (already top-level crime)', () => {
+    const p = buildCreateCasePayload({ ...baseValid, criminalCode: 'HS-001', criminalType: 'Trộm cắp' });
+    expect(p.metadata.criminalCode).toBe('HS-001');
+    expect((p.metadata as Record<string, unknown>).criminalType).toBeUndefined();
+    expect(p.crime).toBe('Trộm cắp');
+  });
+
+  it('Tab 5: tdcIncidentCode in metadata', () => {
+    const p = buildCreateCasePayload({ ...baseValid, tdcIncidentCode: 'TDC-001' });
+    expect(p.metadata.tdcIncidentCode).toBe('TDC-001');
+  });
+
+  it('Tab 6: tdcCaseCode in metadata', () => {
+    const p = buildCreateCasePayload({ ...baseValid, tdcCaseCode: 'VA-TDC-001' });
+    expect(p.metadata.tdcCaseCode).toBe('VA-TDC-001');
+  });
+
+  it('Tab 9: stat fields in metadata', () => {
+    const p = buildCreateCasePayload({ ...baseValid, stat_primaryCrime: 'Cướp', stat_victimCount: '3' });
+    expect(p.metadata.stat_primaryCrime).toBe('Cướp');
+    expect(p.metadata.stat_victimCount).toBe('3');
+  });
+
+  it('Tab 9: stat_damageAmount stored as raw string (NOT parsed through parseVND, unlike Tab 1 damageAmount)', () => {
+    // Tab 9 stats are informational strings. CurrencyInput.onValueChange returns unmasked "1000000".
+    // Intentional asymmetry from Tab 1 damageAmount which uses parseVND → number.
+    const p = buildCreateCasePayload({ ...baseValid, stat_damageAmount: '1500000' });
+    expect(typeof p.metadata.stat_damageAmount).toBe('string');
+    expect(p.metadata.stat_damageAmount).toBe('1500000');
+    expect(typeof p.metadata.damageAmount).not.toBe('string'); // Tab 1 is a number
+  });
+});
+
+/**
  * v0.39 Input mask refactor — regression tests.
  * AD-1: form state lưu raw string. AD-1 + AD-2: parse tại boundary submit.
  * damageAmount (currency) → number. *Phone fields → strip space.
