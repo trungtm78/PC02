@@ -79,4 +79,16 @@ describe('CreateCaseDto v0.37.1 caseProvenance validation', () => {
     const errors = await validate(dto);
     expect(errors).toHaveLength(0);
   });
+
+  // v0.37.2 Contract: caseProvenance is now required (compat shim removed)
+  it('rejects missing caseProvenance (Contract phase — required)', async () => {
+    const dto = plainToInstance(CreateCaseDto, {
+      ...baseValid,
+      // missing: caseProvenance
+    });
+    const errors = await validate(dto);
+    const provErr = errors.find((e) => e.property === 'caseProvenance');
+    expect(provErr).toBeDefined();
+    expect(provErr?.constraints).toHaveProperty('isEnum');
+  });
 });

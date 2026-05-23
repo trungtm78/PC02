@@ -312,15 +312,18 @@ enum LoaiDon {
   PHAN_ANH // Phản ánh
 }
 
-// v0.37.1 — Provenance model cho Case creation (BLTTHS Đ.143 partial mapping)
-// Thay thế logic auto-create Petition giả (provenance violation).
-// 5 system-origin values; legalBasisArt143 sẽ thêm ở release sau cho full mapping.
+// v0.37.1 → v0.37.2 — Provenance model cho Case creation (BLTTHS Đ.143)
+// v0.37.2 PROV-002 thêm 2 căn cứ pháp lý riêng (tách khỏi OTHER_LEGAL_SOURCE):
+//   - SELF_SURRENDER: người phạm tội tự thú (Đ.143 điểm d)
+//   - PROSECUTOR_PROPOSAL: kiến nghị khởi tố của VKS (Đ.143 điểm đ)
 enum CaseProvenance {
   FROM_PETITION // Khởi tố từ Đơn thư có sẵn — yêu cầu linkedPetitionId
   FROM_INCIDENT // Khởi tố từ Vụ việc có sẵn — yêu cầu linkedIncidentId
-  DIRECT_DISCOVERY // CQĐT phát hiện trực tiếp (Đ.143 BLTTHS điểm c)
+  DIRECT_DISCOVERY // CQĐT phát hiện trực tiếp (Đ.143 điểm c)
   TRANSFERRED // Chuyển từ cơ quan khác (kèm hồ sơ ngoài hệ thống)
-  OTHER_LEGAL_SOURCE // Nguồn pháp lý khác (kiến nghị khởi tố, tự thú, ...)
+  SELF_SURRENDER // v0.37.2 — Người phạm tội tự thú (Đ.143 điểm d)
+  PROSECUTOR_PROPOSAL // v0.37.2 — Kiến nghị khởi tố của VKS (Đ.143 điểm đ)
+  OTHER_LEGAL_SOURCE // Nguồn pháp lý khác (catch-all cho căn cứ ngoài 6 mục Đ.143)
 
   @@map("case_provenance")
 }
@@ -475,10 +478,10 @@ model Case {
   // (mặc định 168h theo BLTTHS Đ.147). Read-only audit, không enforce.
   editedAfterWindow Boolean @default(false)
 
-  // v0.37.1 — Provenance model thay thế phantom Petition auto-create
-  // Nullable trong Deploy-1 (expand) với DEFAULT OTHER_LEGAL_SOURCE.
-  // Deploy-2 (contract): SET NOT NULL + VALIDATE CHECK constraint.
-  caseProvenance     CaseProvenance? @default(OTHER_LEGAL_SOURCE)
+  // v0.37.1 → v0.37.2 — Provenance model (Deploy-2 Contract: NOT NULL, no default)
+  // BLTTHS Đ.143 source classification — required for every Case.
+  // CHECK constraint enforces source-type↔FK consistency (see migration 20260523000000).
+  caseProvenance     CaseProvenance
   linkedPetitionId   String?
   linkedIncidentId   String?
   sourceDocumentNote String? // Ghi chú nguồn cho DIRECT_DISCOVERY / TRANSFERRED / OTHER_LEGAL_SOURCE

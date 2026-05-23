@@ -69,12 +69,13 @@ export class CreateCaseDto {
   @IsDateString()
   ngayKhoiTo?: string;
 
-  // v0.37.1 — Provenance model fields (BLTTHS Đ.143 mapping)
-  // caseProvenance is technically optional in Deploy-1 (compat shim allows old payload),
-  // but service layer enforces presence except when metadata.petitionType triggers legacy fallback.
-  @IsOptional()
-  @IsEnum(CaseProvenance)
-  caseProvenance?: CaseProvenance;
+  // v0.37.2 — Provenance model (Deploy-2 Contract: REQUIRED)
+  // BLTTHS Đ.143 source classification — required for every Case.
+  // Legacy `metadata.petitionType` payloads now return 400 from @IsEnum validation.
+  @IsEnum(CaseProvenance, {
+    message: 'caseProvenance bắt buộc — chọn FROM_PETITION / FROM_INCIDENT / DIRECT_DISCOVERY / TRANSFERRED / OTHER_LEGAL_SOURCE (BLTTHS Đ.143)',
+  })
+  caseProvenance: CaseProvenance;
 
   // Required when caseProvenance === FROM_PETITION
   @ValidateIf((o) => o.caseProvenance === CaseProvenance.FROM_PETITION)

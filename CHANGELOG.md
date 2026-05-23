@@ -2,6 +2,47 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.37.2.0] - 2026-05-23
+
+Provenance multi-phase deploy Contract phase + BLTTHS Đ.143 enum coverage hoàn chỉnh + cron-friendly drift audit + senderName trigram index.
+
+### Added
+- **[cases] CaseProvenance enum +2 giá trị BLTTHS Đ.143**: `SELF_SURRENDER` (Người phạm tội tự thú, điểm d) + `PROSECUTOR_PROPOSAL` (Kiến nghị khởi tố của VKS, điểm đ). Toàn bộ 5 căn cứ Đ.143 + 2 giá trị system (FROM_PETITION/FROM_INCIDENT/OTHER_LEGAL_SOURCE). Migration `20260523000000_extend_case_provenance_enum` dùng `ALTER TYPE ... ADD VALUE IF NOT EXISTS` (idempotent). FE constants thêm 2 options với helper text pháp lý. Closes PROV-002.
+- **[scripts] `audit-case-provenance.ts --json` cron mode**: trả JSON summary `{ts, q1_metadata_caseType, q2_phantom_petitions, q3_mirror_drift, total_findings}` ra stdout, phù hợp Prometheus/alert pipeline. Lịch chạy gợi ý `0 3 * * 1` (weekly Monday 03:00). Closes PROV-003.
+- **[db] Trigram index trên `petitions.senderName`** — pg_trgm extension + `CREATE INDEX CONCURRENTLY petitions_senderName_trgm_idx ... USING gin (gin_trgm_ops)`. Tăng tốc `/petitions/linkable?search=` cho dataset 50k+ Đơn thư. Migration `20260523000002_petition_sender_trigram` (CONCURRENTLY chạy ngoài transaction wrapper). Closes PROV-005.
+
+### Changed
+- **[BREAKING — internal API] `Case.caseProvenance` NOT NULL** sau Contract migration `20260523000001_contract_case_provenance`:
+  - Backfill mọi Case còn null theo precedence: `linkedPetitionId IS NOT NULL` → FROM_PETITION; `linkedIncidentId IS NOT NULL` → FROM_INCIDENT; else → `OTHER_LEGAL_SOURCE`.
+  - `SET NOT NULL` + `DROP DEFAULT` trên cột.
+  - `VALIDATE CONSTRAINT` cho 2 FK (`cases_linkedPetitionId_fkey`, `cases_linkedIncidentId_fkey`) đã add NOT VALID ở Expand phase.
+  - `ADD CONSTRAINT case_provenance_fk_consistency CHECK (...)` — đảm bảo enum ↔ FK consistent cho toàn bộ 7 enum values.
+  - Schema Prisma: `caseProvenance CaseProvenance` (bỏ `?` + `@default(OTHER_LEGAL_SOURCE)`).
+- **[cases] DTO `caseProvenance` required** — `@IsEnum` không kèm `@IsOptional`. Payload thiếu trả 400 với hint "BLTTHS Đ.143 — chọn FROM_PETITION/FROM_INCIDENT/...". Trước đây Expand phase chấp nhận null và default về OTHER_LEGAL_SOURCE.
+- **[cases.service] Bỏ compat shim chấp nhận legacy `metadata.petitionType`** — payload có `metadata.petitionType` không còn audit-warn + ignore mà reject thẳng với BadRequestException (Contract phase). Tương thích ngược chỉ tồn tại trong soak window v0.37.1.x.
+
+### Removed
+- **[cases.service] Compat shim cho legacy payload** — code `if (dto['metadata']?.petitionType && !dto.caseProvenance) { auditLog.warn; delete; default OTHER_LEGAL_SOURCE; }` bị xoá. Lý do: 24h soak window v0.37.1 đã xác nhận 0 audit-warn entries → safe to strip.
+
+### Migration order
+Migrations chạy theo thứ tự (Prisma sort theo tên thư mục):
+1. `20260523000000_extend_case_provenance_enum` — extend enum **trước** Contract (vì CHECK constraint reference SELF_SURRENDER + PROSECUTOR_PROPOSAL).
+2. `20260523000001_contract_case_provenance` — backfill + NOT NULL + VALIDATE + CHECK.
+3. `20260523000002_petition_sender_trigram` — CONCURRENTLY index (standalone, không nằm trong transaction wrapper).
+
+### Test coverage
+- Backend: 1523 tests pass (replace 1 compat-shim test bằng "rejects legacy payload" test asserting BadRequestException).
+- Frontend: 562 tests pass (update CASE_PROVENANCE_OPTIONS test từ 5 → 7 options, vẫn check FROM_PETITION đứng đầu + OTHER_LEGAL_SOURCE đứng cuối).
+
+### Rollback notes
+Contract migration không reversible bằng `prisma migrate resolve --rolled-back` (đã SET NOT NULL + DROP DEFAULT). Nếu cần rollback:
+1. Manual `ALTER TABLE "Case" ALTER COLUMN "caseProvenance" DROP NOT NULL;`
+2. `ALTER TABLE "Case" ALTER COLUMN "caseProvenance" SET DEFAULT 'OTHER_LEGAL_SOURCE';`
+3. `ALTER TABLE "Case" DROP CONSTRAINT case_provenance_fk_consistency;`
+4. Revert symlink về release v0.37.1.1 + restart pc02-backend.
+
+Enum values mới (`SELF_SURRENDER`, `PROSECUTOR_PROPOSAL`) không thể remove khỏi Postgres enum mà không drop column — nếu rollback xong cần đảm bảo không có row nào reference 2 giá trị này (kiểm bằng `SELECT COUNT(*) FROM "cases" WHERE "caseProvenance" IN ('SELF_SURRENDER', 'PROSECUTOR_PROPOSAL');`).
+
 ## [0.37.1.1] - 2026-05-23
 
 ### Added
