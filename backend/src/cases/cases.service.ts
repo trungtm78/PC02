@@ -649,7 +649,11 @@ export class CasesService {
       throw e;
     }
 
-    // Sync petitionType with linked Petition
+    // v0.37.2.5: Sync petitionType with EXISTING linked Petition only.
+    // Phantom Petition auto-create REMOVED (BLTTHS Đ.143 compliance — provenance
+    // model in v0.37.1 forbids creating Petition records as a side-effect of
+    // Case mutations). If a caller sends metadata.petitionType but no Petition
+    // is linked, the value is silently ignored.
     const updatedMetadata = dto.metadata as Record<string, unknown> | undefined;
     const newPetitionType = updatedMetadata?.petitionType as LoaiDon | undefined;
     if (newPetitionType !== undefined) {
@@ -663,36 +667,8 @@ export class CasesService {
           where: { id: linkedPetition.id },
           data: { petitionType: newPetitionType },
         });
-      } else if (newPetitionType) {
-        // No linked Petition yet — create one
-        const reporter =
-          (updatedMetadata?.reporter as string) || 'Chưa xác định';
-        await this.prisma.$transaction(async (tx) => {
-          const stt = await this.generateStt(tx);
-          await tx.petition.create({
-            data: {
-              stt,
-              receivedDate: new Date(),
-              senderName: reporter,
-              petitionType: newPetitionType,
-              status: PetitionStatus.MOI_TIEP_NHAN,
-              linkedCaseId: id,
-              enteredById: actorId,
-              unit: record.unit,
-            },
-          });
-        });
-
-        await this.audit.log({
-          userId: actorId,
-          action: 'PETITION_AUTO_CREATED',
-          subject: 'Petition',
-          subjectId: id,
-          metadata: { petitionType: newPetitionType, linkedCaseId: id },
-          ipAddress: meta?.ipAddress,
-          userAgent: meta?.userAgent,
-        });
       }
+      // else: silently ignore — no phantom Petition created.
     }
 
     // Ghi nhận riêng khi đổi trạng thái
