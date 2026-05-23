@@ -22,7 +22,10 @@ export interface ResolvedMenuItem {
   path?: string;
   badge?: number | string;
   children?: ResolvedMenuItem[];
+  order: number;
 }
+
+const DEFAULT_ORDER = 100;
 
 export interface ResolvedMenuSection {
   id: SectionId;
@@ -54,6 +57,7 @@ function resolve(entry: FeatureMenuEntry): ResolvedMenuItem {
     path: entry.path,
     badge: entry.badge,
     children: entry.children?.map(resolve),
+    order: entry.order ?? DEFAULT_ORDER,
   };
 }
 
@@ -92,7 +96,9 @@ export function useMenuSections(): ResolvedMenuSection[] {
         id: s.id,
         label: s.label,
         icon: iconFor(s.icon),
-        items: bySection.get(s.id) ?? [],
+        items: (bySection.get(s.id) ?? [])
+          .slice()
+          .sort((a, b) => a.order - b.order),
       }))
       .filter((s) => s.items.length > 0);
   }, [flags, isLoading]);
