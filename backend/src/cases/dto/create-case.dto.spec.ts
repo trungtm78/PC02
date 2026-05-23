@@ -91,4 +91,40 @@ describe('CreateCaseDto v0.37.1 caseProvenance validation', () => {
     expect(provErr).toBeDefined();
     expect(provErr?.constraints).toHaveProperty('isEnum');
   });
+
+  // ─────────────────────────────────────────────────────────────
+  // BUG-001 / BUG-002 / BUG-004 (UAT 2026-05-23 fix):
+  // `name` phải reject empty / whitespace-only và auto-trim leading/trailing space.
+  // ─────────────────────────────────────────────────────────────
+  it('BUG-001: rejects empty name', async () => {
+    const dto = plainToInstance(CreateCaseDto, {
+      name: '',
+      caseProvenance: CaseProvenance.DIRECT_DISCOVERY,
+    });
+    const errors = await validate(dto);
+    const nameErr = errors.find((e) => e.property === 'name');
+    expect(nameErr).toBeDefined();
+    expect(nameErr?.constraints).toHaveProperty('isNotEmpty');
+  });
+
+  it('BUG-002: rejects whitespace-only name (trim → empty)', async () => {
+    const dto = plainToInstance(CreateCaseDto, {
+      name: '      ',
+      caseProvenance: CaseProvenance.DIRECT_DISCOVERY,
+    });
+    const errors = await validate(dto);
+    const nameErr = errors.find((e) => e.property === 'name');
+    expect(nameErr).toBeDefined();
+    expect(nameErr?.constraints).toHaveProperty('isNotEmpty');
+  });
+
+  it('BUG-004: trims leading/trailing whitespace before save', async () => {
+    const dto = plainToInstance(CreateCaseDto, {
+      name: '   Vụ trộm X   ',
+      caseProvenance: CaseProvenance.DIRECT_DISCOVERY,
+    });
+    const errors = await validate(dto);
+    expect(errors.find((e) => e.property === 'name')).toBeUndefined();
+    expect(dto.name).toBe('Vụ trộm X');
+  });
 });

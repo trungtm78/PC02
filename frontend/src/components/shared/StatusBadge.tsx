@@ -7,6 +7,7 @@ interface StatusBadgeProps {
   /** Color key from STATUS_COLORS, or a full className string */
   color: string;
   className?: string;
+  "data-testid"?: string;
 }
 
 interface StatusConfig {
@@ -16,12 +17,20 @@ interface StatusConfig {
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
-export function StatusBadge({ label, color, className = "" }: StatusBadgeProps) {
+export function StatusBadge({
+  label,
+  color,
+  className = "",
+  "data-testid": dataTestId,
+}: StatusBadgeProps) {
   // If color is a known key, use the predefined colors; otherwise treat as raw className
   const colorClasses = STATUS_COLORS[color] || color;
 
   return (
-    <span className={`${STATUS_BADGE_BASE} ${colorClasses} ${className}`}>
+    <span
+      className={`${STATUS_BADGE_BASE} ${colorClasses} ${className}`}
+      data-testid={dataTestId}
+    >
       {label}
     </span>
   );

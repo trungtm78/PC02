@@ -11,12 +11,17 @@ import {
   Min,
   MaxLength,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { CaseStatus, CapDoToiPham, CaseProvenance } from '@prisma/client';
 
 export { CaseStatus, CapDoToiPham, CaseProvenance };
 
 export class CreateCaseDto {
+  // BUG-001/002/004 (UAT 2026-05-23): trim + reject empty/whitespace-only.
+  // Transform chạy trước validator → IsNotEmpty thấy chuỗi đã trim.
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
+  @IsNotEmpty({ message: 'Tên vụ án bắt buộc' })
   @MaxLength(500)
   name: string;
 
