@@ -29,6 +29,7 @@ import {
 import { usePermission } from "@/hooks/usePermission";
 import { AssignModal } from "@/components/AssignModal";
 import { ActionMenuPortal } from "@/components/ActionMenuPortal";
+import { StatusBadge } from "@/components/shared/StatusBadge";
 
 // ─────────────────────────────────────────────────────────
 // API types — khớp với response của GET /api/v1/cases
@@ -701,7 +702,14 @@ function CaseListPage() {
                             </div>
                           </td>
                           <td className="px-4 py-4"><span className="text-sm text-slate-800 line-clamp-2">{caseItem.name}</span></td>
-                          <td className="px-4 py-4 whitespace-nowrap"><span className={`px-2.5 py-1 rounded-full text-xs font-medium ${caseItem.statusColor}`}>{caseItem.status}</span></td>
+                          <td className="px-4 py-4 whitespace-nowrap">
+                            <StatusBadge
+                              label={caseItem.status}
+                              color={caseItem.statusColor}
+                              className="rounded-full px-2.5"
+                              data-testid={`status-badge-${caseItem.id}`}
+                            />
+                          </td>
                           <td className="px-4 py-4"><span className="text-sm text-slate-700 line-clamp-1">{caseItem.charges}</span></td>
                           <td className="px-4 py-4 whitespace-nowrap"><span className="text-sm font-medium text-slate-800">{caseItem.suspectCount}</span></td>
                           <td className="px-4 py-4 whitespace-nowrap">

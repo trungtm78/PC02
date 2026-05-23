@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.37.2.7] - 2026-05-23
+
+**UAT hotfix** — 6 bug phát hiện trong UAT comprehensive Quản lý vụ việc 2026-05-23 (69 TC chạy trên prod, 51 PASS / 6 FAIL / 12 SKIP). Fix nhóm validation backend + A11Y/refactor frontend + sửa UAT spec.
+
+### Fixed
+- **[cases] BUG-001 P0 — `POST /cases` chấp nhận `name=""` (trả 201)** — DTO `name` thiếu `@IsNotEmpty()`. Thêm `@Transform(({value}) => value.trim())` + `@IsNotEmpty({message:'Tên vụ án bắt buộc'})` vào [create-case.dto.ts](backend/src/cases/dto/create-case.dto.ts). Reject empty + whitespace-only + auto-trim leading/trailing space.
+- **[cases] BUG-002 P1 — `name="      "` (whitespace-only) trả 201** — Cùng fix Transform+IsNotEmpty ở trên (Transform chạy trước validator).
+- **[cases] BUG-004 P2 — `name="   X   "` lưu nguyên whitespace** — Auto-trim trong Transform decorator.
+- **[cases][a11y] BUG-005 P2 — Tab keyboard không landing trên element focusable trên `/cases/new`** — Thêm `autoFocus` cho FormSelect "Nguồn vụ án" (field đầu tiên). [tabs.tsx:127](frontend/src/pages/cases/CaseFormPage/tabs.tsx#L127). Cải thiện UX cho user khi bắt đầu tạo vụ án mới.
+- **[cases][a11y] BUG-006 P2 — Status badge thiếu `data-testid` + class không match selector pattern** — Refactor inline `<span>` ở [CaseListPage.tsx:704](frontend/src/pages/cases/CaseListPage.tsx#L704) dùng `<StatusBadge>` component đã có sẵn. Thêm `data-testid={\`status-badge-${id}\`}` để test E2E reliable.
+- **[tests/uat] BUG-003 P1 — TC-039 đọc field `createdAt` không tồn tại** — Schema `CaseStatusHistory` chỉ có `changedAt`. Sửa UAT spec dùng đúng field + đảo order check sang asc (service `orderBy: { changedAt: 'asc' }`).
+
+### Added
+- **[tests/uat] `tests/uat/quan-ly-vu-viec.spec.ts`** — 69 TC chuẩn enterprise theo bộ [uat_quan_ly_vu_viec.xlsx](docs/uat/uat_quan_ly_vu_viec.xlsx) (12 loại: GREEN/RED/BOUNDARY/EP/STATE/DECISION/SECURITY/DATA/PERFORMANCE/A11Y/COMPAT/AUDIT). Mix API direct + UI E2E. Chạy trên prod qua `UAT_PROD=1 npx playwright test`.
+- **[tests] POM + helpers** — `tests/pages/LoginPage.ts`, `tests/pages/CasesPage.ts`, `tests/helpers/api-client.ts`.
+- **[backend] `create-case.dto.spec.ts`** — 3 unit test mới: empty name reject, whitespace-only reject, trim leading/trailing.
+- **[component] FormSelect** — prop `autoFocus?: boolean` forward xuống `<select>` native.
+- **[component] StatusBadge** — prop `data-testid?: string` forward xuống `<span>`.
+- **[config] `playwright.config.ts`** — env var `UAT_PROD=1` switch sang prod (skip webServer, load `tests/.env.test`, json reporter).
+
+### Test coverage
+- Backend Cases: 87 tests pass (4 file: create-case.dto.spec.ts +3, cases.service.spec.ts, cases.controller.spec.ts, update-case.dto.spec.ts).
+- Frontend typecheck: PASS.
+- UAT prod: 51/69 PASS lần 1; sau fix mong đợi ≥57/69.
+
 ## [0.37.2.6] - 2026-05-23
 
 **P1 hotfix** — TAM_DINH_CHI / PHUC_HOI vụ án workflow broken trên prod. Phát hiện trong UAT comprehensive Case management 2026-05-23.

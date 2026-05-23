@@ -127,6 +127,7 @@ export function TabInfo({ formData, setFormData, errors, setErrors, handlerOptio
             <FormSelect
               label="Nguồn vụ án"
               required
+              autoFocus
               value={formData.caseProvenance}
               onChange={(v) => update("caseProvenance", v)}
               options={CASE_PROVENANCE_OPTIONS}

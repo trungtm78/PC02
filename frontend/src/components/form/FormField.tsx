@@ -35,6 +35,7 @@ interface SelectFieldProps extends BaseFieldProps {
   options: { value: string; label: string }[];
   placeholder?: string;
   "data-testid"?: string;
+  autoFocus?: boolean;
 }
 
 interface TextareaFieldProps extends BaseFieldProps {
@@ -129,6 +130,7 @@ export function FormSelect({
   placeholder = "-- Chon --",
   colSpan,
   "data-testid": dataTestId,
+  autoFocus,
 }: SelectFieldProps) {
   const hasIcon = !!icon;
   const selectClass = getSelectClass(!!error, hasIcon);
@@ -139,6 +141,7 @@ export function FormSelect({
       onChange={(e) => onChange(e.target.value)}
       className={selectClass}
       data-testid={dataTestId}
+      autoFocus={autoFocus}
     >
       <option value="">{placeholder}</option>
       {options.map((opt) => (
