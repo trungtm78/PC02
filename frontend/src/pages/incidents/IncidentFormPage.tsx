@@ -639,7 +639,9 @@ export function IncidentFormPage() {
                     "Sẽ tạo vụ án mới liên kết với vụ việc " + (formData.name || id) + ".\n" +
                     "Bạn có thể bổ sung thông tin chi tiết ở bước sau."
                   )) {
-                    navigate(`/cases/new?linkedIncidentId=${id}&caseProvenance=FROM_INCIDENT`);
+                    // HOTFIX (codex P1): include expectedIncidentUpdatedAt cho optimistic lock
+                    const updatedAt = recordUpdatedAt ?? new Date().toISOString();
+                    navigate(`/cases/new?linkedIncidentId=${id}&caseProvenance=FROM_INCIDENT&expectedIncidentUpdatedAt=${encodeURIComponent(updatedAt)}`);
                   }
                 }}
                 className="inline-flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 text-sm font-medium"

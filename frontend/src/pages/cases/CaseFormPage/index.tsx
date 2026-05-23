@@ -101,11 +101,17 @@ function CaseFormPage() {
     if (isEditMode) return;
     const linkedIncidentId = searchParams.get("linkedIncidentId");
     const urlCaseProvenance = searchParams.get("caseProvenance");
+    // HOTFIX (codex P1): hydrate expectedIncidentUpdatedAt từ URL — backend require
+    // khi caseProvenance=FROM_INCIDENT, nếu thiếu sẽ 400 BadRequest.
+    const urlExpectedIncidentUpdatedAt = searchParams.get("expectedIncidentUpdatedAt");
     if (linkedIncidentId && urlCaseProvenance) {
       setFormData((prev) => ({
         ...prev,
         linkedIncidentId,
         caseProvenance: urlCaseProvenance,
+        ...(urlExpectedIncidentUpdatedAt
+          ? { expectedIncidentUpdatedAt: urlExpectedIncidentUpdatedAt }
+          : {}),
       }));
     }
   }, [isEditMode, searchParams]);
@@ -218,9 +224,10 @@ function CaseFormPage() {
       const payload = buildCreateCasePayload(formData, {
         subjects,
         evidences,
-        // mediaFiles: Document IDs (đã upload trước qua flow riêng, lưu trong MediaFile.id)
-        // Nếu MediaFile.id == Document.id thì link OK. Cần verify ở MediaTab modal.
-        documentIds: mediaFiles.map((m) => m.id),
+        // HOTFIX (codex P1): documentIds disabled. MediaFile.id local-only,
+        // file chưa thực sự upload. Truyền fake IDs sẽ throw 400 ở backend.
+        // Future PR: implement actual upload trong handleUploadMedia.
+        // documentIds: mediaFiles.map((m) => m.id),
       });
       if (isEditMode) {
         await api.put(`/cases/${id}`, { ...payload, expectedUpdatedAt: recordUpdatedAt ?? undefined });

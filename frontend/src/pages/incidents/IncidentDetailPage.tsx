@@ -158,9 +158,11 @@ export default function IncidentDetailPage() {
                   "Sẽ tạo vụ án mới liên kết với vụ việc " + (incident.stt ?? incident.id) + ".\n" +
                   "Bạn có thể bổ sung thông tin chi tiết ở bước sau."
                 )) {
-                  // Pre-fill wizard với caseProvenance=FROM_INCIDENT + linkedIncidentId
-                  // CaseFormPage sẽ render LinkedIncidentCard ở tab Vụ việc (PR 2)
-                  navigate(`/cases/new?linkedIncidentId=${incident.id}&caseProvenance=FROM_INCIDENT`);
+                  // HOTFIX (codex P1): include expectedIncidentUpdatedAt cho optimistic
+                  // lock — backend yêu cầu khi caseProvenance=FROM_INCIDENT.
+                  // CaseFormPage URL hydration sẽ set vào form state.
+                  const updatedAt = incident.updatedAt ?? new Date().toISOString();
+                  navigate(`/cases/new?linkedIncidentId=${incident.id}&caseProvenance=FROM_INCIDENT&expectedIncidentUpdatedAt=${encodeURIComponent(updatedAt)}`);
                 }
               }}
               className="flex items-center gap-2 px-3 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 text-sm font-medium"
