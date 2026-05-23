@@ -26,6 +26,16 @@ import { DeadlineRulesService } from '../deadline-rules/deadline-rules.service';
 import { BcaExcelHelper } from '../common/bca-excel.helper';
 import { PETITION_STATUS_LABEL } from '../common/constants/status-labels.constants';
 
+// Vietnamese labels for LoaiDon — Excel display consistency with PETITION_STATUS_LABEL.
+// Mirror frontend LOAI_DON_LABEL exactly (no drift). FE source:
+// frontend/src/shared/enums/status-labels.ts → LOAI_DON_LABEL.
+const LOAI_DON_LABEL_BE: Record<LoaiDon, string> = {
+  [LoaiDon.TO_CAO]: 'Tố cáo',
+  [LoaiDon.KHIEU_NAI]: 'Khiếu nại',
+  [LoaiDon.KIEN_NGHI]: 'Kiến nghị',
+  [LoaiDon.PHAN_ANH]: 'Phản ánh',
+};
+
 @Injectable()
 export class PetitionsService {
   private readonly logger = new Logger(PetitionsService.name);
@@ -162,6 +172,9 @@ export class PetitionsService {
               lastName: true,
               username: true,
             },
+          },
+          assignedTeam: {
+            select: { ward: { select: { name: true } } },
           },
         },
         orderBy: { [orderByField]: sortOrder },
@@ -1053,6 +1066,110 @@ export class PetitionsService {
       await workbook.xlsx.write(res);
     } catch (err) {
       this.logger.error('ExcelJS write failed for petition export', err);
+      if (!res.headersSent) res.status(500).json({ error: 'Export failed' });
+      else res.destroy();
+    }
+  }
+
+  // ─────────────────────────────────────────────
+  // EXPORT WARD PETITIONS (Đơn thư theo phường/xã)
+  // Mirror IncidentsService.exportWardIncidents — BCA-styled XLSX
+  // Endpoint: GET /api/v1/petitions/export/ward
+  // ─────────────────────────────────────────────
+  async exportWardPetitions(
+    query: { unitId?: string; fromDate?: string; toDate?: string },
+    dataScope: DataScope | null | undefined,
+    res: Response,
+    actor?: { userId: string; ipAddress?: string; userAgent?: string },
+  ): Promise<void> {
+    if (actor) {
+      await this.audit.log({
+        userId: actor.userId,
+        action: 'PETITION_EXPORTED',
+        subject: 'Petition',
+        metadata: { format: 'xlsx', kind: 'ward', filters: query },
+        ipAddress: actor.ipAddress,
+        userAgent: actor.userAgent,
+      });
+    }
+
+    const where: Prisma.PetitionWhereInput = { deletedAt: null };
+    if (query.unitId) where.unit = query.unitId;
+    if (query.fromDate || query.toDate) {
+      where.createdAt = {};
+      if (query.fromDate) (where.createdAt as Prisma.DateTimeFilter).gte = new Date(query.fromDate);
+      if (query.toDate) (where.createdAt as Prisma.DateTimeFilter).lte = new Date(query.toDate + 'T23:59:59.999Z');
+    }
+
+    const scopeFilter = buildPetitionScopeFilter(dataScope);
+    if (scopeFilter) {
+      where.AND = [
+        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+        scopeFilter as Prisma.PetitionWhereInput,
+      ];
+    }
+
+    const records = await this.prisma.petition.findMany({
+      where,
+      take: 500,
+      orderBy: { receivedDate: 'desc' },
+      select: {
+        id: true,
+        stt: true,
+        receivedDate: true,
+        senderName: true,
+        summary: true,
+        petitionType: true,
+        status: true,
+        assignedTeam: { select: { ward: { select: { name: true } } } },
+      },
+    });
+
+    const COL_COUNT = 8;
+    const HEADERS = [
+      'STT', 'Số đơn', 'Người gửi', 'Loại đơn', 'Tóm tắt',
+      'Phường/Xã', 'Ngày tiếp nhận', 'Trạng thái',
+    ];
+    const WIDTHS = [6, 18, 22, 16, 40, 18, 16, 22];
+
+    const fromStr = query.fromDate ? new Date(query.fromDate).toLocaleDateString('vi-VN') : '';
+    const toStr = query.toDate ? new Date(query.toDate).toLocaleDateString('vi-VN') : '';
+    const period = fromStr && toStr ? `Từ ngày ${fromStr} đến ngày ${toStr}` : 'Tất cả thời gian';
+
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('Đơn thư theo phường xã');
+
+    BcaExcelHelper.addHeader(sheet, COL_COUNT, 'DANH SÁCH ĐƠN THƯ THEO PHƯỜNG/XÃ', period);
+    const headerRow = sheet.getRow(7);
+    BcaExcelHelper.addColumnHeaders(headerRow, HEADERS, WIDTHS);
+
+    records.forEach((rec, idx) => {
+      const wardName = rec.assignedTeam?.ward?.name ?? '';
+      const dataRow = sheet.addRow([
+        idx + 1,
+        rec.stt ?? '',
+        rec.senderName ?? '',
+        rec.petitionType ? (LOAI_DON_LABEL_BE[rec.petitionType] ?? rec.petitionType) : '',
+        rec.summary ?? '',
+        wardName,
+        rec.receivedDate ? rec.receivedDate.toLocaleDateString('vi-VN') : '',
+        PETITION_STATUS_LABEL[rec.status as PetitionStatus] ?? rec.status ?? '',
+      ]);
+      BcaExcelHelper.styleDataRow(dataRow, idx % 2 === 1, COL_COUNT);
+    });
+
+    const lastDataRow = sheet.lastRow?.number ?? 7;
+    BcaExcelHelper.addFooter(sheet, lastDataRow + 2, COL_COUNT);
+    BcaExcelHelper.setPrintSetup(sheet);
+
+    const filename = `DonThuPhuongXa_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+
+    try {
+      await workbook.xlsx.write(res);
+    } catch (err) {
+      this.logger.error('ExcelJS write failed for ward petition export', err);
       if (!res.headersSent) res.status(500).json({ error: 'Export failed' });
       else res.destroy();
     }
