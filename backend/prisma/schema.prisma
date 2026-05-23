@@ -483,7 +483,9 @@ model Case {
   // CHECK constraint enforces source-type↔FK consistency (see migration 20260523000000).
   caseProvenance     CaseProvenance
   linkedPetitionId   String?
-  linkedIncidentId   String?
+  // PR 2 v0.38.1.0: @unique enforce 1 Incident ↔ 1 Case strict (eng-review D2)
+  // Edge case "1 vụ việc tách 2 vụ án" → clone Incident với mã VV mới.
+  linkedIncidentId   String? @unique
   sourceDocumentNote String? // Ghi chú nguồn cho DIRECT_DISCOVERY / TRANSFERRED / OTHER_LEGAL_SOURCE
 
   // onDelete: Restrict — provenance không erase. App dùng soft delete.
