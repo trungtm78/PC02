@@ -22,6 +22,7 @@ import { TabBar } from "@/components/shared/TabBar";
 import type { TabItem } from "@/components/shared/TabBar";
 import type { TabId, Subject, Evidence, MediaFile, CaseFormData } from "./types";
 import { INITIAL_FORM_DATA } from "./types";
+import { buildCreateCasePayload } from "./buildCreateCasePayload";
 import {
   TabInfo,
   TabIncident,
@@ -217,47 +218,9 @@ function CaseFormPage() {
       return;
     }
     try {
-      const payload = {
-        name:           formData.caseTitle,
-        crime:          formData.criminalType         || null,
-        status:         formData.status               || undefined,
-        deadline:       formData.investigationDeadline || null,
-        unit:           formData.supervisingUnit       || null,
-        assignedTeamId: formData.assignedTeamId       || null,
-        investigatorId: formData.handler               || null,
-        capDoToiPham:   formData.capDoToiPham          || undefined,
-        // metadata chứa toàn bộ fields phụ không có column riêng trong DB
-        metadata: {
-          caseCode:                  formData.caseCode,
-          receiveDate:               formData.receiveDate,
-          receiveTime:               formData.receiveTime,
-          // v0.37.1: caseType removed from metadata payload.
-          caseClassification:        formData.caseClassification,
-          priority:                  formData.priority,
-          description:               formData.description,
-          investigationStartDate:    formData.investigationStartDate,
-          prosecutionOfficeAssigned: formData.prosecutionOfficeAssigned,
-          relatedCaseCode:           formData.relatedCaseCode,
-          damageAmount:              formData.damageAmount,
-          damageDescription:         formData.damageDescription,
-          note:                      formData.note,
-          // v0.37.1: petitionType removed — moved to linked Petition record.
-          reporter:                  formData.reporter,
-          reporterIdNumber:          formData.reporterIdNumber,
-          reporterDateOfBirth:       formData.reporterDateOfBirth,
-          reporterGender:            formData.reporterGender,
-          reporterPhone:             formData.reporterPhone,
-          reporterEmail:             formData.reporterEmail,
-          reporterAddress:           formData.reporterAddress,
-          reporterNationality:       formData.reporterNationality,
-          reporterOccupation:        formData.reporterOccupation,
-          reporterRelationToCase:    formData.reporterRelationToCase,
-          province:                  formData.province,
-          district:                  formData.district,
-          ward:                      formData.ward,
-          specificAddress:           formData.specificAddress,
-        },
-      };
+      // v0.37.2.3: payload helper extracted + tested. Includes top-level
+      // caseProvenance + conditional linkedX/expectedXUpdatedAt/sourceDocumentNote.
+      const payload = buildCreateCasePayload(formData);
       if (isEditMode) {
         await api.put(`/cases/${id}`, { ...payload, expectedUpdatedAt: recordUpdatedAt ?? undefined });
       } else {

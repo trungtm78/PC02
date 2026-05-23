@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.37.2.3] - 2026-05-23
+
+**P0 hotfix** — Cases CREATE đã broken 100% trên production sau v0.37.2.0.
+
+### Fixed
+- **[cases] FE handleSave thiếu `caseProvenance` + 3 field provenance khác trong POST /cases payload** — discovered qua UAT 2026-05-23. v0.37.2.0 Contract phase làm `caseProvenance` thành required (DTO `@IsEnum` không kèm `@IsOptional`) + xoá compat shim. CaseFormPage handleSave (index.tsx:220-260) build payload thủ công nhưng quên thêm 4 field provenance picker đã viết vào formData: `caseProvenance`, `linkedPetitionId`, `linkedIncidentId`, `sourceDocumentNote` + 2 optimistic-lock token (`expectedPetitionUpdatedAt`, `expectedIncidentUpdatedAt`). Hậu quả: 100% submit từ UI prod trả 400 BadRequest "caseProvenance bắt buộc". Validation client-side check `formData.caseProvenance` không phát hiện vì state có giá trị, nhưng payload assembly drop nó. Raw POST với payload đầy đủ → 201 OK (BE đúng, FE sai).
+- Fix: extract pure helper `buildCreateCasePayload(formData)` trong [CaseFormPage/buildCreateCasePayload.ts](frontend/src/pages/cases/CaseFormPage/buildCreateCasePayload.ts) bao gồm top-level `caseProvenance` + conditional FK/lock token theo source type. Mirror BE `@ValidateIf` rules.
+
+### Added
+- **[tests] `buildCreateCasePayload.test.ts`** — 6 vitest cases regression cover: caseProvenance always present, conditional FROM_PETITION/FROM_INCIDENT/DIRECT_DISCOVERY fields, existing fields preserved. TDD red-green-refactor (helper file không tồn tại trước → import error RED → helper viết → GREEN).
+
+### Test coverage
+- Frontend: 569 tests pass (was 563).
+- TypeScript: clean.
+
+### Discovered during
+UAT 3 forms (Đăng ký Vụ án / Vụ việc / Đơn thư) trên prod, 2026-05-23. Vụ việc + Đơn thư UAT PASS. Vụ án FAIL với P0 này.
+
+### Followups (deferred)
+- **Cases form Decision 7A top summary missing** — validation hiện inline only, không có aria-assertive top summary alert (spec yêu cầu). Petitions + Incidents forms có top summary. Defer thành separate UX polish PR.
+- **Petitions a11y gap** — 2 dropdown "Loại đơn thư" + "Mức độ ưu tiên" rendered là `<div>` + `<span>` không có `role="combobox"` + ARIA → WCAG 2.1 AA violation + không keyboard-accessible. Defer thành a11y sprint.
+
 ## [0.37.2.2] - 2026-05-23
 
 Sidebar reorder — menu "Tổng hợp" lên đầu section "Nghiệp vụ chính".
