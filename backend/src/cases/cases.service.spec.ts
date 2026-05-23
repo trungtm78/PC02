@@ -241,7 +241,12 @@ describe('CasesService', () => {
       mockPrisma.case.create.mockResolvedValue(mockCase);
 
       const result = await service.create(
-        { name: 'Vụ án test', crime: 'Tham nhũng', unit: 'Công an Quận 1' },
+        {
+          name: 'Vụ án test',
+          crime: 'Tham nhũng',
+          unit: 'Công an Quận 1',
+          caseProvenance: 'DIRECT_DISCOVERY' as any, // v0.37.2 required
+        },
         'actor-001',
       );
 
@@ -269,7 +274,7 @@ describe('CasesService', () => {
 
       await expect(
         service.create(
-          { name: 'Test', investigatorId: 'invalid-user' },
+          { name: 'Test', investigatorId: 'invalid-user', caseProvenance: 'DIRECT_DISCOVERY' as any },
           'actor-001',
         ),
       ).rejects.toThrow(BadRequestException);
@@ -278,7 +283,7 @@ describe('CasesService', () => {
     it('should set default status to TIEP_NHAN', async () => {
       mockPrisma.case.create.mockResolvedValue(mockCase);
 
-      await service.create({ name: 'Test' }, 'actor-001');
+      await service.create({ name: 'Test', caseProvenance: 'DIRECT_DISCOVERY' as any }, 'actor-001');
 
       expect(mockPrisma.case.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -417,24 +422,21 @@ describe('CasesService', () => {
       );
     });
 
-    it('compat shim: legacy metadata.petitionType without caseProvenance → audit-warn + NO phantom Petition', async () => {
-      mockPrisma.case.create.mockResolvedValue({ ...mockCase, id: 'case-legacy' });
+    // v0.37.2 Contract phase — compat shim removed. Legacy payload now throws 400.
+    it('rejects legacy metadata.petitionType payload without caseProvenance (Contract phase)', async () => {
+      await expect(
+        service.create(
+          // Intentionally omit caseProvenance to simulate legacy payload bypassing DTO validation
+          {
+            ...baseProvenanceDto,
+            metadata: { petitionType: 'Tố cáo', reporter: 'Test' },
+          } as any,
+          'actor-001',
+        ),
+      ).rejects.toThrow(BadRequestException);
 
-      const result = await service.create(
-        {
-          ...baseProvenanceDto,
-          metadata: { petitionType: 'Tố cáo', reporter: 'Test' },
-          // missing: caseProvenance (legacy payload)
-        },
-        'actor-001',
-      );
-
-      expect(result.success).toBe(true);
-      // Compat shim should audit-warn
-      expect(mockAudit.log).toHaveBeenCalledWith(
-        expect.objectContaining({ action: 'LEGACY_PAYLOAD_RECEIVED' }),
-      );
-      // Critically: NO phantom Petition created
+      // No audit log of legacy receipt — DTO validation rejects upstream of service.
+      // (Service-level fallback safety check still throws as defense in depth.)
       expect(mockAudit.log).not.toHaveBeenCalledWith(
         expect.objectContaining({ action: 'PETITION_AUTO_CREATED' }),
       );
@@ -909,6 +911,7 @@ describe('CasesService', () => {
         {
           name: 'Vụ án rất nghiêm trọng',
           capDoToiPham: CapDoToiPham.RAT_NGHIEM_TRONG,
+          caseProvenance: 'DIRECT_DISCOVERY' as any, // v0.37.2 required
         },
         'actor-001',
       );

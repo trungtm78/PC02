@@ -299,31 +299,15 @@ export class CasesService {
     const forcedTeamId = dataScope?.isWardOfficer ? dataScope.wardTeamId : null;
     const effectiveAssignedTeamId = forcedTeamId ?? dto.assignedTeamId;
 
-    const metadata = dto.metadata as Record<string, unknown> | undefined;
-    const legacyPetitionType = metadata?.petitionType as LoaiDon | undefined;
-
-    // ── v0.37.1 Compat shim (Deploy-1 only) ────────────────────────────────
-    // If legacy payload arrives without caseProvenance, audit-warn and default
-    // to OTHER_LEGAL_SOURCE. DO NOT auto-create phantom Petition (provenance violation).
-    let effectiveProvenance = dto.caseProvenance;
-    let scrubbedMetadata = dto.metadata;
-    if (legacyPetitionType && !effectiveProvenance) {
-      await this.audit.log({
-        userId: actorId,
-        action: 'LEGACY_PAYLOAD_RECEIVED',
-        subject: 'Case',
-        metadata: {
-          reason: 'metadata.petitionType received without caseProvenance — legacy payload (v0.37.1 compat shim)',
-          legacyPetitionType,
-        },
-        ipAddress: meta?.ipAddress,
-        userAgent: meta?.userAgent,
-      });
-      // Strip the legacy field; default to OTHER_LEGAL_SOURCE for safety
-      const scrubbed = { ...metadata } as Record<string, unknown>;
-      delete scrubbed.petitionType;
-      scrubbedMetadata = scrubbed;
-      effectiveProvenance = CaseProvenance.OTHER_LEGAL_SOURCE;
+    // v0.37.2 Deploy-2 (Contract) — compat shim removed. caseProvenance now required
+    // by DTO validation + DB NOT NULL constraint. Legacy `metadata.petitionType`
+    // payloads return 400 from DTO @IsEnum validation upstream of this method.
+    const effectiveProvenance = dto.caseProvenance;
+    const scrubbedMetadata = dto.metadata;
+    if (!effectiveProvenance) {
+      throw new BadRequestException(
+        'caseProvenance is required (BLTTHS Đ.143). Pick a value: FROM_PETITION / FROM_INCIDENT / DIRECT_DISCOVERY / TRANSFERRED / OTHER_LEGAL_SOURCE.',
+      );
     }
 
     // Common base case data shared across all branches
@@ -340,7 +324,7 @@ export class CasesService {
       ...(dto.capDoToiPham !== undefined && { capDoToiPham: dto.capDoToiPham }),
       ...(dto.ngayKhoiTo !== undefined && { ngayKhoiTo: new Date(dto.ngayKhoiTo) }),
       ...(scrubbedMetadata !== undefined && { metadata: scrubbedMetadata as JsonInput }),
-      ...(effectiveProvenance !== undefined && { caseProvenance: effectiveProvenance }),
+      caseProvenance: effectiveProvenance, // v0.37.2: required (Contract phase enforces non-null)
       ...(dto.sourceDocumentNote !== undefined && { sourceDocumentNote: dto.sourceDocumentNote }),
     };
 

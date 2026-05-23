@@ -303,6 +303,7 @@ async function main() {
           name: def.name, crime: def.crime, status: def.status,
           unit: def.unit, investigatorId: def.investigatorId,
           deadline: def.deadline, subjectsCount: def.subjectsCount ?? 0,
+          caseProvenance: 'DIRECT_DISCOVERY',
         },
       });
       createdCases.push({ id: c.id, name: c.name });

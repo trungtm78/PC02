@@ -621,6 +621,8 @@ async function main() {
         deadline: def.deadline,
         subjectsCount: 0,
         metadata: def.metadata,
+        // v0.37.2: caseProvenance required (Contract phase). Dev seeds use a sensible default.
+        caseProvenance: def.caseProvenance ?? 'DIRECT_DISCOVERY',
       },
     });
     createdCount++;

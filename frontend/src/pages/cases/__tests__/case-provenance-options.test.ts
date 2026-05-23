@@ -1,11 +1,12 @@
 /**
  * v0.37.1 — CASE_PROVENANCE_OPTIONS test
+ * v0.37.2 — Expanded to 7 options (+ SELF_SURRENDER, PROSECUTOR_PROPOSAL per BLTTHS Đ.143 điểm d, đ)
  *
- * Plan v2.4 Decision 1A: Card riêng "Nguồn vụ án (BLTTHS Đ.143)" có dropdown 5
+ * Plan v2.4 Decision 1A: Card riêng "Nguồn vụ án (BLTTHS Đ.143)" có dropdown
  * options. Mỗi option có label Vietnamese + helper text giải thích pháp lý.
  *
  * This test enforces:
- *   1. All 5 CaseProvenance enum values are present in options
+ *   1. All 7 CaseProvenance enum values are present in options
  *   2. Each option has non-empty Vietnamese label
  *   3. Each option has helperText referencing legal basis
  *   4. Order: FROM_PETITION first (most common per BLTTHS Đ.143 nghiệp vụ)
@@ -16,19 +17,21 @@ import { CASE_PROVENANCE_OPTIONS } from '../CaseFormPage/constants';
 import { CaseProvenance } from '@/shared/enums/generated';
 
 describe('CASE_PROVENANCE_OPTIONS (v0.37.1 Nguồn vụ án dropdown)', () => {
-  it('contains all 5 CaseProvenance enum values', () => {
+  it('contains all 7 CaseProvenance enum values', () => {
     const values = CASE_PROVENANCE_OPTIONS.map((o) => o.value);
     expect(values).toContain(CaseProvenance.FROM_PETITION);
     expect(values).toContain(CaseProvenance.FROM_INCIDENT);
     expect(values).toContain(CaseProvenance.DIRECT_DISCOVERY);
     expect(values).toContain(CaseProvenance.TRANSFERRED);
+    expect(values).toContain(CaseProvenance.SELF_SURRENDER);
+    expect(values).toContain(CaseProvenance.PROSECUTOR_PROPOSAL);
     expect(values).toContain(CaseProvenance.OTHER_LEGAL_SOURCE);
   });
 
-  it('has exactly 5 options (no extras, no duplicates)', () => {
-    expect(CASE_PROVENANCE_OPTIONS).toHaveLength(5);
+  it('has exactly 7 options (no extras, no duplicates)', () => {
+    expect(CASE_PROVENANCE_OPTIONS).toHaveLength(7);
     const uniqueValues = new Set(CASE_PROVENANCE_OPTIONS.map((o) => o.value));
-    expect(uniqueValues.size).toBe(5);
+    expect(uniqueValues.size).toBe(7);
   });
 
   it('every option has non-empty Vietnamese label', () => {

@@ -271,6 +271,8 @@ export const CaseProvenance = {
   FROM_INCIDENT: 'FROM_INCIDENT',
   DIRECT_DISCOVERY: 'DIRECT_DISCOVERY',
   TRANSFERRED: 'TRANSFERRED',
+  SELF_SURRENDER: 'SELF_SURRENDER',
+  PROSECUTOR_PROPOSAL: 'PROSECUTOR_PROPOSAL',
   OTHER_LEGAL_SOURCE: 'OTHER_LEGAL_SOURCE',
 } as const;
 export type CaseProvenance = (typeof CaseProvenance)[keyof typeof CaseProvenance];

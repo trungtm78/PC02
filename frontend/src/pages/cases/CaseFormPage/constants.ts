@@ -30,12 +30,22 @@ export const CASE_PROVENANCE_OPTIONS: CaseProvenanceOption[] = [
   {
     value: CaseProvenance.TRANSFERRED,
     label: 'Chuyển từ cơ quan khác',
-    helperText: 'Vụ án chuyển từ cơ quan khác (CQĐT cấp trên, VKS, Tòa án, ...) kèm theo hồ sơ. Ghi chú số văn bản chuyển trong "Ghi chú nguồn".',
+    helperText: 'Vụ án chuyển từ cơ quan khác (CQĐT cấp trên, Tòa án, ...) kèm theo hồ sơ. Ghi chú số văn bản chuyển trong "Ghi chú nguồn".',
+  },
+  {
+    value: CaseProvenance.SELF_SURRENDER,
+    label: 'Người phạm tội tự thú',
+    helperText: 'Người phạm tội tự thú trước CQĐT. BLTTHS Đ.143 điểm d. Ghi rõ thông tin người tự thú và biên bản tiếp nhận trong "Ghi chú nguồn".',
+  },
+  {
+    value: CaseProvenance.PROSECUTOR_PROPOSAL,
+    label: 'Kiến nghị khởi tố của VKS',
+    helperText: 'Viện Kiểm sát kiến nghị khởi tố. BLTTHS Đ.143 điểm đ. Ghi rõ số văn bản kiến nghị trong "Ghi chú nguồn".',
   },
   {
     value: CaseProvenance.OTHER_LEGAL_SOURCE,
     label: 'Nguồn pháp lý khác',
-    helperText: 'Kiến nghị khởi tố của VKS, người phạm tội tự thú, hoặc nguồn pháp lý hợp pháp khác. Ghi rõ căn cứ trong "Ghi chú nguồn".',
+    helperText: 'Căn cứ pháp lý hợp pháp khác (báo chí, tin báo của công dân ngoài đơn thư, ...). Ghi rõ căn cứ trong "Ghi chú nguồn".',
   },
 ];
 

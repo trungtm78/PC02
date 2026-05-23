@@ -168,6 +168,7 @@ async function main() {
         unit: 'Công an Quận 1',
         deadline: new Date('2026-06-01'),
         investigatorId: adminUser.id,
+        caseProvenance: 'DIRECT_DISCOVERY', // v0.37.2: required
       },
     }).catch((e) => { console.warn('Case create skipped:', e.message); return null; });
   }
