@@ -2,33 +2,6 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.37.4.0] - 2026-05-24
-
-**Đồng bộ màn hình Đơn thư theo phường/xã** — `WardPetitionsPage` rewrite ngang bằng `WardCasesPage` / `WardIncidentsPage`: 4 KPI cards, advanced filter panel (date range + loại đơn + trạng thái), sticky action column, badges có màu, export Excel. Backend mới `GET /api/v1/petitions/export/ward`. Điều tra viên giờ thấy 3 màn hình thống kê theo phường/xã đồng bộ visual + chức năng.
-
-### Added
-- **[petitions] WardPetitionsPage rewrite** — full rewrite 172 → ~430 LOC, mirror cấu trúc Cases/Incidents: 4 KPI cards (Tổng / Chờ xử lý / Đang xử lý / Đã giải quyết) map theo `PetitionStatus` phase, filter panel 4 ô (fromDate, toDate, loại đơn, trạng thái), sticky action column, status + priority badges có màu, empty + loading states, reset filters. [frontend/src/pages/petitions/WardPetitionsPage.tsx](frontend/src/pages/petitions/WardPetitionsPage.tsx).
-- **[petitions] GET /api/v1/petitions/export/ward** — mirror `/cases/export/ward` + `/incidents/export/ward` pattern. BCA-styled XLSX 8 cột (STT, Số đơn, Người gửi, Loại đơn, Tóm tắt, Phường/Xã, Ngày tiếp nhận, Trạng thái). DataScope enforced, audit log `PETITION_EXPORTED` với `kind=ward`, throttle 5/60s, permission `read Petition`. [backend/src/petitions/petitions.controller.ts](backend/src/petitions/petitions.controller.ts), [backend/src/petitions/petitions.service.ts](backend/src/petitions/petitions.service.ts).
-- **[petitions] LOAI_DON_LABEL_BE** — backend map cho `LoaiDon` enum → Vietnamese label. Excel xuất "Tố cáo" thay vì raw enum "TO_CAO" (consistency với cột Trạng thái dùng `PETITION_STATUS_LABEL`).
-- **[petitions] getList select assignedTeam.ward.name** — `petitions.service.getList` thêm `ward.name` vào Prisma select để FE hiển thị cột Phường/Xã không cần extra query.
-
-### Test coverage
-- Backend +12 tests: B0 (getList ward.name select), B1-B7 + B5b + B6b (`exportWardPetitions` — headers, unitId filter, date filter, scope filter, BCA columns, label mapping, audit log, 500 fallback), C1-C2 (controller delegation + permission decorator).
-- Frontend +17 tests: F1-F5 KPI counts theo phase, F6-F9 filters (toggle/date/petitionType/status), F10 export trigger, F11-F12 status + priority badges, F13 reset, F14-F15 empty/loading states, F16 row navigation, F17 ward column. File mới: [frontend/src/pages/petitions/__tests__/WardPetitionsPage.test.tsx](frontend/src/pages/petitions/__tests__/WardPetitionsPage.test.tsx).
-- Backend full suite: **1570 PASS / 0 FAIL**.
-- Frontend full suite: **642 PASS / 0 FAIL**.
-- TypeScript `tsc --noEmit` (cả backend + frontend): 0 errors.
-
-### Plan + Review
-- Plan: [~/.claude/plans/m-n-h-nh-n-th-goofy-pixel.md](~/.claude/plans/m-n-h-nh-n-th-goofy-pixel.md).
-- TDD discipline: mỗi behavior 1 cycle Red → Verify-Red → Green → Verify-Green.
-- /review auto-fix 1 inconsistency: `LOAI_DON_LABEL_BE` map cho Excel cột Loại đơn.
-
-### Known follow-ups (out of scope)
-- `Petition.priority` là `String?` tự do — UI badge chỉ match đúng 3 string ('Cao'/'Trung bình'/'Thấp'). Cân nhắc normalize FE hoặc migrate sang enum trong PR riêng.
-- `DA_LUU_DON` status không thuộc 3 KPI bucket nào — nếu data có status này thì sum 3 KPI < Tổng.
-- Search bar chưa diacritic-aware ("nguyen" không match "Nguyễn") — same pattern Cases/Incidents, defer cho PR cải thiện cả 3 trang.
-
 ## [0.37.3.0] - 2026-05-23
 
 **UAT Round 1 fix** — fix 4 backend bug từ UAT comprehensive v2 (781 TC chạy thực trên prod 171.244.40.245, 263 PASS / 518 FAIL / 0 SKIP). 92% failures là test infrastructure (rate limit + placeholder ID). 4 backend bugs real được verify qua 3 Explore agents + plan-eng-review.
