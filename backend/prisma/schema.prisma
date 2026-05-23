@@ -730,7 +730,13 @@ model Incident {
   benVu             String? // Người tố giác/báo tin (Đ.144 BLTTHS)
   donViGiaiQuyet    String? // Đơn vị thụ lý (Đ.145 BLTTHS)
   ngayDeXuat        DateTime? // Ngày tiếp nhận nguồn tin (Đ.146 BLTTHS)
-  ketQuaXuLy        String? // Kết quả giải quyết nguồn tin
+  ketQuaXuLy        String? // Kết quả giải quyết nguồn tin (free-form text, mô tả chi tiết)
+  // PR 5 v0.38.4.0: loại kết quả chuẩn hóa cho reporting + entry path 3 detection
+  // Wireframe 5 — anh confirm trong session twinkly-crescent
+  loaiKetQua        String? // KHOI_TO | KHONG_KHOI_TO | TAM_DINH_CHI | CHUYEN_HO_SO | DINH_CHI | KHAC
+  // PR 5: Căn cứ khởi tố vụ án (Đ.143 BLTTHS) — optional, code khớp CaseProvenance enum
+  // Khi convert Incident → Case, value transfer sang Case.caseProvenance
+  canCuKhoiToCode   String? // ref Directory(type=CAN_CU_KHOI_TO, code) — em đã seed 7 entries
   tinhTrangHoSo     String? // Tình trạng hồ sơ
   tinhTrangThoiHieu String? // Tình trạng thời hiệu truy cứu TNHS
   nguoiQuyetDinh    String? // Người ra quyết định (Thủ trưởng/Phó TT CQĐT)
