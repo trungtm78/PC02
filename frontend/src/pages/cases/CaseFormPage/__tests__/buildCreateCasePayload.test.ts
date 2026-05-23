@@ -80,3 +80,63 @@ describe('buildCreateCasePayload (v0.37.2.3 UAT P0 fix)', () => {
     expect(payload.metadata?.caseCode).toBe('HS-2026-001');
   });
 });
+
+/**
+ * Hotfix #112 regression tests — TDD red-green-restore verified.
+ *
+ * Codex post-merge /review + /verification-before-completion phát hiện 3 P1
+ * bugs trong PR #102-#110: LAWYER mapping, crimeId default '', MediaFile
+ * fake IDs as documentIds. Em fix trong #112 nhưng KHÔNG write regression
+ * tests. Plan twinkly-crescent TDD audit Phase 1 add 3 tests below + URL
+ * hydration test in separate file.
+ */
+describe('buildCreateCasePayload (hotfix #112 regressions)', () => {
+  const subjectBase = {
+    id: 's1',
+    name: 'Nguyễn Văn A',
+    idNumber: '0123456789',
+    dateOfBirth: '1980-01-01',
+    address: '123 Đường ABC, Q.1',
+    phone: '0901234567',
+    gender: 'Nam',
+    nationality: 'Việt Nam',
+    occupation: '',
+  } as const;
+
+  it('filters out Luật sư subjects (LAWYER không có trong Prisma SubjectType enum)', () => {
+    const payload = buildCreateCasePayload(baseValid, {
+      subjects: [
+        { ...subjectBase, id: 's1', type: 'Bị can', name: 'Bị can A', crimeId: 'crime-1' } as never,
+        { ...subjectBase, id: 's2', type: 'Luật sư', name: 'Luật sư B', crimeId: 'crime-1' } as never,
+        { ...subjectBase, id: 's3', type: 'Bị hại', name: 'Bị hại C', crimeId: 'crime-1' } as never,
+      ],
+    });
+    // Luật sư phải bị filter out — Prisma SubjectType chỉ có SUSPECT/VICTIM/WITNESS
+    expect(payload.subjects).toHaveLength(2);
+    expect(payload.subjects?.map((s) => s.fullName)).toEqual(['Bị can A', 'Bị hại C']);
+    expect(payload.subjects?.find((s) => s.fullName === 'Luật sư B')).toBeUndefined();
+  });
+
+  it('skips subjects without crimeId (backend @IsNotEmpty rejects empty string)', () => {
+    const payload = buildCreateCasePayload(baseValid, {
+      subjects: [
+        { ...subjectBase, id: 's1', type: 'Bị can', name: 'Có crimeId', crimeId: 'crime-1' } as never,
+        { ...subjectBase, id: 's2', type: 'Bị can', name: 'Không có crimeId' } as never,
+        { ...subjectBase, id: 's3', type: 'Bị can', name: 'crimeId empty', crimeId: '' } as never,
+      ],
+    });
+    // Chỉ subject có crimeId non-empty được pass to backend
+    expect(payload.subjects).toHaveLength(1);
+    expect(payload.subjects?.[0].fullName).toBe('Có crimeId');
+  });
+
+  it('does NOT include documentIds even when options.documentIds present (MediaFile upload disabled)', () => {
+    // Hotfix #112: handleUploadMedia tạo local "MF-${Date.now()}" IDs, file
+    // chưa upload thực sự. Pass fake IDs to backend → throw 400 → rollback.
+    // documentIds wire phải disabled cho đến khi implement actual upload.
+    const payload = buildCreateCasePayload(baseValid, {
+      documentIds: ['MF-1700000000', 'MF-1700000001'],
+    });
+    expect(payload.documentIds).toBeUndefined();
+  });
+});

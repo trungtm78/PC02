@@ -129,6 +129,7 @@ export function buildCreateCasePayload(
   // HOTFIX (codex P1 post-merge): chỉ include subjects với crimeId hợp lệ +
   // skip "Luật sư" (LAWYER không tồn tại trong Prisma SubjectType enum).
   // Lawyers nên submit qua separate Lawyer model API trong future PR.
+  // Regression tested: buildCreateCasePayload.test.ts hotfix #112 describe block.
   if (options?.subjects && options.subjects.length > 0) {
     const validSubjects = options.subjects
       .filter((s) => s.type !== 'Luật sư') // LAWYER không có trong SubjectType
@@ -174,7 +175,7 @@ export function buildCreateCasePayload(
   // HOTFIX: documentIds disabled — MediaFile.id local-only ("MF-${Date.now()}"),
   // file chưa được upload to backend. Linking fake IDs sẽ throw 400.
   // Future PR cần: 1) actual upload trên handleUploadMedia, 2) lưu real Document.id
-  // vào MediaFile state. Tạm thời SKIP để wizard không bị 400.
+  // vào MediaFile state. Regression tested: buildCreateCasePayload.test.ts.
   // if (options?.documentIds && options.documentIds.length > 0) {
   //   payload.documentIds = options.documentIds;
   // }
@@ -183,8 +184,9 @@ export function buildCreateCasePayload(
 }
 
 // Map frontend Subject.type ("Bị can"/"Bị hại"/...) → Prisma SubjectType enum
-// HOTFIX: LAWYER removed — Prisma SubjectType chỉ có SUSPECT/VICTIM/WITNESS.
+// HOTFIX #112: LAWYER removed — Prisma SubjectType chỉ có SUSPECT/VICTIM/WITNESS.
 // Lawyers filtered out trước khi mapping ở caller.
+// Regression tested: buildCreateCasePayload.test.ts hotfix #112 describe block.
 function subjectTypeToEnum(uiType: string): string {
   switch (uiType) {
     case 'Bị can':

@@ -22,6 +22,7 @@ import type { TabItem } from "@/components/shared/TabBar";
 import type { TabId, Subject, Evidence, MediaFile, CaseFormData } from "./types";
 import { INITIAL_FORM_DATA } from "./types";
 import { buildCreateCasePayload } from "./buildCreateCasePayload";
+import { hydrateFormFromUrl } from "./hydrateFormFromUrl"; // PR 3 + hotfix #112
 import { PreSaveSummaryModal } from "./PreSaveSummaryModal"; // PR 3 v0.38.2.0
 import { mergeCaseApiToFormData } from "./mergeCaseApiToFormData";
 import {
@@ -94,25 +95,15 @@ function CaseFormPage() {
     }
   }, [isEditMode]);
 
-  // PR 3 v0.38.2.0 — URL param hydration cho entry path 2 (button "Khởi tố thành vụ án"
-  // từ IncidentDetailPage navigate /cases/new?linkedIncidentId=X&caseProvenance=FROM_INCIDENT).
-  // CaseFormPage tự pre-fill state, tab Vụ việc sẽ render LinkedIncidentCard (PR 2).
+  // PR 3 v0.38.2.0 + Hotfix #112 — URL param hydration extracted to testable helper.
+  // Entry path 2/3: button "Khởi tố thành vụ án" navigate với linkedIncidentId +
+  // caseProvenance + expectedIncidentUpdatedAt. Helper hydrate vào formData.
+  // Tested: urlHydration.test.ts (TDD red-green-restore verified).
   useEffect(() => {
     if (isEditMode) return;
-    const linkedIncidentId = searchParams.get("linkedIncidentId");
-    const urlCaseProvenance = searchParams.get("caseProvenance");
-    // HOTFIX (codex P1): hydrate expectedIncidentUpdatedAt từ URL — backend require
-    // khi caseProvenance=FROM_INCIDENT, nếu thiếu sẽ 400 BadRequest.
-    const urlExpectedIncidentUpdatedAt = searchParams.get("expectedIncidentUpdatedAt");
-    if (linkedIncidentId && urlCaseProvenance) {
-      setFormData((prev) => ({
-        ...prev,
-        linkedIncidentId,
-        caseProvenance: urlCaseProvenance,
-        ...(urlExpectedIncidentUpdatedAt
-          ? { expectedIncidentUpdatedAt: urlExpectedIncidentUpdatedAt }
-          : {}),
-      }));
+    const updates = hydrateFormFromUrl(searchParams);
+    if (Object.keys(updates).length > 0) {
+      setFormData((prev) => ({ ...prev, ...updates }));
     }
   }, [isEditMode, searchParams]);
 
