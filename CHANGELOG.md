@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.37.2.1] - 2026-05-23
+
+Hotfix khôi phục menu "Tổng hợp" trên sidebar production.
+
+### Fixed
+- **[menu] Sidebar production thiếu menu "Tổng hợp"** — v0.37.1 PR-MENU-TONGHOP add frontend `features/comprehensive/` đầy đủ (manifest + menu.ts + routes.tsx) nhưng quên backend `feature.manifest.ts`. Hệ quả: `FEATURE_REGISTRY` chỉ có 32 entries, `seedFeatureFlags()` không bao giờ insert row `comprehensive` vào DB `feature_flags`, frontend hook `useMenuSections` filter `if (!flag || !flag.enabled) continue;` ẩn 2 menu items ("Danh sách tổng hợp" + "Hồ sơ mới tiếp nhận"). Fix: add `backend/src/comprehensive/feature.manifest.ts` + wire vào FEATURE_REGISTRY (33 entries). Spec test `feature-registry.spec.ts` auto-count disk vs registry → catch tự động.
+- **Post-deploy step**: chạy `npm run db:seed:features` 1 lần để upsert row `comprehensive` vào prod DB (seed idempotent — operator toggles của các flag khác được preserve).
+
+### Added
+- **[feature-flags] Regression test** `feature-registry.spec.ts` asserting `getManifest('comprehensive')` returns manifest với label 'Tổng hợp' + domain 'case-domain'. TDD red-green-refactor — failing test (RED) tạo ra trước fix.
+
 ## [0.37.2.0] - 2026-05-23
 
 Provenance multi-phase deploy Contract phase + BLTTHS Đ.143 enum coverage hoàn chỉnh + cron-friendly drift audit + senderName trigram index.
