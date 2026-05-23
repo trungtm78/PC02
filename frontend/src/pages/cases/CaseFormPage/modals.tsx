@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { FormModal } from "@/components/shared";
-import { FormInput, FormSelect, FormTextarea } from "@/components/form";
+import { FormInput, FormSelect, FormTextarea, FormPhone, FormInteger } from "@/components/form";
 import { FKSelect } from "@/components/FKSelect";
 import type { Subject, Evidence } from "./types";
 import { SUBJECT_TYPE_OPTIONS, EVIDENCE_STATUS_OPTIONS } from "./constants";
@@ -119,12 +119,11 @@ export function SubjectModal({ subject, onClose, onSave }: SubjectModalProps) {
         placeholder="Địa chỉ đầy đủ"
       />
       <div className="grid grid-cols-2 gap-4">
-        <FormInput
+        <FormPhone
           label="Số điện thoại"
-          type="tel"
           value={formData.phone}
           onChange={(v) => update("phone", v)}
-          placeholder="09xxxxxxxx"
+          placeholder="09xx xxx xxx"
         />
         <FormSelect
           label="Tiền án tiền sự"
@@ -243,12 +242,11 @@ export function EvidenceModal({ evidence, onClose, onSave }: EvidenceModalProps)
         rows={3}
       />
       <div className="grid grid-cols-3 gap-4">
-        <FormInput
+        <FormInteger
           label="Số lượng"
-          type="number"
           required
-          value={formData.quantity}
-          onChange={(v) => update("quantity", Number(v))}
+          value={String(formData.quantity ?? "")}
+          onChange={(v) => update("quantity", v === "" ? 1 : Number(v))}
           error={errors.quantity}
           min={1}
         />

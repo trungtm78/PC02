@@ -30,7 +30,9 @@ import { api } from "@/lib/api";
 import { extractApiError } from "@/lib/api-errors";
 import { today } from "@/lib/dates";
 import { useShortcut } from "@/hooks/useShortcut";
-import { FormInput, FormSelect, FormTextarea } from "@/components/form";
+import { FormInput, FormSelect, FormTextarea, FormCurrency, FormPhone, FormInteger } from "@/components/form";
+import { CurrencyInput } from "@/components/inputs/CurrencyInput";
+import { IntegerInput } from "@/components/inputs/IntegerInput";
 import { Card, CardHeader, EmptyState, DataTable, ActionButtons, StatusBadge } from "@/components/shared";
 import type { ColumnDef } from "@/components/shared";
 import { FKSelect } from "@/components/FKSelect";
@@ -272,13 +274,12 @@ export function TabInfo({ formData, setFormData, errors, setErrors, handlerOptio
             rows={4}
           />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FormInput
+            <FormCurrency
               label="Thiệt hại ước tính (VNĐ)"
               icon={<DollarSign className="w-4 h-4" />}
               value={formData.damageAmount}
               onChange={(v) => update("damageAmount", v)}
               placeholder="0"
-              type="text"
             />
             <FormTextarea
               label="Mô tả thiệt hại"
@@ -372,13 +373,12 @@ export function TabInfo({ formData, setFormData, errors, setErrors, handlerOptio
             ]}
             placeholder="-- Chọn giới tính --"
           />
-          <FormInput
+          <FormPhone
             label="Số điện thoại"
-            type="tel"
             icon={<Phone className="w-4 h-4" />}
             value={formData.reporterPhone}
             onChange={(v) => update("reporterPhone", v)}
-            placeholder="09xxxxxxxx"
+            placeholder="09xx xxx xxx"
           />
           <FormInput
             label="Email"
@@ -1403,25 +1403,25 @@ export function TabStatistics({ formData, setFormData }: TabProps) {
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Thiệt hại (VNĐ)</label>
-            <input value={formData.stat_damageAmount} onChange={(e) => update("stat_damageAmount", e.target.value)} placeholder="0" className={inp(errInp("stat_damageAmount"))} data-testid="stat-damageAmount" />
+            <CurrencyInput value={formData.stat_damageAmount} onValueChange={(v) => update("stat_damageAmount", v)} placeholder="0 ₫" className={inp(errInp("stat_damageAmount"))} data-testid="stat-damageAmount" />
             <StatFieldError field="stat_damageAmount" errors={validationErrors} />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Đã thu hồi (VNĐ)</label>
-            <input value={formData.stat_recoveredAmount} onChange={(e) => update("stat_recoveredAmount", e.target.value)} placeholder="0" className={inp()} />
+            <CurrencyInput value={formData.stat_recoveredAmount} onValueChange={(v) => update("stat_recoveredAmount", v)} placeholder="0 ₫" className={inp()} />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Số bị hại</label>
-            <input value={formData.stat_victimCount} onChange={(e) => update("stat_victimCount", e.target.value)} placeholder="0" className={inp(errInp("stat_victimCount"))} data-testid="stat-victimCount" />
+            <IntegerInput value={formData.stat_victimCount} onValueChange={(v) => update("stat_victimCount", v)} placeholder="0" className={inp(errInp("stat_victimCount"))} data-testid="stat-victimCount" />
             <StatFieldError field="stat_victimCount" errors={validationErrors} />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Số người chết</label>
-            <input value={formData.stat_deathCount} onChange={(e) => update("stat_deathCount", e.target.value)} placeholder="0" className={inp()} />
+            <IntegerInput value={formData.stat_deathCount} onValueChange={(v) => update("stat_deathCount", v)} placeholder="0" className={inp()} />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Số người bị thương</label>
-            <input value={formData.stat_injuryCount} onChange={(e) => update("stat_injuryCount", e.target.value)} placeholder="0" className={inp()} />
+            <IntegerInput value={formData.stat_injuryCount} onValueChange={(v) => update("stat_injuryCount", v)} placeholder="0" className={inp()} />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Thiệt hại tài sản</label>
@@ -1450,13 +1450,13 @@ export function TabStatistics({ formData, setFormData }: TabProps) {
         </h4>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {[
-            { field: "stat_suspectCount", label: "Số đối tượng", type: "text", placeholder: "0" },
-            { field: "stat_suspectArrested", label: "Đã bắt giữ", type: "text", placeholder: "0" },
-            { field: "stat_suspectDetained", label: "Đã tạm giam", type: "text", placeholder: "0" },
+            { field: "stat_suspectCount", label: "Số đối tượng", placeholder: "0" },
+            { field: "stat_suspectArrested", label: "Đã bắt giữ", placeholder: "0" },
+            { field: "stat_suspectDetained", label: "Đã tạm giam", placeholder: "0" },
           ].map(({ field, label, placeholder }) => (
             <div key={field}>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">{label}</label>
-              <input value={(formData as unknown as Record<string, string>)[field]} onChange={(e) => update(field as keyof typeof formData, e.target.value)} placeholder={placeholder} className={inp()} />
+              <IntegerInput value={(formData as unknown as Record<string, string>)[field]} onValueChange={(v) => update(field as keyof typeof formData, v)} placeholder={placeholder} className={inp()} />
             </div>
           ))}
           <div>
@@ -1542,15 +1542,15 @@ export function TabStatistics({ formData, setFormData }: TabProps) {
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Số ngày xử lý</label>
-            <input value={formData.stat_processingDays} onChange={(e) => update("stat_processingDays", e.target.value)} placeholder="0" className={inp()} />
+            <IntegerInput value={formData.stat_processingDays} onValueChange={(v) => update("stat_processingDays", v)} placeholder="0" className={inp()} />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Chứng cứ thu thập</label>
-            <input value={formData.stat_evidenceCollected} onChange={(e) => update("stat_evidenceCollected", e.target.value)} placeholder="Số lượng" className={inp()} />
+            <IntegerInput value={formData.stat_evidenceCollected} onValueChange={(v) => update("stat_evidenceCollected", v)} placeholder="Số lượng" className={inp()} />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Số nhân chứng</label>
-            <input value={formData.stat_witnessCount} onChange={(e) => update("stat_witnessCount", e.target.value)} placeholder="0" className={inp()} />
+            <IntegerInput value={formData.stat_witnessCount} onValueChange={(v) => update("stat_witnessCount", v)} placeholder="0" className={inp()} />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Tài sản thu giữ</label>
