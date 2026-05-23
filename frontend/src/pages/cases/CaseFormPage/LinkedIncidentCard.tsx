@@ -48,10 +48,12 @@ export function LinkedIncidentCard({ incidentId, onUnlink }: LinkedIncidentCardP
   useEffect(() => {
     let cancelled = false;
     setState({ kind: 'loading' });
+    // Backend GET /incidents/:id trả về { success: boolean, data: Incident }
+    // (codex review post-merge phát hiện shape mismatch — em fix bằng hotfix này).
     api
-      .get<IncidentDetail>(`/incidents/${incidentId}`)
+      .get<{ success: boolean; data: IncidentDetail }>(`/incidents/${incidentId}`)
       .then((res) => {
-        if (!cancelled) setState({ kind: 'loaded', incident: res.data });
+        if (!cancelled) setState({ kind: 'loaded', incident: res.data.data });
       })
       .catch((err) => {
         if (cancelled) return;
