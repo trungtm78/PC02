@@ -590,20 +590,14 @@ describe('CasesService', () => {
       });
     });
 
-    it('should create new petition when petitionType added and no linked petition exists', async () => {
+    // v0.37.2.5: phantom Petition auto-create REMOVED (Đ.143 BLTTHS compliance).
+    // BE no longer creates a Petition record from Case.metadata.petitionType when
+    // there's no linked Petition. The metadata.petitionType is silently ignored.
+    // FE removed petitionType from payload in v0.37.1 — this guards API attack surface.
+    it('should NOT create phantom petition when petitionType added and no linked petition exists', async () => {
       mockPrisma.case.findFirst.mockResolvedValue(mockCase);
       mockPrisma.case.update.mockResolvedValue(mockCase);
       mockPrisma.petition.findFirst.mockResolvedValue(null); // No linked petition
-
-      mockPrisma.$transaction.mockImplementation(async (fn: any) => {
-        const tx = {
-          petition: {
-            findFirst: jest.fn().mockResolvedValue(null),
-            create: jest.fn().mockResolvedValue(mockPetition),
-          },
-        };
-        return fn(tx);
-      });
 
       await service.update(
         'case-001',
@@ -611,8 +605,10 @@ describe('CasesService', () => {
         'actor-001',
       );
 
-      expect(mockPrisma.$transaction).toHaveBeenCalled();
-      expect(mockAudit.log).toHaveBeenCalledWith(
+      // No phantom Petition transaction should fire
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+      // No PETITION_AUTO_CREATED audit
+      expect(mockAudit.log).not.toHaveBeenCalledWith(
         expect.objectContaining({ action: 'PETITION_AUTO_CREATED' }),
       );
     });

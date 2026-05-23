@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { useFormDefaults } from "@/hooks/useFormDefaults";
-import { toDateInput } from "@/lib/dates";
 import {
   X,
   Save,
@@ -23,6 +22,7 @@ import type { TabItem } from "@/components/shared/TabBar";
 import type { TabId, Subject, Evidence, MediaFile, CaseFormData } from "./types";
 import { INITIAL_FORM_DATA } from "./types";
 import { buildCreateCasePayload } from "./buildCreateCasePayload";
+import { mergeCaseApiToFormData } from "./mergeCaseApiToFormData";
 import {
   TabInfo,
   TabIncident,
@@ -135,50 +135,10 @@ function CaseFormPage() {
       .then((res) => {
         const d = res.data.data;
         if (!d) return;
-        // metadata chứa toàn bộ fields phụ của form được lưu khi tạo/cập nhật
-        const meta = (d.metadata ?? {}) as Record<string, string>;
-        setFormData((prev) => ({
-          ...prev,
-          // ── Fields core lưu trực tiếp trong DB ──────────────────────────
-          caseTitle:             d.name                ?? prev.caseTitle,
-          criminalType:          d.crime               ?? prev.criminalType,
-          status:                d.status              ?? prev.status,
-          investigationDeadline: d.deadline
-                                   ? toDateInput(d.deadline as string)
-                                   : prev.investigationDeadline,
-          supervisingUnit:       d.unit                ?? prev.supervisingUnit,
-          assignedTeamId:        d.assignedTeamId      ?? d.assignedTeam?.id ?? prev.assignedTeamId,
-          handler:               d.investigatorId      ?? d.investigator?.id ?? prev.handler,
-          // ── Fields phụ từ metadata JSONB ────────────────────────────────
-          caseCode:                    meta.caseCode                    ?? prev.caseCode,
-          receiveDate:                 meta.receiveDate                 ?? prev.receiveDate,
-          receiveTime:                 meta.receiveTime                 ?? prev.receiveTime,
-          // v0.37.1: caseType removed (vestigial). caseProvenance set via Nguồn vụ án Card (sub-5).
-          caseClassification:          meta.caseClassification          ?? prev.caseClassification,
-          capDoToiPham:                (d.capDoToiPham as string)        ?? prev.capDoToiPham,
-          priority:                    meta.priority                    ?? prev.priority,
-          description:                 meta.description                 ?? prev.description,
-          investigationStartDate:      meta.investigationStartDate      ?? prev.investigationStartDate,
-          prosecutionOfficeAssigned:   meta.prosecutionOfficeAssigned   ?? prev.prosecutionOfficeAssigned,
-          relatedCaseCode:             meta.relatedCaseCode             ?? prev.relatedCaseCode,
-          damageAmount:                meta.damageAmount                ?? prev.damageAmount,
-          damageDescription:           meta.damageDescription           ?? prev.damageDescription,
-          note:                        meta.note                        ?? prev.note,
-          reporter:                    meta.reporter                    ?? prev.reporter,
-          reporterIdNumber:            meta.reporterIdNumber            ?? prev.reporterIdNumber,
-          reporterDateOfBirth:         meta.reporterDateOfBirth         ?? prev.reporterDateOfBirth,
-          reporterGender:              meta.reporterGender              ?? prev.reporterGender,
-          reporterPhone:               meta.reporterPhone               ?? prev.reporterPhone,
-          reporterEmail:               meta.reporterEmail               ?? prev.reporterEmail,
-          reporterAddress:             meta.reporterAddress             ?? prev.reporterAddress,
-          reporterNationality:         meta.reporterNationality         ?? prev.reporterNationality,
-          reporterOccupation:          meta.reporterOccupation          ?? prev.reporterOccupation,
-          reporterRelationToCase:      meta.reporterRelationToCase      ?? prev.reporterRelationToCase,
-          province:                    meta.province                    ?? prev.province,
-          district:                    meta.district                    ?? prev.district,
-          ward:                        meta.ward                        ?? prev.ward,
-          specificAddress:             meta.specificAddress             ?? prev.specificAddress,
-        }));
+        // v0.37.2.5: extracted to mergeCaseApiToFormData helper. Now loads
+        // caseProvenance + linkedPetitionId + linkedIncidentId + sourceDocumentNote
+        // which were previously omitted (caused PUT 400 on EditMode submit).
+        setFormData((prev) => mergeCaseApiToFormData(d, prev));
         setRecordUpdatedAt((d.updatedAt as string) ?? null);
       })
       .catch((err) => {
@@ -214,7 +174,9 @@ function CaseFormPage() {
 
   const handleSave = async () => {
     if (!validateForm()) {
-      alert("Vui lòng kiểm tra các trường bắt buộc!");
+      // v0.37.2.5 Decision 7A: scroll to top so the aria-assertive summary banner
+      // is visible. Inline per-field errors remain (already wired in tabs.tsx).
+      window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
     try {
@@ -339,6 +301,30 @@ function CaseFormPage() {
           </>
         }
       />
+
+      {/* v0.37.2.5 Decision 7A: top-level validation summary (aria-assertive) */}
+      {Object.keys(errors).length > 0 && (
+        <div
+          role="alert"
+          aria-live="assertive"
+          className="mx-6 mt-4 rounded-lg border border-red-300 bg-red-50 p-4"
+          data-testid="form-error-summary"
+        >
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5 shrink-0" />
+            <div className="flex-1">
+              <p className="font-semibold text-red-700 mb-2">
+                Vui lòng kiểm tra các lỗi sau:
+              </p>
+              <ul className="list-disc pl-5 space-y-1 text-sm text-red-700">
+                {Object.entries(errors).map(([field, msg]) => (
+                  <li key={field}>{msg}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Tabs */}
       <TabBar tabs={TABS} activeTab={activeTab} onTabChange={setActiveTab} />

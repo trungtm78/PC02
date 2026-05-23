@@ -2,6 +2,38 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.37.2.5] - 2026-05-23
+
+Cleanup loạt followups sau UAT 2026-05-23 — P1 EditMode load + P1 phantom Petition guard + P2 Cases form Decision 7A.
+
+### Fixed
+- **[cases] EditMode KHÔNG load `caseProvenance` + linked FK + sourceDocumentNote** — `CaseFormPage` useEffect đọc case data từ API nhưng quên 4 cột provenance → khi anh edit existing case, `formData.caseProvenance=""` → PUT payload sent empty enum → BE @IsEnum reject (silent 400 hoặc nuke provenance). Fix: extract pure helper `mergeCaseApiToFormData` ([frontend/src/pages/cases/CaseFormPage/mergeCaseApiToFormData.ts](frontend/src/pages/cases/CaseFormPage/mergeCaseApiToFormData.ts)) bao gồm tất cả 4 field provenance từ API response. 5 regression tests cover edge cases.
+- **[cases.service.update] Phantom Petition auto-create REMOVED** — service line 666-695 trước đây auto-create row Petition giả khi PUT /cases có `metadata.petitionType` nhưng không có linked Petition. Đây là attack surface vi phạm BLTTHS Đ.143 (provenance model — Petition phải có người gửi thật, không tạo side-effect từ Case mutation). FE đã không gửi field này từ v0.37.1, nhưng BE attack surface còn mở. Fix: silently ignore `metadata.petitionType` khi không có linked Petition (vẫn sync khi có).
+- **[cases] Form thiếu top-summary validation alert** (Decision 7A spec từ v0.37.1 plan) — chỉ inline errors, không có aria-assertive summary ở top như Petitions + Incidents form. Fix: add `role="alert" aria-live="assertive"` summary banner liệt kê tất cả errors, scroll to top khi submit fail. Browser `alert()` popup removed.
+
+### Added
+- **[tests] `editModeProvenanceLoad.test.tsx`** — 5 vitest cases cover mergeCaseApiToFormData edge cases (FROM_PETITION/FROM_INCIDENT/DIRECT_DISCOVERY load, null fallback, preserve metadata).
+- **[tests] `cases.service.spec.ts` regression test inverted** — "should NOT create phantom petition when petitionType added and no linked petition exists" replaces previous test that asserted auto-create behavior.
+
+### Audit
+- **Directory↔Enum mismatch scan** across all forms (Cases, Incidents, Petitions, Subjects, Lawyers) — 0 additional P0 bugs phát hiện. Pattern v0.37.2.4 unique (Petitions petitionType). Incidents enum fields dùng hardcoded options từ `status-labels.ts` — safe. Petition priority + Case stat_ fields dùng @IsString hoặc metadata-only — safe.
+
+### Test coverage
+- Frontend: 577 tests pass (was 572, +5 new).
+- Backend cases module: 76 tests pass.
+- TypeScript: clean (FE + BE).
+
+### Followups (đã đóng từ v0.37.1 audit + Round 1-3 UAT)
+- ✅ CaseFormPage EditMode missing caseProvenance load (P1)
+- ✅ convertToCase phantom Petition (P1)
+- ✅ Cases form Decision 7A top summary (P2)
+- Directory↔Enum scan: 0 additional bugs
+
+### Followups remaining (deferred)
+- STT auto-generation cho Petitions (currently manual user input)
+- Strengthen feature-registry.spec test để cross-check FE manifests có BE entry
+- Auto-trigger `npm run db:seed:features` trong deploy.sh
+
 ## [0.37.2.4] - 2026-05-23
 
 **P0 hotfix** — Đăng ký Đơn thư không submit được, BE reject Vietnamese name. Anh test thật + phát hiện sau khi em mark UAT "PASS-WITH-NOTES" sai (đã skip happy-path).
