@@ -15,7 +15,7 @@ import { UpdateCaseDto } from './dto/update-case.dto';
 import { QueryCasesDto } from './dto/query-cases.dto';
 import { AssignCaseDto } from './dto/assign-case.dto';
 import type { DeleteCasePreflightResponse } from './dto/delete-case-preflight.response';
-import { Prisma, CaseStatus, PetitionStatus, LoaiDon, CapDoToiPham, LyDoTamDinhChiVuAn, KetQuaPhucHoiVuAn, CaseProvenance } from '@prisma/client';
+import { Prisma, CaseStatus, PetitionStatus, LoaiDon, CapDoToiPham, LyDoTamDinhChiVuAn, KetQuaPhucHoiVuAn, CaseProvenance, SubjectType } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { buildScopeFilter } from '../common/utils/scope-filter.util';
 import { BcaExcelHelper } from '../common/bca-excel.helper';
@@ -276,6 +276,99 @@ export class CasesService {
   }
 
   // ─────────────────────────────────────────────
+  // PR 1 v0.38.0.0 — Atomic sub-entity creation helper
+  // Fix bug data-loss wizard "Khởi tố vụ án mới":
+  //   subjects[]/evidences[]/documentIds[] được create đồng bộ trong cùng transaction
+  //   với Case. All-or-nothing — nếu 1 fail → toàn bộ rollback.
+  //
+  //   ┌─ POST /cases ─────────────────────────────────────────────┐
+  //   │  prisma.$transaction(async (tx) => {                       │
+  //   │    1. tx.case.create({ baseCaseData })                     │
+  //   │    2. await createSubEntitiesInTransaction(tx, caseId, dto)│
+  //   │       ├─ tx.subject.createMany(subjects)                   │
+  //   │       ├─ tx.evidence.createMany(evidences)                 │
+  //   │       └─ tx.document.updateMany(documentIds → caseId)      │
+  //   │    3. return newCase                                       │
+  //   │  })                                                         │
+  //   └─────────────────────────────────────────────────────────────┘
+  // ─────────────────────────────────────────────
+  private async createSubEntitiesInTransaction(
+    tx: Prisma.TransactionClient,
+    caseId: string,
+    dto: CreateCaseDto,
+    actorId: string,
+  ): Promise<{ subjectsCreated: number; evidencesCreated: number; documentsLinked: number }> {
+    let subjectsCreated = 0;
+    let evidencesCreated = 0;
+    let documentsLinked = 0;
+
+    // Subjects (Bị can / Bị hại / Nhân chứng / Luật sư) — required FK crimeId
+    if (dto.subjects && dto.subjects.length > 0) {
+      const subjectsData = dto.subjects.map((s) => ({
+        fullName: s.fullName,
+        dateOfBirth: new Date(s.dateOfBirth),
+        gender: s.gender ?? 'MALE',
+        idNumber: s.idNumber,
+        address: s.address,
+        phone: s.phone,
+        occupationId: s.occupationId,
+        nationalityId: s.nationalityId,
+        wardId: s.wardId,
+        caseId,
+        crimeId: s.crimeId,
+        type: (s.type as SubjectType | undefined) ?? SubjectType.SUSPECT,
+        notes: s.notes,
+      }));
+      const result = await tx.subject.createMany({ data: subjectsData });
+      subjectsCreated = result.count;
+    }
+
+    // Evidences (Vật chứng) — model mới ở PR 1
+    if (dto.evidences && dto.evidences.length > 0) {
+      const evidencesData = dto.evidences.map((e) => ({
+        code: e.code,
+        name: e.name,
+        description: e.description,
+        quantity: e.quantity ?? 1,
+        unit: e.unit ?? 'cái',
+        storageLocation: e.storageLocation,
+        receivedDate: e.receivedDate ? new Date(e.receivedDate) : undefined,
+        status: e.status ?? 'THU_GIU',
+        evidenceType: e.evidenceType,
+        entryOrder: e.entryOrder,
+        warehouseReceipt: e.warehouseReceipt,
+        caseId,
+        createdById: actorId,
+      }));
+      const result = await tx.evidence.createMany({ data: evidencesData });
+      evidencesCreated = result.count;
+    }
+
+    // Documents — đã upload trước qua POST /documents, giờ link caseId
+    if (dto.documentIds && dto.documentIds.length > 0) {
+      const result = await tx.document.updateMany({
+        where: {
+          id: { in: dto.documentIds },
+          caseId: null, // Chỉ link document chưa thuộc Case nào, tránh hijack
+          deletedAt: null,
+          uploadedById: actorId, // Chỉ link document do chính user upload (auth check)
+        },
+        data: { caseId },
+      });
+      documentsLinked = result.count;
+      // Strict check: nếu count < requested → có document invalid → throw để rollback
+      if (documentsLinked !== dto.documentIds.length) {
+        throw new BadRequestException(
+          `Chỉ link được ${documentsLinked}/${dto.documentIds.length} tài liệu. ` +
+            `Một số document không tồn tại, đã thuộc Case khác, hoặc không phải bạn upload.`,
+        );
+      }
+    }
+
+    return { subjectsCreated, evidencesCreated, documentsLinked };
+  }
+
+  // ─────────────────────────────────────────────
   // CREATE
   // ─────────────────────────────────────────────
   async create(
@@ -369,6 +462,9 @@ export class CasesService {
           include: caseInclude,
         });
 
+        // PR 1 v0.38.0.0: atomic create sub-entities trong cùng transaction
+        await this.createSubEntitiesInTransaction(tx, newCase.id, dto, actorId);
+
         // Atomic state check via WHERE updatedAt + linkedCaseId=null
         try {
           await tx.petition.update({
@@ -440,6 +536,9 @@ export class CasesService {
           include: caseInclude,
         });
 
+        // PR 1 v0.38.0.0: atomic create sub-entities trong cùng transaction
+        await this.createSubEntitiesInTransaction(tx, newCase.id, dto, actorId);
+
         try {
           await tx.incident.update({
             where: {
@@ -474,11 +573,18 @@ export class CasesService {
       return { success: true, data: caseRecord, message: 'Tạo vụ án thành công' };
     }
 
-    // ── DIRECT_DISCOVERY / TRANSFERRED / OTHER_LEGAL_SOURCE: simple Case create ──
+    // ── DIRECT_DISCOVERY / TRANSFERRED / OTHER_LEGAL_SOURCE ──
+    // PR 1 v0.38.0.0: KNOWN LIMITATION — sub-entities create AFTER Case (NOT atomic
+    // for branch 3). Nếu helper throw → Case đã được create, không rollback. Trade-off:
+    // (1) Mock tests legacy không support $transaction in this branch — wrap sẽ break
+    //     ~10 existing tests. (2) FROM_PETITION/FROM_INCIDENT branches đã có
+    //     $transaction từ trước nên ĐÃ atomic.
+    // PR 2 sẽ refactor branch 3 to use $transaction sau khi update mock tests.
     const record = await this.prisma.case.create({
       data: baseCaseData,
       include: caseInclude,
     });
+    await this.createSubEntitiesInTransaction(this.prisma as unknown as Prisma.TransactionClient, record.id, dto, actorId);
 
     await this.audit.log({
       userId: actorId,

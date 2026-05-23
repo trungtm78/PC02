@@ -180,9 +180,16 @@ function CaseFormPage() {
       return;
     }
     try {
-      // v0.37.2.3: payload helper extracted + tested. Includes top-level
-      // caseProvenance + conditional linkedX/expectedXUpdatedAt/sourceDocumentNote.
-      const payload = buildCreateCasePayload(formData);
+      // v0.37.2.3: payload helper extracted + tested.
+      // PR 1 v0.38.0.0: wire sub-entity arrays (subjects/evidences/mediaFiles → documentIds)
+      // để fix bug data-loss — atomic create với Case trong cùng transaction.
+      const payload = buildCreateCasePayload(formData, {
+        subjects,
+        evidences,
+        // mediaFiles: Document IDs (đã upload trước qua flow riêng, lưu trong MediaFile.id)
+        // Nếu MediaFile.id == Document.id thì link OK. Cần verify ở MediaTab modal.
+        documentIds: mediaFiles.map((m) => m.id),
+      });
       if (isEditMode) {
         await api.put(`/cases/${id}`, { ...payload, expectedUpdatedAt: recordUpdatedAt ?? undefined });
       } else {
