@@ -414,6 +414,9 @@ export class IncidentsService {
         diaChiNguoiToGiac: dto.diaChiNguoiToGiac,
         cmndNguoiToGiac: dto.cmndNguoiToGiac,
         ketQuaXuLy: dto.ketQuaXuLy,
+        // PR 5 hotfix: codex post-merge phát hiện 2 fields bị silently dropped
+        loaiKetQua: dto.loaiKetQua,
+        canCuKhoiToCode: dto.canCuKhoiToCode,
         tinhTrangHoSo: dto.tinhTrangHoSo,
         tinhTrangThoiHieu: dto.tinhTrangThoiHieu,
         nguoiQuyetDinh: dto.nguoiQuyetDinh,
@@ -474,6 +477,8 @@ export class IncidentsService {
       'doiTuongCaNhan', 'doiTuongToChuc', 'loaiDonVu', 'nguonPhatTin', 'phuongThucTiepNhan', 'benVu',
       'donViGiaiQuyet', 'ketQuaXuLy', 'tinhTrangHoSo', 'tinhTrangThoiHieu',
       'nguoiQuyetDinh', 'canBoNhapId', 'assignedTeamId',
+      // PR 5 hotfix: codex post-merge phát hiện whitelist thiếu — PUT silently dropped
+      'loaiKetQua', 'canCuKhoiToCode',
       'soQuyetDinh', 'lyDoKhongKhoiTo', 'lyDoTamDinhChiText',
       'diaChiXayRa', 'sdtNguoiToGiac', 'diaChiNguoiToGiac', 'cmndNguoiToGiac',
       // ── TĐC VuViec fields ──────────────────────────────────────────────────
