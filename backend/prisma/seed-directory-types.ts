@@ -53,6 +53,30 @@ const DIRECTORY_DATA: DirectoryEntry[] = [
   { type: 'EDUCATION_LEVEL', code: 'DH', name: 'Đại học', order: 5 },
   { type: 'EDUCATION_LEVEL', code: 'SDH', name: 'Sau đại học', order: 6 },
 
+  // ── CAN_CU_KHOI_TO (Căn cứ khởi tố vụ án — BLTTHS Đ.143) ──────────────────
+  // PR 4 v0.38.3.0 — Hybrid pattern: code = CaseProvenance enum value (Prisma).
+  // Memory v0.37.2.4 P0 lesson: Directory.code MUST match enum, không phải Vietnamese.
+  // Frontend render label từ Directory.name, submit value = Directory.code (enum).
+  // Source: vbpl.vn — https://thuvienphapluat.vn/.../450956 (Đ.143 BLTTHS 2015)
+  { type: 'CAN_CU_KHOI_TO', code: 'FROM_PETITION',        name: 'Khởi tố từ Đơn thư', order: 1 },
+  { type: 'CAN_CU_KHOI_TO', code: 'FROM_INCIDENT',        name: 'Khởi tố từ Vụ việc', order: 2 },
+  { type: 'CAN_CU_KHOI_TO', code: 'DIRECT_DISCOVERY',     name: 'CQĐT phát hiện trực tiếp', order: 3 },
+  { type: 'CAN_CU_KHOI_TO', code: 'TRANSFERRED',          name: 'Chuyển từ cơ quan khác', order: 4 },
+  { type: 'CAN_CU_KHOI_TO', code: 'SELF_SURRENDER',       name: 'Người phạm tội tự thú', order: 5 },
+  { type: 'CAN_CU_KHOI_TO', code: 'PROSECUTOR_PROPOSAL',  name: 'Kiến nghị khởi tố của VKS', order: 6 },
+  { type: 'CAN_CU_KHOI_TO', code: 'OTHER_LEGAL_SOURCE',   name: 'Nguồn pháp lý khác', order: 7 },
+
+  // ── LY_DO_KHONG_KHOI_TO (Lý do không khởi tố — BLTTHS Đ.157, 8 căn cứ) ────
+  // Source: luatvietnam.vn — https://luatvietnam.vn/.../99443 (Đ.157 BLTTHS)
+  { type: 'LY_DO_KHONG_KHOI_TO', code: 'KHONG_CO_SU_VIEC',      name: 'Không có sự việc phạm tội', order: 1 },
+  { type: 'LY_DO_KHONG_KHOI_TO', code: 'KHONG_CAU_THANH',       name: 'Hành vi không cấu thành tội phạm', order: 2 },
+  { type: 'LY_DO_KHONG_KHOI_TO', code: 'CHUA_DEN_TUOI',         name: 'Người chưa đến tuổi chịu trách nhiệm hình sự', order: 3 },
+  { type: 'LY_DO_KHONG_KHOI_TO', code: 'DA_CO_BAN_AN',          name: 'Đã có bản án hoặc quyết định đình chỉ có hiệu lực pháp luật', order: 4 },
+  { type: 'LY_DO_KHONG_KHOI_TO', code: 'HET_THOI_HIEU',         name: 'Đã hết thời hiệu truy cứu trách nhiệm hình sự', order: 5 },
+  { type: 'LY_DO_KHONG_KHOI_TO', code: 'DAI_XA',                name: 'Tội phạm đã được đại xá', order: 6 },
+  { type: 'LY_DO_KHONG_KHOI_TO', code: 'NGUOI_DA_CHET',         name: 'Người thực hiện hành vi đã chết (trừ trường hợp tái thẩm cho người khác)', order: 7 },
+  { type: 'LY_DO_KHONG_KHOI_TO', code: 'KHONG_YEU_CAU_BI_HAI',  name: 'Tội thuộc K.1 Đ.134/135/136/138/139/141/143/155/156 BLHS mà bị hại không yêu cầu khởi tố', order: 8 },
+
   // ── EVIDENCE_TYPE (Loại vật chứng) ───────────────────────────────────────
   { type: 'EVIDENCE_TYPE', code: 'TIEN', name: 'Tiền', order: 1 },
   { type: 'EVIDENCE_TYPE', code: 'TL', name: 'Tài liệu', order: 2 },
