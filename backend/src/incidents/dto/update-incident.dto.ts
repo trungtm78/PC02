@@ -87,6 +87,15 @@ export class UpdateIncidentDto {
   @IsString()
   ketQuaXuLy?: string;
 
+  // PR 5 v0.38.4.0: Wireframe 5 — Loại kết quả (chuẩn hóa enum string) + Căn cứ khởi tố Đ.143
+  @IsOptional()
+  @IsString()
+  loaiKetQua?: string;
+
+  @IsOptional()
+  @IsString()
+  canCuKhoiToCode?: string;
+
   @IsOptional()
   @IsString()
   tinhTrangHoSo?: string;
