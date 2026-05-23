@@ -72,6 +72,17 @@ describe('FEATURE_REGISTRY', () => {
     it('returns undefined for unknown keys', () => {
       expect(getManifest('does-not-exist')).toBeUndefined();
     });
+
+    // v0.37.2.1: regression test for hidden Tổng hợp menu. Frontend has
+    // features/comprehensive/feature.manifest.ts since v0.37.1 but backend
+    // was missing the matching manifest → seedFeatureFlags() never created
+    // the DB row → sidebar filter hid the menu items.
+    it('returns the comprehensive manifest (backs the Tổng hợp menu)', () => {
+      const m = getManifest('comprehensive');
+      expect(m).toBeDefined();
+      expect(m?.label).toBe('Tổng hợp');
+      expect(m?.domain).toBe('case-domain');
+    });
   });
 
   describe('getManifestsByDomain', () => {
