@@ -3,7 +3,7 @@
  * Source of truth: Prisma schema (via generated.ts).
  * Used by: ComprehensiveListPage, and any future aggregate or detail view.
  */
-import { CaseStatus, IncidentStatus, PetitionStatus, LyDoKhongKhoiTo, LoaiNguonTin, NguonPhatTin, PhuongThucTiepNhan, DeadlineRuleStatus } from './generated';
+import { CaseStatus, IncidentStatus, PetitionStatus, LyDoKhongKhoiTo, LoaiNguonTin, NguonPhatTin, PhuongThucTiepNhan, DeadlineRuleStatus, LoaiDon } from './generated';
 
 // ── Vietnamese labels ───────────────────────────────────────────
 
@@ -47,6 +47,22 @@ export const PETITION_STATUS_LABEL: Record<PetitionStatus, string> = {
   [PetitionStatus.DA_CHUYEN_VU_VIEC]:  'Đã chuyển vụ việc',
   [PetitionStatus.DA_CHUYEN_VU_AN]:    'Đã chuyển vụ án',
 };
+
+// v0.37.2.4 — single source of truth cho Loại đơn (LoaiDon enum) Vietnamese labels.
+// PetitionFormPage uses this for <select> options. Backend DTO validates against
+// enum values (TO_CAO/KHIEU_NAI/KIEN_NGHI/PHAN_ANH) — labels here are display-only.
+export const LOAI_DON_LABEL: Record<LoaiDon, string> = {
+  [LoaiDon.TO_CAO]:    'Tố cáo',
+  [LoaiDon.KHIEU_NAI]: 'Khiếu nại',
+  [LoaiDon.KIEN_NGHI]: 'Kiến nghị',
+  [LoaiDon.PHAN_ANH]:  'Phản ánh',
+};
+
+export const LOAI_DON_OPTIONS: ReadonlyArray<{ value: LoaiDon; label: string }> =
+  (Object.keys(LOAI_DON_LABEL) as LoaiDon[]).map((value) => ({
+    value,
+    label: LOAI_DON_LABEL[value],
+  }));
 
 // ── Badge Tailwind classes (grouped by phase) ───────────────────
 

@@ -14,6 +14,10 @@ import {
 import { FKSelect } from "@/components/FKSelect";
 import { useFormDefaults } from "@/hooks/useFormDefaults";
 import { today, toDateInput } from "@/lib/dates";
+import { LOAI_DON_OPTIONS } from "@/shared/enums/status-labels";
+import { LoaiDon } from "@/shared/enums/generated";
+
+const VALID_PETITION_TYPES = Object.values(LoaiDon) as string[];
 
 interface UserOption {
   id: string;
@@ -130,7 +134,9 @@ export function PetitionFormPage() {
     }
     if (!formData.senderName.trim()) newErrors.push("Tên người gửi là bắt buộc");
     if (!formData.senderAddress.trim()) newErrors.push("Địa chỉ người gửi là bắt buộc");
-    if (!formData.petitionType) newErrors.push("Loại đơn thư là bắt buộc");
+    if (!formData.petitionType || !VALID_PETITION_TYPES.includes(formData.petitionType)) {
+      newErrors.push("Loại đơn thư là bắt buộc");
+    }
     if (!formData.priority) newErrors.push("Mức độ ưu tiên là bắt buộc");
     if (!formData.summary.trim()) newErrors.push("Tóm tắt nội dung là bắt buộc");
     if (!formData.detailContent.trim()) newErrors.push("Nội dung chi tiết là bắt buộc");
@@ -354,15 +360,20 @@ export function PetitionFormPage() {
           <div className="p-6 space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <FKSelect
-                  label="Loại đơn thư"
-                  required
-                  directoryType="PETITION_TYPE"
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Loại đơn thư <span className="text-red-500">*</span>
+                </label>
+                <select
                   value={formData.petitionType}
-                  onChange={(v) => update("petitionType", v)}
-                  placeholder="-- Chọn loại đơn thư --"
-                  testId="field-petitionType"
-                />
+                  onChange={(e) => update("petitionType", e.target.value)}
+                  className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  data-testid="field-petitionType"
+                >
+                  <option value="">-- Chọn loại đơn thư --</option>
+                  {LOAI_DON_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
               </div>
               <div>
                 <FKSelect

@@ -2,6 +2,36 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.37.2.4] - 2026-05-23
+
+**P0 hotfix** — Đăng ký Đơn thư không submit được, BE reject Vietnamese name. Anh test thật + phát hiện sau khi em mark UAT "PASS-WITH-NOTES" sai (đã skip happy-path).
+
+### Fixed
+- **[petitions] FE gửi Vietnamese name `"Tố cáo"` thay vì enum `TO_CAO` cho `petitionType`** — `<FKSelect directoryType="PETITION_TYPE">` lấy options từ Directory runtime data với `value=d.name` (Vietnamese), trong khi BE DTO `@IsEnum(LoaiDon)` strictly requires enum value. Mọi submit từ form đều 400 với message raw English `"petitionType phải là TO_CAO, KHIEU_NAI, KIEN_NGHI hoặc PHAN_ANH"`.
+- Fix: replace FKSelect bằng native `<select>` với `LOAI_DON_OPTIONS` hardcoded (value=enum, label=Vietnamese). FE validation thêm check `VALID_PETITION_TYPES.includes(value)` để catch invalid value client-side.
+- BE error message Vietnam hóa: `"Loại đơn thư không hợp lệ — chọn: Tố cáo, Khiếu nại, Kiến nghị hoặc Phản ánh (BLTTHS / Luật Tố cáo 2018 / Luật Khiếu nại 2011)"`.
+
+### Added
+- **[enums] `LOAI_DON_LABEL` + `LOAI_DON_OPTIONS`** trong [`frontend/src/shared/enums/status-labels.ts`](frontend/src/shared/enums/status-labels.ts) — single source of truth cho LoaiDon enum Vietnamese labels. Pattern khớp với CASE_STATUS_LABEL/INCIDENT_STATUS_LABEL/PETITION_STATUS_LABEL.
+- **[tests] `PetitionFormPage.payload.test.tsx`** — 3 vitest regression: (1) submit petitionType là enum value `TO_CAO` không phải `"Tố cáo"`; (2) 4 options đầy đủ với Vietnamese labels; (3) empty submit → validation block trước khi POST. TDD red-green (3/3 RED → 3/3 GREEN sau fix).
+
+### Architecture note
+**Prisma enum ≠ Directory data.** Prisma enum bất biến trong code, Directory data động ở runtime. Không nên mix value source. Trong các form sau, em sẽ dùng:
+- Native `<select>` + hardcoded enum options cho enum-backed fields.
+- `<FKSelect directoryType=...>` cho data động không có enum (UNIT, PROSECUTION_OFFICE, ...).
+- `<FKSelect masterClassType=...>` cho data động strict format (Crime list, MasterClass).
+
+### Test coverage
+- Frontend: 572 tests pass (was 569, +3 new petition tests).
+- TypeScript: clean (FE + BE).
+
+### Discovered
+UAT 3 forms 2026-05-23 — em đã sai mark Petitions "PASS-WITH-NOTES" mặc dù skip happy-path submit. Anh test thật + capture screenshot lỗi → em re-test thật kỹ và phát hiện bug này. Lesson saved to memory.
+
+### Followups (deferred)
+- Scan other forms cho Directory↔Enum mismatch (Cases capDoToiPham, Incidents incidentType, Subjects type). Separate PR.
+- Remove unused Directory PETITION_TYPE seed entries (4 rows) — verify no other consumer first.
+
 ## [0.37.2.3] - 2026-05-23
 
 **P0 hotfix** — Cases CREATE đã broken 100% trên production sau v0.37.2.0.
