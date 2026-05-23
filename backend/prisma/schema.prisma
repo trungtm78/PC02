@@ -483,7 +483,9 @@ model Case {
   // CHECK constraint enforces source-type↔FK consistency (see migration 20260523000000).
   caseProvenance     CaseProvenance
   linkedPetitionId   String?
-  linkedIncidentId   String?
+  // PR 2 v0.38.1.0: @unique enforce 1 Incident ↔ 1 Case strict (eng-review D2)
+  // Edge case "1 vụ việc tách 2 vụ án" → clone Incident với mã VV mới.
+  linkedIncidentId   String? @unique
   sourceDocumentNote String? // Ghi chú nguồn cho DIRECT_DISCOVERY / TRANSFERRED / OTHER_LEGAL_SOURCE
 
   // onDelete: Restrict — provenance không erase. App dùng soft delete.
@@ -498,6 +500,7 @@ model Case {
   lawyers         Lawyer[] // TASK-2026-261225
   petitions       Petition[]                @relation("PetitionLinkedCase")
   documents       Document[] // TASK-2026-022601: Tài liệu liên quan
+  evidences       Evidence[] // PR 1 v0.38.0.0: Vật chứng — atomic create với Case
   linkedIncidents Incident[]                @relation("IncidentLinkedCase")
   proposals       Proposal[]
   delegations     Delegation[]
@@ -727,7 +730,13 @@ model Incident {
   benVu             String? // Người tố giác/báo tin (Đ.144 BLTTHS)
   donViGiaiQuyet    String? // Đơn vị thụ lý (Đ.145 BLTTHS)
   ngayDeXuat        DateTime? // Ngày tiếp nhận nguồn tin (Đ.146 BLTTHS)
-  ketQuaXuLy        String? // Kết quả giải quyết nguồn tin
+  ketQuaXuLy        String? // Kết quả giải quyết nguồn tin (free-form text, mô tả chi tiết)
+  // PR 5 v0.38.4.0: loại kết quả chuẩn hóa cho reporting + entry path 3 detection
+  // Wireframe 5 — anh confirm trong session twinkly-crescent
+  loaiKetQua        String? // KHOI_TO | KHONG_KHOI_TO | TAM_DINH_CHI | CHUYEN_HO_SO | DINH_CHI | KHAC
+  // PR 5: Căn cứ khởi tố vụ án (Đ.143 BLTTHS) — optional, code khớp CaseProvenance enum
+  // Khi convert Incident → Case, value transfer sang Case.caseProvenance
+  canCuKhoiToCode   String? // ref Directory(type=CAN_CU_KHOI_TO, code) — em đã seed 7 entries
   tinhTrangHoSo     String? // Tình trạng hồ sơ
   tinhTrangThoiHieu String? // Tình trạng thời hiệu truy cứu TNHS
   nguoiQuyetDinh    String? // Người ra quyết định (Thủ trưởng/Phó TT CQĐT)
@@ -886,6 +895,38 @@ model Document {
   @@index([deletedAt])
   @@index([createdAt])
   @@map("documents")
+}
+
+// ─────────────────────────────────────────────
+// Evidence (Vật chứng) — PR 1 v0.38.0.0
+// Atomic create với Case qua POST /cases (fix bug data-loss wizard "Khởi tố vụ án mới")
+// Schema additive — không phá data Case cũ.
+// ─────────────────────────────────────────────
+
+model Evidence {
+  id               String    @id @default(cuid())
+  code             String // Mã vật chứng (vd "VC-2026-001")
+  name             String // Tên vật chứng (vd "Dao Thái Lan dài 30cm")
+  description      String? // Mô tả chi tiết
+  quantity         Int       @default(1)
+  unit             String    @default("cái") // Đơn vị (cái, kg, gram, ...)
+  storageLocation  String? // Nơi lưu trữ
+  receivedDate     DateTime? // Ngày thu giữ
+  status           String    @default("THU_GIU") // THU_GIU | DA_GIAM_DINH | TRA_LAI | TIEU_HUY
+  evidenceType     String? // Loại vật chứng (vũ khí / tang vật / tài liệu / ...)
+  entryOrder       String? // Số thứ tự nhập kho
+  warehouseReceipt String? // Số biên bản nhập kho
+  caseId           String // FK → cases (required)
+  case             Case      @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  createdById      String? // FK → users (nullable for legacy backfill)
+  deletedAt        DateTime? // Soft delete
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([caseId])
+  @@index([status])
+  @@index([deletedAt])
+  @@map("evidences")
 }
 
 // ─────────────────────────────────────────────

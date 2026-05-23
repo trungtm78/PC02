@@ -556,6 +556,27 @@ describe('IncidentsService', () => {
       expect(createCall.data.nguonPhatTin).toBe('TO_CHUC');
       expect(createCall.data.phuongThucTiepNhan).toBe('DIEN_THOAI');
     });
+
+    // Hotfix #111 regression test — TDD red-green-restore verified.
+    // Bug: DTO extended với loaiKetQua + canCuKhoiToCode (PR #110) nhưng
+    // service create.data omit, fields silently dropped khi POST. Codex caught,
+    // em fixed in #111. Test này prevent re-regression.
+    it('persists loaiKetQua + canCuKhoiToCode (hotfix #111 regression)', async () => {
+      mockPrisma.incident.create.mockResolvedValue(mockIncident);
+
+      await service.create(
+        {
+          name: 'Test PR 5 fields',
+          loaiKetQua: 'KHOI_TO',
+          canCuKhoiToCode: 'FROM_INCIDENT',
+        } as any,
+        'actor-001',
+      );
+
+      const createCall = mockPrisma.incident.create.mock.calls[0][0];
+      expect(createCall.data.loaiKetQua).toBe('KHOI_TO');
+      expect(createCall.data.canCuKhoiToCode).toBe('FROM_INCIDENT');
+    });
   });
 
   // ── update ────────────────────────────────────────────────────────────────
@@ -572,6 +593,27 @@ describe('IncidentsService', () => {
       expect(mockAudit.log).toHaveBeenCalledWith(
         expect.objectContaining({ action: 'INCIDENT_UPDATED' }),
       );
+    });
+
+    // Hotfix #111 regression — TDD red-green-restore verified.
+    // Bug: update whitelist field array (incidents.service.ts:475) omit
+    // loaiKetQua + canCuKhoiToCode → PUT silently drop edits.
+    it('update whitelist persists loaiKetQua + canCuKhoiToCode (hotfix #111)', async () => {
+      mockPrisma.incident.findFirst.mockResolvedValue(mockIncident);
+      mockPrisma.incident.update.mockResolvedValue(mockIncident);
+
+      await service.update(
+        'inc-001',
+        {
+          loaiKetQua: 'KHONG_KHOI_TO',
+          canCuKhoiToCode: 'OTHER_LEGAL_SOURCE',
+        } as any,
+        'actor-001',
+      );
+
+      const updateCall = mockPrisma.incident.update.mock.calls[0][0];
+      expect(updateCall.data.loaiKetQua).toBe('KHONG_KHOI_TO');
+      expect(updateCall.data.canCuKhoiToCode).toBe('OTHER_LEGAL_SOURCE');
     });
 
     // v0.30: INCIDENT_UPDATED must go through wrapUpdate for inline diff display.

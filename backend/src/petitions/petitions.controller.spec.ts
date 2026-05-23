@@ -5,6 +5,7 @@ import { PetitionsService } from './petitions.service';
 const mockService = {
   getList: jest.fn(),
   exportToExcel: jest.fn(),
+  exportWardPetitions: jest.fn(),
   getById: jest.fn(),
   exportToWord: jest.fn(),
   create: jest.fn(),
@@ -52,6 +53,40 @@ describe('PetitionsController — delegation', () => {
       { officerId: 'off-1' },
       mockUser.id,
       expect.objectContaining({ ipAddress: '127.0.0.1' }),
+    );
+  });
+
+  it('C1: exportWardPetitions() delegates to service.exportWardPetitions with query, dataScope, res, actor', async () => {
+    mockService.exportWardPetitions.mockResolvedValue(undefined);
+    const req = makeReq();
+    const res = { setHeader: jest.fn() } as any;
+    await (controller as any).exportWardPetitions(
+      { unitId: 'u1', fromDate: '2026-01-01', toDate: '2026-03-31' },
+      req,
+      res,
+    );
+    expect(mockService.exportWardPetitions).toHaveBeenCalledWith(
+      { unitId: 'u1', fromDate: '2026-01-01', toDate: '2026-03-31' },
+      req.dataScope,
+      res,
+      expect.objectContaining({ userId: mockUser.id }),
+    );
+  });
+
+  it('C2: PetitionsController has exportWardPetitions handler decorated with read permission', () => {
+    // Reflective check — Nest stores metadata via @RequirePermissions on the method.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { PERMISSIONS_KEY } = require('../auth/decorators/permissions.decorator');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { Reflector } = require('@nestjs/core');
+    const reflector = new Reflector();
+    const handler = (PetitionsController.prototype as any).exportWardPetitions;
+    expect(handler).toBeDefined();
+    const perms = reflector.get(PERMISSIONS_KEY, handler);
+    expect(perms).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ action: 'read', subject: 'Petition' }),
+      ]),
     );
   });
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { useFormDefaults } from "@/hooks/useFormDefaults";
 import {
@@ -22,6 +22,8 @@ import type { TabItem } from "@/components/shared/TabBar";
 import type { TabId, Subject, Evidence, MediaFile, CaseFormData } from "./types";
 import { INITIAL_FORM_DATA } from "./types";
 import { buildCreateCasePayload } from "./buildCreateCasePayload";
+import { hydrateFormFromUrl } from "./hydrateFormFromUrl"; // PR 3 + hotfix #112
+import { PreSaveSummaryModal } from "./PreSaveSummaryModal"; // PR 3 v0.38.2.0
 import { mergeCaseApiToFormData } from "./mergeCaseApiToFormData";
 import {
   TabInfo,
@@ -57,6 +59,7 @@ const TABS: TabItem<TabId>[] = [
 function CaseFormPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams(); // PR 3 v0.38.2.0 — URL param hydration
   const isEditMode = !!id;
 
   const [activeTab, setActiveTab] = useState<TabId>("info");
@@ -68,6 +71,9 @@ function CaseFormPage() {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [evidences, setEvidences] = useState<Evidence[]>([]);
   const [mediaFiles, setMediaFiles] = useState<MediaFile[]>([]);
+  // PR 3 v0.38.2.0 — Pre-save summary modal state
+  const [showPreSaveSummary, setShowPreSaveSummary] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const [formData, setFormData] = useState<CaseFormData>(INITIAL_FORM_DATA);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -88,6 +94,18 @@ function CaseFormPage() {
       } catch { /* ignore malformed draft */ }
     }
   }, [isEditMode]);
+
+  // PR 3 v0.38.2.0 + Hotfix #112 — URL param hydration extracted to testable helper.
+  // Entry path 2/3: button "Khởi tố thành vụ án" navigate với linkedIncidentId +
+  // caseProvenance + expectedIncidentUpdatedAt. Helper hydrate vào formData.
+  // Tested: urlHydration.test.ts (TDD red-green-restore verified).
+  useEffect(() => {
+    if (isEditMode) return;
+    const updates = hydrateFormFromUrl(searchParams);
+    if (Object.keys(updates).length > 0) {
+      setFormData((prev) => ({ ...prev, ...updates }));
+    }
+  }, [isEditMode, searchParams]);
 
   // Apply form defaults (today, current user, primary team) on create mode once profile is hydrated.
   // `prev.x ||` guard preserves user keystrokes if they typed before profile loaded.
@@ -172,23 +190,43 @@ function CaseFormPage() {
 
   // ─── Handlers ──────────────────────────────────────────────────────────
 
+  // PR 3 v0.38.2.0: handleSave splits into 2 phases:
+  // 1. handleSave → validate + show Pre-save Summary Modal (NEW gate)
+  // 2. handleConfirmSave → actual POST after user confirms
   const handleSave = async () => {
     if (!validateForm()) {
-      // v0.37.2.5 Decision 7A: scroll to top so the aria-assertive summary banner
-      // is visible. Inline per-field errors remain (already wired in tabs.tsx).
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
+    // Skip pre-save modal in edit mode (avoid friction for quick edits)
+    if (isEditMode) {
+      await handleConfirmSave();
+      return;
+    }
+    setShowPreSaveSummary(true);
+  };
+
+  const handleConfirmSave = async () => {
+    setIsSaving(true);
     try {
-      // v0.37.2.3: payload helper extracted + tested. Includes top-level
-      // caseProvenance + conditional linkedX/expectedXUpdatedAt/sourceDocumentNote.
-      const payload = buildCreateCasePayload(formData);
+      // v0.37.2.3: payload helper extracted + tested.
+      // PR 1 v0.38.0.0: wire sub-entity arrays (subjects/evidences/mediaFiles → documentIds)
+      // để fix bug data-loss — atomic create với Case trong cùng transaction.
+      const payload = buildCreateCasePayload(formData, {
+        subjects,
+        evidences,
+        // HOTFIX (codex P1): documentIds disabled. MediaFile.id local-only,
+        // file chưa thực sự upload. Truyền fake IDs sẽ throw 400 ở backend.
+        // Future PR: implement actual upload trong handleUploadMedia.
+        // documentIds: mediaFiles.map((m) => m.id),
+      });
       if (isEditMode) {
         await api.put(`/cases/${id}`, { ...payload, expectedUpdatedAt: recordUpdatedAt ?? undefined });
       } else {
         await api.post("/cases", payload);
       }
       localStorage.removeItem('caseFormDraft');
+      setShowPreSaveSummary(false);
       alert(isEditMode ? "Cập nhật hồ sơ thành công!" : "Lưu hồ sơ thành công!");
       navigate("/cases");
     } catch (err: unknown) {
@@ -199,6 +237,8 @@ function CaseFormPage() {
       }
       console.error("[CaseFormPage] Save error:", err);
       alert("Lưu hồ sơ thất bại. Vui lòng thử lại.");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -392,6 +432,20 @@ function CaseFormPage() {
           onSave={handleSaveEvidence}
         />
       )}
+
+      {/* PR 3 v0.38.2.0 — Pre-save Summary Modal (anti-bug data-loss gate) */}
+      <PreSaveSummaryModal
+        open={showPreSaveSummary}
+        formData={formData}
+        subjects={subjects}
+        evidences={evidences}
+        mediaFiles={mediaFiles}
+        linkedIncidentCode={formData.incidentCode || undefined}
+        linkedIncidentName={formData.incidentDescription || undefined}
+        isSaving={isSaving}
+        onConfirm={handleConfirmSave}
+        onCancel={() => setShowPreSaveSummary(false)}
+      />
     </div>
   );
 }

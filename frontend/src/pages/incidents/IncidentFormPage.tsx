@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { extractApiError } from "@/lib/api-errors";
-import { ArrowLeft, Save, AlertCircle, Calendar, FileText, Loader2, ChevronDown, ChevronRight } from "lucide-react";
+import { ArrowLeft, Save, AlertCircle, Calendar, FileText, Loader2, ChevronDown, ChevronRight, Target } from "lucide-react";
 import { FKSelect, type FKOption } from "@/components/FKSelect";
 import { getPhaseForStatus } from "@/constants/incident-phases";
 import {
@@ -39,6 +39,9 @@ interface FormData {
   canBoNhapId: string;
   investigatorId: string;
   ketQuaXuLy: string;
+  // PR 5 v0.38.4.0 — Loại kết quả chuẩn hóa + Căn cứ khởi tố Đ.143 (Wireframe 5)
+  loaiKetQua: string;
+  canCuKhoiToCode: string;
   soQuyetDinh: string;
   ngayQuyetDinh: string;
   nguoiQuyetDinh: string;
@@ -71,6 +74,8 @@ const INITIAL_FORM: FormData = {
   canBoNhapId: "",
   investigatorId: "",
   ketQuaXuLy: "",
+  loaiKetQua: "",
+  canCuKhoiToCode: "",
   soQuyetDinh: "",
   ngayQuyetDinh: "",
   nguoiQuyetDinh: "",
@@ -202,6 +207,8 @@ export function IncidentFormPage() {
             canBoNhapId: (d.canBoNhapId as string) ?? "",
             investigatorId: (d.investigatorId as string) ?? "",
             ketQuaXuLy: (d.ketQuaXuLy as string) ?? "",
+            loaiKetQua: (d.loaiKetQua as string) ?? "",
+            canCuKhoiToCode: (d.canCuKhoiToCode as string) ?? "",
             soQuyetDinh: (d.soQuyetDinh as string) ?? "",
             ngayQuyetDinh: toDateInput(d.ngayQuyetDinh as string | null | undefined),
             nguoiQuyetDinh: (d.nguoiQuyetDinh as string) ?? "",
@@ -266,6 +273,8 @@ export function IncidentFormPage() {
         soQuyetDinh: s(formData.soQuyetDinh),
         ngayQuyetDinh: s(formData.ngayQuyetDinh),
         ketQuaXuLy: s(formData.ketQuaXuLy),
+        loaiKetQua: s(formData.loaiKetQua),
+        canCuKhoiToCode: s(formData.canCuKhoiToCode),
         nguoiQuyetDinh: s(formData.nguoiQuyetDinh),
         lyDoKhongKhoiTo: s(formData.lyDoKhongKhoiTo),
         lyDoTamDinhChi: s(formData.lyDoTamDinhChi),
@@ -514,25 +523,59 @@ export function IncidentFormPage() {
           </div>
         </CollapsibleSection>
 
-        {/* Section 3: Ket qua giai quyet */}
+        {/* Section 3: Ket qua giai quyet — PR 5 v0.38.4.0 theo Wireframe 5 plan */}
         <CollapsibleSection
-          title="Kết quả giải quyết"
+          title="Kết quả xử lý vụ việc"
           expanded={section3Open}
           onToggle={() => setSection3Open(!section3Open)}
           testId="section-ket-qua"
         >
+          {/* Loại kết quả (chuẩn hóa enum) + Số quyết định */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className={labelClass}>Kết quả giải quyết</label>
-              <input type="text" value={formData.ketQuaXuLy} onChange={(e) => update("ketQuaXuLy", e.target.value)}
-                className={inputClass} placeholder="Kết quả giải quyết vụ việc" data-testid="field-ketQuaXuLy" />
+              <label className={labelClass}>Loại kết quả</label>
+              <select
+                value={formData.loaiKetQua}
+                onChange={(e) => update("loaiKetQua", e.target.value)}
+                className={inputClass}
+                data-testid="field-loaiKetQua"
+              >
+                <option value="">-- Chọn loại kết quả --</option>
+                <option value="KHOI_TO">Khởi tố vụ án</option>
+                <option value="KHONG_KHOI_TO">Không khởi tố</option>
+                <option value="TAM_DINH_CHI">Tạm đình chỉ</option>
+                <option value="CHUYEN_HO_SO">Chuyển hồ sơ cấp khác</option>
+                <option value="DINH_CHI">Đình chỉ</option>
+                <option value="KHAC">Khác</option>
+              </select>
+              <p className="mt-1 text-xs text-slate-500">
+                Loại kết quả chuẩn hóa cho báo cáo TT28/2020/TT-BCA.
+              </p>
             </div>
             <div>
               <label className={labelClass}>Số quyết định</label>
               <input type="text" value={formData.soQuyetDinh} onChange={(e) => update("soQuyetDinh", e.target.value)}
-                className={inputClass} placeholder="Số quyết định" data-testid="field-soQuyetDinh" />
+                className={inputClass} placeholder="VD: QD-2026-042" data-testid="field-soQuyetDinh" />
             </div>
           </div>
+
+          {/* Mô tả chi tiết (free-form text — giữ field ketQuaXuLy cũ, đổi caption) */}
+          <div>
+            <label className={labelClass}>Mô tả chi tiết kết quả (tùy chọn)</label>
+            <textarea
+              value={formData.ketQuaXuLy}
+              onChange={(e) => update("ketQuaXuLy", e.target.value)}
+              className={inputClass}
+              rows={3}
+              placeholder="VD: Đã đủ căn cứ khởi tố vụ án theo tin báo từ cá nhân Nguyễn Văn X..."
+              data-testid="field-ketQuaXuLy"
+            />
+            <p className="mt-1 text-xs text-slate-500">
+              Bổ sung mô tả chi tiết, ngữ cảnh, ghi chú nội bộ.
+            </p>
+          </div>
+
+          {/* Ngày + Người ra quyết định */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className={labelClass}>Ngày ra quyết định</label>
@@ -548,15 +591,67 @@ export function IncidentFormPage() {
                 className={inputClass} placeholder="Người ra quyết định" data-testid="field-nguoiQuyetDinh" />
             </div>
           </div>
-          <FKSelect
-            label="Lý do không khởi tố (Điều 157 BLTTHS)"
-            value={formData.lyDoKhongKhoiTo}
-            onChange={(v) => update("lyDoKhongKhoiTo", v)}
-            options={LY_DO_KHONG_KHOI_TO_OPTIONS}
-            placeholder="-- Chọn căn cứ --"
-            canCreate={false}
-            testId="field-lyDoKhongKhoiTo"
-          />
+
+          {/* 📌 Sub-group Tham chiếu pháp lý — Wireframe 5 plan */}
+          <div className="mt-6 pt-6 border-t border-slate-200">
+            <p className="text-sm font-medium text-slate-700 mb-3">📌 Tham chiếu pháp lý (tùy chọn — ghi nhận khi cần audit)</p>
+
+            {/* Căn cứ khởi tố (Đ.143 BLTTHS) — code khớp CaseProvenance enum */}
+            <FKSelect
+              label="Căn cứ khởi tố vụ án (Đ.143 BLTTHS) — nếu khởi tố"
+              value={formData.canCuKhoiToCode}
+              onChange={(v) => update("canCuKhoiToCode", v)}
+              directoryType="CAN_CU_KHOI_TO"
+              placeholder="-- Chọn căn cứ (nếu có) --"
+              canCreate={false}
+              testId="field-canCuKhoiToCode"
+            />
+            <p className="mt-1 mb-4 text-xs text-slate-500">
+              7 căn cứ chuẩn theo BLTTHS Đ.143. Có thể bỏ trống. Khi convert vụ việc → vụ án, giá trị này tự transfer sang Case.caseProvenance.
+            </p>
+
+            {/* Lý do không khởi tố Đ.157 — giữ field hiện tại, anh override luôn hiển thị */}
+            <FKSelect
+              label="Lý do không khởi tố (Điều 157 BLTTHS) — nếu không khởi tố"
+              value={formData.lyDoKhongKhoiTo}
+              onChange={(v) => update("lyDoKhongKhoiTo", v)}
+              options={LY_DO_KHONG_KHOI_TO_OPTIONS}
+              placeholder="-- Chọn căn cứ (nếu có) --"
+              canCreate={false}
+              testId="field-lyDoKhongKhoiTo"
+            />
+            <p className="mt-1 text-xs text-slate-500">
+              8 căn cứ chuẩn theo BLTTHS Đ.157. Luôn hiển thị (pháp lý quan trọng).
+            </p>
+          </div>
+
+          {/* Entry path 3 — Button "Khởi tố thành vụ án" (anh confirm) */}
+          {!isEditMode || !id ? null : (
+            <div className="mt-6 pt-6 border-t border-slate-200">
+              <p className="text-sm text-slate-600 mb-3">
+                ℹ️ Nếu đã quyết định khởi tố, click nút bên dưới để tạo hồ sơ vụ án:
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.confirm(
+                    "Khởi tố vụ án từ vụ việc này?\n\n" +
+                    "Sẽ tạo vụ án mới liên kết với vụ việc " + (formData.name || id) + ".\n" +
+                    "Bạn có thể bổ sung thông tin chi tiết ở bước sau."
+                  )) {
+                    // HOTFIX (codex P1): include expectedIncidentUpdatedAt cho optimistic lock
+                    const updatedAt = recordUpdatedAt ?? new Date().toISOString();
+                    navigate(`/cases/new?linkedIncidentId=${id}&caseProvenance=FROM_INCIDENT&expectedIncidentUpdatedAt=${encodeURIComponent(updatedAt)}`);
+                  }
+                }}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 text-sm font-medium"
+                data-testid="incident-form-prosecute-btn"
+              >
+                <Target className="w-4 h-4" />
+                Khởi tố thành vụ án
+              </button>
+            </div>
+          )}
         </CollapsibleSection>
 
         {/* Section 4: Tam dinh chi & Phuc hoi */}

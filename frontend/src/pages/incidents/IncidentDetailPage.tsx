@@ -6,7 +6,7 @@ import { IncidentStatus } from "@/shared/enums/generated";
 import { INCIDENT_STATUS_LABEL, INCIDENT_STATUS_BADGE, BADGE_DEFAULT } from "@/shared/enums/status-labels";
 import {
   ArrowLeft, Edit, Calendar, FileText, User, MapPin, Clock,
-  AlertCircle, Loader2,
+  AlertCircle, Loader2, Target,
 } from "lucide-react";
 
 interface IncidentDetail {
@@ -147,6 +147,30 @@ export default function IncidentDetailPage() {
             >
               <Edit className="w-4 h-4" />
               Chỉnh sửa
+            </button>
+          )}
+          {/* PR 3 v0.38.2.0 — Entry path 2: Khởi tố thành vụ án từ IncidentDetailPage */}
+          {canEdit && (
+            <button
+              onClick={() => {
+                if (window.confirm(
+                  "Khởi tố vụ án từ vụ việc này?\n\n" +
+                  "Sẽ tạo vụ án mới liên kết với vụ việc " + (incident.stt ?? incident.id) + ".\n" +
+                  "Bạn có thể bổ sung thông tin chi tiết ở bước sau."
+                )) {
+                  // HOTFIX (codex P1): include expectedIncidentUpdatedAt cho optimistic
+                  // lock — backend yêu cầu khi caseProvenance=FROM_INCIDENT.
+                  // CaseFormPage URL hydration sẽ set vào form state.
+                  const updatedAt = incident.updatedAt ?? new Date().toISOString();
+                  navigate(`/cases/new?linkedIncidentId=${incident.id}&caseProvenance=FROM_INCIDENT&expectedIncidentUpdatedAt=${encodeURIComponent(updatedAt)}`);
+                }
+              }}
+              className="flex items-center gap-2 px-3 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 text-sm font-medium"
+              data-testid="incident-detail-prosecute-btn"
+              title="Khởi tố thành vụ án — tạo Case mới liên kết với vụ việc này"
+            >
+              <Target className="w-4 h-4" />
+              Khởi tố thành vụ án
             </button>
           )}
         </div>
