@@ -2,6 +2,38 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.37.3.0] - 2026-05-23
+
+**UAT Round 1 fix** — fix 4 backend bug từ UAT comprehensive v2 (781 TC chạy thực trên prod 171.244.40.245, 263 PASS / 518 FAIL / 0 SKIP). 92% failures là test infrastructure (rate limit + placeholder ID). 4 backend bugs real được verify qua 3 Explore agents + plan-eng-review.
+
+### Added
+- **[backend] PrismaExceptionFilter centralized** — [backend/src/common/filters/prisma-exception.filter.ts](backend/src/common/filters/prisma-exception.filter.ts). `@Catch(Prisma.PrismaClientKnownRequestError)` map mọi Prisma error sang HTTP status có ý nghĩa: P2003 (FK violation) → 400 INVALID_REFERENCE, P2002 (unique) → 409 DUPLICATE_VALUE, P2025 (record not found) → 404 RECORD_NOT_FOUND. Register TRƯỚC GlobalExceptionFilter trong [main.ts](backend/src/main.ts) để NestJS resolve specific filter trước catch-all. Trước đây Prisma errors leak 500 INTERNAL_ERROR khắp 30+ services.
+
+### Fixed
+- **[cases] TC-142 P0 — `DeleteCaseDto.reason` thiếu `@IsNotEmpty()`** — Cho phép payload null/whitespace slip qua DTO validation. Thêm `@Transform(trim)` + `@IsNotEmpty({message:'Lý do xóa bắt buộc'})` vào [delete-case.dto.ts](backend/src/cases/dto/delete-case.dto.ts). Cùng pattern fix cho [restore-case.dto.ts](backend/src/cases/dto/restore-case.dto.ts) (lý do khôi phục).
+- **[proposals] TC-582 P0 — `CreateProposalDto.proposalNumber` thiếu `@IsNotEmpty()`** — Cho phép tạo Proposal với mã rỗng `''`. Thêm Transform trim + IsNotEmpty vào [create-proposal.dto.ts](backend/src/proposals/dto/create-proposal.dto.ts).
+- **[conclusions] TC-484/485/507 P0 — `conclusions.service.create()` + `update()` không catch P2003 → 500** — Khi `caseId` không tồn tại, Prisma throw P2003 bubble lên 500 INTERNAL_ERROR. Centralized PrismaExceptionFilter (mới) catch P2003 → 400 BadRequest với message tiếng Việt. Service code không cần edit.
+- **[proposals] TC-622 P0 — `proposals.service.create()` không validate `relatedCaseId` exists** — Cùng pattern P2003 bug. Centralized filter handle, không cần edit service.
+
+### Test coverage
+- 4 unit test file mới: `delete-case.dto.spec.ts` (7 tests), `restore-case.dto.spec.ts` (5), `create-proposal.dto.spec.ts` (4), `prisma-exception.filter.spec.ts` (5).
+- Backend full suite: 1556/1556 PASS, 0 regression.
+- TypeScript `tsc --noEmit`: 0 errors.
+
+### UAT artifact
+- [docs/uat/uat_quan_ly_vu_viec.xlsx](docs/uat/uat_quan_ly_vu_viec.xlsx) — mở rộng từ 69 TC (v1) → 781 TC (v2) đạt formula MAX(100, dynamic) cho module Cases ~1700 LOC + sub-resources. 518 bug records auto-tạo trong Bug Tracker sheet. Sau Round 1 expect 10 TC chuyển Pass.
+- [docs/uat/uat_quan_ly_vu_viec.md](docs/uat/uat_quan_ly_vu_viec.md) — companion 1.1 MB với Fix Context + Bug YAML template cho Claude Code đọc.
+- [tests/uat-auto/](tests/uat-auto/) — 113 Playwright spec files, 781 tests API-level execution trên prod. Run: `UAT_PROD=1 npx playwright test tests/uat-auto/`.
+
+### Plan + Review
+- Plan: [~/.claude/plans/quiet-wiggling-cake.md](~/.claude/plans/quiet-wiggling-cake.md).
+- /plan-eng-review chốt D1: Centralized filter thay vì per-service try-catch (DRY, NestJS best practice).
+
+### Out of scope (Round 2)
+- Audit sweep ~6 DTO khác có cùng gap @IsNotEmpty thiếu (CreateLawyerDto, CreateSubjectDto, etc.).
+- Test infrastructure fix: login JWT cache (diệt 435 fail rate limit), seed fixtures (1 Case/Petition/Incident valid + crimeId), role mapping wardOfficer/dispatcher chính xác, file upload multipart cho 13 Document tests.
+- Cleanup local P2025 try-catch ở cases.service.ts:387-392 (deprecated bởi centralized filter).
+
 ## [0.37.2.7] - 2026-05-23
 
 **UAT hotfix** — 6 bug phát hiện trong UAT comprehensive Quản lý vụ việc 2026-05-23 (69 TC chạy trên prod, 51 PASS / 6 FAIL / 12 SKIP). Fix nhóm validation backend + A11Y/refactor frontend + sửa UAT spec.
