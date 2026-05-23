@@ -19,7 +19,6 @@ import {
   AlertCircle,
   Radio,
   Trash2,
-  Save,
   CheckCircle,
   Info,
   History,
@@ -1194,30 +1193,14 @@ export function TabBusinessFiles({ caseId }: { caseId?: string }) {
   );
 }
 
-// ─── StatFieldError: standalone component for stat field validation messages ─
-function StatFieldError({ field, errors }: { field: string; errors: Record<string, string> }) {
-  if (!errors[field]) return null;
-  return (
-    <div className="flex items-center gap-1 mt-1 text-red-600">
-      <AlertCircle className="w-3 h-3" />
-      <p className="text-xs">{errors[field]}</p>
-    </div>
-  );
-}
 
 // ═════════════════════════════════════════════════════════════════════════════
 // Tab 9: Thống kê 48 trường – full implementation từ Refs
 // ═════════════════════════════════════════════════════════════════════════════
 
 export function TabStatistics({ formData, setFormData }: TabProps) {
-  const [isSaving, setIsSaving] = useState(false);
-  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
-
   const update = (field: keyof typeof formData, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
-    if (validationErrors[field]) {
-      setValidationErrors((prev) => { const n = { ...prev }; delete n[field]; return n; });
-    }
   };
 
   const filledCount = [
@@ -1237,30 +1220,10 @@ export function TabStatistics({ formData, setFormData }: TabProps) {
 
   const pct = Math.round((filledCount / 48) * 100);
 
-  const validate = () => {
-    const e: Record<string, string> = {};
-    if (!formData.stat_sourceType) e.stat_sourceType = "Vui lòng chọn loại nguồn tin";
-    if (!formData.stat_primaryCrime) e.stat_primaryCrime = "Vui lòng chọn tội danh chính";
-    if (formData.stat_victimCount && isNaN(Number(formData.stat_victimCount))) e.stat_victimCount = "Phải là số";
-    if (formData.stat_damageAmount && isNaN(Number(formData.stat_damageAmount))) e.stat_damageAmount = "Phải là số";
-    setValidationErrors(e);
-    return Object.keys(e).length === 0;
-  };
-
-  const handleSave = async () => {
-    if (!validate()) { alert("Vui lòng kiểm tra lại các trường bắt buộc"); return; }
-    setIsSaving(true);
-    await new Promise((r) => setTimeout(r, 800));
-    setIsSaving(false);
-    alert("Đã lưu thống kê 48 trường thành công!");
-  };
-
   const sel = (className = "") =>
     `w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm ${className}`;
   const inp = (className = "") =>
     `w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm ${className}`;
-  const errInp = (field: string) => validationErrors[field] ? "border-red-300 focus:ring-red-400" : "";
-
   return (
     <div className="space-y-6" data-testid="tab-statistics">
       {/* Warning */}
@@ -1297,7 +1260,7 @@ export function TabStatistics({ formData, setFormData }: TabProps) {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Loại nguồn tin <span className="text-red-500">*</span></label>
-            <select value={formData.stat_sourceType} onChange={(e) => update("stat_sourceType", e.target.value)} className={sel(errInp("stat_sourceType"))} data-testid="stat-sourceType">
+            <select value={formData.stat_sourceType} onChange={(e) => update("stat_sourceType", e.target.value)} className={sel()} data-testid="stat-sourceType">
               <option value="">-- Chọn loại --</option>
               <option value="denunciation">Tố giác tội phạm</option>
               <option value="complaint">Khiếu nại</option>
@@ -1306,7 +1269,7 @@ export function TabStatistics({ formData, setFormData }: TabProps) {
               <option value="informant">Nguồn tin mật</option>
               <option value="other">Khác</option>
             </select>
-            <StatFieldError field="stat_sourceType" errors={validationErrors} />
+
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Nguồn gốc</label>
@@ -1389,7 +1352,7 @@ export function TabStatistics({ formData, setFormData }: TabProps) {
         </h4>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <FKSelect label="Tội danh chính" required directoryType="CRIME" value={formData.stat_primaryCrime} onChange={(v) => update("stat_primaryCrime", v)} placeholder="-- Chọn tội danh --" testId="stat-primaryCrime" error={validationErrors?.stat_primaryCrime} />
+            <FKSelect label="Tội danh chính" required directoryType="CRIME" value={formData.stat_primaryCrime} onChange={(v) => update("stat_primaryCrime", v)} placeholder="-- Chọn tội danh --" testId="stat-primaryCrime" />
           </div>
           <div>
             <FKSelect label="Tội danh phụ" directoryType="CRIME" value={formData.stat_secondaryCrime} onChange={(v) => update("stat_secondaryCrime", v)} placeholder="-- Chọn tội danh phụ --" />
@@ -1403,8 +1366,7 @@ export function TabStatistics({ formData, setFormData }: TabProps) {
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Thiệt hại (VNĐ)</label>
-            <CurrencyInput value={formData.stat_damageAmount} onValueChange={(v) => update("stat_damageAmount", v)} placeholder="0 ₫" className={inp(errInp("stat_damageAmount"))} data-testid="stat-damageAmount" />
-            <StatFieldError field="stat_damageAmount" errors={validationErrors} />
+            <CurrencyInput value={formData.stat_damageAmount} onValueChange={(v) => update("stat_damageAmount", v)} placeholder="0 ₫" className={inp()} data-testid="stat-damageAmount" />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Đã thu hồi (VNĐ)</label>
@@ -1412,8 +1374,7 @@ export function TabStatistics({ formData, setFormData }: TabProps) {
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Số bị hại</label>
-            <IntegerInput value={formData.stat_victimCount} onValueChange={(v) => update("stat_victimCount", v)} placeholder="0" className={inp(errInp("stat_victimCount"))} data-testid="stat-victimCount" />
-            <StatFieldError field="stat_victimCount" errors={validationErrors} />
+            <IntegerInput value={formData.stat_victimCount} onValueChange={(v) => update("stat_victimCount", v)} placeholder="0" className={inp()} data-testid="stat-victimCount" />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Số người chết</label>
@@ -1576,15 +1537,9 @@ export function TabStatistics({ formData, setFormData }: TabProps) {
           <Info className="w-4 h-4" />
           <span>Đã điền {filledCount}/48 trường ({pct}%)</span>
         </div>
-        <button
-          onClick={handleSave}
-          disabled={isSaving}
-          className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:bg-slate-300 disabled:cursor-not-allowed"
-          data-testid="btn-save-statistics"
-        >
-          <Save className="w-4 h-4" />
-          {isSaving ? "Đang lưu..." : "Lưu thống kê"}
-        </button>
+        <p className="text-sm text-slate-500 italic">
+          Dữ liệu thống kê được lưu cùng khi bấm &ldquo;Lưu hồ sơ&rdquo; bên trên.
+        </p>
       </div>
     </div>
   );
