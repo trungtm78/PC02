@@ -5,6 +5,7 @@ import { useContainer } from 'class-validator';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/filters/http-exception.filter';
+import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -41,12 +42,29 @@ async function bootstrap() {
     }),
   );
 
-  // Global exception filter — standardized error responses
-  app.useGlobalFilters(new GlobalExceptionFilter());
+  // Global exception filters — standardized error responses.
+  // NestJS resolves filters in REGISTRATION ORDER for specific @Catch types first,
+  // catch-all (@Catch() no-arg) là fallback. PrismaExceptionFilter specific cho
+  // PrismaClientKnownRequestError → match trước GlobalExceptionFilter generic.
+  // UAT Round 1 (TC-484, TC-622): P2003 không còn bubble lên 500.
+  app.useGlobalFilters(
+    new PrismaExceptionFilter(),
+    new GlobalExceptionFilter(),
+  );
 
   // CORS: env CORS_ORIGIN overrides localhost defaults (required for production)
-  const rawOrigins = (process.env.CORS_ORIGIN ?? '').split(',').map((o) => o.trim()).filter(Boolean);
-  const corsOrigins = rawOrigins.length > 0 ? rawOrigins : ['http://localhost:5173', 'http://localhost:5179', 'http://localhost:8080'];
+  const rawOrigins = (process.env.CORS_ORIGIN ?? '')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
+  const corsOrigins =
+    rawOrigins.length > 0
+      ? rawOrigins
+      : [
+          'http://localhost:5173',
+          'http://localhost:5179',
+          'http://localhost:8080',
+        ];
   app.enableCors({ origin: corsOrigins, credentials: true });
 
   const port = process.env.PORT ?? 3000;

@@ -7,14 +7,129 @@ import {
   IsObject,
   IsISO8601,
   IsNotEmpty,
+  IsArray,
   ValidateIf,
+  ValidateNested,
+  ArrayMaxSize,
   Min,
   MaxLength,
 } from 'class-validator';
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { CaseStatus, CapDoToiPham, CaseProvenance } from '@prisma/client';
 
 export { CaseStatus, CapDoToiPham, CaseProvenance };
+
+// PR 1 v0.38.0.0 — Atomic transaction sub-entity DTOs
+// Fix bug data-loss wizard "Khởi tố vụ án mới" (subjects/evidences/documents bị mất khi save)
+export class CreateSubjectInlineDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(255)
+  fullName: string;
+
+  @IsDateString()
+  dateOfBirth: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(10)
+  gender?: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(20)
+  idNumber: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(500)
+  address: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  phone?: string;
+
+  @IsOptional()
+  @IsString()
+  occupationId?: string;
+
+  @IsOptional()
+  @IsString()
+  nationalityId?: string;
+
+  @IsOptional()
+  @IsString()
+  wardId?: string;
+
+  @IsString()
+  @IsNotEmpty({ message: 'crimeId required cho mỗi Subject (FK directories type=CRIME)' })
+  crimeId: string;
+
+  @IsOptional()
+  @IsString()
+  type?: string; // SubjectType enum value
+
+  @IsOptional()
+  @IsString()
+  notes?: string;
+}
+
+export class CreateEvidenceInlineDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  code: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(500)
+  name: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  description?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  quantity?: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  unit?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  storageLocation?: string;
+
+  @IsOptional()
+  @IsDateString()
+  receivedDate?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  status?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  evidenceType?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  entryOrder?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  warehouseReceipt?: string;
+}
 
 export class CreateCaseDto {
   // BUG-001/002/004 (UAT 2026-05-23): trim + reject empty/whitespace-only.
@@ -108,4 +223,29 @@ export class CreateCaseDto {
   @IsString()
   @MaxLength(1000)
   sourceDocumentNote?: string;
+
+  // ─── PR 1 v0.38.0.0 — Atomic sub-entity arrays ──────────────────────────────
+  // Fix bug data-loss: subjects/evidences/documentIds được create đồng bộ với Case
+  // trong 1 prisma.$transaction. All-or-nothing. Trước đây arrays bị drop khi POST.
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(100, { message: 'subjects[] tối đa 100 đối tượng' })
+  @ValidateNested({ each: true })
+  @Type(() => CreateSubjectInlineDto)
+  subjects?: CreateSubjectInlineDto[];
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(100, { message: 'evidences[] tối đa 100 vật chứng' })
+  @ValidateNested({ each: true })
+  @Type(() => CreateEvidenceInlineDto)
+  evidences?: CreateEvidenceInlineDto[];
+
+  // Documents đã upload trước qua flow riêng (POST /documents). Truyền IDs để link.
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(50, { message: 'documentIds[] tối đa 50 file' })
+  @IsString({ each: true })
+  documentIds?: string[];
 }
