@@ -50,4 +50,10 @@ export interface FeatureMenuEntry {
   icon?: string;
   badge?: string;
   children?: FeatureMenuEntry[];
+  /**
+   * Sort order within the section (ascending). Lower = earlier.
+   * Default 100. Use lower values (e.g. 10) to surface an item above
+   * the alphabetical default. Ties preserve registration order.
+   */
+  order?: number;
 }

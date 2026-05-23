@@ -110,6 +110,25 @@ describe('useMenuSections', () => {
     expect(ids).not.toContain('workflow');
   });
 
+  // v0.37.2.2: comprehensive ('Tổng hợp') is the cross-entity summary view.
+  // Anh wants it to appear ABOVE 'cases' (Quản lý vụ án) and as the FIRST
+  // submenu in section 'business'. Default ordering is alphabetical from
+  // import.meta.glob, which puts cases first. We need explicit ordering.
+  it('places comprehensive (Tổng hợp) as the FIRST item in business section', () => {
+    render(
+      <Wrapper flags={allFeaturesEnabled()}>
+        <Probe />
+      </Wrapper>,
+    );
+    const business = screen.getByText(/^Nghiệp vụ chính:/);
+    const ids = business.textContent!.replace('Nghiệp vụ chính:', '').split(',');
+    expect(ids[0]).toBe('comprehensive');
+    // Sanity: cases should still be present, just not first.
+    expect(ids).toContain('cases');
+    // comprehensive must come before cases.
+    expect(ids.indexOf('comprehensive')).toBeLessThan(ids.indexOf('cases'));
+  });
+
   it('hides unknown features (not seeded) so the backend stays the source of truth', () => {
     // Provide NO flags for cases — it becomes "unknown" in the context.
     const flags = allFeaturesEnabled().filter((f) => f.key !== 'cases');

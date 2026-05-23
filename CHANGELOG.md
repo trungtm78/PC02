@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.37.2.2] - 2026-05-23
+
+Sidebar reorder — menu "Tổng hợp" lên đầu section "Nghiệp vụ chính".
+
+### Added
+- **[features] `FeatureMenuEntry.order?: number`** — optional sort key cho menu items trong cùng 1 section. Default 100. Lower = earlier. Ties preserve registration order. Cho phép tweak thứ tự mà không cần đổi tên feature folder (auto-discovery sort theo alphabetical filename).
+- **[features] `useMenuSections` sort items theo `order` ascending** trước khi render. Sections vẫn theo canonical order (main → business → workflow → reports → system → admin).
+
+### Changed
+- **[menu] "Tổng hợp" lên đầu section "Nghiệp vụ chính"** — set `order: 10` trên top-level menu entry. Thứ tự mới: Tổng hợp → Quản lý vụ án → Vụ việc → Đơn thư → Đối tượng liên quan. Trước đây alphabetical: cases → comprehensive → incidents → petitions → subjects.
+
+### Test coverage
+- Frontend: `useMenuSections.test.tsx` thêm test "places comprehensive (Tổng hợp) as the FIRST item in business section" — TDD red-green (RED khi chưa add order, GREEN sau khi add).
+- Full FE suite: 563 tests pass (was 562).
+
 ## [0.37.2.1] - 2026-05-23
 
 Hotfix khôi phục menu "Tổng hợp" trên sidebar production.
