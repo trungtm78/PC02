@@ -3,14 +3,12 @@
 /**
  * PetitionsJourneyService Unit Tests
  *
- * TDD Cycle RED — all tests MUST fail before implementation exists.
- *
  * Tests cover:
  *   TC-PJ01: empty history → synthetic PETITION CREATED event from petition.createdAt
  *   TC-PJ02: AuditLog events mapped to PETITION entityType, sorted DESC
  *   TC-PJ03: ForbiddenException propagated when petition out of DataScope
  *   TC-PJ04: metadata.hasDiff=false when null, hasDiff=true when before present; no raw before/after
- *   TC-PJ05: 51 audit events → 50 returned page 1 (hasNextPage=true), page 2 returns rest
+ *   TC-PJ05: 51 audit events → 50 returned page 1 (hasNextPage=true), page 2 returns 2 (1 audit + 1 synthetic)
  *   TC-PJ06: pagination boundary — exactly 50 events → hasNextPage=false, total=50
  */
 
@@ -57,6 +55,7 @@ const mockPetitionsService = {
 const mockPrisma = {
   auditLog: {
     findMany: jest.fn(),
+    count: jest.fn(),
   },
 };
 
@@ -83,6 +82,8 @@ describe('PetitionsJourneyService', () => {
   describe('TC-PJ01: empty audit log → synthetic CREATED event from petition.createdAt', () => {
     it('returns synthetic CREATED event when no audit log exists', async () => {
       mockPetitionsService.getById.mockResolvedValue({ success: true, data: mockPetition });
+      // count(all)=0, count(PETITION_CREATED)=0
+      mockPrisma.auditLog.count.mockResolvedValue(0);
       mockPrisma.auditLog.findMany.mockResolvedValue([]);
 
       const result = await service.getJourney('petition-001', null, 1, 50);
@@ -105,9 +106,12 @@ describe('PetitionsJourneyService', () => {
     it('maps audit logs to PETITION events sorted newest first', async () => {
       const older = makeAuditLog('audit-001', '2025-01-10T10:00:00Z');
       const newer = makeAuditLog('audit-002', '2025-01-20T14:00:00Z');
-      // Provide in ASC order — service must sort DESC
       mockPetitionsService.getById.mockResolvedValue({ success: true, data: mockPetition });
-      mockPrisma.auditLog.findMany.mockResolvedValue([older, newer]);
+      mockPrisma.auditLog.count.mockImplementation(async ({ where }: any) =>
+        where?.action === 'PETITION_CREATED' ? 0 : 2,
+      );
+      // DB returns DESC order (orderBy: { createdAt: 'desc' }) — mock simulates same
+      mockPrisma.auditLog.findMany.mockResolvedValue([newer, older]);
 
       const result = await service.getJourney('petition-001', null, 1, 50);
 
@@ -147,6 +151,9 @@ describe('PetitionsJourneyService', () => {
       const auditNoBefore = makeAuditLog('audit-nodiff', '2025-01-12T10:00:00Z', null);
 
       mockPetitionsService.getById.mockResolvedValue({ success: true, data: mockPetition });
+      mockPrisma.auditLog.count.mockImplementation(async ({ where }: any) =>
+        where?.action === 'PETITION_CREATED' ? 0 : 1,
+      );
       mockPrisma.auditLog.findMany.mockResolvedValue([auditNoBefore]);
 
       const result = await service.getJourney('petition-001', null, 1, 50);
@@ -170,6 +177,9 @@ describe('PetitionsJourneyService', () => {
       );
 
       mockPetitionsService.getById.mockResolvedValue({ success: true, data: mockPetition });
+      mockPrisma.auditLog.count.mockImplementation(async ({ where }: any) =>
+        where?.action === 'PETITION_CREATED' ? 0 : 1,
+      );
       mockPrisma.auditLog.findMany.mockResolvedValue([auditWithBefore]);
 
       const result = await service.getJourney('petition-001', null, 1, 50);
@@ -189,18 +199,24 @@ describe('PetitionsJourneyService', () => {
   // ── TC-PJ05 ───────────────────────────────────────────────────────────────
 
   describe('TC-PJ05: pagination — 51 events returns 50 on page 1, 2 on page 2', () => {
-    it('returns 50 events page 1 and hasNextPage=true for 51 audit events + 1 synthetic', async () => {
-      // 51 audit events + 1 synthetic CREATED = 52 total (PETITION_CREATED not in list → synthetic injected)
-      const manyAudit = Array.from({ length: 51 }, (_, i) =>
-        makeAuditLog(
-          `audit-${i}`,
-          `2025-02-${String(i + 1).padStart(2, '0')}T10:00:00Z`,
-          { before: { status: `old${i}` }, after: { status: `new${i}` } },
-        ),
-      );
+    const manyAudit = Array.from({ length: 51 }, (_, i) =>
+      makeAuditLog(
+        `audit-${i}`,
+        `2025-02-${String(i + 1).padStart(2, '0')}T10:00:00Z`,
+        { before: { status: `old${i}` }, after: { status: `new${i}` } },
+      ),
+    );
 
+    it('returns 50 events page 1 and hasNextPage=true for 51 audit events + 1 synthetic', async () => {
       mockPetitionsService.getById.mockResolvedValue({ success: true, data: mockPetition });
-      mockPrisma.auditLog.findMany.mockResolvedValue(manyAudit);
+      // No PETITION_CREATED in logs → synthetic injected. Total = 51 + 1 = 52.
+      mockPrisma.auditLog.count.mockImplementation(async ({ where }: any) =>
+        where?.action === 'PETITION_CREATED' ? 0 : 51,
+      );
+      // findMany respects skip/take for true server-side pagination
+      mockPrisma.auditLog.findMany.mockImplementation(async ({ skip = 0, take }: any) =>
+        take !== undefined ? manyAudit.slice(skip, skip + take) : manyAudit.slice(skip),
+      );
 
       const result = await service.getJourney('petition-001', null, 1, 50);
 
@@ -211,17 +227,14 @@ describe('PetitionsJourneyService', () => {
       expect(result.data.total).toBe(52);
     });
 
-    it('returns page 2 correctly (remaining 2 events)', async () => {
-      const manyAudit = Array.from({ length: 51 }, (_, i) =>
-        makeAuditLog(
-          `audit-${i}`,
-          `2025-02-${String(i + 1).padStart(2, '0')}T10:00:00Z`,
-          { before: { status: `old${i}` }, after: { status: `new${i}` } },
-        ),
-      );
-
+    it('returns page 2 correctly (1 audit event + 1 synthetic CREATED = 2 events)', async () => {
       mockPetitionsService.getById.mockResolvedValue({ success: true, data: mockPetition });
-      mockPrisma.auditLog.findMany.mockResolvedValue(manyAudit);
+      mockPrisma.auditLog.count.mockImplementation(async ({ where }: any) =>
+        where?.action === 'PETITION_CREATED' ? 0 : 51,
+      );
+      mockPrisma.auditLog.findMany.mockImplementation(async ({ skip = 0, take }: any) =>
+        take !== undefined ? manyAudit.slice(skip, skip + take) : manyAudit.slice(skip),
+      );
 
       const result = await service.getJourney('petition-001', null, 2, 50);
 
@@ -244,6 +257,10 @@ describe('PetitionsJourneyService', () => {
       );
 
       mockPetitionsService.getById.mockResolvedValue({ success: true, data: mockPetition });
+      // count(PETITION_CREATED)=1 → no synthetic. count(all)=50.
+      mockPrisma.auditLog.count.mockImplementation(async ({ where }: any) =>
+        where?.action === 'PETITION_CREATED' ? 1 : 50,
+      );
       mockPrisma.auditLog.findMany.mockResolvedValue([createdAudit, ...fieldAudits]);
 
       const result = await service.getJourney('petition-001', null, 1, 50);

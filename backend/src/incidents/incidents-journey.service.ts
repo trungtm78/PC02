@@ -24,11 +24,10 @@ const ACTION_TO_EVENT: Record<string, TimelineEventType> = {
   CASE_LINKED_INCIDENT: 'LINKED',
 };
 
-const AUDIT_LOG_FETCH_LIMIT = 500;
-
 function buildActorName(user: { firstName: string | null; lastName: string | null } | null): string {
   if (!user) return 'Hệ thống';
-  return `${user.lastName} ${user.firstName}`.trim();
+  const parts = [user.lastName, user.firstName].filter(Boolean);
+  return parts.length > 0 ? parts.join(' ') : 'Hệ thống';
 }
 
 function buildStatusLabel(status: string): string {
@@ -71,7 +70,6 @@ export class IncidentsJourneyService {
       this.prisma.auditLog.findMany({
         where: { subjectId: incidentId },
         orderBy: { createdAt: 'desc' },
-        take: AUDIT_LOG_FETCH_LIMIT,
         include: {
           user: { select: { id: true, firstName: true, lastName: true, username: true } },
         },

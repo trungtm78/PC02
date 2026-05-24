@@ -27,11 +27,10 @@ const ACTION_TO_EVENT: Record<string, TimelineEventType> = {
   PETITION_ESCALATED_FROM_WARD: 'LINKED',
 };
 
-const AUDIT_LOG_FETCH_LIMIT = 500;
-
 function buildActorName(user: { firstName: string | null; lastName: string | null } | null): string {
   if (!user) return 'Hệ thống';
-  return `${user.lastName} ${user.firstName}`.trim();
+  const parts = [user.lastName, user.firstName].filter(Boolean);
+  return parts.length > 0 ? parts.join(' ') : 'Hệ thống';
 }
 
 @Injectable()
@@ -56,18 +55,41 @@ export class PetitionsJourneyService {
       assignedToId?: string | null;
     };
 
-    const auditLogs = await this.prisma.auditLog.findMany({
-      where: { subjectId: petitionId },
-      orderBy: { createdAt: 'desc' },
-      take: AUDIT_LOG_FETCH_LIMIT,
-      include: {
-        user: { select: { id: true, firstName: true, lastName: true, username: true } },
-      },
-    });
+    // True server-side pagination: count queries determine total without loading all rows
+    const [dbTotal, createdCount] = await Promise.all([
+      this.prisma.auditLog.count({ where: { subjectId: petitionId } }),
+      this.prisma.auditLog.count({ where: { subjectId: petitionId, action: 'PETITION_CREATED' } }),
+    ]);
+
+    // Synthetic CREATED event injected when no PETITION_CREATED audit log exists.
+    // Synthetic is always the oldest event (position = dbTotal in DESC-sorted list).
+    const hasSyntheticCreated = createdCount === 0 && !!petitionRecord.createdAt;
+    const effectiveTotal = dbTotal + (hasSyntheticCreated ? 1 : 0);
+
+    const skip = (page - 1) * limit;
+    // Number of real DB records to fetch for this page (may be < limit near end)
+    const realFetchCount = Math.max(0, Math.min(limit, dbTotal - skip));
+    // Synthetic occupies position `dbTotal` (0-indexed) in the full DESC-sorted list
+    const syntheticOnThisPage =
+      hasSyntheticCreated && skip <= dbTotal && dbTotal < skip + limit;
+
+    // Fetch only the page slice from DB
+    const auditLogs =
+      realFetchCount > 0
+        ? await this.prisma.auditLog.findMany({
+            where: { subjectId: petitionId },
+            orderBy: { createdAt: 'desc' },
+            skip,
+            take: realFetchCount,
+            include: {
+              user: { select: { id: true, firstName: true, lastName: true, username: true } },
+            },
+          })
+        : [];
 
     const entityLabel = `Đơn thư ${petitionRecord.stt ?? petitionId}`;
 
-    const auditEvents: TimelineEventDto[] = auditLogs.map((log: any) => {
+    const events: TimelineEventDto[] = (auditLogs as any[]).map((log) => {
       const eventType: TimelineEventType = ACTION_TO_EVENT[log.action as string] ?? 'FIELD_UPDATE';
       const meta = log.metadata as Record<string, any> | null;
       const hasDiff = !!(meta?.before);
@@ -94,10 +116,9 @@ export class PetitionsJourneyService {
       } satisfies TimelineEventDto;
     });
 
-    // Inject synthetic CREATED event when no PETITION_CREATED audit log exists
-    const hasPetitionCreatedLog = auditEvents.some((e) => e.eventType === 'CREATED');
-    if (!hasPetitionCreatedLog && petitionRecord.createdAt) {
-      auditEvents.push({
+    // Inject synthetic CREATED at the end of this page (it's always the chronologically oldest event)
+    if (syntheticOnThisPage) {
+      events.push({
         id: `petition-created-${petitionId}`,
         entityType: 'PETITION',
         entityId: petitionId,
@@ -106,22 +127,16 @@ export class PetitionsJourneyService {
         title: 'Được tạo',
         detail: null,
         actor: null,
-        actedAt: petitionRecord.createdAt,
+        actedAt: petitionRecord.createdAt!,
         metadata: { hasDiff: false },
       });
     }
 
-    // Sort DESC by actedAt
-    auditEvents.sort((a, b) => new Date(b.actedAt).getTime() - new Date(a.actedAt).getTime());
-
-    const total = auditEvents.length;
-    const skip = (page - 1) * limit;
-    const events = auditEvents.slice(skip, skip + limit);
-    const hasNextPage = total > skip + limit;
+    const hasNextPage = skip + events.length < effectiveTotal;
 
     return {
       success: true,
-      data: { events, total, hasNextPage, page, limit },
+      data: { events, total: effectiveTotal, hasNextPage, page, limit },
     };
   }
 }
