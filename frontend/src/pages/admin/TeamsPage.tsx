@@ -96,6 +96,8 @@ export default function TeamsPage() {
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [userSearch, setUserSearch] = useState('');
   const [showUserSearch, setShowUserSearch] = useState(false);
+  const [pendingUsers, setPendingUsers] = useState<SearchUser[]>([]);
+  const [isAddingMultiple, setIsAddingMultiple] = useState(false);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -161,21 +163,31 @@ export default function TeamsPage() {
     enabled: debouncedSearch.length >= 2,
   });
 
-  // Filter out users already in the team
+  // Filter out users already in the team or already staged
   const filteredSearchResults = searchResults.filter(
-    (u) => !teamDetail?.members.some((m) => m.userId === u.id),
+    (u) =>
+      !teamDetail?.members.some((m) => m.userId === u.id) &&
+      !pendingUsers.some((p) => p.id === u.id),
   );
 
-  const addMemberMutation = useMutation({
-    mutationFn: ({ teamId, userId }: { teamId: string; userId: string }) =>
-      api.post(`/teams/${teamId}/members`, { userId }),
-    onSuccess: () => {
+  const handleAddAllPending = async () => {
+    if (!selectedTeamId || pendingUsers.length === 0) return;
+    setIsAddingMultiple(true);
+    try {
+      await Promise.all(
+        pendingUsers.map((u) =>
+          api.post(`/teams/${selectedTeamId}/members`, { userId: u.id }),
+        ),
+      );
       queryClient.invalidateQueries({ queryKey: ['teams', selectedTeamId] });
       queryClient.invalidateQueries({ queryKey: ['teams'] });
+      setPendingUsers([]);
       setUserSearch('');
       setShowUserSearch(false);
-    },
-  });
+    } finally {
+      setIsAddingMultiple(false);
+    }
+  };
 
   const removeMemberMutation = useMutation({
     mutationFn: ({ teamId, userId }: { teamId: string; userId: string }) =>
@@ -190,11 +202,7 @@ export default function TeamsPage() {
     setSelectedTeamId((prev) => (prev === teamId ? null : teamId));
     setShowUserSearch(false);
     setUserSearch('');
-  };
-
-  const handleAddMember = (userId: string) => {
-    if (!selectedTeamId) return;
-    addMemberMutation.mutate({ teamId: selectedTeamId, userId });
+    setPendingUsers([]);
   };
 
   const handleRemoveMember = (userId: string) => {
@@ -342,60 +350,120 @@ export default function TeamsPage() {
                 Thêm thành viên
               </button>
             ) : (
-              <div className="relative">
-                <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-md px-3 py-2">
-                  <Search className="w-4 h-4 text-slate-400" />
-                  <input
-                    ref={searchInputRef}
-                    type="text"
-                    value={userSearch}
-                    onChange={(e) => setUserSearch(e.target.value)}
-                    placeholder="Tìm theo tên, email, username..."
-                    className="flex-1 text-sm outline-none bg-transparent"
-                  />
-                  {addMemberMutation.isPending && (
-                    <Loader2 className="w-4 h-4 text-primary animate-spin" />
+              <div className="space-y-2">
+                {/* Pending user chips */}
+                {pendingUsers.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 px-1">
+                    {pendingUsers.map((user) => (
+                      <span
+                        key={user.id}
+                        className="inline-flex items-center gap-1 bg-primary/10 text-primary text-xs px-2 py-1 rounded-full font-medium"
+                      >
+                        {user.lastName} {user.firstName}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setPendingUsers((prev) => prev.filter((u) => u.id !== user.id))
+                          }
+                          className="hover:bg-primary/20 rounded-full p-0.5"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Search input */}
+                <div className="relative">
+                  <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-md px-3 py-2">
+                    <Search className="w-4 h-4 text-slate-400" />
+                    <input
+                      ref={searchInputRef}
+                      type="text"
+                      value={userSearch}
+                      onChange={(e) => setUserSearch(e.target.value)}
+                      placeholder="Tìm theo tên, email, username..."
+                      className="flex-1 text-sm outline-none bg-transparent"
+                    />
+                    <button
+                      onClick={() => {
+                        setShowUserSearch(false);
+                        setUserSearch('');
+                        setPendingUsers([]);
+                      }}
+                      className="p-0.5 hover:bg-slate-100 rounded"
+                    >
+                      <X className="w-3.5 h-3.5 text-slate-400" />
+                    </button>
+                  </div>
+
+                  {/* Search results dropdown */}
+                  {debouncedSearch.length >= 2 && (
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-md shadow-lg z-10 max-h-48 overflow-y-auto">
+                      {filteredSearchResults.length === 0 ? (
+                        <div className="px-3 py-2 text-sm text-slate-400">
+                          Không tìm thấy người dùng
+                        </div>
+                      ) : (
+                        filteredSearchResults.map((user) => (
+                          <button
+                            key={user.id}
+                            onClick={() => {
+                              setPendingUsers((prev) => [...prev, user]);
+                              setUserSearch('');
+                              searchInputRef.current?.focus();
+                            }}
+                            className="w-full flex items-center gap-3 px-3 py-2 hover:bg-primary/5 text-left transition-colors"
+                          >
+                            <div className="w-7 h-7 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center text-xs font-bold flex-shrink-0">
+                              {(user.lastName?.[0] ?? user.username[0]).toUpperCase()}
+                            </div>
+                            <div>
+                              <div className="text-sm font-medium text-slate-700">
+                                {user.lastName} {user.firstName}
+                              </div>
+                              <div className="text-xs text-slate-400">
+                                {user.email ?? user.username}
+                              </div>
+                            </div>
+                          </button>
+                        ))
+                      )}
+                    </div>
                   )}
-                  <button
-                    onClick={() => {
-                      setShowUserSearch(false);
-                      setUserSearch('');
-                    }}
-                    className="p-0.5 hover:bg-slate-100 rounded"
-                  >
-                    <X className="w-3.5 h-3.5 text-slate-400" />
-                  </button>
                 </div>
 
-                {/* Search results dropdown */}
-                {debouncedSearch.length >= 2 && (
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-md shadow-lg z-10 max-h-48 overflow-y-auto">
-                    {filteredSearchResults.length === 0 ? (
-                      <div className="px-3 py-2 text-sm text-slate-400">
-                        Không tìm thấy người dùng
-                      </div>
-                    ) : (
-                      filteredSearchResults.map((user) => (
-                        <button
-                          key={user.id}
-                          onClick={() => handleAddMember(user.id)}
-                          disabled={addMemberMutation.isPending}
-                          className="w-full flex items-center gap-3 px-3 py-2 hover:bg-slate-50 text-left transition-colors disabled:opacity-50"
-                        >
-                          <div className="w-7 h-7 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center text-xs font-bold">
-                            {(user.lastName?.[0] ?? user.username[0]).toUpperCase()}
-                          </div>
-                          <div>
-                            <div className="text-sm font-medium text-slate-700">
-                              {user.lastName} {user.firstName}
-                            </div>
-                            <div className="text-xs text-slate-400">
-                              {user.email ?? user.username}
-                            </div>
-                          </div>
-                        </button>
-                      ))
-                    )}
+                {/* Confirm / cancel row */}
+                {pendingUsers.length > 0 && (
+                  <div className="flex items-center justify-between pt-0.5">
+                    <span className="text-xs text-slate-500">
+                      Đã chọn {pendingUsers.length} người
+                    </span>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowUserSearch(false);
+                          setUserSearch('');
+                          setPendingUsers([]);
+                        }}
+                        className="text-xs px-3 py-1.5 border border-slate-200 rounded-md hover:bg-slate-50 transition-colors"
+                      >
+                        Hủy
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleAddAllPending}
+                        disabled={isAddingMultiple}
+                        className="text-xs px-3 py-1.5 bg-primary text-white rounded-md hover:bg-primary/90 disabled:opacity-50 flex items-center gap-1 transition-colors"
+                      >
+                        {isAddingMultiple && (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        )}
+                        Thêm {pendingUsers.length} thành viên
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>

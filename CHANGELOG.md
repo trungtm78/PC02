@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.41.1.0] - 2026-05-24
+
+**Thêm thành viên Tổ/Nhóm — multi-select + bug fixes**
+
+### Added
+- Trang Quản lý Tổ/Nhóm: thêm nhiều thành viên cùng lúc bằng multi-select — chọn từng user vào queue (hiển thị dạng chip), xác nhận một lần với nút "Thêm N thành viên". User đã chọn hoặc đã thuộc tổ bị tự động loại khỏi kết quả tìm kiếm.
+
+### Fixed
+- Auto-incident: `autoIncidentName` lấy đúng tên vụ án từ incident vừa tạo thay vì fallback về `dto.name`.
+- Login test: thêm retry logic 5 giây sau khi bị rate-limit, không còn fail do timing.
+
 ## [0.41.0.0] - 2026-05-24
 
 **Hành Trình Hồ Sơ — Trang độc lập + Journey endpoints cho Đơn thư & Vụ án**
