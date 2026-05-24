@@ -12,6 +12,8 @@ import {
   Printer,
 } from 'lucide-react';
 import { useCaseJourney } from './useCaseJourney';
+import { usePetitionJourney } from './usePetitionJourney';
+import { useIncidentJourney } from './useIncidentJourney';
 import type { TimelineEntityType, TimelineEvent } from './useCaseJourney';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -131,16 +133,29 @@ function EventRow({ event }: { event: TimelineEvent }) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 interface HoSoJourneyProps {
-  caseId: string;
+  /** @deprecated use entityId instead */
+  caseId?: string;
+  entityType?: TimelineEntityType;
+  entityId?: string;
   caseStt?: string;
   deadline?: Date;
   className?: string;
 }
 
-export function HoSoJourney({ caseId, caseStt, deadline, className = '' }: HoSoJourneyProps) {
+function useEntityJourney(entityType: TimelineEntityType, entityId: string, page: number) {
+  const caseResult = useCaseJourney(entityType === 'CASE' ? entityId : '', page);
+  const petitionResult = usePetitionJourney(entityType === 'PETITION' ? entityId : '', page);
+  const incidentResult = useIncidentJourney(entityType === 'INCIDENT' ? entityId : '', page);
+  if (entityType === 'PETITION') return petitionResult;
+  if (entityType === 'INCIDENT') return incidentResult;
+  return caseResult;
+}
+
+export function HoSoJourney({ caseId, entityType = 'CASE', entityId, caseStt, deadline, className = '' }: HoSoJourneyProps) {
+  const resolvedEntityId = entityId ?? caseId ?? '';
   const [activeFilter, setActiveFilter] = useState<FilterChip>('ALL');
   const [page, setPage] = useState(1);
-  const { data, isLoading, isError, refetch } = useCaseJourney(caseId, page);
+  const { data, isLoading, isError, refetch } = useEntityJourney(entityType, resolvedEntityId, page);
 
   // ── Loading ──
   if (isLoading) {

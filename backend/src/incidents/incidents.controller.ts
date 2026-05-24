@@ -18,6 +18,7 @@ import type { Response } from 'express';
 import { Throttle } from '@nestjs/throttler';
 import type { ScopedRequest } from '../auth/interfaces/scoped-request.interface';
 import { IncidentsService } from './incidents.service';
+import { IncidentsJourneyService } from './incidents-journey.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { DispatchGuard } from '../auth/guards/dispatch.guard';
@@ -39,7 +40,10 @@ import type { AuthUser } from '../auth/interfaces/auth-user.interface';
 @Controller('incidents')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class IncidentsController {
-  constructor(private readonly incidentsService: IncidentsService) {}
+  constructor(
+    private readonly incidentsService: IncidentsService,
+    private readonly incidentsJourneyService: IncidentsJourneyService,
+  ) {}
 
   // GET /api/v1/incidents — Danh sách vụ việc
   @Get()
@@ -88,6 +92,20 @@ export class IncidentsController {
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
     });
+  }
+
+  // GET /api/v1/incidents/:id/journey — Hành trình vụ án
+  @Get(':id/journey')
+  @RequirePermissions({ action: 'read', subject: 'Incident' })
+  getJourney(
+    @Param('id') id: string,
+    @Req() req: ScopedRequest,
+    @Query('page') page = 1,
+    @Query('limit') limit = 50,
+  ) {
+    const safePage = Math.max(1, Number(page) || 1);
+    const safeLimit = Math.min(200, Math.max(1, Number(limit) || 50));
+    return this.incidentsJourneyService.getJourney(id, req.dataScope ?? null, safePage, safeLimit);
   }
 
   // GET /api/v1/incidents/:id — Chi tiết vụ việc
