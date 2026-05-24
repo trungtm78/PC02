@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.40.0.0] - 2026-05-24
+
+**Auto-tạo Đăng ký Vụ việc khi lưu Khởi tố Vụ án (Branch 3)**
+
+Điều tra viên tạo hồ sơ Khởi tố Vụ án và nhập thông tin Tab Vụ việc — hệ thống tự động tạo bản ghi Incident tương ứng trong module Quản lý Vụ việc mà không cần nhập lại thủ công. Áp dụng khi `caseProvenance` ∈ {CQĐT phát hiện trực tiếp, Tiếp nhận chuyển giao, Đối tượng tự thú, Đề nghị VKS, Nguồn pháp lý khác} và ít nhất 1 trong `{ngàyXảyRa, loạiVụViệc, mô tả, địa điểm}` có giá trị.
+
+### Added
+- **[cases] Auto-create Incident khi lưu Case Branch-3** — `cases.service.ts`: Branch-3 giờ chạy trong `$transaction` atomic. Nếu `shouldAutoCreateIncident()` trả về true, tạo Incident với code `VV-YYYY-NNNNN` rồi link 1 chiều qua `Incident.linkedCaseId`. Không set `Case.linkedIncidentId` (vi phạm CHECK constraint `case_provenance_fk_consistency`).
+- **[cases] `autoLinkedIncident` trong GET `/cases/:id`** — `getById` trả về `{ id, code, name }` của Incident được auto-tạo (reverse lookup qua `Incident.linkedCaseId`) với DataScope enforcement.
+- **[cases] `autoLinkedIncident` trong POST `/cases` response** — Create response trả về ngay `autoLinkedIncident: { id, code, name }` sau khi tạo.
+- **[incidents] Extract `generateIncidentCode()` ra shared util** — `incident-code.util.ts`: `generateIncidentCode(tx)` nhận `PrismaClient | Prisma.TransactionClient` để dùng cả ngoài và trong `$transaction`. `IncidentsService` import từ util thay vì private method.
+- **[cases/frontend] `autoLinkedIncidentId` field** — `types.ts` + `mergeCaseApiToFormData.ts` + `tabs.tsx`: form state lưu ID Incident auto-tạo. Tab Vụ việc hiển thị `LinkedIncidentCard` read-only cho cả FROM_INCIDENT lẫn Branch-3 auto-linked.
+- **[frontend] `canUnlink` prop trên `LinkedIncidentCard`** — Branch-3 auto-linked incidents không có nút "Đổi liên kết" (unlink là no-op, không có endpoint PATCH). FROM_INCIDENT vẫn cho phép unlink.
+
+### Tests
+- `backend/src/common/utils/incident-factory.util.spec.ts` — 22 unit tests cho `shouldAutoCreateIncident` + `buildIncidentFromCase` (bao gồm invalid date guard)
+- `frontend/src/pages/cases/CaseFormPage/__tests__/tabs-incident.test.tsx` — 5 tests kiểm tra routing FROM_INCIDENT vs Branch-3 auto-linked trong `TabIncident`
+
 ## [0.39.0.0] - 2026-05-24
 
 **CaseFormPage — Fix Data-Loss Tab 2-9 + Xóa Tab 9 Fake Save**
