@@ -71,7 +71,7 @@ describe('CasesController — journey endpoint', () => {
 
   // ── TC-J08 ──────────────────────────────────────────────────────────────────
 
-  it('TC-J08: getJourney() delegates to journeyService with caseId, userId, dataScope, page, limit', async () => {
+  it('TC-J08: getJourney() delegates to journeyService with caseId, dataScope, page, limit', async () => {
     mockJourneyService.getJourney.mockResolvedValue(mockJourneyResult);
     const req = makeReq();
 
@@ -79,7 +79,6 @@ describe('CasesController — journey endpoint', () => {
 
     expect(mockJourneyService.getJourney).toHaveBeenCalledWith(
       'case-001',
-      mockUser.id,
       req.dataScope,
       1,
       50,
