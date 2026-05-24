@@ -67,7 +67,8 @@ const ENTITY_LABEL: Record<TimelineEntityType, string> = {
 
 function buildActorName(user: { firstName: string | null; lastName: string | null } | null): string {
   if (!user) return 'Hệ thống';
-  return `${user.lastName} ${user.firstName}`.trim();
+  const parts = [user.lastName, user.firstName].filter(Boolean);
+  return parts.length > 0 ? parts.join(' ') : 'Hệ thống';
 }
 
 function buildStatusLabel(status: string, entityType: TimelineEntityType): string {
@@ -82,7 +83,6 @@ function buildAuditTitle(action: string, eventType: TimelineEventType): string {
   return 'Cập nhật';
 }
 
-const AUDIT_LOG_FETCH_LIMIT = 500;
 const ENTITY_SORT_PRIORITY: Record<TimelineEntityType, number> = { INCIDENT: 0, CASE: 1, PETITION: 2 };
 
 // ─── Service ─────────────────────────────────────────────────────────────────
@@ -162,7 +162,6 @@ export class CasesJourneyService {
           subjectId: { in: [caseId, ...petitionIds, ...(incidentId ? [incidentId] : [])] },
         },
         orderBy: { createdAt: 'desc' },
-        take: AUDIT_LOG_FETCH_LIMIT,
         include: {
           user: { select: { id: true, firstName: true, lastName: true, username: true } },
         },
