@@ -194,11 +194,12 @@ export function HoSoJourney({ caseId, caseStt, deadline, className = '' }: HoSoJ
     activeFilter === 'ALL' ? allEvents : allEvents.filter((e) => e.entityType === activeFilter);
 
   // ── Deadline banner ──
+  const DEADLINE_WARNING_DAYS = 7;
   const deadlineDays = deadline ? daysDiff(new Date(), deadline) : null;
   const deadlineStatus =
     deadlineDays === null ? null :
     deadlineDays < 0 ? 'overdue' :
-    deadlineDays <= 7 ? 'warning' : 'ok';
+    deadlineDays <= DEADLINE_WARNING_DAYS ? 'warning' : 'ok';
 
   const deadlineBannerStyle =
     deadlineStatus === 'overdue' ? 'bg-red-50 border-red-200 text-red-700' :
@@ -207,7 +208,6 @@ export function HoSoJourney({ caseId, caseStt, deadline, className = '' }: HoSoJ
 
   const deadlineLabel =
     deadlineStatus === 'overdue' ? `Quá hạn ${Math.abs(deadlineDays!)} ngày` :
-    deadlineStatus === 'warning' ? `Còn ${deadlineDays} ngày` :
     `Còn ${deadlineDays} ngày`;
 
   return (
@@ -260,7 +260,7 @@ export function HoSoJourney({ caseId, caseStt, deadline, className = '' }: HoSoJ
           <button
             key={chip.id}
             data-testid={chip.id === 'ALL' ? 'filter-chip-ALL' : `filter-chip-${chip.id}`}
-            onClick={() => setActiveFilter(chip.id)}
+            onClick={() => { setActiveFilter(chip.id); setPage(1); }}
             className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
               activeFilter === chip.id
                 ? 'bg-blue-600 text-white border-blue-600'

@@ -593,33 +593,42 @@ export class CasesService {
     // when Tab Vụ việc has incidentDate/incidentType/incidentDescription/incidentLocation.
     // CRITICAL: Do NOT set baseCaseData.linkedIncidentId — violates case_provenance_fk_consistency.
     // Link is stored one-way: Incident.linkedCaseId = caseRecord.id (set after Case creation).
+    // NOTE: audit log fires outside the transaction (post-commit side-effect). This is intentional:
+    // the incident exists at that point, so the audit is accurate even if the process crashes here.
     let autoIncidentId: string | null = null;
     let autoIncidentCode: string | null = null;
-    const record = await this.prisma.$transaction(async (tx) => {
-      if (shouldAutoCreateIncident(effectiveProvenance, dto.metadata as Record<string, unknown>)) {
-        const code = await generateIncidentCode(tx);
-        autoIncidentCode = code;
-        const incData = buildIncidentFromCase({
-          rawName: dto.name,
-          meta: (dto.metadata ?? {}) as Record<string, unknown>,
-          code,
-          userId: actorId,
-          investigatorId: actorId,
-          assignedTeamId: dto.assignedTeamId ?? undefined,
-        });
-        const newInc = await tx.incident.create({ data: incData });
-        autoIncidentId = newInc.id;
-      }
-      const caseRecord = await tx.case.create({ data: baseCaseData, include: caseInclude });
-      await this.createSubEntitiesInTransaction(tx, caseRecord.id, dto, actorId);
-      if (autoIncidentId) {
-        await tx.incident.update({
-          where: { id: autoIncidentId },
-          data: { linkedCaseId: caseRecord.id },
-        });
-      }
-      return caseRecord;
-    });
+    let record!: Awaited<ReturnType<typeof this.prisma.case.create>>;
+    try {
+      record = await this.prisma.$transaction(async (tx) => {
+        if (shouldAutoCreateIncident(effectiveProvenance, dto.metadata as Record<string, unknown>)) {
+          const code = await generateIncidentCode(tx);
+          const incData = buildIncidentFromCase({
+            rawName: dto.name,
+            meta: (dto.metadata ?? {}) as Record<string, unknown>,
+            code,
+            userId: actorId,
+            investigatorId: actorId,
+            assignedTeamId: dto.assignedTeamId ?? undefined,
+          });
+          const newInc = await tx.incident.create({ data: incData });
+          autoIncidentId = newInc.id;
+          autoIncidentCode = code;
+        }
+        const caseRecord = await tx.case.create({ data: baseCaseData, include: caseInclude });
+        await this.createSubEntitiesInTransaction(tx, caseRecord.id, dto, actorId);
+        if (autoIncidentId) {
+          await tx.incident.update({
+            where: { id: autoIncidentId },
+            data: { linkedCaseId: caseRecord.id },
+          });
+        }
+        return caseRecord;
+      });
+    } catch (e: any) {
+      // P2002 = unique constraint: concurrent requests generated duplicate incident code
+      if (e?.code === 'P2002') throw new ConflictException('Trùng mã vụ việc, vui lòng thử lại');
+      throw e;
+    }
 
     if (autoIncidentId) {
       await this.audit.log({
@@ -644,7 +653,7 @@ export class CasesService {
     });
 
     const autoLinkedIncident = autoIncidentId
-      ? { id: autoIncidentId, code: autoIncidentCode!, name: dto.name }
+      ? { id: autoIncidentId, code: autoIncidentCode ?? '', name: dto.name }
       : null;
     return { success: true, data: { ...record, autoLinkedIncident }, message: 'Tạo vụ án thành công' };
   }

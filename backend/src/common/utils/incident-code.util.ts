@@ -9,7 +9,7 @@ export async function generateIncidentCode(
   for (let attempt = 0; attempt < 3; attempt++) {
     const latest = await tx.incident.findFirst({
       where: { code: { startsWith: prefix } },
-      orderBy: { code: 'desc' },
+      orderBy: { createdAt: 'desc' },
       select: { code: true },
     });
 

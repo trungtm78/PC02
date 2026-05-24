@@ -43,7 +43,7 @@ import {
   CASE_PROVENANCE_OPTIONS,
 } from "./constants";
 import { CaseProvenancePicker } from "./CaseProvenancePicker";
-import { LinkedIncidentCard } from "./LinkedIncidentCard"; // PR 2 v0.38.1.0
+import { LinkedIncidentCard } from "./LinkedIncidentCard";
 import { CaseProvenance } from "../../../shared/enums/generated";
 
 // Branch-3 provenances that trigger Incident auto-create (module-level, not inside render)
