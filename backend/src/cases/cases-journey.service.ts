@@ -67,7 +67,8 @@ const ENTITY_LABEL: Record<TimelineEntityType, string> = {
 
 function buildActorName(user: { firstName: string | null; lastName: string | null } | null): string {
   if (!user) return 'Hệ thống';
-  return `${user.lastName} ${user.firstName}`.trim();
+  const parts = [user.lastName, user.firstName].filter(Boolean);
+  return parts.length > 0 ? parts.join(' ') : 'Hệ thống';
 }
 
 function buildStatusLabel(status: string, entityType: TimelineEntityType): string {
@@ -82,7 +83,6 @@ function buildAuditTitle(action: string, eventType: TimelineEventType): string {
   return 'Cập nhật';
 }
 
-const AUDIT_LOG_FETCH_LIMIT = 500;
 const ENTITY_SORT_PRIORITY: Record<TimelineEntityType, number> = { INCIDENT: 0, CASE: 1, PETITION: 2 };
 
 // ─── Service ─────────────────────────────────────────────────────────────────
@@ -106,8 +106,9 @@ export class CasesJourneyService {
       id: string;
       stt?: string;
       name?: string;
+      createdAt?: Date;
       petitions: Array<{ id: string; stt?: string }>;
-      investigator?: { firstName: string; lastName: string } | null;
+      investigator?: { id?: string; firstName: string | null; lastName: string | null } | null;
     };
 
     // Scope petition IDs: only include petitions the caller is authorized to see.
@@ -161,7 +162,6 @@ export class CasesJourneyService {
           subjectId: { in: [caseId, ...petitionIds, ...(incidentId ? [incidentId] : [])] },
         },
         orderBy: { createdAt: 'desc' },
-        take: AUDIT_LOG_FETCH_LIMIT,
         include: {
           user: { select: { id: true, firstName: true, lastName: true, username: true } },
         },
@@ -270,6 +270,28 @@ export class CasesJourneyService {
           },
         } satisfies TimelineEventDto;
       });
+
+    // Inject synthetic CREATED event from case.createdAt when no CASE_CREATED audit log exists.
+    // Ensures old cases (created before audit logging) always show at least one event.
+    const hasCaseCreatedAuditLog = auditEvents.some(
+      (e) => e.entityType === 'CASE' && e.eventType === 'CREATED',
+    );
+    if (!hasCaseCreatedAuditLog && caseRecord.createdAt) {
+      auditEvents.push({
+        id: `case-created-${caseId}`,
+        entityType: 'CASE',
+        entityId: caseId,
+        entityLabel: `Vụ việc ${caseRecord.stt ?? caseId}`,
+        eventType: 'CREATED',
+        title: 'Được tạo',
+        detail: null,
+        actor: caseRecord.investigator
+          ? { id: caseRecord.investigator.id ?? '', name: buildActorName(caseRecord.investigator) }
+          : null,
+        actedAt: caseRecord.createdAt,
+        metadata: { hasDiff: false },
+      });
+    }
 
     // Merge all events
     const allEvents: TimelineEventDto[] = [

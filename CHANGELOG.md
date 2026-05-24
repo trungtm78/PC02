@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.41.0.0] - 2026-05-24
+
+**Hành Trình Hồ Sơ — Trang độc lập + Journey endpoints cho Đơn thư & Vụ án**
+
+Cán bộ có thể tra cứu hành trình của bất kỳ hồ sơ nào (Vụ việc / Vụ án / Đơn thư) từ một trang độc lập `/ho-so-journey` — không cần mở từng vụ việc cụ thể. Panel trái: tree navigator với search debounced + 3 nhóm collapsible. Panel phải: timeline đầy đủ của entity được chọn. URL shareable (`?type=CASE&id=...`). Backend bổ sung 2 endpoint mới `GET /petitions/:id/journey` và `GET /incidents/:id/journey` với true server-side pagination và DataScope enforcement.
+
+### Added
+- `GET /petitions/:id/journey` — petition-specific timeline (AuditLog-only, true DB-level `count()+skip/take`)
+- `GET /incidents/:id/journey` — incident-specific timeline (IncidentStatusHistory + AuditLog, merged)
+- `/ho-so-journey` standalone page với split-panel layout (320px navigator + flex timeline)
+- `JourneyNavigator` component: search debounced 300ms, 3 collapsible groups, "Tải thêm" button
+- `useJourneySearch` hook: AbortController cancel in-flight requests on keystroke
+- `usePetitionJourney` + `useIncidentJourney` hooks
+- URL state: `?type=CASE&id=...` cho shareable deep links
+- Feature module `journey` auto-registered trong sidebar
+
+### Fixed
+- `buildActorName` null-safety: `filter(Boolean)` thay vì template literal trực tiếp — ngăn chuỗi `"null"` xuất hiện trong actor name
+- Xóa `AUDIT_LOG_FETCH_LIMIT=500` cap trong case/incident journey — không còn cắt ngầm sau 500 events
+
+### Tests
+- 12 TCs mới: TC-PJ01–PJ06 (petition journey), TC-IJ01–IJ06 (incident journey)
+- 1644 backend + 677 frontend tests green
+
 ## [0.40.0.0] - 2026-05-24
 
 **Auto-tạo Đăng ký Vụ việc khi lưu Khởi tố Vụ án (Branch 3)**
