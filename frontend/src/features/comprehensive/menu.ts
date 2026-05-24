@@ -13,6 +13,7 @@ export const comprehensiveMenu: FeatureMenuEntry[] = [
     children: [
       { section: 'business', id: 'comprehensive-list', label: 'Danh sách tổng hợp', path: '/comprehensive-list' },
       { section: 'business', id: 'comprehensive-initial', label: 'Hồ sơ mới tiếp nhận', path: '/initial-cases' },
+      { section: 'business', id: 'journey', label: 'Hành Trình Hồ Sơ', path: '/journey' },
     ],
   },
 ];

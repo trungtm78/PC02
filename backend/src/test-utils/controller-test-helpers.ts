@@ -11,10 +11,14 @@ export async function buildControllerModule(
   controller: Type,
   service: Type,
   mockService: Record<string, jest.Mock>,
+  extraProviders: { token: Type; mock: Record<string, jest.Mock> }[] = [],
 ): Promise<TestingModule> {
   return Test.createTestingModule({
     controllers: [controller],
-    providers: [{ provide: service, useValue: mockService }],
+    providers: [
+      { provide: service, useValue: mockService },
+      ...extraProviders.map((p) => ({ provide: p.token, useValue: p.mock })),
+    ],
   })
     .overrideGuard(require('../auth/guards/jwt-auth.guard').JwtAuthGuard)
     .useValue({ canActivate: () => true })

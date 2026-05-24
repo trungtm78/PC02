@@ -18,6 +18,7 @@ import { UpdateStatusDto } from './dto/update-status.dto';
 import { MergeIncidentDto } from './dto/merge-incident.dto';
 import { TransferIncidentDto } from './dto/transfer-incident.dto';
 import { Prisma, IncidentStatus, LoaiNguonTin, LyDoKhongKhoiTo } from '@prisma/client';
+import { generateIncidentCode } from '../common/utils/incident-code.util';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { buildScopeFilter } from '../common/utils/scope-filter.util';
 import { TERMINAL_STATUSES, VALID_TRANSITIONS, PHASE_STATUSES } from './incidents.constants';
@@ -353,7 +354,7 @@ export class IncidentsService {
       if (!user) throw new BadRequestException('Điều tra viên không tồn tại');
     }
 
-    const code = await this.generateIncidentCode();
+    const code = await generateIncidentCode(this.prisma);
 
     // Auto-calculate deadline: ngayTiepNhan + THOI_HAN_XAC_MINH (via versioning workflow)
     // Snapshot the active rule version's id + max-extensions count so future
@@ -1255,45 +1256,6 @@ export class IncidentsService {
     });
 
     return { success: true, data: users };
-  }
-
-  // ─────────────────────────────────────────────
-  // FIXED: Generate unique VV-YYYY-XXXXX code (retry loop)
-  // ─────────────────────────────────────────────
-  private async generateIncidentCode(): Promise<string> {
-    const year = new Date().getFullYear();
-    const prefix = `VV-${year}-`;
-
-    for (let attempt = 0; attempt < 3; attempt++) {
-      const latest = await this.prisma.incident.findFirst({
-        where: { code: { startsWith: prefix } },
-        orderBy: { code: 'desc' },
-        select: { code: true },
-      });
-
-      let seq = 1;
-      if (latest) {
-        const lastSeq = parseInt(latest.code.split('-')[2] ?? '0', 10);
-        if (!isNaN(lastSeq)) seq = lastSeq + 1;
-      }
-
-      const candidate = `${prefix}${String(seq).padStart(5, '0')}`;
-
-      try {
-        // Validate uniqueness via a quick check
-        const conflict = await this.prisma.incident.findUnique({
-          where: { code: candidate },
-          select: { id: true },
-        });
-        if (!conflict) return candidate;
-      } catch {
-        // Race condition — retry
-      }
-    }
-
-    // Final fallback: use timestamp-based suffix
-    const ts = Date.now().toString().slice(-5);
-    return `${prefix}${ts}`;
   }
 
   // ─────────────────────────────────────────────

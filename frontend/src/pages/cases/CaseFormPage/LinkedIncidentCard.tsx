@@ -20,6 +20,8 @@ interface LinkedIncidentCardProps {
   incidentId: string;
   /** Callback when user clicks "Đổi liên kết" — parent should clear linkedIncidentId */
   onUnlink: () => void;
+  /** When false, hides the unlink/re-link button (e.g. auto-created incidents from Branch 3) */
+  canUnlink?: boolean;
 }
 
 interface IncidentDetail {
@@ -38,7 +40,7 @@ interface IncidentDetail {
   updatedAt: string;
 }
 
-export function LinkedIncidentCard({ incidentId, onUnlink }: LinkedIncidentCardProps) {
+export function LinkedIncidentCard({ incidentId, onUnlink, canUnlink = true }: LinkedIncidentCardProps) {
   const [state, setState] = useState<
     | { kind: 'loading' }
     | { kind: 'loaded'; incident: IncidentDetail }
@@ -92,14 +94,16 @@ export function LinkedIncidentCard({ incidentId, onUnlink }: LinkedIncidentCardP
           <AlertCircle className="w-5 h-5 text-red-600 mt-0.5" />
           <div className="flex-1">
             <p className="text-slate-900 font-medium">{state.message}</p>
-            <button
-              type="button"
-              onClick={onUnlink}
-              className="mt-3 text-sm text-red-700 underline hover:text-red-800"
-              data-testid="linked-incident-card-unlink-btn"
-            >
-              Bỏ liên kết — nhập vụ việc mới
-            </button>
+            {canUnlink && (
+              <button
+                type="button"
+                onClick={onUnlink}
+                className="mt-3 text-sm text-red-700 underline hover:text-red-800"
+                data-testid="linked-incident-card-unlink-btn"
+              >
+                Bỏ liên kết — nhập vụ việc mới
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -202,15 +206,17 @@ export function LinkedIncidentCard({ incidentId, onUnlink }: LinkedIncidentCardP
           <ExternalLink className="w-4 h-4" />
           Xem chi tiết vụ việc
         </a>
-        <button
-          type="button"
-          onClick={onUnlink}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-md text-sm font-medium"
-          data-testid="linked-incident-unlink"
-        >
-          <RotateCw className="w-4 h-4" />
-          Đổi liên kết
-        </button>
+        {canUnlink && (
+          <button
+            type="button"
+            onClick={onUnlink}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-md text-sm font-medium"
+            data-testid="linked-incident-unlink"
+          >
+            <RotateCw className="w-4 h-4" />
+            Đổi liên kết
+          </button>
+        )}
       </div>
     </div>
   );

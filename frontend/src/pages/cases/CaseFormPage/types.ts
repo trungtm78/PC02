@@ -65,6 +65,7 @@ export interface CaseFormData {
   sourceDocumentNote: string; // Ghi chú nguồn (optional, dùng cho DIRECT_DISCOVERY/TRANSFERRED/OTHER)
   expectedPetitionUpdatedAt: string; // Optimistic lock token (ISO 8601) khi link Petition
   expectedIncidentUpdatedAt: string; // Optimistic lock token (ISO 8601) khi link Incident
+  autoLinkedIncidentId: string;      // Populated from API.autoLinkedIncident?.id (Branch 3 auto-create)
   caseTitle: string;          // Tiêu đề hồ sơ (bắt buộc)
   description: string;        // Mô tả chi tiết
   status: string;             // Trạng thái
@@ -218,6 +219,7 @@ export const INITIAL_FORM_DATA: CaseFormData = {
   sourceDocumentNote: "",
   expectedPetitionUpdatedAt: "",
   expectedIncidentUpdatedAt: "",
+  autoLinkedIncidentId: "",
   caseTitle: "",
   description: "",
   status: "",

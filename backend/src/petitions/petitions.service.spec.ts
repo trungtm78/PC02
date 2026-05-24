@@ -461,6 +461,53 @@ describe('PetitionsService', () => {
     });
   });
 
+  // ── petition status change audit (Cycle 3 TDD) ──────────────────────────────
+
+  describe('PETITION_STATUS_CHANGED audit log', () => {
+    it('TC-J-P01: logs PETITION_STATUS_CHANGED when status transitions', async () => {
+      mockPrisma.petition.findFirst.mockResolvedValue(mockPetition); // status: MOI_TIEP_NHAN
+      mockPrisma.petition.update.mockResolvedValue({
+        ...mockPetition,
+        status: PetitionStatus.DANG_XU_LY,
+        enteredBy: null,
+        assignedTo: null,
+      });
+
+      await service.update('petition-001', { status: PetitionStatus.DANG_XU_LY }, 'user-001');
+
+      expect(mockAudit.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'PETITION_STATUS_CHANGED',
+          subject: 'Petition',
+          subjectId: 'petition-001',
+          userId: 'user-001',
+          metadata: expect.objectContaining({
+            fromStatus: PetitionStatus.MOI_TIEP_NHAN,
+            toStatus: PetitionStatus.DANG_XU_LY,
+          }),
+        }),
+      );
+    });
+
+    it('TC-J-P02: does NOT log PETITION_STATUS_CHANGED when status unchanged', async () => {
+      mockPrisma.petition.findFirst.mockResolvedValue(mockPetition); // status: MOI_TIEP_NHAN
+      mockPrisma.petition.update.mockResolvedValue({
+        ...mockPetition,
+        senderName: 'New Name',
+        enteredBy: null,
+        assignedTo: null,
+      });
+
+      await service.update('petition-001', { senderName: 'New Name' }, 'user-001');
+
+      const statusChangedCalls = mockAudit.log.mock.calls.filter(
+        (call: unknown[]) =>
+          (call[0] as { action?: string })?.action === 'PETITION_STATUS_CHANGED',
+      );
+      expect(statusChangedCalls).toHaveLength(0);
+    });
+  });
+
   // ── delete ─────────────────────────────────────────────────────────────────
 
   describe('delete', () => {

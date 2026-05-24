@@ -6,6 +6,7 @@ import { Route } from 'react-router-dom';
 // Only the menu/feature ownership changed: now grouped under "Tổng hợp".
 const ComprehensiveListPage = lazy(() => import('@/pages/cases/ComprehensiveListPage'));
 const InitialCasesPage = lazy(() => import('@/pages/cases/InitialCasesPage'));
+const JourneyPage = lazy(() => import('@/pages/journey/JourneyPage'));
 
 const wrap = (node: ReactElement): ReactElement => <Suspense fallback={null}>{node}</Suspense>;
 
@@ -20,6 +21,11 @@ export function renderComprehensiveRoutes(): ReactElement[] {
       key="comprehensive-initial"
       path="/initial-cases"
       element={wrap(<InitialCasesPage />)}
+    />,
+    <Route
+      key="journey"
+      path="/journey"
+      element={wrap(<JourneyPage />)}
     />,
   ];
 }

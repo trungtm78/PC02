@@ -43,7 +43,17 @@ import {
   CASE_PROVENANCE_OPTIONS,
 } from "./constants";
 import { CaseProvenancePicker } from "./CaseProvenancePicker";
-import { LinkedIncidentCard } from "./LinkedIncidentCard"; // PR 2 v0.38.1.0
+import { LinkedIncidentCard } from "./LinkedIncidentCard";
+import { CaseProvenance } from "../../../shared/enums/generated";
+
+// Branch-3 provenances that trigger Incident auto-create (module-level, not inside render)
+const DIRECT_PROVENANCES = new Set([
+  CaseProvenance.DIRECT_DISCOVERY,
+  CaseProvenance.TRANSFERRED,
+  CaseProvenance.SELF_SURRENDER,
+  CaseProvenance.PROSECUTOR_PROPOSAL,
+  CaseProvenance.OTHER_LEGAL_SOURCE,
+]);
 
 // ─── Helper ──────────────────────────────────────────────────────────────────
 
@@ -498,21 +508,27 @@ export function TabInfo({ formData, setFormData, errors, setErrors, handlerOptio
 export function TabIncident({ formData, setFormData, errors, setErrors }: TabProps) {
   const update = useFieldUpdater(formData, setFormData, errors, setErrors);
 
-  // PR 2 v0.38.1.0: nếu user đã link Incident có sẵn (qua CaseProvenancePicker
-  // ở tab Thông tin) → hiển thị LinkedIncidentCard read-only thay vì form nhập tay.
-  // Plan wireframe 2 — anh đã approve.
-  if (formData.linkedIncidentId && formData.caseProvenance === "FROM_INCIDENT") {
+  const fromIncidentId = formData.linkedIncidentId;
+  const autoLinkedId = formData.autoLinkedIncidentId;
+  const hasLinkedIncident =
+    (fromIncidentId && formData.caseProvenance === CaseProvenance.FROM_INCIDENT) ||
+    (autoLinkedId && DIRECT_PROVENANCES.has(formData.caseProvenance));
+
+  if (hasLinkedIncident) {
     return (
       <Card data-testid="tab-incident">
         <CardHeader title="Thông tin vụ việc (đã liên kết)" />
         <LinkedIncidentCard
-          incidentId={formData.linkedIncidentId}
+          incidentId={(fromIncidentId || autoLinkedId) as string}
+          canUnlink={formData.caseProvenance === CaseProvenance.FROM_INCIDENT}
           onUnlink={() => {
             setFormData((prev) => ({
               ...prev,
               linkedIncidentId: "",
+              autoLinkedIncidentId: "",
               expectedIncidentUpdatedAt: "",
-              caseProvenance: "", // force user re-pick source
+              // Only reset caseProvenance for FROM_INCIDENT — Branch 3 keeps its provenance
+              ...(prev.caseProvenance === CaseProvenance.FROM_INCIDENT ? { caseProvenance: "" } : {}),
             }));
           }}
         />
