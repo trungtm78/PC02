@@ -18,6 +18,8 @@ import type { DeleteCasePreflightResponse } from './dto/delete-case-preflight.re
 import { Prisma, CaseStatus, PetitionStatus, LoaiDon, CapDoToiPham, LyDoTamDinhChiVuAn, KetQuaPhucHoiVuAn, CaseProvenance, SubjectType } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { buildScopeFilter } from '../common/utils/scope-filter.util';
+import { generateIncidentCode } from '../common/utils/incident-code.util';
+import { buildIncidentFromCase, shouldAutoCreateIncident } from '../common/utils/incident-factory.util';
 import { BcaExcelHelper } from '../common/bca-excel.helper';
 import { CASE_STATUS_LABEL } from '../common/constants/status-labels.constants';
 import { ROLE_NAMES } from '../common/constants/role.constants';
@@ -249,7 +251,20 @@ export class CasesService {
 
     this.checkRecordInScope(record, dataScope);
 
-    return { success: true, data: record };
+    // Find auto-created Incident linked via Incident.linkedCaseId (Branch 3).
+    // Case.linkedIncidentId is NULL for Branch 3 due to case_provenance_fk_consistency constraint.
+    // Apply DataScope filter so the Incident obeys the same access rules as the Case.
+    const incidentScopeFilter = buildScopeFilter(dataScope);
+    const autoLinkedIncident = await this.prisma.incident.findFirst({
+      where: {
+        linkedCaseId: id,
+        deletedAt: null,
+        ...(incidentScopeFilter ?? {}),
+      },
+      select: { id: true, code: true, name: true },
+    });
+
+    return { success: true, data: { ...record, autoLinkedIncident: autoLinkedIncident ?? null } };
   }
 
   // ─────────────────────────────────────────────
@@ -574,17 +589,49 @@ export class CasesService {
     }
 
     // ── DIRECT_DISCOVERY / TRANSFERRED / OTHER_LEGAL_SOURCE ──
-    // PR 1 v0.38.0.0: KNOWN LIMITATION — sub-entities create AFTER Case (NOT atomic
-    // for branch 3). Nếu helper throw → Case đã được create, không rollback. Trade-off:
-    // (1) Mock tests legacy không support $transaction in this branch — wrap sẽ break
-    //     ~10 existing tests. (2) FROM_PETITION/FROM_INCIDENT branches đã có
-    //     $transaction từ trước nên ĐÃ atomic.
-    // PR 2 sẽ refactor branch 3 to use $transaction sau khi update mock tests.
-    const record = await this.prisma.case.create({
-      data: baseCaseData,
-      include: caseInclude,
+    // v0.40: Branch 3 now wrapped in $transaction (atomic). Auto-creates Incident
+    // when Tab Vụ việc has incidentDate/incidentType/incidentDescription/incidentLocation.
+    // CRITICAL: Do NOT set baseCaseData.linkedIncidentId — violates case_provenance_fk_consistency.
+    // Link is stored one-way: Incident.linkedCaseId = caseRecord.id (set after Case creation).
+    let autoIncidentId: string | null = null;
+    let autoIncidentCode: string | null = null;
+    const record = await this.prisma.$transaction(async (tx) => {
+      if (shouldAutoCreateIncident(effectiveProvenance, dto.metadata as Record<string, unknown>)) {
+        const code = await generateIncidentCode(tx);
+        autoIncidentCode = code;
+        const incData = buildIncidentFromCase({
+          rawName: dto.name,
+          meta: (dto.metadata ?? {}) as Record<string, unknown>,
+          code,
+          userId: actorId,
+          investigatorId: actorId,
+          assignedTeamId: dto.assignedTeamId ?? undefined,
+        });
+        const newInc = await tx.incident.create({ data: incData });
+        autoIncidentId = newInc.id;
+      }
+      const caseRecord = await tx.case.create({ data: baseCaseData, include: caseInclude });
+      await this.createSubEntitiesInTransaction(tx, caseRecord.id, dto, actorId);
+      if (autoIncidentId) {
+        await tx.incident.update({
+          where: { id: autoIncidentId },
+          data: { linkedCaseId: caseRecord.id },
+        });
+      }
+      return caseRecord;
     });
-    await this.createSubEntitiesInTransaction(this.prisma as unknown as Prisma.TransactionClient, record.id, dto, actorId);
+
+    if (autoIncidentId) {
+      await this.audit.log({
+        userId: actorId,
+        action: 'INCIDENT_AUTO_CREATED',
+        subject: 'Incident',
+        subjectId: autoIncidentId,
+        metadata: { triggeredByCaseId: record.id, caseName: record.name },
+        ipAddress: meta?.ipAddress,
+        userAgent: meta?.userAgent,
+      });
+    }
 
     await this.audit.log({
       userId: actorId,
@@ -596,7 +643,10 @@ export class CasesService {
       userAgent: meta?.userAgent,
     });
 
-    return { success: true, data: record, message: 'Tạo vụ án thành công' };
+    const autoLinkedIncident = autoIncidentId
+      ? { id: autoIncidentId, code: autoIncidentCode!, name: dto.name }
+      : null;
+    return { success: true, data: { ...record, autoLinkedIncident }, message: 'Tạo vụ án thành công' };
   }
 
   // ─────────────────────────────────────────────

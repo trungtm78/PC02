@@ -16,6 +16,7 @@ type ApiCaseRecord = {
   linkedPetitionId?: string | null;
   linkedIncidentId?: string | null;
   sourceDocumentNote?: string | null;
+  autoLinkedIncident?: { id: string; code?: string; name?: string } | null;
   metadata?: Record<string, string> | null;
   [k: string]: unknown;
 };
@@ -53,6 +54,7 @@ export function mergeCaseApiToFormData(
     linkedPetitionId:      apiData.linkedPetitionId      ?? prev.linkedPetitionId,
     linkedIncidentId:      apiData.linkedIncidentId      ?? prev.linkedIncidentId,
     sourceDocumentNote:    apiData.sourceDocumentNote    ?? prev.sourceDocumentNote,
+    autoLinkedIncidentId:  apiData.autoLinkedIncident?.id ?? prev.autoLinkedIncidentId ?? '',
     // Metadata fields
     caseCode:                    meta.caseCode                    ?? prev.caseCode,
     receiveDate:                 meta.receiveDate                 ?? prev.receiveDate,
