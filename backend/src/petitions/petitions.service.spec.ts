@@ -30,6 +30,9 @@ import { SettingsService } from '../settings/settings.service';
 import { DeadlineRulesService } from '../deadline-rules/deadline-rules.service';
 import { PetitionStatus, LoaiDon, Prisma } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
+import { plainToClass } from 'class-transformer';
+import { validate } from 'class-validator';
+import { CreatePetitionDto } from './dto/create-petition.dto';
 
 // CaseStatus values — only used in mock fixture objects (not DTO-typed)
 const CaseStatus = { TIEP_NHAN: 'TIEP_NHAN' } as const;
@@ -247,6 +250,7 @@ describe('PetitionsService', () => {
       stt: 'DT-2026-00099',
       receivedDate: '2026-02-01',
       senderName: 'Nguyễn Văn Test',
+      petitionType: LoaiDon.TO_CAO,
     };
 
     it('should create petition successfully', async () => {
@@ -268,6 +272,7 @@ describe('PetitionsService', () => {
         stt: 'DT-2099-00001',
         receivedDate: '2099-12-31',
         senderName: 'Test User',
+        petitionType: LoaiDon.TO_CAO,
       };
 
       await expect(service.create(futureDto, 'user-001')).rejects.toThrow(
@@ -767,6 +772,7 @@ describe('PetitionsService', () => {
           stt: 'DT-2026-00002',
           receivedDate: '2026-02-01',
           senderName: 'Test',
+          petitionType: LoaiDon.TO_CAO,
         },
         'user-001',
         { ipAddress: '127.0.0.1', userAgent: 'jest-test' },
@@ -1225,6 +1231,45 @@ describe('PetitionsService', () => {
 
       expect(mockRes.status).toHaveBeenCalledWith(500);
       expect(mockRes.json).toHaveBeenCalledWith({ error: 'Export failed' });
+    });
+  });
+
+  // ── BUG-001 + BUG-002: DTO validation (class-validator) ───────────────────
+  describe('CreatePetitionDto validation', () => {
+    it('BUG-001: fails validation when petitionType is missing', async () => {
+      const dto = plainToClass(CreatePetitionDto, {
+        stt: 'DT-2026-00001',
+        receivedDate: '2026-05-24',
+        senderName: 'Nguyễn Văn A',
+        // petitionType intentionally omitted — should now be required
+      });
+      const errors = await validate(dto);
+      const ptError = errors.find((e) => e.property === 'petitionType');
+      expect(ptError).toBeDefined();
+      expect(ptError?.constraints).toHaveProperty('isNotEmpty');
+    });
+
+    it('BUG-001: passes validation when petitionType is a valid enum value', async () => {
+      const dto = plainToClass(CreatePetitionDto, {
+        stt: 'DT-2026-00002',
+        receivedDate: '2026-05-24',
+        senderName: 'Nguyễn Văn B',
+        petitionType: 'TO_CAO',
+      });
+      const errors = await validate(dto);
+      const ptError = errors.find((e) => e.property === 'petitionType');
+      expect(ptError).toBeUndefined();
+    });
+
+    it('BUG-002: senderName with <script> tag is stripped by @Transform', () => {
+      const dto = plainToClass(CreatePetitionDto, {
+        stt: 'XSS-001',
+        receivedDate: '2026-05-24',
+        senderName: '<script>alert(1)</script>Test Name',
+        petitionType: 'TO_CAO',
+      });
+      // @Transform(stripHtmlTags) must have been applied by plainToClass
+      expect(dto.senderName).toBe('Test Name');
     });
   });
 });

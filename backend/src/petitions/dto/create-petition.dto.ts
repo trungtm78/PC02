@@ -4,16 +4,20 @@ import {
   IsEnum,
   IsDateString,
   IsEmail,
+  IsNotEmpty,
   MaxLength,
   Matches,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { PetitionStatus, LoaiDon } from '@prisma/client';
+import { stripHtmlTags } from '../../common/utils/sanitize.util';
 
 // Re-export so other modules can import from this DTO file
 export { PetitionStatus, LoaiDon };
 
 export class CreatePetitionDto {
   // Số tiếp nhận — unique, bắt buộc
+  @Transform(({ value }) => stripHtmlTags(value))
   @IsString()
   @MaxLength(50)
   stt: string;
@@ -23,11 +27,13 @@ export class CreatePetitionDto {
   receivedDate: string;
 
   // Tên người gửi — bắt buộc
+  @Transform(({ value }) => stripHtmlTags(value))
   @IsString()
   @MaxLength(255)
   senderName: string;
 
   @IsOptional()
+  @Transform(({ value }) => stripHtmlTags(value))
   @IsString()
   @MaxLength(255)
   unit?: string;
@@ -42,6 +48,7 @@ export class CreatePetitionDto {
   senderBirthYear?: string;
 
   @IsOptional()
+  @Transform(({ value }) => stripHtmlTags(value))
   @IsString()
   @MaxLength(500)
   senderAddress?: string;
@@ -58,20 +65,22 @@ export class CreatePetitionDto {
   senderEmail?: string;
 
   @IsOptional()
+  @Transform(({ value }) => stripHtmlTags(value))
   @IsString()
   @MaxLength(255)
   suspectedPerson?: string;
 
   @IsOptional()
+  @Transform(({ value }) => stripHtmlTags(value))
   @IsString()
   @MaxLength(500)
   suspectedAddress?: string;
 
-  @IsOptional()
+  @IsNotEmpty({ message: 'Loại đơn thư là bắt buộc' })
   @IsEnum(LoaiDon, {
-    message: 'Loại đơn thư không hợp lệ — chọn: Tố cáo, Khiếu nại, Kiến nghị hoặc Phản ánh (BLTTHS / Luật Tố cáo 2018 / Luật Khiếu nại 2011)',
+    message: 'Loại đơn thư không hợp lệ — chọn: Tố cáo, Khiếu nại, Kiến nghị hoặc Phản ánh',
   })
-  petitionType?: LoaiDon;
+  petitionType: LoaiDon;
 
   @IsOptional()
   @IsString()
@@ -79,15 +88,18 @@ export class CreatePetitionDto {
   priority?: string;
 
   @IsOptional()
+  @Transform(({ value }) => stripHtmlTags(value))
   @IsString()
   @MaxLength(1000)
   summary?: string;
 
   @IsOptional()
+  @Transform(({ value }) => stripHtmlTags(value))
   @IsString()
   detailContent?: string;
 
   @IsOptional()
+  @Transform(({ value }) => stripHtmlTags(value))
   @IsString()
   attachmentsNote?: string;
 
@@ -106,6 +118,7 @@ export class CreatePetitionDto {
   assignedTeamId?: string;
 
   @IsOptional()
+  @Transform(({ value }) => stripHtmlTags(value))
   @IsString()
   notes?: string;
 
