@@ -400,7 +400,7 @@ export default function TeamsPage() {
 
                   {/* Search results dropdown */}
                   {debouncedSearch.length >= 2 && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-md shadow-lg z-10 max-h-48 overflow-y-auto">
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-md shadow-lg z-50 max-h-48 overflow-y-auto">
                       {filteredSearchResults.length === 0 ? (
                         <div className="px-3 py-2 text-sm text-slate-400">
                           Không tìm thấy người dùng
@@ -708,8 +708,8 @@ export default function TeamsPage() {
       )}
 
       {/* Tree Table */}
-      <div className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-sm">
-        <div className="flex items-center gap-2 px-4 py-3 bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider">
+      <div className="bg-white border border-slate-200 rounded-lg shadow-sm">
+        <div className="flex items-center gap-2 px-4 py-3 bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider rounded-t-lg">
           <span className="w-5" />
           <span className="flex-1">Tổ / Nhóm</span>
           <span className="w-20 text-right">Thao tác</span>
