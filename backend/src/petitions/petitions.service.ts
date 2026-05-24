@@ -581,6 +581,19 @@ export class PetitionsService {
       throw e;
     }
 
+    // Log separate PETITION_STATUS_CHANGED event for timeline queries
+    if (dto.status !== undefined && dto.status !== existing.status) {
+      await this.audit.log({
+        userId: actorId,
+        action: 'PETITION_STATUS_CHANGED',
+        subject: 'Petition',
+        subjectId: id,
+        metadata: { fromStatus: existing.status, toStatus: dto.status },
+        ipAddress: meta?.ipAddress,
+        userAgent: meta?.userAgent,
+      });
+    }
+
     return {
       success: true,
       data: record,

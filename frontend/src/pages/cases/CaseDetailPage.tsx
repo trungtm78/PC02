@@ -36,7 +36,9 @@ import {
   Info,
   Briefcase,
   CheckCircle,
+  Map,
 } from "lucide-react";
+import { HoSoJourney } from "@/components/HoSoJourney/HoSoJourney";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -693,7 +695,7 @@ function ConclusionModal({
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 
-type DetailTabId = "info" | "defendants" | "lawyers" | "timeline" | "conclusion";
+type DetailTabId = "info" | "defendants" | "lawyers" | "timeline" | "conclusion" | "journey";
 
 const DETAIL_TABS: { id: DetailTabId; label: string; icon: React.ReactNode }[] = [
   { id: "info", label: "Thông tin chung", icon: <Info className="w-4 h-4" /> },
@@ -701,6 +703,7 @@ const DETAIL_TABS: { id: DetailTabId; label: string; icon: React.ReactNode }[] =
   { id: "lawyers", label: "Luật sư", icon: <Briefcase className="w-4 h-4" /> },
   { id: "timeline", label: "Tiến trình điều tra", icon: <Clock className="w-4 h-4" /> },
   { id: "conclusion", label: "Kết luận điều tra", icon: <FileText className="w-4 h-4" /> },
+  { id: "journey", label: "Hành trình", icon: <Map className="w-4 h-4" /> },
 ];
 
 export default function CaseDetailPage() {
@@ -712,7 +715,7 @@ export default function CaseDetailPage() {
   // Đọc activeTab từ navigation state (khi navigate từ CaseListPage action menu)
   const initialTab = (() => {
     const stateTab = (location.state as { activeTab?: string } | null)?.activeTab;
-    const validTabs: DetailTabId[] = ["info", "defendants", "lawyers", "timeline", "conclusion"];
+    const validTabs: DetailTabId[] = ["info", "defendants", "lawyers", "timeline", "conclusion", "journey"];
     return (validTabs.includes(stateTab as DetailTabId) ? stateTab : "info") as DetailTabId;
   })();
 
@@ -1426,6 +1429,18 @@ export default function CaseDetailPage() {
     );
   };
 
+  const renderJourneyTab = () => {
+    return (
+      <div data-testid="tab-content-journey">
+        <HoSoJourney
+          caseId={id!}
+          caseStt={caseData?.stt}
+          deadline={caseData?.deadline ? new Date(caseData.deadline) : undefined}
+        />
+      </div>
+    );
+  };
+
   // ─── Render ────────────────────────────────────────────────────────────────
 
   return (
@@ -1573,6 +1588,7 @@ export default function CaseDetailPage() {
           {activeTab === "lawyers" && renderLawyersTab()}
           {activeTab === "timeline" && renderTimelineTab()}
           {activeTab === "conclusion" && renderConclusionTab()}
+          {activeTab === "journey" && renderJourneyTab()}
         </div>
       </div>
 

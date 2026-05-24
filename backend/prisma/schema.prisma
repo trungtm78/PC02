@@ -1186,6 +1186,7 @@ model AuditLog {
   @@index([action])
   @@index([createdAt])
   @@index([subjectId])
+  @@index([subjectId, createdAt]) // composite for journey timeline queries
   @@map("audit_logs")
 }
 

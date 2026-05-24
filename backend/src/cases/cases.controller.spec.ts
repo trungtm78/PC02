@@ -1,6 +1,7 @@
 import { buildControllerModule, makeReq, mockUser } from '../test-utils/controller-test-helpers';
 import { CasesController } from './cases.controller';
 import { CasesService } from './cases.service';
+import { CasesJourneyService } from './cases-journey.service';
 
 const mockService = {
   getList: jest.fn(),
@@ -13,11 +14,18 @@ const mockService = {
   assignCase: jest.fn(),
 };
 
+const mockJourneyService = { getJourney: jest.fn() };
+
 describe('CasesController — delegation', () => {
   let controller: CasesController;
 
   beforeEach(async () => {
-    const module = await buildControllerModule(CasesController, CasesService, mockService);
+    const module = await buildControllerModule(
+      CasesController,
+      CasesService,
+      mockService,
+      [{ token: CasesJourneyService, mock: mockJourneyService }],
+    );
     controller = module.get(CasesController);
     jest.clearAllMocks();
   });

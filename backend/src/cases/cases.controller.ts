@@ -18,6 +18,7 @@ import type { Response } from 'express';
 import { Throttle } from '@nestjs/throttler';
 import type { ScopedRequest } from '../auth/interfaces/scoped-request.interface';
 import { CasesService } from './cases.service';
+import { CasesJourneyService } from './cases-journey.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { DispatchGuard } from '../auth/guards/dispatch.guard';
@@ -38,7 +39,10 @@ class TdcBackfillDto {
 @Controller('cases')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class CasesController {
-  constructor(private readonly casesService: CasesService) {}
+  constructor(
+    private readonly casesService: CasesService,
+    private readonly casesJourneyService: CasesJourneyService,
+  ) {}
 
   // GET /api/v1/cases — Danh sách vụ án (paginated + filtered)
   @Get()
@@ -83,6 +87,25 @@ export class CasesController {
   @RequirePermissions({ action: 'read', subject: 'Case' })
   getStatusHistory(@Param('id') id: string) {
     return this.casesService.getStatusHistory(id);
+  }
+
+  // GET /api/v1/cases/:id/journey — Hành trình hồ sơ (multi-entity timeline)
+  @Get(':id/journey')
+  @RequirePermissions({ action: 'read', subject: 'Case' })
+  getJourney(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthUser,
+    @Req() req: ScopedRequest,
+    @Query('page') page = 1,
+    @Query('limit') limit = 50,
+  ) {
+    return this.casesJourneyService.getJourney(
+      id,
+      user.id,
+      req.dataScope,
+      Number(page),
+      Number(limit),
+    );
   }
 
   // GET /api/v1/cases/:id — Chi tiết vụ án
