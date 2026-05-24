@@ -105,8 +105,8 @@ describe('CasesJourneyService', () => {
 
   // ── TC-J01 ────────────────────────────────────────────────────────────────
 
-  describe('TC-J01: empty history', () => {
-    it('returns empty events array and hasNextPage=false when case has no history', async () => {
+  describe('TC-J01: empty history — synthetic created event injected', () => {
+    it('returns synthetic CREATED event from case.createdAt even when no audit/status history', async () => {
       mockCasesService.getById.mockResolvedValue({ success: true, data: mockCase });
       mockPrisma.caseStatusHistory.findMany.mockResolvedValue([]);
       mockPrisma.incident.findFirst.mockResolvedValue(null);
@@ -115,9 +115,14 @@ describe('CasesJourneyService', () => {
       const result = await service.getJourney('case-001', null, 1, 50);
 
       expect(result.success).toBe(true);
-      expect(result.data.events).toHaveLength(0);
+      expect(result.data.events).toHaveLength(1);
       expect(result.data.hasNextPage).toBe(false);
-      expect(result.data.total).toBe(0);
+      expect(result.data.total).toBe(1);
+      // The synthetic event
+      const ev = result.data.events[0];
+      expect(ev.entityType).toBe('CASE');
+      expect(ev.eventType).toBe('CREATED');
+      expect(ev.actedAt).toEqual(mockCase.createdAt);
     });
   });
 
@@ -228,7 +233,10 @@ describe('CasesJourneyService', () => {
       const result = await service.getJourney('case-001', null, 1, 50);
 
       expect(result.success).toBe(true);
-      const fieldEvents = result.data.events.filter((e) => e.entityType === 'CASE');
+      // CASE events include the audit event + the synthetic CREATED event; filter to FIELD_UPDATE only
+      const fieldEvents = result.data.events.filter(
+        (e) => e.entityType === 'CASE' && e.eventType === 'FIELD_UPDATE',
+      );
       expect(fieldEvents).toHaveLength(1);
       const ev = fieldEvents[0];
       const meta = ev.metadata as unknown as Record<string, unknown>;
@@ -255,7 +263,10 @@ describe('CasesJourneyService', () => {
       const result = await service.getJourney('case-001', null, 1, 50);
 
       expect(result.success).toBe(true);
-      const caseEvents = result.data.events.filter((e) => e.entityType === 'CASE');
+      // Filter to FIELD_UPDATE only — excludes the synthetic CREATED event
+      const caseEvents = result.data.events.filter(
+        (e) => e.entityType === 'CASE' && e.eventType === 'FIELD_UPDATE',
+      );
       expect(caseEvents).toHaveLength(1);
       const ev = caseEvents[0];
       const meta = ev.metadata as unknown as Record<string, unknown>;
@@ -291,10 +302,11 @@ describe('CasesJourneyService', () => {
 
       const result = await service.getJourney('case-001', null, 1, 50);
 
+      // 25 status + 26 audit + 1 synthetic CREATED = 52 total
       expect(result.success).toBe(true);
       expect(result.data.events).toHaveLength(50);
       expect(result.data.hasNextPage).toBe(true);
-      expect(result.data.total).toBe(51);
+      expect(result.data.total).toBe(52);
     });
 
     it('returns page 2 correctly', async () => {
@@ -317,8 +329,9 @@ describe('CasesJourneyService', () => {
 
       const result = await service.getJourney('case-001', null, 2, 50);
 
+      // 52 total − 50 on page 1 = 2 on page 2 (last audit + synthetic CREATED)
       expect(result.success).toBe(true);
-      expect(result.data.events).toHaveLength(1); // 51 total − 50 on page 1 = 1 on page 2
+      expect(result.data.events).toHaveLength(2);
       expect(result.data.hasNextPage).toBe(false);
     });
   });

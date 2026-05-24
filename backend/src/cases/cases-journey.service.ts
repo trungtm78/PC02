@@ -106,8 +106,9 @@ export class CasesJourneyService {
       id: string;
       stt?: string;
       name?: string;
+      createdAt?: Date;
       petitions: Array<{ id: string; stt?: string }>;
-      investigator?: { firstName: string; lastName: string } | null;
+      investigator?: { id?: string; firstName: string | null; lastName: string | null } | null;
     };
 
     // Scope petition IDs: only include petitions the caller is authorized to see.
@@ -270,6 +271,28 @@ export class CasesJourneyService {
           },
         } satisfies TimelineEventDto;
       });
+
+    // Inject synthetic CREATED event from case.createdAt when no CASE_CREATED audit log exists.
+    // Ensures old cases (created before audit logging) always show at least one event.
+    const hasCaseCreatedAuditLog = auditEvents.some(
+      (e) => e.entityType === 'CASE' && e.eventType === 'CREATED',
+    );
+    if (!hasCaseCreatedAuditLog && caseRecord.createdAt) {
+      auditEvents.push({
+        id: `case-created-${caseId}`,
+        entityType: 'CASE',
+        entityId: caseId,
+        entityLabel: `Vụ việc ${caseRecord.stt ?? caseId}`,
+        eventType: 'CREATED',
+        title: 'Được tạo',
+        detail: null,
+        actor: caseRecord.investigator
+          ? { id: caseRecord.investigator.id ?? '', name: buildActorName(caseRecord.investigator) }
+          : null,
+        actedAt: caseRecord.createdAt,
+        metadata: { hasDiff: false },
+      });
+    }
 
     // Merge all events
     const allEvents: TimelineEventDto[] = [
