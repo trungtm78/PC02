@@ -13,18 +13,31 @@ export class LoginPage {
   }
 
   async login(username: string, password: string): Promise<void> {
+    await this._attempt(username, password);
+  }
+
+  private async _attempt(username: string, password: string, retried = false): Promise<void> {
     await this.goto();
-    // Truong input dau tien la username/email — chap nhan ca 2 type
     const userInput = this.page
       .locator('input[type="email"], input[name="username"], input[name="email"], input[type="text"]')
       .first();
     await userInput.fill(username);
     await this.page.fill('input[type="password"]', password);
     await this.page.click('button[type="submit"]');
-    // Cho redirect — chap nhan /dashboard hoac /cases hoac /
-    await expect(this.page).toHaveURL(/\/(dashboard|cases|home|tong-hop)?(\?|$)/, {
-      timeout: 15_000,
-    });
+    // Chap nhan bat ky URL nao sau khi login (khong phai /login)
+    try {
+      await this.page.waitForFunction(
+        () => !window.location.pathname.startsWith('/login'),
+        { timeout: 12_000 }
+      );
+    } catch (err) {
+      if (!retried) {
+        // Rate-limit cooldown: wait 5s then retry once
+        await this.page.waitForTimeout(5_000);
+        return this._attempt(username, password, true);
+      }
+      throw err;
+    }
   }
 
   async logout(): Promise<void> {

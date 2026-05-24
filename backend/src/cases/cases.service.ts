@@ -597,6 +597,7 @@ export class CasesService {
     // the incident exists at that point, so the audit is accurate even if the process crashes here.
     let autoIncidentId: string | null = null;
     let autoIncidentCode: string | null = null;
+    let autoIncidentName: string | null = null;
     let record!: Awaited<ReturnType<typeof this.prisma.case.create>>;
     try {
       record = await this.prisma.$transaction(async (tx) => {
@@ -613,6 +614,7 @@ export class CasesService {
           const newInc = await tx.incident.create({ data: incData });
           autoIncidentId = newInc.id;
           autoIncidentCode = code;
+          autoIncidentName = newInc.name;
         }
         const caseRecord = await tx.case.create({ data: baseCaseData, include: caseInclude });
         await this.createSubEntitiesInTransaction(tx, caseRecord.id, dto, actorId);
@@ -653,7 +655,7 @@ export class CasesService {
     });
 
     const autoLinkedIncident = autoIncidentId
-      ? { id: autoIncidentId, code: autoIncidentCode ?? '', name: dto.name }
+      ? { id: autoIncidentId, code: autoIncidentCode ?? '', name: autoIncidentName ?? dto.name }
       : null;
     return { success: true, data: { ...record, autoLinkedIncident }, message: 'Tạo vụ án thành công' };
   }
