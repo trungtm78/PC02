@@ -99,13 +99,9 @@ export class CasesController {
     @Query('page') page = 1,
     @Query('limit') limit = 50,
   ) {
-    return this.casesJourneyService.getJourney(
-      id,
-      user.id,
-      req.dataScope,
-      Number(page),
-      Number(limit),
-    );
+    const safePage = Math.max(1, Number(page) || 1);
+    const safeLimit = Math.min(200, Math.max(1, Number(limit) || 50));
+    return this.casesJourneyService.getJourney(id, req.dataScope ?? null, safePage, safeLimit);
   }
 
   // GET /api/v1/cases/:id — Chi tiết vụ án

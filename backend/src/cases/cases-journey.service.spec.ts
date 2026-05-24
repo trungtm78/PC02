@@ -45,7 +45,7 @@ const makeStatusHistory = (id: string, date: string) => ({
   id,
   caseId: 'case-001',
   fromStatus: CaseStatus.TIEP_NHAN,
-  toStatus: CaseStatus.XAC_MINH,
+  toStatus: CaseStatus.DANG_XAC_MINH,
   changedById: 'user-001',
   changedAt: new Date(date),
   changedBy: mockUser,
@@ -112,7 +112,7 @@ describe('CasesJourneyService', () => {
       mockPrisma.incident.findFirst.mockResolvedValue(null);
       mockPrisma.auditLog.findMany.mockResolvedValue([]);
 
-      const result = await service.getJourney('case-001', 'user-001', null, 1, 50);
+      const result = await service.getJourney('case-001', null, 1, 50);
 
       expect(result.success).toBe(true);
       expect(result.data.events).toHaveLength(0);
@@ -133,7 +133,7 @@ describe('CasesJourneyService', () => {
       mockPrisma.incident.findFirst.mockResolvedValue(null);
       mockPrisma.auditLog.findMany.mockResolvedValue([]);
 
-      const result = await service.getJourney('case-001', 'user-001', null, 1, 50);
+      const result = await service.getJourney('case-001', null, 1, 50);
 
       expect(result.success).toBe(true);
       const caseEvents = result.data.events.filter((e) => e.entityType === 'CASE');
@@ -158,7 +158,7 @@ describe('CasesJourneyService', () => {
       mockPrisma.incident.findFirst.mockResolvedValue(null);
       mockPrisma.auditLog.findMany.mockResolvedValue([]);
 
-      const result = await service.getJourney('case-001', 'user-001', null, 1, 50);
+      const result = await service.getJourney('case-001', null, 1, 50);
 
       expect(result.success).toBe(true);
       expect(mockPrisma.incidentStatusHistory.findMany).not.toHaveBeenCalled();
@@ -189,7 +189,7 @@ describe('CasesJourneyService', () => {
       mockPrisma.incident.findFirst.mockResolvedValue(null);
       mockPrisma.auditLog.findMany.mockResolvedValue([petitionAudit]);
 
-      const result = await service.getJourney('case-001', 'user-001', null, 1, 50);
+      const result = await service.getJourney('case-001', null, 1, 50);
 
       expect(result.success).toBe(true);
       const petitionEvents = result.data.events.filter((e) => e.entityType === 'PETITION');
@@ -209,7 +209,7 @@ describe('CasesJourneyService', () => {
       const outOfScope = { canDispatch: false, userIds: ['user-other'], teamIds: ['team-other'] };
 
       await expect(
-        service.getJourney('case-001', 'user-other', outOfScope as any, 1, 50),
+        service.getJourney('case-001', outOfScope as any, 1, 50),
       ).rejects.toThrow(ForbiddenException);
     });
   });
@@ -225,15 +225,16 @@ describe('CasesJourneyService', () => {
       mockPrisma.incident.findFirst.mockResolvedValue(null);
       mockPrisma.auditLog.findMany.mockResolvedValue([auditNoBefore]);
 
-      const result = await service.getJourney('case-001', 'user-001', null, 1, 50);
+      const result = await service.getJourney('case-001', null, 1, 50);
 
       expect(result.success).toBe(true);
       const fieldEvents = result.data.events.filter((e) => e.entityType === 'CASE');
       expect(fieldEvents).toHaveLength(1);
       const ev = fieldEvents[0];
+      const meta = ev.metadata as unknown as Record<string, unknown>;
       // Must NOT expose raw before/after from AuditLog
-      expect(ev.metadata?.before).toBeUndefined();
-      expect(ev.metadata?.after).toBeUndefined();
+      expect(meta?.before).toBeUndefined();
+      expect(meta?.after).toBeUndefined();
       // Should indicate no diff available
       expect(ev.metadata?.hasDiff).toBe(false);
     });
@@ -251,15 +252,16 @@ describe('CasesJourneyService', () => {
       mockPrisma.incident.findFirst.mockResolvedValue(null);
       mockPrisma.auditLog.findMany.mockResolvedValue([auditWithBefore]);
 
-      const result = await service.getJourney('case-001', 'user-001', null, 1, 50);
+      const result = await service.getJourney('case-001', null, 1, 50);
 
       expect(result.success).toBe(true);
       const caseEvents = result.data.events.filter((e) => e.entityType === 'CASE');
       expect(caseEvents).toHaveLength(1);
       const ev = caseEvents[0];
+      const meta = ev.metadata as unknown as Record<string, unknown>;
       // Must NOT expose raw nested before/after objects
-      expect(ev.metadata?.before).toBeUndefined();
-      expect(ev.metadata?.after).toBeUndefined();
+      expect(meta?.before).toBeUndefined();
+      expect(meta?.after).toBeUndefined();
       // Must indicate diff is available
       expect(ev.metadata?.hasDiff).toBe(true);
     });
@@ -287,7 +289,7 @@ describe('CasesJourneyService', () => {
       mockPrisma.incident.findFirst.mockResolvedValue(null);
       mockPrisma.auditLog.findMany.mockResolvedValue(manyAudit);
 
-      const result = await service.getJourney('case-001', 'user-001', null, 1, 50);
+      const result = await service.getJourney('case-001', null, 1, 50);
 
       expect(result.success).toBe(true);
       expect(result.data.events).toHaveLength(50);
@@ -313,7 +315,7 @@ describe('CasesJourneyService', () => {
       mockPrisma.incident.findFirst.mockResolvedValue(null);
       mockPrisma.auditLog.findMany.mockResolvedValue(manyAudit);
 
-      const result = await service.getJourney('case-001', 'user-001', null, 2, 50);
+      const result = await service.getJourney('case-001', null, 2, 50);
 
       expect(result.success).toBe(true);
       expect(result.data.events).toHaveLength(1); // 51 total − 50 on page 1 = 1 on page 2

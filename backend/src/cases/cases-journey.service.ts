@@ -14,6 +14,13 @@ import type {
   JourneyResultDto,
 } from './dto/timeline-event.dto';
 
+// Allowlist of field names safe to expose in changedFields (no PII, no internal secrets)
+const SAFE_CHANGED_FIELDS = new Set([
+  'status', 'name', 'assignedTeamId', 'investigatorId', 'deadline',
+  'unit', 'caseProvenance', 'capDoToiPham', 'description', 'caseTitle',
+  'petitionType', 'petitionStatus', 'loaiDon', 'incidentType',
+]);
+
 // ─── Action → Event type mappings ────────────────────────────────────────────
 
 const ACTION_TO_EVENT: Record<string, TimelineEventType> = {
@@ -23,11 +30,14 @@ const ACTION_TO_EVENT: Record<string, TimelineEventType> = {
   PETITION_CREATED: 'CREATED',
   PETITION_UPDATED: 'FIELD_UPDATE',
   PETITION_DELETED: 'FIELD_UPDATE',
+  PETITION_STATUS_CHANGED: 'STATUS_CHANGE',
   PETITION_CONVERTED_TO_CASE: 'LINKED',
   PETITION_CONVERTED_TO_INCIDENT: 'LINKED',
   PETITION_ASSIGNED: 'FIELD_UPDATE',
+  PETITION_ESCALATED_FROM_WARD: 'LINKED',
   INCIDENT_CREATED: 'CREATED',
   INCIDENT_UPDATED: 'FIELD_UPDATE',
+  INCIDENT_AUTO_CREATED: 'CREATED',
   CASE_LINKED_INCIDENT: 'LINKED',
 };
 
@@ -35,15 +45,18 @@ const ACTION_TO_SUBJECT: Record<string, TimelineEntityType> = {
   CASE_CREATED: 'CASE',
   CASE_UPDATED: 'CASE',
   CASE_DELETED: 'CASE',
+  CASE_LINKED_INCIDENT: 'CASE',
   PETITION_CREATED: 'PETITION',
   PETITION_UPDATED: 'PETITION',
   PETITION_DELETED: 'PETITION',
+  PETITION_STATUS_CHANGED: 'PETITION',
   PETITION_CONVERTED_TO_CASE: 'PETITION',
   PETITION_CONVERTED_TO_INCIDENT: 'PETITION',
   PETITION_ASSIGNED: 'PETITION',
   PETITION_ESCALATED_FROM_WARD: 'PETITION',
   INCIDENT_CREATED: 'INCIDENT',
   INCIDENT_UPDATED: 'INCIDENT',
+  INCIDENT_AUTO_CREATED: 'INCIDENT',
 };
 
 const ENTITY_LABEL: Record<TimelineEntityType, string> = {
@@ -52,7 +65,7 @@ const ENTITY_LABEL: Record<TimelineEntityType, string> = {
   PETITION: 'Đơn thư',
 };
 
-function buildActorName(user: { firstName: string; lastName: string } | null): string {
+function buildActorName(user: { firstName: string | null; lastName: string | null } | null): string {
   if (!user) return 'Hệ thống';
   return `${user.lastName} ${user.firstName}`.trim();
 }
@@ -69,6 +82,9 @@ function buildAuditTitle(action: string, eventType: TimelineEventType): string {
   return 'Cập nhật';
 }
 
+const AUDIT_LOG_FETCH_LIMIT = 500;
+const ENTITY_SORT_PRIORITY: Record<TimelineEntityType, number> = { INCIDENT: 0, CASE: 1, PETITION: 2 };
+
 // ─── Service ─────────────────────────────────────────────────────────────────
 
 @Injectable()
@@ -80,7 +96,6 @@ export class CasesJourneyService {
 
   async getJourney(
     caseId: string,
-    userId: string,
     dataScope: DataScope | null,
     page: number,
     limit: number,
@@ -95,7 +110,25 @@ export class CasesJourneyService {
       investigator?: { firstName: string; lastName: string } | null;
     };
 
-    const petitionIds = caseRecord.petitions.map((p) => p.id);
+    // Scope petition IDs: only include petitions the caller is authorized to see.
+    // getById already enforces case-level scope. Petitions are team-scoped individually —
+    // restrict to petitions whose assignedTeamId or investigatorId falls within dataScope.
+    // If dataScope is null (admin), include all petitions.
+    const petitionIds = dataScope
+      ? await this.prisma.petition
+          .findMany({
+            where: {
+              id: { in: caseRecord.petitions.map((p) => p.id) },
+              deletedAt: null,
+              OR: [
+                { assignedTeamId: { in: dataScope.teamIds } },
+                { assignedToId: { in: dataScope.userIds } },
+              ],
+            },
+            select: { id: true },
+          })
+          .then((rows) => rows.map((r) => r.id))
+      : caseRecord.petitions.map((p) => p.id);
 
     // Find linked incident (Incident.linkedCaseId → Case.id)
     const incident = await this.prisma.incident.findFirst({
@@ -128,7 +161,7 @@ export class CasesJourneyService {
           subjectId: { in: [caseId, ...petitionIds, ...(incidentId ? [incidentId] : [])] },
         },
         orderBy: { createdAt: 'desc' },
-        take: 500,
+        take: AUDIT_LOG_FETCH_LIMIT,
         include: {
           user: { select: { id: true, firstName: true, lastName: true, username: true } },
         },
@@ -141,8 +174,8 @@ export class CasesJourneyService {
 
     // Map CaseStatusHistory → TimelineEventDto
     const caseStatusEvents: TimelineEventDto[] = caseHistory.map((h) => {
-      const from = buildStatusLabel(h.fromStatus, 'CASE');
-      const to = buildStatusLabel(h.toStatus, 'CASE');
+      const from = buildStatusLabel(h.fromStatus ?? '', 'CASE');
+      const to = buildStatusLabel(h.toStatus ?? '', 'CASE');
       return {
         id: `case-sh-${h.id}`,
         entityType: 'CASE',
@@ -157,8 +190,8 @@ export class CasesJourneyService {
         actedAt: h.changedAt,
         metadata: {
           hasDiff: false,
-          fromStatus: h.fromStatus,
-          toStatus: h.toStatus,
+          fromStatus: h.fromStatus ?? undefined,
+          toStatus: h.toStatus ?? undefined,
         },
       };
     });
@@ -187,6 +220,9 @@ export class CasesJourneyService {
       };
     });
 
+    // Pre-build petition lookup Map to avoid O(n*m) linear scan in the audit loop
+    const petitionMap = new Map(caseRecord.petitions.map((p) => [p.id, p.stt]));
+
     // Map AuditLog → TimelineEventDto
     const auditEvents: TimelineEventDto[] = auditLogs
       .map((log: any) => {
@@ -205,14 +241,14 @@ export class CasesJourneyService {
         } else if (entityType === 'INCIDENT') {
           entityLabel = `Vụ án ${incident?.code ?? incidentId}`;
         } else {
-          const pet = caseRecord.petitions.find((p) => p.id === log.subjectId);
-          entityLabel = `Đơn thư ${pet?.stt ?? log.subjectId}`;
+          const petStt = petitionMap.get(log.subjectId as string);
+          entityLabel = `Đơn thư ${petStt ?? log.subjectId}`;
         }
 
         const meta = log.metadata as Record<string, any> | null;
         const hasDiff = !!(meta?.before);
         const changedFields = meta?.before
-          ? Object.keys(meta.before as Record<string, unknown>)
+          ? Object.keys(meta.before as Record<string, unknown>).filter((f) => SAFE_CHANGED_FIELDS.has(f))
           : undefined;
 
         return {
@@ -246,9 +282,7 @@ export class CasesJourneyService {
     allEvents.sort((a, b) => {
       const diff = new Date(b.actedAt).getTime() - new Date(a.actedAt).getTime();
       if (diff !== 0) return diff;
-      // Tiebreaker: INCIDENT > CASE > PETITION
-      const priority: Record<TimelineEntityType, number> = { INCIDENT: 0, CASE: 1, PETITION: 2 };
-      return priority[a.entityType] - priority[b.entityType];
+      return ENTITY_SORT_PRIORITY[a.entityType] - ENTITY_SORT_PRIORITY[b.entityType];
     });
 
     const total = allEvents.length;
