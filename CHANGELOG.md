@@ -2,6 +2,34 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.42.1.0] - 2026-05-25
+
+**Sửa giờ hiển thị — Luôn hiển thị giờ Việt Nam (UTC+7) trên toàn hệ thống**
+
+Timestamps trong Nhật ký nghiệp vụ và toàn bộ hệ thống hiển thị sai giờ vì `toLocaleString("vi-VN")` không có `timeZone` option — phụ thuộc vào timezone OS của trình duyệt. Máy cài UTC lệch 7 tiếng.
+
+### Fixed
+- **Toàn hệ thống (45 file frontend)**: thay thế tất cả `toLocaleString`/`toLocaleDateString`/`toLocaleTimeString` bằng utility functions với `timeZone: 'Asia/Ho_Chi_Minh'` tường minh.
+- `frontend/src/lib/dates.ts`: thêm 3 export mới `formatVNDate()`, `formatVNDateTime()`, `formatVNTime()` — luôn hiển thị đúng UTC+7 bất kể timezone OS của người dùng.
+- `today()` và `toDateInput()`: dùng `en-CA` locale (→ YYYY-MM-DD) với timezone VN để tránh drift qua midnight.
+- `ActivityLogPage`: đếm "hôm nay" dùng `toDateInput(log.timestamp) === today()` — so sánh đúng ngày VN, không còn drift 7 tiếng ở ranh giới UTC midnight.
+- Xóa 12 local `formatDate()`/`formatDateTime()` helper functions trong các component — tập trung về `dates.ts`.
+
+### Tests
+- 733 frontend tests green (thêm test coverage cho `formatVNDate`, `formatVNDateTime`, `formatVNTime`, `today`, `toDateInput` với UTC anchor timestamps)
+
+## [0.42.0.0] - 2026-05-25
+
+**Document Number Engine — Cấu hình mã số chứng từ qua Admin UI**
+
+### Added
+- **Document Number Engine**: cấu hình mã số chứng từ cho 5 loại (Vụ việc, Đơn thư, Hồ sơ, Đề xuất, Ủy thác) qua trang Admin với SELECT FOR UPDATE row-level locking.
+- Template Engine: prefix tùy chỉnh, năm, số thứ tự (N chữ số, reset hàng năm), preview live.
+- Admin UI: danh sách templates + tạo/sửa modal, hiển thị ví dụ mã số.
+- `caseCode` hiển thị trong danh sách vụ án.
+- Hành trình hồ sơ: inject synthetic CREATED event cho case cũ không có audit log.
+- Teams: fix dropdown bị clip bởi `overflow-hidden`, tăng z-index lên z-50.
+
 ## [0.41.1.0] - 2026-05-24
 
 **Thêm thành viên Tổ/Nhóm — multi-select + bug fixes**
