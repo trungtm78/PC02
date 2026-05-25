@@ -5,11 +5,18 @@
 -- AlterTable: Case.caseCode (promoted from metadata)
 ALTER TABLE "cases" ADD COLUMN "caseCode" TEXT;
 
--- Backfill existing caseCode from metadata JSON (BEFORE unique index to detect duplicates early)
-UPDATE "cases"
-SET "caseCode" = TRIM("metadata"->>'caseCode')
-WHERE "metadata"->>'caseCode' IS NOT NULL
-  AND TRIM("metadata"->>'caseCode') != '';
+-- Backfill caseCode from metadata JSON — only where value is unique across all cases.
+-- Cases with duplicate metadata caseCode values remain NULL so the UNIQUE index succeeds.
+-- Admins can assign new codes to those cases via the Document Number Engine.
+UPDATE "cases" c
+SET "caseCode" = TRIM(c."metadata"->>'caseCode')
+WHERE c."metadata"->>'caseCode' IS NOT NULL
+  AND TRIM(c."metadata"->>'caseCode') != ''
+  AND 1 = (
+    SELECT COUNT(*) FROM "cases" c2
+    WHERE c2."metadata"->>'caseCode' IS NOT NULL
+      AND TRIM(c2."metadata"->>'caseCode') = TRIM(c."metadata"->>'caseCode')
+  );
 
 -- Unique index AFTER backfill so duplicate data fails here, not mid-backfill
 CREATE UNIQUE INDEX "cases_caseCode_key" ON "cases"("caseCode");
