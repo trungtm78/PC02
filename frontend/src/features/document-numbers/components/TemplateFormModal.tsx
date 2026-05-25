@@ -163,7 +163,7 @@ export function TemplateFormModal({ template, onClose, onSave, isSaving }: Props
           </div>
 
           {/* Separator + InputMode */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Ký tự phân cách
@@ -219,7 +219,7 @@ export function TemplateFormModal({ template, onClose, onSave, isSaving }: Props
           {/* Counter Config */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Cấu hình số tự tăng</label>
-            <div className="grid grid-cols-2 gap-3 p-3 bg-gray-50 rounded border">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-gray-50 rounded border">
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Chu kỳ reset</label>
                 <select

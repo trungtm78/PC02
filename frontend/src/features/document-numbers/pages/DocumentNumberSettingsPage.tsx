@@ -206,7 +206,8 @@ export default function DocumentNumberSettingsPage() {
             </div>
           ) : (
             <div className="bg-white rounded border overflow-hidden">
-              <table className="w-full text-left">
+              <div className="overflow-x-auto">
+              <table className="w-full text-left min-w-[640px]">
                 <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
                   <tr>
                     <th className="px-4 py-3">Tên</th>
@@ -228,6 +229,7 @@ export default function DocumentNumberSettingsPage() {
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
         </>
