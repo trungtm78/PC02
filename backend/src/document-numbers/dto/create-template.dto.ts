@@ -8,6 +8,7 @@ import {
   IsInt,
   Min,
   MaxLength,
+  Matches,
   ArrayMinSize,
   ArrayMaxSize,
   ValidateNested,
@@ -98,6 +99,7 @@ function HasAtMostOneCounter(validationOptions?: ValidationOptions) {
 export class CreateTemplateDto {
   @IsString()
   @IsNotEmpty()
+  @Matches(/\S/, { message: 'name must contain at least one non-whitespace character' })
   name: string;
 
   @IsString()
