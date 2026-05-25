@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, RotateCcw, BarChart2, List, Edit2, Trash2 } from 'lucide-react';
 import { documentNumbersApi, DOC_NUM_QUERY_KEYS } from '../api';
-import type { DocumentNumberTemplate } from '../types';
+import { TemplateFormModal } from '../components/TemplateFormModal';
+import type { DocumentNumberTemplate, CreateTemplateInput } from '../types';
 
 const INPUT_MODE_LABELS: Record<string, string> = {
   AUTO: 'Tự động',
@@ -84,6 +85,8 @@ function TemplateRow({
 
 export default function DocumentNumberSettingsPage() {
   const [activeTab, setActiveTab] = useState<'templates' | 'logs'>('templates');
+  const [editingTemplate, setEditingTemplate] = useState<DocumentNumberTemplate | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: templates = [], isLoading } = useQuery({
@@ -102,6 +105,21 @@ export default function DocumentNumberSettingsPage() {
     mutationFn: (id: string) => documentNumbersApi.resetCounter(id),
   });
 
+  const createMutation = useMutation({
+    mutationFn: (input: CreateTemplateInput) => documentNumbersApi.createTemplate(input),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: DOC_NUM_QUERY_KEYS.templates });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, input }: { id: string; input: CreateTemplateInput }) =>
+      documentNumbersApi.updateTemplate(id, input),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: DOC_NUM_QUERY_KEYS.templates });
+    },
+  });
+
   function handleDelete(id: string) {
     if (confirm('Xác nhận xóa template này?')) {
       deleteMutation.mutate(id);
@@ -113,6 +131,19 @@ export default function DocumentNumberSettingsPage() {
       resetMutation.mutate(id);
     }
   }
+
+  async function handleSave(data: CreateTemplateInput, id?: string) {
+    if (id) {
+      await updateMutation.mutateAsync({ id, input: data });
+    } else {
+      await createMutation.mutateAsync(data);
+    }
+    setEditingTemplate(null);
+    setShowCreate(false);
+  }
+
+  const modalOpen = showCreate || editingTemplate !== null;
+  const isSaving = createMutation.isPending || updateMutation.isPending;
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
@@ -126,6 +157,7 @@ export default function DocumentNumberSettingsPage() {
         <button
           type="button"
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+          onClick={() => setShowCreate(true)}
         >
           <Plus className="w-4 h-4" />
           Thêm mới
@@ -189,7 +221,7 @@ export default function DocumentNumberSettingsPage() {
                     <TemplateRow
                       key={tpl.id}
                       template={tpl}
-                      onEdit={() => {}}
+                      onEdit={setEditingTemplate}
                       onDelete={handleDelete}
                       onReset={handleReset}
                     />
@@ -205,6 +237,18 @@ export default function DocumentNumberSettingsPage() {
         <div className="text-center py-10 text-gray-400">
           <p>Chức năng xem lịch sử đang phát triển</p>
         </div>
+      )}
+
+      {modalOpen && (
+        <TemplateFormModal
+          template={editingTemplate}
+          onClose={() => {
+            setEditingTemplate(null);
+            setShowCreate(false);
+          }}
+          onSave={handleSave}
+          isSaving={isSaving}
+        />
       )}
     </div>
   );

@@ -147,6 +147,7 @@ export class CasesService {
         where,
         select: {
           id: true,
+          caseCode: true,
           name: true,
           crime: true,
           status: true,

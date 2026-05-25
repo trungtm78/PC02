@@ -48,6 +48,7 @@ type CaseStatus =
 
 interface CaseFromApi {
   id: string;
+  caseCode: string | null;
   name: string;
   crime: string | null;
   status: CaseStatus;
@@ -70,6 +71,7 @@ interface CaseFromApi {
 // ─────────────────────────────────────────────────────────
 interface Case {
   id: string;
+  caseCode: string | null;
   name: string;
   status: string;
   statusRaw: CaseStatus; // v0.31.0.2: raw enum cho delete guard
@@ -141,6 +143,7 @@ function mapApiCase(c: CaseFromApi): Case {
 
   return {
     id:                   c.id,
+    caseCode:             c.caseCode ?? null,
     name:                 c.name,
     status:               STATUS_LABEL[c.status] ?? c.status,
     statusRaw:            c.status,
@@ -482,7 +485,7 @@ function CaseListPage() {
               onClick={() => {
                 const headers = ['STT', 'Mã vụ án', 'Tên vụ án', 'Điều tra viên', 'Đơn vị', 'Tội danh', 'Trạng thái', 'Hạn điều tra'];
                 const rows = filteredCases.map((c, i) => [
-                  i + 1, c.id.slice(0, 8).toUpperCase(), c.name, c.investigator,
+                  i + 1, (c.caseCode ?? c.id.slice(0, 8).toUpperCase()), c.name, c.investigator,
                   c.unit, c.charges, c.status,
                   c.investigationDeadline ? new Date(c.investigationDeadline).toLocaleDateString('vi-VN') : '',
                 ]);
@@ -697,7 +700,7 @@ function CaseListPage() {
                           {/* Regular columns */}
                           <td className="px-4 py-4 whitespace-nowrap">
                             <div className="flex items-center gap-2">
-                              <span className="text-sm font-medium text-blue-600 font-mono">{caseItem.id.slice(0, 8)}…</span>
+                              <span className="text-sm font-medium text-blue-600 font-mono">{caseItem.caseCode ?? caseItem.id.slice(0, 8) + '…'}</span>
                               {overdue && <span className="px-2 py-0.5 text-xs font-bold text-white bg-red-600 rounded animate-pulse" data-testid={`overdue-badge-${caseItem.id}`} title={`Quá hạn ${daysOverdue} ngày`}>Quá hạn</span>}
                             </div>
                           </td>
@@ -806,7 +809,7 @@ function CaseListPage() {
                 setOpenMenu(null);
                 navigate("/transfer-return", {
                   state: {
-                    preselectedRecord: { id: caseItem.id, caseNumber: caseItem.id.slice(0, 8).toUpperCase() },
+                    preselectedRecord: { id: caseItem.id, caseNumber: (caseItem.caseCode ?? caseItem.id.slice(0, 8).toUpperCase()) },
                     sourceScreen: "cases",
                   },
                 });
@@ -884,7 +887,7 @@ function CaseListPage() {
                 <div className="flex-1 min-w-0">
                   <h3 id="delete-modal-title" className="text-lg font-bold text-slate-800">Xóa vụ án</h3>
                   <p className="text-sm text-slate-600 mt-0.5 font-mono">
-                    Mã: <strong>{caseToDelete.id.slice(0, 12)}…</strong>
+                    Mã: <strong>{caseToDelete.caseCode ?? caseToDelete.id.slice(0, 12) + '…'}</strong>
                   </p>
                   <p className="text-sm text-slate-600 mt-0.5 line-clamp-2">{caseToDelete.name}</p>
                 </div>
