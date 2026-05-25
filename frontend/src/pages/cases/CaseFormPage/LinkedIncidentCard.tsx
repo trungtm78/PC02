@@ -15,6 +15,7 @@
 import { useEffect, useState } from 'react';
 import { ExternalLink, RotateCw, AlertCircle, Loader2 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { formatVNDateTime } from '../../../lib/dates';
 
 interface LinkedIncidentCardProps {
   incidentId: string;
@@ -149,7 +150,7 @@ export function LinkedIncidentCard({ incidentId, onUnlink, canUnlink = true }: L
           {incident.ngayDeXuat && (
             <div>
               <dt className="text-slate-500">📅 Ngày xảy ra:</dt>
-              <dd className="text-slate-900">{new Date(incident.ngayDeXuat).toLocaleString('vi-VN')}</dd>
+              <dd className="text-slate-900">{formatVNDateTime(incident.ngayDeXuat)}</dd>
             </div>
           )}
           {incident.diaDiem && (

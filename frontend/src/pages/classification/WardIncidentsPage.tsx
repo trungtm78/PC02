@@ -20,6 +20,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { formatVNDate } from "../../lib/dates";
 
 interface WardIncident {
   id: string;
@@ -80,7 +81,7 @@ export default function WardIncidentsPage() {
           ward: item.unitId ?? "",
           district: item.unitId ?? "",
           reportedBy: item.investigator ? `${item.investigator.firstName ?? ""} ${item.investigator.lastName ?? ""}`.trim() : "",
-          reportedDate: item.createdAt ? new Date(item.createdAt).toLocaleDateString("vi-VN") : "",
+          reportedDate: formatVNDate(item.createdAt),
           status: (() => {
             const m: Record<string, string> = {
               [IncidentStatus.TIEP_NHAN]: "pending",

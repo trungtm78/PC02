@@ -4,6 +4,7 @@ import { api } from "@/lib/api";
 import { getRoleLabel } from "@/shared/enums/role-labels";
 import { getAuditActionLabel } from "@/shared/enums/audit-action-labels";
 import { getFieldLabel } from "@/shared/enums/audit-field-labels";
+import { formatVNDateTime } from "../../lib/dates";
 import {
   Search,
   Download,
@@ -232,17 +233,6 @@ export default function ActivityLogPage() {
     }
   };
 
-  const formatDateTime = (dateTimeString: string) => {
-    const date = new Date(dateTimeString);
-    return date.toLocaleString("vi-VN", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    });
-  };
 
   const getActionBadge = (actionType: ActionType, label: string) => {
     const styles = {
@@ -323,7 +313,7 @@ export default function ActivityLogPage() {
             <div>
               <p className="text-sm text-slate-600 mb-1">Hôm nay</p>
               <p className="text-3xl font-bold text-blue-600">
-                {allData.filter((log) => log.timestamp.startsWith(new Date().toISOString().slice(0, 10))).length}
+                {allData.filter((log) => log.timestamp.startsWith(today())).length}
               </p>
             </div>
             <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -575,7 +565,7 @@ export default function ActivityLogPage() {
                       <div className="flex items-center gap-1.5">
                         <Clock className="w-3.5 h-3.5 text-slate-400" />
                         <span className="text-sm text-slate-700 font-mono">
-                          {formatDateTime(log.timestamp)}
+                          {formatVNDateTime(log.timestamp)}
                         </span>
                       </div>
                     </td>
@@ -655,7 +645,7 @@ export default function ActivityLogPage() {
                     <div className="flex-1">
                       <p className="text-xs text-slate-600">Thời gian</p>
                       <p className="text-sm font-medium text-slate-800 font-mono">
-                        {formatDateTime(selectedLog.timestamp)}
+                        {formatVNDateTime(selectedLog.timestamp)}
                       </p>
                     </div>
                   </div>

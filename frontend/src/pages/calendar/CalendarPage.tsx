@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/shared/Modal';
 import { usePermission } from '@/hooks/usePermission';
 import { api } from '@/lib/api';
+import { formatVNDate } from '../../lib/dates';
 import { CreateEventModal } from './components/CreateEventModal';
 import { RecurringDeleteDialog } from './components/RecurringDeleteDialog';
 import { filterEvents } from './utils/filterEvents';
@@ -425,7 +426,7 @@ function UpcomingEvents({ events, onEventClick }: UpcomingEventsProps) {
                     )}
                     <span className="text-xs text-slate-500 flex items-center gap-1">
                       <CalendarIcon className="w-3 h-3" />
-                      {new Date(event.date).toLocaleDateString('vi-VN')}
+                      {formatVNDate(event.date)}
                       {/* v0.21.7.0 — time if not all-day */}
                       {event.allDay === false && event.startTime && (
                         <> • {event.startTime}{event.endTime ? `–${event.endTime}` : ''}</>
@@ -635,9 +636,10 @@ export default function CalendarPage() {
   // (recurring delete dialog path). Kept dedicated function for clarity if
   // future code needs to open the dialog without going through handleEventClick.
 
-  const monthYearLabel = currentDate.toLocaleDateString('vi-VN', { 
-    month: 'long', 
-    year: 'numeric' 
+  const monthYearLabel = currentDate.toLocaleDateString('vi-VN', {
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'Asia/Ho_Chi_Minh',
   });
 
   return (

@@ -16,6 +16,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { formatVNDate } from "../../lib/dates";
 
 interface OverdueRecord {
   id: string;
@@ -107,8 +108,8 @@ export default function OverdueRecordsPage() {
     const rows = toExport.map((r, i) => [
       i + 1, r.recordNumber, typeMap[r.recordType] ?? r.recordType,
       r.title, r.assignedTo, r.unit,
-      new Date(r.dueDate).toLocaleDateString('vi-VN'),
-      new Date(r.receivedDate).toLocaleDateString('vi-VN'),
+      formatVNDate(r.dueDate),
+      formatVNDate(r.receivedDate),
       r.daysOverdue, r.status, priorityMap[r.priority] ?? r.priority,
     ]);
     const csv = [headers, ...rows]
@@ -493,7 +494,7 @@ export default function OverdueRecordsPage() {
                         <div className="flex items-center gap-2">
                           <Calendar className="w-4 h-4 text-red-500" />
                           <span className="text-slate-700">
-                            {new Date(record.dueDate).toLocaleDateString("vi-VN")}
+                            {formatVNDate(record.dueDate)}
                           </span>
                         </div>
                       </td>

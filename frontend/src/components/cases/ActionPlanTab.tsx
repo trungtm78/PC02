@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Plus, Trash2, X, Save, ClipboardList } from "lucide-react";
 import { api } from "@/lib/api";
 import { extractApiError } from "@/lib/api-errors";
+import { formatVNDate } from "../../lib/dates";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -197,13 +198,13 @@ export function ActionPlanTab({ entityId, entityType, isReadOnly = false }: Prop
                 return (
                   <tr key={p.id} className="hover:bg-slate-50 transition-colors" data-testid={`plan-row-${p.id}`}>
                     <td className="px-4 py-3 whitespace-nowrap text-slate-700">
-                      {p.ngayLap ? new Date(p.ngayLap).toLocaleDateString("vi-VN") : "—"}
+                      {formatVNDate(p.ngayLap)}
                     </td>
                     <td className="px-4 py-3 text-slate-700 max-w-xs">
                       <p className="line-clamp-2">{p.bienPhap}</p>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-slate-700">
-                      {p.thoiHan ? new Date(p.thoiHan).toLocaleDateString("vi-VN") : "—"}
+                      {formatVNDate(p.thoiHan)}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       {tienDoCfg ? (

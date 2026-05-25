@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { api } from "@/lib/api";
 import { extractApiError } from "@/lib/api-errors";
-import { today } from "@/lib/dates";
+import { today, toDateInput, formatVNDate, formatVNDateTime, formatVNTime } from "@/lib/dates";
 import { usePermission } from "@/hooks/usePermission";
 import { AssignModal } from "@/components/AssignModal";
 import {
@@ -108,7 +108,7 @@ function subjectToDefendant(s: any): Defendant {
     id: s.id,
     name: s.fullName,
     idNumber: s.idNumber,
-    dateOfBirth: s.dateOfBirth ? new Date(s.dateOfBirth).toISOString().slice(0, 10) : "",
+    dateOfBirth: toDateInput(s.dateOfBirth),
     address: s.address,
     phone: s.phone ?? "",
     chargesAgainst: s.crimeId ?? "",
@@ -173,9 +173,9 @@ function historyRowToTimeline(row: any): TimelineEvent {
   const dt = new Date(row.changedAt);
   return {
     id: row.id,
-    date: dt.toLocaleDateString("vi-VN"),
-    time: dt.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
-    datetime: dt.toLocaleString("vi-VN"),
+    date: formatVNDate(dt),
+    time: formatVNTime(dt),
+    datetime: formatVNDateTime(dt),
     title: statusName,
     description: "",
     type: eventType,
@@ -198,9 +198,9 @@ function supplementToTimeline(s: InvestigationSupplement): TimelineEvent {
   const dt = new Date(s.createdAt);
   return {
     id: `supp-${s.id}`,
-    date: dt.toLocaleDateString("vi-VN"),
-    time: dt.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
-    datetime: dt.toLocaleString("vi-VN"),
+    date: formatVNDate(dt),
+    time: formatVNTime(dt),
+    datetime: formatVNDateTime(dt),
     title: s.type === "Điều tra lại" ? "Quyết định điều tra lại" : "Quyết định điều tra bổ sung",
     description: `Số quyết định: ${s.decisionNumber}. ${s.reason}`,
     type: "warning",
@@ -212,7 +212,7 @@ function conclusionApiToLocal(c: any): Conclusion {
   return {
     id: c.id,
     type: c.type,
-    date: c.createdAt ? new Date(c.createdAt).toISOString().slice(0, 10) : "",
+    date: toDateInput(c.createdAt),
     content: c.content,
     author: c.author ? `${c.author.firstName ?? ""} ${c.author.lastName ?? ""}`.trim() : "",
     approvedBy: c.approvedBy ? `${c.approvedBy.firstName ?? ""} ${c.approvedBy.lastName ?? ""}`.trim() : "",
@@ -773,7 +773,7 @@ export default function CaseDetailPage() {
 
   const overdue = caseData?.deadline ? isOverdue(caseData.deadline) : false;
   const caseDeadline = caseData?.deadline
-    ? new Date(caseData.deadline).toLocaleDateString("vi-VN")
+    ? formatVNDate(caseData.deadline)
     : "";
 
   // ─── API fetchers ──────────────────────────────────────────────────────────
@@ -970,7 +970,7 @@ export default function CaseDetailPage() {
   const handleOpenProgress = () => {
     setProgressStatus(caseData?.status ?? "");
     setProgressDeadline(
-      caseData?.deadline ? new Date(caseData.deadline).toISOString().slice(0, 10) : ""
+      toDateInput(caseData?.deadline)
     );
     setProgressError("");
     setShowProgressModal(true);
@@ -1031,7 +1031,7 @@ export default function CaseDetailPage() {
       ? `${caseData.investigator.firstName ?? ""} ${caseData.investigator.lastName ?? ""}`.trim() || caseData.investigator.username
       : "Chưa phân công";
     const createdAt = caseData?.createdAt
-      ? new Date(caseData.createdAt).toLocaleDateString("vi-VN")
+      ? formatVNDate(caseData.createdAt)
       : "";
     return (
       <div className="space-y-6" data-testid="tab-content-info">
@@ -1119,7 +1119,7 @@ export default function CaseDetailPage() {
                   </div>
                   <div className="flex items-center gap-3 text-xs text-slate-500">
                     <span>{p.senderName}</span>
-                    <span>{new Date(p.receivedDate).toLocaleDateString("vi-VN")}</span>
+                    <span>{formatVNDate(p.receivedDate)}</span>
                     <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full">{p.status}</span>
                   </div>
                 </div>
@@ -1194,7 +1194,7 @@ export default function CaseDetailPage() {
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div className="flex items-center gap-2 text-slate-600">
                   <Calendar className="w-3.5 h-3.5" />
-                  <span>Ngày sinh: {d.dateOfBirth ? new Date(d.dateOfBirth).toLocaleDateString("vi-VN") : "—"}</span>
+                  <span>Ngày sinh: {formatVNDate(d.dateOfBirth)}</span>
                 </div>
                 <div className="flex items-center gap-2 text-slate-600">
                   <Phone className="w-3.5 h-3.5" />
@@ -1213,7 +1213,7 @@ export default function CaseDetailPage() {
                 {d.detentionStatus === "Tạm giam" && d.detentionExpiry && (
                   <div className={`flex items-center gap-2 col-span-2 ${isOverdue(d.detentionExpiry) ? "text-red-600" : "text-slate-600"}`}>
                     <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
-                    <span>Hạn tạm giam: {new Date(d.detentionExpiry).toLocaleDateString("vi-VN")} {isOverdue(d.detentionExpiry) && "(Quá hạn!)"}</span>
+                    <span>Hạn tạm giam: {formatVNDate(d.detentionExpiry)} {isOverdue(d.detentionExpiry) && "(Quá hạn!)"}</span>
                   </div>
                 )}
               </div>
@@ -1401,7 +1401,7 @@ export default function CaseDetailPage() {
                 <BookOpen className="w-5 h-5 text-amber-600" />
                 <div>
                   <p className="font-semibold text-slate-800">{c.type}</p>
-                  <p className="text-xs text-slate-500">{c.date ? new Date(c.date).toLocaleDateString("vi-VN") : "—"}</p>
+                  <p className="text-xs text-slate-500">{formatVNDate(c.date)}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -1522,7 +1522,7 @@ export default function CaseDetailPage() {
             {
               icon: <Calendar className="w-4 h-4 text-green-500" />,
               label: "Ngày tạo",
-              value: caseData?.createdAt ? new Date(caseData.createdAt).toLocaleDateString("vi-VN") : "—",
+              value: formatVNDate(caseData?.createdAt),
               danger: false,
             },
             {

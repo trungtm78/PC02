@@ -1,25 +1,26 @@
 /**
  * Date helpers for form pre-fill and `<input type="date">` binding.
  *
- * Use local-TZ formatting (NOT `toISOString().split('T')[0]`). Vietnam is UTC+07,
- * so `new Date().toISOString()` at 22:00 local on 2026-05-09 returns
- * `2026-05-09T15:00:00Z`. After 17:00 UTC (00:00 local next day), the UTC date
- * shifts but the user is still on the previous local date — defaulting to UTC
- * silently shows yesterday in `<input type="date">`.
+ * Use Vietnam timezone (Asia/Ho_Chi_Minh, UTC+7, no DST) for all display.
+ * `toLocaleString("vi-VN")` without timeZone uses browser OS timezone — on UTC
+ * machines this shows times 7 hours wrong. All helpers here explicitly pin to VN.
  */
 
-function pad2(n: number): string {
-  return String(n).padStart(2, '0');
+const VN_TZ = 'Asia/Ho_Chi_Minh';
+
+// en-CA locale produces YYYY-MM-DD; stable convention across V8/SpiderMonkey/JSC since 2015.
+// Not ECMAScript-spec-guaranteed but universally implemented.
+function toVNDateString(d: Date): string {
+  return d.toLocaleDateString('en-CA', { timeZone: VN_TZ });
 }
 
-/** Returns today in local timezone as `YYYY-MM-DD` (suitable for <input type="date">). */
+/** Returns today in Vietnam timezone as `YYYY-MM-DD` (suitable for <input type="date">). */
 export function today(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+  return toVNDateString(new Date());
 }
 
 /**
- * Normalizes a date-like value to `YYYY-MM-DD` in local timezone.
+ * Normalizes a date-like value to `YYYY-MM-DD` in Vietnam timezone.
  * - `Date` instance → formatted string
  * - ISO 8601 string (with or without time) → formatted string
  * - `null`, `undefined`, empty string → `''`
@@ -29,9 +30,53 @@ export function today(): string {
  */
 export function toDateInput(value: string | Date | null | undefined): string {
   if (value === null || value === undefined || value === '') return '';
-
   const d = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(d.getTime())) return '';
+  return toVNDateString(d);
+}
 
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+/**
+ * Formats a UTC timestamp as Vietnam local datetime: "25/05/2026 19:01:34"
+ * Always uses Asia/Ho_Chi_Minh regardless of browser OS timezone.
+ * Returns '—' for null/undefined/invalid (use '' for form inputs — see toDateInput).
+ */
+export function formatVNDateTime(value: string | Date | null | undefined): string {
+  if (!value) return '—';
+  const d = value instanceof Date ? value : new Date(value as string);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleString('vi-VN', {
+    timeZone: VN_TZ,
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hour12: false,
+  });
+}
+
+/**
+ * Formats a UTC timestamp as Vietnam local date: "25/05/2026"
+ * Returns '—' for null/undefined/invalid.
+ */
+export function formatVNDate(value: string | Date | null | undefined): string {
+  if (!value) return '—';
+  const d = value instanceof Date ? value : new Date(value as string);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('vi-VN', {
+    timeZone: VN_TZ,
+    day: '2-digit', month: '2-digit', year: 'numeric',
+  });
+}
+
+/**
+ * Formats a UTC timestamp as Vietnam local time: "19:01"
+ * Returns '—' for null/undefined/invalid.
+ */
+export function formatVNTime(value: string | Date | null | undefined): string {
+  if (!value) return '—';
+  const d = value instanceof Date ? value : new Date(value as string);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleTimeString('vi-VN', {
+    timeZone: VN_TZ,
+    hour: '2-digit', minute: '2-digit',
+    hour12: false,
+  });
 }

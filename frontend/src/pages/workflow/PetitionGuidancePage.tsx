@@ -31,7 +31,7 @@ import {
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useFormDefaults } from '@/hooks/useFormDefaults';
-import { today } from '@/lib/dates';
+import { today, formatVNDate } from '@/lib/dates';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -257,10 +257,6 @@ export default function PetitionGuidancePage() {
     setSelectedGuidance(null);
   };
 
-  const formatDate = (dateString: string) => {
-    if (!dateString) return '';
-    try { return new Date(dateString).toLocaleDateString('vi-VN'); } catch { return dateString; }
-  };
 
   // ── Status badge ───────────────────────────────────────────────────────────
 
@@ -537,7 +533,7 @@ export default function PetitionGuidancePage() {
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1.5 text-sm text-slate-700">
                           <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                          {formatDate(guidance.date)}
+                          {formatVNDate(guidance.date)}
                         </div>
                       </td>
                       <td className="px-4 py-3">
@@ -697,7 +693,7 @@ export default function PetitionGuidancePage() {
                     </div>
                     <div className="p-3 bg-slate-50 rounded-lg">
                       <p className="text-xs text-slate-600 mb-1">Ngày tạo</p>
-                      <p className="text-sm font-medium text-slate-800">{formatDate(selectedGuidance.date)}</p>
+                      <p className="text-sm font-medium text-slate-800">{formatVNDate(selectedGuidance.date)}</p>
                     </div>
                     <div className="p-3 bg-slate-50 rounded-lg">
                       <p className="text-xs text-slate-600 mb-1">Đơn vị</p>

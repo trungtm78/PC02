@@ -15,6 +15,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Search, RotateCw, AlertCircle, FilePlus2, FileEdit } from 'lucide-react';
 import { CaseProvenance } from '@/shared/enums/generated';
 import { api } from '@/lib/api';
+import { formatVNDate } from '../../../lib/dates';
 
 const RETRY_BEFORE_FALLBACK = 2;
 
@@ -223,7 +224,7 @@ function PetitionPicker({
           <span>{r.senderName}</span>
           {r.receivedDate && (
             <span className="ml-2 text-xs text-gray-400">
-              ({new Date(r.receivedDate).toLocaleDateString('vi-VN')})
+              ({formatVNDate(r.receivedDate)})
             </span>
           )}
         </>
@@ -259,7 +260,7 @@ function IncidentPicker({
           {r.name && <span className="ml-2">— {r.name}</span>}
           {r.ngayDeXuat && (
             <span className="ml-2 text-xs text-gray-400">
-              ({new Date(r.ngayDeXuat).toLocaleDateString('vi-VN')})
+              ({formatVNDate(r.ngayDeXuat)})
             </span>
           )}
         </>

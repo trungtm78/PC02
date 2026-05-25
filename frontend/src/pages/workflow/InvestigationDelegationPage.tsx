@@ -33,7 +33,7 @@ import {
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { downloadCsv } from '@/lib/csv';
-import { today, toDateInput } from '@/lib/dates';
+import { today, toDateInput, formatVNDate } from '@/lib/dates';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -278,10 +278,6 @@ export default function InvestigationDelegationPage() {
     setValidationErrors({});
   };
 
-  const formatDate = (dateString: string) => {
-    if (!dateString) return '';
-    try { return new Date(dateString).toLocaleDateString('vi-VN'); } catch { return dateString; }
-  };
 
   // ── Status badge ───────────────────────────────────────────────────────────
 
@@ -576,10 +572,10 @@ export default function InvestigationDelegationPage() {
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1.5 text-sm text-slate-700">
                           <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                          {formatDate(delegation.delegationDate)}
+                          {formatVNDate(delegation.delegationDate)}
                         </div>
                         {delegation.completedDate && (
-                          <p className="text-xs text-green-600 mt-1">Hoàn thành: {formatDate(delegation.completedDate)}</p>
+                          <p className="text-xs text-green-600 mt-1">Hoàn thành: {formatVNDate(delegation.completedDate)}</p>
                         )}
                       </td>
                       <td className="px-4 py-3">
@@ -805,7 +801,7 @@ export default function InvestigationDelegationPage() {
                     {selectedDelegation.completedDate && (
                       <div className="p-3 bg-green-50 rounded-lg">
                         <p className="text-xs text-green-700 mb-1">Ngày hoàn thành</p>
-                        <p className="text-sm font-medium text-green-800">{formatDate(selectedDelegation.completedDate)}</p>
+                        <p className="text-sm font-medium text-green-800">{formatVNDate(selectedDelegation.completedDate)}</p>
                       </div>
                     )}
                   </div>

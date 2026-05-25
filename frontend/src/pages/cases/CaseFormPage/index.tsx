@@ -39,6 +39,7 @@ import {
   TabMedia,
 } from "./tabs";
 import { SubjectModal, EvidenceModal } from "./modals";
+import { formatVNDateTime } from "@/lib/dates";
 
 // ─── Tab Configuration ──────────────────────────────────────────────────────
 
@@ -290,7 +291,7 @@ function CaseFormPage() {
       name: file.name,
       type: file.type,
       size: `${(file.size / 1024 / 1024).toFixed(2)} MB`,
-      uploadDate: new Date().toLocaleString("vi-VN"),
+      uploadDate: formatVNDateTime(new Date()),
       uploader: "Nguyễn Văn A",
       recordDate: defaults.today,
     };

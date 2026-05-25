@@ -27,7 +27,7 @@ import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { extractApiError } from "@/lib/api-errors";
-import { today } from "@/lib/dates";
+import { today, formatVNDate } from "@/lib/dates";
 import { useShortcut } from "@/hooks/useShortcut";
 import { FormInput, FormSelect, FormTextarea, FormCurrency, FormPhone, FormInteger } from "@/components/form";
 import { DocNumberPreviewField } from "@/components/DocNumberPreviewField";
@@ -103,7 +103,7 @@ export function TabInfo({ formData, setFormData, errors, setErrors, handlerOptio
       api.get("/directories?type=DISTRICT&isActive=false").then((r) =>
         (r.data.data ?? []).map((d: any) => ({
           value: d.code,
-          label: `${d.name} (trước ${d.abolishedAt ? new Date(d.abolishedAt).toLocaleDateString("vi-VN", { year: "numeric", month: "2-digit" }) : "07/2025"})`,
+          label: `${d.name} (trước ${d.abolishedAt ? new Date(d.abolishedAt).toLocaleDateString("vi-VN", { year: "numeric", month: "2-digit", timeZone: "Asia/Ho_Chi_Minh" }) : "07/2025"})`,
         }))
       ),
     enabled: legacyMode && !isExistingLegacy,
@@ -1177,7 +1177,7 @@ export function TabBusinessFiles({ caseId }: { caseId?: string }) {
                   <p className="text-xs text-slate-500">
                     {DOC_TYPE_LABEL[doc.documentType] ?? doc.documentType}
                     {doc.size ? ` · ${formatBytes(doc.size)}` : ""}
-                    {doc.createdAt ? ` · ${new Date(doc.createdAt).toLocaleDateString("vi-VN")}` : ""}
+                    {doc.createdAt ? ` · ${formatVNDate(doc.createdAt)}` : ""}
                   </p>
                   {doc.description && <p className="text-xs text-slate-400 truncate">{doc.description}</p>}
                 </div>

@@ -1,15 +1,12 @@
 import type { ImpactPreview } from '../types';
 import { AlertTriangle, CheckCircle, ArrowRight } from 'lucide-react';
+import { formatVNDate } from '../../../lib/dates';
 
 interface ImpactPreviewPanelProps {
   impact: ImpactPreview | null;
   isLoading?: boolean;
 }
 
-function fmtDate(d: string | null): string {
-  if (!d) return '—';
-  return new Date(d).toLocaleDateString('vi-VN');
-}
 
 /**
  * Bucketed impact preview — for the approver decision cockpit + propose form.
@@ -40,7 +37,7 @@ export function ImpactPreviewPanel({ impact, isLoading }: ImpactPreviewPanelProp
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-slate-800">Phân tích ảnh hưởng</h3>
         <span className="text-xs text-slate-500">
-          Hiệu lực từ: {fmtDate(impact.effectiveFrom)}
+          Hiệu lực từ: {formatVNDate(impact.effectiveFrom)}
         </span>
       </div>
 
@@ -95,13 +92,13 @@ export function ImpactPreviewPanel({ impact, isLoading }: ImpactPreviewPanelProp
             {impact.soonestIncidents.map((i) => (
               <li key={i.id} className="flex justify-between border-b border-slate-100 py-1">
                 <span className="font-mono">VV {i.code}</span>
-                <span>{fmtDate(i.deadline)}</span>
+                <span>{formatVNDate(i.deadline)}</span>
               </li>
             ))}
             {impact.soonestPetitions.map((p) => (
               <li key={p.id} className="flex justify-between border-b border-slate-100 py-1">
                 <span className="font-mono">ĐT {p.stt}</span>
-                <span>{fmtDate(p.deadline)}</span>
+                <span>{formatVNDate(p.deadline)}</span>
               </li>
             ))}
           </ul>

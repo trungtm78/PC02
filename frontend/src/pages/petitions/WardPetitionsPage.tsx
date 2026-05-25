@@ -26,6 +26,7 @@ import {
   User,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { formatVNDate } from '../../lib/dates';
 import { PetitionStatus, LoaiDon } from '@/shared/enums/generated';
 import {
   PETITION_STATUS_LABEL,
@@ -476,7 +477,7 @@ export default function WardPetitionsPage() {
                         <div className="flex items-center gap-1.5">
                           <Calendar className="w-3.5 h-3.5 text-slate-400" />
                           <span className="text-sm text-slate-700">
-                            {p.receivedDate ? new Date(p.receivedDate).toLocaleDateString('vi-VN') : ''}
+                            {formatVNDate(p.receivedDate)}
                           </span>
                         </div>
                       </td>

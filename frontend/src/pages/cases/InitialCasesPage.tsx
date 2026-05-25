@@ -19,6 +19,7 @@ import {
   X,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { formatVNDate } from "../../lib/dates";
 import { mapCaseToInitialType } from "./utils/case-provenance-mapper";
 
 interface InitialCase {
@@ -187,7 +188,6 @@ function InitialCasesPage() {
     return (<span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium border ${styles[type]}`}>{label}</span>);
   };
 
-  const formatDate = (dateString: string) => { if (!dateString) return ""; try { return new Date(dateString).toLocaleDateString("vi-VN"); } catch { return dateString; } };
 
   const getDaysRemaining = (deadline: string) => {
     if (!deadline) return 0;
@@ -338,11 +338,11 @@ function InitialCasesPage() {
                       <td className="px-4 py-4">{getTypeBadge(caseItem.type, caseItem.typeLabel)}</td>
                       <td className="px-4 py-4"><div className="max-w-xs"><p className="text-sm text-slate-800 font-medium line-clamp-2">{caseItem.subject}</p><p className="text-xs text-slate-500 mt-1">Từ: {caseItem.assignedFrom}</p></div></td>
                       <td className="px-4 py-4 text-sm text-slate-700">{caseItem.district}</td>
-                      <td className="px-4 py-4 text-sm text-slate-700">{formatDate(caseItem.receivedDate)}</td>
+                      <td className="px-4 py-4 text-sm text-slate-700">{formatVNDate(caseItem.receivedDate)}</td>
                       <td className="px-4 py-4">{getPriorityBadge(caseItem.priority, caseItem.priorityLabel)}</td>
                       <td className="px-4 py-4">
                         <div className="flex flex-col gap-1">
-                          <span className={`text-sm font-medium ${isOverdue ? "text-red-700" : "text-slate-700"}`}>{formatDate(caseItem.deadline)}</span>
+                          <span className={`text-sm font-medium ${isOverdue ? "text-red-700" : "text-slate-700"}`}>{formatVNDate(caseItem.deadline)}</span>
                           {isOverdue ? (<span className="text-xs font-bold text-red-700">Đã quá {Math.abs(daysRemaining)} ngày</span>) : daysRemaining <= 2 ? (<span className="text-xs font-medium text-amber-700">Còn {daysRemaining} ngày</span>) : (<span className="text-xs text-slate-500">Còn {daysRemaining} ngày</span>)}
                         </div>
                       </td>
@@ -371,7 +371,7 @@ function InitialCasesPage() {
                 <p className="text-sm font-medium text-blue-900">Số hồ sơ: <span className="font-bold">{selectedCase.caseNumber}</span></p>
                 <p className="text-sm text-blue-800 mt-1">Loại: {selectedCase.typeLabel}</p>
                 <p className="text-sm text-blue-800 mt-1">Nội dung: {selectedCase.subject}</p>
-                <p className="text-sm text-blue-800 mt-1">Hạn xử lý: <span className="font-medium">{formatDate(selectedCase.deadline)}</span></p>
+                <p className="text-sm text-blue-800 mt-1">Hạn xử lý: <span className="font-medium">{formatVNDate(selectedCase.deadline)}</span></p>
               </div>
               <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
                 <p className="text-sm text-amber-800"><strong>Lưu ý:</strong> Sau khi nhận xử lý, hồ sơ sẽ được chuyển vào danh sách công việc của bạn. Vui lòng xử lý trong thời hạn quy định.</p>

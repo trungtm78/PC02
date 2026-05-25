@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useFormDefaults } from "@/hooks/useFormDefaults";
-import { today } from "@/lib/dates";
+import { today, formatVNDate } from "@/lib/dates";
 import {
   ProposalStatus,
   PROPOSAL_STATUS_LABEL,
@@ -91,14 +91,14 @@ export default function ProsecutorProposalPage() {
           relatedCase: p.relatedCase?.name ?? "",
           caseType: (p.caseType ?? CASE_TYPE.CASE) as CaseType,
           content: p.content,
-          createdDate: p.createdAt ? new Date(p.createdAt).toLocaleDateString("vi-VN") : "",
-          sentDate: p.sentDate ? new Date(p.sentDate).toLocaleDateString("vi-VN") : undefined,
+          createdDate: formatVNDate(p.createdAt),
+          sentDate: p.sentDate ? formatVNDate(p.sentDate) : undefined,
           unit: p.unit ?? "",
           createdBy: p.createdBy ? `${p.createdBy.firstName ?? ""} ${p.createdBy.lastName ?? ""}`.trim() : "",
           status,
           statusColor: statusColorMap[status] ?? "bg-slate-400 text-white",
           response: p.response,
-          responseDate: p.responseDate ? new Date(p.responseDate).toLocaleDateString("vi-VN") : undefined,
+          responseDate: p.responseDate ? formatVNDate(p.responseDate) : undefined,
         };
       });
       setAllProposals(mapped);

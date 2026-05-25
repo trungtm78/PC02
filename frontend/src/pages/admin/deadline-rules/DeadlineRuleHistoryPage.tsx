@@ -4,11 +4,7 @@ import { ArrowLeft, History, Loader2 } from 'lucide-react';
 import { deadlineRulesApi, DEADLINE_RULES_QUERY_KEYS } from '@/features/deadline-rules/api';
 import { StatusBadge } from '@/features/deadline-rules/components/StatusBadge';
 import { DEADLINE_RULE_KEY_LABEL } from '@/shared/enums/status-labels';
-
-function fmtDateTime(d: string | null | undefined): string {
-  if (!d) return '—';
-  return new Date(d).toLocaleString('vi-VN');
-}
+import { formatVNDateTime, formatVNDate } from '../../../lib/dates';
 
 function fmtUser(u: { firstName: string | null; lastName: string | null; username: string } | null | undefined): string {
   if (!u) return 'Hệ thống';
@@ -90,8 +86,8 @@ export default function DeadlineRuleHistoryPage() {
                 </div>
                 <div className="text-right text-xs text-slate-500 space-y-0.5">
                   <div>Đề xuất: {fmtUser(v.proposedBy)}</div>
-                  <div>{fmtDateTime(v.proposedAt)}</div>
-                  {v.effectiveFrom && <div>Hiệu lực: {fmtDateTime(v.effectiveFrom).split(',')[0]}</div>}
+                  <div>{formatVNDateTime(v.proposedAt)}</div>
+                  {v.effectiveFrom && <div>Hiệu lực: {formatVNDate(v.effectiveFrom)}</div>}
                   <div className="font-mono">{v.documentType} {v.documentNumber}</div>
                 </div>
               </div>

@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { extractApiError } from '@/lib/api-errors';
+import { formatVNDateTime } from '../../lib/dates';
 import { downloadCsv } from '@/lib/csv';
 import { usePermission } from '@/hooks/usePermission';
 import { TempPasswordHandoverModal } from '@/components/TempPasswordHandoverModal';
@@ -638,9 +639,7 @@ export default function UserManagementPage() {
                         )}
                       </td>
                       <td className="py-4 px-6 text-slate-600 text-sm">
-                        {user.lastLoginAt
-                          ? new Date(user.lastLoginAt).toLocaleString('vi-VN')
-                          : '—'}
+                        {formatVNDateTime(user.lastLoginAt)}
                       </td>
                     </tr>
                   ))

@@ -23,6 +23,7 @@ import {
   Info,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { formatVNDate } from '../../lib/dates';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -158,7 +159,7 @@ export default function TransferAndReturnPage() {
           recordCode: c.id.slice(0, 8).toUpperCase(),
           name: c.name,
           currentTeam: c.unit ?? '',
-          createdDate: c.createdAt ? new Date(c.createdAt).toLocaleDateString('vi-VN') : '',
+          createdDate: c.createdAt ? formatVNDate(c.createdAt) : '',
           status: c.status ?? '',
           statusColor: 'text-blue-600',
           assignedTo: c.investigator ? `${c.investigator.firstName ?? ''} ${c.investigator.lastName ?? ''}`.trim() : '',
@@ -171,7 +172,7 @@ export default function TransferAndReturnPage() {
           recordCode: i.code ?? i.id.slice(0, 8).toUpperCase(),
           name: i.name,
           currentTeam: i.unitId ?? '',
-          createdDate: i.createdAt ? new Date(i.createdAt).toLocaleDateString('vi-VN') : '',
+          createdDate: formatVNDate(i.createdAt),
           status: i.status ?? '',
           statusColor: 'text-emerald-600',
           assignedTo: i.investigator ? `${i.investigator.firstName ?? ''} ${i.investigator.lastName ?? ''}`.trim() : '',
@@ -184,7 +185,7 @@ export default function TransferAndReturnPage() {
           recordCode: p.stt ?? p.id.slice(0, 8).toUpperCase(),
           name: p.summary ?? `Đơn thư ${p.stt}`,
           currentTeam: p.unit ?? '',
-          createdDate: p.receivedDate ? new Date(p.receivedDate).toLocaleDateString('vi-VN') : '',
+          createdDate: formatVNDate(p.receivedDate),
           status: p.status ?? '',
           statusColor: 'text-amber-600',
           assignedTo: p.assignedTo ? `${p.assignedTo.firstName ?? ''} ${p.assignedTo.lastName ?? ''}`.trim() : '',

@@ -11,6 +11,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { api } from '@/lib/api';
 import { authStore } from '@/stores/auth.store';
 import { RotateCcw, X, AlertTriangle, FileText, ShieldAlert, Search } from 'lucide-react';
+import { formatVNDateTime } from '../../lib/dates';
 
 type TabKey = 'cases' | 'incidents' | 'petitions';
 
@@ -60,13 +61,6 @@ const TAB_META: Record<TabKey, {
   },
 };
 
-function formatDateTime(iso: string): string {
-  try {
-    return new Date(iso).toLocaleString('vi-VN');
-  } catch {
-    return iso;
-  }
-}
 
 function actorDisplay(row: DeletedRow): string {
   const u = row.createdBy ?? row.enteredBy;
@@ -285,7 +279,7 @@ export default function RestorePage() {
                     <td className="px-4 py-3 font-mono text-blue-700">{meta.identifier(row)}</td>
                     <td className="px-4 py-3 text-slate-800">{meta.display(row)}</td>
                     <td className="px-4 py-3 text-slate-700">{actorDisplay(row)}</td>
-                    <td className="px-4 py-3 text-slate-600">{formatDateTime(row.deletedAt)}</td>
+                    <td className="px-4 py-3 text-slate-600">{formatVNDateTime(row.deletedAt)}</td>
                     <td className="px-4 py-3 text-slate-600 max-w-xs truncate" title={deleteReasonDisplay(row)}>
                       {deleteReasonDisplay(row)}
                     </td>
@@ -340,7 +334,7 @@ export default function RestorePage() {
               {target.deleteAudit && (
                 <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm">
                   <p className="text-slate-700">
-                    <strong>Đã xóa:</strong> {formatDateTime(target.deletedAt)}
+                    <strong>Đã xóa:</strong> {formatVNDateTime(target.deletedAt)}
                   </p>
                   <p className="text-slate-700 mt-1">
                     <strong>Lý do xóa gốc:</strong> {deleteReasonDisplay(target)}

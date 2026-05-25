@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Copy, QrCode, FileText, AlertCircle, CheckCircle, X } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
+import { formatVNDateTime } from '../lib/dates';
 
 export interface EnrollmentHandover {
   url: string;
@@ -59,10 +60,7 @@ export function EnrollmentLinkModal({ user, enrollment, onAcknowledged }: Props)
     }
   };
 
-  const expiresFormatted = (() => {
-    const d = enrollment.expiresAt instanceof Date ? enrollment.expiresAt : new Date(enrollment.expiresAt);
-    return d.toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' });
-  })();
+  const expiresFormatted = formatVNDateTime(enrollment.expiresAt);
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">

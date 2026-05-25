@@ -1,6 +1,7 @@
 import { useState, useMemo, useDeferredValue } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { formatVNDate, formatVNDateTime } from '../../lib/dates';
 import {
   MapPin,
   Search,
@@ -203,7 +204,7 @@ export default function AdminUnitsPage() {
                 {datasetQ.data.addedProvinces + datasetQ.data.addedWards + datasetQ.data.updatedWards} đơn vị
               </span>
               <span>
-                Import: {new Date(datasetQ.data.importedAt).toLocaleDateString('vi-VN')}
+                Import: {formatVNDate(datasetQ.data.importedAt)}
               </span>
             </div>
           )}
@@ -406,9 +407,7 @@ export default function AdminUnitsPage() {
                 <div>
                   <label className="text-xs text-slate-500">Imported at</label>
                   <div>
-                    {wardDetailQ.data.importedAt
-                      ? new Date(wardDetailQ.data.importedAt).toLocaleString('vi-VN')
-                      : '—'}
+                    {formatVNDateTime(wardDetailQ.data.importedAt)}
                   </div>
                 </div>
               </div>

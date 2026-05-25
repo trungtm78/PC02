@@ -10,6 +10,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
 import { extractApiError } from "@/lib/api-errors";
+import { formatVNDate } from "../../lib/dates";
 import {
   Plus,
   Search,
@@ -96,14 +97,6 @@ function isOverdue(deadline?: string): boolean {
   return deadlineDate < today;
 }
 
-function formatDate(dateStr?: string): string {
-  if (!dateStr) return "—";
-  try {
-    return new Date(dateStr).toLocaleDateString("vi-VN");
-  } catch {
-    return dateStr;
-  }
-}
 
 // ─── Component ─────────────────────────────────────────────────────────────
 
@@ -569,7 +562,7 @@ export function PetitionListPage() {
                           {overdue && <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-medium rounded-full" data-testid="overdue-badge">Quá hạn</span>}
                         </div>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-700">{formatDate(petition.receivedDate)}</td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-700">{formatVNDate(petition.receivedDate)}</td>
                       <td className="px-4 py-3 text-sm text-slate-700">{petition.unit ?? "—"}</td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-700 font-medium">{petition.senderName}</td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-700">{petition.suspectedPerson ?? "—"}</td>
@@ -577,7 +570,7 @@ export function PetitionListPage() {
                         <span className={`px-3 py-1.5 rounded-md text-xs font-medium ${STATUS_COLORS[petition.status]}`}>{STATUS_LABELS[petition.status]}</span>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
-                        <span className={`text-sm ${overdue ? "text-red-600 font-medium" : "text-slate-700"}`}>{formatDate(petition.deadline)}</span>
+                        <span className={`text-sm ${overdue ? "text-red-600 font-medium" : "text-slate-700"}`}>{formatVNDate(petition.deadline)}</span>
                       </td>
                     </tr>
                   );

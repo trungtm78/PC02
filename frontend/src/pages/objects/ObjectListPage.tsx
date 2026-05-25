@@ -8,6 +8,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { api } from '@/lib/api';
+import { formatVNDate } from '../../lib/dates';
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { SubjectStatus, SubjectType } from "@/shared/enums/subject-status";
 import {
@@ -1298,7 +1299,7 @@ export default function ObjectListPage({ subjectType = "SUSPECT" }: ObjectListPa
                       {/* Ngày sinh / Giới tính */}
                       <td className="px-4 py-3">
                         <p className="text-sm text-slate-700">
-                          {new Date(s.dateOfBirth).toLocaleDateString("vi-VN")}
+                          {formatVNDate(s.dateOfBirth)}
                         </p>
                         <p className="text-xs text-slate-500">
                           {GENDER_LABELS[s.gender]}

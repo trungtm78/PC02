@@ -12,6 +12,7 @@
 
 import { useState } from "react";
 import { api } from '@/lib/api';
+import { formatVNDate } from '../../lib/dates';
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { SubjectType } from "@/shared/enums/subject-status";
 import {
@@ -709,7 +710,7 @@ function SubjectSubList({ caseId, subjectType, crimeOptions, loadingCrimes }: Su
                   <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5 text-xs text-slate-500">
                     <span className="flex items-center gap-1">
                       <Calendar className="w-3 h-3" />
-                      {s.dateOfBirth ? new Date(s.dateOfBirth).toLocaleDateString("vi-VN") : "—"}
+                      {formatVNDate(s.dateOfBirth)}
                     </span>
                     <span>{GENDER_LABEL[s.gender]}</span>
                     <span className="flex items-center gap-1">

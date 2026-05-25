@@ -15,6 +15,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { formatVNDateTime, formatVNDate } from "../../lib/dates";
 import { authStore } from "@/stores/auth.store";
 import { ROLE_NAMES } from "@/shared/enums/roles";
 import { ReportTdcStatus } from "@/shared/enums/report-tdc-status";
@@ -109,14 +110,6 @@ function RejectModal({
 // ─── Timeline tab ─────────────────────────────────────────────────────────────
 
 function TimelineTab({ events }: { events: TimelineEvent[] }) {
-  const formatDate = (iso: string) =>
-    new Date(iso).toLocaleString("vi-VN", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
 
   const getActorName = (e: TimelineEvent) => {
     if (!e.actor) return "Hệ thống";
@@ -150,7 +143,7 @@ function TimelineTab({ events }: { events: TimelineEvent[] }) {
               <span className="font-medium text-slate-800 text-sm">
                 {ACTION_LABELS[ev.action] ?? ev.action}
               </span>
-              <span className="text-xs text-slate-500">{formatDate(ev.createdAt)}</span>
+              <span className="text-xs text-slate-500">{formatVNDateTime(ev.createdAt)}</span>
             </div>
             <p className="text-xs text-slate-600">{getActorName(ev)}</p>
             {ev.note && (
@@ -333,8 +326,6 @@ export default function TdacDraftDetailPage() {
   });
   const sectionKeys = Object.keys(sectionMap);
 
-  const formatDate = (iso: string) =>
-    new Date(iso).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
 
   if (loading) {
     return (
@@ -387,7 +378,7 @@ export default function TdacDraftDetailPage() {
               </span>
             </div>
             <p className="text-slate-500 text-sm">
-              Kỳ: {formatDate(draft.fromDate)} — {formatDate(draft.toDate)}
+              Kỳ: {formatVNDate(draft.fromDate)} — {formatVNDate(draft.toDate)}
               {draft.createdBy && (
                 <> &nbsp;·&nbsp; Tạo bởi{" "}
                   {[draft.createdBy.lastName, draft.createdBy.firstName]

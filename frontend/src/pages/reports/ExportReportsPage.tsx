@@ -21,7 +21,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { api } from "@/lib/api";
-import { today } from "@/lib/dates";
+import { today, formatVNDate, toDateInput } from "@/lib/dates";
 import { escapeHtml } from "@/lib/html-escape";
 
 interface Document {
@@ -109,7 +109,7 @@ export default function ExportReportsPage() {
       const data = (res.data.data ?? []).map((p: any) => ({
         id: p.id,
         documentNumber: p.stt ?? "",
-        receivedDate: p.receivedDate ? new Date(p.receivedDate).toLocaleDateString("vi-VN") : "",
+        receivedDate: toDateInput(p.receivedDate),
         sender: p.senderName ?? "",
         suspectedTarget: p.suspectedPerson ?? "",
         summary: p.summary ?? "",
@@ -284,7 +284,7 @@ export default function ExportReportsPage() {
     <div class="title">BIÊN NHẬN ĐƠN THƯ</div>
   </div>
   <div class="field"><span class="label">Số biên nhận:</span> ${escapeHtml(receiptForm.receiptNumber)}</div>
-  <div class="field"><span class="label">Ngày:</span> ${escapeHtml(receiptForm.receiptDate ? new Date(receiptForm.receiptDate).toLocaleDateString('vi-VN') : '')}</div>
+  <div class="field"><span class="label">Ngày:</span> ${escapeHtml(formatVNDate(receiptForm.receiptDate))}</div>
   <div class="field"><span class="label">Người nhận:</span> ${escapeHtml(receiptForm.receiverName)}</div>
   <div class="field"><span class="label">Người giao:</span> ${escapeHtml(receiptForm.delivererName)}</div>
   <div class="field"><span class="label">Nội dung:</span> ${escapeHtml(receiptForm.content)}</div>
@@ -326,13 +326,6 @@ export default function ExportReportsPage() {
     setValidationErrors({});
   };
 
-  const formatDate = (dateString: string) => {
-    // Already formatted on fetch; return as-is or reformat if raw
-    if (!dateString) return "";
-    if (dateString.includes("/")) return dateString;
-    const date = new Date(dateString);
-    return date.toLocaleDateString("vi-VN");
-  };
 
   const isAllSelected = filteredData.length > 0 && selectedIds.length === filteredData.length;
   const isSomeSelected = selectedIds.length > 0 && selectedIds.length < filteredData.length;
@@ -693,7 +686,7 @@ export default function ExportReportsPage() {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1.5">
                         <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                        <span className="text-sm text-slate-700">{formatDate(doc.receivedDate)}</span>
+                        <span className="text-sm text-slate-700">{formatVNDate(doc.receivedDate)}</span>
                       </div>
                     </td>
                     <td className="px-4 py-3">

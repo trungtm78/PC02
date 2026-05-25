@@ -28,6 +28,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { formatVNDate } from '../lib/dates';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -110,7 +111,7 @@ function timeAgo(dateStr: string): string {
   if (hours < 24) return `${hours} giờ trước`;
   const days = Math.floor(hours / 24);
   if (days < 7) return `${days} ngày trước`;
-  return new Date(dateStr).toLocaleDateString('vi-VN');
+  return formatVNDate(dateStr);
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────

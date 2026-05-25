@@ -20,6 +20,7 @@ import {
   X,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { formatVNDate } from "../../lib/dates";
 import { CaseStatus, IncidentStatus, PetitionStatus } from "@/shared/enums/generated";
 import {
   CASE_STATUS_LABEL,
@@ -231,10 +232,6 @@ function ComprehensiveListPage() {
     return mode === 'edit' ? `${base}/${record.id}/edit` : `${base}/${record.id}`;
   };
 
-  const formatDate = (dateString: string) => {
-    if (!dateString) return "";
-    try { return new Date(dateString).toLocaleDateString("vi-VN"); } catch { return dateString; }
-  };
 
   return (
     <div className="p-6 space-y-6" data-testid="comprehensive-list-page">
@@ -409,13 +406,13 @@ function ComprehensiveListPage() {
                       <td className="px-4 py-3 text-sm text-slate-600">{startIndex + index + 1}</td>
                       <td className="px-4 py-3"><span className="text-sm font-medium text-blue-600 hover:text-blue-700 cursor-pointer">{record.caseNumber}</span></td>
                       <td className="px-4 py-3">{getTypeBadge(record.type, record.typeLabel)}</td>
-                      <td className="px-4 py-3 text-sm text-slate-700">{formatDate(record.receivedDate)}</td>
+                      <td className="px-4 py-3 text-sm text-slate-700">{formatVNDate(record.receivedDate)}</td>
                       <td className="px-4 py-3 text-sm text-slate-700">{record.district}</td>
                       <td className="px-4 py-3">{getStatusBadge(record.statusBadge, record.statusLabel)}</td>
                       <td className="px-4 py-3 text-sm text-slate-700">{record.createdBy}</td>
                       <td className="px-4 py-3">
                         <div className="flex flex-col gap-1">
-                          <span className={`text-sm ${isOverdue(record.deadline, record) ? "text-red-600 font-medium" : "text-slate-700"}`}>{formatDate(record.deadline)}</span>
+                          <span className={`text-sm ${isOverdue(record.deadline, record) ? "text-red-600 font-medium" : "text-slate-700"}`}>{formatVNDate(record.deadline)}</span>
                           {isOverdue(record.deadline, record) && <span className="text-xs text-red-600">Quá hạn</span>}
                         </div>
                       </td>

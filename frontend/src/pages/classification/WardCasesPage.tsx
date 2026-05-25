@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { authStore } from "@/stores/auth.store";
 import { api } from "@/lib/api";
+import { formatVNDate } from "../../lib/dates";
 
 interface WardCase {
   id: string;
@@ -153,7 +154,7 @@ export default function WardCasesPage() {
         ward: c.unit ?? "",
         district: c.unit ?? "",
         reportedBy: c.investigator ? `${c.investigator.firstName ?? ""} ${c.investigator.lastName ?? ""}`.trim() : "",
-        reportedDate: c.createdAt ? new Date(c.createdAt).toLocaleDateString("vi-VN") : "",
+        reportedDate: formatVNDate(c.createdAt),
         status: (() => {
           const statusMap: Record<string, string> = {
             [CaseStatus.TIEP_NHAN]: "pending",

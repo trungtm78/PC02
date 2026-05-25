@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
 import { downloadCsv } from "@/lib/csv";
+import { formatVNDate } from "../../lib/dates";
 import {
   Search,
   Filter,
@@ -149,8 +150,8 @@ function mapApiCase(c: CaseFromApi): Case {
     statusRaw:            c.status,
     statusColor:          STATUS_COLOR[c.status] ?? "text-slate-600 bg-slate-50",
     investigator:         investigatorName,
-    dateCreated:          new Date(c.createdAt).toLocaleDateString("vi-VN"),
-    dateUpdated:          new Date(c.updatedAt).toLocaleDateString("vi-VN"),
+    dateCreated:          formatVNDate(c.createdAt),
+    dateUpdated:          formatVNDate(c.updatedAt),
     charges:              c.crime ?? "—",
     suspectCount:         c.subjectsCount,
     investigationDeadline: c.deadline,
@@ -178,8 +179,7 @@ function getDaysOverdue(deadline: string | null): number {
 }
 
 function formatDeadline(deadline: string | null): string {
-  if (!deadline) return "—";
-  try { return new Date(deadline).toLocaleDateString("vi-VN"); } catch { return deadline; }
+  return formatVNDate(deadline);
 }
 
 // ─────────────────────────────────────────────────────────
@@ -487,7 +487,7 @@ function CaseListPage() {
                 const rows = filteredCases.map((c, i) => [
                   i + 1, (c.caseCode ?? c.id.slice(0, 8).toUpperCase()), c.name, c.investigator,
                   c.unit, c.charges, c.status,
-                  c.investigationDeadline ? new Date(c.investigationDeadline).toLocaleDateString('vi-VN') : '',
+                  formatVNDate(c.investigationDeadline),
                 ]);
                 downloadCsv(rows, headers, `VuAn_${new Date().toISOString().slice(0, 10)}.csv`);
               }}

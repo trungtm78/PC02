@@ -12,6 +12,7 @@ import {
   Printer,
 } from 'lucide-react';
 import { useCaseJourney } from './useCaseJourney';
+import { formatVNDateTime, formatVNDate } from '../../lib/dates';
 import { usePetitionJourney } from './usePetitionJourney';
 import { useIncidentJourney } from './useIncidentJourney';
 import type { TimelineEntityType, TimelineEvent } from './useCaseJourney';
@@ -51,16 +52,6 @@ const ENTITY_LABEL: Record<TimelineEntityType, string> = {
   INCIDENT: 'Vụ án',
 };
 
-function formatDate(d: string | Date): string {
-  const date = new Date(d);
-  return date.toLocaleString('vi-VN', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
 
 function daysDiff(a: Date, b: Date): number {
   return Math.ceil((b.getTime() - a.getTime()) / (1000 * 60 * 60 * 24));
@@ -93,7 +84,7 @@ function EventRow({ event }: { event: TimelineEvent }) {
       <div className="flex-1 min-w-0">
         <div className="flex flex-wrap items-center gap-2 mb-0.5">
           <EntityBadge event={event} />
-          <span className="text-xs text-gray-500">{formatDate(event.actedAt)}</span>
+          <span className="text-xs text-gray-500">{formatVNDateTime(event.actedAt)}</span>
           {event.actor && (
             <span className="text-xs text-gray-600 font-medium">{event.actor.name}</span>
           )}
@@ -263,7 +254,7 @@ export function HoSoJourney({ caseId, entityType = 'CASE', entityId, caseStt, de
           <AlertCircle className="w-4 h-4 flex-shrink-0" />
           <span>
             Hạn xử lý:{' '}
-            <strong>{new Date(deadline).toLocaleDateString('vi-VN')}</strong>
+            <strong>{formatVNDate(deadline)}</strong>
             {' — '}{deadlineLabel}
           </span>
         </div>

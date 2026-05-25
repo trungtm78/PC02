@@ -12,6 +12,7 @@
 
 import { useState, useCallback, useRef } from "react";
 import { api } from '@/lib/api';
+import { formatVNDate } from '../../lib/dates';
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Search,
@@ -719,7 +720,7 @@ export default function DocumentsPage() {
                           {doc.uploadedBy ? `${doc.uploadedBy.firstName} ${doc.uploadedBy.lastName}`.trim() || doc.uploadedBy.username : <span className="text-xs text-slate-400">—</span>}
                         </td>
                         <td className="px-4 py-3 text-sm text-slate-700">
-                          {new Date(doc.createdAt).toLocaleDateString('vi-VN')}
+                          {formatVNDate(doc.createdAt)}
                         </td>
                       </tr>
                     );

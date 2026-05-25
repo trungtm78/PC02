@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Plus, Trash2, X, Save, MessageSquare } from "lucide-react";
 import { api } from "@/lib/api";
 import { extractApiError } from "@/lib/api-errors";
+import { formatVNDate } from "../../lib/dates";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -180,7 +181,7 @@ export function VksMeetingsTab({ entityId, entityType, isReadOnly = false }: Pro
               {meetings.map((m) => (
                 <tr key={m.id} className="hover:bg-slate-50 transition-colors" data-testid={`meeting-row-${m.id}`}>
                   <td className="px-4 py-3 whitespace-nowrap text-slate-700">
-                    {m.ngayTrao ? new Date(m.ngayTrao).toLocaleDateString("vi-VN") : "—"}
+                    {formatVNDate(m.ngayTrao)}
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap text-slate-700">
                     {m.soQuyetDinh ?? "—"}

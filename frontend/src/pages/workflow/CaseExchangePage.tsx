@@ -28,6 +28,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { formatVNDate, formatVNTime, formatVNDateTime } from '../../lib/dates';
 import { authStore } from '@/stores/auth.store';
 import { downloadCsv } from '@/lib/csv';
 
@@ -112,13 +113,13 @@ export default function CaseExchangePage() {
         recordType: (e.recordType ?? 'Vụ án') as any,
         senderUnit: e.senderUnit ?? '',
         receiverUnit: e.receiverUnit ?? '',
-        createdDate: e.createdAt ? new Date(e.createdAt).toLocaleDateString('vi-VN') : '',
-        createdTime: e.createdAt ? new Date(e.createdAt).toLocaleTimeString('vi-VN') : '',
+        createdDate: formatVNDate(e.createdAt),
+        createdTime: formatVNTime(e.createdAt),
         status: (e.status === 'OPEN' ? 'open' : e.status === 'CLOSED' ? 'closed' : 'pending') as any,
         statusColor: e.status === 'OPEN' ? 'text-green-600' : 'text-gray-600',
         messageCount: e.messageCount ?? 0,
         lastMessage: e.lastMessage ?? '',
-        lastMessageTime: e.lastMessageTime ? new Date(e.lastMessageTime).toLocaleTimeString('vi-VN') : '',
+        lastMessageTime: formatVNTime(e.lastMessageTime),
         hasUnread: false,
       }));
       setExchanges(mapped);
@@ -140,7 +141,7 @@ export default function CaseExchangePage() {
         sender: m.sender ? `${m.sender.firstName ?? ''} ${m.sender.lastName ?? ''}`.trim() || 'Ẩn danh' : 'Hệ thống',
         senderUnit: '',
         content: m.content,
-        timestamp: m.createdAt ? new Date(m.createdAt).toLocaleString('vi-VN') : '',
+        timestamp: formatVNDateTime(m.createdAt),
         attachments: m.attachments ?? [],
         isCurrentUser: m.senderEmail === authUser?.email,
       }));

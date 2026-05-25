@@ -5,7 +5,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { extractApiError } from "@/lib/api-errors";
 import { downloadCsv } from "@/lib/csv";
-import { today } from "@/lib/dates";
+import { today, formatVNDate } from "@/lib/dates";
 import {
   Plus, Search, SlidersHorizontal, Download, RotateCcw, Eye, Edit, MoreVertical,
   Scale, AlertTriangle, X, Calendar, User, AlertCircle, ArrowRightLeft, FileText,
@@ -123,10 +123,6 @@ function isOverdue(deadline?: string): boolean {
   return new Date(deadline) < new Date(new Date().setHours(0, 0, 0, 0));
 }
 
-function formatDate(d?: string): string {
-  if (!d) return "—";
-  try { return new Date(d).toLocaleDateString("vi-VN"); } catch { return d; }
-}
 
 // ─────────────────────────────────────────────────────────
 // Main Component
@@ -300,7 +296,7 @@ export function IncidentListPage() {
               const rows = incidents.map((i, idx) => [
                 idx + 1, i.code ?? i.id?.slice(0, 8) ?? '', i.name,
                 (i as any).incidentType ?? '', i.status,
-                i.deadline ? new Date(i.deadline).toLocaleDateString('vi-VN') : '',
+                formatVNDate(i.deadline),
                 i.investigator ? `${(i.investigator as any).firstName ?? ''} ${(i.investigator as any).lastName ?? ''}`.trim() : '',
               ]);
               downloadCsv(rows, headers, `VuViec_${new Date().toISOString().slice(0, 10)}.csv`);
@@ -570,8 +566,8 @@ export function IncidentListPage() {
                       <td className="px-4 py-3 text-sm text-slate-700">{incident.investigator ? `${incident.investigator.firstName ?? ""} ${incident.investigator.lastName ?? ""}`.trim() || incident.investigator.username : "—"}</td>
                       <td className="px-4 py-3 text-sm text-slate-700">{incident.donViGiaiQuyet ?? "—"}</td>
                       <td className="px-4 py-3 text-sm text-slate-700">{incident.ketQuaXuLy ?? "—"}</td>
-                      <td className="px-4 py-3 text-sm text-slate-700 whitespace-nowrap">{formatDate(incident.ngayDeXuat)}</td>
-                      <td className="px-4 py-3 whitespace-nowrap"><span className={`text-sm ${overdue ? "text-red-600 font-medium" : "text-slate-700"}`}>{formatDate(incident.deadline)}</span></td>
+                      <td className="px-4 py-3 text-sm text-slate-700 whitespace-nowrap">{formatVNDate(incident.ngayDeXuat)}</td>
+                      <td className="px-4 py-3 whitespace-nowrap"><span className={`text-sm ${overdue ? "text-red-600 font-medium" : "text-slate-700"}`}>{formatVNDate(incident.deadline)}</span></td>
                       <td className="px-4 py-3 whitespace-nowrap"><span className={`px-3 py-1.5 rounded-md text-xs font-medium ${STATUS_COLORS[incident.status] ?? "bg-slate-200 text-slate-700"}`}>{STATUS_LABELS_VI[incident.status] ?? incident.status}</span></td>
                     </tr>
                   );

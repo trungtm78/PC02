@@ -17,6 +17,7 @@ import {
   FolderOpen,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { formatVNDate } from "../../lib/dates";
 
 interface OtherCase {
   id: string;
@@ -85,7 +86,7 @@ export default function OtherClassificationPage() {
           ward: "",
           district: c.unit ?? "",
           reportedBy: c.investigator ? `${c.investigator.firstName ?? ""} ${c.investigator.lastName ?? ""}`.trim() : "",
-          reportedDate: c.createdAt ? new Date(c.createdAt).toLocaleDateString("vi-VN") : "",
+          reportedDate: formatVNDate(c.createdAt),
           status: (() => {
             const m: Record<string, string> = {
               [CaseStatus.TIEP_NHAN]: "pending",

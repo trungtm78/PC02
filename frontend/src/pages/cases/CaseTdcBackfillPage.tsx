@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, AlertTriangle, Save, RefreshCw } from "lucide-react";
 import { api } from "@/lib/api";
 import { extractApiError } from "@/lib/api-errors";
+import { formatVNDate } from "../../lib/dates";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -211,9 +212,7 @@ export default function CaseTdcBackfillPage() {
                         {investigatorName(c)}
                       </td>
                       <td className="px-5 py-3 whitespace-nowrap text-slate-600">
-                        {c.ngayTamDinhChi
-                          ? new Date(c.ngayTamDinhChi).toLocaleDateString("vi-VN")
-                          : "—"}
+                        {formatVNDate(c.ngayTamDinhChi)}
                       </td>
                       <td className="px-5 py-3">
                         <select

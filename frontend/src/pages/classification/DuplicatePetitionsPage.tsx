@@ -23,6 +23,7 @@ import {
   Copy,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { formatVNDate } from "../../lib/dates";
 
 interface DuplicatePetition {
   id: string;
@@ -86,7 +87,7 @@ export default function DuplicatePetitionsPage() {
           newPetitionCode: p.stt ?? `DT-${i + 1}`,
           newPetitionTitle: p.summary ?? "",
           submittedBy: p.senderName ?? "",
-          submittedDate: p.receivedDate ? new Date(p.receivedDate).toLocaleDateString("vi-VN") : "",
+          submittedDate: formatVNDate(p.receivedDate),
           duplicateCriteria: [],
           suggestedOriginals: [],
           status: (() => {

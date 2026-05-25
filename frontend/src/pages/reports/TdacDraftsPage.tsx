@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { FilePlus, Eye, Download, AlertCircle } from "lucide-react";
 import { api } from "@/lib/api";
+import { formatVNDate } from "../../lib/dates";
 import { ReportTdcStatus } from "@/shared/enums/report-tdc-status";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -73,11 +74,8 @@ export default function TdacDraftsPage() {
 
   useEffect(() => { fetchDrafts(); }, [fetchDrafts]);
 
-  const formatDate = (iso: string) =>
-    new Date(iso).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
-
   const formatPeriod = (from: string, to: string) =>
-    `${formatDate(from)} — ${formatDate(to)}`;
+    `${formatVNDate(from)} — ${formatVNDate(to)}`;
 
   const getCreatorName = (d: DraftItem) => {
     if (!d.createdBy) return "—";
@@ -233,7 +231,7 @@ export default function TdacDraftsPage() {
                       <StatusBadge status={draft.status} />
                     </td>
                     <td className="py-3 px-4 text-slate-700">{getCreatorName(draft)}</td>
-                    <td className="py-3 px-4 text-slate-600">{formatDate(draft.createdAt)}</td>
+                    <td className="py-3 px-4 text-slate-600">{formatVNDate(draft.createdAt)}</td>
                   </tr>
                 ))
               )}

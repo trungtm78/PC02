@@ -22,11 +22,7 @@ import { ImpactPreviewPanel } from '@/features/deadline-rules/components/ImpactP
 import { ReasonRequiredModal } from '@/features/deadline-rules/components/ReasonRequiredModal';
 import { authStore } from '@/stores/auth.store';
 import { DEADLINE_RULE_KEY_LABEL } from '@/shared/enums/status-labels';
-
-function fmtDateTime(d: string | null | undefined): string {
-  if (!d) return '—';
-  return new Date(d).toLocaleString('vi-VN');
-}
+import { formatVNDateTime, formatVNDate } from '../../../lib/dates';
 
 function fmtUser(u: { firstName: string | null; lastName: string | null; username: string } | null | undefined): string {
   if (!u) return 'Hệ thống';
@@ -212,11 +208,11 @@ export default function VersionDecisionPage() {
         </div>
         <div className="text-right text-xs text-slate-500 space-y-0.5">
           <div>Đề xuất: {fmtUser(version.proposedBy)}</div>
-          <div>Tại: {fmtDateTime(version.proposedAt)}</div>
+          <div>Tại: {formatVNDateTime(version.proposedAt)}</div>
           {isTerminallyReviewed && (
             <>
               <div>Duyệt bởi: {fmtUser(version.reviewedBy)}</div>
-              <div>Tại: {fmtDateTime(version.reviewedAt)}</div>
+              <div>Tại: {formatVNDateTime(version.reviewedAt)}</div>
             </>
           )}
         </div>
@@ -236,7 +232,7 @@ export default function VersionDecisionPage() {
               Approver yêu cầu sửa đổi
               {version.reviewedBy && (
                 <span className="font-normal text-amber-800">
-                  {' '}— {fmtUser(version.reviewedBy)}, {fmtDateTime(version.reviewedAt)}
+                  {' '}— {fmtUser(version.reviewedBy)}, {formatVNDateTime(version.reviewedAt)}
                 </span>
               )}
             </p>
@@ -320,7 +316,7 @@ export default function VersionDecisionPage() {
               {version.documentDate && (
                 <div>
                   <dt className="inline text-slate-500">Ngày BH: </dt>
-                  <dd className="inline text-slate-800">{fmtDateTime(version.documentDate).split(',')[0]}</dd>
+                  <dd className="inline text-slate-800">{formatVNDate(version.documentDate)}</dd>
                 </div>
               )}
               {version.attachment && (

@@ -7,11 +7,7 @@ import {
   DEADLINE_RULE_KEY_LABEL,
   DEADLINE_RULE_KEY_UNIT,
 } from '@/shared/enums/status-labels';
-
-function fmtDate(d: string | null): string {
-  if (!d) return '—';
-  return new Date(d).toLocaleDateString('vi-VN');
-}
+import { formatVNDate } from '../../../lib/dates';
 
 function fmtUser(u: { firstName: string | null; lastName: string | null; username: string } | null | undefined): string {
   if (!u) return '—';
@@ -147,7 +143,7 @@ export default function DeadlineRulesListPage() {
                         <span className="font-mono text-lg font-bold text-slate-800">{r.value}</span>
                       </td>
                       <td className="px-3 py-3 text-slate-600">{DEADLINE_RULE_KEY_UNIT[r.ruleKey] ?? '—'}</td>
-                      <td className="px-3 py-3 text-slate-600">{fmtDate(r.effectiveFrom)}</td>
+                      <td className="px-3 py-3 text-slate-600">{formatVNDate(r.effectiveFrom)}</td>
                       <td className="px-3 py-3">
                         <StatusBadge status={r.status} needsDocumentation={needsDoc} />
                       </td>

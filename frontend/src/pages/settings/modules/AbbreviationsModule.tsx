@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { AlertCircle, Copy, Keyboard, Pencil, Plus, Trash2 } from 'lucide-react';
+import { formatVNDate } from '../../../lib/dates';
 import { Button } from '@/components/ui/button';
 import {
   useAbbreviationList,
@@ -256,7 +257,7 @@ export function AbbreviationsModule() {
                   </td>
                   <td className="px-5 py-3 text-sm text-slate-800">{a.expansion}</td>
                   <td className="px-5 py-3 text-xs text-slate-500">
-                    {new Date(a.createdAt).toLocaleDateString('vi-VN')}
+                    {formatVNDate(a.createdAt)}
                   </td>
                 </tr>
               ))}
