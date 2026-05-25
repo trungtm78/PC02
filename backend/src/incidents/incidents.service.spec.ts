@@ -28,6 +28,7 @@ import { IncidentStatus, LoaiNguonTin, Prisma } from '@prisma/client';
 import { TERMINAL_STATUSES, VALID_TRANSITIONS, PHASE_STATUSES } from './incidents.constants';
 import { SettingsService } from '../settings/settings.service';
 import { DeadlineRulesService } from '../deadline-rules/deadline-rules.service';
+import { DocumentNumbersService } from '../document-numbers/document-numbers.service';
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
@@ -107,7 +108,10 @@ const mockPrisma = {
   case: {
     create: jest.fn(),
   },
-  $transaction: jest.fn() as any,
+  documentNumberLog: {
+    update: jest.fn().mockResolvedValue({}),
+  },
+  $transaction: jest.fn().mockImplementation(async (fn: any) => fn(mockPrisma)) as any,
 };
 
 const mockAudit = {
@@ -129,6 +133,13 @@ const mockAudit = {
 
 const mockSettings = {
   getNumericValue: jest.fn().mockResolvedValue(20),
+};
+
+// DocumentNumbersService mock — replaces legacy generateIncidentCode util
+const mockDocNums = {
+  commit: jest.fn().mockResolvedValue({ number: 'VV-2026-00001', logId: 'log-001', changed: false }),
+  commitWithTx: jest.fn().mockResolvedValue({ number: 'VV-2026-00001', logId: 'log-001', changed: false }),
+  updateLogDocumentId: jest.fn().mockResolvedValue(undefined),
 };
 
 // DeadlineRulesService mock — replaces the old settings.getNumericValue path
@@ -160,6 +171,7 @@ describe('IncidentsService', () => {
         { provide: AuditService, useValue: mockAudit },
         { provide: SettingsService, useValue: mockSettings },
         { provide: DeadlineRulesService, useValue: mockDeadlineRules },
+        { provide: DocumentNumbersService, useValue: mockDocNums },
       ],
     }).compile();
 
@@ -451,32 +463,34 @@ describe('IncidentsService', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('should generate code with format VV-YYYY-XXXXX starting at 00001', async () => {
+    it('should call docNums.commitWithTx to generate incident code', async () => {
       const year = new Date().getFullYear();
-      mockPrisma.incident.findFirst.mockResolvedValue(null); // No existing
-      mockPrisma.incident.findUnique.mockResolvedValue(null); // No conflict
-      mockPrisma.incident.create.mockImplementation((args: any) => {
-        expect(args.data.code).toBe(`VV-${year}-00001`);
-        return { ...mockIncident, code: args.data.code };
-      });
+      mockDocNums.commitWithTx.mockResolvedValue({ number: `VV-${year}-00001`, logId: 'log-001', changed: false });
+      mockPrisma.incident.create.mockImplementation((args: any) => ({
+        ...mockIncident,
+        code: args.data.code,
+      }));
+      mockPrisma.documentNumberLog.update.mockResolvedValue({});
 
       await service.create({ name: 'Test' } as any, 'actor-001');
 
-      expect(mockPrisma.incident.create).toHaveBeenCalled();
+      expect(mockDocNums.commitWithTx).toHaveBeenCalledWith('INCIDENT', { userId: 'actor-001' }, expect.anything());
+      expect(mockPrisma.incident.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ code: `VV-${year}-00001` }) }),
+      );
     });
 
-    it('should increment code from last existing incident', async () => {
-      const year = new Date().getFullYear();
-      mockPrisma.incident.findFirst.mockResolvedValue({ code: `VV-${year}-00042` });
-      mockPrisma.incident.findUnique.mockResolvedValue(null);
-      mockPrisma.incident.create.mockImplementation((args: any) => {
-        expect(args.data.code).toBe(`VV-${year}-00043`);
-        return { ...mockIncident, code: args.data.code };
-      });
+    it('should update documentNumberLog inline after incident creation', async () => {
+      mockDocNums.commitWithTx.mockResolvedValue({ number: 'VV-2026-00099', logId: 'log-099', changed: false });
+      mockPrisma.incident.create.mockResolvedValue({ ...mockIncident, id: 'inc-new' });
+      mockPrisma.documentNumberLog.update.mockResolvedValue({});
 
       await service.create({ name: 'Test' } as any, 'actor-001');
 
-      expect(mockPrisma.incident.create).toHaveBeenCalled();
+      expect(mockPrisma.documentNumberLog.update).toHaveBeenCalledWith({
+        where: { id: 'log-099' },
+        data: { documentId: 'inc-new' },
+      });
     });
 
     it('should auto-calculate deadline from ngayDeXuat + active rule version', async () => {

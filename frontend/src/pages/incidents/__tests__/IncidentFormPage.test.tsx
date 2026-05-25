@@ -4,6 +4,7 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { authStore, type AuthUser } from '@/stores/auth.store';
 import { api } from '@/lib/api';
+import { documentNumbersApi } from '@/features/document-numbers/api';
 
 // Mock /lib/api: /admin/users returns empty list for FKSelect, /incidents/* for submit.
 vi.mock('@/lib/api', () => ({
@@ -13,6 +14,12 @@ vi.mock('@/lib/api', () => ({
     put: vi.fn(() => Promise.resolve({ data: { success: true } })),
   },
   authApi: { me: vi.fn() },
+}));
+
+vi.mock('@/features/document-numbers/api', () => ({
+  documentNumbersApi: {
+    draft: vi.fn().mockResolvedValue({ previewNumber: 'VV-2026-00001', isDraft: true, templateId: 'tmpl-1' }),
+  },
 }));
 
 const SAMPLE_PROFILE: AuthUser = {
@@ -281,6 +288,44 @@ describe('IncidentFormPage — nguonPhatTin cascading + phuongThucTiepNhan (v0.3
     await waitFor(() => {
       expect(screen.getByTestId('field-phuongThucTiepNhan-trigger')).toHaveTextContent(/bưu điện/i);
     });
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// v0.42 — DocNumberPreviewField: mã vụ việc tự sinh
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('IncidentFormPage — mã vụ việc draft preview (v0.42)', () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+    localStorage.clear();
+    authStore.setProfile(SAMPLE_PROFILE);
+    (documentNumbersApi.draft as ReturnType<typeof vi.fn>).mockResolvedValue({
+      previewNumber: 'VV-2026-00001',
+      isDraft: true,
+      templateId: 'tmpl-1',
+    });
+  });
+
+  afterEach(() => {
+    sessionStorage.clear();
+    localStorage.clear();
+    vi.clearAllMocks();
+  });
+
+  it('calls documentNumbersApi.draft("INCIDENT") on mount in create mode', async () => {
+    await renderForm();
+    await waitFor(() => {
+      expect(documentNumbersApi.draft).toHaveBeenCalledWith('INCIDENT');
+    });
+  });
+
+  it('shows draft incident code in readonly DocNumberPreviewField', async () => {
+    await renderForm();
+    await waitFor(() => {
+      expect(screen.getByTestId('docnum-preview-value')).toHaveTextContent('VV-2026-00001');
+    });
+    expect(screen.getByTestId('docnum-auto-badge')).toBeInTheDocument();
   });
 });
 

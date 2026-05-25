@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
+import { documentNumbersApi } from "@/features/document-numbers/api";
 import { useFormDefaults } from "@/hooks/useFormDefaults";
 import {
   X,
@@ -79,8 +80,19 @@ function CaseFormPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [showDraftBanner, setShowDraftBanner] = useState(false);
+  const [isDraftCodeLoading, setIsDraftCodeLoading] = useState(!isEditMode);
 
   const defaults = useFormDefaults();
+
+  // v0.42 — Fetch draft caseCode preview on create mode mount.
+  useEffect(() => {
+    if (isEditMode) return;
+    setIsDraftCodeLoading(true);
+    documentNumbersApi.draft('CASE')
+      .then((r) => setFormData((prev) => ({ ...prev, caseCode: r.previewNumber })))
+      .catch((err) => console.error('draft fetch failed:', err))
+      .finally(() => setIsDraftCodeLoading(false));
+  }, [isEditMode]);
 
   // Load draft from localStorage on mount (only when creating, not editing)
   useEffect(() => {
@@ -169,7 +181,6 @@ function CaseFormPage() {
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
-    if (!formData.caseCode.trim()) newErrors.caseCode = "Vui lòng nhập mã hồ sơ";
     if (!formData.receiveDate) newErrors.receiveDate = "Vui lòng chọn ngày tiếp nhận";
     if (formData.receiveDate && new Date(formData.receiveDate) > new Date()) {
       newErrors.receiveDate = "Ngày tiếp nhận không được ở tương lai";
@@ -288,7 +299,7 @@ function CaseFormPage() {
 
   // ─── Shared tab props ──────────────────────────────────────────────────
 
-  const tabProps = { formData, setFormData, errors, setErrors, handlerOptions, handlerLoading };
+  const tabProps = { formData, setFormData, errors, setErrors, handlerOptions, handlerLoading, isDraftCodeLoading };
 
   // ─── Render ────────────────────────────────────────────────────────────
 

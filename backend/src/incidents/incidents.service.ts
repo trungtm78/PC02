@@ -18,7 +18,7 @@ import { UpdateStatusDto } from './dto/update-status.dto';
 import { MergeIncidentDto } from './dto/merge-incident.dto';
 import { TransferIncidentDto } from './dto/transfer-incident.dto';
 import { Prisma, IncidentStatus, LoaiNguonTin, LyDoKhongKhoiTo } from '@prisma/client';
-import { generateIncidentCode } from '../common/utils/incident-code.util';
+import { DocumentNumbersService } from '../document-numbers/document-numbers.service';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { buildScopeFilter } from '../common/utils/scope-filter.util';
 import { TERMINAL_STATUSES, VALID_TRANSITIONS, PHASE_STATUSES } from './incidents.constants';
@@ -36,6 +36,7 @@ export class IncidentsService {
     private readonly audit: AuditService,
     private readonly settings: SettingsService,
     private readonly deadlineRules: DeadlineRulesService,
+    private readonly docNums: DocumentNumbersService,
   ) {}
 
   // ─────────────────────────────────────────────
@@ -354,8 +355,6 @@ export class IncidentsService {
       if (!user) throw new BadRequestException('Điều tra viên không tồn tại');
     }
 
-    const code = await generateIncidentCode(this.prisma);
-
     // Auto-calculate deadline: ngayTiepNhan + THOI_HAN_XAC_MINH (via versioning workflow)
     // Snapshot the active rule version's id + max-extensions count so future
     // policy changes don't retroactively alter this incident's deadline math.
@@ -381,54 +380,59 @@ export class IncidentsService {
     const maxExtRule = await this.deadlineRules.getActive('SO_LAN_GIA_HAN_TOI_DA');
     if (maxExtRule) maxExtensionsSnapshot = maxExtRule.value;
 
-    const record = await this.prisma.incident.create({
-      data: {
-        code,
-        name: dto.name,
-        incidentType: dto.incidentType,
-        description: dto.description,
-        fromDate: dto.fromDate ? new Date(dto.fromDate) : undefined,
-        toDate: dto.toDate ? new Date(dto.toDate) : undefined,
-        deadline: computedDeadline,
-        deadlineRuleVersionId: deadlineRuleVersionId ?? undefined,
-        maxExtensionsSnapshot: maxExtensionsSnapshot ?? undefined,
-        unitId: dto.unitId,
-        investigatorId: dto.investigatorId,
-        sourcePetitionId: dto.sourcePetitionId,
-        doiTuongCaNhan: dto.doiTuongCaNhan,
-        doiTuongToChuc: dto.doiTuongToChuc,
-        loaiDonVu: dto.loaiDonVu,
-        nguonPhatTin: dto.nguonPhatTin,
-        phuongThucTiepNhan: dto.phuongThucTiepNhan,
-        benVu: dto.benVu,
-        donViGiaiQuyet: dto.donViGiaiQuyet,
-        ngayDeXuat: dto.ngayDeXuat ? new Date(dto.ngayDeXuat) : undefined,
-        canBoNhapId: dto.canBoNhapId,
-        assignedTeamId: effectiveAssignedTeamId, // v0.33: ward officer override
-        createdById: actorId,
-        soQuyetDinh: dto.soQuyetDinh,
-        ngayQuyetDinh: dto.ngayQuyetDinh ? new Date(dto.ngayQuyetDinh) : undefined,
-        lyDoKhongKhoiTo: dto.lyDoKhongKhoiTo,
-        lyDoTamDinhChiText: (dto as any).lyDoTamDinhChiText ?? (dto as any).lyDoTamDinhChi,
-        diaChiXayRa: dto.diaChiXayRa,
-        sdtNguoiToGiac: dto.sdtNguoiToGiac,
-        diaChiNguoiToGiac: dto.diaChiNguoiToGiac,
-        cmndNguoiToGiac: dto.cmndNguoiToGiac,
-        ketQuaXuLy: dto.ketQuaXuLy,
-        // PR 5 hotfix #111: codex post-merge phát hiện 2 fields bị silently dropped.
-        // Regression tested: incidents.service.spec.ts "hotfix #111 regression".
-        loaiKetQua: dto.loaiKetQua,
-        canCuKhoiToCode: dto.canCuKhoiToCode,
-        tinhTrangHoSo: dto.tinhTrangHoSo,
-        tinhTrangThoiHieu: dto.tinhTrangThoiHieu,
-        nguoiQuyetDinh: dto.nguoiQuyetDinh,
-        status: IncidentStatus.TIEP_NHAN,
-      },
-      include: {
-        investigator: {
-          select: { id: true, firstName: true, lastName: true, username: true },
+    const record = await this.prisma.$transaction(async (tx: any) => {
+      const { number: code, logId } = await this.docNums.commitWithTx('INCIDENT', { userId: actorId }, tx);
+      const rec = await tx.incident.create({
+        data: {
+          code,
+          name: dto.name,
+          incidentType: dto.incidentType,
+          description: dto.description,
+          fromDate: dto.fromDate ? new Date(dto.fromDate) : undefined,
+          toDate: dto.toDate ? new Date(dto.toDate) : undefined,
+          deadline: computedDeadline,
+          deadlineRuleVersionId: deadlineRuleVersionId ?? undefined,
+          maxExtensionsSnapshot: maxExtensionsSnapshot ?? undefined,
+          unitId: dto.unitId,
+          investigatorId: dto.investigatorId,
+          sourcePetitionId: dto.sourcePetitionId,
+          doiTuongCaNhan: dto.doiTuongCaNhan,
+          doiTuongToChuc: dto.doiTuongToChuc,
+          loaiDonVu: dto.loaiDonVu,
+          nguonPhatTin: dto.nguonPhatTin,
+          phuongThucTiepNhan: dto.phuongThucTiepNhan,
+          benVu: dto.benVu,
+          donViGiaiQuyet: dto.donViGiaiQuyet,
+          ngayDeXuat: dto.ngayDeXuat ? new Date(dto.ngayDeXuat) : undefined,
+          canBoNhapId: dto.canBoNhapId,
+          assignedTeamId: effectiveAssignedTeamId, // v0.33: ward officer override
+          createdById: actorId,
+          soQuyetDinh: dto.soQuyetDinh,
+          ngayQuyetDinh: dto.ngayQuyetDinh ? new Date(dto.ngayQuyetDinh) : undefined,
+          lyDoKhongKhoiTo: dto.lyDoKhongKhoiTo,
+          lyDoTamDinhChiText: (dto as any).lyDoTamDinhChiText ?? (dto as any).lyDoTamDinhChi,
+          diaChiXayRa: dto.diaChiXayRa,
+          sdtNguoiToGiac: dto.sdtNguoiToGiac,
+          diaChiNguoiToGiac: dto.diaChiNguoiToGiac,
+          cmndNguoiToGiac: dto.cmndNguoiToGiac,
+          ketQuaXuLy: dto.ketQuaXuLy,
+          // PR 5 hotfix #111: codex post-merge phát hiện 2 fields bị silently dropped.
+          // Regression tested: incidents.service.spec.ts "hotfix #111 regression".
+          loaiKetQua: dto.loaiKetQua,
+          canCuKhoiToCode: dto.canCuKhoiToCode,
+          tinhTrangHoSo: dto.tinhTrangHoSo,
+          tinhTrangThoiHieu: dto.tinhTrangThoiHieu,
+          nguoiQuyetDinh: dto.nguoiQuyetDinh,
+          status: IncidentStatus.TIEP_NHAN,
         },
-      },
+        include: {
+          investigator: {
+            select: { id: true, firstName: true, lastName: true, username: true },
+          },
+        },
+      });
+      await tx.documentNumberLog.update({ where: { id: logId }, data: { documentId: rec.id } });
+      return rec;
     });
 
     await this.audit.log({

@@ -18,8 +18,8 @@ import type { DeleteCasePreflightResponse } from './dto/delete-case-preflight.re
 import { Prisma, CaseStatus, PetitionStatus, LoaiDon, CapDoToiPham, LyDoTamDinhChiVuAn, KetQuaPhucHoiVuAn, CaseProvenance, SubjectType } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { buildScopeFilter } from '../common/utils/scope-filter.util';
-import { generateIncidentCode } from '../common/utils/incident-code.util';
 import { buildIncidentFromCase, shouldAutoCreateIncident } from '../common/utils/incident-factory.util';
+import { DocumentNumbersService } from '../document-numbers/document-numbers.service';
 import { BcaExcelHelper } from '../common/bca-excel.helper';
 import { CASE_STATUS_LABEL } from '../common/constants/status-labels.constants';
 import { ROLE_NAMES } from '../common/constants/role.constants';
@@ -34,6 +34,7 @@ export class CasesService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly settings: SettingsService, // v0.31.0.2: THOI_HAN_XOA_VU_AN
+    private readonly docNums: DocumentNumbersService,
   ) {}
 
   // ─────────────────────────────────────────────
@@ -418,7 +419,7 @@ export class CasesService {
       );
     }
 
-    // Common base case data shared across all branches
+    // Common base case data shared across all branches (caseCode injected inside each tx)
     const baseCaseData = {
       name: dto.name,
       crime: dto.crime,
@@ -459,6 +460,8 @@ export class CasesService {
       }
 
       const caseRecord = await this.prisma.$transaction(async (tx) => {
+        const { number: caseCode, logId: caseCodeLogId } = await this.docNums.commitWithTx('CASE', { userId: actorId }, tx);
+
         const petition = await tx.petition.findFirst({
           where: {
             id: dto.linkedPetitionId!,
@@ -473,9 +476,11 @@ export class CasesService {
         }
 
         const newCase = await tx.case.create({
-          data: { ...baseCaseData, linkedPetitionId: petition.id },
+          data: { ...baseCaseData, caseCode, linkedPetitionId: petition.id },
           include: caseInclude,
         });
+
+        await tx.documentNumberLog.update({ where: { id: caseCodeLogId }, data: { documentId: newCase.id } });
 
         // PR 1 v0.38.0.0: atomic create sub-entities trong cùng transaction
         await this.createSubEntitiesInTransaction(tx, newCase.id, dto, actorId);
@@ -534,6 +539,8 @@ export class CasesService {
       }
 
       const caseRecord = await this.prisma.$transaction(async (tx) => {
+        const { number: caseCode, logId: caseCodeLogId } = await this.docNums.commitWithTx('CASE', { userId: actorId }, tx);
+
         const incident = await tx.incident.findFirst({
           where: {
             id: dto.linkedIncidentId!,
@@ -547,9 +554,11 @@ export class CasesService {
         }
 
         const newCase = await tx.case.create({
-          data: { ...baseCaseData, linkedIncidentId: incident.id },
+          data: { ...baseCaseData, caseCode, linkedIncidentId: incident.id },
           include: caseInclude,
         });
+
+        await tx.documentNumberLog.update({ where: { id: caseCodeLogId }, data: { documentId: newCase.id } });
 
         // PR 1 v0.38.0.0: atomic create sub-entities trong cùng transaction
         await this.createSubEntitiesInTransaction(tx, newCase.id, dto, actorId);
@@ -595,28 +604,37 @@ export class CasesService {
     // Link is stored one-way: Incident.linkedCaseId = caseRecord.id (set after Case creation).
     // NOTE: audit log fires outside the transaction (post-commit side-effect). This is intentional:
     // the incident exists at that point, so the audit is accurate even if the process crashes here.
+    const needsAutoIncident =
+      shouldAutoCreateIncident(effectiveProvenance, (dto.metadata ?? {}) as Record<string, unknown>);
+
     let autoIncidentId: string | null = null;
     let autoIncidentCode: string | null = null;
     let autoIncidentName: string | null = null;
     let record!: Awaited<ReturnType<typeof this.prisma.case.create>>;
     try {
-      record = await this.prisma.$transaction(async (tx) => {
-        if (shouldAutoCreateIncident(effectiveProvenance, dto.metadata as Record<string, unknown>)) {
-          const code = await generateIncidentCode(tx);
+      record = await this.prisma.$transaction(async (tx: any) => {
+        const { number: caseCode, logId: caseCodeLogId } = await this.docNums.commitWithTx('CASE', { userId: actorId }, tx);
+
+        let incidentLogId: string | null = null;
+        if (needsAutoIncident) {
+          const { number: incCode, logId: incLogId } = await this.docNums.commitWithTx('INCIDENT', { userId: actorId }, tx);
+          incidentLogId = incLogId;
           const incData = buildIncidentFromCase({
             rawName: dto.name,
             meta: (dto.metadata ?? {}) as Record<string, unknown>,
-            code,
+            code: incCode,
             userId: actorId,
             investigatorId: actorId,
             assignedTeamId: dto.assignedTeamId ?? undefined,
           });
           const newInc = await tx.incident.create({ data: incData });
           autoIncidentId = newInc.id;
-          autoIncidentCode = code;
+          autoIncidentCode = incCode;
           autoIncidentName = newInc.name;
+          await tx.documentNumberLog.update({ where: { id: incidentLogId }, data: { documentId: newInc.id } });
         }
-        const caseRecord = await tx.case.create({ data: baseCaseData, include: caseInclude });
+        const caseRecord = await tx.case.create({ data: { ...baseCaseData, caseCode }, include: caseInclude });
+        await tx.documentNumberLog.update({ where: { id: caseCodeLogId }, data: { documentId: caseRecord.id } });
         await this.createSubEntitiesInTransaction(tx, caseRecord.id, dto, actorId);
         if (autoIncidentId) {
           await tx.incident.update({

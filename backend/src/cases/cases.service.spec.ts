@@ -24,6 +24,7 @@ import { AuditService } from '../audit/audit.service';
 import { SettingsService } from '../settings/settings.service';
 import { CaseStatus, PetitionStatus, CapDoToiPham, Prisma } from '@prisma/client';
 import { ROLE_NAMES } from '../common/constants/role.constants';
+import { DocumentNumbersService } from '../document-numbers/document-numbers.service';
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
@@ -105,6 +106,13 @@ const mockSettings = {
   getNumericValue: jest.fn().mockResolvedValue(72),
 };
 
+// DocumentNumbersService mock — auto-generate codes for cases + auto-incidents
+const mockDocNums = {
+  commit: jest.fn().mockResolvedValue({ number: 'HS-2026-001', logId: 'log-case-001', changed: false }),
+  commitWithTx: jest.fn().mockResolvedValue({ number: 'HS-2026-001', logId: 'log-case-001', changed: false }),
+  updateLogDocumentId: jest.fn().mockResolvedValue(undefined),
+};
+
 const mockAudit = {
   log: jest.fn().mockResolvedValue(undefined),
   // v0.30: CASE_UPDATED now uses wrapUpdate to capture full before/after.
@@ -136,6 +144,7 @@ describe('CasesService', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AuditService, useValue: mockAudit },
         { provide: SettingsService, useValue: mockSettings }, // v0.31.0.2
+        { provide: DocumentNumbersService, useValue: mockDocNums },
       ],
     }).compile();
 
@@ -247,6 +256,7 @@ describe('CasesService', () => {
       const tx = {
         case: { create: jest.fn().mockResolvedValue(mockCase) },
         incident: { findFirst: jest.fn().mockResolvedValue(null), findUnique: jest.fn().mockResolvedValue(null), create: jest.fn(), update: jest.fn() },
+        documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
       };
       mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
 
@@ -293,6 +303,7 @@ describe('CasesService', () => {
       const tx = {
         case: { create: jest.fn().mockResolvedValue(mockCase) },
         incident: { findFirst: jest.fn().mockResolvedValue(null), findUnique: jest.fn().mockResolvedValue(null), create: jest.fn(), update: jest.fn() },
+        documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
       };
       mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
 
@@ -332,6 +343,7 @@ describe('CasesService', () => {
             findFirst: jest.fn().mockResolvedValue(existingPetition),
             update: jest.fn().mockResolvedValue({ ...existingPetition, linkedCaseId: 'case-new' }),
           },
+          documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
         };
         return fn(tx);
       });
@@ -365,6 +377,7 @@ describe('CasesService', () => {
             findFirst: jest.fn().mockResolvedValue(null), // not found OR out of scope
             update: jest.fn(),
           },
+          documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
         };
         return fn(tx);
       });
@@ -394,6 +407,7 @@ describe('CasesService', () => {
               Object.assign(new Error('Record to update not found'), { code: 'P2025' }),
             ),
           },
+          documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
         };
         return fn(tx);
       });
@@ -420,6 +434,7 @@ describe('CasesService', () => {
           create: jest.fn(),
           update: jest.fn(),
         },
+        documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
       };
       mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
 
@@ -455,6 +470,7 @@ describe('CasesService', () => {
             create: jest.fn().mockResolvedValue({ id: 'auto-inc-id', code: `VV-${year}-00001`, name: mockCase.name }),
             update: jest.fn().mockResolvedValue({}),
           },
+          documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
         };
       }
 
@@ -520,6 +536,7 @@ describe('CasesService', () => {
               update: jest.fn().mockResolvedValue({ ...existingPetition, linkedCaseId: 'new-case-id' }),
             },
             incident: { create: incidentCreate, update: jest.fn() },
+            documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
           };
           return fn(tx);
         });
@@ -547,6 +564,7 @@ describe('CasesService', () => {
             create: jest.fn().mockResolvedValue({ id: 'auto-inc-id', code: `VV-${year}-00001`, name: 'Vụ việc - AB' }),
             update: jest.fn().mockResolvedValue({}),
           },
+          documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
         };
         mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
 
@@ -577,6 +595,7 @@ describe('CasesService', () => {
               create: jest.fn().mockResolvedValue({ id: 'auto-inc-id', code: `VV-${year}-00001`, name: mockCase.name }),
               update: jest.fn(),
             },
+            documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
           };
           return fn(tx);
         });
@@ -1192,6 +1211,7 @@ describe('CasesService', () => {
       const tx = {
         case: { create: jest.fn().mockResolvedValue(withSeverity) },
         incident: { findFirst: jest.fn().mockResolvedValue(null), findUnique: jest.fn().mockResolvedValue(null), create: jest.fn(), update: jest.fn() },
+        documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
       };
       mockPrisma.user.findUnique.mockResolvedValue({ id: 'user-001' });
       mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));

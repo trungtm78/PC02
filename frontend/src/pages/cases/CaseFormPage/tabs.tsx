@@ -30,6 +30,7 @@ import { extractApiError } from "@/lib/api-errors";
 import { today } from "@/lib/dates";
 import { useShortcut } from "@/hooks/useShortcut";
 import { FormInput, FormSelect, FormTextarea, FormCurrency, FormPhone, FormInteger } from "@/components/form";
+import { DocNumberPreviewField } from "@/components/DocNumberPreviewField";
 import { CurrencyInput } from "@/components/inputs/CurrencyInput";
 import { IntegerInput } from "@/components/inputs/IntegerInput";
 import { Card, CardHeader, EmptyState, DataTable, ActionButtons, StatusBadge } from "@/components/shared";
@@ -73,7 +74,7 @@ function useFieldUpdater(
 // Tab 1: Thông tin (50+ trường nghiệp vụ)
 // ═════════════════════════════════════════════════════════════════════════════
 
-export function TabInfo({ formData, setFormData, errors, setErrors, handlerOptions = [], handlerLoading = false }: TabProps) {
+export function TabInfo({ formData, setFormData, errors, setErrors, handlerOptions = [], handlerLoading = false, isDraftCodeLoading = false }: TabProps) {
   const update = useFieldUpdater(formData, setFormData, errors, setErrors);
 
   // ── Administrative reform: 2-tier address (Province → Ward) ──
@@ -174,16 +175,19 @@ export function TabInfo({ formData, setFormData, errors, setErrors, handlerOptio
       <Card>
         <CardHeader title="Thông tin hồ sơ" />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <FormInput
-            label="Mã hồ sơ"
-            required
-            icon={<Hash className="w-4 h-4" />}
-            value={formData.caseCode}
-            onChange={(v) => update("caseCode", v)}
-            error={errors.caseCode}
-            placeholder="HS-2026-001"
-            data-testid="input-case-code"
-          />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Mã hồ sơ</label>
+            <DocNumberPreviewField
+              inputMode="AUTO"
+              value={formData.caseCode}
+              onChange={(v) => update("caseCode", v)}
+              loading={isDraftCodeLoading}
+              placeholder="HS-2026-001"
+            />
+            {errors.caseCode && (
+              <p className="text-xs text-red-600 mt-1">{errors.caseCode}</p>
+            )}
+          </div>
           <FormInput
             label="Ngày tiếp nhận"
             required

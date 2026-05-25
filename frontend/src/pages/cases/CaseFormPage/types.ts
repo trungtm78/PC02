@@ -205,6 +205,8 @@ export interface TabProps {
   /** Danh sách điều tra viên fetch từ API — dùng trong FKSelect handler */
   handlerOptions?: { value: string; label: string }[];
   handlerLoading?: boolean;
+  /** v0.42: loading state cho draft caseCode (DocNumberPreviewField) */
+  isDraftCodeLoading?: boolean;
 }
 
 export const INITIAL_FORM_DATA: CaseFormData = {

@@ -3,11 +3,11 @@ import { Transform } from 'class-transformer';
 import { ProposalStatus } from '@prisma/client';
 
 export class CreateProposalDto {
-  // UAT TC-582 (Round 1): Transform trim + IsNotEmpty reject empty/whitespace.
+  // Số quyết định — optional: engine sinh khi không cung cấp
+  @IsOptional()
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
-  @IsNotEmpty({ message: 'Số quyết định bắt buộc' })
-  proposalNumber: string;
+  proposalNumber?: string;
 
   @IsOptional()
   @IsString()
