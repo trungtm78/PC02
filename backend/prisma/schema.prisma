@@ -158,6 +158,9 @@ model User {
   // v0.33.0.0 Phase 5b: edit window reset requests
   resetRequestsRequested          EditWindowResetRequest[]  @relation("ResetRequestRequester")
   resetRequestsReviewed           EditWindowResetRequest[]  @relation("ResetRequestReviewer")
+  // Document Number Engine (v0.42)
+  documentNumberTemplatesCreated  DocumentNumberTemplate[]
+  documentNumberLogs              DocumentNumberLog[]
 
   @@map("users")
 }
@@ -447,7 +450,8 @@ model Case {
   deadline       DateTime?
   unit           String?
   subjectsCount  Int           @default(0)
-  metadata       Json? // Lưu toàn bộ fields phụ của form (người báo tin, địa chỉ, mã hồ sơ, v.v.)
+  caseCode       String?       @unique // Mã hồ sơ (v0.42: promoted từ metadata, engine-generated)
+  metadata       Json? // Lưu toàn bộ fields phụ của form (người báo tin, địa chỉ, v.v.)
   capDoToiPham   CapDoToiPham? // Mức độ tội phạm (BLHS 2015 Điều 9) — dùng cho KPI-4
   ngayKhoiTo     DateTime? // Ngày quyết định khởi tố vụ án
   deletedAt      DateTime? // Soft delete
@@ -1827,4 +1831,64 @@ model EventReminderDispatch {
   @@index([reminderId])
   @@index([sentAt]) // cho prune cron daily 02:00 (Eng audit #10)
   @@map("event_reminder_dispatches")
+}
+
+// ─────────────────────────────────────────────
+// Document Number Engine (v0.42)
+// Odoo-style configurable document number sequences with row-level lock safety.
+// ─────────────────────────────────────────────
+
+model DocumentNumberTemplate {
+  id            String   @id @default(uuid())
+  name          String   // "Mã vụ việc", "Số tiếp nhận đơn thư", ...
+  documentType  String   // "INCIDENT" | "PETITION" | "CASE" | "PROPOSAL" | "DELEGATION" | "EVIDENCE"
+  isActive      Boolean  @default(true)
+  separator     String   @default("-") // "" = không phân cách
+  inputMode     String   @default("AUTO") // "AUTO" | "MANUAL" | "AUTO_WITH_OVERRIDE"
+  segments      Json     // Segment[] — ordered array of LITERAL | FORMULA | COUNTER
+  counterConfig Json     // { resetPeriod, minValue, maxValue, padding }
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id])
+
+  counters DocumentNumberCounter[]
+  logs     DocumentNumberLog[]
+
+  @@index([documentType])
+  @@index([isActive])
+  @@map("document_number_templates")
+}
+
+model DocumentNumberCounter {
+  id           String   @id @default(uuid())
+  templateId   String
+  template     DocumentNumberTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  periodKey    String   // "2026" | "2026-05" | "2026-W21" | "global"
+  currentValue Int      @default(0)
+  resetAt      DateTime?
+  updatedAt    DateTime @updatedAt
+
+  @@unique([templateId, periodKey])
+  @@index([templateId])
+  @@map("document_number_counters")
+}
+
+model DocumentNumberLog {
+  id              String   @id @default(uuid())
+  templateId      String
+  template        DocumentNumberTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  generatedNumber String
+  documentType    String
+  documentId      String?  // loose FK — updated after parent document saved
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+  isDraft         Boolean  @default(false)
+  createdAt       DateTime @default(now())
+
+  @@index([templateId, createdAt])
+  @@index([userId])
+  @@index([documentId])
+  @@map("document_number_logs")
 }

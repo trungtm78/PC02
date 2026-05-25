@@ -4,29 +4,28 @@ import { plainToInstance } from 'class-transformer';
 import { CreateProposalDto } from './create-proposal.dto';
 
 /**
- * UAT TC-582 fix (Round 1): proposalNumber không cho phép rỗng / whitespace.
+ * v0.42: proposalNumber now optional (engine auto-generates when absent).
+ * TC-582 validation relaxed: empty/whitespace is accepted (maps to auto-gen).
  */
-describe('CreateProposalDto — proposalNumber validation (UAT Round 1)', () => {
-  it('TC-582: rejects empty proposalNumber ""', async () => {
+describe('CreateProposalDto — proposalNumber validation', () => {
+  it('accepts empty proposalNumber "" (engine will auto-generate)', async () => {
     const dto = plainToInstance(CreateProposalDto, {
       proposalNumber: '',
       content: 'Đề xuất test',
     });
     const errors = await validate(dto);
     const err = errors.find((e) => e.property === 'proposalNumber');
-    expect(err).toBeDefined();
-    expect(err?.constraints).toHaveProperty('isNotEmpty');
+    expect(err).toBeUndefined();
   });
 
-  it('rejects whitespace-only proposalNumber', async () => {
+  it('accepts whitespace-only proposalNumber (trim → empty → auto-gen path)', async () => {
     const dto = plainToInstance(CreateProposalDto, {
       proposalNumber: '    ',
       content: 'Đề xuất test',
     });
     const errors = await validate(dto);
     const err = errors.find((e) => e.property === 'proposalNumber');
-    expect(err).toBeDefined();
-    expect(err?.constraints).toHaveProperty('isNotEmpty');
+    expect(err).toBeUndefined();
   });
 
   it('trims leading/trailing whitespace', async () => {

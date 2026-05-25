@@ -89,6 +89,17 @@ sudo cp -rT "$NEW_DIR/frontend/dist" /var/www/pc02
 sudo chown -R www-data:www-data /var/www/pc02
 log "Frontend deployed to /var/www/pc02"
 
+# 7b. v0.42: seed DocumentNumberTemplates BEFORE restart (counters must exist before engine starts)
+# Idempotent — skip nếu active template đã tồn tại cho documentType.
+# Per CEO review: seed TRƯỚC restart để engine có counter rows ngay lần khởi động đầu tiên.
+log "Seeding document-number templates..."
+cd "$NEW_DIR/backend"
+if ! npx ts-node prisma/seed-document-numbers.ts; then
+    log "ERROR: document-numbers seed failed — aborting deploy"
+    exit 1
+fi
+log "Document-numbers seed complete"
+
 # 8. Restart backend service
 sudo systemctl restart pc02-backend
 log "pc02-backend restarted"

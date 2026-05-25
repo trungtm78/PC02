@@ -23,6 +23,7 @@ import type { DataScope } from '../auth/services/unit-scope.service';
 import { buildPetitionScopeFilter } from '../common/utils/scope-filter.util';
 import { SettingsService } from '../settings/settings.service';
 import { DeadlineRulesService } from '../deadline-rules/deadline-rules.service';
+import { DocumentNumbersService } from '../document-numbers/document-numbers.service';
 import { BcaExcelHelper } from '../common/bca-excel.helper';
 import { PETITION_STATUS_LABEL } from '../common/constants/status-labels.constants';
 
@@ -45,6 +46,7 @@ export class PetitionsService {
     private readonly audit: AuditService,
     private readonly settings: SettingsService,
     private readonly deadlineRules: DeadlineRulesService,
+    private readonly docNums: DocumentNumbersService,
   ) {}
 
   // ─────────────────────────────────────────────
@@ -353,12 +355,10 @@ export class PetitionsService {
       );
     }
 
-    // Check stt uniqueness
-    const existing = await this.prisma.petition.findUnique({
-      where: { stt: dto.stt },
-    });
-    if (existing) {
-      throw new ConflictException(`Số tiếp nhận "${dto.stt}" đã tồn tại`);
+    // Check manual stt uniqueness OUTSIDE tx (read-only, safe)
+    if (dto.stt) {
+      const dup = await this.prisma.petition.findUnique({ where: { stt: dto.stt } });
+      if (dup) throw new ConflictException(`Số tiếp nhận "${dto.stt}" đã tồn tại`);
     }
 
     // Validate assignedToId if provided
@@ -404,39 +404,84 @@ export class PetitionsService {
     }
 
     // enteredById is always the authenticated user (prevent forgery)
-    const record = await this.prisma.petition.create({
-      data: {
-        stt: dto.stt,
-        receivedDate: new Date(dto.receivedDate),
-        senderName: dto.senderName,
-        unit: dto.unit,
-        enteredById: actorId,
-        senderBirthYear: dto.senderBirthYear,
-        senderAddress: dto.senderAddress,
-        senderPhone: dto.senderPhone,
-        senderEmail: dto.senderEmail,
-        suspectedPerson: dto.suspectedPerson,
-        suspectedAddress: dto.suspectedAddress,
-        petitionType: dto.petitionType,
-        priority: dto.priority,
-        summary: dto.summary,
-        detailContent: dto.detailContent,
-        attachmentsNote: dto.attachmentsNote,
-        deadline: computedDeadline,
-        deadlineRuleVersionId: deadlineRuleVersionId ?? undefined,
-        assignedToId: dto.assignedToId,
-        ...(effectiveAssignedTeamId !== undefined && { assignedTeamId: effectiveAssignedTeamId }),
-        notes: dto.notes,
-        status: dto.status ?? PetitionStatus.MOI_TIEP_NHAN,
-      },
-      include: {
-        enteredBy: {
-          select: { id: true, firstName: true, lastName: true, username: true },
+    const record = await this.prisma.$transaction(async (tx: any) => {
+      let resolvedStt: string;
+      if (dto.stt) {
+        resolvedStt = dto.stt;
+      } else {
+        const { number, logId } = await this.docNums.commitWithTx('PETITION', { userId: actorId }, tx);
+        resolvedStt = number;
+        const rec = await tx.petition.create({
+          data: {
+            stt: resolvedStt,
+            receivedDate: new Date(dto.receivedDate),
+            senderName: dto.senderName,
+            unit: dto.unit,
+            enteredById: actorId,
+            senderBirthYear: dto.senderBirthYear,
+            senderAddress: dto.senderAddress,
+            senderPhone: dto.senderPhone,
+            senderEmail: dto.senderEmail,
+            suspectedPerson: dto.suspectedPerson,
+            suspectedAddress: dto.suspectedAddress,
+            petitionType: dto.petitionType,
+            priority: dto.priority,
+            summary: dto.summary,
+            detailContent: dto.detailContent,
+            attachmentsNote: dto.attachmentsNote,
+            deadline: computedDeadline,
+            deadlineRuleVersionId: deadlineRuleVersionId ?? undefined,
+            assignedToId: dto.assignedToId,
+            ...(effectiveAssignedTeamId !== undefined && { assignedTeamId: effectiveAssignedTeamId }),
+            notes: dto.notes,
+            status: dto.status ?? PetitionStatus.MOI_TIEP_NHAN,
+          },
+          include: {
+            enteredBy: {
+              select: { id: true, firstName: true, lastName: true, username: true },
+            },
+            assignedTo: {
+              select: { id: true, firstName: true, lastName: true, username: true },
+            },
+          },
+        });
+        await tx.documentNumberLog.update({ where: { id: logId }, data: { documentId: rec.id } });
+        return rec;
+      }
+      return tx.petition.create({
+        data: {
+          stt: resolvedStt,
+          receivedDate: new Date(dto.receivedDate),
+          senderName: dto.senderName,
+          unit: dto.unit,
+          enteredById: actorId,
+          senderBirthYear: dto.senderBirthYear,
+          senderAddress: dto.senderAddress,
+          senderPhone: dto.senderPhone,
+          senderEmail: dto.senderEmail,
+          suspectedPerson: dto.suspectedPerson,
+          suspectedAddress: dto.suspectedAddress,
+          petitionType: dto.petitionType,
+          priority: dto.priority,
+          summary: dto.summary,
+          detailContent: dto.detailContent,
+          attachmentsNote: dto.attachmentsNote,
+          deadline: computedDeadline,
+          deadlineRuleVersionId: deadlineRuleVersionId ?? undefined,
+          assignedToId: dto.assignedToId,
+          ...(effectiveAssignedTeamId !== undefined && { assignedTeamId: effectiveAssignedTeamId }),
+          notes: dto.notes,
+          status: dto.status ?? PetitionStatus.MOI_TIEP_NHAN,
         },
-        assignedTo: {
-          select: { id: true, firstName: true, lastName: true, username: true },
+        include: {
+          enteredBy: {
+            select: { id: true, firstName: true, lastName: true, username: true },
+          },
+          assignedTo: {
+            select: { id: true, firstName: true, lastName: true, username: true },
+          },
         },
-      },
+      });
     });
 
     await this.audit.log({

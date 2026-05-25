@@ -5,7 +5,7 @@ import { FEATURE_MODULES, getFeatureModule } from '../featureRegistry';
 type RouteElement = ReactElement<{ path?: string }>;
 
 describe('FEATURE_MODULES registry', () => {
-  it('auto-discovers all 21 expected features', () => {
+  it('auto-discovers all 22 expected features', () => {
     const expected = [
       'admin',
       'admin-units', // v0.34.0.0 — read-only browser cho Tỉnh/Phường
@@ -15,6 +15,7 @@ describe('FEATURE_MODULES registry', () => {
       'comprehensive', // v0.37.1 — cross-entity views (Tổng hợp menu)
       'dashboard',
       'directory',
+      'document-numbers', // v0.42.0.0 — Quản lý Mã số chứng từ
       'documents',
       'edit-window-requests', // v0.36.0.0 — admin queue Phase 5-lite reset requests
       'incidents',

@@ -54,6 +54,21 @@
 
   --radius: 0.375rem;
 
+  /* Document Number Engine (v0.42) */
+  --docnum-auto-bg:         #dcfce7;
+  --docnum-auto-text:       #166534;
+  --docnum-override-bg:     #fef3c7;
+  --docnum-override-border: #fcd34d;
+  --docnum-override-text:   #92400e;
+
+  /* Segment Builder badge colours */
+  --segment-literal-bg:     #dbeafe;
+  --segment-literal-text:   #1d4ed8;
+  --segment-formula-bg:     #fef9c3;
+  --segment-formula-text:   #a16207;
+  --segment-counter-bg:     #f0fdf4;
+  --segment-counter-text:   #15803d;
+
   /* Sidebar */
   --sidebar: #003973;
   --sidebar-foreground: #ffffff;

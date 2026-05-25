@@ -7,6 +7,7 @@ import type { DataScope } from '../auth/services/unit-scope.service';
 import { assertParentInScope, assertCreatorInScope, buildScopeFilter } from '../common/utils/scope-filter.util';
 import { IsOptional, IsString, IsInt, Min } from 'class-validator';
 import { Type } from 'class-transformer';
+import { DocumentNumbersService } from '../document-numbers/document-numbers.service';
 
 export class QueryDelegationsDto {
   @IsOptional() @IsString() search?: string;
@@ -22,6 +23,7 @@ export class DelegationsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly docNums: DocumentNumbersService,
   ) {}
 
   async getList(query: QueryDelegationsDto, dataScope?: DataScope | null) {
@@ -88,21 +90,47 @@ export class DelegationsService {
   }
 
   async create(dto: CreateDelegationDto, actorId: string, meta?: { ipAddress?: string; userAgent?: string }) {
-    const record = await this.prisma.delegation.create({
-      data: {
-        delegationNumber: dto.delegationNumber,
-        delegationDate: dto.delegationDate ? new Date(dto.delegationDate) : new Date(),
-        receivingUnit: dto.receivingUnit,
-        content: dto.content,
-        createdById: actorId,
-        status: dto.status ?? DelegationStatus.PENDING,
-        relatedCaseId: dto.relatedCaseId,
-        notes: dto.notes,
-      },
-      include: {
-        createdBy: { select: { id: true, firstName: true, lastName: true } },
-        relatedCase: { select: { id: true, name: true } },
-      },
+    let resolvedDelegationNumber: string | undefined = dto.delegationNumber;
+
+    const record = await this.prisma.$transaction(async (tx: any) => {
+      if (!resolvedDelegationNumber) {
+        const { number, logId } = await this.docNums.commitWithTx('DELEGATION', { userId: actorId }, tx);
+        resolvedDelegationNumber = number;
+        const rec = await tx.delegation.create({
+          data: {
+            delegationNumber: resolvedDelegationNumber,
+            delegationDate: dto.delegationDate ? new Date(dto.delegationDate) : new Date(),
+            receivingUnit: dto.receivingUnit,
+            content: dto.content,
+            createdById: actorId,
+            status: dto.status ?? DelegationStatus.PENDING,
+            relatedCaseId: dto.relatedCaseId,
+            notes: dto.notes,
+          },
+          include: {
+            createdBy: { select: { id: true, firstName: true, lastName: true } },
+            relatedCase: { select: { id: true, name: true } },
+          },
+        });
+        await tx.documentNumberLog.update({ where: { id: logId }, data: { documentId: rec.id } });
+        return rec;
+      }
+      return tx.delegation.create({
+        data: {
+          delegationNumber: resolvedDelegationNumber,
+          delegationDate: dto.delegationDate ? new Date(dto.delegationDate) : new Date(),
+          receivingUnit: dto.receivingUnit,
+          content: dto.content,
+          createdById: actorId,
+          status: dto.status ?? DelegationStatus.PENDING,
+          relatedCaseId: dto.relatedCaseId,
+          notes: dto.notes,
+        },
+        include: {
+          createdBy: { select: { id: true, firstName: true, lastName: true } },
+          relatedCase: { select: { id: true, name: true } },
+        },
+      });
     });
 
     await this.audit.log({

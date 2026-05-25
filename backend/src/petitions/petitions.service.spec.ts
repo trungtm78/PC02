@@ -28,6 +28,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { SettingsService } from '../settings/settings.service';
 import { DeadlineRulesService } from '../deadline-rules/deadline-rules.service';
+import { DocumentNumbersService } from '../document-numbers/document-numbers.service';
 import { PetitionStatus, LoaiDon, Prisma } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { plainToClass } from 'class-transformer';
@@ -102,7 +103,8 @@ const mockPrisma = {
   userTeam: {
     findFirst: jest.fn(),
   },
-  $transaction: jest.fn() as any,
+  documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
+  $transaction: jest.fn().mockImplementation(async (fn: any) => fn(mockPrisma)) as any,
 };
 
 const mockAudit = {
@@ -124,6 +126,13 @@ const mockAudit = {
 
 const mockSettings = {
   getNumericValue: jest.fn(),
+};
+
+// DocumentNumbersService mock — auto-generate stt for petitions
+const mockDocNums = {
+  commit: jest.fn().mockResolvedValue({ number: 'DT-2026-00001', logId: 'log-001', changed: false }),
+  commitWithTx: jest.fn().mockResolvedValue({ number: 'DT-2026-00001', logId: 'log-001', changed: false }),
+  updateLogDocumentId: jest.fn().mockResolvedValue(undefined),
 };
 
 // DeadlineRulesService mock — versioning-aware deadline source.
@@ -156,11 +165,13 @@ describe('PetitionsService', () => {
         { provide: AuditService, useValue: mockAudit },
         { provide: SettingsService, useValue: mockSettings },
         { provide: DeadlineRulesService, useValue: mockDeadlineRules },
+        { provide: DocumentNumbersService, useValue: mockDocNums },
       ],
     }).compile();
 
     service = module.get<PetitionsService>(PetitionsService);
     jest.clearAllMocks();
+    mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(mockPrisma));
   });
 
   // ── getList ────────────────────────────────────────────────────────────────

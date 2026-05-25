@@ -10,12 +10,14 @@ import type { DataScope } from '../auth/services/unit-scope.service';
 import { assertParentInScope, assertCreatorInScope, buildScopeFilter } from '../common/utils/scope-filter.util';
 import { BcaExcelHelper } from '../common/bca-excel.helper';
 import { PROPOSAL_STATUS_LABEL } from '../common/constants/status-labels.constants';
+import { DocumentNumbersService } from '../document-numbers/document-numbers.service';
 
 @Injectable()
 export class ProposalsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly docNums: DocumentNumbersService,
   ) {}
 
   async getList(query: QueryProposalsDto, dataScope?: DataScope | null) {
@@ -83,23 +85,51 @@ export class ProposalsService {
   }
 
   async create(dto: CreateProposalDto, actorId: string, meta?: { ipAddress?: string; userAgent?: string }) {
-    const record = await this.prisma.proposal.create({
-      data: {
-        proposalNumber: dto.proposalNumber,
-        relatedCaseId: dto.relatedCaseId,
-        caseType: dto.caseType,
-        content: dto.content,
-        unit: dto.unit,
-        createdById: actorId,
-        status: dto.status ?? ProposalStatus.CHO_GUI,
-        sentDate: dto.sentDate ? new Date(dto.sentDate) : undefined,
-        response: dto.response,
-        responseDate: dto.responseDate ? new Date(dto.responseDate) : undefined,
-        notes: dto.notes,
-      },
-      include: {
-        createdBy: { select: { id: true, firstName: true, lastName: true } },
-      },
+    let resolvedProposalNumber: string | undefined = dto.proposalNumber;
+
+    const record = await this.prisma.$transaction(async (tx: any) => {
+      if (!resolvedProposalNumber) {
+        const { number, logId } = await this.docNums.commitWithTx('PROPOSAL', { userId: actorId }, tx);
+        resolvedProposalNumber = number;
+        const rec = await tx.proposal.create({
+          data: {
+            proposalNumber: resolvedProposalNumber,
+            relatedCaseId: dto.relatedCaseId,
+            caseType: dto.caseType,
+            content: dto.content,
+            unit: dto.unit,
+            createdById: actorId,
+            status: dto.status ?? ProposalStatus.CHO_GUI,
+            sentDate: dto.sentDate ? new Date(dto.sentDate) : undefined,
+            response: dto.response,
+            responseDate: dto.responseDate ? new Date(dto.responseDate) : undefined,
+            notes: dto.notes,
+          },
+          include: {
+            createdBy: { select: { id: true, firstName: true, lastName: true } },
+          },
+        });
+        await tx.documentNumberLog.update({ where: { id: logId }, data: { documentId: rec.id } });
+        return rec;
+      }
+      return tx.proposal.create({
+        data: {
+          proposalNumber: resolvedProposalNumber,
+          relatedCaseId: dto.relatedCaseId,
+          caseType: dto.caseType,
+          content: dto.content,
+          unit: dto.unit,
+          createdById: actorId,
+          status: dto.status ?? ProposalStatus.CHO_GUI,
+          sentDate: dto.sentDate ? new Date(dto.sentDate) : undefined,
+          response: dto.response,
+          responseDate: dto.responseDate ? new Date(dto.responseDate) : undefined,
+          notes: dto.notes,
+        },
+        include: {
+          createdBy: { select: { id: true, firstName: true, lastName: true } },
+        },
+      });
     });
 
     await this.audit.log({

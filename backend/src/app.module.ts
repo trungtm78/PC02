@@ -49,6 +49,7 @@ import { AdminUnitsModule } from './admin-units/admin-units.module'; // v0.34.0.
 import { UnitScopeService } from './auth/services/unit-scope.service';
 import { DataScopeInterceptor } from './auth/interceptors/data-scope.interceptor';
 import { TestFixturesModule } from './test-fixtures/test-fixtures.module';
+import { DocumentNumbersModule } from './document-numbers/document-numbers.module';
 
 @Module({
   imports: [
@@ -96,6 +97,7 @@ import { TestFixturesModule } from './test-fixtures/test-fixtures.module';
     EventCategoriesModule,
     CalendarEventsModule,
     EventRemindersModule,
+    DocumentNumbersModule,
     // Conditional: only registers when E2E_TEST_MODE=true.
     TestFixturesModule.forRoot(),
   ],

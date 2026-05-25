@@ -13,6 +13,8 @@ import {
 } from "lucide-react";
 import { FKSelect } from "@/components/FKSelect";
 import { PhoneInput } from "@/components/inputs/PhoneInput";
+import { DocNumberPreviewField } from "@/components/DocNumberPreviewField";
+import { documentNumbersApi } from "@/features/document-numbers/api";
 import { useFormDefaults } from "@/hooks/useFormDefaults";
 import { today, toDateInput } from "@/lib/dates";
 import { LOAI_DON_OPTIONS } from "@/shared/enums/status-labels";
@@ -61,8 +63,19 @@ export function PetitionFormPage() {
   const [isLoadingData, setIsLoadingData] = useState(isEditMode);
   const [userOptions, setUserOptions] = useState<UserOption[]>([]);
   const [recordUpdatedAt, setRecordUpdatedAt] = useState<string | null>(null);
+  const [isDraftLoading, setIsDraftLoading] = useState(!isEditMode);
 
   const defaults = useFormDefaults();
+
+  // v0.42 — Auto-generate stt via engine in create mode.
+  useEffect(() => {
+    if (isEditMode) return;
+    setIsDraftLoading(true);
+    documentNumbersApi.draft('PETITION')
+      .then((r) => setFormData((prev) => ({ ...prev, stt: r.previewNumber })))
+      .catch((err) => console.error('draft fetch failed:', err))
+      .finally(() => setIsDraftLoading(false));
+  }, [isEditMode]);
 
   // Apply defaults on create mode (today, primary team text + FK).
   // assignedToId intentionally NOT defaulted — petition assignment is a dispatcher decision,
@@ -124,7 +137,6 @@ export function PetitionFormPage() {
 
   const validateForm = (): boolean => {
     const newErrors: string[] = [];
-    if (!formData.stt.trim()) newErrors.push("Số tiếp nhận là bắt buộc");
     if (!formData.receivedDate) {
       newErrors.push("Ngày tiếp nhận là bắt buộc");
     } else {
@@ -268,8 +280,14 @@ export function PetitionFormPage() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Số tiếp nhận <span className="text-red-500">*</span></label>
-                <input type="text" value={formData.stt} onChange={(e) => update("stt", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="VD: ĐT-2026-00001" data-testid="field-receivedNumber" />
+                <label className="block text-sm font-medium text-slate-700 mb-2">Số tiếp nhận</label>
+                <DocNumberPreviewField
+                  inputMode={isEditMode ? 'MANUAL' : 'AUTO'}
+                  value={formData.stt}
+                  onChange={(v) => update('stt', v)}
+                  loading={isDraftLoading}
+                  placeholder="DT-2026-00001"
+                />
               </div>
               <div>
                 <FKSelect

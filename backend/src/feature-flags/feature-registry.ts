@@ -44,6 +44,7 @@ import { EVENT_REMINDERS_MANIFEST } from '../event-reminders/feature.manifest';
 import { ADMIN_UNITS_MANIFEST } from '../admin-units/feature.manifest'; // v0.34.0.0
 import { COMPREHENSIVE_MANIFEST } from '../comprehensive/feature.manifest'; // v0.37.2.1
 import { JOURNEY_MANIFEST } from '../journey/feature.manifest'; // v0.40.0.0
+import { DOCUMENT_NUMBERS_MANIFEST } from '../document-numbers/feature.manifest'; // v0.42.0.0
 
 export const FEATURE_REGISTRY: readonly FeatureManifest[] = [
   AUTH_MANIFEST,
@@ -80,6 +81,7 @@ export const FEATURE_REGISTRY: readonly FeatureManifest[] = [
   ADMIN_UNITS_MANIFEST, // v0.34.0.0
   COMPREHENSIVE_MANIFEST, // v0.37.2.1
   JOURNEY_MANIFEST, // v0.40.0.0
+  DOCUMENT_NUMBERS_MANIFEST, // v0.42.0.0
 ] as const;
 
 export function getManifest(key: string): FeatureManifest | undefined {

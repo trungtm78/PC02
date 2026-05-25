@@ -26,6 +26,13 @@ vi.mock('@/lib/api', () => ({
   authApi: { me: vi.fn() },
 }));
 
+// v0.42: stt is now auto-generated via DocNumberPreviewField — mock the draft call.
+vi.mock('@/features/document-numbers/api', () => ({
+  documentNumbersApi: {
+    draft: vi.fn().mockResolvedValue({ previewNumber: 'DT-2026-00001', isDraft: true, templateId: 'tmpl-2' }),
+  },
+}));
+
 // Mock FKSelect (custom button-based combobox) as plain native <select> so that
 // fireEvent.change works in tests. petitionType is now a native <select> in
 // production code, but priority + unit still use FKSelect — mocking unifies them.
@@ -93,9 +100,8 @@ describe('PetitionFormPage — petitionType payload (v0.37.2.4 P0 fix)', () => {
   it('submits petitionType as enum value (TO_CAO), not Vietnamese name', async () => {
     await renderForm();
 
-    const sttInput = await screen.findByTestId('field-receivedNumber');
-    fireEvent.change(sttInput, { target: { value: 'UAT-TEST-0001' } });
-    fireEvent.change(screen.getByTestId('field-senderName'), { target: { value: 'UAT Test Sender' } });
+    // v0.42: stt is now auto-generated (readonly DocNumberPreviewField), no manual fill needed.
+    fireEvent.change(await screen.findByTestId('field-senderName'), { target: { value: 'UAT Test Sender' } });
     fireEvent.change(screen.getByTestId('field-senderAddress'), { target: { value: 'UAT address' } });
     fireEvent.change(screen.getByTestId('field-summary'), { target: { value: 'UAT summary' } });
     fireEvent.change(screen.getByTestId('field-detailContent'), { target: { value: 'UAT detail' } });
@@ -135,9 +141,8 @@ describe('PetitionFormPage — petitionType payload (v0.37.2.4 P0 fix)', () => {
   it('client-side validation rejects empty petitionType (does not POST)', async () => {
     await renderForm();
 
-    const sttInput = await screen.findByTestId('field-receivedNumber');
-    fireEvent.change(sttInput, { target: { value: 'UAT-TEST-0002' } });
-    fireEvent.change(screen.getByTestId('field-senderName'), { target: { value: 'UAT Sender' } });
+    // v0.42: stt is now auto-generated (readonly), no manual fill needed.
+    fireEvent.change(await screen.findByTestId('field-senderName'), { target: { value: 'UAT Sender' } });
     fireEvent.change(screen.getByTestId('field-senderAddress'), { target: { value: 'UAT addr' } });
     fireEvent.change(screen.getByTestId('field-summary'), { target: { value: 'sum' } });
     fireEvent.change(screen.getByTestId('field-detailContent'), { target: { value: 'detail' } });

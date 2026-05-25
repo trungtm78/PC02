@@ -1,9 +1,13 @@
 import { IsString, IsOptional, IsEnum } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { DelegationStatus } from '@prisma/client';
 
 export class CreateDelegationDto {
+  // Số ủy thác — optional: engine sinh khi không cung cấp
+  @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() || undefined : value))
   @IsString()
-  delegationNumber: string;
+  delegationNumber?: string;
 
   @IsOptional()
   @IsString()

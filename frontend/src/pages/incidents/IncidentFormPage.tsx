@@ -3,6 +3,8 @@ import { useNavigate, useParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { extractApiError } from "@/lib/api-errors";
 import { ArrowLeft, Save, AlertCircle, Calendar, FileText, Loader2, ChevronDown, ChevronRight, Target } from "lucide-react";
+import { DocNumberPreviewField } from "@/components/DocNumberPreviewField";
+import { documentNumbersApi } from "@/features/document-numbers/api";
 import { FKSelect, type FKOption } from "@/components/FKSelect";
 import { PhoneInput } from "@/components/inputs/PhoneInput";
 import { getPhaseForStatus } from "@/constants/incident-phases";
@@ -128,6 +130,8 @@ export function IncidentFormPage() {
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [userOptions, setUserOptions] = useState<FKOption[]>([]);
   const [recordUpdatedAt, setRecordUpdatedAt] = useState<string | null>(null);
+  const [draftIncidentCode, setDraftIncidentCode] = useState('');
+  const [isDraftLoading, setIsDraftLoading] = useState(!isEditMode);
 
   // Section expanded states
   const [section1Open, setSection1Open] = useState(true);
@@ -136,6 +140,16 @@ export function IncidentFormPage() {
   const [section4Open, setSection4Open] = useState(false);
 
   const defaults = useFormDefaults();
+
+  // v0.42 — Fetch draft incident code preview on create mode mount.
+  useEffect(() => {
+    if (isEditMode) return;
+    setIsDraftLoading(true);
+    documentNumbersApi.draft('INCIDENT')
+      .then((r) => setDraftIncidentCode(r.previewNumber))
+      .catch((err) => console.error('draft fetch failed:', err))
+      .finally(() => setIsDraftLoading(false));
+  }, [isEditMode]);
 
   // v0.31.0.0 — Cascading guard: khi user đổi `loaiDonVu`, reset `nguonPhatTin`
   // nếu giá trị đang chọn không thuộc group mới. UX để user không submit value
@@ -348,6 +362,17 @@ export function IncidentFormPage() {
           onToggle={() => setSection1Open(!section1Open)}
           testId="section-tiep-nhan"
         >
+          {!isEditMode && (
+            <div>
+              <label className={labelClass}>Mã vụ việc</label>
+              <DocNumberPreviewField
+                inputMode="AUTO"
+                value={draftIncidentCode}
+                onChange={() => {}}
+                loading={isDraftLoading}
+              />
+            </div>
+          )}
           <div>
             <label className={labelClass}>Tên vụ việc <span className="text-red-500">*</span></label>
             <div className="relative">

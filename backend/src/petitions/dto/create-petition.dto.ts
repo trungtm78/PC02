@@ -16,11 +16,15 @@ import { stripHtmlTags } from '../../common/utils/sanitize.util';
 export { PetitionStatus, LoaiDon };
 
 export class CreatePetitionDto {
-  // Số tiếp nhận — unique, bắt buộc
-  @Transform(({ value }) => stripHtmlTags(value))
+  // Số tiếp nhận — unique. Optional: engine sinh khi không cung cấp
+  @IsOptional()
+  @Transform(({ value }) => {
+    const stripped = stripHtmlTags(value);
+    return typeof stripped === 'string' ? stripped.trim() || undefined : stripped;
+  })
   @IsString()
   @MaxLength(50)
-  stt: string;
+  stt?: string;
 
   // Ngày tiếp nhận — bắt buộc, không được là tương lai
   @IsDateString()
