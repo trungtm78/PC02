@@ -168,7 +168,7 @@ export async function seedDocumentNumbers(prisma: PrismaClient): Promise<number>
 
   // Find any SUPER_ADMIN or ADMIN user to use as createdById
   const admin = await (prisma as any).user.findFirst({
-    where: { role: { in: ['SUPER_ADMIN', 'ADMIN'] } },
+    where: { role: { name: { in: ['SUPER_ADMIN', 'ADMIN'] } } },
     select: { id: true },
   });
 
