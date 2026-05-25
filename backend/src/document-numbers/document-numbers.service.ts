@@ -323,14 +323,14 @@ export class DocumentNumbersService {
 
   createTemplate(dto: CreateTemplateDto, userId: string) {
     return this.prisma.documentNumberTemplate.create({
-      data: { ...dto, createdById: userId },
+      data: { ...(dto as any), createdById: userId },
     });
   }
 
   async updateTemplate(id: string, dto: UpdateTemplateDto) {
     const existing = await this.prisma.documentNumberTemplate.findFirst({ where: { id } });
     if (!existing) throw new NotFoundException(`Template not found: ${id}`);
-    return this.prisma.documentNumberTemplate.update({ where: { id }, data: dto });
+    return this.prisma.documentNumberTemplate.update({ where: { id }, data: dto as any });
   }
 
   async deleteTemplate(id: string) {
