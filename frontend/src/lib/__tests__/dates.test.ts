@@ -47,6 +47,10 @@ describe('toDateInput()', () => {
     expect(toDateInput('2026-05-24T17:00:00Z')).toBe('2026-05-25');
   });
 
+  it('crosses VN midnight boundary with Date instance', () => {
+    expect(toDateInput(new Date('2026-05-24T17:00:00Z'))).toBe('2026-05-25');
+  });
+
   it('formats date-only ISO string', () => {
     expect(toDateInput('2026-05-09')).toBe('2026-05-09');
   });
@@ -89,7 +93,7 @@ describe('formatVNDateTime()', () => {
 
   it('includes seconds', () => {
     const result = formatVNDateTime('2026-05-25T12:01:34Z');
-    expect(result).toContain('34');
+    expect(result).toContain(':34');
   });
 
   it('returns em-dash for null', () => {
@@ -134,6 +138,10 @@ describe('formatVNDate()', () => {
   it('formats Date instance', () => {
     const result = formatVNDate(new Date('2026-05-25T12:00:00Z'));
     expect(result).toContain('25/05/2026');
+  });
+
+  it('crosses VN midnight boundary with Date instance', () => {
+    expect(formatVNDate(new Date('2026-05-24T17:00:00Z'))).toContain('25/05/2026');
   });
 
   it('crosses VN midnight boundary', () => {

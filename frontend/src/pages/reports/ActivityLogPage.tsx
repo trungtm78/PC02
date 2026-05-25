@@ -4,7 +4,7 @@ import { api } from "@/lib/api";
 import { getRoleLabel } from "@/shared/enums/role-labels";
 import { getAuditActionLabel } from "@/shared/enums/audit-action-labels";
 import { getFieldLabel } from "@/shared/enums/audit-field-labels";
-import { formatVNDateTime } from "../../lib/dates";
+import { today, toDateInput, formatVNDateTime } from "../../lib/dates";
 import {
   Search,
   Download,
@@ -313,7 +313,7 @@ export default function ActivityLogPage() {
             <div>
               <p className="text-sm text-slate-600 mb-1">Hôm nay</p>
               <p className="text-3xl font-bold text-blue-600">
-                {allData.filter((log) => log.timestamp.startsWith(today())).length}
+                {allData.filter((log) => toDateInput(log.timestamp) === today()).length}
               </p>
             </div>
             <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">

@@ -159,7 +159,7 @@ export default function TransferAndReturnPage() {
           recordCode: c.id.slice(0, 8).toUpperCase(),
           name: c.name,
           currentTeam: c.unit ?? '',
-          createdDate: c.createdAt ? formatVNDate(c.createdAt) : '',
+          createdDate: formatVNDate(c.createdAt),
           status: c.status ?? '',
           statusColor: 'text-blue-600',
           assignedTo: c.investigator ? `${c.investigator.firstName ?? ''} ${c.investigator.lastName ?? ''}`.trim() : '',
