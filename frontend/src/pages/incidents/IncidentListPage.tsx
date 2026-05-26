@@ -159,6 +159,12 @@ export function IncidentListPage() {
   const [deleteReason, setDeleteReason] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
+  const [deletePreflight, setDeletePreflight] = useState<{
+    canDelete: boolean;
+    reasonsIfBlocked: string[];
+    willUnlink?: { case: { id: string; name: string; caseCode: string } | null };
+  } | null>(null);
+  const [preflightLoading, setPreflightLoading] = useState(false);
 
   // Advanced filters
   const [advancedFilters, setAdvancedFilters] = useState({
@@ -643,6 +649,16 @@ export function IncidentListPage() {
                   setShowDeleteModal(true);
                   setOpenMenu(null);
                   setDeleteReason("");
+                  setDeletePreflight(null);
+                  setPreflightLoading(true);
+                  api
+                    .get<{ success: boolean; data: typeof deletePreflight } | typeof deletePreflight>(`/incidents/${incident.id}/delete-preflight`)
+                    .then((res) => {
+                      const d = res.data as any;
+                      setDeletePreflight(d?.data ?? d);
+                    })
+                    .catch(() => setDeletePreflight(null))
+                    .finally(() => setPreflightLoading(false));
                 }}
                 className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 text-left border-t border-slate-100"
                 data-testid="btn-delete"
@@ -689,11 +705,39 @@ export function IncidentListPage() {
                 </div>
               </div>
 
+              {preflightLoading && (
+                <div className="mt-4 p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-600">
+                  Đang kiểm tra điều kiện xóa...
+                </div>
+              )}
+
+              {!preflightLoading && deletePreflight && !deletePreflight.canDelete && (
+                <div className="mt-4 p-3 bg-red-50 border border-red-300 rounded-lg">
+                  <p className="text-sm font-semibold text-red-900 mb-2">Không thể xóa:</p>
+                  <ul className="list-disc list-inside text-sm text-red-800 space-y-1">
+                    {deletePreflight.reasonsIfBlocked.map((r, i) => (
+                      <li key={i}>{r}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
               <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
                 <p className="text-sm text-amber-800">
                   Vụ việc sẽ bị vô hiệu hóa (soft delete). Quản trị viên có thể khôi phục tại trang Khôi phục dữ liệu (/admin/khoi-phuc).
                 </p>
               </div>
+
+              {/* willUnlink.case — linked case will lose its linkedIncidentId */}
+              {!preflightLoading && deletePreflight?.willUnlink?.case && (
+                <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-lg" data-testid="will-unlink-case">
+                  <p className="text-sm font-medium text-orange-800">Vụ việc này đang liên kết với vụ án:</p>
+                  <p className="mt-1 text-sm text-orange-700">
+                    {deletePreflight.willUnlink.case.caseCode} — {deletePreflight.willUnlink.case.name}
+                  </p>
+                  <p className="mt-1 text-xs text-orange-600">Vụ án vẫn tồn tại nhưng sẽ không còn gắn với vụ việc này.</p>
+                </div>
+              )}
 
               <div className="mt-4">
                 <label className="block text-sm font-medium text-slate-700 mb-2">
@@ -715,7 +759,7 @@ export function IncidentListPage() {
 
             <div className="border-t border-slate-200 p-4 flex gap-3 justify-end">
               <button
-                onClick={() => { setShowDeleteModal(false); setDeleteReason(""); }}
+                onClick={() => { setShowDeleteModal(false); setDeleteReason(""); setDeletePreflight(null); }}
                 className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50"
                 data-testid="btn-cancel-delete"
               >
@@ -736,7 +780,7 @@ export function IncidentListPage() {
                     setIsDeleting(false);
                   }
                 }}
-                disabled={isDeleting || deleteReason.length < 10}
+                disabled={isDeleting || deleteReason.length < 10 || preflightLoading || (deletePreflight != null && !deletePreflight.canDelete)}
                 className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 data-testid="btn-confirm-delete"
               >
