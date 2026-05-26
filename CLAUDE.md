@@ -21,7 +21,7 @@ Internal case management system (NestJS backend + React frontend) for managing l
 - Backend tests: `cd backend && npx jest --no-coverage`
 - Full test suite: `cd backend && npm test`
 - Frontend tests: `cd frontend && npx vitest run --no-coverage`
-- Test count: 936 backend + 247 frontend = 1183 total
+- Test count: 1728 backend + 733 frontend = 2461 total
 
 ## Shared Enum Infrastructure
 - **Generator**: `cd backend && npm run gen:enums` — re-generates `frontend/src/shared/enums/generated.ts` from `schema.prisma`. Runs automatically on `npm run build`.

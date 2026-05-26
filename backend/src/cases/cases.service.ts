@@ -952,11 +952,7 @@ export class CasesService {
         `Không thể xóa: vụ án có ${existing.documents.length} tài liệu đính kèm.`,
       );
     }
-    if (existing.linkedIncidents.length > 0) {
-      throw new BadRequestException(
-        `Không thể xóa: vụ án đang liên kết ${existing.linkedIncidents.length} vụ việc.`,
-      );
-    }
+    // linkedIncidents: SetNull on delete (not a blocker — v0.43)
 
     // 4. Creator-or-admin check (with specific NULL message for legacy rows)
     const isAdmin = actorRole === ROLE_NAMES.ADMIN;
@@ -993,9 +989,22 @@ export class CasesService {
     // + soft delete (status TOCTOU guard) + audit log
     try {
       await this.prisma.$transaction(async (tx) => {
+        // v0.43: SetNull Incidents linked to this Case (Branch-3: Incident.linkedCaseId)
+        // Must run BEFORE in-tx re-check so counts don't interfere.
+        await tx.incident.updateMany({
+          where: { linkedCaseId: id, deletedAt: null },
+          data: { linkedCaseId: null },
+        });
+        // v0.43: Clear Case.linkedIncidentId if Case was created from an Incident (Branch-2)
+        if (existing.linkedIncidentId) {
+          await tx.case.update({
+            where: { id },
+            data: { linkedIncidentId: null },
+          });
+        }
+
         // Re-fetch counts inside transaction — guards against concurrent inserts of
-        // subjects/lawyers/conclusions/documents/linkedIncidents between initial check
-        // and transaction commit.
+        // subjects/lawyers/conclusions/documents between initial check and transaction commit.
         const inTxCounts = await tx.case.findFirst({
           where: { id, deletedAt: null },
           select: {
@@ -1005,7 +1014,6 @@ export class CasesService {
                 lawyers: { where: { deletedAt: null } },
                 conclusions: { where: { deletedAt: null } },
                 documents: { where: { deletedAt: null } },
-                linkedIncidents: { where: { deletedAt: null } },
               },
             },
           },
@@ -1038,11 +1046,6 @@ export class CasesService {
             `Không thể xóa: vụ án có ${c.documents} tài liệu đính kèm (vừa được thêm).`,
           );
         }
-        if (c.linkedIncidents > 0) {
-          throw new BadRequestException(
-            `Không thể xóa: vụ án vừa được liên kết với ${c.linkedIncidents} vụ việc.`,
-          );
-        }
 
         // Atomic status guard — concurrent transition out of TIEP_NHAN aborts
         await tx.case.update({
@@ -1066,6 +1069,7 @@ export class CasesService {
               reason,
               softDelete: true,
               hoursAfterCreation: Math.round(hoursElapsed),
+              unlinkedIncidentIds: existing.linkedIncidents.map((i) => i.id),
             },
             ipAddress: meta?.ipAddress,
             userAgent: meta?.userAgent,
@@ -1103,7 +1107,7 @@ export class CasesService {
         lawyers: { where: { deletedAt: null }, select: { id: true } },
         conclusions: { where: { deletedAt: null }, select: { id: true } },
         documents: { where: { deletedAt: null }, select: { id: true } },
-        linkedIncidents: { where: { deletedAt: null }, select: { id: true } },
+        linkedIncidents: { where: { deletedAt: null }, select: { id: true, code: true, name: true } },
       },
     });
     if (!existing) {
@@ -1116,7 +1120,6 @@ export class CasesService {
       lawyers: existing.lawyers.length,
       conclusions: existing.conclusions.length,
       documents: existing.documents.length,
-      linkedIncidents: existing.linkedIncidents.length,
     };
 
     const reasonsIfBlocked: string[] = [];
@@ -1129,12 +1132,14 @@ export class CasesService {
     if (blockers.lawyers > 0) reasonsIfBlocked.push(`${blockers.lawyers} luật sư đang liên kết.`);
     if (blockers.conclusions > 0) reasonsIfBlocked.push(`${blockers.conclusions} kết luận điều tra.`);
     if (blockers.documents > 0) reasonsIfBlocked.push(`${blockers.documents} tài liệu đính kèm.`);
-    if (blockers.linkedIncidents > 0) reasonsIfBlocked.push(`${blockers.linkedIncidents} vụ việc liên kết.`);
 
     return {
       canDelete: reasonsIfBlocked.length === 0,
       status: existing.status,
       blockers,
+      willUnlink: {
+        incidents: existing.linkedIncidents as Array<{ id: string; code: string; name: string }>,
+      },
       reasonsIfBlocked,
     };
   }

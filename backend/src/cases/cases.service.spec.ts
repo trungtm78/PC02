@@ -960,6 +960,7 @@ describe('CasesService', () => {
       mockPrisma.case.findFirst.mockResolvedValue(baseCase);
       mockPrisma.$transaction.mockImplementation(async (cb: any) => {
         // v0.31.0.2 codex P1 fix: tx.case.findFirst returns _count for in-tx re-check
+        // v0.43: linkedIncidents removed from in-tx count (SetNull, not blocker)
         const tx = {
           case: {
             findFirst: jest.fn().mockResolvedValue({
@@ -968,10 +969,12 @@ describe('CasesService', () => {
                 lawyers: baseCase.lawyers.length,
                 conclusions: baseCase.conclusions.length,
                 documents: baseCase.documents.length,
-                linkedIncidents: baseCase.linkedIncidents.length,
               },
             }),
             update: jest.fn().mockResolvedValue({ ...baseCase, deletedAt: new Date() }),
+          },
+          incident: {
+            updateMany: jest.fn().mockResolvedValue({ count: (baseCase.linkedIncidents as any[]).length }),
           },
         };
         await cb(tx);
@@ -1036,11 +1039,51 @@ describe('CasesService', () => {
       ).rejects.toThrow(/3 tài liệu/);
     });
 
-    it('BE-6: throws khi linkedIncidents.length > 0', async () => {
+    it('BE-6: linkedIncidents không còn là blocker — xóa Case thành công + SetNull INSIDE $transaction', async () => {
       setupBasicCase({ linkedIncidents: [{ id: 'i1' }] });
-      await expect(
-        service.delete('case-001', REASON, ACTOR_ID, ROLE_NAMES.INVESTIGATOR),
-      ).rejects.toThrow(/vụ việc/);
+      // Override $transaction with distinct innerTx to verify writes happen INSIDE transaction
+      const innerTx = {
+        case: {
+          findFirst: jest.fn().mockResolvedValue({
+            _count: { subjects: 0, lawyers: 0, conclusions: 0, documents: 0 },
+          }),
+          update: jest.fn().mockResolvedValue({}),
+        },
+        incident: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
+      };
+      mockPrisma.$transaction.mockImplementationOnce(async (cb: any) => { await cb(innerTx); });
+      const result = await service.delete('case-001', REASON, ACTOR_ID, ROLE_NAMES.INVESTIGATOR);
+      expect(result.success).toBe(true);
+      // Both writes must be INSIDE the transaction (innerTx, not mockPrisma directly)
+      expect(innerTx.incident.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ linkedCaseId: 'case-001' }),
+          data: { linkedCaseId: null },
+        }),
+      );
+      expect(innerTx.case.update).toHaveBeenCalled();
+    });
+
+    it('BE-6b: Case có linkedIncidentId (Branch-2) — clear Case.linkedIncidentId INSIDE transaction', async () => {
+      setupBasicCase({ linkedIncidentId: 'inc-src-001', linkedIncidents: [] });
+      const innerTx = {
+        case: {
+          findFirst: jest.fn().mockResolvedValue({
+            _count: { subjects: 0, lawyers: 0, conclusions: 0, documents: 0 },
+          }),
+          update: jest.fn().mockResolvedValue({}),
+        },
+        incident: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
+      };
+      mockPrisma.$transaction.mockImplementationOnce(async (cb: any) => { await cb(innerTx); });
+      const result = await service.delete('case-001', REASON, ACTOR_ID, ROLE_NAMES.INVESTIGATOR);
+      expect(result.success).toBe(true);
+      // Clear Case.linkedIncidentId must happen INSIDE the transaction
+      expect(innerTx.case.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ linkedIncidentId: null }) }),
+      );
+      // SetNull incidents also runs (even when empty — unconditional)
+      expect(innerTx.incident.updateMany).toHaveBeenCalled();
     });
 
     it('BE-7a: throws Forbidden khi không phải creator/admin', async () => {
@@ -1084,10 +1127,11 @@ describe('CasesService', () => {
         const tx = {
           case: {
             findFirst: jest.fn().mockResolvedValue({
-              _count: { subjects: 2, lawyers: 0, conclusions: 0, documents: 0, linkedIncidents: 0 },
+              _count: { subjects: 2, lawyers: 0, conclusions: 0, documents: 0 },
             }),
             update: jest.fn(),
           },
+          incident: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
         };
         await cb(tx);
       });
@@ -1120,9 +1164,8 @@ describe('CasesService', () => {
       ).rejects.toThrow(ForbiddenException);
     });
 
-    it('BE: only counts ACTIVE linked subjects (deletedAt:null filter)', async () => {
+    it('BE: only counts ACTIVE linked subjects (deletedAt:null filter) + linkedIncidents fetched cho SetNull', async () => {
       setupBasicCase();
-      // Verify findFirst was called with deletedAt:null filter on subjects
       await service.delete('case-001', REASON, ACTOR_ID, ROLE_NAMES.INVESTIGATOR);
       expect(mockPrisma.case.findFirst).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -1141,20 +1184,25 @@ describe('CasesService', () => {
   // ── previewDelete (v0.31.0.2) ──────────────────────────────────────────────
 
   describe('previewDelete (v0.31.0.2)', () => {
-    it('BE-13a: returns canDelete=true với no blockers', async () => {
+    it('BE-13a: returns canDelete=true với no blockers; linkedIncidents trong willUnlink (không phải blockers)', async () => {
       mockPrisma.case.findFirst.mockResolvedValue({
         ...mockCase,
-        subjects: [], lawyers: [], conclusions: [], documents: [], linkedIncidents: [],
+        subjects: [], lawyers: [], conclusions: [], documents: [],
+        linkedIncidents: [{ id: 'i1', code: 'VV-2026-00001', name: 'Vu viec A' }],
       });
       const result = await service.previewDelete('case-001');
       expect(result.canDelete).toBe(true);
       expect(result.reasonsIfBlocked).toEqual([]);
+      // linkedIncidents KHÔNG phải blocker
       expect(result.blockers).toEqual({
-        subjects: 0, lawyers: 0, conclusions: 0, documents: 0, linkedIncidents: 0,
+        subjects: 0, lawyers: 0, conclusions: 0, documents: 0,
       });
+      // linkedIncidents nằm trong willUnlink
+      expect(result.willUnlink.incidents).toHaveLength(1);
+      expect(result.willUnlink.incidents[0].id).toBe('i1');
     });
 
-    it('BE-13b: returns canDelete=false với linked entities + status reason', async () => {
+    it('BE-13b: returns canDelete=false với linked entities + status reason; linkedIncidents vẫn trong willUnlink', async () => {
       mockPrisma.case.findFirst.mockResolvedValue({
         ...mockCase,
         status: CaseStatus.DANG_DIEU_TRA,
@@ -1162,7 +1210,7 @@ describe('CasesService', () => {
         lawyers: [],
         conclusions: [{ id: 'c1' }],
         documents: [],
-        linkedIncidents: [],
+        linkedIncidents: [{ id: 'i1', code: 'VV-2026-00001', name: 'Vu viec A' }],
       });
       const result = await service.previewDelete('case-001');
       expect(result.canDelete).toBe(false);
@@ -1171,6 +1219,9 @@ describe('CasesService', () => {
       expect(result.reasonsIfBlocked.length).toBeGreaterThanOrEqual(3); // status + subjects + conclusions
       expect(result.reasonsIfBlocked.some((r) => /Tiếp nhận/.test(r))).toBe(true);
       expect(result.reasonsIfBlocked.some((r) => /2 đối tượng/.test(r))).toBe(true);
+      // linkedIncidents không phải reason blocker
+      expect(result.reasonsIfBlocked.some((r) => /vụ việc/.test(r))).toBe(false);
+      expect(result.willUnlink.incidents).toHaveLength(1);
     });
 
     it('throws NotFoundException khi case không tồn tại', async () => {

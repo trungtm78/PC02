@@ -192,9 +192,9 @@ test.describe('DocNum UAT — A11Y Layer 2', () => {
     // Page should be usable on mobile
     const heading = page.locator('h1, h2').first();
     await expect(heading).toBeVisible({ timeout: 8_000 });
-    // Content should not overflow horizontally
+    // Content should not overflow horizontally — assert within actual viewport width
     const bodyWidth = await page.evaluate(() => document.body.scrollWidth);
-    expect(bodyWidth).toBeLessThanOrEqual(400); // minor overflow OK
+    expect(bodyWidth).toBeLessThanOrEqual(375);
   });
 
   test('TC-DN-E2E-118: COMPAT — tablet 768px viewport', async ({ page }) => {

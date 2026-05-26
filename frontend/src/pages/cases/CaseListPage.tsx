@@ -215,6 +215,7 @@ function CaseListPage() {
     canDelete: boolean;
     blockers: Record<string, number>;
     reasonsIfBlocked: string[];
+    willUnlink?: { incidents: Array<{ id: string; code: string; name: string }> };
   } | null>(null);
   const [preflightLoading, setPreflightLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -869,7 +870,7 @@ function CaseListPage() {
         const reasonLen = deleteReason.length;
         const reasonValid = reasonLen >= 10;
         const blocked = preflight && !preflight.canDelete;
-        const canSubmit = reasonValid && !isDeleting && !blocked;
+        const canSubmit = reasonValid && !isDeleting && !blocked && !preflightLoading;
         return (
           <div
             className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
@@ -924,6 +925,21 @@ function CaseListPage() {
                     <p className="text-sm text-amber-800">
                       Vụ án sẽ bị xóa mềm (soft delete) và ghi vào nhật ký kiểm toán. Quản trị viên có thể khôi phục tại trang Khôi phục dữ liệu (/admin/khoi-phuc).
                     </p>
+                  </div>
+                )}
+
+                {/* willUnlink warning — linked incidents will be unlinked (not deleted) */}
+                {!preflightLoading && (preflight?.willUnlink?.incidents?.length ?? 0) > 0 && (
+                  <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg" data-testid="will-unlink-incidents">
+                    <p className="text-sm font-medium text-orange-800">
+                      Xóa sẽ gỡ liên kết {preflight!.willUnlink!.incidents.length} vụ việc:
+                    </p>
+                    <ul className="mt-1 list-disc list-inside text-sm text-orange-700 space-y-0.5">
+                      {preflight!.willUnlink!.incidents.map((inc) => (
+                        <li key={inc.id}>{inc.code} — {inc.name}</li>
+                      ))}
+                    </ul>
+                    <p className="mt-1 text-xs text-orange-600">Các vụ việc này vẫn tồn tại nhưng sẽ không còn gắn với vụ án.</p>
                   </div>
                 )}
 

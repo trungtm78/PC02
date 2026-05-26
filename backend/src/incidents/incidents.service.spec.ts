@@ -107,6 +107,8 @@ const mockPrisma = {
   },
   case: {
     create: jest.fn(),
+    updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+    update: jest.fn().mockResolvedValue({}),
   },
   documentNumberLog: {
     update: jest.fn().mockResolvedValue({}),
@@ -740,7 +742,7 @@ describe('IncidentsService', () => {
       expect(result.message).toMatch(/xóa/i);
       expect(mockPrisma.incident.update).toHaveBeenCalledWith({
         where: { id: 'inc-001' },
-        data: { deletedAt: expect.any(Date) },
+        data: { deletedAt: expect.any(Date), linkedCaseId: null },
       });
       expect(mockAudit.log).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -783,16 +785,55 @@ describe('IncidentsService', () => {
       ).rejects.toThrow(/tài liệu/);
     });
 
-    it('5. should reject deletion when linked to a case', async () => {
+    it('5. linkedCaseId không còn là blocker — xóa Incident thành công + SetNull INSIDE $transaction', async () => {
       mockPrisma.incident.findFirst.mockResolvedValue({
         ...deletableIncident,
         linkedCaseId: 'case-001',
         linkedCase: { id: 'case-001' },
       });
+      // Use distinct innerTx proxy to verify writes happen INSIDE transaction, not outside
+      const innerTx = {
+        case: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
+        incident: { update: jest.fn().mockResolvedValue({ ...deletableIncident, deletedAt: new Date() }) },
+      };
+      mockPrisma.$transaction.mockImplementationOnce(async (fn: any) => fn(innerTx));
 
-      await expect(
-        service.delete('inc-001', reason, 'actor-001', 'OFFICER'),
-      ).rejects.toThrow(/vụ án/);
+      const result = await service.delete('inc-001', reason, 'actor-001', 'OFFICER');
+
+      expect(result.success).toBe(true);
+      // Both writes must be inside the transaction (innerTx, not mockPrisma directly)
+      expect(innerTx.case.updateMany).toHaveBeenCalledWith({
+        where: { linkedIncidentId: 'inc-001' },
+        data: { linkedIncidentId: null },
+      });
+      expect(innerTx.incident.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ deletedAt: expect.any(Date), linkedCaseId: null }),
+        }),
+      );
+    });
+
+    it('5b. case.updateMany luôn chạy INSIDE $transaction kể cả khi linkedCaseId = null (hai direction độc lập)', async () => {
+      mockPrisma.incident.findFirst.mockResolvedValue({
+        ...deletableIncident,
+        linkedCaseId: null,
+        linkedCase: null,
+      });
+      const innerTx = {
+        case: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
+        incident: { update: jest.fn().mockResolvedValue({ ...deletableIncident, deletedAt: new Date() }) },
+      };
+      mockPrisma.$transaction.mockImplementationOnce(async (fn: any) => fn(innerTx));
+
+      const result = await service.delete('inc-001', reason, 'actor-001', 'OFFICER');
+
+      expect(result.success).toBe(true);
+      // case.updateMany vẫn phải chạy INSIDE transaction (no-op nếu không có Case match)
+      expect(innerTx.case.updateMany).toHaveBeenCalledWith({
+        where: { linkedIncidentId: 'inc-001' },
+        data: { linkedIncidentId: null },
+      });
+      expect(innerTx.incident.update).toHaveBeenCalled();
     });
 
     it('6. should reject deletion by non-creator non-admin officer', async () => {
@@ -844,6 +885,59 @@ describe('IncidentsService', () => {
       await expect(
         service.delete('nonexistent', reason, 'actor-001', 'OFFICER'),
       ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  // ── previewDelete (v0.43 — delete-preflight endpoint) ─────────────────────
+
+  describe('previewDelete (v0.43)', () => {
+    it('canDelete=true khi không có blockers; willUnlink.case = null khi không có linkedCase', async () => {
+      mockPrisma.incident.findFirst.mockResolvedValue({
+        ...mockIncident,
+        status: IncidentStatus.TIEP_NHAN,
+        petitions: [],
+        documents: [],
+        linkedCase: null,
+      });
+      const result = await service.previewDelete('inc-001');
+      expect(result.canDelete).toBe(true);
+      expect(result.reasonsIfBlocked).toEqual([]);
+      expect(result.willUnlink.case).toBeNull();
+    });
+
+    it('willUnlink.case chứa thông tin Case khi có linkedCaseId', async () => {
+      mockPrisma.incident.findFirst.mockResolvedValue({
+        ...mockIncident,
+        status: IncidentStatus.TIEP_NHAN,
+        petitions: [],
+        documents: [],
+        linkedCase: { id: 'case-001', name: 'Vu an A', caseCode: 'VA-2026-00001' },
+      });
+      const result = await service.previewDelete('inc-001');
+      expect(result.canDelete).toBe(true);
+      expect(result.willUnlink.case).toEqual({
+        id: 'case-001',
+        name: 'Vu an A',
+        caseCode: 'VA-2026-00001',
+      });
+    });
+
+    it('canDelete=false khi có petitions liên kết', async () => {
+      mockPrisma.incident.findFirst.mockResolvedValue({
+        ...mockIncident,
+        status: IncidentStatus.TIEP_NHAN,
+        petitions: [{ id: 'pet-001' }],
+        documents: [],
+        linkedCase: null,
+      });
+      const result = await service.previewDelete('inc-001');
+      expect(result.canDelete).toBe(false);
+      expect(result.blockers.petitions).toBe(1);
+    });
+
+    it('throws NotFoundException khi incident không tồn tại', async () => {
+      mockPrisma.incident.findFirst.mockResolvedValue(null);
+      await expect(service.previewDelete('nonexistent')).rejects.toThrow(NotFoundException);
     });
   });
 

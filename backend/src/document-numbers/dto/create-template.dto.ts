@@ -6,6 +6,7 @@ import {
   IsNotEmpty,
   IsIn,
   IsInt,
+  IsDefined,
   Min,
   MaxLength,
   Matches,
@@ -15,6 +16,7 @@ import {
   ValidateIf,
   registerDecorator,
   ValidationOptions,
+  ValidationArguments,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -35,6 +37,27 @@ const VALID_RESET_PERIODS = [
   'MAX_NUMBER',
 ] as const;
 
+function MinLessThanMax(validationOptions?: ValidationOptions) {
+  return (object: object, propertyName: string) =>
+    registerDecorator({
+      name: 'MinLessThanMax',
+      target: (object as any).constructor,
+      propertyName,
+      options: validationOptions,
+      validator: {
+        validate(_: any, args: ValidationArguments) {
+          const obj = args.object as CounterConfigDto;
+          return typeof obj.minValue === 'number' && typeof obj.maxValue === 'number'
+            ? obj.minValue < obj.maxValue
+            : true;
+        },
+        defaultMessage() {
+          return 'minValue must be less than maxValue';
+        },
+      },
+    });
+}
+
 export class CounterConfigDto {
   @IsString()
   @IsIn(VALID_RESET_PERIODS)
@@ -46,6 +69,7 @@ export class CounterConfigDto {
 
   @IsInt()
   @Min(1)
+  @MinLessThanMax({ message: 'maxValue must be greater than minValue' })
   maxValue: number;
 
   @IsInt()
@@ -61,11 +85,13 @@ export class SegmentDto {
   @ValidateIf((o) => o.type === 'LITERAL')
   @IsString()
   @IsNotEmpty()
+  @MaxLength(200)
   value?: string;
 
   @ValidateIf((o) => o.type === 'FORMULA')
   @IsString()
   @IsNotEmpty()
+  @MaxLength(200)
   source?: string;
 
   @IsOptional()
@@ -127,6 +153,7 @@ export class CreateTemplateDto {
   @HasAtMostOneCounter()
   segments: SegmentDto[];
 
+  @IsDefined({ message: 'counterConfig is required' })
   @ValidateNested()
   @Type(() => CounterConfigDto)
   counterConfig: CounterConfigDto;

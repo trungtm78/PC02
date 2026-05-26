@@ -566,7 +566,7 @@ export class IncidentsService {
       where: { id, deletedAt: null },
       include: {
         petitions: { where: { deletedAt: null }, select: { id: true } },
-        documents: { select: { id: true } },
+        documents: { where: { deletedAt: null }, select: { id: true } },
         linkedCase: { select: { id: true } },
       },
     });
@@ -582,7 +582,7 @@ export class IncidentsService {
       );
     }
 
-    // 3. Linked records check
+    // 3. Linked records check (petitions + documents remain blockers; linkedCaseId → SetNull v0.43)
     if (existing.petitions.length > 0) {
       throw new BadRequestException(
         `Không thể xóa: vụ việc đang liên kết ${existing.petitions.length} đơn thư`,
@@ -593,11 +593,7 @@ export class IncidentsService {
         `Không thể xóa: vụ việc có ${existing.documents.length} tài liệu đính kèm`,
       );
     }
-    if (existing.linkedCaseId) {
-      throw new BadRequestException(
-        'Không thể xóa: vụ việc đã liên kết với vụ án',
-      );
-    }
+    // linkedCaseId: SetNull on delete (not a blocker — v0.43)
 
     // 4. Creator-or-admin check
     const isCreator = existing.createdById === actorId;
@@ -624,13 +620,35 @@ export class IncidentsService {
     // 6. Write-scope check
     this.checkWriteScope(existing, dataScope);
 
-    // 7. Soft delete
-    await this.prisma.incident.update({
-      where: { id },
-      data: { deletedAt: new Date() },
-    });
+    // 7+8. Atomic transaction: SetNull + soft delete
+    // v0.43: multi-write must be atomic — wrap in $transaction
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        // Clear Case.linkedIncidentId for Cases sourced from this Incident (Branch-2 direction).
+        // Run unconditionally — no-op if no Case has linkedIncidentId = id.
+        // Two FK directions are independent: don't guard on existing.linkedCaseId.
+        await tx.case.updateMany({
+          where: { linkedIncidentId: id },
+          data: { linkedIncidentId: null },
+        });
 
-    // 8. Audit log with reason
+        // Soft delete Incident; also clear linkedCaseId on the tombstone for data hygiene
+        await tx.incident.update({
+          where: { id },
+          data: { deletedAt: new Date(), linkedCaseId: null },
+        });
+      });
+    } catch (e) {
+      const code = (e as { code?: string })?.code;
+      if (code === 'P2025') {
+        throw new BadRequestException(
+          'Vụ việc đã được chỉnh sửa hoặc xóa bởi người dùng khác. Vui lòng tải lại trang và thử lại.',
+        );
+      }
+      throw e;
+    }
+
+    // Audit log outside transaction (audit failure should not rollback delete)
     await this.audit.log({
       userId: actorId,
       action: 'INCIDENT_DELETED',
@@ -642,6 +660,7 @@ export class IncidentsService {
         reason,
         softDelete: true,
         hoursAfterCreation: Math.round(hoursElapsed),
+        unlinkedCaseId: existing.linkedCaseId ?? null,
       },
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
@@ -650,6 +669,48 @@ export class IncidentsService {
     return {
       success: true,
       message: `Đã xóa vụ việc ${existing.code}`,
+    };
+  }
+
+  // ─────────────────────────────────────────────
+  // DELETE PREFLIGHT (v0.43) — kiểm tra điều kiện xóa Vụ việc
+  // ─────────────────────────────────────────────
+  async previewDelete(id: string, dataScope?: DataScope | null) {
+    const existing = await this.prisma.incident.findFirst({
+      where: { id, deletedAt: null },
+      include: {
+        linkedCase: { select: { id: true, name: true, caseCode: true } },
+        petitions: { where: { deletedAt: null }, select: { id: true } },
+        documents: { where: { deletedAt: null }, select: { id: true } },
+      },
+    });
+    if (!existing) {
+      throw new NotFoundException(`Vụ việc không tồn tại (id: ${id})`);
+    }
+    this.checkRecordInScope(existing, dataScope);
+
+    const reasonsIfBlocked: string[] = [];
+    if (existing.status !== IncidentStatus.TIEP_NHAN) {
+      reasonsIfBlocked.push(`Trạng thái ${existing.status} không cho phép xóa.`);
+    }
+    if (existing.petitions.length > 0) {
+      reasonsIfBlocked.push(`${existing.petitions.length} đơn thư đang liên kết.`);
+    }
+    if (existing.documents.length > 0) {
+      reasonsIfBlocked.push(`${existing.documents.length} tài liệu đính kèm.`);
+    }
+
+    return {
+      canDelete: reasonsIfBlocked.length === 0,
+      status: existing.status,
+      blockers: {
+        petitions: existing.petitions.length,
+        documents: existing.documents.length,
+      },
+      willUnlink: {
+        case: existing.linkedCase ?? null,
+      },
+      reasonsIfBlocked,
     };
   }
 
