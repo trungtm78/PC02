@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.44.0.0] - 2026-05-26
+
+**Ủy Thác Điều Tra (UTDT) — module quản lý ủy thác theo Điều 171 BLTTHS 2015**
+
+Hệ thống nay quản lý được cả 3 loại hồ sơ: Vụ án (REGULAR), Vụ việc, Đơn thư — và thêm loại thứ tư: **Ủy Thác Điều Tra**. UTDT tận dụng toàn bộ infrastructure Cases hiện có (extend thành `caseType=UY_THAC_DIEU_TRA`). Không tạo module riêng — tái sử dụng form, service, filter, phân quyền.
+
+### Added
+- **Module UTDT**: danh sách 11 cột (Ngày tiếp nhận, Đơn vị giao, Số QĐ, Đối tượng nghi vấn, Tội danh, ĐTV, Thời hạn, Trạng thái phản hồi, Người nhập, Thao tác). Dòng quá hạn highlight đỏ nhạt.
+- **4 trạng thái phản hồi** (`trangThaiPhanHoi`): `Đã phản hồi` (xanh) / `Không thực hiện được` (cam) / `Quá hạn` (đỏ) / `Chưa phản hồi` (xám). Tính từ `ketQuaUyThac`, `ngayTraKetQua`, `lyDoKhongThucHienDuoc`, `thoiHanUyThac`.
+- **Form UTDT** (Tab 1, 3 section): Thông tin Ủy Thác (Điều 171 BLTTHS) / Thông tin Nguồn Đơn (TT 28/2020) / Kết quả Ủy Thác.
+- **In Mẫu 59 + Mẫu 60** (TT 119/2021/TT-BCA): component `@media print` — phân công Phó Thủ trưởng và Điều tra viên thụ lý ủy thác.
+- **Enum mới**: `CaseType` (REGULAR | UY_THAC_DIEU_TRA), `LoaiUyThac` (3 giá trị), `CaseProvenance.UY_THAC_DIEU_TRA`.
+- **9 cột mới trên bảng `cases`**: `caseType`, `donViGiao`, `soQuyetDinhUyThac`, `ngayTiepNhan`, `thoiHanUyThac`, `loaiUyThac`, `ketQuaUyThac`, `ngayTraKetQua`, `loaiThongTin` + 3 index.
+- **Feature flag `uy-thac-dieu-tra`**: tự insert trong migration SQL (`ON CONFLICT DO NOTHING`).
+- **12 TDD tests**: tạo UTDT, filter list, 4-state `computeTrangThaiPhanHoi`, 4-state `buildTrangThaiFilter` (DB WHERE), tìm kiếm metadata.
+
+### Changed
+- **KPI-3 + KPI-4**: thêm `caseType=REGULAR` vào baseWhere — UTDT không tính vào tỷ lệ khám phá án (80% / 95% chỉ tiêu).
+- **Dashboard stats + badge counts**: 6 câu query Case đều thêm `caseType=REGULAR` — UTDT không lẫn vào tổng số liệu trang chủ.
+- **Calendar events**: query deadline của Case giới hạn `caseType=REGULAR` — UTDT dùng `thoiHanUyThac` thay deadline.
+- **`trangThaiPhanHoi` filter**: dùng `@IsIn()` (không phải `@IsString()`) + `buildTrangThaiFilter()` có `default: return {}` — tránh Prisma P2009 khi nhận giá trị không hợp lệ.
+- **`/cases` mặc định**: trả về `caseType=REGULAR`; UTDT list ở route riêng (`/uy-thac-dieu-tra`).
+
 ## [0.43.0.0] - 2026-05-26
 
 **Sửa deadlock xóa vòng — Vụ án ↔ Vụ việc có thể xóa độc lập (v0.43)**
