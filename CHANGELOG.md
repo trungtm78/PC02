@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.43.0.0] - 2026-05-26
+
+**Sửa deadlock xóa vòng — Vụ án ↔ Vụ việc có thể xóa độc lập (v0.43)**
+
+Khi Case (Vụ án) tạo Incident (Vụ việc) qua Branch-3, cả hai đều bị chặn xóa: Case guards trên `linkedIncidents.length`, Incident guards trên `linkedCaseId`. Deadlock 100% ở app logic (soft delete không trigger DB cascade).
+
+### Fixed
+- **Backend — xóa Case**: bỏ guard `linkedIncidents` khỏi blocker; thay bằng atomic SetNull trong `$transaction` — `Incident.linkedCaseId → null` trước khi soft delete Case. Bỏ TOCTOU re-check cho linkedIncidents trong transaction.
+- **Backend — xóa Incident**: bỏ guard `linkedCaseId` khỏi blocker; `$transaction` clear `Case.linkedIncidentId → null` + soft delete Incident (đồng thời clear `Incident.linkedCaseId` trên tombstone để sạch dữ liệu). P2025 concurrent-delete handler.
+- **Backend — preflight Incident**: thêm `GET /incidents/:id/delete-preflight` trả về `canDelete`, `willUnlink.case`, `blockers`.
+- **Backend — preflight Case**: `willUnlink.incidents` thay `linkedIncidents` trong blockers; document filter dùng `{deletedAt:null}` match với delete().
+- **Frontend — CaseListPage**: panel cảnh báo cam khi xóa Case có linked Incidents; `canSubmit` block khi preflight đang load.
+- **Frontend — IncidentListPage**: gọi `/incidents/:id/delete-preflight` khi mở modal xóa; hiển thị Case liên kết sẽ bị gỡ; block submit khi preflightLoading.
+
+### Added
+- `GET /incidents/:id/delete-preflight` — preflight check mới cho Incident delete flow.
+
+### Changed
+- `delete-case-preflight.response.ts`: `willUnlink.incidents[]` thay `blockers.linkedIncidents`.
+- Document numbers DTO: thêm `MinLessThanMax` validator, `@MaxLength(200)` trên SegmentDto, `@IsDefined` trên counterConfig.
+
 ## [0.42.1.0] - 2026-05-25
 
 **Sửa giờ hiển thị — Luôn hiển thị giờ Việt Nam (UTC+7) trên toàn hệ thống**
