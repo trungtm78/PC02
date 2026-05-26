@@ -108,6 +108,13 @@ export class IncidentsController {
     return this.incidentsJourneyService.getJourney(id, req.dataScope ?? null, safePage, safeLimit);
   }
 
+  // GET /api/v1/incidents/:id/delete-preflight — v0.43 kiểm tra trước khi xóa
+  @Get(':id/delete-preflight')
+  @RequirePermissions({ action: 'delete', subject: 'Incident' })
+  deletePreflight(@Param('id') id: string, @Req() req: ScopedRequest) {
+    return this.incidentsService.previewDelete(id, req.dataScope);
+  }
+
   // GET /api/v1/incidents/:id — Chi tiết vụ việc
   @Get(':id')
   @RequirePermissions({ action: 'read', subject: 'Incident' })
