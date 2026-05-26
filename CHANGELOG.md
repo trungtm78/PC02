@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.44.1.0] - 2026-05-26
+
+**UTDT — form tạo/sửa ủy thác + menu "Nhập ủy thác mới"**
+
+### Added
+- **Form tạo/sửa UTDT** (`UyThacDieuTraFormPage`): form riêng cho Ủy Thác Điều Tra với 4 section (Thông tin chung / Thông tin Ủy Thác / Nguồn Đơn / Kết quả). Hỗ trợ cả create (`/uy-thac-dieu-tra/new`) và edit (`/uy-thac-dieu-tra/:id/edit`). Badge `trangThaiPhanHoi` tính live từ form state.
+- **Menu "Nhập ủy thác mới"**: sidebar UTDT nay có 2 mục — Danh sách ủy thác + Nhập ủy thác mới — đồng nhất với pattern Cases / Vụ việc / Đơn thư.
+- **Route `/uy-thac-dieu-tra/new` và `/:id/edit`**: lazy-loaded, bọc `Suspense`.
+
+### Fixed
+- **`createdBy` select TS compile error**: `fullName` không tồn tại trong Prisma `UserSelect` — đổi thành `firstName` + `lastName`. Sửa cả interface trong list page và display logic (join hai field).
+- **Navigation UTDT list**: nút "Nhập ủy thác" và Edit/View trỏ đúng route `/uy-thac-dieu-tra/*` thay vì `/cases/*`.
+
 ## [0.44.0.0] - 2026-05-26
 
 **Ủy Thác Điều Tra (UTDT) — module quản lý ủy thác theo Điều 171 BLTTHS 2015**
