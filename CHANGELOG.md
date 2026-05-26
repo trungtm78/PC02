@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.44.2.2] - 2026-05-26
+
+### Fixed
+- **UTDT delete: thiếu reason body** (P1-A): `DELETE /cases/:id` trong UyThacDieuTraListPage không gửi body `{ reason }` — backend `DeleteCaseDto` yêu cầu `@MinLength(10)` → trả về 400 cho mọi lần xóa. Fix: truyền `{ data: { reason: 'Xóa ủy thác điều tra theo yêu cầu' } }` vào `api.delete`.
+- **UTDT update: các trường UTDT không được lưu** (P1-B): `cases.service.ts update()` không đưa các field UTDT top-level (`donViGiao`, `ngayTiepNhan`, `thoiHanUyThac`, `loaiUyThac`, `ketQuaUyThac`, `ngayTraKetQua`, `soQuyetDinhUyThac`, `loaiThongTin`, `caseType`) vào `updateData` — chỉnh sửa hồ sơ UTDT bị mất dữ liệu thầm lặng. Fix: thêm 9 spread conditional fields vào update handler.
+
 ## [0.44.2.1] - 2026-05-26
 
 ### Fixed
