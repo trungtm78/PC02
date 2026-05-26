@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.44.2.0] - 2026-05-26
+
+**UTDT — tích hợp tab "Thông tin Ủy thác" vào CaseFormPage (v0.44.2.0)**
+
+### Added
+- **Tab "Thông tin Ủy thác"** trong CaseFormPage: tab xuất hiện ở vị trí thứ 2 (ngay sau "Thông tin") khi `caseProvenance === 'UY_THAC_DIEU_TRA'`. Hiển thị đầy đủ 3 section UTDT (thông tin ủy thác, nguồn đơn, kết quả) — dùng lại `CaseFormTab1UyThac`.
+- **Tiêu đề/breadcrumb theo ngữ cảnh**: CaseFormPage tự điều chỉnh title ("Ủy thác điều tra — Tạo mới" / "Chỉnh sửa ủy thác điều tra") khi mở từ flow UTDT.
+- **Bộ lọc "Trạng thái Vụ án"** trong danh sách UTDT: filter theo `status` (TIEP_NHAN, DANG_XAC_MINH, DANG_DIEU_TRA, ...) gửi lên API `?status=X`.
+- **Cột "Mã hồ sơ" (`caseCode`)** trong bảng danh sách UTDT: hiển thị ở đầu bảng với font mono màu xanh.
+- **Nút Xóa UTDT**: soft-delete `DELETE /cases/:id` với confirm dialog "Xóa ủy thác điều tra này? Hồ sơ vụ án gốc vẫn được giữ nguyên."
+- **`PageHeader`** cho màn hình danh sách UTDT — đồng bộ UX với CaseListPage / IncidentsListPage.
+
+### Changed
+- **Routes UTDT**: `/uy-thac-dieu-tra/new` → redirect về `/cases/new?caseProvenance=UY_THAC_DIEU_TRA&returnPath=/uy-thac-dieu-tra`; `/:id/edit` → redirect về `/cases/:id/edit?returnPath=/uy-thac-dieu-tra`. Form riêng `UyThacDieuTraFormPage` đã bị xóa — CaseFormPage đảm nhiệm toàn bộ.
+- **`returnPath` + `safeReturn`**: CaseFormPage đọc `?returnPath` từ URL, về đúng danh sách UTDT sau khi lưu/hủy (whitelist `/uy-thac-dieu-tra`, `/cases`).
+- **Thứ tự menu**: "Đối tượng liên quan" (`order: 101`) xuất hiện sau "Ủy Thác Điều Tra" (default 100) trong sidebar.
+- **Edit mode hydration**: `mergeCaseApiToFormData` nay hydrate đầy đủ 11 fields UTDT (top-level + metadata) — tab "Thông tin Ủy thác" không còn hiện trống khi chỉnh sửa.
+- **Validation**: `buildCreateCasePayload` báo lỗi "Đơn vị giao ủy thác là bắt buộc" khi `utdt_donViGiao` rỗng trong flow UTDT.
+
+### Removed
+- **`UyThacDieuTraFormPage.tsx`**: form standalone không còn cần thiết. Tab trong CaseFormPage thay thế hoàn toàn.
+
 ## [0.44.1.1] - 2026-05-26
 
 ### Changed
