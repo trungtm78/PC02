@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.44.2.1] - 2026-05-26
+
+### Fixed
+- **Logo trong suốt**: bỏ nền trắng logo PC02 TpHCM — favicon và login page hiển thị đúng trên mọi nền màu.
+
 ## [0.44.2.0] - 2026-05-26
 
 **UTDT — tích hợp tab "Thông tin Ủy thác" vào CaseFormPage (v0.44.2.0)**
