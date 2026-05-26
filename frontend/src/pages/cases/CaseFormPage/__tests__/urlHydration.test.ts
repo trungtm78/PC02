@@ -53,4 +53,9 @@ describe('hydrateFormFromUrl (hotfix #112 regression)', () => {
     );
     expect(hydrateFormFromUrl(params)).toEqual({});
   });
+
+  it('UTDT entry: returns { caseProvenance } khi chỉ có caseProvenance (không có linkedIncidentId)', () => {
+    const params = new URLSearchParams('caseProvenance=UY_THAC_DIEU_TRA');
+    expect(hydrateFormFromUrl(params)).toEqual({ caseProvenance: 'UY_THAC_DIEU_TRA' });
+  });
 });

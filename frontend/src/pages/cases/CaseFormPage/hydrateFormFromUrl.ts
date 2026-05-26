@@ -21,6 +21,11 @@ export function hydrateFormFromUrl(
   const linkedIncidentId = searchParams.get('linkedIncidentId');
   const urlCaseProvenance = searchParams.get('caseProvenance');
 
+  // UTDT entry path: caseProvenance standalone (no linkedIncidentId)
+  if (urlCaseProvenance && !linkedIncidentId) {
+    return { caseProvenance: urlCaseProvenance };
+  }
+
   // Optimistic lock token một mình không có ý nghĩa — cần kèm link
   if (!linkedIncidentId || !urlCaseProvenance) {
     return {};

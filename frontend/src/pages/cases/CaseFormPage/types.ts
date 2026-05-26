@@ -2,6 +2,7 @@
 
 export type TabId =
   | "info"
+  | "uy-thac"
   | "incident"
   | "case"
   | "subjects"

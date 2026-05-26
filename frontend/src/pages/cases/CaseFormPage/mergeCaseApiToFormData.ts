@@ -166,5 +166,18 @@ export function mergeCaseApiToFormData(
     stat_propertySeized:        meta.stat_propertySeized        ?? prev.stat_propertySeized,
     stat_caseTransferred:       meta.stat_caseTransferred       ?? prev.stat_caseTransferred,
     stat_reportSubmitted:       meta.stat_reportSubmitted       ?? prev.stat_reportSubmitted,
+    // UTDT top-level columns (caseProvenance=UY_THAC_DIEU_TRA)
+    utdt_loaiUyThac:            (apiData.loaiUyThac as string)            ?? prev.utdt_loaiUyThac,
+    utdt_donViGiao:             (apiData.donViGiao as string)             ?? prev.utdt_donViGiao,
+    utdt_soQuyetDinhUyThac:     (apiData.soQuyetDinhUyThac as string)     ?? prev.utdt_soQuyetDinhUyThac,
+    utdt_ngayTiepNhan:          apiData.ngayTiepNhan ? toDateInput(apiData.ngayTiepNhan as string) : prev.utdt_ngayTiepNhan,
+    utdt_thoiHanUyThac:         apiData.thoiHanUyThac ? toDateInput(apiData.thoiHanUyThac as string) : prev.utdt_thoiHanUyThac,
+    utdt_loaiThongTin:          (apiData.loaiThongTin as string)          ?? prev.utdt_loaiThongTin,
+    utdt_ketQuaUyThac:          (apiData.ketQuaUyThac as string)          ?? prev.utdt_ketQuaUyThac,
+    utdt_ngayTraKetQua:         apiData.ngayTraKetQua ? toDateInput(apiData.ngayTraKetQua as string) : prev.utdt_ngayTraKetQua,
+    // UTDT metadata fields
+    utdt_nghiVanDoiTuong:              meta.nghiVanDoiTuong              ?? prev.utdt_nghiVanDoiTuong,
+    utdt_lyDoKhongThucHienDuoc:        meta.lyDoKhongThucHienDuoc        ?? prev.utdt_lyDoKhongThucHienDuoc,
+    utdt_ngayThongBaoKhongThucHien:    meta.ngayThongBaoKhongThucHien    ?? prev.utdt_ngayThongBaoKhongThucHien,
   };
 }

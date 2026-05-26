@@ -216,6 +216,9 @@ export function buildCreateCasePayload(
     }
   } else if (formData.caseProvenance === 'UY_THAC_DIEU_TRA') {
     // v0.44 UTDT: wire top-level columns + caseType
+    if (!formData.utdt_donViGiao?.trim()) {
+      throw new Error('Đơn vị giao ủy thác là bắt buộc');
+    }
     payload.caseType = 'UY_THAC_DIEU_TRA';
     if (formData.utdt_donViGiao)         payload.donViGiao = formData.utdt_donViGiao;
     if (formData.utdt_soQuyetDinhUyThac) payload.soQuyetDinhUyThac = formData.utdt_soQuyetDinhUyThac;

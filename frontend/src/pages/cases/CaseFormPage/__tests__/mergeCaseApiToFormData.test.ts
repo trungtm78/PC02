@@ -71,3 +71,39 @@ describe('mergeCaseApiToFormData — Tab 2-9 restore from metadata', () => {
     expect(result.stat_damageAmount).toBe('2000000');
   });
 });
+
+describe('mergeCaseApiToFormData — UTDT fields (caseProvenance=UY_THAC_DIEU_TRA)', () => {
+  it('hydrates utdt_donViGiao from apiData top-level field', () => {
+    const result = mergeCaseApiToFormData(
+      { ...baseApi, caseProvenance: 'UY_THAC_DIEU_TRA', donViGiao: 'C06' },
+      INITIAL_FORM_DATA,
+    );
+    expect(result.utdt_donViGiao).toBe('C06');
+  });
+
+  it('hydrates utdt_ngayTiepNhan as date-only string from ISO datetime', () => {
+    const result = mergeCaseApiToFormData(
+      { ...baseApi, caseProvenance: 'UY_THAC_DIEU_TRA', ngayTiepNhan: '2026-05-01T00:00:00.000Z' },
+      INITIAL_FORM_DATA,
+    );
+    expect(result.utdt_ngayTiepNhan).toMatch(/^2026-05-0[12]$/); // toDateInput may adjust for timezone
+  });
+
+  it('hydrates utdt_nghiVanDoiTuong from metadata', () => {
+    const result = mergeCaseApiToFormData(
+      { ...baseApi, caseProvenance: 'UY_THAC_DIEU_TRA', metadata: { nghiVanDoiTuong: 'Đối tượng A' } },
+      INITIAL_FORM_DATA,
+    );
+    expect(result.utdt_nghiVanDoiTuong).toBe('Đối tượng A');
+  });
+
+  it('falls back to prev utdt fields when API returns null', () => {
+    const prev = { ...INITIAL_FORM_DATA, utdt_donViGiao: 'C12', utdt_loaiUyThac: 'DIEU_TRA_HINH_SU' };
+    const result = mergeCaseApiToFormData(
+      { ...baseApi, caseProvenance: 'UY_THAC_DIEU_TRA', donViGiao: null, loaiUyThac: null },
+      prev,
+    );
+    expect(result.utdt_donViGiao).toBe('C12');
+    expect(result.utdt_loaiUyThac).toBe('DIEU_TRA_HINH_SU');
+  });
+});

@@ -191,6 +191,29 @@ describe('Tab 2-9 fields wired into metadata (data-loss fix)', () => {
   });
 });
 
+describe('buildCreateCasePayload — UTDT (caseProvenance=UY_THAC_DIEU_TRA)', () => {
+  const utdtBase: CaseFormData = {
+    ...INITIAL_FORM_DATA,
+    caseCode: 'UT-2026-001',
+    receiveDate: '2026-05-26',
+    caseTitle: 'Ủy thác điều tra test',
+    caseProvenance: 'UY_THAC_DIEU_TRA',
+    utdt_donViGiao: 'C06',
+  };
+
+  it('throws validation error when utdt_donViGiao is empty for UY_THAC_DIEU_TRA', () => {
+    expect(() =>
+      buildCreateCasePayload({ ...utdtBase, utdt_donViGiao: '' })
+    ).toThrow('Đơn vị giao ủy thác là bắt buộc');
+  });
+
+  it('includes donViGiao in payload when utdt_donViGiao is set', () => {
+    const payload = buildCreateCasePayload(utdtBase);
+    expect(payload.donViGiao).toBe('C06');
+    expect(payload.caseType).toBe('UY_THAC_DIEU_TRA');
+  });
+});
+
 /**
  * v0.39 Input mask refactor — regression tests.
  * AD-1: form state lưu raw string. AD-1 + AD-2: parse tại boundary submit.
