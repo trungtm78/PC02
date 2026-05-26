@@ -257,7 +257,7 @@ export class CasesService {
             },
           },
           createdBy: {
-            select: { id: true, fullName: true },
+            select: { id: true, firstName: true, lastName: true },
           },
         },
         orderBy: { [orderByField]: sortOrder },
