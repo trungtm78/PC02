@@ -124,7 +124,7 @@ export default function UyThacDieuTraListPage() {
     if (!confirm("Xóa ủy thác điều tra này? Hồ sơ vụ án gốc vẫn được giữ nguyên.")) return;
     setDeletingId(id);
     try {
-      await api.delete(`/cases/${id}`);
+      await api.delete(`/cases/${id}`, { data: { reason: 'Xóa ủy thác điều tra theo yêu cầu' } });
       void fetchData();
     } catch {
       alert('Xóa thất bại. Vui lòng thử lại.');

@@ -887,6 +887,22 @@ export class CasesService {
       ...((dto as Record<string, unknown>).lyDoTamDinhChiText !== undefined && {
         lyDoTamDinhChiText: (dto as Record<string, unknown>).lyDoTamDinhChiText as string | null,
       }),
+      // v0.44.2 — UTDT top-level fields (persist through edit mode)
+      ...(dto.caseType !== undefined && { caseType: dto.caseType }),
+      ...(dto.donViGiao !== undefined && { donViGiao: dto.donViGiao }),
+      ...(dto.soQuyetDinhUyThac !== undefined && { soQuyetDinhUyThac: dto.soQuyetDinhUyThac }),
+      ...(dto.ngayTiepNhan !== undefined && {
+        ngayTiepNhan: dto.ngayTiepNhan ? new Date(dto.ngayTiepNhan) : null,
+      }),
+      ...(dto.thoiHanUyThac !== undefined && {
+        thoiHanUyThac: dto.thoiHanUyThac ? new Date(dto.thoiHanUyThac) : null,
+      }),
+      ...(dto.loaiUyThac !== undefined && { loaiUyThac: dto.loaiUyThac }),
+      ...(dto.ketQuaUyThac !== undefined && { ketQuaUyThac: dto.ketQuaUyThac }),
+      ...(dto.ngayTraKetQua !== undefined && {
+        ngayTraKetQua: dto.ngayTraKetQua ? new Date(dto.ngayTraKetQua) : null,
+      }),
+      ...(dto.loaiThongTin !== undefined && { loaiThongTin: dto.loaiThongTin }),
     };
 
     // Auto-set ngayTamDinhChi and increment soLanTamDinhChi when transitioning TO TAM_DINH_CHI

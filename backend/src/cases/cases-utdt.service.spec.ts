@@ -272,4 +272,84 @@ describe('UTDT — CasesService', () => {
       expect(hasMetadataSearch).toBe(true);
     });
   });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // (g) update UTDT persists top-level fields
+  // ──────────────────────────────────────────────────────────────────────────
+  describe('update UTDT fields', () => {
+    const wrapUpdateAudit = {
+      log: jest.fn().mockResolvedValue(undefined),
+      wrapUpdate: jest.fn(async (opts: any) => {
+        await opts.fetchFn();
+        const after = await opts.updateFn();
+        return after;
+      }),
+    };
+
+    it('(g) persists donViGiao and ngayTiepNhan when updating a UTDT case', async () => {
+      const updated = { ...baseCase, donViGiao: 'PC02', ngayTiepNhan: new Date('2026-07-01') };
+      mockPrisma.case.findFirst.mockResolvedValue({ ...baseCase });
+      mockPrisma.case.findUnique.mockResolvedValue(updated);
+      mockPrisma.case.update.mockResolvedValue(updated);
+
+      const module2 = await Test.createTestingModule({
+        providers: [
+          CasesService,
+          { provide: PrismaService, useValue: mockPrisma },
+          { provide: AuditService, useValue: wrapUpdateAudit },
+          { provide: SettingsService, useValue: mockSettings },
+          { provide: DocumentNumbersService, useValue: mockDocNumbers },
+        ],
+      }).compile();
+      const svc2 = module2.get(CasesService);
+
+      await svc2.update(
+        'case-utdt-001',
+        { donViGiao: 'PC02', ngayTiepNhan: '2026-07-01' } as any,
+        'user-001',
+      );
+
+      expect(mockPrisma.case.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            donViGiao: 'PC02',
+            ngayTiepNhan: new Date('2026-07-01'),
+          }),
+        }),
+      );
+    });
+
+    it('(h) persists ketQuaUyThac and ngayTraKetQua when updating UTDT result', async () => {
+      const updated = { ...baseCase, ketQuaUyThac: 'Đã xác minh', ngayTraKetQua: new Date('2026-06-15') };
+      mockPrisma.case.findFirst.mockResolvedValue({ ...baseCase });
+      mockPrisma.case.findUnique.mockResolvedValue(updated);
+      mockPrisma.case.update.mockResolvedValue(updated);
+
+      const module3 = await Test.createTestingModule({
+        providers: [
+          CasesService,
+          { provide: PrismaService, useValue: mockPrisma },
+          { provide: AuditService, useValue: wrapUpdateAudit },
+          { provide: SettingsService, useValue: mockSettings },
+          { provide: DocumentNumbersService, useValue: mockDocNumbers },
+        ],
+      }).compile();
+      const svc3 = module3.get(CasesService);
+
+      await svc3.update(
+        'case-utdt-001',
+        { ketQuaUyThac: 'Đã xác minh', ngayTraKetQua: '2026-06-15' } as any,
+        'user-001',
+      );
+
+      expect(mockPrisma.case.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            ketQuaUyThac: 'Đã xác minh',
+            ngayTraKetQua: new Date('2026-06-15'),
+          }),
+        }),
+      );
+    });
+  });
 });
