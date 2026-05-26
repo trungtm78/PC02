@@ -322,6 +322,8 @@ export class DocumentNumbersService {
   }
 
   createTemplate(dto: CreateTemplateDto, userId: string) {
+    // Cast required: segments/counterConfig are typed DTO classes, but Prisma stores them as Json.
+    // TypeScript can't reconcile the two types; Prisma runtime ignores any unexpected extra fields.
     return this.prisma.documentNumberTemplate.create({
       data: { ...(dto as any), createdById: userId },
     });
@@ -330,6 +332,7 @@ export class DocumentNumbersService {
   async updateTemplate(id: string, dto: UpdateTemplateDto) {
     const existing = await this.prisma.documentNumberTemplate.findFirst({ where: { id } });
     if (!existing) throw new NotFoundException(`Template not found: ${id}`);
+    // Same Json column cast — see createTemplate comment above.
     return this.prisma.documentNumberTemplate.update({ where: { id }, data: dto as any });
   }
 

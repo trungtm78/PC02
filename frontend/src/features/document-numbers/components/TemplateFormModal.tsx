@@ -2,15 +2,7 @@ import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { SegmentBuilder } from './SegmentBuilder';
 import type { DocumentNumberTemplate, TemplateSegment, CounterConfig, CreateTemplateInput } from '../types';
-
-const DOCUMENT_TYPES = [
-  'INCIDENT',
-  'PETITION',
-  'CASE',
-  'PROPOSAL',
-  'DELEGATION',
-  'EVIDENCE',
-];
+import { DOCUMENT_TYPES } from '@/shared/enums/document-types';
 
 const RESET_PERIOD_OPTIONS = [
   { value: 'YEARLY', label: 'Hàng năm' },
@@ -51,7 +43,6 @@ export function TemplateFormModal({ template, onClose, onSave, isSaving }: Props
 
   const [name, setName] = useState('');
   const [documentType, setDocumentType] = useState('INCIDENT');
-  const [customDocType, setCustomDocType] = useState('');
   const [separator, setSeparator] = useState('-');
   const [inputMode, setInputMode] = useState('AUTO');
   const [isActive, setIsActive] = useState(true);
@@ -61,9 +52,7 @@ export function TemplateFormModal({ template, onClose, onSave, isSaving }: Props
   useEffect(() => {
     if (template) {
       setName(template.name);
-      const isKnown = DOCUMENT_TYPES.includes(template.documentType);
-      setDocumentType(isKnown ? template.documentType : '__custom__');
-      setCustomDocType(isKnown ? '' : template.documentType);
+      setDocumentType(template.documentType);
       setSeparator(template.separator);
       setInputMode(template.inputMode);
       setIsActive(template.isActive);
@@ -74,12 +63,10 @@ export function TemplateFormModal({ template, onClose, onSave, isSaving }: Props
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const resolvedDocType = documentType === '__custom__' ? customDocType.trim() : documentType;
-    if (!resolvedDocType) return;
 
     const data: CreateTemplateInput = {
       name: name.trim(),
-      documentType: resolvedDocType,
+      documentType,
       separator,
       inputMode,
       isActive,
@@ -137,28 +124,15 @@ export function TemplateFormModal({ template, onClose, onSave, isSaving }: Props
                 value={template.documentType}
               />
             ) : (
-              <div className="flex gap-2">
-                <select
-                  className="flex-1 px-3 py-2 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  value={documentType}
-                  onChange={(e) => setDocumentType(e.target.value)}
-                >
-                  {DOCUMENT_TYPES.map((dt) => (
-                    <option key={dt} value={dt}>{dt}</option>
-                  ))}
-                  <option value="__custom__">Tùy chỉnh…</option>
-                </select>
-                {documentType === '__custom__' && (
-                  <input
-                    type="text"
-                    required
-                    className="flex-1 px-3 py-2 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                    value={customDocType}
-                    onChange={(e) => setCustomDocType(e.target.value)}
-                    placeholder="Loại chứng từ tùy chỉnh"
-                  />
-                )}
-              </div>
+              <select
+                className="w-full px-3 py-2 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                value={documentType}
+                onChange={(e) => setDocumentType(e.target.value)}
+              >
+                {DOCUMENT_TYPES.map((dt) => (
+                  <option key={dt} value={dt}>{dt}</option>
+                ))}
+              </select>
             )}
           </div>
 
