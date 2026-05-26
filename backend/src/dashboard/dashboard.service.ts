@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CaseStatus, IncidentStatus, PetitionStatus, SubjectType } from '@prisma/client';
+import { CaseStatus, CaseType, IncidentStatus, PetitionStatus, SubjectType } from '@prisma/client';
 
 @Injectable()
 export class DashboardService {
@@ -18,12 +18,13 @@ export class DashboardService {
       totalIncidents,
       totalPetitions,
     ] = await Promise.all([
-      // Tổng vụ án active
-      this.prisma.case.count({ where: { deletedAt: null } }),
+      // Tổng vụ án active (REGULAR only — v0.44: exclude UTDT)
+      this.prisma.case.count({ where: { deletedAt: null, caseType: CaseType.REGULAR } }),
       // Vụ án mới trong tháng này
       this.prisma.case.count({
         where: {
           deletedAt: null,
+          caseType: CaseType.REGULAR,
           createdAt: {
             gte: new Date(now.getFullYear(), now.getMonth(), 1),
           },
@@ -33,6 +34,7 @@ export class DashboardService {
       this.prisma.case.count({
         where: {
           deletedAt: null,
+          caseType: CaseType.REGULAR,
           deadline: { lt: now },
           status: {
             notIn: [
@@ -48,6 +50,7 @@ export class DashboardService {
       this.prisma.case.count({
         where: {
           deletedAt: null,
+          caseType: CaseType.REGULAR,
           status: {
             in: [CaseStatus.DA_KET_LUAN, CaseStatus.DA_LUU_TRU, CaseStatus.DINH_CHI],
           },
@@ -156,8 +159,8 @@ export class DashboardService {
       incidentCount,
       overdueCasesCount,
     ] = await Promise.all([
-      // Danh sách vụ án: tổng vụ án đang active
-      this.prisma.case.count({ where: { deletedAt: null } }),
+      // Danh sách vụ án: tổng vụ án đang active (REGULAR only — v0.44: exclude UTDT)
+      this.prisma.case.count({ where: { deletedAt: null, caseType: CaseType.REGULAR } }),
       // Bị can / Bị cáo: đang điều tra
       this.prisma.subject.count({
         where: {
@@ -183,10 +186,11 @@ export class DashboardService {
           },
         },
       }),
-      // Hồ sơ trễ hạn
+      // Hồ sơ trễ hạn (REGULAR only — v0.44: exclude UTDT)
       this.prisma.case.count({
         where: {
           deletedAt: null,
+          caseType: CaseType.REGULAR,
           deadline: { lt: now },
           status: {
             notIn: [

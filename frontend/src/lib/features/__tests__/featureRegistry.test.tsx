@@ -5,7 +5,7 @@ import { FEATURE_MODULES, getFeatureModule } from '../featureRegistry';
 type RouteElement = ReactElement<{ path?: string }>;
 
 describe('FEATURE_MODULES registry', () => {
-  it('auto-discovers all 22 expected features', () => {
+  it('auto-discovers all 23 expected features', () => {
     const expected = [
       'admin',
       'admin-units', // v0.34.0.0 — read-only browser cho Tỉnh/Phường
@@ -28,6 +28,7 @@ describe('FEATURE_MODULES registry', () => {
       'settings',
       'subjects',
       'teams',
+      'uy-thac-dieu-tra', // v0.44 — Ủy Thác Điều Tra
       'workflow',
     ];
     const actual = FEATURE_MODULES.map((f) => f.manifest.key).sort();

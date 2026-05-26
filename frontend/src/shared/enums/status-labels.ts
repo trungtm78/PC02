@@ -3,7 +3,10 @@
  * Source of truth: Prisma schema (via generated.ts).
  * Used by: ComprehensiveListPage, and any future aggregate or detail view.
  */
-import { CaseStatus, IncidentStatus, PetitionStatus, LyDoKhongKhoiTo, LoaiNguonTin, NguonPhatTin, PhuongThucTiepNhan, DeadlineRuleStatus, LoaiDon } from './generated';
+import { CaseStatus, IncidentStatus, PetitionStatus, LyDoKhongKhoiTo, LoaiNguonTin, NguonPhatTin, PhuongThucTiepNhan, DeadlineRuleStatus, LoaiDon, CaseType, LoaiUyThac } from './generated';
+
+// ── v0.44 UTDT types ─────────────────────────────────────────────
+export type TrangThaiPhanHoi = 'DA_PHAN_HOI' | 'KHONG_THUC_HIEN_DUOC' | 'QUA_HAN' | 'CHUA_PHAN_HOI';
 
 // ── Vietnamese labels ───────────────────────────────────────────
 
@@ -267,6 +270,56 @@ export const DEADLINE_RULE_KEY_LABEL: Record<string, string> = {
   THOI_HAN_KHIEU_NAI:       'Thời hạn giải quyết khiếu nại',
   THOI_HAN_KIEN_NGHI:       'Thời hạn xử lý kiến nghị',
   THOI_HAN_PHAN_ANH:        'Thời hạn xử lý phản ánh',
+};
+
+// ── v0.44 UTDT — TrangThaiPhanHoi (4 states, computed) ──────────────────────
+
+export const TRANG_THAI_PHAN_HOI_LABEL: Record<TrangThaiPhanHoi, string> = {
+  DA_PHAN_HOI:          'Đã phản hồi',
+  KHONG_THUC_HIEN_DUOC: 'Không thực hiện được',
+  QUA_HAN:              'Quá hạn',
+  CHUA_PHAN_HOI:        'Chưa phản hồi',
+};
+
+export const TRANG_THAI_PHAN_HOI_BADGE: Record<TrangThaiPhanHoi, string> = {
+  DA_PHAN_HOI:          'text-xs px-1.5 py-0.5 rounded bg-green-100 text-green-700',
+  KHONG_THUC_HIEN_DUOC: 'text-xs px-1.5 py-0.5 rounded bg-orange-100 text-orange-700',
+  QUA_HAN:              'text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-700',
+  CHUA_PHAN_HOI:        'text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-600',
+};
+
+export const TRANG_THAI_PHAN_HOI_OPTIONS: ReadonlyArray<{ value: TrangThaiPhanHoi; label: string }> = [
+  { value: 'DA_PHAN_HOI',          label: TRANG_THAI_PHAN_HOI_LABEL.DA_PHAN_HOI },
+  { value: 'KHONG_THUC_HIEN_DUOC', label: TRANG_THAI_PHAN_HOI_LABEL.KHONG_THUC_HIEN_DUOC },
+  { value: 'QUA_HAN',              label: TRANG_THAI_PHAN_HOI_LABEL.QUA_HAN },
+  { value: 'CHUA_PHAN_HOI',        label: TRANG_THAI_PHAN_HOI_LABEL.CHUA_PHAN_HOI },
+];
+
+// ── v0.44 UTDT — LoaiUyThac ───────────────────────────────────────
+
+export const LOAI_UY_THAC_LABEL: Record<LoaiUyThac, string> = {
+  [LoaiUyThac.UY_THAC_DIEU_TRA]:     'Ủy thác điều tra',
+  [LoaiUyThac.CHUYEN_DON_NGUON_TIN]: 'Chuyển đơn nguồn tin',
+  [LoaiUyThac.UY_THAC_GIAI_QUYET]:   'Ủy thác giải quyết',
+};
+
+export const LOAI_UY_THAC_BADGE: Record<LoaiUyThac, string> = {
+  [LoaiUyThac.UY_THAC_DIEU_TRA]:     'text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-700',
+  [LoaiUyThac.CHUYEN_DON_NGUON_TIN]: 'text-xs px-1.5 py-0.5 rounded bg-violet-100 text-violet-700',
+  [LoaiUyThac.UY_THAC_GIAI_QUYET]:   'text-xs px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700',
+};
+
+export const LOAI_UY_THAC_OPTIONS: ReadonlyArray<{ value: LoaiUyThac; label: string }> = [
+  { value: LoaiUyThac.UY_THAC_DIEU_TRA,     label: LOAI_UY_THAC_LABEL[LoaiUyThac.UY_THAC_DIEU_TRA] },
+  { value: LoaiUyThac.CHUYEN_DON_NGUON_TIN, label: LOAI_UY_THAC_LABEL[LoaiUyThac.CHUYEN_DON_NGUON_TIN] },
+  { value: LoaiUyThac.UY_THAC_GIAI_QUYET,   label: LOAI_UY_THAC_LABEL[LoaiUyThac.UY_THAC_GIAI_QUYET] },
+];
+
+// ── v0.44 UTDT — CaseType ────────────────────────────────────────
+
+export const CASE_TYPE_LABEL: Record<CaseType, string> = {
+  [CaseType.REGULAR]:           'Vụ án thông thường',
+  [CaseType.UY_THAC_DIEU_TRA]: 'Ủy thác điều tra',
 };
 
 export const DEADLINE_RULE_KEY_UNIT: Record<string, string> = {

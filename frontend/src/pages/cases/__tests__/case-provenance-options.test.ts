@@ -1,12 +1,13 @@
 /**
  * v0.37.1 — CASE_PROVENANCE_OPTIONS test
  * v0.37.2 — Expanded to 7 options (+ SELF_SURRENDER, PROSECUTOR_PROPOSAL per BLTTHS Đ.143 điểm d, đ)
+ * v0.44   — Expanded to 8 options (+ UY_THAC_DIEU_TRA per Điều 171 BLTTHS 2015)
  *
  * Plan v2.4 Decision 1A: Card riêng "Nguồn vụ án (BLTTHS Đ.143)" có dropdown
  * options. Mỗi option có label Vietnamese + helper text giải thích pháp lý.
  *
  * This test enforces:
- *   1. All 7 CaseProvenance enum values are present in options
+ *   1. All 8 CaseProvenance enum values are present in options
  *   2. Each option has non-empty Vietnamese label
  *   3. Each option has helperText referencing legal basis
  *   4. Order: FROM_PETITION first (most common per BLTTHS Đ.143 nghiệp vụ)
@@ -17,7 +18,7 @@ import { CASE_PROVENANCE_OPTIONS } from '../CaseFormPage/constants';
 import { CaseProvenance } from '@/shared/enums/generated';
 
 describe('CASE_PROVENANCE_OPTIONS (v0.37.1 Nguồn vụ án dropdown)', () => {
-  it('contains all 7 CaseProvenance enum values', () => {
+  it('contains all 8 CaseProvenance enum values', () => {
     const values = CASE_PROVENANCE_OPTIONS.map((o) => o.value);
     expect(values).toContain(CaseProvenance.FROM_PETITION);
     expect(values).toContain(CaseProvenance.FROM_INCIDENT);
@@ -26,12 +27,13 @@ describe('CASE_PROVENANCE_OPTIONS (v0.37.1 Nguồn vụ án dropdown)', () => {
     expect(values).toContain(CaseProvenance.SELF_SURRENDER);
     expect(values).toContain(CaseProvenance.PROSECUTOR_PROPOSAL);
     expect(values).toContain(CaseProvenance.OTHER_LEGAL_SOURCE);
+    expect(values).toContain(CaseProvenance.UY_THAC_DIEU_TRA); // v0.44
   });
 
-  it('has exactly 7 options (no extras, no duplicates)', () => {
-    expect(CASE_PROVENANCE_OPTIONS).toHaveLength(7);
+  it('has exactly 8 options (no extras, no duplicates)', () => {
+    expect(CASE_PROVENANCE_OPTIONS).toHaveLength(8);
     const uniqueValues = new Set(CASE_PROVENANCE_OPTIONS.map((o) => o.value));
-    expect(uniqueValues.size).toBe(7);
+    expect(uniqueValues.size).toBe(8);
   });
 
   it('every option has non-empty Vietnamese label', () => {
@@ -52,8 +54,8 @@ describe('CASE_PROVENANCE_OPTIONS (v0.37.1 Nguồn vụ án dropdown)', () => {
     expect(CASE_PROVENANCE_OPTIONS[0].value).toBe(CaseProvenance.FROM_PETITION);
   });
 
-  it('OTHER_LEGAL_SOURCE is last (catch-all)', () => {
+  it('UY_THAC_DIEU_TRA is last (v0.44 — special legal provenance, Điều 171)', () => {
     const last = CASE_PROVENANCE_OPTIONS[CASE_PROVENANCE_OPTIONS.length - 1];
-    expect(last.value).toBe(CaseProvenance.OTHER_LEGAL_SOURCE);
+    expect(last.value).toBe(CaseProvenance.UY_THAC_DIEU_TRA);
   });
 });

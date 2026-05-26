@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { IncidentStatus, CaseStatus, CapDoToiPham, Prisma } from '@prisma/client';
+import { IncidentStatus, CaseStatus, CapDoToiPham, CaseType, Prisma } from '@prisma/client';
 import { QueryKpiDto } from './dto/query-kpi.dto';
 
 // ─── KPI constants ────────────────────────────────────────────────────────────
@@ -184,6 +184,7 @@ export class KpiService {
 
     const baseWhere: Prisma.CaseWhereInput = {
       deletedAt: null,
+      caseType: CaseType.REGULAR, // v0.44: exclude UTDT records from KPI
       createdAt: dateRange,
       ...(query.teamId ? { assignedTeamId: query.teamId } : {}),
     };
@@ -222,6 +223,7 @@ export class KpiService {
 
     const baseWhere: Prisma.CaseWhereInput = {
       deletedAt: null,
+      caseType: CaseType.REGULAR, // v0.44: exclude UTDT records from KPI
       createdAt: dateRange,
       ...(query.teamId ? { assignedTeamId: query.teamId } : {}),
       capDoToiPham: { in: [CapDoToiPham.RAT_NGHIEM_TRONG, CapDoToiPham.DAC_BIET_NGHIEM_TRONG] },

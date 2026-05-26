@@ -46,6 +46,16 @@ export interface CreateCasePayload {
   linkedIncidentId?: string;
   expectedIncidentUpdatedAt?: string;
   sourceDocumentNote?: string;
+  // v0.44 UTDT fields (top-level columns)
+  caseType?: string;
+  donViGiao?: string;
+  soQuyetDinhUyThac?: string;
+  ngayTiepNhan?: string;
+  thoiHanUyThac?: string;
+  loaiUyThac?: string;
+  ketQuaUyThac?: string;
+  ngayTraKetQua?: string;
+  loaiThongTin?: string;
   metadata: Record<string, unknown>;
   // PR 1 v0.38.0.0 — Atomic sub-entity arrays (fix bug data-loss)
   subjects?: SubjectPayload[];
@@ -204,6 +214,21 @@ export function buildCreateCasePayload(
     if (formData.expectedIncidentUpdatedAt) {
       payload.expectedIncidentUpdatedAt = formData.expectedIncidentUpdatedAt;
     }
+  } else if (formData.caseProvenance === 'UY_THAC_DIEU_TRA') {
+    // v0.44 UTDT: wire top-level columns + caseType
+    payload.caseType = 'UY_THAC_DIEU_TRA';
+    if (formData.utdt_donViGiao)         payload.donViGiao = formData.utdt_donViGiao;
+    if (formData.utdt_soQuyetDinhUyThac) payload.soQuyetDinhUyThac = formData.utdt_soQuyetDinhUyThac;
+    if (formData.utdt_ngayTiepNhan)      payload.ngayTiepNhan = formData.utdt_ngayTiepNhan;
+    if (formData.utdt_thoiHanUyThac)     payload.thoiHanUyThac = formData.utdt_thoiHanUyThac;
+    if (formData.utdt_loaiUyThac)        payload.loaiUyThac = formData.utdt_loaiUyThac;
+    if (formData.utdt_ketQuaUyThac)      payload.ketQuaUyThac = formData.utdt_ketQuaUyThac;
+    if (formData.utdt_ngayTraKetQua)     payload.ngayTraKetQua = formData.utdt_ngayTraKetQua;
+    if (formData.utdt_loaiThongTin)      payload.loaiThongTin = formData.utdt_loaiThongTin;
+    // Store additional UTDT metadata fields
+    if (formData.utdt_nghiVanDoiTuong)               payload.metadata.nghiVanDoiTuong = formData.utdt_nghiVanDoiTuong;
+    if (formData.utdt_lyDoKhongThucHienDuoc)         payload.metadata.lyDoKhongThucHienDuoc = formData.utdt_lyDoKhongThucHienDuoc;
+    if (formData.utdt_ngayThongBaoKhongThucHien)     payload.metadata.ngayThongBaoKhongThucHien = formData.utdt_ngayThongBaoKhongThucHien;
   } else if (formData.sourceDocumentNote) {
     payload.sourceDocumentNote = formData.sourceDocumentNote;
   }

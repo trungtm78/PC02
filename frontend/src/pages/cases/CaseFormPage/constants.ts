@@ -47,6 +47,11 @@ export const CASE_PROVENANCE_OPTIONS: CaseProvenanceOption[] = [
     label: 'Nguồn pháp lý khác',
     helperText: 'Căn cứ pháp lý hợp pháp khác (báo chí, tin báo của công dân ngoài đơn thư, ...). Ghi rõ căn cứ trong "Ghi chú nguồn".',
   },
+  {
+    value: CaseProvenance.UY_THAC_DIEU_TRA,
+    label: 'Ủy thác điều tra',
+    helperText: 'CQĐT nhận ủy thác điều tra từ đơn vị khác theo Điều 171 BLTTHS 2015. Điền đầy đủ thông tin ủy thác ở phần bên dưới.',
+  },
 ];
 
 export const PRIORITY_OPTIONS = [

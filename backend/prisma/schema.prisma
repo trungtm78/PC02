@@ -327,8 +327,25 @@ enum CaseProvenance {
   SELF_SURRENDER // v0.37.2 — Người phạm tội tự thú (Đ.143 điểm d)
   PROSECUTOR_PROPOSAL // v0.37.2 — Kiến nghị khởi tố của VKS (Đ.143 điểm đ)
   OTHER_LEGAL_SOURCE // Nguồn pháp lý khác (catch-all cho căn cứ ngoài 6 mục Đ.143)
+  UY_THAC_DIEU_TRA // v0.44 — Ủy thác điều tra (Điều 171 BLTTHS 2015)
 
   @@map("case_provenance")
+}
+
+// v0.44 — Ủy Thác Điều Tra (UTDT) enums
+enum CaseType {
+  REGULAR // Vụ án thông thường (mặc định)
+  UY_THAC_DIEU_TRA // Ủy thác điều tra nhận từ đơn vị khác (Điều 171 BLTTHS 2015)
+
+  @@map("case_type")
+}
+
+enum LoaiUyThac {
+  UY_THAC_DIEU_TRA // Điều 171 BLTTHS — ủy thác điều tra trực tiếp
+  CHUYEN_DON_NGUON_TIN // TT 28/2020 — chuyển đơn/nguồn tin tố giác
+  UY_THAC_GIAI_QUYET // Ủy thác giải quyết đơn thư khiếu nại
+
+  @@map("loai_uy_thac")
 }
 
 enum CapDoToiPham {
@@ -513,6 +530,17 @@ model Case {
   vksMeetings     VksMeetingRecord[]
   actionPlans     SuspensionActionPlan[]
 
+  // v0.44 — Ủy Thác Điều Tra fields (nullable, chỉ relevant khi caseType = UY_THAC_DIEU_TRA)
+  caseType            CaseType    @default(REGULAR)
+  donViGiao           String?     // Tên CQĐT/đơn vị ủy thác (PC01, CA quận X...)
+  soQuyetDinhUyThac   String?     // Số QĐ/Phiếu ủy thác từ đơn vị giao (Mẫu 58 TT119/2021)
+  ngayTiepNhan        DateTime?   // Ngày tiếp nhận theo biên bản
+  thoiHanUyThac       DateTime?   // Thời hạn thực hiện do đơn vị giao yêu cầu
+  loaiUyThac          LoaiUyThac? // Loại ủy thác (closed-set enum)
+  ketQuaUyThac        String?     // Kết quả điều tra
+  ngayTraKetQua       DateTime?   // Ngày trả kết quả về đơn vị ủy thác
+  loaiThongTin        String?     // Tố giác / Trình báo / Đề nghị / Kiến nghị...
+
   @@index([status])
   @@index([deadline])
   @@index([deletedAt])
@@ -524,6 +552,9 @@ model Case {
   @@index([caseProvenance]) // v0.37.1
   @@index([linkedPetitionId]) // v0.37.1
   @@index([linkedIncidentId]) // v0.37.1
+  @@index([caseType]) // v0.44
+  @@index([thoiHanUyThac]) // v0.44
+  @@index([donViGiao]) // v0.44
   @@map("cases")
 }
 

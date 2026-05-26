@@ -15,7 +15,8 @@ import { UpdateCaseDto } from './dto/update-case.dto';
 import { QueryCasesDto } from './dto/query-cases.dto';
 import { AssignCaseDto } from './dto/assign-case.dto';
 import type { DeleteCasePreflightResponse } from './dto/delete-case-preflight.response';
-import { Prisma, CaseStatus, PetitionStatus, LoaiDon, CapDoToiPham, LyDoTamDinhChiVuAn, KetQuaPhucHoiVuAn, CaseProvenance, SubjectType } from '@prisma/client';
+import { Prisma, CaseStatus, PetitionStatus, LoaiDon, CapDoToiPham, LyDoTamDinhChiVuAn, KetQuaPhucHoiVuAn, CaseProvenance, SubjectType, CaseType } from '@prisma/client';
+import { TrangThaiPhanHoi } from './dto/query-cases.dto';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { buildScopeFilter } from '../common/utils/scope-filter.util';
 import { buildIncidentFromCase, shouldAutoCreateIncident } from '../common/utils/incident-factory.util';
@@ -27,6 +28,58 @@ import { SETTINGS_KEY } from '../common/constants/settings-keys.constants';
 
 type JsonInput = Prisma.InputJsonValue;
 type PrismaTx = Prisma.TransactionClient;
+
+// ─── UTDT pure helpers (exported for testing) ────────────────────────────────
+
+type ComputeInput = {
+  ketQuaUyThac: string | null;
+  ngayTraKetQua: Date | null;
+  thoiHanUyThac: Date | null;
+  metadata: Record<string, unknown> | null | unknown;
+};
+
+export function computeTrangThaiPhanHoi(c: ComputeInput): TrangThaiPhanHoi {
+  const meta = c.metadata as Record<string, unknown> | null;
+  if (meta?.lyDoKhongThucHienDuoc) return 'KHONG_THUC_HIEN_DUOC';
+  if (c.ketQuaUyThac && c.ngayTraKetQua) return 'DA_PHAN_HOI';
+  if (c.thoiHanUyThac && new Date() > c.thoiHanUyThac) return 'QUA_HAN';
+  return 'CHUA_PHAN_HOI';
+}
+
+export function buildTrangThaiFilter(state: TrangThaiPhanHoi): Prisma.CaseWhereInput {
+  switch (state) {
+    case 'DA_PHAN_HOI':
+      return { ketQuaUyThac: { not: null }, ngayTraKetQua: { not: null } };
+    case 'KHONG_THUC_HIEN_DUOC':
+      return {
+        metadata: {
+          path: ['lyDoKhongThucHienDuoc'],
+          not: Prisma.JsonNull,
+        },
+      };
+    case 'QUA_HAN':
+      return {
+        thoiHanUyThac: { lt: new Date() },
+        ketQuaUyThac: null,
+        metadata: {
+          path: ['lyDoKhongThucHienDuoc'],
+          equals: Prisma.JsonNull,
+        },
+      };
+    case 'CHUA_PHAN_HOI':
+      return {
+        NOT: [
+          { ketQuaUyThac: { not: null }, ngayTraKetQua: { not: null } },
+          { metadata: { path: ['lyDoKhongThucHienDuoc'], not: Prisma.JsonNull } },
+          { thoiHanUyThac: { lt: new Date() }, ketQuaUyThac: null },
+        ],
+      };
+    default:
+      return {};
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 @Injectable()
 export class CasesService {
@@ -53,6 +106,10 @@ export class CasesService {
       wardId,
       wardTeamId,
       capDoToiPham,
+      caseType,
+      donViGiao,
+      loaiUyThac,
+      trangThaiPhanHoi,
       limit = 20,
       offset = 0,
       sortBy = 'createdAt',
@@ -60,14 +117,24 @@ export class CasesService {
     } = query;
 
     const where: Prisma.CaseWhereInput = {
-      deletedAt: null, // Only non-deleted records
+      deletedAt: null,
+      // Default REGULAR filter — UTDT records only visible when caseType=UY_THAC_DIEU_TRA
+      caseType: caseType ?? CaseType.REGULAR,
     };
 
     if (search) {
+      const isUtdt = (caseType ?? CaseType.REGULAR) === CaseType.UY_THAC_DIEU_TRA;
       where.OR = [
         { name: { contains: search, mode: 'insensitive' } },
         { crime: { contains: search, mode: 'insensitive' } },
         { unit: { contains: search, mode: 'insensitive' } },
+        ...(isUtdt
+          ? [
+              { donViGiao: { contains: search, mode: 'insensitive' as const } },
+              { soQuyetDinhUyThac: { contains: search, mode: 'insensitive' as const } },
+              { metadata: { path: ['nghiVanDoiTuong'], string_contains: search } },
+            ]
+          : []),
       ];
     }
 
@@ -107,6 +174,21 @@ export class CasesService {
 
     if (capDoToiPham) {
       where.capDoToiPham = capDoToiPham;
+    }
+
+    // v0.44 — UTDT-specific filters
+    if (donViGiao) {
+      where.donViGiao = { contains: donViGiao, mode: 'insensitive' };
+    }
+    if (loaiUyThac) {
+      where.loaiUyThac = loaiUyThac;
+    }
+    if (trangThaiPhanHoi) {
+      const stateFilter = buildTrangThaiFilter(trangThaiPhanHoi);
+      where.AND = [
+        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+        stateFilter,
+      ];
     }
 
     // Filter theo quận/huyện hoặc phường/xã (qua subjects)
@@ -156,6 +238,16 @@ export class CasesService {
           subjectsCount: true,
           createdAt: true,
           updatedAt: true,
+          caseType: true,
+          donViGiao: true,
+          soQuyetDinhUyThac: true,
+          ngayTiepNhan: true,
+          thoiHanUyThac: true,
+          loaiUyThac: true,
+          ketQuaUyThac: true,
+          ngayTraKetQua: true,
+          loaiThongTin: true,
+          metadata: true,
           investigator: {
             select: {
               id: true,
@@ -163,6 +255,9 @@ export class CasesService {
               lastName: true,
               username: true,
             },
+          },
+          createdBy: {
+            select: { id: true, fullName: true },
           },
         },
         orderBy: { [orderByField]: sortOrder },
@@ -436,6 +531,16 @@ export class CasesService {
       ...(scrubbedMetadata !== undefined && { metadata: scrubbedMetadata as JsonInput }),
       caseProvenance: effectiveProvenance, // v0.37.2: required (Contract phase enforces non-null)
       ...(dto.sourceDocumentNote !== undefined && { sourceDocumentNote: dto.sourceDocumentNote }),
+      // v0.44 — UTDT fields
+      ...(dto.caseType !== undefined && { caseType: dto.caseType }),
+      ...(dto.donViGiao !== undefined && { donViGiao: dto.donViGiao }),
+      ...(dto.soQuyetDinhUyThac !== undefined && { soQuyetDinhUyThac: dto.soQuyetDinhUyThac }),
+      ...(dto.ngayTiepNhan !== undefined && { ngayTiepNhan: new Date(dto.ngayTiepNhan) }),
+      ...(dto.thoiHanUyThac !== undefined && { thoiHanUyThac: new Date(dto.thoiHanUyThac) }),
+      ...(dto.loaiUyThac !== undefined && { loaiUyThac: dto.loaiUyThac }),
+      ...(dto.ketQuaUyThac !== undefined && { ketQuaUyThac: dto.ketQuaUyThac }),
+      ...(dto.ngayTraKetQua !== undefined && { ngayTraKetQua: new Date(dto.ngayTraKetQua) }),
+      ...(dto.loaiThongTin !== undefined && { loaiThongTin: dto.loaiThongTin }),
     };
 
     const caseInclude = {

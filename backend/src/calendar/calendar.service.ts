@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CalendarEventsService } from '../calendar-events/calendar-events.service';
+import { CaseType } from '@prisma/client';
 
 export interface CalendarEvent {
   id: string;
@@ -56,6 +57,7 @@ export class CalendarService {
       this.prisma.case.findMany({
         where: {
           deletedAt: null,
+          caseType: CaseType.REGULAR, // v0.44: exclude UTDT (uses thoiHanUyThac, not deadline)
           deadline: { gte: fromDate, lte: toDate },
         },
         select: { id: true, name: true, deadline: true, status: true },

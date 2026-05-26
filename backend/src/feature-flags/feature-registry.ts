@@ -45,6 +45,7 @@ import { ADMIN_UNITS_MANIFEST } from '../admin-units/feature.manifest'; // v0.34
 import { COMPREHENSIVE_MANIFEST } from '../comprehensive/feature.manifest'; // v0.37.2.1
 import { JOURNEY_MANIFEST } from '../journey/feature.manifest'; // v0.40.0.0
 import { DOCUMENT_NUMBERS_MANIFEST } from '../document-numbers/feature.manifest'; // v0.42.0.0
+import { UY_THAC_DIEU_TRA_MANIFEST } from '../uy-thac-dieu-tra/feature.manifest'; // v0.44
 
 export const FEATURE_REGISTRY: readonly FeatureManifest[] = [
   AUTH_MANIFEST,
@@ -82,6 +83,7 @@ export const FEATURE_REGISTRY: readonly FeatureManifest[] = [
   COMPREHENSIVE_MANIFEST, // v0.37.2.1
   JOURNEY_MANIFEST, // v0.40.0.0
   DOCUMENT_NUMBERS_MANIFEST, // v0.42.0.0
+  UY_THAC_DIEU_TRA_MANIFEST, // v0.44
 ] as const;
 
 export function getManifest(key: string): FeatureManifest | undefined {

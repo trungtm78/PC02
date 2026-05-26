@@ -62,6 +62,8 @@ const SHARED_ENUMS = [
   'DocumentType',
   'DeadlineRuleStatus',
   'CaseProvenance', // v0.37.1
+  'CaseType', // v0.44 — UTDT
+  'LoaiUyThac', // v0.44 — UTDT loại ủy thác
 ];
 
 function parseEnums(schemaSource) {

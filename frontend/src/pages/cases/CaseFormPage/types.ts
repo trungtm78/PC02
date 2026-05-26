@@ -104,6 +104,21 @@ export interface CaseFormData {
   damageDescription: string;        // Mô tả thiệt hại
   note: string;                     // Ghi chú
 
+  // ── v0.44 UTDT fields (only relevant when caseProvenance=UY_THAC_DIEU_TRA) ──
+  utdt_caseType: string;           // 'UY_THAC_DIEU_TRA' when UTDT
+  utdt_donViGiao: string;          // Đơn vị giao ủy thác
+  utdt_soQuyetDinhUyThac: string;  // Số QĐ/Phiếu (Mẫu 58)
+  utdt_ngayTiepNhan: string;       // Ngày tiếp nhận ủy thác
+  utdt_thoiHanUyThac: string;      // Thời hạn thực hiện
+  utdt_loaiUyThac: string;         // LoaiUyThac enum value
+  utdt_loaiThongTin: string;       // Tố giác / Trình báo ...
+  utdt_ketQuaUyThac: string;       // Kết quả điều tra
+  utdt_ngayTraKetQua: string;      // Ngày trả kết quả
+  // Metadata UTDT fields
+  utdt_nghiVanDoiTuong: string;
+  utdt_lyDoKhongThucHienDuoc: string;
+  utdt_ngayThongBaoKhongThucHien: string;
+
   // ── Tab 2: Vụ việc ─────────────────────────────────────────────────────
   incidentCode: string;
   incidentDate: string;
@@ -252,6 +267,19 @@ export const INITIAL_FORM_DATA: CaseFormData = {
   damageAmount: "",
   damageDescription: "",
   note: "",
+  // UTDT fields (v0.44)
+  utdt_caseType: '',
+  utdt_donViGiao: '',
+  utdt_soQuyetDinhUyThac: '',
+  utdt_ngayTiepNhan: '',
+  utdt_thoiHanUyThac: '',
+  utdt_loaiUyThac: '',
+  utdt_loaiThongTin: '',
+  utdt_ketQuaUyThac: '',
+  utdt_ngayTraKetQua: '',
+  utdt_nghiVanDoiTuong: '',
+  utdt_lyDoKhongThucHienDuoc: '',
+  utdt_ngayThongBaoKhongThucHien: '',
   // Tab 2
   incidentCode: "",
   incidentDate: "",

@@ -15,9 +15,9 @@ import {
   MaxLength,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
-import { CaseStatus, CapDoToiPham, CaseProvenance } from '@prisma/client';
+import { CaseStatus, CapDoToiPham, CaseProvenance, CaseType, LoaiUyThac } from '@prisma/client';
 
-export { CaseStatus, CapDoToiPham, CaseProvenance };
+export { CaseStatus, CapDoToiPham, CaseProvenance, CaseType, LoaiUyThac };
 
 // PR 1 v0.38.0.0 — Atomic transaction sub-entity DTOs
 // Fix bug data-loss wizard "Khởi tố vụ án mới" (subjects/evidences/documents bị mất khi save)
@@ -223,6 +223,46 @@ export class CreateCaseDto {
   @IsString()
   @MaxLength(1000)
   sourceDocumentNote?: string;
+
+  // v0.44 — Ủy Thác Điều Tra (UTDT) fields — all optional, only relevant when caseType=UY_THAC_DIEU_TRA
+  @IsOptional()
+  @IsEnum(CaseType)
+  caseType?: CaseType;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  donViGiao?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  soQuyetDinhUyThac?: string;
+
+  @IsOptional()
+  @IsDateString()
+  ngayTiepNhan?: string;
+
+  @IsOptional()
+  @IsDateString()
+  thoiHanUyThac?: string;
+
+  @IsOptional()
+  @IsEnum(LoaiUyThac)
+  loaiUyThac?: LoaiUyThac;
+
+  @IsOptional()
+  @IsString()
+  ketQuaUyThac?: string;
+
+  @IsOptional()
+  @IsDateString()
+  ngayTraKetQua?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  loaiThongTin?: string;
 
   // ─── PR 1 v0.38.0.0 — Atomic sub-entity arrays ──────────────────────────────
   // Fix bug data-loss: subjects/evidences/documentIds được create đồng bộ với Case

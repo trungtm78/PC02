@@ -274,5 +274,19 @@ export const CaseProvenance = {
   SELF_SURRENDER: 'SELF_SURRENDER',
   PROSECUTOR_PROPOSAL: 'PROSECUTOR_PROPOSAL',
   OTHER_LEGAL_SOURCE: 'OTHER_LEGAL_SOURCE',
+  UY_THAC_DIEU_TRA: 'UY_THAC_DIEU_TRA',
 } as const;
 export type CaseProvenance = (typeof CaseProvenance)[keyof typeof CaseProvenance];
+
+export const CaseType = {
+  REGULAR: 'REGULAR',
+  UY_THAC_DIEU_TRA: 'UY_THAC_DIEU_TRA',
+} as const;
+export type CaseType = (typeof CaseType)[keyof typeof CaseType];
+
+export const LoaiUyThac = {
+  UY_THAC_DIEU_TRA: 'UY_THAC_DIEU_TRA',
+  CHUYEN_DON_NGUON_TIN: 'CHUYEN_DON_NGUON_TIN',
+  UY_THAC_GIAI_QUYET: 'UY_THAC_GIAI_QUYET',
+} as const;
+export type LoaiUyThac = (typeof LoaiUyThac)[keyof typeof LoaiUyThac];

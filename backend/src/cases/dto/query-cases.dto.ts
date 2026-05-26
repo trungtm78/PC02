@@ -3,12 +3,16 @@ import {
   IsOptional,
   IsString,
   IsEnum,
+  IsIn,
   IsInt,
   Min,
   Max,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
-import { CaseStatus, CapDoToiPham } from '@prisma/client';
+import { CaseStatus, CapDoToiPham, CaseType, LoaiUyThac } from '@prisma/client';
+
+export type TrangThaiPhanHoi = 'DA_PHAN_HOI' | 'KHONG_THUC_HIEN_DUOC' | 'QUA_HAN' | 'CHUA_PHAN_HOI';
+export { CaseType, LoaiUyThac };
 
 export class QueryCasesDto {
   @IsOptional()
@@ -73,6 +77,23 @@ export class QueryCasesDto {
   @IsOptional()
   @IsEnum(CapDoToiPham)
   capDoToiPham?: CapDoToiPham;
+
+  // v0.44 — UTDT filters
+  @IsOptional()
+  @IsEnum(CaseType)
+  caseType?: CaseType;
+
+  @IsOptional()
+  @IsString()
+  donViGiao?: string;
+
+  @IsOptional()
+  @IsEnum(LoaiUyThac)
+  loaiUyThac?: LoaiUyThac;
+
+  @IsOptional()
+  @IsIn(['DA_PHAN_HOI', 'KHONG_THUC_HIEN_DUOC', 'QUA_HAN', 'CHUA_PHAN_HOI'])
+  trangThaiPhanHoi?: TrangThaiPhanHoi;
 
   // Sort
   @IsOptional()
