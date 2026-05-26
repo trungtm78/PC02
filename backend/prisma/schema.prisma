@@ -531,15 +531,15 @@ model Case {
   actionPlans     SuspensionActionPlan[]
 
   // v0.44 — Ủy Thác Điều Tra fields (nullable, chỉ relevant khi caseType = UY_THAC_DIEU_TRA)
-  caseType            CaseType    @default(REGULAR)
-  donViGiao           String?     // Tên CQĐT/đơn vị ủy thác (PC01, CA quận X...)
-  soQuyetDinhUyThac   String?     // Số QĐ/Phiếu ủy thác từ đơn vị giao (Mẫu 58 TT119/2021)
-  ngayTiepNhan        DateTime?   // Ngày tiếp nhận theo biên bản
-  thoiHanUyThac       DateTime?   // Thời hạn thực hiện do đơn vị giao yêu cầu
-  loaiUyThac          LoaiUyThac? // Loại ủy thác (closed-set enum)
-  ketQuaUyThac        String?     // Kết quả điều tra
-  ngayTraKetQua       DateTime?   // Ngày trả kết quả về đơn vị ủy thác
-  loaiThongTin        String?     // Tố giác / Trình báo / Đề nghị / Kiến nghị...
+  caseType            CaseType    @default(REGULAR)                @map("case_type")
+  donViGiao           String?                                      @map("don_vi_giao")           // Tên CQĐT/đơn vị ủy thác (PC01, CA quận X...)
+  soQuyetDinhUyThac   String?                                      @map("so_quyet_dinh_uy_thac") // Số QĐ/Phiếu ủy thác từ đơn vị giao (Mẫu 58 TT119/2021)
+  ngayTiepNhan        DateTime?                                    @map("ngay_tiep_nhan")        // Ngày tiếp nhận theo biên bản
+  thoiHanUyThac       DateTime?                                    @map("thoi_han_uy_thac")      // Thời hạn thực hiện do đơn vị giao yêu cầu
+  loaiUyThac          LoaiUyThac?                                  @map("loai_uy_thac")          // Loại ủy thác (closed-set enum)
+  ketQuaUyThac        String?                                      @map("ket_qua_uy_thac")       // Kết quả điều tra
+  ngayTraKetQua       DateTime?                                    @map("ngay_tra_ket_qua")      // Ngày trả kết quả về đơn vị ủy thác
+  loaiThongTin        String?                                      @map("loai_thong_tin")        // Tố giác / Trình báo / Đề nghị / Kiến nghị...
 
   @@index([status])
   @@index([deadline])
