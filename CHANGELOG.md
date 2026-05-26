@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.44.1.1] - 2026-05-26
+
+### Changed
+- **Logo hệ thống**: cập nhật logo Công An Nhân Dân Việt Nam (PC02 TpHCM) trên toàn hệ thống (login page, sidebar, favicon, mobile app).
+
 ## [0.44.1.0] - 2026-05-26
 
 **UTDT — form tạo/sửa ủy thác + menu "Nhập ủy thác mới"**
