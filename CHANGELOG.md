@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.44.3.0] - 2026-05-26
+
+**UTDT — đồng bộ bộ lọc màn hình Ủy Thác Điều Tra**
+
+### Added
+- **Bộ lọc ngày tiếp nhận**: 2 ô date range ("Ngày tiếp nhận từ" / "Ngày tiếp nhận đến") trong filter panel — gửi `ngayTiepNhanFrom`/`ngayTiepNhanTo` lên API, backend filter theo `ngayTiepNhan` range.
+- **Bộ lọc điều tra viên**: ô text input tìm theo tên điều tra viên (partial, case-insensitive match trên `firstName` hoặc `lastName`) — gửi `investigatorName` lên API.
+- **CaseStatus badge** trong cột Trạng thái: hiển thị badge trạng thái vụ án nhỏ bên dưới badge trangThaiPhanHoi — đồng bộ thông tin với các màn hình Cases/Incidents.
+- **Debounce 300ms** cho search và investigatorName — giảm số lần gọi API khi người dùng đang gõ (chuẩn IncidentListPage).
+- **`CASE_STATUS_OPTIONS`** export dùng chung từ `status-labels.ts` — xóa khai báo inline trùng lặp trong UyThacDieuTraListPage.
+
+### Changed
+- Filter panel mở rộng từ 4 → 7 controls (4-col grid, 2 rows tự nhiên).
+- Backend `QueryCasesDto` thêm 3 fields mới: `ngayTiepNhanFrom`, `ngayTiepNhanTo`, `investigatorName`.
+
 ## [0.44.2.2] - 2026-05-26
 
 ### Fixed

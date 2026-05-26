@@ -110,6 +110,9 @@ export class CasesService {
       donViGiao,
       loaiUyThac,
       trangThaiPhanHoi,
+      ngayTiepNhanFrom,
+      ngayTiepNhanTo,
+      investigatorName,
       limit = 20,
       offset = 0,
       sortBy = 'createdAt',
@@ -189,6 +192,30 @@ export class CasesService {
         ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
         stateFilter,
       ];
+    }
+
+    // v0.44.3 — UTDT date range by ngayTiepNhan
+    if (ngayTiepNhanFrom) {
+      where.ngayTiepNhan = {
+        ...(where.ngayTiepNhan as Prisma.DateTimeNullableFilter | undefined),
+        gte: new Date(ngayTiepNhanFrom),
+      };
+    }
+    if (ngayTiepNhanTo) {
+      where.ngayTiepNhan = {
+        ...(where.ngayTiepNhan as Prisma.DateTimeNullableFilter | undefined),
+        lte: new Date(ngayTiepNhanTo + 'T23:59:59Z'),
+      };
+    }
+
+    // v0.44.3 — investigatorName partial search (case-insensitive)
+    if (investigatorName) {
+      where.investigator = {
+        OR: [
+          { firstName: { contains: investigatorName, mode: 'insensitive' } },
+          { lastName: { contains: investigatorName, mode: 'insensitive' } },
+        ],
+      };
     }
 
     // Filter theo quận/huyện hoặc phường/xã (qua subjects)

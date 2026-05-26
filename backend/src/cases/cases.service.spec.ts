@@ -215,6 +215,41 @@ describe('CasesService', () => {
         }),
       );
     });
+
+    it('filters by ngayTiepNhan range when ngayTiepNhanFrom and ngayTiepNhanTo provided', async () => {
+      mockPrisma.case.findMany.mockResolvedValue([]);
+      mockPrisma.case.count.mockResolvedValue(0);
+
+      await service.getList({
+        ngayTiepNhanFrom: '2026-01-01',
+        ngayTiepNhanTo: '2026-03-31',
+        caseType: 'UY_THAC_DIEU_TRA' as any,
+      });
+
+      const whereArg = mockPrisma.case.findMany.mock.calls[0][0].where;
+      expect(whereArg.ngayTiepNhan).toMatchObject({
+        gte: new Date('2026-01-01'),
+        lte: new Date('2026-03-31T23:59:59Z'),
+      });
+    });
+
+    it('filters by investigatorName with case-insensitive partial match on firstName or lastName', async () => {
+      mockPrisma.case.findMany.mockResolvedValue([]);
+      mockPrisma.case.count.mockResolvedValue(0);
+
+      await service.getList({
+        investigatorName: 'Nguyễn',
+        caseType: 'UY_THAC_DIEU_TRA' as any,
+      });
+
+      const whereArg = mockPrisma.case.findMany.mock.calls[0][0].where;
+      expect(whereArg.investigator).toMatchObject({
+        OR: [
+          { firstName: { contains: 'Nguyễn', mode: 'insensitive' } },
+          { lastName: { contains: 'Nguyễn', mode: 'insensitive' } },
+        ],
+      });
+    });
   });
 
   // ── getById ────────────────────────────────────────────────────────────────

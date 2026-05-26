@@ -95,6 +95,19 @@ export class QueryCasesDto {
   @IsIn(['DA_PHAN_HOI', 'KHONG_THUC_HIEN_DUOC', 'QUA_HAN', 'CHUA_PHAN_HOI'])
   trangThaiPhanHoi?: TrangThaiPhanHoi;
 
+  // v0.44.3 — UTDT date range + investigator name search
+  @IsOptional()
+  @IsString()
+  ngayTiepNhanFrom?: string;
+
+  @IsOptional()
+  @IsString()
+  ngayTiepNhanTo?: string;
+
+  @IsOptional()
+  @IsString()
+  investigatorName?: string;
+
   // Sort
   @IsOptional()
   @IsString()

@@ -23,6 +23,8 @@ export const CASE_STATUS_LABEL: Record<CaseStatus, string> = {
   [CaseStatus.DA_LUU_TRU]:    'Đã lưu trữ',
 };
 
+export const CASE_STATUS_OPTIONS = Object.entries(CASE_STATUS_LABEL).map(([value, label]) => ({ value, label }));
+
 export const INCIDENT_STATUS_LABEL: Record<IncidentStatus, string> = {
   [IncidentStatus.TIEP_NHAN]:           'Tiếp nhận',
   [IncidentStatus.DANG_XAC_MINH]:       'Đang xác minh',

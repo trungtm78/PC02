@@ -19,6 +19,8 @@ import {
   LOAI_UY_THAC_LABEL,
   LOAI_UY_THAC_OPTIONS,
   CASE_STATUS_LABEL,
+  CASE_STATUS_BADGE,
+  CASE_STATUS_OPTIONS,
   type TrangThaiPhanHoi,
 } from "@/shared/enums/status-labels";
 import { CaseType } from "@/shared/enums/generated";
@@ -56,25 +58,30 @@ function computeTrangThai(row: UyThacFromApi): TrangThaiPhanHoi {
   return 'CHUA_PHAN_HOI';
 }
 
-function investigatorName(inv: UyThacFromApi['investigator']): string {
+function getInvestigatorName(inv: UyThacFromApi['investigator']): string {
   if (!inv) return '—';
   return [inv.firstName, inv.lastName].filter(Boolean).join(' ') || inv.username;
 }
-
-const CASE_STATUS_OPTIONS = Object.entries(CASE_STATUS_LABEL).map(([value, label]) => ({ value, label }));
 
 // ─── Component ────────────────────────────────────────────────────
 
 export default function UyThacDieuTraListPage() {
   const navigate = useNavigate();
 
-  // Filters
-  const [search, setSearch]           = useState('');
-  const [caseStatus, setCaseStatus]   = useState('');
-  const [trangThai, setTrangThai]     = useState<TrangThaiPhanHoi | ''>('');
-  const [loaiUyThac, setLoaiUyThac]   = useState('');
-  const [donViGiao, setDonViGiao]     = useState('');
-  const [showFilters, setShowFilters] = useState(false);
+  // Filters — raw input state
+  const [search, setSearch]                   = useState('');
+  const [caseStatus, setCaseStatus]           = useState('');
+  const [trangThai, setTrangThai]             = useState<TrangThaiPhanHoi | ''>('');
+  const [loaiUyThac, setLoaiUyThac]           = useState('');
+  const [donViGiao, setDonViGiao]             = useState('');
+  const [ngayTiepNhanFrom, setNgayTiepNhanFrom] = useState('');
+  const [ngayTiepNhanTo, setNgayTiepNhanTo]   = useState('');
+  const [investigatorSearch, setInvestigatorSearch] = useState('');
+  const [showFilters, setShowFilters]         = useState(false);
+
+  // Debounced values (300ms — same as IncidentListPage)
+  const [debouncedSearch, setDebouncedSearch]             = useState('');
+  const [debouncedInvestigator, setDebouncedInvestigator] = useState('');
 
   // Data
   const [rows, setRows]           = useState<UyThacFromApi[]>([]);
@@ -85,6 +92,18 @@ export default function UyThacDieuTraListPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const LIMIT = 20;
 
+  // Debounce search
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  // Debounce investigator name
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedInvestigator(investigatorSearch), 300);
+    return () => clearTimeout(t);
+  }, [investigatorSearch]);
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -93,11 +112,14 @@ export default function UyThacDieuTraListPage() {
       params.set('caseType', CaseType.UY_THAC_DIEU_TRA);
       params.set('offset', String(page * LIMIT));
       params.set('limit', String(LIMIT));
-      if (search)      params.set('search', search);
-      if (caseStatus)  params.set('status', caseStatus);
-      if (trangThai)   params.set('trangThaiPhanHoi', trangThai);
-      if (loaiUyThac)  params.set('loaiUyThac', loaiUyThac);
-      if (donViGiao)   params.set('donViGiao', donViGiao);
+      if (debouncedSearch)     params.set('search', debouncedSearch);
+      if (caseStatus)          params.set('status', caseStatus);
+      if (trangThai)           params.set('trangThaiPhanHoi', trangThai);
+      if (loaiUyThac)          params.set('loaiUyThac', loaiUyThac);
+      if (donViGiao)           params.set('donViGiao', donViGiao);
+      if (ngayTiepNhanFrom)    params.set('ngayTiepNhanFrom', ngayTiepNhanFrom);
+      if (ngayTiepNhanTo)      params.set('ngayTiepNhanTo', ngayTiepNhanTo);
+      if (debouncedInvestigator) params.set('investigatorName', debouncedInvestigator);
 
       const res = await api.get(`/cases?${params.toString()}`);
       setRows(res.data?.data ?? []);
@@ -107,7 +129,7 @@ export default function UyThacDieuTraListPage() {
     } finally {
       setLoading(false);
     }
-  }, [search, caseStatus, trangThai, loaiUyThac, donViGiao, page]);
+  }, [debouncedSearch, caseStatus, trangThai, loaiUyThac, donViGiao, ngayTiepNhanFrom, ngayTiepNhanTo, debouncedInvestigator, page]);
 
   useEffect(() => { void fetchData(); }, [fetchData]);
 
@@ -117,6 +139,9 @@ export default function UyThacDieuTraListPage() {
     setTrangThai('');
     setLoaiUyThac('');
     setDonViGiao('');
+    setNgayTiepNhanFrom('');
+    setNgayTiepNhanTo('');
+    setInvestigatorSearch('');
     setPage(0);
   }
 
@@ -133,7 +158,7 @@ export default function UyThacDieuTraListPage() {
     }
   }
 
-  const hasFilters = !!(search || caseStatus || trangThai || loaiUyThac || donViGiao);
+  const hasFilters = !!(search || caseStatus || trangThai || loaiUyThac || donViGiao || ngayTiepNhanFrom || ngayTiepNhanTo || investigatorSearch);
   const totalPages = Math.ceil(total / LIMIT);
 
   return (
@@ -178,9 +203,10 @@ export default function UyThacDieuTraListPage() {
         )}
       </div>
 
-      {/* Expanded filters */}
+      {/* Expanded filters — 4-col grid, 2 rows */}
       {showFilters && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+          {/* Row 1 */}
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Trạng thái Vụ án</label>
             <select
@@ -227,6 +253,35 @@ export default function UyThacDieuTraListPage() {
               placeholder="PC01, CA quận X..."
               value={donViGiao}
               onChange={(e) => { setDonViGiao(e.target.value); setPage(0); }}
+              className="w-full text-sm border border-gray-300 rounded-md py-1.5 px-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+          {/* Row 2 */}
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Ngày tiếp nhận từ</label>
+            <input
+              type="date"
+              value={ngayTiepNhanFrom}
+              onChange={(e) => { setNgayTiepNhanFrom(e.target.value); setPage(0); }}
+              className="w-full text-sm border border-gray-300 rounded-md py-1.5 px-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Ngày tiếp nhận đến</label>
+            <input
+              type="date"
+              value={ngayTiepNhanTo}
+              onChange={(e) => { setNgayTiepNhanTo(e.target.value); setPage(0); }}
+              className="w-full text-sm border border-gray-300 rounded-md py-1.5 px-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Điều tra viên</label>
+            <input
+              type="text"
+              placeholder="Tên điều tra viên..."
+              value={investigatorSearch}
+              onChange={(e) => { setInvestigatorSearch(e.target.value); setPage(0); }}
               className="w-full text-sm border border-gray-300 rounded-md py-1.5 px-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
           </div>
@@ -302,7 +357,7 @@ export default function UyThacDieuTraListPage() {
                     {row.crime ?? '—'}
                   </td>
                   <td className="px-3 py-2 text-xs text-gray-700">
-                    {investigatorName(row.investigator)}
+                    {getInvestigatorName(row.investigator)}
                   </td>
                   <td className={`px-3 py-2 text-xs ${isOverdue ? 'text-red-700 font-medium' : 'text-gray-600'}`}>
                     {row.thoiHanUyThac ? formatVNDate(row.thoiHanUyThac) : '—'}
@@ -314,6 +369,11 @@ export default function UyThacDieuTraListPage() {
                     {row.loaiUyThac && (
                       <span className="block mt-0.5 text-xs text-gray-400">
                         {LOAI_UY_THAC_LABEL[row.loaiUyThac as keyof typeof LOAI_UY_THAC_LABEL] ?? row.loaiUyThac}
+                      </span>
+                    )}
+                    {row.status && (
+                      <span className={`block mt-0.5 text-xs border rounded px-1 py-0.5 w-fit ${CASE_STATUS_BADGE[row.status as keyof typeof CASE_STATUS_BADGE] ?? 'bg-gray-100 text-gray-600 border-gray-200'}`}>
+                        {CASE_STATUS_LABEL[row.status as keyof typeof CASE_STATUS_LABEL] ?? row.status}
                       </span>
                     )}
                   </td>
