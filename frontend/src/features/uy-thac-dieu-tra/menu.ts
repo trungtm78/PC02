@@ -8,6 +8,7 @@ export const uyThacDieuTraMenu: FeatureMenuEntry[] = [
     icon: 'ArrowRightLeft',
     children: [
       { section: 'business', id: 'utdt-list', label: 'Danh sách ủy thác', path: '/uy-thac-dieu-tra' },
+      { section: 'business', id: 'utdt-new', label: 'Nhập ủy thác mới', path: '/uy-thac-dieu-tra/new' },
     ],
   },
 ];

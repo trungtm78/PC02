@@ -38,7 +38,7 @@ interface UyThacFromApi {
   metadata: Record<string, unknown> | null;
   trangThaiPhanHoi?: TrangThaiPhanHoi;
   investigator: { id: string; firstName?: string; lastName?: string; username: string } | null;
-  createdBy: { id: string; fullName: string } | null;
+  createdBy: { id: string; firstName?: string; lastName?: string } | null;
   createdAt: string;
 }
 
@@ -123,7 +123,7 @@ export default function UyThacDieuTraListPage() {
           <p className="text-xs text-gray-500 mt-0.5">Điều 171 BLTTHS 2015 — TT 119/2021/TT-BCA</p>
         </div>
         <button
-          onClick={() => navigate('/cases/new')}
+          onClick={() => navigate('/uy-thac-dieu-tra/new')}
           className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
         >
           <Plus className="w-4 h-4" />
@@ -280,19 +280,21 @@ export default function UyThacDieuTraListPage() {
                     )}
                   </td>
                   <td className="px-3 py-2 text-xs text-gray-600">
-                    {row.createdBy?.fullName ?? '—'}
+                    {row.createdBy
+                      ? [row.createdBy.firstName, row.createdBy.lastName].filter(Boolean).join(' ') || '—'
+                      : '—'}
                   </td>
                   <td className="px-3 py-2">
                     <div className="flex gap-1">
                       <button
-                        onClick={() => navigate(`/cases/${row.id}`)}
+                        onClick={() => navigate(`/uy-thac-dieu-tra/${row.id}/edit`)}
                         className="p-1 rounded hover:bg-gray-200 text-gray-500"
-                        title="Xem chi tiết"
+                        title="Xem / Chỉnh sửa"
                       >
                         <Eye className="w-3.5 h-3.5" />
                       </button>
                       <button
-                        onClick={() => navigate(`/cases/${row.id}/edit`)}
+                        onClick={() => navigate(`/uy-thac-dieu-tra/${row.id}/edit`)}
                         className="p-1 rounded hover:bg-gray-200 text-gray-500"
                         title="Chỉnh sửa"
                       >
