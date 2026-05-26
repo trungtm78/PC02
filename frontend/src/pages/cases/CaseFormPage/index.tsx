@@ -16,6 +16,7 @@ import {
   BarChart3,
   Video,
   Shield,
+  ArrowRightLeft,
 } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { TabBar } from "@/components/shared/TabBar";
@@ -37,6 +38,7 @@ import {
   TabBusinessFiles,
   TabStatistics,
   TabMedia,
+  TabUyThac,
 } from "./tabs";
 import { SubjectModal, EvidenceModal } from "./modals";
 import { formatVNDateTime } from "@/lib/dates";
@@ -63,6 +65,9 @@ function CaseFormPage() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams(); // PR 3 v0.38.2.0 — URL param hydration
   const isEditMode = !!id;
+
+  const returnPath = searchParams.get('returnPath');
+  const safeReturn = ['/uy-thac-dieu-tra', '/cases'].includes(returnPath ?? '') ? returnPath! : '/cases';
 
   const [activeTab, setActiveTab] = useState<TabId>("info");
   const [showSubjectModal, setShowSubjectModal] = useState(false);
@@ -240,7 +245,7 @@ function CaseFormPage() {
       localStorage.removeItem('caseFormDraft');
       setShowPreSaveSummary(false);
       alert(isEditMode ? "Cập nhật hồ sơ thành công!" : "Lưu hồ sơ thành công!");
-      navigate("/cases");
+      navigate(safeReturn);
     } catch (err: unknown) {
       const status = (err as { response?: { status?: number } })?.response?.status;
       if (status === 409) {
@@ -261,7 +266,7 @@ function CaseFormPage() {
 
   const handleCancel = () => {
     if (confirm("Bạn có chắc muốn hủy? Các thay đổi sẽ không được lưu.")) {
-      navigate("/cases");
+      navigate(safeReturn);
     }
   };
 
@@ -298,6 +303,23 @@ function CaseFormPage() {
     setMediaFiles([...mediaFiles, newFile]);
   };
 
+  // ─── Dynamic tab list — UTDT tab inserted at position 2 when relevant ──
+
+  const visibleTabs: TabItem<TabId>[] = formData.caseProvenance === 'UY_THAC_DIEU_TRA'
+    ? [
+        TABS[0],
+        { id: 'uy-thac' as TabId, label: 'Thông tin Ủy thác', icon: <ArrowRightLeft className="w-4 h-4" /> },
+        ...TABS.slice(1),
+      ]
+    : TABS;
+
+  // Reset to "info" if UTDT tab becomes invisible (e.g. caseProvenance changed)
+  useEffect(() => {
+    if (activeTab === 'uy-thac' && !visibleTabs.find((t) => t.id === 'uy-thac')) {
+      setActiveTab('info');
+    }
+  }, [visibleTabs, activeTab]);
+
   // ─── Shared tab props ──────────────────────────────────────────────────
 
   const tabProps = { formData, setFormData, errors, setErrors, handlerOptions, handlerLoading, isDraftCodeLoading };
@@ -322,8 +344,16 @@ function CaseFormPage() {
       )}
       {/* Header */}
       <PageHeader
-        title={isEditMode ? "Chỉnh sửa vụ án" : "Khởi tố vụ án mới"}
-        subtitle={isEditMode ? "Cập nhật thông tin vụ án" : "Nhập đầy đủ thông tin vụ án — chọn Nguồn vụ án (BLTTHS Đ.143) trước"}
+        title={
+          formData.caseProvenance === 'UY_THAC_DIEU_TRA'
+            ? (isEditMode ? "Chỉnh sửa ủy thác điều tra" : "Ủy thác điều tra — Tạo mới")
+            : (isEditMode ? "Chỉnh sửa vụ án" : "Khởi tố vụ án mới")
+        }
+        subtitle={
+          formData.caseProvenance === 'UY_THAC_DIEU_TRA'
+            ? (isEditMode ? "Cập nhật thông tin ủy thác điều tra" : "Nhập thông tin theo Điều 171 BLTTHS 2015")
+            : (isEditMode ? "Cập nhật thông tin vụ án" : "Nhập đầy đủ thông tin vụ án — chọn Nguồn vụ án (BLTTHS Đ.143) trước")
+        }
         actions={
           <>
             <button
@@ -379,12 +409,13 @@ function CaseFormPage() {
       )}
 
       {/* Tabs */}
-      <TabBar tabs={TABS} activeTab={activeTab} onTabChange={setActiveTab} />
+      <TabBar tabs={visibleTabs} activeTab={activeTab} onTabChange={setActiveTab} />
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-6">
         <div className="max-w-6xl mx-auto">
           {activeTab === "info" && <TabInfo {...tabProps} />}
+          {activeTab === "uy-thac" && <TabUyThac {...tabProps} />}
           {activeTab === "incident" && <TabIncident {...tabProps} />}
           {activeTab === "case" && <TabCase {...tabProps} />}
           {activeTab === "subjects" && (

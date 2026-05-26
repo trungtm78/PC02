@@ -6,6 +6,7 @@ export const subjectsMenu: FeatureMenuEntry[] = [
     id: 'subjects',
     label: 'Đối tượng liên quan',
     icon: 'UsersRound',
+    order: 101,
     children: [
       { section: 'business', id: 'subjects-objects', label: 'Danh sách đối tượng', path: '/objects' },
       { section: 'business', id: 'subjects-suspects', label: 'Nghi phạm', path: '/people/suspects' },

@@ -6,17 +6,19 @@ import {
   Search,
   Plus,
   Eye,
-  Edit,
   Filter,
   X,
   RotateCcw,
+  Trash2,
 } from "lucide-react";
+import { PageHeader } from "@/components/shared/PageHeader";
 import {
   TRANG_THAI_PHAN_HOI_LABEL,
   TRANG_THAI_PHAN_HOI_BADGE,
   TRANG_THAI_PHAN_HOI_OPTIONS,
   LOAI_UY_THAC_LABEL,
   LOAI_UY_THAC_OPTIONS,
+  CASE_STATUS_LABEL,
   type TrangThaiPhanHoi,
 } from "@/shared/enums/status-labels";
 import { CaseType } from "@/shared/enums/generated";
@@ -28,6 +30,7 @@ interface UyThacFromApi {
   name: string;
   crime: string | null;
   caseCode: string | null;
+  status: string | null;
   donViGiao: string | null;
   soQuyetDinhUyThac: string | null;
   ngayTiepNhan: string | null;
@@ -58,6 +61,8 @@ function investigatorName(inv: UyThacFromApi['investigator']): string {
   return [inv.firstName, inv.lastName].filter(Boolean).join(' ') || inv.username;
 }
 
+const CASE_STATUS_OPTIONS = Object.entries(CASE_STATUS_LABEL).map(([value, label]) => ({ value, label }));
+
 // ─── Component ────────────────────────────────────────────────────
 
 export default function UyThacDieuTraListPage() {
@@ -65,17 +70,19 @@ export default function UyThacDieuTraListPage() {
 
   // Filters
   const [search, setSearch]           = useState('');
+  const [caseStatus, setCaseStatus]   = useState('');
   const [trangThai, setTrangThai]     = useState<TrangThaiPhanHoi | ''>('');
   const [loaiUyThac, setLoaiUyThac]   = useState('');
   const [donViGiao, setDonViGiao]     = useState('');
   const [showFilters, setShowFilters] = useState(false);
 
   // Data
-  const [rows, setRows]       = useState<UyThacFromApi[]>([]);
-  const [total, setTotal]     = useState(0);
-  const [page, setPage]       = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [error, setError]     = useState<string | null>(null);
+  const [rows, setRows]           = useState<UyThacFromApi[]>([]);
+  const [total, setTotal]         = useState(0);
+  const [page, setPage]           = useState(0);
+  const [loading, setLoading]     = useState(false);
+  const [error, setError]         = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const LIMIT = 20;
 
   const fetchData = useCallback(async () => {
@@ -86,10 +93,11 @@ export default function UyThacDieuTraListPage() {
       params.set('caseType', CaseType.UY_THAC_DIEU_TRA);
       params.set('offset', String(page * LIMIT));
       params.set('limit', String(LIMIT));
-      if (search)     params.set('search', search);
-      if (trangThai)  params.set('trangThaiPhanHoi', trangThai);
-      if (loaiUyThac) params.set('loaiUyThac', loaiUyThac);
-      if (donViGiao)  params.set('donViGiao', donViGiao);
+      if (search)      params.set('search', search);
+      if (caseStatus)  params.set('status', caseStatus);
+      if (trangThai)   params.set('trangThaiPhanHoi', trangThai);
+      if (loaiUyThac)  params.set('loaiUyThac', loaiUyThac);
+      if (donViGiao)   params.set('donViGiao', donViGiao);
 
       const res = await api.get(`/cases?${params.toString()}`);
       setRows(res.data?.data ?? []);
@@ -99,37 +107,50 @@ export default function UyThacDieuTraListPage() {
     } finally {
       setLoading(false);
     }
-  }, [search, trangThai, loaiUyThac, donViGiao, page]);
+  }, [search, caseStatus, trangThai, loaiUyThac, donViGiao, page]);
 
   useEffect(() => { void fetchData(); }, [fetchData]);
 
   function resetFilters() {
     setSearch('');
+    setCaseStatus('');
     setTrangThai('');
     setLoaiUyThac('');
     setDonViGiao('');
     setPage(0);
   }
 
-  const hasFilters = !!(search || trangThai || loaiUyThac || donViGiao);
+  async function handleDelete(id: string) {
+    if (!confirm("Xóa ủy thác điều tra này? Hồ sơ vụ án gốc vẫn được giữ nguyên.")) return;
+    setDeletingId(id);
+    try {
+      await api.delete(`/cases/${id}`);
+      void fetchData();
+    } catch {
+      alert('Xóa thất bại. Vui lòng thử lại.');
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  const hasFilters = !!(search || caseStatus || trangThai || loaiUyThac || donViGiao);
   const totalPages = Math.ceil(total / LIMIT);
 
   return (
     <div className="p-4 md:p-6 space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">Ủy Thác Điều Tra</h1>
-          <p className="text-xs text-gray-500 mt-0.5">Điều 171 BLTTHS 2015 — TT 119/2021/TT-BCA</p>
-        </div>
-        <button
-          onClick={() => navigate('/uy-thac-dieu-tra/new')}
-          className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
-        >
-          <Plus className="w-4 h-4" />
-          Nhập ủy thác
-        </button>
-      </div>
+      <PageHeader
+        title="Ủy Thác Điều Tra"
+        subtitle="Điều 171 BLTTHS 2015 — TT 119/2021/TT-BCA"
+        actions={
+          <button
+            onClick={() => navigate('/uy-thac-dieu-tra/new')}
+            className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
+          >
+            <Plus className="w-4 h-4" />
+            Nhập ủy thác
+          </button>
+        }
+      />
 
       {/* Search + filter bar */}
       <div className="flex gap-2">
@@ -159,7 +180,20 @@ export default function UyThacDieuTraListPage() {
 
       {/* Expanded filters */}
       {showFilters && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Trạng thái Vụ án</label>
+            <select
+              value={caseStatus}
+              onChange={(e) => { setCaseStatus(e.target.value); setPage(0); }}
+              className="w-full text-sm border border-gray-300 rounded-md py-1.5 px-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            >
+              <option value="">— Tất cả —</option>
+              {CASE_STATUS_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Trạng thái phản hồi</label>
             <select
@@ -218,6 +252,7 @@ export default function UyThacDieuTraListPage() {
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
               <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 w-10">#</th>
+              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500">Mã hồ sơ</th>
               <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500">Ngày tiếp nhận</th>
               <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500">Đơn vị giao</th>
               <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500">Số QĐ/Phiếu</th>
@@ -227,13 +262,13 @@ export default function UyThacDieuTraListPage() {
               <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500">Thời hạn</th>
               <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500">Trạng thái</th>
               <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500">Người nhập</th>
-              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 w-20">Thao tác</th>
+              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 w-24">Thao tác</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {!loading && rows.length === 0 && (
               <tr>
-                <td colSpan={11} className="px-3 py-8 text-center text-sm text-gray-400">
+                <td colSpan={12} className="px-3 py-8 text-center text-sm text-gray-400">
                   {hasFilters ? 'Không có ủy thác phù hợp với bộ lọc.' : 'Chưa có ủy thác điều tra nào.'}
                 </td>
               </tr>
@@ -248,6 +283,9 @@ export default function UyThacDieuTraListPage() {
                   className={isOverdue ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-gray-50'}
                 >
                   <td className="px-3 py-2 text-xs text-gray-400">{page * LIMIT + idx + 1}</td>
+                  <td className="px-3 py-2 text-xs font-mono text-blue-700">
+                    {row.caseCode ?? '—'}
+                  </td>
                   <td className="px-3 py-2 text-xs text-gray-700">
                     {row.ngayTiepNhan ? formatVNDate(row.ngayTiepNhan) : '—'}
                   </td>
@@ -294,11 +332,12 @@ export default function UyThacDieuTraListPage() {
                         <Eye className="w-3.5 h-3.5" />
                       </button>
                       <button
-                        onClick={() => navigate(`/uy-thac-dieu-tra/${row.id}/edit`)}
-                        className="p-1 rounded hover:bg-gray-200 text-gray-500"
-                        title="Chỉnh sửa"
+                        onClick={() => void handleDelete(row.id)}
+                        disabled={deletingId === row.id}
+                        className="p-1 rounded hover:bg-red-100 text-red-400 hover:text-red-600 disabled:opacity-40"
+                        title="Xóa ủy thác"
                       >
-                        <Edit className="w-3.5 h-3.5" />
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </td>

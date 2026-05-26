@@ -503,15 +503,6 @@ export function TabInfo({ formData, setFormData, errors, setErrors, handlerOptio
         </div>
       </Card>
 
-      {/* v0.44 UTDT — rendered when caseProvenance=UY_THAC_DIEU_TRA */}
-      {formData.caseProvenance === CaseProvenance.UY_THAC_DIEU_TRA && (
-        <CaseFormTab1UyThac
-          formData={formData}
-          setFormData={setFormData}
-          errors={errors}
-          setErrors={setErrors}
-        />
-      )}
     </div>
   );
 }
@@ -1681,3 +1672,5 @@ export function TabMedia({
     </Card>
   );
 }
+
+export { CaseFormTab1UyThac as TabUyThac } from './CaseFormTab1UyThac';

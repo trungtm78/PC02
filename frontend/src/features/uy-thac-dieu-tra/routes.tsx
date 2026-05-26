@@ -1,12 +1,16 @@
 import { lazy, Suspense, type ReactElement } from 'react';
-import { Route } from 'react-router-dom';
+import { Route, Navigate, useParams } from 'react-router-dom';
 
 const UyThacDieuTraListPage = lazy(() => import('./UyThacDieuTraListPage'));
-const UyThacDieuTraFormPage = lazy(() => import('./UyThacDieuTraFormPage'));
 
 const wrap = (node: ReactElement): ReactElement => (
   <Suspense fallback={null}>{node}</Suspense>
 );
+
+function RedirectToEdit(): ReactElement {
+  const { id } = useParams<{ id: string }>();
+  return <Navigate to={`/cases/${id}/edit?returnPath=/uy-thac-dieu-tra`} replace />;
+}
 
 export function renderUyThacDieuTraRoutes(): ReactElement[] {
   return [
@@ -18,12 +22,12 @@ export function renderUyThacDieuTraRoutes(): ReactElement[] {
     <Route
       key="utdt-new"
       path="/uy-thac-dieu-tra/new"
-      element={wrap(<UyThacDieuTraFormPage />)}
+      element={<Navigate to="/cases/new?caseProvenance=UY_THAC_DIEU_TRA&returnPath=/uy-thac-dieu-tra" replace />}
     />,
     <Route
       key="utdt-edit"
       path="/uy-thac-dieu-tra/:id/edit"
-      element={wrap(<UyThacDieuTraFormPage />)}
+      element={<RedirectToEdit />}
     />,
   ];
 }
