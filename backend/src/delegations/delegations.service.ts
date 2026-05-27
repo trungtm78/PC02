@@ -8,6 +8,8 @@ import { assertParentInScope, assertCreatorInScope, buildScopeFilter } from '../
 import { IsOptional, IsString, IsInt, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 import { DocumentNumbersService } from '../document-numbers/document-numbers.service';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { UydtAssignedEvent } from '../notifications/events/notification.events';
 
 export class QueryDelegationsDto {
   @IsOptional() @IsString() search?: string;
@@ -24,6 +26,7 @@ export class DelegationsService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly docNums: DocumentNumbersService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async getList(query: QueryDelegationsDto, dataScope?: DataScope | null) {
@@ -162,6 +165,7 @@ export class DelegationsService {
         ...(dto.status !== undefined && { status: dto.status as DelegationStatus }),
         ...(dto.completedDate !== undefined && { completedDate: dto.completedDate ? new Date(dto.completedDate) : null }),
         ...(dto.notes !== undefined && { notes: dto.notes }),
+        ...(dto.assignedToId !== undefined && { assignedToId: dto.assignedToId }),
       },
     });
 
@@ -174,6 +178,17 @@ export class DelegationsService {
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
     });
+
+    if (dto.assignedToId && dto.assignedToId !== (existing as any).assignedToId) {
+      const actor = await this.prisma.user.findUnique({
+        where: { id: actorId },
+        select: { firstName: true, lastName: true },
+      });
+      const byUserName = actor ? `${actor.firstName ?? ''} ${actor.lastName ?? ''}`.trim() : '';
+      this.eventEmitter.emit('utdt.assigned', new UydtAssignedEvent(
+        id, existing.delegationNumber, dto.assignedToId, [], actorId, byUserName,
+      ));
+    }
 
     return { success: true, data: record, message: 'Cập nhật ủy thác thành công' };
   }

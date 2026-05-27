@@ -54,12 +54,19 @@ export class NotificationsService {
     if (!notification) {
       return { success: false, message: 'Notification not found' };
     }
-    if (notification.isRead) {
-      return { success: true, data: notification };
-    }
+    // D10: always set acknowledgedAt + clear pushNextRetryAt, regardless of isRead state.
+    // Clicking the notification link = user acknowledged the assignment.
+    // Removing the early-return prevents infinite push retries when notification
+    // was read via dropdown (isRead=true) but never clicked (acknowledgedAt never set).
+    const now = new Date();
     const updated = await this.prisma.notification.update({
       where: { id },
-      data: { isRead: true, readAt: new Date() },
+      data: {
+        isRead: true,
+        readAt: (notification as Record<string, unknown>).readAt as Date | null ?? now,
+        acknowledgedAt: (notification as Record<string, unknown>).acknowledgedAt as Date | null ?? now,
+        pushNextRetryAt: null,
+      },
     });
     return { success: true, data: updated };
   }

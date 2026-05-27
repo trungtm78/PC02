@@ -17,6 +17,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 
 import { Test, TestingModule } from '@nestjs/testing';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CasesService, computeTrangThaiPhanHoi, buildTrangThaiFilter } from './cases.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
@@ -98,6 +99,7 @@ describe('UTDT — CasesService', () => {
         { provide: AuditService, useValue: mockAudit },
         { provide: SettingsService, useValue: mockSettings },
         { provide: DocumentNumbersService, useValue: mockDocNumbers },
+        { provide: EventEmitter2, useValue: { emit: jest.fn() } },
       ],
     }).compile();
     service = module.get(CasesService);
@@ -299,6 +301,7 @@ describe('UTDT — CasesService', () => {
           { provide: AuditService, useValue: wrapUpdateAudit },
           { provide: SettingsService, useValue: mockSettings },
           { provide: DocumentNumbersService, useValue: mockDocNumbers },
+          { provide: EventEmitter2, useValue: { emit: jest.fn() } },
         ],
       }).compile();
       const svc2 = module2.get(CasesService);
@@ -332,6 +335,7 @@ describe('UTDT — CasesService', () => {
           { provide: AuditService, useValue: wrapUpdateAudit },
           { provide: SettingsService, useValue: mockSettings },
           { provide: DocumentNumbersService, useValue: mockDocNumbers },
+          { provide: EventEmitter2, useValue: { emit: jest.fn() } },
         ],
       }).compile();
       const svc3 = module3.get(CasesService);

@@ -26,8 +26,11 @@ import {
   Upload,
   Info,
   Loader2,
+  Mail,
+  ExternalLink,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { authStore } from '@/stores/auth.store';
 import { formatVNDate } from '../lib/dates';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -37,7 +40,11 @@ type NotificationType =
   | 'CASE_DEADLINE_NEAR'
   | 'CASE_ASSIGNED'
   | 'PETITION_RECEIVED'
+  | 'PETITION_ASSIGNED'
   | 'PETITION_DEADLINE_NEAR'
+  | 'INCIDENT_ASSIGNED'
+  | 'INCIDENT_CREATED'
+  | 'UTDT_ASSIGNED'
   | 'DOCUMENT_UPLOADED'
   | 'SYSTEM';
 
@@ -84,6 +91,26 @@ const TYPE_CONFIG: Record<
     icon: <FileText className="w-4 h-4" />,
     bg: 'bg-green-100',
     text: 'text-green-600',
+  },
+  PETITION_ASSIGNED: {
+    icon: <Mail className="w-4 h-4" />,
+    bg: 'bg-violet-100',
+    text: 'text-violet-600',
+  },
+  INCIDENT_ASSIGNED: {
+    icon: <AlertTriangle className="w-4 h-4" />,
+    bg: 'bg-orange-100',
+    text: 'text-orange-600',
+  },
+  INCIDENT_CREATED: {
+    icon: <AlertTriangle className="w-4 h-4" />,
+    bg: 'bg-orange-100',
+    text: 'text-orange-600',
+  },
+  UTDT_ASSIGNED: {
+    icon: <ExternalLink className="w-4 h-4" />,
+    bg: 'bg-indigo-100',
+    text: 'text-indigo-600',
   },
   PETITION_DEADLINE_NEAR: {
     icon: <AlertTriangle className="w-4 h-4" />,
@@ -145,7 +172,7 @@ export function NotificationDropdown() {
     }
   }, []);
 
-  // ── Poll unread count every 60s ─────────────────────────────────────────────
+  // ── Fetch unread count ──────────────────────────────────────────────────────
   const fetchUnreadCount = useCallback(async () => {
     try {
       const res = await api.get<{ unreadCount: number }>('/notifications/unread-count');
@@ -155,10 +182,38 @@ export function NotificationDropdown() {
     }
   }, []);
 
+  // ── SSE subscription — real-time badge updates ──────────────────────────────
   useEffect(() => {
-    void fetchUnreadCount();
-    const interval = setInterval(() => void fetchUnreadCount(), 60000);
-    return () => clearInterval(interval);
+    const token = authStore.getAccessToken();
+    if (!token) return;
+    let fallback: ReturnType<typeof setInterval> | null = null;
+
+    void fetchUnreadCount(); // initial fetch
+
+    const es = new EventSource(
+      `/api/v1/notifications/stream?token=${encodeURIComponent(token)}`,
+    );
+
+    es.onmessage = (e: MessageEvent<string>) => {
+      try {
+        const parsed = JSON.parse(e.data ?? '{}') as { type?: string };
+        if (parsed.type === 'unread-count-update') void fetchUnreadCount();
+        // heartbeat: ignore
+      } catch {
+        // malformed message — ignore
+      }
+    };
+
+    es.onerror = () => {
+      es.close();
+      // Fallback to 60s polling if SSE fails
+      fallback = setInterval(() => void fetchUnreadCount(), 60_000);
+    };
+
+    return () => {
+      es.close();
+      if (fallback) clearInterval(fallback);
+    };
   }, [fetchUnreadCount]);
 
   // ── Open / close dropdown ────────────────────────────────────────────────────

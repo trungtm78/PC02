@@ -26,6 +26,8 @@ import { DeadlineRulesService } from '../deadline-rules/deadline-rules.service';
 import { DocumentNumbersService } from '../document-numbers/document-numbers.service';
 import { BcaExcelHelper } from '../common/bca-excel.helper';
 import { PETITION_STATUS_LABEL } from '../common/constants/status-labels.constants';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { PetitionAssignedEvent } from '../notifications/events/notification.events';
 
 // Vietnamese labels for LoaiDon — Excel display consistency with PETITION_STATUS_LABEL.
 // Mirror frontend LOAI_DON_LABEL exactly (no drift). FE source:
@@ -47,6 +49,7 @@ export class PetitionsService {
     private readonly settings: SettingsService,
     private readonly deadlineRules: DeadlineRulesService,
     private readonly docNums: DocumentNumbersService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   // ─────────────────────────────────────────────
@@ -624,6 +627,20 @@ export class PetitionsService {
         );
       }
       throw e;
+    }
+
+    if (dto.assignedToId && dto.assignedToId !== existing.assignedToId) {
+      const actor = await this.prisma.user.findUnique({
+        where: { id: actorId },
+        select: { firstName: true, lastName: true },
+      });
+      const byUserName = actor ? `${actor.firstName ?? ''} ${actor.lastName ?? ''}`.trim() : '';
+      const petitionTitle = existing.senderName
+        ? `${existing.petitionType} - ${existing.senderName}`
+        : (existing as any).stt ?? id;
+      this.eventEmitter.emit('petition.assigned', new PetitionAssignedEvent(
+        id, petitionTitle, dto.assignedToId, actorId, byUserName,
+      ));
     }
 
     // Log separate PETITION_STATUS_CHANGED event for timeline queries

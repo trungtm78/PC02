@@ -28,6 +28,8 @@ import { ROLE_NAMES } from '../common/constants/role.constants';
 import { SETTINGS_KEY } from '../common/constants/settings-keys.constants';
 import { BcaExcelHelper } from '../common/bca-excel.helper';
 import { INCIDENT_STATUS_LABEL } from '../common/constants/status-labels.constants';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { IncidentAssignedEvent } from '../notifications/events/notification.events';
 
 @Injectable()
 export class IncidentsService {
@@ -37,6 +39,7 @@ export class IncidentsService {
     private readonly settings: SettingsService,
     private readonly deadlineRules: DeadlineRulesService,
     private readonly docNums: DocumentNumbersService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   // ─────────────────────────────────────────────
@@ -1154,6 +1157,17 @@ export class IncidentsService {
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
     });
+
+    if (dto.investigatorId && dto.investigatorId !== existing.investigatorId) {
+      const actor = await this.prisma.user.findUnique({
+        where: { id: actorId },
+        select: { firstName: true, lastName: true },
+      });
+      const byUserName = actor ? `${actor.firstName ?? ''} ${actor.lastName ?? ''}`.trim() : '';
+      this.eventEmitter.emit('incident.assigned', new IncidentAssignedEvent(
+        id, existing.name, dto.investigatorId, actorId, byUserName,
+      ));
+    }
 
     // v0.36.0.0: emit INCIDENT_ESCALATED_FROM_WARD khi ward team → non-ward team
     const existingWithTeam = existing as typeof existing & {

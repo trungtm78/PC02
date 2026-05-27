@@ -121,11 +121,13 @@ model User {
   exchangesCreated                Exchange[]                @relation("ExchangeCreatedBy")
   exchangeMessages                ExchangeMessage[]         @relation("ExchangeMessageSender")
   delegationsCreated              Delegation[]              @relation("DelegationCreatedBy")
+  delegationsAssigned             Delegation[]              @relation("DelegationAssignee")
   conclusionsAuthored             Conclusion[]              @relation("ConclusionAuthor")
   conclusionsApproved             Conclusion[]              @relation("ConclusionApprover")
   statusChanges                   CaseStatusHistory[]       @relation("StatusChangedBy")
   investigationSupplementsCreated InvestigationSupplement[] @relation("SupplementCreatedBy")
   notifications                   Notification[]
+  notificationPreferences         NotificationPreference[]
   userTeams                       UserTeam[]
   grantsReceived                  DataAccessGrant[]         @relation("GrantReceived")
   grantsGiven                     DataAccessGrant[]         @relation("GrantGiven")
@@ -1105,6 +1107,7 @@ model Delegation {
   receivingUnit    String // Đơn vị nhận ủy thác
   content          String // Nội dung ủy thác
   createdById      String? // FK → users
+  assignedToId     String? // FK → users (investigator receiving the UTDT)
   status           DelegationStatus @default(PENDING)
   completedDate    DateTime?
   relatedCaseId    String? // FK → cases
@@ -1114,10 +1117,12 @@ model Delegation {
   updatedAt        DateTime         @updatedAt
 
   createdBy   User? @relation("DelegationCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  assignedTo  User? @relation("DelegationAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
   relatedCase Case? @relation(fields: [relatedCaseId], references: [id], onDelete: SetNull)
 
   @@index([status])
   @@index([deletedAt])
+  @@index([assignedToId])
   @@map("delegations")
 }
 
@@ -1248,6 +1253,11 @@ enum NotificationType {
   DEADLINE_RULE_STALE_REVIEW
   DEADLINE_RULE_WITHDRAWN
   DEADLINE_RULE_CHANGES_REQUESTED
+  // Notification Center v2 — assignment events
+  INCIDENT_ASSIGNED
+  PETITION_ASSIGNED
+  UTDT_ASSIGNED
+  INCIDENT_CREATED
 }
 
 model Notification {
@@ -1262,11 +1272,37 @@ model Notification {
   createdAt DateTime         @default(now())
   readAt    DateTime?
 
+  // Notification Center v2 — acknowledge + push delivery tracking
+  acknowledgedAt  DateTime? // set when user clicks the notification link
+  pushSentAt      DateTime? // timestamp of most recent FCM send
+  pushRetryCount  Int       @default(0)
+  pushNextRetryAt DateTime? // null = no retry needed (acked or exhausted)
+  pushMaxRetries  Int       @default(3)
+
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, isRead])
   @@index([userId, createdAt])
+  @@index([pushNextRetryAt]) // scheduler query: WHERE pushNextRetryAt <= now
+  @@index([acknowledgedAt])
   @@map("notifications")
+}
+
+model NotificationPreference {
+  id        String           @id @default(cuid())
+  userId    String
+  eventType NotificationType
+  inApp     Boolean          @default(true)
+  push      Boolean          @default(true)
+  email     Boolean          @default(false) // defer — SMTP not verified on prod
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, eventType])
+  @@index([userId])
+  @@map("notification_preferences")
 }
 
 // ─────────────────────────────────────────────

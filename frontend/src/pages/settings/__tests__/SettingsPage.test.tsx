@@ -54,8 +54,10 @@ describe('SettingsPage', () => {
     // Re-setup api.get after clearAllMocks (clearAllMocks resets mockImplementation)
     vi.mocked(api.get).mockImplementation((url: string) => {
       if (url.includes('/directories/stats')) {
-        // Component reads res.data, so wrap in axios-style response
         return Promise.resolve({ data: mockDirectoriesStats });
+      }
+      if (url.includes('/notification-preferences')) {
+        return Promise.resolve({ data: { success: true, data: [] } });
       }
       return Promise.resolve({ data: {} });
     });
@@ -189,15 +191,14 @@ describe('SettingsPage', () => {
     });
   });
 
-  it('should render notification toggles', async () => {
+  it('should render notification preferences module', async () => {
     renderWithRouter(<SettingsPage />);
-    
+
     fireEvent.click(screen.getByTestId('settings-menu-notifications'));
-    
+
     await waitFor(() => {
-      expect(screen.getByText('Thông báo qua email')).toBeInTheDocument();
-      expect(screen.getByText('Thông báo qua SMS')).toBeInTheDocument();
-      expect(screen.getByText('Thông báo trình duyệt')).toBeInTheDocument();
+      expect(screen.getByText('Cấu hình thông báo')).toBeInTheDocument();
+      expect(screen.getByText('Đặt lại mặc định')).toBeInTheDocument();
     });
   });
 
