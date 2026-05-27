@@ -189,7 +189,11 @@ describe('NotificationsService', () => {
       expect(mockPrisma.notification.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { userId: 'user-1', isRead: false },
-          data: expect.objectContaining({ isRead: true }),
+          data: expect.objectContaining({
+            isRead: true,
+            acknowledgedAt: expect.any(Date),
+            pushNextRetryAt: null,
+          }),
         }),
       );
       expect(result).toHaveProperty('success', true);

@@ -148,6 +148,17 @@ export class DelegationsService {
       userAgent: meta?.userAgent,
     });
 
+    if (dto.assignedToId) {
+      const actor = await this.prisma.user.findUnique({
+        where: { id: actorId },
+        select: { firstName: true, lastName: true },
+      });
+      const byUserName = actor ? `${actor.firstName ?? ''} ${actor.lastName ?? ''}`.trim() : '';
+      this.eventEmitter.emit('utdt.assigned', new UydtAssignedEvent(
+        record.id, record.delegationNumber, dto.assignedToId, [], actorId, byUserName,
+      ));
+    }
+
     return { success: true, data: record, message: 'Tạo ủy thác điều tra thành công' };
   }
 
