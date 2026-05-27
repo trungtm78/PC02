@@ -2,6 +2,46 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.45.0.0] - 2026-05-27
+
+**Notification Center v2 — EventEmitter + SSE real-time + FCM push với work-hours queue**
+
+Cán bộ điều tra không còn bỏ lỡ phân công vụ án: badge thông báo cập nhật tức thì qua SSE, FCM push gửi trong giờ làm việc (7:00–18:00 T2–T7) với retry exponential backoff.
+
+### Added
+
+#### Backend
+- **EventEmitter2 decoupled events**: `EventEmitterModule.forRoot({ global: true })` trong AppModule; 8 typed event classes (`CaseAssigned`, `IncidentAssigned`, `PetitionAssigned`, `UydtAssigned`, `CaseCreated`, `CaseStatusChanged`, `PetitionReceived`, `IncidentCreated`)
+- **NotificationEventService**: 4 active `@OnEvent` handlers + 3 stubs; `sendInApp()` helper kiểm tra `NotificationPreference` trước khi tạo record; D5 try/catch + logger.error mỗi handler; D7 DRY single helper
+- **NotificationSseService + SseController**: D13 tách state/logic; multi-tab support (Map<userId, Set<Subject>>); D4 heartbeat 30s; `SseJwtGuard` RS256 JWT từ `?token=` query param + tokenVersion/isActive validation
+- **Work-hours utility**: D8 getUTCHours()+7 (không dùng OS timezone); D11a check same-day 07:00 trước khi advance; D11b nextRetryTime() wrap qua nextWorkHoursTime(); exponential backoff 1h→2h→4h
+- **NotificationPushScheduler**: D2 không dùng Prisma field-to-field comparison; `take: 100` per cron tick; mutex flag chống cron overlap
+- **NotificationCleanupScheduler**: xóa notifications > 90 ngày đã đọc và acknowledged (Chủ nhật 10:00 VN)
+- **RecipientResolverService**: extract `getTeamRecipients()` từ DeadlineScheduler (D6); fallback `getAllHeadUnits()` cho CASE_CREATED
+- **NotificationPreferences API**: `GET /notification-preferences`, `PUT /notification-preferences/:type`, `POST /notification-preferences/reset` — upsert per-channel (inApp/push); default `inApp=true, push=true`
+- **Domain service wiring**: Cases/Incidents/Petitions/Delegations emit typed events trên assign + create
+- **D10 fix**: `markAsRead()` luôn set `acknowledgedAt` + `pushNextRetryAt=null` bất kể `isRead` state — ngăn push retry vô hạn khi đọc qua dropdown mà chưa click link
+- **B1 fix**: `markAllAsRead()` cũng set `acknowledgedAt` + `pushNextRetryAt=null` — cùng ngữ nghĩa với markAsRead
+- **W3 fix**: `DelegationsService.create()` emit `utdt.assigned` khi `assignedToId` được set (trước đây chỉ `update()` emit)
+- **C3 fix**: `assignedToId` lưu vào cả 2 nhánh create (auto-number + manual-number); thêm vào `CreateDelegationDto`
+- **Prisma schema**: `Notification` thêm 5 fields (`acknowledgedAt`, `pushSentAt`, `pushRetryCount`, `pushNextRetryAt`, `pushMaxRetries`); `NotificationPreference` model mới; `Delegation.assignedToId` → `User?`; 6 enum values mới (`INCIDENT_ASSIGNED`, `PETITION_ASSIGNED`, `UTDT_ASSIGNED`, `INCIDENT_CREATED`, `CASE_STATUS_CHANGED`, `PETITION_RECEIVED`)
+
+#### Frontend
+- **SSE thay polling**: `NotificationDropdown.tsx` dùng `EventSource` với fallback polling 60s khi SSE fail
+- **4 TypeConfig entries mới**: `INCIDENT_ASSIGNED` (orange), `INCIDENT_CREATED` (orange), `PETITION_ASSIGNED` (violet), `UTDT_ASSIGNED` (indigo + ExternalLink icon)
+- **NotificationsModule.tsx**: bảng cài đặt thông báo trong Settings — 4 nhóm (Vụ án / Tố giác / Vụ việc / UTDT), 2 kênh (Trong app / Push FCM), auto-save optimistic, reset với confirm dialog
+
+### Fixed
+- D2: Scheduler WHERE loại bỏ `pushRetryCount < pushMaxRetries` (Prisma không hỗ trợ field-to-field comparison)
+- D3: `onCaseCreated` dùng `RecipientResolverService` thay vì query role string trực tiếp
+- D4: SSE heartbeat 30s giữ connection qua NAT/firewall
+- D5: try/catch mọi `@OnEvent` handler — không còn silent failure
+- D6: `getTeamRecipients()` extract thành `RecipientResolverService` — không duplicate vs DeadlineScheduler
+- D8: `nextWorkHoursTime()` dùng UTC+7 cố định — server UTC không ảnh hưởng
+- D10/B1: markAsRead + markAllAsRead luôn clear push retry (xem Added)
+- D11a/D11b: work-hours utility fix cả 2 edge case (same-day 07:00, nextRetryTime wrap)
+- D13: SseController inject SseService không inject vào Provider — chuẩn NestJS DI
+
 ## [0.44.3.0] - 2026-05-26
 
 **UTDT — đồng bộ bộ lọc màn hình Ủy Thác Điều Tra**
