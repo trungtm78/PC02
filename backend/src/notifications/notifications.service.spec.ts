@@ -126,18 +126,28 @@ describe('NotificationsService', () => {
       expect(mockPrisma.notification.update).not.toHaveBeenCalled();
     });
 
-    it('returns existing record without update when already read', async () => {
-      const alreadyRead = makeNotification({ isRead: true, readAt: new Date() });
+    it('D10: still calls update even when notification is already read — sets acknowledgedAt + clears pushNextRetryAt', async () => {
+      const alreadyRead = makeNotification({ isRead: true, readAt: new Date(), acknowledgedAt: null });
       mockPrisma.notification.findFirst.mockResolvedValue(alreadyRead);
+      const updated = makeNotification({ isRead: true });
+      mockPrisma.notification.update.mockResolvedValue(updated);
 
       const result = await service.markAsRead('notif-1', 'user-1');
 
+      expect(mockPrisma.notification.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'notif-1' },
+          data: expect.objectContaining({
+            isRead: true,
+            acknowledgedAt: expect.any(Date),
+            pushNextRetryAt: null,
+          }),
+        }),
+      );
       expect(result.success).toBe(true);
-      expect(result.data).toBe(alreadyRead);
-      expect(mockPrisma.notification.update).not.toHaveBeenCalled();
     });
 
-    it('calls prisma.update with isRead=true when notification is unread', async () => {
+    it('calls prisma.update with isRead=true + acknowledgedAt + pushNextRetryAt=null when unread', async () => {
       const unread = makeNotification({ isRead: false });
       mockPrisma.notification.findFirst.mockResolvedValue(unread);
       const updated = makeNotification({ isRead: true });
@@ -148,7 +158,11 @@ describe('NotificationsService', () => {
       expect(mockPrisma.notification.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: 'notif-1' },
-          data: expect.objectContaining({ isRead: true }),
+          data: expect.objectContaining({
+            isRead: true,
+            acknowledgedAt: expect.any(Date),
+            pushNextRetryAt: null,
+          }),
         }),
       );
       expect(result.success).toBe(true);
@@ -167,7 +181,11 @@ describe('NotificationsService', () => {
       expect(mockPrisma.notification.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { userId: 'user-1', isRead: false },
-          data: expect.objectContaining({ isRead: true }),
+          data: expect.objectContaining({
+            isRead: true,
+            acknowledgedAt: expect.any(Date),
+            pushNextRetryAt: null,
+          }),
         }),
       );
       expect(result).toHaveProperty('success', true);

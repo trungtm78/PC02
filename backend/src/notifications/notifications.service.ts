@@ -54,12 +54,16 @@ export class NotificationsService {
     if (!notification) {
       return { success: false, message: 'Notification not found' };
     }
-    if (notification.isRead) {
-      return { success: true, data: notification };
-    }
+    // D10: no early return for isRead=true — always set acknowledgedAt + clear push retry
+    const now = new Date();
     const updated = await this.prisma.notification.update({
       where: { id },
-      data: { isRead: true, readAt: new Date() },
+      data: {
+        isRead: true,
+        readAt: notification.readAt ?? now,
+        acknowledgedAt: notification.acknowledgedAt ?? now,
+        pushNextRetryAt: null,
+      },
     });
     return { success: true, data: updated };
   }
@@ -68,7 +72,12 @@ export class NotificationsService {
   async markAllAsRead(userId: string) {
     const result = await this.prisma.notification.updateMany({
       where: { userId, isRead: false },
-      data: { isRead: true, readAt: new Date() },
+      data: {
+        isRead: true,
+        readAt: new Date(),
+        acknowledgedAt: new Date(),
+        pushNextRetryAt: null,
+      },
     });
     return { success: true, updatedCount: result.count };
   }
