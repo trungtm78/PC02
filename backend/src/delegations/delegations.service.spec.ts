@@ -60,6 +60,47 @@ describe('DelegationsService — create()', () => {
     expect(result.success).toBe(true);
   });
 
+  it('persists assignedToId in delegation.create data when provided (C3 fix)', async () => {
+    const fakeRecord = {
+      id: 'del-assigned',
+      delegationNumber: 'UT/2026/0002',
+      assignedToId: 'user-assignee',
+      createdBy: {},
+      relatedCase: null,
+    };
+    mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(mockPrisma));
+    mockPrisma.documentNumberLog.update.mockResolvedValue({});
+    mockPrisma.delegation.create.mockResolvedValue(fakeRecord);
+
+    await service.create(
+      { receivingUnit: 'X', content: 'test', assignedToId: 'user-assignee' } as any,
+      'u1',
+    );
+
+    const createCall = mockPrisma.delegation.create.mock.calls[0][0];
+    expect(createCall.data).toHaveProperty('assignedToId', 'user-assignee');
+  });
+
+  it('persists assignedToId in delegation.create when delegationNumber is provided (C3 fix — second branch)', async () => {
+    const fakeRecord = {
+      id: 'del-assigned-manual',
+      delegationNumber: 'UT-MANUAL-002',
+      assignedToId: 'user-b',
+      createdBy: {},
+      relatedCase: null,
+    };
+    mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(mockPrisma));
+    mockPrisma.delegation.create.mockResolvedValue(fakeRecord);
+
+    await service.create(
+      { delegationNumber: 'UT-MANUAL-002', receivingUnit: 'X', content: 'test', assignedToId: 'user-b' } as any,
+      'u1',
+    );
+
+    const createCall = mockPrisma.delegation.create.mock.calls[0][0];
+    expect(createCall.data).toHaveProperty('assignedToId', 'user-b');
+  });
+
   it('uses provided delegationNumber and skips commitWithTx', async () => {
     const fakeRecord = { id: 'del-manual', delegationNumber: 'UT-MANUAL-001', createdBy: {}, relatedCase: null };
     mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(mockPrisma));

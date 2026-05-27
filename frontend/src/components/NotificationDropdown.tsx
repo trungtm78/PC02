@@ -237,16 +237,14 @@ export function NotificationDropdown() {
 
   // ── Click notification ────────────────────────────────────────────────────────
   const handleNotificationClick = async (n: Notification) => {
-    if (!n.isRead) {
-      try {
-        await api.patch(`/notifications/${n.id}/read`);
-        setNotifications((prev) =>
-          prev.map((item) => (item.id === n.id ? { ...item, isRead: true } : item))
-        );
-        setUnreadCount((c) => Math.max(0, c - 1));
-      } catch {
-        // fail silently
-      }
+    try {
+      await api.patch(`/notifications/${n.id}/read`);
+      setNotifications((prev) =>
+        prev.map((item) => (item.id === n.id ? { ...item, isRead: true } : item))
+      );
+      if (!n.isRead) setUnreadCount((c) => Math.max(0, c - 1));
+    } catch {
+      // fail silently
     }
     setOpen(false);
     if (n.link) navigate(n.link);

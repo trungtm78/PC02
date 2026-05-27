@@ -63,6 +63,15 @@ export class NotificationPushScheduler {
         });
       } catch (err) {
         this.logger.error(`Push failed for notification ${notif.id}`, err);
+        const newCount = notif.pushRetryCount + 1;
+        const hasMore = newCount < notif.pushMaxRetries;
+        await this.prisma.notification.update({
+          where: { id: notif.id },
+          data: {
+            pushRetryCount: newCount,
+            pushNextRetryAt: hasMore ? nextRetryTime(newCount) : null,
+          },
+        });
       }
     }
   }

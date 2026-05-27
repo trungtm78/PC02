@@ -108,6 +108,51 @@ describe('NotificationPushScheduler', () => {
     expect(updateCall.data.pushNextRetryAt).toBeNull(); // final retry — stop
   });
 
+  it('advances pushRetryCount and sets next pushNextRetryAt even when push fails (C2 fix)', async () => {
+    const notif = {
+      id: 'n-fail',
+      userId: 'user-1',
+      title: 'Fail',
+      message: 'Body',
+      type: 'CASE_ASSIGNED',
+      link: '/cases/1',
+      pushRetryCount: 0,
+      pushMaxRetries: 3,
+    };
+    mockPrisma.notification.findMany.mockResolvedValue([notif]);
+    mockPush.sendToUser.mockRejectedValueOnce(new Error('FCM unavailable'));
+
+    await scheduler.runDispatcher();
+
+    // Must still update the row — advance the retry count so it doesn't spin forever
+    const updateCall = mockPrisma.notification.update.mock.calls[0]?.[0];
+    expect(updateCall).toBeDefined();
+    expect(updateCall.where).toEqual({ id: 'n-fail' });
+    expect(updateCall.data.pushRetryCount).toBe(1);
+    expect(updateCall.data.pushNextRetryAt).not.toBeNull();
+  });
+
+  it('sets pushNextRetryAt=null on final failed retry (count reaches max) (C2 fix)', async () => {
+    const notif = {
+      id: 'n-exhaust',
+      userId: 'user-1',
+      title: 'Fail',
+      message: 'Body',
+      type: 'CASE_ASSIGNED',
+      link: '/cases/1',
+      pushRetryCount: 2, // last attempt
+      pushMaxRetries: 3,
+    };
+    mockPrisma.notification.findMany.mockResolvedValue([notif]);
+    mockPush.sendToUser.mockRejectedValueOnce(new Error('FCM unavailable'));
+
+    await scheduler.runDispatcher();
+
+    const updateCall = mockPrisma.notification.update.mock.calls[0]?.[0];
+    expect(updateCall.data.pushRetryCount).toBe(3);
+    expect(updateCall.data.pushNextRetryAt).toBeNull();
+  });
+
   it('continues dispatching other notifications when one push fails', async () => {
     const notif1 = {
       id: 'n1', userId: 'u1', title: 'T1', message: 'M1',
