@@ -58,7 +58,7 @@ import { DocumentNumbersModule } from './document-numbers/document-numbers.modul
     ConfigModule.forRoot({ isGlobal: true, envFilePath: '.env' }),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 200 }]),
     ScheduleModule.forRoot(),
-    EventEmitterModule.forRoot({ global: true, async: true, promisify: true }),
+    EventEmitterModule.forRoot({ global: true }),
     PrismaModule,
     MetricsModule, // Sprint 3 / S3.3 — Global module phải import sớm
     AuthModule,

@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import { NotificationType } from '@prisma/client';
+import { NotificationType, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationSseService } from './notification-sse.service';
 import { RecipientResolverService } from './recipient-resolver.service';
@@ -153,7 +153,7 @@ export class NotificationEventService {
         title: payload.title,
         message: payload.message,
         link: payload.link,
-        metadata: payload.metadata ?? {},
+        metadata: (payload.metadata ?? Prisma.JsonNull) as any,
         pushNextRetryAt: pref.push ? nextWorkHoursTime() : null,
         pushMaxRetries: 3,
       },

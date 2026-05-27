@@ -43,9 +43,9 @@ describe('NotificationPreferencesService', () => {
       ]);
       const result = await service.getPreferences('user-1');
       const casePref = result.data.find((p: any) => p.eventType === NotificationType.CASE_ASSIGNED);
-      expect(casePref.push).toBe(false);
+      expect(casePref!.push).toBe(false);
       const otherPref = result.data.find((p: any) => p.eventType === NotificationType.INCIDENT_ASSIGNED);
-      expect(otherPref.push).toBe(true);
+      expect(otherPref!.push).toBe(true);
     });
 
     it('queries only for the current userId', async () => {
