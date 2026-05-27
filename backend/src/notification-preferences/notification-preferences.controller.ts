@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Put, Request, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseEnumPipe, Post, Put, Request, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { NotificationPreferencesService } from './notification-preferences.service';
 import { UpdateNotificationPreferenceDto } from './dto/update-notification-preference.dto';
@@ -17,7 +17,7 @@ export class NotificationPreferencesController {
   @Put(':type')
   upsert(
     @Request() req: any,
-    @Param('type') type: NotificationType,
+    @Param('type', new ParseEnumPipe(NotificationType)) type: NotificationType,
     @Body() dto: UpdateNotificationPreferenceDto,
   ) {
     return this.service.upsertPreference(req.user.id as string, type, dto);
