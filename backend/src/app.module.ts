@@ -26,6 +26,7 @@ import { ExchangesModule } from './exchanges/exchanges.module';
 import { DelegationsModule } from './delegations/delegations.module';
 import { ConclusionsModule } from './conclusions/conclusions.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { NotificationPreferencesModule } from './notification-preferences/notification-preferences.module';
 import { InvestigationSupplementsModule } from './investigation-supplements/investigation-supplements.module';
 import { MasterClassModule } from './master-class/master-class.module';
 import { TeamsModule } from './teams/teams.module';
@@ -40,6 +41,7 @@ import { EventCategoriesModule } from './event-categories/event-categories.modul
 import { CalendarEventsModule } from './calendar-events/calendar-events.module';
 import { EventRemindersModule } from './event-reminders/event-reminders.module';
 import { ScheduleModule } from '@nestjs/schedule';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { PushModule } from './push/push.module';
 import { SchedulerModule } from './scheduler/scheduler.module';
 import { VksMeetingsModule } from './shared/vks-meetings/vks-meetings.module';
@@ -56,6 +58,7 @@ import { DocumentNumbersModule } from './document-numbers/document-numbers.modul
     ConfigModule.forRoot({ isGlobal: true, envFilePath: '.env' }),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 200 }]),
     ScheduleModule.forRoot(),
+    EventEmitterModule.forRoot({ global: true }),
     PrismaModule,
     MetricsModule, // Sprint 3 / S3.3 — Global module phải import sớm
     AuthModule,
@@ -78,6 +81,7 @@ import { DocumentNumbersModule } from './document-numbers/document-numbers.modul
     DelegationsModule,
     ConclusionsModule,
     NotificationsModule,
+    NotificationPreferencesModule,
     InvestigationSupplementsModule,
     MasterClassModule,
     TeamsModule,

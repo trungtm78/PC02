@@ -21,6 +21,7 @@
 
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException, BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { IncidentsService } from './incidents.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
@@ -174,6 +175,7 @@ describe('IncidentsService', () => {
         { provide: SettingsService, useValue: mockSettings },
         { provide: DeadlineRulesService, useValue: mockDeadlineRules },
         { provide: DocumentNumbersService, useValue: mockDocNums },
+        { provide: EventEmitter2, useValue: { emit: jest.fn() } },
       ],
     }).compile();
 

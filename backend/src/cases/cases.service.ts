@@ -25,6 +25,8 @@ import { BcaExcelHelper } from '../common/bca-excel.helper';
 import { CASE_STATUS_LABEL } from '../common/constants/status-labels.constants';
 import { ROLE_NAMES } from '../common/constants/role.constants';
 import { SETTINGS_KEY } from '../common/constants/settings-keys.constants';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { CaseAssignedEvent, CaseCreatedEvent } from '../notifications/events/notification.events';
 
 type JsonInput = Prisma.InputJsonValue;
 type PrismaTx = Prisma.TransactionClient;
@@ -88,6 +90,7 @@ export class CasesService {
     private readonly audit: AuditService,
     private readonly settings: SettingsService, // v0.31.0.2: THOI_HAN_XOA_VU_AN
     private readonly docNums: DocumentNumbersService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   // ─────────────────────────────────────────────
@@ -653,6 +656,7 @@ export class CasesService {
         userAgent: meta?.userAgent,
       });
 
+      this.eventEmitter.emit('case.created', new CaseCreatedEvent(caseRecord.id, caseRecord.caseCode ?? '', actorId));
       return { success: true, data: caseRecord, message: 'Tạo vụ án thành công' };
     }
 
@@ -727,6 +731,7 @@ export class CasesService {
         userAgent: meta?.userAgent,
       });
 
+      this.eventEmitter.emit('case.created', new CaseCreatedEvent(caseRecord.id, caseRecord.caseCode ?? '', actorId));
       return { success: true, data: caseRecord, message: 'Tạo vụ án thành công' };
     }
 
@@ -804,6 +809,8 @@ export class CasesService {
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
     });
+
+    this.eventEmitter.emit('case.created', new CaseCreatedEvent(record.id, (record as any).caseCode ?? '', actorId));
 
     const autoLinkedIncident = autoIncidentId
       ? { id: autoIncidentId, code: autoIncidentCode ?? '', name: autoIncidentName ?? dto.name }
@@ -1476,6 +1483,17 @@ export class CasesService {
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
     });
+
+    if (dto.investigatorId && dto.investigatorId !== existing.investigatorId) {
+      const actor = await this.prisma.user.findUnique({
+        where: { id: actorId },
+        select: { firstName: true, lastName: true },
+      });
+      const byUserName = actor ? `${actor.firstName ?? ''} ${actor.lastName ?? ''}`.trim() : '';
+      this.eventEmitter.emit('case.assigned', new CaseAssignedEvent(
+        id, existing.caseCode ?? '', dto.investigatorId, actorId, byUserName,
+      ));
+    }
 
     // v0.35a: emit CASE_ESCALATED_FROM_WARD nếu ward team → non-ward team.
     // Scope filter (v0.33) tự lock CAP ra khỏi access. Audit cho supervisor visibility.
