@@ -2,6 +2,61 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.48.0.0] - 2026-05-29
+
+**v0.48 Bulk Actions — PR1 Foundation + Export**
+
+End-to-end bulk-action infrastructure cho 3 list pages chính (Cases, Incidents, Petitions backend). Frontend UI ship export-only ở v0.48; bulk-assign action sẵn ở backend + adapter nhưng yêu cầu team picker modal (defer PR sau). Bulk-delete + bulk-restore tách PR2 (v0.49) sau khi soft-delete restore UI hoàn thiện — per CEO review F2 (investigation system safety: destructive actions không ship trước recovery actions).
+
+### Added
+
+**Backend bulk infrastructure**:
+- `backend/src/common/bulk/run-bulk.ts` — per-item Prisma transaction utility với partial-success accumulator + preflight phase + per-item tx isolation (Postgres abort semantics).
+- `BulkOperation` Prisma model + `bulk_operations` migration — header rows STARTED→COMPLETED|FAILED tracking N item ops + idempotency key cho retry safety.
+- `audit_logs.bulkOperationId` FK column linking N item audit rows to 1 bulk header.
+- `AuditService.logBulkHeader / logBulkItem (in tx) / completeBulk` — audit-atomic-with-data-write pattern (plan eng E-H3).
+
+**Backend endpoints** (6 mới):
+- `POST /api/v1/cases/bulk-assign` — DispatchGuard, ids 1..100, reason 10-500, optimistic lock optional.
+- `POST /api/v1/cases/bulk-export` — RequirePermissions read, ids 1..1000, xlsx stream với BcaExcelHelper brand.
+- `POST /api/v1/incidents/bulk-assign` + `/bulk-export` — mirror Cases pattern.
+- `POST /api/v1/petitions/bulk-assign` + `/bulk-export` — mirror Cases pattern.
+
+**Frontend bulk infrastructure**:
+- `useBulkSelection` hook — page/all-matching-filter mode, auto-clear on filter change, 3-state header checkbox.
+- `BulkActionBar` component (sticky-bottom z-30) — escalating friction (10/50/200 thresholds), permission gating, 'all-matching-filter' guard cho export-only.
+- `BulkSelectionColumn` — checkbox column helper (a11y compliant: aria-checked="mixed", aria-label per row, indeterminate state).
+- `InlineResultPanel` — persistent above-table panel với expandable detail cho skipped/failed items (vs vanishing toast).
+- Adapters cho Cases/Incidents/Petitions với enableAssign flag (default false v0.48).
+
+**Wired list pages**:
+- `CaseListPage` — checkbox column + bulk export Excel.
+- `IncidentListPage` — checkbox column + bulk export Excel.
+
+### Architecture decisions (from CEO + Eng + Design review autoplan)
+
+- Per-item Prisma transaction (Postgres abort tx semantic).
+- Composition runBulk utility, KHÔNG base class (E-C1).
+- BulkSelectionColumn helper thay vì extend shared DataTable (list pages PC02 không dùng DataTable, E-C1 verified).
+- DispatchGuard cho bulk-assign match single-assign authority (no privilege escalation, E-C4).
+- Preflight scope filter — silent PERMISSION skip (E-H4).
+- `actorId` nullable + ON DELETE SET NULL trên BulkOperation — audit retention.
+- 'All matching filter' chỉ cho export action (F4 risk guard CEO).
+
+### Tests
+
+- Backend: +28 unit + integration tests. Full suite 1992/1992 pass.
+- Frontend: +7 useBulkSelection tests. Full suite 794/794 pass.
+
+### Deferred to follow-up PR
+- bulk-delete + bulk-restore (PR2 v0.49, sau khi soft-delete UI sẵn).
+- bulk-transfer + bulk-change-status + bulk-extend-deadline (Incidents).
+- Lawyers/Objects/UTDT/DeadlineRules bulk-export modules.
+- Team picker modal cho bulk-assign UI integration.
+- 'Select all matching filter' banner UI + `?fields=id` projection endpoints.
+- PetitionListPage wire (đang có select-all riêng cho Word ZIP batch v0.47).
+- Cases status transition bulk (BLTTHS state machine — PR3).
+
 ## [0.47.0.7] - 2026-05-29
 
 **v0.47 Document + Report Template Engine — PR6 Track B Import Part 2 (CRITICAL — data mutation)**
