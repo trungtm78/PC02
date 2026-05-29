@@ -2,6 +2,44 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.47.0.7] - 2026-05-29
+
+**v0.47 Document + Report Template Engine — PR6 Track B Import Part 2 (CRITICAL — data mutation)**
+
+PR6 closes the v0.47 import pipeline. Materialises PR5 staging rows into Case/Incident under a dual-admin approval gate with full rollback. This is the **CRITICAL** half of v0.47 — every safety primitive Codex flagged as mandatory for data-mutation imports is implemented and unit-tested before the first row touches a domain table.
+
+### Added
+- **3 new endpoints** (admin-only):
+  - `GET /api/v1/xlsx-imports/:id/preview` — dry-run reading staging rows + conflict detection (no mutations)
+  - `POST /api/v1/xlsx-imports/:id/commit` — dual-confirm state machine; step 1 captures first admin, step 2 by a different admin within 24h materialises Case/Incident rows
+  - `POST /api/v1/xlsx-imports/:id/rollback` — cascade delete on `importLogId` + status `ROLLED_BACK`
+- **`XlsxImportCommitService`** (`commit.service.ts`) — the orchestrator. State machine: `PARSED → PENDING_SECOND_CONFIRM → COMMITTED`; from COMMITTED → ROLLED_BACK. Same admin self-confirm → 409; admin B past 24h → 400 with `code: DUAL_CONFIRM_TTL_EXPIRED`.
+- **`payload-mapper.ts`** — best-effort header detection (recognises STT, Mã VA / Mã VV / Mã hồ sơ, Tên vụ án / Tên vụ việc / Tên, Tội danh, ngày tiếp nhận / ngày khởi tố, đối tượng, địa điểm) → skeleton mapping. Same mapper runs in dry-run and commit, so the preview snapshot equals the commit outcome.
+- **`commit.constants.ts`** — `DUAL_CONFIRM_TTL_MS=24h`, `DRYRUN_SAMPLE_ROWS_PER_SHEET=5`, `IMPORT_SOURCE_TAG='xlsx-phu-luc'`, `IMPORT_DEFAULT_CASE_PROVENANCE='TRANSFERRED'` (BLTTHS Đ.143 — these come from outside the system), status enum.
+- **Conflict detection** in dry-run (commit does NOT block — officers reconcile via existing Case/Incident edit UI in v0.48):
+  - `duplicate_id` — staging caseCode/incidentCode matches an existing row
+  - `unit_mismatch` — existing row's unit differs from `log.unitCodeDetected`
+- **Materialisation rules**:
+  - Case rows: `name` from "Tên" column or fallback "Imported row {rowIndex}", `caseProvenance: TRANSFERRED`, `caseCode` from staging if present, `metadata` = full original payload, all import audit fields set
+  - Incident rows: `name` from "Tên" column, `code` from "Mã VV" or deterministic `VV-IMP-{logId[0:8]}-{rowIndex}`, all import audit fields set
+  - Every materialised row carries `importLogId` FK (provenance invariant — unit-tested)
+
+### Iron rules satisfied (Codex CRITICAL final review)
+- ✅ Two **different** admins must approve within 24h before any Case/Incident row is created
+- ✅ Every materialised row carries `importLogId` provenance (FK from PR1 schema)
+- ✅ Rollback cascades via `importLogId` deleteMany, NOT via log delete (schema is `SetNull` on log delete so investigations never orphan if an admin nukes the log row directly)
+- ✅ Dry-run uses the SAME `mapSheetToSkeletons` code commit uses — snapshot equality between preview and outcome
+
+### Test counts
+- New: **18 commit.service.spec tests** — RBAC × 3, dryRun × 4 (404 + grouping + conflicts × 2), commit × 8 (first-confirm + same-admin-rejection + cross-admin success + TTL expiry + already-COMMITTED + FAILED + ROLLED_BACK + provenance invariant), rollback × 3 (cascade + already-rolled + FAILED)
+- Backend total: **1953 pass** (+18 from PR5 ship at 1935)
+- `npx tsc --noEmit` clean
+
+### Deferred to v0.48
+- Frontend upload + preview + commit + rollback UI (current admin uses gh CLI / curl)
+- Officer reconciliation UI: merge xlsx fields field-by-field with existing Case/Incident on `duplicate_id` (override / skip / merge actions)
+- Per-field column mapping editor for non-standard đơn vị xlsx variants
+
 ## [0.47.0.6] - 2026-05-29
 
 **v0.47 Document + Report Template Engine — PR5 Track B Import Part 1 (HIGH SECURITY)**
