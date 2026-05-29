@@ -38,8 +38,4 @@ export class CreateDelegationDto {
   @IsOptional()
   @IsString()
   notes?: string;
-
-  @IsOptional()
-  @IsString()
-  assignedToId?: string;
 }
