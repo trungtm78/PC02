@@ -2,6 +2,34 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.46.0.0] - 2026-05-29
+
+**Mobile Responsive + PWA — Cán bộ điều tra dùng được hệ thống trên điện thoại, cài đặt như native app**
+
+Hệ thống PC02 giờ đây hoạt động đầy đủ trên mobile (390×844px iPhone 12 trở lên) và có thể cài đặt như native app trên màn hình chính (Android Chrome + iOS Safari 16.4+). ĐTV thực địa có thể tra cứu vụ án, lãnh đạo duyệt/phân công khi đi ra ngoài, click FCM notification mở thẳng vào trang đúng layout — hoàn thiện vòng lặp giá trị từ v0.45 Notification Center.
+
+### Added
+- **AppSidebar mobile drawer** — Sidebar 260px ẩn mặc định trên mobile <1024px, hiện qua hamburger button (top-left, 44×44 touch target). Slide-in overlay 250ms với backdrop click-to-close + Escape key support. Auto-đóng khi navigate (watch React Router v7 `location` object để bắt cả query-param change).
+- **PWA installable** — Manifest, service worker, icons (192/512/180-apple-touch). Cài đặt qua "Add to Home Screen" → launch standalone, theme color Xanh Công An (#003973). Tên app: "PC02 Quản lý Án".
+- **Update prompt** — Banner cập nhật ở bottom (z-30, không block modal) khi service worker phát hiện version mới. registerType='prompt' (không autoUpdate) để bảo vệ form data đang nhập dở.
+- **EmptyMobileState component** — Component dùng chung cho empty/error state mobile (icon + Vietnamese message + retry CTA 44×44).
+
+### Changed
+- **MODAL_CONTAINER** — Full-screen trên mobile (<640px), centered card trên desktop. Dùng `dvh` với `@supports` fallback cho older Android browsers (Samsung Internet, UC Browser). z-40 < sidebar drawer z-50 (tránh conflict khi drawer mở).
+- **MODAL_HEADER/FOOTER** — Sticky top/bottom giúp X close và nút Save luôn visible khi scroll modal nội dung dài.
+- **MainLayout header** — Padding mobile thu gọn (`px-4 lg:px-6`), hamburger button thay logo+title trên màn hình hẹp.
+- **TABLE_WRAPPER constant** — Thêm negative margin `-mx-4 px-4 sm:mx-0` cho horizontal scroll extend tới viewport edge trên xs.
+
+### Security
+- **Workbox API allowlist** — Service worker chỉ cache `/api/v1/health`, `/api/v1/notifications`, `/api/v1/feature-flags` (non-PII). Dữ liệu vụ án/vụ việc/đơn thư KHÔNG cache trong CacheStorage để tránh exfiltration risk nếu xảy ra XSS.
+
+### Technical Notes
+- Test coverage: 23 test mới (MainLayout.mobile +7, AppSidebar.mobile +5, Modal.mobile +7, EmptyMobileState +9, PwaUpdatePrompt +7 — trừ overlap). Tổng frontend 778/778 PASS, backend 1760/1760 PASS.
+- vite-plugin-pwa@1.3.0 + workbox-window@7.4.1 (verified Vite 7 peer dep compatibility per auto-decision #19).
+- iOS PWA limitation: FCM push không nhận được trên installed iOS PWA (Safari restriction). User vẫn nhận in-app notification badge qua SSE.
+- isCompact 64px sidebar mode được force `false` khi drawer mở trên mobile (auto-decision #13 — tránh state collision).
+- TDD: 28 Red-Green-Refactor cycles theo plan v0.46 — mọi production code có failing test trước.
+
 ## [0.45.0.0] - 2026-05-27
 
 **Notification Center v2 — EventEmitter + SSE real-time + FCM push với work-hours queue**
