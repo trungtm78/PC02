@@ -27,10 +27,27 @@ const DOC_TYPES: DocTypeOption[] = [
 
 interface Props {
   petitionId: string;
+  /** v0.47 PR3.1 review fix: block export when form has unsaved edits — backend
+   * re-fetches the petition from DB, so dirty edits would render with stale data. */
+  isDirty?: boolean;
   onError?: (msg: string) => void;
 }
 
-export function ExportDocumentDropdown({ petitionId, onError }: Props) {
+async function parseBlobError(err: unknown): Promise<unknown> {
+  const e = err as { response?: { data?: unknown } };
+  const data = e?.response?.data;
+  if (data instanceof Blob && data.type.includes('json')) {
+    try {
+      const text = await data.text();
+      (e as { response: { data: unknown } }).response.data = JSON.parse(text);
+    } catch {
+      /* ignore — extractApiError fallback will fire */
+    }
+  }
+  return err;
+}
+
+export function ExportDocumentDropdown({ petitionId, isDirty, onError }: Props) {
   const [isOpen, setIsOpen] = useState(false);
   const [busyDocType, setBusyDocType] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -49,8 +66,15 @@ export function ExportDocumentDropdown({ petitionId, onError }: Props) {
   }, [isOpen]);
 
   async function handleExport(docType: string) {
+    if (isDirty) {
+      const msg = "Có nội dung chưa lưu. Hãy lưu đơn thư trước khi xuất tài liệu để đảm bảo nội dung phiếu phản ánh đúng các trường nghiệp vụ vừa nhập.";
+      if (onError) onError(msg);
+      else window.alert(msg);
+      return;
+    }
     setBusyDocType(docType);
     setIsOpen(false);
+    let url: string | null = null;
     try {
       const response = await api.get<Blob>(`/petitions/${petitionId}/export-document`, {
         params: { docType },
@@ -61,19 +85,20 @@ export function ExportDocumentDropdown({ petitionId, onError }: Props) {
       const m = cd.match(/filename="([^"]+)"/);
       const filename = m?.[1] ?? `${docType}.docx`;
 
-      const url = URL.createObjectURL(response.data);
+      url = URL.createObjectURL(response.data);
       const a = document.createElement("a");
       a.href = url;
       a.download = filename;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      URL.revokeObjectURL(url);
     } catch (err: unknown) {
-      const msg = extractApiError(err, "Không xuất được tài liệu. Vui lòng kiểm tra các trường nghiệp vụ bắt buộc.").messages.join(". ");
+      const parsed = await parseBlobError(err);
+      const msg = extractApiError(parsed, "Không xuất được tài liệu. Vui lòng kiểm tra các trường nghiệp vụ bắt buộc.").messages.join(". ");
       if (onError) onError(msg);
       else window.alert(msg);
     } finally {
+      if (url) URL.revokeObjectURL(url);
       setBusyDocType(null);
     }
   }

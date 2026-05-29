@@ -3,7 +3,7 @@
  * TASK-ID: TASK-2026-260202
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { extractApiError } from "@/lib/api-errors";
@@ -68,6 +68,13 @@ export function PetitionFormPage() {
   const [errors, setErrors] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(isEditMode);
+  // v0.47 PR3.1 review fix: snapshot of last saved formData so we can compute
+  // isDirty for ExportDocumentDropdown (block export when nội dung chưa lưu).
+  const savedSnapshotRef = useRef<string>(JSON.stringify(INITIAL_FORM));
+  const isDirty = useMemo(
+    () => JSON.stringify(formData) !== savedSnapshotRef.current,
+    [formData],
+  );
   const [userOptions, setUserOptions] = useState<UserOption[]>([]);
   const [recordUpdatedAt, setRecordUpdatedAt] = useState<string | null>(null);
   const [isDraftLoading, setIsDraftLoading] = useState(!isEditMode);
@@ -141,6 +148,14 @@ export function PetitionFormPage() {
           baoCaoBanGiamDoc: Boolean(d.baoCaoBanGiamDoc),
         });
         setRecordUpdatedAt((d.updatedAt as string) ?? null);
+        // Snapshot the loaded values so isDirty is false until the officer types.
+        // Must match the next setFormData state shape — recompute on next render via setTimeout fallback.
+        setTimeout(() => {
+          setFormData((curr) => {
+            savedSnapshotRef.current = JSON.stringify(curr);
+            return curr;
+          });
+        }, 0);
       })
       .catch(() => setErrors(["Không thể tải dữ liệu đơn thư. Vui lòng thử lại."]))
       .finally(() => setIsLoadingData(false));
@@ -197,9 +212,12 @@ export function PetitionFormPage() {
         deadline: formData.deadline || undefined,
         assignedToId: formData.assignedToId || undefined,
         notes: formData.notes || undefined,
-        nhanThay: formData.nhanThay || undefined,
-        deXuat: formData.deXuat || undefined,
-        raSoatTrung: formData.raSoatTrung || undefined,
+        // v0.47 PR3.1 review fix: send empty strings explicitly so backend can
+        // clear previously-saved nội dung phiếu đề xuất when officer wipes a field.
+        // (Backend service spreads conditionally on `!== undefined`.)
+        nhanThay: formData.nhanThay,
+        deXuat: formData.deXuat,
+        raSoatTrung: formData.raSoatTrung,
         baoCaoBanGiamDoc: formData.baoCaoBanGiamDoc,
       };
       if (isEditMode) {
@@ -207,6 +225,9 @@ export function PetitionFormPage() {
       } else {
         await api.post("/petitions", payload);
       }
+      // Refresh snapshot so officer can click Export Document right after Save
+      // without isDirty going stale.
+      savedSnapshotRef.current = JSON.stringify(formData);
       navigate("/petitions");
     } catch (err: unknown) {
       const status = (err as { response?: { status?: number } })?.response?.status;
@@ -541,7 +562,7 @@ export function PetitionFormPage() {
             {isSubmitting ? "Đang lưu..." : isEditMode ? "Cập nhật" : "Lưu đơn thư"}
           </button>
           {isEditMode && id && (
-            <ExportDocumentDropdown petitionId={id} />
+            <ExportDocumentDropdown petitionId={id} isDirty={isDirty} />
           )}
         </div>
       </form>

@@ -40,6 +40,7 @@ export function BatchExportModal({ petitionIds, isOpen, onClose, onSuccess }: Pr
   async function handleExport() {
     setIsExporting(true);
     setErrorMsg(null);
+    let url: string | null = null;
     try {
       const response = await api.post<Blob>(
         "/petitions/export-document-batch",
@@ -52,20 +53,28 @@ export function BatchExportModal({ petitionIds, isOpen, onClose, onSuccess }: Pr
       const m = cd.match(/filename="([^"]+)"/);
       const filename = m?.[1] ?? `batch-${docType}.zip`;
 
-      const url = URL.createObjectURL(response.data);
+      url = URL.createObjectURL(response.data);
       const a = document.createElement("a");
       a.href = url;
       a.download = filename;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      URL.revokeObjectURL(url);
 
       onSuccess();
     } catch (err: unknown) {
+      // axios stores error response.data as Blob when responseType:'blob' — parse it first.
+      const e = err as { response?: { data?: unknown } };
+      const data = e?.response?.data;
+      if (data instanceof Blob && data.type.includes('json')) {
+        try {
+          (e as { response: { data: unknown } }).response.data = JSON.parse(await data.text());
+        } catch { /* fallback to generic msg */ }
+      }
       const msg = extractApiError(err, "Không xuất được file ZIP. Một số đơn có thể thiếu trường bắt buộc — xem manifest.json trong ZIP.").messages.join(". ");
       setErrorMsg(msg);
     } finally {
+      if (url) URL.revokeObjectURL(url);
       setIsExporting(false);
     }
   }

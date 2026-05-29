@@ -478,15 +478,19 @@ export function PetitionListPage() {
                 <th className="px-3 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider w-10">
                   <input
                     type="checkbox"
-                    aria-label="Chọn tất cả đơn thư hiển thị"
+                    aria-label="Chọn tất cả đơn thư trên trang này"
                     data-testid="checkbox-select-all"
-                    checked={petitions.length > 0 && petitions.every((p) => selectedIds.has(p.id))}
+                    // v0.47 PR3.1 review fix: scope select-all to displayedPetitions
+                    // (current page after filter), NOT the raw fetched `petitions` array.
+                    // Previously this silently added all 100 fetched IDs to selectedIds on
+                    // page 1, leaving the user with hidden selections across pagination.
+                    checked={displayedPetitions.length > 0 && displayedPetitions.every((p) => selectedIds.has(p.id))}
                     onChange={(e) => {
                       const next = new Set(selectedIds);
                       if (e.target.checked) {
-                        petitions.forEach((p) => next.add(p.id));
+                        displayedPetitions.forEach((p) => next.add(p.id));
                       } else {
-                        petitions.forEach((p) => next.delete(p.id));
+                        displayedPetitions.forEach((p) => next.delete(p.id));
                       }
                       setSelectedIds(next);
                     }}
