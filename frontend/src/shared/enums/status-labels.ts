@@ -4,6 +4,7 @@
  * Used by: ComprehensiveListPage, and any future aggregate or detail view.
  */
 import { CaseStatus, IncidentStatus, PetitionStatus, LyDoKhongKhoiTo, LoaiNguonTin, NguonPhatTin, PhuongThucTiepNhan, DeadlineRuleStatus, LoaiDon, CaseType, LoaiUyThac } from './generated';
+import { STATUS_PENDING_RESPONSE } from '@/constants/styles';
 
 // ── v0.44 UTDT types ─────────────────────────────────────────────
 export type TrangThaiPhanHoi = 'DA_PHAN_HOI' | 'KHONG_THUC_HIEN_DUOC' | 'QUA_HAN' | 'CHUA_PHAN_HOI';
@@ -25,6 +26,23 @@ export const CASE_STATUS_LABEL: Record<CaseStatus, string> = {
 
 export const CASE_STATUS_OPTIONS = Object.entries(CASE_STATUS_LABEL).map(([value, label]) => ({ value, label }));
 
+// Short label cho status chips (max 14 chars). Chip width budget per Phase 2
+// design: `max-w-[12rem] truncate` trong STATUS_CHIP_BASE — labels dài hơn
+// 14 chars sẽ truncate hiển thị "...". Consumer dùng shortLabel cho chip,
+// fullLabel cho tooltip.
+export const CASE_STATUS_SHORT_LABEL: Record<CaseStatus, string> = {
+  [CaseStatus.TIEP_NHAN]:      'Tiếp nhận',
+  [CaseStatus.DANG_XAC_MINH]: 'Xác minh',
+  [CaseStatus.DA_XAC_MINH]:   'Đã xác minh',
+  [CaseStatus.DANG_DIEU_TRA]: 'Điều tra',
+  [CaseStatus.TAM_DINH_CHI]:  'Tạm đình chỉ',
+  [CaseStatus.DINH_CHI]:      'Đình chỉ',
+  [CaseStatus.DA_KET_LUAN]:   'Kết luận',
+  [CaseStatus.DANG_TRUY_TO]:  'Truy tố',
+  [CaseStatus.DANG_XET_XU]:   'Xét xử',
+  [CaseStatus.DA_LUU_TRU]:    'Lưu trữ',
+};
+
 export const INCIDENT_STATUS_LABEL: Record<IncidentStatus, string> = {
   [IncidentStatus.TIEP_NHAN]:           'Tiếp nhận',
   [IncidentStatus.DANG_XAC_MINH]:       'Đang xác minh',
@@ -43,6 +61,24 @@ export const INCIDENT_STATUS_LABEL: Record<IncidentStatus, string> = {
   [IncidentStatus.PHAN_LOAI_DAN_SU]:    'Phân loại dân sự',
 };
 
+export const INCIDENT_STATUS_SHORT_LABEL: Record<IncidentStatus, string> = {
+  [IncidentStatus.TIEP_NHAN]:           'Tiếp nhận',
+  [IncidentStatus.DANG_XAC_MINH]:       'Xác minh',
+  [IncidentStatus.DA_PHAN_CONG]:        'Phân công',
+  [IncidentStatus.DA_GIAI_QUYET]:       'Giải quyết',
+  [IncidentStatus.TAM_DINH_CHI]:        'Tạm đình chỉ',
+  [IncidentStatus.QUA_HAN]:             'Quá hạn',
+  [IncidentStatus.DA_CHUYEN_VU_AN]:     'Chuyển vụ án',
+  [IncidentStatus.KHONG_KHOI_TO]:       'Không khởi tố',
+  [IncidentStatus.CHUYEN_XPHC]:         'Chuyển XPHC',
+  [IncidentStatus.TDC_HET_THOI_HIEU]:  'TĐC hết hạn',
+  [IncidentStatus.TDC_HTH_KHONG_KT]:   'TĐC không KT',
+  [IncidentStatus.PHUC_HOI_NGUON_TIN]:  'Phục hồi NT',
+  [IncidentStatus.DA_CHUYEN_DON_VI]:    'Chuyển ĐV',
+  [IncidentStatus.DA_NHAP_VU_KHAC]:     'Nhập vụ khác',
+  [IncidentStatus.PHAN_LOAI_DAN_SU]:    'Dân sự',
+};
+
 export const PETITION_STATUS_LABEL: Record<PetitionStatus, string> = {
   [PetitionStatus.MOI_TIEP_NHAN]:      'Mới tiếp nhận',
   [PetitionStatus.DANG_XU_LY]:         'Đang xử lý',
@@ -51,6 +87,16 @@ export const PETITION_STATUS_LABEL: Record<PetitionStatus, string> = {
   [PetitionStatus.DA_GIAI_QUYET]:      'Đã giải quyết',
   [PetitionStatus.DA_CHUYEN_VU_VIEC]:  'Đã chuyển vụ việc',
   [PetitionStatus.DA_CHUYEN_VU_AN]:    'Đã chuyển vụ án',
+};
+
+export const PETITION_STATUS_SHORT_LABEL: Record<PetitionStatus, string> = {
+  [PetitionStatus.MOI_TIEP_NHAN]:      'Mới tiếp nhận',
+  [PetitionStatus.DANG_XU_LY]:         'Đang xử lý',
+  [PetitionStatus.CHO_PHE_DUYET]:      'Chờ duyệt',
+  [PetitionStatus.DA_LUU_DON]:         'Lưu đơn',
+  [PetitionStatus.DA_GIAI_QUYET]:      'Giải quyết',
+  [PetitionStatus.DA_CHUYEN_VU_VIEC]:  'Chuyển vụ việc',
+  [PetitionStatus.DA_CHUYEN_VU_AN]:    'Chuyển vụ án',
 };
 
 // v0.37.2.4 — single source of truth cho Loại đơn (LoaiDon enum) Vietnamese labels.
@@ -287,7 +333,7 @@ export const TRANG_THAI_PHAN_HOI_BADGE: Record<TrangThaiPhanHoi, string> = {
   DA_PHAN_HOI:          'text-xs px-1.5 py-0.5 rounded bg-green-100 text-green-700',
   KHONG_THUC_HIEN_DUOC: 'text-xs px-1.5 py-0.5 rounded bg-orange-100 text-orange-700',
   QUA_HAN:              'text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-700',
-  CHUA_PHAN_HOI:        'text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-600',
+  CHUA_PHAN_HOI:        `text-xs px-1.5 py-0.5 rounded ${STATUS_PENDING_RESPONSE}`,
 };
 
 export const TRANG_THAI_PHAN_HOI_OPTIONS: ReadonlyArray<{ value: TrangThaiPhanHoi; label: string }> = [
