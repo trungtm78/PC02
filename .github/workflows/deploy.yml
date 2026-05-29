@@ -67,6 +67,20 @@ jobs:
       - name: Build backend
         run: cd backend && npm run build
 
+      - name: Verify docx templates bundled in dist
+        run: |
+          # PR2 v0.47.0.2 incident: nest-cli.json outDir misconfig caused
+          # backend/dist/templates/docx/docx/ (double-nested) → DocxTemplateLoader
+          # refused to boot → prod 502. Fail fast here instead of in production.
+          EXPECTED=6
+          ACTUAL=$(find backend/dist/templates/docx -maxdepth 1 -name '*.docx' 2>/dev/null | wc -l)
+          echo "Templates in backend/dist/templates/docx/: $ACTUAL (expected $EXPECTED)"
+          ls -la backend/dist/templates/docx/ || true
+          if [ "$ACTUAL" -lt "$EXPECTED" ]; then
+            echo "::error::Missing docx templates in dist. Build artifact would crash backend boot."
+            exit 1
+          fi
+
       - name: Install frontend deps
         run: cd frontend && npm ci
 
@@ -100,6 +114,7 @@ jobs:
             backend/src \
             backend/data \
             backend/assets \
+            backend/templates \
             frontend/dist \
             scripts/deploy \
             VERSION \
