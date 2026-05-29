@@ -77,22 +77,32 @@ jobs:
           # case where a count-only check passes with a missing required name
           # plus an unrelated extra .docx file. Names must match DOCUMENT_TYPES
           # exactly (see backend/src/document-templates/docx-loader.service.ts).
-          REQUIRED="PHIEU_DE_XUAT PHIEU_CHUYEN_NGUON_TIN PHIEU_CHUYEN_DON THONG_BAO_CHUYEN THONG_BAO_HUONG_DAN THONG_BAO_TRA_LAI"
+          REQUIRED_DOCX="PHIEU_DE_XUAT PHIEU_CHUYEN_NGUON_TIN PHIEU_CHUYEN_DON THONG_BAO_CHUYEN THONG_BAO_HUONG_DAN THONG_BAO_TRA_LAI"
+          REQUIRED_XLSX="PHU_LUC_01 PHU_LUC_02 PHU_LUC_03 PHU_LUC_04 PHU_LUC_05 PHU_LUC_06"
           ls -la backend/dist/templates/docx/ || {
             echo "::error::backend/dist/templates/docx/ does not exist — nest build assets failed"
             exit 1
           }
+          ls -la backend/dist/templates/xlsx/ || {
+            echo "::error::backend/dist/templates/xlsx/ does not exist — nest build assets failed (PR4)"
+            exit 1
+          }
           MISSING=""
-          for name in $REQUIRED; do
+          for name in $REQUIRED_DOCX; do
             if [ ! -f "backend/dist/templates/docx/${name}.docx" ]; then
-              MISSING="${MISSING} ${name}.docx"
+              MISSING="${MISSING} docx/${name}.docx"
+            fi
+          done
+          for name in $REQUIRED_XLSX; do
+            if [ ! -f "backend/dist/templates/xlsx/${name}.xlsx" ]; then
+              MISSING="${MISSING} xlsx/${name}.xlsx"
             fi
           done
           if [ -n "$MISSING" ]; then
-            echo "::error::Missing docx templates in dist:${MISSING}"
+            echo "::error::Missing templates in dist:${MISSING}"
             exit 1
           fi
-          echo "All 6 required docx templates present."
+          echo "All 6 docx + 6 xlsx required templates present."
 
       - name: Install frontend deps
         run: cd frontend && npm ci

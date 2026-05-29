@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Response } from 'express';
 import * as ExcelJS from 'exceljs';
 import { BcaExcelHelper } from '../../common/bca-excel.helper';
+import { escapeXlsxCell } from '../../common/utils/xlsx-formula-escape.util';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Column definitions for each Phụ lục type
@@ -216,7 +217,10 @@ any,
 
       allValues.forEach((v, ci) => {
         const cell = row.getCell(ci + 1);
-        cell.value = v;
+        // v0.47 PR4 — CSV/Excel injection defense. User-supplied strings (sender
+        // names, addresses, free-text notes) get '-prefixed if they start with
+        // =, +, -, @, \t, \r so Excel renders the literal instead of evaluating.
+        cell.value = escapeXlsxCell(v);
         cell.alignment = {
           vertical: 'middle',
           horizontal: ci === 0 ? 'center' : 'left',
@@ -311,7 +315,8 @@ any,
 
         allValues.forEach((v, ci) => {
           const cell = row.getCell(ci + 1);
-          cell.value = v;
+          // v0.47 PR4 — CSV/Excel injection defense (same hardening as _writeIncidents).
+          cell.value = escapeXlsxCell(v);
           cell.alignment = {
             vertical: 'middle',
             horizontal: ci === 0 ? 'center' : 'left',
