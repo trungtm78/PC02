@@ -2,6 +2,47 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.47.0.6] - 2026-05-29
+
+**v0.47 Document + Report Template Engine — PR5 Track B Import Part 1 (HIGH SECURITY)**
+
+PR5 ships the upload + parse half of the xlsx import pipeline. Every defense from the Codex final review hostile-xlsx kit is implemented BEFORE any disk write or parser call. No commit endpoint, no mutations against Case/Incident — parser writes ONLY to `xlsx_import_staging`. Commit (dual-confirm + rollback) lands in PR6.
+
+### Added
+- **`backend/src/xlsx-imports/` module** with controller, orchestration service, parser service, immutable storage service, and the hostile-xlsx defense kit. Wired in `app.module.ts`.
+- **`POST /api/v1/xlsx-imports`** (admin-only, throttled 10/min): multipart upload returning `{ logId, sha, dedupeHit, unitCodeDetected, succeededRows, sheetsParsed }`.
+- **`GET /api/v1/xlsx-imports/:id`** and **`GET /api/v1/xlsx-imports`** for listing — admin sees all, others see own.
+- **Hostile xlsx defense kit** (`hostile-xlsx-guard.ts`):
+  - MIME magic-byte check via ZIP local file header (PK\x03\x04) — rejects renamed binaries before exceljs touches them. Hand-rolled because `file-type@22` is ESM-only and breaks ts-jest.
+  - Compressed-size cap: 50 MB (also enforced at multer layer).
+  - Zip-bomb defense by EOCD + central directory walker WITHOUT decompressing — rejects ratio > 100×, single-member uncompressed > 500 MB, or corrupt EOCD signature.
+  - Sheet count cap (20), row cap per sheet (100k), cell length clamp (32k chars, truncates rather than aborts).
+  - Parser timeout 30s via `Promise.race` (unref'd).
+  - Formula stripping on IMPORT direction: leading `=`, `+`, `-`, `@`, `\t`, `\r` removed from string cells. Distinct from PR4 export `escapeXlsxCell` (PR4 prefixes `'`; here we strip).
+  - SHA256-based dedupe + idempotent immutable storage at `uploads/xlsx-imports/{sha}.xlsx` chmod 0o444.
+- **Staging-only invariant**: `XlsxParserService` cannot import `prisma.case` / `prisma.incident`. Unit-tested with a mock prisma that asserts `case.create` / `incident.create` are NEVER called for either Phụ lục 01-03 or 04-06 sheet patterns.
+- **Sheet name → type detection**: Phụ lục 01-03 → Incident, Phụ lục 04-06 → Case, unmappable → null. Regex normalised for accents and 0-padded variants.
+- **Unit code extraction** from filename via best-effort regex covering observed FILE GUI PC01 patterns (DOI6, KV7, CS1, PC02, CSGT3, "Đội 3"). Diacritic strip on the key letter.
+
+### Security review
+- 34 new tests across 3 specs cover every defense. Adversarial fixtures: renamed `.exe` payload, plain-text upload, corrupt zip (no EOCD), formula-injection `=cmd|'/c calc'!A1`, HYPERLINK exfil, oversized cell.
+- Codex CRITICAL findings #3 (staging vs direct upsert), #4 (formula stripping), #7 (admin RBAC) all implemented.
+- Path-traversal-shaped SHAs are rejected by `resolvePathFromSha` regex (must be 64-char hex).
+
+### Test counts
+- Backend: 1927 pass (+34 from baseline 1893 at PR4 ship) — 1 flaky 2FA test passes in isolation, same pre-existing race as PR4
+- Frontend: 787/787 (unchanged)
+- `npx tsc --noEmit` clean
+
+### Deferred to PR6 (Track B Import Part 2 — CRITICAL)
+- Dry-run preview endpoint reading staging rows
+- Conflict detection (duplicate IDs across units)
+- Dual-confirm commit (2 different admins, 24h window)
+- Per-row `importLogId` provenance on Case/Incident
+- Rollback endpoint (revert + cascade delete via existing schema cascade)
+- Unit scope enforcement at commit time (user in DOI4 cannot commit DOI6 data)
+- Frontend upload + preview + commit UI
+
 ## [0.47.0.5] - 2026-05-29
 
 **v0.47 Document + Report Template Engine — PR4 Track B Generate (xlsx hardening + infra)**
