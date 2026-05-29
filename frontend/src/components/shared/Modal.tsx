@@ -2,6 +2,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { X } from "lucide-react";
 import {
   MODAL_OVERLAY,
+  MODAL_CONTAINER,
   MODAL_HEADER,
   MODAL_BODY,
   MODAL_FOOTER,
@@ -96,7 +97,7 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className={`bg-white rounded-lg shadow-xl ${maxWidth} w-full max-h-[90vh] overflow-hidden`}
+        className={`${MODAL_CONTAINER} ${maxWidth}`}
         onClick={(e) => e.stopPropagation()}
         data-testid="modal-container"
       >

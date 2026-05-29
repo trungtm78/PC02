@@ -24,7 +24,14 @@ type MenuSection = ResolvedMenuSection;
 
 /* ─── Component ──────────────────────────────────────────────── */
 
-export function AppSidebar() {
+interface AppSidebarProps {
+  /** Called when the user clicks the mobile close (X) button or otherwise dismisses the drawer */
+  onClose?: () => void;
+  /** True when the sidebar is rendered as a mobile drawer overlay (controlled by MainLayout). Forces isCompact=false to prevent the 64px-wide compact mode from rendering inside the drawer. */
+  isMobileOpen?: boolean;
+}
+
+export function AppSidebar({ onClose, isMobileOpen = false }: AppSidebarProps = {}) {
   const navigate = useNavigate();
   const location = useLocation();
   const { counts } = useBadgeCounts();
@@ -51,7 +58,11 @@ export function AppSidebar() {
   );
   const [searchQuery, setSearchQuery] = useState('');
   const [favorites, setFavorites] = useState<Set<string>>(new Set(['dashboard', 'cases-list']));
-  const [isCompact, setIsCompact] = useState(false);
+  const [isCompactPreference, setIsCompactPreference] = useState(false);
+  // Auto-decision #13: force isCompact=false when rendered as mobile drawer.
+  // Prevents 64px compact mode from rendering inside the 260px drawer overlay.
+  const isCompact = isMobileOpen ? false : isCompactPreference;
+  const setIsCompact = setIsCompactPreference;
   const [recentItems, setRecentItems] = useState<string[]>(['cases-list', 'petitions', 'export-reports']);
   const [showRemoveFavoriteModal, setShowRemoveFavoriteModal] = useState(false);
   const [itemToRemove, setItemToRemove] = useState<{ id: string; label: string } | null>(null);
@@ -331,8 +342,20 @@ export function AppSidebar() {
     <aside
       data-testid="main-sidebar"
       style={isCompact ? { width: '64px', minWidth: '64px' } : { width: '260px', minWidth: '260px' }}
-      className="bg-primary text-white border-r border-white/10 flex flex-col transition-all duration-300 shadow-xl"
+      className="bg-primary text-white border-r border-white/10 flex flex-col transition-all duration-300 shadow-xl h-full"
     >
+      {/* Mobile close button — only visible <lg when drawer is open */}
+      {onClose && (
+        <button
+          data-testid="sidebar-close-mobile"
+          onClick={onClose}
+          className="lg:hidden absolute top-2 right-2 z-10 p-2 rounded-md hover:bg-white/10 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+          aria-label="Đóng menu"
+        >
+          <X className="w-5 h-5 text-white" />
+        </button>
+      )}
+
       {/* Header */}
       <div className="p-3 border-b border-white/10">
         {!isCompact && (

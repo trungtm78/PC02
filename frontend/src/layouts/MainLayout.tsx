@@ -1,6 +1,6 @@
 import { Suspense, useState, useRef, useEffect } from 'react';
-import { Outlet, useNavigate } from 'react-router-dom';
-import { LogOut, KeyRound, ChevronDown, ShieldCheck, MapPin } from 'lucide-react';
+import { Outlet, useNavigate, useLocation } from 'react-router-dom';
+import { LogOut, KeyRound, ChevronDown, ShieldCheck, MapPin, Menu, X } from 'lucide-react';
 import { AppSidebar } from '@/components/AppSidebar';
 import { NotificationDropdown } from '@/components/NotificationDropdown';
 import { GlobalSearchBar } from '@/components/GlobalSearchBar';
@@ -12,6 +12,7 @@ import { AddressConversionDialog } from '@/components/AddressConversionDialog';
 import { useShortcut } from '@/hooks/useShortcut';
 import { useUserShortcutBroadcast } from '@/hooks/useUserShortcuts';
 import { ShortcutCheatSheet } from '@/components/ShortcutCheatSheet';
+import { PwaUpdatePrompt } from '@/components/PwaUpdatePrompt';
 import { authStore } from '@/stores/auth.store';
 import { api } from '@/lib/api';
 import logoCA from '@/assets/logo-cong-an.png';
@@ -37,10 +38,12 @@ export function MainLayout() {
   useUserShortcutBroadcast(); // cross-tab sync for shortcut bindings
   const { preview: addressPreview, applyConversion, cancelConversion } = useAddressConverter();
   const navigate = useNavigate();
+  const location = useLocation();
   const user = authStore.getUser();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [twoFaSetupOpen, setTwoFaSetupOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -52,6 +55,22 @@ export function MainLayout() {
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
+
+  // Mobile drawer: auto-close on route change. Watching `location` (not just
+  // pathname) catches query-param changes that should also close the drawer.
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [location]);
+
+  // Mobile drawer: Escape key closes
+  useEffect(() => {
+    if (!sidebarOpen) return;
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setSidebarOpen(false);
+    }
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [sidebarOpen]);
 
   const handleLogout = async () => {
     setDropdownOpen(false);
@@ -76,8 +95,18 @@ export function MainLayout() {
       {/* Header */}
       <header
         data-testid="main-header"
-        className="h-16 bg-white border-b-2 border-accent flex items-center px-6 gap-6 flex-shrink-0 shadow-sm"
+        className="h-16 bg-white border-b-2 border-accent flex items-center px-4 lg:px-6 gap-3 lg:gap-6 flex-shrink-0 shadow-sm"
       >
+        {/* Mobile hamburger — only visible <lg */}
+        <button
+          data-testid="mobile-hamburger"
+          onClick={() => setSidebarOpen(true)}
+          className="lg:hidden p-2 -ml-2 rounded-md hover:bg-slate-100 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+          aria-label="Mở menu"
+        >
+          {sidebarOpen ? <X className="w-6 h-6 text-slate-700" /> : <Menu className="w-6 h-6 text-slate-700" />}
+        </button>
+
         {/* Logo + Title */}
         <div className="flex items-center gap-3">
           <img
@@ -166,8 +195,32 @@ export function MainLayout() {
       </header>
 
       {/* Body */}
-      <div className="flex flex-1 overflow-hidden">
-        <AppSidebar />
+      <div className="flex flex-1 overflow-hidden relative">
+        {/* Backdrop — mobile only, when drawer is open */}
+        {sidebarOpen && (
+          <div
+            data-testid="sidebar-backdrop"
+            onClick={() => setSidebarOpen(false)}
+            className="fixed inset-0 top-16 z-40 bg-black/50 lg:hidden"
+            aria-hidden="true"
+          />
+        )}
+
+        {/* Sidebar wrapper:
+            - <lg (mobile): fixed overlay drawer, slides in/out via translate-x
+            - >=lg (desktop): static, always visible
+            z-50 keeps drawer above modals (z-40) per autoplan decision #16 */}
+        <div
+          data-testid="sidebar-wrapper"
+          className={`
+            fixed inset-y-0 left-0 top-16 z-50 lg:static lg:top-0 lg:z-auto
+            transition-transform duration-300 ease-in-out
+            ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+          `}
+        >
+          <AppSidebar onClose={() => setSidebarOpen(false)} isMobileOpen={sidebarOpen} />
+        </div>
+
         <main className="flex-1 overflow-y-auto">
           <Suspense fallback={<LoadingFallback />}>
             <Outlet />
@@ -193,6 +246,9 @@ export function MainLayout() {
       )}
       {/* `?` keyboard cheat sheet (discoverability layer) */}
       <ShortcutCheatSheet />
+
+      {/* PWA: prompt user when new SW version available (non-blocking bottom banner) */}
+      <PwaUpdatePrompt />
     </div>
   );
 }
