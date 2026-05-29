@@ -157,9 +157,9 @@ export function IncidentListPage() {
   const [bulkResult, setBulkResult] = useState<BulkResult | null>(null);
   const [bulkResultLabel, setBulkResultLabel] = useState("");
   const [incidents, setIncidents] = useState<Incident[]>([]);
-  // Bulk action infrastructure (v0.48 PR1) — export-only initially.
+  // Bulk action infrastructure (v0.48 PR1 + v0.50 PR3 delete enabled).
   const bulkSelection = useBulkSelection({ rowKey: "id", pageRows: incidents });
-  const bulkAdapter = buildIncidentsAdapter();
+  const bulkAdapter = buildIncidentsAdapter({ enableDelete: true });
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
   const [isLoading, setIsLoading] = useState(true);

@@ -328,3 +328,177 @@ describe('IncidentsBulkService.bulkExport — v0.48 B4', () => {
     ).rejects.toThrow(BadRequestException);
   });
 });
+
+// v0.50 PR3 — Incidents bulk-delete + bulk-restore
+describe('IncidentsBulkService.bulkDelete — v0.50 PR3', () => {
+  let service: IncidentsBulkService;
+  let mockPrisma: any;
+  let mockAudit: any;
+
+  const adminScope: DataScope = {
+    userIds: [],
+    teamIds: [],
+    writableTeamIds: [],
+    canDispatch: true,
+    isWardOfficer: false,
+  } as DataScope;
+
+  const eligibleInc = (id: string) => ({
+    id,
+    status: 'TIEP_NHAN',
+    petitions: [],
+    documents: [],
+    name: `VV ${id}`,
+    code: `IN-${id}`,
+  });
+
+  beforeEach(async () => {
+    mockPrisma = {
+      incident: {
+        findMany: jest
+          .fn()
+          .mockResolvedValue([eligibleInc('inc-1'), eligibleInc('inc-2')]),
+      },
+      $executeRaw: jest.fn().mockResolvedValue(1),
+      $transaction: jest.fn(async (cb: any) =>
+        cb({
+          incident: { update: jest.fn().mockResolvedValue({ id: 'mocked' }) },
+          $executeRaw: jest.fn().mockResolvedValue(1),
+        }),
+      ),
+    };
+    mockAudit = {
+      logBulkHeader: jest.fn().mockResolvedValue({ bulkOperationId: 'b-inc-del-1' }),
+      logBulkItem: jest.fn().mockResolvedValue(undefined),
+      completeBulk: jest.fn().mockResolvedValue(undefined),
+      log: jest.fn(),
+    };
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        IncidentsBulkService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: AuditService, useValue: mockAudit },
+      ],
+    }).compile();
+    service = module.get<IncidentsBulkService>(IncidentsBulkService);
+  });
+
+  const baseInput = {
+    ids: ['inc-1', 'inc-2'],
+    reason: 'gỡ trùng lặp',
+    actorId: 'actor-1',
+    dataScope: adminScope,
+  };
+
+  it('happy path: deletes 2 eligible incidents với BULK_DELETE header', async () => {
+    const result = await service.bulkDelete(baseInput);
+    expect(result.succeeded).toHaveLength(2);
+    expect(mockAudit.logBulkHeader).toHaveBeenCalledWith(
+      expect.objectContaining({ resource: 'Incident', action: 'BULK_DELETE' }),
+    );
+  });
+
+  it('skips status ≠ TIEP_NHAN với INELIGIBLE (match previewDelete invariant)', async () => {
+    const inProg = eligibleInc('inc-2');
+    inProg.status = 'DANG_XAC_MINH';
+    mockPrisma.incident.findMany.mockResolvedValue([eligibleInc('inc-1'), inProg]);
+
+    const result = await service.bulkDelete(baseInput);
+    expect(result.succeeded.map((s) => s.id)).toEqual(['inc-1']);
+    expect(result.skipped).toContainEqual(
+      expect.objectContaining({
+        id: 'inc-2',
+        reason: 'INELIGIBLE',
+        message: expect.stringContaining('Tiếp nhận'),
+      }),
+    );
+  });
+
+  it('skips incidents có linked petitions với INELIGIBLE', async () => {
+    const withPetition = eligibleInc('inc-1');
+    withPetition.petitions = [{ id: 'p-1' }] as any;
+    mockPrisma.incident.findMany.mockResolvedValue([withPetition]);
+
+    const result = await service.bulkDelete({ ...baseInput, ids: ['inc-1'] });
+    expect(result.skipped[0]).toEqual(
+      expect.objectContaining({
+        id: 'inc-1',
+        reason: 'INELIGIBLE',
+        message: expect.stringContaining('đơn thư'),
+      }),
+    );
+  });
+
+  it('rejects empty + > 100 ids', async () => {
+    await expect(service.bulkDelete({ ...baseInput, ids: [] })).rejects.toThrow(BadRequestException);
+    await expect(
+      service.bulkDelete({
+        ...baseInput,
+        ids: Array.from({ length: 101 }, (_, i) => `i-${i}`),
+      }),
+    ).rejects.toThrow(BadRequestException);
+  });
+});
+
+describe('IncidentsBulkService.bulkRestore — v0.50 PR3', () => {
+  let service: IncidentsBulkService;
+  let mockPrisma: any;
+  let mockAudit: any;
+
+  beforeEach(async () => {
+    mockPrisma = {
+      incident: {
+        findMany: jest.fn().mockResolvedValue([
+          { id: 'inc-1', deletedAt: new Date(Date.now() - 60_000), name: 'V1', code: 'I1' },
+          { id: 'inc-2', deletedAt: new Date(Date.now() - 60_000), name: 'V2', code: 'I2' },
+        ]),
+      },
+      $executeRaw: jest.fn().mockResolvedValue(1),
+      $transaction: jest.fn(async (cb: any) =>
+        cb({
+          incident: { update: jest.fn().mockResolvedValue({ id: 'mocked' }) },
+          $executeRaw: jest.fn().mockResolvedValue(1),
+        }),
+      ),
+    };
+    mockAudit = {
+      logBulkHeader: jest.fn().mockResolvedValue({ bulkOperationId: 'b-inc-r-1' }),
+      logBulkItem: jest.fn().mockResolvedValue(undefined),
+      completeBulk: jest.fn().mockResolvedValue(undefined),
+    };
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        IncidentsBulkService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: AuditService, useValue: mockAudit },
+      ],
+    }).compile();
+    service = module.get<IncidentsBulkService>(IncidentsBulkService);
+  });
+
+  it('admin restores 2 soft-deleted incidents với BULK_RESTORE', async () => {
+    const result = await service.bulkRestore({
+      ids: ['inc-1', 'inc-2'],
+      reason: 'khôi phục theo công văn',
+      actorId: 'admin-1',
+    });
+    expect(result.succeeded).toHaveLength(2);
+    expect(mockAudit.logBulkHeader).toHaveBeenCalledWith(
+      expect.objectContaining({ resource: 'Incident', action: 'BULK_RESTORE' }),
+    );
+  });
+
+  it('skips incidents không bị xóa với NOT_FOUND', async () => {
+    mockPrisma.incident.findMany.mockResolvedValue([
+      { id: 'inc-1', deletedAt: new Date(), name: 'OK', code: 'I1' },
+    ]);
+    const result = await service.bulkRestore({
+      ids: ['inc-1', 'inc-2'],
+      reason: 'khôi phục',
+      actorId: 'admin-1',
+    });
+    expect(result.skipped).toContainEqual(
+      expect.objectContaining({ id: 'inc-2', reason: 'NOT_FOUND' }),
+    );
+  });
+});

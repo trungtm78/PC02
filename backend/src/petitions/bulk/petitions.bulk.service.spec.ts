@@ -194,4 +194,81 @@ describe('PetitionsBulkService — v0.48 B5', () => {
       ).rejects.toThrow(BadRequestException);
     });
   });
+
+  describe('bulkDelete — v0.50 PR3', () => {
+    it('deletes 2 petitions với BULK_DELETE header', async () => {
+      const result = await service.bulkDelete({
+        ids: ['p-1', 'p-2'],
+        reason: 'gỡ trùng lặp',
+        actorId: 'actor',
+        dataScope: adminScope,
+      });
+      expect(result.succeeded).toHaveLength(2);
+      expect(mockAudit.logBulkHeader).toHaveBeenCalledWith(
+        expect.objectContaining({ resource: 'Petition', action: 'BULK_DELETE' }),
+      );
+    });
+
+    it('skips out-of-scope với PERMISSION', async () => {
+      mockPrisma.petition.findMany.mockResolvedValue([{ id: 'p-1' }]);
+      const result = await service.bulkDelete({
+        ids: ['p-1', 'p-2'],
+        reason: 'gỡ trùng lặp',
+        actorId: 'actor',
+        dataScope: adminScope,
+      });
+      expect(result.skipped).toContainEqual(
+        expect.objectContaining({ id: 'p-2', reason: 'PERMISSION' }),
+      );
+    });
+
+    it('rejects empty + > 100', async () => {
+      await expect(
+        service.bulkDelete({ ids: [], reason: 'ok 10 chars', actorId: 'a', dataScope: adminScope }),
+      ).rejects.toThrow(BadRequestException);
+      await expect(
+        service.bulkDelete({
+          ids: Array.from({ length: 101 }, (_, i) => `p-${i}`),
+          reason: 'ok 10 chars',
+          actorId: 'a',
+          dataScope: adminScope,
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('bulkRestore — v0.50 PR3', () => {
+    beforeEach(() => {
+      mockPrisma.petition.findMany.mockResolvedValue([
+        { id: 'p-1', deletedAt: new Date(Date.now() - 60_000) },
+        { id: 'p-2', deletedAt: new Date(Date.now() - 60_000) },
+      ]);
+    });
+
+    it('restores với BULK_RESTORE header', async () => {
+      const result = await service.bulkRestore({
+        ids: ['p-1', 'p-2'],
+        reason: 'khôi phục theo công văn',
+        actorId: 'admin',
+      });
+      expect(result.succeeded).toHaveLength(2);
+      expect(mockAudit.logBulkHeader).toHaveBeenCalledWith(
+        expect.objectContaining({ resource: 'Petition', action: 'BULK_RESTORE' }),
+      );
+    });
+
+    it('skips petitions chưa bị xóa với NOT_FOUND', async () => {
+      mockPrisma.petition.findMany.mockResolvedValue([
+        { id: 'p-1', deletedAt: new Date() },
+      ]);
+      const result = await service.bulkRestore({
+        ids: ['p-1', 'p-2'],
+        reason: 'khôi phục',
+        actorId: 'admin',
+      });
+      expect(result.skipped).toContainEqual(
+        expect.objectContaining({ id: 'p-2', reason: 'NOT_FOUND' }),
+      );
+    });
+  });
 });

@@ -1,0 +1,20 @@
+import { ArrayMaxSize, ArrayMinSize, IsArray, IsOptional, IsString, Length } from 'class-validator';
+
+export class BulkDeletePetitionsDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(100)
+  @IsString({ each: true })
+  ids: string[];
+
+  @IsString()
+  @Length(10, 500)
+  reason: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(1, 128)
+  idempotencyKey?: string;
+}
+
+export class BulkRestorePetitionsDto extends BulkDeletePetitionsDto {}

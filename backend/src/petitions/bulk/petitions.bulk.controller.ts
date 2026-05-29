@@ -19,6 +19,7 @@ import type { AuthUser } from '../../auth/interfaces/auth-user.interface';
 import type { ScopedRequest } from '../../auth/interfaces/scoped-request.interface';
 import { BulkAssignPetitionsDto } from '../dto/bulk-assign-petitions.dto';
 import { BulkExportPetitionsDto } from '../dto/bulk-export-petitions.dto';
+import { BulkDeletePetitionsDto, BulkRestorePetitionsDto } from '../dto/bulk-delete-petitions.dto';
 import { PetitionsBulkService } from './petitions.bulk.service';
 
 @Controller('petitions')
@@ -60,6 +61,45 @@ export class PetitionsBulkController {
       ids: dto.ids,
       dataScope: req.dataScope,
       res,
+      actorId: user.id,
+      meta: { ipAddress: req.ip, userAgent: req.headers['user-agent'] },
+    });
+  }
+
+  @Post('bulk-delete')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions({ action: 'delete', subject: 'Petition' })
+  @Throttle({ default: { ttl: 60_000, limit: 5 } })
+  async bulkDelete(
+    @Body() dto: BulkDeletePetitionsDto,
+    @CurrentUser() user: AuthUser,
+    @Req() req: ScopedRequest,
+  ) {
+    return this.bulkService.bulkDelete({
+      ids: dto.ids,
+      reason: dto.reason,
+      idempotencyKey: dto.idempotencyKey,
+      actorId: user.id,
+      dataScope: req.dataScope,
+      meta: { ipAddress: req.ip, userAgent: req.headers['user-agent'] },
+    });
+  }
+
+  @Post('bulk-restore')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions({ action: 'restore', subject: 'Petition' })
+  @Throttle({ default: { ttl: 60_000, limit: 5 } })
+  async bulkRestore(
+    @Body() dto: BulkRestorePetitionsDto,
+    @CurrentUser() user: AuthUser,
+    @Req() req: ScopedRequest,
+  ) {
+    return this.bulkService.bulkRestore({
+      ids: dto.ids,
+      reason: dto.reason,
+      idempotencyKey: dto.idempotencyKey,
       actorId: user.id,
       meta: { ipAddress: req.ip, userAgent: req.headers['user-agent'] },
     });

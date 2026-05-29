@@ -19,6 +19,8 @@ import type { AuthUser } from '../../auth/interfaces/auth-user.interface';
 import type { ScopedRequest } from '../../auth/interfaces/scoped-request.interface';
 import { BulkAssignIncidentsDto } from '../dto/bulk-assign-incidents.dto';
 import { BulkExportIncidentsDto } from '../dto/bulk-export-incidents.dto';
+import { BulkDeleteIncidentsDto } from '../dto/bulk-delete-incidents.dto';
+import { BulkRestoreIncidentsDto } from '../dto/bulk-restore-incidents.dto';
 import { IncidentsBulkService } from './incidents.bulk.service';
 
 @Controller('incidents')
@@ -47,6 +49,47 @@ export class IncidentsBulkController {
         ipAddress: req.ip,
         userAgent: req.headers['user-agent'],
       },
+    });
+  }
+
+  // POST /api/v1/incidents/bulk-delete — v0.50 PR3 soft delete N vụ việc.
+  @Post('bulk-delete')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions({ action: 'delete', subject: 'Incident' })
+  @Throttle({ default: { ttl: 60_000, limit: 5 } })
+  async bulkDelete(
+    @Body() dto: BulkDeleteIncidentsDto,
+    @CurrentUser() user: AuthUser,
+    @Req() req: ScopedRequest,
+  ) {
+    return this.bulkService.bulkDelete({
+      ids: dto.ids,
+      reason: dto.reason,
+      idempotencyKey: dto.idempotencyKey,
+      actorId: user.id,
+      dataScope: req.dataScope,
+      meta: { ipAddress: req.ip, userAgent: req.headers['user-agent'] },
+    });
+  }
+
+  // POST /api/v1/incidents/bulk-restore — v0.50 PR3 admin restore.
+  @Post('bulk-restore')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions({ action: 'restore', subject: 'Incident' })
+  @Throttle({ default: { ttl: 60_000, limit: 5 } })
+  async bulkRestore(
+    @Body() dto: BulkRestoreIncidentsDto,
+    @CurrentUser() user: AuthUser,
+    @Req() req: ScopedRequest,
+  ) {
+    return this.bulkService.bulkRestore({
+      ids: dto.ids,
+      reason: dto.reason,
+      idempotencyKey: dto.idempotencyKey,
+      actorId: user.id,
+      meta: { ipAddress: req.ip, userAgent: req.headers['user-agent'] },
     });
   }
 
