@@ -165,6 +165,45 @@ export const PETITION_STATUS_BADGE: Record<PetitionStatus, string> = {
   [PetitionStatus.DA_CHUYEN_VU_AN]:    BADGE_DONE,
 };
 
+// ── Status chip options cho <ListPageShell.StatusChips> ──────────
+//
+// Derive từ existing _LABEL + _SHORT_LABEL records. Order matches
+// _LABEL definition (insertion order). Consumer pass trực tiếp:
+//   <ListPageShell.StatusChips options={CASE_STATUS_CHIPS} ... />
+//
+// Counts NOT included — fetch riêng từ /api/v1/{resource}/stats?{filters}
+// và merge ở consumer level theo activeFilters scope.
+
+export const CASE_STATUS_CHIPS: ReadonlyArray<{
+  value: CaseStatus;
+  shortLabel: string;
+  label: string;
+}> = (Object.keys(CASE_STATUS_LABEL) as CaseStatus[]).map((value) => ({
+  value,
+  shortLabel: CASE_STATUS_SHORT_LABEL[value],
+  label: CASE_STATUS_LABEL[value],
+}));
+
+export const INCIDENT_STATUS_CHIPS: ReadonlyArray<{
+  value: IncidentStatus;
+  shortLabel: string;
+  label: string;
+}> = (Object.keys(INCIDENT_STATUS_LABEL) as IncidentStatus[]).map((value) => ({
+  value,
+  shortLabel: INCIDENT_STATUS_SHORT_LABEL[value],
+  label: INCIDENT_STATUS_LABEL[value],
+}));
+
+export const PETITION_STATUS_CHIPS: ReadonlyArray<{
+  value: PetitionStatus;
+  shortLabel: string;
+  label: string;
+}> = (Object.keys(PETITION_STATUS_LABEL) as PetitionStatus[]).map((value) => ({
+  value,
+  shortLabel: PETITION_STATUS_SHORT_LABEL[value],
+  label: PETITION_STATUS_LABEL[value],
+}));
+
 // ── Terminal statuses (used by isOverdue logic) ─────────────────
 
 export const TERMINAL_CASE_STATUSES: CaseStatus[] = [
