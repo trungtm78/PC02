@@ -64,12 +64,52 @@ const assignAction: BulkAction<IncidentRow> = {
   },
 };
 
+const deleteAction: BulkAction<IncidentRow> = {
+  key: 'delete',
+  label: 'Xóa',
+  variant: 'danger',
+  permission: { resource: 'incidents', action: 'delete' },
+  requiresPreview: true,
+  allowsAllMatchingFilter: false,
+  rowEligibility: (row) =>
+    row.status === 'TIEP_NHAN' ? null : 'Chỉ xóa được vụ việc ở trạng thái Tiếp nhận',
+  execute: async ({ ids, reason, idempotencyKey }) => {
+    const response = await api.post('/incidents/bulk-delete', {
+      ids,
+      reason: reason ?? 'Xóa hàng loạt',
+      idempotencyKey,
+    });
+    return response.data;
+  },
+};
+
+const restoreAction: BulkAction<IncidentRow> = {
+  key: 'restore',
+  label: 'Khôi phục',
+  variant: 'primary',
+  permission: { resource: 'incidents', action: 'edit' },
+  requiresPreview: true,
+  allowsAllMatchingFilter: false,
+  execute: async ({ ids, reason, idempotencyKey }) => {
+    const response = await api.post('/incidents/bulk-restore', {
+      ids,
+      reason: reason ?? 'Khôi phục hàng loạt',
+      idempotencyKey,
+    });
+    return response.data;
+  },
+};
+
 export function buildIncidentsAdapter(opts?: {
   fetchAllIdsMatchingFilter?: () => Promise<string[]>;
   enableAssign?: boolean;
+  enableDelete?: boolean;
+  enableRestore?: boolean;
 }): BulkAdapter<IncidentRow> {
   const actions: BulkAction<IncidentRow>[] = [exportAction];
   if (opts?.enableAssign) actions.push(assignAction);
+  if (opts?.enableDelete) actions.push(deleteAction);
+  if (opts?.enableRestore) actions.push(restoreAction);
   return {
     resource: 'incidents',
     resourceLabel: 'vụ việc',

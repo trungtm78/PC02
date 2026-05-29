@@ -2,6 +2,40 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.50.0.0] - 2026-05-29
+
+**v0.50 Bulk Actions — PR3: Incidents + Petitions bulk-delete + bulk-restore**
+
+Mở rộng destructive bulk actions sang Incidents + Petitions, mirror Cases pattern shipped ở v0.49.
+
+### Added
+
+**Backend endpoints**:
+- `POST /api/v1/incidents/bulk-delete` — soft delete N vụ việc. Preflight per-item match `previewDelete` (incidents.service.ts:681):
+  - Status TIEP_NHAN only → khác → INELIGIBLE skip
+  - 0 linked petitions → có → INELIGIBLE
+  - 0 linked documents → có → INELIGIBLE
+  - scope filter → out-of-scope = PERMISSION skip
+- `POST /api/v1/incidents/bulk-restore` — admin restore N vụ việc (`@RequirePermissions restore`). Preflight `deletedAt = null` → NOT_FOUND.
+- `POST /api/v1/petitions/bulk-delete` — soft delete N đơn thư (scope filter only, không preflight phức tạp như Cases/Incidents).
+- `POST /api/v1/petitions/bulk-restore` — admin restore N đơn thư.
+
+**Frontend**:
+- `incidents.ts` adapter: deleteAction (variant=danger) + restoreAction. `enableDelete` flag.
+- `petitions.ts` adapter: deleteAction + restoreAction. `enableDelete`/`enableRestore` flags.
+- `IncidentListPage`: enableDelete=true. Nút "Xóa" danger trong BulkActionBar + ConfirmModal reason 10-500.
+
+### Tests
+- Backend +11 tests (Incidents 6, Petitions 5). Full suite: **2024/2024** pass.
+- Frontend 794/794 pass.
+
+### Deferred
+- Petitions list page wire bulk-delete (existing Word ZIP select-all conflict — separate sprint).
+- Lawyers/Objects/UTDT bulk-export + bulk-delete (next cycle v0.51+).
+- Preview modal sample-first-10.
+- Undo 10s post-delete.
+- Bulk-restore admin list UI surface.
+
 ## [0.49.0.0] - 2026-05-29
 
 **v0.49 Bulk Actions — PR2: Cases bulk-delete + bulk-restore**

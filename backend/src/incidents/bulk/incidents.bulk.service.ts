@@ -295,4 +295,225 @@ export class IncidentsBulkService {
     }
     input.res.end();
   }
+
+  /**
+   * v0.50 PR3 — Bulk soft-delete Incidents. Mirror Cases pattern.
+   *
+   * Preflight per-item (match previewDelete invariants ở incidents.service.ts:681):
+   * - status TIEP_NHAN only → khác → INELIGIBLE skip
+   * - 0 linked petitions → có → INELIGIBLE
+   * - 0 linked documents → có → INELIGIBLE
+   * - dataScope filter → out-of-scope = PERMISSION skip
+   */
+  async bulkDelete(input: BulkDeleteIncidentsInput): Promise<BulkResult<{ incidentId: string }>> {
+    if (input.ids.length === 0) throw new BadRequestException('Cần ít nhất 1 vụ việc để xóa');
+    if (input.ids.length > 100) throw new BadRequestException('Tối đa 100 vụ việc mỗi đợt');
+
+    const { bulkOperationId } = await this.audit.logBulkHeader({
+      actorId: input.actorId,
+      resource: 'Incident',
+      action: 'BULK_DELETE',
+      idempotencyKey: input.idempotencyKey,
+    });
+
+    const result = await runBulk<{ incidentId: string }, Prisma.TransactionClient>({
+      ids: input.ids,
+      prisma: this.prisma as unknown as {
+        $transaction: <R>(cb: (tx: Prisma.TransactionClient) => Promise<R>) => Promise<R>;
+      },
+      preflight: async (ids) => {
+        const inScope = await this.prisma.incident.findMany({
+          where: {
+            id: { in: ids },
+            deletedAt: null,
+            ...buildScopeFilter(input.dataScope),
+          },
+          include: {
+            petitions: { where: { deletedAt: null }, select: { id: true } },
+            documents: { where: { deletedAt: null }, select: { id: true } },
+          },
+        });
+        const inScopeMap = new Map(inScope.map((i) => [i.id, i]));
+        const skipped: BulkSkippedItem[] = [];
+        const validIds: string[] = [];
+        for (const id of ids) {
+          const inc = inScopeMap.get(id);
+          if (!inc) {
+            skipped.push({ id, reason: 'PERMISSION' });
+            continue;
+          }
+          if (inc.status !== IncidentStatus.TIEP_NHAN) {
+            skipped.push({
+              id,
+              reason: 'INELIGIBLE',
+              message: 'Chỉ xóa được vụ việc ở trạng thái Tiếp nhận',
+            });
+            continue;
+          }
+          if (inc.petitions.length > 0) {
+            skipped.push({
+              id,
+              reason: 'INELIGIBLE',
+              message: `Có ${inc.petitions.length} đơn thư đang liên kết`,
+            });
+            continue;
+          }
+          if (inc.documents.length > 0) {
+            skipped.push({
+              id,
+              reason: 'INELIGIBLE',
+              message: `Có ${inc.documents.length} tài liệu đính kèm`,
+            });
+            continue;
+          }
+          validIds.push(id);
+        }
+        return { validIds, skipped };
+      },
+      executeOne: async (id, tx) => {
+        try {
+          await tx.incident.update({
+            where: { id, deletedAt: null },
+            data: { deletedAt: new Date() },
+          });
+        } catch (e) {
+          if ((e as { code?: string })?.code === 'P2025') {
+            throw new ConcurrentModificationError(id);
+          }
+          throw e;
+        }
+        await this.audit.logBulkItem(
+          {
+            bulkOperationId,
+            userId: input.actorId,
+            action: 'INCIDENT_DELETED',
+            subject: 'Incident',
+            subjectId: id,
+            metadata: { reason: input.reason },
+            ipAddress: input.meta?.ipAddress,
+            userAgent: input.meta?.userAgent,
+          },
+          tx,
+        );
+        return { incidentId: id };
+      },
+    });
+
+    const reclassified = reclassifyConcurrent(result, 'Vụ việc đã được xóa bởi người khác');
+    await this.audit.completeBulk(bulkOperationId, {
+      succeeded: reclassified.succeeded.length,
+      skipped: reclassified.skipped.length,
+      failed: reclassified.failed.length,
+    });
+    return reclassified;
+  }
+
+  /**
+   * v0.50 PR3 — Bulk restore Incidents (admin-only at controller layer).
+   */
+  async bulkRestore(input: BulkRestoreIncidentsInput): Promise<BulkResult<{ incidentId: string }>> {
+    if (input.ids.length === 0) throw new BadRequestException('Cần ít nhất 1 vụ việc để khôi phục');
+    if (input.ids.length > 100) throw new BadRequestException('Tối đa 100 vụ việc mỗi đợt');
+
+    const { bulkOperationId } = await this.audit.logBulkHeader({
+      actorId: input.actorId,
+      resource: 'Incident',
+      action: 'BULK_RESTORE',
+      idempotencyKey: input.idempotencyKey,
+    });
+
+    const result = await runBulk<{ incidentId: string }, Prisma.TransactionClient>({
+      ids: input.ids,
+      prisma: this.prisma as unknown as {
+        $transaction: <R>(cb: (tx: Prisma.TransactionClient) => Promise<R>) => Promise<R>;
+      },
+      preflight: async (ids) => {
+        const deleted = await this.prisma.incident.findMany({
+          where: { id: { in: ids }, deletedAt: { not: null } },
+          select: { id: true },
+        });
+        const deletedSet = new Set(deleted.map((c) => c.id));
+        const skipped: BulkSkippedItem[] = ids
+          .filter((id) => !deletedSet.has(id))
+          .map((id) => ({
+            id,
+            reason: 'NOT_FOUND' as const,
+            message: 'Vụ việc không tồn tại hoặc chưa bị xóa',
+          }));
+        return { validIds: ids.filter((id) => deletedSet.has(id)), skipped };
+      },
+      executeOne: async (id, tx) => {
+        try {
+          await tx.incident.update({
+            where: { id, deletedAt: { not: null } },
+            data: { deletedAt: null },
+          });
+        } catch (e) {
+          if ((e as { code?: string })?.code === 'P2025') {
+            throw new ConcurrentModificationError(id);
+          }
+          throw e;
+        }
+        await this.audit.logBulkItem(
+          {
+            bulkOperationId,
+            userId: input.actorId,
+            action: 'INCIDENT_RESTORED',
+            subject: 'Incident',
+            subjectId: id,
+            metadata: { reason: input.reason },
+            ipAddress: input.meta?.ipAddress,
+            userAgent: input.meta?.userAgent,
+          },
+          tx,
+        );
+        return { incidentId: id };
+      },
+    });
+
+    const reclassified = reclassifyConcurrent(result, 'Vụ việc đã được khôi phục bởi người khác');
+    await this.audit.completeBulk(bulkOperationId, {
+      succeeded: reclassified.succeeded.length,
+      skipped: reclassified.skipped.length,
+      failed: reclassified.failed.length,
+    });
+    return reclassified;
+  }
+}
+
+export interface BulkDeleteIncidentsInput {
+  ids: string[];
+  reason: string;
+  actorId: string;
+  idempotencyKey?: string;
+  dataScope: DataScope | null | undefined;
+  meta?: { ipAddress?: string; userAgent?: string };
+}
+
+export interface BulkRestoreIncidentsInput {
+  ids: string[];
+  reason: string;
+  actorId: string;
+  idempotencyKey?: string;
+  meta?: { ipAddress?: string; userAgent?: string };
+}
+
+function reclassifyConcurrent<T>(
+  result: BulkResult<T>,
+  message: string,
+): BulkResult<T> {
+  return {
+    succeeded: result.succeeded,
+    skipped: [
+      ...result.skipped,
+      ...result.failed
+        .filter((f) => f.error.startsWith(CONCURRENT_PREFIX))
+        .map<BulkSkippedItem>((f) => ({
+          id: f.id,
+          reason: 'CONCURRENT_MODIFICATION',
+          message,
+        })),
+    ],
+    failed: result.failed.filter((f) => !f.error.startsWith(CONCURRENT_PREFIX)),
+  };
 }
