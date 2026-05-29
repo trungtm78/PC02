@@ -5,11 +5,12 @@ import { XlsxImportsController } from './xlsx-imports.controller';
 import { XlsxImportsService } from './xlsx-imports.service';
 import { XlsxParserService } from './xlsx-parser.service';
 import { UploadStorageService } from './upload-storage.service';
+import { XlsxImportCommitService } from './commit.service';
 
 @Module({
   imports: [PrismaModule, AuthModule],
   controllers: [XlsxImportsController],
-  providers: [XlsxImportsService, XlsxParserService, UploadStorageService],
-  exports: [XlsxImportsService],
+  providers: [XlsxImportsService, XlsxParserService, UploadStorageService, XlsxImportCommitService],
+  exports: [XlsxImportsService, XlsxImportCommitService],
 })
 export class XlsxImportsModule {}
