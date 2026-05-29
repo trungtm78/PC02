@@ -1,0 +1,76 @@
+import { api } from '@/lib/api';
+import type { BulkAdapter, BulkAction, BulkResult } from '../types';
+
+interface AssignParams {
+  assignedTeamId?: string;
+  investigatorId?: string;
+}
+
+interface IncidentRow {
+  id: string;
+  status?: string;
+  code?: string;
+}
+
+const exportAction: BulkAction<IncidentRow> = {
+  key: 'export',
+  label: 'Xuất Excel',
+  variant: 'outline',
+  permission: { resource: 'incidents', action: 'view' },
+  requiresPreview: false,
+  allowsAllMatchingFilter: true,
+  execute: async ({ ids }) => {
+    const response = await api.post(
+      '/incidents/bulk-export',
+      { ids },
+      { responseType: 'blob' },
+    );
+    const blob = new Blob([response.data], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    const cd = (response.headers['content-disposition'] as string) ?? '';
+    const filenameMatch = /filename="([^"]+)"/.exec(cd);
+    link.download = filenameMatch?.[1] ?? `VuViec_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  },
+};
+
+const assignAction: BulkAction<IncidentRow> = {
+  key: 'assign',
+  label: 'Phân công',
+  variant: 'primary',
+  permission: { resource: 'incidents', action: 'edit' },
+  requiresPreview: true,
+  allowsAllMatchingFilter: false,
+  execute: async ({ ids, reason, idempotencyKey, params }) => {
+    const assignParams = params as AssignParams | undefined;
+    if (!assignParams?.assignedTeamId && !assignParams?.investigatorId) {
+      throw new Error('Cần chọn tổ hoặc điều tra viên trước khi xác nhận');
+    }
+    const response = await api.post('/incidents/bulk-assign', {
+      ids,
+      assignedTeamId: assignParams.assignedTeamId,
+      investigatorId: assignParams.investigatorId,
+      reason: reason ?? 'Phân công hàng loạt',
+      idempotencyKey,
+    });
+    return response.data as BulkResult<{ incidentId: string }>;
+  },
+};
+
+export function buildIncidentsAdapter(opts?: {
+  fetchAllIdsMatchingFilter?: () => Promise<string[]>;
+}): BulkAdapter<IncidentRow> {
+  return {
+    resource: 'incidents',
+    resourceLabel: 'vụ việc',
+    actions: [exportAction, assignAction],
+    fetchAllIdsMatchingFilter: opts?.fetchAllIdsMatchingFilter,
+  };
+}
