@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.51.0.0] - 2026-05-29
+
+**v0.51 Bulk Actions — PR4: Lawyers + Subjects bulk-delete**
+
+Tiếp expand bulk-delete xuống child resources (Lawyers, Subjects). Scope check qua
+parent case (mirror `assertParentInScope` pattern).
+
+### Added
+
+**Backend endpoints**:
+- `POST /api/v1/lawyers/bulk-delete` — soft delete N luật sư. Preflight scope filter qua parent case → out-of-scope = PERMISSION skip.
+- `POST /api/v1/subjects/bulk-delete` — soft delete N đối tượng (Bị can/Bị hại/Nhân chứng). Tương tự scope qua case.
+
+Cả 2 không có bulk-restore (single endpoints không restore).
+
+### Tests
+- Backend +6 tests (3 Lawyers + 3 Subjects). Full suite **2030/2030** pass.
+
+### Deferred
+- UTDT (Ủy thác điều tra) bulk-export — next cycle nếu cần.
+- DeadlineRules bulk-delete (admin tool, low-value).
+- Frontend wire LawyersListPage + SubjectsListPage (deferred — separate UX work).
+
 ## [0.50.0.0] - 2026-05-29
 
 **v0.50 Bulk Actions — PR3: Incidents + Petitions bulk-delete + bulk-restore**
