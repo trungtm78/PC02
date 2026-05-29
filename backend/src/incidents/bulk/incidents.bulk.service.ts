@@ -8,6 +8,7 @@ import type { DataScope } from '../../auth/services/unit-scope.service';
 import { buildScopeFilter } from '../../common/utils/scope-filter.util';
 import { BcaExcelHelper } from '../../common/bca-excel.helper';
 import { INCIDENT_STATUS_LABEL } from '../../common/constants/status-labels.constants';
+import { TERMINAL_STATUSES } from '../incidents.constants';
 import { runBulk } from '../../common/bulk/run-bulk';
 import type { BulkResult, BulkSkippedItem } from '../../common/bulk/run-bulk';
 
@@ -91,19 +92,36 @@ export class IncidentsBulkService {
         $transaction: <R>(cb: (tx: Prisma.TransactionClient) => Promise<R>) => Promise<R>;
       },
       preflight: async (ids) => {
+        // Codex post-deploy P2: preflight phải lấy status để skip TERMINAL_STATUSES
+        // (match assignInvestigator invariant — không phân công cho vụ việc đã kết thúc).
         const inScope = await this.prisma.incident.findMany({
           where: {
             id: { in: ids },
             deletedAt: null,
             ...buildScopeFilter(input.dataScope),
           },
-          select: { id: true },
+          select: { id: true, status: true },
         });
-        const inScopeSet = new Set(inScope.map((c) => c.id));
-        const skipped: BulkSkippedItem[] = ids
-          .filter((id) => !inScopeSet.has(id))
-          .map((id) => ({ id, reason: 'PERMISSION' as const }));
-        return { validIds: ids.filter((id) => inScopeSet.has(id)), skipped };
+        const inScopeMap = new Map(inScope.map((c) => [c.id, c.status]));
+        const skipped: BulkSkippedItem[] = [];
+        const validIds: string[] = [];
+        for (const id of ids) {
+          const status = inScopeMap.get(id);
+          if (status === undefined) {
+            skipped.push({ id, reason: 'PERMISSION' });
+            continue;
+          }
+          if (TERMINAL_STATUSES.includes(status)) {
+            skipped.push({
+              id,
+              reason: 'INELIGIBLE',
+              message: 'Không thể phân công điều tra viên cho vụ việc đã kết thúc',
+            });
+            continue;
+          }
+          validIds.push(id);
+        }
+        return { validIds, skipped };
       },
       executeOne: async (id, tx) => {
         const expectedAt = input.expectedUpdatedAtByIncidentId?.[id];
@@ -116,6 +134,9 @@ export class IncidentsBulkService {
             data: {
               ...(input.assignedTeamId ? { assignedTeamId: input.assignedTeamId } : {}),
               ...(input.investigatorId ? { investigatorId: input.investigatorId } : {}),
+              // Codex post-deploy P2: khi assign investigator → transition DANG_XAC_MINH
+              // (match single-assign invariant ở incidents.service.ts:1127).
+              ...(input.investigatorId ? { status: IncidentStatus.DANG_XAC_MINH } : {}),
             },
           });
         } catch (e) {

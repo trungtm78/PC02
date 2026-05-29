@@ -146,6 +146,35 @@ describe('PetitionsBulkService — v0.48 B5', () => {
       );
     });
 
+    it('uses petition-specific scope filter (enteredById/assignedTeamId), NOT case investigatorId — Codex post-deploy P2 fix', async () => {
+      // Non-admin scoped user: tổ T1 only, no dispatch.
+      const wardScope: DataScope = {
+        userIds: ['u-1'],
+        teamIds: ['t-1'],
+        writableTeamIds: ['t-1'],
+        canDispatch: false,
+        isWardOfficer: false,
+      } as DataScope;
+
+      await service.bulkExport({
+        ids: ['p-1', 'p-2'],
+        dataScope: wardScope,
+        res: mockRes as any,
+        actorId: 'u-1',
+      });
+
+      // WHERE clause phải dùng petition fields (enteredById/assignedTeamId/assignedToId),
+      // KHÔNG dùng case fields (investigatorId). Verify qua JSON shape.
+      const callArg = JSON.stringify(mockPrisma.petition.findMany.mock.calls[0][0]);
+      expect(callArg).not.toContain('investigatorId');
+      // Phải có ít nhất 1 trong các predicate petition-specific.
+      const hasPetitionPredicate =
+        callArg.includes('enteredById') ||
+        callArg.includes('assignedTeamId') ||
+        callArg.includes('assignedToId');
+      expect(hasPetitionPredicate).toBe(true);
+    });
+
     it('rejects empty + > 1000 ids', async () => {
       await expect(
         service.bulkExport({

@@ -41,9 +41,9 @@ describe('IncidentsBulkService.bulkAssign — v0.48 B4', () => {
       },
       incident: {
         findMany: jest.fn().mockResolvedValue([
-          { id: 'inc-1' },
-          { id: 'inc-2' },
-          { id: 'inc-3' },
+          { id: 'inc-1', status: 'TIEP_NHAN' },
+          { id: 'inc-2', status: 'DANG_XAC_MINH' },
+          { id: 'inc-3', status: 'TIEP_NHAN' },
         ]),
       },
       $executeRaw: jest.fn().mockResolvedValue(1),
@@ -102,7 +102,10 @@ describe('IncidentsBulkService.bulkAssign — v0.48 B4', () => {
   });
 
   it('skips out-of-scope incidents as PERMISSION via preflight', async () => {
-    mockPrisma.incident.findMany.mockResolvedValue([{ id: 'inc-1' }, { id: 'inc-2' }]);
+    mockPrisma.incident.findMany.mockResolvedValue([
+      { id: 'inc-1', status: 'TIEP_NHAN' },
+      { id: 'inc-2', status: 'DANG_XAC_MINH' },
+    ]);
 
     const result = await service.bulkAssign(baseInput);
     expect(result.succeeded.map((s) => s.id)).toEqual(['inc-1', 'inc-2']);
@@ -119,6 +122,79 @@ describe('IncidentsBulkService.bulkAssign — v0.48 B4', () => {
       'bulk-inc-1',
       expect.objectContaining({ succeeded: 0, skipped: 3 }),
     );
+  });
+
+  it('skips incidents có terminal status (đã kết thúc) khỏi bulk-assign — Codex post-deploy P2 fix', async () => {
+    // Preflight phase phải bao gồm filter terminal-status. inc-2 status DA_GIAI_QUYET → skip INELIGIBLE.
+    // Mock case findMany trả về metadata status để preflight phân loại.
+    mockPrisma.incident.findMany.mockResolvedValue([
+      { id: 'inc-1', status: 'TIEP_NHAN' },
+      { id: 'inc-2', status: 'DA_GIAI_QUYET' }, // terminal — must skip
+      { id: 'inc-3', status: 'DANG_XAC_MINH' },
+    ]);
+
+    const result = await service.bulkAssign(baseInput);
+
+    expect(result.succeeded.map((s) => s.id)).toEqual(['inc-1', 'inc-3']);
+    expect(result.skipped).toContainEqual(
+      expect.objectContaining({
+        id: 'inc-2',
+        reason: 'INELIGIBLE',
+        message: expect.stringContaining('đã kết thúc'),
+      }),
+    );
+  });
+
+  it('transitions status to DANG_XAC_MINH when investigator được assign — match single-assign invariant', async () => {
+    // Capture data passed to tx.incident.update.
+    const updateCalls: any[] = [];
+    mockPrisma.$transaction.mockImplementation(async (cb: any) => {
+      const tx = {
+        incident: {
+          update: jest.fn().mockImplementation((args: any) => {
+            updateCalls.push(args);
+            return Promise.resolve({ id: args.where.id });
+          }),
+        },
+        $executeRaw: jest.fn().mockResolvedValue(1),
+      };
+      return cb(tx);
+    });
+
+    await service.bulkAssign(baseInput);
+
+    // Mỗi update phải include status = 'DANG_XAC_MINH' khi có investigatorId.
+    expect(updateCalls.length).toBeGreaterThan(0);
+    for (const call of updateCalls) {
+      expect(call.data.status).toBe('DANG_XAC_MINH');
+    }
+  });
+
+  it('KHÔNG transition status khi chỉ assign team (no investigatorId)', async () => {
+    const updateCalls: any[] = [];
+    mockPrisma.$transaction.mockImplementation(async (cb: any) => {
+      const tx = {
+        incident: {
+          update: jest.fn().mockImplementation((args: any) => {
+            updateCalls.push(args);
+            return Promise.resolve({ id: args.where.id });
+          }),
+        },
+        $executeRaw: jest.fn().mockResolvedValue(1),
+      };
+      return cb(tx);
+    });
+
+    await service.bulkAssign({
+      ...baseInput,
+      investigatorId: undefined,
+      assignedTeamId: 'team-A',
+    });
+
+    // Update KHÔNG có status field khi chỉ assign team.
+    for (const call of updateCalls) {
+      expect(call.data.status).toBeUndefined();
+    }
   });
 
   it('audit item written INSIDE per-item tx (E-H3 atomicity)', async () => {

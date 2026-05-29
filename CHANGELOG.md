@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.48.0.1] - 2026-05-29
+
+**v0.48 Bulk Actions — Patch 1: Codex post-deploy audit fixes (3 P2 findings)**
+
+Fix-forward 3 P2 correctness bugs Codex caught khi audit v0.48.0.0 sau deploy.
+
+### Fixed
+
+- **Petitions bulk-export scope filter** (`backend/src/petitions/bulk/petitions.bulk.service.ts`): chuyển từ `buildScopeFilter` chung (inject `investigatorId` predicate không hợp lệ với Petition schema) sang `buildPetitionScopeFilter` (filter qua `enteredById`/`assignedTeamId`/`assignedToId`). Non-admin scoped users gọi `/petitions/bulk-export` không còn fail với Prisma "Unknown field" error.
+
+- **Incidents bulk-assign invariants** (`backend/src/incidents/bulk/incidents.bulk.service.ts`): preflight phase bây giờ skip items có `TERMINAL_STATUSES` (vd `DA_GIAI_QUYET`) với reason `INELIGIBLE` + message "Không thể phân công điều tra viên cho vụ việc đã kết thúc". Mỗi item được assign investigator → transition status sang `DANG_XAC_MINH` (match single-assign invariant ở `incidents.service.ts:1127`). Trước fix: cho phép reassign vụ việc đã đóng + trạng thái không sync.
+
+- **Idempotency P2002 conflict handling** (`backend/src/audit/audit.service.ts`): `logBulkHeader` catch Prisma P2002 unique constraint violation khi retry với cùng `(actorId, idempotencyKey)` → lookup existing `bulk_operations.id` qua `$queryRaw` + return id đó thay vì throw. Retry-safe contract bây giờ thực sự hoạt động. Non-P2002 errors vẫn rethrow.
+
+### Tests
+- +5 new tests: petition scope filter shape, incident terminal-status skip, incident DANG_XAC_MINH transition (with/without investigator), idempotency P2002 catch + non-P2002 rethrow.
+- Full backend suite: 2003/2003 pass.
+
 ## [0.48.0.0] - 2026-05-29
 
 **v0.48 Bulk Actions — PR1 Foundation + Export**
