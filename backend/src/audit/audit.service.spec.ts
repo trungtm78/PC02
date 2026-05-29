@@ -167,4 +167,112 @@ describe('AuditService', () => {
       expect(callArg).not.toMatch(/"100%_test"/);
     });
   });
+
+  // ───────────────────────────────────────────────
+  // v0.48 PR1 B2 — bulk operations audit
+  // 1 header row per bulk op (STARTED → COMPLETED/FAILED) + N item rows in audit_logs.
+  // Plan eng E-H3: audit phải atomic với data write → logBulkItem accept tx.
+  // ───────────────────────────────────────────────
+  describe('logBulkHeader() — v0.48 B2', () => {
+    it('inserts a bulk_operations row with status STARTED and returns the generated id', async () => {
+      const result = await service.logBulkHeader({
+        actorId: 'user-1',
+        resource: 'Case',
+        action: 'BULK_EXPORT',
+      });
+      expect(typeof result.bulkOperationId).toBe('string');
+      expect(result.bulkOperationId.length).toBeGreaterThan(0);
+      // INSERT phải qua $executeRaw để consistent với log() pattern.
+      expect(mockPrisma.$executeRaw).toHaveBeenCalled();
+      const sqlCall = JSON.stringify(mockPrisma.$executeRaw.mock.calls);
+      expect(sqlCall).toContain('bulk_operations');
+      expect(sqlCall).toContain('STARTED');
+    });
+
+    it('persists optional idempotencyKey for retry dedupe (plan eng E-H10)', async () => {
+      await service.logBulkHeader({
+        actorId: 'user-1',
+        resource: 'Incident',
+        action: 'BULK_ASSIGN',
+        idempotencyKey: 'req-abc-123',
+      });
+      const sqlCall = JSON.stringify(mockPrisma.$executeRaw.mock.calls);
+      expect(sqlCall).toContain('req-abc-123');
+    });
+  });
+
+  describe('logBulkItem() — v0.48 B2', () => {
+    it('writes audit_logs row with bulkOperationId set', async () => {
+      await service.logBulkItem({
+        bulkOperationId: 'bulk-op-1',
+        userId: 'user-1',
+        action: 'CASE_DELETED',
+        subject: 'Case',
+        subjectId: 'case-42',
+      });
+      expect(mockPrisma.$executeRaw).toHaveBeenCalled();
+      const sqlCall = JSON.stringify(mockPrisma.$executeRaw.mock.calls);
+      expect(sqlCall).toContain('bulk-op-1');
+      expect(sqlCall).toContain('case-42');
+    });
+
+    it('accepts tx parameter to commit audit atomic với data write (plan eng E-H3)', async () => {
+      const mockTx = { $executeRaw: jest.fn().mockResolvedValue(1) };
+      await service.logBulkItem(
+        {
+          bulkOperationId: 'bulk-op-1',
+          userId: 'user-1',
+          action: 'CASE_DELETED',
+          subject: 'Case',
+          subjectId: 'case-42',
+        },
+        mockTx as any,
+      );
+      // Audit phải gọi vào tx, KHÔNG prisma chính, để rollback nếu data write fail.
+      expect(mockTx.$executeRaw).toHaveBeenCalled();
+      expect(mockPrisma.$executeRaw).not.toHaveBeenCalled();
+    });
+
+    it('sanitizes metadata PII before persist (reuse log() pattern)', async () => {
+      await service.logBulkItem({
+        bulkOperationId: 'bulk-op-1',
+        userId: 'user-1',
+        action: 'USER_UPDATED',
+        subject: 'User',
+        subjectId: 'u-9',
+        metadata: { email: 'e@x', passwordHash: '$2b$xxxxx' },
+      });
+      const sqlCall = JSON.stringify(mockPrisma.$executeRaw.mock.calls);
+      expect(sqlCall).not.toContain('passwordHash');
+      expect(sqlCall).toContain('e@x');
+    });
+  });
+
+  describe('completeBulk() — v0.48 B2', () => {
+    it('updates bulk_operations row with COMPLETED status + counts + completedAt', async () => {
+      await service.completeBulk('bulk-op-1', {
+        succeeded: 15,
+        skipped: 5,
+        failed: 2,
+      });
+      expect(mockPrisma.$executeRaw).toHaveBeenCalled();
+      const sqlCall = JSON.stringify(mockPrisma.$executeRaw.mock.calls);
+      expect(sqlCall).toContain('COMPLETED');
+      expect(sqlCall).toContain('bulk-op-1');
+      expect(sqlCall).toContain('15');
+      expect(sqlCall).toContain('5');
+      expect(sqlCall).toContain('2');
+    });
+
+    it('marks status FAILED if explicitly requested (op-level failure path)', async () => {
+      await service.completeBulk('bulk-op-2', {
+        succeeded: 0,
+        skipped: 0,
+        failed: 10,
+        status: 'FAILED',
+      });
+      const sqlCall = JSON.stringify(mockPrisma.$executeRaw.mock.calls);
+      expect(sqlCall).toContain('FAILED');
+    });
+  });
 });

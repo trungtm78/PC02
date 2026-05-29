@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { sanitizePII, computeFieldDiff, ChangedField, sanitizeMetadataRecursive } from './audit.utils';
@@ -100,6 +101,111 @@ export class AuditService {
       opts.tx,
     );
     return after;
+  }
+
+  // ───────────────────────────────────────────────
+  // v0.48 PR1 B2 — Bulk operations audit
+  // logBulkHeader (outside tx, status STARTED) → loop runBulk per item
+  //   calling logBulkItem (inside tx, atomic với data write) → completeBulk
+  //   (outside tx, status COMPLETED + counts). Plan eng E-H3 atomicity model.
+  // ───────────────────────────────────────────────
+
+  /**
+   * Tạo 1 header row trong `bulk_operations` với status STARTED.
+   * Caller giữ `bulkOperationId` trả về để: (1) pass cho `logBulkItem` mỗi item,
+   * (2) gọi `completeBulk` cuối loop. Idempotency key optional cho retry-safe
+   * (plan eng E-H10) — combo `(actorId, idempotencyKey)` UNIQUE ở DB layer.
+   */
+  async logBulkHeader(input: {
+    actorId: string;
+    resource: string;
+    action: string;
+    idempotencyKey?: string;
+  }): Promise<{ bulkOperationId: string }> {
+    const id = randomUUID();
+    await this.prisma.$executeRaw`
+      INSERT INTO "bulk_operations" (
+        id, "actorId", resource, action, status, "idempotencyKey", "startedAt"
+      ) VALUES (
+        ${id},
+        ${input.actorId},
+        ${input.resource},
+        ${input.action},
+        'STARTED'::"BulkOperationStatus",
+        ${input.idempotencyKey ?? null},
+        NOW()
+      )
+    `;
+    return { bulkOperationId: id };
+  }
+
+  /**
+   * Ghi 1 item row vào audit_logs với `bulkOperationId` set. PHẢI gọi inside tx
+   * của data write (plan eng E-H3): rollback đồng bộ nếu Case update fail thì
+   * audit row cũng rollback. Caller truyền `tx` từ `prisma.$transaction(...)`.
+   * Bỏ tx → fallback ghi qua prisma chính (chỉ cho test/internal use).
+   */
+  async logBulkItem(
+    input: {
+      bulkOperationId: string;
+      userId: string;
+      action: string;
+      subject: string;
+      subjectId: string;
+      metadata?: Record<string, unknown>;
+      ipAddress?: string;
+      userAgent?: string;
+    },
+    tx?: Prisma.TransactionClient,
+  ): Promise<void> {
+    const client = tx ?? this.prisma;
+    const safeMetadata = input.metadata
+      ? sanitizeMetadataRecursive(input.metadata)
+      : null;
+    await client.$executeRaw`
+      INSERT INTO "audit_logs" (
+        id, "userId", action, subject, "subjectId", metadata,
+        "ipAddress", "userAgent", "bulkOperationId", "createdAt"
+      ) VALUES (
+        gen_random_uuid()::text,
+        ${input.userId},
+        ${input.action},
+        ${input.subject},
+        ${input.subjectId},
+        ${safeMetadata ? JSON.stringify(safeMetadata) : null}::jsonb,
+        ${input.ipAddress ?? null},
+        ${input.userAgent ?? null},
+        ${input.bulkOperationId},
+        NOW()
+      )
+    `;
+  }
+
+  /**
+   * Cập nhật header row sau khi loop xong: status COMPLETED|FAILED, counts,
+   * completedAt. Gọi OUTSIDE per-item tx (sau khi runBulk return).
+   * `status` mặc định 'COMPLETED'; gọi với 'FAILED' khi toàn bộ batch fail
+   * (vd preflight throw).
+   */
+  async completeBulk(
+    bulkOperationId: string,
+    counts: {
+      succeeded: number;
+      skipped: number;
+      failed: number;
+      status?: 'COMPLETED' | 'FAILED';
+    },
+  ): Promise<void> {
+    const status = counts.status ?? 'COMPLETED';
+    await this.prisma.$executeRaw`
+      UPDATE "bulk_operations"
+      SET status = ${status}::"BulkOperationStatus",
+          "succeededCount" = ${counts.succeeded},
+          "skippedCount" = ${counts.skipped},
+          "failedCount" = ${counts.failed},
+          "completedAt" = NOW()
+      WHERE id = ${bulkOperationId}
+    `;
   }
 
   async findAll(params: FindAllParams) {
