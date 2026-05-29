@@ -98,8 +98,11 @@ export const TABLE_BASE = "w-full";
 
 export const TABLE_HEADER = "bg-slate-50 border-b border-slate-200";
 
+// Note: dropped `uppercase` in PR1 — Vietnamese diacritics on uppercase letters
+// (e.g. "Đ", "Â" với dấu mũ) become visually cramped. text-xs + font-semibold
+// + tracking-wide đủ để tạo hierarchy mà không cần uppercase.
 export const TABLE_HEADER_CELL =
-  "px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase";
+  "px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600";
 
 export const TABLE_BODY = "divide-y divide-slate-200";
 
@@ -153,6 +156,24 @@ export const STATUS_COLORS: Record<string, string> = {
   amber: "bg-amber-100 text-amber-700",
 };
 
+// ─── Semantic Tokens (gray-* migration, PR1) ────────────────────────────────
+//
+// Defined before consumers (CASE_STATUS_COLORS, etc.) để các Record bên dưới
+// có thể reference trực tiếp, tránh duplicate string value drift.
+
+// "Lưu trữ" — archived state (cases, incidents post-disposition).
+export const STATUS_ARCHIVED = "text-slate-600 bg-slate-100";
+
+// "Chưa phản hồi" — UTDT response not yet received. Muted, low-attention.
+// Intentionally identical visual register to STATUS_ARCHIVED — both convey
+// "muted/pending" semantics. They never appear in the same view (Case archived
+// vs UTDT response), so visual overlap is not a UX concern. Separate tokens
+// để intent rõ ràng tại call site.
+export const STATUS_PENDING_RESPONSE = "text-slate-600 bg-slate-100";
+
+// "Không khởi tố" — Incident decided NOT to prosecute. Solid neutral.
+export const STATUS_NOT_PROSECUTED = "text-white bg-slate-600";
+
 // ─── Case Status Colors ────────────────────────────────────────────────
 
 export const CASE_STATUS_COLORS: Record<string, string> = {
@@ -165,7 +186,7 @@ export const CASE_STATUS_COLORS: Record<string, string> = {
   DA_KET_LUAN: "text-indigo-700 bg-indigo-50",
   DANG_TRUY_TO: "text-purple-700 bg-purple-50",
   DANG_XET_XU: "text-fuchsia-700 bg-fuchsia-50",
-  DA_LUU_TRU: "text-gray-600 bg-gray-50",
+  DA_LUU_TRU: STATUS_ARCHIVED,
 };
 
 export const INCIDENT_STATUS_COLORS: Record<string, string> = {
@@ -244,3 +265,79 @@ export const ICON_INPUT_WRAPPER = "relative";
 
 export const ICON_INPUT_POSITION =
   "absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400";
+
+// ─── ListPageShell Tokens (PR1 foundation) ──────────────────────────────────
+//
+// Tokens powering the compound `<ListPageShell.*>` subcomponents.
+// Added BEFORE shell build per autoplan design auto-decision #1.
+
+// ── Status chips bar ──────────────────────────────────────────────────────
+// Container holds horizontally-scrolling chips (overflow-x-auto trên mobile).
+export const STATUS_CHIPS_BAR =
+  "flex items-center gap-2 overflow-x-auto px-4 py-3 bg-white border-b border-slate-200 snap-x";
+
+// Single chip — base structure shared by active/inactive variants.
+export const STATUS_CHIP_BASE =
+  "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap snap-start transition-colors";
+
+// Active chip — high-contrast filled.
+export const STATUS_CHIP_ACTIVE =
+  "bg-slate-900 text-white hover:bg-slate-800";
+
+// Inactive chip — subtle background.
+export const STATUS_CHIP_INACTIVE =
+  "bg-slate-100 text-slate-700 hover:bg-slate-200";
+
+// Count pill nested inside a chip.
+export const STATUS_CHIP_COUNT =
+  "ml-1 px-1.5 py-0.5 rounded-full text-xs font-semibold bg-white/20 tabular-nums";
+
+// ── Bulk action bar ───────────────────────────────────────────────────────
+// Sticky top desktop variant (default).
+export const BULK_BAR_STICKY =
+  "sticky top-0 z-20 flex items-center justify-between gap-3 px-4 py-3 bg-blue-50 border-b border-blue-200 shadow-sm";
+
+// Sticky bottom mobile variant — thumb-reachable.
+// pb-[calc(...)] respect iOS PWA safe-area-inset-bottom (home indicator).
+// PC02 added PWA install support trong v0.46 — iOS users gặp home indicator.
+// Consumer cũng cần `pb-[calc(env(safe-area-inset-bottom)+4rem)]` trên list
+// content khi bar visible, tránh row cuối bị che.
+export const BULK_BAR_MOBILE_BOTTOM =
+  "fixed bottom-0 inset-x-0 z-30 flex items-center justify-between gap-3 px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] bg-blue-600 text-white shadow-lg sm:hidden";
+
+// ── Filter panel ──────────────────────────────────────────────────────────
+// CSS grid accordion: grid-rows-[0fr] → [1fr] cho animation mượt mà không cần JS.
+// REQUIRED pattern:
+//   <div className={isOpen ? FILTER_PANEL_EXPANDED : FILTER_PANEL_COLLAPSED}>
+//     <div className={FILTER_PANEL_CONTENT}>...filter content...</div>
+//   </div>
+// FILTER_PANEL_CONTENT (overflow-hidden min-h-0) là BẮT BUỘC cho inner wrapper —
+// thiếu thì children với default min-height vẫn hiện ra dù outer collapse.
+export const FILTER_PANEL_COLLAPSED =
+  "grid grid-rows-[0fr] transition-all duration-200 ease-out";
+
+export const FILTER_PANEL_EXPANDED =
+  "grid grid-rows-[1fr] transition-all duration-200 ease-out";
+
+export const FILTER_PANEL_CONTENT = "overflow-hidden min-h-0";
+
+// ── Accessibility focus ring ──────────────────────────────────────────────
+// focus-visible (NOT focus:) tránh ring khi click bằng chuột.
+export const A11Y_FOCUS_RING =
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2";
+
+// ── Overdue row highlight ─────────────────────────────────────────────────
+// Apply qua getRowClassName trong ListPageShell.Table cho rows quá hạn.
+// IMPORTANT (a11y): color alone không đủ — color-blind users + screen readers
+// mất signal. Consumer pages BẮT BUỘC render thêm "Quá hạn" badge text trong
+// deadline cell. ListPageShell.Table sẽ enforce convention qua dev warning
+// nếu getRowClassName trả về OVERDUE_ROW_HIGHLIGHT mà row không có overdue badge.
+export const OVERDUE_ROW_HIGHLIGHT =
+  "bg-red-50 hover:bg-red-100";
+
+// ── Pagination ────────────────────────────────────────────────────────────
+export const PAGINATION_BAR =
+  "flex items-center justify-between gap-3 px-4 py-3 bg-white border-t border-slate-200 text-sm text-slate-600";
+
+export const PAGINATION_BUTTON =
+  "inline-flex items-center gap-1 px-3 py-1.5 rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed";
