@@ -2,6 +2,42 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.49.0.0] - 2026-05-29
+
+**v0.49 Bulk Actions — PR2: Cases bulk-delete + bulk-restore**
+
+Tiếp nối v0.48 PR1, ship destructive bulk actions cho Cases sau khi v0.32 soft-delete + restore primitives đã sẵn. Plan v2 PR2 — carve sau CEO finding F2 (investigation system: destructive không ship trước recovery).
+
+### Added
+
+**Backend endpoints**:
+- `POST /api/v1/cases/bulk-delete` — soft delete N vụ án (1..100). Per-item preflight match single-delete invariants:
+  - Status TIEP_NHAN only → khác → skipped INELIGIBLE.
+  - 0 linked subjects/lawyers/conclusions/documents → có → skipped INELIGIBLE với detail message.
+  - Actor là creator HOẶC ADMIN → khác → skipped INELIGIBLE.
+  - DataScope filter applied (out-of-scope = PERMISSION skip).
+  - Per-item tx: `tx.case.update({deletedAt: NOW})` + audit `CASE_DELETED` (E-H3 atomicity).
+- `POST /api/v1/cases/bulk-restore` — khôi phục N vụ án (admin via `@RequirePermissions restore`).
+  - Preflight: items có `deletedAt = null` → NOT_FOUND skip.
+  - Per-item tx: `tx.case.update({deletedAt: null})` + audit `CASE_RESTORED`.
+
+**Frontend**:
+- `cases.ts` adapter mở rộng với `deleteAction` (variant=danger, requiresPreview=true) + `restoreAction` (variant=primary).
+- `CaseListPage` enable bulk-delete qua `buildCasesAdapter({ enableDelete: true })`.
+- BulkActionBar danger variant tự động map sang nút đỏ + ConfirmModal `variant=danger`.
+
+### Tests
+- Backend +10 tests cover: bulkDelete happy path + TIEP_NHAN guard + linked-records skip + creator/admin check + ADMIN bypass + cap 1..100 + audit-in-tx + bulkRestore happy path + NOT_FOUND skip + cap.
+- Backend full suite: **2013/2013** pass.
+- Frontend 794/794 pass + tsc clean.
+
+### Deferred to follow-up
+- Incidents bulk-delete + bulk-restore (next cycle — preflight v0.43 reuse).
+- Petitions/UTDT/Lawyers/Objects bulk-delete.
+- Preview modal với sample-first-10-items list (current: simple confirm + reason).
+- Undo button 10s post-delete.
+- Bulk-restore admin-only UI surface (currently chỉ ở backend, list deleted page chưa expose).
+
 ## [0.48.0.1] - 2026-05-29
 
 **v0.48 Bulk Actions — Patch 1: Codex post-deploy audit fixes (3 P2 findings)**

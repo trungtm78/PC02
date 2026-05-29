@@ -10,6 +10,8 @@ import type { AuthUser } from '../../auth/interfaces/auth-user.interface';
 import type { ScopedRequest } from '../../auth/interfaces/scoped-request.interface';
 import { BulkAssignCasesDto } from '../dto/bulk-assign-cases.dto';
 import { BulkExportCasesDto } from '../dto/bulk-export-cases.dto';
+import { BulkDeleteCasesDto } from '../dto/bulk-delete-cases.dto';
+import { BulkRestoreCasesDto } from '../dto/bulk-restore-cases.dto';
 import { CasesBulkService } from './cases.bulk.service';
 
 /**
@@ -52,6 +54,49 @@ export class CasesBulkController {
         ipAddress: req.ip,
         userAgent: req.headers['user-agent'],
       },
+    });
+  }
+
+  // POST /api/v1/cases/bulk-delete — v0.49 PR2 soft-delete nhiều vụ án.
+  // Per-item preflight enforce TIEP_NHAN + no-linked + creator-or-admin (match single-delete).
+  @Post('bulk-delete')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions({ action: 'delete', subject: 'Case' })
+  @Throttle({ default: { ttl: 60_000, limit: 5 } })
+  async bulkDelete(
+    @Body() dto: BulkDeleteCasesDto,
+    @CurrentUser() user: AuthUser,
+    @Req() req: ScopedRequest,
+  ) {
+    return this.bulkService.bulkDelete({
+      ids: dto.ids,
+      reason: dto.reason,
+      idempotencyKey: dto.idempotencyKey,
+      actorId: user.id,
+      actorRole: (user as any).role ?? '',
+      dataScope: req.dataScope,
+      meta: { ipAddress: req.ip, userAgent: req.headers['user-agent'] },
+    });
+  }
+
+  // POST /api/v1/cases/bulk-restore — v0.49 PR2 khôi phục nhiều vụ án (ADMIN).
+  @Post('bulk-restore')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions({ action: 'restore', subject: 'Case' })
+  @Throttle({ default: { ttl: 60_000, limit: 5 } })
+  async bulkRestore(
+    @Body() dto: BulkRestoreCasesDto,
+    @CurrentUser() user: AuthUser,
+    @Req() req: ScopedRequest,
+  ) {
+    return this.bulkService.bulkRestore({
+      ids: dto.ids,
+      reason: dto.reason,
+      idempotencyKey: dto.idempotencyKey,
+      actorId: user.id,
+      meta: { ipAddress: req.ip, userAgent: req.headers['user-agent'] },
     });
   }
 
