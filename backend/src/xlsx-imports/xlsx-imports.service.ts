@@ -137,17 +137,46 @@ export class XlsxImportsService {
     //    staging rows are many and exceljs streaming can take seconds —
     //    the row is created first so a long-running parse can be observed
     //    by admins; status moves PARSED → ... at PR6 commit time.
-    const log = await this.prisma.xlsxImportLog.create({
-      data: {
-        sourceFile: originalFilename,
-        fileSize: buffer.byteLength,
-        fileSha: sha,
-        uploadedById: actor.id,
-        unitCodeDetected,
-        status: 'PARSED',
-        succeededRows: 0,
-      },
-    });
+    //
+    //    PR5 review finding (cross-model P1): two simultaneous uploads of
+    //    the same content race past the findUnique above and both reach
+    //    create(). Schema fileSha @unique means the loser gets P2002 — we
+    //    handle that by re-reading and returning the dedupe result.
+    let log;
+    try {
+      log = await this.prisma.xlsxImportLog.create({
+        data: {
+          sourceFile: originalFilename,
+          fileSize: buffer.byteLength,
+          fileSha: sha,
+          uploadedById: actor.id,
+          unitCodeDetected,
+          status: 'PARSED',
+          succeededRows: 0,
+        },
+      });
+    } catch (err) {
+      // Prisma P2002 — unique constraint on fileSha. Another admin won the race.
+      const isUniqueViolation =
+        (err as { code?: string })?.code === 'P2002' &&
+        Array.isArray((err as { meta?: { target?: string[] } })?.meta?.target) &&
+        ((err as { meta: { target: string[] } }).meta.target.includes('fileSha') ||
+          (err as { meta: { target: string[] } }).meta.target.includes('file_sha'));
+      if (!isUniqueViolation) throw err;
+      const winner = await this.prisma.xlsxImportLog.findUnique({ where: { fileSha: sha } });
+      if (!winner) throw err; // truly unexpected
+      this.logger.log(
+        `xlsx dedupe race resolved — sha=${sha.slice(0, 12)}… winnerLog=${winner.id} actor=${actor.id}`,
+      );
+      return {
+        logId: winner.id,
+        sha,
+        dedupeHit: true,
+        unitCodeDetected: winner.unitCodeDetected,
+        succeededRows: winner.succeededRows,
+        sheetsParsed: [],
+      };
+    }
 
     try {
       const result = await this.parser.parseToStaging(buffer, log.id);
@@ -167,16 +196,25 @@ export class XlsxImportsService {
         sheetsParsed: result.sheetsParsed,
       };
     } catch (err) {
-      // Parser failed mid-flight. Mark log as FAILED with error detail.
-      // Staging rows from earlier sheets stay (Cascade on importLog delete
-      // cleans them if admin chooses to wipe). Raw file stays for forensics.
+      // Parser failed mid-flight. Mark log as FAILED with error detail and
+      // WIPE staging rows so a 31-second crafted parser can't leave half-staged
+      // data behind a FAILED status. Raw file stays for forensics.
       const message =
         err instanceof HostileXlsxError ? err.message : (err as Error).message;
+      const code = err instanceof HostileXlsxError ? err.code : 'PARSER_ERROR';
+      try {
+        await this.prisma.xlsxImportStaging.deleteMany({ where: { importLogId: log.id } });
+      } catch (cleanupErr) {
+        this.logger.error(
+          `failed to clean up staging rows for failed import ${log.id}: ${(cleanupErr as Error).message}`,
+        );
+      }
       await this.prisma.xlsxImportLog.update({
         where: { id: log.id },
         data: {
           status: 'FAILED',
-          errorDetail: { code: err instanceof HostileXlsxError ? err.code : 'PARSER_ERROR', message },
+          errorDetail: { code, message },
+          succeededRows: 0,
         },
       });
       if (err instanceof HostileXlsxError) {

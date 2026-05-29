@@ -14,6 +14,7 @@ import {
   assertWorkbookLimits,
   clampCellLength,
   withParserTimeout,
+  throwIfAborted,
   stripImportFormula,
   computeSha256,
   HostileXlsxError,
@@ -131,7 +132,7 @@ describe('hostile-xlsx-guard', () => {
     });
   });
 
-  // ── Parser timeout ─────────────────────────────────────────────────────────
+  // ── Parser timeout + AbortSignal ───────────────────────────────────────────
   describe('withParserTimeout', () => {
     it('resolves quickly when the operation finishes in time', async () => {
       const result = await withParserTimeout(async () => 'done', 1000);
@@ -151,6 +152,38 @@ describe('hostile-xlsx-guard', () => {
         throw new Error('parser explodes');
       };
       await expect(withParserTimeout(fail, 1000)).rejects.toThrow('parser explodes');
+    });
+
+    // PR5 review P1 — AbortSignal aborts the inner op so it can stop work
+    // (preventing post-timeout staging writes).
+    it('signals abort to the inner op when timeout fires', async () => {
+      let observedAbort = false;
+      const slow = async (signal: AbortSignal) => {
+        await new Promise((r) => setTimeout(r, 100));
+        if (signal.aborted) observedAbort = true;
+        // Don't throw on abort — let the timeout's rejection propagate.
+        return 'late';
+      };
+      await expect(withParserTimeout(slow, 30)).rejects.toMatchObject({
+        code: 'PARSER_TIMEOUT',
+      });
+      // Give the inner op the 100ms it needs to observe the abort
+      await new Promise((r) => setTimeout(r, 150));
+      expect(observedAbort).toBe(true);
+    });
+  });
+
+  describe('throwIfAborted', () => {
+    it('throws when signal is aborted', () => {
+      const c = new AbortController();
+      c.abort();
+      expect(() => throwIfAborted(c.signal)).toThrow(HostileXlsxError);
+      expect(() => throwIfAborted(c.signal)).toThrow(/aborted/);
+    });
+
+    it('does nothing when signal is live', () => {
+      const c = new AbortController();
+      expect(() => throwIfAborted(c.signal)).not.toThrow();
     });
   });
 
@@ -184,6 +217,39 @@ describe('hostile-xlsx-guard', () => {
       expect(stripImportFormula(42)).toBe(42);
       expect(stripImportFormula(null)).toBeNull();
       expect(stripImportFormula(undefined)).toBeUndefined();
+    });
+
+    // PR5 review P1 — whitespace-bypass defense.
+    it('strips leading space + formula trigger (Excel-strict bypass)', () => {
+      expect(stripImportFormula(' =cmd|"/c calc"')).toBe('cmd|"/c calc"');
+      expect(stripImportFormula('   +1+SUM(A1)')).toBe('1+SUM(A1)');
+    });
+
+    it('strips leading LF / VT / FF + formula trigger', () => {
+      expect(stripImportFormula('\n=cmd')).toBe('cmd');
+      expect(stripImportFormula('\x0b=cmd')).toBe('cmd');
+      expect(stripImportFormula('\x0c=cmd')).toBe('cmd');
+    });
+
+    it('strips leading NBSP / ZWSP / ZWNJ + formula trigger (Unicode bypass)', () => {
+      expect(stripImportFormula(' =HYPERLINK("x","y")')).toBe('HYPERLINK("x","y")');
+      expect(stripImportFormula('​=cmd')).toBe('cmd');
+      expect(stripImportFormula('‌=cmd')).toBe('cmd');
+      expect(stripImportFormula('‍=cmd')).toBe('cmd');
+      expect(stripImportFormula('﻿=cmd')).toBe('cmd');
+    });
+
+    it('strips leading bidi format chars (LRM/RLM) + formula trigger', () => {
+      expect(stripImportFormula('‎=cmd')).toBe('cmd');
+      expect(stripImportFormula('‏=cmd')).toBe('cmd');
+      expect(stripImportFormula('‮=cmd')).toBe('cmd');
+    });
+
+    it('strips leading invisibles even when no formula trigger follows', () => {
+      // Canonicalisation: staging payloads shouldn't carry leading NBSP either,
+      // so the dry-run preview in PR6 displays the same canonical text the
+      // commit step will materialise.
+      expect(stripImportFormula(' Nguyễn Văn A')).toBe('Nguyễn Văn A');
     });
   });
 

@@ -17,6 +17,7 @@ import {
   clampCellLength,
   stripImportFormula,
   withParserTimeout,
+  throwIfAborted,
   XLSX_LIMITS,
   HostileXlsxError,
 } from './hostile-xlsx-guard';
@@ -53,12 +54,13 @@ export class XlsxParserService {
    * Returns parser stats so the caller can populate XlsxImportLog counts.
    */
   async parseToStaging(buffer: Buffer, importLogId: string): Promise<ParseResult> {
-    return withParserTimeout(async () => {
+    return withParserTimeout(async (signal) => {
       const workbook = new ExcelJS.Workbook();
       // exceljs `xlsx.load` validates ZIP structure; XXE/billion-laughs is handled
       // by the underlying xml parser (sax-js / xml2js — both have known mitigations
       // as of exceljs 4.x; CVE-2023-* tracked in lock).
       await workbook.xlsx.load(buffer as unknown as ArrayBuffer);
+      throwIfAborted(signal);
       assertWorkbookLimits(workbook);
 
       let totalRowsStaged = 0;
@@ -67,6 +69,7 @@ export class XlsxParserService {
       const sheetsParsed: string[] = [];
 
       for (const sheet of workbook.worksheets) {
+        throwIfAborted(signal);
         sheetsParsed.push(sheet.name);
         const detectedType = detectRowType(sheet.name);
 
@@ -154,6 +157,9 @@ export class XlsxParserService {
         });
 
         if (stagingRows.length > 0) {
+          // Re-check abort signal RIGHT BEFORE the write — catches the
+          // timeout window between sheet scan finish and createMany start.
+          throwIfAborted(signal);
           // Bulk insert per sheet — keeps tx duration tight. Prisma JSON column
           // typing requires casting our Record<string, unknown> payloads to its
           // InputJsonValue shape; the values are already coerced to primitives

@@ -190,15 +190,22 @@ export function clampCellLength(value: unknown): { value: unknown; truncated: bo
 
 /**
  * Wrap an async parser operation in a timeout. If the operation exceeds
- * PARSER_TIMEOUT_MS, reject with a HostileXlsxError. The underlying promise
- * keeps running; caller is responsible for not awaiting it after timeout.
+ * PARSER_TIMEOUT_MS, reject with a HostileXlsxError AND signal the wrapped
+ * operation to abort via the AbortSignal passed to its argument.
+ *
+ * PR5 review finding (cross-model P1): without the AbortSignal, the wrapped
+ * op kept running after reject — including subsequent prisma createMany calls
+ * — letting a 31-second crafted parser stage rows under a FAILED log. The
+ * caller is now responsible for checking signal.aborted between sheet boundaries.
  */
 export async function withParserTimeout<T>(
-  op: () => Promise<T>,
+  op: (signal: AbortSignal) => Promise<T>,
   ms: number = XLSX_LIMITS.PARSER_TIMEOUT_MS,
 ): Promise<T> {
+  const controller = new AbortController();
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => {
+      controller.abort();
       reject(
         new HostileXlsxError(
           `Parser timeout (${ms}ms exceeded).`,
@@ -207,7 +214,7 @@ export async function withParserTimeout<T>(
       );
     }, ms);
     timer.unref?.();
-    op().then(
+    op(controller.signal).then(
       (result) => {
         clearTimeout(timer);
         resolve(result);
@@ -221,20 +228,48 @@ export async function withParserTimeout<T>(
 }
 
 /**
+ * Throw an abort error if the given signal is aborted.
+ * Use between long-running parser segments to short-circuit cleanly.
+ */
+export function throwIfAborted(signal: AbortSignal): void {
+  if (signal.aborted) {
+    throw new HostileXlsxError(
+      'Parser aborted (timeout fired or caller cancelled).',
+      'PARSER_ABORTED',
+    );
+  }
+}
+
+/**
  * Strip formula triggers from a cell value. Unlike escapeXlsxCell (PR4 export
  * defense), this is for IMPORT — we don't want to round-trip the apostrophe
  * into staging. Instead we coerce to literal text by removing the leading
  * trigger character entirely (and prepending nothing). Codex CRITICAL #4 #68.
+ *
+ * Whitespace-bypass defense (PR5 review finding): we normalise leading
+ * whitespace + zero-width / format characters BEFORE the trigger check so
+ * a payload like " =cmd" or " =cmd" (LibreOffice/strict-Excel parsers
+ * trim before evaluating) can't slip past. The leading whitespace itself
+ * is also stripped from the staging value.
  */
 const IMPORT_FORMULA_TRIGGER = /^[=+\-@\t\r]/;
+// All Unicode whitespace + common zero-width / bidi format characters that
+// downstream re-exporters (LibreOffice, csv pipelines) strip before formula
+// evaluation. Includes ASCII space/LF/VT/FF, NBSP, ZWSP, ZWNJ, ZWJ, ZWNBSP,
+// LRM/RLM/LRE/RLE/PDF/LRO/RLO.
+const LEADING_INVISIBLE = /^[\s ​‌‍⁠﻿‎‏‪-‮]+/;
 export function stripImportFormula(value: unknown): unknown {
   if (typeof value !== 'string') return value;
-  if (IMPORT_FORMULA_TRIGGER.test(value)) {
-    // Replace the leading trigger char with empty — the cell becomes a
-    // literal text fragment, never a formula in any downstream system.
-    return value.replace(IMPORT_FORMULA_TRIGGER, '');
+  // Strip leading invisible chars first, then check for a formula trigger.
+  // The returned value never carries leading invisibles either — keeps
+  // staging payloads canonical for the PR6 dry-run preview.
+  const trimmed = value.replace(LEADING_INVISIBLE, '');
+  if (IMPORT_FORMULA_TRIGGER.test(trimmed)) {
+    return trimmed.replace(IMPORT_FORMULA_TRIGGER, '');
   }
-  return value;
+  // If we stripped invisibles but no trigger was present, return the
+  // canonical (invisibles removed) form so behaviour is consistent.
+  return trimmed.length === value.length ? value : trimmed;
 }
 
 /**
