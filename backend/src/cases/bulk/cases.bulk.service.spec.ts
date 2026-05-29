@@ -214,3 +214,174 @@ describe('CasesBulkService.bulkAssign — v0.48 B3a', () => {
     );
   });
 });
+
+// ───────────────────────────────────────────────
+// B3b — bulkExport (read-only, returns xlsx stream)
+// ───────────────────────────────────────────────
+describe('CasesBulkService.bulkExport — v0.48 B3b', () => {
+  let service: CasesBulkService;
+  let mockPrisma: any;
+  let mockAudit: any;
+  let mockRes: any;
+
+  const adminScope: DataScope = {
+    userIds: [],
+    teamIds: [],
+    writableTeamIds: [],
+    canDispatch: true,
+    isWardOfficer: false,
+  } as DataScope;
+
+  beforeEach(async () => {
+    mockPrisma = {
+      case: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'case-1',
+            caseCode: 'VA-2026-001',
+            name: 'Vụ án 1',
+            crime: 'Cố ý gây thương tích',
+            unit: 'P. Bến Nghé',
+            createdAt: new Date('2026-01-15'),
+            status: 'TIEP_NHAN',
+            investigator: { firstName: 'A', lastName: 'Nguyễn' },
+          },
+          {
+            id: 'case-2',
+            caseCode: 'VA-2026-002',
+            name: 'Vụ án 2',
+            crime: 'Trộm cắp',
+            unit: 'P. Bến Thành',
+            createdAt: new Date('2026-01-20'),
+            status: 'XAC_MINH',
+            investigator: null,
+          },
+        ]),
+      },
+      $executeRaw: jest.fn().mockResolvedValue(1),
+    };
+    mockAudit = {
+      log: jest.fn().mockResolvedValue(undefined),
+      logBulkHeader: jest.fn(),
+      logBulkItem: jest.fn(),
+      completeBulk: jest.fn(),
+    };
+    // Mock Response: setHeader + status + write-stream interface for xlsx.write().
+    mockRes = {
+      setHeader: jest.fn(),
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn(),
+      destroy: jest.fn(),
+      headersSent: false,
+      // ExcelJS workbook.xlsx.write(stream) gọi write + end. Mock như Writable.
+      write: jest.fn((_chunk: any, cb?: any) => {
+        if (cb) cb();
+        return true;
+      }),
+      end: jest.fn((cb?: any) => {
+        if (cb) cb();
+      }),
+      on: jest.fn(),
+      once: jest.fn(),
+      emit: jest.fn(),
+      writableEnded: false,
+    };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        CasesBulkService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: AuditService, useValue: mockAudit },
+      ],
+    }).compile();
+
+    service = module.get<CasesBulkService>(CasesBulkService);
+  });
+
+  it('queries case.findMany với WHERE id IN ids + scope filter applied', async () => {
+    await service.bulkExport({
+      ids: ['case-1', 'case-2'],
+      dataScope: adminScope,
+      res: mockRes as any,
+      actorId: 'user-1',
+    });
+
+    expect(mockPrisma.case.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: { in: ['case-1', 'case-2'] },
+          deletedAt: null,
+        }),
+      }),
+    );
+  });
+
+  it('writes xlsx Content-Type header + filename to Response', async () => {
+    await service.bulkExport({
+      ids: ['case-1'],
+      dataScope: adminScope,
+      res: mockRes as any,
+      actorId: 'user-1',
+    });
+
+    // Content-Type phải là xlsx mime.
+    expect(mockRes.setHeader).toHaveBeenCalledWith(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    // Content-Disposition phải có attachment + filename .xlsx.
+    const dispositionCall = mockRes.setHeader.mock.calls.find(
+      (c: any[]) => c[0] === 'Content-Disposition',
+    );
+    expect(dispositionCall).toBeDefined();
+    expect(dispositionCall[1]).toMatch(/attachment; filename=".*\.xlsx"/);
+  });
+
+  it('writes audit log với action CASE_BULK_EXPORTED + ids count metadata (PII export trail)', async () => {
+    await service.bulkExport({
+      ids: ['case-1', 'case-2', 'case-3'],
+      dataScope: adminScope,
+      res: mockRes as any,
+      actorId: 'user-actor',
+      meta: { ipAddress: '10.0.0.1', userAgent: 'Mozilla/5.0' },
+    });
+
+    expect(mockAudit.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-actor',
+        action: 'CASE_BULK_EXPORTED',
+        subject: 'Case',
+        metadata: expect.objectContaining({
+          idsRequested: 3,
+          format: 'xlsx',
+        }),
+        ipAddress: '10.0.0.1',
+        userAgent: 'Mozilla/5.0',
+      }),
+    );
+  });
+
+  it('rejects empty ids array (must have at least 1)', async () => {
+    await expect(
+      service.bulkExport({
+        ids: [],
+        dataScope: adminScope,
+        res: mockRes as any,
+        actorId: 'user-1',
+      }),
+    ).rejects.toThrow(BadRequestException);
+    expect(mockPrisma.case.findMany).not.toHaveBeenCalled();
+  });
+
+  it('rejects > 1000 ids (export cap higher than write 100, plan eng E-H7)', async () => {
+    const tooMany = Array.from({ length: 1001 }, (_, i) => `case-${i}`);
+    await expect(
+      service.bulkExport({
+        ids: tooMany,
+        dataScope: adminScope,
+        res: mockRes as any,
+        actorId: 'user-1',
+      }),
+    ).rejects.toThrow(BadRequestException);
+  });
+});

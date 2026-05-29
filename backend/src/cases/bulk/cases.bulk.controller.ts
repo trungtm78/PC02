@@ -1,11 +1,15 @@
-import { Body, Controller, HttpCode, HttpStatus, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, HttpCode, HttpStatus, Post, Req, Res, UseGuards } from '@nestjs/common';
+import type { Response } from 'express';
 import { Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { DispatchGuard } from '../../auth/guards/dispatch.guard';
+import { RequirePermissions } from '../../auth/decorators/permissions.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import type { AuthUser } from '../../auth/interfaces/auth-user.interface';
 import type { ScopedRequest } from '../../auth/interfaces/scoped-request.interface';
 import { BulkAssignCasesDto } from '../dto/bulk-assign-cases.dto';
+import { BulkExportCasesDto } from '../dto/bulk-export-cases.dto';
 import { CasesBulkService } from './cases.bulk.service';
 
 /**
@@ -44,6 +48,31 @@ export class CasesBulkController {
       idempotencyKey: dto.idempotencyKey,
       actorId: user.id,
       dataScope: req.dataScope,
+      meta: {
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      },
+    });
+  }
+
+  // POST /api/v1/cases/bulk-export — Xuất Excel nhiều vụ án theo lựa chọn.
+  // Read-only: @RequirePermissions read (KHÔNG cần DispatchGuard).
+  @Post('bulk-export')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions({ action: 'read', subject: 'Case' })
+  @Throttle({ default: { ttl: 60_000, limit: 5 } })
+  async bulkExport(
+    @Body() dto: BulkExportCasesDto,
+    @CurrentUser() user: AuthUser,
+    @Req() req: ScopedRequest,
+    @Res() res: Response,
+  ): Promise<void> {
+    await this.bulkService.bulkExport({
+      ids: dto.ids,
+      dataScope: req.dataScope,
+      res,
+      actorId: user.id,
       meta: {
         ipAddress: req.ip,
         userAgent: req.headers['user-agent'],
