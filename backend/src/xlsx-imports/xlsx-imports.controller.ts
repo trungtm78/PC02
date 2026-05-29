@@ -18,6 +18,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
 import { XlsxImportsService } from './xlsx-imports.service';
+import { XlsxImportCommitService } from './commit.service';
 import { XLSX_LIMITS } from './hostile-xlsx-guard';
 
 // Hard limit at the multer layer too — defense in depth alongside
@@ -27,7 +28,10 @@ const MAX_UPLOAD_BYTES = XLSX_LIMITS.MAX_COMPRESSED_BYTES;
 @Controller('xlsx-imports')
 @UseGuards(JwtAuthGuard)
 export class XlsxImportsController {
-  constructor(private readonly service: XlsxImportsService) {}
+  constructor(
+    private readonly service: XlsxImportsService,
+    private readonly commitService: XlsxImportCommitService,
+  ) {}
 
   /**
    * Upload an xlsx and parse it into staging.
@@ -81,6 +85,45 @@ export class XlsxImportsController {
         unitCode: (user as unknown as { unitCode?: string | null }).unitCode ?? null,
       },
       parsed,
+    );
+  }
+
+  // ── PR6: dry-run + commit + rollback ──────────────────────────────────────
+
+  @Get(':id/preview')
+  async preview(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.commitService.dryRun(id, {
+      id: user.id,
+      role: user.role,
+      unitCode: (user as unknown as { unitCode?: string | null }).unitCode ?? null,
+    });
+  }
+
+  @Post(':id/commit')
+  @HttpCode(HttpStatus.OK)
+  async commit(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.commitService.commit(id, {
+      id: user.id,
+      role: user.role,
+      unitCode: (user as unknown as { unitCode?: string | null }).unitCode ?? null,
+    });
+  }
+
+  @Post(':id/rollback')
+  @HttpCode(HttpStatus.OK)
+  async rollback(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthUser,
+    @Query('force') force?: string,
+  ) {
+    return this.commitService.rollback(
+      id,
+      {
+        id: user.id,
+        role: user.role,
+        unitCode: (user as unknown as { unitCode?: string | null }).unitCode ?? null,
+      },
+      { force: force === 'true' },
     );
   }
 }
