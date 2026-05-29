@@ -111,6 +111,7 @@ model User {
 
   role                            Role                      @relation(fields: [roleId], references: [id])
   auditLogs                       AuditLog[]
+  bulkOperationsInitiated         BulkOperation[]
   cases                           Case[]
   petitionsEntered                Petition[]                @relation("PetitionEnteredBy")
   petitionsAssigned               Petition[]                @relation("PetitionAssignedTo")
@@ -1269,23 +1270,64 @@ model InvestigationSupplement {
 // ─────────────────────────────────────────────
 
 model AuditLog {
-  id        String   @id @default(cuid())
-  userId    String?
-  action    String // e.g. "USER_LOGIN", "USER_LOGOUT", "CASE_CREATED"
-  subject   String? // entity type affected
-  subjectId String? // entity id affected
-  metadata  Json? // additional context (IP, user-agent, etc.)
-  ipAddress String?
-  userAgent String?
-  createdAt DateTime @default(now())
+  id              String   @id @default(cuid())
+  userId          String?
+  action          String // e.g. "USER_LOGIN", "USER_LOGOUT", "CASE_CREATED"
+  subject         String? // entity type affected
+  subjectId       String? // entity id affected
+  metadata        Json? // additional context (IP, user-agent, etc.)
+  ipAddress       String?
+  userAgent       String?
+  createdAt       DateTime @default(now())
+  // v0.48 PR1 B2: link N item rows to 1 BulkOperation header (audit-inside-tx pattern).
+  bulkOperationId String?
 
-  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user          User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+  bulkOperation BulkOperation? @relation(fields: [bulkOperationId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([action])
   @@index([createdAt])
   @@index([subjectId, createdAt]) // composite covers single-column subjectId queries too
+  @@index([bulkOperationId])
   @@map("audit_logs")
+}
+
+// ─────────────────────────────────────────────
+// Bulk Operations (v0.48 PR1)
+// 1 header row per bulk action (export/assign/transfer/status/extend). Items
+// reference via AuditLog.bulkOperationId. Status STARTED→COMPLETED|FAILED,
+// counts populated post-loop (plan eng E-H3).
+// idempotencyKey + actorId unique → retry-safe (plan eng E-H10).
+// ─────────────────────────────────────────────
+enum BulkOperationStatus {
+  STARTED
+  COMPLETED
+  FAILED
+}
+
+model BulkOperation {
+  id             String              @id @default(cuid())
+  // actorId nullable + onDelete SetNull để giữ audit trail (match AuditLog.userId pattern).
+  // Investigation system: "ai làm gì lúc nào" phải retained forever, kể cả user bị xóa.
+  actorId        String?
+  resource       String // e.g. "Case", "Incident", "Petition"
+  action         String // e.g. "BULK_EXPORT", "BULK_ASSIGN", "BULK_TRANSFER"
+  status         BulkOperationStatus @default(STARTED)
+  idempotencyKey String?
+  startedAt      DateTime            @default(now())
+  completedAt    DateTime?
+  succeededCount Int                 @default(0)
+  skippedCount   Int                 @default(0)
+  failedCount    Int                 @default(0)
+
+  actor      User?      @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  auditItems AuditLog[]
+
+  @@unique([actorId, idempotencyKey])
+  @@index([actorId, startedAt(sort: Desc)])
+  @@index([resource, action])
+  @@map("bulk_operations")
 }
 
 // ─────────────────────────────────────────────

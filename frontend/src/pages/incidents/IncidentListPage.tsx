@@ -13,6 +13,15 @@ import {
 } from "lucide-react";
 import { PHASE_STATUSES, PHASE_LABELS } from "@/constants/incident-phases";
 import { usePermission } from "@/hooks/usePermission";
+import { useBulkSelection } from "@/features/_shared/bulk/useBulkSelection";
+import { BulkActionBar } from "@/features/_shared/bulk/BulkActionBar";
+import {
+  BulkSelectionHeaderCell,
+  BulkSelectionRowCell,
+} from "@/features/_shared/bulk/BulkSelectionColumn";
+import { InlineResultPanel } from "@/features/_shared/bulk/InlineResultPanel";
+import { buildIncidentsAdapter } from "@/features/_shared/bulk/adapters/incidents";
+import type { BulkResult } from "@/features/_shared/bulk/types";
 import { AssignModal } from "@/components/AssignModal";
 import { ActionMenuPortal } from "@/components/ActionMenuPortal";
 import { IncidentStatus } from "@/shared/enums/generated";
@@ -143,7 +152,14 @@ export function IncidentListPage() {
     () => searchParams.get("status") ?? "",
   );
   const { canDispatch, canEdit } = usePermission();
+
+  // Bulk action result state (declared early; selection initialized after `incidents` state below).
+  const [bulkResult, setBulkResult] = useState<BulkResult | null>(null);
+  const [bulkResultLabel, setBulkResultLabel] = useState("");
   const [incidents, setIncidents] = useState<Incident[]>([]);
+  // Bulk action infrastructure (v0.48 PR1) — export-only initially.
+  const bulkSelection = useBulkSelection({ rowKey: "id", pageRows: incidents });
+  const bulkAdapter = buildIncidentsAdapter();
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
@@ -482,10 +498,19 @@ export function IncidentListPage() {
           </p>
         </div>
 
+        {bulkResult && (
+          <InlineResultPanel
+            result={bulkResult}
+            actionLabel={bulkResultLabel}
+            resourceLabel="vụ việc"
+            onDismiss={() => setBulkResult(null)}
+          />
+        )}
         <div className="overflow-x-auto">
           <table className="w-full" data-testid="incident-table">
             <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
+                <BulkSelectionHeaderCell selection={bulkSelection} totalRowsLabel="vụ việc" />
                 <th className="px-3 py-3 text-left text-xs font-medium text-slate-600 uppercase w-28 sticky left-0 bg-slate-50 z-10 border-r border-slate-200">Thao tác</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase w-12">STT</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase">Mã vụ việc</th>
@@ -504,14 +529,14 @@ export function IncidentListPage() {
             <tbody className="divide-y divide-slate-200">
               {isLoading ? (
                 <tr>
-                  <td colSpan={13} className="px-6 py-16 text-center">
+                  <td colSpan={14} className="px-6 py-16 text-center">
                     <Loader2 className="w-8 h-8 text-blue-500 mx-auto mb-3 animate-spin" />
                     <p className="text-slate-500 font-medium">Đang tải dữ liệu...</p>
                   </td>
                 </tr>
               ) : incidents.length === 0 ? (
                 <tr>
-                  <td colSpan={13} className="px-6 py-16 text-center">
+                  <td colSpan={14} className="px-6 py-16 text-center">
                     <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                     <p className="text-slate-600 font-medium">Không tìm thấy vụ việc nào</p>
                     <p className="text-sm text-slate-400 mt-1">
@@ -534,6 +559,11 @@ export function IncidentListPage() {
                       onKeyDown={canEditRow ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/vu-viec/${incident.id}/edit`); } } : undefined}
                       className={`transition-colors ${overdue ? "bg-red-50/40" : ""} ${canEditRow ? "cursor-pointer hover:bg-blue-50" : "hover:bg-slate-50"}`}
                     >
+                      <BulkSelectionRowCell
+                        id={incident.id}
+                        selection={bulkSelection}
+                        rowLabel={`vụ việc ${incident.code ?? incident.id}`}
+                      />
                       {/* Thao tác — FIRST, sticky, stopPropagation prevents row-click */}
                       <td
                         className={`px-3 py-3 whitespace-nowrap sticky left-0 z-10 border-r border-slate-100 ${overdue ? "bg-red-50/40" : "bg-white"}`}
@@ -790,6 +820,28 @@ export function IncidentListPage() {
           </div>
         </div>
       )}
+
+      <BulkActionBar
+        selection={bulkSelection}
+        adapter={bulkAdapter}
+        pageRows={incidents}
+        onSuccess={(result, action) => {
+          if (result) {
+            setBulkResult(result as BulkResult);
+            setBulkResultLabel(action.label);
+          } else {
+            setBulkResult({
+              succeeded: Array.from(bulkSelection.selectedIds).map((id) => ({ id })),
+              skipped: [],
+              failed: [],
+            });
+            setBulkResultLabel(action.label);
+          }
+        }}
+        onError={(err) => {
+          alert(`Lỗi: ${(err as Error)?.message ?? "không xác định"}`);
+        }}
+      />
     </div>
   );
 }

@@ -28,6 +28,15 @@ import {
   UserCheck,
 } from "lucide-react";
 import { usePermission } from "@/hooks/usePermission";
+import { useBulkSelection } from "@/features/_shared/bulk/useBulkSelection";
+import { BulkActionBar } from "@/features/_shared/bulk/BulkActionBar";
+import {
+  BulkSelectionHeaderCell,
+  BulkSelectionRowCell,
+} from "@/features/_shared/bulk/BulkSelectionColumn";
+import { InlineResultPanel } from "@/features/_shared/bulk/InlineResultPanel";
+import { buildCasesAdapter } from "@/features/_shared/bulk/adapters/cases";
+import type { BulkResult } from "@/features/_shared/bulk/types";
 import { AssignModal } from "@/components/AssignModal";
 import { ActionMenuPortal } from "@/components/ActionMenuPortal";
 import { StatusBadge } from "@/components/shared/StatusBadge";
@@ -283,6 +292,17 @@ function CaseListPage() {
   const overdueCount = filteredCases.filter((c) => isOverdue(c.investigationDeadline)).length;
   const totalPages = Math.max(1, Math.ceil(filteredCases.length / PAGE_SIZE));
   const displayedCases = filteredCases.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  // ── Bulk action infrastructure (v0.48 PR1) ────────────────────────────────
+  const bulkSelection = useBulkSelection<Case>({
+    rowKey: "id",
+    pageRows: displayedCases,
+  });
+  // v0.48 PR1 enableAssign=false (chỉ ship export). Assign action chờ team picker
+  // modal ở PR sau. Filter chips banner cho "select all matching filter" cũng defer.
+  const bulkAdapter = buildCasesAdapter();
+  const [bulkResult, setBulkResult] = useState<BulkResult | null>(null);
+  const [bulkResultLabel, setBulkResultLabel] = useState("");
 
   // ── Xóa vụ án (v0.31.0.2) — mirror Incident + UX deltas ────────────────
   const openDeleteModal = (caseItem: Case, trigger: HTMLButtonElement | null) => {
@@ -599,10 +619,19 @@ function CaseListPage() {
           </div>
         ) : (
           <>
+            {bulkResult && (
+              <InlineResultPanel
+                result={bulkResult}
+                actionLabel={bulkResultLabel}
+                resourceLabel="vụ án"
+                onDismiss={() => setBulkResult(null)}
+              />
+            )}
             <div className="overflow-x-auto">
               <table className="w-full" data-testid="case-table">
                 <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>
+                    <BulkSelectionHeaderCell selection={bulkSelection} totalRowsLabel="vụ án" />
                     <th className="px-3 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider w-28 sticky left-0 bg-slate-50 z-10 border-r border-slate-200">
                       Thao tác
                     </th>
@@ -635,7 +664,7 @@ function CaseListPage() {
                 <tbody className="divide-y divide-slate-200">
                   {displayedCases.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="px-6 py-12 text-center">
+                      <td colSpan={10} className="px-6 py-12 text-center">
                         <div className="flex flex-col items-center gap-2" data-testid="no-results">
                           <Search className="w-10 h-10 text-slate-300" />
                           <p className="text-slate-600 font-medium">Không tìm thấy kết quả</p>
@@ -658,6 +687,11 @@ function CaseListPage() {
                           onKeyDown={canEditRow ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/cases/${caseItem.id}/edit`); } } : undefined}
                           className={`transition-colors ${overdue ? "bg-red-50/50" : ""} ${canEditRow ? "cursor-pointer hover:bg-blue-50" : "hover:bg-slate-50"}`}
                         >
+                          <BulkSelectionRowCell
+                            id={caseItem.id}
+                            selection={bulkSelection}
+                            rowLabel={`vụ án ${caseItem.caseCode ?? caseItem.id}`}
+                          />
                           {/* Thao tác — FIRST, sticky */}
                           <td
                             className={`px-3 py-4 whitespace-nowrap sticky left-0 z-10 border-r border-slate-100 ${overdue ? "bg-red-50/50" : "bg-white"}`}
@@ -1017,6 +1051,31 @@ function CaseListPage() {
           </div>
         );
       })()}
+
+      <BulkActionBar
+        selection={bulkSelection}
+        adapter={bulkAdapter}
+        pageRows={displayedCases}
+        onSuccess={(result, action) => {
+          if (result) {
+            setBulkResult(result as BulkResult);
+            setBulkResultLabel(action.label);
+          } else {
+            // Export action returns void — no result panel, just success feedback.
+            setBulkResult({
+              succeeded: bulkSelection.selectedIds.size
+                ? Array.from(bulkSelection.selectedIds).map((id) => ({ id }))
+                : [],
+              skipped: [],
+              failed: [],
+            });
+            setBulkResultLabel(action.label);
+          }
+        }}
+        onError={(err) => {
+          alert(`Lỗi: ${(err as Error)?.message ?? "không xác định"}`);
+        }}
+      />
 
     </div>
   );

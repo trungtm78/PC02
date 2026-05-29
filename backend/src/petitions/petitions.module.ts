@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { PetitionsService } from './petitions.service';
 import { PetitionsJourneyService } from './petitions-journey.service';
 import { PetitionsController } from './petitions.controller';
+import { PetitionsBulkController } from './bulk/petitions.bulk.controller';
+import { PetitionsBulkService } from './bulk/petitions.bulk.service';
 import { DocumentExportService } from './document-export.service';
 import { BatchExportService } from './batch-export.service';
 import { AuditModule } from '../audit/audit.module';
@@ -23,8 +25,9 @@ import { DocumentTemplatesModule } from '../document-templates/document-template
     PetitionsJourneyService,
     DocumentExportService,
     BatchExportService,
+    PetitionsBulkService,
   ],
-  controllers: [PetitionsController],
+  controllers: [PetitionsController, PetitionsBulkController],
   exports: [PetitionsService],
 })
 export class PetitionsModule {}
