@@ -2,6 +2,48 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.47.0.4] - 2026-05-29
+
+**v0.47 Document + Report Template Engine — PR3.1 Track A frontend**
+
+Frontend wiring cho 6 docx export pipeline đã ship trong PR2/PR3 backend. End-to-end render path giờ usable từ UI lần đầu tiên.
+
+### Added
+- **Section 6 "Nội dung phiếu đề xuất"** trên PetitionFormPage (chỉ hiện ở edit mode): 4 inputs nghiệp vụ (Nhận thấy, Đề xuất xử lý, Kết quả rà soát đơn/vụ trùng, Báo cáo Ban Giám đốc). Bắt buộc khi xuất Phiếu đề xuất.
+- **Nút "Xuất tài liệu" dropdown** ở footer của PetitionFormPage (edit mode) với 6 doc types — Phiếu đề xuất, Phiếu chuyển nguồn tin (Mẫu 03 TT 128/2025/TT-BCA), Phiếu chuyển đơn, Thông báo chuyển đơn, Thông báo hướng dẫn khởi kiện, Thông báo trả lại đơn. Tải docx về máy.
+- **Multi-select checkbox column** trên PetitionListPage cho batch ZIP export. Header checkbox chọn tất cả trên trang hiện tại. Sticky batch toolbar khi đã chọn ít nhất 1 đơn ("Đã chọn N đơn — Xuất tài liệu hàng loạt").
+- **BatchExportModal**: chọn loại tài liệu + cảnh báo khi vượt 100 đơn + download ZIP từ backend. Mỗi đơn render trong transaction riêng — đơn nào lỗi ghi vào manifest.json trong ZIP, không huỷ cả batch.
+- **Backend DTO mở rộng** (`CreatePetitionDto` + `UpdatePetitionDto`): whitelist 11 v0.47 fields (nhanThay, deXuat, raSoatTrung, baoCaoBanGiamDoc, petitionDate, nguonDon, subTeamAssigned, lyDoChuyen, canCuPhapLy, huongDanKhoiKien, lyDoTraDon) với @MaxLength + stripHtmlTags anti-XSS. Service spread thêm conditional save logic.
+
+### Fixed (review pass)
+- **P1 Export-while-dirty**: dropdown disabled khi formData khác snapshot saved (tránh render docx với data cũ trong DB).
+- **P1 Select-all wrong scope**: dùng `displayedPetitions` (trang hiện tại sau filter), không `petitions` (tất cả 100 fetched). Tránh cross-page selection silent.
+- **P1 Clear field**: submit gửi empty string thay vì `|| undefined` để backend conditional spread có thể clear nội dung đã lưu.
+- **P1 Blob URL leak**: `revokeObjectURL` chuyển vào `finally` block.
+- **P2 Blob error response**: parse blob JSON error trước khi gọi `extractApiError` (officer thấy lỗi cụ thể "Thiếu trường nhanThay" thay vì generic "Không xuất được").
+
+### Mobile UX
+- Touch targets min-h-[44px] trên dropdown + button.
+- text-base sm:text-sm trên textarea (no iOS zoom on focus).
+- max-w-[calc(100vw-2rem)] trên dropdown menu + modal.
+- Hidden label trên small viewport, icon-only fallback.
+
+### Test counts
+- Backend: 1884/1884 (unchanged — không có spec backend mới)
+- Frontend: 787/787 (unchanged)
+- tsc clean
+
+### Deferred to PR3.2
+- Source-resolver `lookup:teams.code` extension (gỡ Đ1 hardcode cho multi-team)
+- Touch-target enlarge BatchExportModal close button
+- pointerdown click-outside (mousedown reliability iOS Safari)
+- RFC 5987 `filename*=` parser cho Vietnamese non-ASCII filenames
+- `subTeamAssigned` → Team FK validation (currently 255-char free text)
+- Inline toast + scroll-to-field thay vì window.alert
+- BatchExportModal preview list (hiển thị tên N đơn được chọn trước khi xuất)
+- pagination/filter useEffect clears selectedIds (tránh stale cross-page selection sau filter)
+- Edit history audit trên nhanThay/deXuat (design review M2)
+
 ## [0.47.0.3] - 2026-05-29
 
 **v0.47 Document + Report Template Engine — PR3/6 Batch ZIP backend**

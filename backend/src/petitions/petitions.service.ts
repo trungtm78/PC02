@@ -596,6 +596,26 @@ export class PetitionsService {
       }),
       ...(dto.notes !== undefined && { notes: dto.notes }),
       ...(dto.status !== undefined && { status: dto.status }),
+      // v0.47 PR3.1 — Nội dung phiếu đề xuất + cross-doc business fields
+      ...(dto.nhanThay !== undefined && { nhanThay: dto.nhanThay }),
+      ...(dto.deXuat !== undefined && { deXuat: dto.deXuat }),
+      ...(dto.raSoatTrung !== undefined && { raSoatTrung: dto.raSoatTrung }),
+      ...(dto.baoCaoBanGiamDoc !== undefined && {
+        baoCaoBanGiamDoc: dto.baoCaoBanGiamDoc,
+      }),
+      ...(dto.petitionDate !== undefined && {
+        petitionDate: dto.petitionDate ? new Date(dto.petitionDate) : null,
+      }),
+      ...(dto.nguonDon !== undefined && { nguonDon: dto.nguonDon }),
+      ...(dto.subTeamAssigned !== undefined && {
+        subTeamAssigned: dto.subTeamAssigned,
+      }),
+      ...(dto.lyDoChuyen !== undefined && { lyDoChuyen: dto.lyDoChuyen }),
+      ...(dto.canCuPhapLy !== undefined && { canCuPhapLy: dto.canCuPhapLy }),
+      ...(dto.huongDanKhoiKien !== undefined && {
+        huongDanKhoiKien: dto.huongDanKhoiKien,
+      }),
+      ...(dto.lyDoTraDon !== undefined && { lyDoTraDon: dto.lyDoTraDon }),
     };
     const petitionInclude = {
       enteredBy: {
