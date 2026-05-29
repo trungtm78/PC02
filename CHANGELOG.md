@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.47.0.1] - 2026-05-29
+
+**v0.47 Document + Report Template Engine — PR1/6 Foundation**
+
+PR đầu trong loạt 6 PR của v0.47 (Document + Report Template Engine v1.0). Foundation only — không có thay đổi user-facing nào tới end user trong PR này. Toàn bộ code paths của foundation đều behind feature flag hoặc inert (chưa được wire vào endpoint nào). PR2-PR6 sẽ kích hoạt từng phần.
+
+### Fixed
+- **P0 timezone bug trên Document Number Engine v0.42** (`backend/src/document-numbers/period-key.util.ts`): `computePeriodKey` dùng `getUTCFullYear()` thay vì giờ Việt Nam, gây cửa sổ 7 giờ mỗi ngày 1/1 (00:00–06:59 ICT) mà số văn bản bị đóng dấu năm trước theo Nghị định 30/2020. Sửa bằng tham số `tz` mặc định `'Asia/Ho_Chi_Minh'` sử dụng `Intl.DateTimeFormat`. Module-load ICU probe từ chối boot nếu Node binary thiếu full-icu (small-icu Node sẽ âm thầm fallback về UTC, regress lại bug). Refactor `isoWeekParts` helper để loại bỏ trùng lặp giữa YEARLY/WEEKLY paths.
+
+### Added
+- **Petition schema** (`prisma/schema.prisma`): 11 cột nghiệp vụ mới (`nhanThay`, `deXuat`, `raSoatTrung`, `baoCaoBanGiamDoc`, `petitionDate`, `nguonDon`, `subTeamAssigned`, `lyDoChuyen`, `canCuPhapLy`, `huongDanKhoiKien`, `lyDoTraDon`) phục vụ render 6 loại văn bản trong PR2 (Phiếu đề xuất, Phiếu chuyển nguồn tin, Phiếu chuyển đơn, Thông báo chuyển, Thông báo hướng dẫn, Thông báo trả lại).
+- **Case + Incident schema**: 2 cột TĐC khắc phục (`tdcKhacPhucLyDoBienPhap`, `tdcKhacPhucBienBan`) cho Phụ lục 02/03/05/06 + 5 cột import audit (`importedFrom`, `importedAt`, `importedById`, `sourceFile`, `importLogId`) cho per-row provenance khi PR5/PR6 import từ xlsx của các đơn vị trực thuộc.
+- **User.rank**: cột text cho quân hàm cán bộ (Trung tá / Thượng tá / Đại úy ...) — single source of truth cho signatory block trên 6 loại văn bản, thay thế cách denormalize trên Team.
+- **4 bảng audit mới**: `DocumentRenderLog` (1 dòng/render, lưu templateSha + generatedNumber + fileSha cho pháp lý), `PhuLucReportLog` (1 dòng/báo cáo xlsx generate), `XlsxImportLog` (lifecycle SHA dedupe + dual-confirm + rollback), `XlsxImportStaging` (parser chỉ ghi vào đây, không bao giờ trực tiếp upsert vào Case/Incident — defense-in-depth theo khuyến nghị Codex SPLIT review).
+- **4 series số văn bản mới** (`backend/prisma/seed-document-numbers.ts`): PHIEU_DE_XUAT (ĐX), PHIEU_CHUYEN (PC dùng chung cho chuyển nguồn tin + chuyển đơn), THONG_BAO (TB dùng chung cho thông báo chuyển + trả lại), HUONG_DAN (HD). Tất cả `resetPeriod: 'YEARLY'`, format `5931/ĐX-PC02-Đ1`. Counter reset hằng năm đúng giờ Việt Nam nhờ fix P0 phía trên. Tạm hardcode `Đ1` ở phía suffix — PR2 sẽ thay bằng FORMULA segment dùng `lookup:teams.code` cho đa đội. Seed force-refresh segments + counterConfig khi gặp template v0.47 đã tồn tại, đảm bảo edit của PR2 tự động propagate.
+- **Audit script** `backend/scripts/audit-petition-fields.ts`: đo tỷ lệ Petition.detailContent + summary cùng NULL, đếm Case/Incident TAM_DINH_CHI — chạy trên prod để quyết định bật fail-closed validation trong PR2 và scope backfill cho TĐC fields. Trả về verdict `INSUFFICIENT_DATA` khi DB rỗng (tránh false positive `0/1 < 0.05` = SAFE).
+
+### Changed
+- **Migration** `prisma/migrations/20260529000001_v047_pr1_foundation/migration.sql`: prepend `SET lock_timeout = '5s'; SET statement_timeout = '60s';` để fail fast trên lock contention thay vì queue sau long-running transaction và stall API. Migration thuần additive — rollback strategy forward-only (git revert code, để schema đó).
+- **Test counts**: backend 1819 → 1848 (+29 net-new: 4 timezone fix tests + 6 timezone boundary tests + 19 seed regression tests), frontend 787 (unchanged), tsc clean.
+
+### Engineering notes
+- Eng review (`/plan-eng-review` fresh pass) phát hiện 4 quyết định trong plan ban đầu là parallel infrastructure đã có sẵn trong v0.42 Document Number Engine — đã drop (`DocumentTemplateRegistry` JSON file, `TemplateCacheService`, 4 cột cache docNumber per docType trên Petition, 8 cột audit per docType trên Petition) để reuse `DocumentNumberTemplate` table + `commitWithTx` trong PR2.
+- `/review` chạy 3 specialist subagent song song (testing + data-migration + adversarial), phát hiện 7 critical findings được auto-fix trong commit `af954ce` trước khi mở PR cho anh duyệt.
+
 ## [0.46.0.1] - 2026-05-29
 
 **Hotfix Mobile Drawer — Bulletproof rendering trên iOS Safari**
