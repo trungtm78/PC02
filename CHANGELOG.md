@@ -2,6 +2,52 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.47.0.2] - 2026-05-29
+
+**v0.47 Document + Report Template Engine — PR2/6 Track A backend**
+
+Backend wiring cho 6 templates docx + atomic transaction render path. Vẫn không có user-facing change tới end user — endpoint mới chưa có UI gọi (PR3). Feature flag chưa bật, legacy `/export-word` endpoint vẫn hoạt động.
+
+### Added
+- **6 templates docx** trong `backend/templates/docx/` cho 6 loại văn bản (PHIEU_DE_XUAT, PHIEU_CHUYEN_NGUON_TIN, PHIEU_CHUYEN_DON, THONG_BAO_CHUYEN, THONG_BAO_HUONG_DAN, THONG_BAO_TRA_LAI). Generated programmatically via `backend/scripts/generate-docx-templates.ts` để bảo đảm mọi placeholder là single-run (Word autocorrect có thể split `{placeholder}` thành nhiều `<w:r>` khi edit thủ công). Records officer có thể chỉnh wording legal trong Word post-deploy — `DocumentRenderLog.templateSha` (PR1 schema) khóa audit trail vào đúng binary version đã render.
+- **`nest-cli.json` assets config** copy templates sang `dist/templates/docx/` khi build. Trước đó deploy sẽ 500 lần render đầu tiên.
+- **`DocxTemplateLoaderService`** (`backend/src/document-templates/docx-loader.service.ts`) — singleton @Injectable. Load 6 binaries vào `Map<DocumentType, Buffer>` lúc module init, refuse boot nếu thiếu file. SHA256 cache cho audit log. `DOCX_TEMPLATE_DIR_OVERRIDE` env override để test missing-file path.
+- **`DocumentExportService`** (`backend/src/petitions/document-export.service.ts`):
+  - `DOC_TYPE_TO_SERIES` mapping 6 docTypes → 4 numbering series. PHIEU_CHUYEN_NGUON_TIN + PHIEU_CHUYEN_DON dùng chung counter PC. THONG_BAO_CHUYEN + THONG_BAO_TRA_LAI dùng chung TB.
+  - `validateFieldsForDocType` — fail-closed per docType (Phiếu đề xuất cần nhanThay + deXuat, Phiếu chuyển cần lyDoChuyen, Thông báo hướng dẫn cần huongDanKhoiKien, Thông báo trả lại cần lyDoTraDon — tất cả 6 cần senderName + detailContent/summary). Throws BadRequestException với tên field cụ thể để PR3 frontend scroll tới.
+  - `renderDocxTemplate` — pure render via docxtemplater. `paragraphLoop`, `linebreaks`, `nullGetter='' ` để missing placeholders không tạo `[undefined]` artifacts.
+- **`PetitionsService.exportDocument(id, docType, actorId, dataScope, res)`** — orchestration:
+  - RBAC scope check via existing `getById`
+  - Atomic `prisma.$transaction`:
+    - `SELECT ... FOR UPDATE` row lock trên petition (race condition C2 từ fresh eng review — 2 exports đồng thời cùng petition không thể allocate 2 số khác nhau)
+    - `DocumentNumbersService.commitWithTx(series, ctx, tx, opts)` — reuse v0.42 engine với 4 series từ PR1 T4
+    - render docx
+    - insert `DocumentRenderLog` (PR1 schema)
+  - Render throw → tx rollback → no orphan counter increment + no log rows
+  - templateSha stamped post-tx (cheap field-only update outside lock window)
+  - Filename sanitized via PR2 T9 utility
+- **Endpoint `GET /api/v1/petitions/:id/export-document?docType=...`** — `@RequirePermissions read:Petition`, `@Throttle 5/min/user`, 400 nếu docType ngoài 6-value allowlist. Legacy `/export-word` giữ nguyên cho backward compat.
+- **Filename sanitizer** `backend/src/common/utils/filename.util.ts` (PR2 T9):
+  - Strips path separators (`/`, `\\`), control chars (`\\x00..\\x1f`), Windows-reserved chars (`?`, `%`, `*`, `:`, `|`, `"`, `<`, `>`), traversal `..`
+  - Prefixes `'` nếu filename bắt đầu bằng `=`, `+`, `-`, `@`, `\\t`, `\\r` (Excel/CSV injection guard trong zip listings — PR3 batch export)
+  - Caps 200 chars
+  - Preserves Vietnamese diacritics qua NFC normalization
+- **User-input docxtemplater injection defense** (`escapeUserSuppliedTokens`): replace `{`/`}` trong mọi user-supplied placeholder value bằng Unicode look-alike `❴`/`❵`. Malicious `senderName: "{deXuat}"` sẽ render literal, không trigger interpolation. Spec verified — secret xuất hiện đúng 1 lần.
+
+### Changed
+- **`PetitionsModule`** import `DocumentTemplatesModule` + register `DocumentExportService` provider.
+- **PetitionsService constructor** thêm `DocumentExportService` dependency (test mocks updated).
+
+### Test counts
+- Backend: 1848 → 1876 (+28 net-new: 6 loader + 8 sanitizer + 14 export)
+- Frontend: 787 unchanged
+- tsc --noEmit clean
+
+### Deferred to follow-up
+- T-RACE concurrent-export integration test (needs real Postgres tx — better as e2e in PR3)
+- T-RENDER-FAIL integration test (covered by tx wrapper structure + manual review)
+- Source-resolver `lookup:teams.code` extension (Đ1 hardcode trong PR1 seed vẫn còn — PR3 sẽ revisit khi wire team scope properly)
+
 ## [0.47.0.1] - 2026-05-29
 
 **v0.47 Document + Report Template Engine — PR1/6 Foundation**
