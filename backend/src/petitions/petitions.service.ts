@@ -1501,7 +1501,34 @@ export class PetitionsService {
     dataScope: DataScope | null | undefined,
     res: Response,
   ): Promise<void> {
-    // RBAC scope check via standard getById (cheap — single row + relations).
+    const { buffer, documentNumber, filename } = await this.exportDocumentToBuffer(
+      id,
+      docType,
+      actorId,
+      dataScope,
+    );
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    );
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('X-Document-Number', documentNumber);
+    res.send(buffer);
+  }
+
+  /**
+   * Same render contract as exportDocument but returns the buffer instead of
+   * streaming to a Response. Used by BatchExportService to pipe N rendered
+   * docx into an archiver ZIP without needing N Response objects.
+   */
+  async exportDocumentToBuffer(
+    id: string,
+    docType: DocumentType,
+    actorId: string,
+    dataScope: DataScope | null | undefined,
+  ): Promise<{ buffer: Buffer; documentNumber: string; filename: string }> {
+    // (RBAC scope + load + tx wrapper inlined below — see exportDocument
+    // facade above for the streaming variant.)
     await this.getById(id, dataScope);
 
     // Load the full shape needed for placeholders. Team members + leader rank
@@ -1584,13 +1611,7 @@ export class PetitionsService {
     });
 
     const filename = sanitizeFilename(`${docType}_${soVanBan}.docx`);
-    res.setHeader(
-      'Content-Type',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    );
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.setHeader('X-Document-Number', soVanBan);
-    res.send(buffer);
+    return { buffer, documentNumber: soVanBan, filename };
   }
 
   private buildDocxPlaceholders(

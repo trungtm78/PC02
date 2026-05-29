@@ -2,6 +2,32 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.47.0.3] - 2026-05-29
+
+**v0.47 Document + Report Template Engine — PR3/6 Batch ZIP backend**
+
+Batch export endpoint trên backend. Frontend wiring (form + dropdown + list checkboxes + mobile responsive) tách sang follow-up PR để review quality cao hơn (separate concern). Endpoint mới chưa có UI gọi.
+
+### Added
+- **`POST /api/v1/petitions/export-document-batch`** — body `{ docType, petitionIds: string[] }` (1..100). Streams ZIP của N rendered docx + `manifest.json` với per-petition success/failure breakdown. Mỗi petition render trong tx riêng — 1 fail không abort batch.
+- **`BatchExportService`** (Injectable):
+  - `validateBatchRequest`: 400 nếu empty / >100 / unknown docType / duplicate ids (defense vs DocumentRenderLog race)
+  - `sanitizeBatchFilename`: produces `batch-PHIEU_DE_XUAT-20260529-103000.zip` qua filename.util
+  - `exportBatchToZip`: archiver streams chunks trực tiếp đến `res.write` — không bao giờ accumulate full ZIP trong memory
+- **`PetitionsService.exportDocumentToBuffer`** — extracted từ `exportDocument` để batch flow gọi N lần mà không cần N Response objects. `exportDocument` giờ là thin facade stream buffer.
+
+### Changed
+- **`archiver`** downgraded 8.x → 7.x. archiver 8.x là ESM-only, breaks ts-jest transformer. 7.x là CommonJS, behaves identically cho ZIP streaming use case.
+
+### Deferred to follow-up PR3.1
+- Frontend pieces (T11-T13, T15): PetitionFormPage section "Nội dung phiếu đề xuất", PetitionDetailPage dropdown "Xuất tài liệu" 6 options, PetitionListPage multi-select + batch toolbar, mobile responsive. Tách riêng để keep backend PR focused + review quality cao.
+- `lookup:teams.code` source-resolver extension (gỡ Đ1 hardcode trong PR1 seed).
+
+### Test counts
+- Backend: 1876 → 1884 (+8 net-new batch-export spec)
+- Frontend: 787 unchanged
+- tsc --noEmit clean
+
 ## [0.47.0.2] - 2026-05-29
 
 **v0.47 Document + Report Template Engine — PR2/6 Track A backend**
