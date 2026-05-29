@@ -44,6 +44,11 @@ export function MainLayout() {
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [twoFaSetupOpen, setTwoFaSetupOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  // Track lg breakpoint (1024px+) to inert the drawer when hidden on mobile.
+  // Prevents tab/arrow keys from reaching invisible nav items off-screen.
+  const [isDesktopWidth, setIsDesktopWidth] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth >= 1024 : true,
+  );
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -56,11 +61,14 @@ export function MainLayout() {
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
-  // Mobile drawer: auto-close on route change. Watching `location` (not just
-  // pathname) catches query-param changes that should also close the drawer.
+  // Mobile drawer: auto-close on actual page navigation.
+  // Watch `location.pathname` so the drawer doesn't close when query params or
+  // hash change (e.g., filter updates on list pages). Per /review finding —
+  // /autoplan's "watch full location" decision over-corrected and broke the
+  // filter-while-drawer-open UX.
   useEffect(() => {
     setSidebarOpen(false);
-  }, [location]);
+  }, [location.pathname]);
 
   // Mobile drawer: Escape key closes
   useEffect(() => {
@@ -71,6 +79,27 @@ export function MainLayout() {
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
   }, [sidebarOpen]);
+
+  // Track viewport width via matchMedia (only updates when crossing the lg
+  // breakpoint, so it's cheap). Drives the `inert` attribute on the drawer.
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mq = window.matchMedia('(min-width: 1024px)');
+    const handler = (e: MediaQueryListEvent) => setIsDesktopWidth(e.matches);
+    setIsDesktopWidth(mq.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+
+  // Auto-close drawer when any modal opens. Modal overlay is z-40 and drawer
+  // is z-50, so without this the drawer would float ABOVE the modal on mobile
+  // and let the user activate menu items while the modal is meant to capture
+  // focus. Closing the drawer cleanly resolves the z-stack conflict.
+  useEffect(() => {
+    if (changePasswordOpen || twoFaSetupOpen || addressPreview) {
+      setSidebarOpen(false);
+    }
+  }, [changePasswordOpen, twoFaSetupOpen, addressPreview]);
 
   const handleLogout = async () => {
     setDropdownOpen(false);
@@ -209,9 +238,16 @@ export function MainLayout() {
         {/* Sidebar wrapper:
             - <lg (mobile): fixed overlay drawer, slides in/out via translate-x
             - >=lg (desktop): static, always visible
-            z-50 keeps drawer above modals (z-40) per autoplan decision #16 */}
+            z-50 keeps drawer above modals (z-40) per autoplan decision #16
+            inert prop (React 19): when drawer is translated off-screen on
+            mobile, prevents keyboard/screen-reader focus from reaching the
+            hidden nav items. Empty string is the native HTML inert attribute. */}
         <div
           data-testid="sidebar-wrapper"
+          // a11y: inert when drawer is off-screen on mobile so keyboard/screen
+          // reader users can't activate hidden nav. React 19 accepts boolean.
+          inert={!sidebarOpen && !isDesktopWidth ? true : undefined}
+          aria-hidden={!sidebarOpen && !isDesktopWidth ? true : undefined}
           className={`
             fixed inset-y-0 left-0 top-16 z-50 lg:static lg:top-0 lg:z-auto
             transition-transform duration-300 ease-in-out

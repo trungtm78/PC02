@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import { RefreshCw, X } from 'lucide-react';
 
@@ -14,25 +15,34 @@ import { RefreshCw, X } from 'lucide-react';
  * - Vietnamese messaging matches PC02 localization
  */
 export function PwaUpdatePrompt() {
+  // Keep a ref to the registration so the periodic-check effect can use it
+  // without re-triggering on every render.
+  const registrationRef = useRef<ServiceWorkerRegistration | null>(null);
+
   const {
     needRefresh: [needRefresh, setNeedRefresh],
     updateServiceWorker,
   } = useRegisterSW({
     onRegistered(registration) {
-      // Periodic check (every 60 minutes) for new SW.
-      // Avoids stale clients but doesn't hammer the network.
-      if (registration) {
-        setInterval(
-          () => {
-            registration.update().catch(() => {
-              // Network error — silently ignore, next attempt will retry
-            });
-          },
-          60 * 60 * 1000,
-        );
-      }
+      // Cache for the periodic-check effect below. onRegistered may fire
+      // multiple times (initial + after updates) — always take the latest.
+      registrationRef.current = registration ?? null;
     },
   });
+
+  // Periodic update check (every 60 minutes). Cleanup on unmount/logout
+  // prevents accumulated timers across login cycles.
+  useEffect(() => {
+    const interval = setInterval(
+      () => {
+        registrationRef.current?.update().catch(() => {
+          // Network error — silently ignore, next tick retries
+        });
+      },
+      60 * 60 * 1000,
+    );
+    return () => clearInterval(interval);
+  }, []);
 
   if (!needRefresh) return null;
 

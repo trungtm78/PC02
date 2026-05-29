@@ -44,17 +44,23 @@ export default defineConfig({
     // PWA: makes PC02 installable on mobile devices.
     // - registerType: 'prompt' (auto-decision #12) so users opt in to updates,
     //   preventing form-state loss from silent SW replacement.
-    // - Workbox API allowlist (auto-decision #15): only non-PII endpoints
-    //   (/health, /notifications, /feature-flags) are cached. Case/incident/petition
-    //   data is NEVER cached to avoid CacheStorage exfiltration risk.
+    // - Workbox API allowlist: ONLY /api/v1/health is cached. /notifications
+    //   contains case/petition/incident metadata (PII exfiltration risk via
+    //   CacheStorage); /feature-flags can serve stale role-based menu config.
+    //   Both are now NetworkOnly. Single allowlist entry for /health enables
+    //   offline degraded-mode detection without exposing user data.
     VitePWA({
       registerType: 'prompt',
       includeAssets: ['favicon.ico', 'logo-cong-an.png', 'icons/apple-touch-icon.png'],
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        // Narrow precache: shell (js/css/html) + own icons only. Other PNGs/SVGs
+        // are not precached so map tiles, embedded SVGs, and large images don't
+        // bloat client storage on slow networks.
+        globPatterns: ['**/*.{js,css,html,ico,woff2}', 'icons/*.png'],
         runtimeCaching: [
           {
-            // Health check — cache for offline degraded-mode detection
+            // Health check — cache for offline degraded-mode detection.
+            // No PII; safe to cache and survive logout.
             urlPattern: ({ url }) => url.pathname === '/api/v1/health',
             handler: 'NetworkFirst',
             options: {
@@ -64,31 +70,11 @@ export default defineConfig({
               cacheableResponse: { statuses: [200] },
             },
           },
-          {
-            // Notifications listing — read-only, no PII beyond user's own notifs
-            urlPattern: ({ url }) => url.pathname.startsWith('/api/v1/notifications'),
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'pc02-notifications',
-              expiration: { maxAgeSeconds: 300, maxEntries: 20 },
-              networkTimeoutSeconds: 5,
-              cacheableResponse: { statuses: [200] },
-            },
-          },
-          {
-            // Feature flags — defines which modules user can see
-            urlPattern: ({ url }) => url.pathname === '/api/v1/feature-flags',
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'pc02-feature-flags',
-              expiration: { maxAgeSeconds: 600, maxEntries: 1 },
-              networkTimeoutSeconds: 5,
-              cacheableResponse: { statuses: [200] },
-            },
-          },
-          // All other /api/* requests are NOT cached. Case/incident/petition data,
-          // user data, search results, etc. always hit the network. No silent fallback
-          // to stale data that could mislead investigators in the field.
+          // NetworkOnly for everything else under /api/v1/* — case/incident/
+          // petition data, user data, notifications, feature flags, search
+          // results, the SSE stream (which carries the auth token in the URL).
+          // Codex review caught that /notifications carries case IDs (PII) and
+          // /feature-flags can serve stale role/permission config from cache.
         ],
       },
       manifest: {

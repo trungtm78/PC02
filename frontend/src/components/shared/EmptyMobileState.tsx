@@ -51,9 +51,9 @@ export function EmptyMobileState({
       {onRetry && (
         <button
           onClick={onRetry}
-          className="inline-flex items-center gap-2 px-4 py-2 min-h-[44px] text-sm font-medium text-white bg-primary hover:bg-primary-light rounded-md transition-colors"
+          className="inline-flex items-center justify-center gap-2 px-4 py-2 min-h-[44px] min-w-[44px] text-sm font-medium text-white bg-primary hover:bg-primary-light rounded-md transition-colors whitespace-nowrap"
         >
-          <RefreshCw className="w-4 h-4" />
+          <RefreshCw className="w-4 h-4 flex-shrink-0" />
           {retryLabel}
         </button>
       )}
