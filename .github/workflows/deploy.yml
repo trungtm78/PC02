@@ -72,14 +72,27 @@ jobs:
           # PR2 v0.47.0.2 incident: nest-cli.json outDir misconfig caused
           # backend/dist/templates/docx/docx/ (double-nested) → DocxTemplateLoader
           # refused to boot → prod 502. Fail fast here instead of in production.
-          EXPECTED=6
-          ACTUAL=$(find backend/dist/templates/docx -maxdepth 1 -name '*.docx' 2>/dev/null | wc -l)
-          echo "Templates in backend/dist/templates/docx/: $ACTUAL (expected $EXPECTED)"
-          ls -la backend/dist/templates/docx/ || true
-          if [ "$ACTUAL" -lt "$EXPECTED" ]; then
-            echo "::error::Missing docx templates in dist. Build artifact would crash backend boot."
+          #
+          # Verify EXACT 6 names (not just count) — adversarial review caught the
+          # case where a count-only check passes with a missing required name
+          # plus an unrelated extra .docx file. Names must match DOCUMENT_TYPES
+          # exactly (see backend/src/document-templates/docx-loader.service.ts).
+          REQUIRED="PHIEU_DE_XUAT PHIEU_CHUYEN_NGUON_TIN PHIEU_CHUYEN_DON THONG_BAO_CHUYEN THONG_BAO_HUONG_DAN THONG_BAO_TRA_LAI"
+          ls -la backend/dist/templates/docx/ || {
+            echo "::error::backend/dist/templates/docx/ does not exist — nest build assets failed"
+            exit 1
+          }
+          MISSING=""
+          for name in $REQUIRED; do
+            if [ ! -f "backend/dist/templates/docx/${name}.docx" ]; then
+              MISSING="${MISSING} ${name}.docx"
+            fi
+          done
+          if [ -n "$MISSING" ]; then
+            echo "::error::Missing docx templates in dist:${MISSING}"
             exit 1
           fi
+          echo "All 6 required docx templates present."
 
       - name: Install frontend deps
         run: cd frontend && npm ci
@@ -114,7 +127,6 @@ jobs:
             backend/src \
             backend/data \
             backend/assets \
-            backend/templates \
             frontend/dist \
             scripts/deploy \
             VERSION \
