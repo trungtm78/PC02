@@ -64,11 +64,14 @@ const assignAction: BulkAction<PetitionRow> = {
 
 export function buildPetitionsAdapter(opts?: {
   fetchAllIdsMatchingFilter?: () => Promise<string[]>;
+  enableAssign?: boolean;
 }): BulkAdapter<PetitionRow> {
+  const actions: BulkAction<PetitionRow>[] = [exportAction];
+  if (opts?.enableAssign) actions.push(assignAction);
   return {
     resource: 'petitions',
     resourceLabel: 'đơn thư',
-    actions: [exportAction, assignAction],
+    actions,
     fetchAllIdsMatchingFilter: opts?.fetchAllIdsMatchingFilter,
   };
 }

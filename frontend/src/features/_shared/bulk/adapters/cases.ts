@@ -83,11 +83,18 @@ const assignAction: BulkAction<CaseRow> = {
 
 export function buildCasesAdapter(opts?: {
   fetchAllIdsMatchingFilter?: () => Promise<string[]>;
+  /**
+   * Bật assign action (cần team picker modal trong UI để chọn assignedTeamId).
+   * v0.48 PR1 ship export-only; assign defer next PR khi team picker modal sẵn.
+   */
+  enableAssign?: boolean;
 }): BulkAdapter<CaseRow> {
+  const actions: BulkAction<CaseRow>[] = [exportAction];
+  if (opts?.enableAssign) actions.push(assignAction);
   return {
     resource: 'cases',
     resourceLabel: 'vụ án',
-    actions: [exportAction, assignAction],
+    actions,
     fetchAllIdsMatchingFilter: opts?.fetchAllIdsMatchingFilter,
   };
 }

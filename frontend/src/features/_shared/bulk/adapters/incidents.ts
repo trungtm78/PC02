@@ -66,11 +66,14 @@ const assignAction: BulkAction<IncidentRow> = {
 
 export function buildIncidentsAdapter(opts?: {
   fetchAllIdsMatchingFilter?: () => Promise<string[]>;
+  enableAssign?: boolean;
 }): BulkAdapter<IncidentRow> {
+  const actions: BulkAction<IncidentRow>[] = [exportAction];
+  if (opts?.enableAssign) actions.push(assignAction);
   return {
     resource: 'incidents',
     resourceLabel: 'vụ việc',
-    actions: [exportAction, assignAction],
+    actions,
     fetchAllIdsMatchingFilter: opts?.fetchAllIdsMatchingFilter,
   };
 }
