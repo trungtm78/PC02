@@ -67,6 +67,8 @@ function makeMockPrisma(initial: {
         return { id: `c-${state.casesCreated.length}`, ...data };
       }),
       deleteMany: jest.fn(async () => ({ count: state.casesCreated.length })),
+      count: jest.fn(async () => 0),
+      fields: { importedAt: 'importedAt' },
     },
     incident: {
       findMany: jest.fn(
@@ -78,7 +80,12 @@ function makeMockPrisma(initial: {
         return { id: `i-${state.incidentsCreated.length}`, ...data };
       }),
       deleteMany: jest.fn(async () => ({ count: state.incidentsCreated.length })),
+      count: jest.fn(async () => 0),
+      fields: { importedAt: 'importedAt' },
     },
+    subject: { count: jest.fn(async () => 0) },
+    lawyer: { count: jest.fn(async () => 0) },
+    evidence: { count: jest.fn(async () => 0) },
     $transaction: jest.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn(prisma)),
   };
 
@@ -381,6 +388,127 @@ describe('XlsxImportCommitService', () => {
         importedById: 'admin-b',
         importedFrom: IMPORT_SOURCE_TAG,
       });
+    });
+  });
+
+  // ── PR6 review P0/P1 regression coverage ──────────────────────────────────
+  describe('PR6 review P0/P1 fixes', () => {
+    it('P0-1: dryRun flags intra-batch duplicate codes', async () => {
+      const log = {
+        id: 'log-dup',
+        status: XLSX_IMPORT_STATUS.PARSED,
+        sourceFile: 'x.xlsx',
+        unitCodeDetected: 'DOI3',
+        uploadedAt: new Date(),
+        uploadedBy: { id: 'u', firstName: 'T', lastName: 'U' },
+        firstConfirmById: null,
+        firstConfirmAt: null,
+      };
+      const staging = [
+        {
+          rowIndex: 7,
+          sheetName: 'Phụ lục 04',
+          payload: { col1: 'STT', col2: 'Mã VA', col3: 'Tên vụ án' },
+          detectedType: 'Case',
+          importLogId: 'log-dup',
+        },
+        {
+          rowIndex: 8,
+          sheetName: 'Phụ lục 04',
+          payload: { col1: 1, col2: 'VA-100', col3: 'Vụ án A' },
+          detectedType: 'Case',
+          importLogId: 'log-dup',
+        },
+        {
+          rowIndex: 9,
+          sheetName: 'Phụ lục 04',
+          payload: { col1: 2, col2: 'VA-100', col3: 'Vụ án A copy' },
+          detectedType: 'Case',
+          importLogId: 'log-dup',
+        },
+      ];
+      const { prisma } = makeMockPrisma({ log, staging });
+      const svc = new XlsxImportCommitService(prisma as never);
+      const result = await svc.dryRun('log-dup', ADMIN_A);
+      const dupBatch = result.conflicts.filter((c) => c.reason === 'duplicate_in_batch');
+      expect(dupBatch.length).toBeGreaterThanOrEqual(2);
+      expect(dupBatch[0].candidateCode).toBe('VA-100');
+    });
+
+    it('P0-1: commit short-circuits with DUPLICATE_IN_BATCH instead of P2002', async () => {
+      const pending = {
+        id: 'log-dup-2',
+        status: XLSX_IMPORT_STATUS.PENDING_SECOND_CONFIRM,
+        sourceFile: 'x.xlsx',
+        unitCodeDetected: 'DOI3',
+        firstConfirmById: 'admin-a',
+        firstConfirmAt: new Date(),
+      };
+      const staging = [
+        {
+          rowIndex: 7,
+          sheetName: 'Phụ lục 04',
+          payload: { col1: 'STT', col2: 'Mã VA', col3: 'Tên vụ án' },
+          detectedType: 'Case',
+          importLogId: 'log-dup-2',
+        },
+        {
+          rowIndex: 8,
+          sheetName: 'Phụ lục 04',
+          payload: { col1: 1, col2: 'VA-X', col3: 'A' },
+          detectedType: 'Case',
+          importLogId: 'log-dup-2',
+        },
+        {
+          rowIndex: 9,
+          sheetName: 'Phụ lục 04',
+          payload: { col1: 2, col2: 'VA-X', col3: 'A again' },
+          detectedType: 'Case',
+          importLogId: 'log-dup-2',
+        },
+      ];
+      const { prisma, state } = makeMockPrisma({ log: pending, staging });
+      const svc = new XlsxImportCommitService(prisma as never);
+      await expect(svc.commit('log-dup-2', ADMIN_B)).rejects.toMatchObject({
+        response: { code: 'DUPLICATE_IN_BATCH', duplicates: ['VA-X'] },
+      });
+      // No partial materialisation
+      expect(state.casesCreated).toHaveLength(0);
+    });
+
+    it('P1: rollback blocks when imported case has subjects (no force)', async () => {
+      const committed = {
+        id: 'log-block',
+        status: XLSX_IMPORT_STATUS.COMMITTED,
+        sourceFile: 'x.xlsx',
+        unitCodeDetected: 'DOI3',
+      };
+      const { prisma } = makeMockPrisma({ log: committed });
+      // Force the subject count to be > 0
+      (prisma.subject.count as jest.Mock).mockResolvedValueOnce(3);
+      const svc = new XlsxImportCommitService(prisma as never);
+      await expect(svc.rollback('log-block', ADMIN_A)).rejects.toMatchObject({
+        response: {
+          code: 'ROLLBACK_BLOCKED',
+          blockers: expect.objectContaining({ subjects: 3 }),
+        },
+      });
+      expect(prisma.case.deleteMany).not.toHaveBeenCalled();
+    });
+
+    it('P1: rollback with force=true bypasses the blocker check', async () => {
+      const committed = {
+        id: 'log-force',
+        status: XLSX_IMPORT_STATUS.COMMITTED,
+        sourceFile: 'x.xlsx',
+        unitCodeDetected: 'DOI3',
+      };
+      const { prisma } = makeMockPrisma({ log: committed });
+      (prisma.subject.count as jest.Mock).mockResolvedValue(3);
+      const svc = new XlsxImportCommitService(prisma as never);
+      const result = await svc.rollback('log-force', ADMIN_A, { force: true });
+      expect(result.status).toBe(XLSX_IMPORT_STATUS.ROLLED_BACK);
+      expect(prisma.case.deleteMany).toHaveBeenCalled();
     });
   });
 

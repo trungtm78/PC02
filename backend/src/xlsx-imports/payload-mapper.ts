@@ -17,38 +17,75 @@
 
 type CellPayload = Record<string, unknown>;
 
+interface HeaderDetection {
+  /** Column-key → canonical field-name lookup. */
+  lookup: Record<string, string>;
+  /** Original rowIndex of the row identified as the header. -1 if no header found. */
+  headerRowIndex: number;
+}
+
 /**
  * Inspect rows to find the header row — the first one whose cells include
- * "STT" or "Mã" or "Tên" as labels. Returns a column-index → field-key map
- * for the canonical fields we care about; missing fields map to null.
+ * "STT" + a name/code label. Returns the lookup AND the source rowIndex so
+ * the caller can drop only that exact row (not every row containing "STT").
+ *
+ * Regex ordering matters: more-specific patterns first ("Mã VV" before "Mã VA")
+ * so an Incident sheet's header column doesn't land in the caseCode bucket.
  */
 function detectHeaderMap(
-  rows: Array<{ payload: CellPayload }>,
-): Record<string, string> {
-  // Look at the first 5 rows; one of them is the column-header row.
-  const lookup: Record<string, string> = {};
+  rows: Array<{ rowIndex: number; payload: CellPayload }>,
+): HeaderDetection {
   for (const row of rows.slice(0, 5)) {
     const cells = row.payload;
+    const lookup: Record<string, string> = {};
+    let headerLikelihood = 0;
     for (const [colKey, raw] of Object.entries(cells)) {
       if (typeof raw !== 'string') continue;
       const label = raw.trim().toLowerCase();
-      if (/^stt$/.test(label)) lookup[colKey] = 'stt';
-      else if (/m[ãa]\s*v[aă]/.test(label)) lookup[colKey] = 'caseCode';
-      else if (/m[ãa]\s*vv/.test(label)) lookup[colKey] = 'incidentCode';
-      else if (/m[ãa]\s*h[oơ]\s*s[oơ]/.test(label)) lookup[colKey] = 'caseCode';
-      else if (/^t[eê]n\s*v[uụ]\s*[áa]n/.test(label)) lookup[colKey] = 'name';
-      else if (/^t[eê]n\s*v[uụ]\s*vi[eệ]c/.test(label)) lookup[colKey] = 'name';
-      else if (/^t[eê]n$/.test(label)) lookup[colKey] = 'name';
-      else if (/t[oộ]i\s*danh/.test(label)) lookup[colKey] = 'crime';
-      else if (/ng[aà]y\s*ti[eế]p\s*nh[aậ]n/.test(label)) lookup[colKey] = 'receivedDate';
-      else if (/ng[aà]y\s*kh[oơ]i\s*t[oô]/.test(label)) lookup[colKey] = 'ngayKhoiTo';
-      else if (/[đd][ố|o]i\s*t[ư|u][oơ]ng/.test(label)) lookup[colKey] = 'doiTuongCaNhan';
-      else if (/[đd][ị|i]a\s*[đd]i[eể]m/.test(label) || /[đd][ị|i]a\s*ch[ỉi]/.test(label))
+      // Specific patterns first
+      if (/^stt$/.test(label)) {
+        lookup[colKey] = 'stt';
+        headerLikelihood++;
+      } else if (/m[ãa]\s*vv\b/.test(label) || /m[ãa]\s*v[ụu]\s*vi[eệ]c/.test(label)) {
+        lookup[colKey] = 'incidentCode';
+        headerLikelihood++;
+      } else if (/m[ãa]\s*va\b/.test(label) || /m[ãa]\s*v[ụu]\s*[áa]n/.test(label)) {
+        lookup[colKey] = 'caseCode';
+        headerLikelihood++;
+      } else if (/m[ãa]\s*h[oơ]\s*s[oơ]/.test(label)) {
+        lookup[colKey] = 'caseCode';
+        headerLikelihood++;
+      } else if (/^t[eê]n\s*v[uụ]\s*[áa]n/.test(label)) {
+        lookup[colKey] = 'name';
+        headerLikelihood++;
+      } else if (/^t[eê]n\s*v[uụ]\s*vi[eệ]c/.test(label)) {
+        lookup[colKey] = 'name';
+        headerLikelihood++;
+      } else if (/^t[eê]n$/.test(label)) {
+        lookup[colKey] = 'name';
+        headerLikelihood++;
+      } else if (/t[oộ]i\s*danh/.test(label)) {
+        lookup[colKey] = 'crime';
+        headerLikelihood++;
+      } else if (/ng[aà]y\s*ti[eế]p\s*nh[aậ]n/.test(label)) {
+        lookup[colKey] = 'receivedDate';
+        headerLikelihood++;
+      } else if (/ng[aà]y\s*kh[oơ]i\s*t[oô]/.test(label)) {
+        lookup[colKey] = 'ngayKhoiTo';
+      } else if (/[đd][oố|o]i\s*t[ưu|u][oơ]ng/.test(label)) {
+        lookup[colKey] = 'doiTuongCaNhan';
+      } else if (/[đd][ịi|i]a\s*[đd]i[eể]m/.test(label) || /[đd][ịi|i]a\s*ch[ỉi]/.test(label)) {
         lookup[colKey] = 'address';
+      }
     }
-    if (Object.values(lookup).includes('name')) return lookup; // found the header row
+    // A row qualifies as the header only if at least 2 high-signal labels matched
+    // AND a name column was identified. Stops single-cell "STT" data values from
+    // hijacking the header (PR6 review P0-2).
+    if (headerLikelihood >= 2 && Object.values(lookup).includes('name')) {
+      return { lookup, headerRowIndex: row.rowIndex };
+    }
   }
-  return lookup;
+  return { lookup: {}, headerRowIndex: -1 };
 }
 
 export interface SkeletonRow {
@@ -59,31 +96,28 @@ export interface SkeletonRow {
 }
 
 /**
- * Given a sheet's staging rows (already filtered to the header-detected
- * subset by the PR5 parser), extract a minimal materialisation skeleton
+ * Given a sheet's staging rows, extract a minimal materialisation skeleton
  * per data row: name + code + the original payload as metadata for audit.
+ *
+ * PR6 review P0-2: only the SPECIFIC row identified as the header is dropped,
+ * by exact rowIndex match — not every row that contains "STT" somewhere.
+ * Legal-evidence ingestion can't silently lose data rows.
  */
 export function mapSheetToSkeletons(
   rows: Array<{ rowIndex: number; payload: CellPayload }>,
 ): SkeletonRow[] {
   if (rows.length === 0) return [];
-  const headerMap = detectHeaderMap(rows);
+  const detection = detectHeaderMap(rows);
 
   return rows
-    .filter((r) => {
-      // Drop the header row itself from the materialisation set
-      const looksLikeHeader = Object.values(r.payload).some(
-        (v) => typeof v === 'string' && /^STT$/i.test(v.trim()),
-      );
-      return !looksLikeHeader;
-    })
+    .filter((r) => r.rowIndex !== detection.headerRowIndex)
     .map((r) => {
       const skeleton: SkeletonRow = {
         rowIndex: r.rowIndex,
         name: '',
         metadata: r.payload,
       };
-      for (const [colKey, fieldKey] of Object.entries(headerMap)) {
+      for (const [colKey, fieldKey] of Object.entries(detection.lookup)) {
         const val = r.payload[colKey];
         if (val === null || val === undefined || val === '') continue;
         if (fieldKey === 'name') skeleton.name = String(val);

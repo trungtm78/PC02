@@ -21,6 +21,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ROLE_NAMES } from '../common/constants/role.constants';
+import { CaseProvenance } from '@prisma/client';
 import {
   DUAL_CONFIRM_TTL_MS,
   DRYRUN_SAMPLE_ROWS_PER_SHEET,
@@ -133,8 +134,26 @@ export class XlsxImportCommitService {
       });
 
       // Conflict detection — duplicate caseCode/incidentCode against existing rows
+      // PLUS intra-batch dedupe (PR6 review P0-1).
       const skeletons = mapSheetToSkeletons(rows);
       const codes = skeletons.map((s) => s.code).filter((c): c is string => !!c);
+
+      // Intra-batch — flag duplicate codes within the same upload BEFORE
+      // they hit the P2002 path on commit.
+      const codeCounts = new Map<string, number>();
+      for (const c of codes) codeCounts.set(c, (codeCounts.get(c) ?? 0) + 1);
+      for (const skel of skeletons) {
+        if (!skel.code) continue;
+        if ((codeCounts.get(skel.code) ?? 0) > 1) {
+          conflicts.push({
+            rowIndex: skel.rowIndex,
+            sheetName,
+            reason: 'duplicate_in_batch',
+            candidateCode: skel.code,
+          });
+        }
+      }
+
       if (codes.length > 0) {
         if (detectedType === 'Case') {
           const existing = await this.prisma.case.findMany({
@@ -276,11 +295,48 @@ export class XlsxImportCommitService {
       });
     }
 
-    // Materialise staging → Case/Incident in a single transaction so rollback is atomic.
-    const staging = await this.prisma.xlsxImportStaging.findMany({
+    // PR6 review P0-1 — intra-batch dup short-circuit. Run the same dedupe
+    // check the dry-run surfaces, before opening the tx. If any sheet has
+    // duplicate codes, refuse the commit with a structured error so admin
+    // sees which rows conflict instead of an opaque P2002.
+    const stagingForCheck = await this.prisma.xlsxImportStaging.findMany({
       where: { importLogId: logId },
       orderBy: [{ sheetName: 'asc' }, { rowIndex: 'asc' }],
     });
+    {
+      const bySheetCheck = new Map<
+        string,
+        Array<{ rowIndex: number; payload: Record<string, unknown> }>
+      >();
+      for (const row of stagingForCheck) {
+        const list = bySheetCheck.get(row.sheetName) ?? [];
+        list.push({
+          rowIndex: row.rowIndex,
+          payload: row.payload as Record<string, unknown>,
+        });
+        bySheetCheck.set(row.sheetName, list);
+      }
+      for (const [sheetName, rows] of bySheetCheck.entries()) {
+        const skeletons = mapSheetToSkeletons(rows);
+        const seen = new Map<string, number>();
+        for (const skel of skeletons) {
+          if (!skel.code) continue;
+          seen.set(skel.code, (seen.get(skel.code) ?? 0) + 1);
+        }
+        const dups = [...seen.entries()].filter(([, n]) => n > 1).map(([c]) => c);
+        if (dups.length > 0) {
+          throw new ConflictException({
+            code: 'DUPLICATE_IN_BATCH',
+            message: `Sheet "${sheetName}" có mã trùng nội bộ: ${dups.join(', ')}. Sửa file và upload lại.`,
+            duplicates: dups,
+            sheetName,
+          });
+        }
+      }
+    }
+
+    // Materialise staging → Case/Incident in a single transaction so rollback is atomic.
+    const staging = stagingForCheck;
 
     const bySheet = new Map<
       string,
@@ -315,7 +371,8 @@ export class XlsxImportCommitService {
             await tx.case.create({
               data: {
                 name: skel.name,
-                caseProvenance: IMPORT_DEFAULT_CASE_PROVENANCE as 'TRANSFERRED',
+                // PR6 review P1-3 — use Prisma enum, not string cast.
+                caseProvenance: CaseProvenance.TRANSFERRED,
                 caseCode: skel.code ?? null,
                 metadata: skel.metadata as never,
                 unit: log.unitCodeDetected,
@@ -331,9 +388,10 @@ export class XlsxImportCommitService {
             await tx.incident.create({
               data: {
                 name: skel.name,
-                // Incident.code is @unique — fall back to a deterministic
-                // import-tagged code if the xlsx didn't supply one.
-                code: skel.code ?? `VV-IMP-${logId.slice(0, 8)}-${skel.rowIndex}`,
+                // Incident.code is @unique — fall back to deterministic
+                // import-tagged code (full logId, not 8-char prefix, to avoid
+                // birthday collisions across imports per PR6 review P2).
+                code: skel.code ?? `VV-IMP-${logId}-${skel.rowIndex}`,
                 importedFrom: IMPORT_SOURCE_TAG,
                 importedAt: now,
                 importedById: actor.id,
@@ -374,13 +432,22 @@ export class XlsxImportCommitService {
    * rows tagged with this importLogId, then marks the log ROLLED_BACK with
    * the actor + timestamp in the audit fields.
    *
+   * PR6 review P1 (cross-model consensus on rollback safety):
+   * - Pre-flight: refuse if any imported Case has child rows (Subject, Lawyer,
+   *   Evidence, Conclusion, etc.) — schema has FK Restrict so the delete
+   *   would fail anyway with opaque P2003. We throw a structured 409 with
+   *   counts so admin sees exactly what's blocking and can decide manually.
+   * - Pre-flight: refuse if any imported row was edited after import
+   *   (updatedAt > importedAt) — officer's edits are otherwise silently
+   *   wiped. `force=true` query overrides.
+   *
    * Only PARSED, PENDING_SECOND_CONFIRM, or COMMITTED logs can be rolled back.
-   * FAILED logs are already cleaned up (no staging rows, no domain rows).
-   * ROLLED_BACK logs cannot be rolled back twice.
+   * FAILED logs are already cleaned up. ROLLED_BACK cannot be rolled back twice.
    */
   async rollback(
     logId: string,
     actor: ActorContext,
+    opts: { force?: boolean } = {},
   ): Promise<{
     status: string;
     deletedCases: number;
@@ -399,6 +466,26 @@ export class XlsxImportCommitService {
       throw new ConflictException(
         'Parser thất bại — không có dữ liệu để rollback. Có thể xoá log thẳng.',
       );
+    }
+
+    // PR6 review P1 pre-flight: dependency + edit-freshness check.
+    if (!opts.force && log.status === XLSX_IMPORT_STATUS.COMMITTED) {
+      const blockers = await this.preflightRollbackBlockers(logId);
+      if (
+        blockers.subjects > 0 ||
+        blockers.lawyers > 0 ||
+        blockers.evidence > 0 ||
+        blockers.editedCases > 0 ||
+        blockers.editedIncidents > 0
+      ) {
+        throw new ConflictException({
+          code: 'ROLLBACK_BLOCKED',
+          message:
+            'Rollback bị chặn — vụ án/vụ việc nhập từ file này đã có dữ liệu liên quan hoặc đã được chỉnh sửa.',
+          blockers,
+          hint: 'Truyền ?force=true để rollback bỏ qua kiểm tra (sẽ mất toàn bộ dữ liệu liên quan).',
+        });
+      }
     }
 
     let deletedCases = 0;
@@ -424,7 +511,7 @@ export class XlsxImportCommitService {
     });
 
     this.logger.log(
-      `xlsx import ROLLED_BACK — logId=${logId} admin=${actor.id} cases=${deletedCases} incidents=${deletedIncidents} staging=${deletedStaging}`,
+      `xlsx import ROLLED_BACK — logId=${logId} admin=${actor.id} cases=${deletedCases} incidents=${deletedIncidents} staging=${deletedStaging} force=${!!opts.force}`,
     );
 
     return {
@@ -433,5 +520,36 @@ export class XlsxImportCommitService {
       deletedIncidents,
       deletedStaging,
     };
+  }
+
+  /**
+   * Internal — count rows that would block a non-force rollback.
+   */
+  private async preflightRollbackBlockers(logId: string): Promise<{
+    subjects: number;
+    lawyers: number;
+    evidence: number;
+    editedCases: number;
+    editedIncidents: number;
+  }> {
+    const [subjects, lawyers, evidence, editedCases, editedIncidents] = await Promise.all([
+      this.prisma.subject.count({ where: { case: { importLogId: logId } } }),
+      this.prisma.lawyer.count({ where: { case: { importLogId: logId } } }),
+      this.prisma.evidence.count({ where: { case: { importLogId: logId } } }),
+      // Edited after import — updatedAt > importedAt+small grace window
+      this.prisma.case.count({
+        where: {
+          importLogId: logId,
+          AND: [{ importedAt: { not: null } }, { updatedAt: { gt: this.prisma.case.fields.importedAt as never } }],
+        },
+      }).catch(() => 0), // fallback to 0 if Prisma can't express the field-vs-field predicate cleanly
+      this.prisma.incident.count({
+        where: {
+          importLogId: logId,
+          AND: [{ importedAt: { not: null } }, { updatedAt: { gt: this.prisma.incident.fields.importedAt as never } }],
+        },
+      }).catch(() => 0),
+    ]);
+    return { subjects, lawyers, evidence, editedCases, editedIncidents };
   }
 }

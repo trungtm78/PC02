@@ -111,11 +111,19 @@ export class XlsxImportsController {
 
   @Post(':id/rollback')
   @HttpCode(HttpStatus.OK)
-  async rollback(@Param('id') id: string, @CurrentUser() user: AuthUser) {
-    return this.commitService.rollback(id, {
-      id: user.id,
-      role: user.role,
-      unitCode: (user as unknown as { unitCode?: string | null }).unitCode ?? null,
-    });
+  async rollback(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthUser,
+    @Query('force') force?: string,
+  ) {
+    return this.commitService.rollback(
+      id,
+      {
+        id: user.id,
+        role: user.role,
+        unitCode: (user as unknown as { unitCode?: string | null }).unitCode ?? null,
+      },
+      { force: force === 'true' },
+    );
   }
 }
