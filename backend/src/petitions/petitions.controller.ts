@@ -13,6 +13,7 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  BadRequestException,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
@@ -125,7 +126,7 @@ export class PetitionsController {
     return this.petitionsService.getById(id, req.dataScope);
   }
 
-  // GET /api/v1/petitions/:id/export-word — Xuất đơn thư ra Word
+  // GET /api/v1/petitions/:id/export-word — Xuất đơn thư ra Word (legacy v0.46)
   @Get(':id/export-word')
   @Throttle({ default: { ttl: 60000, limit: 5 } })
   @RequirePermissions({ action: 'read', subject: 'Petition' })
@@ -135,6 +136,41 @@ export class PetitionsController {
     @Res() res: Response,
   ): Promise<void> {
     await this.petitionsService.exportToWord(id, req.dataScope, res);
+  }
+
+  // GET /api/v1/petitions/:id/export-document?docType=PHIEU_DE_XUAT — v0.47 PR2.
+  // Renders one of 6 templated docx via DocxTemplateLoader + commitWithTx.
+  // Audit row in DocumentRenderLog. Atomic — render throw rolls back number.
+  @Get(':id/export-document')
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
+  @RequirePermissions({ action: 'read', subject: 'Petition' })
+  async exportDocument(
+    @Param('id') id: string,
+    @Query('docType') docType: string,
+    @CurrentUser() user: AuthUser,
+    @Req() req: ScopedRequest,
+    @Res() res: Response,
+  ): Promise<void> {
+    const allowed = new Set([
+      'PHIEU_DE_XUAT',
+      'PHIEU_CHUYEN_NGUON_TIN',
+      'PHIEU_CHUYEN_DON',
+      'THONG_BAO_CHUYEN',
+      'THONG_BAO_HUONG_DAN',
+      'THONG_BAO_TRA_LAI',
+    ]);
+    if (!allowed.has(docType)) {
+      throw new BadRequestException(
+        `docType không hợp lệ. Cho phép: ${[...allowed].join(', ')}`,
+      );
+    }
+    await this.petitionsService.exportDocument(
+      id,
+      docType as any,
+      user.id,
+      req.dataScope,
+      res,
+    );
   }
 
   // POST /api/v1/petitions — Tạo đơn thư mới

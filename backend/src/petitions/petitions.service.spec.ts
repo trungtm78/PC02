@@ -168,6 +168,10 @@ describe('PetitionsService', () => {
         { provide: DeadlineRulesService, useValue: mockDeadlineRules },
         { provide: DocumentNumbersService, useValue: mockDocNums },
         { provide: EventEmitter2, useValue: { emit: jest.fn() } },
+        {
+          provide: require('./document-export.service').DocumentExportService,
+          useValue: { renderDocxTemplate: jest.fn(() => Buffer.from('mock-docx')) },
+        },
       ],
     }).compile();
 

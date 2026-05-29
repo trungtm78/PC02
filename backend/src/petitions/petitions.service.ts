@@ -28,6 +28,14 @@ import { BcaExcelHelper } from '../common/bca-excel.helper';
 import { PETITION_STATUS_LABEL } from '../common/constants/status-labels.constants';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PetitionAssignedEvent } from '../notifications/events/notification.events';
+import { createHash } from 'crypto';
+import {
+  DocumentExportService,
+  DOC_TYPE_TO_SERIES,
+  validateFieldsForDocType,
+} from './document-export.service';
+import type { DocumentType } from '../document-templates/docx-loader.service';
+import { sanitizeFilename } from '../common/utils/filename.util';
 
 // Vietnamese labels for LoaiDon — Excel display consistency with PETITION_STATUS_LABEL.
 // Mirror frontend LOAI_DON_LABEL exactly (no drift). FE source:
@@ -50,6 +58,7 @@ export class PetitionsService {
     private readonly deadlineRules: DeadlineRulesService,
     private readonly docNums: DocumentNumbersService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly documentExport: DocumentExportService,
   ) {}
 
   // ─────────────────────────────────────────────
@@ -1476,6 +1485,183 @@ export class PetitionsService {
     );
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.send(buffer);
+  }
+
+  // ─────────────────────────────────────────────
+  // EXPORT DOCUMENT (v0.47 PR2) — templated docx render via docxtemplater.
+  //   - getById enforces DataScope (RBAC)
+  //   - validateFieldsForDocType throws 400 if required fields missing (fail-closed)
+  //   - prisma.$transaction wraps row lock + commitWithTx (number allocation)
+  //     + render + DocumentRenderLog insert. Render throw rolls back number.
+  // ─────────────────────────────────────────────
+  async exportDocument(
+    id: string,
+    docType: DocumentType,
+    actorId: string,
+    dataScope: DataScope | null | undefined,
+    res: Response,
+  ): Promise<void> {
+    // RBAC scope check via standard getById (cheap — single row + relations).
+    await this.getById(id, dataScope);
+
+    // Load the full shape needed for placeholders. Team members + leader rank
+    // resolution is not in the default getById include (would bloat every list page),
+    // so fetch it here. Already in scope — getById would have thrown ForbiddenException
+    // above if not.
+    const petition = await this.prisma.petition.findFirst({
+      where: { id, deletedAt: null },
+      include: {
+        enteredBy: { select: { firstName: true, lastName: true, rank: true } },
+        assignedTeam: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            members: {
+              where: { isLeader: true },
+              select: {
+                user: {
+                  select: { firstName: true, lastName: true, rank: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+    if (!petition) {
+      throw new NotFoundException(`Đơn thư không tồn tại (id: ${id})`);
+    }
+
+    validateFieldsForDocType(docType, petition as any);
+
+    const numberSeries = DOC_TYPE_TO_SERIES[docType];
+    const teamCode = petition.assignedTeam?.code ?? 'Đ1';
+
+    const { buffer, soVanBan, fileSha } = await this.prisma.$transaction(
+      async (tx: any) => {
+        // Row lock so two concurrent exports of the same petition can't both
+        // allocate document numbers (race condition C2 from fresh eng review).
+        await tx.$queryRaw`SELECT id FROM petitions WHERE id = ${id} FOR UPDATE`;
+
+        const commit = await this.docNums.commitWithTx(
+          numberSeries,
+          { userId: actorId, petitionId: petition.id, departmentId: petition.unit ?? undefined },
+          tx,
+          { documentId: petition.id },
+        );
+
+        // Render the template. Throw here → tx rolls back → no orphan
+        // documentNumberLog / counter increment / DocumentRenderLog row.
+        const placeholders = this.buildDocxPlaceholders(petition, commit.number, teamCode);
+        const escaped = this.escapeUserSuppliedTokens(placeholders);
+        const renderedBuf = this.documentExport.renderDocxTemplate(docType, escaped);
+        const sha = createHash('sha256').update(renderedBuf).digest('hex');
+
+        // Audit trail row (DocumentRenderLog from PR1 schema). Single source of
+        // truth for "has petition X been issued PHIEU_DE_XUAT yet?" — replaces
+        // per-docType cache cols on Petition (CQ2/CQ3 dropped in PR1).
+        await tx.documentRenderLog.create({
+          data: {
+            petitionId: petition.id,
+            documentType: docType,
+            templateSha: '', // populated below — loader sha
+            renderedById: actorId,
+            generatedNumber: commit.number,
+            fileSha: sha,
+          },
+        });
+        return { buffer: renderedBuf, soVanBan: commit.number, fileSha: sha };
+      },
+    );
+
+    // Post-tx side-effects: stamp templateSha (cheap field-only update, no FK
+    // contention) and stream response. Both outside the lock window.
+    const templateSha = (this.documentExport as any).loader.sha(docType) as string;
+    await this.prisma.documentRenderLog.updateMany({
+      where: { petitionId: id, fileSha, templateSha: '' },
+      data: { templateSha },
+    });
+
+    const filename = sanitizeFilename(`${docType}_${soVanBan}.docx`);
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    );
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('X-Document-Number', soVanBan);
+    res.send(buffer);
+  }
+
+  private buildDocxPlaceholders(
+    petition: any,
+    soVanBan: string,
+    teamCode: string,
+  ): Record<string, string> {
+    const formatVNDate = (d: Date | string | null | undefined): string => {
+      if (!d) return '';
+      const date = d instanceof Date ? d : new Date(d);
+      return `ngày ${String(date.getDate()).padStart(2, '0')} tháng ${String(date.getMonth() + 1).padStart(2, '0')} năm ${date.getFullYear()}`;
+    };
+    const phoDoiLeader = petition.assignedTeam?.members?.find((m: any) => m.isLeader);
+    const phoDoiUser = phoDoiLeader?.user;
+    const phoDoiName = phoDoiUser
+      ? [phoDoiUser.rank, phoDoiUser.firstName, phoDoiUser.lastName].filter(Boolean).join(' ')
+      : '';
+
+    return {
+      soVanBan,
+      teamCode,
+      tenDoi: petition.assignedTeam?.name ?? '',
+      tenDoiPhongBan: 'ĐỘI THAM MƯU TỔNG HỢP',
+      diaDiem: 'Thành phố Hồ Chí Minh',
+      ngayPhatHanh: formatVNDate(new Date()),
+      ngayNhan: formatVNDate(petition.receivedDate),
+      ngayDon: formatVNDate(petition.petitionDate ?? petition.receivedDate),
+      loaiDon: petition.petitionType
+        ? LOAI_DON_LABEL_BE[petition.petitionType as LoaiDon] ?? ''
+        : '',
+      ghiTen: petition.senderName ?? '',
+      namSinh: petition.senderBirthYear ?? '',
+      diaChi: petition.senderAddress ?? '',
+      nguonDon: petition.nguonDon ?? petition.unit ?? '',
+      noiDung: petition.detailContent ?? petition.summary ?? '',
+      dinhKem: petition.attachmentsNote ?? '',
+      raSoatTrung: petition.raSoatTrung ?? 'Không',
+      baoCaoBGD: petition.baoCaoBanGiamDoc ? 'Có' : 'Không',
+      nhanThay: petition.nhanThay ?? '',
+      deXuat: petition.deXuat ?? '',
+      lyDoChuyen: petition.lyDoChuyen ?? '',
+      canCuPhapLy: petition.canCuPhapLy ?? '',
+      huongDanKhoiKien: petition.huongDanKhoiKien ?? '',
+      lyDoTraDon: petition.lyDoTraDon ?? '',
+      tenCanBoDeXuat: petition.enteredBy
+        ? [petition.enteredBy.rank, petition.enteredBy.firstName, petition.enteredBy.lastName]
+            .filter(Boolean)
+            .join(' ')
+        : '',
+      tenPhoDoiTruong: phoDoiName,
+      tenTruongPhong: '', // PR3 wires SystemSetting lookup; safe default
+    };
+  }
+
+  /**
+   * Defense against user-controlled docxtemplater injection. If senderName
+   * contains "{deXuat}" the engine would interpolate it without this guard.
+   * Replace `{` and `}` in every user-supplied field with the visually-similar
+   * Unicode brackets so the literal text survives but cannot match a tag.
+   * (Loader's nullGetter prevents [undefined] artifacts from escaped tokens.)
+   */
+  private escapeUserSuppliedTokens(
+    placeholders: Record<string, string>,
+  ): Record<string, string> {
+    const escape = (s: string): string =>
+      s.replace(/\{/g, '❴').replace(/\}/g, '❵');
+    const out: Record<string, string> = {};
+    for (const [k, v] of Object.entries(placeholders)) {
+      out[k] = typeof v === 'string' ? escape(v) : v;
+    }
+    return out;
   }
 
   // ─────────────────────────────────────────────
