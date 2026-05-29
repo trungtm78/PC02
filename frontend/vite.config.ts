@@ -1,6 +1,7 @@
 import { defineConfig, type Plugin } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
+import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
 import fs from 'fs'
 
@@ -36,7 +37,69 @@ export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(readVersion()),
   },
-  plugins: [react(), tailwindcss(), versionWatcher()],
+  plugins: [
+    react(),
+    tailwindcss(),
+    versionWatcher(),
+    // PWA: makes PC02 installable on mobile devices.
+    // - registerType: 'prompt' (auto-decision #12) so users opt in to updates,
+    //   preventing form-state loss from silent SW replacement.
+    // - Workbox API allowlist: ONLY /api/v1/health is cached. /notifications
+    //   contains case/petition/incident metadata (PII exfiltration risk via
+    //   CacheStorage); /feature-flags can serve stale role-based menu config.
+    //   Both are now NetworkOnly. Single allowlist entry for /health enables
+    //   offline degraded-mode detection without exposing user data.
+    VitePWA({
+      registerType: 'prompt',
+      includeAssets: ['favicon.ico', 'logo-cong-an.png', 'icons/apple-touch-icon.png'],
+      workbox: {
+        // Narrow precache: shell (js/css/html) + own icons only. Other PNGs/SVGs
+        // are not precached so map tiles, embedded SVGs, and large images don't
+        // bloat client storage on slow networks.
+        globPatterns: ['**/*.{js,css,html,ico,woff2}', 'icons/*.png'],
+        runtimeCaching: [
+          {
+            // Health check — cache for offline degraded-mode detection.
+            // No PII; safe to cache and survive logout.
+            urlPattern: ({ url }) => url.pathname === '/api/v1/health',
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'pc02-health',
+              expiration: { maxAgeSeconds: 300, maxEntries: 1 },
+              networkTimeoutSeconds: 5,
+              cacheableResponse: { statuses: [200] },
+            },
+          },
+          // NetworkOnly for everything else under /api/v1/* — case/incident/
+          // petition data, user data, notifications, feature flags, search
+          // results, the SSE stream (which carries the auth token in the URL).
+          // Codex review caught that /notifications carries case IDs (PII) and
+          // /feature-flags can serve stale role/permission config from cache.
+        ],
+      },
+      manifest: {
+        name: 'PC02 Quản lý Án',
+        short_name: 'PC02',
+        description: 'Hệ thống quản lý vụ án, vụ việc, đơn thư PC02 Công An',
+        theme_color: '#003973',
+        background_color: '#F7F6F2',
+        display: 'standalone',
+        orientation: 'portrait',
+        scope: '/',
+        start_url: '/',
+        lang: 'vi-VN',
+        icons: [
+          { src: '/icons/pwa-192x192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: '/icons/pwa-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+          { src: '/icons/pwa-maskable-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+        ],
+      },
+      devOptions: {
+        // Don't generate SW in dev — keeps vite hot-reload simple
+        enabled: false,
+      },
+    }),
+  ],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

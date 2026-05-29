@@ -33,9 +33,9 @@ export class CreateDelegationDto {
 
   @IsOptional()
   @IsString()
-  notes?: string;
+  assignedToId?: string;
 
   @IsOptional()
   @IsString()
-  assignedToId?: string;
+  notes?: string;
 }

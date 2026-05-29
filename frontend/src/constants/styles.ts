@@ -90,7 +90,9 @@ export const SECTION_TITLE = "font-medium text-slate-700 mb-4";
 
 // ─── Table Styles ───────────────────────────────────────────────────────────
 
-export const TABLE_WRAPPER = "overflow-x-auto";
+// Mobile-responsive: scroll horizontally, extend to viewport edges on xs.
+// Tables on list pages should wrap in this to handle narrow viewports.
+export const TABLE_WRAPPER = "overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0";
 
 export const TABLE_BASE = "w-full";
 
@@ -111,21 +113,30 @@ export const TABLE_CELL_TRUNCATE =
   "px-4 py-3 text-sm text-slate-700 max-w-xs truncate";
 
 // ─── Modal Styles ───────────────────────────────────────────────────────────
+//
+// Mobile-responsive defaults (autoplan v0.46 auto-decisions #14, #16):
+// - z-40 keeps modals below the mobile drawer sidebar (z-50)
+// - Full-screen on xs (<640px), centered card on sm+
+// - dvh + @supports fallback covers older Android browsers (Samsung Internet, UC Browser)
 
 export const MODAL_OVERLAY =
-  "fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4";
+  "fixed inset-0 bg-black/50 flex items-center justify-center z-40 sm:p-4";
 
+// Modal container (does NOT include max-w-*; pass maxWidth prop for that):
+// - Mobile (<sm): full-width, full-height (no rounding, no margin)
+// - Desktop (>=sm): centered card with rounded corners
+// - max-h uses dvh on supporting browsers, falls back to vh elsewhere
 export const MODAL_CONTAINER =
-  "bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden";
+  "bg-white sm:rounded-lg shadow-xl w-full h-screen sm:h-auto sm:max-h-[90vh] sm:max-h-[90dvh] overflow-hidden flex flex-col";
 
 export const MODAL_HEADER =
-  "border-b border-slate-200 px-6 py-4 flex items-center justify-between";
+  "border-b border-slate-200 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between sticky top-0 bg-white z-10";
 
 export const MODAL_BODY =
-  "p-6 space-y-4 overflow-y-auto max-h-[calc(90vh-140px)]";
+  "p-4 sm:p-6 space-y-4 overflow-y-auto flex-1";
 
 export const MODAL_FOOTER =
-  "border-t border-slate-200 px-6 py-4 flex justify-end gap-3";
+  "border-t border-slate-200 px-4 sm:px-6 py-3 sm:py-4 flex justify-end gap-3 sticky bottom-0 bg-white";
 
 // ─── Status Badge Styles ────────────────────────────────────────────────────
 
@@ -217,6 +228,15 @@ export const FILTER_PANEL =
   "bg-slate-50 border border-slate-200 rounded-lg p-4";
 
 export const FILTER_GRID = "grid grid-cols-1 md:grid-cols-3 gap-4";
+
+// ─── Mobile-Responsive Sticky Table Columns ─────────────────────────────────
+
+// Sticky first-column class for action columns. Apply to first <th> and first <td>
+// so users can scroll horizontally while keeping the action column visible.
+export const TABLE_STICKY_LEFT_TH =
+  "sticky left-0 z-10 border-r border-slate-200 bg-slate-50";
+export const TABLE_STICKY_LEFT_TD =
+  "sticky left-0 z-10 border-r border-slate-200 bg-white";
 
 // ─── Icon Wrapper ───────────────────────────────────────────────────────────
 
