@@ -49,7 +49,7 @@ interface CasesStatsResponse {
 
 const PAGE_SIZE = 20;
 
-export function CaseListPageShell(): JSX.Element {
+export function CaseListPageShell() {
   const navigate = useNavigate();
   const url = useListPageUrlState('cases');
 

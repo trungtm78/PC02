@@ -9,7 +9,8 @@
  *
  * Mobile: defer to consumer (T16+) — current implementation desktop-first table.
  */
-import { AlertCircle, Inbox, WifiOff, FilterX, type ReactNode } from 'lucide-react';
+import { type ReactNode } from 'react';
+import { AlertCircle, Inbox, WifiOff, FilterX } from 'lucide-react';
 import {
   TABLE_WRAPPER,
   TABLE_BASE,
@@ -68,7 +69,7 @@ export interface TableProps<TRow, TId extends string | number = string> {
   getRowClassName?(row: TRow): string;
 }
 
-function LoadingSkeleton({ colCount }: { colCount: number }): JSX.Element {
+function LoadingSkeleton({ colCount }: { colCount: number }) {
   return (
     <div data-testid="list-page-shell-table-loading" className="py-12 px-4 space-y-3">
       {Array.from({ length: 5 }).map((_, i) => (
@@ -82,7 +83,7 @@ function LoadingSkeleton({ colCount }: { colCount: number }): JSX.Element {
   );
 }
 
-function ErrorState({ error }: { error?: string }): JSX.Element {
+function ErrorState({ error }: { error?: string }) {
   return (
     <div
       data-testid="list-page-shell-table-error"
@@ -96,7 +97,7 @@ function ErrorState({ error }: { error?: string }): JSX.Element {
   );
 }
 
-function EmptyState({ emptyState }: { emptyState?: TableProps<unknown>['emptyState'] }): JSX.Element {
+function EmptyState({ emptyState }: { emptyState?: TableProps<unknown>['emptyState'] }) {
   return (
     <div data-testid="list-page-shell-table-empty" className={EMPTY_STATE_WRAPPER}>
       <Inbox className={EMPTY_STATE_ICON} aria-hidden="true" />
@@ -121,7 +122,7 @@ function EmptyFilteredState({
   emptyFilteredState,
 }: {
   emptyFilteredState?: TableProps<unknown>['emptyFilteredState'];
-}): JSX.Element {
+}) {
   return (
     <div
       data-testid="list-page-shell-table-empty-filtered"
@@ -143,7 +144,7 @@ function EmptyFilteredState({
   );
 }
 
-function OfflineState(): JSX.Element {
+function OfflineState() {
   return (
     <div
       data-testid="list-page-shell-table-offline"
@@ -169,7 +170,7 @@ export function Table<TRow, TId extends string | number = string>({
   emptyFilteredState,
   onRowClick,
   getRowClassName,
-}: TableProps<TRow, TId>): JSX.Element {
+}: TableProps<TRow, TId>) {
   const { tableId } = useListPageShellContext();
 
   if (state === 'loading') return <LoadingSkeleton colCount={columns.length} />;

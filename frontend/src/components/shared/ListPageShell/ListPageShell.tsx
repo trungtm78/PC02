@@ -47,7 +47,7 @@ export interface ListPageShellProps {
   className?: string;
 }
 
-function ListPageShellRoot({ children, className }: ListPageShellProps): JSX.Element {
+function ListPageShellRoot({ children, className }: ListPageShellProps) {
   const uniqueId = useId();
   // useId trả về string với ":" → không hợp với HTML id. Sanitize.
   const safeId = uniqueId.replace(/:/g, '');

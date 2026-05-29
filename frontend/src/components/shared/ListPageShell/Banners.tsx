@@ -19,7 +19,7 @@ export interface BannersProps {
   children?: ReactNode;
 }
 
-export function AlertBanners({ children }: BannersProps): JSX.Element | null {
+export function AlertBanners({ children }: BannersProps) {
   if (!hasChildren(children)) return null;
   return (
     <div
@@ -33,7 +33,7 @@ export function AlertBanners({ children }: BannersProps): JSX.Element | null {
   );
 }
 
-export function TransientBanners({ children }: BannersProps): JSX.Element | null {
+export function TransientBanners({ children }: BannersProps) {
   if (!hasChildren(children)) return null;
   return (
     <div

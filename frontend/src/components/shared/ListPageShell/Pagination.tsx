@@ -22,7 +22,7 @@ export function Pagination({
   totalPages,
   totalCount,
   onPageChange,
-}: PaginationProps): JSX.Element | null {
+}: PaginationProps) {
   const { tableId } = useListPageShellContext();
   if (totalPages <= 1) return null;
 

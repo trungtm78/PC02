@@ -11,7 +11,7 @@ import { MemoryRouter, useLocation } from 'react-router-dom';
 import { useListPageUrlState } from '../useListPageUrlState';
 import type { ReactNode } from 'react';
 
-function wrapper(initial = '/'): (props: { children: ReactNode }) => JSX.Element {
+function wrapper(initial = '/'): (props: { children: ReactNode }) => React.JSX.Element {
   return ({ children }) => (
     <MemoryRouter initialEntries={[initial]}>{children}</MemoryRouter>
   );

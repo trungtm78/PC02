@@ -41,10 +41,10 @@ export function StatusChips({
   onChange,
   totalCount,
   countsLoading,
-}: StatusChipsProps): JSX.Element {
+}: StatusChipsProps) {
   const { tableId } = useListPageShellContext();
 
-  const renderCount = (count: number | undefined, isActive: boolean): JSX.Element | null => {
+  const renderCount = (count: number | undefined, isActive: boolean) => {
     if (countsLoading) {
       return (
         <span
@@ -69,7 +69,7 @@ export function StatusChips({
     shortLabel: string,
     label: string,
     count: number | undefined,
-  ): JSX.Element => {
+  ) => {
     const isActive = activeValue === value;
     return (
       <button

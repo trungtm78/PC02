@@ -16,7 +16,7 @@ export interface HeaderProps {
   actions?: ReactNode;
 }
 
-export function Header({ title, subtitle, icon: Icon, actions }: HeaderProps): JSX.Element {
+export function Header({ title, subtitle, icon: Icon, actions }: HeaderProps) {
   const { titleId } = useListPageShellContext();
 
   return (

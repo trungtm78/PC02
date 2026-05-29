@@ -38,7 +38,7 @@ export function Toolbar({
   activeFilterCount = 0,
   onResetFilters,
   children,
-}: ToolbarProps): JSX.Element {
+}: ToolbarProps) {
   const [expanded, setExpanded] = useState(false);
   const filterPanelId = useId();
   const ref = useRef<HTMLDivElement>(null);

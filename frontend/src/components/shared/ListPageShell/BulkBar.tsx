@@ -36,7 +36,7 @@ export function BulkBar({
   onClearSelection,
   actions,
   variant = 'sticky',
-}: BulkBarProps): JSX.Element | null {
+}: BulkBarProps) {
   if (selectedIds.size === 0) return null;
 
   const containerClass = variant === 'mobile-bottom' ? BULK_BAR_MOBILE_BOTTOM : BULK_BAR_STICKY;
