@@ -189,6 +189,45 @@ describe('AuditService', () => {
       expect(sqlCall).toContain('STARTED');
     });
 
+    it('handles P2002 conflict gracefully — returns existing bulkOperationId for retry (Codex post-deploy P2 fix)', async () => {
+      // First call: INSERT throws unique constraint violation (P2002).
+      // Should catch + SELECT existing row + return its id, not throw.
+      const existingId = 'bulk-op-existing-123';
+      mockPrisma.$executeRaw = jest
+        .fn()
+        .mockRejectedValueOnce(
+          Object.assign(new Error('Unique constraint failed'), { code: 'P2002' }),
+        );
+      mockPrisma.$queryRaw = jest
+        .fn()
+        .mockResolvedValueOnce([{ id: existingId }]);
+
+      const result = await service.logBulkHeader({
+        actorId: 'user-1',
+        resource: 'Case',
+        action: 'BULK_ASSIGN',
+        idempotencyKey: 'retry-same-key',
+      });
+
+      expect(result.bulkOperationId).toBe(existingId);
+      // Phải đã query lookup existing.
+      expect(mockPrisma.$queryRaw).toHaveBeenCalled();
+    });
+
+    it('rethrows non-P2002 errors (DB down, etc.)', async () => {
+      mockPrisma.$executeRaw = jest
+        .fn()
+        .mockRejectedValueOnce(new Error('Connection refused'));
+
+      await expect(
+        service.logBulkHeader({
+          actorId: 'user-1',
+          resource: 'Case',
+          action: 'BULK_ASSIGN',
+        }),
+      ).rejects.toThrow('Connection refused');
+    });
+
     it('persists optional idempotencyKey for retry dedupe (plan eng E-H10)', async () => {
       await service.logBulkHeader({
         actorId: 'user-1',

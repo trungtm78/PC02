@@ -5,7 +5,7 @@ import { PetitionStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditService } from '../../audit/audit.service';
 import type { DataScope } from '../../auth/services/unit-scope.service';
-import { buildScopeFilter } from '../../common/utils/scope-filter.util';
+import { buildPetitionScopeFilter } from '../../common/utils/scope-filter.util';
 import { BcaExcelHelper } from '../../common/bca-excel.helper';
 import { PETITION_STATUS_LABEL } from '../../common/constants/status-labels.constants';
 import { runBulk } from '../../common/bulk/run-bulk';
@@ -71,11 +71,14 @@ export class PetitionsBulkService {
         $transaction: <R>(cb: (tx: Prisma.TransactionClient) => Promise<R>) => Promise<R>;
       },
       preflight: async (ids) => {
+        // Petition-specific scope filter (enteredById/assignedTeamId/assignedToId).
+        // `buildScopeFilter` chung dùng `investigatorId` predicate cho Case/Incident —
+        // Petition KHÔNG có field này → Prisma reject. Codex post-deploy P2 fix.
         const inScope = await this.prisma.petition.findMany({
           where: {
             id: { in: ids },
             deletedAt: null,
-            ...buildScopeFilter(input.dataScope),
+            ...buildPetitionScopeFilter(input.dataScope),
           },
           select: { id: true },
         });
@@ -159,7 +162,9 @@ export class PetitionsBulkService {
       id: { in: input.ids },
       deletedAt: null,
     };
-    const scopeFilter = buildScopeFilter(input.dataScope);
+    // Codex post-deploy P2: dùng petition-specific scope filter cho bulk-export
+    // (buildScopeFilter chung sẽ inject investigatorId predicate không hợp lệ).
+    const scopeFilter = buildPetitionScopeFilter(input.dataScope);
     if (scopeFilter) {
       where.AND = [scopeFilter as Prisma.PetitionWhereInput];
     }

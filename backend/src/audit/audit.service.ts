@@ -123,20 +123,42 @@ export class AuditService {
     idempotencyKey?: string;
   }): Promise<{ bulkOperationId: string }> {
     const id = randomUUID();
-    await this.prisma.$executeRaw`
-      INSERT INTO "bulk_operations" (
-        id, "actorId", resource, action, status, "idempotencyKey", "startedAt"
-      ) VALUES (
-        ${id},
-        ${input.actorId},
-        ${input.resource},
-        ${input.action},
-        'STARTED'::"BulkOperationStatus",
-        ${input.idempotencyKey ?? null},
-        NOW()
-      )
-    `;
-    return { bulkOperationId: id };
+    try {
+      await this.prisma.$executeRaw`
+        INSERT INTO "bulk_operations" (
+          id, "actorId", resource, action, status, "idempotencyKey", "startedAt"
+        ) VALUES (
+          ${id},
+          ${input.actorId},
+          ${input.resource},
+          ${input.action},
+          'STARTED'::"BulkOperationStatus",
+          ${input.idempotencyKey ?? null},
+          NOW()
+        )
+      `;
+      return { bulkOperationId: id };
+    } catch (e) {
+      // Codex post-deploy P2 fix: retry với same idempotencyKey không nên crash.
+      // P2002 = Prisma unique constraint violation. UNIQUE (actorId, idempotencyKey)
+      // → caller retry trên cùng request → trả lại bulkOperationId hiện có.
+      // KHÔNG có idempotencyKey → bug thực sự, rethrow.
+      if (
+        input.idempotencyKey &&
+        (e as { code?: string })?.code === 'P2002'
+      ) {
+        const existing = await this.prisma.$queryRaw<{ id: string }[]>`
+          SELECT id FROM "bulk_operations"
+          WHERE "actorId" = ${input.actorId}
+            AND "idempotencyKey" = ${input.idempotencyKey}
+          LIMIT 1
+        `;
+        if (existing.length > 0) {
+          return { bulkOperationId: existing[0].id };
+        }
+      }
+      throw e;
+    }
   }
 
   /**
