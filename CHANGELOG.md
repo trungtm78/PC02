@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.46.0.1] - 2026-05-29
+
+**Hotfix Mobile Drawer — Bulletproof rendering trên iOS Safari**
+
+Sau khi anh báo cáo trên iPhone 15 Pro Max: hamburger button không hiển thị + sidebar 64px cứng hiển thị trên header. /investigate phát hiện vấn đề ở CSS cascade Tailwind `lg:translate-x-0` không tin cậy trên iOS Safari 17+ trong một số config zoom/PWA.
+
+### Fixed
+- **Mobile drawer state-driven render**: thay vì phụ thuộc CSS `lg:` cascade, MainLayout render 2 DOM branch riêng theo `isDesktopWidth` state. Mobile branch dùng inline `style.transform: translateX(...)`. Loại bỏ hoàn toàn race condition CSS cascade.
+- **Hamburger button**: render dựa trên `!isDesktopWidth` state (bỏ `lg:hidden`). Trên iPhone, hamburger giờ luôn hiển thị đúng.
+- **Backdrop**: state-driven `!isDesktopWidth && sidebarOpen` (bỏ `lg:hidden`).
+- **Initial state safer**: `isDesktopWidth` mặc định `false` (mobile-first) khi SSR/hydration, sau đó update qua matchMedia. Tránh "desktop flash".
+- **visualViewport API**: dùng `window.visualViewport.width` khi available (chính xác hơn `innerWidth` trên iOS Safari zoom/PWA mode).
+
+### Technical Notes
+- Test counts unchanged: 787/787 frontend PASS, 1819 backend PASS.
+- Tests updated mock `window.matchMedia` và `window.innerWidth=430` qua `Object.defineProperty` (jsdom mặc định 1024).
+- React 19 native `inert` boolean prop vẫn dùng cho mobile drawer khi closed.
+
 ## [0.46.0.0] - 2026-05-29
 
 **Mobile Responsive + PWA — Cán bộ điều tra dùng được hệ thống trên điện thoại, cài đặt như native app**

@@ -3,6 +3,25 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { MainLayout } from '../MainLayout';
 
+// Force mobile viewport BEFORE any module imports the layout.
+// jsdom defaults innerWidth=1024 which would make isDesktopWidth=true and
+// hide the hamburger button + use the desktop layout branch.
+Object.defineProperty(window, 'innerWidth', { value: 430, writable: true, configurable: true });
+Object.defineProperty(window, 'matchMedia', {
+  writable: true,
+  configurable: true,
+  value: (query: string) => ({
+    matches: false, // any media query (incl. (min-width: 1024px)) returns false on mobile
+    media: query,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+    onchange: null,
+  }),
+});
+
 // Mock dependencies that touch network or browser APIs
 vi.mock('@/stores/auth.store', () => ({
   authStore: {
@@ -74,11 +93,10 @@ describe('MainLayout — Mobile drawer', () => {
     vi.clearAllMocks();
   });
 
-  it('renders hamburger button (lg:hidden) for mobile viewport', () => {
+  it('renders hamburger button for mobile viewport', () => {
     renderLayout();
     const hamburger = screen.getByTestId('mobile-hamburger');
     expect(hamburger).toBeTruthy();
-    expect(hamburger.className).toContain('lg:hidden');
     expect(hamburger.getAttribute('aria-label')).toBe('Mở menu');
   });
 
@@ -88,10 +106,11 @@ describe('MainLayout — Mobile drawer', () => {
     expect(hamburger.className).toMatch(/min-h-\[44px\]|w-11|h-11|p-2/);
   });
 
-  it('sidebar starts closed on mobile (translate-x-full)', () => {
+  it('sidebar starts closed on mobile (translateX(-100%) inline style)', () => {
     renderLayout();
     const wrapper = screen.getByTestId('sidebar-wrapper');
-    expect(wrapper.className).toContain('-translate-x-full');
+    expect(wrapper.style.transform).toBe('translateX(-100%)');
+    expect(wrapper.hasAttribute('inert')).toBe(true);
   });
 
   it('clicking hamburger opens the sidebar drawer', () => {
@@ -99,32 +118,32 @@ describe('MainLayout — Mobile drawer', () => {
     const hamburger = screen.getByTestId('mobile-hamburger');
     fireEvent.click(hamburger);
     const wrapper = screen.getByTestId('sidebar-wrapper');
-    expect(wrapper.className).toContain('translate-x-0');
-    expect(wrapper.className).not.toContain('-translate-x-full');
+    expect(wrapper.style.transform).toBe('translateX(0)');
+    expect(wrapper.hasAttribute('inert')).toBe(false);
   });
 
-  it('renders backdrop when drawer is open (mobile only)', () => {
+  it('renders backdrop when drawer is open on mobile', () => {
     renderLayout();
     expect(screen.queryByTestId('sidebar-backdrop')).toBeNull();
     fireEvent.click(screen.getByTestId('mobile-hamburger'));
     const backdrop = screen.getByTestId('sidebar-backdrop');
     expect(backdrop).toBeTruthy();
-    expect(backdrop.className).toContain('lg:hidden');
+    expect(backdrop.className).toContain('bg-black/50');
   });
 
   it('clicking backdrop closes the sidebar', () => {
     renderLayout();
     fireEvent.click(screen.getByTestId('mobile-hamburger'));
-    expect(screen.getByTestId('sidebar-wrapper').className).toContain('translate-x-0');
+    expect(screen.getByTestId('sidebar-wrapper').style.transform).toBe('translateX(0)');
     fireEvent.click(screen.getByTestId('sidebar-backdrop'));
-    expect(screen.getByTestId('sidebar-wrapper').className).toContain('-translate-x-full');
+    expect(screen.getByTestId('sidebar-wrapper').style.transform).toBe('translateX(-100%)');
   });
 
   it('Escape key closes the open sidebar', () => {
     renderLayout();
     fireEvent.click(screen.getByTestId('mobile-hamburger'));
-    expect(screen.getByTestId('sidebar-wrapper').className).toContain('translate-x-0');
+    expect(screen.getByTestId('sidebar-wrapper').style.transform).toBe('translateX(0)');
     fireEvent.keyDown(window, { key: 'Escape' });
-    expect(screen.getByTestId('sidebar-wrapper').className).toContain('-translate-x-full');
+    expect(screen.getByTestId('sidebar-wrapper').style.transform).toBe('translateX(-100%)');
   });
 });

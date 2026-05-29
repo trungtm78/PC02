@@ -44,11 +44,17 @@ export function MainLayout() {
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [twoFaSetupOpen, setTwoFaSetupOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  // Track lg breakpoint (1024px+) to inert the drawer when hidden on mobile.
-  // Prevents tab/arrow keys from reaching invisible nav items off-screen.
-  const [isDesktopWidth, setIsDesktopWidth] = useState(() =>
-    typeof window !== 'undefined' ? window.innerWidth >= 1024 : true,
-  );
+  // Track lg breakpoint (1024px+). Default to FALSE (mobile-first) so initial
+  // SSR/hydration shows the mobile drawer layout. Real width is detected in
+  // the matchMedia useEffect below — this just avoids a desktop-flash on
+  // mobile clients that have slow initial JS execution.
+  const [isDesktopWidth, setIsDesktopWidth] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    // Use visualViewport when available (more accurate on iOS Safari, especially
+    // when zoomed or in standalone PWA mode). Fall back to innerWidth.
+    const width = window.visualViewport?.width ?? window.innerWidth;
+    return width >= 1024;
+  });
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -126,15 +132,20 @@ export function MainLayout() {
         data-testid="main-header"
         className="h-16 bg-white border-b-2 border-accent flex items-center px-4 lg:px-6 gap-3 lg:gap-6 flex-shrink-0 shadow-sm"
       >
-        {/* Mobile hamburger — only visible <lg */}
-        <button
-          data-testid="mobile-hamburger"
-          onClick={() => setSidebarOpen(true)}
-          className="lg:hidden p-2 -ml-2 rounded-md hover:bg-slate-100 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
-          aria-label="Mở menu"
-        >
-          {sidebarOpen ? <X className="w-6 h-6 text-slate-700" /> : <Menu className="w-6 h-6 text-slate-700" />}
-        </button>
+        {/* Mobile hamburger — state-driven render based on isDesktopWidth.
+            v0.46.0.1 hotfix: previously relied on CSS `lg:hidden`, but some
+            iOS Safari + zoom configurations caused the button to be hidden
+            on mobile too. State-driven render is bulletproof. */}
+        {!isDesktopWidth && (
+          <button
+            data-testid="mobile-hamburger"
+            onClick={() => setSidebarOpen(true)}
+            className="p-2 -ml-2 rounded-md hover:bg-slate-100 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center flex-shrink-0"
+            aria-label="Mở menu"
+          >
+            {sidebarOpen ? <X className="w-6 h-6 text-slate-700" /> : <Menu className="w-6 h-6 text-slate-700" />}
+          </button>
+        )}
 
         {/* Logo + Title */}
         <div className="flex items-center gap-3">
@@ -225,37 +236,47 @@ export function MainLayout() {
 
       {/* Body */}
       <div className="flex flex-1 overflow-hidden relative">
-        {/* Backdrop — mobile only, when drawer is open */}
-        {sidebarOpen && (
+        {/* Backdrop — mobile only, when drawer is open.
+            v0.46.0.1 hotfix: state-driven (was lg:hidden CSS-only). */}
+        {sidebarOpen && !isDesktopWidth && (
           <div
             data-testid="sidebar-backdrop"
             onClick={() => setSidebarOpen(false)}
-            className="fixed inset-0 top-16 z-40 bg-black/50 lg:hidden"
+            className="fixed inset-0 top-16 z-40 bg-black/50"
             aria-hidden="true"
           />
         )}
 
-        {/* Sidebar wrapper:
-            - <lg (mobile): fixed overlay drawer, slides in/out via translate-x
-            - >=lg (desktop): static, always visible
-            z-50 keeps drawer above modals (z-40) per autoplan decision #16
-            inert prop (React 19): when drawer is translated off-screen on
-            mobile, prevents keyboard/screen-reader focus from reaching the
-            hidden nav items. Empty string is the native HTML inert attribute. */}
-        <div
-          data-testid="sidebar-wrapper"
-          // a11y: inert when drawer is off-screen on mobile so keyboard/screen
-          // reader users can't activate hidden nav. React 19 accepts boolean.
-          inert={!sidebarOpen && !isDesktopWidth ? true : undefined}
-          aria-hidden={!sidebarOpen && !isDesktopWidth ? true : undefined}
-          className={`
-            fixed inset-y-0 left-0 top-16 z-50 lg:static lg:top-0 lg:z-auto
-            transition-transform duration-300 ease-in-out
-            ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-          `}
-        >
-          <AppSidebar onClose={() => setSidebarOpen(false)} isMobileOpen={sidebarOpen} />
-        </div>
+        {/* Sidebar wrapper — state-driven for mobile vs desktop.
+            v0.46.0.1 hotfix: previously relied on Tailwind `lg:static` +
+            `-translate-x-full lg:translate-x-0` cascade. On some iOS Safari
+            configurations the cascade left the drawer visible on mobile. Now
+            we render different DOM (static on desktop, fixed overlay on mobile)
+            and drive transform from inline style. No CSS cascade quirks possible. */}
+        {isDesktopWidth ? (
+          // Desktop: static, always visible inline within flex row
+          <div data-testid="sidebar-wrapper">
+            <AppSidebar onClose={() => setSidebarOpen(false)} isMobileOpen={false} />
+          </div>
+        ) : (
+          // Mobile: fixed overlay drawer, inline transform style
+          <div
+            data-testid="sidebar-wrapper"
+            inert={!sidebarOpen ? true : undefined}
+            aria-hidden={!sidebarOpen ? true : undefined}
+            style={{
+              position: 'fixed',
+              top: '64px',
+              bottom: 0,
+              left: 0,
+              zIndex: 50,
+              transform: sidebarOpen ? 'translateX(0)' : 'translateX(-100%)',
+              transition: 'transform 300ms ease-in-out',
+            }}
+          >
+            <AppSidebar onClose={() => setSidebarOpen(false)} isMobileOpen={sidebarOpen} />
+          </div>
+        )}
 
         <main className="flex-1 overflow-y-auto">
           <Suspense fallback={<LoadingFallback />}>
