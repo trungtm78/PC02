@@ -51,6 +51,14 @@ export class CasesController {
     return this.casesService.getList(query, req.dataScope);
   }
 
+  // GET /api/v1/cases/stats — Counts by status, scoped to active non-status filters.
+  // Used bởi <ListPageShell.StatusChips countsSource> (PR1/T15).
+  @Get('stats')
+  @RequirePermissions({ action: 'read', subject: 'Case' })
+  getStats(@Query() query: QueryCasesDto, @Req() req: ScopedRequest) {
+    return this.casesService.getStats(query, req.dataScope);
+  }
+
   // GET /api/v1/cases/export/ward — Xuất vụ án theo phường/xã
   @Get('export/ward')
   @HttpCode(HttpStatus.OK)
