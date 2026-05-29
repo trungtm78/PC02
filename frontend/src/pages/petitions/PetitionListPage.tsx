@@ -35,6 +35,7 @@ import {
 import { usePermission } from "@/hooks/usePermission";
 import { AssignModal } from "@/components/AssignModal";
 import { ActionMenuPortal } from "@/components/ActionMenuPortal";
+import { BatchExportModal } from "@/features/petitions/components/BatchExportModal";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -117,6 +118,9 @@ export function PetitionListPage() {
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedPetition, setSelectedPetition] = useState<Petition | null>(null);
+  // v0.47 PR3.1 T13 — multi-select for batch ZIP export.
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showBatchExportModal, setShowBatchExportModal] = useState(false);
 
   const [advancedFilters, setAdvancedFilters] = useState({
     fromDate: "",
@@ -437,10 +441,58 @@ export function PetitionListPage() {
           </p>
         </div>
 
+        {/* v0.47 PR3.1 T13 — Batch toolbar khi có petitions được chọn */}
+        {selectedIds.size > 0 && (
+          <div
+            className="sticky top-0 z-20 bg-blue-50 border-y border-blue-200 px-4 sm:px-6 py-3 flex flex-wrap items-center gap-3"
+            data-testid="batch-toolbar"
+          >
+            <span className="text-sm font-medium text-blue-900" data-testid="batch-selected-count">
+              Đã chọn {selectedIds.size} đơn
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowBatchExportModal(true)}
+              className="ml-auto flex items-center gap-2 px-4 py-2 min-h-[44px] bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors font-medium text-sm"
+              data-testid="btn-batch-export"
+            >
+              <FileText className="w-4 h-4" />
+              <span className="hidden sm:inline">Xuất tài liệu hàng loạt</span>
+              <span className="sm:hidden">Xuất {selectedIds.size}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedIds(new Set())}
+              className="px-3 py-2 min-h-[44px] border border-slate-300 text-slate-700 rounded-lg hover:bg-white transition-colors text-sm"
+              data-testid="btn-batch-clear"
+            >
+              Bỏ chọn
+            </button>
+          </div>
+        )}
+
         <div className="overflow-x-auto">
           <table className="w-full" data-testid="petition-table">
             <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
+                <th className="px-3 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider w-10">
+                  <input
+                    type="checkbox"
+                    aria-label="Chọn tất cả đơn thư hiển thị"
+                    data-testid="checkbox-select-all"
+                    checked={petitions.length > 0 && petitions.every((p) => selectedIds.has(p.id))}
+                    onChange={(e) => {
+                      const next = new Set(selectedIds);
+                      if (e.target.checked) {
+                        petitions.forEach((p) => next.add(p.id));
+                      } else {
+                        petitions.forEach((p) => next.delete(p.id));
+                      }
+                      setSelectedIds(next);
+                    }}
+                    className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
+                  />
+                </th>
                 <th className="px-3 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider w-28 sticky left-0 bg-slate-50 z-10 border-r border-slate-200">
                   Thao tác
                 </th>
@@ -473,13 +525,13 @@ export function PetitionListPage() {
             <tbody className="divide-y divide-slate-200">
               {isLoading ? (
                 <tr>
-                  <td colSpan={9} className="px-6 py-12 text-center">
+                  <td colSpan={10} className="px-6 py-12 text-center">
                     <p className="text-slate-500">Đang tải...</p>
                   </td>
                 </tr>
               ) : filteredPetitions.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-6 py-12 text-center">
+                  <td colSpan={10} className="px-6 py-12 text-center">
                     <div className="flex flex-col items-center gap-2">
                       <Search className="w-10 h-10 text-slate-300" />
                       <p className="text-slate-600 font-medium">Không tìm thấy kết quả</p>
@@ -499,9 +551,27 @@ export function PetitionListPage() {
                       role={canEditRow ? "button" : undefined}
                       onClick={canEditRow ? () => navigate(`/petitions/${petition.id}/edit`) : undefined}
                       onKeyDown={canEditRow ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/petitions/${petition.id}/edit`); } } : undefined}
-                      className={`transition-colors ${overdue ? "bg-red-50/40" : ""} ${canEditRow ? "cursor-pointer hover:bg-blue-50" : "hover:bg-slate-50"}`}
+                      className={`transition-colors ${overdue ? "bg-red-50/40" : ""} ${canEditRow ? "cursor-pointer hover:bg-blue-50" : "hover:bg-slate-50"} ${selectedIds.has(petition.id) ? "bg-blue-50" : ""}`}
                     >
-                      {/* Thao tác — FIRST, sticky */}
+                      {/* v0.47 PR3.1 T13 — Checkbox cho batch export */}
+                      <td
+                        className={`px-3 py-3 whitespace-nowrap ${overdue ? "bg-red-50/40" : ""}`}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(petition.id)}
+                          onChange={(e) => {
+                            const next = new Set(selectedIds);
+                            if (e.target.checked) next.add(petition.id); else next.delete(petition.id);
+                            setSelectedIds(next);
+                          }}
+                          className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
+                          aria-label={`Chọn đơn ${petition.stt}`}
+                          data-testid={`checkbox-row-${petition.id}`}
+                        />
+                      </td>
+                      {/* Thao tác — sticky */}
                       <td
                         className={`px-3 py-3 whitespace-nowrap sticky left-0 z-10 border-r border-slate-100 ${overdue ? "bg-red-50/40" : "bg-white"}`}
                         onClick={(e) => e.stopPropagation()}
@@ -1177,6 +1247,17 @@ function ArchiveModal({
           </button>
         </div>
       </div>
+
+      {/* v0.47 PR3.1 T13 — Batch export ZIP modal */}
+      <BatchExportModal
+        petitionIds={Array.from(selectedIds)}
+        isOpen={showBatchExportModal}
+        onClose={() => setShowBatchExportModal(false)}
+        onSuccess={() => {
+          setShowBatchExportModal(false);
+          setSelectedIds(new Set());
+        }}
+      />
     </div>
   );
 }

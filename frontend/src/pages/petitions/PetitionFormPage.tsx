@@ -15,6 +15,7 @@ import { FKSelect } from "@/components/FKSelect";
 import { PhoneInput } from "@/components/inputs/PhoneInput";
 import { DocNumberPreviewField } from "@/components/DocNumberPreviewField";
 import { documentNumbersApi } from "@/features/document-numbers/api";
+import { ExportDocumentDropdown } from "@/features/petitions/components/ExportDocumentDropdown";
 import { useFormDefaults } from "@/hooks/useFormDefaults";
 import { today, toDateInput } from "@/lib/dates";
 import { LOAI_DON_OPTIONS } from "@/shared/enums/status-labels";
@@ -37,6 +38,11 @@ interface FormData {
   petitionType: string; priority: string; summary: string;
   detailContent: string; attachmentsNote: string; deadline: string;
   assignedToId: string; notes: string;
+  // v0.47 PR3.1 — Nội dung phiếu đề xuất (T11)
+  nhanThay: string;
+  deXuat: string;
+  raSoatTrung: string;
+  baoCaoBanGiamDoc: boolean;
 }
 
 const INITIAL_FORM: FormData = {
@@ -45,6 +51,7 @@ const INITIAL_FORM: FormData = {
   senderEmail: "", suspectedPerson: "", suspectedAddress: "", petitionType: "",
   priority: "", summary: "", detailContent: "", attachmentsNote: "",
   deadline: "", assignedToId: "", notes: "",
+  nhanThay: "", deXuat: "", raSoatTrung: "Không", baoCaoBanGiamDoc: false,
 };
 
 function displayName(u: UserOption): string {
@@ -128,6 +135,10 @@ export function PetitionFormPage() {
           deadline: toDateInput(d.deadline as string | null | undefined),
           assignedToId: d.assignedToId ? String(d.assignedToId) : "",
           notes: (d.notes as string) ?? "",
+          nhanThay: (d.nhanThay as string) ?? "",
+          deXuat: (d.deXuat as string) ?? "",
+          raSoatTrung: (d.raSoatTrung as string) ?? "Không",
+          baoCaoBanGiamDoc: Boolean(d.baoCaoBanGiamDoc),
         });
         setRecordUpdatedAt((d.updatedAt as string) ?? null);
       })
@@ -186,6 +197,10 @@ export function PetitionFormPage() {
         deadline: formData.deadline || undefined,
         assignedToId: formData.assignedToId || undefined,
         notes: formData.notes || undefined,
+        nhanThay: formData.nhanThay || undefined,
+        deXuat: formData.deXuat || undefined,
+        raSoatTrung: formData.raSoatTrung || undefined,
+        baoCaoBanGiamDoc: formData.baoCaoBanGiamDoc,
       };
       if (isEditMode) {
         await api.put(`/petitions/${id}`, { ...payload, expectedUpdatedAt: recordUpdatedAt ?? undefined });
@@ -210,7 +225,7 @@ export function PetitionFormPage() {
     if (confirm("Bạn có chắc chắn muốn hủy? Dữ liệu chưa lưu sẽ bị mất.")) navigate("/petitions");
   };
 
-  const update = (field: keyof FormData, value: string) =>
+  const update = (field: keyof FormData, value: string | boolean) =>
     setFormData((prev) => ({ ...prev, [field]: value }));
 
   if (isLoadingData) {
@@ -460,14 +475,74 @@ export function PetitionFormPage() {
           </div>
         </div>
 
-        <div className="flex items-center justify-end gap-3 bg-white rounded-lg border border-slate-200 shadow-sm p-6">
-          <button type="button" onClick={handleCancel} className="px-6 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors" data-testid="btn-cancel">
+        {/* v0.47 PR3.1 T11 — Section 6: Nội dung phiếu đề xuất (chỉ hiện khi edit) */}
+        {isEditMode && (
+          <div className="bg-white rounded-lg border border-slate-200 shadow-sm" data-testid="section-noi-dung-phieu-de-xuat">
+            <div className="border-b border-slate-200 px-6 py-4">
+              <h2 className="font-bold text-slate-800">Nội dung phiếu đề xuất</h2>
+              <p className="text-xs text-slate-500 mt-1">Nội dung nghiệp vụ phục vụ xuất Phiếu đề xuất, Phiếu chuyển, Thông báo. Bắt buộc khi xuất Phiếu đề xuất.</p>
+            </div>
+            <div className="p-4 sm:p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Nhận thấy</label>
+                <textarea
+                  value={formData.nhanThay}
+                  onChange={(e) => update("nhanThay", e.target.value)}
+                  rows={3}
+                  className="w-full px-4 py-2.5 text-base sm:text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Đánh giá của cán bộ về đơn thư (ví dụ: 'Đơn có dấu hiệu tội phạm theo Đ.123 BLHS...')"
+                  data-testid="field-nhanThay"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Đề xuất xử lý</label>
+                <textarea
+                  value={formData.deXuat}
+                  onChange={(e) => update("deXuat", e.target.value)}
+                  rows={3}
+                  className="w-full px-4 py-2.5 text-base sm:text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Đề xuất hướng giải quyết (ví dụ: 'Đề xuất chuyển PC01 thụ lý theo thẩm quyền...')"
+                  data-testid="field-deXuat"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Kết quả rà soát đơn/vụ trùng</label>
+                <textarea
+                  value={formData.raSoatTrung}
+                  onChange={(e) => update("raSoatTrung", e.target.value)}
+                  rows={2}
+                  className="w-full px-4 py-2.5 text-base sm:text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Không trùng / Mô tả vụ trùng nếu có"
+                  data-testid="field-raSoatTrung"
+                />
+              </div>
+              <div>
+                <label className="inline-flex items-center gap-2 cursor-pointer" data-testid="field-baoCaoBanGiamDoc-wrap">
+                  <input
+                    type="checkbox"
+                    checked={formData.baoCaoBanGiamDoc}
+                    onChange={(e) => update("baoCaoBanGiamDoc", e.target.checked)}
+                    className="w-5 h-5 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
+                    data-testid="field-baoCaoBanGiamDoc"
+                  />
+                  <span className="text-sm text-slate-700">Thuộc trường hợp báo cáo Ban Giám đốc</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="flex items-center justify-end gap-3 bg-white rounded-lg border border-slate-200 shadow-sm p-4 sm:p-6 flex-wrap">
+          <button type="button" onClick={handleCancel} className="px-4 sm:px-6 py-2.5 min-h-[44px] border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors" data-testid="btn-cancel">
             Hủy
           </button>
-          <button type="submit" disabled={isSubmitting} className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50" data-testid="btn-save">
+          <button type="submit" disabled={isSubmitting} className="flex items-center gap-2 px-4 sm:px-6 py-2.5 min-h-[44px] bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50" data-testid="btn-save">
             <Save className="w-4 h-4" />
             {isSubmitting ? "Đang lưu..." : isEditMode ? "Cập nhật" : "Lưu đơn thư"}
           </button>
+          {isEditMode && id && (
+            <ExportDocumentDropdown petitionId={id} />
+          )}
         </div>
       </form>
     </div>

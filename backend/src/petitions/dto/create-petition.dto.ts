@@ -7,6 +7,7 @@ import {
   IsNotEmpty,
   MaxLength,
   Matches,
+  IsBoolean,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { PetitionStatus, LoaiDon } from '@prisma/client';
@@ -129,4 +130,69 @@ export class CreatePetitionDto {
   @IsOptional()
   @IsEnum(PetitionStatus)
   status?: PetitionStatus;
+
+  // v0.47 PR3.1 — Nội dung phiếu đề xuất (T11). Tất cả optional vì chỉ cần khi
+  // officer chuẩn bị xuất docx, và phục vụ nhiều doc types khác nhau.
+
+  @IsOptional()
+  @Transform(({ value }) => stripHtmlTags(value))
+  @IsString()
+  @MaxLength(5000)
+  nhanThay?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => stripHtmlTags(value))
+  @IsString()
+  @MaxLength(5000)
+  deXuat?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => stripHtmlTags(value))
+  @IsString()
+  @MaxLength(1000)
+  raSoatTrung?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  baoCaoBanGiamDoc?: boolean;
+
+  @IsOptional()
+  @IsDateString()
+  petitionDate?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => stripHtmlTags(value))
+  @IsString()
+  @MaxLength(500)
+  nguonDon?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => stripHtmlTags(value))
+  @IsString()
+  @MaxLength(255)
+  subTeamAssigned?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => stripHtmlTags(value))
+  @IsString()
+  @MaxLength(2000)
+  lyDoChuyen?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => stripHtmlTags(value))
+  @IsString()
+  @MaxLength(1000)
+  canCuPhapLy?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => stripHtmlTags(value))
+  @IsString()
+  @MaxLength(5000)
+  huongDanKhoiKien?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => stripHtmlTags(value))
+  @IsString()
+  @MaxLength(2000)
+  lyDoTraDon?: string;
 }
