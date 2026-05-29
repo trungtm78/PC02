@@ -1,3 +1,8 @@
+-- v0.47 PR1 foundation: additive schema (cols + audit tables) for Document Template Engine.
+-- Fail fast on lock contention instead of queuing behind long-running transactions.
+SET lock_timeout = '5s';
+SET statement_timeout = '60s';
+
 -- AlterTable
 ALTER TABLE "users" ADD COLUMN     "rank" TEXT;
 

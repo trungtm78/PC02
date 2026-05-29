@@ -46,12 +46,22 @@ async function main() {
     where: { deletedAt: null, summary: null },
   });
 
+  // Empty-DB guard: returning "SAFE" from 0/1 < 0.05 is a silent correctness trap.
+  // PR2's fail-closed decision must NOT auto-enable on zero data.
+  type FailClosedVerdict = 'SAFE' | 'NEEDS_BACKFILL' | 'INSUFFICIENT_DATA';
+  const failClosedVerdict: FailClosedVerdict =
+    petitionTotal === 0
+      ? 'INSUFFICIENT_DATA'
+      : bothNull / petitionTotal < 0.05
+        ? 'SAFE'
+        : 'NEEDS_BACKFILL';
+
   log(`\nQ1: Petition content population (non-deleted)`);
   log(`  Total petitions:                    ${petitionTotal}`);
   log(`  detailContent IS NULL:              ${detailNull}  (${pct(detailNull, petitionTotal)})`);
   log(`  summary IS NULL:                    ${summaryNull}  (${pct(summaryNull, petitionTotal)})`);
   log(`  BOTH detailContent + summary NULL:  ${bothNull}  (${pct(bothNull, petitionTotal)})`);
-  log(`  → Fail-closed safe if BOTH-null < 5%: ${(bothNull / Math.max(petitionTotal, 1)) < 0.05 ? 'YES' : 'NO — need backfill'}`);
+  log(`  → Fail-closed verdict: ${failClosedVerdict}`);
 
   // Q2: Case TAM_DINH_CHI count (TĐC backfill scope)
   const caseTotal = await prisma.case.count({ where: { deletedAt: null } });
@@ -80,19 +90,22 @@ async function main() {
         detailContent_null: detailNull,
         summary_null: summaryNull,
         both_null: bothNull,
-        both_null_pct: petitionTotal === 0 ? 0 : bothNull / petitionTotal,
-        fail_closed_safe: bothNull / Math.max(petitionTotal, 1) < 0.05,
+        both_null_pct: petitionTotal === 0 ? null : bothNull / petitionTotal,
+        fail_closed_verdict: failClosedVerdict,
       },
       case: { total: caseTotal, tam_dinh_chi: caseTDC },
       incident: { total: incidentTotal, tam_dinh_chi: incidentTDC },
     };
     console.log(JSON.stringify(summary, null, 2));
   }
-
-  await prisma.$disconnect();
 }
 
-main().catch((e) => {
-  console.error('audit-petition-fields failed:', e);
-  process.exit(1);
-});
+// process.exitCode (not process.exit) so the finally block actually runs.
+main()
+  .catch((e: unknown) => {
+    console.error('audit-petition-fields failed:', e);
+    process.exitCode = 1;
+  })
+  .finally(() => {
+    void prisma.$disconnect();
+  });

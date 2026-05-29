@@ -16,6 +16,26 @@ function tzParts(date: Date, tz: string): { y: number; m: number; d: number } {
   return { y: get('year'), m: get('month'), d: get('day') };
 }
 
+// Module-load ICU probe. Node binaries built with --with-intl=small-icu silently
+// fall back to UTC for non-en-US timezones — Intl.DateTimeFormat doesn't throw,
+// it just returns wrong values. That would silently regress the v0.47 P0 fix
+// (Jan 1 06:30 ICT would stamp documents with year 2026 again, but no test fails
+// in CI because CI Node has full-icu). Fail fast at import time instead.
+function assertFullIcuVnTz(): void {
+  // Dec 31 2026 23:30 UTC = Jan 1 2027 06:30 ICT — VN year MUST be 2027.
+  const probeDate = new Date('2026-12-31T23:30:00Z');
+  const { y } = tzParts(probeDate, DEFAULT_TZ);
+  if (y !== 2027) {
+    throw new Error(
+      `[period-key.util] ICU full data missing or Asia/Ho_Chi_Minh unsupported. ` +
+        `Probe Date(2026-12-31T23:30:00Z) in VN tz returned year ${y}, expected 2027. ` +
+        `Rebuild Node with --with-intl=full-icu or set NODE_ICU_DATA. ` +
+        `Refusing to boot — would silently corrupt document number annual reset.`,
+    );
+  }
+}
+assertFullIcuVnTz();
+
 // Project date into tz, then compute ISO week. Returns { isoYear, isoWeek }.
 // isoYear may differ from civil year at year edges (e.g. Jan 1 in a W53 of previous year).
 function isoWeekParts(date: Date, tz: string): { isoYear: number; isoWeek: number } {

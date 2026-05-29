@@ -260,7 +260,24 @@ export async function seedDocumentNumbers(prisma: PrismaClient): Promise<number>
 
     if (existing) {
       templateId = existing.id;
-      console.log(`  → Template "${spec.name}" (${spec.documentType}) already exists, skipping create`);
+      // v0.47 PR1 T4 — force-refresh segments + counterConfig for new series so
+      // that PR2's FORMULA-segment rewrite propagates to existing rows (skip
+      // behavior would lock in the PR1 hardcoded "Đ1" suffix forever).
+      // Legacy templates keep the skip-on-exists behavior to preserve admin edits.
+      if (NEW_V047_SERIES.has(spec.documentType)) {
+        await (prisma as any).documentNumberTemplate.update({
+          where: { id: existing.id },
+          data: {
+            segments: buildSegments(spec),
+            counterConfig: buildCounterConfig(spec),
+            separator: spec.separator,
+            inputMode: spec.inputMode,
+          },
+        });
+        console.log(`  ↻ Refreshed v0.47 series "${spec.name}" (${spec.documentType})`);
+      } else {
+        console.log(`  → Template "${spec.name}" (${spec.documentType}) already exists, skipping create`);
+      }
     } else {
       const tpl = await (prisma as any).documentNumberTemplate.create({
         data: {

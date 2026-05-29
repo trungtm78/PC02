@@ -22,8 +22,20 @@ describe('v0.47 seed-document-numbers — 4 new series for Document Template Eng
     padding: number;
   }>;
 
+  const V047_SERIES = ['PHIEU_DE_XUAT', 'PHIEU_CHUYEN', 'THONG_BAO', 'HUONG_DAN'];
+
   it('exposes the TEMPLATES array via TEMPLATES_FOR_TEST', () => {
     expect(Array.isArray(TEMPLATES)).toBe(true);
+  });
+
+  // Structural regression guards — catch accidental duplicate / dropped entries.
+  it('contains exactly 10 templates (6 legacy + 4 v0.47)', () => {
+    expect(TEMPLATES).toHaveLength(10);
+  });
+
+  it('every documentType is unique', () => {
+    const types = TEMPLATES.map((t) => t.documentType);
+    expect(new Set(types).size).toBe(types.length);
   });
 
   describe('PHIEU_DE_XUAT (ĐX)', () => {
@@ -59,17 +71,19 @@ describe('v0.47 seed-document-numbers — 4 new series for Document Template Eng
     });
   });
 
-  describe('buildSegments for v0.47 series', () => {
+  describe('buildSegments — coverage across all series', () => {
     const buildSegments = (seedModule as any).buildSegmentsForTest as (s: any) => any[];
 
-    it('produces [COUNTER, LITERAL prefix] (no year segment, counter first)', () => {
-      const segments = buildSegments({
-        documentType: 'PHIEU_DE_XUAT',
-        prefix: 'ĐX-PC02-Đ1',
-      });
+    // Property test: NEW_V047_SERIES gates the shape — if a documentType is added
+    // to TEMPLATES but missed from the Set, it would silently fall back to the
+    // legacy [LITERAL, FORMULA, COUNTER] shape and these tests catch it.
+    it.each(V047_SERIES)('%s produces [COUNTER, LITERAL prefix]', (documentType) => {
+      const spec = TEMPLATES.find((t) => t.documentType === documentType)!;
+      expect(spec).toBeDefined();
+      const segments = buildSegments(spec);
       expect(segments).toEqual([
         { type: 'COUNTER' },
-        { type: 'LITERAL', value: 'ĐX-PC02-Đ1' },
+        { type: 'LITERAL', value: spec.prefix },
       ]);
     });
 
@@ -85,6 +99,23 @@ describe('v0.47 seed-document-numbers — 4 new series for Document Template Eng
         { type: 'COUNTER' },
       ]);
     });
+
+    it.each(['INCIDENT', 'PETITION', 'CASE', 'PROPOSAL', 'DELEGATION', 'EVIDENCE'])(
+      'legacy series %s uses [LITERAL, FORMULA, COUNTER]',
+      (documentType) => {
+        const spec = TEMPLATES.find((t) => t.documentType === documentType)!;
+        expect(spec).toBeDefined();
+        const segments = buildSegments(spec);
+        expect(segments[0]).toEqual({ type: 'LITERAL', value: spec.prefix });
+        expect(segments[1]).toEqual({
+          type: 'FORMULA',
+          fn: 'FORMAT',
+          source: 'NOW',
+          pattern: 'YYYY',
+        });
+        expect(segments[2]).toEqual({ type: 'COUNTER' });
+      },
+    );
   });
 
   it('joining segments with separator yields "0001/ĐX-PC02-Đ1" shape', () => {

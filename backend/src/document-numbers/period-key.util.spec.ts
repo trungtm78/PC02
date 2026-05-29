@@ -46,6 +46,18 @@ describe('computePeriodKey', () => {
       expect(computePeriodKey('MONTHLY', thu)).toBe('2026-01');
       expect(computePeriodKey('MONTHLY', mon)).toBe('2026-05');
     });
+
+    // v0.47 — month boundary across ICT vs UTC. Jan 31 23:30 UTC = Feb 1 06:30 ICT,
+    // so VN month must be "2026-02" while UTC month is "2026-01".
+    it('Feb 1 06:30 ICT (= Jan 31 23:30 UTC) → "2026-02" under default tz', () => {
+      const date = new Date('2026-01-31T23:30:00Z');
+      expect(computePeriodKey('MONTHLY', date)).toBe('2026-02');
+    });
+
+    it('Feb 1 06:30 ICT under explicit tz=UTC → "2026-01" (escape hatch still works)', () => {
+      const date = new Date('2026-01-31T23:30:00Z');
+      expect(computePeriodKey('MONTHLY', date, 'UTC')).toBe('2026-01');
+    });
   });
 
   describe('WEEKLY', () => {
@@ -57,6 +69,24 @@ describe('computePeriodKey', () => {
     it('handles year boundary — Jan 5 2026 (Monday) = W02', () => {
       const jan5 = new Date('2026-01-05T10:00:00Z');
       expect(computePeriodKey('WEEKLY', jan5)).toBe('2026-W02');
+    });
+
+    // v0.47 — ISO week year boundaries where civil year != ISO year.
+    it('Dec 29 2025 (Monday) → "2026-W01" (ISO year ahead of civil year)', () => {
+      const date = new Date('2025-12-29T10:00:00Z');
+      expect(computePeriodKey('WEEKLY', date)).toBe('2026-W01');
+    });
+
+    it('Jan 1 2027 (Friday) → "2026-W53" (ISO year behind civil year)', () => {
+      const date = new Date('2027-01-01T10:00:00Z');
+      expect(computePeriodKey('WEEKLY', date)).toBe('2026-W53');
+    });
+
+    // ICT vs UTC week boundary — Sunday Jan 4 23:30 UTC = Mon Jan 5 06:30 ICT,
+    // which is in W02 not W01 under VN tz.
+    it('Mon Jan 5 06:30 ICT (= Sun Jan 4 23:30 UTC) → "2026-W02" under default tz', () => {
+      const date = new Date('2026-01-04T23:30:00Z');
+      expect(computePeriodKey('WEEKLY', date)).toBe('2026-W02');
     });
   });
 
