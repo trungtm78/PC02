@@ -23,6 +23,7 @@ interface CaseRow {
   id: string;
   status?: string;
   caseCode?: string;
+  deletedAt?: string | null;
 }
 
 const exportAction: BulkAction<CaseRow> = {
@@ -81,16 +82,72 @@ const assignAction: BulkAction<CaseRow> = {
   },
 };
 
+/**
+ * v0.49 PR2 — Bulk-delete Cases.
+ *
+ * Per-row eligibility (UI-side hint, backend enforce):
+ * - status TIEP_NHAN only.
+ * - rowEligibility chỉ hint cho UI (checkbox disabled + tooltip). Backend chính
+ *   xác là source of truth (preflight TIEP_NHAN + no linked + creator-or-admin).
+ *
+ * requiresPreview=true → confirm modal với reason 10-500 chars + escalating
+ * friction (10/50/200) ở BulkActionBar.
+ */
+const deleteAction: BulkAction<CaseRow> = {
+  key: 'delete',
+  label: 'Xóa',
+  variant: 'danger',
+  permission: { resource: 'cases', action: 'delete' },
+  requiresPreview: true,
+  allowsAllMatchingFilter: false,
+  rowEligibility: (row) =>
+    row.status === 'TIEP_NHAN'
+      ? null
+      : 'Chỉ xóa được vụ án ở trạng thái Tiếp nhận',
+  execute: async ({ ids, reason, idempotencyKey }) => {
+    const response = await api.post('/cases/bulk-delete', {
+      ids,
+      reason: reason ?? 'Xóa hàng loạt',
+      idempotencyKey,
+    });
+    return response.data as BulkResult<{ caseId: string }>;
+  },
+};
+
+/**
+ * v0.49 PR2 — Bulk-restore Cases (admin-only at backend).
+ * Frontend permission gate dùng action 'edit' (mock layer); backend gate 'restore'.
+ */
+const restoreAction: BulkAction<CaseRow> = {
+  key: 'restore',
+  label: 'Khôi phục',
+  variant: 'primary',
+  permission: { resource: 'cases', action: 'edit' },
+  requiresPreview: true,
+  allowsAllMatchingFilter: false,
+  execute: async ({ ids, reason, idempotencyKey }) => {
+    const response = await api.post('/cases/bulk-restore', {
+      ids,
+      reason: reason ?? 'Khôi phục hàng loạt',
+      idempotencyKey,
+    });
+    return response.data as BulkResult<{ caseId: string }>;
+  },
+};
+
 export function buildCasesAdapter(opts?: {
   fetchAllIdsMatchingFilter?: () => Promise<string[]>;
-  /**
-   * Bật assign action (cần team picker modal trong UI để chọn assignedTeamId).
-   * v0.48 PR1 ship export-only; assign defer next PR khi team picker modal sẵn.
-   */
+  /** Bật assign action (cần team picker modal). v0.49 vẫn defer. */
   enableAssign?: boolean;
+  /** Bật bulk-delete action — v0.49 PR2. */
+  enableDelete?: boolean;
+  /** Bật bulk-restore action (admin admin-deleted list page). */
+  enableRestore?: boolean;
 }): BulkAdapter<CaseRow> {
   const actions: BulkAction<CaseRow>[] = [exportAction];
   if (opts?.enableAssign) actions.push(assignAction);
+  if (opts?.enableDelete) actions.push(deleteAction);
+  if (opts?.enableRestore) actions.push(restoreAction);
   return {
     resource: 'cases',
     resourceLabel: 'vụ án',

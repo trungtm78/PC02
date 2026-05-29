@@ -298,9 +298,9 @@ function CaseListPage() {
     rowKey: "id",
     pageRows: displayedCases,
   });
-  // v0.48 PR1 enableAssign=false (chỉ ship export). Assign action chờ team picker
-  // modal ở PR sau. Filter chips banner cho "select all matching filter" cũng defer.
-  const bulkAdapter = buildCasesAdapter();
+  // v0.49 PR2: enableDelete=true (bulk-delete với preview modal danger variant).
+  // Assign defer cho team picker modal (sprint sau). Restore admin chỉ enable ở admin list page.
+  const bulkAdapter = buildCasesAdapter({ enableDelete: true });
   const [bulkResult, setBulkResult] = useState<BulkResult | null>(null);
   const [bulkResultLabel, setBulkResultLabel] = useState("");
 

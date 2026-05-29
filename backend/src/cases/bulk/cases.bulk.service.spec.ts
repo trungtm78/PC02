@@ -385,3 +385,238 @@ describe('CasesBulkService.bulkExport — v0.48 B3b', () => {
     ).rejects.toThrow(BadRequestException);
   });
 });
+
+// ───────────────────────────────────────────────
+// v0.49 PR2 — Cases bulk-delete + bulk-restore
+// Plan v2 PR2: pairs with v0.32 soft-delete + restore endpoints existing.
+// ───────────────────────────────────────────────
+describe('CasesBulkService.bulkDelete — v0.49 PR2', () => {
+  let service: CasesBulkService;
+  let mockPrisma: any;
+  let mockAudit: any;
+
+  const adminScope: DataScope = {
+    userIds: [],
+    teamIds: [],
+    writableTeamIds: [],
+    canDispatch: true,
+    isWardOfficer: false,
+  } as DataScope;
+
+  // Default mock: all 3 cases eligible (TIEP_NHAN, no linked, owned by actor, fresh).
+  const eligibleCase = (id: string, createdById = 'actor-1') => ({
+    id,
+    status: 'TIEP_NHAN',
+    createdById,
+    createdAt: new Date(Date.now() - 1_000 * 60 * 60), // 1h ago
+    subjects: [],
+    lawyers: [],
+    conclusions: [],
+    documents: [],
+    name: `Vụ ${id}`,
+  });
+
+  beforeEach(async () => {
+    mockPrisma = {
+      case: {
+        findMany: jest
+          .fn()
+          .mockResolvedValue([eligibleCase('case-1'), eligibleCase('case-2')]),
+      },
+      $executeRaw: jest.fn().mockResolvedValue(1),
+      $transaction: jest.fn(async (cb: any) => {
+        return cb({
+          case: { update: jest.fn().mockResolvedValue({ id: 'mocked' }) },
+          $executeRaw: jest.fn().mockResolvedValue(1),
+        });
+      }),
+    };
+    mockAudit = {
+      logBulkHeader: jest.fn().mockResolvedValue({ bulkOperationId: 'bulk-del-1' }),
+      logBulkItem: jest.fn().mockResolvedValue(undefined),
+      completeBulk: jest.fn().mockResolvedValue(undefined),
+      log: jest.fn().mockResolvedValue(undefined),
+    };
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        CasesBulkService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: AuditService, useValue: mockAudit },
+      ],
+    }).compile();
+    service = module.get<CasesBulkService>(CasesBulkService);
+  });
+
+  const baseInput = {
+    ids: ['case-1', 'case-2'],
+    reason: 'gỡ vụ án trùng lặp',
+    actorId: 'actor-1',
+    actorRole: 'INVESTIGATOR',
+    dataScope: adminScope,
+  };
+
+  it('happy path: deletes 2 eligible cases với reason, action BULK_DELETE', async () => {
+    const result = await service.bulkDelete(baseInput);
+    expect(result.succeeded).toHaveLength(2);
+    expect(result.skipped).toHaveLength(0);
+    expect(mockAudit.logBulkHeader).toHaveBeenCalledWith(
+      expect.objectContaining({ resource: 'Case', action: 'BULK_DELETE' }),
+    );
+  });
+
+  it('skips cases status ≠ TIEP_NHAN với INELIGIBLE (match single-delete invariant)', async () => {
+    const inProgress = eligibleCase('case-2');
+    inProgress.status = 'XAC_MINH';
+    mockPrisma.case.findMany.mockResolvedValue([eligibleCase('case-1'), inProgress]);
+
+    const result = await service.bulkDelete(baseInput);
+    expect(result.succeeded.map((s) => s.id)).toEqual(['case-1']);
+    expect(result.skipped).toContainEqual(
+      expect.objectContaining({
+        id: 'case-2',
+        reason: 'INELIGIBLE',
+        message: expect.stringContaining('Tiếp nhận'),
+      }),
+    );
+  });
+
+  it('skips cases có linked subjects/lawyers/conclusions/documents với INELIGIBLE', async () => {
+    const withSubject = eligibleCase('case-1');
+    withSubject.subjects = [{ id: 's-1' }] as any;
+    mockPrisma.case.findMany.mockResolvedValue([withSubject]);
+
+    const result = await service.bulkDelete({ ...baseInput, ids: ['case-1'] });
+    expect(result.succeeded).toHaveLength(0);
+    expect(result.skipped[0]).toEqual(
+      expect.objectContaining({
+        id: 'case-1',
+        reason: 'INELIGIBLE',
+        message: expect.stringContaining('đối tượng'),
+      }),
+    );
+  });
+
+  it('non-admin actor: skip case của user khác với INELIGIBLE', async () => {
+    mockPrisma.case.findMany.mockResolvedValue([
+      eligibleCase('case-1', 'other-user'),
+    ]);
+    const result = await service.bulkDelete({ ...baseInput, ids: ['case-1'] });
+    expect(result.skipped[0]).toEqual(
+      expect.objectContaining({
+        id: 'case-1',
+        reason: 'INELIGIBLE',
+        message: expect.stringContaining('người tạo'),
+      }),
+    );
+  });
+
+  it('ADMIN actor bypass creator check', async () => {
+    mockPrisma.case.findMany.mockResolvedValue([
+      eligibleCase('case-1', 'someone-else'),
+    ]);
+    const result = await service.bulkDelete({
+      ...baseInput,
+      ids: ['case-1'],
+      actorRole: 'ADMIN',
+    });
+    expect(result.succeeded).toHaveLength(1);
+  });
+
+  it('rejects empty + > 100 ids (write cap, plan eng E-H7)', async () => {
+    await expect(service.bulkDelete({ ...baseInput, ids: [] })).rejects.toThrow(
+      BadRequestException,
+    );
+    await expect(
+      service.bulkDelete({
+        ...baseInput,
+        ids: Array.from({ length: 101 }, (_, i) => `c-${i}`),
+      }),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('audit item INSIDE per-item tx với action CASE_DELETED', async () => {
+    await service.bulkDelete(baseInput);
+    expect(mockAudit.logBulkItem).toHaveBeenCalledTimes(2);
+    for (const call of mockAudit.logBulkItem.mock.calls) {
+      expect(call[0]).toEqual(expect.objectContaining({ action: 'CASE_DELETED' }));
+      expect(call[1]).toBeDefined();
+    }
+  });
+});
+
+describe('CasesBulkService.bulkRestore — v0.49 PR2', () => {
+  let service: CasesBulkService;
+  let mockPrisma: any;
+  let mockAudit: any;
+
+  beforeEach(async () => {
+    mockPrisma = {
+      case: {
+        findMany: jest.fn().mockResolvedValue([
+          { id: 'case-1', deletedAt: new Date(Date.now() - 60_000), name: 'V1' },
+          { id: 'case-2', deletedAt: new Date(Date.now() - 60_000), name: 'V2' },
+        ]),
+      },
+      $executeRaw: jest.fn().mockResolvedValue(1),
+      $transaction: jest.fn(async (cb: any) => {
+        return cb({
+          case: { update: jest.fn().mockResolvedValue({ id: 'mocked' }) },
+          $executeRaw: jest.fn().mockResolvedValue(1),
+        });
+      }),
+    };
+    mockAudit = {
+      logBulkHeader: jest.fn().mockResolvedValue({ bulkOperationId: 'bulk-r-1' }),
+      logBulkItem: jest.fn().mockResolvedValue(undefined),
+      completeBulk: jest.fn().mockResolvedValue(undefined),
+    };
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        CasesBulkService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: AuditService, useValue: mockAudit },
+      ],
+    }).compile();
+    service = module.get<CasesBulkService>(CasesBulkService);
+  });
+
+  it('admin restores 2 soft-deleted cases với action BULK_RESTORE', async () => {
+    const result = await service.bulkRestore({
+      ids: ['case-1', 'case-2'],
+      reason: 'khôi phục theo công văn',
+      actorId: 'admin-1',
+    });
+    expect(result.succeeded).toHaveLength(2);
+    expect(mockAudit.logBulkHeader).toHaveBeenCalledWith(
+      expect.objectContaining({ resource: 'Case', action: 'BULK_RESTORE' }),
+    );
+  });
+
+  it('skips cases không bị xóa (deletedAt = null) với NOT_FOUND', async () => {
+    mockPrisma.case.findMany.mockResolvedValue([
+      { id: 'case-1', deletedAt: new Date(), name: 'OK' },
+    ]);
+    const result = await service.bulkRestore({
+      ids: ['case-1', 'case-2'],
+      reason: 'khôi phục',
+      actorId: 'admin-1',
+    });
+    expect(result.succeeded.map((s) => s.id)).toEqual(['case-1']);
+    expect(result.skipped).toContainEqual(
+      expect.objectContaining({ id: 'case-2', reason: 'NOT_FOUND' }),
+    );
+  });
+
+  it('rejects empty + > 100 ids', async () => {
+    await expect(
+      service.bulkRestore({ ids: [], reason: 'ok 10 chars', actorId: 'a' }),
+    ).rejects.toThrow(BadRequestException);
+    await expect(
+      service.bulkRestore({
+        ids: Array.from({ length: 101 }, (_, i) => `c-${i}`),
+        reason: 'ok 10 chars',
+        actorId: 'a',
+      }),
+    ).rejects.toThrow(BadRequestException);
+  });
+});
