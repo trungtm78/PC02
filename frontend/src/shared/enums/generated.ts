@@ -248,8 +248,6 @@ export const NotificationType = {
   PETITION_ASSIGNED: 'PETITION_ASSIGNED',
   UTDT_ASSIGNED: 'UTDT_ASSIGNED',
   INCIDENT_CREATED: 'INCIDENT_CREATED',
-  CASE_STATUS_CHANGED_NOTIFY: 'CASE_STATUS_CHANGED_NOTIFY',
-  PETITION_RECEIVED_NOTIFY: 'PETITION_RECEIVED_NOTIFY',
 } as const;
 export type NotificationType = (typeof NotificationType)[keyof typeof NotificationType];
 

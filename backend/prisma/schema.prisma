@@ -57,24 +57,24 @@ model RolePermission {
 // ─────────────────────────────────────────────
 
 model User {
-  id                 String    @id @default(cuid())
+  id                  String    @id @default(cuid())
   // Magic link enrollment (post-/autoplan): email nullable cho user không có email.
   // Login lookup multi-field qua regex disambiguator (auth.service.ts) — workId/phone/email/username.
-  email              String?   @unique
-  username           String    @unique
-  passwordHash       String
-  firstName          String?
-  lastName           String?
-  workId             String?   @unique // Mã cán bộ (XXX-XXX) — partial unique cho non-null
-  phone              String? // KHÔNG @unique (vợ chồng share — CEO finding #10)
+  email               String?   @unique
+  username            String    @unique
+  passwordHash        String
+  firstName           String?
+  lastName            String?
+  workId              String?   @unique // Mã cán bộ (XXX-XXX) — partial unique cho non-null
+  phone               String? // KHÔNG @unique (vợ chồng share — CEO finding #10)
   // Magic link enrollment fields. Token bcrypt-hash + TTL 72h. NULL sau khi user consume.
   enrollmentTokenHash String?
   enrollmentExpiresAt DateTime?
-  departmentId       String? // ID đơn vị từ danh mục
-  isActive           Boolean   @default(true)
-  roleId             String
-  refreshTokenHash   String? // hashed refresh token for rotation
-  tokenVersion       Int       @default(0) // incremented on password change to invalidate existing JWTs
+  departmentId        String? // ID đơn vị từ danh mục
+  isActive            Boolean   @default(true)
+  roleId              String
+  refreshTokenHash    String? // hashed refresh token for rotation
+  tokenVersion        Int       @default(0) // incremented on password change to invalidate existing JWTs
   // Sprint 1 / S1.2 — account lockout: counter tăng theo mỗi lần fail password,
   // reset về 0 khi login success. Khi đạt MAX_FAILED_LOGIN_ATTEMPTS thì set
   // lockedUntil = now + LOCKOUT_DURATION_MS. Locked user bị reject ở login
@@ -82,29 +82,32 @@ model User {
   failedLoginAttempts Int       @default(0)
   lockedUntil         DateTime?
   lastFailedLoginAt   DateTime?
-  canDispatch        Boolean   @default(false) // supplementary permission: read all + assign/reassign any record
-  lastLoginAt        DateTime?
+  canDispatch         Boolean   @default(false) // supplementary permission: read all + assign/reassign any record
+  lastLoginAt         DateTime?
+  // v0.47 — quân hàm để render trên Phiếu đề xuất + 5 doc khác (Nghị định 30/2020)
+  // Single source of truth for officer rank; previously denormalized on Team (superseded F4).
+  rank                String? // "Trung tá" | "Thượng tá" | "Đại úy" | ...
   // 2FA fields
-  totpSecret         String? // AES-256-GCM encrypted base32 secret
-  totpEnabled        Boolean   @default(false)
+  totpSecret          String? // AES-256-GCM encrypted base32 secret
+  totpEnabled         Boolean   @default(false)
   // Sprint 2 / S2.4 — buộc user setup 2FA trước khi dùng app.
   // Default true cho user MỚI (login đầu tiên redirect setup). Existing users
   // được seed false để không break flow hiện tại; admin có thể bật cho ai cần.
-  twoFaSetupRequired Boolean   @default(true)
-  totpSetupPending   Boolean   @default(false)
-  totpSetupPendingAt DateTime?
-  backupCodes        String[]
-  backupCodeSalts    String[]
-  lastTotpCode       String? // replay protection — last used TOTP code in current window
-  twoFaSetupAt       DateTime?
-  twoFaUsedAt        DateTime? // OV-002: marks twoFaToken as consumed, survives restart
+  twoFaSetupRequired  Boolean   @default(true)
+  totpSetupPending    Boolean   @default(false)
+  totpSetupPendingAt  DateTime?
+  backupCodes         String[]
+  backupCodeSalts     String[]
+  lastTotpCode        String? // replay protection — last used TOTP code in current window
+  twoFaSetupAt        DateTime?
+  twoFaUsedAt         DateTime? // OV-002: marks twoFaToken as consumed, survives restart
   // Force first-login password change (D1+F1): set true when admin creates user OR resets password.
   // Cleared when user completes /auth/first-login-change-password.
   // Used as state-derived single-use marker for the change_password_pending token (per H1 review).
-  mustChangePassword Boolean   @default(false)
-  passwordChangedAt  DateTime? // last successful password change (admin reset or user-initiated)
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  mustChangePassword  Boolean   @default(false)
+  passwordChangedAt   DateTime? // last successful password change (admin reset or user-initiated)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
   role                            Role                      @relation(fields: [roleId], references: [id])
   auditLogs                       AuditLog[]
@@ -141,6 +144,15 @@ model User {
   reportTdcReviewed               ReportTdcDraft[]          @relation("ReportReviewedBy")
   reportTdcApproved               ReportTdcDraft[]          @relation("ReportApprovedBy")
   reportTdcRejected               ReportTdcDraft[]          @relation("ReportRejectedBy")
+  // v0.47 — Document Template Engine + Track B xlsx import reverse relations
+  casesImported                   Case[]                    @relation("CaseImportedBy")
+  incidentsImported               Incident[]                @relation("IncidentImportedBy")
+  documentRenders                 DocumentRenderLog[]       @relation("RenderedBy")
+  xlsxUploads                     XlsxImportLog[]           @relation("XlsxImportUploader")
+  xlsxFirstConfirms               XlsxImportLog[]           @relation("XlsxFirstConfirm")
+  xlsxSecondConfirms              XlsxImportLog[]           @relation("XlsxSecondConfirm")
+  xlsxRollbacks                   XlsxImportLog[]           @relation("XlsxRolledBack")
+  phuLucReports                   PhuLucReportLog[]         @relation("PhuLucGeneratedBy")
   // Deadline rule versioning
   deadlineRulesProposed           DeadlineRuleVersion[]     @relation("DeadlineRuleProposer")
   deadlineRulesReviewed           DeadlineRuleVersion[]     @relation("DeadlineRuleReviewer")
@@ -237,13 +249,13 @@ model Directory {
   updatedAt      DateTime  @updatedAt
 
   // v0.33.0.0: inverse — Teams gắn ward (geographic teams)
-  teams          Team[]    @relation("TeamWard")
+  teams Team[] @relation("TeamWard")
 
   // v0.34.0.0: snapshot pattern metadata (WARD/PROVINCE only — NULL cho type khác)
-  officialCode   String? // mã chính danh Bộ Nội vụ (vd "26506" cho Phường 1 TPHCM)
-  sourceVersion  String? // vd "v2024-1279" — version dataset đã import row này
+  officialCode  String? // mã chính danh Bộ Nội vụ (vd "26506" cho Phường 1 TPHCM)
+  sourceVersion String? // vd "v2024-1279" — version dataset đã import row này
   legalBasis    String? // vd "Nghị quyết 1279/QH15 ngày 12/06/2024"
-  importedAt     DateTime? // thời điểm import từ dataset
+  importedAt    DateTime? // thời điểm import từ dataset
 
   @@unique([type, code])
   // v0.34.0.0: partial index on (type, officialCode) created via separate CONCURRENTLY
@@ -255,16 +267,16 @@ model Directory {
 // v0.34.0.0: Dataset import ledger (state machine cho snapshot import)
 // Mỗi version chỉ có 1 ACTIVE row tại 1 thời điểm (partial unique index)
 model AdminUnitDatasetImport {
-  version          String    @id // vd "v2024-1279"
-  status           String // IMPORTING | ACTIVE | SUPERSEDED | FAILED
-  checksum         String // SHA256 hex
-  addedProvinces   Int       @default(0)
-  addedWards       Int       @default(0)
-  updatedWards     Int       @default(0)
-  abolishedWards   Int       @default(0)
-  importedAt       DateTime  @default(now())
-  completedAt      DateTime?
-  errorMessage     String?
+  version        String    @id // vd "v2024-1279"
+  status         String // IMPORTING | ACTIVE | SUPERSEDED | FAILED
+  checksum       String // SHA256 hex
+  addedProvinces Int       @default(0)
+  addedWards     Int       @default(0)
+  updatedWards   Int       @default(0)
+  abolishedWards Int       @default(0)
+  importedAt     DateTime  @default(now())
+  completedAt    DateTime?
+  errorMessage   String?
 
   @@map("admin_unit_dataset_imports")
 }
@@ -492,10 +504,24 @@ model Case {
   ketQuaPhucHoiVuAn     KetQuaPhucHoiVuAn?
   ngayHetThoiHieu       DateTime? // Ngày hết thời hiệu truy cứu TNHS (dùng cho Phụ lục 5 vs 6)
 
+  // v0.47 — TĐC khắc phục fields cho Phụ lục 05/06 (Vụ án TĐC)
+  tdcKhacPhucLyDoBienPhap String? // Biện pháp khắc phục lý do TĐC
+  tdcKhacPhucBienBan      String? // BB trao đổi VKS, KH khắc phục (số/ngày)
+
+  // v0.47 — Import audit (Track B xlsx import) — per-row provenance per Codex #3
+  importedFrom String? // "xlsx-phu-luc" | "manual" | "api"
+  importedAt   DateTime?
+  importedById String?
+  importedBy   User?               @relation("CaseImportedBy", fields: [importedById], references: [id], onDelete: SetNull)
+  sourceFile   String? // filename "DOI6 - ... xlsx"
+  importLogId  String?
+  importLog    XlsxImportLog?      @relation("XlsxImportLogCases", fields: [importLogId], references: [id], onDelete: SetNull)
+  renderLogs   DocumentRenderLog[]
+
   // v0.31.0.2: creator track cho delete-with-reason (creator-or-admin check)
   // Legacy rows (pre-migration) = NULL → ADMIN-only delete (specific error message)
-  createdById     String?
-  createdBy       User?                     @relation("CaseCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  createdById String?
+  createdBy   User?   @relation("CaseCreator", fields: [createdById], references: [id], onDelete: SetNull)
 
   // v0.36.0.0 Phase 5-lite: warning flag — set true khi update sau Team.editWindowHours
   // (mặc định 168h theo BLTTHS Đ.147). Read-only audit, không enforce.
@@ -508,12 +534,12 @@ model Case {
   linkedPetitionId   String?
   // PR 2 v0.38.1.0: @unique enforce 1 Incident ↔ 1 Case strict (eng-review D2)
   // Edge case "1 vụ việc tách 2 vụ án" → clone Incident với mã VV mới.
-  linkedIncidentId   String? @unique
+  linkedIncidentId   String?        @unique
   sourceDocumentNote String? // Ghi chú nguồn cho DIRECT_DISCOVERY / TRANSFERRED / OTHER_LEGAL_SOURCE
 
   // onDelete: Restrict — provenance không erase. App dùng soft delete.
-  linkedPetition     Petition? @relation("CaseSourcePetition", fields: [linkedPetitionId], references: [id], onDelete: Restrict)
-  linkedIncident     Incident? @relation("CaseSourceIncident", fields: [linkedIncidentId], references: [id], onDelete: Restrict)
+  linkedPetition Petition? @relation("CaseSourcePetition", fields: [linkedPetitionId], references: [id], onDelete: Restrict)
+  linkedIncident Incident? @relation("CaseSourceIncident", fields: [linkedIncidentId], references: [id], onDelete: Restrict)
 
   investigator    User?                     @relation(fields: [investigatorId], references: [id], onDelete: SetNull)
   assignedTeamId  String?
@@ -533,15 +559,15 @@ model Case {
   actionPlans     SuspensionActionPlan[]
 
   // v0.44 — Ủy Thác Điều Tra fields (nullable, chỉ relevant khi caseType = UY_THAC_DIEU_TRA)
-  caseType            CaseType    @default(REGULAR)                @map("case_type")
-  donViGiao           String?                                      @map("don_vi_giao")           // Tên CQĐT/đơn vị ủy thác (PC01, CA quận X...)
-  soQuyetDinhUyThac   String?                                      @map("so_quyet_dinh_uy_thac") // Số QĐ/Phiếu ủy thác từ đơn vị giao (Mẫu 58 TT119/2021)
-  ngayTiepNhan        DateTime?                                    @map("ngay_tiep_nhan")        // Ngày tiếp nhận theo biên bản
-  thoiHanUyThac       DateTime?                                    @map("thoi_han_uy_thac")      // Thời hạn thực hiện do đơn vị giao yêu cầu
-  loaiUyThac          LoaiUyThac?                                  @map("loai_uy_thac")          // Loại ủy thác (closed-set enum)
-  ketQuaUyThac        String?                                      @map("ket_qua_uy_thac")       // Kết quả điều tra
-  ngayTraKetQua       DateTime?                                    @map("ngay_tra_ket_qua")      // Ngày trả kết quả về đơn vị ủy thác
-  loaiThongTin        String?                                      @map("loai_thong_tin")        // Tố giác / Trình báo / Đề nghị / Kiến nghị...
+  caseType          CaseType    @default(REGULAR) @map("case_type")
+  donViGiao         String?     @map("don_vi_giao") // Tên CQĐT/đơn vị ủy thác (PC01, CA quận X...)
+  soQuyetDinhUyThac String?     @map("so_quyet_dinh_uy_thac") // Số QĐ/Phiếu ủy thác từ đơn vị giao (Mẫu 58 TT119/2021)
+  ngayTiepNhan      DateTime?   @map("ngay_tiep_nhan") // Ngày tiếp nhận theo biên bản
+  thoiHanUyThac     DateTime?   @map("thoi_han_uy_thac") // Thời hạn thực hiện do đơn vị giao yêu cầu
+  loaiUyThac        LoaiUyThac? @map("loai_uy_thac") // Loại ủy thác (closed-set enum)
+  ketQuaUyThac      String?     @map("ket_qua_uy_thac") // Kết quả điều tra
+  ngayTraKetQua     DateTime?   @map("ngay_tra_ket_qua") // Ngày trả kết quả về đơn vị ủy thác
+  loaiThongTin      String?     @map("loai_thong_tin") // Tố giác / Trình báo / Đề nghị / Kiến nghị...
 
   @@index([status])
   @@index([deadline])
@@ -699,7 +725,7 @@ model Petition {
   linkedCase     Case?     @relation("PetitionLinkedCase", fields: [linkedCaseId], references: [id], onDelete: SetNull)
   linkedIncident Incident? @relation("PetitionLinkedIncident", fields: [linkedIncidentId], references: [id], onDelete: SetNull)
   // v0.37.1: reverse side of Case.linkedPetition (CaseSourcePetition relation)
-  sourceForCases Case[] @relation("CaseSourcePetition")
+  sourceForCases Case[]    @relation("CaseSourcePetition")
   assignedTeamId String?
   assignedTeam   Team?     @relation("PetitionTeam", fields: [assignedTeamId], references: [id], onDelete: SetNull)
 
@@ -709,6 +735,25 @@ model Petition {
 
   // v0.36.0.0 Phase 5-lite: warning flag (audit-only)
   editedAfterWindow Boolean @default(false)
+
+  // v0.47 — Nội dung nghiệp vụ cho Document Template Engine (6 doc types).
+  // Free-text business fields, optional vì doc type khác nhau dùng subset khác nhau.
+  // No flat docNumber cache columns (use DocumentNumberLog) and no audit columns
+  // per docType (use DocumentRenderLog) — superseded plan decisions CQ2 + CQ3.
+  nhanThay         String? // "Nhận thấy:" — đánh giá của cán bộ (Phiếu đề xuất)
+  deXuat           String? // "Đề xuất xử lý:" — Phiếu đề xuất
+  raSoatTrung      String? // "Kết quả rà soát đơn/vụ trùng" — Phiếu đề xuất
+  baoCaoBanGiamDoc Boolean   @default(false) // "Báo cáo Ban Giám đốc" — Phiếu đề xuất
+  petitionDate     DateTime? // Ngày ghi trên đơn (khác receivedDate = ngày tiếp nhận)
+  nguonDon         String? // Nguồn đơn (Trại tạm giam X, công an phường Y...) — khác senderAddress
+  subTeamAssigned  String? // "Tổ công tác Số X" (free text, có thể FK hóa sau)
+  lyDoChuyen       String? // Lý do chuyển — Phiếu chuyển (#2, #3)
+  canCuPhapLy      String? // Căn cứ pháp lý chuyển (BLTTHS Đ.36/145/146) — Phiếu chuyển nguồn tin
+  huongDanKhoiKien String? // Hướng dẫn khởi kiện — Thông báo hướng dẫn (#5)
+  lyDoTraDon       String? // Lý do trả lại đơn — Thông báo trả đơn (#6)
+
+  // v0.47 — DocumentRenderLog reverse relation (audit trail per render).
+  renderLogs DocumentRenderLog[]
 
   @@index([status])
   @@index([receivedDate])
@@ -759,26 +804,26 @@ model Incident {
   sourcePetitionId String? // Nguồn gốc nếu từ đơn thư
 
   // Thông tin nguồn tin (Đ.144 BLTTHS 2015)
-  doiTuongCaNhan    String? // Đối tượng bị tố giác (TT119 Mẫu 01)
-  doiTuongToChuc    String? // Tổ chức liên quan
-  loaiDonVu         LoaiNguonTin? // Loại nguồn tin (Điều 144 BLTTHS 2015)
-  nguonPhatTin      NguonPhatTin? // Sub-type cascading từ loaiDonVu (Đ.144 BLTTHS) — v0.31.0.0
+  doiTuongCaNhan     String? // Đối tượng bị tố giác (TT119 Mẫu 01)
+  doiTuongToChuc     String? // Tổ chức liên quan
+  loaiDonVu          LoaiNguonTin? // Loại nguồn tin (Điều 144 BLTTHS 2015)
+  nguonPhatTin       NguonPhatTin? // Sub-type cascading từ loaiDonVu (Đ.144 BLTTHS) — v0.31.0.0
   phuongThucTiepNhan PhuongThucTiepNhan? // Phương thức tiếp nhận (TT 28/2020/TT-BCA Đ.6) — v0.31.0.0
-  benVu             String? // Người tố giác/báo tin (Đ.144 BLTTHS)
-  donViGiaiQuyet    String? // Đơn vị thụ lý (Đ.145 BLTTHS)
-  ngayDeXuat        DateTime? // Ngày tiếp nhận nguồn tin (Đ.146 BLTTHS)
-  ketQuaXuLy        String? // Kết quả giải quyết nguồn tin (free-form text, mô tả chi tiết)
+  benVu              String? // Người tố giác/báo tin (Đ.144 BLTTHS)
+  donViGiaiQuyet     String? // Đơn vị thụ lý (Đ.145 BLTTHS)
+  ngayDeXuat         DateTime? // Ngày tiếp nhận nguồn tin (Đ.146 BLTTHS)
+  ketQuaXuLy         String? // Kết quả giải quyết nguồn tin (free-form text, mô tả chi tiết)
   // PR 5 v0.38.4.0: loại kết quả chuẩn hóa cho reporting + entry path 3 detection
   // Wireframe 5 — anh confirm trong session twinkly-crescent
-  loaiKetQua        String? // KHOI_TO | KHONG_KHOI_TO | TAM_DINH_CHI | CHUYEN_HO_SO | DINH_CHI | KHAC
+  loaiKetQua         String? // KHOI_TO | KHONG_KHOI_TO | TAM_DINH_CHI | CHUYEN_HO_SO | DINH_CHI | KHAC
   // PR 5: Căn cứ khởi tố vụ án (Đ.143 BLTTHS) — optional, code khớp CaseProvenance enum
   // Khi convert Incident → Case, value transfer sang Case.caseProvenance
-  canCuKhoiToCode   String? // ref Directory(type=CAN_CU_KHOI_TO, code) — em đã seed 7 entries
-  tinhTrangHoSo     String? // Tình trạng hồ sơ
-  tinhTrangThoiHieu String? // Tình trạng thời hiệu truy cứu TNHS
-  nguoiQuyetDinh    String? // Người ra quyết định (Thủ trưởng/Phó TT CQĐT)
-  chuyenDenDonVi    String? // Đơn vị được chuyển đến
-  chuyenTuDonVi     String? // Đơn vị chuyển đi (audit trail)
+  canCuKhoiToCode    String? // ref Directory(type=CAN_CU_KHOI_TO, code) — em đã seed 7 entries
+  tinhTrangHoSo      String? // Tình trạng hồ sơ
+  tinhTrangThoiHieu  String? // Tình trạng thời hiệu truy cứu TNHS
+  nguoiQuyetDinh     String? // Người ra quyết định (Thủ trưởng/Phó TT CQĐT)
+  chuyenDenDonVi     String? // Đơn vị được chuyển đến
+  chuyenTuDonVi      String? // Đơn vị chuyển đi (audit trail)
 
   // Thông tin nghiệp vụ bổ sung theo BLTTHS
   soQuyetDinh             String? // Số quyết định (khởi tố/không khởi tố/TĐC/phục hồi)
@@ -851,6 +896,20 @@ model Incident {
 
   // v0.36.0.0 Phase 5-lite: warning flag (audit-only)
   editedAfterWindow Boolean @default(false)
+
+  // v0.47 — TĐC khắc phục fields cho Phụ lục 02/03 (Vụ việc TĐC)
+  tdcKhacPhucLyDoBienPhap String? // Biện pháp khắc phục lý do TĐC
+  tdcKhacPhucBienBan      String? // BB trao đổi VKS, KH khắc phục (số/ngày)
+
+  // v0.47 — Import audit (Track B xlsx import) — per-row provenance per Codex #3
+  importedFrom String?
+  importedAt   DateTime?
+  importedById String?
+  importedBy   User?               @relation("IncidentImportedBy", fields: [importedById], references: [id], onDelete: SetNull)
+  sourceFile   String?
+  importLogId  String?
+  importLog    XlsxImportLog?      @relation("XlsxImportLogIncidents", fields: [importLogId], references: [id], onDelete: SetNull)
+  renderLogs   DocumentRenderLog[]
 
   @@index([status])
   @@index([deletedAt])
@@ -1333,22 +1392,22 @@ model MasterClass {
 // ─────────────────────────────────────────────
 
 model Team {
-  id        String   @id @default(cuid())
-  name      String   @unique
-  code      String   @unique
-  level     Int      @default(0)
-  parentId  String?
-  parent    Team?    @relation("TeamHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
-  children  Team[]   @relation("TeamHierarchy")
-  order     Int      @default(0)
-  isActive  Boolean  @default(true)
+  id              String     @id @default(cuid())
+  name            String     @unique
+  code            String     @unique
+  level           Int        @default(0)
+  parentId        String?
+  parent          Team?      @relation("TeamHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children        Team[]     @relation("TeamHierarchy")
+  order           Int        @default(0)
+  isActive        Boolean    @default(true)
   // v0.33.0.0: Hybrid ward scoping — Team có thể là functional (wardId=null) hoặc geographic (wardId set)
-  wardId    String?
-  ward      Directory? @relation("TeamWard", fields: [wardId], references: [id], onDelete: SetNull)
+  wardId          String?
+  ward            Directory? @relation("TeamWard", fields: [wardId], references: [id], onDelete: SetNull)
   // v0.33.0.0: per-team override cho edit window (giờ). NULL = dùng SystemSetting THOI_HAN_EDIT_VU_VAN default.
   editWindowHours Int?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
 
   members           UserTeam[]
   casesAssigned     Case[]            @relation("CaseTeam")
@@ -1365,17 +1424,17 @@ model Team {
 
 // v0.33.0.0 Phase 5b: ward officer reset request workflow
 model EditWindowResetRequest {
-  id            String   @id @default(cuid())
-  subjectType   String   // 'Case' | 'Incident' | 'Petition'
+  id            String    @id @default(cuid())
+  subjectType   String // 'Case' | 'Incident' | 'Petition'
   subjectId     String
   requestedById String
-  requestedBy   User     @relation("ResetRequestRequester", fields: [requestedById], references: [id], onDelete: Cascade)
+  requestedBy   User      @relation("ResetRequestRequester", fields: [requestedById], references: [id], onDelete: Cascade)
   reason        String
-  status        String   @default("PENDING") // PENDING | APPROVED | REJECTED
+  status        String    @default("PENDING") // PENDING | APPROVED | REJECTED
   reviewedById  String?
-  reviewedBy    User?    @relation("ResetRequestReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedBy    User?     @relation("ResetRequestReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
   reviewNote    String?
-  createdAt     DateTime @default(now())
+  createdAt     DateTime  @default(now())
   reviewedAt    DateTime?
 
   @@index([status])
@@ -1907,13 +1966,13 @@ model EventReminderDispatch {
 
 model DocumentNumberTemplate {
   id            String   @id @default(uuid())
-  name          String   // "Mã vụ việc", "Số tiếp nhận đơn thư", ...
-  documentType  String   // "INCIDENT" | "PETITION" | "CASE" | "PROPOSAL" | "DELEGATION" | "EVIDENCE"
+  name          String // "Mã vụ việc", "Số tiếp nhận đơn thư", ...
+  documentType  String // "INCIDENT" | "PETITION" | "CASE" | "PROPOSAL" | "DELEGATION" | "EVIDENCE"
   isActive      Boolean  @default(true)
   separator     String   @default("-") // "" = không phân cách
   inputMode     String   @default("AUTO") // "AUTO" | "MANUAL" | "AUTO_WITH_OVERRIDE"
-  segments      Json     // Segment[] — ordered array of LITERAL | FORMULA | COUNTER
-  counterConfig Json     // { resetPeriod, minValue, maxValue, padding }
+  segments      Json // Segment[] — ordered array of LITERAL | FORMULA | COUNTER
+  counterConfig Json // { resetPeriod, minValue, maxValue, padding }
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -1929,13 +1988,13 @@ model DocumentNumberTemplate {
 }
 
 model DocumentNumberCounter {
-  id           String   @id @default(uuid())
+  id           String                 @id @default(uuid())
   templateId   String
   template     DocumentNumberTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
-  periodKey    String   // "2026" | "2026-05" | "2026-W21" | "global"
-  currentValue Int      @default(0)
+  periodKey    String // "2026" | "2026-05" | "2026-W21" | "global"
+  currentValue Int                    @default(0)
   resetAt      DateTime?
-  updatedAt    DateTime @updatedAt
+  updatedAt    DateTime               @updatedAt
 
   @@unique([templateId, periodKey])
   @@index([templateId])
@@ -1943,19 +2002,131 @@ model DocumentNumberCounter {
 }
 
 model DocumentNumberLog {
-  id              String   @id @default(uuid())
+  id              String                 @id @default(uuid())
   templateId      String
   template        DocumentNumberTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
   generatedNumber String
   documentType    String
-  documentId      String?  // loose FK — updated after parent document saved
+  documentId      String? // loose FK — updated after parent document saved
   userId          String
-  user            User     @relation(fields: [userId], references: [id])
-  isDraft         Boolean  @default(false)
-  createdAt       DateTime @default(now())
+  user            User                   @relation(fields: [userId], references: [id])
+  isDraft         Boolean                @default(false)
+  createdAt       DateTime               @default(now())
 
   @@index([templateId, createdAt])
   @@index([userId])
   @@index([documentId])
   @@map("document_number_logs")
+}
+
+// ─────────────────────────────────────────────
+// v0.47 — Document + Report Template Engine v1.0
+// PR1 foundation: render audit + statistical reports + xlsx import staging.
+// Reuses v0.42 DocumentNumberTemplate + commitWithTx for series/numbering
+// (no parallel DocumentTemplateRegistry — superseded F3).
+// ─────────────────────────────────────────────
+
+// One row per docx/xlsx render. Single source of truth for "has petition X
+// been issued PHIEU_DE_XUAT yet?" — replaces 4 cache columns per docType on
+// Petition (superseded CQ2/CQ3).
+model DocumentRenderLog {
+  id              String    @id @default(cuid())
+  petitionId      String?
+  petition        Petition? @relation(fields: [petitionId], references: [id], onDelete: Cascade)
+  caseId          String?
+  case            Case?     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  incidentId      String?
+  incident        Incident? @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  documentType    String // 'PHIEU_DE_XUAT' | 'PHIEU_CHUYEN_NGUON_TIN' | 'PHIEU_CHUYEN_DON' | 'THONG_BAO_CHUYEN' | 'THONG_BAO_HUONG_DAN' | 'THONG_BAO_TRA_LAI' | 'PHU_LUC_01..06'
+  templateSha     String // SHA256 of binary template at render time (audit pháp lý)
+  renderedAt      DateTime  @default(now())
+  renderedById    String
+  renderedBy      User      @relation("RenderedBy", fields: [renderedById], references: [id])
+  generatedNumber String? // số văn bản (FK soft → DocumentNumberLog)
+  fileSha         String? // SHA256 of output file (audit trail)
+
+  @@index([petitionId, documentType, renderedAt(sort: Desc)])
+  @@index([caseId, documentType])
+  @@index([incidentId, documentType])
+  @@index([renderedById])
+  @@map("document_render_logs")
+}
+
+// Statistical xlsx report generation log (Phụ lục 01-06).
+// One row per Phụ lục file generated for an đơn vị + period.
+model PhuLucReportLog {
+  id            String   @id @default(cuid())
+  reportType    String // 'PHU_LUC_01' .. 'PHU_LUC_06'
+  periodStart   DateTime
+  periodEnd     DateTime
+  unitCode      String? // NULL = aggregate Phòng-level cho PC02
+  generatedById String
+  generatedBy   User     @relation("PhuLucGeneratedBy", fields: [generatedById], references: [id])
+  generatedAt   DateTime @default(now())
+  rowCount      Int
+  fileSize      Int // bytes
+  fileSha       String // SHA256 of output xlsx
+
+  @@index([reportType, periodStart])
+  @@index([unitCode])
+  @@index([generatedById])
+  @@map("phu_luc_report_logs")
+}
+
+// Xlsx upload + import lifecycle (Track B import).
+// SHA dedupe, dual-confirm, rollback per Codex SPLIT verdict requirements.
+model XlsxImportLog {
+  id               String   @id @default(cuid())
+  sourceFile       String // original filename
+  fileSize         Int
+  fileSha          String   @unique // dedupe — same content → reuse existing log
+  uploadedById     String
+  uploadedBy       User     @relation("XlsxImportUploader", fields: [uploadedById], references: [id])
+  uploadedAt       DateTime @default(now())
+  unitCodeDetected String? // extracted from filename
+  succeededRows    Int      @default(0)
+  skippedRows      Int      @default(0)
+  conflictedRows   Int      @default(0)
+  errorRows        Int      @default(0)
+  status           String   @default("PARSED") // PARSED | PENDING_SECOND_CONFIRM | COMMITTED | FAILED | ROLLED_BACK
+  errorDetail      Json?
+
+  // Dual-confirm tracking (Codex CRITICAL #7) — 24h window enforced at app layer
+  firstConfirmById  String?
+  firstConfirmBy    User?     @relation("XlsxFirstConfirm", fields: [firstConfirmById], references: [id], onDelete: SetNull)
+  firstConfirmAt    DateTime?
+  secondConfirmById String?
+  secondConfirmBy   User?     @relation("XlsxSecondConfirm", fields: [secondConfirmById], references: [id], onDelete: SetNull)
+  secondConfirmAt   DateTime?
+
+  // Rollback audit
+  rolledBackById String?
+  rolledBackBy   User?     @relation("XlsxRolledBack", fields: [rolledBackById], references: [id], onDelete: SetNull)
+  rolledBackAt   DateTime?
+
+  staging           XlsxImportStaging[]
+  importedCases     Case[]              @relation("XlsxImportLogCases")
+  importedIncidents Incident[]          @relation("XlsxImportLogIncidents")
+
+  @@index([status])
+  @@index([uploadedById])
+  @@index([uploadedAt])
+  @@map("xlsx_import_logs")
+}
+
+// Parser writes here ONLY (never direct upsert into Case/Incident) per Codex #3.
+// Commit endpoint reads staging → creates real Case/Incident rows.
+model XlsxImportStaging {
+  id             String        @id @default(cuid())
+  importLogId    String
+  importLog      XlsxImportLog @relation(fields: [importLogId], references: [id], onDelete: Cascade)
+  sheetName      String // 'Phụ lục 01' | 'Phụ lục 02' | ...
+  rowIndex       Int // 1-based row in source xlsx (for error messages)
+  payload        Json // raw cell values after formula stripping
+  detectedType   String? // 'Case' | 'Incident' | null (unmappable)
+  conflictReason String? // 'unit_mismatch' | 'duplicate_id' | null
+
+  @@index([importLogId, sheetName])
+  @@index([conflictReason])
+  @@map("xlsx_import_staging")
 }

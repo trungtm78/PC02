@@ -86,9 +86,77 @@ const TEMPLATES: TemplateSpec[] = [
     padding: 3,
     yearPattern: 'YYYY',
   },
+  // v0.47 PR1 T4 — 4 series for Document Template Engine v1.0.
+  // Format example: "5931/ĐX-PC02-Đ1" (counter / prefix-org-team).
+  // Team code is HARDCODED "Đ1" for now — PR2 will swap to a FORMULA segment once
+  // source-resolver gains lookup:teams.code (resolves via user → UserTeam → Team).
+  // The 6 docx render variants share 4 numbering series:
+  //   PHIEU_DE_XUAT       → ĐX   (Phiếu đề xuất)
+  //   PHIEU_CHUYEN        → PC   (Phiếu chuyển nguồn tin + Phiếu chuyển đơn)
+  //   THONG_BAO           → TB   (Thông báo chuyển đơn + Thông báo trả lại đơn)
+  //   HUONG_DAN           → HD   (Thông báo hướng dẫn khởi kiện)
+  {
+    name: 'Số Phiếu đề xuất',
+    documentType: 'PHIEU_DE_XUAT',
+    prefix: 'ĐX-PC02-Đ1',
+    separator: '/',
+    inputMode: 'AUTO',
+    resetPeriod: 'YEARLY',
+    padding: 4,
+    yearPattern: 'YYYY',
+  },
+  {
+    name: 'Số Phiếu chuyển',
+    documentType: 'PHIEU_CHUYEN',
+    prefix: 'PC-PC02-Đ1',
+    separator: '/',
+    inputMode: 'AUTO',
+    resetPeriod: 'YEARLY',
+    padding: 4,
+    yearPattern: 'YYYY',
+  },
+  {
+    name: 'Số Thông báo',
+    documentType: 'THONG_BAO',
+    prefix: 'TB-PC02-Đ1',
+    separator: '/',
+    inputMode: 'AUTO',
+    resetPeriod: 'YEARLY',
+    padding: 4,
+    yearPattern: 'YYYY',
+  },
+  {
+    name: 'Số Thông báo Hướng dẫn',
+    documentType: 'HUONG_DAN',
+    prefix: 'HD-PC02-Đ1',
+    separator: '/',
+    inputMode: 'AUTO',
+    resetPeriod: 'YEARLY',
+    padding: 4,
+    yearPattern: 'YYYY',
+  },
 ];
 
+// v0.47 PR1 T4 — series that do NOT participate in existing counter backfill
+// (no matching existing column on Petition/Case/Incident). Skipped by
+// getMaxSeqForYear; counter starts at 0 (next render → 1).
+const NEW_V047_SERIES = new Set([
+  'PHIEU_DE_XUAT',
+  'PHIEU_CHUYEN',
+  'THONG_BAO',
+  'HUONG_DAN',
+]);
+
 function buildSegments(spec: TemplateSpec) {
+  // v0.47 PR1 T4 — new series use [COUNTER, LITERAL prefix] order with no
+  // explicit year segment (year is implicit via YEARLY reset). Produces
+  // "5931/ĐX-PC02-Đ1" instead of the legacy "DT-2026-00001" shape.
+  if (NEW_V047_SERIES.has(spec.documentType)) {
+    return [
+      { type: 'COUNTER' },
+      { type: 'LITERAL', value: spec.prefix },
+    ];
+  }
   return [
     { type: 'LITERAL', value: spec.prefix },
     { type: 'FORMULA', fn: 'FORMAT', source: 'NOW', pattern: spec.yearPattern },
@@ -106,6 +174,10 @@ function buildCounterConfig(spec: TemplateSpec) {
 }
 
 async function getMaxSeqForYear(prisma: PrismaClient, documentType: string, year: number): Promise<number> {
+  // v0.47 PR1 T4 — new series have no existing column to backfill from;
+  // start counter at 0 so first render yields ...001.
+  if (NEW_V047_SERIES.has(documentType)) return 0;
+
   const prefix = `${getPrefix(documentType)}-${year}-`;
 
   try {
@@ -188,7 +260,24 @@ export async function seedDocumentNumbers(prisma: PrismaClient): Promise<number>
 
     if (existing) {
       templateId = existing.id;
-      console.log(`  → Template "${spec.name}" (${spec.documentType}) already exists, skipping create`);
+      // v0.47 PR1 T4 — force-refresh segments + counterConfig for new series so
+      // that PR2's FORMULA-segment rewrite propagates to existing rows (skip
+      // behavior would lock in the PR1 hardcoded "Đ1" suffix forever).
+      // Legacy templates keep the skip-on-exists behavior to preserve admin edits.
+      if (NEW_V047_SERIES.has(spec.documentType)) {
+        await (prisma as any).documentNumberTemplate.update({
+          where: { id: existing.id },
+          data: {
+            segments: buildSegments(spec),
+            counterConfig: buildCounterConfig(spec),
+            separator: spec.separator,
+            inputMode: spec.inputMode,
+          },
+        });
+        console.log(`  ↻ Refreshed v0.47 series "${spec.name}" (${spec.documentType})`);
+      } else {
+        console.log(`  → Template "${spec.name}" (${spec.documentType}) already exists, skipping create`);
+      }
     } else {
       const tpl = await (prisma as any).documentNumberTemplate.create({
         data: {
@@ -236,6 +325,12 @@ export async function seedDocumentNumbers(prisma: PrismaClient): Promise<number>
 
   return created;
 }
+
+// Test-only re-exports (kept at module bottom to avoid disturbing the
+// public CLI surface). Used by seed-document-numbers.spec.ts to validate
+// the static config shape without spinning up a DB.
+export const TEMPLATES_FOR_TEST = TEMPLATES;
+export const buildSegmentsForTest = buildSegments;
 
 // Standalone CLI entry point
 if (require.main === module) {
