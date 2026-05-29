@@ -7,7 +7,7 @@
     "assets": [
       {
         "include": "../templates/docx/*.docx",
-        "outDir": "dist/templates/docx",
+        "outDir": "dist/templates",
         "watchAssets": true
       }
     ]
