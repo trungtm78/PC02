@@ -54,14 +54,17 @@ export class NotificationsService {
     if (!notification) {
       return { success: false, message: 'Notification not found' };
     }
-    // D10: no early return for isRead=true — always set acknowledgedAt + clear push retry
+    // D10: always set acknowledgedAt + clear pushNextRetryAt, regardless of isRead state.
+    // Clicking the notification link = user acknowledged the assignment.
+    // Removing the early-return prevents infinite push retries when notification
+    // was read via dropdown (isRead=true) but never clicked (acknowledgedAt never set).
     const now = new Date();
     const updated = await this.prisma.notification.update({
       where: { id },
       data: {
         isRead: true,
-        readAt: notification.readAt ?? now,
-        acknowledgedAt: notification.acknowledgedAt ?? now,
+        readAt: (notification as Record<string, unknown>).readAt as Date | null ?? now,
+        acknowledgedAt: (notification as Record<string, unknown>).acknowledgedAt as Date | null ?? now,
         pushNextRetryAt: null,
       },
     });
@@ -72,12 +75,7 @@ export class NotificationsService {
   async markAllAsRead(userId: string) {
     const result = await this.prisma.notification.updateMany({
       where: { userId, isRead: false },
-      data: {
-        isRead: true,
-        readAt: new Date(),
-        acknowledgedAt: new Date(),
-        pushNextRetryAt: null,
-      },
+      data: { isRead: true, readAt: new Date(), acknowledgedAt: new Date(), pushNextRetryAt: null },
     });
     return { success: true, updatedCount: result.count };
   }

@@ -47,6 +47,7 @@ export class CaseCreatedEvent {
   ) {}
 }
 
+// Stub events — handlers deferred to next sprint (D12)
 export class PetitionReceivedEvent {
   constructor(
     public readonly petitionId: string,

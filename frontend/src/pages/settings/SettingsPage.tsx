@@ -7,8 +7,6 @@ import {
   Settings2,
   Bell,
   Lock,
-  Smartphone,
-  Mail,
   Save,
   ChevronRight,
   KeyRound,
@@ -20,6 +18,7 @@ import { AbbreviationsModule } from './modules/AbbreviationsModule';
 import { AddressMappingModule } from './modules/AddressMappingModule';
 import { EventCategoriesModule } from './modules/EventCategoriesModule';
 import { ShortcutsModule } from './modules/ShortcutsModule';
+import { NotificationsModule } from './modules/NotificationsModule';
 import { Button } from '@/components/ui/button';
 import { TwoFaSetupModal } from '@/components/TwoFaSetupModal';
 import { ChangePasswordModal } from '@/components/ChangePasswordModal';
@@ -405,50 +404,6 @@ function ParametersModule() {
           <Save className="w-4 h-4 mr-2" />
           Lưu thay đổi
         </Button>
-      </div>
-    </div>
-  );
-}
-
-// Notifications Module
-function NotificationsModule() {
-  return (
-    <div className="space-y-6">
-      <h2 className="text-xl font-semibold text-slate-900">Cấu hình thông báo</h2>
-      
-      <div className="bg-white rounded-lg border border-slate-200 p-6 space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Mail className="w-5 h-5 text-slate-400" />
-            <div>
-              <p className="font-medium text-slate-900">Thông báo qua email</p>
-              <p className="text-sm text-slate-500">Nhận thông báo qua email khi có cập nhật</p>
-            </div>
-          </div>
-          <input type="checkbox" defaultChecked className="w-4 h-4 text-blue-600 rounded" />
-        </div>
-        
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Smartphone className="w-5 h-5 text-slate-400" />
-            <div>
-              <p className="font-medium text-slate-900">Thông báo qua SMS</p>
-              <p className="text-sm text-slate-500">Nhận thông báo khẩn qua SMS</p>
-            </div>
-          </div>
-          <input type="checkbox" className="w-4 h-4 text-blue-600 rounded" />
-        </div>
-        
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Bell className="w-5 h-5 text-slate-400" />
-            <div>
-              <p className="font-medium text-slate-900">Thông báo trình duyệt</p>
-              <p className="text-sm text-slate-500">Hiển thị thông báo trên trình duyệt</p>
-            </div>
-          </div>
-          <input type="checkbox" defaultChecked className="w-4 h-4 text-blue-600 rounded" />
-        </div>
       </div>
     </div>
   );

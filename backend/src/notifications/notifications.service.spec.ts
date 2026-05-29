@@ -50,6 +50,12 @@ function makeNotification(overrides: Record<string, unknown> = {}) {
     link: null,
     metadata: null,
     createdAt: new Date(),
+    // D10 fields (added in notification-center migration)
+    acknowledgedAt: null,
+    pushNextRetryAt: null,
+    pushRetryCount: 0,
+    pushSentAt: null,
+    pushMaxRetries: 3,
     ...overrides,
   };
 }
@@ -126,31 +132,33 @@ describe('NotificationsService', () => {
       expect(mockPrisma.notification.update).not.toHaveBeenCalled();
     });
 
-    it('D10: still calls update even when notification is already read — sets acknowledgedAt + clears pushNextRetryAt', async () => {
-      const alreadyRead = makeNotification({ isRead: true, readAt: new Date(), acknowledgedAt: null });
+    // D10 fix: update must always be called — even when isRead=true —
+    // so that acknowledgedAt is set and pushNextRetryAt is cleared.
+    it('still calls update with acknowledgedAt when notification is already read (D10 fix)', async () => {
+      const alreadyRead = makeNotification({ isRead: true, readAt: new Date() });
+      const updated = makeNotification({ isRead: true, acknowledgedAt: new Date(), pushNextRetryAt: null });
       mockPrisma.notification.findFirst.mockResolvedValue(alreadyRead);
-      const updated = makeNotification({ isRead: true });
       mockPrisma.notification.update.mockResolvedValue(updated);
 
       const result = await service.markAsRead('notif-1', 'user-1');
 
+      expect(result.success).toBe(true);
+      // update must be called even though isRead was already true
       expect(mockPrisma.notification.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: 'notif-1' },
           data: expect.objectContaining({
-            isRead: true,
             acknowledgedAt: expect.any(Date),
             pushNextRetryAt: null,
           }),
         }),
       );
-      expect(result.success).toBe(true);
     });
 
     it('calls prisma.update with isRead=true + acknowledgedAt + pushNextRetryAt=null when unread', async () => {
       const unread = makeNotification({ isRead: false });
       mockPrisma.notification.findFirst.mockResolvedValue(unread);
-      const updated = makeNotification({ isRead: true });
+      const updated = makeNotification({ isRead: true, acknowledgedAt: new Date(), pushNextRetryAt: null });
       mockPrisma.notification.update.mockResolvedValue(updated);
 
       const result = await service.markAsRead('notif-1', 'user-1');
