@@ -20,6 +20,7 @@ import { DocumentsModule } from './documents/documents.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { CalendarModule } from './calendar/calendar.module';
 import { ReportsModule } from './reports/reports.module';
+import { XlsxImportsModule } from './xlsx-imports/xlsx-imports.module';
 import { ProposalsModule } from './proposals/proposals.module';
 import { GuidanceModule } from './guidance/guidance.module';
 import { ExchangesModule } from './exchanges/exchanges.module';
@@ -75,6 +76,7 @@ import { DocumentNumbersModule } from './document-numbers/document-numbers.modul
     DashboardModule,
     CalendarModule,
     ReportsModule,
+    XlsxImportsModule,
     ProposalsModule,
     GuidanceModule,
     ExchangesModule,
