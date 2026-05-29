@@ -20,6 +20,7 @@ import type { Response } from 'express';
 import type { ScopedRequest } from '../auth/interfaces/scoped-request.interface';
 import { PetitionsService } from './petitions.service';
 import { PetitionsJourneyService } from './petitions-journey.service';
+import { BatchExportService } from './batch-export.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { DispatchGuard } from '../auth/guards/dispatch.guard';
@@ -41,6 +42,7 @@ export class PetitionsController {
   constructor(
     private readonly petitionsService: PetitionsService,
     private readonly petitionsJourneyService: PetitionsJourneyService,
+    private readonly batchExport: BatchExportService,
   ) {}
 
   // GET /api/v1/petitions — Danh sách đơn thư
@@ -136,6 +138,41 @@ export class PetitionsController {
     @Res() res: Response,
   ): Promise<void> {
     await this.petitionsService.exportToWord(id, req.dataScope, res);
+  }
+
+  // POST /api/v1/petitions/export-document-batch — v0.47 PR3 T14.
+  // Body: { docType, petitionIds: string[] } (1..100).
+  // Streams a ZIP of N rendered docx + manifest.json. Each petition renders
+  // in its own transaction so one failure doesn't abort the batch.
+  @Post('export-document-batch')
+  @Throttle({ default: { ttl: 60000, limit: 2 } })
+  @RequirePermissions({ action: 'read', subject: 'Petition' })
+  async exportDocumentBatch(
+    @Body() body: { docType: string; petitionIds: string[] },
+    @CurrentUser() user: AuthUser,
+    @Req() req: ScopedRequest,
+    @Res() res: Response,
+  ): Promise<void> {
+    const allowed = new Set([
+      'PHIEU_DE_XUAT',
+      'PHIEU_CHUYEN_NGUON_TIN',
+      'PHIEU_CHUYEN_DON',
+      'THONG_BAO_CHUYEN',
+      'THONG_BAO_HUONG_DAN',
+      'THONG_BAO_TRA_LAI',
+    ]);
+    if (!allowed.has(body.docType)) {
+      throw new BadRequestException(
+        `docType không hợp lệ. Cho phép: ${[...allowed].join(', ')}`,
+      );
+    }
+    await this.batchExport.exportBatchToZip(
+      body.petitionIds,
+      body.docType as any,
+      user.id,
+      req.dataScope,
+      res,
+    );
   }
 
   // GET /api/v1/petitions/:id/export-document?docType=PHIEU_DE_XUAT — v0.47 PR2.

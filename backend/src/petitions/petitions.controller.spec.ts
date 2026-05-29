@@ -18,6 +18,7 @@ const mockService = {
 };
 
 const mockJourneyService = { getJourney: jest.fn() };
+const mockBatchExport = { exportBatchToZip: jest.fn() };
 
 describe('PetitionsController — delegation', () => {
   let controller: PetitionsController;
@@ -27,7 +28,13 @@ describe('PetitionsController — delegation', () => {
       PetitionsController,
       PetitionsService,
       mockService,
-      [{ token: PetitionsJourneyService, mock: mockJourneyService }],
+      [
+        { token: PetitionsJourneyService, mock: mockJourneyService },
+        {
+          token: require('./batch-export.service').BatchExportService,
+          mock: mockBatchExport,
+        },
+      ],
     );
     controller = module.get(PetitionsController);
     jest.clearAllMocks();
