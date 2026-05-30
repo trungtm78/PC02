@@ -12,6 +12,7 @@ import { AuditService } from '../audit/audit.service';
 import { CreateIncidentDto } from './dto/create-incident.dto';
 import { UpdateIncidentDto } from './dto/update-incident.dto';
 import { QueryIncidentsDto } from './dto/query-incidents.dto';
+import { QueryIncidentsStatsDto } from './dto/query-incidents-stats.dto';
 import { AssignInvestigatorDto } from './dto/assign-investigator.dto';
 import { ProsecuteIncidentDto } from './dto/prosecute-incident.dto';
 import { UpdateStatusDto } from './dto/update-status.dto';
@@ -891,26 +892,119 @@ export class IncidentsService {
   // ─────────────────────────────────────────────
   // GET STATS (count by status)
   // ─────────────────────────────────────────────
-  async getStats(dataScope?: DataScope | null) {
+  // PR2/T1 — refactored để match PR1 Cases stats pattern:
+  // - Takes QueryIncidentsStatsDto (status/limit/offset/sortBy/sortOrder omitted via OmitType)
+  // - Returns { total, byStatus } exhaustive (every IncidentStatus key present, 0 if missing)
+  // - Total derived from groupResults (single statement, snapshot consistent
+  //   — /codex review P2 fix pattern applied here too)
+  // - Strips status filter từ where (counts BY status, not filtered by it)
+  async getStats(query: QueryIncidentsStatsDto, dataScope?: DataScope | null) {
+    const {
+      search,
+      phase,
+      investigatorId,
+      unitId,
+      overdue,
+      districtId,
+      wardId,
+      wardTeamId,
+      loaiDonVu,
+      benVu,
+      tinhTrangHoSo,
+      tinhTrangThoiHieu,
+      canBoNhapId,
+      fromDateRange,
+      toDateRange,
+    } = query;
+
     const where: Prisma.IncidentWhereInput = { deletedAt: null };
+
+    if (search) {
+      where.OR = [
+        { code: { contains: search, mode: 'insensitive' } },
+        { name: { contains: search, mode: 'insensitive' } },
+        { doiTuongCaNhan: { contains: search, mode: 'insensitive' } },
+        { doiTuongToChuc: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+        {
+          investigator: {
+            OR: [
+              { firstName: { contains: search, mode: 'insensitive' } },
+              { lastName: { contains: search, mode: 'insensitive' } },
+              { username: { contains: search, mode: 'insensitive' } },
+            ],
+          },
+        },
+      ];
+    }
+
+    // Phase is a group of statuses — KEEP since not status-direct (UI groups statuses).
+    if (phase && PHASE_STATUSES[phase]) {
+      where.status = { in: PHASE_STATUSES[phase] };
+    }
+    if (investigatorId) where.investigatorId = investigatorId;
+    if (unitId) where.unitId = unitId;
+    if (loaiDonVu) where.loaiDonVu = loaiDonVu;
+    if (benVu) where.benVu = benVu;
+    if (tinhTrangHoSo) where.tinhTrangHoSo = tinhTrangHoSo;
+    if (tinhTrangThoiHieu) where.tinhTrangThoiHieu = tinhTrangThoiHieu;
+    if (canBoNhapId) where.canBoNhapId = canBoNhapId;
+
+    if (fromDateRange || toDateRange) {
+      where.ngayDeXuat = {};
+      if (fromDateRange) where.ngayDeXuat.gte = new Date(fromDateRange);
+      if (toDateRange) where.ngayDeXuat.lte = new Date(toDateRange);
+    }
+
+    if (overdue) {
+      where.deadline = { lt: new Date() };
+      where.status = { notIn: TERMINAL_STATUSES };
+    }
+
+    if (districtId || wardId) {
+      where.subjects = {
+        some: {
+          deletedAt: null,
+          ...(districtId && { districtId }),
+          ...(wardId && { wardId }),
+        },
+      };
+    }
+
+    if (wardTeamId) {
+      where.assignedTeam = { is: { wardId: wardTeamId } };
+    }
 
     const scopeFilter = buildScopeFilter(dataScope);
     if (scopeFilter) {
-      where.AND = [scopeFilter as Prisma.IncidentWhereInput];
+      where.AND = [
+        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+        scopeFilter as Prisma.IncidentWhereInput,
+      ];
     }
 
-    const stats = await this.prisma.incident.groupBy({
+    // Initialize all IncidentStatus keys to 0 → exhaustive response shape
+    const byStatus: Record<IncidentStatus, number> = Object.values(IncidentStatus).reduce(
+      (acc, status) => {
+        acc[status] = 0;
+        return acc;
+      },
+      {} as Record<IncidentStatus, number>,
+    );
+
+    const groupResults = await this.prisma.incident.groupBy({
       by: ['status'],
-      _count: true,
       where,
+      _count: { _all: true },
     });
 
-    const result: Record<string, number> = {};
-    for (const s of stats) {
-      result[s.status] = s._count;
+    let total = 0;
+    for (const row of groupResults) {
+      byStatus[row.status] = row._count._all;
+      total += row._count._all;
     }
 
-    return { success: true, data: result };
+    return { total, byStatus };
   }
 
   // ─────────────────────────────────────────────
