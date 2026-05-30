@@ -20,6 +20,8 @@ import { MemoryRouter, useLocation, Routes, Route } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { IncidentListPageShell } from '../IncidentListPageShell';
 import { IncidentStatus } from '@/shared/enums/generated';
+import { AssignModalProvider } from '@/features/_shared/modals/AssignModalProvider';
+import { DeleteResourceModalProvider } from '@/features/_shared/modals/DeleteResourceModalProvider';
 
 vi.mock('@/lib/api', () => ({
   api: {
@@ -36,11 +38,15 @@ function renderWithRouter(initialEntries: string[] = ['/incidents']) {
   }
   const result = render(
     <MemoryRouter initialEntries={initialEntries}>
-      <Routes>
-        <Route path="/incidents" element={<><IncidentListPageShell /><LocationTracker /></>} />
-        <Route path="/incidents/new" element={<div>NewIncidentPage</div>} />
-        <Route path="/incidents/:id" element={<div>IncidentDetailPage</div>} />
-      </Routes>
+      <AssignModalProvider>
+        <DeleteResourceModalProvider>
+          <Routes>
+            <Route path="/incidents" element={<><IncidentListPageShell /><LocationTracker /></>} />
+            <Route path="/incidents/new" element={<div>NewIncidentPage</div>} />
+            <Route path="/incidents/:id" element={<div>IncidentDetailPage</div>} />
+          </Routes>
+        </DeleteResourceModalProvider>
+      </AssignModalProvider>
     </MemoryRouter>,
   );
   return { ...result, getLocation: () => lastLocation };

@@ -2,6 +2,51 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.64.0.0] - 2026-05-30
+
+**v0.64 PR2 — Restore single-row actions + advanced filters trên /incidents**
+
+Tiếp nối PR1 (v0.63 Cases): áp dụng cùng pattern typed registry + modal
+providers cho IncidentListPageShell. Anh's complaint #1 + #2 resolved
+trên Incidents.
+
+### Added
+
+**Incidents per-row actions** (`features/incidents/row-actions.ts`):
+- View → `/vu-viec/:id`
+- Edit → `/vu-viec/:id/edit`
+- Phân công (UserCheck, canDispatch guard) → AssignModal(resourceType=incidents)
+- Xóa (Trash2, TIEP_NHAN-only via canDelete predicate) → DeleteResourceModal
+
+**Incidents advanced filters** (`features/incidents/list-filters.ts`):
+- Từ khóa (text) — URL key `incidents_keyword`
+- Loại nguồn tin (enumSelect: TO_GIAC | TIN_BAO | KIEN_NGHI_KHOI_TO) — URL key `incidents_loai_don_vu`
+- Người tố giác/báo tin (text) — URL key `incidents_reporter`
+- Đơn vị (text) — URL key `incidents_unit`
+
+### Changed
+
+- `IncidentListPageShell.tsx`:
+  - Adds 'Thao tác' column FIRST (8rem width) rendering RowActions.
+  - Passes <Filters> as children of <ListPageShell.Toolbar>.
+  - List fetch dep extended with appliedFilters; spreads keyword/loaiDonVu/
+    reporter/unit into /incidents GET params.
+  - handleResetFilters clears advanced filter draft + URL.
+  - activeFilterCount includes phase + status + search + N applied advanced.
+
+### Tests
+
+- 7 new registration tests + 19 existing IncidentListPageShell tests pass.
+- Total: 1150 frontend tests (1149 pass + 1 known-flaky PetitionFormPage.payload).
+- tsc --noEmit clean.
+
+### Deferred to PR2-bis
+
+- Chuyển trạng thái action (needs StatusTransitionModalProvider + form fields).
+- Khởi tố action (needs ProsecuteModalProvider with form fields).
+
+Both have backend API contracts; defer modal scaffolding to dedicated PR.
+
 ## [0.63.0.0] - 2026-05-30
 
 **v0.63 Restore single-row actions + advanced filters trên /cases — PR1b

@@ -35,6 +35,16 @@ import {
 import { IncidentStatus } from '@/shared/enums/generated';
 import { BTN_PRIMARY, A11Y_FOCUS_RING, OVERDUE_ROW_HIGHLIGHT } from '@/constants/styles';
 import { formatVNDate } from '@/lib/dates';
+// v0.64 PR2 — registry-driven row actions + advanced filters
+import { RowActions } from '@/features/_shared/row-actions/RowActions';
+import { Filters } from '@/features/_shared/list-filters/Filters';
+import { useListFilters } from '@/features/_shared/list-filters/useListFilters';
+import { useAssignModal } from '@/features/_shared/modals/AssignModalProvider';
+import { useDeleteResourceModal } from '@/features/_shared/modals/DeleteResourceModalProvider';
+import { usePermission } from '@/hooks/usePermission';
+import type { ActionContext } from '@/features/_shared/row-actions/registry';
+import { incidentsRowActions } from '@/features/incidents/row-actions';
+import { incidentsListFilters, type IncidentFilterValue } from '@/features/incidents/list-filters';
 
 // Trust boundary — URL `?incidents_status=__proto__` must not land in lookups.
 const INCIDENT_STATUS_VALUES = new Set<string>(Object.values(IncidentStatus));
@@ -124,6 +134,40 @@ export function IncidentListPageShell() {
 
   const abortRef = useRef<AbortController | null>(null);
 
+  // v0.64 PR2 — Action context (perms + modal openers).
+  const { canDispatch, canEdit, canDelete } = usePermission();
+  const assignModal = useAssignModal();
+  const deleteModal = useDeleteResourceModal();
+  const actionCtx: ActionContext = useMemo(
+    () => ({
+      navigate,
+      perms: {
+        canDispatch,
+        canEdit: canEdit('incidents'),
+        canDelete: canDelete('incidents'),
+      },
+      assignModal,
+      deleteModal: {
+        open: (args) =>
+          deleteModal.open({
+            ...args,
+            onSuccess: () => {
+              args.onSuccess?.();
+              setRefetchCounter((n) => n + 1);
+            },
+          }),
+      },
+    }),
+    [navigate, canDispatch, canEdit, canDelete, assignModal, deleteModal],
+  );
+
+  // v0.64 PR2 — Advanced filter state + URL sync.
+  const listFilters = useListFilters<IncidentFilterValue>({
+    prefix: 'incidents',
+    registry: incidentsListFilters,
+  });
+  const appliedFilters = listFilters.applied;
+
   useEffect(() => {
     abortRef.current?.abort();
     const ctrl = new AbortController();
@@ -135,6 +179,10 @@ export function IncidentListPageShell() {
       ...(statusFilter && { status: statusFilter }),
       ...(phaseFilter && { phase: phaseFilter }),
       ...(debouncedSearch && { search: debouncedSearch }),
+      ...(appliedFilters.keyword && { keyword: appliedFilters.keyword }),
+      ...(appliedFilters.loaiDonVu && { loaiDonVu: appliedFilters.loaiDonVu }),
+      ...(appliedFilters.reporter && { reporter: appliedFilters.reporter }),
+      ...(appliedFilters.unit && { unit: appliedFilters.unit }),
       limit: PAGE_SIZE,
       offset: (page - 1) * PAGE_SIZE,
     };
@@ -160,7 +208,7 @@ export function IncidentListPageShell() {
     return () => ctrl.abort();
     // refetchCounter forces refetch after bulk action success (declared below for hoisting OK at runtime)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, phaseFilter, page, debouncedSearch, refetchCounter]);
+  }, [statusFilter, phaseFilter, page, debouncedSearch, refetchCounter, appliedFilters]);
 
   // Stats fetch: search + phase pass-through, status purposely stripped.
   useEffect(() => {
@@ -249,6 +297,23 @@ export function IncidentListPageShell() {
   const columns: ColumnDef<IncidentRow>[] = useMemo(
     () => [
       {
+        key: 'actions',
+        header: 'Thao tác',
+        width: '8rem',
+        render: (r) => (
+          <RowActions
+            registry={incidentsRowActions}
+            row={{
+              id: r.id,
+              status: r.status as unknown as string,
+              name: r.name,
+              updatedAt: r.updatedAt,
+            }}
+            ctx={actionCtx}
+          />
+        ),
+      },
+      {
         key: 'code',
         header: 'Mã vụ việc',
         render: (r) => <span className="font-mono text-xs text-slate-700">{r.code}</span>,
@@ -302,7 +367,7 @@ export function IncidentListPageShell() {
         render: (r) => formatVNDate(r.createdAt),
       },
     ],
-    [],
+    [actionCtx],
   );
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
@@ -337,10 +402,15 @@ export function IncidentListPageShell() {
 
   const handleResetFilters = useCallback(() => {
     url.clearAll();
-  }, [url]);
+    listFilters.reset();
+  }, [url, listFilters]);
 
+  const appliedFilterCount = Object.values(appliedFilters).filter((v) => v && v !== '').length;
   const activeFilterCount =
-    (statusFilter ? 1 : 0) + (phaseFilter ? 1 : 0) + (searchQuery ? 1 : 0);
+    (statusFilter ? 1 : 0) +
+    (phaseFilter ? 1 : 0) +
+    (searchQuery ? 1 : 0) +
+    appliedFilterCount;
 
   return (
     <ListPageShell>
@@ -408,7 +478,16 @@ export function IncidentListPageShell() {
         searchPlaceholder="Tìm kiếm theo mã, tên, đối tượng..."
         activeFilterCount={activeFilterCount}
         onResetFilters={handleResetFilters}
-      />
+      >
+        <Filters<IncidentFilterValue>
+          registry={incidentsListFilters}
+          value={listFilters.draft}
+          onChange={listFilters.setField}
+          onApply={listFilters.apply}
+          onReset={listFilters.reset}
+          hasUnappliedChanges={listFilters.hasUnappliedChanges}
+        />
+      </ListPageShell.Toolbar>
       {transientBanner && (
         <div
           data-testid="incidents-bulk-banner"
