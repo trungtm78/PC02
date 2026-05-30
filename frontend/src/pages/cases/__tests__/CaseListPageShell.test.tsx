@@ -16,6 +16,8 @@ import { MemoryRouter, useLocation, Routes, Route } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { CaseListPageShell } from '../CaseListPageShell';
 import { CaseStatus } from '@/shared/enums/generated';
+import { AssignModalProvider } from '@/features/_shared/modals/AssignModalProvider';
+import { DeleteResourceModalProvider } from '@/features/_shared/modals/DeleteResourceModalProvider';
 
 vi.mock('@/lib/api', () => ({
   api: {
@@ -32,11 +34,15 @@ function renderWithRouter(initialEntries: string[] = ['/cases']) {
   }
   const result = render(
     <MemoryRouter initialEntries={initialEntries}>
-      <Routes>
-        <Route path="/cases" element={<><CaseListPageShell /><LocationTracker /></>} />
-        <Route path="/cases/new" element={<div>NewPage</div>} />
-        <Route path="/cases/:id" element={<div>DetailPage</div>} />
-      </Routes>
+      <AssignModalProvider>
+        <DeleteResourceModalProvider>
+          <Routes>
+            <Route path="/cases" element={<><CaseListPageShell /><LocationTracker /></>} />
+            <Route path="/cases/new" element={<div>NewPage</div>} />
+            <Route path="/cases/:id" element={<div>DetailPage</div>} />
+          </Routes>
+        </DeleteResourceModalProvider>
+      </AssignModalProvider>
     </MemoryRouter>,
   );
   return { ...result, getLocation: () => lastLocation };

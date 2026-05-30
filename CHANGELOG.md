@@ -2,6 +2,100 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.63.0.0] - 2026-05-30
+
+**v0.63 Restore single-row actions + advanced filters trên /cases — PR1b
+(typed registry + modal providers)**
+
+Anh báo production v0.61: trên /cases mất hết single-row actions ("chuyển đội",
+"đình chỉ", ...) và bộ lọc nâng cao. Em audit (`docs/audit/shell-parity-matrix.md`)
+phát hiện 39+ features mất qua F1+F7 swap trên 4 shells. v0.63 fix Cases first
+(anh's primary complaint). PR1a (registry infra) + PR1b (Cases full restore)
+ship cùng release.
+
+CEO + Eng dual-voice review (Codex + Claude subagent) rejected per-page hook
+pattern — chose typed factory registry + singleton modal providers + parity
+audit gate. Decision audit trail in plan file.
+
+### Added
+
+**Typed row-action registry** (`features/_shared/row-actions/`):
+- `createRowActionRegistry<TRow>()` — typed factory preserves row type
+  through register/all calls.
+- `commonResourceActions({basePath, canDelete, resourceType})` — View + Edit +
+  optional Delete shared across 4+ resources. -150 LOC per registration.
+- `<RowActions registry row ctx>` — smart component renders inline icon
+  buttons + ⋮ MoreVertical kebab opening ActionMenuPortal with menu items.
+- `ActionContext` threads navigate + perms + modal openers.
+
+**Typed list-filter registry** (`features/_shared/list-filters/`):
+- `createListFilterRegistry<TValue>()` + `FilterField<TValue>` types.
+- `useListFilters({prefix, registry})` — draft + applied state, URL round-trip
+  via URLSearchParams. apply/reset/hasUnappliedChanges.
+- `<Filters registry value onChange onApply onReset>` — responsive 3-col
+  grid (1-col mobile), Áp dụng + Xóa lọc buttons.
+
+**Singleton modal providers** (`features/_shared/modals/`):
+- `<AssignModalProvider>` + `useAssignModal()` — wraps existing AssignModal,
+  mounted once at App root, opened imperatively from registry actions.
+- `<DeleteResourceModalProvider>` + `useDeleteResourceModal()` — simple
+  confirm dialog issuing DELETE /{resource}/{id}.
+
+**Cases per-row actions registered** (`features/cases/row-actions.ts`):
+- View (Eye) → /cases/:id
+- Edit (Pencil) → /cases/:id/edit
+- Phân công (UserCheck, canDispatch guard) → AssignModal
+- Quản lý bị can (Users) → /cases/:id?tab=defendants
+- Quản lý luật sư (Briefcase) → /cases/:id?tab=lawyers
+- Kết luận điều tra (FileText) → /cases/:id?tab=conclusion
+- Chuyển xử lý (ArrowRightLeft) → /transfer-return?caseId=:id
+- Xóa (Trash2, TIEP_NHAN-only) → DeleteResourceModal
+
+**Cases advanced filters registered** (`features/cases/list-filters.ts`):
+- Từ ngày / Đến ngày (date) — URL key `cases_from_date` / `cases_to_date`
+- Đơn vị (text) — URL key `cases_unit`
+- Điều tra viên (text) — URL key `cases_investigator`
+- Tội danh (text) — URL key `cases_charges`
+
+**a11y patch on ActionMenuPortal**:
+- Focus first [role=menuitem] child on portal open.
+- ArrowDown/ArrowUp cycle through menuitems (wraps at ends).
+- Return focus to anchor on close (Escape/click-outside).
+- tabIndex=-1 on menu root for onKeyDown.
+
+**Shell parity audit matrix** (`docs/audit/shell-parity-matrix.md`):
+- 39+ features identified missing across 4 shells (Cases/Incidents/
+  Petitions/Comprehensive) vs legacy commit 2cbdd90.
+- Truth-of-record for PR2-4 (Incidents/Petitions/Comprehensive) follow-ups.
+
+### Changed
+
+- `App.tsx` mounts AssignModalProvider + DeleteResourceModalProvider inside
+  ProtectedRoute wrapper.
+- `CaseListPageShell.tsx`:
+  - Adds 'Thao tác' as first column (8rem width) rendering RowActions.
+  - Passes <Filters> as children of <ListPageShell.Toolbar> (accordion-driven).
+  - List fetch dep extended with appliedFilters; spreads fromDate/toDate/unit/
+    investigator/charges into /cases GET params.
+  - handleResetFilters now also clears advanced filter draft + URL.
+  - activeFilterCount aggregates status + search + N applied advanced filters.
+
+### Tests
+
+- 56 new unit tests covering registry primitives, RowActions component,
+  Filters component, useListFilters hook, modal providers, Cases registrations,
+  ActionMenuPortal a11y.
+- Total: 1143/1143 frontend tests passing.
+- TypeScript strict + ESLint clean.
+
+### Deferred to PR2-PR5
+
+- PR2 v0.64: Incidents shell registrations + wire (5 actions + 4 filters).
+- PR3 v0.65: Petitions shell (9 actions + 5 filters).
+- PR4 v0.66: Comprehensive polyglot dispatch (3 actions + 7 filters).
+- PR5: husky pre-commit + CI workflow blocking future swap PRs without
+  updating shell-parity-matrix.md (process fix from CEO review).
+
 ## [0.62.0.0] - 2026-05-30
 
 **v0.62 Upload tài liệu cho Đơn thư + Vụ việc — đồng nhất 3 module**
