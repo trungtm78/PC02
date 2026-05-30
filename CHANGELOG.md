@@ -2,6 +2,56 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.55.0.0] - 2026-05-30
+
+**v0.55 ListPageShell PR5 — ObjectListPageShell (polymorphic) + subjects bulk-delete**
+
+PR5 closes the 5-PR ListPageShell plan. Subjects (Suspect/Victim/Witness) get
+bulk-delete UI via single polymorphic shell. Same pattern as PR4 lawyers, plus
+1 extra Codex fix for the polymorphism boundary.
+
+### Added
+
+**ObjectListPageShell** (polymorphic SUSPECT/VICTIM/WITNESS):
+- Single shell with TYPE_CONFIG map per subjectType
+- URL prefix per type: `objects_` / `victims_` / `witnesses_`
+- Resource labels: bị can / bị hại / nhân chứng (shown in BulkActionBar)
+- Page titles, icons (Users/UserCheck/UserX), API filter `?type=`
+- 4 SubjectStatus chips qua ListPageShell.StatusChips
+- Trust boundary: SubjectStatus enum + control-char strip
+- Page clamp + 300ms debounce + AbortController + Vietnamese error map
+
+**Subjects bulk adapter**:
+- `frontend/src/features/_shared/bulk/adapters/subjects.ts`
+- POST /subjects/bulk-delete (v0.51 backend), confirm modal, escalating friction
+- Permission gate: `'objects'/'delete'`
+- Resource label override per subjectType
+
+### Fixed
+
+- **/codex PR5 P2: Polymorphism boundary stale selection** — Polymorphic shell
+  reused with different subjectType (same URL state) would keep selected IDs
+  from previous type in BulkActionBar. Added `subjectType` to clear-effect deps.
+
+### Tests
+
+- 22 vitest integration tests (mount + polymorphism for SUSPECT/VICTIM/WITNESS
+  + bulk select + delete flow + trust boundary + polymorphism clear)
+- Frontend: 1085 tests total, 0 fail. tsc clean.
+
+### Final state — ListPageShell plan complete (5/5 PRs)
+
+PR1 (foundation + Cases canonical) → PR2 (Pattern A: Incident/Petition/Comprehensive)
+→ PR3 (UTDT + DeadlineRules + URL trust boundary) → PR4 (Lawyer + bulk v0.51)
+→ PR5 (Object polymorphic + bulk v0.51).
+
+### Deferred to follow-up
+
+- Feature-flag swap legacy → shell pages for ALL 10 list pages
+- /cases/stats?caseType= endpoint cho UTDT chip counts
+- Extract shared shell utilities (error mapper, sanitize helpers, FilterSelect)
+- Delete PageHeader.tsx + refactor CaseFormPage inline header
+
 ## [0.54.0.0] - 2026-05-30
 
 **v0.54 ListPageShell PR4 — LawyerListPageShell + bulk-delete UI integration**
