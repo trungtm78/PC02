@@ -77,6 +77,10 @@ async function renderPage(initialEntry = '/uy-thac-dieu-tra') {
     <MemoryRouter initialEntries={[initialEntry]}>
       <Routes>
         <Route path="/uy-thac-dieu-tra" element={<Page />} />
+        <Route
+          path="/uy-thac-dieu-tra/:id/edit"
+          element={<div data-testid="utdt-edit-route">EDIT</div>}
+        />
       </Routes>
     </MemoryRouter>,
   );
@@ -130,6 +134,33 @@ describe('UyThacDieuTraListPage — PR3 shell refactor', () => {
     await waitFor(() => {
       expect(screen.getByTestId('utdt-delete-reason')).toBeInTheDocument();
     });
+  });
+
+  // v0.67.4 — row click navigates to edit form. Was the missing pattern that
+  // tricked anh into thinking UTDT had no Edit (Actions column overflowed
+  // off-viewport on narrow screens). Mirrors Cases/Incidents/Petitions list.
+  it('click row → navigates to /uy-thac-dieu-tra/:id/edit', async () => {
+    await renderPage();
+    const codeCell = await screen.findByText('PC02-UTDT-2026-00001');
+    const row = codeCell.closest('tr');
+    expect(row).toBeTruthy();
+    fireEvent.click(row!);
+    expect(await screen.findByTestId('utdt-edit-route')).toBeInTheDocument();
+  });
+
+  it('click Trash icon does NOT navigate edit (stopPropagation guard)', async () => {
+    await renderPage();
+    await screen.findByText('PC02-UTDT-2026-00001');
+    fireEvent.click(screen.getByTitle('Xóa ủy thác'));
+    expect(await screen.findByTestId('utdt-delete-reason')).toBeInTheDocument();
+    expect(screen.queryByTestId('utdt-edit-route')).not.toBeInTheDocument();
+  });
+
+  it('click Pencil icon navigates to edit form', async () => {
+    await renderPage();
+    await screen.findByText('PC02-UTDT-2026-00001');
+    fireEvent.click(screen.getByTitle('Sửa ủy thác'));
+    expect(await screen.findByTestId('utdt-edit-route')).toBeInTheDocument();
   });
 
   it('delete modal button disabled khi reason < 10 chars', async () => {
