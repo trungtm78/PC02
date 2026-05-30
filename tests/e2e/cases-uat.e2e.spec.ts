@@ -2108,9 +2108,7 @@ test.describe('CASES — UAT E2E layer', () => {
   });
   test('TC-CASE-114-E2E: [P1] Trang list /cases — keyboard navigation Tab order', async ({ page }) => {
     // Pre: Login UI
-    // Steps: 1. Open /cases
-2. Tab qua từng element
-3. Verify focus visible
+    // Steps: 1. Open /cases 2. Tab qua từng element 3. Verify focus visible
     // Expected: Tab order logic: search → filter chips → table rows → pagination; mỗi focus có outline ring rõ
     const casesPage = new CasesPage(page);
     try {

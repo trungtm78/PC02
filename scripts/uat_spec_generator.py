@@ -57,12 +57,14 @@ FEATURE_CONFIG = {
 
 
 def sanitize_title(s: str) -> str:
-    """Escape special chars trong test title (JS single-quoted string)."""
+    """Escape special chars trong test title (JS single-quoted string) — no newlines."""
     # Order matters: backslash first, then single quote, then backtick
     return (s.replace('\\', '\\\\')
              .replace("'", "\\'")
              .replace('`', "'")
-             .replace('"', "'"))
+             .replace('"', "'")
+             .replace('\n', ' ')
+             .replace('\r', ''))
 
 
 def parse_endpoint(ep: str):
