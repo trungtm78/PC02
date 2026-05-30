@@ -43,6 +43,16 @@ import {
 } from '@/shared/enums/generated';
 import { BTN_PRIMARY, A11Y_FOCUS_RING } from '@/constants/styles';
 import { formatVNDate } from '@/lib/dates';
+// v0.66 PR4 — polyglot registry-driven row actions + advanced filters
+import { RowActions } from '@/features/_shared/row-actions/RowActions';
+import { Filters } from '@/features/_shared/list-filters/Filters';
+import { useListFilters } from '@/features/_shared/list-filters/useListFilters';
+import { useAssignModal } from '@/features/_shared/modals/AssignModalProvider';
+import { useDeleteResourceModal } from '@/features/_shared/modals/DeleteResourceModalProvider';
+import { usePermission } from '@/hooks/usePermission';
+import type { ActionContext } from '@/features/_shared/row-actions/registry';
+import { comprehensiveRowActions } from '@/features/comprehensive/row-actions';
+import { comprehensiveListFilters, type ComprehensiveFilterValue } from '@/features/comprehensive/list-filters';
 
 const RECORD_TYPE = {
   CASE: 'CASE',
@@ -194,6 +204,40 @@ export function ComprehensiveListPageShell() {
 
   const abortRef = useRef<AbortController | null>(null);
 
+  // v0.66 PR4 — Action context + advanced filters.
+  const { canDispatch, canEdit, canDelete } = usePermission();
+  const assignModal = useAssignModal();
+  const deleteModal = useDeleteResourceModal();
+  const [refetchCounter, setRefetchCounter] = useState(0);
+  const actionCtx: ActionContext = useMemo(
+    () => ({
+      navigate,
+      perms: {
+        canDispatch,
+        // canEdit/canDelete checked per resource at action level — caller passes general.
+        canEdit: canEdit('cases') || canEdit('incidents') || canEdit('petitions'),
+        canDelete: canDelete('cases') || canDelete('incidents') || canDelete('petitions'),
+      },
+      assignModal,
+      deleteModal: {
+        open: (args) =>
+          deleteModal.open({
+            ...args,
+            onSuccess: () => {
+              args.onSuccess?.();
+              setRefetchCounter((n) => n + 1);
+            },
+          }),
+      },
+    }),
+    [navigate, canDispatch, canEdit, canDelete, assignModal, deleteModal],
+  );
+  const listFilters = useListFilters<ComprehensiveFilterValue>({
+    prefix: 'comprehensive',
+    registry: comprehensiveListFilters,
+  });
+  const appliedFilters = listFilters.applied;
+
   // Fetch LIST — fan-out theo typeFilter
   useEffect(() => {
     abortRef.current?.abort();
@@ -320,7 +364,8 @@ export function ComprehensiveListPageShell() {
 
     void fetchAll();
     return () => ctrl.abort();
-  }, [typeFilter, page, debouncedSearch]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [typeFilter, page, debouncedSearch, refetchCounter, appliedFilters]);
 
   // Stats fan-out CHỈ khi typeFilter được chọn — single-type mode cần stats endpoint
   // cho future per-status drill-down. Khi typeFilter == null (Tất cả), counts
@@ -387,6 +432,23 @@ export function ComprehensiveListPageShell() {
   const columns: ColumnDef<UnifiedRow>[] = useMemo(
     () => [
       {
+        key: 'actions',
+        header: 'Thao tác',
+        width: '8rem',
+        render: (r) => (
+          <RowActions
+            registry={comprehensiveRowActions}
+            row={{
+              id: r.id,
+              recordType: r.recordType,
+              caseNumber: r.caseNumber,
+              name: r.name,
+            }}
+            ctx={actionCtx}
+          />
+        ),
+      },
+      {
         key: 'typeLabel',
         header: 'Loại',
         render: (r) => (
@@ -430,7 +492,7 @@ export function ComprehensiveListPageShell() {
         render: (r) => formatVNDate(r.receivedDate),
       },
     ],
-    [],
+    [actionCtx],
   );
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
@@ -458,9 +520,11 @@ export function ComprehensiveListPageShell() {
 
   const handleResetFilters = useCallback(() => {
     url.clearAll();
-  }, [url]);
+    listFilters.reset();
+  }, [url, listFilters]);
 
-  const activeFilterCount = (typeFilter ? 1 : 0) + (searchQuery ? 1 : 0);
+  const appliedFilterCount = Object.values(appliedFilters).filter((v) => v && v !== '').length;
+  const activeFilterCount = (typeFilter ? 1 : 0) + (searchQuery ? 1 : 0) + appliedFilterCount;
 
   const handleRowClick = useCallback(
     (r: UnifiedRow) => {
@@ -501,7 +565,16 @@ export function ComprehensiveListPageShell() {
         searchPlaceholder="Tìm kiếm theo mã, tên, người gửi..."
         activeFilterCount={activeFilterCount}
         onResetFilters={handleResetFilters}
-      />
+      >
+        <Filters<ComprehensiveFilterValue>
+          registry={comprehensiveListFilters}
+          value={listFilters.draft}
+          onChange={listFilters.setField}
+          onApply={listFilters.apply}
+          onReset={listFilters.reset}
+          hasUnappliedChanges={listFilters.hasUnappliedChanges}
+        />
+      </ListPageShell.Toolbar>
       <ListPageShell.Table<UnifiedRow>
         state={tableState}
         columns={columns}
