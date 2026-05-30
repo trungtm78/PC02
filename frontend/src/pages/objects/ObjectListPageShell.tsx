@@ -30,6 +30,9 @@ import {
   ListPageShell,
   useListPageUrlState,
   type TableState,
+  getVietnameseErrorMessage,
+  sanitizeStringParam,
+  LIST_PAGE_SIZE,
 } from '@/components/shared/ListPageShell';
 import { useBulkSelection } from '@/features/_shared/bulk/useBulkSelection';
 import {
@@ -102,26 +105,6 @@ const TYPE_CONFIG: Record<SubjectType, TypeConfig> = {
 const SUBJECT_STATUS_VALUES = new Set<string>(Object.values(SubjectStatus));
 function isValidSubjectStatus(v: string | null): v is SubjectStatus {
   return v != null && SUBJECT_STATUS_VALUES.has(v);
-}
-
-function getVietnameseErrorMessage(e: unknown, label: string): string {
-  if (axios.isAxiosError(e)) {
-    const status = e.response?.status;
-    if (status === 401) return 'Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại';
-    if (status === 403) return 'Bạn không có quyền xem dữ liệu này';
-    if (status && status >= 500) return 'Lỗi máy chủ, vui lòng thử lại sau';
-    const serverMsg = (e.response?.data as { message?: string } | undefined)?.message;
-    if (serverMsg) return serverMsg;
-    if (e.code === 'ECONNABORTED') return 'Quá thời gian chờ, vui lòng thử lại';
-    return `Không tải được danh sách ${label}`;
-  }
-  return 'Lỗi không xác định';
-}
-
-function sanitizeStringParam(v: string | null, maxLen = 200): string {
-  if (v == null) return '';
-  // eslint-disable-next-line no-control-regex
-  return v.replace(/[\x00-\x1f\x7f]/g, '').slice(0, maxLen);
 }
 
 const SUBJECT_STATUS_CHIPS: ReadonlyArray<{

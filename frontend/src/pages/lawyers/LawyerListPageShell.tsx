@@ -26,6 +26,10 @@ import {
   ListPageShell,
   useListPageUrlState,
   type TableState,
+  getVietnameseErrorMessage,
+  sanitizeStringParam,
+  LIST_PAGE_SIZE,
+  SEARCH_DEBOUNCE_MS,
 } from '@/components/shared/ListPageShell';
 import { useBulkSelection } from '@/features/_shared/bulk/useBulkSelection';
 import {
@@ -51,27 +55,7 @@ interface Lawyer {
   subject?: { id: string; fullName: string };
 }
 
-function getVietnameseErrorMessage(e: unknown): string {
-  if (axios.isAxiosError(e)) {
-    const status = e.response?.status;
-    if (status === 401) return 'Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại';
-    if (status === 403) return 'Bạn không có quyền xem dữ liệu này';
-    if (status && status >= 500) return 'Lỗi máy chủ, vui lòng thử lại sau';
-    const serverMsg = (e.response?.data as { message?: string } | undefined)?.message;
-    if (serverMsg) return serverMsg;
-    if (e.code === 'ECONNABORTED') return 'Quá thời gian chờ, vui lòng thử lại';
-    return 'Không tải được danh sách luật sư';
-  }
-  return 'Lỗi không xác định';
-}
-
-function sanitizeStringParam(v: string | null, maxLen = 200): string {
-  if (v == null) return '';
-  // eslint-disable-next-line no-control-regex
-  return v.replace(/[\x00-\x1f\x7f]/g, '').slice(0, maxLen);
-}
-
-const PAGE_SIZE = 20;
+const PAGE_SIZE = LIST_PAGE_SIZE;
 
 export function LawyerListPageShell() {
   const url = useListPageUrlState('lawyers');
@@ -125,7 +109,7 @@ export function LawyerListPageShell() {
       })
       .catch((e: unknown) => {
         if (ctrl.signal.aborted || axios.isCancel(e)) return;
-        setError(getVietnameseErrorMessage(e));
+        setError(getVietnameseErrorMessage(e, 'luật sư'));
         setTableState('error');
       });
   }, [page, debouncedSearch]);
@@ -206,7 +190,7 @@ export function LawyerListPageShell() {
     (err: unknown, action: BulkAction<Lawyer>) => {
       setTransientBanner({
         kind: 'error',
-        text: `Thao tác "${action.label}" thất bại: ${getVietnameseErrorMessage(err)}`,
+        text: `Thao tác "${action.label}" thất bại: ${getVietnameseErrorMessage(err, 'luật sư')}`,
       });
     },
     [],
