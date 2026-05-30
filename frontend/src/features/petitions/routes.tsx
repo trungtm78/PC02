@@ -15,6 +15,10 @@ export function renderPetitionsRoutes(): ReactElement[] {
   return [
     <Route key="petitions-list" path="/petitions" element={wrap(<PetitionListPage />)} />,
     <Route key="petitions-new" path="/petitions/new" element={wrap(<PetitionFormPage />)} />,
+    // v0.67.1 fix: /petitions/:id alias. Without this, row click trên list shell
+    // navigates to /petitions/:id → no route → catch-all `*` → redirect /login.
+    // PetitionFormPage handles cả read+edit qua useParams id presence.
+    <Route key="petitions-detail" path="/petitions/:id" element={wrap(<PetitionFormPage />)} />,
     <Route key="petitions-edit" path="/petitions/:id/edit" element={wrap(<PetitionFormPage />)} />,
     <Route key="petitions-ward" path="/ward/petitions" element={wrap(<WardPetitionsPage />)} />,
   ];
