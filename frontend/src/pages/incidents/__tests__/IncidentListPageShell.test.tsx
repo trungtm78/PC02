@@ -175,7 +175,8 @@ describe('IncidentListPageShell — interactions', () => {
     expect(xacMinhTab).toBeDefined();
     fireEvent.click(xacMinhTab!);
     await waitFor(() => {
-      expect(getLocation()).toContain('incidents_phase=XAC_MINH');
+      // Backend slug — see PHASE_STATUSES keys in incidents.constants.ts
+      expect(getLocation()).toContain('incidents_phase=xac-minh');
     });
   });
 
@@ -264,6 +265,15 @@ describe('IncidentListPageShell — security + contract fixes', () => {
     expect(listCall?.[1]?.params.phase).toBeUndefined();
   });
 
+  it('UPPER_SNAKE_CASE phase value → rejected (backend expects kebab-case)', async () => {
+    renderWithRouter(['/incidents?incidents_phase=XAC_MINH']);
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith('/incidents', expect.any(Object)));
+    const listCall = (api.get as unknown as ReturnType<typeof vi.fn>).mock.calls.find(
+      (c) => c[0] === '/incidents',
+    );
+    expect(listCall?.[1]?.params.phase).toBeUndefined();
+  });
+
   it('byStatus response exhaustive — mọi IncidentStatus key có number', () => {
     Object.values(IncidentStatus).forEach((status) => {
       expect(typeof exhaustiveByStatus[status]).toBe('number');
@@ -290,13 +300,13 @@ describe('IncidentListPageShell — URL state load from query params', () => {
     expect(listCall?.[1]?.params.status).toBe('DANG_XAC_MINH');
   });
 
-  it('load với incidents_phase=KET_QUA → fetch caller với phase=KET_QUA', async () => {
-    renderWithRouter(['/incidents?incidents_phase=KET_QUA']);
+  it('load với incidents_phase=ket-qua → fetch caller với phase=ket-qua (backend kebab-case slug)', async () => {
+    renderWithRouter(['/incidents?incidents_phase=ket-qua']);
     await waitFor(() => screen.getByText('Vụ việc mẫu'));
     const listCall = (api.get as unknown as ReturnType<typeof vi.fn>).mock.calls.find(
       (c) => c[0] === '/incidents',
     );
-    expect(listCall?.[1]?.params.phase).toBe('KET_QUA');
+    expect(listCall?.[1]?.params.phase).toBe('ket-qua');
   });
 
   it('load với incidents_page=3 → fetch offset=40', async () => {

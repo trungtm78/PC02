@@ -39,14 +39,17 @@ function isValidIncidentStatus(value: string | null): value is IncidentStatus {
 }
 
 // Phase = grouping of statuses per BCA TT28/2020 4-stage workflow.
-// Map backend QueryIncidentsDto.phase values.
-const PHASE_VALUES = ['TIEP_NHAN', 'XAC_MINH', 'KET_QUA', 'TAM_DINH_CHI'] as const;
+// Values MUST match backend PHASE_STATUSES keys at
+// backend/src/incidents/incidents.constants.ts:4-17 (kebab-case lowercase).
+// /codex review found that UPPER_SNAKE_CASE silently no-ops because backend
+// looks up keys directly, never throws on miss.
+const PHASE_VALUES = ['tiep-nhan', 'xac-minh', 'ket-qua', 'tam-dinh-chi'] as const;
 type IncidentPhase = (typeof PHASE_VALUES)[number];
 const PHASE_LABEL: Record<IncidentPhase, string> = {
-  TIEP_NHAN: 'Tiếp nhận',
-  XAC_MINH: 'Xác minh',
-  KET_QUA: 'Kết quả',
-  TAM_DINH_CHI: 'Tạm đình chỉ',
+  'tiep-nhan': 'Tiếp nhận',
+  'xac-minh': 'Xác minh',
+  'ket-qua': 'Kết quả',
+  'tam-dinh-chi': 'Tạm đình chỉ',
 };
 const PHASE_VALUE_SET = new Set<string>(PHASE_VALUES);
 function isValidPhase(value: string | null): value is IncidentPhase {
