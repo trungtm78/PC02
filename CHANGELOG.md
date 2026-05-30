@@ -2,6 +2,49 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.66.2.0] - 2026-05-30
+
+**v0.66.2 hotfix(doc-numbers) — Lưu vụ việc lỗi 500 Internal server error**
+
+Anh báo bấm "Lưu vụ việc" → "Vui lòng kiểm tra: Internal server error".
+Backend logs cho thấy `PrismaClientKnownRequestError: Unique constraint failed
+on the fields: (code)` trên `incidents.create()`.
+
+### Root cause
+
+`document_number_counters` table tracks next available counter per
+documentType+period. `commitWithTx` locks row + reads currentValue + increments.
+Counter starts at 0, increments to 124. Form pre-fill shows VV-2026-00125.
+
+But `prisma/seed-sample-data.ts` inserts seed incidents (VV-2026-001 …
+VV-2026-005) DIRECTLY via Prisma without going through commitWithTx →
+counter stays at 0 while DB has codes up to VV-2026-00145. Save attempts
+generate code 125 → unique constraint conflict.
+
+### Hot-fix (immediate, on prod DB)
+
+Manual SQL: `UPDATE document_number_counters SET "currentValue" = 145 ...`
+where MAX(code suffix) = 145. Form preview now shows VV-2026-00146. Verified
+save works end-to-end: created "Test save sau hotfix counter" successfully.
+
+### Code defensive fix (this PR)
+
+`commitWithTx` now detects counter drift before incrementing:
+1. After locking counter row, query `MAX(suffix)` from target table (`incidents`
+   for INCIDENT, `cases` for CASE) using period prefix (`%-YYYY-%`).
+2. If DB max ≥ counter+1, bump `nextValue` to `dbMax + 1`.
+3. Counter row then updated to `nextValue` so subsequent calls are consistent.
+
+Pattern hard-coded for INCIDENT + CASE document types. New types using docNums
+counters need to add a branch (mặc dù em recommend always go through
+commitWithTx for new entities, including seeds).
+
+### Tests
+
+- 26 unit tests pass (1 new: "drift fix bumps nextValue past DB max").
+- 2096/2096 backend test suite pass.
+- tsc clean.
+
 ## [0.66.1.0] - 2026-05-30
 
 **v0.66.1 hotfix(incidents) — /investigate: tạo mới vụ việc không được**
