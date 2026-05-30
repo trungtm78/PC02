@@ -8,8 +8,7 @@ import EnrollPage from '@/pages/auth/EnrollPage';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { MainLayout } from '@/layouts/MainLayout';
 import { FeatureFlagsProvider, FEATURE_MODULES } from '@/lib/features';
-import { AssignModalProvider } from '@/features/_shared/modals/AssignModalProvider';
-import { DeleteResourceModalProvider } from '@/features/_shared/modals/DeleteResourceModalProvider';
+import { CompositeModalProvider } from '@/features/_shared/modals/CompositeModalProvider';
 import { useAuthHydration } from '@/hooks/useAuthHydration';
 
 const queryClient = new QueryClient({
@@ -54,11 +53,9 @@ function App() {
             element={
               <ProtectedRoute>
                 <FeatureFlagsProvider>
-                  <AssignModalProvider>
-                    <DeleteResourceModalProvider>
-                      <MainLayout />
-                    </DeleteResourceModalProvider>
-                  </AssignModalProvider>
+                  <CompositeModalProvider>
+                    <MainLayout />
+                  </CompositeModalProvider>
                 </FeatureFlagsProvider>
               </ProtectedRoute>
             }
