@@ -10,6 +10,8 @@ import { MemoryRouter, useLocation, Routes, Route } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { PetitionListPageShell } from '../PetitionListPageShell';
 import { PetitionStatus } from '@/shared/enums/generated';
+import { AssignModalProvider } from '@/features/_shared/modals/AssignModalProvider';
+import { DeleteResourceModalProvider } from '@/features/_shared/modals/DeleteResourceModalProvider';
 
 vi.mock('@/lib/api', () => ({
   api: {
@@ -26,11 +28,15 @@ function renderWithRouter(initialEntries: string[] = ['/petitions']) {
   }
   const result = render(
     <MemoryRouter initialEntries={initialEntries}>
-      <Routes>
-        <Route path="/petitions" element={<><PetitionListPageShell /><LocationTracker /></>} />
-        <Route path="/petitions/new" element={<div>NewPetitionPage</div>} />
-        <Route path="/petitions/:id" element={<div>PetitionDetailPage</div>} />
-      </Routes>
+      <AssignModalProvider>
+        <DeleteResourceModalProvider>
+          <Routes>
+            <Route path="/petitions" element={<><PetitionListPageShell /><LocationTracker /></>} />
+            <Route path="/petitions/new" element={<div>NewPetitionPage</div>} />
+            <Route path="/petitions/:id" element={<div>PetitionDetailPage</div>} />
+          </Routes>
+        </DeleteResourceModalProvider>
+      </AssignModalProvider>
     </MemoryRouter>,
   );
   return { ...result, getLocation: () => lastLocation };
