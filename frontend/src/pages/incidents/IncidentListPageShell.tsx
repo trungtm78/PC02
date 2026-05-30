@@ -14,7 +14,7 @@
  */
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FileSearch, Plus } from 'lucide-react';
+import { FileSearch, Plus, AlertCircle, X } from 'lucide-react';
 import axios from 'axios';
 import { api } from '@/lib/api';
 import {
@@ -23,6 +23,10 @@ import {
   type ColumnDef,
   type TableState,
 } from '@/components/shared/ListPageShell';
+import { useBulkSelection } from '@/features/_shared/bulk/useBulkSelection';
+import { BulkActionBar } from '@/features/_shared/bulk/BulkActionBar';
+import { buildIncidentsAdapter } from '@/features/_shared/bulk/adapters/incidents';
+import type { BulkAction, BulkResult } from '@/features/_shared/bulk/types';
 import {
   INCIDENT_STATUS_CHIPS,
   INCIDENT_STATUS_LABEL,
@@ -115,6 +119,7 @@ export function IncidentListPageShell() {
   const [totalCount, setTotalCount] = useState(0);
   const [stats, setStats] = useState<IncidentsStatsResponse | null>(null);
   const [tableState, setTableState] = useState<TableState>('loading');
+  const [refetchCounter, setRefetchCounter] = useState(0);
   const [error, setError] = useState<string | undefined>();
 
   const abortRef = useRef<AbortController | null>(null);
@@ -153,7 +158,9 @@ export function IncidentListPageShell() {
       });
 
     return () => ctrl.abort();
-  }, [statusFilter, phaseFilter, page, debouncedSearch]);
+    // refetchCounter forces refetch after bulk action success (declared below for hoisting OK at runtime)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter, phaseFilter, page, debouncedSearch, refetchCounter]);
 
   // Stats fetch: search + phase pass-through, status purposely stripped.
   useEffect(() => {
@@ -186,6 +193,58 @@ export function IncidentListPageShell() {
       })),
     [stats],
   );
+
+  // /investigate v0.61 fix Bug 2 — bulk integration mirror Cases pattern.
+  const selection = useBulkSelection<IncidentRow>({
+    rowKey: 'id',
+    pageRows: rows,
+    totalCountMatchingFilter: totalCount,
+  });
+  const adapter = useMemo(() => buildIncidentsAdapter({ enableDelete: true }), []);
+  const selectionClearRef = useRef(selection.clear);
+  selectionClearRef.current = selection.clear;
+  useEffect(() => {
+    selectionClearRef.current();
+  }, [statusFilter, phaseFilter, page, debouncedSearch]);
+  const [transientBanner, setTransientBanner] = useState<{
+    kind: 'success' | 'error';
+    text: string;
+  } | null>(null);
+  const handleBulkSuccess = useCallback(
+    (result: BulkResult | void, action: BulkAction<IncidentRow>) => {
+      if (action.key === 'export') {
+        setTransientBanner({ kind: 'success', text: 'Đã xuất Excel' });
+        return;
+      }
+      if (result && typeof result === 'object') {
+        const { succeeded, skipped, failed } = result;
+        const parts: string[] = [];
+        if (succeeded?.length) parts.push(`Đã xử lý ${succeeded.length} vụ việc`);
+        if (skipped?.length) parts.push(`Bỏ qua ${skipped.length}`);
+        if (failed?.length) parts.push(`Lỗi ${failed.length}`);
+        setTransientBanner({
+          kind: failed?.length ? 'error' : 'success',
+          text: parts.join(' · ') || 'Hoàn tất',
+        });
+        setRefetchCounter((c) => c + 1);
+      }
+    },
+    [],
+  );
+  const handleBulkError = useCallback(
+    (err: unknown, action: BulkAction<IncidentRow>) => {
+      setTransientBanner({
+        kind: 'error',
+        text: `Thao tác "${action.label}" thất bại: ${getVietnameseErrorMessage(err)}`,
+      });
+    },
+    [],
+  );
+  useEffect(() => {
+    if (!transientBanner) return;
+    const t = setTimeout(() => setTransientBanner(null), 5000);
+    return () => clearTimeout(t);
+  }, [transientBanner]);
 
   const columns: ColumnDef<IncidentRow>[] = useMemo(
     () => [
@@ -350,6 +409,31 @@ export function IncidentListPageShell() {
         activeFilterCount={activeFilterCount}
         onResetFilters={handleResetFilters}
       />
+      {transientBanner && (
+        <div
+          data-testid="incidents-bulk-banner"
+          role="status"
+          aria-live="polite"
+          className={`flex items-center justify-between gap-3 px-4 py-2 border-b border-slate-200 text-sm ${
+            transientBanner.kind === 'success'
+              ? 'bg-green-50 text-green-800'
+              : 'bg-red-50 text-red-800'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            <span>{transientBanner.text}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setTransientBanner(null)}
+            className={`p-1 rounded hover:bg-white/40 ${A11Y_FOCUS_RING}`}
+            aria-label="Đóng thông báo"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
       <ListPageShell.Table<IncidentRow>
         state={tableState}
         columns={columns}
@@ -367,12 +451,22 @@ export function IncidentListPageShell() {
         emptyFilteredState={{ onClearFilters: handleResetFilters }}
         onRowClick={(r) => navigate(`/incidents/${r.id}`)}
         getRowClassName={(r) => (isOverdue(r.deadline) ? OVERDUE_ROW_HIGHLIGHT : '')}
+        bulkSelection={selection}
+        bulkRowsLabel="vụ việc"
+        bulkRowLabel={(r) => `vụ việc ${r.code}`}
       />
       <ListPageShell.Pagination
         page={page}
         totalPages={totalPages}
         totalCount={totalCount}
         onPageChange={handlePageChange}
+      />
+      <BulkActionBar
+        selection={selection}
+        adapter={adapter}
+        pageRows={rows}
+        onSuccess={handleBulkSuccess}
+        onError={handleBulkError}
       />
     </ListPageShell>
   );

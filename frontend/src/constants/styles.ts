@@ -291,8 +291,14 @@ export const STATUS_CHIPS_BAR =
 // max-w-[12rem] + truncate enforce shortLabel obligation (T4 scope) ở token
 // level — nếu consumer thiếu shortLabel, chip vẫn truncate thay vì phá layout.
 // py-2 text-sm cho ~40px touch target (WCAG 2.5.8 comfortable thumb).
+//
+// /investigate v0.61 fix: `shrink-0` ngăn parent flex bóp chip xuống dưới
+// natural content width. Trước đây offsetWidth=70 < scrollWidth=91 do `flex`
+// parent (STATUS_CHIPS_BAR) shrink children, kết hợp `truncate` (overflow:hidden)
+// → clip count badge "0" sau text. Production bug: anh báo "Tất cả 0" thấy
+// nhưng các chip còn lại không có count.
 export const STATUS_CHIP_BASE =
-  "inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-medium whitespace-nowrap snap-start transition-colors motion-reduce:transition-none max-w-[12rem] truncate";
+  "inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-medium whitespace-nowrap snap-start transition-colors motion-reduce:transition-none max-w-[12rem] shrink-0 truncate";
 
 // Active chip — high-contrast filled.
 export const STATUS_CHIP_ACTIVE =
