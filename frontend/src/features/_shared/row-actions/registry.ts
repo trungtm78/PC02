@@ -26,6 +26,21 @@ export interface DeleteModalOpenArgs {
   onSuccess?: () => void;
 }
 
+/** v0.67 PR1 — incidents-specific modal openers */
+export interface StatusTransitionOpenArgs {
+  recordId: string;
+  currentStatus: string;
+  currentUpdatedAt?: string;
+  onSuccess?: () => void;
+}
+
+export interface ProsecuteOpenArgs {
+  recordId: string;
+  incidentName: string;
+  currentUpdatedAt?: string;
+  onSuccess?: (caseId: string) => void;
+}
+
 export interface ActionContext {
   navigate: NavigateFunction;
   perms: {
@@ -35,6 +50,10 @@ export interface ActionContext {
   };
   assignModal: { open: (args: AssignModalOpenArgs) => void };
   deleteModal: { open: (args: DeleteModalOpenArgs) => void };
+  /** v0.67 PR1 — optional Incidents-only modals. Caller must provide
+   * if action targets transition/prosecute; otherwise undefined OK. */
+  statusTransition?: { open: (args: StatusTransitionOpenArgs) => void };
+  prosecute?: { open: (args: ProsecuteOpenArgs) => void };
 }
 
 export interface RowAction<TRow> {
