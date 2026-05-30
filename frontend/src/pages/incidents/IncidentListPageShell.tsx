@@ -41,6 +41,8 @@ import { Filters } from '@/features/_shared/list-filters/Filters';
 import { useListFilters } from '@/features/_shared/list-filters/useListFilters';
 import { useAssignModal } from '@/features/_shared/modals/AssignModalProvider';
 import { useDeleteResourceModal } from '@/features/_shared/modals/DeleteResourceModalProvider';
+import { useStatusTransitionModal } from '@/features/_shared/modals/StatusTransitionModalProvider';
+import { useProsecuteModal } from '@/features/_shared/modals/ProsecuteModalProvider';
 import { usePermission } from '@/hooks/usePermission';
 import type { ActionContext } from '@/features/_shared/row-actions/registry';
 import { incidentsRowActions } from '@/features/incidents/row-actions';
@@ -135,9 +137,12 @@ export function IncidentListPageShell() {
   const abortRef = useRef<AbortController | null>(null);
 
   // v0.64 PR2 — Action context (perms + modal openers).
+  // v0.67 PR1 PR2-bis — wire StatusTransition + Prosecute modals.
   const { canDispatch, canEdit, canDelete } = usePermission();
   const assignModal = useAssignModal();
   const deleteModal = useDeleteResourceModal();
+  const statusTransitionModal = useStatusTransitionModal();
+  const prosecuteModal = useProsecuteModal();
   const actionCtx: ActionContext = useMemo(
     () => ({
       navigate,
@@ -157,8 +162,38 @@ export function IncidentListPageShell() {
             },
           }),
       },
+      statusTransition: {
+        open: (args) =>
+          statusTransitionModal.open({
+            ...args,
+            onSuccess: () => {
+              args.onSuccess?.();
+              setRefetchCounter((n) => n + 1);
+            },
+          }),
+      },
+      prosecute: {
+        open: (args) =>
+          prosecuteModal.open({
+            ...args,
+            onSuccess: (caseId) => {
+              args.onSuccess?.(caseId);
+              // Navigate sang Vụ án mới sau khi atomic transaction tạo Case.
+              navigate(`/cases/${caseId}`);
+            },
+          }),
+      },
     }),
-    [navigate, canDispatch, canEdit, canDelete, assignModal, deleteModal],
+    [
+      navigate,
+      canDispatch,
+      canEdit,
+      canDelete,
+      assignModal,
+      deleteModal,
+      statusTransitionModal,
+      prosecuteModal,
+    ],
   );
 
   // v0.64 PR2 — Advanced filter state + URL sync.
