@@ -1,0 +1,61 @@
+name: Shell Parity Gate
+
+# Blocks PRs that modify *ListPageShell.tsx files without updating
+# docs/audit/shell-parity-matrix.md. Process fix from /autoplan CEO+Eng
+# dual-voice review (v0.63 plan v2).
+#
+# Bypass: include "[parity-skip]" in the PR title (case-insensitive) for
+# refactor-only or comment-only changes that don't affect feature parity.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "frontend/src/pages/**/ListPageShell.tsx"
+      - "frontend/src/pages/**/*ListPageShell.tsx"
+      - "docs/audit/shell-parity-matrix.md"
+
+jobs:
+  parity-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check parity matrix sync
+        run: |
+          set -euo pipefail
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          if echo "$PR_TITLE" | grep -iE '\[parity-skip\]' >/dev/null; then
+            echo "::notice::Parity check skipped via [parity-skip] in PR title."
+            exit 0
+          fi
+
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+
+          echo "Comparing $BASE_SHA..$HEAD_SHA"
+
+          SHELL_CHANGED=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" \
+            | grep -E 'frontend/src/pages/.*ListPageShell\.tsx$' || true)
+
+          if [ -z "$SHELL_CHANGED" ]; then
+            echo "No shell files changed. Pass."
+            exit 0
+          fi
+
+          echo "Shell files changed:"
+          echo "$SHELL_CHANGED"
+
+          MATRIX_CHANGED=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" \
+            | grep -F 'docs/audit/shell-parity-matrix.md' || true)
+
+          if [ -z "$MATRIX_CHANGED" ]; then
+            echo "::error::Shell file(s) changed but docs/audit/shell-parity-matrix.md NOT updated."
+            echo "::error::Either update the matrix to reflect added/removed features,"
+            echo "::error::or add [parity-skip] to the PR title for refactor-only changes."
+            exit 1
+          fi
+
+          echo "Both shell and parity matrix updated. Pass."

@@ -1,10 +1,23 @@
-# Shell Parity Matrix — Legacy (git 2cbdd90) vs Current Shells (v0.61)
+# Shell Parity Matrix — Legacy (git 2cbdd90) vs Current Shells
 
-**Generated**: 2026-05-30 manual audit (post-F1+F7 swap)
+**Updated**: 2026-05-30 after v0.66 ship (PR1-PR4 complete).
 **Truth-of-record**: legacy commit `2cbdd90` (parent of `a8016b6` v0.57.0.0 deletion).
-**Method**: testid extraction from TSX `data-testid="..."` attributes.
+**Method**: testid extraction + registry inspection.
 
-## Summary
+## Status v0.66 (chain complete)
+
+- ✅ Cases (v0.63 PR1b): 8 actions + 5 filters via casesRowActions + casesListFilters.
+- ✅ Incidents (v0.64 PR2): 4 actions + 4 filters. Transition+Prosecute → PR2-bis.
+- ✅ Petitions (v0.65 PR3): 4 actions + 5 filters. Archive+Convert → PR3-bis.
+- ✅ Comprehensive (v0.66 PR4): 3 polyglot actions (dispatched by row.recordType) + 5 filters.
+
+## CI Gate (this file = process fix)
+
+`.github/workflows/shell-parity-gate.yml`:
+- Any PR modifying `*ListPageShell.tsx` MUST also update this matrix file.
+- Bypass: `[parity-skip]` in PR title for refactor-only changes.
+
+## Summary (original audit, retained for reference)
 
 | Page | Legacy actions | Legacy filters | Shell actions | Shell filters | MISSING |
 |---|---|---|---|---|---|
