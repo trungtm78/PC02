@@ -471,6 +471,114 @@ export class CasesService {
   }
 
   // ─────────────────────────────────────────────
+  // GET UTDT STATS — F2 follow-up
+  // ─────────────────────────────────────────────
+  //
+  // UTDT chip counts grouped by computed TrangThaiPhanHoi (4 states).
+  // TrangThaiPhanHoi is NOT a stored column — it's derived from
+  // ketQuaUyThac + ngayTraKetQua + thoiHanUyThac + metadata.lyDoKhongThucHienDuoc
+  // (see computeTrangThaiPhanHoi above). Standard groupBy can't compute it,
+  // so we run 4 parallel counts using buildTrangThaiFilter as the per-state
+  // WHERE predicate. Total derived from sum (snapshot-consistent under READ
+  // COMMITTED — same pattern as cases/incidents/petitions stats).
+  //
+  // Reuses QueryCasesStatsDto for filter pass-through (search, donViGiao,
+  // loaiUyThac, ngayTiepNhanFrom/To, investigatorName, etc.) but ALWAYS
+  // forces caseType=UY_THAC_DIEU_TRA and strips trangThaiPhanHoi (counts BY
+  // state, not filtered by it).
+  async getUtdtStats(query: QueryCasesStatsDto, dataScope?: DataScope | null) {
+    const {
+      search,
+      investigatorId,
+      donViGiao,
+      loaiUyThac,
+      ngayTiepNhanFrom,
+      ngayTiepNhanTo,
+      investigatorName,
+    } = query;
+
+    // Base where: UTDT records, not deleted. Apply non-state filters.
+    const baseWhere: Prisma.CaseWhereInput = {
+      deletedAt: null,
+      caseType: CaseType.UY_THAC_DIEU_TRA,
+    };
+
+    if (search) {
+      baseWhere.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { crime: { contains: search, mode: 'insensitive' } },
+        { unit: { contains: search, mode: 'insensitive' } },
+        { donViGiao: { contains: search, mode: 'insensitive' } },
+        { soQuyetDinhUyThac: { contains: search, mode: 'insensitive' } },
+        { metadata: { path: ['nghiVanDoiTuong'], string_contains: search } },
+      ];
+    }
+    if (investigatorId) baseWhere.investigatorId = investigatorId;
+    if (donViGiao) baseWhere.donViGiao = { contains: donViGiao, mode: 'insensitive' };
+    if (loaiUyThac) baseWhere.loaiUyThac = loaiUyThac;
+
+    if (ngayTiepNhanFrom) {
+      baseWhere.ngayTiepNhan = {
+        ...(baseWhere.ngayTiepNhan as Prisma.DateTimeNullableFilter | undefined),
+        gte: new Date(ngayTiepNhanFrom),
+      };
+    }
+    if (ngayTiepNhanTo) {
+      baseWhere.ngayTiepNhan = {
+        ...(baseWhere.ngayTiepNhan as Prisma.DateTimeNullableFilter | undefined),
+        lte: new Date(ngayTiepNhanTo + 'T23:59:59Z'),
+      };
+    }
+
+    if (investigatorName) {
+      baseWhere.investigator = {
+        OR: [
+          { firstName: { contains: investigatorName, mode: 'insensitive' } },
+          { lastName: { contains: investigatorName, mode: 'insensitive' } },
+        ],
+      };
+    }
+
+    const scopeFilter = buildScopeFilter(dataScope);
+    if (scopeFilter) {
+      baseWhere.AND = [scopeFilter as Prisma.CaseWhereInput];
+    }
+
+    const states: TrangThaiPhanHoi[] = [
+      'DA_PHAN_HOI',
+      'KHONG_THUC_HIEN_DUOC',
+      'QUA_HAN',
+      'CHUA_PHAN_HOI',
+    ];
+
+    // 4 parallel counts, one per state. Each merges baseWhere with state-specific
+    // filter via AND-array (avoid clobbering existing baseWhere.AND).
+    const counts = await Promise.all(
+      states.map((state) => {
+        const stateFilter = buildTrangThaiFilter(state);
+        const stateWhere: Prisma.CaseWhereInput = {
+          ...baseWhere,
+          AND: [
+            ...(Array.isArray(baseWhere.AND) ? baseWhere.AND : baseWhere.AND ? [baseWhere.AND] : []),
+            stateFilter,
+          ],
+        };
+        return this.prisma.case.count({ where: stateWhere });
+      }),
+    );
+
+    const byTrangThai: Record<TrangThaiPhanHoi, number> = {
+      DA_PHAN_HOI: counts[0],
+      KHONG_THUC_HIEN_DUOC: counts[1],
+      QUA_HAN: counts[2],
+      CHUA_PHAN_HOI: counts[3],
+    };
+    const total = counts.reduce((a, b) => a + b, 0);
+
+    return { total, byTrangThai };
+  }
+
+  // ─────────────────────────────────────────────
   // GET DETAIL
   // ─────────────────────────────────────────────
   private checkRecordInScope(

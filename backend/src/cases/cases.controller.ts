@@ -64,6 +64,15 @@ export class CasesController {
     return this.casesService.getStats(query, req.dataScope);
   }
 
+  // GET /api/v1/cases/utdt-stats — F2 — UTDT chip counts grouped by computed
+  // TrangThaiPhanHoi (4 states). Service forces caseType=UY_THAC_DIEU_TRA.
+  // Returns { total, byTrangThai: { DA_PHAN_HOI, KHONG_THUC_HIEN_DUOC, QUA_HAN, CHUA_PHAN_HOI } }.
+  @Get('utdt-stats')
+  @RequirePermissions({ action: 'read', subject: 'Case' })
+  getUtdtStats(@Query() query: QueryCasesStatsDto, @Req() req: ScopedRequest) {
+    return this.casesService.getUtdtStats(query, req.dataScope);
+  }
+
   // GET /api/v1/cases/export/ward — Xuất vụ án theo phường/xã
   @Get('export/ward')
   @HttpCode(HttpStatus.OK)
