@@ -12,6 +12,11 @@
 import { type ReactNode } from 'react';
 import { AlertCircle, Inbox, WifiOff, FilterX } from 'lucide-react';
 import {
+  BulkSelectionHeaderCell,
+  BulkSelectionRowCell,
+} from '@/features/_shared/bulk/BulkSelectionColumn';
+import type { UseBulkSelectionResult } from '@/features/_shared/bulk/useBulkSelection';
+import {
   TABLE_WRAPPER,
   TABLE_BASE,
   TABLE_HEADER,
@@ -67,6 +72,18 @@ export interface TableProps<TRow, TId extends string | number = string> {
   };
   onRowClick?(row: TRow): void;
   getRowClassName?(row: TRow): string;
+  /**
+   * /investigate v0.61 fix — bulk selection integration. When passed, table
+   * prepends sticky-left checkbox column (header + per-row). Pair with
+   * BulkActionBar consumer-side for actions UI.
+   */
+  bulkSelection?: UseBulkSelectionResult;
+  /** Pluralized label for header aria-label ("vụ án", "vụ việc"...). */
+  bulkRowsLabel?: string;
+  /** Per-row label for checkbox aria-label ("vụ án PC02-001"...). */
+  bulkRowLabel?(row: TRow): string;
+  /** Per-row eligibility hint — return null=eligible, string=disabled+tooltip. */
+  bulkRowEligible?(row: TRow): string | null;
 }
 
 function LoadingSkeleton({ colCount }: { colCount: number }) {
@@ -170,10 +187,15 @@ export function Table<TRow, TId extends string | number = string>({
   emptyFilteredState,
   onRowClick,
   getRowClassName,
+  bulkSelection,
+  bulkRowsLabel,
+  bulkRowLabel,
+  bulkRowEligible,
 }: TableProps<TRow, TId>) {
   const { tableId } = useListPageShellContext();
+  const colSpan = columns.length + (bulkSelection ? 1 : 0);
 
-  if (state === 'loading') return <LoadingSkeleton colCount={columns.length} />;
+  if (state === 'loading') return <LoadingSkeleton colCount={colSpan} />;
   if (state === 'error') return <ErrorState error={error} />;
   if (state === 'empty') return <EmptyState emptyState={emptyState} />;
   if (state === 'empty-filtered') {
@@ -193,6 +215,12 @@ export function Table<TRow, TId extends string | number = string>({
         )}
         <thead className={TABLE_HEADER}>
           <tr>
+            {bulkSelection && (
+              <BulkSelectionHeaderCell
+                selection={bulkSelection}
+                totalRowsLabel={bulkRowsLabel}
+              />
+            )}
             {columns.map((col) => (
               <th
                 key={col.key}
@@ -209,12 +237,25 @@ export function Table<TRow, TId extends string | number = string>({
           {data.map((row) => {
             const key = rowKey(row);
             const customClass = getRowClassName?.(row) ?? '';
+            const isSelected = bulkSelection
+              ? bulkSelection.isSelected(String(key))
+              : false;
             return (
               <tr
                 key={key}
                 onClick={onRowClick ? () => onRowClick(row) : undefined}
-                className={`${TABLE_ROW} ${onRowClick ? 'cursor-pointer' : ''} ${customClass}`.trim()}
+                className={`${TABLE_ROW} ${onRowClick ? 'cursor-pointer' : ''} ${
+                  isSelected ? 'bg-blue-50' : ''
+                } ${customClass}`.trim()}
               >
+                {bulkSelection && (
+                  <BulkSelectionRowCell
+                    id={String(key)}
+                    selection={bulkSelection}
+                    rowLabel={bulkRowLabel?.(row)}
+                    ineligibleReason={bulkRowEligible?.(row) ?? null}
+                  />
+                )}
                 {columns.map((col) => (
                   <td key={col.key} className={col.cellClassName ?? TABLE_CELL}>
                     {col.render(row)}

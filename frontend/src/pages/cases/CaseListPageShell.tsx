@@ -31,6 +31,11 @@ import {
 import { CaseStatus } from '@/shared/enums/generated';
 import { BTN_PRIMARY, A11Y_FOCUS_RING } from '@/constants/styles';
 import { formatVNDate } from '@/lib/dates';
+import { useBulkSelection } from '@/features/_shared/bulk/useBulkSelection';
+import { BulkActionBar } from '@/features/_shared/bulk/BulkActionBar';
+import { buildCasesAdapter } from '@/features/_shared/bulk/adapters/cases';
+import type { BulkAction, BulkResult } from '@/features/_shared/bulk/types';
+import { AlertCircle, X } from 'lucide-react';
 
 // AUTO-FIX #5 (security): validate URL status param against CaseStatus enum.
 // Trust boundary — attacker URL `?cases_status=__proto__` cannot land in lookups.
@@ -97,6 +102,7 @@ export function CaseListPageShell() {
   const [stats, setStats] = useState<CasesStatsResponse | null>(null);
   const [tableState, setTableState] = useState<TableState>('loading');
   const [error, setError] = useState<string | undefined>();
+  const [refetchCounter, setRefetchCounter] = useState(0);
 
   // AUTO-FIX #1 (cont.): AbortController cancels in-flight requests on
   // dependency change → no stale state from late responses.
@@ -142,7 +148,7 @@ export function CaseListPageShell() {
       });
 
     return () => ctrl.abort();
-  }, [statusFilter, page, debouncedSearch]);
+  }, [statusFilter, page, debouncedSearch, refetchCounter]);
 
   // Fetch STATS — only on search change.
   // AUTO-FIX #3: pass ALL non-status filters (currently just search; future
@@ -177,6 +183,63 @@ export function CaseListPageShell() {
       })),
     [stats],
   );
+
+  // /investigate v0.61 fix Bug 2 — bulk integration.
+  const selection = useBulkSelection<CaseRow>({
+    rowKey: 'id',
+    pageRows: rows,
+    totalCountMatchingFilter: totalCount,
+  });
+  const adapter = useMemo(
+    () => buildCasesAdapter({ enableDelete: true }),
+    [],
+  );
+  // Clear stale selection on URL change (Codex PR4 P2 pattern).
+  const selectionClearRef = useRef(selection.clear);
+  selectionClearRef.current = selection.clear;
+  useEffect(() => {
+    selectionClearRef.current();
+  }, [statusFilter, page, debouncedSearch]);
+
+  const [transientBanner, setTransientBanner] = useState<{
+    kind: 'success' | 'error';
+    text: string;
+  } | null>(null);
+  const handleBulkSuccess = useCallback(
+    (result: BulkResult | void, action: BulkAction<CaseRow>) => {
+      if (action.key === 'export') {
+        setTransientBanner({ kind: 'success', text: 'Đã xuất Excel' });
+        return;
+      }
+      if (result && typeof result === 'object') {
+        const { succeeded, skipped, failed } = result;
+        const parts: string[] = [];
+        if (succeeded?.length) parts.push(`Đã xử lý ${succeeded.length} vụ án`);
+        if (skipped?.length) parts.push(`Bỏ qua ${skipped.length}`);
+        if (failed?.length) parts.push(`Lỗi ${failed.length}`);
+        setTransientBanner({
+          kind: failed?.length ? 'error' : 'success',
+          text: parts.join(' · ') || 'Hoàn tất',
+        });
+        setRefetchCounter((c) => c + 1);
+      }
+    },
+    [],
+  );
+  const handleBulkError = useCallback(
+    (err: unknown, action: BulkAction<CaseRow>) => {
+      setTransientBanner({
+        kind: 'error',
+        text: `Thao tác "${action.label}" thất bại: ${getVietnameseErrorMessage(err)}`,
+      });
+    },
+    [],
+  );
+  useEffect(() => {
+    if (!transientBanner) return;
+    const t = setTimeout(() => setTransientBanner(null), 5000);
+    return () => clearTimeout(t);
+  }, [transientBanner]);
 
   const columns: ColumnDef<CaseRow>[] = useMemo(
     () => [
@@ -284,6 +347,31 @@ export function CaseListPageShell() {
         activeFilterCount={activeFilterCount}
         onResetFilters={handleResetFilters}
       />
+      {transientBanner && (
+        <div
+          data-testid="cases-bulk-banner"
+          role="status"
+          aria-live="polite"
+          className={`flex items-center justify-between gap-3 px-4 py-2 border-b border-slate-200 text-sm ${
+            transientBanner.kind === 'success'
+              ? 'bg-green-50 text-green-800'
+              : 'bg-red-50 text-red-800'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            <span>{transientBanner.text}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setTransientBanner(null)}
+            className={`p-1 rounded hover:bg-white/40 ${A11Y_FOCUS_RING}`}
+            aria-label="Đóng thông báo"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
       <ListPageShell.Table<CaseRow>
         state={tableState}
         columns={columns}
@@ -300,12 +388,22 @@ export function CaseListPageShell() {
         }}
         emptyFilteredState={{ onClearFilters: handleResetFilters }}
         onRowClick={(r) => navigate(`/cases/${r.id}`)}
+        bulkSelection={selection}
+        bulkRowsLabel="vụ án"
+        bulkRowLabel={(r) => `vụ án ${r.caseCode ?? r.name}`}
       />
       <ListPageShell.Pagination
         page={page}
         totalPages={totalPages}
         totalCount={totalCount}
         onPageChange={handlePageChange}
+      />
+      <BulkActionBar
+        selection={selection}
+        adapter={adapter}
+        pageRows={rows}
+        onSuccess={handleBulkSuccess}
+        onError={handleBulkError}
       />
     </ListPageShell>
   );
