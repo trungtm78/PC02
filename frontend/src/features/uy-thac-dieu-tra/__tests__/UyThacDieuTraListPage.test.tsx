@@ -204,4 +204,90 @@ describe('UyThacDieuTraListPage — PR3 shell refactor', () => {
       expect(screen.getByTestId('list-page-shell-table-empty-filtered')).toBeInTheDocument(),
     );
   });
+
+  // /codex P2 trust-boundary tests (PR3/T7b)
+  it('malformed utdt_cs (caseStatus) → stripped from API URL', async () => {
+    await renderPage('/uy-thac-dieu-tra?utdt_cs=__proto__');
+    await waitFor(() => {
+      const url = mockApiGet.mock.calls[0][0] as string;
+      expect(url).not.toContain('status=__proto__');
+    });
+  });
+
+  it('malformed utdt_lut (loaiUyThac) → stripped from API URL', async () => {
+    await renderPage('/uy-thac-dieu-tra?utdt_lut=bogus_enum');
+    await waitFor(() => {
+      const url = mockApiGet.mock.calls[0][0] as string;
+      expect(url).not.toContain('loaiUyThac=bogus_enum');
+    });
+  });
+
+  it('malformed utdt_tnf (date) → stripped, valid date passes through', async () => {
+    await renderPage('/uy-thac-dieu-tra?utdt_tnf=not-a-date');
+    await waitFor(() => {
+      const url = mockApiGet.mock.calls[0][0] as string;
+      expect(url).not.toContain('ngayTiepNhanFrom=not-a-date');
+    });
+  });
+
+  it('calendar-invalid utdt_tnf (2026-02-30) → stripped', async () => {
+    await renderPage('/uy-thac-dieu-tra?utdt_tnf=2026-02-30');
+    await waitFor(() => {
+      const url = mockApiGet.mock.calls[0][0] as string;
+      expect(url).not.toContain('ngayTiepNhanFrom=2026-02-30');
+    });
+  });
+
+  it('valid utdt_tnf (2026-01-15) → passed to API', async () => {
+    await renderPage('/uy-thac-dieu-tra?utdt_tnf=2026-01-15');
+    await waitFor(() => {
+      const url = mockApiGet.mock.calls[0][0] as string;
+      expect(url).toContain('ngayTiepNhanFrom=2026-01-15');
+    });
+  });
+
+  it('control chars in utdt_dv (donViGiao) → stripped', async () => {
+    // utdt_dv contains tab (%09) + LF (%0A) — should be removed
+    await renderPage('/uy-thac-dieu-tra?utdt_dv=PC01%09evil%0A');
+    await waitFor(() => {
+      const url = mockApiGet.mock.calls[0][0] as string;
+      // donViGiao param present with PC01evil (control chars stripped)
+      expect(url).toContain('donViGiao=PC01evil');
+    });
+  });
+
+  // /codex P2 page-clamp test
+  it('utdt_page=999 với total=20 → reset to page=1 (no impossible empty page)', async () => {
+    // First call returns total=20 (1 page), at page=999
+    mockApiGet.mockImplementation(() =>
+      Promise.resolve({ data: { success: true, data: [SAMPLE_ROW], total: 20 } }),
+    );
+    let lastLocation = '';
+    function LocationTracker() {
+      const { useLocation } = require('react-router-dom');
+      const loc = useLocation();
+      lastLocation = loc.pathname + loc.search;
+      return null;
+    }
+    const { default: Page } = await import('../UyThacDieuTraListPage');
+    render(
+      <MemoryRouter initialEntries={['/uy-thac-dieu-tra?utdt_page=999']}>
+        <Routes>
+          <Route
+            path="/uy-thac-dieu-tra"
+            element={
+              <>
+                <Page />
+                <LocationTracker />
+              </>
+            }
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await waitFor(() => {
+      // After totalCount=20 ≤ 1 page resolves, page clamps to 1
+      expect(lastLocation).toContain('utdt_page=1');
+    });
+  });
 });
