@@ -10,6 +10,7 @@ if (isUatProd) {
 
 export default defineConfig({
   testDir: './tests',
+  globalSetup: './tests/global-setup.ts',
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
@@ -33,6 +34,18 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+    },
+    // Dual-layer UAT runner (v0.68 — uat-test-runner skill)
+    // - api: smoke gate (request fixture, no browser)
+    // - e2e-chromium: full DOM verify (Page Object Model)
+    {
+      name: 'api',
+      testMatch: '**/tests/api/*-uat.api.spec.ts',
+    },
+    {
+      name: 'e2e-chromium',
+      testMatch: '**/tests/e2e/*-uat.e2e.spec.ts',
       use: { ...devices['Desktop Chrome'] },
     },
   ],

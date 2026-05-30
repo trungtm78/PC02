@@ -33,3 +33,4 @@ maestro/.env
 
 # Runtime user uploads — never commit
 backend/uploads/
+test-results/
