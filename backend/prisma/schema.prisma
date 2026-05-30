@@ -712,7 +712,7 @@ model Petition {
   priority         String? // Mức độ ưu tiên: Cao, Trung bình, Thấp
   summary          String?
   detailContent    String?
-  attachmentsNote  String? // Ghi chú tài liệu đính kèm (file storage out-of-scope)
+  attachmentsNote  String? // Ghi chú tài liệu đính kèm (text bổ sung; file thực ở model Document — v0.52)
   // Phân công
   deadline         DateTime?
   assignedToId     String? // FK → users
@@ -761,6 +761,9 @@ model Petition {
 
   // v0.47 — DocumentRenderLog reverse relation (audit trail per render).
   renderLogs DocumentRenderLog[]
+
+  // v0.52 — File attachments (real file storage, replaces text-only attachmentsNote field).
+  documents Document[]
 
   @@index([status])
   @@index([receivedDate])
@@ -978,6 +981,7 @@ model Document {
   // Liên kết
   caseId       String? // FK → cases (nullable)
   incidentId   String? // FK → incidents (nullable)
+  petitionId   String? // FK → petitions (nullable) — v0.52 chain-of-custody Restrict
   uploadedById String // FK → users (required)
 
   // Soft delete
@@ -988,11 +992,15 @@ model Document {
   // Relations
   case                    Case?                 @relation(fields: [caseId], references: [id], onDelete: SetNull)
   incident                Incident?             @relation(fields: [incidentId], references: [id], onDelete: SetNull)
+  // v0.52: Restrict (không SetNull như Case/Incident) — evidence integrity cho đơn thư.
+  // Petition soft-delete (deletedAt) bình thường; hard-delete bị chặn nếu còn Document.
+  petition                Petition?             @relation(fields: [petitionId], references: [id], onDelete: Restrict)
   uploadedBy              User                  @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
   deadlineRuleAttachments DeadlineRuleVersion[] @relation("DeadlineRuleAttachment")
 
   @@index([caseId])
   @@index([incidentId])
+  @@index([petitionId])
   @@index([uploadedById])
   @@index([documentType])
   @@index([deletedAt])

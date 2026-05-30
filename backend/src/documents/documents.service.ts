@@ -14,7 +14,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
 import type { DataScope } from '../auth/services/unit-scope.service';
-import { assertParentInScope, buildScopeFilter } from '../common/utils/scope-filter.util';
+import { assertParentInScope, assertPetitionParentInScope, buildScopeFilter, buildPetitionScopeFilter } from '../common/utils/scope-filter.util';
 
 @Injectable()
 export class DocumentsService {
@@ -43,6 +43,7 @@ export class DocumentsService {
       search,
       caseId,
       incidentId,
+      petitionId,
       documentType,
       limit = 20,
       offset = 0,
@@ -64,13 +65,15 @@ export class DocumentsService {
 
     if (caseId) where.caseId = caseId;
     if (incidentId) where.incidentId = incidentId;
+    if (petitionId) where.petitionId = petitionId;
     if (documentType) where.documentType = documentType;
 
     const caseScope = buildScopeFilter(dataScope);
-    if (caseScope) {
+    const petitionScope = buildPetitionScopeFilter(dataScope);
+    if (caseScope || petitionScope) {
       (where as any).OR = [
-        { case: caseScope },
-        { incident: caseScope },
+        ...(caseScope ? [{ case: caseScope }, { incident: caseScope }] : []),
+        ...(petitionScope ? [{ petition: petitionScope }] : []),
       ];
     }
 
@@ -100,11 +103,13 @@ export class DocumentsService {
           documentType: true,
           caseId: true,
           incidentId: true,
+          petitionId: true,
           uploadedById: true,
           createdAt: true,
           updatedAt: true,
           case: { select: { id: true, name: true } },
           incident: { select: { id: true, name: true } },
+          petition: { select: { id: true, stt: true, senderName: true } },
           uploadedBy: { select: { id: true, firstName: true, lastName: true, username: true } },
         },
         orderBy: { [orderByField]: sortOrder },
@@ -132,6 +137,7 @@ export class DocumentsService {
       include: {
         case: { select: { id: true, name: true, status: true, assignedTeamId: true, investigatorId: true } },
         incident: { select: { id: true, name: true, status: true, assignedTeamId: true, investigatorId: true } },
+        petition: { select: { id: true, stt: true, senderName: true, status: true, assignedTeamId: true, enteredById: true } },
         uploadedBy: { select: { id: true, firstName: true, lastName: true, username: true } },
       },
     });
@@ -140,7 +146,12 @@ export class DocumentsService {
       throw new NotFoundException(`Tài liệu không tồn tại (id: ${id})`);
     }
 
-    assertParentInScope(record.case ?? record.incident, dataScope);
+    // Petition-only document: dùng petition scope guard. Case/Incident: dùng parent guard cũ.
+    if (record.petitionId && !record.caseId && !record.incidentId) {
+      assertPetitionParentInScope(record.petition, dataScope);
+    } else {
+      assertParentInScope(record.case ?? record.incident, dataScope);
+    }
 
     return { success: true, data: record };
   }
@@ -152,25 +163,42 @@ export class DocumentsService {
     dto: CreateDocumentDto,
     actorId: string,
     meta?: { ipAddress?: string; userAgent?: string },
+    dataScope?: DataScope | null,
   ) {
     // Validate caseId if provided
     if (dto.caseId) {
       const caseRecord = await this.prisma.case.findFirst({
         where: { id: dto.caseId, deletedAt: null },
+        select: { id: true, assignedTeamId: true, investigatorId: true },
       });
       if (!caseRecord) {
         throw new BadRequestException(`Vụ án không tồn tại (id: ${dto.caseId})`);
       }
+      assertParentInScope(caseRecord, dataScope, 'write');
     }
 
     // Validate incidentId if provided
     if (dto.incidentId) {
       const incidentRecord = await this.prisma.incident.findFirst({
         where: { id: dto.incidentId, deletedAt: null },
+        select: { id: true, assignedTeamId: true, investigatorId: true },
       });
       if (!incidentRecord) {
         throw new BadRequestException(`Vụ việc không tồn tại (id: ${dto.incidentId})`);
       }
+      assertParentInScope(incidentRecord, dataScope, 'write');
+    }
+
+    // Validate petitionId if provided
+    if (dto.petitionId) {
+      const petitionRecord = await this.prisma.petition.findFirst({
+        where: { id: dto.petitionId, deletedAt: null },
+        select: { id: true, assignedTeamId: true, enteredById: true },
+      });
+      if (!petitionRecord) {
+        throw new BadRequestException(`Đơn thư không tồn tại (id: ${dto.petitionId})`);
+      }
+      assertPetitionParentInScope(petitionRecord, dataScope, 'write');
     }
 
     // Validate file upload fields
@@ -190,11 +218,13 @@ export class DocumentsService {
         documentType: dto.documentType ?? 'VAN_BAN',
         caseId: dto.caseId ?? null,
         incidentId: dto.incidentId ?? null,
+        petitionId: dto.petitionId ?? null,
         uploadedById: actorId,
       },
       include: {
         case: { select: { id: true, name: true } },
         incident: { select: { id: true, name: true } },
+        petition: { select: { id: true, stt: true } },
         uploadedBy: { select: { id: true, firstName: true, lastName: true, username: true } },
       },
     });
@@ -210,6 +240,7 @@ export class DocumentsService {
         size: record.size,
         caseId: record.caseId,
         incidentId: record.incidentId,
+        petitionId: record.petitionId,
       },
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
@@ -229,7 +260,11 @@ export class DocumentsService {
     dataScope?: DataScope | null,
   ) {
     const { data: existing } = await this.getById(id, dataScope);
-    assertParentInScope(existing.case ?? existing.incident, dataScope, 'write');
+    if (existing.petitionId && !existing.caseId && !existing.incidentId) {
+      assertPetitionParentInScope(existing.petition, dataScope, 'write');
+    } else {
+      assertParentInScope(existing.case ?? existing.incident, dataScope, 'write');
+    }
 
     // Validate caseId if provided
     if (dto.caseId) {
@@ -294,7 +329,11 @@ export class DocumentsService {
     dataScope?: DataScope | null,
   ) {
     const { data: existing } = await this.getById(id, dataScope);
-    assertParentInScope(existing.case ?? existing.incident, dataScope, 'write');
+    if (existing.petitionId && !existing.caseId && !existing.incidentId) {
+      assertPetitionParentInScope(existing.petition, dataScope, 'write');
+    } else {
+      assertParentInScope(existing.case ?? existing.incident, dataScope, 'write');
+    }
 
     await this.prisma.document.update({
       where: { id },

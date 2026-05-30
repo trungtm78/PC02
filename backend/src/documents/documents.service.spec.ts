@@ -36,6 +36,9 @@ describe('DocumentsService', () => {
     incident: {
       findFirst: jest.fn(),
     },
+    petition: {
+      findFirst: jest.fn(),
+    },
   };
 
   const mockAuditService = {
@@ -304,6 +307,90 @@ describe('DocumentsService', () => {
       const result = await service.create(dtoWithoutCase, 'user-1');
 
       expect(result.success).toBe(true);
+    });
+
+    // Cycle 2 — Petition support
+    describe('petitionId', () => {
+      const petitionDto = {
+        ...validDto,
+        caseId: undefined,
+        petitionId: 'petition-1',
+      };
+
+      it('should create document with petitionId when petition exists', async () => {
+        mockPrismaService.petition.findFirst.mockResolvedValue({
+          id: 'petition-1',
+          stt: 'DT-2026-00001',
+          enteredById: 'user-1',
+          assignedTeamId: 't1',
+          deletedAt: null,
+        });
+        mockPrismaService.document.create.mockResolvedValue({
+          id: 'doc-1',
+          ...petitionDto,
+          case: null,
+          incident: null,
+          petition: { id: 'petition-1', stt: 'DT-2026-00001' },
+          uploadedBy: { id: 'user-1', fullName: 'Test User', username: 'testuser' },
+        });
+
+        const result = await service.create(petitionDto, 'user-1');
+
+        expect(result.success).toBe(true);
+        expect(mockPrismaService.petition.findFirst).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: { id: 'petition-1', deletedAt: null },
+          }),
+        );
+      });
+
+      it('should throw BadRequestException when petitionId does not exist', async () => {
+        mockPrismaService.petition.findFirst.mockResolvedValue(null);
+
+        await expect(service.create(petitionDto, 'user-1')).rejects.toThrow(BadRequestException);
+      });
+
+      it('should throw ForbiddenException when petition is out of scope (cross-team)', async () => {
+        mockPrismaService.petition.findFirst.mockResolvedValue({
+          id: 'petition-1',
+          stt: 'DT-2026-00001',
+          enteredById: 'other-user',
+          assignedTeamId: 'team-other',
+          deletedAt: null,
+        });
+        const crossTeamScope = {
+          userIds: ['user-1'],
+          teamIds: ['team-A'],
+          writableTeamIds: ['team-A'],
+        };
+
+        await expect(
+          service.create(petitionDto, 'user-1', undefined, crossTeamScope as any),
+        ).rejects.toThrow(/quyền/);
+      });
+
+      it('should allow creator (enteredById match) to upload petition document', async () => {
+        mockPrismaService.petition.findFirst.mockResolvedValue({
+          id: 'petition-1',
+          stt: 'DT-2026-00001',
+          enteredById: 'user-1',
+          assignedTeamId: 'team-other',
+          deletedAt: null,
+        });
+        mockPrismaService.document.create.mockResolvedValue({
+          id: 'doc-1',
+          ...petitionDto,
+          case: null,
+          incident: null,
+          petition: { id: 'petition-1', stt: 'DT-2026-00001' },
+          uploadedBy: { id: 'user-1', fullName: 'Test User', username: 'testuser' },
+        });
+        const scope = { userIds: ['user-1'], teamIds: ['team-A'], writableTeamIds: ['team-A'] };
+
+        const result = await service.create(petitionDto, 'user-1', undefined, scope as any);
+
+        expect(result.success).toBe(true);
+      });
     });
   });
 

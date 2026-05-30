@@ -22,6 +22,10 @@ export class CreateDocumentDto {
   @IsOptional()
   incidentId?: string;
 
+  @IsString()
+  @IsOptional()
+  petitionId?: string;
+
   // File upload fields (set by controller after multer processing — whitelisted to avoid validation rejection)
   @IsString()
   @IsOptional()

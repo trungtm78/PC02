@@ -150,7 +150,7 @@ export class DocumentsController {
     return this.documentsService.create(documentDto, user.id, {
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
-    });
+    }, req.dataScope);
   }
 
   // PUT /api/documents/:id — Cập nhật thông tin tài liệu
