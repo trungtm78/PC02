@@ -158,4 +158,27 @@ describe('DeadlineRulesListPage', () => {
       expect(screen.queryByTestId('link-migration-cleanup')).toBeNull();
     });
   });
+
+  it('PR3 shell wrapping — ListPageShell.Header renders với title + actions slot', async () => {
+    vi.mocked(deadlineRulesApi.listActive).mockResolvedValue({ success: true, data: [] });
+    vi.mocked(deadlineRulesApi.getSummary).mockResolvedValue({
+      success: true,
+      data: { active: 12, submitted: 2, approvedPending: 1, needsDocumentation: 0 },
+    });
+
+    renderPage();
+
+    // ListPageShell.Header renders sync (data-testid available immediately)
+    expect(screen.getByTestId('list-page-shell-header')).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { level: 1, name: /Quản lý quy tắc thời hạn/i }),
+    ).toBeInTheDocument();
+    // link-approval-queue is unconditional in Header.actions
+    expect(screen.getByTestId('link-approval-queue')).toBeInTheDocument();
+
+    // Summary strip + queue badge render after useQuery resolves
+    await waitFor(() => {
+      expect(screen.getByTestId('summary-strip')).toBeInTheDocument();
+    });
+  });
 });

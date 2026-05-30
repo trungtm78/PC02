@@ -2,6 +2,66 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.53.0.0] - 2026-05-30
+
+**v0.53 ListPageShell PR3 — UTDT refactor (anh's original complaint) + DeadlineRules + URL trust boundary**
+
+PR3 đóng ticket gốc của anh: UyThacDieuTraListPage UI giờ đồng nhất với
+Cases/Incidents/Petitions qua ListPageShell compound API. Cộng với refactor
+DeadlineRulesListPage và 6 sanitizer trust boundary cho URL filters (Codex P2).
+
+### Added
+
+**UTDT refactor**:
+- `UyThacDieuTraListPage` chuyển sang `<ListPageShell>` — Header + StatusChips
+  (4 TrangThaiPhanHoi) + Toolbar + Table state machine + Pagination
+- Modal delete với reason textarea (≥10 chars, BLTTHS Đ.46 audit trail) thay
+  `window.confirm()` — proper a11y + escape-to-close + reason validation
+- URL state via `useListPageUrlState('utdt')` — 9 params (status, page, q, cs,
+  lut, dv, tnf, tnt, inv) bookmark-restorable
+- 6 advanced filters trong Toolbar accordion (caseStatus + loaiUyThac + donViGiao
+  + investigator + ngayTiepNhan from/to)
+- Slate palette toàn diện (zero gray-*)
+- 300ms search/investigator debounce + AbortController cancellation
+- Vietnamese error map (401/403/5xx)
+- Overdue row highlighting via OVERDUE_ROW_HIGHLIGHT token
+- AUDIT_REASON_MIN_LENGTH=10 shared constant (drift-detection ready)
+
+**DeadlineRulesListPage refactor**:
+- ListPageShell.Header thay raw `<div>` header
+- Summary strip stays (positional child giữa Header + Table)
+- Action buttons (approval queue + migration cleanup) qua Header.actions slot
+- A11Y_FOCUS_RING applied; tracking-wide thay uppercase (Vietnamese-friendly)
+- TẤT CẢ data-testids preserved cho test compat
+
+**New shared token**:
+- `TRANG_THAI_PHAN_HOI_CHIPS` shape (value + shortLabel + label) cho shell consumption
+
+### Fixed
+
+- **/codex P2: URL filters trust boundary** — TẤT CẢ filter URL params sanitized:
+  - Enum params (cs/lut) validated qua CaseStatus/LoaiUyThac Set
+  - Date params (tnf/tnt) qua ISO_DATE_RE + calendar-valid check
+  - Free-text params (dv/inv/q) strip ASCII control chars + length cap
+  - Invalid values degrade gracefully to "no filter" thay vì 400 hoặc NaN date
+- **/codex P2: URL page out-of-range** — useEffect clamp khi totalCount lands:
+  page > totalPages → setParam('page', '1'). Handles bookmarked utdt_page=999
+  và last-row-deleted scenarios.
+- **/review: UTDT chip count honest** — count: undefined (no /stats endpoint =
+  no partial counts misleading users)
+
+### Changed
+
+- Test coverage: 18 vitest tests for UTDT (was 1), 6 for DeadlineRules (was 5)
+- DeadlineRules test adds PR3 shell wrapping integration check
+
+### Deferred (PR4 follow-up)
+
+- Delete `PageHeader.tsx` — still used by CaseFormPage (form, not list)
+- Extract `UtdtDeleteModal` + `FilterSelect`/`FilterInput` to shared
+- Search debounce test với fake timers
+- Backend `/cases/stats?caseType=UY_THAC_DIEU_TRA` cho UTDT chip counts
+
 ## [0.52.0.0] - 2026-05-30
 
 **v0.52 ListPageShell PR2 — Pattern A pages refactor + backend stats endpoints**
