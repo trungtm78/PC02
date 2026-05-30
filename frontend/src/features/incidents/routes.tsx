@@ -1,7 +1,8 @@
 import { lazy, Suspense, type ReactElement } from 'react';
 import { Route } from 'react-router-dom';
 
-const IncidentListPage = lazy(() => import('@/pages/incidents/IncidentListPage'));
+// F1 swap (v0.56): IncidentListPageShell (PR2 ListPageShell) replaces legacy.
+const IncidentListPage = lazy(() => import('@/pages/incidents/IncidentListPageShell'));
 const IncidentFormPage = lazy(() => import('@/pages/incidents/IncidentFormPage'));
 const IncidentDetailPage = lazy(() => import('@/pages/incidents/IncidentDetailPage'));
 

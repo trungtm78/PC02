@@ -4,7 +4,8 @@ import { Route } from 'react-router-dom';
 // v0.37.1: routes moved from features/cases/ — pages stay at pages/cases/ for
 // historical reasons (file path migration deferred to keep diff smaller).
 // Only the menu/feature ownership changed: now grouped under "Tổng hợp".
-const ComprehensiveListPage = lazy(() => import('@/pages/cases/ComprehensiveListPage'));
+// F1 swap (v0.56): ComprehensiveListPageShell (PR2 ListPageShell) replaces legacy.
+const ComprehensiveListPage = lazy(() => import('@/pages/cases/ComprehensiveListPageShell'));
 const InitialCasesPage = lazy(() => import('@/pages/cases/InitialCasesPage'));
 const JourneyPage = lazy(() => import('@/pages/journey/JourneyPage'));
 
