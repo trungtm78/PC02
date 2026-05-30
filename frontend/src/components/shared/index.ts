@@ -8,8 +8,6 @@ export { EmptyState } from "./EmptyState";
 
 export { StatusBadge, getStatusConfig } from "./StatusBadge";
 
-export { PageHeader } from "./PageHeader";
-
 export { Card, CardHeader, SectionTitle } from "./CardSection";
 
 export { TabBar } from "./TabBar";
