@@ -126,6 +126,39 @@ export function assertParentInScope(
 }
 
 /**
+ * Throws 403 if the Petition parent is out of scope.
+ * Uses enteredById (creator) instead of investigatorId — Petition has no investigatorId field.
+ * Mirrors assertParentInScope semantics: null parent denies, ward officer cannot pass unassigned,
+ * write operation uses writableTeamIds.
+ */
+export function assertPetitionParentInScope(
+  parent: { assignedTeamId?: string | null; enteredById?: string | null } | null | undefined,
+  scope: DataScope | null | undefined,
+  operation: 'read' | 'write' = 'read',
+): void {
+  if (!scope) return;
+  if (scope.canDispatch) return;
+  if (!parent) {
+    recordDenial('petition-parent-null');
+    throw new ForbiddenException(
+      operation === 'write' ? 'Bạn không có quyền chỉnh sửa bản ghi này' : FORBIDDEN_MSG,
+    );
+  }
+  const { userIds, teamIds, writableTeamIds } = scope;
+  const effectiveTeamIds = operation === 'write' ? (writableTeamIds ?? teamIds) : teamIds;
+  const ownerMatch = parent.enteredById ? userIds.includes(parent.enteredById) : false;
+  const teamMatch = parent.assignedTeamId ? effectiveTeamIds.includes(parent.assignedTeamId) : false;
+  const isWardOfficer = (scope as any).isWardOfficer === true;
+  const unassigned = !parent.assignedTeamId && effectiveTeamIds.length > 0 && !isWardOfficer;
+  if (!ownerMatch && !teamMatch && !unassigned) {
+    recordDenial('petition-parent');
+    throw new ForbiddenException(
+      operation === 'write' ? 'Bạn không có quyền chỉnh sửa bản ghi này' : FORBIDDEN_MSG,
+    );
+  }
+}
+
+/**
  * Throws 403 if the record's createdById is not in the user's allowed userIds.
  * Used for resources that have no caseId/teamId scope field.
  * Null/undefined createdById always denies (orphan records are not accessible to scoped users).

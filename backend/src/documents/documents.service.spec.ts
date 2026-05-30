@@ -26,7 +26,7 @@ describe('DocumentsService', () => {
     document: {
       findMany: jest.fn(),
       findFirst: jest.fn(),
-      count: jest.fn(),
+      count: jest.fn().mockResolvedValue(0),
       create: jest.fn(),
       update: jest.fn(),
     },
@@ -34,6 +34,9 @@ describe('DocumentsService', () => {
       findFirst: jest.fn(),
     },
     incident: {
+      findFirst: jest.fn(),
+    },
+    petition: {
       findFirst: jest.fn(),
     },
   };
@@ -155,6 +158,41 @@ describe('DocumentsService', () => {
           }),
         }),
       );
+    });
+
+    // Cycle 2 — filter by petitionId
+    it('should filter documents by petitionId', async () => {
+      mockPrismaService.document.findMany.mockResolvedValue([]);
+      mockPrismaService.document.count.mockResolvedValue(0);
+
+      await service.getList({ petitionId: 'petition-1' });
+
+      expect(mockPrismaService.document.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            deletedAt: null,
+            petitionId: 'petition-1',
+          }),
+        }),
+      );
+    });
+
+    // Cycle 3 — petition soft-delete cascade
+    it('scope OR clause filters out soft-deleted petitions (deletedAt = null)', async () => {
+      mockPrismaService.document.findMany.mockResolvedValue([]);
+      mockPrismaService.document.count.mockResolvedValue(0);
+
+      const scope = { userIds: ['u1'], teamIds: ['t1'], writableTeamIds: ['t1'] };
+
+      await service.getList({}, scope as any);
+
+      const callArgs = mockPrismaService.document.findMany.mock.calls[0][0];
+      const orClauses = callArgs.where.OR as Array<Record<string, any>>;
+      const petitionClause = orClauses.find((c) => 'petition' in c);
+      expect(petitionClause).toBeDefined();
+      // Petition predicate must include deletedAt:null guard — soft-deleted petitions
+      // must not leak documents into scope query.
+      expect(JSON.stringify(petitionClause)).toContain('deletedAt');
     });
   });
 
@@ -304,6 +342,126 @@ describe('DocumentsService', () => {
       const result = await service.create(dtoWithoutCase, 'user-1');
 
       expect(result.success).toBe(true);
+    });
+
+    // Cycle 2 — Petition support
+    describe('petitionId', () => {
+      const petitionDto = {
+        ...validDto,
+        caseId: undefined,
+        petitionId: 'petition-1',
+      };
+
+      it('should create document with petitionId when petition exists', async () => {
+        mockPrismaService.petition.findFirst.mockResolvedValue({
+          id: 'petition-1',
+          stt: 'DT-2026-00001',
+          enteredById: 'user-1',
+          assignedTeamId: 't1',
+          deletedAt: null,
+        });
+        mockPrismaService.document.create.mockResolvedValue({
+          id: 'doc-1',
+          ...petitionDto,
+          case: null,
+          incident: null,
+          petition: { id: 'petition-1', stt: 'DT-2026-00001' },
+          uploadedBy: { id: 'user-1', fullName: 'Test User', username: 'testuser' },
+        });
+
+        const result = await service.create(petitionDto, 'user-1');
+
+        expect(result.success).toBe(true);
+        expect(mockPrismaService.petition.findFirst).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: { id: 'petition-1', deletedAt: null },
+          }),
+        );
+      });
+
+      it('should throw BadRequestException when petitionId does not exist', async () => {
+        mockPrismaService.petition.findFirst.mockResolvedValue(null);
+
+        await expect(service.create(petitionDto, 'user-1')).rejects.toThrow(BadRequestException);
+      });
+
+      it('should throw ForbiddenException when petition is out of scope (cross-team)', async () => {
+        mockPrismaService.petition.findFirst.mockResolvedValue({
+          id: 'petition-1',
+          stt: 'DT-2026-00001',
+          enteredById: 'other-user',
+          assignedTeamId: 'team-other',
+          deletedAt: null,
+        });
+        const crossTeamScope = {
+          userIds: ['user-1'],
+          teamIds: ['team-A'],
+          writableTeamIds: ['team-A'],
+        };
+
+        await expect(
+          service.create(petitionDto, 'user-1', undefined, crossTeamScope as any),
+        ).rejects.toThrow(/quyền/);
+      });
+
+      it('should reject upload when petition is soft-deleted (deletedAt set)', async () => {
+        // Cycle 3 — petition soft-delete cascade. findFirst already filters
+        // deletedAt:null, so a soft-deleted petition returns null and the
+        // existence guard throws BadRequest before scope check runs.
+        mockPrismaService.petition.findFirst.mockResolvedValue(null);
+
+        await expect(service.create(petitionDto, 'user-1')).rejects.toThrow(BadRequestException);
+        expect(mockPrismaService.petition.findFirst).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: { id: 'petition-1', deletedAt: null },
+          }),
+        );
+      });
+
+      // Cycle 5 — Storage quota guard
+      it('should reject upload when entity reached MAX_DOCUMENTS_PER_ENTITY quota', async () => {
+        const originalEnv = process.env.MAX_DOCUMENTS_PER_ENTITY;
+        process.env.MAX_DOCUMENTS_PER_ENTITY = '50';
+        mockPrismaService.petition.findFirst.mockResolvedValue({
+          id: 'petition-1',
+          stt: 'DT-2026-00001',
+          enteredById: 'user-1',
+          assignedTeamId: 't1',
+          deletedAt: null,
+        });
+        // Simulate quota reached
+        mockPrismaService.document.count.mockResolvedValue(50);
+
+        await expect(service.create(petitionDto, 'user-1')).rejects.toThrow(/giới hạn|quota|50/);
+
+        process.env.MAX_DOCUMENTS_PER_ENTITY = originalEnv;
+      });
+
+      it('should allow creator (enteredById match) to upload petition document', async () => {
+        // Restore count mock — quota test leaves mockResolvedValue(50) (jest.clearAllMocks
+        // không reset implementations, chỉ reset call history).
+        mockPrismaService.document.count.mockResolvedValue(0);
+        mockPrismaService.petition.findFirst.mockResolvedValue({
+          id: 'petition-1',
+          stt: 'DT-2026-00001',
+          enteredById: 'user-1',
+          assignedTeamId: 'team-other',
+          deletedAt: null,
+        });
+        mockPrismaService.document.create.mockResolvedValue({
+          id: 'doc-1',
+          ...petitionDto,
+          case: null,
+          incident: null,
+          petition: { id: 'petition-1', stt: 'DT-2026-00001' },
+          uploadedBy: { id: 'user-1', fullName: 'Test User', username: 'testuser' },
+        });
+        const scope = { userIds: ['user-1'], teamIds: ['team-A'], writableTeamIds: ['team-A'] };
+
+        const result = await service.create(petitionDto, 'user-1', undefined, scope as any);
+
+        expect(result.success).toBe(true);
+      });
     });
   });
 

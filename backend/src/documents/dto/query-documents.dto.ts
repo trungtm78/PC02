@@ -15,6 +15,10 @@ export class QueryDocumentsDto {
   @IsOptional()
   incidentId?: string;
 
+  @IsString()
+  @IsOptional()
+  petitionId?: string;
+
   @IsEnum(DocumentType)
   @IsOptional()
   documentType?: DocumentType;

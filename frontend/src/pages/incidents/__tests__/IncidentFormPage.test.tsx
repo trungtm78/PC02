@@ -361,3 +361,23 @@ describe('getNguonPhatTinOptions helper (pure)', () => {
     expect(getNguonPhatTinOptions('KIEN_NGHI_KHOI_TO')).toHaveLength(5);
   });
 });
+
+// Cycle 10 — IncidentFormPage gets Tài liệu section via EntityDocumentsTab
+describe('IncidentFormPage — Tài liệu section (Cycle 10)', () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+    localStorage.clear();
+    authStore.setProfile(SAMPLE_PROFILE);
+  });
+
+  afterEach(() => {
+    sessionStorage.clear();
+    localStorage.clear();
+    vi.clearAllMocks();
+  });
+
+  it('does NOT render EntityDocumentsTab in create mode (no incidentId)', async () => {
+    await renderForm();
+    expect(screen.queryByTestId('entity-documents-incident')).toBeNull();
+  });
+});

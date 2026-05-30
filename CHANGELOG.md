@@ -2,6 +2,61 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.62.0.0] - 2026-05-30
+
+**v0.62 Upload tài liệu cho Đơn thư + Vụ việc — đồng nhất 3 module**
+
+Cán bộ giờ upload PDF / Word / ảnh / video kèm trực tiếp vào Đơn thư và Vụ việc
+y hệt Vụ án. Trước đây Đơn thư chỉ có ô ghi chú text "Tài liệu đính kèm" và Vụ
+việc không có UI upload (mặc dù backend đã sẵn sàng). Bridge gap hoàn toàn.
+
+### Added
+
+**File upload UI cho Đơn thư + Vụ việc** (`/components/documents/EntityDocumentsTab`):
+- Component generic dùng chung cho cả 3 module Vụ án / Vụ việc / Đơn thư.
+- Tham số hoá copy theo `entityKind` — title, testid, guard message đều adapt.
+- Hỗ trợ upload đơn-file 10MB, validate magic-byte server-side, list/open/download/xoá.
+- Section "Tài liệu" xuất hiện trong PetitionFormPage + IncidentFormPage khi edit mode.
+
+**Backend Document model petitionId FK** (`backend/prisma/schema.prisma`):
+- Thêm `Document.petitionId` với `onDelete: Restrict` (chain-of-custody cho đơn).
+- Petition soft-delete (deletedAt) bình thường; hard-delete bị chặn nếu còn document.
+- Migration `add_petition_id_to_document` — nullable FK + index, an toàn cho prod ~100 docs.
+
+**Storage quota guard** (`MAX_DOCUMENTS_PER_ENTITY=50` env):
+- Bảo vệ disk VM khỏi cạn quota khi user upload không kiểm soát.
+- Default 50 doc/entity, configurable qua env, set 0 disable.
+- Fail-closed cho env malformed (NaN fallback về default).
+
+**Petition scope helper** (`assertPetitionParentInScope`):
+- Tách riêng khỏi `assertParentInScope` vì Petition dùng `enteredById` (creator) thay vì `investigatorId`.
+- Tránh silent ACL bug — creator vẫn truy được document của đơn mình tạo.
+
+### Changed
+
+**Document handoff khi chuyển đơn thành vụ án / vụ việc**:
+- `convertToCase`: documents tự re-link `petitionId → caseId` trong cùng transaction.
+- `convertToIncident`: documents re-link `petitionId → incidentId` (non-atomic, acceptable).
+- Tab "Tài liệu" của Case/Incident mới hiển thị evidence từ đơn gốc.
+
+**Document scope queries soft-delete cascade**:
+- Document linked đến petition đã soft-deleted không leak qua scope OR queries nữa.
+- Filter `petition: { deletedAt: null }` thêm vào documents.service getList.
+
+**Petition `attachmentsNote` field**:
+- Rename label "Tài liệu đính kèm" → "Ghi chú tài liệu đính kèm".
+- Giữ field cho ghi chú text bổ sung; file thực ở section Tài liệu bên dưới.
+
+### Fixed
+
+**Multer file cleanup khi service.create fail**:
+- Trước đây file đã ghi đĩa qua multer + validate fail (vd cross-team scope) → file rác.
+- Controller giờ wrap service.create try/catch + `fs.unlinkSync(file.path)` khi catch.
+
+**TabBusinessFiles thin wrapper** (CaseFormPage):
+- Refactor inline upload UI ~220 LOC vào EntityDocumentsTab dùng chung 3 module.
+- Backward compat: named export `TabBusinessFiles` giữ nguyên (1-line wrapper).
+
 ## [0.56.0.0] - 2026-05-30
 
 **v0.56 ListPageShell F1 — Route swap legacy → shell pages**

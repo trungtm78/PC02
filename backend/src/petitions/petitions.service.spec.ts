@@ -105,6 +105,9 @@ const mockPrisma = {
     findFirst: jest.fn(),
   },
   documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
+  document: {
+    updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+  },
   $transaction: jest.fn().mockImplementation(async (fn: any) => fn(mockPrisma)) as any,
 };
 
@@ -635,6 +638,26 @@ describe('PetitionsService', () => {
         service.convertToIncident('nonexistent', validConvertDto, 'user-001'),
       ).rejects.toThrow(NotFoundException);
     });
+
+    // Cycle 4 — document handoff to new Incident
+    it('hands off petition documents to new Incident via document.updateMany', async () => {
+      mockPrisma.petition.findFirst.mockResolvedValue(mockPetition);
+      mockPrisma.incident.count.mockResolvedValue(0);
+      mockPrisma.$transaction.mockResolvedValue([mockIncident]);
+      mockPrisma.petition.update.mockResolvedValue({
+        ...mockPetition,
+        linkedIncidentId: 'incident-001',
+        status: PetitionStatus.DA_CHUYEN_VU_VIEC,
+      });
+      mockPrisma.document.updateMany.mockResolvedValue({ count: 3 });
+
+      await service.convertToIncident('petition-001', validConvertDto, 'user-001');
+
+      expect(mockPrisma.document.updateMany).toHaveBeenCalledWith({
+        where: { petitionId: 'petition-001', deletedAt: null },
+        data: { incidentId: 'incident-001' },
+      });
+    });
   });
 
   // ── convertToCase ──────────────────────────────────────────────────────────
@@ -747,6 +770,7 @@ describe('PetitionsService', () => {
               status: PetitionStatus.DA_CHUYEN_VU_AN,
             }),
           },
+          document: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
         };
         return fn(tx);
       });
@@ -774,6 +798,7 @@ describe('PetitionsService', () => {
         const tx = {
           case: { create: jest.fn().mockResolvedValue(mockCase) },
           petition: { update: updateMock },
+          document: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
         };
         return fn(tx);
       });
@@ -821,6 +846,31 @@ describe('PetitionsService', () => {
           'user-001',
         ),
       ).rejects.toThrow('Đơn thư đã được chỉnh sửa bởi người dùng khác');
+    });
+
+    // Cycle 4 — document handoff to new Case in same transaction
+    it('hands off petition documents to new Case via tx.document.updateMany', async () => {
+      mockPrisma.petition.findFirst.mockResolvedValue(mockPetition);
+      const updateManyMock = jest.fn().mockResolvedValue({ count: 2 });
+      mockPrisma.$transaction.mockImplementation(async (fn: any) => {
+        const tx = {
+          case: { create: jest.fn().mockResolvedValue(mockCase) },
+          petition: { update: jest.fn().mockResolvedValue({
+            ...mockPetition,
+            linkedCaseId: 'case-001',
+            status: PetitionStatus.DA_CHUYEN_VU_AN,
+          }) },
+          document: { updateMany: updateManyMock },
+        };
+        return fn(tx);
+      });
+
+      await service.convertToCase('petition-001', validCaseDto, 'user-001');
+
+      expect(updateManyMock).toHaveBeenCalledWith({
+        where: { petitionId: 'petition-001', deletedAt: null },
+        data: { caseId: 'case-001' },
+      });
     });
   });
 

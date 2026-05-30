@@ -147,10 +147,18 @@ export class DocumentsController {
       filePath: file.path,
     };
 
-    return this.documentsService.create(documentDto, user.id, {
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
-    });
+    // Cycle 6 — Multer cleanup: file đã ghi đĩa trước khi service validate.
+    // Nếu service throw (petitionId không tồn tại, out-of-scope, quota đầy...)
+    // → xoá file rác. Không re-throw từ catch (rethrow gốc) để giữ stack trace.
+    try {
+      return await this.documentsService.create(documentDto, user.id, {
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      }, req.dataScope);
+    } catch (e) {
+      try { fs.unlinkSync(file.path); } catch { /* file có thể đã bị xoá */ }
+      throw e;
+    }
   }
 
   // PUT /api/documents/:id — Cập nhật thông tin tài liệu

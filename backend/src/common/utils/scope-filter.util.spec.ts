@@ -1,5 +1,5 @@
 import { ForbiddenException } from '@nestjs/common';
-import { buildScopeFilter, buildPetitionScopeFilter, assertParentInScope, assertCreatorInScope } from './scope-filter.util';
+import { buildScopeFilter, buildPetitionScopeFilter, assertParentInScope, assertPetitionParentInScope, assertCreatorInScope } from './scope-filter.util';
 
 describe('buildScopeFilter', () => {
   it('returns null for null scope (admin passthrough)', () => {
@@ -357,5 +357,110 @@ describe('buildScopeFilter — ward officer (v0.33.0.0)', () => {
       (c) => 'assignedTeamId' in c && c.assignedTeamId === null,
     );
     expect(hasNull).toBe(true);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// assertPetitionParentInScope — uses enteredById (not investigatorId) cho ownership.
+// Plan: ra-so-t-to-n-b-floofy-hinton.md (Cycle 1 — P0 R1 fix).
+// ─────────────────────────────────────────────────────────────────────────────
+describe('assertPetitionParentInScope', () => {
+  const scope = {
+    userIds: ['u1'],
+    teamIds: ['team-A'],
+    writableTeamIds: ['team-A'],
+  } as any;
+
+  it('admin passthrough (null scope)', () => {
+    expect(() =>
+      assertPetitionParentInScope({ assignedTeamId: 'team-X', enteredById: 'user-X' }, null),
+    ).not.toThrow();
+  });
+
+  it('dispatcher passthrough (canDispatch=true)', () => {
+    expect(() =>
+      assertPetitionParentInScope(
+        { assignedTeamId: 'team-X', enteredById: 'user-X' },
+        { userIds: [], teamIds: [], writableTeamIds: [], canDispatch: true } as any,
+      ),
+    ).not.toThrow();
+  });
+
+  it('throws ForbiddenException for null parent (orphan deny)', () => {
+    expect(() => assertPetitionParentInScope(null, scope)).toThrow(ForbiddenException);
+  });
+
+  it('throws ForbiddenException for undefined parent', () => {
+    expect(() => assertPetitionParentInScope(undefined, scope)).toThrow(ForbiddenException);
+  });
+
+  it('passes when enteredById matches userIds (creator owns petition)', () => {
+    expect(() =>
+      assertPetitionParentInScope({ assignedTeamId: 'team-other', enteredById: 'u1' }, scope),
+    ).not.toThrow();
+  });
+
+  it('passes when assignedTeamId matches teamIds', () => {
+    expect(() =>
+      assertPetitionParentInScope({ assignedTeamId: 'team-A', enteredById: 'other' }, scope),
+    ).not.toThrow();
+  });
+
+  it('passes for unassigned petition (non-ward officer)', () => {
+    expect(() =>
+      assertPetitionParentInScope({ assignedTeamId: null, enteredById: 'other' }, scope),
+    ).not.toThrow();
+  });
+
+  it('throws for ward officer with unassigned petition', () => {
+    const wardScope = { ...scope, isWardOfficer: true } as any;
+    expect(() =>
+      assertPetitionParentInScope({ assignedTeamId: null, enteredById: 'other' }, wardScope),
+    ).toThrow(ForbiddenException);
+  });
+
+  it('throws when neither enteredById nor assignedTeamId match', () => {
+    expect(() =>
+      assertPetitionParentInScope({ assignedTeamId: 'team-other', enteredById: 'other' }, scope),
+    ).toThrow(ForbiddenException);
+  });
+
+  it('write operation uses writableTeamIds (not teamIds)', () => {
+    const writeScope = {
+      userIds: ['u1'],
+      teamIds: ['read-team'],
+      writableTeamIds: ['write-team'],
+    } as any;
+    // Petition assigned to read-team — fail on write (only writable team-write allowed)
+    expect(() =>
+      assertPetitionParentInScope(
+        { assignedTeamId: 'read-team', enteredById: 'other' },
+        writeScope,
+        'write',
+      ),
+    ).toThrow(ForbiddenException);
+    // Petition assigned to write-team — pass on write
+    expect(() =>
+      assertPetitionParentInScope(
+        { assignedTeamId: 'write-team', enteredById: 'other' },
+        writeScope,
+        'write',
+      ),
+    ).not.toThrow();
+  });
+
+  it('write operation: creator (enteredById match) passes even on write', () => {
+    const writeScope = {
+      userIds: ['u1'],
+      teamIds: ['read-team'],
+      writableTeamIds: [],
+    } as any;
+    expect(() =>
+      assertPetitionParentInScope(
+        { assignedTeamId: 'other-team', enteredById: 'u1' },
+        writeScope,
+        'write',
+      ),
+    ).not.toThrow();
   });
 });

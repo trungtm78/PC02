@@ -18,6 +18,7 @@ import {
 import type { LoaiNguonTin, NguonPhatTin } from "@/shared/enums/generated";
 import { useFormDefaults } from "@/hooks/useFormDefaults";
 import { toDateInput } from "@/lib/dates";
+import { EntityDocumentsTab } from "@/components/documents/EntityDocumentsTab";
 
 interface FormData {
   name: string;
@@ -705,6 +706,13 @@ export function IncidentFormPage() {
             </div>
           </div>
         </CollapsibleSection>
+
+        {/* Tài liệu (Cycle 10 v0.52) — chỉ hiện ở edit mode khi đã có incidentId */}
+        {isEditMode && id && (
+          <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6">
+            <EntityDocumentsTab entityKind="incident" entityId={id} />
+          </div>
+        )}
 
         {/* Actions */}
         <div className="flex items-center justify-end gap-3 bg-white rounded-lg border border-slate-200 shadow-sm p-6">
