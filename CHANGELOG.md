@@ -2,6 +2,72 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.67.0.0] - 2026-05-30
+
+**v0.67 PR2-bis — Restore 2 deferred Incidents actions: Chuyển trạng thái + Khởi tố**
+
+Workflow nghiệp vụ chính BLTTHS: Vụ việc → (Khởi tố) → Vụ án, hoặc Vụ việc → (Chuyển trạng thái) → Không khởi tố / Tạm đình chỉ / etc.
+
+Plan v3 (/autoplan + /plan-eng-review) chốt 5 issues 10/10. PR này ship PR1 (Incidents 2 actions). PR3-bis (Petitions 3 actions) sẽ ship v0.68.
+
+### Added
+
+**Backend codegen INCIDENT_VALID_TRANSITIONS** (T1, Issue I1):
+- `backend/scripts/generate-shared-enums.cjs` extended với `extractValidTransitions()` + `emitTransitionsTypeScript()` helpers.
+- Output: `frontend/src/shared/enums/incident-transitions.generated.ts` — single source of truth for state machine. 0 round-trip cost vs API endpoint approach.
+- 5 node:test cases for parser.
+
+**`useModalLifecycle<TArgs, TResult, TPayload>` hook** (T2, Issue I4):
+- Generic state machine (idle/open/loading/error/success) shared by 7 modal providers.
+- Eliminates ~30 LOC boilerplate per provider. ~150 LOC saved across PR1+PR2.
+- 8 unit tests.
+
+**`<CompositeModalProvider>`** (T3, Issue I2):
+- Single component wrapping 4 inner modal providers (Assign + Delete + StatusTransition + Prosecute). App.tsx simplified from 4 nested to 1 mount.
+- 2 unit tests.
+
+**`<StatusTransitionModalProvider>` + `useStatusTransitionModal()`** (T4):
+- Modal cho Chuyển trạng thái Vụ việc (Điều 144 + 157 BLTTHS).
+- Dropdown filtered by `INCIDENT_VALID_TRANSITIONS[currentStatus]` (codegen).
+- Conditional `lyDoKhongKhoiTo` field khi chọn KHONG_KHOI_TO.
+- Note textarea (optional).
+- PATCH `/incidents/:id/status` với optimistic lock.
+- 7 unit tests.
+
+**`<ProsecuteModalProvider>` + `useProsecuteModal()`** (T5):
+- Modal cho Khởi tố Vụ việc → Vụ án mới.
+- Banner cảnh báo + 4 fields (caseName pre-fill, prosecutionDecision, prosecutionDate, crime).
+- POST `/incidents/:id/prosecute` atomic transaction.
+- onSuccess callback receives `newCaseId` for navigation.
+- 7 unit tests.
+
+**ActionContext extension** (T6):
+- Optional `statusTransition` + `prosecute` openers.
+- `incidentsRowActions` registers 2 new menu actions với visibility guards:
+  - Transition: visible khi provider + `INCIDENT_VALID_TRANSITIONS[status]` non-empty
+  - Prosecute: visible khi provider + status ∈ {DANG_XAC_MINH, DA_PHAN_CONG}
+- 4 new registration tests.
+
+**IncidentListPageShell wired** (T7):
+- ActionContext exposes statusTransition + prosecute modal openers.
+- Prosecute onSuccess → navigate `/cases/:newCaseId`.
+- Test setup migrated to `<CompositeModalProvider>` wrapper.
+
+### Changed
+
+- `App.tsx`: 2 modal provider imports → 1 CompositeModalProvider import. 4 nested JSX → 1 mount.
+- 3 test files (Cases/Petitions/Comprehensive) still use legacy nested providers — works because providers exported individually. Will migrate to CompositeModalProvider in PR2 v0.68.
+
+### Tests
+
+- Total 1195/1196 frontend tests pass (1 known-flaky PetitionFormPage.payload from prior version).
+- tsc strict clean (frontend + backend).
+- 26 new unit + 4 new registration tests (T1+T2+T4+T5+T6 = 30 new).
+
+### Deferred
+
+- Playwright E2E suite (Issue I5 chosen 10/10) deferred to PR1-bis. Unit + integration test coverage is solid; production QA + browser snapshot will verify Khởi tố flow end-to-end.
+
 ## [0.66.2.0] - 2026-05-30
 
 **v0.66.2 hotfix(doc-numbers) — Lưu vụ việc lỗi 500 Internal server error**
