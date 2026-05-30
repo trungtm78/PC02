@@ -79,7 +79,9 @@ export function CaseListPageShell() {
   // AUTO-FIX #5: validate URL status param immediately at trust boundary.
   const rawStatus = url.getParam('status');
   const statusFilter = isValidCaseStatus(rawStatus) ? rawStatus : null;
-  const page = url.getNumberParam('page', 1);
+  // /codex review fix: clamp page >= 1. URL như ?cases_page=0 hoặc =-1
+  // gây offset âm → backend 400 → stuck error state forever.
+  const page = Math.max(1, url.getNumberParam('page', 1));
   const searchQuery = url.getParam('q') ?? '';
 
   // AUTO-FIX #1: debounce search query 300ms để tránh keystroke=2-API-calls.

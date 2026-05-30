@@ -585,8 +585,11 @@ model Case {
   @@index([thoiHanUyThac]) // v0.44
   @@index([donViGiao]) // v0.44
   // PR1 ListPageShell — composite cho /cases/stats hot path (groupBy status,
-  // base predicate deletedAt + caseType). Migration 20260530000001.
-  @@index([deletedAt, caseType, status], name: "Case_deletedAt_caseType_status_idx")
+  // base predicate deletedAt + caseType). Migration 20260530000001 tạo
+  // partial index `WHERE "deletedAt" IS NULL` — Prisma `@@index` không express
+  // được partial predicate → KHÔNG declare ở đây. Migration SQL là source
+  // of truth (raw SQL CREATE INDEX với WHERE clause). Future `prisma migrate
+  // diff` sẽ skip diff cho partial index theo Prisma limitation.
   @@map("cases")
 }
 

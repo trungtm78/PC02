@@ -450,17 +450,21 @@ export class CasesService {
       {} as Record<CaseStatus, number>,
     );
 
-    const [groupResults, total] = await Promise.all([
-      this.prisma.case.groupBy({
-        by: ['status'],
-        where,
-        _count: { _all: true },
-      }),
-      this.prisma.case.count({ where }),
-    ]);
+    // /codex review fix: derive `total` từ groupResults thay vì query thứ 2.
+    // groupBy + count chạy trong 2 statement riêng với READ COMMITTED isolation
+    // → snapshot khác nhau khi có concurrent create/delete/status change. "Tất
+    // cả" chip count có thể disagree với sum chip counts trong cùng response.
+    // Vì `total = SUM(byStatus[*])` theo định nghĩa endpoint, derive directly.
+    const groupResults = await this.prisma.case.groupBy({
+      by: ['status'],
+      where,
+      _count: { _all: true },
+    });
 
+    let total = 0;
     for (const row of groupResults) {
       byStatus[row.status] = row._count._all;
+      total += row._count._all;
     }
 
     return { total, byStatus };
