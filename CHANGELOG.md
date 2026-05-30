@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.67.1.0] - 2026-05-30
+
+**v0.67.1 hotfix(petitions) — /investigate: click row trên /petitions redirect /login**
+
+Anh báo click 1 row trong danh sách đơn thư → tự động chuyển sang trang
+đăng nhập. /investigate found cùng class bug như v0.66.1 incidents:
+PetitionListPageShell `onRowClick={(r) => navigate(\`/petitions/${r.id}\`)}`
+navigate to `/petitions/:id` nhưng route đó KHÔNG tồn tại trong
+`features/petitions/routes.tsx`. React Router fall-through to App.tsx
+catch-all `<Route path="*" element={<Navigate to="/login" replace />} />`
+→ user bị đẩy về login.
+
+### Fix
+
+Add `/petitions/:id` route alias rendering `PetitionFormPage`. Form đã handle
+cả read+edit qua `useParams id` presence (line 65-66 of PetitionFormPage):
+- `id` present → `isEditMode=true` → load record + render edit form
+- `id` absent → create mode
+
+Pattern matches Cases (`/cases/:id` exists separately) + Incidents (v0.66.1 fix).
+
+### Tests
+- tsc clean.
+- Route addition is config-only; no new unit tests needed.
+
 ## [0.67.0.0] - 2026-05-30
 
 **v0.67 PR2-bis — Restore 2 deferred Incidents actions: Chuyển trạng thái + Khởi tố**
