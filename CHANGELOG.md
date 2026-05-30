@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.66.1.0] - 2026-05-30
+
+**v0.66.1 hotfix(incidents) — /investigate: tạo mới vụ việc không được**
+
+Anh báo /incidents/new render "Không thể tải thông tin vụ việc. Quay lại"
+instead of mounting IncidentFormPage. /investigate found routing collision:
+features/incidents/routes.tsx had `/incidents` + `/incidents/:id` aliases but
+NO `/incidents/new` alias. `/incidents/new` matched `/incidents/:id` with
+id="new" → IncidentDetailPage tried GET /api/v1/incidents/new → 404.
+
+Fix: add `/incidents/new` (mounts IncidentFormPage) + `/incidents/:id/edit`
+aliases mirroring existing `/vu-viec/*` routes.
+
+Also resolves Edit button on /incidents shell (em chưa noticed but `/incidents/:id/edit`
+was also missing).
+
+Cases + Petitions routes already correct. Comprehensive uses `/comprehensive-list`
+not `/comprehensive`, so unaffected.
+
 ## [0.66.0.0] - 2026-05-30
 
 **v0.66 PR4 — Restore row actions + advanced filters trên /comprehensive (polyglot dispatch)**
