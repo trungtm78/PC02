@@ -26,7 +26,7 @@ describe('DocumentsService', () => {
     document: {
       findMany: jest.fn(),
       findFirst: jest.fn(),
-      count: jest.fn(),
+      count: jest.fn().mockResolvedValue(0),
       create: jest.fn(),
       update: jest.fn(),
     },
@@ -416,6 +416,25 @@ describe('DocumentsService', () => {
             where: { id: 'petition-1', deletedAt: null },
           }),
         );
+      });
+
+      // Cycle 5 — Storage quota guard
+      it('should reject upload when entity reached MAX_DOCUMENTS_PER_ENTITY quota', async () => {
+        const originalEnv = process.env.MAX_DOCUMENTS_PER_ENTITY;
+        process.env.MAX_DOCUMENTS_PER_ENTITY = '50';
+        mockPrismaService.petition.findFirst.mockResolvedValue({
+          id: 'petition-1',
+          stt: 'DT-2026-00001',
+          enteredById: 'user-1',
+          assignedTeamId: 't1',
+          deletedAt: null,
+        });
+        // Simulate quota reached
+        mockPrismaService.document.count.mockResolvedValue(50);
+
+        await expect(service.create(petitionDto, 'user-1')).rejects.toThrow(/giới hạn|quota|50/);
+
+        process.env.MAX_DOCUMENTS_PER_ENTITY = originalEnv;
       });
 
       it('should allow creator (enteredById match) to upload petition document', async () => {

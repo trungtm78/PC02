@@ -203,6 +203,25 @@ export class DocumentsService {
       assertPetitionParentInScope(petitionRecord, dataScope, 'write');
     }
 
+    // Cycle 5 — Storage quota guard. Default 50 files per entity (Case/Incident/Petition).
+    // Bảo vệ disk VM Viettel khỏi cạn quota khi user upload không kiểm soát.
+    // Configurable qua env MAX_DOCUMENTS_PER_ENTITY (0 hoặc unset = no limit).
+    const maxPerEntity = Number.parseInt(process.env.MAX_DOCUMENTS_PER_ENTITY ?? '50', 10);
+    if (maxPerEntity > 0) {
+      const entityFilter: Prisma.DocumentWhereInput = { deletedAt: null };
+      if (dto.caseId) entityFilter.caseId = dto.caseId;
+      else if (dto.incidentId) entityFilter.incidentId = dto.incidentId;
+      else if (dto.petitionId) entityFilter.petitionId = dto.petitionId;
+      if (dto.caseId || dto.incidentId || dto.petitionId) {
+        const count = await this.prisma.document.count({ where: entityFilter });
+        if (count >= maxPerEntity) {
+          throw new BadRequestException(
+            `Vượt giới hạn ${maxPerEntity} tài liệu/đối tượng. Xoá tài liệu cũ trước khi tải mới.`,
+          );
+        }
+      }
+    }
+
     // Validate file upload fields
     if (!dto.fileName || !dto.originalName || !dto.mimeType || !dto.size || !dto.filePath) {
       throw new BadRequestException('Thông tin file không đầy đủ');
