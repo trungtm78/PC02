@@ -1,7 +1,8 @@
 import { lazy, Suspense, type ReactElement } from 'react';
 import { Route } from 'react-router-dom';
 
-const PetitionListPage = lazy(() => import('@/pages/petitions/PetitionListPage'));
+// F1 swap (v0.56): PetitionListPageShell (PR2 ListPageShell) replaces legacy.
+const PetitionListPage = lazy(() => import('@/pages/petitions/PetitionListPageShell'));
 const PetitionFormPage = lazy(() => import('@/pages/petitions/PetitionFormPage'));
 // v0.37.1: Đơn thư theo phường/xã page (mirror WardCasesPage/WardIncidentsPage pattern)
 const WardPetitionsPage = lazy(() => import('@/pages/petitions/WardPetitionsPage'));

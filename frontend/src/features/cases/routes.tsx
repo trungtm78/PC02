@@ -1,7 +1,9 @@
 import { lazy, Suspense, type ReactElement } from 'react';
 import { Route, Navigate } from 'react-router-dom';
 
-const CaseListPage = lazy(() => import('@/pages/cases/CaseListPage'));
+// F1 swap (v0.56): CaseListPageShell (PR1 ListPageShell) replaces legacy CaseListPage.
+// Legacy CaseListPage.tsx kept on disk for ref; delete after 2+ release soak.
+const CaseListPage = lazy(() => import('@/pages/cases/CaseListPageShell'));
 const CaseFormPage = lazy(() => import('@/pages/cases/CaseFormPage'));
 const CaseDetailPage = lazy(() => import('@/pages/cases/CaseDetailPage'));
 // v0.37.1: ComprehensiveListPage + InitialCasesPage routes moved to features/comprehensive/routes.tsx
