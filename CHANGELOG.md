@@ -2,6 +2,52 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.52.0.0] - 2026-05-30
+
+**v0.52 ListPageShell PR2 — Pattern A pages refactor + backend stats endpoints**
+
+Tiếp PR1 (CaseListPageShell + foundation), PR2 đưa ListPageShell xuống 3 list pages còn lại
+thuộc Pattern A: Incident (với phase tabs BCA TT28/2020), Petition (single workflow), và
+Comprehensive (3-entity fan-out tổng hợp Vụ án + Vụ việc + Đơn thư).
+
+### Added
+
+**Backend endpoints**:
+- `GET /api/v1/incidents/stats` — server-aggregated count theo IncidentStatus (15 keys exhaustive). Snapshot-consistent total derived từ `groupBy` rows. DataScope enforced.
+- `GET /api/v1/petitions/stats` — server-aggregated count theo PetitionStatus (7 keys exhaustive). Cùng pattern.
+- DTOs `QueryIncidentsStatsDto` + `QueryPetitionsStatsDto` qua `OmitType` — ValidationPipe whitelist:true reject misleading params (status/limit/offset/sortBy/sortOrder) với 400.
+
+**Frontend ListPageShell consumers**:
+- `IncidentListPageShell.tsx` — useListPageUrlState('incidents'), 15 status chips, 4 BCA phase tabs (tiếp nhận/xác minh/kết quả/tạm đình chỉ) render giữa Header + StatusChips. Trust boundary: status + phase URL params validated qua enum + Set. Overdue rows highlighted. 18 vitest integration tests.
+- `PetitionListPageShell.tsx` — useListPageUrlState('petitions'), 7 status chips, single workflow. 14 vitest tests.
+- `ComprehensiveListPageShell.tsx` — 3-entity tổng hợp (Vụ án/Vụ việc/Đơn thư), useListPageUrlState('comp'), "Tất cả" fan-out 3 endpoints + merge sort desc by createdAt, single-type mode dùng server pagination. Counts derived từ list response totals khi fan-out (saved 3 requests/keystroke). 13 vitest tests.
+
+**Database**:
+- Migration `20260530000002_pr2_incidents_petitions_stats_index` — partial composite indexes `(deletedAt, status) WHERE deletedAt IS NULL` cho `incidents` + `petitions` tables. Mirror PR1 Cases pattern. Speeds up groupBy hot path.
+
+### Changed
+
+- `IncidentsService.getStats(query, dataScope)` — full filter pass-through (search/phase/investigator/unit/overdue/district/ward/team/loaiDonVu/benVu/tinhTrangHoSo/tinhTrangThoiHieu/canBoNhapId/dateRange). Exhaustive byStatus reduce. Old `getStats(dataScope)` legacy spec rewritten for new contract.
+- `PetitionsService.getStats(query, dataScope)` — filter pass-through (search/unit/senderName/fromDate/toDate/overdue/wardTeamId).
+
+### Fixed
+
+- Comprehensive shell over-report bug: `totalCount` capped tại `merged.length` thay vì sum server totals — user không thấy empty pages khi navigate quá preview buffer.
+- Comprehensive stats fan-out gate by typeFilter — saved 3 stats requests/keystroke trong "Tất cả" mode.
+- Incident phase tab values: kebab-case slugs match backend `PHASE_STATUSES` keys (UPPER_SNAKE_CASE silently no-op — caught by /codex review).
+- `IncidentsService.getStats` `where.subjects` removed — Incident model has no Subject relation; copied from getList template was wrong.
+
+### Tests
+
+- Backend: +16 jest tests (incidents stats spec 8, petitions stats spec 8, both with DataScope filter test).
+- Frontend: +45 vitest tests (18 Incident + 14 Petition + 13 Comprehensive shell integration).
+- Total: 2055 backend + 1025 frontend = 3080 tests green. tsc clean. Prisma schema valid.
+
+### Review notes
+
+- `/review` specialist dispatch found 2 CRITICAL issues on Comprehensive shell (over-report + redundant fan-out) — both fixed before /ship.
+- `/codex review` GATE: PASS (0 P1). 1 P2 (phase slug case mismatch) — fixed.
+
 ## [0.51.0.0] - 2026-05-29
 
 **v0.51 Bulk Actions — PR4: Lawyers + Subjects bulk-delete**

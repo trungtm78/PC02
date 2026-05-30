@@ -27,6 +27,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CreateIncidentDto } from './dto/create-incident.dto';
 import { UpdateIncidentDto } from './dto/update-incident.dto';
 import { QueryIncidentsDto } from './dto/query-incidents.dto';
+import { QueryIncidentsStatsDto } from './dto/query-incidents-stats.dto';
 import { AssignInvestigatorDto } from './dto/assign-investigator.dto';
 import { ProsecuteIncidentDto } from './dto/prosecute-incident.dto';
 import { UpdateStatusDto } from './dto/update-status.dto';
@@ -62,11 +63,12 @@ export class IncidentsController {
     return this.incidentsService.listLinkable(query, req.dataScope);
   }
 
-  // GET /api/v1/incidents/stats — Count theo status
+  // GET /api/v1/incidents/stats — Counts by IncidentStatus, scoped to active non-status filters.
+  // PR2/T1: refactored to PR1 Cases stats pattern (exhaustive byStatus + dedicated DTO).
   @Get('stats')
   @RequirePermissions({ action: 'read', subject: 'Incident' })
-  getStats(@Req() req: ScopedRequest) {
-    return this.incidentsService.getStats(req.dataScope);
+  getStats(@Query() query: QueryIncidentsStatsDto, @Req() req: ScopedRequest) {
+    return this.incidentsService.getStats(query, req.dataScope);
   }
 
   // GET /api/v1/incidents/investigators — Danh sách điều tra viên
