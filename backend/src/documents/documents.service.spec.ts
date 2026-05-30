@@ -159,6 +159,41 @@ describe('DocumentsService', () => {
         }),
       );
     });
+
+    // Cycle 2 — filter by petitionId
+    it('should filter documents by petitionId', async () => {
+      mockPrismaService.document.findMany.mockResolvedValue([]);
+      mockPrismaService.document.count.mockResolvedValue(0);
+
+      await service.getList({ petitionId: 'petition-1' });
+
+      expect(mockPrismaService.document.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            deletedAt: null,
+            petitionId: 'petition-1',
+          }),
+        }),
+      );
+    });
+
+    // Cycle 3 — petition soft-delete cascade
+    it('scope OR clause filters out soft-deleted petitions (deletedAt = null)', async () => {
+      mockPrismaService.document.findMany.mockResolvedValue([]);
+      mockPrismaService.document.count.mockResolvedValue(0);
+
+      const scope = { userIds: ['u1'], teamIds: ['t1'], writableTeamIds: ['t1'] };
+
+      await service.getList({}, scope as any);
+
+      const callArgs = mockPrismaService.document.findMany.mock.calls[0][0];
+      const orClauses = callArgs.where.OR as Array<Record<string, any>>;
+      const petitionClause = orClauses.find((c) => 'petition' in c);
+      expect(petitionClause).toBeDefined();
+      // Petition predicate must include deletedAt:null guard — soft-deleted petitions
+      // must not leak documents into scope query.
+      expect(JSON.stringify(petitionClause)).toContain('deletedAt');
+    });
   });
 
   describe('getById', () => {
@@ -367,6 +402,20 @@ describe('DocumentsService', () => {
         await expect(
           service.create(petitionDto, 'user-1', undefined, crossTeamScope as any),
         ).rejects.toThrow(/quyền/);
+      });
+
+      it('should reject upload when petition is soft-deleted (deletedAt set)', async () => {
+        // Cycle 3 — petition soft-delete cascade. findFirst already filters
+        // deletedAt:null, so a soft-deleted petition returns null and the
+        // existence guard throws BadRequest before scope check runs.
+        mockPrismaService.petition.findFirst.mockResolvedValue(null);
+
+        await expect(service.create(petitionDto, 'user-1')).rejects.toThrow(BadRequestException);
+        expect(mockPrismaService.petition.findFirst).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: { id: 'petition-1', deletedAt: null },
+          }),
+        );
       });
 
       it('should allow creator (enteredById match) to upload petition document', async () => {

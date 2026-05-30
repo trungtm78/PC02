@@ -73,7 +73,9 @@ export class DocumentsService {
     if (caseScope || petitionScope) {
       (where as any).OR = [
         ...(caseScope ? [{ case: caseScope }, { incident: caseScope }] : []),
-        ...(petitionScope ? [{ petition: petitionScope }] : []),
+        // Soft-delete cascade (Cycle 3): exclude documents linked to soft-deleted petitions
+        // from scope queries — chain-of-custody bleeding prevention.
+        ...(petitionScope ? [{ petition: { AND: [petitionScope, { deletedAt: null }] } }] : []),
       ];
     }
 
