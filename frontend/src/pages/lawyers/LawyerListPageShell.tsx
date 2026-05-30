@@ -144,7 +144,10 @@ export function LawyerListPageShell() {
     selectionClearRef.current();
   }, [page, searchQuery]);
 
-  const adapter = useMemo(() => buildLawyersAdapter({ enableDelete: true }), []);
+  const adapter = useMemo(
+    () => buildLawyersAdapter({ enableDelete: true, enableExport: true }),
+    [],
+  );
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 

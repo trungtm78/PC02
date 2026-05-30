@@ -217,7 +217,12 @@ export function ObjectListPageShell({ subjectType = SubjectType.SUSPECT }: Props
   }, [subjectType, page, searchQuery, statusFilter]);
 
   const adapter = useMemo(
-    () => buildSubjectsAdapter({ enableDelete: true, resourceLabel: cfg.resourceLabel }),
+    () =>
+      buildSubjectsAdapter({
+        enableDelete: true,
+        enableExport: true,
+        resourceLabel: cfg.resourceLabel,
+      }),
     [cfg.resourceLabel],
   );
 
