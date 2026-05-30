@@ -200,6 +200,13 @@ function CaseFormPage() {
     }
     if (!formData.caseTitle.trim()) newErrors.caseTitle = "Vui lòng nhập tiêu đề hồ sơ";
     if (!formData.handler) newErrors.handler = "Vui lòng chọn điều tra viên";
+    // v0.67.3 — UTDT requires donViGiao (originally enforced via throw in
+    // buildCreateCasePayload, which got swallowed by handleConfirmSave's catch
+    // and shown as generic "Lưu hồ sơ thất bại". Promote to validateForm so
+    // the field-specific message lands in the top-of-form error banner.
+    if (formData.caseProvenance === 'UY_THAC_DIEU_TRA' && !formData.utdt_donViGiao?.trim()) {
+      newErrors.utdt_donViGiao = "Vui lòng nhập Đơn vị giao ủy thác (tab Thông tin Ủy thác)";
+    }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -249,6 +256,14 @@ function CaseFormPage() {
       const status = (err as { response?: { status?: number } })?.response?.status;
       if (status === 409) {
         alert("Hồ sơ đã được chỉnh sửa bởi người dùng khác.\nVui lòng tải lại trang để xem phiên bản mới nhất trước khi chỉnh sửa.");
+        return;
+      }
+      // v0.67.3 — surface client-side Errors (no `response` field) with their
+      // own message instead of swallowing them into the generic alert.
+      const isHttpError = !!(err as { response?: unknown })?.response;
+      if (!isHttpError && err instanceof Error && err.message) {
+        console.error("[CaseFormPage] Save error:", err);
+        alert(err.message);
         return;
       }
       console.error("[CaseFormPage] Save error:", err);
