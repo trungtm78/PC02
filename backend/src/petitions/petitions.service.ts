@@ -809,6 +809,16 @@ export class PetitionsService {
       throw e;
     }
 
+    // v0.52 Cycle 4 — Document handoff: petition documents → incident.
+    // Existing convertToIncident không atomic (petition.update ngoài transaction),
+    // không gộp được vào array-form $transaction. Document handoff đặt sau petition.update —
+    // nếu fail, petition đã link incident nhưng documents còn petitionId only.
+    // Acceptable: documents vẫn truy được qua petitionId; admin có thể replay.
+    await this.prisma.document.updateMany({
+      where: { petitionId, deletedAt: null },
+      data: { incidentId: incident.id },
+    });
+
     await this.audit.log({
       userId: actorId,
       action: 'PETITION_CONVERTED_TO_INCIDENT',
@@ -899,6 +909,14 @@ export class PetitionsService {
           linkedCaseId: newCase.id,
           status: PetitionStatus.DA_CHUYEN_VU_AN,
         },
+      });
+
+      // v0.52 Cycle 4 — Document handoff: petition-linked tài liệu re-link sang case mới
+      // trong CÙNG transaction. petitionId giữ làm provenance, caseId set để Case tab
+      // "Tài liệu" hiển thị evidence của đơn gốc. Soft-deleted documents bỏ qua.
+      await tx.document.updateMany({
+        where: { petitionId, deletedAt: null },
+        data: { caseId: newCase.id },
       });
 
       return [newCase];
