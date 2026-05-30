@@ -18,7 +18,6 @@ import {
   Shield,
   ArrowRightLeft,
 } from "lucide-react";
-import { PageHeader } from "@/components/shared/PageHeader";
 import { TabBar } from "@/components/shared/TabBar";
 import type { TabItem } from "@/components/shared/TabBar";
 import type { TabId, Subject, Evidence, MediaFile, CaseFormData } from "./types";
@@ -342,20 +341,22 @@ function CaseFormPage() {
           <button onClick={() => { localStorage.removeItem('caseFormDraft'); setFormData(INITIAL_FORM_DATA); setShowDraftBanner(false); }} className="text-xs text-amber-600 hover:text-amber-800 underline ml-4">Bỏ qua</button>
         </div>
       )}
-      {/* Header */}
-      <PageHeader
-        title={
-          formData.caseProvenance === 'UY_THAC_DIEU_TRA'
-            ? (isEditMode ? "Chỉnh sửa ủy thác điều tra" : "Ủy thác điều tra — Tạo mới")
-            : (isEditMode ? "Chỉnh sửa vụ án" : "Khởi tố vụ án mới")
-        }
-        subtitle={
-          formData.caseProvenance === 'UY_THAC_DIEU_TRA'
-            ? (isEditMode ? "Cập nhật thông tin ủy thác điều tra" : "Nhập thông tin theo Điều 171 BLTTHS 2015")
-            : (isEditMode ? "Cập nhật thông tin vụ án" : "Nhập đầy đủ thông tin vụ án — chọn Nguồn vụ án (BLTTHS Đ.143) trước")
-        }
-        actions={
-          <>
+      {/* Header — F4 inline (was <PageHeader /> wrapper, deleted in this PR) */}
+      <div className="bg-white border-b border-slate-200 px-6 py-4" data-testid="page-header">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-800">
+              {formData.caseProvenance === 'UY_THAC_DIEU_TRA'
+                ? (isEditMode ? "Chỉnh sửa ủy thác điều tra" : "Ủy thác điều tra — Tạo mới")
+                : (isEditMode ? "Chỉnh sửa vụ án" : "Khởi tố vụ án mới")}
+            </h1>
+            <p className="text-sm text-slate-600 mt-1">
+              {formData.caseProvenance === 'UY_THAC_DIEU_TRA'
+                ? (isEditMode ? "Cập nhật thông tin ủy thác điều tra" : "Nhập thông tin theo Điều 171 BLTTHS 2015")
+                : (isEditMode ? "Cập nhật thông tin vụ án" : "Nhập đầy đủ thông tin vụ án — chọn Nguồn vụ án (BLTTHS Đ.143) trước")}
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
             <button
               onClick={handleCancel}
               className="px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
@@ -380,9 +381,9 @@ function CaseFormPage() {
               <Save className="w-4 h-4 inline mr-2" />
               Lưu hồ sơ
             </button>
-          </>
-        }
-      />
+          </div>
+        </div>
+      </div>
 
       {/* v0.37.2.5 Decision 7A: top-level validation summary (aria-assertive) */}
       {Object.keys(errors).length > 0 && (
