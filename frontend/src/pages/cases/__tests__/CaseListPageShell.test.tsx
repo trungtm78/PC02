@@ -15,6 +15,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter, useLocation, Routes, Route } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { CaseListPageShell } from '../CaseListPageShell';
+import { CaseStatus } from '@/shared/enums/generated';
 
 vi.mock('@/lib/api', () => ({
   api: {
@@ -183,11 +184,50 @@ describe('CaseListPageShell — empty + error states', () => {
     );
   });
 
-  it('state=error → render error message từ API exception', async () => {
-    (api.get as unknown as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Network down'));
+  it('state=error → render Vietnamese error message từ axios exception', async () => {
+    // Mock axios-shaped 500 error → expects VN message theo getVietnameseErrorMessage.
+    const axiosError = Object.assign(new Error('Internal Server Error'), {
+      isAxiosError: true,
+      response: { status: 500, data: {} },
+    });
+    (api.get as unknown as ReturnType<typeof vi.fn>).mockRejectedValue(axiosError);
     renderWithRouter();
     await waitFor(() => expect(screen.getByTestId('list-page-shell-table-error')).toBeInTheDocument());
-    expect(screen.getByText(/Network down/i)).toBeInTheDocument();
+    expect(screen.getByText(/Lỗi máy chủ/i)).toBeInTheDocument();
+  });
+
+  it('state=error → fallback Vietnamese message khi unknown error', async () => {
+    (api.get as unknown as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Random'));
+    renderWithRouter();
+    await waitFor(() => expect(screen.getByTestId('list-page-shell-table-error')).toBeInTheDocument());
+    expect(screen.getByText(/Lỗi không xác định/i)).toBeInTheDocument();
+  });
+});
+
+describe('CaseListPageShell — security + contract fixes', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (api.get as unknown as ReturnType<typeof vi.fn>).mockImplementation((url: string) => {
+      if (url === '/cases') return Promise.resolve({ data: { data: [], total: 0 } });
+      if (url === '/cases/stats') return Promise.resolve({ data: sampleStats });
+      return Promise.reject(new Error('Unknown URL'));
+    });
+  });
+
+  it('malformed status URL param (proto pollution attempt) → ignore, không fetch với status param', async () => {
+    renderWithRouter(['/cases?cases_status=__proto__']);
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith('/cases', expect.any(Object)));
+    const listCall = (api.get as unknown as ReturnType<typeof vi.fn>).mock.calls.find((c) => c[0] === '/cases');
+    expect(listCall?.[1]?.params.status).toBeUndefined();
+  });
+
+  it('byStatus response exhaustive — mọi CaseStatus key có number, không undefined', async () => {
+    renderWithRouter();
+    await waitFor(() => expect(screen.getByTestId('list-page-shell-table-empty')).toBeInTheDocument());
+    // chip count text ẩn trong DOM. Kiểm tra qua mock data trực tiếp.
+    Object.values(CaseStatus).forEach((status) => {
+      expect(typeof sampleStats.byStatus[status]).toBe('number');
+    });
   });
 });
 

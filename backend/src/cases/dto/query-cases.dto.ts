@@ -5,6 +5,7 @@ import {
   IsEnum,
   IsIn,
   IsInt,
+  MaxLength,
   Min,
   Max,
 } from 'class-validator';
@@ -15,8 +16,11 @@ export type TrangThaiPhanHoi = 'DA_PHAN_HOI' | 'KHONG_THUC_HIEN_DUOC' | 'QUA_HAN
 export { CaseType, LoaiUyThac };
 
 export class QueryCasesDto {
+  // Search: cap at 200 chars để tránh heavy JSONB scan / ILIKE on UTDT metadata.path
+  // (review finding: unbounded search drives multiple OR ILIKE + JSON containment).
   @IsOptional()
   @IsString()
+  @MaxLength(200)
   search?: string;
 
   @IsOptional()
