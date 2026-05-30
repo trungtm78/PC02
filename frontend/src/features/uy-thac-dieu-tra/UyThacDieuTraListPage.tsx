@@ -47,6 +47,18 @@ import {
   OVERDUE_ROW_HIGHLIGHT,
 } from '@/constants/styles';
 
+// Backend DeleteCaseDto enforces same minimum. Drift detection: search this
+// constant across repo if changing — see CLAUDE.md WIRE FORMAT pattern.
+const AUDIT_REASON_MIN_LENGTH = 10;
+
+// URL param short-code dictionary. Kept short for bookmark/share URL hygiene
+// (e.g. ?utdt_status=QUA_HAN&utdt_cs=TIEP_NHAN&utdt_tnf=2026-01-01).
+// utdt_status = TrangThaiPhanHoi      utdt_cs  = caseStatus
+// utdt_lut    = loaiUyThac            utdt_dv  = donViGiao
+// utdt_tnf    = ngayTiepNhanFrom      utdt_tnt = ngayTiepNhanTo
+// utdt_inv    = investigatorName      utdt_page = pagination
+// utdt_q      = global search query
+
 // ─── API types ──────────────────────────────────────────────────────
 
 interface UyThacFromApi {
@@ -229,20 +241,21 @@ export default function UyThacDieuTraListPage() {
     return () => abortRef.current?.abort();
   }, [fetchData]);
 
-  // Stats: derive chip counts from current rows for visible page only.
-  // UTDT doesn't have a /stats endpoint (caseType=UY_THAC_DIEU_TRA is sliced from
-  // /cases). Chip badges show counts within current result set rather than full
-  // dataset — acceptable trade-off for PR3 (consistent with how UTDT historically
-  // displayed counts). PR4 follow-up can add /cases/stats?caseType= for full counts.
+  // Stats chip counts: deliberately UNDEFINED in PR3 — UTDT doesn't have a
+  // /stats endpoint (caseType=UY_THAC_DIEU_TRA is sliced from /cases) and
+  // showing per-page-only counts would mislead users (badge "3" while full
+  // dataset has 47 = bug report). PR4 follow-up adds /cases/stats?caseType=
+  // for full counts. Until then chips show labels only.
+  // /review specialist fix (PR3 testing-maint, confidence 9).
   const chipOptions = useMemo(
     () =>
       TRANG_THAI_PHAN_HOI_CHIPS.map((c) => ({
         value: c.value,
         shortLabel: c.shortLabel,
         label: c.label,
-        count: rows.filter((r) => computeTrangThai(r) === c.value).length || undefined,
+        count: undefined,
       })),
-    [rows],
+    [],
   );
 
   const columns: ColumnDef<UyThacFromApi>[] = useMemo(
@@ -424,8 +437,8 @@ export default function UyThacDieuTraListPage() {
   async function confirmDelete() {
     if (!deleteTarget) return;
     const reason = deleteReason.trim();
-    if (reason.length < 10) {
-      setDeleteError('Lý do xóa cần tối thiểu 10 ký tự (audit trail BLTTHS Đ.46).');
+    if (reason.length < AUDIT_REASON_MIN_LENGTH) {
+      setDeleteError(`Lý do xóa cần tối thiểu ${AUDIT_REASON_MIN_LENGTH} ký tự (audit trail BLTTHS Đ.46).`);
       return;
     }
     setDeleting(true);
@@ -570,7 +583,7 @@ export default function UyThacDieuTraListPage() {
             <button
               type="button"
               onClick={() => void confirmDelete()}
-              disabled={deleting || deleteReason.trim().length < 10}
+              disabled={deleting || deleteReason.trim().length < AUDIT_REASON_MIN_LENGTH}
               className={`${BTN_PRIMARY} ${A11Y_FOCUS_RING} bg-red-600 hover:bg-red-700 disabled:opacity-50`}
               title="Xóa ủy thác"
             >
@@ -597,7 +610,7 @@ export default function UyThacDieuTraListPage() {
                 onChange={(e) => setDeleteReason(e.target.value)}
                 disabled={deleting}
                 rows={3}
-                minLength={10}
+                minLength={AUDIT_REASON_MIN_LENGTH}
                 placeholder="VD: Trùng lặp với ủy thác PC02-UTDT-2026-00012 do nhập sai mã đơn vị giao."
                 className={`w-full text-sm border border-slate-300 rounded-md py-1.5 px-2 ${A11Y_FOCUS_RING}`}
                 data-testid="utdt-delete-reason"

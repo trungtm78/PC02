@@ -183,4 +183,25 @@ describe('UyThacDieuTraListPage — PR3 shell refactor', () => {
       expect(url).not.toContain('trangThaiPhanHoi=__proto__');
     });
   });
+
+  it('state=empty (no filter, no rows) → render plain empty CTA', async () => {
+    mockApiGet.mockImplementation(() =>
+      Promise.resolve({ data: { success: true, data: [], total: 0 } }),
+    );
+    await renderPage();
+    await waitFor(() =>
+      expect(screen.getByTestId('list-page-shell-table-empty')).toBeInTheDocument(),
+    );
+    expect(screen.getByRole('button', { name: 'Nhập ủy thác mới' })).toBeInTheDocument();
+  });
+
+  it('state=empty-filtered (status active, no rows) → render filtered empty', async () => {
+    mockApiGet.mockImplementation(() =>
+      Promise.resolve({ data: { success: true, data: [], total: 0 } }),
+    );
+    await renderPage('/uy-thac-dieu-tra?utdt_status=QUA_HAN');
+    await waitFor(() =>
+      expect(screen.getByTestId('list-page-shell-table-empty-filtered')).toBeInTheDocument(),
+    );
+  });
 });
