@@ -1,31 +1,53 @@
-import { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
-import { api } from "@/lib/api";
-import { formatVNDate } from "@/lib/dates";
+/**
+ * UyThacDieuTraListPage — PR3 refactor.
+ *
+ * Anh's original complaint: UTDT UI inconsistent vs Cases/Incidents/Petitions.
+ * Resolution: dùng `<ListPageShell>` compound API (PR1) như Pattern A pages.
+ *
+ * Changes from pre-PR3 version:
+ * - Bỏ PageHeader cũ → ListPageShell.Header
+ * - 4-state TrangThaiPhanHoi qua ListPageShell.StatusChips (canonical filter UX)
+ * - Search + advanced filter qua ListPageShell.Toolbar (collapsible)
+ * - Slate palette thay gray-* (tokens từ constants/styles.ts)
+ * - Modal delete với reason textarea thay browser confirm() (a11y + audit trail)
+ * - URL state via useListPageUrlState('utdt') — bookmark/back-button safe
+ * - Table state machine (loading/error/empty/empty-filtered/ready) qua ListPageShell.Table
+ * - Pagination qua ListPageShell.Pagination
+ * - Vietnamese error messages
+ */
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Eye, FileSignature, Plus, Trash2 } from 'lucide-react';
+import axios from 'axios';
+import { api } from '@/lib/api';
+import { formatVNDate } from '@/lib/dates';
 import {
-  Search,
-  Plus,
-  Eye,
-  Filter,
-  X,
-  RotateCcw,
-  Trash2,
-} from "lucide-react";
-import { PageHeader } from "@/components/shared/PageHeader";
+  ListPageShell,
+  useListPageUrlState,
+  type ColumnDef,
+  type TableState,
+} from '@/components/shared/ListPageShell';
+import { Modal } from '@/components/shared/Modal';
 import {
   TRANG_THAI_PHAN_HOI_LABEL,
   TRANG_THAI_PHAN_HOI_BADGE,
-  TRANG_THAI_PHAN_HOI_OPTIONS,
+  TRANG_THAI_PHAN_HOI_CHIPS,
   LOAI_UY_THAC_LABEL,
   LOAI_UY_THAC_OPTIONS,
   CASE_STATUS_LABEL,
   CASE_STATUS_BADGE,
   CASE_STATUS_OPTIONS,
   type TrangThaiPhanHoi,
-} from "@/shared/enums/status-labels";
-import { CaseType } from "@/shared/enums/generated";
+} from '@/shared/enums/status-labels';
+import { CaseType } from '@/shared/enums/generated';
+import {
+  A11Y_FOCUS_RING,
+  BTN_PRIMARY,
+  BTN_SECONDARY,
+  OVERDUE_ROW_HIGHLIGHT,
+} from '@/constants/styles';
 
-// ─── API types ────────────────────────────────────────────────────
+// ─── API types ──────────────────────────────────────────────────────
 
 interface UyThacFromApi {
   id: string;
@@ -47,7 +69,7 @@ interface UyThacFromApi {
   createdAt: string;
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────
+// ─── Helpers ────────────────────────────────────────────────────────
 
 function computeTrangThai(row: UyThacFromApi): TrangThaiPhanHoi {
   if (row.trangThaiPhanHoi) return row.trangThaiPhanHoi;
@@ -63,373 +85,594 @@ function getInvestigatorName(inv: UyThacFromApi['investigator']): string {
   return [inv.firstName, inv.lastName].filter(Boolean).join(' ') || inv.username;
 }
 
-// ─── Component ────────────────────────────────────────────────────
+function getNghiVan(row: UyThacFromApi): string | null {
+  const meta = row.metadata as Record<string, unknown> | null;
+  return (meta?.nghiVanDoiTuong as string | undefined) ?? null;
+}
+
+function getVietnameseErrorMessage(e: unknown): string {
+  if (axios.isAxiosError(e)) {
+    const status = e.response?.status;
+    if (status === 401) return 'Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại';
+    if (status === 403) return 'Bạn không có quyền xem dữ liệu này';
+    if (status && status >= 500) return 'Lỗi máy chủ, vui lòng thử lại sau';
+    const serverMsg = (e.response?.data as { message?: string } | undefined)?.message;
+    if (serverMsg) return serverMsg;
+    if (e.code === 'ECONNABORTED') return 'Quá thời gian chờ, vui lòng thử lại';
+    return 'Không tải được danh sách ủy thác';
+  }
+  return 'Lỗi không xác định';
+}
+
+// Trust boundary: validate enum-shaped URL params before passing to API.
+const TRANG_THAI_PHAN_HOI_VALUES = new Set<string>([
+  'DA_PHAN_HOI',
+  'KHONG_THUC_HIEN_DUOC',
+  'QUA_HAN',
+  'CHUA_PHAN_HOI',
+]);
+function isValidTrangThai(v: string | null): v is TrangThaiPhanHoi {
+  return v != null && TRANG_THAI_PHAN_HOI_VALUES.has(v);
+}
+
+const PAGE_SIZE = 20;
+
+// ─── Component ──────────────────────────────────────────────────────
 
 export default function UyThacDieuTraListPage() {
   const navigate = useNavigate();
+  const url = useListPageUrlState('utdt');
 
-  // Filters — raw input state
-  const [search, setSearch]                   = useState('');
-  const [caseStatus, setCaseStatus]           = useState('');
-  const [trangThai, setTrangThai]             = useState<TrangThaiPhanHoi | ''>('');
-  const [loaiUyThac, setLoaiUyThac]           = useState('');
-  const [donViGiao, setDonViGiao]             = useState('');
-  const [ngayTiepNhanFrom, setNgayTiepNhanFrom] = useState('');
-  const [ngayTiepNhanTo, setNgayTiepNhanTo]   = useState('');
-  const [investigatorSearch, setInvestigatorSearch] = useState('');
-  const [showFilters, setShowFilters]         = useState(false);
+  // Primary status filter (4-state response status)
+  const rawTrangThai = url.getParam('status');
+  const trangThai = isValidTrangThai(rawTrangThai) ? rawTrangThai : null;
 
-  // Debounced values (300ms — same as IncidentListPage)
-  const [debouncedSearch, setDebouncedSearch]             = useState('');
-  const [debouncedInvestigator, setDebouncedInvestigator] = useState('');
+  // Secondary filters — kept in URL for bookmark/back-button restore
+  const caseStatus = url.getParam('cs') ?? '';
+  const loaiUyThac = url.getParam('lut') ?? '';
+  const donViGiao = url.getParam('dv') ?? '';
+  const ngayTiepNhanFrom = url.getParam('tnf') ?? '';
+  const ngayTiepNhanTo = url.getParam('tnt') ?? '';
+  const investigatorSearch = url.getParam('inv') ?? '';
+  const page = Math.max(1, url.getNumberParam('page', 1));
+  const searchQuery = url.getParam('q') ?? '';
 
-  // Data
-  const [rows, setRows]           = useState<UyThacFromApi[]>([]);
-  const [total, setTotal]         = useState(0);
-  const [page, setPage]           = useState(0);
-  const [loading, setLoading]     = useState(false);
-  const [error, setError]         = useState<string | null>(null);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-  const LIMIT = 20;
-
-  // Debounce search
+  // Debounce search + investigator (300ms — same as Pattern A pages)
+  const [debouncedSearch, setDebouncedSearch] = useState(searchQuery);
   useEffect(() => {
-    const t = setTimeout(() => setDebouncedSearch(search), 300);
+    const t = setTimeout(() => setDebouncedSearch(searchQuery), 300);
     return () => clearTimeout(t);
-  }, [search]);
+  }, [searchQuery]);
 
-  // Debounce investigator name
+  const [debouncedInvestigator, setDebouncedInvestigator] = useState(investigatorSearch);
   useEffect(() => {
     const t = setTimeout(() => setDebouncedInvestigator(investigatorSearch), 300);
     return () => clearTimeout(t);
   }, [investigatorSearch]);
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const params = new URLSearchParams();
-      params.set('caseType', CaseType.UY_THAC_DIEU_TRA);
-      params.set('offset', String(page * LIMIT));
-      params.set('limit', String(LIMIT));
-      if (debouncedSearch)     params.set('search', debouncedSearch);
-      if (caseStatus)          params.set('status', caseStatus);
-      if (trangThai)           params.set('trangThaiPhanHoi', trangThai);
-      if (loaiUyThac)          params.set('loaiUyThac', loaiUyThac);
-      if (donViGiao)           params.set('donViGiao', donViGiao);
-      if (ngayTiepNhanFrom)    params.set('ngayTiepNhanFrom', ngayTiepNhanFrom);
-      if (ngayTiepNhanTo)      params.set('ngayTiepNhanTo', ngayTiepNhanTo);
-      if (debouncedInvestigator) params.set('investigatorName', debouncedInvestigator);
+  const [rows, setRows] = useState<UyThacFromApi[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [tableState, setTableState] = useState<TableState>('loading');
+  const [error, setError] = useState<string | undefined>();
+  const abortRef = useRef<AbortController | null>(null);
 
-      const res = await api.get(`/cases?${params.toString()}`);
-      setRows(res.data?.data ?? []);
-      setTotal(res.data?.total ?? 0);
-    } catch {
-      setError('Không tải được dữ liệu. Vui lòng thử lại.');
-    } finally {
-      setLoading(false);
+  // Modal delete state
+  const [deleteTarget, setDeleteTarget] = useState<UyThacFromApi | null>(null);
+  const [deleteReason, setDeleteReason] = useState('');
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const fetchData = useCallback(() => {
+    abortRef.current?.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+    setTableState('loading');
+    setError(undefined);
+
+    const params = new URLSearchParams();
+    params.set('caseType', CaseType.UY_THAC_DIEU_TRA);
+    params.set('offset', String((page - 1) * PAGE_SIZE));
+    params.set('limit', String(PAGE_SIZE));
+    if (debouncedSearch) params.set('search', debouncedSearch);
+    if (trangThai) params.set('trangThaiPhanHoi', trangThai);
+    if (caseStatus) params.set('status', caseStatus);
+    if (loaiUyThac) params.set('loaiUyThac', loaiUyThac);
+    if (donViGiao) params.set('donViGiao', donViGiao);
+    if (ngayTiepNhanFrom) params.set('ngayTiepNhanFrom', ngayTiepNhanFrom);
+    if (ngayTiepNhanTo) params.set('ngayTiepNhanTo', ngayTiepNhanTo);
+    if (debouncedInvestigator) params.set('investigatorName', debouncedInvestigator);
+
+    api
+      .get<{ data: UyThacFromApi[]; total: number }>(`/cases?${params.toString()}`, {
+        signal: ctrl.signal,
+      })
+      .then((res) => {
+        if (ctrl.signal.aborted) return;
+        const data = res.data?.data ?? [];
+        const total = res.data?.total ?? 0;
+        setRows(data);
+        setTotalCount(total);
+        const hasAnyFilter =
+          !!debouncedSearch ||
+          !!trangThai ||
+          !!caseStatus ||
+          !!loaiUyThac ||
+          !!donViGiao ||
+          !!ngayTiepNhanFrom ||
+          !!ngayTiepNhanTo ||
+          !!debouncedInvestigator;
+        if (total === 0) {
+          setTableState(hasAnyFilter ? 'empty-filtered' : 'empty');
+        } else {
+          setTableState('ready');
+        }
+      })
+      .catch((e: unknown) => {
+        if (ctrl.signal.aborted || axios.isCancel(e)) return;
+        setError(getVietnameseErrorMessage(e));
+        setTableState('error');
+      });
+  }, [
+    debouncedSearch,
+    trangThai,
+    caseStatus,
+    loaiUyThac,
+    donViGiao,
+    ngayTiepNhanFrom,
+    ngayTiepNhanTo,
+    debouncedInvestigator,
+    page,
+  ]);
+
+  useEffect(() => {
+    fetchData();
+    return () => abortRef.current?.abort();
+  }, [fetchData]);
+
+  // Stats: derive chip counts from current rows for visible page only.
+  // UTDT doesn't have a /stats endpoint (caseType=UY_THAC_DIEU_TRA is sliced from
+  // /cases). Chip badges show counts within current result set rather than full
+  // dataset — acceptable trade-off for PR3 (consistent with how UTDT historically
+  // displayed counts). PR4 follow-up can add /cases/stats?caseType= for full counts.
+  const chipOptions = useMemo(
+    () =>
+      TRANG_THAI_PHAN_HOI_CHIPS.map((c) => ({
+        value: c.value,
+        shortLabel: c.shortLabel,
+        label: c.label,
+        count: rows.filter((r) => computeTrangThai(r) === c.value).length || undefined,
+      })),
+    [rows],
+  );
+
+  const columns: ColumnDef<UyThacFromApi>[] = useMemo(
+    () => [
+      {
+        key: 'caseCode',
+        header: 'Mã hồ sơ',
+        render: (r) => (
+          <span className="font-mono text-xs text-blue-700">{r.caseCode ?? '—'}</span>
+        ),
+      },
+      {
+        key: 'ngayTiepNhan',
+        header: 'Ngày tiếp nhận',
+        render: (r) => (r.ngayTiepNhan ? formatVNDate(r.ngayTiepNhan) : '—'),
+      },
+      {
+        key: 'donViGiao',
+        header: 'Đơn vị giao',
+        render: (r) => (
+          <span className="font-medium text-slate-800">{r.donViGiao ?? '—'}</span>
+        ),
+      },
+      {
+        key: 'soQuyetDinhUyThac',
+        header: 'Số QĐ/Phiếu',
+        render: (r) => r.soQuyetDinhUyThac ?? '—',
+      },
+      {
+        key: 'nghiVan',
+        header: 'Đối tượng nghi vấn',
+        render: (r) => {
+          const nghiVan = getNghiVan(r);
+          return (
+            <span className="block max-w-[180px] truncate" title={nghiVan ?? undefined}>
+              {nghiVan ?? '—'}
+            </span>
+          );
+        },
+      },
+      {
+        key: 'crime',
+        header: 'Tội danh',
+        render: (r) => (
+          <span className="block max-w-[140px] truncate" title={r.crime ?? undefined}>
+            {r.crime ?? '—'}
+          </span>
+        ),
+      },
+      {
+        key: 'investigator',
+        header: 'Điều tra viên',
+        render: (r) => getInvestigatorName(r.investigator),
+      },
+      {
+        key: 'thoiHanUyThac',
+        header: 'Thời hạn',
+        render: (r) => {
+          if (!r.thoiHanUyThac) return '—';
+          const overdue = computeTrangThai(r) === 'QUA_HAN';
+          return (
+            <span className={overdue ? 'text-red-700 font-semibold' : 'text-slate-700'}>
+              {formatVNDate(r.thoiHanUyThac)}
+            </span>
+          );
+        },
+      },
+      {
+        key: 'status',
+        header: 'Trạng thái',
+        render: (r) => {
+          const trangThaiVal = computeTrangThai(r);
+          return (
+            <div className="flex flex-col gap-0.5">
+              <span className={TRANG_THAI_PHAN_HOI_BADGE[trangThaiVal]}>
+                {TRANG_THAI_PHAN_HOI_LABEL[trangThaiVal]}
+              </span>
+              {r.loaiUyThac && (
+                <span className="text-xs text-slate-500">
+                  {LOAI_UY_THAC_LABEL[r.loaiUyThac as keyof typeof LOAI_UY_THAC_LABEL] ??
+                    r.loaiUyThac}
+                </span>
+              )}
+              {r.status && (
+                <span
+                  className={`text-xs border rounded px-1 py-0.5 w-fit ${
+                    CASE_STATUS_BADGE[r.status as keyof typeof CASE_STATUS_BADGE] ??
+                    'bg-slate-100 text-slate-600 border-slate-200'
+                  }`}
+                >
+                  {CASE_STATUS_LABEL[r.status as keyof typeof CASE_STATUS_LABEL] ?? r.status}
+                </span>
+              )}
+            </div>
+          );
+        },
+      },
+      {
+        key: 'createdBy',
+        header: 'Người nhập',
+        render: (r) =>
+          r.createdBy
+            ? [r.createdBy.firstName, r.createdBy.lastName].filter(Boolean).join(' ') || '—'
+            : '—',
+      },
+      {
+        key: 'actions',
+        header: 'Thao tác',
+        render: (r) => (
+          <div className="flex gap-1">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/uy-thac-dieu-tra/${r.id}/edit`);
+              }}
+              className={`p-1 rounded hover:bg-slate-200 text-slate-500 ${A11Y_FOCUS_RING}`}
+              title="Xem / Chỉnh sửa"
+            >
+              <Eye className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setDeleteTarget(r);
+                setDeleteReason('');
+                setDeleteError(null);
+              }}
+              className={`p-1 rounded hover:bg-red-100 text-red-500 hover:text-red-700 ${A11Y_FOCUS_RING}`}
+              title="Xóa ủy thác"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        ),
+      },
+    ],
+    [navigate],
+  );
+
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+
+  const handleStatusChange = useCallback(
+    (value: string | null) => {
+      url.setParams({ status: value, page: '1' });
+    },
+    [url],
+  );
+
+  const handleSearchChange = useCallback(
+    (value: string) => {
+      url.setParams({ q: value, page: '1' });
+    },
+    [url],
+  );
+
+  const handlePageChange = useCallback(
+    (newPage: number) => {
+      url.setParam('page', String(newPage));
+    },
+    [url],
+  );
+
+  const handleResetFilters = useCallback(() => {
+    url.clearAll();
+  }, [url]);
+
+  const activeFilterCount =
+    (trangThai ? 1 : 0) +
+    (caseStatus ? 1 : 0) +
+    (loaiUyThac ? 1 : 0) +
+    (donViGiao ? 1 : 0) +
+    (ngayTiepNhanFrom ? 1 : 0) +
+    (ngayTiepNhanTo ? 1 : 0) +
+    (investigatorSearch ? 1 : 0) +
+    (searchQuery ? 1 : 0);
+
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    const reason = deleteReason.trim();
+    if (reason.length < 10) {
+      setDeleteError('Lý do xóa cần tối thiểu 10 ký tự (audit trail BLTTHS Đ.46).');
+      return;
     }
-  }, [debouncedSearch, caseStatus, trangThai, loaiUyThac, donViGiao, ngayTiepNhanFrom, ngayTiepNhanTo, debouncedInvestigator, page]);
-
-  useEffect(() => { void fetchData(); }, [fetchData]);
-
-  function resetFilters() {
-    setSearch('');
-    setCaseStatus('');
-    setTrangThai('');
-    setLoaiUyThac('');
-    setDonViGiao('');
-    setNgayTiepNhanFrom('');
-    setNgayTiepNhanTo('');
-    setInvestigatorSearch('');
-    setPage(0);
-  }
-
-  async function handleDelete(id: string) {
-    if (!confirm("Xóa ủy thác điều tra này? Hồ sơ vụ án gốc vẫn được giữ nguyên.")) return;
-    setDeletingId(id);
+    setDeleting(true);
+    setDeleteError(null);
     try {
-      await api.delete(`/cases/${id}`, { data: { reason: 'Xóa ủy thác điều tra theo yêu cầu' } });
-      void fetchData();
-    } catch {
-      alert('Xóa thất bại. Vui lòng thử lại.');
+      await api.delete(`/cases/${deleteTarget.id}`, { data: { reason } });
+      setDeleteTarget(null);
+      setDeleteReason('');
+      fetchData();
+    } catch (e: unknown) {
+      setDeleteError(getVietnameseErrorMessage(e));
     } finally {
-      setDeletingId(null);
+      setDeleting(false);
     }
   }
-
-  const hasFilters = !!(search || caseStatus || trangThai || loaiUyThac || donViGiao || ngayTiepNhanFrom || ngayTiepNhanTo || investigatorSearch);
-  const totalPages = Math.ceil(total / LIMIT);
 
   return (
-    <div className="p-4 md:p-6 space-y-4">
-      <PageHeader
-        title="Ủy Thác Điều Tra"
-        subtitle="Điều 171 BLTTHS 2015 — TT 119/2021/TT-BCA"
-        actions={
-          <button
-            onClick={() => navigate('/uy-thac-dieu-tra/new')}
-            className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
-          >
-            <Plus className="w-4 h-4" />
-            Nhập ủy thác
-          </button>
-        }
-      />
-
-      {/* Search + filter bar */}
-      <div className="flex gap-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Tìm kiếm tên, đơn vị giao, số QĐ, đối tượng..."
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(0); }}
-            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-        <button
-          onClick={() => setShowFilters(!showFilters)}
-          className={`flex items-center gap-1.5 px-3 py-2 text-sm border rounded-lg ${showFilters ? 'bg-blue-50 border-blue-400 text-blue-700' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`}
+    <>
+      <ListPageShell>
+        <ListPageShell.Header
+          icon={FileSignature}
+          title="Ủy Thác Điều Tra"
+          subtitle="Điều 171 BLTTHS 2015 — TT 119/2021/TT-BCA"
+          actions={
+            <button
+              type="button"
+              onClick={() => navigate('/uy-thac-dieu-tra/new')}
+              className={`${BTN_PRIMARY} ${A11Y_FOCUS_RING} flex items-center gap-2`}
+            >
+              <Plus className="w-4 h-4" />
+              <span>Nhập ủy thác</span>
+            </button>
+          }
+        />
+        <ListPageShell.StatusChips
+          options={chipOptions}
+          activeValue={trangThai}
+          onChange={handleStatusChange}
+          totalCount={totalCount}
+          countsLoading={tableState === 'loading'}
+        />
+        <ListPageShell.Toolbar
+          searchValue={searchQuery}
+          onSearchChange={handleSearchChange}
+          searchPlaceholder="Tìm theo tên, đơn vị giao, số QĐ, đối tượng..."
+          activeFilterCount={activeFilterCount}
+          onResetFilters={handleResetFilters}
         >
-          <Filter className="w-4 h-4" />
-          Lọc {hasFilters && <span className="bg-blue-600 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs">!</span>}
-        </button>
-        {hasFilters && (
-          <button onClick={resetFilters} className="flex items-center gap-1 px-3 py-2 text-sm text-gray-500 border border-gray-300 rounded-lg hover:bg-gray-50">
-            <RotateCcw className="w-4 h-4" />
-          </button>
-        )}
-      </div>
-
-      {/* Expanded filters — 4-col grid, 2 rows */}
-      {showFilters && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
-          {/* Row 1 */}
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Trạng thái Vụ án</label>
-            <select
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <FilterSelect
+              label="Trạng thái Vụ án"
               value={caseStatus}
-              onChange={(e) => { setCaseStatus(e.target.value); setPage(0); }}
-              className="w-full text-sm border border-gray-300 rounded-md py-1.5 px-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            >
-              <option value="">— Tất cả —</option>
-              {CASE_STATUS_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Trạng thái phản hồi</label>
-            <select
-              value={trangThai}
-              onChange={(e) => { setTrangThai(e.target.value as TrangThaiPhanHoi | ''); setPage(0); }}
-              className="w-full text-sm border border-gray-300 rounded-md py-1.5 px-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            >
-              <option value="">— Tất cả —</option>
-              {TRANG_THAI_PHAN_HOI_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Loại ủy thác</label>
-            <select
+              onChange={(v) => url.setParams({ cs: v, page: '1' })}
+              options={CASE_STATUS_OPTIONS}
+            />
+            <FilterSelect
+              label="Loại ủy thác"
               value={loaiUyThac}
-              onChange={(e) => { setLoaiUyThac(e.target.value); setPage(0); }}
-              className="w-full text-sm border border-gray-300 rounded-md py-1.5 px-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            >
-              <option value="">— Tất cả —</option>
-              {LOAI_UY_THAC_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Đơn vị giao</label>
-            <input
-              type="text"
+              onChange={(v) => url.setParams({ lut: v, page: '1' })}
+              options={LOAI_UY_THAC_OPTIONS}
+            />
+            <FilterInput
+              label="Đơn vị giao"
               placeholder="PC01, CA quận X..."
               value={donViGiao}
-              onChange={(e) => { setDonViGiao(e.target.value); setPage(0); }}
-              className="w-full text-sm border border-gray-300 rounded-md py-1.5 px-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              onChange={(v) => url.setParams({ dv: v, page: '1' })}
             />
-          </div>
-          {/* Row 2 */}
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Ngày tiếp nhận từ</label>
-            <input
-              type="date"
-              value={ngayTiepNhanFrom}
-              onChange={(e) => { setNgayTiepNhanFrom(e.target.value); setPage(0); }}
-              className="w-full text-sm border border-gray-300 rounded-md py-1.5 px-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Ngày tiếp nhận đến</label>
-            <input
-              type="date"
-              value={ngayTiepNhanTo}
-              onChange={(e) => { setNgayTiepNhanTo(e.target.value); setPage(0); }}
-              className="w-full text-sm border border-gray-300 rounded-md py-1.5 px-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Điều tra viên</label>
-            <input
-              type="text"
+            <FilterInput
+              label="Điều tra viên"
               placeholder="Tên điều tra viên..."
               value={investigatorSearch}
-              onChange={(e) => { setInvestigatorSearch(e.target.value); setPage(0); }}
-              className="w-full text-sm border border-gray-300 rounded-md py-1.5 px-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              onChange={(v) => url.setParams({ inv: v, page: '1' })}
+            />
+            <FilterInput
+              type="date"
+              label="Ngày tiếp nhận từ"
+              value={ngayTiepNhanFrom}
+              onChange={(v) => url.setParams({ tnf: v, page: '1' })}
+            />
+            <FilterInput
+              type="date"
+              label="Ngày tiếp nhận đến"
+              value={ngayTiepNhanTo}
+              onChange={(v) => url.setParams({ tnt: v, page: '1' })}
             />
           </div>
-        </div>
-      )}
+        </ListPageShell.Toolbar>
+        <ListPageShell.Table<UyThacFromApi>
+          state={tableState}
+          columns={columns}
+          data={rows}
+          rowKey={(r) => r.id}
+          title="Danh sách Ủy Thác Điều Tra"
+          totalCount={totalCount}
+          error={error}
+          emptyState={{
+            title: 'Chưa có ủy thác điều tra nào',
+            description: 'Tạo ủy thác đầu tiên theo Điều 171 BLTTHS 2015.',
+            actionLabel: 'Nhập ủy thác mới',
+            onAction: () => navigate('/uy-thac-dieu-tra/new'),
+          }}
+          emptyFilteredState={{ onClearFilters: handleResetFilters }}
+          getRowClassName={(r) =>
+            computeTrangThai(r) === 'QUA_HAN' ? OVERDUE_ROW_HIGHLIGHT : ''
+          }
+        />
+        <ListPageShell.Pagination
+          page={page}
+          totalPages={totalPages}
+          totalCount={totalCount}
+          onPageChange={handlePageChange}
+        />
+      </ListPageShell>
 
-      {/* Summary */}
-      <div className="text-xs text-gray-500">
-        {loading ? 'Đang tải...' : `${total} kết quả`}
-      </div>
-
-      {/* Error */}
-      {error && (
-        <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-          <X className="w-4 h-4 flex-shrink-0" />
-          {error}
-        </div>
-      )}
-
-      {/* Table */}
-      <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b border-gray-200">
-            <tr>
-              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 w-10">#</th>
-              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500">Mã hồ sơ</th>
-              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500">Ngày tiếp nhận</th>
-              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500">Đơn vị giao</th>
-              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500">Số QĐ/Phiếu</th>
-              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500">Đối tượng nghi vấn</th>
-              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500">Tội danh</th>
-              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500">Điều tra viên</th>
-              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500">Thời hạn</th>
-              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500">Trạng thái</th>
-              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500">Người nhập</th>
-              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 w-24">Thao tác</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {!loading && rows.length === 0 && (
-              <tr>
-                <td colSpan={12} className="px-3 py-8 text-center text-sm text-gray-400">
-                  {hasFilters ? 'Không có ủy thác phù hợp với bộ lọc.' : 'Chưa có ủy thác điều tra nào.'}
-                </td>
-              </tr>
-            )}
-            {rows.map((row, idx) => {
-              const trangThaiVal = computeTrangThai(row);
-              const isOverdue = trangThaiVal === 'QUA_HAN';
-              const nghiVan = (row.metadata as Record<string, unknown> | null)?.nghiVanDoiTuong as string | undefined;
-              return (
-                <tr
-                  key={row.id}
-                  className={isOverdue ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-gray-50'}
-                >
-                  <td className="px-3 py-2 text-xs text-gray-400">{page * LIMIT + idx + 1}</td>
-                  <td className="px-3 py-2 text-xs font-mono text-blue-700">
-                    {row.caseCode ?? '—'}
-                  </td>
-                  <td className="px-3 py-2 text-xs text-gray-700">
-                    {row.ngayTiepNhan ? formatVNDate(row.ngayTiepNhan) : '—'}
-                  </td>
-                  <td className="px-3 py-2 text-xs font-medium text-gray-800">
-                    {row.donViGiao ?? '—'}
-                  </td>
-                  <td className="px-3 py-2 text-xs text-gray-600">
-                    {row.soQuyetDinhUyThac ?? '—'}
-                  </td>
-                  <td className="px-3 py-2 text-xs text-gray-700 max-w-[180px] truncate" title={nghiVan}>
-                    {nghiVan ?? '—'}
-                  </td>
-                  <td className="px-3 py-2 text-xs text-gray-600 max-w-[140px] truncate" title={row.crime ?? undefined}>
-                    {row.crime ?? '—'}
-                  </td>
-                  <td className="px-3 py-2 text-xs text-gray-700">
-                    {getInvestigatorName(row.investigator)}
-                  </td>
-                  <td className={`px-3 py-2 text-xs ${isOverdue ? 'text-red-700 font-medium' : 'text-gray-600'}`}>
-                    {row.thoiHanUyThac ? formatVNDate(row.thoiHanUyThac) : '—'}
-                  </td>
-                  <td className="px-3 py-2">
-                    <span className={TRANG_THAI_PHAN_HOI_BADGE[trangThaiVal]}>
-                      {TRANG_THAI_PHAN_HOI_LABEL[trangThaiVal]}
-                    </span>
-                    {row.loaiUyThac && (
-                      <span className="block mt-0.5 text-xs text-gray-400">
-                        {LOAI_UY_THAC_LABEL[row.loaiUyThac as keyof typeof LOAI_UY_THAC_LABEL] ?? row.loaiUyThac}
-                      </span>
-                    )}
-                    {row.status && (
-                      <span className={`block mt-0.5 text-xs border rounded px-1 py-0.5 w-fit ${CASE_STATUS_BADGE[row.status as keyof typeof CASE_STATUS_BADGE] ?? 'bg-gray-100 text-gray-600 border-gray-200'}`}>
-                        {CASE_STATUS_LABEL[row.status as keyof typeof CASE_STATUS_LABEL] ?? row.status}
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2 text-xs text-gray-600">
-                    {row.createdBy
-                      ? [row.createdBy.firstName, row.createdBy.lastName].filter(Boolean).join(' ') || '—'
-                      : '—'}
-                  </td>
-                  <td className="px-3 py-2">
-                    <div className="flex gap-1">
-                      <button
-                        onClick={() => navigate(`/uy-thac-dieu-tra/${row.id}/edit`)}
-                        className="p-1 rounded hover:bg-gray-200 text-gray-500"
-                        title="Xem / Chỉnh sửa"
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => void handleDelete(row.id)}
-                        disabled={deletingId === row.id}
-                        className="p-1 rounded hover:bg-red-100 text-red-400 hover:text-red-600 disabled:opacity-40"
-                        title="Xóa ủy thác"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between text-sm text-gray-600">
-          <span>Trang {page + 1} / {totalPages}</span>
-          <div className="flex gap-2">
+      {/* Delete modal — replaces window.confirm(). Reason ≥ 10 chars enforced
+          client-side (also backend DeleteCaseDto). */}
+      <Modal
+        open={deleteTarget !== null}
+        onClose={() => {
+          if (!deleting) {
+            setDeleteTarget(null);
+            setDeleteReason('');
+            setDeleteError(null);
+          }
+        }}
+        title="Xóa ủy thác điều tra"
+        maxWidth="max-w-lg"
+        footer={
+          <div className="flex justify-end gap-2">
             <button
-              disabled={page === 0}
-              onClick={() => setPage((p) => p - 1)}
-              className="px-3 py-1 border border-gray-300 rounded disabled:opacity-40"
+              type="button"
+              onClick={() => {
+                setDeleteTarget(null);
+                setDeleteReason('');
+                setDeleteError(null);
+              }}
+              disabled={deleting}
+              className={`${BTN_SECONDARY} ${A11Y_FOCUS_RING}`}
             >
-              ‹ Trước
+              Hủy
             </button>
             <button
-              disabled={page >= totalPages - 1}
-              onClick={() => setPage((p) => p + 1)}
-              className="px-3 py-1 border border-gray-300 rounded disabled:opacity-40"
+              type="button"
+              onClick={() => void confirmDelete()}
+              disabled={deleting || deleteReason.trim().length < 10}
+              className={`${BTN_PRIMARY} ${A11Y_FOCUS_RING} bg-red-600 hover:bg-red-700 disabled:opacity-50`}
+              title="Xóa ủy thác"
             >
-              Sau ›
+              {deleting ? 'Đang xóa...' : 'Xác nhận xóa'}
             </button>
           </div>
-        </div>
-      )}
+        }
+      >
+        {deleteTarget && (
+          <div className="space-y-3">
+            <p className="text-sm text-slate-700">
+              Bạn sắp xóa ủy thác{' '}
+              <span className="font-mono text-blue-700">
+                {deleteTarget.caseCode ?? deleteTarget.id}
+              </span>
+              . Hồ sơ vụ án gốc vẫn được giữ nguyên.
+            </p>
+            <label className="block">
+              <span className="block text-xs font-medium text-slate-700 mb-1">
+                Lý do xóa <span className="text-red-600">*</span>
+              </span>
+              <textarea
+                value={deleteReason}
+                onChange={(e) => setDeleteReason(e.target.value)}
+                disabled={deleting}
+                rows={3}
+                minLength={10}
+                placeholder="VD: Trùng lặp với ủy thác PC02-UTDT-2026-00012 do nhập sai mã đơn vị giao."
+                className={`w-full text-sm border border-slate-300 rounded-md py-1.5 px-2 ${A11Y_FOCUS_RING}`}
+                data-testid="utdt-delete-reason"
+              />
+              <span className="block text-xs text-slate-500 mt-1">
+                Tối thiểu 10 ký tự. Lý do được ghi vào audit log.
+              </span>
+            </label>
+            {deleteError && (
+              <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1.5">
+                {deleteError}
+              </div>
+            )}
+          </div>
+        )}
+      </Modal>
+    </>
+  );
+}
+
+// ─── Inline filter primitives ──────────────────────────────────────
+
+function FilterSelect({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: ReadonlyArray<{ value: string; label: string }>;
+}) {
+  return (
+    <div>
+      <label className="block text-xs font-medium text-slate-700 mb-1">{label}</label>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={`w-full text-sm border border-slate-300 rounded-md py-1.5 px-2 ${A11Y_FOCUS_RING}`}
+      >
+        <option value="">— Tất cả —</option>
+        {options.map((opt) => (
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+function FilterInput({
+  label,
+  value,
+  onChange,
+  placeholder,
+  type = 'text',
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  type?: 'text' | 'date';
+}) {
+  return (
+    <div>
+      <label className="block text-xs font-medium text-slate-700 mb-1">{label}</label>
+      <input
+        type={type}
+        value={value}
+        placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value)}
+        className={`w-full text-sm border border-slate-300 rounded-md py-1.5 px-2 ${A11Y_FOCUS_RING}`}
+      />
     </div>
   );
 }

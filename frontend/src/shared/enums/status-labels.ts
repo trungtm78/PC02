@@ -382,6 +382,17 @@ export const TRANG_THAI_PHAN_HOI_OPTIONS: ReadonlyArray<{ value: TrangThaiPhanHo
   { value: 'CHUA_PHAN_HOI',        label: TRANG_THAI_PHAN_HOI_LABEL.CHUA_PHAN_HOI },
 ];
 
+// PR3 — chip shape (value + shortLabel + label) cho ListPageShell.StatusChips
+export const TRANG_THAI_PHAN_HOI_CHIPS: ReadonlyArray<{
+  value: TrangThaiPhanHoi;
+  shortLabel: string;
+  label: string;
+}> = TRANG_THAI_PHAN_HOI_OPTIONS.map((opt) => ({
+  value: opt.value,
+  shortLabel: opt.label,
+  label: opt.label,
+}));
+
 // ── v0.44 UTDT — LoaiUyThac ───────────────────────────────────────
 
 export const LOAI_UY_THAC_LABEL: Record<LoaiUyThac, string> = {
