@@ -188,4 +188,132 @@ describe('ActionMenuPortal', () => {
 
     await waitFor(() => expect(onCloseSpy).toHaveBeenCalled());
   });
+
+  it('Test 9 (a11y) — focuses first menuitem on open', async () => {
+    function A11yHarness() {
+      const [open, setOpen] = useState(false);
+      const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+      return (
+        <div>
+          <button
+            data-testid="trigger-a11y"
+            ref={(el) => {
+              if (el) el.getBoundingClientRect = () => ({ top: 100, bottom: 120, left: 50, right: 80, width: 30, height: 20, x: 50, y: 100, toJSON: () => ({}) } as DOMRect);
+            }}
+            onClick={(e) => { setOpen(true); setAnchor(e.currentTarget); }}
+          >
+            Open
+          </button>
+          <ActionMenuPortal anchor={anchor} open={open} onClose={() => setOpen(false)}>
+            <button role="menuitem" data-testid="a11y-item-1">Item 1</button>
+            <button role="menuitem" data-testid="a11y-item-2">Item 2</button>
+            <button role="menuitem" data-testid="a11y-item-3">Item 3</button>
+          </ActionMenuPortal>
+        </div>
+      );
+    }
+    render(<A11yHarness />);
+    fireEvent.click(screen.getByTestId('trigger-a11y'));
+    await screen.findByTestId('action-menu-portal');
+    await waitFor(() => {
+      expect(document.activeElement).toBe(screen.getByTestId('a11y-item-1'));
+    });
+  });
+
+  it('Test 10 (a11y) — Arrow Down moves focus to next menuitem', async () => {
+    function A11yHarness() {
+      const [open, setOpen] = useState(false);
+      const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+      return (
+        <div>
+          <button
+            data-testid="trigger-a11y-down"
+            ref={(el) => {
+              if (el) el.getBoundingClientRect = () => ({ top: 100, bottom: 120, left: 50, right: 80, width: 30, height: 20, x: 50, y: 100, toJSON: () => ({}) } as DOMRect);
+            }}
+            onClick={(e) => { setOpen(true); setAnchor(e.currentTarget); }}
+          >
+            Open
+          </button>
+          <ActionMenuPortal anchor={anchor} open={open} onClose={() => setOpen(false)}>
+            <button role="menuitem" data-testid="i1">1</button>
+            <button role="menuitem" data-testid="i2">2</button>
+            <button role="menuitem" data-testid="i3">3</button>
+          </ActionMenuPortal>
+        </div>
+      );
+    }
+    render(<A11yHarness />);
+    fireEvent.click(screen.getByTestId('trigger-a11y-down'));
+    await screen.findByTestId('action-menu-portal');
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId('i1')));
+    fireEvent.keyDown(screen.getByTestId('action-menu-portal'), { key: 'ArrowDown' });
+    expect(document.activeElement).toBe(screen.getByTestId('i2'));
+    fireEvent.keyDown(screen.getByTestId('action-menu-portal'), { key: 'ArrowDown' });
+    expect(document.activeElement).toBe(screen.getByTestId('i3'));
+    // Wraps to first
+    fireEvent.keyDown(screen.getByTestId('action-menu-portal'), { key: 'ArrowDown' });
+    expect(document.activeElement).toBe(screen.getByTestId('i1'));
+  });
+
+  it('Test 11 (a11y) — Arrow Up moves focus to previous menuitem', async () => {
+    function A11yHarness() {
+      const [open, setOpen] = useState(false);
+      const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+      return (
+        <div>
+          <button
+            data-testid="trigger-a11y-up"
+            ref={(el) => {
+              if (el) el.getBoundingClientRect = () => ({ top: 100, bottom: 120, left: 50, right: 80, width: 30, height: 20, x: 50, y: 100, toJSON: () => ({}) } as DOMRect);
+            }}
+            onClick={(e) => { setOpen(true); setAnchor(e.currentTarget); }}
+          >
+            Open
+          </button>
+          <ActionMenuPortal anchor={anchor} open={open} onClose={() => setOpen(false)}>
+            <button role="menuitem" data-testid="u1">1</button>
+            <button role="menuitem" data-testid="u2">2</button>
+          </ActionMenuPortal>
+        </div>
+      );
+    }
+    render(<A11yHarness />);
+    fireEvent.click(screen.getByTestId('trigger-a11y-up'));
+    await screen.findByTestId('action-menu-portal');
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId('u1')));
+    // Up from first → wraps to last
+    fireEvent.keyDown(screen.getByTestId('action-menu-portal'), { key: 'ArrowUp' });
+    expect(document.activeElement).toBe(screen.getByTestId('u2'));
+  });
+
+  it('Test 12 (a11y) — return focus to anchor on close', async () => {
+    function A11yHarness() {
+      const [open, setOpen] = useState(false);
+      const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+      return (
+        <div>
+          <button
+            data-testid="trigger-a11y-return"
+            ref={(el) => {
+              if (el) el.getBoundingClientRect = () => ({ top: 100, bottom: 120, left: 50, right: 80, width: 30, height: 20, x: 50, y: 100, toJSON: () => ({}) } as DOMRect);
+            }}
+            onClick={(e) => { setOpen(true); setAnchor(e.currentTarget); }}
+          >
+            Open
+          </button>
+          <ActionMenuPortal anchor={anchor} open={open} onClose={() => setOpen(false)}>
+            <button role="menuitem" data-testid="r1">1</button>
+          </ActionMenuPortal>
+        </div>
+      );
+    }
+    render(<A11yHarness />);
+    const trigger = screen.getByTestId('trigger-a11y-return');
+    fireEvent.click(trigger);
+    await screen.findByTestId('action-menu-portal');
+    // Escape closes — focus should return
+    fireEvent.keyDown(document, { key: 'Escape' });
+    await waitFor(() => expect(document.activeElement).toBe(trigger));
+  });
 });

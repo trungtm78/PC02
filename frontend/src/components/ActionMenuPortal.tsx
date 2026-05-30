@@ -107,14 +107,46 @@ export function ActionMenuPortal({
     return () => document.removeEventListener("keydown", handleKey);
   }, [open, onClose]);
 
+  // v0.62 PR1a a11y — focus first menuitem on open, return focus to anchor on close.
+  useEffect(() => {
+    if (!open || !pos) return;
+    const menu = menuRef.current;
+    if (!menu) return;
+    const items = menu.querySelectorAll<HTMLElement>('[role="menuitem"]');
+    items[0]?.focus();
+    return () => {
+      // Restore focus to anchor when menu closes (anchor still exists).
+      if (anchor && document.body.contains(anchor)) anchor.focus();
+    };
+  }, [open, pos, anchor]);
+
+  // Arrow-key navigation between menuitem children.
+  const onMenuKeyDown = useCallback((e: React.KeyboardEvent) => {
+    const menu = menuRef.current;
+    if (!menu) return;
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+    e.preventDefault();
+    const items = Array.from(menu.querySelectorAll<HTMLElement>('[role="menuitem"]'));
+    if (items.length === 0) return;
+    const active = document.activeElement as HTMLElement | null;
+    const idx = active ? items.indexOf(active) : -1;
+    const next =
+      e.key === 'ArrowDown'
+        ? (idx + 1) % items.length
+        : (idx - 1 + items.length) % items.length;
+    items[next]?.focus();
+  }, []);
+
   if (!open || !pos) return null;
 
   return createPortal(
     <div
       ref={menuRef}
       style={{ position: "fixed", top: pos.top, left: pos.left, minWidth, zIndex: 9999 }}
-      className="bg-white border border-slate-200 rounded-lg shadow-lg"
+      className="bg-white border border-slate-200 rounded-lg shadow-lg outline-none"
       role="menu"
+      tabIndex={-1}
+      onKeyDown={onMenuKeyDown}
       data-testid="action-menu-portal"
     >
       {children}
