@@ -2,6 +2,53 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.54.0.0] - 2026-05-30
+
+**v0.54 ListPageShell PR4 — LawyerListPageShell + bulk-delete UI integration**
+
+PR4 đưa bulk-delete v0.51 (backend đã có sẵn) lên frontend qua shell pattern.
+LawyerListPageShell shipped alongside legacy LawyerListPage (feature-flag swap
+later).
+
+### Added
+
+**LawyerListPageShell** (new shell, alongside legacy LawyerListPage):
+- ListPageShell.Header + Toolbar + Table state machine + Pagination
+- useListPageUrlState('lawyers') — search + page URL state
+- 300ms debounce + AbortController + page clamp
+- Search trust boundary (sanitizeStringParam strip control chars)
+- Vietnamese error map (401/403/5xx)
+
+**Bulk-delete integration** (plan PR4 deliverable):
+- New `frontend/src/features/_shared/bulk/adapters/lawyers.ts` — single delete action
+- Wired via `useBulkSelection` + `BulkSelectionHeaderCell`/`RowCell` + `BulkActionBar`
+- ConfirmModal với reason textarea ≥10 chars (BLTTHS audit trail)
+- Permission gate: `'lawyers'/'delete'` (backend enforces creator-or-admin per row)
+- Escalating friction (10 / 50 / 200 thresholds via shared BulkActionBar)
+- Success/skipped/failed counts shown in transient banner
+- Post-bulk: refetch + selection cleared
+
+### Fixed
+
+- **/codex P2: Stale selection race** — Selection now clears synchronously on
+  page/search change (was: 300ms debounce window allowed submitting IDs from
+  previous page/filter scope).
+- **/codex P2: Case column rendering** — Use `case.name` (actual API contract);
+  was `case.caseCode` which API doesn't return → showed `—` for every row.
+
+### Tests
+
+- 21 vitest integration tests covering: mount, fetch, empty/empty-filtered,
+  bulk select-all, partial select, toggle, row highlight, Xóa button visibility,
+  confirm modal flow, success banner, error banner, skipped count, search URL,
+  page URL, control chars, case.name render, pagination-next clears, search clears
+- Frontend: 1062 tests total (was 1042), 0 fail. tsc clean.
+
+### Deferred
+
+- Replace legacy LawyerListPage routing → feature-flag swap (follow-up)
+- /codex review specialist suggestion: dedupe error mapper across 5 shells
+
 ## [0.53.0.0] - 2026-05-30
 
 **v0.53 ListPageShell PR3 — UTDT refactor (anh's original complaint) + DeadlineRules + URL trust boundary**
