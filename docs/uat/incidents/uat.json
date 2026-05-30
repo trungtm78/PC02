@@ -1,0 +1,2412 @@
+{
+  "meta": {
+    "feature": "incidents",
+    "total_tc": 140,
+    "target_tc": 140,
+    "mode": "LEAN",
+    "generated_at": "2026-05-30",
+    "type_distribution": {
+      "GREEN": 18,
+      "RED": 56,
+      "BOUNDARY": 10,
+      "EDGE": 1,
+      "EP": 10,
+      "SECURITY": 14,
+      "STATE": 8,
+      "DECISION": 4,
+      "DATA": 3,
+      "A11Y": 7,
+      "COMPAT": 6,
+      "PERFORMANCE": 3
+    },
+    "priority_distribution": {
+      "P0": 73,
+      "P1": 60,
+      "P2": 7
+    }
+  },
+  "data_fixtures": [
+    {
+      "fixture_id": "account.officer.primary",
+      "ref": "_shared/test-accounts.json#account.officer.primary",
+      "setup_recipe": "login officer1@pc02.local",
+      "cleanup_recipe": "-",
+      "outputs": {
+        "token": "$.accessToken",
+        "userId": "$.user.id",
+        "teamId": "$.user.primaryTeamId"
+      }
+    },
+    {
+      "fixture_id": "account.officer.secondary",
+      "ref": "_shared/test-accounts.json#account.officer.secondary",
+      "setup_recipe": "login officer2@pc02.local",
+      "cleanup_recipe": "-",
+      "outputs": {
+        "token": "$.accessToken",
+        "teamId": "$.user.primaryTeamId"
+      }
+    },
+    {
+      "fixture_id": "account.officer.no_team",
+      "setup_recipe": "Admin tạo user mới chưa assign team",
+      "cleanup_recipe": "Admin delete user",
+      "outputs": {
+        "token": "$.accessToken",
+        "userId": "$.user.id"
+      }
+    },
+    {
+      "fixture_id": "account.officer.locked.D7",
+      "setup_recipe": "Admin POST /admin/users/:id/lock với lockedAt=D-7",
+      "cleanup_recipe": "Admin POST /unlock",
+      "outputs": {
+        "token": "$.token"
+      }
+    },
+    {
+      "fixture_id": "account.admin.primary",
+      "ref": "_shared/test-accounts.json#account.admin.primary",
+      "setup_recipe": "login admin@",
+      "cleanup_recipe": "-",
+      "outputs": {
+        "token": "$.accessToken"
+      }
+    },
+    {
+      "fixture_id": "incident.tiep_nhan.D0",
+      "setup_recipe": "POST /api/v1/incidents {name:'UAT-VV-{{random}}', loaiDonVu:'TO_GIAC', nguonPhatTin:'CA_NHAN_TO_GIAC'} status mặc định TIEP_NHAN",
+      "cleanup_recipe": "DELETE /api/v1/incidents/{id}",
+      "outputs": {
+        "incident_id": "$.id",
+        "incident_updated_at": "$.updatedAt"
+      }
+    },
+    {
+      "fixture_id": "incident.dang_xac_minh.D7",
+      "setup_recipe": "Tạo VV → PATCH /status DANG_XAC_MINH, set createdAt {{D-7}}",
+      "cleanup_recipe": "DELETE",
+      "outputs": {
+        "incident_id": "$.id"
+      }
+    },
+    {
+      "fixture_id": "incident.da_phan_cong.D30",
+      "setup_recipe": "Tạo VV → assign + status DA_PHAN_CONG, createdAt {{D-30}}",
+      "cleanup_recipe": "DELETE",
+      "outputs": {
+        "incident_id": "$.id"
+      }
+    },
+    {
+      "fixture_id": "incident.giai_quyet.D60",
+      "setup_recipe": "Tạo VV → chuỗi transition → DA_GIAI_QUYET, createdAt {{D-60}}",
+      "cleanup_recipe": "Prisma hard delete (terminal)",
+      "outputs": {
+        "incident_id": "$.id"
+      }
+    },
+    {
+      "fixture_id": "incident.tdc.D30",
+      "setup_recipe": "Tạo VV → PATCH status TAM_DINH_CHI + lyDoTamDinhChiVuViec=CHUA_CO_KET_QUA_GIAM_DINH",
+      "cleanup_recipe": "DELETE",
+      "outputs": {
+        "incident_id": "$.id"
+      }
+    },
+    {
+      "fixture_id": "incident.tdc.rasoat.D60",
+      "setup_recipe": "VV TĐC + daRaSoat=true + ketQuaPhucHoiVuViec=DANG_XAC_MINH",
+      "cleanup_recipe": "DELETE",
+      "outputs": {
+        "incident_id": "$.id"
+      }
+    },
+    {
+      "fixture_id": "incident.tdc.expired.D365",
+      "setup_recipe": "VV TĐC với ngayHetThoiHieu < now, createdAt D-365",
+      "cleanup_recipe": "Prisma hard delete",
+      "outputs": {
+        "incident_id": "$.id"
+      }
+    },
+    {
+      "fixture_id": "incident.gia_han_1.D60",
+      "setup_recipe": "Tạo VV → POST /extend lần 1, createdAt D-60",
+      "cleanup_recipe": "DELETE",
+      "outputs": {
+        "incident_id": "$.id"
+      }
+    },
+    {
+      "fixture_id": "incident.gia_han_2.D90",
+      "setup_recipe": "Tạo VV → extend 2 lần, createdAt D-90",
+      "cleanup_recipe": "DELETE",
+      "outputs": {
+        "incident_id": "$.id"
+      }
+    },
+    {
+      "fixture_id": "incident.investigating.D0",
+      "setup_recipe": "Generic VV ở giữa flow",
+      "cleanup_recipe": "DELETE",
+      "outputs": {
+        "incident_id": "$.id"
+      }
+    },
+    {
+      "fixture_id": "incident.investigating.D60",
+      "setup_recipe": "VV đầy đủ thông tin đủ điều kiện khởi tố",
+      "cleanup_recipe": "DELETE",
+      "outputs": {
+        "incident_id": "$.id"
+      }
+    },
+    {
+      "fixture_id": "incident.investigating.D7.with_events",
+      "setup_recipe": "VV có ≥3 events (create, assign, status_change)",
+      "cleanup_recipe": "DELETE",
+      "outputs": {
+        "incident_id": "$.id"
+      }
+    },
+    {
+      "fixture_id": "incident.cross_team_events.D60",
+      "setup_recipe": "VV có events từ nhiều team (admin transfer + officer A + officer B comment)",
+      "cleanup_recipe": "DELETE",
+      "outputs": {
+        "incident_id": "$.id"
+      }
+    },
+    {
+      "fixture_id": "incident.unassigned.D0",
+      "setup_recipe": "VV chưa assign investigator",
+      "cleanup_recipe": "DELETE",
+      "outputs": {
+        "incident_id": "$.id"
+      }
+    },
+    {
+      "fixture_id": "incident.creator_owned.D0",
+      "setup_recipe": "Tạo bằng officer.primary → createdById=user",
+      "cleanup_recipe": "DELETE",
+      "outputs": {
+        "incident_id": "$.id"
+      }
+    },
+    {
+      "fixture_id": "incident.other_team.D0",
+      "setup_recipe": "Tạo bằng officer.secondary (team B)",
+      "cleanup_recipe": "DELETE",
+      "outputs": {
+        "incident_id": "$.id"
+      }
+    },
+    {
+      "fixture_id": "incident.linked_to_case.D7",
+      "setup_recipe": "Tạo VV → POST /prosecute → linkedCaseId set",
+      "cleanup_recipe": "DELETE Case → DELETE VV",
+      "outputs": {
+        "incident_id": "$.id",
+        "case_id": "$.linkedCaseId"
+      }
+    },
+    {
+      "fixture_id": "incident.merged.D7",
+      "setup_recipe": "Tạo 2 VV → PATCH /merge",
+      "cleanup_recipe": "DELETE cả 2",
+      "outputs": {
+        "incident_id": "$.id",
+        "target_id": "$.mergedIntoId"
+      }
+    },
+    {
+      "fixture_id": "incident.da_chuyen_vu_an.D60",
+      "setup_recipe": "VV đã prosecute, linkedCaseId set, status=DA_CHUYEN_VU_AN",
+      "cleanup_recipe": "DELETE Case → VV",
+      "outputs": {
+        "incident_id": "$.id"
+      }
+    },
+    {
+      "fixture_id": "incident.deleted.D7",
+      "setup_recipe": "Tạo VV → DELETE với reason, deletedAt set",
+      "cleanup_recipe": "Prisma hard delete",
+      "outputs": {
+        "incident_id": "$.id"
+      }
+    },
+    {
+      "fixture_id": "incident.unlinked.D0",
+      "setup_recipe": "VV không có linkedCaseId/linkedPetitionId",
+      "cleanup_recipe": "DELETE",
+      "outputs": {
+        "incident_id": "$.id"
+      }
+    },
+    {
+      "fixture_id": "incident.recently_edited.D0",
+      "setup_recipe": "PUT VV bằng admin2 mới (updatedAt hiện tại) — dùng để test optimistic lock",
+      "cleanup_recipe": "DELETE",
+      "outputs": {
+        "incident_id": "$.id",
+        "stale_updated_at": "$.oldUpdatedAt"
+      }
+    },
+    {
+      "fixture_id": "incidents.shape.normal.D0",
+      "setup_recipe": "Seed 25 VV mix status",
+      "cleanup_recipe": "Loop DELETE",
+      "outputs": {
+        "incident_ids": "$[*].id"
+      }
+    },
+    {
+      "fixture_id": "incidents.shape.full.D0",
+      "setup_recipe": "Seed 100 VV — đủ 15 status",
+      "cleanup_recipe": "Loop DELETE",
+      "outputs": {
+        "incident_ids": "$[*].id"
+      }
+    },
+    {
+      "fixture_id": "incidents.shape.large.D0",
+      "setup_recipe": "Prisma raw insert 10000 VV",
+      "cleanup_recipe": "Prisma raw DELETE WHERE name LIKE 'UAT-PERF-VV-%'",
+      "outputs": {
+        "count": "10000"
+      }
+    },
+    {
+      "fixture_id": "incidents.all_status.D0",
+      "setup_recipe": "15 VV — mỗi status 1 cái",
+      "cleanup_recipe": "DELETE all",
+      "outputs": {
+        "incident_ids": "$[*].id"
+      }
+    },
+    {
+      "fixture_id": "petition.assigned.D0",
+      "setup_recipe": "POST /api/v1/petitions",
+      "cleanup_recipe": "DELETE",
+      "outputs": {
+        "petition_id": "$.id"
+      }
+    }
+  ],
+  "test_cases": [
+    {
+      "id": "TC-INC-001",
+      "type": "GREEN",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/incidents",
+      "role": "OFFICER",
+      "title": "Tạo vụ việc với name + loaiDonVu=TO_GIAC + nguonPhatTin=CA_NHAN_TO_GIAC",
+      "pre": "-",
+      "steps": "1. POST {name:'Vụ việc tố giác trộm cắp UAT', loaiDonVu:'TO_GIAC', nguonPhatTin:'CA_NHAN_TO_GIAC', phuongThucTiepNhan:'TRUC_TIEP_BANG_LOI', fromDate:'2026-05-01'}",
+      "expected": "HTTP 201, response.id≠null, status=TIEP_NHAN, code dạng VV-YYYY-NNNNN",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-002",
+      "type": "GREEN",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/incidents",
+      "role": "OFFICER",
+      "title": "Tạo VV TIN_BAO + nguồn CO_QUAN_NHA_NUOC",
+      "pre": "-",
+      "steps": "1. POST {name:'Vụ việc tin báo UAT', loaiDonVu:'TIN_BAO', nguonPhatTin:'CO_QUAN_NHA_NUOC', phuongThucTiepNhan:'TRUC_TIEP_BANG_VAN_BAN'}",
+      "expected": "HTTP 201, cascading OK",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-003",
+      "type": "GREEN",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/incidents",
+      "role": "OFFICER",
+      "title": "Tạo VV KIEN_NGHI_KHOI_TO + nguồn VIEN_KIEM_SAT",
+      "pre": "-",
+      "steps": "1. POST {name, loaiDonVu:'KIEN_NGHI_KHOI_TO', nguonPhatTin:'VIEN_KIEM_SAT'}",
+      "expected": "HTTP 201",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-004",
+      "type": "GREEN",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "POST /api/v1/incidents",
+      "role": "OFFICER",
+      "title": "Tạo VV liên kết sourcePetitionId",
+      "pre": "Có petition đã processing",
+      "steps": "1. POST {name, sourcePetitionId:'{{petition_id}}'}",
+      "expected": "HTTP 201, response.sourcePetitionId set",
+      "data": [
+        "petition.assigned.D0"
+      ]
+    },
+    {
+      "id": "TC-INC-005",
+      "type": "GREEN",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "GET /api/v1/incidents",
+      "role": "OFFICER",
+      "title": "Liệt kê VV mặc định pagination",
+      "pre": "DB ≥20 VV",
+      "steps": "1. GET /api/v1/incidents",
+      "expected": "HTTP 200, items.length≤20, sorted createdAt desc",
+      "data": [
+        "incidents.shape.normal.D0"
+      ]
+    },
+    {
+      "id": "TC-INC-006",
+      "type": "GREEN",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "GET /api/v1/incidents/stats",
+      "role": "OFFICER",
+      "title": "Stats counts by 15 IncidentStatus",
+      "pre": "DB có VV ở 15 status",
+      "steps": "1. GET /stats",
+      "expected": "HTTP 200, byStatus đủ 15 key",
+      "data": [
+        "incidents.shape.full.D0"
+      ]
+    },
+    {
+      "id": "TC-INC-007",
+      "type": "GREEN",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "GET /api/v1/incidents/linkable",
+      "role": "OFFICER",
+      "title": "List linkable VV (chưa link Case) cho CaseProvenancePicker",
+      "pre": "DB có VV chưa linked",
+      "steps": "1. GET /linkable",
+      "expected": "HTTP 200, items không có linkedCaseId",
+      "data": [
+        "incidents.unlinked.D0"
+      ]
+    },
+    {
+      "id": "TC-INC-008",
+      "type": "GREEN",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "GET /api/v1/incidents/investigators",
+      "role": "OFFICER",
+      "title": "List ĐTV cho assign dropdown",
+      "pre": "DB có users role INVESTIGATOR/OFFICER",
+      "steps": "1. GET /investigators",
+      "expected": "HTTP 200, array {id, fullName}",
+      "data": [
+        "account.admin.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-009",
+      "type": "GREEN",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "GET /api/v1/incidents/:id",
+      "role": "OFFICER",
+      "title": "Xem chi tiết VV trong scope",
+      "pre": "Có VV",
+      "steps": "1. GET /api/v1/incidents/{{incident_id}}",
+      "expected": "HTTP 200, đủ field nguồn tin, deadline rule version",
+      "data": [
+        "incident.investigating.D0"
+      ]
+    },
+    {
+      "id": "TC-INC-010",
+      "type": "GREEN",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "PUT /api/v1/incidents/:id",
+      "role": "OFFICER",
+      "title": "Cập nhật mô tả + ngayDeXuat",
+      "pre": "VV status TIEP_NHAN",
+      "steps": "1. PUT {description:'Bổ sung mô tả mới', ngayDeXuat:'2026-05-15'}",
+      "expected": "HTTP 200",
+      "data": [
+        "incident.tiep_nhan.D0"
+      ]
+    },
+    {
+      "id": "TC-INC-011",
+      "type": "GREEN",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "PATCH /api/v1/incidents/:id/status",
+      "role": "OFFICER",
+      "title": "Đổi status TIEP_NHAN → DANG_XAC_MINH",
+      "pre": "-",
+      "steps": "1. PATCH /status body {status:'DANG_XAC_MINH'}",
+      "expected": "HTTP 200, status_history thêm entry",
+      "data": [
+        "incident.tiep_nhan.D0"
+      ]
+    },
+    {
+      "id": "TC-INC-012",
+      "type": "GREEN",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/incidents/:id/extend",
+      "role": "OFFICER",
+      "title": "Gia hạn lần 1 (Điều 147 khoản 2)",
+      "pre": "VV chưa gia hạn",
+      "steps": "1. POST /extend",
+      "expected": "HTTP 200, deadline được kéo dài, giaHan1RuleVersionId snapshot",
+      "data": [
+        "incident.dang_xac_minh.D30"
+      ]
+    },
+    {
+      "id": "TC-INC-013",
+      "type": "GREEN",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/incidents/:id/extend",
+      "role": "OFFICER",
+      "title": "Gia hạn lần 2 (Điều 147 khoản 3)",
+      "pre": "VV đã gia hạn 1 lần",
+      "steps": "1. POST /extend lần 2",
+      "expected": "HTTP 200, giaHan2RuleVersionId snapshot",
+      "data": [
+        "incident.gia_han_1.D60"
+      ]
+    },
+    {
+      "id": "TC-INC-014",
+      "type": "GREEN",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/incidents/:id/prosecute",
+      "role": "OFFICER",
+      "title": "Khởi tố VV → tạo Case",
+      "pre": "VV có đủ thông tin khởi tố",
+      "steps": "1. POST /prosecute body {loaiKetQua:'KHOI_TO', canCuKhoiToCode:'DIEM_C_KHOAN_1'}",
+      "expected": "HTTP 200/201, response.caseId mới, VV.status=DA_CHUYEN_VU_AN, VV.linkedCaseId set",
+      "data": [
+        "incident.investigating.D60"
+      ]
+    },
+    {
+      "id": "TC-INC-015",
+      "type": "GREEN",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "PATCH /api/v1/incidents/:id/merge",
+      "role": "OFFICER",
+      "title": "Nhập VV vào VV khác",
+      "pre": "Có 2 VV",
+      "steps": "1. PATCH /merge body {targetIncidentId:'{{other_incident}}'}",
+      "expected": "HTTP 200, mergedIntoId set, status=DA_NHAP_VU_KHAC",
+      "data": [
+        "incident.dang_xac_minh.D7",
+        "incident.investigating.D0"
+      ]
+    },
+    {
+      "id": "TC-INC-016",
+      "type": "GREEN",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "PATCH /api/v1/incidents/:id/transfer",
+      "role": "OFFICER",
+      "title": "Chuyển đơn vị xử lý",
+      "pre": "-",
+      "steps": "1. PATCH /transfer body {chuyenDenDonVi:'CA Quận 1', lyDoChuyen:'Thẩm quyền'}",
+      "expected": "HTTP 200, status=DA_CHUYEN_DON_VI, audit",
+      "data": [
+        "incident.tiep_nhan.D0"
+      ]
+    },
+    {
+      "id": "TC-INC-017",
+      "type": "GREEN",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "PATCH /api/v1/incidents/:id/assign",
+      "role": "ADMIN",
+      "title": "Phân công ĐTV",
+      "pre": "-",
+      "steps": "1. PATCH /assign body {investigatorId:'{{inv_id}}'}",
+      "expected": "HTTP 200, investigatorId set, status=DA_PHAN_CONG",
+      "data": [
+        "incident.unassigned.D0",
+        "account.admin.primary",
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-018",
+      "type": "GREEN",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "DELETE /api/v1/incidents/:id",
+      "role": "OFFICER",
+      "title": "Xóa mềm VV",
+      "pre": "VV chưa linked Case",
+      "steps": "1. DELETE body {reason:'Lý do xóa hợp lệ 10+ char'}",
+      "expected": "HTTP 200, deletedAt set",
+      "data": [
+        "incident.tiep_nhan.D0"
+      ]
+    },
+    {
+      "id": "TC-INC-019",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/incidents",
+      "role": "OFFICER",
+      "title": "Thiếu name → 400",
+      "pre": "-",
+      "steps": "1. POST không name",
+      "expected": "HTTP 400, IsString fail",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-020",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/incidents",
+      "role": "OFFICER",
+      "title": "name < 5 ký tự → 400",
+      "pre": "-",
+      "steps": "1. POST {name:'Test'}",
+      "expected": "HTTP 400, 'Tên vụ việc phải có ít nhất 5 ký tự'",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-021",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "POST /api/v1/incidents",
+      "role": "OFFICER",
+      "title": "nguonPhatTin không match loaiDonVu → 400",
+      "pre": "-",
+      "steps": "1. POST {loaiDonVu:'TO_GIAC', nguonPhatTin:'VIEN_KIEM_SAT'} (VKS chỉ thuộc KIEN_NGHI)",
+      "expected": "HTTP 400, custom validator IsNguonPhatTinMatchLoaiDonVu fail",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-022",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "POST /api/v1/incidents",
+      "role": "OFFICER",
+      "title": "loaiDonVu ngoài enum → 400",
+      "pre": "-",
+      "steps": "1. POST {loaiDonVu:'INVALID'}",
+      "expected": "HTTP 400",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-023",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "POST /api/v1/incidents",
+      "role": "OFFICER",
+      "title": "phuongThucTiepNhan ngoài enum → 400",
+      "pre": "-",
+      "steps": "1. POST {phuongThucTiepNhan:'CARRIER_PIGEON'}",
+      "expected": "HTTP 400, gợi ý 5 phương thức TT 28/2020",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-024",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "POST /api/v1/incidents",
+      "role": "OFFICER",
+      "title": "lyDoKhongKhoiTo ngoài 7 grounds → 400",
+      "pre": "-",
+      "steps": "1. POST {lyDoKhongKhoiTo:'INVENTED'}",
+      "expected": "HTTP 400, gợi ý 7 căn cứ Đ.157",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-025",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/incidents",
+      "role": "OFFICER",
+      "title": "Không JWT → 401",
+      "pre": "-",
+      "steps": "1. POST không header Authorization",
+      "expected": "HTTP 401",
+      "data": []
+    },
+    {
+      "id": "TC-INC-026",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/incidents",
+      "role": "ADMIN",
+      "title": "VIEWER không có write/Incident → 403",
+      "pre": "User role VIEWER",
+      "steps": "1. POST với VIEWER token",
+      "expected": "HTTP 403",
+      "data": [
+        "account.admin.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-027",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "DELETE /api/v1/incidents/:id",
+      "role": "OFFICER",
+      "title": "DELETE thiếu reason → 400",
+      "pre": "-",
+      "steps": "1. DELETE body {}",
+      "expected": "HTTP 400, 'Lý do xóa bắt buộc'",
+      "data": [
+        "incident.creator_owned.D0"
+      ]
+    },
+    {
+      "id": "TC-INC-028",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "DELETE /api/v1/incidents/:id",
+      "role": "OFFICER",
+      "title": "DELETE reason < 10 ký tự → 400",
+      "pre": "-",
+      "steps": "1. DELETE body {reason:'short'}",
+      "expected": "HTTP 400",
+      "data": [
+        "incident.creator_owned.D0"
+      ]
+    },
+    {
+      "id": "TC-INC-029",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "DELETE /api/v1/incidents/:id",
+      "role": "OFFICER",
+      "title": "DELETE VV đã linked Case → 409",
+      "pre": "VV có linkedCaseId",
+      "steps": "1. DELETE",
+      "expected": "HTTP 409, message liên kết Case",
+      "data": [
+        "incident.linked_to_case.D7"
+      ]
+    },
+    {
+      "id": "TC-INC-030",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "PATCH /api/v1/incidents/:id/assign",
+      "role": "OFFICER",
+      "title": "OFFICER (không DispatchGuard) gọi assign → 403",
+      "pre": "-",
+      "steps": "1. PATCH /assign",
+      "expected": "HTTP 403",
+      "data": [
+        "incident.unassigned.D0",
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-031",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "PUT /api/v1/incidents/:id",
+      "role": "OFFICER",
+      "title": "PUT VV không thuộc scope → 403/404",
+      "pre": "VV thuộc team khác",
+      "steps": "1. PUT /api/v1/incidents/{{other_team_id}}",
+      "expected": "HTTP 403/404",
+      "data": [
+        "incident.other_team.D0"
+      ]
+    },
+    {
+      "id": "TC-INC-032",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "POST /api/v1/incidents",
+      "role": "OFFICER",
+      "title": "fromDate > toDate → 400",
+      "pre": "-",
+      "steps": "1. POST {fromDate:'2026-06-01', toDate:'2026-05-01'}",
+      "expected": "HTTP 400, EC-05 fromDate <= toDate",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-033",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "POST /api/v1/incidents",
+      "role": "OFFICER",
+      "title": "fromDate sai format → 400",
+      "pre": "-",
+      "steps": "1. POST {fromDate:'01/06/2026'}",
+      "expected": "HTTP 400, 'Từ ngày không đúng định dạng'",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-034",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "POST /api/v1/incidents",
+      "role": "OFFICER",
+      "title": "deadline sai format → 400",
+      "pre": "-",
+      "steps": "1. POST {deadline:'tomorrow'}",
+      "expected": "HTTP 400",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-035",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "POST /api/v1/incidents/:id/extend",
+      "role": "OFFICER",
+      "title": "Gia hạn lần 3 → 400",
+      "pre": "VV đã gia hạn 2 lần",
+      "steps": "1. POST /extend lần 3",
+      "expected": "HTTP 400, max 2 lần Điều 147",
+      "data": [
+        "incident.gia_han_2.D90"
+      ]
+    },
+    {
+      "id": "TC-INC-036",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/incidents/:id/prosecute",
+      "role": "OFFICER",
+      "title": "Khởi tố VV status=DA_CHUYEN_VU_AN (đã khởi tố) → 409",
+      "pre": "VV đã khởi tố trước đó",
+      "steps": "1. POST /prosecute lần 2",
+      "expected": "HTTP 409",
+      "data": [
+        "incident.da_chuyen_vu_an.D60"
+      ]
+    },
+    {
+      "id": "TC-INC-037",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "POST /api/v1/incidents/:id/prosecute",
+      "role": "OFFICER",
+      "title": "Khởi tố thiếu canCuKhoiToCode → 400",
+      "pre": "VV đủ điều kiện",
+      "steps": "1. POST /prosecute body {loaiKetQua:'KHOI_TO'} không canCuKhoiToCode",
+      "expected": "HTTP 400",
+      "data": [
+        "incident.investigating.D60"
+      ]
+    },
+    {
+      "id": "TC-INC-038",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "PATCH /api/v1/incidents/:id/status",
+      "role": "OFFICER",
+      "title": "Status transition invalid (TIEP_NHAN → DA_GIAI_QUYET skip) → 400",
+      "pre": "VV TIEP_NHAN",
+      "steps": "1. PATCH /status {status:'DA_GIAI_QUYET'}",
+      "expected": "HTTP 400, transition map",
+      "data": [
+        "incident.tiep_nhan.D0"
+      ]
+    },
+    {
+      "id": "TC-INC-039",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "PATCH /api/v1/incidents/:id/merge",
+      "role": "OFFICER",
+      "title": "Merge vào chính nó → 400",
+      "pre": "-",
+      "steps": "1. PATCH /merge body {targetIncidentId:'{{same_id}}'}",
+      "expected": "HTTP 400, self-merge forbidden",
+      "data": [
+        "incident.tiep_nhan.D0"
+      ]
+    },
+    {
+      "id": "TC-INC-040",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "PATCH /api/v1/incidents/:id/merge",
+      "role": "OFFICER",
+      "title": "Merge vào VV đã merged (chain) → 400",
+      "pre": "Target đã có mergedIntoId",
+      "steps": "1. PATCH /merge target=incident_đã_merge",
+      "expected": "HTTP 400, no chain merge",
+      "data": [
+        "incident.merged.D7",
+        "incident.tiep_nhan.D0"
+      ]
+    },
+    {
+      "id": "TC-INC-041",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "PATCH /api/v1/incidents/:id/transfer",
+      "role": "OFFICER",
+      "title": "Transfer thiếu chuyenDenDonVi → 400",
+      "pre": "-",
+      "steps": "1. PATCH /transfer body {lyDoChuyen:'Thẩm quyền'}",
+      "expected": "HTTP 400",
+      "data": [
+        "incident.tiep_nhan.D0"
+      ]
+    },
+    {
+      "id": "TC-INC-042",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "GET /api/v1/incidents/:id",
+      "role": "OFFICER",
+      "title": "GET VV không tồn tại → 404",
+      "pre": "-",
+      "steps": "1. GET /api/v1/incidents/00000000-...",
+      "expected": "HTTP 404",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-043",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "GET /api/v1/incidents",
+      "role": "OFFICER",
+      "title": "Query status không thuộc enum 15 → 400",
+      "pre": "-",
+      "steps": "1. GET ?status=INVALID",
+      "expected": "HTTP 400",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-044",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "GET /api/v1/incidents",
+      "role": "OFFICER",
+      "title": "Query limit > 100 → 400",
+      "pre": "-",
+      "steps": "1. GET ?limit=200",
+      "expected": "HTTP 400",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-045",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "PUT /api/v1/incidents/:id",
+      "role": "OFFICER",
+      "title": "PUT VV đã deleted → 410/404",
+      "pre": "VV deletedAt≠null",
+      "steps": "1. PUT",
+      "expected": "HTTP 410/404",
+      "data": [
+        "incident.deleted.D7"
+      ]
+    },
+    {
+      "id": "TC-INC-046",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "POST /api/v1/incidents",
+      "role": "OFFICER",
+      "title": "sourcePetitionId không tồn tại → 400/404",
+      "pre": "-",
+      "steps": "1. POST {sourcePetitionId:'fake-uuid'}",
+      "expected": "HTTP 400/404, FK Petition",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-047",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "POST /api/v1/incidents",
+      "role": "OFFICER",
+      "title": "unitId không tồn tại → 400",
+      "pre": "-",
+      "steps": "1. POST {unitId:'fake'}",
+      "expected": "HTTP 400, FK Unit",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-048",
+      "type": "RED",
+      "priority": "P2",
+      "severity": "Medium",
+      "endpoint": "POST /api/v1/incidents",
+      "role": "OFFICER",
+      "title": "Unknown field (whitelist) → 400",
+      "pre": "-",
+      "steps": "1. POST {name, randomField:'x'}",
+      "expected": "HTTP 400, property randomField should not exist",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-049",
+      "type": "BOUNDARY",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/incidents",
+      "role": "OFFICER",
+      "title": "name = 5 ký tự (min) → 201",
+      "pre": "-",
+      "steps": "1. POST name='12345'",
+      "expected": "HTTP 201",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-050",
+      "type": "BOUNDARY",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/incidents",
+      "role": "OFFICER",
+      "title": "name = 4 ký tự → 400",
+      "pre": "-",
+      "steps": "1. POST name='1234'",
+      "expected": "HTTP 400, MinLength",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-051",
+      "type": "BOUNDARY",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "POST /api/v1/incidents",
+      "role": "OFFICER",
+      "title": "name = 255 ký tự (max) → 201",
+      "pre": "-",
+      "steps": "1. POST name length=255",
+      "expected": "HTTP 201",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-052",
+      "type": "BOUNDARY",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "POST /api/v1/incidents",
+      "role": "OFFICER",
+      "title": "name = 256 ký tự → 400",
+      "pre": "-",
+      "steps": "1. POST name length=256",
+      "expected": "HTTP 400, MaxLength",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-053",
+      "type": "BOUNDARY",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "POST /api/v1/incidents",
+      "role": "OFFICER",
+      "title": "incidentType = 100 ký tự (max) → 201",
+      "pre": "-",
+      "steps": "1. POST incidentType length=100",
+      "expected": "HTTP 201",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-054",
+      "type": "BOUNDARY",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "DELETE /api/v1/incidents/:id",
+      "role": "OFFICER",
+      "title": "reason = 10 chars (min)",
+      "pre": "-",
+      "steps": "DELETE reason='1234567890'",
+      "expected": "HTTP 200",
+      "data": [
+        "incident.creator_owned.D0"
+      ]
+    },
+    {
+      "id": "TC-INC-055",
+      "type": "BOUNDARY",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "DELETE /api/v1/incidents/:id",
+      "role": "OFFICER",
+      "title": "reason = 500 chars (max)",
+      "pre": "-",
+      "steps": "DELETE reason length=500",
+      "expected": "HTTP 200",
+      "data": [
+        "incident.creator_owned.D0"
+      ]
+    },
+    {
+      "id": "TC-INC-056",
+      "type": "BOUNDARY",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "DELETE /api/v1/incidents/:id",
+      "role": "OFFICER",
+      "title": "reason = 501 chars → 400",
+      "pre": "-",
+      "steps": "DELETE reason 501",
+      "expected": "HTTP 400",
+      "data": [
+        "incident.creator_owned.D0"
+      ]
+    },
+    {
+      "id": "TC-INC-057",
+      "type": "BOUNDARY",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "GET /api/v1/incidents",
+      "role": "OFFICER",
+      "title": "limit=1 (min) → 200",
+      "pre": "-",
+      "steps": "GET ?limit=1",
+      "expected": "HTTP 200, items.length<=1",
+      "data": [
+        "incidents.shape.normal.D0"
+      ]
+    },
+    {
+      "id": "TC-INC-058",
+      "type": "BOUNDARY",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "GET /api/v1/incidents",
+      "role": "OFFICER",
+      "title": "limit=100 (max) → 200",
+      "pre": "-",
+      "steps": "GET ?limit=100",
+      "expected": "HTTP 200",
+      "data": [
+        "incidents.shape.large.D0"
+      ]
+    },
+    {
+      "id": "TC-INC-059",
+      "type": "EDGE",
+      "priority": "P2",
+      "severity": "Low",
+      "endpoint": "POST /api/v1/incidents",
+      "role": "OFFICER",
+      "title": "Tạo VV với fromDate=toDate (cùng ngày)",
+      "pre": "-",
+      "steps": "POST {fromDate:'2026-05-30', toDate:'2026-05-30'}",
+      "expected": "HTTP 201, EC-05 pass",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-060",
+      "type": "EP",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "POST /api/v1/incidents",
+      "role": "OFFICER",
+      "title": "loaiDonVu 3 partition",
+      "pre": "-",
+      "steps": "Loop 3 enum LoaiNguonTin với nguonPhatTin matching",
+      "expected": "3 lần 201",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-061",
+      "type": "EP",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "POST /api/v1/incidents",
+      "role": "OFFICER",
+      "title": "NguonPhatTin partition cho TO_GIAC (1 value)",
+      "pre": "-",
+      "steps": "POST loaiDonVu=TO_GIAC nguonPhatTin=CA_NHAN_TO_GIAC",
+      "expected": "201",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-062",
+      "type": "EP",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "POST /api/v1/incidents",
+      "role": "OFFICER",
+      "title": "NguonPhatTin partition cho TIN_BAO (4 values)",
+      "pre": "-",
+      "steps": "Loop {CO_QUAN_NHA_NUOC, TO_CHUC, CA_NHAN_BAO_TIN, PHUONG_TIEN_TRUYEN_THONG}",
+      "expected": "4 lần 201",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-063",
+      "type": "EP",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "POST /api/v1/incidents",
+      "role": "OFFICER",
+      "title": "NguonPhatTin partition cho KIEN_NGHI (5 values)",
+      "pre": "-",
+      "steps": "Loop {VIEN_KIEM_SAT, THANH_TRA, KIEM_TOAN, TOA_AN, CO_QUAN_KHAC}",
+      "expected": "5 lần 201",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-064",
+      "type": "EP",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "POST /api/v1/incidents",
+      "role": "OFFICER",
+      "title": "PhuongThucTiepNhan đủ 5 partition",
+      "pre": "-",
+      "steps": "Loop 5 enum",
+      "expected": "5 lần 201",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-065",
+      "type": "EP",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "PATCH /api/v1/incidents/:id/status",
+      "role": "OFFICER",
+      "title": "IncidentStatus 15 enum partition",
+      "pre": "-",
+      "steps": "Mỗi enum value PATCH /status (sau khi đặt VV ở state hợp lý)",
+      "expected": "Mỗi value transition hợp lệ → 200, invalid transition → 400",
+      "data": [
+        "incident.tiep_nhan.D0"
+      ]
+    },
+    {
+      "id": "TC-INC-066",
+      "type": "EP",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "PUT /api/v1/incidents/:id",
+      "role": "OFFICER",
+      "title": "LyDoTamDinhChiVuViec 6 partition",
+      "pre": "VV ready cho TAM_DINH_CHI",
+      "steps": "Loop 6 enum",
+      "expected": "6 lần 200",
+      "data": [
+        "incident.dang_xac_minh.D30"
+      ]
+    },
+    {
+      "id": "TC-INC-067",
+      "type": "EP",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "PUT /api/v1/incidents/:id",
+      "role": "OFFICER",
+      "title": "KetQuaPhucHoiVuViec 5 partition",
+      "pre": "VV TAM_DINH_CHI rasoat",
+      "steps": "Loop 5 enum",
+      "expected": "5 lần 200",
+      "data": [
+        "incident.tdc.rasoat.D60"
+      ]
+    },
+    {
+      "id": "TC-INC-068",
+      "type": "EP",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "POST /api/v1/incidents",
+      "role": "OFFICER",
+      "title": "LyDoKhongKhoiTo 7 partition",
+      "pre": "-",
+      "steps": "Loop 7 enum Đ.157",
+      "expected": "7 lần 201",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-069",
+      "type": "EP",
+      "priority": "P2",
+      "severity": "Low",
+      "endpoint": "GET /api/v1/incidents",
+      "role": "OFFICER",
+      "title": "Filter caseType (linked-Case vs not)",
+      "pre": "DB có cả 2",
+      "steps": "GET ?linkedCaseId rồi ?linkedCaseId__null",
+      "expected": "Đúng tập",
+      "data": [
+        "incidents.shape.full.D0"
+      ]
+    },
+    {
+      "id": "TC-INC-070",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "GET /api/v1/incidents",
+      "role": "OFFICER",
+      "title": "Query offset âm → 400",
+      "pre": "-",
+      "steps": "GET ?offset=-1",
+      "expected": "HTTP 400",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-071",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "GET /api/v1/incidents",
+      "role": "OFFICER",
+      "title": "Query search > 200 chars → 400",
+      "pre": "-",
+      "steps": "GET ?search=<201 chars>",
+      "expected": "HTTP 400",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-072",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "POST /api/v1/incidents/:id/extend",
+      "role": "OFFICER",
+      "title": "Extend VV không thuộc scope → 403/404",
+      "pre": "-",
+      "steps": "POST /extend other team",
+      "expected": "HTTP 403/404",
+      "data": [
+        "incident.other_team.D0"
+      ]
+    },
+    {
+      "id": "TC-INC-073",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "PATCH /api/v1/incidents/:id/status",
+      "role": "OFFICER",
+      "title": "PATCH /status VV deleted → 410/404",
+      "pre": "-",
+      "steps": "PATCH",
+      "expected": "HTTP 410/404",
+      "data": [
+        "incident.deleted.D7"
+      ]
+    },
+    {
+      "id": "TC-INC-074",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "PATCH /api/v1/incidents/:id/merge",
+      "role": "OFFICER",
+      "title": "Merge thiếu targetIncidentId → 400",
+      "pre": "-",
+      "steps": "PATCH /merge body {}",
+      "expected": "HTTP 400",
+      "data": [
+        "incident.tiep_nhan.D0"
+      ]
+    },
+    {
+      "id": "TC-INC-075",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "POST /api/v1/incidents/:id/restore",
+      "role": "OFFICER",
+      "title": "OFFICER (no restore perm) → 403",
+      "pre": "-",
+      "steps": "POST /restore",
+      "expected": "HTTP 403",
+      "data": [
+        "incident.deleted.D7",
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-076",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "POST /api/v1/incidents/:id/restore",
+      "role": "ADMIN",
+      "title": "Restore reason < 10 → 400",
+      "pre": "-",
+      "steps": "POST /restore body {reason:'sh'}",
+      "expected": "HTTP 400",
+      "data": [
+        "incident.deleted.D7",
+        "account.admin.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-077",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "GET /api/v1/incidents/admin/deleted",
+      "role": "OFFICER",
+      "title": "OFFICER admin/deleted → 403",
+      "pre": "-",
+      "steps": "GET",
+      "expected": "HTTP 403",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-078",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "POST /api/v1/incidents/:id/prosecute",
+      "role": "OFFICER",
+      "title": "Prosecute VV status TAM_DINH_CHI → 400",
+      "pre": "-",
+      "steps": "POST /prosecute",
+      "expected": "HTTP 400, không khởi tố từ TĐC",
+      "data": [
+        "incident.tdc.D30"
+      ]
+    },
+    {
+      "id": "TC-INC-079",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/incidents/:id/prosecute",
+      "role": "OFFICER",
+      "title": "Prosecute VV không trong scope → 403/404",
+      "pre": "-",
+      "steps": "POST",
+      "expected": "HTTP 403/404",
+      "data": [
+        "incident.other_team.D0"
+      ]
+    },
+    {
+      "id": "TC-INC-080",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "PUT /api/v1/incidents/:id",
+      "role": "OFFICER",
+      "title": "PUT description rất dài (1MB) → 413 hoặc 400",
+      "pre": "-",
+      "steps": "PUT description=1MB string",
+      "expected": "HTTP 413 Payload Too Large hoặc 400",
+      "data": [
+        "incident.investigating.D0"
+      ]
+    },
+    {
+      "id": "TC-INC-081",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/incidents",
+      "role": "OFFICER",
+      "title": "Concurrent merge cùng target → 1 success 1 conflict",
+      "pre": "-",
+      "steps": "2 PATCH /merge song song",
+      "expected": "1 OK 1 409",
+      "data": [
+        "incident.tiep_nhan.D0",
+        "incident.dang_xac_minh.D7"
+      ]
+    },
+    {
+      "id": "TC-INC-082",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "PATCH /api/v1/incidents/:id/transfer",
+      "role": "OFFICER",
+      "title": "Transfer đến đơn vị không tồn tại → 400",
+      "pre": "-",
+      "steps": "PATCH transfer chuyenDenDonVi='Cơ quan không có'",
+      "expected": "HTTP 400/404",
+      "data": [
+        "incident.tiep_nhan.D0"
+      ]
+    },
+    {
+      "id": "TC-INC-083",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "PATCH /api/v1/incidents/:id/status",
+      "role": "OFFICER",
+      "title": "PATCH status từ DA_GIAI_QUYET → QUA_HAN → 400 (final state)",
+      "pre": "-",
+      "steps": "PATCH /status",
+      "expected": "HTTP 400, terminal state",
+      "data": [
+        "incident.giai_quyet.D60"
+      ]
+    },
+    {
+      "id": "TC-INC-084",
+      "type": "SECURITY",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "GET /api/v1/incidents/:id",
+      "role": "OFFICER",
+      "title": "IDOR — VV team khác → 403/404",
+      "pre": "-",
+      "steps": "GET /api/v1/incidents/{{teamB}}",
+      "expected": "HTTP 403/404",
+      "data": [
+        "incident.other_team.D0",
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-085",
+      "type": "SECURITY",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/incidents",
+      "role": "OFFICER",
+      "title": "SQL Injection trong name",
+      "pre": "-",
+      "steps": "POST {name:\"'; DROP TABLE incidents; --\"}",
+      "expected": "HTTP 201, name literal",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-086",
+      "type": "SECURITY",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/incidents",
+      "role": "OFFICER",
+      "title": "XSS trong description",
+      "pre": "-",
+      "steps": "POST description='<img src=x onerror=alert(1)>'",
+      "expected": "HTTP 201, render UI escape",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-087",
+      "type": "SECURITY",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "PUT /api/v1/incidents/:id",
+      "role": "OFFICER",
+      "title": "Mass assignment — gửi createdById, deletedAt",
+      "pre": "-",
+      "steps": "PUT {createdById:'attacker', deletedAt:null}",
+      "expected": "HTTP 400 (whitelist) hoặc strip",
+      "data": [
+        "incident.investigating.D0"
+      ]
+    },
+    {
+      "id": "TC-INC-088",
+      "type": "SECURITY",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "GET /api/v1/incidents",
+      "role": "OFFICER",
+      "title": "JWT signature tamper → 401",
+      "pre": "-",
+      "steps": "GET với JWT bị sửa role=ADMIN",
+      "expected": "HTTP 401",
+      "data": []
+    },
+    {
+      "id": "TC-INC-089",
+      "type": "SECURITY",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "GET /api/v1/incidents/export/ward",
+      "role": "OFFICER",
+      "title": "Throttle 5/60s",
+      "pre": "-",
+      "steps": "6 GET export trong 60s",
+      "expected": "6th → 429",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-090",
+      "type": "SECURITY",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "GET /api/v1/incidents/:id/journey",
+      "role": "OFFICER",
+      "title": "Journey không leak events team khác",
+      "pre": "-",
+      "steps": "GET /journey",
+      "expected": "Chỉ events trong scope",
+      "data": [
+        "incident.cross_team_events.D60"
+      ]
+    },
+    {
+      "id": "TC-INC-091",
+      "type": "STATE",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "PATCH /api/v1/incidents/:id/status",
+      "role": "OFFICER",
+      "title": "Transition: TIEP_NHAN → DANG_XAC_MINH",
+      "pre": "-",
+      "steps": "PATCH status=DANG_XAC_MINH",
+      "expected": "200, history += entry",
+      "data": [
+        "incident.tiep_nhan.D0"
+      ]
+    },
+    {
+      "id": "TC-INC-092",
+      "type": "STATE",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "PATCH /api/v1/incidents/:id/status",
+      "role": "OFFICER",
+      "title": "DANG_XAC_MINH → DA_PHAN_CONG (sau assign)",
+      "pre": "VV assigned",
+      "steps": "PATCH status=DA_PHAN_CONG",
+      "expected": "200",
+      "data": [
+        "incident.dang_xac_minh.D7"
+      ]
+    },
+    {
+      "id": "TC-INC-093",
+      "type": "STATE",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "PATCH /api/v1/incidents/:id/status",
+      "role": "OFFICER",
+      "title": "DA_PHAN_CONG → DA_GIAI_QUYET",
+      "pre": "-",
+      "steps": "PATCH",
+      "expected": "200, status_history",
+      "data": [
+        "incident.da_phan_cong.D30"
+      ]
+    },
+    {
+      "id": "TC-INC-094",
+      "type": "STATE",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "PATCH /api/v1/incidents/:id/status",
+      "role": "OFFICER",
+      "title": "DANG_XAC_MINH → TAM_DINH_CHI (kèm lyDo)",
+      "pre": "-",
+      "steps": "PUT lyDoTamDinhChiVuViec='CHUA_CO_KET_QUA_GIAM_DINH' rồi PATCH status=TAM_DINH_CHI",
+      "expected": "200",
+      "data": [
+        "incident.dang_xac_minh.D7"
+      ]
+    },
+    {
+      "id": "TC-INC-095",
+      "type": "STATE",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "PATCH /api/v1/incidents/:id/status",
+      "role": "OFFICER",
+      "title": "TAM_DINH_CHI → PHUC_HOI_NGUON_TIN (sau rà soát)",
+      "pre": "daRaSoat=true ketQuaPhucHoiVuViec set",
+      "steps": "PATCH",
+      "expected": "200",
+      "data": [
+        "incident.tdc.rasoat.D60"
+      ]
+    },
+    {
+      "id": "TC-INC-096",
+      "type": "STATE",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "POST /api/v1/incidents/:id/prosecute",
+      "role": "OFFICER",
+      "title": "DANG_XAC_MINH → DA_CHUYEN_VU_AN (khởi tố)",
+      "pre": "-",
+      "steps": "POST /prosecute",
+      "expected": "200, linkedCaseId set",
+      "data": [
+        "incident.dang_xac_minh.D60"
+      ]
+    },
+    {
+      "id": "TC-INC-097",
+      "type": "STATE",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "PATCH /api/v1/incidents/:id/status",
+      "role": "OFFICER",
+      "title": "TAM_DINH_CHI → TDC_HET_THOI_HIEU (auto-update khi quá hạn)",
+      "pre": "VV TĐC + ngayHetThoiHieu < now",
+      "steps": "PATCH hoặc job tự update",
+      "expected": "200",
+      "data": [
+        "incident.tdc.expired.D365"
+      ]
+    },
+    {
+      "id": "TC-INC-098",
+      "type": "STATE",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "PATCH /api/v1/incidents/:id/status",
+      "role": "OFFICER",
+      "title": "Invalid transition: DA_GIAI_QUYET → TIEP_NHAN → 400",
+      "pre": "-",
+      "steps": "PATCH",
+      "expected": "HTTP 400",
+      "data": [
+        "incident.giai_quyet.D60"
+      ]
+    },
+    {
+      "id": "TC-INC-099",
+      "type": "DECISION",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/incidents",
+      "role": "OFFICER",
+      "title": "Decision matrix loaiDonVu × nguonPhatTin (3×10=30 cell, only 10 valid)",
+      "pre": "-",
+      "steps": "Cover toàn matrix: 10 valid → 201, 20 invalid → 400",
+      "expected": "Đúng decision table",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-100",
+      "type": "DECISION",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "POST /api/v1/incidents/:id/extend",
+      "role": "OFFICER",
+      "title": "Decision matrix gia hạn: lần × status",
+      "pre": "-",
+      "steps": "4 combo: (0_lần, TIEP_NHAN), (1_lần, DANG_XAC_MINH), (2_lần, DANG_XAC_MINH), (2_lần, DA_GIAI_QUYET)",
+      "expected": "Combo 1-3 OK, 4 reject (đã 2 lần)",
+      "data": [
+        "incident.tiep_nhan.D0",
+        "incident.gia_han_1.D60",
+        "incident.gia_han_2.D90",
+        "incident.giai_quyet.D60"
+      ]
+    },
+    {
+      "id": "TC-INC-101",
+      "type": "DECISION",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "DELETE /api/v1/incidents/:id",
+      "role": "OFFICER",
+      "title": "Decision delete: 6 business rules",
+      "pre": "-",
+      "steps": "6 case: (no_link), (linked_case), (linked_petition), (linked_subject), (already_deleted), (terminal_state)",
+      "expected": "Hành vi theo 6 rules",
+      "data": [
+        "incident.creator_owned.D0",
+        "incident.linked_to_case.D7",
+        "incident.deleted.D7"
+      ]
+    },
+    {
+      "id": "TC-INC-102",
+      "type": "DECISION",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "POST /api/v1/incidents/:id/prosecute",
+      "role": "OFFICER",
+      "title": "Decision prosecute: status × loaiKetQua matrix",
+      "pre": "-",
+      "steps": "5 status × 4 loaiKetQua matrix",
+      "expected": "Chỉ TIEP_NHAN/DANG_XAC_MINH + loaiKetQua=KHOI_TO → success",
+      "data": [
+        "incident.tiep_nhan.D0",
+        "incident.dang_xac_minh.D7",
+        "incident.tdc.D30"
+      ]
+    },
+    {
+      "id": "TC-INC-103",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/incidents",
+      "role": "OFFICER",
+      "title": "Tạo VV với deadline trong quá khứ → 400 hoặc warning",
+      "pre": "-",
+      "steps": "POST deadline='2020-01-01'",
+      "expected": "HTTP 201 (validation chỉ check ISO) hoặc 400 nếu business rule",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-104",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "POST /api/v1/incidents",
+      "role": "OFFICER",
+      "title": "assignedTeamId không tồn tại → 400",
+      "pre": "-",
+      "steps": "POST {assignedTeamId:'fake'}",
+      "expected": "HTTP 400/404",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-105",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "GET /api/v1/incidents/:id/journey",
+      "role": "OFFICER",
+      "title": "Page âm → fallback 1",
+      "pre": "-",
+      "steps": "GET ?page=-3",
+      "expected": "200 với page=1",
+      "data": [
+        "incident.investigating.D7.with_events"
+      ]
+    },
+    {
+      "id": "TC-INC-106",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "PATCH /api/v1/incidents/:id/transfer",
+      "role": "OFFICER",
+      "title": "Transfer VV đã linked Case → 409",
+      "pre": "VV.linkedCaseId set",
+      "steps": "PATCH /transfer",
+      "expected": "HTTP 409",
+      "data": [
+        "incident.linked_to_case.D7"
+      ]
+    },
+    {
+      "id": "TC-INC-107",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "PATCH /api/v1/incidents/:id/merge",
+      "role": "OFFICER",
+      "title": "Merge VV đã merged → 400",
+      "pre": "VV mergedIntoId set",
+      "steps": "PATCH /merge",
+      "expected": "HTTP 400, đã merge",
+      "data": [
+        "incident.merged.D7"
+      ]
+    },
+    {
+      "id": "TC-INC-108",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "POST /api/v1/incidents",
+      "role": "OFFICER",
+      "title": "name chứa chỉ whitespace → 400",
+      "pre": "-",
+      "steps": "POST name='     '",
+      "expected": "HTTP 400 nếu trim, hoặc 400 vì < 5 sau trim",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-109",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "PUT /api/v1/incidents/:id",
+      "role": "OFFICER",
+      "title": "PUT update qua lỗi optimistic lock",
+      "pre": "VV bị edit bởi user khác",
+      "steps": "PUT với expectedUpdatedAt cũ",
+      "expected": "HTTP 409",
+      "data": [
+        "incident.recently_edited.D0"
+      ]
+    },
+    {
+      "id": "TC-INC-110",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "GET /api/v1/incidents",
+      "role": "OFFICER",
+      "title": "OFFICER không thuộc team → empty list",
+      "pre": "User mới chưa assign team",
+      "steps": "GET /api/v1/incidents",
+      "expected": "HTTP 200, items=[] (scope filter strict)",
+      "data": [
+        "account.officer.no_team.D0"
+      ]
+    },
+    {
+      "id": "TC-INC-111",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/incidents",
+      "role": "OFFICER",
+      "title": "Locked account → 401/403",
+      "pre": "-",
+      "steps": "POST với locked account",
+      "expected": "HTTP 401/403",
+      "data": [
+        "account.officer.locked.D7"
+      ]
+    },
+    {
+      "id": "TC-INC-112",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "GET /api/v1/incidents/investigators",
+      "role": "OFFICER",
+      "title": "search > 100 chars → 400 hoặc 200 empty",
+      "pre": "-",
+      "steps": "GET ?search=<200 chars>",
+      "expected": "HTTP 200 với items=[] hoặc 400",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-113",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "POST /api/v1/incidents",
+      "role": "OFFICER",
+      "title": "sdtNguoiToGiac không hợp lệ (chữ cái) → 400 nếu có pattern, hoặc 201",
+      "pre": "-",
+      "steps": "POST sdtNguoiToGiac='abc'",
+      "expected": "HTTP 201 (DTO chưa có validator) hoặc 400 nếu service validate",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-114",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "POST /api/v1/incidents",
+      "role": "OFFICER",
+      "title": "cmndNguoiToGiac sai format (11 chữ số) → 400",
+      "pre": "-",
+      "steps": "POST cmndNguoiToGiac='12345678901' (CMND/CCCD 12 chữ)",
+      "expected": "HTTP 201 hoặc 400",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-115",
+      "type": "SECURITY",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/incidents",
+      "role": "OFFICER",
+      "title": "Audit log integrity verify",
+      "pre": "-",
+      "steps": "POST + check audit_log",
+      "expected": "audit_log có userId, ipAddress, userAgent",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-116",
+      "type": "SECURITY",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/incidents/:id/prosecute",
+      "role": "OFFICER",
+      "title": "Prosecute audit trail — atomic với Case create",
+      "pre": "-",
+      "steps": "POST /prosecute",
+      "expected": "VV.linkedCaseId + Case.linkedIncidentId atomically; nếu fail rollback cả 2",
+      "data": [
+        "incident.investigating.D60"
+      ]
+    },
+    {
+      "id": "TC-INC-117",
+      "type": "SECURITY",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "GET /api/v1/incidents/admin/deleted",
+      "role": "OFFICER",
+      "title": "OFFICER admin/deleted leak danh sách → 403",
+      "pre": "-",
+      "steps": "GET",
+      "expected": "HTTP 403, KHÔNG leak filenames qua error",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-118",
+      "type": "SECURITY",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "PATCH /api/v1/incidents/:id/assign",
+      "role": "ADMIN",
+      "title": "Assign tới user role không phù hợp (VIEWER) → 400",
+      "pre": "-",
+      "steps": "PATCH /assign body {investigatorId:'<viewer_uid>'}",
+      "expected": "HTTP 400, không assign cho non-investigator",
+      "data": [
+        "incident.tiep_nhan.D0",
+        "account.admin.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-119",
+      "type": "SECURITY",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/incidents",
+      "role": "OFFICER",
+      "title": "NoSQL injection trong description",
+      "pre": "-",
+      "steps": "POST description={$gt:''}",
+      "expected": "HTTP 201, description lưu literal hoặc 400",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-120",
+      "type": "SECURITY",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "GET /api/v1/incidents/:id",
+      "role": "OFFICER",
+      "title": "BOLA — sequential ID scan để guess incident IDs",
+      "pre": "-",
+      "steps": "Bash loop GET /incidents/{seq_id_1...100}",
+      "expected": "Tất cả không thuộc scope đều 403/404, không leak count",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-121",
+      "type": "DATA",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "POST /api/v1/incidents",
+      "role": "OFFICER",
+      "title": "Unicode tiếng Việt có dấu trong name + description",
+      "pre": "-",
+      "steps": "POST name='Vụ việc trộm cắp tài sản — Nguyễn Văn Đệ' description='Đã phát hiện đối tượng nghi vấn'",
+      "expected": "HTTP 201, GET lại đúng dấu",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-122",
+      "type": "DATA",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "POST /api/v1/incidents",
+      "role": "OFFICER",
+      "title": "Emoji trong description",
+      "pre": "-",
+      "steps": "POST description='Vụ việc nghiêm trọng ⚠️🚨'",
+      "expected": "HTTP 201, GET trả emoji nguyên vẹn",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-123",
+      "type": "DATA",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "GET /api/v1/incidents",
+      "role": "OFFICER",
+      "title": "Search match Vietnamese-fold (đồng ↔ dong)",
+      "pre": "DB có VV name chứa 'Đông'",
+      "steps": "GET ?search=dong",
+      "expected": "HTTP 200, match (nếu citext/unaccent) — verify behavior",
+      "data": [
+        "incidents.shape.normal.D0"
+      ]
+    },
+    {
+      "id": "TC-INC-124",
+      "type": "SECURITY",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "PATCH /api/v1/incidents/:id/transfer",
+      "role": "OFFICER",
+      "title": "Transfer audit không bị tampering",
+      "pre": "-",
+      "steps": "PATCH /transfer + verify status_history immutable",
+      "expected": "status_history append-only, không update/delete",
+      "data": [
+        "incident.tiep_nhan.D0"
+      ]
+    },
+    {
+      "id": "TC-INC-125",
+      "type": "A11Y",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "UI: /vu-viec",
+      "role": "OFFICER",
+      "title": "List page keyboard nav",
+      "pre": "Login",
+      "steps": "Tab qua filter chips, table rows, pagination",
+      "expected": "Focus visible mọi element, Enter activate",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-126",
+      "type": "A11Y",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "UI: /vu-viec/new",
+      "role": "OFFICER",
+      "title": "Form aria-required + aria-describedby cho hint",
+      "pre": "-",
+      "steps": "Inspect form",
+      "expected": "name input có aria-required=true + aria-describedby refer hint 'min 5 ký tự'",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-127",
+      "type": "A11Y",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "UI: /vu-viec",
+      "role": "OFFICER",
+      "title": "Status badge contrast WCAG AA cho 15 status",
+      "pre": "-",
+      "steps": "Render 15 badge + đo contrast",
+      "expected": "15 pair ≥4.5:1",
+      "data": [
+        "incidents.all_status.D0"
+      ]
+    },
+    {
+      "id": "TC-INC-128",
+      "type": "A11Y",
+      "priority": "P2",
+      "severity": "Low",
+      "endpoint": "UI: /vu-viec/:id",
+      "role": "OFFICER",
+      "title": "Detail page H1 + heading hierarchy",
+      "pre": "-",
+      "steps": "Inspect headings",
+      "expected": "1 h1, không skip level",
+      "data": [
+        "incident.investigating.D0"
+      ]
+    },
+    {
+      "id": "TC-INC-129",
+      "type": "A11Y",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "UI: /vu-viec/new",
+      "role": "OFFICER",
+      "title": "Cascading select loaiDonVu → nguonPhatTin announce screen reader",
+      "pre": "-",
+      "steps": "Chọn loaiDonVu, verify nguonPhatTin update + aria-live announce",
+      "expected": "aria-live='polite' announce 'Có 4 nguồn phát tin'",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-130",
+      "type": "A11Y",
+      "priority": "P2",
+      "severity": "Low",
+      "endpoint": "UI: /vu-viec",
+      "role": "OFFICER",
+      "title": "Error toast role=alert",
+      "pre": "-",
+      "steps": "Trigger lỗi server (e.g. 500)",
+      "expected": "Toast có role='alert' aria-live='assertive'",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-131",
+      "type": "A11Y",
+      "priority": "P2",
+      "severity": "Low",
+      "endpoint": "UI: /vu-viec",
+      "role": "OFFICER",
+      "title": "Skip-to-content link",
+      "pre": "-",
+      "steps": "Tab đầu page",
+      "expected": "Skip link visible khi focus",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-132",
+      "type": "COMPAT",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "UI: /vu-viec",
+      "role": "OFFICER",
+      "title": "Chromium desktop",
+      "pre": "-",
+      "steps": "Open trên Chromium 120+",
+      "expected": "Layout OK",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-133",
+      "type": "COMPAT",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "UI: /vu-viec",
+      "role": "OFFICER",
+      "title": "Firefox desktop",
+      "pre": "-",
+      "steps": "Open trên Firefox 121+",
+      "expected": "Layout đồng nhất",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-134",
+      "type": "COMPAT",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "UI: /vu-viec",
+      "role": "OFFICER",
+      "title": "WebKit desktop",
+      "pre": "-",
+      "steps": "Open WebKit",
+      "expected": "Date picker render",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-135",
+      "type": "COMPAT",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "UI: /vu-viec",
+      "role": "OFFICER",
+      "title": "Mobile 375 viewport",
+      "pre": "-",
+      "steps": "Set viewport",
+      "expected": "Sidebar drawer, table scroll horizontal",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-136",
+      "type": "COMPAT",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "UI: /vu-viec",
+      "role": "OFFICER",
+      "title": "Tablet 768 viewport",
+      "pre": "-",
+      "steps": "Set viewport",
+      "expected": "Layout adapt",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-137",
+      "type": "COMPAT",
+      "priority": "P2",
+      "severity": "Low",
+      "endpoint": "UI: /vu-viec",
+      "role": "OFFICER",
+      "title": "Dark mode",
+      "pre": "-",
+      "steps": "Toggle OS",
+      "expected": "Dark theme apply",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-INC-138",
+      "type": "PERFORMANCE",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "GET /api/v1/incidents",
+      "role": "OFFICER",
+      "title": "List 10k incidents p95 < 800ms",
+      "pre": "-",
+      "steps": "100 GET concurrent",
+      "expected": "p95 < 800ms",
+      "data": [
+        "incidents.shape.large.D0"
+      ]
+    },
+    {
+      "id": "TC-INC-139",
+      "type": "PERFORMANCE",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "GET /api/v1/incidents/stats",
+      "role": "OFFICER",
+      "title": "Stats trên 10k < 500ms",
+      "pre": "-",
+      "steps": "50 GET stats",
+      "expected": "p95 < 500ms",
+      "data": [
+        "incidents.shape.large.D0"
+      ]
+    },
+    {
+      "id": "TC-INC-140",
+      "type": "PERFORMANCE",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "POST /api/v1/incidents/:id/prosecute",
+      "role": "OFFICER",
+      "title": "Prosecute atomic transaction < 2s",
+      "pre": "-",
+      "steps": "POST /prosecute",
+      "expected": "Response < 2s (Case create + VV update transaction)",
+      "data": [
+        "incident.investigating.D60"
+      ]
+    }
+  ]
+}

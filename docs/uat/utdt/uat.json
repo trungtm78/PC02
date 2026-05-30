@@ -1,0 +1,1897 @@
+{
+  "meta": {
+    "feature": "utdt",
+    "total_tc": 110,
+    "target_tc": 110,
+    "mode": "LEAN",
+    "generated_at": "2026-05-30",
+    "type_distribution": {
+      "GREEN": 14,
+      "RED": 44,
+      "BOUNDARY": 8,
+      "EDGE": 1,
+      "EP": 8,
+      "STATE": 5,
+      "DECISION": 3,
+      "SECURITY": 11,
+      "DATA": 2,
+      "A11Y": 6,
+      "COMPAT": 5,
+      "PERFORMANCE": 3
+    },
+    "priority_distribution": {
+      "P0": 58,
+      "P1": 45,
+      "P2": 7
+    }
+  },
+  "data_fixtures": [
+    {
+      "fixture_id": "account.officer.primary",
+      "ref": "_shared/test-accounts.json#account.officer.primary",
+      "setup_recipe": "login officer1@",
+      "cleanup_recipe": "-",
+      "outputs": {
+        "token": "$.accessToken",
+        "teamId": "$.user.primaryTeamId"
+      }
+    },
+    {
+      "fixture_id": "account.officer.secondary",
+      "ref": "_shared/test-accounts.json#account.officer.secondary",
+      "setup_recipe": "login officer2@",
+      "cleanup_recipe": "-",
+      "outputs": {
+        "token": "$.accessToken",
+        "teamId": "$.user.primaryTeamId"
+      }
+    },
+    {
+      "fixture_id": "account.admin.primary",
+      "ref": "_shared/test-accounts.json#account.admin.primary",
+      "setup_recipe": "login admin@",
+      "cleanup_recipe": "-",
+      "outputs": {
+        "token": "$.accessToken"
+      }
+    },
+    {
+      "fixture_id": "account.viewer.D0",
+      "setup_recipe": "Admin seed user role VIEWER",
+      "cleanup_recipe": "Admin delete",
+      "outputs": {
+        "token": "$.accessToken"
+      }
+    },
+    {
+      "fixture_id": "utdt.chua_phan_hoi.D30",
+      "setup_recipe": "POST /api/v1/cases {caseType:'UY_THAC_DIEU_TRA', caseProvenance:'UY_THAC_DIEU_TRA', loaiUyThac:'UY_THAC_DIEU_TRA', donViGiao:'PC01', soQuyetDinhUyThac:'58/2026/{{random}}', ngayTiepNhan:{{D-30}}, thoiHanUyThac:{{D+30}}} — ketQua=null, lyDo=null, thoiHan tương lai → CHUA_PHAN_HOI",
+      "cleanup_recipe": "DELETE /api/v1/cases/{id}",
+      "outputs": {
+        "case_id": "$.id"
+      }
+    },
+    {
+      "fixture_id": "utdt.chua_phan_hoi.expiring.D0",
+      "setup_recipe": "UTDT với thoiHanUyThac sắp hết (1 phút nữa) — dùng test transition tự động",
+      "cleanup_recipe": "DELETE",
+      "outputs": {
+        "case_id": "$.id"
+      }
+    },
+    {
+      "fixture_id": "utdt.da_phan_hoi.D60",
+      "setup_recipe": "UTDT có ketQuaUyThac='Đã điều tra xong' + ngayTraKetQua={{D-1}} → DA_PHAN_HOI",
+      "cleanup_recipe": "DELETE",
+      "outputs": {
+        "case_id": "$.id"
+      }
+    },
+    {
+      "fixture_id": "utdt.khong_thuc_hien.D30",
+      "setup_recipe": "UTDT có metadata.lyDoKhongThucHienDuoc='Đối tượng đã chết'",
+      "cleanup_recipe": "DELETE",
+      "outputs": {
+        "case_id": "$.id"
+      }
+    },
+    {
+      "fixture_id": "utdt.qua_han.D90",
+      "setup_recipe": "UTDT có thoiHanUyThac={{D-30}} (đã quá hạn) + ketQua=null + lyDo=null",
+      "cleanup_recipe": "DELETE",
+      "outputs": {
+        "case_id": "$.id"
+      }
+    },
+    {
+      "fixture_id": "utdt.all_state.D0",
+      "setup_recipe": "Seed 4 UTDT — mỗi state 1 cái",
+      "cleanup_recipe": "Loop DELETE",
+      "outputs": {
+        "case_ids": "$[*].id"
+      }
+    },
+    {
+      "fixture_id": "utdt.donvi_pc01.D0",
+      "setup_recipe": "Seed 5 UTDT với donViGiao='PC01 Hà Nội'",
+      "cleanup_recipe": "Loop DELETE",
+      "outputs": {
+        "case_ids": "$[*].id"
+      }
+    },
+    {
+      "fixture_id": "utdt.donvi_pc02.D0",
+      "setup_recipe": "Seed 5 UTDT với donViGiao='PC02 TP HCM'",
+      "cleanup_recipe": "Loop DELETE",
+      "outputs": {
+        "case_ids": "$[*].id"
+      }
+    },
+    {
+      "fixture_id": "utdt.other_team.D0",
+      "setup_recipe": "UTDT thuộc team B (officer.secondary)",
+      "cleanup_recipe": "DELETE bằng officer.secondary",
+      "outputs": {
+        "case_id": "$.id"
+      }
+    },
+    {
+      "fixture_id": "utdt.creator_owned.D0",
+      "setup_recipe": "UTDT tạo bằng officer.primary",
+      "cleanup_recipe": "DELETE",
+      "outputs": {
+        "case_id": "$.id"
+      }
+    },
+    {
+      "fixture_id": "utdt.unassigned.D0",
+      "setup_recipe": "UTDT chưa assign investigator",
+      "cleanup_recipe": "DELETE",
+      "outputs": {
+        "case_id": "$.id"
+      }
+    },
+    {
+      "fixture_id": "utdt.deleted.D7",
+      "setup_recipe": "UTDT → DELETE → set deletedAt D-7",
+      "cleanup_recipe": "Prisma hard delete",
+      "outputs": {
+        "case_id": "$.id"
+      }
+    },
+    {
+      "fixture_id": "utdt.recently_edited.D0",
+      "setup_recipe": "UTDT vừa edited bằng admin2",
+      "cleanup_recipe": "DELETE",
+      "outputs": {
+        "case_id": "$.id",
+        "stale_at": "$.oldAt"
+      }
+    },
+    {
+      "fixture_id": "utdt.with_events.D60",
+      "setup_recipe": "UTDT có ≥5 events",
+      "cleanup_recipe": "DELETE",
+      "outputs": {
+        "case_id": "$.id"
+      }
+    },
+    {
+      "fixture_id": "utdt.cross_team.D0",
+      "setup_recipe": "Seed 4 UTDT — 2 team A, 2 team B",
+      "cleanup_recipe": "DELETE",
+      "outputs": {
+        "case_ids": "$[*].id"
+      }
+    },
+    {
+      "fixture_id": "utdt.shape.normal.D0",
+      "setup_recipe": "Seed 20 UTDT mix state + loaiUyThac",
+      "cleanup_recipe": "Loop DELETE",
+      "outputs": {
+        "case_ids": "$[*].id"
+      }
+    },
+    {
+      "fixture_id": "utdt.shape.full.D0",
+      "setup_recipe": "Seed 100 UTDT",
+      "cleanup_recipe": "Loop DELETE",
+      "outputs": {
+        "case_ids": "$[*].id"
+      }
+    },
+    {
+      "fixture_id": "utdt.shape.large.D0",
+      "setup_recipe": "Prisma raw insert 5000 UTDT",
+      "cleanup_recipe": "Prisma raw DELETE WHERE caseType='UY_THAC_DIEU_TRA' AND name LIKE 'UAT-PERF-UTDT-%'",
+      "outputs": {
+        "count": "5000"
+      }
+    },
+    {
+      "fixture_id": "cases.mixed_type.D0",
+      "setup_recipe": "Seed 30 cases — 15 REGULAR + 15 UTDT",
+      "cleanup_recipe": "DELETE",
+      "outputs": {
+        "case_ids": "$[*].id"
+      }
+    },
+    {
+      "fixture_id": "cases.no_utdt.D0",
+      "setup_recipe": "DB chỉ REGULAR, không UTDT",
+      "cleanup_recipe": "-",
+      "outputs": {}
+    },
+    {
+      "fixture_id": "cases.regular.D0",
+      "setup_recipe": "Seed 10 REGULAR cases",
+      "cleanup_recipe": "DELETE",
+      "outputs": {
+        "case_ids": "$[*].id"
+      }
+    }
+  ],
+  "test_cases": [
+    {
+      "id": "TC-UTDT-001",
+      "type": "GREEN",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/cases",
+      "role": "OFFICER",
+      "title": "Tạo UTDT đầy đủ (caseType + loaiUyThac + donViGiao + ngày)",
+      "pre": "-",
+      "steps": "POST {name:'UTDT-{{random}}', caseProvenance:'UY_THAC_DIEU_TRA', caseType:'UY_THAC_DIEU_TRA', loaiUyThac:'UY_THAC_DIEU_TRA', donViGiao:'PC01 Hà Nội', soQuyetDinhUyThac:'58/2026/UTDT', ngayTiepNhan:'2026-05-30', thoiHanUyThac:'2026-08-30', loaiThongTin:'Tố giác'}",
+      "expected": "HTTP 201, id≠null, computed TrangThaiPhanHoi=CHUA_PHAN_HOI",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-UTDT-002",
+      "type": "GREEN",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/cases",
+      "role": "OFFICER",
+      "title": "Tạo UTDT loaiUyThac=CHUYEN_DON_NGUON_TIN",
+      "pre": "-",
+      "steps": "POST {caseType:'UY_THAC_DIEU_TRA', loaiUyThac:'CHUYEN_DON_NGUON_TIN', ...}",
+      "expected": "HTTP 201",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-UTDT-003",
+      "type": "GREEN",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "POST /api/v1/cases",
+      "role": "OFFICER",
+      "title": "Tạo UTDT loaiUyThac=UY_THAC_GIAI_QUYET",
+      "pre": "-",
+      "steps": "POST loaiUyThac=UY_THAC_GIAI_QUYET",
+      "expected": "HTTP 201",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-UTDT-004",
+      "type": "GREEN",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "GET /api/v1/cases?caseType=UY_THAC_DIEU_TRA",
+      "role": "OFFICER",
+      "title": "List UTDT cases (caseType filter explicit)",
+      "pre": "DB có UTDT",
+      "steps": "GET ?caseType=UY_THAC_DIEU_TRA",
+      "expected": "HTTP 200, items chỉ UTDT",
+      "data": [
+        "utdt.shape.normal.D0"
+      ]
+    },
+    {
+      "id": "TC-UTDT-005",
+      "type": "GREEN",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "GET /api/v1/cases",
+      "role": "OFFICER",
+      "title": "List default exclude UTDT (caseType=REGULAR implicit)",
+      "pre": "DB mix REGULAR + UTDT",
+      "steps": "GET /api/v1/cases (không caseType)",
+      "expected": "HTTP 200, items không có UTDT",
+      "data": [
+        "cases.mixed_type.D0"
+      ]
+    },
+    {
+      "id": "TC-UTDT-006",
+      "type": "GREEN",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "GET /api/v1/cases/utdt-stats",
+      "role": "OFFICER",
+      "title": "UTDT stats 4 TrangThaiPhanHoi",
+      "pre": "DB có UTDT ở 4 state",
+      "steps": "GET /utdt-stats",
+      "expected": "HTTP 200, byTrangThai = {DA_PHAN_HOI, KHONG_THUC_HIEN_DUOC, QUA_HAN, CHUA_PHAN_HOI}",
+      "data": [
+        "utdt.all_state.D0"
+      ]
+    },
+    {
+      "id": "TC-UTDT-007",
+      "type": "GREEN",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "PUT /api/v1/cases/:id",
+      "role": "OFFICER",
+      "title": "Update ketQuaUyThac + ngayTraKetQua → state DA_PHAN_HOI",
+      "pre": "UTDT chưa có ketQua",
+      "steps": "PUT {ketQuaUyThac:'Đã điều tra xong', ngayTraKetQua:'2026-07-15'}",
+      "expected": "HTTP 200, computed state=DA_PHAN_HOI",
+      "data": [
+        "utdt.chua_phan_hoi.D30"
+      ]
+    },
+    {
+      "id": "TC-UTDT-008",
+      "type": "GREEN",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "PUT /api/v1/cases/:id",
+      "role": "OFFICER",
+      "title": "Update metadata.lyDoKhongThucHienDuoc → state KHONG_THUC_HIEN_DUOC",
+      "pre": "-",
+      "steps": "PUT {metadata:{lyDoKhongThucHienDuoc:'Đối tượng đã chuyển nơi cư trú'}}",
+      "expected": "HTTP 200, computed state=KHONG_THUC_HIEN_DUOC",
+      "data": [
+        "utdt.chua_phan_hoi.D30"
+      ]
+    },
+    {
+      "id": "TC-UTDT-009",
+      "type": "GREEN",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "GET /api/v1/cases?trangThaiPhanHoi=DA_PHAN_HOI",
+      "role": "OFFICER",
+      "title": "Filter UTDT DA_PHAN_HOI",
+      "pre": "DB có UTDT đã phản hồi",
+      "steps": "GET ?caseType=UY_THAC_DIEU_TRA&trangThaiPhanHoi=DA_PHAN_HOI",
+      "expected": "HTTP 200, items đều thỏa ketQua≠null AND ngayTra≠null",
+      "data": [
+        "utdt.da_phan_hoi.D60"
+      ]
+    },
+    {
+      "id": "TC-UTDT-010",
+      "type": "GREEN",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "GET /api/v1/cases?trangThaiPhanHoi=QUA_HAN",
+      "role": "OFFICER",
+      "title": "Filter UTDT QUA_HAN",
+      "pre": "DB có UTDT quá hạn",
+      "steps": "GET ?trangThaiPhanHoi=QUA_HAN",
+      "expected": "HTTP 200, items đều thoiHanUyThac<now + ketQua=null",
+      "data": [
+        "utdt.qua_han.D90"
+      ]
+    },
+    {
+      "id": "TC-UTDT-011",
+      "type": "GREEN",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "GET /api/v1/cases?donViGiao=PC01",
+      "role": "OFFICER",
+      "title": "Filter UTDT theo donViGiao (substring)",
+      "pre": "-",
+      "steps": "GET ?caseType=UY_THAC_DIEU_TRA&donViGiao=PC01",
+      "expected": "HTTP 200, items.donViGiao chứa 'PC01' (case-insensitive)",
+      "data": [
+        "utdt.donvi_pc01.D0"
+      ]
+    },
+    {
+      "id": "TC-UTDT-012",
+      "type": "GREEN",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "GET /api/v1/cases?ngayTiepNhanFrom=…&ngayTiepNhanTo=…",
+      "role": "OFFICER",
+      "title": "Filter UTDT date range",
+      "pre": "-",
+      "steps": "GET ?ngayTiepNhanFrom=2026-01-01&ngayTiepNhanTo=2026-06-30",
+      "expected": "HTTP 200, items.ngayTiepNhan trong khoảng",
+      "data": [
+        "utdt.shape.normal.D0"
+      ]
+    },
+    {
+      "id": "TC-UTDT-013",
+      "type": "GREEN",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "GET /api/v1/cases?investigatorName=…",
+      "role": "OFFICER",
+      "title": "Filter UTDT theo tên ĐTV",
+      "pre": "-",
+      "steps": "GET ?investigatorName=Nguyễn",
+      "expected": "HTTP 200, items investigator name match",
+      "data": [
+        "utdt.shape.normal.D0"
+      ]
+    },
+    {
+      "id": "TC-UTDT-014",
+      "type": "GREEN",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "GET /api/v1/cases/:id",
+      "role": "OFFICER",
+      "title": "Xem chi tiết UTDT — đủ field",
+      "pre": "-",
+      "steps": "GET /api/v1/cases/{{utdt_id}}",
+      "expected": "HTTP 200, response có đủ donViGiao, soQuyetDinhUyThac, loaiUyThac, ngày…, computed trangThaiPhanHoi",
+      "data": [
+        "utdt.chua_phan_hoi.D30"
+      ]
+    },
+    {
+      "id": "TC-UTDT-015",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/cases",
+      "role": "OFFICER",
+      "title": "caseType=UY_THAC_DIEU_TRA nhưng caseProvenance khác → 400 hoặc bị reject",
+      "pre": "-",
+      "steps": "POST {caseType:'UY_THAC_DIEU_TRA', caseProvenance:'DIRECT_DISCOVERY'}",
+      "expected": "HTTP 400 nếu service enforce match, hoặc 201 với mismatch warning",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-UTDT-016",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "POST /api/v1/cases",
+      "role": "OFFICER",
+      "title": "loaiUyThac ngoài enum → 400",
+      "pre": "-",
+      "steps": "POST {caseType:'UY_THAC_DIEU_TRA', loaiUyThac:'INVALID'}",
+      "expected": "HTTP 400, IsEnum LoaiUyThac fail",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-UTDT-017",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "POST /api/v1/cases",
+      "role": "OFFICER",
+      "title": "donViGiao vượt 500 ký tự → 400",
+      "pre": "-",
+      "steps": "POST donViGiao length=501",
+      "expected": "HTTP 400",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-UTDT-018",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "POST /api/v1/cases",
+      "role": "OFFICER",
+      "title": "soQuyetDinhUyThac vượt 100 ký tự → 400",
+      "pre": "-",
+      "steps": "POST soQuyetDinhUyThac length=101",
+      "expected": "HTTP 400",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-UTDT-019",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "POST /api/v1/cases",
+      "role": "OFFICER",
+      "title": "ngayTiepNhan sai format → 400",
+      "pre": "-",
+      "steps": "POST ngayTiepNhan='30/05/2026'",
+      "expected": "HTTP 400, IsDateString",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-UTDT-020",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "POST /api/v1/cases",
+      "role": "OFFICER",
+      "title": "thoiHanUyThac sai format → 400",
+      "pre": "-",
+      "steps": "POST thoiHanUyThac='soon'",
+      "expected": "HTTP 400",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-UTDT-021",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "POST /api/v1/cases",
+      "role": "OFFICER",
+      "title": "loaiThongTin vượt 200 ký tự → 400",
+      "pre": "-",
+      "steps": "POST loaiThongTin length=201",
+      "expected": "HTTP 400",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-UTDT-022",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "GET /api/v1/cases",
+      "role": "OFFICER",
+      "title": "Query caseType ngoài enum → 400",
+      "pre": "-",
+      "steps": "GET ?caseType=INVALID",
+      "expected": "HTTP 400",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-UTDT-023",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "GET /api/v1/cases",
+      "role": "OFFICER",
+      "title": "trangThaiPhanHoi ngoài 4 value → 400",
+      "pre": "-",
+      "steps": "GET ?trangThaiPhanHoi=NEW_STATE",
+      "expected": "HTTP 400, IsIn 4 values",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-UTDT-024",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "GET /api/v1/cases/utdt-stats",
+      "role": "OFFICER",
+      "title": "utdt-stats không scope → 403",
+      "pre": "User không có read/Case",
+      "steps": "GET /utdt-stats",
+      "expected": "HTTP 403",
+      "data": [
+        "account.viewer.D0"
+      ]
+    },
+    {
+      "id": "TC-UTDT-025",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/cases",
+      "role": "OFFICER",
+      "title": "UTDT thiếu caseProvenance → 400",
+      "pre": "-",
+      "steps": "POST {caseType:'UY_THAC_DIEU_TRA'} không caseProvenance",
+      "expected": "HTTP 400, caseProvenance bắt buộc",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-UTDT-026",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "PUT /api/v1/cases/:id",
+      "role": "OFFICER",
+      "title": "Update UTDT không thuộc scope → 403/404",
+      "pre": "-",
+      "steps": "PUT other team UTDT",
+      "expected": "HTTP 403/404",
+      "data": [
+        "utdt.other_team.D0"
+      ]
+    },
+    {
+      "id": "TC-UTDT-027",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "PUT /api/v1/cases/:id",
+      "role": "OFFICER",
+      "title": "PUT đổi caseType từ UTDT → REGULAR → 400 (immutable)",
+      "pre": "-",
+      "steps": "PUT {caseType:'REGULAR'}",
+      "expected": "HTTP 400 hoặc strip",
+      "data": [
+        "utdt.chua_phan_hoi.D30"
+      ]
+    },
+    {
+      "id": "TC-UTDT-028",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "PUT /api/v1/cases/:id",
+      "role": "OFFICER",
+      "title": "PUT ketQuaUyThac chỉ có ngayTraKetQua không có ketQua → state vẫn CHUA",
+      "pre": "UTDT chưa phản hồi",
+      "steps": "PUT {ngayTraKetQua:'2026-07-15'} không ketQuaUyThac",
+      "expected": "HTTP 200, computed vẫn CHUA_PHAN_HOI (cần cả 2 mới DA_PHAN_HOI)",
+      "data": [
+        "utdt.chua_phan_hoi.D30"
+      ]
+    },
+    {
+      "id": "TC-UTDT-029",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "GET /api/v1/cases",
+      "role": "OFFICER",
+      "title": "UTDT search > 200 chars → 400",
+      "pre": "-",
+      "steps": "GET ?search=<201>&caseType=UY_THAC_DIEU_TRA",
+      "expected": "HTTP 400",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-UTDT-030",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "POST /api/v1/cases",
+      "role": "OFFICER",
+      "title": "UTDT với ngayTiepNhan tương lai → 400 hoặc warning",
+      "pre": "-",
+      "steps": "POST ngayTiepNhan='2027-01-01'",
+      "expected": "HTTP 201 (validator chỉ ISO) hoặc 400 nếu rule",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-UTDT-031",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "GET /api/v1/cases/utdt-stats",
+      "role": "OFFICER",
+      "title": "utdt-stats không phải UTDT scope leak Regular case → fail",
+      "pre": "-",
+      "steps": "Verify response only counts UTDT cases",
+      "expected": "byTrangThai counts đều ≤ tổng UTDT cases, không lẫn Regular",
+      "data": [
+        "cases.mixed_type.D0"
+      ]
+    },
+    {
+      "id": "TC-UTDT-032",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "POST /api/v1/cases",
+      "role": "OFFICER",
+      "title": "UTDT với thoiHanUyThac < ngayTiepNhan → 400/warning",
+      "pre": "-",
+      "steps": "POST {ngayTiepNhan:'2026-05-30', thoiHanUyThac:'2026-05-01'}",
+      "expected": "HTTP 400 nếu rule, hoặc 201 với log",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-UTDT-033",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "GET /api/v1/cases",
+      "role": "OFFICER",
+      "title": "trangThaiPhanHoi=QUA_HAN nhưng thiếu caseType=UY_THAC_DIEU_TRA → 200 nhưng items khác kỳ vọng",
+      "pre": "-",
+      "steps": "GET ?trangThaiPhanHoi=QUA_HAN không caseType",
+      "expected": "HTTP 200 — filter apply trên REGULAR (default) → có thể empty",
+      "data": [
+        "utdt.qua_han.D90"
+      ]
+    },
+    {
+      "id": "TC-UTDT-034",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "POST /api/v1/cases",
+      "role": "OFFICER",
+      "title": "UTDT với soQuyetDinhUyThac trùng (Mẫu 58 conflict) → 409 nếu unique",
+      "pre": "-",
+      "steps": "POST 2 lần cùng soQuyetDinhUyThac",
+      "expected": "HTTP 409 nếu unique constraint, hoặc 201 cả 2 nếu chỉ là string",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-UTDT-035",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "PUT /api/v1/cases/:id",
+      "role": "OFFICER",
+      "title": "PUT UTDT đã DA_PHAN_HOI — đổi ngayTraKetQua = null → state đổi",
+      "pre": "UTDT DA_PHAN_HOI",
+      "steps": "PUT {ngayTraKetQua:null}",
+      "expected": "HTTP 200, computed state ngược về CHUA_PHAN_HOI",
+      "data": [
+        "utdt.da_phan_hoi.D60"
+      ]
+    },
+    {
+      "id": "TC-UTDT-036",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "GET /api/v1/cases",
+      "role": "OFFICER",
+      "title": "loaiUyThac filter ngoài enum → 400",
+      "pre": "-",
+      "steps": "GET ?loaiUyThac=INVALID",
+      "expected": "HTTP 400",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-UTDT-037",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "GET /api/v1/cases",
+      "role": "OFFICER",
+      "title": "ngayTiepNhanFrom sai format → 400",
+      "pre": "-",
+      "steps": "GET ?ngayTiepNhanFrom='hôm qua'",
+      "expected": "HTTP 400",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-UTDT-038",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "GET /api/v1/cases",
+      "role": "OFFICER",
+      "title": "ngayTiepNhanFrom > ngayTiepNhanTo → 200 empty",
+      "pre": "-",
+      "steps": "GET fromDate > toDate",
+      "expected": "HTTP 200, items=[]",
+      "data": [
+        "utdt.shape.normal.D0"
+      ]
+    },
+    {
+      "id": "TC-UTDT-039",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "POST /api/v1/cases",
+      "role": "OFFICER",
+      "title": "UTDT thiếu donViGiao → 201 (optional) hoặc 400 nếu rule",
+      "pre": "-",
+      "steps": "POST không donViGiao",
+      "expected": "HTTP 201 (vì optional theo DTO)",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-UTDT-040",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "DELETE /api/v1/cases/:id",
+      "role": "OFFICER",
+      "title": "DELETE UTDT (kế thừa case delete rules) — DA_PHAN_HOI thì cấm xóa hoặc cho phép",
+      "pre": "-",
+      "steps": "DELETE UTDT DA_PHAN_HOI",
+      "expected": "Verify rule: cho phép soft-delete với reason",
+      "data": [
+        "utdt.da_phan_hoi.D60"
+      ]
+    },
+    {
+      "id": "TC-UTDT-041",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "GET /api/v1/cases/utdt-stats",
+      "role": "OFFICER",
+      "title": "utdt-stats với scope filter (donViGiao) → counts đúng theo filter",
+      "pre": "-",
+      "steps": "GET /utdt-stats?donViGiao=PC01",
+      "expected": "HTTP 200, byTrangThai chỉ tính UTDT có donViGiao=PC01",
+      "data": [
+        "utdt.donvi_pc01.D0",
+        "utdt.donvi_pc02.D0"
+      ]
+    },
+    {
+      "id": "TC-UTDT-042",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "PUT /api/v1/cases/:id",
+      "role": "OFFICER",
+      "title": "PUT metadata.lyDoKhongThucHienDuoc='' (empty) → state vẫn CHUA",
+      "pre": "-",
+      "steps": "PUT {metadata:{lyDoKhongThucHienDuoc:''}}",
+      "expected": "HTTP 200, computed CHUA_PHAN_HOI (empty không count)",
+      "data": [
+        "utdt.chua_phan_hoi.D30"
+      ]
+    },
+    {
+      "id": "TC-UTDT-043",
+      "type": "BOUNDARY",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "POST /api/v1/cases",
+      "role": "OFFICER",
+      "title": "donViGiao = 500 ký tự (max) → 201",
+      "pre": "-",
+      "steps": "POST donViGiao length=500",
+      "expected": "HTTP 201",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-UTDT-044",
+      "type": "BOUNDARY",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "POST /api/v1/cases",
+      "role": "OFFICER",
+      "title": "donViGiao = 501 → 400",
+      "pre": "-",
+      "steps": "POST donViGiao length=501",
+      "expected": "HTTP 400",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-UTDT-045",
+      "type": "BOUNDARY",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "POST /api/v1/cases",
+      "role": "OFFICER",
+      "title": "soQuyetDinhUyThac = 100 ký tự (max)",
+      "pre": "-",
+      "steps": "POST length=100",
+      "expected": "HTTP 201",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-UTDT-046",
+      "type": "BOUNDARY",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "POST /api/v1/cases",
+      "role": "OFFICER",
+      "title": "soQuyetDinhUyThac = 101 → 400",
+      "pre": "-",
+      "steps": "POST length=101",
+      "expected": "HTTP 400",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-UTDT-047",
+      "type": "BOUNDARY",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "POST /api/v1/cases",
+      "role": "OFFICER",
+      "title": "loaiThongTin = 200 ký tự (max)",
+      "pre": "-",
+      "steps": "POST length=200",
+      "expected": "HTTP 201",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-UTDT-048",
+      "type": "BOUNDARY",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "PUT /api/v1/cases/:id",
+      "role": "OFFICER",
+      "title": "thoiHanUyThac = now exactly — state QUA_HAN không trigger (≤)",
+      "pre": "-",
+      "steps": "PUT thoiHanUyThac={{now}}",
+      "expected": "HTTP 200, computed state CHUA_PHAN_HOI (vì < not ≤)",
+      "data": [
+        "utdt.chua_phan_hoi.D30"
+      ]
+    },
+    {
+      "id": "TC-UTDT-049",
+      "type": "BOUNDARY",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "PUT /api/v1/cases/:id",
+      "role": "OFFICER",
+      "title": "thoiHanUyThac = now-1ms — state QUA_HAN trigger",
+      "pre": "-",
+      "steps": "PUT thoiHanUyThac={{now-1ms}}",
+      "expected": "HTTP 200, computed QUA_HAN",
+      "data": [
+        "utdt.chua_phan_hoi.D30"
+      ]
+    },
+    {
+      "id": "TC-UTDT-050",
+      "type": "BOUNDARY",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "GET /api/v1/cases",
+      "role": "OFFICER",
+      "title": "caseType filter empty string → 400 hoặc default",
+      "pre": "-",
+      "steps": "GET ?caseType=",
+      "expected": "HTTP 400 (IsEnum reject) hoặc 200 với default REGULAR",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-UTDT-051",
+      "type": "EDGE",
+      "priority": "P2",
+      "severity": "Medium",
+      "endpoint": "POST /api/v1/cases",
+      "role": "OFFICER",
+      "title": "UTDT với loaiUyThac giống caseProvenance (cả 2 đều UY_THAC_DIEU_TRA)",
+      "pre": "-",
+      "steps": "POST {caseProvenance:'UY_THAC_DIEU_TRA', loaiUyThac:'UY_THAC_DIEU_TRA'}",
+      "expected": "HTTP 201 (cùng tên enum nhưng 2 enum khác nhau OK)",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-UTDT-052",
+      "type": "EP",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "POST /api/v1/cases",
+      "role": "OFFICER",
+      "title": "LoaiUyThac đủ 3 partition",
+      "pre": "-",
+      "steps": "Loop {UY_THAC_DIEU_TRA, CHUYEN_DON_NGUON_TIN, UY_THAC_GIAI_QUYET}",
+      "expected": "3 lần 201",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-UTDT-053",
+      "type": "EP",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "GET /api/v1/cases",
+      "role": "OFFICER",
+      "title": "trangThaiPhanHoi đủ 4 partition",
+      "pre": "DB có UTDT đủ 4 state",
+      "steps": "Loop 4 ?trangThaiPhanHoi",
+      "expected": "Mỗi truy vấn trả đúng tập",
+      "data": [
+        "utdt.all_state.D0"
+      ]
+    },
+    {
+      "id": "TC-UTDT-054",
+      "type": "EP",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "GET /api/v1/cases",
+      "role": "OFFICER",
+      "title": "caseType partition (REGULAR vs UY_THAC_DIEU_TRA)",
+      "pre": "-",
+      "steps": "GET ?caseType=REGULAR rồi UY_THAC_DIEU_TRA",
+      "expected": "Items khác hẳn",
+      "data": [
+        "cases.mixed_type.D0"
+      ]
+    },
+    {
+      "id": "TC-UTDT-055",
+      "type": "EP",
+      "priority": "P2",
+      "severity": "Medium",
+      "endpoint": "GET /api/v1/cases",
+      "role": "OFFICER",
+      "title": "donViGiao partition (PC01/PC02/CA Quận)",
+      "pre": "-",
+      "steps": "Loop 3 substring",
+      "expected": "Mỗi value trả đúng",
+      "data": [
+        "utdt.donvi_pc01.D0",
+        "utdt.donvi_pc02.D0"
+      ]
+    },
+    {
+      "id": "TC-UTDT-056",
+      "type": "EP",
+      "priority": "P2",
+      "severity": "Medium",
+      "endpoint": "GET /api/v1/cases",
+      "role": "OFFICER",
+      "title": "loaiThongTin partition (Tố giác / Trình báo / Đề nghị / Kiến nghị)",
+      "pre": "-",
+      "steps": "Loop 4 strings",
+      "expected": "Match",
+      "data": [
+        "utdt.shape.normal.D0"
+      ]
+    },
+    {
+      "id": "TC-UTDT-057",
+      "type": "EP",
+      "priority": "P2",
+      "severity": "Low",
+      "endpoint": "GET /api/v1/cases",
+      "role": "OFFICER",
+      "title": "sortBy partition (ngayTiepNhan/thoiHanUyThac/createdAt)",
+      "pre": "-",
+      "steps": "3 sortBy × 2 sortOrder",
+      "expected": "6 lần 200",
+      "data": [
+        "utdt.shape.normal.D0"
+      ]
+    },
+    {
+      "id": "TC-UTDT-058",
+      "type": "EP",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "PUT /api/v1/cases/:id",
+      "role": "OFFICER",
+      "title": "ketQuaUyThac partition (short / long / empty)",
+      "pre": "-",
+      "steps": "3 case: 'OK', '<300 chars>', ''",
+      "expected": "3 lần 200",
+      "data": [
+        "utdt.chua_phan_hoi.D30"
+      ]
+    },
+    {
+      "id": "TC-UTDT-059",
+      "type": "EP",
+      "priority": "P2",
+      "severity": "Low",
+      "endpoint": "GET /api/v1/cases",
+      "role": "OFFICER",
+      "title": "investigatorName partition (full/partial/empty)",
+      "pre": "-",
+      "steps": "3 case",
+      "expected": "Mỗi case trả đúng",
+      "data": [
+        "utdt.shape.normal.D0"
+      ]
+    },
+    {
+      "id": "TC-UTDT-060",
+      "type": "STATE",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "PUT /api/v1/cases/:id",
+      "role": "OFFICER",
+      "title": "Transition computed: CHUA_PHAN_HOI → DA_PHAN_HOI (set cả ketQua+ngayTra)",
+      "pre": "UTDT CHUA",
+      "steps": "PUT đủ 2 field",
+      "expected": "HTTP 200, computed DA_PHAN_HOI",
+      "data": [
+        "utdt.chua_phan_hoi.D30"
+      ]
+    },
+    {
+      "id": "TC-UTDT-061",
+      "type": "STATE",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "PUT /api/v1/cases/:id",
+      "role": "OFFICER",
+      "title": "State CHUA → KHONG_THUC_HIEN_DUOC (set metadata.lyDoKhongThucHienDuoc)",
+      "pre": "UTDT CHUA",
+      "steps": "PUT metadata.lyDoKhongThucHienDuoc='Đối tượng chết'",
+      "expected": "HTTP 200, computed KHONG_THUC_HIEN_DUOC",
+      "data": [
+        "utdt.chua_phan_hoi.D30"
+      ]
+    },
+    {
+      "id": "TC-UTDT-062",
+      "type": "STATE",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "Job: cron-based",
+      "role": "SYSTEM",
+      "title": "State CHUA → QUA_HAN (auto khi thoiHanUyThac < now)",
+      "pre": "UTDT CHUA, thoiHanUyThac sắp hết",
+      "steps": "Wait until thoiHanUyThac < now (hoặc trigger cron)",
+      "expected": "computed QUA_HAN (không cần update DB, là computed)",
+      "data": [
+        "utdt.chua_phan_hoi.expiring.D0"
+      ]
+    },
+    {
+      "id": "TC-UTDT-063",
+      "type": "STATE",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "PUT /api/v1/cases/:id",
+      "role": "OFFICER",
+      "title": "State QUA_HAN → DA_PHAN_HOI (trả kết quả muộn)",
+      "pre": "UTDT QUA_HAN",
+      "steps": "PUT {ketQuaUyThac, ngayTraKetQua}",
+      "expected": "HTTP 200, computed DA_PHAN_HOI",
+      "data": [
+        "utdt.qua_han.D90"
+      ]
+    },
+    {
+      "id": "TC-UTDT-064",
+      "type": "STATE",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "PUT /api/v1/cases/:id",
+      "role": "OFFICER",
+      "title": "State KHONG_THUC_HIEN_DUOC → DA_PHAN_HOI (gỡ lyDo + set ketQua)",
+      "pre": "UTDT KHONG_THUC_HIEN_DUOC",
+      "steps": "PUT {metadata:{}, ketQuaUyThac, ngayTraKetQua}",
+      "expected": "HTTP 200, computed DA_PHAN_HOI",
+      "data": [
+        "utdt.khong_thuc_hien.D30"
+      ]
+    },
+    {
+      "id": "TC-UTDT-065",
+      "type": "DECISION",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "GET /api/v1/cases/utdt-stats",
+      "role": "OFFICER",
+      "title": "Decision matrix computed state — 4×3 (state × scenario)",
+      "pre": "-",
+      "steps": "3 scenario mỗi state: (default), (with filter donViGiao), (with date range)",
+      "expected": "12 cell counts đúng theo buildTrangThaiFilter",
+      "data": [
+        "utdt.all_state.D0"
+      ]
+    },
+    {
+      "id": "TC-UTDT-066",
+      "type": "DECISION",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "PUT /api/v1/cases/:id",
+      "role": "OFFICER",
+      "title": "Decision matrix computed: ketQua × ngayTra × thoiHan × lyDo (truth table 16 cells)",
+      "pre": "-",
+      "steps": "16 combination → compute expected state",
+      "expected": "Mỗi combo match TrangThaiPhanHoi spec",
+      "data": [
+        "utdt.chua_phan_hoi.D30"
+      ]
+    },
+    {
+      "id": "TC-UTDT-067",
+      "type": "DECISION",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "GET /api/v1/cases",
+      "role": "OFFICER",
+      "title": "Decision matrix filter combo (caseType × trangThaiPhanHoi × loaiUyThac)",
+      "pre": "-",
+      "steps": "2×4×3 = 24 cell sample",
+      "expected": "Mỗi truy vấn trả tập đúng (no leak Regular khi caseType=UTDT)",
+      "data": [
+        "utdt.all_state.D0"
+      ]
+    },
+    {
+      "id": "TC-UTDT-068",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/cases",
+      "role": "OFFICER",
+      "title": "UTDT XSS donViGiao",
+      "pre": "-",
+      "steps": "POST donViGiao='<script>alert(1)</script>PC01'",
+      "expected": "HTTP 201, lưu literal, render UI escape",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-UTDT-069",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "POST /api/v1/cases",
+      "role": "OFFICER",
+      "title": "SQL injection trong donViGiao filter",
+      "pre": "-",
+      "steps": "GET ?donViGiao=' OR 1=1; --",
+      "expected": "HTTP 200, ILIKE param safe, không trả tất cả",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-UTDT-070",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "POST /api/v1/cases",
+      "role": "OFFICER",
+      "title": "UTDT metadata.lyDoKhongThucHienDuoc — JSON injection",
+      "pre": "-",
+      "steps": "POST {metadata:{lyDoKhongThucHienDuoc:{nested:{}}}}",
+      "expected": "HTTP 201 (Prisma JSONB lưu raw), computed state KHONG_THUC_HIEN_DUOC (vì path['lyDoKhongThucHienDuoc'] not Prisma.JsonNull)",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-UTDT-071",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "GET /api/v1/cases",
+      "role": "OFFICER",
+      "title": "investigatorName injection — '%' wildcard",
+      "pre": "-",
+      "steps": "GET ?investigatorName=%",
+      "expected": "HTTP 200, không leak tất cả (ILIKE escape %)",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-UTDT-072",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "PUT /api/v1/cases/:id",
+      "role": "OFFICER",
+      "title": "PUT UTDT ngayTraKetQua = future date",
+      "pre": "-",
+      "steps": "PUT ngayTraKetQua='2030-01-01'",
+      "expected": "HTTP 200 (DTO chỉ ISO check) — có thể warning business",
+      "data": [
+        "utdt.chua_phan_hoi.D30"
+      ]
+    },
+    {
+      "id": "TC-UTDT-073",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "GET /api/v1/cases/utdt-stats",
+      "role": "OFFICER",
+      "title": "utdt-stats với scope filter wardId → counts đúng cho ward",
+      "pre": "-",
+      "steps": "GET /utdt-stats?wardId={{ward}}",
+      "expected": "counts chỉ tính UTDT trong ward",
+      "data": [
+        "utdt.shape.full.D0"
+      ]
+    },
+    {
+      "id": "TC-UTDT-074",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "GET /api/v1/cases",
+      "role": "OFFICER",
+      "title": "UTDT empty DB → stats 0/0/0/0",
+      "pre": "DB không có UTDT",
+      "steps": "GET /utdt-stats",
+      "expected": "HTTP 200, byTrangThai = {DA_PHAN_HOI:0, KHONG_THUC_HIEN_DUOC:0, QUA_HAN:0, CHUA_PHAN_HOI:0}",
+      "data": [
+        "cases.no_utdt.D0"
+      ]
+    },
+    {
+      "id": "TC-UTDT-075",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "GET /api/v1/cases",
+      "role": "OFFICER",
+      "title": "UTDT scope strict — officer team A không thấy UTDT team B",
+      "pre": "-",
+      "steps": "GET ?caseType=UY_THAC_DIEU_TRA",
+      "expected": "HTTP 200, items chỉ team A",
+      "data": [
+        "utdt.other_team.D0",
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-UTDT-076",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/cases",
+      "role": "VIEWER",
+      "title": "VIEWER không write/Case → 403",
+      "pre": "-",
+      "steps": "POST UTDT với VIEWER",
+      "expected": "HTTP 403",
+      "data": [
+        "account.viewer.D0"
+      ]
+    },
+    {
+      "id": "TC-UTDT-077",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "PUT /api/v1/cases/:id",
+      "role": "OFFICER",
+      "title": "PUT UTDT đã deleted → 410/404",
+      "pre": "-",
+      "steps": "PUT",
+      "expected": "HTTP 410/404",
+      "data": [
+        "utdt.deleted.D7"
+      ]
+    },
+    {
+      "id": "TC-UTDT-078",
+      "type": "SECURITY",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "GET /api/v1/cases/:id",
+      "role": "OFFICER",
+      "title": "IDOR — UTDT team khác → 403/404",
+      "pre": "-",
+      "steps": "GET other team UTDT",
+      "expected": "HTTP 403/404",
+      "data": [
+        "utdt.other_team.D0",
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-UTDT-079",
+      "type": "SECURITY",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "GET /api/v1/cases/utdt-stats",
+      "role": "OFFICER",
+      "title": "Stats không leak counts cross-team",
+      "pre": "-",
+      "steps": "GET utdt-stats với officer A, sau đó officer B — verify counts khác nhau theo scope",
+      "expected": "Counts strict theo dataScope",
+      "data": [
+        "account.officer.primary",
+        "account.officer.secondary",
+        "utdt.cross_team.D0"
+      ]
+    },
+    {
+      "id": "TC-UTDT-080",
+      "type": "SECURITY",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/cases",
+      "role": "OFFICER",
+      "title": "Prototype pollution metadata.__proto__",
+      "pre": "-",
+      "steps": "POST {metadata:{__proto__:{admin:true}}}",
+      "expected": "HTTP 201, không pollute",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-UTDT-081",
+      "type": "SECURITY",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "PUT /api/v1/cases/:id",
+      "role": "OFFICER",
+      "title": "Mass assignment UTDT — gửi caseProvenance, createdById",
+      "pre": "-",
+      "steps": "PUT {caseProvenance:'DIRECT_DISCOVERY', createdById:'attacker'}",
+      "expected": "HTTP 400 (whitelist) hoặc strip",
+      "data": [
+        "utdt.chua_phan_hoi.D30"
+      ]
+    },
+    {
+      "id": "TC-UTDT-082",
+      "type": "SECURITY",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "POST /api/v1/cases",
+      "role": "OFFICER",
+      "title": "Audit log UTDT có UTDT-specific fields",
+      "pre": "-",
+      "steps": "POST UTDT + check audit_log",
+      "expected": "audit có donViGiao, soQuyetDinhUyThac trong oldValues/newValues",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-UTDT-083",
+      "type": "SECURITY",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "GET /api/v1/cases",
+      "role": "OFFICER",
+      "title": "UTDT stats RATE LIMIT (chống mass query)",
+      "pre": "-",
+      "steps": "100 GET /utdt-stats trong 60s",
+      "expected": "Sau threshold throttle 429",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-UTDT-084",
+      "type": "SECURITY",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "POST /api/v1/cases",
+      "role": "OFFICER",
+      "title": "UTDT-related fields không leak qua /api/v1/cases (REGULAR)",
+      "pre": "-",
+      "steps": "GET /api/v1/cases?caseType=REGULAR",
+      "expected": "Items REGULAR có UTDT fields đều null/undefined",
+      "data": [
+        "cases.mixed_type.D0"
+      ]
+    },
+    {
+      "id": "TC-UTDT-085",
+      "type": "SECURITY",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "PATCH /api/v1/cases/:id/assign",
+      "role": "ADMIN",
+      "title": "Assign UTDT — verify DispatchGuard",
+      "pre": "-",
+      "steps": "PATCH /assign UTDT",
+      "expected": "HTTP 200 cho admin với canDispatch",
+      "data": [
+        "utdt.unassigned.D0",
+        "account.admin.primary",
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-UTDT-086",
+      "type": "SECURITY",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "GET /api/v1/cases",
+      "role": "OFFICER",
+      "title": "UTDT search bypass caseType — verify can NOT bypass",
+      "pre": "-",
+      "steps": "GET ?search=PC01 (UTDT donViGiao có PC01)",
+      "expected": "HTTP 200 — REGULAR mode default exclude UTDT, không leak UTDT name qua search",
+      "data": [
+        "utdt.donvi_pc01.D0",
+        "cases.regular.D0"
+      ]
+    },
+    {
+      "id": "TC-UTDT-087",
+      "type": "SECURITY",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "GET /api/v1/cases/utdt-stats",
+      "role": "OFFICER",
+      "title": "Verify counts buildTrangThaiFilter chính xác (đơn vị test)",
+      "pre": "DB seed 4 UTDT đúng 4 state",
+      "steps": "GET",
+      "expected": "Counts (1,1,1,1)",
+      "data": [
+        "utdt.all_state.D0"
+      ]
+    },
+    {
+      "id": "TC-UTDT-088",
+      "type": "DATA",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "POST /api/v1/cases",
+      "role": "OFFICER",
+      "title": "UTDT donViGiao tiếng Việt + dấu",
+      "pre": "-",
+      "steps": "POST donViGiao='Công an Quận Đống Đa — PC01'",
+      "expected": "HTTP 201, GET lại đúng",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-UTDT-089",
+      "type": "DATA",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "POST /api/v1/cases",
+      "role": "OFFICER",
+      "title": "UTDT soQuyetDinhUyThac format chuẩn Mẫu 58",
+      "pre": "-",
+      "steps": "POST soQuyetDinhUyThac='58/2026/UTĐT-PC02'",
+      "expected": "HTTP 201",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-UTDT-090",
+      "type": "SECURITY",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "GET /api/v1/cases",
+      "role": "OFFICER",
+      "title": "caseType=UY_THAC_DIEU_TRA scope chặt + wardTeamId verify",
+      "pre": "-",
+      "steps": "GET ?caseType=UY_THAC_DIEU_TRA&wardTeamId={{other_team_ward}}",
+      "expected": "HTTP 200, items=[] nếu officer không có wardTeam khớp — không leak qua wardTeamId param",
+      "data": [
+        "utdt.shape.full.D0",
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-UTDT-091",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "PUT /api/v1/cases/:id",
+      "role": "OFFICER",
+      "title": "PUT UTDT thay đổi loaiUyThac giữa chừng",
+      "pre": "UTDT đang xử lý",
+      "steps": "PUT loaiUyThac từ UY_THAC_DIEU_TRA → CHUYEN_DON_NGUON_TIN",
+      "expected": "HTTP 200 (allowed) hoặc 400 nếu rule immutable",
+      "data": [
+        "utdt.chua_phan_hoi.D30"
+      ]
+    },
+    {
+      "id": "TC-UTDT-092",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "GET /api/v1/cases",
+      "role": "OFFICER",
+      "title": "UTDT export/ward — verify chỉ UTDT trong ward",
+      "pre": "-",
+      "steps": "GET /export/ward với UTDT data",
+      "expected": "Excel chỉ chứa UTDT cases theo ward",
+      "data": [
+        "utdt.shape.full.D0"
+      ]
+    },
+    {
+      "id": "TC-UTDT-093",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "PUT /api/v1/cases/:id",
+      "role": "OFFICER",
+      "title": "PUT UTDT với expectedUpdatedAt stale → 409",
+      "pre": "-",
+      "steps": "PUT stale optimistic lock",
+      "expected": "HTTP 409",
+      "data": [
+        "utdt.recently_edited.D0"
+      ]
+    },
+    {
+      "id": "TC-UTDT-094",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "GET /api/v1/cases/:id/journey",
+      "role": "OFFICER",
+      "title": "Journey UTDT — events specific (assign, update ketQua, status change)",
+      "pre": "-",
+      "steps": "GET /journey UTDT",
+      "expected": "HTTP 200, events có UTDT-specific (ketQua change, lyDoKhongThucHienDuoc set)",
+      "data": [
+        "utdt.with_events.D60"
+      ]
+    },
+    {
+      "id": "TC-UTDT-095",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "DELETE /api/v1/cases/:id",
+      "role": "OFFICER",
+      "title": "DELETE UTDT với reason hợp lệ",
+      "pre": "-",
+      "steps": "DELETE body {reason:'UTDT bị thu hồi bởi đơn vị giao'}",
+      "expected": "HTTP 200",
+      "data": [
+        "utdt.creator_owned.D0"
+      ]
+    },
+    {
+      "id": "TC-UTDT-096",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "POST /api/v1/cases/:id/restore",
+      "role": "ADMIN",
+      "title": "Restore UTDT đã xóa mềm",
+      "pre": "-",
+      "steps": "POST /restore reason='Khôi phục theo yêu cầu PC01'",
+      "expected": "HTTP 200, deletedAt=null",
+      "data": [
+        "utdt.deleted.D7",
+        "account.admin.primary"
+      ]
+    },
+    {
+      "id": "TC-UTDT-097",
+      "type": "A11Y",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "UI: /cases/new (tab Ủy thác)",
+      "role": "OFFICER",
+      "title": "Tab 'Thông tin Ủy thác' keyboard nav",
+      "pre": "caseType=UTDT chọn",
+      "steps": "Tab qua các field UTDT",
+      "expected": "Focus visible mọi field section 1/2/3",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-UTDT-098",
+      "type": "A11Y",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "UI: /cases/new",
+      "role": "OFFICER",
+      "title": "Conditional tab visibility — aria-hidden khi REGULAR",
+      "pre": "caseType=REGULAR",
+      "steps": "Inspect tab list",
+      "expected": "Tab Ủy thác có aria-hidden='true' hoặc không render",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-UTDT-099",
+      "type": "A11Y",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "UI: /cases",
+      "role": "OFFICER",
+      "title": "TrangThaiBadge contrast 4 state WCAG AA",
+      "pre": "-",
+      "steps": "Render 4 badge + measure",
+      "expected": "4 pair ≥4.5:1",
+      "data": [
+        "utdt.all_state.D0"
+      ]
+    },
+    {
+      "id": "TC-UTDT-100",
+      "type": "A11Y",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "UI: /cases/new",
+      "role": "OFFICER",
+      "title": "Field loaiUyThac dropdown — aria-label + role='combobox'",
+      "pre": "-",
+      "steps": "Inspect select",
+      "expected": "role='combobox' aria-expanded",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-UTDT-101",
+      "type": "A11Y",
+      "priority": "P2",
+      "severity": "Low",
+      "endpoint": "UI: /cases/new",
+      "role": "OFFICER",
+      "title": "Date input ngayTiepNhan + thoiHanUyThac — aria-describedby format hint",
+      "pre": "-",
+      "steps": "Inspect",
+      "expected": "Hint 'YYYY-MM-DD' có aria-describedby",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-UTDT-102",
+      "type": "A11Y",
+      "priority": "P2",
+      "severity": "Low",
+      "endpoint": "UI: /cases",
+      "role": "OFFICER",
+      "title": "UTDT-stats chips — focus order logic",
+      "pre": "-",
+      "steps": "Tab qua 4 chip",
+      "expected": "Order: DA_PHAN_HOI, KHONG_THUC_HIEN_DUOC, QUA_HAN, CHUA_PHAN_HOI",
+      "data": [
+        "utdt.all_state.D0"
+      ]
+    },
+    {
+      "id": "TC-UTDT-103",
+      "type": "COMPAT",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "UI: /cases (UTDT view)",
+      "role": "OFFICER",
+      "title": "Chromium desktop",
+      "pre": "-",
+      "steps": "Open",
+      "expected": "Tab Ủy thác render",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-UTDT-104",
+      "type": "COMPAT",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "UI: /cases",
+      "role": "OFFICER",
+      "title": "Firefox desktop",
+      "pre": "-",
+      "steps": "Open",
+      "expected": "OK",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-UTDT-105",
+      "type": "COMPAT",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "UI: /cases",
+      "role": "OFFICER",
+      "title": "WebKit desktop",
+      "pre": "-",
+      "steps": "Open",
+      "expected": "Date picker UTDT",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-UTDT-106",
+      "type": "COMPAT",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "UI: /cases",
+      "role": "OFFICER",
+      "title": "Mobile 375 — tab Ủy thác scrollable",
+      "pre": "-",
+      "steps": "Mobile viewport",
+      "expected": "Tab list overflow scroll horizontal",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-UTDT-107",
+      "type": "COMPAT",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "UI: /cases",
+      "role": "OFFICER",
+      "title": "Tablet 768",
+      "pre": "-",
+      "steps": "Tablet viewport",
+      "expected": "Adapt",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-UTDT-108",
+      "type": "PERFORMANCE",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "GET /api/v1/cases?caseType=UY_THAC_DIEU_TRA",
+      "role": "OFFICER",
+      "title": "List 5k UTDT p95 < 800ms",
+      "pre": "-",
+      "steps": "100 GET concurrent",
+      "expected": "p95 < 800ms",
+      "data": [
+        "utdt.shape.large.D0"
+      ]
+    },
+    {
+      "id": "TC-UTDT-109",
+      "type": "PERFORMANCE",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "GET /api/v1/cases/utdt-stats",
+      "role": "OFFICER",
+      "title": "utdt-stats 5k UTDT — 4 parallel computed counts < 600ms",
+      "pre": "-",
+      "steps": "50 GET concurrent",
+      "expected": "p95 < 600ms",
+      "data": [
+        "utdt.shape.large.D0"
+      ]
+    },
+    {
+      "id": "TC-UTDT-110",
+      "type": "PERFORMANCE",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "GET /api/v1/cases?trangThaiPhanHoi=QUA_HAN",
+      "role": "OFFICER",
+      "title": "Filter computed state — query plan có index thoiHanUyThac",
+      "pre": "-",
+      "steps": "GET với 5k UTDT",
+      "expected": "< 1s, query plan dùng index",
+      "data": [
+        "utdt.shape.large.D0"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "batch_number": 5,
+  "feature": "cases",
+  "scope": "7 COMPAT + 3 PERFORMANCE = 10 (final batch để đạt 130 TC)",
+  "test_cases": [
+    {"id":"TC-CASE-121","type":"COMPAT","priority":"P1","severity":"Medium","endpoint":"UI: /cases","role":"OFFICER","title":"Chromium 120+ desktop 1920×1080 render","pre":"-","steps":"Open /cases trên Chromium","expected":"Layout không vỡ, table sticky header, sidebar fixed","data":["account.officer.primary"]},
+    {"id":"TC-CASE-122","type":"COMPAT","priority":"P1","severity":"Medium","endpoint":"UI: /cases","role":"OFFICER","title":"Firefox 121+ desktop render","pre":"-","steps":"Open /cases trên Firefox","expected":"Layout đồng nhất, không CSS-specific Chrome bị break","data":["account.officer.primary"]},
+    {"id":"TC-CASE-123","type":"COMPAT","priority":"P1","severity":"Medium","endpoint":"UI: /cases","role":"OFFICER","title":"Safari/WebKit 17+ desktop","pre":"-","steps":"Open /cases trên WebKit","expected":"Date input picker render, gap không vỡ","data":["account.officer.primary"]},
+    {"id":"TC-CASE-124","type":"COMPAT","priority":"P0","severity":"High","endpoint":"UI: /cases","role":"OFFICER","title":"Mobile 375×667 (iPhone SE) — drawer sidebar PWA","pre":"-","steps":"Set viewport 375×667","expected":"Sidebar collapse drawer, table horizontal scroll, no overflow","data":["account.officer.primary"]},
+    {"id":"TC-CASE-125","type":"COMPAT","priority":"P1","severity":"Medium","endpoint":"UI: /cases","role":"OFFICER","title":"Tablet 768×1024 (iPad)","pre":"-","steps":"Viewport 768","expected":"Sidebar visible, table giữ 6 cột chính","data":["account.officer.primary"]},
+    {"id":"TC-CASE-126","type":"COMPAT","priority":"P2","severity":"Low","endpoint":"UI: /cases/:id","role":"OFFICER","title":"Print stylesheet — print preview rõ ràng","pre":"-","steps":"Ctrl+P trên detail page","expected":"Print view ẩn sidebar, header gọn, không cắt bảng","data":["case.investigating.D0"]},
+    {"id":"TC-CASE-127","type":"COMPAT","priority":"P2","severity":"Low","endpoint":"UI: /cases","role":"OFFICER","title":"Dark mode (prefers-color-scheme: dark) — contrast giữ AA","pre":"OS dark mode","steps":"Open /cases","expected":"Toàn bộ UI có dark variant, không trắng trên trắng","data":["account.officer.primary"]},
+    {"id":"TC-CASE-128","type":"PERFORMANCE","priority":"P0","severity":"High","endpoint":"GET /api/v1/cases","role":"OFFICER","title":"List 10k cases — p95 < 800ms","pre":"DB seed 10000 cases","steps":"100 GET ?limit=20 concurrent","expected":"p95 latency < 800ms, không OOM","data":["cases.shape.large.D0"]},
+    {"id":"TC-CASE-129","type":"PERFORMANCE","priority":"P0","severity":"High","endpoint":"GET /api/v1/cases/stats","role":"OFFICER","title":"Stats aggregation trên 10k cases < 500ms","pre":"-","steps":"50 GET /stats concurrent","expected":"p95 < 500ms, query plan dùng index status","data":["cases.shape.large.D0"]},
+    {"id":"TC-CASE-130","type":"PERFORMANCE","priority":"P0","severity":"High","endpoint":"GET /api/v1/cases/export/ward","role":"OFFICER","title":"Export Excel 5000 rows < 10s","pre":"-","steps":"GET export/ward fromDate=…toDate=cover 5000 cases","expected":"Response < 10s, file size hợp lý, không timeout","data":["cases.shape.large.D0"]}
+  ]
+}

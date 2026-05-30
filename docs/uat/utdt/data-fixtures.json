@@ -1,0 +1,31 @@
+{
+  "feature": "utdt",
+  "description": "Data fixtures cho UAT UTDT (sub-feature của Cases).",
+  "fixtures": [
+    {"fixture_id":"account.officer.primary","ref":"_shared/test-accounts.json#account.officer.primary","setup_recipe":"login officer1@","cleanup_recipe":"-","outputs":{"token":"$.accessToken","teamId":"$.user.primaryTeamId"}},
+    {"fixture_id":"account.officer.secondary","ref":"_shared/test-accounts.json#account.officer.secondary","setup_recipe":"login officer2@","cleanup_recipe":"-","outputs":{"token":"$.accessToken","teamId":"$.user.primaryTeamId"}},
+    {"fixture_id":"account.admin.primary","ref":"_shared/test-accounts.json#account.admin.primary","setup_recipe":"login admin@","cleanup_recipe":"-","outputs":{"token":"$.accessToken"}},
+    {"fixture_id":"account.viewer.D0","setup_recipe":"Admin seed user role VIEWER","cleanup_recipe":"Admin delete","outputs":{"token":"$.accessToken"}},
+    {"fixture_id":"utdt.chua_phan_hoi.D30","setup_recipe":"POST /api/v1/cases {caseType:'UY_THAC_DIEU_TRA', caseProvenance:'UY_THAC_DIEU_TRA', loaiUyThac:'UY_THAC_DIEU_TRA', donViGiao:'PC01', soQuyetDinhUyThac:'58/2026/{{random}}', ngayTiepNhan:{{D-30}}, thoiHanUyThac:{{D+30}}} — ketQua=null, lyDo=null, thoiHan tương lai → CHUA_PHAN_HOI","cleanup_recipe":"DELETE /api/v1/cases/{id}","outputs":{"case_id":"$.id"}},
+    {"fixture_id":"utdt.chua_phan_hoi.expiring.D0","setup_recipe":"UTDT với thoiHanUyThac sắp hết (1 phút nữa) — dùng test transition tự động","cleanup_recipe":"DELETE","outputs":{"case_id":"$.id"}},
+    {"fixture_id":"utdt.da_phan_hoi.D60","setup_recipe":"UTDT có ketQuaUyThac='Đã điều tra xong' + ngayTraKetQua={{D-1}} → DA_PHAN_HOI","cleanup_recipe":"DELETE","outputs":{"case_id":"$.id"}},
+    {"fixture_id":"utdt.khong_thuc_hien.D30","setup_recipe":"UTDT có metadata.lyDoKhongThucHienDuoc='Đối tượng đã chết'","cleanup_recipe":"DELETE","outputs":{"case_id":"$.id"}},
+    {"fixture_id":"utdt.qua_han.D90","setup_recipe":"UTDT có thoiHanUyThac={{D-30}} (đã quá hạn) + ketQua=null + lyDo=null","cleanup_recipe":"DELETE","outputs":{"case_id":"$.id"}},
+    {"fixture_id":"utdt.all_state.D0","setup_recipe":"Seed 4 UTDT — mỗi state 1 cái","cleanup_recipe":"Loop DELETE","outputs":{"case_ids":"$[*].id"}},
+    {"fixture_id":"utdt.donvi_pc01.D0","setup_recipe":"Seed 5 UTDT với donViGiao='PC01 Hà Nội'","cleanup_recipe":"Loop DELETE","outputs":{"case_ids":"$[*].id"}},
+    {"fixture_id":"utdt.donvi_pc02.D0","setup_recipe":"Seed 5 UTDT với donViGiao='PC02 TP HCM'","cleanup_recipe":"Loop DELETE","outputs":{"case_ids":"$[*].id"}},
+    {"fixture_id":"utdt.other_team.D0","setup_recipe":"UTDT thuộc team B (officer.secondary)","cleanup_recipe":"DELETE bằng officer.secondary","outputs":{"case_id":"$.id"}},
+    {"fixture_id":"utdt.creator_owned.D0","setup_recipe":"UTDT tạo bằng officer.primary","cleanup_recipe":"DELETE","outputs":{"case_id":"$.id"}},
+    {"fixture_id":"utdt.unassigned.D0","setup_recipe":"UTDT chưa assign investigator","cleanup_recipe":"DELETE","outputs":{"case_id":"$.id"}},
+    {"fixture_id":"utdt.deleted.D7","setup_recipe":"UTDT → DELETE → set deletedAt D-7","cleanup_recipe":"Prisma hard delete","outputs":{"case_id":"$.id"}},
+    {"fixture_id":"utdt.recently_edited.D0","setup_recipe":"UTDT vừa edited bằng admin2","cleanup_recipe":"DELETE","outputs":{"case_id":"$.id","stale_at":"$.oldAt"}},
+    {"fixture_id":"utdt.with_events.D60","setup_recipe":"UTDT có ≥5 events","cleanup_recipe":"DELETE","outputs":{"case_id":"$.id"}},
+    {"fixture_id":"utdt.cross_team.D0","setup_recipe":"Seed 4 UTDT — 2 team A, 2 team B","cleanup_recipe":"DELETE","outputs":{"case_ids":"$[*].id"}},
+    {"fixture_id":"utdt.shape.normal.D0","setup_recipe":"Seed 20 UTDT mix state + loaiUyThac","cleanup_recipe":"Loop DELETE","outputs":{"case_ids":"$[*].id"}},
+    {"fixture_id":"utdt.shape.full.D0","setup_recipe":"Seed 100 UTDT","cleanup_recipe":"Loop DELETE","outputs":{"case_ids":"$[*].id"}},
+    {"fixture_id":"utdt.shape.large.D0","setup_recipe":"Prisma raw insert 5000 UTDT","cleanup_recipe":"Prisma raw DELETE WHERE caseType='UY_THAC_DIEU_TRA' AND name LIKE 'UAT-PERF-UTDT-%'","outputs":{"count":"5000"}},
+    {"fixture_id":"cases.mixed_type.D0","setup_recipe":"Seed 30 cases — 15 REGULAR + 15 UTDT","cleanup_recipe":"DELETE","outputs":{"case_ids":"$[*].id"}},
+    {"fixture_id":"cases.no_utdt.D0","setup_recipe":"DB chỉ REGULAR, không UTDT","cleanup_recipe":"-","outputs":{}},
+    {"fixture_id":"cases.regular.D0","setup_recipe":"Seed 10 REGULAR cases","cleanup_recipe":"DELETE","outputs":{"case_ids":"$[*].id"}}
+  ]
+}
