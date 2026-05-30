@@ -2,6 +2,35 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.56.0.0] - 2026-05-30
+
+**v0.56 ListPageShell F1 — Route swap legacy → shell pages**
+
+Tiếp ngay sau khi PR5 đóng plan, anh decide route swap "tự nhiên" (no soak,
+không feature flag — chưa có user thực tế). 6 routes files swapped to import
+shell components instead of legacy.
+
+### Changed
+
+**Route imports swapped** (production users now see shells):
+- `/cases` → `CaseListPageShell` (PR1)
+- `/incidents` → `IncidentListPageShell` (PR2 với phase tabs)
+- `/petitions` → `PetitionListPageShell` (PR2)
+- `/comprehensive-list` → `ComprehensiveListPageShell` (PR2 3-entity fan-out)
+- `/lawyers` → `LawyerListPageShell` (PR4 + bulk-delete v0.51)
+- `/objects` + `/people/suspects` → `ObjectListPageShell subjectType=SUSPECT`
+- `/people/victims` → `ObjectListPageShell subjectType=VICTIM`
+- `/people/witnesses` → `ObjectListPageShell subjectType=WITNESS`
+
+UTDT (/uy-thac-dieu-tra) + DeadlineRules (/admin/deadline-rules) đã refactor
+in-place trong PR3 — không cần route swap.
+
+### Deferred
+
+- Delete legacy files (CaseListPage.tsx + 7 others) sau 2+ release soak
+- F2-F6 follow-ups (backend /cases/stats?caseType=, dedupe utilities,
+  PageHeader.tsx deletion, lawyer/subject bulk-export, production soak metrics)
+
 ## [0.55.0.0] - 2026-05-30
 
 **v0.55 ListPageShell PR5 — ObjectListPageShell (polymorphic) + subjects bulk-delete**
