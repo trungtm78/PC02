@@ -13,6 +13,7 @@ import { SettingsService } from '../settings/settings.service';
 import { CreateCaseDto } from './dto/create-case.dto';
 import { UpdateCaseDto } from './dto/update-case.dto';
 import { QueryCasesDto } from './dto/query-cases.dto';
+import { QueryCasesStatsDto } from './dto/query-cases-stats.dto';
 import { AssignCaseDto } from './dto/assign-case.dto';
 import type { DeleteCasePreflightResponse } from './dto/delete-case-preflight.response';
 import { Prisma, CaseStatus, PetitionStatus, LoaiDon, CapDoToiPham, LyDoTamDinhChiVuAn, KetQuaPhucHoiVuAn, CaseProvenance, SubjectType, CaseType } from '@prisma/client';
@@ -304,6 +305,169 @@ export class CasesService {
       page: Math.floor(offset / limit) + 1,
       pageSize: limit,
     };
+  }
+
+  // ─────────────────────────────────────────────
+  // GET STATS (PR1/T15) — counts by status, scoped to non-status filters
+  // ─────────────────────────────────────────────
+  //
+  // Used by <ListPageShell.StatusChips> countsSource. Returns object với:
+  // - total: tổng cases match active filters (excluding status)
+  // - byStatus: Record<CaseStatus, number> với mỗi CaseStatus key (0 nếu không có)
+  //
+  // Status filter purposely STRIPPED — counts reflect cardinality across ALL
+  // statuses scoped to active non-status filters. UI consumer paint chip counts
+  // và highlight active chip separately.
+  async getStats(query: QueryCasesStatsDto, dataScope?: DataScope | null) {
+    const {
+      search,
+      investigatorId,
+      unit,
+      fromDate,
+      toDate,
+      overdue,
+      districtId,
+      wardId,
+      wardTeamId,
+      capDoToiPham,
+      caseType,
+      donViGiao,
+      loaiUyThac,
+      trangThaiPhanHoi,
+      ngayTiepNhanFrom,
+      ngayTiepNhanTo,
+      investigatorName,
+    } = query;
+
+    const where: Prisma.CaseWhereInput = {
+      deletedAt: null,
+      caseType: caseType ?? CaseType.REGULAR,
+    };
+
+    if (search) {
+      const isUtdt = (caseType ?? CaseType.REGULAR) === CaseType.UY_THAC_DIEU_TRA;
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { crime: { contains: search, mode: 'insensitive' } },
+        { unit: { contains: search, mode: 'insensitive' } },
+        ...(isUtdt
+          ? [
+              { donViGiao: { contains: search, mode: 'insensitive' as const } },
+              { soQuyetDinhUyThac: { contains: search, mode: 'insensitive' as const } },
+              { metadata: { path: ['nghiVanDoiTuong'], string_contains: search } },
+            ]
+          : []),
+      ];
+    }
+
+    if (investigatorId) where.investigatorId = investigatorId;
+    if (unit) where.unit = unit;
+
+    if (fromDate) {
+      where.createdAt = {
+        ...(where.createdAt as Prisma.DateTimeFilter | undefined),
+        gte: new Date(fromDate),
+      };
+    }
+    if (toDate) {
+      where.createdAt = {
+        ...(where.createdAt as Prisma.DateTimeFilter | undefined),
+        lte: new Date(toDate + 'T23:59:59.999Z'),
+      };
+    }
+
+    if (overdue) {
+      where.deadline = { lt: new Date() };
+      // KHÔNG strip status notIn vì overdue logic exclude terminal states.
+      // Counts vẫn group by status, nhưng terminal states sẽ là 0 trong response.
+      where.status = {
+        notIn: [CaseStatus.DA_KET_LUAN, CaseStatus.DA_LUU_TRU, CaseStatus.DINH_CHI],
+      };
+    }
+
+    if (capDoToiPham) where.capDoToiPham = capDoToiPham;
+
+    if (donViGiao) where.donViGiao = { contains: donViGiao, mode: 'insensitive' };
+    if (loaiUyThac) where.loaiUyThac = loaiUyThac;
+    if (trangThaiPhanHoi) {
+      const stateFilter = buildTrangThaiFilter(trangThaiPhanHoi);
+      where.AND = [
+        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+        stateFilter,
+      ];
+    }
+
+    if (ngayTiepNhanFrom) {
+      where.ngayTiepNhan = {
+        ...(where.ngayTiepNhan as Prisma.DateTimeNullableFilter | undefined),
+        gte: new Date(ngayTiepNhanFrom),
+      };
+    }
+    if (ngayTiepNhanTo) {
+      where.ngayTiepNhan = {
+        ...(where.ngayTiepNhan as Prisma.DateTimeNullableFilter | undefined),
+        lte: new Date(ngayTiepNhanTo + 'T23:59:59Z'),
+      };
+    }
+
+    if (investigatorName) {
+      where.investigator = {
+        OR: [
+          { firstName: { contains: investigatorName, mode: 'insensitive' } },
+          { lastName: { contains: investigatorName, mode: 'insensitive' } },
+        ],
+      };
+    }
+
+    if (districtId || wardId) {
+      where.subjects = {
+        some: {
+          deletedAt: null,
+          ...(districtId && { districtId }),
+          ...(wardId && { wardId }),
+        },
+      };
+    }
+
+    if (wardTeamId) {
+      where.assignedTeam = { is: { wardId: wardTeamId } };
+    }
+
+    const scopeFilter = buildScopeFilter(dataScope);
+    if (scopeFilter) {
+      where.AND = [
+        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+        scopeFilter as Prisma.CaseWhereInput,
+      ];
+    }
+
+    // Initialize all CaseStatus keys to 0 → exhaustive response shape
+    const byStatus: Record<CaseStatus, number> = Object.values(CaseStatus).reduce(
+      (acc, status) => {
+        acc[status] = 0;
+        return acc;
+      },
+      {} as Record<CaseStatus, number>,
+    );
+
+    // /codex review fix: derive `total` từ groupResults thay vì query thứ 2.
+    // groupBy + count chạy trong 2 statement riêng với READ COMMITTED isolation
+    // → snapshot khác nhau khi có concurrent create/delete/status change. "Tất
+    // cả" chip count có thể disagree với sum chip counts trong cùng response.
+    // Vì `total = SUM(byStatus[*])` theo định nghĩa endpoint, derive directly.
+    const groupResults = await this.prisma.case.groupBy({
+      by: ['status'],
+      where,
+      _count: { _all: true },
+    });
+
+    let total = 0;
+    for (const row of groupResults) {
+      byStatus[row.status] = row._count._all;
+      total += row._count._all;
+    }
+
+    return { total, byStatus };
   }
 
   // ─────────────────────────────────────────────

@@ -5,6 +5,7 @@ import { CasesJourneyService } from './cases-journey.service';
 
 const mockService = {
   getList: jest.fn(),
+  getStats: jest.fn(),
   getById: jest.fn(),
   getStatusHistory: jest.fn(),
   create: jest.fn(),
@@ -35,6 +36,24 @@ describe('CasesController — delegation', () => {
     const req = makeReq();
     await controller.getList({} as any, req);
     expect(mockService.getList).toHaveBeenCalledWith({}, req.dataScope);
+  });
+
+  it('getStats() delegates to service.getStats with query and dataScope', async () => {
+    mockService.getStats.mockResolvedValue({ total: 0, byStatus: {} });
+    const req = makeReq();
+    await controller.getStats({} as any, req);
+    expect(mockService.getStats).toHaveBeenCalledWith({}, req.dataScope);
+  });
+
+  it('getStats() requires read:Case permission (RBAC metadata)', () => {
+    // Reflect on Nest decorator metadata: @RequirePermissions enforces guard
+    // matches action: 'read' subject: 'Case' — prevents 200 instead of 403
+    // when caller lacks Case read permission (review finding: leak via stats).
+    const perms = Reflect.getMetadata(
+      'permissions',
+      Object.getPrototypeOf(controller).getStats,
+    );
+    expect(perms).toEqual([{ action: 'read', subject: 'Case' }]);
   });
 
   it('create() delegates to service.create with dto, userId and audit info', async () => {

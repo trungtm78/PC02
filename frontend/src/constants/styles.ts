@@ -98,8 +98,11 @@ export const TABLE_BASE = "w-full";
 
 export const TABLE_HEADER = "bg-slate-50 border-b border-slate-200";
 
+// Note: dropped `uppercase` in PR1 — Vietnamese diacritics on uppercase letters
+// (e.g. "Đ", "Â" với dấu mũ) become visually cramped. text-xs + font-semibold
+// + tracking-wide đủ để tạo hierarchy mà không cần uppercase.
 export const TABLE_HEADER_CELL =
-  "px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase";
+  "px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600";
 
 export const TABLE_BODY = "divide-y divide-slate-200";
 
@@ -153,6 +156,28 @@ export const STATUS_COLORS: Record<string, string> = {
   amber: "bg-amber-100 text-amber-700",
 };
 
+// ─── Semantic Tokens (gray-* migration, PR1) ────────────────────────────────
+//
+// Defined before consumers (CASE_STATUS_COLORS, etc.) để các Record bên dưới
+// có thể reference trực tiếp, tránh duplicate string value drift.
+
+// Private primitive — muted slate register (review finding: drift trap nếu
+// STATUS_ARCHIVED và STATUS_PENDING_RESPONSE duplicate literal string).
+// Cả 2 semantic alias dưới reference token này → đổi 1 chỗ áp dụng toàn hệ.
+const MUTED_SLATE = "text-slate-600 bg-slate-100";
+
+// "Lưu trữ" — archived state (cases, incidents post-disposition).
+export const STATUS_ARCHIVED = MUTED_SLATE;
+
+// "Chưa phản hồi" — UTDT response not yet received. Muted, low-attention.
+// Cùng visual register với STATUS_ARCHIVED qua MUTED_SLATE primitive — đổi
+// MUTED_SLATE → cả 2 update; nếu cần fork sau này (dashboard composite view
+// hiển thị cả 2 status cạnh nhau), thay bằng literal value.
+export const STATUS_PENDING_RESPONSE = MUTED_SLATE;
+
+// "Không khởi tố" — Incident decided NOT to prosecute. Solid neutral.
+export const STATUS_NOT_PROSECUTED = "text-white bg-slate-600";
+
 // ─── Case Status Colors ────────────────────────────────────────────────
 
 export const CASE_STATUS_COLORS: Record<string, string> = {
@@ -165,7 +190,7 @@ export const CASE_STATUS_COLORS: Record<string, string> = {
   DA_KET_LUAN: "text-indigo-700 bg-indigo-50",
   DANG_TRUY_TO: "text-purple-700 bg-purple-50",
   DANG_XET_XU: "text-fuchsia-700 bg-fuchsia-50",
-  DA_LUU_TRU: "text-gray-600 bg-gray-50",
+  DA_LUU_TRU: STATUS_ARCHIVED,
 };
 
 export const INCIDENT_STATUS_COLORS: Record<string, string> = {
@@ -244,3 +269,101 @@ export const ICON_INPUT_WRAPPER = "relative";
 
 export const ICON_INPUT_POSITION =
   "absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400";
+
+// ─── ListPageShell Tokens (PR1 foundation) ──────────────────────────────────
+//
+// Tokens powering the compound `<ListPageShell.*>` subcomponents.
+// Added BEFORE shell build per autoplan design auto-decision #1.
+//
+// GUIDANCE (review finding): ListPageShell tokens live ở đây cho PR1 để tránh
+// premature split. Khi token count >= 25 HOẶC styles.ts vượt 500 LOC, di chuyển
+// sang `frontend/src/features/_shared/list-page-shell/tokens.ts`. Khoá ngưỡng
+// để reviewers ở T10/T15 không bikeshed lại.
+
+// ── Status chips bar ──────────────────────────────────────────────────────
+// Container holds horizontally-scrolling chips (overflow-x-auto trên mobile).
+// Fade mask edge phải báo hiệu còn chips offscreen — zero JS, Tailwind native.
+// Khi scroll đến cuối, mask vẫn rendered nhưng visually consistent.
+export const STATUS_CHIPS_BAR =
+  "flex items-center gap-2 overflow-x-auto px-4 py-3 bg-white border-b border-slate-200 snap-x [mask-image:linear-gradient(to_right,black_calc(100%-2rem),transparent)]";
+
+// Single chip — base structure shared by active/inactive variants.
+// max-w-[12rem] + truncate enforce shortLabel obligation (T4 scope) ở token
+// level — nếu consumer thiếu shortLabel, chip vẫn truncate thay vì phá layout.
+// py-2 text-sm cho ~40px touch target (WCAG 2.5.8 comfortable thumb).
+export const STATUS_CHIP_BASE =
+  "inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-medium whitespace-nowrap snap-start transition-colors motion-reduce:transition-none max-w-[12rem] truncate";
+
+// Active chip — high-contrast filled.
+export const STATUS_CHIP_ACTIVE =
+  "bg-slate-900 text-white hover:bg-slate-800";
+
+// Inactive chip — subtle background.
+export const STATUS_CHIP_INACTIVE =
+  "bg-slate-100 text-slate-700 hover:bg-slate-200";
+
+// Count pill nested inside ACTIVE chip — bg-white/20 trên slate-900 → dim pill.
+export const STATUS_CHIP_COUNT_ACTIVE =
+  "ml-1 px-1.5 py-0.5 rounded-full text-xs font-semibold bg-white/20 tabular-nums";
+
+// Count pill nested inside INACTIVE chip — bg-slate-200 trên slate-100 → visible pill.
+// Tách riêng vì bg-white/20 trên slate-100 gần như invisible (review CRITICAL finding).
+export const STATUS_CHIP_COUNT_INACTIVE =
+  "ml-1 px-1.5 py-0.5 rounded-full text-xs font-semibold bg-slate-200 text-slate-700 tabular-nums";
+
+// ── Bulk action bar ───────────────────────────────────────────────────────
+// Sticky top desktop variant (default).
+export const BULK_BAR_STICKY =
+  "sticky top-0 z-20 flex items-center justify-between gap-3 px-4 py-3 bg-blue-50 border-b border-blue-200 shadow-sm";
+
+// Sticky bottom mobile variant — thumb-reachable.
+// pb-[calc(...)] respect iOS PWA safe-area-inset-bottom (home indicator).
+// PC02 added PWA install support trong v0.46 — iOS users gặp home indicator.
+// Consumer cũng cần `pb-[calc(env(safe-area-inset-bottom)+4rem)]` trên list
+// content khi bar visible, tránh row cuối bị che.
+export const BULK_BAR_MOBILE_BOTTOM =
+  "fixed bottom-0 inset-x-0 z-30 flex items-center justify-between gap-3 px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] bg-blue-600 text-white shadow-lg sm:hidden";
+
+// ── Filter accordion (renamed từ FILTER_PANEL_* — tránh collision với FILTER_PANEL bordered box) ──
+// CSS grid accordion: grid-rows-[0fr] → [1fr] cho animation mượt mà không cần JS.
+// motion-reduce: respect prefers-reduced-motion (WCAG 2.3.3).
+// REQUIRED pattern:
+//   <div className={isOpen ? FILTER_ACCORDION_EXPANDED : FILTER_ACCORDION_COLLAPSED}>
+//     <div className={FILTER_ACCORDION_CONTENT}>...filter content...</div>
+//   </div>
+// FILTER_ACCORDION_CONTENT (overflow-hidden min-h-0) là BẮT BUỘC cho inner wrapper —
+// thiếu thì children với default min-height vẫn hiện ra dù outer collapse.
+export const FILTER_ACCORDION_COLLAPSED =
+  "grid grid-rows-[0fr] transition-all duration-200 ease-out motion-reduce:transition-none motion-reduce:duration-0";
+
+export const FILTER_ACCORDION_EXPANDED =
+  "grid grid-rows-[1fr] transition-all duration-200 ease-out motion-reduce:transition-none motion-reduce:duration-0";
+
+export const FILTER_ACCORDION_CONTENT = "overflow-hidden min-h-0";
+
+// ── Accessibility focus ring ──────────────────────────────────────────────
+// focus-visible (NOT focus:) tránh ring khi click bằng chuột.
+export const A11Y_FOCUS_RING =
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2";
+
+// ── Overdue row highlight ─────────────────────────────────────────────────
+// Apply qua getRowClassName trong ListPageShell.Table cho rows quá hạn.
+// IMPORTANT (a11y): color alone không đủ — color-blind users + screen readers
+// mất signal. Consumer pages BẮT BUỘC render thêm "Quá hạn" badge text trong
+// deadline cell + dùng OVERDUE_DEADLINE_CELL cho cell typography.
+// TODO(T11/ListPageShell.Table): emit dev warning khi OVERDUE_ROW_HIGHLIGHT
+// applied mà row không có Quá hạn badge trong deadline cell.
+export const OVERDUE_ROW_HIGHLIGHT =
+  "bg-red-50 hover:bg-red-100";
+
+// Deadline cell typography for overdue rows — pair với OVERDUE_ROW_HIGHLIGHT
+// để có 3 signals đồng thời (row bg + cell text + badge text) cho a11y.
+export const OVERDUE_DEADLINE_CELL = "text-red-900 font-semibold";
+
+// ── Pagination ────────────────────────────────────────────────────────────
+export const PAGINATION_BAR =
+  "flex items-center justify-between gap-3 px-4 py-3 bg-white border-t border-slate-200 text-sm text-slate-600";
+
+// py-2 cho ~40px touch target — pagination button mis-tap = lost scroll position.
+export const PAGINATION_BUTTON =
+  "inline-flex items-center gap-1 px-3 py-2 rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed";
