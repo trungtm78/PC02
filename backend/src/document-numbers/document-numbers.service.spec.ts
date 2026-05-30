@@ -50,6 +50,8 @@ const mockPrisma = {
   $transaction: jest.fn(),
   $executeRaw: jest.fn(),
   $queryRaw: jest.fn(),
+  // v0.66.2 defensive drift check uses queryRawUnsafe.
+  $queryRawUnsafe: jest.fn().mockResolvedValue([{ max_suffix: 0 }]),
 } as any;
 
 const ctx: ResolutionContext = {
@@ -266,7 +268,8 @@ describe('DocumentNumbersService', () => {
 
       expect(mockPrisma.$transaction).not.toHaveBeenCalled();
       expect(mockTx.$executeRaw).toHaveBeenCalledTimes(1);
-      expect(mockTx.$queryRaw).toHaveBeenCalledTimes(1);
+      // v0.66.2: 2 calls = FOR UPDATE lock + drift-check max(code) query.
+      expect(mockTx.$queryRaw).toHaveBeenCalledTimes(2);
       expect(result.number).toMatch(/^VV-\d{4}-\d{5}$/);
       expect(result.logId).toBe('log-tx-001');
     });
@@ -366,6 +369,34 @@ describe('DocumentNumbersService', () => {
       await expect(service.commitWithTx('INCIDENT', ctx, mockTx)).rejects.toThrow(
         'No active template for documentType: INCIDENT',
       );
+    });
+
+    it('v0.66.2 drift fix: bumps nextValue past DB max when counter is behind', async () => {
+      mockPrisma.documentNumberTemplate.findFirst.mockResolvedValue(mockTemplate);
+      const mockTx = {
+        $executeRaw: jest.fn().mockResolvedValue(1),
+        $queryRaw: jest
+          .fn()
+          // 1st call: FOR UPDATE lock
+          .mockResolvedValueOnce([{ id: 'counter-001' }])
+          // 2nd call: drift check returns 145 (DB ahead)
+          .mockResolvedValueOnce([{ max_suffix: 145 }]),
+        documentNumberCounter: {
+          findUnique: jest.fn().mockResolvedValue({ currentValue: 124 }),
+          update: jest.fn().mockResolvedValue({ currentValue: 146 }),
+        },
+        documentNumberLog: {
+          create: jest.fn().mockResolvedValue({ id: 'log-drift-001' }),
+        },
+      };
+
+      const result = await service.commitWithTx('INCIDENT', ctx, mockTx);
+
+      // Counter should be bumped to 146 (DB max 145 + 1), not 125 (counter 124 + 1).
+      expect(mockTx.documentNumberCounter.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ currentValue: 146 }) }),
+      );
+      expect(result.number).toMatch(/^VV-\d{4}-00146$/);
     });
   });
 

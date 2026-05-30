@@ -175,6 +175,30 @@ export class DocumentNumbersService {
 
     let nextValue = (counter?.currentValue ?? 0) + 1;
 
+    // v0.66.2 defensive fix: detect counter drift vs actual DB max.
+    // Seed scripts can insert records with codes bypassing commitWithTx,
+    // leaving counter behind → P2002 unique constraint on save.
+    // Re-sync once per commit. Hard-coded for the 2 high-traffic types
+    // (INCIDENT, CASE); add new branches as new types adopt this counter.
+    const periodLike = `%-${periodKey}-%`;
+    let dbMax: number | null = null;
+    if (template.documentType === 'INCIDENT') {
+      const r = await tx.$queryRaw<Array<{ max_suffix: number | null }>>`
+        SELECT COALESCE(MAX(CAST(SUBSTRING(code FROM '\d+$') AS INTEGER)), 0) AS max_suffix
+        FROM incidents
+        WHERE code LIKE ${periodLike}`;
+      dbMax = Number(r?.[0]?.max_suffix ?? 0);
+    } else if (template.documentType === 'CASE') {
+      const r = await tx.$queryRaw<Array<{ max_suffix: number | null }>>`
+        SELECT COALESCE(MAX(CAST(SUBSTRING("caseCode" FROM '\d+$') AS INTEGER)), 0) AS max_suffix
+        FROM cases
+        WHERE "caseCode" LIKE ${periodLike}`;
+      dbMax = Number(r?.[0]?.max_suffix ?? 0);
+    }
+    if (dbMax != null && dbMax >= nextValue) {
+      nextValue = dbMax + 1;
+    }
+
     if (nextValue > config.maxValue) {
       if (config.resetPeriod === 'MAX_NUMBER') {
         nextValue = config.minValue;
