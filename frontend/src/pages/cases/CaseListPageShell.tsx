@@ -36,6 +36,16 @@ import { BulkActionBar } from '@/features/_shared/bulk/BulkActionBar';
 import { buildCasesAdapter } from '@/features/_shared/bulk/adapters/cases';
 import type { BulkAction, BulkResult } from '@/features/_shared/bulk/types';
 import { AlertCircle, X } from 'lucide-react';
+// v0.63 PR1b — registry-driven row actions + advanced filters
+import { RowActions } from '@/features/_shared/row-actions/RowActions';
+import { Filters } from '@/features/_shared/list-filters/Filters';
+import { useListFilters } from '@/features/_shared/list-filters/useListFilters';
+import { useAssignModal } from '@/features/_shared/modals/AssignModalProvider';
+import { useDeleteResourceModal } from '@/features/_shared/modals/DeleteResourceModalProvider';
+import { usePermission } from '@/hooks/usePermission';
+import type { ActionContext } from '@/features/_shared/row-actions/registry';
+import { casesRowActions } from '@/features/cases/row-actions';
+import { casesListFilters, type CaseFilterValue } from '@/features/cases/list-filters';
 
 // AUTO-FIX #5 (security): validate URL status param against CaseStatus enum.
 // Trust boundary — attacker URL `?cases_status=__proto__` cannot land in lookups.
@@ -104,6 +114,40 @@ export function CaseListPageShell() {
   const [error, setError] = useState<string | undefined>();
   const [refetchCounter, setRefetchCounter] = useState(0);
 
+  // v0.63 PR1b — Action context (perms + modal openers).
+  const { canDispatch, canEdit, canDelete } = usePermission();
+  const assignModal = useAssignModal();
+  const deleteModal = useDeleteResourceModal();
+  const actionCtx: ActionContext = useMemo(
+    () => ({
+      navigate,
+      perms: {
+        canDispatch,
+        canEdit: canEdit('cases'),
+        canDelete: canDelete('cases'),
+      },
+      assignModal,
+      deleteModal: {
+        open: (args) =>
+          deleteModal.open({
+            ...args,
+            onSuccess: () => {
+              args.onSuccess?.();
+              setRefetchCounter((n) => n + 1);
+            },
+          }),
+      },
+    }),
+    [navigate, canDispatch, canEdit, canDelete, assignModal, deleteModal],
+  );
+
+  // v0.63 PR1b — Advanced filter state + URL sync.
+  const listFilters = useListFilters<CaseFilterValue>({
+    prefix: 'cases',
+    registry: casesListFilters,
+  });
+  const appliedFilters = listFilters.applied;
+
   // AUTO-FIX #1 (cont.): AbortController cancels in-flight requests on
   // dependency change → no stale state from late responses.
   const abortRef = useRef<AbortController | null>(null);
@@ -124,6 +168,11 @@ export function CaseListPageShell() {
     const params = {
       ...(statusFilter && { status: statusFilter }),
       ...(debouncedSearch && { search: debouncedSearch }),
+      ...(appliedFilters.fromDate && { fromDate: appliedFilters.fromDate }),
+      ...(appliedFilters.toDate && { toDate: appliedFilters.toDate }),
+      ...(appliedFilters.unit && { unit: appliedFilters.unit }),
+      ...(appliedFilters.investigator && { investigator: appliedFilters.investigator }),
+      ...(appliedFilters.charges && { charges: appliedFilters.charges }),
       limit: PAGE_SIZE,
       offset: (page - 1) * PAGE_SIZE,
     };
@@ -148,7 +197,8 @@ export function CaseListPageShell() {
       });
 
     return () => ctrl.abort();
-  }, [statusFilter, page, debouncedSearch, refetchCounter]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter, page, debouncedSearch, refetchCounter, appliedFilters]);
 
   // Fetch STATS — only on search change.
   // AUTO-FIX #3: pass ALL non-status filters (currently just search; future
@@ -244,6 +294,24 @@ export function CaseListPageShell() {
   const columns: ColumnDef<CaseRow>[] = useMemo(
     () => [
       {
+        key: 'actions',
+        header: 'Thao tác',
+        width: '8rem',
+        render: (r) => (
+          <RowActions
+            registry={casesRowActions}
+            row={{
+              id: r.id,
+              status: r.status as unknown as string,
+              caseCode: r.caseCode,
+              name: r.name,
+              updatedAt: r.updatedAt,
+            }}
+            ctx={actionCtx}
+          />
+        ),
+      },
+      {
         key: 'caseCode',
         header: 'Mã vụ án',
         render: (r) => r.caseCode ?? '—',
@@ -284,7 +352,7 @@ export function CaseListPageShell() {
         render: (r) => formatVNDate(r.createdAt),
       },
     ],
-    [],
+    [actionCtx],
   );
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
@@ -312,9 +380,12 @@ export function CaseListPageShell() {
 
   const handleResetFilters = useCallback(() => {
     url.clearAll();
-  }, [url]);
+    listFilters.reset();
+  }, [url, listFilters]);
 
-  const activeFilterCount = (statusFilter ? 1 : 0) + (searchQuery ? 1 : 0);
+  const appliedFilterCount = Object.values(appliedFilters).filter((v) => v && v !== '').length;
+  const activeFilterCount =
+    (statusFilter ? 1 : 0) + (searchQuery ? 1 : 0) + appliedFilterCount;
 
   return (
     <ListPageShell>
@@ -346,7 +417,16 @@ export function CaseListPageShell() {
         searchPlaceholder="Tìm kiếm theo mã, tên, đơn vị..."
         activeFilterCount={activeFilterCount}
         onResetFilters={handleResetFilters}
-      />
+      >
+        <Filters<CaseFilterValue>
+          registry={casesListFilters}
+          value={listFilters.draft}
+          onChange={listFilters.setField}
+          onApply={listFilters.apply}
+          onReset={listFilters.reset}
+          hasUnappliedChanges={listFilters.hasUnappliedChanges}
+        />
+      </ListPageShell.Toolbar>
       {transientBanner && (
         <div
           data-testid="cases-bulk-banner"
