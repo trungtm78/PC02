@@ -15,6 +15,8 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter, useLocation, Routes, Route } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { ComprehensiveListPageShell } from '../ComprehensiveListPageShell';
+import { AssignModalProvider } from '@/features/_shared/modals/AssignModalProvider';
+import { DeleteResourceModalProvider } from '@/features/_shared/modals/DeleteResourceModalProvider';
 
 vi.mock('@/lib/api', () => ({
   api: {
@@ -31,16 +33,20 @@ function renderWithRouter(initialEntries: string[] = ['/comprehensive']) {
   }
   const result = render(
     <MemoryRouter initialEntries={initialEntries}>
-      <Routes>
-        <Route
-          path="/comprehensive"
-          element={<><ComprehensiveListPageShell /><LocationTracker /></>}
-        />
-        <Route path="/cases/new" element={<div>NewCasePage</div>} />
-        <Route path="/cases/:id" element={<div>CaseDetailPage</div>} />
-        <Route path="/incidents/:id" element={<div>IncidentDetailPage</div>} />
-        <Route path="/petitions/:id" element={<div>PetitionDetailPage</div>} />
-      </Routes>
+      <AssignModalProvider>
+        <DeleteResourceModalProvider>
+          <Routes>
+            <Route
+              path="/comprehensive"
+              element={<><ComprehensiveListPageShell /><LocationTracker /></>}
+            />
+            <Route path="/cases/new" element={<div>NewCasePage</div>} />
+            <Route path="/cases/:id" element={<div>CaseDetailPage</div>} />
+            <Route path="/incidents/:id" element={<div>IncidentDetailPage</div>} />
+            <Route path="/petitions/:id" element={<div>PetitionDetailPage</div>} />
+          </Routes>
+        </DeleteResourceModalProvider>
+      </AssignModalProvider>
     </MemoryRouter>,
   );
   return { ...result, getLocation: () => lastLocation };

@@ -2,6 +2,50 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.66.0.0] - 2026-05-30
+
+**v0.66 PR4 — Restore row actions + advanced filters trên /comprehensive (polyglot dispatch)**
+
+Hoàn tất chuỗi PR1 (Cases v0.63) + PR2 (Incidents v0.64) + PR3 (Petitions v0.65)
++ PR4 (Comprehensive v0.66). 4 shells đầy đủ actions + filters per
+docs/audit/shell-parity-matrix.md.
+
+Comprehensive đặc biệt: rows polyglot (CASE | INCIDENT | PETITION). Actions
+dispatch route + delete endpoint per `row.recordType`.
+
+### Added
+
+**Comprehensive per-row actions** (`features/comprehensive/row-actions.ts`):
+- View → /{cases|incidents|petitions}/:id per recordType
+- Edit → /{type}/:id/edit per recordType + canEdit guard
+- Xóa → DeleteResourceModal with resourceType mapped from recordType
+
+**Comprehensive advanced filters** (`features/comprehensive/list-filters.ts`):
+- Từ ngày / Đến ngày (date)
+- Quận/Huyện (text)
+- Trạng thái (text, free-form vì 3 entity types có status enum khác nhau)
+- Người tạo (text)
+
+### Changed
+
+- `ComprehensiveListPageShell.tsx`: Thao tác column FIRST, Filters as Toolbar
+  accordion children, list fetch dep extended with appliedFilters,
+  refetchCounter triggers refresh after delete success.
+
+### Tests
+
+- 10 registration unit (polyglot dispatch all 3 types) + 13 existing
+  ComprehensiveListPageShell tests pass. tsc clean.
+
+### Deferred
+
+Convert-to-case / Convert-to-incident (Petition-specific) → PR3-bis if needed.
+Petitions PR3 also deferred Archive action.
+
+## [0.65.0.0] - 2026-05-30
+
+(PR3 entry written in PR #151, will appear once that PR merges.)
+
 ## [0.64.0.0] - 2026-05-30
 
 **v0.64 PR2 — Restore single-row actions + advanced filters trên /incidents**
