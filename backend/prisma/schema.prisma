@@ -584,6 +584,9 @@ model Case {
   @@index([caseType]) // v0.44
   @@index([thoiHanUyThac]) // v0.44
   @@index([donViGiao]) // v0.44
+  // PR1 ListPageShell — composite cho /cases/stats hot path (groupBy status,
+  // base predicate deletedAt + caseType). Migration 20260530000001.
+  @@index([deletedAt, caseType, status], name: "Case_deletedAt_caseType_status_idx")
   @@map("cases")
 }
 
