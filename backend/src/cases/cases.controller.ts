@@ -27,6 +27,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CreateCaseDto } from './dto/create-case.dto';
 import { UpdateCaseDto } from './dto/update-case.dto';
 import { QueryCasesDto } from './dto/query-cases.dto';
+import { QueryCasesStatsDto } from './dto/query-cases-stats.dto';
 import { AssignCaseDto } from './dto/assign-case.dto';
 import { DeleteCaseDto } from './dto/delete-case.dto'; // v0.31.0.2
 import { RestoreCaseDto } from './dto/restore-case.dto'; // v0.32.0.0
@@ -53,9 +54,13 @@ export class CasesController {
 
   // GET /api/v1/cases/stats — Counts by status, scoped to active non-status filters.
   // Used bởi <ListPageShell.StatusChips countsSource> (PR1/T15).
+  //
+  // Dedicated QueryCasesStatsDto (review fix): omits status/limit/offset/sort
+  // → caller cannot silently pass params that get dropped. ValidationPipe
+  // whitelist:true sẽ 400 nếu unknown field gửi qua.
   @Get('stats')
   @RequirePermissions({ action: 'read', subject: 'Case' })
-  getStats(@Query() query: QueryCasesDto, @Req() req: ScopedRequest) {
+  getStats(@Query() query: QueryCasesStatsDto, @Req() req: ScopedRequest) {
     return this.casesService.getStats(query, req.dataScope);
   }
 

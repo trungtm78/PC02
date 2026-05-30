@@ -83,12 +83,12 @@ describe('CasesService.getStats — status count aggregation (T15)', () => {
     ]);
     mockPrisma.case.count.mockResolvedValue(3);
 
-    await service.getStats(
-      { status: CaseStatus.DANG_DIEU_TRA, investigatorId: 'inv-1' },
-      null,
-    );
+    // QueryCasesStatsDto rejects `status` field via OmitType — cast to any
+    // demonstrates: even nếu caller bypass type system (hoặc gửi qua HTTP),
+    // service layer doesn't read it (not in destructure).
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await service.getStats({ investigatorId: 'inv-1' } as any, null);
 
-    // status sẽ bị strip khỏi where vì stats endpoint count theo status
     const whereArg = mockPrisma.case.groupBy.mock.calls[0][0].where;
     expect(whereArg.status).toBeUndefined();
     expect(whereArg.investigatorId).toBe('inv-1');

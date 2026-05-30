@@ -25,7 +25,11 @@ type ListPageShellType = typeof Root & {
   TransientBanners: typeof TransientBanners;
 };
 
-const ListPageShell = Object.assign(Root, {
+// /* @__PURE__ */ annotation báo Rollup/Vite Object.assign expression không có
+// side-effects observable bên ngoài → safe to tree-shake nếu consumer không
+// dùng. Without annotation, bundler conservatively pulls toàn bộ 8 subcomponents
+// kể cả khi consumer chỉ import { useListPageUrlState } (perf review finding).
+const ListPageShell = /* @__PURE__ */ Object.assign(Root, {
   Header,
   StatusChips,
   Toolbar,

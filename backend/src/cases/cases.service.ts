@@ -13,6 +13,7 @@ import { SettingsService } from '../settings/settings.service';
 import { CreateCaseDto } from './dto/create-case.dto';
 import { UpdateCaseDto } from './dto/update-case.dto';
 import { QueryCasesDto } from './dto/query-cases.dto';
+import { QueryCasesStatsDto } from './dto/query-cases-stats.dto';
 import { AssignCaseDto } from './dto/assign-case.dto';
 import type { DeleteCasePreflightResponse } from './dto/delete-case-preflight.response';
 import { Prisma, CaseStatus, PetitionStatus, LoaiDon, CapDoToiPham, LyDoTamDinhChiVuAn, KetQuaPhucHoiVuAn, CaseProvenance, SubjectType, CaseType } from '@prisma/client';
@@ -317,7 +318,7 @@ export class CasesService {
   // Status filter purposely STRIPPED — counts reflect cardinality across ALL
   // statuses scoped to active non-status filters. UI consumer paint chip counts
   // và highlight active chip separately.
-  async getStats(query: QueryCasesDto, dataScope?: DataScope | null) {
+  async getStats(query: QueryCasesStatsDto, dataScope?: DataScope | null) {
     const {
       search,
       investigatorId,
