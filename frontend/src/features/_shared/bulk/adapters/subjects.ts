@@ -21,6 +21,39 @@ interface SubjectRow {
 }
 
 /**
+ * F5 — Bulk-export Subjects ra xlsx (polymorphic SUSPECT/VICTIM/WITNESS,
+ * type column trong xlsx).
+ */
+const exportAction: BulkAction<SubjectRow> = {
+  key: 'export',
+  label: 'Xuất Excel',
+  variant: 'outline',
+  permission: { resource: 'objects', action: 'view' },
+  requiresPreview: false,
+  allowsAllMatchingFilter: true,
+  execute: async ({ ids }) => {
+    const response = await api.post(
+      '/subjects/bulk-export',
+      { ids },
+      { responseType: 'blob' },
+    );
+    const blob = new Blob([response.data], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    const cd = (response.headers['content-disposition'] as string) ?? '';
+    const filenameMatch = /filename="([^"]+)"/.exec(cd);
+    link.download = filenameMatch?.[1] ?? `DoiTuong_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  },
+};
+
+/**
  * PR5 — Bulk-delete Subjects.
  *
  * requiresPreview=true → ConfirmModal với reason ≥10 chars + escalating
@@ -48,10 +81,13 @@ const deleteAction: BulkAction<SubjectRow> = {
 export function buildSubjectsAdapter(opts?: {
   /** Bật bulk-delete action — PR5. */
   enableDelete?: boolean;
+  /** Bật bulk-export action — F5. */
+  enableExport?: boolean;
   /** Resource label override per subjectType (bị can / bị hại / nhân chứng). */
   resourceLabel?: string;
 }): BulkAdapter<SubjectRow> {
   const actions: BulkAction<SubjectRow>[] = [];
+  if (opts?.enableExport) actions.push(exportAction);
   if (opts?.enableDelete) actions.push(deleteAction);
   return {
     resource: 'objects',
