@@ -7,10 +7,12 @@
  * - StatusChips dùng làm RECORD_TYPE filter (CASE / INCIDENT / PETITION), không
  *   phải status enum — semantic phù hợp với UI hiện tại (anh phân biệt theo loại
  *   record, không theo status).
- * - "Tất cả" chip fetch parallel 3 endpoints, merge + sort theo createdAt desc,
- *   client-side paginate 20 rows (totals ~150 rows max ở dev — acceptable).
- * - Khi chọn 1 type → fetch endpoint tương ứng với pagination server-side.
- * - Counts = sum stats.total từ 3 /stats endpoints.
+ * - "Tất cả" chip fetch parallel 3 endpoints, merge + sort theo createdAt desc.
+ *   Preview-only: tối đa MERGE_PREVIEW_SIZE rows mới nhất từ mỗi entity → UI cap
+ *   pagination tại merged.length thay vì sum server totals (review fix C1).
+ * - Counts derived từ list response `.total` khi fan-out, KHÔNG fire thêm stats
+ *   endpoint calls — tiết kiệm 3 request/keystroke (review fix C2). Riêng single-type
+ *   mode dùng /stats endpoint cho future per-status drill-down.
  *
  * KHÔNG thay thế production ComprehensiveListPage — feature-flag swap ở PR3.
  */
@@ -83,6 +85,9 @@ interface UnifiedRow {
 }
 
 const PAGE_SIZE = 20;
+// Fan-out preview cap — limit per-entity rows fetched khi "Tất cả".
+// 50 × 3 = 150 rows merge buffer, paginated client-side. Review fix C1.
+const MERGE_PREVIEW_PER_ENTITY = 50;
 
 function caseToUnified(c: {
   id: string;
@@ -265,19 +270,24 @@ export function ComprehensiveListPageShell() {
           );
           return;
         }
-        // "Tất cả" — fan-out + merge + client paginate
+        // "Tất cả" — fan-out + merge + client paginate. Preview-only mode:
+        // - Fetch top MERGE_PREVIEW_PER_ENTITY mới nhất từ mỗi entity (server-sorted by createdAt desc by default)
+        // - Pagination capped tại merged.length (review fix C1) thay vì sum server totals
+        //   → user không bao giờ thấy "Trang 4/150 (empty)" do over-report
+        // - Counts derived từ list .total (review fix C2) — KHÔNG fire stats endpoints riêng
+        //   trong fan-out mode → tiết kiệm 3 request/keystroke
         const [cRes, iRes, pRes] = await Promise.all([
           api.get<{ data: Parameters<typeof caseToUnified>[0][]; total: number }>('/cases', {
-            params: { ...searchParam, limit: 50 },
+            params: { ...searchParam, limit: MERGE_PREVIEW_PER_ENTITY },
             signal: ctrl.signal,
           }),
           api.get<{ data: Parameters<typeof incidentToUnified>[0][]; total: number }>(
             '/incidents',
-            { params: { ...searchParam, limit: 50 }, signal: ctrl.signal },
+            { params: { ...searchParam, limit: MERGE_PREVIEW_PER_ENTITY }, signal: ctrl.signal },
           ),
           api.get<{ data: Parameters<typeof petitionToUnified>[0][]; total: number }>(
             '/petitions',
-            { params: { ...searchParam, limit: 50 }, signal: ctrl.signal },
+            { params: { ...searchParam, limit: MERGE_PREVIEW_PER_ENTITY }, signal: ctrl.signal },
           ),
         ]);
         if (ctrl.signal.aborted) return;
@@ -288,10 +298,16 @@ export function ComprehensiveListPageShell() {
         ].sort(
           (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
         );
-        const total = cRes.data.total + iRes.data.total + pRes.data.total;
+        // Derive counts directly từ list response totals — saves 3 stats requests.
+        setCounts({
+          cases: cRes.data.total,
+          incidents: iRes.data.total,
+          petitions: pRes.data.total,
+        });
         const startIdx = (page - 1) * PAGE_SIZE;
         setRows(merged.slice(startIdx, startIdx + PAGE_SIZE));
-        setTotalCount(total);
+        // Cap totalCount tại merged.length — pagination không vượt qua preview buffer.
+        setTotalCount(merged.length);
         setTableState(
           merged.length === 0 ? (debouncedSearch ? 'empty-filtered' : 'empty') : 'ready',
         );
@@ -306,8 +322,12 @@ export function ComprehensiveListPageShell() {
     return () => ctrl.abort();
   }, [typeFilter, page, debouncedSearch]);
 
-  // Stats fan-out — 3 endpoints parallel, search pass-through. Non-blocking.
+  // Stats fan-out CHỈ khi typeFilter được chọn — single-type mode cần stats endpoint
+  // cho future per-status drill-down. Khi typeFilter == null (Tất cả), counts
+  // đã derived từ list response totals trong fetchAll → không cần thêm 3 requests.
+  // Review fix C2: tiết kiệm 3 requests/keystroke trong "Tất cả" mode.
   useEffect(() => {
+    if (typeFilter == null) return; // Tất cả mode — counts come from list responses
     const ctrl = new AbortController();
     const statsParams = debouncedSearch ? { search: debouncedSearch } : {};
 
@@ -331,7 +351,7 @@ export function ComprehensiveListPageShell() {
       setCounts({ cases, incidents, petitions });
     });
     return () => ctrl.abort();
-  }, [debouncedSearch]);
+  }, [debouncedSearch, typeFilter]);
 
   const chipOptions = useMemo(
     () => [

@@ -113,6 +113,18 @@ describe('IncidentsService.getStats — status count aggregation (PR2/T1)', () =
     expect(whereArg.deadline).toBeDefined();
   });
 
+  it('applies DataScope filter to where.AND when dataScope non-null (CLAUDE.md invariant)', async () => {
+    mockPrisma.incident.groupBy.mockResolvedValue([]);
+    await service.getStats(
+      {},
+      { userIds: ['user-001'], teamIds: ['team-a'], writableTeamIds: [] },
+    );
+    const whereArg = mockPrisma.incident.groupBy.mock.calls[0][0].where;
+    expect(whereArg.AND).toBeDefined();
+    expect(Array.isArray(whereArg.AND)).toBe(true);
+    expect(whereArg.AND.length).toBeGreaterThan(0);
+  });
+
   it('zero results — empty groupBy returns all keys = 0', async () => {
     mockPrisma.incident.groupBy.mockResolvedValue([]);
     const result = await service.getStats({}, null);

@@ -117,6 +117,18 @@ describe('PetitionsService.getStats — status count aggregation (PR2/T2)', () =
     expect(whereArg.status).toBeDefined();
   });
 
+  it('applies DataScope filter to where.AND when dataScope non-null (CLAUDE.md invariant)', async () => {
+    mockPrisma.petition.groupBy.mockResolvedValue([]);
+    await service.getStats(
+      {},
+      { userIds: ['user-001'], teamIds: ['team-a'], writableTeamIds: [] },
+    );
+    const whereArg = mockPrisma.petition.groupBy.mock.calls[0][0].where;
+    expect(whereArg.AND).toBeDefined();
+    expect(Array.isArray(whereArg.AND)).toBe(true);
+    expect(whereArg.AND.length).toBeGreaterThan(0);
+  });
+
   it('zero results — empty groupBy returns all keys = 0', async () => {
     mockPrisma.petition.groupBy.mockResolvedValue([]);
     const result = await service.getStats({}, null);
