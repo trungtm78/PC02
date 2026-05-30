@@ -142,4 +142,18 @@ describe('PetitionFormPage — create-mode defaults', () => {
     expect(authStore.getProfile()?.primaryTeam?.teamId).toBe('team-doi-1');
     expect(authStore.getProfile()?.id).toBe('u1');
   });
+
+  // Cycle 9 — v0.52: PetitionFormPage gets a Tài liệu section
+  it('Cycle 9: does NOT render EntityDocumentsTab in create mode (no petitionId)', async () => {
+    await renderForm();
+    // Section exists conditionally — chỉ hiện trong edit mode.
+    expect(screen.queryByTestId('entity-documents-petition')).toBeNull();
+  });
+
+  it('Cycle 9: renames attachmentsNote label to "Ghi chú tài liệu đính kèm"', async () => {
+    await renderForm();
+    // T3 quyết định gate: giữ field, đổi label để báo "file thực ở tab Tài liệu".
+    const label = await screen.findByText(/Ghi chú tài liệu đính kèm/i);
+    expect(label).toBeTruthy();
+  });
 });

@@ -20,6 +20,7 @@ import { useFormDefaults } from "@/hooks/useFormDefaults";
 import { today, toDateInput } from "@/lib/dates";
 import { LOAI_DON_OPTIONS } from "@/shared/enums/status-labels";
 import { LoaiDon } from "@/shared/enums/generated";
+import { EntityDocumentsTab } from "@/components/documents/EntityDocumentsTab";
 
 const VALID_PETITION_TYPES = Object.values(LoaiDon) as string[];
 
@@ -453,13 +454,20 @@ export function PetitionFormPage() {
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">
                 <FileText className="inline w-4 h-4 mr-1 text-slate-400" />
-                Tài liệu đính kèm
+                Ghi chú tài liệu đính kèm
               </label>
-              <input type="text" value={formData.attachmentsNote} onChange={(e) => update("attachmentsNote", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Liệt kê tài liệu đính kèm, cách nhau bởi dấu phẩy" data-testid="field-attachmentsNote" />
-              <p className="text-xs text-slate-500 mt-1">Lưu trữ file sẽ được tích hợp ở giai đoạn tiếp theo</p>
+              <input type="text" value={formData.attachmentsNote} onChange={(e) => update("attachmentsNote", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Liệt kê tài liệu đính kèm dạng ghi chú" data-testid="field-attachmentsNote" />
+              <p className="text-xs text-slate-500 mt-1">File thực tế tải lên ở mục "Tài liệu đính kèm thực tế" bên dưới.</p>
             </div>
           </div>
         </div>
+
+        {/* Section 4b: Tài liệu thực tế (Cycle 9 v0.52) — chỉ hiện ở edit mode khi đã có petitionId */}
+        {isEditMode && id && (
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <EntityDocumentsTab entityKind="petition" entityId={id} />
+          </div>
+        )}
 
         {/* Section 5: Phân công xử lý */}
         <div className="bg-white rounded-lg border border-slate-200 shadow-sm">
