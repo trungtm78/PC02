@@ -45,15 +45,30 @@ const SAMPLE_ROW = {
 };
 
 function setupHappyFetch() {
-  mockApiGet.mockImplementation(() =>
-    Promise.resolve({
+  mockApiGet.mockImplementation((url: string) => {
+    // F2: /cases/utdt-stats — UTDT chip count endpoint
+    if (typeof url === 'string' && url.includes('/cases/utdt-stats')) {
+      return Promise.resolve({
+        data: {
+          total: 1,
+          byTrangThai: {
+            DA_PHAN_HOI: 0,
+            KHONG_THUC_HIEN_DUOC: 0,
+            QUA_HAN: 0,
+            CHUA_PHAN_HOI: 1,
+          },
+        },
+      });
+    }
+    // List endpoint
+    return Promise.resolve({
       data: {
         success: true,
         data: [SAMPLE_ROW],
         total: 1,
       },
-    }),
-  );
+    });
+  });
 }
 
 async function renderPage(initialEntry = '/uy-thac-dieu-tra') {
@@ -185,9 +200,14 @@ describe('UyThacDieuTraListPage — PR3 shell refactor', () => {
   });
 
   it('state=empty (no filter, no rows) → render plain empty CTA', async () => {
-    mockApiGet.mockImplementation(() =>
-      Promise.resolve({ data: { success: true, data: [], total: 0 } }),
-    );
+    mockApiGet.mockImplementation((url: string) => {
+      if (typeof url === 'string' && url.includes('/cases/utdt-stats')) {
+        return Promise.resolve({
+          data: { total: 0, byTrangThai: { DA_PHAN_HOI: 0, KHONG_THUC_HIEN_DUOC: 0, QUA_HAN: 0, CHUA_PHAN_HOI: 0 } },
+        });
+      }
+      return Promise.resolve({ data: { success: true, data: [], total: 0 } });
+    });
     await renderPage();
     await waitFor(() =>
       expect(screen.getByTestId('list-page-shell-table-empty')).toBeInTheDocument(),
@@ -196,9 +216,14 @@ describe('UyThacDieuTraListPage — PR3 shell refactor', () => {
   });
 
   it('state=empty-filtered (status active, no rows) → render filtered empty', async () => {
-    mockApiGet.mockImplementation(() =>
-      Promise.resolve({ data: { success: true, data: [], total: 0 } }),
-    );
+    mockApiGet.mockImplementation((url: string) => {
+      if (typeof url === 'string' && url.includes('/cases/utdt-stats')) {
+        return Promise.resolve({
+          data: { total: 0, byTrangThai: { DA_PHAN_HOI: 0, KHONG_THUC_HIEN_DUOC: 0, QUA_HAN: 0, CHUA_PHAN_HOI: 0 } },
+        });
+      }
+      return Promise.resolve({ data: { success: true, data: [], total: 0 } });
+    });
     await renderPage('/uy-thac-dieu-tra?utdt_status=QUA_HAN');
     await waitFor(() =>
       expect(screen.getByTestId('list-page-shell-table-empty-filtered')).toBeInTheDocument(),
@@ -259,9 +284,14 @@ describe('UyThacDieuTraListPage — PR3 shell refactor', () => {
   // /codex P2 page-clamp test
   it('utdt_page=999 với total=20 → reset to page=1 (no impossible empty page)', async () => {
     // First call returns total=20 (1 page), at page=999
-    mockApiGet.mockImplementation(() =>
-      Promise.resolve({ data: { success: true, data: [SAMPLE_ROW], total: 20 } }),
-    );
+    mockApiGet.mockImplementation((url: string) => {
+      if (typeof url === 'string' && url.includes('/cases/utdt-stats')) {
+        return Promise.resolve({
+          data: { total: 20, byTrangThai: { DA_PHAN_HOI: 0, KHONG_THUC_HIEN_DUOC: 0, QUA_HAN: 0, CHUA_PHAN_HOI: 20 } },
+        });
+      }
+      return Promise.resolve({ data: { success: true, data: [SAMPLE_ROW], total: 20 } });
+    });
     let lastLocation = '';
     function LocationTracker() {
       const { useLocation } = require('react-router-dom');
