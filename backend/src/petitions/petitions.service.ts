@@ -14,6 +14,7 @@ import { AuditService } from '../audit/audit.service';
 import { CreatePetitionDto } from './dto/create-petition.dto';
 import { UpdatePetitionDto } from './dto/update-petition.dto';
 import { QueryPetitionsDto } from './dto/query-petitions.dto';
+import { QueryPetitionsStatsDto } from './dto/query-petitions-stats.dto';
 import { ConvertToIncidentDto } from './dto/convert-incident.dto';
 import { ConvertToCaseDto } from './dto/convert-case.dto';
 import { AssignPetitionDto } from './dto/assign-petition.dto';
@@ -1814,5 +1815,87 @@ export class PetitionsService {
       page: Math.floor(offset / limit) + 1,
       pageSize: limit,
     };
+  }
+
+  // ─────────────────────────────────────────────
+  // GET STATS — PR2/T2
+  // Mirror PR1 Cases + PR2/T1 Incidents pattern:
+  // - Takes QueryPetitionsStatsDto (status/limit/offset/sortBy/sortOrder omitted)
+  // - Returns { total, byStatus } exhaustive (every PetitionStatus key present)
+  // - Total derived from groupResults loop (snapshot consistent)
+  // - Strips status filter (counts BY status, not filtered by it)
+  // ─────────────────────────────────────────────
+  async getStats(query: QueryPetitionsStatsDto, dataScope?: DataScope | null) {
+    const { search, unit, senderName, fromDate, toDate, overdue, wardTeamId } = query;
+
+    const where: Prisma.PetitionWhereInput = { deletedAt: null };
+
+    if (search) {
+      where.OR = [
+        { stt: { contains: search, mode: 'insensitive' } },
+        { senderName: { contains: search, mode: 'insensitive' } },
+        { suspectedPerson: { contains: search, mode: 'insensitive' } },
+        { summary: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    if (unit) where.unit = { contains: unit, mode: 'insensitive' };
+    if (senderName) where.senderName = { contains: senderName, mode: 'insensitive' };
+
+    if (fromDate) {
+      where.receivedDate = {
+        ...(where.receivedDate as Prisma.DateTimeFilter | undefined),
+        gte: new Date(fromDate),
+      };
+    }
+    if (toDate) {
+      where.receivedDate = {
+        ...(where.receivedDate as Prisma.DateTimeFilter | undefined),
+        lte: new Date(toDate + 'T23:59:59.999Z'),
+      };
+    }
+
+    if (overdue) {
+      where.deadline = { lt: new Date() };
+      where.status = {
+        notIn: [
+          PetitionStatus.DA_GIAI_QUYET,
+          PetitionStatus.DA_CHUYEN_VU_VIEC,
+          PetitionStatus.DA_CHUYEN_VU_AN,
+        ],
+      };
+    }
+
+    if (wardTeamId) where.assignedTeam = { is: { wardId: wardTeamId } };
+
+    const scopeFilter = buildPetitionScopeFilter(dataScope);
+    if (scopeFilter) {
+      where.AND = [
+        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+        scopeFilter as Prisma.PetitionWhereInput,
+      ];
+    }
+
+    const byStatus: Record<PetitionStatus, number> = Object.values(PetitionStatus).reduce(
+      (acc, status) => {
+        acc[status] = 0;
+        return acc;
+      },
+      {} as Record<PetitionStatus, number>,
+    );
+
+    const groupResults = await this.prisma.petition.groupBy({
+      by: ['status'],
+      where,
+      _count: { _all: true },
+    });
+
+    let total = 0;
+    for (const row of groupResults) {
+      byStatus[row.status] = row._count._all;
+      total += row._count._all;
+    }
+
+    return { total, byStatus };
   }
 }

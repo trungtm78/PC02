@@ -29,6 +29,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CreatePetitionDto } from './dto/create-petition.dto';
 import { UpdatePetitionDto } from './dto/update-petition.dto';
 import { QueryPetitionsDto } from './dto/query-petitions.dto';
+import { QueryPetitionsStatsDto } from './dto/query-petitions-stats.dto';
 import { ExportPetitionsQueryDto } from './dto/export-petitions-query.dto';
 import { ConvertToIncidentDto } from './dto/convert-incident.dto';
 import { ConvertToCaseDto } from './dto/convert-case.dto';
@@ -59,6 +60,14 @@ export class PetitionsController {
   @RequirePermissions({ action: 'read', subject: 'Petition' })
   listLinkable(@Query() query: ListLinkableDto, @Req() req: ScopedRequest) {
     return this.petitionsService.listLinkable(query, req.dataScope);
+  }
+
+  // GET /api/v1/petitions/stats — PR2/T2 — counts by PetitionStatus,
+  // scoped to active non-status filters. Pattern mirrors PR1 Cases.
+  @Get('stats')
+  @RequirePermissions({ action: 'read', subject: 'Petition' })
+  getStats(@Query() query: QueryPetitionsStatsDto, @Req() req: ScopedRequest) {
+    return this.petitionsService.getStats(query, req.dataScope);
   }
 
   // GET /api/v1/petitions/export — Xuất danh sách đơn thư ra Excel

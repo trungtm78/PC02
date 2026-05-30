@@ -1217,35 +1217,31 @@ describe('IncidentsService', () => {
 
   // ── getStats ──────────────────────────────────────────────────────────────
 
-  describe('getStats', () => {
-    it('should return counts grouped by status', async () => {
+  // PR2/T1: getStats signature refactored to (query, dataScope) returning
+  // { total, byStatus } exhaustive. Detailed coverage in incidents-stats.service.spec.ts.
+  describe('getStats (legacy contract removed in PR2/T1)', () => {
+    it('returns { total, byStatus } exhaustive — see incidents-stats.service.spec.ts', async () => {
       mockPrisma.incident.groupBy.mockResolvedValue([
-        { status: IncidentStatus.TIEP_NHAN, _count: 5 },
-        { status: IncidentStatus.DANG_XAC_MINH, _count: 3 },
-        { status: IncidentStatus.DA_GIAI_QUYET, _count: 10 },
+        { status: IncidentStatus.TIEP_NHAN, _count: { _all: 5 } },
+        { status: IncidentStatus.DANG_XAC_MINH, _count: { _all: 3 } },
+        { status: IncidentStatus.DA_GIAI_QUYET, _count: { _all: 10 } },
       ]);
 
-      const result = await service.getStats();
+      const result = await service.getStats({}, null);
 
-      expect(result.success).toBe(true);
-      expect(result.data[IncidentStatus.TIEP_NHAN]).toBe(5);
-      expect(result.data[IncidentStatus.DANG_XAC_MINH]).toBe(3);
-      expect(result.data[IncidentStatus.DA_GIAI_QUYET]).toBe(10);
+      expect(result.total).toBe(18);
+      expect(result.byStatus[IncidentStatus.TIEP_NHAN]).toBe(5);
+      expect(result.byStatus[IncidentStatus.DANG_XAC_MINH]).toBe(3);
+      expect(result.byStatus[IncidentStatus.DA_GIAI_QUYET]).toBe(10);
     });
 
-    it('should return empty object when no incidents exist', async () => {
+    it('applies data scope filter when provided', async () => {
       mockPrisma.incident.groupBy.mockResolvedValue([]);
 
-      const result = await service.getStats();
-
-      expect(result.success).toBe(true);
-      expect(result.data).toEqual({});
-    });
-
-    it('should apply data scope filter when provided', async () => {
-      mockPrisma.incident.groupBy.mockResolvedValue([]);
-
-      await service.getStats({ userIds: ['user-001'], teamIds: [], writableTeamIds: [] });
+      await service.getStats(
+        {},
+        { userIds: ['user-001'], teamIds: [], writableTeamIds: [] },
+      );
 
       expect(mockPrisma.incident.groupBy).toHaveBeenCalledWith(
         expect.objectContaining({

@@ -961,15 +961,10 @@ export class IncidentsService {
       where.status = { notIn: TERMINAL_STATUSES };
     }
 
-    if (districtId || wardId) {
-      where.subjects = {
-        some: {
-          deletedAt: null,
-          ...(districtId && { districtId }),
-          ...(wardId && { wardId }),
-        },
-      };
-    }
+    // Mirror getList: districtId maps to unitId; wardId currently unused
+    // (Incident has no Subject relation). Reserved for future Subject-level filter.
+    if (districtId) where.unitId = districtId;
+    void wardId;
 
     if (wardTeamId) {
       where.assignedTeam = { is: { wardId: wardTeamId } };

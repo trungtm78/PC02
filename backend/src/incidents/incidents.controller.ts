@@ -27,6 +27,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CreateIncidentDto } from './dto/create-incident.dto';
 import { UpdateIncidentDto } from './dto/update-incident.dto';
 import { QueryIncidentsDto } from './dto/query-incidents.dto';
+import { QueryIncidentsStatsDto } from './dto/query-incidents-stats.dto';
 import { AssignInvestigatorDto } from './dto/assign-investigator.dto';
 import { ProsecuteIncidentDto } from './dto/prosecute-incident.dto';
 import { UpdateStatusDto } from './dto/update-status.dto';
