@@ -438,6 +438,9 @@ describe('DocumentsService', () => {
       });
 
       it('should allow creator (enteredById match) to upload petition document', async () => {
+        // Restore count mock — quota test leaves mockResolvedValue(50) (jest.clearAllMocks
+        // không reset implementations, chỉ reset call history).
+        mockPrismaService.document.count.mockResolvedValue(0);
         mockPrismaService.petition.findFirst.mockResolvedValue({
           id: 'petition-1',
           stt: 'DT-2026-00001',

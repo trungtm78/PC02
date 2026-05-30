@@ -206,7 +206,11 @@ export class DocumentsService {
     // Cycle 5 — Storage quota guard. Default 50 files per entity (Case/Incident/Petition).
     // Bảo vệ disk VM Viettel khỏi cạn quota khi user upload không kiểm soát.
     // Configurable qua env MAX_DOCUMENTS_PER_ENTITY (0 hoặc unset = no limit).
-    const maxPerEntity = Number.parseInt(process.env.MAX_DOCUMENTS_PER_ENTITY ?? '50', 10);
+    // Fail-closed cho malformed env (vd typo "abc"): parseInt → NaN, fallback về default 50
+    // thay vì silently disable quota (review fix).
+    const rawMax = process.env.MAX_DOCUMENTS_PER_ENTITY;
+    const parsed = rawMax !== undefined ? Number.parseInt(rawMax, 10) : 50;
+    const maxPerEntity = Number.isFinite(parsed) && parsed >= 0 ? parsed : 50;
     if (maxPerEntity > 0) {
       const entityFilter: Prisma.DocumentWhereInput = { deletedAt: null };
       if (dto.caseId) entityFilter.caseId = dto.caseId;
