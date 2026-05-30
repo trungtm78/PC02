@@ -1,6 +1,13 @@
 import { buildControllerModule, makeReq, mockUser } from '../test-utils/controller-test-helpers';
 import { DocumentsController } from './documents.controller';
 import { DocumentsService } from './documents.service';
+import { BadRequestException } from '@nestjs/common';
+import * as fs from 'fs';
+
+jest.mock('fs', () => ({
+  ...jest.requireActual('fs'),
+  unlinkSync: jest.fn(),
+}));
 
 const mockService = {
   getList: jest.fn(),
@@ -72,5 +79,28 @@ describe('DocumentsController — delegation', () => {
       expect.objectContaining({ ipAddress: '127.0.0.1' }),
       req.dataScope,
     );
+  });
+
+  // Cycle 6 — Multer cleanup khi service.create throw (P1 R5).
+  // File đã ghi đĩa qua multer trước khi service validate.
+  // Validate fail → file rác trên disk. Controller phải fs.unlinkSync.
+  it('create() unlinks the multer file on service.create failure', async () => {
+    const unlinkSyncMock = fs.unlinkSync as jest.Mock;
+    unlinkSyncMock.mockClear();
+    mockService.create.mockRejectedValue(new BadRequestException('Đơn thư không tồn tại'));
+    const req = makeReq();
+    const file = {
+      filename: 'tmp-file.pdf',
+      originalname: 'test.pdf',
+      mimetype: 'text/plain',  // dùng text/plain để bypass magic-byte check
+      size: 100,
+      path: '/uploads/documents/tmp-file.pdf',
+    } as Express.Multer.File;
+
+    await expect(
+      controller.create(file, { title: 'Test' } as any, mockUser, req),
+    ).rejects.toThrow(BadRequestException);
+
+    expect(unlinkSyncMock).toHaveBeenCalledWith('/uploads/documents/tmp-file.pdf');
   });
 });
