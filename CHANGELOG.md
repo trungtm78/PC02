@@ -46,6 +46,42 @@ trên Incidents.
 - Khởi tố action (needs ProsecuteModalProvider with form fields).
 
 Both have backend API contracts; defer modal scaffolding to dedicated PR.
+## [0.65.0.0] - 2026-05-30
+
+**v0.65 PR3 — Restore single-row actions + advanced filters trên /petitions**
+
+Tiếp nối PR1 (v0.63 Cases) + PR2 (v0.64 Incidents): cùng pattern typed
+registry + provider cho PetitionListPageShell.
+
+### Added
+
+**Petitions per-row actions** (`features/petitions/row-actions.ts`):
+- View → `/petitions/:id`
+- Edit → `/petitions/:id/edit`
+- Phân công (canDispatch) → AssignModal(resourceType=petitions)
+- Xóa → DeleteResourceModal (no status guard for petitions)
+
+**Petitions advanced filters** (`features/petitions/list-filters.ts`):
+- Từ ngày / Đến ngày (date) — URL `petitions_from_date` / `petitions_to_date`
+- Người gửi (text) — URL `petitions_sender`
+- Trạng thái (enumSelect 7 PetitionStatus values) — URL `petitions_status`
+- Đơn vị (text) — URL `petitions_unit`
+
+### Changed
+
+- `PetitionListPageShell.tsx`: Thao tác column FIRST, Filters as Toolbar
+  accordion children, list fetch dep extended with appliedFilters,
+  handleResetFilters clears advanced filter draft + URL.
+
+### Tests
+
+- 8 registration unit + 14 existing PetitionListPageShell tests pass.
+- tsc clean.
+
+### Deferred to PR3-bis
+
+- Archive (lưu trữ), Convert-to-incident, Convert-to-case — need dedicated
+  modal providers with form scaffolding.
 
 ## [0.63.0.0] - 2026-05-30
 

@@ -35,6 +35,16 @@ import {
 import { PetitionStatus } from '@/shared/enums/generated';
 import { BTN_PRIMARY, A11Y_FOCUS_RING, OVERDUE_ROW_HIGHLIGHT } from '@/constants/styles';
 import { formatVNDate } from '@/lib/dates';
+// v0.65 PR3 — registry-driven row actions + advanced filters
+import { RowActions } from '@/features/_shared/row-actions/RowActions';
+import { Filters } from '@/features/_shared/list-filters/Filters';
+import { useListFilters } from '@/features/_shared/list-filters/useListFilters';
+import { useAssignModal } from '@/features/_shared/modals/AssignModalProvider';
+import { useDeleteResourceModal } from '@/features/_shared/modals/DeleteResourceModalProvider';
+import { usePermission } from '@/hooks/usePermission';
+import type { ActionContext } from '@/features/_shared/row-actions/registry';
+import { petitionsRowActions } from '@/features/petitions/row-actions';
+import { petitionsListFilters, type PetitionFilterValue } from '@/features/petitions/list-filters';
 
 const PETITION_STATUS_VALUES = new Set<string>(Object.values(PetitionStatus));
 function isValidPetitionStatus(value: string | null): value is PetitionStatus {
@@ -107,6 +117,38 @@ export function PetitionListPageShell() {
 
   const abortRef = useRef<AbortController | null>(null);
 
+  // v0.65 PR3 — Action context + advanced filter state.
+  const { canDispatch, canEdit, canDelete } = usePermission();
+  const assignModal = useAssignModal();
+  const deleteModal = useDeleteResourceModal();
+  const actionCtx: ActionContext = useMemo(
+    () => ({
+      navigate,
+      perms: {
+        canDispatch,
+        canEdit: canEdit('petitions'),
+        canDelete: canDelete('petitions'),
+      },
+      assignModal,
+      deleteModal: {
+        open: (args) =>
+          deleteModal.open({
+            ...args,
+            onSuccess: () => {
+              args.onSuccess?.();
+              setRefetchCounter((n) => n + 1);
+            },
+          }),
+      },
+    }),
+    [navigate, canDispatch, canEdit, canDelete, assignModal, deleteModal],
+  );
+  const listFilters = useListFilters<PetitionFilterValue>({
+    prefix: 'petitions',
+    registry: petitionsListFilters,
+  });
+  const appliedFilters = listFilters.applied;
+
   useEffect(() => {
     abortRef.current?.abort();
     const ctrl = new AbortController();
@@ -117,6 +159,11 @@ export function PetitionListPageShell() {
     const params = {
       ...(statusFilter && { status: statusFilter }),
       ...(debouncedSearch && { search: debouncedSearch }),
+      ...(appliedFilters.fromDate && { fromDate: appliedFilters.fromDate }),
+      ...(appliedFilters.toDate && { toDate: appliedFilters.toDate }),
+      ...(appliedFilters.sender && { sender: appliedFilters.sender }),
+      ...(appliedFilters.status && { advancedStatus: appliedFilters.status }),
+      ...(appliedFilters.unit && { unit: appliedFilters.unit }),
       limit: PAGE_SIZE,
       offset: (page - 1) * PAGE_SIZE,
     };
@@ -141,7 +188,7 @@ export function PetitionListPageShell() {
 
     return () => ctrl.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, page, debouncedSearch, refetchCounter]);
+  }, [statusFilter, page, debouncedSearch, refetchCounter, appliedFilters]);
 
   useEffect(() => {
     const ctrl = new AbortController();
@@ -223,6 +270,23 @@ export function PetitionListPageShell() {
   const columns: ColumnDef<PetitionRow>[] = useMemo(
     () => [
       {
+        key: 'actions',
+        header: 'Thao tác',
+        width: '8rem',
+        render: (r) => (
+          <RowActions
+            registry={petitionsRowActions}
+            row={{
+              id: r.id,
+              status: r.status as unknown as string,
+              stt: r.stt,
+              updatedAt: r.updatedAt,
+            }}
+            ctx={actionCtx}
+          />
+        ),
+      },
+      {
         key: 'stt',
         header: 'STT',
         render: (r) => <span className="font-mono text-xs text-slate-700">{r.stt}</span>,
@@ -270,7 +334,7 @@ export function PetitionListPageShell() {
         },
       },
     ],
-    [],
+    [actionCtx],
   );
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
@@ -298,9 +362,12 @@ export function PetitionListPageShell() {
 
   const handleResetFilters = useCallback(() => {
     url.clearAll();
-  }, [url]);
+    listFilters.reset();
+  }, [url, listFilters]);
 
-  const activeFilterCount = (statusFilter ? 1 : 0) + (searchQuery ? 1 : 0);
+  const appliedFilterCount = Object.values(appliedFilters).filter((v) => v && v !== '').length;
+  const activeFilterCount =
+    (statusFilter ? 1 : 0) + (searchQuery ? 1 : 0) + appliedFilterCount;
 
   return (
     <ListPageShell>
@@ -332,7 +399,16 @@ export function PetitionListPageShell() {
         searchPlaceholder="Tìm kiếm theo STT, người gửi, đối tượng..."
         activeFilterCount={activeFilterCount}
         onResetFilters={handleResetFilters}
-      />
+      >
+        <Filters<PetitionFilterValue>
+          registry={petitionsListFilters}
+          value={listFilters.draft}
+          onChange={listFilters.setField}
+          onApply={listFilters.apply}
+          onReset={listFilters.reset}
+          hasUnappliedChanges={listFilters.hasUnappliedChanges}
+        />
+      </ListPageShell.Toolbar>
       {transientBanner && (
         <div
           data-testid="petitions-bulk-banner"
