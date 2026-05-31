@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.67.5.0] - 2026-05-31
+
+### Fixed
+- **UTDT — Vị trí cột Thao tác**: Di chuyển cột Eye/Pencil/Trash lên ngay sau cột checkbox — nhất quán với Cases, Incidents, Petitions (pattern chuẩn của project).
+
 ## [0.67.4.0] - 2026-05-31
 
 ### Added
