@@ -8,7 +8,6 @@ import { api } from "@/lib/api";
 import { extractApiError } from "@/lib/api-errors";
 import { formatVNDate } from "@/lib/dates";
 import { Card, CardHeader } from "@/components/shared";
-import { FKSelect } from "@/components/FKSelect";
 
 export type EntityKind = "case" | "incident" | "petition";
 
@@ -19,6 +18,14 @@ const DOC_TYPE_LABEL: Record<string, string> = {
   AM_THANH: "Âm thanh",
   KHAC: "Khác",
 };
+
+const DOCUMENT_TYPE_OPTIONS = [
+  { value: "VAN_BAN",  label: "Văn bản" },
+  { value: "HINH_ANH", label: "Hình ảnh" },
+  { value: "VIDEO",    label: "Video" },
+  { value: "AM_THANH", label: "Âm thanh" },
+  { value: "KHAC",     label: "Khác" },
+] as const;
 
 const ENTITY_COPY: Record<EntityKind, {
   idKey: "caseId" | "incidentId" | "petitionId";
@@ -195,14 +202,16 @@ export function EntityDocumentsTab({
               />
             </div>
             <div>
-              <FKSelect
-                label="Loại tài liệu"
+              <label className="block text-xs font-medium text-slate-700 mb-1">Loại tài liệu</label>
+              <select
                 value={docType}
-                onChange={(v) => setDocType(v)}
-                directoryType="DOCUMENT_TYPE"
-                placeholder="-- Chọn loại --"
-                canCreate={false}
-              />
+                onChange={(e) => setDocType(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {DOCUMENT_TYPE_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
             </div>
             <div className="md:col-span-2">
               <label className="block text-xs font-medium text-slate-700 mb-1">Mô tả (tùy chọn)</label>
