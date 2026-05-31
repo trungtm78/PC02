@@ -300,7 +300,11 @@ export class CasesService {
 
     return {
       success: true,
-      data,
+      data: data.map((item) =>
+        item.caseType === CaseType.UY_THAC_DIEU_TRA
+          ? { ...item, trangThaiPhanHoi: computeTrangThaiPhanHoi(item) }
+          : item,
+      ),
       total,
       page: Math.floor(offset / limit) + 1,
       pageSize: limit,

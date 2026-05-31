@@ -11,14 +11,14 @@ export class UTDTPage {
   constructor(public readonly page: Page) {}
 
   async gotoList(): Promise<void> {
-    // List UTDT cases — filter caseType=UY_THAC_DIEU_TRA
-    await this.page.goto('/cases?caseType=UY_THAC_DIEU_TRA');
+    // Đúng route UTDT list page (v0.44+)
+    await this.page.goto('/uy-thac-dieu-tra');
     await this.page.waitForLoadState('networkidle');
   }
 
   async gotoNew(): Promise<void> {
-    // Form tạo UTDT — chọn caseType=UY_THAC_DIEU_TRA sẽ show tab "Thông tin Ủy thác"
-    await this.page.goto('/cases/new?caseType=UY_THAC_DIEU_TRA');
+    // Redirect qua /cases/new với caseProvenance
+    await this.page.goto('/uy-thac-dieu-tra/new');
     await this.page.waitForLoadState('networkidle');
   }
 
@@ -125,12 +125,68 @@ export class UTDTPage {
     }
   }
 
-  /** Filter list theo trangThaiPhanHoi */
+  /** Filter list theo trangThaiPhanHoi chip */
   async filterByTrangThai(state: 'DA_PHAN_HOI' | 'KHONG_THUC_HIEN_DUOC' | 'QUA_HAN' | 'CHUA_PHAN_HOI'): Promise<void> {
+    const labelMap = {
+      DA_PHAN_HOI: 'Đã phản hồi',
+      KHONG_THUC_HIEN_DUOC: 'Không thực hiện',
+      QUA_HAN: 'Quá hạn',
+      CHUA_PHAN_HOI: 'Chưa phản hồi',
+    };
+    // Tìm chip theo text label hoặc data-testid
     const chip = this.page
-      .locator(`[data-testid="filter-trang-thai-${state}"], button:has-text("${state}")`)
+      .locator(`button:has-text("${labelMap[state]}"), [data-testid="status-chip-${state}"]`)
       .first();
     await chip.click();
+    await this.page.waitForLoadState('networkidle');
+  }
+
+  /** Verify bulk selection checkboxes hiển thị trong bảng (Bug 1 fix) */
+  async expectBulkCheckboxesVisible(): Promise<void> {
+    // Header checkbox
+    const headerCheckbox = this.page.locator('thead input[type="checkbox"]');
+    await expect(headerCheckbox).toBeVisible();
+    // Ít nhất một row checkbox
+    const rowCheckboxes = this.page.locator('tbody input[type="checkbox"]');
+    const count = await rowCheckboxes.count();
+    expect(count, 'Phải có ít nhất 1 row checkbox').toBeGreaterThan(0);
+  }
+
+  /** Chọn row đầu tiên trong bảng và verify BulkActionBar xuất hiện */
+  async selectFirstRowAndExpectBulkBar(): Promise<void> {
+    const firstRowCheckbox = this.page.locator('tbody input[type="checkbox"]').first();
+    await firstRowCheckbox.check();
+    // BulkActionBar (sticky bottom) phải xuất hiện
+    const bulkBar = this.page.locator('[data-testid="list-page-shell-bulk-bar"], [role="toolbar"][aria-label*="hàng loạt"]');
+    await expect(bulkBar).toBeVisible();
+    const countText = this.page.locator('[data-testid="list-page-shell-bulk-count"]');
+    await expect(countText).toContainText('1');
+  }
+
+  /** Stats cards strip: verify 5 cards xuất hiện */
+  async expectStatsCardsVisible(): Promise<void> {
+    // StatsCardsStrip render cards với số liệu
+    const cards = this.page.locator('[data-testid^="stat-card"], .stat-card, [class*="StatsCard"]');
+    const count = await cards.count();
+    expect(count, 'Phải có ít nhất 5 stats cards').toBeGreaterThanOrEqual(5);
+  }
+
+  /** Delete modal: mở, điền lý do, xác nhận */
+  async deleteFirstRowWithReason(reason: string): Promise<void> {
+    const trashBtn = this.page
+      .locator('tbody tr')
+      .first()
+      .locator('button[title*="Xóa"], button[aria-label*="Xóa"]');
+    await trashBtn.click();
+    // Modal mở
+    const modal = this.page.locator('[role="dialog"], [data-testid="utdt-delete-modal"]');
+    await expect(modal).toBeVisible();
+    // Điền lý do
+    const textarea = this.page.locator('[data-testid="utdt-delete-reason"], textarea[minlength="10"]');
+    await textarea.fill(reason);
+    // Click confirm
+    const confirmBtn = this.page.getByRole('button', { name: /xác nhận xóa/i });
+    await confirmBtn.click();
     await this.page.waitForLoadState('networkidle');
   }
 }

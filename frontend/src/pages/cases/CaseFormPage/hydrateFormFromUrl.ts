@@ -23,7 +23,13 @@ export function hydrateFormFromUrl(
 
   // UTDT entry path: caseProvenance standalone (no linkedIncidentId)
   if (urlCaseProvenance && !linkedIncidentId) {
-    return { caseProvenance: urlCaseProvenance };
+    const updates: Partial<CaseFormData> = { caseProvenance: urlCaseProvenance };
+    // Bug 2 fix: khi vào UTDT, pre-fill utdt_loaiUyThac = 'UY_THAC_DIEU_TRA' để
+    // dropdown "Loại ủy thác" không trống — user tạo mới thường chọn đúng loại này.
+    if (urlCaseProvenance === 'UY_THAC_DIEU_TRA') {
+      updates.utdt_loaiUyThac = 'UY_THAC_DIEU_TRA';
+    }
+    return updates;
   }
 
   // Optimistic lock token một mình không có ý nghĩa — cần kèm link

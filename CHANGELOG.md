@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.67.4.0] - 2026-05-31
+
+### Added
+- **UTDT — Bulk selection**: `UyThacDieuTraListPage` nay có checkbox đầu bảng + `BulkActionBar` sticky-bottom — nhất quán với Cases/Incidents/Petitions. Người dùng có thể chọn nhiều ủy thác để xóa hàng loạt thay vì xóa từng cái.
+
+### Changed
+- **UTDT — `trangThaiPhanHoi` trong API**: `GET /cases?caseType=UY_THAC_DIEU_TRA` và `POST/PATCH /cases` nay trả về trường `trangThaiPhanHoi` (computed: `CHUA_PHAN_HOI` | `DA_PHAN_HOI` | `KHONG_THUC_HIEN_DUOC` | `QUA_HAN`) trực tiếp trong response — frontend không cần tính lại phía client.
+- **UAT spec**: Thêm `docs/uat/utdt/uat_uy_thac_dieu_tra.md` — 41 test case phủ GREEN/RED/EDGE/BOUNDARY/SECURITY/PERFORMANCE/UI_CONSISTENCY + 4 E2E journeys. Playwright spec mới: `tests/api/utdt-bugfix-uat.api.spec.ts` + `tests/e2e/utdt-bugfix-uat.e2e.spec.ts`.
+
+### Fixed
+- **UTDT — `donViGiao` validation**: Backend DTO nay enforce `@IsNotEmpty` + `@Transform(trim)` cho `donViGiao` khi `caseType=UY_THAC_DIEU_TRA` — bypass qua API trực tiếp không còn tạo được UTDT thiếu đơn vị giao.
+- **UTDT — Stats cards stale sau bulk delete**: `refetchCounter` thêm vào deps của stats effect — stats strip tự refresh sau khi bulk operation thay vì giữ số cũ.
+- **UTDT — Tab "Thông tin Ủy thác" ẩn khi click chỉnh sửa**: `RedirectToEdit` nay truyền `caseProvenance=UY_THAC_DIEU_TRA` qua URL — tab UTDT hiển thị ngay lập tức khi mở form sửa, không còn flash ẩn trong 300ms chờ API.
+- **UTDT — Dropdown "Loại ủy thác" trống khi tạo mới**: `hydrateFormFromUrl` nay pre-fill `utdt_loaiUyThac=UY_THAC_DIEU_TRA` khi navigate từ entry path UTDT — user không cần tự chọn lại.
+
 ## [0.67.3.0] - 2026-05-31
 
 ### Changed

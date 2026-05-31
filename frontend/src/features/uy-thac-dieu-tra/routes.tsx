@@ -9,7 +9,9 @@ const wrap = (node: ReactElement): ReactElement => (
 
 function RedirectToEdit(): ReactElement {
   const { id } = useParams<{ id: string }>();
-  return <Navigate to={`/cases/${id}/edit?returnPath=/uy-thac-dieu-tra`} replace />;
+  // Bug 1 fix: thêm caseProvenance để CaseFormPage hiển thị tab UTDT ngay lập tức
+  // (không cần đợi API response mới thấy tab "Thông tin Ủy thác")
+  return <Navigate to={`/cases/${id}/edit?caseProvenance=UY_THAC_DIEU_TRA&returnPath=/uy-thac-dieu-tra`} replace />;
 }
 
 export function renderUyThacDieuTraRoutes(): ReactElement[] {
