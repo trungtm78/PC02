@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.67.5.1] - 2026-05-31
+
+### Fixed
+- **Documents — Tải tài liệu trong Vụ việc & Đơn thư**: Click vào button tải xuống / tải lên / xóa tài liệu không còn tự redirect về màn hình danh sách. Nguyên nhân: `<button>` không có `type=button` mặc định là `type=submit` trong HTML — khi `EntityDocumentsTab` được nhúng vào `<form>` của `IncidentFormPage` và `PetitionFormPage`, click bất kỳ button nào trigger form submit. Fix: thêm `type="button"` vào cả 6 interactive buttons trong `EntityDocumentsTab`.
+
 ## [0.67.5.0] - 2026-05-31
 
 ### Fixed
