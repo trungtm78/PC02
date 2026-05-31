@@ -174,6 +174,7 @@ export function EntityDocumentsTab({
         title={copy.cardTitle}
         actions={
           <button
+            type="button"
             onClick={() => {
               setShowForm((v) => !v);
               setError("");
@@ -240,6 +241,7 @@ export function EntityDocumentsTab({
           {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="flex gap-2 justify-end">
             <button
+              type="button"
               onClick={() => {
                 setShowForm(false);
                 setError("");
@@ -249,6 +251,7 @@ export function EntityDocumentsTab({
               Hủy
             </button>
             <button
+              type="button"
               onClick={handleUpload}
               disabled={uploading}
               className="flex items-center gap-2 px-4 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-60"
@@ -293,6 +296,7 @@ export function EntityDocumentsTab({
               </div>
               <div className="flex items-center gap-1 flex-shrink-0 ml-3">
                 <button
+                  type="button"
                   onClick={() => handleOpen(doc)}
                   className="p-1.5 text-slate-600 hover:bg-slate-100 rounded transition-colors"
                   title="Mở tài liệu"
@@ -300,6 +304,7 @@ export function EntityDocumentsTab({
                   <Eye className="w-4 h-4" />
                 </button>
                 <button
+                  type="button"
                   onClick={() => handleDownload(doc)}
                   className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
                   title="Tải xuống"
@@ -307,6 +312,7 @@ export function EntityDocumentsTab({
                   <Download className="w-4 h-4" />
                 </button>
                 <button
+                  type="button"
                   onClick={() => handleDelete(doc)}
                   className="p-1.5 text-red-500 hover:bg-red-50 rounded transition-colors"
                   title="Xóa"
