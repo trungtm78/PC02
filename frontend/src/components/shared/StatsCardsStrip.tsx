@@ -1,5 +1,6 @@
 import { type ReactNode } from 'react';
 import { type LucideIcon } from 'lucide-react';
+import { STATS_CARD } from '@/constants/styles';
 
 export interface StatCard {
   label: string;
@@ -27,7 +28,7 @@ export function StatsCardsStrip({ cards, loading = false, className }: StatsCard
   return (
     <div className={`grid grid-cols-2 md:grid-cols-5 gap-4 px-6 py-4 ${className ?? ''}`}>
       {cards.map((card, i) => (
-        <div key={card.label ?? i} className="bg-white rounded-lg border border-slate-200 shadow-sm p-4">
+        <div key={card.label ?? i} className={STATS_CARD}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-600">{card.label}</p>

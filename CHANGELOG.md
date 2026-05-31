@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.67.3.0] - 2026-05-31
+
+### Changed
+- **Toolbar.tsx**: layout 2-row khớp Kiến nghị VKS — Filter+Reset ở row trên, Search full-width ở row dưới. Thêm `hasRow1` guard loại bỏ dead space khi toolbar không có filter children
+- **Table.tsx**: `displayCount` chỉ hiển thị khi `state === 'ready'` — tránh stale count trong loading state. Thêm `aria-labelledby` trên `<table>` khi `sectionTitle` có, loại bỏ duplicate sr-only caption
+- **styles.ts**: `TABLE_SECTION_CARD` dùng `overflow-clip` thay `overflow-hidden` — sticky positioning của BulkSelectionHeaderCell hoạt động đúng trên Safari/Chrome
+- **StatsCardsStrip.tsx**: import và dùng `STATS_CARD` constant từ `styles.ts` thay vì inline string
+
+### Fixed
+- **Toolbar**: khi `hasAdvancedFilters=false` và `showReset=false`, không còn render empty Row 1 gây ~16px dead space trước search input
+- **Table**: section header count không còn hiện số cũ ("Hiển thị 20 / 47") khi table đang loading
+
 ## [0.67.2.0] - 2026-05-31
 
 ### Added

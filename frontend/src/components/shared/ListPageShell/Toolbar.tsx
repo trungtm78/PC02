@@ -50,6 +50,9 @@ export function Toolbar({
 
   const hasAdvancedFilters = children != null;
   const showReset = activeFilterCount > 0 && onResetFilters != null;
+  // Row 1 is only rendered when there's at least one button to show.
+  // Without this guard, an empty Row 1 creates ~16px dead space above search.
+  const hasRow1 = hasAdvancedFilters || showReset;
 
   return (
     <div
@@ -58,7 +61,7 @@ export function Toolbar({
       className={cardStyle ? TOOLBAR_CARD : TOOLBAR_STRIP}
     >
       {/* Row 1: Action buttons — Filter left, Reset right (matches KN VKS pattern) */}
-      <div className="flex items-center justify-between gap-2">
+      {hasRow1 && <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           {hasAdvancedFilters && (
             <button
@@ -94,10 +97,10 @@ export function Toolbar({
             <span>Xóa lọc</span>
           </button>
         )}
-      </div>
+      </div>}
 
-      {/* Row 2: Search input — full width below action row */}
-      <div className="relative mt-4">
+      {/* Row 2: Search input — full width below action row (mt-4 only when Row 1 exists) */}
+      <div className={hasRow1 ? "relative mt-4" : "relative"}>
         <Search className={ICON_INPUT_POSITION} aria-hidden="true" />
         <input
           type="search"
