@@ -14,6 +14,8 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 - **UTDT — `donViGiao` validation**: Backend DTO nay enforce `@IsNotEmpty` + `@Transform(trim)` cho `donViGiao` khi `caseType=UY_THAC_DIEU_TRA` — bypass qua API trực tiếp không còn tạo được UTDT thiếu đơn vị giao.
 - **UTDT — Stats cards stale sau bulk delete**: `refetchCounter` thêm vào deps của stats effect — stats strip tự refresh sau khi bulk operation thay vì giữ số cũ.
+- **UTDT — Tab "Thông tin Ủy thác" ẩn khi click chỉnh sửa**: `RedirectToEdit` nay truyền `caseProvenance=UY_THAC_DIEU_TRA` qua URL — tab UTDT hiển thị ngay lập tức khi mở form sửa, không còn flash ẩn trong 300ms chờ API.
+- **UTDT — Dropdown "Loại ủy thác" trống khi tạo mới**: `hydrateFormFromUrl` nay pre-fill `utdt_loaiUyThac=UY_THAC_DIEU_TRA` khi navigate từ entry path UTDT — user không cần tự chọn lại.
 
 ## [0.67.3.0] - 2026-05-31
 
