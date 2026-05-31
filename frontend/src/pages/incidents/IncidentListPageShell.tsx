@@ -14,7 +14,7 @@
  */
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FileSearch, Plus, AlertCircle, X } from 'lucide-react';
+import { FileSearch, Plus, AlertCircle, X, Inbox, Search as SearchIcon, CheckCircle, PauseCircle } from 'lucide-react';
 import axios from 'axios';
 import { api } from '@/lib/api';
 import {
@@ -34,6 +34,8 @@ import {
 } from '@/shared/enums/status-labels';
 import { IncidentStatus } from '@/shared/enums/generated';
 import { BTN_PRIMARY, A11Y_FOCUS_RING, OVERDUE_ROW_HIGHLIGHT } from '@/constants/styles';
+import { StatsCardsStrip, type StatCard } from '@/components/shared/StatsCardsStrip';
+import { getIncidentStatusIcon } from '@/shared/enums/status-icons';
 import { formatVNDate } from '@/lib/dates';
 // v0.64 PR2 — registry-driven row actions + advanced filters
 import { RowActions } from '@/features/_shared/row-actions/RowActions';
@@ -104,6 +106,27 @@ interface IncidentsStatsResponse {
 }
 
 const PAGE_SIZE = 20;
+
+function buildIncidentsCards(stats: IncidentsStatsResponse | null): StatCard[] {
+  const by = stats?.byStatus;
+  const tiepNhan = by ? (by[IncidentStatus.TIEP_NHAN] ?? 0) : null;
+  const xacMinh = by
+    ? ([IncidentStatus.DANG_XAC_MINH, IncidentStatus.DA_PHAN_CONG, IncidentStatus.QUA_HAN] as IncidentStatus[]).reduce((s, k) => s + (by[k] ?? 0), 0)
+    : null;
+  const ketQua = by
+    ? ([IncidentStatus.DA_CHUYEN_VU_AN, IncidentStatus.KHONG_KHOI_TO, IncidentStatus.CHUYEN_XPHC, IncidentStatus.PHAN_LOAI_DAN_SU, IncidentStatus.DA_CHUYEN_DON_VI, IncidentStatus.DA_NHAP_VU_KHAC, IncidentStatus.DA_GIAI_QUYET] as IncidentStatus[]).reduce((s, k) => s + (by[k] ?? 0), 0)
+    : null;
+  const tamDinhChi = by
+    ? ([IncidentStatus.TAM_DINH_CHI, IncidentStatus.PHUC_HOI_NGUON_TIN, IncidentStatus.TDC_HET_THOI_HIEU, IncidentStatus.TDC_HTH_KHONG_KT] as IncidentStatus[]).reduce((s, k) => s + (by[k] ?? 0), 0)
+    : null;
+  return [
+    { label: 'Tổng vụ việc', value: stats?.total ?? null, icon: FileSearch, iconBgClass: 'bg-[#003973]/10', iconColorClass: 'text-[#003973]', valueColorClass: 'text-[#003973]' },
+    { label: 'Tiếp nhận', value: tiepNhan, icon: Inbox, iconBgClass: 'bg-blue-100', iconColorClass: 'text-blue-600', valueColorClass: 'text-blue-600' },
+    { label: 'Xác minh', value: xacMinh, icon: SearchIcon, iconBgClass: 'bg-amber-100', iconColorClass: 'text-amber-600', valueColorClass: 'text-amber-600' },
+    { label: 'Kết quả', value: ketQua, icon: CheckCircle, iconBgClass: 'bg-green-100', iconColorClass: 'text-green-600', valueColorClass: 'text-green-600' },
+    { label: 'Tạm đình chỉ', value: tamDinhChi, icon: PauseCircle, iconBgClass: 'bg-slate-100', iconColorClass: 'text-slate-600', valueColorClass: 'text-slate-600' },
+  ];
+}
 
 function isOverdue(deadline?: string | null): boolean {
   if (!deadline) return false;
@@ -362,7 +385,8 @@ export function IncidentListPageShell() {
         key: 'status',
         header: 'Trạng thái',
         render: (r) => (
-          <span className={`inline-block px-2 py-0.5 rounded text-xs ${INCIDENT_STATUS_BADGE[r.status]}`}>
+          <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium ${INCIDENT_STATUS_BADGE[r.status]}`}>
+            {getIncidentStatusIcon(r.status)}
             {INCIDENT_STATUS_LABEL[r.status]}
           </span>
         ),
@@ -464,6 +488,7 @@ export function IncidentListPageShell() {
           </button>
         }
       />
+      <StatsCardsStrip cards={buildIncidentsCards(stats)} loading={stats == null} />
       {/* Phase tabs render giữa Header + StatusChips theo plan PR2 compound API */}
       <div
         role="tablist"
@@ -513,6 +538,7 @@ export function IncidentListPageShell() {
         searchPlaceholder="Tìm kiếm theo mã, tên, đối tượng..."
         activeFilterCount={activeFilterCount}
         onResetFilters={handleResetFilters}
+        cardStyle
       >
         <Filters<IncidentFilterValue>
           registry={incidentsListFilters}
@@ -554,6 +580,7 @@ export function IncidentListPageShell() {
         data={rows}
         rowKey={(r) => r.id}
         title="Danh sách vụ việc"
+        sectionTitle="Danh sách vụ việc"
         totalCount={totalCount}
         error={error}
         emptyState={{

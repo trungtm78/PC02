@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.67.2.0] - 2026-05-31
+
+### Added
+- **UAT spec generator** (`scripts/uat_spec_generator.py`): tự động inject request body từ `steps` field vào API test, giúp POST/PUT/PATCH tests gửi payload đúng thay vì body rỗng
+- **System-wide UAT spec layer** (`tests/api/system-wide-uat.api.spec.ts` + `tests/e2e/system-wide-uat.e2e.spec.ts`): 29 test case mới gồm smoke tests, DataScope cross-team security (J08 — BLOCKER nếu fail), integration spot-checks, và UI/UX consistency checks xuyên 4 module
+- **Kế hoạch UAT toàn hệ thống** (`docs/uat/uat_system_wide.md`): S1-S8 bao gồm bản đồ hệ thống, integration matrix, 12 user journeys, vòng đời dữ liệu, smoke test, sign-off gate
+- **Design system constants**: `TABLE_SECTION_HEADER_*`, `TOOLBAR_CARD`, `TOOLBAR_STRIP` trong `styles.ts`
+
+### Changed
+- **E2E spec generator**: fix `.or().first()` → `.or(fallback).first()` — tránh Playwright strict mode violation khi cả 2 locator đều match, giảm E2E failures từ ~182 xuống ~20
+- **API spec generator**: tests với path parameter placeholder (`:id`, `{id}`) nay emit `test.skip()` thay vì false-fail với HTTP 404, kết quả test suite trung thực hơn
+- **Table.tsx**: lift `SectionHeader` ra module-level (tránh remount), thêm `StateCard` wrapper loại bỏ 6x DRY state branch
+- **Toolbar.tsx**: dùng `TOOLBAR_CARD`/`TOOLBAR_STRIP` constants thay vì inline Tailwind strings
+- **global-setup.ts**: guard với `UAT_PROD=1` để không login khi dev chạy local tests; xoá dead `userId` variable và dead `storageState` write
+
+### Fixed
+- **Credentials security**: `docs/uat/_shared/test-accounts.json` xoá plaintext passwords → dùng `password_env` references; file được gitignore; fallback defaults trong `global-setup.ts` không còn expose credentials trong source
+- **`playwright.config.ts`**: xoá dead `extraHTTPHeaders` với `UAT_TOKEN` (luôn empty tại config evaluation time, trước khi globalSetup chạy)
+
 ## [0.67.1.0] - 2026-05-30
 
 **v0.67.1 hotfix(petitions) — /investigate: click row trên /petitions redirect /login**

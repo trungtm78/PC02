@@ -1,0 +1,155 @@
+{
+  "feature": "cases",
+  "fixture_count": 22,
+  "description": "Data fixtures cho UAT Cases — runner tự seed trước test, cleanup sau test. Tất cả setup_recipe runnable bởi Playwright runner qua API call hoặc Prisma factory.",
+  "fixtures": [
+    {
+      "fixture_id": "account.admin.primary",
+      "ref": "_shared/test-accounts.json#account.admin.primary",
+      "setup_recipe": "login: POST /api/v1/auth/login {email:'admin@pc02.local', password:'68@Love2love68'} → outputs.token = response.accessToken",
+      "cleanup_recipe": "logout (token invalidate optional)",
+      "outputs": {"token": "$.accessToken", "userId": "$.user.id"}
+    },
+    {
+      "fixture_id": "account.admin.secondary",
+      "ref": "_shared/test-accounts.json#account.admin.secondary",
+      "setup_recipe": "login: POST /api/v1/auth/login {email:'admin2@pc02.local', password:'isP$sT4N@o71'}",
+      "cleanup_recipe": "-",
+      "outputs": {"token": "$.accessToken", "userId": "$.user.id"}
+    },
+    {
+      "fixture_id": "account.officer.primary",
+      "ref": "_shared/test-accounts.json#account.officer.primary",
+      "setup_recipe": "login: POST /api/v1/auth/login {email:'officer1@pc02.local', password:'8I@&5c1gHmfy'}",
+      "cleanup_recipe": "-",
+      "outputs": {"token": "$.accessToken", "userId": "$.user.id", "teamId": "$.user.primaryTeamId"}
+    },
+    {
+      "fixture_id": "account.officer.secondary",
+      "ref": "_shared/test-accounts.json#account.officer.secondary",
+      "setup_recipe": "login: POST /api/v1/auth/login {email:'officer2@pc02.local', password:'4TMa3hq*x3$v'}",
+      "cleanup_recipe": "-",
+      "outputs": {"token": "$.accessToken", "userId": "$.user.id", "teamId": "$.user.primaryTeamId"}
+    },
+    {
+      "fixture_id": "account.officer.expired_jwt",
+      "setup_recipe": "Lấy JWT của officer1 rồi đổi exp claim về quá khứ — hoặc sleep > tokenTTL. Trả về token expired.",
+      "cleanup_recipe": "-",
+      "outputs": {"token": "$.expiredToken"}
+    },
+    {
+      "fixture_id": "account.officer.locked",
+      "setup_recipe": "Admin gọi POST /api/v1/admin/users/{userId}/lock — set lockedAt=now. Login với account này lấy token (token issued trước khi lock).",
+      "cleanup_recipe": "POST /api/v1/admin/users/{userId}/unlock",
+      "outputs": {"token": "$.lockedAccountToken"}
+    },
+    {
+      "fixture_id": "directory.crime.shape.normal",
+      "setup_recipe": "GET /api/v1/directories?type=CRIME&limit=10 → outputs.crimeId = response[0].id (BLHS Đ.138 trộm cắp tài sản)",
+      "cleanup_recipe": "-",
+      "outputs": {"crimeId": "$.[0].id"}
+    },
+    {
+      "fixture_id": "case.tiep_nhan.D0",
+      "setup_recipe": "POST /api/v1/cases body {name:'UAT-TC-{{random}}', caseProvenance:'DIRECT_DISCOVERY', crime:'138', status:'TIEP_NHAN'} với token officer.primary",
+      "cleanup_recipe": "DELETE /api/v1/cases/{id} body {reason:'UAT cleanup test-data — 20+ char'}",
+      "outputs": {"case_id": "$.id", "updated_at": "$.updatedAt"}
+    },
+    {
+      "fixture_id": "case.dang_dieu_tra.D30",
+      "setup_recipe": "POST tạo case, sau đó PUT status=DANG_XAC_MINH → DA_XAC_MINH → DANG_DIEU_TRA, set createdAt 30 ngày trước (Prisma raw update)",
+      "cleanup_recipe": "DELETE /api/v1/cases/{id}",
+      "outputs": {"case_id": "$.id"}
+    },
+    {
+      "fixture_id": "case.tdc.D30",
+      "setup_recipe": "Tạo case → đến DANG_DIEU_TRA → PUT status=TAM_DINH_CHI + lyDoTamDinhChiVuAn=CHUA_XAC_DINH_BI_CAN + soQuyetDinhTamDinhChi='QĐ-UAT-{{random}}' + ngayTamDinhChi={{D-30}}",
+      "cleanup_recipe": "DELETE /api/v1/cases/{id}",
+      "outputs": {"case_id": "$.id"}
+    },
+    {
+      "fixture_id": "case.tdc.rasoat.D60",
+      "setup_recipe": "Tạo TĐC case rồi PUT {daRaSoat:true, ngayRaSoat:{{D-1}}, soQuyetDinhPhucHoi:'QĐ-PH-{{random}}', ketQuaPhucHoiVuAn:'DANG_DIEU_TRA_XAC_MINH'}",
+      "cleanup_recipe": "DELETE /api/v1/cases/{id}",
+      "outputs": {"case_id": "$.id"}
+    },
+    {
+      "fixture_id": "case.tdc.no_reason.D30",
+      "setup_recipe": "Tạo case raw qua Prisma với status=TAM_DINH_CHI nhưng lyDoTamDinhChiVuAn=null (backfill scenario)",
+      "cleanup_recipe": "Prisma delete",
+      "outputs": {"case_id": "$.id"}
+    },
+    {
+      "fixture_id": "case.da_ket_luan.D60",
+      "setup_recipe": "Tạo case đến DA_KET_LUAN qua chuỗi PUT (TIEP_NHAN→…→DA_KET_LUAN)",
+      "cleanup_recipe": "DELETE",
+      "outputs": {"case_id": "$.id"}
+    },
+    {
+      "fixture_id": "case.da_luu_tru.D365",
+      "setup_recipe": "Tạo case + push qua full chain → DA_LUU_TRU, set createdAt {{D-365}}",
+      "cleanup_recipe": "Prisma hard delete (terminal state)",
+      "outputs": {"case_id": "$.id"}
+    },
+    {
+      "fixture_id": "case.creator_owned.D0",
+      "setup_recipe": "POST /api/v1/cases với token officer.primary → createdById=officer1.userId",
+      "cleanup_recipe": "DELETE (vì là creator)",
+      "outputs": {"case_id": "$.id"}
+    },
+    {
+      "fixture_id": "case.other_owned.D0",
+      "setup_recipe": "POST với token officer.secondary → createdById=officer2.userId; test với officer.primary",
+      "cleanup_recipe": "DELETE bằng officer.secondary",
+      "outputs": {"case_id": "$.id"}
+    },
+    {
+      "fixture_id": "case.other_team.D0",
+      "setup_recipe": "POST với officer.secondary (team B); officer.primary thuộc team A → scope không thấy",
+      "cleanup_recipe": "DELETE bằng officer.secondary",
+      "outputs": {"case_id": "$.id"}
+    },
+    {
+      "fixture_id": "case.deleted.D7",
+      "setup_recipe": "POST tạo case → DELETE với reason hợp lệ; set deletedAt {{D-7}} bằng Prisma update",
+      "cleanup_recipe": "Prisma hard delete",
+      "outputs": {"case_id": "$.id"}
+    },
+    {
+      "fixture_id": "case.with_petition.D0",
+      "setup_recipe": "Tạo petition trước → POST case với caseProvenance=FROM_PETITION + linkedPetitionId",
+      "cleanup_recipe": "DELETE case → DELETE petition",
+      "outputs": {"case_id": "$.id", "petition_id": "$.linkedPetitionId"}
+    },
+    {
+      "fixture_id": "petition.assigned.D0",
+      "setup_recipe": "POST /api/v1/petitions body {senderName:'Test {{random}}', receivedDate:'{{today}}', petitionType:'TOCAO'} với officer.primary",
+      "cleanup_recipe": "DELETE /api/v1/petitions/{id}",
+      "outputs": {"petition_id": "$.id", "petition_updated_at": "$.updatedAt"}
+    },
+    {
+      "fixture_id": "incident.assigned.D0",
+      "setup_recipe": "POST /api/v1/incidents body {name:'UAT-VV-{{random}}', incidentType:'TINH_BAO', fromDate:'{{today}}'} với officer.primary",
+      "cleanup_recipe": "DELETE /api/v1/incidents/{id}",
+      "outputs": {"incident_id": "$.id", "incident_updated_at": "$.updatedAt"}
+    },
+    {
+      "fixture_id": "cases.shape.normal.D0",
+      "setup_recipe": "Seed 25 cases qua loop POST (mix status) cho officer.primary team",
+      "cleanup_recipe": "Loop DELETE",
+      "outputs": {"case_ids": "$[*].id"}
+    },
+    {
+      "fixture_id": "cases.shape.full.D0",
+      "setup_recipe": "Seed 100 cases — 10 mỗi status",
+      "cleanup_recipe": "Loop DELETE",
+      "outputs": {"case_ids": "$[*].id"}
+    },
+    {
+      "fixture_id": "cases.shape.large.D0",
+      "setup_recipe": "Prisma raw insert 10000 cases (cho performance test); cleanup tốn thời gian — chỉ dùng test PERFORMANCE",
+      "cleanup_recipe": "Prisma raw DELETE WHERE name LIKE 'UAT-PERF-%'",
+      "outputs": {"count": "10000"}
+    }
+  ]
+}

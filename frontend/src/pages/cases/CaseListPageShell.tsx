@@ -14,7 +14,7 @@
  */
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Folder, Plus } from 'lucide-react';
+import { Folder, Plus, Clock, CheckCircle, XCircle, PauseCircle } from 'lucide-react';
 import axios from 'axios';
 import { api } from '@/lib/api';
 import {
@@ -30,6 +30,8 @@ import {
 } from '@/shared/enums/status-labels';
 import { CaseStatus } from '@/shared/enums/generated';
 import { BTN_PRIMARY, A11Y_FOCUS_RING } from '@/constants/styles';
+import { StatsCardsStrip, type StatCard } from '@/components/shared/StatsCardsStrip';
+import { getCaseStatusIcon } from '@/shared/enums/status-icons';
 import { formatVNDate } from '@/lib/dates';
 import { useBulkSelection } from '@/features/_shared/bulk/useBulkSelection';
 import { BulkActionBar } from '@/features/_shared/bulk/BulkActionBar';
@@ -86,6 +88,25 @@ interface CasesStatsResponse {
 }
 
 const PAGE_SIZE = 20;
+
+function buildCasesCards(stats: CasesStatsResponse | null): StatCard[] {
+  const by = stats?.byStatus;
+  const activeCount = by
+    ? ([CaseStatus.TIEP_NHAN, CaseStatus.DANG_XAC_MINH, CaseStatus.DA_XAC_MINH, CaseStatus.DANG_DIEU_TRA, CaseStatus.DANG_TRUY_TO, CaseStatus.DANG_XET_XU] as CaseStatus[]).reduce((s, k) => s + (by[k] ?? 0), 0)
+    : null;
+  const ketLuanCount = by
+    ? ([CaseStatus.DA_KET_LUAN, CaseStatus.DA_LUU_TRU] as CaseStatus[]).reduce((s, k) => s + (by[k] ?? 0), 0)
+    : null;
+  const dinhChiCount = by ? (by[CaseStatus.DINH_CHI] ?? 0) : null;
+  const tamDinhChiCount = by ? (by[CaseStatus.TAM_DINH_CHI] ?? 0) : null;
+  return [
+    { label: 'Tổng vụ án', value: stats?.total ?? null, icon: Folder, iconBgClass: 'bg-[#003973]/10', iconColorClass: 'text-[#003973]', valueColorClass: 'text-[#003973]' },
+    { label: 'Đang điều tra', value: activeCount, icon: Clock, iconBgClass: 'bg-amber-100', iconColorClass: 'text-amber-600', valueColorClass: 'text-amber-600' },
+    { label: 'Đã kết luận', value: ketLuanCount, icon: CheckCircle, iconBgClass: 'bg-green-100', iconColorClass: 'text-green-600', valueColorClass: 'text-green-600' },
+    { label: 'Đình chỉ', value: dinhChiCount, icon: XCircle, iconBgClass: 'bg-red-100', iconColorClass: 'text-red-600', valueColorClass: 'text-red-600' },
+    { label: 'Tạm đình chỉ', value: tamDinhChiCount, icon: PauseCircle, iconBgClass: 'bg-slate-100', iconColorClass: 'text-slate-600', valueColorClass: 'text-slate-600' },
+  ];
+}
 
 export function CaseListPageShell() {
   const navigate = useNavigate();
@@ -325,7 +346,8 @@ export function CaseListPageShell() {
         key: 'status',
         header: 'Trạng thái',
         render: (r) => (
-          <span className={`inline-block px-2 py-0.5 rounded text-xs ${CASE_STATUS_BADGE[r.status]}`}>
+          <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium ${CASE_STATUS_BADGE[r.status]}`}>
+            {getCaseStatusIcon(r.status)}
             {CASE_STATUS_LABEL[r.status]}
           </span>
         ),
@@ -404,6 +426,7 @@ export function CaseListPageShell() {
           </button>
         }
       />
+      <StatsCardsStrip cards={buildCasesCards(stats)} loading={stats == null} />
       <ListPageShell.StatusChips
         options={chipOptions}
         activeValue={statusFilter}
@@ -417,6 +440,7 @@ export function CaseListPageShell() {
         searchPlaceholder="Tìm kiếm theo mã, tên, đơn vị..."
         activeFilterCount={activeFilterCount}
         onResetFilters={handleResetFilters}
+        cardStyle
       >
         <Filters<CaseFilterValue>
           registry={casesListFilters}
@@ -458,6 +482,7 @@ export function CaseListPageShell() {
         data={rows}
         rowKey={(r) => r.id}
         title="Danh sách vụ án"
+        sectionTitle="Danh sách vụ án"
         totalCount={totalCount}
         error={error}
         emptyState={{

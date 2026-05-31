@@ -15,7 +15,7 @@
  * - Security: malformed status URL param ignored
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, useLocation, Routes, Route } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { IncidentListPageShell } from '../IncidentListPageShell';
@@ -136,8 +136,9 @@ describe('IncidentListPageShell — initial mount + ready state', () => {
   it('StatusChips hiển thị server counts', async () => {
     renderWithRouter();
     await waitFor(() => screen.getByText('Vụ việc mẫu'));
-    expect(screen.getByText('35')).toBeInTheDocument(); // total
-    expect(screen.getByText('12')).toBeInTheDocument(); // DANG_XAC_MINH count
+    const chipBar = screen.getByRole('tablist', { name: /lọc theo trạng thái/i });
+    expect(within(chipBar).getByText('35')).toBeInTheDocument(); // total
+    expect(within(chipBar).getByText('12')).toBeInTheDocument(); // DANG_XAC_MINH count
   });
 });
 

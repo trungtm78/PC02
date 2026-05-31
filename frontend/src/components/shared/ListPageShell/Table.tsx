@@ -22,8 +22,11 @@ import {
   TABLE_HEADER,
   TABLE_HEADER_CELL,
   TABLE_BODY,
-  TABLE_ROW,
   TABLE_CELL,
+  TABLE_SECTION_CARD,
+  TABLE_SECTION_HEADER,
+  TABLE_SECTION_HEADER_TITLE,
+  TABLE_SECTION_HEADER_COUNT,
   EMPTY_STATE_WRAPPER,
   EMPTY_STATE_ICON,
   EMPTY_STATE_TEXT,
@@ -55,8 +58,10 @@ export interface TableProps<TRow, TId extends string | number = string> {
   rowKey(row: TRow): TId;
   /** Title for sr-only caption. */
   title?: string;
-  /** Total count for sr-only caption. */
+  /** Total count for sr-only caption and "Hiển thị X / Y" display. */
   totalCount?: number;
+  /** Section header title inside card (e.g. "Danh sách vụ án"). */
+  sectionTitle?: string;
   /** Error message (state=error). */
   error?: string;
   /** Empty state CTA (state=empty). */
@@ -175,6 +180,47 @@ function OfflineState() {
   );
 }
 
+function SectionHeader({
+  sectionTitle,
+  totalCount,
+  displayCount,
+}: {
+  sectionTitle?: string;
+  totalCount?: number;
+  displayCount?: number;
+}) {
+  if (!sectionTitle) return null;
+  return (
+    <div className={TABLE_SECTION_HEADER}>
+      <h2 className={TABLE_SECTION_HEADER_TITLE}>{sectionTitle}</h2>
+      {totalCount != null && displayCount != null && (
+        <p className={TABLE_SECTION_HEADER_COUNT}>
+          Hiển thị {displayCount} / {totalCount} bản ghi
+        </p>
+      )}
+    </div>
+  );
+}
+
+function StateCard({
+  sectionTitle,
+  totalCount,
+  displayCount,
+  children,
+}: {
+  sectionTitle?: string;
+  totalCount?: number;
+  displayCount?: number;
+  children: ReactNode;
+}) {
+  return (
+    <div className={TABLE_SECTION_CARD} data-testid="list-page-shell-table-card">
+      <SectionHeader sectionTitle={sectionTitle} totalCount={totalCount} displayCount={displayCount} />
+      {children}
+    </div>
+  );
+}
+
 export function Table<TRow, TId extends string | number = string>({
   state,
   columns,
@@ -182,6 +228,7 @@ export function Table<TRow, TId extends string | number = string>({
   rowKey,
   title,
   totalCount,
+  sectionTitle,
   error,
   emptyState,
   emptyFilteredState,
@@ -194,78 +241,94 @@ export function Table<TRow, TId extends string | number = string>({
 }: TableProps<TRow, TId>) {
   const { tableId } = useListPageShellContext();
   const colSpan = columns.length + (bulkSelection ? 1 : 0);
+  // Only show count when table is ready — during loading data holds stale rows
+  // from the previous fetch (parents don't reset rows to [] before refetch).
+  const cardProps = { sectionTitle, totalCount, displayCount: state === 'ready' ? data.length : undefined };
 
-  if (state === 'loading') return <LoadingSkeleton colCount={colSpan} />;
-  if (state === 'error') return <ErrorState error={error} />;
-  if (state === 'empty') return <EmptyState emptyState={emptyState} />;
-  if (state === 'empty-filtered') {
-    return <EmptyFilteredState emptyFilteredState={emptyFilteredState} />;
-  }
-  if (state === 'offline') return <OfflineState />;
+  if (state === 'loading') return (
+    <StateCard {...cardProps}><LoadingSkeleton colCount={colSpan} /></StateCard>
+  );
+  if (state === 'error') return (
+    <StateCard {...cardProps}><ErrorState error={error} /></StateCard>
+  );
+  if (state === 'empty') return (
+    <StateCard {...cardProps}><EmptyState emptyState={emptyState} /></StateCard>
+  );
+  if (state === 'empty-filtered') return (
+    <StateCard {...cardProps}><EmptyFilteredState emptyFilteredState={emptyFilteredState} /></StateCard>
+  );
+  if (state === 'offline') return (
+    <StateCard {...cardProps}><OfflineState /></StateCard>
+  );
 
   // state === 'ready'
   return (
-    <div className={TABLE_WRAPPER}>
-      <table id={tableId} className={TABLE_BASE}>
-        {title && (
-          <caption className="sr-only">
-            {title}
-            {totalCount != null ? ` — ${totalCount} bản ghi` : ''}
-          </caption>
-        )}
-        <thead className={TABLE_HEADER}>
-          <tr>
-            {bulkSelection && (
-              <BulkSelectionHeaderCell
-                selection={bulkSelection}
-                totalRowsLabel={bulkRowsLabel}
-              />
-            )}
-            {columns.map((col) => (
-              <th
-                key={col.key}
-                scope="col"
-                style={col.width ? { width: col.width } : undefined}
-                className={col.headerClassName ?? TABLE_HEADER_CELL}
-              >
-                {col.header}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className={TABLE_BODY}>
-          {data.map((row) => {
-            const key = rowKey(row);
-            const customClass = getRowClassName?.(row) ?? '';
-            const isSelected = bulkSelection
-              ? bulkSelection.isSelected(String(key))
-              : false;
-            return (
-              <tr
-                key={key}
-                onClick={onRowClick ? () => onRowClick(row) : undefined}
-                className={`${TABLE_ROW} ${onRowClick ? 'cursor-pointer' : ''} ${
-                  isSelected ? 'bg-blue-50' : ''
-                } ${customClass}`.trim()}
-              >
-                {bulkSelection && (
-                  <BulkSelectionRowCell
-                    id={String(key)}
-                    selection={bulkSelection}
-                    rowLabel={bulkRowLabel?.(row)}
-                    ineligibleReason={bulkRowEligible?.(row) ?? null}
-                  />
-                )}
-                {columns.map((col) => (
-                  <td key={col.key} className={col.cellClassName ?? TABLE_CELL}>
-                    {col.render(row)}
-                  </td>
-                ))}
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+    <StateCard {...cardProps}>
+      <div className={TABLE_WRAPPER}>
+        <table id={tableId} className={TABLE_BASE}>
+          {title && (
+            <caption className="sr-only">
+              {title}
+              {totalCount != null ? ` — ${totalCount} bản ghi` : ''}
+            </caption>
+          )}
+          <thead className={TABLE_HEADER}>
+            <tr>
+              {bulkSelection && (
+                <BulkSelectionHeaderCell
+                  selection={bulkSelection}
+                  totalRowsLabel={bulkRowsLabel}
+                />
+              )}
+              {columns.map((col) => (
+                <th
+                  key={col.key}
+                  scope="col"
+                  style={col.width ? { width: col.width } : undefined}
+                  className={col.headerClassName ?? TABLE_HEADER_CELL}
+                >
+                  {col.header}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className={TABLE_BODY}>
+            {data.map((row) => {
+              const key = rowKey(row);
+              const customClass = getRowClassName?.(row) ?? '';
+              const isSelected = bulkSelection
+                ? bulkSelection.isSelected(String(key))
+                : false;
+              // [D2] Compute hover inline — skip default blue hover when
+              // customClass present (e.g. OVERDUE_ROW_HIGHLIGHT has its own hover)
+              const rowHover = customClass ? '' : 'hover:bg-blue-50';
+              return (
+                <tr
+                  key={key}
+                  onClick={onRowClick ? () => onRowClick(row) : undefined}
+                  className={`${rowHover} ${onRowClick ? 'cursor-pointer' : ''} ${
+                    isSelected ? 'bg-blue-50' : ''
+                  } ${customClass}`.trim()}
+                >
+                  {bulkSelection && (
+                    <BulkSelectionRowCell
+                      id={String(key)}
+                      selection={bulkSelection}
+                      rowLabel={bulkRowLabel?.(row)}
+                      ineligibleReason={bulkRowEligible?.(row) ?? null}
+                    />
+                  )}
+                  {columns.map((col) => (
+                    <td key={col.key} className={col.cellClassName ?? TABLE_CELL}>
+                      {col.render(row)}
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </StateCard>
   );
 }

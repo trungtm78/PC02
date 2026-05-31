@@ -5,7 +5,7 @@
  * (single workflow), so coverage simpler than Incidents.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, useLocation, Routes, Route } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { PetitionListPageShell } from '../PetitionListPageShell';
@@ -108,8 +108,9 @@ describe('PetitionListPageShell — initial mount + ready state', () => {
   it('StatusChips render server counts', async () => {
     renderWithRouter();
     await waitFor(() => screen.getByText('Nguyễn Văn A'));
-    expect(screen.getByText('34')).toBeInTheDocument(); // total
-    expect(screen.getByText('15')).toBeInTheDocument(); // DANG_XU_LY
+    const chipBar = screen.getByRole('tablist', { name: /lọc theo trạng thái/i });
+    expect(within(chipBar).getByText('34')).toBeInTheDocument(); // total
+    expect(within(chipBar).getByText('15')).toBeInTheDocument(); // DANG_XU_LY
   });
 });
 

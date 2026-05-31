@@ -140,4 +140,52 @@ describe('<ListPageShell.Table> — state machine', () => {
     // rows[0] là header, rows[1] là vụ A (TIEP_NHAN)
     expect(rows[1].className).toContain('row-tiep-nhan');
   });
+
+  // ── T3 — Card wrapper + sectionTitle + hover override (plan changes) ────────
+
+  it('wraps table trong card div data-testid=list-page-shell-table-card', () => {
+    render(
+      <ListPageShell>
+        <Table state="ready" columns={COLS} data={ROWS} rowKey={(r) => r.id} />
+      </ListPageShell>,
+    );
+    expect(screen.getByTestId('list-page-shell-table-card')).toBeInTheDocument();
+  });
+
+  it('sectionTitle renders h2 với đúng text', () => {
+    render(
+      <ListPageShell>
+        <Table state="ready" columns={COLS} data={ROWS} rowKey={(r) => r.id} sectionTitle="Danh sách vụ án" totalCount={2} />
+      </ListPageShell>,
+    );
+    expect(screen.getByRole('heading', { level: 2, name: 'Danh sách vụ án' })).toBeInTheDocument();
+  });
+
+  it('renders count display "Hiển thị X / Y bản ghi" khi có sectionTitle + totalCount', () => {
+    render(
+      <ListPageShell>
+        <Table state="ready" columns={COLS} data={ROWS} rowKey={(r) => r.id} sectionTitle="Danh sách" totalCount={42} />
+      </ListPageShell>,
+    );
+    expect(screen.getByText(/Hiển thị 2 \/ 42 bản ghi/)).toBeInTheDocument();
+  });
+
+  it('row với customClass KHÔNG có hover:bg-blue-50 (overdue conflict fix)', () => {
+    render(
+      <ListPageShell>
+        <Table
+          state="ready"
+          columns={COLS}
+          data={ROWS}
+          rowKey={(r) => r.id}
+          getRowClassName={(r) => (r.status === 'TIEP_NHAN' ? 'bg-red-50 hover:bg-red-100' : '')}
+        />
+      </ListPageShell>,
+    );
+    const rows = screen.getAllByRole('row');
+    // rows[1] là TIEP_NHAN — có customClass, không được nhận hover:bg-blue-50
+    expect(rows[1].className).not.toContain('hover:bg-blue-50');
+    // rows[2] là DANG_DIEU_TRA — không có customClass, phải có hover:bg-blue-50
+    expect(rows[2].className).toContain('hover:bg-blue-50');
+  });
 });

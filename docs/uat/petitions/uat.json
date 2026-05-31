@@ -1,0 +1,2085 @@
+{
+  "meta": {
+    "feature": "petitions",
+    "total_tc": 120,
+    "target_tc": 120,
+    "mode": "LEAN",
+    "generated_at": "2026-05-30",
+    "type_distribution": {
+      "GREEN": 16,
+      "RED": 48,
+      "BOUNDARY": 9,
+      "EDGE": 1,
+      "EP": 9,
+      "STATE": 5,
+      "SECURITY": 12,
+      "DECISION": 3,
+      "DATA": 2,
+      "A11Y": 6,
+      "COMPAT": 6,
+      "PERFORMANCE": 3
+    },
+    "priority_distribution": {
+      "P0": 62,
+      "P1": 50,
+      "P2": 8
+    }
+  },
+  "data_fixtures": [
+    {
+      "fixture_id": "account.officer.primary",
+      "ref": "_shared/test-accounts.json#account.officer.primary",
+      "setup_recipe": "login officer1@",
+      "cleanup_recipe": "-",
+      "outputs": {
+        "token": "$.accessToken",
+        "userId": "$.user.id",
+        "teamId": "$.user.primaryTeamId"
+      }
+    },
+    {
+      "fixture_id": "account.officer.secondary",
+      "ref": "_shared/test-accounts.json#account.officer.secondary",
+      "setup_recipe": "login officer2@",
+      "cleanup_recipe": "-",
+      "outputs": {
+        "token": "$.accessToken"
+      }
+    },
+    {
+      "fixture_id": "account.officer.locked.D7",
+      "setup_recipe": "Admin lock officer1 với lockedAt D-7",
+      "cleanup_recipe": "Admin unlock",
+      "outputs": {
+        "token": "$.token"
+      }
+    },
+    {
+      "fixture_id": "account.admin.primary",
+      "ref": "_shared/test-accounts.json#account.admin.primary",
+      "setup_recipe": "login admin@",
+      "cleanup_recipe": "-",
+      "outputs": {
+        "token": "$.accessToken"
+      }
+    },
+    {
+      "fixture_id": "account.viewer.D0",
+      "setup_recipe": "Admin seed user role VIEWER",
+      "cleanup_recipe": "Admin delete user",
+      "outputs": {
+        "token": "$.accessToken"
+      }
+    },
+    {
+      "fixture_id": "petition.moi_tiep_nhan.D0",
+      "setup_recipe": "POST /api/v1/petitions {senderName:'UAT-{{random}}', receivedDate:'{{today}}', petitionType:'TO_CAO'}",
+      "cleanup_recipe": "DELETE /api/v1/petitions/{id}",
+      "outputs": {
+        "petition_id": "$.id"
+      }
+    },
+    {
+      "fixture_id": "petition.dang_xu_ly.D7",
+      "setup_recipe": "Tạo petition → PUT status=DANG_XU_LY, createdAt D-7",
+      "cleanup_recipe": "DELETE",
+      "outputs": {
+        "petition_id": "$.id"
+      }
+    },
+    {
+      "fixture_id": "petition.cho_phe_duyet.D14",
+      "setup_recipe": "Petition → CHO_PHE_DUYET",
+      "cleanup_recipe": "DELETE",
+      "outputs": {
+        "petition_id": "$.id"
+      }
+    },
+    {
+      "fixture_id": "petition.luu_don.D30",
+      "setup_recipe": "Petition → DA_LUU_DON",
+      "cleanup_recipe": "DELETE",
+      "outputs": {
+        "petition_id": "$.id"
+      }
+    },
+    {
+      "fixture_id": "petition.giai_quyet.D30",
+      "setup_recipe": "Petition → DA_GIAI_QUYET",
+      "cleanup_recipe": "Prisma hard delete",
+      "outputs": {
+        "petition_id": "$.id"
+      }
+    },
+    {
+      "fixture_id": "petition.converted_incident.D7",
+      "setup_recipe": "Petition → POST /convert-incident → linkedIncidentId set",
+      "cleanup_recipe": "DELETE Incident → DELETE Petition",
+      "outputs": {
+        "petition_id": "$.id",
+        "incident_id": "$.linkedIncidentId"
+      }
+    },
+    {
+      "fixture_id": "petition.converted_case.D7",
+      "setup_recipe": "Petition → POST /convert-case → linkedCaseId set",
+      "cleanup_recipe": "DELETE Case → DELETE Petition",
+      "outputs": {
+        "petition_id": "$.id",
+        "case_id": "$.linkedCaseId"
+      }
+    },
+    {
+      "fixture_id": "petition.creator_owned.D0",
+      "setup_recipe": "POST với officer.primary",
+      "cleanup_recipe": "DELETE",
+      "outputs": {
+        "petition_id": "$.id"
+      }
+    },
+    {
+      "fixture_id": "petition.other_team.D0",
+      "setup_recipe": "POST với officer.secondary (team B)",
+      "cleanup_recipe": "DELETE bằng officer.secondary",
+      "outputs": {
+        "petition_id": "$.id"
+      }
+    },
+    {
+      "fixture_id": "petition.unassigned.D0",
+      "setup_recipe": "POST không assignedToId",
+      "cleanup_recipe": "DELETE",
+      "outputs": {
+        "petition_id": "$.id"
+      }
+    },
+    {
+      "fixture_id": "petition.assigned.D0",
+      "setup_recipe": "POST + PATCH /assign",
+      "cleanup_recipe": "DELETE",
+      "outputs": {
+        "petition_id": "$.id",
+        "petition_updated_at": "$.updatedAt"
+      }
+    },
+    {
+      "fixture_id": "petition.assigned.D7",
+      "setup_recipe": "Petition assigned 7 ngày trước",
+      "cleanup_recipe": "DELETE",
+      "outputs": {
+        "petition_id": "$.id"
+      }
+    },
+    {
+      "fixture_id": "petition.minimal.D0",
+      "setup_recipe": "POST chỉ senderName + receivedDate + petitionType (không business fields)",
+      "cleanup_recipe": "DELETE",
+      "outputs": {
+        "petition_id": "$.id"
+      }
+    },
+    {
+      "fixture_id": "petition.with_business_content.D7",
+      "setup_recipe": "POST đủ field business: nhanThay, deXuat, baoCaoBanGiamDoc, canCuPhapLy, raSoatTrung",
+      "cleanup_recipe": "DELETE",
+      "outputs": {
+        "petition_id": "$.id"
+      }
+    },
+    {
+      "fixture_id": "petition.with_events.D60",
+      "setup_recipe": "Petition có ≥5 events (create, assign, status_change, comment, attachment)",
+      "cleanup_recipe": "DELETE",
+      "outputs": {
+        "petition_id": "$.id"
+      }
+    },
+    {
+      "fixture_id": "petition.deleted.D7",
+      "setup_recipe": "Petition → DELETE",
+      "cleanup_recipe": "Prisma hard delete",
+      "outputs": {
+        "petition_id": "$.id"
+      }
+    },
+    {
+      "fixture_id": "petition.stt_existing.D0",
+      "setup_recipe": "Petition có stt='DT-2026-00001'",
+      "cleanup_recipe": "DELETE",
+      "outputs": {
+        "stt": "DT-2026-00001"
+      }
+    },
+    {
+      "fixture_id": "petition.recently_edited.D0",
+      "setup_recipe": "Petition vừa edited bằng admin2",
+      "cleanup_recipe": "DELETE",
+      "outputs": {
+        "petition_id": "$.id",
+        "stale_updated_at": "$.oldAt"
+      }
+    },
+    {
+      "fixture_id": "petition.batch_3.D0",
+      "setup_recipe": "Seed 3 petitions đủ business content",
+      "cleanup_recipe": "Loop DELETE",
+      "outputs": {
+        "petition_ids": "$[*].id"
+      }
+    },
+    {
+      "fixture_id": "petitions.shape.normal.D0",
+      "setup_recipe": "Seed 25 petitions mix status",
+      "cleanup_recipe": "Loop DELETE",
+      "outputs": {
+        "petition_ids": "$[*].id"
+      }
+    },
+    {
+      "fixture_id": "petitions.shape.full.D0",
+      "setup_recipe": "Seed 100 petitions",
+      "cleanup_recipe": "Loop DELETE",
+      "outputs": {
+        "petition_ids": "$[*].id"
+      }
+    },
+    {
+      "fixture_id": "petitions.shape.large.D0",
+      "setup_recipe": "Prisma raw insert 10000",
+      "cleanup_recipe": "Prisma raw DELETE",
+      "outputs": {
+        "count": "10000"
+      }
+    },
+    {
+      "fixture_id": "petitions.all_status.D0",
+      "setup_recipe": "7 petitions — mỗi status 1",
+      "cleanup_recipe": "DELETE all",
+      "outputs": {
+        "petition_ids": "$[*].id"
+      }
+    },
+    {
+      "fixture_id": "petitions.mixed_link.D0",
+      "setup_recipe": "6 petitions — 2 unlinked, 2 linkedCaseId, 2 linkedIncidentId",
+      "cleanup_recipe": "DELETE cẩn thận order",
+      "outputs": {
+        "petition_ids": "$[*].id"
+      }
+    }
+  ],
+  "test_cases": [
+    {
+      "id": "TC-PET-001",
+      "type": "GREEN",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/petitions",
+      "role": "OFFICER",
+      "title": "Tạo đơn tố cáo với senderName + receivedDate + petitionType=TO_CAO",
+      "pre": "-",
+      "steps": "POST {senderName:'Nguyễn Văn A', receivedDate:'2026-05-30', petitionType:'TO_CAO'}",
+      "expected": "HTTP 201, response.id≠null, stt format DT-2026-NNNNN auto-gen, status=MOI_TIEP_NHAN",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-002",
+      "type": "GREEN",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/petitions",
+      "role": "OFFICER",
+      "title": "Tạo đơn KHIEU_NAI",
+      "pre": "-",
+      "steps": "POST {senderName, receivedDate, petitionType:'KHIEU_NAI'}",
+      "expected": "HTTP 201",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-003",
+      "type": "GREEN",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "POST /api/v1/petitions",
+      "role": "OFFICER",
+      "title": "Tạo đơn KIEN_NGHI",
+      "pre": "-",
+      "steps": "POST petitionType=KIEN_NGHI",
+      "expected": "HTTP 201",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-004",
+      "type": "GREEN",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "POST /api/v1/petitions",
+      "role": "OFFICER",
+      "title": "Tạo đơn PHAN_ANH",
+      "pre": "-",
+      "steps": "POST petitionType=PHAN_ANH",
+      "expected": "HTTP 201",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-005",
+      "type": "GREEN",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "POST /api/v1/petitions",
+      "role": "OFFICER",
+      "title": "Tạo đơn với stt tự cung cấp (override engine)",
+      "pre": "-",
+      "steps": "POST {stt:'DT-2026-99999', senderName, receivedDate, petitionType:'TO_CAO'}",
+      "expected": "HTTP 201, stt='DT-2026-99999'",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-006",
+      "type": "GREEN",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "POST /api/v1/petitions",
+      "role": "OFFICER",
+      "title": "Tạo đơn đủ thông tin sender (phone, email, address, birthYear)",
+      "pre": "-",
+      "steps": "POST đủ field sender",
+      "expected": "HTTP 201, sender info lưu đúng",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-007",
+      "type": "GREEN",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "GET /api/v1/petitions",
+      "role": "OFFICER",
+      "title": "List petitions default pagination",
+      "pre": "DB ≥20 đơn",
+      "steps": "GET /api/v1/petitions",
+      "expected": "HTTP 200, items.length≤20, sorted receivedDate desc",
+      "data": [
+        "petitions.shape.normal.D0"
+      ]
+    },
+    {
+      "id": "TC-PET-008",
+      "type": "GREEN",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "GET /api/v1/petitions/stats",
+      "role": "OFFICER",
+      "title": "Stats 7 PetitionStatus",
+      "pre": "-",
+      "steps": "GET /stats",
+      "expected": "HTTP 200, byStatus đủ 7 key",
+      "data": [
+        "petitions.shape.full.D0"
+      ]
+    },
+    {
+      "id": "TC-PET-009",
+      "type": "GREEN",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "GET /api/v1/petitions/:id",
+      "role": "OFFICER",
+      "title": "Xem chi tiết đơn",
+      "pre": "Có petition",
+      "steps": "GET /api/v1/petitions/{{petition_id}}",
+      "expected": "HTTP 200, đủ field",
+      "data": [
+        "petition.dang_xu_ly.D7"
+      ]
+    },
+    {
+      "id": "TC-PET-010",
+      "type": "GREEN",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "PUT /api/v1/petitions/:id",
+      "role": "OFFICER",
+      "title": "Cập nhật nội dung đơn",
+      "pre": "-",
+      "steps": "PUT {summary:'Tóm tắt cập nhật'}",
+      "expected": "HTTP 200",
+      "data": [
+        "petition.dang_xu_ly.D7"
+      ]
+    },
+    {
+      "id": "TC-PET-011",
+      "type": "GREEN",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/petitions/:id/convert-incident",
+      "role": "OFFICER",
+      "title": "Convert đơn thành Vụ việc (atomic)",
+      "pre": "Petition đang DANG_XU_LY",
+      "steps": "POST /convert-incident body {incidentName, loaiDonVu, nguonPhatTin}",
+      "expected": "HTTP 200/201, petition.linkedIncidentId set, petition.status=DA_CHUYEN_VU_VIEC, Incident mới tạo",
+      "data": [
+        "petition.dang_xu_ly.D7"
+      ]
+    },
+    {
+      "id": "TC-PET-012",
+      "type": "GREEN",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/petitions/:id/convert-case",
+      "role": "OFFICER",
+      "title": "Convert đơn thành Vụ án (atomic)",
+      "pre": "-",
+      "steps": "POST /convert-case body {caseName, caseProvenance:'FROM_PETITION'}",
+      "expected": "HTTP 200/201, petition.linkedCaseId set, status=DA_CHUYEN_VU_AN",
+      "data": [
+        "petition.dang_xu_ly.D7"
+      ]
+    },
+    {
+      "id": "TC-PET-013",
+      "type": "GREEN",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "DELETE /api/v1/petitions/:id",
+      "role": "OFFICER",
+      "title": "Soft delete đơn",
+      "pre": "Chưa convert",
+      "steps": "DELETE body {reason:'Lý do hợp lệ'}",
+      "expected": "HTTP 200, deletedAt set",
+      "data": [
+        "petition.creator_owned.D0"
+      ]
+    },
+    {
+      "id": "TC-PET-014",
+      "type": "GREEN",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "PATCH /api/v1/petitions/:id/assign",
+      "role": "ADMIN",
+      "title": "Phân công xử lý đơn",
+      "pre": "-",
+      "steps": "PATCH /assign body {assignedToId:'{{officer_id}}'}",
+      "expected": "HTTP 200, assignedToId set",
+      "data": [
+        "petition.unassigned.D0",
+        "account.admin.primary",
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-015",
+      "type": "GREEN",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "GET /api/v1/petitions/:id/export-document",
+      "role": "OFFICER",
+      "title": "Export PHIEU_DE_XUAT docx",
+      "pre": "Petition có đủ field business",
+      "steps": "GET /export-document?docType=PHIEU_DE_XUAT",
+      "expected": "HTTP 200, Content-Type docx, file size > 0",
+      "data": [
+        "petition.with_business_content.D7"
+      ]
+    },
+    {
+      "id": "TC-PET-016",
+      "type": "GREEN",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "POST /api/v1/petitions/export-document-batch",
+      "role": "OFFICER",
+      "title": "Batch export 3 đơn → ZIP",
+      "pre": "-",
+      "steps": "POST {petitionIds:['{{p1}}','{{p2}}','{{p3}}'], docType:'PHIEU_DE_XUAT'}",
+      "expected": "HTTP 200, Content-Type zip, manifest.json bên trong",
+      "data": [
+        "petition.batch_3.D0"
+      ]
+    },
+    {
+      "id": "TC-PET-017",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/petitions",
+      "role": "OFFICER",
+      "title": "Thiếu senderName → 400",
+      "pre": "-",
+      "steps": "POST không senderName",
+      "expected": "HTTP 400",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-018",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/petitions",
+      "role": "OFFICER",
+      "title": "Thiếu receivedDate → 400",
+      "pre": "-",
+      "steps": "POST không receivedDate",
+      "expected": "HTTP 400, IsDateString fail",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-019",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/petitions",
+      "role": "OFFICER",
+      "title": "Thiếu petitionType → 400",
+      "pre": "-",
+      "steps": "POST không petitionType",
+      "expected": "HTTP 400, 'Loại đơn thư là bắt buộc'",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-020",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "POST /api/v1/petitions",
+      "role": "OFFICER",
+      "title": "petitionType ngoài enum → 400",
+      "pre": "-",
+      "steps": "POST petitionType='INVALID'",
+      "expected": "HTTP 400",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-021",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "POST /api/v1/petitions",
+      "role": "OFFICER",
+      "title": "senderEmail không hợp lệ → 400",
+      "pre": "-",
+      "steps": "POST senderEmail='not-an-email'",
+      "expected": "HTTP 400, 'Email không đúng định dạng'",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-022",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "POST /api/v1/petitions",
+      "role": "OFFICER",
+      "title": "senderPhone chứa chữ cái → 400",
+      "pre": "-",
+      "steps": "POST senderPhone='abc123'",
+      "expected": "HTTP 400, 'Số điện thoại không hợp lệ'",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-023",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/petitions",
+      "role": "OFFICER",
+      "title": "Không JWT → 401",
+      "pre": "-",
+      "steps": "POST không Authorization",
+      "expected": "HTTP 401",
+      "data": []
+    },
+    {
+      "id": "TC-PET-024",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/petitions/:id/convert-incident",
+      "role": "OFFICER",
+      "title": "Convert đơn đã DA_CHUYEN_VU_VIEC → 409",
+      "pre": "Petition đã chuyển VV",
+      "steps": "POST /convert-incident lần 2",
+      "expected": "HTTP 409",
+      "data": [
+        "petition.converted_incident.D7"
+      ]
+    },
+    {
+      "id": "TC-PET-025",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/petitions/:id/convert-case",
+      "role": "OFFICER",
+      "title": "Convert đơn đã DA_CHUYEN_VU_AN → 409",
+      "pre": "-",
+      "steps": "POST /convert-case lần 2",
+      "expected": "HTTP 409",
+      "data": [
+        "petition.converted_case.D7"
+      ]
+    },
+    {
+      "id": "TC-PET-026",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "DELETE /api/v1/petitions/:id",
+      "role": "OFFICER",
+      "title": "DELETE đơn đã linked Case/VV → 409",
+      "pre": "linkedCaseId hoặc linkedIncidentId set",
+      "steps": "DELETE",
+      "expected": "HTTP 409, gỡ link trước",
+      "data": [
+        "petition.converted_case.D7"
+      ]
+    },
+    {
+      "id": "TC-PET-027",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "DELETE /api/v1/petitions/:id",
+      "role": "OFFICER",
+      "title": "DELETE reason < 10 → 400",
+      "pre": "-",
+      "steps": "DELETE body {reason:'sh'}",
+      "expected": "HTTP 400",
+      "data": [
+        "petition.creator_owned.D0"
+      ]
+    },
+    {
+      "id": "TC-PET-028",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "GET /api/v1/petitions/:id",
+      "role": "OFFICER",
+      "title": "GET không tồn tại → 404",
+      "pre": "-",
+      "steps": "GET /api/v1/petitions/00000000-...",
+      "expected": "HTTP 404",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-029",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "GET /api/v1/petitions/:id/export-document",
+      "role": "OFFICER",
+      "title": "docType không thuộc 6 template → 400",
+      "pre": "-",
+      "steps": "GET ?docType=INVALID",
+      "expected": "HTTP 400",
+      "data": [
+        "petition.dang_xu_ly.D7"
+      ]
+    },
+    {
+      "id": "TC-PET-030",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "POST /api/v1/petitions/export-document-batch",
+      "role": "OFFICER",
+      "title": "Batch petitionIds.length > 100 → 400",
+      "pre": "-",
+      "steps": "POST petitionIds=101 items",
+      "expected": "HTTP 400, max 100",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-031",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/petitions",
+      "role": "OFFICER",
+      "title": "receivedDate sai format → 400",
+      "pre": "-",
+      "steps": "POST receivedDate='30/05/2026'",
+      "expected": "HTTP 400, IsDateString",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-032",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "POST /api/v1/petitions",
+      "role": "OFFICER",
+      "title": "deadline sai format → 400",
+      "pre": "-",
+      "steps": "POST deadline='tomorrow'",
+      "expected": "HTTP 400",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-033",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/petitions",
+      "role": "OFFICER",
+      "title": "stt trùng → 409",
+      "pre": "DB có petition stt='DT-2026-00001'",
+      "steps": "POST {stt:'DT-2026-00001', ...}",
+      "expected": "HTTP 409, unique constraint",
+      "data": [
+        "petition.stt_existing.D0"
+      ]
+    },
+    {
+      "id": "TC-PET-034",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/petitions",
+      "role": "OFFICER",
+      "title": "VIEWER không có write/Petition → 403",
+      "pre": "-",
+      "steps": "POST với VIEWER",
+      "expected": "HTTP 403",
+      "data": [
+        "account.viewer.D0"
+      ]
+    },
+    {
+      "id": "TC-PET-035",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "PUT /api/v1/petitions/:id",
+      "role": "OFFICER",
+      "title": "PUT đơn không thuộc scope → 403/404",
+      "pre": "-",
+      "steps": "PUT other team",
+      "expected": "HTTP 403/404",
+      "data": [
+        "petition.other_team.D0"
+      ]
+    },
+    {
+      "id": "TC-PET-036",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "PUT /api/v1/petitions/:id",
+      "role": "OFFICER",
+      "title": "PUT đơn đã DA_CHUYEN_VU_VIEC → 409",
+      "pre": "-",
+      "steps": "PUT",
+      "expected": "HTTP 409, đơn đã convert",
+      "data": [
+        "petition.converted_incident.D7"
+      ]
+    },
+    {
+      "id": "TC-PET-037",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "POST /api/v1/petitions/:id/convert-incident",
+      "role": "OFFICER",
+      "title": "Convert đơn DA_LUU_DON → 400",
+      "pre": "-",
+      "steps": "POST",
+      "expected": "HTTP 400, status không cho phép convert",
+      "data": [
+        "petition.luu_don.D30"
+      ]
+    },
+    {
+      "id": "TC-PET-038",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "POST /api/v1/petitions/:id/convert-case",
+      "role": "OFFICER",
+      "title": "Convert thiếu caseName trong body → 400",
+      "pre": "-",
+      "steps": "POST /convert-case body {caseProvenance:'FROM_PETITION'} không caseName",
+      "expected": "HTTP 400",
+      "data": [
+        "petition.dang_xu_ly.D7"
+      ]
+    },
+    {
+      "id": "TC-PET-039",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "POST /api/v1/petitions/:id/convert-incident",
+      "role": "OFFICER",
+      "title": "Convert thiếu loaiDonVu → 400",
+      "pre": "-",
+      "steps": "POST /convert-incident thiếu loaiDonVu",
+      "expected": "HTTP 400",
+      "data": [
+        "petition.dang_xu_ly.D7"
+      ]
+    },
+    {
+      "id": "TC-PET-040",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "PATCH /api/v1/petitions/:id/assign",
+      "role": "OFFICER",
+      "title": "OFFICER assign (no DispatchGuard) → 403",
+      "pre": "-",
+      "steps": "PATCH /assign",
+      "expected": "HTTP 403",
+      "data": [
+        "petition.unassigned.D0",
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-041",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "PATCH /api/v1/petitions/:id/assign",
+      "role": "ADMIN",
+      "title": "Assign tới user không tồn tại → 400/404",
+      "pre": "-",
+      "steps": "PATCH {assignedToId:'fake-uuid'}",
+      "expected": "HTTP 400/404",
+      "data": [
+        "petition.unassigned.D0",
+        "account.admin.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-042",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "GET /api/v1/petitions/:id/export-document",
+      "role": "OFFICER",
+      "title": "Export docType khi petition thiếu field business required → 400",
+      "pre": "Petition không có nhanThay/deXuat",
+      "steps": "GET ?docType=PHIEU_DE_XUAT",
+      "expected": "HTTP 400, message field thiếu",
+      "data": [
+        "petition.minimal.D0"
+      ]
+    },
+    {
+      "id": "TC-PET-043",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "POST /api/v1/petitions/export-document-batch",
+      "role": "OFFICER",
+      "title": "Batch petitionIds=[] (empty) → 400",
+      "pre": "-",
+      "steps": "POST petitionIds=[]",
+      "expected": "HTTP 400",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-044",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "POST /api/v1/petitions/export-document-batch",
+      "role": "OFFICER",
+      "title": "Batch petitionIds chứa ID không tồn tại → 200 với manifest đánh dấu fail",
+      "pre": "-",
+      "steps": "POST mix valid+invalid IDs",
+      "expected": "HTTP 200, ZIP có manifest.failed[] entries",
+      "data": [
+        "petition.dang_xu_ly.D7"
+      ]
+    },
+    {
+      "id": "TC-PET-045",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "GET /api/v1/petitions/admin/deleted",
+      "role": "OFFICER",
+      "title": "OFFICER → 403",
+      "pre": "-",
+      "steps": "GET",
+      "expected": "HTTP 403",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-046",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "POST /api/v1/petitions/:id/restore",
+      "role": "OFFICER",
+      "title": "Restore không có permission → 403",
+      "pre": "-",
+      "steps": "POST /restore",
+      "expected": "HTTP 403",
+      "data": [
+        "petition.deleted.D7",
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-047",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "POST /api/v1/petitions/:id/restore",
+      "role": "ADMIN",
+      "title": "Restore reason < 10 → 400",
+      "pre": "-",
+      "steps": "POST /restore reason='sh'",
+      "expected": "HTTP 400",
+      "data": [
+        "petition.deleted.D7",
+        "account.admin.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-048",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "GET /api/v1/petitions/export",
+      "role": "OFFICER",
+      "title": "Throttle 6 req trong 60s → 429",
+      "pre": "-",
+      "steps": "6 GET /export trong 60s",
+      "expected": "6th → 429",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-049",
+      "type": "BOUNDARY",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/petitions",
+      "role": "OFFICER",
+      "title": "senderName = 255 ký tự (max)",
+      "pre": "-",
+      "steps": "POST senderName length=255",
+      "expected": "HTTP 201",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-050",
+      "type": "BOUNDARY",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/petitions",
+      "role": "OFFICER",
+      "title": "senderName = 256 → 400",
+      "pre": "-",
+      "steps": "POST senderName=256",
+      "expected": "HTTP 400",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-051",
+      "type": "BOUNDARY",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "POST /api/v1/petitions",
+      "role": "OFFICER",
+      "title": "summary = 1000 ký tự (max)",
+      "pre": "-",
+      "steps": "POST summary=1000",
+      "expected": "HTTP 201",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-052",
+      "type": "BOUNDARY",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "POST /api/v1/petitions",
+      "role": "OFFICER",
+      "title": "summary = 1001 → 400",
+      "pre": "-",
+      "steps": "POST summary=1001",
+      "expected": "HTTP 400",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-053",
+      "type": "BOUNDARY",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "POST /api/v1/petitions",
+      "role": "OFFICER",
+      "title": "senderBirthYear = 4 ký tự (max) → 201",
+      "pre": "-",
+      "steps": "POST senderBirthYear='1980'",
+      "expected": "HTTP 201",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-054",
+      "type": "BOUNDARY",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "POST /api/v1/petitions",
+      "role": "OFFICER",
+      "title": "senderBirthYear = 5 ký tự → 400",
+      "pre": "-",
+      "steps": "POST senderBirthYear='12345'",
+      "expected": "HTTP 400",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-055",
+      "type": "BOUNDARY",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "POST /api/v1/petitions",
+      "role": "OFFICER",
+      "title": "senderPhone = 20 ký tự (max)",
+      "pre": "-",
+      "steps": "POST senderPhone='+84 901-234-567-890'",
+      "expected": "HTTP 201",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-056",
+      "type": "BOUNDARY",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "POST /api/v1/petitions",
+      "role": "OFFICER",
+      "title": "nhanThay = 5000 ký tự (max)",
+      "pre": "-",
+      "steps": "POST nhanThay=5000",
+      "expected": "HTTP 201",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-057",
+      "type": "BOUNDARY",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "POST /api/v1/petitions/export-document-batch",
+      "role": "OFFICER",
+      "title": "Batch petitionIds.length = 100 (max)",
+      "pre": "-",
+      "steps": "POST petitionIds=100 items",
+      "expected": "HTTP 200",
+      "data": [
+        "petitions.shape.full.D0"
+      ]
+    },
+    {
+      "id": "TC-PET-058",
+      "type": "EDGE",
+      "priority": "P2",
+      "severity": "Low",
+      "endpoint": "POST /api/v1/petitions",
+      "role": "OFFICER",
+      "title": "receivedDate = today (boundary not future)",
+      "pre": "-",
+      "steps": "POST receivedDate={{today}}",
+      "expected": "HTTP 201",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-059",
+      "type": "EP",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "POST /api/v1/petitions",
+      "role": "OFFICER",
+      "title": "LoaiDon đủ 4 partition",
+      "pre": "-",
+      "steps": "Loop 4 enum",
+      "expected": "4 lần 201",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-060",
+      "type": "EP",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "GET /api/v1/petitions",
+      "role": "OFFICER",
+      "title": "Filter status 7 partition",
+      "pre": "DB có đủ 7",
+      "steps": "Loop 7 ?status",
+      "expected": "Mỗi truy vấn trả đúng tập",
+      "data": [
+        "petitions.all_status.D0"
+      ]
+    },
+    {
+      "id": "TC-PET-061",
+      "type": "EP",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "GET /api/v1/petitions/:id/export-document",
+      "role": "OFFICER",
+      "title": "docType 6 template partition",
+      "pre": "-",
+      "steps": "Loop {PHIEU_DE_XUAT, PHIEU_CHUYEN_NGUON_TIN, PHIEU_CHUYEN_DON, THONG_BAO_CHUYEN, THONG_BAO_HUONG_DAN, THONG_BAO_TRA_LAI}",
+      "expected": "6 lần 200, mỗi template render đúng",
+      "data": [
+        "petition.with_business_content.D7"
+      ]
+    },
+    {
+      "id": "TC-PET-062",
+      "type": "EP",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "GET /api/v1/petitions",
+      "role": "OFFICER",
+      "title": "priority partition (HIGH/MEDIUM/LOW)",
+      "pre": "DB có petitions priority khác",
+      "steps": "Loop priority filter",
+      "expected": "Mỗi value trả đúng",
+      "data": [
+        "petitions.shape.normal.D0"
+      ]
+    },
+    {
+      "id": "TC-PET-063",
+      "type": "EP",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "POST /api/v1/petitions",
+      "role": "OFFICER",
+      "title": "baoCaoBanGiamDoc boolean partition",
+      "pre": "-",
+      "steps": "POST baoCaoBanGiamDoc=true rồi =false",
+      "expected": "2 lần 201",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-064",
+      "type": "EP",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "POST /api/v1/petitions",
+      "role": "OFFICER",
+      "title": "senderEmail partition (valid/invalid)",
+      "pre": "-",
+      "steps": "4 case: 'a@b.com', 'a+tag@b.co.uk', 'no-at', ''",
+      "expected": "2 valid 201, 1 invalid 400, 1 empty 201",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-065",
+      "type": "EP",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "GET /api/v1/petitions/linkable",
+      "role": "OFFICER",
+      "title": "Filter unlinked (no linkedCaseId AND no linkedIncidentId)",
+      "pre": "-",
+      "steps": "GET /linkable",
+      "expected": "Items không có linkedCaseId/linkedIncidentId",
+      "data": [
+        "petitions.mixed_link.D0"
+      ]
+    },
+    {
+      "id": "TC-PET-066",
+      "type": "EP",
+      "priority": "P2",
+      "severity": "Low",
+      "endpoint": "GET /api/v1/petitions",
+      "role": "OFFICER",
+      "title": "Sort partition (asc/desc × stt/receivedDate/createdAt)",
+      "pre": "-",
+      "steps": "6 combo",
+      "expected": "6 lần 200, order đúng",
+      "data": [
+        "petitions.shape.normal.D0"
+      ]
+    },
+    {
+      "id": "TC-PET-067",
+      "type": "EP",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "PATCH /api/v1/petitions/:id/assign",
+      "role": "ADMIN",
+      "title": "Assign reassign partition",
+      "pre": "-",
+      "steps": "3 case: unassigned→officer1, officer1→officer2, officer2→null",
+      "expected": "3 lần 200",
+      "data": [
+        "petition.unassigned.D0",
+        "account.officer.primary",
+        "account.officer.secondary",
+        "account.admin.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-068",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "GET /api/v1/petitions",
+      "role": "OFFICER",
+      "title": "Query status không thuộc enum → 400",
+      "pre": "-",
+      "steps": "GET ?status=INVALID",
+      "expected": "HTTP 400",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-069",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "GET /api/v1/petitions",
+      "role": "OFFICER",
+      "title": "Query limit > 100 → 400",
+      "pre": "-",
+      "steps": "GET ?limit=200",
+      "expected": "HTTP 400",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-070",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "GET /api/v1/petitions",
+      "role": "OFFICER",
+      "title": "Query offset âm → 400",
+      "pre": "-",
+      "steps": "GET ?offset=-1",
+      "expected": "HTTP 400",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-071",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/petitions",
+      "role": "OFFICER",
+      "title": "detailContent rất dài (>1MB) → 413/400",
+      "pre": "-",
+      "steps": "POST detailContent=1MB string",
+      "expected": "HTTP 413 hoặc 400",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-072",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "PUT /api/v1/petitions/:id",
+      "role": "OFFICER",
+      "title": "PUT thay đổi stt → 400 (immutable)",
+      "pre": "-",
+      "steps": "PUT {stt:'DT-NEW-12345'}",
+      "expected": "HTTP 400 nếu service enforce, hoặc 200 với stt giữ nguyên",
+      "data": [
+        "petition.dang_xu_ly.D7"
+      ]
+    },
+    {
+      "id": "TC-PET-073",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "POST /api/v1/petitions",
+      "role": "OFFICER",
+      "title": "assignedToId không tồn tại → 400",
+      "pre": "-",
+      "steps": "POST assignedToId='fake'",
+      "expected": "HTTP 400/404",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-074",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "POST /api/v1/petitions",
+      "role": "OFFICER",
+      "title": "assignedTeamId không tồn tại → 400",
+      "pre": "-",
+      "steps": "POST assignedTeamId='fake'",
+      "expected": "HTTP 400/404",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-075",
+      "type": "RED",
+      "priority": "P2",
+      "severity": "Medium",
+      "endpoint": "GET /api/v1/petitions/export/duplicates",
+      "role": "OFFICER",
+      "title": "Duplicate detection không tìm thấy → 200 empty",
+      "pre": "DB không có dup",
+      "steps": "GET",
+      "expected": "HTTP 200, items=[]",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-076",
+      "type": "RED",
+      "priority": "P2",
+      "severity": "Low",
+      "endpoint": "POST /api/v1/petitions/export-document-batch",
+      "role": "OFFICER",
+      "title": "docType không hợp lệ → 400",
+      "pre": "-",
+      "steps": "POST docType='WRONG'",
+      "expected": "HTTP 400",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-077",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "GET /api/v1/petitions/:id/export-word",
+      "role": "OFFICER",
+      "title": "Legacy export-word đơn deleted → 410/404",
+      "pre": "-",
+      "steps": "GET",
+      "expected": "HTTP 410/404",
+      "data": [
+        "petition.deleted.D7"
+      ]
+    },
+    {
+      "id": "TC-PET-078",
+      "type": "STATE",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "PUT /api/v1/petitions/:id",
+      "role": "OFFICER",
+      "title": "State: MOI_TIEP_NHAN → DANG_XU_LY",
+      "pre": "-",
+      "steps": "PUT status=DANG_XU_LY",
+      "expected": "HTTP 200",
+      "data": [
+        "petition.moi_tiep_nhan.D0"
+      ]
+    },
+    {
+      "id": "TC-PET-079",
+      "type": "SECURITY",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/petitions",
+      "role": "OFFICER",
+      "title": "XSS senderName — stripHtmlTags sanitize",
+      "pre": "-",
+      "steps": "POST senderName='<script>alert(1)</script>Nguyễn'",
+      "expected": "HTTP 201, senderName lưu 'Nguyễn' (HTML đã strip)",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-080",
+      "type": "SECURITY",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/petitions",
+      "role": "OFFICER",
+      "title": "XSS summary — stripHtmlTags",
+      "pre": "-",
+      "steps": "POST summary='<img src=x onerror=alert(1)>Nội dung'",
+      "expected": "HTTP 201, summary lưu 'Nội dung'",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-081",
+      "type": "SECURITY",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/petitions",
+      "role": "OFFICER",
+      "title": "SQL Injection senderName",
+      "pre": "-",
+      "steps": "POST senderName=\"' OR 1=1; --\"",
+      "expected": "HTTP 201, lưu literal",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-082",
+      "type": "SECURITY",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "GET /api/v1/petitions/:id",
+      "role": "OFFICER",
+      "title": "IDOR — petition team khác → 403/404",
+      "pre": "-",
+      "steps": "GET other team petition",
+      "expected": "HTTP 403/404",
+      "data": [
+        "petition.other_team.D0",
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-083",
+      "type": "SECURITY",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "PUT /api/v1/petitions/:id",
+      "role": "OFFICER",
+      "title": "Mass assignment — createdAt/deletedAt → 400",
+      "pre": "-",
+      "steps": "PUT {createdAt:'2020-01-01', deletedAt:null}",
+      "expected": "HTTP 400 hoặc strip",
+      "data": [
+        "petition.dang_xu_ly.D7"
+      ]
+    },
+    {
+      "id": "TC-PET-084",
+      "type": "SECURITY",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "GET /api/v1/petitions",
+      "role": "OFFICER",
+      "title": "JWT signature tamper → 401",
+      "pre": "-",
+      "steps": "GET với JWT sửa role=ADMIN",
+      "expected": "HTTP 401",
+      "data": []
+    },
+    {
+      "id": "TC-PET-085",
+      "type": "SECURITY",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "GET /api/v1/petitions/export",
+      "role": "OFFICER",
+      "title": "Throttle 5/60s",
+      "pre": "-",
+      "steps": "6 GET trong 60s",
+      "expected": "6th → 429",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-086",
+      "type": "SECURITY",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/petitions",
+      "role": "OFFICER",
+      "title": "Audit log integrity",
+      "pre": "-",
+      "steps": "POST + check audit",
+      "expected": "audit có userId, ipAddress, userAgent",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-087",
+      "type": "SECURITY",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "GET /api/v1/petitions/:id/export-document",
+      "role": "OFFICER",
+      "title": "Document render log — verify DocumentRenderLog created",
+      "pre": "-",
+      "steps": "GET export-document",
+      "expected": "DocumentRenderLog entry có petitionId, docType, userId",
+      "data": [
+        "petition.with_business_content.D7"
+      ]
+    },
+    {
+      "id": "TC-PET-088",
+      "type": "SECURITY",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "POST /api/v1/petitions/export-document-batch",
+      "role": "OFFICER",
+      "title": "Batch export không leak data ngoài scope",
+      "pre": "Mix petitionIds team A + team B",
+      "steps": "POST với officer.primary (team A)",
+      "expected": "HTTP 200, ZIP chỉ chứa file của team A; manifest.skipped[] cho team B",
+      "data": [
+        "petition.dang_xu_ly.D7",
+        "petition.other_team.D0"
+      ]
+    },
+    {
+      "id": "TC-PET-089",
+      "type": "SECURITY",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "GET /api/v1/petitions/admin/deleted",
+      "role": "OFFICER",
+      "title": "OFFICER list deleted → 403, không leak count",
+      "pre": "-",
+      "steps": "GET",
+      "expected": "HTTP 403, không thông tin số petitions deleted",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-090",
+      "type": "SECURITY",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "POST /api/v1/petitions",
+      "role": "OFFICER",
+      "title": "Stripped HTML không bypass qua entity reference",
+      "pre": "-",
+      "steps": "POST summary='&lt;script&gt;alert(1)&lt;/script&gt;'",
+      "expected": "HTTP 201, render UI escape, không execute",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-091",
+      "type": "STATE",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "PUT /api/v1/petitions/:id",
+      "role": "OFFICER",
+      "title": "DANG_XU_LY → CHO_PHE_DUYET",
+      "pre": "-",
+      "steps": "PUT status=CHO_PHE_DUYET",
+      "expected": "HTTP 200",
+      "data": [
+        "petition.dang_xu_ly.D7"
+      ]
+    },
+    {
+      "id": "TC-PET-092",
+      "type": "STATE",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "PUT /api/v1/petitions/:id",
+      "role": "OFFICER",
+      "title": "CHO_PHE_DUYET → DA_LUU_DON",
+      "pre": "-",
+      "steps": "PUT status=DA_LUU_DON",
+      "expected": "HTTP 200",
+      "data": [
+        "petition.cho_phe_duyet.D14"
+      ]
+    },
+    {
+      "id": "TC-PET-093",
+      "type": "STATE",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "PUT /api/v1/petitions/:id",
+      "role": "OFFICER",
+      "title": "DANG_XU_LY → DA_GIAI_QUYET",
+      "pre": "-",
+      "steps": "PUT status=DA_GIAI_QUYET",
+      "expected": "HTTP 200",
+      "data": [
+        "petition.dang_xu_ly.D7"
+      ]
+    },
+    {
+      "id": "TC-PET-094",
+      "type": "STATE",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "PUT /api/v1/petitions/:id",
+      "role": "OFFICER",
+      "title": "Invalid: DA_GIAI_QUYET → MOI_TIEP_NHAN → 400",
+      "pre": "-",
+      "steps": "PUT",
+      "expected": "HTTP 400",
+      "data": [
+        "petition.giai_quyet.D30"
+      ]
+    },
+    {
+      "id": "TC-PET-095",
+      "type": "DECISION",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/petitions/:id/convert-incident",
+      "role": "OFFICER",
+      "title": "Decision matrix convert: status × loaiDon",
+      "pre": "-",
+      "steps": "4 status × 4 LoaiDon (16 cell)",
+      "expected": "Chỉ MOI_TIEP_NHAN/DANG_XU_LY/CHO_PHE_DUYET → success",
+      "data": [
+        "petition.moi_tiep_nhan.D0",
+        "petition.dang_xu_ly.D7",
+        "petition.cho_phe_duyet.D14",
+        "petition.luu_don.D30"
+      ]
+    },
+    {
+      "id": "TC-PET-096",
+      "type": "DECISION",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "GET /api/v1/petitions/:id/export-document",
+      "role": "OFFICER",
+      "title": "Decision matrix docType × required fields",
+      "pre": "-",
+      "steps": "6 docType × (full fields vs missing nhanThay)",
+      "expected": "Mỗi docType có required fields riêng — verify error message rõ",
+      "data": [
+        "petition.with_business_content.D7",
+        "petition.minimal.D0"
+      ]
+    },
+    {
+      "id": "TC-PET-097",
+      "type": "DECISION",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "POST /api/v1/petitions",
+      "role": "OFFICER",
+      "title": "Decision matrix stt auto-gen vs manual",
+      "pre": "-",
+      "steps": "2 case: (stt blank → engine gen), (stt manual → use manual)",
+      "expected": "Case 1: stt='DT-2026-{seq}'; Case 2: stt giữ value manual",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-098",
+      "type": "DATA",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "POST /api/v1/petitions",
+      "role": "OFFICER",
+      "title": "Unicode tiếng Việt — senderName + summary",
+      "pre": "-",
+      "steps": "POST senderName='Nguyễn Văn Đệ' summary='Tố cáo trộm cắp tài sản tại Đà Nẵng'",
+      "expected": "HTTP 201, GET trả lại đúng dấu",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-099",
+      "type": "DATA",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "POST /api/v1/petitions",
+      "role": "OFFICER",
+      "title": "senderEmail i18n (unicode local part)",
+      "pre": "-",
+      "steps": "POST senderEmail='đỗ.thị@example.com'",
+      "expected": "HTTP 201 hoặc 400 (validator chuẩn IsEmail có hỗ trợ unicode)",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-100",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "PATCH /api/v1/petitions/:id/assign",
+      "role": "ADMIN",
+      "title": "Assign về null (unassign) → 200",
+      "pre": "Petition đã có assignedToId",
+      "steps": "PATCH /assign body {assignedToId:null}",
+      "expected": "HTTP 200, assignedToId=null",
+      "data": [
+        "petition.assigned.D7",
+        "account.admin.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-101",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "POST /api/v1/petitions/:id/convert-case",
+      "role": "OFFICER",
+      "title": "Convert đơn không thuộc scope → 403/404",
+      "pre": "-",
+      "steps": "POST",
+      "expected": "HTTP 403/404",
+      "data": [
+        "petition.other_team.D0"
+      ]
+    },
+    {
+      "id": "TC-PET-102",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "PUT /api/v1/petitions/:id",
+      "role": "OFFICER",
+      "title": "PUT optimistic lock stale → 409",
+      "pre": "-",
+      "steps": "PUT với expectedUpdatedAt cũ",
+      "expected": "HTTP 409",
+      "data": [
+        "petition.recently_edited.D0"
+      ]
+    },
+    {
+      "id": "TC-PET-103",
+      "type": "RED",
+      "priority": "P2",
+      "severity": "Low",
+      "endpoint": "GET /api/v1/petitions",
+      "role": "OFFICER",
+      "title": "Account locked → 401",
+      "pre": "-",
+      "steps": "GET với locked",
+      "expected": "HTTP 401",
+      "data": [
+        "account.officer.locked.D7"
+      ]
+    },
+    {
+      "id": "TC-PET-104",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "GET /api/v1/petitions/:id/journey",
+      "role": "OFFICER",
+      "title": "Journey limit > 200 → clamp 200",
+      "pre": "-",
+      "steps": "GET ?limit=500",
+      "expected": "HTTP 200, items≤200",
+      "data": [
+        "petition.with_events.D60"
+      ]
+    },
+    {
+      "id": "TC-PET-105",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "POST /api/v1/petitions",
+      "role": "OFFICER",
+      "title": "Trùng senderEmail + receivedDate (duplicate detection) → flagged trong export",
+      "pre": "-",
+      "steps": "POST 2 đơn cùng senderEmail+receivedDate",
+      "expected": "Cả 2 HTTP 201, export/duplicates trả 2 items",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-106",
+      "type": "A11Y",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "UI: /petitions",
+      "role": "OFFICER",
+      "title": "List page keyboard nav",
+      "pre": "-",
+      "steps": "Tab qua filter chips, table, pagination",
+      "expected": "Focus visible mọi element",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-107",
+      "type": "A11Y",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "UI: /petitions/new",
+      "role": "OFFICER",
+      "title": "Form aria-required + label cho senderName, receivedDate, petitionType",
+      "pre": "-",
+      "steps": "Inspect",
+      "expected": "3 required field có aria-required=true + <label>",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-108",
+      "type": "A11Y",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "UI: /petitions",
+      "role": "OFFICER",
+      "title": "Status badge contrast 7 status WCAG AA",
+      "pre": "-",
+      "steps": "Render + measure",
+      "expected": "7 pair ≥4.5:1",
+      "data": [
+        "petitions.all_status.D0"
+      ]
+    },
+    {
+      "id": "TC-PET-109",
+      "type": "A11Y",
+      "priority": "P2",
+      "severity": "Low",
+      "endpoint": "UI: /petitions/:id",
+      "role": "OFFICER",
+      "title": "Detail H1 + heading hierarchy",
+      "pre": "-",
+      "steps": "Inspect",
+      "expected": "1 h1, no skip level",
+      "data": [
+        "petition.dang_xu_ly.D7"
+      ]
+    },
+    {
+      "id": "TC-PET-110",
+      "type": "A11Y",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "UI: /petitions/new",
+      "role": "OFFICER",
+      "title": "Email input type=email",
+      "pre": "-",
+      "steps": "Inspect senderEmail",
+      "expected": "<input type='email'> để mobile keyboard show @",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-111",
+      "type": "A11Y",
+      "priority": "P2",
+      "severity": "Low",
+      "endpoint": "UI: /petitions",
+      "role": "OFFICER",
+      "title": "Table caption hoặc aria-label",
+      "pre": "-",
+      "steps": "Inspect <table>",
+      "expected": "<caption>'Danh sách đơn thư'</caption> hoặc aria-label",
+      "data": [
+        "petitions.shape.normal.D0"
+      ]
+    },
+    {
+      "id": "TC-PET-112",
+      "type": "COMPAT",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "UI: /petitions",
+      "role": "OFFICER",
+      "title": "Chromium desktop",
+      "pre": "-",
+      "steps": "Open",
+      "expected": "OK",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-113",
+      "type": "COMPAT",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "UI: /petitions",
+      "role": "OFFICER",
+      "title": "Firefox desktop",
+      "pre": "-",
+      "steps": "Open",
+      "expected": "OK",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-114",
+      "type": "COMPAT",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "UI: /petitions",
+      "role": "OFFICER",
+      "title": "WebKit desktop",
+      "pre": "-",
+      "steps": "Open",
+      "expected": "Date picker OK",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-115",
+      "type": "COMPAT",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "UI: /petitions",
+      "role": "OFFICER",
+      "title": "Mobile 375 viewport",
+      "pre": "-",
+      "steps": "Set viewport",
+      "expected": "Drawer + table scroll",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-116",
+      "type": "COMPAT",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "UI: /petitions",
+      "role": "OFFICER",
+      "title": "Tablet 768 viewport",
+      "pre": "-",
+      "steps": "Set viewport",
+      "expected": "Layout adapt",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-117",
+      "type": "COMPAT",
+      "priority": "P2",
+      "severity": "Low",
+      "endpoint": "UI: /petitions",
+      "role": "OFFICER",
+      "title": "Dark mode",
+      "pre": "-",
+      "steps": "Toggle",
+      "expected": "Dark theme",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-PET-118",
+      "type": "PERFORMANCE",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "GET /api/v1/petitions",
+      "role": "OFFICER",
+      "title": "List 10k đơn p95 < 800ms",
+      "pre": "-",
+      "steps": "100 GET concurrent",
+      "expected": "p95 < 800ms",
+      "data": [
+        "petitions.shape.large.D0"
+      ]
+    },
+    {
+      "id": "TC-PET-119",
+      "type": "PERFORMANCE",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "GET /api/v1/petitions/:id/export-document",
+      "role": "OFFICER",
+      "title": "Single docx render < 1.5s",
+      "pre": "-",
+      "steps": "GET",
+      "expected": "< 1.5s",
+      "data": [
+        "petition.with_business_content.D7"
+      ]
+    },
+    {
+      "id": "TC-PET-120",
+      "type": "PERFORMANCE",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "POST /api/v1/petitions/export-document-batch",
+      "role": "OFFICER",
+      "title": "Batch 100 đơn → ZIP < 30s",
+      "pre": "-",
+      "steps": "POST 100 IDs",
+      "expected": "< 30s, ZIP size hợp lý",
+      "data": [
+        "petitions.shape.full.D0"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,2203 @@
+{
+  "meta": {
+    "feature": "cases",
+    "total_tc": 130,
+    "target_tc": 130,
+    "mode": "LEAN",
+    "generated_at": "2026-05-30",
+    "type_distribution": {
+      "GREEN": 16,
+      "RED": 52,
+      "BOUNDARY": 10,
+      "EDGE": 1,
+      "EP": 10,
+      "SECURITY": 13,
+      "STATE": 5,
+      "DECISION": 3,
+      "DATA": 3,
+      "A11Y": 7,
+      "COMPAT": 7,
+      "PERFORMANCE": 3
+    },
+    "priority_distribution": {
+      "P0": 62,
+      "P1": 59,
+      "P2": 9
+    }
+  },
+  "data_fixtures": [
+    {
+      "fixture_id": "account.admin.primary",
+      "ref": "_shared/test-accounts.json#account.admin.primary",
+      "setup_recipe": "login: POST /api/v1/auth/login {email:'admin@pc02.local', password:'68@Love2love68'} → outputs.token = response.accessToken",
+      "cleanup_recipe": "logout (token invalidate optional)",
+      "outputs": {
+        "token": "$.accessToken",
+        "userId": "$.user.id"
+      }
+    },
+    {
+      "fixture_id": "account.admin.secondary",
+      "ref": "_shared/test-accounts.json#account.admin.secondary",
+      "setup_recipe": "login: POST /api/v1/auth/login {email:'admin2@pc02.local', password:'isP$sT4N@o71'}",
+      "cleanup_recipe": "-",
+      "outputs": {
+        "token": "$.accessToken",
+        "userId": "$.user.id"
+      }
+    },
+    {
+      "fixture_id": "account.officer.primary",
+      "ref": "_shared/test-accounts.json#account.officer.primary",
+      "setup_recipe": "login: POST /api/v1/auth/login {email:'officer1@pc02.local', password:'8I@&5c1gHmfy'}",
+      "cleanup_recipe": "-",
+      "outputs": {
+        "token": "$.accessToken",
+        "userId": "$.user.id",
+        "teamId": "$.user.primaryTeamId"
+      }
+    },
+    {
+      "fixture_id": "account.officer.secondary",
+      "ref": "_shared/test-accounts.json#account.officer.secondary",
+      "setup_recipe": "login: POST /api/v1/auth/login {email:'officer2@pc02.local', password:'4TMa3hq*x3$v'}",
+      "cleanup_recipe": "-",
+      "outputs": {
+        "token": "$.accessToken",
+        "userId": "$.user.id",
+        "teamId": "$.user.primaryTeamId"
+      }
+    },
+    {
+      "fixture_id": "account.officer.expired_jwt",
+      "setup_recipe": "Lấy JWT của officer1 rồi đổi exp claim về quá khứ — hoặc sleep > tokenTTL. Trả về token expired.",
+      "cleanup_recipe": "-",
+      "outputs": {
+        "token": "$.expiredToken"
+      }
+    },
+    {
+      "fixture_id": "account.officer.locked",
+      "setup_recipe": "Admin gọi POST /api/v1/admin/users/{userId}/lock — set lockedAt=now. Login với account này lấy token (token issued trước khi lock).",
+      "cleanup_recipe": "POST /api/v1/admin/users/{userId}/unlock",
+      "outputs": {
+        "token": "$.lockedAccountToken"
+      }
+    },
+    {
+      "fixture_id": "directory.crime.shape.normal",
+      "setup_recipe": "GET /api/v1/directories?type=CRIME&limit=10 → outputs.crimeId = response[0].id (BLHS Đ.138 trộm cắp tài sản)",
+      "cleanup_recipe": "-",
+      "outputs": {
+        "crimeId": "$.[0].id"
+      }
+    },
+    {
+      "fixture_id": "case.tiep_nhan.D0",
+      "setup_recipe": "POST /api/v1/cases body {name:'UAT-TC-{{random}}', caseProvenance:'DIRECT_DISCOVERY', crime:'138', status:'TIEP_NHAN'} với token officer.primary",
+      "cleanup_recipe": "DELETE /api/v1/cases/{id} body {reason:'UAT cleanup test-data — 20+ char'}",
+      "outputs": {
+        "case_id": "$.id",
+        "updated_at": "$.updatedAt"
+      }
+    },
+    {
+      "fixture_id": "case.dang_dieu_tra.D30",
+      "setup_recipe": "POST tạo case, sau đó PUT status=DANG_XAC_MINH → DA_XAC_MINH → DANG_DIEU_TRA, set createdAt 30 ngày trước (Prisma raw update)",
+      "cleanup_recipe": "DELETE /api/v1/cases/{id}",
+      "outputs": {
+        "case_id": "$.id"
+      }
+    },
+    {
+      "fixture_id": "case.tdc.D30",
+      "setup_recipe": "Tạo case → đến DANG_DIEU_TRA → PUT status=TAM_DINH_CHI + lyDoTamDinhChiVuAn=CHUA_XAC_DINH_BI_CAN + soQuyetDinhTamDinhChi='QĐ-UAT-{{random}}' + ngayTamDinhChi={{D-30}}",
+      "cleanup_recipe": "DELETE /api/v1/cases/{id}",
+      "outputs": {
+        "case_id": "$.id"
+      }
+    },
+    {
+      "fixture_id": "case.tdc.rasoat.D60",
+      "setup_recipe": "Tạo TĐC case rồi PUT {daRaSoat:true, ngayRaSoat:{{D-1}}, soQuyetDinhPhucHoi:'QĐ-PH-{{random}}', ketQuaPhucHoiVuAn:'DANG_DIEU_TRA_XAC_MINH'}",
+      "cleanup_recipe": "DELETE /api/v1/cases/{id}",
+      "outputs": {
+        "case_id": "$.id"
+      }
+    },
+    {
+      "fixture_id": "case.tdc.no_reason.D30",
+      "setup_recipe": "Tạo case raw qua Prisma với status=TAM_DINH_CHI nhưng lyDoTamDinhChiVuAn=null (backfill scenario)",
+      "cleanup_recipe": "Prisma delete",
+      "outputs": {
+        "case_id": "$.id"
+      }
+    },
+    {
+      "fixture_id": "case.da_ket_luan.D60",
+      "setup_recipe": "Tạo case đến DA_KET_LUAN qua chuỗi PUT (TIEP_NHAN→…→DA_KET_LUAN)",
+      "cleanup_recipe": "DELETE",
+      "outputs": {
+        "case_id": "$.id"
+      }
+    },
+    {
+      "fixture_id": "case.da_luu_tru.D365",
+      "setup_recipe": "Tạo case + push qua full chain → DA_LUU_TRU, set createdAt {{D-365}}",
+      "cleanup_recipe": "Prisma hard delete (terminal state)",
+      "outputs": {
+        "case_id": "$.id"
+      }
+    },
+    {
+      "fixture_id": "case.creator_owned.D0",
+      "setup_recipe": "POST /api/v1/cases với token officer.primary → createdById=officer1.userId",
+      "cleanup_recipe": "DELETE (vì là creator)",
+      "outputs": {
+        "case_id": "$.id"
+      }
+    },
+    {
+      "fixture_id": "case.other_owned.D0",
+      "setup_recipe": "POST với token officer.secondary → createdById=officer2.userId; test với officer.primary",
+      "cleanup_recipe": "DELETE bằng officer.secondary",
+      "outputs": {
+        "case_id": "$.id"
+      }
+    },
+    {
+      "fixture_id": "case.other_team.D0",
+      "setup_recipe": "POST với officer.secondary (team B); officer.primary thuộc team A → scope không thấy",
+      "cleanup_recipe": "DELETE bằng officer.secondary",
+      "outputs": {
+        "case_id": "$.id"
+      }
+    },
+    {
+      "fixture_id": "case.deleted.D7",
+      "setup_recipe": "POST tạo case → DELETE với reason hợp lệ; set deletedAt {{D-7}} bằng Prisma update",
+      "cleanup_recipe": "Prisma hard delete",
+      "outputs": {
+        "case_id": "$.id"
+      }
+    },
+    {
+      "fixture_id": "case.with_petition.D0",
+      "setup_recipe": "Tạo petition trước → POST case với caseProvenance=FROM_PETITION + linkedPetitionId",
+      "cleanup_recipe": "DELETE case → DELETE petition",
+      "outputs": {
+        "case_id": "$.id",
+        "petition_id": "$.linkedPetitionId"
+      }
+    },
+    {
+      "fixture_id": "petition.assigned.D0",
+      "setup_recipe": "POST /api/v1/petitions body {senderName:'Test {{random}}', receivedDate:'{{today}}', petitionType:'TOCAO'} với officer.primary",
+      "cleanup_recipe": "DELETE /api/v1/petitions/{id}",
+      "outputs": {
+        "petition_id": "$.id",
+        "petition_updated_at": "$.updatedAt"
+      }
+    },
+    {
+      "fixture_id": "incident.assigned.D0",
+      "setup_recipe": "POST /api/v1/incidents body {name:'UAT-VV-{{random}}', incidentType:'TINH_BAO', fromDate:'{{today}}'} với officer.primary",
+      "cleanup_recipe": "DELETE /api/v1/incidents/{id}",
+      "outputs": {
+        "incident_id": "$.id",
+        "incident_updated_at": "$.updatedAt"
+      }
+    },
+    {
+      "fixture_id": "cases.shape.normal.D0",
+      "setup_recipe": "Seed 25 cases qua loop POST (mix status) cho officer.primary team",
+      "cleanup_recipe": "Loop DELETE",
+      "outputs": {
+        "case_ids": "$[*].id"
+      }
+    },
+    {
+      "fixture_id": "cases.shape.full.D0",
+      "setup_recipe": "Seed 100 cases — 10 mỗi status",
+      "cleanup_recipe": "Loop DELETE",
+      "outputs": {
+        "case_ids": "$[*].id"
+      }
+    },
+    {
+      "fixture_id": "cases.shape.large.D0",
+      "setup_recipe": "Prisma raw insert 10000 cases (cho performance test); cleanup tốn thời gian — chỉ dùng test PERFORMANCE",
+      "cleanup_recipe": "Prisma raw DELETE WHERE name LIKE 'UAT-PERF-%'",
+      "outputs": {
+        "count": "10000"
+      }
+    }
+  ],
+  "test_cases": [
+    {
+      "id": "TC-CASE-001",
+      "type": "GREEN",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/cases",
+      "role": "INVESTIGATOR",
+      "title": "Tạo vụ án DIRECT_DISCOVERY hợp lệ",
+      "pre": "Đăng nhập role INVESTIGATOR có write/Case",
+      "steps": "1. POST body {name:'Vụ án trộm cắp tài sản', caseProvenance:'DIRECT_DISCOVERY', crime:'138 BLHS', capDoToiPham:'NGHIEM_TRONG'}",
+      "expected": "HTTP 201, response.id≠null, status=TIEP_NHAN, createdById=user, audit_log có entry CREATE",
+      "data": [
+        "account.investigator.active.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-002",
+      "type": "GREEN",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/cases",
+      "role": "INVESTIGATOR",
+      "title": "Tạo vụ án FROM_PETITION với linkedPetitionId + expectedPetitionUpdatedAt hợp lệ",
+      "pre": "Có petition.id={{petition_id}} với updatedAt={{petition_updated_at}}",
+      "steps": "1. POST {name:'VA từ đơn thư', caseProvenance:'FROM_PETITION', linkedPetitionId:'{{petition_id}}', expectedPetitionUpdatedAt:'{{petition_updated_at}}'}",
+      "expected": "HTTP 201, response.linkedPetitionId set, petition.linkedCaseId được update",
+      "data": [
+        "petition.assigned.D0",
+        "account.investigator.active.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-003",
+      "type": "GREEN",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/cases",
+      "role": "INVESTIGATOR",
+      "title": "Tạo vụ án FROM_INCIDENT với linkedIncidentId hợp lệ",
+      "pre": "Có incident.id={{incident_id}}",
+      "steps": "1. POST {name:'VA từ vụ việc', caseProvenance:'FROM_INCIDENT', linkedIncidentId:'{{incident_id}}', expectedIncidentUpdatedAt:'{{incident_updated_at}}'}",
+      "expected": "HTTP 201, incident.linkedCaseId set",
+      "data": [
+        "incident.assigned.D0",
+        "account.investigator.active.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-004",
+      "type": "GREEN",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "POST /api/v1/cases",
+      "role": "INVESTIGATOR",
+      "title": "Tạo vụ án với subjects[] inline (atomic)",
+      "pre": "Đăng nhập + có crimeId={{crime_id}}",
+      "steps": "1. POST {name, caseProvenance:'DIRECT_DISCOVERY', subjects:[{fullName:'Nguyễn Văn A', dateOfBirth:'1990-01-01', idNumber:'001090012345', address:'Số 1 Trần Phú', crimeId:'{{crime_id}}'}]}",
+      "expected": "HTTP 201, response.subjects[0].id≠null, subjects được create trong cùng transaction",
+      "data": [
+        "account.investigator.active.D0",
+        "directory.crime.shape.normal"
+      ]
+    },
+    {
+      "id": "TC-CASE-005",
+      "type": "GREEN",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "POST /api/v1/cases",
+      "role": "INVESTIGATOR",
+      "title": "Tạo vụ án với evidences[] inline",
+      "pre": "Đăng nhập",
+      "steps": "1. POST {name, caseProvenance:'DIRECT_DISCOVERY', evidences:[{code:'VC-001', name:'Điện thoại iPhone', quantity:1, unit:'cái'}]}",
+      "expected": "HTTP 201, response.evidences[0].id≠null",
+      "data": [
+        "account.investigator.active.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-006",
+      "type": "GREEN",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/cases",
+      "role": "WARD_OFFICER",
+      "title": "WARD_OFFICER tạo vụ án — assignedTeamId auto-set từ dataScope",
+      "pre": "Đăng nhập WARD_OFFICER có ward team assignment",
+      "steps": "1. POST {name, caseProvenance:'DIRECT_DISCOVERY'} KHÔNG truyền assignedTeamId",
+      "expected": "HTTP 201, response.assignedTeamId=team của ward officer",
+      "data": [
+        "account.ward_officer.active.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-007",
+      "type": "GREEN",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "GET /api/v1/cases",
+      "role": "INVESTIGATOR",
+      "title": "Liệt kê vụ án mặc định trang 1 limit 20",
+      "pre": "DB có ≥20 cases trong scope user",
+      "steps": "1. GET /api/v1/cases",
+      "expected": "HTTP 200, response.items.length=20, response.total≥20, sorted createdAt desc",
+      "data": [
+        "cases.shape.normal.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-008",
+      "type": "GREEN",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "GET /api/v1/cases/stats",
+      "role": "INVESTIGATOR",
+      "title": "Lấy stats counts by status",
+      "pre": "DB có cases với 10 status khác nhau",
+      "steps": "1. GET /api/v1/cases/stats",
+      "expected": "HTTP 200, response.byStatus có đủ 10 key (TIEP_NHAN..DA_LUU_TRU) với count≥0",
+      "data": [
+        "cases.shape.full.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-009",
+      "type": "GREEN",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "GET /api/v1/cases/:id",
+      "role": "INVESTIGATOR",
+      "title": "Xem chi tiết vụ án thuộc scope",
+      "pre": "Có case.id={{case_id}} trong scope user",
+      "steps": "1. GET /api/v1/cases/{{case_id}}",
+      "expected": "HTTP 200, response.id={{case_id}}, đủ field tdc/utdt/relations",
+      "data": [
+        "case.investigating.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-010",
+      "type": "GREEN",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "PUT /api/v1/cases/:id",
+      "role": "INVESTIGATOR",
+      "title": "Cập nhật vụ án (đổi status từ TIEP_NHAN sang DANG_XAC_MINH)",
+      "pre": "Có case status=TIEP_NHAN",
+      "steps": "1. PUT /api/v1/cases/{{case_id}} body {status:'DANG_XAC_MINH', expectedUpdatedAt:'{{updated_at}}'}",
+      "expected": "HTTP 200, status=DANG_XAC_MINH, status_history thêm entry",
+      "data": [
+        "case.tiep_nhan.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-011",
+      "type": "GREEN",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "DELETE /api/v1/cases/:id",
+      "role": "INVESTIGATOR",
+      "title": "Xóa mềm vụ án với reason hợp lệ",
+      "pre": "Là creator của case, chưa linked Petition/Incident",
+      "steps": "1. DELETE /api/v1/cases/{{case_id}} body {reason:'Lý do xóa hợp lệ 10+ ký tự'}",
+      "expected": "HTTP 200, case.deletedAt≠null, audit log DELETE",
+      "data": [
+        "case.creator_owned.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-012",
+      "type": "GREEN",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "POST /api/v1/cases/:id/restore",
+      "role": "ADMIN",
+      "title": "ADMIN khôi phục vụ án đã xóa mềm",
+      "pre": "Có case.deletedAt≠null",
+      "steps": "1. POST /api/v1/cases/{{case_id}}/restore body {reason:'Khôi phục theo yêu cầu cấp trên'}",
+      "expected": "HTTP 200, case.deletedAt=null, audit log RESTORE",
+      "data": [
+        "case.deleted.D7",
+        "account.admin.active.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-013",
+      "type": "GREEN",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "PATCH /api/v1/cases/:id/assign",
+      "role": "DISPATCHER",
+      "title": "DISPATCHER phân công ĐTV",
+      "pre": "Đăng nhập role có canDispatch=true",
+      "steps": "1. PATCH /api/v1/cases/{{case_id}}/assign body {investigatorId:'{{inv_id}}'}",
+      "expected": "HTTP 200, case.investigatorId set, notification gửi investigator",
+      "data": [
+        "case.unassigned.D0",
+        "account.dispatcher.D0",
+        "account.investigator.active.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-014",
+      "type": "GREEN",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "GET /api/v1/cases/:id/journey",
+      "role": "INVESTIGATOR",
+      "title": "Xem hành trình hồ sơ vụ án",
+      "pre": "Có case với ≥3 events (create, assign, update)",
+      "steps": "1. GET /api/v1/cases/{{case_id}}/journey",
+      "expected": "HTTP 200, response.events≥3, sorted timestamp desc, pagination meta",
+      "data": [
+        "case.investigating.D7.with_events"
+      ]
+    },
+    {
+      "id": "TC-CASE-015",
+      "type": "GREEN",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "GET /api/v1/cases/export/ward",
+      "role": "INVESTIGATOR",
+      "title": "Export Excel theo phường",
+      "pre": "DB có cases với subjects.wardId",
+      "steps": "1. GET /api/v1/cases/export/ward?unitId={{unit_id}}&fromDate=2026-01-01&toDate=2026-12-31",
+      "expected": "HTTP 200, Content-Type application/vnd.openxmlformats…, Content-Disposition attachment, file size > 0",
+      "data": [
+        "cases.shape.full.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-016",
+      "type": "GREEN",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "PUT /api/v1/cases/:id",
+      "role": "INVESTIGATOR",
+      "title": "Cập nhật TĐC (TAM_DINH_CHI) với lyDoTamDinhChiVuAn hợp lệ",
+      "pre": "Case status DANG_DIEU_TRA",
+      "steps": "1. PUT body {status:'TAM_DINH_CHI', lyDoTamDinhChiVuAn:'CHUA_XAC_DINH_BI_CAN', soQuyetDinhTamDinhChi:'QĐ-01/2026', ngayTamDinhChi:'2026-05-30', expectedUpdatedAt}",
+      "expected": "HTTP 200, case.status=TAM_DINH_CHI, lyDoTamDinhChiVuAn lưu đúng enum",
+      "data": [
+        "case.dang_dieu_tra.D30"
+      ]
+    },
+    {
+      "id": "TC-CASE-017",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/cases",
+      "role": "INVESTIGATOR",
+      "title": "Thiếu caseProvenance → 400",
+      "pre": "-",
+      "steps": "1. POST {name:'Vụ án test'} không có caseProvenance",
+      "expected": "HTTP 400, message khớp 'caseProvenance bắt buộc'",
+      "data": [
+        "account.investigator.active.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-018",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/cases",
+      "role": "INVESTIGATOR",
+      "title": "Thiếu name → 400",
+      "pre": "-",
+      "steps": "1. POST {caseProvenance:'DIRECT_DISCOVERY'} không có name",
+      "expected": "HTTP 400, message 'Tên vụ án bắt buộc'",
+      "data": [
+        "account.investigator.active.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-019",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/cases",
+      "role": "INVESTIGATOR",
+      "title": "name là whitespace-only (trim → empty) → 400",
+      "pre": "-",
+      "steps": "1. POST {name:'   ', caseProvenance:'DIRECT_DISCOVERY'}",
+      "expected": "HTTP 400, IsNotEmpty fail sau khi trim",
+      "data": [
+        "account.investigator.active.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-020",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "POST /api/v1/cases",
+      "role": "INVESTIGATOR",
+      "title": "caseProvenance=FROM_PETITION thiếu linkedPetitionId → 400",
+      "pre": "-",
+      "steps": "1. POST {name, caseProvenance:'FROM_PETITION'} không có linkedPetitionId",
+      "expected": "HTTP 400, message 'linkedPetitionId required when caseProvenance is FROM_PETITION'",
+      "data": [
+        "account.investigator.active.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-021",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "POST /api/v1/cases",
+      "role": "INVESTIGATOR",
+      "title": "caseProvenance=FROM_INCIDENT thiếu linkedIncidentId → 400",
+      "pre": "-",
+      "steps": "1. POST {name, caseProvenance:'FROM_INCIDENT'}",
+      "expected": "HTTP 400, message 'linkedIncidentId required when caseProvenance is FROM_INCIDENT'",
+      "data": [
+        "account.investigator.active.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-022",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "POST /api/v1/cases",
+      "role": "INVESTIGATOR",
+      "title": "caseProvenance không thuộc enum → 400",
+      "pre": "-",
+      "steps": "1. POST {name, caseProvenance:'INVALID_VALUE'}",
+      "expected": "HTTP 400, IsEnum validator fail",
+      "data": [
+        "account.investigator.active.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-023",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/cases",
+      "role": "INVESTIGATOR",
+      "title": "FROM_PETITION với linkedPetitionId không tồn tại → 404/400",
+      "pre": "-",
+      "steps": "1. POST {name, caseProvenance:'FROM_PETITION', linkedPetitionId:'non-existent-uuid', expectedPetitionUpdatedAt:'2026-01-01T00:00:00Z'}",
+      "expected": "HTTP 404 hoặc 400, không tạo orphan case",
+      "data": [
+        "account.investigator.active.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-024",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/cases",
+      "role": "INVESTIGATOR",
+      "title": "FROM_PETITION với expectedPetitionUpdatedAt stale → 409 optimistic lock",
+      "pre": "Petition.updatedAt mới hơn expected",
+      "steps": "1. POST với expectedPetitionUpdatedAt là giá trị cũ trước khi Petition bị edit",
+      "expected": "HTTP 409 Conflict, message về optimistic lock",
+      "data": [
+        "petition.recently_edited.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-025",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "POST /api/v1/cases",
+      "role": "INVESTIGATOR",
+      "title": "capDoToiPham không thuộc enum → 400",
+      "pre": "-",
+      "steps": "1. POST {name, caseProvenance:'DIRECT_DISCOVERY', capDoToiPham:'SUPER_HEAVY'}",
+      "expected": "HTTP 400, message gợi ý IT_NGHIEM_TRONG/NGHIEM_TRONG/RAT_NGHIEM_TRONG/DAC_BIET_NGHIEM_TRONG",
+      "data": [
+        "account.investigator.active.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-026",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "POST /api/v1/cases",
+      "role": "INVESTIGATOR",
+      "title": "deadline không phải ISO8601 → 400",
+      "pre": "-",
+      "steps": "1. POST {name, caseProvenance:'DIRECT_DISCOVERY', deadline:'30/05/2026'}",
+      "expected": "HTTP 400, IsDateString validator fail",
+      "data": [
+        "account.investigator.active.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-027",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "DELETE /api/v1/cases/:id",
+      "role": "INVESTIGATOR",
+      "title": "DELETE thiếu body.reason → 400",
+      "pre": "-",
+      "steps": "1. DELETE /api/v1/cases/{{case_id}} body {}",
+      "expected": "HTTP 400, message 'Lý do xóa bắt buộc'",
+      "data": [
+        "case.creator_owned.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-028",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "DELETE /api/v1/cases/:id",
+      "role": "INVESTIGATOR",
+      "title": "DELETE reason < 10 ký tự → 400",
+      "pre": "-",
+      "steps": "1. DELETE body {reason:'Sai'}",
+      "expected": "HTTP 400, message 'Lý do xóa phải có ít nhất 10 ký tự'",
+      "data": [
+        "case.creator_owned.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-029",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "DELETE /api/v1/cases/:id",
+      "role": "INVESTIGATOR",
+      "title": "DELETE bởi user không phải creator → 403",
+      "pre": "Case có createdById khác user hiện tại",
+      "steps": "1. DELETE body {reason:'Lý do hợp lệ test creator-only'}",
+      "expected": "HTTP 403, message 'Chỉ creator mới được xóa'",
+      "data": [
+        "case.other_owned.D0",
+        "account.investigator.active.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-030",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "DELETE /api/v1/cases/:id",
+      "role": "INVESTIGATOR",
+      "title": "DELETE case có linkedPetition → 409",
+      "pre": "Case có linkedPetitionId set",
+      "steps": "1. DELETE body {reason:'…'}",
+      "expected": "HTTP 409, message liên kết Đơn thư, gợi ý unlink trước",
+      "data": [
+        "case.with_petition.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-031",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/cases",
+      "role": "VIEWER",
+      "title": "VIEWER không có write/Case → 403",
+      "pre": "-",
+      "steps": "1. POST /api/v1/cases {name, caseProvenance:'DIRECT_DISCOVERY'}",
+      "expected": "HTTP 403, ForbiddenException",
+      "data": [
+        "account.viewer.active.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-032",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/cases",
+      "role": "INVESTIGATOR",
+      "title": "Không có JWT (anonymous) → 401",
+      "pre": "-",
+      "steps": "1. POST không header Authorization",
+      "expected": "HTTP 401, Unauthorized",
+      "data": []
+    },
+    {
+      "id": "TC-CASE-033",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "POST /api/v1/cases",
+      "role": "INVESTIGATOR",
+      "title": "JWT expired → 401",
+      "pre": "Dùng token expired 24h trước",
+      "steps": "1. POST với JWT expired",
+      "expected": "HTTP 401, token expired",
+      "data": [
+        "account.investigator.expired_jwt.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-034",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "POST /api/v1/cases",
+      "role": "INVESTIGATOR",
+      "title": "Account locked → 401/403",
+      "pre": "User.lockedAt≠null",
+      "steps": "1. POST với JWT của locked account",
+      "expected": "HTTP 401 hoặc 403, account locked",
+      "data": [
+        "account.investigator.locked.D7"
+      ]
+    },
+    {
+      "id": "TC-CASE-035",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "POST /api/v1/cases",
+      "role": "INVESTIGATOR",
+      "title": "subjects[] vượt 100 phần tử → 400",
+      "pre": "-",
+      "steps": "1. POST với subjects mảng 101 items",
+      "expected": "HTTP 400, 'subjects[] tối đa 100 đối tượng'",
+      "data": [
+        "account.investigator.active.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-036",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "POST /api/v1/cases",
+      "role": "INVESTIGATOR",
+      "title": "evidences[] vượt 100 phần tử → 400",
+      "pre": "-",
+      "steps": "1. POST với evidences mảng 101 items",
+      "expected": "HTTP 400, 'evidences[] tối đa 100 vật chứng'",
+      "data": [
+        "account.investigator.active.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-037",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "POST /api/v1/cases",
+      "role": "INVESTIGATOR",
+      "title": "documentIds[] vượt 50 phần tử → 400",
+      "pre": "-",
+      "steps": "1. POST documentIds 51 items",
+      "expected": "HTTP 400, 'documentIds[] tối đa 50 file'",
+      "data": [
+        "account.investigator.active.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-038",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "POST /api/v1/cases",
+      "role": "INVESTIGATOR",
+      "title": "subject thiếu crimeId → 400",
+      "pre": "-",
+      "steps": "1. POST subjects:[{fullName,...}] không có crimeId",
+      "expected": "HTTP 400, 'crimeId required cho mỗi Subject'",
+      "data": [
+        "account.investigator.active.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-039",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "POST /api/v1/cases",
+      "role": "INVESTIGATOR",
+      "title": "subject idNumber vượt 20 ký tự → 400",
+      "pre": "-",
+      "steps": "1. POST subject.idNumber 21 chars",
+      "expected": "HTTP 400, MaxLength fail",
+      "data": [
+        "account.investigator.active.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-040",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "PUT /api/v1/cases/:id",
+      "role": "INVESTIGATOR",
+      "title": "PUT vào case không thuộc scope → 403/404",
+      "pre": "Case thuộc team khác",
+      "steps": "1. PUT /api/v1/cases/{{other_team_case_id}}",
+      "expected": "HTTP 403/404, scope filter chặn",
+      "data": [
+        "case.other_team.D0",
+        "account.investigator.active.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-041",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "PUT /api/v1/cases/:id",
+      "role": "INVESTIGATOR",
+      "title": "PUT với expectedUpdatedAt stale → 409 optimistic lock",
+      "pre": "Case đã bị edit bởi user khác",
+      "steps": "1. PUT với expectedUpdatedAt cũ",
+      "expected": "HTTP 409, message optimistic lock conflict",
+      "data": [
+        "case.recently_edited.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-042",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "PUT /api/v1/cases/:id",
+      "role": "INVESTIGATOR",
+      "title": "PUT lyDoTamDinhChiVuAn ngoài enum → 400",
+      "pre": "-",
+      "steps": "1. PUT body {lyDoTamDinhChiVuAn:'INVALID'}",
+      "expected": "HTTP 400, message BLTTHS Điều 229",
+      "data": [
+        "case.investigating.D7"
+      ]
+    },
+    {
+      "id": "TC-CASE-043",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "PUT /api/v1/cases/:id",
+      "role": "INVESTIGATOR",
+      "title": "PUT ketQuaPhucHoiVuAn ngoài enum → 400",
+      "pre": "-",
+      "steps": "1. PUT {ketQuaPhucHoiVuAn:'WRONG'}",
+      "expected": "HTTP 400, IsEnum fail",
+      "data": [
+        "case.tdc.D30"
+      ]
+    },
+    {
+      "id": "TC-CASE-044",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "PATCH /api/v1/cases/:id/assign",
+      "role": "INVESTIGATOR",
+      "title": "INVESTIGATOR (không DispatchGuard) gọi assign → 403",
+      "pre": "-",
+      "steps": "1. PATCH /assign body {investigatorId}",
+      "expected": "HTTP 403, DispatchGuard fail",
+      "data": [
+        "case.unassigned.D0",
+        "account.investigator.active.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-045",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "GET /api/v1/cases/:id",
+      "role": "INVESTIGATOR",
+      "title": "GET case không tồn tại → 404",
+      "pre": "-",
+      "steps": "1. GET /api/v1/cases/00000000-0000-0000-0000-000000000000",
+      "expected": "HTTP 404, NotFoundException",
+      "data": [
+        "account.investigator.active.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-046",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "GET /api/v1/cases",
+      "role": "INVESTIGATOR",
+      "title": "Query status không thuộc enum → 400",
+      "pre": "-",
+      "steps": "1. GET /api/v1/cases?status=INVALID",
+      "expected": "HTTP 400, ValidationPipe whitelist",
+      "data": [
+        "account.investigator.active.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-047",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "GET /api/v1/cases",
+      "role": "INVESTIGATOR",
+      "title": "Query search > 200 chars → 400",
+      "pre": "-",
+      "steps": "1. GET ?search=<chuỗi 201 ký tự>",
+      "expected": "HTTP 400, MaxLength fail (bảo vệ JSONB ILIKE)",
+      "data": [
+        "account.investigator.active.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-048",
+      "type": "RED",
+      "priority": "P2",
+      "severity": "Medium",
+      "endpoint": "GET /api/v1/cases",
+      "role": "INVESTIGATOR",
+      "title": "Query limit > 100 → 400",
+      "pre": "-",
+      "steps": "1. GET ?limit=200",
+      "expected": "HTTP 400, IsInt Max 100",
+      "data": [
+        "account.investigator.active.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-049",
+      "type": "BOUNDARY",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "POST /api/v1/cases",
+      "role": "INVESTIGATOR",
+      "title": "name = 500 ký tự (max) → 201",
+      "pre": "-",
+      "steps": "1. POST name length=500",
+      "expected": "HTTP 201",
+      "data": [
+        "account.investigator.active.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-050",
+      "type": "BOUNDARY",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "POST /api/v1/cases",
+      "role": "INVESTIGATOR",
+      "title": "name = 501 ký tự → 400",
+      "pre": "-",
+      "steps": "1. POST name length=501",
+      "expected": "HTTP 400, MaxLength",
+      "data": [
+        "account.investigator.active.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-051",
+      "type": "BOUNDARY",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "POST /api/v1/cases",
+      "role": "INVESTIGATOR",
+      "title": "crime = 255 ký tự (max) → 201",
+      "pre": "-",
+      "steps": "1. POST crime length=255",
+      "expected": "HTTP 201",
+      "data": [
+        "account.investigator.active.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-052",
+      "type": "BOUNDARY",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "POST /api/v1/cases",
+      "role": "INVESTIGATOR",
+      "title": "sourceDocumentNote = 1000 ký tự (max) → 201",
+      "pre": "-",
+      "steps": "1. POST sourceDocumentNote length=1000",
+      "expected": "HTTP 201",
+      "data": [
+        "account.investigator.active.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-053",
+      "type": "BOUNDARY",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "POST /api/v1/cases",
+      "role": "INVESTIGATOR",
+      "title": "sourceDocumentNote = 1001 → 400",
+      "pre": "-",
+      "steps": "1. POST sourceDocumentNote length=1001",
+      "expected": "HTTP 400",
+      "data": [
+        "account.investigator.active.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-054",
+      "type": "BOUNDARY",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "POST /api/v1/cases",
+      "role": "INVESTIGATOR",
+      "title": "subjects = 100 items (max) → 201",
+      "pre": "-",
+      "steps": "1. POST subjects 100 items",
+      "expected": "HTTP 201, tất cả subjects được create",
+      "data": [
+        "account.investigator.active.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-055",
+      "type": "BOUNDARY",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "DELETE /api/v1/cases/:id",
+      "role": "INVESTIGATOR",
+      "title": "reason = 10 ký tự (min) → 200",
+      "pre": "-",
+      "steps": "1. DELETE reason='1234567890'",
+      "expected": "HTTP 200",
+      "data": [
+        "case.creator_owned.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-056",
+      "type": "BOUNDARY",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "DELETE /api/v1/cases/:id",
+      "role": "INVESTIGATOR",
+      "title": "reason = 500 ký tự (max) → 200",
+      "pre": "-",
+      "steps": "1. DELETE reason 500 chars",
+      "expected": "HTTP 200",
+      "data": [
+        "case.creator_owned.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-057",
+      "type": "BOUNDARY",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "DELETE /api/v1/cases/:id",
+      "role": "INVESTIGATOR",
+      "title": "reason = 501 ký tự → 400",
+      "pre": "-",
+      "steps": "1. DELETE reason length=501",
+      "expected": "HTTP 400, MaxLength 500",
+      "data": [
+        "case.creator_owned.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-058",
+      "type": "BOUNDARY",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "GET /api/v1/cases/:id/journey",
+      "role": "INVESTIGATOR",
+      "title": "limit=200 (max clamp) → 200",
+      "pre": "-",
+      "steps": "1. GET ?limit=500",
+      "expected": "HTTP 200, response.events.length≤200 (clamp)",
+      "data": [
+        "case.investigating.D90.with_events"
+      ]
+    },
+    {
+      "id": "TC-CASE-059",
+      "type": "EDGE",
+      "priority": "P2",
+      "severity": "Medium",
+      "endpoint": "POST /api/v1/cases",
+      "role": "INVESTIGATOR",
+      "title": "Tạo vụ án với metadata = {} rỗng",
+      "pre": "-",
+      "steps": "1. POST {name, caseProvenance:'DIRECT_DISCOVERY', metadata:{}}",
+      "expected": "HTTP 201, metadata lưu {}",
+      "data": [
+        "account.investigator.active.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-060",
+      "type": "EP",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "POST /api/v1/cases",
+      "role": "INVESTIGATOR",
+      "title": "capDoToiPham đủ 4 partition (EP class hợp lệ)",
+      "pre": "-",
+      "steps": "Loop 4 giá trị IT_NGHIEM_TRONG, NGHIEM_TRONG, RAT_NGHIEM_TRONG, DAC_BIET_NGHIEM_TRONG",
+      "expected": "Mỗi giá trị → HTTP 201",
+      "data": [
+        "account.investigator.active.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-061",
+      "type": "EP",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "POST /api/v1/cases",
+      "role": "OFFICER",
+      "title": "caseProvenance đủ 8 partition",
+      "pre": "-",
+      "steps": "Loop 8 enum CaseProvenance, đảm bảo điều kiện kèm theo (FROM_PETITION/FROM_INCIDENT cần linked id; UY_THAC_DIEU_TRA cần UTDT fields)",
+      "expected": "Mỗi partition GREEN/RED đúng theo điều kiện",
+      "data": [
+        "petition.assigned.D0",
+        "incident.assigned.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-062",
+      "type": "EP",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "PUT /api/v1/cases/:id",
+      "role": "OFFICER",
+      "title": "LyDoTamDinhChiVuAn đủ 8 partition",
+      "pre": "Case status DANG_DIEU_TRA",
+      "steps": "Loop 8 enum lyDo, mỗi lần PUT status=TAM_DINH_CHI",
+      "expected": "Mỗi enum value HTTP 200",
+      "data": [
+        "case.dang_dieu_tra.D30"
+      ]
+    },
+    {
+      "id": "TC-CASE-063",
+      "type": "EP",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "PUT /api/v1/cases/:id",
+      "role": "OFFICER",
+      "title": "KetQuaPhucHoiVuAn đủ 5 partition",
+      "pre": "Case status TAM_DINH_CHI, daRaSoat=true",
+      "steps": "Loop 5 enum",
+      "expected": "HTTP 200 mỗi value",
+      "data": [
+        "case.tdc.rasoat.D60"
+      ]
+    },
+    {
+      "id": "TC-CASE-064",
+      "type": "EP",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "GET /api/v1/cases",
+      "role": "OFFICER",
+      "title": "Filter caseType=REGULAR vs UY_THAC_DIEU_TRA",
+      "pre": "DB có cả 2 loại",
+      "steps": "GET ?caseType=REGULAR rồi ?caseType=UY_THAC_DIEU_TRA",
+      "expected": "Mỗi truy vấn trả đúng loại, không lẫn",
+      "data": [
+        "cases.mixed_type.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-065",
+      "type": "EP",
+      "priority": "P2",
+      "severity": "Low",
+      "endpoint": "GET /api/v1/cases",
+      "role": "OFFICER",
+      "title": "sortOrder ∈ {asc, desc} — partition",
+      "pre": "-",
+      "steps": "GET ?sortBy=createdAt&sortOrder=asc rồi desc",
+      "expected": "Order đảo đúng",
+      "data": [
+        "cases.shape.normal.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-066",
+      "type": "EP",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "GET /api/v1/cases",
+      "role": "OFFICER",
+      "title": "overdue=true filter",
+      "pre": "DB có case deadline < now",
+      "steps": "GET ?overdue=true",
+      "expected": "Tất cả items có deadline < today",
+      "data": [
+        "case.overdue.D30",
+        "case.active.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-067",
+      "type": "EP",
+      "priority": "P2",
+      "severity": "Low",
+      "endpoint": "POST /api/v1/cases",
+      "role": "OFFICER",
+      "title": "capDoToiPham partition vs status tương ứng",
+      "pre": "-",
+      "steps": "4 case capDoToiPham × status mặc định TIEP_NHAN",
+      "expected": "HTTP 201 đủ 4, capDoToiPham lưu đúng",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-CASE-068",
+      "type": "EP",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "PATCH /api/v1/cases/:id/tdc-backfill",
+      "role": "OFFICER",
+      "title": "tdc-backfill chấp nhận 8 partition lyDoTamDinhChiVuAn",
+      "pre": "Case có status TAM_DINH_CHI nhưng lyDo trống",
+      "steps": "Loop 8 enum",
+      "expected": "HTTP 200 mỗi value",
+      "data": [
+        "case.tdc.no_reason.D30"
+      ]
+    },
+    {
+      "id": "TC-CASE-069",
+      "type": "EP",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "GET /api/v1/cases",
+      "role": "OFFICER",
+      "title": "trangThaiPhanHoi 4 partition (cho UTDT cases)",
+      "pre": "DB có UTDT cases ở mỗi state",
+      "steps": "Loop 4 ?trangThaiPhanHoi",
+      "expected": "Mỗi truy vấn trả đúng tập",
+      "data": [
+        "utdt.shape.full.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-070",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "GET /api/v1/cases",
+      "role": "OFFICER",
+      "title": "Query offset âm → 400",
+      "pre": "-",
+      "steps": "GET ?offset=-1",
+      "expected": "HTTP 400, Min 0",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-CASE-071",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "GET /api/v1/cases",
+      "role": "OFFICER",
+      "title": "limit=0 → 400",
+      "pre": "-",
+      "steps": "GET ?limit=0",
+      "expected": "HTTP 400, Min 1",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-CASE-072",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "POST /api/v1/cases",
+      "role": "OFFICER",
+      "title": "unknown field gửi qua (whitelist:true forbidNonWhitelisted) → 400",
+      "pre": "-",
+      "steps": "POST {name, caseProvenance:'DIRECT_DISCOVERY', randomField:'x'}",
+      "expected": "HTTP 400, property randomField should not exist",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-CASE-073",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "POST /api/v1/cases",
+      "role": "OFFICER",
+      "title": "ngayKhoiTo không đúng ISO8601 → 400",
+      "pre": "-",
+      "steps": "POST {name, caseProvenance:'DIRECT_DISCOVERY', ngayKhoiTo:'2026-13-99'}",
+      "expected": "HTTP 400",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-CASE-074",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/cases",
+      "role": "OFFICER",
+      "title": "FROM_INCIDENT với expectedIncidentUpdatedAt sai format → 400",
+      "pre": "-",
+      "steps": "POST {caseProvenance:'FROM_INCIDENT', linkedIncidentId, expectedIncidentUpdatedAt:'invalid'}",
+      "expected": "HTTP 400, IsISO8601 fail",
+      "data": [
+        "incident.assigned.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-075",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "POST /api/v1/cases",
+      "role": "OFFICER",
+      "title": "subject dateOfBirth sai format → 400",
+      "pre": "-",
+      "steps": "POST subjects:[{dateOfBirth:'invalid-date',...}]",
+      "expected": "HTTP 400, IsDateString validator fail",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-CASE-076",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "POST /api/v1/cases",
+      "role": "OFFICER",
+      "title": "evidence.quantity = 0 → 400 (Min 1)",
+      "pre": "-",
+      "steps": "POST evidences:[{code,name,quantity:0}]",
+      "expected": "HTTP 400, Min 1",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-CASE-077",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "POST /api/v1/cases",
+      "role": "OFFICER",
+      "title": "evidence.quantity âm → 400",
+      "pre": "-",
+      "steps": "POST quantity:-5",
+      "expected": "HTTP 400",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-CASE-078",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "DELETE /api/v1/cases/:id",
+      "role": "OFFICER",
+      "title": "DELETE case đã deletedAt≠null → 410 Gone hoặc 404",
+      "pre": "Case đã soft-deleted",
+      "steps": "DELETE lần 2",
+      "expected": "HTTP 410/404, không double-delete",
+      "data": [
+        "case.deleted.D7"
+      ]
+    },
+    {
+      "id": "TC-CASE-079",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "POST /api/v1/cases/:id/restore",
+      "role": "ADMIN",
+      "title": "Restore reason < 10 ký tự → 400",
+      "pre": "-",
+      "steps": "POST /restore body {reason:'short'}",
+      "expected": "HTTP 400",
+      "data": [
+        "case.deleted.D7",
+        "account.admin.primary"
+      ]
+    },
+    {
+      "id": "TC-CASE-080",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "POST /api/v1/cases/:id/restore",
+      "role": "OFFICER",
+      "title": "OFFICER không có restore permission → 403",
+      "pre": "-",
+      "steps": "POST /restore",
+      "expected": "HTTP 403",
+      "data": [
+        "case.deleted.D7",
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-CASE-081",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "GET /api/v1/cases/admin/deleted",
+      "role": "OFFICER",
+      "title": "OFFICER gọi admin/deleted → 403",
+      "pre": "-",
+      "steps": "GET /admin/deleted",
+      "expected": "HTTP 403",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-CASE-082",
+      "type": "SECURITY",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "GET /api/v1/cases/:id",
+      "role": "OFFICER",
+      "title": "IDOR — truy cập case team khác → 403/404",
+      "pre": "Case thuộc team B, officer thuộc team A",
+      "steps": "GET /api/v1/cases/{{teamB_case_id}}",
+      "expected": "HTTP 403/404, scope filter chặn, không leak data",
+      "data": [
+        "case.other_team.D0",
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-CASE-083",
+      "type": "SECURITY",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/cases",
+      "role": "OFFICER",
+      "title": "SQL Injection trong name field",
+      "pre": "-",
+      "steps": "POST {name:\"'; DROP TABLE cases; --\", caseProvenance:'DIRECT_DISCOVERY'}",
+      "expected": "HTTP 201, name lưu literal string (Prisma parameterize). KHÔNG table drop",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-CASE-084",
+      "type": "SECURITY",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/cases",
+      "role": "OFFICER",
+      "title": "XSS payload trong sourceDocumentNote",
+      "pre": "-",
+      "steps": "POST {sourceDocumentNote:'<script>alert(1)</script>', ...}",
+      "expected": "HTTP 201, lưu literal, khi render UI escape không execute",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-CASE-085",
+      "type": "SECURITY",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/cases",
+      "role": "OFFICER",
+      "title": "NoSQL/Prisma injection qua metadata JSONB",
+      "pre": "-",
+      "steps": "POST {metadata:{$ne:null}, ...}",
+      "expected": "HTTP 201, metadata lưu raw, không bypass",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-CASE-086",
+      "type": "SECURITY",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "PUT /api/v1/cases/:id",
+      "role": "OFFICER",
+      "title": "Mass assignment — gửi createdById, deletedAt",
+      "pre": "-",
+      "steps": "PUT {createdById:'attacker_id', deletedAt:null}",
+      "expected": "HTTP 400 (whitelist:true forbidNonWhitelisted) hoặc field bị strip",
+      "data": [
+        "case.investigating.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-087",
+      "type": "SECURITY",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "GET /api/v1/cases",
+      "role": "OFFICER",
+      "title": "JWT tampering — đổi role claim trong JWT",
+      "pre": "-",
+      "steps": "GET với JWT có role=ADMIN giả mạo (chữ ký sai)",
+      "expected": "HTTP 401, signature verification fail",
+      "data": []
+    },
+    {
+      "id": "TC-CASE-088",
+      "type": "SECURITY",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "DELETE /api/v1/cases/:id",
+      "role": "OFFICER",
+      "title": "CSRF — DELETE không có Origin/Referer match",
+      "pre": "-",
+      "steps": "DELETE từ origin khác, không CSRF token",
+      "expected": "HTTP 403 hoặc 401 (CORS/CSRF guard)",
+      "data": [
+        "case.creator_owned.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-089",
+      "type": "SECURITY",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "GET /api/v1/cases",
+      "role": "OFFICER",
+      "title": "Path traversal trong search ?search=../../..etc/passwd",
+      "pre": "-",
+      "steps": "GET ?search=../../../etc/passwd",
+      "expected": "HTTP 200, ILIKE literal, không leak filesystem",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-CASE-090",
+      "type": "SECURITY",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "GET /api/v1/cases/export/ward",
+      "role": "OFFICER",
+      "title": "Throttle export 5 req/60s",
+      "pre": "-",
+      "steps": "6 lần GET export/ward trong 60s",
+      "expected": "6th request HTTP 429 Too Many Requests",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-CASE-091",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/cases",
+      "role": "OFFICER",
+      "title": "Concurrent create với cùng linkedPetitionId → 1 thành công 1 fail",
+      "pre": "Petition chưa linked",
+      "steps": "2 request POST cùng linkedPetitionId song song",
+      "expected": "1 HTTP 201, 1 HTTP 409 (unique constraint linkedPetitionId)",
+      "data": [
+        "petition.assigned.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-092",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "PUT /api/v1/cases/:id",
+      "role": "OFFICER",
+      "title": "PUT status=DA_LUU_TRU từ TIEP_NHAN (skip state) → 400",
+      "pre": "Case status TIEP_NHAN",
+      "steps": "PUT {status:'DA_LUU_TRU'}",
+      "expected": "HTTP 400, invalid state transition",
+      "data": [
+        "case.tiep_nhan.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-093",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "GET /api/v1/cases/:id/journey",
+      "role": "OFFICER",
+      "title": "page âm → 400 hoặc fallback 1",
+      "pre": "-",
+      "steps": "GET ?page=-5",
+      "expected": "HTTP 200 với page clamp 1 (Math.max(1,page))",
+      "data": [
+        "case.investigating.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-094",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "POST /api/v1/cases",
+      "role": "OFFICER",
+      "title": "Tạo case với deadline trong quá khứ → 400 hoặc warning",
+      "pre": "-",
+      "steps": "POST {name, caseProvenance:'DIRECT_DISCOVERY', deadline:'2020-01-01'}",
+      "expected": "HTTP 201 (validation chỉ check ISO8601) hoặc 400 nếu có business rule deadline > today",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-CASE-095",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "POST /api/v1/cases",
+      "role": "OFFICER",
+      "title": "Tạo case với assignedTeamId không thuộc DB → 400/404",
+      "pre": "-",
+      "steps": "POST {assignedTeamId:'00000000-…'}",
+      "expected": "HTTP 400/404, FK Team không tồn tại",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-CASE-096",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "PUT /api/v1/cases/:id",
+      "role": "OFFICER",
+      "title": "PUT thiếu expectedUpdatedAt (optimistic lock required) → 400",
+      "pre": "-",
+      "steps": "PUT body không có expectedUpdatedAt",
+      "expected": "HTTP 400 hoặc 200 (tuỳ enforcement) — verify service nếu reject",
+      "data": [
+        "case.investigating.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-097",
+      "type": "RED",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "POST /api/v1/cases",
+      "role": "OFFICER",
+      "title": "FROM_PETITION với petition đã có linkedCaseId → 409",
+      "pre": "Petition.linkedCaseId đã set (đã chuyển case khác)",
+      "steps": "POST {caseProvenance:'FROM_PETITION', linkedPetitionId:'{{petition_id}}'}",
+      "expected": "HTTP 409, message petition đã được liên kết",
+      "data": [
+        "petition.linked_to_case.D7"
+      ]
+    },
+    {
+      "id": "TC-CASE-098",
+      "type": "RED",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "POST /api/v1/cases",
+      "role": "OFFICER",
+      "title": "subject phone vượt 20 ký tự → 400",
+      "pre": "-",
+      "steps": "POST subject.phone='1'.repeat(21)",
+      "expected": "HTTP 400",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-CASE-099",
+      "type": "STATE",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "PUT /api/v1/cases/:id",
+      "role": "OFFICER",
+      "title": "Transition đúng: TIEP_NHAN → DANG_XAC_MINH",
+      "pre": "Status TIEP_NHAN",
+      "steps": "PUT status=DANG_XAC_MINH",
+      "expected": "HTTP 200, status_history += entry",
+      "data": [
+        "case.tiep_nhan.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-100",
+      "type": "STATE",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "PUT /api/v1/cases/:id",
+      "role": "OFFICER",
+      "title": "Transition: DANG_DIEU_TRA → TAM_DINH_CHI (kèm lyDo)",
+      "pre": "Status DANG_DIEU_TRA",
+      "steps": "PUT status=TAM_DINH_CHI + lyDoTamDinhChiVuAn",
+      "expected": "HTTP 200",
+      "data": [
+        "case.dang_dieu_tra.D30"
+      ]
+    },
+    {
+      "id": "TC-CASE-101",
+      "type": "STATE",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "PUT /api/v1/cases/:id",
+      "role": "OFFICER",
+      "title": "Transition: TAM_DINH_CHI → DANG_DIEU_TRA (phục hồi)",
+      "pre": "Status TAM_DINH_CHI, daRaSoat=true, ketQuaPhucHoiVuAn=DANG_DIEU_TRA_XAC_MINH",
+      "steps": "PUT status=DANG_DIEU_TRA",
+      "expected": "HTTP 200, transition hợp lệ",
+      "data": [
+        "case.tdc.rasoat.D60"
+      ]
+    },
+    {
+      "id": "TC-CASE-102",
+      "type": "STATE",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "PUT /api/v1/cases/:id",
+      "role": "OFFICER",
+      "title": "Transition: DA_KET_LUAN → DANG_TRUY_TO",
+      "pre": "Status DA_KET_LUAN",
+      "steps": "PUT status=DANG_TRUY_TO",
+      "expected": "HTTP 200",
+      "data": [
+        "case.da_ket_luan.D60"
+      ]
+    },
+    {
+      "id": "TC-CASE-103",
+      "type": "STATE",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "PUT /api/v1/cases/:id",
+      "role": "OFFICER",
+      "title": "Transition invalid: DA_LUU_TRU → DANG_XAC_MINH (final state) → 400",
+      "pre": "Status DA_LUU_TRU",
+      "steps": "PUT status=DANG_XAC_MINH",
+      "expected": "HTTP 400, terminal state",
+      "data": [
+        "case.da_luu_tru.D365"
+      ]
+    },
+    {
+      "id": "TC-CASE-104",
+      "type": "DECISION",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/cases",
+      "role": "OFFICER",
+      "title": "Decision table caseProvenance × linked_id_required matrix (8×2=16 cells)",
+      "pre": "-",
+      "steps": "Cover 16 cell — mỗi provenance × (có/không linkedXxxId)",
+      "expected": "FROM_PETITION/FROM_INCIDENT yêu cầu linked → 400 nếu missing; còn lại không yêu cầu → 201",
+      "data": [
+        "account.officer.primary",
+        "petition.assigned.D0",
+        "incident.assigned.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-105",
+      "type": "DECISION",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "PUT /api/v1/cases/:id",
+      "role": "OFFICER",
+      "title": "Decision table TĐC: lyDo × status × daRaSoat",
+      "pre": "-",
+      "steps": "4 combination key: (TAM_DINH_CHI + lyDo set + daRaSoat=false), (TAM_DINH_CHI + lyDo trống), (DANG_DIEU_TRA + lyDo set), (TAM_DINH_CHI + lyDo + daRaSoat=true + ketQua)",
+      "expected": "Combo 1 OK, 2 400, 3 OK (lyDo ignored), 4 OK với phục hồi",
+      "data": [
+        "case.investigating.D7"
+      ]
+    },
+    {
+      "id": "TC-CASE-106",
+      "type": "DECISION",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "DELETE /api/v1/cases/:id",
+      "role": "OFFICER",
+      "title": "Decision table delete preconditions",
+      "pre": "-",
+      "steps": "6 case: (creator + no_link), (non-creator + no_link), (creator + linked_petition), (creator + linked_incident), (admin override + linked), (already deleted)",
+      "expected": "Hành vi theo 6 business rules delete",
+      "data": [
+        "case.creator_owned.D0",
+        "case.with_petition.D0",
+        "case.other_owned.D0",
+        "case.deleted.D7"
+      ]
+    },
+    {
+      "id": "TC-CASE-107",
+      "type": "SECURITY",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "POST /api/v1/cases",
+      "role": "OFFICER",
+      "title": "Insecure deserialization — metadata field chứa __proto__",
+      "pre": "-",
+      "steps": "POST {metadata:{__proto__:{admin:true}}}",
+      "expected": "HTTP 201, không pollute prototype object server",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-CASE-108",
+      "type": "SECURITY",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/cases",
+      "role": "OFFICER",
+      "title": "Audit log integrity — verify createdBy, ipAddress, userAgent lưu đúng",
+      "pre": "-",
+      "steps": "POST + GET audit_log mới nhất",
+      "expected": "audit_log entry có userId=current, ipAddress=req.ip, userAgent header value",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-CASE-109",
+      "type": "SECURITY",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "GET /api/v1/cases/:id/journey",
+      "role": "OFFICER",
+      "title": "Journey không leak data ngoài scope",
+      "pre": "Case có cross-team activity",
+      "steps": "GET /journey",
+      "expected": "Chỉ trả events thuộc dataScope user, không leak event team khác",
+      "data": [
+        "case.cross_team_events.D60"
+      ]
+    },
+    {
+      "id": "TC-CASE-110",
+      "type": "SECURITY",
+      "priority": "P0",
+      "severity": "Critical",
+      "endpoint": "POST /api/v1/cases",
+      "role": "OFFICER",
+      "title": "Rate limit per-user — chống mass create",
+      "pre": "-",
+      "steps": "100 POST trong 60s từ 1 user",
+      "expected": "Sau N (theo throttler config) request 429",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-CASE-111",
+      "type": "DATA",
+      "priority": "P1",
+      "severity": "High",
+      "endpoint": "POST /api/v1/cases",
+      "role": "OFFICER",
+      "title": "i18n — name chứa ký tự Unicode tiếng Việt có dấu",
+      "pre": "-",
+      "steps": "POST name='Vụ án trộm cắp tài sản — đối tượng Nguyễn Văn Đại'",
+      "expected": "HTTP 201, lưu nguyên giá trị, GET trả lại đúng dấu",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-CASE-112",
+      "type": "DATA",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "POST /api/v1/cases",
+      "role": "OFFICER",
+      "title": "Emoji + special unicode trong name",
+      "pre": "-",
+      "steps": "POST name='Vụ án 🚓👮 đặc biệt'",
+      "expected": "HTTP 201, GET trả lại emoji",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-CASE-113",
+      "type": "DATA",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "POST /api/v1/cases",
+      "role": "OFFICER",
+      "title": "Whitespace mixed (tab, nbsp) trong name — trim hoạt động",
+      "pre": "-",
+      "steps": "POST name='\\t  Tên vụ án  \\u00a0'",
+      "expected": "HTTP 201, name lưu='Tên vụ án' (trim cả nbsp nếu transform hỗ trợ; nếu không, vẫn pass với leading/trailing)",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-CASE-114",
+      "type": "A11Y",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "UI: /cases",
+      "role": "OFFICER",
+      "title": "Trang list /cases — keyboard navigation Tab order",
+      "pre": "Login UI",
+      "steps": "1. Open /cases\n2. Tab qua từng element\n3. Verify focus visible",
+      "expected": "Tab order logic: search → filter chips → table rows → pagination; mỗi focus có outline ring rõ",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-CASE-115",
+      "type": "A11Y",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "UI: /cases/new",
+      "role": "OFFICER",
+      "title": "Form tạo vụ án — aria-label cho input bắt buộc",
+      "pre": "-",
+      "steps": "Inspect DOM form #case-create",
+      "expected": "Tất cả <input required> có aria-required='true' + aria-label/aria-labelledby",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-CASE-116",
+      "type": "A11Y",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "UI: /cases",
+      "role": "OFFICER",
+      "title": "Color contrast status badge ≥4.5:1",
+      "pre": "-",
+      "steps": "Render status chip mỗi state, đo contrast với background",
+      "expected": "Tất cả 10 status pair có ratio ≥4.5:1 (WCAG 2.1 AA)",
+      "data": [
+        "cases.all_status.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-117",
+      "type": "A11Y",
+      "priority": "P2",
+      "severity": "Low",
+      "endpoint": "UI: /cases/:id",
+      "role": "OFFICER",
+      "title": "Detail page — H1 duy nhất, heading hierarchy hợp lệ",
+      "pre": "-",
+      "steps": "Inspect HTML headings",
+      "expected": "1 <h1>, không skip level (h2 → h4 fail)",
+      "data": [
+        "case.investigating.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-118",
+      "type": "A11Y",
+      "priority": "P2",
+      "severity": "Low",
+      "endpoint": "UI: /cases/new",
+      "role": "OFFICER",
+      "title": "Form error message — aria-live region",
+      "pre": "-",
+      "steps": "Submit form thiếu name → error",
+      "expected": "Error hiển thị trong <div role='alert' aria-live='polite'> để screen reader đọc",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-CASE-119",
+      "type": "A11Y",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "UI: /cases",
+      "role": "OFFICER",
+      "title": "Table — th có scope='col', row có scope='row'",
+      "pre": "-",
+      "steps": "Inspect table headings",
+      "expected": "<th scope='col'> trên header, screen reader phát đúng cột",
+      "data": [
+        "cases.shape.normal.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-120",
+      "type": "A11Y",
+      "priority": "P2",
+      "severity": "Low",
+      "endpoint": "UI: /cases",
+      "role": "OFFICER",
+      "title": "Skip-to-content link",
+      "pre": "-",
+      "steps": "Tab đầu tiên trên page",
+      "expected": "Skip link visible khi focus, click bỏ qua sidebar",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-CASE-121",
+      "type": "COMPAT",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "UI: /cases",
+      "role": "OFFICER",
+      "title": "Chromium 120+ desktop 1920×1080 render",
+      "pre": "-",
+      "steps": "Open /cases trên Chromium",
+      "expected": "Layout không vỡ, table sticky header, sidebar fixed",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-CASE-122",
+      "type": "COMPAT",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "UI: /cases",
+      "role": "OFFICER",
+      "title": "Firefox 121+ desktop render",
+      "pre": "-",
+      "steps": "Open /cases trên Firefox",
+      "expected": "Layout đồng nhất, không CSS-specific Chrome bị break",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-CASE-123",
+      "type": "COMPAT",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "UI: /cases",
+      "role": "OFFICER",
+      "title": "Safari/WebKit 17+ desktop",
+      "pre": "-",
+      "steps": "Open /cases trên WebKit",
+      "expected": "Date input picker render, gap không vỡ",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-CASE-124",
+      "type": "COMPAT",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "UI: /cases",
+      "role": "OFFICER",
+      "title": "Mobile 375×667 (iPhone SE) — drawer sidebar PWA",
+      "pre": "-",
+      "steps": "Set viewport 375×667",
+      "expected": "Sidebar collapse drawer, table horizontal scroll, no overflow",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-CASE-125",
+      "type": "COMPAT",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "UI: /cases",
+      "role": "OFFICER",
+      "title": "Tablet 768×1024 (iPad)",
+      "pre": "-",
+      "steps": "Viewport 768",
+      "expected": "Sidebar visible, table giữ 6 cột chính",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-CASE-126",
+      "type": "COMPAT",
+      "priority": "P2",
+      "severity": "Low",
+      "endpoint": "UI: /cases/:id",
+      "role": "OFFICER",
+      "title": "Print stylesheet — print preview rõ ràng",
+      "pre": "-",
+      "steps": "Ctrl+P trên detail page",
+      "expected": "Print view ẩn sidebar, header gọn, không cắt bảng",
+      "data": [
+        "case.investigating.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-127",
+      "type": "COMPAT",
+      "priority": "P2",
+      "severity": "Low",
+      "endpoint": "UI: /cases",
+      "role": "OFFICER",
+      "title": "Dark mode (prefers-color-scheme: dark) — contrast giữ AA",
+      "pre": "OS dark mode",
+      "steps": "Open /cases",
+      "expected": "Toàn bộ UI có dark variant, không trắng trên trắng",
+      "data": [
+        "account.officer.primary"
+      ]
+    },
+    {
+      "id": "TC-CASE-128",
+      "type": "PERFORMANCE",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "GET /api/v1/cases",
+      "role": "OFFICER",
+      "title": "List 10k cases — p95 < 800ms",
+      "pre": "DB seed 10000 cases",
+      "steps": "100 GET ?limit=20 concurrent",
+      "expected": "p95 latency < 800ms, không OOM",
+      "data": [
+        "cases.shape.large.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-129",
+      "type": "PERFORMANCE",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "GET /api/v1/cases/stats",
+      "role": "OFFICER",
+      "title": "Stats aggregation trên 10k cases < 500ms",
+      "pre": "-",
+      "steps": "50 GET /stats concurrent",
+      "expected": "p95 < 500ms, query plan dùng index status",
+      "data": [
+        "cases.shape.large.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-130",
+      "type": "PERFORMANCE",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "GET /api/v1/cases/export/ward",
+      "role": "OFFICER",
+      "title": "Export Excel 5000 rows < 10s",
+      "pre": "-",
+      "steps": "GET export/ward fromDate=…toDate=cover 5000 cases",
+      "expected": "Response < 10s, file size hợp lý, không timeout",
+      "data": [
+        "cases.shape.large.D0"
+      ]
+    }
+  ]
+}

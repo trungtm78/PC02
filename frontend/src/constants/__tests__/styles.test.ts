@@ -63,8 +63,11 @@ describe('TABLE_HEADER_CELL — Vietnamese typography', () => {
     expect(styles.TABLE_HEADER_CELL).toMatch(/\btracking-(wide|wider)\b/);
   });
 
-  it('giữ text-slate-* cho neutral color (không drift sang gray-*)', () => {
-    expect(styles.TABLE_HEADER_CELL).toMatch(/\btext-slate-\d{3}\b/);
+  it('dùng navy brand color #003973 hoặc text-slate-* cho header cell (không drift sang gray-*)', () => {
+    // Post list-ux-parity: TABLE_HEADER_CELL dùng text-[#003973] thay slate — intentional brand upgrade.
+    const hasNavy = styles.TABLE_HEADER_CELL.includes('text-[#003973]');
+    const hasSlate = /\btext-slate-\d{3}\b/.test(styles.TABLE_HEADER_CELL);
+    expect(hasNavy || hasSlate).toBe(true);
     expect(styles.TABLE_HEADER_CELL).not.toMatch(/\btext-gray-/);
   });
 });
@@ -186,5 +189,16 @@ describe('CASE_STATUS_COLORS.DA_LUU_TRU migrated to STATUS_ARCHIVED', () => {
 
   it('DA_LUU_TRU reference STATUS_ARCHIVED token (single source of truth)', () => {
     expect(styles.CASE_STATUS_COLORS.DA_LUU_TRU).toBe(styles.STATUS_ARCHIVED);
+  });
+});
+
+// ── TABLE_SECTION_CARD — overflow-clip không phải overflow-hidden ────────────
+// overflow-clip clips visual content nhưng KHÔNG tạo scroll container mới
+// → sticky positioning của BulkSelectionHeaderCell/RowCell vẫn hoạt động đúng.
+// overflow-hidden tạo implicit scroll container → break sticky trong một số browser (Safari).
+describe('TABLE_SECTION_CARD — overflow behavior', () => {
+  it('dùng overflow-clip thay overflow-hidden để không break sticky positioning của bulk checkboxes', () => {
+    expect(styles.TABLE_SECTION_CARD).toContain('overflow-clip');
+    expect(styles.TABLE_SECTION_CARD).not.toContain('overflow-hidden');
   });
 });

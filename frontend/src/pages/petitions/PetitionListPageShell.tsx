@@ -14,7 +14,7 @@
  */
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mail, Plus, AlertCircle, X } from 'lucide-react';
+import { Mail, Plus, AlertCircle, X, Inbox, RefreshCw, CheckCircle, Archive } from 'lucide-react';
 import axios from 'axios';
 import { api } from '@/lib/api';
 import {
@@ -34,6 +34,8 @@ import {
 } from '@/shared/enums/status-labels';
 import { PetitionStatus } from '@/shared/enums/generated';
 import { BTN_PRIMARY, A11Y_FOCUS_RING, OVERDUE_ROW_HIGHLIGHT } from '@/constants/styles';
+import { StatsCardsStrip, type StatCard } from '@/components/shared/StatsCardsStrip';
+import { getPetitionStatusIcon } from '@/shared/enums/status-icons';
 import { formatVNDate } from '@/lib/dates';
 // v0.65 PR3 — registry-driven row actions + advanced filters
 import { RowActions } from '@/features/_shared/row-actions/RowActions';
@@ -83,6 +85,25 @@ interface PetitionsStatsResponse {
 }
 
 const PAGE_SIZE = 20;
+
+function buildPetitionsCards(stats: PetitionsStatsResponse | null): StatCard[] {
+  const by = stats?.byStatus;
+  const moiTiepNhan = by ? (by[PetitionStatus.MOI_TIEP_NHAN] ?? 0) : null;
+  const dangXuLy = by
+    ? ([PetitionStatus.DANG_XU_LY, PetitionStatus.CHO_PHE_DUYET] as PetitionStatus[]).reduce((s, k) => s + (by[k] ?? 0), 0)
+    : null;
+  const daGiaiQuyet = by
+    ? ([PetitionStatus.DA_GIAI_QUYET, PetitionStatus.DA_CHUYEN_VU_VIEC, PetitionStatus.DA_CHUYEN_VU_AN] as PetitionStatus[]).reduce((s, k) => s + (by[k] ?? 0), 0)
+    : null;
+  const daLuuDon = by ? (by[PetitionStatus.DA_LUU_DON] ?? 0) : null;
+  return [
+    { label: 'Tổng đơn thư', value: stats?.total ?? null, icon: Mail, iconBgClass: 'bg-[#003973]/10', iconColorClass: 'text-[#003973]', valueColorClass: 'text-[#003973]' },
+    { label: 'Mới tiếp nhận', value: moiTiepNhan, icon: Inbox, iconBgClass: 'bg-blue-100', iconColorClass: 'text-blue-600', valueColorClass: 'text-blue-600' },
+    { label: 'Đang xử lý', value: dangXuLy, icon: RefreshCw, iconBgClass: 'bg-amber-100', iconColorClass: 'text-amber-600', valueColorClass: 'text-amber-600' },
+    { label: 'Đã giải quyết', value: daGiaiQuyet, icon: CheckCircle, iconBgClass: 'bg-green-100', iconColorClass: 'text-green-600', valueColorClass: 'text-green-600' },
+    { label: 'Lưu đơn', value: daLuuDon, icon: Archive, iconBgClass: 'bg-slate-100', iconColorClass: 'text-slate-600', valueColorClass: 'text-slate-600' },
+  ];
+}
 
 function isOverdue(deadline?: string | null): boolean {
   if (!deadline) return false;
@@ -310,7 +331,8 @@ export function PetitionListPageShell() {
         key: 'status',
         header: 'Trạng thái',
         render: (r) => (
-          <span className={`inline-block px-2 py-0.5 rounded text-xs ${PETITION_STATUS_BADGE[r.status]}`}>
+          <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium ${PETITION_STATUS_BADGE[r.status]}`}>
+            {getPetitionStatusIcon(r.status)}
             {PETITION_STATUS_LABEL[r.status]}
           </span>
         ),
@@ -386,6 +408,7 @@ export function PetitionListPageShell() {
           </button>
         }
       />
+      <StatsCardsStrip cards={buildPetitionsCards(stats)} loading={stats == null} />
       <ListPageShell.StatusChips
         options={chipOptions}
         activeValue={statusFilter}
@@ -399,6 +422,7 @@ export function PetitionListPageShell() {
         searchPlaceholder="Tìm kiếm theo STT, người gửi, đối tượng..."
         activeFilterCount={activeFilterCount}
         onResetFilters={handleResetFilters}
+        cardStyle
       >
         <Filters<PetitionFilterValue>
           registry={petitionsListFilters}
@@ -440,6 +464,7 @@ export function PetitionListPageShell() {
         data={rows}
         rowKey={(r) => r.id}
         title="Danh sách đơn thư"
+        sectionTitle="Danh sách đơn thư"
         totalCount={totalCount}
         error={error}
         emptyState={{

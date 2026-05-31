@@ -1,0 +1,54 @@
+{
+  "description": "Shared test accounts cho UAT 4 nghiệp vụ (Cases/Incidents/Petitions/UTDT). Dùng bởi Playwright runner + data fixtures setup_recipe. PASSWORDS: xem tests/.env.test (gitignored) — không commit passwords vào repo.",
+  "base_url": "http://171.244.40.245",
+  "api_base": "/api/v1",
+  "ui_login_url": "/login",
+  "accounts": [
+    {
+      "fixture_id": "account.admin.primary",
+      "email": "admin@pc02.local",
+      "password_env": "ADMIN_PASSWORD",
+      "role": "ADMIN",
+      "note": "Super admin — dùng cho admin/restore endpoints + scope-bypass test"
+    },
+    {
+      "fixture_id": "account.admin.secondary",
+      "email": "admin2@pc02.local",
+      "password_env": "ADMIN2_PASSWORD",
+      "role": "ADMIN",
+      "note": "Admin phụ — cho concurrent edit test (optimistic lock conflict)"
+    },
+    {
+      "fixture_id": "account.officer.primary",
+      "email": "officer1@pc02.local",
+      "password_env": "OFFICER1_PASSWORD",
+      "role": "OFFICER",
+      "note": "Case officer — read/write own cases, scope theo team. Khi TC ghi role=INVESTIGATOR → dùng account này (OFFICER có permission tương tự đối với Case/Incident/Petition trong scope)"
+    },
+    {
+      "fixture_id": "account.officer.secondary",
+      "email": "officer2@pc02.local",
+      "password_env": "OFFICER2_PASSWORD",
+      "role": "OFFICER",
+      "note": "Officer team khác — DÙNG CHO SCOPE-ISOLATION TEST: officer1 không được thấy data của officer2's team"
+    },
+    {
+      "fixture_id": "account.approver.deadline",
+      "email": "approver1@pc02.local",
+      "password_env": "APPROVER1_PASSWORD",
+      "role": "DEADLINE_APPROVER",
+      "note": "Phê duyệt thời hạn. Khi TC ghi role=DISPATCHER → mapping: dùng admin@ (ADMIN có canDispatch) hoặc approver1 nếu DispatchGuard accept DEADLINE_APPROVER. Verify ở runtime."
+    }
+  ],
+  "role_mapping_notes": {
+    "TC says INVESTIGATOR": "Dùng account.officer.primary (OFFICER) — role gốc INVESTIGATOR trong ROLE_NAMES constant không seed user thật, OFFICER là role thực thi case ở DB",
+    "TC says DISPATCHER": "Dùng account.admin.primary (ADMIN) — vì ADMIN bypass DispatchGuard. Nếu cần test DispatchGuard cụ thể, seed thêm DISPATCHER role",
+    "TC says VIEWER": "Cần seed thêm tài khoản role VIEWER (chưa có trong test bundle)",
+    "TC says WARD_OFFICER": "Cần seed thêm WARD_OFFICER với assignedTeamId thuộc ward — dùng admin@ để impersonate khi test",
+    "TC says ADMIN": "Dùng account.admin.primary"
+  },
+  "login_flow": {
+    "api": "POST /api/v1/auth/login body {email, password} → response.accessToken (JWT)",
+    "ui": "Navigate /login → fill #email + #password → click 'Đăng nhập' → redirect /dashboard"
+  }
+}
