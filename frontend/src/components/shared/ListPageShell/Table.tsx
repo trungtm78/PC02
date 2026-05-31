@@ -241,7 +241,9 @@ export function Table<TRow, TId extends string | number = string>({
 }: TableProps<TRow, TId>) {
   const { tableId } = useListPageShellContext();
   const colSpan = columns.length + (bulkSelection ? 1 : 0);
-  const cardProps = { sectionTitle, totalCount, displayCount: data?.length };
+  // Only show count when table is ready — during loading data holds stale rows
+  // from the previous fetch (parents don't reset rows to [] before refetch).
+  const cardProps = { sectionTitle, totalCount, displayCount: state === 'ready' ? data.length : undefined };
 
   if (state === 'loading') return (
     <StateCard {...cardProps}><LoadingSkeleton colCount={colSpan} /></StateCard>

@@ -274,7 +274,10 @@ export const ICON_INPUT_POSITION =
 
 // Card wrapper cho toolbar/table sections trên list pages.
 export const STATS_CARD = "bg-white rounded-lg border border-slate-200 shadow-sm p-4";
-export const TABLE_SECTION_CARD = "bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden";
+// overflow-clip clips visual overflow cho rounded corners nhưng KHÔNG tạo
+// scroll container mới — sticky positioning của BulkSelectionHeaderCell vẫn
+// hoạt động đúng. overflow-hidden sẽ break sticky trong Safari/older Chrome.
+export const TABLE_SECTION_CARD = "bg-white rounded-lg border border-slate-200 shadow-sm overflow-clip";
 export const TABLE_SECTION_HEADER = "border-b border-slate-200 px-6 py-4";
 export const TABLE_SECTION_HEADER_TITLE = "font-bold text-[#003973]";
 export const TABLE_SECTION_HEADER_COUNT = "text-sm text-slate-600 mt-1";

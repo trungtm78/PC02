@@ -145,4 +145,35 @@ describe('<ListPageShell.Toolbar>', () => {
     expect(toolbar.className).toContain('border-b');
     expect(toolbar.className).not.toContain('rounded-lg');
   });
+
+  // ── T1 — 2-row layout: Filter button TRƯỚC search input trong DOM ─────────
+
+  it('filter button xuất hiện trước search input trong DOM (layout 2 hàng — KN VKS pattern)', () => {
+    render(
+      <ListPageShell>
+        <Toolbar searchValue="" onSearchChange={() => {}} cardStyle>
+          <div>advanced filters</div>
+        </Toolbar>
+      </ListPageShell>,
+    );
+    const filterBtn = screen.getByRole('button', { name: /bộ lọc/i });
+    const searchInput = screen.getByRole('searchbox');
+    // Filter button phải đứng TRƯỚC search trong DOM (tức nằm ở row trên)
+    // Node.DOCUMENT_POSITION_FOLLOWING = 4: searchInput follows filterBtn
+    expect(filterBtn.compareDocumentPosition(searchInput) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('search input nằm trong container riêng dưới filter row (không cùng flex parent)', () => {
+    render(
+      <ListPageShell>
+        <Toolbar searchValue="" onSearchChange={() => {}} cardStyle>
+          <div>filters</div>
+        </Toolbar>
+      </ListPageShell>,
+    );
+    const filterBtn = screen.getByRole('button', { name: /bộ lọc/i });
+    const searchInput = screen.getByRole('searchbox');
+    // Filter button và search input KHÔNG có cùng immediate parent
+    expect(filterBtn.parentElement).not.toBe(searchInput.parentElement);
+  });
 });

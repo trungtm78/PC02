@@ -191,3 +191,14 @@ describe('CASE_STATUS_COLORS.DA_LUU_TRU migrated to STATUS_ARCHIVED', () => {
     expect(styles.CASE_STATUS_COLORS.DA_LUU_TRU).toBe(styles.STATUS_ARCHIVED);
   });
 });
+
+// ── TABLE_SECTION_CARD — overflow-clip không phải overflow-hidden ────────────
+// overflow-clip clips visual content nhưng KHÔNG tạo scroll container mới
+// → sticky positioning của BulkSelectionHeaderCell/RowCell vẫn hoạt động đúng.
+// overflow-hidden tạo implicit scroll container → break sticky trong một số browser (Safari).
+describe('TABLE_SECTION_CARD — overflow behavior', () => {
+  it('dùng overflow-clip thay overflow-hidden để không break sticky positioning của bulk checkboxes', () => {
+    expect(styles.TABLE_SECTION_CARD).toContain('overflow-clip');
+    expect(styles.TABLE_SECTION_CARD).not.toContain('overflow-hidden');
+  });
+});

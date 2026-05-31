@@ -57,41 +57,31 @@ export function Toolbar({
       data-testid="list-page-shell-toolbar"
       className={cardStyle ? TOOLBAR_CARD : TOOLBAR_STRIP}
     >
-      <div className="flex items-center gap-2 flex-wrap">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className={ICON_INPUT_POSITION} aria-hidden="true" />
-          <input
-            type="search"
-            role="searchbox"
-            aria-label="Tìm kiếm trong danh sách"
-            value={searchValue}
-            onChange={(e) => onSearchChange(e.target.value)}
-            placeholder={searchPlaceholder}
-            className={`${INPUT_WITH_ICON} ${A11Y_FOCUS_RING}`}
-          />
+      {/* Row 1: Action buttons — Filter left, Reset right (matches KN VKS pattern) */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          {hasAdvancedFilters && (
+            <button
+              type="button"
+              data-testid="list-page-shell-filter-toggle"
+              aria-expanded={expanded}
+              aria-controls={filterPanelId}
+              onClick={() => setExpanded((v) => !v)}
+              className={`${activeFilterCount > 0 ? BTN_OUTLINE_BLUE : BTN_OUTLINE_SLATE} ${A11Y_FOCUS_RING} flex items-center gap-2`}
+            >
+              <SlidersHorizontal className="w-4 h-4" />
+              <span>Bộ lọc</span>
+              {activeFilterCount > 0 && (
+                <span
+                  data-testid="list-page-shell-filter-count"
+                  className="inline-flex items-center justify-center min-w-[20px] h-5 px-1 rounded-full bg-blue-600 text-white text-xs font-semibold"
+                >
+                  {activeFilterCount}
+                </span>
+              )}
+            </button>
+          )}
         </div>
-
-        {hasAdvancedFilters && (
-          <button
-            type="button"
-            data-testid="list-page-shell-filter-toggle"
-            aria-expanded={expanded}
-            aria-controls={filterPanelId}
-            onClick={() => setExpanded((v) => !v)}
-            className={`${activeFilterCount > 0 ? BTN_OUTLINE_BLUE : BTN_OUTLINE_SLATE} ${A11Y_FOCUS_RING} flex items-center gap-2`}
-          >
-            <SlidersHorizontal className="w-4 h-4" />
-            <span>Bộ lọc</span>
-            {activeFilterCount > 0 && (
-              <span
-                data-testid="list-page-shell-filter-count"
-                className="inline-flex items-center justify-center min-w-[20px] h-5 px-1 rounded-full bg-blue-600 text-white text-xs font-semibold"
-              >
-                {activeFilterCount}
-              </span>
-            )}
-          </button>
-        )}
 
         {showReset && (
           <button
@@ -106,6 +96,21 @@ export function Toolbar({
         )}
       </div>
 
+      {/* Row 2: Search input — full width below action row */}
+      <div className="relative mt-4">
+        <Search className={ICON_INPUT_POSITION} aria-hidden="true" />
+        <input
+          type="search"
+          role="searchbox"
+          aria-label="Tìm kiếm trong danh sách"
+          value={searchValue}
+          onChange={(e) => onSearchChange(e.target.value)}
+          placeholder={searchPlaceholder}
+          className={`${INPUT_WITH_ICON} ${A11Y_FOCUS_RING}`}
+        />
+      </div>
+
+      {/* Filter accordion — below search */}
       {hasAdvancedFilters && (
         <div
           id={filterPanelId}
