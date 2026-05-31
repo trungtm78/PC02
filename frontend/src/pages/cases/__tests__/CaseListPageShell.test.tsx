@@ -11,7 +11,7 @@
  * - Error state với retry context
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, useLocation, Routes, Route } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { CaseListPageShell } from '../CaseListPageShell';
@@ -110,11 +110,11 @@ describe('CaseListPageShell — initial mount + ready state', () => {
   it('StatusChips hiển thị server counts khi stats về', async () => {
     renderWithRouter();
     await waitFor(() => screen.getByText('Vụ án mẫu'));
-    // Tổng count
-    expect(screen.getByText('100')).toBeInTheDocument();
-    // Individual status counts
-    expect(screen.getByText('12')).toBeInTheDocument();
-    expect(screen.getByText('45')).toBeInTheDocument();
+    // Query within StatusChips tablist to avoid ambiguity with StatsCardsStrip
+    const chipBar = screen.getByRole('tablist');
+    expect(within(chipBar).getByText('100')).toBeInTheDocument();
+    expect(within(chipBar).getByText('12')).toBeInTheDocument();
+    expect(within(chipBar).getByText('45')).toBeInTheDocument();
   });
 });
 

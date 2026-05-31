@@ -96,17 +96,17 @@ export const TABLE_WRAPPER = "overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0";
 
 export const TABLE_BASE = "w-full";
 
-export const TABLE_HEADER = "bg-slate-50 border-b border-slate-200";
+export const TABLE_HEADER = "bg-[#003973]/5 border-b border-slate-200";
 
 // Note: dropped `uppercase` in PR1 — Vietnamese diacritics on uppercase letters
 // (e.g. "Đ", "Â" với dấu mũ) become visually cramped. text-xs + font-semibold
 // + tracking-wide đủ để tạo hierarchy mà không cần uppercase.
 export const TABLE_HEADER_CELL =
-  "px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600";
+  "px-4 py-3 text-left text-xs font-semibold tracking-wide text-[#003973]";
 
 export const TABLE_BODY = "divide-y divide-slate-200";
 
-export const TABLE_ROW = "hover:bg-slate-50";
+export const TABLE_ROW = "hover:bg-blue-50";
 
 export const TABLE_CELL = "px-4 py-3 text-sm text-slate-700";
 
@@ -227,7 +227,7 @@ export const EMPTY_STATE_SUBTEXT = "text-sm text-slate-400 mt-1";
 export const PAGE_HEADER =
   "bg-white border-b border-slate-200 px-6 py-4";
 
-export const PAGE_TITLE = "text-2xl font-bold text-slate-800";
+export const PAGE_TITLE = "text-2xl font-bold text-[#003973]";
 
 export const PAGE_SUBTITLE = "text-sm text-slate-600 mt-1";
 
@@ -259,7 +259,7 @@ export const FILTER_GRID = "grid grid-cols-1 md:grid-cols-3 gap-4";
 // Sticky first-column class for action columns. Apply to first <th> and first <td>
 // so users can scroll horizontally while keeping the action column visible.
 export const TABLE_STICKY_LEFT_TH =
-  "sticky left-0 z-10 border-r border-slate-200 bg-slate-50";
+  "sticky left-0 z-10 border-r border-slate-200 bg-[#003973]/5";
 export const TABLE_STICKY_LEFT_TD =
   "sticky left-0 z-10 border-r border-slate-200 bg-white";
 
@@ -269,6 +269,17 @@ export const ICON_INPUT_WRAPPER = "relative";
 
 export const ICON_INPUT_POSITION =
   "absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400";
+
+// ─── List Page Card & Stats Tokens ─────────────────────────────────────────
+
+// Card wrapper cho toolbar/table sections trên list pages.
+export const STATS_CARD = "bg-white rounded-lg border border-slate-200 shadow-sm p-4";
+export const TABLE_SECTION_CARD = "bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden";
+export const TABLE_SECTION_HEADER = "border-b border-slate-200 px-6 py-4";
+export const TABLE_SECTION_HEADER_TITLE = "font-bold text-[#003973]";
+export const TABLE_SECTION_HEADER_COUNT = "text-sm text-slate-600 mt-1";
+export const TOOLBAR_CARD = "bg-white rounded-lg border border-slate-200 shadow-sm px-4 py-4";
+export const TOOLBAR_STRIP = "bg-white border-b border-slate-200 px-4 py-3";
 
 // ─── ListPageShell Tokens (PR1 foundation) ──────────────────────────────────
 //

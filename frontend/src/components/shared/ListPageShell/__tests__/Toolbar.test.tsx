@@ -123,4 +123,26 @@ describe('<ListPageShell.Toolbar>', () => {
     const input = screen.getByRole('searchbox');
     expect(input).toHaveAttribute('aria-label');
   });
+
+  it('cardStyle=true renders toolbar với rounded-lg shadow-sm class', () => {
+    render(
+      <ListPageShell>
+        <Toolbar searchValue="" onSearchChange={() => {}} cardStyle />
+      </ListPageShell>,
+    );
+    const toolbar = screen.getByTestId('list-page-shell-toolbar');
+    expect(toolbar.className).toContain('rounded-lg');
+    expect(toolbar.className).toContain('shadow-sm');
+  });
+
+  it('cardStyle omitted (default) renders toolbar với border-b class (strip style)', () => {
+    render(
+      <ListPageShell>
+        <Toolbar searchValue="" onSearchChange={() => {}} />
+      </ListPageShell>,
+    );
+    const toolbar = screen.getByTestId('list-page-shell-toolbar');
+    expect(toolbar.className).toContain('border-b');
+    expect(toolbar.className).not.toContain('rounded-lg');
+  });
 });

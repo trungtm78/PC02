@@ -88,4 +88,15 @@ describe('commonResourceActions', () => {
     const ctxNoPerm = makeCtx({ perms: { canEdit: false } });
     expect(edit.visible?.({ id: 'C', status: 'TIEP_NHAN' }, ctxNoPerm)).toBe(false);
   });
+
+  // [D5 regression] Delete phải là inline để hiển thị trực tiếp trên row
+  it('Delete action có position=inline (regression: was menu)', () => {
+    const acts = commonResourceActions<CaseRow>({
+      basePath: '/cases',
+      canDelete: () => null,
+      resourceType: 'cases',
+    });
+    const del = acts.find((a) => a.key === 'delete');
+    expect(del?.position).toBe('inline');
+  });
 });

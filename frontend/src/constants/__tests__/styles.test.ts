@@ -63,8 +63,11 @@ describe('TABLE_HEADER_CELL — Vietnamese typography', () => {
     expect(styles.TABLE_HEADER_CELL).toMatch(/\btracking-(wide|wider)\b/);
   });
 
-  it('giữ text-slate-* cho neutral color (không drift sang gray-*)', () => {
-    expect(styles.TABLE_HEADER_CELL).toMatch(/\btext-slate-\d{3}\b/);
+  it('dùng navy brand color #003973 hoặc text-slate-* cho header cell (không drift sang gray-*)', () => {
+    // Post list-ux-parity: TABLE_HEADER_CELL dùng text-[#003973] thay slate — intentional brand upgrade.
+    const hasNavy = styles.TABLE_HEADER_CELL.includes('text-[#003973]');
+    const hasSlate = /\btext-slate-\d{3}\b/.test(styles.TABLE_HEADER_CELL);
+    expect(hasNavy || hasSlate).toBe(true);
     expect(styles.TABLE_HEADER_CELL).not.toMatch(/\btext-gray-/);
   });
 });

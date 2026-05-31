@@ -48,7 +48,7 @@ export function commonResourceActions<TRow extends { id: string }>(
       key: 'delete',
       label: 'Xóa',
       icon: Trash2,
-      position: 'menu',
+      position: 'inline',
       danger: true,
       visible: (_row, ctx) => ctx.perms.canDelete !== false,
       disabled: (row, ctx) => canDelete(row, ctx),

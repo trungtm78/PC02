@@ -17,6 +17,8 @@ import {
   FILTER_ACCORDION_EXPANDED,
   FILTER_ACCORDION_CONTENT,
   A11Y_FOCUS_RING,
+  TOOLBAR_CARD,
+  TOOLBAR_STRIP,
 } from '@/constants/styles';
 
 export interface ToolbarProps {
@@ -29,6 +31,8 @@ export interface ToolbarProps {
   onResetFilters?(): void;
   /** Advanced filter content rendered trong accordion khi expanded. */
   children?: ReactNode;
+  /** Khi true: render như card với shadow thay vì border-bottom strip. */
+  cardStyle?: boolean;
 }
 
 export function Toolbar({
@@ -38,6 +42,7 @@ export function Toolbar({
   activeFilterCount = 0,
   onResetFilters,
   children,
+  cardStyle,
 }: ToolbarProps) {
   const [expanded, setExpanded] = useState(false);
   const filterPanelId = useId();
@@ -50,7 +55,7 @@ export function Toolbar({
     <div
       ref={ref}
       data-testid="list-page-shell-toolbar"
-      className="bg-white border-b border-slate-200 px-4 py-3"
+      className={cardStyle ? TOOLBAR_CARD : TOOLBAR_STRIP}
     >
       <div className="flex items-center gap-2 flex-wrap">
         <div className="relative flex-1 min-w-[200px]">
