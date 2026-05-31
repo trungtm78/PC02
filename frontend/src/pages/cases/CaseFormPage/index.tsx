@@ -116,8 +116,21 @@ function CaseFormPage() {
   // Entry path 2/3: button "Khởi tố thành vụ án" navigate với linkedIncidentId +
   // caseProvenance + expectedIncidentUpdatedAt. Helper hydrate vào formData.
   // Tested: urlHydration.test.ts (TDD red-green-restore verified).
+  //
+  // Bug 1 fix: Edit mode KHÔNG skip toàn bộ — chỉ skip các trường link (linkedIncidentId,
+  // expectedIncidentUpdatedAt) vì chúng đã có từ API. Nhưng caseProvenance cần được set
+  // ngay từ URL để tab UTDT hiển thị tức thì (không flash trống trước khi API trả về).
+  // API response sau đó sẽ override đúng giá trị từ DB qua mergeCaseApiToFormData.
   useEffect(() => {
-    if (isEditMode) return;
+    const urlCaseProvenance = searchParams.get('caseProvenance');
+    if (isEditMode) {
+      // Trong edit mode: chỉ apply caseProvenance từ URL (để tab hiện ngay)
+      // linkedIncidentId / expectedIncidentUpdatedAt bỏ qua — API sẽ lo
+      if (urlCaseProvenance) {
+        setFormData((prev) => ({ ...prev, caseProvenance: urlCaseProvenance }));
+      }
+      return;
+    }
     const updates = hydrateFormFromUrl(searchParams);
     if (Object.keys(updates).length > 0) {
       setFormData((prev) => ({ ...prev, ...updates }));

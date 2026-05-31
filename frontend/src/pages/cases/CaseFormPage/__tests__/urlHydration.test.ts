@@ -54,8 +54,18 @@ describe('hydrateFormFromUrl (hotfix #112 regression)', () => {
     expect(hydrateFormFromUrl(params)).toEqual({});
   });
 
-  it('UTDT entry: returns { caseProvenance } khi chỉ có caseProvenance (không có linkedIncidentId)', () => {
+  it('UTDT entry: returns { caseProvenance, utdt_loaiUyThac } khi chỉ có caseProvenance=UY_THAC_DIEU_TRA (Bug 2 fix)', () => {
     const params = new URLSearchParams('caseProvenance=UY_THAC_DIEU_TRA');
-    expect(hydrateFormFromUrl(params)).toEqual({ caseProvenance: 'UY_THAC_DIEU_TRA' });
+    // Bug 2 fix: utdt_loaiUyThac phải được pre-fill để dropdown "Loại ủy thác"
+    // không rỗng khi tạo mới UTDT
+    expect(hydrateFormFromUrl(params)).toEqual({
+      caseProvenance: 'UY_THAC_DIEU_TRA',
+      utdt_loaiUyThac: 'UY_THAC_DIEU_TRA',
+    });
+  });
+
+  it('UTDT entry: caseProvenance khác UY_THAC_DIEU_TRA → chỉ set caseProvenance (không set utdt_loaiUyThac)', () => {
+    const params = new URLSearchParams('caseProvenance=DIRECT_DISCOVERY');
+    expect(hydrateFormFromUrl(params)).toEqual({ caseProvenance: 'DIRECT_DISCOVERY' });
   });
 });
