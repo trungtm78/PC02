@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useLayoutEffect, useState, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 
 interface ActionMenuPortalProps {
@@ -45,9 +45,11 @@ export function ActionMenuPortal({
   minWidth = 240,
 }: ActionMenuPortalProps) {
   const menuRef = useRef<HTMLDivElement | null>(null);
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  // visible=false: rendered hidden for measurement before flip decision
+  const [pos, setPos] = useState<{ top: number; left: number; visible: boolean } | null>(null);
 
   // Compute position from anchor. Defensive: close if anchor detached from DOM.
+  // Always starts invisible so useLayoutEffect can flip upward before first paint.
   const updatePosition = useCallback(() => {
     if (!anchor || !document.body.contains(anchor)) {
       onClose();
@@ -56,8 +58,32 @@ export function ActionMenuPortal({
     const rect = anchor.getBoundingClientRect();
     const top = rect.bottom + offsetY;
     const left = align === "right" ? rect.left : rect.right - minWidth;
-    setPos({ top, left });
+    setPos({ top, left, visible: false });
   }, [anchor, align, offsetY, minWidth, onClose]);
+
+  // After initial (hidden) render: measure menu height and flip upward if needed.
+  // Runs synchronously before browser paint → zero flicker.
+  useLayoutEffect(() => {
+    if (!pos || pos.visible || !menuRef.current || !anchor) return;
+    const menuRect = menuRef.current.getBoundingClientRect();
+    const viewH = window.innerHeight;
+    const viewW = window.innerWidth;
+
+    let { top, left } = pos;
+
+    // Flip vertically: open above anchor if menu overflows viewport bottom
+    if (menuRect.bottom > viewH) {
+      const anchorRect = anchor.getBoundingClientRect();
+      top = Math.max(8, anchorRect.top - menuRect.height - offsetY);
+    }
+
+    // Clamp horizontally: prevent menu from going off-screen right
+    if (left + menuRect.width > viewW) {
+      left = Math.max(8, viewW - menuRect.width - 8);
+    }
+
+    setPos({ top, left, visible: true });
+  }, [pos, anchor, offsetY]);
 
   // On open: compute initial position + subscribe to scroll/resize (rAF-throttled).
   useEffect(() => {
@@ -107,9 +133,9 @@ export function ActionMenuPortal({
     return () => document.removeEventListener("keydown", handleKey);
   }, [open, onClose]);
 
-  // v0.62 PR1a a11y — focus first menuitem on open, return focus to anchor on close.
+  // v0.62 PR1a a11y — focus first menuitem on open (after flip resolves), return focus to anchor on close.
   useEffect(() => {
-    if (!open || !pos) return;
+    if (!open || !pos?.visible) return;
     const menu = menuRef.current;
     if (!menu) return;
     const items = menu.querySelectorAll<HTMLElement>('[role="menuitem"]');
@@ -118,7 +144,7 @@ export function ActionMenuPortal({
       // Restore focus to anchor when menu closes (anchor still exists).
       if (anchor && document.body.contains(anchor)) anchor.focus();
     };
-  }, [open, pos, anchor]);
+  }, [open, pos?.visible, anchor]);
 
   // Arrow-key navigation between menuitem children.
   const onMenuKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -142,7 +168,15 @@ export function ActionMenuPortal({
   return createPortal(
     <div
       ref={menuRef}
-      style={{ position: "fixed", top: pos.top, left: pos.left, minWidth, zIndex: 9999 }}
+      style={{
+        position: "fixed",
+        top: pos.top,
+        left: pos.left,
+        minWidth,
+        zIndex: 9999,
+        // Hidden during measurement pass; shown after flip decision (useLayoutEffect)
+        visibility: pos.visible ? "visible" : "hidden",
+      }}
       className="bg-white border border-slate-200 rounded-lg shadow-lg outline-none"
       role="menu"
       tabIndex={-1}
