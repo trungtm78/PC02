@@ -229,9 +229,11 @@ export class CreateCaseDto {
   @IsEnum(CaseType)
   caseType?: CaseType;
 
-  @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @ValidateIf((o: { caseType?: CaseType }) => o.caseType === CaseType.UY_THAC_DIEU_TRA)
+  @IsNotEmpty({ message: 'Đơn vị giao là bắt buộc cho ủy thác điều tra' })
   @IsString()
-  @MaxLength(500)
+  @MaxLength(200)
   donViGiao?: string;
 
   @IsOptional()
