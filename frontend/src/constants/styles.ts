@@ -272,7 +272,7 @@ export const ICON_INPUT_POSITION =
 
 // ─── List Page Card & Stats Tokens ─────────────────────────────────────────
 
-// Card wrapper cho toolbar/table sections trên list pages.
+// Individual stat card (total/by-status) trên StatsCardsStrip.
 export const STATS_CARD = "bg-white rounded-lg border border-slate-200 shadow-sm p-4";
 // overflow-clip clips visual overflow cho rounded corners nhưng KHÔNG tạo
 // scroll container mới — sticky positioning của BulkSelectionHeaderCell vẫn

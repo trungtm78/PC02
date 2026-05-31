@@ -184,15 +184,17 @@ function SectionHeader({
   sectionTitle,
   totalCount,
   displayCount,
+  headingId,
 }: {
   sectionTitle?: string;
   totalCount?: number;
   displayCount?: number;
+  headingId?: string;
 }) {
   if (!sectionTitle) return null;
   return (
     <div className={TABLE_SECTION_HEADER}>
-      <h2 className={TABLE_SECTION_HEADER_TITLE}>{sectionTitle}</h2>
+      <h2 id={headingId} className={TABLE_SECTION_HEADER_TITLE}>{sectionTitle}</h2>
       {totalCount != null && displayCount != null && (
         <p className={TABLE_SECTION_HEADER_COUNT}>
           Hiển thị {displayCount} / {totalCount} bản ghi
@@ -206,16 +208,18 @@ function StateCard({
   sectionTitle,
   totalCount,
   displayCount,
+  headingId,
   children,
 }: {
   sectionTitle?: string;
   totalCount?: number;
   displayCount?: number;
+  headingId?: string;
   children: ReactNode;
 }) {
   return (
     <div className={TABLE_SECTION_CARD} data-testid="list-page-shell-table-card">
-      <SectionHeader sectionTitle={sectionTitle} totalCount={totalCount} displayCount={displayCount} />
+      <SectionHeader sectionTitle={sectionTitle} totalCount={totalCount} displayCount={displayCount} headingId={headingId} />
       {children}
     </div>
   );
@@ -243,7 +247,10 @@ export function Table<TRow, TId extends string | number = string>({
   const colSpan = columns.length + (bulkSelection ? 1 : 0);
   // Only show count when table is ready — during loading data holds stale rows
   // from the previous fetch (parents don't reset rows to [] before refetch).
-  const cardProps = { sectionTitle, totalCount, displayCount: state === 'ready' ? data.length : undefined };
+  // headingId: when sectionTitle is provided, the h2 serves as the accessible
+  // label for the table via aria-labelledby, eliminating the duplicate sr-only caption.
+  const headingId = sectionTitle ? `${tableId}-heading` : undefined;
+  const cardProps = { sectionTitle, totalCount, displayCount: state === 'ready' ? data.length : undefined, headingId };
 
   if (state === 'loading') return (
     <StateCard {...cardProps}><LoadingSkeleton colCount={colSpan} /></StateCard>
@@ -265,8 +272,14 @@ export function Table<TRow, TId extends string | number = string>({
   return (
     <StateCard {...cardProps}>
       <div className={TABLE_WRAPPER}>
-        <table id={tableId} className={TABLE_BASE}>
-          {title && (
+        <table
+          id={tableId}
+          className={TABLE_BASE}
+          aria-labelledby={headingId}
+        >
+          {/* sr-only caption only when no visible h2 (sectionTitle) exists to label the table.
+              When headingId is set, aria-labelledby on the table references the h2 instead. */}
+          {title && !headingId && (
             <caption className="sr-only">
               {title}
               {totalCount != null ? ` — ${totalCount} bản ghi` : ''}
@@ -299,9 +312,12 @@ export function Table<TRow, TId extends string | number = string>({
               const isSelected = bulkSelection
                 ? bulkSelection.isSelected(String(key))
                 : false;
-              // [D2] Compute hover inline — skip default blue hover when
-              // customClass present (e.g. OVERDUE_ROW_HIGHLIGHT has its own hover)
-              const rowHover = customClass ? '' : 'hover:bg-blue-50';
+              // [D2] Compute hover inline — skip default blue hover when customClass
+              // is non-empty. Using .length > 0 instead of truthy to be explicit:
+              // empty string = no custom class = apply default hover.
+              // Contract: if getRowClassName returns a non-empty string containing
+              // a background override, it should include its own hover:* variant.
+              const rowHover = customClass.length > 0 ? '' : 'hover:bg-blue-50';
               return (
                 <tr
                   key={key}
