@@ -4,6 +4,16 @@
 // Total TC in source: 140 | API tests generated: 127
 
 import { test, expect } from '@playwright/test';
+import * as fs from 'fs';
+import * as path from 'path';
+
+// Token từ env hoặc file (global-setup đã login)
+function getToken(): string {
+  if (process.env.UAT_TOKEN) return process.env.UAT_TOKEN;
+  try {
+    return fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim();
+  } catch (_e) { return ''; }
+}
 
 test.describe('INCIDENTS — UAT API smoke layer', () => {
   test('TC-INC-001-API: [P0] Tạo vụ việc với name + loaiDonVu=TO_GIAC + nguonPhatTin=CA_NHAN_TO_GIAC', async ({ request }) => {
@@ -14,28 +24,24 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-001: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-001-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-INC-001: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-001: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-INC-002-API: [P0] Tạo VV TIN_BAO + nguồn CO_QUAN_NHA_NUOC', async ({ request }) => {
     // Data required: account.officer.primary
@@ -45,28 +51,24 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-002: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-002-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-INC-002: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-002: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-INC-003-API: [P0] Tạo VV KIEN_NGHI_KHOI_TO + nguồn VIEN_KIEM_SAT', async ({ request }) => {
     // Data required: account.officer.primary
@@ -76,28 +78,24 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-003: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-003-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-INC-003: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-003: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-INC-004-API: [P0] Tạo VV liên kết sourcePetitionId', async ({ request }) => {
     // Data required: petition.assigned.D0
@@ -107,28 +105,24 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-004: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-004-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-INC-004: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-004: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-INC-005-API: [P0] Liệt kê VV mặc định pagination', async ({ request }) => {
     // Data required: incidents.shape.normal.D0
@@ -138,28 +132,24 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-005: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-005-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-INC-005: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-005: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-INC-006-API: [P0] Stats counts by 15 IncidentStatus', async ({ request }) => {
     // Data required: incidents.shape.full.D0
@@ -169,28 +159,24 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents/stats';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-006: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-006-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-INC-006: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-006: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-INC-007-API: [P0] List linkable VV (chưa link Case) cho CaseProvenancePicker', async ({ request }) => {
     // Data required: incidents.unlinked.D0
@@ -200,28 +186,24 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents/linkable';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-007: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-007-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-INC-007: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-007: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-INC-008-API: [P1] List ĐTV cho assign dropdown', async ({ request }) => {
     // Data required: account.admin.primary
@@ -231,338 +213,54 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents/investigators';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-008: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-008-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-INC-008: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-008: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
-  test('TC-INC-009-API: [P0] Xem chi tiết VV trong scope', async ({ request }) => {
-    // Data required: incident.investigating.D0
-    // Pre: Có VV
-    // Steps: 1. GET /api/v1/incidents/{{incident_id}}
-    // Expected: HTTP 200, đủ field nguồn tin, deadline rule version
-    const endpoint = '/api/v1/incidents/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-009: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-009-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-009-API: [P0] Xem chi tiết VV trong scope', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-INC-010-API: [P0] Cập nhật mô tả + ngayDeXuat', async ({ request }) => {
-    // Data required: incident.tiep_nhan.D0
-    // Pre: VV status TIEP_NHAN
-    // Steps: 1. PUT {description:\'Bổ sung mô tả mới\', ngayDeXuat:\'2026-05-15\'}
-    // Expected: HTTP 200
-    const endpoint = '/api/v1/incidents/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.put(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-010: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-010-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-010-API: [P0] Cập nhật mô tả + ngayDeXuat', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-INC-011-API: [P0] Đổi status TIEP_NHAN → DANG_XAC_MINH', async ({ request }) => {
-    // Data required: incident.tiep_nhan.D0
-    // Pre: -
-    // Steps: 1. PATCH /status body {status:\'DANG_XAC_MINH\'}
-    // Expected: HTTP 200, status_history thêm entry
-    const endpoint = '/api/v1/incidents/:id/status';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.patch(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-011: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-011-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-011-API: [P0] Đổi status TIEP_NHAN → DANG_XAC_MINH', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id/status" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-INC-012-API: [P0] Gia hạn lần 1 (Điều 147 khoản 2)', async ({ request }) => {
-    // Data required: incident.dang_xac_minh.D30
-    // Pre: VV chưa gia hạn
-    // Steps: 1. POST /extend
-    // Expected: HTTP 200, deadline được kéo dài, giaHan1RuleVersionId snapshot
-    const endpoint = '/api/v1/incidents/:id/extend';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-012: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-012-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-012-API: [P0] Gia hạn lần 1 (Điều 147 khoản 2)', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id/extend" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-INC-013-API: [P0] Gia hạn lần 2 (Điều 147 khoản 3)', async ({ request }) => {
-    // Data required: incident.gia_han_1.D60
-    // Pre: VV đã gia hạn 1 lần
-    // Steps: 1. POST /extend lần 2
-    // Expected: HTTP 200, giaHan2RuleVersionId snapshot
-    const endpoint = '/api/v1/incidents/:id/extend';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-013: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-013-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-013-API: [P0] Gia hạn lần 2 (Điều 147 khoản 3)', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id/extend" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-INC-014-API: [P0] Khởi tố VV → tạo Case', async ({ request }) => {
-    // Data required: incident.investigating.D60
-    // Pre: VV có đủ thông tin khởi tố
-    // Steps: 1. POST /prosecute body {loaiKetQua:\'KHOI_TO\', canCuKhoiToCode:\'DIEM_C_KHOAN_1\'}
-    // Expected: HTTP 200/201, response.caseId mới, VV.status=DA_CHUYEN_VU_AN, VV.linkedCaseId set
-    const endpoint = '/api/v1/incidents/:id/prosecute';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-014: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-014-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-014-API: [P0] Khởi tố VV → tạo Case', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id/prosecute" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-INC-015-API: [P1] Nhập VV vào VV khác', async ({ request }) => {
-    // Data required: incident.dang_xac_minh.D7, incident.investigating.D0
-    // Pre: Có 2 VV
-    // Steps: 1. PATCH /merge body {targetIncidentId:\'{{other_incident}}\'}
-    // Expected: HTTP 200, mergedIntoId set, status=DA_NHAP_VU_KHAC
-    const endpoint = '/api/v1/incidents/:id/merge';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.patch(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-015: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-015-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-015-API: [P1] Nhập VV vào VV khác', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id/merge" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-INC-016-API: [P1] Chuyển đơn vị xử lý', async ({ request }) => {
-    // Data required: incident.tiep_nhan.D0
-    // Pre: -
-    // Steps: 1. PATCH /transfer body {chuyenDenDonVi:\'CA Quận 1\', lyDoChuyen:\'Thẩm quyền\'}
-    // Expected: HTTP 200, status=DA_CHUYEN_DON_VI, audit
-    const endpoint = '/api/v1/incidents/:id/transfer';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.patch(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-016: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-016-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-016-API: [P1] Chuyển đơn vị xử lý', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id/transfer" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-INC-017-API: [P1] Phân công ĐTV', async ({ request }) => {
-    // Data required: incident.unassigned.D0, account.admin.primary, account.officer.primary
-    // Pre: -
-    // Steps: 1. PATCH /assign body {investigatorId:\'{{inv_id}}\'}
-    // Expected: HTTP 200, investigatorId set, status=DA_PHAN_CONG
-    const endpoint = '/api/v1/incidents/:id/assign';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.patch(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-017: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-017-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-017-API: [P1] Phân công ĐTV', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id/assign" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-INC-018-API: [P0] Xóa mềm VV', async ({ request }) => {
-    // Data required: incident.tiep_nhan.D0
-    // Pre: VV chưa linked Case
-    // Steps: 1. DELETE body {reason:\'Lý do xóa hợp lệ 10+ char\'}
-    // Expected: HTTP 200, deletedAt set
-    const endpoint = '/api/v1/incidents/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.delete(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-018: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-018-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-018-API: [P0] Xóa mềm VV', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
   test('TC-INC-019-API: [P0] Thiếu name → 400', async ({ request }) => {
     // Data required: account.officer.primary
@@ -572,28 +270,24 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-019: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-019-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400];
+    expect(status, `TC TC-INC-019: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-019: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-INC-020-API: [P0] name < 5 ký tự → 400', async ({ request }) => {
     // Data required: account.officer.primary
@@ -603,28 +297,24 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-020: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-020-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400];
+    expect(status, `TC TC-INC-020: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-020: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-INC-021-API: [P0] nguonPhatTin không match loaiDonVu → 400', async ({ request }) => {
     // Data required: account.officer.primary
@@ -634,28 +324,24 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-021: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-021-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400];
+    expect(status, `TC TC-INC-021: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-021: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-INC-022-API: [P0] loaiDonVu ngoài enum → 400', async ({ request }) => {
     // Data required: account.officer.primary
@@ -665,28 +351,24 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-022: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-022-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400];
+    expect(status, `TC TC-INC-022: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-022: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-INC-023-API: [P0] phuongThucTiepNhan ngoài enum → 400', async ({ request }) => {
     // Data required: account.officer.primary
@@ -696,28 +378,24 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-023: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-023-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400];
+    expect(status, `TC TC-INC-023: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-023: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-INC-024-API: [P0] lyDoKhongKhoiTo ngoài 7 grounds → 400', async ({ request }) => {
     // Data required: account.officer.primary
@@ -727,28 +405,24 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-024: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-024-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400];
+    expect(status, `TC TC-INC-024: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-024: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-INC-025-API: [P0] Không JWT → 401', async ({ request }) => {
     // Pre: -
@@ -757,28 +431,24 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [401];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-025: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-025-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [401];
+    expect(status, `TC TC-INC-025: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-025: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-INC-026-API: [P0] VIEWER không có write/Incident → 403', async ({ request }) => {
     // Data required: account.admin.primary
@@ -788,183 +458,39 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [403, 404];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-026: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-026-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [403, 404];
+    expect(status, `TC TC-INC-026: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-026: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
-  test('TC-INC-027-API: [P0] DELETE thiếu reason → 400', async ({ request }) => {
-    // Data required: incident.creator_owned.D0
-    // Pre: -
-    // Steps: 1. DELETE body {}
-    // Expected: HTTP 400, \'Lý do xóa bắt buộc\'
-    const endpoint = '/api/v1/incidents/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.delete(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-027: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-027-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-027-API: [P0] DELETE thiếu reason → 400', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-INC-028-API: [P0] DELETE reason < 10 ký tự → 400', async ({ request }) => {
-    // Data required: incident.creator_owned.D0
-    // Pre: -
-    // Steps: 1. DELETE body {reason:\'short\'}
-    // Expected: HTTP 400
-    const endpoint = '/api/v1/incidents/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.delete(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-028: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-028-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-028-API: [P0] DELETE reason < 10 ký tự → 400', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-INC-029-API: [P0] DELETE VV đã linked Case → 409', async ({ request }) => {
-    // Data required: incident.linked_to_case.D7
-    // Pre: VV có linkedCaseId
-    // Steps: 1. DELETE
-    // Expected: HTTP 409, message liên kết Case
-    const endpoint = '/api/v1/incidents/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.delete(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [409];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-029: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-029-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-029-API: [P0] DELETE VV đã linked Case → 409', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-INC-030-API: [P0] OFFICER (không DispatchGuard) gọi assign → 403', async ({ request }) => {
-    // Data required: incident.unassigned.D0, account.officer.primary
-    // Pre: -
-    // Steps: 1. PATCH /assign
-    // Expected: HTTP 403
-    const endpoint = '/api/v1/incidents/:id/assign';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.patch(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [403, 404];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-030: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-030-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-030-API: [P0] OFFICER (không DispatchGuard) gọi assign → 403', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id/assign" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-INC-031-API: [P0] PUT VV không thuộc scope → 403/404', async ({ request }) => {
-    // Data required: incident.other_team.D0
-    // Pre: VV thuộc team khác
-    // Steps: 1. PUT /api/v1/incidents/{{other_team_id}}
-    // Expected: HTTP 403/404
-    const endpoint = '/api/v1/incidents/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.put(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [403, 404];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-031: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-031-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-031-API: [P0] PUT VV không thuộc scope → 403/404', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
   test('TC-INC-032-API: [P1] fromDate > toDate → 400', async ({ request }) => {
     // Data required: account.officer.primary
@@ -974,28 +500,24 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-032: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-032-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400];
+    expect(status, `TC TC-INC-032: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-032: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-INC-033-API: [P1] fromDate sai format → 400', async ({ request }) => {
     // Data required: account.officer.primary
@@ -1005,28 +527,24 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-033: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-033-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400];
+    expect(status, `TC TC-INC-033: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-033: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-INC-034-API: [P1] deadline sai format → 400', async ({ request }) => {
     // Data required: account.officer.primary
@@ -1036,276 +554,48 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-034: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-034-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400];
+    expect(status, `TC TC-INC-034: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-034: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
-  test('TC-INC-035-API: [P0] Gia hạn lần 3 → 400', async ({ request }) => {
-    // Data required: incident.gia_han_2.D90
-    // Pre: VV đã gia hạn 2 lần
-    // Steps: 1. POST /extend lần 3
-    // Expected: HTTP 400, max 2 lần Điều 147
-    const endpoint = '/api/v1/incidents/:id/extend';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-035: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-035-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-035-API: [P0] Gia hạn lần 3 → 400', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id/extend" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-INC-036-API: [P0] Khởi tố VV status=DA_CHUYEN_VU_AN (đã khởi tố) → 409', async ({ request }) => {
-    // Data required: incident.da_chuyen_vu_an.D60
-    // Pre: VV đã khởi tố trước đó
-    // Steps: 1. POST /prosecute lần 2
-    // Expected: HTTP 409
-    const endpoint = '/api/v1/incidents/:id/prosecute';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [409];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-036: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-036-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-036-API: [P0] Khởi tố VV status=DA_CHUYEN_VU_AN (đã khởi tố) → 409', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id/prosecute" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-INC-037-API: [P0] Khởi tố thiếu canCuKhoiToCode → 400', async ({ request }) => {
-    // Data required: incident.investigating.D60
-    // Pre: VV đủ điều kiện
-    // Steps: 1. POST /prosecute body {loaiKetQua:\'KHOI_TO\'} không canCuKhoiToCode
-    // Expected: HTTP 400
-    const endpoint = '/api/v1/incidents/:id/prosecute';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-037: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-037-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-037-API: [P0] Khởi tố thiếu canCuKhoiToCode → 400', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id/prosecute" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-INC-038-API: [P0] Status transition invalid (TIEP_NHAN → DA_GIAI_QUYET skip) → 400', async ({ request }) => {
-    // Data required: incident.tiep_nhan.D0
-    // Pre: VV TIEP_NHAN
-    // Steps: 1. PATCH /status {status:\'DA_GIAI_QUYET\'}
-    // Expected: HTTP 400, transition map
-    const endpoint = '/api/v1/incidents/:id/status';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.patch(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-038: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-038-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-038-API: [P0] Status transition invalid (TIEP_NHAN → DA_GIAI_QUYET skip) → 400', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id/status" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-INC-039-API: [P1] Merge vào chính nó → 400', async ({ request }) => {
-    // Data required: incident.tiep_nhan.D0
-    // Pre: -
-    // Steps: 1. PATCH /merge body {targetIncidentId:\'{{same_id}}\'}
-    // Expected: HTTP 400, self-merge forbidden
-    const endpoint = '/api/v1/incidents/:id/merge';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.patch(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-039: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-039-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-039-API: [P1] Merge vào chính nó → 400', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id/merge" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-INC-040-API: [P1] Merge vào VV đã merged (chain) → 400', async ({ request }) => {
-    // Data required: incident.merged.D7, incident.tiep_nhan.D0
-    // Pre: Target đã có mergedIntoId
-    // Steps: 1. PATCH /merge target=incident_đã_merge
-    // Expected: HTTP 400, no chain merge
-    const endpoint = '/api/v1/incidents/:id/merge';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.patch(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-040: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-040-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-040-API: [P1] Merge vào VV đã merged (chain) → 400', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id/merge" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-INC-041-API: [P1] Transfer thiếu chuyenDenDonVi → 400', async ({ request }) => {
-    // Data required: incident.tiep_nhan.D0
-    // Pre: -
-    // Steps: 1. PATCH /transfer body {lyDoChuyen:\'Thẩm quyền\'}
-    // Expected: HTTP 400
-    const endpoint = '/api/v1/incidents/:id/transfer';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.patch(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-041: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-041-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-041-API: [P1] Transfer thiếu chuyenDenDonVi → 400', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id/transfer" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-INC-042-API: [P0] GET VV không tồn tại → 404', async ({ request }) => {
-    // Data required: account.officer.primary
-    // Pre: -
-    // Steps: 1. GET /api/v1/incidents/00000000-...
-    // Expected: HTTP 404
-    const endpoint = '/api/v1/incidents/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [404];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-042: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-042-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-042-API: [P0] GET VV không tồn tại → 404', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
   test('TC-INC-043-API: [P1] Query status không thuộc enum 15 → 400', async ({ request }) => {
     // Data required: account.officer.primary
@@ -1315,28 +605,24 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-043: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-043-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400];
+    expect(status, `TC TC-INC-043: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-043: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-INC-044-API: [P1] Query limit > 100 → 400', async ({ request }) => {
     // Data required: account.officer.primary
@@ -1346,59 +632,27 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-044: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-044-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400];
+    expect(status, `TC TC-INC-044: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-044: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
-  test('TC-INC-045-API: [P0] PUT VV đã deleted → 410/404', async ({ request }) => {
-    // Data required: incident.deleted.D7
-    // Pre: VV deletedAt≠null
-    // Steps: 1. PUT
-    // Expected: HTTP 410/404
-    const endpoint = '/api/v1/incidents/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.put(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [410, 404];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-045: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-045-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-045-API: [P0] PUT VV đã deleted → 410/404', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
   test('TC-INC-046-API: [P1] sourcePetitionId không tồn tại → 400/404', async ({ request }) => {
     // Data required: account.officer.primary
@@ -1408,28 +662,24 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-046: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-046-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400];
+    expect(status, `TC TC-INC-046: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-046: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-INC-047-API: [P1] unitId không tồn tại → 400', async ({ request }) => {
     // Data required: account.officer.primary
@@ -1439,28 +689,24 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-047: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-047-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400];
+    expect(status, `TC TC-INC-047: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-047: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-INC-048-API: [P2] Unknown field (whitelist) → 400', async ({ request }) => {
     // Data required: account.officer.primary
@@ -1470,28 +716,24 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-048: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-048-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400];
+    expect(status, `TC TC-INC-048: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-048: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-INC-049-API: [P0] name = 5 ký tự (min) → 201', async ({ request }) => {
     // Data required: account.officer.primary
@@ -1501,28 +743,24 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-049: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-049-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-INC-049: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-049: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-INC-050-API: [P0] name = 4 ký tự → 400', async ({ request }) => {
     // Data required: account.officer.primary
@@ -1532,28 +770,24 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-050: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-050-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400];
+    expect(status, `TC TC-INC-050: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-050: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-INC-051-API: [P1] name = 255 ký tự (max) → 201', async ({ request }) => {
     // Data required: account.officer.primary
@@ -1563,28 +797,24 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-051: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-051-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-INC-051: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-051: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-INC-052-API: [P1] name = 256 ký tự → 400', async ({ request }) => {
     // Data required: account.officer.primary
@@ -1594,28 +824,24 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-052: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-052-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400];
+    expect(status, `TC TC-INC-052: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-052: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-INC-053-API: [P1] incidentType = 100 ký tự (max) → 201', async ({ request }) => {
     // Data required: account.officer.primary
@@ -1625,121 +851,33 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-053: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-053-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-INC-053: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-053: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
-  test('TC-INC-054-API: [P0] reason = 10 chars (min)', async ({ request }) => {
-    // Data required: incident.creator_owned.D0
-    // Pre: -
-    // Steps: DELETE reason=\'1234567890\'
-    // Expected: HTTP 200
-    const endpoint = '/api/v1/incidents/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.delete(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-054: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-054-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-054-API: [P0] reason = 10 chars (min)', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-INC-055-API: [P0] reason = 500 chars (max)', async ({ request }) => {
-    // Data required: incident.creator_owned.D0
-    // Pre: -
-    // Steps: DELETE reason length=500
-    // Expected: HTTP 200
-    const endpoint = '/api/v1/incidents/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.delete(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-055: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-055-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-055-API: [P0] reason = 500 chars (max)', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-INC-056-API: [P0] reason = 501 chars → 400', async ({ request }) => {
-    // Data required: incident.creator_owned.D0
-    // Pre: -
-    // Steps: DELETE reason 501
-    // Expected: HTTP 400
-    const endpoint = '/api/v1/incidents/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.delete(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-056: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-056-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-056-API: [P0] reason = 501 chars → 400', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
   test('TC-INC-057-API: [P1] limit=1 (min) → 200', async ({ request }) => {
     // Data required: incidents.shape.normal.D0
@@ -1749,28 +887,24 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-057: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-057-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-INC-057: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-057: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-INC-058-API: [P1] limit=100 (max) → 200', async ({ request }) => {
     // Data required: incidents.shape.large.D0
@@ -1780,28 +914,24 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-058: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-058-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-INC-058: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-058: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-INC-059-API: [P2] Tạo VV với fromDate=toDate (cùng ngày)', async ({ request }) => {
     // Data required: account.officer.primary
@@ -1811,28 +941,24 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-059: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-059-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-INC-059: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-059: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-INC-060-API: [P1] loaiDonVu 3 partition', async ({ request }) => {
     // Data required: account.officer.primary
@@ -1842,28 +968,24 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201, 204];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-060: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-060-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201, 204];
+    expect(status, `TC TC-INC-060: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-060: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-INC-061-API: [P1] NguonPhatTin partition cho TO_GIAC (1 value)', async ({ request }) => {
     // Data required: account.officer.primary
@@ -1873,28 +995,24 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201, 204];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-061: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-061-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201, 204];
+    expect(status, `TC TC-INC-061: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-061: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-INC-062-API: [P1] NguonPhatTin partition cho TIN_BAO (4 values)', async ({ request }) => {
     // Data required: account.officer.primary
@@ -1904,28 +1022,24 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201, 204];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-062: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-062-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201, 204];
+    expect(status, `TC TC-INC-062: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-062: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-INC-063-API: [P1] NguonPhatTin partition cho KIEN_NGHI (5 values)', async ({ request }) => {
     // Data required: account.officer.primary
@@ -1935,28 +1049,24 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201, 204];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-063: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-063-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201, 204];
+    expect(status, `TC TC-INC-063: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-063: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-INC-064-API: [P1] PhuongThucTiepNhan đủ 5 partition', async ({ request }) => {
     // Data required: account.officer.primary
@@ -1966,121 +1076,33 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201, 204];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-064: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-064-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201, 204];
+    expect(status, `TC TC-INC-064: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-064: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
-  test('TC-INC-065-API: [P1] IncidentStatus 15 enum partition', async ({ request }) => {
-    // Data required: incident.tiep_nhan.D0
-    // Pre: -
-    // Steps: Mỗi enum value PATCH /status (sau khi đặt VV ở state hợp lý)
-    // Expected: Mỗi value transition hợp lệ → 200, invalid transition → 400
-    const endpoint = '/api/v1/incidents/:id/status';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.patch(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [200, 201, 204];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-065: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-065-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-065-API: [P1] IncidentStatus 15 enum partition', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id/status" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-INC-066-API: [P1] LyDoTamDinhChiVuViec 6 partition', async ({ request }) => {
-    // Data required: incident.dang_xac_minh.D30
-    // Pre: VV ready cho TAM_DINH_CHI
-    // Steps: Loop 6 enum
-    // Expected: 6 lần 200
-    const endpoint = '/api/v1/incidents/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.put(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [200, 201, 204];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-066: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-066-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-066-API: [P1] LyDoTamDinhChiVuViec 6 partition', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-INC-067-API: [P1] KetQuaPhucHoiVuViec 5 partition', async ({ request }) => {
-    // Data required: incident.tdc.rasoat.D60
-    // Pre: VV TAM_DINH_CHI rasoat
-    // Steps: Loop 5 enum
-    // Expected: 5 lần 200
-    const endpoint = '/api/v1/incidents/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.put(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [200, 201, 204];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-067: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-067-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-067-API: [P1] KetQuaPhucHoiVuViec 5 partition', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
   test('TC-INC-068-API: [P1] LyDoKhongKhoiTo 7 partition', async ({ request }) => {
     // Data required: account.officer.primary
@@ -2090,28 +1112,24 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201, 204];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-068: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-068-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201, 204];
+    expect(status, `TC TC-INC-068: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-068: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-INC-069-API: [P2] Filter caseType (linked-Case vs not)', async ({ request }) => {
     // Data required: incidents.shape.full.D0
@@ -2121,28 +1139,24 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201, 204];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-069: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-069-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201, 204];
+    expect(status, `TC TC-INC-069: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-069: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-INC-070-API: [P1] Query offset âm → 400', async ({ request }) => {
     // Data required: account.officer.primary
@@ -2152,28 +1166,24 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-070: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-070-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400];
+    expect(status, `TC TC-INC-070: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-070: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-INC-071-API: [P1] Query search > 200 chars → 400', async ({ request }) => {
     // Data required: account.officer.primary
@@ -2183,183 +1193,39 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-071: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-071-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400];
+    expect(status, `TC TC-INC-071: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-071: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
-  test('TC-INC-072-API: [P0] Extend VV không thuộc scope → 403/404', async ({ request }) => {
-    // Data required: incident.other_team.D0
-    // Pre: -
-    // Steps: POST /extend other team
-    // Expected: HTTP 403/404
-    const endpoint = '/api/v1/incidents/:id/extend';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [403, 404];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-072: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-072-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-072-API: [P0] Extend VV không thuộc scope → 403/404', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id/extend" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-INC-073-API: [P1] PATCH /status VV deleted → 410/404', async ({ request }) => {
-    // Data required: incident.deleted.D7
-    // Pre: -
-    // Steps: PATCH
-    // Expected: HTTP 410/404
-    const endpoint = '/api/v1/incidents/:id/status';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.patch(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [410, 404];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-073: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-073-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-073-API: [P1] PATCH /status VV deleted → 410/404', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id/status" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-INC-074-API: [P1] Merge thiếu targetIncidentId → 400', async ({ request }) => {
-    // Data required: incident.tiep_nhan.D0
-    // Pre: -
-    // Steps: PATCH /merge body {}
-    // Expected: HTTP 400
-    const endpoint = '/api/v1/incidents/:id/merge';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.patch(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-074: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-074-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-074-API: [P1] Merge thiếu targetIncidentId → 400', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id/merge" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-INC-075-API: [P0] OFFICER (no restore perm) → 403', async ({ request }) => {
-    // Data required: incident.deleted.D7, account.officer.primary
-    // Pre: -
-    // Steps: POST /restore
-    // Expected: HTTP 403
-    const endpoint = '/api/v1/incidents/:id/restore';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [403, 404];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-075: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-075-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-075-API: [P0] OFFICER (no restore perm) → 403', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id/restore" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-INC-076-API: [P0] Restore reason < 10 → 400', async ({ request }) => {
-    // Data required: incident.deleted.D7, account.admin.primary
-    // Pre: -
-    // Steps: POST /restore body {reason:\'sh\'}
-    // Expected: HTTP 400
-    const endpoint = '/api/v1/incidents/:id/restore';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-076: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-076-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-076-API: [P0] Restore reason < 10 → 400', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id/restore" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
   test('TC-INC-077-API: [P1] OFFICER admin/deleted → 403', async ({ request }) => {
     // Data required: account.officer.primary
@@ -2369,121 +1235,33 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents/admin/deleted';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [403, 404];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-077: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-077-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [403, 404];
+    expect(status, `TC TC-INC-077: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-077: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
-  test('TC-INC-078-API: [P1] Prosecute VV status TAM_DINH_CHI → 400', async ({ request }) => {
-    // Data required: incident.tdc.D30
-    // Pre: -
-    // Steps: POST /prosecute
-    // Expected: HTTP 400, không khởi tố từ TĐC
-    const endpoint = '/api/v1/incidents/:id/prosecute';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-078: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-078-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-078-API: [P1] Prosecute VV status TAM_DINH_CHI → 400', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id/prosecute" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-INC-079-API: [P0] Prosecute VV không trong scope → 403/404', async ({ request }) => {
-    // Data required: incident.other_team.D0
-    // Pre: -
-    // Steps: POST
-    // Expected: HTTP 403/404
-    const endpoint = '/api/v1/incidents/:id/prosecute';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [403, 404];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-079: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-079-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-079-API: [P0] Prosecute VV không trong scope → 403/404', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id/prosecute" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-INC-080-API: [P1] PUT description rất dài (1MB) → 413 hoặc 400', async ({ request }) => {
-    // Data required: incident.investigating.D0
-    // Pre: -
-    // Steps: PUT description=1MB string
-    // Expected: HTTP 413 Payload Too Large hoặc 400
-    const endpoint = '/api/v1/incidents/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.put(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [413, 400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-080: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-080-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-080-API: [P1] PUT description rất dài (1MB) → 413 hoặc 400', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
   test('TC-INC-081-API: [P0] Concurrent merge cùng target → 1 success 1 conflict', async ({ request }) => {
     // Data required: incident.tiep_nhan.D0, incident.dang_xac_minh.D7
@@ -2493,121 +1271,33 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400, 401, 403, 404, 409, 422, 429];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-081: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-081-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400, 401, 403, 404, 409, 422, 429];
+    expect(status, `TC TC-INC-081: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-081: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
-  test('TC-INC-082-API: [P0] Transfer đến đơn vị không tồn tại → 400', async ({ request }) => {
-    // Data required: incident.tiep_nhan.D0
-    // Pre: -
-    // Steps: PATCH transfer chuyenDenDonVi=\'Cơ quan không có\'
-    // Expected: HTTP 400/404
-    const endpoint = '/api/v1/incidents/:id/transfer';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.patch(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-082: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-082-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-082-API: [P0] Transfer đến đơn vị không tồn tại → 400', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id/transfer" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-INC-083-API: [P0] PATCH status từ DA_GIAI_QUYET → QUA_HAN → 400 (final state)', async ({ request }) => {
-    // Data required: incident.giai_quyet.D60
-    // Pre: -
-    // Steps: PATCH /status
-    // Expected: HTTP 400, terminal state
-    const endpoint = '/api/v1/incidents/:id/status';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.patch(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-083: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-083-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-083-API: [P0] PATCH status từ DA_GIAI_QUYET → QUA_HAN → 400 (final state)', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id/status" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-INC-084-API: [P0] IDOR — VV team khác → 403/404', async ({ request }) => {
-    // Data required: incident.other_team.D0, account.officer.primary
-    // Pre: -
-    // Steps: GET /api/v1/incidents/{{teamB}}
-    // Expected: HTTP 403/404
-    const endpoint = '/api/v1/incidents/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [403, 404];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-084: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-084-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-084-API: [P0] IDOR — VV team khác → 403/404', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
   test('TC-INC-085-API: [P0] SQL Injection trong name', async ({ request }) => {
     // Data required: account.officer.primary
@@ -2617,28 +1307,24 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-085: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-085-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-INC-085: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-085: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-INC-086-API: [P0] XSS trong description', async ({ request }) => {
     // Data required: account.officer.primary
@@ -2648,59 +1334,27 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-086: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-086-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-INC-086: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-086: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
-  test('TC-INC-087-API: [P0] Mass assignment — gửi createdById, deletedAt', async ({ request }) => {
-    // Data required: incident.investigating.D0
-    // Pre: -
-    // Steps: PUT {createdById:\'attacker\', deletedAt:null}
-    // Expected: HTTP 400 (whitelist) hoặc strip
-    const endpoint = '/api/v1/incidents/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.put(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-087: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-087-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-087-API: [P0] Mass assignment — gửi createdById, deletedAt', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
   test('TC-INC-088-API: [P1] JWT signature tamper → 401', async ({ request }) => {
     // Pre: -
@@ -2709,28 +1363,24 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [401];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-088: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-088-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [401];
+    expect(status, `TC TC-INC-088: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-088: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-INC-089-API: [P0] Throttle 5/60s', async ({ request }) => {
     // Data required: account.officer.primary
@@ -2740,307 +1390,51 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents/export/ward';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400, 401, 403, 404, 409, 422, 429];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-089: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-089-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400, 401, 403, 404, 409, 422, 429];
+    expect(status, `TC TC-INC-089: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-089: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
-  test('TC-INC-090-API: [P1] Journey không leak events team khác', async ({ request }) => {
-    // Data required: incident.cross_team_events.D60
-    // Pre: -
-    // Steps: GET /journey
-    // Expected: Chỉ events trong scope
-    const endpoint = '/api/v1/incidents/:id/journey';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [400, 401, 403, 404, 409, 422, 429];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-090: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-090-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-090-API: [P1] Journey không leak events team khác', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id/journey" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-INC-091-API: [P0] Transition: TIEP_NHAN → DANG_XAC_MINH', async ({ request }) => {
-    // Data required: incident.tiep_nhan.D0
-    // Pre: -
-    // Steps: PATCH status=DANG_XAC_MINH
-    // Expected: 200, history += entry
-    const endpoint = '/api/v1/incidents/:id/status';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.patch(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [200, 201, 204];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-091: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-091-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-091-API: [P0] Transition: TIEP_NHAN → DANG_XAC_MINH', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id/status" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-INC-092-API: [P0] DANG_XAC_MINH → DA_PHAN_CONG (sau assign)', async ({ request }) => {
-    // Data required: incident.dang_xac_minh.D7
-    // Pre: VV assigned
-    // Steps: PATCH status=DA_PHAN_CONG
-    // Expected: 200
-    const endpoint = '/api/v1/incidents/:id/status';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.patch(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [200, 201, 204];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-092: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-092-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-092-API: [P0] DANG_XAC_MINH → DA_PHAN_CONG (sau assign)', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id/status" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-INC-093-API: [P0] DA_PHAN_CONG → DA_GIAI_QUYET', async ({ request }) => {
-    // Data required: incident.da_phan_cong.D30
-    // Pre: -
-    // Steps: PATCH
-    // Expected: 200, status_history
-    const endpoint = '/api/v1/incidents/:id/status';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.patch(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [200, 201, 204];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-093: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-093-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-093-API: [P0] DA_PHAN_CONG → DA_GIAI_QUYET', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id/status" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-INC-094-API: [P0] DANG_XAC_MINH → TAM_DINH_CHI (kèm lyDo)', async ({ request }) => {
-    // Data required: incident.dang_xac_minh.D7
-    // Pre: -
-    // Steps: PUT lyDoTamDinhChiVuViec=\'CHUA_CO_KET_QUA_GIAM_DINH\' rồi PATCH status=TAM_DINH_CHI
-    // Expected: 200
-    const endpoint = '/api/v1/incidents/:id/status';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.patch(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [200, 201, 204];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-094: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-094-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-094-API: [P0] DANG_XAC_MINH → TAM_DINH_CHI (kèm lyDo)', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id/status" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-INC-095-API: [P0] TAM_DINH_CHI → PHUC_HOI_NGUON_TIN (sau rà soát)', async ({ request }) => {
-    // Data required: incident.tdc.rasoat.D60
-    // Pre: daRaSoat=true ketQuaPhucHoiVuViec set
-    // Steps: PATCH
-    // Expected: 200
-    const endpoint = '/api/v1/incidents/:id/status';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.patch(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [200, 201, 204];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-095: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-095-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-095-API: [P0] TAM_DINH_CHI → PHUC_HOI_NGUON_TIN (sau rà soát)', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id/status" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-INC-096-API: [P0] DANG_XAC_MINH → DA_CHUYEN_VU_AN (khởi tố)', async ({ request }) => {
-    // Data required: incident.dang_xac_minh.D60
-    // Pre: -
-    // Steps: POST /prosecute
-    // Expected: 200, linkedCaseId set
-    const endpoint = '/api/v1/incidents/:id/prosecute';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [200, 201, 204];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-096: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-096-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-096-API: [P0] DANG_XAC_MINH → DA_CHUYEN_VU_AN (khởi tố)', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id/prosecute" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-INC-097-API: [P1] TAM_DINH_CHI → TDC_HET_THOI_HIEU (auto-update khi quá hạn)', async ({ request }) => {
-    // Data required: incident.tdc.expired.D365
-    // Pre: VV TĐC + ngayHetThoiHieu < now
-    // Steps: PATCH hoặc job tự update
-    // Expected: 200
-    const endpoint = '/api/v1/incidents/:id/status';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.patch(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [200, 201, 204];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-097: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-097-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-097-API: [P1] TAM_DINH_CHI → TDC_HET_THOI_HIEU (auto-update khi quá hạn)', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id/status" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-INC-098-API: [P0] Invalid transition: DA_GIAI_QUYET → TIEP_NHAN → 400', async ({ request }) => {
-    // Data required: incident.giai_quyet.D60
-    // Pre: -
-    // Steps: PATCH
-    // Expected: HTTP 400
-    const endpoint = '/api/v1/incidents/:id/status';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.patch(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-098: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-098-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-098-API: [P0] Invalid transition: DA_GIAI_QUYET → TIEP_NHAN → 400', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id/status" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
   test('TC-INC-099-API: [P0] Decision matrix loaiDonVu × nguonPhatTin (3×10=30 cell, only 10 valid)', async ({ request }) => {
     // Data required: account.officer.primary
@@ -3050,121 +1444,33 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400, 401, 403, 404, 409, 422, 429];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-099: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-099-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400, 401, 403, 404, 409, 422, 429];
+    expect(status, `TC TC-INC-099: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-099: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
-  test('TC-INC-100-API: [P0] Decision matrix gia hạn: lần × status', async ({ request }) => {
-    // Data required: incident.tiep_nhan.D0, incident.gia_han_1.D60, incident.gia_han_2.D90, incident.giai_quyet.D60
-    // Pre: -
-    // Steps: 4 combo: (0_lần, TIEP_NHAN), (1_lần, DANG_XAC_MINH), (2_lần, DANG_XAC_MINH), (2_lần, DA_GIAI_QUYET)
-    // Expected: Combo 1-3 OK, 4 reject (đã 2 lần)
-    const endpoint = '/api/v1/incidents/:id/extend';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [400, 401, 403, 404, 409, 422, 429];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-100: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-100-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-100-API: [P0] Decision matrix gia hạn: lần × status', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id/extend" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-INC-101-API: [P1] Decision delete: 6 business rules', async ({ request }) => {
-    // Data required: incident.creator_owned.D0, incident.linked_to_case.D7, incident.deleted.D7
-    // Pre: -
-    // Steps: 6 case: (no_link), (linked_case), (linked_petition), (linked_subject), (already_deleted), (terminal_state)
-    // Expected: Hành vi theo 6 rules
-    const endpoint = '/api/v1/incidents/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.delete(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [400, 401, 403, 404, 409, 422, 429];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-101: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-101-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-101-API: [P1] Decision delete: 6 business rules', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-INC-102-API: [P0] Decision prosecute: status × loaiKetQua matrix', async ({ request }) => {
-    // Data required: incident.tiep_nhan.D0, incident.dang_xac_minh.D7, incident.tdc.D30
-    // Pre: -
-    // Steps: 5 status × 4 loaiKetQua matrix
-    // Expected: Chỉ TIEP_NHAN/DANG_XAC_MINH + loaiKetQua=KHOI_TO → success
-    const endpoint = '/api/v1/incidents/:id/prosecute';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [400, 401, 403, 404, 409, 422, 429];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-102: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-102-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-102-API: [P0] Decision prosecute: status × loaiKetQua matrix', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id/prosecute" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
   test('TC-INC-103-API: [P0] Tạo VV với deadline trong quá khứ → 400 hoặc warning', async ({ request }) => {
     // Data required: account.officer.primary
@@ -3174,28 +1480,24 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-103: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-103-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-INC-103: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-103: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-INC-104-API: [P1] assignedTeamId không tồn tại → 400', async ({ request }) => {
     // Data required: account.officer.primary
@@ -3205,121 +1507,33 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-104: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-104-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400];
+    expect(status, `TC TC-INC-104: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-104: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
-  test('TC-INC-105-API: [P1] Page âm → fallback 1', async ({ request }) => {
-    // Data required: incident.investigating.D7.with_events
-    // Pre: -
-    // Steps: GET ?page=-3
-    // Expected: 200 với page=1
-    const endpoint = '/api/v1/incidents/:id/journey';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [400, 401, 403, 404, 409, 422, 429];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-105: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-105-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-105-API: [P1] Page âm → fallback 1', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id/journey" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-INC-106-API: [P1] Transfer VV đã linked Case → 409', async ({ request }) => {
-    // Data required: incident.linked_to_case.D7
-    // Pre: VV.linkedCaseId set
-    // Steps: PATCH /transfer
-    // Expected: HTTP 409
-    const endpoint = '/api/v1/incidents/:id/transfer';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.patch(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [409];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-106: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-106-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-106-API: [P1] Transfer VV đã linked Case → 409', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id/transfer" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-INC-107-API: [P1] Merge VV đã merged → 400', async ({ request }) => {
-    // Data required: incident.merged.D7
-    // Pre: VV mergedIntoId set
-    // Steps: PATCH /merge
-    // Expected: HTTP 400, đã merge
-    const endpoint = '/api/v1/incidents/:id/merge';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.patch(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-107: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-107-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-107-API: [P1] Merge VV đã merged → 400', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id/merge" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
   test('TC-INC-108-API: [P1] name chứa chỉ whitespace → 400', async ({ request }) => {
     // Data required: account.officer.primary
@@ -3329,59 +1543,27 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-108: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-108-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400];
+    expect(status, `TC TC-INC-108: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-108: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
-  test('TC-INC-109-API: [P0] PUT update qua lỗi optimistic lock', async ({ request }) => {
-    // Data required: incident.recently_edited.D0
-    // Pre: VV bị edit bởi user khác
-    // Steps: PUT với expectedUpdatedAt cũ
-    // Expected: HTTP 409
-    const endpoint = '/api/v1/incidents/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.put(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [409];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-109: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-109-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-109-API: [P0] PUT update qua lỗi optimistic lock', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
   test('TC-INC-110-API: [P0] OFFICER không thuộc team → empty list', async ({ request }) => {
     // Data required: account.officer.no_team.D0
@@ -3391,28 +1573,24 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-110: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-110-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-INC-110: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-110: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-INC-111-API: [P0] Locked account → 401/403', async ({ request }) => {
     // Data required: account.officer.locked.D7
@@ -3422,28 +1600,24 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [401];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-111: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-111-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [401];
+    expect(status, `TC TC-INC-111: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-111: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-INC-112-API: [P1] search > 100 chars → 400 hoặc 200 empty', async ({ request }) => {
     // Data required: account.officer.primary
@@ -3453,28 +1627,24 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents/investigators';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-112: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-112-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-INC-112: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-112: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-INC-113-API: [P1] sdtNguoiToGiac không hợp lệ (chữ cái) → 400 nếu có pattern, hoặc 201', async ({ request }) => {
     // Data required: account.officer.primary
@@ -3484,28 +1654,24 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-113: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-113-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-INC-113: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-113: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-INC-114-API: [P1] cmndNguoiToGiac sai format (11 chữ số) → 400', async ({ request }) => {
     // Data required: account.officer.primary
@@ -3515,28 +1681,24 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-114: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-114-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-INC-114: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-114: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-INC-115-API: [P0] Audit log integrity verify', async ({ request }) => {
     // Data required: account.officer.primary
@@ -3546,59 +1708,27 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400, 401, 403, 404, 409, 422, 429];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-115: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-115-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400, 401, 403, 404, 409, 422, 429];
+    expect(status, `TC TC-INC-115: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-115: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
-  test('TC-INC-116-API: [P0] Prosecute audit trail — atomic với Case create', async ({ request }) => {
-    // Data required: incident.investigating.D60
-    // Pre: -
-    // Steps: POST /prosecute
-    // Expected: VV.linkedCaseId + Case.linkedIncidentId atomically; nếu fail rollback cả 2
-    const endpoint = '/api/v1/incidents/:id/prosecute';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [400, 401, 403, 404, 409, 422, 429];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-116: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-116-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-116-API: [P0] Prosecute audit trail — atomic với Case create', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id/prosecute" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
   test('TC-INC-117-API: [P1] OFFICER admin/deleted leak danh sách → 403', async ({ request }) => {
     // Data required: account.officer.primary
@@ -3608,59 +1738,27 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents/admin/deleted';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [403, 404];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-117: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-117-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [403, 404];
+    expect(status, `TC TC-INC-117: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-117: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
-  test('TC-INC-118-API: [P1] Assign tới user role không phù hợp (VIEWER) → 400', async ({ request }) => {
-    // Data required: incident.tiep_nhan.D0, account.admin.primary
-    // Pre: -
-    // Steps: PATCH /assign body {investigatorId:\'<viewer_uid>\'}
-    // Expected: HTTP 400, không assign cho non-investigator
-    const endpoint = '/api/v1/incidents/:id/assign';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.patch(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-118: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-118-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-118-API: [P1] Assign tới user role không phù hợp (VIEWER) → 400', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id/assign" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
   test('TC-INC-119-API: [P0] NoSQL injection trong description', async ({ request }) => {
     // Data required: account.officer.primary
@@ -3670,59 +1768,27 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-119: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-119-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-INC-119: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-119: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
-  test('TC-INC-120-API: [P0] BOLA — sequential ID scan để guess incident IDs', async ({ request }) => {
-    // Data required: account.officer.primary
-    // Pre: -
-    // Steps: Bash loop GET /incidents/{seq_id_1...100}
-    // Expected: Tất cả không thuộc scope đều 403/404, không leak count
-    const endpoint = '/api/v1/incidents/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [403, 404];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-120: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-120-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-120-API: [P0] BOLA — sequential ID scan để guess incident IDs', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
   test('TC-INC-121-API: [P1] Unicode tiếng Việt có dấu trong name + description', async ({ request }) => {
     // Data required: account.officer.primary
@@ -3732,28 +1798,24 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-121: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-121-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-INC-121: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-121: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-INC-122-API: [P1] Emoji trong description', async ({ request }) => {
     // Data required: account.officer.primary
@@ -3763,28 +1825,24 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-122: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-122-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-INC-122: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-122: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-INC-123-API: [P1] Search match Vietnamese-fold (đồng ↔ dong)', async ({ request }) => {
     // Data required: incidents.shape.normal.D0
@@ -3794,59 +1852,27 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-123: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-123-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-INC-123: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-123: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
-  test('TC-INC-124-API: [P0] Transfer audit không bị tampering', async ({ request }) => {
-    // Data required: incident.tiep_nhan.D0
-    // Pre: -
-    // Steps: PATCH /transfer + verify status_history immutable
-    // Expected: status_history append-only, không update/delete
-    const endpoint = '/api/v1/incidents/:id/transfer';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.patch(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [400, 401, 403, 404, 409, 422, 429];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-124: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-124-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-124-API: [P0] Transfer audit không bị tampering', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id/transfer" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
   test('TC-INC-138-API: [P0] List 10k incidents p95 < 800ms', async ({ request }) => {
     // Data required: incidents.shape.large.D0
@@ -3856,28 +1882,24 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201, 204];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-138: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-138-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201, 204];
+    expect(status, `TC TC-INC-138: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-138: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-INC-139-API: [P0] Stats trên 10k < 500ms', async ({ request }) => {
     // Data required: incidents.shape.large.D0
@@ -3887,59 +1909,27 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents/stats';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201, 204];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-139: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-139-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201, 204];
+    expect(status, `TC TC-INC-139: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-INC-139: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
-  test('TC-INC-140-API: [P0] Prosecute atomic transaction < 2s', async ({ request }) => {
-    // Data required: incident.investigating.D60
-    // Pre: -
-    // Steps: POST /prosecute
-    // Expected: Response < 2s (Case create + VV update transaction)
-    const endpoint = '/api/v1/incidents/:id/prosecute';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [200, 201, 204];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-INC-140: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-INC-140-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-INC-140-API: [P0] Prosecute atomic transaction < 2s', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/incidents/:id/prosecute" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
 
 });

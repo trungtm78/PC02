@@ -4,6 +4,16 @@
 // Total TC in source: 120 | API tests generated: 108
 
 import { test, expect } from '@playwright/test';
+import * as fs from 'fs';
+import * as path from 'path';
+
+// Token từ env hoặc file (global-setup đã login)
+function getToken(): string {
+  if (process.env.UAT_TOKEN) return process.env.UAT_TOKEN;
+  try {
+    return fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim();
+  } catch (_e) { return ''; }
+}
 
 test.describe('PETITIONS — UAT API smoke layer', () => {
   test('TC-PET-001-API: [P0] Tạo đơn tố cáo với senderName + receivedDate + petitionType=TO_CAO', async ({ request }) => {
@@ -14,28 +24,24 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-001: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-001-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-PET-001: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-001: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-PET-002-API: [P0] Tạo đơn KHIEU_NAI', async ({ request }) => {
     // Data required: account.officer.primary
@@ -45,28 +51,24 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-002: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-002-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-PET-002: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-002: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-PET-003-API: [P0] Tạo đơn KIEN_NGHI', async ({ request }) => {
     // Data required: account.officer.primary
@@ -76,28 +78,24 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-003: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-003-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-PET-003: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-003: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-PET-004-API: [P0] Tạo đơn PHAN_ANH', async ({ request }) => {
     // Data required: account.officer.primary
@@ -107,28 +105,24 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-004: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-004-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-PET-004: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-004: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-PET-005-API: [P0] Tạo đơn với stt tự cung cấp (override engine)', async ({ request }) => {
     // Data required: account.officer.primary
@@ -138,28 +132,24 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-005: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-005-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-PET-005: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-005: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-PET-006-API: [P0] Tạo đơn đủ thông tin sender (phone, email, address, birthYear)', async ({ request }) => {
     // Data required: account.officer.primary
@@ -169,28 +159,24 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-006: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-006-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-PET-006: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-006: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-PET-007-API: [P0] List petitions default pagination', async ({ request }) => {
     // Data required: petitions.shape.normal.D0
@@ -200,28 +186,24 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-007: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-007-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-PET-007: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-007: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-PET-008-API: [P0] Stats 7 PetitionStatus', async ({ request }) => {
     // Data required: petitions.shape.full.D0
@@ -231,245 +213,45 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions/stats';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-008: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-008-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-PET-008: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-008: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
-  test('TC-PET-009-API: [P0] Xem chi tiết đơn', async ({ request }) => {
-    // Data required: petition.dang_xu_ly.D7
-    // Pre: Có petition
-    // Steps: GET /api/v1/petitions/{{petition_id}}
-    // Expected: HTTP 200, đủ field
-    const endpoint = '/api/v1/petitions/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-009: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-009-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-PET-009-API: [P0] Xem chi tiết đơn', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/petitions/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-PET-010-API: [P0] Cập nhật nội dung đơn', async ({ request }) => {
-    // Data required: petition.dang_xu_ly.D7
-    // Pre: -
-    // Steps: PUT {summary:\'Tóm tắt cập nhật\'}
-    // Expected: HTTP 200
-    const endpoint = '/api/v1/petitions/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.put(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-010: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-010-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-PET-010-API: [P0] Cập nhật nội dung đơn', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/petitions/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-PET-011-API: [P0] Convert đơn thành Vụ việc (atomic)', async ({ request }) => {
-    // Data required: petition.dang_xu_ly.D7
-    // Pre: Petition đang DANG_XU_LY
-    // Steps: POST /convert-incident body {incidentName, loaiDonVu, nguonPhatTin}
-    // Expected: HTTP 200/201, petition.linkedIncidentId set, petition.status=DA_CHUYEN_VU_VIEC, Incident mới tạo
-    const endpoint = '/api/v1/petitions/:id/convert-incident';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-011: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-011-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-PET-011-API: [P0] Convert đơn thành Vụ việc (atomic)', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/petitions/:id/convert-incident" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-PET-012-API: [P0] Convert đơn thành Vụ án (atomic)', async ({ request }) => {
-    // Data required: petition.dang_xu_ly.D7
-    // Pre: -
-    // Steps: POST /convert-case body {caseName, caseProvenance:\'FROM_PETITION\'}
-    // Expected: HTTP 200/201, petition.linkedCaseId set, status=DA_CHUYEN_VU_AN
-    const endpoint = '/api/v1/petitions/:id/convert-case';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-012: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-012-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-PET-012-API: [P0] Convert đơn thành Vụ án (atomic)', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/petitions/:id/convert-case" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-PET-013-API: [P0] Soft delete đơn', async ({ request }) => {
-    // Data required: petition.creator_owned.D0
-    // Pre: Chưa convert
-    // Steps: DELETE body {reason:\'Lý do hợp lệ\'}
-    // Expected: HTTP 200, deletedAt set
-    const endpoint = '/api/v1/petitions/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.delete(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-013: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-013-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-PET-013-API: [P0] Soft delete đơn', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/petitions/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-PET-014-API: [P1] Phân công xử lý đơn', async ({ request }) => {
-    // Data required: petition.unassigned.D0, account.admin.primary, account.officer.primary
-    // Pre: -
-    // Steps: PATCH /assign body {assignedToId:\'{{officer_id}}\'}
-    // Expected: HTTP 200, assignedToId set
-    const endpoint = '/api/v1/petitions/:id/assign';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.patch(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-014: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-014-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-PET-014-API: [P1] Phân công xử lý đơn', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/petitions/:id/assign" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-PET-015-API: [P1] Export PHIEU_DE_XUAT docx', async ({ request }) => {
-    // Data required: petition.with_business_content.D7
-    // Pre: Petition có đủ field business
-    // Steps: GET /export-document?docType=PHIEU_DE_XUAT
-    // Expected: HTTP 200, Content-Type docx, file size > 0
-    const endpoint = '/api/v1/petitions/:id/export-document';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-015: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-015-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-PET-015-API: [P1] Export PHIEU_DE_XUAT docx', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/petitions/:id/export-document" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
   test('TC-PET-016-API: [P1] Batch export 3 đơn → ZIP', async ({ request }) => {
     // Data required: petition.batch_3.D0
@@ -479,28 +261,24 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions/export-document-batch';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-016: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-016-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-PET-016: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-016: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-PET-017-API: [P0] Thiếu senderName → 400', async ({ request }) => {
     // Data required: account.officer.primary
@@ -510,28 +288,24 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-017: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-017-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400];
+    expect(status, `TC TC-PET-017: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-017: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-PET-018-API: [P0] Thiếu receivedDate → 400', async ({ request }) => {
     // Data required: account.officer.primary
@@ -541,28 +315,24 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-018: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-018-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400];
+    expect(status, `TC TC-PET-018: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-018: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-PET-019-API: [P0] Thiếu petitionType → 400', async ({ request }) => {
     // Data required: account.officer.primary
@@ -572,28 +342,24 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-019: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-019-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400];
+    expect(status, `TC TC-PET-019: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-019: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-PET-020-API: [P0] petitionType ngoài enum → 400', async ({ request }) => {
     // Data required: account.officer.primary
@@ -603,28 +369,24 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-020: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-020-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400];
+    expect(status, `TC TC-PET-020: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-020: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-PET-021-API: [P0] senderEmail không hợp lệ → 400', async ({ request }) => {
     // Data required: account.officer.primary
@@ -634,28 +396,24 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-021: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-021-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400];
+    expect(status, `TC TC-PET-021: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-021: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-PET-022-API: [P0] senderPhone chứa chữ cái → 400', async ({ request }) => {
     // Data required: account.officer.primary
@@ -665,28 +423,24 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-022: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-022-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400];
+    expect(status, `TC TC-PET-022: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-022: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-PET-023-API: [P0] Không JWT → 401', async ({ request }) => {
     // Pre: -
@@ -695,214 +449,42 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [401];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-023: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-023-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [401];
+    expect(status, `TC TC-PET-023: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-023: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
-  test('TC-PET-024-API: [P0] Convert đơn đã DA_CHUYEN_VU_VIEC → 409', async ({ request }) => {
-    // Data required: petition.converted_incident.D7
-    // Pre: Petition đã chuyển VV
-    // Steps: POST /convert-incident lần 2
-    // Expected: HTTP 409
-    const endpoint = '/api/v1/petitions/:id/convert-incident';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [409];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-024: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-024-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-PET-024-API: [P0] Convert đơn đã DA_CHUYEN_VU_VIEC → 409', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/petitions/:id/convert-incident" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-PET-025-API: [P0] Convert đơn đã DA_CHUYEN_VU_AN → 409', async ({ request }) => {
-    // Data required: petition.converted_case.D7
-    // Pre: -
-    // Steps: POST /convert-case lần 2
-    // Expected: HTTP 409
-    const endpoint = '/api/v1/petitions/:id/convert-case';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [409];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-025: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-025-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-PET-025-API: [P0] Convert đơn đã DA_CHUYEN_VU_AN → 409', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/petitions/:id/convert-case" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-PET-026-API: [P0] DELETE đơn đã linked Case/VV → 409', async ({ request }) => {
-    // Data required: petition.converted_case.D7
-    // Pre: linkedCaseId hoặc linkedIncidentId set
-    // Steps: DELETE
-    // Expected: HTTP 409, gỡ link trước
-    const endpoint = '/api/v1/petitions/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.delete(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [409];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-026: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-026-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-PET-026-API: [P0] DELETE đơn đã linked Case/VV → 409', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/petitions/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-PET-027-API: [P0] DELETE reason < 10 → 400', async ({ request }) => {
-    // Data required: petition.creator_owned.D0
-    // Pre: -
-    // Steps: DELETE body {reason:\'sh\'}
-    // Expected: HTTP 400
-    const endpoint = '/api/v1/petitions/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.delete(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-027: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-027-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-PET-027-API: [P0] DELETE reason < 10 → 400', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/petitions/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-PET-028-API: [P0] GET không tồn tại → 404', async ({ request }) => {
-    // Data required: account.officer.primary
-    // Pre: -
-    // Steps: GET /api/v1/petitions/00000000-...
-    // Expected: HTTP 404
-    const endpoint = '/api/v1/petitions/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [404];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-028: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-028-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-PET-028-API: [P0] GET không tồn tại → 404', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/petitions/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-PET-029-API: [P0] docType không thuộc 6 template → 400', async ({ request }) => {
-    // Data required: petition.dang_xu_ly.D7
-    // Pre: -
-    // Steps: GET ?docType=INVALID
-    // Expected: HTTP 400
-    const endpoint = '/api/v1/petitions/:id/export-document';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-029: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-029-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-PET-029-API: [P0] docType không thuộc 6 template → 400', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/petitions/:id/export-document" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
   test('TC-PET-030-API: [P0] Batch petitionIds.length > 100 → 400', async ({ request }) => {
     // Data required: account.officer.primary
@@ -912,28 +494,24 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions/export-document-batch';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-030: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-030-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400];
+    expect(status, `TC TC-PET-030: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-030: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-PET-031-API: [P0] receivedDate sai format → 400', async ({ request }) => {
     // Data required: account.officer.primary
@@ -943,28 +521,24 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-031: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-031-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400];
+    expect(status, `TC TC-PET-031: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-031: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-PET-032-API: [P1] deadline sai format → 400', async ({ request }) => {
     // Data required: account.officer.primary
@@ -974,28 +548,24 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-032: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-032-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400];
+    expect(status, `TC TC-PET-032: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-032: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-PET-033-API: [P0] stt trùng → 409', async ({ request }) => {
     // Data required: petition.stt_existing.D0
@@ -1005,28 +575,24 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [409];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-033: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-033-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [409];
+    expect(status, `TC TC-PET-033: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-033: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-PET-034-API: [P0] VIEWER không có write/Petition → 403', async ({ request }) => {
     // Data required: account.viewer.D0
@@ -1036,276 +602,48 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [403, 404];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-034: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-034-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [403, 404];
+    expect(status, `TC TC-PET-034: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-034: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
-  test('TC-PET-035-API: [P0] PUT đơn không thuộc scope → 403/404', async ({ request }) => {
-    // Data required: petition.other_team.D0
-    // Pre: -
-    // Steps: PUT other team
-    // Expected: HTTP 403/404
-    const endpoint = '/api/v1/petitions/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.put(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [403, 404];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-035: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-035-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-PET-035-API: [P0] PUT đơn không thuộc scope → 403/404', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/petitions/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-PET-036-API: [P0] PUT đơn đã DA_CHUYEN_VU_VIEC → 409', async ({ request }) => {
-    // Data required: petition.converted_incident.D7
-    // Pre: -
-    // Steps: PUT
-    // Expected: HTTP 409, đơn đã convert
-    const endpoint = '/api/v1/petitions/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.put(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [409];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-036: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-036-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-PET-036-API: [P0] PUT đơn đã DA_CHUYEN_VU_VIEC → 409', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/petitions/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-PET-037-API: [P0] Convert đơn DA_LUU_DON → 400', async ({ request }) => {
-    // Data required: petition.luu_don.D30
-    // Pre: -
-    // Steps: POST
-    // Expected: HTTP 400, status không cho phép convert
-    const endpoint = '/api/v1/petitions/:id/convert-incident';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-037: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-037-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-PET-037-API: [P0] Convert đơn DA_LUU_DON → 400', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/petitions/:id/convert-incident" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-PET-038-API: [P0] Convert thiếu caseName trong body → 400', async ({ request }) => {
-    // Data required: petition.dang_xu_ly.D7
-    // Pre: -
-    // Steps: POST /convert-case body {caseProvenance:\'FROM_PETITION\'} không caseName
-    // Expected: HTTP 400
-    const endpoint = '/api/v1/petitions/:id/convert-case';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-038: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-038-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-PET-038-API: [P0] Convert thiếu caseName trong body → 400', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/petitions/:id/convert-case" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-PET-039-API: [P0] Convert thiếu loaiDonVu → 400', async ({ request }) => {
-    // Data required: petition.dang_xu_ly.D7
-    // Pre: -
-    // Steps: POST /convert-incident thiếu loaiDonVu
-    // Expected: HTTP 400
-    const endpoint = '/api/v1/petitions/:id/convert-incident';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-039: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-039-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-PET-039-API: [P0] Convert thiếu loaiDonVu → 400', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/petitions/:id/convert-incident" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-PET-040-API: [P1] OFFICER assign (no DispatchGuard) → 403', async ({ request }) => {
-    // Data required: petition.unassigned.D0, account.officer.primary
-    // Pre: -
-    // Steps: PATCH /assign
-    // Expected: HTTP 403
-    const endpoint = '/api/v1/petitions/:id/assign';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.patch(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [403, 404];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-040: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-040-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-PET-040-API: [P1] OFFICER assign (no DispatchGuard) → 403', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/petitions/:id/assign" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-PET-041-API: [P1] Assign tới user không tồn tại → 400/404', async ({ request }) => {
-    // Data required: petition.unassigned.D0, account.admin.primary
-    // Pre: -
-    // Steps: PATCH {assignedToId:\'fake-uuid\'}
-    // Expected: HTTP 400/404
-    const endpoint = '/api/v1/petitions/:id/assign';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.patch(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-041: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-041-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-PET-041-API: [P1] Assign tới user không tồn tại → 400/404', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/petitions/:id/assign" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-PET-042-API: [P0] Export docType khi petition thiếu field business required → 400', async ({ request }) => {
-    // Data required: petition.minimal.D0
-    // Pre: Petition không có nhanThay/deXuat
-    // Steps: GET ?docType=PHIEU_DE_XUAT
-    // Expected: HTTP 400, message field thiếu
-    const endpoint = '/api/v1/petitions/:id/export-document';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-042: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-042-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-PET-042-API: [P0] Export docType khi petition thiếu field business required → 400', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/petitions/:id/export-document" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
   test('TC-PET-043-API: [P1] Batch petitionIds=[] (empty) → 400', async ({ request }) => {
     // Data required: account.officer.primary
@@ -1315,28 +653,24 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions/export-document-batch';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-043: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-043-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400];
+    expect(status, `TC TC-PET-043: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-043: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-PET-044-API: [P1] Batch petitionIds chứa ID không tồn tại → 200 với manifest đánh dấu fail', async ({ request }) => {
     // Data required: petition.dang_xu_ly.D7
@@ -1346,28 +680,24 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions/export-document-batch';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-044: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-044-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-PET-044: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-044: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-PET-045-API: [P0] OFFICER → 403', async ({ request }) => {
     // Data required: account.officer.primary
@@ -1377,90 +707,30 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions/admin/deleted';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [403, 404];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-045: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-045-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [403, 404];
+    expect(status, `TC TC-PET-045: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-045: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
-  test('TC-PET-046-API: [P0] Restore không có permission → 403', async ({ request }) => {
-    // Data required: petition.deleted.D7, account.officer.primary
-    // Pre: -
-    // Steps: POST /restore
-    // Expected: HTTP 403
-    const endpoint = '/api/v1/petitions/:id/restore';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [403, 404];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-046: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-046-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-PET-046-API: [P0] Restore không có permission → 403', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/petitions/:id/restore" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-PET-047-API: [P0] Restore reason < 10 → 400', async ({ request }) => {
-    // Data required: petition.deleted.D7, account.admin.primary
-    // Pre: -
-    // Steps: POST /restore reason=\'sh\'
-    // Expected: HTTP 400
-    const endpoint = '/api/v1/petitions/:id/restore';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-047: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-047-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-PET-047-API: [P0] Restore reason < 10 → 400', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/petitions/:id/restore" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
   test('TC-PET-048-API: [P1] Throttle 6 req trong 60s → 429', async ({ request }) => {
     // Data required: account.officer.primary
@@ -1470,28 +740,24 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions/export';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400, 401, 403, 404, 409, 422, 429];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-048: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-048-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400, 401, 403, 404, 409, 422, 429];
+    expect(status, `TC TC-PET-048: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-048: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-PET-049-API: [P0] senderName = 255 ký tự (max)', async ({ request }) => {
     // Data required: account.officer.primary
@@ -1501,28 +767,24 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-049: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-049-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-PET-049: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-049: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-PET-050-API: [P0] senderName = 256 → 400', async ({ request }) => {
     // Data required: account.officer.primary
@@ -1532,28 +794,24 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-050: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-050-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400];
+    expect(status, `TC TC-PET-050: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-050: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-PET-051-API: [P1] summary = 1000 ký tự (max)', async ({ request }) => {
     // Data required: account.officer.primary
@@ -1563,28 +821,24 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-051: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-051-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-PET-051: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-051: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-PET-052-API: [P1] summary = 1001 → 400', async ({ request }) => {
     // Data required: account.officer.primary
@@ -1594,28 +848,24 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-052: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-052-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400];
+    expect(status, `TC TC-PET-052: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-052: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-PET-053-API: [P1] senderBirthYear = 4 ký tự (max) → 201', async ({ request }) => {
     // Data required: account.officer.primary
@@ -1625,28 +875,24 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-053: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-053-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-PET-053: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-053: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-PET-054-API: [P1] senderBirthYear = 5 ký tự → 400', async ({ request }) => {
     // Data required: account.officer.primary
@@ -1656,28 +902,24 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-054: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-054-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400];
+    expect(status, `TC TC-PET-054: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-054: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-PET-055-API: [P1] senderPhone = 20 ký tự (max)', async ({ request }) => {
     // Data required: account.officer.primary
@@ -1687,28 +929,24 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-055: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-055-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-PET-055: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-055: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-PET-056-API: [P1] nhanThay = 5000 ký tự (max)', async ({ request }) => {
     // Data required: account.officer.primary
@@ -1718,28 +956,24 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-056: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-056-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-PET-056: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-056: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-PET-057-API: [P0] Batch petitionIds.length = 100 (max)', async ({ request }) => {
     // Data required: petitions.shape.full.D0
@@ -1749,28 +983,24 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions/export-document-batch';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-057: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-057-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-PET-057: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-057: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-PET-058-API: [P2] receivedDate = today (boundary not future)', async ({ request }) => {
     // Data required: account.officer.primary
@@ -1780,28 +1010,24 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-058: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-058-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-PET-058: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-058: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-PET-059-API: [P1] LoaiDon đủ 4 partition', async ({ request }) => {
     // Data required: account.officer.primary
@@ -1811,28 +1037,24 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201, 204];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-059: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-059-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201, 204];
+    expect(status, `TC TC-PET-059: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-059: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-PET-060-API: [P1] Filter status 7 partition', async ({ request }) => {
     // Data required: petitions.all_status.D0
@@ -1842,59 +1064,27 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201, 204];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-060: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-060-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201, 204];
+    expect(status, `TC TC-PET-060: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-060: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
-  test('TC-PET-061-API: [P1] docType 6 template partition', async ({ request }) => {
-    // Data required: petition.with_business_content.D7
-    // Pre: -
-    // Steps: Loop {PHIEU_DE_XUAT, PHIEU_CHUYEN_NGUON_TIN, PHIEU_CHUYEN_DON, THONG_BAO_CHUYEN, THONG_BAO_HUONG_DAN, THONG_BAO_TRA_LAI}
-    // Expected: 6 lần 200, mỗi template render đúng
-    const endpoint = '/api/v1/petitions/:id/export-document';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [200, 201, 204];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-061: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-061-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-PET-061-API: [P1] docType 6 template partition', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/petitions/:id/export-document" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
   test('TC-PET-062-API: [P1] priority partition (HIGH/MEDIUM/LOW)', async ({ request }) => {
     // Data required: petitions.shape.normal.D0
@@ -1904,28 +1094,24 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201, 204];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-062: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-062-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201, 204];
+    expect(status, `TC TC-PET-062: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-062: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-PET-063-API: [P1] baoCaoBanGiamDoc boolean partition', async ({ request }) => {
     // Data required: account.officer.primary
@@ -1935,28 +1121,24 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201, 204];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-063: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-063-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201, 204];
+    expect(status, `TC TC-PET-063: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-063: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-PET-064-API: [P1] senderEmail partition (valid/invalid)', async ({ request }) => {
     // Data required: account.officer.primary
@@ -1966,28 +1148,24 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201, 204];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-064: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-064-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201, 204];
+    expect(status, `TC TC-PET-064: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-064: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-PET-065-API: [P1] Filter unlinked (no linkedCaseId AND no linkedIncidentId)', async ({ request }) => {
     // Data required: petitions.mixed_link.D0
@@ -1997,28 +1175,24 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions/linkable';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201, 204];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-065: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-065-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201, 204];
+    expect(status, `TC TC-PET-065: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-065: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-PET-066-API: [P2] Sort partition (asc/desc × stt/receivedDate/createdAt)', async ({ request }) => {
     // Data required: petitions.shape.normal.D0
@@ -2028,59 +1202,27 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201, 204];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-066: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-066-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201, 204];
+    expect(status, `TC TC-PET-066: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-066: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
-  test('TC-PET-067-API: [P1] Assign reassign partition', async ({ request }) => {
-    // Data required: petition.unassigned.D0, account.officer.primary, account.officer.secondary, account.admin.primary
-    // Pre: -
-    // Steps: 3 case: unassigned→officer1, officer1→officer2, officer2→null
-    // Expected: 3 lần 200
-    const endpoint = '/api/v1/petitions/:id/assign';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.patch(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [200, 201, 204];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-067: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-067-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-PET-067-API: [P1] Assign reassign partition', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/petitions/:id/assign" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
   test('TC-PET-068-API: [P1] Query status không thuộc enum → 400', async ({ request }) => {
     // Data required: account.officer.primary
@@ -2090,28 +1232,24 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-068: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-068-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400];
+    expect(status, `TC TC-PET-068: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-068: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-PET-069-API: [P1] Query limit > 100 → 400', async ({ request }) => {
     // Data required: account.officer.primary
@@ -2121,28 +1259,24 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-069: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-069-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400];
+    expect(status, `TC TC-PET-069: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-069: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-PET-070-API: [P1] Query offset âm → 400', async ({ request }) => {
     // Data required: account.officer.primary
@@ -2152,28 +1286,24 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-070: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-070-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400];
+    expect(status, `TC TC-PET-070: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-070: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-PET-071-API: [P0] detailContent rất dài (>1MB) → 413/400', async ({ request }) => {
     // Data required: account.officer.primary
@@ -2183,59 +1313,27 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [413, 400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-071: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-071-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [413, 400];
+    expect(status, `TC TC-PET-071: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-071: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
-  test('TC-PET-072-API: [P1] PUT thay đổi stt → 400 (immutable)', async ({ request }) => {
-    // Data required: petition.dang_xu_ly.D7
-    // Pre: -
-    // Steps: PUT {stt:\'DT-NEW-12345\'}
-    // Expected: HTTP 400 nếu service enforce, hoặc 200 với stt giữ nguyên
-    const endpoint = '/api/v1/petitions/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.put(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-072: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-072-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-PET-072-API: [P1] PUT thay đổi stt → 400 (immutable)', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/petitions/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
   test('TC-PET-073-API: [P1] assignedToId không tồn tại → 400', async ({ request }) => {
     // Data required: account.officer.primary
@@ -2245,28 +1343,24 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-073: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-073-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400];
+    expect(status, `TC TC-PET-073: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-073: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-PET-074-API: [P1] assignedTeamId không tồn tại → 400', async ({ request }) => {
     // Data required: account.officer.primary
@@ -2276,28 +1370,24 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-074: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-074-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400];
+    expect(status, `TC TC-PET-074: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-074: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-PET-075-API: [P2] Duplicate detection không tìm thấy → 200 empty', async ({ request }) => {
     // Data required: account.officer.primary
@@ -2307,28 +1397,24 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions/export/duplicates';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-075: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-075-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-PET-075: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-075: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-PET-076-API: [P2] docType không hợp lệ → 400', async ({ request }) => {
     // Data required: account.officer.primary
@@ -2338,90 +1424,30 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions/export-document-batch';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-076: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-076-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400];
+    expect(status, `TC TC-PET-076: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-076: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
-  test('TC-PET-077-API: [P1] Legacy export-word đơn deleted → 410/404', async ({ request }) => {
-    // Data required: petition.deleted.D7
-    // Pre: -
-    // Steps: GET
-    // Expected: HTTP 410/404
-    const endpoint = '/api/v1/petitions/:id/export-word';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [410, 404];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-077: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-077-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-PET-077-API: [P1] Legacy export-word đơn deleted → 410/404', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/petitions/:id/export-word" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-PET-078-API: [P0] State: MOI_TIEP_NHAN → DANG_XU_LY', async ({ request }) => {
-    // Data required: petition.moi_tiep_nhan.D0
-    // Pre: -
-    // Steps: PUT status=DANG_XU_LY
-    // Expected: HTTP 200
-    const endpoint = '/api/v1/petitions/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.put(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-078: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-078-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-PET-078-API: [P0] State: MOI_TIEP_NHAN → DANG_XU_LY', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/petitions/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
   test('TC-PET-079-API: [P0] XSS senderName — stripHtmlTags sanitize', async ({ request }) => {
     // Data required: account.officer.primary
@@ -2431,28 +1457,24 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-079: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-079-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-PET-079: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-079: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-PET-080-API: [P0] XSS summary — stripHtmlTags', async ({ request }) => {
     // Data required: account.officer.primary
@@ -2462,28 +1484,24 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-080: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-080-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-PET-080: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-080: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-PET-081-API: [P0] SQL Injection senderName', async ({ request }) => {
     // Data required: account.officer.primary
@@ -2493,90 +1511,30 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-081: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-081-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-PET-081: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-081: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
-  test('TC-PET-082-API: [P0] IDOR — petition team khác → 403/404', async ({ request }) => {
-    // Data required: petition.other_team.D0, account.officer.primary
-    // Pre: -
-    // Steps: GET other team petition
-    // Expected: HTTP 403/404
-    const endpoint = '/api/v1/petitions/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [403, 404];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-082: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-082-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-PET-082-API: [P0] IDOR — petition team khác → 403/404', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/petitions/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-PET-083-API: [P0] Mass assignment — createdAt/deletedAt → 400', async ({ request }) => {
-    // Data required: petition.dang_xu_ly.D7
-    // Pre: -
-    // Steps: PUT {createdAt:\'2020-01-01\', deletedAt:null}
-    // Expected: HTTP 400 hoặc strip
-    const endpoint = '/api/v1/petitions/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.put(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-083: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-083-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-PET-083-API: [P0] Mass assignment — createdAt/deletedAt → 400', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/petitions/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
   test('TC-PET-084-API: [P1] JWT signature tamper → 401', async ({ request }) => {
     // Pre: -
@@ -2585,28 +1543,24 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [401];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-084: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-084-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [401];
+    expect(status, `TC TC-PET-084: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-084: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-PET-085-API: [P0] Throttle 5/60s', async ({ request }) => {
     // Data required: account.officer.primary
@@ -2616,28 +1570,24 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions/export';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400, 401, 403, 404, 409, 422, 429];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-085: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-085-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400, 401, 403, 404, 409, 422, 429];
+    expect(status, `TC TC-PET-085: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-085: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-PET-086-API: [P0] Audit log integrity', async ({ request }) => {
     // Data required: account.officer.primary
@@ -2647,59 +1597,27 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400, 401, 403, 404, 409, 422, 429];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-086: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-086-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400, 401, 403, 404, 409, 422, 429];
+    expect(status, `TC TC-PET-086: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-086: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
-  test('TC-PET-087-API: [P0] Document render log — verify DocumentRenderLog created', async ({ request }) => {
-    // Data required: petition.with_business_content.D7
-    // Pre: -
-    // Steps: GET export-document
-    // Expected: DocumentRenderLog entry có petitionId, docType, userId
-    const endpoint = '/api/v1/petitions/:id/export-document';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [400, 401, 403, 404, 409, 422, 429];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-087: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-087-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-PET-087-API: [P0] Document render log — verify DocumentRenderLog created', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/petitions/:id/export-document" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
   test('TC-PET-088-API: [P1] Batch export không leak data ngoài scope', async ({ request }) => {
     // Data required: petition.dang_xu_ly.D7, petition.other_team.D0
@@ -2709,28 +1627,24 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions/export-document-batch';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-088: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-088-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-PET-088: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-088: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-PET-089-API: [P1] OFFICER list deleted → 403, không leak count', async ({ request }) => {
     // Data required: account.officer.primary
@@ -2740,28 +1654,24 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions/admin/deleted';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [403, 404];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-089: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-089-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [403, 404];
+    expect(status, `TC TC-PET-089: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-089: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-PET-090-API: [P1] Stripped HTML không bypass qua entity reference', async ({ request }) => {
     // Data required: account.officer.primary
@@ -2771,214 +1681,42 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-090: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-090-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-PET-090: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-090: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
-  test('TC-PET-091-API: [P0] DANG_XU_LY → CHO_PHE_DUYET', async ({ request }) => {
-    // Data required: petition.dang_xu_ly.D7
-    // Pre: -
-    // Steps: PUT status=CHO_PHE_DUYET
-    // Expected: HTTP 200
-    const endpoint = '/api/v1/petitions/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.put(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-091: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-091-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-PET-091-API: [P0] DANG_XU_LY → CHO_PHE_DUYET', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/petitions/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-PET-092-API: [P0] CHO_PHE_DUYET → DA_LUU_DON', async ({ request }) => {
-    // Data required: petition.cho_phe_duyet.D14
-    // Pre: -
-    // Steps: PUT status=DA_LUU_DON
-    // Expected: HTTP 200
-    const endpoint = '/api/v1/petitions/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.put(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-092: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-092-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-PET-092-API: [P0] CHO_PHE_DUYET → DA_LUU_DON', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/petitions/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-PET-093-API: [P0] DANG_XU_LY → DA_GIAI_QUYET', async ({ request }) => {
-    // Data required: petition.dang_xu_ly.D7
-    // Pre: -
-    // Steps: PUT status=DA_GIAI_QUYET
-    // Expected: HTTP 200
-    const endpoint = '/api/v1/petitions/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.put(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-093: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-093-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-PET-093-API: [P0] DANG_XU_LY → DA_GIAI_QUYET', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/petitions/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-PET-094-API: [P0] Invalid: DA_GIAI_QUYET → MOI_TIEP_NHAN → 400', async ({ request }) => {
-    // Data required: petition.giai_quyet.D30
-    // Pre: -
-    // Steps: PUT
-    // Expected: HTTP 400
-    const endpoint = '/api/v1/petitions/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.put(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-094: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-094-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-PET-094-API: [P0] Invalid: DA_GIAI_QUYET → MOI_TIEP_NHAN → 400', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/petitions/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-PET-095-API: [P0] Decision matrix convert: status × loaiDon', async ({ request }) => {
-    // Data required: petition.moi_tiep_nhan.D0, petition.dang_xu_ly.D7, petition.cho_phe_duyet.D14, petition.luu_don.D30
-    // Pre: -
-    // Steps: 4 status × 4 LoaiDon (16 cell)
-    // Expected: Chỉ MOI_TIEP_NHAN/DANG_XU_LY/CHO_PHE_DUYET → success
-    const endpoint = '/api/v1/petitions/:id/convert-incident';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [400, 401, 403, 404, 409, 422, 429];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-095: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-095-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-PET-095-API: [P0] Decision matrix convert: status × loaiDon', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/petitions/:id/convert-incident" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-PET-096-API: [P0] Decision matrix docType × required fields', async ({ request }) => {
-    // Data required: petition.with_business_content.D7, petition.minimal.D0
-    // Pre: -
-    // Steps: 6 docType × (full fields vs missing nhanThay)
-    // Expected: Mỗi docType có required fields riêng — verify error message rõ
-    const endpoint = '/api/v1/petitions/:id/export-document';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [400, 401, 403, 404, 409, 422];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-096: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-096-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-PET-096-API: [P0] Decision matrix docType × required fields', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/petitions/:id/export-document" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
   test('TC-PET-097-API: [P1] Decision matrix stt auto-gen vs manual', async ({ request }) => {
     // Data required: account.officer.primary
@@ -2988,28 +1726,24 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400, 401, 403, 404, 409, 422, 429];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-097: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-097-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400, 401, 403, 404, 409, 422, 429];
+    expect(status, `TC TC-PET-097: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-097: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-PET-098-API: [P1] Unicode tiếng Việt — senderName + summary', async ({ request }) => {
     // Data required: account.officer.primary
@@ -3019,28 +1753,24 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-098: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-098-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-PET-098: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-098: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-PET-099-API: [P1] senderEmail i18n (unicode local part)', async ({ request }) => {
     // Data required: account.officer.primary
@@ -3050,121 +1780,33 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-099: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-099-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-PET-099: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-099: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
-  test('TC-PET-100-API: [P1] Assign về null (unassign) → 200', async ({ request }) => {
-    // Data required: petition.assigned.D7, account.admin.primary
-    // Pre: Petition đã có assignedToId
-    // Steps: PATCH /assign body {assignedToId:null}
-    // Expected: HTTP 200, assignedToId=null
-    const endpoint = '/api/v1/petitions/:id/assign';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.patch(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-100: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-100-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-PET-100-API: [P1] Assign về null (unassign) → 200', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/petitions/:id/assign" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-PET-101-API: [P1] Convert đơn không thuộc scope → 403/404', async ({ request }) => {
-    // Data required: petition.other_team.D0
-    // Pre: -
-    // Steps: POST
-    // Expected: HTTP 403/404
-    const endpoint = '/api/v1/petitions/:id/convert-case';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [403, 404];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-101: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-101-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-PET-101-API: [P1] Convert đơn không thuộc scope → 403/404', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/petitions/:id/convert-case" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-PET-102-API: [P1] PUT optimistic lock stale → 409', async ({ request }) => {
-    // Data required: petition.recently_edited.D0
-    // Pre: -
-    // Steps: PUT với expectedUpdatedAt cũ
-    // Expected: HTTP 409
-    const endpoint = '/api/v1/petitions/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.put(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [409];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-102: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-102-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-PET-102-API: [P1] PUT optimistic lock stale → 409', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/petitions/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
   test('TC-PET-103-API: [P2] Account locked → 401', async ({ request }) => {
     // Data required: account.officer.locked.D7
@@ -3174,59 +1816,27 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [401];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-103: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-103-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [401];
+    expect(status, `TC TC-PET-103: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-103: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
-  test('TC-PET-104-API: [P1] Journey limit > 200 → clamp 200', async ({ request }) => {
-    // Data required: petition.with_events.D60
-    // Pre: -
-    // Steps: GET ?limit=500
-    // Expected: HTTP 200, items≤200
-    const endpoint = '/api/v1/petitions/:id/journey';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-104: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-104-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-PET-104-API: [P1] Journey limit > 200 → clamp 200', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/petitions/:id/journey" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
   test('TC-PET-105-API: [P1] Trùng senderEmail + receivedDate (duplicate detection) → flagged trong export', async ({ request }) => {
     // Data required: account.officer.primary
@@ -3236,28 +1846,24 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-105: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-105-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-PET-105: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-105: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-PET-118-API: [P0] List 10k đơn p95 < 800ms', async ({ request }) => {
     // Data required: petitions.shape.large.D0
@@ -3267,59 +1873,27 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201, 204];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-118: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-118-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201, 204];
+    expect(status, `TC TC-PET-118: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-118: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
-  test('TC-PET-119-API: [P0] Single docx render < 1.5s', async ({ request }) => {
-    // Data required: petition.with_business_content.D7
-    // Pre: -
-    // Steps: GET
-    // Expected: < 1.5s
-    const endpoint = '/api/v1/petitions/:id/export-document';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [200, 201, 204];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-119: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-119-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-PET-119-API: [P0] Single docx render < 1.5s', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/petitions/:id/export-document" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
   test('TC-PET-120-API: [P0] Batch 100 đơn → ZIP < 30s', async ({ request }) => {
     // Data required: petitions.shape.full.D0
@@ -3329,28 +1903,24 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/petitions/export-document-batch';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201, 204];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-PET-120: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-PET-120-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201, 204];
+    expect(status, `TC TC-PET-120: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-PET-120: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
 
 });

@@ -4,6 +4,16 @@
 // Total TC in source: 110 | API tests generated: 98
 
 import { test, expect } from '@playwright/test';
+import * as fs from 'fs';
+import * as path from 'path';
+
+// Token từ env hoặc file (global-setup đã login)
+function getToken(): string {
+  if (process.env.UAT_TOKEN) return process.env.UAT_TOKEN;
+  try {
+    return fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim();
+  } catch (_e) { return ''; }
+}
 
 test.describe('UTDT — UAT API smoke layer', () => {
   test('TC-UTDT-001-API: [P0] Tạo UTDT đầy đủ (caseType + loaiUyThac + donViGiao + ngày)', async ({ request }) => {
@@ -14,28 +24,24 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-001: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-001-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-UTDT-001: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-001: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-UTDT-002-API: [P0] Tạo UTDT loaiUyThac=CHUYEN_DON_NGUON_TIN', async ({ request }) => {
     // Data required: account.officer.primary
@@ -45,28 +51,24 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-002: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-002-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-UTDT-002: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-002: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-UTDT-003-API: [P0] Tạo UTDT loaiUyThac=UY_THAC_GIAI_QUYET', async ({ request }) => {
     // Data required: account.officer.primary
@@ -76,28 +78,24 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-003: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-003-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-UTDT-003: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-003: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-UTDT-004-API: [P0] List UTDT cases (caseType filter explicit)', async ({ request }) => {
     // Data required: utdt.shape.normal.D0
@@ -107,28 +105,24 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases?caseType=UY_THAC_DIEU_TRA';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-004: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-004-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-UTDT-004: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-004: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-UTDT-005-API: [P0] List default exclude UTDT (caseType=REGULAR implicit)', async ({ request }) => {
     // Data required: cases.mixed_type.D0
@@ -138,28 +132,24 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-005: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-005-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-UTDT-005: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-005: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-UTDT-006-API: [P0] UTDT stats 4 TrangThaiPhanHoi', async ({ request }) => {
     // Data required: utdt.all_state.D0
@@ -169,90 +159,30 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases/utdt-stats';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-006: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-006-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-UTDT-006: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-006: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
-  test('TC-UTDT-007-API: [P0] Update ketQuaUyThac + ngayTraKetQua → state DA_PHAN_HOI', async ({ request }) => {
-    // Data required: utdt.chua_phan_hoi.D30
-    // Pre: UTDT chưa có ketQua
-    // Steps: PUT {ketQuaUyThac:\'Đã điều tra xong\', ngayTraKetQua:\'2026-07-15\'}
-    // Expected: HTTP 200, computed state=DA_PHAN_HOI
-    const endpoint = '/api/v1/cases/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.put(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-007: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-007-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-UTDT-007-API: [P0] Update ketQuaUyThac + ngayTraKetQua → state DA_PHAN_HOI', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/cases/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-UTDT-008-API: [P0] Update metadata.lyDoKhongThucHienDuoc → state KHONG_THUC_HIEN_DUOC', async ({ request }) => {
-    // Data required: utdt.chua_phan_hoi.D30
-    // Pre: -
-    // Steps: PUT {metadata:{lyDoKhongThucHienDuoc:\'Đối tượng đã chuyển nơi cư trú\'}}
-    // Expected: HTTP 200, computed state=KHONG_THUC_HIEN_DUOC
-    const endpoint = '/api/v1/cases/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.put(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-008: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-008-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-UTDT-008-API: [P0] Update metadata.lyDoKhongThucHienDuoc → state KHONG_THUC_HIEN_DUOC', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/cases/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
   test('TC-UTDT-009-API: [P0] Filter UTDT DA_PHAN_HOI', async ({ request }) => {
     // Data required: utdt.da_phan_hoi.D60
@@ -262,28 +192,24 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases?trangThaiPhanHoi=DA_PHAN_HOI';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-009: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-009-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-UTDT-009: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-009: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-UTDT-010-API: [P0] Filter UTDT QUA_HAN', async ({ request }) => {
     // Data required: utdt.qua_han.D90
@@ -293,28 +219,24 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases?trangThaiPhanHoi=QUA_HAN';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-010: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-010-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-UTDT-010: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-010: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-UTDT-011-API: [P0] Filter UTDT theo donViGiao (substring)', async ({ request }) => {
     // Data required: utdt.donvi_pc01.D0
@@ -324,28 +246,24 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases?donViGiao=PC01';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-011: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-011-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-UTDT-011: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-011: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-UTDT-012-API: [P1] Filter UTDT date range', async ({ request }) => {
     // Data required: utdt.shape.normal.D0
@@ -355,28 +273,24 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases?ngayTiepNhanFrom=…&ngayTiepNhanTo=…';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-012: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-012-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-UTDT-012: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-012: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-UTDT-013-API: [P1] Filter UTDT theo tên ĐTV', async ({ request }) => {
     // Data required: utdt.shape.normal.D0
@@ -386,59 +300,27 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases?investigatorName=…';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-013: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-013-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-UTDT-013: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-013: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
-  test('TC-UTDT-014-API: [P0] Xem chi tiết UTDT — đủ field', async ({ request }) => {
-    // Data required: utdt.chua_phan_hoi.D30
-    // Pre: -
-    // Steps: GET /api/v1/cases/{{utdt_id}}
-    // Expected: HTTP 200, response có đủ donViGiao, soQuyetDinhUyThac, loaiUyThac, ngày…, computed trangThaiPhanHoi
-    const endpoint = '/api/v1/cases/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-014: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-014-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-UTDT-014-API: [P0] Xem chi tiết UTDT — đủ field', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/cases/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
   test('TC-UTDT-015-API: [P0] caseType=UY_THAC_DIEU_TRA nhưng caseProvenance khác → 400 hoặc bị reject', async ({ request }) => {
     // Data required: account.officer.primary
@@ -448,28 +330,24 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-015: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-015-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400];
+    expect(status, `TC TC-UTDT-015: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-015: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-UTDT-016-API: [P0] loaiUyThac ngoài enum → 400', async ({ request }) => {
     // Data required: account.officer.primary
@@ -479,28 +357,24 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-016: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-016-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400];
+    expect(status, `TC TC-UTDT-016: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-016: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-UTDT-017-API: [P0] donViGiao vượt 500 ký tự → 400', async ({ request }) => {
     // Data required: account.officer.primary
@@ -510,28 +384,24 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-017: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-017-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400];
+    expect(status, `TC TC-UTDT-017: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-017: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-UTDT-018-API: [P0] soQuyetDinhUyThac vượt 100 ký tự → 400', async ({ request }) => {
     // Data required: account.officer.primary
@@ -541,28 +411,24 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-018: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-018-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400];
+    expect(status, `TC TC-UTDT-018: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-018: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-UTDT-019-API: [P0] ngayTiepNhan sai format → 400', async ({ request }) => {
     // Data required: account.officer.primary
@@ -572,28 +438,24 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-019: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-019-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400];
+    expect(status, `TC TC-UTDT-019: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-019: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-UTDT-020-API: [P0] thoiHanUyThac sai format → 400', async ({ request }) => {
     // Data required: account.officer.primary
@@ -603,28 +465,24 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-020: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-020-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400];
+    expect(status, `TC TC-UTDT-020: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-020: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-UTDT-021-API: [P0] loaiThongTin vượt 200 ký tự → 400', async ({ request }) => {
     // Data required: account.officer.primary
@@ -634,28 +492,24 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-021: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-021-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400];
+    expect(status, `TC TC-UTDT-021: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-021: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-UTDT-022-API: [P0] Query caseType ngoài enum → 400', async ({ request }) => {
     // Data required: account.officer.primary
@@ -665,28 +519,24 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-022: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-022-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400];
+    expect(status, `TC TC-UTDT-022: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-022: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-UTDT-023-API: [P0] trangThaiPhanHoi ngoài 4 value → 400', async ({ request }) => {
     // Data required: account.officer.primary
@@ -696,28 +546,24 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-023: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-023-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400];
+    expect(status, `TC TC-UTDT-023: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-023: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-UTDT-024-API: [P0] utdt-stats không scope → 403', async ({ request }) => {
     // Data required: account.viewer.D0
@@ -727,28 +573,24 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases/utdt-stats';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [403, 404];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-024: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-024-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [403, 404];
+    expect(status, `TC TC-UTDT-024: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-024: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-UTDT-025-API: [P0] UTDT thiếu caseProvenance → 400', async ({ request }) => {
     // Data required: account.officer.primary
@@ -758,121 +600,33 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-025: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-025-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400];
+    expect(status, `TC TC-UTDT-025: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-025: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
-  test('TC-UTDT-026-API: [P0] Update UTDT không thuộc scope → 403/404', async ({ request }) => {
-    // Data required: utdt.other_team.D0
-    // Pre: -
-    // Steps: PUT other team UTDT
-    // Expected: HTTP 403/404
-    const endpoint = '/api/v1/cases/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.put(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [403, 404];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-026: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-026-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-UTDT-026-API: [P0] Update UTDT không thuộc scope → 403/404', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/cases/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-UTDT-027-API: [P1] PUT đổi caseType từ UTDT → REGULAR → 400 (immutable)', async ({ request }) => {
-    // Data required: utdt.chua_phan_hoi.D30
-    // Pre: -
-    // Steps: PUT {caseType:\'REGULAR\'}
-    // Expected: HTTP 400 hoặc strip
-    const endpoint = '/api/v1/cases/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.put(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-027: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-027-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-UTDT-027-API: [P1] PUT đổi caseType từ UTDT → REGULAR → 400 (immutable)', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/cases/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-UTDT-028-API: [P1] PUT ketQuaUyThac chỉ có ngayTraKetQua không có ketQua → state vẫn CHUA', async ({ request }) => {
-    // Data required: utdt.chua_phan_hoi.D30
-    // Pre: UTDT chưa phản hồi
-    // Steps: PUT {ngayTraKetQua:\'2026-07-15\'} không ketQuaUyThac
-    // Expected: HTTP 200, computed vẫn CHUA_PHAN_HOI (cần cả 2 mới DA_PHAN_HOI)
-    const endpoint = '/api/v1/cases/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.put(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-028: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-028-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-UTDT-028-API: [P1] PUT ketQuaUyThac chỉ có ngayTraKetQua không có ketQua → state vẫn CHUA', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/cases/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
   test('TC-UTDT-029-API: [P1] UTDT search > 200 chars → 400', async ({ request }) => {
     // Data required: account.officer.primary
@@ -882,28 +636,24 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-029: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-029-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400];
+    expect(status, `TC TC-UTDT-029: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-029: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-UTDT-030-API: [P0] UTDT với ngayTiepNhan tương lai → 400 hoặc warning', async ({ request }) => {
     // Data required: account.officer.primary
@@ -913,28 +663,24 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-030: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-030-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-UTDT-030: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-030: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-UTDT-031-API: [P0] utdt-stats không phải UTDT scope leak Regular case → fail', async ({ request }) => {
     // Data required: cases.mixed_type.D0
@@ -944,28 +690,24 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases/utdt-stats';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400, 401, 403, 404, 409, 422, 429];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-031: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-031-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400, 401, 403, 404, 409, 422, 429];
+    expect(status, `TC TC-UTDT-031: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-031: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-UTDT-032-API: [P0] UTDT với thoiHanUyThac < ngayTiepNhan → 400/warning', async ({ request }) => {
     // Data required: account.officer.primary
@@ -975,28 +717,24 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-032: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-032-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400];
+    expect(status, `TC TC-UTDT-032: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-032: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-UTDT-033-API: [P0] trangThaiPhanHoi=QUA_HAN nhưng thiếu caseType=UY_THAC_DIEU_TRA → 200 nhưng items khác kỳ vọng', async ({ request }) => {
     // Data required: utdt.qua_han.D90
@@ -1006,28 +744,24 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-033: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-033-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-UTDT-033: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-033: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-UTDT-034-API: [P0] UTDT với soQuyetDinhUyThac trùng (Mẫu 58 conflict) → 409 nếu unique', async ({ request }) => {
     // Data required: account.officer.primary
@@ -1037,59 +771,27 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [409];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-034: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-034-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [409];
+    expect(status, `TC TC-UTDT-034: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-034: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
-  test('TC-UTDT-035-API: [P1] PUT UTDT đã DA_PHAN_HOI — đổi ngayTraKetQua = null → state đổi', async ({ request }) => {
-    // Data required: utdt.da_phan_hoi.D60
-    // Pre: UTDT DA_PHAN_HOI
-    // Steps: PUT {ngayTraKetQua:null}
-    // Expected: HTTP 200, computed state ngược về CHUA_PHAN_HOI
-    const endpoint = '/api/v1/cases/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.put(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-035: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-035-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-UTDT-035-API: [P1] PUT UTDT đã DA_PHAN_HOI — đổi ngayTraKetQua = null → state đổi', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/cases/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
   test('TC-UTDT-036-API: [P1] loaiUyThac filter ngoài enum → 400', async ({ request }) => {
     // Data required: account.officer.primary
@@ -1099,28 +801,24 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-036: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-036-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400];
+    expect(status, `TC TC-UTDT-036: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-036: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-UTDT-037-API: [P1] ngayTiepNhanFrom sai format → 400', async ({ request }) => {
     // Data required: account.officer.primary
@@ -1130,28 +828,24 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-037: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-037-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400];
+    expect(status, `TC TC-UTDT-037: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-037: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-UTDT-038-API: [P1] ngayTiepNhanFrom > ngayTiepNhanTo → 200 empty', async ({ request }) => {
     // Data required: utdt.shape.normal.D0
@@ -1161,28 +855,24 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-038: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-038-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-UTDT-038: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-038: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-UTDT-039-API: [P0] UTDT thiếu donViGiao → 201 (optional) hoặc 400 nếu rule', async ({ request }) => {
     // Data required: account.officer.primary
@@ -1192,59 +882,27 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-039: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-039-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-UTDT-039: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-039: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
-  test('TC-UTDT-040-API: [P0] DELETE UTDT (kế thừa case delete rules) — DA_PHAN_HOI thì cấm xóa hoặc cho phép', async ({ request }) => {
-    // Data required: utdt.da_phan_hoi.D60
-    // Pre: -
-    // Steps: DELETE UTDT DA_PHAN_HOI
-    // Expected: Verify rule: cho phép soft-delete với reason
-    const endpoint = '/api/v1/cases/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.delete(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [400, 401, 403, 404, 409, 422, 429];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-040: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-040-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-UTDT-040-API: [P0] DELETE UTDT (kế thừa case delete rules) — DA_PHAN_HOI thì cấm xóa hoặc cho phép', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/cases/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
   test('TC-UTDT-041-API: [P0] utdt-stats với scope filter (donViGiao) → counts đúng theo filter', async ({ request }) => {
     // Data required: utdt.donvi_pc01.D0, utdt.donvi_pc02.D0
@@ -1254,59 +912,27 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases/utdt-stats';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-041: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-041-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-UTDT-041: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-041: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
-  test('TC-UTDT-042-API: [P1] PUT metadata.lyDoKhongThucHienDuoc=\'\' (empty) → state vẫn CHUA', async ({ request }) => {
-    // Data required: utdt.chua_phan_hoi.D30
-    // Pre: -
-    // Steps: PUT {metadata:{lyDoKhongThucHienDuoc:\'\'}}
-    // Expected: HTTP 200, computed CHUA_PHAN_HOI (empty không count)
-    const endpoint = '/api/v1/cases/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.put(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-042: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-042-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-UTDT-042-API: [P1] PUT metadata.lyDoKhongThucHienDuoc=\'\' (empty) → state vẫn CHUA', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/cases/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
   test('TC-UTDT-043-API: [P1] donViGiao = 500 ký tự (max) → 201', async ({ request }) => {
     // Data required: account.officer.primary
@@ -1316,28 +942,24 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-043: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-043-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-UTDT-043: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-043: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-UTDT-044-API: [P1] donViGiao = 501 → 400', async ({ request }) => {
     // Data required: account.officer.primary
@@ -1347,28 +969,24 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-044: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-044-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400];
+    expect(status, `TC TC-UTDT-044: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-044: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-UTDT-045-API: [P1] soQuyetDinhUyThac = 100 ký tự (max)', async ({ request }) => {
     // Data required: account.officer.primary
@@ -1378,28 +996,24 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-045: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-045-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-UTDT-045: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-045: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-UTDT-046-API: [P1] soQuyetDinhUyThac = 101 → 400', async ({ request }) => {
     // Data required: account.officer.primary
@@ -1409,28 +1023,24 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-046: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-046-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400];
+    expect(status, `TC TC-UTDT-046: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-046: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-UTDT-047-API: [P1] loaiThongTin = 200 ký tự (max)', async ({ request }) => {
     // Data required: account.officer.primary
@@ -1440,90 +1050,30 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-047: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-047-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-UTDT-047: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-047: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
-  test('TC-UTDT-048-API: [P0] thoiHanUyThac = now exactly — state QUA_HAN không trigger (≤)', async ({ request }) => {
-    // Data required: utdt.chua_phan_hoi.D30
-    // Pre: -
-    // Steps: PUT thoiHanUyThac={{now}}
-    // Expected: HTTP 200, computed state CHUA_PHAN_HOI (vì < not ≤)
-    const endpoint = '/api/v1/cases/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.put(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-048: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-048-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-UTDT-048-API: [P0] thoiHanUyThac = now exactly — state QUA_HAN không trigger (≤)', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/cases/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-UTDT-049-API: [P0] thoiHanUyThac = now-1ms — state QUA_HAN trigger', async ({ request }) => {
-    // Data required: utdt.chua_phan_hoi.D30
-    // Pre: -
-    // Steps: PUT thoiHanUyThac={{now-1ms}}
-    // Expected: HTTP 200, computed QUA_HAN
-    const endpoint = '/api/v1/cases/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.put(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-049: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-049-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-UTDT-049-API: [P0] thoiHanUyThac = now-1ms — state QUA_HAN trigger', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/cases/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
   test('TC-UTDT-050-API: [P1] caseType filter empty string → 400 hoặc default', async ({ request }) => {
     // Data required: account.officer.primary
@@ -1533,28 +1083,24 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-050: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-050-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400];
+    expect(status, `TC TC-UTDT-050: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-050: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-UTDT-051-API: [P2] UTDT với loaiUyThac giống caseProvenance (cả 2 đều UY_THAC_DIEU_TRA)', async ({ request }) => {
     // Data required: account.officer.primary
@@ -1564,28 +1110,24 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-051: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-051-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-UTDT-051: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-051: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-UTDT-052-API: [P1] LoaiUyThac đủ 3 partition', async ({ request }) => {
     // Data required: account.officer.primary
@@ -1595,28 +1137,24 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201, 204];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-052: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-052-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201, 204];
+    expect(status, `TC TC-UTDT-052: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-052: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-UTDT-053-API: [P1] trangThaiPhanHoi đủ 4 partition', async ({ request }) => {
     // Data required: utdt.all_state.D0
@@ -1626,28 +1164,24 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201, 204];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-053: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-053-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201, 204];
+    expect(status, `TC TC-UTDT-053: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-053: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-UTDT-054-API: [P1] caseType partition (REGULAR vs UY_THAC_DIEU_TRA)', async ({ request }) => {
     // Data required: cases.mixed_type.D0
@@ -1657,28 +1191,24 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201, 204];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-054: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-054-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201, 204];
+    expect(status, `TC TC-UTDT-054: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-054: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-UTDT-055-API: [P2] donViGiao partition (PC01/PC02/CA Quận)', async ({ request }) => {
     // Data required: utdt.donvi_pc01.D0, utdt.donvi_pc02.D0
@@ -1688,28 +1218,24 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201, 204];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-055: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-055-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201, 204];
+    expect(status, `TC TC-UTDT-055: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-055: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-UTDT-056-API: [P2] loaiThongTin partition (Tố giác / Trình báo / Đề nghị / Kiến nghị)', async ({ request }) => {
     // Data required: utdt.shape.normal.D0
@@ -1719,28 +1245,24 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201, 204];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-056: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-056-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201, 204];
+    expect(status, `TC TC-UTDT-056: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-056: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-UTDT-057-API: [P2] sortBy partition (ngayTiepNhan/thoiHanUyThac/createdAt)', async ({ request }) => {
     // Data required: utdt.shape.normal.D0
@@ -1750,59 +1272,27 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201, 204];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-057: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-057-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201, 204];
+    expect(status, `TC TC-UTDT-057: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-057: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
-  test('TC-UTDT-058-API: [P1] ketQuaUyThac partition (short / long / empty)', async ({ request }) => {
-    // Data required: utdt.chua_phan_hoi.D30
-    // Pre: -
-    // Steps: 3 case: \'OK\', \'<300 chars>\', \'\'
-    // Expected: 3 lần 200
-    const endpoint = '/api/v1/cases/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.put(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [200, 201, 204];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-058: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-058-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-UTDT-058-API: [P1] ketQuaUyThac partition (short / long / empty)', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/cases/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
   test('TC-UTDT-059-API: [P2] investigatorName partition (full/partial/empty)', async ({ request }) => {
     // Data required: utdt.shape.normal.D0
@@ -1812,152 +1302,36 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201, 204];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-059: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-059-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201, 204];
+    expect(status, `TC TC-UTDT-059: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-059: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
-  test('TC-UTDT-060-API: [P0] Transition computed: CHUA_PHAN_HOI → DA_PHAN_HOI (set cả ketQua+ngayTra)', async ({ request }) => {
-    // Data required: utdt.chua_phan_hoi.D30
-    // Pre: UTDT CHUA
-    // Steps: PUT đủ 2 field
-    // Expected: HTTP 200, computed DA_PHAN_HOI
-    const endpoint = '/api/v1/cases/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.put(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-060: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-060-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-UTDT-060-API: [P0] Transition computed: CHUA_PHAN_HOI → DA_PHAN_HOI (set cả ketQua+ngayTra)', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/cases/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-UTDT-061-API: [P0] State CHUA → KHONG_THUC_HIEN_DUOC (set metadata.lyDoKhongThucHienDuoc)', async ({ request }) => {
-    // Data required: utdt.chua_phan_hoi.D30
-    // Pre: UTDT CHUA
-    // Steps: PUT metadata.lyDoKhongThucHienDuoc=\'Đối tượng chết\'
-    // Expected: HTTP 200, computed KHONG_THUC_HIEN_DUOC
-    const endpoint = '/api/v1/cases/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.put(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-061: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-061-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-UTDT-061-API: [P0] State CHUA → KHONG_THUC_HIEN_DUOC (set metadata.lyDoKhongThucHienDuoc)', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/cases/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-UTDT-063-API: [P1] State QUA_HAN → DA_PHAN_HOI (trả kết quả muộn)', async ({ request }) => {
-    // Data required: utdt.qua_han.D90
-    // Pre: UTDT QUA_HAN
-    // Steps: PUT {ketQuaUyThac, ngayTraKetQua}
-    // Expected: HTTP 200, computed DA_PHAN_HOI
-    const endpoint = '/api/v1/cases/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.put(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-063: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-063-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-UTDT-063-API: [P1] State QUA_HAN → DA_PHAN_HOI (trả kết quả muộn)', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/cases/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-UTDT-064-API: [P1] State KHONG_THUC_HIEN_DUOC → DA_PHAN_HOI (gỡ lyDo + set ketQua)', async ({ request }) => {
-    // Data required: utdt.khong_thuc_hien.D30
-    // Pre: UTDT KHONG_THUC_HIEN_DUOC
-    // Steps: PUT {metadata:{}, ketQuaUyThac, ngayTraKetQua}
-    // Expected: HTTP 200, computed DA_PHAN_HOI
-    const endpoint = '/api/v1/cases/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.put(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-064: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-064-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-UTDT-064-API: [P1] State KHONG_THUC_HIEN_DUOC → DA_PHAN_HOI (gỡ lyDo + set ketQua)', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/cases/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
   test('TC-UTDT-065-API: [P0] Decision matrix computed state — 4×3 (state × scenario)', async ({ request }) => {
     // Data required: utdt.all_state.D0
@@ -1967,59 +1341,27 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases/utdt-stats';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400, 401, 403, 404, 409, 422, 429];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-065: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-065-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400, 401, 403, 404, 409, 422, 429];
+    expect(status, `TC TC-UTDT-065: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-065: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
-  test('TC-UTDT-066-API: [P0] Decision matrix computed: ketQua × ngayTra × thoiHan × lyDo (truth table 16 cells)', async ({ request }) => {
-    // Data required: utdt.chua_phan_hoi.D30
-    // Pre: -
-    // Steps: 16 combination → compute expected state
-    // Expected: Mỗi combo match TrangThaiPhanHoi spec
-    const endpoint = '/api/v1/cases/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.put(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [400, 401, 403, 404, 409, 422, 429];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-066: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-066-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-UTDT-066-API: [P0] Decision matrix computed: ketQua × ngayTra × thoiHan × lyDo (truth table 16 cells)', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/cases/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
   test('TC-UTDT-067-API: [P1] Decision matrix filter combo (caseType × trangThaiPhanHoi × loaiUyThac)', async ({ request }) => {
     // Data required: utdt.all_state.D0
@@ -2029,28 +1371,24 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400, 401, 403, 404, 409, 422, 429];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-067: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-067-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400, 401, 403, 404, 409, 422, 429];
+    expect(status, `TC TC-UTDT-067: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-067: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-UTDT-068-API: [P0] UTDT XSS donViGiao', async ({ request }) => {
     // Data required: account.officer.primary
@@ -2060,28 +1398,24 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-068: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-068-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-UTDT-068: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-068: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-UTDT-069-API: [P0] SQL injection trong donViGiao filter', async ({ request }) => {
     // Data required: account.officer.primary
@@ -2091,28 +1425,24 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-069: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-069-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-UTDT-069: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-069: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-UTDT-070-API: [P0] UTDT metadata.lyDoKhongThucHienDuoc — JSON injection', async ({ request }) => {
     // Data required: account.officer.primary
@@ -2122,28 +1452,24 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-070: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-070-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-UTDT-070: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-070: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-UTDT-071-API: [P1] investigatorName injection — \'%\' wildcard', async ({ request }) => {
     // Data required: account.officer.primary
@@ -2153,59 +1479,27 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-071: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-071-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-UTDT-071: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-071: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
-  test('TC-UTDT-072-API: [P1] PUT UTDT ngayTraKetQua = future date', async ({ request }) => {
-    // Data required: utdt.chua_phan_hoi.D30
-    // Pre: -
-    // Steps: PUT ngayTraKetQua=\'2030-01-01\'
-    // Expected: HTTP 200 (DTO chỉ ISO check) — có thể warning business
-    const endpoint = '/api/v1/cases/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.put(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-072: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-072-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-UTDT-072-API: [P1] PUT UTDT ngayTraKetQua = future date', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/cases/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
   test('TC-UTDT-073-API: [P1] utdt-stats với scope filter wardId → counts đúng cho ward', async ({ request }) => {
     // Data required: utdt.shape.full.D0
@@ -2215,28 +1509,24 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases/utdt-stats';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400, 401, 403, 404, 409, 422, 429];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-073: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-073-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400, 401, 403, 404, 409, 422, 429];
+    expect(status, `TC TC-UTDT-073: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-073: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-UTDT-074-API: [P0] UTDT empty DB → stats 0/0/0/0', async ({ request }) => {
     // Data required: cases.no_utdt.D0
@@ -2246,28 +1536,24 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-074: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-074-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-UTDT-074: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-074: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-UTDT-075-API: [P0] UTDT scope strict — officer team A không thấy UTDT team B', async ({ request }) => {
     // Data required: utdt.other_team.D0, account.officer.primary
@@ -2277,28 +1563,24 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-075: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-075-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-UTDT-075: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-075: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-UTDT-076-API: [P0] VIEWER không write/Case → 403', async ({ request }) => {
     // Data required: account.viewer.D0
@@ -2308,90 +1590,30 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [403, 404];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-076: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-076-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [403, 404];
+    expect(status, `TC TC-UTDT-076: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-076: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
-  test('TC-UTDT-077-API: [P0] PUT UTDT đã deleted → 410/404', async ({ request }) => {
-    // Data required: utdt.deleted.D7
-    // Pre: -
-    // Steps: PUT
-    // Expected: HTTP 410/404
-    const endpoint = '/api/v1/cases/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.put(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [410, 404];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-077: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-077-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-UTDT-077-API: [P0] PUT UTDT đã deleted → 410/404', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/cases/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-UTDT-078-API: [P0] IDOR — UTDT team khác → 403/404', async ({ request }) => {
-    // Data required: utdt.other_team.D0, account.officer.primary
-    // Pre: -
-    // Steps: GET other team UTDT
-    // Expected: HTTP 403/404
-    const endpoint = '/api/v1/cases/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [403, 404];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-078: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-078-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-UTDT-078-API: [P0] IDOR — UTDT team khác → 403/404', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/cases/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
   test('TC-UTDT-079-API: [P0] Stats không leak counts cross-team', async ({ request }) => {
     // Data required: account.officer.primary, account.officer.secondary, utdt.cross_team.D0
@@ -2401,28 +1623,24 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases/utdt-stats';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400, 401, 403, 404, 409, 422, 429];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-079: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-079-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400, 401, 403, 404, 409, 422, 429];
+    expect(status, `TC TC-UTDT-079: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-079: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-UTDT-080-API: [P0] Prototype pollution metadata.__proto__', async ({ request }) => {
     // Data required: account.officer.primary
@@ -2432,59 +1650,27 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-080: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-080-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-UTDT-080: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-080: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
-  test('TC-UTDT-081-API: [P0] Mass assignment UTDT — gửi caseProvenance, createdById', async ({ request }) => {
-    // Data required: utdt.chua_phan_hoi.D30
-    // Pre: -
-    // Steps: PUT {caseProvenance:\'DIRECT_DISCOVERY\', createdById:\'attacker\'}
-    // Expected: HTTP 400 (whitelist) hoặc strip
-    const endpoint = '/api/v1/cases/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.put(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [400];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-081: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-081-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-UTDT-081-API: [P0] Mass assignment UTDT — gửi caseProvenance, createdById', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/cases/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
   test('TC-UTDT-082-API: [P0] Audit log UTDT có UTDT-specific fields', async ({ request }) => {
     // Data required: account.officer.primary
@@ -2494,28 +1680,24 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400, 401, 403, 404, 409, 422, 429];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-082: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-082-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400, 401, 403, 404, 409, 422, 429];
+    expect(status, `TC TC-UTDT-082: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-082: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-UTDT-083-API: [P1] UTDT stats RATE LIMIT (chống mass query)', async ({ request }) => {
     // Data required: account.officer.primary
@@ -2525,28 +1707,24 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400, 401, 403, 404, 409, 422, 429];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-083: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-083-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400, 401, 403, 404, 409, 422, 429];
+    expect(status, `TC TC-UTDT-083: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-083: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-UTDT-084-API: [P1] UTDT-related fields không leak qua /api/v1/cases (REGULAR)', async ({ request }) => {
     // Data required: cases.mixed_type.D0
@@ -2556,59 +1734,27 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400, 401, 403, 404, 409, 422, 429];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-084: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-084-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400, 401, 403, 404, 409, 422, 429];
+    expect(status, `TC TC-UTDT-084: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-084: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
-  test('TC-UTDT-085-API: [P0] Assign UTDT — verify DispatchGuard', async ({ request }) => {
-    // Data required: utdt.unassigned.D0, account.admin.primary, account.officer.primary
-    // Pre: -
-    // Steps: PATCH /assign UTDT
-    // Expected: HTTP 200 cho admin với canDispatch
-    const endpoint = '/api/v1/cases/:id/assign';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.patch(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-085: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-085-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-UTDT-085-API: [P0] Assign UTDT — verify DispatchGuard', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/cases/:id/assign" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
   test('TC-UTDT-086-API: [P1] UTDT search bypass caseType — verify can NOT bypass', async ({ request }) => {
     // Data required: utdt.donvi_pc01.D0, cases.regular.D0
@@ -2618,28 +1764,24 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-086: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-086-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-UTDT-086: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-086: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-UTDT-087-API: [P1] Verify counts buildTrangThaiFilter chính xác (đơn vị test)', async ({ request }) => {
     // Data required: utdt.all_state.D0
@@ -2649,28 +1791,24 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases/utdt-stats';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400, 401, 403, 404, 409, 422, 429];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-087: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-087-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400, 401, 403, 404, 409, 422, 429];
+    expect(status, `TC TC-UTDT-087: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-087: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-UTDT-088-API: [P1] UTDT donViGiao tiếng Việt + dấu', async ({ request }) => {
     // Data required: account.officer.primary
@@ -2680,28 +1818,24 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-088: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-088-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-UTDT-088: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-088: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-UTDT-089-API: [P1] UTDT soQuyetDinhUyThac format chuẩn Mẫu 58', async ({ request }) => {
     // Data required: account.officer.primary
@@ -2711,28 +1845,24 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
+      response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-089: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-089-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-UTDT-089: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-089: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-UTDT-090-API: [P0] caseType=UY_THAC_DIEU_TRA scope chặt + wardTeamId verify', async ({ request }) => {
     // Data required: utdt.shape.full.D0, account.officer.primary
@@ -2742,59 +1872,27 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-090: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-090-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201];
+    expect(status, `TC TC-UTDT-090: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-090: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
-  test('TC-UTDT-091-API: [P1] PUT UTDT thay đổi loaiUyThac giữa chừng', async ({ request }) => {
-    // Data required: utdt.chua_phan_hoi.D30
-    // Pre: UTDT đang xử lý
-    // Steps: PUT loaiUyThac từ UY_THAC_DIEU_TRA → CHUYEN_DON_NGUON_TIN
-    // Expected: HTTP 200 (allowed) hoặc 400 nếu rule immutable
-    const endpoint = '/api/v1/cases/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.put(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-091: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-091-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-UTDT-091-API: [P1] PUT UTDT thay đổi loaiUyThac giữa chừng', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/cases/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
   test('TC-UTDT-092-API: [P1] UTDT export/ward — verify chỉ UTDT trong ward', async ({ request }) => {
     // Data required: utdt.shape.full.D0
@@ -2804,152 +1902,36 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [400, 401, 403, 404, 409, 422, 429];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-092: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-092-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [400, 401, 403, 404, 409, 422, 429];
+    expect(status, `TC TC-UTDT-092: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-092: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
-  test('TC-UTDT-093-API: [P1] PUT UTDT với expectedUpdatedAt stale → 409', async ({ request }) => {
-    // Data required: utdt.recently_edited.D0
-    // Pre: -
-    // Steps: PUT stale optimistic lock
-    // Expected: HTTP 409
-    const endpoint = '/api/v1/cases/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.put(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [409];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-093: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-093-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-UTDT-093-API: [P1] PUT UTDT với expectedUpdatedAt stale → 409', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/cases/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-UTDT-094-API: [P0] Journey UTDT — events specific (assign, update ketQua, status change)', async ({ request }) => {
-    // Data required: utdt.with_events.D60
-    // Pre: -
-    // Steps: GET /journey UTDT
-    // Expected: HTTP 200, events có UTDT-specific (ketQua change, lyDoKhongThucHienDuoc set)
-    const endpoint = '/api/v1/cases/:id/journey';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-094: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-094-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-UTDT-094-API: [P0] Journey UTDT — events specific (assign, update ketQua, status change)', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/cases/:id/journey" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-UTDT-095-API: [P1] DELETE UTDT với reason hợp lệ', async ({ request }) => {
-    // Data required: utdt.creator_owned.D0
-    // Pre: -
-    // Steps: DELETE body {reason:\'UTDT bị thu hồi bởi đơn vị giao\'}
-    // Expected: HTTP 200
-    const endpoint = '/api/v1/cases/:id';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.delete(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-095: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-095-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-UTDT-095-API: [P1] DELETE UTDT với reason hợp lệ', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/cases/:id" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-UTDT-096-API: [P1] Restore UTDT đã xóa mềm', async ({ request }) => {
-    // Data required: utdt.deleted.D7, account.admin.primary
-    // Pre: -
-    // Steps: POST /restore reason=\'Khôi phục theo yêu cầu PC01\'
-    // Expected: HTTP 200, deletedAt=null
-    const endpoint = '/api/v1/cases/:id/restore';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.post(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-      const status = response.status();
-      const acceptable = [200, 201];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-096: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-096-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
-    }
+  test('TC-UTDT-096-API: [P1] Restore UTDT đã xóa mềm', async () => {
+    test.skip(true, 'Requires fixture ID — path "/api/v1/cases/:id/restore" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
   test('TC-UTDT-108-API: [P0] List 5k UTDT p95 < 800ms', async ({ request }) => {
     // Data required: utdt.shape.large.D0
@@ -2959,28 +1941,24 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases?caseType=UY_THAC_DIEU_TRA';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201, 204];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-108: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-108-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201, 204];
+    expect(status, `TC TC-UTDT-108: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-108: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-UTDT-109-API: [P0] utdt-stats 5k UTDT — 4 parallel computed counts < 600ms', async ({ request }) => {
     // Data required: utdt.shape.large.D0
@@ -2990,28 +1968,24 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases/utdt-stats';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201, 204];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-109: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-109-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201, 204];
+    expect(status, `TC TC-UTDT-109: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-109: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
   test('TC-UTDT-110-API: [P0] Filter computed state — query plan có index thoiHanUyThac', async ({ request }) => {
     // Data required: utdt.shape.large.D0
@@ -3021,28 +1995,24 @@ test.describe('UTDT — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases?trangThaiPhanHoi=QUA_HAN';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {
-        try { token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); } catch (_e) {}
-      }
-      const response = await request.get(apiUrl, {
+      response = await request.get(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         timeout: 15000,
         failOnStatusCode: false,
       });
-      const status = response.status();
-      const acceptable = [200, 201, 204];
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC TC-UTDT-110: status ${status} không nằm trong expected ${acceptable.join(',')}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    } catch (err: any) {
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[TC-UTDT-110-API] Network error: ${err.message}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    } catch (networkErr: any) {
+      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
+      return;
     }
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = [200, 201, 204];
+    expect(status, `TC TC-UTDT-110: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
+    expect(acceptable, `TC TC-UTDT-110: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
 
 });

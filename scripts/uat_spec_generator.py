@@ -80,6 +80,32 @@ def parse_endpoint(ep: str):
     return ('GET', ep)
 
 
+def extract_body_from_steps(steps_raw: str) -> str | None:
+    """Extract JS object literal từ steps text.
+    Ví dụ: '1. POST body {name:"...", key:"val"}' → '{name:"...", key:"val"}'
+    Dùng balanced-brace parser để handle nested objects/arrays.
+    Trả về None nếu không tìm thấy body hoặc body rỗng {}.
+    """
+    m = re.search(r'(?:body|Body)\s*(\{)', steps_raw)
+    if not m:
+        return None
+    start = m.start(1)
+    depth = 0
+    result = []
+    for ch in steps_raw[start:]:
+        if ch == '{':
+            depth += 1
+        elif ch == '}':
+            depth -= 1
+        result.append(ch)
+        if depth == 0:
+            break
+    body_str = ''.join(result)
+    if body_str.startswith('{') and body_str.endswith('}') and len(body_str) > 2:
+        return body_str
+    return None
+
+
 def gen_api_test(tc: dict, cfg: dict) -> str:
     """Sinh 1 test() block cho API layer."""
     tc_id = tc['id']
@@ -94,6 +120,15 @@ def gen_api_test(tc: dict, cfg: dict) -> str:
     # Skip UI-only TCs in API layer
     if method == 'UI':
         return ''
+
+    # Skip tests với path parameter placeholder (:id, {id}) — không có fixture ID thật
+    # Những test này cần beforeAll fixture setup riêng; emit test.skip thay vì false-fail
+    has_path_param = re.search(r'/:[a-zA-Z]|/\{[a-zA-Z]', path)
+    if has_path_param:
+        return f"""  test('{tc_id}-API: [{priority}] {title}', async () => {{
+    test.skip(true, 'Requires fixture ID — path "{path}" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
+  }});
+"""
 
     # Determine expected status code from title/expected
     expected_lower = expected.lower()
@@ -130,6 +165,15 @@ def gen_api_test(tc: dict, cfg: dict) -> str:
     if data_req:
         data_setup = f"    // Data required: {', '.join(data_req)}\n"
 
+    # Inject body cho POST/PUT/PATCH — dùng steps_raw (trước sanitize) để giữ quotes
+    steps_raw = tc.get('steps', '')
+    body_injection = ''
+    if method in ('POST', 'PUT', 'PATCH'):
+        body_js = extract_body_from_steps(steps_raw)
+        if body_js:
+            body_js = body_js.replace('`', "'")  # backtick phá TypeScript template literal
+            body_injection = f"      data: {body_js},\n"
+
     return f"""  test('{tc_id}-API: [{priority}] {title}', async ({{ request }}) => {{
 {data_setup}    // Pre: {pre or '-'}
     // Steps: {steps[:200]}
@@ -137,28 +181,24 @@ def gen_api_test(tc: dict, cfg: dict) -> str:
     const endpoint = '{path}';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+    const token = getToken();
+    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+    let response: any;
     try {{
-      const fs = require('fs');
-      const path = require('path');
-      let token = process.env.UAT_TOKEN || '';
-      if (!token) {{
-        try {{ token = fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim(); }} catch (_e) {{}}
-      }}
-      const response = await request.{method.lower()}(apiUrl, {{
+      response = await request.{method.lower()}(apiUrl, {{
         headers: {{ 'Authorization': `Bearer ${{token}}`, 'Content-Type': 'application/json' }},
-        timeout: 15000,
+{body_injection}        timeout: 15000,
         failOnStatusCode: false,
       }});
-      const status = response.status();
-      const acceptable = {expected_status};
-      // Soft assertion: log nếu status không trong acceptable, nhưng vẫn pass nếu trong [200..599]
-      expect(status, `TC {tc_id}: status ${{status}} không nằm trong expected ${{acceptable.join(',')}}`).toBeLessThan(600);
-      expect(acceptable).toContain(status);
-    }} catch (err: any) {{
-      // App có thể không chạy — soft fail để E2E layer xử lý
-      console.warn(`[{tc_id}-API] Network error: ${{err.message}}`);
-      test.skip(true, 'App backend không phản hồi — chuyển E2E layer');
+    }} catch (networkErr: any) {{
+      test.skip(true, `App không phản hồi: ${{networkErr.message?.slice(0,100)}}`);
+      return;
     }}
+    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
+    const status = response.status();
+    const acceptable = {expected_status};
+    expect(status, `TC {tc_id}: HTTP ${{status}} không nằm trong expected [${{acceptable.join(',')}}]`).toBeLessThan(600);
+    expect(acceptable, `TC {tc_id}: HTTP ${{status}} — expected [${{acceptable.join(',')}}]`).toContain(status);
   }});
 """
 
@@ -196,10 +236,13 @@ def gen_e2e_test(tc: dict, cfg: dict) -> str:
     is_perf = tc_type == 'PERFORMANCE'
     is_security = tc_type == 'SECURITY'
 
+    list_path_root = cfg["list_path"].split("?")[0]
+    path_re = list_path_root.replace("/", "\\/")
+
     if is_a11y:
-        assertions = f"""    // A11Y check: heading + landmark + focus
-    await {po_var}.gotoList();
-    expect(page.url(), 'URL phải chứa {cfg["list_path"].split("?")[0]}').toContain('{cfg["list_path"].split("?")[0]}');
+        assertions = f"""    // A11Y check: auth + heading + landmark + focus
+    await loginToPage(page, '{cfg["list_path"]}');
+    expect(page.url(), 'URL phải chứa {list_path_root}').toContain('{list_path_root}');
     const h1 = page.locator('h1').first();
     await expect(h1, 'H1 phải visible cho A11Y').toBeVisible();
     const mainLandmark = page.locator('main, [role="main"]').first();
@@ -210,50 +253,42 @@ def gen_e2e_test(tc: dict, cfg: dict) -> str:
             viewport_setup = "    await page.setViewportSize({ width: 375, height: 667 });\n"
         elif 'tablet' in title.lower() or '768' in title:
             viewport_setup = "    await page.setViewportSize({ width: 768, height: 1024 });\n"
-        assertions = f"""{viewport_setup}    await {po_var}.gotoList();
-    expect(page.url()).toContain('{cfg["list_path"].split("?")[0]}');
+        assertions = f"""{viewport_setup}    await loginToPage(page, '{cfg["list_path"]}');
+    expect(page.url()).toContain('{list_path_root}');
     await expect(page.locator('body')).toBeVisible();
-    const heading = page.getByRole('heading', {{ name: /{title_re}/i }}).first();
-    await expect(heading.or(page.locator('h1, h2').first())).toBeVisible();"""
+    const heading = page.getByRole('heading', {{ name: /{title_re}/i }});
+    await expect(heading.or(page.locator('h1, h2')).first()).toBeVisible();"""
     elif is_perf:
         assertions = f"""    const start = Date.now();
-    await {po_var}.gotoList();
+    await loginToPage(page, '{cfg["list_path"]}');
     const elapsed = Date.now() - start;
     expect(elapsed, `Page load ${{elapsed}}ms phải < 5000ms`).toBeLessThan(5000);
-    expect(page.url()).toContain('{cfg["list_path"].split("?")[0]}');
+    expect(page.url()).toContain('{list_path_root}');
     await expect(page.locator('body')).toBeVisible();"""
     elif is_red or is_security:
-        list_path_root = cfg["list_path"].split("?")[0]
-        # Build regex without backslashes inside f-string expressions
-        path_re = list_path_root.replace("/", "\\/")
         assertions = f"""    // Negative scenario — verify error hoặc redirect
-    await {po_var}.gotoList();
+    await loginToPage(page, '{cfg["list_path"]}');
     expect(page.url()).toMatch(/{path_re}|\\/login/);
     await expect(page.locator('body')).toBeVisible();
-    // Verify không leak unauthorized data hoặc có error message
     const bodyText = await page.locator('body').textContent();
     expect(bodyText, 'body có text').toBeTruthy();"""
     else:
         # GREEN, STATE, EP, BOUNDARY, EDGE, DATA, DECISION
-        assertions = f"""    await {po_var}.gotoList();
-    expect(page.url(), 'URL chứa {cfg["list_path"].split("?")[0]}').toContain('{cfg["list_path"].split("?")[0]}');
+        assertions = f"""    await loginToPage(page, '{cfg["list_path"]}');
+    expect(page.url(), 'URL chứa {list_path_root}').toContain('{list_path_root}');
     await expect(page.locator('body'), 'Body phải visible').toBeVisible();
-    const heading = page.getByRole('heading', {{ name: /{title_re}/i }}).first();
-    const fallback = page.locator('h1, h2, [data-testid$="-page"]').first();
-    await expect(heading.or(fallback), 'Heading nghiệp vụ phải hiện').toBeVisible();"""
+    const heading = page.getByRole('heading', {{ name: /{title_re}/i }});
+    const fallback = page.locator('h1, h2, [data-testid$="-page"]');
+    await expect(heading.or(fallback).first(), 'Heading nghiệp vụ phải hiện').toBeVisible();"""
 
     return f"""  test('{tc_id}-E2E: [{priority}] {title}', async ({{ page }}) => {{
     // Pre: {pre or '-'}
     // Steps: {steps[:200]}
     // Expected: {expected[:200]}
     const {po_var} = new {po_class}(page);
-    try {{
+    // Không wrap trong try/catch — assertion fail = test FAIL thật
+    // Chỉ dùng skip khi test.skip(true) được gọi rõ ràng (e.g. loginToPage redirect về /login)
 {assertions}
-    }} catch (err: any) {{
-      // App có thể chưa chạy hoặc auth fail — log + soft fail
-      console.warn(`[{tc_id}-E2E] ${{err.message}}`);
-      test.skip(true, `E2E skip: ${{err.message?.slice(0, 100)}}`);
-    }}
   }});
 """
 
@@ -281,6 +316,16 @@ def generate_feature(feature: str, project_root: Path):
 // Total TC in source: {len(test_cases)} | API tests generated: {len(api_blocks)}
 
 import {{ test, expect }} from '@playwright/test';
+import * as fs from 'fs';
+import * as path from 'path';
+
+// Token từ env hoặc file (global-setup đã login)
+function getToken(): string {{
+  if (process.env.UAT_TOKEN) return process.env.UAT_TOKEN;
+  try {{
+    return fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim();
+  }} catch (_e) {{ return ''; }}
+}}
 
 test.describe('{feature.upper()} — UAT API smoke layer', () => {{
 {''.join(api_blocks)}
@@ -303,6 +348,7 @@ test.describe('{feature.upper()} — UAT API smoke layer', () => {{
 
 import {{ test, expect }} from '@playwright/test';
 import {{ {cfg['po_class']} }} from '../pages/{cfg['po_class']}';
+import {{ loginToPage }} from '../helpers/auth';
 
 test.describe('{feature.upper()} — UAT E2E layer', () => {{
 {''.join(e2e_blocks)}
@@ -321,6 +367,6 @@ if __name__ == '__main__':
         features = sys.argv[1:]
     else:
         features = ['cases', 'incidents', 'petitions', 'utdt']
-    for f in features:
-        print(f"\n🔧 Generating {f}…")
-        generate_feature(f, project_root)
+    for feat in features:
+        print(f"\n🔧 Generating {feat}…")
+        generate_feature(feat, project_root)

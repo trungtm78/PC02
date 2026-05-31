@@ -34,3 +34,9 @@ maestro/.env
 # Runtime user uploads — never commit
 backend/uploads/
 test-results/
+
+# UAT test credentials — passwords in .env.test (gitignored), not committed
+docs/uat/_shared/test-accounts.json
+
+# Python test cache
+scripts/tests/__pycache__/
