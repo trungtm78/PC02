@@ -462,12 +462,10 @@ export function PetitionFormPage() {
           </div>
         </div>
 
-        {/* Section 4b: Tài liệu thực tế (Cycle 9 v0.52) — chỉ hiện ở edit mode khi đã có petitionId */}
-        {isEditMode && id && (
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-            <EntityDocumentsTab entityKind="petition" entityId={id} />
-          </div>
-        )}
+        {/* Section 4b: Tài liệu thực tế — luôn hiển thị; EntityDocumentsTab tự guard khi chưa có petitionId */}
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+          <EntityDocumentsTab entityKind="petition" entityId={id} />
+        </div>
 
         {/* Section 5: Phân công xử lý */}
         <div className="bg-white rounded-lg border border-slate-200 shadow-sm">

@@ -77,6 +77,58 @@ describe("EntityDocumentsTab", () => {
     expect(screen.queryByText(/Lưu hồ sơ/i)).toBeTruthy();
   });
 
+  // v0.67.6 — upload button ẩn khi entityId là undefined để tránh confuse create mode
+  it("hides 'Tải lên tài liệu' button when entityId is undefined", () => {
+    render(<EntityDocumentsTab entityKind="petition" entityId={undefined} />, { wrapper });
+    expect(screen.queryByRole("button", { name: /Tải lên tài liệu/i })).toBeNull();
+  });
+
+  it("shows 'Tải lên tài liệu' button when entityId is provided", async () => {
+    render(<EntityDocumentsTab entityKind="petition" entityId="pet-1" />, { wrapper });
+    expect(screen.getByRole("button", { name: /Tải lên tài liệu/i })).toBeTruthy();
+  });
+
+  // v0.67.6 — Enter key trong title/description input không bubble lên outer form
+  // Bug: EntityDocumentsTab nhúng trong <form onSubmit> của PetitionFormPage/IncidentFormPage,
+  // nhấn Enter trong input → outer form submit → redirect. Fix: onKeyDown preventDefault.
+  it("prevents Enter key from bubbling out of title input (no outer form submit)", async () => {
+    const outerSubmit = vi.fn((e: Event) => e.preventDefault());
+    const { container } = render(
+      <form onSubmit={outerSubmit as any}>
+        <EntityDocumentsTab entityKind="petition" entityId="pet-1" />
+      </form>,
+      { wrapper },
+    );
+
+    const openBtn = screen.getByRole("button", { name: /Tải lên tài liệu/i });
+    fireEvent.click(openBtn);
+
+    const titleInput = await screen.findByPlaceholderText(/Biên bản khám nghiệm/i);
+    fireEvent.keyDown(titleInput, { key: "Enter", code: "Enter", charCode: 13 });
+
+    expect(outerSubmit).not.toHaveBeenCalled();
+    // Đảm bảo form vẫn mở (không bị reset bởi submit)
+    expect(container.querySelector('input[placeholder*="Biên bản"]')).toBeTruthy();
+  });
+
+  it("prevents Enter key from bubbling out of description input", async () => {
+    const outerSubmit = vi.fn((e: Event) => e.preventDefault());
+    render(
+      <form onSubmit={outerSubmit as any}>
+        <EntityDocumentsTab entityKind="incident" entityId="inc-1" />
+      </form>,
+      { wrapper },
+    );
+
+    const openBtn = screen.getByRole("button", { name: /Tải lên tài liệu/i });
+    fireEvent.click(openBtn);
+
+    const descInput = await screen.findByPlaceholderText(/Ghi chú về tài liệu/i);
+    fireEvent.keyDown(descInput, { key: "Enter", code: "Enter", charCode: 13 });
+
+    expect(outerSubmit).not.toHaveBeenCalled();
+  });
+
   it("upload POSTs FormData with petitionId key when entityKind='petition'", async () => {
     apiPost.mockResolvedValue({ data: {} });
     render(<EntityDocumentsTab entityKind="petition" entityId="pet-1" />, { wrapper });

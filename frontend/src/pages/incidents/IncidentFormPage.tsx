@@ -707,12 +707,10 @@ export function IncidentFormPage() {
           </div>
         </CollapsibleSection>
 
-        {/* Tài liệu (Cycle 10 v0.52) — chỉ hiện ở edit mode khi đã có incidentId */}
-        {isEditMode && id && (
-          <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6">
-            <EntityDocumentsTab entityKind="incident" entityId={id} />
-          </div>
-        )}
+        {/* Tài liệu — luôn hiển thị; EntityDocumentsTab tự guard khi chưa có incidentId */}
+        <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6">
+          <EntityDocumentsTab entityKind="incident" entityId={id} />
+        </div>
 
         {/* Actions */}
         <div className="flex items-center justify-end gap-3 bg-white rounded-lg border border-slate-200 shadow-sm p-6">

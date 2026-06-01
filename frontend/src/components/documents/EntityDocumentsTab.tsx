@@ -173,17 +173,19 @@ export function EntityDocumentsTab({
       <CardHeader
         title={copy.cardTitle}
         actions={
-          <button
-            type="button"
-            onClick={() => {
-              setShowForm((v) => !v);
-              setError("");
-            }}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-          >
-            <Plus className="w-4 h-4" />
-            Tải lên tài liệu
-          </button>
+          entityId ? (
+            <button
+              type="button"
+              onClick={() => {
+                setShowForm((v) => !v);
+                setError("");
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+            >
+              <Plus className="w-4 h-4" />
+              Tải lên tài liệu
+            </button>
+          ) : undefined
         }
       />
 
@@ -198,6 +200,7 @@ export function EntityDocumentsTab({
               <input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="VD: Biên bản khám nghiệm hiện trường"
               />
@@ -219,6 +222,7 @@ export function EntityDocumentsTab({
               <input
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Ghi chú về tài liệu..."
               />
