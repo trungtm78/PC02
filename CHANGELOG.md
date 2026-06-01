@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.67.6.0] - 2026-06-01
+
+### Fixed
+- **Documents — Enter key trong form upload không còn submit outer form**: Nhấn Enter khi đang nhập Tiêu đề hoặc Mô tả tài liệu trong `EntityDocumentsTab` không còn trigger `<form onSubmit>` của `PetitionFormPage` / `IncidentFormPage`, ngăn redirect về màn hình danh sách trước khi user kịp chọn file. Fix: thêm `onKeyDown e.preventDefault()` vào cả hai text input.
+- **Documents — Nút "Tải lên tài liệu" ẩn khi chưa có entity ID**: Trong create mode (chưa lưu đơn/vụ việc), button "Tải lên tài liệu" bị ẩn thay vì hiện rồi báo lỗi. Giảm confusion cho người dùng.
+
+### Changed
+- **Đơn thư & Vụ việc — Section tài liệu luôn hiển thị**: `EntityDocumentsTab` nay render ngay cả khi tạo mới (create mode). Người dùng thấy section tài liệu kèm thông báo "Lưu [đơn/vụ việc] trước để tải lên tài liệu" — không còn bị ẩn hoàn toàn. Sau khi lưu, section tự động unlock với đầy đủ chức năng.
+- **Ủy thác điều tra — Mã số UTDT**: Hồ sơ ủy thác điều tra (caseProvenance = UY_THAC_DIEU_TRA) sử dụng document type `UTDT` (format `UTDT-YYYY-NNNNN`, counter riêng) thay vì type `CASE`. Label "Mã hồ sơ" đổi thành "Số ủy thác" trên form tạo UTDT.
+
 ## [0.67.5.1] - 2026-05-31
 
 ### Fixed
