@@ -1,5 +1,5 @@
 /**
- * Seed DocumentNumber templates for all 6 document types.
+ * Seed DocumentNumber templates for all document types.
  *
  * Idempotent: skips template creation if an active template for the documentType
  * already exists. Counter currentValue is only initialised (never decreased) —
@@ -84,6 +84,16 @@ const TEMPLATES: TemplateSpec[] = [
     inputMode: 'AUTO_WITH_OVERRIDE',
     resetPeriod: 'YEARLY',
     padding: 3,
+    yearPattern: 'YYYY',
+  },
+  {
+    name: 'Số ủy thác điều tra',
+    documentType: 'UTDT',
+    prefix: 'UTDT',
+    separator: '-',
+    inputMode: 'AUTO',
+    resetPeriod: 'YEARLY',
+    padding: 5,
     yearPattern: 'YYYY',
   },
   // v0.47 PR1 T4 — 4 series for Document Template Engine v1.0.
@@ -221,6 +231,7 @@ function getPrefix(documentType: string): string {
     PROPOSAL: 'DX',
     DELEGATION: 'UT',
     EVIDENCE: 'VC',
+    UTDT: 'UTDT',
   };
   return map[documentType] ?? '';
 }

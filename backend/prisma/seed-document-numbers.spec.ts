@@ -29,8 +29,8 @@ describe('v0.47 seed-document-numbers — 4 new series for Document Template Eng
   });
 
   // Structural regression guards — catch accidental duplicate / dropped entries.
-  it('contains exactly 10 templates (6 legacy + 4 v0.47)', () => {
-    expect(TEMPLATES).toHaveLength(10);
+  it('contains exactly 11 templates (6 legacy + 4 v0.47 + 1 UTDT)', () => {
+    expect(TEMPLATES).toHaveLength(11);
   });
 
   it('every documentType is unique', () => {

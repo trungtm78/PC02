@@ -354,6 +354,47 @@ describe('CasesService', () => {
         }),
       );
     });
+
+    // v0.68 — UY_THAC_DIEU_TRA caseProvenance dùng 'UTDT' docType thay vì 'CASE'
+    it('uses UTDT docType when caseProvenance is UY_THAC_DIEU_TRA', async () => {
+      const tx = {
+        case: { create: jest.fn().mockResolvedValue({ ...mockCase, caseProvenance: 'UY_THAC_DIEU_TRA' }) },
+        incident: { findFirst: jest.fn().mockResolvedValue(null), findUnique: jest.fn().mockResolvedValue(null), create: jest.fn(), update: jest.fn() },
+        documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
+      };
+      mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
+
+      await service.create(
+        { name: 'Ủy thác điều tra test', caseProvenance: 'UY_THAC_DIEU_TRA' as any },
+        'actor-001',
+      );
+
+      expect(mockDocNums.commitWithTx).toHaveBeenCalledWith(
+        'UTDT',
+        expect.anything(),
+        expect.anything(),
+      );
+    });
+
+    it('uses CASE docType for non-UTDT provenance', async () => {
+      const tx = {
+        case: { create: jest.fn().mockResolvedValue(mockCase) },
+        incident: { findFirst: jest.fn().mockResolvedValue(null), findUnique: jest.fn().mockResolvedValue(null), create: jest.fn(), update: jest.fn() },
+        documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
+      };
+      mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
+
+      await service.create(
+        { name: 'Vụ án bình thường', caseProvenance: 'DIRECT_DISCOVERY' as any },
+        'actor-001',
+      );
+
+      expect(mockDocNums.commitWithTx).toHaveBeenCalledWith(
+        'CASE',
+        expect.anything(),
+        expect.anything(),
+      );
+    });
   });
 
   // ── v0.37.1 — Provenance model ────────────────────────────────────────────

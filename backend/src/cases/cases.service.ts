@@ -1027,7 +1027,8 @@ export class CasesService {
     let record!: Awaited<ReturnType<typeof this.prisma.case.create>>;
     try {
       record = await this.prisma.$transaction(async (tx: any) => {
-        const { number: caseCode, logId: caseCodeLogId } = await this.docNums.commitWithTx('CASE', { userId: actorId }, tx);
+        const caseDocType = effectiveProvenance === CaseProvenance.UY_THAC_DIEU_TRA ? 'UTDT' : 'CASE';
+        const { number: caseCode, logId: caseCodeLogId } = await this.docNums.commitWithTx(caseDocType, { userId: actorId }, tx);
 
         let incidentLogId: string | null = null;
         if (needsAutoIncident) {

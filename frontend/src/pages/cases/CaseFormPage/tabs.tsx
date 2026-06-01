@@ -178,13 +178,15 @@ export function TabInfo({ formData, setFormData, errors, setErrors, handlerOptio
         <CardHeader title="Thông tin hồ sơ" />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Mã hồ sơ</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {formData.caseProvenance === 'UY_THAC_DIEU_TRA' ? 'Số ủy thác' : 'Mã hồ sơ'}
+            </label>
             <DocNumberPreviewField
               inputMode="AUTO"
               value={formData.caseCode}
               onChange={(v) => update("caseCode", v)}
               loading={isDraftCodeLoading}
-              placeholder="HS-2026-001"
+              placeholder={formData.caseProvenance === 'UY_THAC_DIEU_TRA' ? 'UTDT-2026-00001' : 'HS-2026-001'}
             />
             {errors.caseCode && (
               <p className="text-xs text-red-600 mt-1">{errors.caseCode}</p>
