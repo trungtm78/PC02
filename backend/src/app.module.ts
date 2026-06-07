@@ -53,6 +53,7 @@ import { UnitScopeService } from './auth/services/unit-scope.service';
 import { DataScopeInterceptor } from './auth/interceptors/data-scope.interceptor';
 import { TestFixturesModule } from './test-fixtures/test-fixtures.module';
 import { DocumentNumbersModule } from './document-numbers/document-numbers.module';
+import { CrimesModule } from './crimes/crimes.module';
 
 @Module({
   imports: [
@@ -66,6 +67,7 @@ import { DocumentNumbersModule } from './document-numbers/document-numbers.modul
     AuditModule,
     AdminModule,
     DirectoryModule,
+    CrimesModule,
     AddressMappingModule,
     CasesModule,
     SubjectsModule,
