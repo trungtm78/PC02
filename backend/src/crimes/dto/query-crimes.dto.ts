@@ -1,5 +1,5 @@
 import { Transform, Type } from 'class-transformer';
-import { IsBoolean, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsBoolean, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 
 const toBool = ({ value }: { value: unknown }): unknown => {
   if (value === 'true' || value === true) return true;
@@ -16,6 +16,7 @@ export class QueryCrimesDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(200)
   search?: string;
 
   @IsOptional()

@@ -24,20 +24,26 @@ const num = (v: unknown): number | undefined => {
 };
 
 // Chuyển ngày hệ thống cũ (dd/mm/yyyy hoặc yyyy-mm-dd) → Date.
+// Dùng roundtrip check để từ chối ngày âm lịch/overflow (vd 31/02/2025 → wrap sang 3/3 mà không bị bắt).
 export function parseLegacyDate(v: unknown): Date | undefined {
   const str = s(v);
   if (!str) return undefined;
+  let year: number, month: number, day: number;
   let m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(str);
   if (m) {
-    const d = new Date(Date.UTC(Number(m[3]), Number(m[2]) - 1, Number(m[1])));
-    return Number.isNaN(d.getTime()) ? undefined : d;
+    day = Number(m[1]); month = Number(m[2]); year = Number(m[3]);
+  } else {
+    m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(str);
+    if (!m) return undefined;
+    year = Number(m[1]); month = Number(m[2]); day = Number(m[3]);
   }
-  m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(str);
-  if (m) {
-    const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
-    return Number.isNaN(d.getTime()) ? undefined : d;
+  const d = new Date(Date.UTC(year, month - 1, day));
+  if (Number.isNaN(d.getTime())) return undefined;
+  // Roundtrip: JS wraps overflow (31/02 → 3/3). Reject nếu UTC day/month/year khác input.
+  if (d.getUTCFullYear() !== year || d.getUTCMonth() + 1 !== month || d.getUTCDate() !== day) {
+    return undefined;
   }
-  return undefined;
+  return d;
 }
 
 const PHAN_LOAI_DON = new Set(['don-cong-van-ban-dau']);

@@ -11,6 +11,12 @@ describe('parseLegacyDate', () => {
     expect(parseLegacyDate('')).toBeUndefined();
     expect(parseLegacyDate('linh tinh')).toBeUndefined();
   });
+  it('ngày overflow (31/02/2025) → undefined (không wrap sang tháng 3)', () => {
+    expect(parseLegacyDate('31/02/2025')).toBeUndefined();
+  });
+  it('ngày hợp lệ cuối tháng (28/02/2025) → Date đúng', () => {
+    expect(parseLegacyDate('28/02/2025')?.toISOString().slice(0, 10)).toBe('2025-02-28');
+  });
 });
 
 describe('decomposeLegacyRecord', () => {

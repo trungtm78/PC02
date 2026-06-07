@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { decomposeLegacyRecord, type LegacyRecord } from './legacy-mapper';
@@ -24,11 +24,12 @@ export class LegacyMigrationService {
   }
 
   // Resolve crimeChinhLegacyValue → crimeChinhId qua master Crime (theo legacyValue).
-  private async resolveCrime(data: Record<string, unknown>): Promise<void> {
+  // tx phải được truyền từ $transaction để đảm bảo đọc trong cùng boundary.
+  private async resolveCrime(tx: any, data: Record<string, unknown>): Promise<void> {
     const lv = data.crimeChinhLegacyValue as number | undefined;
     delete data.crimeChinhLegacyValue;
     if (lv === undefined) return;
-    const crime = await this.prisma.crime.findFirst({ where: { legacyValue: lv } });
+    const crime = await tx.crime.findFirst({ where: { legacyValue: lv } });
     if (crime) data.crimeChinhId = crime.id;
   }
 
@@ -53,7 +54,7 @@ export class LegacyMigrationService {
         await this.prisma.$transaction(async (tx: any) => {
           if (d.petition) {
             const data = { ...d.petition };
-            await this.resolveCrime(data);
+            await this.resolveCrime(tx, data);
             const existing = await tx.petition.findFirst({ where: { legacySourceId: legacyId } });
             if (existing) {
               await tx.petition.update({ where: { id: existing.id }, data });
@@ -84,7 +85,7 @@ export class LegacyMigrationService {
           }
           if (d.case) {
             const data = { ...d.case };
-            await this.resolveCrime(data);
+            await this.resolveCrime(tx, data);
             const existing = await tx.case.findFirst({ where: { legacySourceId: legacyId } });
             if (existing) {
               await tx.case.update({ where: { id: existing.id }, data });
@@ -114,19 +115,30 @@ export class LegacyMigrationService {
 
   // Rollback: xóa entity đã di trú theo danh sách legacySourceId (chỉ record do di trú tạo).
   async rollback(legacyIds: string[], actorId: string): Promise<{ deleted: number }> {
-    const res = await this.prisma.$transaction(async (tx: any) => {
-      const p = await tx.petition.deleteMany({ where: { legacySourceId: { in: legacyIds } } });
-      const i = await tx.incident.deleteMany({ where: { legacySourceId: { in: legacyIds } } });
-      const c = await tx.case.deleteMany({ where: { legacySourceId: { in: legacyIds } } });
-      return p.count + i.count + c.count;
-    });
+    let deleted: number;
+    try {
+      deleted = await this.prisma.$transaction(async (tx: any) => {
+        const p = await tx.petition.deleteMany({ where: { legacySourceId: { in: legacyIds } } });
+        const i = await tx.incident.deleteMany({ where: { legacySourceId: { in: legacyIds } } });
+        const c = await tx.case.deleteMany({ where: { legacySourceId: { in: legacyIds } } });
+        return p.count + i.count + c.count;
+      });
+    } catch (e) {
+      const msg = (e as Error).message ?? '';
+      if (msg.includes('Foreign key constraint') || msg.includes('P2003')) {
+        throw new BadRequestException(
+          'Không thể rollback: một số bản ghi có dữ liệu con liên kết. Hãy xóa dữ liệu con trước khi rollback.',
+        );
+      }
+      throw e;
+    }
     await this.audit.log({
       userId: actorId,
       action: 'LEGACY_MIGRATION_ROLLBACK',
       subject: 'LegacyMigration',
       subjectId: 'batch',
-      metadata: { deleted: res, legacyIds },
+      metadata: { deleted, legacyIds },
     });
-    return { deleted: res };
+    return { deleted };
   }
 }

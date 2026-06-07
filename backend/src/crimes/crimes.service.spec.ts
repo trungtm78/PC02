@@ -1,3 +1,4 @@
+import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { CrimesService } from './crimes.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -64,6 +65,19 @@ describe('CrimesService', () => {
         order: 'asc',
       });
       expect(res).toEqual({ data: [{ code: 'D123' }], total: 1, limit: 10, offset: 0 });
+    });
+  });
+
+  describe('findOne', () => {
+    it('trả crime khi tìm thấy theo id', async () => {
+      const crime = { id: 'c1', code: 'D168', name: 'Tội buôn bán ma túy' };
+      mockPrisma.crime.findUnique.mockResolvedValue(crime);
+      await expect(service.findOne('c1')).resolves.toEqual(crime);
+    });
+
+    it('throw NotFoundException khi không tìm thấy id', async () => {
+      mockPrisma.crime.findUnique.mockResolvedValue(null);
+      await expect(service.findOne('not-exist')).rejects.toThrow(NotFoundException);
     });
   });
 });
