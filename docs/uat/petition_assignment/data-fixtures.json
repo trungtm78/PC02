@@ -1,0 +1,539 @@
+{
+  "feature": "petition_assignment",
+  "version": "1.0",
+  "description": "Data Maturity Matrix — STATE × LIFECYCLE × SHAPE fixtures cho PetitionAssignment feature",
+  "entities": ["Petition", "User", "Team", "PetitionAssignment"],
+  "fixtures": [
+
+    {
+      "id": "petition.new.D0",
+      "entity": "Petition",
+      "state": "New",
+      "lifecycle": "D0",
+      "shape": "empty",
+      "description": "Đơn thư vừa tạo, chưa có assignment, chưa có team",
+      "setup_recipe": {
+        "method": "api",
+        "endpoint": "POST /api/v1/petitions",
+        "headers": {"Authorization": "Bearer {{token.admin}}"},
+        "body": {
+          "senderName": "Nguyễn Văn Test {{random}}",
+          "receivedDate": "{{today}}",
+          "summary": "Đơn thư test fixture {{random}}"
+        },
+        "capture": {"$.id": "petition_id"}
+      },
+      "cleanup_recipe": {
+        "method": "api",
+        "endpoint": "DELETE /api/v1/petitions/{{petition_id}}",
+        "headers": {"Authorization": "Bearer {{token.admin}}"}
+      },
+      "outputs": {
+        "petition_id": "$.id",
+        "assignedTeamId": null,
+        "assignedToId": null,
+        "assignment_count": 0
+      }
+    },
+
+    {
+      "id": "petition.unassigned.D0",
+      "entity": "Petition",
+      "state": "Active",
+      "lifecycle": "D0",
+      "shape": "with_team_no_officer",
+      "description": "Đơn thư có assignedTeamId nhưng chưa có assignedToId",
+      "setup_recipe": {
+        "method": "api_chain",
+        "steps": [
+          {"endpoint": "POST /api/v1/petitions", "body": {"senderName": "Fixture {{random}}", "receivedDate": "{{today}}", "summary": "test"}, "capture": {"$.id": "petition_id"}},
+          {"endpoint": "PATCH /api/v1/petitions/{{petition_id}}/assign", "body": {"assignedTeamId": "{{team.with_leader.id}}", "expectedUpdatedAt": "{{petition_id.updatedAt}}"}}
+        ],
+        "headers": {"Authorization": "Bearer {{token.admin}}"}
+      },
+      "cleanup_recipe": {
+        "method": "api",
+        "endpoint": "DELETE /api/v1/petitions/{{petition_id}}",
+        "headers": {"Authorization": "Bearer {{token.admin}}"}
+      },
+      "outputs": {
+        "petition_id": "$.id",
+        "assignedTeamId": "team.with_leader.id",
+        "assignedToId": null,
+        "assignment_count": 0
+      }
+    },
+
+    {
+      "id": "petition.assigned_team.D7",
+      "entity": "Petition",
+      "state": "Active",
+      "lifecycle": "D7",
+      "shape": "with_team_and_officer",
+      "description": "Đơn thư đã có team + officer (assignedToId) nhưng không có PetitionAssignment",
+      "setup_recipe": {
+        "method": "api_chain",
+        "steps": [
+          {"endpoint": "POST /api/v1/petitions", "body": {"senderName": "Fixture {{random}}", "receivedDate": "{{D-7}}", "summary": "test"}, "capture": {"$.id": "petition_id"}},
+          {"endpoint": "PATCH /api/v1/petitions/{{petition_id}}/assign", "body": {"assignedTeamId": "{{team.with_leader.id}}", "assignedToId": "{{account.officer.primary.id}}", "expectedUpdatedAt": "{{petition_id.updatedAt}}"}}
+        ],
+        "headers": {"Authorization": "Bearer {{token.admin}}"}
+      },
+      "cleanup_recipe": {
+        "method": "api",
+        "endpoint": "DELETE /api/v1/petitions/{{petition_id}}",
+        "headers": {"Authorization": "Bearer {{token.admin}}"}
+      },
+      "outputs": {
+        "petition_id": "$.id",
+        "assignedTeamId": "team.with_leader.id",
+        "assignedToId": "account.officer.primary.id",
+        "assignment_count": 0
+      }
+    },
+
+    {
+      "id": "petition.with_1_assignment.D7",
+      "entity": "Petition",
+      "state": "Active",
+      "lifecycle": "D7",
+      "shape": "single",
+      "description": "Đơn thư có đúng 1 PetitionAssignment (SUPPORT)",
+      "setup_recipe": {
+        "method": "api_chain",
+        "steps": [
+          {"endpoint": "POST /api/v1/petitions", "body": {"senderName": "Fixture {{random}}", "receivedDate": "{{D-7}}", "summary": "test"}, "capture": {"$.id": "petition_id"}},
+          {"endpoint": "POST /api/v1/petitions/{{petition_id}}/assignments", "body": {"userId": "{{account.officer.primary.id}}", "role": "SUPPORT"}}
+        ],
+        "headers": {"Authorization": "Bearer {{token.admin}}"}
+      },
+      "cleanup_recipe": {
+        "method": "api_chain",
+        "steps": [
+          {"endpoint": "DELETE /api/v1/petitions/{{petition_id}}/assignments/{{account.officer.primary.id}}"},
+          {"endpoint": "DELETE /api/v1/petitions/{{petition_id}}"}
+        ],
+        "headers": {"Authorization": "Bearer {{token.admin}}"}
+      },
+      "outputs": {
+        "petition_id": "$.id",
+        "assignments": [{"userId": "account.officer.primary.id", "role": "SUPPORT"}],
+        "assignment_count": 1,
+        "assigned_user_1": "account.officer.primary.id"
+      }
+    },
+
+    {
+      "id": "petition.with_2_assignments.D7",
+      "entity": "Petition",
+      "state": "Active",
+      "lifecycle": "D7",
+      "shape": "normal",
+      "description": "Đơn thư có 2 PetitionAssignment: 1 LEAD + 1 SUPPORT",
+      "setup_recipe": {
+        "method": "api_chain",
+        "steps": [
+          {"endpoint": "POST /api/v1/petitions", "body": {"senderName": "Fixture {{random}}", "receivedDate": "{{D-7}}", "summary": "test"}, "capture": {"$.id": "petition_id"}},
+          {"endpoint": "POST /api/v1/petitions/{{petition_id}}/assignments", "body": {"userId": "{{account.officer.leader.id}}", "role": "LEAD"}},
+          {"endpoint": "POST /api/v1/petitions/{{petition_id}}/assignments", "body": {"userId": "{{account.officer.primary.id}}", "role": "SUPPORT"}}
+        ],
+        "headers": {"Authorization": "Bearer {{token.admin}}"}
+      },
+      "cleanup_recipe": {
+        "method": "api_chain",
+        "steps": [
+          {"endpoint": "DELETE /api/v1/petitions/{{petition_id}}/assignments/{{account.officer.leader.id}}"},
+          {"endpoint": "DELETE /api/v1/petitions/{{petition_id}}/assignments/{{account.officer.primary.id}}"},
+          {"endpoint": "DELETE /api/v1/petitions/{{petition_id}}"}
+        ],
+        "headers": {"Authorization": "Bearer {{token.admin}}"}
+      },
+      "outputs": {
+        "petition_id": "$.id",
+        "assignments": [
+          {"userId": "account.officer.leader.id", "role": "LEAD"},
+          {"userId": "account.officer.primary.id", "role": "SUPPORT"}
+        ],
+        "assignment_count": 2,
+        "lead_user": "account.officer.leader.id",
+        "support_user": "account.officer.primary.id"
+      }
+    },
+
+    {
+      "id": "petition.with_3_assignments.D7",
+      "entity": "Petition",
+      "state": "Active",
+      "lifecycle": "D7",
+      "shape": "normal",
+      "description": "Đơn thư có 3 PetitionAssignment",
+      "setup_recipe": {
+        "method": "api_chain",
+        "steps": [
+          {"endpoint": "POST /api/v1/petitions", "body": {"senderName": "Fixture {{random}}", "receivedDate": "{{D-7}}", "summary": "test"}, "capture": {"$.id": "petition_id"}},
+          {"endpoint": "POST /api/v1/petitions/{{petition_id}}/assignments", "body": {"userId": "{{account.officer.leader.id}}", "role": "LEAD"}},
+          {"endpoint": "POST /api/v1/petitions/{{petition_id}}/assignments", "body": {"userId": "{{account.officer.primary.id}}", "role": "SUPPORT"}},
+          {"endpoint": "POST /api/v1/petitions/{{petition_id}}/assignments", "body": {"userId": "{{account.officer2.id}}", "role": "SUPPORT"}}
+        ],
+        "headers": {"Authorization": "Bearer {{token.admin}}"}
+      },
+      "cleanup_recipe": {
+        "method": "api_chain",
+        "steps": [
+          {"endpoint": "DELETE /api/v1/petitions/{{petition_id}}/assignments/{{account.officer.leader.id}}"},
+          {"endpoint": "DELETE /api/v1/petitions/{{petition_id}}/assignments/{{account.officer.primary.id}}"},
+          {"endpoint": "DELETE /api/v1/petitions/{{petition_id}}/assignments/{{account.officer2.id}}"},
+          {"endpoint": "DELETE /api/v1/petitions/{{petition_id}}"}
+        ],
+        "headers": {"Authorization": "Bearer {{token.admin}}"}
+      },
+      "outputs": {
+        "petition_id": "$.id",
+        "assignment_count": 3
+      }
+    },
+
+    {
+      "id": "petition.closed.D30",
+      "entity": "Petition",
+      "state": "Closed",
+      "lifecycle": "D30",
+      "shape": "with_assignments",
+      "description": "Đơn thư đã đóng (status DA_DONG)",
+      "setup_recipe": {
+        "method": "api_chain",
+        "steps": [
+          {"endpoint": "POST /api/v1/petitions", "body": {"senderName": "Fixture {{random}}", "receivedDate": "{{D-30}}", "summary": "test"}, "capture": {"$.id": "petition_id"}},
+          {"endpoint": "PATCH /api/v1/petitions/{{petition_id}}", "body": {"status": "DA_DONG"}}
+        ],
+        "headers": {"Authorization": "Bearer {{token.admin}}"}
+      },
+      "cleanup_recipe": {
+        "method": "api",
+        "endpoint": "DELETE /api/v1/petitions/{{petition_id}}",
+        "headers": {"Authorization": "Bearer {{token.admin}}"}
+      },
+      "outputs": {
+        "petition_id": "$.id",
+        "status": "DA_DONG"
+      }
+    },
+
+    {
+      "id": "petition.with_lead_assignment.D7",
+      "entity": "Petition",
+      "state": "Active",
+      "lifecycle": "D7",
+      "shape": "with_lead_only",
+      "description": "Đơn thư có 1 assignment với role LEAD (dùng cho test unique constraint role)",
+      "setup_recipe": {
+        "method": "api_chain",
+        "steps": [
+          {"endpoint": "POST /api/v1/petitions", "body": {"senderName": "Fixture {{random}}", "receivedDate": "{{D-7}}", "summary": "test"}, "capture": {"$.id": "petition_id"}},
+          {"endpoint": "POST /api/v1/petitions/{{petition_id}}/assignments", "body": {"userId": "{{account.officer.leader.id}}", "role": "LEAD"}}
+        ],
+        "headers": {"Authorization": "Bearer {{token.admin}}"}
+      },
+      "cleanup_recipe": {
+        "method": "api_chain",
+        "steps": [
+          {"endpoint": "DELETE /api/v1/petitions/{{petition_id}}/assignments/{{account.officer.leader.id}}"},
+          {"endpoint": "DELETE /api/v1/petitions/{{petition_id}}"}
+        ],
+        "headers": {"Authorization": "Bearer {{token.admin}}"}
+      },
+      "outputs": {
+        "petition_id": "$.id",
+        "lead_user": "account.officer.leader.id",
+        "assignment_count": 1
+      }
+    },
+
+    {
+      "id": "petition.with_50_assignments.D30",
+      "entity": "Petition",
+      "state": "Active",
+      "lifecycle": "D30",
+      "shape": "large",
+      "description": "Đơn thư có 50 assignment (performance test)",
+      "setup_recipe": {
+        "method": "script",
+        "script": "seed_petition_assignments.py",
+        "args": {"count": 50, "petitionId": "{{petition_id}}"},
+        "note": "Tạo 50 user fake + 50 assignment records trong DB"
+      },
+      "cleanup_recipe": {
+        "method": "sql",
+        "query": "DELETE FROM petition_assignments WHERE petition_id = '{{petition_id}}'; DELETE FROM petitions WHERE id = '{{petition_id}}';"
+      },
+      "outputs": {
+        "petition_id": "dynamic",
+        "assignment_count": 50
+      }
+    },
+
+    {
+      "id": "petition.with_100_assignments.D90",
+      "entity": "Petition",
+      "state": "Active",
+      "lifecycle": "D90",
+      "shape": "extra_large",
+      "description": "Đơn thư có 100 assignment (boundary/stress test)",
+      "setup_recipe": {
+        "method": "script",
+        "script": "seed_petition_assignments.py",
+        "args": {"count": 100, "petitionId": "{{petition_id}}"},
+        "note": "Tạo 100 user fake + 100 assignment records"
+      },
+      "cleanup_recipe": {
+        "method": "sql",
+        "query": "DELETE FROM petition_assignments WHERE petition_id = '{{petition_id}}'; DELETE FROM petitions WHERE id = '{{petition_id}}';"
+      },
+      "outputs": {
+        "petition_id": "dynamic",
+        "assignment_count": 100
+      }
+    },
+
+    {
+      "id": "petition.status_kiem_tra.D7",
+      "entity": "Petition",
+      "state": "InProgress",
+      "lifecycle": "D7",
+      "shape": "with_status",
+      "description": "Đơn thư đang trong trạng thái xác minh (KIEM_TRA)",
+      "setup_recipe": {
+        "method": "api_chain",
+        "steps": [
+          {"endpoint": "POST /api/v1/petitions", "body": {"senderName": "Fixture {{random}}", "receivedDate": "{{D-7}}", "summary": "test"}, "capture": {"$.id": "petition_id"}},
+          {"endpoint": "PATCH /api/v1/petitions/{{petition_id}}", "body": {"status": "KIEM_TRA"}}
+        ],
+        "headers": {"Authorization": "Bearer {{token.admin}}"}
+      },
+      "cleanup_recipe": {
+        "method": "api",
+        "endpoint": "DELETE /api/v1/petitions/{{petition_id}}",
+        "headers": {"Authorization": "Bearer {{token.admin}}"}
+      },
+      "outputs": {
+        "petition_id": "$.id",
+        "status": "KIEM_TRA"
+      }
+    },
+
+    {
+      "id": "account.officer.primary",
+      "entity": "User",
+      "state": "Active",
+      "lifecycle": "D0",
+      "shape": "normal",
+      "description": "Cán bộ thông thường, thuộc team-A, không phải leader",
+      "setup_recipe": {
+        "method": "seed",
+        "note": "Seeded by db:seed — user officer1@pc02.local",
+        "credentials": {"email": "officer1@pc02.local", "password": "{{env.OFFICER1_PASSWORD}}"}
+      },
+      "cleanup_recipe": {"method": "none", "note": "Seed user — không xóa"},
+      "outputs": {
+        "user_id": "lookup by email",
+        "teamId": "team-A",
+        "isLeader": false,
+        "displayName": "Cán bộ 1"
+      }
+    },
+
+    {
+      "id": "account.officer.leader",
+      "entity": "User",
+      "state": "Active",
+      "lifecycle": "D0",
+      "shape": "leader",
+      "description": "Đội trưởng, thuộc team-A, isLeader=true",
+      "setup_recipe": {
+        "method": "seed",
+        "note": "Seeded by db:seed — user approver1@pc02.local hoặc tạo thủ công",
+        "credentials": {"email": "approver1@pc02.local", "password": "{{env.APPROVER1_PASSWORD}}"}
+      },
+      "cleanup_recipe": {"method": "none", "note": "Seed user — không xóa"},
+      "outputs": {
+        "user_id": "lookup by email",
+        "teamId": "team-A",
+        "isLeader": true,
+        "displayName": "Đội trưởng A"
+      }
+    },
+
+    {
+      "id": "account.admin.primary",
+      "entity": "User",
+      "state": "Active",
+      "lifecycle": "D0",
+      "shape": "admin_no_team",
+      "description": "Admin, không thuộc team nào, có quyền edit Petition",
+      "setup_recipe": {
+        "method": "seed",
+        "note": "Seeded by db:seed — user admin@pc02.local",
+        "credentials": {"email": "admin@pc02.local", "password": "{{env.ADMIN_PASSWORD}}"}
+      },
+      "cleanup_recipe": {"method": "none", "note": "Seed user — không xóa"},
+      "outputs": {
+        "user_id": "lookup by email",
+        "teamId": null,
+        "role": "ADMIN"
+      }
+    },
+
+    {
+      "id": "account.officer2",
+      "entity": "User",
+      "state": "Active",
+      "lifecycle": "D0",
+      "shape": "normal",
+      "description": "Cán bộ thứ 2, thuộc team-A, không phải leader",
+      "setup_recipe": {
+        "method": "seed",
+        "note": "Seeded by db:seed — user officer2@pc02.local",
+        "credentials": {"email": "officer2@pc02.local", "password": "{{env.OFFICER2_PASSWORD}}"}
+      },
+      "cleanup_recipe": {"method": "none", "note": "Seed user — không xóa"},
+      "outputs": {
+        "user_id": "lookup by email",
+        "teamId": "team-A",
+        "isLeader": false
+      }
+    },
+
+    {
+      "id": "user.soft_deleted",
+      "entity": "User",
+      "state": "SoftDeleted",
+      "lifecycle": "D7",
+      "shape": "deleted",
+      "description": "User đã bị soft-delete (deletedAt set)",
+      "setup_recipe": {
+        "method": "api_chain",
+        "steps": [
+          {"endpoint": "POST /api/v1/users", "body": {"email": "softdel-{{random}}@pc02.local", "name": "Soft Deleted User", "role": "OFFICER"}, "capture": {"$.id": "user_id"}},
+          {"endpoint": "DELETE /api/v1/users/{{user_id}}", "note": "soft delete"}
+        ],
+        "headers": {"Authorization": "Bearer {{token.admin}}"}
+      },
+      "cleanup_recipe": {
+        "method": "sql",
+        "query": "DELETE FROM users WHERE id = '{{user_id}}';"
+      },
+      "outputs": {
+        "user_id": "dynamic",
+        "deletedAt": "{{now}}",
+        "state": "soft_deleted"
+      }
+    },
+
+    {
+      "id": "team.with_leader",
+      "entity": "Team",
+      "state": "Active",
+      "lifecycle": "D0",
+      "shape": "with_leader",
+      "description": "Team có ít nhất 1 member với isLeader=true",
+      "setup_recipe": {
+        "method": "seed",
+        "note": "Seeded by db:seed — team 'Đội A' với approver1 là leader"
+      },
+      "cleanup_recipe": {"method": "none", "note": "Seed team — không xóa"},
+      "outputs": {
+        "team_id": "lookup by name 'Đội A'",
+        "leader_user_id": "account.officer.leader.id",
+        "member_count": ">=2"
+      }
+    },
+
+    {
+      "id": "team.without_leader",
+      "entity": "Team",
+      "state": "Active",
+      "lifecycle": "D0",
+      "shape": "no_leader",
+      "description": "Team không có member nào isLeader=true (dùng để test fail-open case)",
+      "setup_recipe": {
+        "method": "api_chain",
+        "steps": [
+          {"endpoint": "POST /api/v1/teams", "body": {"name": "Team No Leader {{random}}"}, "capture": {"$.id": "team_id"}},
+          {"endpoint": "POST /api/v1/teams/{{team_id}}/members", "body": {"userId": "{{account.officer2.id}}", "isLeader": false}}
+        ],
+        "headers": {"Authorization": "Bearer {{token.admin}}"}
+      },
+      "cleanup_recipe": {
+        "method": "api",
+        "endpoint": "DELETE /api/v1/teams/{{team_id}}",
+        "headers": {"Authorization": "Bearer {{token.admin}}"}
+      },
+      "outputs": {
+        "team_id": "dynamic",
+        "leader_user_id": null,
+        "member_count": 1
+      }
+    },
+
+    {
+      "id": "team.empty",
+      "entity": "Team",
+      "state": "Active",
+      "lifecycle": "D0",
+      "shape": "empty",
+      "description": "Team không có member nào",
+      "setup_recipe": {
+        "method": "api",
+        "endpoint": "POST /api/v1/teams",
+        "body": {"name": "Empty Team {{random}}"},
+        "headers": {"Authorization": "Bearer {{token.admin}}"},
+        "capture": {"$.id": "team_id"}
+      },
+      "cleanup_recipe": {
+        "method": "api",
+        "endpoint": "DELETE /api/v1/teams/{{team_id}}",
+        "headers": {"Authorization": "Bearer {{token.admin}}"}
+      },
+      "outputs": {
+        "team_id": "dynamic",
+        "member_count": 0
+      }
+    }
+  ],
+
+  "template_variables": {
+    "{{now}}": "ISO8601 timestamp at time of setup",
+    "{{today}}": "YYYY-MM-DD at time of setup",
+    "{{D-N}}": "ISO8601 N days ago",
+    "{{D+N}}": "ISO8601 N days in future",
+    "{{random}}": "4-char alphanumeric suffix (not UUID) for deduplication",
+    "{{uuid}}": "Full UUID v4",
+    "{{token.admin}}": "JWT Bearer token of admin@pc02.local",
+    "{{token.officer}}": "JWT Bearer token of officer1@pc02.local",
+    "{{env.ADMIN_PASSWORD}}": "Từ .env.test hoặc test config",
+    "{{env.OFFICER1_PASSWORD}}": "Từ .env.test",
+    "{{env.OFFICER2_PASSWORD}}": "Từ .env.test"
+  },
+
+  "execution_order": [
+    "team.with_leader",
+    "team.without_leader",
+    "team.empty",
+    "account.admin.primary",
+    "account.officer.primary",
+    "account.officer.leader",
+    "account.officer2",
+    "user.soft_deleted",
+    "petition.new.D0",
+    "petition.unassigned.D0",
+    "petition.assigned_team.D7",
+    "petition.with_1_assignment.D7",
+    "petition.with_2_assignments.D7",
+    "petition.with_3_assignments.D7",
+    "petition.with_lead_assignment.D7",
+    "petition.closed.D30",
+    "petition.status_kiem_tra.D7",
+    "petition.with_50_assignments.D30",
+    "petition.with_100_assignments.D90"
+  ]
+}

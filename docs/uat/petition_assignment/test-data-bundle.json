@@ -1,0 +1,217 @@
+{
+  "feature": "petition_assignment",
+  "version": "1.0",
+  "description": "Test Data Bundle — accounts, boundary values, security payloads cho UAT runner",
+
+  "accounts": {
+    "admin": {
+      "email": "admin@pc02.local",
+      "password_env": "TEST_ADMIN_PASSWORD",
+      "role": "ADMIN",
+      "permissions": ["petition:read", "petition:edit", "petition:create", "petition:delete"],
+      "team": null
+    },
+    "admin2": {
+      "email": "admin2@pc02.local",
+      "password_env": "TEST_ADMIN2_PASSWORD",
+      "role": "ADMIN",
+      "permissions": ["petition:read", "petition:edit"],
+      "team": null
+    },
+    "officer1": {
+      "email": "officer1@pc02.local",
+      "password_env": "TEST_OFFICER1_PASSWORD",
+      "role": "OFFICER",
+      "permissions": ["petition:read", "petition:edit"],
+      "team": "team-A",
+      "isLeader": false
+    },
+    "officer2": {
+      "email": "officer2@pc02.local",
+      "password_env": "TEST_OFFICER2_PASSWORD",
+      "role": "OFFICER",
+      "permissions": ["petition:read", "petition:edit"],
+      "team": "team-A",
+      "isLeader": false
+    },
+    "approver1": {
+      "email": "approver1@pc02.local",
+      "password_env": "TEST_APPROVER1_PASSWORD",
+      "role": "DEADLINE_APPROVER",
+      "permissions": ["petition:read"],
+      "note": "Read-only — dùng để test 403 khi POST/DELETE"
+    },
+    "no_token": {
+      "description": "Không có JWT token — dùng để test 401",
+      "token": null
+    },
+    "expired_token": {
+      "description": "JWT đã hết hạn",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0IiwiaWF0IjoxNjAwMDAwMDAwLCJleHAiOjE2MDAwMDAwMDF9.EXPIRED",
+      "note": "Hard-coded expired JWT cho test 401 expired"
+    },
+    "wrong_secret_token": {
+      "description": "JWT được ký bằng secret sai",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0IiwiaWF0IjoxNzE3MDAwMDAwLCJleHAiOjk5OTk5OTk5OTl9.WRONG_SECRET",
+      "note": "Test 401 invalid signature"
+    },
+    "alg_none_token": {
+      "description": "JWT với alg:none (JWT alg confusion attack)",
+      "token": "eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJzdWIiOiJhZG1pbiIsInJvbGUiOiJBRE1JTiIsImlhdCI6MTcxNzAwMDAwMH0.",
+      "note": "SECURITY: alg:none attack — phải bị reject 401"
+    }
+  },
+
+  "boundary_values": {
+    "role": {
+      "valid": ["LEAD", "SUPPORT"],
+      "boundary_min": "LEAD",
+      "boundary_max": "SUPPORT",
+      "boundary_min_minus_1": "",
+      "boundary_max_plus_1": "SUPPORTS",
+      "invalid": ["lead", "support", "LEADS", "ADMIN", "null", "undefined", ""],
+      "null_value": null,
+      "note": "String field, không có enum validation tại DB — chỉ validate tại application layer (nếu có)"
+    },
+    "userId": {
+      "valid_format": "cuid — clxxxxxxxxxxxxxxxxxxxxxxxxx (26 chars)",
+      "min_length_1_char": "x",
+      "empty_string": "",
+      "null": null,
+      "max_length_cuid": "clxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "with_spaces": " officer1-id ",
+      "sql_injection_payload": "'; DROP TABLE petition_assignments; --",
+      "xss_payload": "<script>alert(1)</script>",
+      "url_encoded": "%27%3BDROP%20TABLE%20petition_assignments%3B--",
+      "unicode_rtl": "‮ reversed",
+      "null_byte": "valid-id\x00injected"
+    },
+    "petitionId": {
+      "valid_format": "cuid — 26 chars",
+      "nonexistent": "clnonexistentpetitionid0001",
+      "deleted_petition": "dynamically created",
+      "sql_injection": "' OR '1'='1",
+      "very_long": "clxxxxxxxxxxxxxxxxxxxxxxxxx_extra_overflow_characters_beyond_limit"
+    },
+    "assignment_count": {
+      "zero": 0,
+      "one": 1,
+      "three": 3,
+      "fifty": 50,
+      "hundred": 100
+    },
+    "timestamps": {
+      "past_timestamp": "2020-01-01T00:00:00Z",
+      "future_timestamp": "9999-12-31T23:59:59Z",
+      "iso8601_valid": "2026-06-07T12:00:00.000Z",
+      "iso8601_no_ms": "2026-06-07T12:00:00Z",
+      "unix_epoch": 0,
+      "negative_timestamp": -1
+    }
+  },
+
+  "security_payloads": {
+    "sql_injection": {
+      "basic": "' OR '1'='1",
+      "drop_table": "'; DROP TABLE petition_assignments; --",
+      "union_select": "' UNION SELECT * FROM users --",
+      "stacked_queries": "'; INSERT INTO petition_assignments (id) VALUES ('hacked'); --",
+      "blind": "' AND SLEEP(5) --",
+      "encoded": "%27%20OR%20%271%27%3D%271",
+      "second_order": "admin'--"
+    },
+    "xss": {
+      "basic_script": "<script>alert('XSS')</script>",
+      "img_onerror": "<img src=x onerror=alert(1)>",
+      "svg": "<svg onload=alert(1)>",
+      "encoded_html": "&lt;script&gt;alert(1)&lt;/script&gt;",
+      "javascript_url": "javascript:alert(1)",
+      "dom_xss": "{{constructor.constructor('alert(1)')()}}",
+      "template_injection": "${7*7}",
+      "nested": "<scr<script>ipt>alert(1)</scr</script>ipt>"
+    },
+    "idor": {
+      "other_user_petition": "Dùng petition thuộc team khác, không có quyền",
+      "note": "Kiểm tra data scope enforcement"
+    },
+    "auth_bypass": {
+      "no_token": "",
+      "bearer_keyword_only": "Bearer",
+      "bearer_empty": "Bearer ",
+      "bearer_double_space": "Bearer  valid-token",
+      "bearer_lowercase": "bearer valid-token",
+      "basic_auth": "Basic dXNlcjpwYXNz",
+      "api_key_header": "X-API-Key: admin-key",
+      "jwt_alg_none": "eyJhbGciOiJub25lIn0.eyJzdWIiOiJhZG1pbiJ9."
+    },
+    "mass_assignment": {
+      "extra_fields_in_body": {
+        "userId": "valid-user-id",
+        "role": "SUPPORT",
+        "assignedById": "another-user-id",
+        "petitionId": "another-petition-id",
+        "id": "hacked-id",
+        "assignedAt": "2020-01-01T00:00:00Z",
+        "isLeader": true
+      },
+      "note": "Kiểm tra extra fields không bị accept vào DB"
+    },
+    "rate_limit_burst": {
+      "requests": 100,
+      "interval_ms": 100,
+      "note": "100 request trong 10s — expect 429 sau threshold"
+    },
+    "request_smuggling": {
+      "transfer_encoding_chunked_and_content_length": "Gửi cả 2 header",
+      "note": "Advanced — kiểm tra proxy/nginx config"
+    },
+    "log_injection": {
+      "newline_injection": "user\nINFO: Fake log entry",
+      "tab_injection": "user\tINFO: Fake log entry",
+      "carriage_return": "user\rINFO: Fake log entry",
+      "note": "userId field có thể bị log — kiểm tra sanitization"
+    }
+  },
+
+  "vietnamese_test_strings": {
+    "full_name_with_tones": "Nguyễn Thị Ánh Nguyệt",
+    "full_name_uppercase": "NGUYỄN THỊ ÁNH NGUYỆT",
+    "special_chars_in_name": "Võ Thị Tố Uyên",
+    "emoji_in_name": "Trần Văn A 😊",
+    "zero_width_space": "Nguyễn​Văn A",
+    "rtl_override": "Nguyễn‮Văn A",
+    "note": "Test Vietnamese character handling trong displayName field"
+  },
+
+  "api_edge_cases": {
+    "empty_body_post": {},
+    "null_body_post": null,
+    "array_body_post": [{"userId": "u1", "role": "SUPPORT"}],
+    "nested_object": {"userId": {"$ne": ""}, "role": "SUPPORT"},
+    "very_large_body": {
+      "userId": "valid-id",
+      "role": "SUPPORT",
+      "padding": "x".repeat(1048576),
+      "note": "1MB padding — expect 413"
+    },
+    "content_type_text": {
+      "Content-Type": "text/plain",
+      "body": "userId=valid-id&role=SUPPORT"
+    },
+    "content_type_form_urlencoded": {
+      "Content-Type": "application/x-www-form-urlencoded",
+      "body": "userId=valid-id&role=SUPPORT"
+    }
+  },
+
+  "performance_thresholds": {
+    "get_single_petition_assignments_ms": 100,
+    "get_50_items_ms": 500,
+    "post_single_assignment_ms": 200,
+    "delete_single_assignment_ms": 200,
+    "patch_assign_with_leader_lookup_ms": 300,
+    "concurrent_get_10_users_max_ms": 500,
+    "concurrent_post_5_users_max_ms": 1000,
+    "note": "Thresholds theo requirements. Measured at P95 on staging server"
+  }
+}
