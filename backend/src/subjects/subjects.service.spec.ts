@@ -26,6 +26,9 @@ const mockPrisma = {
   directory: {
     findFirst: jest.fn(),
   },
+  crime: {
+    findFirst: jest.fn(),
+  },
 };
 
 const mockAudit = {
@@ -271,7 +274,7 @@ describe('SubjectsService', () => {
     beforeEach(() => {
       mockPrisma.subject.findFirst.mockResolvedValue(null); // no duplicate
       mockPrisma.case.findFirst.mockResolvedValue(FAKE_CASE);
-      mockPrisma.directory.findFirst.mockResolvedValue(FAKE_CRIME);
+      mockPrisma.crime.findFirst.mockResolvedValue(FAKE_CRIME);
       mockPrisma.subject.create.mockResolvedValue(FAKE_SUBJECT);
     });
 
@@ -335,8 +338,8 @@ describe('SubjectsService', () => {
       expect(result.success).toBe(true);
     });
 
-    it('throws BadRequestException when crime directory not found', async () => {
-      mockPrisma.directory.findFirst.mockResolvedValue(null);
+    it('throws BadRequestException when crime not found in master', async () => {
+      mockPrisma.crime.findFirst.mockResolvedValue(null);
 
       await expect(
         service.create(BASE_CREATE_DTO, 'actor-1'),
@@ -388,7 +391,7 @@ describe('SubjectsService', () => {
     beforeEach(() => {
       mockPrisma.subject.findFirst.mockResolvedValue(null);
       mockPrisma.case.findFirst.mockResolvedValue(FAKE_CASE);
-      mockPrisma.directory.findFirst.mockResolvedValue(FAKE_CRIME);
+      mockPrisma.crime.findFirst.mockResolvedValue(FAKE_CRIME);
     });
 
     it('stores districtName when provided', async () => {
@@ -430,7 +433,7 @@ describe('SubjectsService', () => {
     beforeEach(() => {
       mockPrisma.subject.findFirst.mockResolvedValue(FAKE_SUBJECT); // found self
       mockPrisma.case.findFirst.mockResolvedValue(FAKE_CASE);
-      mockPrisma.directory.findFirst.mockResolvedValue(FAKE_CRIME);
+      mockPrisma.crime.findFirst.mockResolvedValue(FAKE_CRIME);
       mockPrisma.subject.update.mockResolvedValue({
         ...FAKE_SUBJECT,
         fullName: 'Tên mới',
@@ -509,7 +512,7 @@ describe('SubjectsService', () => {
     });
 
     it('throws BadRequestException when new crimeId does not exist', async () => {
-      mockPrisma.directory.findFirst.mockResolvedValue(null);
+      mockPrisma.crime.findFirst.mockResolvedValue(null);
 
       await expect(
         service.update('sub-001', { crimeId: 'bad-crime' }, 'actor-1'),
@@ -603,7 +606,7 @@ describe('SubjectsService', () => {
     beforeEach(() => {
       mockPrisma.subject.findFirst.mockResolvedValue(FAKE_SUBJECT);
       mockPrisma.case.findFirst.mockResolvedValue(FAKE_CASE);
-      mockPrisma.directory.findFirst.mockResolvedValue(FAKE_CRIME);
+      mockPrisma.crime.findFirst.mockResolvedValue(FAKE_CRIME);
       mockPrisma.subject.update.mockResolvedValue({
         ...FAKE_SUBJECT,
         districtName: 'Quận 3',
@@ -684,7 +687,7 @@ describe('SubjectsService', () => {
   describe('create — EC-04 duplicate CCCD', () => {
     beforeEach(() => {
       mockPrisma.case.findFirst.mockResolvedValue(FAKE_CASE);
-      mockPrisma.directory.findFirst.mockResolvedValue(FAKE_CRIME);
+      mockPrisma.crime.findFirst.mockResolvedValue(FAKE_CRIME);
       mockPrisma.subject.create.mockResolvedValue(FAKE_SUBJECT);
     });
 

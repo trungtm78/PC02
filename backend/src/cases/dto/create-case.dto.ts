@@ -62,9 +62,10 @@ export class CreateSubjectInlineDto {
   @IsString()
   wardId?: string;
 
+  // Optional: nhân chứng/bị hại không bắt buộc tội danh. FK → master Crime.
+  @IsOptional()
   @IsString()
-  @IsNotEmpty({ message: 'crimeId required cho mỗi Subject (FK directories type=CRIME)' })
-  crimeId: string;
+  crimeId?: string;
 
   @IsOptional()
   @IsString()

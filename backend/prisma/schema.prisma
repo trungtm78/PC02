@@ -655,7 +655,7 @@ model Subject {
   wardId        String? // FK → directories (type=WARD)
   districtName  String? // denormalized: "Quận 1" — preserved at creation time for post-reform display
   caseId        String // FK → cases (required)
-  crimeId       String // FK → directories (type=CRIME, required)
+  crimeId       String? // FK → crimes (master Tội danh) — optional: nhân chứng/bị hại không cần tội danh
   type          SubjectType   @default(SUSPECT) // TASK-2026-261225
   status        SubjectStatus @default(INVESTIGATING)
   notes         String?
@@ -664,7 +664,7 @@ model Subject {
   updatedAt     DateTime      @updatedAt
 
   case    Case     @relation(fields: [caseId], references: [id])
-  crime   Crime    @relation(fields: [crimeId], references: [id]) // FK thật → master Crime
+  crime   Crime?   @relation(fields: [crimeId], references: [id]) // FK thật → master Crime (optional)
   lawyers Lawyer[] // Lawyers assigned to this subject
 
   @@index([caseId])

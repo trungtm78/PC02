@@ -59,9 +59,10 @@ export class CreateSubjectDto {
   @IsNotEmpty({ message: 'Vụ án không được để trống' })
   caseId: string;
 
+  // Optional: nhân chứng/bị hại không bắt buộc tội danh. FK → master Crime.
+  @IsOptional()
   @IsString()
-  @IsNotEmpty({ message: 'Tội danh không được để trống' })
-  crimeId: string;
+  crimeId?: string;
 
   @IsEnum(SubjectStatus)
   @IsOptional()
