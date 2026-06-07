@@ -32,11 +32,13 @@ export class CreatePetitionDto {
   @IsDateString()
   receivedDate: string;
 
-  // Tên người gửi — bắt buộc
+  // Tên người gửi — bắt buộc khi tạo mới, TRỪ đơn nặc danh (khớp validate FE).
+  @ValidateIf((o) => !o.senderIsAnonymous)
+  @IsNotEmpty({ message: 'Tên người gửi là bắt buộc (trừ đơn nặc danh)' })
   @Transform(({ value }) => stripHtmlTags(value))
   @IsString()
   @MaxLength(255)
-  senderName: string;
+  senderName?: string;
 
   @IsOptional()
   @Transform(({ value }) => stripHtmlTags(value))

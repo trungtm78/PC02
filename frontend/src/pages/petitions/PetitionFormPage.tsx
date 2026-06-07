@@ -414,7 +414,7 @@ export function PetitionFormPage() {
                   setFormData((prev) => ({
                     ...prev,
                     senderIsAnonymous: anon,
-                    ...(anon && { senderName: "", senderPhone: "", senderIdNumber: "", senderIdIssueDate: "", senderIdIssuePlace: "" }),
+                    ...(anon && { senderName: "", senderAddress: "", senderPhone: "", senderIdNumber: "", senderIdIssueDate: "", senderIdIssuePlace: "" }),
                   }));
                 }}
                 className="w-4 h-4"

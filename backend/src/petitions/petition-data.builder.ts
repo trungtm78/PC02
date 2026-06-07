@@ -25,7 +25,7 @@ export function buildPetitionCreateData(
   return {
     stt: ctx.stt,
     receivedDate: new Date(dto.receivedDate),
-    senderName: dto.senderName,
+    senderName: dto.senderName ?? '', // NOT NULL ở DB; đơn nặc danh → chuỗi rỗng
     unit: dto.unit,
     enteredById: ctx.actorId,
     senderBirthYear: dto.senderBirthYear,
