@@ -131,6 +131,12 @@ export interface CaseFormData {
   incidentCause: string;
   incidentMethod: string;
 
+  // ── Field-parity KLĐT + QĐ điều tra lại ────────────────────────────────
+  soKLDT: string;           // Số kết luận điều tra
+  ngayKLDT: string;         // Ngày kết luận điều tra
+  soQDDieuTraLai: string;   // Số QĐ điều tra lại
+  ngayQDDieuTraLai: string; // Ngày QĐ điều tra lại
+
   // ── Tab 3: Vụ án ────────────────────────────────────────────────────────
   criminalCode: string;
   criminalDate: string;
@@ -224,6 +230,9 @@ export interface CaseStatisticForm {
   coVPHC: boolean; soDoiTuongVPHC: string; soNguoiBiPhatTien: string; tongTienPhatHanhChinh: string;
   soDoiTuongDaBat: string; soDoiTuongBiBatVuAnKhac: string; dieuTraMoRong: string; suDungVuKhiNong: string;
   coBangNhom: boolean; soBangNhomBatDuoc: string; soSungThuHoi: string; soThuocNoThuHoi: string; soDoiTuongSuuTraHiemNghi: string;
+  // Field-parity hệ thống cũ — bị hại, thiệt hại, xét xử
+  soLuongBiHai: string; soNguoiBiThuong: string; soLuongNguoiChet: string;
+  soTienBiThietHai: string; soTienThuHoi: string; vuAnDaDuocXetXu: boolean;
   ngayThongKe: string; ngayPhanCongGiaiQuyetToGiac: string; ngayTiepNhanTin: string; ngayDauThu: string;
   ngayPhamToiQuaTang: string; ngayBatKhanCap: string; ngayPhatHienDauHieu: string;
 }
@@ -236,6 +245,8 @@ export const INITIAL_CASE_STATISTIC: CaseStatisticForm = {
   coVPHC: false, soDoiTuongVPHC: "", soNguoiBiPhatTien: "", tongTienPhatHanhChinh: "",
   soDoiTuongDaBat: "", soDoiTuongBiBatVuAnKhac: "", dieuTraMoRong: "", suDungVuKhiNong: "",
   coBangNhom: false, soBangNhomBatDuoc: "", soSungThuHoi: "", soThuocNoThuHoi: "", soDoiTuongSuuTraHiemNghi: "",
+  soLuongBiHai: "", soNguoiBiThuong: "", soLuongNguoiChet: "",
+  soTienBiThietHai: "", soTienThuHoi: "", vuAnDaDuocXetXu: false,
   ngayThongKe: "", ngayPhanCongGiaiQuyetToGiac: "", ngayTiepNhanTin: "", ngayDauThu: "",
   ngayPhamToiQuaTang: "", ngayBatKhanCap: "", ngayPhatHienDauHieu: "",
 };
@@ -318,6 +329,8 @@ export const INITIAL_FORM_DATA: CaseFormData = {
   incidentLevel: "",
   incidentCause: "",
   incidentMethod: "",
+  // Field-parity KLĐT + QĐ điều tra lại
+  soKLDT: "", ngayKLDT: "", soQDDieuTraLai: "", ngayQDDieuTraLai: "",
   // Tab 3
   criminalCode: "",
   criminalDate: "",

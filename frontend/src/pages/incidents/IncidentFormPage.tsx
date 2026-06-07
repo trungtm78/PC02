@@ -59,6 +59,15 @@ interface FormData {
   canCuKhongKhoiTo: string;
   canCuTamDinhChi: string;
   phanLoaiDanSuText: string;
+  // Field-parity: TĐC + QĐ tạm đình chỉ/phục hồi + công nghệ cao
+  tienDoKhacPhucTDC: string;
+  tdcKhacPhucLyDoBienPhap: string;
+  tdcKhacPhucBienBan: string;
+  soQuyetDinhTamDinhChiVV: string;
+  ngayTamDinhChiVV: string;
+  soQuyetDinhPhucHoiVV: string;
+  ngayPhucHoiVV: string;
+  laCongNgheCaoVV: boolean;
 }
 
 const INITIAL_FORM: FormData = {
@@ -95,6 +104,9 @@ const INITIAL_FORM: FormData = {
   tinhTrangHoSo: "",
   soQDPhanCongNguonTin: "", ngayQDPhanCongNguonTin: "", canCuKhongKhoiTo: "",
   canCuTamDinhChi: "", phanLoaiDanSuText: "",
+  tienDoKhacPhucTDC: "", tdcKhacPhucLyDoBienPhap: "", tdcKhacPhucBienBan: "",
+  soQuyetDinhTamDinhChiVV: "", ngayTamDinhChiVV: "", soQuyetDinhPhucHoiVV: "",
+  ngayPhucHoiVV: "", laCongNgheCaoVV: false,
 };
 
 function CollapsibleSection({
@@ -245,6 +257,14 @@ export function IncidentFormPage() {
             canCuKhongKhoiTo: (d.canCuKhongKhoiTo as string) ?? "",
             canCuTamDinhChi: (d.canCuTamDinhChi as string) ?? "",
             phanLoaiDanSuText: (d.phanLoaiDanSuText as string) ?? "",
+            tienDoKhacPhucTDC: (d.tienDoKhacPhucTDC as string) ?? "",
+            tdcKhacPhucLyDoBienPhap: (d.tdcKhacPhucLyDoBienPhap as string) ?? "",
+            tdcKhacPhucBienBan: (d.tdcKhacPhucBienBan as string) ?? "",
+            soQuyetDinhTamDinhChiVV: (d.soQuyetDinhTamDinhChiVV as string) ?? "",
+            ngayTamDinhChiVV: toDateInput(d.ngayTamDinhChiVV as string | null | undefined),
+            soQuyetDinhPhucHoiVV: (d.soQuyetDinhPhucHoiVV as string) ?? "",
+            ngayPhucHoiVV: toDateInput(d.ngayPhucHoiVV as string | null | undefined),
+            laCongNgheCaoVV: Boolean(d.laCongNgheCaoVV),
           });
           setRecordUpdatedAt((d.updatedAt as string) ?? null);
           // Auto-expand sections based on phase
@@ -314,6 +334,14 @@ export function IncidentFormPage() {
         lyDoTamDinhChi: s(formData.lyDoTamDinhChi),
         tinhTrangHoSo: s(formData.tinhTrangHoSo),
         tinhTrangThoiHieu: s(formData.tinhTrangThoiHieu),
+        tienDoKhacPhucTDC: s(formData.tienDoKhacPhucTDC),
+        tdcKhacPhucLyDoBienPhap: s(formData.tdcKhacPhucLyDoBienPhap),
+        tdcKhacPhucBienBan: s(formData.tdcKhacPhucBienBan),
+        soQuyetDinhTamDinhChiVV: s(formData.soQuyetDinhTamDinhChiVV),
+        ngayTamDinhChiVV: s(formData.ngayTamDinhChiVV),
+        soQuyetDinhPhucHoiVV: s(formData.soQuyetDinhPhucHoiVV),
+        ngayPhucHoiVV: s(formData.ngayPhucHoiVV),
+        laCongNgheCaoVV: formData.laCongNgheCaoVV || undefined,
       };
       if (isEditMode) await api.put(`/incidents/${id}`, { ...payload, expectedUpdatedAt: recordUpdatedAt ?? undefined });
       else await api.post('/incidents', payload);
@@ -519,6 +547,12 @@ export function IncidentFormPage() {
                   className="w-full pl-9 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" data-testid="field-ngayDeXuat" />
               </div>
             </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <input type="checkbox" id="laCongNgheCaoVV" checked={formData.laCongNgheCaoVV}
+              onChange={(e) => setFormData((prev) => ({ ...prev, laCongNgheCaoVV: e.target.checked }))}
+              className="w-4 h-4 text-blue-600 border-slate-300 rounded" data-testid="field-laCongNgheCaoVV" />
+            <label htmlFor="laCongNgheCaoVV" className="text-sm font-medium text-slate-700">Vụ việc công nghệ cao (CNC)</label>
           </div>
         </CollapsibleSection>
 
@@ -747,6 +781,47 @@ export function IncidentFormPage() {
               <label className={labelClass}>Tình trạng hồ sơ</label>
               <input type="text" value={formData.tinhTrangHoSo} onChange={(e) => update("tinhTrangHoSo", e.target.value)}
                 className={inputClass} placeholder="Tình trạng hồ sơ" data-testid="field-tinhTrangHoSo" />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className={labelClass}>Số QĐ tạm đình chỉ vụ việc</label>
+              <input type="text" value={formData.soQuyetDinhTamDinhChiVV} onChange={(e) => update("soQuyetDinhTamDinhChiVV", e.target.value)}
+                className={inputClass} placeholder="Số quyết định tạm đình chỉ" data-testid="field-soQuyetDinhTamDinhChiVV" />
+            </div>
+            <div>
+              <label className={labelClass}>Ngày QĐ tạm đình chỉ</label>
+              <input type="date" value={formData.ngayTamDinhChiVV} onChange={(e) => update("ngayTamDinhChiVV", e.target.value)}
+                className={inputClass} data-testid="field-ngayTamDinhChiVV" />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className={labelClass}>Số QĐ phục hồi vụ việc</label>
+              <input type="text" value={formData.soQuyetDinhPhucHoiVV} onChange={(e) => update("soQuyetDinhPhucHoiVV", e.target.value)}
+                className={inputClass} placeholder="Số quyết định phục hồi điều tra" data-testid="field-soQuyetDinhPhucHoiVV" />
+            </div>
+            <div>
+              <label className={labelClass}>Ngày QĐ phục hồi</label>
+              <input type="date" value={formData.ngayPhucHoiVV} onChange={(e) => update("ngayPhucHoiVV", e.target.value)}
+                className={inputClass} data-testid="field-ngayPhucHoiVV" />
+            </div>
+          </div>
+          <div>
+            <label className={labelClass}>Tiến độ khắc phục TĐC</label>
+            <textarea value={formData.tienDoKhacPhucTDC} onChange={(e) => update("tienDoKhacPhucTDC", e.target.value)} rows={3}
+              className={inputClass} placeholder="Mô tả tiến độ khắc phục tạm đình chỉ" data-testid="field-tienDoKhacPhucTDC" />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className={labelClass}>Lý do/biện pháp khắc phục TĐC</label>
+              <input type="text" value={formData.tdcKhacPhucLyDoBienPhap} onChange={(e) => update("tdcKhacPhucLyDoBienPhap", e.target.value)}
+                className={inputClass} placeholder="Biện pháp khắc phục" data-testid="field-tdcKhacPhucLyDoBienPhap" />
+            </div>
+            <div>
+              <label className={labelClass}>Biên bản khắc phục TĐC</label>
+              <input type="text" value={formData.tdcKhacPhucBienBan} onChange={(e) => update("tdcKhacPhucBienBan", e.target.value)}
+                className={inputClass} placeholder="Số/ngày biên bản xác nhận khắc phục" data-testid="field-tdcKhacPhucBienBan" />
             </div>
           </div>
         </CollapsibleSection>

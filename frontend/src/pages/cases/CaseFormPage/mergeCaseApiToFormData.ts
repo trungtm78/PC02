@@ -206,5 +206,10 @@ export function mergeCaseApiToFormData(
     utdt_nghiVanDoiTuong:              meta.nghiVanDoiTuong              ?? prev.utdt_nghiVanDoiTuong,
     utdt_lyDoKhongThucHienDuoc:        meta.lyDoKhongThucHienDuoc        ?? prev.utdt_lyDoKhongThucHienDuoc,
     utdt_ngayThongBaoKhongThucHien:    meta.ngayThongBaoKhongThucHien    ?? prev.utdt_ngayThongBaoKhongThucHien,
+    // Field-parity: KLĐT + QĐ điều tra lại
+    soKLDT:          (apiData.soKLDT as string)          ?? prev.soKLDT,
+    ngayKLDT:        apiData.ngayKLDT ? toDateInput(apiData.ngayKLDT as string) : prev.ngayKLDT,
+    soQDDieuTraLai:  (apiData.soQDDieuTraLai as string)  ?? prev.soQDDieuTraLai,
+    ngayQDDieuTraLai: apiData.ngayQDDieuTraLai ? toDateInput(apiData.ngayQDDieuTraLai as string) : prev.ngayQDDieuTraLai,
   };
 }

@@ -717,6 +717,32 @@ export function TabCase({ formData, setFormData, errors, setErrors }: TabProps) 
           onChange={(v) => update("sentence", v)}
           placeholder="VD: 5 năm tù giam"
         />
+        <FormInput
+          label="Số kết luận điều tra"
+          value={formData.soKLDT}
+          onChange={(v) => update("soKLDT", v)}
+          placeholder="Số KLĐT"
+        />
+        <FormInput
+          label="Ngày kết luận điều tra"
+          type="date"
+          icon={<Calendar className="w-4 h-4" />}
+          value={formData.ngayKLDT}
+          onChange={(v) => update("ngayKLDT", v)}
+        />
+        <FormInput
+          label="Số QĐ điều tra lại"
+          value={formData.soQDDieuTraLai}
+          onChange={(v) => update("soQDDieuTraLai", v)}
+          placeholder="Số QĐ điều tra lại"
+        />
+        <FormInput
+          label="Ngày QĐ điều tra lại"
+          type="date"
+          icon={<Calendar className="w-4 h-4" />}
+          value={formData.ngayQDDieuTraLai}
+          onChange={(v) => update("ngayQDDieuTraLai", v)}
+        />
       </div>
     </Card>
   );
@@ -1403,6 +1429,18 @@ export function TabStatistics({ formData, setFormData }: TabProps) {
               <CSNum label="Số súng thu hồi" v={cs.soSungThuHoi} on={(x)=>updateStat("soSungThuHoi",x)} t="cs-soSungThuHoi" />
               <CSNum label="Số thuốc nổ thu hồi" v={cs.soThuocNoThuHoi} on={(x)=>updateStat("soThuocNoThuHoi",x)} t="cs-soThuocNoThuHoi" />
               <CSNum label="Số ĐT sưu tra/hiềm nghi" v={cs.soDoiTuongSuuTraHiemNghi} on={(x)=>updateStat("soDoiTuongSuuTraHiemNghi",x)} t="cs-soDoiTuongSuuTraHiemNghi" />
+            </div>
+          </fieldset>
+          {/* Bị hại, thiệt hại, xét xử — field-parity hệ thống cũ */}
+          <fieldset>
+            <legend className="text-sm font-medium text-slate-700 mb-2">Bị hại &amp; Thiệt hại</legend>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <CSNum label="Số lượng bị hại" v={cs.soLuongBiHai} on={(x)=>updateStat("soLuongBiHai",x)} t="cs-soLuongBiHai" />
+              <CSNum label="Số người bị thương" v={cs.soNguoiBiThuong} on={(x)=>updateStat("soNguoiBiThuong",x)} t="cs-soNguoiBiThuong" />
+              <CSNum label="Số lượng người chết" v={cs.soLuongNguoiChet} on={(x)=>updateStat("soLuongNguoiChet",x)} t="cs-soLuongNguoiChet" />
+              <CSNum label="Tiền bị thiệt hại (VNĐ)" v={cs.soTienBiThietHai} on={(x)=>updateStat("soTienBiThietHai",x)} t="cs-soTienBiThietHai" />
+              <CSNum label="Tiền thu hồi (VNĐ)" v={cs.soTienThuHoi} on={(x)=>updateStat("soTienThuHoi",x)} t="cs-soTienThuHoi" />
+              <CSBool label="Vụ án đã được xét xử" v={cs.vuAnDaDuocXetXu} on={(x)=>updateStat("vuAnDaDuocXetXu",x)} t="cs-vuAnDaDuocXetXu" />
             </div>
           </fieldset>
           {/* Mốc thời gian thống kê */}

@@ -62,6 +62,11 @@ export interface CreateCasePayload {
   evidences?: EvidencePayload[];
   documentIds?: string[];
   statistic?: Record<string, unknown>; // case_statistics (hybrid)
+  // Field-parity: KLĐT + QĐ điều tra lại
+  soKLDT?: string;
+  ngayKLDT?: string;
+  soQDDieuTraLai?: string;
+  ngayQDDieuTraLai?: string;
 }
 
 /**
@@ -237,6 +242,12 @@ export function buildCreateCasePayload(
     payload.sourceDocumentNote = formData.sourceDocumentNote;
   }
 
+  // Field-parity: KLĐT + QĐ điều tra lại
+  if (formData.soKLDT)           payload.soKLDT = formData.soKLDT;
+  if (formData.ngayKLDT)         payload.ngayKLDT = formData.ngayKLDT;
+  if (formData.soQDDieuTraLai)   payload.soQDDieuTraLai = formData.soQDDieuTraLai;
+  if (formData.ngayQDDieuTraLai) payload.ngayQDDieuTraLai = formData.ngayQDDieuTraLai;
+
   // PR 1 v0.38.0.0 — Wire sub-entity arrays vào payload (atomic create)
   // HOTFIX (codex P1 post-merge): chỉ include subjects với crimeId hợp lệ +
   // skip "Luật sư" (LAWYER không tồn tại trong Prisma SubjectType enum).
@@ -305,9 +316,10 @@ const STAT_NUM_FIELDS = new Set([
   'tongSoBienBanHoiCungCoGhiAm', 'soBiCanCoGhiAm', 'soBiCanVksYeuCauGhiAm', 'soDoiTuongVPHC',
   'soNguoiBiPhatTien', 'tongTienPhatHanhChinh', 'soDoiTuongDaBat', 'soDoiTuongBiBatVuAnKhac',
   'dieuTraMoRong', 'soBangNhomBatDuoc', 'soSungThuHoi', 'soThuocNoThuHoi', 'soDoiTuongSuuTraHiemNghi',
+  'soLuongBiHai', 'soNguoiBiThuong', 'soLuongNguoiChet', 'soTienBiThietHai', 'soTienThuHoi',
 ]);
 const STAT_BOOL_FIELDS = new Set([
-  'coGhiAmGhiHinh', 'laVuAnGhiAmGhiHinh', 'vksYeuCauGhiAm', 'coVPHC', 'coBangNhom',
+  'coGhiAmGhiHinh', 'laVuAnGhiAmGhiHinh', 'vksYeuCauGhiAm', 'coVPHC', 'coBangNhom', 'vuAnDaDuocXetXu',
 ]);
 
 export function buildStatisticPayload(s: Record<string, unknown>): Record<string, unknown> {

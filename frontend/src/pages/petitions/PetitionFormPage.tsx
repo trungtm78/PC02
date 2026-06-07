@@ -65,6 +65,7 @@ interface FormData {
   laCongNgheCao: boolean;
   lanhDaoToTung: string;
   ketQuaXuLyKhac: string;
+  thoiHanUTDT: string;
 }
 
 const INITIAL_FORM: FormData = {
@@ -79,7 +80,7 @@ const INITIAL_FORM: FormData = {
   ngayPhieuChuyen: "", ngayTiepNhanNguonTin: "", toiDanhBanDau: "",
   crimeChinhId: "", noiXayRa: "", noiXayRaPhuongXa: "", ngayXayRa: "",
   loaiToiPham: "", phuongThucThuDoan: "", ngayGiaoDonViGiaiQuyet: "",
-  laCongNgheCao: false, lanhDaoToTung: "", ketQuaXuLyKhac: "",
+  laCongNgheCao: false, lanhDaoToTung: "", ketQuaXuLyKhac: "", thoiHanUTDT: "",
 };
 
 function displayName(u: UserOption): string {
@@ -193,6 +194,7 @@ export function PetitionFormPage() {
           laCongNgheCao: Boolean(d.laCongNgheCao),
           lanhDaoToTung: (d.lanhDaoToTung as string) ?? "",
           ketQuaXuLyKhac: (d.ketQuaXuLyKhac as string) ?? "",
+          thoiHanUTDT: toDateInput(d.thoiHanUTDT as string | null | undefined),
         });
         setRecordUpdatedAt((d.updatedAt as string) ?? null);
         // Snapshot the loaded values so isDirty is false until the officer types.
@@ -292,6 +294,7 @@ export function PetitionFormPage() {
         laCongNgheCao: formData.laCongNgheCao,
         lanhDaoToTung: formData.lanhDaoToTung || undefined,
         ketQuaXuLyKhac: formData.ketQuaXuLyKhac || undefined,
+        thoiHanUTDT: formData.thoiHanUTDT || undefined,
       };
       if (isEditMode) {
         await api.put(`/petitions/${id}`, { ...payload, expectedUpdatedAt: recordUpdatedAt ?? undefined });
@@ -643,6 +646,11 @@ export function PetitionFormPage() {
               <label className="block text-sm font-medium text-slate-700 mb-2">Kết quả xử lý, giải quyết khác</label>
               <textarea value={formData.ketQuaXuLyKhac} onChange={(e) => update("ketQuaXuLyKhac", e.target.value)} rows={2} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Các trường hợp xử lý, giải quyết khác" data-testid="field-ketQuaXuLyKhac" />
             </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Thời hạn ủy thác điều tra</label>
+              <input type="date" value={formData.thoiHanUTDT} onChange={(e) => update("thoiHanUTDT", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" data-testid="field-thoiHanUTDT" />
+              <p className="text-xs text-slate-500 mt-1">Thời hạn thực hiện ủy thác điều tra (nếu có)</p>
+            </div>
           </div>
         </div>
 
@@ -686,9 +694,8 @@ export function PetitionFormPage() {
           </div>
         </div>
 
-        {/* v0.47 PR3.1 T11 — Section 6: Nội dung phiếu đề xuất (chỉ hiện khi edit) */}
-        {isEditMode && (
-          <div className="bg-white rounded-lg border border-slate-200 shadow-sm" data-testid="section-noi-dung-phieu-de-xuat">
+        {/* v0.47 PR3.1 T11 — Section 6: Nội dung phiếu đề xuất (hiện cả CREATE + EDIT mode, field-parity hệ thống cũ) */}
+        <div className="bg-white rounded-lg border border-slate-200 shadow-sm" data-testid="section-noi-dung-phieu-de-xuat">
             <div className="border-b border-slate-200 px-6 py-4">
               <h2 className="font-bold text-slate-800">Nội dung phiếu đề xuất</h2>
               <p className="text-xs text-slate-500 mt-1">Nội dung nghiệp vụ phục vụ xuất Phiếu đề xuất, Phiếu chuyển, Thông báo. Bắt buộc khi xuất Phiếu đề xuất.</p>
@@ -741,7 +748,6 @@ export function PetitionFormPage() {
               </div>
             </div>
           </div>
-        )}
 
         <div className="flex items-center justify-end gap-3 bg-white rounded-lg border border-slate-200 shadow-sm p-4 sm:p-6 flex-wrap">
           <button type="button" onClick={handleCancel} className="px-4 sm:px-6 py-2.5 min-h-[44px] border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors" data-testid="btn-cancel">
