@@ -3,7 +3,7 @@
  * TASK-ID: TASK-2026-260202
  */
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { extractApiError } from "@/lib/api-errors";
@@ -107,6 +107,47 @@ export function PetitionFormPage() {
   const [userOptions, setUserOptions] = useState<UserOption[]>([]);
   const [recordUpdatedAt, setRecordUpdatedAt] = useState<string | null>(null);
   const [isDraftLoading, setIsDraftLoading] = useState(!isEditMode);
+
+  // ── Nhóm V: Suspect search combobox ─────────────────────────────────────────
+  type SuspectResult = { name: string; idNumber: string; crimes: string[]; sources: Array<{ type: string; stt: string }> };
+  type DupResult = { id: string; stt: string; senderName: string; receivedDate: string; summary: string | null };
+
+  const [suspectQuery, setSuspectQuery] = useState("");
+  const [suspectResults, setSuspectResults] = useState<SuspectResult[]>([]);
+  const [showSuspectDropdown, setShowSuspectDropdown] = useState(false);
+  const [dupQuery, setDupQuery] = useState("");
+  const [dupResults, setDupResults] = useState<DupResult[]>([]);
+  const [showDupDropdown, setShowDupDropdown] = useState(false);
+  const suspectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleSuspectInput = useCallback((q: string) => {
+    setSuspectQuery(q);
+    if (suspectTimerRef.current) clearTimeout(suspectTimerRef.current);
+    if (!q.trim()) { setSuspectResults([]); setShowSuspectDropdown(false); return; }
+    suspectTimerRef.current = setTimeout(async () => {
+      try {
+        const res = await api.get<SuspectResult[]>("/petitions/suspect-search", { params: { q } });
+        setSuspectResults(Array.isArray(res.data) ? res.data : []);
+        setShowSuspectDropdown(true);
+      } catch { setSuspectResults([]); }
+    }, 300);
+  }, []);
+
+  const handleDupInput = useCallback((q: string) => {
+    setDupQuery(q);
+    if (dupTimerRef.current) clearTimeout(dupTimerRef.current);
+    if (!q.trim()) { setDupResults([]); setShowDupDropdown(false); return; }
+    dupTimerRef.current = setTimeout(async () => {
+      try {
+        const params: Record<string, string> = { q };
+        if (id) params.excludeId = id;
+        const res = await api.get<DupResult[]>("/petitions/duplicate-search", { params });
+        setDupResults(Array.isArray(res.data) ? res.data : []);
+        setShowDupDropdown(true);
+      } catch { setDupResults([]); }
+    }, 300);
+  }, [id]);
 
   const defaults = useFormDefaults();
 
@@ -541,7 +582,48 @@ export function PetitionFormPage() {
             </div>
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-slate-700 mb-2">Tội danh cũ trước đây</label>
-              <input type="text" value={formData.toiDanhBanDau} onChange={(e) => update("toiDanhBanDau", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Tội danh cũ (free text)" data-testid="field-toiDanhBanDau" />
+              <div className="relative">
+                <input
+                  type="text"
+                  value={suspectQuery !== "" ? suspectQuery : formData.toiDanhBanDau}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    handleSuspectInput(v);
+                  }}
+                  onFocus={() => suspectResults.length > 0 && setShowSuspectDropdown(true)}
+                  onBlur={() => setTimeout(() => {
+                    setShowSuspectDropdown(false);
+                    if (suspectQuery !== "") {
+                      update("toiDanhBanDau", suspectQuery);
+                      setSuspectQuery("");
+                    }
+                  }, 200)}
+                  className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Gõ tên/CCCD để tìm tiền án, hoặc nhập tự do"
+                  data-testid="suspect-search-input"
+                />
+                {showSuspectDropdown && suspectResults.length > 0 && (
+                  <div className="absolute z-50 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto">
+                    {suspectResults.map((r, i) => (
+                      <button
+                        key={`${r.idNumber}-${i}`}
+                        type="button"
+                        className="w-full text-left px-4 py-2 hover:bg-slate-50 text-sm"
+                        onMouseDown={() => {
+                          const crimes = r.crimes.join(", ");
+                          update("toiDanhBanDau", crimes);
+                          setSuspectQuery("");
+                          setShowSuspectDropdown(false);
+                        }}
+                      >
+                        <span className="font-medium">{r.name}</span>
+                        {r.idNumber && <span className="text-slate-500 ml-2 text-xs">CCCD: {r.idNumber}</span>}
+                        {r.crimes.length > 0 && <div className="text-slate-600 text-xs truncate">{r.crimes.join(", ")}</div>}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -725,14 +807,48 @@ export function PetitionFormPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Kết quả rà soát đơn/vụ trùng</label>
-                <textarea
-                  value={formData.raSoatTrung}
-                  onChange={(e) => update("raSoatTrung", e.target.value)}
-                  rows={2}
-                  className="w-full px-4 py-2.5 text-base sm:text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Không trùng / Mô tả vụ trùng nếu có"
-                  data-testid="field-raSoatTrung"
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={dupQuery !== "" ? dupQuery : formData.raSoatTrung}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      handleDupInput(v);
+                    }}
+                    onFocus={() => dupResults.length > 0 && setShowDupDropdown(true)}
+                    onBlur={() => setTimeout(() => {
+                      setShowDupDropdown(false);
+                      if (dupQuery !== "") {
+                        update("raSoatTrung", dupQuery);
+                        setDupQuery("");
+                      }
+                    }, 200)}
+                    className="w-full px-4 py-2.5 text-base sm:text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Gõ tên/STT để tìm đơn trùng, hoặc nhập 'Không'"
+                    data-testid="duplicate-search-input"
+                  />
+                  {showDupDropdown && dupResults.length > 0 && (
+                    <div className="absolute z-50 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto">
+                      {dupResults.map((r) => (
+                        <button
+                          key={r.id}
+                          type="button"
+                          className="w-full text-left px-4 py-2 hover:bg-slate-50 text-sm"
+                          onMouseDown={() => {
+                            const label = `${r.stt} - ${r.senderName} (${new Date(r.receivedDate).toLocaleDateString('vi-VN')})`;
+                            update("raSoatTrung", label);
+                            setDupQuery("");
+                            setShowDupDropdown(false);
+                          }}
+                        >
+                          <span className="font-medium">{r.stt}</span>
+                          <span className="text-slate-600 ml-2">{r.senderName}</span>
+                          {r.summary && <div className="text-slate-500 text-xs truncate">{r.summary}</div>}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
               <div>
                 <label className="inline-flex items-center gap-2 cursor-pointer" data-testid="field-baoCaoBanGiamDoc-wrap">
