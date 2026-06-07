@@ -2031,7 +2031,13 @@ export class PetitionsService {
 
     return this.prisma.petitionAssignment.create({
       data: { petitionId, userId, role, assignedById: actorId },
-      include: { user: { select: { id: true, firstName: true, lastName: true, email: true } } },
+      include: {
+        user: { select: { id: true, firstName: true, lastName: true, email: true, username: true } },
+        assignedBy: { select: { id: true, firstName: true, lastName: true, username: true } },
+      },
+    }).catch((err: any) => {
+      if (err?.code === 'P2002') throw new ConflictException(`Cán bộ đã được phân công cho đơn thư này`);
+      throw err;
     });
   }
 
@@ -2064,8 +2070,8 @@ export class PetitionsService {
     return this.prisma.petitionAssignment.findMany({
       where: { petitionId },
       include: {
-        user: { select: { id: true, firstName: true, lastName: true, email: true } },
-        assignedBy: { select: { id: true, firstName: true, lastName: true } },
+        user: { select: { id: true, firstName: true, lastName: true, email: true, username: true } },
+        assignedBy: { select: { id: true, firstName: true, lastName: true, username: true } },
       },
       orderBy: { assignedAt: 'asc' },
     });

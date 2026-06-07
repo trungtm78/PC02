@@ -20,7 +20,7 @@ interface Assignment {
   user: UserOption;
   role: "LEAD" | "SUPPORT";
   assignedById: string;
-  assignedBy: UserOption;
+  assignedBy?: Partial<UserOption>;
   assignedAt: string;
 }
 
@@ -39,17 +39,29 @@ export function PetitionAssignmentSection({ petitionId, userOptions }: Props) {
   const [addUserId, setAddUserId] = useState("");
   const [addRole, setAddRole] = useState<"LEAD" | "SUPPORT">("SUPPORT");
   const [isAdding, setIsAdding] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
 
   useEffect(() => {
+    const controller = new AbortController();
     api
       .get<Assignment[]>(`/petitions/${petitionId}/assignments`)
-      .then((res) => setAssignments(Array.isArray(res.data) ? res.data : []))
-      .catch(() => setAssignments([]));
+      .then((res) => {
+        if (!controller.signal.aborted) {
+          setAssignments(Array.isArray(res.data) ? res.data : []);
+        }
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          setAssignments([]);
+        }
+      });
+    return () => controller.abort();
   }, [petitionId]);
 
   const handleAdd = async () => {
     if (!addUserId) return;
     setIsAdding(true);
+    setAddError(null);
     try {
       const res = await api.post<Assignment>(`/petitions/${petitionId}/assignments`, {
         userId: addUserId,
@@ -58,18 +70,19 @@ export function PetitionAssignmentSection({ petitionId, userOptions }: Props) {
       setAssignments((prev) => [...prev, res.data]);
       setAddUserId("");
     } catch {
-      // noop
+      setAddError("Không thể thêm phân công. Vui lòng thử lại.");
     } finally {
       setIsAdding(false);
     }
   };
 
   const handleRemove = async (userId: string) => {
+    setAddError(null);
     try {
       await api.delete(`/petitions/${petitionId}/assignments/${userId}`);
       setAssignments((prev) => prev.filter((a) => a.userId !== userId));
     } catch {
-      // noop
+      setAddError("Không thể xóa phân công. Vui lòng thử lại.");
     }
   };
 
@@ -89,6 +102,11 @@ export function PetitionAssignmentSection({ petitionId, userOptions }: Props) {
         </p>
       </div>
       <div className="p-6 space-y-4">
+        {addError && (
+          <p className="text-red-600 text-sm" data-testid="assignment-error">
+            {addError}
+          </p>
+        )}
         {assignments.length === 0 ? (
           <p className="text-slate-500 text-sm">Chưa có cán bộ được phân công.</p>
         ) : (
