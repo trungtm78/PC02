@@ -3,7 +3,7 @@
 // Parameterize entity key (caseId / incidentId / petitionId) + copy theo kind.
 
 import { useState, useEffect, useRef } from "react";
-import { FileText, Plus, Eye, Download, Upload, Trash2 } from "lucide-react";
+import { FileText, Plus, Eye, Download, Upload, Trash2, FolderOpen, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { extractApiError } from "@/lib/api-errors";
 import { formatVNDate } from "@/lib/dates";
@@ -70,12 +70,15 @@ export function EntityDocumentsTab({
   const [docs, setDocs] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [title, setTitle] = useState("");
   const [docType, setDocType] = useState("VAN_BAN");
   const [description, setDescription] = useState("");
+  const [queuedFiles, setQueuedFiles] = useState<File[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
+  const folderRef = useRef<HTMLInputElement>(null);
 
   const fetchDocs = async () => {
     if (!entityId) return;
@@ -95,12 +98,31 @@ export function EntityDocumentsTab({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entityId, entityKind]);
 
+  const handleFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    setQueuedFiles((prev) => {
+      const existing = new Set(prev.map((f) => f.name + f.size));
+      const incoming = Array.from(files).filter((f) => !existing.has(f.name + f.size));
+      return [...prev, ...incoming];
+    });
+  };
+
+  const removeQueuedFile = (idx: number) => {
+    setQueuedFiles((prev) => prev.filter((_, i) => i !== idx));
+  };
+
   const handleUpload = async () => {
     if (!title.trim()) {
       setError("Vui lòng nhập tiêu đề tài liệu");
       return;
     }
-    if (!fileRef.current?.files?.[0]) {
+    const filesToUpload = queuedFiles.length > 0
+      ? queuedFiles
+      : fileRef.current?.files
+        ? Array.from(fileRef.current.files)
+        : [];
+    if (filesToUpload.length === 0) {
       setError("Vui lòng chọn file");
       return;
     }
@@ -110,26 +132,37 @@ export function EntityDocumentsTab({
     }
     setError("");
     setUploading(true);
-    try {
-      const fd = new FormData();
-      fd.append("file", fileRef.current.files[0]);
-      fd.append("title", title);
-      fd.append("documentType", docType);
-      fd.append(copy.idKey, entityId);
-      if (description) fd.append("description", description);
-      await api.post("/documents", fd, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+    const failed: string[] = [];
+    for (let i = 0; i < filesToUpload.length; i++) {
+      setUploadProgress({ current: i + 1, total: filesToUpload.length });
+      const file = filesToUpload[i];
+      const fileTitle = filesToUpload.length === 1 ? title : `${title} (${i + 1})`;
+      try {
+        const fd = new FormData();
+        fd.append("file", file);
+        fd.append("title", fileTitle);
+        fd.append("documentType", docType);
+        fd.append(copy.idKey, entityId);
+        if (description) fd.append("description", description);
+        await api.post("/documents", fd, { headers: { "Content-Type": "multipart/form-data" } });
+      } catch (e: unknown) {
+        failed.push(`${file.name}: ${extractApiError(e, "Upload thất bại").message}`);
+      }
+    }
+    setUploading(false);
+    setUploadProgress(null);
+    setQueuedFiles([]);
+    if (fileRef.current) fileRef.current.value = "";
+    if (folderRef.current) folderRef.current.value = "";
+    if (failed.length === filesToUpload.length) {
+      setError(failed[0]);
+    } else {
       setTitle("");
       setDocType("VAN_BAN");
       setDescription("");
-      if (fileRef.current) fileRef.current.value = "";
       setShowForm(false);
+      if (failed.length > 0) setError(`${failed.length} file thất bại: ${failed[0]}`);
       await fetchDocs();
-    } catch (e: unknown) {
-      setError(extractApiError(e, "Upload thất bại").message);
-    } finally {
-      setUploading(false);
     }
   };
 
@@ -231,15 +264,60 @@ export function EntityDocumentsTab({
               <label className="block text-xs font-medium text-slate-700 mb-1">
                 File <span className="text-red-500">*</span>
               </label>
-              <input
-                ref={fileRef}
-                type="file"
-                accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.mp4,.mp3,.txt"
-                className="w-full text-sm text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200"
-              />
+              <div className="flex gap-2">
+                <label className="cursor-pointer flex items-center gap-1.5 px-3 py-1.5 border border-slate-300 rounded text-sm text-slate-700 hover:bg-slate-50 transition-colors">
+                  <Upload className="w-3.5 h-3.5" />
+                  Chọn file
+                  <input
+                    ref={fileRef}
+                    type="file"
+                    multiple
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.mp4,.mp3,.txt"
+                    className="hidden"
+                    onChange={handleFilesChange}
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={() => folderRef.current?.click()}
+                  className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-300 rounded text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                >
+                  <FolderOpen className="w-3.5 h-3.5" />
+                  Chọn thư mục
+                </button>
+                <input
+                  ref={folderRef}
+                  type="file"
+                  // @ts-expect-error webkitdirectory not in React types
+                  webkitdirectory="true"
+                  multiple
+                  className="hidden"
+                  onChange={handleFilesChange}
+                />
+              </div>
               <p className="text-xs text-slate-400 mt-1">
-                Hỗ trợ: PDF, Word, Excel, Hình ảnh, Video, Audio — tối đa 10MB
+                Hỗ trợ: PDF, Word, Excel, Hình ảnh, Video, Audio — tối đa 10MB/file
               </p>
+              {queuedFiles.length > 0 && (
+                <ul className="mt-2 space-y-1">
+                  {queuedFiles.map((f, i) => (
+                    <li key={f.name + i} className="flex items-center justify-between text-xs text-slate-700 bg-slate-50 px-2 py-1 rounded border border-slate-200">
+                      <span className="truncate max-w-[260px]">{f.name}</span>
+                      <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                        <span className="text-slate-400">{formatBytes(f.size)}</span>
+                        <button
+                          type="button"
+                          onClick={() => removeQueuedFile(i)}
+                          className="text-slate-400 hover:text-red-500 transition-colors"
+                          title="Xóa khỏi danh sách"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </div>
           {error && <p className="text-sm text-red-600">{error}</p>}
@@ -261,7 +339,9 @@ export function EntityDocumentsTab({
               className="flex items-center gap-2 px-4 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-60"
             >
               <Upload className="w-3.5 h-3.5" />
-              {uploading ? "Đang tải..." : "Tải lên"}
+              {uploading && uploadProgress
+                ? `Đang tải (${uploadProgress.current}/${uploadProgress.total})...`
+                : uploading ? "Đang tải..." : "Tải lên"}
             </button>
           </div>
         </div>

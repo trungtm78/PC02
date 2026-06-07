@@ -161,3 +161,92 @@ describe("EntityDocumentsTab", () => {
     expect((formData as FormData).get("caseId")).toBeNull();
   });
 });
+
+// ── G0: Multi-file + Folder upload ────────────────────────────────────────────
+describe("EntityDocumentsTab — multi-file + folder upload (G0)", () => {
+  beforeEach(() => {
+    apiGet.mockReset();
+    apiPost.mockReset();
+    apiDelete.mockReset();
+    apiGet.mockResolvedValue({ data: { data: [] } });
+  });
+
+  it("file input has multiple attribute for multi-select", async () => {
+    render(<EntityDocumentsTab entityKind="petition" entityId="pet-1" />, { wrapper });
+    fireEvent.click(screen.getByRole("button", { name: /Tải lên tài liệu/i }));
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    expect(fileInput.multiple).toBe(true);
+  });
+
+  it("renders a 'Chọn thư mục' button to trigger folder upload", async () => {
+    render(<EntityDocumentsTab entityKind="petition" entityId="pet-1" />, { wrapper });
+    fireEvent.click(screen.getByRole("button", { name: /Tải lên tài liệu/i }));
+    expect(screen.getByRole("button", { name: /Chọn thư mục/i })).toBeTruthy();
+  });
+
+  it("selecting 2 files shows their names in the queue", async () => {
+    render(<EntityDocumentsTab entityKind="petition" entityId="pet-1" />, { wrapper });
+    fireEvent.click(screen.getByRole("button", { name: /Tải lên tài liệu/i }));
+
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const file1 = new File(["a"], "bao_cao.pdf", { type: "application/pdf" });
+    const file2 = new File(["b"], "chung_tu.docx", { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+    Object.defineProperty(fileInput, "files", { value: [file1, file2], writable: true });
+    fireEvent.change(fileInput);
+
+    await waitFor(() => expect(screen.queryByText("bao_cao.pdf")).toBeTruthy());
+    expect(screen.queryByText("chung_tu.docx")).toBeTruthy();
+  });
+
+  it("uploading 2 files calls POST /documents twice with petitionId", async () => {
+    apiPost.mockResolvedValue({ data: {} });
+    render(<EntityDocumentsTab entityKind="petition" entityId="pet-99" />, { wrapper });
+    fireEvent.click(screen.getByRole("button", { name: /Tải lên tài liệu/i }));
+
+    const titleInput = await screen.findByPlaceholderText(/Biên bản khám nghiệm/i);
+    fireEvent.change(titleInput, { target: { value: "Hồ sơ" } });
+
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const file1 = new File(["a"], "file1.pdf", { type: "application/pdf" });
+    const file2 = new File(["b"], "file2.pdf", { type: "application/pdf" });
+    Object.defineProperty(fileInput, "files", { value: [file1, file2], writable: true });
+    fireEvent.change(fileInput);
+
+    const allBtns = screen.getAllByRole("button");
+    const submit = allBtns.find((b) => /^Tải lên$/i.test(b.textContent?.trim() ?? ""));
+    expect(submit).toBeTruthy();
+    fireEvent.click(submit!);
+
+    await waitFor(() => expect(apiPost).toHaveBeenCalledTimes(2));
+    const [, fd0] = apiPost.mock.calls[0];
+    const [, fd1] = apiPost.mock.calls[1];
+    expect((fd0 as FormData).get("petitionId")).toBe("pet-99");
+    expect((fd1 as FormData).get("petitionId")).toBe("pet-99");
+  });
+
+  it("upload continues for remaining files when one fails (partial success)", async () => {
+    apiPost
+      .mockRejectedValueOnce(new Error("file too large"))
+      .mockResolvedValue({ data: {} });
+
+    render(<EntityDocumentsTab entityKind="petition" entityId="pet-99" />, { wrapper });
+    fireEvent.click(screen.getByRole("button", { name: /Tải lên tài liệu/i }));
+
+    const titleInput = await screen.findByPlaceholderText(/Biên bản khám nghiệm/i);
+    fireEvent.change(titleInput, { target: { value: "Hồ sơ" } });
+
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const file1 = new File(["a"], "big.pdf", { type: "application/pdf" });
+    const file2 = new File(["b"], "small.pdf", { type: "application/pdf" });
+    Object.defineProperty(fileInput, "files", { value: [file1, file2], writable: true });
+    fireEvent.change(fileInput);
+
+    const allBtns = screen.getAllByRole("button");
+    const submit = allBtns.find((b) => /^Tải lên$/i.test(b.textContent?.trim() ?? ""));
+    fireEvent.click(submit!);
+
+    await waitFor(() => expect(apiPost).toHaveBeenCalledTimes(2));
+    // Both files attempted even though first one failed
+    expect(apiPost).toHaveBeenCalledTimes(2);
+  });
+});
