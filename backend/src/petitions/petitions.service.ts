@@ -1549,8 +1549,13 @@ export class PetitionsService {
       'Content-Type',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     );
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.setHeader('X-Document-Number', documentNumber);
+    // RFC 5987 encoding for non-ASCII filenames (Vietnamese prefix chars like Đ).
+    const asciiName = filename.replace(/[^\x20-\x7E]/g, '_');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(filename)}`,
+    );
+    res.setHeader('X-Document-Number', encodeURIComponent(documentNumber));
     res.send(buffer);
   }
 
