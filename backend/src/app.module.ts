@@ -54,6 +54,7 @@ import { DataScopeInterceptor } from './auth/interceptors/data-scope.interceptor
 import { TestFixturesModule } from './test-fixtures/test-fixtures.module';
 import { DocumentNumbersModule } from './document-numbers/document-numbers.module';
 import { CrimesModule } from './crimes/crimes.module';
+import { LegacyMigrationModule } from './legacy-migration/legacy-migration.module';
 
 @Module({
   imports: [
@@ -68,6 +69,7 @@ import { CrimesModule } from './crimes/crimes.module';
     AdminModule,
     DirectoryModule,
     CrimesModule,
+    LegacyMigrationModule,
     AddressMappingModule,
     CasesModule,
     SubjectsModule,
