@@ -249,4 +249,27 @@ describe("EntityDocumentsTab — multi-file + folder upload (G0)", () => {
     // Both files attempted even though first one failed
     expect(apiPost).toHaveBeenCalledTimes(2);
   });
+
+  it("closing and reopening form resets queue (cancel clears queued files)", async () => {
+    render(<EntityDocumentsTab entityKind="petition" entityId="pet-1" />, { wrapper });
+    fireEvent.click(screen.getByRole("button", { name: /Tải lên tài liệu/i }));
+
+    // Add files to queue
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const file1 = new File(["a"], "queued.pdf", { type: "application/pdf" });
+    Object.defineProperty(fileInput, "files", { value: [file1], writable: true });
+    fireEvent.change(fileInput);
+
+    await waitFor(() => expect(screen.queryByText("queued.pdf")).toBeTruthy());
+
+    // Cancel — close form
+    const cancelBtn = screen.getByRole("button", { name: /Hủy/i });
+    fireEvent.click(cancelBtn);
+
+    // Reopen form
+    fireEvent.click(screen.getByRole("button", { name: /Tải lên tài liệu/i }));
+
+    // Queue should be empty
+    expect(screen.queryByText("queued.pdf")).toBeNull();
+  });
 });

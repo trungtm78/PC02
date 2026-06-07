@@ -210,7 +210,17 @@ export function EntityDocumentsTab({
             <button
               type="button"
               onClick={() => {
-                setShowForm((v) => !v);
+                setShowForm((v) => {
+                  if (v) {
+                    setQueuedFiles([]);
+                    setTitle("");
+                    setDocType("VAN_BAN");
+                    setDescription("");
+                    if (fileRef.current) fileRef.current.value = "";
+                    if (folderRef.current) folderRef.current.value = "";
+                  }
+                  return !v;
+                });
                 setError("");
               }}
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
@@ -327,6 +337,12 @@ export function EntityDocumentsTab({
               onClick={() => {
                 setShowForm(false);
                 setError("");
+                setQueuedFiles([]);
+                setTitle("");
+                setDocType("VAN_BAN");
+                setDescription("");
+                if (fileRef.current) fileRef.current.value = "";
+                if (folderRef.current) folderRef.current.value = "";
               }}
               className="px-3 py-1.5 border border-slate-300 text-slate-600 rounded-lg text-sm hover:bg-slate-50"
             >
