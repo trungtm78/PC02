@@ -413,6 +413,11 @@ export class IncidentsService {
           createdById: actorId,
           soQuyetDinh: dto.soQuyetDinh,
           ngayQuyetDinh: dto.ngayQuyetDinh ? new Date(dto.ngayQuyetDinh) : undefined,
+          soQDPhanCongNguonTin: dto.soQDPhanCongNguonTin,
+          ngayQDPhanCongNguonTin: dto.ngayQDPhanCongNguonTin ? new Date(dto.ngayQDPhanCongNguonTin) : undefined,
+          canCuKhongKhoiTo: dto.canCuKhongKhoiTo,
+          canCuTamDinhChi: dto.canCuTamDinhChi,
+          phanLoaiDanSuText: dto.phanLoaiDanSuText,
           lyDoKhongKhoiTo: dto.lyDoKhongKhoiTo,
           lyDoTamDinhChiText: (dto as any).lyDoTamDinhChiText ?? (dto as any).lyDoTamDinhChi,
           diaChiXayRa: dto.diaChiXayRa,
@@ -494,6 +499,8 @@ export class IncidentsService {
       'diaChiXayRa', 'sdtNguoiToGiac', 'diaChiNguoiToGiac', 'cmndNguoiToGiac',
       // ── TĐC VuViec fields ──────────────────────────────────────────────────
       'lyDoTamDinhChiVuViec', 'laCongNgheCaoVV', 'daRaSoatVV', 'ketQuaPhucHoiVuViec',
+      // ── Field-parity hệ thống cũ (giai đoạn nguồn tin) ──
+      'soQDPhanCongNguonTin', 'canCuKhongKhoiTo', 'canCuTamDinhChi', 'phanLoaiDanSuText',
     ];
     for (const f of fields) {
       if ((dto as Record<string, unknown>)[f] !== undefined) {
@@ -501,7 +508,7 @@ export class IncidentsService {
       }
     }
 
-    const dateFields = ['fromDate', 'toDate', 'deadline', 'ngayDeXuat', 'ngayQuyetDinh'];
+    const dateFields = ['fromDate', 'toDate', 'deadline', 'ngayDeXuat', 'ngayQuyetDinh', 'ngayQDPhanCongNguonTin'];
     for (const f of dateFields) {
       if ((dto as Record<string, unknown>)[f] !== undefined) {
         const val = (dto as Record<string, unknown>)[f] as string | null;

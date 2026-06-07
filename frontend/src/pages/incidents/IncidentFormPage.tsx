@@ -53,6 +53,12 @@ interface FormData {
   lyDoTamDinhChi: string;
   tinhTrangThoiHieu: string;
   tinhTrangHoSo: string;
+  // Field-parity hệ thống cũ (giai đoạn nguồn tin)
+  soQDPhanCongNguonTin: string;
+  ngayQDPhanCongNguonTin: string;
+  canCuKhongKhoiTo: string;
+  canCuTamDinhChi: string;
+  phanLoaiDanSuText: string;
 }
 
 const INITIAL_FORM: FormData = {
@@ -87,6 +93,8 @@ const INITIAL_FORM: FormData = {
   lyDoTamDinhChi: "",
   tinhTrangThoiHieu: "",
   tinhTrangHoSo: "",
+  soQDPhanCongNguonTin: "", ngayQDPhanCongNguonTin: "", canCuKhongKhoiTo: "",
+  canCuTamDinhChi: "", phanLoaiDanSuText: "",
 };
 
 function CollapsibleSection({
@@ -232,6 +240,11 @@ export function IncidentFormPage() {
             lyDoTamDinhChi: (d.lyDoTamDinhChi as string) ?? "",
             tinhTrangThoiHieu: (d.tinhTrangThoiHieu as string) ?? "",
             tinhTrangHoSo: (d.tinhTrangHoSo as string) ?? "",
+            soQDPhanCongNguonTin: (d.soQDPhanCongNguonTin as string) ?? "",
+            ngayQDPhanCongNguonTin: toDateInput(d.ngayQDPhanCongNguonTin as string | null | undefined),
+            canCuKhongKhoiTo: (d.canCuKhongKhoiTo as string) ?? "",
+            canCuTamDinhChi: (d.canCuTamDinhChi as string) ?? "",
+            phanLoaiDanSuText: (d.phanLoaiDanSuText as string) ?? "",
           });
           setRecordUpdatedAt((d.updatedAt as string) ?? null);
           // Auto-expand sections based on phase
@@ -288,6 +301,11 @@ export function IncidentFormPage() {
         diaChiXayRa: s(formData.diaChiXayRa),
         soQuyetDinh: s(formData.soQuyetDinh),
         ngayQuyetDinh: s(formData.ngayQuyetDinh),
+        soQDPhanCongNguonTin: s(formData.soQDPhanCongNguonTin),
+        ngayQDPhanCongNguonTin: s(formData.ngayQDPhanCongNguonTin),
+        canCuKhongKhoiTo: s(formData.canCuKhongKhoiTo),
+        canCuTamDinhChi: s(formData.canCuTamDinhChi),
+        phanLoaiDanSuText: s(formData.phanLoaiDanSuText),
         ketQuaXuLy: s(formData.ketQuaXuLy),
         loaiKetQua: s(formData.loaiKetQua),
         canCuKhoiToCode: s(formData.canCuKhoiToCode),
@@ -583,6 +601,32 @@ export function IncidentFormPage() {
               <label className={labelClass}>Số quyết định</label>
               <input type="text" value={formData.soQuyetDinh} onChange={(e) => update("soQuyetDinh", e.target.value)}
                 className={inputClass} placeholder="VD: QD-2026-042" data-testid="field-soQuyetDinh" />
+            </div>
+            {/* Field-parity hệ thống cũ (giai đoạn nguồn tin) */}
+            <div>
+              <label className={labelClass}>Số QĐ phân công giải quyết nguồn tin</label>
+              <input type="text" value={formData.soQDPhanCongNguonTin} onChange={(e) => update("soQDPhanCongNguonTin", e.target.value)}
+                className={inputClass} placeholder="Số QĐ phân công giải quyết nguồn tin" data-testid="field-soQDPhanCongNguonTin" />
+            </div>
+            <div>
+              <label className={labelClass}>Ngày QĐ phân công giải quyết nguồn tin</label>
+              <input type="date" value={formData.ngayQDPhanCongNguonTin} onChange={(e) => update("ngayQDPhanCongNguonTin", e.target.value)}
+                className={inputClass} data-testid="field-ngayQDPhanCongNguonTin" />
+            </div>
+            <div>
+              <label className={labelClass}>Căn cứ không khởi tố</label>
+              <input type="text" value={formData.canCuKhongKhoiTo} onChange={(e) => update("canCuKhongKhoiTo", e.target.value)}
+                className={inputClass} placeholder="Căn cứ pháp lý ra QĐ không khởi tố" data-testid="field-canCuKhongKhoiTo" />
+            </div>
+            <div>
+              <label className={labelClass}>Căn cứ tạm đình chỉ nguồn tin</label>
+              <input type="text" value={formData.canCuTamDinhChi} onChange={(e) => update("canCuTamDinhChi", e.target.value)}
+                className={inputClass} placeholder="Căn cứ tạm đình chỉ nguồn tin" data-testid="field-canCuTamDinhChi" />
+            </div>
+            <div>
+              <label className={labelClass}>Phân loại dân sự (thông báo)</label>
+              <input type="text" value={formData.phanLoaiDanSuText} onChange={(e) => update("phanLoaiDanSuText", e.target.value)}
+                className={inputClass} placeholder="Số, ngày thông báo phân loại dân sự" data-testid="field-phanLoaiDanSuText" />
             </div>
           </div>
 

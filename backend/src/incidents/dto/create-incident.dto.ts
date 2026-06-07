@@ -117,6 +117,27 @@ export class CreateIncidentDto {
   @IsDateString()
   ngayQuyetDinh?: string;
 
+  // Field-parity hệ thống cũ (giai đoạn nguồn tin)
+  @IsOptional()
+  @IsString()
+  soQDPhanCongNguonTin?: string;
+
+  @IsOptional()
+  @IsDateString()
+  ngayQDPhanCongNguonTin?: string;
+
+  @IsOptional()
+  @IsString()
+  canCuKhongKhoiTo?: string;
+
+  @IsOptional()
+  @IsString()
+  canCuTamDinhChi?: string;
+
+  @IsOptional()
+  @IsString()
+  phanLoaiDanSuText?: string;
+
   @IsOptional()
   @IsEnum(LyDoKhongKhoiTo, {
     message: 'lyDoKhongKhoiTo phải là một trong 7 căn cứ theo Điều 157 BLTTHS 2015',
