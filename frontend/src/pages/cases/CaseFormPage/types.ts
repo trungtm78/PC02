@@ -211,7 +211,34 @@ export interface CaseFormData {
   stat_propertySeized: string;
   stat_caseTransferred: string;
   stat_reportSubmitted: string;
+  // Thống kê mở rộng (hybrid) — lưu bảng case_statistics (số/ngày/bool báo cáo). Nested.
+  statistic: CaseStatisticForm;
 }
+
+// Form shape cho case_statistics — số/ngày là string (input), bool là boolean (checkbox).
+export interface CaseStatisticForm {
+  soDangKyHoSo: string; ngayDangKyHoSo: string; hoSoLuu: string; ngayNopLuuHoSo: string; donViBaoQuanHoSo: string;
+  coGhiAmGhiHinh: boolean; tongSoBienBanGhiLoiKhai: string; soBienBanGhiLoiKhaiCoGhiAm: string;
+  laVuAnGhiAmGhiHinh: boolean; tongSoBienBanHoiCung: string; tongSoBienBanHoiCungCoGhiAm: string;
+  soBiCanCoGhiAm: string; vksYeuCauGhiAm: boolean; soBiCanVksYeuCauGhiAm: string;
+  coVPHC: boolean; soDoiTuongVPHC: string; soNguoiBiPhatTien: string; tongTienPhatHanhChinh: string;
+  soDoiTuongDaBat: string; soDoiTuongBiBatVuAnKhac: string; dieuTraMoRong: string; suDungVuKhiNong: string;
+  coBangNhom: boolean; soBangNhomBatDuoc: string; soSungThuHoi: string; soThuocNoThuHoi: string; soDoiTuongSuuTraHiemNghi: string;
+  ngayThongKe: string; ngayPhanCongGiaiQuyetToGiac: string; ngayTiepNhanTin: string; ngayDauThu: string;
+  ngayPhamToiQuaTang: string; ngayBatKhanCap: string; ngayPhatHienDauHieu: string;
+}
+
+export const INITIAL_CASE_STATISTIC: CaseStatisticForm = {
+  soDangKyHoSo: "", ngayDangKyHoSo: "", hoSoLuu: "", ngayNopLuuHoSo: "", donViBaoQuanHoSo: "",
+  coGhiAmGhiHinh: false, tongSoBienBanGhiLoiKhai: "", soBienBanGhiLoiKhaiCoGhiAm: "",
+  laVuAnGhiAmGhiHinh: false, tongSoBienBanHoiCung: "", tongSoBienBanHoiCungCoGhiAm: "",
+  soBiCanCoGhiAm: "", vksYeuCauGhiAm: false, soBiCanVksYeuCauGhiAm: "",
+  coVPHC: false, soDoiTuongVPHC: "", soNguoiBiPhatTien: "", tongTienPhatHanhChinh: "",
+  soDoiTuongDaBat: "", soDoiTuongBiBatVuAnKhac: "", dieuTraMoRong: "", suDungVuKhiNong: "",
+  coBangNhom: false, soBangNhomBatDuoc: "", soSungThuHoi: "", soThuocNoThuHoi: "", soDoiTuongSuuTraHiemNghi: "",
+  ngayThongKe: "", ngayPhanCongGiaiQuyetToGiac: "", ngayTiepNhanTin: "", ngayDauThu: "",
+  ngayPhamToiQuaTang: "", ngayBatKhanCap: "", ngayPhatHienDauHieu: "",
+};
 
 export interface TabProps {
   formData: CaseFormData;
@@ -367,4 +394,5 @@ export const INITIAL_FORM_DATA: CaseFormData = {
   stat_propertySeized: "",
   stat_caseTransferred: "",
   stat_reportSubmitted: "",
+  statistic: INITIAL_CASE_STATISTIC,
 };

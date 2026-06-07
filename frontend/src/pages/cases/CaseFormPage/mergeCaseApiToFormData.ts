@@ -1,5 +1,31 @@
-import type { CaseFormData } from './types';
+import type { CaseFormData, CaseStatisticForm } from './types';
+import { INITIAL_CASE_STATISTIC } from './types';
 import { toDateInput } from '@/lib/dates';
+
+const STAT_DATE_KEYS = new Set([
+  'ngayDangKyHoSo', 'ngayNopLuuHoSo', 'ngayThongKe', 'ngayPhanCongGiaiQuyetToGiac',
+  'ngayTiepNhanTin', 'ngayDauThu', 'ngayPhamToiQuaTang', 'ngayBatKhanCap', 'ngayPhatHienDauHieu',
+]);
+const STAT_BOOL_KEYS = new Set([
+  'coGhiAmGhiHinh', 'laVuAnGhiAmGhiHinh', 'vksYeuCauGhiAm', 'coVPHC', 'coBangNhom',
+]);
+
+// API CaseStatistic record → CaseStatisticForm (số→string, ngày→date input, bool→bool).
+function mergeStatistic(
+  api: Record<string, unknown> | null | undefined,
+  prev: CaseStatisticForm,
+): CaseStatisticForm {
+  if (!api) return prev;
+  const out = { ...INITIAL_CASE_STATISTIC } as Record<string, unknown>;
+  for (const k of Object.keys(INITIAL_CASE_STATISTIC)) {
+    const v = api[k];
+    if (STAT_BOOL_KEYS.has(k)) out[k] = Boolean(v);
+    else if (v == null) out[k] = '';
+    else if (STAT_DATE_KEYS.has(k)) out[k] = toDateInput(v as string);
+    else out[k] = String(v);
+  }
+  return out as unknown as CaseStatisticForm;
+}
 
 type ApiCaseRecord = {
   name?: string | null;
@@ -47,6 +73,7 @@ export function mergeCaseApiToFormData(
     assignedTeamId:        apiData.assignedTeamId        ?? apiData.assignedTeam?.id ?? prev.assignedTeamId,
     handler:               apiData.investigatorId        ?? apiData.investigator?.id ?? prev.handler,
     capDoToiPham:          apiData.capDoToiPham          ?? prev.capDoToiPham,
+    statistic:             mergeStatistic(apiData.statistic as Record<string, unknown> | null | undefined, prev.statistic),
     // v0.37.2.5 — Provenance fields (4 columns + 0 lock tokens for EDIT).
     // Lock tokens only matter for CREATE FROM_PETITION/FROM_INCIDENT — for EDIT
     // the link is already established and BE preserves it.

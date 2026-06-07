@@ -993,9 +993,30 @@ export function TabBusinessFiles({ caseId }: { caseId?: string }) {
 // Tab 9: Thống kê 48 trường – full implementation từ Refs
 // ═════════════════════════════════════════════════════════════════════════════
 
+// Helper input nhỏ cho case_statistics (text/date/number/bool).
+const CS_LABEL = "block text-xs font-medium text-slate-600 mb-1";
+const CS_INPUT = "w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500";
+function CSText({ label, v, on, t }: { label: string; v: string; on: (x: string) => void; t: string }) {
+  return (<div><label className={CS_LABEL}>{label}</label><input type="text" value={v} onChange={(e) => on(e.target.value)} className={CS_INPUT} data-testid={t} /></div>);
+}
+function CSNum({ label, v, on, t }: { label: string; v: string; on: (x: string) => void; t: string }) {
+  return (<div><label className={CS_LABEL}>{label}</label><input type="number" min={0} value={v} onChange={(e) => on(e.target.value)} className={CS_INPUT} data-testid={t} /></div>);
+}
+function CSDate({ label, v, on, t }: { label: string; v: string; on: (x: string) => void; t: string }) {
+  return (<div><label className={CS_LABEL}>{label}</label><input type="date" value={v} onChange={(e) => on(e.target.value)} className={CS_INPUT} data-testid={t} /></div>);
+}
+function CSBool({ label, v, on, t }: { label: string; v: boolean; on: (x: boolean) => void; t: string }) {
+  return (<label className="flex items-center gap-2 text-sm text-slate-700 mt-5"><input type="checkbox" checked={v} onChange={(e) => on(e.target.checked)} className="w-4 h-4" data-testid={t} />{label}</label>);
+}
+
 export function TabStatistics({ formData, setFormData }: TabProps) {
   const update = (field: keyof typeof formData, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+  // Cập nhật field nested trong case_statistics (hybrid).
+  const cs = formData.statistic;
+  const updateStat = (field: keyof typeof cs, value: string | boolean) => {
+    setFormData((prev) => ({ ...prev, statistic: { ...prev.statistic, [field]: value } }));
   };
 
   const filledCount = [
@@ -1327,6 +1348,79 @@ export function TabStatistics({ formData, setFormData }: TabProps) {
       </div>
 
       {/* Footer save */}
+      {/* ── Thống kê mở rộng (hybrid — lưu bảng case_statistics, query được cho KPI) ── */}
+      <details className="bg-white rounded-lg border border-slate-200" data-testid="cs-section">
+        <summary className="px-4 py-3 font-semibold text-slate-800 cursor-pointer">
+          Thống kê mở rộng (báo cáo) — ghi âm/ghi hình, VPHC, vũ khí, mốc thời gian, hồ sơ nghiệp vụ
+        </summary>
+        <div className="p-4 space-y-5">
+          {/* Hồ sơ nghiệp vụ */}
+          <fieldset>
+            <legend className="text-sm font-medium text-slate-700 mb-2">Hồ sơ nghiệp vụ</legend>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <CSText label="Số đăng ký hồ sơ" v={cs.soDangKyHoSo} on={(x)=>updateStat("soDangKyHoSo",x)} t="cs-soDangKyHoSo" />
+              <CSDate label="Ngày đăng ký hồ sơ" v={cs.ngayDangKyHoSo} on={(x)=>updateStat("ngayDangKyHoSo",x)} t="cs-ngayDangKyHoSo" />
+              <CSText label="Số hồ sơ lưu" v={cs.hoSoLuu} on={(x)=>updateStat("hoSoLuu",x)} t="cs-hoSoLuu" />
+              <CSDate label="Ngày nộp lưu hồ sơ" v={cs.ngayNopLuuHoSo} on={(x)=>updateStat("ngayNopLuuHoSo",x)} t="cs-ngayNopLuuHoSo" />
+              <CSText label="Đơn vị bảo quản hồ sơ" v={cs.donViBaoQuanHoSo} on={(x)=>updateStat("donViBaoQuanHoSo",x)} t="cs-donViBaoQuanHoSo" />
+            </div>
+          </fieldset>
+          {/* Ghi âm, ghi hình */}
+          <fieldset>
+            <legend className="text-sm font-medium text-slate-700 mb-2">Ghi âm, ghi hình</legend>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <CSBool label="Có ghi âm/ghi hình" v={cs.coGhiAmGhiHinh} on={(x)=>updateStat("coGhiAmGhiHinh",x)} t="cs-coGhiAmGhiHinh" />
+              <CSNum label="Tổng BB ghi lời khai" v={cs.tongSoBienBanGhiLoiKhai} on={(x)=>updateStat("tongSoBienBanGhiLoiKhai",x)} t="cs-tongSoBienBanGhiLoiKhai" />
+              <CSNum label="BB ghi lời khai có ghi âm/hình" v={cs.soBienBanGhiLoiKhaiCoGhiAm} on={(x)=>updateStat("soBienBanGhiLoiKhaiCoGhiAm",x)} t="cs-soBienBanGhiLoiKhaiCoGhiAm" />
+              <CSBool label="Vụ án có ghi âm/ghi hình" v={cs.laVuAnGhiAmGhiHinh} on={(x)=>updateStat("laVuAnGhiAmGhiHinh",x)} t="cs-laVuAnGhiAmGhiHinh" />
+              <CSNum label="Tổng BB hỏi cung bị can" v={cs.tongSoBienBanHoiCung} on={(x)=>updateStat("tongSoBienBanHoiCung",x)} t="cs-tongSoBienBanHoiCung" />
+              <CSNum label="BB hỏi cung có ghi âm/hình" v={cs.tongSoBienBanHoiCungCoGhiAm} on={(x)=>updateStat("tongSoBienBanHoiCungCoGhiAm",x)} t="cs-tongSoBienBanHoiCungCoGhiAm" />
+              <CSNum label="Số bị can có ghi âm/hình" v={cs.soBiCanCoGhiAm} on={(x)=>updateStat("soBiCanCoGhiAm",x)} t="cs-soBiCanCoGhiAm" />
+              <CSBool label="VKS yêu cầu ghi âm/hình" v={cs.vksYeuCauGhiAm} on={(x)=>updateStat("vksYeuCauGhiAm",x)} t="cs-vksYeuCauGhiAm" />
+              <CSNum label="Số bị can VKS yêu cầu" v={cs.soBiCanVksYeuCauGhiAm} on={(x)=>updateStat("soBiCanVksYeuCauGhiAm",x)} t="cs-soBiCanVksYeuCauGhiAm" />
+            </div>
+          </fieldset>
+          {/* VPHC */}
+          <fieldset>
+            <legend className="text-sm font-medium text-slate-700 mb-2">Vi phạm hành chính</legend>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <CSBool label="Có VPHC" v={cs.coVPHC} on={(x)=>updateStat("coVPHC",x)} t="cs-coVPHC" />
+              <CSNum label="Số đối tượng VPHC" v={cs.soDoiTuongVPHC} on={(x)=>updateStat("soDoiTuongVPHC",x)} t="cs-soDoiTuongVPHC" />
+              <CSNum label="Số người bị phạt tiền" v={cs.soNguoiBiPhatTien} on={(x)=>updateStat("soNguoiBiPhatTien",x)} t="cs-soNguoiBiPhatTien" />
+              <CSNum label="Tổng tiền phạt HC (triệu)" v={cs.tongTienPhatHanhChinh} on={(x)=>updateStat("tongTienPhatHanhChinh",x)} t="cs-tongTienPhatHanhChinh" />
+            </div>
+          </fieldset>
+          {/* Đối tượng / vũ khí / băng nhóm */}
+          <fieldset>
+            <legend className="text-sm font-medium text-slate-700 mb-2">Đối tượng / vũ khí / băng nhóm</legend>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <CSNum label="Số đối tượng đã bắt" v={cs.soDoiTuongDaBat} on={(x)=>updateStat("soDoiTuongDaBat",x)} t="cs-soDoiTuongDaBat" />
+              <CSNum label="Số ĐT bị bắt vụ án khác" v={cs.soDoiTuongBiBatVuAnKhac} on={(x)=>updateStat("soDoiTuongBiBatVuAnKhac",x)} t="cs-soDoiTuongBiBatVuAnKhac" />
+              <CSNum label="Điều tra mở rộng (số vụ)" v={cs.dieuTraMoRong} on={(x)=>updateStat("dieuTraMoRong",x)} t="cs-dieuTraMoRong" />
+              <CSText label="Sử dụng vũ khí nóng" v={cs.suDungVuKhiNong} on={(x)=>updateStat("suDungVuKhiNong",x)} t="cs-suDungVuKhiNong" />
+              <CSBool label="Có băng nhóm" v={cs.coBangNhom} on={(x)=>updateStat("coBangNhom",x)} t="cs-coBangNhom" />
+              <CSNum label="Số băng nhóm bắt được" v={cs.soBangNhomBatDuoc} on={(x)=>updateStat("soBangNhomBatDuoc",x)} t="cs-soBangNhomBatDuoc" />
+              <CSNum label="Số súng thu hồi" v={cs.soSungThuHoi} on={(x)=>updateStat("soSungThuHoi",x)} t="cs-soSungThuHoi" />
+              <CSNum label="Số thuốc nổ thu hồi" v={cs.soThuocNoThuHoi} on={(x)=>updateStat("soThuocNoThuHoi",x)} t="cs-soThuocNoThuHoi" />
+              <CSNum label="Số ĐT sưu tra/hiềm nghi" v={cs.soDoiTuongSuuTraHiemNghi} on={(x)=>updateStat("soDoiTuongSuuTraHiemNghi",x)} t="cs-soDoiTuongSuuTraHiemNghi" />
+            </div>
+          </fieldset>
+          {/* Mốc thời gian thống kê */}
+          <fieldset>
+            <legend className="text-sm font-medium text-slate-700 mb-2">Mốc thời gian thống kê</legend>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <CSDate label="Ngày tổng hợp thống kê" v={cs.ngayThongKe} on={(x)=>updateStat("ngayThongKe",x)} t="cs-ngayThongKe" />
+              <CSDate label="Ngày phân công GQ tố giác" v={cs.ngayPhanCongGiaiQuyetToGiac} on={(x)=>updateStat("ngayPhanCongGiaiQuyetToGiac",x)} t="cs-ngayPhanCongGiaiQuyetToGiac" />
+              <CSDate label="Ngày tiếp nhận tin" v={cs.ngayTiepNhanTin} on={(x)=>updateStat("ngayTiepNhanTin",x)} t="cs-ngayTiepNhanTin" />
+              <CSDate label="Ngày đầu thú/tự thú" v={cs.ngayDauThu} on={(x)=>updateStat("ngayDauThu",x)} t="cs-ngayDauThu" />
+              <CSDate label="Ngày phạm tội quả tang" v={cs.ngayPhamToiQuaTang} on={(x)=>updateStat("ngayPhamToiQuaTang",x)} t="cs-ngayPhamToiQuaTang" />
+              <CSDate label="Ngày bị bắt khẩn cấp" v={cs.ngayBatKhanCap} on={(x)=>updateStat("ngayBatKhanCap",x)} t="cs-ngayBatKhanCap" />
+              <CSDate label="Ngày CQĐT phát hiện dấu hiệu" v={cs.ngayPhatHienDauHieu} on={(x)=>updateStat("ngayPhatHienDauHieu",x)} t="cs-ngayPhatHienDauHieu" />
+            </div>
+          </fieldset>
+        </div>
+      </details>
+
       <div className="flex items-center justify-end gap-3 bg-white rounded-lg border border-slate-200 p-4">
         <div className="flex-1 flex items-center gap-2 text-sm text-slate-600">
           <Info className="w-4 h-4" />

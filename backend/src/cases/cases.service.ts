@@ -624,6 +624,7 @@ export class CasesService {
     const record = await this.prisma.case.findFirst({
       where: { id, deletedAt: null },
       include: {
+        statistic: true, // Thống kê mở rộng (case_statistics) — form load round-trip
         investigator: {
           select: {
             id: true,

@@ -61,6 +61,7 @@ export interface CreateCasePayload {
   subjects?: SubjectPayload[];
   evidences?: EvidencePayload[];
   documentIds?: string[];
+  statistic?: Record<string, unknown>; // case_statistics (hybrid)
 }
 
 /**
@@ -291,7 +292,39 @@ export function buildCreateCasePayload(
   //   payload.documentIds = options.documentIds;
   // }
 
+  // Thống kê mở rộng (hybrid) → payload.statistic (case_statistics). Chỉ gửi key có giá trị.
+  const stat = buildStatisticPayload(formData.statistic);
+  if (Object.keys(stat).length > 0) payload.statistic = stat;
+
   return payload;
+}
+
+// Form CaseStatisticForm → object cho backend: số string→number, bool giữ nguyên, ngày string giữ nguyên.
+const STAT_NUM_FIELDS = new Set([
+  'tongSoBienBanGhiLoiKhai', 'soBienBanGhiLoiKhaiCoGhiAm', 'tongSoBienBanHoiCung',
+  'tongSoBienBanHoiCungCoGhiAm', 'soBiCanCoGhiAm', 'soBiCanVksYeuCauGhiAm', 'soDoiTuongVPHC',
+  'soNguoiBiPhatTien', 'tongTienPhatHanhChinh', 'soDoiTuongDaBat', 'soDoiTuongBiBatVuAnKhac',
+  'dieuTraMoRong', 'soBangNhomBatDuoc', 'soSungThuHoi', 'soThuocNoThuHoi', 'soDoiTuongSuuTraHiemNghi',
+]);
+const STAT_BOOL_FIELDS = new Set([
+  'coGhiAmGhiHinh', 'laVuAnGhiAmGhiHinh', 'vksYeuCauGhiAm', 'coVPHC', 'coBangNhom',
+]);
+
+export function buildStatisticPayload(s: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(s)) {
+    if (STAT_BOOL_FIELDS.has(k)) {
+      if (v === true) out[k] = true; // chỉ gửi khi true (mặc định false ở DB)
+    } else if (STAT_NUM_FIELDS.has(k)) {
+      if (v !== '' && v != null) {
+        const n = Number(v);
+        if (!Number.isNaN(n)) out[k] = n;
+      }
+    } else if (v !== '' && v != null) {
+      out[k] = v; // text/ngày
+    }
+  }
+  return out;
 }
 
 // Map frontend Subject.type ("Bị can"/"Bị hại"/...) → Prisma SubjectType enum
