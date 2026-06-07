@@ -116,6 +116,28 @@ export class PetitionsController {
     await this.petitionsService.exportDuplicates(query, req.dataScope, res);
   }
 
+  // GET /api/v1/petitions/suspect-search?q= — Nhóm V: search nghi phạm theo tên/CCCD
+  @Get('suspect-search')
+  @RequirePermissions({ action: 'read', subject: 'Petition' })
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
+  suspectSearch(
+    @Query() query: { q?: string },
+    @Req() req: ScopedRequest,
+  ) {
+    return this.petitionsService.suspectSearch(query.q ?? '', req.dataScope);
+  }
+
+  // GET /api/v1/petitions/duplicate-search?q=&excludeId= — Nhóm V: search trùng đơn
+  @Get('duplicate-search')
+  @RequirePermissions({ action: 'read', subject: 'Petition' })
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
+  duplicateSearch(
+    @Query() query: { q?: string; excludeId?: string },
+    @Req() req: ScopedRequest,
+  ) {
+    return this.petitionsService.duplicateSearch(query.q ?? '', query.excludeId, req.dataScope);
+  }
+
   // GET /api/v1/petitions/:id/journey — Hành trình đơn thư
   @Get(':id/journey')
   @RequirePermissions({ action: 'read', subject: 'Petition' })

@@ -15,6 +15,8 @@ const mockService = {
   convertToIncident: jest.fn(),
   convertToCase: jest.fn(),
   assignPetition: jest.fn(),
+  suspectSearch: jest.fn(),
+  duplicateSearch: jest.fn(),
 };
 
 const mockJourneyService = { getJourney: jest.fn() };
@@ -116,5 +118,28 @@ describe('PetitionsController — delegation', () => {
       expect.objectContaining({ ipAddress: '127.0.0.1' }),
       req.dataScope,
     );
+  });
+
+  // ── Nhóm V — suspect-search + duplicate-search ────────────────────────────
+
+  it('V1: suspectSearch() delegates to service.suspectSearch with q param', async () => {
+    mockService.suspectSearch.mockResolvedValue([]);
+    const req = makeReq();
+    await (controller as any).suspectSearch({ q: 'nguyen van a' }, req);
+    expect(mockService.suspectSearch).toHaveBeenCalledWith('nguyen van a', req.dataScope);
+  });
+
+  it('V2: duplicateSearch() delegates to service.duplicateSearch with q and excludeId', async () => {
+    mockService.duplicateSearch.mockResolvedValue([]);
+    const req = makeReq();
+    await (controller as any).duplicateSearch({ q: 'tham nhung', excludeId: 'pet-1' }, req);
+    expect(mockService.duplicateSearch).toHaveBeenCalledWith('tham nhung', 'pet-1', req.dataScope);
+  });
+
+  it('V3: suspectSearch() returns empty array for empty q', async () => {
+    mockService.suspectSearch.mockResolvedValue([]);
+    const req = makeReq();
+    await (controller as any).suspectSearch({ q: '' }, req);
+    expect(mockService.suspectSearch).toHaveBeenCalledWith('', req.dataScope);
   });
 });

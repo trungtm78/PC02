@@ -1920,4 +1920,81 @@ export class PetitionsService {
 
     return { total, byStatus };
   }
+
+  // ── Nhóm V — Search nghi phạm theo tên/CCCD ────────────────────────────────
+  async suspectSearch(
+    q: string,
+    _dataScope?: DataScope | null,
+  ): Promise<Array<{ name: string; idNumber: string; crimes: string[]; sources: Array<{ type: string; stt: string }> }>> {
+    if (!q?.trim()) return [];
+
+    const petitions = await this.prisma.petition.findMany({
+      where: {
+        deletedAt: null,
+        OR: [
+          { senderName: { contains: q, mode: 'insensitive' } },
+          { senderIdNumber: { contains: q, mode: 'insensitive' } },
+        ],
+      },
+      select: {
+        id: true,
+        stt: true,
+        senderName: true,
+        senderIdNumber: true,
+        toiDanhBanDau: true,
+      },
+      take: 20,
+      orderBy: { receivedDate: 'desc' },
+    });
+
+    const byKey = new Map<string, { name: string; idNumber: string; crimes: string[]; sources: Array<{ type: string; stt: string }> }>();
+    for (const p of petitions) {
+      const key = p.senderIdNumber?.trim() || p.senderName;
+      if (!byKey.has(key)) {
+        byKey.set(key, { name: p.senderName, idNumber: p.senderIdNumber ?? '', crimes: [], sources: [] });
+      }
+      const entry = byKey.get(key)!;
+      if (p.toiDanhBanDau?.trim() && !entry.crimes.includes(p.toiDanhBanDau)) {
+        entry.crimes.push(p.toiDanhBanDau);
+      }
+      entry.sources.push({ type: 'petition', stt: p.stt });
+    }
+
+    return Array.from(byKey.values());
+  }
+
+  // ── Nhóm V — Search trùng đơn theo tên/STT/nội dung ───────────────────────
+  async duplicateSearch(
+    q: string,
+    excludeId?: string,
+    _dataScope?: DataScope | null,
+  ): Promise<Array<{ id: string; stt: string; senderName: string; receivedDate: Date; summary: string | null }>> {
+    if (!q?.trim()) return [];
+
+    const where: Prisma.PetitionWhereInput = {
+      deletedAt: null,
+      OR: [
+        { senderName: { contains: q, mode: 'insensitive' } },
+        { stt: { contains: q, mode: 'insensitive' } },
+        { summary: { contains: q, mode: 'insensitive' } },
+      ],
+    };
+
+    if (excludeId) {
+      where.id = { not: excludeId };
+    }
+
+    return this.prisma.petition.findMany({
+      where,
+      select: {
+        id: true,
+        stt: true,
+        senderName: true,
+        receivedDate: true,
+        summary: true,
+      },
+      take: 20,
+      orderBy: { receivedDate: 'desc' },
+    });
+  }
 }

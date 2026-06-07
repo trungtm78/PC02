@@ -1386,4 +1386,113 @@ describe('PetitionsService', () => {
       expect(dto.senderName).toBe('Test Name');
     });
   });
+
+  // ── Nhóm V — suspectSearch + duplicateSearch ──────────────────────────────
+
+  describe('suspectSearch()', () => {
+    it('V-S1: returns structured results matching senderName', async () => {
+      mockPrisma.petition.findMany.mockResolvedValue([
+        {
+          ...mockPetition,
+          id: 'pet-suspect-1',
+          stt: 'DT-2025-00003',
+          senderName: 'Nguyễn Văn A',
+          senderIdNumber: '079088001234',
+          toiDanhBanDau: 'Trộm cắp tài sản',
+          receivedDate: new Date('2025-06-01'),
+        },
+      ]);
+
+      const result = await service.suspectSearch('Nguyễn Văn A', null);
+
+      expect(result).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            name: 'Nguyễn Văn A',
+            idNumber: '079088001234',
+            crimes: expect.any(Array),
+            sources: expect.arrayContaining([
+              expect.objectContaining({ type: 'petition', stt: 'DT-2025-00003' }),
+            ]),
+          }),
+        ]),
+      );
+    });
+
+    it('V-S2: returns empty array for blank query', async () => {
+      const result = await service.suspectSearch('', null);
+      expect(result).toEqual([]);
+      expect(mockPrisma.petition.findMany).not.toHaveBeenCalled();
+    });
+
+    it('V-S3: groups multiple petitions from same person into one result', async () => {
+      mockPrisma.petition.findMany.mockResolvedValue([
+        {
+          ...mockPetition,
+          id: 'pet-1',
+          stt: 'DT-2025-00001',
+          senderName: 'Trần Thị B',
+          senderIdNumber: '079088005678',
+          toiDanhBanDau: 'Lừa đảo',
+        },
+        {
+          ...mockPetition,
+          id: 'pet-2',
+          stt: 'DT-2026-00001',
+          senderName: 'Trần Thị B',
+          senderIdNumber: '079088005678',
+          toiDanhBanDau: 'Chiếm đoạt tài sản',
+        },
+      ]);
+
+      const result = await service.suspectSearch('Trần Thị B', null);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].sources).toHaveLength(2);
+      expect(result[0].crimes).toContain('Lừa đảo');
+      expect(result[0].crimes).toContain('Chiếm đoạt tài sản');
+    });
+  });
+
+  describe('duplicateSearch()', () => {
+    it('V-D1: returns petitions matching query text in senderName', async () => {
+      mockPrisma.petition.findMany.mockResolvedValue([
+        {
+          ...mockPetition,
+          id: 'pet-dup-1',
+          stt: 'DT-2025-00099',
+          senderName: 'Lê Văn C',
+          receivedDate: new Date('2025-01-15'),
+          summary: 'Đơn tố giác về đất đai',
+        },
+      ]);
+
+      const result = await service.duplicateSearch('Lê Văn C', undefined, null);
+
+      expect(result).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            id: 'pet-dup-1',
+            stt: 'DT-2025-00099',
+            senderName: 'Lê Văn C',
+          }),
+        ]),
+      );
+    });
+
+    it('V-D2: excludes the petition with excludeId', async () => {
+      mockPrisma.petition.findMany.mockResolvedValue([]);
+
+      await service.duplicateSearch('Lê Văn C', 'pet-current', null);
+
+      const call = mockPrisma.petition.findMany.mock.calls[0][0];
+      expect(JSON.stringify(call.where)).toContain('pet-current');
+    });
+
+    it('V-D3: returns empty array for blank query', async () => {
+      const result = await service.duplicateSearch('', undefined, null);
+      expect(result).toEqual([]);
+      expect(mockPrisma.petition.findMany).not.toHaveBeenCalled();
+    });
+  });
 });
