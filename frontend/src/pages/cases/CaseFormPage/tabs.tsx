@@ -743,6 +743,102 @@ export function TabCase({ formData, setFormData, errors, setErrors }: TabProps) 
           value={formData.ngayQDDieuTraLai}
           onChange={(v) => update("ngayQDDieuTraLai", v)}
         />
+        {/* Số QĐ giai đoạn vụ án (field-parity) */}
+        <FormInput
+          label="Số QĐ khởi tố vụ án"
+          value={formData.soQuyetDinhKhoiTo}
+          onChange={(v) => update("soQuyetDinhKhoiTo", v)}
+          placeholder="Số QĐ khởi tố"
+        />
+        <FormInput
+          label="Số QĐ nhập vụ án"
+          value={formData.soQDNhapVuAn}
+          onChange={(v) => update("soQDNhapVuAn", v)}
+          placeholder="Số QĐ nhập vụ án"
+        />
+        <FormInput
+          label="Ngày nhập vụ án"
+          type="date"
+          icon={<Calendar className="w-4 h-4" />}
+          value={formData.ngayNhapVuAn}
+          onChange={(v) => update("ngayNhapVuAn", v)}
+        />
+        <FormInput
+          label="Ghi chú nhập hồ sơ"
+          value={formData.ghiChuNhapHoSo}
+          onChange={(v) => update("ghiChuNhapHoSo", v)}
+          placeholder="Ghi chú nhập vào hồ sơ nào"
+        />
+        <FormInput
+          label="Số QĐ tách vụ án"
+          value={formData.soQDTachVuAn}
+          onChange={(v) => update("soQDTachVuAn", v)}
+          placeholder="Số QĐ tách vụ án"
+        />
+        <FormInput
+          label="Ngày tách vụ án"
+          type="date"
+          icon={<Calendar className="w-4 h-4" />}
+          value={formData.ngayTachVuAn}
+          onChange={(v) => update("ngayTachVuAn", v)}
+        />
+        <FormInput
+          label="Số QĐ tách hành vi"
+          value={formData.soQDTachHanhVi}
+          onChange={(v) => update("soQDTachHanhVi", v)}
+          placeholder="Số QĐ tách hành vi"
+        />
+        <FormInput
+          label="Ngày tách hành vi"
+          type="date"
+          icon={<Calendar className="w-4 h-4" />}
+          value={formData.ngayTachHanhVi}
+          onChange={(v) => update("ngayTachHanhVi", v)}
+        />
+        <FormInput
+          label="Số QĐ đình chỉ vụ án"
+          value={formData.soQDDinhChiVuAn}
+          onChange={(v) => update("soQDDinhChiVuAn", v)}
+          placeholder="Số QĐ đình chỉ vụ án"
+        />
+        <FormInput
+          label="Ngày đình chỉ vụ án"
+          type="date"
+          icon={<Calendar className="w-4 h-4" />}
+          value={formData.ngayDinhChiVuAn}
+          onChange={(v) => update("ngayDinhChiVuAn", v)}
+        />
+        <FormInput
+          label="Chuyển vụ án cho CQĐT khác"
+          value={formData.chuyenVuAnChoCQK}
+          onChange={(v) => update("chuyenVuAnChoCQK", v)}
+          placeholder="Số/ngày/đơn vị nhận"
+        />
+        <FormInput
+          label="Số bản án có hiệu lực"
+          value={formData.soBanAnCoHieuLuc}
+          onChange={(v) => update("soBanAnCoHieuLuc", v)}
+          placeholder="Số bản án"
+        />
+        <FormInput
+          label="Ngày bản án có hiệu lực"
+          type="date"
+          icon={<Calendar className="w-4 h-4" />}
+          value={formData.ngayBanAnCoHieuLuc}
+          onChange={(v) => update("ngayBanAnCoHieuLuc", v)}
+        />
+        <FormInput
+          label="Căn cứ tạm đình chỉ vụ án"
+          value={formData.canCuTamDinhChiVuAn}
+          onChange={(v) => update("canCuTamDinhChiVuAn", v)}
+          placeholder="Căn cứ pháp lý tạm đình chỉ"
+        />
+        <FormInput
+          label="Căn cứ phục hồi điều tra"
+          value={formData.canCuPhucHoiVuAn}
+          onChange={(v) => update("canCuPhucHoiVuAn", v)}
+          placeholder="Căn cứ pháp lý phục hồi điều tra"
+        />
       </div>
     </Card>
   );

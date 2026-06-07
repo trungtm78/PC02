@@ -137,6 +137,23 @@ export interface CaseFormData {
   soQDDieuTraLai: string;   // Số QĐ điều tra lại
   ngayQDDieuTraLai: string; // Ngày QĐ điều tra lại
 
+  // ── Field-parity: số QĐ giai đoạn vụ án (15 cột, tất cả optional) ──────
+  soQuyetDinhKhoiTo: string;   // Số QĐ khởi tố vụ án
+  soQDNhapVuAn: string;        // Số QĐ nhập vụ án
+  ngayNhapVuAn: string;        // Ngày nhập vụ án
+  ghiChuNhapHoSo: string;      // Ghi chú nhập vào hồ sơ nào
+  soQDTachVuAn: string;        // Số QĐ tách vụ án
+  ngayTachVuAn: string;        // Ngày tách vụ án
+  soQDTachHanhVi: string;      // Số QĐ tách hành vi
+  ngayTachHanhVi: string;      // Ngày tách hành vi
+  soQDDinhChiVuAn: string;     // Số QĐ đình chỉ vụ án
+  ngayDinhChiVuAn: string;     // Ngày đình chỉ vụ án
+  chuyenVuAnChoCQK: string;    // Chuyển vụ án cho CQĐT khác
+  soBanAnCoHieuLuc: string;    // Số bản án có hiệu lực pháp luật
+  ngayBanAnCoHieuLuc: string;  // Ngày bản án có hiệu lực pháp luật
+  canCuTamDinhChiVuAn: string; // Căn cứ tạm đình chỉ vụ án
+  canCuPhucHoiVuAn: string;    // Căn cứ phục hồi điều tra vụ án
+
   // ── Tab 3: Vụ án ────────────────────────────────────────────────────────
   criminalCode: string;
   criminalDate: string;
@@ -331,6 +348,12 @@ export const INITIAL_FORM_DATA: CaseFormData = {
   incidentMethod: "",
   // Field-parity KLĐT + QĐ điều tra lại
   soKLDT: "", ngayKLDT: "", soQDDieuTraLai: "", ngayQDDieuTraLai: "",
+  // Field-parity: số QĐ giai đoạn vụ án
+  soQuyetDinhKhoiTo: "", soQDNhapVuAn: "", ngayNhapVuAn: "", ghiChuNhapHoSo: "",
+  soQDTachVuAn: "", ngayTachVuAn: "", soQDTachHanhVi: "", ngayTachHanhVi: "",
+  soQDDinhChiVuAn: "", ngayDinhChiVuAn: "", chuyenVuAnChoCQK: "",
+  soBanAnCoHieuLuc: "", ngayBanAnCoHieuLuc: "",
+  canCuTamDinhChiVuAn: "", canCuPhucHoiVuAn: "",
   // Tab 3
   criminalCode: "",
   criminalDate: "",

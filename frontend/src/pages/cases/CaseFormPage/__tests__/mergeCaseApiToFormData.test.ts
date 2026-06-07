@@ -107,3 +107,68 @@ describe('mergeCaseApiToFormData — UTDT fields (caseProvenance=UY_THAC_DIEU_TR
     expect(result.utdt_loaiUyThac).toBe('DIEU_TRA_HINH_SU');
   });
 });
+
+describe('mergeCaseApiToFormData — FP Case số QĐ giai đoạn', () => {
+  it('hydrates soQuyetDinhKhoiTo from top-level apiData', () => {
+    const result = mergeCaseApiToFormData(
+      { ...baseApi, soQuyetDinhKhoiTo: 'QD-KT-001' },
+      INITIAL_FORM_DATA,
+    );
+    expect(result.soQuyetDinhKhoiTo).toBe('QD-KT-001');
+  });
+
+  it('hydrates soQDNhapVuAn and ngayNhapVuAn from top-level apiData', () => {
+    const result = mergeCaseApiToFormData(
+      { ...baseApi, soQDNhapVuAn: 'QD-NHAP-01', ngayNhapVuAn: '2026-02-10T00:00:00.000Z' },
+      INITIAL_FORM_DATA,
+    );
+    expect(result.soQDNhapVuAn).toBe('QD-NHAP-01');
+    expect(result.ngayNhapVuAn).toMatch(/^2026-02-1[01]$/);
+  });
+
+  it('hydrates soQDTachVuAn and ngayTachVuAn', () => {
+    const result = mergeCaseApiToFormData(
+      { ...baseApi, soQDTachVuAn: 'QD-TACH-01', ngayTachVuAn: '2026-03-15T00:00:00.000Z' },
+      INITIAL_FORM_DATA,
+    );
+    expect(result.soQDTachVuAn).toBe('QD-TACH-01');
+    expect(result.ngayTachVuAn).toMatch(/^2026-03-1[45]$/);
+  });
+
+  it('hydrates soQDDinhChiVuAn and ngayDinhChiVuAn', () => {
+    const result = mergeCaseApiToFormData(
+      { ...baseApi, soQDDinhChiVuAn: 'QD-DC-01', ngayDinhChiVuAn: '2026-04-20T00:00:00.000Z' },
+      INITIAL_FORM_DATA,
+    );
+    expect(result.soQDDinhChiVuAn).toBe('QD-DC-01');
+    expect(result.ngayDinhChiVuAn).toMatch(/^2026-04-2[01]$/);
+  });
+
+  it('hydrates soBanAnCoHieuLuc and ngayBanAnCoHieuLuc', () => {
+    const result = mergeCaseApiToFormData(
+      { ...baseApi, soBanAnCoHieuLuc: 'BA-001/2026', ngayBanAnCoHieuLuc: '2026-05-01T00:00:00.000Z' },
+      INITIAL_FORM_DATA,
+    );
+    expect(result.soBanAnCoHieuLuc).toBe('BA-001/2026');
+    expect(result.ngayBanAnCoHieuLuc).toMatch(/^2026-05-0[12]$/);
+  });
+
+  it('hydrates canCuTamDinhChiVuAn and canCuPhucHoiVuAn', () => {
+    const result = mergeCaseApiToFormData(
+      { ...baseApi, canCuTamDinhChiVuAn: 'Căn cứ TĐC', canCuPhucHoiVuAn: 'Căn cứ phục hồi' },
+      INITIAL_FORM_DATA,
+    );
+    expect(result.canCuTamDinhChiVuAn).toBe('Căn cứ TĐC');
+    expect(result.canCuPhucHoiVuAn).toBe('Căn cứ phục hồi');
+  });
+
+  it('falls back to prev when FP fields null from API', () => {
+    const prev = { ...INITIAL_FORM_DATA, soQuyetDinhKhoiTo: 'QD-OLD', ghiChuNhapHoSo: 'Ghi chú cũ' };
+    const result = mergeCaseApiToFormData(
+      { ...baseApi, soQuyetDinhKhoiTo: null, ghiChuNhapHoSo: null },
+      prev,
+    );
+    expect(result.soQuyetDinhKhoiTo).toBe('QD-OLD');
+    expect(result.ghiChuNhapHoSo).toBe('Ghi chú cũ');
+  });
+});

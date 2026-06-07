@@ -211,5 +211,21 @@ export function mergeCaseApiToFormData(
     ngayKLDT:        apiData.ngayKLDT ? toDateInput(apiData.ngayKLDT as string) : prev.ngayKLDT,
     soQDDieuTraLai:  (apiData.soQDDieuTraLai as string)  ?? prev.soQDDieuTraLai,
     ngayQDDieuTraLai: apiData.ngayQDDieuTraLai ? toDateInput(apiData.ngayQDDieuTraLai as string) : prev.ngayQDDieuTraLai,
+    // Field-parity: số QĐ giai đoạn vụ án (15 cột top-level)
+    soQuyetDinhKhoiTo:   (apiData.soQuyetDinhKhoiTo as string)   ?? prev.soQuyetDinhKhoiTo,
+    soQDNhapVuAn:        (apiData.soQDNhapVuAn as string)        ?? prev.soQDNhapVuAn,
+    ngayNhapVuAn:        apiData.ngayNhapVuAn ? toDateInput(apiData.ngayNhapVuAn as string) : prev.ngayNhapVuAn,
+    ghiChuNhapHoSo:      (apiData.ghiChuNhapHoSo as string)      ?? prev.ghiChuNhapHoSo,
+    soQDTachVuAn:        (apiData.soQDTachVuAn as string)        ?? prev.soQDTachVuAn,
+    ngayTachVuAn:        apiData.ngayTachVuAn ? toDateInput(apiData.ngayTachVuAn as string) : prev.ngayTachVuAn,
+    soQDTachHanhVi:      (apiData.soQDTachHanhVi as string)      ?? prev.soQDTachHanhVi,
+    ngayTachHanhVi:      apiData.ngayTachHanhVi ? toDateInput(apiData.ngayTachHanhVi as string) : prev.ngayTachHanhVi,
+    soQDDinhChiVuAn:     (apiData.soQDDinhChiVuAn as string)     ?? prev.soQDDinhChiVuAn,
+    ngayDinhChiVuAn:     apiData.ngayDinhChiVuAn ? toDateInput(apiData.ngayDinhChiVuAn as string) : prev.ngayDinhChiVuAn,
+    chuyenVuAnChoCQK:    (apiData.chuyenVuAnChoCQK as string)    ?? prev.chuyenVuAnChoCQK,
+    soBanAnCoHieuLuc:    (apiData.soBanAnCoHieuLuc as string)    ?? prev.soBanAnCoHieuLuc,
+    ngayBanAnCoHieuLuc:  apiData.ngayBanAnCoHieuLuc ? toDateInput(apiData.ngayBanAnCoHieuLuc as string) : prev.ngayBanAnCoHieuLuc,
+    canCuTamDinhChiVuAn: (apiData.canCuTamDinhChiVuAn as string) ?? prev.canCuTamDinhChiVuAn,
+    canCuPhucHoiVuAn:    (apiData.canCuPhucHoiVuAn as string)    ?? prev.canCuPhucHoiVuAn,
   };
 }

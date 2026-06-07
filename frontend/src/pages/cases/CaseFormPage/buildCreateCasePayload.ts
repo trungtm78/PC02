@@ -67,6 +67,22 @@ export interface CreateCasePayload {
   ngayKLDT?: string;
   soQDDieuTraLai?: string;
   ngayQDDieuTraLai?: string;
+  // Field-parity: số QĐ giai đoạn vụ án
+  soQuyetDinhKhoiTo?: string;
+  soQDNhapVuAn?: string;
+  ngayNhapVuAn?: string;
+  ghiChuNhapHoSo?: string;
+  soQDTachVuAn?: string;
+  ngayTachVuAn?: string;
+  soQDTachHanhVi?: string;
+  ngayTachHanhVi?: string;
+  soQDDinhChiVuAn?: string;
+  ngayDinhChiVuAn?: string;
+  chuyenVuAnChoCQK?: string;
+  soBanAnCoHieuLuc?: string;
+  ngayBanAnCoHieuLuc?: string;
+  canCuTamDinhChiVuAn?: string;
+  canCuPhucHoiVuAn?: string;
 }
 
 /**
@@ -247,6 +263,22 @@ export function buildCreateCasePayload(
   if (formData.ngayKLDT)         payload.ngayKLDT = formData.ngayKLDT;
   if (formData.soQDDieuTraLai)   payload.soQDDieuTraLai = formData.soQDDieuTraLai;
   if (formData.ngayQDDieuTraLai) payload.ngayQDDieuTraLai = formData.ngayQDDieuTraLai;
+  // Field-parity: số QĐ giai đoạn vụ án
+  if (formData.soQuyetDinhKhoiTo)   payload.soQuyetDinhKhoiTo = formData.soQuyetDinhKhoiTo;
+  if (formData.soQDNhapVuAn)        payload.soQDNhapVuAn = formData.soQDNhapVuAn;
+  if (formData.ngayNhapVuAn)        payload.ngayNhapVuAn = formData.ngayNhapVuAn;
+  if (formData.ghiChuNhapHoSo)      payload.ghiChuNhapHoSo = formData.ghiChuNhapHoSo;
+  if (formData.soQDTachVuAn)        payload.soQDTachVuAn = formData.soQDTachVuAn;
+  if (formData.ngayTachVuAn)        payload.ngayTachVuAn = formData.ngayTachVuAn;
+  if (formData.soQDTachHanhVi)      payload.soQDTachHanhVi = formData.soQDTachHanhVi;
+  if (formData.ngayTachHanhVi)      payload.ngayTachHanhVi = formData.ngayTachHanhVi;
+  if (formData.soQDDinhChiVuAn)     payload.soQDDinhChiVuAn = formData.soQDDinhChiVuAn;
+  if (formData.ngayDinhChiVuAn)     payload.ngayDinhChiVuAn = formData.ngayDinhChiVuAn;
+  if (formData.chuyenVuAnChoCQK)    payload.chuyenVuAnChoCQK = formData.chuyenVuAnChoCQK;
+  if (formData.soBanAnCoHieuLuc)    payload.soBanAnCoHieuLuc = formData.soBanAnCoHieuLuc;
+  if (formData.ngayBanAnCoHieuLuc)  payload.ngayBanAnCoHieuLuc = formData.ngayBanAnCoHieuLuc;
+  if (formData.canCuTamDinhChiVuAn) payload.canCuTamDinhChiVuAn = formData.canCuTamDinhChiVuAn;
+  if (formData.canCuPhucHoiVuAn)    payload.canCuPhucHoiVuAn = formData.canCuPhucHoiVuAn;
 
   // PR 1 v0.38.0.0 — Wire sub-entity arrays vào payload (atomic create)
   // HOTFIX (codex P1 post-merge): chỉ include subjects với crimeId hợp lệ +
