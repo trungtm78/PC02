@@ -26,7 +26,6 @@ export interface ConvertToCasePayload {
 }
 
 interface Props {
-  petitionId: string;
   petitionUpdatedAt: string | null;
   onClose: () => void;
   onSubmitIncident: (payload: ConvertToIncidentPayload) => Promise<void>;
@@ -34,7 +33,6 @@ interface Props {
 }
 
 export function ConvertPetitionModal({
-  petitionId,
   petitionUpdatedAt,
   onClose,
   onSubmitIncident,

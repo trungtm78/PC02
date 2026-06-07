@@ -6,7 +6,6 @@ import { ConvertPetitionModal } from '../ConvertPetitionModal';
 
 describe('ConvertPetitionModal', () => {
   const defaultProps = {
-    petitionId: 'pet-01',
     petitionUpdatedAt: '2026-06-01T10:00:00.000Z',
     onClose: vi.fn(),
     onSubmitIncident: vi.fn().mockResolvedValue(undefined),

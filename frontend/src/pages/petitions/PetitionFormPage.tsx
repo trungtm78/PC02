@@ -914,18 +914,19 @@ export function PetitionFormPage() {
       {/* Nhóm II: ConvertPetitionModal */}
       {showConvertModal && id && (
         <ConvertPetitionModal
-          petitionId={id}
           petitionUpdatedAt={recordUpdatedAt}
           onClose={() => setShowConvertModal(false)}
           onSubmitIncident={async (payload: ConvertToIncidentPayload) => {
-            await api.post(`/petitions/${id}/convert-incident`, payload);
+            const res = await api.post(`/petitions/${id}/convert-incident`, payload);
             setShowConvertModal(false);
-            navigate(`/incidents`);
+            const incidentId = res?.data?.data?.incident?.id;
+            navigate(incidentId ? `/incidents/${incidentId}/edit` : `/incidents`);
           }}
           onSubmitCase={async (payload: ConvertToCasePayload) => {
-            await api.post(`/petitions/${id}/convert-case`, payload);
+            const res = await api.post(`/petitions/${id}/convert-case`, payload);
             setShowConvertModal(false);
-            navigate(`/cases`);
+            const caseId = res?.data?.data?.case?.id;
+            navigate(caseId ? `/cases/${caseId}/edit` : `/cases`);
           }}
         />
       )}
