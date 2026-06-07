@@ -190,4 +190,36 @@ export class CreateIncidentDto {
   @IsOptional()
   @IsString()
   nguoiQuyetDinh?: string;
+
+  // Field-parity hệ thống cũ — TĐC tracking + tiến độ khắc phục
+  @IsOptional()
+  @IsString()
+  tienDoKhacPhucTDC?: string;
+
+  @IsOptional()
+  @IsString()
+  tdcKhacPhucLyDoBienPhap?: string;
+
+  @IsOptional()
+  @IsString()
+  tdcKhacPhucBienBan?: string;
+
+  @IsOptional()
+  @IsString()
+  soQuyetDinhTamDinhChiVV?: string;
+
+  @IsOptional()
+  @IsDateString()
+  ngayTamDinhChiVV?: string;
+
+  @IsOptional()
+  @IsString()
+  soQuyetDinhPhucHoiVV?: string;
+
+  @IsOptional()
+  @IsDateString()
+  ngayPhucHoiVV?: string;
+
+  @IsOptional()
+  laCongNgheCaoVV?: boolean;
 }

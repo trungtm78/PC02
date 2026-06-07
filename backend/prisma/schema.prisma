@@ -530,6 +530,11 @@ model Case {
   ngayBanAnCoHieuLuc DateTime?
   canCuTamDinhChiVuAn String? // Căn cứ (text) tạm đình chỉ vụ án
   canCuPhucHoiVuAn    String? // Căn cứ (text) phục hồi điều tra vụ án
+  // Field-parity hệ thống cũ — KLĐT + QĐ điều tra lại
+  soKLDT              String? // Số kết luận điều tra (old: ket_luan_dieu_tra_vu_an)
+  ngayKLDT            DateTime? // Ngày kết luận điều tra (old: ngay_ket_luan_dieu_tra)
+  soQDDieuTraLai      String? // Số QĐ điều tra lại (old: quyet_dinh_dieu_tra_lai)
+  ngayQDDieuTraLai    DateTime? // Ngày QĐ điều tra lại (old: ngay_quyet_dinh_dieu_tra_lai)
   deletedAt      DateTime? // Soft delete
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
@@ -683,6 +688,14 @@ model CaseStatistic {
   soSungThuHoi             Int?
   soThuocNoThuHoi          Int?
   soDoiTuongSuuTraHiemNghi Int?
+
+  // Field-parity hệ thống cũ — bị hại, thiệt hại, xét xử
+  soLuongBiHai    Int? // Số lượng bị hại (old: so_luong_bi_hai)
+  soNguoiBiThuong Int? // Số người bị thương (old: so_nguoi_bi_thuong)
+  soLuongNguoiChet Int? // Số lượng người chết (old: so_luong_nguoi_chet)
+  soTienBiThietHai Float? // Số tiền bị thiệt hại VND (old: so_tien_bi_thiet_hai)
+  soTienThuHoi    Float? // Số tiền thu hồi VND (old: so_tien_thu_hoi)
+  vuAnDaDuocXetXu Boolean @default(false) // Vụ án đã được xét xử (old: xac_nhan_vu_an_da_duoc_xet_xu)
 
   // Mốc thời gian thống kê
   ngayThongKe                  DateTime?
@@ -887,6 +900,8 @@ model Petition {
   lanhDaoToTung         String? // Lãnh đạo phụ trách tố tụng
   ketQuaXuLyKhac        String? // Kết quả xử lý, giải quyết khác
   legacySourceId        String? // Khóa gốc hệ thống cũ pc02hcm.com — idempotent di trú
+  // Field-parity hệ thống cũ — giai đoạn Ủy thác điều tra
+  thoiHanUTDT           DateTime? // Thời hạn thực hiện Ủy thác điều tra (old: thoi_han_thuc_hien_uy_thac_dieu_tra)
 
   crimeChinh Crime? @relation("PetitionCrimeChinh", fields: [crimeChinhId], references: [id], onDelete: SetNull)
 
@@ -1049,6 +1064,8 @@ model Incident {
   // v0.47 — TĐC khắc phục fields cho Phụ lục 02/03 (Vụ việc TĐC)
   tdcKhacPhucLyDoBienPhap String? // Biện pháp khắc phục lý do TĐC
   tdcKhacPhucBienBan      String? // BB trao đổi VKS, KH khắc phục (số/ngày)
+  // Field-parity hệ thống cũ — tiến độ khắc phục TĐC + các fields TĐC còn thiếu
+  tienDoKhacPhucTDC       String? // Tiến độ khắc phục TĐC (old: tien_do_khac_phuc_tdc)
 
   // v0.47 — Import audit (Track B xlsx import) — per-row provenance per Codex #3
   importedFrom String?

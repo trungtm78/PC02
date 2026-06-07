@@ -300,4 +300,9 @@ export class CreatePetitionDto {
   @IsString()
   @MaxLength(2000)
   ketQuaXuLyKhac?: string;
+
+  // Field-parity hệ thống cũ — Ủy thác điều tra
+  @IsOptional()
+  @IsDateString()
+  thoiHanUTDT?: string;
 }

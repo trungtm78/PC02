@@ -207,6 +207,11 @@ export class CreateCaseDto {
   @IsOptional() @IsDateString() ngayBanAnCoHieuLuc?: string;
   @IsOptional() @IsString() canCuTamDinhChiVuAn?: string;
   @IsOptional() @IsString() canCuPhucHoiVuAn?: string;
+  // Field-parity hệ thống cũ — KLĐT + QĐ điều tra lại
+  @IsOptional() @IsString() soKLDT?: string;
+  @IsOptional() @IsDateString() ngayKLDT?: string;
+  @IsOptional() @IsString() soQDDieuTraLai?: string;
+  @IsOptional() @IsDateString() ngayQDDieuTraLai?: string;
 
   // v0.37.2 — Provenance model (Deploy-2 Contract: REQUIRED)
   // BLTTHS Đ.143 source classification — required for every Case.

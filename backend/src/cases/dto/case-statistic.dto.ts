@@ -37,6 +37,14 @@ export class CaseStatisticDto {
   @IsOptional() @IsInt() @Min(0) soThuocNoThuHoi?: number;
   @IsOptional() @IsInt() @Min(0) soDoiTuongSuuTraHiemNghi?: number;
 
+  // Field-parity hệ thống cũ — bị hại, thiệt hại, xét xử
+  @IsOptional() @IsInt() @Min(0) soLuongBiHai?: number;
+  @IsOptional() @IsInt() @Min(0) soNguoiBiThuong?: number;
+  @IsOptional() @IsInt() @Min(0) soLuongNguoiChet?: number;
+  @IsOptional() @IsNumber() @Min(0) soTienBiThietHai?: number;
+  @IsOptional() @IsNumber() @Min(0) soTienThuHoi?: number;
+  @IsOptional() @IsBoolean() vuAnDaDuocXetXu?: boolean;
+
   // Mốc thời gian thống kê
   @IsOptional() @IsDateString() ngayThongKe?: string;
   @IsOptional() @IsDateString() ngayPhanCongGiaiQuyetToGiac?: string;

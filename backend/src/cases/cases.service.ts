@@ -1202,6 +1202,11 @@ export class CasesService {
       ...(dto.ngayBanAnCoHieuLuc !== undefined && { ngayBanAnCoHieuLuc: dto.ngayBanAnCoHieuLuc ? new Date(dto.ngayBanAnCoHieuLuc) : null }),
       ...(dto.canCuTamDinhChiVuAn !== undefined && { canCuTamDinhChiVuAn: dto.canCuTamDinhChiVuAn }),
       ...(dto.canCuPhucHoiVuAn !== undefined && { canCuPhucHoiVuAn: dto.canCuPhucHoiVuAn }),
+      // ── Field-parity KLĐT + QĐ điều tra lại ──
+      ...(dto.soKLDT !== undefined && { soKLDT: dto.soKLDT }),
+      ...(dto.ngayKLDT !== undefined && { ngayKLDT: dto.ngayKLDT ? new Date(dto.ngayKLDT) : null }),
+      ...(dto.soQDDieuTraLai !== undefined && { soQDDieuTraLai: dto.soQDDieuTraLai }),
+      ...(dto.ngayQDDieuTraLai !== undefined && { ngayQDDieuTraLai: dto.ngayQDDieuTraLai ? new Date(dto.ngayQDDieuTraLai) : null }),
       // ── TĐC fields ──────────────────────────────────────────────────────────
       ...((dto as Record<string, unknown>).lyDoTamDinhChiVuAn !== undefined && {
         lyDoTamDinhChiVuAn: (dto as Record<string, unknown>).lyDoTamDinhChiVuAn as LyDoTamDinhChiVuAn | null,
