@@ -283,7 +283,8 @@ model Crime {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  subjects Subject[] // bị can/đối tượng gắn tội danh (FK thật)
+  subjects       Subject[] // bị can/đối tượng gắn tội danh (FK thật)
+  petitionsChinh Petition[] @relation("PetitionCrimeChinh") // đơn thư gắn tội danh chính
 
   @@index([pc02Relevant])
   @@index([chapter])
@@ -787,6 +788,25 @@ model Petition {
   huongDanKhoiKien String? // Hướng dẫn khởi kiện — Thông báo hướng dẫn (#5)
   lyDoTraDon       String? // Lý do trả lại đơn — Thông báo trả đơn (#6)
 
+  // ── Field-parity hệ thống cũ pc02hcm.com (giai đoạn tiếp nhận đơn) ──
+  senderIdNumber        String? // Số CCCD nguyên đơn
+  senderIdIssueDate     DateTime? // Ngày cấp CCCD
+  senderIdIssuePlace    String? // Nơi cấp CCCD
+  senderIsAnonymous     Boolean   @default(false) // Đơn nặc danh — bỏ qua required senderPhone/crimeChinhId
+  loaiThongTin          String? // Loại thông tin (tố giác/trình báo/kiến nghị/phản ánh/khiếu nại...)
+  soPhieuChuyen         String? // Số phiếu chuyển/công văn/UTĐT
+  ngayPhieuChuyen       DateTime? // Ngày phiếu chuyển
+  ngayTiepNhanNguonTin  DateTime? // Ngày tiếp nhận theo biên bản nguồn tin (khác receivedDate)
+  toiDanhBanDau         String? // Tội danh nhận định ban đầu (free text)
+  crimeChinhId          String? // FK → crimes (master Tội danh BLHS 2015) — tội danh chính
+  noiXayRa              String? // Nơi xảy ra tội phạm
+  ngayGiaoDonViGiaiQuyet DateTime? // Ngày giao đơn vị giải quyết
+  laCongNgheCao         Boolean   @default(false) // Tội phạm công nghệ cao
+  lanhDaoToTung         String? // Lãnh đạo phụ trách tố tụng
+  ketQuaXuLyKhac        String? // Kết quả xử lý, giải quyết khác
+
+  crimeChinh Crime? @relation("PetitionCrimeChinh", fields: [crimeChinhId], references: [id], onDelete: SetNull)
+
   // v0.47 — DocumentRenderLog reverse relation (audit trail per render).
   renderLogs DocumentRenderLog[]
 
@@ -800,6 +820,7 @@ model Petition {
   @@index([deletedAt])
   @@index([assignedTeamId])
   @@index([deadlineRuleVersionId])
+  @@index([crimeChinhId])
   @@map("petitions")
 }
 

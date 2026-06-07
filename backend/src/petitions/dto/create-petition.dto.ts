@@ -8,6 +8,7 @@ import {
   MaxLength,
   Matches,
   IsBoolean,
+  ValidateIf,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { PetitionStatus, LoaiDon } from '@prisma/client';
@@ -58,7 +59,9 @@ export class CreatePetitionDto {
   @MaxLength(500)
   senderAddress?: string;
 
-  @IsOptional()
+  // Required khi TẠO MỚI (trừ đơn nặc danh). UpdatePetitionDto = PartialType → tự optional khi update.
+  @ValidateIf((o) => !o.senderIsAnonymous)
+  @IsNotEmpty({ message: 'Số điện thoại nguyên đơn là bắt buộc (trừ đơn nặc danh)' })
   @IsString()
   @MaxLength(20)
   @Matches(/^[0-9\s+-]*$/, { message: 'Số điện thoại không hợp lệ' })
@@ -195,4 +198,82 @@ export class CreatePetitionDto {
   @IsString()
   @MaxLength(2000)
   lyDoTraDon?: string;
+
+  // ── Field-parity hệ thống cũ (giai đoạn tiếp nhận) ──
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  senderIdNumber?: string;
+
+  @IsOptional()
+  @IsDateString()
+  senderIdIssueDate?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => stripHtmlTags(value))
+  @IsString()
+  @MaxLength(255)
+  senderIdIssuePlace?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  senderIsAnonymous?: boolean;
+
+  @IsOptional()
+  @Transform(({ value }) => stripHtmlTags(value))
+  @IsString()
+  @MaxLength(255)
+  loaiThongTin?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => stripHtmlTags(value))
+  @IsString()
+  @MaxLength(255)
+  soPhieuChuyen?: string;
+
+  @IsOptional()
+  @IsDateString()
+  ngayPhieuChuyen?: string;
+
+  @IsOptional()
+  @IsDateString()
+  ngayTiepNhanNguonTin?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => stripHtmlTags(value))
+  @IsString()
+  @MaxLength(500)
+  toiDanhBanDau?: string;
+
+  // Tội danh chính — FK master Crime. Required khi tạo mới (trừ nặc danh).
+  @ValidateIf((o) => !o.senderIsAnonymous)
+  @IsNotEmpty({ message: 'Tội danh chính là bắt buộc (trừ đơn nặc danh)' })
+  @IsString()
+  crimeChinhId?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => stripHtmlTags(value))
+  @IsString()
+  @MaxLength(500)
+  noiXayRa?: string;
+
+  @IsOptional()
+  @IsDateString()
+  ngayGiaoDonViGiaiQuyet?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  laCongNgheCao?: boolean;
+
+  @IsOptional()
+  @Transform(({ value }) => stripHtmlTags(value))
+  @IsString()
+  @MaxLength(255)
+  lanhDaoToTung?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => stripHtmlTags(value))
+  @IsString()
+  @MaxLength(2000)
+  ketQuaXuLyKhac?: string;
 }

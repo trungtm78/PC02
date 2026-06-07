@@ -13,6 +13,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { CreatePetitionDto } from './dto/create-petition.dto';
 import { UpdatePetitionDto } from './dto/update-petition.dto';
+import { buildPetitionCreateData } from './petition-data.builder';
 import { QueryPetitionsDto } from './dto/query-petitions.dto';
 import { QueryPetitionsStatsDto } from './dto/query-petitions-stats.dto';
 import { ConvertToIncidentDto } from './dto/convert-incident.dto';
@@ -425,30 +426,14 @@ export class PetitionsService {
         const { number, logId } = await this.docNums.commitWithTx('PETITION', { userId: actorId }, tx);
         resolvedStt = number;
         const rec = await tx.petition.create({
-          data: {
+          // Builder DUY NHẤT — gồm cả field v0.47 (trước bị rớt) + field-parity. Xem petition-data.builder.ts.
+          data: buildPetitionCreateData(dto, {
             stt: resolvedStt,
-            receivedDate: new Date(dto.receivedDate),
-            senderName: dto.senderName,
-            unit: dto.unit,
-            enteredById: actorId,
-            senderBirthYear: dto.senderBirthYear,
-            senderAddress: dto.senderAddress,
-            senderPhone: dto.senderPhone,
-            senderEmail: dto.senderEmail,
-            suspectedPerson: dto.suspectedPerson,
-            suspectedAddress: dto.suspectedAddress,
-            petitionType: dto.petitionType,
-            priority: dto.priority,
-            summary: dto.summary,
-            detailContent: dto.detailContent,
-            attachmentsNote: dto.attachmentsNote,
-            deadline: computedDeadline,
-            deadlineRuleVersionId: deadlineRuleVersionId ?? undefined,
-            assignedToId: dto.assignedToId,
-            ...(effectiveAssignedTeamId !== undefined && { assignedTeamId: effectiveAssignedTeamId }),
-            notes: dto.notes,
-            status: dto.status ?? PetitionStatus.MOI_TIEP_NHAN,
-          },
+            actorId,
+            computedDeadline,
+            deadlineRuleVersionId,
+            effectiveAssignedTeamId,
+          }),
           include: {
             enteredBy: {
               select: { id: true, firstName: true, lastName: true, username: true },
@@ -462,30 +447,13 @@ export class PetitionsService {
         return rec;
       }
       return tx.petition.create({
-        data: {
+        data: buildPetitionCreateData(dto, {
           stt: resolvedStt,
-          receivedDate: new Date(dto.receivedDate),
-          senderName: dto.senderName,
-          unit: dto.unit,
-          enteredById: actorId,
-          senderBirthYear: dto.senderBirthYear,
-          senderAddress: dto.senderAddress,
-          senderPhone: dto.senderPhone,
-          senderEmail: dto.senderEmail,
-          suspectedPerson: dto.suspectedPerson,
-          suspectedAddress: dto.suspectedAddress,
-          petitionType: dto.petitionType,
-          priority: dto.priority,
-          summary: dto.summary,
-          detailContent: dto.detailContent,
-          attachmentsNote: dto.attachmentsNote,
-          deadline: computedDeadline,
-          deadlineRuleVersionId: deadlineRuleVersionId ?? undefined,
-          assignedToId: dto.assignedToId,
-          ...(effectiveAssignedTeamId !== undefined && { assignedTeamId: effectiveAssignedTeamId }),
-          notes: dto.notes,
-          status: dto.status ?? PetitionStatus.MOI_TIEP_NHAN,
-        },
+          actorId,
+          computedDeadline,
+          deadlineRuleVersionId,
+          effectiveAssignedTeamId,
+        }),
         include: {
           enteredBy: {
             select: { id: true, firstName: true, lastName: true, username: true },
@@ -617,6 +585,30 @@ export class PetitionsService {
         huongDanKhoiKien: dto.huongDanKhoiKien,
       }),
       ...(dto.lyDoTraDon !== undefined && { lyDoTraDon: dto.lyDoTraDon }),
+      // ── Field-parity hệ thống cũ (giai đoạn tiếp nhận) ──
+      ...(dto.senderIdNumber !== undefined && { senderIdNumber: dto.senderIdNumber }),
+      ...(dto.senderIdIssueDate !== undefined && {
+        senderIdIssueDate: dto.senderIdIssueDate ? new Date(dto.senderIdIssueDate) : null,
+      }),
+      ...(dto.senderIdIssuePlace !== undefined && { senderIdIssuePlace: dto.senderIdIssuePlace }),
+      ...(dto.senderIsAnonymous !== undefined && { senderIsAnonymous: dto.senderIsAnonymous }),
+      ...(dto.loaiThongTin !== undefined && { loaiThongTin: dto.loaiThongTin }),
+      ...(dto.soPhieuChuyen !== undefined && { soPhieuChuyen: dto.soPhieuChuyen }),
+      ...(dto.ngayPhieuChuyen !== undefined && {
+        ngayPhieuChuyen: dto.ngayPhieuChuyen ? new Date(dto.ngayPhieuChuyen) : null,
+      }),
+      ...(dto.ngayTiepNhanNguonTin !== undefined && {
+        ngayTiepNhanNguonTin: dto.ngayTiepNhanNguonTin ? new Date(dto.ngayTiepNhanNguonTin) : null,
+      }),
+      ...(dto.toiDanhBanDau !== undefined && { toiDanhBanDau: dto.toiDanhBanDau }),
+      ...(dto.crimeChinhId !== undefined && { crimeChinhId: dto.crimeChinhId || null }),
+      ...(dto.noiXayRa !== undefined && { noiXayRa: dto.noiXayRa }),
+      ...(dto.ngayGiaoDonViGiaiQuyet !== undefined && {
+        ngayGiaoDonViGiaiQuyet: dto.ngayGiaoDonViGiaiQuyet ? new Date(dto.ngayGiaoDonViGiaiQuyet) : null,
+      }),
+      ...(dto.laCongNgheCao !== undefined && { laCongNgheCao: dto.laCongNgheCao }),
+      ...(dto.lanhDaoToTung !== undefined && { lanhDaoToTung: dto.lanhDaoToTung }),
+      ...(dto.ketQuaXuLyKhac !== undefined && { ketQuaXuLyKhac: dto.ketQuaXuLyKhac }),
     };
     const petitionInclude = {
       enteredBy: {
