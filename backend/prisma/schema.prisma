@@ -606,6 +606,7 @@ model Case {
 
   // v0.44 — Ủy Thác Điều Tra fields (nullable, chỉ relevant khi caseType = UY_THAC_DIEU_TRA)
   caseType          CaseType    @default(REGULAR) @map("case_type")
+  legacySourceId    String? // Khóa gốc hệ thống cũ — idempotent di trú
   donViGiao         String?     @map("don_vi_giao") // Tên CQĐT/đơn vị ủy thác (PC01, CA quận X...)
   soQuyetDinhUyThac String?     @map("so_quyet_dinh_uy_thac") // Số QĐ/Phiếu ủy thác từ đơn vị giao (Mẫu 58 TT119/2021)
   ngayTiepNhan      DateTime?   @map("ngay_tiep_nhan") // Ngày tiếp nhận theo biên bản
@@ -635,6 +636,7 @@ model Case {
   // được partial predicate → KHÔNG declare ở đây. Migration SQL là source
   // of truth (raw SQL CREATE INDEX với WHERE clause). Future `prisma migrate
   // diff` sẽ skip diff cho partial index theo Prisma limitation.
+  @@index([legacySourceId])
   @@map("cases")
 }
 
@@ -880,6 +882,7 @@ model Petition {
   laCongNgheCao         Boolean   @default(false) // Tội phạm công nghệ cao
   lanhDaoToTung         String? // Lãnh đạo phụ trách tố tụng
   ketQuaXuLyKhac        String? // Kết quả xử lý, giải quyết khác
+  legacySourceId        String? // Khóa gốc hệ thống cũ pc02hcm.com — idempotent di trú
 
   crimeChinh Crime? @relation("PetitionCrimeChinh", fields: [crimeChinhId], references: [id], onDelete: SetNull)
 
@@ -897,6 +900,7 @@ model Petition {
   @@index([assignedTeamId])
   @@index([deadlineRuleVersionId])
   @@index([crimeChinhId])
+  @@index([legacySourceId])
   @@map("petitions")
 }
 
@@ -1044,6 +1048,7 @@ model Incident {
 
   // v0.47 — Import audit (Track B xlsx import) — per-row provenance per Codex #3
   importedFrom String?
+  legacySourceId String? // Khóa gốc hệ thống cũ — idempotent di trú
   importedAt   DateTime?
   importedById String?
   importedBy   User?               @relation("IncidentImportedBy", fields: [importedById], references: [id], onDelete: SetNull)
@@ -1062,6 +1067,7 @@ model Incident {
   @@index([deadlineRuleVersionId])
   @@index([giaHan1RuleVersionId])
   @@index([giaHan2RuleVersionId])
+  @@index([legacySourceId])
   @@map("incidents")
 }
 
