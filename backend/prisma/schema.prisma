@@ -265,6 +265,33 @@ model Directory {
   @@map("directories")
 }
 
+// ─────────────────────────────────────────────
+// Crime (Tội danh BLHS 2015) — MASTER chuyên biệt, FK thật để nơi khác dùng chung.
+// Thay Directory(type=CRIME) lỏng (Subject.crimeId vốn là String không FK). Seed 316 điều
+// (Điều 108→425). Dropdown default-filter PC02 qua pc02Relevant. legacyValue map khi di trú.
+// ─────────────────────────────────────────────
+model Crime {
+  id           String   @id @default(cuid())
+  code         String   @unique // D{articleNo} — vd D123
+  name         String // "Tội giết người"
+  articleNo    Int // số Điều BLHS 2015
+  chapter      String // chương La Mã (XIII..XXVI)
+  pc02Relevant Boolean  @default(false) // phạm vi PC02 (tội phạm trật tự xã hội)
+  legacyValue  Int? // value gốc hệ thống cũ pc02hcm.com — map khi di trú
+  order        Int      @default(0)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  subjects Subject[] // bị can/đối tượng gắn tội danh (FK thật)
+
+  @@index([pc02Relevant])
+  @@index([chapter])
+  @@index([articleNo])
+  @@index([legacyValue])
+  @@map("crimes")
+}
+
 // v0.34.0.0: Dataset import ledger (state machine cho snapshot import)
 // Mỗi version chỉ có 1 ACTIVE row tại 1 thời điểm (partial unique index)
 model AdminUnitDatasetImport {
@@ -637,6 +664,7 @@ model Subject {
   updatedAt     DateTime      @updatedAt
 
   case    Case     @relation(fields: [caseId], references: [id])
+  crime   Crime    @relation(fields: [crimeId], references: [id]) // FK thật → master Crime
   lawyers Lawyer[] // Lawyers assigned to this subject
 
   @@index([caseId])

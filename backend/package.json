@@ -24,6 +24,7 @@
     "db:seed": "ts-node prisma/seed.ts",
     "db:seed:sample": "ts-node prisma/seed-sample-data.ts",
     "db:seed:features": "ts-node prisma/seed-feature-flags.ts",
+    "db:seed:crimes": "ts-node prisma/seed-crimes-blhs2015.ts",
     "db:seed:wards": "ts-node prisma/seed-wards.ts",
     "db:seed:admin-units": "ts-node prisma/seed-admin-units-runner.ts",
     "db:seed:events": "ts-node prisma/seed-vn-events-runner.ts"
