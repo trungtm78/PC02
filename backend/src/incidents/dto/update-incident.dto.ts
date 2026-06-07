@@ -153,4 +153,25 @@ export class UpdateIncidentDto {
   @IsOptional()
   @IsDateString({}, { message: 'expectedUpdatedAt không đúng định dạng ISO 8601' })
   expectedUpdatedAt?: string;
+
+  // Field-parity hệ thống cũ (giai đoạn nguồn tin) — phải khớp CreateIncidentDto
+  @IsOptional()
+  @IsString()
+  soQDPhanCongNguonTin?: string;
+
+  @IsOptional()
+  @IsDateString()
+  ngayQDPhanCongNguonTin?: string;
+
+  @IsOptional()
+  @IsString()
+  canCuKhongKhoiTo?: string;
+
+  @IsOptional()
+  @IsString()
+  canCuTamDinhChi?: string;
+
+  @IsOptional()
+  @IsString()
+  phanLoaiDanSuText?: string;
 }

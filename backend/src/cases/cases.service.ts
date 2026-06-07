@@ -785,6 +785,16 @@ export class CasesService {
       }
     }
 
+    // Thống kê mở rộng (case_statistics) — tạo cùng transaction khi có dto.statistic
+    if (dto.statistic !== undefined) {
+      const statData = buildCaseStatisticData(dto.statistic);
+      await tx.caseStatistic.upsert({
+        where: { caseId },
+        create: { caseId, ...statData },
+        update: statData,
+      });
+    }
+
     return { subjectsCreated, evidencesCreated, documentsLinked };
   }
 
