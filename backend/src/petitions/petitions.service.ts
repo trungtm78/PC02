@@ -2037,6 +2037,7 @@ export class PetitionsService {
       },
     }).catch((err: any) => {
       if (err?.code === 'P2002') throw new ConflictException(`Cán bộ đã được phân công cho đơn thư này`);
+      if (err?.code === 'P2003') throw new NotFoundException(`Cán bộ không tồn tại (userId: ${userId})`);
       throw err;
     });
   }
