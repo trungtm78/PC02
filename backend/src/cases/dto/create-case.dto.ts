@@ -190,6 +190,23 @@ export class CreateCaseDto {
   @IsDateString()
   ngayKhoiTo?: string;
 
+  // ── Field-parity: số QĐ giai đoạn vụ án ──
+  @IsOptional() @IsString() soQuyetDinhKhoiTo?: string;
+  @IsOptional() @IsString() soQDNhapVuAn?: string;
+  @IsOptional() @IsDateString() ngayNhapVuAn?: string;
+  @IsOptional() @IsString() ghiChuNhapHoSo?: string;
+  @IsOptional() @IsString() soQDTachVuAn?: string;
+  @IsOptional() @IsDateString() ngayTachVuAn?: string;
+  @IsOptional() @IsString() soQDTachHanhVi?: string;
+  @IsOptional() @IsDateString() ngayTachHanhVi?: string;
+  @IsOptional() @IsString() soQDDinhChiVuAn?: string;
+  @IsOptional() @IsDateString() ngayDinhChiVuAn?: string;
+  @IsOptional() @IsString() chuyenVuAnChoCQK?: string;
+  @IsOptional() @IsString() soBanAnCoHieuLuc?: string;
+  @IsOptional() @IsDateString() ngayBanAnCoHieuLuc?: string;
+  @IsOptional() @IsString() canCuTamDinhChiVuAn?: string;
+  @IsOptional() @IsString() canCuPhucHoiVuAn?: string;
+
   // v0.37.2 — Provenance model (Deploy-2 Contract: REQUIRED)
   // BLTTHS Đ.143 source classification — required for every Case.
   // Legacy `metadata.petitionType` payloads now return 400 from @IsEnum validation.

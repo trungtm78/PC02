@@ -514,6 +514,22 @@ model Case {
   metadata       Json? // Lưu toàn bộ fields phụ của form (người báo tin, địa chỉ, v.v.)
   capDoToiPham   CapDoToiPham? // Mức độ tội phạm (BLHS 2015 Điều 9) — dùng cho KPI-4
   ngayKhoiTo     DateTime? // Ngày quyết định khởi tố vụ án
+  // ── Field-parity hệ thống cũ — số QĐ các giai đoạn vụ án ──
+  soQuyetDinhKhoiTo  String? // Số QĐ khởi tố vụ án
+  soQDNhapVuAn       String? // Số QĐ nhập vụ án
+  ngayNhapVuAn       DateTime?
+  ghiChuNhapHoSo     String? // Ghi chú nhập vào hồ sơ nào
+  soQDTachVuAn       String? // Số QĐ tách vụ án
+  ngayTachVuAn       DateTime?
+  soQDTachHanhVi     String? // Số QĐ tách hành vi
+  ngayTachHanhVi     DateTime?
+  soQDDinhChiVuAn    String? // Số QĐ đình chỉ vụ án
+  ngayDinhChiVuAn    DateTime?
+  chuyenVuAnChoCQK   String? // Chuyển vụ án cho CQĐT khác (số/ngày/đơn vị)
+  soBanAnCoHieuLuc   String? // Số bản án có hiệu lực pháp luật
+  ngayBanAnCoHieuLuc DateTime?
+  canCuTamDinhChiVuAn String? // Căn cứ (text) tạm đình chỉ vụ án
+  canCuPhucHoiVuAn    String? // Căn cứ (text) phục hồi điều tra vụ án
   deletedAt      DateTime? // Soft delete
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
@@ -583,6 +599,7 @@ model Case {
   proposals       Proposal[]
   delegations     Delegation[]
   conclusions     Conclusion[]
+  statistic       CaseStatistic? // Thống kê mở rộng (hybrid — số/ngày/bool báo cáo, query được cho KPI)
   supplements     InvestigationSupplement[]
   vksMeetings     VksMeetingRecord[]
   actionPlans     SuspensionActionPlan[]
@@ -619,6 +636,65 @@ model Case {
   // of truth (raw SQL CREATE INDEX với WHERE clause). Future `prisma migrate
   // diff` sẽ skip diff cho partial index theo Prisma limitation.
   @@map("cases")
+}
+
+// ─────────────────────────────────────────────
+// CaseStatistic — Thống kê mở rộng (HYBRID): số/ngày/bool BÁO CÁO được lưu cột thật để KPI
+// tổng hợp/lọc. (48 stat cũ vẫn ở Case.metadata JSON — không migrate lần này.) 1-1 với Case.
+// ─────────────────────────────────────────────
+model CaseStatistic {
+  id     String @id @default(cuid())
+  caseId String @unique
+  case   Case   @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  // Hồ sơ nghiệp vụ
+  soDangKyHoSo     String?
+  ngayDangKyHoSo   DateTime?
+  hoSoLuu          String?
+  ngayNopLuuHoSo   DateTime?
+  donViBaoQuanHoSo String?
+
+  // Ghi âm, ghi hình
+  coGhiAmGhiHinh             Boolean @default(false)
+  tongSoBienBanGhiLoiKhai    Int?
+  soBienBanGhiLoiKhaiCoGhiAm Int?
+  laVuAnGhiAmGhiHinh         Boolean @default(false)
+  tongSoBienBanHoiCung       Int?
+  tongSoBienBanHoiCungCoGhiAm Int?
+  soBiCanCoGhiAm             Int?
+  vksYeuCauGhiAm            Boolean @default(false)
+  soBiCanVksYeuCauGhiAm     Int?
+
+  // Vi phạm hành chính (VPHC)
+  coVPHC               Boolean @default(false)
+  soDoiTuongVPHC       Int?
+  soNguoiBiPhatTien    Int?
+  tongTienPhatHanhChinh Float?
+
+  // Đối tượng / vũ khí / băng nhóm
+  soDoiTuongDaBat          Int?
+  soDoiTuongBiBatVuAnKhac  Int?
+  dieuTraMoRong            Int?
+  suDungVuKhiNong          String?
+  coBangNhom               Boolean @default(false)
+  soBangNhomBatDuoc        Int?
+  soSungThuHoi             Int?
+  soThuocNoThuHoi          Int?
+  soDoiTuongSuuTraHiemNghi Int?
+
+  // Mốc thời gian thống kê
+  ngayThongKe                  DateTime?
+  ngayPhanCongGiaiQuyetToGiac  DateTime?
+  ngayTiepNhanTin              DateTime?
+  ngayDauThu                   DateTime?
+  ngayPhamToiQuaTang           DateTime?
+  ngayBatKhanCap               DateTime?
+  ngayPhatHienDauHieu          DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("case_statistics")
 }
 
 // ─────────────────────────────────────────────
