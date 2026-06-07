@@ -1,0 +1,4763 @@
+{
+  "feature": "Nhom II - Chuyen doi don thu thanh Vu viec hoac Vu an",
+  "version": "1.0",
+  "tc_required": 313,
+  "tc_total": 313,
+  "coverage_ratios": {
+    "GREEN_pct": 15.0,
+    "SECURITY_pct": 10.9,
+    "A11Y_pct": 6.1,
+    "COMPAT_pct": 5.1,
+    "P0_pct": 34.2
+  },
+  "type_distribution": {
+    "GREEN": 47,
+    "RED": 31,
+    "SECURITY": 34,
+    "BOUNDARY": 13,
+    "EP": 17,
+    "STATE": 16,
+    "DECISION": 18,
+    "DATA": 24,
+    "INTEGRATION": 20,
+    "PERFORMANCE": 11,
+    "A11Y": 19,
+    "COMPAT": 16,
+    "RECOVERY": 4,
+    "EDGE": 23,
+    "REGRESSION": 17,
+    "USABILITY": 3
+  },
+  "priority_distribution": {
+    "P0": 107,
+    "P1": 158,
+    "P2": 48
+  },
+  "test_cases": [
+    {
+      "tc_id": "TC-001",
+      "title": "Convert-incident happy path đầy đủ → 201, Incident tạo, Petition.status=DA_CHUYEN_VU_VIEC",
+      "type": "GREEN",
+      "priority": "P0",
+      "module": "API-convert-incident",
+      "preconditions": "ADMIN đăng nhập; Petition tồn tại chưa convert",
+      "steps": "1. POST /api/v1/petitions/{id}/convert-incident\n2. Body: incidentName, incidentType, description, expectedUpdatedAt",
+      "expected": "HTTP 201; Incident.code format VV-YYYY-NNNNN; Petition.linkedIncidentId=incident.id; AuditLog=PETITION_CONVERTED_TO_INCIDENT; Petition.status=DA_CHUYEN_VU_VIEC",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-002",
+      "title": "Convert-incident tối thiểu: incidentName+incidentType → 201",
+      "type": "GREEN",
+      "priority": "P0",
+      "module": "API-convert-incident",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-incident\n2. Body chỉ có incidentName + incidentType",
+      "expected": "HTTP 201; description=null; investigatorId=null; Petition.status=DA_CHUYEN_VU_VIEC",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-003",
+      "title": "Convert-case happy path đầy đủ → 201, Case tạo, Petition.status=DA_CHUYEN_VU_AN",
+      "type": "GREEN",
+      "priority": "P0",
+      "module": "API-convert-case",
+      "preconditions": "Petition chưa convert; expectedUpdatedAt=petition.updatedAt",
+      "steps": "1. POST /api/v1/petitions/{id}/convert-case\n2. Body: caseName, crime, jurisdiction, suspect, expectedUpdatedAt",
+      "expected": "HTTP 201; Case.caseProvenance=FROM_PETITION; Case.linkedPetitionId=petition.id; Petition.status=DA_CHUYEN_VU_AN; Document handoff sang case",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-004",
+      "title": "Convert-case tối thiểu: caseName+crime+jurisdiction+expectedUpdatedAt → 201",
+      "type": "GREEN",
+      "priority": "P0",
+      "module": "API-convert-case",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-case\n2. Body tối thiểu 4 fields bắt buộc",
+      "expected": "HTTP 201; Case.suspect=null; Case.prosecutionDecision=null; Petition.linkedCaseId=case.id",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-005",
+      "title": "Convert-incident: thiếu incidentName → 400",
+      "type": "RED",
+      "priority": "P0",
+      "module": "API-convert-incident",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-incident\n2. Body chỉ có incidentType (thiếu incidentName)",
+      "expected": "HTTP 400; message chứa incidentName/bắt buộc; Petition.status không đổi; Không tạo Incident",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-006",
+      "title": "Convert-incident: incidentName rỗng string → 400",
+      "type": "RED",
+      "priority": "P0",
+      "module": "API-convert-incident",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-incident\n2. incidentName: '' (empty string)",
+      "expected": "HTTP 400; message=Tên vụ việc là bắt buộc; Petition.status không đổi",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-007",
+      "title": "Convert-incident: thiếu incidentType → 400",
+      "type": "RED",
+      "priority": "P0",
+      "module": "API-convert-incident",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-incident\n2. Body chỉ có incidentName (thiếu incidentType)",
+      "expected": "HTTP 400; message chứa incidentType/bắt buộc; Không tạo Incident",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-008",
+      "title": "Convert-case: thiếu caseName → 400",
+      "type": "RED",
+      "priority": "P0",
+      "module": "API-convert-case",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-case\n2. Body thiếu caseName",
+      "expected": "HTTP 400; message chứa caseName/bắt buộc; Không tạo Case",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-009",
+      "title": "Convert-case: thiếu crime → 400",
+      "type": "RED",
+      "priority": "P0",
+      "module": "API-convert-case",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-case\n2. Body thiếu crime",
+      "expected": "HTTP 400; message chứa crime/Tội danh; Không tạo Case",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-010",
+      "title": "Convert-case: thiếu jurisdiction → 400",
+      "type": "RED",
+      "priority": "P0",
+      "module": "API-convert-case",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-case\n2. Body thiếu jurisdiction",
+      "expected": "HTTP 400; message chứa jurisdiction/thẩm quyền; Không tạo Case",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-011",
+      "title": "Convert-case: thiếu expectedUpdatedAt (BẮT BUỘC) → 400",
+      "type": "RED",
+      "priority": "P0",
+      "module": "API-convert-case",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-case\n2. Body: caseName+crime+jurisdiction chỉ (thiếu expectedUpdatedAt)",
+      "expected": "HTTP 400; message chứa expectedUpdatedAt; Không tạo Case; Field này required riêng cho convert-case",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-012",
+      "title": "Double-convert: đã linked Incident → convert-incident lần 2 → 400",
+      "type": "RED",
+      "priority": "P0",
+      "module": "API-convert-incident",
+      "preconditions": "Petition.linkedIncidentId != null",
+      "steps": "1. POST convert-incident với petition đã convert to incident",
+      "expected": "HTTP 400; message=Đơn thư này đã được chuyển thành Vụ việc trước đó; Không tạo Incident mới",
+      "severity": "Critical",
+      "data_required": [
+        "petition.converted-to-incident.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-013",
+      "title": "Cross-convert: đã linked Case → convert-incident → 400",
+      "type": "RED",
+      "priority": "P0",
+      "module": "API-convert-incident",
+      "preconditions": "Petition.linkedCaseId != null",
+      "steps": "1. POST convert-incident với petition đã convert to case",
+      "expected": "HTTP 400; message chứa không thể chuyển thành Vụ việc; Không tạo Incident",
+      "severity": "Critical",
+      "data_required": [
+        "petition.converted-to-case.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-014",
+      "title": "Cross-convert: đã linked Incident → convert-case → 400",
+      "type": "RED",
+      "priority": "P0",
+      "module": "API-convert-case",
+      "preconditions": "Petition.linkedIncidentId != null",
+      "steps": "1. POST convert-case với petition đã convert to incident",
+      "expected": "HTTP 400; message chứa không thể chuyển thành Vụ án; Không tạo Case",
+      "severity": "Critical",
+      "data_required": [
+        "petition.converted-to-incident.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-015",
+      "title": "Double-convert: đã linked Case → convert-case lần 2 → 400",
+      "type": "RED",
+      "priority": "P0",
+      "module": "API-convert-case",
+      "preconditions": "Petition.linkedCaseId != null",
+      "steps": "1. POST convert-case lần 2 với petition đã có linkedCaseId",
+      "expected": "HTTP 400; message=Đơn thư này đã được chuyển thành Vụ án trước đó; Không tạo Case mới",
+      "severity": "Critical",
+      "data_required": [
+        "petition.converted-to-case.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-016",
+      "title": "Race condition: expectedUpdatedAt lỗi thời → 409 Conflict",
+      "type": "RED",
+      "priority": "P0",
+      "module": "API-convert-case",
+      "preconditions": "Petition bị sửa sau khi client lấy updatedAt",
+      "steps": "1. GET petition (updatedAt=T1)\n2. Sửa petition để updatedAt=T2\n3. POST convert-case với expectedUpdatedAt=T1",
+      "expected": "HTTP 409; message chứa đã được chỉnh sửa bởi người dùng khác; Không tạo Case",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-017",
+      "title": "Concurrent 2 request đồng thời: 1 thành công, 1 nhận 409",
+      "type": "RED",
+      "priority": "P0",
+      "module": "API-convert-case",
+      "preconditions": "2 client cùng lấy petition.updatedAt như nhau",
+      "steps": "1. Gửi 2 POST convert-case đồng thời cùng expectedUpdatedAt\n2. Quan sát cả 2 response",
+      "expected": "Đúng 1 request nhận 201; 1 nhận 409; Chỉ 1 Case trong DB; Petition.linkedCaseId ổn định",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-018",
+      "title": "Convert-incident không gửi expectedUpdatedAt → OK (optional field)",
+      "type": "GREEN",
+      "priority": "P1",
+      "module": "API-convert-incident",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-incident\n2. Body không có expectedUpdatedAt",
+      "expected": "HTTP 201; Incident tạo thành công; petition.update không kiểm tra version lock",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-019",
+      "title": "Convert-incident: expectedUpdatedAt sai format ISO → 400",
+      "type": "RED",
+      "priority": "P1",
+      "module": "API-convert-incident",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-incident\n2. expectedUpdatedAt: not-a-date-string",
+      "expected": "HTTP 400; message chứa ISO 8601; Không tạo Incident",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-020",
+      "title": "Convert-case: expectedUpdatedAt sai format → 400",
+      "type": "RED",
+      "priority": "P1",
+      "module": "API-convert-case",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-case\n2. expectedUpdatedAt: 2026/01/01 (không phải ISO 8601)",
+      "expected": "HTTP 400; message chứa định dạng không hợp lệ; Không tạo Case",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-021",
+      "title": "Petition ID không tồn tại → 404",
+      "type": "RED",
+      "priority": "P0",
+      "module": "API-convert-incident",
+      "preconditions": "ID ngẫu nhiên không tồn tại trong DB",
+      "steps": "1. POST /api/v1/petitions/nonexistent-id/convert-incident\n2. Body hợp lệ",
+      "expected": "HTTP 404; message=Đơn thư không tồn tại; Không tạo Incident",
+      "severity": "Critical",
+      "data_required": []
+    },
+    {
+      "tc_id": "TC-022",
+      "title": "Petition soft-deleted → 404",
+      "type": "RED",
+      "priority": "P0",
+      "module": "API-convert-incident",
+      "preconditions": "Petition.deletedAt != null",
+      "steps": "1. POST convert-incident với ID của deleted petition",
+      "expected": "HTTP 404; Không tạo Incident",
+      "severity": "Critical",
+      "data_required": [
+        "petition.deleted.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-023",
+      "title": "Unauthenticated: không có JWT token → 401",
+      "type": "SECURITY",
+      "priority": "P0",
+      "module": "API-convert-incident",
+      "preconditions": "Không có Authorization header",
+      "steps": "1. POST convert-incident không có Bearer token\n2. Body hợp lệ",
+      "expected": "HTTP 401; Petition không thay đổi; Không tạo Incident",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-024",
+      "title": "JWT token đã expired → 401",
+      "type": "SECURITY",
+      "priority": "P0",
+      "module": "API-convert-incident",
+      "preconditions": "JWT đã hết hạn",
+      "steps": "1. POST convert-incident với expired Bearer token",
+      "expected": "HTTP 401; Không tạo Incident",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-025",
+      "title": "Thiếu quyền edit:Petition → 403 Forbidden",
+      "type": "SECURITY",
+      "priority": "P0",
+      "module": "API-convert-incident",
+      "preconditions": "User chỉ có read:Petition permission",
+      "steps": "1. POST convert-incident với read-only token",
+      "expected": "HTTP 403; PermissionsGuard từ chối; Không tạo Incident",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-026",
+      "title": "IDOR: convert petition ngoài DataScope của mình → 403 hoặc 404",
+      "type": "SECURITY",
+      "priority": "P0",
+      "module": "API-convert-incident",
+      "preconditions": "Petition thuộc Team B; User là Team A",
+      "steps": "1. Đăng nhập officer1@pc02.local (Team A)\n2. POST convert-incident với petition ID của Team B",
+      "expected": "HTTP 403 hoặc 404; checkWriteScope chặn; Không tạo Incident",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.other-team.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-027",
+      "title": "IDOR: convert-case petition ngoài DataScope → 403 hoặc 404",
+      "type": "SECURITY",
+      "priority": "P0",
+      "module": "API-convert-case",
+      "preconditions": "Petition thuộc Team B; User là Team A",
+      "steps": "1. Đăng nhập officer1@pc02.local\n2. POST convert-case với petition ID của Team B",
+      "expected": "HTTP 403 hoặc 404; checkWriteScope chặn; Không tạo Case",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.other-team.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-028",
+      "title": "SQL Injection trong incidentName → lưu literal, không execute query",
+      "type": "SECURITY",
+      "priority": "P0",
+      "module": "API-convert-incident",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-incident incidentName='; DROP TABLE incidents; --",
+      "expected": "HTTP 201; Incident.name=literal string; Bảng incidents không bị xóa; Prisma parameterized queries ngăn chặn",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-029",
+      "title": "XSS trong incidentName → stored raw, React escape khi render UI",
+      "type": "SECURITY",
+      "priority": "P0",
+      "module": "API-convert-incident",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-incident incidentName=<script>alert(1)</script>\n2. GET incident → render trong UI",
+      "expected": "Incident.name=raw string; UI hiển thị escaped HTML; Script không thực thi trong trình duyệt",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-030",
+      "title": "JWT giả mạo signature sai → 401 Unauthorized",
+      "type": "SECURITY",
+      "priority": "P0",
+      "module": "API-convert-case",
+      "preconditions": "Fake JWT với payload hợp lệ nhưng ký bằng key sai",
+      "steps": "1. POST convert-case với Authorization: Bearer <fake_token>",
+      "expected": "HTTP 401; Server từ chối token; Không tạo Case",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-031",
+      "title": "incidentName max length 500 ký tự → 201",
+      "type": "BOUNDARY",
+      "priority": "P1",
+      "module": "API-convert-incident",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-incident\n2. incidentName=chuỗi 500 ký tự chính xác",
+      "expected": "HTTP 201; Incident.name=500 chars; Không cắt xén",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-032",
+      "title": "incidentName 501 ký tự → 400 exceed max",
+      "type": "BOUNDARY",
+      "priority": "P1",
+      "module": "API-convert-incident",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-incident\n2. incidentName=chuỗi 501 ký tự",
+      "expected": "HTTP 400; message chứa maxLength/500; Không tạo Incident",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-033",
+      "title": "incidentName 1 ký tự (min valid) → 201",
+      "type": "BOUNDARY",
+      "priority": "P1",
+      "module": "API-convert-incident",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-incident\n2. incidentName='A'",
+      "expected": "HTTP 201; Incident tạo thành công",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-034",
+      "title": "incidentType max length 100 ký tự → 201",
+      "type": "BOUNDARY",
+      "priority": "P1",
+      "module": "API-convert-incident",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-incident\n2. incidentType=chuỗi 100 ký tự chính xác",
+      "expected": "HTTP 201; Incident tạo thành công",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-035",
+      "title": "incidentType 101 ký tự → 400 exceed max",
+      "type": "BOUNDARY",
+      "priority": "P1",
+      "module": "API-convert-incident",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-incident\n2. incidentType=chuỗi 101 ký tự",
+      "expected": "HTTP 400; message chứa maxLength/100",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-036",
+      "title": "caseName max length 500 ký tự → 201",
+      "type": "BOUNDARY",
+      "priority": "P1",
+      "module": "API-convert-case",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-case\n2. caseName=chuỗi 500 ký tự",
+      "expected": "HTTP 201; Case.name=500 chars",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-037",
+      "title": "caseName 501 ký tự → 400",
+      "type": "BOUNDARY",
+      "priority": "P1",
+      "module": "API-convert-case",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-case\n2. caseName=chuỗi 501 ký tự",
+      "expected": "HTTP 400; message chứa maxLength/500",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-038",
+      "title": "crime max length 255 ký tự → 201",
+      "type": "BOUNDARY",
+      "priority": "P1",
+      "module": "API-convert-case",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-case\n2. crime=chuỗi 255 ký tự chính xác",
+      "expected": "HTTP 201; Case.crime=255 chars",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-039",
+      "title": "crime 256 ký tự → 400",
+      "type": "BOUNDARY",
+      "priority": "P1",
+      "module": "API-convert-case",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-case\n2. crime=chuỗi 256 ký tự",
+      "expected": "HTTP 400; message chứa maxLength/255",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-040",
+      "title": "jurisdiction max length 255 ký tự → 201",
+      "type": "BOUNDARY",
+      "priority": "P1",
+      "module": "API-convert-case",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-case\n2. jurisdiction=chuỗi 255 ký tự",
+      "expected": "HTTP 201; Case tạo thành công",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-041",
+      "title": "EP: incidentName chứa khoảng trắng đầu/cuối → tự trim",
+      "type": "EP",
+      "priority": "P1",
+      "module": "API-convert-incident",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-incident incidentName='  Vụ lừa đảo  '",
+      "expected": "HTTP 201; Incident.name='Vụ lừa đảo' (trimmed)",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-042",
+      "title": "EP: incidentName chỉ khoảng trắng → 400",
+      "type": "EP",
+      "priority": "P0",
+      "module": "API-convert-incident",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-incident incidentName='   ' (whitespace only)",
+      "expected": "HTTP 400; trim → empty → Tên vụ việc là bắt buộc",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-043",
+      "title": "EP: incidentType chỉ khoảng trắng → 400",
+      "type": "EP",
+      "priority": "P0",
+      "module": "API-convert-incident",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-incident incidentType='   '",
+      "expected": "HTTP 400; trim → empty → Loại vụ việc là bắt buộc",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-044",
+      "title": "EP: caseName chứa số hợp lệ",
+      "type": "EP",
+      "priority": "P2",
+      "module": "API-convert-case",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-case caseName='Vụ án 2024-001/PC02'",
+      "expected": "HTTP 201; Case.name lưu đúng với số và dấu gạch ngang",
+      "severity": "Medium",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-045",
+      "title": "EP: crime partition — tội phạm kinh tế",
+      "type": "EP",
+      "priority": "P2",
+      "module": "API-convert-case",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-case crime='Tội vi phạm quy định về kế toán gây hậu quả nghiêm trọng'",
+      "expected": "HTTP 201; Case.crime lưu đúng text dài",
+      "severity": "Medium",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-046",
+      "title": "EP: jurisdiction partition — thẩm quyền ngoài PC02",
+      "type": "EP",
+      "priority": "P2",
+      "module": "API-convert-case",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-case jurisdiction='Viện KSND TP.HCM - Bộ phận xét xử sơ thẩm'",
+      "expected": "HTTP 201; Case.jurisdiction lưu đúng text dài",
+      "severity": "Medium",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-047",
+      "title": "EP: description tối đa — textarea dài 2000 ký tự",
+      "type": "EP",
+      "priority": "P2",
+      "module": "API-convert-incident",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-incident description=chuỗi 2000 ký tự",
+      "expected": "HTTP 201; Incident.description lưu đủ không mất dữ liệu",
+      "severity": "Medium",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-048",
+      "title": "EP: suspect null → Case tạo không có nghi phạm",
+      "type": "EP",
+      "priority": "P1",
+      "module": "API-convert-case",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-case thiếu suspect field",
+      "expected": "HTTP 201; Case.suspect=null; Không báo lỗi",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-049",
+      "title": "EP: suspect empty string → null hoặc 400",
+      "type": "EP",
+      "priority": "P1",
+      "module": "API-convert-case",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-case suspect=''",
+      "expected": "HTTP 201; Case.suspect=null (trim empty to null) HOẶC HTTP 400 — kiểm tra actual behavior",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-050",
+      "title": "EP: assignedToId không hợp lệ UUID → 400 hoặc 404",
+      "type": "EP",
+      "priority": "P1",
+      "module": "API-convert-incident",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-incident assignedToId='not-a-valid-id'",
+      "expected": "HTTP 400 (invalid UUID format) HOẶC HTTP 404 (user not found); Không tạo Incident",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-051",
+      "title": "EP: assignedToId user không tồn tại → 404",
+      "type": "EP",
+      "priority": "P1",
+      "module": "API-convert-incident",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-incident assignedToId='00000000-0000-0000-0000-000000000000'",
+      "expected": "HTTP 404; message chứa User not found; Không tạo Incident",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-052",
+      "title": "EP: expectedUpdatedAt ISO 8601 UTC → 201",
+      "type": "EP",
+      "priority": "P0",
+      "module": "API-convert-case",
+      "preconditions": "Petition chưa convert, expectedUpdatedAt khớp petition.updatedAt",
+      "steps": "1. POST convert-case expectedUpdatedAt='2026-06-01T10:00:00.000Z'",
+      "expected": "HTTP 201; Không lỗi timestamp",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-053",
+      "title": "EP: expectedUpdatedAt ISO 8601 offset +07:00 → 201",
+      "type": "EP",
+      "priority": "P1",
+      "module": "API-convert-case",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-case expectedUpdatedAt='2026-06-01T17:00:00.000+07:00'",
+      "expected": "HTTP 201 nếu tương đương UTC; Không lỗi timezone",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-054",
+      "title": "EP: body là array thay vì object → 400",
+      "type": "EP",
+      "priority": "P1",
+      "module": "API-convert-incident",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-incident body=[{incidentName:'X', incidentType:'Y'}]",
+      "expected": "HTTP 400; Không tạo Incident; NestJS class-validator từ chối array",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-055",
+      "title": "EP: Content-Type sai (text/plain) → 400",
+      "type": "EP",
+      "priority": "P1",
+      "module": "API-convert-incident",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-incident với Content-Type: text/plain, body là JSON string",
+      "expected": "HTTP 400 hoặc 415; NestJS không parse body",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-056",
+      "title": "EP: body rỗng {} → 400 (thiếu tất cả required fields)",
+      "type": "EP",
+      "priority": "P0",
+      "module": "API-convert-incident",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-incident body={}",
+      "expected": "HTTP 400; message liệt kê incidentName và incidentType là bắt buộc",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-057",
+      "title": "EP: body null → 400",
+      "type": "EP",
+      "priority": "P1",
+      "module": "API-convert-case",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-case body=null",
+      "expected": "HTTP 400; Không tạo Case",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-058",
+      "title": "BOUNDARY: petition.id là CUID v2 hợp lệ → OK",
+      "type": "BOUNDARY",
+      "priority": "P1",
+      "module": "API-convert-incident",
+      "preconditions": "Petition tồn tại với CUID id",
+      "steps": "1. POST convert-incident với petition ID kiểu CUID: 'clxyz123...'",
+      "expected": "HTTP 201; Server chấp nhận CUID format",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-059",
+      "title": "BOUNDARY: petition.id là UUID v4 hợp lệ → OK",
+      "type": "BOUNDARY",
+      "priority": "P1",
+      "module": "API-convert-incident",
+      "preconditions": "Petition tồn tại với UUID id",
+      "steps": "1. POST convert-incident với petition ID dạng UUID",
+      "expected": "HTTP 201; Server chấp nhận UUID format",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-060",
+      "title": "BOUNDARY: petition.id là chuỗi đặc biệt '../../etc/passwd' → 404",
+      "type": "BOUNDARY",
+      "priority": "P0",
+      "module": "API-convert-incident",
+      "preconditions": "Không có petition với ID này",
+      "steps": "1. POST /api/v1/petitions/../../etc%2Fpasswd/convert-incident",
+      "expected": "HTTP 404; Router không match path traversal; Không leak file system",
+      "severity": "Critical",
+      "data_required": []
+    },
+    {
+      "tc_id": "TC-061",
+      "title": "STATE: Petition.status=TIEP_NHAN → convert-incident → DA_CHUYEN_VU_VIEC",
+      "type": "STATE",
+      "priority": "P0",
+      "module": "API-convert-incident",
+      "preconditions": "Petition.status=TIEP_NHAN",
+      "steps": "1. POST convert-incident với petition đang ở trạng thái TIEP_NHAN",
+      "expected": "HTTP 201; Petition.status chuyển sang DA_CHUYEN_VU_VIEC; Incident tạo thành công",
+      "severity": "Critical",
+      "data_required": [
+        "petition.status-tiepnhan.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-062",
+      "title": "STATE: Petition.status=DANG_XU_LY → convert-incident → DA_CHUYEN_VU_VIEC",
+      "type": "STATE",
+      "priority": "P0",
+      "module": "API-convert-incident",
+      "preconditions": "Petition.status=DANG_XU_LY",
+      "steps": "1. POST convert-incident với petition đang xử lý",
+      "expected": "HTTP 201; Petition.status=DA_CHUYEN_VU_VIEC; Incident tạo",
+      "severity": "Critical",
+      "data_required": [
+        "petition.status-dangxuly.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-063",
+      "title": "STATE: Petition.status=DA_CHUYEN_VU_VIEC → convert-incident → 400",
+      "type": "STATE",
+      "priority": "P0",
+      "module": "API-convert-incident",
+      "preconditions": "Petition đã ở trạng thái DA_CHUYEN_VU_VIEC",
+      "steps": "1. POST convert-incident với petition đã converted",
+      "expected": "HTTP 400; Double-convert guard; Petition.status không đổi",
+      "severity": "Critical",
+      "data_required": [
+        "petition.converted-to-incident.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-064",
+      "title": "STATE: Petition.status=DA_CHUYEN_VU_AN → convert-case → 400",
+      "type": "STATE",
+      "priority": "P0",
+      "module": "API-convert-case",
+      "preconditions": "Petition đã ở trạng thái DA_CHUYEN_VU_AN",
+      "steps": "1. POST convert-case với petition đã có linkedCaseId",
+      "expected": "HTTP 400; Double-convert guard; Petition.status không đổi",
+      "severity": "Critical",
+      "data_required": [
+        "petition.converted-to-case.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-065",
+      "title": "STATE: Petition.status=DA_CHUYEN_VU_AN → convert-incident → 400",
+      "type": "STATE",
+      "priority": "P0",
+      "module": "API-convert-incident",
+      "preconditions": "Petition.status=DA_CHUYEN_VU_AN",
+      "steps": "1. POST convert-incident với petition đã convert-to-case",
+      "expected": "HTTP 400; Cross-convert guard; Không tạo Incident",
+      "severity": "Critical",
+      "data_required": [
+        "petition.converted-to-case.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-066",
+      "title": "STATE: Petition.status=TU_CHOI → convert-incident → behavior cần xác nhận",
+      "type": "STATE",
+      "priority": "P1",
+      "module": "API-convert-incident",
+      "preconditions": "Petition.status=TU_CHOI",
+      "steps": "1. POST convert-incident với petition bị từ chối",
+      "expected": "HTTP 400 (not allowed) HOẶC 201 nếu business cho phép; Kiểm tra actual behavior",
+      "severity": "High",
+      "data_required": [
+        "petition.status-tuchoi.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-067",
+      "title": "STATE: Incident tạo ra từ convert có linkedPetitionId",
+      "type": "STATE",
+      "priority": "P0",
+      "module": "API-convert-incident",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-incident\n2. GET /incidents/{newIncidentId}",
+      "expected": "Incident.linkedPetitionId = petition.id; Incident.petitionProvenance=FROM_PETITION",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-068",
+      "title": "STATE: Case tạo ra từ convert có caseProvenance=FROM_PETITION",
+      "type": "STATE",
+      "priority": "P0",
+      "module": "API-convert-case",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-case\n2. GET /cases/{newCaseId}",
+      "expected": "Case.caseProvenance=FROM_PETITION; Case.linkedPetitionId=petition.id",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-069",
+      "title": "STATE: Sau convert-incident, Petition.linkedIncidentId được set",
+      "type": "STATE",
+      "priority": "P0",
+      "module": "API-convert-incident",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-incident\n2. GET /petitions/{id}",
+      "expected": "Petition.linkedIncidentId=newIncident.id; linkedCaseId=null",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-070",
+      "title": "STATE: Sau convert-case, Petition.linkedCaseId được set",
+      "type": "STATE",
+      "priority": "P0",
+      "module": "API-convert-case",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-case\n2. GET /petitions/{id}",
+      "expected": "Petition.linkedCaseId=newCase.id; linkedIncidentId=null",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-071",
+      "title": "DECISION: convert-incident, không có docs → Incident tạo không có tài liệu",
+      "type": "DECISION",
+      "priority": "P1",
+      "module": "API-convert-incident",
+      "preconditions": "Petition chưa convert, không có documents đính kèm",
+      "steps": "1. POST convert-incident\n2. GET /incidents/{id}/documents",
+      "expected": "HTTP 201; Incident.documents=[] (rỗng); Không lỗi",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.empty"
+      ]
+    },
+    {
+      "tc_id": "TC-072",
+      "title": "DECISION: convert-incident có docs → Documents re-link sang Incident",
+      "type": "DECISION",
+      "priority": "P0",
+      "module": "API-convert-incident",
+      "preconditions": "Petition có 3 documents đính kèm",
+      "steps": "1. POST convert-incident\n2. GET /incidents/{id}/documents",
+      "expected": "HTTP 201; Incident có 3 documents; Documents.entityType=INCIDENT, entityId=incident.id",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.with-docs"
+      ]
+    },
+    {
+      "tc_id": "TC-073",
+      "title": "DECISION: convert-case có docs → Documents re-link sang Case",
+      "type": "DECISION",
+      "priority": "P0",
+      "module": "API-convert-case",
+      "preconditions": "Petition có 2 documents",
+      "steps": "1. POST convert-case\n2. GET /cases/{id}/documents",
+      "expected": "HTTP 201; Case có 2 documents; Documents.entityType=CASE, entityId=case.id",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.with-docs"
+      ]
+    },
+    {
+      "tc_id": "TC-074",
+      "title": "DECISION: convert-case với tất cả optional fields → tất cả được lưu",
+      "type": "DECISION",
+      "priority": "P1",
+      "module": "API-convert-case",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-case với suspect, prosecutionDecision, prosecutionDate",
+      "expected": "HTTP 201; Case lưu đúng tất cả optional fields; Không field nào bị bỏ",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-075",
+      "title": "DECISION: convert-incident với assignedToId → Incident.assignedToId được set",
+      "type": "DECISION",
+      "priority": "P1",
+      "module": "API-convert-incident",
+      "preconditions": "Petition chưa convert; User officer1 tồn tại",
+      "steps": "1. POST convert-incident assignedToId=officer1.id",
+      "expected": "HTTP 201; Incident.assignedToId=officer1.id; Officer được phân công",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-076",
+      "title": "DECISION: convert-incident với description → Incident.description được set",
+      "type": "DECISION",
+      "priority": "P1",
+      "module": "API-convert-incident",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-incident description='Mô tả chi tiết vụ việc'",
+      "expected": "HTTP 201; Incident.description='Mô tả chi tiết vụ việc'",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-077",
+      "title": "DECISION: AuditLog ghi nhận PETITION_CONVERTED_TO_INCIDENT",
+      "type": "DECISION",
+      "priority": "P1",
+      "module": "API-convert-incident",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-incident\n2. GET /audit-logs?entityId=petitionId",
+      "expected": "AuditLog entry: action=PETITION_CONVERTED_TO_INCIDENT; entityId=petition.id; performedBy=currentUser",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-078",
+      "title": "DECISION: AuditLog ghi nhận PETITION_CONVERTED_TO_CASE",
+      "type": "DECISION",
+      "priority": "P1",
+      "module": "API-convert-case",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-case\n2. GET /audit-logs?entityId=petitionId",
+      "expected": "AuditLog entry: action=PETITION_CONVERTED_TO_CASE; entityId=petition.id",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-079",
+      "title": "DECISION: convert-case atomic — DB failure → rollback cả Petition lẫn Case",
+      "type": "DECISION",
+      "priority": "P0",
+      "module": "API-convert-case",
+      "preconditions": "Simulate DB failure mid-transaction",
+      "steps": "1. Inject DB failure sau khi Case.create nhưng trước khi Petition.update\n2. POST convert-case",
+      "expected": "HTTP 500; Case không tồn tại trong DB; Petition.linkedCaseId=null; Không dữ liệu nửa vời",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-080",
+      "title": "DECISION: convert-incident non-atomic — Incident tạo OK nhưng Petition.update fail → Incident tồn tại",
+      "type": "DECISION",
+      "priority": "P1",
+      "module": "API-convert-incident",
+      "preconditions": "Simulate Petition.update failure",
+      "steps": "1. Inject Petition.update failure sau Incident.create\n2. POST convert-incident",
+      "expected": "Incident tạo trong DB; Petition.linkedIncidentId không được set → orphan Incident; Đây là known non-atomic behavior",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-081",
+      "title": "STATE: convert-incident → Incident inherits petition.assignedTeamId",
+      "type": "STATE",
+      "priority": "P1",
+      "module": "API-convert-incident",
+      "preconditions": "Petition.assignedTeamId=team1.id",
+      "steps": "1. POST convert-incident (không set assignedToId)\n2. GET /incidents/{id}",
+      "expected": "Incident.teamId=petition.assignedTeamId (inherited); DataScope vẫn đúng",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.with-team"
+      ]
+    },
+    {
+      "tc_id": "TC-082",
+      "title": "STATE: convert-case → Case không inherit teamId (case có scope riêng)",
+      "type": "STATE",
+      "priority": "P1",
+      "module": "API-convert-case",
+      "preconditions": "Petition.assignedTeamId=team1.id",
+      "steps": "1. POST convert-case\n2. GET /cases/{id}",
+      "expected": "HTTP 201; Case tạo thành công; Case.teamId behavior theo business rule của Case",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.with-team"
+      ]
+    },
+    {
+      "tc_id": "TC-083",
+      "title": "DECISION table: Có linkedIncidentId + POST convert-incident → 400",
+      "type": "DECISION",
+      "priority": "P0",
+      "module": "API-convert-incident",
+      "preconditions": "Petition.linkedIncidentId≠null",
+      "steps": "1. POST convert-incident",
+      "expected": "HTTP 400; Không tạo thêm Incident",
+      "severity": "Critical",
+      "data_required": [
+        "petition.converted-to-incident.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-084",
+      "title": "DECISION table: Có linkedCaseId + POST convert-case → 400",
+      "type": "DECISION",
+      "priority": "P0",
+      "module": "API-convert-case",
+      "preconditions": "Petition.linkedCaseId≠null",
+      "steps": "1. POST convert-case",
+      "expected": "HTTP 400; Không tạo thêm Case",
+      "severity": "Critical",
+      "data_required": [
+        "petition.converted-to-case.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-085",
+      "title": "DECISION table: Có linkedIncidentId + POST convert-case → 400",
+      "type": "DECISION",
+      "priority": "P0",
+      "module": "API-convert-case",
+      "preconditions": "Petition.linkedIncidentId≠null",
+      "steps": "1. POST convert-case",
+      "expected": "HTTP 400; Cross-convert guard; Không tạo Case",
+      "severity": "Critical",
+      "data_required": [
+        "petition.converted-to-incident.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-086",
+      "title": "DECISION table: Có linkedCaseId + POST convert-incident → 400",
+      "type": "DECISION",
+      "priority": "P0",
+      "module": "API-convert-incident",
+      "preconditions": "Petition.linkedCaseId≠null",
+      "steps": "1. POST convert-incident",
+      "expected": "HTTP 400; Cross-convert guard; Không tạo Incident",
+      "severity": "Critical",
+      "data_required": [
+        "petition.converted-to-case.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-087",
+      "title": "DECISION table: Không có linked + POST convert-incident → 201",
+      "type": "DECISION",
+      "priority": "P0",
+      "module": "API-convert-incident",
+      "preconditions": "Petition.linkedIncidentId=null AND linkedCaseId=null",
+      "steps": "1. POST convert-incident hợp lệ",
+      "expected": "HTTP 201; Incident tạo; Petition.linkedIncidentId set",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-088",
+      "title": "DECISION table: Không có linked + POST convert-case → 201",
+      "type": "DECISION",
+      "priority": "P0",
+      "module": "API-convert-case",
+      "preconditions": "Petition.linkedIncidentId=null AND linkedCaseId=null",
+      "steps": "1. POST convert-case hợp lệ",
+      "expected": "HTTP 201; Case tạo; Petition.linkedCaseId set",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-089",
+      "title": "STATE: convert trả về response body đầy đủ (incident/case object)",
+      "type": "STATE",
+      "priority": "P1",
+      "module": "API-convert-incident",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-incident\n2. Inspect response body",
+      "expected": "Response chứa incident object với id, code, name, status; Frontend dùng incident.id để redirect",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-090",
+      "title": "STATE: convert-case response body chứa case object với id",
+      "type": "STATE",
+      "priority": "P1",
+      "module": "API-convert-case",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-case\n2. Inspect response body",
+      "expected": "Response chứa case object với id, caseCode, status; Frontend dùng case.id để redirect",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-091",
+      "title": "UI: Nút 'Chuyển đổi' hiển thị khi edit mode, chưa convert",
+      "type": "GREEN",
+      "priority": "P0",
+      "module": "UI-PetitionFormPage",
+      "preconditions": "Đăng nhập ADMIN; mở /petitions/{id}/edit; petition chưa convert",
+      "steps": "1. Mở trang edit petition chưa có linkedIncidentId và linkedCaseId\n2. Quan sát UI",
+      "expected": "Nút data-testid='btn-convert-petition' visible; button không disabled",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-092",
+      "title": "UI: Nút 'Chuyển đổi' ẩn khi đã linked Incident",
+      "type": "GREEN",
+      "priority": "P0",
+      "module": "UI-PetitionFormPage",
+      "preconditions": "Petition.linkedIncidentId không null",
+      "steps": "1. Mở /petitions/{id}/edit với petition đã convert to incident\n2. Quan sát UI",
+      "expected": "Nút btn-convert-petition KHÔNG visible hoặc disabled; canConvert=false",
+      "severity": "Critical",
+      "data_required": [
+        "petition.converted-to-incident.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-093",
+      "title": "UI: Nút 'Chuyển đổi' ẩn khi đã linked Case",
+      "type": "GREEN",
+      "priority": "P0",
+      "module": "UI-PetitionFormPage",
+      "preconditions": "Petition.linkedCaseId không null",
+      "steps": "1. Mở /petitions/{id}/edit với petition đã convert to case\n2. Quan sát UI",
+      "expected": "Nút btn-convert-petition KHÔNG visible hoặc disabled; canConvert=false",
+      "severity": "Critical",
+      "data_required": [
+        "petition.converted-to-case.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-094",
+      "title": "UI: Nút 'Chuyển đổi' ẩn trên trang create (không phải edit mode)",
+      "type": "GREEN",
+      "priority": "P1",
+      "module": "UI-PetitionFormPage",
+      "preconditions": "Đăng nhập ADMIN",
+      "steps": "1. Mở /petitions/new (create mode)\n2. Quan sát UI",
+      "expected": "Nút btn-convert-petition KHÔNG xuất hiện; isEditMode=false",
+      "severity": "High",
+      "data_required": []
+    },
+    {
+      "tc_id": "TC-095",
+      "title": "UI: Click 'Chuyển đổi' → Modal hiện với 2 options Vụ việc + Vụ án",
+      "type": "GREEN",
+      "priority": "P0",
+      "module": "UI-ConvertPetitionModal",
+      "preconditions": "Petition chưa convert; trang edit đang mở",
+      "steps": "1. Click btn-convert-petition\n2. Quan sát modal",
+      "expected": "Modal data-testid='convert-modal' visible; 2 buttons: convert-option-incident, convert-option-case",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-096",
+      "title": "UI: Click X trên modal → Modal đóng",
+      "type": "GREEN",
+      "priority": "P0",
+      "module": "UI-ConvertPetitionModal",
+      "preconditions": "Modal đang mở",
+      "steps": "1. Click convert-modal-close button\n2. Quan sát",
+      "expected": "Modal biến mất; Trang edit vẫn hiển thị; Không có thay đổi dữ liệu",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-097",
+      "title": "UI: Chọn 'Vụ việc' → Step 2 hiện form với incidentName + incidentType",
+      "type": "GREEN",
+      "priority": "P0",
+      "module": "UI-ConvertPetitionModal",
+      "preconditions": "Modal đang ở step 1",
+      "steps": "1. Click convert-option-incident\n2. Quan sát form",
+      "expected": "Input convert-incident-name visible; input convert-incident-type visible; convert-submit button visible",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-098",
+      "title": "UI: Chọn 'Vụ án' → Step 2 hiện form caseName + crime + jurisdiction",
+      "type": "GREEN",
+      "priority": "P0",
+      "module": "UI-ConvertPetitionModal",
+      "preconditions": "Modal đang ở step 1",
+      "steps": "1. Click convert-option-case\n2. Quan sát form",
+      "expected": "Input convert-case-name, convert-case-crime, convert-case-jurisdiction đều visible",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-099",
+      "title": "UI: Submit form vụ việc thiếu tên → Lỗi validation hiện tại chỗ",
+      "type": "RED",
+      "priority": "P0",
+      "module": "UI-ConvertPetitionModal",
+      "preconditions": "Modal step 2 form Vụ việc đang mở",
+      "steps": "1. Điền incidentType nhưng để trống incidentName\n2. Click convert-submit",
+      "expected": "Text 'Tên vụ việc là bắt buộc' visible; API KHÔNG được gọi; Modal không đóng",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-100",
+      "title": "UI: Submit form vụ việc thiếu loại → Lỗi validation hiện tại chỗ",
+      "type": "RED",
+      "priority": "P0",
+      "module": "UI-ConvertPetitionModal",
+      "preconditions": "Modal step 2 form Vụ việc đang mở",
+      "steps": "1. Điền incidentName nhưng để trống incidentType\n2. Click convert-submit",
+      "expected": "Text 'Loại vụ việc là bắt buộc' visible; API KHÔNG được gọi",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-101",
+      "title": "UI: Submit form vụ việc hợp lệ → Loading state → redirect /incidents/:id/edit",
+      "type": "GREEN",
+      "priority": "P0",
+      "module": "UI-ConvertPetitionModal",
+      "preconditions": "Petition chưa convert; form hợp lệ",
+      "steps": "1. Điền incidentName + incidentType\n2. Click convert-submit\n3. Đợi redirect",
+      "expected": "Button chuyển 'Đang chuyển...' trong khi loading; Sau đó redirect tới /incidents/{newId}/edit",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-102",
+      "title": "UI: Submit form vụ án thiếu caseName → Lỗi validation",
+      "type": "RED",
+      "priority": "P0",
+      "module": "UI-ConvertPetitionModal",
+      "preconditions": "Modal step 2 form Vụ án đang mở",
+      "steps": "1. Điền crime + jurisdiction nhưng để trống caseName\n2. Click convert-submit",
+      "expected": "Text 'Tên vụ án là bắt buộc' visible; API KHÔNG được gọi",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-103",
+      "title": "UI: Submit form vụ án hợp lệ → redirect /cases/:id/edit",
+      "type": "GREEN",
+      "priority": "P0",
+      "module": "UI-ConvertPetitionModal",
+      "preconditions": "Petition chưa convert; form vụ án đầy đủ",
+      "steps": "1. Điền caseName + crime + jurisdiction\n2. Click submit\n3. Đợi redirect",
+      "expected": "Redirect tới /cases/{newCaseId}/edit; Không còn ở trang petition",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-104",
+      "title": "UI: Quay lại từ Step 2 → Step 1 hiện lại, form bị reset",
+      "type": "GREEN",
+      "priority": "P1",
+      "module": "UI-ConvertPetitionModal",
+      "preconditions": "Modal đang ở step 2 (incident form)",
+      "steps": "1. Điền một số field\n2. Click '← Quay lại'\n3. Quan sát",
+      "expected": "Step 1 (2 options) hiện lại; form state bị clear",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-105",
+      "title": "UI: API lỗi 409 race condition → Error message hiển thị trong modal",
+      "type": "RED",
+      "priority": "P0",
+      "module": "UI-ConvertPetitionModal",
+      "preconditions": "Petition bị sửa concurrent, expectedUpdatedAt lỗi thời",
+      "steps": "1. Submit convert-case với expectedUpdatedAt cũ\n2. API trả 409",
+      "expected": "Error message hiển thị trong modal (div bg-red-50); Không navigate; User có thể thử lại",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-106",
+      "title": "UI: API lỗi mạng (Network Error) → Error message hiển thị",
+      "type": "RED",
+      "priority": "P1",
+      "module": "UI-ConvertPetitionModal",
+      "preconditions": "Network không khả dụng",
+      "steps": "1. Tắt mạng hoặc mock network error\n2. Submit form hợp lệ",
+      "expected": "Error message 'Có lỗi xảy ra khi chuyển đổi' hoặc error.message hiển thị; Modal vẫn mở",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-107",
+      "title": "UI: Button disabled trong khi đang submit (isSubmitting)",
+      "type": "GREEN",
+      "priority": "P1",
+      "module": "UI-ConvertPetitionModal",
+      "preconditions": "Form hợp lệ, đang gửi request",
+      "steps": "1. Click convert-submit\n2. Ngay lập tức quan sát button trong khi request đang pending",
+      "expected": "Button convert-submit bị disabled; Text 'Đang chuyển...'; Không double-submit",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-108",
+      "title": "UI: Press Escape key → Modal đóng (keyboard trap test)",
+      "type": "GREEN",
+      "priority": "P1",
+      "module": "UI-ConvertPetitionModal",
+      "preconditions": "Modal đang mở",
+      "steps": "1. Nhấn phím Escape\n2. Quan sát",
+      "expected": "Modal đóng; Tương đương click X button",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-109",
+      "title": "UI: Click outside modal backdrop → Modal đóng",
+      "type": "GREEN",
+      "priority": "P1",
+      "module": "UI-ConvertPetitionModal",
+      "preconditions": "Modal đang mở",
+      "steps": "1. Click vùng backdrop đen bên ngoài modal\n2. Quan sát",
+      "expected": "Modal đóng; Trang edit vẫn hiển thị",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-110",
+      "title": "UI: convert-case petitionUpdatedAt=null → 'Không thể xác định phiên bản đơn thư'",
+      "type": "RED",
+      "priority": "P1",
+      "module": "UI-ConvertPetitionModal",
+      "preconditions": "petitionUpdatedAt=null (edge case)",
+      "steps": "1. Render modal với petitionUpdatedAt=null\n2. Click option case → submit",
+      "expected": "Error 'Không thể xác định phiên bản đơn thư'; Submit bị chặn; API không gọi",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.no-updatedAt"
+      ]
+    },
+    {
+      "tc_id": "TC-111",
+      "title": "UI: Sau khi modal đóng bởi user, showConvertModal=false (state reset)",
+      "type": "GREEN",
+      "priority": "P1",
+      "module": "UI-PetitionFormPage",
+      "preconditions": "Modal đang mở",
+      "steps": "1. Click X trên modal\n2. Click btn-convert-petition lại",
+      "expected": "Modal mở lại từ step 1; State được reset hoàn toàn",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-112",
+      "title": "UI: Incident form có textarea description (optional)",
+      "type": "GREEN",
+      "priority": "P2",
+      "module": "UI-ConvertPetitionModal",
+      "preconditions": "Modal step 2 incident form đang mở",
+      "steps": "1. Quan sát incident form\n2. Điền vào convert-incident-description",
+      "expected": "Textarea visible; Có thể nhập text; Field không bắt buộc (không có asterisk *red)",
+      "severity": "Medium",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-113",
+      "title": "UI: Case form có input suspect (optional)",
+      "type": "GREEN",
+      "priority": "P2",
+      "module": "UI-ConvertPetitionModal",
+      "preconditions": "Modal step 2 case form đang mở",
+      "steps": "1. Quan sát case form\n2. Điền vào convert-case-suspect",
+      "expected": "Input convert-case-suspect visible; Field không bắt buộc",
+      "severity": "Medium",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-114",
+      "title": "UI: Error list cleared khi chuyển từ step 2 về step 1",
+      "type": "GREEN",
+      "priority": "P1",
+      "module": "UI-ConvertPetitionModal",
+      "preconditions": "Đã trigger validation error ở step 2",
+      "steps": "1. Submit thiếu field → lỗi hiện\n2. Click Quay lại\n3. Click option lại để vào step 2",
+      "expected": "Errors cũ biến mất; Form sạch",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-115",
+      "title": "UI: incidentName input auto-focus khi vào step 2 incident form",
+      "type": "GREEN",
+      "priority": "P2",
+      "module": "UI-ConvertPetitionModal",
+      "preconditions": "Modal step 1 đang mở",
+      "steps": "1. Click convert-option-incident\n2. Quan sát focus",
+      "expected": "incidentName input được focus tự động; User có thể gõ ngay không cần click",
+      "severity": "Medium",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-116",
+      "title": "UI: Modal title đúng 'Chuyển đổi đơn thư'",
+      "type": "GREEN",
+      "priority": "P2",
+      "module": "UI-ConvertPetitionModal",
+      "preconditions": "Modal đang mở",
+      "steps": "1. Quan sát tiêu đề modal",
+      "expected": "h2 text='Chuyển đổi đơn thư'",
+      "severity": "Medium",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-117",
+      "title": "UI: Hủy button trong step 2 → Gọi onClose (đóng modal hoàn toàn)",
+      "type": "GREEN",
+      "priority": "P1",
+      "module": "UI-ConvertPetitionModal",
+      "preconditions": "Modal step 2 đang mở",
+      "steps": "1. Click button 'Hủy' trong footer step 2",
+      "expected": "onClose được gọi; Modal đóng hoàn toàn (không chỉ về step 1)",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-118",
+      "title": "UI: Convert-incident button label 'Chuyển thành Vụ việc'",
+      "type": "GREEN",
+      "priority": "P2",
+      "module": "UI-ConvertPetitionModal",
+      "preconditions": "Modal step 2 incident form",
+      "steps": "1. Quan sát submit button text",
+      "expected": "Button text='Chuyển thành Vụ việc'; Icon ArrowRight visible",
+      "severity": "Medium",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-119",
+      "title": "UI: Convert-case button label 'Khởi tố Vụ án' với màu amber",
+      "type": "GREEN",
+      "priority": "P2",
+      "module": "UI-ConvertPetitionModal",
+      "preconditions": "Modal step 2 case form",
+      "steps": "1. Quan sát submit button",
+      "expected": "Button text='Khởi tố Vụ án'; bg-amber-600 (vàng nâu); Icon ArrowRight",
+      "severity": "Medium",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-120",
+      "title": "UI: Step 1 hiển thị mô tả pháp lý (Điều 143/147 BLTTHS)",
+      "type": "GREEN",
+      "priority": "P2",
+      "module": "UI-ConvertPetitionModal",
+      "preconditions": "Modal step 1 đang mở",
+      "steps": "1. Quan sát 2 option buttons\n2. Đọc text mô tả nhỏ",
+      "expected": "Option Vụ việc: 'Xác minh điều tra (Điều 143 BLTTHS)'; Option Vụ án: 'Khởi tố vụ án (Điều 147 BLTTHS)'",
+      "severity": "Medium",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-121",
+      "title": "DATA: incidentName tiếng Việt có dấu → lưu và hiển thị đúng UTF-8",
+      "type": "DATA",
+      "priority": "P0",
+      "module": "API-convert-incident",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-incident incidentName='Vụ cướp tài sản có tổ chức tại Quận 7'",
+      "expected": "HTTP 201; Incident.name lưu đúng tiếng Việt có dấu; GET incident trả về đúng",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-122",
+      "title": "DATA: incidentType tiếng Việt → UTF-8 round-trip",
+      "type": "DATA",
+      "priority": "P0",
+      "module": "API-convert-incident",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-incident incidentType='Tội phạm về môi trường'",
+      "expected": "HTTP 201; Incident.type lưu và GET trả về đúng",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-123",
+      "title": "DATA: caseName tiếng Việt đầy dấu → UTF-8 round-trip",
+      "type": "DATA",
+      "priority": "P0",
+      "module": "API-convert-case",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-case caseName='Vụ án lừa đảo chiếm đoạt tài sản qua mạng'",
+      "expected": "HTTP 201; Case.name=đúng tiếng Việt; JSON response encode UTF-8",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-124",
+      "title": "DATA: crime chứa số điều luật (Điều 174 BLHS)",
+      "type": "DATA",
+      "priority": "P1",
+      "module": "API-convert-case",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-case crime='Tội lừa đảo chiếm đoạt tài sản (Điều 174 BLHS 2015)'",
+      "expected": "HTTP 201; Case.crime lưu đúng cả chữ lẫn số",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-125",
+      "title": "DATA: incidentName với ký tự đặc biệt (/, \\, &, <, >) → stored literal",
+      "type": "DATA",
+      "priority": "P1",
+      "module": "API-convert-incident",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-incident incidentName='Vụ A/B & C < D > E'",
+      "expected": "HTTP 201; Incident.name=literal string không encode HTML entities",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-126",
+      "title": "DATA: incidentName chứa newline → xử lý đúng",
+      "type": "DATA",
+      "priority": "P1",
+      "module": "API-convert-incident",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-incident incidentName='Tên\\nDòng 2'",
+      "expected": "HTTP 201 hoặc 400; Nếu 201: lưu literal; Nếu 400: message rõ ràng",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-127",
+      "title": "DATA: incidentName chứa Unicode emoji → stored literal",
+      "type": "DATA",
+      "priority": "P2",
+      "module": "API-convert-incident",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-incident incidentName='Vụ án 🔥 nghiêm trọng'",
+      "expected": "HTTP 201; Incident.name lưu emoji đúng; DB không bị lỗi encoding",
+      "severity": "Medium",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-128",
+      "title": "DATA: suspect chứa tên người Hán-Việt",
+      "type": "DATA",
+      "priority": "P1",
+      "module": "API-convert-case",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-case suspect='Trần Văn Nguyễn (陳文元)'",
+      "expected": "HTTP 201; Case.suspect lưu đúng cả chữ Việt lẫn Hán tự",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-129",
+      "title": "DATA: jurisdiction chứa địa chỉ đặc biệt với dấu phẩy",
+      "type": "DATA",
+      "priority": "P1",
+      "module": "API-convert-case",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-case jurisdiction='PC02 - 459 Trần Hưng Đạo, Quận 1, TP.HCM'",
+      "expected": "HTTP 201; Case.jurisdiction lưu đúng địa chỉ",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-130",
+      "title": "DATA: description HTML tags → stored literal không execute",
+      "type": "DATA",
+      "priority": "P0",
+      "module": "API-convert-incident",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-incident description='<b>Vụ quan trọng</b><script>evil()</script>'",
+      "expected": "HTTP 201; description lưu literal HTML; UI không render tag; Script không execute",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-131",
+      "title": "DATA: suspect chứa CCCD 12 số",
+      "type": "DATA",
+      "priority": "P1",
+      "module": "API-convert-case",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-case suspect='Nguyễn Văn A - CCCD: 079123456789'",
+      "expected": "HTTP 201; Không lỗi; Case.suspect lưu đúng",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-132",
+      "title": "DATA: incidentName toàn chữ hoa",
+      "type": "DATA",
+      "priority": "P2",
+      "module": "API-convert-incident",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-incident incidentName='VỤ CƯỚP CÓ VŨ TRANG'",
+      "expected": "HTTP 201; Incident.name lưu đúng UPPERCASE",
+      "severity": "Medium",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-133",
+      "title": "DATA: caseName chứa năm và số thứ tự",
+      "type": "DATA",
+      "priority": "P2",
+      "module": "API-convert-case",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-case caseName='Vụ án số 001/2026/HSST-PC02'",
+      "expected": "HTTP 201; Case.name lưu đúng format mã số",
+      "severity": "Medium",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-134",
+      "title": "DATA: request body encoding UTF-8 (không phải Latin-1)",
+      "type": "DATA",
+      "priority": "P1",
+      "module": "API-convert-incident",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-incident với Content-Type: application/json; charset=utf-8\n2. incidentName có dấu tiếng Việt",
+      "expected": "HTTP 201; Server decode đúng UTF-8; Không bị lỗi Mojibake",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-135",
+      "title": "DATA: Response JSON encoding UTF-8 chính xác",
+      "type": "DATA",
+      "priority": "P1",
+      "module": "API-convert-incident",
+      "preconditions": "Incident vừa tạo với tên tiếng Việt",
+      "steps": "1. Inspect raw HTTP response bytes\n2. Verify Content-Type: application/json; charset=utf-8",
+      "expected": "Header có charset=utf-8; Body JSON đúng UTF-8 không bị encode escaped",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-136",
+      "title": "INTEGRATION: Documents re-linked sau convert-incident — entityType=INCIDENT",
+      "type": "INTEGRATION",
+      "priority": "P0",
+      "module": "Integration-Documents",
+      "preconditions": "Petition có document đính kèm",
+      "steps": "1. POST convert-incident\n2. SELECT * FROM documents WHERE id=petitionDocId",
+      "expected": "Document.entityType='INCIDENT'; Document.entityId=newIncident.id; Petition không còn sở hữu document",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.with-docs"
+      ]
+    },
+    {
+      "tc_id": "TC-137",
+      "title": "INTEGRATION: Sau convert-incident, GET /petitions/{id}/documents trả rỗng",
+      "type": "INTEGRATION",
+      "priority": "P1",
+      "module": "Integration-Documents",
+      "preconditions": "Petition có document, vừa convert",
+      "steps": "1. POST convert-incident\n2. GET /petitions/{id}/documents",
+      "expected": "Response=[] (rỗng); Documents đã migrate sang Incident",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.with-docs"
+      ]
+    },
+    {
+      "tc_id": "TC-138",
+      "title": "INTEGRATION: Sau convert-case, GET /cases/{id}/documents trả về documents từ petition",
+      "type": "INTEGRATION",
+      "priority": "P0",
+      "module": "Integration-Documents",
+      "preconditions": "Petition có documents",
+      "steps": "1. POST convert-case\n2. GET /cases/{newCaseId}/documents",
+      "expected": "Documents available tại Case endpoint; entityId=case.id",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.with-docs"
+      ]
+    },
+    {
+      "tc_id": "TC-139",
+      "title": "INTEGRATION: AuditLog có timestamp chính xác (không quá 5 giây)",
+      "type": "INTEGRATION",
+      "priority": "P1",
+      "module": "Integration-AuditLog",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. Ghi nhận time T1\n2. POST convert-incident\n3. GET audit-log entry",
+      "expected": "AuditLog.timestamp trong khoảng T1 ±5 giây; Timezone VN correct",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-140",
+      "title": "INTEGRATION: Incident inherits petition.senderName vào benVu",
+      "type": "INTEGRATION",
+      "priority": "P1",
+      "module": "Integration-FieldMapping",
+      "preconditions": "Petition.senderName='Nguyễn Thị B'",
+      "steps": "1. POST convert-incident\n2. GET /incidents/{newId}",
+      "expected": "Incident.benVu='Nguyễn Thị B' (mapped from senderName)",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-141",
+      "title": "INTEGRATION: convert-case response latency < 2000ms",
+      "type": "PERFORMANCE",
+      "priority": "P1",
+      "module": "Performance",
+      "preconditions": "Server không bị load",
+      "steps": "1. POST convert-case\n2. Đo response time",
+      "expected": "Response trong vòng 2000ms; Atomic $transaction không gây timeout",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-142",
+      "title": "INTEGRATION: convert-incident response latency < 1500ms",
+      "type": "PERFORMANCE",
+      "priority": "P1",
+      "module": "Performance",
+      "preconditions": "Server không bị load",
+      "steps": "1. POST convert-incident\n2. Đo response time",
+      "expected": "Response trong vòng 1500ms; Non-atomic flow nhanh hơn case",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-143",
+      "title": "PERFORMANCE: 10 concurrent convert-case requests với 10 petition khác nhau → tất cả 201",
+      "type": "PERFORMANCE",
+      "priority": "P1",
+      "module": "Performance",
+      "preconditions": "10 petitions active, mỗi petition khác nhau",
+      "steps": "1. Gửi 10 POST convert-case đồng thời với 10 petition IDs khác nhau",
+      "expected": "Tất cả 10 requests nhận 201; 10 Cases tạo; Không deadlock; Không 500",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-144",
+      "title": "PERFORMANCE: 5 concurrent convert-case cùng 1 petition → 1 thành công 4 lỗi 409",
+      "type": "PERFORMANCE",
+      "priority": "P0",
+      "module": "Performance",
+      "preconditions": "1 petition, 5 user concurrently attempt",
+      "steps": "1. Gửi 5 POST convert-case với cùng petition ID và expectedUpdatedAt",
+      "expected": "Đúng 1 request nhận 201; 4 requests nhận 409; Chỉ 1 Case trong DB; Optimistic lock đúng",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-145",
+      "title": "PERFORMANCE: Large description (10KB) → không làm chậm response",
+      "type": "PERFORMANCE",
+      "priority": "P2",
+      "module": "Performance",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-incident description=10KB text",
+      "expected": "HTTP 201 trong vòng 2000ms; Không timeout",
+      "severity": "Medium",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-146",
+      "title": "DATA: incidentName chỉ số → hợp lệ",
+      "type": "DATA",
+      "priority": "P2",
+      "module": "API-convert-incident",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-incident incidentName='12345'",
+      "expected": "HTTP 201; Incident.name='12345'",
+      "severity": "Medium",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-147",
+      "title": "DATA: crime chứa dấu ngoặc đơn và gạch ngang",
+      "type": "DATA",
+      "priority": "P2",
+      "module": "API-convert-case",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-case crime='Tội trộm cắp tài sản (Điều 173/BLHS-2015)'",
+      "expected": "HTTP 201; Case.crime lưu đúng dấu ngoặc",
+      "severity": "Medium",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-148",
+      "title": "DATA: suspect chứa tên nước ngoài (ký tự Latin)",
+      "type": "DATA",
+      "priority": "P2",
+      "module": "API-convert-case",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-case suspect='John Nguyễn (Nguyen Van A)'",
+      "expected": "HTTP 201; Case.suspect lưu đúng tên Latin",
+      "severity": "Medium",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-149",
+      "title": "DATA: jurisdiction chứa số điện thoại",
+      "type": "DATA",
+      "priority": "P2",
+      "module": "API-convert-case",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-case jurisdiction='PC02 TP.HCM - SĐT: 028.3930.7123'",
+      "expected": "HTTP 201; Case.jurisdiction lưu đúng số điện thoại",
+      "severity": "Medium",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-150",
+      "title": "DATA: Multiple fields tiếng Việt cùng lúc → tất cả round-trip đúng",
+      "type": "DATA",
+      "priority": "P0",
+      "module": "API-convert-case",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-case với caseName + crime + jurisdiction + suspect tất cả tiếng Việt\n2. GET case\n3. So sánh tất cả fields",
+      "expected": "Tất cả fields lưu và GET trả về đúng tiếng Việt có dấu",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-151",
+      "title": "A11Y: convert-modal-close có aria-label hoặc accessible name",
+      "type": "A11Y",
+      "priority": "P1",
+      "module": "A11Y-ConvertPetitionModal",
+      "preconditions": "Modal đang mở",
+      "steps": "1. Inspect button convert-modal-close\n2. Kiểm tra accessible name",
+      "expected": "Button có aria-label='Đóng' hoặc title; Screen reader thông báo đúng tên",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-152",
+      "title": "A11Y: Required fields có aria-required=true hoặc * label",
+      "type": "A11Y",
+      "priority": "P1",
+      "module": "A11Y-ConvertPetitionModal",
+      "preconditions": "Modal step 2 incident form",
+      "steps": "1. Inspect incidentName input\n2. Kiểm tra aria attributes",
+      "expected": "input có aria-required='true' HOẶC label có span.text-red-500 (*); Screen reader thông báo bắt buộc",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-153",
+      "title": "A11Y: Error messages có aria-live=polite hoặc role=alert",
+      "type": "A11Y",
+      "priority": "P1",
+      "module": "A11Y-ConvertPetitionModal",
+      "preconditions": "Form đang hiện validation error",
+      "steps": "1. Trigger validation error\n2. Inspect error container div",
+      "expected": "div có aria-live='polite' HOẶC role='alert'; Screen reader thông báo lỗi tự động",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-154",
+      "title": "A11Y: Tab order hợp lý trong modal — focus không thoát khỏi modal",
+      "type": "A11Y",
+      "priority": "P1",
+      "module": "A11Y-ConvertPetitionModal",
+      "preconditions": "Modal đang mở",
+      "steps": "1. Nhấn Tab nhiều lần\n2. Quan sát focus không thoát ra ngoài modal (focus trap)",
+      "expected": "Focus ở trong modal; Không focus sang phần tử background; Nhấn Shift+Tab cũng trong modal",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-155",
+      "title": "A11Y: Modal có role=dialog và aria-modal=true",
+      "type": "A11Y",
+      "priority": "P1",
+      "module": "A11Y-ConvertPetitionModal",
+      "preconditions": "Modal đang mở",
+      "steps": "1. Inspect div data-testid='convert-modal'\n2. Kiểm tra ARIA roles",
+      "expected": "role='dialog'; aria-modal='true'; aria-labelledby trỏ tới h2 'Chuyển đổi đơn thư'",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-156",
+      "title": "A11Y: Nút submit disabled có aria-disabled=true",
+      "type": "A11Y",
+      "priority": "P1",
+      "module": "A11Y-ConvertPetitionModal",
+      "preconditions": "Form đang ở trạng thái isSubmitting=true",
+      "steps": "1. Trigger submit\n2. Inspect button khi đang loading",
+      "expected": "button[disabled] hoặc aria-disabled='true'; Screen reader thông báo disabled",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-157",
+      "title": "A11Y: Contrast ratio đủ 4.5:1 cho text trên button",
+      "type": "A11Y",
+      "priority": "P2",
+      "module": "A11Y-ConvertPetitionModal",
+      "preconditions": "Modal hiển thị",
+      "steps": "1. Kiểm tra contrast ratio của text trên bg-blue-600\n2. Kiểm tra text trên bg-amber-600",
+      "expected": "Text màu white (#fff) trên blue-600 (#2563EB): ratio >4.5:1; Đạt WCAG 2.1 AA",
+      "severity": "Medium",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-158",
+      "title": "A11Y: Labels associated đúng với inputs (for=id)",
+      "type": "A11Y",
+      "priority": "P1",
+      "module": "A11Y-ConvertPetitionModal",
+      "preconditions": "Modal step 2 mở",
+      "steps": "1. Inspect label cho incidentName\n2. Kiểm tra htmlFor attribute",
+      "expected": "label có htmlFor tương ứng với input id; Click label → focus input",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-159",
+      "title": "A11Y: Keyboard navigation: Space/Enter activate option buttons",
+      "type": "A11Y",
+      "priority": "P1",
+      "module": "A11Y-ConvertPetitionModal",
+      "preconditions": "Modal step 1, focus trên option buttons",
+      "steps": "1. Tab đến convert-option-incident\n2. Nhấn Space\n3. Quan sát",
+      "expected": "Step 2 form mở; Keyboard equivalent với click chuột",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-160",
+      "title": "A11Y: Loading state có accessible announcement",
+      "type": "A11Y",
+      "priority": "P2",
+      "module": "A11Y-ConvertPetitionModal",
+      "preconditions": "Form đang submit",
+      "steps": "1. Click submit\n2. Observe aria-live region khi loading",
+      "expected": "'Đang chuyển...' được screen reader thông báo HOẶC có spinner role=progressbar",
+      "severity": "Medium",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-161",
+      "title": "COMPAT: Chrome latest — Modal hiển thị đúng",
+      "type": "COMPAT",
+      "priority": "P1",
+      "module": "COMPAT-Browser",
+      "preconditions": "Chạy trên Chrome mới nhất",
+      "steps": "1. Mở http://localhost:5173/petitions/{id}/edit trên Chrome\n2. Mở modal convert\n3. Kiểm tra layout",
+      "expected": "Modal centered đúng; Grid 2 columns hiển thị; CSS grid gap đúng",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-162",
+      "title": "COMPAT: Firefox latest — Modal và form hoạt động",
+      "type": "COMPAT",
+      "priority": "P1",
+      "module": "COMPAT-Browser",
+      "preconditions": "Chạy trên Firefox mới nhất",
+      "steps": "1. Mở modal trên Firefox\n2. Submit form",
+      "expected": "Modal hoạt động bình thường; Không lỗi render CSS; Form submit OK",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-163",
+      "title": "COMPAT: Edge latest — Modal hoạt động",
+      "type": "COMPAT",
+      "priority": "P2",
+      "module": "COMPAT-Browser",
+      "preconditions": "Microsoft Edge Chromium mới nhất",
+      "steps": "1. Mở modal trên Edge\n2. Test flow cơ bản",
+      "expected": "Không lỗi; Giống Chrome behavior",
+      "severity": "Medium",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-164",
+      "title": "COMPAT: Mobile viewport 375px — Modal responsive",
+      "type": "COMPAT",
+      "priority": "P1",
+      "module": "COMPAT-Responsive",
+      "preconditions": "Viewport 375px (iPhone SE)",
+      "steps": "1. Resize browser đến 375px width\n2. Mở modal\n3. Quan sát layout",
+      "expected": "Modal không tràn ra ngoài viewport; mx-4 padding; Các buttons vẫn tap-able; max-w-lg hoạt động",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-165",
+      "title": "COMPAT: Tablet viewport 768px — Modal hiển thị đúng",
+      "type": "COMPAT",
+      "priority": "P2",
+      "module": "COMPAT-Responsive",
+      "preconditions": "Viewport 768px (iPad)",
+      "steps": "1. Resize browser đến 768px\n2. Mở modal",
+      "expected": "Modal centered; max-w-lg giữ nguyên; 2-column grid không break",
+      "severity": "Medium",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-166",
+      "title": "COMPAT: Zoom 200% — Modal không bị layout break",
+      "type": "COMPAT",
+      "priority": "P2",
+      "module": "COMPAT-Zoom",
+      "preconditions": "Browser zoom 200%",
+      "steps": "1. Ctrl+= 2 lần (200% zoom)\n2. Mở modal",
+      "expected": "Text không overlap; Buttons vẫn visible; Scroll hoạt động nếu content dài",
+      "severity": "Medium",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-167",
+      "title": "COMPAT: Safari macOS — Modal backdrop blur hoạt động",
+      "type": "COMPAT",
+      "priority": "P2",
+      "module": "COMPAT-Browser",
+      "preconditions": "Safari macOS",
+      "steps": "1. Mở modal trên Safari\n2. Quan sát backdrop đen",
+      "expected": "bg-black/50 overlay hiển thị đúng; Không bị trong suốt hoàn toàn",
+      "severity": "Medium",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-168",
+      "title": "RECOVERY: Submit lỗi 500 → user có thể retry",
+      "type": "RECOVERY",
+      "priority": "P1",
+      "module": "Recovery",
+      "preconditions": "Server trả 500 Internal Error",
+      "steps": "1. Mock server 500\n2. Submit form hợp lệ\n3. Quan sát\n4. Fix mock → retry submit",
+      "expected": "Error message hiển thị; Button enable lại (không disabled mãi); Submit lần 2 hoạt động",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-169",
+      "title": "RECOVERY: Token expired mid-submit → redirect to login",
+      "type": "RECOVERY",
+      "priority": "P1",
+      "module": "Recovery",
+      "preconditions": "JWT sắp hết hạn",
+      "steps": "1. Token expire chính xác khi submit\n2. Server trả 401",
+      "expected": "App redirect về /login HOẶC hiển thị 'Phiên đăng nhập hết hạn'; Không crash",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-170",
+      "title": "EDGE: Petition vừa được tạo (D0, không có documents) → convert-incident thành công",
+      "type": "EDGE",
+      "priority": "P1",
+      "module": "API-convert-incident",
+      "preconditions": "Petition mới tạo, chưa có document",
+      "steps": "1. POST convert-incident với fresh petition",
+      "expected": "HTTP 201; Incident tạo OK dù petition không có documents",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.empty"
+      ]
+    },
+    {
+      "tc_id": "TC-171",
+      "title": "EDGE: Petition có 50+ documents → convert-case document handoff bulk",
+      "type": "EDGE",
+      "priority": "P1",
+      "module": "API-convert-case",
+      "preconditions": "Petition có 50 documents",
+      "steps": "1. POST convert-case",
+      "expected": "HTTP 201; Tất cả 50 documents re-linked sang Case; Không timeout; Không miss document",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.large"
+      ]
+    },
+    {
+      "tc_id": "TC-172",
+      "title": "EDGE: expectedUpdatedAt là tương lai → 409 hoặc 400",
+      "type": "EDGE",
+      "priority": "P1",
+      "module": "API-convert-case",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-case expectedUpdatedAt='2099-01-01T00:00:00.000Z'",
+      "expected": "HTTP 409 (không match petition.updatedAt) HOẶC HTTP 400; Không tạo Case",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-173",
+      "title": "EDGE: expectedUpdatedAt là quá khứ xa → 409",
+      "type": "EDGE",
+      "priority": "P1",
+      "module": "API-convert-case",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-case expectedUpdatedAt='2000-01-01T00:00:00.000Z'",
+      "expected": "HTTP 409; Timestamp không match; Không tạo Case",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-174",
+      "title": "EDGE: Petition bị xóa trong khi user điền form → 404 khi submit",
+      "type": "EDGE",
+      "priority": "P1",
+      "module": "API-convert-incident",
+      "preconditions": "Petition tồn tại khi mở form, bị xóa trước khi submit",
+      "steps": "1. Mở form với petition hợp lệ\n2. Admin xóa petition\n3. Submit form",
+      "expected": "HTTP 404; UI hiển thị 'Đơn thư không còn tồn tại'; Không crash",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-175",
+      "title": "EDGE: Convert-incident với assignedToId của user đã bị vô hiệu hóa → 404 hoặc 400",
+      "type": "EDGE",
+      "priority": "P1",
+      "module": "API-convert-incident",
+      "preconditions": "User.isActive=false",
+      "steps": "1. POST convert-incident assignedToId=inactiveUser.id",
+      "expected": "HTTP 400 hoặc 404; Không tạo Incident; Cán bộ không hoạt động không được phân công",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-176",
+      "title": "EDGE: Hai field cùng tên nhưng case khác nhau → stored as-is",
+      "type": "EDGE",
+      "priority": "P2",
+      "module": "API-convert-incident",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-incident incidentName='vụ lừa ĐẢO' (mixed case)",
+      "expected": "HTTP 201; Incident.name='vụ lừa ĐẢO' không normalize case",
+      "severity": "Medium",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-177",
+      "title": "EDGE: convert-case với prosecutionDate là ngày hôm nay",
+      "type": "EDGE",
+      "priority": "P1",
+      "module": "API-convert-case",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-case prosecutionDate=today ISO string",
+      "expected": "HTTP 201; Case.prosecutionDate=today; Không lỗi date validation",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-178",
+      "title": "EDGE: convert-case với prosecutionDate trong tương lai → OK",
+      "type": "EDGE",
+      "priority": "P1",
+      "module": "API-convert-case",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-case prosecutionDate='2026-12-31T00:00:00.000Z'",
+      "expected": "HTTP 201; Ngày tương lai được chấp nhận",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-179",
+      "title": "EDGE: Petition không có assignedTeamId → Incident không có team",
+      "type": "EDGE",
+      "priority": "P1",
+      "module": "API-convert-incident",
+      "preconditions": "Petition.assignedTeamId=null",
+      "steps": "1. POST convert-incident",
+      "expected": "HTTP 201; Incident.teamId=null; Không lỗi",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.no-team"
+      ]
+    },
+    {
+      "tc_id": "TC-180",
+      "title": "EDGE: Multiple convert-incident attempts trong vòng 1 giây (rapid retry) → chỉ 1 thành công",
+      "type": "EDGE",
+      "priority": "P0",
+      "module": "API-convert-incident",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. Click submit 5 lần liên tục trong 1 giây\n2. Quan sát requests",
+      "expected": "Đúng 1 Incident tạo; UI disabled sau lần click đầu; Không tạo duplicate",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-181",
+      "title": "SECURITY: SQL Injection trong caseName → stored literal",
+      "type": "SECURITY",
+      "priority": "P0",
+      "module": "API-convert-case",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-case caseName=\"'; DROP TABLE cases; --\"",
+      "expected": "HTTP 201; Case.name=literal string; Bảng không bị xóa",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-182",
+      "title": "SECURITY: SQL Injection trong crime field → stored literal",
+      "type": "SECURITY",
+      "priority": "P0",
+      "module": "API-convert-case",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-case crime=\"1=1 UNION SELECT * FROM users--\"",
+      "expected": "HTTP 201; Case.crime=literal; Không leak user data",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-183",
+      "title": "SECURITY: XSS trong caseName → stored raw, React escapes on render",
+      "type": "SECURITY",
+      "priority": "P0",
+      "module": "API-convert-case",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-case caseName='<script>alert(document.cookie)</script>'\n2. Open /cases/{id}/edit",
+      "expected": "Case lưu raw; UI render escaped; Script KHÔNG chạy; Cookie không bị steal",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-184",
+      "title": "SECURITY: XSS trong jurisdiction → React escapes",
+      "type": "SECURITY",
+      "priority": "P0",
+      "module": "API-convert-case",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-case jurisdiction='<img src=x onerror=alert(1)>'\n2. Render case detail",
+      "expected": "UI hiển thị escaped HTML; onerror không trigger",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-185",
+      "title": "SECURITY: Prototype pollution trong request body",
+      "type": "SECURITY",
+      "priority": "P1",
+      "module": "API-convert-case",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-case body chứa __proto__.isAdmin=true",
+      "expected": "HTTP 400 hoặc 201 với field bị ignore; class-validator reject unknown properties",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-186",
+      "title": "SECURITY: Mass assignment — thêm field lạ (linkedCaseId) trong body",
+      "type": "SECURITY",
+      "priority": "P0",
+      "module": "API-convert-case",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-case body thêm linkedCaseId='fake-id'",
+      "expected": "HTTP 201; Petition.linkedCaseId=thực sự tạo từ transaction, KHÔNG bị override bởi body",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-187",
+      "title": "SECURITY: Mass assignment — thêm id vào body convert-incident",
+      "type": "SECURITY",
+      "priority": "P0",
+      "module": "API-convert-incident",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-incident body thêm id='attacker-chosen-id'",
+      "expected": "HTTP 201; Incident.id do server generate (CUID), KHÔNG phải id từ body",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-188",
+      "title": "SECURITY: SSRF qua description field",
+      "type": "SECURITY",
+      "priority": "P1",
+      "module": "API-convert-incident",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-incident description='http://169.254.169.254/metadata'",
+      "expected": "HTTP 201; Server lưu URL literal, KHÔNG fetch URL; Không SSRF",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-189",
+      "title": "SECURITY: Authorization header với ADMIN role giả mạo trong payload JWT",
+      "type": "SECURITY",
+      "priority": "P0",
+      "module": "API-convert-case",
+      "preconditions": "User là OFFICER (không phải ADMIN)",
+      "steps": "1. Tạo JWT với role: ADMIN nhưng ký sai key\n2. POST convert-case",
+      "expected": "HTTP 401; Server không tin payload; Signature mismatch",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-190",
+      "title": "SECURITY: Brute force nhiều requests (100 req/min) → throttle",
+      "type": "SECURITY",
+      "priority": "P1",
+      "module": "API-convert-incident",
+      "preconditions": "Rate limiter enabled",
+      "steps": "1. Gửi 100 POST convert-incident trong 1 phút từ cùng IP",
+      "expected": "Sau ngưỡng: HTTP 429 Too Many Requests; Rate limit header; Throttle đang hoạt động",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-191",
+      "title": "SECURITY: CSRF — request từ domain khác không có CSRF token",
+      "type": "SECURITY",
+      "priority": "P1",
+      "module": "API-convert-case",
+      "preconditions": "App có CSRF protection",
+      "steps": "1. POST convert-case từ foreign origin (không có X-XSRF-TOKEN header)",
+      "expected": "HTTP 403 (nếu stateful CSRF) HOẶC JWT Bearer không bị ảnh hưởng (stateless API)",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-192",
+      "title": "SECURITY: Insecure Direct Object Reference — đọc petition của người khác qua convert",
+      "type": "SECURITY",
+      "priority": "P0",
+      "module": "API-convert-incident",
+      "preconditions": "officer1 và officer2 ở 2 team khác nhau",
+      "steps": "1. officer2 POST convert-incident với petition ID của officer1's team",
+      "expected": "HTTP 403 hoặc 404; DataScope.checkWriteScope chặn; officer2 không thể convert petition không thuộc phạm vi",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.other-team.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-193",
+      "title": "SECURITY: Tiêm giá trị null vào required field",
+      "type": "SECURITY",
+      "priority": "P1",
+      "module": "API-convert-incident",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-incident incidentName=null, incidentType='X'",
+      "expected": "HTTP 400; Null không bypass @IsNotEmpty(); Không tạo Incident",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-194",
+      "title": "SECURITY: Tiêm undefined vào required field",
+      "type": "SECURITY",
+      "priority": "P1",
+      "module": "API-convert-incident",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-incident incidentName=undefined (JSON không có key)",
+      "expected": "HTTP 400; @IsNotEmpty validates missing key",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-195",
+      "title": "SECURITY: Integer overflow trong numeric field",
+      "type": "SECURITY",
+      "priority": "P2",
+      "module": "API-convert-case",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-case với unexpected numeric field value 9999999999999999",
+      "expected": "HTTP 400 hoặc ignored; Server không crash; Không integer overflow",
+      "severity": "Medium",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-196",
+      "title": "REGRESSION: Sau convert-incident, GET /petitions không còn hiển thị linkedIncidentId=null",
+      "type": "REGRESSION",
+      "priority": "P1",
+      "module": "Regression-Petitions",
+      "preconditions": "Petition vừa convert",
+      "steps": "1. GET /petitions/{id} sau convert\n2. Kiểm tra linkedIncidentId",
+      "expected": "linkedIncidentId=newIncident.id (không null); Regression: không bị reset về null",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-197",
+      "title": "REGRESSION: Convert không ảnh hưởng đến petition STT",
+      "type": "REGRESSION",
+      "priority": "P1",
+      "module": "Regression-Petitions",
+      "preconditions": "Petition có STT DT-2026-00001",
+      "steps": "1. POST convert-incident\n2. GET petition",
+      "expected": "Petition.stt='DT-2026-00001' không đổi sau convert",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-198",
+      "title": "REGRESSION: Convert không reset petition.receivedDate",
+      "type": "REGRESSION",
+      "priority": "P1",
+      "module": "Regression-Petitions",
+      "preconditions": "Petition có receivedDate",
+      "steps": "1. POST convert-case\n2. GET petition",
+      "expected": "Petition.receivedDate không thay đổi",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-199",
+      "title": "REGRESSION: Petition assignments không bị xóa sau convert",
+      "type": "REGRESSION",
+      "priority": "P1",
+      "module": "Regression-PetitionAssignment",
+      "preconditions": "Petition có assignments",
+      "steps": "1. POST convert-incident\n2. GET /petitions/{id}/assignments",
+      "expected": "Assignments vẫn tồn tại; Convert không xóa phân công cán bộ",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.with-assignments"
+      ]
+    },
+    {
+      "tc_id": "TC-200",
+      "title": "REGRESSION: List petitions vẫn trả về petition đã convert",
+      "type": "REGRESSION",
+      "priority": "P1",
+      "module": "Regression-Petitions",
+      "preconditions": "Petition vừa convert",
+      "steps": "1. GET /petitions (list)\n2. Tìm petition vừa convert",
+      "expected": "Petition vẫn có trong list; Không bị ẩn; status=DA_CHUYEN_VU_VIEC hiển thị đúng",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-201",
+      "title": "REGRESSION: Search petitions theo status DA_CHUYEN_VU_VIEC sau convert",
+      "type": "REGRESSION",
+      "priority": "P1",
+      "module": "Regression-Petitions",
+      "preconditions": "Petition vừa convert-incident",
+      "steps": "1. GET /petitions?status=DA_CHUYEN_VU_VIEC",
+      "expected": "Petition vừa convert xuất hiện trong results",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-202",
+      "title": "REGRESSION: Incident mới tạo có status mặc định đúng",
+      "type": "REGRESSION",
+      "priority": "P0",
+      "module": "Regression-Incidents",
+      "preconditions": "Petition vừa convert-incident",
+      "steps": "1. GET /incidents/{newId}",
+      "expected": "Incident.status=TIEP_NHAN (default) HOẶC status mặc định theo business rule",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-203",
+      "title": "REGRESSION: Case mới tạo từ convert có status mặc định đúng",
+      "type": "REGRESSION",
+      "priority": "P0",
+      "module": "Regression-Cases",
+      "preconditions": "Petition vừa convert-case",
+      "steps": "1. GET /cases/{newId}",
+      "expected": "Case.status=default (KHOI_TO hoặc business default); Không null",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-204",
+      "title": "REGRESSION: Incident.code auto-generated sau convert",
+      "type": "REGRESSION",
+      "priority": "P0",
+      "module": "Regression-Incidents",
+      "preconditions": "Petition vừa convert-incident",
+      "steps": "1. GET /incidents/{newId}",
+      "expected": "Incident.code format VV-YYYY-NNNNN; Không null; Không trùng",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-205",
+      "title": "REGRESSION: Case.caseCode auto-generated sau convert",
+      "type": "REGRESSION",
+      "priority": "P0",
+      "module": "Regression-Cases",
+      "preconditions": "Petition vừa convert-case",
+      "steps": "1. GET /cases/{newId}",
+      "expected": "Case.caseCode tồn tại; Format VA-YYYY-NNNNN hoặc theo convention",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-206",
+      "title": "REGRESSION: Notifications triggered sau convert (nếu notification system enabled)",
+      "type": "REGRESSION",
+      "priority": "P2",
+      "module": "Regression-Notifications",
+      "preconditions": "Notification feature enabled; Petition assigned to team",
+      "steps": "1. POST convert-incident\n2. Kiểm tra notification queue",
+      "expected": "Team members nhận notification về vụ việc mới; Không notification nếu feature disabled",
+      "severity": "Medium",
+      "data_required": [
+        "petition.active.D0.with-team"
+      ]
+    },
+    {
+      "tc_id": "TC-207",
+      "title": "REGRESSION: KPI stats cập nhật sau convert-incident",
+      "type": "REGRESSION",
+      "priority": "P1",
+      "module": "Regression-KPI",
+      "preconditions": "KPI dashboard đang hiển thị số liệu",
+      "steps": "1. POST convert-incident\n2. GET /kpi hoặc refresh KPI dashboard",
+      "expected": "Thống kê số đơn chuyển vụ việc tăng lên; KPI reflect conversion",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-208",
+      "title": "REGRESSION: HoSo journey cập nhật sau convert",
+      "type": "REGRESSION",
+      "priority": "P1",
+      "module": "Regression-HoSoJourney",
+      "preconditions": "HoSo journey feature enabled",
+      "steps": "1. POST convert-incident\n2. GET /ho-so-journey?petitionId={id}",
+      "expected": "Journey step 'Chuyển vụ việc' được ghi; Timeline có event",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-209",
+      "title": "REGRESSION: Petition list badge hiển thị đúng sau convert",
+      "type": "REGRESSION",
+      "priority": "P1",
+      "module": "Regression-UI-List",
+      "preconditions": "Trang list petitions đang mở",
+      "steps": "1. Convert petition\n2. Refresh list\n3. Quan sát badge status",
+      "expected": "Badge status thay đổi từ cũ sang 'Đã chuyển vụ việc' với màu tương ứng",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-210",
+      "title": "USABILITY: Flow chuyển đổi hoàn tất < 30 giây cho user thành thạo",
+      "type": "USABILITY",
+      "priority": "P2",
+      "module": "USABILITY",
+      "preconditions": "User biết dùng hệ thống",
+      "steps": "1. Tính thời gian: mở modal → chọn loại → điền form → submit → redirect",
+      "expected": "Flow tổng không quá 30 giây với user thành thạo; Không cần confirm dialog thêm",
+      "severity": "Medium",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-211",
+      "title": "SECURITY: Admin convert petition của officer khác nhưng cùng scope → 201",
+      "type": "SECURITY",
+      "priority": "P0",
+      "module": "API-convert-case",
+      "preconditions": "Admin có scope toàn bộ; Petition thuộc team A",
+      "steps": "1. ADMIN POST convert-case với petition của officer team A",
+      "expected": "HTTP 201; Admin có quyền; Case tạo thành công",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-212",
+      "title": "SECURITY: Officer convert petition của chính mình → 201",
+      "type": "SECURITY",
+      "priority": "P0",
+      "module": "API-convert-incident",
+      "preconditions": "officer1 là người tạo petition",
+      "steps": "1. officer1 POST convert-incident với petition của chính mình",
+      "expected": "HTTP 201; checkWriteScope pass; Incident tạo",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-213",
+      "title": "SECURITY: Replay attack với cũ expectedUpdatedAt sau convert thành công → 409",
+      "type": "SECURITY",
+      "priority": "P0",
+      "module": "API-convert-case",
+      "preconditions": "Petition đã convert thành công",
+      "steps": "1. Lưu lại request convert-case đầu tiên (thành công)\n2. Replay cùng request",
+      "expected": "HTTP 409 (petition.linkedCaseId đã có) HOẶC 400; Không tạo thêm Case",
+      "severity": "Critical",
+      "data_required": [
+        "petition.converted-to-case.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-214",
+      "title": "SECURITY: Header injection trong request",
+      "type": "SECURITY",
+      "priority": "P1",
+      "module": "API-convert-incident",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. Thêm custom headers X-Forwarded-For: 127.0.0.1; DROP TABLE\n2. POST convert-incident",
+      "expected": "HTTP 201; Header không ảnh hưởng SQL; Không bị IP spoofing skip auth",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-215",
+      "title": "SECURITY: Content-Length manipulation — gửi body lớn hơn Content-Length",
+      "type": "SECURITY",
+      "priority": "P1",
+      "module": "API-convert-incident",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. Set Content-Length sai (nhỏ hơn actual body)",
+      "expected": "HTTP 400 hoặc body parse error; Không crash server",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-216",
+      "title": "A11Y: Modal được announce bởi screen reader khi mở (aria-labelledby)",
+      "type": "A11Y",
+      "priority": "P1",
+      "module": "A11Y-Modal",
+      "preconditions": "Dùng VoiceOver/NVDA",
+      "steps": "1. Click btn-convert-petition với screen reader bật\n2. Lắng nghe announcement",
+      "expected": "Screen reader thông báo 'Chuyển đổi đơn thư dialog'; role=dialog được detect",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-217",
+      "title": "A11Y: Step 2 form — focus được đưa về trường đầu tiên sau transition",
+      "type": "A11Y",
+      "priority": "P1",
+      "module": "A11Y-Modal",
+      "preconditions": "Modal step 1 đang mở",
+      "steps": "1. Click option incident bằng keyboard\n2. Observe focus sau transition",
+      "expected": "Focus tự động vào incidentName input; Không lost focus",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-218",
+      "title": "A11Y: Error messages linked tới input bằng aria-describedby",
+      "type": "A11Y",
+      "priority": "P1",
+      "module": "A11Y-Validation",
+      "preconditions": "Validation error hiện",
+      "steps": "1. Submit thiếu field\n2. Inspect input và error div",
+      "expected": "Input có aria-describedby trỏ tới error div id; Screen reader đọc error khi focus input",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-219",
+      "title": "A11Y: Màu error text đủ contrast (red-600 trên white)",
+      "type": "A11Y",
+      "priority": "P2",
+      "module": "A11Y-Color",
+      "preconditions": "Validation error hiện với text-red-600",
+      "steps": "1. Inspect error text color\n2. Tính contrast ratio red-600 (#DC2626) on white",
+      "expected": "Contrast ratio ≥ 4.5:1; WCAG 2.1 AA pass",
+      "severity": "Medium",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-220",
+      "title": "A11Y: Option buttons có descriptive text không chỉ dựa vào icon",
+      "type": "A11Y",
+      "priority": "P1",
+      "module": "A11Y-Modal",
+      "preconditions": "Modal step 1 mở",
+      "steps": "1. Inspect convert-option-incident\n2. Xem có visible text không",
+      "expected": "Button có text 'Vụ việc' visible; Icon bổ sung, không thay thế text; Screen reader đọc 'Vụ việc'",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-221",
+      "title": "PERFORMANCE: convert-case với DB load cao (10 concurrent inserts)",
+      "type": "PERFORMANCE",
+      "priority": "P1",
+      "module": "Performance-Load",
+      "preconditions": "DB đang có nhiều transactions",
+      "steps": "1. Simulate DB load\n2. POST convert-case",
+      "expected": "Response ≤ 3000ms kể cả khi load cao; Không timeout 30s",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-222",
+      "title": "PERFORMANCE: UI modal mở trong < 100ms (không có animation lag)",
+      "type": "PERFORMANCE",
+      "priority": "P2",
+      "module": "Performance-UI",
+      "preconditions": "Trang edit đang load",
+      "steps": "1. Click btn-convert-petition\n2. Measure time to modal visible",
+      "expected": "Modal hiển thị < 100ms; Không jank; Transition smooth",
+      "severity": "Medium",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-223",
+      "title": "PERFORMANCE: form submit → redirect trong < 3 giây",
+      "type": "PERFORMANCE",
+      "priority": "P1",
+      "module": "Performance-UI",
+      "preconditions": "Form hợp lệ",
+      "steps": "1. Click submit\n2. Measure time to new page (incident/case edit)",
+      "expected": "Redirect hoàn tất < 3 giây; User không chờ quá lâu",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-224",
+      "title": "INTEGRATION: convert-incident + create assignment ngay sau → 201 cả hai",
+      "type": "INTEGRATION",
+      "priority": "P1",
+      "module": "Integration-Post-Convert",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-incident\n2. Ngay sau đó POST /incidents/{newId}/assignments",
+      "expected": "Cả hai 201; Assignment được tạo cho incident mới; Không race condition",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-225",
+      "title": "INTEGRATION: convert-case + update case ngay sau → 200",
+      "type": "INTEGRATION",
+      "priority": "P1",
+      "module": "Integration-Post-Convert",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-case\n2. Ngay sau đó PATCH /cases/{newId} với update data",
+      "expected": "PATCH 200; Case được update; Không lỗi version conflict do vừa tạo",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-226",
+      "title": "INTEGRATION: convert + GET incident bởi team khác → 403",
+      "type": "INTEGRATION",
+      "priority": "P0",
+      "module": "Integration-DataScope",
+      "preconditions": "Incident vừa tạo thuộc team A",
+      "steps": "1. Convert petition của team A → Incident\n2. officer của team B GET /incidents/{newId}",
+      "expected": "HTTP 403 hoặc 404; DataScope enforce trên incident mới",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-227",
+      "title": "INTEGRATION: Petition stt không thay đổi sau convert (no number increment)",
+      "type": "INTEGRATION",
+      "priority": "P0",
+      "module": "Integration-DocumentNumbers",
+      "preconditions": "Petition có STT DT-2026-00010",
+      "steps": "1. POST convert-incident\n2. GET petition STT",
+      "expected": "STT='DT-2026-00010' unchanged; Convert không tạo số STT mới cho petition",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-228",
+      "title": "INTEGRATION: Incident nhận code mới VV-YYYY-NNNNN (không dùng STT của petition)",
+      "type": "INTEGRATION",
+      "priority": "P0",
+      "module": "Integration-DocumentNumbers",
+      "preconditions": "Petition có STT",
+      "steps": "1. POST convert-incident\n2. Incident.code",
+      "expected": "Incident.code khác với Petition.stt; Format VV-2026-NNNNN",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-229",
+      "title": "INTEGRATION: convert-case + export document ngay sau → document có Case context",
+      "type": "INTEGRATION",
+      "priority": "P1",
+      "module": "Integration-Export",
+      "preconditions": "Petition vừa convert sang Case",
+      "steps": "1. POST convert-case\n2. GET /cases/{id}/export-document?docType=BIEN_NHAN",
+      "expected": "Export thành công; Document context là Case, không phải Petition",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-230",
+      "title": "INTEGRATION: Feature flag convert bị tắt → endpoint trả 403",
+      "type": "INTEGRATION",
+      "priority": "P1",
+      "module": "Integration-FeatureFlag",
+      "preconditions": "Feature flag 'petition_convert' bị disabled",
+      "steps": "1. POST convert-incident với feature disabled",
+      "expected": "HTTP 403 hoặc 404; @FeatureFlag guard hoạt động",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-231",
+      "title": "EDGE: Petition được tạo rất lâu (D365) → vẫn convert được",
+      "type": "EDGE",
+      "priority": "P1",
+      "module": "EDGE-Old",
+      "preconditions": "Petition tạo 365 ngày trước",
+      "steps": "1. POST convert-incident với petition D365",
+      "expected": "HTTP 201; Không có time-based expiry cho convert",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D365.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-232",
+      "title": "EDGE: Petition có assignedToId nhưng không có team → convert-incident thành công",
+      "type": "EDGE",
+      "priority": "P1",
+      "module": "EDGE-TeamConfig",
+      "preconditions": "Petition.assignedToId set, assignedTeamId=null",
+      "steps": "1. POST convert-incident",
+      "expected": "HTTP 201; Incident tạo với assignedToId; teamId=null",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.officer-no-team"
+      ]
+    },
+    {
+      "tc_id": "TC-233",
+      "title": "EDGE: Rất nhiều fields null trong petition → convert-case với minimum data",
+      "type": "EDGE",
+      "priority": "P1",
+      "module": "EDGE-SparseData",
+      "preconditions": "Petition chỉ có senderName và receivedDate, mọi thứ khác null",
+      "steps": "1. POST convert-case với minimum required fields trong body",
+      "expected": "HTTP 201; Case tạo thành công dù petition sparse",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.sparse"
+      ]
+    },
+    {
+      "tc_id": "TC-234",
+      "title": "EDGE: Convert incident rồi convert incident lại sau khi unlink (nếu có API)",
+      "type": "EDGE",
+      "priority": "P2",
+      "module": "EDGE-Unlink",
+      "preconditions": "Petition đã convert, admin unlink",
+      "steps": "1. Nếu có admin unlink endpoint: unlink\n2. POST convert-incident lại",
+      "expected": "HTTP 201 nếu unlink thành công; hoặc 400 nếu không hỗ trợ unlink",
+      "severity": "Medium",
+      "data_required": [
+        "petition.converted-to-incident.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-235",
+      "title": "EDGE: Body JSON malformed → 400 Bad Request",
+      "type": "EDGE",
+      "priority": "P1",
+      "module": "API-convert-incident",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-incident với body '{incidentName:\"missing-quotes\"'",
+      "expected": "HTTP 400; JSON parse error; Không crash server",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-236",
+      "title": "EDGE: Extra unknown fields trong body → ignored (whitelist DTO)",
+      "type": "EDGE",
+      "priority": "P1",
+      "module": "API-convert-case",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-case + extra field unknownField='hacker'",
+      "expected": "HTTP 201; unknownField bị ignore; Case tạo bình thường; Không mass assignment",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-237",
+      "title": "EDGE: Convert ngay sau khi petition được edit (updatedAt rất mới)",
+      "type": "EDGE",
+      "priority": "P1",
+      "module": "API-convert-case",
+      "preconditions": "Petition vừa được edit <1 giây trước",
+      "steps": "1. GET petition.updatedAt=T_new\n2. Ngay lập tức POST convert-case expectedUpdatedAt=T_new",
+      "expected": "HTTP 201; Không race condition nếu expectedUpdatedAt match chính xác",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.just-edited"
+      ]
+    },
+    {
+      "tc_id": "TC-238",
+      "title": "EDGE: Convert-case prosecutionDate là string ngày trong quá khứ xa → OK",
+      "type": "EDGE",
+      "priority": "P2",
+      "module": "API-convert-case",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-case prosecutionDate='2000-01-01T00:00:00.000Z'",
+      "expected": "HTTP 201; Ngày quá khứ được chấp nhận; Không có future-only validation",
+      "severity": "Medium",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-239",
+      "title": "EDGE: incidentName chứa tab character → stored đúng",
+      "type": "EDGE",
+      "priority": "P2",
+      "module": "API-convert-incident",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-incident incidentName='Vụ\\tán 2026'",
+      "expected": "HTTP 201; Lưu với tab; DB không error",
+      "severity": "Medium",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-240",
+      "title": "EDGE: assignedToId là ID của chính user đang đăng nhập → OK",
+      "type": "EDGE",
+      "priority": "P2",
+      "module": "API-convert-incident",
+      "preconditions": "Officer đăng nhập",
+      "steps": "1. POST convert-incident assignedToId=currentUser.id",
+      "expected": "HTTP 201; User tự phân công cho vụ việc; Không self-assign prevention",
+      "severity": "Medium",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-241",
+      "title": "GREEN: convert-incident với description dài nhất hợp lệ → 201",
+      "type": "GREEN",
+      "priority": "P1",
+      "module": "API-convert-incident",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-incident description=chuỗi 5000 ký tự tiếng Việt",
+      "expected": "HTTP 201 nếu DB text field không giới hạn; Hoặc 400 nếu có maxLength",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-242",
+      "title": "GREEN: Incident tạo inherits petition.receivedDate vào resolvedDate candidate",
+      "type": "GREEN",
+      "priority": "P2",
+      "module": "API-convert-incident",
+      "preconditions": "Petition.receivedDate set",
+      "steps": "1. POST convert-incident\n2. GET incident",
+      "expected": "Incident có timestamp info liên quan đến petition; Không mất dữ liệu thời gian",
+      "severity": "Medium",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-243",
+      "title": "GREEN: convert-case tạo Case với caseProvenance=FROM_PETITION, không phải DEFAULT",
+      "type": "GREEN",
+      "priority": "P0",
+      "module": "API-convert-case",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-case\n2. GET case",
+      "expected": "Case.caseProvenance='FROM_PETITION'; Phân biệt với case tạo manual",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-244",
+      "title": "GREEN: convert-incident response có nested petition info",
+      "type": "GREEN",
+      "priority": "P1",
+      "module": "API-convert-incident",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-incident\n2. Inspect response body",
+      "expected": "Response có petitionId hoặc petition object; Frontend có đủ data để confirm",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-245",
+      "title": "GREEN: convert-case với prosecutionDecision='Quyết định 001/2026' → lưu đúng",
+      "type": "GREEN",
+      "priority": "P1",
+      "module": "API-convert-case",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-case prosecutionDecision='Quyết định 001/2026/QĐ-CSĐT'",
+      "expected": "HTTP 201; Case.prosecutionDecision='Quyết định 001/2026/QĐ-CSĐT' lưu đúng",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-246",
+      "title": "RED: incidentType là số 123 (không phải string valid) → 400",
+      "type": "RED",
+      "priority": "P1",
+      "module": "API-convert-incident",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-incident incidentType=123 (số, không phải string)",
+      "expected": "HTTP 400 HOẶC coi như string '123' — kiểm tra actual behavior",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-247",
+      "title": "RED: jurisdiction là array [\"A\",\"B\"] → 400",
+      "type": "RED",
+      "priority": "P1",
+      "module": "API-convert-case",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-case jurisdiction=[\"PC02\",\"VKS\"]",
+      "expected": "HTTP 400; @IsString validator từ chối array",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-248",
+      "title": "RED: caseName là boolean true → 400",
+      "type": "RED",
+      "priority": "P1",
+      "module": "API-convert-case",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-case caseName=true",
+      "expected": "HTTP 400; @IsString từ chối boolean",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-249",
+      "title": "RED: crime là object {} → 400",
+      "type": "RED",
+      "priority": "P1",
+      "module": "API-convert-case",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-case crime={}",
+      "expected": "HTTP 400; Không tạo Case",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-250",
+      "title": "RED: description là số → 400 hoặc coerced to string",
+      "type": "RED",
+      "priority": "P2",
+      "module": "API-convert-incident",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-incident description=99999",
+      "expected": "HTTP 400 (@IsString) HOẶC coerce '99999' — kiểm tra behavior",
+      "severity": "Medium",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-251",
+      "title": "STATE: Petition.status sau convert-incident không thể reverted bởi regular edit",
+      "type": "STATE",
+      "priority": "P0",
+      "module": "API-Status",
+      "preconditions": "Petition.status=DA_CHUYEN_VU_VIEC sau convert",
+      "steps": "1. Thử PATCH /petitions/{id} với status='TIEP_NHAN'",
+      "expected": "HTTP 400 hoặc 422; Status DA_CHUYEN_VU_VIEC không thể revert về TIEP_NHAN qua PATCH",
+      "severity": "Critical",
+      "data_required": [
+        "petition.converted-to-incident.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-252",
+      "title": "STATE: Petition.status sau convert-case không thể reverted",
+      "type": "STATE",
+      "priority": "P0",
+      "module": "API-Status",
+      "preconditions": "Petition.status=DA_CHUYEN_VU_AN sau convert",
+      "steps": "1. Thử PATCH /petitions/{id} với status='TIEP_NHAN'",
+      "expected": "HTTP 400; Transition không hợp lệ",
+      "severity": "Critical",
+      "data_required": [
+        "petition.converted-to-case.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-253",
+      "title": "DECISION: convert-incident body với field dư (whitelist test)",
+      "type": "DECISION",
+      "priority": "P1",
+      "module": "API-convert-incident",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-incident + teamId='attacker-team', linkedIncidentId='fake'",
+      "expected": "HTTP 201; Extra fields bị strip bởi NestJS whitelist DTO; Incident không nhận fake values",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-254",
+      "title": "DECISION: Admin override DataScope → convert petition bất kỳ",
+      "type": "DECISION",
+      "priority": "P0",
+      "module": "API-DataScope",
+      "preconditions": "Admin role, petition của team khác",
+      "steps": "1. Admin POST convert-case petition của team B",
+      "expected": "HTTP 201; Admin không bị chặn bởi DataScope",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.other-team.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-255",
+      "title": "SECURITY: Path traversal trong petition ID → 404 không leak",
+      "type": "SECURITY",
+      "priority": "P0",
+      "module": "API-Security",
+      "preconditions": "Không có petition với path traversal ID",
+      "steps": "1. POST /api/v1/petitions/../users/admin/convert-incident",
+      "expected": "HTTP 404; Route không match; Không access /users endpoint",
+      "severity": "Critical",
+      "data_required": []
+    },
+    {
+      "tc_id": "TC-256",
+      "title": "SECURITY: HTTP Method không hợp lệ (GET thay vì POST) → 405",
+      "type": "SECURITY",
+      "priority": "P1",
+      "module": "API-Security",
+      "preconditions": "Endpoint chỉ accept POST",
+      "steps": "1. GET /api/v1/petitions/{id}/convert-incident",
+      "expected": "HTTP 405 Method Not Allowed; Không execute convert logic",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-257",
+      "title": "SECURITY: PUT thay vì POST → 405",
+      "type": "SECURITY",
+      "priority": "P1",
+      "module": "API-Security",
+      "preconditions": "Endpoint chỉ accept POST",
+      "steps": "1. PUT /api/v1/petitions/{id}/convert-case với valid body",
+      "expected": "HTTP 405; Không tạo Case",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-258",
+      "title": "A11Y: High contrast mode — modal vẫn readable",
+      "type": "A11Y",
+      "priority": "P2",
+      "module": "A11Y-HighContrast",
+      "preconditions": "Windows High Contrast Mode enabled",
+      "steps": "1. Enable High Contrast Mode\n2. Mở convert modal",
+      "expected": "Text vẫn readable; Buttons vẫn visible; Không bị mất nội dung",
+      "severity": "Medium",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-259",
+      "title": "A11Y: Font scale 150% (browser) — modal không bị overflow",
+      "type": "A11Y",
+      "priority": "P2",
+      "module": "A11Y-FontScale",
+      "preconditions": "Browser font scale 150%",
+      "steps": "1. Set font 150%\n2. Mở modal",
+      "expected": "Content vẫn readable; Không tràn container; Scroll khả dụng",
+      "severity": "Medium",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-260",
+      "title": "COMPAT: iOS Safari — form inputs nhập được (not readonly)",
+      "type": "COMPAT",
+      "priority": "P1",
+      "module": "COMPAT-Mobile",
+      "preconditions": "iPhone Safari",
+      "steps": "1. Mở trang trên iPhone Safari\n2. Mở modal, tap input",
+      "expected": "Keyboard hiện lên; Input nhận text; Không readonly bug",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-261",
+      "title": "COMPAT: Android Chrome — modal scroll được khi content dài",
+      "type": "COMPAT",
+      "priority": "P1",
+      "module": "COMPAT-Mobile",
+      "preconditions": "Android Chrome",
+      "steps": "1. Mở modal trên Android\n2. Nếu content dài hơn screen: scroll",
+      "expected": "Modal có overflow-y scroll; User có thể scroll đến nút submit",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-262",
+      "title": "RECOVERY: Mất kết nối mạng sau khi modal mở → Lỗi hiển thị khi submit",
+      "type": "RECOVERY",
+      "priority": "P1",
+      "module": "Recovery-Network",
+      "preconditions": "Mạng cắt sau khi modal mở",
+      "steps": "1. Mở modal, điền form\n2. Cắt mạng\n3. Click submit",
+      "expected": "Error message 'Không có kết nối mạng' hoặc generic error; Không crash",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-263",
+      "title": "RECOVERY: Server restart trong khi user điền form → submit sau restart OK",
+      "type": "RECOVERY",
+      "priority": "P1",
+      "module": "Recovery-ServerRestart",
+      "preconditions": "Server restart mid-session",
+      "steps": "1. Mở form\n2. Server restart\n3. Submit",
+      "expected": "JWT còn hạn → HTTP 201 sau restart; JWT hết hạn → 401 → redirect login",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-264",
+      "title": "INTEGRATION: convert-case → Case xuất hiện ngay trong /cases list",
+      "type": "INTEGRATION",
+      "priority": "P1",
+      "module": "Integration-List",
+      "preconditions": "Cases list đang mở",
+      "steps": "1. POST convert-case\n2. GET /cases (list)",
+      "expected": "Case mới xuất hiện trong list; Không cần refresh thủ công",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-265",
+      "title": "INTEGRATION: convert-incident → Incident xuất hiện trong /incidents list",
+      "type": "INTEGRATION",
+      "priority": "P1",
+      "module": "Integration-List",
+      "preconditions": "Incidents list",
+      "steps": "1. POST convert-incident\n2. GET /incidents",
+      "expected": "Incident mới trong list; caseProvenance/petitionProvenance visible",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-266",
+      "title": "PERFORMANCE: Incident list sau convert không chậm hơn (N+1 query check)",
+      "type": "PERFORMANCE",
+      "priority": "P1",
+      "module": "Performance-Query",
+      "preconditions": "100 incidents trong DB",
+      "steps": "1. POST convert-incident (thêm 1 incident)\n2. GET /incidents\n3. Đo thời gian",
+      "expected": "Response time tương đương trước convert; Không N+1 query",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-267",
+      "title": "GREEN: Petition list filter 'DA_CHUYEN_VU_VIEC' → chỉ hiện đúng loại",
+      "type": "GREEN",
+      "priority": "P1",
+      "module": "API-PetitionsList",
+      "preconditions": "Có petitions đã convert và chưa convert",
+      "steps": "1. GET /petitions?status=DA_CHUYEN_VU_VIEC",
+      "expected": "Chỉ petitions với status đó; Không lẫn status khác",
+      "severity": "High",
+      "data_required": [
+        "petition.converted-to-incident.D0",
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-268",
+      "title": "GREEN: Petition list filter 'DA_CHUYEN_VU_AN' → chỉ hiện đúng loại",
+      "type": "GREEN",
+      "priority": "P1",
+      "module": "API-PetitionsList",
+      "preconditions": "Có petitions đã convert to case",
+      "steps": "1. GET /petitions?status=DA_CHUYEN_VU_AN",
+      "expected": "Chỉ petitions với status DA_CHUYEN_VU_AN",
+      "severity": "High",
+      "data_required": [
+        "petition.converted-to-case.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-269",
+      "title": "DATA: Petition với senderName có dấu phẩy → Incident.benVu lưu đúng",
+      "type": "DATA",
+      "priority": "P1",
+      "module": "API-convert-incident",
+      "preconditions": "Petition.senderName='Nguyễn Văn A, B, C'",
+      "steps": "1. POST convert-incident\n2. GET incident.benVu",
+      "expected": "Incident.benVu='Nguyễn Văn A, B, C' không bị split bởi dấu phẩy",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-270",
+      "title": "EDGE: Đồng thời convert-incident và edit petition — convert thắng vì atomic lock",
+      "type": "EDGE",
+      "priority": "P1",
+      "module": "EDGE-Concurrent",
+      "preconditions": "2 user cùng tác động petition",
+      "steps": "1. User A PATCH petition\n2. User B cùng lúc POST convert-incident",
+      "expected": "Cả hai không corrupt data; Một trong hai 409; Không dữ liệu nửa vời",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-271",
+      "title": "GREEN: convert-incident trả về 201 với content-type application/json",
+      "type": "GREEN",
+      "priority": "P1",
+      "module": "API-convert-incident",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-incident\n2. Kiểm tra response headers",
+      "expected": "Content-Type: application/json; charset=utf-8; Status 201",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-272",
+      "title": "GREEN: convert-case trả về 201 với body chứa data wrapper",
+      "type": "GREEN",
+      "priority": "P1",
+      "module": "API-convert-case",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-case\n2. Kiểm tra response body structure",
+      "expected": "Body: {data: {case: {...}}} HOẶC theo NestJS response wrapper pattern",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-273",
+      "title": "GREEN: Petition edit form vẫn load được sau convert (read-only mode)",
+      "type": "GREEN",
+      "priority": "P1",
+      "module": "UI-PetitionFormPage",
+      "preconditions": "Petition đã convert",
+      "steps": "1. Mở /petitions/{id}/edit sau convert\n2. Quan sát UI",
+      "expected": "Form load được; Các fields vẫn visible (read/edit); Nút convert ẩn; Badge 'Đã chuyển vụ việc'",
+      "severity": "High",
+      "data_required": [
+        "petition.converted-to-incident.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-274",
+      "title": "GREEN: Link đến Incident hiển thị trên petition form sau convert",
+      "type": "GREEN",
+      "priority": "P1",
+      "module": "UI-PetitionFormPage",
+      "preconditions": "Petition.linkedIncidentId set",
+      "steps": "1. Mở /petitions/{id}/edit\n2. Tìm link sang incident",
+      "expected": "Link/button 'Xem vụ việc' visible với href=/incidents/{incidentId}/edit",
+      "severity": "High",
+      "data_required": [
+        "petition.converted-to-incident.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-275",
+      "title": "GREEN: Link đến Case hiển thị trên petition form sau convert-case",
+      "type": "GREEN",
+      "priority": "P1",
+      "module": "UI-PetitionFormPage",
+      "preconditions": "Petition.linkedCaseId set",
+      "steps": "1. Mở /petitions/{id}/edit\n2. Tìm link sang case",
+      "expected": "Link 'Xem vụ án' visible với href=/cases/{caseId}/edit",
+      "severity": "High",
+      "data_required": [
+        "petition.converted-to-case.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-276",
+      "title": "RED: convert-case với crime chỉ chứa khoảng trắng → 400",
+      "type": "RED",
+      "priority": "P0",
+      "module": "API-convert-case",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-case crime='   '",
+      "expected": "HTTP 400; trim → empty → Tội danh là bắt buộc",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-277",
+      "title": "RED: convert-case với jurisdiction chỉ chứa khoảng trắng → 400",
+      "type": "RED",
+      "priority": "P0",
+      "module": "API-convert-case",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-case jurisdiction='  '",
+      "expected": "HTTP 400; trim → empty → Thẩm quyền là bắt buộc",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-278",
+      "title": "RED: convert-case với caseName chỉ newlines → 400",
+      "type": "RED",
+      "priority": "P1",
+      "module": "API-convert-case",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-case caseName='\\n\\n\\n'",
+      "expected": "HTTP 400; trim whitespace → empty → bắt buộc",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-279",
+      "title": "SECURITY: JWT với 'alg: none' → 401",
+      "type": "SECURITY",
+      "priority": "P0",
+      "module": "API-Security",
+      "preconditions": "Forge JWT với algorithm=none",
+      "steps": "1. POST convert-case với JWT dùng alg:none attack",
+      "expected": "HTTP 401; NestJS JWT strategy từ chối alg:none; Không accept unsigned token",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-280",
+      "title": "SECURITY: JWT với alg RS256 nhưng server dùng HS256 → 401",
+      "type": "SECURITY",
+      "priority": "P1",
+      "module": "API-Security",
+      "preconditions": "Confusion attack với wrong alg",
+      "steps": "1. POST convert-incident với JWT alg mismatch",
+      "expected": "HTTP 401; Không process request",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-281",
+      "title": "A11Y: Màu bg-red-50 border-red-200 error box có đủ contrast",
+      "type": "A11Y",
+      "priority": "P2",
+      "module": "A11Y-ErrorBox",
+      "preconditions": "Validation error hiển thị",
+      "steps": "1. Trigger validation error\n2. Kiểm tra text-red-600 trên bg-red-50",
+      "expected": "Contrast ratio ≥ 4.5:1; #DC2626 trên #FEF2F2 đạt WCAG AA",
+      "severity": "Medium",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-282",
+      "title": "A11Y: Option buttons trong step 1 có descriptive subtitle",
+      "type": "A11Y",
+      "priority": "P1",
+      "module": "A11Y-Options",
+      "preconditions": "Modal step 1 mở",
+      "steps": "1. Inspect 2 option buttons\n2. Kiểm tra text con",
+      "expected": "Mỗi button có cả title (Vụ việc/Vụ án) và subtitle (Điều 143/147); Screen reader có đủ context",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-283",
+      "title": "COMPAT: Print preview — modal không in, trang petition in đúng",
+      "type": "COMPAT",
+      "priority": "P2",
+      "module": "COMPAT-Print",
+      "preconditions": "Browser print preview",
+      "steps": "1. Mở modal\n2. Ctrl+P (print)",
+      "expected": "Modal không bị in; Petition form hiển thị đúng trong print preview",
+      "severity": "Medium",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-284",
+      "title": "INTEGRATION: convert-incident + SSE notification push đến team",
+      "type": "INTEGRATION",
+      "priority": "P1",
+      "module": "Integration-SSE",
+      "preconditions": "Team member logged in, SSE connected",
+      "steps": "1. POST convert-incident\n2. Quan sát SSE events của team member",
+      "expected": "Team member nhận SSE event về vụ việc mới; Notification bell hiển thị",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.with-team"
+      ]
+    },
+    {
+      "tc_id": "TC-285",
+      "title": "INTEGRATION: convert-case + PWA push notification (nếu subscribed)",
+      "type": "INTEGRATION",
+      "priority": "P2",
+      "module": "Integration-PWA",
+      "preconditions": "User subscribed push notification",
+      "steps": "1. POST convert-case\n2. Check FCM/push queue",
+      "expected": "Push notification sent; Payload có caseId và caseName",
+      "severity": "Medium",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-286",
+      "title": "REGRESSION: Convert không ảnh hưởng search index (petition vẫn searchable)",
+      "type": "REGRESSION",
+      "priority": "P1",
+      "module": "Regression-Search",
+      "preconditions": "Search được implement",
+      "steps": "1. POST convert-incident\n2. Search petition bằng senderName",
+      "expected": "Petition vẫn xuất hiện trong search results",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-287",
+      "title": "REGRESSION: Petition count thống kê vẫn đúng sau convert",
+      "type": "REGRESSION",
+      "priority": "P1",
+      "module": "Regression-Statistics",
+      "preconditions": "Dashboard hiện số thống kê",
+      "steps": "1. GET /petitions/statistics\n2. POST convert-incident\n3. GET /petitions/statistics lại",
+      "expected": "Tổng petitions không thay đổi; Count theo status cập nhật đúng",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-288",
+      "title": "REGRESSION: Export PDF petition không bị break sau convert",
+      "type": "REGRESSION",
+      "priority": "P1",
+      "module": "Regression-Export",
+      "preconditions": "Petition vừa convert",
+      "steps": "1. GET /petitions/{id}/export-document?docType=BIEN_NHAN sau convert",
+      "expected": "Export vẫn thành công; Document có thể tải về",
+      "severity": "High",
+      "data_required": [
+        "petition.converted-to-incident.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-289",
+      "title": "USABILITY: Error messages bằng tiếng Việt rõ ràng, không technical jargon",
+      "type": "USABILITY",
+      "priority": "P1",
+      "module": "USABILITY-ErrorMsg",
+      "preconditions": "Trigger nhiều loại error",
+      "steps": "1. Test các error cases (400, 409, 403)\n2. Đọc error messages",
+      "expected": "Messages tiếng Việt; Không có 'undefined', 'null', stack trace; User hiểu cần làm gì",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-290",
+      "title": "USABILITY: Confirm khi đóng modal có data đã điền",
+      "type": "USABILITY",
+      "priority": "P2",
+      "module": "USABILITY-UnsavedData",
+      "preconditions": "User đã điền một phần form",
+      "steps": "1. Điền incidentName\n2. Click X hoặc Escape",
+      "expected": "Confirmation dialog 'Bạn có chắc muốn đóng? Dữ liệu chưa lưu sẽ bị mất' HOẶC không cần confirm (acceptable)",
+      "severity": "Medium",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-291",
+      "title": "DATA: incidentName chứa SQL keyword → stored literal",
+      "type": "DATA",
+      "priority": "P0",
+      "module": "API-convert-incident",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-incident incidentName='SELECT * FROM incidents WHERE 1=1'",
+      "expected": "HTTP 201; Lưu literal SQL; Prisma parameterized query ngăn injection",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-292",
+      "title": "DATA: caseName chứa NoSQL operators → stored literal",
+      "type": "DATA",
+      "priority": "P0",
+      "module": "API-convert-case",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-case caseName='{\"$gt\":\"\"}' (MongoDB-style injection)",
+      "expected": "HTTP 201; Stored as literal string; Prisma không bị NoSQL injection",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-293",
+      "title": "GREEN: convert-incident ID ngắn hợp lệ (8 ký tự) — kiểm tra regex route",
+      "type": "GREEN",
+      "priority": "P1",
+      "module": "API-convert-incident",
+      "preconditions": "Petition ID là CUID ngắn",
+      "steps": "1. POST /api/v1/petitions/abc12345/convert-incident (nếu ID 8 chars hợp lệ)",
+      "expected": "HTTP 201 hoặc 404 tùy ID; Không 400 vì route regex",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-294",
+      "title": "PERFORMANCE: Batch 100 convert-incident đơn lẻ tuần tự trong 5 phút → hoàn tất",
+      "type": "PERFORMANCE",
+      "priority": "P2",
+      "module": "Performance-Throughput",
+      "preconditions": "100 petitions active khác nhau",
+      "steps": "1. Chạy sequential loop POST convert-incident 100 lần\n2. Đo tổng thời gian",
+      "expected": "100 Incidents tạo thành công trong vòng 5 phút (3 req/giây); Không memory leak",
+      "severity": "Medium",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-295",
+      "title": "SECURITY: Token không có sub claim → 401",
+      "type": "SECURITY",
+      "priority": "P1",
+      "module": "API-Security",
+      "preconditions": "JWT thiếu sub field",
+      "steps": "1. Tạo JWT không có sub\n2. POST convert-incident",
+      "expected": "HTTP 401; JWT strategy yêu cầu sub để identify user",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-296",
+      "title": "EDGE: convert-incident với petition là object rỗng trong DB (corrupted) → 400 hoặc 404",
+      "type": "EDGE",
+      "priority": "P1",
+      "module": "EDGE-CorruptData",
+      "preconditions": "Petition có data thiếu field bắt buộc",
+      "steps": "1. POST convert-incident với petition corrupted",
+      "expected": "HTTP 400 hoặc 500; Error message; Không crash hoàn toàn",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.sparse"
+      ]
+    },
+    {
+      "tc_id": "TC-297",
+      "title": "GREEN: Sau convert, Back button browser trên trang Incident → không loop lại modal",
+      "type": "GREEN",
+      "priority": "P1",
+      "module": "UI-Navigation",
+      "preconditions": "Redirect sang /incidents/{id}/edit",
+      "steps": "1. Click Back trên trình duyệt\n2. Quan sát destination",
+      "expected": "Về trang /petitions list hoặc edit form; Modal không tự mở lại; Không infinite redirect loop",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-298",
+      "title": "GREEN: Sau convert-case, URL là /cases/{id}/edit (đúng route)",
+      "type": "GREEN",
+      "priority": "P0",
+      "module": "UI-Navigation",
+      "preconditions": "Petition vừa convert",
+      "steps": "1. Submit convert-case form\n2. Kiểm tra URL bar",
+      "expected": "URL = http://localhost:5173/cases/{newCaseId}/edit; ID là CUID hợp lệ",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-299",
+      "title": "GREEN: Sau convert-incident, URL là /incidents/{id}/edit",
+      "type": "GREEN",
+      "priority": "P0",
+      "module": "UI-Navigation",
+      "preconditions": "Petition vừa convert",
+      "steps": "1. Submit convert-incident form\n2. Kiểm tra URL bar",
+      "expected": "URL = http://localhost:5173/incidents/{newIncidentId}/edit",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-300",
+      "title": "GREEN: Incident edit page load thành công sau redirect từ convert",
+      "type": "GREEN",
+      "priority": "P0",
+      "module": "UI-Navigation",
+      "preconditions": "Redirect sang /incidents/{id}/edit",
+      "steps": "1. Quan sát trang Incident edit\n2. Kiểm tra form data",
+      "expected": "Incident form load; incidentName hiển thị đúng; Không 404/500",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-301",
+      "title": "GREEN: Case edit page load thành công sau redirect từ convert",
+      "type": "GREEN",
+      "priority": "P0",
+      "module": "UI-Navigation",
+      "preconditions": "Redirect sang /cases/{id}/edit",
+      "steps": "1. Quan sát trang Case edit\n2. Kiểm tra caseName, crime, jurisdiction",
+      "expected": "Case form load; Tất cả fields hiển thị đúng; Không 404/500",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-302",
+      "title": "INTEGRATION: Toàn bộ flow E2E: Petition → Convert → Incident → Edit → Save",
+      "type": "INTEGRATION",
+      "priority": "P0",
+      "module": "E2E-FullFlow",
+      "preconditions": "ADMIN đăng nhập",
+      "steps": "1. Tạo petition mới\n2. Convert sang Incident\n3. Redirect /incidents/{id}/edit\n4. Edit incident fields\n5. Save incident",
+      "expected": "Tất cả bước thành công; Data nhất quán từ đầu đến cuối; Không lỗi ở bất kỳ bước nào",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-303",
+      "title": "INTEGRATION: Toàn bộ flow E2E: Petition → Convert → Case → Edit → Save",
+      "type": "INTEGRATION",
+      "priority": "P0",
+      "module": "E2E-FullFlow",
+      "preconditions": "ADMIN đăng nhập",
+      "steps": "1. Tạo petition\n2. Convert sang Case\n3. Redirect /cases/{id}/edit\n4. Edit case\n5. Save",
+      "expected": "Tất cả bước thành công; Case có linkedPetitionId; Data nhất quán",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-304",
+      "title": "INTEGRATION: E2E flow với nhiều user: petition tạo bởi officer1, convert bởi admin",
+      "type": "INTEGRATION",
+      "priority": "P1",
+      "module": "E2E-MultiUser",
+      "preconditions": "officer1 tạo petition; admin login riêng",
+      "steps": "1. officer1 POST petition\n2. Admin POST convert-incident\n3. GET incident",
+      "expected": "HTTP 201; Admin có quyền convert petition của officer1; Incident.createdById=admin.id",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-305",
+      "title": "DATA: Description chứa Markdown syntax → stored literal không render MD",
+      "type": "DATA",
+      "priority": "P1",
+      "module": "API-convert-incident",
+      "preconditions": "Petition chưa convert",
+      "steps": "1. POST convert-incident description='# Header\\n**Bold** _italic_\\n```code```'",
+      "expected": "HTTP 201; Incident.description lưu Markdown literal; UI không render như HTML",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-306",
+      "title": "PERFORMANCE: Memory không leak sau 50 consecutive converts (load test)",
+      "type": "PERFORMANCE",
+      "priority": "P1",
+      "module": "Performance-Memory",
+      "preconditions": "50 petitions active",
+      "steps": "1. POST 50 convert-incident sequentially\n2. Monitor Node.js heap",
+      "expected": "Heap size ổn định; Không tăng liên tục (no memory leak); Server không restart",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-307",
+      "title": "INTEGRATION: convert-incident + immediate GET petition list → newly-converted visible",
+      "type": "INTEGRATION",
+      "priority": "P0",
+      "module": "Integration-Consistency",
+      "preconditions": "Petition vừa convert",
+      "steps": "1. POST convert-incident (thành công)\n2. Ngay lập tức GET /petitions\n3. Tìm petition vừa convert",
+      "expected": "Petition với status=DA_CHUYEN_VU_VIEC xuất hiện; Không có stale cache issue; Read-after-write consistency OK",
+      "severity": "Critical",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-308",
+      "title": "COMPAT: Windows 11 Edge + Chrome — modal layout đồng nhất",
+      "type": "COMPAT",
+      "priority": "P2",
+      "module": "COMPAT-OS",
+      "preconditions": "Windows 11",
+      "steps": "1. Mở modal trên Edge và Chrome\n2. So sánh layout",
+      "expected": "Layout giống nhau; Không có CSS vendor prefix issue",
+      "severity": "Medium",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-309",
+      "title": "COMPAT: macOS Ventura Safari — backdrop-filter support",
+      "type": "COMPAT",
+      "priority": "P2",
+      "module": "COMPAT-OS",
+      "preconditions": "macOS Ventura + Safari 17",
+      "steps": "1. Mở modal\n2. Kiểm tra backdrop đen bg-black/50",
+      "expected": "Overlay hiển thị; Không transparent hoàn toàn trên Safari",
+      "severity": "Medium",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-310",
+      "title": "COMPAT: Viewport 1024px (laptop) — modal không quá rộng",
+      "type": "COMPAT",
+      "priority": "P1",
+      "module": "COMPAT-Viewport",
+      "preconditions": "Viewport 1024px width",
+      "steps": "1. Set viewport 1024px\n2. Mở modal",
+      "expected": "Modal max-w-lg (512px) centered; Không stretch full width",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-311",
+      "title": "COMPAT: Viewport 1920px (4K/FHD) — modal vẫn centered",
+      "type": "COMPAT",
+      "priority": "P2",
+      "module": "COMPAT-Viewport",
+      "preconditions": "Large viewport 1920px",
+      "steps": "1. Set viewport 1920px\n2. Mở modal",
+      "expected": "Modal centered với fixed inset-0; Không trôi sang trái/phải",
+      "severity": "Medium",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-312",
+      "title": "COMPAT: Touch device (touch events) — option buttons tap works",
+      "type": "COMPAT",
+      "priority": "P1",
+      "module": "COMPAT-Touch",
+      "preconditions": "Touch device hoặc DevTools touch emulation",
+      "steps": "1. Enable touch emulation\n2. Tap convert-option-incident",
+      "expected": "Touch event trigger click; Step 2 form mở; No 300ms delay",
+      "severity": "High",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    },
+    {
+      "tc_id": "TC-313",
+      "title": "COMPAT: PWA standalone mode — modal hiển thị đúng không bị clip",
+      "type": "COMPAT",
+      "priority": "P2",
+      "module": "COMPAT-PWA",
+      "preconditions": "App cài như PWA (standalone mode)",
+      "steps": "1. Install PWA\n2. Mở modal trong PWA window",
+      "expected": "Modal không bị clip bởi system safe-area; inset-0 cover đúng viewport",
+      "severity": "Medium",
+      "data_required": [
+        "petition.active.D0.normal"
+      ]
+    }
+  ],
+  "data_matrix": [
+    {
+      "fixture_id": "petition.active.D0.normal",
+      "description": "Petition active, mới tạo, đầy đủ fields cơ bản, chưa convert",
+      "state": "ACTIVE",
+      "lifecycle": "D0",
+      "shape": "normal",
+      "setup_recipe": {
+        "method": "API",
+        "endpoint": "POST /api/v1/petitions",
+        "body": {
+          "senderName": "Nguyễn Văn {{random}}_TEST",
+          "senderPhone": "0901234567",
+          "senderIdNumber": "079{{random}}",
+          "summary": "Đơn tố cáo test UAT {{uuid}}",
+          "receivedDate": "{{today}}",
+          "petitionType": "TO_CAO",
+          "source": "TRUC_TIEP"
+        },
+        "auth": "Bearer {{admin_token}}",
+        "capture": "$.data.data.id -> petition_id, $.data.data.updatedAt -> petition_updatedAt"
+      },
+      "cleanup_recipe": {
+        "method": "API",
+        "endpoint": "DELETE /api/v1/petitions/{{petition_id}}",
+        "auth": "Bearer {{admin_token}}"
+      },
+      "outputs": {
+        "petition_id": "$.data.data.id",
+        "petition_updatedAt": "$.data.data.updatedAt",
+        "petition_stt": "$.data.data.stt"
+      }
+    },
+    {
+      "fixture_id": "petition.converted-to-incident.D0",
+      "description": "Petition đã convert sang Incident, linkedIncidentId != null",
+      "state": "CONVERTED_INCIDENT",
+      "lifecycle": "D0",
+      "shape": "normal",
+      "setup_recipe": {
+        "method": "COMPOSITE",
+        "steps": [
+          {
+            "action": "create_petition",
+            "fixture": "petition.active.D0.normal"
+          },
+          {
+            "action": "API",
+            "endpoint": "POST /api/v1/petitions/{{petition_id}}/convert-incident",
+            "body": {
+              "incidentName": "Vụ việc test UAT {{random}}",
+              "incidentType": "Tố cáo",
+              "expectedUpdatedAt": "{{petition_updatedAt}}"
+            },
+            "capture": "$.data.data.incident.id -> linked_incident_id"
+          }
+        ],
+        "auth": "Bearer {{admin_token}}"
+      },
+      "cleanup_recipe": {
+        "method": "SQL",
+        "query": "UPDATE \"Petition\" SET \"linkedIncidentId\"=NULL, status='TIEP_NHAN' WHERE id='{{petition_id}}'; DELETE FROM \"Incident\" WHERE id='{{linked_incident_id}}';"
+      },
+      "outputs": {
+        "petition_id": "$.petition_id",
+        "linked_incident_id": "$.linked_incident_id"
+      }
+    },
+    {
+      "fixture_id": "petition.converted-to-case.D0",
+      "description": "Petition đã convert sang Case, linkedCaseId != null",
+      "state": "CONVERTED_CASE",
+      "lifecycle": "D0",
+      "shape": "normal",
+      "setup_recipe": {
+        "method": "COMPOSITE",
+        "steps": [
+          {
+            "action": "create_petition",
+            "fixture": "petition.active.D0.normal"
+          },
+          {
+            "action": "API",
+            "endpoint": "POST /api/v1/petitions/{{petition_id}}/convert-case",
+            "body": {
+              "caseName": "Vụ án test {{random}}",
+              "crime": "Tội lừa đảo",
+              "jurisdiction": "PC02 TP.HCM",
+              "expectedUpdatedAt": "{{petition_updatedAt}}"
+            },
+            "capture": "$.data.data.case.id -> linked_case_id"
+          }
+        ]
+      },
+      "cleanup_recipe": {
+        "method": "SQL",
+        "query": "UPDATE \"Petition\" SET \"linkedCaseId\"=NULL, status='TIEP_NHAN' WHERE id='{{petition_id}}'; DELETE FROM \"Case\" WHERE id='{{linked_case_id}}';"
+      },
+      "outputs": {
+        "petition_id": "$.petition_id",
+        "linked_case_id": "$.linked_case_id"
+      }
+    },
+    {
+      "fixture_id": "petition.deleted.D0",
+      "description": "Petition đã bị xóa mềm (deletedAt != null)",
+      "state": "DELETED",
+      "lifecycle": "D0",
+      "shape": "normal",
+      "setup_recipe": {
+        "method": "COMPOSITE",
+        "steps": [
+          {
+            "action": "create_petition",
+            "fixture": "petition.active.D0.normal"
+          },
+          {
+            "action": "API",
+            "endpoint": "DELETE /api/v1/petitions/{{petition_id}}",
+            "auth": "Bearer {{admin_token}}"
+          }
+        ]
+      },
+      "cleanup_recipe": {
+        "method": "SQL",
+        "query": "DELETE FROM \"Petition\" WHERE id='{{petition_id}}' AND \"deletedAt\" IS NOT NULL;"
+      },
+      "outputs": {
+        "petition_id": "$.petition_id"
+      }
+    },
+    {
+      "fixture_id": "petition.active.other-team.D0",
+      "description": "Petition active thuộc Team B, khác team của officer1 (Team A)",
+      "state": "ACTIVE",
+      "lifecycle": "D0",
+      "shape": "normal",
+      "setup_recipe": {
+        "method": "API",
+        "endpoint": "POST /api/v1/petitions",
+        "body": {
+          "senderName": "Người gửi team B {{random}}",
+          "summary": "Đơn test IDOR UAT {{uuid}}",
+          "receivedDate": "{{today}}",
+          "petitionType": "TO_CAO",
+          "assignedTeamId": "{{team_b_id}}"
+        },
+        "auth": "Bearer {{admin_token}}"
+      },
+      "cleanup_recipe": {
+        "method": "API",
+        "endpoint": "DELETE /api/v1/petitions/{{petition_id}}",
+        "auth": "Bearer {{admin_token}}"
+      },
+      "outputs": {
+        "petition_id": "$.data.data.id"
+      }
+    },
+    {
+      "fixture_id": "petition.active.D0.empty",
+      "description": "Petition active chỉ có minimum fields, không có documents",
+      "state": "ACTIVE",
+      "lifecycle": "D0",
+      "shape": "empty",
+      "setup_recipe": {
+        "method": "API",
+        "endpoint": "POST /api/v1/petitions",
+        "body": {
+          "senderName": "Test empty {{random}}",
+          "summary": "Đơn tối thiểu {{uuid}}",
+          "receivedDate": "{{today}}",
+          "petitionType": "TO_CAO"
+        },
+        "auth": "Bearer {{admin_token}}"
+      },
+      "cleanup_recipe": {
+        "method": "API",
+        "endpoint": "DELETE /api/v1/petitions/{{petition_id}}"
+      },
+      "outputs": {
+        "petition_id": "$.data.data.id",
+        "petition_updatedAt": "$.data.data.updatedAt"
+      }
+    },
+    {
+      "fixture_id": "petition.active.D0.with-docs",
+      "description": "Petition active với 3 documents đính kèm",
+      "state": "ACTIVE",
+      "lifecycle": "D0",
+      "shape": "with_attachments",
+      "setup_recipe": {
+        "method": "COMPOSITE",
+        "steps": [
+          {
+            "action": "create_petition",
+            "fixture": "petition.active.D0.normal"
+          },
+          {
+            "action": "API",
+            "endpoint": "POST /api/v1/documents",
+            "body": {
+              "entityType": "PETITION",
+              "entityId": "{{petition_id}}"
+            },
+            "repeat": 3
+          }
+        ]
+      },
+      "cleanup_recipe": {
+        "method": "SQL",
+        "query": "DELETE FROM \"Document\" WHERE \"entityId\"='{{petition_id}}'; DELETE FROM \"Petition\" WHERE id='{{petition_id}}';"
+      },
+      "outputs": {
+        "petition_id": "$.petition_id",
+        "petition_updatedAt": "$.petition_updatedAt"
+      }
+    },
+    {
+      "fixture_id": "petition.active.D0.with-team",
+      "description": "Petition active với assignedTeamId set",
+      "state": "ACTIVE",
+      "lifecycle": "D0",
+      "shape": "normal",
+      "setup_recipe": {
+        "method": "API",
+        "endpoint": "POST /api/v1/petitions",
+        "body": {
+          "senderName": "Test with team {{random}}",
+          "summary": "Đơn với team {{uuid}}",
+          "receivedDate": "{{today}}",
+          "petitionType": "TO_CAO",
+          "assignedTeamId": "{{team_a_id}}"
+        }
+      },
+      "cleanup_recipe": {
+        "method": "API",
+        "endpoint": "DELETE /api/v1/petitions/{{petition_id}}"
+      },
+      "outputs": {
+        "petition_id": "$.data.data.id",
+        "petition_updatedAt": "$.data.data.updatedAt"
+      }
+    },
+    {
+      "fixture_id": "petition.active.D0.sparse",
+      "description": "Petition active với nhiều fields null (chỉ có fields bắt buộc)",
+      "state": "ACTIVE",
+      "lifecycle": "D0",
+      "shape": "sparse",
+      "setup_recipe": {
+        "method": "API",
+        "endpoint": "POST /api/v1/petitions",
+        "body": {
+          "senderName": "Sparse test {{random}}",
+          "summary": "Min fields {{uuid}}",
+          "receivedDate": "{{today}}",
+          "petitionType": "TO_CAO"
+        }
+      },
+      "cleanup_recipe": {
+        "method": "API",
+        "endpoint": "DELETE /api/v1/petitions/{{petition_id}}"
+      },
+      "outputs": {
+        "petition_id": "$.data.data.id",
+        "petition_updatedAt": "$.data.data.updatedAt"
+      }
+    },
+    {
+      "fixture_id": "petition.active.D365.normal",
+      "description": "Petition active tạo 365 ngày trước",
+      "state": "ACTIVE",
+      "lifecycle": "D365",
+      "shape": "normal",
+      "setup_recipe": {
+        "method": "SQL",
+        "query": "INSERT INTO \"Petition\" (id, \"senderName\", summary, \"receivedDate\", \"petitionType\", status, \"createdAt\", \"updatedAt\") VALUES ('{{uuid}}', 'Old petition {{random}}', 'Old petition D365', '{{D-365}}', 'TO_CAO', 'TIEP_NHAN', '{{D-365}}', '{{D-365}}');"
+      },
+      "cleanup_recipe": {
+        "method": "SQL",
+        "query": "DELETE FROM \"Petition\" WHERE id='{{petition_id}}';"
+      },
+      "outputs": {
+        "petition_id": "{{uuid}}",
+        "petition_updatedAt": "{{D-365}}"
+      }
+    },
+    {
+      "fixture_id": "petition.active.D0.with-assignments",
+      "description": "Petition active với PetitionAssignments",
+      "state": "ACTIVE",
+      "lifecycle": "D0",
+      "shape": "with_assignments",
+      "setup_recipe": {
+        "method": "COMPOSITE",
+        "steps": [
+          {
+            "action": "create_petition",
+            "fixture": "petition.active.D0.normal"
+          },
+          {
+            "action": "API",
+            "endpoint": "POST /api/v1/petitions/{{petition_id}}/assignments",
+            "body": {
+              "userId": "{{officer1_id}}",
+              "role": "LEAD"
+            }
+          }
+        ]
+      },
+      "cleanup_recipe": {
+        "method": "SQL",
+        "query": "DELETE FROM \"PetitionAssignment\" WHERE \"petitionId\"='{{petition_id}}'; DELETE FROM \"Petition\" WHERE id='{{petition_id}}';"
+      },
+      "outputs": {
+        "petition_id": "$.petition_id",
+        "petition_updatedAt": "$.petition_updatedAt"
+      }
+    }
+  ],
+  "test_accounts": [
+    {
+      "role": "ADMIN",
+      "email": "admin@pc02.local",
+      "password": "{{ADMIN_PASSWORD}}",
+      "scope": "all",
+      "note": "Full admin access, all teams"
+    },
+    {
+      "role": "OFFICER",
+      "email": "officer1@pc02.local",
+      "password": "{{OFFICER1_PASSWORD}}",
+      "scope": "team_a",
+      "note": "Team A officer, limited scope"
+    },
+    {
+      "role": "OFFICER",
+      "email": "officer2@pc02.local",
+      "password": "{{OFFICER2_PASSWORD}}",
+      "scope": "team_a",
+      "note": "Team A officer 2"
+    },
+    {
+      "role": "APPROVER",
+      "email": "approver1@pc02.local",
+      "password": "{{APPROVER1_PASSWORD}}",
+      "scope": "team_b",
+      "note": "Team B approver"
+    }
+  ]
+}
