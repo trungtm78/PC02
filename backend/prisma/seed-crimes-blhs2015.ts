@@ -43,9 +43,17 @@ export async function seedCrimes(prisma: PrismaClient): Promise<void> {
     });
   }
 
+  // Ẩn khỏi picker các crime KHÔNG thuộc catalog BLHS (placeholder di trú/KHAC từ backfill).
+  // GIỮ bản ghi để Subject.crimeId cũ vẫn FK hợp lệ; display dùng relation nên không ảnh hưởng.
+  const catalogCodes = catalog.map((c) => c.code);
+  const deactivated = await prisma.crime.updateMany({
+    where: { code: { notIn: catalogCodes }, isActive: true },
+    data: { isActive: false },
+  });
+
   const total = await prisma.crime.count();
   console.log(
-    `[seed:crimes] catalog=${catalog.length} created=${created} updated=${updated} | tổng crimes trong DB=${total}`,
+    `[seed:crimes] catalog=${catalog.length} created=${created} updated=${updated} deactivated=${deactivated.count} | tổng crimes trong DB=${total}`,
   );
 }
 
