@@ -17,6 +17,7 @@ interface DocTypeOption {
 
 // Khớp với DOCUMENT_TYPES backend (backend/src/document-templates/docx-loader.service.ts).
 const DOC_TYPES: DocTypeOption[] = [
+  { value: "BIEN_NHAN", label: "Biên nhận", description: "Biên nhận tiếp nhận đơn thư — xác nhận đã nhận hồ sơ" },
   { value: "PHIEU_DE_XUAT", label: "Phiếu đề xuất", description: "Báo cáo đề xuất xử lý đơn thư lên Ban CH PC02 + Ban CH Đội" },
   { value: "PHIEU_CHUYEN_NGUON_TIN", label: "Phiếu chuyển nguồn tin", description: "Chuyển nguồn tin về tội phạm (Mẫu 03 TT 128/2025/TT-BCA)" },
   { value: "PHIEU_CHUYEN_DON", label: "Phiếu chuyển đơn", description: "Chuyển đơn cho Tổ công tác giải quyết theo thẩm quyền" },

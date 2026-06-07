@@ -7,13 +7,14 @@ import {
 
 describe('DocumentExportService — pure helpers', () => {
   describe('DOC_TYPE_TO_SERIES mapping', () => {
-    it('maps all 6 docTypes to a numbering series', () => {
+    it('maps all 7 docTypes to a numbering series (including BIEN_NHAN)', () => {
       expect(DOC_TYPE_TO_SERIES.PHIEU_DE_XUAT).toBe('PHIEU_DE_XUAT');
       expect(DOC_TYPE_TO_SERIES.PHIEU_CHUYEN_NGUON_TIN).toBe('PHIEU_CHUYEN');
       expect(DOC_TYPE_TO_SERIES.PHIEU_CHUYEN_DON).toBe('PHIEU_CHUYEN');
       expect(DOC_TYPE_TO_SERIES.THONG_BAO_CHUYEN).toBe('THONG_BAO');
       expect(DOC_TYPE_TO_SERIES.THONG_BAO_HUONG_DAN).toBe('HUONG_DAN');
       expect(DOC_TYPE_TO_SERIES.THONG_BAO_TRA_LAI).toBe('THONG_BAO');
+      expect(DOC_TYPE_TO_SERIES.BIEN_NHAN).toBe('BIEN_NHAN');
     });
 
     it('PHIEU_CHUYEN_NGUON_TIN + PHIEU_CHUYEN_DON share the PC counter', () => {
@@ -71,7 +72,13 @@ describe('DocumentExportService — pure helpers', () => {
       ).toThrow(/lyDoTraDon/);
     });
 
-    it('all 6 docTypes require senderName (base)', () => {
+    it('BIEN_NHAN passes validation with only senderName + content (no extra fields needed)', () => {
+      expect(() =>
+        validateFieldsForDocType('BIEN_NHAN', { ...basePetition }),
+      ).not.toThrow();
+    });
+
+    it('all 7 docTypes require senderName (base)', () => {
       const docTypes = [
         'PHIEU_DE_XUAT',
         'PHIEU_CHUYEN_NGUON_TIN',
@@ -79,6 +86,7 @@ describe('DocumentExportService — pure helpers', () => {
         'THONG_BAO_CHUYEN',
         'THONG_BAO_HUONG_DAN',
         'THONG_BAO_TRA_LAI',
+        'BIEN_NHAN',
       ] as const;
       for (const dt of docTypes) {
         expect(() =>

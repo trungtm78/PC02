@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 /**
- * The 6 documentTypes that PetitionsService.exportDocument can render.
+ * The 7 documentTypes that PetitionsService.exportDocument can render.
  * Order matters only for diagnostic logs.
  */
 export const DOCUMENT_TYPES = [
@@ -14,6 +14,7 @@ export const DOCUMENT_TYPES = [
   'THONG_BAO_CHUYEN',
   'THONG_BAO_HUONG_DAN',
   'THONG_BAO_TRA_LAI',
+  'BIEN_NHAN',
 ] as const;
 export type DocumentType = (typeof DOCUMENT_TYPES)[number];
 

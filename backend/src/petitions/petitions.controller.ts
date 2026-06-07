@@ -169,6 +169,7 @@ export class PetitionsController {
       'THONG_BAO_CHUYEN',
       'THONG_BAO_HUONG_DAN',
       'THONG_BAO_TRA_LAI',
+      'BIEN_NHAN',
     ]);
     if (!allowed.has(body.docType)) {
       throw new BadRequestException(
@@ -204,6 +205,7 @@ export class PetitionsController {
       'THONG_BAO_CHUYEN',
       'THONG_BAO_HUONG_DAN',
       'THONG_BAO_TRA_LAI',
+      'BIEN_NHAN',
     ]);
     if (!allowed.has(docType)) {
       throw new BadRequestException(

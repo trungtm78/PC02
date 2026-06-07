@@ -145,6 +145,16 @@ const TEMPLATES: TemplateSpec[] = [
     padding: 4,
     yearPattern: 'YYYY',
   },
+  {
+    name: 'Số Biên nhận',
+    documentType: 'BIEN_NHAN',
+    prefix: 'BN-PC02-Đ1',
+    separator: '/',
+    inputMode: 'AUTO',
+    resetPeriod: 'YEARLY',
+    padding: 5,
+    yearPattern: 'YYYY',
+  },
 ];
 
 // v0.47 PR1 T4 — series that do NOT participate in existing counter backfill
@@ -155,6 +165,7 @@ const NEW_V047_SERIES = new Set([
   'PHIEU_CHUYEN',
   'THONG_BAO',
   'HUONG_DAN',
+  'BIEN_NHAN',
 ]);
 
 function buildSegments(spec: TemplateSpec) {
