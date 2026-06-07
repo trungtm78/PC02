@@ -17,6 +17,9 @@ const mockService = {
   assignPetition: jest.fn(),
   suspectSearch: jest.fn(),
   duplicateSearch: jest.fn(),
+  listAssignments: jest.fn(),
+  addAssignment: jest.fn(),
+  removeAssignment: jest.fn(),
 };
 
 const mockJourneyService = { getJourney: jest.fn() };
@@ -141,5 +144,27 @@ describe('PetitionsController — delegation', () => {
     const req = makeReq();
     await (controller as any).suspectSearch({ q: '' }, req);
     expect(mockService.suspectSearch).toHaveBeenCalledWith('', req.dataScope);
+  });
+
+  // ── Nhóm I — PetitionAssignment CRUD ─────────────────────────────────────
+
+  it('I-C1: listAssignments() delegates to service.listAssignments', async () => {
+    mockService.listAssignments.mockResolvedValue([]);
+    const req = makeReq();
+    await (controller as any).listAssignments('petition-001', req);
+    expect(mockService.listAssignments).toHaveBeenCalledWith('petition-001', req.dataScope);
+  });
+
+  it('I-C2: addAssignment() delegates to service.addAssignment with correct args', async () => {
+    mockService.addAssignment.mockResolvedValue({ id: 'pa-001' });
+    const req = makeReq();
+    await (controller as any).addAssignment('petition-001', { userId: 'user-001', role: 'LEAD' }, mockUser, req);
+    expect(mockService.addAssignment).toHaveBeenCalledWith('petition-001', 'user-001', 'LEAD', mockUser.id, req.dataScope);
+  });
+
+  it('I-C3: removeAssignment() delegates to service.removeAssignment', async () => {
+    mockService.removeAssignment.mockResolvedValue({ success: true });
+    await (controller as any).removeAssignment('petition-001', 'user-001', mockUser);
+    expect(mockService.removeAssignment).toHaveBeenCalledWith('petition-001', 'user-001', mockUser.id);
   });
 });

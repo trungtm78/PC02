@@ -985,11 +985,25 @@ export class PetitionsService {
     });
     if (!team) throw new BadRequestException(`Tổ không tồn tại hoặc đã ngừng hoạt động (id: ${dto.assignedTeamId})`);
 
+    // I.1: auto-assign to leader when assignedToId not provided
+    let resolvedAssignedToId: string | null = dto.assignedToId ?? null;
     if (dto.assignedToId) {
       const member = await this.prisma.userTeam.findFirst({
         where: { userId: dto.assignedToId, teamId: dto.assignedTeamId },
       });
       if (!member) throw new BadRequestException('Cán bộ xử lý không thuộc tổ được chỉ định');
+    } else {
+      // Auto-detect leader
+      const members = await this.prisma.userTeam.findMany({
+        where: { teamId: dto.assignedTeamId },
+        select: { userId: true, isLeader: true },
+      });
+      const leader = members.find((m) => m.isLeader);
+      if (leader) {
+        resolvedAssignedToId = leader.userId;
+      } else {
+        console.warn(`[PetitionsService] assignPetition: team ${dto.assignedTeamId} has no leader — assignedToId left null`);
+      }
     }
 
     try {
@@ -1000,7 +1014,7 @@ export class PetitionsService {
         },
         data: {
           assignedTeamId: dto.assignedTeamId,
-          assignedToId: dto.assignedToId ?? null,
+          assignedToId: resolvedAssignedToId,
           ...(dto.deadline ? { deadline: new Date(dto.deadline) } : {}),
         },
       });
@@ -1995,6 +2009,65 @@ export class PetitionsService {
       },
       take: 20,
       orderBy: { receivedDate: 'desc' },
+    });
+  }
+
+  // ── Nhóm I: PetitionAssignment CRUD ─────────────────────────────────────────
+
+  async addAssignment(
+    petitionId: string,
+    userId: string,
+    role: 'LEAD' | 'SUPPORT',
+    actorId: string,
+    _dataScope?: DataScope | null,
+  ) {
+    const petition = await this.prisma.petition.findFirst({ where: { id: petitionId, deletedAt: null } });
+    if (!petition) throw new NotFoundException(`Đơn thư không tồn tại (id: ${petitionId})`);
+
+    const existing = await this.prisma.petitionAssignment.findUnique({
+      where: { petitionId_userId: { petitionId, userId } },
+    });
+    if (existing) throw new ConflictException(`Cán bộ đã được phân công cho đơn thư này`);
+
+    return this.prisma.petitionAssignment.create({
+      data: { petitionId, userId, role, assignedById: actorId },
+      include: { user: { select: { id: true, firstName: true, lastName: true, email: true } } },
+    });
+  }
+
+  async removeAssignment(
+    petitionId: string,
+    userId: string,
+    _actorId: string,
+  ) {
+    const petition = await this.prisma.petition.findFirst({ where: { id: petitionId, deletedAt: null } });
+    if (!petition) throw new NotFoundException(`Đơn thư không tồn tại (id: ${petitionId})`);
+
+    const existing = await this.prisma.petitionAssignment.findUnique({
+      where: { petitionId_userId: { petitionId, userId } },
+    });
+    if (!existing) throw new NotFoundException(`Cán bộ chưa được phân công cho đơn thư này`);
+
+    await this.prisma.petitionAssignment.delete({
+      where: { petitionId_userId: { petitionId, userId } },
+    });
+    return { success: true };
+  }
+
+  async listAssignments(
+    petitionId: string,
+    _dataScope?: DataScope | null,
+  ) {
+    const petition = await this.prisma.petition.findFirst({ where: { id: petitionId, deletedAt: null } });
+    if (!petition) throw new NotFoundException(`Đơn thư không tồn tại (id: ${petitionId})`);
+
+    return this.prisma.petitionAssignment.findMany({
+      where: { petitionId },
+      include: {
+        user: { select: { id: true, firstName: true, lastName: true, email: true } },
+        assignedBy: { select: { id: true, firstName: true, lastName: true } },
+      },
+      orderBy: { assignedAt: 'asc' },
     });
   }
 }

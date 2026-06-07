@@ -22,6 +22,7 @@ import { today, toDateInput } from "@/lib/dates";
 import { LOAI_DON_OPTIONS } from "@/shared/enums/status-labels";
 import { LoaiDon } from "@/shared/enums/generated";
 import { EntityDocumentsTab } from "@/components/documents/EntityDocumentsTab";
+import { PetitionAssignmentSection } from "./PetitionAssignmentSection";
 
 const VALID_PETITION_TYPES = Object.values(LoaiDon) as string[];
 
@@ -148,6 +149,13 @@ export function PetitionFormPage() {
       } catch { setDupResults([]); }
     }, 300);
   }, [id]);
+
+  useEffect(() => {
+    return () => {
+      if (suspectTimerRef.current) clearTimeout(suspectTimerRef.current);
+      if (dupTimerRef.current) clearTimeout(dupTimerRef.current);
+    };
+  }, []);
 
   const defaults = useFormDefaults();
 
@@ -864,6 +872,11 @@ export function PetitionFormPage() {
               </div>
             </div>
           </div>
+
+        {/* Nhóm I: Phân công cán bộ — edit mode only */}
+        {isEditMode && id && (
+          <PetitionAssignmentSection petitionId={id} userOptions={userOptions} />
+        )}
 
         <div className="flex items-center justify-end gap-3 bg-white rounded-lg border border-slate-200 shadow-sm p-4 sm:p-6 flex-wrap">
           <button type="button" onClick={handleCancel} className="px-4 sm:px-6 py-2.5 min-h-[44px] border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors" data-testid="btn-cancel">

@@ -176,6 +176,9 @@ model User {
   // Document Number Engine (v0.42)
   documentNumberTemplatesCreated  DocumentNumberTemplate[]
   documentNumberLogs              DocumentNumberLog[]
+  // Nhóm I — PetitionAssignment
+  petitionAssignments             PetitionAssignment[]      @relation("PetitionAssignmentUser")
+  petitionAssignmentsMade         PetitionAssignment[]      @relation("PetitionAssignmentAssignedBy")
 
   @@map("users")
 }
@@ -911,6 +914,9 @@ model Petition {
   // v0.52 — File attachments (real file storage, replaces text-only attachmentsNote field).
   documents Document[]
 
+  // Nhóm I — phân công nhiều cán bộ
+  assignments PetitionAssignment[]
+
   @@index([status])
   @@index([receivedDate])
   @@index([deadline])
@@ -921,6 +927,25 @@ model Petition {
   @@index([crimeChinhId])
   @@index([legacySourceId])
   @@map("petitions")
+}
+
+// ─────────────────────────────────────────────
+// PetitionAssignment — Nhóm I phân công nhiều cán bộ
+// ─────────────────────────────────────────────
+model PetitionAssignment {
+  id           String   @id @default(cuid())
+  petitionId   String
+  petition     Petition @relation(fields: [petitionId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User     @relation("PetitionAssignmentUser", fields: [userId], references: [id], onDelete: Cascade)
+  role         String   // 'LEAD' | 'SUPPORT'
+  assignedById String
+  assignedBy   User     @relation("PetitionAssignmentAssignedBy", fields: [assignedById], references: [id])
+  assignedAt   DateTime @default(now())
+
+  @@unique([petitionId, userId])
+  @@index([petitionId])
+  @@map("petition_assignments")
 }
 
 // ─────────────────────────────────────────────

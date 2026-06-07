@@ -358,4 +358,43 @@ export class PetitionsController {
       userAgent: req.headers['user-agent'],
     });
   }
+
+  // ── Nhóm I: PetitionAssignment CRUD ──────────────────────────────────────
+
+  // GET /api/v1/petitions/:id/assignments — Danh sách cán bộ phân công
+  @Get(':id/assignments')
+  @RequirePermissions({ action: 'read', subject: 'Petition' })
+  listAssignments(@Param('id') id: string, @Req() req: ScopedRequest) {
+    return this.petitionsService.listAssignments(id, req.dataScope);
+  }
+
+  // POST /api/v1/petitions/:id/assignments — Thêm cán bộ phân công
+  @Post(':id/assignments')
+  @RequirePermissions({ action: 'edit', subject: 'Petition' })
+  addAssignment(
+    @Param('id') id: string,
+    @Body() body: { userId: string; role?: 'LEAD' | 'SUPPORT' },
+    @CurrentUser() user: AuthUser,
+    @Req() req: ScopedRequest,
+  ) {
+    return this.petitionsService.addAssignment(
+      id,
+      body.userId,
+      body.role ?? 'SUPPORT',
+      user.id,
+      req.dataScope,
+    );
+  }
+
+  // DELETE /api/v1/petitions/:id/assignments/:userId — Xóa cán bộ phân công
+  @Delete(':id/assignments/:userId')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions({ action: 'edit', subject: 'Petition' })
+  removeAssignment(
+    @Param('id') id: string,
+    @Param('userId') userId: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.petitionsService.removeAssignment(id, userId, user.id);
+  }
 }

@@ -103,6 +103,13 @@ const mockPrisma = {
   },
   userTeam: {
     findFirst: jest.fn(),
+    findMany: jest.fn(),
+  },
+  petitionAssignment: {
+    create: jest.fn(),
+    findUnique: jest.fn(),
+    findMany: jest.fn(),
+    delete: jest.fn(),
   },
   documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
   document: {
@@ -1052,6 +1059,7 @@ describe('PetitionsService', () => {
     it('throws ConflictException on P2025 with expectedUpdatedAt', async () => {
       mockPrisma.petition.findFirst.mockResolvedValue(existingPetition);
       mockPrisma.team.findFirst.mockResolvedValue(mockTeam);
+      mockPrisma.userTeam.findMany.mockResolvedValue([]);
       mockPrisma.petition.update.mockRejectedValue({ code: 'P2025' });
 
       await expect(
@@ -1078,9 +1086,11 @@ describe('PetitionsService', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('assigns petition without assignedToId (team-only assignment)', async () => {
+    it('assigns petition without assignedToId (team-only assignment — auto-assign leader path)', async () => {
       mockPrisma.petition.findFirst.mockResolvedValue(existingPetition);
       mockPrisma.team.findFirst.mockResolvedValue(mockTeam);
+      // No leaders in team — auto-assign logic finds no leader → null
+      mockPrisma.userTeam.findMany.mockResolvedValue([]);
       mockPrisma.petition.update.mockResolvedValue({ ...existingPetition, assignedTeamId: 'team-001', assignedToId: null });
 
       const result = await service.assignPetition(
@@ -1493,6 +1503,156 @@ describe('PetitionsService', () => {
       const result = await service.duplicateSearch('', undefined, null);
       expect(result).toEqual([]);
       expect(mockPrisma.petition.findMany).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── Nhóm I — Auto-assign leader + PetitionAssignment multi-officer ──────────
+  describe('assignPetition — Nhóm I auto-assign to leader', () => {
+    const mockTeam = { id: 'team-001', name: 'Tổ 1', isActive: true };
+    const existingPetition = { ...mockPetition, assignedTeamId: null, assignedToId: null };
+
+    beforeEach(() => jest.clearAllMocks());
+
+    it('I-A1: auto-assigns to team leader when assignedToId not provided', async () => {
+      mockPrisma.petition.findFirst.mockResolvedValue(existingPetition);
+      mockPrisma.team.findFirst.mockResolvedValue(mockTeam);
+      mockPrisma.userTeam.findMany.mockResolvedValue([
+        { userId: 'user-leader', teamId: 'team-001', isLeader: true },
+      ]);
+      mockPrisma.petition.update.mockResolvedValue({
+        ...existingPetition,
+        assignedTeamId: 'team-001',
+        assignedToId: 'user-leader',
+      });
+
+      const result = await service.assignPetition(
+        'petition-001',
+        { assignedTeamId: 'team-001' },
+        'dispatcher-001',
+      );
+
+      expect(result.success).toBe(true);
+      expect(mockPrisma.petition.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ assignedToId: 'user-leader' }),
+        }),
+      );
+    });
+
+    it('I-A2: assigns with null assignedToId when no leader found (fail-open)', async () => {
+      mockPrisma.petition.findFirst.mockResolvedValue(existingPetition);
+      mockPrisma.team.findFirst.mockResolvedValue(mockTeam);
+      mockPrisma.userTeam.findMany.mockResolvedValue([
+        { userId: 'user-regular', teamId: 'team-001', isLeader: false },
+      ]);
+      mockPrisma.petition.update.mockResolvedValue({
+        ...existingPetition,
+        assignedTeamId: 'team-001',
+        assignedToId: null,
+      });
+
+      const result = await service.assignPetition(
+        'petition-001',
+        { assignedTeamId: 'team-001' },
+        'dispatcher-001',
+      );
+
+      expect(result.success).toBe(true);
+      expect(mockPrisma.petition.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ assignedToId: null }),
+        }),
+      );
+    });
+
+    it('I-A3: explicit assignedToId overrides leader auto-detection', async () => {
+      mockPrisma.petition.findFirst.mockResolvedValue(existingPetition);
+      mockPrisma.team.findFirst.mockResolvedValue(mockTeam);
+      mockPrisma.userTeam.findFirst.mockResolvedValue({ userId: 'user-explicit', teamId: 'team-001' });
+      mockPrisma.petition.update.mockResolvedValue({
+        ...existingPetition,
+        assignedTeamId: 'team-001',
+        assignedToId: 'user-explicit',
+      });
+
+      await service.assignPetition(
+        'petition-001',
+        { assignedTeamId: 'team-001', assignedToId: 'user-explicit' },
+        'dispatcher-001',
+      );
+
+      expect(mockPrisma.userTeam.findMany).not.toHaveBeenCalled();
+      expect(mockPrisma.petition.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ assignedToId: 'user-explicit' }),
+        }),
+      );
+    });
+  });
+
+  describe('PetitionAssignment CRUD — Nhóm I', () => {
+    const mockPetitionForAssign = { ...mockPetition, id: 'petition-001', deletedAt: null };
+
+    beforeEach(() => jest.clearAllMocks());
+
+    it('I-B1: addAssignment creates PetitionAssignment record', async () => {
+      mockPrisma.petition.findFirst.mockResolvedValue(mockPetitionForAssign);
+      mockPrisma.petitionAssignment.findUnique.mockResolvedValue(null);
+      mockPrisma.userTeam.findFirst.mockResolvedValue({ userId: 'user-001', teamId: 'team-001' });
+      mockPrisma.petitionAssignment.create.mockResolvedValue({
+        id: 'pa-001',
+        petitionId: 'petition-001',
+        userId: 'user-001',
+        role: 'SUPPORT',
+        assignedById: 'dispatcher-001',
+        assignedAt: new Date(),
+      });
+
+      const result = await service.addAssignment('petition-001', 'user-001', 'SUPPORT', 'dispatcher-001');
+      expect(result).toHaveProperty('id', 'pa-001');
+      expect(mockPrisma.petitionAssignment.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ petitionId: 'petition-001', userId: 'user-001', role: 'SUPPORT' }),
+        }),
+      );
+    });
+
+    it('I-B2: addAssignment throws ConflictException if already assigned', async () => {
+      mockPrisma.petition.findFirst.mockResolvedValue(mockPetitionForAssign);
+      mockPrisma.petitionAssignment.findUnique.mockResolvedValue({ id: 'existing-pa' });
+
+      await expect(
+        service.addAssignment('petition-001', 'user-001', 'SUPPORT', 'dispatcher-001'),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('I-B3: removeAssignment deletes PetitionAssignment', async () => {
+      mockPrisma.petition.findFirst.mockResolvedValue(mockPetitionForAssign);
+      mockPrisma.petitionAssignment.findUnique.mockResolvedValue({ id: 'pa-001' });
+      mockPrisma.petitionAssignment.delete.mockResolvedValue({ id: 'pa-001' });
+
+      const result = await service.removeAssignment('petition-001', 'user-001', 'dispatcher-001');
+      expect(result.success).toBe(true);
+    });
+
+    it('I-B4: removeAssignment throws NotFoundException if not assigned', async () => {
+      mockPrisma.petition.findFirst.mockResolvedValue(mockPetitionForAssign);
+      mockPrisma.petitionAssignment.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.removeAssignment('petition-001', 'user-999', 'dispatcher-001'),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('I-B5: listAssignments returns all assignments for petition', async () => {
+      mockPrisma.petition.findFirst.mockResolvedValue(mockPetitionForAssign);
+      mockPrisma.petitionAssignment.findMany.mockResolvedValue([
+        { id: 'pa-001', petitionId: 'petition-001', userId: 'user-001', role: 'LEAD', user: { firstName: 'A', lastName: 'B' } },
+      ]);
+
+      const result = await service.listAssignments('petition-001', null);
+      expect(result).toHaveLength(1);
+      expect(result[0]).toHaveProperty('role', 'LEAD');
     });
   });
 });
