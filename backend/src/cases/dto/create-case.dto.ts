@@ -16,6 +16,7 @@ import {
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import { CaseStatus, CapDoToiPham, CaseProvenance, CaseType, LoaiUyThac } from '@prisma/client';
+import { CaseStatisticDto } from './case-statistic.dto';
 
 export { CaseStatus, CapDoToiPham, CaseProvenance, CaseType, LoaiUyThac };
 
@@ -301,6 +302,12 @@ export class CreateCaseDto {
   @ValidateNested({ each: true })
   @Type(() => CreateEvidenceInlineDto)
   evidences?: CreateEvidenceInlineDto[];
+
+  // Thống kê mở rộng (hybrid) — 1-1, lưu bảng case_statistics.
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CaseStatisticDto)
+  statistic?: CaseStatisticDto;
 
   // Documents đã upload trước qua flow riêng (POST /documents). Truyền IDs để link.
   @IsOptional()

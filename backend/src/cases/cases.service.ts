@@ -9,6 +9,7 @@ import { Response } from 'express';
 import * as ExcelJS from 'exceljs';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { buildCaseStatisticData } from './case-statistic.builder';
 import { SettingsService } from '../settings/settings.service';
 import { CreateCaseDto } from './dto/create-case.dto';
 import { UpdateCaseDto } from './dto/update-case.dto';
@@ -1297,6 +1298,16 @@ export class CasesService {
         );
       }
       throw e;
+    }
+
+    // Thống kê mở rộng (hybrid) — upsert bảng case_statistics khi có dto.statistic.
+    if (dto.statistic !== undefined) {
+      const statData = buildCaseStatisticData(dto.statistic);
+      await this.prisma.caseStatistic.upsert({
+        where: { caseId: id },
+        create: { caseId: id, ...statData },
+        update: statData,
+      });
     }
 
     // v0.37.2.5: Sync petitionType with EXISTING linked Petition only.
