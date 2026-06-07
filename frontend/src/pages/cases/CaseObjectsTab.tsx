@@ -35,6 +35,7 @@ import {
   Eye as EyeIcon,
 } from "lucide-react";
 import { FKSelect, type FKOption } from "@/components/FKSelect";
+import { CrimeSelect } from "@/components/CrimeSelect";
 import {
   LABEL_BASE,
   INPUT_BASE,
@@ -346,18 +347,14 @@ function SubjectMiniForm({
               </div>
             )}
 
-            {/* Tội danh / Vụ việc liên quan — FK select */}
+            {/* Tội danh — master Crime (mặc định lọc PC02, toggle hiện tất cả, search bao toàn bộ) */}
             <div>
-              <label className={LABEL_BASE}>Tội danh / Hành vi liên quan</label>
-              <FKSelect
-                label=""
-                resource="crimes"
+              <CrimeSelect
+                label="Tội danh / Hành vi liên quan"
                 value={form.crimeId}
                 onChange={(v) => f("crimeId", v)}
-                options={crimeOptions}
-                loading={loadingCrimes}
-                searchPlaceholder="Tìm tội danh..."
                 placeholder="Chọn tội danh (tuỳ chọn)"
+                testId="subject-crime"
               />
             </div>
 

@@ -807,7 +807,8 @@ export default function CaseDetailPage() {
     if (crimes.length > 0) return; // already loaded
     setLoadingCrimes(true);
     try {
-      const res = await api.get("/directories?type=CRIME&limit=200");
+      // Master Crime (toàn bộ 316 điều) thay Directory(type=CRIME) cũ chỉ 47 điều.
+      const res = await api.get("/crimes?pc02Only=false&isActive=true&limit=1000");
       setCrimes((res.data.data ?? []).map((d: any) => ({ id: d.id, name: d.name, code: d.code ?? "" })));
     } catch {
       setCrimes([]);
