@@ -232,3 +232,5 @@ describe('PetitionFormPage — Nhóm V combobox fields', () => {
     }, { timeout: 1500 });
   });
 });
+
+// Nhóm II tests: see PetitionFormPageConvert.test.tsx

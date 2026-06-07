@@ -23,6 +23,7 @@ import { LOAI_DON_OPTIONS } from "@/shared/enums/status-labels";
 import { LoaiDon } from "@/shared/enums/generated";
 import { EntityDocumentsTab } from "@/components/documents/EntityDocumentsTab";
 import { PetitionAssignmentSection } from "./PetitionAssignmentSection";
+import { ConvertPetitionModal, type ConvertToIncidentPayload, type ConvertToCasePayload } from "./ConvertPetitionModal";
 
 const VALID_PETITION_TYPES = Object.values(LoaiDon) as string[];
 
@@ -108,6 +109,11 @@ export function PetitionFormPage() {
   const [userOptions, setUserOptions] = useState<UserOption[]>([]);
   const [recordUpdatedAt, setRecordUpdatedAt] = useState<string | null>(null);
   const [isDraftLoading, setIsDraftLoading] = useState(!isEditMode);
+  // Nhóm II: convert state
+  const [linkedIncidentId, setLinkedIncidentId] = useState<string | null>(null);
+  const [linkedCaseId, setLinkedCaseId] = useState<string | null>(null);
+  const [showConvertModal, setShowConvertModal] = useState(false);
+  const canConvert = isEditMode && !linkedIncidentId && !linkedCaseId;
 
   // ── Nhóm V: Suspect search combobox ─────────────────────────────────────────
   type SuspectResult = { name: string; idNumber: string; crimes: string[]; sources: Array<{ type: string; stt: string }> };
@@ -246,6 +252,9 @@ export function PetitionFormPage() {
           thoiHanUTDT: toDateInput(d.thoiHanUTDT as string | null | undefined),
         });
         setRecordUpdatedAt((d.updatedAt as string) ?? null);
+        // Nhóm II: track linked IDs to show/hide convert button
+        setLinkedIncidentId((d.linkedIncidentId as string) ?? null);
+        setLinkedCaseId((d.linkedCaseId as string) ?? null);
         // Snapshot the loaded values so isDirty is false until the officer types.
         // Must match the next setFormData state shape — recompute on next render via setTimeout fallback.
         setTimeout(() => {
@@ -889,8 +898,37 @@ export function PetitionFormPage() {
           {isEditMode && id && (
             <ExportDocumentDropdown petitionId={id} isDirty={isDirty} />
           )}
+          {canConvert && (
+            <button
+              type="button"
+              data-testid="btn-convert-petition"
+              onClick={() => setShowConvertModal(true)}
+              className="flex items-center gap-2 px-4 sm:px-6 py-2.5 min-h-[44px] bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium"
+            >
+              Chuyển đổi
+            </button>
+          )}
         </div>
       </form>
+
+      {/* Nhóm II: ConvertPetitionModal */}
+      {showConvertModal && id && (
+        <ConvertPetitionModal
+          petitionId={id}
+          petitionUpdatedAt={recordUpdatedAt}
+          onClose={() => setShowConvertModal(false)}
+          onSubmitIncident={async (payload: ConvertToIncidentPayload) => {
+            await api.post(`/petitions/${id}/convert-incident`, payload);
+            setShowConvertModal(false);
+            navigate(`/incidents`);
+          }}
+          onSubmitCase={async (payload: ConvertToCasePayload) => {
+            await api.post(`/petitions/${id}/convert-case`, payload);
+            setShowConvertModal(false);
+            navigate(`/cases`);
+          }}
+        />
+      )}
     </div>
   );
 }
