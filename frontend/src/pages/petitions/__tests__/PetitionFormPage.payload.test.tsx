@@ -55,6 +55,20 @@ vi.mock('@/components/FKSelect', () => ({
   ),
 }));
 
+// CrimeSelect (master Tội danh) — mock như native select để fireEvent.change được.
+vi.mock('@/components/CrimeSelect', () => ({
+  CrimeSelect: ({ value, onChange, testId }: {
+    value: string;
+    onChange: (v: string) => void;
+    testId?: string;
+  }) => (
+    <select data-testid={testId} value={value || ''} onChange={(e) => onChange(e.target.value)}>
+      <option value="">--</option>
+      <option value="crime-d173">Điều 173 · Tội trộm cắp tài sản</option>
+    </select>
+  ),
+}));
+
 const SAMPLE_PROFILE: AuthUser = {
   id: 'u1',
   email: 'a@b.com',
@@ -107,6 +121,9 @@ describe('PetitionFormPage — petitionType payload (v0.37.2.4 P0 fix)', () => {
     fireEvent.change(screen.getByTestId('field-detailContent'), { target: { value: 'UAT detail' } });
     fireEvent.change(screen.getByTestId('field-petitionType'), { target: { value: 'TO_CAO' } });
     fireEvent.change(screen.getByTestId('field-priority'), { target: { value: 'Cao' } });
+    // Required-on-create mới: SĐT nguyên đơn + Tội danh chính
+    fireEvent.change(screen.getByTestId('field-senderPhone'), { target: { value: '0901234567' } });
+    fireEvent.change(screen.getByTestId('field-crimeChinhId'), { target: { value: 'crime-d173' } });
 
     const submitBtns = screen.getAllByRole('button', { name: /Lưu đơn thư/ });
     fireEvent.click(submitBtns[0]);

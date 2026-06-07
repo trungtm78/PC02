@@ -12,6 +12,7 @@ import {
   FileText, MapPin, Phone, Mail, ChevronDown,
 } from "lucide-react";
 import { FKSelect } from "@/components/FKSelect";
+import { CrimeSelect } from "@/components/CrimeSelect";
 import { PhoneInput } from "@/components/inputs/PhoneInput";
 import { DocNumberPreviewField } from "@/components/DocNumberPreviewField";
 import { documentNumbersApi } from "@/features/document-numbers/api";
@@ -44,6 +45,22 @@ interface FormData {
   deXuat: string;
   raSoatTrung: string;
   baoCaoBanGiamDoc: boolean;
+  // Field-parity hệ thống cũ (giai đoạn tiếp nhận)
+  senderIdNumber: string;
+  senderIdIssueDate: string;
+  senderIdIssuePlace: string;
+  senderIsAnonymous: boolean;
+  loaiThongTin: string;
+  soPhieuChuyen: string;
+  ngayPhieuChuyen: string;
+  ngayTiepNhanNguonTin: string;
+  toiDanhBanDau: string;
+  crimeChinhId: string;
+  noiXayRa: string;
+  ngayGiaoDonViGiaiQuyet: string;
+  laCongNgheCao: boolean;
+  lanhDaoToTung: string;
+  ketQuaXuLyKhac: string;
 }
 
 const INITIAL_FORM: FormData = {
@@ -53,6 +70,11 @@ const INITIAL_FORM: FormData = {
   priority: "", summary: "", detailContent: "", attachmentsNote: "",
   deadline: "", assignedToId: "", notes: "",
   nhanThay: "", deXuat: "", raSoatTrung: "Không", baoCaoBanGiamDoc: false,
+  senderIdNumber: "", senderIdIssueDate: "", senderIdIssuePlace: "",
+  senderIsAnonymous: false, loaiThongTin: "", soPhieuChuyen: "",
+  ngayPhieuChuyen: "", ngayTiepNhanNguonTin: "", toiDanhBanDau: "",
+  crimeChinhId: "", noiXayRa: "", ngayGiaoDonViGiaiQuyet: "",
+  laCongNgheCao: false, lanhDaoToTung: "", ketQuaXuLyKhac: "",
 };
 
 function displayName(u: UserOption): string {
@@ -147,6 +169,21 @@ export function PetitionFormPage() {
           deXuat: (d.deXuat as string) ?? "",
           raSoatTrung: (d.raSoatTrung as string) ?? "Không",
           baoCaoBanGiamDoc: Boolean(d.baoCaoBanGiamDoc),
+          senderIdNumber: (d.senderIdNumber as string) ?? "",
+          senderIdIssueDate: toDateInput(d.senderIdIssueDate as string | null | undefined),
+          senderIdIssuePlace: (d.senderIdIssuePlace as string) ?? "",
+          senderIsAnonymous: Boolean(d.senderIsAnonymous),
+          loaiThongTin: (d.loaiThongTin as string) ?? "",
+          soPhieuChuyen: (d.soPhieuChuyen as string) ?? "",
+          ngayPhieuChuyen: toDateInput(d.ngayPhieuChuyen as string | null | undefined),
+          ngayTiepNhanNguonTin: toDateInput(d.ngayTiepNhanNguonTin as string | null | undefined),
+          toiDanhBanDau: (d.toiDanhBanDau as string) ?? "",
+          crimeChinhId: (d.crimeChinhId as string) ?? "",
+          noiXayRa: (d.noiXayRa as string) ?? "",
+          ngayGiaoDonViGiaiQuyet: toDateInput(d.ngayGiaoDonViGiaiQuyet as string | null | undefined),
+          laCongNgheCao: Boolean(d.laCongNgheCao),
+          lanhDaoToTung: (d.lanhDaoToTung as string) ?? "",
+          ketQuaXuLyKhac: (d.ketQuaXuLyKhac as string) ?? "",
         });
         setRecordUpdatedAt((d.updatedAt as string) ?? null);
         // Snapshot the loaded values so isDirty is false until the officer types.
@@ -172,8 +209,9 @@ export function PetitionFormPage() {
       today.setHours(23, 59, 59, 999);
       if (d > today) newErrors.push("Ngày tiếp nhận không được là ngày tương lai");
     }
-    if (!formData.senderName.trim()) newErrors.push("Tên người gửi là bắt buộc");
-    if (!formData.senderAddress.trim()) newErrors.push("Địa chỉ người gửi là bắt buộc");
+    const anon = formData.senderIsAnonymous;
+    if (!anon && !formData.senderName.trim()) newErrors.push("Tên người gửi là bắt buộc");
+    if (!anon && !formData.senderAddress.trim()) newErrors.push("Địa chỉ người gửi là bắt buộc");
     if (!formData.petitionType || !VALID_PETITION_TYPES.includes(formData.petitionType)) {
       newErrors.push("Loại đơn thư là bắt buộc");
     }
@@ -184,6 +222,11 @@ export function PetitionFormPage() {
       newErrors.push("Email không đúng định dạng");
     if (formData.senderPhone && !/^0\d{9}$/.test(formData.senderPhone))
       newErrors.push("Số điện thoại không đúng định dạng (10 số, bắt đầu bằng 0)");
+    // Required-on-create (trừ nặc danh): SĐT nguyên đơn + Tội danh chính (theo hệ thống cũ).
+    if (!isEditMode && !anon) {
+      if (!formData.senderPhone.trim()) newErrors.push("Số điện thoại nguyên đơn là bắt buộc (trừ đơn nặc danh)");
+      if (!formData.crimeChinhId) newErrors.push("Tội danh chính là bắt buộc (trừ đơn nặc danh)");
+    }
     setErrors(newErrors);
     return newErrors.length === 0;
   };
@@ -220,6 +263,22 @@ export function PetitionFormPage() {
         deXuat: formData.deXuat,
         raSoatTrung: formData.raSoatTrung,
         baoCaoBanGiamDoc: formData.baoCaoBanGiamDoc,
+        // Field-parity hệ thống cũ
+        senderIdNumber: formData.senderIdNumber || undefined,
+        senderIdIssueDate: formData.senderIdIssueDate || undefined,
+        senderIdIssuePlace: formData.senderIdIssuePlace || undefined,
+        senderIsAnonymous: formData.senderIsAnonymous,
+        loaiThongTin: formData.loaiThongTin || undefined,
+        soPhieuChuyen: formData.soPhieuChuyen || undefined,
+        ngayPhieuChuyen: formData.ngayPhieuChuyen || undefined,
+        ngayTiepNhanNguonTin: formData.ngayTiepNhanNguonTin || undefined,
+        toiDanhBanDau: formData.toiDanhBanDau || undefined,
+        crimeChinhId: formData.crimeChinhId || undefined,
+        noiXayRa: formData.noiXayRa || undefined,
+        ngayGiaoDonViGiaiQuyet: formData.ngayGiaoDonViGiaiQuyet || undefined,
+        laCongNgheCao: formData.laCongNgheCao,
+        lanhDaoToTung: formData.lanhDaoToTung || undefined,
+        ketQuaXuLyKhac: formData.ketQuaXuLyKhac || undefined,
       };
       if (isEditMode) {
         await api.put(`/petitions/${id}`, { ...payload, expectedUpdatedAt: recordUpdatedAt ?? undefined });
@@ -346,6 +405,23 @@ export function PetitionFormPage() {
             <h2 className="font-bold text-slate-800">Thông tin người gửi đơn</h2>
           </div>
           <div className="p-6 space-y-4">
+            <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+              <input
+                type="checkbox"
+                checked={formData.senderIsAnonymous}
+                onChange={(e) => {
+                  const anon = e.target.checked;
+                  setFormData((prev) => ({
+                    ...prev,
+                    senderIsAnonymous: anon,
+                    ...(anon && { senderName: "", senderPhone: "", senderIdNumber: "", senderIdIssueDate: "", senderIdIssuePlace: "" }),
+                  }));
+                }}
+                className="w-4 h-4"
+                data-testid="field-senderIsAnonymous"
+              />
+              Đơn nặc danh / không rõ người gửi (bỏ qua bắt buộc SĐT, tội danh)
+            </label>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Họ và tên <span className="text-red-500">*</span></label>
@@ -379,6 +455,56 @@ export function PetitionFormPage() {
                   <input type="email" value={formData.senderEmail} onChange={(e) => update("senderEmail", e.target.value)} className="w-full pl-9 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Nhập email" data-testid="field-senderEmail" />
                 </div>
               </div>
+              {/* Giấy tờ tùy thân (CCCD) — field-parity */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Số CCCD nguyên đơn</label>
+                <input type="text" value={formData.senderIdNumber} onChange={(e) => update("senderIdNumber", e.target.value)} disabled={formData.senderIsAnonymous} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-100" placeholder="Số CCCD/CMND" maxLength={20} data-testid="field-senderIdNumber" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Ngày cấp CCCD</label>
+                <input type="date" value={formData.senderIdIssueDate} onChange={(e) => update("senderIdIssueDate", e.target.value)} max={today()} disabled={formData.senderIsAnonymous} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-100" data-testid="field-senderIdIssueDate" />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-slate-700 mb-2">Nơi cấp CCCD</label>
+                <input type="text" value={formData.senderIdIssuePlace} onChange={(e) => update("senderIdIssuePlace", e.target.value)} disabled={formData.senderIsAnonymous} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-100" placeholder="Nơi cấp CCCD" data-testid="field-senderIdIssuePlace" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Section: Tiếp nhận & luân chuyển nguồn tin — field-parity hệ thống cũ */}
+        <div className="bg-white rounded-lg border border-slate-200 shadow-sm">
+          <div className="border-b border-slate-200 px-6 py-4">
+            <h2 className="font-bold text-slate-800">Tiếp nhận &amp; luân chuyển nguồn tin</h2>
+          </div>
+          <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Loại thông tin</label>
+              <input type="text" value={formData.loaiThongTin} onChange={(e) => update("loaiThongTin", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Tố giác, trình báo, kiến nghị, phản ánh, khiếu nại..." data-testid="field-loaiThongTin" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Số phiếu chuyển / công văn / UTĐT</label>
+              <input type="text" value={formData.soPhieuChuyen} onChange={(e) => update("soPhieuChuyen", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Số phiếu chuyển từ đơn vị khác" data-testid="field-soPhieuChuyen" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Ngày phiếu chuyển</label>
+              <input type="date" value={formData.ngayPhieuChuyen} onChange={(e) => update("ngayPhieuChuyen", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" data-testid="field-ngayPhieuChuyen" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Ngày tiếp nhận nguồn tin</label>
+              <input type="date" value={formData.ngayTiepNhanNguonTin} onChange={(e) => update("ngayTiepNhanNguonTin", e.target.value)} max={today()} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" data-testid="field-ngayTiepNhanNguonTin" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Nơi xảy ra</label>
+              <input type="text" value={formData.noiXayRa} onChange={(e) => update("noiXayRa", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Địa điểm nơi xảy ra" data-testid="field-noiXayRa" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Ngày giao đơn vị giải quyết</label>
+              <input type="date" value={formData.ngayGiaoDonViGiaiQuyet} onChange={(e) => update("ngayGiaoDonViGiaiQuyet", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" data-testid="field-ngayGiaoDonViGiaiQuyet" />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-slate-700 mb-2">Tội danh nhận định ban đầu</label>
+              <input type="text" value={formData.toiDanhBanDau} onChange={(e) => update("toiDanhBanDau", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Nhận định tội danh ban đầu (free text)" data-testid="field-toiDanhBanDau" />
             </div>
           </div>
         </div>
@@ -443,6 +569,26 @@ export function PetitionFormPage() {
                 />
               </div>
             </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <CrimeSelect
+                  label="Tội danh chính (BLHS 2015)"
+                  required={!isEditMode && !formData.senderIsAnonymous}
+                  value={formData.crimeChinhId}
+                  onChange={(v) => update("crimeChinhId", v)}
+                  placeholder="Chọn tội danh chính"
+                  testId="field-crimeChinhId"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Lãnh đạo phụ trách tố tụng</label>
+                <input type="text" value={formData.lanhDaoToTung} onChange={(e) => update("lanhDaoToTung", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Tên lãnh đạo phụ trách ký tố tụng" data-testid="field-lanhDaoToTung" />
+              </div>
+            </div>
+            <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+              <input type="checkbox" checked={formData.laCongNgheCao} onChange={(e) => update("laCongNgheCao", e.target.checked)} className="w-4 h-4" data-testid="field-laCongNgheCao" />
+              Tội phạm công nghệ cao
+            </label>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">Tóm tắt nội dung <span className="text-red-500">*</span></label>
               <textarea value={formData.summary} onChange={(e) => update("summary", e.target.value)} rows={2} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Tóm tắt ngắn gọn nội dung đơn thư" data-testid="field-summary" />
@@ -458,6 +604,10 @@ export function PetitionFormPage() {
               </label>
               <input type="text" value={formData.attachmentsNote} onChange={(e) => update("attachmentsNote", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Liệt kê tài liệu đính kèm dạng ghi chú" data-testid="field-attachmentsNote" />
               <p className="text-xs text-slate-500 mt-1">File thực tế tải lên ở mục "Tài liệu đính kèm thực tế" bên dưới.</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Kết quả xử lý, giải quyết khác</label>
+              <textarea value={formData.ketQuaXuLyKhac} onChange={(e) => update("ketQuaXuLyKhac", e.target.value)} rows={2} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Các trường hợp xử lý, giải quyết khác" data-testid="field-ketQuaXuLyKhac" />
             </div>
           </div>
         </div>
