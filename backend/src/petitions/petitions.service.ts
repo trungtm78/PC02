@@ -603,6 +603,12 @@ export class PetitionsService {
       ...(dto.toiDanhBanDau !== undefined && { toiDanhBanDau: dto.toiDanhBanDau }),
       ...(dto.crimeChinhId !== undefined && { crimeChinhId: dto.crimeChinhId || null }),
       ...(dto.noiXayRa !== undefined && { noiXayRa: dto.noiXayRa }),
+      ...(dto.noiXayRaPhuongXa !== undefined && { noiXayRaPhuongXa: dto.noiXayRaPhuongXa }),
+      ...(dto.ngayXayRa !== undefined && {
+        ngayXayRa: dto.ngayXayRa ? new Date(dto.ngayXayRa) : null,
+      }),
+      ...(dto.loaiToiPham !== undefined && { loaiToiPham: dto.loaiToiPham }),
+      ...(dto.phuongThucThuDoan !== undefined && { phuongThucThuDoan: dto.phuongThucThuDoan }),
       ...(dto.ngayGiaoDonViGiaiQuyet !== undefined && {
         ngayGiaoDonViGiaiQuyet: dto.ngayGiaoDonViGiaiQuyet ? new Date(dto.ngayGiaoDonViGiaiQuyet) : null,
       }),

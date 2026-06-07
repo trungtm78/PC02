@@ -260,6 +260,28 @@ export class CreatePetitionDto {
   noiXayRa?: string;
 
   @IsOptional()
+  @Transform(({ value }) => stripHtmlTags(value))
+  @IsString()
+  @MaxLength(255)
+  noiXayRaPhuongXa?: string;
+
+  @IsOptional()
+  @IsDateString()
+  ngayXayRa?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => stripHtmlTags(value))
+  @IsString()
+  @MaxLength(100)
+  loaiToiPham?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => stripHtmlTags(value))
+  @IsString()
+  @MaxLength(1000)
+  phuongThucThuDoan?: string;
+
+  @IsOptional()
   @IsDateString()
   ngayGiaoDonViGiaiQuyet?: string;
 

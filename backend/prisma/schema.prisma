@@ -875,9 +875,13 @@ model Petition {
   soPhieuChuyen         String? // Số phiếu chuyển/công văn/UTĐT
   ngayPhieuChuyen       DateTime? // Ngày phiếu chuyển
   ngayTiepNhanNguonTin  DateTime? // Ngày tiếp nhận theo biên bản nguồn tin (khác receivedDate)
-  toiDanhBanDau         String? // Tội danh nhận định ban đầu (free text)
+  toiDanhBanDau         String? // Tội danh cũ trước đây (free text — legacy label)
   crimeChinhId          String? // FK → crimes (master Tội danh BLHS 2015) — tội danh chính
   noiXayRa              String? // Nơi xảy ra tội phạm
+  noiXayRaPhuongXa      String? // Nơi xảy ra (phường/xã) — chi tiết hơn noiXayRa
+  ngayXayRa             DateTime? // Ngày xảy ra tội phạm/sự việc
+  loaiToiPham           String? // Loại tội phạm: TTXH / Kinh tế-Ma túy / Khác
+  phuongThucThuDoan     String? // Phương thức, thủ đoạn phạm tội (free text)
   ngayGiaoDonViGiaiQuyet DateTime? // Ngày giao đơn vị giải quyết
   laCongNgheCao         Boolean   @default(false) // Tội phạm công nghệ cao
   lanhDaoToTung         String? // Lãnh đạo phụ trách tố tụng

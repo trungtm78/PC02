@@ -57,6 +57,10 @@ interface FormData {
   toiDanhBanDau: string;
   crimeChinhId: string;
   noiXayRa: string;
+  noiXayRaPhuongXa: string;
+  ngayXayRa: string;
+  loaiToiPham: string;
+  phuongThucThuDoan: string;
   ngayGiaoDonViGiaiQuyet: string;
   laCongNgheCao: boolean;
   lanhDaoToTung: string;
@@ -73,7 +77,8 @@ const INITIAL_FORM: FormData = {
   senderIdNumber: "", senderIdIssueDate: "", senderIdIssuePlace: "",
   senderIsAnonymous: false, loaiThongTin: "", soPhieuChuyen: "",
   ngayPhieuChuyen: "", ngayTiepNhanNguonTin: "", toiDanhBanDau: "",
-  crimeChinhId: "", noiXayRa: "", ngayGiaoDonViGiaiQuyet: "",
+  crimeChinhId: "", noiXayRa: "", noiXayRaPhuongXa: "", ngayXayRa: "",
+  loaiToiPham: "", phuongThucThuDoan: "", ngayGiaoDonViGiaiQuyet: "",
   laCongNgheCao: false, lanhDaoToTung: "", ketQuaXuLyKhac: "",
 };
 
@@ -180,6 +185,10 @@ export function PetitionFormPage() {
           toiDanhBanDau: (d.toiDanhBanDau as string) ?? "",
           crimeChinhId: (d.crimeChinhId as string) ?? "",
           noiXayRa: (d.noiXayRa as string) ?? "",
+          noiXayRaPhuongXa: (d.noiXayRaPhuongXa as string) ?? "",
+          ngayXayRa: toDateInput(d.ngayXayRa as string | null | undefined),
+          loaiToiPham: (d.loaiToiPham as string) ?? "",
+          phuongThucThuDoan: (d.phuongThucThuDoan as string) ?? "",
           ngayGiaoDonViGiaiQuyet: toDateInput(d.ngayGiaoDonViGiaiQuyet as string | null | undefined),
           laCongNgheCao: Boolean(d.laCongNgheCao),
           lanhDaoToTung: (d.lanhDaoToTung as string) ?? "",
@@ -275,6 +284,10 @@ export function PetitionFormPage() {
         toiDanhBanDau: formData.toiDanhBanDau || undefined,
         crimeChinhId: formData.crimeChinhId || undefined,
         noiXayRa: formData.noiXayRa || undefined,
+        noiXayRaPhuongXa: formData.noiXayRaPhuongXa || undefined,
+        ngayXayRa: formData.ngayXayRa || undefined,
+        loaiToiPham: formData.loaiToiPham || undefined,
+        phuongThucThuDoan: formData.phuongThucThuDoan || undefined,
         ngayGiaoDonViGiaiQuyet: formData.ngayGiaoDonViGiaiQuyet || undefined,
         laCongNgheCao: formData.laCongNgheCao,
         lanhDaoToTung: formData.lanhDaoToTung || undefined,
@@ -499,12 +512,33 @@ export function PetitionFormPage() {
               <input type="text" value={formData.noiXayRa} onChange={(e) => update("noiXayRa", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Địa điểm nơi xảy ra" data-testid="field-noiXayRa" />
             </div>
             <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Nơi xảy ra (phường/xã)</label>
+              <input type="text" value={formData.noiXayRaPhuongXa} onChange={(e) => update("noiXayRaPhuongXa", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Phường/xã nơi xảy ra" data-testid="field-noiXayRaPhuongXa" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Ngày xảy ra</label>
+              <input type="date" value={formData.ngayXayRa} onChange={(e) => update("ngayXayRa", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" data-testid="field-ngayXayRa" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Loại tội phạm</label>
+              <select value={formData.loaiToiPham} onChange={(e) => update("loaiToiPham", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" data-testid="field-loaiToiPham">
+                <option value="">-- Chọn loại tội phạm --</option>
+                <option value="TTXH">TTXH</option>
+                <option value="Kinh tế-Ma túy">Kinh tế-Ma túy</option>
+                <option value="Khác">Khác</option>
+              </select>
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-slate-700 mb-2">Phương thức, thủ đoạn</label>
+              <textarea value={formData.phuongThucThuDoan} onChange={(e) => update("phuongThucThuDoan", e.target.value)} rows={3} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" placeholder="Nhập phương thức thủ đoạn" data-testid="field-phuongThucThuDoan" />
+            </div>
+            <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">Ngày giao đơn vị giải quyết</label>
               <input type="date" value={formData.ngayGiaoDonViGiaiQuyet} onChange={(e) => update("ngayGiaoDonViGiaiQuyet", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" data-testid="field-ngayGiaoDonViGiaiQuyet" />
             </div>
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-slate-700 mb-2">Tội danh nhận định ban đầu</label>
-              <input type="text" value={formData.toiDanhBanDau} onChange={(e) => update("toiDanhBanDau", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Nhận định tội danh ban đầu (free text)" data-testid="field-toiDanhBanDau" />
+              <label className="block text-sm font-medium text-slate-700 mb-2">Tội danh cũ trước đây</label>
+              <input type="text" value={formData.toiDanhBanDau} onChange={(e) => update("toiDanhBanDau", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Tội danh cũ (free text)" data-testid="field-toiDanhBanDau" />
             </div>
           </div>
         </div>
