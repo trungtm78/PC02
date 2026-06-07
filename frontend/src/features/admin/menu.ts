@@ -17,6 +17,13 @@ export const adminMenu: FeatureMenuEntry[] = [
   },
   {
     section: 'admin',
+    id: 'legacy-migration',
+    label: 'Di trú dữ liệu cũ',
+    path: '/admin/di-tru-du-lieu',
+    icon: 'Database',
+  },
+  {
+    section: 'admin',
     id: 'admin-settings',
     label: 'Cấu hình admin',
     path: '/admin/settings',

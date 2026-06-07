@@ -10,6 +10,7 @@ const VersionDecisionPage = lazy(() => import('@/pages/admin/deadline-rules/Vers
 const ApprovalQueuePage = lazy(() => import('@/pages/admin/deadline-rules/ApprovalQueuePage'));
 const DeadlineRuleHistoryPage = lazy(() => import('@/pages/admin/deadline-rules/DeadlineRuleHistoryPage'));
 const MigrationCleanupPage = lazy(() => import('@/pages/admin/deadline-rules/MigrationCleanupPage'));
+const LegacyMigrationPage = lazy(() => import('@/pages/admin/LegacyMigrationPage'));
 
 const wrap = (node: ReactElement): ReactElement => (
   <Suspense fallback={null}>{node}</Suspense>
@@ -18,6 +19,7 @@ const wrap = (node: ReactElement): ReactElement => (
 export function renderAdminRoutes(): ReactElement[] {
   return [
     <Route key="users" path="/nguoi-dung" element={wrap(<UserManagementPage />)} />,
+    <Route key="legacy-migration" path="/admin/di-tru-du-lieu" element={wrap(<LegacyMigrationPage />)} />,
     <Route key="admin-settings" path="/admin/settings" element={wrap(<AdminSettingsPage />)} />,
     <Route key="admin-restore" path="/admin/khoi-phuc" element={wrap(<RestorePage />)} />,
     // Deadline Rule Versioning workflow
