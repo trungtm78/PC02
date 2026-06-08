@@ -284,7 +284,7 @@ export function PetitionFormPage() {
     if (!formData.petitionType || !VALID_PETITION_TYPES.includes(formData.petitionType)) {
       newErrors.push("Loại đơn thư là bắt buộc");
     }
-    if (!formData.priority) newErrors.push("Mức độ ưu tiên là bắt buộc");
+    // priority là optional theo backend DTO (@IsOptional)
     if (!formData.summary.trim()) newErrors.push("Tóm tắt nội dung là bắt buộc");
     if (!formData.detailContent.trim()) newErrors.push("Nội dung chi tiết là bắt buộc");
     if (formData.senderEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.senderEmail))
@@ -696,7 +696,6 @@ export function PetitionFormPage() {
               <div>
                 <FKSelect
                   label="Mức độ ưu tiên"
-                  required
                   masterClassType="03"
                   value={formData.priority}
                   onChange={(v) => update("priority", v)}
