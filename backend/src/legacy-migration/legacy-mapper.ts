@@ -338,6 +338,47 @@ export function buildCaseStatistic(rec: LegacyRecord): Record<string, unknown> |
   return Object.keys(stat).length > 0 ? stat : undefined;
 }
 
+// Tập key cột HỆ CŨ mà mapper ĐỌC vào cột typed (queryable). Dùng cho field-coverage matrix (PR-M4)
+// để phân biệt "đã map sang cột" vs "chỉ giữ trong legacyRaw". PHẢI cập nhật khi builder đọc thêm key.
+// LƯU Ý (Codex P1#5): đây là registry theo GIẢ ĐỊNH tên cột cũ — coverage chỉ provisional cho tới khi
+// chạy trên data thật (PR-M4 real-data: information_schema).
+export const MAPPED_LEGACY_KEYS: ReadonlySet<string> = new Set([
+  // discriminator + định danh
+  'id', 'phan_loai_nguon_tin_ban_dau',
+  // Petition / tiếp nhận chung
+  'ten_ca_nhan_co_quan_to_chuc_cung_cap', 'so_dien_thoai_nguyen_don', 'sinh_nam_nguoi_to_giac',
+  'so_cccd_nguyen_don', 'ngay_cap_cccd_nguyen_don', 'noi_cap_cccd_nguyen_don', 'dia-chi-bi-hai',
+  'nghi_van_doi_tuong', 'tom_tat_noi_dung', 'do_vat_tai_lieu_kem_theo', 'nguon_don', 'loai_thong_tin',
+  'so_phieu_chuyen', 'ngay_phieu_chuyen', 'ngay_tiep_nhan_nguon_tin', 'toi-danh-ban-dau',
+  'toi_danh_chinh_blhs2015', 'noi_xay_ra', 'noi_xay_ra_phuong_xa', 'ngay_xay_ra', 'loai_toi_pham',
+  'phuong_thuc_thu_doan', 'ngay_giao_don_vi_giai_quyet', 'lanh_dao_to_tung',
+  'ket_qua_xu_ly_giai_quyet_khac', 'ngay_de_xuat', 'ngay_viet_don', 'nhan_xet', 'ghi_chu_trung_don',
+  'phan_loai_toi_pham_cong_nghe_cao', 'truong_hop_bao_cao_ban_giam_doc', 'thoi_han_thuc_hien_uy_thac_dieu_tra',
+  // Incident / TĐC nguồn tin
+  'don_vi_giai_quyet', 'quyet_dinh_phan_cong_giai_quyet_nguon_tin', 'ngay_ra_quyet_dinh_phan_cong_tin_bao',
+  'can_cu_ra_quyet_dinh_khong_khoi_to', 'can_cu_tam_dinh_chi_nguon_tin', 'phan_loai_dan_su',
+  'quyet_dinh_tam_dinh_chi_nguon_tin', 'ngay_tam_dinh_chi_nguon_tin', 'phuc_hoi_nguon_tin_toi_pham',
+  'ngay_phuc_hoi_nguon_tin', 'ngay_thang_nam_het_thoi_hieu_vu_viec', 'tien_do_khac_phuc_tdc',
+  'vu_viec_chuyen_don_vi_khac',
+  // Case / vụ án
+  'quyet_dinh_khoi_to_vu_an', 'ngay_quyet_dinh_khoi_to_vu_an', 'quyet_dinh_nhap_vu_an', 'ngay_nhap_vu_an',
+  'ghi_chu_nhap_ho_so', 'quyet_dinh_tach_vu_an', 'ngay_tach_ho_so', 'dinh_chi_vu_an',
+  'ngay_quyet_dinh_dinh_chi_vu_an', 'chuyen_vu_an_cho_co_quan_khac', 'so_ban_an_co_hieu_luc',
+  'ngay_ban_an_co_hieu_luc', 'toi_danh_chinh', 'ket_luan_dieu_tra_vu_an', 'ngay_ket_luan_dieu_tra',
+  'quyet_dinh_dieu_tra_lai', 'ngay_quyet_dinh_dieu_tra_lai', 'quyet_dinh_tach_hanh_vi',
+  'ngay-quyet-dinh-tach-hanh-vi', 'can_cu_tam_dinh_chi_vu_an', 'can_cu_phuc_hoi_dieu_tra_vu_an', 'ghi_chu_khac',
+  // CaseStatistic
+  'so_luong_bi_hai', 'so_nguoi_bi_thuong', 'so_luong_nguoi_chet', 'so_tien_bi_thiet_hai', 'so_tien_thu_hoi',
+  'so_sung_thu_hoi', 'so_thuoc_no_thu_hoi', 'so_doi_tuong_da_bat', 'so_doi_tuong_bi_bat_vu_an_khac',
+  'dieu_tra_mo_rong', 'so_bang_nhom_bat_duoc', 'co_ghi_am_ghi_hinh', 'la_vu_an_ghi_am_ghi_hinh', 'co_vphc',
+  'co_bang_nhom', 'xac_nhan_vu_an_da_duoc_xet_xu', 'ghi_am_ghi_hinh_da_duoc_xet_xu',
+  'vu_an_co_su_dung_kqghi_am_trong_xet_xu', 'vu_an_khong_gagh_nhung_toa_yeu_cau', 'so_dang_ky_ho_so',
+  'ngay_dang_ky_ho_so', 'ho_so_luu', 'ngay_nop_luu_ho_so', 'don_vi_bao_quan_ho_so',
+  // Ủy thác điều tra
+  'don_vi_uy_thac', 'so_quyet_dinh_uy_thac', 'ngay_tiep_nhan_uy_thac', 'ket_qua_uy_thac',
+  'ngay_tra_ket_qua_uy_thac',
+]);
+
 export function decomposeLegacyRecord(rec: LegacyRecord): DecomposedEntities {
   const warnings: string[] = [];
   const phanLoai = s(rec.phan_loai_nguon_tin_ban_dau);

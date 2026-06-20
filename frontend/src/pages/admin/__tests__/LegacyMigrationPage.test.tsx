@@ -19,6 +19,18 @@ const apiState = {
     warnings: ['Loại luật sư ...'],
     duplicateLegacyIds: [],
     missingIdCount: 0,
+    fieldCoverage: {
+      totalRecords: 4,
+      distinctSourceKeys: 10,
+      mappedKeys: 8,
+      rawOnlyKeys: 2,
+      rawOnlyKeyNames: ['field_la', 'field_kia'],
+      typedCoverageRatio: 0.8,
+      rawCoverageRatio: 1,
+      lostKeyNames: [],
+      skippedRecords: 0,
+      provisional: true,
+    },
   },
   result: {
     created: { petitions: 0, incidents: 0, cases: 1, guidance: 1, exchanges: 1, proposals: 1, lawyers: 1 },
@@ -56,6 +68,34 @@ describe('LegacyMigrationPage — tier ③ (PR-M3)', () => {
     expect(report.textContent).toMatch(/Trao đổi/);
     expect(report.textContent).toMatch(/Kiến nghị/);
     expect(report.textContent).toMatch(/Luật sư/);
+  });
+
+  it('dry-run report hiển thị độ phủ field (typed coverage + raw-only) provisional', async () => {
+    render(<LegacyMigrationPage />);
+    fireEvent.change(screen.getByTestId('legacy-input'), {
+      target: { value: '[{"id":"L-1"}]' },
+    });
+    fireEvent.click(screen.getByTestId('legacy-dryrun-btn'));
+    const report = await screen.findByTestId('legacy-report');
+    expect(report.textContent).toMatch(/80%/); // typedCoverageRatio 0.8
+    expect(report.textContent).toMatch(/raw-only|tạm thời|provisional/i);
+  });
+
+  it('cảnh báo ĐỎ khi có record bị skip → field mất (skippedRecords > 0)', async () => {
+    apiState.report.fieldCoverage.skippedRecords = 2;
+    apiState.report.fieldCoverage.lostKeyNames = ['key_mat_1'];
+    apiState.report.fieldCoverage.rawCoverageRatio = 0.7;
+    try {
+      render(<LegacyMigrationPage />);
+      fireEvent.change(screen.getByTestId('legacy-input'), { target: { value: '[{"id":"L-1"}]' } });
+      fireEvent.click(screen.getByTestId('legacy-dryrun-btn'));
+      const warn = await screen.findByTestId('legacy-dataloss-warning');
+      expect(warn.textContent).toMatch(/mất|skip|key_mat_1/i);
+    } finally {
+      apiState.report.fieldCoverage.skippedRecords = 0;
+      apiState.report.fieldCoverage.lostKeyNames = [];
+      apiState.report.fieldCoverage.rawCoverageRatio = 1;
+    }
   });
 
   it('commit result hiển thị số tier ③ đã tạo', async () => {

@@ -14,6 +14,17 @@ interface DryRunReport {
   warnings: string[];
   duplicateLegacyIds: string[];
   missingIdCount: number;
+  fieldCoverage: {
+    distinctSourceKeys: number;
+    mappedKeys: number;
+    rawOnlyKeys: number;
+    rawOnlyKeyNames: string[];
+    typedCoverageRatio: number;
+    rawCoverageRatio: number;
+    lostKeyNames: string[];
+    skippedRecords: number;
+    provisional: boolean;
+  };
 }
 interface CommitResult {
   created: {
@@ -116,6 +127,24 @@ export function LegacyMigrationPage() {
           <p>Sẽ tạo: Đơn thư <b>{report.willCreatePetitions}</b> · Vụ việc <b>{report.willCreateIncidents}</b> · Vụ án <b>{report.willCreateCases}</b></p>
           <p>Tier ③: Hướng dẫn <b>{report.willCreateGuidance}</b> · Trao đổi <b>{report.willCreateExchanges}</b> · Kiến nghị <b>{report.willCreateProposals}</b> · Luật sư <b>{report.willCreateLawyers}</b></p>
           <p>Thiếu id: {report.missingIdCount} · Trùng legacyId: {report.duplicateLegacyIds.length}</p>
+          <p>
+            Độ phủ field (tạm thời/provisional): map sang cột{' '}
+            <b>{Math.round(report.fieldCoverage.typedCoverageRatio * 100)}%</b>{' '}
+            ({report.fieldCoverage.mappedKeys}/{report.fieldCoverage.distinctSourceKeys}) · raw-only{' '}
+            <b>{report.fieldCoverage.rawOnlyKeys}</b> (giữ trong legacyRaw, không mất data)
+          </p>
+          {report.fieldCoverage.rawOnlyKeyNames.length > 0 && (
+            <details className="ml-1">
+              <summary className="cursor-pointer text-slate-500">Cột raw-only (cân nhắc bổ sung cột)</summary>
+              <p className="text-xs text-slate-500 break-words">{report.fieldCoverage.rawOnlyKeyNames.join(', ')}</p>
+            </details>
+          )}
+          {report.fieldCoverage.skippedRecords > 0 && (
+            <p className="text-red-700 font-medium" data-testid="legacy-dataloss-warning">
+              ⚠ {report.fieldCoverage.skippedRecords} record bị bỏ qua (phân loại lạ/thiếu id) — field SẼ MẤT khi commit:{' '}
+              {report.fieldCoverage.lostKeyNames.slice(0, 30).join(', ')}
+            </p>
+          )}
           <p>Cảnh báo: {report.warningsCount}</p>
           {report.warnings.length > 0 && (
             <ul className="list-disc ml-5 text-amber-700 max-h-40 overflow-y-auto">
