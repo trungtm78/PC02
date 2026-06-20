@@ -49,6 +49,17 @@ describe('buildPetitionCreateData', () => {
     expect(data.loaiThongTin).toBe('Tố giác');
   });
 
+  it('GIỮ thoiHanUTDT khi create (fix bug rớt data — update có, create không)', () => {
+    const data = buildPetitionCreateData({ ...baseDto, thoiHanUTDT: '2026-06-30' }, ctx);
+    expect(data.thoiHanUTDT).toBeInstanceOf(Date);
+    expect((data.thoiHanUTDT as Date).toISOString()).toContain('2026-06-30');
+  });
+
+  it('thoiHanUTDT để trống → undefined (không Invalid Date)', () => {
+    const data = buildPetitionCreateData({ ...baseDto, thoiHanUTDT: undefined }, ctx);
+    expect(data.thoiHanUTDT).toBeUndefined();
+  });
+
   it('chuyển string ngày → Date', () => {
     const data = buildPetitionCreateData(baseDto, ctx);
     expect(data.receivedDate).toBeInstanceOf(Date);

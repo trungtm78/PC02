@@ -108,6 +108,33 @@ describe('mergeCaseApiToFormData — UTDT fields (caseProvenance=UY_THAC_DIEU_TR
   });
 });
 
+describe('mergeCaseApiToFormData — PR-M2 ghiChuKhac/toiDanhKhacIds + 3 cờ xét-xử', () => {
+  it('hydrates ghiChuKhac + toiDanhKhacIds từ top-level apiData', () => {
+    const result = mergeCaseApiToFormData(
+      { ...baseApi, ghiChuKhac: 'Ghi chú cũ', toiDanhKhacIds: ['D173', 'D174'] },
+      INITIAL_FORM_DATA,
+    );
+    expect(result.ghiChuKhac).toBe('Ghi chú cũ');
+    expect(result.toiDanhKhacIds).toEqual(['D173', 'D174']);
+  });
+
+  it('toiDanhKhacIds vắng → fallback prev (không vỡ thành chuỗi)', () => {
+    const prev = { ...INITIAL_FORM_DATA, toiDanhKhacIds: ['X1'] };
+    const result = mergeCaseApiToFormData({ ...baseApi }, prev);
+    expect(result.toiDanhKhacIds).toEqual(['X1']);
+  });
+
+  it('3 cờ xét-xử từ statistic → boolean (không phải chuỗi "true")', () => {
+    const result = mergeCaseApiToFormData(
+      { ...baseApi, statistic: { ghiAmGhiHinhDaDuocXetXu: true, coSuDungKQGhiAmTrongXetXu: false, khongGAGHNhungToaYeuCau: true } },
+      INITIAL_FORM_DATA,
+    );
+    expect(result.statistic.ghiAmGhiHinhDaDuocXetXu).toBe(true);
+    expect(result.statistic.coSuDungKQGhiAmTrongXetXu).toBe(false);
+    expect(result.statistic.khongGAGHNhungToaYeuCau).toBe(true);
+  });
+});
+
 describe('mergeCaseApiToFormData — FP Case số QĐ giai đoạn', () => {
   it('hydrates soQuyetDinhKhoiTo from top-level apiData', () => {
     const result = mergeCaseApiToFormData(

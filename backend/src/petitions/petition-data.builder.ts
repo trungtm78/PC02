@@ -81,5 +81,7 @@ export function buildPetitionCreateData(
     laCongNgheCao: dto.laCongNgheCao ?? false,
     lanhDaoToTung: dto.lanhDaoToTung,
     ketQuaXuLyKhac: dto.ketQuaXuLyKhac,
+    // Fix bug rớt data: update ghi thoiHanUTDT (petitions.service ~618) nhưng create builder bỏ sót → mất khi tạo.
+    thoiHanUTDT: toDate(dto.thoiHanUTDT),
   };
 }

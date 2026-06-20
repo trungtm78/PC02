@@ -153,6 +153,9 @@ export interface CaseFormData {
   ngayBanAnCoHieuLuc: string;  // Ngày bản án có hiệu lực pháp luật
   canCuTamDinhChiVuAn: string; // Căn cứ tạm đình chỉ vụ án
   canCuPhucHoiVuAn: string;    // Căn cứ phục hồi điều tra vụ án
+  // ── PR-M2: ghi chú tự do + tội danh khác cấp vụ án (multi crime id) ──────
+  ghiChuKhac: string;          // Ghi chú khác (free text)
+  toiDanhKhacIds: string[];    // Tội danh khác (mảng crime id)
 
   // ── Tab 3: Vụ án ────────────────────────────────────────────────────────
   criminalCode: string;
@@ -250,6 +253,8 @@ export interface CaseStatisticForm {
   // Field-parity hệ thống cũ — bị hại, thiệt hại, xét xử
   soLuongBiHai: string; soNguoiBiThuong: string; soLuongNguoiChet: string;
   soTienBiThietHai: string; soTienThuHoi: string; vuAnDaDuocXetXu: boolean;
+  // PR-M2 (Codex P1#9): 3 cờ xét-xử RIÊNG
+  ghiAmGhiHinhDaDuocXetXu: boolean; coSuDungKQGhiAmTrongXetXu: boolean; khongGAGHNhungToaYeuCau: boolean;
   ngayThongKe: string; ngayPhanCongGiaiQuyetToGiac: string; ngayTiepNhanTin: string; ngayDauThu: string;
   ngayPhamToiQuaTang: string; ngayBatKhanCap: string; ngayPhatHienDauHieu: string;
 }
@@ -264,6 +269,7 @@ export const INITIAL_CASE_STATISTIC: CaseStatisticForm = {
   coBangNhom: false, soBangNhomBatDuoc: "", soSungThuHoi: "", soThuocNoThuHoi: "", soDoiTuongSuuTraHiemNghi: "",
   soLuongBiHai: "", soNguoiBiThuong: "", soLuongNguoiChet: "",
   soTienBiThietHai: "", soTienThuHoi: "", vuAnDaDuocXetXu: false,
+  ghiAmGhiHinhDaDuocXetXu: false, coSuDungKQGhiAmTrongXetXu: false, khongGAGHNhungToaYeuCau: false,
   ngayThongKe: "", ngayPhanCongGiaiQuyetToGiac: "", ngayTiepNhanTin: "", ngayDauThu: "",
   ngayPhamToiQuaTang: "", ngayBatKhanCap: "", ngayPhatHienDauHieu: "",
 };
@@ -354,6 +360,8 @@ export const INITIAL_FORM_DATA: CaseFormData = {
   soQDDinhChiVuAn: "", ngayDinhChiVuAn: "", chuyenVuAnChoCQK: "",
   soBanAnCoHieuLuc: "", ngayBanAnCoHieuLuc: "",
   canCuTamDinhChiVuAn: "", canCuPhucHoiVuAn: "",
+  // PR-M2: ghi chú tự do + tội danh khác
+  ghiChuKhac: "", toiDanhKhacIds: [],
   // Tab 3
   criminalCode: "",
   criminalDate: "",

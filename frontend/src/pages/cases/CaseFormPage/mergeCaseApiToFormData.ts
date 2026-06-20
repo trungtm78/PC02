@@ -8,6 +8,8 @@ const STAT_DATE_KEYS = new Set([
 ]);
 const STAT_BOOL_KEYS = new Set([
   'coGhiAmGhiHinh', 'laVuAnGhiAmGhiHinh', 'vksYeuCauGhiAm', 'coVPHC', 'coBangNhom',
+  // PR-M2: vuAnDaDuocXetXu (sửa luôn round-trip cũ) + 3 cờ xét-xử riêng
+  'vuAnDaDuocXetXu', 'ghiAmGhiHinhDaDuocXetXu', 'coSuDungKQGhiAmTrongXetXu', 'khongGAGHNhungToaYeuCau',
 ]);
 
 // API CaseStatistic record → CaseStatisticForm (số→string, ngày→date input, bool→bool).
@@ -227,5 +229,8 @@ export function mergeCaseApiToFormData(
     ngayBanAnCoHieuLuc:  apiData.ngayBanAnCoHieuLuc ? toDateInput(apiData.ngayBanAnCoHieuLuc as string) : prev.ngayBanAnCoHieuLuc,
     canCuTamDinhChiVuAn: (apiData.canCuTamDinhChiVuAn as string) ?? prev.canCuTamDinhChiVuAn,
     canCuPhucHoiVuAn:    (apiData.canCuPhucHoiVuAn as string)    ?? prev.canCuPhucHoiVuAn,
+    // PR-M2: ghi chú tự do + tội danh khác (multi)
+    ghiChuKhac:     (apiData.ghiChuKhac as string) ?? prev.ghiChuKhac,
+    toiDanhKhacIds: Array.isArray(apiData.toiDanhKhacIds) ? (apiData.toiDanhKhacIds as string[]) : prev.toiDanhKhacIds,
   };
 }

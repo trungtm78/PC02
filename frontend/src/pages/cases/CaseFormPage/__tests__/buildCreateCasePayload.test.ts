@@ -266,3 +266,36 @@ describe('buildCreateCasePayload — v0.39 input-mask formatting boundary', () =
     expect(payload.subjects?.[0].phone).toBe('0901234567');
   });
 });
+
+describe('buildCreateCasePayload — PR-M2 ghiChuKhac/toiDanhKhacIds + 3 cờ xét-xử', () => {
+  it('gửi ghiChuKhac + toiDanhKhacIds khi có giá trị', () => {
+    const payload = buildCreateCasePayload({
+      ...baseValid,
+      ghiChuKhac: 'Ghi chú tự do',
+      toiDanhKhacIds: ['D173', 'D174'],
+    });
+    expect(payload.ghiChuKhac).toBe('Ghi chú tự do');
+    expect(payload.toiDanhKhacIds).toEqual(['D173', 'D174']);
+  });
+
+  it('KHÔNG gửi toiDanhKhacIds khi mảng rỗng', () => {
+    const payload = buildCreateCasePayload({ ...baseValid, toiDanhKhacIds: [] });
+    expect('toiDanhKhacIds' in payload).toBe(false);
+  });
+
+  it('3 cờ xét-xử true → vào payload.statistic; false → bỏ qua', () => {
+    const payload = buildCreateCasePayload({
+      ...baseValid,
+      statistic: {
+        ...baseValid.statistic,
+        ghiAmGhiHinhDaDuocXetXu: true,
+        coSuDungKQGhiAmTrongXetXu: false,
+        khongGAGHNhungToaYeuCau: true,
+      },
+    });
+    const stat = payload.statistic as Record<string, unknown>;
+    expect(stat.ghiAmGhiHinhDaDuocXetXu).toBe(true);
+    expect(stat.khongGAGHNhungToaYeuCau).toBe(true);
+    expect('coSuDungKQGhiAmTrongXetXu' in stat).toBe(false); // false không gửi (giữ nullable)
+  });
+});

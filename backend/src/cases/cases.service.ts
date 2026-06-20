@@ -862,6 +862,14 @@ export class CasesService {
       ...(dto.ngayBanAnCoHieuLuc !== undefined && { ngayBanAnCoHieuLuc: dto.ngayBanAnCoHieuLuc ? new Date(dto.ngayBanAnCoHieuLuc) : null }),
       ...(dto.canCuTamDinhChiVuAn !== undefined && { canCuTamDinhChiVuAn: dto.canCuTamDinhChiVuAn }),
       ...(dto.canCuPhucHoiVuAn !== undefined && { canCuPhucHoiVuAn: dto.canCuPhucHoiVuAn }),
+      // ── Field-parity KLĐT + QĐ điều tra lại (PR-M2: trước đây RỚT ở create — update có) ──
+      ...(dto.soKLDT !== undefined && { soKLDT: dto.soKLDT }),
+      ...(dto.ngayKLDT !== undefined && { ngayKLDT: dto.ngayKLDT ? new Date(dto.ngayKLDT) : null }),
+      ...(dto.soQDDieuTraLai !== undefined && { soQDDieuTraLai: dto.soQDDieuTraLai }),
+      ...(dto.ngayQDDieuTraLai !== undefined && { ngayQDDieuTraLai: dto.ngayQDDieuTraLai ? new Date(dto.ngayQDDieuTraLai) : null }),
+      // ── PR-M2: ghi chú tự do + tội danh khác (multi) ──
+      ...(dto.ghiChuKhac !== undefined && { ghiChuKhac: dto.ghiChuKhac }),
+      ...(dto.toiDanhKhacIds !== undefined && { toiDanhKhacIds: dto.toiDanhKhacIds }),
       ...(scrubbedMetadata !== undefined && { metadata: scrubbedMetadata as JsonInput }),
       caseProvenance: effectiveProvenance, // v0.37.2: required (Contract phase enforces non-null)
       ...(dto.sourceDocumentNote !== undefined && { sourceDocumentNote: dto.sourceDocumentNote }),
@@ -1207,6 +1215,9 @@ export class CasesService {
       ...(dto.ngayKLDT !== undefined && { ngayKLDT: dto.ngayKLDT ? new Date(dto.ngayKLDT) : null }),
       ...(dto.soQDDieuTraLai !== undefined && { soQDDieuTraLai: dto.soQDDieuTraLai }),
       ...(dto.ngayQDDieuTraLai !== undefined && { ngayQDDieuTraLai: dto.ngayQDDieuTraLai ? new Date(dto.ngayQDDieuTraLai) : null }),
+      // ── PR-M2: ghi chú tự do + tội danh khác (multi) ──
+      ...(dto.ghiChuKhac !== undefined && { ghiChuKhac: dto.ghiChuKhac }),
+      ...(dto.toiDanhKhacIds !== undefined && { toiDanhKhacIds: dto.toiDanhKhacIds }),
       // ── TĐC fields ──────────────────────────────────────────────────────────
       ...((dto as Record<string, unknown>).lyDoTamDinhChiVuAn !== undefined && {
         lyDoTamDinhChiVuAn: (dto as Record<string, unknown>).lyDoTamDinhChiVuAn as LyDoTamDinhChiVuAn | null,

@@ -212,6 +212,9 @@ export class CreateCaseDto {
   @IsOptional() @IsDateString() ngayKLDT?: string;
   @IsOptional() @IsString() soQDDieuTraLai?: string;
   @IsOptional() @IsDateString() ngayQDDieuTraLai?: string;
+  // PR-M2 — ghi chú tự do + tội danh khác cấp vụ án (multi crime id)
+  @IsOptional() @IsString() @MaxLength(5000) ghiChuKhac?: string;
+  @IsOptional() @IsArray() @IsString({ each: true }) toiDanhKhacIds?: string[];
 
   // v0.37.2 — Provenance model (Deploy-2 Contract: REQUIRED)
   // BLTTHS Đ.143 source classification — required for every Case.

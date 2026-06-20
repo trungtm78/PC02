@@ -535,6 +535,48 @@ describe('CasesService', () => {
       );
     });
 
+    // PR-M2: field-parity Case mới (ghiChuKhac/toiDanhKhacIds) + fix rớt-data soKLDT/soQDDieuTraLai ở create.
+    it('persists ghiChuKhac/toiDanhKhacIds + KLĐT/điều-tra-lại fields khi create (chống rớt-data)', async () => {
+      const tx = {
+        case: { create: jest.fn().mockResolvedValue({ ...mockCase, caseProvenance: 'DIRECT_DISCOVERY' }) },
+        incident: {
+          findFirst: jest.fn().mockResolvedValue(null),
+          findUnique: jest.fn().mockResolvedValue(null),
+          create: jest.fn(),
+          update: jest.fn(),
+        },
+        documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
+      };
+      mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
+
+      await service.create(
+        {
+          ...baseProvenanceDto,
+          caseProvenance: 'DIRECT_DISCOVERY' as any,
+          ghiChuKhac: 'Ghi chú tự do từ hệ cũ',
+          toiDanhKhacIds: ['crime-1', 'crime-2'],
+          soKLDT: 'KLĐT-2026-01',
+          ngayKLDT: '2026-06-01',
+          soQDDieuTraLai: 'QĐ-ĐTL-2026-01',
+          ngayQDDieuTraLai: '2026-06-02',
+        } as any,
+        'actor-001',
+      );
+
+      expect(tx.case.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            ghiChuKhac: 'Ghi chú tự do từ hệ cũ',
+            toiDanhKhacIds: ['crime-1', 'crime-2'],
+            soKLDT: 'KLĐT-2026-01',
+            ngayKLDT: expect.any(Date),
+            soQDDieuTraLai: 'QĐ-ĐTL-2026-01',
+            ngayQDDieuTraLai: expect.any(Date),
+          }),
+        }),
+      );
+    });
+
     // ── auto-create Incident from Case Tab Vụ việc (v0.40) ──────────────────
     describe('auto-create Incident from Case Tab Vụ việc', () => {
       const year = new Date().getFullYear();

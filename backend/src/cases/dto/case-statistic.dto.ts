@@ -44,6 +44,10 @@ export class CaseStatisticDto {
   @IsOptional() @IsNumber() @Min(0) soTienBiThietHai?: number;
   @IsOptional() @IsNumber() @Min(0) soTienThuHoi?: number;
   @IsOptional() @IsBoolean() vuAnDaDuocXetXu?: boolean;
+  // PR-M2 (Codex P1#9): 3 cờ xét-xử RIÊNG — KHÔNG reuse vuAnDaDuocXetXu/coGhiAmGhiHinh (khác ngữ nghĩa).
+  @IsOptional() @IsBoolean() ghiAmGhiHinhDaDuocXetXu?: boolean;
+  @IsOptional() @IsBoolean() coSuDungKQGhiAmTrongXetXu?: boolean;
+  @IsOptional() @IsBoolean() khongGAGHNhungToaYeuCau?: boolean;
 
   // Mốc thời gian thống kê
   @IsOptional() @IsDateString() ngayThongKe?: string;

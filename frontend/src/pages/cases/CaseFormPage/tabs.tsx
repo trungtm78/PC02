@@ -839,6 +839,27 @@ export function TabCase({ formData, setFormData, errors, setErrors }: TabProps) 
           onChange={(v) => update("canCuPhucHoiVuAn", v)}
           placeholder="Căn cứ pháp lý phục hồi điều tra"
         />
+        {/* PR-M2 — field-parity: tội danh khác (multi) + ghi chú tự do */}
+        <FormInput
+          label="Tội danh khác (mã, cách nhau dấu phẩy)"
+          value={formData.toiDanhKhacIds.join(", ")}
+          onChange={(v) =>
+            setFormData((prev) => ({
+              ...prev,
+              toiDanhKhacIds: v
+                .split(",")
+                .map((s) => s.trim())
+                .filter(Boolean),
+            }))
+          }
+          placeholder="VD: D173, D174"
+        />
+        <FormInput
+          label="Ghi chú khác"
+          value={formData.ghiChuKhac}
+          onChange={(v) => update("ghiChuKhac", v)}
+          placeholder="Ghi chú tự do (di trú từ hệ thống cũ)"
+        />
       </div>
     </Card>
   );
@@ -1537,6 +1558,9 @@ export function TabStatistics({ formData, setFormData }: TabProps) {
               <CSNum label="Tiền bị thiệt hại (VNĐ)" v={cs.soTienBiThietHai} on={(x)=>updateStat("soTienBiThietHai",x)} t="cs-soTienBiThietHai" />
               <CSNum label="Tiền thu hồi (VNĐ)" v={cs.soTienThuHoi} on={(x)=>updateStat("soTienThuHoi",x)} t="cs-soTienThuHoi" />
               <CSBool label="Vụ án đã được xét xử" v={cs.vuAnDaDuocXetXu} on={(x)=>updateStat("vuAnDaDuocXetXu",x)} t="cs-vuAnDaDuocXetXu" />
+              <CSBool label="Ghi âm-ghi hình đã được xét xử" v={cs.ghiAmGhiHinhDaDuocXetXu} on={(x)=>updateStat("ghiAmGhiHinhDaDuocXetXu",x)} t="cs-ghiAmGhiHinhDaDuocXetXu" />
+              <CSBool label="Có sử dụng KQ ghi âm trong xét xử" v={cs.coSuDungKQGhiAmTrongXetXu} on={(x)=>updateStat("coSuDungKQGhiAmTrongXetXu",x)} t="cs-coSuDungKQGhiAmTrongXetXu" />
+              <CSBool label="Không GAGH nhưng tòa yêu cầu" v={cs.khongGAGHNhungToaYeuCau} on={(x)=>updateStat("khongGAGHNhungToaYeuCau",x)} t="cs-khongGAGHNhungToaYeuCau" />
             </div>
           </fieldset>
           {/* Mốc thời gian thống kê */}

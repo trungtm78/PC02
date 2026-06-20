@@ -279,6 +279,9 @@ export function buildCreateCasePayload(
   if (formData.ngayBanAnCoHieuLuc)  payload.ngayBanAnCoHieuLuc = formData.ngayBanAnCoHieuLuc;
   if (formData.canCuTamDinhChiVuAn) payload.canCuTamDinhChiVuAn = formData.canCuTamDinhChiVuAn;
   if (formData.canCuPhucHoiVuAn)    payload.canCuPhucHoiVuAn = formData.canCuPhucHoiVuAn;
+  // PR-M2: ghi chú tự do + tội danh khác (multi)
+  if (formData.ghiChuKhac)                       payload.ghiChuKhac = formData.ghiChuKhac;
+  if (formData.toiDanhKhacIds && formData.toiDanhKhacIds.length > 0) payload.toiDanhKhacIds = formData.toiDanhKhacIds;
 
   // PR 1 v0.38.0.0 — Wire sub-entity arrays vào payload (atomic create)
   // HOTFIX (codex P1 post-merge): chỉ include subjects với crimeId hợp lệ +
@@ -352,6 +355,8 @@ const STAT_NUM_FIELDS = new Set([
 ]);
 const STAT_BOOL_FIELDS = new Set([
   'coGhiAmGhiHinh', 'laVuAnGhiAmGhiHinh', 'vksYeuCauGhiAm', 'coVPHC', 'coBangNhom', 'vuAnDaDuocXetXu',
+  // PR-M2: 3 cờ xét-xử riêng
+  'ghiAmGhiHinhDaDuocXetXu', 'coSuDungKQGhiAmTrongXetXu', 'khongGAGHNhungToaYeuCau',
 ]);
 
 export function buildStatisticPayload(s: Record<string, unknown>): Record<string, unknown> {

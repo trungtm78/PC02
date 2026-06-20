@@ -115,4 +115,43 @@ describe('CaseStatisticDto — field-parity hệ thống cũ (bị hại, thiệ
       expect(errors.find((e) => e.property === field)).toBeUndefined();
     });
   });
+
+  // PR-M2 (Codex P1#9) — 3 cờ xét-xử RIÊNG
+  it.each([
+    ['ghiAmGhiHinhDaDuocXetXu', true],
+    ['coSuDungKQGhiAmTrongXetXu', false],
+    ['khongGAGHNhungToaYeuCau', true],
+  ])('accepts boolean %s', async (field, val) => {
+    const dto = plainToInstance(CaseStatisticDto, { [field]: val });
+    const errors = await validate(dto);
+    expect(errors.find((e) => e.property === field)).toBeUndefined();
+  });
+
+  it('reject giá trị không phải boolean cho 3 cờ xét-xử', async () => {
+    const dto = plainToInstance(CaseStatisticDto, { ghiAmGhiHinhDaDuocXetXu: 'yes' as any });
+    const errors = await validate(dto);
+    expect(errors.find((e) => e.property === 'ghiAmGhiHinhDaDuocXetXu')).toBeDefined();
+  });
+});
+
+describe('CreateCaseDto — PR-M2 ghiChuKhac + toiDanhKhacIds', () => {
+  const validBase = { name: 'Vụ án', caseProvenance: CaseProvenance.DIRECT_DISCOVERY };
+
+  it('accepts ghiChuKhac (ghi chú tự do)', async () => {
+    const dto = plainToInstance(CreateCaseDto, { ...validBase, ghiChuKhac: 'Ghi chú' });
+    const errors = await validate(dto);
+    expect(errors.find((e) => e.property === 'ghiChuKhac')).toBeUndefined();
+  });
+
+  it('accepts toiDanhKhacIds (mảng crime id)', async () => {
+    const dto = plainToInstance(CreateCaseDto, { ...validBase, toiDanhKhacIds: ['c1', 'c2'] });
+    const errors = await validate(dto);
+    expect(errors.find((e) => e.property === 'toiDanhKhacIds')).toBeUndefined();
+  });
+
+  it('reject toiDanhKhacIds chứa phần tử không phải string', async () => {
+    const dto = plainToInstance(CreateCaseDto, { ...validBase, toiDanhKhacIds: [1, 2] as any });
+    const errors = await validate(dto);
+    expect(errors.find((e) => e.property === 'toiDanhKhacIds')).toBeDefined();
+  });
 });
