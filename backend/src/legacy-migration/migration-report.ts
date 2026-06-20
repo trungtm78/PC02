@@ -6,6 +6,11 @@ export interface MigrationReport {
   willCreatePetitions: number;
   willCreateIncidents: number;
   willCreateCases: number;
+  // Tier ③ (PR-M3)
+  willCreateGuidance: number;
+  willCreateExchanges: number;
+  willCreateProposals: number;
+  willCreateLawyers: number;
   warningsCount: number;
   warnings: string[];
   duplicateLegacyIds: string[];
@@ -16,6 +21,10 @@ export function buildMigrationReport(records: LegacyRecord[]): MigrationReport {
   let petitions = 0;
   let incidents = 0;
   let cases = 0;
+  let guidance = 0;
+  let exchanges = 0;
+  let proposals = 0;
+  let lawyers = 0;
   const warnings: string[] = [];
   let missingIdCount = 0;
   const seen = new Map<string, number>();
@@ -29,6 +38,10 @@ export function buildMigrationReport(records: LegacyRecord[]): MigrationReport {
     if (d.petition) petitions++;
     if (d.incident) incidents++;
     if (d.case) cases++;
+    if (d.guidance) guidance++;
+    if (d.exchange) exchanges++;
+    if (d.proposal) proposals++;
+    if (d.lawyer) lawyers++;
     warnings.push(...d.warnings);
   }
 
@@ -39,6 +52,10 @@ export function buildMigrationReport(records: LegacyRecord[]): MigrationReport {
     willCreatePetitions: petitions,
     willCreateIncidents: incidents,
     willCreateCases: cases,
+    willCreateGuidance: guidance,
+    willCreateExchanges: exchanges,
+    willCreateProposals: proposals,
+    willCreateLawyers: lawyers,
     warningsCount: warnings.length,
     warnings,
     duplicateLegacyIds,

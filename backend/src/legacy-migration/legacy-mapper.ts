@@ -8,6 +8,14 @@ export interface DecomposedEntities {
   incident?: Record<string, unknown>;
   case?: Record<string, unknown>;
   statistic?: Record<string, unknown>; // case_statistics 1-1 (gắn vào case)
+  // Tier ③ (PR-M3): các loại record nghiệp vụ phụ hệ cũ.
+  guidance?: Record<string, unknown>; // huong-dan-ban-dau → GuidanceRecord
+  exchange?: Record<string, unknown>; // trao-doi-chuyen-an → Exchange
+  proposal?: Record<string, unknown>; // kien-nghi-vks → Proposal (proposalNumber sinh ở commit)
+  lawyer?: Record<string, unknown>; // luat-su → Lawyer (gắn vào host Case)
+  // Gợi ý caseProvenance khi tạo Case standalone (không phải decompose 1→nhiều).
+  // Commit ưu tiên FROM_PETITION/FROM_INCIDENT nếu record cũng sinh petition/incident.
+  caseProvenanceHint?: string;
   warnings: string[];
 }
 
@@ -107,6 +115,14 @@ export function parseLegacyDate(v: unknown): Date | undefined {
 const PHAN_LOAI_DON = new Set(['don-cong-van-ban-dau']);
 const PHAN_LOAI_VU_VIEC = new Set(['vu-viec-ban-dau', 'vu-viec-nguon-tin']);
 const PHAN_LOAI_VU_AN = new Set(['vu-an-ban-dau']);
+// Tier ③ — 5 loại trước đây bị skip im lặng + luật sư + ủy thác (PR-M3).
+const PHAN_LOAI_GUIDANCE = new Set(['huong-dan-ban-dau']);
+const PHAN_LOAI_EXCHANGE = new Set(['trao-doi-chuyen-an']);
+const PHAN_LOAI_PROPOSAL = new Set(['kien-nghi-vks']);
+const PHAN_LOAI_UY_THAC = new Set(['uy-thac-dieu-tra']);
+const PHAN_LOAI_LAWYER = new Set(['luat-su']);
+const PHAN_LOAI_TRA_HO_SO = new Set(['tra-ho-so-ban-dau']);
+const PHAN_LOAI_CONG_VAN_TDC = new Set(['cong-van-don-doc-phuc-hoi-tdc']);
 
 // Field tiếp nhận chung (người gửi / nội dung) — dùng cho Petition.
 function buildPetition(rec: LegacyRecord): Record<string, unknown> {
@@ -208,6 +224,77 @@ function buildCase(rec: LegacyRecord): Record<string, unknown> {
   });
 }
 
+// ── Tier ③ builders (PR-M3) ───────────────────────────────────────────────
+// LƯU Ý độ phủ: tên cột tier-3 hệ cũ CHƯA xác minh trên data thật (chỉ có form hợp nhất
+// /doi-1/Them). Vì vậy mỗi builder map các cột BẮT BUỘC/khóa với best-effort + LUÔN giữ
+// legacyRaw = toàn bộ record (Codex P1#1 — không bao giờ mất data). Tên cột chính xác +
+// đầy đủ field-parity tier-3 sẽ chốt khi chạy trên data thật (PR-M4, information_schema).
+
+// huong-dan-ban-dau → GuidanceRecord. guidedPerson + guidanceContent là NOT NULL → fallback.
+function buildGuidance(rec: LegacyRecord): Record<string, unknown> {
+  return clean({
+    legacySourceId: s(rec.id),
+    guidedPerson: s(rec.ten_ca_nhan_co_quan_to_chuc_cung_cap) ?? '(di trú)',
+    guidedPersonPhone: s(rec.so_dien_thoai_nguyen_don),
+    subject: s(rec.loai_thong_tin),
+    guidanceContent: s(rec.tom_tat_noi_dung) ?? '(di trú — không có nội dung)',
+    unit: s(rec.don_vi_giai_quyet),
+    notes: s(rec.nhan_xet),
+    legacyRaw: { ...rec },
+  });
+}
+
+// trao-doi-chuyen-an → Exchange. Không có cột NOT NULL ngoài default.
+function buildExchange(rec: LegacyRecord): Record<string, unknown> {
+  return clean({
+    legacySourceId: s(rec.id),
+    recordCode: s(rec.so_phieu_chuyen),
+    recordType: s(rec.loai_thong_tin),
+    senderUnit: s(rec.ten_ca_nhan_co_quan_to_chuc_cung_cap),
+    receiverUnit: s(rec.don_vi_giai_quyet),
+    subject: s(rec.tom_tat_noi_dung),
+    legacyRaw: { ...rec },
+  });
+}
+
+// kien-nghi-vks → Proposal. content NOT NULL → fallback. proposalNumber (@unique) sinh
+// deterministic ở commit (DX-LEGACY-<id>) để idempotent.
+function buildProposal(rec: LegacyRecord): Record<string, unknown> {
+  return clean({
+    legacySourceId: s(rec.id),
+    content: s(rec.tom_tat_noi_dung) ?? '(di trú — không có nội dung)',
+    unit: s(rec.don_vi_giai_quyet),
+    notes: s(rec.nhan_xet),
+    legacyRaw: { ...rec },
+  });
+}
+
+// luat-su → Lawyer. fullName NOT NULL → fallback. barNumber (@unique) + caseId (FK required)
+// sinh ở commit (host Case).
+function buildLawyer(rec: LegacyRecord): Record<string, unknown> {
+  return clean({
+    legacySourceId: s(rec.id),
+    fullName: s(rec.ten_ca_nhan_co_quan_to_chuc_cung_cap) ?? 'Luật sư (di trú)',
+    phone: s(rec.so_dien_thoai_nguyen_don),
+    legacyRaw: { ...rec },
+  });
+}
+
+// uy-thac-dieu-tra → Case caseType=UY_THAC_DIEU_TRA. Provenance UY_THAC_DIEU_TRA (non-linked,
+// thỏa CHECK case_provenance_fk_consistency). Map field UTDT từ buildCase + cột uỷ thác.
+function buildUyThacCase(rec: LegacyRecord): Record<string, unknown> {
+  return clean({
+    ...buildCase(rec),
+    caseType: 'UY_THAC_DIEU_TRA',
+    donViGiao: s(rec.don_vi_uy_thac),
+    soQuyetDinhUyThac: s(rec.so_quyet_dinh_uy_thac),
+    ngayTiepNhan: parseLegacyDate(rec.ngay_tiep_nhan_uy_thac),
+    thoiHanUyThac: parseLegacyDate(rec.thoi_han_thuc_hien_uy_thac_dieu_tra),
+    ketQuaUyThac: s(rec.ket_qua_uy_thac),
+    ngayTraKetQua: parseLegacyDate(rec.ngay_tra_ket_qua_uy_thac),
+  });
+}
+
 function clean(o: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(o)) if (v !== undefined) out[k] = v;
@@ -264,6 +351,40 @@ export function decomposeLegacyRecord(rec: LegacyRecord): DecomposedEntities {
     out.incident = buildIncident(rec);
   } else if (phanLoai && PHAN_LOAI_VU_AN.has(phanLoai)) {
     out.case = buildCase(rec);
+  } else if (phanLoai && PHAN_LOAI_GUIDANCE.has(phanLoai)) {
+    // tier-3 standalone — KHÔNG return sớm: nếu record cũng có QĐ khởi tố thì block dưới
+    // tạo thêm Case (decompose 1→nhiều), tránh mất dữ liệu khởi tố dạng structured.
+    out.guidance = buildGuidance(rec);
+  } else if (phanLoai && PHAN_LOAI_EXCHANGE.has(phanLoai)) {
+    out.exchange = buildExchange(rec);
+  } else if (phanLoai && PHAN_LOAI_PROPOSAL.has(phanLoai)) {
+    out.proposal = buildProposal(rec);
+  } else if (phanLoai && PHAN_LOAI_UY_THAC.has(phanLoai)) {
+    out.case = buildUyThacCase(rec);
+    out.caseProvenanceHint = 'UY_THAC_DIEU_TRA';
+    // tiếp tục xuống dưới để gắn statistic nếu có
+  } else if (phanLoai && PHAN_LOAI_LAWYER.has(phanLoai)) {
+    // Lawyer.caseId là FK NOT NULL → cần host Case để gắn. Tạo host Case (TRANSFERRED)
+    // bảo toàn toàn bộ record; commit gắn lawyer.caseId = host case id.
+    out.lawyer = buildLawyer(rec);
+    out.case = buildCase(rec);
+    warnings.push(
+      `Loại 'luật sư' (record ${s(rec.id)}): tạo Lawyer + host Case để giữ liên kết caseId — xác minh case cha thật ở PR-M4`,
+    );
+    // tiếp tục xuống dưới để gắn statistic nếu có
+  } else if (phanLoai && PHAN_LOAI_TRA_HO_SO.has(phanLoai)) {
+    // Module workflow ('Trả hồ sơ') hiện là stub → tạo host Case giữ legacyRaw, defer module.
+    out.case = buildCase(rec);
+    warnings.push(
+      `Loại 'trả hồ sơ' (record ${s(rec.id)}): module workflow chưa xây — lưu tạm vào Case.legacyRaw, defer (PR-M4)`,
+    );
+  } else if (phanLoai && PHAN_LOAI_CONG_VAN_TDC.has(phanLoai)) {
+    // Công văn đôn đốc phục hồi TĐC → cập nhật TĐC. Link record cha cần data thật (M4) →
+    // tạm tạo Vụ việc host mang field TĐC phục hồi + legacyRaw.
+    out.incident = buildIncident(rec);
+    warnings.push(
+      `Loại 'công văn phục hồi TĐC' (record ${s(rec.id)}): tạm tạo Vụ việc host mang field phục hồi — link record cha xác minh ở PR-M4`,
+    );
   } else {
     warnings.push(`Không nhận diện được phân loại '${phanLoai ?? '(trống)'}' — bỏ qua record ${s(rec.id)}`);
     return out;

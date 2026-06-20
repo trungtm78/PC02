@@ -12,6 +12,10 @@ const mockTx: any = {
   incident: { findFirst: jest.fn(), create: jest.fn(), update: jest.fn(), deleteMany: jest.fn() },
   case: { findFirst: jest.fn(), create: jest.fn(), update: jest.fn(), deleteMany: jest.fn() },
   caseStatistic: { upsert: jest.fn(), deleteMany: jest.fn() },
+  guidanceRecord: { findFirst: jest.fn(), create: jest.fn(), update: jest.fn(), deleteMany: jest.fn() },
+  exchange: { findFirst: jest.fn(), create: jest.fn(), update: jest.fn(), deleteMany: jest.fn() },
+  proposal: { findFirst: jest.fn(), create: jest.fn(), update: jest.fn(), deleteMany: jest.fn() },
+  lawyer: { findFirst: jest.fn(), create: jest.fn(), update: jest.fn(), deleteMany: jest.fn() },
   crime: { findFirst: jest.fn() },
 };
 
@@ -73,6 +77,18 @@ describe('LegacyMigrationService', () => {
     mockTx.case.deleteMany.mockResolvedValue({ count: 0 });
     mockTx.caseStatistic.upsert.mockResolvedValue({ id: 's1' });
     mockTx.caseStatistic.deleteMany.mockResolvedValue({ count: 0 });
+    mockTx.guidanceRecord.findFirst.mockResolvedValue(null);
+    mockTx.guidanceRecord.create.mockResolvedValue({ id: 'g1' });
+    mockTx.guidanceRecord.deleteMany.mockResolvedValue({ count: 0 });
+    mockTx.exchange.findFirst.mockResolvedValue(null);
+    mockTx.exchange.create.mockResolvedValue({ id: 'e1' });
+    mockTx.exchange.deleteMany.mockResolvedValue({ count: 0 });
+    mockTx.proposal.findFirst.mockResolvedValue(null);
+    mockTx.proposal.create.mockResolvedValue({ id: 'pr1' });
+    mockTx.proposal.deleteMany.mockResolvedValue({ count: 0 });
+    mockTx.lawyer.findFirst.mockResolvedValue(null);
+    mockTx.lawyer.create.mockResolvedValue({ id: 'lw1' });
+    mockTx.lawyer.deleteMany.mockResolvedValue({ count: 0 });
     mockAudit.log.mockResolvedValue(undefined);
   });
 
@@ -188,6 +204,133 @@ describe('LegacyMigrationService', () => {
     });
   });
 
+  // ---- PR-M3: linking provenance 1→nhiều (Codex P1#4) ----------------------
+
+  describe('commit — linking provenance (Codex P1#4)', () => {
+    it('Đơn + QĐ khởi tố → Case FROM_PETITION + linkedPetitionId (không TRANSFERRED rời rạc)', async () => {
+      const rec: LegacyRecord = {
+        id: 'L-010',
+        phan_loai_nguon_tin_ban_dau: 'don-cong-van-ban-dau',
+        ten_ca_nhan_co_quan_to_chuc_cung_cap: 'A',
+        quyet_dinh_khoi_to_vu_an: 'QĐ-1',
+      };
+      await service.commit([rec], 'actor-1');
+      expect(mockTx.petition.create).toHaveBeenCalledTimes(1);
+      const caseData = mockTx.case.create.mock.calls[0][0].data;
+      expect(caseData.caseProvenance).toBe('FROM_PETITION');
+      expect(caseData.linkedPetitionId).toBe('p1');
+      expect(caseData.linkedIncidentId).toBeNull();
+    });
+
+    it('Vụ việc + QĐ khởi tố → Case FROM_INCIDENT + linkedIncidentId', async () => {
+      const rec: LegacyRecord = {
+        id: 'L-011',
+        phan_loai_nguon_tin_ban_dau: 'vu-viec-ban-dau',
+        tom_tat_noi_dung: 'VV',
+        quyet_dinh_khoi_to_vu_an: 'QĐ-2',
+      };
+      await service.commit([rec], 'actor-1');
+      const caseData = mockTx.case.create.mock.calls[0][0].data;
+      expect(caseData.caseProvenance).toBe('FROM_INCIDENT');
+      expect(caseData.linkedIncidentId).toBe('i1');
+      expect(caseData.linkedPetitionId).toBeNull();
+    });
+
+    it('Vụ án standalone (không petition/incident) → TRANSFERRED, không link', async () => {
+      await service.commit([caseRec], 'actor-1');
+      const caseData = mockTx.case.create.mock.calls[0][0].data;
+      expect(caseData.caseProvenance).toBe('TRANSFERRED');
+      expect(caseData.linkedPetitionId).toBeNull();
+      expect(caseData.linkedIncidentId).toBeNull();
+    });
+
+    it('Ủy thác điều tra → Case provenance UY_THAC_DIEU_TRA + caseType, không link', async () => {
+      const rec: LegacyRecord = {
+        id: 'L-012',
+        phan_loai_nguon_tin_ban_dau: 'uy-thac-dieu-tra',
+        tom_tat_noi_dung: 'UTDT',
+      };
+      await service.commit([rec], 'actor-1');
+      const caseData = mockTx.case.create.mock.calls[0][0].data;
+      expect(caseData.caseProvenance).toBe('UY_THAC_DIEU_TRA');
+      expect(caseData.caseType).toBe('UY_THAC_DIEU_TRA');
+      expect(caseData.linkedPetitionId).toBeNull();
+    });
+  });
+
+  // ---- PR-M3: tier ③ commit (idempotent theo legacySourceId) ---------------
+
+  describe('commit — tier ③ (guidance/exchange/proposal/lawyer)', () => {
+    const guidanceRec: LegacyRecord = {
+      id: 'G-001',
+      phan_loai_nguon_tin_ban_dau: 'huong-dan-ban-dau',
+      ten_ca_nhan_co_quan_to_chuc_cung_cap: 'Người được HD',
+      tom_tat_noi_dung: 'ND hướng dẫn',
+    };
+
+    it('huong-dan → tạo GuidanceRecord, đếm created.guidance', async () => {
+      const res = await service.commit([guidanceRec], 'actor-1');
+      expect(mockTx.guidanceRecord.create).toHaveBeenCalledTimes(1);
+      const data = mockTx.guidanceRecord.create.mock.calls[0][0].data;
+      expect(data.legacySourceId).toBe('G-001');
+      expect(data.guidedPerson).toBe('Người được HD');
+      expect(res.created.guidance).toBe(1);
+    });
+
+    it('huong-dan idempotent: legacySourceId đã có → update, không create', async () => {
+      mockTx.guidanceRecord.findFirst.mockResolvedValue({ id: 'existing-g' });
+      const res = await service.commit([guidanceRec], 'actor-1');
+      expect(mockTx.guidanceRecord.update).toHaveBeenCalledTimes(1);
+      expect(mockTx.guidanceRecord.create).not.toHaveBeenCalled();
+      expect(res.created.guidance).toBe(0);
+    });
+
+    it('trao-doi → tạo Exchange, đếm created.exchanges', async () => {
+      const res = await service.commit(
+        [{ id: 'E-001', phan_loai_nguon_tin_ban_dau: 'trao-doi-chuyen-an', tom_tat_noi_dung: 'TĐ' }],
+        'actor-1',
+      );
+      expect(mockTx.exchange.create).toHaveBeenCalledTimes(1);
+      expect(res.created.exchanges).toBe(1);
+    });
+
+    it('kien-nghi-vks → Proposal với proposalNumber deterministic DX-LEGACY-<id>', async () => {
+      const res = await service.commit(
+        [{ id: 'P-001', phan_loai_nguon_tin_ban_dau: 'kien-nghi-vks', tom_tat_noi_dung: 'KN' }],
+        'actor-1',
+      );
+      const data = mockTx.proposal.create.mock.calls[0][0].data;
+      expect(data.proposalNumber).toBe('DX-LEGACY-P-001');
+      expect(data.content).toBe('KN');
+      expect(res.created.proposals).toBe(1);
+    });
+
+    it('lỗi bước sau trong cùng record → KHÔNG đếm created cho entity bị rollback (Codex P1)', async () => {
+      // luat-su: tạo host Case xong, lawyer.create fail → cả transaction rollback.
+      mockTx.lawyer.create.mockRejectedValueOnce(new Error('boom'));
+      const res = await service.commit(
+        [{ id: 'LS-9', phan_loai_nguon_tin_ban_dau: 'luat-su', ten_ca_nhan_co_quan_to_chuc_cung_cap: 'X' }],
+        'actor-1',
+      );
+      expect(res.created.cases).toBe(0); // KHÔNG overcount dù case.create đã chạy trước khi rollback
+      expect(res.created.lawyers).toBe(0);
+      expect(res.errors).toHaveLength(1);
+    });
+
+    it('luat-su → tạo host Case + Lawyer(caseId=host, barNumber deterministic)', async () => {
+      const res = await service.commit(
+        [{ id: 'LS-001', phan_loai_nguon_tin_ban_dau: 'luat-su', ten_ca_nhan_co_quan_to_chuc_cung_cap: 'LS X' }],
+        'actor-1',
+      );
+      expect(mockTx.case.create).toHaveBeenCalledTimes(1);
+      const lawyerData = mockTx.lawyer.create.mock.calls[0][0].data;
+      expect(lawyerData.caseId).toBe('c1');
+      expect(lawyerData.fullName).toBe('LS X');
+      expect(lawyerData.barNumber).toBe('LS-LEGACY-LS-001');
+      expect(res.created.lawyers).toBe(1);
+    });
+  });
+
   // ---- rollback -------------------------------------------------------------
 
   describe('rollback', () => {
@@ -197,6 +340,34 @@ describe('LegacyMigrationService', () => {
       mockTx.case.deleteMany.mockResolvedValue({ count: 0 });
       const res = await service.rollback(['L-001', 'L-002', 'L-003'], 'actor-1');
       expect(res.deleted).toBe(3);
+    });
+
+    it('xóa cả tier ③ (lawyer/guidance/exchange/proposal) theo legacySourceId — Codex P2#4', async () => {
+      mockTx.lawyer.deleteMany.mockResolvedValue({ count: 1 });
+      mockTx.guidanceRecord.deleteMany.mockResolvedValue({ count: 2 });
+      mockTx.exchange.deleteMany.mockResolvedValue({ count: 1 });
+      mockTx.proposal.deleteMany.mockResolvedValue({ count: 1 });
+      const res = await service.rollback(['L-001'], 'actor-1');
+      expect(mockTx.lawyer.deleteMany).toHaveBeenCalledWith({ where: { legacySourceId: { in: ['L-001'] } } });
+      expect(mockTx.guidanceRecord.deleteMany).toHaveBeenCalled();
+      expect(mockTx.exchange.deleteMany).toHaveBeenCalled();
+      expect(mockTx.proposal.deleteMany).toHaveBeenCalled();
+      // 1 lawyer + 2 guidance + 1 exchange + 1 proposal = 5
+      expect(res.deleted).toBe(5);
+    });
+
+    it('xóa lawyer TRƯỚC case (FK Restrict lawyer.caseId → cases)', async () => {
+      const order: string[] = [];
+      mockTx.lawyer.deleteMany.mockImplementation(() => {
+        order.push('lawyer');
+        return Promise.resolve({ count: 0 });
+      });
+      mockTx.case.deleteMany.mockImplementation(() => {
+        order.push('case');
+        return Promise.resolve({ count: 0 });
+      });
+      await service.rollback(['L-001'], 'actor-1');
+      expect(order.indexOf('lawyer')).toBeLessThan(order.indexOf('case'));
     });
 
     it('throw BadRequestException khi FK constraint (Prisma P2003)', async () => {

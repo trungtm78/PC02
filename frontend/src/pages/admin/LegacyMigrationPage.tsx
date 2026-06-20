@@ -6,13 +6,25 @@ interface DryRunReport {
   willCreatePetitions: number;
   willCreateIncidents: number;
   willCreateCases: number;
+  willCreateGuidance: number;
+  willCreateExchanges: number;
+  willCreateProposals: number;
+  willCreateLawyers: number;
   warningsCount: number;
   warnings: string[];
   duplicateLegacyIds: string[];
   missingIdCount: number;
 }
 interface CommitResult {
-  created: { petitions: number; incidents: number; cases: number };
+  created: {
+    petitions: number;
+    incidents: number;
+    cases: number;
+    guidance: number;
+    exchanges: number;
+    proposals: number;
+    lawyers: number;
+  };
   skipped: number;
   errors: { legacyId: string; message: string }[];
 }
@@ -102,6 +114,7 @@ export function LegacyMigrationPage() {
         <div className="bg-white border border-slate-200 rounded-lg p-4 text-sm space-y-1" data-testid="legacy-report">
           <p>Tổng record: <b>{report.totalRecords}</b></p>
           <p>Sẽ tạo: Đơn thư <b>{report.willCreatePetitions}</b> · Vụ việc <b>{report.willCreateIncidents}</b> · Vụ án <b>{report.willCreateCases}</b></p>
+          <p>Tier ③: Hướng dẫn <b>{report.willCreateGuidance}</b> · Trao đổi <b>{report.willCreateExchanges}</b> · Kiến nghị <b>{report.willCreateProposals}</b> · Luật sư <b>{report.willCreateLawyers}</b></p>
           <p>Thiếu id: {report.missingIdCount} · Trùng legacyId: {report.duplicateLegacyIds.length}</p>
           <p>Cảnh báo: {report.warningsCount}</p>
           {report.warnings.length > 0 && (
@@ -116,6 +129,7 @@ export function LegacyMigrationPage() {
         <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-sm space-y-1" data-testid="legacy-result">
           <p className="font-semibold text-green-800">Đã di trú</p>
           <p>Tạo mới: Đơn thư {result.created.petitions} · Vụ việc {result.created.incidents} · Vụ án {result.created.cases}</p>
+          <p>Tier ③: Hướng dẫn {result.created.guidance} · Trao đổi {result.created.exchanges} · Kiến nghị {result.created.proposals} · Luật sư {result.created.lawyers}</p>
           <p>Bỏ qua: {result.skipped} · Lỗi: {result.errors.length}</p>
           {result.errors.length > 0 && (
             <ul className="list-disc ml-5 text-red-700 max-h-40 overflow-y-auto">

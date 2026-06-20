@@ -192,3 +192,98 @@ describe('decomposeLegacyRecord', () => {
     expect(r.warnings.some((w) => /phân loại/i.test(w))).toBe(true);
   });
 });
+
+describe('decomposeLegacyRecord — tier ③ (PR-M3: 5 loại bị skip + luật sư + UTDT)', () => {
+  const base = {
+    id: 'T-001',
+    ten_ca_nhan_co_quan_to_chuc_cung_cap: 'Nguyễn Văn B',
+    tom_tat_noi_dung: 'Nội dung hồ sơ',
+    so_dien_thoai_nguyen_don: '0900000000',
+    don_vi_giai_quyet: 'Đội 1',
+  };
+
+  it('huong-dan-ban-dau → guidance (guidedPerson + guidanceContent + legacySourceId + legacyRaw)', () => {
+    const r = decomposeLegacyRecord({ ...base, phan_loai_nguon_tin_ban_dau: 'huong-dan-ban-dau' });
+    expect(r.guidance).toBeDefined();
+    expect(r.guidance!.legacySourceId).toBe('T-001');
+    expect(r.guidance!.guidedPerson).toBe('Nguyễn Văn B');
+    expect(r.guidance!.guidanceContent).toBe('Nội dung hồ sơ');
+    expect((r.guidance!.legacyRaw as Record<string, unknown>).don_vi_giai_quyet).toBe('Đội 1');
+    expect(r.petition).toBeUndefined();
+    expect(r.case).toBeUndefined();
+  });
+
+  it('trao-doi-chuyen-an → exchange (subject + legacySourceId)', () => {
+    const r = decomposeLegacyRecord({ ...base, phan_loai_nguon_tin_ban_dau: 'trao-doi-chuyen-an' });
+    expect(r.exchange).toBeDefined();
+    expect(r.exchange!.legacySourceId).toBe('T-001');
+    expect(r.exchange!.subject).toBe('Nội dung hồ sơ');
+  });
+
+  it('kien-nghi-vks → proposal (content + legacySourceId; proposalNumber sinh deterministic ở commit)', () => {
+    const r = decomposeLegacyRecord({ ...base, phan_loai_nguon_tin_ban_dau: 'kien-nghi-vks' });
+    expect(r.proposal).toBeDefined();
+    expect(r.proposal!.legacySourceId).toBe('T-001');
+    expect(r.proposal!.content).toBe('Nội dung hồ sơ');
+    expect(r.proposal!.proposalNumber).toBeUndefined();
+  });
+
+  it('uy-thac-dieu-tra → case caseType UY_THAC_DIEU_TRA + provenance hint (CHECK constraint non-linked)', () => {
+    const r = decomposeLegacyRecord({ ...base, phan_loai_nguon_tin_ban_dau: 'uy-thac-dieu-tra' });
+    expect(r.case).toBeDefined();
+    expect(r.case!.caseType).toBe('UY_THAC_DIEU_TRA');
+    expect(r.caseProvenanceHint).toBe('UY_THAC_DIEU_TRA');
+  });
+
+  it('luat-su → lawyer + host case (Lawyer.caseId FK required — không mất data, warning verify M4)', () => {
+    const r = decomposeLegacyRecord({ ...base, phan_loai_nguon_tin_ban_dau: 'luat-su' });
+    expect(r.lawyer).toBeDefined();
+    expect(r.lawyer!.legacySourceId).toBe('T-001');
+    expect(r.lawyer!.fullName).toBe('Nguyễn Văn B');
+    expect(r.case).toBeDefined();
+    expect(r.warnings.some((w) => /luật sư|lawyer/i.test(w))).toBe(true);
+  });
+
+  it('tra-ho-so-ban-dau → host case + warning (module workflow defer, legacyRaw không mất data)', () => {
+    const r = decomposeLegacyRecord({ ...base, phan_loai_nguon_tin_ban_dau: 'tra-ho-so-ban-dau' });
+    expect(r.case).toBeDefined();
+    expect((r.case!.legacyRaw as Record<string, unknown>).tom_tat_noi_dung).toBe('Nội dung hồ sơ');
+    expect(r.warnings.some((w) => /workflow|trả hồ sơ/i.test(w))).toBe(true);
+  });
+
+  it('cong-van-don-doc-phuc-hoi-tdc → incident host mang field TĐC phục hồi + warning', () => {
+    const r = decomposeLegacyRecord({
+      ...base,
+      phan_loai_nguon_tin_ban_dau: 'cong-van-don-doc-phuc-hoi-tdc',
+      phuc_hoi_nguon_tin_toi_pham: 'QĐ-PH-9',
+      ngay_phuc_hoi_nguon_tin: '01/06/2025',
+    });
+    expect(r.incident).toBeDefined();
+    expect(r.incident!.soQuyetDinhPhucHoiVV).toBe('QĐ-PH-9');
+    expect(r.warnings.some((w) => /tđc|phục hồi/i.test(w))).toBe(true);
+  });
+
+  it('tier-3 standalone + QĐ khởi tố → KHÔNG drop Case structured (decompose 1→nhiều vẫn chạy)', () => {
+    const r = decomposeLegacyRecord({
+      ...base,
+      phan_loai_nguon_tin_ban_dau: 'kien-nghi-vks',
+      quyet_dinh_khoi_to_vu_an: 'QĐ-9',
+      so_luong_bi_hai: '2',
+    });
+    expect(r.proposal).toBeDefined();
+    expect(r.case).toBeDefined(); // có khởi tố → tạo Case dạng structured, không chỉ legacyRaw
+    expect(r.case!.soQuyetDinhKhoiTo).toBe('QĐ-9');
+    expect(r.statistic).toBeDefined(); // statistic gắn vào case
+    expect(r.statistic!.soLuongBiHai).toBe(2);
+  });
+
+  it('phân loại hoàn toàn lạ → warning, không tạo entity tier-3 nào', () => {
+    const r = decomposeLegacyRecord({ ...base, phan_loai_nguon_tin_ban_dau: 'hoan-toan-la' });
+    expect(r.guidance).toBeUndefined();
+    expect(r.exchange).toBeUndefined();
+    expect(r.proposal).toBeUndefined();
+    expect(r.lawyer).toBeUndefined();
+    expect(r.case).toBeUndefined();
+    expect(r.warnings.length).toBeGreaterThan(0);
+  });
+});
