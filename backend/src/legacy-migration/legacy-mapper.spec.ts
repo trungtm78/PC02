@@ -33,6 +33,12 @@ describe('parseLegacyBool (nhãn boolean tiếng Việt)', () => {
   it('nhãn false: Không/Chưa/0/false', () => {
     ['Không', 'không', 'Chưa', '0', 'false'].forEach((v) => expect(parseLegacyBool(v)).toBe(false));
   });
+  it('cụm từ: nhận diện theo từ đầu (Đã xét xử→true, Không có→false, Chưa xét xử→false, Có ghi âm→true)', () => {
+    expect(parseLegacyBool('Đã xét xử')).toBe(true);
+    expect(parseLegacyBool('Có ghi âm')).toBe(true);
+    expect(parseLegacyBool('Không có')).toBe(false);
+    expect(parseLegacyBool('Chưa xét xử')).toBe(false);
+  });
   it('rỗng/null → undefined (phân biệt thiếu vs false)', () => {
     expect(parseLegacyBool('')).toBeUndefined();
     expect(parseLegacyBool(null)).toBeUndefined();
@@ -41,11 +47,22 @@ describe('parseLegacyBool (nhãn boolean tiếng Việt)', () => {
 });
 
 describe('parseLegacyDate — Excel serial', () => {
-  it('serial 45000 → 2023-03-15 (epoch Excel 1899-12-30)', () => {
+  it('serial 45000 (NUMBER) → 2023-03-15 (epoch Excel 1899-12-30)', () => {
     expect(parseLegacyDate(45000)?.toISOString().slice(0, 10)).toBe('2023-03-15');
   });
-  it('serial dạng chuỗi "45000" cũng nhận', () => {
-    expect(parseLegacyDate('45000')?.toISOString().slice(0, 10)).toBe('2023-03-15');
+  it('chuỗi "45000" KHÔNG coi là serial (tránh nhận nhầm mã/số 5-6 chữ số) → undefined', () => {
+    expect(parseLegacyDate('45000')).toBeUndefined();
+  });
+});
+
+describe('buildCaseStatistic — field đếm là Int (round, không Float gây Prisma reject)', () => {
+  it('"1,5" cho field đếm → làm tròn về integer', () => {
+    const stat = buildCaseStatistic({ so_luong_bi_hai: '1,5' });
+    expect(Number.isInteger(stat!.soLuongBiHai)).toBe(true);
+  });
+  it('field tiền giữ thập phân (Float) — soTienBiThietHai không bị round', () => {
+    const stat = buildCaseStatistic({ so_tien_bi_thiet_hai: '1.000.000' });
+    expect(stat!.soTienBiThietHai).toBe(1000000);
   });
 });
 

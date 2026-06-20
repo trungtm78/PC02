@@ -11,8 +11,13 @@ export interface DecomposedEntities {
   warnings: string[];
 }
 
-// Cờ boolean suy từ text tự do: có nội dung ⇒ true (giữ text gốc ở legacyRaw). Rỗng ⇒ undefined.
-const boolFromText = (v: unknown): boolean | undefined => (s(v) !== undefined ? true : undefined);
+// Cờ boolean suy từ text tự do: ưu tiên nhãn rõ ("Không/Chưa"→false) qua parseLegacyBool; nếu là
+// text mô tả tự do (vd "Đã báo cáo BGĐ ngày...") ⇒ true. Rỗng ⇒ undefined. Text gốc giữ ở legacyRaw.
+const boolFromText = (v: unknown): boolean | undefined => {
+  const b = parseLegacyBool(v);
+  if (b !== undefined) return b;
+  return s(v) !== undefined ? true : undefined;
+};
 
 const s = (v: unknown): string | undefined => {
   if (v === null || v === undefined) return undefined;
@@ -34,7 +39,7 @@ export function parseLegacyNumber(v: unknown): number | undefined {
   if (raw === undefined) return undefined;
   const lower = raw.toLowerCase();
   let multiplier = 1;
-  if (lower.includes('tỷ') || lower.includes('tỉ') || /(^|\s)ty(\s|$)/.test(lower)) multiplier = 1e9;
+  if (lower.includes('tỷ') || lower.includes('tỉ')) multiplier = 1e9;
   else if (lower.includes('triệu') || lower.includes('trieu')) multiplier = 1e6;
   else if (lower.includes('nghìn') || lower.includes('nghin') || lower.includes('ngàn') || lower.includes('ngan')) multiplier = 1e3;
   // Giữ lại chữ số, dấu . , -
@@ -58,26 +63,26 @@ export function parseLegacyNumber(v: unknown): number | undefined {
 }
 
 // Phân tích nhãn boolean tiếng Việt. Rỗng → undefined (phân biệt "thiếu" vs false — Codex P1#6).
+// Nhận cả cụm từ theo TỪ ĐẦU ("Đã xét xử"→true, "Không có"→false) — review correctness.
+// LƯU Ý thứ tự: check NEGATIVE trước ("chưa..." chứa nhưng không phải "có"); "không" đầu câu = false.
 export function parseLegacyBool(v: unknown): boolean | undefined {
   const str = s(v);
   if (str === undefined) return undefined;
   const t = str.toLowerCase();
-  if (/^(có|co|đã|da|rồi|roi|true|x|1|yes)$/.test(t)) return true;
-  if (/^(không|khong|chưa|chua|false|0|no)$/.test(t)) return false;
+  // (\s|$) thay cho \b — tránh lỗi word-boundary ASCII với ký tự tiếng Việt.
+  if (/^(không|khong|chưa|chua|false|0|no)(\s|$)/.test(t)) return false;
+  if (/^(có|co|đã|da|rồi|roi|true|x|1|yes)(\s|$)/.test(t)) return true;
   return undefined;
 }
 
 // Chuyển ngày hệ thống cũ (dd/mm/yyyy, yyyy-mm-dd, hoặc Excel serial) → Date.
 // Dùng roundtrip check để từ chối ngày âm lịch/overflow (vd 31/02/2025 → wrap sang 3/3 mà không bị bắt).
 export function parseLegacyDate(v: unknown): Date | undefined {
-  // Excel serial: số (hoặc chuỗi toàn số) trong khoảng hợp lý → ngày theo epoch Excel 1899-12-30.
-  if (typeof v === 'number' || (typeof v === 'string' && /^\d{4,6}$/.test(v.trim()))) {
-    const serial = Number(typeof v === 'number' ? v : v.trim());
-    if (serial >= 20000 && serial <= 80000) {
-      const epoch = Date.UTC(1899, 11, 30);
-      const d = new Date(epoch + serial * 86400000);
-      if (!Number.isNaN(d.getTime())) return d;
-    }
+  // Excel serial: CHỈ khi value là NUMBER (cell numeric). KHÔNG nhận chuỗi toàn số — tránh nhận nhầm
+  // mã/số quyết định/hồ sơ 5-6 chữ số thành ngày (review: silent corruption). Range ≈ năm 2000-2050.
+  if (typeof v === 'number' && v >= 36526 && v <= 54789) {
+    const d = new Date(Date.UTC(1899, 11, 30) + v * 86400000);
+    if (!Number.isNaN(d.getTime())) return d;
   }
   const str = s(v);
   if (!str) return undefined;
@@ -212,18 +217,23 @@ function clean(o: Record<string, unknown>): Record<string, unknown> {
 // Thống kê mở rộng (case_statistics, 1-1). Trả undefined nếu record không có field thống kê nào
 // → KHÔNG tạo row rỗng (Codex P1#7). Cờ boolean dùng parseLegacyBool (nullable — phân biệt thiếu vs false).
 export function buildCaseStatistic(rec: LegacyRecord): Record<string, unknown> | undefined {
+  // Field đếm là Int? ở DB → round (Float làm Prisma reject cả record). Tiền là Float? → giữ nguyên.
+  const int = (v: unknown): number | undefined => {
+    const n = parseLegacyNumber(v);
+    return n === undefined ? undefined : Math.round(n);
+  };
   const stat = clean({
-    soLuongBiHai: parseLegacyNumber(rec.so_luong_bi_hai),
-    soNguoiBiThuong: parseLegacyNumber(rec.so_nguoi_bi_thuong),
-    soLuongNguoiChet: parseLegacyNumber(rec.so_luong_nguoi_chet),
+    soLuongBiHai: int(rec.so_luong_bi_hai),
+    soNguoiBiThuong: int(rec.so_nguoi_bi_thuong),
+    soLuongNguoiChet: int(rec.so_luong_nguoi_chet),
     soTienBiThietHai: parseLegacyNumber(rec.so_tien_bi_thiet_hai),
     soTienThuHoi: parseLegacyNumber(rec.so_tien_thu_hoi),
-    soSungThuHoi: parseLegacyNumber(rec.so_sung_thu_hoi),
-    soThuocNoThuHoi: parseLegacyNumber(rec.so_thuoc_no_thu_hoi),
-    soDoiTuongDaBat: parseLegacyNumber(rec.so_doi_tuong_da_bat),
-    soDoiTuongBiBatVuAnKhac: parseLegacyNumber(rec.so_doi_tuong_bi_bat_vu_an_khac),
-    dieuTraMoRong: parseLegacyNumber(rec.dieu_tra_mo_rong),
-    soBangNhomBatDuoc: parseLegacyNumber(rec.so_bang_nhom_bat_duoc),
+    soSungThuHoi: int(rec.so_sung_thu_hoi),
+    soThuocNoThuHoi: int(rec.so_thuoc_no_thu_hoi),
+    soDoiTuongDaBat: int(rec.so_doi_tuong_da_bat),
+    soDoiTuongBiBatVuAnKhac: int(rec.so_doi_tuong_bi_bat_vu_an_khac),
+    dieuTraMoRong: int(rec.dieu_tra_mo_rong),
+    soBangNhomBatDuoc: int(rec.so_bang_nhom_bat_duoc),
     coGhiAmGhiHinh: parseLegacyBool(rec.co_ghi_am_ghi_hinh),
     laVuAnGhiAmGhiHinh: parseLegacyBool(rec.la_vu_an_ghi_am_ghi_hinh),
     coVPHC: parseLegacyBool(rec.co_vphc),
