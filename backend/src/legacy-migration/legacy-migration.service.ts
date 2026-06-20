@@ -4,6 +4,13 @@ import { AuditService } from '../audit/audit.service';
 import { decomposeLegacyRecord, type LegacyRecord } from './legacy-mapper';
 import { buildMigrationReport, type MigrationReport } from './migration-report';
 
+// Provenance import (Case/Incident có cột; Petition KHÔNG có → không set). actorId = người chạy di trú.
+const IMPORTED = (actorId: string) => ({
+  importedFrom: 'legacy-db',
+  importedAt: new Date(),
+  importedById: actorId,
+});
+
 export interface CommitResult {
   created: { petitions: number; incidents: number; cases: number };
   skipped: number;
@@ -78,7 +85,7 @@ export class LegacyMigrationService {
               await tx.incident.update({ where: { id: existing.id }, data });
             } else {
               await tx.incident.create({
-                data: { code: `VV-LEGACY-${legacyId}`, status: 'TIEP_NHAN', ...data },
+                data: { code: `VV-LEGACY-${legacyId}`, status: 'TIEP_NHAN', ...IMPORTED(actorId), ...data },
               });
               created.incidents++;
             }
@@ -87,13 +94,22 @@ export class LegacyMigrationService {
             const data = { ...d.case };
             await this.resolveCrime(tx, data);
             const existing = await tx.case.findFirst({ where: { legacySourceId: legacyId } });
+            let caseRow: { id: string };
             if (existing) {
-              await tx.case.update({ where: { id: existing.id }, data });
+              caseRow = await tx.case.update({ where: { id: existing.id }, data });
             } else {
-              await tx.case.create({
-                data: { status: 'TIEP_NHAN', caseProvenance: 'TRANSFERRED', ...data },
+              caseRow = await tx.case.create({
+                data: { status: 'TIEP_NHAN', caseProvenance: 'TRANSFERRED', ...IMPORTED(actorId), ...data },
               });
               created.cases++;
+            }
+            // Thống kê mở rộng 1-1 (Codex P1#7) — upsert theo caseId (unique), chỉ khi có dữ liệu.
+            if (d.statistic && caseRow?.id) {
+              await tx.caseStatistic.upsert({
+                where: { caseId: caseRow.id },
+                create: { caseId: caseRow.id, ...d.statistic },
+                update: { ...d.statistic },
+              });
             }
           }
         });

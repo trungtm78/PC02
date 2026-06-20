@@ -11,6 +11,7 @@ const mockTx: any = {
   petition: { findFirst: jest.fn(), create: jest.fn(), update: jest.fn(), deleteMany: jest.fn() },
   incident: { findFirst: jest.fn(), create: jest.fn(), update: jest.fn(), deleteMany: jest.fn() },
   case: { findFirst: jest.fn(), create: jest.fn(), update: jest.fn(), deleteMany: jest.fn() },
+  caseStatistic: { upsert: jest.fn(), deleteMany: jest.fn() },
   crime: { findFirst: jest.fn() },
 };
 
@@ -70,6 +71,8 @@ describe('LegacyMigrationService', () => {
     mockTx.petition.deleteMany.mockResolvedValue({ count: 0 });
     mockTx.incident.deleteMany.mockResolvedValue({ count: 0 });
     mockTx.case.deleteMany.mockResolvedValue({ count: 0 });
+    mockTx.caseStatistic.upsert.mockResolvedValue({ id: 's1' });
+    mockTx.caseStatistic.deleteMany.mockResolvedValue({ count: 0 });
     mockAudit.log.mockResolvedValue(undefined);
   });
 
@@ -143,6 +146,38 @@ describe('LegacyMigrationService', () => {
       const res = await service.commit([petitionRec, rec2], 'actor-1');
       expect(res.errors).toHaveLength(1);
       expect(res.errors[0].legacyId).toBe('L-001');
+    });
+
+    it('tạo caseStatistic.upsert khi record có field thống kê (Codex P1#7)', async () => {
+      await service.commit(
+        [{ ...caseRec, so_luong_bi_hai: '3', so_tien_bi_thiet_hai: '1.000.000' }],
+        'actor-1',
+      );
+      expect(mockTx.caseStatistic.upsert).toHaveBeenCalledTimes(1);
+      const args = mockTx.caseStatistic.upsert.mock.calls[0][0];
+      expect(args.where).toEqual({ caseId: 'c1' });
+      expect(args.create.soLuongBiHai).toBe(3);
+      expect(args.create.soTienBiThietHai).toBe(1000000);
+    });
+
+    it('KHÔNG tạo caseStatistic khi record không có field thống kê', async () => {
+      await service.commit([caseRec], 'actor-1');
+      expect(mockTx.caseStatistic.upsert).not.toHaveBeenCalled();
+    });
+
+    it('set importedFrom/importedById/importedAt trên Case create (Codex P2#5 — Case/Incident có cột)', async () => {
+      await service.commit([caseRec], 'actor-1');
+      const data = mockTx.case.create.mock.calls[0][0].data;
+      expect(data.importedFrom).toBe('legacy-db');
+      expect(data.importedById).toBe('actor-1');
+      expect(data.importedAt).toBeInstanceOf(Date);
+    });
+
+    it('ghi legacyRaw trên petition create (Codex P1#1 — không mất data)', async () => {
+      await service.commit([petitionRec], 'actor-1');
+      const data = mockTx.petition.create.mock.calls[0][0].data;
+      expect(data.legacyRaw).toBeDefined();
+      expect((data.legacyRaw as Record<string, unknown>).ten_ca_nhan_co_quan_to_chuc_cung_cap).toBe('Nguyễn Văn A');
     });
 
     it('ghi audit log sau commit', async () => {
