@@ -1,8 +1,9 @@
-name: Mutation — legacy-migration
+name: Mutation — expert modules
 
-# Mutation testing (Stryker) cho module di trú legacy — CHẬM (~8 phút) nên chạy ĐỊNH KỲ
-# (hằng tuần) + thủ công, KHÔNG chạy mỗi PR. Property/golden/fuzzing suite đã chạy mỗi PR qua `npm test`.
-# Chặn nếu mutation score tụt dưới ngưỡng break trong stryker.conf.json.
+# Mutation testing (Stryker) cho các module đã phủ expert-test (legacy-migration + scope-filter) —
+# CHẬM (~10-15 phút) nên chạy ĐỊNH KỲ (hằng tuần) + thủ công, KHÔNG chạy mỗi PR.
+# Property/golden/fuzzing/security suite đã chạy mỗi PR qua `npm test`.
+# Chặn nếu mutation score tụt dưới ngưỡng break trong các stryker.conf.
 
 on:
   schedule:
@@ -29,8 +30,12 @@ jobs:
       - name: Generate Prisma client
         run: cd backend && npx prisma generate
 
-      - name: Run Stryker mutation
+      - name: Run Stryker mutation — legacy-migration
         run: cd backend && npx stryker run
+
+      - name: Run Stryker mutation — scope-filter (security)
+        if: always()
+        run: cd backend && npx stryker run stryker.scope.conf.json
 
       - name: Upload mutation report
         if: always()
