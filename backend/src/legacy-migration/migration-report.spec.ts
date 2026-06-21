@@ -116,4 +116,29 @@ describe('buildFieldCoverage (PR-M4 — Codex P2#1, provisional)', () => {
     expect(fc.skippedRecords).toBe(1);
     expect(fc.lostKeyNames).toContain('chi_o_record_thieu_id');
   });
+
+  // ── Vá test-gap từ mutation testing (mutant sống) ──
+  it('key chỉ chứa whitespace KHÔNG tính là distinct (isNonEmpty trim)', () => {
+    const fc = buildFieldCoverage([
+      { id: 'x', phan_loai_nguon_tin_ban_dau: 'don-cong-van-ban-dau', chi_whitespace: '   ' },
+    ]);
+    expect(fc.rawOnlyKeyNames).not.toContain('chi_whitespace');
+  });
+
+  it('typedCoverageRatio > 0 khi batch có key mapped (không phải luôn 0)', () => {
+    const fc = buildFieldCoverage([
+      { id: 'x', phan_loai_nguon_tin_ban_dau: 'don-cong-van-ban-dau', tom_tat_noi_dung: 'a' },
+    ]);
+    expect(fc.typedCoverageRatio).toBeGreaterThan(0);
+  });
+
+  it('duplicateLegacyIds CHỈ chứa id trùng (n>1), KHÔNG gồm id xuất hiện 1 lần', () => {
+    const r = buildMigrationReport([
+      { id: 'dup', phan_loai_nguon_tin_ban_dau: 'don-cong-van-ban-dau' },
+      { id: 'dup', phan_loai_nguon_tin_ban_dau: 'don-cong-van-ban-dau' },
+      { id: 'unique', phan_loai_nguon_tin_ban_dau: 'don-cong-van-ban-dau' },
+    ]);
+    expect(r.duplicateLegacyIds).toContain('dup');
+    expect(r.duplicateLegacyIds).not.toContain('unique');
+  });
 });

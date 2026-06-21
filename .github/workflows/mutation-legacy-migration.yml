@@ -1,0 +1,41 @@
+name: Mutation — legacy-migration
+
+# Mutation testing (Stryker) cho module di trú legacy — CHẬM (~8 phút) nên chạy ĐỊNH KỲ
+# (hằng tuần) + thủ công, KHÔNG chạy mỗi PR. Property/golden/fuzzing suite đã chạy mỗi PR qua `npm test`.
+# Chặn nếu mutation score tụt dưới ngưỡng break trong stryker.conf.json.
+
+on:
+  schedule:
+    - cron: '0 18 * * 0' # 01:00 ICT thứ Hai hằng tuần (UTC 18:00 CN)
+  workflow_dispatch: {}
+
+jobs:
+  mutation:
+    name: Stryker mutation (legacy-migration)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: cd backend && npm ci
+
+      - name: Generate Prisma client
+        run: cd backend && npx prisma generate
+
+      - name: Run Stryker mutation
+        run: cd backend && npx stryker run
+
+      - name: Upload mutation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stryker-report
+          path: backend/reports/mutation/
+          if-no-files-found: ignore

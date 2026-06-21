@@ -29,7 +29,14 @@ const boolFromText = (v: unknown): boolean | undefined => {
 
 const s = (v: unknown): string | undefined => {
   if (v === null || v === undefined) return undefined;
-  const str = String(v).trim();
+  // String(v) có thể THROW với object adversarial (vd {toString:[]} — JSON hợp lệ admin dán):
+  // "Cannot convert object to primitive value". Bọc try để parser KHÔNG crash (fuzzing FZ-04).
+  let str: string;
+  try {
+    str = String(v).trim();
+  } catch {
+    return undefined;
+  }
   return str === '' ? undefined : str;
 };
 
