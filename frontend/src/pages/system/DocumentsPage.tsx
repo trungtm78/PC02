@@ -199,6 +199,8 @@ function DocumentForm({
   incidentOptions,
   loadingOptions,
 }: DocumentFormProps) {
+  // Danh mục động DOCUMENT_TYPE (Directory) cho dropdown loại tài liệu.
+  const { options: docTypeOptions } = useCatalog("DOCUMENT_TYPE");
   const [form, setForm] = useState<DocumentFormData>(EMPTY_FORM);
   const [errors, setErrors] = useState<DocumentFormErrors>({});
   const [file, setFile] = useState<File | null>(null);

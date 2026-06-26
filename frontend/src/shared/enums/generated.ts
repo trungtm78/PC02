@@ -251,15 +251,6 @@ export const NotificationType = {
 } as const;
 export type NotificationType = (typeof NotificationType)[keyof typeof NotificationType];
 
-export const DocumentType = {
-  VAN_BAN: 'VAN_BAN',
-  HINH_ANH: 'HINH_ANH',
-  VIDEO: 'VIDEO',
-  AM_THANH: 'AM_THANH',
-  KHAC: 'KHAC',
-} as const;
-export type DocumentType = (typeof DocumentType)[keyof typeof DocumentType];
-
 export const DeadlineRuleStatus = {
   draft: 'draft',
   submitted: 'submitted',

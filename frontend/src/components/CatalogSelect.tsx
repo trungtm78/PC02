@@ -1,7 +1,8 @@
 import { useCatalog } from "@/hooks/useCatalog";
 import { CATALOG_META } from "@/shared/catalog/catalog.generated";
 
-const META = CATALOG_META as Record<
+// Qua `unknown` để gỡ readonly-tuple từ `as const` của catalog.generated (tsc -b strict).
+const META = CATALOG_META as unknown as Record<
   string,
   { kind: string; multi: boolean; cascade?: { parentKey: string; map: Record<string, string[]> } }
 >;

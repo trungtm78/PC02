@@ -243,8 +243,10 @@ export const TERMINAL_PETITION_STATUSES: PetitionStatus[] = [
 // được viết tay 2 nơi (FE + BE validator) dễ drift — nay cả hai đọc cùng registry.
 const _LOAI_NGUON_TIN_CAT = CATALOG_LEGAL.LOAI_NGUON_TIN as readonly { code: string; label: string }[];
 const _NGUON_PHAT_TIN_CAT = CATALOG_LEGAL.NGUON_PHAT_TIN as readonly { code: string; label: string }[];
-const _NGUON_PHAT_TIN_CASCADE =
-  (CATALOG_META.NGUON_PHAT_TIN as { cascade?: { map: Record<string, string[]> } }).cascade?.map ?? {};
+// Qua `unknown` để gỡ readonly-tuple từ `as const` của catalog.generated (tsc -b strict).
+const _NGUON_PHAT_TIN_CASCADE = ((CATALOG_META.NGUON_PHAT_TIN as unknown as {
+  cascade?: { map: Record<string, string[]> };
+}).cascade?.map ?? {}) as Record<string, string[]>;
 
 export const LOAI_NGUON_TIN_LABEL = Object.fromEntries(
   _LOAI_NGUON_TIN_CAT.map((o) => [o.code, o.label]),
