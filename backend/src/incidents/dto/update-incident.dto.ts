@@ -10,6 +10,7 @@ import {
 } from 'class-validator';
 import { LoaiNguonTin, LyDoKhongKhoiTo, LyDoTamDinhChiVuViec, NguonPhatTin, PhuongThucTiepNhan } from '@prisma/client';
 import { IsNguonPhatTinMatchLoaiDonVu } from '../../common/validators/nguon-phat-tin-match.validator';
+import { IsCatalogValue } from '../../common/validators/is-catalog-value.validator';
 
 export class UpdateIncidentDto {
   @IsOptional()
@@ -128,9 +129,9 @@ export class UpdateIncidentDto {
 
   @IsOptional()
   @IsArray()
-  @IsEnum(LyDoKhongKhoiTo, {
+  @IsCatalogValue('LY_DO_KHONG_KHOI_TO', {
     each: true,
-    message: 'lyDoKhongKhoiTo phải là một trong 7 căn cứ theo Điều 157 BLTTHS 2015',
+    message: 'lyDoKhongKhoiTo phải là căn cứ thuộc danh mục theo Điều 157 BLTTHS 2015',
   })
   lyDoKhongKhoiTo?: LyDoKhongKhoiTo[];
 

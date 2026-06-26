@@ -35,4 +35,19 @@ describe('UpdateIncidentDto — field-parity TĐC vụ việc', () => {
     const errors = await validate(dto);
     expect(errors.some((e) => e.property === 'ngayHetThoiHieuVV')).toBe(true);
   });
+
+  // PR-1 catalog: lyDoKhongKhoiTo validate qua danh mục LY_DO_KHONG_KHOI_TO (@IsCatalogValue).
+  it('chấp nhận lyDoKhongKhoiTo là mảng code thuộc danh mục', async () => {
+    const dto = plainToInstance(UpdateIncidentDto, {
+      lyDoKhongKhoiTo: ['KHONG_CO_SU_VIEC', 'HET_THOI_HIEU'],
+    });
+    const errors = await validate(dto);
+    expect(errors.filter((e) => e.property === 'lyDoKhongKhoiTo')).toHaveLength(0);
+  });
+
+  it('từ chối lyDoKhongKhoiTo chứa code không thuộc danh mục', async () => {
+    const dto = plainToInstance(UpdateIncidentDto, { lyDoKhongKhoiTo: ['CODE_RAC'] });
+    const errors = await validate(dto);
+    expect(errors.some((e) => e.property === 'lyDoKhongKhoiTo')).toBe(true);
+  });
 });
