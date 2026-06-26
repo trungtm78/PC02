@@ -139,6 +139,7 @@ export interface CaseFormData {
 
   // ── Field-parity: số QĐ giai đoạn vụ án (15 cột, tất cả optional) ──────
   soQuyetDinhKhoiTo: string;   // Số QĐ khởi tố vụ án
+  ngayKhoiTo: string;          // Ngày QĐ khởi tố vụ án (old ngay_quyet_dinh_khoi_to_vu_an)
   soQDNhapVuAn: string;        // Số QĐ nhập vụ án
   ngayNhapVuAn: string;        // Ngày nhập vụ án
   ghiChuNhapHoSo: string;      // Ghi chú nhập vào hồ sơ nào
@@ -364,7 +365,7 @@ export const INITIAL_FORM_DATA: CaseFormData = {
   // Field-parity KLĐT + QĐ điều tra lại
   soKLDT: "", ngayKLDT: "", soQDDieuTraLai: "", ngayQDDieuTraLai: "",
   // Field-parity: số QĐ giai đoạn vụ án
-  soQuyetDinhKhoiTo: "", soQDNhapVuAn: "", ngayNhapVuAn: "", ghiChuNhapHoSo: "",
+  soQuyetDinhKhoiTo: "", ngayKhoiTo: "", soQDNhapVuAn: "", ngayNhapVuAn: "", ghiChuNhapHoSo: "",
   soQDTachVuAn: "", ngayTachVuAn: "", soQDTachHanhVi: "", ngayTachHanhVi: "",
   soQDDinhChiVuAn: "", ngayDinhChiVuAn: "", chuyenVuAnChoCQK: "",
   soBanAnCoHieuLuc: "", ngayBanAnCoHieuLuc: "",

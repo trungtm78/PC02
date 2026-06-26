@@ -767,6 +767,14 @@ export function TabCase({ formData, setFormData, errors, setErrors }: TabProps) 
           placeholder="Số QĐ khởi tố"
         />
         <FormInput
+          label="Ngày QĐ khởi tố vụ án"
+          type="date"
+          icon={<Calendar className="w-4 h-4" />}
+          value={formData.ngayKhoiTo}
+          onChange={(v) => update("ngayKhoiTo", v)}
+          data-testid="field-ngayKhoiTo"
+        />
+        <FormInput
           label="Số QĐ nhập vụ án"
           value={formData.soQDNhapVuAn}
           onChange={(v) => update("soQDNhapVuAn", v)}

@@ -215,6 +215,7 @@ export function mergeCaseApiToFormData(
     ngayQDDieuTraLai: apiData.ngayQDDieuTraLai ? toDateInput(apiData.ngayQDDieuTraLai as string) : prev.ngayQDDieuTraLai,
     // Field-parity: số QĐ giai đoạn vụ án (15 cột top-level)
     soQuyetDinhKhoiTo:   (apiData.soQuyetDinhKhoiTo as string)   ?? prev.soQuyetDinhKhoiTo,
+    ngayKhoiTo:          apiData.ngayKhoiTo ? toDateInput(apiData.ngayKhoiTo as string) : prev.ngayKhoiTo,
     soQDNhapVuAn:        (apiData.soQDNhapVuAn as string)        ?? prev.soQDNhapVuAn,
     ngayNhapVuAn:        apiData.ngayNhapVuAn ? toDateInput(apiData.ngayNhapVuAn as string) : prev.ngayNhapVuAn,
     ghiChuNhapHoSo:      (apiData.ghiChuNhapHoSo as string)      ?? prev.ghiChuNhapHoSo,

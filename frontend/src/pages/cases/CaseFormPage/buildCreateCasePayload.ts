@@ -69,6 +69,7 @@ export interface CreateCasePayload {
   ngayQDDieuTraLai?: string;
   // Field-parity: số QĐ giai đoạn vụ án
   soQuyetDinhKhoiTo?: string;
+  ngayKhoiTo?: string;
   soQDNhapVuAn?: string;
   ngayNhapVuAn?: string;
   ghiChuNhapHoSo?: string;
@@ -274,6 +275,7 @@ export function buildCreateCasePayload(
   if (formData.ngayQDDieuTraLai) payload.ngayQDDieuTraLai = formData.ngayQDDieuTraLai;
   // Field-parity: số QĐ giai đoạn vụ án
   if (formData.soQuyetDinhKhoiTo)   payload.soQuyetDinhKhoiTo = formData.soQuyetDinhKhoiTo;
+  if (formData.ngayKhoiTo)          payload.ngayKhoiTo = formData.ngayKhoiTo;
   if (formData.soQDNhapVuAn)        payload.soQDNhapVuAn = formData.soQDNhapVuAn;
   if (formData.ngayNhapVuAn)        payload.ngayNhapVuAn = formData.ngayNhapVuAn;
   if (formData.ghiChuNhapHoSo)      payload.ghiChuNhapHoSo = formData.ghiChuNhapHoSo;
