@@ -862,6 +862,15 @@ export class CasesService {
       ...(dto.ngayBanAnCoHieuLuc !== undefined && { ngayBanAnCoHieuLuc: dto.ngayBanAnCoHieuLuc ? new Date(dto.ngayBanAnCoHieuLuc) : null }),
       ...(dto.canCuTamDinhChiVuAn !== undefined && { canCuTamDinhChiVuAn: dto.canCuTamDinhChiVuAn }),
       ...(dto.canCuPhucHoiVuAn !== undefined && { canCuPhucHoiVuAn: dto.canCuPhucHoiVuAn }),
+      // ── PR-3 — field tab "Vụ án TĐC" (persist khi CREATE; update có ở block ~1222) ──
+      ...(dto.soQuyetDinhTamDinhChi !== undefined && { soQuyetDinhTamDinhChi: dto.soQuyetDinhTamDinhChi }),
+      ...(dto.ngayTamDinhChi !== undefined && { ngayTamDinhChi: dto.ngayTamDinhChi ? new Date(dto.ngayTamDinhChi) : null }),
+      ...(dto.lyDoTamDinhChiVuAn !== undefined && { lyDoTamDinhChiVuAn: dto.lyDoTamDinhChiVuAn }),
+      ...(dto.ngayHetThoiHieu !== undefined && { ngayHetThoiHieu: dto.ngayHetThoiHieu ? new Date(dto.ngayHetThoiHieu) : null }),
+      ...(dto.soQuyetDinhPhucHoi !== undefined && { soQuyetDinhPhucHoi: dto.soQuyetDinhPhucHoi }),
+      ...(dto.ngayPhucHoi !== undefined && { ngayPhucHoi: dto.ngayPhucHoi ? new Date(dto.ngayPhucHoi) : null }),
+      ...(dto.tdcKhacPhucLyDoBienPhap !== undefined && { tdcKhacPhucLyDoBienPhap: dto.tdcKhacPhucLyDoBienPhap }),
+      ...(dto.tdcKhacPhucBienBan !== undefined && { tdcKhacPhucBienBan: dto.tdcKhacPhucBienBan }),
       // ── Field-parity KLĐT + QĐ điều tra lại (PR-M2: trước đây RỚT ở create — update có) ──
       ...(dto.soKLDT !== undefined && { soKLDT: dto.soKLDT }),
       ...(dto.ngayKLDT !== undefined && { ngayKLDT: dto.ngayKLDT ? new Date(dto.ngayKLDT) : null }),

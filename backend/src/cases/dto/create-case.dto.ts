@@ -15,7 +15,7 @@ import {
   MaxLength,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
-import { CaseStatus, CapDoToiPham, CaseProvenance, CaseType, LoaiUyThac } from '@prisma/client';
+import { CaseStatus, CapDoToiPham, CaseProvenance, CaseType, LoaiUyThac, LyDoTamDinhChiVuAn } from '@prisma/client';
 import { CaseStatisticDto } from './case-statistic.dto';
 
 export { CaseStatus, CapDoToiPham, CaseProvenance, CaseType, LoaiUyThac };
@@ -207,6 +207,15 @@ export class CreateCaseDto {
   @IsOptional() @IsDateString() ngayBanAnCoHieuLuc?: string;
   @IsOptional() @IsString() canCuTamDinhChiVuAn?: string;
   @IsOptional() @IsString() canCuPhucHoiVuAn?: string;
+  // PR-3 — field tab "Vụ án TĐC" form cũ /doi-1/Them (cho phép nhập lúc tạo, tránh CREATE 400)
+  @IsOptional() @IsString() soQuyetDinhTamDinhChi?: string;
+  @IsOptional() @IsDateString() ngayTamDinhChi?: string;
+  @IsOptional() @IsEnum(LyDoTamDinhChiVuAn) lyDoTamDinhChiVuAn?: LyDoTamDinhChiVuAn;
+  @IsOptional() @IsDateString() ngayHetThoiHieu?: string;
+  @IsOptional() @IsString() soQuyetDinhPhucHoi?: string;
+  @IsOptional() @IsDateString() ngayPhucHoi?: string;
+  @IsOptional() @IsString() @MaxLength(1000) tdcKhacPhucLyDoBienPhap?: string;
+  @IsOptional() @IsString() @MaxLength(1000) tdcKhacPhucBienBan?: string;
   // Field-parity hệ thống cũ — KLĐT + QĐ điều tra lại
   @IsOptional() @IsString() soKLDT?: string;
   @IsOptional() @IsDateString() ngayKLDT?: string;

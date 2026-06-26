@@ -229,6 +229,15 @@ export function mergeCaseApiToFormData(
     ngayBanAnCoHieuLuc:  apiData.ngayBanAnCoHieuLuc ? toDateInput(apiData.ngayBanAnCoHieuLuc as string) : prev.ngayBanAnCoHieuLuc,
     canCuTamDinhChiVuAn: (apiData.canCuTamDinhChiVuAn as string) ?? prev.canCuTamDinhChiVuAn,
     canCuPhucHoiVuAn:    (apiData.canCuPhucHoiVuAn as string)    ?? prev.canCuPhucHoiVuAn,
+    // PR-3 — tab "Vụ án TĐC"
+    soQuyetDinhTamDinhChi:   (apiData.soQuyetDinhTamDinhChi as string)   ?? prev.soQuyetDinhTamDinhChi,
+    ngayTamDinhChi:          apiData.ngayTamDinhChi ? toDateInput(apiData.ngayTamDinhChi as string) : prev.ngayTamDinhChi,
+    lyDoTamDinhChiVuAn:      (apiData.lyDoTamDinhChiVuAn as string)      ?? prev.lyDoTamDinhChiVuAn,
+    ngayHetThoiHieu:         apiData.ngayHetThoiHieu ? toDateInput(apiData.ngayHetThoiHieu as string) : prev.ngayHetThoiHieu,
+    soQuyetDinhPhucHoi:      (apiData.soQuyetDinhPhucHoi as string)      ?? prev.soQuyetDinhPhucHoi,
+    ngayPhucHoi:             apiData.ngayPhucHoi ? toDateInput(apiData.ngayPhucHoi as string) : prev.ngayPhucHoi,
+    tdcKhacPhucLyDoBienPhap: (apiData.tdcKhacPhucLyDoBienPhap as string) ?? prev.tdcKhacPhucLyDoBienPhap,
+    tdcKhacPhucBienBan:      (apiData.tdcKhacPhucBienBan as string)      ?? prev.tdcKhacPhucBienBan,
     // PR-M2: ghi chú tự do + tội danh khác (multi)
     ghiChuKhac:     (apiData.ghiChuKhac as string) ?? prev.ghiChuKhac,
     toiDanhKhacIds: Array.isArray(apiData.toiDanhKhacIds) ? (apiData.toiDanhKhacIds as string[]) : prev.toiDanhKhacIds,

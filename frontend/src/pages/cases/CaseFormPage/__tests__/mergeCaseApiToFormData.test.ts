@@ -189,6 +189,31 @@ describe('mergeCaseApiToFormData — FP Case số QĐ giai đoạn', () => {
     expect(result.canCuPhucHoiVuAn).toBe('Căn cứ phục hồi');
   });
 
+  it('PR-3: hydrates 8 field tab "Vụ án TĐC"', () => {
+    const result = mergeCaseApiToFormData(
+      {
+        ...baseApi,
+        soQuyetDinhTamDinhChi: 'QĐ-TĐC-01',
+        ngayTamDinhChi: '2026-06-20T00:00:00.000Z',
+        lyDoTamDinhChiVuAn: 'CHUA_CO_KET_QUA_GIAM_DINH',
+        ngayHetThoiHieu: '2027-06-20T00:00:00.000Z',
+        soQuyetDinhPhucHoi: 'QĐ-PH-02',
+        ngayPhucHoi: '2026-06-25T00:00:00.000Z',
+        tdcKhacPhucLyDoBienPhap: 'Lý do/biện pháp',
+        tdcKhacPhucBienBan: 'BB-03',
+      },
+      INITIAL_FORM_DATA,
+    );
+    expect(result.soQuyetDinhTamDinhChi).toBe('QĐ-TĐC-01');
+    expect(result.ngayTamDinhChi).toBe('2026-06-20');
+    expect(result.lyDoTamDinhChiVuAn).toBe('CHUA_CO_KET_QUA_GIAM_DINH');
+    expect(result.ngayHetThoiHieu).toBe('2027-06-20');
+    expect(result.soQuyetDinhPhucHoi).toBe('QĐ-PH-02');
+    expect(result.ngayPhucHoi).toBe('2026-06-25');
+    expect(result.tdcKhacPhucLyDoBienPhap).toBe('Lý do/biện pháp');
+    expect(result.tdcKhacPhucBienBan).toBe('BB-03');
+  });
+
   it('falls back to prev when FP fields null from API', () => {
     const prev = { ...INITIAL_FORM_DATA, soQuyetDinhKhoiTo: 'QD-OLD', ghiChuNhapHoSo: 'Ghi chú cũ' };
     const result = mergeCaseApiToFormData(

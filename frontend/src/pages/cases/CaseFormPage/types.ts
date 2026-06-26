@@ -153,6 +153,15 @@ export interface CaseFormData {
   ngayBanAnCoHieuLuc: string;  // Ngày bản án có hiệu lực pháp luật
   canCuTamDinhChiVuAn: string; // Căn cứ tạm đình chỉ vụ án
   canCuPhucHoiVuAn: string;    // Căn cứ phục hồi điều tra vụ án
+  // ── PR-3 (2026-06-26): field tab "Vụ án TĐC" form cũ /doi-1/Them ──────────
+  soQuyetDinhTamDinhChi: string;   // Số QĐ tạm đình chỉ vụ án
+  ngayTamDinhChi: string;          // Ngày QĐ tạm đình chỉ vụ án
+  lyDoTamDinhChiVuAn: string;      // Lý do TĐC (enum LyDoTamDinhChiVuAn)
+  ngayHetThoiHieu: string;         // Ngày hết thời hiệu truy cứu TNHS vụ án
+  soQuyetDinhPhucHoi: string;      // Số QĐ phục hồi điều tra vụ án
+  ngayPhucHoi: string;             // Ngày QĐ phục hồi điều tra
+  tdcKhacPhucLyDoBienPhap: string; // Lý do/biện pháp khắc phục TĐC
+  tdcKhacPhucBienBan: string;      // Biên bản khắc phục TĐC
   // ── PR-M2: ghi chú tự do + tội danh khác cấp vụ án (multi crime id) ──────
   ghiChuKhac: string;          // Ghi chú khác (free text)
   toiDanhKhacIds: string[];    // Tội danh khác (mảng crime id)
@@ -360,6 +369,8 @@ export const INITIAL_FORM_DATA: CaseFormData = {
   soQDDinhChiVuAn: "", ngayDinhChiVuAn: "", chuyenVuAnChoCQK: "",
   soBanAnCoHieuLuc: "", ngayBanAnCoHieuLuc: "",
   canCuTamDinhChiVuAn: "", canCuPhucHoiVuAn: "",
+  soQuyetDinhTamDinhChi: "", ngayTamDinhChi: "", lyDoTamDinhChiVuAn: "", ngayHetThoiHieu: "",
+  soQuyetDinhPhucHoi: "", ngayPhucHoi: "", tdcKhacPhucLyDoBienPhap: "", tdcKhacPhucBienBan: "",
   // PR-M2: ghi chú tự do + tội danh khác
   ghiChuKhac: "", toiDanhKhacIds: [],
   // Tab 3

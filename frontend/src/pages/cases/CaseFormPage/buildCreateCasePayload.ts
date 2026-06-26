@@ -83,6 +83,15 @@ export interface CreateCasePayload {
   ngayBanAnCoHieuLuc?: string;
   canCuTamDinhChiVuAn?: string;
   canCuPhucHoiVuAn?: string;
+  // PR-3 — tab "Vụ án TĐC"
+  soQuyetDinhTamDinhChi?: string;
+  ngayTamDinhChi?: string;
+  lyDoTamDinhChiVuAn?: string;
+  ngayHetThoiHieu?: string;
+  soQuyetDinhPhucHoi?: string;
+  ngayPhucHoi?: string;
+  tdcKhacPhucLyDoBienPhap?: string;
+  tdcKhacPhucBienBan?: string;
 }
 
 /**
@@ -279,6 +288,15 @@ export function buildCreateCasePayload(
   if (formData.ngayBanAnCoHieuLuc)  payload.ngayBanAnCoHieuLuc = formData.ngayBanAnCoHieuLuc;
   if (formData.canCuTamDinhChiVuAn) payload.canCuTamDinhChiVuAn = formData.canCuTamDinhChiVuAn;
   if (formData.canCuPhucHoiVuAn)    payload.canCuPhucHoiVuAn = formData.canCuPhucHoiVuAn;
+  // PR-3 — tab "Vụ án TĐC" (chỉ gửi khi có giá trị; tránh ghi đè workflow auto-set)
+  if (formData.soQuyetDinhTamDinhChi)   payload.soQuyetDinhTamDinhChi = formData.soQuyetDinhTamDinhChi;
+  if (formData.ngayTamDinhChi)          payload.ngayTamDinhChi = formData.ngayTamDinhChi;
+  if (formData.lyDoTamDinhChiVuAn)      payload.lyDoTamDinhChiVuAn = formData.lyDoTamDinhChiVuAn;
+  if (formData.ngayHetThoiHieu)         payload.ngayHetThoiHieu = formData.ngayHetThoiHieu;
+  if (formData.soQuyetDinhPhucHoi)      payload.soQuyetDinhPhucHoi = formData.soQuyetDinhPhucHoi;
+  if (formData.ngayPhucHoi)             payload.ngayPhucHoi = formData.ngayPhucHoi;
+  if (formData.tdcKhacPhucLyDoBienPhap) payload.tdcKhacPhucLyDoBienPhap = formData.tdcKhacPhucLyDoBienPhap;
+  if (formData.tdcKhacPhucBienBan)      payload.tdcKhacPhucBienBan = formData.tdcKhacPhucBienBan;
   // PR-M2: ghi chú tự do + tội danh khác (multi)
   if (formData.ghiChuKhac)                       payload.ghiChuKhac = formData.ghiChuKhac;
   if (formData.toiDanhKhacIds && formData.toiDanhKhacIds.length > 0) payload.toiDanhKhacIds = formData.toiDanhKhacIds;

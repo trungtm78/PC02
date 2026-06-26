@@ -47,7 +47,23 @@ import {
 import { CaseProvenancePicker } from "./CaseProvenancePicker";
 import { LinkedIncidentCard } from "./LinkedIncidentCard";
 import { CaseFormTab1UyThac } from "./CaseFormTab1UyThac";
-import { CaseProvenance } from "../../../shared/enums/generated";
+import { CaseProvenance, LyDoTamDinhChiVuAn } from "../../../shared/enums/generated";
+
+// Options lý do tạm đình chỉ vụ án (BLTTHS Đ.229) — derive từ enum (không hardcode literal).
+const LY_DO_TDC_VA_LABELS: Record<string, string> = {
+  CHUA_XAC_DINH_BI_CAN: "Chưa xác định được bị can",
+  KHONG_BIET_BI_CAN_O_DAU: "Không biết bị can ở đâu",
+  BI_CAN_BENH_TAM_THAN: "Bị can bị bệnh tâm thần / bệnh hiểm nghèo",
+  CHUA_CO_KET_QUA_GIAM_DINH: "Chưa có kết quả giám định",
+  CHUA_CO_KET_QUA_DINH_GIA: "Chưa có kết quả định giá tài sản",
+  CHUA_CO_KET_QUA_TUONG_TRO: "Chưa có kết quả tương trợ tư pháp",
+  YEU_CAU_TAI_LIEU_CHUA_CO: "Yêu cầu tài liệu chưa có kết quả",
+  BAT_KHA_KHANG: "Lý do bất khả kháng",
+};
+const LY_DO_TDC_VA_OPTIONS = Object.values(LyDoTamDinhChiVuAn).map((v) => ({
+  value: v,
+  label: LY_DO_TDC_VA_LABELS[v] ?? v,
+}));
 
 // Branch-3 provenances that trigger Incident auto-create (module-level, not inside render)
 const DIRECT_PROVENANCES = new Set([
@@ -1040,6 +1056,72 @@ export function TabCaseTDC({ formData, setFormData, errors, setErrors }: TabProp
           onChange={(v) => update("tdcProcessingResult", v)}
           placeholder="Kết quả xử lý vụ án TĐC..."
           rows={5}
+          colSpan={2}
+        />
+      </div>
+
+      {/* PR-3 — Quyết định Tạm đình chỉ & Phục hồi điều tra vụ án (field-parity /doi-1/Them) */}
+      <CardHeader title="Tạm đình chỉ & phục hồi điều tra vụ án" />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <FormInput
+          label="Số QĐ tạm đình chỉ vụ án"
+          value={formData.soQuyetDinhTamDinhChi}
+          onChange={(v) => update("soQuyetDinhTamDinhChi", v)}
+          placeholder="Số quyết định tạm đình chỉ điều tra"
+          data-testid="field-soQuyetDinhTamDinhChi"
+        />
+        <FormInput
+          label="Ngày QĐ tạm đình chỉ"
+          type="date"
+          icon={<Calendar className="w-4 h-4" />}
+          value={formData.ngayTamDinhChi}
+          onChange={(v) => update("ngayTamDinhChi", v)}
+          data-testid="field-ngayTamDinhChi"
+        />
+        <FormSelect
+          label="Lý do tạm đình chỉ (BLTTHS Đ.229)"
+          value={formData.lyDoTamDinhChiVuAn}
+          onChange={(v) => update("lyDoTamDinhChiVuAn", v)}
+          options={LY_DO_TDC_VA_OPTIONS}
+          placeholder="-- Chọn lý do --"
+        />
+        <FormInput
+          label="Ngày hết thời hiệu truy cứu TNHS"
+          type="date"
+          icon={<Calendar className="w-4 h-4" />}
+          value={formData.ngayHetThoiHieu}
+          onChange={(v) => update("ngayHetThoiHieu", v)}
+          data-testid="field-ngayHetThoiHieu"
+        />
+        <FormInput
+          label="Số QĐ phục hồi điều tra"
+          value={formData.soQuyetDinhPhucHoi}
+          onChange={(v) => update("soQuyetDinhPhucHoi", v)}
+          placeholder="Số quyết định phục hồi điều tra"
+          data-testid="field-soQuyetDinhPhucHoi"
+        />
+        <FormInput
+          label="Ngày QĐ phục hồi"
+          type="date"
+          icon={<Calendar className="w-4 h-4" />}
+          value={formData.ngayPhucHoi}
+          onChange={(v) => update("ngayPhucHoi", v)}
+          data-testid="field-ngayPhucHoi"
+        />
+        <FormTextarea
+          label="Lý do / biện pháp khắc phục TĐC"
+          value={formData.tdcKhacPhucLyDoBienPhap}
+          onChange={(v) => update("tdcKhacPhucLyDoBienPhap", v)}
+          placeholder="Lý do và biện pháp khắc phục để phục hồi điều tra..."
+          rows={3}
+          colSpan={2}
+        />
+        <FormTextarea
+          label="Biên bản khắc phục TĐC"
+          value={formData.tdcKhacPhucBienBan}
+          onChange={(v) => update("tdcKhacPhucBienBan", v)}
+          placeholder="Số/ngày biên bản khắc phục..."
+          rows={2}
           colSpan={2}
         />
       </div>
