@@ -545,7 +545,7 @@ model Case {
   // TĐC tracking fields (Phụ lục 08)
   laCongNgheCao         Boolean             @default(false)
   lyDoTamDinhChiText    String? // Backup của giá trị String cũ trước migration
-  lyDoTamDinhChiVuAn    LyDoTamDinhChiVuAn? // Enum mới thay thế lyDoTamDinhChi
+  lyDoTamDinhChiVuAn    LyDoTamDinhChiVuAn[] // PR-8: MULTI — chọn nhiều lý do TĐC (Đ.229). Mảng rỗng = chưa chọn.
   soQuyetDinhTamDinhChi String?
   ngayTamDinhChi        DateTime?
   soLanTamDinhChi       Int                 @default(0)
@@ -640,7 +640,6 @@ model Case {
   @@index([deadline])
   @@index([deletedAt])
   @@index([assignedTeamId])
-  @@index([lyDoTamDinhChiVuAn])
   @@index([createdAt])
   @@index([unit])
   @@index([createdById])

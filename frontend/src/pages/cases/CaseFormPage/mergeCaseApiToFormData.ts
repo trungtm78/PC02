@@ -233,7 +233,7 @@ export function mergeCaseApiToFormData(
     // PR-3 — tab "Vụ án TĐC"
     soQuyetDinhTamDinhChi:   (apiData.soQuyetDinhTamDinhChi as string)   ?? prev.soQuyetDinhTamDinhChi,
     ngayTamDinhChi:          apiData.ngayTamDinhChi ? toDateInput(apiData.ngayTamDinhChi as string) : prev.ngayTamDinhChi,
-    lyDoTamDinhChiVuAn:      (apiData.lyDoTamDinhChiVuAn as string)      ?? prev.lyDoTamDinhChiVuAn,
+    lyDoTamDinhChiVuAn:      Array.isArray(apiData.lyDoTamDinhChiVuAn) ? (apiData.lyDoTamDinhChiVuAn as string[]) : prev.lyDoTamDinhChiVuAn,
     ngayHetThoiHieu:         apiData.ngayHetThoiHieu ? toDateInput(apiData.ngayHetThoiHieu as string) : prev.ngayHetThoiHieu,
     soQuyetDinhPhucHoi:      (apiData.soQuyetDinhPhucHoi as string)      ?? prev.soQuyetDinhPhucHoi,
     ngayPhucHoi:             apiData.ngayPhucHoi ? toDateInput(apiData.ngayPhucHoi as string) : prev.ngayPhucHoi,

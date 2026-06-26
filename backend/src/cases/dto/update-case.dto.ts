@@ -1,6 +1,7 @@
 import { PartialType } from '@nestjs/mapped-types';
 import { CreateCaseDto } from './create-case.dto';
 import {
+  IsArray,
   IsBoolean,
   IsDateString,
   IsEnum,
@@ -20,11 +21,13 @@ export class UpdateCaseDto extends PartialType(CreateCaseDto) {
   // so ValidationPipe whitelist (forbidNonWhitelisted: true) accepts them.
 
   @IsOptional()
+  @IsArray()
   @IsEnum(LyDoTamDinhChiVuAn, {
+    each: true,
     message:
       'Lý do tạm đình chỉ phải theo quy định BLTTHS Điều 229 (CHUA_XAC_DINH_BI_CAN, KHONG_BIET_BI_CAN_O_DAU, BI_CAN_BENH_TAM_THAN, CHUA_CO_KET_QUA_GIAM_DINH, ...)',
   })
-  lyDoTamDinhChiVuAn?: LyDoTamDinhChiVuAn;
+  lyDoTamDinhChiVuAn?: LyDoTamDinhChiVuAn[];
 
   @IsOptional()
   @IsString()

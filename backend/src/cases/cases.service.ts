@@ -1174,8 +1174,8 @@ export class CasesService {
     let tamDinhChiWarning: string | undefined;
 
     if (dto.status === CaseStatus.TAM_DINH_CHI && dto.status !== existing.status) {
-      const lyDo = (dto as UpdateCaseDto & { lyDoTamDinhChiVuAn?: LyDoTamDinhChiVuAn }).lyDoTamDinhChiVuAn;
-      if (!lyDo) {
+      const lyDo = (dto as UpdateCaseDto & { lyDoTamDinhChiVuAn?: LyDoTamDinhChiVuAn[] }).lyDoTamDinhChiVuAn;
+      if (!lyDo || lyDo.length === 0) {
         if (existing.createdAt < MIGRATION_DATE) {
           // Soft-warn: case pre-dates migration — allow but warn (90-day grace period)
           tamDinhChiWarning =
@@ -1229,7 +1229,7 @@ export class CasesService {
       ...(dto.toiDanhKhacIds !== undefined && { toiDanhKhacIds: dto.toiDanhKhacIds }),
       // ── TĐC fields ──────────────────────────────────────────────────────────
       ...((dto as Record<string, unknown>).lyDoTamDinhChiVuAn !== undefined && {
-        lyDoTamDinhChiVuAn: (dto as Record<string, unknown>).lyDoTamDinhChiVuAn as LyDoTamDinhChiVuAn | null,
+        lyDoTamDinhChiVuAn: (dto as Record<string, unknown>).lyDoTamDinhChiVuAn as LyDoTamDinhChiVuAn[],
       }),
       ...((dto as Record<string, unknown>).soQuyetDinhTamDinhChi !== undefined && {
         soQuyetDinhTamDinhChi: (dto as Record<string, unknown>).soQuyetDinhTamDinhChi as string | null,
@@ -1904,7 +1904,8 @@ export class CasesService {
     if (!caseRecord) throw new NotFoundException('Case not found');
     return this.prisma.case.update({
       where: { id },
-      data: { lyDoTamDinhChiVuAn: lyDoTamDinhChiVuAn as any },
+      // PR-8: cột nay là mảng — wrap giá trị đơn vào mảng 1 phần tử.
+      data: { lyDoTamDinhChiVuAn: [lyDoTamDinhChiVuAn] as any },
     });
   }
 

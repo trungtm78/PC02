@@ -16,10 +16,10 @@ import { plainToInstance } from 'class-transformer';
 import { UpdateCaseDto } from './update-case.dto';
 
 describe('UpdateCaseDto — TAM_DINH_CHI / PHUC_HOI fields (v0.37.2.6 P1 fix)', () => {
-  it('accepts lyDoTamDinhChiVuAn enum value', async () => {
+  it('accepts lyDoTamDinhChiVuAn MẢNG nhiều enum value (PR-8 multi)', async () => {
     const dto = plainToInstance(UpdateCaseDto, {
       status: 'TAM_DINH_CHI',
-      lyDoTamDinhChiVuAn: 'CHUA_CO_KET_QUA_GIAM_DINH',
+      lyDoTamDinhChiVuAn: ['CHUA_CO_KET_QUA_GIAM_DINH', 'BAT_KHA_KHANG'],
       caseProvenance: 'DIRECT_DISCOVERY',
     });
     const errors = await validate(dto);
@@ -27,9 +27,9 @@ describe('UpdateCaseDto — TAM_DINH_CHI / PHUC_HOI fields (v0.37.2.6 P1 fix)', 
     expect(lyDoErr).toBeUndefined();
   });
 
-  it('rejects invalid lyDoTamDinhChiVuAn enum value', async () => {
+  it('rejects invalid lyDoTamDinhChiVuAn enum value trong mảng', async () => {
     const dto = plainToInstance(UpdateCaseDto, {
-      lyDoTamDinhChiVuAn: 'NOT_A_VALID_ENUM',
+      lyDoTamDinhChiVuAn: ['NOT_A_VALID_ENUM'],
       caseProvenance: 'DIRECT_DISCOVERY',
     });
     const errors = await validate(dto);

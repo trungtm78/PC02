@@ -1086,13 +1086,31 @@ export function TabCaseTDC({ formData, setFormData, errors, setErrors }: TabProp
           onChange={(v) => update("ngayTamDinhChi", v)}
           data-testid="field-ngayTamDinhChi"
         />
-        <FormSelect
-          label="Lý do tạm đình chỉ (BLTTHS Đ.229)"
-          value={formData.lyDoTamDinhChiVuAn}
-          onChange={(v) => update("lyDoTamDinhChiVuAn", v)}
-          options={LY_DO_TDC_VA_OPTIONS}
-          placeholder="-- Chọn lý do --"
-        />
+        <div className="md:col-span-2" data-testid="field-lyDoTamDinhChiVuAn">
+          <label className="block text-sm font-medium text-slate-700 mb-2">Lý do tạm đình chỉ (BLTTHS Đ.229) — chọn nhiều</label>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            {LY_DO_TDC_VA_OPTIONS.map((opt) => {
+              const checked = formData.lyDoTamDinhChiVuAn.includes(opt.value);
+              return (
+                <label key={opt.value} className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4"
+                    checked={checked}
+                    data-testid={`ldtdc-${opt.value}`}
+                    onChange={(e) => {
+                      const next = e.target.checked
+                        ? [...formData.lyDoTamDinhChiVuAn, opt.value]
+                        : formData.lyDoTamDinhChiVuAn.filter((x) => x !== opt.value);
+                      update("lyDoTamDinhChiVuAn", next);
+                    }}
+                  />
+                  {opt.label}
+                </label>
+              );
+            })}
+          </div>
+        </div>
         <FormInput
           label="Ngày hết thời hiệu truy cứu TNHS"
           type="date"

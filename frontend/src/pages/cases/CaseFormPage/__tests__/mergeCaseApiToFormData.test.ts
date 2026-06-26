@@ -195,7 +195,7 @@ describe('mergeCaseApiToFormData — FP Case số QĐ giai đoạn', () => {
         ...baseApi,
         soQuyetDinhTamDinhChi: 'QĐ-TĐC-01',
         ngayTamDinhChi: '2026-06-20T00:00:00.000Z',
-        lyDoTamDinhChiVuAn: 'CHUA_CO_KET_QUA_GIAM_DINH',
+        lyDoTamDinhChiVuAn: ['CHUA_CO_KET_QUA_GIAM_DINH', 'BAT_KHA_KHANG'],
         ngayHetThoiHieu: '2027-06-20T00:00:00.000Z',
         soQuyetDinhPhucHoi: 'QĐ-PH-02',
         ngayPhucHoi: '2026-06-25T00:00:00.000Z',
@@ -206,7 +206,7 @@ describe('mergeCaseApiToFormData — FP Case số QĐ giai đoạn', () => {
     );
     expect(result.soQuyetDinhTamDinhChi).toBe('QĐ-TĐC-01');
     expect(result.ngayTamDinhChi).toBe('2026-06-20');
-    expect(result.lyDoTamDinhChiVuAn).toBe('CHUA_CO_KET_QUA_GIAM_DINH');
+    expect(result.lyDoTamDinhChiVuAn).toEqual(['CHUA_CO_KET_QUA_GIAM_DINH', 'BAT_KHA_KHANG']);
     expect(result.ngayHetThoiHieu).toBe('2027-06-20');
     expect(result.soQuyetDinhPhucHoi).toBe('QĐ-PH-02');
     expect(result.ngayPhucHoi).toBe('2026-06-25');

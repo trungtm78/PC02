@@ -87,7 +87,7 @@ export interface CreateCasePayload {
   // PR-3 — tab "Vụ án TĐC"
   soQuyetDinhTamDinhChi?: string;
   ngayTamDinhChi?: string;
-  lyDoTamDinhChiVuAn?: string;
+  lyDoTamDinhChiVuAn?: string[];
   ngayHetThoiHieu?: string;
   soQuyetDinhPhucHoi?: string;
   ngayPhucHoi?: string;
@@ -293,7 +293,7 @@ export function buildCreateCasePayload(
   // PR-3 — tab "Vụ án TĐC" (chỉ gửi khi có giá trị; tránh ghi đè workflow auto-set)
   if (formData.soQuyetDinhTamDinhChi)   payload.soQuyetDinhTamDinhChi = formData.soQuyetDinhTamDinhChi;
   if (formData.ngayTamDinhChi)          payload.ngayTamDinhChi = formData.ngayTamDinhChi;
-  if (formData.lyDoTamDinhChiVuAn)      payload.lyDoTamDinhChiVuAn = formData.lyDoTamDinhChiVuAn;
+  if (formData.lyDoTamDinhChiVuAn && formData.lyDoTamDinhChiVuAn.length > 0) payload.lyDoTamDinhChiVuAn = formData.lyDoTamDinhChiVuAn;
   if (formData.ngayHetThoiHieu)         payload.ngayHetThoiHieu = formData.ngayHetThoiHieu;
   if (formData.soQuyetDinhPhucHoi)      payload.soQuyetDinhPhucHoi = formData.soQuyetDinhPhucHoi;
   if (formData.ngayPhucHoi)             payload.ngayPhucHoi = formData.ngayPhucHoi;

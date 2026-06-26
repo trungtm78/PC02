@@ -210,7 +210,7 @@ export class CreateCaseDto {
   // PR-3 — field tab "Vụ án TĐC" form cũ /doi-1/Them (cho phép nhập lúc tạo, tránh CREATE 400)
   @IsOptional() @IsString() soQuyetDinhTamDinhChi?: string;
   @IsOptional() @IsDateString() ngayTamDinhChi?: string;
-  @IsOptional() @IsEnum(LyDoTamDinhChiVuAn) lyDoTamDinhChiVuAn?: LyDoTamDinhChiVuAn;
+  @IsOptional() @IsArray() @IsEnum(LyDoTamDinhChiVuAn, { each: true }) lyDoTamDinhChiVuAn?: LyDoTamDinhChiVuAn[];
   @IsOptional() @IsDateString() ngayHetThoiHieu?: string;
   @IsOptional() @IsString() soQuyetDinhPhucHoi?: string;
   @IsOptional() @IsDateString() ngayPhucHoi?: string;
