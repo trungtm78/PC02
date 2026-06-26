@@ -8,6 +8,17 @@ describe('CATALOG_REGISTRY', () => {
     expect(e.kind === 'legal' && e.values).toHaveLength(7);
   });
 
+  it('LY_DO_KHONG_KHOI_TO: label đúng pháp lý Đ.157 (đại xá khoản 1e, có chú thích khoản)', () => {
+    const e = getCatalogEntry('LY_DO_KHONG_KHOI_TO');
+    if (e.kind !== 'legal') throw new Error('phải là legal');
+    const byCode = Object.fromEntries(e.values.map((v) => [v.code, v.label]));
+    // Khoản 1e BLTTHS Đ.157 là "đại xá", KHÔNG phải "xóa án tích" (tên enum đặt sai trước đây).
+    expect(byCode['TOI_PHAM_DA_DUOC_XOA_AN_TICH']).toBe('Tội phạm đã được đại xá (khoản 1e)');
+    // Mỗi nhãn có chú thích khoản để hiển thị đúng căn cứ pháp lý.
+    expect(byCode['KHONG_CO_SU_VIEC']).toContain('khoản 1a');
+    e.values.forEach((v) => expect(v.label).toMatch(/khoản 1[a-gđ]/));
+  });
+
   it('DOCUMENT_TYPE: dynamic, source directory', () => {
     expect(getCatalogEntry('DOCUMENT_TYPE')).toMatchObject({ kind: 'dynamic', source: 'directory:DOCUMENT_TYPE' });
   });
