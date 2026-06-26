@@ -32,6 +32,12 @@ import { useShortcut } from "@/hooks/useShortcut";
 import { FormInput, FormSelect, FormTextarea, FormCurrency, FormPhone, FormInteger } from "@/components/form";
 import { DocNumberPreviewField } from "@/components/DocNumberPreviewField";
 import { CatalogSelect } from "@/components/CatalogSelect";
+import { CATALOG_LEGAL } from "@/shared/catalog/catalog.generated";
+
+// PR-8 catalog: options derive từ registry (nguồn duy nhất) thay hardcode inline.
+const CAP_DO_TOI_PHAM_OPTIONS = (CATALOG_LEGAL.CAP_DO_TOI_PHAM as readonly { code: string; label: string }[]).map(
+  (o) => ({ value: o.code, label: o.label }),
+);
 import { CurrencyInput } from "@/components/inputs/CurrencyInput";
 import { IntegerInput } from "@/components/inputs/IntegerInput";
 import { Card, CardHeader, EmptyState, DataTable, ActionButtons, StatusBadge } from "@/components/shared";
@@ -238,12 +244,7 @@ export function TabInfo({ formData, setFormData, errors, setErrors, handlerOptio
             label="Mức độ tội phạm (BLHS 2015 Điều 9)"
             value={formData.capDoToiPham ?? ""}
             onChange={(v) => update("capDoToiPham", v)}
-            options={[
-              { value: "IT_NGHIEM_TRONG", label: "Ít nghiêm trọng (đến 3 năm)" },
-              { value: "NGHIEM_TRONG", label: "Nghiêm trọng (đến 7 năm)" },
-              { value: "RAT_NGHIEM_TRONG", label: "Rất nghiêm trọng (đến 15 năm)" },
-              { value: "DAC_BIET_NGHIEM_TRONG", label: "Đặc biệt nghiêm trọng (trên 15 năm / tử hình)" },
-            ]}
+            options={CAP_DO_TOI_PHAM_OPTIONS}
             placeholder="-- Chọn mức độ tội phạm --"
           />
           <FKSelect
