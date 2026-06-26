@@ -255,15 +255,15 @@ export const CATALOG_LEGAL = {
   "LOAI_UY_THAC": [
     {
       "code": "UY_THAC_DIEU_TRA",
-      "label": "Ủy thác điều tra (Đ.171)"
+      "label": "Ủy thác điều tra"
     },
     {
       "code": "CHUYEN_DON_NGUON_TIN",
-      "label": "Chuyển đơn / nguồn tin tố giác"
+      "label": "Chuyển đơn nguồn tin"
     },
     {
       "code": "UY_THAC_GIAI_QUYET",
-      "label": "Ủy thác giải quyết đơn thư khiếu nại"
+      "label": "Ủy thác giải quyết"
     }
   ],
   "KET_QUA_PHUC_HOI_VU_AN": [

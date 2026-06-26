@@ -372,11 +372,12 @@ export const TRANG_THAI_PHAN_HOI_CHIPS: ReadonlyArray<{
 
 // ── v0.44 UTDT — LoaiUyThac ───────────────────────────────────────
 
-export const LOAI_UY_THAC_LABEL: Record<LoaiUyThac, string> = {
-  [LoaiUyThac.UY_THAC_DIEU_TRA]:     'Ủy thác điều tra',
-  [LoaiUyThac.CHUYEN_DON_NGUON_TIN]: 'Chuyển đơn nguồn tin',
-  [LoaiUyThac.UY_THAC_GIAI_QUYET]:   'Ủy thác giải quyết',
-};
+// Derive từ Catalog Registry (nguồn duy nhất).
+const _LOAI_UY_THAC_CAT = CATALOG_LEGAL.LOAI_UY_THAC as readonly { code: string; label: string }[];
+
+export const LOAI_UY_THAC_LABEL = Object.fromEntries(
+  _LOAI_UY_THAC_CAT.map((o) => [o.code, o.label]),
+) as Record<LoaiUyThac, string>;
 
 export const LOAI_UY_THAC_BADGE: Record<LoaiUyThac, string> = {
   [LoaiUyThac.UY_THAC_DIEU_TRA]:     'text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-700',
@@ -384,18 +385,14 @@ export const LOAI_UY_THAC_BADGE: Record<LoaiUyThac, string> = {
   [LoaiUyThac.UY_THAC_GIAI_QUYET]:   'text-xs px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700',
 };
 
-export const LOAI_UY_THAC_OPTIONS: ReadonlyArray<{ value: LoaiUyThac; label: string }> = [
-  { value: LoaiUyThac.UY_THAC_DIEU_TRA,     label: LOAI_UY_THAC_LABEL[LoaiUyThac.UY_THAC_DIEU_TRA] },
-  { value: LoaiUyThac.CHUYEN_DON_NGUON_TIN, label: LOAI_UY_THAC_LABEL[LoaiUyThac.CHUYEN_DON_NGUON_TIN] },
-  { value: LoaiUyThac.UY_THAC_GIAI_QUYET,   label: LOAI_UY_THAC_LABEL[LoaiUyThac.UY_THAC_GIAI_QUYET] },
-];
+export const LOAI_UY_THAC_OPTIONS: ReadonlyArray<{ value: LoaiUyThac; label: string }> =
+  _LOAI_UY_THAC_CAT.map((o) => ({ value: o.code as LoaiUyThac, label: o.label }));
 
 // ── v0.44 UTDT — CaseType ────────────────────────────────────────
 
-export const CASE_TYPE_LABEL: Record<CaseType, string> = {
-  [CaseType.REGULAR]:           'Vụ án thông thường',
-  [CaseType.UY_THAC_DIEU_TRA]: 'Ủy thác điều tra',
-};
+export const CASE_TYPE_LABEL = Object.fromEntries(
+  (CATALOG_LEGAL.CASE_TYPE as readonly { code: string; label: string }[]).map((o) => [o.code, o.label]),
+) as Record<CaseType, string>;
 
 export const DEADLINE_RULE_KEY_UNIT: Record<string, string> = {
   THOI_HAN_XAC_MINH:        'ngày',

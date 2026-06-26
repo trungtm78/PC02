@@ -194,9 +194,9 @@ export const CATALOG_REGISTRY: Record<string, CatalogEntry> = {
     ref: 'BLTTHS 2015 Đ.171 / TT 28/2020',
     enumName: 'LoaiUyThac',
     values: [
-      { code: 'UY_THAC_DIEU_TRA', label: 'Ủy thác điều tra (Đ.171)' },
-      { code: 'CHUYEN_DON_NGUON_TIN', label: 'Chuyển đơn / nguồn tin tố giác' },
-      { code: 'UY_THAC_GIAI_QUYET', label: 'Ủy thác giải quyết đơn thư khiếu nại' },
+      { code: 'UY_THAC_DIEU_TRA', label: 'Ủy thác điều tra' },
+      { code: 'CHUYEN_DON_NGUON_TIN', label: 'Chuyển đơn nguồn tin' },
+      { code: 'UY_THAC_GIAI_QUYET', label: 'Ủy thác giải quyết' },
     ],
   },
   KET_QUA_PHUC_HOI_VU_AN: {
