@@ -774,6 +774,7 @@ export class IncidentsService {
     }
 
     // GAP-6: lyDoKhongKhoiTo required when transitioning to KHONG_KHOI_TO (Điều 157)
+    // UpdateStatusDto vẫn single (modal đổi trạng thái chọn 1 căn cứ) — cột là mảng nên wrap khi ghi.
     if (dto.status === IncidentStatus.KHONG_KHOI_TO && !dto.lyDoKhongKhoiTo) {
       throw new BadRequestException(
         'Bắt buộc cung cấp lý do không khởi tố (lyDoKhongKhoiTo) theo Điều 157 BLTTHS 2015',
@@ -790,7 +791,7 @@ export class IncidentsService {
           },
           data: {
             status: dto.status,
-            ...(dto.lyDoKhongKhoiTo !== undefined && { lyDoKhongKhoiTo: dto.lyDoKhongKhoiTo }),
+            ...(dto.lyDoKhongKhoiTo !== undefined && { lyDoKhongKhoiTo: [dto.lyDoKhongKhoiTo] }),
           },
           include: {
             investigator: {

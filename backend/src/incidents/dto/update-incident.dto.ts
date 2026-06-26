@@ -4,6 +4,7 @@ import {
   IsDateString,
   IsEnum,
   IsBoolean,
+  IsArray,
   MaxLength,
   MinLength,
 } from 'class-validator';
@@ -126,10 +127,12 @@ export class UpdateIncidentDto {
   ngayQuyetDinh?: string;
 
   @IsOptional()
+  @IsArray()
   @IsEnum(LyDoKhongKhoiTo, {
+    each: true,
     message: 'lyDoKhongKhoiTo phải là một trong 7 căn cứ theo Điều 157 BLTTHS 2015',
   })
-  lyDoKhongKhoiTo?: LyDoKhongKhoiTo;
+  lyDoKhongKhoiTo?: LyDoKhongKhoiTo[];
 
   @IsOptional()
   @IsString()

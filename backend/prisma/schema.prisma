@@ -1044,7 +1044,7 @@ model Incident {
   phanLoaiDanSuText       String? // Thông báo phân loại dân sự (số/ngày)
   soLanGiaHan             Int                   @default(0) // Số lần đã gia hạn, tối đa 2 (Điều 147 khoản 2-3)
   ngayGiaHan              DateTime? // Ngày gia hạn gần nhất
-  lyDoKhongKhoiTo         LyDoKhongKhoiTo? // Lý do không khởi tố (Điều 157 BLTTHS 2015: 7 căn cứ)
+  lyDoKhongKhoiTo         LyDoKhongKhoiTo[] // PR-8 MULTI: chọn nhiều căn cứ không khởi tố (Đ.157). Mảng rỗng=chưa chọn.
   lyDoTamDinhChiText      String? // Backup của giá trị String cũ trước migration
   lyDoTamDinhChiVuViec    LyDoTamDinhChiVuViec? // Enum mới cho vụ việc
   laCongNgheCaoVV         Boolean               @default(false)

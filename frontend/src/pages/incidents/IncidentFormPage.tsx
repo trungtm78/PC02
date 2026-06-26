@@ -49,7 +49,7 @@ interface FormData {
   soQuyetDinh: string;
   ngayQuyetDinh: string;
   nguoiQuyetDinh: string;
-  lyDoKhongKhoiTo: string;
+  lyDoKhongKhoiTo: string[];
   lyDoTamDinhChi: string;
   tinhTrangThoiHieu: string;
   tinhTrangHoSo: string;
@@ -102,7 +102,7 @@ const INITIAL_FORM: FormData = {
   soQuyetDinh: "",
   ngayQuyetDinh: "",
   nguoiQuyetDinh: "",
-  lyDoKhongKhoiTo: "",
+  lyDoKhongKhoiTo: [],
   lyDoTamDinhChi: "",
   tinhTrangThoiHieu: "",
   tinhTrangHoSo: "",
@@ -253,7 +253,7 @@ export function IncidentFormPage() {
             soQuyetDinh: (d.soQuyetDinh as string) ?? "",
             ngayQuyetDinh: toDateInput(d.ngayQuyetDinh as string | null | undefined),
             nguoiQuyetDinh: (d.nguoiQuyetDinh as string) ?? "",
-            lyDoKhongKhoiTo: (d.lyDoKhongKhoiTo as string) ?? "",
+            lyDoKhongKhoiTo: Array.isArray(d.lyDoKhongKhoiTo) ? (d.lyDoKhongKhoiTo as string[]) : [],
             lyDoTamDinhChi: (d.lyDoTamDinhChi as string) ?? "",
             tinhTrangThoiHieu: (d.tinhTrangThoiHieu as string) ?? "",
             tinhTrangHoSo: (d.tinhTrangHoSo as string) ?? "",
@@ -339,7 +339,7 @@ export function IncidentFormPage() {
         loaiKetQua: s(formData.loaiKetQua),
         canCuKhoiToCode: s(formData.canCuKhoiToCode),
         nguoiQuyetDinh: s(formData.nguoiQuyetDinh),
-        lyDoKhongKhoiTo: s(formData.lyDoKhongKhoiTo),
+        lyDoKhongKhoiTo: formData.lyDoKhongKhoiTo.length > 0 ? formData.lyDoKhongKhoiTo : undefined,
         lyDoTamDinhChi: s(formData.lyDoTamDinhChi),
         tinhTrangHoSo: s(formData.tinhTrangHoSo),
         tinhTrangThoiHieu: s(formData.tinhTrangThoiHieu),
@@ -738,16 +738,27 @@ export function IncidentFormPage() {
               7 căn cứ chuẩn theo BLTTHS Đ.143. Có thể bỏ trống. Khi convert vụ việc → vụ án, giá trị này tự transfer sang Case.caseProvenance.
             </p>
 
-            {/* Lý do không khởi tố Đ.157 — giữ field hiện tại, anh override luôn hiển thị */}
-            <FKSelect
-              label="Lý do không khởi tố (Điều 157 BLTTHS) — nếu không khởi tố"
-              value={formData.lyDoKhongKhoiTo}
-              onChange={(v) => update("lyDoKhongKhoiTo", v)}
-              options={LY_DO_KHONG_KHOI_TO_OPTIONS}
-              placeholder="-- Chọn căn cứ (nếu có) --"
-              canCreate={false}
-              testId="field-lyDoKhongKhoiTo"
-            />
+            {/* Lý do không khởi tố Đ.157 — PR-8 MULTI: chọn nhiều căn cứ */}
+            <div data-testid="field-lyDoKhongKhoiTo">
+              <label className={labelClass}>Lý do không khởi tố (Điều 157 BLTTHS) — chọn nhiều, nếu không khởi tố</label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {LY_DO_KHONG_KHOI_TO_OPTIONS.map((opt) => {
+                  const checked = formData.lyDoKhongKhoiTo.includes(opt.value);
+                  return (
+                    <label key={opt.value} className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                      <input type="checkbox" className="w-4 h-4" checked={checked} data-testid={`lkkt-${opt.value}`}
+                        onChange={(e) => {
+                          const next = e.target.checked
+                            ? [...formData.lyDoKhongKhoiTo, opt.value]
+                            : formData.lyDoKhongKhoiTo.filter((x) => x !== opt.value);
+                          update("lyDoKhongKhoiTo", next);
+                        }} />
+                      {opt.label}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
             <p className="mt-1 text-xs text-slate-500">
               8 căn cứ chuẩn theo BLTTHS Đ.157. Luôn hiển thị (pháp lý quan trọng).
             </p>
