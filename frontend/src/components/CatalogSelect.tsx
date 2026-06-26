@@ -10,6 +10,7 @@ interface CatalogSelectProps {
   catalogKey: string;
   value: string | string[];
   onChange: (next: string | string[]) => void;
+  /** Mặc định lấy từ CATALOG_META[key].multi — chỉ truyền để override có chủ đích. */
   multi?: boolean;
   /** Giá trị field cha — dùng lọc cascading (vd LoaiNguonTin → NguonPhatTin). */
   parentValue?: string;
@@ -28,7 +29,7 @@ export function CatalogSelect({
   catalogKey,
   value,
   onChange,
-  multi = false,
+  multi: multiProp,
   parentValue,
   disabled,
   className,
@@ -36,9 +37,20 @@ export function CatalogSelect({
   ...rest
 }: CatalogSelectProps) {
   const { options } = useCatalog(catalogKey);
+  // multi mặc định theo registry (META) — tránh lệch prop↔data gây mất dữ liệu thầm lặng (review P1-2).
+  const multi = multiProp ?? META[catalogKey]?.multi ?? false;
   const cascade = META[catalogKey]?.cascade;
-  const allowed = cascade && parentValue ? cascade.map[parentValue] ?? [] : null;
-  const visible = allowed ? options.filter((o) => allowed.includes(o.code)) : options;
+  // Cascade fail-open: parentValue có nhưng KHÔNG có key trong map (cấu hình thiếu) → hiện tất cả + cảnh báo dev,
+  // tránh dropdown trống không lý do (review P1-1). Key tồn tại nhưng list rỗng → tôn trọng (ẩn hết).
+  let allowed: string[] | null = null;
+  if (cascade && parentValue) {
+    if (Object.prototype.hasOwnProperty.call(cascade.map, parentValue)) {
+      allowed = cascade.map[parentValue];
+    } else if (import.meta.env?.DEV) {
+      console.warn(`[CatalogSelect] cascade ${catalogKey}: thiếu map cho parentValue="${parentValue}" → hiện tất cả`);
+    }
+  }
+  const visible = allowed ? options.filter((o) => allowed!.includes(o.code)) : options;
 
   if (multi) {
     const arr = Array.isArray(value) ? value : [];
