@@ -5,7 +5,7 @@ describe('catalog.generated', () => {
     expect(CATALOG_LEGAL.LY_DO_KHONG_KHOI_TO).toHaveLength(7);
     expect(CATALOG_LEGAL.LY_DO_KHONG_KHOI_TO[0]).toEqual({
       code: 'KHONG_CO_SU_VIEC',
-      label: 'Không có sự việc phạm tội',
+      label: 'Không có sự việc phạm tội (khoản 1a)',
     });
   });
 

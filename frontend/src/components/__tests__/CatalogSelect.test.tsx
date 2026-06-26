@@ -13,8 +13,8 @@ const renderWithQuery = (ui: ReactElement) => {
 describe("CatalogSelect (legal multi)", () => {
   it("render đủ 7 option legal", async () => {
     renderWithQuery(<CatalogSelect catalogKey="LY_DO_KHONG_KHOI_TO" value={[]} onChange={() => {}} multi />);
-    expect(await screen.findByText("Hết thời hiệu truy cứu TNHS")).toBeInTheDocument();
-    expect(screen.getByText("Người phạm tội đã chết")).toBeInTheDocument();
+    expect(await screen.findByText("Hết thời hiệu truy cứu TNHS (khoản 1đ)")).toBeInTheDocument();
+    expect(screen.getByText("Người phạm tội đã chết (khoản 1d)")).toBeInTheDocument();
   });
 
   it("tick checkbox gọi onChange với mảng code", () => {

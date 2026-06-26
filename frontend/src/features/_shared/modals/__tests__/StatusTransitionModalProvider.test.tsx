@@ -1,9 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import type { ReactElement } from 'react';
 import {
   StatusTransitionModalProvider,
   useStatusTransitionModal,
 } from '../StatusTransitionModalProvider';
+
+// CatalogSelect (dùng trong modal) gọi useQuery → cần QueryClient (như app thật ở root).
+function renderWithQC(ui: ReactElement) {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(<QueryClientProvider client={qc}>{ui}</QueryClientProvider>);
+}
 
 const patchMock = vi.fn();
 vi.mock('@/lib/api', () => ({
@@ -41,7 +49,7 @@ beforeEach(() => {
 
 describe('StatusTransitionModalProvider', () => {
   it('exposes useStatusTransitionModal().open which mounts modal', () => {
-    render(
+    renderWithQC(
       <StatusTransitionModalProvider>
         <Consumer />
       </StatusTransitionModalProvider>,
@@ -52,7 +60,7 @@ describe('StatusTransitionModalProvider', () => {
   });
 
   it('renders only valid transitions for current status', () => {
-    render(
+    renderWithQC(
       <StatusTransitionModalProvider>
         <Consumer currentStatus="TIEP_NHAN" />
       </StatusTransitionModalProvider>,
@@ -69,7 +77,7 @@ describe('StatusTransitionModalProvider', () => {
   });
 
   it('shows conditional lyDoKhongKhoiTo field only when status=KHONG_KHOI_TO', () => {
-    render(
+    renderWithQC(
       <StatusTransitionModalProvider>
         <Consumer currentStatus="DANG_XAC_MINH" />
       </StatusTransitionModalProvider>,
@@ -81,9 +89,27 @@ describe('StatusTransitionModalProvider', () => {
     expect(screen.getByTestId('field-ly-do-khong-khoi-to')).toBeInTheDocument();
   });
 
+  it('PR-1 catalog: select lý do hiển thị NHÃN tiếng Việt, không phải code thô', () => {
+    renderWithQC(
+      <StatusTransitionModalProvider>
+        <Consumer currentStatus="DANG_XAC_MINH" />
+      </StatusTransitionModalProvider>,
+    );
+    act(() => screen.getByTestId('open-transition').click());
+    const select = screen.getByTestId('status-transition-select') as HTMLSelectElement;
+    fireEvent.change(select, { target: { value: 'KHONG_KHOI_TO' } });
+    const lyDo = screen.getByTestId('ly-do-khong-khoi-to-select');
+    // Khoản 1e = "đại xá"; KHÔNG được hiển thị code enum thô.
+    expect(lyDo.textContent).toContain('đại xá');
+    expect(lyDo.textContent).not.toContain('TOI_PHAM_DA_DUOC_XOA_AN_TICH');
+    // value option vẫn là code (gửi BE đúng).
+    const opts = Array.from((lyDo as HTMLSelectElement).options).map((o) => o.value);
+    expect(opts).toContain('KHONG_CO_SU_VIEC');
+  });
+
   it('submit calls PATCH /incidents/:id/status with status + payload', async () => {
     const onSuccess = vi.fn();
-    render(
+    renderWithQC(
       <StatusTransitionModalProvider>
         <Consumer currentStatus="DANG_XAC_MINH" onSuccessSpy={onSuccess} />
       </StatusTransitionModalProvider>,
@@ -107,7 +133,7 @@ describe('StatusTransitionModalProvider', () => {
   });
 
   it('blocks submit when KHONG_KHOI_TO selected but lyDoKhongKhoiTo empty', async () => {
-    render(
+    renderWithQC(
       <StatusTransitionModalProvider>
         <Consumer currentStatus="DANG_XAC_MINH" />
       </StatusTransitionModalProvider>,
@@ -120,7 +146,7 @@ describe('StatusTransitionModalProvider', () => {
   });
 
   it('cancel closes modal without API call', () => {
-    render(
+    renderWithQC(
       <StatusTransitionModalProvider>
         <Consumer />
       </StatusTransitionModalProvider>,

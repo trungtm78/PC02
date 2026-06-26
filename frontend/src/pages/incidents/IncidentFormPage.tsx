@@ -7,9 +7,9 @@ import { DocNumberPreviewField } from "@/components/DocNumberPreviewField";
 import { documentNumbersApi } from "@/features/document-numbers/api";
 import { FKSelect, type FKOption } from "@/components/FKSelect";
 import { PhoneInput } from "@/components/inputs/PhoneInput";
+import { CatalogSelect } from "@/components/CatalogSelect";
 import { getPhaseForStatus } from "@/constants/incident-phases";
 import {
-  LY_DO_KHONG_KHOI_TO_OPTIONS,
   LOAI_NGUON_TIN_OPTIONS,
   NGUON_PHAT_TIN_BY_LOAI,
   PHUONG_THUC_TIEP_NHAN_OPTIONS,
@@ -757,26 +757,15 @@ export function IncidentFormPage() {
             {/* Lý do không khởi tố Đ.157 — PR-8 MULTI: chọn nhiều căn cứ */}
             <div data-testid="field-lyDoKhongKhoiTo">
               <label className={labelClass}>Lý do không khởi tố (Điều 157 BLTTHS) — chọn nhiều, nếu không khởi tố</label>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                {LY_DO_KHONG_KHOI_TO_OPTIONS.map((opt) => {
-                  const checked = formData.lyDoKhongKhoiTo.includes(opt.value);
-                  return (
-                    <label key={opt.value} className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
-                      <input type="checkbox" className="w-4 h-4" checked={checked} data-testid={`lkkt-${opt.value}`}
-                        onChange={(e) => {
-                          const next = e.target.checked
-                            ? [...formData.lyDoKhongKhoiTo, opt.value]
-                            : formData.lyDoKhongKhoiTo.filter((x) => x !== opt.value);
-                          update("lyDoKhongKhoiTo", next);
-                        }} />
-                      {opt.label}
-                    </label>
-                  );
-                })}
-              </div>
+              {/* PR-1 catalog: 1 component dùng chung; multi tự theo registry META; nhãn pháp lý từ registry. */}
+              <CatalogSelect
+                catalogKey="LY_DO_KHONG_KHOI_TO"
+                value={formData.lyDoKhongKhoiTo}
+                onChange={(v) => update("lyDoKhongKhoiTo", v as string[])}
+              />
             </div>
             <p className="mt-1 text-xs text-slate-500">
-              8 căn cứ chuẩn theo BLTTHS Đ.157. Luôn hiển thị (pháp lý quan trọng).
+              7 căn cứ chuẩn theo BLTTHS Đ.157. Luôn hiển thị (pháp lý quan trọng).
             </p>
           </div>
 

@@ -50,6 +50,19 @@ async function renderForm() {
   );
 }
 
+// PR-1 catalog: lyDoKhongKhoiTo render qua CatalogSelect (1 component dùng chung),
+// testid mỗi option là `cat-{code}`, nhãn lấy từ registry (đúng pháp lý Đ.157).
+describe('IncidentFormPage — lý do không khởi tố qua CatalogSelect (PR-1)', () => {
+  it('render checkbox danh mục testid cat-{code} + nhãn pháp lý "đại xá"', async () => {
+    await renderForm();
+    // Field nằm trong section "Kết quả xử lý vụ việc" (mặc định đóng) → mở ra.
+    fireEvent.click(screen.getByText('Kết quả xử lý vụ việc'));
+    expect(await screen.findByTestId('cat-KHONG_CO_SU_VIEC')).toBeInTheDocument();
+    expect(screen.getByTestId('cat-TOI_PHAM_DA_DUOC_XOA_AN_TICH')).toBeInTheDocument();
+    expect(screen.getByText(/đại xá/)).toBeInTheDocument();
+  });
+});
+
 // Regression guard for the v0.30.0.3 fix: loaiDonVu dropdown must send enum
 // values (TO_GIAC, TIN_BAO, KIEN_NGHI_KHOI_TO) — not Vietnamese labels.
 // Pre-fix the field was wired to FKSelect directoryType="TDC_SOURCE" which
