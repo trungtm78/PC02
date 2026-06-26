@@ -31,6 +31,7 @@ import { today, formatVNDate } from "@/lib/dates";
 import { useShortcut } from "@/hooks/useShortcut";
 import { FormInput, FormSelect, FormTextarea, FormCurrency, FormPhone, FormInteger } from "@/components/form";
 import { DocNumberPreviewField } from "@/components/DocNumberPreviewField";
+import { CatalogSelect } from "@/components/CatalogSelect";
 import { CurrencyInput } from "@/components/inputs/CurrencyInput";
 import { IntegerInput } from "@/components/inputs/IntegerInput";
 import { Card, CardHeader, EmptyState, DataTable, ActionButtons, StatusBadge } from "@/components/shared";
@@ -47,23 +48,7 @@ import {
 import { CaseProvenancePicker } from "./CaseProvenancePicker";
 import { LinkedIncidentCard } from "./LinkedIncidentCard";
 import { CaseFormTab1UyThac } from "./CaseFormTab1UyThac";
-import { CaseProvenance, LyDoTamDinhChiVuAn } from "../../../shared/enums/generated";
-
-// Options lý do tạm đình chỉ vụ án (BLTTHS Đ.229) — derive từ enum (không hardcode literal).
-const LY_DO_TDC_VA_LABELS: Record<string, string> = {
-  CHUA_XAC_DINH_BI_CAN: "Chưa xác định được bị can",
-  KHONG_BIET_BI_CAN_O_DAU: "Không biết bị can ở đâu",
-  BI_CAN_BENH_TAM_THAN: "Bị can bị bệnh tâm thần / bệnh hiểm nghèo",
-  CHUA_CO_KET_QUA_GIAM_DINH: "Chưa có kết quả giám định",
-  CHUA_CO_KET_QUA_DINH_GIA: "Chưa có kết quả định giá tài sản",
-  CHUA_CO_KET_QUA_TUONG_TRO: "Chưa có kết quả tương trợ tư pháp",
-  YEU_CAU_TAI_LIEU_CHUA_CO: "Yêu cầu tài liệu chưa có kết quả",
-  BAT_KHA_KHANG: "Lý do bất khả kháng",
-};
-const LY_DO_TDC_VA_OPTIONS = Object.values(LyDoTamDinhChiVuAn).map((v) => ({
-  value: v,
-  label: LY_DO_TDC_VA_LABELS[v] ?? v,
-}));
+import { CaseProvenance } from "../../../shared/enums/generated";
 
 // Branch-3 provenances that trigger Incident auto-create (module-level, not inside render)
 const DIRECT_PROVENANCES = new Set([
@@ -1088,28 +1073,12 @@ export function TabCaseTDC({ formData, setFormData, errors, setErrors }: TabProp
         />
         <div className="md:col-span-2" data-testid="field-lyDoTamDinhChiVuAn">
           <label className="block text-sm font-medium text-slate-700 mb-2">Lý do tạm đình chỉ (BLTTHS Đ.229) — chọn nhiều</label>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            {LY_DO_TDC_VA_OPTIONS.map((opt) => {
-              const checked = formData.lyDoTamDinhChiVuAn.includes(opt.value);
-              return (
-                <label key={opt.value} className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    className="w-4 h-4"
-                    checked={checked}
-                    data-testid={`ldtdc-${opt.value}`}
-                    onChange={(e) => {
-                      const next = e.target.checked
-                        ? [...formData.lyDoTamDinhChiVuAn, opt.value]
-                        : formData.lyDoTamDinhChiVuAn.filter((x) => x !== opt.value);
-                      update("lyDoTamDinhChiVuAn", next);
-                    }}
-                  />
-                  {opt.label}
-                </label>
-              );
-            })}
-          </div>
+          {/* PR-3 catalog: 1 component dùng chung; multi tự theo registry META. */}
+          <CatalogSelect
+            catalogKey="LY_DO_TAM_DINH_CHI_VU_AN"
+            value={formData.lyDoTamDinhChiVuAn}
+            onChange={(v) => update("lyDoTamDinhChiVuAn", v as string[])}
+          />
         </div>
         <FormInput
           label="Ngày hết thời hiệu truy cứu TNHS"

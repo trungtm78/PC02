@@ -59,6 +59,23 @@ export const CATALOG_REGISTRY: Record<string, CatalogEntry> = {
       { code: 'CAN_CU_KHAC', label: 'Căn cứ khác' },
     ],
   },
+  LY_DO_TAM_DINH_CHI_VU_AN: {
+    key: 'LY_DO_TAM_DINH_CHI_VU_AN',
+    kind: 'legal',
+    multi: true,
+    ref: 'Đ.229 BLTTHS 2015',
+    enumName: 'LyDoTamDinhChiVuAn',
+    values: [
+      { code: 'CHUA_XAC_DINH_BI_CAN', label: 'Chưa xác định được bị can (Đ.229.1.a)' },
+      { code: 'KHONG_BIET_BI_CAN_O_DAU', label: 'Không biết rõ bị can đang ở đâu (Đ.229.1.b)' },
+      { code: 'BI_CAN_BENH_TAM_THAN', label: 'Bị can bị bệnh tâm thần hoặc hiểm nghèo (Đ.229.1.c)' },
+      { code: 'CHUA_CO_KET_QUA_GIAM_DINH', label: 'Chưa có kết quả giám định (Đ.229.1.d)' },
+      { code: 'CHUA_CO_KET_QUA_DINH_GIA', label: 'Chưa có kết quả định giá tài sản (Đ.229.1.d)' },
+      { code: 'CHUA_CO_KET_QUA_TUONG_TRO', label: 'Chưa có kết quả tương trợ tư pháp (Đ.229.1.d)' },
+      { code: 'YEU_CAU_TAI_LIEU_CHUA_CO', label: 'Đã yêu cầu tài liệu nhưng chưa có kết quả (Đ.229.1.đ)' },
+      { code: 'BAT_KHA_KHANG', label: 'Bất khả kháng: thiên tai, dịch bệnh (Đ.229.1.e)' },
+    ],
+  },
   // ── Dynamic mẫu ───────────────────────────────────────────────────────────
   DOCUMENT_TYPE: {
     key: 'DOCUMENT_TYPE',

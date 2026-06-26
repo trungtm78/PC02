@@ -35,7 +35,8 @@ describe('UpdateCaseDto — TAM_DINH_CHI / PHUC_HOI fields (v0.37.2.6 P1 fix)', 
     const errors = await validate(dto);
     const lyDoErr = errors.find((e) => e.property === 'lyDoTamDinhChiVuAn');
     expect(lyDoErr).toBeDefined();
-    expect(lyDoErr?.constraints).toHaveProperty('isEnum');
+    // PR-3 catalog: cơ chế validate đổi từ @IsEnum sang @IsCatalogValue (vẫn reject code rác).
+    expect(lyDoErr?.constraints).toHaveProperty('isCatalogValue');
   });
 
   it('accepts lyDoTamDinhChiText (optional string)', async () => {

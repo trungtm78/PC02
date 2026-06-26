@@ -24,6 +24,7 @@ import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { DispatchGuard } from '../auth/guards/dispatch.guard';
 import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { IsCatalogValue } from '../common/validators/is-catalog-value.validator';
 import { CreateCaseDto } from './dto/create-case.dto';
 import { UpdateCaseDto } from './dto/update-case.dto';
 import { QueryCasesDto } from './dto/query-cases.dto';
@@ -34,6 +35,8 @@ import { RestoreCaseDto } from './dto/restore-case.dto'; // v0.32.0.0
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
 
 class TdcBackfillDto {
+  // PR-3 catalog: validate lý do TĐC vụ án qua danh mục (trước đây không có validation).
+  @IsCatalogValue('LY_DO_TAM_DINH_CHI_VU_AN')
   lyDoTamDinhChiVuAn: string;
 }
 

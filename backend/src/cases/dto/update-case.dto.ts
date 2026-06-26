@@ -10,6 +10,7 @@ import {
   MaxLength,
 } from 'class-validator';
 import { KetQuaPhucHoiVuAn, LyDoTamDinhChiVuAn } from '@prisma/client';
+import { IsCatalogValue } from '../../common/validators/is-catalog-value.validator';
 
 export class UpdateCaseDto extends PartialType(CreateCaseDto) {
   @IsOptional()
@@ -22,10 +23,10 @@ export class UpdateCaseDto extends PartialType(CreateCaseDto) {
 
   @IsOptional()
   @IsArray()
-  @IsEnum(LyDoTamDinhChiVuAn, {
+  @IsCatalogValue('LY_DO_TAM_DINH_CHI_VU_AN', {
     each: true,
     message:
-      'Lý do tạm đình chỉ phải theo quy định BLTTHS Điều 229 (CHUA_XAC_DINH_BI_CAN, KHONG_BIET_BI_CAN_O_DAU, BI_CAN_BENH_TAM_THAN, CHUA_CO_KET_QUA_GIAM_DINH, ...)',
+      'Lý do tạm đình chỉ phải theo danh mục BLTTHS Điều 229 (CHUA_XAC_DINH_BI_CAN, KHONG_BIET_BI_CAN_O_DAU, BI_CAN_BENH_TAM_THAN, CHUA_CO_KET_QUA_GIAM_DINH, ...)',
   })
   lyDoTamDinhChiVuAn?: LyDoTamDinhChiVuAn[];
 

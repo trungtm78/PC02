@@ -17,6 +17,7 @@ import {
 import { Transform, Type } from 'class-transformer';
 import { CaseStatus, CapDoToiPham, CaseProvenance, CaseType, LoaiUyThac, LyDoTamDinhChiVuAn } from '@prisma/client';
 import { CaseStatisticDto } from './case-statistic.dto';
+import { IsCatalogValue } from '../../common/validators/is-catalog-value.validator';
 
 export { CaseStatus, CapDoToiPham, CaseProvenance, CaseType, LoaiUyThac };
 
@@ -210,7 +211,7 @@ export class CreateCaseDto {
   // PR-3 — field tab "Vụ án TĐC" form cũ /doi-1/Them (cho phép nhập lúc tạo, tránh CREATE 400)
   @IsOptional() @IsString() soQuyetDinhTamDinhChi?: string;
   @IsOptional() @IsDateString() ngayTamDinhChi?: string;
-  @IsOptional() @IsArray() @IsEnum(LyDoTamDinhChiVuAn, { each: true }) lyDoTamDinhChiVuAn?: LyDoTamDinhChiVuAn[];
+  @IsOptional() @IsArray() @IsCatalogValue('LY_DO_TAM_DINH_CHI_VU_AN', { each: true }) lyDoTamDinhChiVuAn?: LyDoTamDinhChiVuAn[];
   @IsOptional() @IsDateString() ngayHetThoiHieu?: string;
   @IsOptional() @IsString() soQuyetDinhPhucHoi?: string;
   @IsOptional() @IsDateString() ngayPhucHoi?: string;
