@@ -17,6 +17,8 @@ interface CatalogSelectProps {
   disabled?: boolean;
   className?: string;
   placeholder?: string;
+  /** Áp lên thẻ <select> (multi=false) để liên kết với <label htmlFor>. */
+  id?: string;
   "data-testid"?: string;
 }
 
@@ -34,6 +36,7 @@ export function CatalogSelect({
   disabled,
   className,
   placeholder = "-- Chọn --",
+  id,
   ...rest
 }: CatalogSelectProps) {
   const { options } = useCatalog(catalogKey);
@@ -83,6 +86,7 @@ export function CatalogSelect({
 
   return (
     <select
+      id={id}
       className={className ?? "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"}
       value={typeof value === "string" ? value : ""}
       disabled={disabled}

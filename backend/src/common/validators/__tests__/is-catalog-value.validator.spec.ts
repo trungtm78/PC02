@@ -28,6 +28,13 @@ describe('IsCatalogValue', () => {
     expect(await validate(d)).toHaveLength(0);
   });
 
+  // Parity với @IsEnum: chuỗi rỗng KHÔNG phải code hợp lệ cho legal → reject
+  // (chống lọt [""] xuống cột Prisma enum[] gây 500 thay vì 400).
+  it('legal each: từ chối phần tử chuỗi rỗng', async () => {
+    const d = plainToInstance(MultiDto, { x: [''] });
+    expect((await validate(d)).length).toBeGreaterThan(0);
+  });
+
   it('dynamic: PASS ở DTO (validate ở service)', async () => {
     const d = plainToInstance(DynamicDto, { y: 'BAT_KY_GIA_TRI_NAO' });
     expect(await validate(d)).toHaveLength(0);

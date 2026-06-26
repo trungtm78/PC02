@@ -13,7 +13,8 @@ import { CATALOG_REGISTRY } from '../../catalog/catalog.registry';
  *   thực hiện ở service layer qua `CatalogService.isValid`.
  *
  * Dùng `{ each: true }` cho cột mảng (multi) — class-validator gọi validate từng phần tử.
- * Thay cho `@IsEnum`. Giá trị undefined/null/"" → pass (field optional).
+ * Thay cho `@IsEnum`. Giá trị undefined/null → pass (field optional). Chuỗi rỗng "" với
+ * kind 'legal' KHÔNG hợp lệ (parity @IsEnum) → chống lọt [""] xuống cột Prisma enum gây 500.
  */
 export function IsCatalogValue(key: string, validationOptions?: ValidationOptions) {
   return function (object: object, propertyName: string) {
@@ -25,10 +26,10 @@ export function IsCatalogValue(key: string, validationOptions?: ValidationOption
       options: validationOptions,
       validator: {
         validate(value: unknown) {
-          if (value === undefined || value === null || value === '') return true;
+          if (value === undefined || value === null) return true; // field optional
           const e = CATALOG_REGISTRY[key];
-          if (!e || e.kind !== 'legal') return true; // dynamic → validate ở service
-          return e.values.some((v) => v.code === value);
+          if (!e || e.kind !== 'legal') return true; // dynamic → validate ở service ('' cũng pass ở DTO)
+          return e.values.some((v) => v.code === value); // legal: '' không thuộc values → reject
         },
         defaultMessage(args: ValidationArguments) {
           return `${args.property} "${args.value}" không thuộc danh mục ${key}`;

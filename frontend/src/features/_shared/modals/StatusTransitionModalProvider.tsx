@@ -173,13 +173,14 @@ export function StatusTransitionModalProvider({ children }: { children: ReactNod
 
               {requiresLyDo && (
                 <div data-testid="field-ly-do-khong-khoi-to">
-                  <label className={LABEL_BASE}>
+                  <label className={LABEL_BASE} htmlFor="ly-do-select">
                     Lý do không khởi tố <span className="text-red-500">*</span>
                     <span className="text-xs text-slate-500"> (Điều 157 BLTTHS)</span>
                   </label>
                   {/* PR-1 catalog: 1 component dùng chung, hiển thị nhãn pháp lý (không phải code thô). */}
                   <CatalogSelect
                     catalogKey="LY_DO_KHONG_KHOI_TO"
+                    id="ly-do-select"
                     multi={false}
                     value={lyDoKhongKhoiTo}
                     onChange={(v) => setLyDoKhongKhoiTo(v as string)}
