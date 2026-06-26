@@ -305,4 +305,21 @@ export class CreatePetitionDto {
   @IsOptional()
   @IsDateString()
   thoiHanUTDT?: string;
+
+  // ── Field-parity bổ sung tab "Thông tin" form cũ /doi-1/Them (2026-06-26) ──
+  @IsOptional()
+  @IsDateString()
+  ngayDeXuat?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString()
+  @MaxLength(100)
+  phanLoaiNguonTin?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString()
+  @MaxLength(255)
+  dieuTraVien?: string;
 }
