@@ -70,13 +70,13 @@ export class CreateIncidentDto {
   doiTuongToChuc?: string;
 
   @IsOptional()
-  @IsEnum(LoaiNguonTin, { message: 'loaiDonVu phải là TO_GIAC, TIN_BAO hoặc KIEN_NGHI_KHOI_TO' })
+  @IsCatalogValue('LOAI_NGUON_TIN', { message: 'loaiDonVu phải là TO_GIAC, TIN_BAO hoặc KIEN_NGHI_KHOI_TO' })
   loaiDonVu?: LoaiNguonTin;
 
   // v0.31.0.0 — Nguồn phát tin (Đ.144 BLTTHS): cascading từ loaiDonVu.
-  // Custom validator enforce mapping FE-side và BE-side đồng bộ.
+  // @IsCatalogValue kiểm thuộc danh mục; @IsNguonPhatTinMatchLoaiDonVu kiểm quan hệ cha-con (cùng nguồn registry).
   @IsOptional()
-  @IsEnum(NguonPhatTin, { message: 'nguonPhatTin không hợp lệ (Đ.144 BLTTHS)' })
+  @IsCatalogValue('NGUON_PHAT_TIN', { message: 'nguonPhatTin không hợp lệ (Đ.144 BLTTHS)' })
   @IsNguonPhatTinMatchLoaiDonVu()
   nguonPhatTin?: NguonPhatTin;
 

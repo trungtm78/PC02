@@ -76,6 +76,48 @@ export const CATALOG_REGISTRY: Record<string, CatalogEntry> = {
       { code: 'BAT_KHA_KHANG', label: 'Bất khả kháng: thiên tai, dịch bệnh (Đ.229.1.e)' },
     ],
   },
+  // ── Cascade: LOAI_NGUON_TIN (cha) → NGUON_PHAT_TIN (con) — Đ.144 BLTTHS ─────
+  LOAI_NGUON_TIN: {
+    key: 'LOAI_NGUON_TIN',
+    kind: 'legal',
+    multi: false,
+    ref: 'Đ.144 BLTTHS 2015',
+    enumName: 'LoaiNguonTin',
+    values: [
+      { code: 'TO_GIAC', label: 'Tố giác của cá nhân (Đ.144 khoản 1a)' },
+      { code: 'TIN_BAO', label: 'Tin báo của cơ quan, tổ chức (Đ.144 khoản 1b)' },
+      { code: 'KIEN_NGHI_KHOI_TO', label: 'Kiến nghị khởi tố (Đ.144 khoản 1c)' },
+    ],
+  },
+  NGUON_PHAT_TIN: {
+    key: 'NGUON_PHAT_TIN',
+    kind: 'legal',
+    multi: false,
+    ref: 'Đ.144 BLTTHS 2015',
+    enumName: 'NguonPhatTin',
+    // Cascade: nguồn phát tin hợp lệ tùy loại nguồn tin cha (chủ thể Đ.144). NGUỒN DUY NHẤT
+    // cho cả validator BE (nguon-phat-tin-match) lẫn helper FE (getNguonPhatTinOptions).
+    cascade: {
+      parentKey: 'LOAI_NGUON_TIN',
+      map: {
+        TO_GIAC: ['CA_NHAN_TO_GIAC'],
+        TIN_BAO: ['CO_QUAN_NHA_NUOC', 'TO_CHUC', 'CA_NHAN_BAO_TIN', 'PHUONG_TIEN_TRUYEN_THONG'],
+        KIEN_NGHI_KHOI_TO: ['VIEN_KIEM_SAT', 'THANH_TRA', 'KIEM_TOAN', 'TOA_AN', 'CO_QUAN_KHAC'],
+      },
+    },
+    values: [
+      { code: 'CA_NHAN_TO_GIAC', label: 'Cá nhân tố giác' },
+      { code: 'CO_QUAN_NHA_NUOC', label: 'Cơ quan nhà nước' },
+      { code: 'TO_CHUC', label: 'Tổ chức (doanh nghiệp, đoàn thể)' },
+      { code: 'CA_NHAN_BAO_TIN', label: 'Cá nhân báo tin' },
+      { code: 'PHUONG_TIEN_TRUYEN_THONG', label: 'Phương tiện thông tin đại chúng' },
+      { code: 'VIEN_KIEM_SAT', label: 'Viện kiểm sát nhân dân' },
+      { code: 'THANH_TRA', label: 'Cơ quan thanh tra' },
+      { code: 'KIEM_TOAN', label: 'Cơ quan kiểm toán' },
+      { code: 'TOA_AN', label: 'Tòa án nhân dân' },
+      { code: 'CO_QUAN_KHAC', label: 'Cơ quan nhà nước khác' },
+    ],
+  },
   // ── Dynamic mẫu ───────────────────────────────────────────────────────────
   DOCUMENT_TYPE: {
     key: 'DOCUMENT_TYPE',

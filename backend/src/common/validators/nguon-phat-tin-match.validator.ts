@@ -3,22 +3,21 @@ import {
   ValidationOptions,
   ValidationArguments,
 } from 'class-validator';
-import { LoaiNguonTin, NguonPhatTin } from '@prisma/client';
+import { LoaiNguonTin } from '@prisma/client';
+import { CATALOG_REGISTRY } from '../../catalog/catalog.registry';
 
 /**
  * Cascading map: which NguonPhatTin values are valid for each LoaiNguonTin.
  *
- * MUST stay in sync with frontend mirror at
- * `frontend/src/shared/enums/status-labels.ts` → `NGUON_PHAT_TIN_BY_LOAI`.
- * Two-side test coverage (BE validator spec + FE cascading test) catches drift.
- *
- * Source of law: Điều 144 BLTTHS 2015 — chủ thể của tố giác / tin báo / kiến nghị khởi tố.
+ * NGUỒN DUY NHẤT là Catalog Registry `NGUON_PHAT_TIN.cascade.map` (Đ.144 BLTTHS 2015 —
+ * chủ thể của tố giác / tin báo / kiến nghị khởi tố). FE đọc CÙNG map qua catalog.generated
+ * (getNguonPhatTinOptions) → không còn 2 mirror tự đồng bộ (trước đây dễ drift).
  */
-const NGUON_PHAT_TIN_BY_LOAI: Record<LoaiNguonTin, NguonPhatTin[]> = {
-  TO_GIAC: ['CA_NHAN_TO_GIAC'],
-  TIN_BAO: ['CO_QUAN_NHA_NUOC', 'TO_CHUC', 'CA_NHAN_BAO_TIN', 'PHUONG_TIEN_TRUYEN_THONG'],
-  KIEN_NGHI_KHOI_TO: ['VIEN_KIEM_SAT', 'THANH_TRA', 'KIEM_TOAN', 'TOA_AN', 'CO_QUAN_KHAC'],
-};
+function allowedNguonPhatTin(loaiDonVu: string): string[] {
+  const e = CATALOG_REGISTRY['NGUON_PHAT_TIN'];
+  const map = e && 'cascade' in e ? e.cascade?.map : undefined;
+  return map?.[loaiDonVu] ?? [];
+}
 
 /**
  * Validates that `nguonPhatTin` (the decorated property) belongs to the cascading
@@ -43,8 +42,7 @@ export function IsNguonPhatTinMatchLoaiDonVu(validationOptions?: ValidationOptio
           const sibling = args.object as { loaiDonVu?: LoaiNguonTin | string | null };
           const loaiDonVu = sibling.loaiDonVu;
           if (!loaiDonVu) return true;
-          const allowed = NGUON_PHAT_TIN_BY_LOAI[loaiDonVu as LoaiNguonTin] ?? [];
-          return allowed.includes(value as NguonPhatTin);
+          return allowedNguonPhatTin(String(loaiDonVu)).includes(String(value));
         },
         defaultMessage(args: ValidationArguments) {
           const sibling = args.object as { loaiDonVu?: LoaiNguonTin | string | null };

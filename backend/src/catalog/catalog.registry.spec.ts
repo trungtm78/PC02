@@ -35,6 +35,26 @@ describe('CATALOG_REGISTRY', () => {
     expect(e.kind === 'legal' && e.values.map((v) => v.code)).toContain('CHUA_XAC_DINH_BI_CAN');
   });
 
+  it('LOAI_NGUON_TIN: legal, single, 3 giá trị (Đ.144)', () => {
+    const e = getCatalogEntry('LOAI_NGUON_TIN');
+    expect(e.kind).toBe('legal');
+    expect(e.multi).toBe(false);
+    expect(e.kind === 'legal' && e.values).toHaveLength(3);
+  });
+
+  it('NGUON_PHAT_TIN: legal cascade theo LOAI_NGUON_TIN (Đ.144) — 10 giá trị, map đủ 3 nhóm', () => {
+    const e = getCatalogEntry('NGUON_PHAT_TIN');
+    expect(e.kind).toBe('legal');
+    expect(e.kind === 'legal' && e.values).toHaveLength(10);
+    expect(e.cascade?.parentKey).toBe('LOAI_NGUON_TIN');
+    expect(e.cascade?.map.TO_GIAC).toEqual(['CA_NHAN_TO_GIAC']);
+    expect(e.cascade?.map.TIN_BAO).toHaveLength(4);
+    expect(e.cascade?.map.KIEN_NGHI_KHOI_TO).toHaveLength(5);
+    // mọi code trong cascade map phải thuộc values (không trỏ code lạ)
+    const codes = new Set(e.kind === 'legal' ? e.values.map((v) => v.code) : []);
+    Object.values(e.cascade?.map ?? {}).flat().forEach((c) => expect(codes.has(c)).toBe(true));
+  });
+
   it('DOCUMENT_TYPE: dynamic, source directory', () => {
     expect(getCatalogEntry('DOCUMENT_TYPE')).toMatchObject({ kind: 'dynamic', source: 'directory:DOCUMENT_TYPE' });
   });
