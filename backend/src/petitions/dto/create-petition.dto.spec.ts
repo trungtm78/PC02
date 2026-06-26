@@ -23,6 +23,12 @@ describe('CreatePetitionDto — field-parity Đơn thư', () => {
     expect(dto.phanLoaiNguonTin).toBe('don-cong-van-ban-dau');
   });
 
+  it('từ chối phanLoaiNguonTin ngoài whitelist (bảo vệ discriminator)', async () => {
+    const dto = plainToInstance(CreatePetitionDto, { ...base, phanLoaiNguonTin: 'gia-tri-bay' });
+    const errors = await validate(dto);
+    expect(errors.some((e) => e.property === 'phanLoaiNguonTin')).toBe(true);
+  });
+
   it('từ chối ngayDeXuat sai định dạng ngày', async () => {
     const dto = plainToInstance(CreatePetitionDto, { ...base, ngayDeXuat: 'không-phải-ngày' });
     const errors = await validate(dto);

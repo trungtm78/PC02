@@ -9,10 +9,27 @@ import {
   Matches,
   IsBoolean,
   ValidateIf,
+  IsIn,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { PetitionStatus, LoaiDon } from '@prisma/client';
 import { stripHtmlTags } from '../../common/utils/sanitize.util';
+
+// Giá trị hợp lệ của discriminator "phân loại nguồn tin ban đầu" (khớp form cũ /doi-1/Them).
+// Bảo vệ integrity ở tầng API (FE đã giới hạn bằng <select>).
+export const PHAN_LOAI_NGUON_TIN_VALUES = [
+  'don-cong-van-ban-dau',
+  'vu-viec-ban-dau',
+  'vu-viec-nguon-tin',
+  'vu-an-ban-dau',
+  'tra-ho-so-ban-dau',
+  'huong-dan-ban-dau',
+  'trao-doi-chuyen-an',
+  'luat-su',
+  'uy-thac-dieu-tra',
+  'kien-nghi-vks',
+  'cong-van-don-doc-phuc-hoi-tdc',
+] as const;
 
 // Re-export so other modules can import from this DTO file
 export { PetitionStatus, LoaiDon };
@@ -315,6 +332,7 @@ export class CreatePetitionDto {
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
   @MaxLength(100)
+  @IsIn(PHAN_LOAI_NGUON_TIN_VALUES as unknown as string[])
   phanLoaiNguonTin?: string;
 
   @IsOptional()
