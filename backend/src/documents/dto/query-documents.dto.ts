@@ -1,6 +1,6 @@
-import { IsString, IsOptional, IsInt, IsEnum, Min } from 'class-validator';
+import { IsString, IsOptional, IsInt, Min } from 'class-validator';
 import { Type } from 'class-transformer';
-import { DocumentType } from '@prisma/client';
+import { IsCatalogValue } from '../../common/validators/is-catalog-value.validator';
 
 export class QueryDocumentsDto {
   @IsString()
@@ -19,9 +19,9 @@ export class QueryDocumentsDto {
   @IsOptional()
   petitionId?: string;
 
-  @IsEnum(DocumentType)
+  @IsCatalogValue('DOCUMENT_TYPE')
   @IsOptional()
-  documentType?: DocumentType;
+  documentType?: string;
 
   @IsString()
   @IsOptional()

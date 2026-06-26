@@ -1165,15 +1165,10 @@ model IncidentStatusHistory {
 // Document (Tài liệu/Hồ sơ) — TASK-2026-022601
 // ─────────────────────────────────────────────
 
-enum DocumentType {
-  VAN_BAN // Văn bản
-  HINH_ANH // Hình ảnh
-  VIDEO // Video
-  AM_THANH // Âm thanh
-  KHAC // Khác
-
-  @@map("document_type")
-}
+// DocumentType: danh mục ĐỘNG qua Catalog Registry (DOCUMENT_TYPE → bảng Directory),
+// admin thêm runtime không cần deploy. Cột documentType là String, validate ở service
+// qua CatalogService.isValid. Trước đây là Prisma enum document_type
+// (migration 20260627000001_document_type_to_dynamic chuyển enum → TEXT).
 
 model Document {
   id           String       @id @default(cuid())
@@ -1184,7 +1179,7 @@ model Document {
   mimeType     String // MIME type
   size         Int // Kích thước file (bytes)
   filePath     String // Đường dẫn file (local storage)
-  documentType DocumentType @default(VAN_BAN)
+  documentType String       @default("VAN_BAN") // danh mục động DOCUMENT_TYPE (Directory)
 
   // Liên kết
   caseId       String? // FK → cases (nullable)

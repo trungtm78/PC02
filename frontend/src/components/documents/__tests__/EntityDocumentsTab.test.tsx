@@ -23,6 +23,20 @@ vi.mock("@/lib/dates", () => ({
   formatVNDate: (s: string) => `vn-${s}`,
 }));
 
+// Danh mục động DOCUMENT_TYPE: mock useCatalog (tránh gọi API /catalog/ qua api mock generic).
+vi.mock("@/hooks/useCatalog", () => ({
+  useCatalog: () => ({
+    options: [
+      { code: "VAN_BAN", label: "Văn bản" },
+      { code: "HINH_ANH", label: "Hình ảnh" },
+      { code: "VIDEO", label: "Video" },
+      { code: "AM_THANH", label: "Âm thanh" },
+      { code: "KHAC", label: "Khác" },
+    ],
+    isLoading: false,
+  }),
+}));
+
 // Mock FKSelect — tránh kéo theo dependency tree (react-query/useDirectoryOptions).
 vi.mock("@/components/FKSelect", () => ({
   FKSelect: ({ value, onChange }: any) => (

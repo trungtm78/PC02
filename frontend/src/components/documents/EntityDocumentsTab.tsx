@@ -8,24 +8,12 @@ import { api } from "@/lib/api";
 import { extractApiError } from "@/lib/api-errors";
 import { formatVNDate } from "@/lib/dates";
 import { Card, CardHeader } from "@/components/shared";
+import { useCatalog } from "@/hooks/useCatalog";
 
 export type EntityKind = "case" | "incident" | "petition";
 
-const DOC_TYPE_LABEL: Record<string, string> = {
-  VAN_BAN: "Văn bản",
-  HINH_ANH: "Hình ảnh",
-  VIDEO: "Video",
-  AM_THANH: "Âm thanh",
-  KHAC: "Khác",
-};
-
-const DOCUMENT_TYPE_OPTIONS = [
-  { value: "VAN_BAN",  label: "Văn bản" },
-  { value: "HINH_ANH", label: "Hình ảnh" },
-  { value: "VIDEO",    label: "Video" },
-  { value: "AM_THANH", label: "Âm thanh" },
-  { value: "KHAC",     label: "Khác" },
-] as const;
+// Loại tài liệu (DOCUMENT_TYPE) nay là danh mục ĐỘNG — options + nhãn lấy từ Catalog Registry
+// qua useCatalog (không hardcode). Xem migration 20260627000001_document_type_to_dynamic.
 
 const ENTITY_COPY: Record<EntityKind, {
   idKey: "caseId" | "incidentId" | "petitionId";
@@ -67,6 +55,9 @@ export function EntityDocumentsTab({
   entityId?: string;
 }) {
   const copy = ENTITY_COPY[entityKind];
+  // Danh mục ĐỘNG: loại tài liệu lấy từ Catalog Registry (DOCUMENT_TYPE → Directory, admin thêm runtime).
+  const { options: docTypeOptions } = useCatalog("DOCUMENT_TYPE");
+  const docTypeLabel = Object.fromEntries(docTypeOptions.map((o) => [o.code, o.label]));
   const [docs, setDocs] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -255,8 +246,8 @@ export function EntityDocumentsTab({
                 onChange={(e) => setDocType(e.target.value)}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                {DOCUMENT_TYPE_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
+                {docTypeOptions.map((o) => (
+                  <option key={o.code} value={o.code}>{o.label}</option>
                 ))}
               </select>
             </div>
@@ -387,7 +378,7 @@ export function EntityDocumentsTab({
                 <div className="min-w-0">
                   <p className="font-medium text-slate-800 text-sm truncate">{doc.title}</p>
                   <p className="text-xs text-slate-500">
-                    {DOC_TYPE_LABEL[doc.documentType] ?? doc.documentType}
+                    {docTypeLabel[doc.documentType] ?? doc.documentType}
                     {doc.size ? ` · ${formatBytes(doc.size)}` : ""}
                     {doc.createdAt ? ` · ${formatVNDate(doc.createdAt)}` : ""}
                   </p>

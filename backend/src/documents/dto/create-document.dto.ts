@@ -1,5 +1,5 @@
-import { IsString, IsNotEmpty, IsOptional, IsEnum } from 'class-validator';
-import { DocumentType } from '@prisma/client';
+import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
+import { IsCatalogValue } from '../../common/validators/is-catalog-value.validator';
 
 export class CreateDocumentDto {
   @IsString()
@@ -10,9 +10,10 @@ export class CreateDocumentDto {
   @IsOptional()
   description?: string;
 
-  @IsEnum(DocumentType, { message: 'Loại tài liệu không hợp lệ' })
+  // Danh mục ĐỘNG: @IsCatalogValue pass ở DTO, validate tồn tại ở service qua CatalogService.isValid.
+  @IsCatalogValue('DOCUMENT_TYPE', { message: 'Loại tài liệu không hợp lệ' })
   @IsOptional()
-  documentType?: DocumentType;
+  documentType?: string;
 
   @IsString()
   @IsOptional()

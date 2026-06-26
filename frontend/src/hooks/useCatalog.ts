@@ -21,7 +21,8 @@ export function useCatalog(key: string): { options: CatalogOption[]; isLoading: 
     queryKey: ["catalog", key],
     queryFn: async () => {
       const res = await api.get(`/catalog/${key}/options`);
-      return (res.data ?? []) as CatalogOption[];
+      // Defensive: API phải trả mảng; shape lạ/lỗi → [] (tránh .map crash, resilient prod + test).
+      return (Array.isArray(res.data) ? res.data : []) as CatalogOption[];
     },
     enabled: !isLegal,
     staleTime: 10 * 60 * 1000,

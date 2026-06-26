@@ -1,5 +1,5 @@
-import { IsString, IsOptional, IsEnum } from 'class-validator';
-import { DocumentType } from '@prisma/client';
+import { IsString, IsOptional } from 'class-validator';
+import { IsCatalogValue } from '../../common/validators/is-catalog-value.validator';
 
 export class UpdateDocumentDto {
   @IsString()
@@ -10,9 +10,9 @@ export class UpdateDocumentDto {
   @IsOptional()
   description?: string;
 
-  @IsEnum(DocumentType, { message: 'Loại tài liệu không hợp lệ' })
+  @IsCatalogValue('DOCUMENT_TYPE', { message: 'Loại tài liệu không hợp lệ' })
   @IsOptional()
-  documentType?: DocumentType;
+  documentType?: string;
 
   @IsString()
   @IsOptional()
