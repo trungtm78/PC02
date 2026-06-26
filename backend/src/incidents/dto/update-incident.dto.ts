@@ -215,4 +215,17 @@ export class UpdateIncidentDto {
   @IsOptional()
   @IsBoolean()
   laCongNgheCaoVV?: boolean;
+
+  // PR-6 — QĐ không khởi tố riêng + cờ xác định tạm dừng (parity Vụ việc)
+  @IsOptional()
+  @IsString()
+  soQDKhongKhoiTo?: string;
+
+  @IsOptional()
+  @IsDateString()
+  ngayQDKhongKhoiTo?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  xacDinhVuViecTamDung?: boolean;
 }

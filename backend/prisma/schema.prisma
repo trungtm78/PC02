@@ -1035,6 +1035,10 @@ model Incident {
   soQDPhanCongNguonTin    String? // Số QĐ phân công giải quyết nguồn tin tội phạm
   ngayQDPhanCongNguonTin  DateTime? // Ngày ra QĐ phân công giải quyết nguồn tin
   canCuKhongKhoiTo        String? // Căn cứ (text) ra QĐ không khởi tố — bổ trợ enum lyDoKhongKhoiTo
+  // PR-6 field-parity: QĐ không khởi tố RIÊNG (cũ tách số/ngày, khác soQuyetDinh chung) + cờ tạm dừng
+  soQDKhongKhoiTo         String? // Số QĐ không khởi tố (old: quyet_dinh_khong_khoi_to)
+  ngayQDKhongKhoiTo       DateTime? // Ngày QĐ không khởi tố (old: ngay_ra_quyet_dinh_khong_khoi_to)
+  xacDinhVuViecTamDung    Boolean   @default(false) // Cờ xác định vụ việc tạm dừng giải quyết (old: xac_dinh_vu_viec_tam_dung_giai_quyet)
   canCuTamDinhChi         String? // Căn cứ (text) tạm đình chỉ nguồn tin
   phanLoaiDanSuText       String? // Thông báo phân loại dân sự (số/ngày)
   soLanGiaHan             Int                   @default(0) // Số lần đã gia hạn, tối đa 2 (Điều 147 khoản 2-3)

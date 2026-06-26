@@ -68,6 +68,9 @@ interface FormData {
   soQuyetDinhPhucHoiVV: string;
   ngayPhucHoiVV: string;
   ngayHetThoiHieuVV: string;
+  soQDKhongKhoiTo: string;
+  ngayQDKhongKhoiTo: string;
+  xacDinhVuViecTamDung: boolean;
   laCongNgheCaoVV: boolean;
 }
 
@@ -108,6 +111,7 @@ const INITIAL_FORM: FormData = {
   tienDoKhacPhucTDC: "", tdcKhacPhucLyDoBienPhap: "", tdcKhacPhucBienBan: "",
   soQuyetDinhTamDinhChiVV: "", ngayTamDinhChiVV: "", soQuyetDinhPhucHoiVV: "",
   ngayPhucHoiVV: "", ngayHetThoiHieuVV: "", laCongNgheCaoVV: false,
+  soQDKhongKhoiTo: "", ngayQDKhongKhoiTo: "", xacDinhVuViecTamDung: false,
 };
 
 function CollapsibleSection({
@@ -266,6 +270,9 @@ export function IncidentFormPage() {
             soQuyetDinhPhucHoiVV: (d.soQuyetDinhPhucHoiVV as string) ?? "",
             ngayPhucHoiVV: toDateInput(d.ngayPhucHoiVV as string | null | undefined),
             ngayHetThoiHieuVV: toDateInput(d.ngayHetThoiHieuVV as string | null | undefined),
+            soQDKhongKhoiTo: (d.soQDKhongKhoiTo as string) ?? "",
+            ngayQDKhongKhoiTo: toDateInput(d.ngayQDKhongKhoiTo as string | null | undefined),
+            xacDinhVuViecTamDung: Boolean(d.xacDinhVuViecTamDung),
             laCongNgheCaoVV: Boolean(d.laCongNgheCaoVV),
           });
           setRecordUpdatedAt((d.updatedAt as string) ?? null);
@@ -344,6 +351,9 @@ export function IncidentFormPage() {
         soQuyetDinhPhucHoiVV: s(formData.soQuyetDinhPhucHoiVV),
         ngayPhucHoiVV: s(formData.ngayPhucHoiVV),
         ngayHetThoiHieuVV: s(formData.ngayHetThoiHieuVV),
+        soQDKhongKhoiTo: s(formData.soQDKhongKhoiTo),
+        ngayQDKhongKhoiTo: s(formData.ngayQDKhongKhoiTo),
+        xacDinhVuViecTamDung: formData.xacDinhVuViecTamDung,
         laCongNgheCaoVV: formData.laCongNgheCaoVV || undefined,
       };
       if (isEditMode) await api.put(`/incidents/${id}`, { ...payload, expectedUpdatedAt: recordUpdatedAt ?? undefined });
@@ -656,6 +666,16 @@ export function IncidentFormPage() {
                 className={inputClass} placeholder="Căn cứ pháp lý ra QĐ không khởi tố" data-testid="field-canCuKhongKhoiTo" />
             </div>
             <div>
+              <label className={labelClass}>Số QĐ không khởi tố</label>
+              <input type="text" value={formData.soQDKhongKhoiTo} onChange={(e) => update("soQDKhongKhoiTo", e.target.value)}
+                className={inputClass} placeholder="Số quyết định không khởi tố" data-testid="field-soQDKhongKhoiTo" />
+            </div>
+            <div>
+              <label className={labelClass}>Ngày QĐ không khởi tố</label>
+              <input type="date" value={formData.ngayQDKhongKhoiTo} onChange={(e) => update("ngayQDKhongKhoiTo", e.target.value)}
+                className={inputClass} data-testid="field-ngayQDKhongKhoiTo" />
+            </div>
+            <div>
               <label className={labelClass}>Căn cứ tạm đình chỉ nguồn tin</label>
               <input type="text" value={formData.canCuTamDinhChi} onChange={(e) => update("canCuTamDinhChi", e.target.value)}
                 className={inputClass} placeholder="Căn cứ tạm đình chỉ nguồn tin" data-testid="field-canCuTamDinhChi" />
@@ -769,6 +789,11 @@ export function IncidentFormPage() {
           onToggle={() => setSection4Open(!section4Open)}
           testId="section-tam-dinh-chi"
         >
+          <label className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-3 cursor-pointer">
+            <input type="checkbox" checked={formData.xacDinhVuViecTamDung} onChange={(e) => update("xacDinhVuViecTamDung", e.target.checked)}
+              className="w-4 h-4" data-testid="field-xacDinhVuViecTamDung" />
+            Xác định vụ việc tạm dừng giải quyết
+          </label>
           <div>
             <label className={labelClass}>Lý do tạm đình chỉ</label>
             <textarea value={formData.lyDoTamDinhChi} onChange={(e) => update("lyDoTamDinhChi", e.target.value)} rows={3}

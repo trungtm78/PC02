@@ -440,6 +440,9 @@ export class IncidentsService {
           soQuyetDinhPhucHoiVV: dto.soQuyetDinhPhucHoiVV,
           ngayPhucHoiVV: dto.ngayPhucHoiVV ? new Date(dto.ngayPhucHoiVV) : undefined,
           ngayHetThoiHieuVV: dto.ngayHetThoiHieuVV ? new Date(dto.ngayHetThoiHieuVV) : undefined,
+          soQDKhongKhoiTo: dto.soQDKhongKhoiTo,
+          ngayQDKhongKhoiTo: dto.ngayQDKhongKhoiTo ? new Date(dto.ngayQDKhongKhoiTo) : undefined,
+          xacDinhVuViecTamDung: dto.xacDinhVuViecTamDung,
           laCongNgheCaoVV: dto.laCongNgheCaoVV,
           status: IncidentStatus.TIEP_NHAN,
         },
@@ -513,6 +516,8 @@ export class IncidentsService {
       // ── Field-parity TĐC tracking + tiến độ khắc phục ──
       'tienDoKhacPhucTDC', 'tdcKhacPhucLyDoBienPhap', 'tdcKhacPhucBienBan',
       'soQuyetDinhTamDinhChiVV', 'soQuyetDinhPhucHoiVV',
+      // PR-6 — QĐ không khởi tố riêng + cờ tạm dừng
+      'soQDKhongKhoiTo', 'xacDinhVuViecTamDung',
     ];
     for (const f of fields) {
       if ((dto as Record<string, unknown>)[f] !== undefined) {
@@ -520,7 +525,7 @@ export class IncidentsService {
       }
     }
 
-    const dateFields = ['fromDate', 'toDate', 'deadline', 'ngayDeXuat', 'ngayQuyetDinh', 'ngayQDPhanCongNguonTin', 'ngayTamDinhChiVV', 'ngayPhucHoiVV', 'ngayHetThoiHieuVV'];
+    const dateFields = ['fromDate', 'toDate', 'deadline', 'ngayDeXuat', 'ngayQuyetDinh', 'ngayQDPhanCongNguonTin', 'ngayTamDinhChiVV', 'ngayPhucHoiVV', 'ngayHetThoiHieuVV', 'ngayQDKhongKhoiTo'];
     for (const f of dateFields) {
       if ((dto as Record<string, unknown>)[f] !== undefined) {
         const val = (dto as Record<string, unknown>)[f] as string | null;

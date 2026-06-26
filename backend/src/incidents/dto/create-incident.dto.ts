@@ -225,6 +225,18 @@ export class CreateIncidentDto {
   @IsDateString()
   ngayHetThoiHieuVV?: string;
 
+  // PR-6 — QĐ không khởi tố riêng + cờ xác định tạm dừng (parity Vụ việc)
+  @IsOptional()
+  @IsString()
+  soQDKhongKhoiTo?: string;
+
+  @IsOptional()
+  @IsDateString()
+  ngayQDKhongKhoiTo?: string;
+
+  @IsOptional()
+  xacDinhVuViecTamDung?: boolean;
+
   @IsOptional()
   laCongNgheCaoVV?: boolean;
 }

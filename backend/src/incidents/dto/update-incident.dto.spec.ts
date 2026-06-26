@@ -21,6 +21,15 @@ describe('UpdateIncidentDto — field-parity TĐC vụ việc', () => {
     expect(errors).toHaveLength(0);
   });
 
+  it('PR-6: chấp nhận soQDKhongKhoiTo/ngayQDKhongKhoiTo/xacDinhVuViecTamDung', async () => {
+    const dto = plainToInstance(UpdateIncidentDto, {
+      soQDKhongKhoiTo: 'QĐ-KKT-01',
+      ngayQDKhongKhoiTo: '2026-06-20',
+      xacDinhVuViecTamDung: true,
+    });
+    expect(await validate(dto)).toHaveLength(0);
+  });
+
   it('từ chối ngayHetThoiHieuVV sai định dạng', async () => {
     const dto = plainToInstance(UpdateIncidentDto, { ngayHetThoiHieuVV: 'không-phải-ngày' });
     const errors = await validate(dto);
