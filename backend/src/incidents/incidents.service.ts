@@ -528,6 +528,13 @@ export class IncidentsService {
       }
     }
 
+    // Alias: form gửi `lyDoTamDinhChi` → cột `lyDoTamDinhChiText` (mirror create ~422).
+    // Trước đây update whitelist chỉ có lyDoTamDinhChiText → giá trị bị drop thầm khi EDIT.
+    const lyDoTDC = (dto as Record<string, unknown>).lyDoTamDinhChi;
+    if (lyDoTDC !== undefined) {
+      updateData.lyDoTamDinhChiText = lyDoTDC;
+    }
+
 
     // v0.30: INCIDENT_UPDATED via wrapUpdate — full before/after snapshot for inline diff.
     let record;

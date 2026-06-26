@@ -3,6 +3,7 @@ import {
   IsOptional,
   IsDateString,
   IsEnum,
+  IsBoolean,
   MaxLength,
   MinLength,
 } from 'class-validator';
@@ -197,4 +198,21 @@ export class UpdateIncidentDto {
   @IsOptional()
   @IsDateString()
   ngayHetThoiHieuVV?: string;
+
+  // Field khắc phục TĐC + CNC — form GỬI khi update, có trong whitelist service nhưng trước thiếu DTO → 400.
+  @IsOptional()
+  @IsString()
+  tienDoKhacPhucTDC?: string;
+
+  @IsOptional()
+  @IsString()
+  tdcKhacPhucLyDoBienPhap?: string;
+
+  @IsOptional()
+  @IsString()
+  tdcKhacPhucBienBan?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  laCongNgheCaoVV?: boolean;
 }
