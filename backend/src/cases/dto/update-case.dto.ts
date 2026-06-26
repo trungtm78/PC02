@@ -61,4 +61,23 @@ export class UpdateCaseDto extends PartialType(CreateCaseDto) {
       'Kết quả phục hồi vụ án phải là enum KetQuaPhucHoiVuAn (KET_LUAN_DE_NGHI_TRUY_TO, DINH_CHI_DIEU_TRA, TAM_DINH_CHI_LAI, DANG_DIEU_TRA_XAC_MINH, CHUYEN_CO_QUAN_DIEU_TRA_KHAC)',
   })
   ketQuaPhucHoiVuAn?: KetQuaPhucHoiVuAn;
+
+  // Field-parity tab "Vụ án TĐC" form cũ — form GỬI khi EDIT, trước thiếu DTO → forbidNonWhitelisted 400.
+  @IsOptional()
+  @IsDateString({}, { message: 'ngayPhucHoi không đúng định dạng ISO 8601' })
+  ngayPhucHoi?: string;
+
+  @IsOptional()
+  @IsDateString({}, { message: 'ngayHetThoiHieu không đúng định dạng ISO 8601' })
+  ngayHetThoiHieu?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  tdcKhacPhucLyDoBienPhap?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  tdcKhacPhucBienBan?: string;
 }

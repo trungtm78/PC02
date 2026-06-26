@@ -1258,6 +1258,18 @@ export class CasesService {
       ...((dto as Record<string, unknown>).lyDoTamDinhChiText !== undefined && {
         lyDoTamDinhChiText: (dto as Record<string, unknown>).lyDoTamDinhChiText as string | null,
       }),
+      // Field-parity tab "Vụ án TĐC" — persist khi EDIT (trước service chưa spread → không lưu được).
+      ...((dto as Record<string, unknown>).ngayHetThoiHieu !== undefined && {
+        ngayHetThoiHieu: (dto as Record<string, unknown>).ngayHetThoiHieu
+          ? new Date((dto as Record<string, unknown>).ngayHetThoiHieu as string)
+          : null,
+      }),
+      ...((dto as Record<string, unknown>).tdcKhacPhucLyDoBienPhap !== undefined && {
+        tdcKhacPhucLyDoBienPhap: (dto as Record<string, unknown>).tdcKhacPhucLyDoBienPhap as string | null,
+      }),
+      ...((dto as Record<string, unknown>).tdcKhacPhucBienBan !== undefined && {
+        tdcKhacPhucBienBan: (dto as Record<string, unknown>).tdcKhacPhucBienBan as string | null,
+      }),
       // v0.44.2 — UTDT top-level fields (persist through edit mode)
       ...(dto.caseType !== undefined && { caseType: dto.caseType }),
       ...(dto.donViGiao !== undefined && { donViGiao: dto.donViGiao }),
