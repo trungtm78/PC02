@@ -10,6 +10,7 @@ import {
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import { IncidentStatus, LoaiNguonTin } from '@prisma/client';
+import { IsCatalogValue } from '../../common/validators/is-catalog-value.validator';
 
 export class QueryIncidentsDto {
   // Tìm kiếm tổng hợp: mã, tên, tên ĐTV
@@ -73,7 +74,7 @@ export class QueryIncidentsDto {
 
   // New filters for VuViec workflow
   @IsOptional()
-  @IsEnum(LoaiNguonTin)
+  @IsCatalogValue('LOAI_NGUON_TIN')
   loaiDonVu?: LoaiNguonTin;
 
   @IsOptional()

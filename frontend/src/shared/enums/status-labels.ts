@@ -3,7 +3,7 @@
  * Source of truth: Prisma schema (via generated.ts).
  * Used by: ComprehensiveListPage, and any future aggregate or detail view.
  */
-import { CaseStatus, IncidentStatus, PetitionStatus, LyDoKhongKhoiTo, LoaiNguonTin, NguonPhatTin, PhuongThucTiepNhan, DeadlineRuleStatus, LoaiDon, CaseType, LoaiUyThac } from './generated';
+import { CaseStatus, IncidentStatus, PetitionStatus, LoaiNguonTin, NguonPhatTin, PhuongThucTiepNhan, DeadlineRuleStatus, LoaiDon, CaseType, LoaiUyThac } from './generated';
 import { CATALOG_LEGAL, CATALOG_META } from '@/shared/catalog/catalog.generated';
 import { STATUS_PENDING_RESPONSE } from '@/constants/styles';
 
@@ -230,22 +230,8 @@ export const TERMINAL_PETITION_STATUSES: PetitionStatus[] = [
   PetitionStatus.DA_CHUYEN_VU_AN,
 ];
 
-// ── Lý do không khởi tố (Điều 157 BLTTHS 2015) ─────────────────
-// Dùng cho FKSelect trong IncidentFormPage.
-
-export const LY_DO_KHONG_KHOI_TO_LABEL: Record<LyDoKhongKhoiTo, string> = {
-  [LyDoKhongKhoiTo.KHONG_CO_SU_VIEC]:                 'Không có sự việc phạm tội (Đ.157 khoản 1a)',
-  [LyDoKhongKhoiTo.HANH_VI_KHONG_CAU_THANH_TOI_PHAM]: 'Hành vi không cấu thành tội phạm (khoản 1b)',
-  [LyDoKhongKhoiTo.NGUOI_THUC_HIEN_CHUA_DU_TUOI]:     'Người thực hiện chưa đủ tuổi TNHS (khoản 1c)',
-  [LyDoKhongKhoiTo.NGUOI_PHAM_TOI_CHET]:              'Người phạm tội đã chết (khoản 1d)',
-  [LyDoKhongKhoiTo.HET_THOI_HIEU]:                    'Hết thời hiệu truy cứu TNHS (khoản 1đ)',
-  [LyDoKhongKhoiTo.TOI_PHAM_DA_DUOC_XOA_AN_TICH]:     'Tội phạm đã được đại xá (khoản 1e)',
-  [LyDoKhongKhoiTo.TRUONG_HOP_KHAC]:                  'Trường hợp khác theo quy định BLTTHS (khoản 1g)',
-};
-
-export const LY_DO_KHONG_KHOI_TO_OPTIONS = Object.entries(LY_DO_KHONG_KHOI_TO_LABEL).map(
-  ([value, label]) => ({ value, label }),
-);
+// Lý do không khởi tố (Đ.157): danh mục LEGAL trong Catalog Registry — FE dùng CatalogSelect
+// (LY_DO_KHONG_KHOI_TO_LABEL/OPTIONS cũ đã bỏ vì không còn consumer; nhãn lấy từ catalog.generated).
 
 // ── LoaiNguonTin (Điều 144 BLTTHS 2015 — 3 căn cứ tiếp nhận nguồn tin) ──
 // Hardcoded enum dropdown options (NOT a directory lookup). Pre-v0.30.0.3 this

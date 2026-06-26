@@ -247,7 +247,7 @@ export class DocumentsService {
         mimeType: dto.mimeType,
         size: dto.size,
         filePath: dto.filePath,
-        documentType: dto.documentType ?? 'VAN_BAN',
+        documentType: dto.documentType || 'VAN_BAN', // '' (chuỗi rỗng) → default, không lưu rác
         caseId: dto.caseId ?? null,
         incidentId: dto.incidentId ?? null,
         petitionId: dto.petitionId ?? null,
@@ -328,7 +328,7 @@ export class DocumentsService {
       data: {
         ...(dto.title !== undefined && { title: dto.title }),
         ...(dto.description !== undefined && { description: dto.description }),
-        ...(dto.documentType !== undefined && { documentType: dto.documentType }),
+        ...(dto.documentType !== undefined && dto.documentType !== '' && { documentType: dto.documentType }),
         ...(dto.caseId !== undefined && { caseId: dto.caseId ?? null }),
         ...(dto.incidentId !== undefined && { incidentId: dto.incidentId ?? null }),
       },
