@@ -16,6 +16,18 @@ import {
   getNguonPhatTinOptions,
 } from "@/shared/enums/status-labels";
 import type { LoaiNguonTin, NguonPhatTin } from "@/shared/enums/generated";
+import { LyDoTamDinhChiVuViec } from "@/shared/enums/generated";
+
+// PR-8 — căn cứ TĐC vụ việc (Đ.148) — multi-select.
+const LY_DO_TDC_VV_LABELS: Record<string, string> = {
+  CHUA_CO_KET_QUA_GIAM_DINH: "Chưa có kết quả giám định",
+  CHUA_CO_KET_QUA_DINH_GIA: "Chưa có kết quả định giá tài sản",
+  CHUA_CO_KET_QUA_TUONG_TRO: "Chưa có kết quả tương trợ tư pháp",
+  YEU_CAU_TAI_LIEU_CHUA_CO: "Yêu cầu tài liệu chưa có kết quả",
+  BAT_KHA_KHANG: "Lý do bất khả kháng",
+  CAN_CU_KHAC: "Căn cứ khác",
+};
+const LY_DO_TDC_VV_OPTIONS = Object.values(LyDoTamDinhChiVuViec).map((v) => ({ value: v, label: LY_DO_TDC_VV_LABELS[v] ?? v }));
 import { useFormDefaults } from "@/hooks/useFormDefaults";
 import { toDateInput } from "@/lib/dates";
 import { EntityDocumentsTab } from "@/components/documents/EntityDocumentsTab";
@@ -50,6 +62,7 @@ interface FormData {
   ngayQuyetDinh: string;
   nguoiQuyetDinh: string;
   lyDoKhongKhoiTo: string[];
+  lyDoTamDinhChiVuViec: string[];
   lyDoTamDinhChi: string;
   tinhTrangThoiHieu: string;
   tinhTrangHoSo: string;
@@ -103,6 +116,7 @@ const INITIAL_FORM: FormData = {
   ngayQuyetDinh: "",
   nguoiQuyetDinh: "",
   lyDoKhongKhoiTo: [],
+  lyDoTamDinhChiVuViec: [],
   lyDoTamDinhChi: "",
   tinhTrangThoiHieu: "",
   tinhTrangHoSo: "",
@@ -254,6 +268,7 @@ export function IncidentFormPage() {
             ngayQuyetDinh: toDateInput(d.ngayQuyetDinh as string | null | undefined),
             nguoiQuyetDinh: (d.nguoiQuyetDinh as string) ?? "",
             lyDoKhongKhoiTo: Array.isArray(d.lyDoKhongKhoiTo) ? (d.lyDoKhongKhoiTo as string[]) : [],
+            lyDoTamDinhChiVuViec: Array.isArray(d.lyDoTamDinhChiVuViec) ? (d.lyDoTamDinhChiVuViec as string[]) : [],
             lyDoTamDinhChi: (d.lyDoTamDinhChi as string) ?? "",
             tinhTrangThoiHieu: (d.tinhTrangThoiHieu as string) ?? "",
             tinhTrangHoSo: (d.tinhTrangHoSo as string) ?? "",
@@ -340,6 +355,7 @@ export function IncidentFormPage() {
         canCuKhoiToCode: s(formData.canCuKhoiToCode),
         nguoiQuyetDinh: s(formData.nguoiQuyetDinh),
         lyDoKhongKhoiTo: formData.lyDoKhongKhoiTo.length > 0 ? formData.lyDoKhongKhoiTo : undefined,
+        lyDoTamDinhChiVuViec: formData.lyDoTamDinhChiVuViec.length > 0 ? formData.lyDoTamDinhChiVuViec : undefined,
         lyDoTamDinhChi: s(formData.lyDoTamDinhChi),
         tinhTrangHoSo: s(formData.tinhTrangHoSo),
         tinhTrangThoiHieu: s(formData.tinhTrangThoiHieu),
@@ -805,10 +821,30 @@ export function IncidentFormPage() {
               className="w-4 h-4" data-testid="field-xacDinhVuViecTamDung" />
             Xác định vụ việc tạm dừng giải quyết
           </label>
+          <div data-testid="field-lyDoTamDinhChiVuViec">
+            <label className={labelClass}>Căn cứ tạm đình chỉ (Đ.148 BLTTHS) — chọn nhiều</label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-3">
+              {LY_DO_TDC_VV_OPTIONS.map((opt) => {
+                const checked = formData.lyDoTamDinhChiVuViec.includes(opt.value);
+                return (
+                  <label key={opt.value} className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                    <input type="checkbox" className="w-4 h-4" checked={checked} data-testid={`ltdcvv-${opt.value}`}
+                      onChange={(e) => {
+                        const next = e.target.checked
+                          ? [...formData.lyDoTamDinhChiVuViec, opt.value]
+                          : formData.lyDoTamDinhChiVuViec.filter((x) => x !== opt.value);
+                        update("lyDoTamDinhChiVuViec", next);
+                      }} />
+                    {opt.label}
+                  </label>
+                );
+              })}
+            </div>
+          </div>
           <div>
-            <label className={labelClass}>Lý do tạm đình chỉ</label>
+            <label className={labelClass}>Lý do tạm đình chỉ (ghi chú thêm)</label>
             <textarea value={formData.lyDoTamDinhChi} onChange={(e) => update("lyDoTamDinhChi", e.target.value)} rows={3}
-              className={inputClass} placeholder="Lý do tạm đình chỉ vụ việc" data-testid="field-lyDoTamDinhChi" />
+              className={inputClass} placeholder="Ghi chú thêm về lý do tạm đình chỉ" data-testid="field-lyDoTamDinhChi" />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>

@@ -1046,7 +1046,7 @@ model Incident {
   ngayGiaHan              DateTime? // Ngày gia hạn gần nhất
   lyDoKhongKhoiTo         LyDoKhongKhoiTo[] // PR-8 MULTI: chọn nhiều căn cứ không khởi tố (Đ.157). Mảng rỗng=chưa chọn.
   lyDoTamDinhChiText      String? // Backup của giá trị String cũ trước migration
-  lyDoTamDinhChiVuViec    LyDoTamDinhChiVuViec? // Enum mới cho vụ việc
+  lyDoTamDinhChiVuViec    LyDoTamDinhChiVuViec[] // PR-8 MULTI: chọn nhiều căn cứ TĐC vụ việc (Đ.148). Mảng rỗng=chưa chọn.
   laCongNgheCaoVV         Boolean               @default(false)
   soQuyetDinhTamDinhChiVV String?
   ngayTamDinhChiVV        DateTime?
@@ -1134,7 +1134,6 @@ model Incident {
   @@index([deletedAt])
   @@index([assignedTeamId])
   @@index([ngayDeXuat])
-  @@index([lyDoTamDinhChiVuViec])
   @@index([createdAt])
   @@index([unitId])
   @@index([deadlineRuleVersionId])

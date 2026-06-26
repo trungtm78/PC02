@@ -8,7 +8,7 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
-import { LoaiNguonTin, LyDoKhongKhoiTo, NguonPhatTin, PhuongThucTiepNhan } from '@prisma/client';
+import { LoaiNguonTin, LyDoKhongKhoiTo, LyDoTamDinhChiVuViec, NguonPhatTin, PhuongThucTiepNhan } from '@prisma/client';
 import { IsNguonPhatTinMatchLoaiDonVu } from '../../common/validators/nguon-phat-tin-match.validator';
 
 export class CreateIncidentDto {
@@ -147,6 +147,12 @@ export class CreateIncidentDto {
     message: 'lyDoKhongKhoiTo phải là một trong 7 căn cứ theo Điều 157 BLTTHS 2015',
   })
   lyDoKhongKhoiTo?: LyDoKhongKhoiTo[];
+
+  // PR-8 MULTI: căn cứ tạm đình chỉ vụ việc (Đ.148) — chọn nhiều
+  @IsOptional()
+  @IsArray()
+  @IsEnum(LyDoTamDinhChiVuViec, { each: true })
+  lyDoTamDinhChiVuViec?: LyDoTamDinhChiVuViec[];
 
   @IsOptional()
   @IsString()

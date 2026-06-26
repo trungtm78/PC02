@@ -419,6 +419,7 @@ export class IncidentsService {
           canCuTamDinhChi: dto.canCuTamDinhChi,
           phanLoaiDanSuText: dto.phanLoaiDanSuText,
           lyDoKhongKhoiTo: dto.lyDoKhongKhoiTo,
+          lyDoTamDinhChiVuViec: dto.lyDoTamDinhChiVuViec, // PR-8 multi
           lyDoTamDinhChiText: (dto as any).lyDoTamDinhChiText ?? (dto as any).lyDoTamDinhChi,
           diaChiXayRa: dto.diaChiXayRa,
           sdtNguoiToGiac: dto.sdtNguoiToGiac,
