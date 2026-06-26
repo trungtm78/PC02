@@ -55,6 +55,7 @@ import { TestFixturesModule } from './test-fixtures/test-fixtures.module';
 import { DocumentNumbersModule } from './document-numbers/document-numbers.module';
 import { CrimesModule } from './crimes/crimes.module';
 import { LegacyMigrationModule } from './legacy-migration/legacy-migration.module';
+import { CatalogModule } from './catalog/catalog.module';
 
 @Module({
   imports: [
@@ -70,6 +71,7 @@ import { LegacyMigrationModule } from './legacy-migration/legacy-migration.modul
     DirectoryModule,
     CrimesModule,
     LegacyMigrationModule,
+    CatalogModule,
     AddressMappingModule,
     CasesModule,
     SubjectsModule,

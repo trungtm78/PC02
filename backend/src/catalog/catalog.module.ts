@@ -1,8 +1,10 @@
 import { Module } from '@nestjs/common';
 import { CatalogService } from './catalog.service';
+import { CatalogController } from './catalog.controller';
 
-// PrismaModule là @Global → không cần import. Controller thêm ở Task 3.
+// PrismaModule là @Global → không cần import.
 @Module({
+  controllers: [CatalogController],
   providers: [CatalogService],
   exports: [CatalogService],
 })
