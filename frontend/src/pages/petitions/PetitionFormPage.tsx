@@ -74,6 +74,7 @@ interface FormData {
   ngayDeXuat: string;
   phanLoaiNguonTin: string;
   dieuTraVien: string;
+  donViGiaiQuyet: string;
 }
 
 const INITIAL_FORM: FormData = {
@@ -89,7 +90,7 @@ const INITIAL_FORM: FormData = {
   crimeChinhId: "", noiXayRa: "", noiXayRaPhuongXa: "", ngayXayRa: "",
   loaiToiPham: "", phuongThucThuDoan: "", ngayGiaoDonViGiaiQuyet: "",
   laCongNgheCao: false, lanhDaoToTung: "", ketQuaXuLyKhac: "", thoiHanUTDT: "",
-  nguonDon: "", petitionDate: "", ngayDeXuat: "", phanLoaiNguonTin: "", dieuTraVien: "",
+  nguonDon: "", petitionDate: "", ngayDeXuat: "", phanLoaiNguonTin: "", dieuTraVien: "", donViGiaiQuyet: "",
 };
 
 function displayName(u: UserOption): string {
@@ -263,6 +264,7 @@ export function PetitionFormPage() {
           ngayDeXuat: toDateInput(d.ngayDeXuat as string | null | undefined),
           phanLoaiNguonTin: (d.phanLoaiNguonTin as string) ?? "",
           dieuTraVien: (d.dieuTraVien as string) ?? "",
+          donViGiaiQuyet: (d.donViGiaiQuyet as string) ?? "",
         });
         setRecordUpdatedAt((d.updatedAt as string) ?? null);
         // Nhóm II: track linked IDs to show/hide convert button
@@ -372,6 +374,7 @@ export function PetitionFormPage() {
         ngayDeXuat: formData.ngayDeXuat || undefined,
         phanLoaiNguonTin: formData.phanLoaiNguonTin || undefined,
         dieuTraVien: formData.dieuTraVien || undefined,
+        donViGiaiQuyet: formData.donViGiaiQuyet || undefined,
       };
       if (isEditMode) {
         await api.put(`/petitions/${id}`, { ...payload, expectedUpdatedAt: recordUpdatedAt ?? undefined });
@@ -770,6 +773,10 @@ export function PetitionFormPage() {
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Điều tra viên</label>
                 <input type="text" value={formData.dieuTraVien} onChange={(e) => update("dieuTraVien", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Tên điều tra viên thụ lý" data-testid="field-dieuTraVien" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Đơn vị giải quyết</label>
+                <input type="text" value={formData.donViGiaiQuyet} onChange={(e) => update("donViGiaiQuyet", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Đơn vị giải quyết (khác đơn vị tiếp nhận)" data-testid="field-donViGiaiQuyet" />
               </div>
             </div>
             <label className="flex items-center gap-2 text-sm font-medium text-slate-700">

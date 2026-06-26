@@ -173,6 +173,7 @@ describe('PetitionFormPage — petitionType payload (v0.37.2.4 P0 fix)', () => {
     fireEvent.change(screen.getByTestId('field-ngayDeXuat'), { target: { value: '2026-06-20' } });
     fireEvent.change(screen.getByTestId('field-phanLoaiNguonTin'), { target: { value: 'don-cong-van-ban-dau' } });
     fireEvent.change(screen.getByTestId('field-dieuTraVien'), { target: { value: 'Nguyễn Văn A' } });
+    fireEvent.change(screen.getByTestId('field-donViGiaiQuyet'), { target: { value: 'Đội 1 PC02' } });
 
     fireEvent.click(screen.getAllByRole('button', { name: /Lưu đơn thư/ })[0]);
     await waitFor(() => expect(api.post).toHaveBeenCalled());
@@ -183,6 +184,7 @@ describe('PetitionFormPage — petitionType payload (v0.37.2.4 P0 fix)', () => {
     expect(body.ngayDeXuat).toBe('2026-06-20');
     expect(body.phanLoaiNguonTin).toBe('don-cong-van-ban-dau');
     expect(body.dieuTraVien).toBe('Nguyễn Văn A');
+    expect(body.donViGiaiQuyet).toBe('Đội 1 PC02');
   });
 
   it('nhãn "Ghi chú trùng đơn" hiển thị (khớp hệ cũ)', async () => {

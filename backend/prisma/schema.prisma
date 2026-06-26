@@ -920,6 +920,7 @@ model Petition {
   ngayDeXuat             DateTime? // Ngày đề xuất (old: ngay_de_xuat) — khác receivedDate/petitionDate
   phanLoaiNguonTin       String? // Phân loại nguồn tin ban đầu (old: phan_loai_nguon_tin_ban_dau — discriminator)
   dieuTraVien            String? // Điều tra viên thụ lý (old: dieu_tra_vien — free text, pattern như lanhDaoToTung)
+  donViGiaiQuyet         String? // Đơn vị giải quyết (old: don_vi_giai_quyet — khác unit="Đơn vị tiếp nhận")
   legacySourceId         String? // Khóa gốc hệ thống cũ pc02hcm.com — idempotent di trú
   legacyRaw              Json? // Toàn bộ field raw hệ cũ — không mất data (Codex P1#1; Petition không có metadata)
   // Field-parity hệ thống cũ — giai đoạn Ủy thác điều tra

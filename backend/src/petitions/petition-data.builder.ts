@@ -85,6 +85,7 @@ export function buildPetitionCreateData(
     ngayDeXuat: toDate(dto.ngayDeXuat),
     phanLoaiNguonTin: dto.phanLoaiNguonTin,
     dieuTraVien: dto.dieuTraVien,
+    donViGiaiQuyet: dto.donViGiaiQuyet,
     // Fix bug rớt data: update ghi thoiHanUTDT (petitions.service ~618) nhưng create builder bỏ sót → mất khi tạo.
     thoiHanUTDT: toDate(dto.thoiHanUTDT),
   };

@@ -340,4 +340,10 @@ export class CreatePetitionDto {
   @IsString()
   @MaxLength(255)
   dieuTraVien?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString()
+  @MaxLength(255)
+  donViGiaiQuyet?: string;
 }

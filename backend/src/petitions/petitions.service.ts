@@ -620,6 +620,7 @@ export class PetitionsService {
       ...(dto.ngayDeXuat !== undefined && { ngayDeXuat: dto.ngayDeXuat ? new Date(dto.ngayDeXuat) : null }),
       ...(dto.phanLoaiNguonTin !== undefined && { phanLoaiNguonTin: dto.phanLoaiNguonTin }),
       ...(dto.dieuTraVien !== undefined && { dieuTraVien: dto.dieuTraVien }),
+      ...(dto.donViGiaiQuyet !== undefined && { donViGiaiQuyet: dto.donViGiaiQuyet }),
     };
     const petitionInclude = {
       enteredBy: {
