@@ -19,6 +19,14 @@ describe('CATALOG_REGISTRY', () => {
     e.values.forEach((v) => expect(v.label).toMatch(/khoản 1[a-gđ]/));
   });
 
+  it('LY_DO_TAM_DINH_CHI_VU_VIEC: legal, multi, 6 giá trị (Đ.148)', () => {
+    const e = getCatalogEntry('LY_DO_TAM_DINH_CHI_VU_VIEC');
+    expect(e.kind).toBe('legal');
+    expect(e.multi).toBe(true);
+    expect(e.kind === 'legal' && e.values).toHaveLength(6);
+    expect(e.kind === 'legal' && e.values.map((v) => v.code)).toContain('BAT_KHA_KHANG');
+  });
+
   it('DOCUMENT_TYPE: dynamic, source directory', () => {
     expect(getCatalogEntry('DOCUMENT_TYPE')).toMatchObject({ kind: 'dynamic', source: 'directory:DOCUMENT_TYPE' });
   });

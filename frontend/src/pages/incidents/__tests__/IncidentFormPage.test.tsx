@@ -61,6 +61,13 @@ describe('IncidentFormPage — lý do không khởi tố qua CatalogSelect (PR-1
     expect(screen.getByTestId('cat-TOI_PHAM_DA_DUOC_XOA_AN_TICH')).toBeInTheDocument();
     expect(screen.getByText(/đại xá/)).toBeInTheDocument();
   });
+
+  it('PR-2: lyDoTamDinhChiVuViec render qua CatalogSelect (cat-{code}) trong section TĐC', async () => {
+    await renderForm();
+    fireEvent.click(screen.getByText('Tạm đình chỉ & Phục hồi'));
+    expect(await screen.findByTestId('cat-CHUA_CO_KET_QUA_GIAM_DINH')).toBeInTheDocument();
+    expect(screen.getByTestId('cat-BAT_KHA_KHANG')).toBeInTheDocument();
+  });
 });
 
 // Regression guard for the v0.30.0.3 fix: loaiDonVu dropdown must send enum

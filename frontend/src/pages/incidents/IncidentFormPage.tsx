@@ -16,18 +16,6 @@ import {
   getNguonPhatTinOptions,
 } from "@/shared/enums/status-labels";
 import type { LoaiNguonTin, NguonPhatTin } from "@/shared/enums/generated";
-import { LyDoTamDinhChiVuViec } from "@/shared/enums/generated";
-
-// PR-8 — căn cứ TĐC vụ việc (Đ.148) — multi-select.
-const LY_DO_TDC_VV_LABELS: Record<string, string> = {
-  CHUA_CO_KET_QUA_GIAM_DINH: "Chưa có kết quả giám định",
-  CHUA_CO_KET_QUA_DINH_GIA: "Chưa có kết quả định giá tài sản",
-  CHUA_CO_KET_QUA_TUONG_TRO: "Chưa có kết quả tương trợ tư pháp",
-  YEU_CAU_TAI_LIEU_CHUA_CO: "Yêu cầu tài liệu chưa có kết quả",
-  BAT_KHA_KHANG: "Lý do bất khả kháng",
-  CAN_CU_KHAC: "Căn cứ khác",
-};
-const LY_DO_TDC_VV_OPTIONS = Object.values(LyDoTamDinhChiVuViec).map((v) => ({ value: v, label: LY_DO_TDC_VV_LABELS[v] ?? v }));
 import { useFormDefaults } from "@/hooks/useFormDefaults";
 import { toDateInput } from "@/lib/dates";
 import { EntityDocumentsTab } from "@/components/documents/EntityDocumentsTab";
@@ -812,22 +800,13 @@ export function IncidentFormPage() {
           </label>
           <div data-testid="field-lyDoTamDinhChiVuViec">
             <label className={labelClass}>Căn cứ tạm đình chỉ (Đ.148 BLTTHS) — chọn nhiều</label>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-3">
-              {LY_DO_TDC_VV_OPTIONS.map((opt) => {
-                const checked = formData.lyDoTamDinhChiVuViec.includes(opt.value);
-                return (
-                  <label key={opt.value} className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
-                    <input type="checkbox" className="w-4 h-4" checked={checked} data-testid={`ltdcvv-${opt.value}`}
-                      onChange={(e) => {
-                        const next = e.target.checked
-                          ? [...formData.lyDoTamDinhChiVuViec, opt.value]
-                          : formData.lyDoTamDinhChiVuViec.filter((x) => x !== opt.value);
-                        update("lyDoTamDinhChiVuViec", next);
-                      }} />
-                    {opt.label}
-                  </label>
-                );
-              })}
+            {/* PR-2 catalog: 1 component dùng chung; multi tự theo registry META. */}
+            <div className="mb-3">
+              <CatalogSelect
+                catalogKey="LY_DO_TAM_DINH_CHI_VU_VIEC"
+                value={formData.lyDoTamDinhChiVuViec}
+                onChange={(v) => update("lyDoTamDinhChiVuViec", v as string[])}
+              />
             </div>
           </div>
           <div>

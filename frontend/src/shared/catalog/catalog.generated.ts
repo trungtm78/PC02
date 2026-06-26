@@ -33,6 +33,32 @@ export const CATALOG_LEGAL = {
       "code": "TRUONG_HOP_KHAC",
       "label": "Trường hợp khác theo quy định BLTTHS (khoản 1g)"
     }
+  ],
+  "LY_DO_TAM_DINH_CHI_VU_VIEC": [
+    {
+      "code": "CHUA_CO_KET_QUA_GIAM_DINH",
+      "label": "Chưa có kết quả giám định"
+    },
+    {
+      "code": "CHUA_CO_KET_QUA_DINH_GIA",
+      "label": "Chưa có kết quả định giá tài sản"
+    },
+    {
+      "code": "CHUA_CO_KET_QUA_TUONG_TRO",
+      "label": "Chưa có kết quả tương trợ tư pháp"
+    },
+    {
+      "code": "YEU_CAU_TAI_LIEU_CHUA_CO",
+      "label": "Yêu cầu tài liệu chưa có kết quả"
+    },
+    {
+      "code": "BAT_KHA_KHANG",
+      "label": "Lý do bất khả kháng"
+    },
+    {
+      "code": "CAN_CU_KHAC",
+      "label": "Căn cứ khác"
+    }
   ]
 } as const;
 
@@ -40,6 +66,10 @@ export const CATALOG_DYNAMIC_KEYS = ["DOCUMENT_TYPE"] as const;
 
 export const CATALOG_META = {
   "LY_DO_KHONG_KHOI_TO": {
+    "kind": "legal",
+    "multi": true
+  },
+  "LY_DO_TAM_DINH_CHI_VU_VIEC": {
     "kind": "legal",
     "multi": true
   },

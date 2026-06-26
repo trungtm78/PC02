@@ -152,7 +152,7 @@ export class CreateIncidentDto {
   // PR-8 MULTI: căn cứ tạm đình chỉ vụ việc (Đ.148) — chọn nhiều
   @IsOptional()
   @IsArray()
-  @IsEnum(LyDoTamDinhChiVuViec, { each: true })
+  @IsCatalogValue('LY_DO_TAM_DINH_CHI_VU_VIEC', { each: true })
   lyDoTamDinhChiVuViec?: LyDoTamDinhChiVuViec[];
 
   @IsOptional()

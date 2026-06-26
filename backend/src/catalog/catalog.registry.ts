@@ -44,6 +44,21 @@ export const CATALOG_REGISTRY: Record<string, CatalogEntry> = {
       { code: 'TRUONG_HOP_KHAC', label: 'Trường hợp khác theo quy định BLTTHS (khoản 1g)' },
     ],
   },
+  LY_DO_TAM_DINH_CHI_VU_VIEC: {
+    key: 'LY_DO_TAM_DINH_CHI_VU_VIEC',
+    kind: 'legal',
+    multi: true,
+    ref: 'Đ.148 BLTTHS 2015',
+    enumName: 'LyDoTamDinhChiVuViec',
+    values: [
+      { code: 'CHUA_CO_KET_QUA_GIAM_DINH', label: 'Chưa có kết quả giám định' },
+      { code: 'CHUA_CO_KET_QUA_DINH_GIA', label: 'Chưa có kết quả định giá tài sản' },
+      { code: 'CHUA_CO_KET_QUA_TUONG_TRO', label: 'Chưa có kết quả tương trợ tư pháp' },
+      { code: 'YEU_CAU_TAI_LIEU_CHUA_CO', label: 'Yêu cầu tài liệu chưa có kết quả' },
+      { code: 'BAT_KHA_KHANG', label: 'Lý do bất khả kháng' },
+      { code: 'CAN_CU_KHAC', label: 'Căn cứ khác' },
+    ],
+  },
   // ── Dynamic mẫu ───────────────────────────────────────────────────────────
   DOCUMENT_TYPE: {
     key: 'DOCUMENT_TYPE',
