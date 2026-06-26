@@ -27,11 +27,13 @@ export class CaseStatisticDto {
   @IsOptional() @IsNumber() @Min(0) tongTienPhatHanhChinh?: number;
 
   // Đối tượng / vũ khí / băng nhóm
+  @IsOptional() @IsInt() @Min(0) soDoiTuong?: number; // PR-7: tổng số đối tượng (old so_doi_tuong)
   @IsOptional() @IsInt() @Min(0) soDoiTuongDaBat?: number;
   @IsOptional() @IsInt() @Min(0) soDoiTuongBiBatVuAnKhac?: number;
   @IsOptional() @IsInt() @Min(0) dieuTraMoRong?: number;
   @IsOptional() @IsString() suDungVuKhiNong?: string;
   @IsOptional() @IsBoolean() coBangNhom?: boolean;
+  @IsOptional() @IsInt() @Min(0) soBangNhom?: number; // PR-7: số lượng băng nhóm (old co_bao_nhieu_bang_nhom)
   @IsOptional() @IsInt() @Min(0) soBangNhomBatDuoc?: number;
   @IsOptional() @IsInt() @Min(0) soSungThuHoi?: number;
   @IsOptional() @IsInt() @Min(0) soThuocNoThuHoi?: number;

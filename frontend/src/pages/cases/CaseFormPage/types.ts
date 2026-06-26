@@ -257,8 +257,8 @@ export interface CaseStatisticForm {
   laVuAnGhiAmGhiHinh: boolean; tongSoBienBanHoiCung: string; tongSoBienBanHoiCungCoGhiAm: string;
   soBiCanCoGhiAm: string; vksYeuCauGhiAm: boolean; soBiCanVksYeuCauGhiAm: string;
   coVPHC: boolean; soDoiTuongVPHC: string; soNguoiBiPhatTien: string; tongTienPhatHanhChinh: string;
-  soDoiTuongDaBat: string; soDoiTuongBiBatVuAnKhac: string; dieuTraMoRong: string; suDungVuKhiNong: string;
-  coBangNhom: boolean; soBangNhomBatDuoc: string; soSungThuHoi: string; soThuocNoThuHoi: string; soDoiTuongSuuTraHiemNghi: string;
+  soDoiTuong: string; soDoiTuongDaBat: string; soDoiTuongBiBatVuAnKhac: string; dieuTraMoRong: string; suDungVuKhiNong: string;
+  coBangNhom: boolean; soBangNhom: string; soBangNhomBatDuoc: string; soSungThuHoi: string; soThuocNoThuHoi: string; soDoiTuongSuuTraHiemNghi: string;
   // Field-parity hệ thống cũ — bị hại, thiệt hại, xét xử
   soLuongBiHai: string; soNguoiBiThuong: string; soLuongNguoiChet: string;
   soTienBiThietHai: string; soTienThuHoi: string; vuAnDaDuocXetXu: boolean;
@@ -274,8 +274,8 @@ export const INITIAL_CASE_STATISTIC: CaseStatisticForm = {
   laVuAnGhiAmGhiHinh: false, tongSoBienBanHoiCung: "", tongSoBienBanHoiCungCoGhiAm: "",
   soBiCanCoGhiAm: "", vksYeuCauGhiAm: false, soBiCanVksYeuCauGhiAm: "",
   coVPHC: false, soDoiTuongVPHC: "", soNguoiBiPhatTien: "", tongTienPhatHanhChinh: "",
-  soDoiTuongDaBat: "", soDoiTuongBiBatVuAnKhac: "", dieuTraMoRong: "", suDungVuKhiNong: "",
-  coBangNhom: false, soBangNhomBatDuoc: "", soSungThuHoi: "", soThuocNoThuHoi: "", soDoiTuongSuuTraHiemNghi: "",
+  soDoiTuong: "", soDoiTuongDaBat: "", soDoiTuongBiBatVuAnKhac: "", dieuTraMoRong: "", suDungVuKhiNong: "",
+  coBangNhom: false, soBangNhom: "", soBangNhomBatDuoc: "", soSungThuHoi: "", soThuocNoThuHoi: "", soDoiTuongSuuTraHiemNghi: "",
   soLuongBiHai: "", soNguoiBiThuong: "", soLuongNguoiChet: "",
   soTienBiThietHai: "", soTienThuHoi: "", vuAnDaDuocXetXu: false,
   ghiAmGhiHinhDaDuocXetXu: false, coSuDungKQGhiAmTrongXetXu: false, khongGAGHNhungToaYeuCau: false,

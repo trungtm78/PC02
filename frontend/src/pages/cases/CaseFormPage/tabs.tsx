@@ -1619,11 +1619,13 @@ export function TabStatistics({ formData, setFormData }: TabProps) {
           <fieldset>
             <legend className="text-sm font-medium text-slate-700 mb-2">Đối tượng / vũ khí / băng nhóm</legend>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <CSNum label="Tổng số đối tượng" v={cs.soDoiTuong} on={(x)=>updateStat("soDoiTuong",x)} t="cs-soDoiTuong" />
               <CSNum label="Số đối tượng đã bắt" v={cs.soDoiTuongDaBat} on={(x)=>updateStat("soDoiTuongDaBat",x)} t="cs-soDoiTuongDaBat" />
               <CSNum label="Số ĐT bị bắt vụ án khác" v={cs.soDoiTuongBiBatVuAnKhac} on={(x)=>updateStat("soDoiTuongBiBatVuAnKhac",x)} t="cs-soDoiTuongBiBatVuAnKhac" />
               <CSNum label="Điều tra mở rộng (số vụ)" v={cs.dieuTraMoRong} on={(x)=>updateStat("dieuTraMoRong",x)} t="cs-dieuTraMoRong" />
               <CSText label="Sử dụng vũ khí nóng" v={cs.suDungVuKhiNong} on={(x)=>updateStat("suDungVuKhiNong",x)} t="cs-suDungVuKhiNong" />
               <CSBool label="Có băng nhóm" v={cs.coBangNhom} on={(x)=>updateStat("coBangNhom",x)} t="cs-coBangNhom" />
+              <CSNum label="Số lượng băng nhóm" v={cs.soBangNhom} on={(x)=>updateStat("soBangNhom",x)} t="cs-soBangNhom" />
               <CSNum label="Số băng nhóm bắt được" v={cs.soBangNhomBatDuoc} on={(x)=>updateStat("soBangNhomBatDuoc",x)} t="cs-soBangNhomBatDuoc" />
               <CSNum label="Số súng thu hồi" v={cs.soSungThuHoi} on={(x)=>updateStat("soSungThuHoi",x)} t="cs-soSungThuHoi" />
               <CSNum label="Số thuốc nổ thu hồi" v={cs.soThuocNoThuHoi} on={(x)=>updateStat("soThuocNoThuHoi",x)} t="cs-soThuocNoThuHoi" />

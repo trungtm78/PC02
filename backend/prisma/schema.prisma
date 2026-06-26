@@ -687,11 +687,13 @@ model CaseStatistic {
   tongTienPhatHanhChinh Float?
 
   // Đối tượng / vũ khí / băng nhóm
+  soDoiTuong               Int? // PR-7: TỔNG số đối tượng (old: so_doi_tuong — khác soDoiTuongDaBat)
   soDoiTuongDaBat          Int?
   soDoiTuongBiBatVuAnKhac  Int?
   dieuTraMoRong            Int?
   suDungVuKhiNong          String?
   coBangNhom               Boolean @default(false)
+  soBangNhom               Int? // PR-7: SỐ LƯỢNG băng nhóm (old: co_bao_nhieu_bang_nhom — khác bool coBangNhom)
   soBangNhomBatDuoc        Int?
   soSungThuHoi             Int?
   soThuocNoThuHoi          Int?

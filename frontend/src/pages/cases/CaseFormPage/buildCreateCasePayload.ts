@@ -367,8 +367,8 @@ export function buildCreateCasePayload(
 const STAT_NUM_FIELDS = new Set([
   'tongSoBienBanGhiLoiKhai', 'soBienBanGhiLoiKhaiCoGhiAm', 'tongSoBienBanHoiCung',
   'tongSoBienBanHoiCungCoGhiAm', 'soBiCanCoGhiAm', 'soBiCanVksYeuCauGhiAm', 'soDoiTuongVPHC',
-  'soNguoiBiPhatTien', 'tongTienPhatHanhChinh', 'soDoiTuongDaBat', 'soDoiTuongBiBatVuAnKhac',
-  'dieuTraMoRong', 'soBangNhomBatDuoc', 'soSungThuHoi', 'soThuocNoThuHoi', 'soDoiTuongSuuTraHiemNghi',
+  'soNguoiBiPhatTien', 'tongTienPhatHanhChinh', 'soDoiTuong', 'soDoiTuongDaBat', 'soDoiTuongBiBatVuAnKhac',
+  'dieuTraMoRong', 'soBangNhom', 'soBangNhomBatDuoc', 'soSungThuHoi', 'soThuocNoThuHoi', 'soDoiTuongSuuTraHiemNghi',
   'soLuongBiHai', 'soNguoiBiThuong', 'soLuongNguoiChet', 'soTienBiThietHai', 'soTienThuHoi',
 ]);
 const STAT_BOOL_FIELDS = new Set([
