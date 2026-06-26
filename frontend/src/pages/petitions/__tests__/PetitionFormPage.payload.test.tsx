@@ -155,6 +155,41 @@ describe('PetitionFormPage — petitionType payload (v0.37.2.4 P0 fix)', () => {
     expect(optionLabels.join(' | ')).toContain('Phản ánh');
   });
 
+  it('render + gửi 5 field parity tab "Thông tin" (nguonDon/petitionDate/ngayDeXuat/phanLoaiNguonTin/dieuTraVien)', async () => {
+    await renderForm();
+    // Bắt buộc tối thiểu để qua validation
+    fireEvent.change(await screen.findByTestId('field-senderName'), { target: { value: 'Người gửi' } });
+    fireEvent.change(screen.getByTestId('field-senderAddress'), { target: { value: 'Địa chỉ' } });
+    fireEvent.change(screen.getByTestId('field-summary'), { target: { value: 'Tóm tắt' } });
+    fireEvent.change(screen.getByTestId('field-detailContent'), { target: { value: 'Nội dung' } });
+    fireEvent.change(screen.getByTestId('field-petitionType'), { target: { value: 'TO_CAO' } });
+    fireEvent.change(screen.getByTestId('field-priority'), { target: { value: 'Cao' } });
+    fireEvent.change(screen.getByTestId('field-senderPhone'), { target: { value: '0901234567' } });
+    fireEvent.change(screen.getByTestId('field-crimeChinhId'), { target: { value: 'crime-d173' } });
+
+    // 5 field parity mới — input PHẢI tồn tại trên form (getByTestId throw nếu thiếu)
+    fireEvent.change(screen.getByTestId('field-nguonDon'), { target: { value: 'Công an phường 1' } });
+    fireEvent.change(screen.getByTestId('field-petitionDate'), { target: { value: '2026-06-18' } });
+    fireEvent.change(screen.getByTestId('field-ngayDeXuat'), { target: { value: '2026-06-20' } });
+    fireEvent.change(screen.getByTestId('field-phanLoaiNguonTin'), { target: { value: 'don-cong-van-ban-dau' } });
+    fireEvent.change(screen.getByTestId('field-dieuTraVien'), { target: { value: 'Nguyễn Văn A' } });
+
+    fireEvent.click(screen.getAllByRole('button', { name: /Lưu đơn thư/ })[0]);
+    await waitFor(() => expect(api.post).toHaveBeenCalled());
+
+    const [, body] = (api.post as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(body.nguonDon).toBe('Công an phường 1');
+    expect(body.petitionDate).toBe('2026-06-18');
+    expect(body.ngayDeXuat).toBe('2026-06-20');
+    expect(body.phanLoaiNguonTin).toBe('don-cong-van-ban-dau');
+    expect(body.dieuTraVien).toBe('Nguyễn Văn A');
+  });
+
+  it('nhãn "Ghi chú trùng đơn" hiển thị (khớp hệ cũ)', async () => {
+    await renderForm();
+    expect(await screen.findByText(/Ghi chú trùng đơn/i)).toBeInTheDocument();
+  });
+
   it('client-side validation rejects empty petitionType (does not POST)', async () => {
     await renderForm();
 

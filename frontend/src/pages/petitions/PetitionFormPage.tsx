@@ -68,6 +68,12 @@ interface FormData {
   lanhDaoToTung: string;
   ketQuaXuLyKhac: string;
   thoiHanUTDT: string;
+  // Field-parity bổ sung tab "Thông tin" form cũ /doi-1/Them (2026-06-26)
+  nguonDon: string;
+  petitionDate: string;
+  ngayDeXuat: string;
+  phanLoaiNguonTin: string;
+  dieuTraVien: string;
 }
 
 const INITIAL_FORM: FormData = {
@@ -83,6 +89,7 @@ const INITIAL_FORM: FormData = {
   crimeChinhId: "", noiXayRa: "", noiXayRaPhuongXa: "", ngayXayRa: "",
   loaiToiPham: "", phuongThucThuDoan: "", ngayGiaoDonViGiaiQuyet: "",
   laCongNgheCao: false, lanhDaoToTung: "", ketQuaXuLyKhac: "", thoiHanUTDT: "",
+  nguonDon: "", petitionDate: "", ngayDeXuat: "", phanLoaiNguonTin: "", dieuTraVien: "",
 };
 
 function displayName(u: UserOption): string {
@@ -250,6 +257,12 @@ export function PetitionFormPage() {
           lanhDaoToTung: (d.lanhDaoToTung as string) ?? "",
           ketQuaXuLyKhac: (d.ketQuaXuLyKhac as string) ?? "",
           thoiHanUTDT: toDateInput(d.thoiHanUTDT as string | null | undefined),
+          // Field-parity bổ sung tab "Thông tin" form cũ /doi-1/Them (2026-06-26)
+          nguonDon: (d.nguonDon as string) ?? "",
+          petitionDate: toDateInput(d.petitionDate as string | null | undefined),
+          ngayDeXuat: toDateInput(d.ngayDeXuat as string | null | undefined),
+          phanLoaiNguonTin: (d.phanLoaiNguonTin as string) ?? "",
+          dieuTraVien: (d.dieuTraVien as string) ?? "",
         });
         setRecordUpdatedAt((d.updatedAt as string) ?? null);
         // Nhóm II: track linked IDs to show/hide convert button
@@ -353,6 +366,12 @@ export function PetitionFormPage() {
         lanhDaoToTung: formData.lanhDaoToTung || undefined,
         ketQuaXuLyKhac: formData.ketQuaXuLyKhac || undefined,
         thoiHanUTDT: formData.thoiHanUTDT || undefined,
+        // Field-parity bổ sung tab "Thông tin" form cũ /doi-1/Them (2026-06-26)
+        nguonDon: formData.nguonDon || undefined,
+        petitionDate: formData.petitionDate || undefined,
+        ngayDeXuat: formData.ngayDeXuat || undefined,
+        phanLoaiNguonTin: formData.phanLoaiNguonTin || undefined,
+        dieuTraVien: formData.dieuTraVien || undefined,
       };
       if (isEditMode) {
         await api.put(`/petitions/${id}`, { ...payload, expectedUpdatedAt: recordUpdatedAt ?? undefined });
@@ -553,6 +572,35 @@ export function PetitionFormPage() {
           </div>
           <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Phân loại nguồn tin ban đầu</label>
+              <select value={formData.phanLoaiNguonTin} onChange={(e) => update("phanLoaiNguonTin", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" data-testid="field-phanLoaiNguonTin">
+                <option value="">-- Chọn phân loại --</option>
+                <option value="don-cong-van-ban-dau">Đơn, Công văn</option>
+                <option value="vu-viec-ban-dau">Vụ việc</option>
+                <option value="vu-viec-nguon-tin">Vụ việc (nguồn tin)</option>
+                <option value="vu-an-ban-dau">Vụ án</option>
+                <option value="tra-ho-so-ban-dau">Trả hồ sơ cho đơn vị chuyển</option>
+                <option value="huong-dan-ban-dau">Hướng dẫn nghiệp vụ</option>
+                <option value="trao-doi-chuyen-an">Trao đổi chuyển án</option>
+                <option value="luat-su">Luật sư</option>
+                <option value="uy-thac-dieu-tra">Ủy thác điều tra</option>
+                <option value="kien-nghi-vks">Kiến nghị VKS</option>
+                <option value="cong-van-don-doc-phuc-hoi-tdc">Công văn đôn đốc phục hồi TĐC</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Nguồn đơn</label>
+              <input type="text" value={formData.nguonDon} onChange={(e) => update("nguonDon", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Bưu điện, Trực tiếp, PC01 Công an TPHCM,..." data-testid="field-nguonDon" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Ngày viết đơn</label>
+              <input type="date" value={formData.petitionDate} onChange={(e) => update("petitionDate", e.target.value)} max={today()} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" data-testid="field-petitionDate" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Ngày đề xuất</label>
+              <input type="date" value={formData.ngayDeXuat} onChange={(e) => update("ngayDeXuat", e.target.value)} max={today()} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" data-testid="field-ngayDeXuat" />
+            </div>
+            <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">Loại thông tin</label>
               <input type="text" value={formData.loaiThongTin} onChange={(e) => update("loaiThongTin", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Tố giác, trình báo, kiến nghị, phản ánh, khiếu nại..." data-testid="field-loaiThongTin" />
             </div>
@@ -719,6 +767,10 @@ export function PetitionFormPage() {
                 <label className="block text-sm font-medium text-slate-700 mb-2">Lãnh đạo phụ trách tố tụng</label>
                 <input type="text" value={formData.lanhDaoToTung} onChange={(e) => update("lanhDaoToTung", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Tên lãnh đạo phụ trách ký tố tụng" data-testid="field-lanhDaoToTung" />
               </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Điều tra viên</label>
+                <input type="text" value={formData.dieuTraVien} onChange={(e) => update("dieuTraVien", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Tên điều tra viên thụ lý" data-testid="field-dieuTraVien" />
+              </div>
             </div>
             <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
               <input type="checkbox" checked={formData.laCongNgheCao} onChange={(e) => update("laCongNgheCao", e.target.checked)} className="w-4 h-4" data-testid="field-laCongNgheCao" />
@@ -822,7 +874,7 @@ export function PetitionFormPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Kết quả rà soát đơn/vụ trùng</label>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Ghi chú trùng đơn</label>
                 <div className="relative">
                   <input
                     type="text"
