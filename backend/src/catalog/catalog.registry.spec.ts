@@ -1,0 +1,28 @@
+import { CATALOG_REGISTRY, getCatalogEntry } from './catalog.registry';
+
+describe('CATALOG_REGISTRY', () => {
+  it('LY_DO_KHONG_KHOI_TO: legal, multi, 7 giá trị', () => {
+    const e = getCatalogEntry('LY_DO_KHONG_KHOI_TO');
+    expect(e.kind).toBe('legal');
+    expect(e.multi).toBe(true);
+    expect(e.kind === 'legal' && e.values).toHaveLength(7);
+  });
+
+  it('DOCUMENT_TYPE: dynamic, source directory', () => {
+    expect(getCatalogEntry('DOCUMENT_TYPE')).toMatchObject({ kind: 'dynamic', source: 'directory:DOCUMENT_TYPE' });
+  });
+
+  it('getCatalogEntry throw khi key không tồn tại', () => {
+    expect(() => getCatalogEntry('KHONG_CO')).toThrow();
+  });
+
+  it('mọi entry có key trùng object key + code không rỗng (legal)', () => {
+    for (const [k, e] of Object.entries(CATALOG_REGISTRY)) {
+      expect(e.key).toBe(k);
+      if (e.kind === 'legal') {
+        expect(e.values.length).toBeGreaterThan(0);
+        e.values.forEach((v) => expect(v.code).toBeTruthy());
+      }
+    }
+  });
+});
