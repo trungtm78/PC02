@@ -67,6 +67,7 @@ interface FormData {
   ngayTamDinhChiVV: string;
   soQuyetDinhPhucHoiVV: string;
   ngayPhucHoiVV: string;
+  ngayHetThoiHieuVV: string;
   laCongNgheCaoVV: boolean;
 }
 
@@ -106,7 +107,7 @@ const INITIAL_FORM: FormData = {
   canCuTamDinhChi: "", phanLoaiDanSuText: "",
   tienDoKhacPhucTDC: "", tdcKhacPhucLyDoBienPhap: "", tdcKhacPhucBienBan: "",
   soQuyetDinhTamDinhChiVV: "", ngayTamDinhChiVV: "", soQuyetDinhPhucHoiVV: "",
-  ngayPhucHoiVV: "", laCongNgheCaoVV: false,
+  ngayPhucHoiVV: "", ngayHetThoiHieuVV: "", laCongNgheCaoVV: false,
 };
 
 function CollapsibleSection({
@@ -264,6 +265,7 @@ export function IncidentFormPage() {
             ngayTamDinhChiVV: toDateInput(d.ngayTamDinhChiVV as string | null | undefined),
             soQuyetDinhPhucHoiVV: (d.soQuyetDinhPhucHoiVV as string) ?? "",
             ngayPhucHoiVV: toDateInput(d.ngayPhucHoiVV as string | null | undefined),
+            ngayHetThoiHieuVV: toDateInput(d.ngayHetThoiHieuVV as string | null | undefined),
             laCongNgheCaoVV: Boolean(d.laCongNgheCaoVV),
           });
           setRecordUpdatedAt((d.updatedAt as string) ?? null);
@@ -341,6 +343,7 @@ export function IncidentFormPage() {
         ngayTamDinhChiVV: s(formData.ngayTamDinhChiVV),
         soQuyetDinhPhucHoiVV: s(formData.soQuyetDinhPhucHoiVV),
         ngayPhucHoiVV: s(formData.ngayPhucHoiVV),
+        ngayHetThoiHieuVV: s(formData.ngayHetThoiHieuVV),
         laCongNgheCaoVV: formData.laCongNgheCaoVV || undefined,
       };
       if (isEditMode) await api.put(`/incidents/${id}`, { ...payload, expectedUpdatedAt: recordUpdatedAt ?? undefined });
@@ -805,6 +808,11 @@ export function IncidentFormPage() {
               <label className={labelClass}>Ngày QĐ phục hồi</label>
               <input type="date" value={formData.ngayPhucHoiVV} onChange={(e) => update("ngayPhucHoiVV", e.target.value)}
                 className={inputClass} data-testid="field-ngayPhucHoiVV" />
+            </div>
+            <div>
+              <label className={labelClass}>Ngày hết thời hiệu vụ việc</label>
+              <input type="date" value={formData.ngayHetThoiHieuVV} onChange={(e) => update("ngayHetThoiHieuVV", e.target.value)}
+                className={inputClass} data-testid="field-ngayHetThoiHieuVV" />
             </div>
           </div>
           <div>

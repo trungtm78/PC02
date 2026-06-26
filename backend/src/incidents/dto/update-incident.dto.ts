@@ -174,4 +174,27 @@ export class UpdateIncidentDto {
   @IsOptional()
   @IsString()
   phanLoaiDanSuText?: string;
+
+  // Field-parity TĐC vụ việc — PHẢI khớp CreateIncidentDto + whitelist update (incidents.service).
+  // Trước đây thiếu ở UpdateIncidentDto → forbidNonWhitelisted 400 khi EDIT (nhập-không-lưu).
+  @IsOptional()
+  @IsString()
+  soQuyetDinhTamDinhChiVV?: string;
+
+  @IsOptional()
+  @IsDateString()
+  ngayTamDinhChiVV?: string;
+
+  @IsOptional()
+  @IsString()
+  soQuyetDinhPhucHoiVV?: string;
+
+  @IsOptional()
+  @IsDateString()
+  ngayPhucHoiVV?: string;
+
+  // Field-parity tab "Vụ việc TĐC" form cũ (old: ngay_thang_nam_het_thoi_hieu_vu_viec)
+  @IsOptional()
+  @IsDateString()
+  ngayHetThoiHieuVV?: string;
 }

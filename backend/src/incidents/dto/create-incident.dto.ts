@@ -220,6 +220,11 @@ export class CreateIncidentDto {
   @IsDateString()
   ngayPhucHoiVV?: string;
 
+  // Field-parity tab "Vụ việc TĐC" form cũ (old: ngay_thang_nam_het_thoi_hieu_vu_viec)
+  @IsOptional()
+  @IsDateString()
+  ngayHetThoiHieuVV?: string;
+
   @IsOptional()
   laCongNgheCaoVV?: boolean;
 }

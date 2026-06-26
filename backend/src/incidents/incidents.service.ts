@@ -439,6 +439,7 @@ export class IncidentsService {
           ngayTamDinhChiVV: dto.ngayTamDinhChiVV ? new Date(dto.ngayTamDinhChiVV) : undefined,
           soQuyetDinhPhucHoiVV: dto.soQuyetDinhPhucHoiVV,
           ngayPhucHoiVV: dto.ngayPhucHoiVV ? new Date(dto.ngayPhucHoiVV) : undefined,
+          ngayHetThoiHieuVV: dto.ngayHetThoiHieuVV ? new Date(dto.ngayHetThoiHieuVV) : undefined,
           laCongNgheCaoVV: dto.laCongNgheCaoVV,
           status: IncidentStatus.TIEP_NHAN,
         },
@@ -519,7 +520,7 @@ export class IncidentsService {
       }
     }
 
-    const dateFields = ['fromDate', 'toDate', 'deadline', 'ngayDeXuat', 'ngayQuyetDinh', 'ngayQDPhanCongNguonTin', 'ngayTamDinhChiVV', 'ngayPhucHoiVV'];
+    const dateFields = ['fromDate', 'toDate', 'deadline', 'ngayDeXuat', 'ngayQuyetDinh', 'ngayQDPhanCongNguonTin', 'ngayTamDinhChiVV', 'ngayPhucHoiVV', 'ngayHetThoiHieuVV'];
     for (const f of dateFields) {
       if ((dto as Record<string, unknown>)[f] !== undefined) {
         const val = (dto as Record<string, unknown>)[f] as string | null;
