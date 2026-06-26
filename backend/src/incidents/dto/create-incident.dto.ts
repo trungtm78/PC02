@@ -3,6 +3,7 @@ import {
   IsOptional,
   IsDateString,
   IsEnum,
+  IsBoolean,
   MaxLength,
   MinLength,
 } from 'class-validator';
@@ -235,6 +236,7 @@ export class CreateIncidentDto {
   ngayQDKhongKhoiTo?: string;
 
   @IsOptional()
+  @IsBoolean()
   xacDinhVuViecTamDung?: boolean;
 
   @IsOptional()

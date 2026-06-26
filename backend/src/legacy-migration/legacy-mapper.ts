@@ -325,10 +325,12 @@ export function buildCaseStatistic(rec: LegacyRecord): Record<string, unknown> |
     soTienThuHoi: parseLegacyNumber(rec.so_tien_thu_hoi),
     soSungThuHoi: int(rec.so_luong_sung_thu_hoi),
     soThuocNoThuHoi: int(rec.so_luong_thuoc_no_thu_hoi),
+    soDoiTuong: int(rec.so_doi_tuong), // PR-7 review: tổng số đối tượng (trước rớt vào legacyRaw)
     soDoiTuongDaBat: int(rec.so_doi_tuong_da_bat),
     // PR-4: tên cột THẬT trên form /doi-1/Them (trước đoán sai → di trú rớt data).
     soDoiTuongBiBatVuAnKhac: int(rec.so_doi_tuong_bi_bat_trong_vu_an_khac),
     dieuTraMoRong: int(rec.dieu_tra_mo_rong),
+    soBangNhom: int(rec.co_bao_nhieu_bang_nhom), // PR-7 review: số lượng băng nhóm (cùng nguồn với coBangNhom bool)
     soBangNhomBatDuoc: int(rec.bat_duoc_bao_nhieu_bang_nhom),
     coGhiAmGhiHinh: parseLegacyBool(rec.xac_nhan_ghi_am_ghi_hinh),
     laVuAnGhiAmGhiHinh: parseLegacyBool(rec.xac_nhan_neu_la_vu_an_ghi_am_ghi_hinh),
@@ -378,7 +380,7 @@ export const MAPPED_LEGACY_KEYS: ReadonlySet<string> = new Set([
   'ngay-quyet-dinh-tach-hanh-vi', 'can_cu_tam_dinh_chi_vu_an', 'can_cu_phuc_hoi_dieu_tra_vu_an', 'ghi_chu_khac',
   // CaseStatistic
   'so_luong_bi_hai', 'so_nguoi_bi_thuong', 'so_luong_nguoi_chet', 'so_tien_bi_thiet_hai', 'so_tien_thu_hoi',
-  'so_luong_sung_thu_hoi', 'so_luong_thuoc_no_thu_hoi', 'so_doi_tuong_da_bat', 'so_doi_tuong_bi_bat_trong_vu_an_khac',
+  'so_luong_sung_thu_hoi', 'so_luong_thuoc_no_thu_hoi', 'so_doi_tuong', 'so_doi_tuong_da_bat', 'so_doi_tuong_bi_bat_trong_vu_an_khac',
   'dieu_tra_mo_rong', 'bat_duoc_bao_nhieu_bang_nhom', 'xac_nhan_ghi_am_ghi_hinh', 'xac_nhan_neu_la_vu_an_ghi_am_ghi_hinh', 'xac_nhan_vu_viec_vphc',
   'co_bao_nhieu_bang_nhom', 'xac_nhan_vu_an_da_duoc_xet_xu', 'ghi_am_ghi_hinh_da_duoc_xet_xu',
   'vu_an_co_su_dung_ket_quả_ghi_am_ghi_hinh_trong_xet_xu', 'vu_an_khong_gagh_nhung_toa_an_yeu_cau_cung_cap_gagh', 'so_dang_ky_ho_so',
