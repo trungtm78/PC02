@@ -286,17 +286,17 @@ export function getNguonPhatTinOptions(loaiDonVu: string) {
 
 // ── PhuongThucTiepNhan (TT 28/2020/TT-BCA Điều 6 — 5 phương thức) ──────────────
 
-export const PHUONG_THUC_TIEP_NHAN_LABEL: Record<PhuongThucTiepNhan, string> = {
-  [PhuongThucTiepNhan.TRUC_TIEP_BANG_LOI]:     'Bằng lời trực tiếp',
-  [PhuongThucTiepNhan.TRUC_TIEP_BANG_VAN_BAN]: 'Bằng văn bản trực tiếp',
-  [PhuongThucTiepNhan.DIEN_THOAI]:             'Qua điện thoại',
-  [PhuongThucTiepNhan.BUU_DIEN]:               'Qua bưu điện / giao liên',
-  [PhuongThucTiepNhan.PHUONG_TIEN_DIEN_TU]:    'Qua mạng / email / phương tiện điện tử',
-};
+// Derive từ Catalog Registry (nguồn duy nhất) — xem [[catalog-registry]].
+const _PHUONG_THUC_TIEP_NHAN_CAT = CATALOG_LEGAL.PHUONG_THUC_TIEP_NHAN as readonly { code: string; label: string }[];
 
-export const PHUONG_THUC_TIEP_NHAN_OPTIONS = Object.entries(PHUONG_THUC_TIEP_NHAN_LABEL).map(
-  ([value, label]) => ({ value, label }),
-);
+export const PHUONG_THUC_TIEP_NHAN_LABEL = Object.fromEntries(
+  _PHUONG_THUC_TIEP_NHAN_CAT.map((o) => [o.code, o.label]),
+) as Record<PhuongThucTiepNhan, string>;
+
+export const PHUONG_THUC_TIEP_NHAN_OPTIONS = _PHUONG_THUC_TIEP_NHAN_CAT.map((o) => ({
+  value: o.code,
+  label: o.label,
+}));
 
 // ── DeadlineRuleStatus (6 workflow states + migrated-needs-doc virtual state) ──
 

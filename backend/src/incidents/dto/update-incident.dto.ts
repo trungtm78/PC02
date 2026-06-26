@@ -69,7 +69,7 @@ export class UpdateIncidentDto {
   nguonPhatTin?: NguonPhatTin;
 
   @IsOptional()
-  @IsEnum(PhuongThucTiepNhan, {
+  @IsCatalogValue('PHUONG_THUC_TIEP_NHAN', {
     message: 'phuongThucTiepNhan phải là một trong 5 phương thức TT 28/2020/TT-BCA Đ.6',
   })
   phuongThucTiepNhan?: PhuongThucTiepNhan;

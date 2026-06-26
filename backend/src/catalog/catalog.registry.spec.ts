@@ -55,6 +55,13 @@ describe('CATALOG_REGISTRY', () => {
     Object.values(e.cascade?.map ?? {}).flat().forEach((c) => expect(codes.has(c)).toBe(true));
   });
 
+  it('PHUONG_THUC_TIEP_NHAN: legal, single, 5 giá trị (TT28 Đ.6)', () => {
+    const e = getCatalogEntry('PHUONG_THUC_TIEP_NHAN');
+    expect(e.kind).toBe('legal');
+    expect(e.multi).toBe(false);
+    expect(e.kind === 'legal' && e.values).toHaveLength(5);
+  });
+
   it('DOCUMENT_TYPE: dynamic, source directory', () => {
     expect(getCatalogEntry('DOCUMENT_TYPE')).toMatchObject({ kind: 'dynamic', source: 'directory:DOCUMENT_TYPE' });
   });

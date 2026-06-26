@@ -118,6 +118,20 @@ export const CATALOG_REGISTRY: Record<string, CatalogEntry> = {
       { code: 'CO_QUAN_KHAC', label: 'Cơ quan nhà nước khác' },
     ],
   },
+  PHUONG_THUC_TIEP_NHAN: {
+    key: 'PHUONG_THUC_TIEP_NHAN',
+    kind: 'legal',
+    multi: false,
+    ref: 'TT 28/2020/TT-BCA Đ.6',
+    enumName: 'PhuongThucTiepNhan',
+    values: [
+      { code: 'TRUC_TIEP_BANG_LOI', label: 'Bằng lời trực tiếp' },
+      { code: 'TRUC_TIEP_BANG_VAN_BAN', label: 'Bằng văn bản trực tiếp' },
+      { code: 'DIEN_THOAI', label: 'Qua điện thoại' },
+      { code: 'BUU_DIEN', label: 'Qua bưu điện / giao liên' },
+      { code: 'PHUONG_TIEN_DIEN_TU', label: 'Qua mạng / email / phương tiện điện tử' },
+    ],
+  },
   // ── Dynamic mẫu ───────────────────────────────────────────────────────────
   DOCUMENT_TYPE: {
     key: 'DOCUMENT_TYPE',

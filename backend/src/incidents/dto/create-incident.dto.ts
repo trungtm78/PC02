@@ -82,7 +82,7 @@ export class CreateIncidentDto {
 
   // v0.31.0.0 — Phương thức tiếp nhận (TT 28/2020/TT-BCA Đ.6): 5 phương thức.
   @IsOptional()
-  @IsEnum(PhuongThucTiepNhan, {
+  @IsCatalogValue('PHUONG_THUC_TIEP_NHAN', {
     message: 'phuongThucTiepNhan phải là một trong 5 phương thức TT 28/2020/TT-BCA Đ.6',
   })
   phuongThucTiepNhan?: PhuongThucTiepNhan;
