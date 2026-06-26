@@ -14,6 +14,7 @@ import {
 import { Transform } from 'class-transformer';
 import { PetitionStatus, LoaiDon } from '@prisma/client';
 import { stripHtmlTags } from '../../common/utils/sanitize.util';
+import { IsCatalogValue } from '../../common/validators/is-catalog-value.validator';
 
 // Giá trị hợp lệ của discriminator "phân loại nguồn tin ban đầu" (khớp form cũ /doi-1/Them).
 // Bảo vệ integrity ở tầng API (FE đã giới hạn bằng <select>).
@@ -103,8 +104,9 @@ export class CreatePetitionDto {
   @MaxLength(500)
   suspectedAddress?: string;
 
+  // @IsNotEmpty giữ tính bắt buộc (@IsCatalogValue pass undefined); @IsCatalogValue kiểm thuộc danh mục.
   @IsNotEmpty({ message: 'Loại đơn thư là bắt buộc' })
-  @IsEnum(LoaiDon, {
+  @IsCatalogValue('LOAI_DON', {
     message: 'Loại đơn thư không hợp lệ — chọn: Tố cáo, Khiếu nại, Kiến nghị hoặc Phản ánh',
   })
   petitionType: LoaiDon;

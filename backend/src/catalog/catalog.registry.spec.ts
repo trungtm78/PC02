@@ -62,6 +62,18 @@ describe('CATALOG_REGISTRY', () => {
     expect(e.kind === 'legal' && e.values).toHaveLength(5);
   });
 
+  it('LOAI_DON: legal, single, 4 giá trị', () => {
+    const e = getCatalogEntry('LOAI_DON');
+    expect(e.kind).toBe('legal');
+    expect(e.multi).toBe(false);
+    expect(e.kind === 'legal' && e.values.map((v) => v.code)).toEqual([
+      'TO_CAO',
+      'KHIEU_NAI',
+      'KIEN_NGHI',
+      'PHAN_ANH',
+    ]);
+  });
+
   it('DOCUMENT_TYPE: dynamic, source directory', () => {
     expect(getCatalogEntry('DOCUMENT_TYPE')).toMatchObject({ kind: 'dynamic', source: 'directory:DOCUMENT_TYPE' });
   });

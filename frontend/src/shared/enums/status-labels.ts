@@ -103,18 +103,16 @@ export const PETITION_STATUS_SHORT_LABEL: Record<PetitionStatus, string> = {
 // v0.37.2.4 — single source of truth cho Loại đơn (LoaiDon enum) Vietnamese labels.
 // PetitionFormPage uses this for <select> options. Backend DTO validates against
 // enum values (TO_CAO/KHIEU_NAI/KIEN_NGHI/PHAN_ANH) — labels here are display-only.
-export const LOAI_DON_LABEL: Record<LoaiDon, string> = {
-  [LoaiDon.TO_CAO]:    'Tố cáo',
-  [LoaiDon.KHIEU_NAI]: 'Khiếu nại',
-  [LoaiDon.KIEN_NGHI]: 'Kiến nghị',
-  [LoaiDon.PHAN_ANH]:  'Phản ánh',
-};
+// Derive từ Catalog Registry (nguồn duy nhất). Mọi consumer (petition/incident/case form,
+// list-filters) import LOAI_DON_OPTIONS/LABEL từ đây nên đổi 1 chỗ là lan toả.
+const _LOAI_DON_CAT = CATALOG_LEGAL.LOAI_DON as readonly { code: string; label: string }[];
+
+export const LOAI_DON_LABEL = Object.fromEntries(
+  _LOAI_DON_CAT.map((o) => [o.code, o.label]),
+) as Record<LoaiDon, string>;
 
 export const LOAI_DON_OPTIONS: ReadonlyArray<{ value: LoaiDon; label: string }> =
-  (Object.keys(LOAI_DON_LABEL) as LoaiDon[]).map((value) => ({
-    value,
-    label: LOAI_DON_LABEL[value],
-  }));
+  _LOAI_DON_CAT.map((o) => ({ value: o.code as LoaiDon, label: o.label }));
 
 // ── Badge Tailwind classes (grouped by phase) ───────────────────
 

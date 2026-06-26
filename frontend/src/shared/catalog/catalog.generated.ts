@@ -171,6 +171,24 @@ export const CATALOG_LEGAL = {
       "code": "PHUONG_TIEN_DIEN_TU",
       "label": "Qua mạng / email / phương tiện điện tử"
     }
+  ],
+  "LOAI_DON": [
+    {
+      "code": "TO_CAO",
+      "label": "Tố cáo"
+    },
+    {
+      "code": "KHIEU_NAI",
+      "label": "Khiếu nại"
+    },
+    {
+      "code": "KIEN_NGHI",
+      "label": "Kiến nghị"
+    },
+    {
+      "code": "PHAN_ANH",
+      "label": "Phản ánh"
+    }
   ]
 } as const;
 
@@ -219,6 +237,10 @@ export const CATALOG_META = {
     }
   },
   "PHUONG_THUC_TIEP_NHAN": {
+    "kind": "legal",
+    "multi": false
+  },
+  "LOAI_DON": {
     "kind": "legal",
     "multi": false
   },

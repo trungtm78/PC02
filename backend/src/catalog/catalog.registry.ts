@@ -132,6 +132,19 @@ export const CATALOG_REGISTRY: Record<string, CatalogEntry> = {
       { code: 'PHUONG_TIEN_DIEN_TU', label: 'Qua mạng / email / phương tiện điện tử' },
     ],
   },
+  LOAI_DON: {
+    key: 'LOAI_DON',
+    kind: 'legal',
+    multi: false,
+    ref: 'Luật Tố cáo 2018 / Luật Khiếu nại 2011',
+    enumName: 'LoaiDon',
+    values: [
+      { code: 'TO_CAO', label: 'Tố cáo' },
+      { code: 'KHIEU_NAI', label: 'Khiếu nại' },
+      { code: 'KIEN_NGHI', label: 'Kiến nghị' },
+      { code: 'PHAN_ANH', label: 'Phản ánh' },
+    ],
+  },
   // ── Dynamic mẫu ───────────────────────────────────────────────────────────
   DOCUMENT_TYPE: {
     key: 'DOCUMENT_TYPE',
