@@ -40,6 +40,16 @@ describe('buildPetitionCreateData', () => {
     expect(data.nguonDon).toBe('Công an phường 1');
   });
 
+  it('persist ngayDeXuat/phanLoaiNguonTin/dieuTraVien (parity tab Thông tin)', () => {
+    const data = buildPetitionCreateData(
+      { ...baseDto, ngayDeXuat: '2026-06-20', phanLoaiNguonTin: 'don-cong-van-ban-dau', dieuTraVien: 'Nguyễn Văn A' },
+      ctx,
+    );
+    expect(data.dieuTraVien).toBe('Nguyễn Văn A');
+    expect(data.phanLoaiNguonTin).toBe('don-cong-van-ban-dau');
+    expect(data.ngayDeXuat).toEqual(new Date('2026-06-20'));
+  });
+
   it('gồm field-parity mới', () => {
     const data = buildPetitionCreateData(baseDto, ctx);
     expect(data.senderIdNumber).toBe('012345678901');

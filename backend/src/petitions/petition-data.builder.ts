@@ -81,6 +81,10 @@ export function buildPetitionCreateData(
     laCongNgheCao: dto.laCongNgheCao ?? false,
     lanhDaoToTung: dto.lanhDaoToTung,
     ketQuaXuLyKhac: dto.ketQuaXuLyKhac,
+    // Field-parity bổ sung tab "Thông tin" form cũ /doi-1/Them (2026-06-26).
+    ngayDeXuat: toDate(dto.ngayDeXuat),
+    phanLoaiNguonTin: dto.phanLoaiNguonTin,
+    dieuTraVien: dto.dieuTraVien,
     // Fix bug rớt data: update ghi thoiHanUTDT (petitions.service ~618) nhưng create builder bỏ sót → mất khi tạo.
     thoiHanUTDT: toDate(dto.thoiHanUTDT),
   };

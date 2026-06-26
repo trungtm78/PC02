@@ -616,6 +616,10 @@ export class PetitionsService {
       ...(dto.lanhDaoToTung !== undefined && { lanhDaoToTung: dto.lanhDaoToTung }),
       ...(dto.ketQuaXuLyKhac !== undefined && { ketQuaXuLyKhac: dto.ketQuaXuLyKhac }),
       ...(dto.thoiHanUTDT !== undefined && { thoiHanUTDT: dto.thoiHanUTDT ? new Date(dto.thoiHanUTDT) : null }),
+      // Field-parity bổ sung tab "Thông tin" form cũ /doi-1/Them (2026-06-26).
+      ...(dto.ngayDeXuat !== undefined && { ngayDeXuat: dto.ngayDeXuat ? new Date(dto.ngayDeXuat) : null }),
+      ...(dto.phanLoaiNguonTin !== undefined && { phanLoaiNguonTin: dto.phanLoaiNguonTin }),
+      ...(dto.dieuTraVien !== undefined && { dieuTraVien: dto.dieuTraVien }),
     };
     const petitionInclude = {
       enteredBy: {
