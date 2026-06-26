@@ -189,6 +189,104 @@ export const CATALOG_LEGAL = {
       "code": "PHAN_ANH",
       "label": "Phản ánh"
     }
+  ],
+  "CAP_DO_TOI_PHAM": [
+    {
+      "code": "IT_NGHIEM_TRONG",
+      "label": "Ít nghiêm trọng (đến 3 năm)"
+    },
+    {
+      "code": "NGHIEM_TRONG",
+      "label": "Nghiêm trọng (đến 7 năm)"
+    },
+    {
+      "code": "RAT_NGHIEM_TRONG",
+      "label": "Rất nghiêm trọng (đến 15 năm)"
+    },
+    {
+      "code": "DAC_BIET_NGHIEM_TRONG",
+      "label": "Đặc biệt nghiêm trọng (trên 15 năm / tử hình)"
+    }
+  ],
+  "CASE_PROVENANCE": [
+    {
+      "code": "FROM_PETITION",
+      "label": "Khởi tố từ Đơn thư"
+    },
+    {
+      "code": "FROM_INCIDENT",
+      "label": "Khởi tố từ Vụ việc"
+    },
+    {
+      "code": "DIRECT_DISCOVERY",
+      "label": "CQĐT phát hiện trực tiếp (Đ.143.c)"
+    },
+    {
+      "code": "TRANSFERRED",
+      "label": "Chuyển từ cơ quan khác"
+    },
+    {
+      "code": "SELF_SURRENDER",
+      "label": "Người phạm tội tự thú (Đ.143.d)"
+    },
+    {
+      "code": "PROSECUTOR_PROPOSAL",
+      "label": "Kiến nghị khởi tố của VKS (Đ.143.đ)"
+    },
+    {
+      "code": "OTHER_LEGAL_SOURCE",
+      "label": "Nguồn pháp lý khác"
+    },
+    {
+      "code": "UY_THAC_DIEU_TRA",
+      "label": "Ủy thác điều tra (Đ.171)"
+    }
+  ],
+  "CASE_TYPE": [
+    {
+      "code": "REGULAR",
+      "label": "Vụ án thông thường"
+    },
+    {
+      "code": "UY_THAC_DIEU_TRA",
+      "label": "Ủy thác điều tra"
+    }
+  ],
+  "LOAI_UY_THAC": [
+    {
+      "code": "UY_THAC_DIEU_TRA",
+      "label": "Ủy thác điều tra (Đ.171)"
+    },
+    {
+      "code": "CHUYEN_DON_NGUON_TIN",
+      "label": "Chuyển đơn / nguồn tin tố giác"
+    },
+    {
+      "code": "UY_THAC_GIAI_QUYET",
+      "label": "Ủy thác giải quyết đơn thư khiếu nại"
+    }
+  ],
+  "KET_QUA_PHUC_HOI_VU_AN": [
+    {
+      "code": "KET_LUAN_DE_NGHI_TRUY_TO",
+      "label": "Kết luận điều tra đề nghị truy tố"
+    },
+    {
+      "code": "DINH_CHI_DIEU_TRA",
+      "label": "Đình chỉ điều tra"
+    },
+    {
+      "code": "TAM_DINH_CHI_LAI",
+      "label": "Tạm đình chỉ điều tra lại"
+    },
+    {
+      "code": "DANG_DIEU_TRA_XAC_MINH",
+      "label": "Đang điều tra, xác minh"
+    },
+    {
+      "code": "CHUYEN_CO_QUAN_DIEU_TRA_KHAC",
+      "label": "Chuyển cơ quan điều tra khác"
+    }
   ]
 } as const;
 
@@ -241,6 +339,26 @@ export const CATALOG_META = {
     "multi": false
   },
   "LOAI_DON": {
+    "kind": "legal",
+    "multi": false
+  },
+  "CAP_DO_TOI_PHAM": {
+    "kind": "legal",
+    "multi": false
+  },
+  "CASE_PROVENANCE": {
+    "kind": "legal",
+    "multi": false
+  },
+  "CASE_TYPE": {
+    "kind": "legal",
+    "multi": false
+  },
+  "LOAI_UY_THAC": {
+    "kind": "legal",
+    "multi": false
+  },
+  "KET_QUA_PHUC_HOI_VU_AN": {
     "kind": "legal",
     "multi": false
   },

@@ -11,6 +11,7 @@ import {
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import { CaseStatus, CapDoToiPham, CaseType, LoaiUyThac } from '@prisma/client';
+import { IsCatalogValue } from '../../common/validators/is-catalog-value.validator';
 
 export type TrangThaiPhanHoi = 'DA_PHAN_HOI' | 'KHONG_THUC_HIEN_DUOC' | 'QUA_HAN' | 'CHUA_PHAN_HOI';
 export { CaseType, LoaiUyThac };
@@ -79,12 +80,12 @@ export class QueryCasesDto {
 
   // Lọc theo mức độ tội phạm (BLHS Điều 9)
   @IsOptional()
-  @IsEnum(CapDoToiPham)
+  @IsCatalogValue('CAP_DO_TOI_PHAM')
   capDoToiPham?: CapDoToiPham;
 
   // v0.44 — UTDT filters
   @IsOptional()
-  @IsEnum(CaseType)
+  @IsCatalogValue('CASE_TYPE')
   caseType?: CaseType;
 
   @IsOptional()
@@ -92,7 +93,7 @@ export class QueryCasesDto {
   donViGiao?: string;
 
   @IsOptional()
-  @IsEnum(LoaiUyThac)
+  @IsCatalogValue('LOAI_UY_THAC')
   loaiUyThac?: LoaiUyThac;
 
   @IsOptional()

@@ -106,7 +106,8 @@ describe('UpdateCaseDto — TAM_DINH_CHI / PHUC_HOI fields (v0.37.2.6 P1 fix)', 
     const errors = await validate(dto);
     const err = errors.find((e) => e.property === 'ketQuaPhucHoiVuAn');
     expect(err).toBeDefined();
-    expect(err?.constraints).toHaveProperty('isEnum');
+    // PR-7 catalog: @IsEnum→@IsCatalogValue.
+    expect(err?.constraints).toHaveProperty('isCatalogValue');
   });
 
   it('rejects daRaSoat with non-boolean value', async () => {

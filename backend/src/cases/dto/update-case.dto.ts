@@ -60,9 +60,9 @@ export class UpdateCaseDto extends PartialType(CreateCaseDto) {
   soQuyetDinhPhucHoi?: string;
 
   @IsOptional()
-  @IsEnum(KetQuaPhucHoiVuAn, {
+  @IsCatalogValue('KET_QUA_PHUC_HOI_VU_AN', {
     message:
-      'Kết quả phục hồi vụ án phải là enum KetQuaPhucHoiVuAn (KET_LUAN_DE_NGHI_TRUY_TO, DINH_CHI_DIEU_TRA, TAM_DINH_CHI_LAI, DANG_DIEU_TRA_XAC_MINH, CHUYEN_CO_QUAN_DIEU_TRA_KHAC)',
+      'Kết quả phục hồi vụ án phải thuộc danh mục (KET_LUAN_DE_NGHI_TRUY_TO, DINH_CHI_DIEU_TRA, TAM_DINH_CHI_LAI, DANG_DIEU_TRA_XAC_MINH, CHUYEN_CO_QUAN_DIEU_TRA_KHAC)',
   })
   ketQuaPhucHoiVuAn?: KetQuaPhucHoiVuAn;
 

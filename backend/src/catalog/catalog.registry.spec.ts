@@ -1,4 +1,11 @@
 import { CATALOG_REGISTRY, getCatalogEntry } from './catalog.registry';
+import {
+  CapDoToiPham,
+  CaseProvenance,
+  CaseType,
+  LoaiUyThac,
+  KetQuaPhucHoiVuAn,
+} from '@prisma/client';
 
 describe('CATALOG_REGISTRY', () => {
   it('LY_DO_KHONG_KHOI_TO: legal, multi, 7 giá trị', () => {
@@ -72,6 +79,21 @@ describe('CATALOG_REGISTRY', () => {
       'KIEN_NGHI',
       'PHAN_ANH',
     ]);
+  });
+
+  it('Case-side danh mục: code khớp TUYỆT ĐỐI enum Prisma (chống drift → Prisma 500)', () => {
+    const cases: Array<[string, Record<string, string>]> = [
+      ['CAP_DO_TOI_PHAM', CapDoToiPham],
+      ['CASE_PROVENANCE', CaseProvenance],
+      ['CASE_TYPE', CaseType],
+      ['LOAI_UY_THAC', LoaiUyThac],
+      ['KET_QUA_PHUC_HOI_VU_AN', KetQuaPhucHoiVuAn],
+    ];
+    for (const [key, prismaEnum] of cases) {
+      const e = getCatalogEntry(key);
+      if (e.kind !== 'legal') throw new Error(`${key} phải legal`);
+      expect(new Set(e.values.map((v) => v.code))).toEqual(new Set(Object.values(prismaEnum)));
+    }
   });
 
   it('DOCUMENT_TYPE: dynamic, source directory', () => {

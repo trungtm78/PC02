@@ -182,7 +182,7 @@ export class CreateCaseDto {
 
   // Mức độ tội phạm (BLHS 2015 Điều 9) — dùng cho KPI-4
   @IsOptional()
-  @IsEnum(CapDoToiPham, {
+  @IsCatalogValue('CAP_DO_TOI_PHAM', {
     message: 'capDoToiPham phải là IT_NGHIEM_TRONG, NGHIEM_TRONG, RAT_NGHIEM_TRONG hoặc DAC_BIET_NGHIEM_TRONG',
   })
   capDoToiPham?: CapDoToiPham;
@@ -229,7 +229,9 @@ export class CreateCaseDto {
   // v0.37.2 — Provenance model (Deploy-2 Contract: REQUIRED)
   // BLTTHS Đ.143 source classification — required for every Case.
   // Legacy `metadata.petitionType` payloads now return 400 from @IsEnum validation.
-  @IsEnum(CaseProvenance, {
+  // @IsNotEmpty giữ tính bắt buộc (@IsCatalogValue pass undefined) — bài học PR-6 LoaiDon.
+  @IsNotEmpty({ message: 'caseProvenance là bắt buộc (BLTTHS Đ.143)' })
+  @IsCatalogValue('CASE_PROVENANCE', {
     message: 'caseProvenance bắt buộc — chọn FROM_PETITION / FROM_INCIDENT / DIRECT_DISCOVERY / TRANSFERRED / OTHER_LEGAL_SOURCE (BLTTHS Đ.143)',
   })
   caseProvenance: CaseProvenance;
@@ -263,7 +265,7 @@ export class CreateCaseDto {
 
   // v0.44 — Ủy Thác Điều Tra (UTDT) fields — all optional, only relevant when caseType=UY_THAC_DIEU_TRA
   @IsOptional()
-  @IsEnum(CaseType)
+  @IsCatalogValue('CASE_TYPE')
   caseType?: CaseType;
 
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
@@ -287,7 +289,7 @@ export class CreateCaseDto {
   thoiHanUyThac?: string;
 
   @IsOptional()
-  @IsEnum(LoaiUyThac)
+  @IsCatalogValue('LOAI_UY_THAC')
   loaiUyThac?: LoaiUyThac;
 
   @IsOptional()
