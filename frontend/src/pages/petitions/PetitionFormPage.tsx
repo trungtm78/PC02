@@ -293,11 +293,10 @@ export function PetitionFormPage() {
     const newErrors: string[] = [];
     if (!formData.receivedDate) {
       newErrors.push("Ngày tiếp nhận là bắt buộc");
-    } else {
-      const d = new Date(formData.receivedDate);
-      const today = new Date();
-      today.setHours(23, 59, 59, 999);
-      if (d > today) newErrors.push("Ngày tiếp nhận không được là ngày tương lai");
+    } else if (formData.receivedDate > today()) {
+      // So sánh chuỗi YYYY-MM-DD theo today() (giờ VN) — nhất quán với `max={today()}` của input
+      // + default receivedDate. Tránh lệch biên múi giờ khi runtime TZ sau VN (vd CI chạy UTC).
+      newErrors.push("Ngày tiếp nhận không được là ngày tương lai");
     }
     const anon = formData.senderIsAnonymous;
     if (!anon && !formData.senderName.trim()) newErrors.push("Tên người gửi là bắt buộc");

@@ -41,7 +41,7 @@ import {
   TabUyThac,
 } from "./tabs";
 import { SubjectModal, EvidenceModal } from "./modals";
-import { formatVNDateTime } from "@/lib/dates";
+import { formatVNDateTime, today } from "@/lib/dates";
 
 // ─── Tab Configuration ──────────────────────────────────────────────────────
 
@@ -214,7 +214,8 @@ function CaseFormPage() {
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
     if (!formData.receiveDate) newErrors.receiveDate = "Vui lòng chọn ngày tiếp nhận";
-    if (formData.receiveDate && new Date(formData.receiveDate) > new Date()) {
+    if (formData.receiveDate && formData.receiveDate > today()) {
+      // So chuỗi YYYY-MM-DD theo giờ VN — nhất quán default + tránh lệch biên múi giờ (CI UTC).
       newErrors.receiveDate = "Ngày tiếp nhận không được ở tương lai";
     }
     // v0.37.1 Decision 7A 10/10 — validation 10/10 (multi-channel error display)
