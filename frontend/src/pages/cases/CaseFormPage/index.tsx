@@ -88,6 +88,9 @@ function CaseFormPage() {
   const [exportNavigateOnClose, setExportNavigateOnClose] = useState(false);
   // intent của lượt lưu hiện tại (ref tránh stale closure khi confirm qua PreSaveSummaryModal).
   const exportAfterSaveRef = useRef(false);
+  // [codex P2] guard in-flight đồng bộ: chặn lượt lưu thứ 2 chồng lấn (đổi intent / double-submit)
+  // trước khi setIsSaving kịp disable nút.
+  const savingRef = useRef(false);
 
   const [formData, setFormData] = useState<CaseFormData>(INITIAL_FORM_DATA);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -265,6 +268,8 @@ function CaseFormPage() {
   };
 
   const handleConfirmSave = async () => {
+    if (savingRef.current) return; // chống lưu chồng lấn (codex P2)
+    savingRef.current = true;
     setIsSaving(true);
     try {
       // v0.37.2.3: payload helper extracted + tested.
@@ -315,6 +320,7 @@ function CaseFormPage() {
       alert("Lưu hồ sơ thất bại. Vui lòng thử lại.");
     } finally {
       setIsSaving(false);
+      savingRef.current = false;
     }
   };
 
