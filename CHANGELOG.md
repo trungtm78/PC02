@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.68.1.0] - 2026-06-27
+
+### Added
+- **Đơn thư — Popup "Xuất chứng từ" + split-button Lưu**: Nút "Lưu đơn thư" trên form đơn thư nay là split-button — phần chính giữ hành vi cũ (lưu → về danh sách); caret ▼ mở menu "Lưu đơn thư" / "Lưu và xuất file". Chọn "Lưu và xuất file" → lưu đơn → mở popup chọn nhiều mẫu chứng từ (7 mẫu, mặc định tick hết) với 2 định dạng: **Gộp 1 file Word** (mặc định, ngắt trang giữa các mẫu) hoặc **Tách – ZIP** (mỗi mẫu 1 file). Endpoint mới `POST /petitions/:id/export-documents`.
+- **Atomic xuất nhiều mẫu**: Toàn bộ render + cấp số văn bản + gộp/zip chạy trong MỘT transaction — bất kỳ lỗi nào (thiếu trường, gộp, zip) rollback hết, KHÔNG tiêu số văn bản (không gap số). Pre-validate tất cả mẫu trước khi cấp số.
+
 ## [0.67.6.0] - 2026-06-01
 
 ### Fixed
