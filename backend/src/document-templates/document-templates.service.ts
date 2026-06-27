@@ -25,7 +25,7 @@ export class DocumentTemplatesService {
         entityType: dto.entityType,
         category: dto.category,
         // Buffer là Uint8Array runtime; cast giữ reference cho Prisma Bytes (v7 type khắt khe hơn).
-        fileBytes: file.buffer as unknown as Uint8Array,
+        fileBytes: file.buffer as unknown as Uint8Array<ArrayBuffer>,
         fileSha,
         fileName: file.originalname,
         variables: this.buildVariables(file.buffer),
@@ -67,7 +67,7 @@ export class DocumentTemplatesService {
     return this.prisma.documentTemplate.update({
       where: { id },
       data: {
-        fileBytes: file.buffer as unknown as Uint8Array,
+        fileBytes: file.buffer as unknown as Uint8Array<ArrayBuffer>,
         fileSha,
         fileName: file.originalname,
         variables: this.buildVariables(file.buffer),
