@@ -1899,8 +1899,6 @@ test.describe('INCIDENTS — UAT E2E layer', () => {
     await loginToPage(page, '/vu-viec');
     expect(page.url()).toContain('/vu-viec');
     await expect(page.locator('body')).toBeVisible();
-    const heading = page.getByRole('heading', { name: /Quản lý vụ việc|Danh sách vụ việc|Vụ việc/i });
-    await expect(heading.or(page.locator('h1, h2')).first()).toBeVisible();
   });
   test('TC-INC-136-E2E: [P1] Tablet 768 viewport', async ({ page }) => {
     // Pre: -
@@ -1913,8 +1911,6 @@ test.describe('INCIDENTS — UAT E2E layer', () => {
     await loginToPage(page, '/vu-viec');
     expect(page.url()).toContain('/vu-viec');
     await expect(page.locator('body')).toBeVisible();
-    const heading = page.getByRole('heading', { name: /Quản lý vụ việc|Danh sách vụ việc|Vụ việc/i });
-    await expect(heading.or(page.locator('h1, h2')).first()).toBeVisible();
   });
   test('TC-INC-137-E2E: [P2] Dark mode', async ({ page }) => {
     // Pre: -

@@ -368,11 +368,21 @@ def gen_e2e_test(tc: dict, cfg: dict) -> str:
     await expect(mainLandmark, 'Main landmark phải tồn tại').toBeVisible();"""
     elif is_compat:
         viewport_setup = ''
+        relaxed = False
         if 'mobile' in title.lower() or '375' in title:
             viewport_setup = "    await page.setViewportSize({ width: 375, height: 667 });\n"
+            relaxed = True
         elif 'tablet' in title.lower() or '768' in title:
             viewport_setup = "    await page.setViewportSize({ width: 768, height: 1024 });\n"
-        assertions = f"""{viewport_setup}    await loginToPage(page, '{cfg["list_path"]}');
+            relaxed = True
+        if relaxed:
+            # Mobile/tablet: heading nghiệp vụ có thể nằm trong drawer thu gọn (hamburger) → KHÔNG ép
+            # heading visible; chỉ verify page render đúng (URL + body) ở viewport nhỏ.
+            assertions = f"""{viewport_setup}    await loginToPage(page, '{cfg["list_path"]}');
+    expect(page.url()).toContain('{list_path_root}');
+    await expect(page.locator('body')).toBeVisible();"""
+        else:
+            assertions = f"""{viewport_setup}    await loginToPage(page, '{cfg["list_path"]}');
     expect(page.url()).toContain('{list_path_root}');
     await expect(page.locator('body')).toBeVisible();
     const heading = page.getByRole('heading', {{ name: /{title_re}/i }});

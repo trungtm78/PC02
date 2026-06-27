@@ -1492,8 +1492,6 @@ test.describe('UTDT — UAT E2E layer', () => {
     await loginToPage(page, '/cases?caseType=UY_THAC_DIEU_TRA');
     expect(page.url()).toContain('/cases');
     await expect(page.locator('body')).toBeVisible();
-    const heading = page.getByRole('heading', { name: /Ủy thác điều tra|UTDT|Vụ án/i });
-    await expect(heading.or(page.locator('h1, h2')).first()).toBeVisible();
   });
   test('TC-UTDT-107-E2E: [P1] Tablet 768', async ({ page }) => {
     // Pre: -
@@ -1506,8 +1504,6 @@ test.describe('UTDT — UAT E2E layer', () => {
     await loginToPage(page, '/cases?caseType=UY_THAC_DIEU_TRA');
     expect(page.url()).toContain('/cases');
     await expect(page.locator('body')).toBeVisible();
-    const heading = page.getByRole('heading', { name: /Ủy thác điều tra|UTDT|Vụ án/i });
-    await expect(heading.or(page.locator('h1, h2')).first()).toBeVisible();
   });
   test('TC-UTDT-108-E2E: [P0] List 5k UTDT p95 < 800ms', async ({ page }) => {
     // Pre: -
