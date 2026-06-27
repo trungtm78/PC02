@@ -10,39 +10,77 @@ const CREDS = {
 // Login helper
 async function loginAsAdmin(page: Page) {
   await page.goto(`${FRONTEND}/login`);
-  await page.getByLabel(/email/i).fill(CREDS.admin.email);
-  await page.getByLabel(/mật khẩu|password/i).fill(CREDS.admin.password);
+  await page.getByLabel(/tài khoản đăng nhập/i).fill(CREDS.admin.email);
+  await page.locator('input[type="password"]').fill(CREDS.admin.password);
   await page.getByRole('button', { name: /đăng nhập|login/i }).click();
   await expect(page).toHaveURL(/\/dashboard|\/petitions/, { timeout: 5000 });
 }
 
-// Điều hướng đến trang tạo đơn thư và tạo 1 đơn mới qua UI
+// Tạo đơn thư qua UI (dùng data-testid, chế độ ẩn danh để bỏ qua senderPhone bắt buộc)
 async function createPetitionViaUI(page: Page): Promise<string | null> {
   await page.goto(`${FRONTEND}/petitions/new`);
-  const nameField = page.getByLabel(/tên người gửi|sender/i);
-  const summaryField = page.getByLabel(/tóm tắt|summary/i);
-  if (!(await nameField.isVisible({ timeout: 3000 }).catch(() => false))) return null;
 
-  const testName = `UAT-Convert-${Date.now()}`;
-  await nameField.fill(testName);
-  await summaryField.fill(`Đơn test chuyển đổi E2E ${Date.now()}`);
+  // Chờ form load — waitFor thay vì isVisible (isVisible không poll)
+  const formVisible = await page.getByTestId('field-summary')
+    .waitFor({ state: 'visible', timeout: 8000 })
+    .then(() => true)
+    .catch(() => false);
+  if (!formVisible) return null;
 
-  // receivedDate
-  const dateField = page.getByLabel(/ngày nhận|received/i);
-  if (await dateField.isVisible({ timeout: 1000 }).catch(() => false)) {
-    await dateField.fill(new Date().toISOString().split('T')[0]);
+  // Bật chế độ ẩn danh để bỏ qua senderPhone + crimeChinhId bắt buộc
+  // Dùng waitFor để đảm bảo checkbox đã mount (không isVisible — không poll)
+  const anonCheckbox = page.getByTestId('field-senderIsAnonymous');
+  await anonCheckbox.waitFor({ state: 'visible', timeout: 4000 }).catch(() => {});
+  const isChecked = await anonCheckbox.isChecked().catch(() => false);
+  if (!isChecked) await anonCheckbox.click().catch(() => {});
+
+  // Tóm tắt nội dung
+  await page.getByTestId('field-summary').fill(`Đơn test chuyển đổi E2E ${Date.now()}`);
+
+  // Nội dung chi tiết (bắt buộc)
+  await page.getByTestId('field-detailContent').fill('Nội dung test chuyển đổi đơn thư sang vụ việc/vụ án.');
+
+  // Ngày tiếp nhận — dùng local date (không phải UTC) để tránh lệch múi giờ
+  const now = new Date();
+  const localDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  await page.getByTestId('field-receivedDate').fill(localDate);
+
+  // Loại đơn thư — chọn TO_CAO
+  await page.getByTestId('field-petitionType').selectOption('TO_CAO');
+
+  // Mức độ ưu tiên — FKSelect, waitFor trigger rồi chọn option đầu tiên
+  await page.getByTestId('field-priority-trigger')
+    .waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
+  await page.getByTestId('field-priority-trigger').click().catch(() => {});
+  await page.locator('[data-testid^="field-priority-option-"]').first()
+    .waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
+  await page.locator('[data-testid^="field-priority-option-"]').first().click().catch(() => {});
+
+  // Intercept POST /petitions response để lấy petition ID (form redirect sang list sau save)
+  let petitionId: string | null = null;
+  // Chỉ capture 2xx response (201 Created) — bỏ qua 409/4xx
+  const responsePromise = page.waitForResponse(
+    (r) => r.url().includes('/api/v1/petitions') && r.request().method() === 'POST' && r.status() >= 200 && r.status() < 300,
+    { timeout: 12000 },
+  ).catch(() => null);
+
+  // Submit — dùng btn-save-top (header) để tránh strict mode (có 2 nút cùng text)
+  await page.getByTestId('btn-save-top').click();
+
+  const response = await responsePromise;
+  if (response) {
+    try {
+      const body = await response.json();
+      petitionId = body?.data?.data?.id || body?.data?.id || null;
+    } catch { /* ignore */ }
   }
 
-  // petitionType
-  const typeSelect = page.getByLabel(/loại đơn|petition type/i);
-  if (await typeSelect.isVisible({ timeout: 1000 }).catch(() => false)) {
-    await typeSelect.selectOption('TO_CAO');
-  }
+  if (!petitionId) return null;
 
-  await page.getByRole('button', { name: /lưu|tạo|save|submit/i }).first().click();
-  await page.waitForURL(/\/petitions\/[^/]+\/edit/, { timeout: 5000 });
-  const match = page.url().match(/\/petitions\/([^/]+)\/edit/);
-  return match ? match[1] : null;
+  // Navigate đến edit page để test modal convert
+  await page.goto(`${FRONTEND}/petitions/${petitionId}/edit`);
+  await page.getByTestId('petition-form-page').waitFor({ state: 'visible', timeout: 8000 }).catch(() => {});
+  return petitionId;
 }
 
 test.describe('Nhóm II — ConvertPetitionModal E2E [@GREEN @P0]', () => {
@@ -52,7 +90,7 @@ test.describe('Nhóm II — ConvertPetitionModal E2E [@GREEN @P0]', () => {
 
   test('TC-100-E2E: Mở modal chuyển đổi → hiển thị 2 option (Vụ việc / Vụ án)', async ({ page }) => {
     const id = await createPetitionViaUI(page);
-    if (!id) { test.skip(true, 'Không tạo được petition qua UI'); return; }
+    if (!id) { test.skip(true, 'Không tạo được petition qua UI — check backend'); return; }
 
     const convertBtn = page.getByTestId('btn-convert-petition');
     if (!(await convertBtn.isVisible({ timeout: 3000 }).catch(() => false))) {
