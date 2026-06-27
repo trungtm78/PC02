@@ -1689,33 +1689,41 @@ export class PetitionsService {
   }
 
   /**
-   * [P2 codex/atomic] Render NHIỀU mẫu cho 1 đơn trong MỘT transaction.
-   * Pre-validate tất cả trước; bất kỳ render lỗi → rollback HẾT → KHÔNG tiêu số
-   * văn bản nào (không gap số dù 1 mẫu lỗi giữa chừng). merge/zip làm sau (an toàn:
-   * merge docx hợp lệ không lỗi; zip stream error đã có listener).
+   * [P2 codex/atomic] Render N mẫu + FINALIZE (gộp .docx / đóng .zip) trong MỘT
+   * transaction. Pre-validate tất cả trước; render+cấp số N mẫu rồi gọi `finalize`
+   * NGAY trong tx. Bất kỳ lỗi (render, gộp, zip) → rollback HẾT → KHÔNG tiêu số văn
+   * bản nào (đóng kín gap số kể cả khi bước gộp/zip lỗi SAU render). Trả buffer
+   * deliverable cuối (1 .docx gộp hoặc .zip). stampTemplateSha post-tx (cosmetic).
    */
   async renderDocumentsAtomic(
     id: string,
     docTypes: DocumentType[],
     actorId: string,
     dataScope: DataScope | null | undefined,
-  ): Promise<Array<{ buffer: Buffer; documentNumber: string; filename: string }>> {
+    finalize: (
+      docs: Array<{ buffer: Buffer; documentNumber: string; filename: string }>,
+    ) => Buffer | Promise<Buffer>,
+  ): Promise<Buffer> {
     const petition = await this.loadPetitionForExport(id, dataScope);
     for (const docType of docTypes) validateFieldsForDocType(docType, petition as any);
-    const rendered = await this.prisma.$transaction(async (tx: any) => {
+    const { result, rendered } = await this.prisma.$transaction(async (tx: any) => {
       const out: Array<{ docType: DocumentType; buffer: Buffer; soVanBan: string; fileSha: string }> = [];
       for (const docType of docTypes) {
         const r = await this.renderDocumentInTx(tx, id, petition, docType, actorId);
         out.push({ docType, ...r });
       }
-      return out;
+      // Gộp/zip NGAY trong tx → lỗi ở đây cũng rollback số văn bản (P2 đóng kín).
+      const deliverable = await finalize(
+        out.map((r) => ({
+          buffer: r.buffer,
+          documentNumber: r.soVanBan,
+          filename: sanitizeFilename(`${r.docType}_${r.soVanBan}.docx`),
+        })),
+      );
+      return { result: deliverable, rendered: out };
     });
     for (const r of rendered) await this.stampTemplateSha(id, r.docType, r.fileSha);
-    return rendered.map((r) => ({
-      buffer: r.buffer,
-      documentNumber: r.soVanBan,
-      filename: sanitizeFilename(`${r.docType}_${r.soVanBan}.docx`),
-    }));
+    return result;
   }
 
   private buildDocxPlaceholders(

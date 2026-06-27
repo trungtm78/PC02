@@ -38,47 +38,59 @@ export class PetitionExportDocumentsService {
     res: Response,
   ): Promise<void> {
     const normalized = validateExportDocumentsRequest(docTypes, mode);
-
-    // [F1+P2 atomic] Render CẢ N mẫu trong MỘT transaction: pre-validate tất cả →
-    // render+cấp số tuần tự → bất kỳ lỗi giữa chừng → rollback HẾT (không tiêu số
-    // văn bản nào, không gap). merge/zip làm sau trên buffer trả về.
-    const rendered = await this.petitions.renderDocumentsAtomic(
-      id,
-      normalized.docTypes,
-      actorId,
-      dataScope,
-    );
-
     const baseName = `ChungTu_${this.dateStamp()}`;
 
+    // [F1+P2 atomic] Render+cấp số CẢ N mẫu RỒI gộp/zip — tất cả trong MỘT transaction
+    // (finalize callback chạy trong tx). Lỗi bất kỳ (render, gộp, zip) → rollback HẾT,
+    // KHÔNG tiêu số văn bản nào. Trả buffer deliverable hoàn chỉnh → res.send (không
+    // pipe stream → không rủi ro unhandled 'error' của EventEmitter).
     if (normalized.mode === 'merged') {
-      const merged = this.docxMerge.merge(rendered.map((r) => r.buffer));
+      const merged = await this.petitions.renderDocumentsAtomic(
+        id,
+        normalized.docTypes,
+        actorId,
+        dataScope,
+        (docs) => this.docxMerge.merge(docs.map((d) => d.buffer)),
+      );
       this.setDownloadHeaders(res, DOCX_CONTENT_TYPE, `${baseName}.docx`);
       res.send(merged);
       return;
     }
 
     // mode === 'zip'
-    const archive = archiver('zip', { zlib: { level: 9 } });
-    // [review P1/codex] Bắt 'error' của archiver/stream — unhandled EventEmitter 'error'
-    // (zlib fail / client disconnect khi pipe) có thể KILL process Node. Pattern khớp BatchExportService.
-    archive.on('warning', (err) => {
-      this.logger.warn(`Export-documents archiver warning: ${err.message}`);
-    });
-    archive.on('error', (err) => {
-      this.logger.error(`Export-documents archiver error: ${err.message}`, err.stack);
-      if (!res.headersSent) {
-        res.status(500).json({ error: 'Xuất chứng từ thất bại' });
-      } else {
-        res.destroy();
-      }
-    });
+    const zipBuffer = await this.petitions.renderDocumentsAtomic(
+      id,
+      normalized.docTypes,
+      actorId,
+      dataScope,
+      (docs) => this.buildZipBuffer(docs),
+    );
     this.setDownloadHeaders(res, 'application/zip', `${baseName}.zip`);
-    archive.pipe(res);
-    for (const r of rendered) {
-      archive.append(r.buffer, { name: sanitizeFilename(r.filename) });
-    }
-    await archive.finalize();
+    res.send(zipBuffer);
+  }
+
+  /**
+   * Đóng N buffer .docx thành 1 .zip trong BỘ NHỚ (collect chunk → Buffer.concat).
+   * Buffer-based (không pipe res) để gọi được trong transaction atomic + tránh
+   * unhandled EventEmitter 'error' crash process. N≤7 file nhỏ → memory không đáng kể.
+   */
+  private buildZipBuffer(
+    docs: Array<{ buffer: Buffer; filename: string }>,
+  ): Promise<Buffer> {
+    return new Promise<Buffer>((resolve, reject) => {
+      const archive = archiver('zip', { zlib: { level: 9 } });
+      const chunks: Buffer[] = [];
+      archive.on('data', (c: Buffer) => chunks.push(c));
+      archive.on('warning', (err) => {
+        this.logger.warn(`Export-documents zip warning: ${err.message}`);
+      });
+      archive.on('error', reject);
+      archive.on('end', () => resolve(Buffer.concat(chunks)));
+      for (const d of docs) {
+        archive.append(d.buffer, { name: sanitizeFilename(d.filename) });
+      }
+      void archive.finalize();
+    });
   }
 
   private setDownloadHeaders(
