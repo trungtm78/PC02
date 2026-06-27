@@ -1622,20 +1622,55 @@ export class PetitionsService {
   }
 
   /**
-   * [F1 eng-review] Pre-validate TẤT CẢ docType TRƯỚC khi render/cấp số văn bản.
-   * Load đơn 1 lần (RBAC scope) + chạy validateFieldsForDocType cho từng mẫu.
-   * Thiếu trường → throw 400 NGAY, KHÔNG cấp số văn bản nào (tránh gap số + orphan
-   * DocumentRenderLog khi xuất nhiều mẫu mà 1 mẫu lỗi giữa chừng).
+   * Body 1 lần render TRONG transaction (cấp số + render + log). Tách để
+   * exportDocumentToBuffer (single) + renderDocumentsAtomic (multi, 1 tx) dùng chung.
+   * Throw ở đây → tx rollback → KHÔNG orphan số văn bản / DocumentRenderLog.
    */
-  async preValidateExportDocuments(
+  private async renderDocumentInTx(
+    tx: any,
     id: string,
-    docTypes: DocumentType[],
-    dataScope: DataScope | null | undefined,
+    petition: any,
+    docType: DocumentType,
+    actorId: string,
+  ): Promise<{ buffer: Buffer; soVanBan: string; fileSha: string }> {
+    const numberSeries = DOC_TYPE_TO_SERIES[docType];
+    const teamCode = petition.assignedTeam?.code ?? 'Đ1';
+    // Row lock chống 2 export đồng thời cùng đơn cùng cấp số (race C2).
+    await tx.$queryRaw`SELECT id FROM petitions WHERE id = ${id} FOR UPDATE`;
+    const commit = await this.docNums.commitWithTx(
+      numberSeries,
+      { userId: actorId, petitionId: petition.id, departmentId: petition.unit ?? undefined },
+      tx,
+      { documentId: petition.id },
+    );
+    const placeholders = this.buildDocxPlaceholders(petition, commit.number, teamCode);
+    const escaped = this.escapeUserSuppliedTokens(placeholders);
+    const renderedBuf = this.documentExport.renderDocxTemplate(docType, escaped);
+    const sha = createHash('sha256').update(renderedBuf).digest('hex');
+    await tx.documentRenderLog.create({
+      data: {
+        petitionId: petition.id,
+        documentType: docType,
+        templateSha: '', // stamp post-tx
+        renderedById: actorId,
+        generatedNumber: commit.number,
+        fileSha: sha,
+      },
+    });
+    return { buffer: renderedBuf, soVanBan: commit.number, fileSha: sha };
+  }
+
+  /** Stamp templateSha post-tx (field-only update, ngoài lock window). */
+  private async stampTemplateSha(
+    petitionId: string,
+    docType: DocumentType,
+    fileSha: string,
   ): Promise<void> {
-    const petition = await this.loadPetitionForExport(id, dataScope);
-    for (const docType of docTypes) {
-      validateFieldsForDocType(docType, petition as any);
-    }
+    const templateSha = (this.documentExport as any).loader.sha(docType) as string;
+    await this.prisma.documentRenderLog.updateMany({
+      where: { petitionId, fileSha, templateSha: '' },
+      data: { templateSha },
+    });
   }
 
   async exportDocumentToBuffer(
@@ -1644,61 +1679,43 @@ export class PetitionsService {
     actorId: string,
     dataScope: DataScope | null | undefined,
   ): Promise<{ buffer: Buffer; documentNumber: string; filename: string }> {
-    // (RBAC scope + load tách ra loadPetitionForExport để pre-validate dùng chung.)
     const petition = await this.loadPetitionForExport(id, dataScope);
-
     validateFieldsForDocType(docType, petition as any);
-
-    const numberSeries = DOC_TYPE_TO_SERIES[docType];
-    const teamCode = petition.assignedTeam?.code ?? 'Đ1';
-
-    const { buffer, soVanBan, fileSha } = await this.prisma.$transaction(
-      async (tx: any) => {
-        // Row lock so two concurrent exports of the same petition can't both
-        // allocate document numbers (race condition C2 from fresh eng review).
-        await tx.$queryRaw`SELECT id FROM petitions WHERE id = ${id} FOR UPDATE`;
-
-        const commit = await this.docNums.commitWithTx(
-          numberSeries,
-          { userId: actorId, petitionId: petition.id, departmentId: petition.unit ?? undefined },
-          tx,
-          { documentId: petition.id },
-        );
-
-        // Render the template. Throw here → tx rolls back → no orphan
-        // documentNumberLog / counter increment / DocumentRenderLog row.
-        const placeholders = this.buildDocxPlaceholders(petition, commit.number, teamCode);
-        const escaped = this.escapeUserSuppliedTokens(placeholders);
-        const renderedBuf = this.documentExport.renderDocxTemplate(docType, escaped);
-        const sha = createHash('sha256').update(renderedBuf).digest('hex');
-
-        // Audit trail row (DocumentRenderLog from PR1 schema). Single source of
-        // truth for "has petition X been issued PHIEU_DE_XUAT yet?" — replaces
-        // per-docType cache cols on Petition (CQ2/CQ3 dropped in PR1).
-        await tx.documentRenderLog.create({
-          data: {
-            petitionId: petition.id,
-            documentType: docType,
-            templateSha: '', // populated below — loader sha
-            renderedById: actorId,
-            generatedNumber: commit.number,
-            fileSha: sha,
-          },
-        });
-        return { buffer: renderedBuf, soVanBan: commit.number, fileSha: sha };
-      },
+    const { buffer, soVanBan, fileSha } = await this.prisma.$transaction((tx: any) =>
+      this.renderDocumentInTx(tx, id, petition, docType, actorId),
     );
+    await this.stampTemplateSha(id, docType, fileSha);
+    return { buffer, documentNumber: soVanBan, filename: sanitizeFilename(`${docType}_${soVanBan}.docx`) };
+  }
 
-    // Post-tx side-effects: stamp templateSha (cheap field-only update, no FK
-    // contention) and stream response. Both outside the lock window.
-    const templateSha = (this.documentExport as any).loader.sha(docType) as string;
-    await this.prisma.documentRenderLog.updateMany({
-      where: { petitionId: id, fileSha, templateSha: '' },
-      data: { templateSha },
+  /**
+   * [P2 codex/atomic] Render NHIỀU mẫu cho 1 đơn trong MỘT transaction.
+   * Pre-validate tất cả trước; bất kỳ render lỗi → rollback HẾT → KHÔNG tiêu số
+   * văn bản nào (không gap số dù 1 mẫu lỗi giữa chừng). merge/zip làm sau (an toàn:
+   * merge docx hợp lệ không lỗi; zip stream error đã có listener).
+   */
+  async renderDocumentsAtomic(
+    id: string,
+    docTypes: DocumentType[],
+    actorId: string,
+    dataScope: DataScope | null | undefined,
+  ): Promise<Array<{ buffer: Buffer; documentNumber: string; filename: string }>> {
+    const petition = await this.loadPetitionForExport(id, dataScope);
+    for (const docType of docTypes) validateFieldsForDocType(docType, petition as any);
+    const rendered = await this.prisma.$transaction(async (tx: any) => {
+      const out: Array<{ docType: DocumentType; buffer: Buffer; soVanBan: string; fileSha: string }> = [];
+      for (const docType of docTypes) {
+        const r = await this.renderDocumentInTx(tx, id, petition, docType, actorId);
+        out.push({ docType, ...r });
+      }
+      return out;
     });
-
-    const filename = sanitizeFilename(`${docType}_${soVanBan}.docx`);
-    return { buffer, documentNumber: soVanBan, filename };
+    for (const r of rendered) await this.stampTemplateSha(id, r.docType, r.fileSha);
+    return rendered.map((r) => ({
+      buffer: r.buffer,
+      documentNumber: r.soVanBan,
+      filename: sanitizeFilename(`${r.docType}_${r.soVanBan}.docx`),
+    }));
   }
 
   private buildDocxPlaceholders(

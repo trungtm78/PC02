@@ -39,20 +39,15 @@ export class PetitionExportDocumentsService {
   ): Promise<void> {
     const normalized = validateExportDocumentsRequest(docTypes, mode);
 
-    // [F1] Pre-validate TẤT CẢ mẫu TRƯỚC khi render/cấp số → thiếu trường = 400 ngay,
-    // không tiêu số văn bản nào.
-    await this.petitions.preValidateExportDocuments(
+    // [F1+P2 atomic] Render CẢ N mẫu trong MỘT transaction: pre-validate tất cả →
+    // render+cấp số tuần tự → bất kỳ lỗi giữa chừng → rollback HẾT (không tiêu số
+    // văn bản nào, không gap). merge/zip làm sau trên buffer trả về.
+    const rendered = await this.petitions.renderDocumentsAtomic(
       id,
       normalized.docTypes,
+      actorId,
       dataScope,
     );
-
-    const rendered: Array<{ buffer: Buffer; documentNumber: string; filename: string }> = [];
-    for (const docType of normalized.docTypes) {
-      rendered.push(
-        await this.petitions.exportDocumentToBuffer(id, docType, actorId, dataScope),
-      );
-    }
 
     const baseName = `ChungTu_${this.dateStamp()}`;
 

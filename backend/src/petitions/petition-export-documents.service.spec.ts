@@ -21,29 +21,30 @@ describe('PetitionExportDocumentsService', () => {
 
   beforeEach(() => {
     petitions = {
-      preValidateExportDocuments: jest.fn().mockResolvedValue(undefined),
-      exportDocumentToBuffer: jest
+      // [F1+P2 atomic] render CẢ N mẫu trong 1 transaction, trả mảng buffer.
+      renderDocumentsAtomic: jest
         .fn()
-        .mockImplementation((_id: string, dt: string) =>
-          Promise.resolve({
-            buffer: Buffer.from('docx-' + dt),
-            documentNumber: '1/' + dt,
-            filename: dt + '.docx',
-          }),
+        .mockImplementation((_id: string, dts: string[]) =>
+          Promise.resolve(
+            dts.map((dt) => ({
+              buffer: Buffer.from('docx-' + dt),
+              documentNumber: '1/' + dt,
+              filename: dt + '.docx',
+            })),
+          ),
         ),
     };
     docxMerge = { merge: jest.fn().mockReturnValue(Buffer.from('MERGED')) };
     svc = new PetitionExportDocumentsService(petitions, docxMerge);
   });
 
-  it('merged: pre-validate → render từng mẫu → merge → send (đúng header docx)', async () => {
+  it('merged: render atomic N mẫu → merge → send (đúng header docx)', async () => {
     const res = plainRes();
     await svc.exportDocuments('p1', ['PHIEU_DE_XUAT', 'BIEN_NHAN'], 'merged', 'u1', null, res);
 
-    expect(petitions.preValidateExportDocuments).toHaveBeenCalledWith(
-      'p1', ['PHIEU_DE_XUAT', 'BIEN_NHAN'], null,
+    expect(petitions.renderDocumentsAtomic).toHaveBeenCalledWith(
+      'p1', ['PHIEU_DE_XUAT', 'BIEN_NHAN'], 'u1', null,
     );
-    expect(petitions.exportDocumentToBuffer).toHaveBeenCalledTimes(2);
     expect(docxMerge.merge).toHaveBeenCalledWith([
       Buffer.from('docx-PHIEU_DE_XUAT'),
       Buffer.from('docx-BIEN_NHAN'),
@@ -55,21 +56,22 @@ describe('PetitionExportDocumentsService', () => {
     );
   });
 
-  it('[F1] pre-validate lỗi → KHÔNG render mẫu nào (0 lần cấp số), không merge', async () => {
-    petitions.preValidateExportDocuments.mockRejectedValue(new Error('thiếu trường'));
+  it('[F1+P2] render atomic lỗi (thiếu trường / lỗi giữa chừng) → throw, KHÔNG merge/send', async () => {
+    petitions.renderDocumentsAtomic.mockRejectedValue(new Error('thiếu trường'));
     const res = plainRes();
     await expect(
       svc.exportDocuments('p1', ['PHIEU_DE_XUAT', 'BIEN_NHAN'], 'merged', 'u1', null, res),
     ).rejects.toThrow();
-    expect(petitions.exportDocumentToBuffer).not.toHaveBeenCalled();
     expect(docxMerge.merge).not.toHaveBeenCalled();
     expect(res.send).not.toHaveBeenCalled();
   });
 
-  it('dedupe docType trùng → render đúng 1 mẫu unique', async () => {
+  it('dedupe docType trùng → render atomic đúng 1 mẫu unique', async () => {
     const res = plainRes();
     await svc.exportDocuments('p1', ['BIEN_NHAN', 'BIEN_NHAN'], 'merged', 'u1', null, res);
-    expect(petitions.exportDocumentToBuffer).toHaveBeenCalledTimes(1);
+    expect(petitions.renderDocumentsAtomic).toHaveBeenCalledWith(
+      'p1', ['BIEN_NHAN'], 'u1', null,
+    );
   });
 
   it('zip: set header zip + KHÔNG merge', async () => {
@@ -77,6 +79,8 @@ describe('PetitionExportDocumentsService', () => {
     await svc.exportDocuments('p1', ['BIEN_NHAN', 'PHIEU_DE_XUAT'], 'zip', 'u1', null, res);
     expect(docxMerge.merge).not.toHaveBeenCalled();
     expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'application/zip');
-    expect(petitions.exportDocumentToBuffer).toHaveBeenCalledTimes(2);
+    expect(petitions.renderDocumentsAtomic).toHaveBeenCalledWith(
+      'p1', ['BIEN_NHAN', 'PHIEU_DE_XUAT'], 'u1', null,
+    );
   });
 });

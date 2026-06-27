@@ -115,6 +115,12 @@ const mockPrisma = {
   document: {
     updateMany: jest.fn().mockResolvedValue({ count: 0 }),
   },
+  // export chứng từ: row lock + audit render log
+  $queryRaw: jest.fn().mockResolvedValue([]),
+  documentRenderLog: {
+    create: jest.fn().mockResolvedValue({}),
+    updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+  },
   $transaction: jest.fn().mockImplementation(async (fn: any) => fn(mockPrisma)) as any,
 };
 
@@ -180,7 +186,10 @@ describe('PetitionsService', () => {
         { provide: EventEmitter2, useValue: { emit: jest.fn() } },
         {
           provide: require('./document-export.service').DocumentExportService,
-          useValue: { renderDocxTemplate: jest.fn(() => Buffer.from('mock-docx')) },
+          useValue: {
+            renderDocxTemplate: jest.fn(() => Buffer.from('mock-docx')),
+            loader: { sha: jest.fn(() => 'tpl-sha') },
+          },
         },
       ],
     }).compile();
@@ -1359,6 +1368,57 @@ describe('PetitionsService', () => {
   });
 
   // ── BUG-001 + BUG-002: DTO validation (class-validator) ───────────────────
+  // ── renderDocumentsAtomic (export nhiều mẫu, atomic) ─────────────────────────
+  describe('renderDocumentsAtomic (atomic multi-export)', () => {
+    const VALID_PETITION = {
+      id: 'p1',
+      senderName: 'Nguyễn Văn A',
+      summary: 'Nội dung đơn',
+      unit: 'u1',
+      assignedTeam: { id: 't1', code: 'Đ1', name: 'Đội 1', members: [] },
+      enteredBy: { firstName: 'B', lastName: 'C', rank: 'D' },
+    };
+
+    beforeEach(() => {
+      // Bỏ qua nội bộ getById (RBAC scope) — test atomic, không test scope.
+      jest.spyOn(service as any, 'getById').mockResolvedValue(VALID_PETITION);
+      mockPrisma.petition.findFirst.mockResolvedValue(VALID_PETITION as any);
+    });
+
+    it('render N mẫu trong ĐÚNG 1 transaction (atomic) → trả N buffer, cấp N số', async () => {
+      const out = await (service as any).renderDocumentsAtomic(
+        'p1', ['BIEN_NHAN', 'THONG_BAO_CHUYEN'], 'u1', null,
+      );
+      expect(out).toHaveLength(2);
+      // Atomic: CẢ N render gói trong 1 $transaction → DB rollback nguyên khối nếu lỗi.
+      expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(mockDocNums.commitWithTx).toHaveBeenCalledTimes(2);
+      expect(out[0]).toHaveProperty('documentNumber');
+      expect(out[0]).toHaveProperty('filename');
+    });
+
+    it('[F1] 1 mẫu thiếu trường bắt buộc → throw TRƯỚC transaction, 0 lần cấp số', async () => {
+      // PHIEU_DE_XUAT cần nhanThay+deXuat — fixture không có → fail pre-validate.
+      await expect(
+        (service as any).renderDocumentsAtomic('p1', ['BIEN_NHAN', 'PHIEU_DE_XUAT'], 'u1', null),
+      ).rejects.toThrow();
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+      expect(mockDocNums.commitWithTx).not.toHaveBeenCalled();
+    });
+
+    it('[atomic] render lỗi GIỮA chừng → reject, toàn bộ vẫn trong 1 transaction (rollback)', async () => {
+      const docExport = (service as any).documentExport;
+      docExport.renderDocxTemplate
+        .mockReturnValueOnce(Buffer.from('ok-1'))
+        .mockImplementationOnce(() => { throw new Error('template hỏng'); });
+      await expect(
+        (service as any).renderDocumentsAtomic('p1', ['BIEN_NHAN', 'THONG_BAO_CHUYEN'], 'u1', null),
+      ).rejects.toThrow('template hỏng');
+      // Chỉ 1 $transaction bao cả batch → số của mẫu 1 cũng rollback cùng (DB-level).
+      expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('CreatePetitionDto validation', () => {
     it('BUG-001: fails validation when petitionType is missing', async () => {
       const dto = plainToClass(CreatePetitionDto, {
