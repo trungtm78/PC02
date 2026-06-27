@@ -2,6 +2,7 @@ import { buildControllerModule, makeReq, mockUser } from '../test-utils/controll
 import { CasesController } from './cases.controller';
 import { CasesService } from './cases.service';
 import { CasesJourneyService } from './cases-journey.service';
+import { DynamicExportService } from '../document-templates/dynamic-export.service';
 
 const mockService = {
   getList: jest.fn(),
@@ -16,6 +17,7 @@ const mockService = {
 };
 
 const mockJourneyService = { getJourney: jest.fn() };
+const mockDynamicExport = { exportEntityDocuments: jest.fn() };
 
 describe('CasesController — delegation', () => {
   let controller: CasesController;
@@ -25,10 +27,40 @@ describe('CasesController — delegation', () => {
       CasesController,
       CasesService,
       mockService,
-      [{ token: CasesJourneyService, mock: mockJourneyService }],
+      [
+        { token: CasesJourneyService, mock: mockJourneyService },
+        { token: DynamicExportService, mock: mockDynamicExport },
+      ],
     );
     controller = module.get(CasesController);
     jest.clearAllMocks();
+  });
+
+  it('exportDocuments() load case (scope) rồi delegate dynamicExport (VU_AN)', async () => {
+    const record = { id: 'c1', caseCode: 'VA-1' };
+    mockService.getById.mockResolvedValue(record);
+    const req = makeReq();
+    const res = { send: jest.fn(), setHeader: jest.fn() } as any;
+    await controller.exportDocuments(
+      'c1',
+      { templateIds: ['t1', 't2'], mode: 'zip', manualValues: { x: '1' } } as any,
+      req,
+      res,
+      mockUser as any,
+    );
+    expect(mockService.getById).toHaveBeenCalledWith('c1', req.dataScope);
+    expect(mockDynamicExport.exportEntityDocuments).toHaveBeenCalledWith(
+      'VU_AN', 'c1', record, ['t1', 't2'], 'zip', mockUser.id, { x: '1' }, res,
+    );
+  });
+
+  it('exportDocuments() mode mặc định merged + manualValues rỗng', async () => {
+    mockService.getById.mockResolvedValue({ id: 'c1' });
+    const res = { send: jest.fn(), setHeader: jest.fn() } as any;
+    await controller.exportDocuments('c1', { templateIds: ['t1'] } as any, makeReq(), res, mockUser as any);
+    const call = mockDynamicExport.exportEntityDocuments.mock.calls[0];
+    expect(call[4]).toBe('merged');
+    expect(call[6]).toEqual({});
   });
 
   it('getList() delegates to service.getList with query and dataScope', async () => {
