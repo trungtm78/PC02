@@ -14,7 +14,39 @@ jest.mock('otplib', () => ({
 jest.mock('qrcode', () => ({ toDataURL: jest.fn().mockResolvedValue('data:image/png;base64,fake') }));
 
 import { Test } from '@nestjs/testing';
+import * as crypto from 'crypto';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import { AppModule } from './app.module';
+
+// AuthService/guards đọc JWT key file trong constructor → CI không có ./keys/private.pem (gitignored).
+// Sinh keypair ephemeral + trỏ env vào đó để full DI graph compile được ở mọi môi trường.
+let __privPath: string;
+let __pubPath: string;
+beforeAll(() => {
+  const { privateKey, publicKey } = crypto.generateKeyPairSync('rsa', {
+    modulusLength: 2048,
+    privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
+    publicKeyEncoding: { type: 'spki', format: 'pem' },
+  });
+  const dir = os.tmpdir();
+  __privPath = path.join(dir, `pc02-test-priv-${process.pid}.pem`);
+  __pubPath = path.join(dir, `pc02-test-pub-${process.pid}.pem`);
+  fs.writeFileSync(__privPath, privateKey);
+  fs.writeFileSync(__pubPath, publicKey);
+  process.env.JWT_PRIVATE_KEY_PATH = __privPath;
+  process.env.JWT_PUBLIC_KEY_PATH = __pubPath;
+});
+afterAll(() => {
+  for (const p of [__privPath, __pubPath]) {
+    try {
+      if (p) fs.unlinkSync(p);
+    } catch {
+      /* ignore */
+    }
+  }
+});
 
 /**
  * Bootstrap guard — biên dịch toàn bộ DI graph của AppModule.
