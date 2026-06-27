@@ -57,6 +57,10 @@ describe('CasesController — journey endpoint', () => {
       providers: [
         { provide: CasesService, useValue: mockCasesService },
         { provide: CasesJourneyService, useValue: mockJourneyService },
+        {
+          provide: require('../document-templates/dynamic-export.service').DynamicExportService,
+          useValue: { exportEntityDocuments: jest.fn() },
+        },
       ],
     })
       .overrideGuard(require('../auth/guards/jwt-auth.guard').JwtAuthGuard)
