@@ -57,6 +57,17 @@ describe('DocumentTemplatesService', () => {
     );
   });
 
+  it('[codex P2] create: buffer không phải docx hợp lệ → BadRequest (không lưu)', async () => {
+    await expect(
+      svc.create(
+        { code: 'C', name: 'N', entityType: 'VU_AN', category: 'Khác' } as any,
+        { buffer: Buffer.from('không phải docx'), originalname: 'fake.docx' },
+        'u1',
+      ),
+    ).rejects.toThrow();
+    expect(mockPrisma.documentTemplate.create).not.toHaveBeenCalled();
+  });
+
   it('getById: không thấy → NotFound', async () => {
     mockPrisma.documentTemplate.findFirst.mockResolvedValueOnce(null);
     await expect(svc.getById('x')).rejects.toThrow();

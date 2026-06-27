@@ -2427,7 +2427,8 @@ model DocumentTemplate {
   updatedAt      DateTime  @updatedAt
   deletedAt      DateTime?
 
-  @@unique([entityType, code])
+  // [codex P2] unique (entityType,code) là PARTIAL index WHERE deletedAt IS NULL (xem migration) —
+  // cho phép tái tạo mã sau khi soft-delete. Prisma không express partial unique nên để raw trong migration.
   @@index([entityType, status])
   @@index([category])
   @@map("document_templates")

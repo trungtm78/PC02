@@ -1,5 +1,6 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { createHash } from 'crypto';
+import PizZip from 'pizzip';
 import { PrismaService } from '../prisma/prisma.service';
 import { detectDocxVariables } from './docx-variables.util';
 import { CreateDocumentTemplateDto } from './dto/create-document-template.dto';
@@ -16,7 +17,18 @@ export class DocumentTemplatesService {
     return detectDocxVariables(buffer).map((name) => ({ name, source: 'auto', label: name }));
   }
 
+  /** [codex P2] Chặn file giả .docx: buffer phải là zip docx hợp lệ (có word/document.xml). */
+  private assertValidDocx(buffer: Buffer) {
+    try {
+      const zip = new PizZip(buffer);
+      if (!zip.file('word/document.xml')) throw new Error('thiếu word/document.xml');
+    } catch {
+      throw new BadRequestException('File không phải .docx hợp lệ');
+    }
+  }
+
   async create(dto: CreateDocumentTemplateDto, file: UploadFile, userId: string) {
+    this.assertValidDocx(file.buffer);
     const fileSha = createHash('sha256').update(file.buffer).digest('hex');
     return this.prisma.documentTemplate.create({
       data: {
@@ -38,6 +50,7 @@ export class DocumentTemplatesService {
   }
 
   async list(filter: { entityType?: string; category?: string; status?: string }) {
+    // [codex P2] omit fileBytes — list chỉ cần metadata, không tải ≤5MB/mẫu vào JSON.
     return this.prisma.documentTemplate.findMany({
       where: {
         deletedAt: null,
@@ -45,6 +58,7 @@ export class DocumentTemplatesService {
         ...(filter.category ? { category: filter.category } : {}),
         ...(filter.status ? { status: filter.status } : {}),
       },
+      omit: { fileBytes: true },
       orderBy: { sortOrder: 'asc' },
     });
   }
@@ -63,6 +77,7 @@ export class DocumentTemplatesService {
   /** Thay file .docx: cập nhật bytes + sha + re-detect biến. */
   async replaceFile(id: string, file: UploadFile, _userId: string) {
     await this.getById(id);
+    this.assertValidDocx(file.buffer);
     const fileSha = createHash('sha256').update(file.buffer).digest('hex');
     return this.prisma.documentTemplate.update({
       where: { id },

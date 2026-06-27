@@ -12,14 +12,14 @@ function cleanParams(filter: TemplateFilter): Record<string, string> {
 
 export async function listTemplates(filter: TemplateFilter = {}): Promise<DocumentTemplate[]> {
   const res = await api.get('/document-templates', { params: cleanParams(filter) });
-  return (res.data.data ?? []) as DocumentTemplate[];
+  return (res.data ?? []) as DocumentTemplate[];
 }
 
 export async function createTemplate(form: FormData): Promise<DocumentTemplate> {
   const res = await api.post('/document-templates', form, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
-  return res.data.data as DocumentTemplate;
+  return res.data as DocumentTemplate;
 }
 
 export async function updateTemplate(
@@ -27,7 +27,7 @@ export async function updateTemplate(
   dto: Partial<DocumentTemplate>,
 ): Promise<DocumentTemplate> {
   const res = await api.patch(`/document-templates/${id}`, dto);
-  return res.data.data as DocumentTemplate;
+  return res.data as DocumentTemplate;
 }
 
 export async function replaceTemplateFile(id: string, file: File): Promise<DocumentTemplate> {
@@ -36,7 +36,7 @@ export async function replaceTemplateFile(id: string, file: File): Promise<Docum
   const res = await api.post(`/document-templates/${id}/file`, form, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
-  return res.data.data as DocumentTemplate;
+  return res.data as DocumentTemplate;
 }
 
 export async function deleteTemplate(id: string): Promise<void> {

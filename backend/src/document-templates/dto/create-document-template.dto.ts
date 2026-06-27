@@ -1,5 +1,5 @@
 import { IsBoolean, IsIn, IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { ENTITY_TYPES, TEMPLATE_CATEGORIES } from '../document-template.constants';
 
 /** Body tạo template (file .docx đi qua multipart, không trong DTO). */
@@ -18,9 +18,10 @@ export class CreateDocumentTemplateDto {
   @IsIn(TEMPLATE_CATEGORIES as unknown as string[])
   category!: string;
 
-  // multipart: field bool/int tới dạng string → @Type ép kiểu trước khi validate.
+  // multipart: needsNumber tới dạng string. @Type(()=>Boolean) SAI vì Boolean("false")===true.
+  // [codex P2] parse tường minh: chỉ 'true'/true mới là true.
   @IsOptional()
-  @Type(() => Boolean)
+  @Transform(({ value }) => value === true || value === 'true')
   @IsBoolean()
   needsNumber?: boolean;
 

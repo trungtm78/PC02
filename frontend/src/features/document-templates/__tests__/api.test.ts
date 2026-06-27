@@ -12,15 +12,16 @@ beforeEach(() => {
 });
 
 describe('document-templates api', () => {
-  it('listTemplates: GET với query entityType (bỏ key undefined) + trả data', async () => {
-    mGet.mockResolvedValue({ data: { success: true, data: [{ id: 't1' }] } } as never);
+  it('listTemplates: GET với query entityType (bỏ key undefined) + trả res.data trực tiếp', async () => {
+    // [codex P1] controller trả array trực tiếp (không envelope {success,data}) như document-numbers.
+    mGet.mockResolvedValue({ data: [{ id: 't1' }] } as never);
     const r = await listTemplates({ entityType: 'VU_AN' });
     expect(mGet).toHaveBeenCalledWith('/document-templates', { params: { entityType: 'VU_AN' } });
     expect(r).toEqual([{ id: 't1' }]);
   });
 
   it('createTemplate: POST multipart FormData', async () => {
-    mPost.mockResolvedValue({ data: { success: true, data: { id: 't1' } } } as never);
+    mPost.mockResolvedValue({ data: { id: 't1' } } as never);
     const fd = new FormData();
     await createTemplate(fd);
     expect(mPost).toHaveBeenCalledWith(

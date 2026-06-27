@@ -21,8 +21,8 @@ CREATE TABLE "document_templates" (
     CONSTRAINT "document_templates_pkey" PRIMARY KEY ("id")
 );
 
--- CreateIndex
-CREATE UNIQUE INDEX "document_templates_entityType_code_key" ON "document_templates"("entityType", "code");
+-- CreateIndex (partial unique: cho phép tái dùng mã sau soft-delete)
+CREATE UNIQUE INDEX "document_templates_entityType_code_key" ON "document_templates"("entityType", "code") WHERE "deletedAt" IS NULL;
 
 -- CreateIndex
 CREATE INDEX "document_templates_entityType_status_idx" ON "document_templates"("entityType", "status");
