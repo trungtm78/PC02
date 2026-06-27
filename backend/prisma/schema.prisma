@@ -2405,3 +2405,30 @@ model XlsxImportStaging {
   @@index([conflictReason])
   @@map("xlsx_import_staging")
 }
+
+/// Mẫu chứng từ động (.docx) cho vụ việc/vụ án/đơn thư — admin upload, không cần deploy.
+/// File lưu DB (Bytes) tránh footgun bundling asset lúc deploy. Biến auto-detect khi upload.
+model DocumentTemplate {
+  id             String    @id @default(cuid())
+  code           String // unique theo (entityType, code) — xem @@unique
+  name           String
+  entityType     String // VU_VIEC | VU_AN | DON_THU
+  category       String // Quyết định | Biên bản | Lệnh | Thông báo | Giấy chứng nhận | Khác
+  fileBytes      Bytes
+  fileSha        String
+  fileName       String
+  variables      Json      @default("[]") // [{name, source:'auto'|'manual', label}]
+  needsNumber    Boolean   @default(false)
+  numberSeriesId String? // FK lỏng tới DocumentNumberTemplate (cấp số khi needsNumber)
+  status         String    @default("active")
+  sortOrder      Int       @default(0)
+  createdById    String
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  @@unique([entityType, code])
+  @@index([entityType, status])
+  @@index([category])
+  @@map("document_templates")
+}
