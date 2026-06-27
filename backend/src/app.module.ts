@@ -60,7 +60,12 @@ import { CatalogModule } from './catalog/catalog.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, envFilePath: '.env' }),
-    ThrottlerModule.forRoot([{ ttl: 60000, limit: 200 }]),
+    // limit env-configurable (prod 200/60s); skipIf tắt TOÀN BỘ throttle (gồm @Throttle per-route)
+    // khi THROTTLE_DISABLE=true — chỉ dùng cho môi trường test/UAT để chạy bộ test không bị 429.
+    ThrottlerModule.forRoot({
+      throttlers: [{ ttl: 60000, limit: Number(process.env.THROTTLE_LIMIT) || 200 }],
+      skipIf: () => process.env.THROTTLE_DISABLE === 'true',
+    }),
     ScheduleModule.forRoot(),
     EventEmitterModule.forRoot({ global: true }),
     PrismaModule,
