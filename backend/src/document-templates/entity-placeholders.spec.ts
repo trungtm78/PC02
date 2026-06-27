@@ -36,6 +36,15 @@ describe('buildEntityPlaceholders', () => {
     expect(p.tenVuAn).not.toContain('}');
   });
 
+  it('[codex P2] dieuTraVien = firstName + lastName (User không có fullName)', () => {
+    const p = buildEntityPlaceholders(
+      'VU_AN',
+      { caseCode: 'C1', investigator: { firstName: 'Nguyễn Văn', lastName: 'A' } },
+      {},
+    );
+    expect(p.dieuTraVien).toBe('Nguyễn Văn A');
+  });
+
   it('field thiếu → chuỗi rỗng (không "undefined")', () => {
     const p = buildEntityPlaceholders('VU_AN', { caseCode: 'C1' }, {});
     expect(p.toiDanh).toBe('');

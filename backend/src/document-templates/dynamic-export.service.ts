@@ -49,7 +49,11 @@ export class DynamicExportService {
     manualValues: Record<string, string>,
   ): Promise<RenderedTemplate> {
     let documentNumber: string | undefined;
-    if (template.needsNumber && template.numberSeriesId) {
+    if (template.needsNumber) {
+      // [codex P2] needsNumber bật mà thiếu series = template cấu hình sai → fail, không render câm.
+      if (!template.numberSeriesId) {
+        throw new BadRequestException(`Mẫu "${template.code}" bật cấp số nhưng chưa cấu hình series số văn bản`);
+      }
       // Row lock chống cấp số trùng khi 2 export đồng thời cùng hồ sơ.
       const table = entityType === 'VU_AN' ? 'cases' : 'incidents';
       await tx.$queryRawUnsafe(`SELECT id FROM "${table}" WHERE id = $1 FOR UPDATE`, entityId);
@@ -104,6 +108,10 @@ export class DynamicExportService {
     manualValues: Record<string, string>,
     res: Response,
   ): Promise<void> {
+    // [codex P2] reject templateIds trùng (nếu không sẽ render 2 lần + tiêu 2 số cho 1 mẫu).
+    if (templateIds.length !== new Set(templateIds).size) {
+      throw new BadRequestException('templateIds không được trùng lặp');
+    }
     // Load + pre-validate templates (tồn tại, đúng entityType, active) TRƯỚC khi vào tx.
     const templates = await this.prisma.documentTemplate.findMany({
       where: { id: { in: templateIds }, deletedAt: null, status: 'active' },

@@ -75,6 +75,22 @@ describe('DynamicExportService', () => {
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
+  it('[codex P2] needsNumber=true nhưng thiếu numberSeriesId → throw (không render câm)', async () => {
+    prisma.documentTemplate.findMany.mockResolvedValue([
+      { ...T_NUM, numberSeriesId: null },
+    ]);
+    await expect(
+      svc.exportEntityDocuments('VU_AN', 'case-1', rec, ['t1'], 'merged', 'u1', {}, plainRes()),
+    ).rejects.toThrow();
+  });
+
+  it('[codex P2] templateIds trùng lặp → 400 (không tiêu số gấp đôi)', async () => {
+    await expect(
+      svc.exportEntityDocuments('VU_AN', 'case-1', rec, ['t1', 't1'], 'merged', 'u1', {}, plainRes()),
+    ).rejects.toThrow();
+    expect(prisma.documentTemplate.findMany).not.toHaveBeenCalled();
+  });
+
   it('zip: build buffer + header zip, KHÔNG merge', async () => {
     prisma.documentTemplate.findMany.mockResolvedValue([T_NONUM]);
     const res = plainRes();

@@ -42,7 +42,7 @@ describe('IncidentsController — delegation', () => {
 
   it('exportDocuments() load incident (scope) rồi delegate dynamicExport (VU_VIEC)', async () => {
     const record = { id: 'i1', code: 'VV-1' };
-    mockService.getById.mockResolvedValue(record);
+    mockService.getById.mockResolvedValue({ success: true, data: record }); // getById wrap {success,data}
     const req = makeReq();
     const res = { send: jest.fn(), setHeader: jest.fn() } as any;
     await controller.exportDocuments(

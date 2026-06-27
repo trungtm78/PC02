@@ -60,7 +60,9 @@ export class IncidentsController {
     @Res() res: Response,
     @CurrentUser() user: AuthUser,
   ): Promise<void> {
-    const record = await this.incidentsService.getById(id, req.dataScope); // RBAC scope-checked
+    // getById trả {success,data:record} → unwrap để placeholder đọc đúng field (codex P1).
+    const loaded = await this.incidentsService.getById(id, req.dataScope); // RBAC scope-checked
+    const record = (loaded as { data?: unknown })?.data ?? loaded;
     await this.dynamicExport.exportEntityDocuments(
       'VU_VIEC',
       id,

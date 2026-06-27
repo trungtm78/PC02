@@ -16,6 +16,12 @@ function s(v: unknown): string {
   return v === null || v === undefined ? '' : String(v);
 }
 
+/** Họ tên đầy đủ từ User (firstName+lastName) — User KHÔNG có fullName (codex P2). */
+function personName(u: any): string {
+  if (!u) return '';
+  return [u.firstName, u.lastName].filter(Boolean).join(' ').trim();
+}
+
 /** Escape ký tự cú pháp docxtemplater trong giá trị user. */
 function esc(v: string): string {
   return v.replace(/\{/g, '❴').replace(/\}/g, '❵').replace(/</g, '‹').replace(/>/g, '›');
@@ -33,7 +39,7 @@ function caseMap(r: any): Record<string, string> {
     ngayKLDT: fmtDate(r.ngayKLDT),
     soQDDinhChiVuAn: s(r.soQDDinhChiVuAn),
     ngayDinhChiVuAn: fmtDate(r.ngayDinhChiVuAn),
-    dieuTraVien: s(r.investigator?.fullName ?? r.investigator?.lastName ?? ''),
+    dieuTraVien: personName(r.investigator),
     donVi: s(r.unitRef?.name ?? r.unit ?? ''),
   };
 }
@@ -50,7 +56,7 @@ function incidentMap(r: any): Record<string, string> {
     nguoiQuyetDinh: s(r.nguoiQuyetDinh),
     soQuyetDinh: s(r.soQuyetDinh),
     ngayQuyetDinh: fmtDate(r.ngayQuyetDinh),
-    dieuTraVien: s(r.investigator?.fullName ?? r.investigator?.lastName ?? ''),
+    dieuTraVien: personName(r.investigator),
   };
 }
 

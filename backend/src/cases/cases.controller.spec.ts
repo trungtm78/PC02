@@ -38,7 +38,7 @@ describe('CasesController — delegation', () => {
 
   it('exportDocuments() load case (scope) rồi delegate dynamicExport (VU_AN)', async () => {
     const record = { id: 'c1', caseCode: 'VA-1' };
-    mockService.getById.mockResolvedValue(record);
+    mockService.getById.mockResolvedValue({ success: true, data: record }); // getById wrap {success,data}
     const req = makeReq();
     const res = { send: jest.fn(), setHeader: jest.fn() } as any;
     await controller.exportDocuments(
@@ -49,6 +49,7 @@ describe('CasesController — delegation', () => {
       mockUser as any,
     );
     expect(mockService.getById).toHaveBeenCalledWith('c1', req.dataScope);
+    // record được UNWRAP (.data) trước khi truyền dynamicExport (codex P1).
     expect(mockDynamicExport.exportEntityDocuments).toHaveBeenCalledWith(
       'VU_AN', 'c1', record, ['t1', 't2'], 'zip', mockUser.id, { x: '1' }, res,
     );
