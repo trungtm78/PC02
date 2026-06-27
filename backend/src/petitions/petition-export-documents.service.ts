@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Response } from 'express';
 import archiver from 'archiver';
 import { sanitizeFilename } from '../common/utils/filename.util';
@@ -22,6 +22,8 @@ const DOCX_CONTENT_TYPE =
  */
 @Injectable()
 export class PetitionExportDocumentsService {
+  private readonly logger = new Logger(PetitionExportDocumentsService.name);
+
   constructor(
     private readonly petitions: PetitionsService,
     private readonly docxMerge: DocxMergeService,
@@ -62,8 +64,21 @@ export class PetitionExportDocumentsService {
     }
 
     // mode === 'zip'
-    this.setDownloadHeaders(res, 'application/zip', `${baseName}.zip`);
     const archive = archiver('zip', { zlib: { level: 9 } });
+    // [review P1/codex] Bắt 'error' của archiver/stream — unhandled EventEmitter 'error'
+    // (zlib fail / client disconnect khi pipe) có thể KILL process Node. Pattern khớp BatchExportService.
+    archive.on('warning', (err) => {
+      this.logger.warn(`Export-documents archiver warning: ${err.message}`);
+    });
+    archive.on('error', (err) => {
+      this.logger.error(`Export-documents archiver error: ${err.message}`, err.stack);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Xuất chứng từ thất bại' });
+      } else {
+        res.destroy();
+      }
+    });
+    this.setDownloadHeaders(res, 'application/zip', `${baseName}.zip`);
     archive.pipe(res);
     for (const r of rendered) {
       archive.append(r.buffer, { name: sanitizeFilename(r.filename) });
