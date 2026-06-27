@@ -1647,30 +1647,20 @@ export class PetitionsService {
     const escaped = this.escapeUserSuppliedTokens(placeholders);
     const renderedBuf = this.documentExport.renderDocxTemplate(docType, escaped);
     const sha = createHash('sha256').update(renderedBuf).digest('hex');
+    // templateSha lấy từ loader (đồng bộ, in-memory, KHÔNG DB) → ghi thẳng trong tx,
+    // bỏ update post-commit (tránh điểm lỗi sau khi đã cấp số — codex P2 final).
+    const templateSha = (this.documentExport as any).loader.sha(docType) as string;
     await tx.documentRenderLog.create({
       data: {
         petitionId: petition.id,
         documentType: docType,
-        templateSha: '', // stamp post-tx
+        templateSha,
         renderedById: actorId,
         generatedNumber: commit.number,
         fileSha: sha,
       },
     });
     return { buffer: renderedBuf, soVanBan: commit.number, fileSha: sha };
-  }
-
-  /** Stamp templateSha post-tx (field-only update, ngoài lock window). */
-  private async stampTemplateSha(
-    petitionId: string,
-    docType: DocumentType,
-    fileSha: string,
-  ): Promise<void> {
-    const templateSha = (this.documentExport as any).loader.sha(docType) as string;
-    await this.prisma.documentRenderLog.updateMany({
-      where: { petitionId, fileSha, templateSha: '' },
-      data: { templateSha },
-    });
   }
 
   async exportDocumentToBuffer(
@@ -1681,10 +1671,9 @@ export class PetitionsService {
   ): Promise<{ buffer: Buffer; documentNumber: string; filename: string }> {
     const petition = await this.loadPetitionForExport(id, dataScope);
     validateFieldsForDocType(docType, petition as any);
-    const { buffer, soVanBan, fileSha } = await this.prisma.$transaction((tx: any) =>
+    const { buffer, soVanBan } = await this.prisma.$transaction((tx: any) =>
       this.renderDocumentInTx(tx, id, petition, docType, actorId),
     );
-    await this.stampTemplateSha(id, docType, fileSha);
     return { buffer, documentNumber: soVanBan, filename: sanitizeFilename(`${docType}_${soVanBan}.docx`) };
   }
 
@@ -1693,7 +1682,8 @@ export class PetitionsService {
    * transaction. Pre-validate tất cả trước; render+cấp số N mẫu rồi gọi `finalize`
    * NGAY trong tx. Bất kỳ lỗi (render, gộp, zip) → rollback HẾT → KHÔNG tiêu số văn
    * bản nào (đóng kín gap số kể cả khi bước gộp/zip lỗi SAU render). Trả buffer
-   * deliverable cuối (1 .docx gộp hoặc .zip). stampTemplateSha post-tx (cosmetic).
+   * deliverable cuối (1 .docx gộp hoặc .zip). templateSha ghi luôn trong tx → KHÔNG
+   * còn bước post-commit nào có thể giữ file lại sau khi đã cấp số.
    */
   async renderDocumentsAtomic(
     id: string,
@@ -1706,24 +1696,21 @@ export class PetitionsService {
   ): Promise<Buffer> {
     const petition = await this.loadPetitionForExport(id, dataScope);
     for (const docType of docTypes) validateFieldsForDocType(docType, petition as any);
-    const { result, rendered } = await this.prisma.$transaction(async (tx: any) => {
+    return this.prisma.$transaction(async (tx: any) => {
       const out: Array<{ docType: DocumentType; buffer: Buffer; soVanBan: string; fileSha: string }> = [];
       for (const docType of docTypes) {
         const r = await this.renderDocumentInTx(tx, id, petition, docType, actorId);
         out.push({ docType, ...r });
       }
       // Gộp/zip NGAY trong tx → lỗi ở đây cũng rollback số văn bản (P2 đóng kín).
-      const deliverable = await finalize(
+      return finalize(
         out.map((r) => ({
           buffer: r.buffer,
           documentNumber: r.soVanBan,
           filename: sanitizeFilename(`${r.docType}_${r.soVanBan}.docx`),
         })),
       );
-      return { result: deliverable, rendered: out };
     });
-    for (const r of rendered) await this.stampTemplateSha(id, r.docType, r.fileSha);
-    return result;
   }
 
   private buildDocxPlaceholders(
