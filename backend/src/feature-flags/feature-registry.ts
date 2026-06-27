@@ -46,6 +46,7 @@ import { COMPREHENSIVE_MANIFEST } from '../comprehensive/feature.manifest'; // v
 import { JOURNEY_MANIFEST } from '../journey/feature.manifest'; // v0.40.0.0
 import { DOCUMENT_NUMBERS_MANIFEST } from '../document-numbers/feature.manifest'; // v0.42.0.0
 import { UY_THAC_DIEU_TRA_MANIFEST } from '../uy-thac-dieu-tra/feature.manifest'; // v0.44
+import { DOCUMENT_TEMPLATES_MANIFEST } from '../document-templates/feature.manifest'; // v0.69 (fix: flag chưa seed → menu admin ẩn)
 
 export const FEATURE_REGISTRY: readonly FeatureManifest[] = [
   AUTH_MANIFEST,
@@ -84,6 +85,7 @@ export const FEATURE_REGISTRY: readonly FeatureManifest[] = [
   JOURNEY_MANIFEST, // v0.40.0.0
   DOCUMENT_NUMBERS_MANIFEST, // v0.42.0.0
   UY_THAC_DIEU_TRA_MANIFEST, // v0.44
+  DOCUMENT_TEMPLATES_MANIFEST, // v0.69 — flag cho menu admin Mẫu chứng từ động
 ] as const;
 
 export function getManifest(key: string): FeatureManifest | undefined {

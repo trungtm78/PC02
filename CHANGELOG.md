@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.69.0.1] - 2026-06-28
+
+### Fixed
+- **Mẫu chứng từ động — menu admin bị ẩn (không xuất được chứng từ)**: Module `document-templates` thiếu `feature.manifest.ts` backend → không nằm trong `FEATURE_REGISTRY` → `db:seed:features` không tạo flag `document-templates` → `useFeature` trả `false` → menu "Quản lý mẫu chứng từ" ẩn → admin không vào được trang tải mẫu → 0 mẫu → nút "Lưu và xuất file"/"In chứng từ" mở popup trống, không xuất được. Fix: thêm backend manifest + wire vào registry; chạy `db:seed:features` (hoặc seed sẵn flag) để menu hiển thị. Route `/settings/document-templates` không bị gate nên vẫn vào thẳng URL được trong lúc chờ. + test regression luồng "Lưu và xuất file" với modal thật.
+
 ## [0.69.0.0] - 2026-06-28
 
 ### Added
