@@ -1,7 +1,6 @@
 import { api } from '@/lib/api';
 import type {
   DocumentNumberTemplate,
-  DocumentNumberLog,
   DraftResult,
   CommitResult,
   TemplateStats,

@@ -13,7 +13,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
 
 const mockApiGet = vi.fn();
 const mockApiDelete = vi.fn(() => Promise.resolve({ data: { success: true } }));
@@ -209,7 +209,7 @@ describe('UyThacDieuTraListPage — PR3 shell refactor', () => {
       { timeout: 5000 },
     );
 
-    const callArgs = mockApiDelete.mock.calls[0];
+    const callArgs = mockApiDelete.mock.calls[0] as unknown as [string, { data?: { reason?: string } }];
     const reason: string = callArgs[1]?.data?.reason ?? '';
     expect(reason.length).toBeGreaterThanOrEqual(10);
   }, 20000);
@@ -325,7 +325,6 @@ describe('UyThacDieuTraListPage — PR3 shell refactor', () => {
     });
     let lastLocation = '';
     function LocationTracker() {
-      const { useLocation } = require('react-router-dom');
       const loc = useLocation();
       lastLocation = loc.pathname + loc.search;
       return null;

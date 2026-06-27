@@ -3,7 +3,6 @@ import { AlertTriangle, Keyboard, RotateCcw, X, Check, Loader2, Search } from 'l
 import {
   ALL_ACTIONS,
   BINDING_REGEX,
-  BROWSER_RESERVED,
   SHORTCUTS,
   isBrowserReserved,
   normalizeBindingText,

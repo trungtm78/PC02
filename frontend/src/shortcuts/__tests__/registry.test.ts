@@ -12,7 +12,7 @@ import {
 } from '../registry';
 
 function ke(opts: Partial<KeyboardEventInit & { code?: string }>): KeyboardEvent {
-  // @ts-expect-error code is part of KeyboardEvent but not in init options strict types
+  // code nằm trong KeyboardEventInit ở lib types hiện tại nên không cần ép.
   return new KeyboardEvent('keydown', opts);
 }
 

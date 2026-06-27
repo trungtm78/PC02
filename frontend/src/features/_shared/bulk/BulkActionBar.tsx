@@ -34,7 +34,6 @@ interface Props<TRow = unknown> {
 export function BulkActionBar<TRow = unknown>({
   selection,
   adapter,
-  pageRows,
   onSuccess,
   onError,
 }: Props<TRow>) {

@@ -151,8 +151,6 @@ function SubjectMiniForm({
   initial,
   subjectType,
   caseId,
-  crimeOptions,
-  loadingCrimes,
   onSave,
   onClose,
   isSaving,

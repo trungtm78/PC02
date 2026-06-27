@@ -27,7 +27,7 @@ const apiState = {
       rawOnlyKeyNames: ['field_la', 'field_kia'],
       typedCoverageRatio: 0.8,
       rawCoverageRatio: 1,
-      lostKeyNames: [],
+      lostKeyNames: [] as string[],
       skippedRecords: 0,
       provisional: true,
     },

@@ -375,7 +375,8 @@ export function IncidentFormPage() {
   };
 
   const handleCancel = () => { if (confirm("Bạn có chắc muốn hủy? Dữ liệu chưa lưu sẽ mất.")) navigate("/vu-viec"); };
-  const update = (field: keyof FormData, value: string) => setFormData((prev) => ({ ...prev, [field]: value }));
+  const update = <K extends keyof FormData>(field: K, value: FormData[K]) =>
+    setFormData((prev) => ({ ...prev, [field]: value }));
 
   const inputClass = "w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500";
   const labelClass = "block text-sm font-medium text-slate-700 mb-2";

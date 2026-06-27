@@ -62,6 +62,9 @@ export interface CreateCasePayload {
   evidences?: EvidencePayload[];
   documentIds?: string[];
   statistic?: Record<string, unknown>; // case_statistics (hybrid)
+  // Field-parity: ghi chú khác + tội danh khác (donthu-parity)
+  ghiChuKhac?: string;
+  toiDanhKhacIds?: string[];
   // Field-parity: KLĐT + QĐ điều tra lại
   soKLDT?: string;
   ngayKLDT?: string;
@@ -359,7 +362,7 @@ export function buildCreateCasePayload(
   // }
 
   // Thống kê mở rộng (hybrid) → payload.statistic (case_statistics). Chỉ gửi key có giá trị.
-  const stat = buildStatisticPayload(formData.statistic);
+  const stat = buildStatisticPayload(formData.statistic as unknown as Record<string, unknown>);
   if (Object.keys(stat).length > 0) payload.statistic = stat;
 
   return payload;

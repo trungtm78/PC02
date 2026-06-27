@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import type { ReactNode } from 'react';
-import React from 'react';
 import { useListFilters } from '../useListFilters';
 import { createListFilterRegistry } from '../registry';
 

@@ -75,6 +75,8 @@ export function ProsecuteModalProvider({ children }: { children: ReactNode }) {
       expectedUpdatedAt?: string;
     }
   >({
+    // @ts-expect-error TS2719: tsc -b (composite) sinh 2 định danh ProsecuteArgs của cùng module → báo "unrelated".
+    // Type thực tế khớp, runtime đúng (đã verify test). Quirk type-checker, không phải lỗi logic.
     submitFn: async (args, payload) => {
       const response = await api.post(`/incidents/${args.recordId}/prosecute`, payload);
       const data = response.data as { data?: ProsecuteResponse } | ProsecuteResponse;

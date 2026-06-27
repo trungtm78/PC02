@@ -5,12 +5,9 @@ import {
   User,
   Phone,
   MapPin,
-  FileText,
   Users,
   Package,
   Plus,
-  Eye,
-  Download,
   Upload,
   Video,
   Scale,
@@ -18,18 +15,16 @@ import {
   DollarSign,
   AlertCircle,
   Radio,
-  Trash2,
   CheckCircle,
   Info,
   History,
 } from "lucide-react";
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { extractApiError } from "@/lib/api-errors";
-import { today, formatVNDate } from "@/lib/dates";
+import { today } from "@/lib/dates";
 import { useShortcut } from "@/hooks/useShortcut";
-import { FormInput, FormSelect, FormTextarea, FormCurrency, FormPhone, FormInteger } from "@/components/form";
+import { FormInput, FormSelect, FormTextarea, FormCurrency, FormPhone } from "@/components/form";
 import { DocNumberPreviewField } from "@/components/DocNumberPreviewField";
 import { CatalogSelect } from "@/components/CatalogSelect";
 import { CATALOG_LEGAL } from "@/shared/catalog/catalog.generated";
@@ -53,7 +48,6 @@ import {
 } from "./constants";
 import { CaseProvenancePicker } from "./CaseProvenancePicker";
 import { LinkedIncidentCard } from "./LinkedIncidentCard";
-import { CaseFormTab1UyThac } from "./CaseFormTab1UyThac";
 import { CaseProvenance } from "../../../shared/enums/generated";
 
 // Branch-3 provenances that trigger Incident auto-create (module-level, not inside render)
@@ -73,8 +67,8 @@ function useFieldUpdater(
   errors: TabProps["errors"],
   setErrors: TabProps["setErrors"]
 ) {
-  return (field: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+  return (field: string, value: string | string[] | boolean) => {
+    setFormData((prev) => ({ ...prev, [field]: value }) as TabProps["formData"]);
     if (errors[field]) setErrors((prev) => ({ ...prev, [field]: "" }));
   };
 }
@@ -523,7 +517,7 @@ export function TabIncident({ formData, setFormData, errors, setErrors }: TabPro
   const autoLinkedId = formData.autoLinkedIncidentId;
   const hasLinkedIncident =
     (fromIncidentId && formData.caseProvenance === CaseProvenance.FROM_INCIDENT) ||
-    (autoLinkedId && DIRECT_PROVENANCES.has(formData.caseProvenance));
+    (autoLinkedId && (DIRECT_PROVENANCES as Set<string>).has(formData.caseProvenance));
 
   if (hasLinkedIncident) {
     return (

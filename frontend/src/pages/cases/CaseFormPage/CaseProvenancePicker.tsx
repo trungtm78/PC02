@@ -11,7 +11,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Search, RotateCw, AlertCircle, FilePlus2, FileEdit } from 'lucide-react';
 import { CaseProvenance } from '@/shared/enums/generated';
 import { api } from '@/lib/api';
@@ -47,10 +47,10 @@ interface IncidentRow {
   updatedAt: string;
 }
 
-type PickerState =
+type PickerState<T = PetitionRow | IncidentRow> =
   | { kind: 'idle' }
   | { kind: 'loading' }
-  | { kind: 'ready'; rows: Array<PetitionRow | IncidentRow> }
+  | { kind: 'ready'; rows: T[] }
   | { kind: 'empty' }
   | { kind: 'error'; message: string; attempts: number }
   | { kind: 'fallback' };
@@ -303,7 +303,7 @@ function LinkableEntityPicker<T extends { id: string; updatedAt: string }>({
   testIdPrefix: string;
 }) {
   const [search, setSearch] = useState('');
-  const [state, setState] = useState<PickerState>({ kind: 'idle' });
+  const [state, setState] = useState<PickerState<T>>({ kind: 'idle' });
   const [debouncedSearch, setDebouncedSearch] = useState('');
 
   useEffect(() => {

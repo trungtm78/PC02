@@ -237,7 +237,6 @@ function isOverdue(deadline: string): boolean {
 function DefendantModal({
   defendant,
   crimes,
-  loadingCrimes,
   error,
   onClose,
   onSave,

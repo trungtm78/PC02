@@ -77,6 +77,7 @@ interface PetitionRow {
   status: PetitionStatus;
   deadline?: string | null;
   createdAt: string;
+  updatedAt?: string; // optimistic-lock cho assign action
 }
 
 interface PetitionsStatsResponse {
@@ -446,7 +447,7 @@ export function PetitionListPageShell() {
       if (url) URL.revokeObjectURL(url);
       setIsBatchExporting(false);
     }
-  }, [selection.ids, isBatchExporting]);
+  }, [selection.selectedIds, isBatchExporting]);
 
   return (
     <ListPageShell>
