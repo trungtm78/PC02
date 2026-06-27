@@ -57,4 +57,5 @@ jobs:
         run: cd frontend && npx vitest run --no-coverage
 
       - name: TypeScript type check
-        run: cd frontend && npx tsc --noEmit
+        # FE tsconfig là solution-file → `tsc --noEmit` là NO-OP (luôn pass). Phải `tsc -b` mới type-check thật.
+        run: cd frontend && npx tsc -b

@@ -107,8 +107,8 @@ jobs:
       - name: Install frontend deps
         run: cd frontend && npm ci
 
-      - name: Build frontend (skip tsc — known type errors)
-        run: cd frontend && npx vite build
+      - name: Build frontend (tsc -b type-check + vite build)
+        run: cd frontend && npm run build
 
       - name: Package release tarball
         run: |
