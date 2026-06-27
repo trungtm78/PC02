@@ -20,6 +20,11 @@ function __uatRand(): string {
   return Math.random().toString(36).slice(2, 10);
 }
 
+// Base create body hợp lệ (đủ required field) — merge khi body TC viết tắt '...'.
+function __baseBody(): Record<string, unknown> {
+  return { name: 'UTDT-' + __uatRand(), caseProvenance: 'UY_THAC_DIEU_TRA', caseType: 'UY_THAC_DIEU_TRA', loaiUyThac: 'UY_THAC_DIEU_TRA', donViGiao: 'PC01 Hà Nội', soQuyetDinhUyThac: '58/' + __uatRand(), ngayTiepNhan: '2026-05-30', thoiHanUyThac: '2026-08-30', loaiThongTin: 'Tố giác' };
+}
+
 test.describe('UTDT — UAT API smoke layer', () => {
   test('TC-UTDT-001-API: [P0] Tạo UTDT đầy đủ (caseType + loaiUyThac + donViGiao + ngày)', async ({ request }) => {
     // Data required: account.officer.primary
@@ -35,7 +40,7 @@ test.describe('UTDT — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      data: {name:('UTDT-' + __uatRand() + ''), caseProvenance:'UY_THAC_DIEU_TRA', caseType:'UY_THAC_DIEU_TRA', loaiUyThac:'UY_THAC_DIEU_TRA', donViGiao:'PC01 Hà Nội', soQuyetDinhUyThac:'58/2026/UTDT', ngayTiepNhan:'2026-05-30', thoiHanUyThac:'2026-08-30', loaiThongTin:'Tố giác'},
+      data: { ...__baseBody(), name:('UTDT-' + __uatRand() + ''), caseProvenance:'UY_THAC_DIEU_TRA', caseType:'UY_THAC_DIEU_TRA', loaiUyThac:'UY_THAC_DIEU_TRA', donViGiao:'PC01 Hà Nội', soQuyetDinhUyThac:'58/2026/UTDT', ngayTiepNhan:'2026-05-30', thoiHanUyThac:'2026-08-30', loaiThongTin:'Tố giác' },
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -63,7 +68,7 @@ test.describe('UTDT — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      data: {caseType:'UY_THAC_DIEU_TRA', loaiUyThac:'CHUYEN_DON_NGUON_TIN'},
+      data: { ...__baseBody(), caseType:'UY_THAC_DIEU_TRA', loaiUyThac:'CHUYEN_DON_NGUON_TIN' },
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -91,6 +96,7 @@ test.describe('UTDT — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: __baseBody(),
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -679,6 +685,7 @@ test.describe('UTDT — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: __baseBody(),
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -899,6 +906,7 @@ test.describe('UTDT — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: __baseBody(),
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -959,6 +967,7 @@ test.describe('UTDT — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: __baseBody(),
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -1013,6 +1022,7 @@ test.describe('UTDT — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: __baseBody(),
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -1067,6 +1077,7 @@ test.describe('UTDT — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: __baseBody(),
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -1127,7 +1138,7 @@ test.describe('UTDT — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      data: {caseProvenance:'UY_THAC_DIEU_TRA', loaiUyThac:'UY_THAC_DIEU_TRA'},
+      data: { ...__baseBody(), caseProvenance:'UY_THAC_DIEU_TRA', loaiUyThac:'UY_THAC_DIEU_TRA' },
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -1155,6 +1166,7 @@ test.describe('UTDT — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: __baseBody(),
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -1416,6 +1428,7 @@ test.describe('UTDT — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: __baseBody(),
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -1443,6 +1456,7 @@ test.describe('UTDT — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: __baseBody(),
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -1470,7 +1484,7 @@ test.describe('UTDT — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      data: {metadata:{lyDoKhongThucHienDuoc:{nested:{}}}},
+      data: { ...__baseBody(), metadata:{lyDoKhongThucHienDuoc:{nested:{}}} },
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -1669,7 +1683,7 @@ test.describe('UTDT — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      data: {metadata:{__proto__:{admin:true}}},
+      data: { ...__baseBody(), metadata:{__proto__:{admin:true}} },
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -1838,6 +1852,7 @@ test.describe('UTDT — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: __baseBody(),
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -1865,6 +1880,7 @@ test.describe('UTDT — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: __baseBody(),
         timeout: 15000,
         failOnStatusCode: false,
       });

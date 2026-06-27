@@ -17,6 +17,15 @@ import re
 from pathlib import Path
 from urllib.parse import quote
 
+# Base create body hợp lệ (đủ required field) cho mỗi feature → merge vào body TC bị viết tắt '...'.
+# Dùng __uatRand() cho field unique. Giá trị đã verify trả 201 trực tiếp qua API.
+BASE_BODIES = {
+    'cases': "{ name: 'Vụ án test ' + __uatRand(), caseProvenance: 'DIRECT_DISCOVERY' }",
+    'incidents': "{ name: 'Vụ việc test ' + __uatRand() }",
+    'petitions': "{ senderIsAnonymous: true, receivedDate: '2026-05-30', petitionType: 'TO_CAO' }",
+    'utdt': "{ name: 'UTDT-' + __uatRand(), caseProvenance: 'UY_THAC_DIEU_TRA', caseType: 'UY_THAC_DIEU_TRA', loaiUyThac: 'UY_THAC_DIEU_TRA', donViGiao: 'PC01 Hà Nội', soQuyetDinhUyThac: '58/' + __uatRand(), ngayTiepNhan: '2026-05-30', thoiHanUyThac: '2026-08-30', loaiThongTin: 'Tố giác' }",
+}
+
 FEATURE_CONFIG = {
     'cases': {
         'po_class': 'CasesPage',
@@ -173,19 +182,30 @@ def gen_api_test(tc: dict, cfg: dict) -> str:
     # Inject body cho POST/PUT/PATCH — dùng steps_raw (trước sanitize) để giữ quotes
     steps_raw = tc.get('steps', '')
     body_injection = ''
+    # Test mong THÀNH CÔNG (chứa 201) → merge base hợp lệ để đủ required field.
+    # Test RED (mong 400/4xx) → KHÔNG merge: giữ nguyên body thiếu/sai để validate đúng kịch bản.
+    is_success = '201' in expected_status
     if method in ('POST', 'PUT', 'PATCH'):
         body_js = extract_body_from_steps(steps_raw)
         if body_js:
             body_js = body_js.replace('`', "'")  # backtick phá TypeScript template literal
-            # Loại ellipsis "..."/"…" (placeholder "vv" trong steps) → tránh spread rỗng phá TS compile
-            body_js = body_js.replace('…', '').replace('...', '')
-            # Dọn dấu phẩy thừa sau khi loại ellipsis: ",}" → "}", "{," → "{", ",," → ","
+            body_js = body_js.replace('…', '').replace('...', '')  # loại ellipsis "vv"
+            # Dọn dấu phẩy thừa: ",}" → "}", "{," → "{", ",," → ","
             body_js = re.sub(r',\s*}', '}', body_js)
             body_js = re.sub(r'\{\s*,', '{', body_js)
             body_js = re.sub(r',\s*,', ',', body_js)
-            # Resolve {{random}} trong string literal → runtime-unique (tránh trùng unique field khi chạy lại)
+            # Resolve {{random}} → runtime-unique (tránh trùng unique field khi chạy lại)
             body_js = re.sub(r"'([^']*?)\{\{random\}\}([^']*?)'", r"('\1' + __uatRand() + '\2')", body_js)
+            if is_success:
+                # merge base qua spread; field TC override base (giữ giá trị test cụ thể)
+                inner = body_js.strip()
+                if inner.startswith('{') and inner.endswith('}'):
+                    inner = inner[1:-1].strip().rstrip(',').strip()
+                body_js = ('{ ...__baseBody(), ' + inner + ' }') if inner else '__baseBody()'
             body_injection = f"      data: {body_js},\n"
+        elif is_success and method == 'POST':
+            # Không trích được body từ steps nhưng là create thành công → dùng base hợp lệ.
+            body_injection = "      data: __baseBody(),\n"
 
     # Wire query string từ steps (vd "GET ?status=INVALID") vào URL nếu path chưa có query.
     # Generator cũ bỏ sót → URL không param → endpoint validate không kích hoạt (false 200).
@@ -207,6 +227,10 @@ def gen_api_test(tc: dict, cfg: dict) -> str:
     # JS-escape path (defensive): backslash + single quote → endpoint string luôn hợp lệ, không phá compile.
     path_js = path.replace('\\', '\\\\').replace("'", "\\'")
 
+    # Test mong 401 (no JWT / expired / tampered) → gửi token hỏng để kích hoạt 401 thật
+    # (generator cũ luôn gửi token admin hợp lệ → 200/400, không bao giờ 401).
+    token_expr = "getToken() + '.TAMPERED'" if expected_status == '[401]' else "getToken()"
+
     return f"""  test('{tc_id}-API: [{priority}] {title}', async ({{ request }}) => {{
 {data_setup}    // Pre: {pre or '-'}
     // Steps: {steps[:200]}
@@ -214,7 +238,7 @@ def gen_api_test(tc: dict, cfg: dict) -> str:
     const endpoint = '{path_js}';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    const token = getToken();
+    const token = {token_expr};
     // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
     let response: any;
     try {{
@@ -363,6 +387,11 @@ function getToken(): string {{
 // Runtime-unique cho {{{{random}}}} placeholder trong body (tránh trùng unique field khi chạy lại)
 function __uatRand(): string {{
   return Math.random().toString(36).slice(2, 10);
+}}
+
+// Base create body hợp lệ (đủ required field) — merge khi body TC viết tắt '...'.
+function __baseBody(): Record<string, unknown> {{
+  return {BASE_BODIES.get(feature, '{{}}')};
 }}
 
 test.describe('{feature.upper()} — UAT API smoke layer', () => {{

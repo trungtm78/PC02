@@ -20,6 +20,11 @@ function __uatRand(): string {
   return Math.random().toString(36).slice(2, 10);
 }
 
+// Base create body hợp lệ (đủ required field) — merge khi body TC viết tắt '...'.
+function __baseBody(): Record<string, unknown> {
+  return { name: 'Vụ việc test ' + __uatRand() };
+}
+
 test.describe('INCIDENTS — UAT API smoke layer', () => {
   test('TC-INC-001-API: [P0] Tạo vụ việc với name + loaiDonVu=TO_GIAC + nguonPhatTin=CA_NHAN_TO_GIAC', async ({ request }) => {
     // Data required: account.officer.primary
@@ -35,7 +40,7 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      data: {name:'Vụ việc tố giác trộm cắp UAT', loaiDonVu:'TO_GIAC', nguonPhatTin:'CA_NHAN_TO_GIAC', phuongThucTiepNhan:'TRUC_TIEP_BANG_LOI', fromDate:'2026-05-01'},
+      data: { ...__baseBody(), name:'Vụ việc tố giác trộm cắp UAT', loaiDonVu:'TO_GIAC', nguonPhatTin:'CA_NHAN_TO_GIAC', phuongThucTiepNhan:'TRUC_TIEP_BANG_LOI', fromDate:'2026-05-01' },
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -63,7 +68,7 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      data: {name:'Vụ việc tin báo UAT', loaiDonVu:'TIN_BAO', nguonPhatTin:'CO_QUAN_NHA_NUOC', phuongThucTiepNhan:'TRUC_TIEP_BANG_VAN_BAN'},
+      data: { ...__baseBody(), name:'Vụ việc tin báo UAT', loaiDonVu:'TIN_BAO', nguonPhatTin:'CO_QUAN_NHA_NUOC', phuongThucTiepNhan:'TRUC_TIEP_BANG_VAN_BAN' },
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -91,7 +96,7 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      data: {name, loaiDonVu:'KIEN_NGHI_KHOI_TO', nguonPhatTin:'VIEN_KIEM_SAT'},
+      data: { ...__baseBody(), name, loaiDonVu:'KIEN_NGHI_KHOI_TO', nguonPhatTin:'VIEN_KIEM_SAT' },
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -119,7 +124,7 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      data: {name, sourcePetitionId:'{{petition_id}}'},
+      data: { ...__baseBody(), name, sourcePetitionId:'{{petition_id}}' },
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -445,7 +450,7 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    const token = getToken();
+    const token = getToken() + '.TAMPERED';
     // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
     let response: any;
     try {
@@ -769,6 +774,7 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: __baseBody(),
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -823,6 +829,7 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: __baseBody(),
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -877,6 +884,7 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: __baseBody(),
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -967,7 +975,7 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      data: {fromDate:'2026-05-30', toDate:'2026-05-30'},
+      data: { ...__baseBody(), fromDate:'2026-05-30', toDate:'2026-05-30' },
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -995,6 +1003,7 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: __baseBody(),
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -1022,6 +1031,7 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: __baseBody(),
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -1049,6 +1059,7 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: __baseBody(),
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -1076,6 +1087,7 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: __baseBody(),
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -1103,6 +1115,7 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: __baseBody(),
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -1139,6 +1152,7 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: __baseBody(),
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -1334,7 +1348,7 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      data: {name:"'; DROP TABLE incidents; --"},
+      data: { ...__baseBody(), name:"'; DROP TABLE incidents; --" },
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -1362,6 +1376,7 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: __baseBody(),
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -1385,7 +1400,7 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    const token = getToken();
+    const token = getToken() + '.TAMPERED';
     // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
     let response: any;
     try {
@@ -1508,6 +1523,7 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: __baseBody(),
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -1623,7 +1639,7 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     const endpoint = '/api/v1/incidents';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    const token = getToken();
+    const token = getToken() + '.TAMPERED';
     // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
     let response: any;
     try {
@@ -1683,6 +1699,7 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: __baseBody(),
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -1710,6 +1727,7 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: __baseBody(),
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -1797,6 +1815,7 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: __baseBody(),
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -1827,6 +1846,7 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: __baseBody(),
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -1854,6 +1874,7 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: __baseBody(),
         timeout: 15000,
         failOnStatusCode: false,
       });
