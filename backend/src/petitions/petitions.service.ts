@@ -1584,20 +1584,16 @@ export class PetitionsService {
    * streaming to a Response. Used by BatchExportService to pipe N rendered
    * docx into an archiver ZIP without needing N Response objects.
    */
-  async exportDocumentToBuffer(
+  /**
+   * Load đơn thư đầy đủ shape cho placeholder (team members + leader rank — không
+   * có trong getById include mặc định). RBAC scope check qua getById. Tách ra để
+   * exportDocumentToBuffer + preValidateExportDocuments dùng chung (DRY).
+   */
+  private async loadPetitionForExport(
     id: string,
-    docType: DocumentType,
-    actorId: string,
     dataScope: DataScope | null | undefined,
-  ): Promise<{ buffer: Buffer; documentNumber: string; filename: string }> {
-    // (RBAC scope + load + tx wrapper inlined below — see exportDocument
-    // facade above for the streaming variant.)
+  ) {
     await this.getById(id, dataScope);
-
-    // Load the full shape needed for placeholders. Team members + leader rank
-    // resolution is not in the default getById include (would bloat every list page),
-    // so fetch it here. Already in scope — getById would have thrown ForbiddenException
-    // above if not.
     const petition = await this.prisma.petition.findFirst({
       where: { id, deletedAt: null },
       include: {
@@ -1622,6 +1618,34 @@ export class PetitionsService {
     if (!petition) {
       throw new NotFoundException(`Đơn thư không tồn tại (id: ${id})`);
     }
+    return petition;
+  }
+
+  /**
+   * [F1 eng-review] Pre-validate TẤT CẢ docType TRƯỚC khi render/cấp số văn bản.
+   * Load đơn 1 lần (RBAC scope) + chạy validateFieldsForDocType cho từng mẫu.
+   * Thiếu trường → throw 400 NGAY, KHÔNG cấp số văn bản nào (tránh gap số + orphan
+   * DocumentRenderLog khi xuất nhiều mẫu mà 1 mẫu lỗi giữa chừng).
+   */
+  async preValidateExportDocuments(
+    id: string,
+    docTypes: DocumentType[],
+    dataScope: DataScope | null | undefined,
+  ): Promise<void> {
+    const petition = await this.loadPetitionForExport(id, dataScope);
+    for (const docType of docTypes) {
+      validateFieldsForDocType(docType, petition as any);
+    }
+  }
+
+  async exportDocumentToBuffer(
+    id: string,
+    docType: DocumentType,
+    actorId: string,
+    dataScope: DataScope | null | undefined,
+  ): Promise<{ buffer: Buffer; documentNumber: string; filename: string }> {
+    // (RBAC scope + load tách ra loadPetitionForExport để pre-validate dùng chung.)
+    const petition = await this.loadPetitionForExport(id, dataScope);
 
     validateFieldsForDocType(docType, petition as any);
 
