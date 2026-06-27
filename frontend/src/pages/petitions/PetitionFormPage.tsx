@@ -110,6 +110,8 @@ export function PetitionFormPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   // Mở popup "Xuất chứng từ" sau "Lưu và xuất file" (giữ petitionId vừa lưu).
   const [exportModalForId, setExportModalForId] = useState<string | null>(null);
+  // "Lưu và xuất file" → đóng popup thì về danh sách; nút "In chứng từ" độc lập → ở lại form.
+  const [exportNavigateOnClose, setExportNavigateOnClose] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(isEditMode);
   // v0.47 PR3.1 review fix: snapshot of last saved formData so we can compute
   // isDirty for ExportDocumentDropdown (block export when nội dung chưa lưu).
@@ -417,7 +419,7 @@ export function PetitionFormPage() {
   const onSaveAndExport = async () => {
     const r = await saveOnly();
     if (!r.ok) return;
-    if (r.id) setExportModalForId(r.id);
+    if (r.id) { setExportNavigateOnClose(true); setExportModalForId(r.id); }
     else navigate("/petitions"); // không lấy được id → về danh sách (degrade an toàn)
   };
 
@@ -462,6 +464,16 @@ export function PetitionFormPage() {
           <button onClick={handleCancel} className="px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors" data-testid="btn-cancel-top">
             Hủy
           </button>
+          {isEditMode && id && (
+            <button
+              type="button"
+              onClick={() => { setExportNavigateOnClose(false); setExportModalForId(id); }}
+              className="flex items-center gap-2 px-4 py-2.5 border border-amber-300 text-amber-700 bg-amber-50 rounded-lg hover:bg-amber-100 transition-colors font-medium"
+              data-testid="btn-print-docs"
+            >
+              <FileText className="w-4 h-4" />In chứng từ
+            </button>
+          )}
           <SaveSplitButton
             onSave={onSave}
             onSaveAndExport={onSaveAndExport}
@@ -1030,7 +1042,7 @@ export function PetitionFormPage() {
           petitionId={exportModalForId}
           onClose={() => {
             setExportModalForId(null);
-            navigate("/petitions");
+            if (exportNavigateOnClose) navigate("/petitions");
           }}
         />
       )}
