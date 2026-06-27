@@ -8,7 +8,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { extractApiError } from "@/lib/api-errors";
 import {
-  ArrowLeft, Save, AlertCircle, Calendar, User,
+  ArrowLeft, AlertCircle, Calendar, User,
   FileText, MapPin, Phone, Mail, ChevronDown,
 } from "lucide-react";
 import { FKSelect } from "@/components/FKSelect";
@@ -17,6 +17,8 @@ import { PhoneInput } from "@/components/inputs/PhoneInput";
 import { DocNumberPreviewField } from "@/components/DocNumberPreviewField";
 import { documentNumbersApi } from "@/features/document-numbers/api";
 import { ExportDocumentDropdown } from "@/features/petitions/components/ExportDocumentDropdown";
+import { SaveSplitButton } from "@/features/petitions/components/SaveSplitButton";
+import { ExportDocumentsModal } from "@/features/petitions/components/ExportDocumentsModal";
 import { useFormDefaults } from "@/hooks/useFormDefaults";
 import { today, toDateInput } from "@/lib/dates";
 import { LOAI_DON_OPTIONS } from "@/shared/enums/status-labels";
@@ -106,6 +108,8 @@ export function PetitionFormPage() {
   const [formData, setFormData] = useState<FormData>(INITIAL_FORM);
   const [errors, setErrors] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Mở popup "Xuất chứng từ" sau "Lưu và xuất file" (giữ petitionId vừa lưu).
+  const [exportModalForId, setExportModalForId] = useState<string | null>(null);
   const [isLoadingData, setIsLoadingData] = useState(isEditMode);
   // v0.47 PR3.1 review fix: snapshot of last saved formData so we can compute
   // isDirty for ExportDocumentDropdown (block export when nội dung chưa lưu).
@@ -315,9 +319,10 @@ export function PetitionFormPage() {
     return newErrors.length === 0;
   };
 
-  const handleSubmit = async (e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (!validateForm()) { window.scrollTo({ top: 0, behavior: "smooth" }); return; }
+  // Tách phần LƯU (không điều hướng) → trả { ok, id } để onSave/onSaveAndExport
+  // quyết định điều hướng hay mở popup xuất chứng từ. [F2] create bắt id từ response.
+  const saveOnly = async (): Promise<{ ok: boolean; id: string | null }> => {
+    if (!validateForm()) { window.scrollTo({ top: 0, behavior: "smooth" }); return { ok: false, id: null }; }
     setIsSubmitting(true);
     try {
       const payload = {
@@ -376,15 +381,18 @@ export function PetitionFormPage() {
         dieuTraVien: formData.dieuTraVien || undefined,
         donViGiaiQuyet: formData.donViGiaiQuyet || undefined,
       };
+      let savedId: string | null;
       if (isEditMode) {
         await api.put(`/petitions/${id}`, { ...payload, expectedUpdatedAt: recordUpdatedAt ?? undefined });
+        savedId = id ?? null;
       } else {
-        await api.post("/petitions", payload);
+        const res = await api.post("/petitions", payload);
+        // Envelope {success, data:{id}} — không auto-unwrap (xem lib/api).
+        savedId = (res?.data as { data?: { id?: string } } | undefined)?.data?.id ?? null;
       }
-      // Refresh snapshot so officer can click Export Document right after Save
-      // without isDirty going stale.
+      // Refresh snapshot so officer can export right after Save without isDirty going stale.
       savedSnapshotRef.current = JSON.stringify(formData);
-      navigate("/petitions");
+      return { ok: true, id: savedId };
     } catch (err: unknown) {
       const status = (err as { response?: { status?: number } })?.response?.status;
       if (status === 409) {
@@ -393,9 +401,30 @@ export function PetitionFormPage() {
       } else {
         setErrors(extractApiError(err, "Có lỗi xảy ra khi lưu đơn thư. Vui lòng thử lại.").messages);
       }
+      return { ok: false, id: null };
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // "Lưu" thường → lưu xong về danh sách (hành vi cũ).
+  const onSave = async () => {
+    const r = await saveOnly();
+    if (r.ok) navigate("/petitions");
+  };
+
+  // "Lưu và xuất file" → lưu xong mở popup xuất chứng từ (KHÔNG điều hướng tới khi đóng popup).
+  const onSaveAndExport = async () => {
+    const r = await saveOnly();
+    if (!r.ok) return;
+    if (r.id) setExportModalForId(r.id);
+    else navigate("/petitions"); // không lấy được id → về danh sách (degrade an toàn)
+  };
+
+  // Form submit (phím Enter) → lưu thường.
+  const handleSubmit = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    void onSave();
   };
 
   const handleCancel = () => {
@@ -433,10 +462,13 @@ export function PetitionFormPage() {
           <button onClick={handleCancel} className="px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors" data-testid="btn-cancel-top">
             Hủy
           </button>
-          <button onClick={() => void handleSubmit()} disabled={isSubmitting} className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50" data-testid="btn-save-top">
-            <Save className="w-4 h-4" />
-            {isEditMode ? "Cập nhật" : "Lưu đơn thư"}
-          </button>
+          <SaveSplitButton
+            onSave={onSave}
+            onSaveAndExport={onSaveAndExport}
+            isSubmitting={isSubmitting}
+            label={isEditMode ? "Cập nhật" : "Lưu đơn thư"}
+            idPrefix="btn-save-top"
+          />
         </div>
       </div>
 
@@ -949,10 +981,13 @@ export function PetitionFormPage() {
           <button type="button" onClick={handleCancel} className="px-4 sm:px-6 py-2.5 min-h-[44px] border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors" data-testid="btn-cancel">
             Hủy
           </button>
-          <button type="submit" disabled={isSubmitting} className="flex items-center gap-2 px-4 sm:px-6 py-2.5 min-h-[44px] bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50" data-testid="btn-save">
-            <Save className="w-4 h-4" />
-            {isSubmitting ? "Đang lưu..." : isEditMode ? "Cập nhật" : "Lưu đơn thư"}
-          </button>
+          <SaveSplitButton
+            onSave={onSave}
+            onSaveAndExport={onSaveAndExport}
+            isSubmitting={isSubmitting}
+            label={isEditMode ? "Cập nhật" : "Lưu đơn thư"}
+            idPrefix="btn-save"
+          />
           {isEditMode && id && (
             <ExportDocumentDropdown petitionId={id} isDirty={isDirty} />
           )}
@@ -985,6 +1020,17 @@ export function PetitionFormPage() {
             setShowConvertModal(false);
             const caseId = res?.data?.data?.case?.id;
             navigate(caseId ? `/cases/${caseId}/edit` : `/cases`);
+          }}
+        />
+      )}
+
+      {/* Popup "Xuất chứng từ" sau "Lưu và xuất file" — đóng popup → về danh sách. */}
+      {exportModalForId && (
+        <ExportDocumentsModal
+          petitionId={exportModalForId}
+          onClose={() => {
+            setExportModalForId(null);
+            navigate("/petitions");
           }}
         />
       )}

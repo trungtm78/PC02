@@ -16,8 +16,8 @@ function okBlob() {
 
 beforeEach(() => {
   mockPost.mockReset();
-  (global.URL.createObjectURL as unknown) = vi.fn(() => 'blob:x');
-  (global.URL.revokeObjectURL as unknown) = vi.fn();
+  (globalThis.URL.createObjectURL as unknown) = vi.fn(() => 'blob:x');
+  (globalThis.URL.revokeObjectURL as unknown) = vi.fn();
 });
 
 describe('ExportDocumentsModal', () => {

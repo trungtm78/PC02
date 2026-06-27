@@ -29,7 +29,7 @@ describe('SaveSplitButton', () => {
       />,
     );
     fireEvent.click(screen.getByTestId('btn-save-split-caret'));
-    fireEvent.click(screen.getByTestId('menu-item-save-export'));
+    fireEvent.click(screen.getByTestId('btn-save-split-item-export'));
     expect(onSaveAndExport).toHaveBeenCalledTimes(1);
     expect(onSave).not.toHaveBeenCalled();
   });

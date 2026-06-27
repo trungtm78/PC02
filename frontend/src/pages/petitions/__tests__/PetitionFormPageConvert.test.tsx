@@ -93,7 +93,7 @@ describe('PetitionFormPage — Nhóm II: btn-convert-petition visibility', () =>
     await renderEditFormWrapped('pet-edit-02', 'inc-01', null);
     await waitFor(() => {
       // Form has loaded (can see save button), but no convert button
-      expect(screen.queryByTestId('btn-save')).toBeInTheDocument();
+      expect(screen.queryByTestId('btn-save-main')).toBeInTheDocument();
       expect(screen.queryByTestId('btn-convert-petition')).not.toBeInTheDocument();
     }, { timeout: 5000 });
   });

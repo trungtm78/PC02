@@ -12,6 +12,8 @@ interface Props {
   onSaveAndExport: () => void;
   isSubmitting: boolean;
   label?: string;
+  /** Prefix data-testid để nhiều instance (nút trên/dưới form) không trùng. */
+  idPrefix?: string;
 }
 
 export function SaveSplitButton({
@@ -19,6 +21,7 @@ export function SaveSplitButton({
   onSaveAndExport,
   isSubmitting,
   label = "Lưu",
+  idPrefix = "btn-save-split",
 }: Props) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -37,10 +40,10 @@ export function SaveSplitButton({
   }, [isOpen]);
 
   return (
-    <div ref={containerRef} className="relative inline-flex" data-testid="save-split-button">
+    <div ref={containerRef} className="relative inline-flex" data-testid={`${idPrefix}-root`}>
       <button
         type="button"
-        data-testid="btn-save-split-main"
+        data-testid={`${idPrefix}-main`}
         onClick={onSave}
         disabled={isSubmitting}
         className="flex items-center gap-2 px-4 py-2.5 min-h-[44px] bg-blue-600 text-white rounded-l-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50"
@@ -50,7 +53,7 @@ export function SaveSplitButton({
       </button>
       <button
         type="button"
-        data-testid="btn-save-split-caret"
+        data-testid={`${idPrefix}-caret`}
         onClick={() => setIsOpen((v) => !v)}
         disabled={isSubmitting}
         aria-haspopup="menu"
@@ -65,12 +68,12 @@ export function SaveSplitButton({
         <div
           role="menu"
           className="absolute right-0 top-full mt-2 w-60 bg-white border border-slate-200 rounded-lg shadow-lg z-30 overflow-hidden"
-          data-testid="save-split-menu"
+          data-testid={`${idPrefix}-menu`}
         >
           <button
             type="button"
             role="menuitem"
-            data-testid="menu-item-save"
+            data-testid={`${idPrefix}-item-save`}
             onClick={() => {
               setIsOpen(false);
               onSave();
@@ -83,7 +86,7 @@ export function SaveSplitButton({
           <button
             type="button"
             role="menuitem"
-            data-testid="menu-item-save-export"
+            data-testid={`${idPrefix}-item-export`}
             onClick={() => {
               setIsOpen(false);
               onSaveAndExport();

@@ -210,4 +210,30 @@ describe('PetitionFormPage — petitionType payload (v0.37.2.4 P0 fix)', () => {
     });
     expect(api.post).not.toHaveBeenCalled();
   });
+
+  it('[T8/F2] "Lưu và xuất file" → lưu (bắt id) → mở popup xuất chứng từ, KHÔNG về danh sách', async () => {
+    (api.post as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      data: { success: true, data: { id: 'new-pet-1' } },
+    });
+    await renderForm();
+    fireEvent.change(await screen.findByTestId('field-senderName'), { target: { value: 'Sender' } });
+    fireEvent.change(screen.getByTestId('field-senderAddress'), { target: { value: 'addr' } });
+    fireEvent.change(screen.getByTestId('field-summary'), { target: { value: 'sum' } });
+    fireEvent.change(screen.getByTestId('field-detailContent'), { target: { value: 'detail' } });
+    fireEvent.change(screen.getByTestId('field-petitionType'), { target: { value: 'TO_CAO' } });
+    fireEvent.change(screen.getByTestId('field-priority'), { target: { value: 'Cao' } });
+    fireEvent.change(screen.getByTestId('field-senderPhone'), { target: { value: '0901234567' } });
+    fireEvent.change(screen.getByTestId('field-crimeChinhId'), { target: { value: 'crime-d173' } });
+
+    // Mở menu split-button (nút trên) → "Lưu và xuất file".
+    fireEvent.click(screen.getByTestId('btn-save-top-caret'));
+    fireEvent.click(screen.getByTestId('btn-save-top-item-export'));
+
+    // Popup "Xuất chứng từ" hiện; KHÔNG điều hướng về danh sách (route /petitions render "list").
+    await waitFor(() => {
+      expect(screen.getByTestId('export-documents-modal')).toBeInTheDocument();
+    });
+    expect(api.post).toHaveBeenCalledWith('/petitions', expect.anything());
+    expect(screen.queryByText('list')).not.toBeInTheDocument();
+  });
 });
