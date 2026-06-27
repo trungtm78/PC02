@@ -14,6 +14,10 @@ interface Props {
   label?: string;
   /** Prefix data-testid để nhiều instance (nút trên/dưới form) không trùng. */
   idPrefix?: string;
+  /** Override testid nút chính (giữ testid legacy `btn-save`/`btn-save-top` của form vụ việc). */
+  mainTestId?: string;
+  /** Override testid nút mũi tên ▼. */
+  caretTestId?: string;
 }
 
 export function SaveSplitButton({
@@ -22,6 +26,8 @@ export function SaveSplitButton({
   isSubmitting,
   label = "Lưu",
   idPrefix = "btn-save-split",
+  mainTestId,
+  caretTestId,
 }: Props) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -43,7 +49,7 @@ export function SaveSplitButton({
     <div ref={containerRef} className="relative inline-flex" data-testid={`${idPrefix}-root`}>
       <button
         type="button"
-        data-testid={`${idPrefix}-main`}
+        data-testid={mainTestId ?? `${idPrefix}-main`}
         onClick={onSave}
         disabled={isSubmitting}
         className="flex items-center gap-2 px-4 py-2.5 min-h-[44px] bg-blue-600 text-white rounded-l-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50"
@@ -53,7 +59,7 @@ export function SaveSplitButton({
       </button>
       <button
         type="button"
-        data-testid={`${idPrefix}-caret`}
+        data-testid={caretTestId ?? `${idPrefix}-caret`}
         onClick={() => setIsOpen((v) => !v)}
         disabled={isSubmitting}
         aria-haspopup="menu"
