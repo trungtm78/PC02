@@ -2,6 +2,7 @@ import { buildControllerModule, makeReq, mockUser } from '../test-utils/controll
 import { IncidentsController } from './incidents.controller';
 import { IncidentsService } from './incidents.service';
 import { IncidentsJourneyService } from './incidents-journey.service';
+import { DynamicExportService } from '../document-templates/dynamic-export.service';
 
 const mockService = {
   getList: jest.fn(),
@@ -20,6 +21,7 @@ const mockService = {
 };
 
 const mockJourneyService = { getJourney: jest.fn() };
+const mockDynamicExport = { exportEntityDocuments: jest.fn(), listExportableTemplates: jest.fn() };
 
 describe('IncidentsController — delegation', () => {
   let controller: IncidentsController;
@@ -29,10 +31,31 @@ describe('IncidentsController — delegation', () => {
       IncidentsController,
       IncidentsService,
       mockService,
-      [{ token: IncidentsJourneyService, mock: mockJourneyService }],
+      [
+        { token: IncidentsJourneyService, mock: mockJourneyService },
+        { token: DynamicExportService, mock: mockDynamicExport },
+      ],
     );
     controller = module.get(IncidentsController);
     jest.clearAllMocks();
+  });
+
+  it('exportDocuments() load incident (scope) rồi delegate dynamicExport (VU_VIEC)', async () => {
+    const record = { id: 'i1', code: 'VV-1' };
+    mockService.getById.mockResolvedValue({ success: true, data: record }); // getById wrap {success,data}
+    const req = makeReq();
+    const res = { send: jest.fn(), setHeader: jest.fn() } as any;
+    await controller.exportDocuments(
+      'i1',
+      { templateIds: ['t1'], mode: 'merged' } as any,
+      req,
+      res,
+      mockUser as any,
+    );
+    expect(mockService.getById).toHaveBeenCalledWith('i1', req.dataScope);
+    expect(mockDynamicExport.exportEntityDocuments).toHaveBeenCalledWith(
+      'VU_VIEC', 'i1', record, ['t1'], 'merged', mockUser.id, {}, res,
+    );
   });
 
   it('getList() delegates to service.getList with query and dataScope', async () => {
@@ -40,6 +63,13 @@ describe('IncidentsController — delegation', () => {
     const req = makeReq();
     await controller.getList({} as any, req);
     expect(mockService.getList).toHaveBeenCalledWith({}, req.dataScope);
+  });
+
+  it('listExportTemplates() delegate dynamicExport (VU_VIEC) — quyền read Incident', async () => {
+    const rows = [{ id: 't1', code: 'BB01' }];
+    mockDynamicExport.listExportableTemplates.mockResolvedValue(rows);
+    await expect(controller.listExportTemplates()).resolves.toBe(rows);
+    expect(mockDynamicExport.listExportableTemplates).toHaveBeenCalledWith('VU_VIEC');
   });
 
   it('create() delegates to service.create with dto, userId and audit info', async () => {

@@ -7,9 +7,10 @@ import { CasesBulkService } from './bulk/cases.bulk.service';
 import { AuditModule } from '../audit/audit.module';
 import { SettingsModule } from '../settings/settings.module';
 import { DocumentNumbersModule } from '../document-numbers/document-numbers.module';
+import { DocumentTemplatesModule } from '../document-templates/document-templates.module';
 
 @Module({
-  imports: [AuditModule, SettingsModule, DocumentNumbersModule], // v0.31.0.2: SettingsModule; v0.42: DocumentNumbersModule
+  imports: [AuditModule, SettingsModule, DocumentNumbersModule, DocumentTemplatesModule], // v0.69: DocumentTemplatesModule (xuất chứng từ động)
   providers: [CasesService, CasesJourneyService, CasesBulkService],
   controllers: [CasesController, CasesBulkController],
   exports: [CasesService, CasesJourneyService],

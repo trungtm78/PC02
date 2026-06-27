@@ -1,8 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { extractApiError } from "@/lib/api-errors";
-import { ArrowLeft, Save, AlertCircle, Calendar, FileText, Loader2, ChevronDown, ChevronRight, Target } from "lucide-react";
+import { ArrowLeft, AlertCircle, Calendar, FileText, Loader2, ChevronDown, ChevronRight, Target } from "lucide-react";
+import { SaveSplitButton } from "@/features/petitions/components/SaveSplitButton";
+import { DynamicExportDocumentsModal } from "@/features/document-templates/components/DynamicExportDocumentsModal";
 import { DocNumberPreviewField } from "@/components/DocNumberPreviewField";
 import { documentNumbersApi } from "@/features/document-numbers/api";
 import { FKSelect, type FKOption } from "@/components/FKSelect";
@@ -160,6 +162,11 @@ export function IncidentFormPage() {
   const [recordUpdatedAt, setRecordUpdatedAt] = useState<string | null>(null);
   const [draftIncidentCode, setDraftIncidentCode] = useState('');
   const [isDraftLoading, setIsDraftLoading] = useState(!isEditMode);
+  // Export chứng từ động (epic vụ việc/vụ án PR3).
+  const [exportForId, setExportForId] = useState<string | null>(null);
+  const [exportNavigateOnClose, setExportNavigateOnClose] = useState(false);
+  // Guard in-flight đồng bộ chống double-submit (đối xứng CaseFormPage, codex P2).
+  const savingRef = useRef(false);
 
   // Section expanded states
   const [section1Open, setSection1Open] = useState(true);
@@ -300,9 +307,12 @@ export function IncidentFormPage() {
     return newErrors.length === 0;
   };
 
-  const handleSubmit = async (e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (!validateForm()) { window.scrollTo({ top: 0, behavior: "smooth" }); return; }
+  // Tách phần LƯU (không điều hướng) → trả { ok, id } để onSave/onSaveAndExport
+  // quyết định điều hướng hay mở popup xuất chứng từ động.
+  const doSave = async (): Promise<{ ok: boolean; id: string | null }> => {
+    if (savingRef.current) return { ok: false, id: null }; // chống lưu chồng lấn
+    if (!validateForm()) { window.scrollTo({ top: 0, behavior: "smooth" }); return { ok: false, id: null }; }
+    savingRef.current = true;
     setIsSubmitting(true);
     try {
       // Build payload explicitly — only fields that exist in CreateIncidentDto
@@ -360,9 +370,16 @@ export function IncidentFormPage() {
         xacDinhVuViecTamDung: formData.xacDinhVuViecTamDung,
         laCongNgheCaoVV: formData.laCongNgheCaoVV || undefined,
       };
-      if (isEditMode) await api.put(`/incidents/${id}`, { ...payload, expectedUpdatedAt: recordUpdatedAt ?? undefined });
-      else await api.post('/incidents', payload);
-      navigate("/vu-viec");
+      let savedId: string | null;
+      if (isEditMode) {
+        await api.put(`/incidents/${id}`, { ...payload, expectedUpdatedAt: recordUpdatedAt ?? undefined });
+        savedId = id ?? null;
+      } else {
+        const res = await api.post('/incidents', payload);
+        // Envelope {success, data:{id}} (incidents.service.create) → bắt id để mở modal xuất chứng từ.
+        savedId = (res?.data as { data?: { id?: string } } | undefined)?.data?.id ?? null;
+      }
+      return { ok: true, id: savedId };
     } catch (err: unknown) {
       const status = (err as { response?: { status?: number } })?.response?.status;
       if (status === 409) {
@@ -371,7 +388,28 @@ export function IncidentFormPage() {
       } else {
         setErrors(extractApiError(err).messages);
       }
-    } finally { setIsSubmitting(false); }
+      return { ok: false, id: null };
+    } finally { setIsSubmitting(false); savingRef.current = false; }
+  };
+
+  // "Lưu" thường → lưu xong về danh sách (hành vi cũ).
+  const onSave = async () => {
+    const r = await doSave();
+    if (r.ok) navigate("/vu-viec");
+  };
+
+  // "Lưu và xuất file" → lưu xong mở popup xuất chứng từ động (không điều hướng tới khi đóng popup).
+  const onSaveAndExport = async () => {
+    const r = await doSave();
+    if (!r.ok) return;
+    if (r.id) { setExportNavigateOnClose(true); setExportForId(r.id); }
+    else navigate("/vu-viec"); // không lấy được id → về danh sách (degrade an toàn)
+  };
+
+  // Form submit (phím Enter) → lưu thường.
+  const handleSubmit = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    void onSave();
   };
 
   const handleCancel = () => { if (confirm("Bạn có chắc muốn hủy? Dữ liệu chưa lưu sẽ mất.")) navigate("/vu-viec"); };
@@ -404,9 +442,24 @@ export function IncidentFormPage() {
         </div>
         <div className="flex items-center gap-3">
           <button onClick={handleCancel} className="px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50" data-testid="btn-cancel-top">Hủy</button>
-          <button onClick={() => void handleSubmit()} disabled={isSubmitting} className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-50" data-testid="btn-save-top">
-            <Save className="w-4 h-4" />{isEditMode ? "Cập nhật" : "Lưu vụ việc"}
-          </button>
+          {isEditMode && id && (
+            <button
+              type="button"
+              onClick={() => { setExportNavigateOnClose(false); setExportForId(id); }}
+              className="flex items-center gap-2 px-4 py-2.5 border border-amber-300 text-amber-700 bg-amber-50 rounded-lg hover:bg-amber-100 font-medium"
+              data-testid="btn-print-docs"
+            >
+              <FileText className="w-4 h-4" />In chứng từ
+            </button>
+          )}
+          <SaveSplitButton
+            onSave={onSave}
+            onSaveAndExport={onSaveAndExport}
+            isSubmitting={isSubmitting}
+            label={isEditMode ? "Cập nhật" : "Lưu vụ việc"}
+            idPrefix="btn-save-top"
+            mainTestId="btn-save-top"
+          />
         </div>
       </div>
 
@@ -420,6 +473,9 @@ export function IncidentFormPage() {
       )}
 
       <form onSubmit={(e) => void handleSubmit(e)} className="space-y-6">
+        {/* Submit ẩn: giữ hành vi Enter-to-submit của <form> sau khi nút Lưu chuyển sang
+            SaveSplitButton (type=button). Không hiển thị, không phá layout. */}
+        <button type="submit" className="hidden" aria-hidden="true" tabIndex={-1} disabled={isSubmitting} />
         {/* Section 1: Tiep nhan nguon tin */}
         <CollapsibleSection
           title="Tiếp nhận nguồn tin"
@@ -883,11 +939,38 @@ export function IncidentFormPage() {
         {/* Actions */}
         <div className="flex items-center justify-end gap-3 bg-white rounded-lg border border-slate-200 shadow-sm p-6">
           <button type="button" onClick={handleCancel} className="px-6 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50" data-testid="btn-cancel">Hủy</button>
-          <button type="submit" disabled={isSubmitting} className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-50" data-testid="btn-save">
-            <Save className="w-4 h-4" />{isSubmitting ? "Đang lưu..." : isEditMode ? "Cập nhật" : "Lưu vụ việc"}
-          </button>
+          {isEditMode && id && (
+            <button
+              type="button"
+              onClick={() => { setExportNavigateOnClose(false); setExportForId(id); }}
+              className="flex items-center gap-2 px-6 py-2.5 border border-amber-300 text-amber-700 bg-amber-50 rounded-lg hover:bg-amber-100 font-medium"
+              data-testid="btn-print-docs-bottom"
+            >
+              <FileText className="w-4 h-4" />In chứng từ
+            </button>
+          )}
+          <SaveSplitButton
+            onSave={onSave}
+            onSaveAndExport={onSaveAndExport}
+            isSubmitting={isSubmitting}
+            label={isEditMode ? "Cập nhật" : "Lưu vụ việc"}
+            idPrefix="btn-save"
+            mainTestId="btn-save"
+          />
         </div>
       </form>
+
+      {/* Epic vụ việc/vụ án PR3 — popup xuất chứng từ động (mẫu admin upload) */}
+      {exportForId && (
+        <DynamicExportDocumentsModal
+          entity="incidents"
+          entityId={exportForId}
+          onClose={() => {
+            setExportForId(null);
+            if (exportNavigateOnClose) navigate("/vu-viec");
+          }}
+        />
+      )}
     </div>
   );
 }

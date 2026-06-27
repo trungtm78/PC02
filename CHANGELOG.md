@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.69.0.0] - 2026-06-28
+
+### Added
+- **Xuất chứng từ ĐỘNG cho Vụ việc & Vụ án**: Admin tải mẫu `.docx` lên (trang Cấu hình → Mẫu chứng từ, `/settings/document-templates`) khai báo loại hồ sơ (VU_AN/VU_VIEC/DON_THU), danh mục, cấp số văn bản (chọn chuỗi số) và thứ tự. Mẫu lưu trong DB (`document_templates`). Cán bộ xuất chứng từ ngay trên form Vụ án/Vụ việc qua split-button **"Lưu và xuất file"** hoặc nút **"In chứng từ"** độc lập (edit mode) → popup chọn mẫu (nhóm theo danh mục, tick sẵn) + form nhập tay cho biến ngoài danh mục → **Gộp 1 file Word** hoặc **Tách – ZIP**. Endpoints: `POST /cases|incidents/:id/export-documents`, `GET /cases|incidents/export-templates` (quyền read Case/Incident — điều tra viên dùng được mà không cần quyền Setting), CRUD `/document-templates` (quyền Setting/admin).
+- **Đồng bộ Đơn thư**: Thêm nút **"In chứng từ"** độc lập trên chi tiết đơn thư (mở popup 7 mẫu hardcode mà không cần lưu lại) — parity 3 module.
+- **Catalog biến chuẩn + biến nhập tay**: Biến phát hiện trong `.docx` được phân loại tự động — thuộc danh mục chuẩn (mã/tên/ngày... của Case/Incident) thì tự điền từ hồ sơ; ngoài danh mục thì yêu cầu nhập tay khi in (tránh placeholder rỗng câm trong file).
+- **Atomic cấp số (no-gap)**: Render + cấp số văn bản + gộp/zip chạy trong MỘT transaction với row-lock chống cấp số trùng khi xuất song song; lỗi bất kỳ rollback hết, không tiêu số.
+- **UAT**: Bộ 129 test case (`docs/uat/export-chung-tu-dong/`, Excel + Markdown) + Playwright API smoke `tests/api/export-chung-tu-dong-uat.api.spec.ts` (41/41 PASS).
+
+### Security
+- **Phân quyền xuất chứng từ**: DataScope chặn điều tra viên xuất hồ sơ ngoài phạm vi tổ (403). Escape token docxtemplater (`{ } < >`) trong mọi giá trị (kể cả biến nhập tay) chống template-injection. Upload chỉ nhận `.docx` ≤5MB + kiểm tra zip hợp lệ (`word/document.xml`) chống MIME-spoof.
+
+### Fixed
+- **Mẫu cấp số phải chọn chuỗi số**: Form thêm mẫu yêu cầu `numberSeriesId` khi bật "Cấp số văn bản"; backend chặn `needsNumber` thiếu series — tránh mẫu cấu hình sai luôn lỗi 400 khi in.
+- **Mã mẫu trùng**: Tạo mẫu trùng mã (cùng loại hồ sơ) trả 409 thân thiện thay vì lỗi kỹ thuật.
+
 ## [0.68.1.0] - 2026-06-27
 
 ### Added

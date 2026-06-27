@@ -18,6 +18,8 @@ import type { Response } from 'express';
 import { Throttle } from '@nestjs/throttler';
 import type { ScopedRequest } from '../auth/interfaces/scoped-request.interface';
 import { IncidentsService } from './incidents.service';
+import { DynamicExportService } from '../document-templates/dynamic-export.service';
+import { ExportEntityDocumentsDto } from '../document-templates/dto/export-entity-documents.dto';
 import { IncidentsJourneyService } from './incidents-journey.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
@@ -44,7 +46,42 @@ export class IncidentsController {
   constructor(
     private readonly incidentsService: IncidentsService,
     private readonly incidentsJourneyService: IncidentsJourneyService,
+    private readonly dynamicExport: DynamicExportService,
   ) {}
+
+  // POST /api/v1/incidents/:id/export-documents — xuất chứng từ động (gộp/zip) cho vụ việc
+  @Post(':id/export-documents')
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
+  @RequirePermissions({ action: 'read', subject: 'Incident' })
+  async exportDocuments(
+    @Param('id') id: string,
+    @Body() dto: ExportEntityDocumentsDto,
+    @Req() req: ScopedRequest,
+    @Res() res: Response,
+    @CurrentUser() user: AuthUser,
+  ): Promise<void> {
+    // getById trả {success,data:record} → unwrap để placeholder đọc đúng field (codex P1).
+    const loaded = await this.incidentsService.getById(id, req.dataScope); // RBAC scope-checked
+    const record = (loaded as { data?: unknown })?.data ?? loaded;
+    await this.dynamicExport.exportEntityDocuments(
+      'VU_VIEC',
+      id,
+      record,
+      dto.templateIds,
+      dto.mode ?? 'merged',
+      user.id,
+      dto.manualValues ?? {},
+      res,
+    );
+  }
+
+  // GET /api/v1/incidents/export-templates — danh sách mẫu chứng từ động (VU_VIEC) cho picker xuất.
+  // Quyền read Incident (KHÔNG read Setting) để điều tra viên mở được popup xuất chứng từ.
+  @Get('export-templates')
+  @RequirePermissions({ action: 'read', subject: 'Incident' })
+  listExportTemplates() {
+    return this.dynamicExport.listExportableTemplates('VU_VIEC');
+  }
 
   // GET /api/v1/incidents — Danh sách vụ việc
   @Get()
