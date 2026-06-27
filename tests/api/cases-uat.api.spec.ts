@@ -85,12 +85,15 @@ test.describe('CASES — UAT API smoke layer', () => {
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
     const token = getToken();
+    const __ph = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+    const __pr = await request.post(baseUrl.replace(/\/$/, '') + '/api/v1/petitions', { headers: __ph, data: { senderIsAnonymous: true, receivedDate: '2026-05-30', petitionType: 'TO_CAO' }, failOnStatusCode: false });
+    const __pd: any = await __pr.json(); const __pid = (__pd.data || __pd).id; const __pUpd = (__pd.data || __pd).updatedAt;
     // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
     let response: any;
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      data: { ...__baseBody(), name:'VA từ đơn thư', caseProvenance:'FROM_PETITION', caseProvenance: 'FROM_PETITION', linkedPetitionId: __seedPetitionId, expectedPetitionUpdatedAt: __seedPetitionUpdatedAt },
+      data: { ...__baseBody(), caseProvenance: 'FROM_PETITION', linkedPetitionId: __pid, expectedPetitionUpdatedAt: __pUpd },
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -113,12 +116,15 @@ test.describe('CASES — UAT API smoke layer', () => {
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
     const token = getToken();
+    const __ih = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+    const __ir = await request.post(baseUrl.replace(/\/$/, '') + '/api/v1/incidents', { headers: __ih, data: { name: 'Seed ' + __uatRand() }, failOnStatusCode: false });
+    const __idd: any = await __ir.json(); const __iid = (__idd.data || __idd).id; const __iUpd = (__idd.data || __idd).updatedAt;
     // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
     let response: any;
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      data: { ...__baseBody(), name:'VA từ vụ việc', caseProvenance:'FROM_INCIDENT', caseProvenance: 'FROM_INCIDENT', linkedIncidentId: __seedIncidentId, expectedIncidentUpdatedAt: __seedIncidentUpdatedAt },
+      data: { ...__baseBody(), caseProvenance: 'FROM_INCIDENT', linkedIncidentId: __iid, expectedIncidentUpdatedAt: __iUpd },
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -523,15 +529,15 @@ test.describe('CASES — UAT API smoke layer', () => {
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
     const token = getToken();
-    const __dupBody = { ...__baseBody(), caseProvenance: 'FROM_PETITION', linkedPetitionId: __seedPetitionId, expectedPetitionUpdatedAt: __seedPetitionUpdatedAt };
-    // 409: POST lần 1 tạo bản ghi (để lần 2 trùng unique)
-    await request.post(apiUrl, { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, data: __dupBody, failOnStatusCode: false });
+    const __ph = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+    const __pr = await request.post(baseUrl.replace(/\/$/, '') + '/api/v1/petitions', { headers: __ph, data: { senderIsAnonymous: true, receivedDate: '2026-05-30', petitionType: 'TO_CAO' }, failOnStatusCode: false });
+    const __pd: any = await __pr.json(); const __pid = (__pd.data || __pd).id; const __pUpd = (__pd.data || __pd).updatedAt;
     // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
     let response: any;
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      data: __dupBody,
+      data: { ...__baseBody(), caseProvenance: 'FROM_PETITION', linkedPetitionId: __pid, expectedPetitionUpdatedAt: '2020-01-01T00:00:00.000Z' },
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -1197,12 +1203,15 @@ test.describe('CASES — UAT API smoke layer', () => {
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
     const token = getToken();
+    const __ph = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+    const __pr = await request.post(baseUrl.replace(/\/$/, '') + '/api/v1/petitions', { headers: __ph, data: { senderIsAnonymous: true, receivedDate: '2026-05-30', petitionType: 'TO_CAO' }, failOnStatusCode: false });
+    const __pd: any = await __pr.json(); const __pid = (__pd.data || __pd).id; const __pUpd = (__pd.data || __pd).updatedAt;
     // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
     let response: any;
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      data: { ...__baseBody(), caseProvenance: 'FROM_PETITION', linkedPetitionId: __seedPetitionId, expectedPetitionUpdatedAt: __seedPetitionUpdatedAt },
+      data: { ...__baseBody(), caseProvenance: 'FROM_PETITION', linkedPetitionId: __pid, expectedPetitionUpdatedAt: __pUpd },
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -1867,15 +1876,16 @@ test.describe('CASES — UAT API smoke layer', () => {
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
     const token = getToken();
-    const __dupBody = { ...__baseBody(), caseProvenance:'FROM_PETITION', caseProvenance: 'FROM_PETITION', linkedPetitionId: __seedPetitionId, expectedPetitionUpdatedAt: __seedPetitionUpdatedAt };
-    // 409: POST lần 1 tạo bản ghi (để lần 2 trùng unique)
-    await request.post(apiUrl, { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, data: __dupBody, failOnStatusCode: false });
+    const __ph = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+    const __pr = await request.post(baseUrl.replace(/\/$/, '') + '/api/v1/petitions', { headers: __ph, data: { senderIsAnonymous: true, receivedDate: '2026-05-30', petitionType: 'TO_CAO' }, failOnStatusCode: false });
+    const __pd: any = await __pr.json(); const __pid = (__pd.data || __pd).id; const __pUpd = (__pd.data || __pd).updatedAt;
+    await request.post(apiUrl, { headers: __ph, data: { ...__baseBody(), caseProvenance: 'FROM_PETITION', linkedPetitionId: __pid, expectedPetitionUpdatedAt: __pUpd }, failOnStatusCode: false });
     // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
     let response: any;
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      data: __dupBody,
+      data: { ...__baseBody(), caseProvenance: 'FROM_PETITION', linkedPetitionId: __pid, expectedPetitionUpdatedAt: __pUpd },
         timeout: 15000,
         failOnStatusCode: false,
       });

@@ -929,13 +929,16 @@ export class CasesService {
           where: {
             id: dto.linkedPetitionId!,
             deletedAt: null,
-            linkedCaseId: null,
             ...(petitionScopeOR.length > 0 ? { OR: petitionScopeOR } : {}),
           },
         });
         if (!petition) {
           // Consistent 404 — no enumeration leak (not-found vs out-of-scope indistinguishable)
           throw new NotFoundException('Đơn thư không tồn tại hoặc không nằm trong phạm vi của bạn');
+        }
+        if (petition.linkedCaseId) {
+          // Đơn thư trong phạm vi nhưng đã liên kết vụ án khác → 409 (rõ nghĩa hơn 404)
+          throw new ConflictException('Đơn thư đã được liên kết với vụ án khác');
         }
 
         const newCase = await tx.case.create({

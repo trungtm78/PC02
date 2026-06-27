@@ -402,7 +402,7 @@
       "type": "GREEN",
       "priority": "P1",
       "severity": "Medium",
-      "endpoint": "GET /api/v1/cases?ngayTiepNhanFrom=…&ngayTiepNhanTo=…",
+      "endpoint": "GET /api/v1/cases",
       "role": "OFFICER",
       "title": "Filter UTDT date range",
       "pre": "-",

@@ -256,9 +256,39 @@ def gen_api_test(tc: dict, cfg: dict) -> str:
             parts = ['...__baseBody()'] + ([fk_extra] if fk_extra else [])
             body_injection = f"      data: {{ {', '.join(parts)} }},\n"
 
-    # 409: body có giá trị unique nằm trong __baseBody() (random sinh mỗi lần gọi) → phải tính
-    # MỘT LẦN vào const __dupBody rồi dùng CHO CẢ 2 POST → lần 2 mới trùng unique.
-    if is_conflict and body_injection:
+    # FROM_PETITION/INCIDENT (success HOẶC conflict): LUÔN tạo resource RIÊNG inline → tránh
+    # shared-seed bị consume/đã-linked gây nhiễu giữa các test (vd partition test + success test).
+    from_pet = ('from_petition' in tl) and (is_success or is_conflict)
+    from_inc = ('from_incident' in tl) and (is_success or is_conflict)
+    if from_pet:
+        pet_url = "baseUrl.replace(/\\/$/, '') + '/api/v1/petitions'"
+        lines = [
+            "    const __ph = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };",
+            f"    const __pr = await request.post({pet_url}, {{ headers: __ph, data: {{ senderIsAnonymous: true, receivedDate: '2026-05-30', petitionType: 'TO_CAO' }}, failOnStatusCode: false }});",
+            "    const __pd: any = await __pr.json(); const __pid = (__pd.data || __pd).id; const __pUpd = (__pd.data || __pd).updatedAt;",
+        ]
+        if is_conflict and (('cũ' in tl) or ('optimistic' in tl)):
+            body_val = "{ ...__baseBody(), caseProvenance: 'FROM_PETITION', linkedPetitionId: __pid, expectedPetitionUpdatedAt: '2020-01-01T00:00:00.000Z' }"  # stale → 409
+        elif is_conflict:  # đã-linked: link 1 lần trước → lần 2 = 409
+            lines.append("    await request.post(apiUrl, { headers: __ph, data: { ...__baseBody(), caseProvenance: 'FROM_PETITION', linkedPetitionId: __pid, expectedPetitionUpdatedAt: __pUpd }, failOnStatusCode: false });")
+            body_val = "{ ...__baseBody(), caseProvenance: 'FROM_PETITION', linkedPetitionId: __pid, expectedPetitionUpdatedAt: __pUpd }"
+        else:  # success
+            body_val = "{ ...__baseBody(), caseProvenance: 'FROM_PETITION', linkedPetitionId: __pid, expectedPetitionUpdatedAt: __pUpd }"
+        pre_request = '\n'.join(lines) + '\n'
+        body_injection = f"      data: {body_val},\n"
+    elif from_inc:
+        inc_url = "baseUrl.replace(/\\/$/, '') + '/api/v1/incidents'"
+        lines = [
+            "    const __ih = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };",
+            f"    const __ir = await request.post({inc_url}, {{ headers: __ih, data: {{ name: 'Seed ' + __uatRand() }}, failOnStatusCode: false }});",
+            "    const __idd: any = await __ir.json(); const __iid = (__idd.data || __idd).id; const __iUpd = (__idd.data || __idd).updatedAt;",
+        ]
+        body_val = "{ ...__baseBody(), caseProvenance: 'FROM_INCIDENT', linkedIncidentId: __iid, expectedIncidentUpdatedAt: __iUpd }"
+        pre_request = '\n'.join(lines) + '\n'
+        body_injection = f"      data: {body_val},\n"
+    # 409 thường: giá trị unique nằm trong __baseBody() (random mỗi lần gọi) → tính MỘT LẦN vào
+    # const __dupBody rồi dùng CHO CẢ 2 POST → lần 2 mới trùng unique.
+    elif is_conflict and body_injection:
         m = re.search(r'data:\s*(.+),\s*$', body_injection.strip())
         body_val = m.group(1) if m else '{ ...__baseBody() }'
         pre_request = (

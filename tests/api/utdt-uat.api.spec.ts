@@ -305,7 +305,7 @@ test.describe('UTDT — UAT API smoke layer', () => {
     // Pre: -
     // Steps: GET ?ngayTiepNhanFrom=2026-01-01&ngayTiepNhanTo=2026-06-30
     // Expected: HTTP 200, items.ngayTiepNhan trong khoảng
-    const endpoint = '/api/v1/cases?ngayTiepNhanFrom=…&ngayTiepNhanTo=…';
+    const endpoint = '/api/v1/cases?ngayTiepNhanFrom=2026-01-01&ngayTiepNhanTo=2026-06-30';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
     const token = getToken();

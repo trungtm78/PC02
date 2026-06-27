@@ -5,6 +5,7 @@ import {
   IsEnum,
   IsIn,
   IsInt,
+  IsDateString,
   MaxLength,
   Min,
   Max,
@@ -100,13 +101,13 @@ export class QueryCasesDto {
   @IsIn(['DA_PHAN_HOI', 'KHONG_THUC_HIEN_DUOC', 'QUA_HAN', 'CHUA_PHAN_HOI'])
   trangThaiPhanHoi?: TrangThaiPhanHoi;
 
-  // v0.44.3 — UTDT date range + investigator name search
+  // v0.44.3 — UTDT date range + investigator name search. @IsDateString → date sai format = 400.
   @IsOptional()
-  @IsString()
+  @IsDateString()
   ngayTiepNhanFrom?: string;
 
   @IsOptional()
-  @IsString()
+  @IsDateString()
   ngayTiepNhanTo?: string;
 
   @IsOptional()
