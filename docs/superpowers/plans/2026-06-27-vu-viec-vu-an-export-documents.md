@@ -35,7 +35,7 @@
 ```prisma
 model DocumentTemplate {
   id             String    @id @default(cuid())
-  code           String    @unique
+  code           String    // [review] unique theo (entityType, code), không toàn cục — xem @@unique
   name           String
   entityType     String    // VU_VIEC | VU_AN | DON_THU
   category       String    // Quyết định | Biên bản | Lệnh | Thông báo | Giấy chứng nhận | Khác
@@ -52,6 +52,7 @@ model DocumentTemplate {
   updatedAt      DateTime  @updatedAt
   deletedAt      DateTime?
 
+  @@unique([entityType, code])  // [review] mã unique trong phạm vi từng thực thể (vụ án & đơn thư có thể cùng mã)
   @@index([entityType, status])
   @@index([category])
   @@map("document_templates")
@@ -114,6 +115,9 @@ describe('detectDocxVariables', () => {
   it('không có biến → mảng rỗng', () => {
     expect(detectDocxVariables(makeDocx('không có biến'))).toEqual([]);
   });
+  it('[review] buffer hỏng / không phải zip → [] (không throw)', () => {
+    expect(detectDocxVariables(Buffer.from('không phải docx'))).toEqual([]);
+  });
 });
 ```
 
@@ -131,8 +135,13 @@ import PizZip from 'pizzip';
  *  Lưu ý: text trong docx có thể bị tách run → đọc document.xml thô đủ cho
  *  placeholder đơn giản {ten}; biến phức tạp do admin soạn liền mạch. */
 export function detectDocxVariables(buffer: Buffer): string[] {
-  const zip = new PizZip(buffer);
-  const xml = zip.file('word/document.xml')?.asText() ?? '';
+  let xml = '';
+  try {
+    const zip = new PizZip(buffer);                       // [review] buffer hỏng/không phải zip → throw
+    xml = zip.file('word/document.xml')?.asText() ?? '';
+  } catch {
+    return []; // file không hợp lệ → không có biến (validate MIME ở controller)
+  }
   const seen = new Set<string>();
   const out: string[] = [];
   const re = /\{([^{}]+)\}/g;
@@ -468,41 +477,65 @@ Expected: FAIL.
 
 ```typescript
 // document-templates.controller.ts
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UploadedFile, UseInterceptors } from '@nestjs/common';
+// [review] guards + permissions + upload limits sửa theo code thật (document-numbers.controller.ts:14-15,27 + documents.controller.ts:85-105).
+import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Query, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
-import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { RequirePermissions } from '../auth/decorators/permissions.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator'; // verify path đúng như document-numbers.controller.ts
 import { DocumentTemplatesService } from './document-templates.service';
 import { CreateDocumentTemplateDto } from './dto/create-document-template.dto';
 import { UpdateDocumentTemplateDto } from './dto/update-document-template.dto';
 
+const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+// FileInterceptor options: giới hạn 5MB + chỉ nhận .docx (pattern documents.controller.ts:102-105)
+const DOCX_UPLOAD = {
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req: any, file: { mimetype: string; originalname: string }, cb: (e: Error | null, ok: boolean) => void) => {
+    const ok = file.mimetype === DOCX_MIME || file.originalname.toLowerCase().endsWith('.docx');
+    cb(ok ? null : new BadRequestException('Chỉ chấp nhận file .docx'), ok);
+  },
+};
+
 @Controller('document-templates')
-@RequirePermissions({ action: 'manage', subject: 'all' }) // admin-only (khớp guard dự án)
+@UseGuards(JwtAuthGuard, PermissionsGuard) // [review] class-level guard như document-numbers.controller
 export class DocumentTemplatesController {
   constructor(private readonly svc: DocumentTemplatesService) {}
 
   @Get()
+  @RequirePermissions({ action: 'read', subject: 'Setting' }) // [review] subject 'Setting' (admin config); action read/write hợp lệ
   list(@Query('entityType') entityType?: string, @Query('category') category?: string, @Query('status') status?: string) {
     return this.svc.list({ entityType, category, status });
   }
 
   @Post()
-  @UseInterceptors(FileInterceptor('file'))
+  @RequirePermissions({ action: 'write', subject: 'Setting' })
+  @UseInterceptors(FileInterceptor('file', DOCX_UPLOAD))
   create(@Body() dto: CreateDocumentTemplateDto, @UploadedFile() file: Express.Multer.File, @CurrentUser() user: { id: string }) {
+    if (!file) throw new BadRequestException('Thiếu file .docx');
     return this.svc.create(dto, file, user.id);
   }
 
-  @Get(':id') getById(@Param('id') id: string) { return this.svc.getById(id); }
+  @Get(':id')
+  @RequirePermissions({ action: 'read', subject: 'Setting' })
+  getById(@Param('id') id: string) { return this.svc.getById(id); }
 
-  @Patch(':id') update(@Param('id') id: string, @Body() dto: UpdateDocumentTemplateDto) { return this.svc.update(id, dto); }
+  @Patch(':id')
+  @RequirePermissions({ action: 'write', subject: 'Setting' })
+  update(@Param('id') id: string, @Body() dto: UpdateDocumentTemplateDto) { return this.svc.update(id, dto); }
 
   @Post(':id/file')
-  @UseInterceptors(FileInterceptor('file'))
+  @RequirePermissions({ action: 'write', subject: 'Setting' })
+  @UseInterceptors(FileInterceptor('file', DOCX_UPLOAD))
   replaceFile(@Param('id') id: string, @UploadedFile() file: Express.Multer.File, @CurrentUser() user: { id: string }) {
+    if (!file) throw new BadRequestException('Thiếu file .docx');
     return this.svc.replaceFile(id, file, user.id);
   }
 
-  @Delete(':id') remove(@Param('id') id: string) { return this.svc.softDelete(id); }
+  @Delete(':id')
+  @RequirePermissions({ action: 'delete', subject: 'Setting' })
+  remove(@Param('id') id: string) { return this.svc.softDelete(id); }
 }
 ```
 
@@ -523,15 +556,26 @@ export class DocumentTemplatesModule {}
 ```
 
 ```typescript
-// feature.manifest.ts — theo đúng shape của document-numbers/feature.manifest.ts
-export const featureManifest = {
+// feature.manifest.ts — [review] shape THẬT là FeatureManifest (key,label,description,domain,permissions)
+import type { FeatureManifest } from '../feature-flags/feature-manifest';
+
+export const DOCUMENT_TEMPLATES_MANIFEST: FeatureManifest = {
   key: 'document-templates',
-  name: 'Quản lý mẫu chứng từ',
+  label: 'Quản lý mẫu chứng từ',
   description: 'Quản lý template .docx động cho vụ việc/vụ án/đơn thư',
+  domain: 'org-domain',
+  permissions: [
+    { action: 'read', subject: 'Setting' },
+    { action: 'write', subject: 'Setting' },
+  ],
 };
 ```
 
-Wire vào `app.module.ts`: thêm `DocumentTemplatesModule` vào mảng `imports` (mirror cách `DocumentNumbersModule` được import).
+Wire vào `app.module.ts`: thêm `DocumentTemplatesModule` vào mảng `imports` (mirror cách `DocumentNumbersModule` được import). Đăng ký manifest theo đúng cách `DOCUMENT_NUMBERS_MANIFEST` được đăng ký (kiểm `document-numbers/feature.manifest.ts` + nơi import manifest).
+
+**[review] Thêm test controller — reject non-.docx:** trong `document-templates.controller.spec.ts` thêm 1 test gọi `create` với `file = undefined` → mong `BadRequestException` (fileFilter chặn MIME đã test ở tầng e2e/manual; tầng unit kiểm guard `if(!file)`).
+
+**[review] Ghi chú PR1:** `variables[].source` ở PR1 đánh `'auto'` cho MỌI biến (chưa có placeholder catalog — catalog ở PR2). Phân biệt `auto`/`manual` thật sẽ wire ở PR2 khi đối chiếu biến với catalog per entityType. PR1 chỉ lưu danh sách biến phát hiện được.
 
 - [ ] **Step 4: Chạy controller test + tsc + app.bootstrap**
 
@@ -738,3 +782,27 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 - Spec coverage: PR1 phủ data model + template-manager CRUD + upload + auto-detect biến + admin FE (mục 1,3 spec). PR2-4 phủ render engine + tích hợp + đồng bộ (mục 2,4,5,6 spec) — ghi rõ ở trên.
 - Placeholder scan: không có TBD/“xử lý lỗi phù hợp” chung chung; mỗi step có lệnh + code/cú pháp cụ thể (riêng Task 7 FE page sao pattern document-numbers — đã trỏ file mẫu chính xác thay vì lặp ~300 dòng boilerplate registry).
 - Type consistency: `detectDocxVariables` (Task2) → service buildVariables (Task4); DTO field (Task3) → controller (Task5) → FE types/api (Task6) → modal (Task7) khớp tên/kiểu (`entityType`, `needsNumber`, `numberSeriesId`, `variables[].source`).
+
+## GSTACK REVIEW REPORT
+
+| Review | Trigger | Đối chiếu | Runs | Status | Findings |
+|--------|---------|-----------|------|--------|----------|
+| Eng Review | `/plan-eng-review` | plan PR1 vs code thật + spec | 1 | CLEAR (đã sửa) | 5 fix + 1 note, 0 gap chặn |
+| CEO/Design/Codex | — | — | 0 | skipped | Plan doc nội bộ; codex review dành cho diff code (sẽ chạy /codex mỗi task khi implement) |
+
+**Findings (đã sửa inline vào plan):**
+- **F1 [P1]** Guard sai `@RequirePermissions({action:'manage',subject:'all'})` (không tồn tại) → **FIXED**: `@UseGuards(JwtAuthGuard, PermissionsGuard)` (import `auth/guards/`) + `@RequirePermissions({action:'read|write|delete', subject:'Setting'})` per-method (khớp pattern document-numbers.controller).
+- **F2 [P1]** feature.manifest sai shape `{key,name,description}` → **FIXED**: type `FeatureManifest {key,label,description,domain,permissions[]}`.
+- **F3 [P2]** Upload không giới hạn size/MIME → **FIXED**: `FileInterceptor('file', {limits:{fileSize:5MB}, fileFilter:.docx})` + `if(!file) BadRequest` (pattern documents.controller.ts:85-105).
+- **F4 [P2]** `detectDocxVariables` throw với buffer hỏng → **FIXED**: try/catch trả `[]` + test buffer không phải zip.
+- **F5 [P3]** `code @unique` toàn cục → **FIXED**: `@@unique([entityType, code])` (vụ án & đơn thư có thể trùng mã).
+- **F6 [note]** `variables[].source='auto'` cho mọi biến ở PR1 (chưa có placeholder catalog — ở PR2) → đã ghi chú rõ trong plan.
+
+**Architecture (đánh giá, không đổi):**
+- `.docx` lưu DB Bytes: **chấp nhận** — tránh footgun bundling asset lúc deploy (đơn thư từng dính, xem reference_deploy_template_assets); bytea Postgres là boring-tech proven; file ~10-30KB không lo bloat/memory.
+- Scope PR1 ~20 file: right-sized cho 1 module CRUD + admin UI mới, KHÔNG over-build. Anh chốt giữ nguyên (D2=A).
+- Tái dùng đúng: PR2 generalize `renderDocumentsAtomic` (đã có finalize callback + atomic từ đơn thư v0.68.1.0) + document-numbers v0.42 + Document/DocumentRenderLog có sẵn caseId/incidentId.
+
+**VERDICT:** ENG CLEARED — plan PR1 đã sửa 5 finding + 1 note, kiến trúc vững, sẵn sàng implement. PR2-4 sẽ có plan + eng-review riêng khi tới.
+
+NO UNRESOLVED DECISIONS
