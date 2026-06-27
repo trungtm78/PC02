@@ -23,6 +23,7 @@ import {
   type ColumnDef,
   type TableState,
 } from '@/components/shared/ListPageShell';
+import { DOC_TYPES } from '@/features/petitions/docTypes';
 import { useBulkSelection } from '@/features/_shared/bulk/useBulkSelection';
 import { BulkActionBar } from '@/features/_shared/bulk/BulkActionBar';
 import { buildPetitionsAdapter } from '@/features/_shared/bulk/adapters/petitions';
@@ -392,16 +393,7 @@ export function PetitionListPageShell() {
   const activeFilterCount =
     (statusFilter ? 1 : 0) + (searchQuery ? 1 : 0) + appliedFilterCount;
 
-  // Batch Word export
-  const BATCH_DOC_TYPES = [
-    { value: 'BIEN_NHAN', label: 'Biên nhận', description: 'Biên nhận tiếp nhận đơn thư' },
-    { value: 'PHIEU_DE_XUAT', label: 'Phiếu đề xuất', description: 'Báo cáo đề xuất xử lý' },
-    { value: 'PHIEU_CHUYEN_NGUON_TIN', label: 'Phiếu chuyển nguồn tin', description: 'Mẫu 03 TT 128/2025' },
-    { value: 'PHIEU_CHUYEN_DON', label: 'Phiếu chuyển đơn', description: 'Chuyển theo thẩm quyền' },
-    { value: 'THONG_BAO_CHUYEN', label: 'Thông báo chuyển đơn', description: 'Thông báo cho người gửi' },
-    { value: 'THONG_BAO_HUONG_DAN', label: 'Thông báo hướng dẫn', description: 'Hướng dẫn khởi kiện' },
-    { value: 'THONG_BAO_TRA_LAI', label: 'Thông báo trả lại', description: 'Trả lại đơn bổ sung' },
-  ] as const;
+  // Batch Word export — dùng DOC_TYPES chung (features/petitions/docTypes).
   const [showBatchDocDropdown, setShowBatchDocDropdown] = useState(false);
   const [isBatchExporting, setIsBatchExporting] = useState(false);
   const batchDropdownRef = useRef<HTMLDivElement>(null);
@@ -479,7 +471,7 @@ export function PetitionListPageShell() {
                       Xuất {selection.count} đơn → ZIP
                     </div>
                     <ul>
-                      {BATCH_DOC_TYPES.map((dt) => (
+                      {DOC_TYPES.map((dt) => (
                         <li key={dt.value}>
                           <button
                             type="button"
