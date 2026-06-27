@@ -17,7 +17,7 @@ const mockService = {
 };
 
 const mockJourneyService = { getJourney: jest.fn() };
-const mockDynamicExport = { exportEntityDocuments: jest.fn() };
+const mockDynamicExport = { exportEntityDocuments: jest.fn(), listExportableTemplates: jest.fn() };
 
 describe('CasesController — delegation', () => {
   let controller: CasesController;
@@ -62,6 +62,13 @@ describe('CasesController — delegation', () => {
     const call = mockDynamicExport.exportEntityDocuments.mock.calls[0];
     expect(call[4]).toBe('merged');
     expect(call[6]).toEqual({});
+  });
+
+  it('listExportTemplates() delegate dynamicExport (VU_AN) — quyền read Case', async () => {
+    const rows = [{ id: 't1', code: 'QD01' }];
+    mockDynamicExport.listExportableTemplates.mockResolvedValue(rows);
+    await expect(controller.listExportTemplates()).resolves.toBe(rows);
+    expect(mockDynamicExport.listExportableTemplates).toHaveBeenCalledWith('VU_AN');
   });
 
   it('getList() delegates to service.getList with query and dataScope', async () => {

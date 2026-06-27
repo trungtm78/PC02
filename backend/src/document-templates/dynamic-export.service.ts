@@ -38,6 +38,33 @@ export class DynamicExportService {
     private readonly docxMerge: DocxMergeService,
   ) {}
 
+  /**
+   * Liệt kê mẫu chứng từ ACTIVE cho 1 loại hồ sơ (phục vụ picker xuất chứng từ ở form
+   * vụ việc/vụ án). KHÔNG trả fileBytes (nặng). Endpoint host (cases/incidents) bảo vệ bằng
+   * quyền read Case/Incident — KHÔNG dùng /document-templates (quyền Setting/admin) vì điều
+   * tra viên không có quyền Setting → sẽ 403 khi mở popup.
+   */
+  listExportableTemplates(entityType: EntityType) {
+    return this.prisma.documentTemplate.findMany({
+      where: { entityType, deletedAt: null, status: 'active' },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        entityType: true,
+        category: true,
+        fileName: true,
+        fileSha: true,
+        variables: true,
+        needsNumber: true,
+        numberSeriesId: true,
+        status: true,
+        sortOrder: true,
+      },
+      orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }],
+    });
+  }
+
   /** Render 1 template trong tx: cấp số (nếu cần) + docxtemplater trên bytes DB + render log. */
   private async renderTemplateInTx(
     tx: any,

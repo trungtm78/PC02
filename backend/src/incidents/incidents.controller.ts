@@ -75,6 +75,14 @@ export class IncidentsController {
     );
   }
 
+  // GET /api/v1/incidents/export-templates — danh sách mẫu chứng từ động (VU_VIEC) cho picker xuất.
+  // Quyền read Incident (KHÔNG read Setting) để điều tra viên mở được popup xuất chứng từ.
+  @Get('export-templates')
+  @RequirePermissions({ action: 'read', subject: 'Incident' })
+  listExportTemplates() {
+    return this.dynamicExport.listExportableTemplates('VU_VIEC');
+  }
+
   // GET /api/v1/incidents — Danh sách vụ việc
   @Get()
   @RequirePermissions({ action: 'read', subject: 'Incident' })

@@ -47,6 +47,17 @@ describe('DynamicExportService', () => {
 
   const rec = { caseCode: 'VA-1', name: 'Vụ X', crime: 'Trộm', unit: 'u1' };
 
+  it('listExportableTemplates: query active theo entityType, KHÔNG select fileBytes, sort sortOrder+code', async () => {
+    const rows = [{ id: 't1', code: 'QD01', fileSha: 's' }];
+    prisma.documentTemplate.findMany.mockResolvedValue(rows);
+    await expect(svc.listExportableTemplates('VU_AN')).resolves.toBe(rows);
+    const arg = prisma.documentTemplate.findMany.mock.calls[0][0];
+    expect(arg.where).toEqual({ entityType: 'VU_AN', deletedAt: null, status: 'active' });
+    expect(arg.select.fileBytes).toBeUndefined(); // không tải bytes nặng vào list
+    expect(arg.select.id).toBe(true);
+    expect(arg.orderBy).toEqual([{ sortOrder: 'asc' }, { code: 'asc' }]);
+  });
+
   it('merged: render 2 mẫu trong 1 tx → merge → send; cấp số CHỈ mẫu needsNumber', async () => {
     prisma.documentTemplate.findMany.mockResolvedValue([T_NUM, T_NONUM]);
     const res = plainRes();

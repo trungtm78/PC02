@@ -77,6 +77,14 @@ export class CasesController {
     );
   }
 
+  // GET /api/v1/cases/export-templates — danh sách mẫu chứng từ động (VU_AN) cho picker xuất.
+  // Quyền read Case (KHÔNG read Setting) để điều tra viên mở được popup xuất chứng từ.
+  @Get('export-templates')
+  @RequirePermissions({ action: 'read', subject: 'Case' })
+  listExportTemplates() {
+    return this.dynamicExport.listExportableTemplates('VU_AN');
+  }
+
   // GET /api/v1/cases — Danh sách vụ án (paginated + filtered)
   @Get()
   @RequirePermissions({ action: 'read', subject: 'Case' })
