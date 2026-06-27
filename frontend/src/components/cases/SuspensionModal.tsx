@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { X, Save, AlertTriangle } from "lucide-react";
+import { CatalogSelect } from "@/components/CatalogSelect";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -16,17 +17,6 @@ interface Props {
   onConfirm: (data: SuspensionData) => void;
   isLegacyCase: boolean;
 }
-
-const LY_DO_OPTIONS = [
-  { value: "CHUA_XAC_DINH_BI_CAN", label: "Chưa xác định được bị can (Điều 229.1.a)" },
-  { value: "KHONG_BIET_BI_CAN_O_DAU", label: "Không biết rõ bị can đang ở đâu (Điều 229.1.b)" },
-  { value: "BI_CAN_BENH_TAM_THAN", label: "Bị can bị bệnh tâm thần hoặc hiểm nghèo (Điều 229.1.c)" },
-  { value: "CHUA_CO_KET_QUA_GIAM_DINH", label: "Chưa có kết quả giám định (Điều 229.1.d-1)" },
-  { value: "CHUA_CO_KET_QUA_DINH_GIA", label: "Chưa có kết quả định giá tài sản (Điều 229.1.d-2)" },
-  { value: "CHUA_CO_KET_QUA_TUONG_TRO", label: "Chưa có kết quả tương trợ tư pháp (Điều 229.1.d-3)" },
-  { value: "YEU_CAU_TAI_LIEU_CHUA_CO", label: "Đã yêu cầu tài liệu nhưng chưa có kết quả (Điều 229.1.đ)" },
-  { value: "BAT_KHA_KHANG", label: "Bất khả kháng: thiên tai, dịch bệnh (Điều 229.1.e)" },
-];
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
@@ -130,21 +120,18 @@ export function SuspensionModal({ isOpen, onClose, onConfirm, isLegacyCase }: Pr
               {!isLegacyCase && <span className="text-red-500">*</span>}
               {isLegacyCase && <span className="text-slate-400 font-normal">(không bắt buộc)</span>}
             </label>
-            <select
+            {/* PR-3 catalog: 1 component dùng chung, nhãn pháp lý từ registry. */}
+            <CatalogSelect
+              catalogKey="LY_DO_TAM_DINH_CHI_VU_AN"
+              multi={false}
               value={form.lyDo}
-              onChange={(e) => setForm({ ...form, lyDo: e.target.value })}
+              onChange={(v) => setForm({ ...form, lyDo: v as string })}
               className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 text-sm bg-white ${
                 errors.lyDo ? "border-red-300 focus:ring-red-400" : "border-slate-300 focus:ring-blue-500"
               }`}
+              placeholder="-- Chọn lý do --"
               data-testid="select-ly-do"
-            >
-              <option value="">-- Chọn lý do --</option>
-              {LY_DO_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
+            />
             {errors.lyDo && <p className="text-xs text-red-600 mt-1">{errors.lyDo}</p>}
           </div>
 

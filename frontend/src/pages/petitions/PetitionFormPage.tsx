@@ -3,24 +3,29 @@
  * TASK-ID: TASK-2026-260202
  */
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { extractApiError } from "@/lib/api-errors";
 import {
-  ArrowLeft, Save, AlertCircle, Calendar, User,
+  ArrowLeft, AlertCircle, Calendar, User,
   FileText, MapPin, Phone, Mail, ChevronDown,
 } from "lucide-react";
 import { FKSelect } from "@/components/FKSelect";
+import { CrimeSelect } from "@/components/CrimeSelect";
 import { PhoneInput } from "@/components/inputs/PhoneInput";
 import { DocNumberPreviewField } from "@/components/DocNumberPreviewField";
 import { documentNumbersApi } from "@/features/document-numbers/api";
 import { ExportDocumentDropdown } from "@/features/petitions/components/ExportDocumentDropdown";
+import { SaveSplitButton } from "@/features/petitions/components/SaveSplitButton";
+import { ExportDocumentsModal } from "@/features/petitions/components/ExportDocumentsModal";
 import { useFormDefaults } from "@/hooks/useFormDefaults";
 import { today, toDateInput } from "@/lib/dates";
 import { LOAI_DON_OPTIONS } from "@/shared/enums/status-labels";
 import { LoaiDon } from "@/shared/enums/generated";
 import { EntityDocumentsTab } from "@/components/documents/EntityDocumentsTab";
+import { PetitionAssignmentSection } from "./PetitionAssignmentSection";
+import { ConvertPetitionModal, type ConvertToIncidentPayload, type ConvertToCasePayload } from "./ConvertPetitionModal";
 
 const VALID_PETITION_TYPES = Object.values(LoaiDon) as string[];
 
@@ -44,6 +49,34 @@ interface FormData {
   deXuat: string;
   raSoatTrung: string;
   baoCaoBanGiamDoc: boolean;
+  // Field-parity hệ thống cũ (giai đoạn tiếp nhận)
+  senderIdNumber: string;
+  senderIdIssueDate: string;
+  senderIdIssuePlace: string;
+  senderIsAnonymous: boolean;
+  loaiThongTin: string;
+  soPhieuChuyen: string;
+  ngayPhieuChuyen: string;
+  ngayTiepNhanNguonTin: string;
+  toiDanhBanDau: string;
+  crimeChinhId: string;
+  noiXayRa: string;
+  noiXayRaPhuongXa: string;
+  ngayXayRa: string;
+  loaiToiPham: string;
+  phuongThucThuDoan: string;
+  ngayGiaoDonViGiaiQuyet: string;
+  laCongNgheCao: boolean;
+  lanhDaoToTung: string;
+  ketQuaXuLyKhac: string;
+  thoiHanUTDT: string;
+  // Field-parity bổ sung tab "Thông tin" form cũ /doi-1/Them (2026-06-26)
+  nguonDon: string;
+  petitionDate: string;
+  ngayDeXuat: string;
+  phanLoaiNguonTin: string;
+  dieuTraVien: string;
+  donViGiaiQuyet: string;
 }
 
 const INITIAL_FORM: FormData = {
@@ -53,6 +86,13 @@ const INITIAL_FORM: FormData = {
   priority: "", summary: "", detailContent: "", attachmentsNote: "",
   deadline: "", assignedToId: "", notes: "",
   nhanThay: "", deXuat: "", raSoatTrung: "Không", baoCaoBanGiamDoc: false,
+  senderIdNumber: "", senderIdIssueDate: "", senderIdIssuePlace: "",
+  senderIsAnonymous: false, loaiThongTin: "", soPhieuChuyen: "",
+  ngayPhieuChuyen: "", ngayTiepNhanNguonTin: "", toiDanhBanDau: "",
+  crimeChinhId: "", noiXayRa: "", noiXayRaPhuongXa: "", ngayXayRa: "",
+  loaiToiPham: "", phuongThucThuDoan: "", ngayGiaoDonViGiaiQuyet: "",
+  laCongNgheCao: false, lanhDaoToTung: "", ketQuaXuLyKhac: "", thoiHanUTDT: "",
+  nguonDon: "", petitionDate: "", ngayDeXuat: "", phanLoaiNguonTin: "", dieuTraVien: "", donViGiaiQuyet: "",
 };
 
 function displayName(u: UserOption): string {
@@ -68,6 +108,8 @@ export function PetitionFormPage() {
   const [formData, setFormData] = useState<FormData>(INITIAL_FORM);
   const [errors, setErrors] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Mở popup "Xuất chứng từ" sau "Lưu và xuất file" (giữ petitionId vừa lưu).
+  const [exportModalForId, setExportModalForId] = useState<string | null>(null);
   const [isLoadingData, setIsLoadingData] = useState(isEditMode);
   // v0.47 PR3.1 review fix: snapshot of last saved formData so we can compute
   // isDirty for ExportDocumentDropdown (block export when nội dung chưa lưu).
@@ -79,6 +121,59 @@ export function PetitionFormPage() {
   const [userOptions, setUserOptions] = useState<UserOption[]>([]);
   const [recordUpdatedAt, setRecordUpdatedAt] = useState<string | null>(null);
   const [isDraftLoading, setIsDraftLoading] = useState(!isEditMode);
+  // Nhóm II: convert state
+  const [linkedIncidentId, setLinkedIncidentId] = useState<string | null>(null);
+  const [linkedCaseId, setLinkedCaseId] = useState<string | null>(null);
+  const [showConvertModal, setShowConvertModal] = useState(false);
+  const canConvert = isEditMode && !linkedIncidentId && !linkedCaseId;
+
+  // ── Nhóm V: Suspect search combobox ─────────────────────────────────────────
+  type SuspectResult = { name: string; idNumber: string; crimes: string[]; sources: Array<{ type: string; stt: string }> };
+  type DupResult = { id: string; stt: string; senderName: string; receivedDate: string; summary: string | null };
+
+  const [suspectQuery, setSuspectQuery] = useState("");
+  const [suspectResults, setSuspectResults] = useState<SuspectResult[]>([]);
+  const [showSuspectDropdown, setShowSuspectDropdown] = useState(false);
+  const [dupQuery, setDupQuery] = useState("");
+  const [dupResults, setDupResults] = useState<DupResult[]>([]);
+  const [showDupDropdown, setShowDupDropdown] = useState(false);
+  const suspectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleSuspectInput = useCallback((q: string) => {
+    setSuspectQuery(q);
+    if (suspectTimerRef.current) clearTimeout(suspectTimerRef.current);
+    if (!q.trim()) { setSuspectResults([]); setShowSuspectDropdown(false); return; }
+    suspectTimerRef.current = setTimeout(async () => {
+      try {
+        const res = await api.get<SuspectResult[]>("/petitions/suspect-search", { params: { q } });
+        setSuspectResults(Array.isArray(res.data) ? res.data : []);
+        setShowSuspectDropdown(true);
+      } catch { setSuspectResults([]); }
+    }, 300);
+  }, []);
+
+  const handleDupInput = useCallback((q: string) => {
+    setDupQuery(q);
+    if (dupTimerRef.current) clearTimeout(dupTimerRef.current);
+    if (!q.trim()) { setDupResults([]); setShowDupDropdown(false); return; }
+    dupTimerRef.current = setTimeout(async () => {
+      try {
+        const params: Record<string, string> = { q };
+        if (id) params.excludeId = id;
+        const res = await api.get<DupResult[]>("/petitions/duplicate-search", { params });
+        setDupResults(Array.isArray(res.data) ? res.data : []);
+        setShowDupDropdown(true);
+      } catch { setDupResults([]); }
+    }, 300);
+  }, [id]);
+
+  useEffect(() => {
+    return () => {
+      if (suspectTimerRef.current) clearTimeout(suspectTimerRef.current);
+      if (dupTimerRef.current) clearTimeout(dupTimerRef.current);
+    };
+  }, []);
 
   const defaults = useFormDefaults();
 
@@ -147,8 +242,38 @@ export function PetitionFormPage() {
           deXuat: (d.deXuat as string) ?? "",
           raSoatTrung: (d.raSoatTrung as string) ?? "Không",
           baoCaoBanGiamDoc: Boolean(d.baoCaoBanGiamDoc),
+          senderIdNumber: (d.senderIdNumber as string) ?? "",
+          senderIdIssueDate: toDateInput(d.senderIdIssueDate as string | null | undefined),
+          senderIdIssuePlace: (d.senderIdIssuePlace as string) ?? "",
+          senderIsAnonymous: Boolean(d.senderIsAnonymous),
+          loaiThongTin: (d.loaiThongTin as string) ?? "",
+          soPhieuChuyen: (d.soPhieuChuyen as string) ?? "",
+          ngayPhieuChuyen: toDateInput(d.ngayPhieuChuyen as string | null | undefined),
+          ngayTiepNhanNguonTin: toDateInput(d.ngayTiepNhanNguonTin as string | null | undefined),
+          toiDanhBanDau: (d.toiDanhBanDau as string) ?? "",
+          crimeChinhId: (d.crimeChinhId as string) ?? "",
+          noiXayRa: (d.noiXayRa as string) ?? "",
+          noiXayRaPhuongXa: (d.noiXayRaPhuongXa as string) ?? "",
+          ngayXayRa: toDateInput(d.ngayXayRa as string | null | undefined),
+          loaiToiPham: (d.loaiToiPham as string) ?? "",
+          phuongThucThuDoan: (d.phuongThucThuDoan as string) ?? "",
+          ngayGiaoDonViGiaiQuyet: toDateInput(d.ngayGiaoDonViGiaiQuyet as string | null | undefined),
+          laCongNgheCao: Boolean(d.laCongNgheCao),
+          lanhDaoToTung: (d.lanhDaoToTung as string) ?? "",
+          ketQuaXuLyKhac: (d.ketQuaXuLyKhac as string) ?? "",
+          thoiHanUTDT: toDateInput(d.thoiHanUTDT as string | null | undefined),
+          // Field-parity bổ sung tab "Thông tin" form cũ /doi-1/Them (2026-06-26)
+          nguonDon: (d.nguonDon as string) ?? "",
+          petitionDate: toDateInput(d.petitionDate as string | null | undefined),
+          ngayDeXuat: toDateInput(d.ngayDeXuat as string | null | undefined),
+          phanLoaiNguonTin: (d.phanLoaiNguonTin as string) ?? "",
+          dieuTraVien: (d.dieuTraVien as string) ?? "",
+          donViGiaiQuyet: (d.donViGiaiQuyet as string) ?? "",
         });
         setRecordUpdatedAt((d.updatedAt as string) ?? null);
+        // Nhóm II: track linked IDs to show/hide convert button
+        setLinkedIncidentId((d.linkedIncidentId as string) ?? null);
+        setLinkedCaseId((d.linkedCaseId as string) ?? null);
         // Snapshot the loaded values so isDirty is false until the officer types.
         // Must match the next setFormData state shape — recompute on next render via setTimeout fallback.
         setTimeout(() => {
@@ -172,25 +297,32 @@ export function PetitionFormPage() {
       today.setHours(23, 59, 59, 999);
       if (d > today) newErrors.push("Ngày tiếp nhận không được là ngày tương lai");
     }
-    if (!formData.senderName.trim()) newErrors.push("Tên người gửi là bắt buộc");
-    if (!formData.senderAddress.trim()) newErrors.push("Địa chỉ người gửi là bắt buộc");
+    const anon = formData.senderIsAnonymous;
+    if (!anon && !formData.senderName.trim()) newErrors.push("Tên người gửi là bắt buộc");
+    if (!anon && !formData.senderAddress.trim()) newErrors.push("Địa chỉ người gửi là bắt buộc");
     if (!formData.petitionType || !VALID_PETITION_TYPES.includes(formData.petitionType)) {
       newErrors.push("Loại đơn thư là bắt buộc");
     }
-    if (!formData.priority) newErrors.push("Mức độ ưu tiên là bắt buộc");
+    // priority là optional theo backend DTO (@IsOptional)
     if (!formData.summary.trim()) newErrors.push("Tóm tắt nội dung là bắt buộc");
     if (!formData.detailContent.trim()) newErrors.push("Nội dung chi tiết là bắt buộc");
     if (formData.senderEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.senderEmail))
       newErrors.push("Email không đúng định dạng");
     if (formData.senderPhone && !/^0\d{9}$/.test(formData.senderPhone))
       newErrors.push("Số điện thoại không đúng định dạng (10 số, bắt đầu bằng 0)");
+    // Required-on-create (trừ nặc danh): SĐT nguyên đơn + Tội danh chính (theo hệ thống cũ).
+    if (!isEditMode && !anon) {
+      if (!formData.senderPhone.trim()) newErrors.push("Số điện thoại nguyên đơn là bắt buộc (trừ đơn nặc danh)");
+      if (!formData.crimeChinhId) newErrors.push("Tội danh chính là bắt buộc (trừ đơn nặc danh)");
+    }
     setErrors(newErrors);
     return newErrors.length === 0;
   };
 
-  const handleSubmit = async (e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (!validateForm()) { window.scrollTo({ top: 0, behavior: "smooth" }); return; }
+  // Tách phần LƯU (không điều hướng) → trả { ok, id } để onSave/onSaveAndExport
+  // quyết định điều hướng hay mở popup xuất chứng từ. [F2] create bắt id từ response.
+  const saveOnly = async (): Promise<{ ok: boolean; id: string | null }> => {
+    if (!validateForm()) { window.scrollTo({ top: 0, behavior: "smooth" }); return { ok: false, id: null }; }
     setIsSubmitting(true);
     try {
       const payload = {
@@ -220,16 +352,47 @@ export function PetitionFormPage() {
         deXuat: formData.deXuat,
         raSoatTrung: formData.raSoatTrung,
         baoCaoBanGiamDoc: formData.baoCaoBanGiamDoc,
+        // Field-parity hệ thống cũ
+        senderIdNumber: formData.senderIdNumber || undefined,
+        senderIdIssueDate: formData.senderIdIssueDate || undefined,
+        senderIdIssuePlace: formData.senderIdIssuePlace || undefined,
+        senderIsAnonymous: formData.senderIsAnonymous,
+        loaiThongTin: formData.loaiThongTin || undefined,
+        soPhieuChuyen: formData.soPhieuChuyen || undefined,
+        ngayPhieuChuyen: formData.ngayPhieuChuyen || undefined,
+        ngayTiepNhanNguonTin: formData.ngayTiepNhanNguonTin || undefined,
+        toiDanhBanDau: formData.toiDanhBanDau || undefined,
+        crimeChinhId: formData.crimeChinhId || undefined,
+        noiXayRa: formData.noiXayRa || undefined,
+        noiXayRaPhuongXa: formData.noiXayRaPhuongXa || undefined,
+        ngayXayRa: formData.ngayXayRa || undefined,
+        loaiToiPham: formData.loaiToiPham || undefined,
+        phuongThucThuDoan: formData.phuongThucThuDoan || undefined,
+        ngayGiaoDonViGiaiQuyet: formData.ngayGiaoDonViGiaiQuyet || undefined,
+        laCongNgheCao: formData.laCongNgheCao,
+        lanhDaoToTung: formData.lanhDaoToTung || undefined,
+        ketQuaXuLyKhac: formData.ketQuaXuLyKhac || undefined,
+        thoiHanUTDT: formData.thoiHanUTDT || undefined,
+        // Field-parity bổ sung tab "Thông tin" form cũ /doi-1/Them (2026-06-26)
+        nguonDon: formData.nguonDon || undefined,
+        petitionDate: formData.petitionDate || undefined,
+        ngayDeXuat: formData.ngayDeXuat || undefined,
+        phanLoaiNguonTin: formData.phanLoaiNguonTin || undefined,
+        dieuTraVien: formData.dieuTraVien || undefined,
+        donViGiaiQuyet: formData.donViGiaiQuyet || undefined,
       };
+      let savedId: string | null;
       if (isEditMode) {
         await api.put(`/petitions/${id}`, { ...payload, expectedUpdatedAt: recordUpdatedAt ?? undefined });
+        savedId = id ?? null;
       } else {
-        await api.post("/petitions", payload);
+        const res = await api.post("/petitions", payload);
+        // Envelope {success, data:{id}} — không auto-unwrap (xem lib/api).
+        savedId = (res?.data as { data?: { id?: string } } | undefined)?.data?.id ?? null;
       }
-      // Refresh snapshot so officer can click Export Document right after Save
-      // without isDirty going stale.
+      // Refresh snapshot so officer can export right after Save without isDirty going stale.
       savedSnapshotRef.current = JSON.stringify(formData);
-      navigate("/petitions");
+      return { ok: true, id: savedId };
     } catch (err: unknown) {
       const status = (err as { response?: { status?: number } })?.response?.status;
       if (status === 409) {
@@ -238,9 +401,30 @@ export function PetitionFormPage() {
       } else {
         setErrors(extractApiError(err, "Có lỗi xảy ra khi lưu đơn thư. Vui lòng thử lại.").messages);
       }
+      return { ok: false, id: null };
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // "Lưu" thường → lưu xong về danh sách (hành vi cũ).
+  const onSave = async () => {
+    const r = await saveOnly();
+    if (r.ok) navigate("/petitions");
+  };
+
+  // "Lưu và xuất file" → lưu xong mở popup xuất chứng từ (KHÔNG điều hướng tới khi đóng popup).
+  const onSaveAndExport = async () => {
+    const r = await saveOnly();
+    if (!r.ok) return;
+    if (r.id) setExportModalForId(r.id);
+    else navigate("/petitions"); // không lấy được id → về danh sách (degrade an toàn)
+  };
+
+  // Form submit (phím Enter) → lưu thường.
+  const handleSubmit = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    void onSave();
   };
 
   const handleCancel = () => {
@@ -278,10 +462,13 @@ export function PetitionFormPage() {
           <button onClick={handleCancel} className="px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors" data-testid="btn-cancel-top">
             Hủy
           </button>
-          <button onClick={() => void handleSubmit()} disabled={isSubmitting} className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50" data-testid="btn-save-top">
-            <Save className="w-4 h-4" />
-            {isEditMode ? "Cập nhật" : "Lưu đơn thư"}
-          </button>
+          <SaveSplitButton
+            onSave={onSave}
+            onSaveAndExport={onSaveAndExport}
+            isSubmitting={isSubmitting}
+            label={isEditMode ? "Cập nhật" : "Lưu đơn thư"}
+            idPrefix="btn-save-top"
+          />
         </div>
       </div>
 
@@ -346,6 +533,23 @@ export function PetitionFormPage() {
             <h2 className="font-bold text-slate-800">Thông tin người gửi đơn</h2>
           </div>
           <div className="p-6 space-y-4">
+            <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+              <input
+                type="checkbox"
+                checked={formData.senderIsAnonymous}
+                onChange={(e) => {
+                  const anon = e.target.checked;
+                  setFormData((prev) => ({
+                    ...prev,
+                    senderIsAnonymous: anon,
+                    ...(anon && { senderName: "", senderAddress: "", senderPhone: "", senderIdNumber: "", senderIdIssueDate: "", senderIdIssuePlace: "" }),
+                  }));
+                }}
+                className="w-4 h-4"
+                data-testid="field-senderIsAnonymous"
+              />
+              Đơn nặc danh / không rõ người gửi (bỏ qua bắt buộc SĐT, tội danh)
+            </label>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Họ và tên <span className="text-red-500">*</span></label>
@@ -378,6 +582,147 @@ export function PetitionFormPage() {
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input type="email" value={formData.senderEmail} onChange={(e) => update("senderEmail", e.target.value)} className="w-full pl-9 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Nhập email" data-testid="field-senderEmail" />
                 </div>
+              </div>
+              {/* Giấy tờ tùy thân (CCCD) — field-parity */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Số CCCD nguyên đơn</label>
+                <input type="text" value={formData.senderIdNumber} onChange={(e) => update("senderIdNumber", e.target.value)} disabled={formData.senderIsAnonymous} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-100" placeholder="Số CCCD/CMND" maxLength={20} data-testid="field-senderIdNumber" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Ngày cấp CCCD</label>
+                <input type="date" value={formData.senderIdIssueDate} onChange={(e) => update("senderIdIssueDate", e.target.value)} max={today()} disabled={formData.senderIsAnonymous} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-100" data-testid="field-senderIdIssueDate" />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-slate-700 mb-2">Nơi cấp CCCD</label>
+                <input type="text" value={formData.senderIdIssuePlace} onChange={(e) => update("senderIdIssuePlace", e.target.value)} disabled={formData.senderIsAnonymous} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-100" placeholder="Nơi cấp CCCD" data-testid="field-senderIdIssuePlace" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Section: Tiếp nhận & luân chuyển nguồn tin — field-parity hệ thống cũ */}
+        <div className="bg-white rounded-lg border border-slate-200 shadow-sm">
+          <div className="border-b border-slate-200 px-6 py-4">
+            <h2 className="font-bold text-slate-800">Tiếp nhận &amp; luân chuyển nguồn tin</h2>
+          </div>
+          <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Phân loại nguồn tin ban đầu</label>
+              <select value={formData.phanLoaiNguonTin} onChange={(e) => update("phanLoaiNguonTin", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" data-testid="field-phanLoaiNguonTin">
+                <option value="">-- Chọn phân loại --</option>
+                <option value="don-cong-van-ban-dau">Đơn, Công văn</option>
+                <option value="vu-viec-ban-dau">Vụ việc</option>
+                <option value="vu-viec-nguon-tin">Vụ việc (nguồn tin)</option>
+                <option value="vu-an-ban-dau">Vụ án</option>
+                <option value="tra-ho-so-ban-dau">Trả hồ sơ cho đơn vị chuyển</option>
+                <option value="huong-dan-ban-dau">Hướng dẫn nghiệp vụ</option>
+                <option value="trao-doi-chuyen-an">Trao đổi chuyển án</option>
+                <option value="luat-su">Luật sư</option>
+                <option value="uy-thac-dieu-tra">Ủy thác điều tra</option>
+                <option value="kien-nghi-vks">Kiến nghị VKS</option>
+                <option value="cong-van-don-doc-phuc-hoi-tdc">Công văn đôn đốc phục hồi TĐC</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Nguồn đơn</label>
+              <input type="text" value={formData.nguonDon} onChange={(e) => update("nguonDon", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Bưu điện, Trực tiếp, PC01 Công an TPHCM,..." data-testid="field-nguonDon" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Ngày viết đơn</label>
+              <input type="date" value={formData.petitionDate} onChange={(e) => update("petitionDate", e.target.value)} max={today()} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" data-testid="field-petitionDate" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Ngày đề xuất</label>
+              <input type="date" value={formData.ngayDeXuat} onChange={(e) => update("ngayDeXuat", e.target.value)} max={today()} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" data-testid="field-ngayDeXuat" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Loại thông tin</label>
+              <input type="text" value={formData.loaiThongTin} onChange={(e) => update("loaiThongTin", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Tố giác, trình báo, kiến nghị, phản ánh, khiếu nại..." data-testid="field-loaiThongTin" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Số phiếu chuyển / công văn / UTĐT</label>
+              <input type="text" value={formData.soPhieuChuyen} onChange={(e) => update("soPhieuChuyen", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Số phiếu chuyển từ đơn vị khác" data-testid="field-soPhieuChuyen" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Ngày phiếu chuyển</label>
+              <input type="date" value={formData.ngayPhieuChuyen} onChange={(e) => update("ngayPhieuChuyen", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" data-testid="field-ngayPhieuChuyen" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Ngày tiếp nhận nguồn tin</label>
+              <input type="date" value={formData.ngayTiepNhanNguonTin} onChange={(e) => update("ngayTiepNhanNguonTin", e.target.value)} max={today()} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" data-testid="field-ngayTiepNhanNguonTin" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Nơi xảy ra</label>
+              <input type="text" value={formData.noiXayRa} onChange={(e) => update("noiXayRa", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Địa điểm nơi xảy ra" data-testid="field-noiXayRa" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Nơi xảy ra (phường/xã)</label>
+              <input type="text" value={formData.noiXayRaPhuongXa} onChange={(e) => update("noiXayRaPhuongXa", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Phường/xã nơi xảy ra" data-testid="field-noiXayRaPhuongXa" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Ngày xảy ra</label>
+              <input type="date" value={formData.ngayXayRa} onChange={(e) => update("ngayXayRa", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" data-testid="field-ngayXayRa" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Loại tội phạm</label>
+              <select value={formData.loaiToiPham} onChange={(e) => update("loaiToiPham", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" data-testid="field-loaiToiPham">
+                <option value="">-- Chọn loại tội phạm --</option>
+                <option value="TTXH">TTXH</option>
+                <option value="Kinh tế-Ma túy">Kinh tế-Ma túy</option>
+                <option value="Khác">Khác</option>
+              </select>
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-slate-700 mb-2">Phương thức, thủ đoạn</label>
+              <textarea value={formData.phuongThucThuDoan} onChange={(e) => update("phuongThucThuDoan", e.target.value)} rows={3} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" placeholder="Nhập phương thức thủ đoạn" data-testid="field-phuongThucThuDoan" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Ngày giao đơn vị giải quyết</label>
+              <input type="date" value={formData.ngayGiaoDonViGiaiQuyet} onChange={(e) => update("ngayGiaoDonViGiaiQuyet", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" data-testid="field-ngayGiaoDonViGiaiQuyet" />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-slate-700 mb-2">Tội danh cũ trước đây</label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={suspectQuery !== "" ? suspectQuery : formData.toiDanhBanDau}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    handleSuspectInput(v);
+                  }}
+                  onFocus={() => suspectResults.length > 0 && setShowSuspectDropdown(true)}
+                  onBlur={() => setTimeout(() => {
+                    setShowSuspectDropdown(false);
+                    if (suspectQuery !== "") {
+                      update("toiDanhBanDau", suspectQuery);
+                      setSuspectQuery("");
+                    }
+                  }, 200)}
+                  className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Gõ tên/CCCD để tìm tiền án, hoặc nhập tự do"
+                  data-testid="suspect-search-input"
+                />
+                {showSuspectDropdown && suspectResults.length > 0 && (
+                  <div className="absolute z-50 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto">
+                    {suspectResults.map((r, i) => (
+                      <button
+                        key={`${r.idNumber}-${i}`}
+                        type="button"
+                        className="w-full text-left px-4 py-2 hover:bg-slate-50 text-sm"
+                        onMouseDown={() => {
+                          const crimes = r.crimes.join(", ");
+                          update("toiDanhBanDau", crimes);
+                          setSuspectQuery("");
+                          setShowSuspectDropdown(false);
+                        }}
+                      >
+                        <span className="font-medium">{r.name}</span>
+                        {r.idNumber && <span className="text-slate-500 ml-2 text-xs">CCCD: {r.idNumber}</span>}
+                        {r.crimes.length > 0 && <div className="text-slate-600 text-xs truncate">{r.crimes.join(", ")}</div>}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -434,7 +779,6 @@ export function PetitionFormPage() {
               <div>
                 <FKSelect
                   label="Mức độ ưu tiên"
-                  required
                   masterClassType="03"
                   value={formData.priority}
                   onChange={(v) => update("priority", v)}
@@ -443,6 +787,34 @@ export function PetitionFormPage() {
                 />
               </div>
             </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <CrimeSelect
+                  label="Tội danh chính (BLHS 2015)"
+                  required={!isEditMode && !formData.senderIsAnonymous}
+                  value={formData.crimeChinhId}
+                  onChange={(v) => update("crimeChinhId", v)}
+                  placeholder="Chọn tội danh chính"
+                  testId="field-crimeChinhId"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Lãnh đạo phụ trách tố tụng</label>
+                <input type="text" value={formData.lanhDaoToTung} onChange={(e) => update("lanhDaoToTung", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Tên lãnh đạo phụ trách ký tố tụng" data-testid="field-lanhDaoToTung" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Điều tra viên</label>
+                <input type="text" value={formData.dieuTraVien} onChange={(e) => update("dieuTraVien", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Tên điều tra viên thụ lý" data-testid="field-dieuTraVien" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Đơn vị giải quyết</label>
+                <input type="text" value={formData.donViGiaiQuyet} onChange={(e) => update("donViGiaiQuyet", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Đơn vị giải quyết (khác đơn vị tiếp nhận)" data-testid="field-donViGiaiQuyet" />
+              </div>
+            </div>
+            <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+              <input type="checkbox" checked={formData.laCongNgheCao} onChange={(e) => update("laCongNgheCao", e.target.checked)} className="w-4 h-4" data-testid="field-laCongNgheCao" />
+              Tội phạm công nghệ cao
+            </label>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">Tóm tắt nội dung <span className="text-red-500">*</span></label>
               <textarea value={formData.summary} onChange={(e) => update("summary", e.target.value)} rows={2} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Tóm tắt ngắn gọn nội dung đơn thư" data-testid="field-summary" />
@@ -459,15 +831,22 @@ export function PetitionFormPage() {
               <input type="text" value={formData.attachmentsNote} onChange={(e) => update("attachmentsNote", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Liệt kê tài liệu đính kèm dạng ghi chú" data-testid="field-attachmentsNote" />
               <p className="text-xs text-slate-500 mt-1">File thực tế tải lên ở mục "Tài liệu đính kèm thực tế" bên dưới.</p>
             </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Kết quả xử lý, giải quyết khác</label>
+              <textarea value={formData.ketQuaXuLyKhac} onChange={(e) => update("ketQuaXuLyKhac", e.target.value)} rows={2} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Các trường hợp xử lý, giải quyết khác" data-testid="field-ketQuaXuLyKhac" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Thời hạn ủy thác điều tra</label>
+              <input type="date" value={formData.thoiHanUTDT} onChange={(e) => update("thoiHanUTDT", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" data-testid="field-thoiHanUTDT" />
+              <p className="text-xs text-slate-500 mt-1">Thời hạn thực hiện ủy thác điều tra (nếu có)</p>
+            </div>
           </div>
         </div>
 
-        {/* Section 4b: Tài liệu thực tế (Cycle 9 v0.52) — chỉ hiện ở edit mode khi đã có petitionId */}
-        {isEditMode && id && (
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-            <EntityDocumentsTab entityKind="petition" entityId={id} />
-          </div>
-        )}
+        {/* Section 4b: Tài liệu thực tế — luôn hiển thị; EntityDocumentsTab tự guard khi chưa có petitionId */}
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+          <EntityDocumentsTab entityKind="petition" entityId={id} />
+        </div>
 
         {/* Section 5: Phân công xử lý */}
         <div className="bg-white rounded-lg border border-slate-200 shadow-sm">
@@ -504,9 +883,8 @@ export function PetitionFormPage() {
           </div>
         </div>
 
-        {/* v0.47 PR3.1 T11 — Section 6: Nội dung phiếu đề xuất (chỉ hiện khi edit) */}
-        {isEditMode && (
-          <div className="bg-white rounded-lg border border-slate-200 shadow-sm" data-testid="section-noi-dung-phieu-de-xuat">
+        {/* v0.47 PR3.1 T11 — Section 6: Nội dung phiếu đề xuất (hiện cả CREATE + EDIT mode, field-parity hệ thống cũ) */}
+        <div className="bg-white rounded-lg border border-slate-200 shadow-sm" data-testid="section-noi-dung-phieu-de-xuat">
             <div className="border-b border-slate-200 px-6 py-4">
               <h2 className="font-bold text-slate-800">Nội dung phiếu đề xuất</h2>
               <p className="text-xs text-slate-500 mt-1">Nội dung nghiệp vụ phục vụ xuất Phiếu đề xuất, Phiếu chuyển, Thông báo. Bắt buộc khi xuất Phiếu đề xuất.</p>
@@ -535,15 +913,49 @@ export function PetitionFormPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Kết quả rà soát đơn/vụ trùng</label>
-                <textarea
-                  value={formData.raSoatTrung}
-                  onChange={(e) => update("raSoatTrung", e.target.value)}
-                  rows={2}
-                  className="w-full px-4 py-2.5 text-base sm:text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Không trùng / Mô tả vụ trùng nếu có"
-                  data-testid="field-raSoatTrung"
-                />
+                <label className="block text-sm font-medium text-slate-700 mb-2">Ghi chú trùng đơn</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={dupQuery !== "" ? dupQuery : formData.raSoatTrung}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      handleDupInput(v);
+                    }}
+                    onFocus={() => dupResults.length > 0 && setShowDupDropdown(true)}
+                    onBlur={() => setTimeout(() => {
+                      setShowDupDropdown(false);
+                      if (dupQuery !== "") {
+                        update("raSoatTrung", dupQuery);
+                        setDupQuery("");
+                      }
+                    }, 200)}
+                    className="w-full px-4 py-2.5 text-base sm:text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Gõ tên/STT để tìm đơn trùng, hoặc nhập 'Không'"
+                    data-testid="duplicate-search-input"
+                  />
+                  {showDupDropdown && dupResults.length > 0 && (
+                    <div className="absolute z-50 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto">
+                      {dupResults.map((r) => (
+                        <button
+                          key={r.id}
+                          type="button"
+                          className="w-full text-left px-4 py-2 hover:bg-slate-50 text-sm"
+                          onMouseDown={() => {
+                            const label = `${r.stt} - ${r.senderName} (${new Date(r.receivedDate).toLocaleDateString('vi-VN')})`;
+                            update("raSoatTrung", label);
+                            setDupQuery("");
+                            setShowDupDropdown(false);
+                          }}
+                        >
+                          <span className="font-medium">{r.stt}</span>
+                          <span className="text-slate-600 ml-2">{r.senderName}</span>
+                          {r.summary && <div className="text-slate-500 text-xs truncate">{r.summary}</div>}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
               <div>
                 <label className="inline-flex items-center gap-2 cursor-pointer" data-testid="field-baoCaoBanGiamDoc-wrap">
@@ -559,21 +971,69 @@ export function PetitionFormPage() {
               </div>
             </div>
           </div>
+
+        {/* Nhóm I: Phân công cán bộ — edit mode only */}
+        {isEditMode && id && (
+          <PetitionAssignmentSection petitionId={id} userOptions={userOptions} />
         )}
 
         <div className="flex items-center justify-end gap-3 bg-white rounded-lg border border-slate-200 shadow-sm p-4 sm:p-6 flex-wrap">
           <button type="button" onClick={handleCancel} className="px-4 sm:px-6 py-2.5 min-h-[44px] border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors" data-testid="btn-cancel">
             Hủy
           </button>
-          <button type="submit" disabled={isSubmitting} className="flex items-center gap-2 px-4 sm:px-6 py-2.5 min-h-[44px] bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50" data-testid="btn-save">
-            <Save className="w-4 h-4" />
-            {isSubmitting ? "Đang lưu..." : isEditMode ? "Cập nhật" : "Lưu đơn thư"}
-          </button>
+          <SaveSplitButton
+            onSave={onSave}
+            onSaveAndExport={onSaveAndExport}
+            isSubmitting={isSubmitting}
+            label={isEditMode ? "Cập nhật" : "Lưu đơn thư"}
+            idPrefix="btn-save"
+          />
           {isEditMode && id && (
             <ExportDocumentDropdown petitionId={id} isDirty={isDirty} />
           )}
+          {canConvert && (
+            <button
+              type="button"
+              data-testid="btn-convert-petition"
+              onClick={() => setShowConvertModal(true)}
+              className="flex items-center gap-2 px-4 sm:px-6 py-2.5 min-h-[44px] bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium"
+            >
+              Chuyển đổi
+            </button>
+          )}
         </div>
       </form>
+
+      {/* Nhóm II: ConvertPetitionModal */}
+      {showConvertModal && id && (
+        <ConvertPetitionModal
+          petitionUpdatedAt={recordUpdatedAt}
+          onClose={() => setShowConvertModal(false)}
+          onSubmitIncident={async (payload: ConvertToIncidentPayload) => {
+            const res = await api.post(`/petitions/${id}/convert-incident`, payload);
+            setShowConvertModal(false);
+            const incidentId = res?.data?.data?.incident?.id;
+            navigate(incidentId ? `/incidents/${incidentId}/edit` : `/incidents`);
+          }}
+          onSubmitCase={async (payload: ConvertToCasePayload) => {
+            const res = await api.post(`/petitions/${id}/convert-case`, payload);
+            setShowConvertModal(false);
+            const caseId = res?.data?.data?.case?.id;
+            navigate(caseId ? `/cases/${caseId}/edit` : `/cases`);
+          }}
+        />
+      )}
+
+      {/* Popup "Xuất chứng từ" sau "Lưu và xuất file" — đóng popup → về danh sách. */}
+      {exportModalForId && (
+        <ExportDocumentsModal
+          petitionId={exportModalForId}
+          onClose={() => {
+            setExportModalForId(null);
+            navigate("/petitions");
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Search,
   Download,
@@ -11,18 +11,14 @@ import {
   Building2,
   User,
   X,
-
-  AlertCircle,
   CheckCircle,
   FileSpreadsheet,
-  Printer,
-
+  Loader2,
   Info,
   XCircle,
 } from "lucide-react";
 import { api } from "@/lib/api";
-import { today, formatVNDate, toDateInput } from "@/lib/dates";
-import { escapeHtml } from "@/lib/html-escape";
+import { formatVNDate, toDateInput } from "@/lib/dates";
 
 interface Document {
   id: string;
@@ -43,21 +39,16 @@ interface FilterData {
   unit: string;
 }
 
-interface ReceiptFormData {
-  receiptNumber: string;
-  receiptDate: string;
-  receiverName: string;
-  delivererName: string;
-  content: string;
-}
-
-interface ValidationErrors {
-  receiptNumber?: string;
-  receiptDate?: string;
-  receiverName?: string;
-  delivererName?: string;
-  content?: string;
-}
+// 7 docTypes — khớp với DOCUMENT_TYPES backend (docx-loader.service.ts)
+const BATCH_DOC_TYPES = [
+  { value: "BIEN_NHAN", label: "Biên nhận", description: "Biên nhận tiếp nhận đơn thư" },
+  { value: "PHIEU_DE_XUAT", label: "Phiếu đề xuất", description: "Báo cáo đề xuất xử lý đơn thư" },
+  { value: "PHIEU_CHUYEN_NGUON_TIN", label: "Phiếu chuyển nguồn tin", description: "Mẫu 03 TT 128/2025/TT-BCA" },
+  { value: "PHIEU_CHUYEN_DON", label: "Phiếu chuyển đơn", description: "Chuyển đơn theo thẩm quyền" },
+  { value: "THONG_BAO_CHUYEN", label: "Thông báo chuyển đơn", description: "Thông báo cho người gửi" },
+  { value: "THONG_BAO_HUONG_DAN", label: "Thông báo hướng dẫn", description: "Hướng dẫn khởi kiện ra Tòa" },
+  { value: "THONG_BAO_TRA_LAI", label: "Thông báo trả lại đơn", description: "Trả lại đơn để bổ sung" },
+] as const;
 
 type NotificationType = "success" | "error" | "info";
 
@@ -70,9 +61,11 @@ const PAGE_SIZE = 20;
 
 export default function ExportReportsPage() {
   const [showAdvancedFilter, setShowAdvancedFilter] = useState(false);
-  const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [showBatchDocDropdown, setShowBatchDocDropdown] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [notification, setNotification] = useState<Notification | null>(null);
+  const [isBatchExportingDoc, setIsBatchExportingDoc] = useState(false);
+  const batchDropdownRef = useRef<HTMLDivElement>(null);
 
   const [filters, setFilters] = useState<FilterData>({
     quickSearch: "",
@@ -80,16 +73,6 @@ export default function ExportReportsPage() {
     toDate: "",
     unit: "",
   });
-
-  const [receiptForm, setReceiptForm] = useState<ReceiptFormData>({
-    receiptNumber: "",
-    receiptDate: today(),
-    receiverName: "",
-    delivererName: "",
-    content: "",
-  });
-
-  const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
 
   const [petitions, setPetitions] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
@@ -127,6 +110,20 @@ export default function ExportReportsPage() {
   }, [currentPage, searchQuery]);
 
   useEffect(() => { fetchPetitions(); }, [fetchPetitions]);
+
+  // Đóng batch dropdown khi click ngoài
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (batchDropdownRef.current && !batchDropdownRef.current.contains(e.target as Node)) {
+        setShowBatchDocDropdown(false);
+      }
+    }
+    if (showBatchDocDropdown) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+    return undefined;
+  }, [showBatchDocDropdown]);
 
   // Client-side filtering for date/unit filters (applied on top of server-fetched page)
   const filteredData = petitions.filter((doc) => {
@@ -229,103 +226,36 @@ export default function ExportReportsPage() {
     }
   };
 
-  const validateReceiptForm = (): boolean => {
-    const errors: ValidationErrors = {};
-
-    if (!receiptForm.receiptNumber.trim()) {
-      errors.receiptNumber = "Vui lòng nhập số biên nhận";
+  const handleBatchExportDocument = async (docType: string) => {
+    if (isBatchExportingDoc || selectedIds.length === 0) return;
+    setIsBatchExportingDoc(true);
+    setShowBatchDocDropdown(false);
+    let url: string | null = null;
+    try {
+      const response = await api.post<Blob>(
+        '/petitions/export-document-batch',
+        { docType, petitionIds: selectedIds },
+        { responseType: 'blob' },
+      );
+      const headers = response.headers ?? {};
+      const cd = String(headers["content-disposition"] || "");
+      const m = cd.match(/filename="([^"]+)"/);
+      const filename = m?.[1] ?? `${docType}_batch.zip`;
+      url = URL.createObjectURL(response.data);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      showNotification('success', `Đã xuất ${selectedIds.length} biểu mẫu — tải về ${filename}`);
+    } catch {
+      showNotification('error', 'Xuất tài liệu đồng loạt thất bại. Kiểm tra các đơn đã chọn có đủ trường bắt buộc không.');
+    } finally {
+      if (url) URL.revokeObjectURL(url);
+      setIsBatchExportingDoc(false);
     }
-
-    if (!receiptForm.receiptDate) {
-      errors.receiptDate = "Vui lòng chọn ngày biên nhận";
-    }
-
-    if (!receiptForm.receiverName.trim()) {
-      errors.receiverName = "Vui lòng nhập tên người nhận";
-    }
-
-    if (!receiptForm.delivererName.trim()) {
-      errors.delivererName = "Vui lòng nhập tên người giao";
-    }
-
-    if (!receiptForm.content.trim()) {
-      errors.content = "Vui lòng nhập nội dung biên nhận";
-    } else if (receiptForm.content.trim().length < 10) {
-      errors.content = "Nội dung phải có ít nhất 10 ký tự";
-    }
-
-    setValidationErrors(errors);
-    return Object.keys(errors).length === 0;
   };
-
-  // Print-based receipt handler — opens in a new window and triggers browser print
-  const handleExportReceiptFromModal = () => {
-    if (!validateReceiptForm()) return;
-
-    const receiptHTML = `<!DOCTYPE html>
-<html lang="vi">
-<head>
-  <meta charset="UTF-8">
-  <title>Biên nhận đơn thư</title>
-  <style>
-    body { font-family: "Times New Roman", serif; margin: 2cm; }
-    .header { text-align: center; margin-bottom: 20px; }
-    .title { font-size: 18px; font-weight: bold; text-transform: uppercase; }
-    .field { margin: 8px 0; }
-    .label { font-weight: bold; }
-    .signature { margin-top: 40px; display: flex; justify-content: space-between; }
-    .sig-block { text-align: center; width: 40%; }
-    @media print { body { margin: 1cm; } }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <div style="font-size:12px">CÔNG AN THÀNH PHỐ HỒ CHÍ MINH</div>
-    <div class="title">BIÊN NHẬN ĐƠN THƯ</div>
-  </div>
-  <div class="field"><span class="label">Số biên nhận:</span> ${escapeHtml(receiptForm.receiptNumber)}</div>
-  <div class="field"><span class="label">Ngày:</span> ${escapeHtml(formatVNDate(receiptForm.receiptDate))}</div>
-  <div class="field"><span class="label">Người nhận:</span> ${escapeHtml(receiptForm.receiverName)}</div>
-  <div class="field"><span class="label">Người giao:</span> ${escapeHtml(receiptForm.delivererName)}</div>
-  <div class="field"><span class="label">Nội dung:</span> ${escapeHtml(receiptForm.content)}</div>
-  <div class="signature">
-    <div class="sig-block">
-      <div>Người nộp đơn</div>
-      <div style="margin-top:60px">(Ký, ghi rõ họ tên)</div>
-    </div>
-    <div class="sig-block">
-      <div>Hồ Chí Minh, ngày ___ tháng ___ năm ___</div>
-      <div style="margin-top:10px">CÁN BỘ TIẾP NHẬN</div>
-      <div style="margin-top:60px">(Ký, ghi rõ họ tên)</div>
-    </div>
-  </div>
-</body>
-</html>`;
-
-    const printWindow = window.open('', '_blank', 'width=800,height=600');
-    if (!printWindow) {
-      showNotification('error', 'Trình duyệt chặn popup. Vui lòng cho phép popup và thử lại.');
-      return;
-    }
-    printWindow.document.write(receiptHTML);
-    printWindow.document.close();
-    printWindow.onload = () => {
-      setTimeout(() => {
-        printWindow.print();
-      }, 300);
-    };
-
-    setShowReceiptModal(false);
-    setReceiptForm({
-      receiptNumber: "",
-      receiptDate: today(),
-      receiverName: "",
-      delivererName: "",
-      content: "",
-    });
-    setValidationErrors({});
-  };
-
 
   const isAllSelected = filteredData.length > 0 && selectedIds.length === filteredData.length;
   const isSomeSelected = selectedIds.length > 0 && selectedIds.length < filteredData.length;
@@ -391,7 +321,7 @@ export default function ExportReportsPage() {
       <div>
         <h1 className="text-2xl font-bold text-slate-800">Xuất hồ sơ đơn thư</h1>
         <p className="text-slate-600 text-sm mt-1">
-          Xuất danh sách đơn thư ra Excel, chi tiết ra Word và in biên nhận tiếp nhận
+          Xuất danh sách đơn thư ra Excel; xuất đồng loạt biểu mẫu Word (ZIP) cho các đơn đã chọn
         </p>
       </div>
 
@@ -458,23 +388,54 @@ export default function ExportReportsPage() {
             )}
           </button>
 
-          <button
-            onClick={() => {
-              setShowReceiptModal(true);
-              setReceiptForm({
-                receiptNumber: "",
-                receiptDate: today(),
-                receiverName: "",
-                delivererName: "",
-                content: "",
-              });
-              setValidationErrors({});
-            }}
-            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-          >
-            <Printer className="w-4 h-4" />
-            Xuất biên nhận
-          </button>
+          {/* Batch Word export dropdown — enabled khi đã chọn ít nhất 1 đơn */}
+          <div ref={batchDropdownRef} className="relative inline-block">
+            <button
+              type="button"
+              onClick={() => setShowBatchDocDropdown((v) => !v)}
+              disabled={isBatchExportingDoc || selectedIds.length === 0}
+              title={selectedIds.length === 0 ? "Chọn ít nhất 1 đơn thư để xuất đồng loạt" : "Xuất tài liệu đồng loạt (ZIP)"}
+              className="flex items-center gap-2 px-4 py-2.5 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isBatchExportingDoc ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <FileText className="w-4 h-4" />
+              )}
+              {isBatchExportingDoc ? "Đang xuất..." : "Xuất tài liệu đồng loạt"}
+              {!isBatchExportingDoc && <ChevronDown className="w-4 h-4" />}
+            </button>
+            {showBatchDocDropdown && (
+              <div
+                role="menu"
+                className="absolute left-0 mt-2 w-72 bg-white border border-slate-200 rounded-lg shadow-lg z-30 overflow-hidden"
+              >
+                <div className="px-3 py-2 text-xs text-slate-500 border-b border-slate-100">
+                  Xuất {selectedIds.length} đơn đã chọn → ZIP
+                </div>
+                <ul>
+                  {BATCH_DOC_TYPES.map((dt) => (
+                    <li key={dt.value}>
+                      <button
+                        type="button"
+                        onClick={() => handleBatchExportDocument(dt.value)}
+                        className="w-full text-left px-3 py-2.5 hover:bg-amber-50 transition-colors border-b border-slate-100 last:border-b-0"
+                        role="menuitem"
+                      >
+                        <div className="flex items-start gap-2">
+                          <FileText className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                          <div>
+                            <div className="text-sm font-medium text-slate-800">{dt.label}</div>
+                            <div className="text-xs text-slate-500">{dt.description}</div>
+                          </div>
+                        </div>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="flex items-center gap-3">
@@ -520,8 +481,8 @@ export default function ExportReportsPage() {
                 "Xem" hồ sơ. Tên file: <code className="px-1.5 py-0.5 bg-blue-100 rounded text-xs">HoSo_DonThu_&#123;STT&#125;_YYYYMMDD.docx</code>
               </li>
               <li>
-                • <span className="font-medium">Xuất biên nhận:</span> Nhập đầy đủ thông tin sau đó
-                xuất file PDF
+                • <span className="font-medium">Xuất tài liệu đồng loạt:</span> Chọn ít nhất 1 đơn
+                thư → nhấn "Xuất tài liệu đồng loạt" → chọn loại biểu mẫu → tải về file ZIP chứa toàn bộ .docx
               </li>
             </ul>
           </div>
@@ -773,178 +734,6 @@ export default function ExportReportsPage() {
           </div>
         )}
       </div>
-
-      {showReceiptModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full">
-            <div className="p-6 border-b border-slate-200">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                  <Printer className="w-5 h-5 text-blue-600" />
-                  Xuất biên nhận
-                </h3>
-                <button
-                  onClick={() => {
-                    setShowReceiptModal(false);
-                    setValidationErrors({});
-                  }}
-                  className="p-1 hover:bg-slate-100 rounded transition-colors"
-                >
-                  <X className="w-5 h-5 text-slate-500" />
-                </button>
-              </div>
-            </div>
-
-            <div className="p-6 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Số biên nhận <span className="text-red-600">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={receiptForm.receiptNumber}
-                    onChange={(e) =>
-                      setReceiptForm({ ...receiptForm, receiptNumber: e.target.value })
-                    }
-                    placeholder="BN-001/2026"
-                    className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
-                      validationErrors.receiptNumber
-                        ? "border-red-300 focus:ring-red-500"
-                        : "border-slate-300 focus:ring-blue-500"
-                    }`}
-                  />
-                  {validationErrors.receiptNumber && (
-                    <div className="flex items-center gap-1 mt-1 text-red-600">
-                      <AlertCircle className="w-3.5 h-3.5" />
-                      <p className="text-xs">{validationErrors.receiptNumber}</p>
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Ngày <span className="text-red-600">*</span>
-                  </label>
-                  <input
-                    type="date"
-                    value={receiptForm.receiptDate}
-                    onChange={(e) =>
-                      setReceiptForm({ ...receiptForm, receiptDate: e.target.value })
-                    }
-                    className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
-                      validationErrors.receiptDate
-                        ? "border-red-300 focus:ring-red-500"
-                        : "border-slate-300 focus:ring-blue-500"
-                    }`}
-                  />
-                  {validationErrors.receiptDate && (
-                    <div className="flex items-center gap-1 mt-1 text-red-600">
-                      <AlertCircle className="w-3.5 h-3.5" />
-                      <p className="text-xs">{validationErrors.receiptDate}</p>
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Tên người nhận <span className="text-red-600">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={receiptForm.receiverName}
-                    onChange={(e) =>
-                      setReceiptForm({ ...receiptForm, receiverName: e.target.value })
-                    }
-                    placeholder="Họ và tên"
-                    className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
-                      validationErrors.receiverName
-                        ? "border-red-300 focus:ring-red-500"
-                        : "border-slate-300 focus:ring-blue-500"
-                    }`}
-                  />
-                  {validationErrors.receiverName && (
-                    <div className="flex items-center gap-1 mt-1 text-red-600">
-                      <AlertCircle className="w-3.5 h-3.5" />
-                      <p className="text-xs">{validationErrors.receiverName}</p>
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Tên người giao <span className="text-red-600">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={receiptForm.delivererName}
-                    onChange={(e) =>
-                      setReceiptForm({ ...receiptForm, delivererName: e.target.value })
-                    }
-                    placeholder="Họ và tên"
-                    className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
-                      validationErrors.delivererName
-                        ? "border-red-300 focus:ring-red-500"
-                        : "border-slate-300 focus:ring-blue-500"
-                    }`}
-                  />
-                  {validationErrors.delivererName && (
-                    <div className="flex items-center gap-1 mt-1 text-red-600">
-                      <AlertCircle className="w-3.5 h-3.5" />
-                      <p className="text-xs">{validationErrors.delivererName}</p>
-                    </div>
-                  )}
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Nội dung <span className="text-red-600">*</span>
-                  </label>
-                  <textarea
-                    value={receiptForm.content}
-                    onChange={(e) => setReceiptForm({ ...receiptForm, content: e.target.value })}
-                    rows={4}
-                    placeholder="Nội dung biên nhận (tối thiểu 10 ký tự)..."
-                    className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 resize-none ${
-                      validationErrors.content
-                        ? "border-red-300 focus:ring-red-500"
-                        : "border-slate-300 focus:ring-blue-500"
-                    }`}
-                  />
-                  {validationErrors.content && (
-                    <div className="flex items-center gap-1 mt-1 text-red-600">
-                      <AlertCircle className="w-3.5 h-3.5" />
-                      <p className="text-xs">{validationErrors.content}</p>
-                    </div>
-                  )}
-                  <p className="text-xs text-slate-500 mt-1">
-                    {receiptForm.content.length} ký tự (tối thiểu 10 ký tự)
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-6 border-t border-slate-200 flex items-center justify-end gap-3">
-              <button
-                onClick={() => {
-                  setShowReceiptModal(false);
-                  setValidationErrors({});
-                }}
-                className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
-              >
-                Hủy bỏ
-              </button>
-              <button
-                onClick={handleExportReceiptFromModal}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-              >
-                <Download className="w-4 h-4" />
-                In biên nhận
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

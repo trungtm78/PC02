@@ -103,10 +103,23 @@ const mockPrisma = {
   },
   userTeam: {
     findFirst: jest.fn(),
+    findMany: jest.fn(),
+  },
+  petitionAssignment: {
+    create: jest.fn(),
+    findUnique: jest.fn(),
+    findMany: jest.fn(),
+    delete: jest.fn(),
   },
   documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
   document: {
     updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+  },
+  // export chứng từ: row lock + audit render log
+  $queryRaw: jest.fn().mockResolvedValue([]),
+  documentRenderLog: {
+    create: jest.fn().mockResolvedValue({}),
+    updateMany: jest.fn().mockResolvedValue({ count: 1 }),
   },
   $transaction: jest.fn().mockImplementation(async (fn: any) => fn(mockPrisma)) as any,
 };
@@ -173,7 +186,10 @@ describe('PetitionsService', () => {
         { provide: EventEmitter2, useValue: { emit: jest.fn() } },
         {
           provide: require('./document-export.service').DocumentExportService,
-          useValue: { renderDocxTemplate: jest.fn(() => Buffer.from('mock-docx')) },
+          useValue: {
+            renderDocxTemplate: jest.fn(() => Buffer.from('mock-docx')),
+            loader: { sha: jest.fn(() => 'tpl-sha') },
+          },
         },
       ],
     }).compile();
@@ -1052,6 +1068,7 @@ describe('PetitionsService', () => {
     it('throws ConflictException on P2025 with expectedUpdatedAt', async () => {
       mockPrisma.petition.findFirst.mockResolvedValue(existingPetition);
       mockPrisma.team.findFirst.mockResolvedValue(mockTeam);
+      mockPrisma.userTeam.findMany.mockResolvedValue([]);
       mockPrisma.petition.update.mockRejectedValue({ code: 'P2025' });
 
       await expect(
@@ -1078,9 +1095,11 @@ describe('PetitionsService', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('assigns petition without assignedToId (team-only assignment)', async () => {
+    it('assigns petition without assignedToId (team-only assignment — auto-assign leader path)', async () => {
       mockPrisma.petition.findFirst.mockResolvedValue(existingPetition);
       mockPrisma.team.findFirst.mockResolvedValue(mockTeam);
+      // No leaders in team — auto-assign logic finds no leader → null
+      mockPrisma.userTeam.findMany.mockResolvedValue([]);
       mockPrisma.petition.update.mockResolvedValue({ ...existingPetition, assignedTeamId: 'team-001', assignedToId: null });
 
       const result = await service.assignPetition(
@@ -1349,6 +1368,79 @@ describe('PetitionsService', () => {
   });
 
   // ── BUG-001 + BUG-002: DTO validation (class-validator) ───────────────────
+  // ── renderDocumentsAtomic (export nhiều mẫu, atomic) ─────────────────────────
+  describe('renderDocumentsAtomic (atomic multi-export)', () => {
+    const VALID_PETITION = {
+      id: 'p1',
+      senderName: 'Nguyễn Văn A',
+      summary: 'Nội dung đơn',
+      unit: 'u1',
+      assignedTeam: { id: 't1', code: 'Đ1', name: 'Đội 1', members: [] },
+      enteredBy: { firstName: 'B', lastName: 'C', rank: 'D' },
+    };
+
+    beforeEach(() => {
+      // Bỏ qua nội bộ getById (RBAC scope) — test atomic, không test scope.
+      jest.spyOn(service as any, 'getById').mockResolvedValue(VALID_PETITION);
+      mockPrisma.petition.findFirst.mockResolvedValue(VALID_PETITION as any);
+    });
+
+    // finalize giả: nối buffer N mẫu → 1 buffer deliverable.
+    const concatFinalize = (docs: Array<{ buffer: Buffer }>) =>
+      Buffer.concat(docs.map((d) => d.buffer));
+
+    it('render N mẫu + finalize trong ĐÚNG 1 transaction (atomic) → trả buffer, cấp N số', async () => {
+      const finalize = jest.fn(concatFinalize);
+      const out = await (service as any).renderDocumentsAtomic(
+        'p1', ['BIEN_NHAN', 'THONG_BAO_CHUYEN'], 'u1', null, finalize,
+      );
+      expect(Buffer.isBuffer(out)).toBe(true);
+      // Atomic: CẢ N render + finalize gói trong 1 $transaction → rollback nguyên khối nếu lỗi.
+      expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(mockDocNums.commitWithTx).toHaveBeenCalledTimes(2);
+      // finalize nhận đúng N doc có documentNumber + filename.
+      expect(finalize).toHaveBeenCalledTimes(1);
+      expect(finalize.mock.calls[0][0]).toHaveLength(2);
+      expect(finalize.mock.calls[0][0][0]).toHaveProperty('documentNumber');
+      expect(finalize.mock.calls[0][0][0]).toHaveProperty('filename');
+    });
+
+    it('[F1] 1 mẫu thiếu trường bắt buộc → throw TRƯỚC transaction, 0 cấp số, finalize không chạy', async () => {
+      // PHIEU_DE_XUAT cần nhanThay+deXuat — fixture không có → fail pre-validate.
+      const finalize = jest.fn(concatFinalize);
+      await expect(
+        (service as any).renderDocumentsAtomic('p1', ['BIEN_NHAN', 'PHIEU_DE_XUAT'], 'u1', null, finalize),
+      ).rejects.toThrow();
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+      expect(mockDocNums.commitWithTx).not.toHaveBeenCalled();
+      expect(finalize).not.toHaveBeenCalled();
+    });
+
+    it('[atomic] render lỗi GIỮA chừng → reject, toàn bộ vẫn trong 1 transaction (rollback)', async () => {
+      const docExport = (service as any).documentExport;
+      docExport.renderDocxTemplate
+        .mockReturnValueOnce(Buffer.from('ok-1'))
+        .mockImplementationOnce(() => { throw new Error('template hỏng'); });
+      await expect(
+        (service as any).renderDocumentsAtomic('p1', ['BIEN_NHAN', 'THONG_BAO_CHUYEN'], 'u1', null, concatFinalize),
+      ).rejects.toThrow('template hỏng');
+      // Chỉ 1 $transaction bao cả batch → số của mẫu 1 cũng rollback cùng (DB-level).
+      expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+    });
+
+    it('[P2 đóng kín] finalize (gộp/zip) lỗi SAU render → reject trong CÙNG 1 transaction → rollback số', async () => {
+      const finalize = jest.fn(() => { throw new Error('gộp docx hỏng'); });
+      await expect(
+        (service as any).renderDocumentsAtomic('p1', ['BIEN_NHAN', 'THONG_BAO_CHUYEN'], 'u1', null, finalize),
+      ).rejects.toThrow('gộp docx hỏng');
+      // finalize chạy TRONG $transaction (sau khi render+cấp số) → throw kéo rollback
+      // cả N số văn bản (không gap). Bằng chứng: chỉ 1 $transaction bao trọn render+finalize.
+      expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(mockDocNums.commitWithTx).toHaveBeenCalledTimes(2);
+      expect(finalize).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('CreatePetitionDto validation', () => {
     it('BUG-001: fails validation when petitionType is missing', async () => {
       const dto = plainToClass(CreatePetitionDto, {
@@ -1384,6 +1476,265 @@ describe('PetitionsService', () => {
       });
       // @Transform(stripHtmlTags) must have been applied by plainToClass
       expect(dto.senderName).toBe('Test Name');
+    });
+  });
+
+  // ── Nhóm V — suspectSearch + duplicateSearch ──────────────────────────────
+
+  describe('suspectSearch()', () => {
+    it('V-S1: returns structured results matching senderName', async () => {
+      mockPrisma.petition.findMany.mockResolvedValue([
+        {
+          ...mockPetition,
+          id: 'pet-suspect-1',
+          stt: 'DT-2025-00003',
+          senderName: 'Nguyễn Văn A',
+          senderIdNumber: '079088001234',
+          toiDanhBanDau: 'Trộm cắp tài sản',
+          receivedDate: new Date('2025-06-01'),
+        },
+      ]);
+
+      const result = await service.suspectSearch('Nguyễn Văn A', null);
+
+      expect(result).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            name: 'Nguyễn Văn A',
+            idNumber: '079088001234',
+            crimes: expect.any(Array),
+            sources: expect.arrayContaining([
+              expect.objectContaining({ type: 'petition', stt: 'DT-2025-00003' }),
+            ]),
+          }),
+        ]),
+      );
+    });
+
+    it('V-S2: returns empty array for blank query', async () => {
+      const result = await service.suspectSearch('', null);
+      expect(result).toEqual([]);
+      expect(mockPrisma.petition.findMany).not.toHaveBeenCalled();
+    });
+
+    it('V-S3: groups multiple petitions from same person into one result', async () => {
+      mockPrisma.petition.findMany.mockResolvedValue([
+        {
+          ...mockPetition,
+          id: 'pet-1',
+          stt: 'DT-2025-00001',
+          senderName: 'Trần Thị B',
+          senderIdNumber: '079088005678',
+          toiDanhBanDau: 'Lừa đảo',
+        },
+        {
+          ...mockPetition,
+          id: 'pet-2',
+          stt: 'DT-2026-00001',
+          senderName: 'Trần Thị B',
+          senderIdNumber: '079088005678',
+          toiDanhBanDau: 'Chiếm đoạt tài sản',
+        },
+      ]);
+
+      const result = await service.suspectSearch('Trần Thị B', null);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].sources).toHaveLength(2);
+      expect(result[0].crimes).toContain('Lừa đảo');
+      expect(result[0].crimes).toContain('Chiếm đoạt tài sản');
+    });
+  });
+
+  describe('duplicateSearch()', () => {
+    it('V-D1: returns petitions matching query text in senderName', async () => {
+      mockPrisma.petition.findMany.mockResolvedValue([
+        {
+          ...mockPetition,
+          id: 'pet-dup-1',
+          stt: 'DT-2025-00099',
+          senderName: 'Lê Văn C',
+          receivedDate: new Date('2025-01-15'),
+          summary: 'Đơn tố giác về đất đai',
+        },
+      ]);
+
+      const result = await service.duplicateSearch('Lê Văn C', undefined, null);
+
+      expect(result).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            id: 'pet-dup-1',
+            stt: 'DT-2025-00099',
+            senderName: 'Lê Văn C',
+          }),
+        ]),
+      );
+    });
+
+    it('V-D2: excludes the petition with excludeId', async () => {
+      mockPrisma.petition.findMany.mockResolvedValue([]);
+
+      await service.duplicateSearch('Lê Văn C', 'pet-current', null);
+
+      const call = mockPrisma.petition.findMany.mock.calls[0][0];
+      expect(JSON.stringify(call.where)).toContain('pet-current');
+    });
+
+    it('V-D3: returns empty array for blank query', async () => {
+      const result = await service.duplicateSearch('', undefined, null);
+      expect(result).toEqual([]);
+      expect(mockPrisma.petition.findMany).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── Nhóm I — Auto-assign leader + PetitionAssignment multi-officer ──────────
+  describe('assignPetition — Nhóm I auto-assign to leader', () => {
+    const mockTeam = { id: 'team-001', name: 'Tổ 1', isActive: true };
+    const existingPetition = { ...mockPetition, assignedTeamId: null, assignedToId: null };
+
+    beforeEach(() => jest.clearAllMocks());
+
+    it('I-A1: auto-assigns to team leader when assignedToId not provided', async () => {
+      mockPrisma.petition.findFirst.mockResolvedValue(existingPetition);
+      mockPrisma.team.findFirst.mockResolvedValue(mockTeam);
+      mockPrisma.userTeam.findMany.mockResolvedValue([
+        { userId: 'user-leader', teamId: 'team-001', isLeader: true },
+      ]);
+      mockPrisma.petition.update.mockResolvedValue({
+        ...existingPetition,
+        assignedTeamId: 'team-001',
+        assignedToId: 'user-leader',
+      });
+
+      const result = await service.assignPetition(
+        'petition-001',
+        { assignedTeamId: 'team-001' },
+        'dispatcher-001',
+      );
+
+      expect(result.success).toBe(true);
+      expect(mockPrisma.petition.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ assignedToId: 'user-leader' }),
+        }),
+      );
+    });
+
+    it('I-A2: assigns with null assignedToId when no leader found (fail-open)', async () => {
+      mockPrisma.petition.findFirst.mockResolvedValue(existingPetition);
+      mockPrisma.team.findFirst.mockResolvedValue(mockTeam);
+      mockPrisma.userTeam.findMany.mockResolvedValue([
+        { userId: 'user-regular', teamId: 'team-001', isLeader: false },
+      ]);
+      mockPrisma.petition.update.mockResolvedValue({
+        ...existingPetition,
+        assignedTeamId: 'team-001',
+        assignedToId: null,
+      });
+
+      const result = await service.assignPetition(
+        'petition-001',
+        { assignedTeamId: 'team-001' },
+        'dispatcher-001',
+      );
+
+      expect(result.success).toBe(true);
+      expect(mockPrisma.petition.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ assignedToId: null }),
+        }),
+      );
+    });
+
+    it('I-A3: explicit assignedToId overrides leader auto-detection', async () => {
+      mockPrisma.petition.findFirst.mockResolvedValue(existingPetition);
+      mockPrisma.team.findFirst.mockResolvedValue(mockTeam);
+      mockPrisma.userTeam.findFirst.mockResolvedValue({ userId: 'user-explicit', teamId: 'team-001' });
+      mockPrisma.petition.update.mockResolvedValue({
+        ...existingPetition,
+        assignedTeamId: 'team-001',
+        assignedToId: 'user-explicit',
+      });
+
+      await service.assignPetition(
+        'petition-001',
+        { assignedTeamId: 'team-001', assignedToId: 'user-explicit' },
+        'dispatcher-001',
+      );
+
+      expect(mockPrisma.userTeam.findMany).not.toHaveBeenCalled();
+      expect(mockPrisma.petition.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ assignedToId: 'user-explicit' }),
+        }),
+      );
+    });
+  });
+
+  describe('PetitionAssignment CRUD — Nhóm I', () => {
+    const mockPetitionForAssign = { ...mockPetition, id: 'petition-001', deletedAt: null };
+
+    beforeEach(() => jest.clearAllMocks());
+
+    it('I-B1: addAssignment creates PetitionAssignment record', async () => {
+      mockPrisma.petition.findFirst.mockResolvedValue(mockPetitionForAssign);
+      mockPrisma.petitionAssignment.findUnique.mockResolvedValue(null);
+      mockPrisma.userTeam.findFirst.mockResolvedValue({ userId: 'user-001', teamId: 'team-001' });
+      mockPrisma.petitionAssignment.create.mockResolvedValue({
+        id: 'pa-001',
+        petitionId: 'petition-001',
+        userId: 'user-001',
+        role: 'SUPPORT',
+        assignedById: 'dispatcher-001',
+        assignedAt: new Date(),
+      });
+
+      const result = await service.addAssignment('petition-001', 'user-001', 'SUPPORT', 'dispatcher-001');
+      expect(result).toHaveProperty('id', 'pa-001');
+      expect(mockPrisma.petitionAssignment.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ petitionId: 'petition-001', userId: 'user-001', role: 'SUPPORT' }),
+        }),
+      );
+    });
+
+    it('I-B2: addAssignment throws ConflictException if already assigned', async () => {
+      mockPrisma.petition.findFirst.mockResolvedValue(mockPetitionForAssign);
+      mockPrisma.petitionAssignment.findUnique.mockResolvedValue({ id: 'existing-pa' });
+
+      await expect(
+        service.addAssignment('petition-001', 'user-001', 'SUPPORT', 'dispatcher-001'),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('I-B3: removeAssignment deletes PetitionAssignment', async () => {
+      mockPrisma.petition.findFirst.mockResolvedValue(mockPetitionForAssign);
+      mockPrisma.petitionAssignment.findUnique.mockResolvedValue({ id: 'pa-001' });
+      mockPrisma.petitionAssignment.delete.mockResolvedValue({ id: 'pa-001' });
+
+      const result = await service.removeAssignment('petition-001', 'user-001', 'dispatcher-001');
+      expect(result.success).toBe(true);
+    });
+
+    it('I-B4: removeAssignment throws NotFoundException if not assigned', async () => {
+      mockPrisma.petition.findFirst.mockResolvedValue(mockPetitionForAssign);
+      mockPrisma.petitionAssignment.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.removeAssignment('petition-001', 'user-999', 'dispatcher-001'),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('I-B5: listAssignments returns all assignments for petition', async () => {
+      mockPrisma.petition.findFirst.mockResolvedValue(mockPetitionForAssign);
+      mockPrisma.petitionAssignment.findMany.mockResolvedValue([
+        { id: 'pa-001', petitionId: 'petition-001', userId: 'user-001', role: 'LEAD', user: { firstName: 'A', lastName: 'B' } },
+      ]);
+
+      const result = await service.listAssignments('petition-001', null);
+      expect(result).toHaveLength(1);
+      expect(result[0]).toHaveProperty('role', 'LEAD');
     });
   });
 });

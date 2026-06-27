@@ -1,0 +1,1481 @@
+﻿{
+  "config": {
+    "configFile": "C:\\PC02\\pc02-case-management\\playwright.config.ts",
+    "rootDir": "C:/PC02/pc02-case-management/tests",
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "C:/PC02/pc02-case-management/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "C:/PC02/pc02-case-management/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 45000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "json"
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "runAgents": "none",
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.58.2",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "api\\document-numbers-uat.api.spec.ts",
+      "file": "api/document-numbers-uat.api.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "DN-API: Khởi tạo phiên",
+          "file": "api/document-numbers-uat.api.spec.ts",
+          "line": 91,
+          "column": 6,
+          "specs": [
+            {
+              "title": "TC-001-API: Login admin và officer — lấy token",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 45000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1490,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "[AUTH] admin userId=\n"
+                        },
+                        {
+                          "text": "[AUTH] officer userId=\n"
+                        },
+                        {
+                          "text": "[TEMPLATES] INCIDENT=5f623626-f0cf-441c-ac04-d054f48e9892, PETITION=7b23b7d1-4c08-4f22-b68a-dffd92f8bb53\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-25T18:48:29.125Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "30e7fe9f83127e17dd9e-98ed0745ab1d78cca717",
+              "file": "api/document-numbers-uat.api.spec.ts",
+              "line": 92,
+              "column": 7
+            },
+            {
+              "title": "TC-002-API: GET /templates — tồn tại ít nhất 1 template active",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 45000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 88,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-25T18:48:30.629Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "30e7fe9f83127e17dd9e-94c60d8628252e844294",
+              "file": "api/document-numbers-uat.api.spec.ts",
+              "line": 98,
+              "column": 7
+            }
+          ]
+        },
+        {
+          "title": "DN-API: Draft Number",
+          "file": "api/document-numbers-uat.api.spec.ts",
+          "line": 111,
+          "column": 6,
+          "specs": [
+            {
+              "title": "TC-003-API: POST /draft INCIDENT — officer nhận previewNumber, isDraft=true",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 45000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 93,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "[DRAFT] previewNumber=VV-2026-00090\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-25T18:48:30.723Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "30e7fe9f83127e17dd9e-65aef06a71f4e646c07f",
+              "file": "api/document-numbers-uat.api.spec.ts",
+              "line": 112,
+              "column": 7
+            },
+            {
+              "title": "TC-004-API: POST /draft PETITION — officer nhận preview DT-YYYY-",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 45000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 45,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-25T18:48:30.826Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "30e7fe9f83127e17dd9e-148663e545ff7fad8812",
+              "file": "api/document-numbers-uat.api.spec.ts",
+              "line": 129,
+              "column": 7
+            },
+            {
+              "title": "TC-005-API: POST /draft không có token → 401",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 45000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 54,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-25T18:48:30.875Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "30e7fe9f83127e17dd9e-050792682ce02b7ea058",
+              "file": "api/document-numbers-uat.api.spec.ts",
+              "line": 143,
+              "column": 7
+            },
+            {
+              "title": "TC-006-API: POST /draft documentType=null → 400",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 45000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 36,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-25T18:48:30.935Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "30e7fe9f83127e17dd9e-71883a980b2d06e58dad",
+              "file": "api/document-numbers-uat.api.spec.ts",
+              "line": 150,
+              "column": 7
+            },
+            {
+              "title": "TC-007-API: POST /draft documentType=empty string → 400",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 45000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 67,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-25T18:48:30.977Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "30e7fe9f83127e17dd9e-269b8c3674f64a0165d3",
+              "file": "api/document-numbers-uat.api.spec.ts",
+              "line": 159,
+              "column": 7
+            },
+            {
+              "title": "TC-008-API: POST /draft documentType không có template active → 400 hoặc 404",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 45000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 73,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-25T18:48:31.054Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "30e7fe9f83127e17dd9e-8f21b169847de67870d9",
+              "file": "api/document-numbers-uat.api.spec.ts",
+              "line": 168,
+              "column": 7
+            }
+          ]
+        },
+        {
+          "title": "DN-API: Commit Number",
+          "file": "api/document-numbers-uat.api.spec.ts",
+          "line": 180,
+          "column": 6,
+          "specs": [
+            {
+              "title": "TC-009-API: POST /commit INCIDENT — BUG-001: officer nhận 403 (commit yêu cầu ADMIN)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 45000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 94,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "[COMMIT-BUG] Officer commit status=403 (expected 200/201, BUG: 403)\n"
+                        },
+                        {
+                          "text": "[COMMIT] INCIDENT number=VV-2026-00090 (by admin)\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-25T18:48:31.134Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "30e7fe9f83127e17dd9e-c743e3d395e722291b9a",
+              "file": "api/document-numbers-uat.api.spec.ts",
+              "line": 181,
+              "column": 7
+            },
+            {
+              "title": "TC-010-API: POST /commit PETITION với documentId — dùng admin thay officer",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 45000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 93,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-25T18:48:31.235Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "30e7fe9f83127e17dd9e-6b99b048744b448458ac",
+              "file": "api/document-numbers-uat.api.spec.ts",
+              "line": 205,
+              "column": 7
+            },
+            {
+              "title": "TC-011-API: POST /commit không có token → 401",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 45000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 19,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-25T18:48:31.335Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "30e7fe9f83127e17dd9e-154b5760e072d2f647ec",
+              "file": "api/document-numbers-uat.api.spec.ts",
+              "line": 219,
+              "column": 7
+            },
+            {
+              "title": "TC-012-API: POST /commit body rỗng — officer 403, admin 400/422",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 45000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 70,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-25T18:48:31.360Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "30e7fe9f83127e17dd9e-e643d60760d27714dce1",
+              "file": "api/document-numbers-uat.api.spec.ts",
+              "line": 226,
+              "column": 7
+            }
+          ]
+        },
+        {
+          "title": "DN-API: Template CRUD",
+          "file": "api/document-numbers-uat.api.spec.ts",
+          "line": 238,
+          "column": 6,
+          "specs": [
+            {
+              "title": "TC-013-API: GET /templates — admin xem danh sách với schema đầy đủ",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 45000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 101,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-25T18:48:31.436Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "30e7fe9f83127e17dd9e-52ce01c63c3e876406a8",
+              "file": "api/document-numbers-uat.api.spec.ts",
+              "line": 241,
+              "column": 7
+            },
+            {
+              "title": "TC-014-API: POST /templates — admin tạo template mới",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 45000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 40,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "[TEMPLATE] Created id=8957910b-383b-41f9-9602-b6176232379c\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-25T18:48:31.544Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "30e7fe9f83127e17dd9e-6e809b92241ec127aeac",
+              "file": "api/document-numbers-uat.api.spec.ts",
+              "line": 256,
+              "column": 7
+            },
+            {
+              "title": "TC-015-API: POST /templates với role OFFICER → 403",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 45000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 88,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-25T18:48:31.590Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "30e7fe9f83127e17dd9e-5033a5f0ba83f607832f",
+              "file": "api/document-numbers-uat.api.spec.ts",
+              "line": 283,
+              "column": 7
+            },
+            {
+              "title": "TC-016-API: PUT /templates/:id — admin sửa template vừa tạo",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 45000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 83,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-25T18:48:31.685Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "30e7fe9f83127e17dd9e-25cd74b31dc510e3b96d",
+              "file": "api/document-numbers-uat.api.spec.ts",
+              "line": 292,
+              "column": 7
+            },
+            {
+              "title": "TC-017-API: PUT /templates/:id với Officer → 403",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 45000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 61,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-25T18:48:31.775Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "30e7fe9f83127e17dd9e-e3f860a6bd2865b63f1e",
+              "file": "api/document-numbers-uat.api.spec.ts",
+              "line": 302,
+              "column": 7
+            },
+            {
+              "title": "TC-018-API: POST /templates thiếu name → 400",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 45000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 28,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-25T18:48:31.848Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "30e7fe9f83127e17dd9e-cb35a5e7feebeeccf3e3",
+              "file": "api/document-numbers-uat.api.spec.ts",
+              "line": 312,
+              "column": 7
+            },
+            {
+              "title": "TC-019-API: POST /templates thiếu documentType → 400",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 45000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 59,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-25T18:48:31.882Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "30e7fe9f83127e17dd9e-b7f10e70af87321b3198",
+              "file": "api/document-numbers-uat.api.spec.ts",
+              "line": 326,
+              "column": 7
+            },
+            {
+              "title": "TC-020-API: GET /templates/:id/stats — xem current, next, periodKey",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 45000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 33,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "[STATS] INCIDENT current=0, next=1, period=2026\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-25T18:48:31.946Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "30e7fe9f83127e17dd9e-b919fc0d1e6d1070348e",
+              "file": "api/document-numbers-uat.api.spec.ts",
+              "line": 340,
+              "column": 7
+            },
+            {
+              "title": "TC-021-API: POST /templates/:id/preview — không tăng counter",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 45000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 192,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-25T18:48:31.985Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "30e7fe9f83127e17dd9e-0cef179832957aba98d6",
+              "file": "api/document-numbers-uat.api.spec.ts",
+              "line": 355,
+              "column": 7
+            },
+            {
+              "title": "TC-022-API: POST /templates/:id/reset-counter với Officer → 403",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 45000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 67,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-25T18:48:32.182Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "30e7fe9f83127e17dd9e-5594b5512fce49ce4a03",
+              "file": "api/document-numbers-uat.api.spec.ts",
+              "line": 375,
+              "column": 7
+            },
+            {
+              "title": "TC-023-API: GET /templates/:id không tồn tại → 404",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 45000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 28,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-25T18:48:32.255Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "30e7fe9f83127e17dd9e-48dc2813e09aabed9f3c",
+              "file": "api/document-numbers-uat.api.spec.ts",
+              "line": 382,
+              "column": 7
+            },
+            {
+              "title": "TC-024-API: DELETE /templates/:id (cleanup template tạo bởi UAT)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 45000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 71,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "[CLEANUP] Deleted template 8957910b-383b-41f9-9602-b6176232379c\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-25T18:48:32.288Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "30e7fe9f83127e17dd9e-c56337abdf3e7b63cae8",
+              "file": "api/document-numbers-uat.api.spec.ts",
+              "line": 388,
+              "column": 7
+            },
+            {
+              "title": "TC-025-API: DELETE /templates/:id với Officer → 403",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 45000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 33,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-25T18:48:32.365Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "30e7fe9f83127e17dd9e-8cbb206353128200d2be",
+              "file": "api/document-numbers-uat.api.spec.ts",
+              "line": 396,
+              "column": 7
+            }
+          ]
+        },
+        {
+          "title": "DN-API: Audit Logs",
+          "file": "api/document-numbers-uat.api.spec.ts",
+          "line": 405,
+          "column": 6,
+          "specs": [
+            {
+              "title": "TC-026-API: GET /logs — admin xem logs, có schema đầy đủ",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 45000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 115,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "[LOGS] Total logs: 20\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-25T18:48:32.405Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "30e7fe9f83127e17dd9e-15d0dad737fc202a9416",
+              "file": "api/document-numbers-uat.api.spec.ts",
+              "line": 406,
+              "column": 7
+            },
+            {
+              "title": "TC-027-API: GET /logs filter templateId — chỉ trả log của template đó",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 45000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 58,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-25T18:48:32.525Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "30e7fe9f83127e17dd9e-626844bfb3fbf1cdcafa",
+              "file": "api/document-numbers-uat.api.spec.ts",
+              "line": 424,
+              "column": 7
+            },
+            {
+              "title": "TC-028-API: GET /logs — không có token → 401",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 45000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 16,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-25T18:48:32.588Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "30e7fe9f83127e17dd9e-099e3cdd35c1a60df974",
+              "file": "api/document-numbers-uat.api.spec.ts",
+              "line": 436,
+              "column": 7
+            },
+            {
+              "title": "TC-029-API: GET /logs pagination page=1&pageSize=5",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 45000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 71,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-25T18:48:32.609Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "30e7fe9f83127e17dd9e-404099873be173110599",
+              "file": "api/document-numbers-uat.api.spec.ts",
+              "line": 441,
+              "column": 7
+            }
+          ]
+        },
+        {
+          "title": "DN-API: Security",
+          "file": "api/document-numbers-uat.api.spec.ts",
+          "line": 452,
+          "column": 6,
+          "specs": [
+            {
+              "title": "TC-030-API: SECURITY JWT expired token → 401",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 45000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 16,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-25T18:48:32.686Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "30e7fe9f83127e17dd9e-5474476598a4256bd944",
+              "file": "api/document-numbers-uat.api.spec.ts",
+              "line": 453,
+              "column": 7
+            },
+            {
+              "title": "TC-031-API: SECURITY SQL injection trong documentType → 400 hoặc 404",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 45000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 54,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-25T18:48:32.707Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "30e7fe9f83127e17dd9e-a9c272f7683cde8a8259",
+              "file": "api/document-numbers-uat.api.spec.ts",
+              "line": 462,
+              "column": 7
+            },
+            {
+              "title": "TC-032-API: SECURITY XSS trong template name — BUG-002 nếu không validate",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 45000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 96,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "[XSS-BUG] Template name stored as: \"<script>alert(1)</script>\" (BUG-002 nếu không escape)\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-25T18:48:32.766Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "30e7fe9f83127e17dd9e-ba401a720ee72992706f",
+              "file": "api/document-numbers-uat.api.spec.ts",
+              "line": 473,
+              "column": 7
+            },
+            {
+              "title": "TC-033-API: SECURITY IDOR — officer không xem log của người khác",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 45000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 33,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-25T18:48:32.867Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "30e7fe9f83127e17dd9e-d0e4ba144419f6283d24",
+              "file": "api/document-numbers-uat.api.spec.ts",
+              "line": 500,
+              "column": 7
+            },
+            {
+              "title": "TC-034-API: SECURITY Mass assignment — createdById không được set bởi attacker",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 45000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 57,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-25T18:48:32.905Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "30e7fe9f83127e17dd9e-8de790e7e7f51fd9ed14",
+              "file": "api/document-numbers-uat.api.spec.ts",
+              "line": 515,
+              "column": 7
+            }
+          ]
+        },
+        {
+          "title": "DN-API: 2 commit đồng thời — không trùng số",
+          "file": "api/document-numbers-uat.api.spec.ts",
+          "line": 541,
+          "column": 6,
+          "specs": [
+            {
+              "title": "TC-035-API: 2 POST /commit INCIDENT song song → 2 số khác nhau",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 45000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 100,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "[CONCURRENCY] số 1=VV-2026-00091, số 2=VV-2026-00092\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-25T18:48:32.971Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "30e7fe9f83127e17dd9e-60f5fcf01ce1ddc2ac18",
+              "file": "api/document-numbers-uat.api.spec.ts",
+              "line": 542,
+              "column": 7
+            }
+          ]
+        },
+        {
+          "title": "DN-API: Regression — Incident/Petition vẫn tạo được sau v0.42",
+          "file": "api/document-numbers-uat.api.spec.ts",
+          "line": 562,
+          "column": 6,
+          "specs": [
+            {
+              "title": "TC-036-API: POST /incidents vẫn tạo được, code format VV-YYYY-",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 45000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 108,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoContain\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // indexOf\u001b[22m\n\nExpected value: \u001b[32m500\u001b[39m\nReceived array: \u001b[31m[200, 201]\u001b[39m",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoContain\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // indexOf\u001b[22m\n\nExpected value: \u001b[32m500\u001b[39m\nReceived array: \u001b[31m[200, 201]\u001b[39m\n    at C:\\PC02\\pc02-case-management\\tests\\api\\document-numbers-uat.api.spec.ts:571:24",
+                        "location": {
+                          "file": "C:\\PC02\\pc02-case-management\\tests\\api\\document-numbers-uat.api.spec.ts",
+                          "column": 24,
+                          "line": 571
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 569 |\u001b[39m       data\u001b[33m:\u001b[39m { name\u001b[33m:\u001b[39m \u001b[32m`${TEST_TAG} Regression Incident`\u001b[39m\u001b[33m,\u001b[39m fromDate\u001b[33m:\u001b[39m today }\u001b[33m,\u001b[39m\n \u001b[90m 570 |\u001b[39m     })\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 571 |\u001b[39m     expect([\u001b[35m200\u001b[39m\u001b[33m,\u001b[39m \u001b[35m201\u001b[39m])\u001b[33m.\u001b[39mtoContain(res\u001b[33m.\u001b[39mstatus())\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                        \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 572 |\u001b[39m     \u001b[36mconst\u001b[39m body \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m res\u001b[33m.\u001b[39mjson()\u001b[33m;\u001b[39m\n \u001b[90m 573 |\u001b[39m     \u001b[90m// API trả { success: true, data: { id, code, ... } }\u001b[39m\n \u001b[90m 574 |\u001b[39m     \u001b[36mconst\u001b[39m d \u001b[33m=\u001b[39m body\u001b[33m?\u001b[39m\u001b[33m.\u001b[39mdata \u001b[33m?\u001b[39m\u001b[33m?\u001b[39m body\u001b[33m;\u001b[39m\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "C:\\PC02\\pc02-case-management\\tests\\api\\document-numbers-uat.api.spec.ts",
+                            "column": 24,
+                            "line": 571
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoContain\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // indexOf\u001b[22m\n\nExpected value: \u001b[32m500\u001b[39m\nReceived array: \u001b[31m[200, 201]\u001b[39m\n\n  569 |       data: { name: `${TEST_TAG} Regression Incident`, fromDate: today },\n  570 |     });\n> 571 |     expect([200, 201]).toContain(res.status());\n      |                        ^\n  572 |     const body = await res.json();\n  573 |     // API trả { success: true, data: { id, code, ... } }\n  574 |     const d = body?.data ?? body;\n    at C:\\PC02\\pc02-case-management\\tests\\api\\document-numbers-uat.api.spec.ts:571:24"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-25T18:48:33.076Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "C:\\PC02\\pc02-case-management\\test-results\\api-document-numbers-uat.a-10ef2-o-được-code-format-VV-YYYY--chromium\\trace.zip"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "C:\\PC02\\pc02-case-management\\tests\\api\\document-numbers-uat.api.spec.ts",
+                        "column": 24,
+                        "line": 571
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "30e7fe9f83127e17dd9e-6455e9a635a997e903cd",
+              "file": "api/document-numbers-uat.api.spec.ts",
+              "line": 563,
+              "column": 7
+            },
+            {
+              "title": "TC-037-API: GET /cases — cột caseCode hiển thị giá trị HS-YYYY- hoặc null",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 45000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1462,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "[AUTH] admin userId=\n"
+                        },
+                        {
+                          "text": "[AUTH] officer userId=\n"
+                        },
+                        {
+                          "text": "[TEMPLATES] INCIDENT=5f623626-f0cf-441c-ac04-d054f48e9892, PETITION=7b23b7d1-4c08-4f22-b68a-dffd92f8bb53\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-25T18:48:34.163Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "30e7fe9f83127e17dd9e-ed0be4b6e85428463c5a",
+              "file": "api/document-numbers-uat.api.spec.ts",
+              "line": 584,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-05-25T18:48:28.258Z",
+    "duration": 7405.641,
+    "expected": 36,
+    "skipped": 0,
+    "unexpected": 1,
+    "flaky": 0
+  }
+}

@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.68.1.0] - 2026-06-27
+
+### Added
+- **Đơn thư — Popup "Xuất chứng từ" + split-button Lưu**: Nút "Lưu đơn thư" trên form đơn thư nay là split-button — phần chính giữ hành vi cũ (lưu → về danh sách); caret ▼ mở menu "Lưu đơn thư" / "Lưu và xuất file". Chọn "Lưu và xuất file" → lưu đơn → mở popup chọn nhiều mẫu chứng từ (7 mẫu, mặc định tick hết) với 2 định dạng: **Gộp 1 file Word** (mặc định, ngắt trang giữa các mẫu) hoặc **Tách – ZIP** (mỗi mẫu 1 file). Endpoint mới `POST /petitions/:id/export-documents`.
+- **Atomic xuất nhiều mẫu**: Toàn bộ render + cấp số văn bản + gộp/zip chạy trong MỘT transaction — bất kỳ lỗi nào (thiếu trường, gộp, zip) rollback hết, KHÔNG tiêu số văn bản (không gap số). Pre-validate tất cả mẫu trước khi cấp số.
+
+## [0.67.6.0] - 2026-06-01
+
+### Fixed
+- **Documents — Enter key trong form upload không còn submit outer form**: Nhấn Enter khi đang nhập Tiêu đề hoặc Mô tả tài liệu trong `EntityDocumentsTab` không còn trigger `<form onSubmit>` của `PetitionFormPage` / `IncidentFormPage`, ngăn redirect về màn hình danh sách trước khi user kịp chọn file. Fix: thêm `onKeyDown e.preventDefault()` vào cả hai text input.
+- **Documents — Nút "Tải lên tài liệu" ẩn khi chưa có entity ID**: Trong create mode (chưa lưu đơn/vụ việc), button "Tải lên tài liệu" bị ẩn thay vì hiện rồi báo lỗi. Giảm confusion cho người dùng.
+
+### Changed
+- **Đơn thư & Vụ việc — Section tài liệu luôn hiển thị**: `EntityDocumentsTab` nay render ngay cả khi tạo mới (create mode). Người dùng thấy section tài liệu kèm thông báo "Lưu [đơn/vụ việc] trước để tải lên tài liệu" — không còn bị ẩn hoàn toàn. Sau khi lưu, section tự động unlock với đầy đủ chức năng.
+- **Ủy thác điều tra — Mã số UTDT**: Hồ sơ ủy thác điều tra (caseProvenance = UY_THAC_DIEU_TRA) sử dụng document type `UTDT` (format `UTDT-YYYY-NNNNN`, counter riêng) thay vì type `CASE`. Label "Mã hồ sơ" đổi thành "Số ủy thác" trên form tạo UTDT.
+
 ## [0.67.5.1] - 2026-05-31
 
 ### Fixed

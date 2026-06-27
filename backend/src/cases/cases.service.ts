@@ -9,6 +9,7 @@ import { Response } from 'express';
 import * as ExcelJS from 'exceljs';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { buildCaseStatisticData } from './case-statistic.builder';
 import { SettingsService } from '../settings/settings.service';
 import { CreateCaseDto } from './dto/create-case.dto';
 import { UpdateCaseDto } from './dto/update-case.dto';
@@ -199,16 +200,19 @@ export class CasesService {
     }
 
     // v0.44.3 — UTDT date range by ngayTiepNhan
-    if (ngayTiepNhanFrom) {
+    // Guard date param không hợp lệ → bỏ qua filter (tránh Prisma 500 với Invalid Date từ input rác).
+    const _from = ngayTiepNhanFrom ? new Date(ngayTiepNhanFrom) : null;
+    if (_from && !Number.isNaN(_from.getTime())) {
       where.ngayTiepNhan = {
         ...(where.ngayTiepNhan as Prisma.DateTimeNullableFilter | undefined),
-        gte: new Date(ngayTiepNhanFrom),
+        gte: _from,
       };
     }
-    if (ngayTiepNhanTo) {
+    const _to = ngayTiepNhanTo ? new Date(ngayTiepNhanTo + 'T23:59:59Z') : null;
+    if (_to && !Number.isNaN(_to.getTime())) {
       where.ngayTiepNhan = {
         ...(where.ngayTiepNhan as Prisma.DateTimeNullableFilter | undefined),
-        lte: new Date(ngayTiepNhanTo + 'T23:59:59Z'),
+        lte: _to,
       };
     }
 
@@ -401,16 +405,19 @@ export class CasesService {
       ];
     }
 
-    if (ngayTiepNhanFrom) {
+    // Guard date param không hợp lệ → bỏ qua filter (tránh Prisma 500 với Invalid Date từ input rác).
+    const _from = ngayTiepNhanFrom ? new Date(ngayTiepNhanFrom) : null;
+    if (_from && !Number.isNaN(_from.getTime())) {
       where.ngayTiepNhan = {
         ...(where.ngayTiepNhan as Prisma.DateTimeNullableFilter | undefined),
-        gte: new Date(ngayTiepNhanFrom),
+        gte: _from,
       };
     }
-    if (ngayTiepNhanTo) {
+    const _to = ngayTiepNhanTo ? new Date(ngayTiepNhanTo + 'T23:59:59Z') : null;
+    if (_to && !Number.isNaN(_to.getTime())) {
       where.ngayTiepNhan = {
         ...(where.ngayTiepNhan as Prisma.DateTimeNullableFilter | undefined),
-        lte: new Date(ngayTiepNhanTo + 'T23:59:59Z'),
+        lte: _to,
       };
     }
 
@@ -623,6 +630,7 @@ export class CasesService {
     const record = await this.prisma.case.findFirst({
       where: { id, deletedAt: null },
       include: {
+        statistic: true, // Thống kê mở rộng (case_statistics) — form load round-trip
         investigator: {
           select: {
             id: true,
@@ -783,6 +791,16 @@ export class CasesService {
       }
     }
 
+    // Thống kê mở rộng (case_statistics) — tạo cùng transaction khi có dto.statistic
+    if (dto.statistic !== undefined) {
+      const statData = buildCaseStatisticData(dto.statistic);
+      await tx.caseStatistic.upsert({
+        where: { caseId },
+        create: { caseId, ...statData },
+        update: statData,
+      });
+    }
+
     return { subjectsCreated, evidencesCreated, documentsLinked };
   }
 
@@ -834,6 +852,39 @@ export class CasesService {
       subjectsCount: dto.subjectsCount ?? 0,
       ...(dto.capDoToiPham !== undefined && { capDoToiPham: dto.capDoToiPham }),
       ...(dto.ngayKhoiTo !== undefined && { ngayKhoiTo: new Date(dto.ngayKhoiTo) }),
+      // ── Field-parity: số QĐ giai đoạn vụ án ──
+      ...(dto.soQuyetDinhKhoiTo !== undefined && { soQuyetDinhKhoiTo: dto.soQuyetDinhKhoiTo }),
+      ...(dto.soQDNhapVuAn !== undefined && { soQDNhapVuAn: dto.soQDNhapVuAn }),
+      ...(dto.ngayNhapVuAn !== undefined && { ngayNhapVuAn: dto.ngayNhapVuAn ? new Date(dto.ngayNhapVuAn) : null }),
+      ...(dto.ghiChuNhapHoSo !== undefined && { ghiChuNhapHoSo: dto.ghiChuNhapHoSo }),
+      ...(dto.soQDTachVuAn !== undefined && { soQDTachVuAn: dto.soQDTachVuAn }),
+      ...(dto.ngayTachVuAn !== undefined && { ngayTachVuAn: dto.ngayTachVuAn ? new Date(dto.ngayTachVuAn) : null }),
+      ...(dto.soQDTachHanhVi !== undefined && { soQDTachHanhVi: dto.soQDTachHanhVi }),
+      ...(dto.ngayTachHanhVi !== undefined && { ngayTachHanhVi: dto.ngayTachHanhVi ? new Date(dto.ngayTachHanhVi) : null }),
+      ...(dto.soQDDinhChiVuAn !== undefined && { soQDDinhChiVuAn: dto.soQDDinhChiVuAn }),
+      ...(dto.ngayDinhChiVuAn !== undefined && { ngayDinhChiVuAn: dto.ngayDinhChiVuAn ? new Date(dto.ngayDinhChiVuAn) : null }),
+      ...(dto.chuyenVuAnChoCQK !== undefined && { chuyenVuAnChoCQK: dto.chuyenVuAnChoCQK }),
+      ...(dto.soBanAnCoHieuLuc !== undefined && { soBanAnCoHieuLuc: dto.soBanAnCoHieuLuc }),
+      ...(dto.ngayBanAnCoHieuLuc !== undefined && { ngayBanAnCoHieuLuc: dto.ngayBanAnCoHieuLuc ? new Date(dto.ngayBanAnCoHieuLuc) : null }),
+      ...(dto.canCuTamDinhChiVuAn !== undefined && { canCuTamDinhChiVuAn: dto.canCuTamDinhChiVuAn }),
+      ...(dto.canCuPhucHoiVuAn !== undefined && { canCuPhucHoiVuAn: dto.canCuPhucHoiVuAn }),
+      // ── PR-3 — field tab "Vụ án TĐC" (persist khi CREATE; update có ở block ~1222) ──
+      ...(dto.soQuyetDinhTamDinhChi !== undefined && { soQuyetDinhTamDinhChi: dto.soQuyetDinhTamDinhChi }),
+      ...(dto.ngayTamDinhChi !== undefined && { ngayTamDinhChi: dto.ngayTamDinhChi ? new Date(dto.ngayTamDinhChi) : null }),
+      ...(dto.lyDoTamDinhChiVuAn !== undefined && { lyDoTamDinhChiVuAn: dto.lyDoTamDinhChiVuAn }),
+      ...(dto.ngayHetThoiHieu !== undefined && { ngayHetThoiHieu: dto.ngayHetThoiHieu ? new Date(dto.ngayHetThoiHieu) : null }),
+      ...(dto.soQuyetDinhPhucHoi !== undefined && { soQuyetDinhPhucHoi: dto.soQuyetDinhPhucHoi }),
+      ...(dto.ngayPhucHoi !== undefined && { ngayPhucHoi: dto.ngayPhucHoi ? new Date(dto.ngayPhucHoi) : null }),
+      ...(dto.tdcKhacPhucLyDoBienPhap !== undefined && { tdcKhacPhucLyDoBienPhap: dto.tdcKhacPhucLyDoBienPhap }),
+      ...(dto.tdcKhacPhucBienBan !== undefined && { tdcKhacPhucBienBan: dto.tdcKhacPhucBienBan }),
+      // ── Field-parity KLĐT + QĐ điều tra lại (PR-M2: trước đây RỚT ở create — update có) ──
+      ...(dto.soKLDT !== undefined && { soKLDT: dto.soKLDT }),
+      ...(dto.ngayKLDT !== undefined && { ngayKLDT: dto.ngayKLDT ? new Date(dto.ngayKLDT) : null }),
+      ...(dto.soQDDieuTraLai !== undefined && { soQDDieuTraLai: dto.soQDDieuTraLai }),
+      ...(dto.ngayQDDieuTraLai !== undefined && { ngayQDDieuTraLai: dto.ngayQDDieuTraLai ? new Date(dto.ngayQDDieuTraLai) : null }),
+      // ── PR-M2: ghi chú tự do + tội danh khác (multi) ──
+      ...(dto.ghiChuKhac !== undefined && { ghiChuKhac: dto.ghiChuKhac }),
+      ...(dto.toiDanhKhacIds !== undefined && { toiDanhKhacIds: dto.toiDanhKhacIds }),
       ...(scrubbedMetadata !== undefined && { metadata: scrubbedMetadata as JsonInput }),
       caseProvenance: effectiveProvenance, // v0.37.2: required (Contract phase enforces non-null)
       ...(dto.sourceDocumentNote !== undefined && { sourceDocumentNote: dto.sourceDocumentNote }),
@@ -878,13 +929,16 @@ export class CasesService {
           where: {
             id: dto.linkedPetitionId!,
             deletedAt: null,
-            linkedCaseId: null,
             ...(petitionScopeOR.length > 0 ? { OR: petitionScopeOR } : {}),
           },
         });
         if (!petition) {
           // Consistent 404 — no enumeration leak (not-found vs out-of-scope indistinguishable)
           throw new NotFoundException('Đơn thư không tồn tại hoặc không nằm trong phạm vi của bạn');
+        }
+        if (petition.linkedCaseId) {
+          // Đơn thư trong phạm vi nhưng đã liên kết vụ án khác → 409 (rõ nghĩa hơn 404)
+          throw new ConflictException('Đơn thư đã được liên kết với vụ án khác');
         }
 
         const newCase = await tx.case.create({
@@ -1027,7 +1081,8 @@ export class CasesService {
     let record!: Awaited<ReturnType<typeof this.prisma.case.create>>;
     try {
       record = await this.prisma.$transaction(async (tx: any) => {
-        const { number: caseCode, logId: caseCodeLogId } = await this.docNums.commitWithTx('CASE', { userId: actorId }, tx);
+        const caseDocType = effectiveProvenance === CaseProvenance.UY_THAC_DIEU_TRA ? 'UTDT' : 'CASE';
+        const { number: caseCode, logId: caseCodeLogId } = await this.docNums.commitWithTx(caseDocType, { userId: actorId }, tx);
 
         let incidentLogId: string | null = null;
         if (needsAutoIncident) {
@@ -1059,8 +1114,8 @@ export class CasesService {
         return caseRecord;
       });
     } catch (e: any) {
-      // P2002 = unique constraint: concurrent requests generated duplicate incident code
-      if (e?.code === 'P2002') throw new ConflictException('Trùng mã vụ việc, vui lòng thử lại');
+      // P2002 = unique constraint: trùng mã vụ việc (concurrent) HOẶC số quyết định ủy thác (Mẫu 58)
+      if (e?.code === 'P2002') throw new ConflictException('Trùng mã vụ việc hoặc số quyết định ủy thác');
       throw e;
     }
 
@@ -1128,8 +1183,8 @@ export class CasesService {
     let tamDinhChiWarning: string | undefined;
 
     if (dto.status === CaseStatus.TAM_DINH_CHI && dto.status !== existing.status) {
-      const lyDo = (dto as UpdateCaseDto & { lyDoTamDinhChiVuAn?: LyDoTamDinhChiVuAn }).lyDoTamDinhChiVuAn;
-      if (!lyDo) {
+      const lyDo = (dto as UpdateCaseDto & { lyDoTamDinhChiVuAn?: LyDoTamDinhChiVuAn[] }).lyDoTamDinhChiVuAn;
+      if (!lyDo || lyDo.length === 0) {
         if (existing.createdAt < MIGRATION_DATE) {
           // Soft-warn: case pre-dates migration — allow but warn (90-day grace period)
           tamDinhChiWarning =
@@ -1157,9 +1212,33 @@ export class CasesService {
       ...(dto.ngayKhoiTo !== undefined && {
         ngayKhoiTo: dto.ngayKhoiTo ? new Date(dto.ngayKhoiTo) : null,
       }),
+      // ── Field-parity: số QĐ giai đoạn vụ án ──
+      ...(dto.soQuyetDinhKhoiTo !== undefined && { soQuyetDinhKhoiTo: dto.soQuyetDinhKhoiTo }),
+      ...(dto.soQDNhapVuAn !== undefined && { soQDNhapVuAn: dto.soQDNhapVuAn }),
+      ...(dto.ngayNhapVuAn !== undefined && { ngayNhapVuAn: dto.ngayNhapVuAn ? new Date(dto.ngayNhapVuAn) : null }),
+      ...(dto.ghiChuNhapHoSo !== undefined && { ghiChuNhapHoSo: dto.ghiChuNhapHoSo }),
+      ...(dto.soQDTachVuAn !== undefined && { soQDTachVuAn: dto.soQDTachVuAn }),
+      ...(dto.ngayTachVuAn !== undefined && { ngayTachVuAn: dto.ngayTachVuAn ? new Date(dto.ngayTachVuAn) : null }),
+      ...(dto.soQDTachHanhVi !== undefined && { soQDTachHanhVi: dto.soQDTachHanhVi }),
+      ...(dto.ngayTachHanhVi !== undefined && { ngayTachHanhVi: dto.ngayTachHanhVi ? new Date(dto.ngayTachHanhVi) : null }),
+      ...(dto.soQDDinhChiVuAn !== undefined && { soQDDinhChiVuAn: dto.soQDDinhChiVuAn }),
+      ...(dto.ngayDinhChiVuAn !== undefined && { ngayDinhChiVuAn: dto.ngayDinhChiVuAn ? new Date(dto.ngayDinhChiVuAn) : null }),
+      ...(dto.chuyenVuAnChoCQK !== undefined && { chuyenVuAnChoCQK: dto.chuyenVuAnChoCQK }),
+      ...(dto.soBanAnCoHieuLuc !== undefined && { soBanAnCoHieuLuc: dto.soBanAnCoHieuLuc }),
+      ...(dto.ngayBanAnCoHieuLuc !== undefined && { ngayBanAnCoHieuLuc: dto.ngayBanAnCoHieuLuc ? new Date(dto.ngayBanAnCoHieuLuc) : null }),
+      ...(dto.canCuTamDinhChiVuAn !== undefined && { canCuTamDinhChiVuAn: dto.canCuTamDinhChiVuAn }),
+      ...(dto.canCuPhucHoiVuAn !== undefined && { canCuPhucHoiVuAn: dto.canCuPhucHoiVuAn }),
+      // ── Field-parity KLĐT + QĐ điều tra lại ──
+      ...(dto.soKLDT !== undefined && { soKLDT: dto.soKLDT }),
+      ...(dto.ngayKLDT !== undefined && { ngayKLDT: dto.ngayKLDT ? new Date(dto.ngayKLDT) : null }),
+      ...(dto.soQDDieuTraLai !== undefined && { soQDDieuTraLai: dto.soQDDieuTraLai }),
+      ...(dto.ngayQDDieuTraLai !== undefined && { ngayQDDieuTraLai: dto.ngayQDDieuTraLai ? new Date(dto.ngayQDDieuTraLai) : null }),
+      // ── PR-M2: ghi chú tự do + tội danh khác (multi) ──
+      ...(dto.ghiChuKhac !== undefined && { ghiChuKhac: dto.ghiChuKhac }),
+      ...(dto.toiDanhKhacIds !== undefined && { toiDanhKhacIds: dto.toiDanhKhacIds }),
       // ── TĐC fields ──────────────────────────────────────────────────────────
       ...((dto as Record<string, unknown>).lyDoTamDinhChiVuAn !== undefined && {
-        lyDoTamDinhChiVuAn: (dto as Record<string, unknown>).lyDoTamDinhChiVuAn as LyDoTamDinhChiVuAn | null,
+        lyDoTamDinhChiVuAn: (dto as Record<string, unknown>).lyDoTamDinhChiVuAn as LyDoTamDinhChiVuAn[],
       }),
       ...((dto as Record<string, unknown>).soQuyetDinhTamDinhChi !== undefined && {
         soQuyetDinhTamDinhChi: (dto as Record<string, unknown>).soQuyetDinhTamDinhChi as string | null,
@@ -1196,6 +1275,18 @@ export class CasesService {
       }),
       ...((dto as Record<string, unknown>).lyDoTamDinhChiText !== undefined && {
         lyDoTamDinhChiText: (dto as Record<string, unknown>).lyDoTamDinhChiText as string | null,
+      }),
+      // Field-parity tab "Vụ án TĐC" — persist khi EDIT (trước service chưa spread → không lưu được).
+      ...((dto as Record<string, unknown>).ngayHetThoiHieu !== undefined && {
+        ngayHetThoiHieu: (dto as Record<string, unknown>).ngayHetThoiHieu
+          ? new Date((dto as Record<string, unknown>).ngayHetThoiHieu as string)
+          : null,
+      }),
+      ...((dto as Record<string, unknown>).tdcKhacPhucLyDoBienPhap !== undefined && {
+        tdcKhacPhucLyDoBienPhap: (dto as Record<string, unknown>).tdcKhacPhucLyDoBienPhap as string | null,
+      }),
+      ...((dto as Record<string, unknown>).tdcKhacPhucBienBan !== undefined && {
+        tdcKhacPhucBienBan: (dto as Record<string, unknown>).tdcKhacPhucBienBan as string | null,
       }),
       // v0.44.2 — UTDT top-level fields (persist through edit mode)
       ...(dto.caseType !== undefined && { caseType: dto.caseType }),
@@ -1264,6 +1355,16 @@ export class CasesService {
         );
       }
       throw e;
+    }
+
+    // Thống kê mở rộng (hybrid) — upsert bảng case_statistics khi có dto.statistic.
+    if (dto.statistic !== undefined) {
+      const statData = buildCaseStatisticData(dto.statistic);
+      await this.prisma.caseStatistic.upsert({
+        where: { caseId: id },
+        create: { caseId: id, ...statData },
+        update: statData,
+      });
     }
 
     // v0.37.2.5: Sync petitionType with EXISTING linked Petition only.
@@ -1812,7 +1913,8 @@ export class CasesService {
     if (!caseRecord) throw new NotFoundException('Case not found');
     return this.prisma.case.update({
       where: { id },
-      data: { lyDoTamDinhChiVuAn: lyDoTamDinhChiVuAn as any },
+      // PR-8: cột nay là mảng — wrap giá trị đơn vào mảng 1 phần tử.
+      data: { lyDoTamDinhChiVuAn: [lyDoTamDinhChiVuAn] as any },
     });
   }
 

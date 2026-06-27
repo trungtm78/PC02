@@ -1,0 +1,274 @@
+import { BadRequestException, Injectable } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { AuditService } from '../audit/audit.service';
+import { decomposeLegacyRecord, type LegacyRecord } from './legacy-mapper';
+import { buildMigrationReport, type MigrationReport } from './migration-report';
+
+// Provenance import (Case/Incident có cột; Petition KHÔNG có → không set). actorId = người chạy di trú.
+const IMPORTED = (actorId: string) => ({
+  importedFrom: 'legacy-db',
+  importedAt: new Date(),
+  importedById: actorId,
+});
+
+export interface CommitResult {
+  created: {
+    petitions: number;
+    incidents: number;
+    cases: number;
+    guidance: number;
+    exchanges: number;
+    proposals: number;
+    lawyers: number;
+  };
+  skipped: number;
+  errors: { legacyId: string; message: string }[];
+  report: MigrationReport;
+}
+
+@Injectable()
+export class LegacyMigrationService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
+  ) {}
+
+  // Dry-run: KHÔNG mutate DB. Trả báo cáo đối soát.
+  dryRun(records: LegacyRecord[]): MigrationReport {
+    return buildMigrationReport(records);
+  }
+
+  // Resolve crimeChinhLegacyValue → crimeChinhId qua master Crime (theo legacyValue).
+  // tx phải được truyền từ $transaction để đảm bảo đọc trong cùng boundary.
+  private async resolveCrime(tx: any, data: Record<string, unknown>): Promise<void> {
+    const lv = data.crimeChinhLegacyValue as number | undefined;
+    delete data.crimeChinhLegacyValue;
+    if (lv === undefined) return;
+    const crime = await tx.crime.findFirst({ where: { legacyValue: lv } });
+    if (crime) data.crimeChinhId = crime.id;
+  }
+
+  // Commit: upsert theo legacySourceId (idempotent re-run). Mỗi record 1 transaction nhỏ; lỗi 1 record không chặn record khác.
+  async commit(records: LegacyRecord[], actorId: string): Promise<CommitResult> {
+    const created = {
+      petitions: 0,
+      incidents: 0,
+      cases: 0,
+      guidance: 0,
+      exchanges: 0,
+      proposals: 0,
+      lawyers: 0,
+    };
+    const errors: { legacyId: string; message: string }[] = [];
+    let skipped = 0;
+
+    for (const rec of records) {
+      const legacyId = rec.id == null ? '' : String(rec.id).trim();
+      if (!legacyId) {
+        skipped++;
+        continue;
+      }
+      try {
+        const d = decomposeLegacyRecord(rec);
+        if (
+          !d.petition &&
+          !d.incident &&
+          !d.case &&
+          !d.guidance &&
+          !d.exchange &&
+          !d.proposal &&
+          !d.lawyer
+        ) {
+          skipped++;
+          continue;
+        }
+        // Đếm delta CỤC BỘ trong tx, chỉ cộng vào tổng SAU khi tx commit thành công (Codex P1):
+        // nếu bước sau rollback, counter/audit không báo nhầm "đã tạo".
+        const delta = await this.prisma.$transaction(async (tx: any) => {
+          const d2 = { petitions: 0, incidents: 0, cases: 0, guidance: 0, exchanges: 0, proposals: 0, lawyers: 0 };
+          // Theo dõi id petition/incident tạo trong CÙNG record → linking provenance (Codex P1#4).
+          let linkedPetitionId: string | undefined;
+          let linkedIncidentId: string | undefined;
+
+          if (d.petition) {
+            const data = { ...d.petition };
+            await this.resolveCrime(tx, data);
+            const existing = await tx.petition.findFirst({ where: { legacySourceId: legacyId } });
+            if (existing) {
+              await tx.petition.update({ where: { id: existing.id }, data });
+              linkedPetitionId = existing.id;
+            } else {
+              const row = await tx.petition.create({
+                data: {
+                  stt: `DT-LEGACY-${legacyId}`,
+                  receivedDate: (data.receivedDate as Date) ?? new Date(),
+                  senderName: (data.senderName as string) ?? '(di trú)',
+                  status: 'MOI_TIEP_NHAN',
+                  ...data,
+                },
+              });
+              linkedPetitionId = row.id;
+              d2.petitions++;
+            }
+          }
+          if (d.incident) {
+            const data = { ...d.incident };
+            const existing = await tx.incident.findFirst({ where: { legacySourceId: legacyId } });
+            if (existing) {
+              await tx.incident.update({ where: { id: existing.id }, data });
+              linkedIncidentId = existing.id;
+            } else {
+              const row = await tx.incident.create({
+                data: { code: `VV-LEGACY-${legacyId}`, status: 'TIEP_NHAN', ...IMPORTED(actorId), ...data },
+              });
+              linkedIncidentId = row.id;
+              d2.incidents++;
+            }
+          }
+          let caseRow: { id: string } | undefined;
+          if (d.case) {
+            const data = { ...d.case };
+            await this.resolveCrime(tx, data);
+            // Provenance: ưu tiên liên kết 1→nhiều cùng record; else hint (vd UY_THAC); else TRANSFERRED.
+            // Set rõ cả 2 FK (null khi không dùng) để thỏa CHECK case_provenance_fk_consistency.
+            let caseProvenance: string;
+            let link: { linkedPetitionId: string | null; linkedIncidentId: string | null };
+            if (linkedPetitionId) {
+              caseProvenance = 'FROM_PETITION';
+              link = { linkedPetitionId, linkedIncidentId: null };
+            } else if (linkedIncidentId) {
+              caseProvenance = 'FROM_INCIDENT';
+              link = { linkedPetitionId: null, linkedIncidentId };
+            } else {
+              caseProvenance = d.caseProvenanceHint ?? 'TRANSFERRED';
+              link = { linkedPetitionId: null, linkedIncidentId: null };
+            }
+            const existing = await tx.case.findFirst({ where: { legacySourceId: legacyId } });
+            if (existing) {
+              caseRow = await tx.case.update({
+                where: { id: existing.id },
+                data: { caseProvenance, ...link, ...data },
+              });
+            } else {
+              caseRow = await tx.case.create({
+                data: { status: 'TIEP_NHAN', caseProvenance, ...link, ...IMPORTED(actorId), ...data },
+              });
+              d2.cases++;
+            }
+            // Thống kê mở rộng 1-1 (Codex P1#7) — upsert theo caseId (unique), chỉ khi có dữ liệu.
+            if (d.statistic && caseRow?.id) {
+              await tx.caseStatistic.upsert({
+                where: { caseId: caseRow.id },
+                create: { caseId: caseRow.id, ...d.statistic },
+                update: { ...d.statistic },
+              });
+            }
+          }
+
+          // ── Tier ③ — idempotent upsert theo legacySourceId (Codex P1#3) ──
+          if (d.guidance) {
+            const data = { ...d.guidance };
+            const existing = await tx.guidanceRecord.findFirst({ where: { legacySourceId: legacyId } });
+            if (existing) {
+              await tx.guidanceRecord.update({ where: { id: existing.id }, data });
+            } else {
+              await tx.guidanceRecord.create({ data });
+              d2.guidance++;
+            }
+          }
+          if (d.exchange) {
+            const data = { ...d.exchange };
+            const existing = await tx.exchange.findFirst({ where: { legacySourceId: legacyId } });
+            if (existing) {
+              await tx.exchange.update({ where: { id: existing.id }, data });
+            } else {
+              await tx.exchange.create({ data });
+              d2.exchanges++;
+            }
+          }
+          if (d.proposal) {
+            const data = { ...d.proposal };
+            const existing = await tx.proposal.findFirst({ where: { legacySourceId: legacyId } });
+            if (existing) {
+              await tx.proposal.update({ where: { id: existing.id }, data });
+            } else {
+              // proposalNumber @unique NOT NULL → sinh deterministic để idempotent.
+              await tx.proposal.create({ data: { proposalNumber: `DX-LEGACY-${legacyId}`, ...data } });
+              d2.proposals++;
+            }
+          }
+          if (d.lawyer && caseRow?.id) {
+            const data = { ...d.lawyer };
+            const existing = await tx.lawyer.findFirst({ where: { legacySourceId: legacyId } });
+            if (existing) {
+              await tx.lawyer.update({ where: { id: existing.id }, data });
+            } else {
+              // caseId (FK NOT NULL) = host Case; barNumber @unique NOT NULL → deterministic.
+              await tx.lawyer.create({
+                data: { caseId: caseRow.id, barNumber: `LS-LEGACY-${legacyId}`, ...data },
+              });
+              d2.lawyers++;
+            }
+          }
+          return d2;
+        });
+        // Chỉ cộng vào tổng khi tx đã commit thành công (không cộng nếu rollback).
+        created.petitions += delta.petitions;
+        created.incidents += delta.incidents;
+        created.cases += delta.cases;
+        created.guidance += delta.guidance;
+        created.exchanges += delta.exchanges;
+        created.proposals += delta.proposals;
+        created.lawyers += delta.lawyers;
+      } catch (e) {
+        errors.push({ legacyId, message: (e as Error).message });
+      }
+    }
+
+    await this.audit.log({
+      userId: actorId,
+      action: 'LEGACY_MIGRATION_COMMIT',
+      subject: 'LegacyMigration',
+      subjectId: 'batch',
+      metadata: { created, skipped, errorCount: errors.length },
+    });
+
+    return { created, skipped, errors, report: buildMigrationReport(records) };
+  }
+
+  // Rollback: xóa entity đã di trú theo danh sách legacySourceId (chỉ record do di trú tạo).
+  async rollback(legacyIds: string[], actorId: string): Promise<{ deleted: number }> {
+    let deleted: number;
+    try {
+      deleted = await this.prisma.$transaction(async (tx: any) => {
+        const where = { where: { legacySourceId: { in: legacyIds } } };
+        // Thứ tự FK: lawyer (lawyer.caseId → cases Restrict) trước case; case (linkedPetition/
+        // linkedIncident Restrict) trước petition/incident. Guidance/Exchange/Proposal độc lập.
+        const lw = await tx.lawyer.deleteMany(where);
+        const c = await tx.case.deleteMany(where);
+        const p = await tx.petition.deleteMany(where);
+        const i = await tx.incident.deleteMany(where);
+        const g = await tx.guidanceRecord.deleteMany(where);
+        const e = await tx.exchange.deleteMany(where);
+        const pr = await tx.proposal.deleteMany(where);
+        return lw.count + c.count + p.count + i.count + g.count + e.count + pr.count;
+      });
+    } catch (e) {
+      const msg = (e as Error).message ?? '';
+      if (msg.includes('Foreign key constraint') || msg.includes('P2003')) {
+        throw new BadRequestException(
+          'Không thể rollback: một số bản ghi có dữ liệu con liên kết. Hãy xóa dữ liệu con trước khi rollback.',
+        );
+      }
+      throw e;
+    }
+    await this.audit.log({
+      userId: actorId,
+      action: 'LEGACY_MIGRATION_ROLLBACK',
+      subject: 'LegacyMigration',
+      subjectId: 'batch',
+      metadata: { deleted, legacyIds },
+    });
+    return { deleted };
+  }
+}

@@ -36,7 +36,7 @@ import { formatVNDate } from '@/lib/dates';
 import { useBulkSelection } from '@/features/_shared/bulk/useBulkSelection';
 import { BulkActionBar } from '@/features/_shared/bulk/BulkActionBar';
 import { buildCasesAdapter } from '@/features/_shared/bulk/adapters/cases';
-import type { BulkAction, BulkResult } from '@/features/_shared/bulk/types';
+import type { BulkAction, BulkResult, BulkAdapter } from '@/features/_shared/bulk/types';
 import { AlertCircle, X } from 'lucide-react';
 // v0.63 PR1b — registry-driven row actions + advanced filters
 import { RowActions } from '@/features/_shared/row-actions/RowActions';
@@ -503,9 +503,9 @@ export function CaseListPageShell() {
         totalCount={totalCount}
         onPageChange={handlePageChange}
       />
-      <BulkActionBar
+      <BulkActionBar<CaseRow>
         selection={selection}
-        adapter={adapter}
+        adapter={adapter as unknown as BulkAdapter<CaseRow>}
         pageRows={rows}
         onSuccess={handleBulkSuccess}
         onError={handleBulkError}

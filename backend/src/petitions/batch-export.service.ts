@@ -15,6 +15,7 @@ const ALLOWED_DOC_TYPES: ReadonlySet<DocumentType> = new Set<DocumentType>([
   'THONG_BAO_CHUYEN',
   'THONG_BAO_HUONG_DAN',
   'THONG_BAO_TRA_LAI',
+  'BIEN_NHAN',
 ]);
 
 export function validateBatchRequest(

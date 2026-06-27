@@ -15,10 +15,16 @@ const mockService = {
   convertToIncident: jest.fn(),
   convertToCase: jest.fn(),
   assignPetition: jest.fn(),
+  suspectSearch: jest.fn(),
+  duplicateSearch: jest.fn(),
+  listAssignments: jest.fn(),
+  addAssignment: jest.fn(),
+  removeAssignment: jest.fn(),
 };
 
 const mockJourneyService = { getJourney: jest.fn() };
 const mockBatchExport = { exportBatchToZip: jest.fn() };
+const mockExportDocs = { exportDocuments: jest.fn() };
 
 describe('PetitionsController — delegation', () => {
   let controller: PetitionsController;
@@ -34,6 +40,11 @@ describe('PetitionsController — delegation', () => {
           token: require('./batch-export.service').BatchExportService,
           mock: mockBatchExport,
         },
+        {
+          token: require('./petition-export-documents.service')
+            .PetitionExportDocumentsService,
+          mock: mockExportDocs,
+        },
       ],
     );
     controller = module.get(PetitionsController);
@@ -45,6 +56,26 @@ describe('PetitionsController — delegation', () => {
     const req = makeReq();
     await controller.getList({} as any, req);
     expect(mockService.getList).toHaveBeenCalledWith({}, req.dataScope);
+  });
+
+  it('exportDocuments() delegates to service với docTypes, mode, userId, scope, res', async () => {
+    const req = makeReq();
+    const res = { setHeader: jest.fn(), send: jest.fn() } as any;
+    await controller.exportDocuments(
+      'pet-1',
+      { docTypes: ['BIEN_NHAN', 'PHIEU_DE_XUAT'], mode: 'merged' } as any,
+      mockUser,
+      req,
+      res,
+    );
+    expect(mockExportDocs.exportDocuments).toHaveBeenCalledWith(
+      'pet-1',
+      ['BIEN_NHAN', 'PHIEU_DE_XUAT'],
+      'merged',
+      mockUser.id,
+      req.dataScope,
+      res,
+    );
   });
 
   it('create() delegates to service.create with dto, userId and audit info', async () => {
@@ -116,5 +147,50 @@ describe('PetitionsController — delegation', () => {
       expect.objectContaining({ ipAddress: '127.0.0.1' }),
       req.dataScope,
     );
+  });
+
+  // ── Nhóm V — suspect-search + duplicate-search ────────────────────────────
+
+  it('V1: suspectSearch() delegates to service.suspectSearch with q param', async () => {
+    mockService.suspectSearch.mockResolvedValue([]);
+    const req = makeReq();
+    await (controller as any).suspectSearch({ q: 'nguyen van a' }, req);
+    expect(mockService.suspectSearch).toHaveBeenCalledWith('nguyen van a', req.dataScope);
+  });
+
+  it('V2: duplicateSearch() delegates to service.duplicateSearch with q and excludeId', async () => {
+    mockService.duplicateSearch.mockResolvedValue([]);
+    const req = makeReq();
+    await (controller as any).duplicateSearch({ q: 'tham nhung', excludeId: 'pet-1' }, req);
+    expect(mockService.duplicateSearch).toHaveBeenCalledWith('tham nhung', 'pet-1', req.dataScope);
+  });
+
+  it('V3: suspectSearch() returns empty array for empty q', async () => {
+    mockService.suspectSearch.mockResolvedValue([]);
+    const req = makeReq();
+    await (controller as any).suspectSearch({ q: '' }, req);
+    expect(mockService.suspectSearch).toHaveBeenCalledWith('', req.dataScope);
+  });
+
+  // ── Nhóm I — PetitionAssignment CRUD ─────────────────────────────────────
+
+  it('I-C1: listAssignments() delegates to service.listAssignments', async () => {
+    mockService.listAssignments.mockResolvedValue([]);
+    const req = makeReq();
+    await (controller as any).listAssignments('petition-001', req);
+    expect(mockService.listAssignments).toHaveBeenCalledWith('petition-001', req.dataScope);
+  });
+
+  it('I-C2: addAssignment() delegates to service.addAssignment with correct args', async () => {
+    mockService.addAssignment.mockResolvedValue({ id: 'pa-001' });
+    const req = makeReq();
+    await (controller as any).addAssignment('petition-001', { userId: 'user-001', role: 'LEAD' }, mockUser, req);
+    expect(mockService.addAssignment).toHaveBeenCalledWith('petition-001', 'user-001', 'LEAD', mockUser.id, req.dataScope);
+  });
+
+  it('I-C3: removeAssignment() delegates to service.removeAssignment', async () => {
+    mockService.removeAssignment.mockResolvedValue({ success: true });
+    await (controller as any).removeAssignment('petition-001', 'user-001', mockUser);
+    expect(mockService.removeAssignment).toHaveBeenCalledWith('petition-001', 'user-001', mockUser.id);
   });
 });

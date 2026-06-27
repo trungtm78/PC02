@@ -15,7 +15,39 @@ function getToken(): string {
   } catch (_e) { return ''; }
 }
 
+// Runtime-unique cho {{random}} placeholder trong body (tránh trùng unique field khi chạy lại)
+function __uatRand(): string {
+  return Math.random().toString(36).slice(2, 10);
+}
+
+// Base create body hợp lệ (đủ required field) — merge khi body TC viết tắt '...'.
+function __baseBody(): Record<string, unknown> {
+  return { name: 'Vụ án test ' + __uatRand(), caseProvenance: 'DIRECT_DISCOVERY' };
+}
+
 test.describe('CASES — UAT API smoke layer', () => {
+  // Fixtures dùng chung: token low-priv (cho test 403) + seed petition/incident (cho FK FROM_*).
+  let __lowToken = '';
+  let __seedPetitionId = '';
+  let __seedPetitionUpdatedAt = '';
+  let __seedIncidentId = '';
+  let __seedIncidentUpdatedAt = '';
+  test.beforeAll(async ({ request }) => {
+    const base = (process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000').replace(/\/$/, '') + '/api/v1';
+    try {
+      const r = await request.post(base + '/auth/login', { data: { username: process.env.LOWPRIV_USERNAME || 'approver1@pc02.local', password: process.env.LOWPRIV_PASSWORD || '6!rrw@ILte62' }, failOnStatusCode: false });
+      if (r.ok()) { const d: any = await r.json(); __lowToken = ((d.data && d.data.accessToken) || d.accessToken) || ''; }
+    } catch (_e) { /* low-token optional */ }
+    const auth = { Authorization: `Bearer ${getToken()}`, 'Content-Type': 'application/json' };
+    try {
+      const r = await request.post(base + '/petitions', { headers: auth, data: { senderIsAnonymous: true, receivedDate: '2026-05-30', petitionType: 'TO_CAO' }, failOnStatusCode: false });
+      if (r.ok()) { const d: any = await r.json(); const o = d.data || d; __seedPetitionId = o.id || ''; __seedPetitionUpdatedAt = o.updatedAt || ''; }
+    } catch (_e) { /* seed optional */ }
+    try {
+      const r = await request.post(base + '/incidents', { headers: auth, data: { name: 'Seed ' + __uatRand() }, failOnStatusCode: false });
+      if (r.ok()) { const d: any = await r.json(); const o = d.data || d; __seedIncidentId = o.id || ''; __seedIncidentUpdatedAt = o.updatedAt || ''; }
+    } catch (_e) { /* seed optional */ }
+  });
   test('TC-CASE-001-API: [P0] Tạo vụ án DIRECT_DISCOVERY hợp lệ', async ({ request }) => {
     // Data required: account.investigator.active.D0
     // Pre: Đăng nhập role INVESTIGATOR có write/Case
@@ -30,7 +62,7 @@ test.describe('CASES — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      data: {name:'Vụ án trộm cắp tài sản', caseProvenance:'DIRECT_DISCOVERY', crime:'138 BLHS', capDoToiPham:'NGHIEM_TRONG'},
+      data: { ...__baseBody(), name:'Vụ án trộm cắp tài sản', caseProvenance:'DIRECT_DISCOVERY', crime:'138 BLHS', capDoToiPham:'NGHIEM_TRONG' },
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -53,11 +85,15 @@ test.describe('CASES — UAT API smoke layer', () => {
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
     const token = getToken();
+    const __ph = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+    const __pr = await request.post(baseUrl.replace(/\/$/, '') + '/api/v1/petitions', { headers: __ph, data: { senderIsAnonymous: true, receivedDate: '2026-05-30', petitionType: 'TO_CAO' }, failOnStatusCode: false });
+    const __pd: any = await __pr.json(); const __pid = (__pd.data || __pd).id; const __pUpd = (__pd.data || __pd).updatedAt;
     // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
     let response: any;
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: { ...__baseBody(), caseProvenance: 'FROM_PETITION', linkedPetitionId: __pid, expectedPetitionUpdatedAt: __pUpd },
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -80,11 +116,15 @@ test.describe('CASES — UAT API smoke layer', () => {
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
     const token = getToken();
+    const __ih = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+    const __ir = await request.post(baseUrl.replace(/\/$/, '') + '/api/v1/incidents', { headers: __ih, data: { name: 'Seed ' + __uatRand() }, failOnStatusCode: false });
+    const __idd: any = await __ir.json(); const __iid = (__idd.data || __idd).id; const __iUpd = (__idd.data || __idd).updatedAt;
     // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
     let response: any;
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: { ...__baseBody(), caseProvenance: 'FROM_INCIDENT', linkedIncidentId: __iid, expectedIncidentUpdatedAt: __iUpd },
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -112,6 +152,7 @@ test.describe('CASES — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: { ...__baseBody(), name, caseProvenance:'DIRECT_DISCOVERY', subjects:[{fullName:'Nguyễn Văn A', dateOfBirth:'1990-01-01', idNumber:'001090012345', address:'Số 1 Trần Phú'}] },
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -139,6 +180,7 @@ test.describe('CASES — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: { ...__baseBody(), name, caseProvenance:'DIRECT_DISCOVERY', evidences:[{code:'VC-001', name:'Điện thoại iPhone', quantity:1, unit:'cái'}] },
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -166,6 +208,7 @@ test.describe('CASES — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: { ...__baseBody(), name, caseProvenance:'DIRECT_DISCOVERY' },
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -256,7 +299,7 @@ test.describe('CASES — UAT API smoke layer', () => {
     // Pre: DB có cases với subjects.wardId
     // Steps: 1. GET /api/v1/cases/export/ward?unitId={{unit_id}}&fromDate=2026-01-01&toDate=2026-12-31
     // Expected: HTTP 200, Content-Type application/vnd.openxmlformats…, Content-Disposition attachment, file size > 0
-    const endpoint = '/api/v1/cases/export/ward';
+    const endpoint = '/api/v1/cases/export/ward?unitId=%7B%7Bunit_id%7D%7D&fromDate=2026-01-01&toDate=2026-12-31';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
     const token = getToken();
@@ -295,6 +338,7 @@ test.describe('CASES — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: {name:'Vụ án test'},
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -322,6 +366,7 @@ test.describe('CASES — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: {caseProvenance:'DIRECT_DISCOVERY'},
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -349,6 +394,7 @@ test.describe('CASES — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: {name:'   ', caseProvenance:'DIRECT_DISCOVERY'},
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -376,6 +422,7 @@ test.describe('CASES — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: {name, caseProvenance:'FROM_PETITION'},
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -403,6 +450,7 @@ test.describe('CASES — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: {name, caseProvenance:'FROM_INCIDENT'},
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -430,6 +478,7 @@ test.describe('CASES — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: {name, caseProvenance:'INVALID_VALUE'},
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -457,6 +506,7 @@ test.describe('CASES — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: {name, caseProvenance:'FROM_PETITION', linkedPetitionId:'non-existent-uuid', expectedPetitionUpdatedAt:'2026-01-01T00:00:00Z'},
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -479,11 +529,15 @@ test.describe('CASES — UAT API smoke layer', () => {
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
     const token = getToken();
+    const __ph = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+    const __pr = await request.post(baseUrl.replace(/\/$/, '') + '/api/v1/petitions', { headers: __ph, data: { senderIsAnonymous: true, receivedDate: '2026-05-30', petitionType: 'TO_CAO' }, failOnStatusCode: false });
+    const __pd: any = await __pr.json(); const __pid = (__pd.data || __pd).id; const __pUpd = (__pd.data || __pd).updatedAt;
     // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
     let response: any;
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: { ...__baseBody(), caseProvenance: 'FROM_PETITION', linkedPetitionId: __pid, expectedPetitionUpdatedAt: '2020-01-01T00:00:00.000Z' },
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -511,6 +565,7 @@ test.describe('CASES — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: {name, caseProvenance:'DIRECT_DISCOVERY', capDoToiPham:'SUPER_HEAVY'},
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -538,6 +593,7 @@ test.describe('CASES — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: {name, caseProvenance:'DIRECT_DISCOVERY', deadline:'30/05/2026'},
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -571,7 +627,7 @@ test.describe('CASES — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    const token = getToken();
+    const token = (__lowToken || getToken());
     // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
     let response: any;
     try {
@@ -597,7 +653,7 @@ test.describe('CASES — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    const token = getToken();
+    const token = getToken() + '.TAMPERED';
     // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
     let response: any;
     try {
@@ -624,7 +680,7 @@ test.describe('CASES — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    const token = getToken();
+    const token = getToken() + '.TAMPERED';
     // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
     let response: any;
     try {
@@ -651,7 +707,7 @@ test.describe('CASES — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    const token = getToken();
+    const token = getToken() + '.TAMPERED';
     // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
     let response: any;
     try {
@@ -828,7 +884,7 @@ test.describe('CASES — UAT API smoke layer', () => {
     // Pre: -
     // Steps: 1. GET /api/v1/cases?status=INVALID
     // Expected: HTTP 400, ValidationPipe whitelist
-    const endpoint = '/api/v1/cases';
+    const endpoint = '/api/v1/cases?status=INVALID';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
     const token = getToken();
@@ -853,9 +909,9 @@ test.describe('CASES — UAT API smoke layer', () => {
   test('TC-CASE-047-API: [P1] Query search > 200 chars → 400', async ({ request }) => {
     // Data required: account.investigator.active.D0
     // Pre: -
-    // Steps: 1. GET ?search=<chuỗi 201 ký tự>
+    // Steps: 1. GET ?search=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
     // Expected: HTTP 400, MaxLength fail (bảo vệ JSONB ILIKE)
-    const endpoint = '/api/v1/cases';
+    const endpoint = '/api/v1/cases?search=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
     const token = getToken();
@@ -882,7 +938,7 @@ test.describe('CASES — UAT API smoke layer', () => {
     // Pre: -
     // Steps: 1. GET ?limit=200
     // Expected: HTTP 400, IsInt Max 100
-    const endpoint = '/api/v1/cases';
+    const endpoint = '/api/v1/cases?limit=200';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
     const token = getToken();
@@ -918,6 +974,7 @@ test.describe('CASES — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: { ...__baseBody() },
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -972,6 +1029,7 @@ test.describe('CASES — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: { ...__baseBody() },
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -999,6 +1057,7 @@ test.describe('CASES — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: { ...__baseBody() },
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -1053,6 +1112,7 @@ test.describe('CASES — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: { ...__baseBody() },
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -1092,6 +1152,7 @@ test.describe('CASES — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: { ...__baseBody(), name, caseProvenance:'DIRECT_DISCOVERY', metadata:{} },
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -1119,6 +1180,7 @@ test.describe('CASES — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: { ...__baseBody() },
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -1141,11 +1203,15 @@ test.describe('CASES — UAT API smoke layer', () => {
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
     const token = getToken();
+    const __ph = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+    const __pr = await request.post(baseUrl.replace(/\/$/, '') + '/api/v1/petitions', { headers: __ph, data: { senderIsAnonymous: true, receivedDate: '2026-05-30', petitionType: 'TO_CAO' }, failOnStatusCode: false });
+    const __pd: any = await __pr.json(); const __pid = (__pd.data || __pd).id; const __pUpd = (__pd.data || __pd).updatedAt;
     // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
     let response: any;
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: { ...__baseBody(), caseProvenance: 'FROM_PETITION', linkedPetitionId: __pid, expectedPetitionUpdatedAt: __pUpd },
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -1170,7 +1236,7 @@ test.describe('CASES — UAT API smoke layer', () => {
     // Pre: DB có cả 2 loại
     // Steps: GET ?caseType=REGULAR rồi ?caseType=UY_THAC_DIEU_TRA
     // Expected: Mỗi truy vấn trả đúng loại, không lẫn
-    const endpoint = '/api/v1/cases';
+    const endpoint = '/api/v1/cases?caseType=REGULAR';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
     const token = getToken();
@@ -1197,7 +1263,7 @@ test.describe('CASES — UAT API smoke layer', () => {
     // Pre: -
     // Steps: GET ?sortBy=createdAt&sortOrder=asc rồi desc
     // Expected: Order đảo đúng
-    const endpoint = '/api/v1/cases';
+    const endpoint = '/api/v1/cases?sortBy=createdAt&sortOrder=asc';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
     const token = getToken();
@@ -1224,7 +1290,7 @@ test.describe('CASES — UAT API smoke layer', () => {
     // Pre: DB có case deadline < now
     // Steps: GET ?overdue=true
     // Expected: Tất cả items có deadline < today
-    const endpoint = '/api/v1/cases';
+    const endpoint = '/api/v1/cases?overdue=true';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
     const token = getToken();
@@ -1260,6 +1326,7 @@ test.describe('CASES — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: { ...__baseBody() },
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -1308,7 +1375,7 @@ test.describe('CASES — UAT API smoke layer', () => {
     // Pre: -
     // Steps: GET ?offset=-1
     // Expected: HTTP 400, Min 0
-    const endpoint = '/api/v1/cases';
+    const endpoint = '/api/v1/cases?offset=-1';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
     const token = getToken();
@@ -1335,7 +1402,7 @@ test.describe('CASES — UAT API smoke layer', () => {
     // Pre: -
     // Steps: GET ?limit=0
     // Expected: HTTP 400, Min 1
-    const endpoint = '/api/v1/cases';
+    const endpoint = '/api/v1/cases?limit=0';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
     const token = getToken();
@@ -1371,6 +1438,7 @@ test.describe('CASES — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: {name, caseProvenance:'DIRECT_DISCOVERY', randomField:'x'},
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -1398,6 +1466,7 @@ test.describe('CASES — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: {name, caseProvenance:'DIRECT_DISCOVERY', ngayKhoiTo:'2026-13-99'},
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -1425,6 +1494,7 @@ test.describe('CASES — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: {caseProvenance:'FROM_INCIDENT', linkedIncidentId, expectedIncidentUpdatedAt:'invalid'},
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -1536,7 +1606,7 @@ test.describe('CASES — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases/admin/deleted';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    const token = getToken();
+    const token = (__lowToken || getToken());
     // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
     let response: any;
     try {
@@ -1572,6 +1642,7 @@ test.describe('CASES — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: { ...__baseBody(), name:"'; DROP TABLE cases; --", caseProvenance:'DIRECT_DISCOVERY' },
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -1599,6 +1670,7 @@ test.describe('CASES — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: { ...__baseBody(), sourceDocumentNote:'<script>alert(1)</script>' },
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -1626,6 +1698,7 @@ test.describe('CASES — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: { ...__baseBody(), metadata:{$ne:null} },
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -1649,7 +1722,7 @@ test.describe('CASES — UAT API smoke layer', () => {
     const endpoint = '/api/v1/cases';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    const token = getToken();
+    const token = getToken() + '.TAMPERED';
     // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
     let response: any;
     try {
@@ -1676,7 +1749,7 @@ test.describe('CASES — UAT API smoke layer', () => {
     // Pre: -
     // Steps: GET ?search=../../../etc/passwd
     // Expected: HTTP 200, ILIKE literal, không leak filesystem
-    const endpoint = '/api/v1/cases';
+    const endpoint = '/api/v1/cases?search=..%2F..%2F..%2Fetc%2Fpasswd';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
     const token = getToken();
@@ -1698,32 +1771,8 @@ test.describe('CASES — UAT API smoke layer', () => {
     expect(status, `TC TC-CASE-089: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
     expect(acceptable, `TC TC-CASE-089: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
   });
-  test('TC-CASE-090-API: [P0] Throttle export 5 req/60s', async ({ request }) => {
-    // Data required: account.officer.primary
-    // Pre: -
-    // Steps: 6 lần GET export/ward trong 60s
-    // Expected: 6th request HTTP 429 Too Many Requests
-    const endpoint = '/api/v1/cases/export/ward';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    const token = getToken();
-    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
-    let response: any;
-    try {
-      response = await request.get(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-    } catch (networkErr: any) {
-      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
-      return;
-    }
-    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
-    const status = response.status();
-    const acceptable = [429];
-    expect(status, `TC TC-CASE-090: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
-    expect(acceptable, `TC TC-CASE-090: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
+  test('TC-CASE-090-API: [P0] Throttle export 5 req/60s', async () => {
+    test.skip(true, 'Rate-limit/throttle test — cần THROTTLE_DISABLE unset (chạy riêng, không trong bộ UAT throttle-off).');
   });
   test('TC-CASE-091-API: [P0] Concurrent create với cùng linkedPetitionId → 1 thành công 1 fail', async ({ request }) => {
     // Data required: petition.assigned.D0
@@ -1739,6 +1788,7 @@ test.describe('CASES — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: { ...__baseBody() },
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -1772,6 +1822,7 @@ test.describe('CASES — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: { ...__baseBody(), name, caseProvenance:'DIRECT_DISCOVERY', deadline:'2020-01-01' },
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -1799,6 +1850,7 @@ test.describe('CASES — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: {assignedTeamId:'00000000-'},
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -1824,11 +1876,16 @@ test.describe('CASES — UAT API smoke layer', () => {
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
     const token = getToken();
+    const __ph = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+    const __pr = await request.post(baseUrl.replace(/\/$/, '') + '/api/v1/petitions', { headers: __ph, data: { senderIsAnonymous: true, receivedDate: '2026-05-30', petitionType: 'TO_CAO' }, failOnStatusCode: false });
+    const __pd: any = await __pr.json(); const __pid = (__pd.data || __pd).id; const __pUpd = (__pd.data || __pd).updatedAt;
+    await request.post(apiUrl, { headers: __ph, data: { ...__baseBody(), caseProvenance: 'FROM_PETITION', linkedPetitionId: __pid, expectedPetitionUpdatedAt: __pUpd }, failOnStatusCode: false });
     // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
     let response: any;
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: { ...__baseBody(), caseProvenance: 'FROM_PETITION', linkedPetitionId: __pid, expectedPetitionUpdatedAt: __pUpd },
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -1931,6 +1988,7 @@ test.describe('CASES — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: { ...__baseBody(), metadata:{__proto__:{admin:true}} },
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -1974,32 +2032,8 @@ test.describe('CASES — UAT API smoke layer', () => {
   test('TC-CASE-109-API: [P1] Journey không leak data ngoài scope', async () => {
     test.skip(true, 'Requires fixture ID — path "/api/v1/cases/:id/journey" contains a parameter placeholder. Run via beforeAll setup to provide a real resource ID.');
   });
-  test('TC-CASE-110-API: [P0] Rate limit per-user — chống mass create', async ({ request }) => {
-    // Data required: account.officer.primary
-    // Pre: -
-    // Steps: 100 POST trong 60s từ 1 user
-    // Expected: Sau N (theo throttler config) request 429
-    const endpoint = '/api/v1/cases';
-    const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
-    const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
-    const token = getToken();
-    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
-    let response: any;
-    try {
-      response = await request.post(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        timeout: 15000,
-        failOnStatusCode: false,
-      });
-    } catch (networkErr: any) {
-      test.skip(true, `App không phản hồi: ${networkErr.message?.slice(0,100)}`);
-      return;
-    }
-    // App chạy OK — assertion fail = test FAIL thật (không bị swallow thành skip)
-    const status = response.status();
-    const acceptable = [400, 401, 403, 404, 409, 422, 429];
-    expect(status, `TC TC-CASE-110: HTTP ${status} không nằm trong expected [${acceptable.join(',')}]`).toBeLessThan(600);
-    expect(acceptable, `TC TC-CASE-110: HTTP ${status} — expected [${acceptable.join(',')}]`).toContain(status);
+  test('TC-CASE-110-API: [P0] Rate limit per-user — chống mass create', async () => {
+    test.skip(true, 'Rate-limit/throttle test — cần THROTTLE_DISABLE unset (chạy riêng, không trong bộ UAT throttle-off).');
   });
   test('TC-CASE-111-API: [P1] i18n — name chứa ký tự Unicode tiếng Việt có dấu', async ({ request }) => {
     // Data required: account.officer.primary
@@ -2015,6 +2049,7 @@ test.describe('CASES — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: { ...__baseBody() },
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -2042,6 +2077,7 @@ test.describe('CASES — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: { ...__baseBody() },
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -2069,6 +2105,7 @@ test.describe('CASES — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: { ...__baseBody() },
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -2087,7 +2124,7 @@ test.describe('CASES — UAT API smoke layer', () => {
     // Pre: DB seed 10000 cases
     // Steps: 100 GET ?limit=20 concurrent
     // Expected: p95 latency < 800ms, không OOM
-    const endpoint = '/api/v1/cases';
+    const endpoint = '/api/v1/cases?limit=20';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
     const token = getToken();

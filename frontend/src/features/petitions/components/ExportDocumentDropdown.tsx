@@ -8,22 +8,7 @@ import { useState, useRef, useEffect } from "react";
 import { FileText, ChevronDown, Loader2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { extractApiError } from "@/lib/api-errors";
-
-interface DocTypeOption {
-  value: string;
-  label: string;
-  description: string;
-}
-
-// Khớp với DOCUMENT_TYPES backend (backend/src/document-templates/docx-loader.service.ts).
-const DOC_TYPES: DocTypeOption[] = [
-  { value: "PHIEU_DE_XUAT", label: "Phiếu đề xuất", description: "Báo cáo đề xuất xử lý đơn thư lên Ban CH PC02 + Ban CH Đội" },
-  { value: "PHIEU_CHUYEN_NGUON_TIN", label: "Phiếu chuyển nguồn tin", description: "Chuyển nguồn tin về tội phạm (Mẫu 03 TT 128/2025/TT-BCA)" },
-  { value: "PHIEU_CHUYEN_DON", label: "Phiếu chuyển đơn", description: "Chuyển đơn cho Tổ công tác giải quyết theo thẩm quyền" },
-  { value: "THONG_BAO_CHUYEN", label: "Thông báo chuyển đơn", description: "Thông báo cho người gửi: đơn đã được chuyển đến đơn vị có thẩm quyền" },
-  { value: "THONG_BAO_HUONG_DAN", label: "Thông báo hướng dẫn", description: "Hướng dẫn người gửi khởi kiện ra Tòa án nhân dân" },
-  { value: "THONG_BAO_TRA_LAI", label: "Thông báo trả lại đơn", description: "Trả lại đơn cho người gửi để bổ sung, hoàn thiện" },
-];
+import { DOC_TYPES, parseBlobError } from "@/features/petitions/docTypes";
 
 interface Props {
   petitionId: string;
@@ -31,20 +16,6 @@ interface Props {
    * re-fetches the petition from DB, so dirty edits would render with stale data. */
   isDirty?: boolean;
   onError?: (msg: string) => void;
-}
-
-async function parseBlobError(err: unknown): Promise<unknown> {
-  const e = err as { response?: { data?: unknown } };
-  const data = e?.response?.data;
-  if (data instanceof Blob && data.type.includes('json')) {
-    try {
-      const text = await data.text();
-      (e as { response: { data: unknown } }).response.data = JSON.parse(text);
-    } catch {
-      /* ignore — extractApiError fallback will fire */
-    }
-  }
-  return err;
 }
 
 export function ExportDocumentDropdown({ petitionId, isDirty, onError }: Props) {

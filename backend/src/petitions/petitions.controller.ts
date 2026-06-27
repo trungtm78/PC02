@@ -21,6 +21,8 @@ import type { ScopedRequest } from '../auth/interfaces/scoped-request.interface'
 import { PetitionsService } from './petitions.service';
 import { PetitionsJourneyService } from './petitions-journey.service';
 import { BatchExportService } from './batch-export.service';
+import { PetitionExportDocumentsService } from './petition-export-documents.service';
+import { ExportDocumentsDto } from './dto/export-documents.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { DispatchGuard } from '../auth/guards/dispatch.guard';
@@ -44,6 +46,7 @@ export class PetitionsController {
     private readonly petitionsService: PetitionsService,
     private readonly petitionsJourneyService: PetitionsJourneyService,
     private readonly batchExport: BatchExportService,
+    private readonly exportDocsService: PetitionExportDocumentsService,
   ) {}
 
   // GET /api/v1/petitions — Danh sách đơn thư
@@ -116,6 +119,28 @@ export class PetitionsController {
     await this.petitionsService.exportDuplicates(query, req.dataScope, res);
   }
 
+  // GET /api/v1/petitions/suspect-search?q= — Nhóm V: search nghi phạm theo tên/CCCD
+  @Get('suspect-search')
+  @RequirePermissions({ action: 'read', subject: 'Petition' })
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
+  suspectSearch(
+    @Query() query: { q?: string },
+    @Req() req: ScopedRequest,
+  ) {
+    return this.petitionsService.suspectSearch(query.q ?? '', req.dataScope);
+  }
+
+  // GET /api/v1/petitions/duplicate-search?q=&excludeId= — Nhóm V: search trùng đơn
+  @Get('duplicate-search')
+  @RequirePermissions({ action: 'read', subject: 'Petition' })
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
+  duplicateSearch(
+    @Query() query: { q?: string; excludeId?: string },
+    @Req() req: ScopedRequest,
+  ) {
+    return this.petitionsService.duplicateSearch(query.q ?? '', query.excludeId, req.dataScope);
+  }
+
   // GET /api/v1/petitions/:id/journey — Hành trình đơn thư
   @Get(':id/journey')
   @RequirePermissions({ action: 'read', subject: 'Petition' })
@@ -169,6 +194,7 @@ export class PetitionsController {
       'THONG_BAO_CHUYEN',
       'THONG_BAO_HUONG_DAN',
       'THONG_BAO_TRA_LAI',
+      'BIEN_NHAN',
     ]);
     if (!allowed.has(body.docType)) {
       throw new BadRequestException(
@@ -178,6 +204,29 @@ export class PetitionsController {
     await this.batchExport.exportBatchToZip(
       body.petitionIds,
       body.docType as any,
+      user.id,
+      req.dataScope,
+      res,
+    );
+  }
+
+  // POST /api/v1/petitions/:id/export-documents — xuất NHIỀU mẫu cho 1 đơn.
+  // Body: { docTypes: string[] (1..7), mode?: 'merged'|'zip' }. merged=1 .docx gộp
+  // (ngắt trang), zip=ZIP nhiều .docx. Validate+dedupe+pre-validate ở service.
+  @Post(':id/export-documents')
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
+  @RequirePermissions({ action: 'read', subject: 'Petition' })
+  async exportDocuments(
+    @Param('id') id: string,
+    @Body() body: ExportDocumentsDto,
+    @CurrentUser() user: AuthUser,
+    @Req() req: ScopedRequest,
+    @Res() res: Response,
+  ): Promise<void> {
+    await this.exportDocsService.exportDocuments(
+      id,
+      body.docTypes,
+      body.mode,
       user.id,
       req.dataScope,
       res,
@@ -204,6 +253,7 @@ export class PetitionsController {
       'THONG_BAO_CHUYEN',
       'THONG_BAO_HUONG_DAN',
       'THONG_BAO_TRA_LAI',
+      'BIEN_NHAN',
     ]);
     if (!allowed.has(docType)) {
       throw new BadRequestException(
@@ -333,5 +383,44 @@ export class PetitionsController {
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
     });
+  }
+
+  // ── Nhóm I: PetitionAssignment CRUD ──────────────────────────────────────
+
+  // GET /api/v1/petitions/:id/assignments — Danh sách cán bộ phân công
+  @Get(':id/assignments')
+  @RequirePermissions({ action: 'read', subject: 'Petition' })
+  listAssignments(@Param('id') id: string, @Req() req: ScopedRequest) {
+    return this.petitionsService.listAssignments(id, req.dataScope);
+  }
+
+  // POST /api/v1/petitions/:id/assignments — Thêm cán bộ phân công
+  @Post(':id/assignments')
+  @RequirePermissions({ action: 'edit', subject: 'Petition' })
+  addAssignment(
+    @Param('id') id: string,
+    @Body() body: { userId: string; role?: 'LEAD' | 'SUPPORT' },
+    @CurrentUser() user: AuthUser,
+    @Req() req: ScopedRequest,
+  ) {
+    return this.petitionsService.addAssignment(
+      id,
+      body.userId,
+      body.role ?? 'SUPPORT',
+      user.id,
+      req.dataScope,
+    );
+  }
+
+  // DELETE /api/v1/petitions/:id/assignments/:userId — Xóa cán bộ phân công
+  @Delete(':id/assignments/:userId')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions({ action: 'edit', subject: 'Petition' })
+  removeAssignment(
+    @Param('id') id: string,
+    @Param('userId') userId: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.petitionsService.removeAssignment(id, userId, user.id);
   }
 }

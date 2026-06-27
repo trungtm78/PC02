@@ -59,7 +59,8 @@ const SHARED_ENUMS = [
   'PhuongThucTiepNhan',
   'CapDoToiPham',
   'NotificationType',
-  'DocumentType',
+  // DocumentType ĐÃ chuyển sang danh mục ĐỘNG (Catalog Registry DOCUMENT_TYPE → Directory),
+  // không còn là Prisma enum — bỏ khỏi whitelist (migration 20260627000001).
   'DeadlineRuleStatus',
   'CaseProvenance', // v0.37.1
   'CaseType', // v0.44 — UTDT

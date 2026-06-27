@@ -413,7 +413,13 @@ export class IncidentsService {
           createdById: actorId,
           soQuyetDinh: dto.soQuyetDinh,
           ngayQuyetDinh: dto.ngayQuyetDinh ? new Date(dto.ngayQuyetDinh) : undefined,
+          soQDPhanCongNguonTin: dto.soQDPhanCongNguonTin,
+          ngayQDPhanCongNguonTin: dto.ngayQDPhanCongNguonTin ? new Date(dto.ngayQDPhanCongNguonTin) : undefined,
+          canCuKhongKhoiTo: dto.canCuKhongKhoiTo,
+          canCuTamDinhChi: dto.canCuTamDinhChi,
+          phanLoaiDanSuText: dto.phanLoaiDanSuText,
           lyDoKhongKhoiTo: dto.lyDoKhongKhoiTo,
+          lyDoTamDinhChiVuViec: dto.lyDoTamDinhChiVuViec, // PR-8 multi
           lyDoTamDinhChiText: (dto as any).lyDoTamDinhChiText ?? (dto as any).lyDoTamDinhChi,
           diaChiXayRa: dto.diaChiXayRa,
           sdtNguoiToGiac: dto.sdtNguoiToGiac,
@@ -427,6 +433,18 @@ export class IncidentsService {
           tinhTrangHoSo: dto.tinhTrangHoSo,
           tinhTrangThoiHieu: dto.tinhTrangThoiHieu,
           nguoiQuyetDinh: dto.nguoiQuyetDinh,
+          tienDoKhacPhucTDC: dto.tienDoKhacPhucTDC,
+          tdcKhacPhucLyDoBienPhap: dto.tdcKhacPhucLyDoBienPhap,
+          tdcKhacPhucBienBan: dto.tdcKhacPhucBienBan,
+          soQuyetDinhTamDinhChiVV: dto.soQuyetDinhTamDinhChiVV,
+          ngayTamDinhChiVV: dto.ngayTamDinhChiVV ? new Date(dto.ngayTamDinhChiVV) : undefined,
+          soQuyetDinhPhucHoiVV: dto.soQuyetDinhPhucHoiVV,
+          ngayPhucHoiVV: dto.ngayPhucHoiVV ? new Date(dto.ngayPhucHoiVV) : undefined,
+          ngayHetThoiHieuVV: dto.ngayHetThoiHieuVV ? new Date(dto.ngayHetThoiHieuVV) : undefined,
+          soQDKhongKhoiTo: dto.soQDKhongKhoiTo,
+          ngayQDKhongKhoiTo: dto.ngayQDKhongKhoiTo ? new Date(dto.ngayQDKhongKhoiTo) : undefined,
+          xacDinhVuViecTamDung: dto.xacDinhVuViecTamDung,
+          laCongNgheCaoVV: dto.laCongNgheCaoVV,
           status: IncidentStatus.TIEP_NHAN,
         },
         include: {
@@ -494,6 +512,13 @@ export class IncidentsService {
       'diaChiXayRa', 'sdtNguoiToGiac', 'diaChiNguoiToGiac', 'cmndNguoiToGiac',
       // ── TĐC VuViec fields ──────────────────────────────────────────────────
       'lyDoTamDinhChiVuViec', 'laCongNgheCaoVV', 'daRaSoatVV', 'ketQuaPhucHoiVuViec',
+      // ── Field-parity hệ thống cũ (giai đoạn nguồn tin) ──
+      'soQDPhanCongNguonTin', 'canCuKhongKhoiTo', 'canCuTamDinhChi', 'phanLoaiDanSuText',
+      // ── Field-parity TĐC tracking + tiến độ khắc phục ──
+      'tienDoKhacPhucTDC', 'tdcKhacPhucLyDoBienPhap', 'tdcKhacPhucBienBan',
+      'soQuyetDinhTamDinhChiVV', 'soQuyetDinhPhucHoiVV',
+      // PR-6 — QĐ không khởi tố riêng + cờ tạm dừng
+      'soQDKhongKhoiTo', 'xacDinhVuViecTamDung',
     ];
     for (const f of fields) {
       if ((dto as Record<string, unknown>)[f] !== undefined) {
@@ -501,12 +526,19 @@ export class IncidentsService {
       }
     }
 
-    const dateFields = ['fromDate', 'toDate', 'deadline', 'ngayDeXuat', 'ngayQuyetDinh'];
+    const dateFields = ['fromDate', 'toDate', 'deadline', 'ngayDeXuat', 'ngayQuyetDinh', 'ngayQDPhanCongNguonTin', 'ngayTamDinhChiVV', 'ngayPhucHoiVV', 'ngayHetThoiHieuVV', 'ngayQDKhongKhoiTo'];
     for (const f of dateFields) {
       if ((dto as Record<string, unknown>)[f] !== undefined) {
         const val = (dto as Record<string, unknown>)[f] as string | null;
         updateData[f] = val ? new Date(val) : null;
       }
+    }
+
+    // Alias: form gửi `lyDoTamDinhChi` → cột `lyDoTamDinhChiText` (mirror create ~422).
+    // Trước đây update whitelist chỉ có lyDoTamDinhChiText → giá trị bị drop thầm khi EDIT.
+    const lyDoTDC = (dto as Record<string, unknown>).lyDoTamDinhChi;
+    if (lyDoTDC !== undefined) {
+      updateData.lyDoTamDinhChiText = lyDoTDC;
     }
 
 
@@ -743,6 +775,7 @@ export class IncidentsService {
     }
 
     // GAP-6: lyDoKhongKhoiTo required when transitioning to KHONG_KHOI_TO (Điều 157)
+    // UpdateStatusDto vẫn single (modal đổi trạng thái chọn 1 căn cứ) — cột là mảng nên wrap khi ghi.
     if (dto.status === IncidentStatus.KHONG_KHOI_TO && !dto.lyDoKhongKhoiTo) {
       throw new BadRequestException(
         'Bắt buộc cung cấp lý do không khởi tố (lyDoKhongKhoiTo) theo Điều 157 BLTTHS 2015',
@@ -759,7 +792,7 @@ export class IncidentsService {
           },
           data: {
             status: dto.status,
-            ...(dto.lyDoKhongKhoiTo !== undefined && { lyDoKhongKhoiTo: dto.lyDoKhongKhoiTo }),
+            ...(dto.lyDoKhongKhoiTo !== undefined && { lyDoKhongKhoiTo: [dto.lyDoKhongKhoiTo] }),
           },
           include: {
             investigator: {

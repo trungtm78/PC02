@@ -36,7 +36,8 @@ describe('CreateCaseDto v0.37.1 caseProvenance validation', () => {
     const errors = await validate(dto);
     const provErr = errors.find((e) => e.property === 'caseProvenance');
     expect(provErr).toBeDefined();
-    expect(provErr?.constraints).toHaveProperty('isEnum');
+    // PR-7 catalog: validate đổi @IsEnum→@IsCatalogValue (vẫn reject code rác).
+    expect(provErr?.constraints).toHaveProperty('isCatalogValue');
   });
 
   it('rejects FROM_PETITION without linkedPetitionId', async () => {
@@ -89,7 +90,8 @@ describe('CreateCaseDto v0.37.1 caseProvenance validation', () => {
     const errors = await validate(dto);
     const provErr = errors.find((e) => e.property === 'caseProvenance');
     expect(provErr).toBeDefined();
-    expect(provErr?.constraints).toHaveProperty('isEnum');
+    // PR-7 catalog: required nay do @IsNotEmpty enforce (@IsCatalogValue pass undefined).
+    expect(provErr?.constraints).toHaveProperty('isNotEmpty');
   });
 
   // ─────────────────────────────────────────────────────────────

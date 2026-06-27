@@ -10,7 +10,7 @@ import { AlertCircle, X } from 'lucide-react';
 import { api } from '@/lib/api';
 import { INCIDENT_VALID_TRANSITIONS } from '@/shared/enums/incident-transitions.generated';
 import { INCIDENT_STATUS_LABEL } from '@/shared/enums/status-labels';
-import { LyDoKhongKhoiTo } from '@/shared/enums/generated';
+import { CatalogSelect } from '@/components/CatalogSelect';
 import {
   BTN_PRIMARY,
   BTN_OUTLINE_SLATE,
@@ -177,21 +177,18 @@ export function StatusTransitionModalProvider({ children }: { children: ReactNod
                     Lý do không khởi tố <span className="text-red-500">*</span>
                     <span className="text-xs text-slate-500"> (Điều 157 BLTTHS)</span>
                   </label>
-                  <select
+                  {/* PR-1 catalog: 1 component dùng chung, hiển thị nhãn pháp lý (không phải code thô). */}
+                  <CatalogSelect
+                    catalogKey="LY_DO_KHONG_KHOI_TO"
                     id="ly-do-select"
-                    data-testid="ly-do-khong-khoi-to-select"
+                    multi={false}
                     value={lyDoKhongKhoiTo}
-                    onChange={(e) => setLyDoKhongKhoiTo(e.target.value)}
+                    onChange={(v) => setLyDoKhongKhoiTo(v as string)}
                     className={INPUT_BASE}
                     disabled={lifecycle.isLoading}
-                  >
-                    <option value="">— Chọn lý do —</option>
-                    {Object.values(LyDoKhongKhoiTo).map((v) => (
-                      <option key={v} value={v}>
-                        {v}
-                      </option>
-                    ))}
-                  </select>
+                    placeholder="— Chọn lý do —"
+                    data-testid="ly-do-khong-khoi-to-select"
+                  />
                 </div>
               )}
 

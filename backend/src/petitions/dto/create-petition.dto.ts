@@ -8,10 +8,29 @@ import {
   MaxLength,
   Matches,
   IsBoolean,
+  ValidateIf,
+  IsIn,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { PetitionStatus, LoaiDon } from '@prisma/client';
 import { stripHtmlTags } from '../../common/utils/sanitize.util';
+import { IsCatalogValue } from '../../common/validators/is-catalog-value.validator';
+
+// Giá trị hợp lệ của discriminator "phân loại nguồn tin ban đầu" (khớp form cũ /doi-1/Them).
+// Bảo vệ integrity ở tầng API (FE đã giới hạn bằng <select>).
+export const PHAN_LOAI_NGUON_TIN_VALUES = [
+  'don-cong-van-ban-dau',
+  'vu-viec-ban-dau',
+  'vu-viec-nguon-tin',
+  'vu-an-ban-dau',
+  'tra-ho-so-ban-dau',
+  'huong-dan-ban-dau',
+  'trao-doi-chuyen-an',
+  'luat-su',
+  'uy-thac-dieu-tra',
+  'kien-nghi-vks',
+  'cong-van-don-doc-phuc-hoi-tdc',
+] as const;
 
 // Re-export so other modules can import from this DTO file
 export { PetitionStatus, LoaiDon };
@@ -31,11 +50,13 @@ export class CreatePetitionDto {
   @IsDateString()
   receivedDate: string;
 
-  // Tên người gửi — bắt buộc
+  // Tên người gửi — bắt buộc khi tạo mới, TRỪ đơn nặc danh (khớp validate FE).
+  @ValidateIf((o) => !o.senderIsAnonymous)
+  @IsNotEmpty({ message: 'Tên người gửi là bắt buộc (trừ đơn nặc danh)' })
   @Transform(({ value }) => stripHtmlTags(value))
   @IsString()
   @MaxLength(255)
-  senderName: string;
+  senderName?: string;
 
   @IsOptional()
   @Transform(({ value }) => stripHtmlTags(value))
@@ -58,7 +79,9 @@ export class CreatePetitionDto {
   @MaxLength(500)
   senderAddress?: string;
 
-  @IsOptional()
+  // Required khi TẠO MỚI (trừ đơn nặc danh). UpdatePetitionDto = PartialType → tự optional khi update.
+  @ValidateIf((o) => !o.senderIsAnonymous)
+  @IsNotEmpty({ message: 'Số điện thoại nguyên đơn là bắt buộc (trừ đơn nặc danh)' })
   @IsString()
   @MaxLength(20)
   @Matches(/^[0-9\s+-]*$/, { message: 'Số điện thoại không hợp lệ' })
@@ -81,8 +104,9 @@ export class CreatePetitionDto {
   @MaxLength(500)
   suspectedAddress?: string;
 
+  // @IsNotEmpty giữ tính bắt buộc (@IsCatalogValue pass undefined); @IsCatalogValue kiểm thuộc danh mục.
   @IsNotEmpty({ message: 'Loại đơn thư là bắt buộc' })
-  @IsEnum(LoaiDon, {
+  @IsCatalogValue('LOAI_DON', {
     message: 'Loại đơn thư không hợp lệ — chọn: Tố cáo, Khiếu nại, Kiến nghị hoặc Phản ánh',
   })
   petitionType: LoaiDon;
@@ -195,4 +219,133 @@ export class CreatePetitionDto {
   @IsString()
   @MaxLength(2000)
   lyDoTraDon?: string;
+
+  // ── Field-parity hệ thống cũ (giai đoạn tiếp nhận) ──
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  senderIdNumber?: string;
+
+  @IsOptional()
+  @IsDateString()
+  senderIdIssueDate?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => stripHtmlTags(value))
+  @IsString()
+  @MaxLength(255)
+  senderIdIssuePlace?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  senderIsAnonymous?: boolean;
+
+  @IsOptional()
+  @Transform(({ value }) => stripHtmlTags(value))
+  @IsString()
+  @MaxLength(255)
+  loaiThongTin?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => stripHtmlTags(value))
+  @IsString()
+  @MaxLength(255)
+  soPhieuChuyen?: string;
+
+  @IsOptional()
+  @IsDateString()
+  ngayPhieuChuyen?: string;
+
+  @IsOptional()
+  @IsDateString()
+  ngayTiepNhanNguonTin?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => stripHtmlTags(value))
+  @IsString()
+  @MaxLength(500)
+  toiDanhBanDau?: string;
+
+  // Tội danh chính — FK master Crime. Required khi tạo mới (trừ nặc danh).
+  @ValidateIf((o) => !o.senderIsAnonymous)
+  @IsNotEmpty({ message: 'Tội danh chính là bắt buộc (trừ đơn nặc danh)' })
+  @IsString()
+  crimeChinhId?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => stripHtmlTags(value))
+  @IsString()
+  @MaxLength(500)
+  noiXayRa?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => stripHtmlTags(value))
+  @IsString()
+  @MaxLength(255)
+  noiXayRaPhuongXa?: string;
+
+  @IsOptional()
+  @IsDateString()
+  ngayXayRa?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => stripHtmlTags(value))
+  @IsString()
+  @MaxLength(100)
+  loaiToiPham?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => stripHtmlTags(value))
+  @IsString()
+  @MaxLength(1000)
+  phuongThucThuDoan?: string;
+
+  @IsOptional()
+  @IsDateString()
+  ngayGiaoDonViGiaiQuyet?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  laCongNgheCao?: boolean;
+
+  @IsOptional()
+  @Transform(({ value }) => stripHtmlTags(value))
+  @IsString()
+  @MaxLength(255)
+  lanhDaoToTung?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => stripHtmlTags(value))
+  @IsString()
+  @MaxLength(2000)
+  ketQuaXuLyKhac?: string;
+
+  // Field-parity hệ thống cũ — Ủy thác điều tra
+  @IsOptional()
+  @IsDateString()
+  thoiHanUTDT?: string;
+
+  // ── Field-parity bổ sung tab "Thông tin" form cũ /doi-1/Them (2026-06-26) ──
+  @IsOptional()
+  @IsDateString()
+  ngayDeXuat?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString()
+  @MaxLength(100)
+  @IsIn(PHAN_LOAI_NGUON_TIN_VALUES as unknown as string[])
+  phanLoaiNguonTin?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString()
+  @MaxLength(255)
+  dieuTraVien?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString()
+  @MaxLength(255)
+  donViGiaiQuyet?: string;
 }

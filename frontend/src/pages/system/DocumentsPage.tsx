@@ -13,6 +13,7 @@
 import { useState, useCallback, useRef } from "react";
 import { api } from '@/lib/api';
 import { formatVNDate } from '../../lib/dates';
+import { useCatalog } from '@/hooks/useCatalog';
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Search,
@@ -64,7 +65,7 @@ interface Document {
   mimeType: string;
   size: number;
   filePath: string;
-  documentType: 'VAN_BAN' | 'HINH_ANH' | 'VIDEO' | 'AM_THANH' | 'KHAC';
+  documentType: string; // danh mục động DOCUMENT_TYPE (Directory)
   caseId?: string;
   incidentId?: string;
   uploadedById: string;
@@ -101,7 +102,7 @@ interface FKOption {
 interface DocumentFormData {
   title: string;
   description: string;
-  documentType: 'VAN_BAN' | 'HINH_ANH' | 'VIDEO' | 'AM_THANH' | 'KHAC';
+  documentType: string; // danh mục động DOCUMENT_TYPE (Directory)
   caseId: string;
   incidentId: string;
 }
@@ -117,13 +118,8 @@ interface DocumentFormErrors {
 const PAGE_SIZE = 20;
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
-const DOCUMENT_TYPE_OPTIONS: { value: Document['documentType']; label: string }[] = [
-  { value: 'VAN_BAN', label: 'Văn bản' },
-  { value: 'HINH_ANH', label: 'Hình ảnh' },
-  { value: 'VIDEO', label: 'Video' },
-  { value: 'AM_THANH', label: 'Âm thanh' },
-  { value: 'KHAC', label: 'Khác' },
-];
+// DOCUMENT_TYPE là danh mục ĐỘNG — options/nhãn lấy từ Catalog Registry qua useCatalog
+// (không hardcode). Xem migration 20260627000001_document_type_to_dynamic.
 
 const ALLOWED_MIME_TYPES = [
   'application/pdf',
@@ -164,10 +160,6 @@ function getFileIcon(mimeType: string) {
   return FileText;
 }
 
-function getDocumentTypeLabel(type: Document['documentType']): string {
-  const found = DOCUMENT_TYPE_OPTIONS.find(o => o.value === type);
-  return found?.label ?? type;
-}
 
 // ─── Form validation ─────────────────────────────────────────────────────────
 
@@ -207,6 +199,8 @@ function DocumentForm({
   incidentOptions,
   loadingOptions,
 }: DocumentFormProps) {
+  // Danh mục động DOCUMENT_TYPE (Directory) cho dropdown loại tài liệu.
+  const { options: docTypeOptions } = useCatalog("DOCUMENT_TYPE");
   const [form, setForm] = useState<DocumentFormData>(EMPTY_FORM);
   const [errors, setErrors] = useState<DocumentFormErrors>({});
   const [file, setFile] = useState<File | null>(null);
@@ -376,12 +370,12 @@ function DocumentForm({
               <label className={LABEL_BASE}>Loại tài liệu</label>
               <select
                 value={form.documentType}
-                onChange={(e) => setField("documentType", e.target.value as Document['documentType'])}
+                onChange={(e) => setField("documentType", e.target.value)}
                 className={INPUT_BASE}
                 data-testid="document-type-select"
               >
-                {DOCUMENT_TYPE_OPTIONS.map(opt => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                {docTypeOptions.map(opt => (
+                  <option key={opt.code} value={opt.code}>{opt.label}</option>
                 ))}
               </select>
             </div>
@@ -454,6 +448,10 @@ function DocumentForm({
 
 export default function DocumentsPage() {
   const queryClient = useQueryClient();
+
+  // Danh mục động DOCUMENT_TYPE (Directory) — options + nhãn từ Catalog Registry.
+  const { options: docTypeOptions } = useCatalog("DOCUMENT_TYPE");
+  const docTypeLabel = Object.fromEntries(docTypeOptions.map((o) => [o.code, o.label]));
 
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -704,7 +702,7 @@ export default function DocumentsPage() {
                         </td>
                         <td className="px-4 py-3">
                           <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700">
-                            {getDocumentTypeLabel(doc.documentType)}
+                            {docTypeLabel[doc.documentType] ?? doc.documentType}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-sm text-slate-700">

@@ -184,15 +184,21 @@ export class DocumentNumbersService {
     let dbMax: number | null = null;
     if (template.documentType === 'INCIDENT') {
       const r = await tx.$queryRaw<Array<{ max_suffix: number | null }>>`
-        SELECT COALESCE(MAX(CAST(SUBSTRING(code FROM '\d+$') AS INTEGER)), 0) AS max_suffix
+        SELECT COALESCE(MAX(CAST(SUBSTRING(code FROM '[0-9]+$') AS INTEGER)), 0) AS max_suffix
         FROM incidents
         WHERE code LIKE ${periodLike}`;
       dbMax = Number(r?.[0]?.max_suffix ?? 0);
     } else if (template.documentType === 'CASE') {
       const r = await tx.$queryRaw<Array<{ max_suffix: number | null }>>`
-        SELECT COALESCE(MAX(CAST(SUBSTRING("caseCode" FROM '\d+$') AS INTEGER)), 0) AS max_suffix
+        SELECT COALESCE(MAX(CAST(SUBSTRING("caseCode" FROM '[0-9]+$') AS INTEGER)), 0) AS max_suffix
         FROM cases
         WHERE "caseCode" LIKE ${periodLike}`;
+      dbMax = Number(r?.[0]?.max_suffix ?? 0);
+    } else if (template.documentType === 'PETITION') {
+      const r = await tx.$queryRaw<Array<{ max_suffix: number | null }>>`
+        SELECT COALESCE(MAX(CAST(SUBSTRING(stt FROM '[0-9]+$') AS INTEGER)), 0) AS max_suffix
+        FROM petitions
+        WHERE stt LIKE ${periodLike}`;
       dbMax = Number(r?.[0]?.max_suffix ?? 0);
     }
     if (dbMax != null && dbMax >= nextValue) {

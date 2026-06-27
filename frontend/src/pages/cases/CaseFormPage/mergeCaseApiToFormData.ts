@@ -1,5 +1,33 @@
-import type { CaseFormData } from './types';
+import type { CaseFormData, CaseStatisticForm } from './types';
+import { INITIAL_CASE_STATISTIC } from './types';
 import { toDateInput } from '@/lib/dates';
+
+const STAT_DATE_KEYS = new Set([
+  'ngayDangKyHoSo', 'ngayNopLuuHoSo', 'ngayThongKe', 'ngayPhanCongGiaiQuyetToGiac',
+  'ngayTiepNhanTin', 'ngayDauThu', 'ngayPhamToiQuaTang', 'ngayBatKhanCap', 'ngayPhatHienDauHieu',
+]);
+const STAT_BOOL_KEYS = new Set([
+  'coGhiAmGhiHinh', 'laVuAnGhiAmGhiHinh', 'vksYeuCauGhiAm', 'coVPHC', 'coBangNhom',
+  // PR-M2: vuAnDaDuocXetXu (sửa luôn round-trip cũ) + 3 cờ xét-xử riêng
+  'vuAnDaDuocXetXu', 'ghiAmGhiHinhDaDuocXetXu', 'coSuDungKQGhiAmTrongXetXu', 'khongGAGHNhungToaYeuCau',
+]);
+
+// API CaseStatistic record → CaseStatisticForm (số→string, ngày→date input, bool→bool).
+function mergeStatistic(
+  api: Record<string, unknown> | null | undefined,
+  prev: CaseStatisticForm,
+): CaseStatisticForm {
+  if (!api) return prev;
+  const out = { ...INITIAL_CASE_STATISTIC } as Record<string, unknown>;
+  for (const k of Object.keys(INITIAL_CASE_STATISTIC)) {
+    const v = api[k];
+    if (STAT_BOOL_KEYS.has(k)) out[k] = Boolean(v);
+    else if (v == null) out[k] = '';
+    else if (STAT_DATE_KEYS.has(k)) out[k] = toDateInput(v as string);
+    else out[k] = String(v);
+  }
+  return out as unknown as CaseStatisticForm;
+}
 
 type ApiCaseRecord = {
   name?: string | null;
@@ -47,6 +75,7 @@ export function mergeCaseApiToFormData(
     assignedTeamId:        apiData.assignedTeamId        ?? apiData.assignedTeam?.id ?? prev.assignedTeamId,
     handler:               apiData.investigatorId        ?? apiData.investigator?.id ?? prev.handler,
     capDoToiPham:          apiData.capDoToiPham          ?? prev.capDoToiPham,
+    statistic:             mergeStatistic(apiData.statistic as Record<string, unknown> | null | undefined, prev.statistic),
     // v0.37.2.5 — Provenance fields (4 columns + 0 lock tokens for EDIT).
     // Lock tokens only matter for CREATE FROM_PETITION/FROM_INCIDENT — for EDIT
     // the link is already established and BE preserves it.
@@ -179,5 +208,39 @@ export function mergeCaseApiToFormData(
     utdt_nghiVanDoiTuong:              meta.nghiVanDoiTuong              ?? prev.utdt_nghiVanDoiTuong,
     utdt_lyDoKhongThucHienDuoc:        meta.lyDoKhongThucHienDuoc        ?? prev.utdt_lyDoKhongThucHienDuoc,
     utdt_ngayThongBaoKhongThucHien:    meta.ngayThongBaoKhongThucHien    ?? prev.utdt_ngayThongBaoKhongThucHien,
+    // Field-parity: KLĐT + QĐ điều tra lại
+    soKLDT:          (apiData.soKLDT as string)          ?? prev.soKLDT,
+    ngayKLDT:        apiData.ngayKLDT ? toDateInput(apiData.ngayKLDT as string) : prev.ngayKLDT,
+    soQDDieuTraLai:  (apiData.soQDDieuTraLai as string)  ?? prev.soQDDieuTraLai,
+    ngayQDDieuTraLai: apiData.ngayQDDieuTraLai ? toDateInput(apiData.ngayQDDieuTraLai as string) : prev.ngayQDDieuTraLai,
+    // Field-parity: số QĐ giai đoạn vụ án (15 cột top-level)
+    soQuyetDinhKhoiTo:   (apiData.soQuyetDinhKhoiTo as string)   ?? prev.soQuyetDinhKhoiTo,
+    ngayKhoiTo:          apiData.ngayKhoiTo ? toDateInput(apiData.ngayKhoiTo as string) : prev.ngayKhoiTo,
+    soQDNhapVuAn:        (apiData.soQDNhapVuAn as string)        ?? prev.soQDNhapVuAn,
+    ngayNhapVuAn:        apiData.ngayNhapVuAn ? toDateInput(apiData.ngayNhapVuAn as string) : prev.ngayNhapVuAn,
+    ghiChuNhapHoSo:      (apiData.ghiChuNhapHoSo as string)      ?? prev.ghiChuNhapHoSo,
+    soQDTachVuAn:        (apiData.soQDTachVuAn as string)        ?? prev.soQDTachVuAn,
+    ngayTachVuAn:        apiData.ngayTachVuAn ? toDateInput(apiData.ngayTachVuAn as string) : prev.ngayTachVuAn,
+    soQDTachHanhVi:      (apiData.soQDTachHanhVi as string)      ?? prev.soQDTachHanhVi,
+    ngayTachHanhVi:      apiData.ngayTachHanhVi ? toDateInput(apiData.ngayTachHanhVi as string) : prev.ngayTachHanhVi,
+    soQDDinhChiVuAn:     (apiData.soQDDinhChiVuAn as string)     ?? prev.soQDDinhChiVuAn,
+    ngayDinhChiVuAn:     apiData.ngayDinhChiVuAn ? toDateInput(apiData.ngayDinhChiVuAn as string) : prev.ngayDinhChiVuAn,
+    chuyenVuAnChoCQK:    (apiData.chuyenVuAnChoCQK as string)    ?? prev.chuyenVuAnChoCQK,
+    soBanAnCoHieuLuc:    (apiData.soBanAnCoHieuLuc as string)    ?? prev.soBanAnCoHieuLuc,
+    ngayBanAnCoHieuLuc:  apiData.ngayBanAnCoHieuLuc ? toDateInput(apiData.ngayBanAnCoHieuLuc as string) : prev.ngayBanAnCoHieuLuc,
+    canCuTamDinhChiVuAn: (apiData.canCuTamDinhChiVuAn as string) ?? prev.canCuTamDinhChiVuAn,
+    canCuPhucHoiVuAn:    (apiData.canCuPhucHoiVuAn as string)    ?? prev.canCuPhucHoiVuAn,
+    // PR-3 — tab "Vụ án TĐC"
+    soQuyetDinhTamDinhChi:   (apiData.soQuyetDinhTamDinhChi as string)   ?? prev.soQuyetDinhTamDinhChi,
+    ngayTamDinhChi:          apiData.ngayTamDinhChi ? toDateInput(apiData.ngayTamDinhChi as string) : prev.ngayTamDinhChi,
+    lyDoTamDinhChiVuAn:      Array.isArray(apiData.lyDoTamDinhChiVuAn) ? (apiData.lyDoTamDinhChiVuAn as string[]) : prev.lyDoTamDinhChiVuAn,
+    ngayHetThoiHieu:         apiData.ngayHetThoiHieu ? toDateInput(apiData.ngayHetThoiHieu as string) : prev.ngayHetThoiHieu,
+    soQuyetDinhPhucHoi:      (apiData.soQuyetDinhPhucHoi as string)      ?? prev.soQuyetDinhPhucHoi,
+    ngayPhucHoi:             apiData.ngayPhucHoi ? toDateInput(apiData.ngayPhucHoi as string) : prev.ngayPhucHoi,
+    tdcKhacPhucLyDoBienPhap: (apiData.tdcKhacPhucLyDoBienPhap as string) ?? prev.tdcKhacPhucLyDoBienPhap,
+    tdcKhacPhucBienBan:      (apiData.tdcKhacPhucBienBan as string)      ?? prev.tdcKhacPhucBienBan,
+    // PR-M2: ghi chú tự do + tội danh khác (multi)
+    ghiChuKhac:     (apiData.ghiChuKhac as string) ?? prev.ghiChuKhac,
+    toiDanhKhacIds: Array.isArray(apiData.toiDanhKhacIds) ? (apiData.toiDanhKhacIds as string[]) : prev.toiDanhKhacIds,
   };
 }

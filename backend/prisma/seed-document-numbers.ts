@@ -1,5 +1,5 @@
 /**
- * Seed DocumentNumber templates for all 6 document types.
+ * Seed DocumentNumber templates for all document types.
  *
  * Idempotent: skips template creation if an active template for the documentType
  * already exists. Counter currentValue is only initialised (never decreased) —
@@ -86,6 +86,16 @@ const TEMPLATES: TemplateSpec[] = [
     padding: 3,
     yearPattern: 'YYYY',
   },
+  {
+    name: 'Số ủy thác điều tra',
+    documentType: 'UTDT',
+    prefix: 'UTDT',
+    separator: '-',
+    inputMode: 'AUTO',
+    resetPeriod: 'YEARLY',
+    padding: 5,
+    yearPattern: 'YYYY',
+  },
   // v0.47 PR1 T4 — 4 series for Document Template Engine v1.0.
   // Format example: "5931/ĐX-PC02-Đ1" (counter / prefix-org-team).
   // Team code is HARDCODED "Đ1" for now — PR2 will swap to a FORMULA segment once
@@ -135,6 +145,16 @@ const TEMPLATES: TemplateSpec[] = [
     padding: 4,
     yearPattern: 'YYYY',
   },
+  {
+    name: 'Số Biên nhận',
+    documentType: 'BIEN_NHAN',
+    prefix: 'BN-PC02-Đ1',
+    separator: '/',
+    inputMode: 'AUTO',
+    resetPeriod: 'YEARLY',
+    padding: 5,
+    yearPattern: 'YYYY',
+  },
 ];
 
 // v0.47 PR1 T4 — series that do NOT participate in existing counter backfill
@@ -145,6 +165,7 @@ const NEW_V047_SERIES = new Set([
   'PHIEU_CHUYEN',
   'THONG_BAO',
   'HUONG_DAN',
+  'BIEN_NHAN',
 ]);
 
 function buildSegments(spec: TemplateSpec) {
@@ -221,6 +242,7 @@ function getPrefix(documentType: string): string {
     PROPOSAL: 'DX',
     DELEGATION: 'UT',
     EVIDENCE: 'VC',
+    UTDT: 'UTDT',
   };
   return map[documentType] ?? '';
 }

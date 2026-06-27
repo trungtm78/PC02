@@ -175,12 +175,14 @@ export class SubjectsService {
       throw new BadRequestException(`Vụ án không tồn tại (id: ${dto.caseId})`);
     }
 
-    // Validate crimeId
-    const crimeRecord = await this.prisma.directory.findFirst({
-      where: { id: dto.crimeId, type: 'CRIME', isActive: true },
-    });
-    if (!crimeRecord) {
-      throw new BadRequestException(`Tội danh không tồn tại (id: ${dto.crimeId})`);
+    // Validate crimeId nếu có — FK tới master Crime (BLHS 2015). Optional: nhân chứng/bị hại bỏ trống.
+    if (dto.crimeId) {
+      const crimeRecord = await this.prisma.crime.findFirst({
+        where: { id: dto.crimeId, isActive: true },
+      });
+      if (!crimeRecord) {
+        throw new BadRequestException(`Tội danh không tồn tại (id: ${dto.crimeId})`);
+      }
     }
 
     const record = await this.prisma.subject.create({
@@ -256,10 +258,10 @@ export class SubjectsService {
       }
     }
 
-    // Validate crimeId if provided
+    // Validate crimeId if provided — FK tới master Crime (BLHS 2015).
     if (dto.crimeId) {
-      const crimeRecord = await this.prisma.directory.findFirst({
-        where: { id: dto.crimeId, type: 'CRIME', isActive: true },
+      const crimeRecord = await this.prisma.crime.findFirst({
+        where: { id: dto.crimeId, isActive: true },
       });
       if (!crimeRecord) {
         throw new BadRequestException(`Tội danh không tồn tại (id: ${dto.crimeId})`);

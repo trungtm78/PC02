@@ -13,6 +13,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { CreatePetitionDto } from './dto/create-petition.dto';
 import { UpdatePetitionDto } from './dto/update-petition.dto';
+import { buildPetitionCreateData } from './petition-data.builder';
 import { QueryPetitionsDto } from './dto/query-petitions.dto';
 import { QueryPetitionsStatsDto } from './dto/query-petitions-stats.dto';
 import { ConvertToIncidentDto } from './dto/convert-incident.dto';
@@ -425,30 +426,14 @@ export class PetitionsService {
         const { number, logId } = await this.docNums.commitWithTx('PETITION', { userId: actorId }, tx);
         resolvedStt = number;
         const rec = await tx.petition.create({
-          data: {
+          // Builder DUY NHẤT — gồm cả field v0.47 (trước bị rớt) + field-parity. Xem petition-data.builder.ts.
+          data: buildPetitionCreateData(dto, {
             stt: resolvedStt,
-            receivedDate: new Date(dto.receivedDate),
-            senderName: dto.senderName,
-            unit: dto.unit,
-            enteredById: actorId,
-            senderBirthYear: dto.senderBirthYear,
-            senderAddress: dto.senderAddress,
-            senderPhone: dto.senderPhone,
-            senderEmail: dto.senderEmail,
-            suspectedPerson: dto.suspectedPerson,
-            suspectedAddress: dto.suspectedAddress,
-            petitionType: dto.petitionType,
-            priority: dto.priority,
-            summary: dto.summary,
-            detailContent: dto.detailContent,
-            attachmentsNote: dto.attachmentsNote,
-            deadline: computedDeadline,
-            deadlineRuleVersionId: deadlineRuleVersionId ?? undefined,
-            assignedToId: dto.assignedToId,
-            ...(effectiveAssignedTeamId !== undefined && { assignedTeamId: effectiveAssignedTeamId }),
-            notes: dto.notes,
-            status: dto.status ?? PetitionStatus.MOI_TIEP_NHAN,
-          },
+            actorId,
+            computedDeadline,
+            deadlineRuleVersionId,
+            effectiveAssignedTeamId,
+          }),
           include: {
             enteredBy: {
               select: { id: true, firstName: true, lastName: true, username: true },
@@ -462,30 +447,13 @@ export class PetitionsService {
         return rec;
       }
       return tx.petition.create({
-        data: {
+        data: buildPetitionCreateData(dto, {
           stt: resolvedStt,
-          receivedDate: new Date(dto.receivedDate),
-          senderName: dto.senderName,
-          unit: dto.unit,
-          enteredById: actorId,
-          senderBirthYear: dto.senderBirthYear,
-          senderAddress: dto.senderAddress,
-          senderPhone: dto.senderPhone,
-          senderEmail: dto.senderEmail,
-          suspectedPerson: dto.suspectedPerson,
-          suspectedAddress: dto.suspectedAddress,
-          petitionType: dto.petitionType,
-          priority: dto.priority,
-          summary: dto.summary,
-          detailContent: dto.detailContent,
-          attachmentsNote: dto.attachmentsNote,
-          deadline: computedDeadline,
-          deadlineRuleVersionId: deadlineRuleVersionId ?? undefined,
-          assignedToId: dto.assignedToId,
-          ...(effectiveAssignedTeamId !== undefined && { assignedTeamId: effectiveAssignedTeamId }),
-          notes: dto.notes,
-          status: dto.status ?? PetitionStatus.MOI_TIEP_NHAN,
-        },
+          actorId,
+          computedDeadline,
+          deadlineRuleVersionId,
+          effectiveAssignedTeamId,
+        }),
         include: {
           enteredBy: {
             select: { id: true, firstName: true, lastName: true, username: true },
@@ -617,6 +585,42 @@ export class PetitionsService {
         huongDanKhoiKien: dto.huongDanKhoiKien,
       }),
       ...(dto.lyDoTraDon !== undefined && { lyDoTraDon: dto.lyDoTraDon }),
+      // ── Field-parity hệ thống cũ (giai đoạn tiếp nhận) ──
+      ...(dto.senderIdNumber !== undefined && { senderIdNumber: dto.senderIdNumber }),
+      ...(dto.senderIdIssueDate !== undefined && {
+        senderIdIssueDate: dto.senderIdIssueDate ? new Date(dto.senderIdIssueDate) : null,
+      }),
+      ...(dto.senderIdIssuePlace !== undefined && { senderIdIssuePlace: dto.senderIdIssuePlace }),
+      ...(dto.senderIsAnonymous !== undefined && { senderIsAnonymous: dto.senderIsAnonymous }),
+      ...(dto.loaiThongTin !== undefined && { loaiThongTin: dto.loaiThongTin }),
+      ...(dto.soPhieuChuyen !== undefined && { soPhieuChuyen: dto.soPhieuChuyen }),
+      ...(dto.ngayPhieuChuyen !== undefined && {
+        ngayPhieuChuyen: dto.ngayPhieuChuyen ? new Date(dto.ngayPhieuChuyen) : null,
+      }),
+      ...(dto.ngayTiepNhanNguonTin !== undefined && {
+        ngayTiepNhanNguonTin: dto.ngayTiepNhanNguonTin ? new Date(dto.ngayTiepNhanNguonTin) : null,
+      }),
+      ...(dto.toiDanhBanDau !== undefined && { toiDanhBanDau: dto.toiDanhBanDau }),
+      ...(dto.crimeChinhId !== undefined && { crimeChinhId: dto.crimeChinhId || null }),
+      ...(dto.noiXayRa !== undefined && { noiXayRa: dto.noiXayRa }),
+      ...(dto.noiXayRaPhuongXa !== undefined && { noiXayRaPhuongXa: dto.noiXayRaPhuongXa }),
+      ...(dto.ngayXayRa !== undefined && {
+        ngayXayRa: dto.ngayXayRa ? new Date(dto.ngayXayRa) : null,
+      }),
+      ...(dto.loaiToiPham !== undefined && { loaiToiPham: dto.loaiToiPham }),
+      ...(dto.phuongThucThuDoan !== undefined && { phuongThucThuDoan: dto.phuongThucThuDoan }),
+      ...(dto.ngayGiaoDonViGiaiQuyet !== undefined && {
+        ngayGiaoDonViGiaiQuyet: dto.ngayGiaoDonViGiaiQuyet ? new Date(dto.ngayGiaoDonViGiaiQuyet) : null,
+      }),
+      ...(dto.laCongNgheCao !== undefined && { laCongNgheCao: dto.laCongNgheCao }),
+      ...(dto.lanhDaoToTung !== undefined && { lanhDaoToTung: dto.lanhDaoToTung }),
+      ...(dto.ketQuaXuLyKhac !== undefined && { ketQuaXuLyKhac: dto.ketQuaXuLyKhac }),
+      ...(dto.thoiHanUTDT !== undefined && { thoiHanUTDT: dto.thoiHanUTDT ? new Date(dto.thoiHanUTDT) : null }),
+      // Field-parity bổ sung tab "Thông tin" form cũ /doi-1/Them (2026-06-26).
+      ...(dto.ngayDeXuat !== undefined && { ngayDeXuat: dto.ngayDeXuat ? new Date(dto.ngayDeXuat) : null }),
+      ...(dto.phanLoaiNguonTin !== undefined && { phanLoaiNguonTin: dto.phanLoaiNguonTin }),
+      ...(dto.dieuTraVien !== undefined && { dieuTraVien: dto.dieuTraVien }),
+      ...(dto.donViGiaiQuyet !== undefined && { donViGiaiQuyet: dto.donViGiaiQuyet }),
     };
     const petitionInclude = {
       enteredBy: {
@@ -986,11 +990,25 @@ export class PetitionsService {
     });
     if (!team) throw new BadRequestException(`Tổ không tồn tại hoặc đã ngừng hoạt động (id: ${dto.assignedTeamId})`);
 
+    // I.1: auto-assign to leader when assignedToId not provided
+    let resolvedAssignedToId: string | null = dto.assignedToId ?? null;
     if (dto.assignedToId) {
       const member = await this.prisma.userTeam.findFirst({
         where: { userId: dto.assignedToId, teamId: dto.assignedTeamId },
       });
       if (!member) throw new BadRequestException('Cán bộ xử lý không thuộc tổ được chỉ định');
+    } else {
+      // Auto-detect leader
+      const members = await this.prisma.userTeam.findMany({
+        where: { teamId: dto.assignedTeamId },
+        select: { userId: true, isLeader: true },
+      });
+      const leader = members.find((m) => m.isLeader);
+      if (leader) {
+        resolvedAssignedToId = leader.userId;
+      } else {
+        console.warn(`[PetitionsService] assignPetition: team ${dto.assignedTeamId} has no leader — assignedToId left null`);
+      }
     }
 
     try {
@@ -1001,7 +1019,7 @@ export class PetitionsService {
         },
         data: {
           assignedTeamId: dto.assignedTeamId,
-          assignedToId: dto.assignedToId ?? null,
+          assignedToId: resolvedAssignedToId,
           ...(dto.deadline ? { deadline: new Date(dto.deadline) } : {}),
         },
       });
@@ -1344,8 +1362,9 @@ export class PetitionsService {
     const groups = await (this.prisma.petition.groupBy as any)({
       by: [dupKey],
       where: {
+        // Prisma v7: `not: null` bị reject trong groupBy. `notIn: ['']` (SQL NOT IN) loại cả NULL lẫn ''.
         ...where,
-        [dupKey]: { not: null, notIn: [''] },
+        [dupKey]: { notIn: [''] },
       },
       _count: { _all: true },
       having: { [dupKey]: { _count: { gt: 1 } } },
@@ -1550,8 +1569,13 @@ export class PetitionsService {
       'Content-Type',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     );
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.setHeader('X-Document-Number', documentNumber);
+    // RFC 5987 encoding for non-ASCII filenames (Vietnamese prefix chars like Đ).
+    const asciiName = filename.replace(/[^\x20-\x7E]/g, '_');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(filename)}`,
+    );
+    res.setHeader('X-Document-Number', encodeURIComponent(documentNumber));
     res.send(buffer);
   }
 
@@ -1560,20 +1584,16 @@ export class PetitionsService {
    * streaming to a Response. Used by BatchExportService to pipe N rendered
    * docx into an archiver ZIP without needing N Response objects.
    */
-  async exportDocumentToBuffer(
+  /**
+   * Load đơn thư đầy đủ shape cho placeholder (team members + leader rank — không
+   * có trong getById include mặc định). RBAC scope check qua getById. Tách ra để
+   * exportDocumentToBuffer + preValidateExportDocuments dùng chung (DRY).
+   */
+  private async loadPetitionForExport(
     id: string,
-    docType: DocumentType,
-    actorId: string,
     dataScope: DataScope | null | undefined,
-  ): Promise<{ buffer: Buffer; documentNumber: string; filename: string }> {
-    // (RBAC scope + load + tx wrapper inlined below — see exportDocument
-    // facade above for the streaming variant.)
+  ) {
     await this.getById(id, dataScope);
-
-    // Load the full shape needed for placeholders. Team members + leader rank
-    // resolution is not in the default getById include (would bloat every list page),
-    // so fetch it here. Already in scope — getById would have thrown ForbiddenException
-    // above if not.
     const petition = await this.prisma.petition.findFirst({
       where: { id, deletedAt: null },
       include: {
@@ -1598,59 +1618,99 @@ export class PetitionsService {
     if (!petition) {
       throw new NotFoundException(`Đơn thư không tồn tại (id: ${id})`);
     }
+    return petition;
+  }
 
-    validateFieldsForDocType(docType, petition as any);
-
+  /**
+   * Body 1 lần render TRONG transaction (cấp số + render + log). Tách để
+   * exportDocumentToBuffer (single) + renderDocumentsAtomic (multi, 1 tx) dùng chung.
+   * Throw ở đây → tx rollback → KHÔNG orphan số văn bản / DocumentRenderLog.
+   */
+  private async renderDocumentInTx(
+    tx: any,
+    id: string,
+    petition: any,
+    docType: DocumentType,
+    actorId: string,
+  ): Promise<{ buffer: Buffer; soVanBan: string; fileSha: string }> {
     const numberSeries = DOC_TYPE_TO_SERIES[docType];
     const teamCode = petition.assignedTeam?.code ?? 'Đ1';
-
-    const { buffer, soVanBan, fileSha } = await this.prisma.$transaction(
-      async (tx: any) => {
-        // Row lock so two concurrent exports of the same petition can't both
-        // allocate document numbers (race condition C2 from fresh eng review).
-        await tx.$queryRaw`SELECT id FROM petitions WHERE id = ${id} FOR UPDATE`;
-
-        const commit = await this.docNums.commitWithTx(
-          numberSeries,
-          { userId: actorId, petitionId: petition.id, departmentId: petition.unit ?? undefined },
-          tx,
-          { documentId: petition.id },
-        );
-
-        // Render the template. Throw here → tx rolls back → no orphan
-        // documentNumberLog / counter increment / DocumentRenderLog row.
-        const placeholders = this.buildDocxPlaceholders(petition, commit.number, teamCode);
-        const escaped = this.escapeUserSuppliedTokens(placeholders);
-        const renderedBuf = this.documentExport.renderDocxTemplate(docType, escaped);
-        const sha = createHash('sha256').update(renderedBuf).digest('hex');
-
-        // Audit trail row (DocumentRenderLog from PR1 schema). Single source of
-        // truth for "has petition X been issued PHIEU_DE_XUAT yet?" — replaces
-        // per-docType cache cols on Petition (CQ2/CQ3 dropped in PR1).
-        await tx.documentRenderLog.create({
-          data: {
-            petitionId: petition.id,
-            documentType: docType,
-            templateSha: '', // populated below — loader sha
-            renderedById: actorId,
-            generatedNumber: commit.number,
-            fileSha: sha,
-          },
-        });
-        return { buffer: renderedBuf, soVanBan: commit.number, fileSha: sha };
-      },
+    // Row lock chống 2 export đồng thời cùng đơn cùng cấp số (race C2).
+    await tx.$queryRaw`SELECT id FROM petitions WHERE id = ${id} FOR UPDATE`;
+    const commit = await this.docNums.commitWithTx(
+      numberSeries,
+      { userId: actorId, petitionId: petition.id, departmentId: petition.unit ?? undefined },
+      tx,
+      { documentId: petition.id },
     );
-
-    // Post-tx side-effects: stamp templateSha (cheap field-only update, no FK
-    // contention) and stream response. Both outside the lock window.
+    const placeholders = this.buildDocxPlaceholders(petition, commit.number, teamCode);
+    const escaped = this.escapeUserSuppliedTokens(placeholders);
+    const renderedBuf = this.documentExport.renderDocxTemplate(docType, escaped);
+    const sha = createHash('sha256').update(renderedBuf).digest('hex');
+    // templateSha lấy từ loader (đồng bộ, in-memory, KHÔNG DB) → ghi thẳng trong tx,
+    // bỏ update post-commit (tránh điểm lỗi sau khi đã cấp số — codex P2 final).
     const templateSha = (this.documentExport as any).loader.sha(docType) as string;
-    await this.prisma.documentRenderLog.updateMany({
-      where: { petitionId: id, fileSha, templateSha: '' },
-      data: { templateSha },
+    await tx.documentRenderLog.create({
+      data: {
+        petitionId: petition.id,
+        documentType: docType,
+        templateSha,
+        renderedById: actorId,
+        generatedNumber: commit.number,
+        fileSha: sha,
+      },
     });
+    return { buffer: renderedBuf, soVanBan: commit.number, fileSha: sha };
+  }
 
-    const filename = sanitizeFilename(`${docType}_${soVanBan}.docx`);
-    return { buffer, documentNumber: soVanBan, filename };
+  async exportDocumentToBuffer(
+    id: string,
+    docType: DocumentType,
+    actorId: string,
+    dataScope: DataScope | null | undefined,
+  ): Promise<{ buffer: Buffer; documentNumber: string; filename: string }> {
+    const petition = await this.loadPetitionForExport(id, dataScope);
+    validateFieldsForDocType(docType, petition as any);
+    const { buffer, soVanBan } = await this.prisma.$transaction((tx: any) =>
+      this.renderDocumentInTx(tx, id, petition, docType, actorId),
+    );
+    return { buffer, documentNumber: soVanBan, filename: sanitizeFilename(`${docType}_${soVanBan}.docx`) };
+  }
+
+  /**
+   * [P2 codex/atomic] Render N mẫu + FINALIZE (gộp .docx / đóng .zip) trong MỘT
+   * transaction. Pre-validate tất cả trước; render+cấp số N mẫu rồi gọi `finalize`
+   * NGAY trong tx. Bất kỳ lỗi (render, gộp, zip) → rollback HẾT → KHÔNG tiêu số văn
+   * bản nào (đóng kín gap số kể cả khi bước gộp/zip lỗi SAU render). Trả buffer
+   * deliverable cuối (1 .docx gộp hoặc .zip). templateSha ghi luôn trong tx → KHÔNG
+   * còn bước post-commit nào có thể giữ file lại sau khi đã cấp số.
+   */
+  async renderDocumentsAtomic(
+    id: string,
+    docTypes: DocumentType[],
+    actorId: string,
+    dataScope: DataScope | null | undefined,
+    finalize: (
+      docs: Array<{ buffer: Buffer; documentNumber: string; filename: string }>,
+    ) => Buffer | Promise<Buffer>,
+  ): Promise<Buffer> {
+    const petition = await this.loadPetitionForExport(id, dataScope);
+    for (const docType of docTypes) validateFieldsForDocType(docType, petition as any);
+    return this.prisma.$transaction(async (tx: any) => {
+      const out: Array<{ docType: DocumentType; buffer: Buffer; soVanBan: string; fileSha: string }> = [];
+      for (const docType of docTypes) {
+        const r = await this.renderDocumentInTx(tx, id, petition, docType, actorId);
+        out.push({ docType, ...r });
+      }
+      // Gộp/zip NGAY trong tx → lỗi ở đây cũng rollback số văn bản (P2 đóng kín).
+      return finalize(
+        out.map((r) => ({
+          buffer: r.buffer,
+          documentNumber: r.soVanBan,
+          filename: sanitizeFilename(`${r.docType}_${r.soVanBan}.docx`),
+        })),
+      );
+    });
   }
 
   private buildDocxPlaceholders(
@@ -1915,5 +1975,148 @@ export class PetitionsService {
     }
 
     return { total, byStatus };
+  }
+
+  // ── Nhóm V — Search nghi phạm theo tên/CCCD ────────────────────────────────
+  async suspectSearch(
+    q: string,
+    _dataScope?: DataScope | null,
+  ): Promise<Array<{ name: string; idNumber: string; crimes: string[]; sources: Array<{ type: string; stt: string }> }>> {
+    if (!q?.trim()) return [];
+
+    const petitions = await this.prisma.petition.findMany({
+      where: {
+        deletedAt: null,
+        OR: [
+          { senderName: { contains: q, mode: 'insensitive' } },
+          { senderIdNumber: { contains: q, mode: 'insensitive' } },
+        ],
+      },
+      select: {
+        id: true,
+        stt: true,
+        senderName: true,
+        senderIdNumber: true,
+        toiDanhBanDau: true,
+      },
+      take: 20,
+      orderBy: { receivedDate: 'desc' },
+    });
+
+    const byKey = new Map<string, { name: string; idNumber: string; crimes: string[]; sources: Array<{ type: string; stt: string }> }>();
+    for (const p of petitions) {
+      const key = p.senderIdNumber?.trim() || p.senderName;
+      if (!byKey.has(key)) {
+        byKey.set(key, { name: p.senderName, idNumber: p.senderIdNumber ?? '', crimes: [], sources: [] });
+      }
+      const entry = byKey.get(key)!;
+      if (p.toiDanhBanDau?.trim() && !entry.crimes.includes(p.toiDanhBanDau)) {
+        entry.crimes.push(p.toiDanhBanDau);
+      }
+      entry.sources.push({ type: 'petition', stt: p.stt });
+    }
+
+    return Array.from(byKey.values());
+  }
+
+  // ── Nhóm V — Search trùng đơn theo tên/STT/nội dung ───────────────────────
+  async duplicateSearch(
+    q: string,
+    excludeId?: string,
+    _dataScope?: DataScope | null,
+  ): Promise<Array<{ id: string; stt: string; senderName: string; receivedDate: Date; summary: string | null }>> {
+    if (!q?.trim()) return [];
+
+    const where: Prisma.PetitionWhereInput = {
+      deletedAt: null,
+      OR: [
+        { senderName: { contains: q, mode: 'insensitive' } },
+        { stt: { contains: q, mode: 'insensitive' } },
+        { summary: { contains: q, mode: 'insensitive' } },
+      ],
+    };
+
+    if (excludeId) {
+      where.id = { not: excludeId };
+    }
+
+    return this.prisma.petition.findMany({
+      where,
+      select: {
+        id: true,
+        stt: true,
+        senderName: true,
+        receivedDate: true,
+        summary: true,
+      },
+      take: 20,
+      orderBy: { receivedDate: 'desc' },
+    });
+  }
+
+  // ── Nhóm I: PetitionAssignment CRUD ─────────────────────────────────────────
+
+  async addAssignment(
+    petitionId: string,
+    userId: string,
+    role: 'LEAD' | 'SUPPORT',
+    actorId: string,
+    _dataScope?: DataScope | null,
+  ) {
+    const petition = await this.prisma.petition.findFirst({ where: { id: petitionId, deletedAt: null } });
+    if (!petition) throw new NotFoundException(`Đơn thư không tồn tại (id: ${petitionId})`);
+
+    const existing = await this.prisma.petitionAssignment.findUnique({
+      where: { petitionId_userId: { petitionId, userId } },
+    });
+    if (existing) throw new ConflictException(`Cán bộ đã được phân công cho đơn thư này`);
+
+    return this.prisma.petitionAssignment.create({
+      data: { petitionId, userId, role, assignedById: actorId },
+      include: {
+        user: { select: { id: true, firstName: true, lastName: true, email: true, username: true } },
+        assignedBy: { select: { id: true, firstName: true, lastName: true, username: true } },
+      },
+    }).catch((err: any) => {
+      if (err?.code === 'P2002') throw new ConflictException(`Cán bộ đã được phân công cho đơn thư này`);
+      if (err?.code === 'P2003') throw new NotFoundException(`Cán bộ không tồn tại (userId: ${userId})`);
+      throw err;
+    });
+  }
+
+  async removeAssignment(
+    petitionId: string,
+    userId: string,
+    _actorId: string,
+  ) {
+    const petition = await this.prisma.petition.findFirst({ where: { id: petitionId, deletedAt: null } });
+    if (!petition) throw new NotFoundException(`Đơn thư không tồn tại (id: ${petitionId})`);
+
+    const existing = await this.prisma.petitionAssignment.findUnique({
+      where: { petitionId_userId: { petitionId, userId } },
+    });
+    if (!existing) throw new NotFoundException(`Cán bộ chưa được phân công cho đơn thư này`);
+
+    await this.prisma.petitionAssignment.delete({
+      where: { petitionId_userId: { petitionId, userId } },
+    });
+    return { success: true };
+  }
+
+  async listAssignments(
+    petitionId: string,
+    _dataScope?: DataScope | null,
+  ) {
+    const petition = await this.prisma.petition.findFirst({ where: { id: petitionId, deletedAt: null } });
+    if (!petition) throw new NotFoundException(`Đơn thư không tồn tại (id: ${petitionId})`);
+
+    return this.prisma.petitionAssignment.findMany({
+      where: { petitionId },
+      include: {
+        user: { select: { id: true, firstName: true, lastName: true, email: true, username: true } },
+        assignedBy: { select: { id: true, firstName: true, lastName: true, username: true } },
+      },
+      orderBy: { assignedAt: 'asc' },
+    });
   }
 }

@@ -5,12 +5,9 @@ import {
   User,
   Phone,
   MapPin,
-  FileText,
   Users,
   Package,
   Plus,
-  Eye,
-  Download,
   Upload,
   Video,
   Scale,
@@ -18,19 +15,24 @@ import {
   DollarSign,
   AlertCircle,
   Radio,
-  Trash2,
   CheckCircle,
   Info,
   History,
 } from "lucide-react";
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { extractApiError } from "@/lib/api-errors";
-import { today, formatVNDate } from "@/lib/dates";
+import { today } from "@/lib/dates";
 import { useShortcut } from "@/hooks/useShortcut";
-import { FormInput, FormSelect, FormTextarea, FormCurrency, FormPhone, FormInteger } from "@/components/form";
+import { FormInput, FormSelect, FormTextarea, FormCurrency, FormPhone } from "@/components/form";
 import { DocNumberPreviewField } from "@/components/DocNumberPreviewField";
+import { CatalogSelect } from "@/components/CatalogSelect";
+import { CATALOG_LEGAL } from "@/shared/catalog/catalog.generated";
+
+// PR-8 catalog: options derive từ registry (nguồn duy nhất) thay hardcode inline.
+const CAP_DO_TOI_PHAM_OPTIONS = (CATALOG_LEGAL.CAP_DO_TOI_PHAM as readonly { code: string; label: string }[]).map(
+  (o) => ({ value: o.code, label: o.label }),
+);
 import { CurrencyInput } from "@/components/inputs/CurrencyInput";
 import { IntegerInput } from "@/components/inputs/IntegerInput";
 import { Card, CardHeader, EmptyState, DataTable, ActionButtons, StatusBadge } from "@/components/shared";
@@ -46,7 +48,6 @@ import {
 } from "./constants";
 import { CaseProvenancePicker } from "./CaseProvenancePicker";
 import { LinkedIncidentCard } from "./LinkedIncidentCard";
-import { CaseFormTab1UyThac } from "./CaseFormTab1UyThac";
 import { CaseProvenance } from "../../../shared/enums/generated";
 
 // Branch-3 provenances that trigger Incident auto-create (module-level, not inside render)
@@ -66,8 +67,8 @@ function useFieldUpdater(
   errors: TabProps["errors"],
   setErrors: TabProps["setErrors"]
 ) {
-  return (field: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+  return (field: string, value: string | string[] | boolean) => {
+    setFormData((prev) => ({ ...prev, [field]: value }) as TabProps["formData"]);
     if (errors[field]) setErrors((prev) => ({ ...prev, [field]: "" }));
   };
 }
@@ -178,13 +179,15 @@ export function TabInfo({ formData, setFormData, errors, setErrors, handlerOptio
         <CardHeader title="Thông tin hồ sơ" />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Mã hồ sơ</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {formData.caseProvenance === 'UY_THAC_DIEU_TRA' ? 'Số ủy thác' : 'Mã hồ sơ'}
+            </label>
             <DocNumberPreviewField
               inputMode="AUTO"
               value={formData.caseCode}
               onChange={(v) => update("caseCode", v)}
               loading={isDraftCodeLoading}
-              placeholder="HS-2026-001"
+              placeholder={formData.caseProvenance === 'UY_THAC_DIEU_TRA' ? 'UTDT-2026-00001' : 'HS-2026-001'}
             />
             {errors.caseCode && (
               <p className="text-xs text-red-600 mt-1">{errors.caseCode}</p>
@@ -235,12 +238,7 @@ export function TabInfo({ formData, setFormData, errors, setErrors, handlerOptio
             label="Mức độ tội phạm (BLHS 2015 Điều 9)"
             value={formData.capDoToiPham ?? ""}
             onChange={(v) => update("capDoToiPham", v)}
-            options={[
-              { value: "IT_NGHIEM_TRONG", label: "Ít nghiêm trọng (đến 3 năm)" },
-              { value: "NGHIEM_TRONG", label: "Nghiêm trọng (đến 7 năm)" },
-              { value: "RAT_NGHIEM_TRONG", label: "Rất nghiêm trọng (đến 15 năm)" },
-              { value: "DAC_BIET_NGHIEM_TRONG", label: "Đặc biệt nghiêm trọng (trên 15 năm / tử hình)" },
-            ]}
+            options={CAP_DO_TOI_PHAM_OPTIONS}
             placeholder="-- Chọn mức độ tội phạm --"
           />
           <FKSelect
@@ -519,7 +517,7 @@ export function TabIncident({ formData, setFormData, errors, setErrors }: TabPro
   const autoLinkedId = formData.autoLinkedIncidentId;
   const hasLinkedIncident =
     (fromIncidentId && formData.caseProvenance === CaseProvenance.FROM_INCIDENT) ||
-    (autoLinkedId && DIRECT_PROVENANCES.has(formData.caseProvenance));
+    (autoLinkedId && (DIRECT_PROVENANCES as Set<string>).has(formData.caseProvenance));
 
   if (hasLinkedIncident) {
     return (
@@ -715,6 +713,157 @@ export function TabCase({ formData, setFormData, errors, setErrors }: TabProps) 
           onChange={(v) => update("sentence", v)}
           placeholder="VD: 5 năm tù giam"
         />
+        <FormInput
+          label="Số kết luận điều tra"
+          value={formData.soKLDT}
+          onChange={(v) => update("soKLDT", v)}
+          placeholder="Số KLĐT"
+        />
+        <FormInput
+          label="Ngày kết luận điều tra"
+          type="date"
+          icon={<Calendar className="w-4 h-4" />}
+          value={formData.ngayKLDT}
+          onChange={(v) => update("ngayKLDT", v)}
+        />
+        <FormInput
+          label="Số QĐ điều tra lại"
+          value={formData.soQDDieuTraLai}
+          onChange={(v) => update("soQDDieuTraLai", v)}
+          placeholder="Số QĐ điều tra lại"
+        />
+        <FormInput
+          label="Ngày QĐ điều tra lại"
+          type="date"
+          icon={<Calendar className="w-4 h-4" />}
+          value={formData.ngayQDDieuTraLai}
+          onChange={(v) => update("ngayQDDieuTraLai", v)}
+        />
+        {/* Số QĐ giai đoạn vụ án (field-parity) */}
+        <FormInput
+          label="Số QĐ khởi tố vụ án"
+          value={formData.soQuyetDinhKhoiTo}
+          onChange={(v) => update("soQuyetDinhKhoiTo", v)}
+          placeholder="Số QĐ khởi tố"
+        />
+        <FormInput
+          label="Ngày QĐ khởi tố vụ án"
+          type="date"
+          icon={<Calendar className="w-4 h-4" />}
+          value={formData.ngayKhoiTo}
+          onChange={(v) => update("ngayKhoiTo", v)}
+          data-testid="field-ngayKhoiTo"
+        />
+        <FormInput
+          label="Số QĐ nhập vụ án"
+          value={formData.soQDNhapVuAn}
+          onChange={(v) => update("soQDNhapVuAn", v)}
+          placeholder="Số QĐ nhập vụ án"
+        />
+        <FormInput
+          label="Ngày nhập vụ án"
+          type="date"
+          icon={<Calendar className="w-4 h-4" />}
+          value={formData.ngayNhapVuAn}
+          onChange={(v) => update("ngayNhapVuAn", v)}
+        />
+        <FormInput
+          label="Ghi chú nhập hồ sơ"
+          value={formData.ghiChuNhapHoSo}
+          onChange={(v) => update("ghiChuNhapHoSo", v)}
+          placeholder="Ghi chú nhập vào hồ sơ nào"
+        />
+        <FormInput
+          label="Số QĐ tách vụ án"
+          value={formData.soQDTachVuAn}
+          onChange={(v) => update("soQDTachVuAn", v)}
+          placeholder="Số QĐ tách vụ án"
+        />
+        <FormInput
+          label="Ngày tách vụ án"
+          type="date"
+          icon={<Calendar className="w-4 h-4" />}
+          value={formData.ngayTachVuAn}
+          onChange={(v) => update("ngayTachVuAn", v)}
+        />
+        <FormInput
+          label="Số QĐ tách hành vi"
+          value={formData.soQDTachHanhVi}
+          onChange={(v) => update("soQDTachHanhVi", v)}
+          placeholder="Số QĐ tách hành vi"
+        />
+        <FormInput
+          label="Ngày tách hành vi"
+          type="date"
+          icon={<Calendar className="w-4 h-4" />}
+          value={formData.ngayTachHanhVi}
+          onChange={(v) => update("ngayTachHanhVi", v)}
+        />
+        <FormInput
+          label="Số QĐ đình chỉ vụ án"
+          value={formData.soQDDinhChiVuAn}
+          onChange={(v) => update("soQDDinhChiVuAn", v)}
+          placeholder="Số QĐ đình chỉ vụ án"
+        />
+        <FormInput
+          label="Ngày đình chỉ vụ án"
+          type="date"
+          icon={<Calendar className="w-4 h-4" />}
+          value={formData.ngayDinhChiVuAn}
+          onChange={(v) => update("ngayDinhChiVuAn", v)}
+        />
+        <FormInput
+          label="Chuyển vụ án cho CQĐT khác"
+          value={formData.chuyenVuAnChoCQK}
+          onChange={(v) => update("chuyenVuAnChoCQK", v)}
+          placeholder="Số/ngày/đơn vị nhận"
+        />
+        <FormInput
+          label="Số bản án có hiệu lực"
+          value={formData.soBanAnCoHieuLuc}
+          onChange={(v) => update("soBanAnCoHieuLuc", v)}
+          placeholder="Số bản án"
+        />
+        <FormInput
+          label="Ngày bản án có hiệu lực"
+          type="date"
+          icon={<Calendar className="w-4 h-4" />}
+          value={formData.ngayBanAnCoHieuLuc}
+          onChange={(v) => update("ngayBanAnCoHieuLuc", v)}
+        />
+        <FormInput
+          label="Căn cứ tạm đình chỉ vụ án"
+          value={formData.canCuTamDinhChiVuAn}
+          onChange={(v) => update("canCuTamDinhChiVuAn", v)}
+          placeholder="Căn cứ pháp lý tạm đình chỉ"
+        />
+        <FormInput
+          label="Căn cứ phục hồi điều tra"
+          value={formData.canCuPhucHoiVuAn}
+          onChange={(v) => update("canCuPhucHoiVuAn", v)}
+          placeholder="Căn cứ pháp lý phục hồi điều tra"
+        />
+        {/* PR-M2 — field-parity: tội danh khác (multi) + ghi chú tự do */}
+        <FormInput
+          label="Tội danh khác (mã, cách nhau dấu phẩy)"
+          value={formData.toiDanhKhacIds.join(", ")}
+          onChange={(v) =>
+            setFormData((prev) => ({
+              ...prev,
+              toiDanhKhacIds: v
+                .split(",")
+                .map((s) => s.trim())
+                .filter(Boolean),
+            }))
+          }
+          placeholder="VD: D173, D174"
+        />
+        <FormInput
+          label="Ghi chú khác"
+          value={formData.ghiChuKhac}
+          onChange={(v) => update("ghiChuKhac", v)}
+          placeholder="Ghi chú tự do (di trú từ hệ thống cũ)"
+        />
       </div>
     </Card>
   );
@@ -898,6 +1047,74 @@ export function TabCaseTDC({ formData, setFormData, errors, setErrors }: TabProp
           colSpan={2}
         />
       </div>
+
+      {/* PR-3 — Quyết định Tạm đình chỉ & Phục hồi điều tra vụ án (field-parity /doi-1/Them) */}
+      <CardHeader title="Tạm đình chỉ & phục hồi điều tra vụ án" />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <FormInput
+          label="Số QĐ tạm đình chỉ vụ án"
+          value={formData.soQuyetDinhTamDinhChi}
+          onChange={(v) => update("soQuyetDinhTamDinhChi", v)}
+          placeholder="Số quyết định tạm đình chỉ điều tra"
+          data-testid="field-soQuyetDinhTamDinhChi"
+        />
+        <FormInput
+          label="Ngày QĐ tạm đình chỉ"
+          type="date"
+          icon={<Calendar className="w-4 h-4" />}
+          value={formData.ngayTamDinhChi}
+          onChange={(v) => update("ngayTamDinhChi", v)}
+          data-testid="field-ngayTamDinhChi"
+        />
+        <div className="md:col-span-2" data-testid="field-lyDoTamDinhChiVuAn">
+          <label className="block text-sm font-medium text-slate-700 mb-2">Lý do tạm đình chỉ (BLTTHS Đ.229) — chọn nhiều</label>
+          {/* PR-3 catalog: 1 component dùng chung; multi tự theo registry META. */}
+          <CatalogSelect
+            catalogKey="LY_DO_TAM_DINH_CHI_VU_AN"
+            value={formData.lyDoTamDinhChiVuAn}
+            onChange={(v) => update("lyDoTamDinhChiVuAn", v as string[])}
+          />
+        </div>
+        <FormInput
+          label="Ngày hết thời hiệu truy cứu TNHS"
+          type="date"
+          icon={<Calendar className="w-4 h-4" />}
+          value={formData.ngayHetThoiHieu}
+          onChange={(v) => update("ngayHetThoiHieu", v)}
+          data-testid="field-ngayHetThoiHieu"
+        />
+        <FormInput
+          label="Số QĐ phục hồi điều tra"
+          value={formData.soQuyetDinhPhucHoi}
+          onChange={(v) => update("soQuyetDinhPhucHoi", v)}
+          placeholder="Số quyết định phục hồi điều tra"
+          data-testid="field-soQuyetDinhPhucHoi"
+        />
+        <FormInput
+          label="Ngày QĐ phục hồi"
+          type="date"
+          icon={<Calendar className="w-4 h-4" />}
+          value={formData.ngayPhucHoi}
+          onChange={(v) => update("ngayPhucHoi", v)}
+          data-testid="field-ngayPhucHoi"
+        />
+        <FormTextarea
+          label="Lý do / biện pháp khắc phục TĐC"
+          value={formData.tdcKhacPhucLyDoBienPhap}
+          onChange={(v) => update("tdcKhacPhucLyDoBienPhap", v)}
+          placeholder="Lý do và biện pháp khắc phục để phục hồi điều tra..."
+          rows={3}
+          colSpan={2}
+        />
+        <FormTextarea
+          label="Biên bản khắc phục TĐC"
+          value={formData.tdcKhacPhucBienBan}
+          onChange={(v) => update("tdcKhacPhucBienBan", v)}
+          placeholder="Số/ngày biên bản khắc phục..."
+          rows={2}
+          colSpan={2}
+        />
+      </div>
     </Card>
   );
 }
@@ -991,9 +1208,30 @@ export function TabBusinessFiles({ caseId }: { caseId?: string }) {
 // Tab 9: Thống kê 48 trường – full implementation từ Refs
 // ═════════════════════════════════════════════════════════════════════════════
 
+// Helper input nhỏ cho case_statistics (text/date/number/bool).
+const CS_LABEL = "block text-xs font-medium text-slate-600 mb-1";
+const CS_INPUT = "w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500";
+function CSText({ label, v, on, t }: { label: string; v: string; on: (x: string) => void; t: string }) {
+  return (<div><label className={CS_LABEL}>{label}</label><input type="text" value={v} onChange={(e) => on(e.target.value)} className={CS_INPUT} data-testid={t} /></div>);
+}
+function CSNum({ label, v, on, t }: { label: string; v: string; on: (x: string) => void; t: string }) {
+  return (<div><label className={CS_LABEL}>{label}</label><input type="number" min={0} value={v} onChange={(e) => on(e.target.value)} className={CS_INPUT} data-testid={t} /></div>);
+}
+function CSDate({ label, v, on, t }: { label: string; v: string; on: (x: string) => void; t: string }) {
+  return (<div><label className={CS_LABEL}>{label}</label><input type="date" value={v} onChange={(e) => on(e.target.value)} className={CS_INPUT} data-testid={t} /></div>);
+}
+function CSBool({ label, v, on, t }: { label: string; v: boolean; on: (x: boolean) => void; t: string }) {
+  return (<label className="flex items-center gap-2 text-sm text-slate-700 mt-5"><input type="checkbox" checked={v} onChange={(e) => on(e.target.checked)} className="w-4 h-4" data-testid={t} />{label}</label>);
+}
+
 export function TabStatistics({ formData, setFormData }: TabProps) {
   const update = (field: keyof typeof formData, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+  // Cập nhật field nested trong case_statistics (hybrid).
+  const cs = formData.statistic;
+  const updateStat = (field: keyof typeof cs, value: string | boolean) => {
+    setFormData((prev) => ({ ...prev, statistic: { ...prev.statistic, [field]: value } }));
   };
 
   const filledCount = [
@@ -1325,6 +1563,96 @@ export function TabStatistics({ formData, setFormData }: TabProps) {
       </div>
 
       {/* Footer save */}
+      {/* ── Thống kê mở rộng (hybrid — lưu bảng case_statistics, query được cho KPI) ── */}
+      <details className="bg-white rounded-lg border border-slate-200" data-testid="cs-section">
+        <summary className="px-4 py-3 font-semibold text-slate-800 cursor-pointer">
+          Thống kê mở rộng (báo cáo) — ghi âm/ghi hình, VPHC, vũ khí, mốc thời gian, hồ sơ nghiệp vụ
+        </summary>
+        <div className="p-4 space-y-5">
+          {/* Hồ sơ nghiệp vụ */}
+          <fieldset>
+            <legend className="text-sm font-medium text-slate-700 mb-2">Hồ sơ nghiệp vụ</legend>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <CSText label="Số đăng ký hồ sơ" v={cs.soDangKyHoSo} on={(x)=>updateStat("soDangKyHoSo",x)} t="cs-soDangKyHoSo" />
+              <CSDate label="Ngày đăng ký hồ sơ" v={cs.ngayDangKyHoSo} on={(x)=>updateStat("ngayDangKyHoSo",x)} t="cs-ngayDangKyHoSo" />
+              <CSText label="Số hồ sơ lưu" v={cs.hoSoLuu} on={(x)=>updateStat("hoSoLuu",x)} t="cs-hoSoLuu" />
+              <CSDate label="Ngày nộp lưu hồ sơ" v={cs.ngayNopLuuHoSo} on={(x)=>updateStat("ngayNopLuuHoSo",x)} t="cs-ngayNopLuuHoSo" />
+              <CSText label="Đơn vị bảo quản hồ sơ" v={cs.donViBaoQuanHoSo} on={(x)=>updateStat("donViBaoQuanHoSo",x)} t="cs-donViBaoQuanHoSo" />
+            </div>
+          </fieldset>
+          {/* Ghi âm, ghi hình */}
+          <fieldset>
+            <legend className="text-sm font-medium text-slate-700 mb-2">Ghi âm, ghi hình</legend>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <CSBool label="Có ghi âm/ghi hình" v={cs.coGhiAmGhiHinh} on={(x)=>updateStat("coGhiAmGhiHinh",x)} t="cs-coGhiAmGhiHinh" />
+              <CSNum label="Tổng BB ghi lời khai" v={cs.tongSoBienBanGhiLoiKhai} on={(x)=>updateStat("tongSoBienBanGhiLoiKhai",x)} t="cs-tongSoBienBanGhiLoiKhai" />
+              <CSNum label="BB ghi lời khai có ghi âm/hình" v={cs.soBienBanGhiLoiKhaiCoGhiAm} on={(x)=>updateStat("soBienBanGhiLoiKhaiCoGhiAm",x)} t="cs-soBienBanGhiLoiKhaiCoGhiAm" />
+              <CSBool label="Vụ án có ghi âm/ghi hình" v={cs.laVuAnGhiAmGhiHinh} on={(x)=>updateStat("laVuAnGhiAmGhiHinh",x)} t="cs-laVuAnGhiAmGhiHinh" />
+              <CSNum label="Tổng BB hỏi cung bị can" v={cs.tongSoBienBanHoiCung} on={(x)=>updateStat("tongSoBienBanHoiCung",x)} t="cs-tongSoBienBanHoiCung" />
+              <CSNum label="BB hỏi cung có ghi âm/hình" v={cs.tongSoBienBanHoiCungCoGhiAm} on={(x)=>updateStat("tongSoBienBanHoiCungCoGhiAm",x)} t="cs-tongSoBienBanHoiCungCoGhiAm" />
+              <CSNum label="Số bị can có ghi âm/hình" v={cs.soBiCanCoGhiAm} on={(x)=>updateStat("soBiCanCoGhiAm",x)} t="cs-soBiCanCoGhiAm" />
+              <CSBool label="VKS yêu cầu ghi âm/hình" v={cs.vksYeuCauGhiAm} on={(x)=>updateStat("vksYeuCauGhiAm",x)} t="cs-vksYeuCauGhiAm" />
+              <CSNum label="Số bị can VKS yêu cầu" v={cs.soBiCanVksYeuCauGhiAm} on={(x)=>updateStat("soBiCanVksYeuCauGhiAm",x)} t="cs-soBiCanVksYeuCauGhiAm" />
+            </div>
+          </fieldset>
+          {/* VPHC */}
+          <fieldset>
+            <legend className="text-sm font-medium text-slate-700 mb-2">Vi phạm hành chính</legend>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <CSBool label="Có VPHC" v={cs.coVPHC} on={(x)=>updateStat("coVPHC",x)} t="cs-coVPHC" />
+              <CSNum label="Số đối tượng VPHC" v={cs.soDoiTuongVPHC} on={(x)=>updateStat("soDoiTuongVPHC",x)} t="cs-soDoiTuongVPHC" />
+              <CSNum label="Số người bị phạt tiền" v={cs.soNguoiBiPhatTien} on={(x)=>updateStat("soNguoiBiPhatTien",x)} t="cs-soNguoiBiPhatTien" />
+              <CSNum label="Tổng tiền phạt HC (triệu)" v={cs.tongTienPhatHanhChinh} on={(x)=>updateStat("tongTienPhatHanhChinh",x)} t="cs-tongTienPhatHanhChinh" />
+            </div>
+          </fieldset>
+          {/* Đối tượng / vũ khí / băng nhóm */}
+          <fieldset>
+            <legend className="text-sm font-medium text-slate-700 mb-2">Đối tượng / vũ khí / băng nhóm</legend>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <CSNum label="Tổng số đối tượng" v={cs.soDoiTuong} on={(x)=>updateStat("soDoiTuong",x)} t="cs-soDoiTuong" />
+              <CSNum label="Số đối tượng đã bắt" v={cs.soDoiTuongDaBat} on={(x)=>updateStat("soDoiTuongDaBat",x)} t="cs-soDoiTuongDaBat" />
+              <CSNum label="Số ĐT bị bắt vụ án khác" v={cs.soDoiTuongBiBatVuAnKhac} on={(x)=>updateStat("soDoiTuongBiBatVuAnKhac",x)} t="cs-soDoiTuongBiBatVuAnKhac" />
+              <CSNum label="Điều tra mở rộng (số vụ)" v={cs.dieuTraMoRong} on={(x)=>updateStat("dieuTraMoRong",x)} t="cs-dieuTraMoRong" />
+              <CSText label="Sử dụng vũ khí nóng" v={cs.suDungVuKhiNong} on={(x)=>updateStat("suDungVuKhiNong",x)} t="cs-suDungVuKhiNong" />
+              <CSBool label="Có băng nhóm" v={cs.coBangNhom} on={(x)=>updateStat("coBangNhom",x)} t="cs-coBangNhom" />
+              <CSNum label="Số lượng băng nhóm" v={cs.soBangNhom} on={(x)=>updateStat("soBangNhom",x)} t="cs-soBangNhom" />
+              <CSNum label="Số băng nhóm bắt được" v={cs.soBangNhomBatDuoc} on={(x)=>updateStat("soBangNhomBatDuoc",x)} t="cs-soBangNhomBatDuoc" />
+              <CSNum label="Số súng thu hồi" v={cs.soSungThuHoi} on={(x)=>updateStat("soSungThuHoi",x)} t="cs-soSungThuHoi" />
+              <CSNum label="Số thuốc nổ thu hồi" v={cs.soThuocNoThuHoi} on={(x)=>updateStat("soThuocNoThuHoi",x)} t="cs-soThuocNoThuHoi" />
+              <CSNum label="Số ĐT sưu tra/hiềm nghi" v={cs.soDoiTuongSuuTraHiemNghi} on={(x)=>updateStat("soDoiTuongSuuTraHiemNghi",x)} t="cs-soDoiTuongSuuTraHiemNghi" />
+            </div>
+          </fieldset>
+          {/* Bị hại, thiệt hại, xét xử — field-parity hệ thống cũ */}
+          <fieldset>
+            <legend className="text-sm font-medium text-slate-700 mb-2">Bị hại &amp; Thiệt hại</legend>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <CSNum label="Số lượng bị hại" v={cs.soLuongBiHai} on={(x)=>updateStat("soLuongBiHai",x)} t="cs-soLuongBiHai" />
+              <CSNum label="Số người bị thương" v={cs.soNguoiBiThuong} on={(x)=>updateStat("soNguoiBiThuong",x)} t="cs-soNguoiBiThuong" />
+              <CSNum label="Số lượng người chết" v={cs.soLuongNguoiChet} on={(x)=>updateStat("soLuongNguoiChet",x)} t="cs-soLuongNguoiChet" />
+              <CSNum label="Tiền bị thiệt hại (VNĐ)" v={cs.soTienBiThietHai} on={(x)=>updateStat("soTienBiThietHai",x)} t="cs-soTienBiThietHai" />
+              <CSNum label="Tiền thu hồi (VNĐ)" v={cs.soTienThuHoi} on={(x)=>updateStat("soTienThuHoi",x)} t="cs-soTienThuHoi" />
+              <CSBool label="Vụ án đã được xét xử" v={cs.vuAnDaDuocXetXu} on={(x)=>updateStat("vuAnDaDuocXetXu",x)} t="cs-vuAnDaDuocXetXu" />
+              <CSBool label="Ghi âm-ghi hình đã được xét xử" v={cs.ghiAmGhiHinhDaDuocXetXu} on={(x)=>updateStat("ghiAmGhiHinhDaDuocXetXu",x)} t="cs-ghiAmGhiHinhDaDuocXetXu" />
+              <CSBool label="Có sử dụng KQ ghi âm trong xét xử" v={cs.coSuDungKQGhiAmTrongXetXu} on={(x)=>updateStat("coSuDungKQGhiAmTrongXetXu",x)} t="cs-coSuDungKQGhiAmTrongXetXu" />
+              <CSBool label="Không GAGH nhưng tòa yêu cầu" v={cs.khongGAGHNhungToaYeuCau} on={(x)=>updateStat("khongGAGHNhungToaYeuCau",x)} t="cs-khongGAGHNhungToaYeuCau" />
+            </div>
+          </fieldset>
+          {/* Mốc thời gian thống kê */}
+          <fieldset>
+            <legend className="text-sm font-medium text-slate-700 mb-2">Mốc thời gian thống kê</legend>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <CSDate label="Ngày tổng hợp thống kê" v={cs.ngayThongKe} on={(x)=>updateStat("ngayThongKe",x)} t="cs-ngayThongKe" />
+              <CSDate label="Ngày phân công GQ tố giác" v={cs.ngayPhanCongGiaiQuyetToGiac} on={(x)=>updateStat("ngayPhanCongGiaiQuyetToGiac",x)} t="cs-ngayPhanCongGiaiQuyetToGiac" />
+              <CSDate label="Ngày tiếp nhận tin" v={cs.ngayTiepNhanTin} on={(x)=>updateStat("ngayTiepNhanTin",x)} t="cs-ngayTiepNhanTin" />
+              <CSDate label="Ngày đầu thú/tự thú" v={cs.ngayDauThu} on={(x)=>updateStat("ngayDauThu",x)} t="cs-ngayDauThu" />
+              <CSDate label="Ngày phạm tội quả tang" v={cs.ngayPhamToiQuaTang} on={(x)=>updateStat("ngayPhamToiQuaTang",x)} t="cs-ngayPhamToiQuaTang" />
+              <CSDate label="Ngày bị bắt khẩn cấp" v={cs.ngayBatKhanCap} on={(x)=>updateStat("ngayBatKhanCap",x)} t="cs-ngayBatKhanCap" />
+              <CSDate label="Ngày CQĐT phát hiện dấu hiệu" v={cs.ngayPhatHienDauHieu} on={(x)=>updateStat("ngayPhatHienDauHieu",x)} t="cs-ngayPhatHienDauHieu" />
+            </div>
+          </fieldset>
+        </div>
+      </details>
+
       <div className="flex items-center justify-end gap-3 bg-white rounded-lg border border-slate-200 p-4">
         <div className="flex-1 flex items-center gap-2 text-sm text-slate-600">
           <Info className="w-4 h-4" />

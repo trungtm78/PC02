@@ -1,5 +1,5 @@
 import { FormInput, FormSelect, FormTextarea } from "@/components/form";
-import { Card, CardHeader } from "@/components/shared";
+import { Card } from "@/components/shared";
 import type { TabProps } from "./types";
 import { LOAI_UY_THAC_OPTIONS, TRANG_THAI_PHAN_HOI_LABEL, TRANG_THAI_PHAN_HOI_BADGE, type TrangThaiPhanHoi } from "@/shared/enums/status-labels";
 
@@ -55,7 +55,7 @@ export function CaseFormTab1UyThac({ formData, setFormData, errors, setErrors }:
             label="Loại ủy thác"
             value={formData.utdt_loaiUyThac}
             onChange={(v) => update('utdt_loaiUyThac', v)}
-            options={LOAI_UY_THAC_OPTIONS}
+            options={[...LOAI_UY_THAC_OPTIONS]}
             placeholder="-- Chọn loại --"
           />
           <FormInput

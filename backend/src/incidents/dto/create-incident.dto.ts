@@ -3,11 +3,14 @@ import {
   IsOptional,
   IsDateString,
   IsEnum,
+  IsBoolean,
+  IsArray,
   MaxLength,
   MinLength,
 } from 'class-validator';
-import { LoaiNguonTin, LyDoKhongKhoiTo, NguonPhatTin, PhuongThucTiepNhan } from '@prisma/client';
+import { LoaiNguonTin, LyDoKhongKhoiTo, LyDoTamDinhChiVuViec, NguonPhatTin, PhuongThucTiepNhan } from '@prisma/client';
 import { IsNguonPhatTinMatchLoaiDonVu } from '../../common/validators/nguon-phat-tin-match.validator';
+import { IsCatalogValue } from '../../common/validators/is-catalog-value.validator';
 
 export class CreateIncidentDto {
   // Tên vụ việc — bắt buộc, 5–255 ký tự (Table 2.2.A)
@@ -67,19 +70,19 @@ export class CreateIncidentDto {
   doiTuongToChuc?: string;
 
   @IsOptional()
-  @IsEnum(LoaiNguonTin, { message: 'loaiDonVu phải là TO_GIAC, TIN_BAO hoặc KIEN_NGHI_KHOI_TO' })
+  @IsCatalogValue('LOAI_NGUON_TIN', { message: 'loaiDonVu phải là TO_GIAC, TIN_BAO hoặc KIEN_NGHI_KHOI_TO' })
   loaiDonVu?: LoaiNguonTin;
 
   // v0.31.0.0 — Nguồn phát tin (Đ.144 BLTTHS): cascading từ loaiDonVu.
-  // Custom validator enforce mapping FE-side và BE-side đồng bộ.
+  // @IsCatalogValue kiểm thuộc danh mục; @IsNguonPhatTinMatchLoaiDonVu kiểm quan hệ cha-con (cùng nguồn registry).
   @IsOptional()
-  @IsEnum(NguonPhatTin, { message: 'nguonPhatTin không hợp lệ (Đ.144 BLTTHS)' })
+  @IsCatalogValue('NGUON_PHAT_TIN', { message: 'nguonPhatTin không hợp lệ (Đ.144 BLTTHS)' })
   @IsNguonPhatTinMatchLoaiDonVu()
   nguonPhatTin?: NguonPhatTin;
 
   // v0.31.0.0 — Phương thức tiếp nhận (TT 28/2020/TT-BCA Đ.6): 5 phương thức.
   @IsOptional()
-  @IsEnum(PhuongThucTiepNhan, {
+  @IsCatalogValue('PHUONG_THUC_TIEP_NHAN', {
     message: 'phuongThucTiepNhan phải là một trong 5 phương thức TT 28/2020/TT-BCA Đ.6',
   })
   phuongThucTiepNhan?: PhuongThucTiepNhan;
@@ -117,11 +120,40 @@ export class CreateIncidentDto {
   @IsDateString()
   ngayQuyetDinh?: string;
 
+  // Field-parity hệ thống cũ (giai đoạn nguồn tin)
   @IsOptional()
-  @IsEnum(LyDoKhongKhoiTo, {
-    message: 'lyDoKhongKhoiTo phải là một trong 7 căn cứ theo Điều 157 BLTTHS 2015',
+  @IsString()
+  soQDPhanCongNguonTin?: string;
+
+  @IsOptional()
+  @IsDateString()
+  ngayQDPhanCongNguonTin?: string;
+
+  @IsOptional()
+  @IsString()
+  canCuKhongKhoiTo?: string;
+
+  @IsOptional()
+  @IsString()
+  canCuTamDinhChi?: string;
+
+  @IsOptional()
+  @IsString()
+  phanLoaiDanSuText?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsCatalogValue('LY_DO_KHONG_KHOI_TO', {
+    each: true,
+    message: 'lyDoKhongKhoiTo phải là căn cứ thuộc danh mục theo Điều 157 BLTTHS 2015',
   })
-  lyDoKhongKhoiTo?: LyDoKhongKhoiTo;
+  lyDoKhongKhoiTo?: LyDoKhongKhoiTo[];
+
+  // PR-8 MULTI: căn cứ tạm đình chỉ vụ việc (Đ.148) — chọn nhiều
+  @IsOptional()
+  @IsArray()
+  @IsCatalogValue('LY_DO_TAM_DINH_CHI_VU_VIEC', { each: true })
+  lyDoTamDinhChiVuViec?: LyDoTamDinhChiVuViec[];
 
   @IsOptional()
   @IsString()
@@ -169,4 +201,54 @@ export class CreateIncidentDto {
   @IsOptional()
   @IsString()
   nguoiQuyetDinh?: string;
+
+  // Field-parity hệ thống cũ — TĐC tracking + tiến độ khắc phục
+  @IsOptional()
+  @IsString()
+  tienDoKhacPhucTDC?: string;
+
+  @IsOptional()
+  @IsString()
+  tdcKhacPhucLyDoBienPhap?: string;
+
+  @IsOptional()
+  @IsString()
+  tdcKhacPhucBienBan?: string;
+
+  @IsOptional()
+  @IsString()
+  soQuyetDinhTamDinhChiVV?: string;
+
+  @IsOptional()
+  @IsDateString()
+  ngayTamDinhChiVV?: string;
+
+  @IsOptional()
+  @IsString()
+  soQuyetDinhPhucHoiVV?: string;
+
+  @IsOptional()
+  @IsDateString()
+  ngayPhucHoiVV?: string;
+
+  // Field-parity tab "Vụ việc TĐC" form cũ (old: ngay_thang_nam_het_thoi_hieu_vu_viec)
+  @IsOptional()
+  @IsDateString()
+  ngayHetThoiHieuVV?: string;
+
+  // PR-6 — QĐ không khởi tố riêng + cờ xác định tạm dừng (parity Vụ việc)
+  @IsOptional()
+  @IsString()
+  soQDKhongKhoiTo?: string;
+
+  @IsOptional()
+  @IsDateString()
+  ngayQDKhongKhoiTo?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  xacDinhVuViecTamDung?: boolean;
+
+  @IsOptional()
+  laCongNgheCaoVV?: boolean;
 }

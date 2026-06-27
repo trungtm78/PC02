@@ -20,6 +20,7 @@ export const DOC_TYPE_TO_SERIES = {
   THONG_BAO_CHUYEN: 'THONG_BAO',
   THONG_BAO_HUONG_DAN: 'HUONG_DAN',
   THONG_BAO_TRA_LAI: 'THONG_BAO',
+  BIEN_NHAN: 'BIEN_NHAN',
 } as const satisfies Record<DocumentType, string>;
 
 /**
@@ -68,6 +69,9 @@ export function validateFieldsForDocType(
       break;
     case 'THONG_BAO_TRA_LAI':
       if (!petition.lyDoTraDon) missing.push('lyDoTraDon');
+      break;
+    case 'BIEN_NHAN':
+      // Biên nhận chỉ cần senderName + content — luôn có khi đơn đã tạo.
       break;
   }
 

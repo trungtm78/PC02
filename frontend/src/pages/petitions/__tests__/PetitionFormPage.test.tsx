@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { authStore, type AuthUser } from '@/stores/auth.store';
@@ -157,3 +157,80 @@ describe('PetitionFormPage — create-mode defaults', () => {
     expect(label).toBeTruthy();
   });
 });
+
+// ── Nhóm V — suspect-search + duplicate-search combobox ──────────────────────
+
+describe('PetitionFormPage — Nhóm V combobox fields', () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+    localStorage.clear();
+    authStore.setProfile(SAMPLE_PROFILE);
+    (documentNumbersApi.draft as ReturnType<typeof vi.fn>).mockResolvedValue({
+      previewNumber: 'DT-2026-00001',
+      isDraft: true,
+      templateId: 'tmpl-2',
+    });
+  });
+
+  afterEach(() => {
+    sessionStorage.clear();
+    localStorage.clear();
+    vi.clearAllMocks();
+  });
+
+  it('V-FE1: renders suspect-search-input field with correct testid', async () => {
+    await renderForm();
+    const input = await screen.findByTestId('suspect-search-input');
+    expect(input).toBeInTheDocument();
+  });
+
+  it('V-FE2: renders duplicate-search-input field with correct testid', async () => {
+    await renderForm();
+    const input = await screen.findByTestId('duplicate-search-input');
+    expect(input).toBeInTheDocument();
+  });
+
+  it('V-FE3: suspect-search-input triggers API call on user input', async () => {
+    const { api } = await import('@/lib/api');
+    (api.get as ReturnType<typeof vi.fn>).mockImplementation((url: string) => {
+      if (String(url).includes('suspect-search')) {
+        return Promise.resolve({ data: [{ name: 'Nguyễn Văn A', idNumber: '079088001234', crimes: ['Trộm cắp'], sources: [] }] });
+      }
+      return Promise.resolve({ data: { success: true, data: [] } });
+    });
+
+    await renderForm();
+    const input = await screen.findByTestId('suspect-search-input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'Nguy' } });
+
+    await waitFor(() => {
+      expect(api.get).toHaveBeenCalledWith(
+        expect.stringContaining('suspect-search'),
+        expect.objectContaining({ params: expect.objectContaining({ q: 'Nguy' }) }),
+      );
+    }, { timeout: 1500 });
+  });
+
+  it('V-FE4: duplicate-search-input triggers API call on user input', async () => {
+    const { api } = await import('@/lib/api');
+    (api.get as ReturnType<typeof vi.fn>).mockImplementation((url: string) => {
+      if (String(url).includes('duplicate-search')) {
+        return Promise.resolve({ data: [{ id: 'pet-1', stt: 'DT-2025-00001', senderName: 'Lê C', receivedDate: '2025-01-01', summary: null }] });
+      }
+      return Promise.resolve({ data: { success: true, data: [] } });
+    });
+
+    await renderForm();
+    const input = await screen.findByTestId('duplicate-search-input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'Lê C' } });
+
+    await waitFor(() => {
+      expect(api.get).toHaveBeenCalledWith(
+        expect.stringContaining('duplicate-search'),
+        expect.objectContaining({ params: expect.objectContaining({ q: 'Lê C' }) }),
+      );
+    }, { timeout: 1500 });
+  });
+});
+
+// Nhóm II tests: see PetitionFormPageConvert.test.tsx

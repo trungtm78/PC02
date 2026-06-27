@@ -3,7 +3,7 @@ import { DocumentsService } from './documents.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
-import { DocumentType } from '@prisma/client';
+import { CatalogService } from '../catalog/catalog.service';
 
 // Mock fs module
 jest.mock('fs');
@@ -45,6 +45,11 @@ describe('DocumentsService', () => {
     log: jest.fn().mockResolvedValue(undefined),
   };
 
+  // Danh mục động: mọi documentType hợp lệ trong test (registry/Directory).
+  const mockCatalogService = {
+    isValid: jest.fn().mockResolvedValue(true),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -56,6 +61,10 @@ describe('DocumentsService', () => {
         {
           provide: AuditService,
           useValue: mockAuditService,
+        },
+        {
+          provide: CatalogService,
+          useValue: mockCatalogService,
         },
       ],
     }).compile();
@@ -76,7 +85,7 @@ describe('DocumentsService', () => {
           title: 'Test Document',
           originalName: 'test.pdf',
           size: 1024,
-          documentType: DocumentType.VAN_BAN,
+          documentType: 'VAN_BAN',
           case: { id: 'case-1', name: 'Test Case' },
           uploadedBy: { id: 'user-1', fullName: 'Test User', username: 'testuser' },
         },
@@ -148,13 +157,13 @@ describe('DocumentsService', () => {
       mockPrismaService.document.findMany.mockResolvedValue([]);
       mockPrismaService.document.count.mockResolvedValue(0);
 
-      await service.getList({ documentType: DocumentType.HINH_ANH });
+      await service.getList({ documentType: 'HINH_ANH' });
 
       expect(mockPrismaService.document.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
             deletedAt: null,
-            documentType: DocumentType.HINH_ANH,
+            documentType: 'HINH_ANH',
           }),
         }),
       );
@@ -276,7 +285,7 @@ describe('DocumentsService', () => {
     const validDto = {
       title: 'Test Document',
       description: 'Test Description',
-      documentType: DocumentType.VAN_BAN,
+      documentType: 'VAN_BAN',
       caseId: 'case-1',
       incidentId: undefined,
       fileName: '1234567890-abcdef.pdf',

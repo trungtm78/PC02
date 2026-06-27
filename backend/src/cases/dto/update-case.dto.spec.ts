@@ -16,10 +16,10 @@ import { plainToInstance } from 'class-transformer';
 import { UpdateCaseDto } from './update-case.dto';
 
 describe('UpdateCaseDto — TAM_DINH_CHI / PHUC_HOI fields (v0.37.2.6 P1 fix)', () => {
-  it('accepts lyDoTamDinhChiVuAn enum value', async () => {
+  it('accepts lyDoTamDinhChiVuAn MẢNG nhiều enum value (PR-8 multi)', async () => {
     const dto = plainToInstance(UpdateCaseDto, {
       status: 'TAM_DINH_CHI',
-      lyDoTamDinhChiVuAn: 'CHUA_CO_KET_QUA_GIAM_DINH',
+      lyDoTamDinhChiVuAn: ['CHUA_CO_KET_QUA_GIAM_DINH', 'BAT_KHA_KHANG'],
       caseProvenance: 'DIRECT_DISCOVERY',
     });
     const errors = await validate(dto);
@@ -27,15 +27,16 @@ describe('UpdateCaseDto — TAM_DINH_CHI / PHUC_HOI fields (v0.37.2.6 P1 fix)', 
     expect(lyDoErr).toBeUndefined();
   });
 
-  it('rejects invalid lyDoTamDinhChiVuAn enum value', async () => {
+  it('rejects invalid lyDoTamDinhChiVuAn enum value trong mảng', async () => {
     const dto = plainToInstance(UpdateCaseDto, {
-      lyDoTamDinhChiVuAn: 'NOT_A_VALID_ENUM',
+      lyDoTamDinhChiVuAn: ['NOT_A_VALID_ENUM'],
       caseProvenance: 'DIRECT_DISCOVERY',
     });
     const errors = await validate(dto);
     const lyDoErr = errors.find((e) => e.property === 'lyDoTamDinhChiVuAn');
     expect(lyDoErr).toBeDefined();
-    expect(lyDoErr?.constraints).toHaveProperty('isEnum');
+    // PR-3 catalog: cơ chế validate đổi từ @IsEnum sang @IsCatalogValue (vẫn reject code rác).
+    expect(lyDoErr?.constraints).toHaveProperty('isCatalogValue');
   });
 
   it('accepts lyDoTamDinhChiText (optional string)', async () => {
@@ -81,6 +82,22 @@ describe('UpdateCaseDto — TAM_DINH_CHI / PHUC_HOI fields (v0.37.2.6 P1 fix)', 
     expect(errors.find((e) => e.property === 'ketQuaPhucHoiVuAn')).toBeUndefined();
   });
 
+  // PR-3 (2026-06-26) — 4 field TĐC vụ án còn sót: form GỬI khi EDIT → trước 400 (forbidNonWhitelisted).
+  it('accepts ngayPhucHoi + ngayHetThoiHieu + tdcKhacPhuc* (parity tab Vụ án TĐC)', async () => {
+    const dto = plainToInstance(UpdateCaseDto, {
+      ngayPhucHoi: '2026-06-25T00:00:00.000Z',
+      ngayHetThoiHieu: '2027-06-25T00:00:00.000Z',
+      tdcKhacPhucLyDoBienPhap: 'Lý do/biện pháp khắc phục',
+      tdcKhacPhucBienBan: 'BB khắc phục số 01',
+      caseProvenance: 'DIRECT_DISCOVERY',
+    });
+    const errors = await validate(dto);
+    expect(errors.find((e) => e.property === 'ngayPhucHoi')).toBeUndefined();
+    expect(errors.find((e) => e.property === 'ngayHetThoiHieu')).toBeUndefined();
+    expect(errors.find((e) => e.property === 'tdcKhacPhucLyDoBienPhap')).toBeUndefined();
+    expect(errors.find((e) => e.property === 'tdcKhacPhucBienBan')).toBeUndefined();
+  });
+
   it('rejects invalid ketQuaPhucHoiVuAn enum value', async () => {
     const dto = plainToInstance(UpdateCaseDto, {
       ketQuaPhucHoiVuAn: 'INVALID_ENUM',
@@ -89,7 +106,8 @@ describe('UpdateCaseDto — TAM_DINH_CHI / PHUC_HOI fields (v0.37.2.6 P1 fix)', 
     const errors = await validate(dto);
     const err = errors.find((e) => e.property === 'ketQuaPhucHoiVuAn');
     expect(err).toBeDefined();
-    expect(err?.constraints).toHaveProperty('isEnum');
+    // PR-7 catalog: @IsEnum→@IsCatalogValue.
+    expect(err?.constraints).toHaveProperty('isCatalogValue');
   });
 
   it('rejects daRaSoat with non-boolean value', async () => {

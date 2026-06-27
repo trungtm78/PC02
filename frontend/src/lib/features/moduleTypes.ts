@@ -16,7 +16,8 @@ export interface FeatureModuleManifest {
     | 'case-domain'
     | 'petition-domain'
     | 'workflow-domain'
-    | 'reporting-domain';
+    | 'reporting-domain'
+    | 'admin-domain';
   /** Lucide icon name. Resolved lazily by consumers. */
   icon?: string;
 }

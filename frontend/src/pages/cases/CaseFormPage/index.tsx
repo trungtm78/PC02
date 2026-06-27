@@ -90,14 +90,17 @@ function CaseFormPage() {
   const defaults = useFormDefaults();
 
   // v0.42 — Fetch draft caseCode preview on create mode mount.
+  // v0.68 — UTDT cases use 'UTDT' document type (separate counter + format UTDT-YYYY-NNNNN).
   useEffect(() => {
     if (isEditMode) return;
+    const isUtdt = searchParams.get('caseProvenance') === 'UY_THAC_DIEU_TRA';
+    const docType = isUtdt ? 'UTDT' : 'CASE';
     setIsDraftCodeLoading(true);
-    documentNumbersApi.draft('CASE')
+    documentNumbersApi.draft(docType)
       .then((r) => setFormData((prev) => ({ ...prev, caseCode: r.previewNumber })))
       .catch((err) => console.error('draft fetch failed:', err))
       .finally(() => setIsDraftCodeLoading(false));
-  }, [isEditMode]);
+  }, [isEditMode, searchParams]);
 
   // Load draft from localStorage on mount (only when creating, not editing)
   useEffect(() => {

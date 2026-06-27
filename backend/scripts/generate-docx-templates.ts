@@ -143,6 +143,24 @@ const THONG_BAO_TRA_LAI: TemplateSpec = {
   ],
 };
 
+const BIEN_NHAN: TemplateSpec = {
+  filename: 'BIEN_NHAN.docx',
+  title: 'BIÊN NHẬN',
+  loaiVanBan: '{soVanBan}/BN-PC02-{teamCode}',
+  recipientLabel: 'Họ tên người nộp: {ghiTen}',
+  body: [
+    'Ngày {ngayNhan}, Phòng Cảnh sát hình sự đã tiếp nhận đơn/tài liệu của Ông/Bà {ghiTen}, địa chỉ {diaChi}.',
+    'Nội dung đơn/tài liệu: {noiDung}',
+    'Hồ sơ đính kèm: {dinhKem}',
+    'Cán bộ tiếp nhận: {tenCanBoDeXuat}',
+    'Phòng Cảnh sát hình sự xác nhận đã nhận đủ hồ sơ trên. Thời hạn giải quyết theo quy định pháp luật.',
+    'Địa điểm: {diaDiem}, ngày {ngayPhatHanh}',
+  ],
+  signatureBlocks: [
+    { left: 'NGƯỜI NỘP ĐƠN\n\n{ghiTen}', right: 'CÁN BỘ TIẾP NHẬN\n\n{tenCanBoDeXuat}' },
+  ],
+};
+
 const ALL_TEMPLATES: TemplateSpec[] = [
   PHIEU_DE_XUAT,
   PHIEU_CHUYEN_NGUON_TIN,
@@ -150,6 +168,7 @@ const ALL_TEMPLATES: TemplateSpec[] = [
   THONG_BAO_CHUYEN,
   THONG_BAO_HUONG_DAN,
   THONG_BAO_TRA_LAI,
+  BIEN_NHAN,
 ];
 
 function bold(text: string): TextRun {

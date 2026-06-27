@@ -35,6 +35,7 @@ import {
   Eye as EyeIcon,
 } from "lucide-react";
 import { FKSelect, type FKOption } from "@/components/FKSelect";
+import { CrimeSelect } from "@/components/CrimeSelect";
 import {
   LABEL_BASE,
   INPUT_BASE,
@@ -150,8 +151,6 @@ function SubjectMiniForm({
   initial,
   subjectType,
   caseId,
-  crimeOptions,
-  loadingCrimes,
   onSave,
   onClose,
   isSaving,
@@ -346,18 +345,14 @@ function SubjectMiniForm({
               </div>
             )}
 
-            {/* Tội danh / Vụ việc liên quan — FK select */}
+            {/* Tội danh — master Crime (mặc định lọc PC02, toggle hiện tất cả, search bao toàn bộ) */}
             <div>
-              <label className={LABEL_BASE}>Tội danh / Hành vi liên quan</label>
-              <FKSelect
-                label=""
-                resource="crimes"
+              <CrimeSelect
+                label="Tội danh / Hành vi liên quan"
                 value={form.crimeId}
                 onChange={(v) => f("crimeId", v)}
-                options={crimeOptions}
-                loading={loadingCrimes}
-                searchPlaceholder="Tìm tội danh..."
                 placeholder="Chọn tội danh (tuỳ chọn)"
+                testId="subject-crime"
               />
             </div>
 
@@ -1033,14 +1028,8 @@ interface CaseObjectsTabProps {
  */
 export default function CaseObjectsTab({ caseId }: CaseObjectsTabProps) {
   // Fetch crimes for FK select (shared across subject sub-lists)
-  const { data: crimesData, isLoading: loadingCrimes } = useQuery<{
-    success: boolean;
-    data: Array<{ id: string; name: string }>;
-  }>({
-    queryKey: ["crimes-fk"],
-    queryFn: () => api.get('/crimes?limit=100').then((r) => r.data),
-    staleTime: 10 * 60 * 1000,
-  });
+  // Tội danh nay dùng <CrimeSelect> (tự fetch /crimes + lọc PC02). Không còn query crimes-fk thừa.
+  const loadingCrimes = false;
 
   // Fetch suspects for Lawyer FK select (scoped to this case)
   const { data: suspectsData, isLoading: loadingSuspects } = useQuery<{
@@ -1052,8 +1041,7 @@ export default function CaseObjectsTab({ caseId }: CaseObjectsTabProps) {
     staleTime: 2 * 60 * 1000,
   });
 
-  const crimeOptions: FKOption[] =
-    crimesData?.data.map((c) => ({ value: c.id, label: c.name })) ?? [];
+  const crimeOptions: FKOption[] = []; // CrimeSelect tự fetch — plumbing giữ để tương thích props
   const suspectOptions: FKOption[] =
     suspectsData?.data.map((s) => ({ value: s.id, label: s.fullName })) ?? [];
 

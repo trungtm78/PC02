@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Hành Trình Hồ Sơ — Wireframe PC02</title>
+<style>
+  /* ── Design tokens (từ index.css) ─────────────────────── */
+  :root {
+    --primary:      #003973;
+    --primary-light:#0052a3;
+    --secondary:    #DC2626;
+    --accent:       #F59E0B;
+    --background:   #F7F6F2;
+    --foreground:   #1e293b;
+    --card:         #ffffff;
+    --muted:        #f1f5f9;
+    --muted-fg:     #64748b;
+    --border:       rgba(30,41,59,0.12);
+    --radius:       6px;
+    --blue-100:     #dbeafe; --blue-700: #1d4ed8;
+    --violet-100:   #ede9fe; --violet-700: #6d28d9;
+    --orange-100:   #ffedd5; --orange-700: #c2410c;
+    --green-600:    #059669;
+    --sidebar:      #003973;
+    --sidebar-fg:   #ffffff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+    font-size: 14px;
+    background: var(--background);
+    color: var(--foreground);
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* ── App Sidebar (existing) ──────────────────────────── */
+  .app-sidebar {
+    width: 56px;
+    background: var(--sidebar);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 12px 0;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+  .sidebar-icon {
+    width: 40px; height: 40px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: var(--radius);
+    color: rgba(255,255,255,0.6);
+    cursor: pointer;
+    font-size: 18px;
+    transition: background 0.15s;
+  }
+  .sidebar-icon:hover { background: rgba(255,255,255,0.1); color: #fff; }
+  .sidebar-icon.active { background: rgba(255,255,255,0.15); color: #fff; }
+  .sidebar-logo { font-size: 22px; font-weight: 900; color: var(--accent); margin-bottom: 8px; }
+
+  /* ── Main area ───────────────────────────────────────── */
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* ── Top bar ─────────────────────────────────────────── */
+  .topbar {
+    height: 52px;
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+  .topbar-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .topbar-title svg { opacity: 0.7; }
+  .topbar-spacer { flex: 1; }
+  .topbar-btn {
+    padding: 6px 12px;
+    border-radius: var(--radius);
+    font-size: 13px;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--foreground);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .topbar-btn:hover { background: var(--muted); }
+
+  /* ── Content area: tree left + timeline right ─────────── */
+  .content { flex: 1; display: flex; overflow: hidden; }
+
+  /* ── LEFT PANEL: Tree Navigator ─────────────────────── */
+  .navigator {
+    width: 320px;
+    flex-shrink: 0;
+    background: var(--card);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .nav-search-wrap {
+    padding: 12px;
+    border-bottom: 1px solid var(--border);
+    background: var(--card);
+  }
+  .nav-search {
+    width: 100%;
+    padding: 8px 12px 8px 34px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 13px;
+    background: var(--muted);
+    color: var(--foreground);
+    position: relative;
+    outline: none;
+  }
+  .nav-search:focus { border-color: var(--primary); background: #fff; }
+  .search-wrap {
+    position: relative;
+  }
+  .search-icon {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--muted-fg);
+    font-size: 14px;
+  }
+  .nav-filter-bar {
+    display: flex;
+    gap: 4px;
+    padding: 8px 12px 0;
+  }
+  .filter-chip {
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--muted);
+    color: var(--muted-fg);
+  }
+  .filter-chip.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+  /* ── Tree ────────────────────────────────────────────── */
+  .tree-scroll { flex: 1; overflow-y: auto; padding: 8px 0; }
+  .group-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px 6px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .group-header:hover { background: var(--muted); }
+  .chevron { font-size: 12px; color: var(--muted-fg); transition: transform 0.15s; }
+  .chevron.open { transform: rotate(90deg); }
+  .group-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted-fg); flex: 1; }
+  .group-count {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: var(--muted);
+    color: var(--muted-fg);
+  }
+  .group-dot {
+    width: 8px; height: 8px;
+    border-radius: 999px;
+    flex-shrink: 0;
+  }
+  .dot-case     { background: var(--blue-700); }
+  .dot-incident { background: var(--orange-700); }
+  .dot-petition { background: var(--violet-700); }
+
+  /* Tree items */
+  .tree-items { padding: 0 0 4px; }
+  .tree-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 12px 7px 24px;
+    cursor: pointer;
+    border-left: 3px solid transparent;
+    transition: background 0.1s;
+    position: relative;
+  }
+  .tree-item:hover { background: var(--muted); }
+  .tree-item.selected {
+    background: #eff6ff;
+    border-left-color: var(--primary);
+  }
+  .tree-item.selected .item-code { color: var(--primary); font-weight: 600; }
+  .item-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .item-meta { flex: 1; min-width: 0; }
+  .item-code { font-size: 11px; font-weight: 500; color: var(--muted-fg); }
+  .item-name { font-size: 13px; color: var(--foreground); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .item-status {
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .status-tiep-nhan { background: #dbeafe; color: #1d4ed8; }
+  .status-xac-minh  { background: #fef3c7; color: #92400e; }
+  .status-ket-qua   { background: #dcfce7; color: #166534; }
+  .load-more {
+    font-size: 12px;
+    color: var(--primary);
+    text-align: center;
+    padding: 8px;
+    cursor: pointer;
+    font-weight: 500;
+  }
+  .load-more:hover { text-decoration: underline; }
+
+  /* ── RIGHT PANEL: Timeline ───────────────────────────── */
+  .timeline-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--background);
+  }
+  .timeline-header {
+    padding: 14px 20px 10px;
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+  .entity-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .badge-case { background: var(--blue-100); color: var(--blue-700); }
+  .badge-incident { background: var(--orange-100); color: var(--orange-700); }
+  .badge-petition { background: var(--violet-100); color: var(--violet-700); }
+
+  .timeline-title { font-size: 15px; font-weight: 700; color: var(--foreground); }
+  .timeline-sub { font-size: 12px; color: var(--muted-fg); }
+  .timeline-actions { margin-left: auto; display: flex; gap: 8px; }
+
+  .deadline-banner {
+    margin: 12px 20px 0;
+    padding: 8px 12px;
+    background: #fef3c7;
+    border: 1px solid #fde68a;
+    border-radius: var(--radius);
+    font-size: 12px;
+    color: #92400e;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  .filter-row {
+    padding: 10px 20px;
+    display: flex;
+    gap: 6px;
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .timeline-scroll { flex: 1; overflow-y: auto; padding: 16px 20px; }
+
+  /* Timeline events */
+  .tl-event {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 4px;
+    position: relative;
+  }
+  .tl-event::before {
+    content: '';
+    position: absolute;
+    left: 15px;
+    top: 32px;
+    bottom: -4px;
+    width: 1px;
+    background: var(--border);
+  }
+  .tl-event:last-child::before { display: none; }
+  .tl-dot-wrap { width: 32px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; padding-top: 12px; }
+  .tl-dot {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    border: 2px solid var(--card);
+    box-shadow: 0 0 0 1.5px currentColor;
+    flex-shrink: 0;
+  }
+  .tl-dot.created  { color: var(--green-600); background: var(--green-600); }
+  .tl-dot.status   { color: var(--primary);   background: var(--primary); }
+  .tl-dot.update   { color: var(--muted-fg);  background: var(--muted-fg); }
+  .tl-dot.linked   { color: var(--accent);    background: var(--accent); }
+
+  .tl-card {
+    flex: 1;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 14px;
+    margin-bottom: 8px;
+  }
+  .tl-card-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+  .tl-event-type {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 1px 7px;
+    border-radius: 999px;
+  }
+  .et-created { background: #dcfce7; color: #166534; }
+  .et-status  { background: #dbeafe; color: #1e40af; }
+  .et-update  { background: #f1f5f9; color: #475569; }
+  .et-linked  { background: #fef3c7; color: #92400e; }
+
+  .tl-time { font-size: 11px; color: var(--muted-fg); margin-left: auto; }
+  .tl-title { font-size: 13px; font-weight: 500; color: var(--foreground); margin-bottom: 3px; }
+  .tl-actor { font-size: 11px; color: var(--muted-fg); display: flex; align-items: center; gap: 4px; }
+  .tl-detail {
+    margin-top: 6px;
+    padding: 6px 10px;
+    background: var(--muted);
+    border-radius: 4px;
+    font-size: 12px;
+    color: var(--muted-fg);
+  }
+
+  /* ── Empty state ─────────────────────────────────────── */
+  .empty-state {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted-fg);
+    gap: 8px;
+    padding: 40px;
+    text-align: center;
+  }
+  .empty-icon { font-size: 48px; opacity: 0.3; }
+  .empty-title { font-size: 15px; font-weight: 500; }
+  .empty-sub { font-size: 13px; max-width: 280px; }
+
+  /* ── Scrollbar ────────────────────────────────────────── */
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(30,41,59,0.15); border-radius: 99px; }
+</style>
+</head>
+<body>
+
+<!-- App Sidebar (existing navigation) -->
+<nav class="app-sidebar">
+  <div class="sidebar-logo">P</div>
+  <div class="sidebar-icon">🏠</div>
+  <div class="sidebar-icon">📁</div>
+  <div class="sidebar-icon">⚖️</div>
+  <div class="sidebar-icon">📄</div>
+  <div class="sidebar-icon active" title="Hành Trình Hồ Sơ">🔀</div>
+  <div class="sidebar-icon">📊</div>
+  <div style="flex:1"></div>
+  <div class="sidebar-icon">⚙️</div>
+</nav>
+
+<div class="main">
+
+  <!-- Top bar -->
+  <header class="topbar">
+    <div class="topbar-title">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+      Hành Trình Hồ Sơ
+    </div>
+    <div class="topbar-spacer"></div>
+    <button class="topbar-btn">🖨️ In</button>
+    <button class="topbar-btn">🔗 Chia sẻ</button>
+  </header>
+
+  <div class="content">
+
+    <!-- LEFT: Tree Navigator -->
+    <aside class="navigator">
+      <div class="nav-search-wrap">
+        <div class="search-wrap">
+          <span class="search-icon">🔍</span>
+          <input class="nav-search" placeholder="Tìm vụ việc, vụ án, đơn thư..." type="text" value="" />
+        </div>
+        <div class="nav-filter-bar">
+          <div class="filter-chip active">Tất cả</div>
+          <div class="filter-chip">Vụ việc</div>
+          <div class="filter-chip">Vụ án</div>
+          <div class="filter-chip">Đơn thư</div>
+        </div>
+      </div>
+
+      <div class="tree-scroll">
+
+        <!-- Group: Vụ việc (Cases) -->
+        <div class="group-header">
+          <span class="chevron open">▶</span>
+          <span class="group-dot dot-case"></span>
+          <span class="group-label">Vụ việc</span>
+          <span class="group-count">12</span>
+        </div>
+        <div class="tree-items">
+          <div class="tree-item selected">
+            <span class="item-dot" style="background:var(--blue-700)"></span>
+            <div class="item-meta">
+              <div class="item-code">VV-2025-00001</div>
+              <div class="item-name">Vụ án trộm cắp tài sản Quận 1</div>
+            </div>
+            <span class="item-status status-xac-minh">Xác minh</span>
+          </div>
+          <div class="tree-item">
+            <span class="item-dot" style="background:var(--blue-700)"></span>
+            <div class="item-meta">
+              <div class="item-code">VV-2025-00002</div>
+              <div class="item-name">Tố giác vụ lừa đảo chiếm đoạt tài sản</div>
+            </div>
+            <span class="item-status status-tiep-nhan">Tiếp nhận</span>
+          </div>
+          <div class="tree-item">
+            <span class="item-dot" style="background:var(--blue-700)"></span>
+            <div class="item-meta">
+              <div class="item-code">VV-2025-00003</div>
+              <div class="item-name">Vụ tai nạn giao thông nghiêm trọng</div>
+            </div>
+            <span class="item-status status-ket-qua">Kết quả</span>
+          </div>
+          <div class="tree-item">
+            <span class="item-dot" style="background:var(--blue-700)"></span>
+            <div class="item-meta">
+              <div class="item-code">VV-2025-00004</div>
+              <div class="item-name">Vụ cướp giật điện thoại Bình Thạnh</div>
+            </div>
+            <span class="item-status status-tiep-nhan">Tiếp nhận</span>
+          </div>
+          <div class="load-more">+ Tải thêm 8 vụ việc</div>
+        </div>
+
+        <!-- Group: Vụ án (Incidents) -->
+        <div class="group-header">
+          <span class="chevron open">▶</span>
+          <span class="group-dot dot-incident"></span>
+          <span class="group-label">Vụ án</span>
+          <span class="group-count">3</span>
+        </div>
+        <div class="tree-items">
+          <div class="tree-item">
+            <span class="item-dot" style="background:var(--orange-700)"></span>
+            <div class="item-meta">
+              <div class="item-code">VA-2025-00001</div>
+              <div class="item-name">Khởi tố vụ trộm cắp tài sản</div>
+            </div>
+          </div>
+          <div class="tree-item">
+            <span class="item-dot" style="background:var(--orange-700)"></span>
+            <div class="item-meta">
+              <div class="item-code">VA-2025-00002</div>
+              <div class="item-name">Xử lý vụ cướp giật phức tạp</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Group: Đơn thư (Petitions) -->
+        <div class="group-header">
+          <span class="chevron">▶</span>
+          <span class="group-dot dot-petition"></span>
+          <span class="group-label">Đơn thư</span>
+          <span class="group-count">8</span>
+        </div>
+        <!-- collapsed, items hidden -->
+
+      </div>
+    </aside>
+
+    <!-- RIGHT: Timeline -->
+    <main class="timeline-panel">
+      <div class="timeline-header">
+        <span class="entity-badge badge-case">📁 Vụ việc</span>
+        <div>
+          <div class="timeline-title">VV-2025-00001 — Vụ án trộm cắp tài sản Quận 1</div>
+          <div class="timeline-sub">Điều tra viên: Nguyễn Văn A · Tổ 3 · Hạn: 30/06/2025</div>
+        </div>
+        <div class="timeline-actions">
+          <button class="topbar-btn">🖨️</button>
+          <button class="topbar-btn">🔗</button>
+        </div>
+      </div>
+
+      <div class="deadline-banner">
+        ⏰ Hạn xử lý còn <strong>37 ngày</strong> (30/06/2025) — Đang xác minh
+      </div>
+
+      <div class="filter-row">
+        <div class="filter-chip active">Tất cả</div>
+        <div class="filter-chip">Vụ việc</div>
+        <div class="filter-chip">Đơn thư</div>
+        <div class="filter-chip">Vụ án</div>
+      </div>
+
+      <div class="timeline-scroll">
+
+        <!-- Event 1: Status change -->
+        <div class="tl-event">
+          <div class="tl-dot-wrap"><div class="tl-dot status"></div></div>
+          <div class="tl-card">
+            <div class="tl-card-top">
+              <span class="entity-badge badge-case" style="font-size:10px">Vụ việc</span>
+              <span class="tl-event-type et-status">Chuyển trạng thái</span>
+              <span class="tl-time">20/01/2025 14:32</span>
+            </div>
+            <div class="tl-title">Tiếp nhận → Đang xác minh</div>
+            <div class="tl-actor">👤 Nguyễn Văn A</div>
+          </div>
+        </div>
+
+        <!-- Event 2: Petition linked -->
+        <div class="tl-event">
+          <div class="tl-dot-wrap"><div class="tl-dot linked"></div></div>
+          <div class="tl-card">
+            <div class="tl-card-top">
+              <span class="entity-badge badge-petition" style="font-size:10px">Đơn thư</span>
+              <span class="tl-event-type et-linked">Liên kết</span>
+              <span class="tl-time">15/01/2025 09:15</span>
+            </div>
+            <div class="tl-title">Liên kết đơn thư DT-2025-00042</div>
+            <div class="tl-actor">👤 Trần Thị B</div>
+          </div>
+        </div>
+
+        <!-- Event 3: Field update with diff -->
+        <div class="tl-event">
+          <div class="tl-dot-wrap"><div class="tl-dot update"></div></div>
+          <div class="tl-card">
+            <div class="tl-card-top">
+              <span class="entity-badge badge-case" style="font-size:10px">Vụ việc</span>
+              <span class="tl-event-type et-update">Cập nhật</span>
+              <span class="tl-time">12/01/2025 10:00</span>
+            </div>
+            <div class="tl-title">Cập nhật thông tin</div>
+            <div class="tl-actor">👤 Nguyễn Văn A</div>
+            <div class="tl-detail">Thay đổi: <strong>deadline</strong>, <strong>investigatorId</strong></div>
+          </div>
+        </div>
+
+        <!-- Event 4: Incident auto-created -->
+        <div class="tl-event">
+          <div class="tl-dot-wrap"><div class="tl-dot linked"></div></div>
+          <div class="tl-card">
+            <div class="tl-card-top">
+              <span class="entity-badge badge-incident" style="font-size:10px">Vụ án</span>
+              <span class="tl-event-type et-linked">Tạo tự động</span>
+              <span class="tl-time">10/01/2025 16:45</span>
+            </div>
+            <div class="tl-title">Khởi tố vụ án VA-2025-00001</div>
+            <div class="tl-actor">🤖 Hệ thống</div>
+          </div>
+        </div>
+
+        <!-- Event 5: Created -->
+        <div class="tl-event">
+          <div class="tl-dot-wrap"><div class="tl-dot created"></div></div>
+          <div class="tl-card">
+            <div class="tl-card-top">
+              <span class="entity-badge badge-case" style="font-size:10px">Vụ việc</span>
+              <span class="tl-event-type et-created">Được tạo</span>
+              <span class="tl-time">01/01/2025 08:00</span>
+            </div>
+            <div class="tl-title">Được tạo</div>
+            <div class="tl-actor">👤 Nguyễn Văn A</div>
+          </div>
+        </div>
+
+      </div><!-- /timeline-scroll -->
+    </main><!-- /timeline-panel -->
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<script>
+// Toggle tree groups
+document.querySelectorAll('.group-header').forEach(h => {
+  h.addEventListener('click', () => {
+    const ch = h.querySelector('.chevron');
+    const items = h.nextElementSibling;
+    if (items && items.classList.contains('tree-items')) {
+      const open = ch.classList.toggle('open');
+      items.style.display = open ? '' : 'none';
+    }
+  });
+});
+// Toggle tree items
+document.querySelectorAll('.tree-item').forEach(item => {
+  item.addEventListener('click', () => {
+    document.querySelectorAll('.tree-item').forEach(i => i.classList.remove('selected'));
+    item.classList.add('selected');
+  });
+});
+// Filter chips
+document.querySelectorAll('.filter-chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    chip.closest('div').querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+  });
+});
+</script>
+</body>
+</html>

@@ -1,7 +1,7 @@
 import { DocxTemplateLoaderService, DOCUMENT_TYPES } from './docx-loader.service';
 
 describe('DocxTemplateLoaderService', () => {
-  it('loads all 6 templates at module init', async () => {
+  it('loads all 7 templates at module init (including BIEN_NHAN)', async () => {
     const loader = new DocxTemplateLoaderService();
     await loader.onModuleInit();
     for (const docType of DOCUMENT_TYPES) {
@@ -9,6 +9,7 @@ describe('DocxTemplateLoaderService', () => {
       expect(Buffer.isBuffer(buf)).toBe(true);
       expect(buf.length).toBeGreaterThan(2000); // valid docx files have at least 2KB of OOXML
     }
+    expect(DOCUMENT_TYPES).toContain('BIEN_NHAN');
   });
 
   it('caches buffers — same Buffer reference across calls', async () => {

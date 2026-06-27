@@ -32,7 +32,6 @@ import {
   type TableState,
   getVietnameseErrorMessage,
   sanitizeStringParam,
-  LIST_PAGE_SIZE,
 } from '@/components/shared/ListPageShell';
 import { useBulkSelection } from '@/features/_shared/bulk/useBulkSelection';
 import {

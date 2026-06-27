@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { CatalogService } from '../catalog/catalog.service';
 import { CreateDocumentDto } from './dto/create-document.dto';
 import { UpdateDocumentDto } from './dto/update-document.dto';
 import { QueryDocumentsDto } from './dto/query-documents.dto';
@@ -23,6 +24,7 @@ export class DocumentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly catalog: CatalogService,
   ) {
     // Set up upload directory (local storage)
     this.uploadDir = path.join(process.cwd(), 'uploads', 'documents');
@@ -231,6 +233,11 @@ export class DocumentsService {
       throw new BadRequestException('Thông tin file không đầy đủ');
     }
 
+    // Danh mục động: validate documentType tồn tại trong DOCUMENT_TYPE (Directory).
+    if (dto.documentType && !(await this.catalog.isValid('DOCUMENT_TYPE', dto.documentType))) {
+      throw new BadRequestException('Loại tài liệu không thuộc danh mục DOCUMENT_TYPE');
+    }
+
     const record = await this.prisma.document.create({
       data: {
         title: dto.title,
@@ -240,7 +247,7 @@ export class DocumentsService {
         mimeType: dto.mimeType,
         size: dto.size,
         filePath: dto.filePath,
-        documentType: dto.documentType ?? 'VAN_BAN',
+        documentType: dto.documentType || 'VAN_BAN', // '' (chuỗi rỗng) → default, không lưu rác
         caseId: dto.caseId ?? null,
         incidentId: dto.incidentId ?? null,
         petitionId: dto.petitionId ?? null,
@@ -311,12 +318,17 @@ export class DocumentsService {
       }
     }
 
+    // Danh mục động: validate documentType tồn tại trong DOCUMENT_TYPE (Directory).
+    if (dto.documentType && !(await this.catalog.isValid('DOCUMENT_TYPE', dto.documentType))) {
+      throw new BadRequestException('Loại tài liệu không thuộc danh mục DOCUMENT_TYPE');
+    }
+
     const record = await this.prisma.document.update({
       where: { id },
       data: {
         ...(dto.title !== undefined && { title: dto.title }),
         ...(dto.description !== undefined && { description: dto.description }),
-        ...(dto.documentType !== undefined && { documentType: dto.documentType }),
+        ...(dto.documentType !== undefined && dto.documentType !== '' && { documentType: dto.documentType }),
         ...(dto.caseId !== undefined && { caseId: dto.caseId ?? null }),
         ...(dto.incidentId !== undefined && { incidentId: dto.incidentId ?? null }),
       },

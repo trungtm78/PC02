@@ -1,0 +1,3268 @@
+{
+  "feature_name": "Popup Xuất chứng từ Đơn thư + Split-button Lưu",
+  "test_cases": [
+    {
+      "tc_id": "TC-EXP-001",
+      "type": "GREEN",
+      "priority": "P0",
+      "module": "M1-SplitButton",
+      "title": "Form đơn thư hiển thị split-button 'Lưu đơn thư' + caret ▼",
+      "requirement": "EXPORT",
+      "technique": "GREEN",
+      "risk_level": "High",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Mở /petitions/new\n2. Quan sát góc phải header form",
+      "test_data": "",
+      "expected": "Hiện nút chính 'Lưu đơn thư' (xanh) + nút caret ▼ 'Tuỳ chọn lưu' liền kề.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-002",
+      "type": "GREEN",
+      "priority": "P0",
+      "module": "M1-SplitButton",
+      "title": "Bấm nút chính 'Lưu đơn thư' → lưu + về danh sách (hành vi cũ)",
+      "requirement": "EXPORT",
+      "technique": "GREEN",
+      "risk_level": "High",
+      "severity_if_fail": "Critical",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Mở /petitions/new, nhập đủ trường bắt buộc\n2. Bấm nút chính 'Lưu đơn thư'",
+      "test_data": "",
+      "expected": "Đơn được tạo (201); điều hướng về /petitions; KHÔNG mở popup xuất file.",
+      "data_required": [
+        "petition.new.valid"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-003",
+      "type": "GREEN",
+      "priority": "P0",
+      "module": "M1-SplitButton",
+      "title": "Mở menu caret ▼ hiển thị 2 mục 'Lưu đơn thư' / 'Lưu và xuất file'",
+      "requirement": "EXPORT",
+      "technique": "GREEN",
+      "risk_level": "High",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Mở form đơn thư\n2. Bấm caret ▼ 'Tuỳ chọn lưu'",
+      "test_data": "",
+      "expected": "Menu xổ xuống 2 menuitem: 'Lưu đơn thư' và 'Lưu và xuất file'.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-004",
+      "type": "GREEN",
+      "priority": "P1",
+      "module": "M1-SplitButton",
+      "title": "Chọn menu 'Lưu đơn thư' trong dropdown = hành vi nút chính",
+      "requirement": "EXPORT",
+      "technique": "GREEN",
+      "risk_level": "High",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Mở caret ▼\n2. Click menuitem 'Lưu đơn thư'",
+      "test_data": "",
+      "expected": "Lưu đơn + về /petitions; không mở popup.",
+      "data_required": [
+        "petition.new.valid"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-005",
+      "type": "GREEN",
+      "priority": "P0",
+      "module": "M1-SplitButton",
+      "title": "Chọn 'Lưu và xuất file' trên đơn hợp lệ → lưu xong mở popup",
+      "requirement": "EXPORT",
+      "technique": "GREEN",
+      "risk_level": "High",
+      "severity_if_fail": "Critical",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Mở đơn đủ trường (edit)\n2. Caret ▼ → 'Lưu và xuất file'",
+      "test_data": "",
+      "expected": "Đơn được lưu (PATCH 200); popup 'Xuất chứng từ' mở; KHÔNG điều hướng ngay.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-006",
+      "type": "STATE",
+      "priority": "P1",
+      "module": "M1-SplitButton",
+      "title": "Trạng thái isSubmitting → nút chính disabled chống double-submit",
+      "requirement": "EXPORT",
+      "technique": "STATE",
+      "risk_level": "High",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Bấm 'Lưu đơn thư'\n2. Trong lúc đang lưu, quan sát nút",
+      "test_data": "",
+      "expected": "Nút chính disabled khi isSubmitting=true; không gửi 2 request.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-007",
+      "type": "STATE",
+      "priority": "P2",
+      "module": "M1-SplitButton",
+      "title": "Click ngoài menu caret đang mở → menu đóng",
+      "requirement": "EXPORT",
+      "technique": "STATE",
+      "risk_level": "Medium",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Mở caret ▼\n2. Click vùng trống ngoài menu",
+      "test_data": "",
+      "expected": "Menu đóng (click-outside), không chọn mục nào.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-008",
+      "type": "BOUNDARY",
+      "priority": "P2",
+      "module": "M1-SplitButton",
+      "title": "Form sửa (edit) → nút chính nhãn 'Cập nhật' vẫn có caret xuất file",
+      "requirement": "EXPORT",
+      "technique": "EDGE",
+      "risk_level": "Medium",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Mở /petitions/:id/edit\n2. Quan sát nút lưu",
+      "test_data": "",
+      "expected": "Nút chính nhãn 'Cập nhật'; caret ▼ vẫn có 'Lưu và xuất file'.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-009",
+      "type": "RED",
+      "priority": "P1",
+      "module": "M1-SplitButton",
+      "title": "'Lưu và xuất file' khi form thiếu trường bắt buộc → báo lỗi, KHÔNG mở popup",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "High",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Mở /petitions/new để trống Họ tên\n2. Caret ▼ → 'Lưu và xuất file'",
+      "test_data": "",
+      "expected": "Hiện lỗi validation form (Họ tên bắt buộc); KHÔNG lưu; KHÔNG mở popup.",
+      "data_required": [
+        "petition.new.invalid"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-010",
+      "type": "RED",
+      "priority": "P2",
+      "module": "M1-SplitButton",
+      "title": "Nhấn Enter trong form → submit = 'Lưu đơn thư' (không mở popup)",
+      "requirement": "EXPORT",
+      "technique": "STATE",
+      "risk_level": "Medium",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Focus 1 input\n2. Nhấn Enter",
+      "test_data": "",
+      "expected": "Form submit theo onSave (lưu + về danh sách), không mở popup xuất file.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-011",
+      "type": "GREEN",
+      "priority": "P0",
+      "module": "M2-Popup",
+      "title": "Popup mở: 7 mẫu checkbox đều tick sẵn",
+      "requirement": "EXPORT",
+      "technique": "GREEN",
+      "risk_level": "High",
+      "severity_if_fail": "Critical",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. 'Lưu và xuất file' trên đơn đủ trường\n2. Quan sát danh sách mẫu",
+      "test_data": "",
+      "expected": "Popup 'Xuất chứng từ' hiện đúng 7 mẫu, tất cả checkbox [checked]; counter 'Đã chọn 7/7 mẫu'.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-012",
+      "type": "GREEN",
+      "priority": "P0",
+      "module": "M2-Popup",
+      "title": "Mặc định định dạng = ◉ Gộp 1 file Word",
+      "requirement": "EXPORT",
+      "technique": "GREEN",
+      "risk_level": "High",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Mở popup\n2. Quan sát 2 radio định dạng",
+      "test_data": "",
+      "expected": "Radio 'Gộp 1 file Word' [checked]; 'Tách – file ZIP' không chọn.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-013",
+      "type": "GREEN",
+      "priority": "P1",
+      "module": "M2-Popup",
+      "title": "Nút 'Bỏ chọn tất cả' → bỏ hết 7 mẫu",
+      "requirement": "EXPORT",
+      "technique": "GREEN",
+      "risk_level": "High",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Mở popup (7 tick)\n2. Bấm 'Bỏ chọn tất cả'",
+      "test_data": "",
+      "expected": "Cả 7 checkbox bỏ tick; counter 'Đã chọn 0/7'; nhãn nút đổi 'Chọn tất cả'.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-014",
+      "type": "GREEN",
+      "priority": "P1",
+      "module": "M2-Popup",
+      "title": "Nút 'Chọn tất cả' (sau khi bỏ hết) → tick lại 7 mẫu",
+      "requirement": "EXPORT",
+      "technique": "GREEN",
+      "risk_level": "High",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Bỏ chọn tất cả\n2. Bấm 'Chọn tất cả'",
+      "test_data": "",
+      "expected": "Cả 7 checkbox tick lại; counter 'Đã chọn 7/7'.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-015",
+      "type": "RED",
+      "priority": "P0",
+      "module": "M2-Popup",
+      "title": "Bỏ hết mẫu (0 chọn) → nút [Xuất file] disabled",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "High",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Mở popup\n2. Bỏ chọn tất cả",
+      "test_data": "",
+      "expected": "Nút 'Xuất file' bị disabled khi 0 mẫu được chọn.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-016",
+      "type": "GREEN",
+      "priority": "P1",
+      "module": "M2-Popup",
+      "title": "Chọn 1 mẫu duy nhất → [Xuất file] enabled",
+      "requirement": "EXPORT",
+      "technique": "GREEN",
+      "risk_level": "High",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Bỏ chọn tất cả\n2. Tick 1 mẫu BIEN_NHAN",
+      "test_data": "",
+      "expected": "Nút 'Xuất file' enabled; counter 'Đã chọn 1/7'.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-017",
+      "type": "GREEN",
+      "priority": "P1",
+      "module": "M2-Popup",
+      "title": "Đổi định dạng sang ○ Tách – ZIP",
+      "requirement": "EXPORT",
+      "technique": "GREEN",
+      "risk_level": "High",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Mở popup\n2. Click radio 'Tách – file ZIP'",
+      "test_data": "",
+      "expected": "Radio ZIP [checked], Gộp bỏ chọn.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-018",
+      "type": "GREEN",
+      "priority": "P0",
+      "module": "M2-Popup",
+      "title": "Bấm [Đóng] → đóng popup + về danh sách",
+      "requirement": "EXPORT",
+      "technique": "GREEN",
+      "risk_level": "High",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Mở popup (sau lưu)\n2. Bấm 'Đóng'",
+      "test_data": "",
+      "expected": "Popup đóng; điều hướng về /petitions.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-019",
+      "type": "GREEN",
+      "priority": "P1",
+      "module": "M2-Popup",
+      "title": "Bấm nút X góc phải → đóng popup (như Đóng)",
+      "requirement": "EXPORT",
+      "technique": "GREEN",
+      "risk_level": "High",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Mở popup\n2. Bấm icon X",
+      "test_data": "",
+      "expected": "Popup đóng; về /petitions.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-020",
+      "type": "BOUNDARY",
+      "priority": "P2",
+      "module": "M2-Popup",
+      "title": "Mỗi mẫu hiển thị nhãn + mô tả đúng",
+      "requirement": "EXPORT",
+      "technique": "EDGE",
+      "risk_level": "Medium",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Mở popup\n2. Đọc 7 dòng mẫu",
+      "test_data": "",
+      "expected": "Mỗi mẫu có tên + mô tả ngắn (vd 'Biên nhận tiếp nhận đơn thư — xác nhận đã nhận hồ sơ').",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-021",
+      "type": "STATE",
+      "priority": "P1",
+      "module": "M2-Popup",
+      "title": "Đang xuất (isExporting) → nút [Xuất file] disabled/loading",
+      "requirement": "EXPORT",
+      "technique": "STATE",
+      "risk_level": "High",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Bấm 'Xuất file'\n2. Quan sát nút trong lúc tải",
+      "test_data": "",
+      "expected": "Nút 'Xuất file' disabled/hiện trạng thái đang xử lý; chống bấm nhiều lần.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-022",
+      "type": "RED",
+      "priority": "P1",
+      "module": "M2-Popup",
+      "title": "Toggle từng checkbox cập nhật counter chính xác",
+      "requirement": "EXPORT",
+      "technique": "DECISION",
+      "risk_level": "High",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Mở popup (7/7)\n2. Bỏ tick 3 mẫu lần lượt",
+      "test_data": "",
+      "expected": "Counter giảm dần 7→6→5→4; [Xuất file] vẫn enabled (>0).",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-023",
+      "type": "GREEN",
+      "priority": "P0",
+      "module": "M3-API-Merged",
+      "title": "Export merged chứa mẫu Biên nhận (BIEN_NHAN) → docx hợp lệ",
+      "requirement": "EXPORT",
+      "technique": "GREEN",
+      "risk_level": "High",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST /api/v1/petitions/:id/export-documents body {docTypes:[BIEN_NHAN],mode:merged}\n2. Lưu file .docx",
+      "test_data": "{\"docTypes\":[\"BIEN_NHAN\"],\"mode\":\"merged\"}",
+      "expected": "HTTP 201; file .docx hợp lệ (mở được); chứa nội dung mẫu Biên nhận; cấp 1 số văn bản.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-024",
+      "type": "GREEN",
+      "priority": "P0",
+      "module": "M3-API-Merged",
+      "title": "Export merged chứa mẫu Phiếu đề xuất (PHIEU_DE_XUAT) → docx hợp lệ",
+      "requirement": "EXPORT",
+      "technique": "GREEN",
+      "risk_level": "High",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST /api/v1/petitions/:id/export-documents body {docTypes:[PHIEU_DE_XUAT],mode:merged}\n2. Lưu file .docx",
+      "test_data": "{\"docTypes\":[\"PHIEU_DE_XUAT\"],\"mode\":\"merged\"}",
+      "expected": "HTTP 201; file .docx hợp lệ (mở được); chứa nội dung mẫu Phiếu đề xuất; cấp 1 số văn bản.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-025",
+      "type": "GREEN",
+      "priority": "P0",
+      "module": "M3-API-Merged",
+      "title": "Export merged chứa mẫu Phiếu chuyển nguồn tin (PHIEU_CHUYEN_NGUON_TIN) → docx hợp lệ",
+      "requirement": "EXPORT",
+      "technique": "GREEN",
+      "risk_level": "High",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST /api/v1/petitions/:id/export-documents body {docTypes:[PHIEU_CHUYEN_NGUON_TIN],mode:merged}\n2. Lưu file .docx",
+      "test_data": "{\"docTypes\":[\"PHIEU_CHUYEN_NGUON_TIN\"],\"mode\":\"merged\"}",
+      "expected": "HTTP 201; file .docx hợp lệ (mở được); chứa nội dung mẫu Phiếu chuyển nguồn tin; cấp 1 số văn bản.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-026",
+      "type": "GREEN",
+      "priority": "P0",
+      "module": "M3-API-Merged",
+      "title": "Export merged chứa mẫu Phiếu chuyển đơn (PHIEU_CHUYEN_DON) → docx hợp lệ",
+      "requirement": "EXPORT",
+      "technique": "GREEN",
+      "risk_level": "High",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST /api/v1/petitions/:id/export-documents body {docTypes:[PHIEU_CHUYEN_DON],mode:merged}\n2. Lưu file .docx",
+      "test_data": "{\"docTypes\":[\"PHIEU_CHUYEN_DON\"],\"mode\":\"merged\"}",
+      "expected": "HTTP 201; file .docx hợp lệ (mở được); chứa nội dung mẫu Phiếu chuyển đơn; cấp 1 số văn bản.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-027",
+      "type": "GREEN",
+      "priority": "P0",
+      "module": "M3-API-Merged",
+      "title": "Export merged chứa mẫu Thông báo chuyển đơn (THONG_BAO_CHUYEN) → docx hợp lệ",
+      "requirement": "EXPORT",
+      "technique": "GREEN",
+      "risk_level": "High",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST /api/v1/petitions/:id/export-documents body {docTypes:[THONG_BAO_CHUYEN],mode:merged}\n2. Lưu file .docx",
+      "test_data": "{\"docTypes\":[\"THONG_BAO_CHUYEN\"],\"mode\":\"merged\"}",
+      "expected": "HTTP 201; file .docx hợp lệ (mở được); chứa nội dung mẫu Thông báo chuyển đơn; cấp 1 số văn bản.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-028",
+      "type": "GREEN",
+      "priority": "P0",
+      "module": "M3-API-Merged",
+      "title": "Export merged chứa mẫu Thông báo hướng dẫn (THONG_BAO_HUONG_DAN) → docx hợp lệ",
+      "requirement": "EXPORT",
+      "technique": "GREEN",
+      "risk_level": "High",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST /api/v1/petitions/:id/export-documents body {docTypes:[THONG_BAO_HUONG_DAN],mode:merged}\n2. Lưu file .docx",
+      "test_data": "{\"docTypes\":[\"THONG_BAO_HUONG_DAN\"],\"mode\":\"merged\"}",
+      "expected": "HTTP 201; file .docx hợp lệ (mở được); chứa nội dung mẫu Thông báo hướng dẫn; cấp 1 số văn bản.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-029",
+      "type": "GREEN",
+      "priority": "P0",
+      "module": "M3-API-Merged",
+      "title": "Export merged chứa mẫu Thông báo trả lại đơn (THONG_BAO_TRA_LAI) → docx hợp lệ",
+      "requirement": "EXPORT",
+      "technique": "GREEN",
+      "risk_level": "High",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST /api/v1/petitions/:id/export-documents body {docTypes:[THONG_BAO_TRA_LAI],mode:merged}\n2. Lưu file .docx",
+      "test_data": "{\"docTypes\":[\"THONG_BAO_TRA_LAI\"],\"mode\":\"merged\"}",
+      "expected": "HTTP 201; file .docx hợp lệ (mở được); chứa nội dung mẫu Thông báo trả lại đơn; cấp 1 số văn bản.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-030",
+      "type": "GREEN",
+      "priority": "P0",
+      "module": "M3-API-Merged",
+      "title": "Export merged CẢ 7 mẫu → 1 docx, 6 ngắt trang, 1 sectPr",
+      "requirement": "EXPORT",
+      "technique": "GREEN",
+      "risk_level": "High",
+      "severity_if_fail": "Critical",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST /api/v1/petitions/:id/export-documents body 7 docTypes, mode=merged\n2. Giải nén word/document.xml",
+      "test_data": "{\"docTypes\":[7 mẫu],\"mode\":\"merged\"}",
+      "expected": "HTTP 201; 1 file .docx; đúng 6 ngắt trang (<w:br w:type='page'/>) = N-1; đúng 1 <w:sectPr> cuối.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-031",
+      "type": "GREEN",
+      "priority": "P1",
+      "module": "M3-API-Merged",
+      "title": "Merged giữ tiếng Việt có dấu trong nội dung",
+      "requirement": "EXPORT",
+      "technique": "GREEN",
+      "risk_level": "High",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Export merged đơn có tên 'Nguyễn Văn QA'\n2. Đọc document.xml",
+      "test_data": "",
+      "expected": "Văn bản giữ nguyên dấu tiếng Việt (UTF-8), không lỗi mojibake.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-032",
+      "type": "BOUNDARY",
+      "priority": "P1",
+      "module": "M3-API-Merged",
+      "title": "Merged đúng 2 mẫu → đúng 1 ngắt trang (N-1)",
+      "requirement": "EXPORT",
+      "technique": "BOUNDARY",
+      "risk_level": "High",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST merged [BIEN_NHAN, PHIEU_DE_XUAT]",
+      "test_data": "",
+      "expected": "HTTP 201; document.xml có đúng 1 ngắt trang.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-033",
+      "type": "BOUNDARY",
+      "priority": "P1",
+      "module": "M3-API-Merged",
+      "title": "Merged đúng 1 mẫu → 0 ngắt trang",
+      "requirement": "EXPORT",
+      "technique": "BOUNDARY",
+      "risk_level": "High",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST merged [BIEN_NHAN]",
+      "test_data": "",
+      "expected": "HTTP 201; 0 ngắt trang; 1 sectPr; file mở được.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-034",
+      "type": "EP",
+      "priority": "P2",
+      "module": "M3-API-Merged",
+      "title": "mode bỏ trống → mặc định 'merged'",
+      "requirement": "EXPORT",
+      "technique": "EP",
+      "risk_level": "Medium",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST /api/v1/petitions/:id/export-documents body chỉ docTypes (không mode)",
+      "test_data": "",
+      "expected": "HTTP 201; trả về .docx gộp (mode mặc định merged).",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-035",
+      "type": "PERFORMANCE",
+      "priority": "P2",
+      "module": "M3-API-Merged",
+      "title": "Export merged 7 mẫu < 3s",
+      "requirement": "EXPORT",
+      "technique": "PERFORMANCE",
+      "risk_level": "Medium",
+      "severity_if_fail": "Medium",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Đo thời gian POST merged 7 mẫu",
+      "test_data": "",
+      "expected": "Phản hồi < 3 giây cho 7 mẫu trong 1 request.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-036",
+      "type": "GREEN",
+      "priority": "P0",
+      "module": "M4-API-Zip",
+      "title": "Export zip 7 mẫu → ZIP đúng 7 file .docx",
+      "requirement": "EXPORT",
+      "technique": "GREEN",
+      "risk_level": "High",
+      "severity_if_fail": "Critical",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST /api/v1/petitions/:id/export-documents 7 docTypes, mode=zip\n2. Liệt kê entry zip",
+      "test_data": "{\"docTypes\":[7 mẫu],\"mode\":\"zip\"}",
+      "expected": "HTTP 201; ZIP hợp lệ; đúng 7 entry .docx; mỗi tên file chứa số văn bản (vd 00013BN).",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-037",
+      "type": "BOUNDARY",
+      "priority": "P1",
+      "module": "M4-API-Zip",
+      "title": "Export zip 1 mẫu → ZIP 1 entry",
+      "requirement": "EXPORT",
+      "technique": "BOUNDARY",
+      "risk_level": "High",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST zip [BIEN_NHAN]",
+      "test_data": "",
+      "expected": "HTTP 201; ZIP 1 entry .docx; mở được.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-038",
+      "type": "GREEN",
+      "priority": "P1",
+      "module": "M4-API-Zip",
+      "title": "Tên entry zip có đúng số văn bản theo series",
+      "requirement": "EXPORT",
+      "technique": "GREEN",
+      "risk_level": "High",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Export zip 7 mẫu\n2. Đọc tên các entry",
+      "test_data": "",
+      "expected": "Mỗi entry tên dạng <CODE>_<số><series>-PC02-Đ1.docx (BN/ĐX/PC/TB/HD).",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-039",
+      "type": "EP",
+      "priority": "P2",
+      "module": "M4-API-Zip",
+      "title": "docTypes trùng lặp → dedupe, không tạo entry trùng",
+      "requirement": "EXPORT",
+      "technique": "EP",
+      "risk_level": "Medium",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST zip [BIEN_NHAN, BIEN_NHAN]",
+      "test_data": "",
+      "expected": "HTTP 201; ZIP chỉ 1 entry BIEN_NHAN (đã dedupe).",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-040",
+      "type": "RED",
+      "priority": "P0",
+      "module": "M5-Atomic",
+      "title": "Đơn thiếu deXuat + chọn PHIEU_DE_XUAT → 400, KHÔNG cấp số",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "High",
+      "severity_if_fail": "Critical",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST merged [BIEN_NHAN, PHIEU_DE_XUAT] trên đơn KHÔNG có deXuat",
+      "test_data": "",
+      "expected": "HTTP 400 (thiếu trường); KHÔNG file; KHÔNG cấp số văn bản nào (cả BIEN_NHAN).",
+      "data_required": [
+        "petition.missing.dexuat"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-041",
+      "type": "RED",
+      "priority": "P0",
+      "module": "M5-Atomic",
+      "title": "Export fail giữa chừng → số văn bản KHÔNG bị tiêu (no gap)",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "High",
+      "severity_if_fail": "Critical",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Export BIEN_NHAN (số N)\n2. Export 1 request fail (400)\n3. Export BIEN_NHAN lại (số M)",
+      "test_data": "",
+      "expected": "M = N+1 (chênh đúng 1); request fail KHÔNG tiêu số → không gap số.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-042",
+      "type": "RED",
+      "priority": "P0",
+      "module": "M5-Atomic",
+      "title": "Đơn thiếu senderName → mọi mẫu 400",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "High",
+      "severity_if_fail": "Critical",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST merged [BIEN_NHAN] trên đơn senderName rỗng",
+      "test_data": "",
+      "expected": "HTTP 400 (thiếu senderName); không cấp số.",
+      "data_required": [
+        "petition.empty.sender"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-043",
+      "type": "RED",
+      "priority": "P0",
+      "module": "M5-Atomic",
+      "title": "PHIEU_CHUYEN_NGUON_TIN thiếu lyDoChuyen/canCuPhapLy → 400",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "High",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST [PHIEU_CHUYEN_NGUON_TIN] đơn thiếu lyDoChuyen",
+      "test_data": "",
+      "expected": "HTTP 400 báo thiếu trường; không cấp số.",
+      "data_required": [
+        "petition.missing.chuyen"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-044",
+      "type": "RED",
+      "priority": "P0",
+      "module": "M5-Atomic",
+      "title": "THONG_BAO_HUONG_DAN thiếu huongDanKhoiKien → 400",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "High",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST [THONG_BAO_HUONG_DAN] đơn thiếu huongDanKhoiKien",
+      "test_data": "",
+      "expected": "HTTP 400; không cấp số.",
+      "data_required": [
+        "petition.missing.huongdan"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-045",
+      "type": "RED",
+      "priority": "P0",
+      "module": "M5-Atomic",
+      "title": "THONG_BAO_TRA_LAI thiếu lyDoTraDon → 400",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "High",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST [THONG_BAO_TRA_LAI] đơn thiếu lyDoTraDon",
+      "test_data": "",
+      "expected": "HTTP 400; không cấp số.",
+      "data_required": [
+        "petition.missing.tralai"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-046",
+      "type": "RED",
+      "priority": "P0",
+      "module": "M5-Validation",
+      "title": "docTypes rỗng [] → 400",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "High",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST /api/v1/petitions/:id/export-documents body {docTypes:[],mode:merged}",
+      "test_data": "",
+      "expected": "HTTP 400 (ArrayNotEmpty).",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-047",
+      "type": "RED",
+      "priority": "P0",
+      "module": "M5-Validation",
+      "title": "docTypes thiếu hẳn (undefined) → 400",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "High",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST /api/v1/petitions/:id/export-documents body {mode:merged}",
+      "test_data": "",
+      "expected": "HTTP 400 (docTypes bắt buộc).",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-048",
+      "type": "RED",
+      "priority": "P0",
+      "module": "M5-Validation",
+      "title": "docType không thuộc allowlist → 400",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "High",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST /api/v1/petitions/:id/export-documents body {docTypes:[\"HACKED\"],mode:merged}",
+      "test_data": "",
+      "expected": "HTTP 400 (@IsIn DOCUMENT_TYPES).",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-049",
+      "type": "RED",
+      "priority": "P1",
+      "module": "M5-Validation",
+      "title": "mode sai (vd 'pdf') → 400",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "High",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST /api/v1/petitions/:id/export-documents body {docTypes:[BIEN_NHAN],mode:\"pdf\"}",
+      "test_data": "",
+      "expected": "HTTP 400 (@IsIn ['merged','zip']).",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-050",
+      "type": "RED",
+      "priority": "P1",
+      "module": "M5-Validation",
+      "title": "docTypes không phải mảng (string) → 400",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "High",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST /api/v1/petitions/:id/export-documents body {docTypes:\"BIEN_NHAN\",mode:merged}",
+      "test_data": "",
+      "expected": "HTTP 400 (@IsArray).",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-051",
+      "type": "RED",
+      "priority": "P1",
+      "module": "M5-Validation",
+      "title": "Phần tử docTypes là số → 400",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "High",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST /api/v1/petitions/:id/export-documents body {docTypes:[123],mode:merged}",
+      "test_data": "",
+      "expected": "HTTP 400 (@IsString each).",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-052",
+      "type": "RED",
+      "priority": "P0",
+      "module": "M5-Validation",
+      "title": "id đơn không tồn tại → 404",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "High",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST /api/v1/petitions/:id/export-documents với id='khong-ton-tai'",
+      "test_data": "",
+      "expected": "HTTP 404 (đơn không tồn tại).",
+      "data_required": [
+        "none"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-053",
+      "type": "RED",
+      "priority": "P1",
+      "module": "M5-Validation",
+      "title": "id đơn đã xoá mềm (deletedAt) → 404",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "High",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST export trên đơn đã soft-delete",
+      "test_data": "",
+      "expected": "HTTP 404.",
+      "data_required": [
+        "petition.deleted"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-054",
+      "type": "RED",
+      "priority": "P2",
+      "module": "M5-Validation",
+      "title": "Body JSON sai cú pháp → 400",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "Medium",
+      "severity_if_fail": "Medium",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST /api/v1/petitions/:id/export-documents body '{bad json'",
+      "test_data": "",
+      "expected": "HTTP 400.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-055",
+      "type": "RED",
+      "priority": "P2",
+      "module": "M5-Validation",
+      "title": "Content-Type không phải JSON → 400/415",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "Medium",
+      "severity_if_fail": "Medium",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST /api/v1/petitions/:id/export-documents Content-Type text/plain",
+      "test_data": "",
+      "expected": "HTTP 400/415.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-056",
+      "type": "EP",
+      "priority": "P1",
+      "module": "M5-Validation",
+      "title": "docTypes trùng nhau nhiều lần → dedupe còn unique",
+      "requirement": "EXPORT",
+      "technique": "EP",
+      "risk_level": "High",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST merged [BIEN_NHAN, BIEN_NHAN, BIEN_NHAN]",
+      "test_data": "",
+      "expected": "HTTP 201; chỉ render 1 mẫu unique.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-057",
+      "type": "RED",
+      "priority": "P0",
+      "module": "M5-Atomic",
+      "title": "Multi-mẫu: 1 mẫu thiếu trường → CẢ request fail (không xuất phần đúng)",
+      "requirement": "EXPORT",
+      "technique": "DECISION",
+      "risk_level": "High",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST merged [BIEN_NHAN(ok), PHIEU_DE_XUAT(thiếu)]",
+      "test_data": "",
+      "expected": "HTTP 400 toàn request; KHÔNG trả file chứa riêng BIEN_NHAN.",
+      "data_required": [
+        "petition.missing.dexuat"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-058",
+      "type": "SECURITY",
+      "priority": "P0",
+      "module": "M6-Security",
+      "title": "Không token → 401",
+      "requirement": "EXPORT",
+      "technique": "SECURITY",
+      "risk_level": "High",
+      "severity_if_fail": "Critical",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST /api/v1/petitions/:id/export-documents không Authorization header",
+      "test_data": "",
+      "expected": "HTTP 401 Unauthorized.",
+      "data_required": [
+        "none"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-059",
+      "type": "SECURITY",
+      "priority": "P0",
+      "module": "M6-Security",
+      "title": "Token hết hạn → 401",
+      "requirement": "EXPORT",
+      "technique": "SECURITY",
+      "risk_level": "High",
+      "severity_if_fail": "Critical",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST /api/v1/petitions/:id/export-documents với JWT expired",
+      "test_data": "",
+      "expected": "HTTP 401.",
+      "data_required": [
+        "none"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-060",
+      "type": "SECURITY",
+      "priority": "P0",
+      "module": "M6-Security",
+      "title": "Token sai chữ ký → 401",
+      "requirement": "EXPORT",
+      "technique": "SECURITY",
+      "risk_level": "High",
+      "severity_if_fail": "Critical",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST /api/v1/petitions/:id/export-documents với JWT bịa chữ ký",
+      "test_data": "",
+      "expected": "HTTP 401.",
+      "data_required": [
+        "none"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-061",
+      "type": "SECURITY",
+      "priority": "P0",
+      "module": "M6-Security",
+      "title": "User KHÔNG quyền read Petition → 403",
+      "requirement": "EXPORT",
+      "technique": "SECURITY",
+      "risk_level": "High",
+      "severity_if_fail": "Critical",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Login user thiếu quyền\n2. POST /api/v1/petitions/:id/export-documents",
+      "test_data": "",
+      "expected": "HTTP 403 Forbidden (RequirePermissions read Petition).",
+      "data_required": [
+        "user.noperm"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-062",
+      "type": "SECURITY",
+      "priority": "P0",
+      "module": "M6-Security",
+      "title": "IDOR: user ngoài phạm vi dữ liệu xuất đơn tổ khác → 403/404",
+      "requirement": "EXPORT",
+      "technique": "SECURITY",
+      "risk_level": "High",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Login điều tra viên tổ A\n2. POST export đơn của tổ B",
+      "test_data": "",
+      "expected": "HTTP 403/404 (DataScope chặn); không lộ file.",
+      "data_required": [
+        "petition.otherteam"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-063",
+      "type": "SECURITY",
+      "priority": "P0",
+      "module": "M6-Security",
+      "title": "SQL injection trong id → không 500, trả 404/400",
+      "requirement": "EXPORT",
+      "technique": "SECURITY",
+      "risk_level": "High",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST /api/v1/petitions/:id/export-documents id=\"1' OR '1'='1\"",
+      "test_data": "",
+      "expected": "Không 500; trả 404/400; không lộ lỗi DB.",
+      "data_required": [
+        "none"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-064",
+      "type": "SECURITY",
+      "priority": "P0",
+      "module": "M6-Security",
+      "title": "XSS payload trong docTypes → 400, không phản chiếu",
+      "requirement": "EXPORT",
+      "technique": "SECURITY",
+      "risk_level": "High",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST /api/v1/petitions/:id/export-documents docTypes [\"<script>alert(1)</script>\"]",
+      "test_data": "",
+      "expected": "HTTP 400; payload không phản chiếu thô.",
+      "data_required": [
+        "none"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-065",
+      "type": "SECURITY",
+      "priority": "P0",
+      "module": "M6-Security",
+      "title": "Path traversal trong docType → 400 (allowlist chặn)",
+      "requirement": "EXPORT",
+      "technique": "SECURITY",
+      "risk_level": "High",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST docTypes [\"../../etc/passwd\"]",
+      "test_data": "",
+      "expected": "HTTP 400 (không thuộc allowlist).",
+      "data_required": [
+        "none"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-066",
+      "type": "SECURITY",
+      "priority": "P0",
+      "module": "M6-Throttle",
+      "title": "Quá 5 request/60s → 429",
+      "requirement": "EXPORT",
+      "technique": "SECURITY",
+      "risk_level": "High",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Gọi /api/v1/petitions/:id/export-documents 6 lần liên tiếp <60s",
+      "test_data": "",
+      "expected": "Request thứ 6 trả HTTP 429 Too Many Requests.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-067",
+      "type": "SECURITY",
+      "priority": "P0",
+      "module": "M6-Throttle",
+      "title": "Sau cửa sổ 60s → request lại được phép",
+      "requirement": "EXPORT",
+      "technique": "SECURITY",
+      "risk_level": "High",
+      "severity_if_fail": "Medium",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Bị 429\n2. Chờ >60s\n3. Gọi lại",
+      "test_data": "",
+      "expected": "HTTP 201 (throttle reset).",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-068",
+      "type": "SECURITY",
+      "priority": "P0",
+      "module": "M6-Security",
+      "title": "Số văn bản không suy đoán được từ response (no leak counter)",
+      "requirement": "EXPORT",
+      "technique": "SECURITY",
+      "risk_level": "Medium",
+      "severity_if_fail": "Low",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Export 1 mẫu\n2. Kiểm header/response",
+      "test_data": "",
+      "expected": "Không lộ thông tin nội bộ ngoài số văn bản hợp lệ; không stacktrace.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-069",
+      "type": "SECURITY",
+      "priority": "P0",
+      "module": "M6-Security",
+      "title": "Content-Disposition filename không chứa path traversal",
+      "requirement": "EXPORT",
+      "technique": "SECURITY",
+      "risk_level": "Medium",
+      "severity_if_fail": "Medium",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Export\n2. Đọc header Content-Disposition",
+      "test_data": "",
+      "expected": "Filename đã sanitize (RFC 5987), không ../ ; an toàn khi lưu.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-070",
+      "type": "SECURITY",
+      "priority": "P0",
+      "module": "M7-Data",
+      "title": "Tên người gửi ký tự đặc biệt → render an toàn (escape token)",
+      "requirement": "EXPORT",
+      "technique": "DATA",
+      "risk_level": "High",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Đơn senderName chứa { } < > &\n2. Export merged",
+      "test_data": "",
+      "expected": "HTTP 201; docx không vỡ; token người dùng được escape, không lỗi docxtemplater.",
+      "data_required": [
+        "petition.special.name"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-071",
+      "type": "BOUNDARY",
+      "priority": "P1",
+      "module": "M7-Data",
+      "title": "Nội dung dài (vài nghìn ký tự) → render không cắt/lỗi",
+      "requirement": "EXPORT",
+      "technique": "DATA",
+      "risk_level": "High",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Đơn summary dài 5000 ký tự\n2. Export",
+      "test_data": "",
+      "expected": "HTTP 201; nội dung đầy đủ trong docx.",
+      "data_required": [
+        "petition.long.content"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-072",
+      "type": "DATA",
+      "priority": "P2",
+      "module": "M7-Data",
+      "title": "Nội dung xuống dòng nhiều đoạn → giữ định dạng linebreaks",
+      "requirement": "EXPORT",
+      "technique": "DATA",
+      "risk_level": "Medium",
+      "severity_if_fail": "Medium",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Đơn có \\n nhiều đoạn\n2. Export",
+      "test_data": "",
+      "expected": "docx giữ ngắt đoạn (linebreaks=true).",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-073",
+      "type": "DATA",
+      "priority": "P2",
+      "module": "M7-Data",
+      "title": "Số văn bản tăng tuần tự đúng series mỗi mẫu",
+      "requirement": "EXPORT",
+      "technique": "DATA",
+      "risk_level": "Medium",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Export 2 lần BIEN_NHAN\n2. So số",
+      "test_data": "",
+      "expected": "Số văn bản BN tăng +1 đúng thứ tự, không trùng.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-074",
+      "type": "A11Y",
+      "priority": "P1",
+      "module": "M7-A11y",
+      "title": "Popup có role dialog + tiêu đề liên kết",
+      "requirement": "EXPORT",
+      "technique": "A11Y",
+      "risk_level": "High",
+      "severity_if_fail": "Medium",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Mở popup\n2. Kiểm DOM aria",
+      "test_data": "",
+      "expected": "Popup có vai trò dialog; tiêu đề 'Xuất chứng từ' gắn aria-label/labelledby.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-075",
+      "type": "A11Y",
+      "priority": "P1",
+      "module": "M7-A11y",
+      "title": "Bàn phím: Tab tới được checkbox/radio/nút",
+      "requirement": "EXPORT",
+      "technique": "A11Y",
+      "risk_level": "High",
+      "severity_if_fail": "Medium",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Mở popup\n2. Tab qua các control",
+      "test_data": "",
+      "expected": "Tab tới đủ 7 checkbox, 2 radio, [Xuất file], [Đóng]; focus thấy rõ.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-076",
+      "type": "A11Y",
+      "priority": "P1",
+      "module": "M7-A11y",
+      "title": "Esc đóng popup",
+      "requirement": "EXPORT",
+      "technique": "A11Y",
+      "risk_level": "High",
+      "severity_if_fail": "Low",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Mở popup\n2. Nhấn Esc",
+      "test_data": "",
+      "expected": "Popup đóng (nếu hỗ trợ) hoặc focus-trap giữ trong dialog.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-077",
+      "type": "A11Y",
+      "priority": "P2",
+      "module": "M7-A11y",
+      "title": "Caret split-button có aria-haspopup/expanded",
+      "requirement": "EXPORT",
+      "technique": "A11Y",
+      "risk_level": "Medium",
+      "severity_if_fail": "Low",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Kiểm DOM nút caret",
+      "test_data": "",
+      "expected": "Caret có aria-haspopup=menu; aria-expanded đổi khi mở.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-078",
+      "type": "A11Y",
+      "priority": "P2",
+      "module": "M7-A11y",
+      "title": "Checkbox có nhãn liên kết (label-for)",
+      "requirement": "EXPORT",
+      "technique": "A11Y",
+      "risk_level": "Medium",
+      "severity_if_fail": "Low",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Kiểm DOM checkbox mẫu",
+      "test_data": "",
+      "expected": "Mỗi checkbox có label/aria-label tên mẫu.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-079",
+      "type": "A11Y",
+      "priority": "P2",
+      "module": "M7-A11y",
+      "title": "Contrast nút/tiêu đề đạt WCAG AA",
+      "requirement": "EXPORT",
+      "technique": "A11Y",
+      "risk_level": "Medium",
+      "severity_if_fail": "Low",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Đo contrast nút 'Xuất file' + tiêu đề",
+      "test_data": "",
+      "expected": "Tỷ lệ tương phản ≥ 4.5:1.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-080",
+      "type": "COMPAT",
+      "priority": "P1",
+      "module": "M7-Compat",
+      "title": "Chrome desktop: full flow lưu→popup→tải",
+      "requirement": "EXPORT",
+      "technique": "COMPAT",
+      "risk_level": "High",
+      "severity_if_fail": "Medium",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Chrome\n2. Lưu và xuất file → tải",
+      "test_data": "",
+      "expected": "Hoạt động đúng trên Chrome mới nhất.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-081",
+      "type": "COMPAT",
+      "priority": "P1",
+      "module": "M7-Compat",
+      "title": "Edge desktop: full flow",
+      "requirement": "EXPORT",
+      "technique": "COMPAT",
+      "risk_level": "High",
+      "severity_if_fail": "Medium",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Edge\n2. Full flow",
+      "test_data": "",
+      "expected": "Hoạt động đúng trên Edge.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-082",
+      "type": "COMPAT",
+      "priority": "P2",
+      "module": "M7-Compat",
+      "title": "Firefox desktop: popup render + tải file",
+      "requirement": "EXPORT",
+      "technique": "COMPAT",
+      "risk_level": "Medium",
+      "severity_if_fail": "Low",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Firefox\n2. Full flow",
+      "test_data": "",
+      "expected": "Popup render đúng; tải file thành công.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-083",
+      "type": "COMPAT",
+      "priority": "P2",
+      "module": "M7-Compat",
+      "title": "File .docx mở được trên MS Word",
+      "requirement": "EXPORT",
+      "technique": "COMPAT",
+      "risk_level": "Medium",
+      "severity_if_fail": "Medium",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Tải merged\n2. Mở bằng MS Word",
+      "test_data": "",
+      "expected": "Word mở không báo hỏng; thấy ngắt trang giữa các mẫu.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-084",
+      "type": "COMPAT",
+      "priority": "P2",
+      "module": "M7-Compat",
+      "title": "File .docx mở được trên LibreOffice/Google Docs",
+      "requirement": "EXPORT",
+      "technique": "COMPAT",
+      "risk_level": "Medium",
+      "severity_if_fail": "Low",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Mở merged bằng LibreOffice",
+      "test_data": "",
+      "expected": "Mở được, bố cục giữ nguyên.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-085",
+      "type": "COMPAT",
+      "priority": "P2",
+      "module": "M7-Compat",
+      "title": "ZIP giải nén được bằng Windows Explorer + 7-Zip",
+      "requirement": "EXPORT",
+      "technique": "COMPAT",
+      "risk_level": "Medium",
+      "severity_if_fail": "Low",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Tải zip\n2. Giải nén",
+      "test_data": "",
+      "expected": "Giải nén được 7 file; tên tiếng Việt đúng.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-086",
+      "type": "PERFORMANCE",
+      "priority": "P2",
+      "module": "M7-Perf",
+      "title": "Export zip 7 mẫu < 3s",
+      "requirement": "EXPORT",
+      "technique": "PERFORMANCE",
+      "risk_level": "Medium",
+      "severity_if_fail": "Medium",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Đo POST zip 7 mẫu",
+      "test_data": "",
+      "expected": "< 3 giây.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-087",
+      "type": "PERFORMANCE",
+      "priority": "P2",
+      "module": "M7-Perf",
+      "title": "2 user export đồng thời cùng đơn không deadlock",
+      "requirement": "EXPORT",
+      "technique": "PERFORMANCE",
+      "risk_level": "Medium",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. 2 request export song song cùng petitionId",
+      "test_data": "",
+      "expected": "Cả 2 hoàn tất (tuần tự hoá qua row lock FOR UPDATE); không deadlock; số văn bản không trùng.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-088",
+      "type": "REGRESSION",
+      "priority": "P0",
+      "module": "M7-Regression",
+      "title": "In từng (ExportDocumentDropdown ở chi tiết) vẫn hoạt động",
+      "requirement": "EXPORT",
+      "technique": "REGRESSION",
+      "risk_level": "High",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Mở chi tiết đơn\n2. Dùng dropdown in từng mẫu cũ",
+      "test_data": "",
+      "expected": "Chức năng in từng cũ KHÔNG hồi quy.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-089",
+      "type": "REGRESSION",
+      "priority": "P0",
+      "module": "M7-Regression",
+      "title": "In đồng loạt (batch danh sách) vẫn hoạt động",
+      "requirement": "EXPORT",
+      "technique": "REGRESSION",
+      "risk_level": "High",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Màn danh sách\n2. In đồng loạt nhiều đơn",
+      "test_data": "",
+      "expected": "Chức năng batch cũ KHÔNG hồi quy.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-090",
+      "type": "REGRESSION",
+      "priority": "P1",
+      "module": "M7-Regression",
+      "title": "Endpoint export-document (đơn lẻ) cũ vẫn 200",
+      "requirement": "EXPORT",
+      "technique": "REGRESSION",
+      "risk_level": "High",
+      "severity_if_fail": "Medium",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. GET :id/export-document như cũ",
+      "test_data": "",
+      "expected": "Vẫn trả 1 docx như trước; không hồi quy.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-091",
+      "type": "RED",
+      "priority": "P0",
+      "module": "M5-Atomic",
+      "title": "PHIEU_CHUYEN_DON thiếu lyDoChuyen → 400",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "High",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST [PHIEU_CHUYEN_DON] đơn thiếu lyDoChuyen",
+      "test_data": "",
+      "expected": "HTTP 400; không cấp số.",
+      "data_required": [
+        "petition.missing.chuyen"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-092",
+      "type": "RED",
+      "priority": "P1",
+      "module": "M5-Validation",
+      "title": "mode 'ZIP' viết hoa → 400 (case-sensitive)",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "High",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST /api/v1/petitions/:id/export-documents mode=\"ZIP\"",
+      "test_data": "",
+      "expected": "HTTP 400 (@IsIn lowercase).",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-093",
+      "type": "RED",
+      "priority": "P1",
+      "module": "M5-Validation",
+      "title": "mode 'Merged' viết hoa đầu → 400",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "High",
+      "severity_if_fail": "Medium",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST mode=\"Merged\"",
+      "test_data": "",
+      "expected": "HTTP 400.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-094",
+      "type": "RED",
+      "priority": "P1",
+      "module": "M5-Validation",
+      "title": "mode chuỗi rỗng '' → 400",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "High",
+      "severity_if_fail": "Medium",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST mode=\"\"",
+      "test_data": "",
+      "expected": "HTTP 400 (không thuộc enum).",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-095",
+      "type": "RED",
+      "priority": "P1",
+      "module": "M5-Validation",
+      "title": "docTypes chứa phần tử null → 400",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "High",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST docTypes [null]",
+      "test_data": "",
+      "expected": "HTTP 400 (@IsString each).",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-096",
+      "type": "RED",
+      "priority": "P1",
+      "module": "M5-Validation",
+      "title": "docTypes chứa chuỗi rỗng '' → 400",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "High",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST docTypes [\"\"]",
+      "test_data": "",
+      "expected": "HTTP 400 (không thuộc allowlist).",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-097",
+      "type": "RED",
+      "priority": "P1",
+      "module": "M5-Validation",
+      "title": "docType có khoảng trắng ' BIEN_NHAN ' → 400",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "High",
+      "severity_if_fail": "Medium",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST docTypes [\" BIEN_NHAN \"]",
+      "test_data": "",
+      "expected": "HTTP 400 (không khớp allowlist).",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-098",
+      "type": "RED",
+      "priority": "P1",
+      "module": "M5-Validation",
+      "title": "docType sai hoa-thường 'bien_nhan' → 400",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "High",
+      "severity_if_fail": "Medium",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST docTypes [\"bien_nhan\"]",
+      "test_data": "",
+      "expected": "HTTP 400.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-099",
+      "type": "RED",
+      "priority": "P1",
+      "module": "M5-Validation",
+      "title": "docTypes là object {} → 400",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "High",
+      "severity_if_fail": "Medium",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST docTypes {}",
+      "test_data": "",
+      "expected": "HTTP 400 (@IsArray).",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-100",
+      "type": "RED",
+      "priority": "P1",
+      "module": "M5-Validation",
+      "title": "Body rỗng {} → 400",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "High",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST /api/v1/petitions/:id/export-documents body {}",
+      "test_data": "",
+      "expected": "HTTP 400 (docTypes bắt buộc).",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-101",
+      "type": "RED",
+      "priority": "P1",
+      "module": "M5-Validation",
+      "title": "Không có body → 400",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "High",
+      "severity_if_fail": "Medium",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST /api/v1/petitions/:id/export-documents không body",
+      "test_data": "",
+      "expected": "HTTP 400.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-102",
+      "type": "RED",
+      "priority": "P1",
+      "module": "M5-Validation",
+      "title": "Mảng trộn docType hợp lệ + sai → 400 cả request",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "High",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST docTypes [\"BIEN_NHAN\",\"XXX\"]",
+      "test_data": "",
+      "expected": "HTTP 400 (1 phần tử sai → fail).",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-103",
+      "type": "RED",
+      "priority": "P2",
+      "module": "M5-Validation",
+      "title": "Trường lạ thừa trong body → bỏ qua hoặc 400 (whitelist)",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "Medium",
+      "severity_if_fail": "Low",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST body thêm {evil:1}",
+      "test_data": "",
+      "expected": "Bỏ qua field lạ (whitelist) hoặc 400; không lỗi 500.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-104",
+      "type": "RED",
+      "priority": "P2",
+      "module": "M6-Security",
+      "title": "Header 'Bearer ' rỗng token → 401",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "Medium",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST Authorization: 'Bearer '",
+      "test_data": "",
+      "expected": "HTTP 401.",
+      "data_required": [
+        "none"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-105",
+      "type": "RED",
+      "priority": "P2",
+      "module": "M6-Security",
+      "title": "Authorization thiếu prefix 'Bearer' → 401",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "Medium",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST Authorization: '<token>' (no Bearer)",
+      "test_data": "",
+      "expected": "HTTP 401.",
+      "data_required": [
+        "none"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-106",
+      "type": "RED",
+      "priority": "P2",
+      "module": "M5-Validation",
+      "title": "Sai HTTP method GET → 404/405",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "Medium",
+      "severity_if_fail": "Low",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. GET /api/v1/petitions/:id/export-documents",
+      "test_data": "",
+      "expected": "HTTP 404/405 (chỉ POST).",
+      "data_required": [
+        "none"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-107",
+      "type": "RED",
+      "priority": "P2",
+      "module": "M5-Validation",
+      "title": "Sai HTTP method PUT → 404/405",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "Medium",
+      "severity_if_fail": "Low",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. PUT /api/v1/petitions/:id/export-documents",
+      "test_data": "",
+      "expected": "HTTP 404/405.",
+      "data_required": [
+        "none"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-108",
+      "type": "RED",
+      "priority": "P2",
+      "module": "M5-Validation",
+      "title": "id chứa khoảng trắng → 404",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "Medium",
+      "severity_if_fail": "Low",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST id=\"abc def\"",
+      "test_data": "",
+      "expected": "HTTP 404 (không tồn tại).",
+      "data_required": [
+        "none"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-109",
+      "type": "RED",
+      "priority": "P2",
+      "module": "M5-Validation",
+      "title": "id rỗng → 404/400",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "Medium",
+      "severity_if_fail": "Low",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST id=\"\"",
+      "test_data": "",
+      "expected": "HTTP 404/400.",
+      "data_required": [
+        "none"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-110",
+      "type": "RED",
+      "priority": "P2",
+      "module": "M5-Atomic",
+      "title": "Đơn đã chuyển thành vụ việc/vụ án vẫn export được (chỉ cần trường mẫu)",
+      "requirement": "EXPORT",
+      "technique": "STATE",
+      "risk_level": "Medium",
+      "severity_if_fail": "Medium",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Export đơn đã convert",
+      "test_data": "",
+      "expected": "HTTP 201 nếu đủ trường; không lỗi do trạng thái.",
+      "data_required": [
+        "petition.converted"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-111",
+      "type": "RED",
+      "priority": "P0",
+      "module": "M5-Atomic",
+      "title": "Export lỗi giữa loop multi (mẫu 5/7 thiếu) → rollback HẾT, 0 số tiêu",
+      "requirement": "EXPORT",
+      "technique": "DECISION",
+      "risk_level": "High",
+      "severity_if_fail": "Critical",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Đơn thiếu huongDanKhoiKien\n2. POST 7 mẫu merged",
+      "test_data": "",
+      "expected": "HTTP 400; KHÔNG mẫu nào (kể cả 4 mẫu trước) cấp số.",
+      "data_required": [
+        "petition.missing.huongdan"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-112",
+      "type": "RED",
+      "priority": "P2",
+      "module": "M2-Popup",
+      "title": "Lỗi export (server 500 giả lập) → popup hiện message, KHÔNG đóng/điều hướng",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "Medium",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Mock API lỗi\n2. Bấm 'Xuất file'",
+      "test_data": "",
+      "expected": "Popup hiện thông báo lỗi; popup VẪN mở; không về danh sách.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-113",
+      "type": "RED",
+      "priority": "P2",
+      "module": "M2-Popup",
+      "title": "Mất mạng khi tải file → báo lỗi, không treo",
+      "requirement": "EXPORT",
+      "technique": "RECOVERY",
+      "risk_level": "Medium",
+      "severity_if_fail": "Medium",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Ngắt mạng\n2. Bấm 'Xuất file'",
+      "test_data": "",
+      "expected": "Hiện lỗi tải; nút trở lại enabled; không treo UI.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-114",
+      "type": "BOUNDARY",
+      "priority": "P1",
+      "module": "M3-API-Merged",
+      "title": "Merged 3 mẫu → đúng 2 ngắt trang (N-1)",
+      "requirement": "EXPORT",
+      "technique": "BOUNDARY",
+      "risk_level": "High",
+      "severity_if_fail": "Medium",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST merged 3 docTypes",
+      "test_data": "",
+      "expected": "HTTP 201; document.xml có đúng 2 ngắt trang.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-115",
+      "type": "BOUNDARY",
+      "priority": "P1",
+      "module": "M3-API-Merged",
+      "title": "Merged 4 mẫu → đúng 3 ngắt trang (N-1)",
+      "requirement": "EXPORT",
+      "technique": "BOUNDARY",
+      "risk_level": "High",
+      "severity_if_fail": "Medium",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST merged 4 docTypes",
+      "test_data": "",
+      "expected": "HTTP 201; document.xml có đúng 3 ngắt trang.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-116",
+      "type": "BOUNDARY",
+      "priority": "P1",
+      "module": "M3-API-Merged",
+      "title": "Merged 5 mẫu → đúng 4 ngắt trang (N-1)",
+      "requirement": "EXPORT",
+      "technique": "BOUNDARY",
+      "risk_level": "High",
+      "severity_if_fail": "Medium",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST merged 5 docTypes",
+      "test_data": "",
+      "expected": "HTTP 201; document.xml có đúng 4 ngắt trang.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-117",
+      "type": "BOUNDARY",
+      "priority": "P1",
+      "module": "M3-API-Merged",
+      "title": "Merged 6 mẫu → đúng 5 ngắt trang (N-1)",
+      "requirement": "EXPORT",
+      "technique": "BOUNDARY",
+      "risk_level": "High",
+      "severity_if_fail": "Medium",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST merged 6 docTypes",
+      "test_data": "",
+      "expected": "HTTP 201; document.xml có đúng 5 ngắt trang.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-118",
+      "type": "EP",
+      "priority": "P1",
+      "module": "M4-API-Zip",
+      "title": "Thứ tự docTypes khác nhau cùng tập → kết quả tương đương",
+      "requirement": "EXPORT",
+      "technique": "EP",
+      "risk_level": "High",
+      "severity_if_fail": "Medium",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST [A,B] và [B,A]",
+      "test_data": "",
+      "expected": "Cả 2 trả ZIP đủ 2 mẫu (tập như nhau).",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-119",
+      "type": "EP",
+      "priority": "P2",
+      "module": "M3-API-Merged",
+      "title": "mode 'merged' và mode mặc định → cùng kết quả gộp",
+      "requirement": "EXPORT",
+      "technique": "EP",
+      "risk_level": "Medium",
+      "severity_if_fail": "Low",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST có mode=merged\n2. POST không mode",
+      "test_data": "",
+      "expected": "Cả 2 trả 1 .docx gộp.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-120",
+      "type": "EP",
+      "priority": "P1",
+      "module": "M5-Validation",
+      "title": "docTypes lặp 50 lần 1 mẫu → dedupe còn 1",
+      "requirement": "EXPORT",
+      "technique": "EP",
+      "risk_level": "High",
+      "severity_if_fail": "Medium",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST [BIEN_NHAN ×50]",
+      "test_data": "",
+      "expected": "HTTP 201; chỉ 1 mẫu render.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-121",
+      "type": "BOUNDARY",
+      "priority": "P2",
+      "module": "M5-Atomic",
+      "title": "Số văn bản nhiều chữ số (rollover series) định dạng đúng",
+      "requirement": "EXPORT",
+      "technique": "BOUNDARY",
+      "risk_level": "Medium",
+      "severity_if_fail": "Low",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Export khi counter lớn",
+      "test_data": "",
+      "expected": "Số văn bản định dạng đủ chữ số, không tràn/format lỗi.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-122",
+      "type": "EP",
+      "priority": "P2",
+      "module": "M4-API-Zip",
+      "title": "Tên file ZIP gốc 'ChungTu_<ngày>.zip' đúng định dạng",
+      "requirement": "EXPORT",
+      "technique": "EP",
+      "risk_level": "Medium",
+      "severity_if_fail": "Low",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Đọc Content-Disposition của zip",
+      "test_data": "",
+      "expected": "filename 'ChungTu_YYYYMMDD.zip' (sanitize RFC5987).",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-123",
+      "type": "EP",
+      "priority": "P2",
+      "module": "M3-API-Merged",
+      "title": "Tên file merged 'ChungTu_<ngày>.docx' đúng",
+      "requirement": "EXPORT",
+      "technique": "EP",
+      "risk_level": "Medium",
+      "severity_if_fail": "Low",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Đọc Content-Disposition merged",
+      "test_data": "",
+      "expected": "filename 'ChungTu_YYYYMMDD.docx'.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-124",
+      "type": "RED",
+      "priority": "P2",
+      "module": "M6-Security",
+      "title": "Authorization Basic thay vì Bearer → 401",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "Medium",
+      "severity_if_fail": "Low",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST Authorization Basic",
+      "test_data": "",
+      "expected": "HTTP 401.",
+      "data_required": [
+        "none"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-125",
+      "type": "RED",
+      "priority": "P2",
+      "module": "M6-Security",
+      "title": "Token của user đã bị xoá → 401",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "Medium",
+      "severity_if_fail": "Medium",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST token user deleted",
+      "test_data": "",
+      "expected": "HTTP 401.",
+      "data_required": [
+        "none"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-126",
+      "type": "RED",
+      "priority": "P2",
+      "module": "M5-Validation",
+      "title": "mode có khoảng trắng đuôi 'merged ' → 400",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "Medium",
+      "severity_if_fail": "Low",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST mode=\"merged \"",
+      "test_data": "",
+      "expected": "HTTP 400.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-127",
+      "type": "RED",
+      "priority": "P2",
+      "module": "M5-Validation",
+      "title": "docTypes lồng mảng [[..]] → 400",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "Medium",
+      "severity_if_fail": "Low",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST docTypes [[\"BIEN_NHAN\"]]",
+      "test_data": "",
+      "expected": "HTTP 400.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-128",
+      "type": "RED",
+      "priority": "P2",
+      "module": "M5-Validation",
+      "title": "docTypes boolean → 400",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "Medium",
+      "severity_if_fail": "Low",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST docTypes true",
+      "test_data": "",
+      "expected": "HTTP 400 (@IsArray).",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-129",
+      "type": "RED",
+      "priority": "P2",
+      "module": "M5-Validation",
+      "title": "mode kiểu số → 400",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "Medium",
+      "severity_if_fail": "Low",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST mode=1",
+      "test_data": "",
+      "expected": "HTTP 400.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-130",
+      "type": "RED",
+      "priority": "P2",
+      "module": "M5-Validation",
+      "title": "Body là mảng gốc [] thay vì object → 400",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "Medium",
+      "severity_if_fail": "Low",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST body []",
+      "test_data": "",
+      "expected": "HTTP 400.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-131",
+      "type": "RED",
+      "priority": "P2",
+      "module": "M5-Validation",
+      "title": "id rất dài (1000 ký tự) → 404/400, không 500",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "Medium",
+      "severity_if_fail": "Low",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST id 1000 ký tự",
+      "test_data": "",
+      "expected": "HTTP 404/400; không 500.",
+      "data_required": [
+        "none"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-132",
+      "type": "RED",
+      "priority": "P2",
+      "module": "M5-Validation",
+      "title": "Double slash trong path → 404",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "Medium",
+      "severity_if_fail": "Low",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST //export-documents",
+      "test_data": "",
+      "expected": "HTTP 404.",
+      "data_required": [
+        "none"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-133",
+      "type": "RED",
+      "priority": "P2",
+      "module": "M5-Validation",
+      "title": "8 docType (7 hợp lệ + 1 sai) → 400",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "Medium",
+      "severity_if_fail": "Medium",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST 7 mẫu + \"XXX\"",
+      "test_data": "",
+      "expected": "HTTP 400 cả request.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-134",
+      "type": "RED",
+      "priority": "P2",
+      "module": "M5-Validation",
+      "title": "1000 phần tử docTypes → 400 hoặc xử lý an toàn",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "Medium",
+      "severity_if_fail": "Low",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST 1000 docType",
+      "test_data": "",
+      "expected": "Không 500; 400 hoặc dedupe an toàn.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-135",
+      "type": "RED",
+      "priority": "P2",
+      "module": "M5-Atomic",
+      "title": "Export ngay sau khi xoá đơn (race) → 404",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "Medium",
+      "severity_if_fail": "Medium",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Xoá đơn\n2. Export ngay",
+      "test_data": "",
+      "expected": "HTTP 404; không cấp số.",
+      "data_required": [
+        "petition.deleted"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-136",
+      "type": "RED",
+      "priority": "P2",
+      "module": "M6-Security",
+      "title": "JWT alg=none → 401",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "Medium",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST JWT alg none",
+      "test_data": "",
+      "expected": "HTTP 401.",
+      "data_required": [
+        "none"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-137",
+      "type": "RED",
+      "priority": "P2",
+      "module": "M6-Security",
+      "title": "Token sửa payload nâng role → vẫn 401 (sai chữ ký)",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "Medium",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST token role=ADMIN giả",
+      "test_data": "",
+      "expected": "HTTP 401.",
+      "data_required": [
+        "none"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-138",
+      "type": "RED",
+      "priority": "P0",
+      "module": "M5-Atomic",
+      "title": "Mẫu cuối (7/7) thiếu trường → rollback cả 6 mẫu trước",
+      "requirement": "EXPORT",
+      "technique": "DECISION",
+      "risk_level": "High",
+      "severity_if_fail": "Critical",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Đơn thiếu lyDoTraDon\n2. POST 7 mẫu",
+      "test_data": "",
+      "expected": "HTTP 400; 0 số tiêu (6 mẫu trước rollback).",
+      "data_required": [
+        "petition.missing.tralai"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-139",
+      "type": "RED",
+      "priority": "P2",
+      "module": "M2-Popup",
+      "title": "Bấm 'Xuất file' 2 lần nhanh → chỉ 1 request (chống double)",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "Medium",
+      "severity_if_fail": "Medium",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Double-click 'Xuất file'",
+      "test_data": "",
+      "expected": "Chỉ 1 POST; isExporting chặn cái thứ 2.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-140",
+      "type": "SECURITY",
+      "priority": "P0",
+      "module": "M6-Security",
+      "title": "Lỗi 4xx/5xx không lộ stacktrace/đường dẫn nội bộ",
+      "requirement": "EXPORT",
+      "technique": "SECURITY",
+      "risk_level": "High",
+      "severity_if_fail": "Medium",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Trigger 400/404\n2. Đọc body",
+      "test_data": "",
+      "expected": "Body chỉ message nghiệp vụ; không stacktrace/path server.",
+      "data_required": [
+        "none"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-141",
+      "type": "SECURITY",
+      "priority": "P0",
+      "module": "M6-Throttle",
+      "title": "Throttle đếm riêng theo endpoint, không ảnh hưởng API khác",
+      "requirement": "EXPORT",
+      "technique": "SECURITY",
+      "risk_level": "Medium",
+      "severity_if_fail": "Low",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Bị 429 export\n2. Gọi GET petitions",
+      "test_data": "",
+      "expected": "GET petitions vẫn 200 (throttle theo route).",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-142",
+      "type": "BOUNDARY",
+      "priority": "P2",
+      "module": "M6-Throttle",
+      "title": "Đúng request thứ 5 trong 60s vẫn 201 (biên trong hạn)",
+      "requirement": "EXPORT",
+      "technique": "BOUNDARY",
+      "risk_level": "Medium",
+      "severity_if_fail": "Medium",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Gọi 5 lần liên tiếp",
+      "test_data": "",
+      "expected": "Request 1-5 đều 201 (chưa vượt).",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-143",
+      "type": "EP",
+      "priority": "P2",
+      "module": "M3-API-Merged",
+      "title": "Tập mẫu con bất kỳ (vd 4 mẫu) → merged đủ 4 phần",
+      "requirement": "EXPORT",
+      "technique": "EP",
+      "risk_level": "Medium",
+      "severity_if_fail": "Medium",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST 4 mẫu bất kỳ",
+      "test_data": "",
+      "expected": "HTTP 201; docx chứa đủ 4 phần, 3 ngắt trang.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-144",
+      "type": "EP",
+      "priority": "P1",
+      "module": "M4-API-Zip",
+      "title": "Tập mẫu con (3 mẫu) → ZIP đúng 3 entry",
+      "requirement": "EXPORT",
+      "technique": "EP",
+      "risk_level": "High",
+      "severity_if_fail": "Medium",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST zip 3 mẫu",
+      "test_data": "",
+      "expected": "HTTP 201; ZIP 3 entry.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-145",
+      "type": "A11Y",
+      "priority": "P2",
+      "module": "M2-Popup",
+      "title": "Đóng popup → focus trả về nút đã mở",
+      "requirement": "EXPORT",
+      "technique": "A11Y",
+      "risk_level": "Medium",
+      "severity_if_fail": "Low",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Mở rồi đóng popup",
+      "test_data": "",
+      "expected": "Focus quay lại nút 'Lưu và xuất file'.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-146",
+      "type": "A11Y",
+      "priority": "P2",
+      "module": "M2-Popup",
+      "title": "Screen reader đọc tiêu đề + số mẫu đã chọn",
+      "requirement": "EXPORT",
+      "technique": "A11Y",
+      "risk_level": "Medium",
+      "severity_if_fail": "Low",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Bật SR\n2. Mở popup",
+      "test_data": "",
+      "expected": "SR đọc 'Xuất chứng từ' + 'Đã chọn 7/7'.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-147",
+      "type": "COMPAT",
+      "priority": "P2",
+      "module": "M2-Popup",
+      "title": "Mobile viewport: popup cuộn được, nút không bị che",
+      "requirement": "EXPORT",
+      "technique": "COMPAT",
+      "risk_level": "Medium",
+      "severity_if_fail": "Medium",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Viewport 375x812\n2. Mở popup",
+      "test_data": "",
+      "expected": "Popup responsive, cuộn tới [Xuất file]/[Đóng].",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-148",
+      "type": "COMPAT",
+      "priority": "P2",
+      "module": "M7-Compat",
+      "title": "ZIP entry tên tiếng Việt mở đúng trên macOS",
+      "requirement": "EXPORT",
+      "technique": "COMPAT",
+      "risk_level": "Medium",
+      "severity_if_fail": "Low",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Giải nén trên macOS",
+      "test_data": "",
+      "expected": "Tên file tiếng Việt không lỗi encoding.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-149",
+      "type": "PERFORMANCE",
+      "priority": "P2",
+      "module": "M7-Perf",
+      "title": "Nội dung lớn không gây OOM/treo server",
+      "requirement": "EXPORT",
+      "technique": "PERFORMANCE",
+      "risk_level": "Medium",
+      "severity_if_fail": "Medium",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Export đơn summary rất lớn",
+      "test_data": "",
+      "expected": "Hoàn tất < 5s; không OOM; bộ nhớ ổn định.",
+      "data_required": [
+        "petition.long.content"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-150",
+      "type": "RED",
+      "priority": "P2",
+      "module": "M6-Throttle",
+      "title": "6 request đồng thời (burst) → ≥1 trả 429",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "Medium",
+      "severity_if_fail": "Medium",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Bắn 6 request song song <60s",
+      "test_data": "",
+      "expected": "Ít nhất 1 request 429; không 500; không tiêu số cho request bị chặn.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-151",
+      "type": "RED",
+      "priority": "P2",
+      "module": "M5-Validation",
+      "title": "mode='zip' nhưng docTypes rỗng → 400",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "Medium",
+      "severity_if_fail": "Medium",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST {docTypes:[],mode:\"zip\"}",
+      "test_data": "",
+      "expected": "HTTP 400 (ArrayNotEmpty trước mode).",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-152",
+      "type": "RED",
+      "priority": "P2",
+      "module": "M5-Validation",
+      "title": "docTypes có phần tử số lẫn chuỗi → 400",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "Medium",
+      "severity_if_fail": "Low",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST [\"BIEN_NHAN\",1]",
+      "test_data": "",
+      "expected": "HTTP 400 (@IsString each).",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-153",
+      "type": "RED",
+      "priority": "P2",
+      "module": "M5-Validation",
+      "title": "Header Content-Length sai (rỗng body khai báo có) → 400",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "Medium",
+      "severity_if_fail": "Low",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST khai Content-Length lệch",
+      "test_data": "",
+      "expected": "HTTP 400; không treo.",
+      "data_required": [
+        "none"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-154",
+      "type": "RED",
+      "priority": "P2",
+      "module": "M5-Atomic",
+      "title": "Export khi đơn vừa bị user khác sửa (stale) → vẫn dùng data mới nhất",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "Medium",
+      "severity_if_fail": "Medium",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. User A mở popup\n2. User B sửa đơn\n3. A xuất",
+      "test_data": "",
+      "expected": "Xuất theo data hiện tại trong DB (không lỗi); số cấp đúng.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-155",
+      "type": "RED",
+      "priority": "P2",
+      "module": "M2-Popup",
+      "title": "Token hết hạn ngay lúc bấm 'Xuất file' → 401, popup báo lỗi",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "Medium",
+      "severity_if_fail": "Medium",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Để token hết hạn\n2. Bấm 'Xuất file'",
+      "test_data": "",
+      "expected": "HTTP 401; popup hiện lỗi phiên; không tải file rỗng.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-156",
+      "type": "RED",
+      "priority": "P2",
+      "module": "M2-Popup",
+      "title": "429 khi bấm 'Xuất file' → popup báo 'thử lại sau', không đóng",
+      "requirement": "EXPORT",
+      "technique": "RED",
+      "risk_level": "Medium",
+      "severity_if_fail": "Medium",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Vượt throttle\n2. Bấm 'Xuất file'",
+      "test_data": "",
+      "expected": "Popup hiện thông báo giới hạn; vẫn mở; không tải file.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-157",
+      "type": "RED",
+      "priority": "P2",
+      "module": "M5-Validation",
+      "title": "docType hợp lệ nhưng template file thiếu trên server → 500 có kiểm soát",
+      "requirement": "EXPORT",
+      "technique": "RECOVERY",
+      "risk_level": "Medium",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. (giả lập) thiếu .docx template",
+      "test_data": "",
+      "expected": "Lỗi có kiểm soát; không cấp số (rollback); log rõ.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-158",
+      "type": "SECURITY",
+      "priority": "P0",
+      "module": "M6-Security",
+      "title": "CORS: request từ origin lạ bị chặn theo cấu hình",
+      "requirement": "EXPORT",
+      "technique": "SECURITY",
+      "risk_level": "Medium",
+      "severity_if_fail": "Low",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. POST từ origin ngoài allowlist",
+      "test_data": "",
+      "expected": "Bị chặn theo CORS policy.",
+      "data_required": [
+        "none"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-159",
+      "type": "SECURITY",
+      "priority": "P0",
+      "module": "M6-Security",
+      "title": "Không cache file nhạy cảm (Cache-Control)",
+      "requirement": "EXPORT",
+      "technique": "SECURITY",
+      "risk_level": "Medium",
+      "severity_if_fail": "Low",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Đọc header response file",
+      "test_data": "",
+      "expected": "Header không cho cache công khai file chứa thông tin đơn.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-160",
+      "type": "SECURITY",
+      "priority": "P0",
+      "module": "M6-Security",
+      "title": "IDOR đọc-ngang: officer tổ A KHÔNG xuất được đơn tổ B (lặp xác nhận scope)",
+      "requirement": "EXPORT",
+      "technique": "SECURITY",
+      "risk_level": "High",
+      "severity_if_fail": "High",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. officer A POST export đơn B",
+      "test_data": "",
+      "expected": "HTTP 403/404; DataScope chặn triệt để.",
+      "data_required": [
+        "petition.otherteam"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-161",
+      "type": "BOUNDARY",
+      "priority": "P2",
+      "module": "M3-API-Merged",
+      "title": "Merged khi chỉ 2 trong 7 mẫu đủ trường, chọn đúng 2 → 201",
+      "requirement": "EXPORT",
+      "technique": "BOUNDARY",
+      "risk_level": "Medium",
+      "severity_if_fail": "Medium",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Chọn đúng 2 mẫu đủ trường",
+      "test_data": "",
+      "expected": "HTTP 201; docx 2 phần, 1 ngắt trang.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-162",
+      "type": "EP",
+      "priority": "P2",
+      "module": "M4-API-Zip",
+      "title": "Re-export cùng đơn → số văn bản MỚI mỗi lần (không cache)",
+      "requirement": "EXPORT",
+      "technique": "EP",
+      "risk_level": "Medium",
+      "severity_if_fail": "Medium",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Export zip 2 lần\n2. So số",
+      "test_data": "",
+      "expected": "Mỗi lần cấp số mới (không trùng/không cache).",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-163",
+      "type": "EP",
+      "priority": "P2",
+      "module": "M3-API-Merged",
+      "title": "Export phản ánh data sau khi sửa đơn",
+      "requirement": "EXPORT",
+      "technique": "EP",
+      "risk_level": "Medium",
+      "severity_if_fail": "Medium",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Sửa deXuat\n2. Export",
+      "test_data": "",
+      "expected": "docx chứa deXuat mới nhất.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-164",
+      "type": "BOUNDARY",
+      "priority": "P2",
+      "module": "M5-Atomic",
+      "title": "Đơn nặc danh (senderName ẩn) — mẫu cần senderName → 400 đúng quy tắc",
+      "requirement": "EXPORT",
+      "technique": "BOUNDARY",
+      "risk_level": "Medium",
+      "severity_if_fail": "Medium",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Đơn nặc danh\n2. Export BIEN_NHAN",
+      "test_data": "",
+      "expected": "Theo quy tắc validate (400 nếu thiếu senderName).",
+      "data_required": [
+        "petition.empty.sender"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-165",
+      "type": "PERFORMANCE",
+      "priority": "P2",
+      "module": "M7-Perf",
+      "title": "10 lần export tuần tự không rò bộ nhớ",
+      "requirement": "EXPORT",
+      "technique": "PERFORMANCE",
+      "risk_level": "Medium",
+      "severity_if_fail": "Low",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Export 10 lần (giãn throttle)",
+      "test_data": "",
+      "expected": "Bộ nhớ ổn định; không leak.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-166",
+      "type": "PERFORMANCE",
+      "priority": "P2",
+      "module": "M7-Perf",
+      "title": "Lock FOR UPDATE không giữ quá lâu (release sau tx)",
+      "requirement": "EXPORT",
+      "technique": "PERFORMANCE",
+      "risk_level": "Medium",
+      "severity_if_fail": "Medium",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Export A đang chạy\n2. Đo chờ của export B cùng đơn",
+      "test_data": "",
+      "expected": "B chờ ngắn rồi hoàn tất; lock release sau commit.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-167",
+      "type": "A11Y",
+      "priority": "P2",
+      "module": "M1-SplitButton",
+      "title": "Caret điều hướng menu bằng phím mũi tên",
+      "requirement": "EXPORT",
+      "technique": "A11Y",
+      "risk_level": "Medium",
+      "severity_if_fail": "Low",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Focus caret\n2. Enter mở\n3. ↑/↓ chọn",
+      "test_data": "",
+      "expected": "Di chuyển giữa 2 menuitem bằng bàn phím; Enter kích hoạt.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    },
+    {
+      "tc_id": "TC-EXP-168",
+      "type": "COMPAT",
+      "priority": "P2",
+      "module": "M7-Compat",
+      "title": "Tải file hoạt động khi trình duyệt chặn popup",
+      "requirement": "EXPORT",
+      "technique": "COMPAT",
+      "risk_level": "Medium",
+      "severity_if_fail": "Medium",
+      "preconditions": "Đăng nhập admin@pc02.local; backend :3000, FE :5173; có đơn thư đủ trường.",
+      "steps": "1. Bật chặn popup\n2. Xuất file",
+      "test_data": "",
+      "expected": "Tải qua blob/anchor, không bị popup-blocker chặn.",
+      "data_required": [
+        "petition.full.D0"
+      ]
+    }
+  ],
+  "test_data": {
+    "accounts": [
+      {
+        "id": "admin",
+        "email": "admin@pc02.local",
+        "password": "<từ .env/test accounts>",
+        "role": "ADMIN",
+        "status": "active",
+        "purpose": "Quyền đầy đủ — happy path + RBAC pass"
+      },
+      {
+        "id": "officer1",
+        "email": "officer1@pc02.local",
+        "password": "<từ test accounts>",
+        "role": "OFFICER",
+        "status": "active",
+        "purpose": "Kiểm DataScope/IDOR theo tổ"
+      },
+      {
+        "id": "noperm",
+        "email": "<seed>",
+        "password": "<seed>",
+        "role": "NO_PETITION_READ",
+        "status": "active",
+        "purpose": "RBAC 403"
+      }
+    ],
+    "boundary_values": [
+      {
+        "field": "docTypes.length",
+        "value": "0",
+        "type": "min-1",
+        "expected": "400 ArrayNotEmpty",
+        "notes": "rỗng"
+      },
+      {
+        "field": "docTypes.length",
+        "value": "1",
+        "type": "min",
+        "expected": "201, 0 ngắt trang",
+        "notes": ""
+      },
+      {
+        "field": "docTypes.length",
+        "value": "7",
+        "type": "max",
+        "expected": "201, 6 ngắt trang",
+        "notes": "tất cả mẫu"
+      },
+      {
+        "field": "throttle",
+        "value": "5/60s",
+        "type": "max",
+        "expected": "201",
+        "notes": "trong hạn"
+      },
+      {
+        "field": "throttle",
+        "value": "6/60s",
+        "type": "max+1",
+        "expected": "429",
+        "notes": "vượt hạn"
+      }
+    ],
+    "payloads": [
+      {
+        "target": "id",
+        "payload": "1' OR '1'='1",
+        "attack_type": "SQLi",
+        "expected": "404/400 không 500",
+        "owasp_ref": "A03"
+      },
+      {
+        "target": "docTypes[]",
+        "payload": "<script>alert(1)</script>",
+        "attack_type": "XSS",
+        "expected": "400",
+        "owasp_ref": "A03"
+      },
+      {
+        "target": "docTypes[]",
+        "payload": "../../etc/passwd",
+        "attack_type": "Path Traversal",
+        "expected": "400 allowlist",
+        "owasp_ref": "A01"
+      },
+      {
+        "target": "Authorization",
+        "payload": "(none)",
+        "attack_type": "Broken Auth",
+        "expected": "401",
+        "owasp_ref": "A07"
+      },
+      {
+        "target": "petitionId",
+        "payload": "đơn tổ khác",
+        "attack_type": "IDOR",
+        "expected": "403/404",
+        "owasp_ref": "A01"
+      }
+    ]
+  },
+  "data_fixtures": [
+    {
+      "fixture_id": "petition.full.D0",
+      "description": "Đơn đủ TẤT CẢ trường cho 7 mẫu",
+      "setup_recipe": "POST /api/v1/petitions {senderName,senderPhone,petitionType:TO_CAO,crimeChinhId,summary,detailContent,nhanThay,deXuat,lyDoChuyen,canCuPhapLy,huongDanKhoiKien,lyDoTraDon}",
+      "cleanup_recipe": "Soft-delete đơn/cleanup user sau test",
+      "outputs": {
+        "$.id": "petition_id"
+      }
+    },
+    {
+      "fixture_id": "petition.new.valid",
+      "description": "Đơn mới hợp lệ tối thiểu để lưu",
+      "setup_recipe": "Form /petitions/new đủ trường bắt buộc",
+      "cleanup_recipe": "Soft-delete đơn/cleanup user sau test",
+      "outputs": {
+        "$.id": "petition_id"
+      }
+    },
+    {
+      "fixture_id": "petition.new.invalid",
+      "description": "Đơn để trống Họ tên (fail validate FE)",
+      "setup_recipe": "Form bỏ trống senderName",
+      "cleanup_recipe": "Soft-delete đơn/cleanup user sau test",
+      "outputs": {
+        "$.id": "petition_id"
+      }
+    },
+    {
+      "fixture_id": "petition.missing.dexuat",
+      "description": "Đơn có senderName+summary nhưng THIẾU deXuat",
+      "setup_recipe": "POST petitions không gửi nhanThay/deXuat",
+      "cleanup_recipe": "Soft-delete đơn/cleanup user sau test",
+      "outputs": {
+        "$.id": "petition_id"
+      }
+    },
+    {
+      "fixture_id": "petition.empty.sender",
+      "description": "Đơn senderName rỗng (seed legacy)",
+      "setup_recipe": "Đơn seed có senderName=''",
+      "cleanup_recipe": "Soft-delete đơn/cleanup user sau test",
+      "outputs": {
+        "$.id": "petition_id"
+      }
+    },
+    {
+      "fixture_id": "petition.missing.chuyen",
+      "description": "Đơn thiếu lyDoChuyen/canCuPhapLy",
+      "setup_recipe": "POST petitions không gửi lyDoChuyen",
+      "cleanup_recipe": "Soft-delete đơn/cleanup user sau test",
+      "outputs": {
+        "$.id": "petition_id"
+      }
+    },
+    {
+      "fixture_id": "petition.missing.huongdan",
+      "description": "Đơn thiếu huongDanKhoiKien",
+      "setup_recipe": "POST không gửi huongDanKhoiKien",
+      "cleanup_recipe": "Soft-delete đơn/cleanup user sau test",
+      "outputs": {
+        "$.id": "petition_id"
+      }
+    },
+    {
+      "fixture_id": "petition.missing.tralai",
+      "description": "Đơn thiếu lyDoTraDon",
+      "setup_recipe": "POST không gửi lyDoTraDon",
+      "cleanup_recipe": "Soft-delete đơn/cleanup user sau test",
+      "outputs": {
+        "$.id": "petition_id"
+      }
+    },
+    {
+      "fixture_id": "petition.deleted",
+      "description": "Đơn đã soft-delete",
+      "setup_recipe": "DELETE /api/v1/petitions/:id",
+      "cleanup_recipe": "Soft-delete đơn/cleanup user sau test",
+      "outputs": {
+        "$.id": "petition_id"
+      }
+    },
+    {
+      "fixture_id": "petition.converted",
+      "description": "Đơn đã convert sang vụ việc/vụ án, đủ trường mẫu",
+      "setup_recipe": "Seed đơn linkedCaseId/linkedIncidentId set",
+      "cleanup_recipe": "Soft-delete đơn/cleanup user sau test",
+      "outputs": {
+        "$.id": "petition_id"
+      }
+    },
+    {
+      "fixture_id": "petition.otherteam",
+      "description": "Đơn thuộc tổ khác user",
+      "setup_recipe": "Seed đơn assignedTeam ≠ tổ user test",
+      "cleanup_recipe": "Soft-delete đơn/cleanup user sau test",
+      "outputs": {
+        "$.id": "petition_id"
+      }
+    },
+    {
+      "fixture_id": "petition.special.name",
+      "description": "senderName chứa { } < > &",
+      "setup_recipe": "POST petitions senderName='A{<b>}&'",
+      "cleanup_recipe": "Soft-delete đơn/cleanup user sau test",
+      "outputs": {
+        "$.id": "petition_id"
+      }
+    },
+    {
+      "fixture_id": "petition.long.content",
+      "description": "summary 5000 ký tự",
+      "setup_recipe": "POST petitions summary dài",
+      "cleanup_recipe": "Soft-delete đơn/cleanup user sau test",
+      "outputs": {
+        "$.id": "petition_id"
+      }
+    },
+    {
+      "fixture_id": "user.noperm",
+      "description": "User KHÔNG có quyền read Petition",
+      "setup_recipe": "Seed user role thiếu permission Petition.read",
+      "cleanup_recipe": "Soft-delete đơn/cleanup user sau test",
+      "outputs": {
+        "$.id": "petition_id"
+      }
+    },
+    {
+      "fixture_id": "none",
+      "description": "Không cần data (test auth/validation thuần)",
+      "setup_recipe": "—",
+      "cleanup_recipe": "Soft-delete đơn/cleanup user sau test",
+      "outputs": {
+        "$.id": "petition_id"
+      }
+    }
+  ]
+}

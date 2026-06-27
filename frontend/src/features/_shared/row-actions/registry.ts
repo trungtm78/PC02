@@ -15,7 +15,8 @@ export interface AssignModalOpenArgs {
   resourceType: 'cases' | 'incidents' | 'petitions';
   recordId: string;
   currentTeamId?: string | null;
-  updatedAt?: string;
+  // Optimistic-lock: modal đọc args.currentUpdatedAt (trước đây interface đặt sai tên 'updatedAt').
+  currentUpdatedAt?: string;
   onSuccess?: () => void;
 }
 

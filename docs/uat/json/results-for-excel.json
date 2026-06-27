@@ -1,0 +1,2551 @@
+{
+  "tests": [
+    {
+      "tc_id": "TC-001",
+      "title": "TC-001-API: Login admin và officer — lấy token",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-002",
+      "title": "TC-002-API: GET /templates — tồn tại ít nhất 1 template active",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-003",
+      "title": "TC-003-API: POST /draft INCIDENT — officer nhận previewNumber, isDraft=true",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-004",
+      "title": "TC-004-API: POST /draft PETITION — officer nhận preview DT-YYYY-",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-005",
+      "title": "TC-005-API: POST /draft không có token → 401",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-006",
+      "title": "TC-006-API: POST /draft documentType=null → 400",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-007",
+      "title": "TC-007-API: POST /draft documentType=empty string → 400",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-008",
+      "title": "TC-008-API: POST /draft documentType không có template active → 400 hoặc 404",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-009",
+      "title": "TC-009-API: POST /commit INCIDENT — BUG-001: officer nhận 403 (commit yêu cầu ADMIN)",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-010",
+      "title": "TC-010-API: POST /commit PETITION với documentId — dùng admin thay officer",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-011",
+      "title": "TC-011-API: POST /commit không có token → 401",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-012",
+      "title": "TC-012-API: POST /commit body rỗng — officer 403, admin 400/422",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-013",
+      "title": "TC-013-API: GET /templates — admin xem danh sách với schema đầy đủ",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-014",
+      "title": "TC-014-API: POST /templates — admin tạo template mới",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-015",
+      "title": "TC-015-API: POST /templates với role OFFICER → 403",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-016",
+      "title": "TC-016-API: PUT /templates/:id — admin sửa template vừa tạo",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-017",
+      "title": "TC-017-API: PUT /templates/:id với Officer → 403",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-018",
+      "title": "TC-018-API: POST /templates thiếu name → 400",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-019",
+      "title": "TC-019-API: POST /templates thiếu documentType → 400",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-020",
+      "title": "TC-020-API: GET /templates/:id/stats — xem current, next, periodKey",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-021",
+      "title": "TC-021-API: POST /templates/:id/preview — không tăng counter",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-022",
+      "title": "TC-022-API: POST /templates/:id/reset-counter với Officer → 403",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-023",
+      "title": "TC-023-API: GET /templates/:id không tồn tại → 404",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-024",
+      "title": "TC-024-API: DELETE /templates/:id (cleanup template tạo bởi UAT)",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-025",
+      "title": "TC-025-API: DELETE /templates/:id với Officer → 403",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-026",
+      "title": "TC-026-API: GET /logs — admin xem logs, có schema đầy đủ",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-027",
+      "title": "TC-027-API: GET /logs filter templateId — chỉ trả log của template đó",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-028",
+      "title": "TC-028-API: GET /logs — không có token → 401",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-029",
+      "title": "TC-029-API: GET /logs pagination page=1&pageSize=5",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-030",
+      "title": "TC-030-API: SECURITY JWT expired token → 401",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-031",
+      "title": "TC-031-API: SECURITY SQL injection trong documentType → 400 hoặc 404",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-032",
+      "title": "TC-032-API: SECURITY XSS trong template name — BUG-002 nếu không validate",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-033",
+      "title": "TC-033-API: SECURITY IDOR — officer không xem log của người khác",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-034",
+      "title": "TC-034-API: SECURITY Mass assignment — createdById không được set bởi attacker",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-035",
+      "title": "TC-035-API: 2 POST /commit INCIDENT song song → 2 số khác nhau",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-036",
+      "title": "TC-036-API: POST /incidents vẫn tạo được, code format VV-YYYY-",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-037",
+      "title": "TC-037-API: GET /cases — cột caseCode hiển thị giá trị HS-YYYY- hoặc null",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-038",
+      "title": "TC-038-API: Formula MM ? th?ng c? leading zero",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-039",
+      "title": "TC-039-API: Formula YYYYMMDD ? ng?y ??y ?? ISO trong m?",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-040",
+      "title": "TC-040-API: Formula ctx:Login.workId ? workId c?n b? trong m?",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-041",
+      "title": "TC-041-API: Formula ctx:Login.workId ? user kh?ng c? workId ? empty string (kh?ng crash)",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-042",
+      "title": "TC-042-API: Formula ctx:Login.departmentId ? departmentId trong m?",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-043",
+      "title": "TC-043-API: Period key YEARLY ? tr? v? '2026'",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-044",
+      "title": "TC-044-API: Period key MONTHLY ? tr? v? 'YYYY-MM'",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-045",
+      "title": "TC-045-API: Period key WEEKLY ? tr? v? 'YYYY-WNN' theo ISO 8601",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-046",
+      "title": "TC-046-API: Period key NEVER ? tr? v? 'global'",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-047",
+      "title": "TC-047-API: Period key MAX_NUMBER ? tr? v? 'global'",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-048",
+      "title": "TC-048-API: N?m m?i (Jan 1) ? counter YEARLY t?o row m?i cho period 2027",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-049",
+      "title": "TC-049-API: Cold-start counter ? commit khi ch?a c? counter row cho period",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-050",
+      "title": "TC-050-API: 2 concurrent commits c?ng documentType ? 2 s? kh?c nhau, sequential",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-051",
+      "title": "TC-051-API: 10 concurrent commits ? 10 s? unique, counter t?ng ??ng 10",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-052",
+      "title": "TC-052-API: Commit PETITION ? stt trong petitions table ??ng v? unique",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-053",
+      "title": "TC-053-API: Commit INCIDENT ? incidentCode ??ng, log linked",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-054",
+      "title": "TC-054-API: SQL injection trong documentType ? 400 validation",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-055",
+      "title": "TC-055-API: XSS trong template name ? stored as text, rendered safely",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-056",
+      "title": "TC-056-API: JWT token h?t h?n ? 401 tr?n m?i endpoint",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-057",
+      "title": "TC-057-API: Token c?a user A d?ng cho user B action ? ch? th?y log c?a A",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-058",
+      "title": "TC-058-API: IDOR: officer ?o?n templateId c?a admin template, DELETE ? 403",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-059",
+      "title": "TC-059-API: Padding = 3 ? s? 001, 010, 100 ??ng format",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-060",
+      "title": "TC-060-API: Padding = 5 ? s? 00001, 00010, 00100, 10000, 99999",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-061",
+      "title": "TC-061-API: Counter v??t padding (100000 > 5 ch? s?) ? gi? nguy?n kh?ng truncate",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-062",
+      "title": "TC-062-API: counterConfig.padding = 0 ? 400 validation",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-063",
+      "title": "TC-063-API: counterConfig.padding = 11 ? 400 validation (max=10)",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-064",
+      "title": "TC-064-API: counterConfig.minValue = -1 ? 400 validation",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-065",
+      "title": "TC-065-API: counterConfig.minValue = maxValue (edge case equal) ? ho?t ??ng ??ng",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-066",
+      "title": "TC-066-API: Template name v?i HTML entities ? l?u as-is, render safe",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-067",
+      "title": "TC-067-API: Template name Vietnamese Unicode ? l?u v? hi?n th? ??ng",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-068",
+      "title": "TC-068-API: Template separator l? chu?i ??c bi?t regex ? m? sinh ??ng",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-069",
+      "title": "TC-069-API: Separator r?ng \"\" ? m? sinh li?n m?ch kh?ng ph?n c?ch",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-070",
+      "title": "TC-070-API: Segment kh?ng c? COUNTER ? number kh?ng c? s? t? t?ng",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-071",
+      "title": "TC-071-API: DocNumberPreviewField AUTO mode ? hi?n th? lock icon + badge 'T? ??ng'",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-072",
+      "title": "TC-072-API: DocNumberPreviewField AUTO_WITH_OVERRIDE ? c? n?t 'Nh?p tay'",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-073",
+      "title": "TC-073-API: DocNumberPreviewField MANUAL mode ? input b?nh th??ng, kh?ng c? badge",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-074",
+      "title": "TC-074-API: DocNumberPreviewField loading state ? skeleton khi ?ang fetch draft",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-075",
+      "title": "TC-075-API: DocNumberPreviewField error state ? /draft 404 ? hi?n th? th?ng b?o l?i",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-076",
+      "title": "TC-076-API: M? modal 'Th?m m?i' ? t?t c? field m?c ??nh h?p l?",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-077",
+      "title": "TC-077-API: Modal 'Th?m m?i' ? submit thi?u name ? validation error hi?n th?",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-078",
+      "title": "TC-078-API: Modal 'S?a' ? documentType field l? readonly",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-079",
+      "title": "TC-079-API: Modal 'S?a' ? pre-fill ??ng gi? tr? t? template hi?n t?i",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-080",
+      "title": "TC-080-API: Modal submit th?nh c?ng ? toast success + danh s?ch refresh",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-081",
+      "title": "TC-081-API: Settings page ? hi?n th? ??ng 6 template seeded",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-082",
+      "title": "TC-082-API: Settings page ? preview number c?t hi?n th? s? ti?p theo ch?nh x?c",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-083",
+      "title": "TC-083-API: Settings page ? button 'S?a' m? modal edit ??ng template",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-084",
+      "title": "TC-084-API: Settings page ? button 'Reset' hi?n th? confirm dialog",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-085",
+      "title": "TC-085-API: Settings page ? officer kh?ng th?y n?t 'Th?m m?i' v? 'S?a'",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-086",
+      "title": "TC-086-API: SegmentBuilder ? th?m LITERAL segment v? nh?p gi? tr?",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-087",
+      "title": "TC-087-API: SegmentBuilder ? th?m FORMULA + COUNTER, preview bar hi?n th? ??ng",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-088",
+      "title": "TC-088-API: SegmentBuilder ? x?a segment ? preview c?p nh?t ngay",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-089",
+      "title": "TC-089-API: SegmentBuilder ? button 'Test ngay' g?i /preview v? hi?n th? k?t qu?",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-090",
+      "title": "TC-090-API: State: template active ? deactivate ? active l?i, counter gi? nguy?n",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-091",
+      "title": "TC-091-API: State: template v?i logs b? delete ? cascade x?a logs",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-092",
+      "title": "TC-092-API: State: 2 template c?ng documentType ? ch? 1 active t?i m?t th?i ?i?m",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-093",
+      "title": "TC-093-API: State: counter reset ? commit ti?p theo = minValue, history log gi? nguy?n",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-094",
+      "title": "TC-094-API: Decision: ADMIN c? th? ??c templates",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-095",
+      "title": "TC-095-API: Decision: ADMIN c? th? t?o template",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-096",
+      "title": "TC-096-API: Decision: ADMIN c? th? reset counter",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-097",
+      "title": "TC-097-API: Decision: OFFICER c? th? g?i /draft",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-098",
+      "title": "TC-098-API: Decision: OFFICER KH?NG th? g?i /reset-counter ? 403",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-099",
+      "title": "TC-099-API: Decision: OFFICER KH?NG th? t?o template ? 403",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-100",
+      "title": "TC-100-API: Decision: OFFICER KH?NG th? delete template ? 403",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-101",
+      "title": "TC-101-API: EP documentType: INCIDENT valid",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-102",
+      "title": "TC-102-API: EP documentType: PETITION valid",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-103",
+      "title": "TC-103-API: EP documentType: CASE valid",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-104",
+      "title": "TC-104-API: EP documentType: null ? 400",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-105",
+      "title": "TC-105-API: EP documentType: s? nguy?n ? 400",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-119",
+      "title": "TC-119-API: PERF: /draft response < 200ms (p95) khi kh?ng c? lock contention",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-120",
+      "title": "TC-120-API: PERF: /commit response < 500ms (p95) v?i row lock",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-121",
+      "title": "TC-121-API: PERF: Settings page load < 1s (6 templates + stats)",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-122",
+      "title": "TC-122-API: PERF: 5 concurrent /draft requests ? t?t c? tr? v? 200, kh?ng block nhau",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-123",
+      "title": "TC-123-API: INTEGRATION: T?o Case ? caseCode trong DB, log linked, counter t?ng atomic",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-124",
+      "title": "TC-124-API: INTEGRATION: T?o Petition ? stt trong DB, log linked",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-125",
+      "title": "TC-125-API: INTEGRATION: T?o Incident ? code trong DB, log linked",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-126",
+      "title": "TC-126-API: INTEGRATION: T?o Proposal ? s? ki?n ngh? trong DB",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-127",
+      "title": "TC-127-API: INTEGRATION: T?o Delegation ? s? ?y quy?n trong DB",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-128",
+      "title": "TC-128-API: INTEGRATION: T?o Case t? Petition existing ? caseCode + incidentCode ??u sinh atomic",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-129",
+      "title": "TC-129-API: REGRESSION: T?o incident qua UI v?n ho?t ??ng sau deploy v0.42",
+      "file": "",
+      "layer": "api",
+      "status": "skipped",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-130",
+      "title": "TC-130-API: REGRESSION: T?o petition qua UI v?n ho?t ??ng sau deploy v0.42",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-131",
+      "title": "TC-131-API: REGRESSION: Danh s?ch v? vi?c hi?n th? code c? (VV-2026-00001 ? 00106) ??ng",
+      "file": "",
+      "layer": "api",
+      "status": "skipped",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-132",
+      "title": "TC-132-API: REGRESSION: Danh s?ch h? s? hi?n th? caseCode (HS-2026-NNN) kh?ng ph?i CUID",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-133",
+      "title": "TC-133-API: REGRESSION: Settings sidebar v?n hi?n th? 'M? s? ch?ng t?' menu item",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-134",
+      "title": "TC-134-API: REGRESSION: Kh?ng th? t?o 2 incident c?ng code VV-2026-XXXXX",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-135",
+      "title": "TC-135-API: RECOVERY: Backend restart gi?a draft v? commit ? commit v?n d?ng s? ??ng",
+      "file": "",
+      "layer": "api",
+      "status": "skipped",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-136",
+      "title": "TC-136-API: RECOVERY: DB connection drop trong commit transaction ? transaction rollback clean",
+      "file": "",
+      "layer": "api",
+      "status": "skipped",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-137",
+      "title": "TC-137-API: EP resetPeriod: YEARLY valid",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-138",
+      "title": "TC-138-API: EP resetPeriod: MONTHLY valid",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-139",
+      "title": "TC-139-API: EP resetPeriod: WEEKLY valid",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-140",
+      "title": "TC-140-API: EP resetPeriod: NEVER valid",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-141",
+      "title": "TC-141-API: EP resetPeriod: MAX_NUMBER valid",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-142",
+      "title": "TC-142-API: EP resetPeriod: 'DAILY' (kh?ng h?p l?) ? 400",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-143",
+      "title": "TC-143-API: EP inputMode: AUTO valid",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-144",
+      "title": "TC-144-API: EP inputMode: MANUAL valid",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-145",
+      "title": "TC-145-API: EP inputMode: AUTO_WITH_OVERRIDE valid",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-146",
+      "title": "TC-146-API: EP inputMode: 'HYBRID' (kh?ng h?p l?) ? 400",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-147",
+      "title": "TC-147-API: AUDIT: GET /logs ? tr? v? logId, templateId, generatedNumber, userId, isDraft, createdAt",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-148",
+      "title": "TC-148-API: AUDIT: filter logs theo templateId",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-149",
+      "title": "TC-149-API: AUDIT: filter logs theo dateRange",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-150",
+      "title": "TC-150-API: SECURITY: CSRF ? POST /commit t? domain kh?c ? blocked",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-151",
+      "title": "TC-151-API: SECURITY: Rate limiting ? 100 requests/minute cho /draft",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-152",
+      "title": "TC-152-API: USABILITY: Preview number trong modal update real-time khi thay ??i separator",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-153",
+      "title": "TC-153-API: USABILITY: Toast 'M? ?? ??i' khi commit v?i stale draft",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-154",
+      "title": "TC-154-API: USABILITY: Confirm dialog khi reset counter c? th?ng tin r? r?ng",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-155",
+      "title": "TC-155-API: USABILITY: Loading spinner khi save template (isSaving state)",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-156",
+      "title": "TC-156-API: BOUNDARY: Template name ??ng 200 k? t? (max) ? 201",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-157",
+      "title": "TC-157-API: BOUNDARY: Template name 201 k? t? ? 400",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-158",
+      "title": "TC-158-API: BOUNDARY: /logs pageSize=0 ? 400 ho?c default",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-159",
+      "title": "TC-159-API: BOUNDARY: /logs page=-1 ? 400",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-160",
+      "title": "TC-160-API: BOUNDARY: counterConfig.maxValue = 1 (min possible) ? t?o th?nh c?ng, commit 1 l?n ???c",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-161",
+      "title": "TC-161-API: RED: POST /templates thi?u name ? 400",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-162",
+      "title": "TC-162-API: RED: POST /templates thi?u documentType ? 400",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-163",
+      "title": "TC-163-API: RED: POST /templates thi?u segments ? 400",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-164",
+      "title": "TC-164-API: RED: POST /templates segments=[] (r?ng) ? 400",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-165",
+      "title": "TC-165-API: RED: POST /templates thi?u counterConfig ? 400",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-166",
+      "title": "TC-166-API: RED: POST /templates counterConfig.padding kh?ng ph?i s? ? 400",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-167",
+      "title": "TC-167-API: RED: POST /templates segment type kh?ng h?p l? ? 400",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-168",
+      "title": "TC-168-API: RED: POST /templates LITERAL segment thi?u value ? 400",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-169",
+      "title": "TC-169-API: RED: POST /templates FORMULA segment thi?u source ? 400",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-170",
+      "title": "TC-170-API: RED: POST /templates counterConfig.minValue kh?ng ph?i s? ? 400",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-171",
+      "title": "TC-171-API: RED: POST /commit body r?ng {} ? 400",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-172",
+      "title": "TC-172-API: RED: POST /commit documentType=undefined ? 400",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-173",
+      "title": "TC-173-API: RED: POST /draft v?i invalid JSON body ? 400",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-174",
+      "title": "TC-174-API: RED: POST /draft kh?ng c? Content-Type header ? 400/415",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-175",
+      "title": "TC-175-API: RED: GET /templates/:id stats v?i id kh?ng t?n t?i ? 404",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-176",
+      "title": "TC-176-API: RED: POST /templates/:id/preview v?i id kh?ng t?n t?i ? 404",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-177",
+      "title": "TC-177-API: RED: PATCH /logs/:logId v?i logId kh?ng t?n t?i ? 404",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-178",
+      "title": "TC-178-API: RED: PATCH /logs/:logId documentId kh?ng ph?i UUID ? 400",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-179",
+      "title": "TC-179-API: RED: GET /templates kh?ng c? token ? 401",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-180",
+      "title": "TC-180-API: RED: GET /logs kh?ng c? token ? 401",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-181",
+      "title": "TC-181-API: RED: GET /templates v?i malformed token 'Bearer invalid' ? 401",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-182",
+      "title": "TC-182-API: RED: POST /templates v?i role OFFICER token ? 403",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-183",
+      "title": "TC-183-API: RED: PUT /templates/:id v?i role OFFICER token ? 403",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-184",
+      "title": "TC-184-API: RED: DELETE /templates/:id v?i role OFFICER token ? 403",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-185",
+      "title": "TC-185-API: RED: POST /reset-counter v?i role OFFICER token ? 403",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-186",
+      "title": "TC-186-API: RED: Commit khi counter MONTHLY exhausted ? 400",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-187",
+      "title": "TC-187-API: RED: Commit khi counter NEVER exhausted ? 400",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-188",
+      "title": "TC-188-API: RED: Commit khi template inactive ? 404",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-189",
+      "title": "TC-189-API: RED: Template separator d?i h?n 10 k? t? ? 400",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-190",
+      "title": "TC-190-API: RED: counterConfig.maxValue = 0 ? 400",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-191",
+      "title": "TC-191-API: RED: counterConfig.maxValue l? float 9.5 ? 400",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-192",
+      "title": "TC-192-API: RED: counterConfig.padding l? float 3.5 ? 400",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-193",
+      "title": "TC-193-API: RED: GET /draft (sai method, ph?i l? POST) ? 404/405",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-194",
+      "title": "TC-194-API: RED: DELETE /draft (sai method) ? 404/405",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-195",
+      "title": "TC-195-API: RED: PUT /commit (sai method, ph?i l? POST) ? 404/405",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-196",
+      "title": "TC-196-API: RED: GET /logs?page=0 ? 400",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-197",
+      "title": "TC-197-API: RED: GET /logs?pageSize=1000 (v??t max) ? 400",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-198",
+      "title": "TC-198-API: RED: GET /logs?templateId=invalid-uuid ? 400",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-199",
+      "title": "TC-199-API: RED: IDOR ? PATCH log c?a officer2 b?ng token officer1 ? 403",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-200",
+      "title": "TC-200-API: RED: NoSQL injection trong templateId query param ? 400",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-201",
+      "title": "TC-201-API: RED: XSS trong segment LITERAL value ? stored safe",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-202",
+      "title": "TC-202-API: RED: Path traversal trong templateId ? 400",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-203",
+      "title": "TC-203-API: RED: Header injection trong Authorization ? 401",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-204",
+      "title": "TC-204-API: RED: 2 admin reset counter ??ng th?i ? ch? 1 th?nh c?ng, kh?ng data corruption",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-205",
+      "title": "TC-205-API: RED: Commit ??ng th?i khi counter = maxValue-1 ? ch? 1 th?nh c?ng, 1 nh?n 400",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-211",
+      "title": "TC-211-API: SECURITY: Brute force /draft v?i token c?a nhi?u user ? rate limit per-IP",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-212",
+      "title": "TC-212-API: SECURITY: Token reuse sau logout ? 401",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-213",
+      "title": "TC-213-API: SECURITY: Mass assignment ? POST /templates v?i tr??ng kh?ng ???c ph?p (createdById) ? ignore",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-214",
+      "title": "TC-214-API: SECURITY: Privilege escalation ? officer POST /templates v?i extra field role='ADMIN' ? 403",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-215",
+      "title": "TC-215-API: SECURITY: Sensitive data trong response ? /logs kh?ng expose user password",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-216",
+      "title": "TC-216-API: SECURITY: Server error kh?ng leak stack trace ? kh?ng expose internals",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-217",
+      "title": "TC-217-API: SECURITY: Long string injection trong template name (10000 chars) ? 400",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-218",
+      "title": "TC-218-API: SECURITY: Unicode null byte trong LITERAL segment value ? x? l? safe",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-219",
+      "title": "TC-219-API: SECURITY: CORS ? request t? allowed origin nh?n Access-Control-Allow-Origin ??ng",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-220",
+      "title": "TC-220-API: SECURITY: Timing attack ? /draft v?i valid vs invalid token kh?ng differ qu? 100ms",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-221",
+      "title": "TC-221-API: SECURITY: Replay attack ? c?ng request body g?i 2 l?n ? 2 s? kh?c nhau (idempotency)",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-234",
+      "title": "TC-234-API: RED: DELETE /templates kh?ng ph?i UUID format ? 400",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-235",
+      "title": "TC-235-API: RED: PUT /templates kh?ng ph?i UUID format ? 400",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-236",
+      "title": "TC-236-API: RED: GET /logs v?i from > to date range ? 400",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-237",
+      "title": "TC-237-API: RED: POST /commit documentType=INCIDENT nh?ng kh?ng c? template active v? kh?ng c? counter ? 404",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-238",
+      "title": "TC-238-API: RED: POST /templates isActive=null ? 400 ho?c default false",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-239",
+      "title": "TC-239-API: RED: POST /templates v?i tr?ng documentType active ? logic error ho?c reject",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-240",
+      "title": "TC-240-API: RED: PATCH /logs/:logId body r?ng {} ? 400",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-241",
+      "title": "TC-241-API: RED: POST /draft documentType=empty string ? 400",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-242",
+      "title": "TC-242-API: RED: POST /commit documentType c? whitespace padding 'INCIDENT ' ? 400",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-243",
+      "title": "TC-243-API: RED: POST /draft v?i array documentType ? 400",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-244",
+      "title": "TC-244-API: RED: POST /commit v?i boolean documentType ? 400",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-245",
+      "title": "TC-245-API: RED: GET /templates kh?ng ph?i JSON Accept ? 406",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-246",
+      "title": "TC-246-API: RED: POST /templates v?i segments kh?ng ph?i array ? 400",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-247",
+      "title": "TC-247-API: RED: POST /templates counterConfig=null ? 400",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-248",
+      "title": "TC-248-API: RED: PUT /templates/:id body r?ng {} ? 200 kh?ng thay ??i g?",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-249",
+      "title": "TC-249-API: RED: POST /commit v?i draftPreview l? s? ?m string 'VV-2026--00001' ? commit th?nh c?ng v?i ??ng s?",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-250",
+      "title": "TC-250-API: RED: PATCH /logs/:logId v?i extra fields ? ignore extra fields",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-251",
+      "title": "TC-251-API: RED: POST /templates name ch? c? s? ? 201 (valid)",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-252",
+      "title": "TC-252-API: RED: Concurrent reset + commit ? counter sau reset l? 1 (kh?ng wrap)",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-253",
+      "title": "TC-253-API: RED: DELETE /templates ?ang c? ongoing commit transaction ? consistency",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-254",
+      "title": "TC-254-API: RED: POST /draft khi DB kh?ng available ? 500 v?i graceful message",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-255",
+      "title": "TC-255-API: RED: POST /templates documentType=INCIDENT nh?ng vi?t th??ng 'incident' ? 400",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-256",
+      "title": "TC-256-API: RED: GET /templates/:id kh?ng t?n t?i ? 404",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-257",
+      "title": "TC-257-API: RED: POST /templates v?i counterConfig.resetPeriod=null ? 400",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-258",
+      "title": "TC-258-API: RED: POST /commit khi server ?ang trong deploy (brief downtime) ? 503",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-259",
+      "title": "TC-259-API: RED: GET /logs?userId=non-existent-uuid ? empty array 200",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-260",
+      "title": "TC-260-API: RED: PUT /templates/:id v?i isActive=null ? 400 ho?c keep existing",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-261",
+      "title": "TC-261-API: RED: POST /templates t?t c? segments l? COUNTER (2 COUNTER) ? 400",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-262",
+      "title": "TC-262-API: RED: POST /draft user b? suspended/locked ? 401/403",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-263",
+      "title": "TC-263-API: RED: POST /commit s? l?n retry v??t max (3 l?n UNIQUE violation) ? 500",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-264",
+      "title": "TC-264-API: RED: POST /templates separator c? tab character ? 400 ho?c strip",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-265",
+      "title": "TC-265-API: RED: GET /logs filter by invalid date format '25/05/2026' ? 400",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-266",
+      "title": "TC-266-API: RED: POST /templates 1000 segments ? 400 (qu? nhi?u segment)",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-267",
+      "title": "TC-267-API: RED: POST /draft Concurrent 50 requests ? t?t c? 200, previewNumber gi?ng nhau",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-268",
+      "title": "TC-268-API: RED: PUT /templates/:id x?a required segment type (segments=[]) ? 400",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-269",
+      "title": "TC-269-API: RED: POST /templates v?i documentType kh?ng n?m trong 6 lo?i ? 400",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-270",
+      "title": "TC-270-API: RED: POST /templates v?i counterConfig.padding = NaN ? 400",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-271",
+      "title": "TC-271-API: RED: POST /draft documentType=EVIDENCE v?i template inactive ? 404",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-272",
+      "title": "TC-272-API: RED: POST /commit v?i documentType=DELEGATION kh?ng c? counter row ? cold start auto-insert",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-273",
+      "title": "TC-273-API: RED: POST /templates v?i s? counterConfig.maxValue < 1 ? 400",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-274",
+      "title": "TC-274-API: RED: PATCH /logs/:logId isDraft=true (kh?ng ???c ph?p override) ? 400",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-275",
+      "title": "TC-275-API: RED: POST /commit v?i documentType=PROPOSAL kh?ng c? active template ? 404",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-276",
+      "title": "TC-276-API: SECURITY: Template IDOR - officer ??c stats template c?a admin ? check access",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-277",
+      "title": "TC-277-API: SECURITY: Prototype pollution trong JSON body ? kh?ng affect server state",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-278",
+      "title": "TC-278-API: SECURITY: Content-Type spoofing ? POST /templates v?i Content-Type: text/plain nh?ng JSON body",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-279",
+      "title": "TC-279-API: SECURITY: Admin token d?ng cho endpoint c?a officer ? kh?ng downgrade quy?n",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-280",
+      "title": "TC-280-API: SECURITY: Enumeration attack ? /templates 403 vs 404 kh?ng leak info",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-286",
+      "title": "TC-286-API: RED P0: POST /commit khi DB connection pool exhausted ? 503",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-287",
+      "title": "TC-287-API: RED P0: POST /templates name ch? c? whitespace ? 400",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-288",
+      "title": "TC-288-API: RED P0: POST /draft v?i token b? tamper (signature invalid) ? 401",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-289",
+      "title": "TC-289-API: RED P0: POST /commit documentType EVIDENCE nh?ng template EVIDENCE inactive ? 404",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-290",
+      "title": "TC-290-API: RED P0: Commit khi counter WEEKLY period exhausted ? 400",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-291",
+      "title": "TC-291-API: RED P0: POST /templates kh?ng c? isActive ? default true ho?c false (documented)",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-292",
+      "title": "TC-292-API: RED P0: DELETE /templates ?ang c? counter transactions ? 409 ho?c cascade",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-293",
+      "title": "TC-293-API: RED P0: PATCH /logs/:logId kh?ng ???c s?a generatedNumber ? 400/ignore",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-294",
+      "title": "TC-294-API: RED P0: POST /commit v?i malformed UUID trong ctx ? 400",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-295",
+      "title": "TC-295-API: RED P0: POST /draft g?i li?n ti?p 100 l?n ? kh?ng accumulate draft logs qu? nhi?u",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-296",
+      "title": "TC-296-API: RED P0: POST /commit sau khi admin ??i segment config ? number theo config m?i",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-297",
+      "title": "TC-297-API: RED P0: POST /templates v?i 1 segment (ch? COUNTER) ? 201 valid",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-298",
+      "title": "TC-298-API: RED P0: GET /stats sau reset ? current=0, next=1, resetAt kh?c null",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-299",
+      "title": "TC-299-API: RED P0: Commit sau khi template ???c update (isActive toggle) ? correct behavior",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-300",
+      "title": "TC-300-API: RED P0: 100 concurrent POST /commit ? 100 s? unique, counter=100, kh?ng deadlock",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-301",
+      "title": "TC-301-API: RED P0: POST /commit sau admin thay ??i minValue c?a counter ? wrapping ??ng",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-302",
+      "title": "TC-302-API: RED P0: Kh?ng th? t?o 2 active template c?ng documentType ? ch? 1 active",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-303",
+      "title": "TC-303-API: RED P0: Token v?i role kh?ng h?p l? (tampered 'SUPER_ADMIN') ? 403/401",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-304",
+      "title": "TC-304-API: RED P0: Commit ??ng th?i v?i DELETE template ? transaction isolation",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-305",
+      "title": "TC-305-API: RED P0: POST /templates maxValue = 2147483647 (INT max) ? 201, commit works",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-306",
+      "title": "TC-306-API: RED P0: GET /templates/:id/stats v?i template v?a reset ? resetAt kh?ng null",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-307",
+      "title": "TC-307-API: RED P0: Commit v?i documentId kh?ng ph?i UUID ? 400",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-308",
+      "title": "TC-308-API: RED P0: POST /reset-counter v?i templateId kh?ng t?n t?i ? 404",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-309",
+      "title": "TC-309-API: RED P0: Commit khi Template kh?ng c? COUNTER segment ? s? kh?ng c? counter part",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-310",
+      "title": "TC-310-API: RED P0: POST /commit CASE kh?ng c? atomicity v?i case.create ? rollback test",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-311",
+      "title": "TC-311-API: SECURITY P0: Horizontal privilege escalation ? officer A kh?ng th? xem logs c?a officer B",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-312",
+      "title": "TC-312-API: SECURITY P0: SQL injection trong pagination params ? 400/safe",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-313",
+      "title": "TC-313-API: SECURITY P0: JWT algorithm confusion ? token v?i alg:none ? 401",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-314",
+      "title": "TC-314-API: SECURITY P0: Mass DELETE ? officer g?i DELETE /templates/{id} c?a m?i template ? 403 t?t c?",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-315",
+      "title": "TC-315-API: SECURITY P0: Forced browsing ? /api/v1/document-numbers/admin endpoint (n?u c?) y?u c?u ADMIN role",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-316",
+      "title": "TC-316-API: SECURITY P0: Replay old commit request ? counter t?ng th?m (idempotency key check)",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-317",
+      "title": "TC-317-API: SECURITY P0: Enumeration ? GET /logs v?i filter userId tr? v? 200 r?ng, kh?ng 403 info leak",
+      "file": "",
+      "layer": "api",
+      "status": "passed",
+      "duration_ms": 0,
+      "error_message": ""
+    },
+    {
+      "tc_id": "TC-318",
+      "title": "TC-318-API: SECURITY P0: Admin x?a account officer ?ang c? active session ? subsequent requests ? 401",
+      "file": "",
+      "layer": "api",
+      "status": "failed",
+      "duration_ms": 0,
+      "error_message": ""
+    }
+  ]
+}

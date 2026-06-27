@@ -131,6 +131,42 @@ export interface CaseFormData {
   incidentCause: string;
   incidentMethod: string;
 
+  // ── Field-parity KLĐT + QĐ điều tra lại ────────────────────────────────
+  soKLDT: string;           // Số kết luận điều tra
+  ngayKLDT: string;         // Ngày kết luận điều tra
+  soQDDieuTraLai: string;   // Số QĐ điều tra lại
+  ngayQDDieuTraLai: string; // Ngày QĐ điều tra lại
+
+  // ── Field-parity: số QĐ giai đoạn vụ án (15 cột, tất cả optional) ──────
+  soQuyetDinhKhoiTo: string;   // Số QĐ khởi tố vụ án
+  ngayKhoiTo: string;          // Ngày QĐ khởi tố vụ án (old ngay_quyet_dinh_khoi_to_vu_an)
+  soQDNhapVuAn: string;        // Số QĐ nhập vụ án
+  ngayNhapVuAn: string;        // Ngày nhập vụ án
+  ghiChuNhapHoSo: string;      // Ghi chú nhập vào hồ sơ nào
+  soQDTachVuAn: string;        // Số QĐ tách vụ án
+  ngayTachVuAn: string;        // Ngày tách vụ án
+  soQDTachHanhVi: string;      // Số QĐ tách hành vi
+  ngayTachHanhVi: string;      // Ngày tách hành vi
+  soQDDinhChiVuAn: string;     // Số QĐ đình chỉ vụ án
+  ngayDinhChiVuAn: string;     // Ngày đình chỉ vụ án
+  chuyenVuAnChoCQK: string;    // Chuyển vụ án cho CQĐT khác
+  soBanAnCoHieuLuc: string;    // Số bản án có hiệu lực pháp luật
+  ngayBanAnCoHieuLuc: string;  // Ngày bản án có hiệu lực pháp luật
+  canCuTamDinhChiVuAn: string; // Căn cứ tạm đình chỉ vụ án
+  canCuPhucHoiVuAn: string;    // Căn cứ phục hồi điều tra vụ án
+  // ── PR-3 (2026-06-26): field tab "Vụ án TĐC" form cũ /doi-1/Them ──────────
+  soQuyetDinhTamDinhChi: string;   // Số QĐ tạm đình chỉ vụ án
+  ngayTamDinhChi: string;          // Ngày QĐ tạm đình chỉ vụ án
+  lyDoTamDinhChiVuAn: string[];    // PR-8 MULTI: chọn nhiều lý do TĐC (enum LyDoTamDinhChiVuAn[])
+  ngayHetThoiHieu: string;         // Ngày hết thời hiệu truy cứu TNHS vụ án
+  soQuyetDinhPhucHoi: string;      // Số QĐ phục hồi điều tra vụ án
+  ngayPhucHoi: string;             // Ngày QĐ phục hồi điều tra
+  tdcKhacPhucLyDoBienPhap: string; // Lý do/biện pháp khắc phục TĐC
+  tdcKhacPhucBienBan: string;      // Biên bản khắc phục TĐC
+  // ── PR-M2: ghi chú tự do + tội danh khác cấp vụ án (multi crime id) ──────
+  ghiChuKhac: string;          // Ghi chú khác (free text)
+  toiDanhKhacIds: string[];    // Tội danh khác (mảng crime id)
+
   // ── Tab 3: Vụ án ────────────────────────────────────────────────────────
   criminalCode: string;
   criminalDate: string;
@@ -211,7 +247,42 @@ export interface CaseFormData {
   stat_propertySeized: string;
   stat_caseTransferred: string;
   stat_reportSubmitted: string;
+  // Thống kê mở rộng (hybrid) — lưu bảng case_statistics (số/ngày/bool báo cáo). Nested.
+  statistic: CaseStatisticForm;
 }
+
+// Form shape cho case_statistics — số/ngày là string (input), bool là boolean (checkbox).
+export interface CaseStatisticForm {
+  soDangKyHoSo: string; ngayDangKyHoSo: string; hoSoLuu: string; ngayNopLuuHoSo: string; donViBaoQuanHoSo: string;
+  coGhiAmGhiHinh: boolean; tongSoBienBanGhiLoiKhai: string; soBienBanGhiLoiKhaiCoGhiAm: string;
+  laVuAnGhiAmGhiHinh: boolean; tongSoBienBanHoiCung: string; tongSoBienBanHoiCungCoGhiAm: string;
+  soBiCanCoGhiAm: string; vksYeuCauGhiAm: boolean; soBiCanVksYeuCauGhiAm: string;
+  coVPHC: boolean; soDoiTuongVPHC: string; soNguoiBiPhatTien: string; tongTienPhatHanhChinh: string;
+  soDoiTuong: string; soDoiTuongDaBat: string; soDoiTuongBiBatVuAnKhac: string; dieuTraMoRong: string; suDungVuKhiNong: string;
+  coBangNhom: boolean; soBangNhom: string; soBangNhomBatDuoc: string; soSungThuHoi: string; soThuocNoThuHoi: string; soDoiTuongSuuTraHiemNghi: string;
+  // Field-parity hệ thống cũ — bị hại, thiệt hại, xét xử
+  soLuongBiHai: string; soNguoiBiThuong: string; soLuongNguoiChet: string;
+  soTienBiThietHai: string; soTienThuHoi: string; vuAnDaDuocXetXu: boolean;
+  // PR-M2 (Codex P1#9): 3 cờ xét-xử RIÊNG
+  ghiAmGhiHinhDaDuocXetXu: boolean; coSuDungKQGhiAmTrongXetXu: boolean; khongGAGHNhungToaYeuCau: boolean;
+  ngayThongKe: string; ngayPhanCongGiaiQuyetToGiac: string; ngayTiepNhanTin: string; ngayDauThu: string;
+  ngayPhamToiQuaTang: string; ngayBatKhanCap: string; ngayPhatHienDauHieu: string;
+}
+
+export const INITIAL_CASE_STATISTIC: CaseStatisticForm = {
+  soDangKyHoSo: "", ngayDangKyHoSo: "", hoSoLuu: "", ngayNopLuuHoSo: "", donViBaoQuanHoSo: "",
+  coGhiAmGhiHinh: false, tongSoBienBanGhiLoiKhai: "", soBienBanGhiLoiKhaiCoGhiAm: "",
+  laVuAnGhiAmGhiHinh: false, tongSoBienBanHoiCung: "", tongSoBienBanHoiCungCoGhiAm: "",
+  soBiCanCoGhiAm: "", vksYeuCauGhiAm: false, soBiCanVksYeuCauGhiAm: "",
+  coVPHC: false, soDoiTuongVPHC: "", soNguoiBiPhatTien: "", tongTienPhatHanhChinh: "",
+  soDoiTuong: "", soDoiTuongDaBat: "", soDoiTuongBiBatVuAnKhac: "", dieuTraMoRong: "", suDungVuKhiNong: "",
+  coBangNhom: false, soBangNhom: "", soBangNhomBatDuoc: "", soSungThuHoi: "", soThuocNoThuHoi: "", soDoiTuongSuuTraHiemNghi: "",
+  soLuongBiHai: "", soNguoiBiThuong: "", soLuongNguoiChet: "",
+  soTienBiThietHai: "", soTienThuHoi: "", vuAnDaDuocXetXu: false,
+  ghiAmGhiHinhDaDuocXetXu: false, coSuDungKQGhiAmTrongXetXu: false, khongGAGHNhungToaYeuCau: false,
+  ngayThongKe: "", ngayPhanCongGiaiQuyetToGiac: "", ngayTiepNhanTin: "", ngayDauThu: "",
+  ngayPhamToiQuaTang: "", ngayBatKhanCap: "", ngayPhatHienDauHieu: "",
+};
 
 export interface TabProps {
   formData: CaseFormData;
@@ -291,6 +362,18 @@ export const INITIAL_FORM_DATA: CaseFormData = {
   incidentLevel: "",
   incidentCause: "",
   incidentMethod: "",
+  // Field-parity KLĐT + QĐ điều tra lại
+  soKLDT: "", ngayKLDT: "", soQDDieuTraLai: "", ngayQDDieuTraLai: "",
+  // Field-parity: số QĐ giai đoạn vụ án
+  soQuyetDinhKhoiTo: "", ngayKhoiTo: "", soQDNhapVuAn: "", ngayNhapVuAn: "", ghiChuNhapHoSo: "",
+  soQDTachVuAn: "", ngayTachVuAn: "", soQDTachHanhVi: "", ngayTachHanhVi: "",
+  soQDDinhChiVuAn: "", ngayDinhChiVuAn: "", chuyenVuAnChoCQK: "",
+  soBanAnCoHieuLuc: "", ngayBanAnCoHieuLuc: "",
+  canCuTamDinhChiVuAn: "", canCuPhucHoiVuAn: "",
+  soQuyetDinhTamDinhChi: "", ngayTamDinhChi: "", lyDoTamDinhChiVuAn: [], ngayHetThoiHieu: "",
+  soQuyetDinhPhucHoi: "", ngayPhucHoi: "", tdcKhacPhucLyDoBienPhap: "", tdcKhacPhucBienBan: "",
+  // PR-M2: ghi chú tự do + tội danh khác
+  ghiChuKhac: "", toiDanhKhacIds: [],
   // Tab 3
   criminalCode: "",
   criminalDate: "",
@@ -367,4 +450,5 @@ export const INITIAL_FORM_DATA: CaseFormData = {
   stat_propertySeized: "",
   stat_caseTransferred: "",
   stat_reportSubmitted: "",
+  statistic: INITIAL_CASE_STATISTIC,
 };

@@ -7,9 +7,9 @@ import { DocNumberPreviewField } from "@/components/DocNumberPreviewField";
 import { documentNumbersApi } from "@/features/document-numbers/api";
 import { FKSelect, type FKOption } from "@/components/FKSelect";
 import { PhoneInput } from "@/components/inputs/PhoneInput";
+import { CatalogSelect } from "@/components/CatalogSelect";
 import { getPhaseForStatus } from "@/constants/incident-phases";
 import {
-  LY_DO_KHONG_KHOI_TO_OPTIONS,
   LOAI_NGUON_TIN_OPTIONS,
   NGUON_PHAT_TIN_BY_LOAI,
   PHUONG_THUC_TIEP_NHAN_OPTIONS,
@@ -49,10 +49,30 @@ interface FormData {
   soQuyetDinh: string;
   ngayQuyetDinh: string;
   nguoiQuyetDinh: string;
-  lyDoKhongKhoiTo: string;
+  lyDoKhongKhoiTo: string[];
+  lyDoTamDinhChiVuViec: string[];
   lyDoTamDinhChi: string;
   tinhTrangThoiHieu: string;
   tinhTrangHoSo: string;
+  // Field-parity hệ thống cũ (giai đoạn nguồn tin)
+  soQDPhanCongNguonTin: string;
+  ngayQDPhanCongNguonTin: string;
+  canCuKhongKhoiTo: string;
+  canCuTamDinhChi: string;
+  phanLoaiDanSuText: string;
+  // Field-parity: TĐC + QĐ tạm đình chỉ/phục hồi + công nghệ cao
+  tienDoKhacPhucTDC: string;
+  tdcKhacPhucLyDoBienPhap: string;
+  tdcKhacPhucBienBan: string;
+  soQuyetDinhTamDinhChiVV: string;
+  ngayTamDinhChiVV: string;
+  soQuyetDinhPhucHoiVV: string;
+  ngayPhucHoiVV: string;
+  ngayHetThoiHieuVV: string;
+  soQDKhongKhoiTo: string;
+  ngayQDKhongKhoiTo: string;
+  xacDinhVuViecTamDung: boolean;
+  laCongNgheCaoVV: boolean;
 }
 
 const INITIAL_FORM: FormData = {
@@ -83,10 +103,17 @@ const INITIAL_FORM: FormData = {
   soQuyetDinh: "",
   ngayQuyetDinh: "",
   nguoiQuyetDinh: "",
-  lyDoKhongKhoiTo: "",
+  lyDoKhongKhoiTo: [],
+  lyDoTamDinhChiVuViec: [],
   lyDoTamDinhChi: "",
   tinhTrangThoiHieu: "",
   tinhTrangHoSo: "",
+  soQDPhanCongNguonTin: "", ngayQDPhanCongNguonTin: "", canCuKhongKhoiTo: "",
+  canCuTamDinhChi: "", phanLoaiDanSuText: "",
+  tienDoKhacPhucTDC: "", tdcKhacPhucLyDoBienPhap: "", tdcKhacPhucBienBan: "",
+  soQuyetDinhTamDinhChiVV: "", ngayTamDinhChiVV: "", soQuyetDinhPhucHoiVV: "",
+  ngayPhucHoiVV: "", ngayHetThoiHieuVV: "", laCongNgheCaoVV: false,
+  soQDKhongKhoiTo: "", ngayQDKhongKhoiTo: "", xacDinhVuViecTamDung: false,
 };
 
 function CollapsibleSection({
@@ -228,10 +255,28 @@ export function IncidentFormPage() {
             soQuyetDinh: (d.soQuyetDinh as string) ?? "",
             ngayQuyetDinh: toDateInput(d.ngayQuyetDinh as string | null | undefined),
             nguoiQuyetDinh: (d.nguoiQuyetDinh as string) ?? "",
-            lyDoKhongKhoiTo: (d.lyDoKhongKhoiTo as string) ?? "",
+            lyDoKhongKhoiTo: Array.isArray(d.lyDoKhongKhoiTo) ? (d.lyDoKhongKhoiTo as string[]) : [],
+            lyDoTamDinhChiVuViec: Array.isArray(d.lyDoTamDinhChiVuViec) ? (d.lyDoTamDinhChiVuViec as string[]) : [],
             lyDoTamDinhChi: (d.lyDoTamDinhChi as string) ?? "",
             tinhTrangThoiHieu: (d.tinhTrangThoiHieu as string) ?? "",
             tinhTrangHoSo: (d.tinhTrangHoSo as string) ?? "",
+            soQDPhanCongNguonTin: (d.soQDPhanCongNguonTin as string) ?? "",
+            ngayQDPhanCongNguonTin: toDateInput(d.ngayQDPhanCongNguonTin as string | null | undefined),
+            canCuKhongKhoiTo: (d.canCuKhongKhoiTo as string) ?? "",
+            canCuTamDinhChi: (d.canCuTamDinhChi as string) ?? "",
+            phanLoaiDanSuText: (d.phanLoaiDanSuText as string) ?? "",
+            tienDoKhacPhucTDC: (d.tienDoKhacPhucTDC as string) ?? "",
+            tdcKhacPhucLyDoBienPhap: (d.tdcKhacPhucLyDoBienPhap as string) ?? "",
+            tdcKhacPhucBienBan: (d.tdcKhacPhucBienBan as string) ?? "",
+            soQuyetDinhTamDinhChiVV: (d.soQuyetDinhTamDinhChiVV as string) ?? "",
+            ngayTamDinhChiVV: toDateInput(d.ngayTamDinhChiVV as string | null | undefined),
+            soQuyetDinhPhucHoiVV: (d.soQuyetDinhPhucHoiVV as string) ?? "",
+            ngayPhucHoiVV: toDateInput(d.ngayPhucHoiVV as string | null | undefined),
+            ngayHetThoiHieuVV: toDateInput(d.ngayHetThoiHieuVV as string | null | undefined),
+            soQDKhongKhoiTo: (d.soQDKhongKhoiTo as string) ?? "",
+            ngayQDKhongKhoiTo: toDateInput(d.ngayQDKhongKhoiTo as string | null | undefined),
+            xacDinhVuViecTamDung: Boolean(d.xacDinhVuViecTamDung),
+            laCongNgheCaoVV: Boolean(d.laCongNgheCaoVV),
           });
           setRecordUpdatedAt((d.updatedAt as string) ?? null);
           // Auto-expand sections based on phase
@@ -288,14 +333,32 @@ export function IncidentFormPage() {
         diaChiXayRa: s(formData.diaChiXayRa),
         soQuyetDinh: s(formData.soQuyetDinh),
         ngayQuyetDinh: s(formData.ngayQuyetDinh),
+        soQDPhanCongNguonTin: s(formData.soQDPhanCongNguonTin),
+        ngayQDPhanCongNguonTin: s(formData.ngayQDPhanCongNguonTin),
+        canCuKhongKhoiTo: s(formData.canCuKhongKhoiTo),
+        canCuTamDinhChi: s(formData.canCuTamDinhChi),
+        phanLoaiDanSuText: s(formData.phanLoaiDanSuText),
         ketQuaXuLy: s(formData.ketQuaXuLy),
         loaiKetQua: s(formData.loaiKetQua),
         canCuKhoiToCode: s(formData.canCuKhoiToCode),
         nguoiQuyetDinh: s(formData.nguoiQuyetDinh),
-        lyDoKhongKhoiTo: s(formData.lyDoKhongKhoiTo),
+        lyDoKhongKhoiTo: formData.lyDoKhongKhoiTo.length > 0 ? formData.lyDoKhongKhoiTo : undefined,
+        lyDoTamDinhChiVuViec: formData.lyDoTamDinhChiVuViec.length > 0 ? formData.lyDoTamDinhChiVuViec : undefined,
         lyDoTamDinhChi: s(formData.lyDoTamDinhChi),
         tinhTrangHoSo: s(formData.tinhTrangHoSo),
         tinhTrangThoiHieu: s(formData.tinhTrangThoiHieu),
+        tienDoKhacPhucTDC: s(formData.tienDoKhacPhucTDC),
+        tdcKhacPhucLyDoBienPhap: s(formData.tdcKhacPhucLyDoBienPhap),
+        tdcKhacPhucBienBan: s(formData.tdcKhacPhucBienBan),
+        soQuyetDinhTamDinhChiVV: s(formData.soQuyetDinhTamDinhChiVV),
+        ngayTamDinhChiVV: s(formData.ngayTamDinhChiVV),
+        soQuyetDinhPhucHoiVV: s(formData.soQuyetDinhPhucHoiVV),
+        ngayPhucHoiVV: s(formData.ngayPhucHoiVV),
+        ngayHetThoiHieuVV: s(formData.ngayHetThoiHieuVV),
+        soQDKhongKhoiTo: s(formData.soQDKhongKhoiTo),
+        ngayQDKhongKhoiTo: s(formData.ngayQDKhongKhoiTo),
+        xacDinhVuViecTamDung: formData.xacDinhVuViecTamDung,
+        laCongNgheCaoVV: formData.laCongNgheCaoVV || undefined,
       };
       if (isEditMode) await api.put(`/incidents/${id}`, { ...payload, expectedUpdatedAt: recordUpdatedAt ?? undefined });
       else await api.post('/incidents', payload);
@@ -312,7 +375,8 @@ export function IncidentFormPage() {
   };
 
   const handleCancel = () => { if (confirm("Bạn có chắc muốn hủy? Dữ liệu chưa lưu sẽ mất.")) navigate("/vu-viec"); };
-  const update = (field: keyof FormData, value: string) => setFormData((prev) => ({ ...prev, [field]: value }));
+  const update = <K extends keyof FormData>(field: K, value: FormData[K]) =>
+    setFormData((prev) => ({ ...prev, [field]: value }));
 
   const inputClass = "w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500";
   const labelClass = "block text-sm font-medium text-slate-700 mb-2";
@@ -502,6 +566,12 @@ export function IncidentFormPage() {
               </div>
             </div>
           </div>
+          <div className="flex items-center gap-2">
+            <input type="checkbox" id="laCongNgheCaoVV" checked={formData.laCongNgheCaoVV}
+              onChange={(e) => setFormData((prev) => ({ ...prev, laCongNgheCaoVV: e.target.checked }))}
+              className="w-4 h-4 text-blue-600 border-slate-300 rounded" data-testid="field-laCongNgheCaoVV" />
+            <label htmlFor="laCongNgheCaoVV" className="text-sm font-medium text-slate-700">Vụ việc công nghệ cao (CNC)</label>
+          </div>
         </CollapsibleSection>
 
         {/* Section 2: Phan cong & Xac minh */}
@@ -584,6 +654,42 @@ export function IncidentFormPage() {
               <input type="text" value={formData.soQuyetDinh} onChange={(e) => update("soQuyetDinh", e.target.value)}
                 className={inputClass} placeholder="VD: QD-2026-042" data-testid="field-soQuyetDinh" />
             </div>
+            {/* Field-parity hệ thống cũ (giai đoạn nguồn tin) */}
+            <div>
+              <label className={labelClass}>Số QĐ phân công giải quyết nguồn tin</label>
+              <input type="text" value={formData.soQDPhanCongNguonTin} onChange={(e) => update("soQDPhanCongNguonTin", e.target.value)}
+                className={inputClass} placeholder="Số QĐ phân công giải quyết nguồn tin" data-testid="field-soQDPhanCongNguonTin" />
+            </div>
+            <div>
+              <label className={labelClass}>Ngày QĐ phân công giải quyết nguồn tin</label>
+              <input type="date" value={formData.ngayQDPhanCongNguonTin} onChange={(e) => update("ngayQDPhanCongNguonTin", e.target.value)}
+                className={inputClass} data-testid="field-ngayQDPhanCongNguonTin" />
+            </div>
+            <div>
+              <label className={labelClass}>Căn cứ không khởi tố</label>
+              <input type="text" value={formData.canCuKhongKhoiTo} onChange={(e) => update("canCuKhongKhoiTo", e.target.value)}
+                className={inputClass} placeholder="Căn cứ pháp lý ra QĐ không khởi tố" data-testid="field-canCuKhongKhoiTo" />
+            </div>
+            <div>
+              <label className={labelClass}>Số QĐ không khởi tố</label>
+              <input type="text" value={formData.soQDKhongKhoiTo} onChange={(e) => update("soQDKhongKhoiTo", e.target.value)}
+                className={inputClass} placeholder="Số quyết định không khởi tố" data-testid="field-soQDKhongKhoiTo" />
+            </div>
+            <div>
+              <label className={labelClass}>Ngày QĐ không khởi tố</label>
+              <input type="date" value={formData.ngayQDKhongKhoiTo} onChange={(e) => update("ngayQDKhongKhoiTo", e.target.value)}
+                className={inputClass} data-testid="field-ngayQDKhongKhoiTo" />
+            </div>
+            <div>
+              <label className={labelClass}>Căn cứ tạm đình chỉ nguồn tin</label>
+              <input type="text" value={formData.canCuTamDinhChi} onChange={(e) => update("canCuTamDinhChi", e.target.value)}
+                className={inputClass} placeholder="Căn cứ tạm đình chỉ nguồn tin" data-testid="field-canCuTamDinhChi" />
+            </div>
+            <div>
+              <label className={labelClass}>Phân loại dân sự (thông báo)</label>
+              <input type="text" value={formData.phanLoaiDanSuText} onChange={(e) => update("phanLoaiDanSuText", e.target.value)}
+                className={inputClass} placeholder="Số, ngày thông báo phân loại dân sự" data-testid="field-phanLoaiDanSuText" />
+            </div>
           </div>
 
           {/* Mô tả chi tiết (free-form text — giữ field ketQuaXuLy cũ, đổi caption) */}
@@ -637,18 +743,18 @@ export function IncidentFormPage() {
               7 căn cứ chuẩn theo BLTTHS Đ.143. Có thể bỏ trống. Khi convert vụ việc → vụ án, giá trị này tự transfer sang Case.caseProvenance.
             </p>
 
-            {/* Lý do không khởi tố Đ.157 — giữ field hiện tại, anh override luôn hiển thị */}
-            <FKSelect
-              label="Lý do không khởi tố (Điều 157 BLTTHS) — nếu không khởi tố"
-              value={formData.lyDoKhongKhoiTo}
-              onChange={(v) => update("lyDoKhongKhoiTo", v)}
-              options={LY_DO_KHONG_KHOI_TO_OPTIONS}
-              placeholder="-- Chọn căn cứ (nếu có) --"
-              canCreate={false}
-              testId="field-lyDoKhongKhoiTo"
-            />
+            {/* Lý do không khởi tố Đ.157 — PR-8 MULTI: chọn nhiều căn cứ */}
+            <div data-testid="field-lyDoKhongKhoiTo">
+              <label className={labelClass}>Lý do không khởi tố (Điều 157 BLTTHS) — chọn nhiều, nếu không khởi tố</label>
+              {/* PR-1 catalog: 1 component dùng chung; multi tự theo registry META; nhãn pháp lý từ registry. */}
+              <CatalogSelect
+                catalogKey="LY_DO_KHONG_KHOI_TO"
+                value={formData.lyDoKhongKhoiTo}
+                onChange={(v) => update("lyDoKhongKhoiTo", v as string[])}
+              />
+            </div>
             <p className="mt-1 text-xs text-slate-500">
-              8 căn cứ chuẩn theo BLTTHS Đ.157. Luôn hiển thị (pháp lý quan trọng).
+              7 căn cứ chuẩn theo BLTTHS Đ.157. Luôn hiển thị (pháp lý quan trọng).
             </p>
           </div>
 
@@ -688,10 +794,26 @@ export function IncidentFormPage() {
           onToggle={() => setSection4Open(!section4Open)}
           testId="section-tam-dinh-chi"
         >
+          <label className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-3 cursor-pointer">
+            <input type="checkbox" checked={formData.xacDinhVuViecTamDung} onChange={(e) => update("xacDinhVuViecTamDung", e.target.checked)}
+              className="w-4 h-4" data-testid="field-xacDinhVuViecTamDung" />
+            Xác định vụ việc tạm dừng giải quyết
+          </label>
+          <div data-testid="field-lyDoTamDinhChiVuViec">
+            <label className={labelClass}>Căn cứ tạm đình chỉ (Đ.148 BLTTHS) — chọn nhiều</label>
+            {/* PR-2 catalog: 1 component dùng chung; multi tự theo registry META. */}
+            <div className="mb-3">
+              <CatalogSelect
+                catalogKey="LY_DO_TAM_DINH_CHI_VU_VIEC"
+                value={formData.lyDoTamDinhChiVuViec}
+                onChange={(v) => update("lyDoTamDinhChiVuViec", v as string[])}
+              />
+            </div>
+          </div>
           <div>
-            <label className={labelClass}>Lý do tạm đình chỉ</label>
+            <label className={labelClass}>Lý do tạm đình chỉ (ghi chú thêm)</label>
             <textarea value={formData.lyDoTamDinhChi} onChange={(e) => update("lyDoTamDinhChi", e.target.value)} rows={3}
-              className={inputClass} placeholder="Lý do tạm đình chỉ vụ việc" data-testid="field-lyDoTamDinhChi" />
+              className={inputClass} placeholder="Ghi chú thêm về lý do tạm đình chỉ" data-testid="field-lyDoTamDinhChi" />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -705,14 +827,58 @@ export function IncidentFormPage() {
                 className={inputClass} placeholder="Tình trạng hồ sơ" data-testid="field-tinhTrangHoSo" />
             </div>
           </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className={labelClass}>Số QĐ tạm đình chỉ vụ việc</label>
+              <input type="text" value={formData.soQuyetDinhTamDinhChiVV} onChange={(e) => update("soQuyetDinhTamDinhChiVV", e.target.value)}
+                className={inputClass} placeholder="Số quyết định tạm đình chỉ" data-testid="field-soQuyetDinhTamDinhChiVV" />
+            </div>
+            <div>
+              <label className={labelClass}>Ngày QĐ tạm đình chỉ</label>
+              <input type="date" value={formData.ngayTamDinhChiVV} onChange={(e) => update("ngayTamDinhChiVV", e.target.value)}
+                className={inputClass} data-testid="field-ngayTamDinhChiVV" />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className={labelClass}>Số QĐ phục hồi vụ việc</label>
+              <input type="text" value={formData.soQuyetDinhPhucHoiVV} onChange={(e) => update("soQuyetDinhPhucHoiVV", e.target.value)}
+                className={inputClass} placeholder="Số quyết định phục hồi điều tra" data-testid="field-soQuyetDinhPhucHoiVV" />
+            </div>
+            <div>
+              <label className={labelClass}>Ngày QĐ phục hồi</label>
+              <input type="date" value={formData.ngayPhucHoiVV} onChange={(e) => update("ngayPhucHoiVV", e.target.value)}
+                className={inputClass} data-testid="field-ngayPhucHoiVV" />
+            </div>
+            <div>
+              <label className={labelClass}>Ngày hết thời hiệu vụ việc</label>
+              <input type="date" value={formData.ngayHetThoiHieuVV} onChange={(e) => update("ngayHetThoiHieuVV", e.target.value)}
+                className={inputClass} data-testid="field-ngayHetThoiHieuVV" />
+            </div>
+          </div>
+          <div>
+            <label className={labelClass}>Tiến độ khắc phục TĐC</label>
+            <textarea value={formData.tienDoKhacPhucTDC} onChange={(e) => update("tienDoKhacPhucTDC", e.target.value)} rows={3}
+              className={inputClass} placeholder="Mô tả tiến độ khắc phục tạm đình chỉ" data-testid="field-tienDoKhacPhucTDC" />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className={labelClass}>Lý do/biện pháp khắc phục TĐC</label>
+              <input type="text" value={formData.tdcKhacPhucLyDoBienPhap} onChange={(e) => update("tdcKhacPhucLyDoBienPhap", e.target.value)}
+                className={inputClass} placeholder="Biện pháp khắc phục" data-testid="field-tdcKhacPhucLyDoBienPhap" />
+            </div>
+            <div>
+              <label className={labelClass}>Biên bản khắc phục TĐC</label>
+              <input type="text" value={formData.tdcKhacPhucBienBan} onChange={(e) => update("tdcKhacPhucBienBan", e.target.value)}
+                className={inputClass} placeholder="Số/ngày biên bản xác nhận khắc phục" data-testid="field-tdcKhacPhucBienBan" />
+            </div>
+          </div>
         </CollapsibleSection>
 
-        {/* Tài liệu (Cycle 10 v0.52) — chỉ hiện ở edit mode khi đã có incidentId */}
-        {isEditMode && id && (
-          <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6">
-            <EntityDocumentsTab entityKind="incident" entityId={id} />
-          </div>
-        )}
+        {/* Tài liệu — luôn hiển thị; EntityDocumentsTab tự guard khi chưa có incidentId */}
+        <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6">
+          <EntityDocumentsTab entityKind="incident" entityId={id} />
+        </div>
 
         {/* Actions */}
         <div className="flex items-center justify-end gap-3 bg-white rounded-lg border border-slate-200 shadow-sm p-6">

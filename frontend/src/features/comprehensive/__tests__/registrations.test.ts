@@ -1,8 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import {
-  comprehensiveRowActions,
-  type ComprehensiveRowForActions,
-} from '../row-actions';
+import { comprehensiveRowActions } from '../row-actions';
 import { comprehensiveListFilters } from '../list-filters';
 import type { ActionContext } from '@/features/_shared/row-actions/registry';
 

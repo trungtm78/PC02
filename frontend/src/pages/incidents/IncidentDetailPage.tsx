@@ -47,7 +47,7 @@ function Field({ label, value, icon }: { label: string; value?: string | null; i
 export default function IncidentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { canEdit } = usePermission("incidents");
+  const { canEdit } = usePermission();
 
   const [incident, setIncident] = useState<IncidentDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -140,7 +140,7 @@ export default function IncidentDetailPage() {
           <span className={`px-3 py-1 rounded-full text-xs font-medium border ${statusColor}`}>
             {statusLabel}
           </span>
-          {canEdit && (
+          {canEdit('incidents') && (
             <button
               onClick={() => navigate(`/vu-viec/${incident.id}/edit`)}
               className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
@@ -150,7 +150,7 @@ export default function IncidentDetailPage() {
             </button>
           )}
           {/* PR 3 v0.38.2.0 — Entry path 2: Khởi tố thành vụ án từ IncidentDetailPage */}
-          {canEdit && (
+          {canEdit('incidents') && (
             <button
               onClick={() => {
                 if (window.confirm(

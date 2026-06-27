@@ -1,6 +1,6 @@
 import { IsString, IsOptional, IsIn } from 'class-validator';
 
-const ALLOWED_DOCUMENT_TYPES = ['CASE', 'INCIDENT', 'PETITION', 'PROPOSAL', 'DELEGATION', 'EVIDENCE'] as const;
+const ALLOWED_DOCUMENT_TYPES = ['CASE', 'INCIDENT', 'PETITION', 'PROPOSAL', 'DELEGATION', 'EVIDENCE', 'UTDT'] as const;
 
 export class DraftNumberDto {
   @IsString()

@@ -11,6 +11,7 @@ import { seedFeatureFlags } from './seed-feature-flags';
 import { seedWards } from './seed-wards';
 import { seedAdminUnits } from './seed-admin-units';
 import { seedDirectoryTypes } from './seed-directory-types';
+import { seedCrimes } from './seed-crimes-blhs2015';
 import { seedTestCapUser } from './seed-test-cap-user'; // v0.35a dev-only
 import { seedMasterClasses } from './seed-master-classes';
 import { seedDeadlineRules } from './seed-deadline-rules';
@@ -224,6 +225,10 @@ async function main() {
   // Critical: without this, form dropdowns show empty and Danh mục has no types.
   console.log('Seeding directory types...');
   await seedDirectoryTypes(prisma);
+
+  // ── Master Tội danh BLHS 2015 (bảng crimes, 316 điều) — FK cho Subject/Petition ──
+  console.log('Seeding crimes (BLHS 2015)...');
+  await seedCrimes(prisma);
 
   // ── Master classes (categories for form dropdowns: crime types, VKS, etc.) ───
   console.log('Seeding master classes...');

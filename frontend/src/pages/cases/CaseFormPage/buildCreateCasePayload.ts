@@ -61,6 +61,41 @@ export interface CreateCasePayload {
   subjects?: SubjectPayload[];
   evidences?: EvidencePayload[];
   documentIds?: string[];
+  statistic?: Record<string, unknown>; // case_statistics (hybrid)
+  // Field-parity: ghi chú khác + tội danh khác (donthu-parity)
+  ghiChuKhac?: string;
+  toiDanhKhacIds?: string[];
+  // Field-parity: KLĐT + QĐ điều tra lại
+  soKLDT?: string;
+  ngayKLDT?: string;
+  soQDDieuTraLai?: string;
+  ngayQDDieuTraLai?: string;
+  // Field-parity: số QĐ giai đoạn vụ án
+  soQuyetDinhKhoiTo?: string;
+  ngayKhoiTo?: string;
+  soQDNhapVuAn?: string;
+  ngayNhapVuAn?: string;
+  ghiChuNhapHoSo?: string;
+  soQDTachVuAn?: string;
+  ngayTachVuAn?: string;
+  soQDTachHanhVi?: string;
+  ngayTachHanhVi?: string;
+  soQDDinhChiVuAn?: string;
+  ngayDinhChiVuAn?: string;
+  chuyenVuAnChoCQK?: string;
+  soBanAnCoHieuLuc?: string;
+  ngayBanAnCoHieuLuc?: string;
+  canCuTamDinhChiVuAn?: string;
+  canCuPhucHoiVuAn?: string;
+  // PR-3 — tab "Vụ án TĐC"
+  soQuyetDinhTamDinhChi?: string;
+  ngayTamDinhChi?: string;
+  lyDoTamDinhChiVuAn?: string[];
+  ngayHetThoiHieu?: string;
+  soQuyetDinhPhucHoi?: string;
+  ngayPhucHoi?: string;
+  tdcKhacPhucLyDoBienPhap?: string;
+  tdcKhacPhucBienBan?: string;
 }
 
 /**
@@ -236,6 +271,41 @@ export function buildCreateCasePayload(
     payload.sourceDocumentNote = formData.sourceDocumentNote;
   }
 
+  // Field-parity: KLĐT + QĐ điều tra lại
+  if (formData.soKLDT)           payload.soKLDT = formData.soKLDT;
+  if (formData.ngayKLDT)         payload.ngayKLDT = formData.ngayKLDT;
+  if (formData.soQDDieuTraLai)   payload.soQDDieuTraLai = formData.soQDDieuTraLai;
+  if (formData.ngayQDDieuTraLai) payload.ngayQDDieuTraLai = formData.ngayQDDieuTraLai;
+  // Field-parity: số QĐ giai đoạn vụ án
+  if (formData.soQuyetDinhKhoiTo)   payload.soQuyetDinhKhoiTo = formData.soQuyetDinhKhoiTo;
+  if (formData.ngayKhoiTo)          payload.ngayKhoiTo = formData.ngayKhoiTo;
+  if (formData.soQDNhapVuAn)        payload.soQDNhapVuAn = formData.soQDNhapVuAn;
+  if (formData.ngayNhapVuAn)        payload.ngayNhapVuAn = formData.ngayNhapVuAn;
+  if (formData.ghiChuNhapHoSo)      payload.ghiChuNhapHoSo = formData.ghiChuNhapHoSo;
+  if (formData.soQDTachVuAn)        payload.soQDTachVuAn = formData.soQDTachVuAn;
+  if (formData.ngayTachVuAn)        payload.ngayTachVuAn = formData.ngayTachVuAn;
+  if (formData.soQDTachHanhVi)      payload.soQDTachHanhVi = formData.soQDTachHanhVi;
+  if (formData.ngayTachHanhVi)      payload.ngayTachHanhVi = formData.ngayTachHanhVi;
+  if (formData.soQDDinhChiVuAn)     payload.soQDDinhChiVuAn = formData.soQDDinhChiVuAn;
+  if (formData.ngayDinhChiVuAn)     payload.ngayDinhChiVuAn = formData.ngayDinhChiVuAn;
+  if (formData.chuyenVuAnChoCQK)    payload.chuyenVuAnChoCQK = formData.chuyenVuAnChoCQK;
+  if (formData.soBanAnCoHieuLuc)    payload.soBanAnCoHieuLuc = formData.soBanAnCoHieuLuc;
+  if (formData.ngayBanAnCoHieuLuc)  payload.ngayBanAnCoHieuLuc = formData.ngayBanAnCoHieuLuc;
+  if (formData.canCuTamDinhChiVuAn) payload.canCuTamDinhChiVuAn = formData.canCuTamDinhChiVuAn;
+  if (formData.canCuPhucHoiVuAn)    payload.canCuPhucHoiVuAn = formData.canCuPhucHoiVuAn;
+  // PR-3 — tab "Vụ án TĐC" (chỉ gửi khi có giá trị; tránh ghi đè workflow auto-set)
+  if (formData.soQuyetDinhTamDinhChi)   payload.soQuyetDinhTamDinhChi = formData.soQuyetDinhTamDinhChi;
+  if (formData.ngayTamDinhChi)          payload.ngayTamDinhChi = formData.ngayTamDinhChi;
+  if (formData.lyDoTamDinhChiVuAn && formData.lyDoTamDinhChiVuAn.length > 0) payload.lyDoTamDinhChiVuAn = formData.lyDoTamDinhChiVuAn;
+  if (formData.ngayHetThoiHieu)         payload.ngayHetThoiHieu = formData.ngayHetThoiHieu;
+  if (formData.soQuyetDinhPhucHoi)      payload.soQuyetDinhPhucHoi = formData.soQuyetDinhPhucHoi;
+  if (formData.ngayPhucHoi)             payload.ngayPhucHoi = formData.ngayPhucHoi;
+  if (formData.tdcKhacPhucLyDoBienPhap) payload.tdcKhacPhucLyDoBienPhap = formData.tdcKhacPhucLyDoBienPhap;
+  if (formData.tdcKhacPhucBienBan)      payload.tdcKhacPhucBienBan = formData.tdcKhacPhucBienBan;
+  // PR-M2: ghi chú tự do + tội danh khác (multi)
+  if (formData.ghiChuKhac)                       payload.ghiChuKhac = formData.ghiChuKhac;
+  if (formData.toiDanhKhacIds && formData.toiDanhKhacIds.length > 0) payload.toiDanhKhacIds = formData.toiDanhKhacIds;
+
   // PR 1 v0.38.0.0 — Wire sub-entity arrays vào payload (atomic create)
   // HOTFIX (codex P1 post-merge): chỉ include subjects với crimeId hợp lệ +
   // skip "Luật sư" (LAWYER không tồn tại trong Prisma SubjectType enum).
@@ -291,7 +361,42 @@ export function buildCreateCasePayload(
   //   payload.documentIds = options.documentIds;
   // }
 
+  // Thống kê mở rộng (hybrid) → payload.statistic (case_statistics). Chỉ gửi key có giá trị.
+  const stat = buildStatisticPayload(formData.statistic as unknown as Record<string, unknown>);
+  if (Object.keys(stat).length > 0) payload.statistic = stat;
+
   return payload;
+}
+
+// Form CaseStatisticForm → object cho backend: số string→number, bool giữ nguyên, ngày string giữ nguyên.
+const STAT_NUM_FIELDS = new Set([
+  'tongSoBienBanGhiLoiKhai', 'soBienBanGhiLoiKhaiCoGhiAm', 'tongSoBienBanHoiCung',
+  'tongSoBienBanHoiCungCoGhiAm', 'soBiCanCoGhiAm', 'soBiCanVksYeuCauGhiAm', 'soDoiTuongVPHC',
+  'soNguoiBiPhatTien', 'tongTienPhatHanhChinh', 'soDoiTuong', 'soDoiTuongDaBat', 'soDoiTuongBiBatVuAnKhac',
+  'dieuTraMoRong', 'soBangNhom', 'soBangNhomBatDuoc', 'soSungThuHoi', 'soThuocNoThuHoi', 'soDoiTuongSuuTraHiemNghi',
+  'soLuongBiHai', 'soNguoiBiThuong', 'soLuongNguoiChet', 'soTienBiThietHai', 'soTienThuHoi',
+]);
+const STAT_BOOL_FIELDS = new Set([
+  'coGhiAmGhiHinh', 'laVuAnGhiAmGhiHinh', 'vksYeuCauGhiAm', 'coVPHC', 'coBangNhom', 'vuAnDaDuocXetXu',
+  // PR-M2: 3 cờ xét-xử riêng
+  'ghiAmGhiHinhDaDuocXetXu', 'coSuDungKQGhiAmTrongXetXu', 'khongGAGHNhungToaYeuCau',
+]);
+
+export function buildStatisticPayload(s: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(s)) {
+    if (STAT_BOOL_FIELDS.has(k)) {
+      if (v === true) out[k] = true; // chỉ gửi khi true (mặc định false ở DB)
+    } else if (STAT_NUM_FIELDS.has(k)) {
+      if (v !== '' && v != null) {
+        const n = Number(v);
+        if (!Number.isNaN(n)) out[k] = n;
+      }
+    } else if (v !== '' && v != null) {
+      out[k] = v; // text/ngày
+    }
+  }
+  return out;
 }
 
 // Map frontend Subject.type ("Bị can"/"Bị hại"/...) → Prisma SubjectType enum

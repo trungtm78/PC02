@@ -398,6 +398,43 @@ describe('DocumentNumbersService', () => {
       );
       expect(result.number).toMatch(/^VV-\d{4}-00146$/);
     });
+
+    it('v0.66.2 drift fix PETITION: bumps nextValue past DB max for petitions table', async () => {
+      const petitionTemplate = {
+        ...mockTemplate,
+        documentType: 'PETITION',
+        segments: [
+          { type: 'LITERAL', value: 'DT' },
+          { type: 'FORMULA', fn: 'FORMAT', source: 'NOW', pattern: 'YYYY' },
+          { type: 'COUNTER' },
+        ],
+      };
+      mockPrisma.documentNumberTemplate.findFirst.mockResolvedValue(petitionTemplate);
+      const mockTx = {
+        $executeRaw: jest.fn().mockResolvedValue(1),
+        $queryRaw: jest
+          .fn()
+          // 1st call: FOR UPDATE lock
+          .mockResolvedValueOnce([{ id: 'counter-001' }])
+          // 2nd call: petition drift check (stt FROM petitions) returns 199
+          .mockResolvedValueOnce([{ max_suffix: 199 }]),
+        documentNumberCounter: {
+          findUnique: jest.fn().mockResolvedValue({ currentValue: 0 }),
+          update: jest.fn().mockResolvedValue({ currentValue: 200 }),
+        },
+        documentNumberLog: {
+          create: jest.fn().mockResolvedValue({ id: 'log-petition-drift-001' }),
+        },
+      };
+
+      const result = await service.commitWithTx('PETITION', ctx, mockTx);
+
+      // Counter phải được bump tới 200 (DB max 199 + 1), không phải 1 (counter 0 + 1)
+      expect(mockTx.documentNumberCounter.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ currentValue: 200 }) }),
+      );
+      expect(result.number).toMatch(/^DT-\d{4}-00200$/);
+    });
   });
 
   describe('getTemplates()', () => {

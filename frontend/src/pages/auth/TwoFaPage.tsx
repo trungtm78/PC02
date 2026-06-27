@@ -46,7 +46,8 @@ export default function TwoFaPage() {
         });
         return;
       }
-      const { accessToken, refreshToken } = data;
+      // Đã return ở nhánh pending phía trên → data là TokenPair.
+      const { accessToken, refreshToken } = data as { accessToken: string; refreshToken: string; expiresIn: string };
       authStore.setTokens(accessToken, refreshToken);
       navigate('/dashboard', { replace: true });
     },

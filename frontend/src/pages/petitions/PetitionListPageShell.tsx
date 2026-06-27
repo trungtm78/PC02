@@ -14,7 +14,7 @@
  */
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mail, Plus, AlertCircle, X, Inbox, RefreshCw, CheckCircle, Archive } from 'lucide-react';
+import { Mail, Plus, AlertCircle, X, Inbox, RefreshCw, CheckCircle, Archive, FileText, ChevronDown, Loader2 } from 'lucide-react';
 import axios from 'axios';
 import { api } from '@/lib/api';
 import {
@@ -23,6 +23,7 @@ import {
   type ColumnDef,
   type TableState,
 } from '@/components/shared/ListPageShell';
+import { DOC_TYPES } from '@/features/petitions/docTypes';
 import { useBulkSelection } from '@/features/_shared/bulk/useBulkSelection';
 import { BulkActionBar } from '@/features/_shared/bulk/BulkActionBar';
 import { buildPetitionsAdapter } from '@/features/_shared/bulk/adapters/petitions';
@@ -77,6 +78,7 @@ interface PetitionRow {
   status: PetitionStatus;
   deadline?: string | null;
   createdAt: string;
+  updatedAt?: string; // optimistic-lock cho assign action
 }
 
 interface PetitionsStatsResponse {
@@ -391,6 +393,54 @@ export function PetitionListPageShell() {
   const activeFilterCount =
     (statusFilter ? 1 : 0) + (searchQuery ? 1 : 0) + appliedFilterCount;
 
+  // Batch Word export — dùng DOC_TYPES chung (features/petitions/docTypes).
+  const [showBatchDocDropdown, setShowBatchDocDropdown] = useState(false);
+  const [isBatchExporting, setIsBatchExporting] = useState(false);
+  const batchDropdownRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (batchDropdownRef.current && !batchDropdownRef.current.contains(e.target as Node)) {
+        setShowBatchDocDropdown(false);
+      }
+    }
+    if (showBatchDocDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+    return undefined;
+  }, [showBatchDocDropdown]);
+
+  const handleBatchExportWord = useCallback(async (docType: string) => {
+    const ids = [...selection.selectedIds];
+    if (isBatchExporting || ids.length === 0) return;
+    setIsBatchExporting(true);
+    setShowBatchDocDropdown(false);
+    let url: string | null = null;
+    try {
+      const response = await api.post<Blob>(
+        '/petitions/export-document-batch',
+        { docType, petitionIds: ids },
+        { responseType: 'blob' },
+      );
+      const cd = String((response.headers as Record<string, string>)['content-disposition'] ?? '');
+      const m = cd.match(/filename="([^"]+)"/);
+      const filename = m?.[1] ?? `${docType}_batch.zip`;
+      url = URL.createObjectURL(response.data as Blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTransientBanner({ kind: 'success', text: `Đã xuất ${ids.length} biểu mẫu Word → ${filename}` });
+    } catch {
+      setTransientBanner({ kind: 'error', text: 'Xuất Word đồng loạt thất bại. Kiểm tra kết nối và thử lại.' });
+    } finally {
+      if (url) URL.revokeObjectURL(url);
+      setIsBatchExporting(false);
+    }
+  }, [selection.selectedIds, isBatchExporting]);
+
   return (
     <ListPageShell>
       <ListPageShell.Header
@@ -398,14 +448,56 @@ export function PetitionListPageShell() {
         title="Danh sách đơn thư"
         subtitle="Tố cáo, khiếu nại, kiến nghị, phản ánh — quản lý theo BLTTHS"
         actions={
-          <button
-            type="button"
-            onClick={() => navigate('/petitions/new')}
-            className={`${BTN_PRIMARY} ${A11Y_FOCUS_RING} flex items-center gap-2`}
-          >
-            <Plus className="w-4 h-4" />
-            <span>Tạo mới</span>
-          </button>
+          <div className="flex items-center gap-2">
+            {selection.count > 0 && (
+              <div ref={batchDropdownRef} className="relative inline-block">
+                <button
+                  type="button"
+                  onClick={() => setShowBatchDocDropdown((v) => !v)}
+                  disabled={isBatchExporting}
+                  title={`Xuất Word đồng loạt ${selection.count} đơn đã chọn`}
+                  className="flex items-center gap-2 px-3 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isBatchExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+                  {isBatchExporting ? 'Đang xuất...' : `Xuất Word (${selection.count})`}
+                  {!isBatchExporting && <ChevronDown className="w-3 h-3" />}
+                </button>
+                {showBatchDocDropdown && (
+                  <div
+                    role="menu"
+                    className="absolute right-0 mt-2 w-64 bg-white border border-slate-200 rounded-lg shadow-lg z-50 overflow-hidden"
+                  >
+                    <div className="px-3 py-2 text-xs text-slate-500 border-b border-slate-100 font-medium">
+                      Xuất {selection.count} đơn → ZIP
+                    </div>
+                    <ul>
+                      {DOC_TYPES.map((dt) => (
+                        <li key={dt.value}>
+                          <button
+                            type="button"
+                            onClick={() => handleBatchExportWord(dt.value)}
+                            className="w-full text-left px-3 py-2.5 hover:bg-amber-50 transition-colors border-b border-slate-100 last:border-b-0"
+                            role="menuitem"
+                          >
+                            <div className="text-sm font-medium text-slate-800">{dt.label}</div>
+                            <div className="text-xs text-slate-500">{dt.description}</div>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => navigate('/petitions/new')}
+              className={`${BTN_PRIMARY} ${A11Y_FOCUS_RING} flex items-center gap-2`}
+            >
+              <Plus className="w-4 h-4" />
+              <span>Tạo mới</span>
+            </button>
+          </div>
         }
       />
       <StatsCardsStrip cards={buildPetitionsCards(stats)} loading={stats == null} />

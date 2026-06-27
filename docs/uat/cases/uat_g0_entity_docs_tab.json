@@ -1,0 +1,4722 @@
+﻿[
+    {
+        "tc_id":  "TC-001",
+        "title":  "Mo form upload khi nhan Tai len tai lieu",
+        "type":  "GREEN",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Dang nhap admin, o trang /petitions/:id da luu.",
+        "steps":  "1. Mo /petitions/:id\n2. Scroll Tai lieu don thu\n3. Nhan Tai len tai lieu",
+        "expected":  "Form: Tieu de, Loai tai lieu (Van ban default), Mo ta, Chon file, Chon thu muc, Huy, Tai len",
+        "data_required":  [
+                              "petition.active.D30"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-002",
+        "title":  "Upload 1 file PDF hop le - xuat hien trong danh sach",
+        "type":  "GREEN",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Form mo. File PDF hop le magic bytes %PDF.",
+        "steps":  "1. Tieu de: Bien ban\n2. Loai: Van ban\n3. Chon qa_real1.pdf\n4. Tai len",
+        "expected":  "1. Progress (1/1)\n2. Form dong\n3. Doc Bien ban trong list\n4. Khong error",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-003",
+        "title":  "Upload 2 file cung luc - ca 2 xuat hien (1)(2)",
+        "type":  "GREEN",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Form mo. 2 file PDF.",
+        "steps":  "1. Tieu de: Ho so\n2. Chon 2 file\n3. Tai len",
+        "expected":  "Queue 2 file. Progress (1/2) (2/2). List: Ho so (1) va Ho so (2).",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid.x2"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-004",
+        "title":  "Upload 3 file - progress counter chinh xac",
+        "type":  "GREEN",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Form mo. 3 file PDF.",
+        "steps":  "1. Tieu de Tai lieu\n2. Chon 3 file\n3. Tai len - quan sat",
+        "expected":  "Button text: Dang tai (1/3)...(2/3)...(3/3)... Sau xong: 3 doc.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid.x3"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-005",
+        "title":  "Nhan Huy - form dong, queue xoa sach",
+        "type":  "GREEN",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Form mo, queue 2 file, nhap tieu de.",
+        "steps":  "1. Queue 2 file\n2. Nhap tieu de\n3. Nhan Huy",
+        "expected":  "Form dong. Nut Tai len tai lieu hien lai. Khong error.",
+        "data_required":  [
+                              "petition.active.D30"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-006",
+        "title":  "Mo lai form sau Huy - sach hoan toan",
+        "type":  "GREEN",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Vua nhan Huy.",
+        "steps":  "Nhan Tai len tai lieu lan 2. Kiem tra form.",
+        "expected":  "Queue trong. Tieu de rong. Loai=Van ban. Mo ta rong. File input cleared.",
+        "data_required":  [
+                              "petition.active.D30"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-007",
+        "title":  "Toggle button dong form - queue bi xoa",
+        "type":  "GREEN",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Form mo, co file trong queue.",
+        "steps":  "1. Queue 1 file\n2. Nhan lai Tai len tai lieu (close)\n3. Nhan lai (open)",
+        "expected":  "Close: form dong. Open: queue trong, form sach.",
+        "data_required":  [
+                              "petition.active.D30"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-008",
+        "title":  "Upload JPEG - Hinh anh",
+        "type":  "GREEN",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Form mo.",
+        "steps":  "Loai=Hinh anh. Chon JPEG. Upload.",
+        "expected":  "Thanh cong. Type Hinh anh.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.jpg.valid"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-009",
+        "title":  "Upload DOCX hop le",
+        "type":  "GREEN",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Form mo.",
+        "steps":  "Upload .docx hop le.",
+        "expected":  "Thanh cong.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.docx.valid"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-010",
+        "title":  "Upload TXT bypass magic-byte",
+        "type":  "GREEN",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Form mo.",
+        "steps":  "Upload .txt",
+        "expected":  "Thanh cong (MAGIC_BYTE_BYPASS set).",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.txt.valid"
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-011",
+        "title":  "Chon thu muc - tat ca file vao queue",
+        "type":  "GREEN",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Form mo. Thu muc co 3 PDF.",
+        "steps":  "1. Nhan Chon thu muc\n2. Chon thu muc 3 PDF\n3. Xem queue",
+        "expected":  "3 file trong queue. webkitdirectory input duoc trigger.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "folder.3files"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-012",
+        "title":  "Xoa file trong queue bang nut X",
+        "type":  "GREEN",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Queue 3 file.",
+        "steps":  "1. Queue 3 file\n2. Nhan X file thu 2\n3. Kiem tra queue",
+        "expected":  "Queue con 2. File 2 bi xoa. Thu tu khong thay doi.",
+        "data_required":  [
+                              "petition.active.D30"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-013",
+        "title":  "Upload tu Case - gan caseId",
+        "type":  "GREEN",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Trang case detail.",
+        "steps":  "Upload PDF tren case detail page.",
+        "expected":  "FormData co caseId. Khong co petitionId/incidentId.",
+        "data_required":  [
+                              "case.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-014",
+        "title":  "Upload tu Incident - gan incidentId",
+        "type":  "GREEN",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Trang incident detail.",
+        "steps":  "Upload PDF tren incident page.",
+        "expected":  "FormData co incidentId. Khong co caseId/petitionId.",
+        "data_required":  [
+                              "incident.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-015",
+        "title":  "Guard message - petition chua luu",
+        "type":  "GREEN",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "/petitions/new.",
+        "steps":  "Quan sat section Tai lieu.",
+        "expected":  "Khong co button Tai len. Hien Chua co tai lieu. Text: Luu don truoc.",
+        "data_required":  [
+
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-016",
+        "title":  "Upload khong tieu de - loi FE",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Form mo, co file.",
+        "steps":  "1. Bo trong Tieu de\n2. Tai len",
+        "expected":  "Loi: Vui long nhap tieu de. 0 API calls.",
+        "data_required":  [
+                              "petition.active.D30"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-017",
+        "title":  "Upload khong chon file - loi FE",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Form mo, queue trong.",
+        "steps":  "1. Nhap tieu de\n2. Khong chon file\n3. Tai len",
+        "expected":  "Loi: Vui long chon file. Khong gui request.",
+        "data_required":  [
+                              "petition.active.D30"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-018",
+        "title":  "Upload file EXE - reject MIME",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Form mo.",
+        "steps":  "Chon .exe. Tai len.",
+        "expected":  "400. Loai file khong duoc ho tro. Khong luu. Error FE.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.exe.invalid"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-019",
+        "title":  "Upload file \u003e10MB - reject size",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "File PDF 10.1MB.",
+        "steps":  "Chon 10.1MB. Tai len.",
+        "expected":  "Multer reject. 400/413. Error FE. Khong luu.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.over10mb"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-020",
+        "title":  "Upload file PDF gia mao EXE content - magic-byte fail",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "bad.pdf co magic bytes MZ (EXE).",
+        "steps":  "Upload bad.pdf EXE content.",
+        "expected":  "400: Magic-byte khong khop. File xoa khoi disk.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf_named_exe"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-021",
+        "title":  "1 file fail trong batch - file con lai van upload",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "1 PDF hop le + 1 EXE fake.",
+        "steps":  "Queue 2: file1.pdf + badfile.exe. Tai len.",
+        "expected":  "File1 thanh cong. Badfile fail. Error: 1 that bai. Form KHONG dong. File hop le trong list.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid",
+                              "file.exe.invalid"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-022",
+        "title":  "Tat ca file fail - form khong dong",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "2 EXE fake.",
+        "steps":  "Queue 2 EXE. Tai len.",
+        "expected":  "Ca 2 fail. Error file dau. Form KHONG dong. Khong doc moi.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.exe.invalid.x2"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-023",
+        "title":  "Upload khong JWT - 401",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "API direct khong token.",
+        "steps":  "curl POST /api/v1/documents no Authorization",
+        "expected":  "401 Unauthorized. Khong luu.",
+        "data_required":  [
+
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-024",
+        "title":  "Upload HTML gia PDF - magic-byte fail",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "File .pdf co noi dung HTML.",
+        "steps":  "Upload html-content .pdf",
+        "expected":  "400 magic-byte fail. File xoa.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.html_as_pdf"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-025",
+        "title":  "Upload PNG hop le",
+        "type":  "GREEN",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Form mo.",
+        "steps":  "Upload PNG thuc su.",
+        "expected":  "Thanh cong. Loai Hinh anh.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.png.valid"
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-026",
+        "title":  "Upload ZIP - reject",
+        "type":  "RED",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Form mo.",
+        "steps":  "Upload .zip.",
+        "expected":  "400. Loai khong duoc ho tro.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.zip.invalid"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-027",
+        "title":  "Deduplication - cung file 2 lan chi 1 trong queue",
+        "type":  "RED",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Form mo.",
+        "steps":  "1. Chon abc.pdf (100B)\n2. Chon lai abc.pdf (100B)",
+        "expected":  "Queue chi 1 entry. Dedup name+size.",
+        "data_required":  [
+                              "petition.active.D30"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-028",
+        "title":  "Gop file tu 2 nguon - Chon file + Chon thu muc",
+        "type":  "GREEN",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Form mo.",
+        "steps":  "1. Chon 1 file\n2. Chon thu muc 2 file khac\n3. Xem queue",
+        "expected":  "Queue = 3 file. Khong dedup (khac ten/size).",
+        "data_required":  [
+                              "petition.active.D30",
+                              "folder.2files"
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-029",
+        "title":  "Tieu de whitespace-only - loi",
+        "type":  "RED",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Form mo.",
+        "steps":  "Nhap tieu de 3 spaces. Tai len.",
+        "expected":  "Loi: Vui long nhap tieu de (trim() trong). Khong gui.",
+        "data_required":  [
+                              "petition.active.D30"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-030",
+        "title":  "Upload MP4 hop le",
+        "type":  "GREEN",
+        "priority":  "P2",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "File .mp4 \u003c=10MB.",
+        "steps":  "Upload mp4. Loai=Video.",
+        "expected":  "Thanh cong. Type Video.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.mp4.valid"
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-031",
+        "title":  "IDOR - upload document vao petition cua user khac",
+        "type":  "SECURITY",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "officer1 dang nhap. Petition B thuoc officer2.",
+        "steps":  "1. Dang nhap officer1\n2. POST /api/v1/documents voi petitionId = id petition cua officer2\n3. Upload file hop le",
+        "expected":  "403 Forbidden hoac 404. Document khong duoc tao cho petition B. DataScope assertPetitionParentInScope reject.",
+        "data_required":  [
+                              "petition.officer1.D30",
+                              "petition.officer2.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-032",
+        "title":  "IDOR - doc GET cua user khac",
+        "type":  "SECURITY",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "officer1 co doc D1. officer2 dang nhap.",
+        "steps":  "GET /api/v1/documents/:id voi id=D1 (cua officer1) duoi token officer2",
+        "expected":  "403 hoac 404 Not Found. Khong tra doc cua user khac.",
+        "data_required":  [
+                              "document.officer1.D30"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-033",
+        "title":  "IDOR - DELETE doc cua user khac",
+        "type":  "SECURITY",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "officer1 co doc D1. officer2 dang nhap.",
+        "steps":  "DELETE /api/v1/documents/:id (D1 cua officer1) duoi token officer2",
+        "expected":  "403 hoac 404. Khong xoa.",
+        "data_required":  [
+                              "document.officer1.D30"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-034",
+        "title":  "XSS trong title - render HTML escaping",
+        "type":  "SECURITY",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Form mo.",
+        "steps":  "1. Nhap tieu de: \u003cscript\u003ealert(1)\u003c/script\u003e\n2. Upload file hop le\n3. Xem list",
+        "expected":  "Title hien thi literal \u0027\u003cscript\u003ealert(1)\u003c/script\u003e\u0027 KHONG execute. React auto-escape text nodes.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-035",
+        "title":  "XSS trong description - render escaping",
+        "type":  "SECURITY",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Form mo.",
+        "steps":  "Mo ta: \u003cimg src=x onerror=alert(1)\u003e. Upload.",
+        "expected":  "Description hien thi as text. Khong trigger XSS.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-036",
+        "title":  "Path traversal trong filename - ../etc/passwd",
+        "type":  "SECURITY",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "Form mo.",
+        "steps":  "Upload file voi ten: ../../../etc/passwd.pdf",
+        "expected":  "Backend multer dung crypto.randomBytes() de dat ten file (timestamp-random.ext), bo qua originalname cho disk path. Khong path traversal. File luu an toan.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.traversal.pdf"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-037",
+        "title":  "SQL Injection trong title parameter",
+        "type":  "SECURITY",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "Form mo.",
+        "steps":  "Title: \u0027 OR \u00271\u0027=\u00271. Upload file hop le.",
+        "expected":  "Title luu as literal string (Prisma parameterized query). Khong SQL inject. Doc duoc tao binh thuong.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-038",
+        "title":  "JWT cu da het han - 401",
+        "type":  "SECURITY",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "Token da expired.",
+        "steps":  "Upload voi Authorization: Bearer \u003cexpired_jwt\u003e",
+        "expected":  "401 Unauthorized. Token validation fail.",
+        "data_required":  [
+
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-039",
+        "title":  "JWT tampered signature - reject",
+        "type":  "SECURITY",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "Token hop le nhung sua payload khong resign.",
+        "steps":  "Upload voi JWT payload thay doi sub nhung signature cu.",
+        "expected":  "401. JWT signature invalid.",
+        "data_required":  [
+
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-040",
+        "title":  "Throttle - 11 upload trong 60s - request 11 bi block",
+        "type":  "SECURITY",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "Dang nhap user. Limit: 10 req/60s.",
+        "steps":  "1. Upload 10 file hop le lien tuc\n2. Upload file thu 11 trong cung 60s",
+        "expected":  "File 1-10 thanh cong. File 11: 429 Too Many Requests. Rate limit message.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid.x11"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-041",
+        "title":  "Upload file PHP script - reject MIME",
+        "type":  "SECURITY",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "Form mo.",
+        "steps":  "Upload file .php (application/x-php).",
+        "expected":  "400 Loai file khong duoc ho tro. File khong luu tren disk.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.php.invalid"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-042",
+        "title":  "Upload file SVG co XSS - reject",
+        "type":  "SECURITY",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "File SVG co \u003cscript\u003e tag.",
+        "steps":  "Upload xss.svg",
+        "expected":  "image/svg+xml khong trong ALLOWED_MIME_TYPES -\u003e 400 Loai khong ho tro.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.svg.xss"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-043",
+        "title":  "approver1 role khong co quyen upload - FE guard",
+        "type":  "SECURITY",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Dang nhap approver1 (DEADLINE_APPROVER role).",
+        "steps":  "Vao /petitions/:id. Xem section Tai lieu.",
+        "expected":  "Button Tai len tai lieu an hoac disabled. Khong co quyen write Document. 403 neu goi API.",
+        "data_required":  [
+                              "petition.active.D30"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-044",
+        "title":  "Download - user khong co quyen read",
+        "type":  "SECURITY",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "Token role khong co permission read Document.",
+        "steps":  "GET /api/v1/documents/:id/download voi token thap quyen",
+        "expected":  "403 Forbidden. File stream khong duoc mo.",
+        "data_required":  [
+                              "document.active.D30"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-045",
+        "title":  "Content-Type header giong allowed nhung magic bytes khac",
+        "type":  "SECURITY",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "File .xls co magic bytes cua PDF.",
+        "steps":  "Upload file xls co noi dung PDF magic bytes.",
+        "expected":  "Content-Type=application/vnd.ms-excel trong ALLOWED. Magic bytes = PDF. Detected mime != declared -\u003e 400 magic-byte mismatch. File xoa.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.xls_as_pdf"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-046",
+        "title":  "BOUNDARY - file size = 0 bytes",
+        "type":  "BOUNDARY",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "File PDF rong 0 bytes nhung co magic bytes %PDF.",
+        "steps":  "Upload file 0 bytes.",
+        "expected":  "Multer chap nhan (size=0 \u003c 10MB). Magic-byte check: 0 bytes -\u003e file-type khong detect -\u003e 400 Magic-byte fail. Hoac multer reject 0 bytes.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.0bytes"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-047",
+        "title":  "BOUNDARY - file size = 10MB chinh xac",
+        "type":  "BOUNDARY",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "File PDF dung 10MB (10485760 bytes).",
+        "steps":  "Upload file 10MB.",
+        "expected":  "Upload THANH CONG (10MB = MAX_FILE_SIZE). Document trong list.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.10mb_exact"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-048",
+        "title":  "BOUNDARY - file size = 10MB + 1 byte",
+        "type":  "BOUNDARY",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "File PDF 10485761 bytes.",
+        "steps":  "Upload file 10MB+1.",
+        "expected":  "Multer reject voi LIMIT_FILE_SIZE error. 400 hoac 413. Khong luu.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.10mb_plus1"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-049",
+        "title":  "BOUNDARY - title length = 1 char",
+        "type":  "BOUNDARY",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Form mo.",
+        "steps":  "Nhap tieu de 1 ky tu A. Upload.",
+        "expected":  "Thanh cong. Title A hien trong list.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-050",
+        "title":  "BOUNDARY - title length = 255 chars",
+        "type":  "BOUNDARY",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Form mo.",
+        "steps":  "Nhap tieu de 255 ky tu. Upload.",
+        "expected":  "Thanh cong. Title 255 chars luu OK (ktra DB schema limit).",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-051",
+        "title":  "BOUNDARY - title length = 256 chars - kiem tra DB constraint",
+        "type":  "BOUNDARY",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Form mo.",
+        "steps":  "Nhap tieu de 256 ky tu. Upload.",
+        "expected":  "Hoac: Prisma truncate/reject voi DB constraint error -\u003e FE hien error. Hoac: Thanh cong neu DB cho phep VARCHAR(256+).",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-052",
+        "title":  "EP - file PDF (application/pdf) - valid MIME",
+        "type":  "EP",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "File PDF hop le.",
+        "steps":  "Upload .pdf",
+        "expected":  "Thanh cong.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-053",
+        "title":  "EP - file application/msword (.doc)",
+        "type":  "EP",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "File .doc hop le.",
+        "steps":  "Upload .doc",
+        "expected":  "Thanh cong.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.doc.valid"
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-054",
+        "title":  "EP - file image/gif (.gif)",
+        "type":  "EP",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "File .gif hop le.",
+        "steps":  "Upload .gif",
+        "expected":  "Thanh cong (image/gif trong ALLOWED_MIME_TYPES).",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.gif.valid"
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-055",
+        "title":  "EP - file audio/mpeg (.mp3)",
+        "type":  "EP",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "File .mp3 hop le.",
+        "steps":  "Upload .mp3. Loai=Am thanh.",
+        "expected":  "Thanh cong.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.mp3.valid"
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-056",
+        "title":  "EP - file application/x-python (.py) - invalid",
+        "type":  "EP",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "File .py",
+        "steps":  "Upload .py",
+        "expected":  "400 Loai khong ho tro.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.py.invalid"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-057",
+        "title":  "EP - file text/html (.html) - invalid",
+        "type":  "EP",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "File .html",
+        "steps":  "Upload .html",
+        "expected":  "400 Loai khong ho tro.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.html.invalid"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-058",
+        "title":  "EP - file image/webp (.webp) - invalid",
+        "type":  "EP",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "File .webp",
+        "steps":  "Upload .webp",
+        "expected":  "400 (webp khong trong ALLOWED_MIME_TYPES).",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.webp.invalid"
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-059",
+        "title":  "BOUNDARY - queue size 1 file",
+        "type":  "BOUNDARY",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Form mo.",
+        "steps":  "Chon 1 file. Xem queue.",
+        "expected":  "Queue hien 1 item. Khong co 0 hoac -1 state.",
+        "data_required":  [
+                              "petition.active.D30"
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-060",
+        "title":  "BOUNDARY - xoa tat ca file trong queue roi upload",
+        "type":  "BOUNDARY",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Queue 3 file.",
+        "steps":  "1. Queue 3 file\n2. X tung file (3 lan)\n3. Nhan Tai len",
+        "expected":  "Sau khi xoa het: queue trong. Nhan Tai len -\u003e loi Vui long chon file. 0 API calls.",
+        "data_required":  [
+                              "petition.active.D30"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-061",
+        "title":  "STATE - form hidden -\u003e open -\u003e upload -\u003e success",
+        "type":  "STATE",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Section Tai lieu, entityId co san.",
+        "steps":  "1. STATE: form hidden (init)\n2. Nhan Tai len -\u003e STATE: form open\n3. Nhap tieu de + file\n4. Nhan Tai len -\u003e STATE: uploading\n5. Doi xong -\u003e STATE: list updated, form closed",
+        "expected":  "State machine dung: hidden-\u003eopen-\u003euploading-\u003eclosed. Khong bi stuck o uploading state.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-062",
+        "title":  "STATE - form open -\u003e cancel -\u003e hidden",
+        "type":  "STATE",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Form mo.",
+        "steps":  "1. STATE: form open\n2. Nhan Huy -\u003e STATE: form hidden",
+        "expected":  "State chuyen chinh xac. Queue cleared. Title reset.",
+        "data_required":  [
+                              "petition.active.D30"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-063",
+        "title":  "STATE - uploading disabled button",
+        "type":  "STATE",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Bat dau upload.",
+        "steps":  "Quan sat button Tai len trong khi upload dang chay.",
+        "expected":  "Button Tai len disabled (disabled:opacity-60). Khong the click 2 lan. Khong double-upload.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-064",
+        "title":  "STATE - upload thanh cong -\u003e fetch docs moi",
+        "type":  "STATE",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Sau khi upload thanh cong.",
+        "steps":  "Upload file. Doi complete.",
+        "expected":  "fetchDocs() duoc goi. List update hien file moi. Khong can reload trang.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-065",
+        "title":  "STATE - upload fail -\u003e form van mo, error hien",
+        "type":  "STATE",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Upload 1 EXE invalid.",
+        "steps":  "Upload EXE. Doi response.",
+        "expected":  "STATE: error state. Form KHONG dong. Error message hien. List khong thay doi.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.exe.invalid"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-066",
+        "title":  "STATE - partial success -\u003e form dong, error partial",
+        "type":  "STATE",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "2 file: 1 hop le + 1 fail.",
+        "steps":  "Upload 2 file. Doi.",
+        "expected":  "STATE: partial success. Form DONG. Error: X file that bai. List co file thanh cong.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid",
+                              "file.exe.invalid"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-067",
+        "title":  "DECISION - title empty + file co - FE stop",
+        "type":  "DECISION",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Form mo.",
+        "steps":  "Title: empty. File: chon PDF. Tai len.",
+        "expected":  "FE validate: Vui long nhap tieu de. KHONG goi API.",
+        "data_required":  [
+                              "petition.active.D30"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-068",
+        "title":  "DECISION - title co + file empty - FE stop",
+        "type":  "DECISION",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Form mo.",
+        "steps":  "Title: co. File: khong chon. Tai len.",
+        "expected":  "FE validate: Vui long chon file. KHONG goi API.",
+        "data_required":  [
+                              "petition.active.D30"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-069",
+        "title":  "DECISION - title co + file co + entityId undefined - goi guardMessage",
+        "type":  "DECISION",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "entityId = undefined (new form).",
+        "steps":  "Nhap tieu de. Chon file. Tai len.",
+        "expected":  "Error: Luu don truoc de tai len tai lieu. Khong goi POST API.",
+        "data_required":  [
+
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-070",
+        "title":  "DECISION - file type allowed + magic bytes match - accept",
+        "type":  "DECISION",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "File PDF thuc su.",
+        "steps":  "Upload PDF hop le.",
+        "expected":  "Accept. 201 Created.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-071",
+        "title":  "DECISION - file type allowed + magic bytes mismatch - reject + cleanup",
+        "type":  "DECISION",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "File .pdf co EXE bytes.",
+        "steps":  "Upload .pdf EXE content.",
+        "expected":  "Reject. fs.unlinkSync goi. File khong con tren disk. 400.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf_named_exe"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-072",
+        "title":  "DECISION - file type text/plain + bat ky noi dung - accept (bypass magic)",
+        "type":  "DECISION",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "File .txt voi noi dung bat ky.",
+        "steps":  "Upload .txt.",
+        "expected":  "Accept (MAGIC_BYTE_BYPASS set). 201.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.txt.valid"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-073",
+        "title":  "DATA - tieu de Unicode tieng Viet co dau",
+        "type":  "DATA",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Form mo.",
+        "steps":  "Title: \u0027Biên bản điều tra - năm 2026\u0027. Upload.",
+        "expected":  "Thanh cong. Title hien dung Unicode. Khong bi corrupted.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-074",
+        "title":  "DATA - filename Unicode tieng Bien ban.pdf",
+        "type":  "DATA",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "File co ten Unicode.",
+        "steps":  "Upload \u0027Biên bản.pdf\u0027 (ten Unicode).",
+        "expected":  "originalName luu dung. Download filename dung. encodeURIComponent trong Content-Disposition.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.unicode_name"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-075",
+        "title":  "DATA - tieu de special chars \u003c\u003e?#%",
+        "type":  "DATA",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Form mo.",
+        "steps":  "Title: \u0027\u003ctest\u003e\u0026\"query#%\u0027. Upload.",
+        "expected":  "Title luu as literal. Khong XSS. Hien thi dung.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-076",
+        "title":  "DATA - mo ta 500 ky tu Unicode",
+        "type":  "DATA",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Form mo.",
+        "steps":  "Mo ta 500 ky tu Unicode. Upload.",
+        "expected":  "Thanh cong. Description luu day du. Hien thi khi mo doc.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-077",
+        "title":  "DATA - filename chi co so",
+        "type":  "DATA",
+        "priority":  "P2",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Form mo.",
+        "steps":  "Upload \u0027123456.pdf\u0027",
+        "expected":  "Thanh cong.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Low"
+    },
+    {
+        "tc_id":  "TC-078",
+        "title":  "INTEGRATION - download document sau upload",
+        "type":  "GREEN",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Doc da duoc upload.",
+        "steps":  "1. Nhan nut Download tren doc da upload\n2. Kiem tra file download",
+        "expected":  "File duoc download. Filename dung (originalName). Content-Type header dung. Content = file goc.",
+        "data_required":  [
+                              "document.active.D30"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-079",
+        "title":  "INTEGRATION - mo document trong tab moi",
+        "type":  "GREEN",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Doc da upload.",
+        "steps":  "Nhan nut Mat kin (Eye icon) tren doc.",
+        "expected":  "window.open goi voi Blob URL. Tab moi mo voi noi dung file. URL revoke sau 60s.",
+        "data_required":  [
+                              "document.active.D30"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-080",
+        "title":  "INTEGRATION - xoa document voi confirm",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Doc da upload.",
+        "steps":  "1. Nhan Delete (Trash2 icon)\n2. Confirm dialog hien: Xoa tai lieu X?\n3. Nhan OK",
+        "expected":  "DELETE /documents/:id goi. 200. Doc bien mat khoi list sau fetchDocs.",
+        "data_required":  [
+                              "document.active.D30"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-081",
+        "title":  "INTEGRATION - huy xoa document",
+        "type":  "GREEN",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Doc da upload.",
+        "steps":  "1. Nhan Delete\n2. Dialog hien\n3. Nhan Cancel",
+        "expected":  "Doc van con trong list. DELETE API KHONG goi.",
+        "data_required":  [
+                              "document.active.D30"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-082",
+        "title":  "INTEGRATION - list docs pagination limit 100",
+        "type":  "GREEN",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Petition co 50 docs.",
+        "steps":  "Xem section Tai lieu cua petition co 50 docs.",
+        "expected":  "GET /documents?petitionId=X\u0026limit=100 goi. Hien toi da 100 docs.",
+        "data_required":  [
+                              "petition.active.D30.50docs"
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-083",
+        "title":  "INTEGRATION - upload tren Case, xem tai Case",
+        "type":  "GREEN",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Case da luu.",
+        "steps":  "1. Upload doc tai /cases/:id\n2. Reload trang\n3. Xem section Tai lieu",
+        "expected":  "Doc van con sau reload. GET /documents?caseId=:id tra ve doc moi.",
+        "data_required":  [
+                              "case.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-084",
+        "title":  "INTEGRATION - upload audit log ghi nhan",
+        "type":  "GREEN",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "Upload thanh cong.",
+        "steps":  "Upload doc. Kiem tra audit log (GET /audit-logs hoac DB).",
+        "expected":  "Audit log co event DOCUMENT_UPLOADED voi userId, petitionId, fileName, ip, userAgent.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-085",
+        "title":  "INTEGRATION - download audit log ghi nhan",
+        "type":  "GREEN",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "Doc da upload.",
+        "steps":  "Download doc. Kiem tra audit log.",
+        "expected":  "Audit log co event DOCUMENT_DOWNLOADED voi userId, documentId, ip, userAgent.",
+        "data_required":  [
+                              "document.active.D30"
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-086",
+        "title":  "INTEGRATION - xoa doc, file vat ly bi xoa khoi disk",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "Doc da upload.",
+        "steps":  "Xoa doc qua UI. Kiem tra disk.",
+        "expected":  "File bi xoa hoac soft-delete. GET /documents/:id/download 404. Khong con file tren disk.",
+        "data_required":  [
+                              "document.active.D30"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-087",
+        "title":  "INTEGRATION - refresh page - doc van con",
+        "type":  "GREEN",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Da upload doc.",
+        "steps":  "1. Upload doc\n2. F5 refresh trang\n3. Xem section",
+        "expected":  "fetchDocs() goi lai. Doc van hien trong list. Khong bi mat.",
+        "data_required":  [
+                              "document.active.D30"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-088",
+        "title":  "REGRESSION - upload Enter key khong submit outer form",
+        "type":  "REGRESSION",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "EntityDocumentsTab nhung trong PetitionFormPage (outer form).",
+        "steps":  "1. Mo form upload\n2. Click vao Tieu de input\n3. Nhan Enter",
+        "expected":  "Enter bi prevent (onKeyDown preventDefault). Outer form KHONG submit. Khong redirect.",
+        "data_required":  [
+                              "petition.active.D30"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-089",
+        "title":  "REGRESSION - Enter key trong Mo ta khong submit outer form",
+        "type":  "REGRESSION",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Form mo. Dang o Mo ta input.",
+        "steps":  "1. Focus vao Mo ta\n2. Nhan Enter",
+        "expected":  "Enter prevent. Outer form khong submit.",
+        "data_required":  [
+                              "petition.active.D30"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-090",
+        "title":  "REGRESSION - button type=button khong trigger form submit",
+        "type":  "REGRESSION",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Form mo.",
+        "steps":  "Nhan cac button Tai len, Huy, Chon thu muc.",
+        "expected":  "Tat ca co type=button. Khong co button nao type=submit. Khong trigger outer form.",
+        "data_required":  [
+                              "petition.active.D30"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-091",
+        "title":  "A11Y - nut Tai len tai lieu co aria-label",
+        "type":  "A11Y",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Component render.",
+        "steps":  "Inspect nut \u0027Tai len tai lieu\u0027 bang screen reader hoac aria tools.",
+        "expected":  "Button co accessible name ro rang: \u0027Tai len tai lieu\u0027. aria-label hoac text content.",
+        "data_required":  [
+                              "petition.active.D30"
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-092",
+        "title":  "A11Y - nut Huy co accessible label",
+        "type":  "A11Y",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Form upload mo.",
+        "steps":  "Inspect nut Huy.",
+        "expected":  "Huy button: accessible name \u0027Huy\u0027. Khong chi la icon.",
+        "data_required":  [
+                              "petition.active.D30"
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-093",
+        "title":  "A11Y - file queue list dung role list",
+        "type":  "A11Y",
+        "priority":  "P2",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "2 file trong queue.",
+        "steps":  "Inspect DOM structure cua file queue.",
+        "expected":  "ul/ol hoac role=list, moi file la li hoac role=listitem. Screen reader doc duoc \u0027X files in queue\u0027.",
+        "data_required":  [
+                              "petition.active.D30"
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-094",
+        "title":  "A11Y - error message lien ket voi field bang aria-describedby",
+        "type":  "A11Y",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Submit form khong hop le.",
+        "steps":  "Inspect error alert va field.",
+        "expected":  "Error message co role=alert hoac aria-live=polite. Screen reader announce khi error xuat hien.",
+        "data_required":  [
+                              "petition.active.D30"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-095",
+        "title":  "A11Y - keyboard navigation: Tab qua cac button, Enter/Space activate",
+        "type":  "A11Y",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Form mo.",
+        "steps":  "1. Tab den nut Tai len tai lieu\n2. Enter/Space\n3. Tab qua Title, DocType, Mo ta\n4. Tab den nut Tai len (submit)\n5. Enter",
+        "expected":  "Tab navigation hop le. Enter/Space activate buttons. Focus order logic (top-down). Khong co focus trap ngoai modal.",
+        "data_required":  [
+                              "petition.active.D30"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-096",
+        "title":  "A11Y - focus visible tren tat ca interactive elements",
+        "type":  "A11Y",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Cai dat moi (no custom focus override).",
+        "steps":  "Tab qua tat ca controls trong EntityDocumentsTab.",
+        "expected":  "Focus ring visible tren moi element. Khong co element nao bi an focus. outline: none chi khi co :focus-visible visible alt.",
+        "data_required":  [
+                              "petition.active.D30"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-097",
+        "title":  "A11Y - progress indicator co aria-live khi uploading",
+        "type":  "A11Y",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Upload dang chay.",
+        "steps":  "Kiem tra progress text bang screen reader trong khi upload.",
+        "expected":  "Uploading X/Y text hoac progress aria-live=polite/assertive. Screen reader announce trang thai thay doi.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-098",
+        "title":  "A11Y - color contrast tren button chu khi disabled",
+        "type":  "A11Y",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Upload dang chay, button disabled.",
+        "steps":  "Kiem tra contrast ratio cua disabled button (opacity-60).",
+        "expected":  "WCAG 2.1 AA: contrast \u003e=3:1 cho text \u003e= 18pt hoac \u003e=4.5:1 cho text nho. Opacity-60 co the vi pham — can verify.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-099",
+        "title":  "A11Y - file remove button (\u0027x\u0027) co aria-label voi ten file",
+        "type":  "A11Y",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "1 file trong queue.",
+        "steps":  "Inspect nut X (remove) ben canh filename.",
+        "expected":  "aria-label=\u0027Xoa bao_cao.pdf\u0027 hoac equivalent. Screen reader doc \u0027Remove bao_cao.pdf\u0027. Khong chi la \u0027X\u0027.",
+        "data_required":  [
+                              "petition.active.D30"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-100",
+        "title":  "A11Y - form label dung htmlFor + input id",
+        "type":  "A11Y",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Form mo.",
+        "steps":  "Inspect labels va inputs.",
+        "expected":  "Label \u0027Tieu de\u0027 htmlFor=doc-title. Input id=doc-title. Click label → focus input. Screen reader: \u0027Tieu de, edit text\u0027.",
+        "data_required":  [
+                              "petition.active.D30"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-101",
+        "title":  "COMPAT - Chrome 120+ (Windows 11): upload thanh cong",
+        "type":  "COMPAT",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Chrome 120+ tren Windows 11.",
+        "steps":  "Upload PDF tren Chrome 120+. Kiem tra queue va result.",
+        "expected":  "Queue hien dung. Upload thanh cong. Khong co JS error trong console.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-102",
+        "title":  "COMPAT - Edge (Chromium, latest): upload + folder select",
+        "type":  "COMPAT",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Edge latest tren Windows 11.",
+        "steps":  "Upload PDF. Thu folder upload (webkitdirectory).",
+        "expected":  "Folder button hoat dong. Upload thanh cong. Edge ho tro webkitdirectory.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-103",
+        "title":  "COMPAT - Firefox (latest): webkitdirectory fallback",
+        "type":  "COMPAT",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Firefox latest.",
+        "steps":  "Thu Chon thu muc tren Firefox.",
+        "expected":  "Firefox ho tro mozdirectory / webkitdirectory (Firefox 50+). Folder button kha dung. Neu khong ho tro: button an hoac disable voi tooltip.",
+        "data_required":  [
+                              "petition.active.D30"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-104",
+        "title":  "COMPAT - Safari (macOS, latest): file input multiple",
+        "type":  "COMPAT",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Safari macOS latest.",
+        "steps":  "Mo file picker voi multiple. Chon 2 files.",
+        "expected":  "multiple attribute hoat dong tren Safari. Ca 2 file hien trong queue.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-105",
+        "title":  "COMPAT - mobile Chrome (Android 13): tap upload",
+        "type":  "COMPAT",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Android 13 + Chrome mobile.",
+        "steps":  "Mo petition. Tap Tai len tai lieu. Chon file. Tai len.",
+        "expected":  "File picker mo thanh cong. Queue hien. Upload thanh cong. UI khong bi crop hay overflow.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-106",
+        "title":  "COMPAT - mobile Safari (iOS 16+): upload PDF tu Files app",
+        "type":  "COMPAT",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "iPhone iOS 16+ + Safari.",
+        "steps":  "Mo petition tren mobile Safari. Upload PDF tu Files app.",
+        "expected":  "accept attribute cho phep chon dung loai file. Upload thanh cong. Khong bi block boi iOS sandbox.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-107",
+        "title":  "COMPAT - screen resolution 1366x768: form khong bi overflow",
+        "type":  "COMPAT",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "1366x768 viewport.",
+        "steps":  "Resize browser den 1366x768. Mo form upload.",
+        "expected":  "Form hien dung trong viewport. Khong co horizontal scrollbar. Khong co text bi cut.",
+        "data_required":  [
+                              "petition.active.D30"
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-108",
+        "title":  "COMPAT - dark mode: cac mau van readable",
+        "type":  "COMPAT",
+        "priority":  "P2",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Browser/OS dark mode.",
+        "steps":  "Bat dark mode. Mo form upload.",
+        "expected":  "Text contrast hop le. Background toi. Khong co white-on-white hay black-on-black. Error text van visible.",
+        "data_required":  [
+                              "petition.active.D30"
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-109",
+        "title":  "COMPAT - zoom 200%: form van usable",
+        "type":  "COMPAT",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Zoom browser den 200%.",
+        "steps":  "Ctrl+plus den 200%. Mo form.",
+        "expected":  "Form van usable. Text khong overlap. Scroll duoc. WCAG 1.4.4: reflow.",
+        "data_required":  [
+                              "petition.active.D30"
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-110",
+        "title":  "COMPAT - Internet Explorer 11: hien thong bao browser cu",
+        "type":  "COMPAT",
+        "priority":  "P2",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "IE11 (neu con support).",
+        "steps":  "Mo app tren IE11.",
+        "expected":  "App hien thong bao \u0027Browser khong duoc ho tro, vui long dung Chrome/Edge/Firefox\u0027. Khong crash. Graceful degradation.",
+        "data_required":  [
+
+                          ],
+        "severity":  "Low"
+    },
+    {
+        "tc_id":  "TC-111",
+        "title":  "PERF - upload 1 file PDF 10MB \u003c 30s tren mang binh thuong",
+        "type":  "PERFORMANCE",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "Mang binh thuong (\u003e=10Mbps). File 10MB.",
+        "steps":  "Upload 1 file 10MB. Do thoi gian tu click Tai len den doc \u0027Tai len thanh cong\u0027.",
+        "expected":  "\u003c 30 giay. Khong timeout. Khong 504 gateway timeout.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.10mb"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-112",
+        "title":  "PERF - upload 10 file nho (1KB) trong 60 giay khong bi throttle",
+        "type":  "PERFORMANCE",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "Throttle: 10 uploads/60s/user.",
+        "steps":  "Upload 10 file lien tiep trong 60 giay (dung folder upload).",
+        "expected":  "10 file thanh cong. File thu 11 trong 60s nhan 429. Throttle don vi la per-user, khong per-IP.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "files.small.10pack"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-113",
+        "title":  "PERF - upload 11 file lien tiep - file thu 11 nhan 429",
+        "type":  "PERFORMANCE",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "Throttle 10/60s.",
+        "steps":  "Upload 11 file trong 60 giay.",
+        "expected":  "File 1-10: 201. File 11: 429 Too Many Requests. FE hien \u0027Qua gioi han, thu lai sau gio\u0027. Khong crash.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "files.small.11pack"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-114",
+        "title":  "PERF - GET /documents list 100 items - response \u003c 1s",
+        "type":  "PERFORMANCE",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "Petition co 100 docs.",
+        "steps":  "Mo section Tai lieu cua petition co 100 docs. Do thoi gian fetch.",
+        "expected":  "GET /documents response \u003c 1 giay. List hien day du. Khong loading spin qua 3s.",
+        "data_required":  [
+                              "petition.active.D30.100docs"
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-115",
+        "title":  "PERF - concurrent 5 user upload cung 1 luc - khong deadlock",
+        "type":  "PERFORMANCE",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "5 user khac nhau.",
+        "steps":  "5 user dong thoi upload 1 file. Kiem tra response.",
+        "expected":  "Moi user nhan 201 doc lap. Khong deadlock. Khong 500. File cua moi user duoc luu rieng.",
+        "data_required":  [
+                              "case.active.D30.5users"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-116",
+        "title":  "PERF - upload progress hien dung khi upload lon",
+        "type":  "PERFORMANCE",
+        "priority":  "P2",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Upload file 5MB+.",
+        "steps":  "Upload file 5MB. Quan sat progress text.",
+        "expected":  "\u0027Dang tai len 1/1...\u0027 hien ngay khi bat dau. Progress text cap nhat dung (current/total). Khong bi frozen.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.5mb"
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-117",
+        "title":  "EDGE - upload file co ten trung voi file da co trong list",
+        "type":  "EDGE",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Petition da co doc \u0027bao_cao.pdf\u0027.",
+        "steps":  "Upload them 1 file ten \u0027bao_cao.pdf\u0027.",
+        "expected":  "Tuy chinh sach: (a) Accept va tao doc moi voi ten khac tren disk, hoac (b) Warning user. Khong replace file cu. Doc moi co originalName = \u0027bao_cao.pdf\u0027.",
+        "data_required":  [
+                              "petition.active.D30.existing_doc"
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-118",
+        "title":  "EDGE - folder co subfolder - chi flat file, bo qua subfolder",
+        "type":  "EDGE",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Thu muc co subfolder.",
+        "steps":  "Chon thu muc co cau truc: /root/file.pdf + /root/sub/file2.pdf. Upload.",
+        "expected":  "webkitdirectory tra ve ca file trong subfolder (recursive). Tat ca file hien trong queue. Khong co entry la thu muc.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "folder.with_subfolders"
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-119",
+        "title":  "EDGE - file 0 byte - FE hoac BE reject",
+        "type":  "EDGE",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "File rong.",
+        "steps":  "Upload file 0 byte.",
+        "expected":  "FE check: size === 0 → skip with error \u0027File khong the rong\u0027. Hoac BE: multer reject 0 byte file voi 400.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.empty"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-120",
+        "title":  "EDGE - 2 file trung ten trong 1 queue - tu dong dedup",
+        "type":  "EDGE",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Them 2 file cung name+size vao queue.",
+        "steps":  "Chon 2 file cung ten \u0027test.pdf\u0027 tu cung folder (hoac 2 folder khac nhau). Xem queue.",
+        "expected":  "Queue chi hien 1 file (dedup by name+size). Khong co duplicate trong list. Hoac: hien canh bao \u0027Trung file\u0027.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "files.duplicate_name"
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-121",
+        "title":  "RED - upload EXE content voi .pdf extension - backend reject",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "File EXE doi extension .pdf.",
+        "steps":  "Upload file EXE doi ten thanh .pdf.",
+        "expected":  "BE: fileTypeFromFile phat hien content-type mismatch. 400 Bad Request: \u0027Dinh dang file khong hop le.\u0027 File bi xoa tren disk (unlink).",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.exe_as_pdf"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-122",
+        "title":  "RED - upload ZIP content voi .docx extension - backend reject",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "File ZIP doi extension .docx.",
+        "steps":  "Upload ZIP doi thanh .docx.",
+        "expected":  "Magic byte mismatch. 400 reject. Disk clean.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.zip_as_docx"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-123",
+        "title":  "RED - upload PHP script voi .txt extension - accept (MAGIC_BYTE_BYPASS)",
+        "type":  "RED",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "File .txt voi noi dung \u003c?php.",
+        "steps":  "Upload .txt co noi dung PHP.",
+        "expected":  "text/plain bypass magic check → ACCEPT. Khong execute. Luu la plain text. NOTE: day la behavior hien tai, can review security.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.php_as_txt"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-124",
+        "title":  "RED - missing title (empty string) - 400",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "Call API truc tiep khong qua FE.",
+        "steps":  "POST /documents FormData voi title=\u0027\u0027.",
+        "expected":  "DTO validate: title IsNotEmpty. 400 ValidationError. Message: \u0027title should not be empty\u0027.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-125",
+        "title":  "RED - title qua dai (\u003e500 ky tu) - 400",
+        "type":  "RED",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "API call truc tiep.",
+        "steps":  "POST /documents voi title = 501 ky tu.",
+        "expected":  "DTO validate: MaxLength(500). 400. Message: \u0027title must be shorter than or equal to 500 characters\u0027.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-126",
+        "title":  "RED - documentType sai enum value - 400",
+        "type":  "RED",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "API call truc tiep.",
+        "steps":  "POST /documents voi documentType=\u0027INVALID_TYPE\u0027.",
+        "expected":  "DTO: IsEnum(DocumentType). 400. Message: \u0027documentType must be a valid enum value\u0027.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-127",
+        "title":  "RED - khong co file trong request - 400",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "API call truc tiep.",
+        "steps":  "POST /documents FormData KHONG co file field.",
+        "expected":  "FileInterceptor: multer khong tim thay file. 400 hoac 422. Message: \u0027File la bat buoc\u0027.",
+        "data_required":  [
+                              "petition.active.D30"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-128",
+        "title":  "RED - file \u003e 10MB - multer reject",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "File 10MB + 1 byte.",
+        "steps":  "Upload file 10MB+1.",
+        "expected":  "Multer limits.fileSize → reject. 413 Payload Too Large. Message: \u0027File qua lon (toi da 10MB)\u0027. File khong luu tren disk.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.10mb_plus1"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-129",
+        "title":  "RED - unauth (no token) - 401",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "Khong dang nhap.",
+        "steps":  "POST /documents khong co Authorization header.",
+        "expected":  "JwtAuthGuard: 401 Unauthorized.",
+        "data_required":  [
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-130",
+        "title":  "RED - token het han - 401",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "Token expired.",
+        "steps":  "POST /documents voi expired JWT.",
+        "expected":  "401 Unauthorized. \u0027Token expired\u0027.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid",
+                              "user.expired_token"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-131",
+        "title":  "RED - petitionId khong ton tai - 404",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "petitionId la cuid ngau nhien.",
+        "steps":  "POST /documents voi petitionId=\u0027non-existent-id\u0027.",
+        "expected":  "assertPetitionParentInScope: 404 Not Found. Khong tao doc.",
+        "data_required":  [
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-132",
+        "title":  "RED - caseId thuoc team khac - 403",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "officer1 thuoc team A. Case thuoc team B.",
+        "steps":  "officer1 upload doc voi caseId thuoc team B.",
+        "expected":  "assertParentInScope: 403 Forbidden. Data scope violation.",
+        "data_required":  [
+                              "case.other_team.D30",
+                              "file.pdf.valid",
+                              "user.officer1"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-133",
+        "title":  "RED - DELETE doc cua nguoi khac (officer khac) - 403",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "officer1 try xoa doc cua officer2.",
+        "steps":  "officer1 DELETE /documents/:id (doc cua officer2).",
+        "expected":  "403 Forbidden hoac role check. Khong cho xoa.",
+        "data_required":  [
+                              "document.other_officer.D30",
+                              "user.officer1"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-134",
+        "title":  "RED - GET /documents/:id/download doc cua entity khac scope - 403",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "officer1 co doc trong petition cua team A. officer2 tu team B.",
+        "steps":  "officer2 download doc cua team A.",
+        "expected":  "403 Forbidden. Scope check khi download.",
+        "data_required":  [
+                              "document.team_a.D30",
+                              "user.officer2"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-135",
+        "title":  "RED - dong thoi upload 2 file cung ten (race condition) - 1 thanh cong",
+        "type":  "RED",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "2 request dong thoi voi cung petitionId.",
+        "steps":  "Gui 2 POST /documents dong thoi voi cung title+file.",
+        "expected":  "Ca 2 co the thanh cong (2 docs rieng biet tren disk). Hoac BE co idempotency guard. Khong deadlock. Khong 500.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-136",
+        "title":  "RED - DB down khi upload - 500 + file cleanup",
+        "type":  "RED",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "DB unavailable (simulated).",
+        "steps":  "POST /documents khi DB down.",
+        "expected":  "BE: file upload toi disk, DB insert fail → 500 Internal Server Error. File bi cleanup (unlink). Khong de file orphan.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-137",
+        "title":  "RECOVERY - upload fail (network cut) - form van mo, co the retry",
+        "type":  "RECOVERY",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Upload bi ngat mang giua chung.",
+        "steps":  "1. Bat dau upload\n2. Ngat mang\n3. Doi response",
+        "expected":  "Timeout/network error → error message hien. Form KHONG dong. User co the retry. Khong hung.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-138",
+        "title":  "RECOVERY - refresh trang giua chung upload - khong co orphan file",
+        "type":  "RECOVERY",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Upload dang chay.",
+        "steps":  "1. Bat dau upload 5MB\n2. Nhan F5\n3. Kiem tra disk + DB",
+        "expected":  "FE reset ve trang thai ban dau. Neu BE da nhan file truoc khi refresh: cleanup hoac doc duoc tao. Khong orphan.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-139",
+        "title":  "RECOVERY - 429 throttle - FE hien message that bai, khong crash",
+        "type":  "RECOVERY",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Da upload 10 file trong 60s.",
+        "steps":  "Thu upload file thu 11.",
+        "expected":  "FE nhan 429. Error: \u0027Qua gioi han tai len, vui long thu lai sau\u0027. Form giu nguyen. Khong exception.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "files.throttle_exceeded"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-140",
+        "title":  "RECOVERY - session expire khi dang upload - redirect login",
+        "type":  "RECOVERY",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "JWT het han trong khi upload dang chay.",
+        "steps":  "Upload. Token het han trong luc request. Kiem tra response.",
+        "expected":  "FE nhan 401. Redirect den trang login hoac hien \u0027Phien lam viec het han, vui long dang nhap lai\u0027. Khong lo data.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid",
+                              "user.expiring_token"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-141",
+        "title":  "AUDIT - upload ghi nhan entityType + entityId",
+        "type":  "GREEN",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "Upload doc cho petition.",
+        "steps":  "Upload. Kiem tra audit log.",
+        "expected":  "Audit log: action=DOCUMENT_UPLOAD, entityType=PETITION, entityId=:id, userId=:uid, fileName=:name, ip=:ip.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-142",
+        "title":  "AUDIT - download ghi nhan documentId + ip",
+        "type":  "GREEN",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "Doc da upload.",
+        "steps":  "Download. Kiem tra audit log.",
+        "expected":  "Audit log: action=DOCUMENT_DOWNLOAD, documentId=:id, userId=:uid, ip=:ip.",
+        "data_required":  [
+                              "document.active.D30"
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-143",
+        "title":  "AUDIT - xoa ghi nhan soft-delete + deletedBy",
+        "type":  "GREEN",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "Doc da upload.",
+        "steps":  "Xoa doc. Kiem tra audit log.",
+        "expected":  "Audit log: action=DOCUMENT_DELETE, documentId=:id, deletedById=:uid. Doc bi soft-delete (deletedAt set).",
+        "data_required":  [
+                              "document.active.D30"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-144",
+        "title":  "DATA - mimeType khong hop le trong FormData - BE validate accept",
+        "type":  "DATA",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "API call truc tiep.",
+        "steps":  "POST /documents voi mimeType=\u0027application/x-www-form-urlencoded\u0027 nhung file thuc la PDF.",
+        "expected":  "BE: multer lay mimeType tu file content-type header. mimeType field trong FormData khong duoc tin tuong. Kiem tra magic byte thi trust.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-145",
+        "title":  "DATA - filename SQL injection attempt - sanitize",
+        "type":  "SECURITY",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "File co ten chua SQL.",
+        "steps":  "Upload file co ten: \u0027test\u0027; DROP TABLE documents;--.pdf\u0027.",
+        "expected":  "Filename duoc escape/sanitize. DB operation an toan. Khong SQL injection. originalName luu as literal string.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.sql_injection_name"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-146",
+        "title":  "SECURITY - IDOR: xem doc list cua petition khac via query param",
+        "type":  "SECURITY",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "officer2 co petition rieng. officer1 biet petitionId cua officer2.",
+        "steps":  "officer1 GET /documents?petitionId={petitionId_of_officer2}.",
+        "expected":  "Scope check: 403 Forbidden hoac 200 voi empty list. KHONG tra ve docs cua officer2.",
+        "data_required":  [
+                              "petition.other_officer.D30",
+                              "user.officer1"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-147",
+        "title":  "SECURITY - path traversal trong filename khi download",
+        "type":  "SECURITY",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "Doc voi filePath co \u0027..\u0027.",
+        "steps":  "Download doc co filePath=\u0027../../etc/passwd\u0027.",
+        "expected":  "BE: dung path.basename + absolute path resolution. Khong cho doc file ngoai uploads/documents/. 400 hoac 404.",
+        "data_required":  [
+                              "document.path_traversal.D30"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-148",
+        "title":  "SECURITY - upload HTML file + XSS payload",
+        "type":  "SECURITY",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "File .html hoac .htm co noi dung XSS.",
+        "steps":  "Upload .html file (khong trong allowed list) qua API.",
+        "expected":  "BE: .html khong trong ALLOWED_MIME_TYPES. 400 reject. Khong luu. Neu somehow bi upload: Content-Type: text/plain khi download, KHONG text/html.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.html_xss"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-149",
+        "title":  "SECURITY - Content-Type header spoofing: PDF file voi Content-Type: image/jpeg",
+        "type":  "SECURITY",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "PDF file nhung request header Content-Type: image/jpeg.",
+        "steps":  "Upload PDF voi Content-Type: image/jpeg trong multipart.",
+        "expected":  "BE: multer doc Content-Type tu part header → mimeType=\u0027image/jpeg\u0027. Magic byte check: fileTypeFromFile tra ve \u0027application/pdf\u0027. MISMATCH → 400 reject.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-150",
+        "title":  "SECURITY - CSRF: POST /documents tu origin khac - reject",
+        "type":  "SECURITY",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "App co CSRF protection hoac SameSite cookie.",
+        "steps":  "Simulated CSRF: cross-origin POST /documents.",
+        "expected":  "CORS reject (origin khong trong whitelist) hoac CSRF token missing → 403. Tuy config CORS/CSRF.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-151",
+        "title":  "GREEN - delete document: soft delete, van query duoc boi admin",
+        "type":  "GREEN",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "Doc da upload + xoa.",
+        "steps":  "1. Xoa doc (DELETE /documents/:id)\n2. Admin GET /documents?includeDeleted=true",
+        "expected":  "Soft delete: deletedAt set. GET /documents khong tra ve (FE list). Admin API co the tra ve. Disk file con do.",
+        "data_required":  [
+                              "document.active.D30"
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-152",
+        "title":  "GREEN - file doc type HINH_ANH (image) - accept + hien thumbnail",
+        "type":  "GREEN",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "File JPEG hop le.",
+        "steps":  "Upload JPEG voi documentType=\u0027HINH_ANH\u0027.",
+        "expected":  "Upload 201. List doc hien thumbnail hoac icon hinh anh. documentType=\u0027HINH_ANH\u0027.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.jpg.valid"
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-153",
+        "title":  "GREEN - file type AM_THANH (MP3) - upload + download",
+        "type":  "GREEN",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "File MP3 hop le.",
+        "steps":  "Upload MP3 voi type=\u0027AM_THANH\u0027.",
+        "expected":  "Upload 201. Download tra ve MP3 voi Content-Type: audio/mpeg.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.mp3.valid"
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-154",
+        "title":  "GREEN - download file: Content-Disposition filename encoded",
+        "type":  "GREEN",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "Doc da upload.",
+        "steps":  "GET /documents/:id/download. Kiem tra response headers.",
+        "expected":  "Content-Disposition: attachment; filename*=UTF-8\u0027\u0027\u003cencoded_name\u003e. RFC 5987. Browser download file dung ten.",
+        "data_required":  [
+                              "document.active.D30"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-155",
+        "title":  "RED - download soft-deleted doc - 404",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "Doc da bi xoa.",
+        "steps":  "GET /documents/:id/download cho doc da xoa.",
+        "expected":  "404 Not Found. Khong tra ve file. Message: \u0027Tai lieu khong ton tai.\u0027",
+        "data_required":  [
+                              "document.deleted.D30"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-156",
+        "title":  "DECISION - petitionId + caseId cu the trong 1 request - BE reject",
+        "type":  "DECISION",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "API call voi ca petitionId + caseId.",
+        "steps":  "POST /documents voi ca 2 field.",
+        "expected":  "BE validate: chi duoc 1 entityId. 400 Bad Request: \u0027Chi duoc truyen 1 trong caseId, incidentId, petitionId\u0027.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "case.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-157",
+        "title":  "DECISION - doc khong co entityId nao - 400",
+        "type":  "DECISION",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "API call khong co entity link.",
+        "steps":  "POST /documents khong co caseId, incidentId, petitionId.",
+        "expected":  "BE: 400 hoac doc duoc tao \u0027floating\u0027 (tuy policy). Neu floating khong cho phep: \u0027Phai truyen it nhat 1 entityId\u0027.",
+        "data_required":  [
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-158",
+        "title":  "STATE - queue: xoa file khoi queue bang X button",
+        "type":  "STATE",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "3 file trong queue.",
+        "steps":  "Nhan X ben canh file thu 2.",
+        "expected":  "File thu 2 bi xoa khoi queue. Con lai 2 file. File input van co 2 file con lai (neu possible) hoac giu state trong React. Nhan X file thu 3 → con 1 file.",
+        "data_required":  [
+                              "petition.active.D30"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-159",
+        "title":  "STATE - queue empty sau xoa het → button Tai len disabled",
+        "type":  "STATE",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "1 file trong queue.",
+        "steps":  "Xoa file cuoi cung bang X.",
+        "expected":  "Queue rong. Button Tai len (submit) disabled hoac an. Khong the submit form rong.",
+        "data_required":  [
+                              "petition.active.D30"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-160",
+        "title":  "RED - upload file MP4 video \u003e 10MB - reject",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "File MP4 20MB.",
+        "steps":  "Upload video MP4 20MB.",
+        "expected":  "Multer limits.fileSize = 10MB → reject 413 ngay ca file hop le mime. Khong luu.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.mp4.20mb"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-161",
+        "title":  "BOUNDARY - file exacty 10MB (10485760 bytes) - accept",
+        "type":  "BOUNDARY",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "File PDF persis 10485760 bytes.",
+        "steps":  "Upload file persis 10MB.",
+        "expected":  "Accept. 201. (max boundary hop le).",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.10mb_exact"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-162",
+        "title":  "BOUNDARY - file 10485761 bytes (10MB + 1) - reject",
+        "type":  "BOUNDARY",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "File 10485761 bytes.",
+        "steps":  "Upload file 10485761 bytes.",
+        "expected":  "413 reject. (\u003e max boundary).",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.10mb_plus1"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-163",
+        "title":  "BOUNDARY - title 1 ky tu - accept",
+        "type":  "BOUNDARY",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Title: \u00271 ky tu\u0027.",
+        "steps":  "Upload voi title=\u0027A\u0027.",
+        "expected":  "Accept. Khong co min-length validate.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-164",
+        "title":  "BOUNDARY - title 500 ky tu - accept (max)",
+        "type":  "BOUNDARY",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "Title exactly 500 ky tu.",
+        "steps":  "API upload voi title = 500 ky tu.",
+        "expected":  "Accept. 201.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-165",
+        "title":  "BOUNDARY - title 501 ky tu - reject",
+        "type":  "BOUNDARY",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "Title exactly 501 ky tu.",
+        "steps":  "API upload voi title = 501 ky tu.",
+        "expected":  "400 ValidationError: MaxLength.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-166",
+        "title":  "EP - MIME group: image types (jpg jpeg png gif) - accept",
+        "type":  "EP",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "File hop le tung loai.",
+        "steps":  "Upload .jpg, .jpeg, .png, .gif rieng le.",
+        "expected":  "Ca 4 loai: 201 Accept. Magic byte match content-type.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "files.image_group"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-167",
+        "title":  "EP - MIME group: video + audio (mp4 mp3) - accept",
+        "type":  "EP",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "File video/audio hop le.",
+        "steps":  "Upload .mp4 va .mp3.",
+        "expected":  "Ca 2: 201. Content-Type dung.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.mp4.valid",
+                              "file.mp3.valid"
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-168",
+        "title":  "EP - MIME group: documents (pdf doc docx xls xlsx) - accept",
+        "type":  "EP",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "File hop le tung loai.",
+        "steps":  "Upload .pdf .doc .docx .xls .xlsx rieng le.",
+        "expected":  "Tat ca 5 loai: 201 Accept.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "files.document_group"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-169",
+        "title":  "EP - MIME rejected: .zip .rar .bat .exe .php - 400",
+        "type":  "EP",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "File ngoai danh sach cho phep.",
+        "steps":  "Upload .zip, .rar, .bat, .exe, .php.",
+        "expected":  "Tat ca: 400 reject. Khong luu.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "files.rejected_group"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-170",
+        "title":  "GREEN - incident upload doc + list + download full flow",
+        "type":  "GREEN",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Incident da luu.",
+        "steps":  "1. Mo /incidents/:id\n2. Tab Tai lieu\n3. Upload PDF\n4. Verify list\n5. Download",
+        "expected":  "incidentId duoc dung. Doc lien ket voi incident. Get/Download dung. Scope check voi incident.",
+        "data_required":  [
+                              "incident.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-171",
+        "title":  "GREEN - upload report xuat bat dong bo khi co loi mot so file",
+        "type":  "GREEN",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "3 file: 2 hop le + 1 qua 10MB.",
+        "steps":  "Upload folder co 3 file (2 ok + 1 too large). Kiem tra ket qua.",
+        "expected":  "File ok (2): upload thanh cong, hien trong list. File fail (1): bao loi \u0027bao_cao_lon.pdf: File qua lon\u0027. Form van mo. List co 2 doc moi. Khong mat du lieu.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "files.mixed_valid_invalid"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-172",
+        "title":  "RED - upload file JFIF (JPEG variant) dat theo .png - magic byte mismatch",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "JFIF file doi ten .png.",
+        "steps":  "Upload JFIF dat ten .png.",
+        "expected":  "magic byte: image/jpeg != image/png → 400 reject. File cleanup.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.jfif_as_png"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-173",
+        "title":  "RED - upload PDF dat theo .xls - magic byte mismatch",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "PDF file, extension .xls.",
+        "steps":  "Upload PDF dat ten .xls.",
+        "expected":  "magic byte mismatch → 400 reject.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf_as_xls"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-174",
+        "title":  "RED - upload PNG dat theo .mp3 - magic byte mismatch",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "PNG file, extension .mp3.",
+        "steps":  "Upload PNG dat ten .mp3.",
+        "expected":  "400 reject.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.png_as_mp3"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-175",
+        "title":  "RED - upload .gif dat theo .docx - magic byte mismatch",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "GIF file, extension .docx.",
+        "steps":  "Upload GIF dat ten .docx.",
+        "expected":  "400 reject.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.gif_as_docx"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-176",
+        "title":  "RED - multer fileFilter: extension .exe bi reject truoc magic byte check",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "File EXE thuc su.",
+        "steps":  "Upload file .exe thuc su (correct magic bytes).",
+        "expected":  "multer fileFilter: extension .exe khong trong ALLOWED_MIME_TYPES → reject. 400. 0 file tren disk.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.exe.real"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-177",
+        "title":  "RED - upload file .rar (archive) - reject",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "File .rar hop le.",
+        "steps":  "Upload .rar file.",
+        "expected":  "application/x-rar-compressed khong trong ALLOWED_MIME_TYPES → 400.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.rar.valid"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-178",
+        "title":  "RED - upload file .bat (script) - reject",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "File .bat hop le.",
+        "steps":  "Upload .bat file.",
+        "expected":  "Reject. application/bat khong trong allowed list.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.bat.valid"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-179",
+        "title":  "RED - upload file .svg (SVG co the co JS) - reject",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "SVG file co embedded JS.",
+        "steps":  "Upload SVG file.",
+        "expected":  "image/svg+xml khong trong ALLOWED_MIME_TYPES → reject. Phong tranh SVG XSS.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.svg_xss"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-180",
+        "title":  "RED - JWT tampered (signature invalid) - 401",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "JWT co chu ky gia.",
+        "steps":  "POST /documents voi tampered JWT (doi payload + giu signature).",
+        "expected":  "JwtAuthGuard: verify fail → 401 Unauthorized.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid",
+                              "user.tampered_jwt"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-181",
+        "title":  "RED - JWT algorithm none attack - 401",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "JWT voi alg: none trong header.",
+        "steps":  "Upload voi JWT alg=none.",
+        "expected":  "JwtAuthGuard: reject alg=none. 401.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid",
+                              "user.jwt_alg_none"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-182",
+        "title":  "RED - upload nhieu file vuot gioi han: 11 file dong thoi trong folder - thu 11 nhan 429",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "Throttle 10/60s.",
+        "steps":  "Upload folder 11 files trong 60s.",
+        "expected":  "File 1-10: 201. File 11: 429. UI hien error cho file bi throttle.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "folder.11files"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-183",
+        "title":  "RED - form submit voi queue rong (JS bypass) - FE block",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Form mo, queue rong.",
+        "steps":  "Bypass FE validation: call submit handler truc tiep (console).",
+        "expected":  "FE check: queuedFiles.length === 0 → return early. POST khong duoc goi.",
+        "data_required":  [
+                              "petition.active.D30"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-184",
+        "title":  "RED - petitionId la SQL injection payload - 400 hoac 422",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "API call.",
+        "steps":  "POST /documents voi petitionId=\"\u0027; DROP TABLE petitions; --\".",
+        "expected":  "Prisma dung parameterized query. SQL injection khong co tac dong. 404 Not Found (petitionId khong hop le). Khong 500.",
+        "data_required":  [
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-185",
+        "title":  "RED - petitionId la cuid format sai - 400",
+        "type":  "RED",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "petitionId = \u0027not-a-cuid\u0027.",
+        "steps":  "POST /documents voi petitionId = \u0027not-a-cuid\u0027.",
+        "expected":  "DTO validate: IsCuid hoac IsString. 400. Hoac Prisma 404 (khong tim thay).",
+        "data_required":  [
+                              "file.pdf.valid"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-186",
+        "title":  "RED - caseId + incidentId + petitionId cung luc - 400",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "API voi 3 entityIds.",
+        "steps":  "POST voi caseId + incidentId + petitionId.",
+        "expected":  "400: chi duoc 1 entityId.",
+        "data_required":  [
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-187",
+        "title":  "RED - file name dat PathInfo attack: file.pdf/.php - BE sanitize",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "File co ten co dang path injection.",
+        "steps":  "Upload file co originalName = \u0027test.pdf/.php\u0027.",
+        "expected":  "path.basename sanitize: originalName luu as \u0027test.pdf_.php\u0027 hoac tuong tu. Khong execute .php. Server khong bi confused.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pathinfo_attack"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-188",
+        "title":  "RED - upload file blank title sau strip (all spaces) - FE reject",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Title = \u0027   \u0027 (chi khoang trang).",
+        "steps":  "Nhap title chi la spaces. Upload.",
+        "expected":  "FE: title.trim() === \u0027\u0027 → \u0027Vui long nhap tieu de\u0027. POST khong goi.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-189",
+        "title":  "RED - upload voi title only whitespace - BE reject",
+        "type":  "RED",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "API truc tiep voi title = \u0027   \u0027.",
+        "steps":  "POST voi title = \u0027   \u0027.",
+        "expected":  "DTO: @IsNotEmpty({each:true}) / @Matches trim. 400. Hoac FE da block truoc.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-190",
+        "title":  "RED - file null content (fake FormData khong co file binary) - 400",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "FormData co file field nhung empty.",
+        "steps":  "POST FormData co key \u0027file\u0027 nhung value = empty Blob.",
+        "expected":  "multer: file size = 0. BE reject voi thong bao loi.",
+        "data_required":  [
+                              "petition.active.D30"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-191",
+        "title":  "RED - download bi delete (doc.deletedAt != null) - 404",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "Doc da bi soft-delete.",
+        "steps":  "GET /documents/:id/download cho deleted doc.",
+        "expected":  "404. \u0027Tai lieu khong ton tai hoac da bi xoa.\u0027",
+        "data_required":  [
+                              "document.deleted.D30"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-192",
+        "title":  "RED - doc file vat ly bi xoa khoi disk - download 500 hoac 404",
+        "type":  "RED",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "DB co doc nhung file tren disk bi xoa ngoai he thong.",
+        "steps":  "GET /documents/:id/download khi file khong con tren disk.",
+        "expected":  "fs.existsSync fail. 404 hoac 500. Message: \u0027File khong ton tai tren server\u0027. Khong reveal duong dan.",
+        "data_required":  [
+                              "document.orphaned_db_record"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-193",
+        "title":  "RED - title co HTML tags - luu literal, khong render",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Title voi HTML tags.",
+        "steps":  "Title: \u0027\u003cb\u003eTest\u003c/b\u003e\u003cscript\u003ealert(1)\u003c/script\u003e\u0027. Upload. Xem list.",
+        "expected":  "Luu literal string. List hien \u0027\u003cb\u003eTest\u003c/b\u003e...\u0027 as text. React auto-escape innerHTML. Khong XSS.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-194",
+        "title":  "RED - mo ta co Markdown injection - luu literal",
+        "type":  "RED",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Mo ta voi Markdown.",
+        "steps":  "Mo ta: \u0027**bold** [link](javascript:alert(1))\u0027. Upload.",
+        "expected":  "Luu literal. Neu app render Markdown: link sanitized. Khong XSS via Markdown injection.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-195",
+        "title":  "RED - concurrent DELETE + GET cung 1 doc - khong 500",
+        "type":  "RED",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "2 request dong thoi.",
+        "steps":  "Dong thoi DELETE va GET /download cho cung 1 documentId.",
+        "expected":  "Soft delete: 1 trong 2 se gap race. Khong deadlock. Khong 500. DELETE ok → 200, GET ra sau → 404.",
+        "data_required":  [
+                              "document.active.D30"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-196",
+        "title":  "RED - file tren disk bi doi chu so huu (permission denied) - 500 + clean message",
+        "type":  "RED",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "uploads/documents/ khong co write permission.",
+        "steps":  "Upload khi thu muc khong co write permission.",
+        "expected":  "multer: EACCES error. 500 Internal Server Error. Message an toan: \u0027Loi he thong, vui long thu lai sau\u0027. Khong reveal duong dan he thong.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-197",
+        "title":  "RED - disk full khi upload - 500 + clean message",
+        "type":  "RED",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "Disk full (ENOSPC).",
+        "steps":  "Upload khi disk het dung luong.",
+        "expected":  "ENOSPC → 500. \u0027He thong tam thoi qua tai, vui long thu lai sau\u0027. Khong reveal du lieu he thong.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-198",
+        "title":  "RED - GET /documents theo entityId khong thuoc scope - empty (khong 403)",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "officer1, caseId cua team khac.",
+        "steps":  "GET /documents?caseId={case_of_team_b}",
+        "expected":  "Scope filter: tra ve [] (empty list), khong 403. \u0027Dung chau\u0027 behavior — hiding existence.",
+        "data_required":  [
+                              "case.other_team.D30",
+                              "user.officer1"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-199",
+        "title":  "RED - upload voi petitionId hop le + title hop le + sai MIME - 400",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "Moi thu hop le tru MIME.",
+        "steps":  "Upload file application/json (JSON content, .json extension).",
+        "expected":  "application/json khong trong ALLOWED_MIME_TYPES → 400. \u0027Dinh dang khong duoc phep.\u0027",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.json.invalid"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-200",
+        "title":  "RED - upload .csv file - reject (khong trong allowed list)",
+        "type":  "RED",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "CSV file hop le.",
+        "steps":  "Upload .csv file.",
+        "expected":  "text/csv khong trong ALLOWED_MIME_TYPES → 400.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.csv.valid"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-201",
+        "title":  "RED - upload .xml file - reject",
+        "type":  "RED",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "XML file hop le.",
+        "steps":  "Upload .xml file.",
+        "expected":  "application/xml reject → 400.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.xml.valid"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-202",
+        "title":  "RED - upload form voi duplicate title trong cung petition - duoc phep",
+        "type":  "RED",
+        "priority":  "P2",
+        "entity":  "DocumentsController",
+        "preconditions":  "Petition co doc \u0027Bao cao\u0027.",
+        "steps":  "Upload them 1 doc ten \u0027Bao cao\u0027 vao cung petition.",
+        "expected":  "BE KHONG block trung ten (chua co unique constraint tren title+petitionId). 201 Accept. 2 doc ten giong nhau.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-203",
+        "title":  "RED - ROLE VIEWER (read-only) upload doc - 403",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "User voi role VIEWER (read-only) chua co trong hien tai — test voi role thap nhat co quyen.",
+        "steps":  "Neu co VIEWER role: POST /documents.",
+        "expected":  "403 Forbidden. VIEWER khong co UPLOAD permission.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid",
+                              "user.viewer"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-204",
+        "title":  "RED - upload multi-file khi 1 file la 0 bytes - skip zero-byte, upload rest",
+        "type":  "RED",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Queue co 3 file: 2 hop le + 1 zero-byte.",
+        "steps":  "Upload 3 file trong queue co 1 file rong.",
+        "expected":  "FE: filter ra file 0 byte truoc khi upload. Hoac: file 0 byte goi BE → BE reject → partial success. 2 file thanh cong.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "files.mixed_zerob"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-205",
+        "title":  "RED - upload voi description co NUL byte - sanitize hoac reject",
+        "type":  "RED",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "Description chua NUL byte.",
+        "steps":  "POST /documents voi description co \\u0000.",
+        "expected":  "DTO sanitize NUL. Hoac reject 400. Khong luu NUL vao DB (PostgreSQL reject NUL in text).",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-206",
+        "title":  "RED - upload voi file la directory pretending to be file - BE reject",
+        "type":  "RED",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "Gia lap thu muc trong FormData.",
+        "steps":  "POST FormData voi file la empty, size=0, type=\u0027inode/directory\u0027.",
+        "expected":  "multer: reject. 400. Khong cho upload thu muc.",
+        "data_required":  [
+                              "petition.active.D30"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-207",
+        "title":  "RED - petition.status = DANG_XU_LY (active) vs DINH_CHI - upload van duoc phep",
+        "type":  "RED",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "Petition status = DINH_CHI (tam dinh chi).",
+        "steps":  "Upload doc vao petition co status = DINH_CHI.",
+        "expected":  "Tuy business rule: neu upload bi block khi petition DINH_CHI → 403. Neu khong block → 201. Phai co ro policy.",
+        "data_required":  [
+                              "petition.suspended.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-208",
+        "title":  "RED - concurrent upload + throttle: 10 user khac nhau co the upload cung luc",
+        "type":  "RED",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "Throttle la per-user.",
+        "steps":  "10 user khac nhau upload dong thoi (1 file/user).",
+        "expected":  "Tat ca 10 nhan 201. Throttle khong block user khac nhau. per-user rate limit.",
+        "data_required":  [
+                              "users.10_different",
+                              "file.pdf.valid",
+                              "petition.active.D30"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-209",
+        "title":  "RED - tai len tu incident scope khi caseId duoc dung - 403",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "Incident-scope officer thu dung caseId.",
+        "steps":  "Officer cua incident-team upload doc voi caseId thuoc case-team.",
+        "expected":  "assertParentInScope: 403 Forbidden.",
+        "data_required":  [
+                              "case.active.D30",
+                              "file.pdf.valid",
+                              "user.incident_officer"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-210",
+        "title":  "RED - GET /documents?limit=999 - gioi han toi da 100",
+        "type":  "RED",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "Petition co 200 docs.",
+        "steps":  "GET /documents?petitionId=:id\u0026limit=999.",
+        "expected":  "BE cap limit: max 100. Tra ve toi da 100 docs. Khong bi abuse (data dump).",
+        "data_required":  [
+                              "petition.active.D30.200docs",
+                              "user.officer1"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-211",
+        "title":  "RED - DELETE doc ma minhduoc xoa (admin) - khong xoa dc doc cua entity ngoai scope",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "admin2 thuoc team khac voi doc.",
+        "steps":  "admin2 DELETE /documents/:id (doc cua team A, admin2 o team B).",
+        "expected":  "Admin co the xoa moi doc: 200. Hoac scope check ap dung ca admin → 403. Phai ro business rule.",
+        "data_required":  [
+                              "document.team_a.D30",
+                              "user.admin2"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-212",
+        "title":  "RED - upload qua 3 file cung luc khi throttle con 3 slot - partial throttle",
+        "type":  "RED",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "Da dung 7/10 slot trong 60s.",
+        "steps":  "Upload 4 file mot luc. Chi co 3 slot con.",
+        "expected":  "File 1-3: 201 (dung het slot). File 4: 429. FE: hien ket qua hon hop (3 ok, 1 throttled).",
+        "data_required":  [
+                              "petition.active.D30",
+                              "files.4pack"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-213",
+        "title":  "RED - description voi newline characters - luu dung",
+        "type":  "RED",
+        "priority":  "P2",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Mo ta co newline.",
+        "steps":  "Mo ta = \u0027Dong 1\\nDong 2\u0027. Upload.",
+        "expected":  "Luu \\n literal. Hien thi: xuong dong trong UI hoac luu as is. Khong break JSON.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Low"
+    },
+    {
+        "tc_id":  "TC-214",
+        "title":  "RED - pagination: skip/limit param injection - BE sanitize",
+        "type":  "RED",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "API call.",
+        "steps":  "GET /documents?limit=-1\u0026skip=-100 hoac limit=\u0027all\u0027.",
+        "expected":  "BE validate: limit la positive integer, fallback to default 50 hoac 100. Khong query tat ca records.",
+        "data_required":  [
+                              "petition.active.D30"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-215",
+        "title":  "RED - upload va sau do xoa entity cha (petition) - doc van con hoac cascade",
+        "type":  "RED",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "Petition bi xoa sau khi da co doc.",
+        "steps":  "Xoa petition. Kiem tra doc lien ket.",
+        "expected":  "Cascade behavior: cascade delete hoac set petitionId=null. Khong orphan FK. DB constraint dung.",
+        "data_required":  [
+                              "petition.to_delete.D30",
+                              "document.linked.D30"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-216",
+        "title":  "RED - upload khi entityId = empty string - 400",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "API call.",
+        "steps":  "POST /documents voi petitionId=\u0027\u0027.",
+        "expected":  "DTO IsNotEmpty: 400. Empty string la invalid entityId.",
+        "data_required":  [
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-217",
+        "title":  "RED - download trong khi stream bi ngat - client giai quyen",
+        "type":  "RED",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "Download file 5MB+. Ngat mang giua chung.",
+        "steps":  "Bat dau download. Ngat connection.",
+        "expected":  "Stream cleanup: ECONNRESET duoc xu ly. No crash. No zombie stream. Server khong bi stuck.",
+        "data_required":  [
+                              "document.large.D30"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-218",
+        "title":  "RED - upload multi-part request bi cat dang dung (partial boundary) - BE xu ly",
+        "type":  "RED",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "Multipart request bi ket thuc dot ngot.",
+        "steps":  "POST voi multipart content bi cat truncated (Content-Length sai).",
+        "expected":  "multer: incomplete upload. 400 hoac 500 xay ra. File bi xoa. Khong luu file chua hoan chinh tren disk.",
+        "data_required":  [
+                              "petition.active.D30"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-219",
+        "title":  "RED - upload khi petition bi locked boi system (status = DANG_GIAI_QUYET) - 409",
+        "type":  "RED",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "Petition co trang thai locked.",
+        "steps":  "Upload vao petition locked.",
+        "expected":  "409 Conflict hoac 403 tuy business rule. Message: \u0027Don thu dang trong qua trinh xu ly, khong the tai them tai lieu.\u0027",
+        "data_required":  [
+                              "petition.locked.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-220",
+        "title":  "RED - upload response chua truong \u0027id\u0027 cua doc moi - verify response shape",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "Upload thanh cong.",
+        "steps":  "POST /documents. Kiem tra response body.",
+        "expected":  "201. Response: {id, title, fileName, mimeType, size, petitionId, createdAt}. Khong tra ve filePath (duong dan vat ly). Khong la RID.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-221",
+        "title":  "RED - title co emoji (Unicode supplementary) - accept",
+        "type":  "RED",
+        "priority":  "P2",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Title co emoji.",
+        "steps":  "Title = \u0027Bien ban 🔒 2026\u0027. Upload.",
+        "expected":  "Accept. Emoji luu dung (UTF-8MB4 trong DB). Hien thi dung.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Low"
+    },
+    {
+        "tc_id":  "TC-222",
+        "title":  "RED - upload voi Content-Length: 0 trong multipart - BE reject",
+        "type":  "RED",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "Content-Length = 0 truoc khi gui.",
+        "steps":  "POST voi Content-Length: 0 trong header.",
+        "expected":  "multer: empty body → 400.",
+        "data_required":  [
+                              "petition.active.D30"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-223",
+        "title":  "RED - fetchDocs fail (network) - hien error, khong empty list",
+        "type":  "RED",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "GET /documents tra ve network error.",
+        "steps":  "Simulate network error cho fetchDocs. Xem component.",
+        "expected":  "Error state: \u0027Khong tai duoc danh sach tai lieu.\u0027 Khong hien list rong nhu khong co doc.",
+        "data_required":  [
+                              "petition.active.D30"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-224",
+        "title":  "RED - fetchDocs 500 server error - hien error toast",
+        "type":  "RED",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "GET /documents tra ve 500.",
+        "steps":  "Simulate 500 cho fetchDocs.",
+        "expected":  "Component khong crash. Error message hien. Retry possible.",
+        "data_required":  [
+                              "petition.active.D30"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-225",
+        "title":  "RED - upload API tra ve 500 (BE crash) - FE error message khong leak stack",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "BE tra ve 500 voi stack trace.",
+        "steps":  "Upload. BE tra ve 500 JSON co stack trace.",
+        "expected":  "FE: chi hien message an toan. KHONG hien stack trace. extractApiError lay message an toan.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-226",
+        "title":  "RED - caseId khong co dau quotes (UUID v4 format gia) - 404",
+        "type":  "RED",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "caseId la UUID v4.",
+        "steps":  "POST voi caseId = \u0027f47ac10b-58cc-4372-a567-0e02b2c3d479\u0027 (UUID v4).",
+        "expected":  "Prisma: UUID khong la cuid → Prisma convert → 404 Not Found. Khong 500.",
+        "data_required":  [
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-227",
+        "title":  "RED - upload theo batch: 1 file fail magic check, rest thanh cong",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Queue: [pdf.valid, exe_as_pdf, jpg.valid].",
+        "steps":  "Upload 3 file. File thu 2 la EXE.",
+        "expected":  "File 1: 201. File 2: 400 (magic mismatch). File 3: 201. error \u0027exe_as_pdf.pdf: Dinh dang file khong hop le.\u0027 Form dong (2/3 thanh cong).",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid",
+                              "file.exe_as_pdf",
+                              "file.jpg.valid"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-228",
+        "title":  "RED - tai len khi khong co quyen (da dang xuat giua chung) - FE redirect login",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "User dang xuat trong khi form upload dang mo.",
+        "steps":  "Mo form. Dang xuat o tab khac. Nhan Tai len.",
+        "expected":  "FE nhan 401. Redirect /login. Form khong crash. User duoc bao.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-229",
+        "title":  "RED - description \u003e 2000 ky tu - BE reject",
+        "type":  "RED",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "API call voi description = 2001 ky tu.",
+        "steps":  "POST voi description = 2001 chars.",
+        "expected":  "DTO MaxLength(2000) hoac tuong duong → 400.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-230",
+        "title":  "RED - upload file truoc khi nhap title: FE validate order",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Form mo. File duoc chon truoc title.",
+        "steps":  "Chon file trong queue. Khong nhap title. Nhan Tai len.",
+        "expected":  "FE validate: title la bat buoc, kiem tra truoc khi upload. Error: \u0027Vui long nhap tieu de tai lieu.\u0027",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-231",
+        "title":  "RED - upload queue voi file trung lam (dedup) - chi upload 1 lan",
+        "type":  "RED",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "2 file cung name+size trong queue sau khi dedup.",
+        "steps":  "Add cung file 2 lan (2 file objects khac nhau nhung same name+size).",
+        "expected":  "handleFilesChange dedup by name+size. Queue chi co 1 copy. POST chi goi 1 lan.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "files.duplicate_same_file"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-232",
+        "title":  "RED - FE: button type submit trong form upload - khong ton tai",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Inspect DOM.",
+        "steps":  "Render EntityDocumentsTab. Kiem tra tat ca button types.",
+        "expected":  "KHONG co button type=submit. Tat ca la type=button. Dac biet \u0027Tai len\u0027 submit button co type=button de prevent outer form submit.",
+        "data_required":  [
+                              "petition.active.D30"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-233",
+        "title":  "BOUNDARY - 2 files queue: upload → 2 titles (title, title (2))",
+        "type":  "BOUNDARY",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Queue 2 files, title=\u0027Bien ban\u0027.",
+        "steps":  "Upload.",
+        "expected":  "File 1: title=\u0027Bien ban\u0027. File 2: title=\u0027Bien ban (2)\u0027. Ca 2 tao thanh cong.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "files.2pack"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-234",
+        "title":  "BOUNDARY - 10 files queue: titles (1)..(10)",
+        "type":  "BOUNDARY",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Queue 10 files.",
+        "steps":  "Upload.",
+        "expected":  "File 1: \u0027X\u0027. Files 2-10: \u0027X (2)\u0027..\u0027X (10)\u0027. 10 POST calls. De-indexed chuyen dong de.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "files.10pack"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-235",
+        "title":  "BOUNDARY - 1 file queue: title khong co index",
+        "type":  "BOUNDARY",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Queue 1 file.",
+        "steps":  "Upload.",
+        "expected":  "title = \u0027Bien ban\u0027 (khong co \u0027(1)\u0027). Khi filesToUpload.length===1, dung title thuong.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-236",
+        "title":  "BOUNDARY - file size exactly 1 byte - accept",
+        "type":  "BOUNDARY",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "File 1 byte.",
+        "steps":  "Upload 1-byte file.",
+        "expected":  "Accept. 201.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.1byte"
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-237",
+        "title":  "BOUNDARY - file size 10485759 bytes (10MB - 1) - accept",
+        "type":  "BOUNDARY",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "File 10MB-1 byte.",
+        "steps":  "Upload.",
+        "expected":  "Accept. 201.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.10mb_minus1"
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-238",
+        "title":  "BOUNDARY - description exactly 0 chars (empty string) - accept (optional field)",
+        "type":  "BOUNDARY",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Mo ta de trong.",
+        "steps":  "Upload voi description=\u0027\u0027.",
+        "expected":  "Accept. description=null/empty. 201.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-239",
+        "title":  "BOUNDARY - description exactly 2000 chars - accept",
+        "type":  "BOUNDARY",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "description = 2000 ky tu.",
+        "steps":  "API upload.",
+        "expected":  "Accept. 201.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-240",
+        "title":  "BOUNDARY - description exactly 2001 chars - reject",
+        "type":  "BOUNDARY",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "description = 2001 ky tu.",
+        "steps":  "API upload.",
+        "expected":  "400 MaxLength(2000).",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-241",
+        "title":  "BOUNDARY - title exactly 1 char - accept",
+        "type":  "BOUNDARY",
+        "priority":  "P2",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Title = 1 char.",
+        "steps":  "Upload voi title=\u0027A\u0027.",
+        "expected":  "Accept.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Low"
+    },
+    {
+        "tc_id":  "TC-242",
+        "title":  "BOUNDARY - 100 file trong folder - upload 100 files sequentially",
+        "type":  "BOUNDARY",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Folder 100 files nho (1KB/file).",
+        "steps":  "Chon folder 100 files. Xem queue. Upload.",
+        "expected":  "Queue hien 100 files. Upload bat dau. Throttle: 10 files dau ok, tu file 11 cung gio → 429. Form hien error cho batch tiep theo.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "folder.100files"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-243",
+        "title":  "EP - filename co khoang trang - accept",
+        "type":  "EP",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "File co ten \u0027bao cao chinh.pdf\u0027.",
+        "steps":  "Upload file co ten chua khoang trang.",
+        "expected":  "Accept. originalName = \u0027bao cao chinh.pdf\u0027. Download filename encoded dung (RFC 5987).",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.space_name"
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-244",
+        "title":  "EP - filename chi co Unicode - accept",
+        "type":  "EP",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "File ten \u0027解决方案.pdf\u0027.",
+        "steps":  "Upload.",
+        "expected":  "Accept. originalName luu dung UTF-8. Download dung.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.unicode_name"
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-245",
+        "title":  "EP - filename dot-file (.gitignore style) - accept",
+        "type":  "EP",
+        "priority":  "P2",
+        "entity":  "DocumentsController",
+        "preconditions":  "File ten \u0027.pdf\u0027 (chi co extension).",
+        "steps":  "Upload.",
+        "expected":  "Accept hoac reject tuy policy. Khong crash.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.dotfile"
+                          ],
+        "severity":  "Low"
+    },
+    {
+        "tc_id":  "TC-246",
+        "title":  "EP - filename double extension: report.docx.pdf - accept",
+        "type":  "EP",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "File ten double extension.",
+        "steps":  "Upload \u0027report.docx.pdf\u0027 voi content PDF.",
+        "expected":  "Accept. magic byte match PDF. originalName = \u0027report.docx.pdf\u0027. Khong bi confused.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.double_ext"
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-247",
+        "title":  "EP - documentType = KHAC - accept",
+        "type":  "EP",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "Type = KHAC.",
+        "steps":  "Upload voi documentType=\u0027KHAC\u0027.",
+        "expected":  "Accept. 201. KHAC la valid DocumentType enum.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-248",
+        "title":  "EP - documentType = VIDEO voi file MP4 - accept",
+        "type":  "EP",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "Type = VIDEO, file MP4.",
+        "steps":  "Upload.",
+        "expected":  "Accept. 201. documentType=\u0027VIDEO\u0027.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.mp4.valid"
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-249",
+        "title":  "EP - 3 entity kinds (case/incident/petition) × all doctypes = 15 combos",
+        "type":  "EP",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "Moi entity kind + 5 doc types.",
+        "steps":  "Upload doc cho case/incident/petition × VAN_BAN/HINH_ANH/VIDEO/AM_THANH/KHAC.",
+        "expected":  "Tat ca 15 combo: 201. Scope check dung cho tung entity kind.",
+        "data_required":  [
+                              "case.active.D30",
+                              "incident.active.D30",
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-250",
+        "title":  "EP - upload PDF sau khi xoa PDF truoc (reuse ten) - accept, new doc",
+        "type":  "EP",
+        "priority":  "P2",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "PDF cu da xoa.",
+        "steps":  "Upload PDF moi cung ten voi PDF cu.",
+        "expected":  "Tao doc moi. File tren disk co ten khac (timestamp random). Khong conflict.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Low"
+    },
+    {
+        "tc_id":  "TC-251",
+        "title":  "EP - folder rong (0 file) - queue empty, khong upload",
+        "type":  "EP",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Folder rong.",
+        "steps":  "Chon folder rong.",
+        "expected":  "files.length === 0. Queue empty. Khong hien loi. Khong upload.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "folder.empty"
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-252",
+        "title":  "EP - folder chi co hidden files (.DS_Store, Thumbs.db) - queue empty hoac filter",
+        "type":  "EP",
+        "priority":  "P2",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Folder chi co OS hidden files.",
+        "steps":  "Chon folder.",
+        "expected":  "FE filter: tat ca hidden files bi bo qua (hoac accept nhung BE reject mime). Queue rong hoac 0 hop le.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "folder.hidden_only"
+                          ],
+        "severity":  "Low"
+    },
+    {
+        "tc_id":  "TC-253",
+        "title":  "A11Y - \u0027Chon thu muc\u0027 button co role button + aria-label",
+        "type":  "A11Y",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Form mo.",
+        "steps":  "Inspect \u0027Chon thu muc\u0027 button.",
+        "expected":  "role=button. aria-label=\u0027Chon thu muc\u0027. Screen reader doc dung.",
+        "data_required":  [
+                              "petition.active.D30"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-254",
+        "title":  "A11Y - progress text thong bao bang aria-live khi upload 3 files",
+        "type":  "A11Y",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Upload 3 files.",
+        "steps":  "Monitor aria-live regions.",
+        "expected":  "\u0027Dang tai len 1/3...\u0027 → \u00272/3\u0027 → \u00273/3\u0027 → \u0027Hoan thanh\u0027. Moi update co aria-live=\u0027polite\u0027. Screen reader thong bao tung buoc.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "files.3pack"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-255",
+        "title":  "A11Y - upload error co role=alert (screen reader doc ngay)",
+        "type":  "A11Y",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Upload fail.",
+        "steps":  "Trigger upload error. Kiem tra DOM.",
+        "expected":  "Error div co role=alert hoac aria-live=\u0027assertive\u0027. Screen reader doc error ngay, khong cho user click.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.exe.invalid"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-256",
+        "title":  "A11Y - title input co autocomplete=off (khong tu dong dien data nhay cam)",
+        "type":  "A11Y",
+        "priority":  "P2",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Form mo.",
+        "steps":  "Inspect title input.",
+        "expected":  "autocomplete=\u0027off\u0027 tren title input de phong browser tu dong dien thong tin nhay cam.",
+        "data_required":  [
+                              "petition.active.D30"
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-257",
+        "title":  "A11Y - form upload co tieu de (heading hoac aria-label)",
+        "type":  "A11Y",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Form mo.",
+        "steps":  "Inspect heading structure.",
+        "expected":  "Form upload co heading \u0027Tai len tai lieu\u0027 voi muc heading phu hop (h3/h4 hoac aria-label tren fieldset). Screen reader navigate duoc.",
+        "data_required":  [
+                              "petition.active.D30"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-258",
+        "title":  "A11Y - queue list item co nut xoa voi ten file trong accessible name",
+        "type":  "A11Y",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "1 file trong queue.",
+        "steps":  "Inspect X button voi screen reader.",
+        "expected":  "Nut X: aria-label=\u0027Xoa {filename}\u0027. Khong chi la \u0027X\u0027. Screen reader: \u0027Xoa bao_cao.pdf, button\u0027.",
+        "data_required":  [
+                              "petition.active.D30"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-259",
+        "title":  "A11Y - skip link hoac focus management sau upload thanh cong",
+        "type":  "A11Y",
+        "priority":  "P2",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Upload thanh cong.",
+        "steps":  "Sau upload, kiem tra focus.",
+        "expected":  "Focus chuyen den success message hoac dau list tai lieu. Screen reader thong bao \u0027Upload thanh cong. X files duoc tai len.\u0027",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-260",
+        "title":  "COMPAT - tablet (iPad 10, iOS 16) landscape mode",
+        "type":  "COMPAT",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "iPad 10 landscape.",
+        "steps":  "Mo form upload tren tablet.",
+        "expected":  "Form hien dung trong 1024px viewport. Khong overlap. Upload hoat dong.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-261",
+        "title":  "COMPAT - Chrome 100 (older version support)",
+        "type":  "COMPAT",
+        "priority":  "P2",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Chrome 100 tren Windows 10.",
+        "steps":  "Upload PDF.",
+        "expected":  "Hoat dong. webkitdirectory ho tro tu Chrome 21.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-262",
+        "title":  "COMPAT - Windows 10 (different from Win 11): UI tuong thich",
+        "type":  "COMPAT",
+        "priority":  "P2",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Windows 10 + Chrome latest.",
+        "steps":  "Upload flow.",
+        "expected":  "Khong co OS-specific rendering issue.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Low"
+    },
+    {
+        "tc_id":  "TC-263",
+        "title":  "COMPAT - Vietnamese IME input cho title (VNI/Telex)",
+        "type":  "COMPAT",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "VNI/Telex keyboard input.",
+        "steps":  "Nhap tieu de tieng Viet bang IME.",
+        "expected":  "Unicode tieng Viet go dung. Khong bi mat ky tu khi dung IME. onChange xu ly dung.",
+        "data_required":  [
+                              "petition.active.D30"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-264",
+        "title":  "COMPAT - clipboard paste vao title (Ctrl+V)",
+        "type":  "COMPAT",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Clipboard co text.",
+        "steps":  "Paste text vao title input.",
+        "expected":  "Text duoc paste dung. onChange goi. Ky tu Unicode giu nguyen.",
+        "data_required":  [
+                              "petition.active.D30"
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-265",
+        "title":  "COMPAT - print preview khong lam an form upload",
+        "type":  "COMPAT",
+        "priority":  "P2",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Trang co EntityDocumentsTab.",
+        "steps":  "Ctrl+P.",
+        "expected":  "Print CSS: form upload bi an (display:none hoac @media print). Chi hien danh sach docs.",
+        "data_required":  [
+                              "petition.active.D30"
+                          ],
+        "severity":  "Low"
+    },
+    {
+        "tc_id":  "TC-266",
+        "title":  "COMPAT - drag-and-drop file vao form (neu ho tro)",
+        "type":  "COMPAT",
+        "priority":  "P2",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Drag PDF vao form area.",
+        "steps":  "Keo file vao section Tai lieu.",
+        "expected":  "Neu ho tro: file duoc them vao queue. Neu khong: khong crash, khong bat ky hanh dong gi. onDrop handler.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Low"
+    },
+    {
+        "tc_id":  "TC-267",
+        "title":  "PERF - GET /documents tai ba entity cung luc \u003c 2s moi request",
+        "type":  "PERFORMANCE",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "3 entities cung co docs.",
+        "steps":  "Dong thoi fetch docs cho 3 entities khac nhau.",
+        "expected":  "Moi GET /documents \u003c 2s. Total concurrent 3 requests OK.",
+        "data_required":  [
+                              "case.active.D30",
+                              "incident.active.D30",
+                              "petition.active.D30"
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-268",
+        "title":  "PERF - EntityDocumentsTab render \u003c 500ms voi 100 docs",
+        "type":  "PERFORMANCE",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Petition co 100 docs.",
+        "steps":  "Render component. Do thoi gian.",
+        "expected":  "Component render hoan thanh \u003c 500ms. Khong lag.",
+        "data_required":  [
+                              "petition.active.D30.100docs"
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-269",
+        "title":  "PERF - upload 3 file trong 60s: 3 POST \u003c 5s tong cong",
+        "type":  "PERFORMANCE",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "3 file nho (5KB moi).",
+        "steps":  "Upload 3 file. Do tong thoi gian.",
+        "expected":  "3 POST sequential \u003c 5s total (moi \u003c2s). UI phan hoi.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "files.3small"
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-270",
+        "title":  "SECURITY - file scanning: upload eicar test string (vi-rus test) - detect va reject",
+        "type":  "SECURITY",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "AV scan neu co.",
+        "steps":  "Upload EICAR test file (X5O!P...$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*).",
+        "expected":  "Neu co AV scan: reject. Neu khong co AV: accept (text/plain bypass). NOTE: nen implement AV scan cho prod.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.eicar"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-271",
+        "title":  "SECURITY - Content-Security-Policy header trong response",
+        "type":  "SECURITY",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "Download request.",
+        "steps":  "GET /documents/:id/download. Kiem tra headers.",
+        "expected":  "Response co Content-Security-Policy header. Khong cho iframe embed unauthorized. download response an toan.",
+        "data_required":  [
+                              "document.active.D30"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-272",
+        "title":  "SECURITY - upload doc chi de test SSRF via filename URL",
+        "type":  "SECURITY",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "originalName la URL.",
+        "steps":  "Upload voi originalName = \u0027http://169.254.169.254/latest/meta-data\u0027.",
+        "expected":  "Filename duoc luu as literal string. Khong fetch URL. Khong SSRF.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.ssrf_name"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-273",
+        "title":  "SECURITY - rate limit: 10 failed upload attempts tu 1 IP - block IP sau nguong",
+        "type":  "SECURITY",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "10+ failed attempts tu 1 IP.",
+        "steps":  "Gui 15 request fail lien tiep.",
+        "expected":  "Throttle hoac IP-based rate limit. 429 sau 10 attempts. Log ghi nhan suspicious activity.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.exe.invalid"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-274",
+        "title":  "SECURITY - response khong lo Content-Type trong error 400",
+        "type":  "SECURITY",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "Upload fail.",
+        "steps":  "Upload file invalid. Kiem tra error response.",
+        "expected":  "Content-Type: application/json. Khong text/html (phong XSS trong error response). Khong stack trace.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.exe.invalid"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-275",
+        "title":  "SECURITY - audit trail: failed upload attempt duoc ghi nhan",
+        "type":  "SECURITY",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "Upload bi reject.",
+        "steps":  "Upload file invalid. Kiem tra audit log.",
+        "expected":  "Audit log: DOCUMENT_UPLOAD_FAILED, userId, ip, fileName, reason. Tro cuu bao mat.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.exe.invalid"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-276",
+        "title":  "SECURITY - Referrer-Policy header trong download response",
+        "type":  "SECURITY",
+        "priority":  "P2",
+        "entity":  "DocumentsController",
+        "preconditions":  "Download request.",
+        "steps":  "Kiem tra Referrer-Policy header.",
+        "expected":  "Referrer-Policy: no-referrer hoac strict-origin. Khong lo URL noi bo qua Referer header.",
+        "data_required":  [
+                              "document.active.D30"
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-277",
+        "title":  "SECURITY - X-Content-Type-Options: nosniff tren response",
+        "type":  "SECURITY",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "Bat ky response.",
+        "steps":  "Kiem tra X-Content-Type-Options header.",
+        "expected":  "X-Content-Type-Options: nosniff. Browser khong MIME-sniff content-type.",
+        "data_required":  [
+                              "document.active.D30"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-278",
+        "title":  "SECURITY - zip bomb detection: file nen 1KB expand den 10GB",
+        "type":  "SECURITY",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "Zip bomb file (neu MIME cho phep zip).",
+        "steps":  "Upload file .zip trong ALLOWED list (hoac .docx co zip bomb ben trong).",
+        "expected":  "Neu .zip khong trong allowed: reject. Neu .docx: unzip check dung; size limit prevent extraction. Khong OOM.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.zipbomb"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-279",
+        "title":  "SECURITY - Clickjacking prevention: X-Frame-Options header",
+        "type":  "SECURITY",
+        "priority":  "P2",
+        "entity":  "DocumentsController",
+        "preconditions":  "Bat ky API response.",
+        "steps":  "Kiem tra X-Frame-Options hoac CSP frame-ancestors.",
+        "expected":  "X-Frame-Options: DENY hoac CSP frame-ancestors: \u0027none\u0027. Phong clickjacking.",
+        "data_required":  [
+
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-280",
+        "title":  "SECURITY - download file: Content-Type phai match file content",
+        "type":  "SECURITY",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "PDF upload.",
+        "steps":  "Download PDF. Kiem tra Content-Type.",
+        "expected":  "Content-Type: application/pdf (match original MIME). Khong bao gio tra Content-Type: text/html cho binary file.",
+        "data_required":  [
+                              "document.active.D30"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-281",
+        "title":  "RED - upload khi DB transaction timeout - 500 + file cleanup",
+        "type":  "RED",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "DB transaction timeout.",
+        "steps":  "POST voi DB query lag \u003e 30s.",
+        "expected":  "Transaction timeout → 500. file bi cleanup. Khong partial state.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-282",
+        "title":  "RED - upload FormData co extra fields (unknown props) - ignore them",
+        "type":  "RED",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "FormData co truong khong biet.",
+        "steps":  "POST voi fields la: \u0027maliciousField=true\u0027.",
+        "expected":  "BE ignore unknown fields (DTO validation). 201 Accept. Khong luu extra fields vao DB.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-283",
+        "title":  "RED - upload qua API voi Content-Type sai (application/json) - 400",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "Request Content-Type: application/json.",
+        "steps":  "POST /documents voi Content-Type: application/json.",
+        "expected":  "multer: multipart/form-data la bat buoc. 400 hoac 415 Unsupported Media Type.",
+        "data_required":  [
+                              "petition.active.D30"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-284",
+        "title":  "RED - upload voi petitionId la ObjectID format (Mongo) - 400 hoac 404",
+        "type":  "RED",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "petitionId = \u0027507f1f77bcf86cd799439011\u0027 (MongoDB ObjectId format).",
+        "steps":  "POST.",
+        "expected":  "400 hoac 404. Khong 500. Prisma xac thuc ID format.",
+        "data_required":  [
+                              "file.pdf.valid"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-285",
+        "title":  "RED - upload chua co internet connection (offline) - FE error",
+        "type":  "RED",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Browser offline.",
+        "steps":  "Tat mang. Upload.",
+        "expected":  "FE: network error. Error message: \u0027Loi ket noi. Kiem tra mang va thu lai.\u0027 Khong crash.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-286",
+        "title":  "RED - download tren HTTPS nhung cert khong hop le - browser warn",
+        "type":  "RED",
+        "priority":  "P2",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Self-signed cert.",
+        "steps":  "Download tren HTTPS voi cert issue.",
+        "expected":  "Browser hien warning. Khong auto-download. User phai confirm.",
+        "data_required":  [
+                              "document.active.D30"
+                          ],
+        "severity":  "Low"
+    },
+    {
+        "tc_id":  "TC-287",
+        "title":  "RED - upload chay khi trang dang navigate away - huy upload",
+        "type":  "RED",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Upload dang chay. Navigate sang trang khac.",
+        "steps":  "Upload file 5MB. Navigate di ngay.",
+        "expected":  "Upload bi huy (AbortController hoac FE unmount cleanup). Khong zombie request. Neu file da len server: cleanup hoac tao doc bi dat flag.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.5mb"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-288",
+        "title":  "RED - upload 3 files, ca 3 fail - form van mo, loi hien ro",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "BE luon tra ve 500.",
+        "steps":  "Upload 3 files, ca 3 fail.",
+        "expected":  "failed.length === filesToUpload.length → form khong dong. Error: \u0027[file1]: loi. [file2]: loi. [file3]: loi.\u0027 Van hien.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "files.3pack"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-289",
+        "title":  "RED - upload voi session bi revoke (server-side logout) - 401",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "Admin revoke session cua user.",
+        "steps":  "Upload voi revoked JWT.",
+        "expected":  "401. Nhu session expire. Redirect login.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid",
+                              "user.revoked_session"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-290",
+        "title":  "RED - file input \u0027accept\u0027 attribute bi bo qua boi user (bypass FE filter) - BE nhan",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "User bo qua accept attr.",
+        "steps":  "HTML injection / DevTools xoa accept attr → chon .exe → submit.",
+        "expected":  "BE la tuyen bao ve cuoi cung. Magic byte check reject .exe. 400.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.exe.real"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-291",
+        "title":  "RED - tam dinh chi upload: ngan hang upload khi BE maintenance mode",
+        "type":  "RED",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "Maintenance mode flag.",
+        "steps":  "Upload khi maintenance flag = true.",
+        "expected":  "503 Service Unavailable. Message: \u0027He thong dang bao tri, vui long thu lai sau.\u0027 Form hien loi.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-292",
+        "title":  "RED - upload doc co file path chua null bytes (path injection) - BE reject",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "filePath voi null byte.",
+        "steps":  "POST voi filePath=\u0027../../etc%00.pdf\u0027 (null byte).",
+        "expected":  "BE: path.basename + strip null bytes. Reject hoac sanitize. Khong path injection.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-293",
+        "title":  "RED - incident-type officer upload voi petitionId - 403",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "Officer chi co quyen incident scope.",
+        "steps":  "Upload voi petitionId cua petition ngoai scope.",
+        "expected":  "assertPetitionParentInScope: 403.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid",
+                              "user.incident_officer"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-294",
+        "title":  "RED - download voi Range header (partial content) - 200 hoac 206",
+        "type":  "RED",
+        "priority":  "P2",
+        "entity":  "DocumentsController",
+        "preconditions":  "Download request voi Range header.",
+        "steps":  "GET /documents/:id/download voi Range: bytes=0-1023.",
+        "expected":  "206 Partial Content hoac 200 Full. Khong 416. Stream van dung. FE xu ly both.",
+        "data_required":  [
+                              "document.active.D30"
+                          ],
+        "severity":  "Low"
+    },
+    {
+        "tc_id":  "TC-295",
+        "title":  "RED - upload tren HTTPS (production) - file va request an toan",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "Production HTTPS.",
+        "steps":  "Upload PDF tren HTTPS.",
+        "expected":  "TLS encryption. No mixed content. HSTS header. Request an toan tren dang truyen.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-296",
+        "title":  "RED - FE upload form: sau thanh cong, title va docType reset",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Upload thanh cong.",
+        "steps":  "Upload PDF. Xem state sau khi form dong.",
+        "expected":  "title=\u0027\u0027, docType=\u0027VAN_BAN\u0027, description=\u0027\u0027, queue=[]. Mo lai form: form sach.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-297",
+        "title":  "RED - folder upload: hidden OS files (.DS_Store) duoc filter hoac rejected",
+        "type":  "RED",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Folder co .DS_Store.",
+        "steps":  "Chon folder tren macOS.",
+        "expected":  "FE: filter file bat dau bang \u0027.\u0027. Hoac BE reject mime. .DS_Store khong duoc luu.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "folder.with_dsstore"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-298",
+        "title":  "RED - nhan Tai len 2 lan nhanh (double click) - khong double-upload",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Form hop le.",
+        "steps":  "Double-click Tai len.",
+        "expected":  "Button disabled ngay sau click dau. Chi 1 POST duoc gui. Khong co 2 doc trung nhau.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-299",
+        "title":  "RED - fetch docs sau upload fail - list van hien docs cu",
+        "type":  "RED",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Upload fail.",
+        "steps":  "Upload that bai. Xem danh sach docs.",
+        "expected":  "fetchDocs() KHONG duoc goi khi tat ca file fail. List hien docs cu (truoc khi fail). Khong load lai.",
+        "data_required":  [
+                              "petition.active.D30"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-300",
+        "title":  "RED - upload voi Accept-Language header la la - server xu ly binh thuong",
+        "type":  "RED",
+        "priority":  "P2",
+        "entity":  "DocumentsController",
+        "preconditions":  "Request voi Accept-Language: xx-XX (khong ton tai).",
+        "steps":  "POST voi Accept-Language: zz-ZZ.",
+        "expected":  "Server ignore Accept-Language. Response binh thuong (201/400 tuy noi dung). Khong 500.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Low"
+    },
+    {
+        "tc_id":  "TC-301",
+        "title":  "RED - upload khi session cookie bi stolen va dung tu IP khac - 401",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "Session cookie stolen.",
+        "steps":  "Upload voi stolen session tu IP khac.",
+        "expected":  "Server detect IP mismatch hoac cookie invalid. 401. Log suspicious.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid",
+                              "user.stolen_session"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-302",
+        "title":  "RED - download voi forged token (another user ID but valid sig) - 403",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "Token hop le nhung userId la nguoi khac.",
+        "steps":  "Download /documents/:id voi JWT cua user A nhung id cua doc cua user B.",
+        "expected":  "Scope check: user A khong co quyen. 403.",
+        "data_required":  [
+                              "document.other_user.D30",
+                              "user.officer1"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-303",
+        "title":  "RED - upload voi incidentId la cuid hợp le nhung incident thuoc team khac - 403",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "Incident cua team B.",
+        "steps":  "officer (team A) upload voi incidentId cua team B.",
+        "expected":  "assertParentInScope: 403.",
+        "data_required":  [
+                              "incident.other_team.D30",
+                              "file.pdf.valid",
+                              "user.officer_team_a"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-304",
+        "title":  "RED - multipart boundary attack: boundary string la XSS payload",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "Multipart voi boundary co XSS.",
+        "steps":  "POST voi Content-Type: multipart/form-data; boundary=\u003cscript\u003ealert(1)\u003c/script\u003e.",
+        "expected":  "multer/Express parse boundary literal. Khong execute. Log ghi nhan. 200/400 tuy content.",
+        "data_required":  [
+                              "petition.active.D30"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-305",
+        "title":  "RED - upload PNG corrupt (broken header) - magic byte fail hoac multer reject",
+        "type":  "RED",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "PNG voi header bi corrupt.",
+        "steps":  "Upload corrupt PNG.",
+        "expected":  "file-type: unknown hoac corrupt → reject 400. Hoac multer accept nhung magic check fail.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.png.corrupt"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-306",
+        "title":  "RED - upload DOCX voi OLE exploit (malformed XML) - accept nhung khong execute",
+        "type":  "RED",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "DOCX voi malformed XML.",
+        "steps":  "Upload DOCX voi malformed XML.",
+        "expected":  "Accept (magic byte ok). Khong execute. Server khong parse noi dung. Luu as binary blob.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.docx.malformed"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-307",
+        "title":  "RED - upload voi X-Forwarded-For spoofed IP - throttle by real IP",
+        "type":  "RED",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "Request voi X-Forwarded-For: 1.1.1.1.",
+        "steps":  "POST voi X-Forwarded-For: 1.1.1.1 tu IP thuc 10.0.0.1.",
+        "expected":  "Throttle dung IP thuc (sau proxy). X-Forwarded-For khong bypass throttle. NestJS ThrottlerGuard lay IP dung.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-308",
+        "title":  "RED - upload voi Content-Disposition attachment trong multipart - ignore",
+        "type":  "RED",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "Multipart part co Content-Disposition attack.",
+        "steps":  "Gui multipart voi Content-Disposition: attachment; filename=\u0027../../../etc/passwd\u0027.",
+        "expected":  "multer lay filename an toan. path.basename strip ../. originalName = \u0027passwd\u0027. Khong path traversal.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-309",
+        "title":  "RED - upload khi disk space co 1 byte con (edge disk capacity) - fail gracefully",
+        "type":  "RED",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "Disk chi con 1 byte.",
+        "steps":  "Upload file 1KB.",
+        "expected":  "ENOSPC. 500. Message an toan. file khong duoc tao. Cleanup bat ky temp file.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-310",
+        "title":  "RED - download bi revoke giua chung stream - stream closed cleanly",
+        "type":  "RED",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "Download dang stream.",
+        "steps":  "Admin revoke access giua chung download.",
+        "expected":  "Stream bi cat. 403 hoac partial 206. Khong server crash. Resource cleanup.",
+        "data_required":  [
+                              "document.active.D30"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-311",
+        "title":  "RED - tai len khi petition co flag \u0027archived\u0027 - 403 hoac 409",
+        "type":  "RED",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "Petition da duoc archive.",
+        "steps":  "Upload vao petition archived.",
+        "expected":  "403 Forbidden hoac 409 Conflict. \u0027Don thu da bi luu tru, khong the tai them tai lieu.\u0027",
+        "data_required":  [
+                              "petition.archived.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-312",
+        "title":  "RED - FE: chon file \u003e 10MB - hien error truoc khi upload (client-side check)",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "File \u003e 10MB tren client.",
+        "steps":  "Chon file 15MB. Xem queue.",
+        "expected":  "FE kiem tra file.size \u003e 10MB → hien error trong queue: \u0027bao_cao.pdf: File qua lon (toi da 10MB)\u0027. KHONG post to server.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.15mb"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-313",
+        "title":  "RED - multiple errors: 2 files fail voi 2 errors khac nhau",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "2 files: 1 too large + 1 invalid mime.",
+        "steps":  "Upload 2 files: too-large.pdf + exe.pdf.",
+        "expected":  "failed = [\u0027too-large.pdf: File qua lon\u0027, \u0027exe.pdf: Dinh dang khong hop le\u0027]. Ca 2 fail → error hien ro cac file va ly do. Form van mo.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.15mb",
+                              "file.exe_as_pdf"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-314",
+        "title":  "RED - upload khi BE tra ve 503 (service unavailable) - FE retry suggestion",
+        "type":  "RED",
+        "priority":  "P1",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "BE tra ve 503.",
+        "steps":  "Upload. BE 503.",
+        "expected":  "FE error: \u0027Dich vu tam thoi khong kha dung. Vui long thu lai sau.\u0027 Form giu nguyen.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "High"
+    },
+    {
+        "tc_id":  "TC-315",
+        "title":  "RED - FE: reset file input refs sau cancel (stale ref fix)",
+        "type":  "RED",
+        "priority":  "P0",
+        "entity":  "EntityDocumentsTab",
+        "preconditions":  "Cancel sau khi chon file.",
+        "steps":  "1. Chon file. 2. Cancel. 3. Tai len lai voi cung file.",
+        "expected":  "fileRef.current.value = \u0027\u0027 sau cancel. File input reset. Co the chon lai cung file lan sau.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.valid"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-316",
+        "title":  "BOUNDARY - GET /documents?limit=0 - tra ve empty hoac default",
+        "type":  "BOUNDARY",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "limit=0 trong query.",
+        "steps":  "GET /documents?petitionId=:id\u0026limit=0.",
+        "expected":  "BE: limit=0 → tra ve default 50 hoac error 400. Khong tra ve all records.",
+        "data_required":  [
+                              "petition.active.D30"
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-317",
+        "title":  "BOUNDARY - 3 files: tren dung gioi han throttle (request 8,9,10 trong 60s)",
+        "type":  "BOUNDARY",
+        "priority":  "P0",
+        "entity":  "DocumentsController",
+        "preconditions":  "Da upload 7 files trong 60s. Con 3 slot.",
+        "steps":  "Upload 3 files. Moi file dung 1 slot.",
+        "expected":  "Ca 3 accept. 201 each. Throttle counter = 10.",
+        "data_required":  [
+                              "petition.active.D30",
+                              "files.3pack"
+                          ],
+        "severity":  "Critical"
+    },
+    {
+        "tc_id":  "TC-318",
+        "title":  "BOUNDARY - GET /documents?skip=0\u0026limit=1 - tra ve doc dau tien",
+        "type":  "BOUNDARY",
+        "priority":  "P2",
+        "entity":  "DocumentsController",
+        "preconditions":  "Petition co nhieu docs.",
+        "steps":  "GET voi skip=0\u0026limit=1.",
+        "expected":  "Tra ve 1 doc. Meta.total \u003e 1. Pagination dung.",
+        "data_required":  [
+                              "petition.active.D30.50docs"
+                          ],
+        "severity":  "Low"
+    },
+    {
+        "tc_id":  "TC-319",
+        "title":  "BOUNDARY - file 10000001 bytes (9.5MB) - accept",
+        "type":  "BOUNDARY",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "File 9.5MB.",
+        "steps":  "Upload.",
+        "expected":  "Accept. 201. (Duoi 10MB limit).",
+        "data_required":  [
+                              "petition.active.D30",
+                              "file.pdf.9_5mb"
+                          ],
+        "severity":  "Medium"
+    },
+    {
+        "tc_id":  "TC-320",
+        "title":  "PERF - concurrent 10 downloads cung entity - khong block",
+        "type":  "PERFORMANCE",
+        "priority":  "P1",
+        "entity":  "DocumentsController",
+        "preconditions":  "10 clients download cung 1 doc.",
+        "steps":  "10 concurrent GET /documents/:id/download.",
+        "expected":  "Tat ca 10 response \u003c 5s. Stream song song. Khong block nhau. Server khong het thread.",
+        "data_required":  [
+                              "document.active.D30"
+                          ],
+        "severity":  "High"
+    }
+]

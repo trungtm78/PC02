@@ -354,6 +354,47 @@ describe('CasesService', () => {
         }),
       );
     });
+
+    // v0.68 — UY_THAC_DIEU_TRA caseProvenance dùng 'UTDT' docType thay vì 'CASE'
+    it('uses UTDT docType when caseProvenance is UY_THAC_DIEU_TRA', async () => {
+      const tx = {
+        case: { create: jest.fn().mockResolvedValue({ ...mockCase, caseProvenance: 'UY_THAC_DIEU_TRA' }) },
+        incident: { findFirst: jest.fn().mockResolvedValue(null), findUnique: jest.fn().mockResolvedValue(null), create: jest.fn(), update: jest.fn() },
+        documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
+      };
+      mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
+
+      await service.create(
+        { name: 'Ủy thác điều tra test', caseProvenance: 'UY_THAC_DIEU_TRA' as any },
+        'actor-001',
+      );
+
+      expect(mockDocNums.commitWithTx).toHaveBeenCalledWith(
+        'UTDT',
+        expect.anything(),
+        expect.anything(),
+      );
+    });
+
+    it('uses CASE docType for non-UTDT provenance', async () => {
+      const tx = {
+        case: { create: jest.fn().mockResolvedValue(mockCase) },
+        incident: { findFirst: jest.fn().mockResolvedValue(null), findUnique: jest.fn().mockResolvedValue(null), create: jest.fn(), update: jest.fn() },
+        documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
+      };
+      mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
+
+      await service.create(
+        { name: 'Vụ án bình thường', caseProvenance: 'DIRECT_DISCOVERY' as any },
+        'actor-001',
+      );
+
+      expect(mockDocNums.commitWithTx).toHaveBeenCalledWith(
+        'CASE',
+        expect.anything(),
+        expect.anything(),
+      );
+    });
   });
 
   // ── v0.37.1 — Provenance model ────────────────────────────────────────────
@@ -490,6 +531,48 @@ describe('CasesService', () => {
       expect(tx.case.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({ caseProvenance: 'DIRECT_DISCOVERY' }),
+        }),
+      );
+    });
+
+    // PR-M2: field-parity Case mới (ghiChuKhac/toiDanhKhacIds) + fix rớt-data soKLDT/soQDDieuTraLai ở create.
+    it('persists ghiChuKhac/toiDanhKhacIds + KLĐT/điều-tra-lại fields khi create (chống rớt-data)', async () => {
+      const tx = {
+        case: { create: jest.fn().mockResolvedValue({ ...mockCase, caseProvenance: 'DIRECT_DISCOVERY' }) },
+        incident: {
+          findFirst: jest.fn().mockResolvedValue(null),
+          findUnique: jest.fn().mockResolvedValue(null),
+          create: jest.fn(),
+          update: jest.fn(),
+        },
+        documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
+      };
+      mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
+
+      await service.create(
+        {
+          ...baseProvenanceDto,
+          caseProvenance: 'DIRECT_DISCOVERY' as any,
+          ghiChuKhac: 'Ghi chú tự do từ hệ cũ',
+          toiDanhKhacIds: ['crime-1', 'crime-2'],
+          soKLDT: 'KLĐT-2026-01',
+          ngayKLDT: '2026-06-01',
+          soQDDieuTraLai: 'QĐ-ĐTL-2026-01',
+          ngayQDDieuTraLai: '2026-06-02',
+        } as any,
+        'actor-001',
+      );
+
+      expect(tx.case.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            ghiChuKhac: 'Ghi chú tự do từ hệ cũ',
+            toiDanhKhacIds: ['crime-1', 'crime-2'],
+            soKLDT: 'KLĐT-2026-01',
+            ngayKLDT: expect.any(Date),
+            soQDDieuTraLai: 'QĐ-ĐTL-2026-01',
+            ngayQDDieuTraLai: expect.any(Date),
+          }),
         }),
       );
     });

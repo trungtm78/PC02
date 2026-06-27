@@ -55,6 +55,20 @@ vi.mock('@/components/FKSelect', () => ({
   ),
 }));
 
+// CrimeSelect (master Tội danh) — mock như native select để fireEvent.change được.
+vi.mock('@/components/CrimeSelect', () => ({
+  CrimeSelect: ({ value, onChange, testId }: {
+    value: string;
+    onChange: (v: string) => void;
+    testId?: string;
+  }) => (
+    <select data-testid={testId} value={value || ''} onChange={(e) => onChange(e.target.value)}>
+      <option value="">--</option>
+      <option value="crime-d173">Điều 173 · Tội trộm cắp tài sản</option>
+    </select>
+  ),
+}));
+
 const SAMPLE_PROFILE: AuthUser = {
   id: 'u1',
   email: 'a@b.com',
@@ -107,6 +121,9 @@ describe('PetitionFormPage — petitionType payload (v0.37.2.4 P0 fix)', () => {
     fireEvent.change(screen.getByTestId('field-detailContent'), { target: { value: 'UAT detail' } });
     fireEvent.change(screen.getByTestId('field-petitionType'), { target: { value: 'TO_CAO' } });
     fireEvent.change(screen.getByTestId('field-priority'), { target: { value: 'Cao' } });
+    // Required-on-create mới: SĐT nguyên đơn + Tội danh chính
+    fireEvent.change(screen.getByTestId('field-senderPhone'), { target: { value: '0901234567' } });
+    fireEvent.change(screen.getByTestId('field-crimeChinhId'), { target: { value: 'crime-d173' } });
 
     const submitBtns = screen.getAllByRole('button', { name: /Lưu đơn thư/ });
     fireEvent.click(submitBtns[0]);
@@ -138,6 +155,43 @@ describe('PetitionFormPage — petitionType payload (v0.37.2.4 P0 fix)', () => {
     expect(optionLabels.join(' | ')).toContain('Phản ánh');
   });
 
+  it('render + gửi 5 field parity tab "Thông tin" (nguonDon/petitionDate/ngayDeXuat/phanLoaiNguonTin/dieuTraVien)', async () => {
+    await renderForm();
+    // Bắt buộc tối thiểu để qua validation
+    fireEvent.change(await screen.findByTestId('field-senderName'), { target: { value: 'Người gửi' } });
+    fireEvent.change(screen.getByTestId('field-senderAddress'), { target: { value: 'Địa chỉ' } });
+    fireEvent.change(screen.getByTestId('field-summary'), { target: { value: 'Tóm tắt' } });
+    fireEvent.change(screen.getByTestId('field-detailContent'), { target: { value: 'Nội dung' } });
+    fireEvent.change(screen.getByTestId('field-petitionType'), { target: { value: 'TO_CAO' } });
+    fireEvent.change(screen.getByTestId('field-priority'), { target: { value: 'Cao' } });
+    fireEvent.change(screen.getByTestId('field-senderPhone'), { target: { value: '0901234567' } });
+    fireEvent.change(screen.getByTestId('field-crimeChinhId'), { target: { value: 'crime-d173' } });
+
+    // 5 field parity mới — input PHẢI tồn tại trên form (getByTestId throw nếu thiếu)
+    fireEvent.change(screen.getByTestId('field-nguonDon'), { target: { value: 'Công an phường 1' } });
+    fireEvent.change(screen.getByTestId('field-petitionDate'), { target: { value: '2026-06-18' } });
+    fireEvent.change(screen.getByTestId('field-ngayDeXuat'), { target: { value: '2026-06-20' } });
+    fireEvent.change(screen.getByTestId('field-phanLoaiNguonTin'), { target: { value: 'don-cong-van-ban-dau' } });
+    fireEvent.change(screen.getByTestId('field-dieuTraVien'), { target: { value: 'Nguyễn Văn A' } });
+    fireEvent.change(screen.getByTestId('field-donViGiaiQuyet'), { target: { value: 'Đội 1 PC02' } });
+
+    fireEvent.click(screen.getAllByRole('button', { name: /Lưu đơn thư/ })[0]);
+    await waitFor(() => expect(api.post).toHaveBeenCalled());
+
+    const [, body] = (api.post as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(body.nguonDon).toBe('Công an phường 1');
+    expect(body.petitionDate).toBe('2026-06-18');
+    expect(body.ngayDeXuat).toBe('2026-06-20');
+    expect(body.phanLoaiNguonTin).toBe('don-cong-van-ban-dau');
+    expect(body.dieuTraVien).toBe('Nguyễn Văn A');
+    expect(body.donViGiaiQuyet).toBe('Đội 1 PC02');
+  });
+
+  it('nhãn "Ghi chú trùng đơn" hiển thị (khớp hệ cũ)', async () => {
+    await renderForm();
+    expect(await screen.findByText(/Ghi chú trùng đơn/i)).toBeInTheDocument();
+  });
+
   it('client-side validation rejects empty petitionType (does not POST)', async () => {
     await renderForm();
 
@@ -155,5 +209,31 @@ describe('PetitionFormPage — petitionType payload (v0.37.2.4 P0 fix)', () => {
       expect(screen.getByText(/Loại đơn thư là bắt buộc/i)).toBeInTheDocument();
     });
     expect(api.post).not.toHaveBeenCalled();
+  });
+
+  it('[T8/F2] "Lưu và xuất file" → lưu (bắt id) → mở popup xuất chứng từ, KHÔNG về danh sách', async () => {
+    (api.post as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      data: { success: true, data: { id: 'new-pet-1' } },
+    });
+    await renderForm();
+    fireEvent.change(await screen.findByTestId('field-senderName'), { target: { value: 'Sender' } });
+    fireEvent.change(screen.getByTestId('field-senderAddress'), { target: { value: 'addr' } });
+    fireEvent.change(screen.getByTestId('field-summary'), { target: { value: 'sum' } });
+    fireEvent.change(screen.getByTestId('field-detailContent'), { target: { value: 'detail' } });
+    fireEvent.change(screen.getByTestId('field-petitionType'), { target: { value: 'TO_CAO' } });
+    fireEvent.change(screen.getByTestId('field-priority'), { target: { value: 'Cao' } });
+    fireEvent.change(screen.getByTestId('field-senderPhone'), { target: { value: '0901234567' } });
+    fireEvent.change(screen.getByTestId('field-crimeChinhId'), { target: { value: 'crime-d173' } });
+
+    // Mở menu split-button (nút trên) → "Lưu và xuất file".
+    fireEvent.click(screen.getByTestId('btn-save-top-caret'));
+    fireEvent.click(screen.getByTestId('btn-save-top-item-export'));
+
+    // Popup "Xuất chứng từ" hiện; KHÔNG điều hướng về danh sách (route /petitions render "list").
+    await waitFor(() => {
+      expect(screen.getByTestId('export-documents-modal')).toBeInTheDocument();
+    });
+    expect(api.post).toHaveBeenCalledWith('/petitions', expect.anything());
+    expect(screen.queryByText('list')).not.toBeInTheDocument();
   });
 });

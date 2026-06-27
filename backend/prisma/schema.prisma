@@ -176,6 +176,9 @@ model User {
   // Document Number Engine (v0.42)
   documentNumberTemplatesCreated  DocumentNumberTemplate[]
   documentNumberLogs              DocumentNumberLog[]
+  // Nhóm I — PetitionAssignment
+  petitionAssignments             PetitionAssignment[]      @relation("PetitionAssignmentUser")
+  petitionAssignmentsMade         PetitionAssignment[]      @relation("PetitionAssignmentAssignedBy")
 
   @@map("users")
 }
@@ -263,6 +266,34 @@ model Directory {
   // migration (20260522092131_directories_official_code_index_concurrent). NOT modeled
   // as @@index here — Prisma would generate a duplicate non-partial index on drift check.
   @@map("directories")
+}
+
+// ─────────────────────────────────────────────
+// Crime (Tội danh BLHS 2015) — MASTER chuyên biệt, FK thật để nơi khác dùng chung.
+// Thay Directory(type=CRIME) lỏng (Subject.crimeId vốn là String không FK). Seed 316 điều
+// (Điều 108→425). Dropdown default-filter PC02 qua pc02Relevant. legacyValue map khi di trú.
+// ─────────────────────────────────────────────
+model Crime {
+  id           String   @id @default(cuid())
+  code         String   @unique // D{articleNo} — vd D123
+  name         String // "Tội giết người"
+  articleNo    Int // số Điều BLHS 2015
+  chapter      String // chương La Mã (XIII..XXVI)
+  pc02Relevant Boolean  @default(false) // phạm vi PC02 (tội phạm trật tự xã hội)
+  legacyValue  Int? // value gốc hệ thống cũ pc02hcm.com — map khi di trú
+  order        Int      @default(0)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  subjects       Subject[] // bị can/đối tượng gắn tội danh (FK thật)
+  petitionsChinh Petition[] @relation("PetitionCrimeChinh") // đơn thư gắn tội danh chính
+
+  @@index([pc02Relevant])
+  @@index([chapter])
+  @@index([articleNo])
+  @@index([legacyValue])
+  @@map("crimes")
 }
 
 // v0.34.0.0: Dataset import ledger (state machine cho snapshot import)
@@ -474,26 +505,47 @@ enum CaseStatus {
 }
 
 model Case {
-  id             String        @id @default(cuid())
-  name           String
-  crime          String?
-  status         CaseStatus    @default(TIEP_NHAN)
-  investigatorId String? // FK → users (nullable)
-  deadline       DateTime?
-  unit           String?
-  subjectsCount  Int           @default(0)
-  caseCode       String?       @unique // Mã hồ sơ (v0.42: promoted từ metadata, engine-generated)
-  metadata       Json? // Lưu toàn bộ fields phụ của form (người báo tin, địa chỉ, v.v.)
-  capDoToiPham   CapDoToiPham? // Mức độ tội phạm (BLHS 2015 Điều 9) — dùng cho KPI-4
-  ngayKhoiTo     DateTime? // Ngày quyết định khởi tố vụ án
-  deletedAt      DateTime? // Soft delete
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  id                  String        @id @default(cuid())
+  name                String
+  crime               String?
+  status              CaseStatus    @default(TIEP_NHAN)
+  investigatorId      String? // FK → users (nullable)
+  deadline            DateTime?
+  unit                String?
+  subjectsCount       Int           @default(0)
+  caseCode            String?       @unique // Mã hồ sơ (v0.42: promoted từ metadata, engine-generated)
+  metadata            Json? // Lưu toàn bộ fields phụ của form (người báo tin, địa chỉ, v.v.)
+  capDoToiPham        CapDoToiPham? // Mức độ tội phạm (BLHS 2015 Điều 9) — dùng cho KPI-4
+  ngayKhoiTo          DateTime? // Ngày quyết định khởi tố vụ án
+  // ── Field-parity hệ thống cũ — số QĐ các giai đoạn vụ án ──
+  soQuyetDinhKhoiTo   String? // Số QĐ khởi tố vụ án
+  soQDNhapVuAn        String? // Số QĐ nhập vụ án
+  ngayNhapVuAn        DateTime?
+  ghiChuNhapHoSo      String? // Ghi chú nhập vào hồ sơ nào
+  soQDTachVuAn        String? // Số QĐ tách vụ án
+  ngayTachVuAn        DateTime?
+  soQDTachHanhVi      String? // Số QĐ tách hành vi
+  ngayTachHanhVi      DateTime?
+  soQDDinhChiVuAn     String? // Số QĐ đình chỉ vụ án
+  ngayDinhChiVuAn     DateTime?
+  chuyenVuAnChoCQK    String? // Chuyển vụ án cho CQĐT khác (số/ngày/đơn vị)
+  soBanAnCoHieuLuc    String? // Số bản án có hiệu lực pháp luật
+  ngayBanAnCoHieuLuc  DateTime?
+  canCuTamDinhChiVuAn String? // Căn cứ (text) tạm đình chỉ vụ án
+  canCuPhucHoiVuAn    String? // Căn cứ (text) phục hồi điều tra vụ án
+  // Field-parity hệ thống cũ — KLĐT + QĐ điều tra lại
+  soKLDT              String? // Số kết luận điều tra (old: ket_luan_dieu_tra_vu_an)
+  ngayKLDT            DateTime? // Ngày kết luận điều tra (old: ngay_ket_luan_dieu_tra)
+  soQDDieuTraLai      String? // Số QĐ điều tra lại (old: quyet_dinh_dieu_tra_lai)
+  ngayQDDieuTraLai    DateTime? // Ngày QĐ điều tra lại (old: ngay_quyet_dinh_dieu_tra_lai)
+  deletedAt           DateTime? // Soft delete
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
 
   // TĐC tracking fields (Phụ lục 08)
   laCongNgheCao         Boolean             @default(false)
   lyDoTamDinhChiText    String? // Backup của giá trị String cũ trước migration
-  lyDoTamDinhChiVuAn    LyDoTamDinhChiVuAn? // Enum mới thay thế lyDoTamDinhChi
+  lyDoTamDinhChiVuAn    LyDoTamDinhChiVuAn[] // PR-8: MULTI — chọn nhiều lý do TĐC (Đ.229). Mảng rỗng = chưa chọn.
   soQuyetDinhTamDinhChi String?
   ngayTamDinhChi        DateTime?
   soLanTamDinhChi       Int                 @default(0)
@@ -555,14 +607,16 @@ model Case {
   proposals       Proposal[]
   delegations     Delegation[]
   conclusions     Conclusion[]
+  statistic       CaseStatistic? // Thống kê mở rộng (hybrid — số/ngày/bool báo cáo, query được cho KPI)
   supplements     InvestigationSupplement[]
   vksMeetings     VksMeetingRecord[]
   actionPlans     SuspensionActionPlan[]
 
   // v0.44 — Ủy Thác Điều Tra fields (nullable, chỉ relevant khi caseType = UY_THAC_DIEU_TRA)
   caseType          CaseType    @default(REGULAR) @map("case_type")
+  legacySourceId    String? // Khóa gốc hệ thống cũ — idempotent di trú
   donViGiao         String?     @map("don_vi_giao") // Tên CQĐT/đơn vị ủy thác (PC01, CA quận X...)
-  soQuyetDinhUyThac String?     @map("so_quyet_dinh_uy_thac") // Số QĐ/Phiếu ủy thác từ đơn vị giao (Mẫu 58 TT119/2021)
+  soQuyetDinhUyThac String?     @unique @map("so_quyet_dinh_uy_thac") // Số QĐ/Phiếu ủy thác từ đơn vị giao (Mẫu 58 TT119/2021) — unique (NULL cho phép trùng theo chuẩn PG)
   ngayTiepNhan      DateTime?   @map("ngay_tiep_nhan") // Ngày tiếp nhận theo biên bản
   thoiHanUyThac     DateTime?   @map("thoi_han_uy_thac") // Thời hạn thực hiện do đơn vị giao yêu cầu
   loaiUyThac        LoaiUyThac? @map("loai_uy_thac") // Loại ủy thác (closed-set enum)
@@ -570,11 +624,22 @@ model Case {
   ngayTraKetQua     DateTime?   @map("ngay_tra_ket_qua") // Ngày trả kết quả về đơn vị ủy thác
   loaiThongTin      String?     @map("loai_thong_tin") // Tố giác / Trình báo / Đề nghị / Kiến nghị...
 
+  // Field-parity hệ thống cũ (PR-M2): ghi chú tự do + tội danh khác cấp vụ án (multi).
+  ghiChuKhac     String?  @map("ghi_chu_khac") // old: ghi_chu_khac
+  toiDanhKhacIds String[] @default([]) @map("toi_danh_khac_ids") // old: toi_danh_khac[] — FK crimes id (multi)
+  legacyRaw      Json?    @map("legacy_raw") // Toàn bộ field raw hệ cũ — không bao giờ mất data (Codex P1)
+
+  // PR1 ListPageShell — composite cho /cases/stats hot path (groupBy status,
+  // base predicate deletedAt + caseType). Migration 20260530000001 tạo
+  // partial index `WHERE "deletedAt" IS NULL` — Prisma `@@index` không express
+  // được partial predicate → KHÔNG declare ở đây. Migration SQL là source
+  // of truth (raw SQL CREATE INDEX với WHERE clause). Future `prisma migrate
+  // diff` sẽ skip diff cho partial index theo Prisma limitation.
+  @@unique([legacySourceId]) // Codex P1#2: unique để upsert thật theo khóa gốc (Postgres cho nhiều NULL)
   @@index([status])
   @@index([deadline])
   @@index([deletedAt])
   @@index([assignedTeamId])
-  @@index([lyDoTamDinhChiVuAn])
   @@index([createdAt])
   @@index([unit])
   @@index([createdById])
@@ -584,13 +649,81 @@ model Case {
   @@index([caseType]) // v0.44
   @@index([thoiHanUyThac]) // v0.44
   @@index([donViGiao]) // v0.44
-  // PR1 ListPageShell — composite cho /cases/stats hot path (groupBy status,
-  // base predicate deletedAt + caseType). Migration 20260530000001 tạo
-  // partial index `WHERE "deletedAt" IS NULL` — Prisma `@@index` không express
-  // được partial predicate → KHÔNG declare ở đây. Migration SQL là source
-  // of truth (raw SQL CREATE INDEX với WHERE clause). Future `prisma migrate
-  // diff` sẽ skip diff cho partial index theo Prisma limitation.
   @@map("cases")
+}
+
+// ─────────────────────────────────────────────
+// CaseStatistic — Thống kê mở rộng (HYBRID): số/ngày/bool BÁO CÁO được lưu cột thật để KPI
+// tổng hợp/lọc. (48 stat cũ vẫn ở Case.metadata JSON — không migrate lần này.) 1-1 với Case.
+// ─────────────────────────────────────────────
+model CaseStatistic {
+  id     String @id @default(cuid())
+  caseId String @unique
+  case   Case   @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  // Hồ sơ nghiệp vụ
+  soDangKyHoSo     String?
+  ngayDangKyHoSo   DateTime?
+  hoSoLuu          String?
+  ngayNopLuuHoSo   DateTime?
+  donViBaoQuanHoSo String?
+
+  // Ghi âm, ghi hình
+  coGhiAmGhiHinh              Boolean @default(false)
+  tongSoBienBanGhiLoiKhai     Int?
+  soBienBanGhiLoiKhaiCoGhiAm  Int?
+  laVuAnGhiAmGhiHinh          Boolean @default(false)
+  tongSoBienBanHoiCung        Int?
+  tongSoBienBanHoiCungCoGhiAm Int?
+  soBiCanCoGhiAm              Int?
+  vksYeuCauGhiAm              Boolean @default(false)
+  soBiCanVksYeuCauGhiAm       Int?
+
+  // Vi phạm hành chính (VPHC)
+  coVPHC                Boolean @default(false)
+  soDoiTuongVPHC        Int?
+  soNguoiBiPhatTien     Int?
+  tongTienPhatHanhChinh Float?
+
+  // Đối tượng / vũ khí / băng nhóm
+  soDoiTuong               Int? // PR-7: TỔNG số đối tượng (old: so_doi_tuong — khác soDoiTuongDaBat)
+  soDoiTuongDaBat          Int?
+  soDoiTuongBiBatVuAnKhac  Int?
+  dieuTraMoRong            Int?
+  suDungVuKhiNong          String?
+  coBangNhom               Boolean @default(false)
+  soBangNhom               Int? // PR-7: SỐ LƯỢNG băng nhóm (old: co_bao_nhieu_bang_nhom — khác bool coBangNhom)
+  soBangNhomBatDuoc        Int?
+  soSungThuHoi             Int?
+  soThuocNoThuHoi          Int?
+  soDoiTuongSuuTraHiemNghi Int?
+
+  // Field-parity hệ thống cũ — bị hại, thiệt hại, xét xử
+  soLuongBiHai              Int? // Số lượng bị hại (old: so_luong_bi_hai)
+  soNguoiBiThuong           Int? // Số người bị thương (old: so_nguoi_bi_thuong)
+  soLuongNguoiChet          Int? // Số lượng người chết (old: so_luong_nguoi_chet)
+  soTienBiThietHai          Float? // Số tiền bị thiệt hại VND (old: so_tien_bi_thiet_hai)
+  soTienThuHoi              Float? // Số tiền thu hồi VND (old: so_tien_thu_hoi)
+  vuAnDaDuocXetXu           Boolean  @default(false) // Vụ án đã được xét xử (old: xac_nhan_vu_an_da_duoc_xet_xu)
+  // Codex P1#9: 3 cờ xét-xử RIÊNG (KHÔNG reuse vuAnDaDuocXetXu/coGhiAmGhiHinh — khác ngữ nghĩa).
+  // Codex P1#6: nullable để phân biệt "thiếu ở legacy" vs false.
+  ghiAmGhiHinhDaDuocXetXu   Boolean? // old: ghi_am_ghi_hinh_da_duoc_xet_xu
+  coSuDungKQGhiAmTrongXetXu Boolean? // old: vu_an_co_su_dung_kqghi_am_trong_xet_xu
+  khongGAGHNhungToaYeuCau   Boolean? // old: vu_an_khong_gagh_nhung_toa_yeu_cau
+
+  // Mốc thời gian thống kê
+  ngayThongKe                 DateTime?
+  ngayPhanCongGiaiQuyetToGiac DateTime?
+  ngayTiepNhanTin             DateTime?
+  ngayDauThu                  DateTime?
+  ngayPhamToiQuaTang          DateTime?
+  ngayBatKhanCap              DateTime?
+  ngayPhatHienDauHieu         DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("case_statistics")
 }
 
 // ─────────────────────────────────────────────
@@ -628,7 +761,7 @@ model Subject {
   wardId        String? // FK → directories (type=WARD)
   districtName  String? // denormalized: "Quận 1" — preserved at creation time for post-reform display
   caseId        String // FK → cases (required)
-  crimeId       String // FK → directories (type=CRIME, required)
+  crimeId       String? // FK → crimes (master Tội danh) — optional: nhân chứng/bị hại không cần tội danh
   type          SubjectType   @default(SUSPECT) // TASK-2026-261225
   status        SubjectStatus @default(INVESTIGATING)
   notes         String?
@@ -637,6 +770,7 @@ model Subject {
   updatedAt     DateTime      @updatedAt
 
   case    Case     @relation(fields: [caseId], references: [id])
+  crime   Crime?   @relation(fields: [crimeId], references: [id]) // FK thật → master Crime (optional)
   lawyers Lawyer[] // Lawyers assigned to this subject
 
   @@index([caseId])
@@ -662,6 +796,10 @@ model Lawyer {
   deletedAt DateTime? // Soft delete
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
+
+  // Di trú (Codex P1#3): idempotent + raw
+  legacySourceId String? @unique // Khóa gốc hệ thống cũ — idempotent
+  legacyRaw      Json? // Toàn bộ field raw hệ cũ — không mất data
 
   case    Case     @relation(fields: [caseId], references: [id])
   subject Subject? @relation(fields: [subjectId], references: [id], onDelete: SetNull)
@@ -759,12 +897,48 @@ model Petition {
   huongDanKhoiKien String? // Hướng dẫn khởi kiện — Thông báo hướng dẫn (#5)
   lyDoTraDon       String? // Lý do trả lại đơn — Thông báo trả đơn (#6)
 
+  // ── Field-parity hệ thống cũ pc02hcm.com (giai đoạn tiếp nhận đơn) ──
+  senderIdNumber         String? // Số CCCD nguyên đơn
+  senderIdIssueDate      DateTime? // Ngày cấp CCCD
+  senderIdIssuePlace     String? // Nơi cấp CCCD
+  senderIsAnonymous      Boolean   @default(false) // Đơn nặc danh — bỏ qua required senderPhone/crimeChinhId
+  loaiThongTin           String? // Loại thông tin (tố giác/trình báo/kiến nghị/phản ánh/khiếu nại...)
+  soPhieuChuyen          String? // Số phiếu chuyển/công văn/UTĐT
+  ngayPhieuChuyen        DateTime? // Ngày phiếu chuyển
+  ngayTiepNhanNguonTin   DateTime? // Ngày tiếp nhận theo biên bản nguồn tin (khác receivedDate)
+  toiDanhBanDau          String? // Tội danh cũ trước đây (free text — legacy label)
+  crimeChinhId           String? // FK → crimes (master Tội danh BLHS 2015) — tội danh chính
+  noiXayRa               String? // Nơi xảy ra tội phạm
+  noiXayRaPhuongXa       String? // Nơi xảy ra (phường/xã) — chi tiết hơn noiXayRa
+  ngayXayRa              DateTime? // Ngày xảy ra tội phạm/sự việc
+  loaiToiPham            String? // Loại tội phạm: TTXH / Kinh tế-Ma túy / Khác
+  phuongThucThuDoan      String? // Phương thức, thủ đoạn phạm tội (free text)
+  ngayGiaoDonViGiaiQuyet DateTime? // Ngày giao đơn vị giải quyết
+  laCongNgheCao          Boolean   @default(false) // Tội phạm công nghệ cao
+  lanhDaoToTung          String? // Lãnh đạo phụ trách tố tụng
+  ketQuaXuLyKhac         String? // Kết quả xử lý, giải quyết khác
+  // ── Field-parity bổ sung tab "Thông tin" form cũ /doi-1/Them (2026-06-26) ──
+  ngayDeXuat             DateTime? // Ngày đề xuất (old: ngay_de_xuat) — khác receivedDate/petitionDate
+  phanLoaiNguonTin       String? // Phân loại nguồn tin ban đầu (old: phan_loai_nguon_tin_ban_dau — discriminator)
+  dieuTraVien            String? // Điều tra viên thụ lý (old: dieu_tra_vien — free text, pattern như lanhDaoToTung)
+  donViGiaiQuyet         String? // Đơn vị giải quyết (old: don_vi_giai_quyet — khác unit="Đơn vị tiếp nhận")
+  legacySourceId         String? // Khóa gốc hệ thống cũ pc02hcm.com — idempotent di trú
+  legacyRaw              Json? // Toàn bộ field raw hệ cũ — không mất data (Codex P1#1; Petition không có metadata)
+  // Field-parity hệ thống cũ — giai đoạn Ủy thác điều tra
+  thoiHanUTDT            DateTime? // Thời hạn thực hiện Ủy thác điều tra (old: thoi_han_thuc_hien_uy_thac_dieu_tra)
+
+  crimeChinh Crime? @relation("PetitionCrimeChinh", fields: [crimeChinhId], references: [id], onDelete: SetNull)
+
   // v0.47 — DocumentRenderLog reverse relation (audit trail per render).
   renderLogs DocumentRenderLog[]
 
   // v0.52 — File attachments (real file storage, replaces text-only attachmentsNote field).
   documents Document[]
 
+  // Nhóm I — phân công nhiều cán bộ
+  assignments PetitionAssignment[]
+
+  @@unique([legacySourceId]) // Codex P1#2: unique để upsert thật theo khóa gốc
   @@index([status])
   @@index([receivedDate])
   @@index([deadline])
@@ -772,7 +946,27 @@ model Petition {
   @@index([deletedAt])
   @@index([assignedTeamId])
   @@index([deadlineRuleVersionId])
+  @@index([crimeChinhId])
   @@map("petitions")
+}
+
+// ─────────────────────────────────────────────
+// PetitionAssignment — Nhóm I phân công nhiều cán bộ
+// ─────────────────────────────────────────────
+model PetitionAssignment {
+  id           String   @id @default(cuid())
+  petitionId   String
+  petition     Petition @relation(fields: [petitionId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User     @relation("PetitionAssignmentUser", fields: [userId], references: [id], onDelete: Cascade)
+  role         String // 'LEAD' | 'SUPPORT'
+  assignedById String
+  assignedBy   User     @relation("PetitionAssignmentAssignedBy", fields: [assignedById], references: [id])
+  assignedAt   DateTime @default(now())
+
+  @@unique([petitionId, userId])
+  @@index([petitionId])
+  @@map("petition_assignments")
 }
 
 // ─────────────────────────────────────────────
@@ -838,11 +1032,21 @@ model Incident {
   // Thông tin nghiệp vụ bổ sung theo BLTTHS
   soQuyetDinh             String? // Số quyết định (khởi tố/không khởi tố/TĐC/phục hồi)
   ngayQuyetDinh           DateTime? // Ngày ra quyết định
+  // Field-parity hệ thống cũ (giai đoạn nguồn tin/vụ việc)
+  soQDPhanCongNguonTin    String? // Số QĐ phân công giải quyết nguồn tin tội phạm
+  ngayQDPhanCongNguonTin  DateTime? // Ngày ra QĐ phân công giải quyết nguồn tin
+  canCuKhongKhoiTo        String? // Căn cứ (text) ra QĐ không khởi tố — bổ trợ enum lyDoKhongKhoiTo
+  // PR-6 field-parity: QĐ không khởi tố RIÊNG (cũ tách số/ngày, khác soQuyetDinh chung) + cờ tạm dừng
+  soQDKhongKhoiTo         String? // Số QĐ không khởi tố (old: quyet_dinh_khong_khoi_to)
+  ngayQDKhongKhoiTo       DateTime? // Ngày QĐ không khởi tố (old: ngay_ra_quyet_dinh_khong_khoi_to)
+  xacDinhVuViecTamDung    Boolean   @default(false) // Cờ xác định vụ việc tạm dừng giải quyết (old: xac_dinh_vu_viec_tam_dung_giai_quyet)
+  canCuTamDinhChi         String? // Căn cứ (text) tạm đình chỉ nguồn tin
+  phanLoaiDanSuText       String? // Thông báo phân loại dân sự (số/ngày)
   soLanGiaHan             Int                   @default(0) // Số lần đã gia hạn, tối đa 2 (Điều 147 khoản 2-3)
   ngayGiaHan              DateTime? // Ngày gia hạn gần nhất
-  lyDoKhongKhoiTo         LyDoKhongKhoiTo? // Lý do không khởi tố (Điều 157 BLTTHS 2015: 7 căn cứ)
+  lyDoKhongKhoiTo         LyDoKhongKhoiTo[] // PR-8 MULTI: chọn nhiều căn cứ không khởi tố (Đ.157). Mảng rỗng=chưa chọn.
   lyDoTamDinhChiText      String? // Backup của giá trị String cũ trước migration
-  lyDoTamDinhChiVuViec    LyDoTamDinhChiVuViec? // Enum mới cho vụ việc
+  lyDoTamDinhChiVuViec    LyDoTamDinhChiVuViec[] // PR-8 MULTI: chọn nhiều căn cứ TĐC vụ việc (Đ.148). Mảng rỗng=chưa chọn.
   laCongNgheCaoVV         Boolean               @default(false)
   soQuyetDinhTamDinhChiVV String?
   ngayTamDinhChiVV        DateTime?
@@ -910,22 +1114,26 @@ model Incident {
   // v0.47 — TĐC khắc phục fields cho Phụ lục 02/03 (Vụ việc TĐC)
   tdcKhacPhucLyDoBienPhap String? // Biện pháp khắc phục lý do TĐC
   tdcKhacPhucBienBan      String? // BB trao đổi VKS, KH khắc phục (số/ngày)
+  // Field-parity hệ thống cũ — tiến độ khắc phục TĐC + các fields TĐC còn thiếu
+  tienDoKhacPhucTDC       String? // Tiến độ khắc phục TĐC (old: tien_do_khac_phuc_tdc)
 
   // v0.47 — Import audit (Track B xlsx import) — per-row provenance per Codex #3
-  importedFrom String?
-  importedAt   DateTime?
-  importedById String?
-  importedBy   User?               @relation("IncidentImportedBy", fields: [importedById], references: [id], onDelete: SetNull)
-  sourceFile   String?
-  importLogId  String?
-  importLog    XlsxImportLog?      @relation("XlsxImportLogIncidents", fields: [importLogId], references: [id], onDelete: SetNull)
-  renderLogs   DocumentRenderLog[]
+  importedFrom   String?
+  legacySourceId String? // Khóa gốc hệ thống cũ — idempotent di trú
+  legacyRaw      Json? // Toàn bộ field raw hệ cũ — không mất data (Codex P1#1; Incident không có metadata)
+  importedAt     DateTime?
+  importedById   String?
+  importedBy     User?               @relation("IncidentImportedBy", fields: [importedById], references: [id], onDelete: SetNull)
+  sourceFile     String?
+  importLogId    String?
+  importLog      XlsxImportLog?      @relation("XlsxImportLogIncidents", fields: [importLogId], references: [id], onDelete: SetNull)
+  renderLogs     DocumentRenderLog[]
 
+  @@unique([legacySourceId]) // Codex P1#2: unique để upsert thật theo khóa gốc
   @@index([status])
   @@index([deletedAt])
   @@index([assignedTeamId])
   @@index([ngayDeXuat])
-  @@index([lyDoTamDinhChiVuViec])
   @@index([createdAt])
   @@index([unitId])
   @@index([deadlineRuleVersionId])
@@ -957,15 +1165,10 @@ model IncidentStatusHistory {
 // Document (Tài liệu/Hồ sơ) — TASK-2026-022601
 // ─────────────────────────────────────────────
 
-enum DocumentType {
-  VAN_BAN // Văn bản
-  HINH_ANH // Hình ảnh
-  VIDEO // Video
-  AM_THANH // Âm thanh
-  KHAC // Khác
-
-  @@map("document_type")
-}
+// DocumentType: danh mục ĐỘNG qua Catalog Registry (DOCUMENT_TYPE → bảng Directory),
+// admin thêm runtime không cần deploy. Cột documentType là String, validate ở service
+// qua CatalogService.isValid. Trước đây là Prisma enum document_type
+// (migration 20260627000001_document_type_to_dynamic chuyển enum → TEXT).
 
 model Document {
   id           String       @id @default(cuid())
@@ -976,7 +1179,7 @@ model Document {
   mimeType     String // MIME type
   size         Int // Kích thước file (bytes)
   filePath     String // Đường dẫn file (local storage)
-  documentType DocumentType @default(VAN_BAN)
+  documentType String       @default("VAN_BAN") // danh mục động DOCUMENT_TYPE (Directory)
 
   // Liên kết
   caseId       String? // FK → cases (nullable)
@@ -1070,6 +1273,10 @@ model Proposal {
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
+  // Di trú (Codex P1#3): idempotent + raw
+  legacySourceId String? @unique // Khóa gốc hệ thống cũ — idempotent
+  legacyRaw      Json? // Toàn bộ field raw hệ cũ — không mất data
+
   relatedCase Case? @relation(fields: [relatedCaseId], references: [id], onDelete: SetNull)
   createdBy   User? @relation("ProposalCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
 
@@ -1107,6 +1314,10 @@ model GuidanceRecord {
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
 
+  // Di trú (Codex P1#3): idempotent + raw
+  legacySourceId String? @unique // Khóa gốc hệ thống cũ — idempotent
+  legacyRaw      Json? // Toàn bộ field raw hệ cũ — không mất data
+
   createdBy User? @relation("GuidanceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
 
   @@index([status])
@@ -1138,6 +1349,10 @@ model Exchange {
   deletedAt    DateTime?
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
+
+  // Di trú (Codex P1#3): idempotent + raw
+  legacySourceId String? @unique // Khóa gốc hệ thống cũ — idempotent
+  legacyRaw      Json? // Toàn bộ field raw hệ cũ — không mất data
 
   createdBy User?             @relation("ExchangeCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   messages  ExchangeMessage[]
@@ -1189,6 +1404,10 @@ model Delegation {
   deletedAt        DateTime?
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
+
+  // Di trú (Codex P1#3): idempotent + raw
+  legacySourceId String? @unique // Khóa gốc hệ thống cũ — idempotent
+  legacyRaw      Json? // Toàn bộ field raw hệ cũ — không mất data
 
   createdBy   User? @relation("DelegationCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   assignedTo  User? @relation("DelegationAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)

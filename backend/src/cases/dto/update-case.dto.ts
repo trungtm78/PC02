@@ -1,6 +1,7 @@
 import { PartialType } from '@nestjs/mapped-types';
 import { CreateCaseDto } from './create-case.dto';
 import {
+  IsArray,
   IsBoolean,
   IsDateString,
   IsEnum,
@@ -9,6 +10,7 @@ import {
   MaxLength,
 } from 'class-validator';
 import { KetQuaPhucHoiVuAn, LyDoTamDinhChiVuAn } from '@prisma/client';
+import { IsCatalogValue } from '../../common/validators/is-catalog-value.validator';
 
 export class UpdateCaseDto extends PartialType(CreateCaseDto) {
   @IsOptional()
@@ -20,11 +22,13 @@ export class UpdateCaseDto extends PartialType(CreateCaseDto) {
   // so ValidationPipe whitelist (forbidNonWhitelisted: true) accepts them.
 
   @IsOptional()
-  @IsEnum(LyDoTamDinhChiVuAn, {
+  @IsArray()
+  @IsCatalogValue('LY_DO_TAM_DINH_CHI_VU_AN', {
+    each: true,
     message:
-      'Lý do tạm đình chỉ phải theo quy định BLTTHS Điều 229 (CHUA_XAC_DINH_BI_CAN, KHONG_BIET_BI_CAN_O_DAU, BI_CAN_BENH_TAM_THAN, CHUA_CO_KET_QUA_GIAM_DINH, ...)',
+      'Lý do tạm đình chỉ phải theo danh mục BLTTHS Điều 229 (CHUA_XAC_DINH_BI_CAN, KHONG_BIET_BI_CAN_O_DAU, BI_CAN_BENH_TAM_THAN, CHUA_CO_KET_QUA_GIAM_DINH, ...)',
   })
-  lyDoTamDinhChiVuAn?: LyDoTamDinhChiVuAn;
+  lyDoTamDinhChiVuAn?: LyDoTamDinhChiVuAn[];
 
   @IsOptional()
   @IsString()
@@ -56,9 +60,28 @@ export class UpdateCaseDto extends PartialType(CreateCaseDto) {
   soQuyetDinhPhucHoi?: string;
 
   @IsOptional()
-  @IsEnum(KetQuaPhucHoiVuAn, {
+  @IsCatalogValue('KET_QUA_PHUC_HOI_VU_AN', {
     message:
-      'Kết quả phục hồi vụ án phải là enum KetQuaPhucHoiVuAn (KET_LUAN_DE_NGHI_TRUY_TO, DINH_CHI_DIEU_TRA, TAM_DINH_CHI_LAI, DANG_DIEU_TRA_XAC_MINH, CHUYEN_CO_QUAN_DIEU_TRA_KHAC)',
+      'Kết quả phục hồi vụ án phải thuộc danh mục (KET_LUAN_DE_NGHI_TRUY_TO, DINH_CHI_DIEU_TRA, TAM_DINH_CHI_LAI, DANG_DIEU_TRA_XAC_MINH, CHUYEN_CO_QUAN_DIEU_TRA_KHAC)',
   })
   ketQuaPhucHoiVuAn?: KetQuaPhucHoiVuAn;
+
+  // Field-parity tab "Vụ án TĐC" form cũ — form GỬI khi EDIT, trước thiếu DTO → forbidNonWhitelisted 400.
+  @IsOptional()
+  @IsDateString({}, { message: 'ngayPhucHoi không đúng định dạng ISO 8601' })
+  ngayPhucHoi?: string;
+
+  @IsOptional()
+  @IsDateString({}, { message: 'ngayHetThoiHieu không đúng định dạng ISO 8601' })
+  ngayHetThoiHieu?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  tdcKhacPhucLyDoBienPhap?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  tdcKhacPhucBienBan?: string;
 }

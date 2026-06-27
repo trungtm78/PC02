@@ -15,7 +15,9 @@ import {
   MaxLength,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
-import { CaseStatus, CapDoToiPham, CaseProvenance, CaseType, LoaiUyThac } from '@prisma/client';
+import { CaseStatus, CapDoToiPham, CaseProvenance, CaseType, LoaiUyThac, LyDoTamDinhChiVuAn } from '@prisma/client';
+import { CaseStatisticDto } from './case-statistic.dto';
+import { IsCatalogValue } from '../../common/validators/is-catalog-value.validator';
 
 export { CaseStatus, CapDoToiPham, CaseProvenance, CaseType, LoaiUyThac };
 
@@ -62,9 +64,10 @@ export class CreateSubjectInlineDto {
   @IsString()
   wardId?: string;
 
+  // Optional: nhân chứng/bị hại không bắt buộc tội danh. FK → master Crime.
+  @IsOptional()
   @IsString()
-  @IsNotEmpty({ message: 'crimeId required cho mỗi Subject (FK directories type=CRIME)' })
-  crimeId: string;
+  crimeId?: string;
 
   @IsOptional()
   @IsString()
@@ -179,7 +182,7 @@ export class CreateCaseDto {
 
   // Mức độ tội phạm (BLHS 2015 Điều 9) — dùng cho KPI-4
   @IsOptional()
-  @IsEnum(CapDoToiPham, {
+  @IsCatalogValue('CAP_DO_TOI_PHAM', {
     message: 'capDoToiPham phải là IT_NGHIEM_TRONG, NGHIEM_TRONG, RAT_NGHIEM_TRONG hoặc DAC_BIET_NGHIEM_TRONG',
   })
   capDoToiPham?: CapDoToiPham;
@@ -189,10 +192,46 @@ export class CreateCaseDto {
   @IsDateString()
   ngayKhoiTo?: string;
 
+  // ── Field-parity: số QĐ giai đoạn vụ án ──
+  @IsOptional() @IsString() soQuyetDinhKhoiTo?: string;
+  @IsOptional() @IsString() soQDNhapVuAn?: string;
+  @IsOptional() @IsDateString() ngayNhapVuAn?: string;
+  @IsOptional() @IsString() ghiChuNhapHoSo?: string;
+  @IsOptional() @IsString() soQDTachVuAn?: string;
+  @IsOptional() @IsDateString() ngayTachVuAn?: string;
+  @IsOptional() @IsString() soQDTachHanhVi?: string;
+  @IsOptional() @IsDateString() ngayTachHanhVi?: string;
+  @IsOptional() @IsString() soQDDinhChiVuAn?: string;
+  @IsOptional() @IsDateString() ngayDinhChiVuAn?: string;
+  @IsOptional() @IsString() chuyenVuAnChoCQK?: string;
+  @IsOptional() @IsString() soBanAnCoHieuLuc?: string;
+  @IsOptional() @IsDateString() ngayBanAnCoHieuLuc?: string;
+  @IsOptional() @IsString() canCuTamDinhChiVuAn?: string;
+  @IsOptional() @IsString() canCuPhucHoiVuAn?: string;
+  // PR-3 — field tab "Vụ án TĐC" form cũ /doi-1/Them (cho phép nhập lúc tạo, tránh CREATE 400)
+  @IsOptional() @IsString() soQuyetDinhTamDinhChi?: string;
+  @IsOptional() @IsDateString() ngayTamDinhChi?: string;
+  @IsOptional() @IsArray() @IsCatalogValue('LY_DO_TAM_DINH_CHI_VU_AN', { each: true }) lyDoTamDinhChiVuAn?: LyDoTamDinhChiVuAn[];
+  @IsOptional() @IsDateString() ngayHetThoiHieu?: string;
+  @IsOptional() @IsString() soQuyetDinhPhucHoi?: string;
+  @IsOptional() @IsDateString() ngayPhucHoi?: string;
+  @IsOptional() @IsString() @MaxLength(1000) tdcKhacPhucLyDoBienPhap?: string;
+  @IsOptional() @IsString() @MaxLength(1000) tdcKhacPhucBienBan?: string;
+  // Field-parity hệ thống cũ — KLĐT + QĐ điều tra lại
+  @IsOptional() @IsString() soKLDT?: string;
+  @IsOptional() @IsDateString() ngayKLDT?: string;
+  @IsOptional() @IsString() soQDDieuTraLai?: string;
+  @IsOptional() @IsDateString() ngayQDDieuTraLai?: string;
+  // PR-M2 — ghi chú tự do + tội danh khác cấp vụ án (multi crime id)
+  @IsOptional() @IsString() @MaxLength(5000) ghiChuKhac?: string;
+  @IsOptional() @IsArray() @IsString({ each: true }) toiDanhKhacIds?: string[];
+
   // v0.37.2 — Provenance model (Deploy-2 Contract: REQUIRED)
   // BLTTHS Đ.143 source classification — required for every Case.
   // Legacy `metadata.petitionType` payloads now return 400 from @IsEnum validation.
-  @IsEnum(CaseProvenance, {
+  // @IsNotEmpty giữ tính bắt buộc (@IsCatalogValue pass undefined) — bài học PR-6 LoaiDon.
+  @IsNotEmpty({ message: 'caseProvenance là bắt buộc (BLTTHS Đ.143)' })
+  @IsCatalogValue('CASE_PROVENANCE', {
     message: 'caseProvenance bắt buộc — chọn FROM_PETITION / FROM_INCIDENT / DIRECT_DISCOVERY / TRANSFERRED / OTHER_LEGAL_SOURCE (BLTTHS Đ.143)',
   })
   caseProvenance: CaseProvenance;
@@ -226,7 +265,7 @@ export class CreateCaseDto {
 
   // v0.44 — Ủy Thác Điều Tra (UTDT) fields — all optional, only relevant when caseType=UY_THAC_DIEU_TRA
   @IsOptional()
-  @IsEnum(CaseType)
+  @IsCatalogValue('CASE_TYPE')
   caseType?: CaseType;
 
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
@@ -250,7 +289,7 @@ export class CreateCaseDto {
   thoiHanUyThac?: string;
 
   @IsOptional()
-  @IsEnum(LoaiUyThac)
+  @IsCatalogValue('LOAI_UY_THAC')
   loaiUyThac?: LoaiUyThac;
 
   @IsOptional()
@@ -283,6 +322,12 @@ export class CreateCaseDto {
   @ValidateNested({ each: true })
   @Type(() => CreateEvidenceInlineDto)
   evidences?: CreateEvidenceInlineDto[];
+
+  // Thống kê mở rộng (hybrid) — 1-1, lưu bảng case_statistics.
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CaseStatisticDto)
+  statistic?: CaseStatisticDto;
 
   // Documents đã upload trước qua flow riêng (POST /documents). Truyền IDs để link.
   @IsOptional()

@@ -48,6 +48,9 @@ export interface JwtAuthUser {
   email: string;
   role: string;
   canDispatch?: boolean;
+  // Additive (luôn undefined từ JWT) — để union AuthUser|JwtAuthUser truy cập optional chaining đồng nhất.
+  isWardOfficer?: boolean;
+  wardTeam?: AuthWardTeam | null;
 }
 
 function parseJwtPayload(token: string): JwtAuthUser | null {
