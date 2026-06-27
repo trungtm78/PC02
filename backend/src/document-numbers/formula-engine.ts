@@ -24,7 +24,11 @@ export function formatValue(value: Resolvable, pattern: string): string {
   }
 
   if (value instanceof Date) {
-    const fn = DATE_PATTERNS[pattern];
+    // CHỈ tra OWN key — tránh lookup lên prototype (pattern="valueOf"/"toString"/"constructor"...
+    // trả Object.prototype.* kế thừa → fn(value) gọi không this → TypeError). (property test DN-FZ).
+    const fn = Object.hasOwn(DATE_PATTERNS, pattern)
+      ? DATE_PATTERNS[pattern]
+      : undefined;
     return fn ? fn(value) : value.toISOString();
   }
 
