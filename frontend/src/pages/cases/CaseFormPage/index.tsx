@@ -1,11 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { documentNumbersApi } from "@/features/document-numbers/api";
+import { SaveSplitButton } from "@/features/petitions/components/SaveSplitButton";
+import { DynamicExportDocumentsModal } from "@/features/document-templates/components/DynamicExportDocumentsModal";
 import { useFormDefaults } from "@/hooks/useFormDefaults";
 import {
   X,
-  Save,
   Clock,
   FileText,
   AlertTriangle,
@@ -80,6 +81,13 @@ function CaseFormPage() {
   // PR 3 v0.38.2.0 — Pre-save summary modal state
   const [showPreSaveSummary, setShowPreSaveSummary] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  // Export chứng từ động (epic vụ việc/vụ án PR3) — id record để mở modal sau khi lưu / In trực tiếp.
+  const [exportForId, setExportForId] = useState<string | null>(null);
+  // Khi mở modal qua "Lưu và xuất file" → đóng modal thì điều hướng về danh sách;
+  // khi mở qua nút "In chứng từ" (edit mode) → ở lại form.
+  const [exportNavigateOnClose, setExportNavigateOnClose] = useState(false);
+  // intent của lượt lưu hiện tại (ref tránh stale closure khi confirm qua PreSaveSummaryModal).
+  const exportAfterSaveRef = useRef(false);
 
   const [formData, setFormData] = useState<CaseFormData>(INITIAL_FORM_DATA);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -233,6 +241,17 @@ function CaseFormPage() {
   // 1. handleSave → validate + show Pre-save Summary Modal (NEW gate)
   // 2. handleConfirmSave → actual POST after user confirms
   const handleSave = async () => {
+    exportAfterSaveRef.current = false;
+    await beginSave();
+  };
+
+  // "Lưu và xuất file" → lưu xong mở popup xuất chứng từ động (không điều hướng ngay).
+  const handleSaveAndExport = async () => {
+    exportAfterSaveRef.current = true;
+    await beginSave();
+  };
+
+  const beginSave = async () => {
     if (!validateForm()) {
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;
@@ -259,13 +278,23 @@ function CaseFormPage() {
         // Future PR: implement actual upload trong handleUploadMedia.
         // documentIds: mediaFiles.map((m) => m.id),
       });
+      let savedId: string | null;
       if (isEditMode) {
         await api.put(`/cases/${id}`, { ...payload, expectedUpdatedAt: recordUpdatedAt ?? undefined });
+        savedId = id ?? null;
       } else {
-        await api.post("/cases", payload);
+        const res = await api.post("/cases", payload);
+        // Envelope {success, data:{id}} (cases.service.create) → bắt id để mở modal xuất chứng từ.
+        savedId = (res?.data as { data?: { id?: string } } | undefined)?.data?.id ?? null;
       }
       localStorage.removeItem('caseFormDraft');
       setShowPreSaveSummary(false);
+      // "Lưu và xuất file" → mở popup xuất chứng từ động (không alert/điều hướng ngay).
+      if (exportAfterSaveRef.current && savedId) {
+        setExportNavigateOnClose(true);
+        setExportForId(savedId);
+        return;
+      }
       alert(isEditMode ? "Cập nhật hồ sơ thành công!" : "Lưu hồ sơ thành công!");
       navigate(safeReturn);
     } catch (err: unknown) {
@@ -404,14 +433,24 @@ function CaseFormPage() {
               <Clock className="w-4 h-4 inline mr-2" />
               Lưu tạm
             </button>
-            <button
-              onClick={handleSave}
-              className="px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-              data-testid="btn-save"
-            >
-              <Save className="w-4 h-4 inline mr-2" />
-              Lưu hồ sơ
-            </button>
+            {isEditMode && id && (
+              <button
+                onClick={() => { setExportNavigateOnClose(false); setExportForId(id); }}
+                className="px-4 py-2.5 border border-amber-300 text-amber-700 bg-amber-50 rounded-lg hover:bg-amber-100 transition-colors font-medium"
+                data-testid="btn-print-docs"
+              >
+                <FileText className="w-4 h-4 inline mr-2" />
+                In chứng từ
+              </button>
+            )}
+            <SaveSplitButton
+              onSave={handleSave}
+              onSaveAndExport={handleSaveAndExport}
+              isSubmitting={isSaving}
+              label="Lưu hồ sơ"
+              idPrefix="btn-save"
+              mainTestId="btn-save"
+            />
           </div>
         </div>
       </div>
@@ -521,6 +560,18 @@ function CaseFormPage() {
         onConfirm={handleConfirmSave}
         onCancel={() => setShowPreSaveSummary(false)}
       />
+
+      {/* Epic vụ việc/vụ án PR3 — popup xuất chứng từ động (mẫu admin upload) */}
+      {exportForId && (
+        <DynamicExportDocumentsModal
+          entity="cases"
+          entityId={exportForId}
+          onClose={() => {
+            setExportForId(null);
+            if (exportNavigateOnClose) navigate(safeReturn);
+          }}
+        />
+      )}
     </div>
   );
 }
