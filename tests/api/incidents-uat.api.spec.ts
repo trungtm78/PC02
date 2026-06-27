@@ -15,6 +15,11 @@ function getToken(): string {
   } catch (_e) { return ''; }
 }
 
+// Runtime-unique cho {{random}} placeholder trong body (tránh trùng unique field khi chạy lại)
+function __uatRand(): string {
+  return Math.random().toString(36).slice(2, 10);
+}
+
 test.describe('INCIDENTS — UAT API smoke layer', () => {
   test('TC-INC-001-API: [P0] Tạo vụ việc với name + loaiDonVu=TO_GIAC + nguonPhatTin=CA_NHAN_TO_GIAC', async ({ request }) => {
     // Data required: account.officer.primary
@@ -30,6 +35,7 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: {name:'Vụ việc tố giác trộm cắp UAT', loaiDonVu:'TO_GIAC', nguonPhatTin:'CA_NHAN_TO_GIAC', phuongThucTiepNhan:'TRUC_TIEP_BANG_LOI', fromDate:'2026-05-01'},
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -57,6 +63,7 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: {name:'Vụ việc tin báo UAT', loaiDonVu:'TIN_BAO', nguonPhatTin:'CO_QUAN_NHA_NUOC', phuongThucTiepNhan:'TRUC_TIEP_BANG_VAN_BAN'},
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -84,6 +91,7 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: {name, loaiDonVu:'KIEN_NGHI_KHOI_TO', nguonPhatTin:'VIEN_KIEM_SAT'},
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -111,6 +119,7 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: {name, sourcePetitionId:'{{petition_id}}'},
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -303,6 +312,7 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: {name:'Test'},
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -330,6 +340,7 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: {loaiDonVu:'TO_GIAC', nguonPhatTin:'VIEN_KIEM_SAT'},
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -357,6 +368,7 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: {loaiDonVu:'INVALID'},
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -384,6 +396,7 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: {phuongThucTiepNhan:'CARRIER_PIGEON'},
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -411,6 +424,7 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: {lyDoKhongKhoiTo:'INVENTED'},
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -506,6 +520,7 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: {fromDate:'2026-06-01', toDate:'2026-05-01'},
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -533,6 +548,7 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: {fromDate:'01/06/2026'},
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -560,6 +576,7 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: {deadline:'tomorrow'},
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -602,7 +619,7 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     // Pre: -
     // Steps: 1. GET ?status=INVALID
     // Expected: HTTP 400
-    const endpoint = '/api/v1/incidents';
+    const endpoint = '/api/v1/incidents?status=INVALID';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
     const token = getToken();
@@ -629,7 +646,7 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     // Pre: -
     // Steps: 1. GET ?limit=200
     // Expected: HTTP 400
-    const endpoint = '/api/v1/incidents';
+    const endpoint = '/api/v1/incidents?limit=200';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
     const token = getToken();
@@ -668,6 +685,7 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: {sourcePetitionId:'fake-uuid'},
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -695,6 +713,7 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: {unitId:'fake'},
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -722,6 +741,7 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: {name, randomField:'x'},
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -884,7 +904,7 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     // Pre: -
     // Steps: GET ?limit=1
     // Expected: HTTP 200, items.length<=1
-    const endpoint = '/api/v1/incidents';
+    const endpoint = '/api/v1/incidents?limit=1';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
     const token = getToken();
@@ -911,7 +931,7 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     // Pre: -
     // Steps: GET ?limit=100
     // Expected: HTTP 200
-    const endpoint = '/api/v1/incidents';
+    const endpoint = '/api/v1/incidents?limit=100';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
     const token = getToken();
@@ -947,6 +967,7 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: {fromDate:'2026-05-30', toDate:'2026-05-30'},
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -1163,7 +1184,7 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     // Pre: -
     // Steps: GET ?offset=-1
     // Expected: HTTP 400
-    const endpoint = '/api/v1/incidents';
+    const endpoint = '/api/v1/incidents?offset=-1';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
     const token = getToken();
@@ -1190,7 +1211,7 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     // Pre: -
     // Steps: GET ?search=<201 chars>
     // Expected: HTTP 400
-    const endpoint = '/api/v1/incidents';
+    const endpoint = '/api/v1/incidents?search=%3C201';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
     const token = getToken();
@@ -1313,6 +1334,7 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: {name:"'; DROP TABLE incidents; --"},
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -1513,6 +1535,7 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: {assignedTeamId:'fake'},
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -1624,7 +1647,7 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     // Pre: -
     // Steps: GET ?search=<200 chars>
     // Expected: HTTP 200 với items=[] hoặc 400
-    const endpoint = '/api/v1/incidents/investigators';
+    const endpoint = '/api/v1/incidents/investigators?search=%3C200';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
     const token = getToken();
@@ -1849,7 +1872,7 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
     // Pre: DB có VV name chứa \'Đông\'
     // Steps: GET ?search=dong
     // Expected: HTTP 200, match (nếu citext/unaccent) — verify behavior
-    const endpoint = '/api/v1/incidents';
+    const endpoint = '/api/v1/incidents?search=dong';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
     const token = getToken();

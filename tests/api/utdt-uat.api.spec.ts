@@ -15,6 +15,11 @@ function getToken(): string {
   } catch (_e) { return ''; }
 }
 
+// Runtime-unique cho {{random}} placeholder trong body (tránh trùng unique field khi chạy lại)
+function __uatRand(): string {
+  return Math.random().toString(36).slice(2, 10);
+}
+
 test.describe('UTDT — UAT API smoke layer', () => {
   test('TC-UTDT-001-API: [P0] Tạo UTDT đầy đủ (caseType + loaiUyThac + donViGiao + ngày)', async ({ request }) => {
     // Data required: account.officer.primary
@@ -30,6 +35,7 @@ test.describe('UTDT — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: {name:('UTDT-' + __uatRand() + ''), caseProvenance:'UY_THAC_DIEU_TRA', caseType:'UY_THAC_DIEU_TRA', loaiUyThac:'UY_THAC_DIEU_TRA', donViGiao:'PC01 Hà Nội', soQuyetDinhUyThac:'58/2026/UTDT', ngayTiepNhan:'2026-05-30', thoiHanUyThac:'2026-08-30', loaiThongTin:'Tố giác'},
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -57,6 +63,7 @@ test.describe('UTDT — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: {caseType:'UY_THAC_DIEU_TRA', loaiUyThac:'CHUYEN_DON_NGUON_TIN'},
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -336,6 +343,7 @@ test.describe('UTDT — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: {caseType:'UY_THAC_DIEU_TRA', caseProvenance:'DIRECT_DISCOVERY'},
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -363,6 +371,7 @@ test.describe('UTDT — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: {caseType:'UY_THAC_DIEU_TRA', loaiUyThac:'INVALID'},
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -516,7 +525,7 @@ test.describe('UTDT — UAT API smoke layer', () => {
     // Pre: -
     // Steps: GET ?caseType=INVALID
     // Expected: HTTP 400
-    const endpoint = '/api/v1/cases';
+    const endpoint = '/api/v1/cases?caseType=INVALID';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
     const token = getToken();
@@ -543,7 +552,7 @@ test.describe('UTDT — UAT API smoke layer', () => {
     // Pre: -
     // Steps: GET ?trangThaiPhanHoi=NEW_STATE
     // Expected: HTTP 400, IsIn 4 values
-    const endpoint = '/api/v1/cases';
+    const endpoint = '/api/v1/cases?trangThaiPhanHoi=NEW_STATE';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
     const token = getToken();
@@ -606,6 +615,7 @@ test.describe('UTDT — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: {caseType:'UY_THAC_DIEU_TRA'},
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -633,7 +643,7 @@ test.describe('UTDT — UAT API smoke layer', () => {
     // Pre: -
     // Steps: GET ?search=<201>&caseType=UY_THAC_DIEU_TRA
     // Expected: HTTP 400
-    const endpoint = '/api/v1/cases';
+    const endpoint = '/api/v1/cases?search=%3C201%3E&caseType=UY_THAC_DIEU_TRA';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
     const token = getToken();
@@ -723,6 +733,7 @@ test.describe('UTDT — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: {ngayTiepNhan:'2026-05-30', thoiHanUyThac:'2026-05-01'},
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -741,7 +752,7 @@ test.describe('UTDT — UAT API smoke layer', () => {
     // Pre: -
     // Steps: GET ?trangThaiPhanHoi=QUA_HAN không caseType
     // Expected: HTTP 200 — filter apply trên REGULAR (default) → có thể empty
-    const endpoint = '/api/v1/cases';
+    const endpoint = '/api/v1/cases?trangThaiPhanHoi=QUA_HAN';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
     const token = getToken();
@@ -798,7 +809,7 @@ test.describe('UTDT — UAT API smoke layer', () => {
     // Pre: -
     // Steps: GET ?loaiUyThac=INVALID
     // Expected: HTTP 400
-    const endpoint = '/api/v1/cases';
+    const endpoint = '/api/v1/cases?loaiUyThac=INVALID';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
     const token = getToken();
@@ -825,7 +836,7 @@ test.describe('UTDT — UAT API smoke layer', () => {
     // Pre: -
     // Steps: GET ?ngayTiepNhanFrom=\'hôm qua\'
     // Expected: HTTP 400
-    const endpoint = '/api/v1/cases';
+    const endpoint = '/api/v1/cases?ngayTiepNhanFrom=h%C3%B4m';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
     const token = getToken();
@@ -909,7 +920,7 @@ test.describe('UTDT — UAT API smoke layer', () => {
     // Pre: -
     // Steps: GET /utdt-stats?donViGiao=PC01
     // Expected: HTTP 200, byTrangThai chỉ tính UTDT có donViGiao=PC01
-    const endpoint = '/api/v1/cases/utdt-stats';
+    const endpoint = '/api/v1/cases/utdt-stats?donViGiao=PC01';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
     const token = getToken();
@@ -1080,7 +1091,7 @@ test.describe('UTDT — UAT API smoke layer', () => {
     // Pre: -
     // Steps: GET ?caseType=
     // Expected: HTTP 400 (IsEnum reject) hoặc 200 với default REGULAR
-    const endpoint = '/api/v1/cases';
+    const endpoint = '/api/v1/cases?caseType=';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
     const token = getToken();
@@ -1116,6 +1127,7 @@ test.describe('UTDT — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: {caseProvenance:'UY_THAC_DIEU_TRA', loaiUyThac:'UY_THAC_DIEU_TRA'},
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -1188,7 +1200,7 @@ test.describe('UTDT — UAT API smoke layer', () => {
     // Pre: -
     // Steps: GET ?caseType=REGULAR rồi UY_THAC_DIEU_TRA
     // Expected: Items khác hẳn
-    const endpoint = '/api/v1/cases';
+    const endpoint = '/api/v1/cases?caseType=REGULAR';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
     const token = getToken();
@@ -1422,7 +1434,7 @@ test.describe('UTDT — UAT API smoke layer', () => {
     // Pre: -
     // Steps: GET ?donViGiao=\' OR 1=1; --
     // Expected: HTTP 200, ILIKE param safe, không trả tất cả
-    const endpoint = '/api/v1/cases';
+    const endpoint = '/api/v1/cases?donViGiao=';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
     const token = getToken();
@@ -1458,6 +1470,7 @@ test.describe('UTDT — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: {metadata:{lyDoKhongThucHienDuoc:{nested:{}}}},
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -1476,7 +1489,7 @@ test.describe('UTDT — UAT API smoke layer', () => {
     // Pre: -
     // Steps: GET ?investigatorName=%
     // Expected: HTTP 200, không leak tất cả (ILIKE escape %)
-    const endpoint = '/api/v1/cases';
+    const endpoint = '/api/v1/cases?investigatorName=%25';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
     const token = getToken();
@@ -1506,7 +1519,7 @@ test.describe('UTDT — UAT API smoke layer', () => {
     // Pre: -
     // Steps: GET /utdt-stats?wardId={{ward}}
     // Expected: counts chỉ tính UTDT trong ward
-    const endpoint = '/api/v1/cases/utdt-stats';
+    const endpoint = '/api/v1/cases/utdt-stats?wardId=%7B%7Bward%7D%7D';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
     const token = getToken();
@@ -1560,7 +1573,7 @@ test.describe('UTDT — UAT API smoke layer', () => {
     // Pre: -
     // Steps: GET ?caseType=UY_THAC_DIEU_TRA
     // Expected: HTTP 200, items chỉ team A
-    const endpoint = '/api/v1/cases';
+    const endpoint = '/api/v1/cases?caseType=UY_THAC_DIEU_TRA';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
     const token = getToken();
@@ -1656,6 +1669,7 @@ test.describe('UTDT — UAT API smoke layer', () => {
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: {metadata:{__proto__:{admin:true}}},
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -1731,7 +1745,7 @@ test.describe('UTDT — UAT API smoke layer', () => {
     // Pre: -
     // Steps: GET /api/v1/cases?caseType=REGULAR
     // Expected: Items REGULAR có UTDT fields đều null/undefined
-    const endpoint = '/api/v1/cases';
+    const endpoint = '/api/v1/cases?caseType=REGULAR';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
     const token = getToken();
@@ -1761,7 +1775,7 @@ test.describe('UTDT — UAT API smoke layer', () => {
     // Pre: -
     // Steps: GET ?search=PC01 (UTDT donViGiao có PC01)
     // Expected: HTTP 200 — REGULAR mode default exclude UTDT, không leak UTDT name qua search
-    const endpoint = '/api/v1/cases';
+    const endpoint = '/api/v1/cases?search=PC01';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
     const token = getToken();
@@ -1869,7 +1883,7 @@ test.describe('UTDT — UAT API smoke layer', () => {
     // Pre: -
     // Steps: GET ?caseType=UY_THAC_DIEU_TRA&wardTeamId={{other_team_ward}}
     // Expected: HTTP 200, items=[] nếu officer không có wardTeam khớp — không leak qua wardTeamId param
-    const endpoint = '/api/v1/cases';
+    const endpoint = '/api/v1/cases?caseType=UY_THAC_DIEU_TRA&wardTeamId=%7B%7Bother_team_ward%7D%7D';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
     const token = getToken();

@@ -1618,9 +1618,8 @@ test.describe('PETITIONS — UAT E2E layer', () => {
     await loginToPage(page, '/petitions');
     expect(page.url()).toContain('/petitions');
     await expect(page.locator('body')).toBeVisible();
-    // Mobile: heading nằm trong drawer collapsed — dùng body content thay thế
-    const bodyText = await page.locator('body').textContent();
-    expect(bodyText?.length ?? 0).toBeGreaterThan(0);
+    const heading = page.getByRole('heading', { name: /Đơn thư|Quản lý đơn thư/i });
+    await expect(heading.or(page.locator('h1, h2')).first()).toBeVisible();
   });
   test('TC-PET-116-E2E: [P1] Tablet 768 viewport', async ({ page }) => {
     // Pre: -

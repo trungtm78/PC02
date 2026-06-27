@@ -15,6 +15,7 @@ import json
 import sys
 import re
 from pathlib import Path
+from urllib.parse import quote
 
 FEATURE_CONFIG = {
     'cases': {
@@ -81,12 +82,15 @@ def parse_endpoint(ep: str):
 
 
 def extract_body_from_steps(steps_raw: str) -> str | None:
-    """Extract JS object literal từ steps text.
-    Ví dụ: '1. POST body {name:"...", key:"val"}' → '{name:"...", key:"val"}'
-    Dùng balanced-brace parser để handle nested objects/arrays.
+    """Extract JS object literal (body) từ steps text.
+    Steps nguồn dạng "POST {name:'...', ...}" HOẶC "POST body {...}" — KHÔNG bắt buộc chữ 'body'
+    (đa số TC viết "POST {...}" trực tiếp). Lấy object literal {...} ĐẦU TIÊN bằng balanced-brace
+    parser (handle nested objects/arrays + {{placeholder}} nằm trong string vì cặp ngoặc vẫn cân bằng).
     Trả về None nếu không tìm thấy body hoặc body rỗng {}.
     """
-    m = re.search(r'(?:body|Body)\s*(\{)', steps_raw)
+    # Neo vào {...} NGAY SAU method keyword (POST/PUT/PATCH) hoặc 'body' — tránh bắt nhầm
+    # {...} mô tả khác trong steps (partition list {A, B, C}, schema, ví dụ nested).
+    m = re.search(r'(?:POST|PUT|PATCH|body|Body)\s*(\{)', steps_raw)
     if not m:
         return None
     start = m.start(1)
@@ -101,7 +105,8 @@ def extract_body_from_steps(steps_raw: str) -> str | None:
         if depth == 0:
             break
     body_str = ''.join(result)
-    if body_str.startswith('{') and body_str.endswith('}') and len(body_str) > 2:
+    # Phải là object literal THẬT (có 'key:value') — loại partition list {A, B, C} (không có ':') gây TS lỗi.
+    if body_str.startswith('{') and body_str.endswith('}') and ':' in body_str and len(body_str) > 2:
         return body_str
     return None
 
@@ -172,13 +177,41 @@ def gen_api_test(tc: dict, cfg: dict) -> str:
         body_js = extract_body_from_steps(steps_raw)
         if body_js:
             body_js = body_js.replace('`', "'")  # backtick phá TypeScript template literal
+            # Loại ellipsis "..."/"…" (placeholder "vv" trong steps) → tránh spread rỗng phá TS compile
+            body_js = body_js.replace('…', '').replace('...', '')
+            # Dọn dấu phẩy thừa sau khi loại ellipsis: ",}" → "}", "{," → "{", ",," → ","
+            body_js = re.sub(r',\s*}', '}', body_js)
+            body_js = re.sub(r'\{\s*,', '{', body_js)
+            body_js = re.sub(r',\s*,', ',', body_js)
+            # Resolve {{random}} trong string literal → runtime-unique (tránh trùng unique field khi chạy lại)
+            body_js = re.sub(r"'([^']*?)\{\{random\}\}([^']*?)'", r"('\1' + __uatRand() + '\2')", body_js)
             body_injection = f"      data: {body_js},\n"
+
+    # Wire query string từ steps (vd "GET ?status=INVALID") vào URL nếu path chưa có query.
+    # Generator cũ bỏ sót → URL không param → endpoint validate không kích hoạt (false 200).
+    if '?' not in path:
+        qm = re.search(r'\?[A-Za-z_][\w.]*=\S*', steps_raw)
+        if qm:
+            raw_q = qm.group(0)[1:]  # bỏ dấu '?'
+            parts = []
+            for pair in raw_q.split('&'):
+                if '=' in pair:
+                    k, v = pair.split('=', 1)
+                    v = v.strip('\'"')                 # bỏ quote bao quanh value (vd 'hôm qua')
+                    parts.append(k + '=' + quote(v, safe=''))  # URL-encode → an toàn quote/space/unicode
+                elif pair:
+                    parts.append(pair)
+            if parts:
+                path = path + '?' + '&'.join(parts)
+
+    # JS-escape path (defensive): backslash + single quote → endpoint string luôn hợp lệ, không phá compile.
+    path_js = path.replace('\\', '\\\\').replace("'", "\\'")
 
     return f"""  test('{tc_id}-API: [{priority}] {title}', async ({{ request }}) => {{
 {data_setup}    // Pre: {pre or '-'}
     // Steps: {steps[:200]}
     // Expected: {expected[:200]}
-    const endpoint = '{path}';
+    const endpoint = '{path_js}';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
     const token = getToken();
@@ -325,6 +358,11 @@ function getToken(): string {{
   try {{
     return fs.readFileSync(path.resolve(__dirname, '../../test-results/.auth-token.txt'), 'utf-8').trim();
   }} catch (_e) {{ return ''; }}
+}}
+
+// Runtime-unique cho {{{{random}}}} placeholder trong body (tránh trùng unique field khi chạy lại)
+function __uatRand(): string {{
+  return Math.random().toString(36).slice(2, 10);
 }}
 
 test.describe('{feature.upper()} — UAT API smoke layer', () => {{
