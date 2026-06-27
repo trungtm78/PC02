@@ -1245,9 +1245,9 @@ test.describe('INCIDENTS — UAT API smoke layer', () => {
   test('TC-INC-071-API: [P1] Query search > 200 chars → 400', async ({ request }) => {
     // Data required: account.officer.primary
     // Pre: -
-    // Steps: GET ?search=<201 chars>
+    // Steps: GET ?search=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
     // Expected: HTTP 400
-    const endpoint = '/api/v1/incidents?search=%3C201';
+    const endpoint = '/api/v1/incidents?search=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
     const token = getToken();

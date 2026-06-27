@@ -615,14 +615,15 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
     const token = getToken();
+    const __dupBody = { ...__baseBody(), stt:'DT-2026-00001' };
     // 409: POST lần 1 tạo bản ghi (để lần 2 trùng unique)
-    await request.post(apiUrl, { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, data: { ...__baseBody(), stt:'DT-2026-00001' }, failOnStatusCode: false });
+    await request.post(apiUrl, { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, data: __dupBody, failOnStatusCode: false });
     // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
     let response: any;
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      data: { ...__baseBody(), stt:'DT-2026-00001' },
+      data: __dupBody,
         timeout: 15000,
         failOnStatusCode: false,
       });

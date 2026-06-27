@@ -244,6 +244,10 @@ def gen_api_test(tc: dict, cfg: dict) -> str:
             body_js = _clean_body(body_js)
             if build:
                 inner = _inner(body_js)
+                # Success create: field unique-constrained (soQuyetDinhUyThac) có giá trị CỐ ĐỊNH trong source
+                # → append __uatRand để mỗi lần chạy unique (tránh 409 với bản ghi chạy trước). (Conflict giữ nguyên.)
+                if is_success:
+                    inner = re.sub(r"soQuyetDinhUyThac:\s*'([^']*)'", r"soQuyetDinhUyThac: ('\1-' + __uatRand())", inner)
                 parts = ['...__baseBody()'] + ([inner] if inner else []) + ([fk_extra] if fk_extra else [])
                 body_js = '{ ' + ', '.join(parts) + ' }'
             body_injection = f"      data: {body_js},\n"
@@ -252,15 +256,17 @@ def gen_api_test(tc: dict, cfg: dict) -> str:
             parts = ['...__baseBody()'] + ([fk_extra] if fk_extra else [])
             body_injection = f"      data: {{ {', '.join(parts)} }},\n"
 
-    # 409: dùng giá trị unique CỐ ĐỊNH (thay __uatRand) để 2 lần POST xung đột.
-    pre_request = ''
+    # 409: body có giá trị unique nằm trong __baseBody() (random sinh mỗi lần gọi) → phải tính
+    # MỘT LẦN vào const __dupBody rồi dùng CHO CẢ 2 POST → lần 2 mới trùng unique.
     if is_conflict and body_injection:
-        body_injection = body_injection.replace('__uatRand()', f"'dup-{tc_id}'")
-        data_only = body_injection.strip().rstrip(',')  # "data: {...}"
+        m = re.search(r'data:\s*(.+),\s*$', body_injection.strip())
+        body_val = m.group(1) if m else '{ ...__baseBody() }'
         pre_request = (
+            f"    const __dupBody = {body_val};\n"
             f"    // 409: POST lần 1 tạo bản ghi (để lần 2 trùng unique)\n"
-            f"    await request.{method.lower()}(apiUrl, {{ headers: {{ Authorization: `Bearer ${{token}}`, 'Content-Type': 'application/json' }}, {data_only}, failOnStatusCode: false }});\n"
+            f"    await request.{method.lower()}(apiUrl, {{ headers: {{ Authorization: `Bearer ${{token}}`, 'Content-Type': 'application/json' }}, data: __dupBody, failOnStatusCode: false }});\n"
         )
+        body_injection = "      data: __dupBody,\n"
 
     # Wire query string từ steps (vd "GET ?status=INVALID") vào URL nếu path chưa có query.
     # Generator cũ bỏ sót → URL không param → endpoint validate không kích hoạt (false 200).

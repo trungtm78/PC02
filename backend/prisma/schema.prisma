@@ -616,7 +616,7 @@ model Case {
   caseType          CaseType    @default(REGULAR) @map("case_type")
   legacySourceId    String? // Khóa gốc hệ thống cũ — idempotent di trú
   donViGiao         String?     @map("don_vi_giao") // Tên CQĐT/đơn vị ủy thác (PC01, CA quận X...)
-  soQuyetDinhUyThac String?     @map("so_quyet_dinh_uy_thac") // Số QĐ/Phiếu ủy thác từ đơn vị giao (Mẫu 58 TT119/2021)
+  soQuyetDinhUyThac String?     @unique @map("so_quyet_dinh_uy_thac") // Số QĐ/Phiếu ủy thác từ đơn vị giao (Mẫu 58 TT119/2021) — unique (NULL cho phép trùng theo chuẩn PG)
   ngayTiepNhan      DateTime?   @map("ngay_tiep_nhan") // Ngày tiếp nhận theo biên bản
   thoiHanUyThac     DateTime?   @map("thoi_han_uy_thac") // Thời hạn thực hiện do đơn vị giao yêu cầu
   loaiUyThac        LoaiUyThac? @map("loai_uy_thac") // Loại ủy thác (closed-set enum)

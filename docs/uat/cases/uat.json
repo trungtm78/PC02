@@ -940,7 +940,7 @@
       "role": "INVESTIGATOR",
       "title": "Query search > 200 chars → 400",
       "pre": "-",
-      "steps": "1. GET ?search=<chuỗi 201 ký tự>",
+      "steps": "1. GET ?search=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
       "expected": "HTTP 400, MaxLength fail (bảo vệ JSONB ILIKE)",
       "data": [
         "account.investigator.active.D0"

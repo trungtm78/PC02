@@ -990,7 +990,7 @@ test.describe('INCIDENTS — UAT E2E layer', () => {
   });
   test('TC-INC-071-E2E: [P1] Query search > 200 chars → 400', async ({ page }) => {
     // Pre: -
-    // Steps: GET ?search=<201 chars>
+    // Steps: GET ?search=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
     // Expected: HTTP 400
     const incidentsPage = new IncidentsPage(page);
     // Không wrap trong try/catch — assertion fail = test FAIL thật

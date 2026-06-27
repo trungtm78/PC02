@@ -654,7 +654,7 @@ test.describe('CASES — UAT E2E layer', () => {
   });
   test('TC-CASE-047-E2E: [P1] Query search > 200 chars → 400', async ({ page }) => {
     // Pre: -
-    // Steps: 1. GET ?search=<chuỗi 201 ký tự>
+    // Steps: 1. GET ?search=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
     // Expected: HTTP 400, MaxLength fail (bảo vệ JSONB ILIKE)
     const casesPage = new CasesPage(page);
     // Không wrap trong try/catch — assertion fail = test FAIL thật

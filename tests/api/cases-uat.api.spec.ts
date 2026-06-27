@@ -523,14 +523,15 @@ test.describe('CASES — UAT API smoke layer', () => {
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
     const token = getToken();
+    const __dupBody = { ...__baseBody(), caseProvenance: 'FROM_PETITION', linkedPetitionId: __seedPetitionId, expectedPetitionUpdatedAt: __seedPetitionUpdatedAt };
     // 409: POST lần 1 tạo bản ghi (để lần 2 trùng unique)
-    await request.post(apiUrl, { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, data: { ...__baseBody(), caseProvenance: 'FROM_PETITION', linkedPetitionId: __seedPetitionId, expectedPetitionUpdatedAt: __seedPetitionUpdatedAt }, failOnStatusCode: false });
+    await request.post(apiUrl, { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, data: __dupBody, failOnStatusCode: false });
     // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
     let response: any;
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      data: { ...__baseBody(), caseProvenance: 'FROM_PETITION', linkedPetitionId: __seedPetitionId, expectedPetitionUpdatedAt: __seedPetitionUpdatedAt },
+      data: __dupBody,
         timeout: 15000,
         failOnStatusCode: false,
       });
@@ -902,9 +903,9 @@ test.describe('CASES — UAT API smoke layer', () => {
   test('TC-CASE-047-API: [P1] Query search > 200 chars → 400', async ({ request }) => {
     // Data required: account.investigator.active.D0
     // Pre: -
-    // Steps: 1. GET ?search=<chuỗi 201 ký tự>
+    // Steps: 1. GET ?search=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
     // Expected: HTTP 400, MaxLength fail (bảo vệ JSONB ILIKE)
-    const endpoint = '/api/v1/cases?search=%3Cchu%E1%BB%97i';
+    const endpoint = '/api/v1/cases?search=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
     const token = getToken();
@@ -1866,14 +1867,15 @@ test.describe('CASES — UAT API smoke layer', () => {
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
     const token = getToken();
+    const __dupBody = { ...__baseBody(), caseProvenance:'FROM_PETITION', caseProvenance: 'FROM_PETITION', linkedPetitionId: __seedPetitionId, expectedPetitionUpdatedAt: __seedPetitionUpdatedAt };
     // 409: POST lần 1 tạo bản ghi (để lần 2 trùng unique)
-    await request.post(apiUrl, { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, data: { ...__baseBody(), caseProvenance:'FROM_PETITION', caseProvenance: 'FROM_PETITION', linkedPetitionId: __seedPetitionId, expectedPetitionUpdatedAt: __seedPetitionUpdatedAt }, failOnStatusCode: false });
+    await request.post(apiUrl, { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, data: __dupBody, failOnStatusCode: false });
     // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
     let response: any;
     try {
       response = await request.post(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      data: { ...__baseBody(), caseProvenance:'FROM_PETITION', caseProvenance: 'FROM_PETITION', linkedPetitionId: __seedPetitionId, expectedPetitionUpdatedAt: __seedPetitionUpdatedAt },
+      data: __dupBody,
         timeout: 15000,
         failOnStatusCode: false,
       });

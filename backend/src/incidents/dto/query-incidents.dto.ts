@@ -7,15 +7,17 @@ import {
   Max,
   IsEnum,
   IsDateString,
+  MaxLength,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import { IncidentStatus, LoaiNguonTin } from '@prisma/client';
 import { IsCatalogValue } from '../../common/validators/is-catalog-value.validator';
 
 export class QueryIncidentsDto {
-  // Tìm kiếm tổng hợp: mã, tên, tên ĐTV
+  // Tìm kiếm tổng hợp: mã, tên, tên ĐTV. Cap 200 ký tự (tránh heavy ILIKE/JSONB scan — đồng bộ QueryCasesDto).
   @IsOptional()
   @IsString()
+  @MaxLength(200)
   search?: string;
 
   // Lọc theo trạng thái

@@ -402,7 +402,7 @@ test.describe('UTDT — UAT E2E layer', () => {
   });
   test('TC-UTDT-029-E2E: [P1] UTDT search > 200 chars → 400', async ({ page }) => {
     // Pre: -
-    // Steps: GET ?search=<201>&caseType=UY_THAC_DIEU_TRA
+    // Steps: GET ?search=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
     // Expected: HTTP 400
     const utdtPage = new UTDTPage(page);
     // Không wrap trong try/catch — assertion fail = test FAIL thật

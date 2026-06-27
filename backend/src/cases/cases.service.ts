@@ -1111,8 +1111,8 @@ export class CasesService {
         return caseRecord;
       });
     } catch (e: any) {
-      // P2002 = unique constraint: concurrent requests generated duplicate incident code
-      if (e?.code === 'P2002') throw new ConflictException('Trùng mã vụ việc, vui lòng thử lại');
+      // P2002 = unique constraint: trùng mã vụ việc (concurrent) HOẶC số quyết định ủy thác (Mẫu 58)
+      if (e?.code === 'P2002') throw new ConflictException('Trùng mã vụ việc hoặc số quyết định ủy thác');
       throw e;
     }
 
