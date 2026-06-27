@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { extractApiError } from "@/lib/api-errors";
@@ -165,6 +165,8 @@ export function IncidentFormPage() {
   // Export chứng từ động (epic vụ việc/vụ án PR3).
   const [exportForId, setExportForId] = useState<string | null>(null);
   const [exportNavigateOnClose, setExportNavigateOnClose] = useState(false);
+  // Guard in-flight đồng bộ chống double-submit (đối xứng CaseFormPage, codex P2).
+  const savingRef = useRef(false);
 
   // Section expanded states
   const [section1Open, setSection1Open] = useState(true);
@@ -308,7 +310,9 @@ export function IncidentFormPage() {
   // Tách phần LƯU (không điều hướng) → trả { ok, id } để onSave/onSaveAndExport
   // quyết định điều hướng hay mở popup xuất chứng từ động.
   const doSave = async (): Promise<{ ok: boolean; id: string | null }> => {
+    if (savingRef.current) return { ok: false, id: null }; // chống lưu chồng lấn
     if (!validateForm()) { window.scrollTo({ top: 0, behavior: "smooth" }); return { ok: false, id: null }; }
+    savingRef.current = true;
     setIsSubmitting(true);
     try {
       // Build payload explicitly — only fields that exist in CreateIncidentDto
@@ -385,7 +389,7 @@ export function IncidentFormPage() {
         setErrors(extractApiError(err).messages);
       }
       return { ok: false, id: null };
-    } finally { setIsSubmitting(false); }
+    } finally { setIsSubmitting(false); savingRef.current = false; }
   };
 
   // "Lưu" thường → lưu xong về danh sách (hành vi cũ).

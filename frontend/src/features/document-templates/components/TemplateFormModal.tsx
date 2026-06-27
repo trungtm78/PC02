@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createTemplate } from '../api';
+import { documentNumbersApi } from '@/features/document-numbers/api';
+import type { DocumentNumberTemplate } from '@/features/document-numbers/types';
 
 const ENTITY_OPTIONS: { value: string; label: string }[] = [
   { value: 'VU_AN', label: 'Vụ án' },
@@ -20,12 +22,25 @@ export function TemplateFormModal({ onClose, onSaved }: Props) {
   const [entityType, setEntityType] = useState('VU_AN');
   const [category, setCategory] = useState('Quyết định');
   const [needsNumber, setNeedsNumber] = useState(false);
+  const [numberSeriesId, setNumberSeriesId] = useState('');
+  const [seriesOptions, setSeriesOptions] = useState<DocumentNumberTemplate[]>([]);
   const [sortOrder, setSortOrder] = useState(0);
   const [file, setFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  const canSave = !!file && code.trim() !== '' && name.trim() !== '' && !saving;
+  // Nạp danh sách chuỗi số văn bản để chọn khi bật "Cấp số" (numberSeriesId = documentType).
+  useEffect(() => {
+    documentNumbersApi.listTemplates().then(setSeriesOptions).catch(() => setSeriesOptions([]));
+  }, []);
+
+  // Bật cấp số thì BẮT BUỘC chọn chuỗi số (nếu không export sẽ luôn fail 400).
+  const canSave =
+    !!file &&
+    code.trim() !== '' &&
+    name.trim() !== '' &&
+    (!needsNumber || numberSeriesId !== '') &&
+    !saving;
 
   async function handleSave() {
     if (!canSave || !file) return;
@@ -38,6 +53,7 @@ export function TemplateFormModal({ onClose, onSaved }: Props) {
       form.append('entityType', entityType);
       form.append('category', category);
       form.append('needsNumber', String(needsNumber));
+      if (needsNumber && numberSeriesId) form.append('numberSeriesId', numberSeriesId);
       form.append('sortOrder', String(sortOrder));
       form.append('file', file);
       await createTemplate(form);
@@ -141,6 +157,28 @@ export function TemplateFormModal({ onClose, onSaved }: Props) {
             />
           </label>
         </div>
+
+        {needsNumber && (
+          <div className="mb-3">
+            <label className="mb-1 block text-sm font-medium">Chuỗi số văn bản *</label>
+            <select
+              data-testid="template-number-series"
+              className="w-full rounded border px-3 py-2"
+              value={numberSeriesId}
+              onChange={(e) => setNumberSeriesId(e.target.value)}
+            >
+              <option value="">-- Chọn chuỗi số --</option>
+              {seriesOptions.map((o) => (
+                <option key={o.id} value={o.documentType}>
+                  {o.name} ({o.documentType})
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-slate-500">
+              Bắt buộc khi bật cấp số — mỗi lần in sẽ cấp 1 số từ chuỗi này.
+            </p>
+          </div>
+        )}
 
         {error && (
           <p data-testid="template-form-error" className="mb-3 text-sm text-red-600">

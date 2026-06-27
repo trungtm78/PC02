@@ -1,8 +1,14 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { createHash } from 'crypto';
 import PizZip from 'pizzip';
 import { PrismaService } from '../prisma/prisma.service';
 import { detectDocxVariables } from './docx-variables.util';
+import { isAutoPlaceholder } from './entity-placeholders';
 import { CreateDocumentTemplateDto } from './dto/create-document-template.dto';
 import { UpdateDocumentTemplateDto } from './dto/update-document-template.dto';
 
@@ -12,9 +18,17 @@ type UploadFile = { buffer: Buffer; originalname: string };
 export class DocumentTemplatesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  /** Biến phát hiện từ .docx → mặc định source 'auto' (catalog ở PR2 sẽ phân biệt auto/manual). */
-  private buildVariables(buffer: Buffer) {
-    return detectDocxVariables(buffer).map((name) => ({ name, source: 'auto', label: name }));
+  /**
+   * Biến phát hiện từ .docx → phân loại theo catalog của entityType:
+   * thuộc danh mục chuẩn (auto-điền từ record/số) = 'auto'; ngoài danh mục = 'manual'
+   * (admin/cán bộ nhập tay khi in — tránh placeholder render rỗng câm).
+   */
+  private buildVariables(buffer: Buffer, entityType: string) {
+    return detectDocxVariables(buffer).map((name) => ({
+      name,
+      source: isAutoPlaceholder(entityType, name) ? 'auto' : 'manual',
+      label: name,
+    }));
   }
 
   /** [codex P2] Chặn file giả .docx: buffer phải là zip docx hợp lệ (có word/document.xml). */
@@ -29,24 +43,37 @@ export class DocumentTemplatesService {
 
   async create(dto: CreateDocumentTemplateDto, file: UploadFile, userId: string) {
     this.assertValidDocx(file.buffer);
+    // needsNumber bật mà thiếu numberSeriesId → mẫu cấu hình sai (export sẽ luôn fail 400).
+    // Chặn ngay lúc tạo thay vì để chết khi in.
+    if (dto.needsNumber && !dto.numberSeriesId) {
+      throw new BadRequestException('Bật cấp số văn bản thì phải chọn chuỗi số (numberSeriesId)');
+    }
     const fileSha = createHash('sha256').update(file.buffer).digest('hex');
-    return this.prisma.documentTemplate.create({
-      data: {
-        code: dto.code,
-        name: dto.name,
-        entityType: dto.entityType,
-        category: dto.category,
-        // Buffer là Uint8Array runtime; cast giữ reference cho Prisma Bytes (v7 type khắt khe hơn).
-        fileBytes: file.buffer as unknown as Uint8Array<ArrayBuffer>,
-        fileSha,
-        fileName: file.originalname,
-        variables: this.buildVariables(file.buffer),
-        needsNumber: dto.needsNumber ?? false,
-        numberSeriesId: dto.numberSeriesId ?? null,
-        sortOrder: dto.sortOrder ?? 0,
-        createdById: userId,
-      },
-    });
+    try {
+      return await this.prisma.documentTemplate.create({
+        data: {
+          code: dto.code,
+          name: dto.name,
+          entityType: dto.entityType,
+          category: dto.category,
+          // Buffer là Uint8Array runtime; cast giữ reference cho Prisma Bytes (v7 type khắt khe hơn).
+          fileBytes: file.buffer as unknown as Uint8Array<ArrayBuffer>,
+          fileSha,
+          fileName: file.originalname,
+          variables: this.buildVariables(file.buffer, dto.entityType),
+          needsNumber: dto.needsNumber ?? false,
+          numberSeriesId: dto.numberSeriesId ?? null,
+          sortOrder: dto.sortOrder ?? 0,
+          createdById: userId,
+        },
+      });
+    } catch (e) {
+      // Partial unique [entityType, code] WHERE deletedAt IS NULL → P2002. Trả 409 thân thiện.
+      if ((e as { code?: string })?.code === 'P2002') {
+        throw new ConflictException('Mã mẫu đã tồn tại cho loại hồ sơ này');
+      }
+      throw e;
+    }
   }
 
   async list(filter: { entityType?: string; category?: string; status?: string }) {
@@ -74,9 +101,9 @@ export class DocumentTemplatesService {
     return this.prisma.documentTemplate.update({ where: { id }, data: { ...dto } });
   }
 
-  /** Thay file .docx: cập nhật bytes + sha + re-detect biến. */
+  /** Thay file .docx: cập nhật bytes + sha + re-detect biến (phân loại theo entityType cũ). */
   async replaceFile(id: string, file: UploadFile, _userId: string) {
-    await this.getById(id);
+    const existing = await this.getById(id);
     this.assertValidDocx(file.buffer);
     const fileSha = createHash('sha256').update(file.buffer).digest('hex');
     return this.prisma.documentTemplate.update({
@@ -85,7 +112,7 @@ export class DocumentTemplatesService {
         fileBytes: file.buffer as unknown as Uint8Array<ArrayBuffer>,
         fileSha,
         fileName: file.originalname,
-        variables: this.buildVariables(file.buffer),
+        variables: this.buildVariables(file.buffer, existing.entityType),
       },
     });
   }

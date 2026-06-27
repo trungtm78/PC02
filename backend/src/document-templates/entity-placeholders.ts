@@ -72,3 +72,18 @@ export function buildEntityPlaceholders(
   for (const [k, v] of Object.entries(merged)) out[k] = esc(s(v));
   return out;
 }
+
+/**
+ * Tập biến TỰ ĐIỀN (auto) cho từng loại hồ sơ = key catalog + `soVanBan` (số cấp lúc in).
+ * Dùng để phân loại biến phát hiện trong .docx: thuộc tập này → auto, ngoài → nhập tay (manual).
+ */
+const AUTO_PLACEHOLDER_KEYS: Record<'VU_AN' | 'VU_VIEC', readonly string[]> = {
+  VU_AN: [...Object.keys(caseMap({})), 'soVanBan'],
+  VU_VIEC: [...Object.keys(incidentMap({})), 'soVanBan'],
+};
+
+/** Biến `name` có tự điền được cho `entityType` không (ngoài tập → phải nhập tay khi in). */
+export function isAutoPlaceholder(entityType: string, name: string): boolean {
+  const keys = AUTO_PLACEHOLDER_KEYS[entityType as 'VU_AN' | 'VU_VIEC'];
+  return keys ? keys.includes(name) : false;
+}

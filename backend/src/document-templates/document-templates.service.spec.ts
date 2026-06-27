@@ -30,7 +30,7 @@ describe('DocumentTemplatesService', () => {
     jest.clearAllMocks();
   });
 
-  it('create: tính sha + detect biến (source auto) + lưu bytes + createdById', async () => {
+  it('create: tính sha + phân loại biến (catalog=auto, ngoài catalog=manual) + lưu bytes + createdById', async () => {
     const buf = docx('Số {soVuAn} {hoTenBiCan}');
     await svc.create(
       { code: 'QD-KTVA', name: 'QĐ khởi tố', entityType: 'VU_AN', category: 'Quyết định' } as any,
@@ -40,11 +40,34 @@ describe('DocumentTemplatesService', () => {
     const data = mockPrisma.documentTemplate.create.mock.calls[0][0].data;
     expect(data.fileSha).toBe(createHash('sha256').update(buf).digest('hex'));
     expect(data.variables).toEqual([
+      // soVuAn thuộc catalog VU_AN → auto-điền; hoTenBiCan ngoài catalog → nhập tay.
       { name: 'soVuAn', source: 'auto', label: 'soVuAn' },
-      { name: 'hoTenBiCan', source: 'auto', label: 'hoTenBiCan' },
+      { name: 'hoTenBiCan', source: 'manual', label: 'hoTenBiCan' },
     ]);
     expect(data.createdById).toBe('u1');
     expect(data.fileBytes).toBe(buf);
+  });
+
+  it('create: needsNumber bật mà thiếu numberSeriesId → BadRequest (không lưu)', async () => {
+    await expect(
+      svc.create(
+        { code: 'C', name: 'N', entityType: 'VU_AN', category: 'Khác', needsNumber: true } as any,
+        { buffer: docx('x'), originalname: 'a.docx' },
+        'u1',
+      ),
+    ).rejects.toThrow();
+    expect(mockPrisma.documentTemplate.create).not.toHaveBeenCalled();
+  });
+
+  it('create: code trùng (P2002) → Conflict thân thiện', async () => {
+    mockPrisma.documentTemplate.create.mockRejectedValueOnce({ code: 'P2002' });
+    await expect(
+      svc.create(
+        { code: 'DUP', name: 'N', entityType: 'VU_AN', category: 'Khác' } as any,
+        { buffer: docx('x'), originalname: 'a.docx' },
+        'u1',
+      ),
+    ).rejects.toThrow(/đã tồn tại/);
   });
 
   it('list: lọc entityType + status, loại deletedAt, sort sortOrder asc', async () => {
