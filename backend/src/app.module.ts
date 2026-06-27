@@ -53,6 +53,7 @@ import { UnitScopeService } from './auth/services/unit-scope.service';
 import { DataScopeInterceptor } from './auth/interceptors/data-scope.interceptor';
 import { TestFixturesModule } from './test-fixtures/test-fixtures.module';
 import { DocumentNumbersModule } from './document-numbers/document-numbers.module';
+import { DocumentTemplatesModule } from './document-templates/document-templates.module';
 import { CrimesModule } from './crimes/crimes.module';
 import { LegacyMigrationModule } from './legacy-migration/legacy-migration.module';
 import { CatalogModule } from './catalog/catalog.module';
@@ -115,6 +116,7 @@ import { CatalogModule } from './catalog/catalog.module';
     CalendarEventsModule,
     EventRemindersModule,
     DocumentNumbersModule,
+    DocumentTemplatesModule,
     // Conditional: only registers when E2E_TEST_MODE=true.
     TestFixturesModule.forRoot(),
   ],
