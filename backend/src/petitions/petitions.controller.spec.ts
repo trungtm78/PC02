@@ -24,6 +24,7 @@ const mockService = {
 
 const mockJourneyService = { getJourney: jest.fn() };
 const mockBatchExport = { exportBatchToZip: jest.fn() };
+const mockExportDocs = { exportDocuments: jest.fn() };
 
 describe('PetitionsController — delegation', () => {
   let controller: PetitionsController;
@@ -39,6 +40,11 @@ describe('PetitionsController — delegation', () => {
           token: require('./batch-export.service').BatchExportService,
           mock: mockBatchExport,
         },
+        {
+          token: require('./petition-export-documents.service')
+            .PetitionExportDocumentsService,
+          mock: mockExportDocs,
+        },
       ],
     );
     controller = module.get(PetitionsController);
@@ -50,6 +56,26 @@ describe('PetitionsController — delegation', () => {
     const req = makeReq();
     await controller.getList({} as any, req);
     expect(mockService.getList).toHaveBeenCalledWith({}, req.dataScope);
+  });
+
+  it('exportDocuments() delegates to service với docTypes, mode, userId, scope, res', async () => {
+    const req = makeReq();
+    const res = { setHeader: jest.fn(), send: jest.fn() } as any;
+    await controller.exportDocuments(
+      'pet-1',
+      { docTypes: ['BIEN_NHAN', 'PHIEU_DE_XUAT'], mode: 'merged' } as any,
+      mockUser,
+      req,
+      res,
+    );
+    expect(mockExportDocs.exportDocuments).toHaveBeenCalledWith(
+      'pet-1',
+      ['BIEN_NHAN', 'PHIEU_DE_XUAT'],
+      'merged',
+      mockUser.id,
+      req.dataScope,
+      res,
+    );
   });
 
   it('create() delegates to service.create with dto, userId and audit info', async () => {

@@ -21,6 +21,8 @@ import type { ScopedRequest } from '../auth/interfaces/scoped-request.interface'
 import { PetitionsService } from './petitions.service';
 import { PetitionsJourneyService } from './petitions-journey.service';
 import { BatchExportService } from './batch-export.service';
+import { PetitionExportDocumentsService } from './petition-export-documents.service';
+import { ExportDocumentsDto } from './dto/export-documents.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { DispatchGuard } from '../auth/guards/dispatch.guard';
@@ -44,6 +46,7 @@ export class PetitionsController {
     private readonly petitionsService: PetitionsService,
     private readonly petitionsJourneyService: PetitionsJourneyService,
     private readonly batchExport: BatchExportService,
+    private readonly exportDocsService: PetitionExportDocumentsService,
   ) {}
 
   // GET /api/v1/petitions — Danh sách đơn thư
@@ -201,6 +204,29 @@ export class PetitionsController {
     await this.batchExport.exportBatchToZip(
       body.petitionIds,
       body.docType as any,
+      user.id,
+      req.dataScope,
+      res,
+    );
+  }
+
+  // POST /api/v1/petitions/:id/export-documents — xuất NHIỀU mẫu cho 1 đơn.
+  // Body: { docTypes: string[] (1..7), mode?: 'merged'|'zip' }. merged=1 .docx gộp
+  // (ngắt trang), zip=ZIP nhiều .docx. Validate+dedupe+pre-validate ở service.
+  @Post(':id/export-documents')
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
+  @RequirePermissions({ action: 'read', subject: 'Petition' })
+  async exportDocuments(
+    @Param('id') id: string,
+    @Body() body: ExportDocumentsDto,
+    @CurrentUser() user: AuthUser,
+    @Req() req: ScopedRequest,
+    @Res() res: Response,
+  ): Promise<void> {
+    await this.exportDocsService.exportDocuments(
+      id,
+      body.docTypes,
+      body.mode,
       user.id,
       req.dataScope,
       res,
