@@ -89,7 +89,7 @@ export class DocumentTemplatesController {
   }
 
   @Delete(':id')
-  @RequirePermissions({ action: 'delete', subject: 'Setting' })
+  @RequirePermissions({ action: 'write', subject: 'Setting' }) // soft-delete = write (combo có trong seed-permissions)
   remove(@Param('id') id: string) {
     return this.svc.softDelete(id);
   }
