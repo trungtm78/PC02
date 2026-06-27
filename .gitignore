@@ -40,3 +40,4 @@ docs/uat/_shared/test-accounts.json
 
 # Python test cache
 scripts/tests/__pycache__/
+backend/_be-triage.log

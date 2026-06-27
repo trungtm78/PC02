@@ -200,16 +200,19 @@ export class CasesService {
     }
 
     // v0.44.3 — UTDT date range by ngayTiepNhan
-    if (ngayTiepNhanFrom) {
+    // Guard date param không hợp lệ → bỏ qua filter (tránh Prisma 500 với Invalid Date từ input rác).
+    const _from = ngayTiepNhanFrom ? new Date(ngayTiepNhanFrom) : null;
+    if (_from && !Number.isNaN(_from.getTime())) {
       where.ngayTiepNhan = {
         ...(where.ngayTiepNhan as Prisma.DateTimeNullableFilter | undefined),
-        gte: new Date(ngayTiepNhanFrom),
+        gte: _from,
       };
     }
-    if (ngayTiepNhanTo) {
+    const _to = ngayTiepNhanTo ? new Date(ngayTiepNhanTo + 'T23:59:59Z') : null;
+    if (_to && !Number.isNaN(_to.getTime())) {
       where.ngayTiepNhan = {
         ...(where.ngayTiepNhan as Prisma.DateTimeNullableFilter | undefined),
-        lte: new Date(ngayTiepNhanTo + 'T23:59:59Z'),
+        lte: _to,
       };
     }
 
@@ -402,16 +405,19 @@ export class CasesService {
       ];
     }
 
-    if (ngayTiepNhanFrom) {
+    // Guard date param không hợp lệ → bỏ qua filter (tránh Prisma 500 với Invalid Date từ input rác).
+    const _from = ngayTiepNhanFrom ? new Date(ngayTiepNhanFrom) : null;
+    if (_from && !Number.isNaN(_from.getTime())) {
       where.ngayTiepNhan = {
         ...(where.ngayTiepNhan as Prisma.DateTimeNullableFilter | undefined),
-        gte: new Date(ngayTiepNhanFrom),
+        gte: _from,
       };
     }
-    if (ngayTiepNhanTo) {
+    const _to = ngayTiepNhanTo ? new Date(ngayTiepNhanTo + 'T23:59:59Z') : null;
+    if (_to && !Number.isNaN(_to.getTime())) {
       where.ngayTiepNhan = {
         ...(where.ngayTiepNhan as Prisma.DateTimeNullableFilter | undefined),
-        lte: new Date(ngayTiepNhanTo + 'T23:59:59Z'),
+        lte: _to,
       };
     }
 

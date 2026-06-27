@@ -1362,8 +1362,9 @@ export class PetitionsService {
     const groups = await (this.prisma.petition.groupBy as any)({
       by: [dupKey],
       where: {
+        // Prisma v7: `not: null` bị reject trong groupBy. `notIn: ['']` (SQL NOT IN) loại cả NULL lẫn ''.
         ...where,
-        [dupKey]: { not: null, notIn: [''] },
+        [dupKey]: { notIn: [''] },
       },
       _count: { _all: true },
       having: { [dupKey]: { _count: { gt: 1 } } },
