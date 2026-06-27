@@ -144,6 +144,15 @@ def gen_api_test(tc: dict, cfg: dict) -> str:
   }});
 """
 
+    # Skip test rate-limit/throttle: bộ UAT chạy với THROTTLE_DISABLE=true (tránh 429 cascade)
+    # → không thể verify 429 ở đây; cần chạy riêng với throttle ON.
+    title_lower = title.lower()
+    if 'http 429' in expected.lower() or 'throttle' in title_lower or 'rate limit' in title_lower or 'rate-limit' in title_lower:
+        return f"""  test('{tc_id}-API: [{priority}] {title}', async () => {{
+    test.skip(true, 'Rate-limit/throttle test — cần THROTTLE_DISABLE unset (chạy riêng, không trong bộ UAT throttle-off).');
+  }});
+"""
+
     # Determine expected status code from title/expected
     expected_lower = expected.lower()
     if 'http 201' in expected_lower or 'http 200' in expected_lower:
@@ -168,6 +177,9 @@ def gen_api_test(tc: dict, cfg: dict) -> str:
         expected_status = '[500]'
     elif '4xx' in expected_lower or 'error' in expected_lower:
         expected_status = '[400, 401, 403, 404, 409, 422]'
+    elif method == 'GET':
+        # GET không có mã lỗi rõ → mặc định thành công (đa số là stats/list/decision đọc dữ liệu).
+        expected_status = '[200, 201, 204]'
     else:
         # Default: accept 200/201/204 for GREEN/STATE; 400 for RED
         if tc['type'] in ('GREEN', 'STATE', 'EP', 'BOUNDARY', 'EDGE', 'PERFORMANCE'):
@@ -182,30 +194,73 @@ def gen_api_test(tc: dict, cfg: dict) -> str:
     # Inject body cho POST/PUT/PATCH — dùng steps_raw (trước sanitize) để giữ quotes
     steps_raw = tc.get('steps', '')
     body_injection = ''
+    pre_request = ''
     # Test mong THÀNH CÔNG (chứa 201) → merge base hợp lệ để đủ required field.
     # Test RED (mong 400/4xx) → KHÔNG merge: giữ nguyên body thiếu/sai để validate đúng kịch bản.
     is_success = '201' in expected_status
+    is_conflict = expected_status == '[409]'   # cần body hợp lệ + giá trị unique cố định + POST 2 lần
+    build = is_success or is_conflict
+    tl = (title + ' ' + steps_raw).lower()
+    # FK cần ID thật từ beforeAll seed (FROM_PETITION/INCIDENT). Đặt SAU base/inner để override.
+    fk_extra = ''
+    if 'from_petition' in tl:
+        fk_extra = "caseProvenance: 'FROM_PETITION', linkedPetitionId: __seedPetitionId, expectedPetitionUpdatedAt: __seedPetitionUpdatedAt"
+    elif 'from_incident' in tl:
+        fk_extra = "caseProvenance: 'FROM_INCIDENT', linkedIncidentId: __seedIncidentId, expectedIncidentUpdatedAt: __seedIncidentUpdatedAt"
+    is_batch = 'batch' in tl
+    # Batch export-document cần docType → thêm mặc định nếu thiếu.
+    batch_extra = "docType: 'PHIEU_DE_XUAT'" if 'export-document' in path else ''
+
+    def _clean_body(bjs: str) -> str:
+        bjs = bjs.replace('`', "'").replace('…', '').replace('...', '')  # backtick/ellipsis
+        # Resolve {{random}} → runtime-unique
+        bjs = re.sub(r"'([^']*?)\{\{random\}\}([^']*?)'", r"('\1' + __uatRand() + '\2')", bjs)
+        # Loại field có placeholder {{...}} CHƯA resolve (vd {{petition_id}}, {{p1}}) → tránh value rác → 400.
+        bjs = re.sub(r"[A-Za-z_]\w*\s*:\s*'[^']*\{\{[^']*'\s*,?", '', bjs)       # value string
+        bjs = re.sub(r"[A-Za-z_]\w*\s*:\s*\[[^\]]*\{\{[^\]]*\]\s*,?", '', bjs)    # value array
+        # Dọn phẩy thừa
+        bjs = re.sub(r',\s*}', '}', bjs)
+        bjs = re.sub(r'\{\s*,', '{', bjs)
+        bjs = re.sub(r',\s*,', ',', bjs)
+        return bjs
+
+    def _inner(bjs: str) -> str:
+        s = bjs.strip()
+        if s.startswith('{') and s.endswith('}'):
+            s = s[1:-1].strip().rstrip(',').strip()
+        return s
+
     if method in ('POST', 'PUT', 'PATCH'):
         body_js = extract_body_from_steps(steps_raw)
-        if body_js:
-            body_js = body_js.replace('`', "'")  # backtick phá TypeScript template literal
-            body_js = body_js.replace('…', '').replace('...', '')  # loại ellipsis "vv"
-            # Dọn dấu phẩy thừa: ",}" → "}", "{," → "{", ",," → ","
-            body_js = re.sub(r',\s*}', '}', body_js)
-            body_js = re.sub(r'\{\s*,', '{', body_js)
-            body_js = re.sub(r',\s*,', ',', body_js)
-            # Resolve {{random}} → runtime-unique (tránh trùng unique field khi chạy lại)
-            body_js = re.sub(r"'([^']*?)\{\{random\}\}([^']*?)'", r"('\1' + __uatRand() + '\2')", body_js)
-            if is_success:
-                # merge base qua spread; field TC override base (giữ giá trị test cụ thể)
-                inner = body_js.strip()
-                if inner.startswith('{') and inner.endswith('}'):
-                    inner = inner[1:-1].strip().rstrip(',').strip()
-                body_js = ('{ ...__baseBody(), ' + inner + ' }') if inner else '__baseBody()'
+        if is_batch and is_success:
+            # Batch: giữ field khác (docType...) từ steps, override petitionIds bằng seed ID thật.
+            inner = _inner(_clean_body(body_js)) if body_js else ''
+            parts = [inner] if inner else []
+            parts.append('petitionIds: [__seedPetitionId]')
+            if batch_extra and 'doctype' not in inner.lower():
+                parts.append(batch_extra)
+            body_injection = f"      data: {{ {', '.join(parts)} }},\n"
+        elif body_js:
+            body_js = _clean_body(body_js)
+            if build:
+                inner = _inner(body_js)
+                parts = ['...__baseBody()'] + ([inner] if inner else []) + ([fk_extra] if fk_extra else [])
+                body_js = '{ ' + ', '.join(parts) + ' }'
             body_injection = f"      data: {body_js},\n"
-        elif is_success and method == 'POST':
-            # Không trích được body từ steps nhưng là create thành công → dùng base hợp lệ.
-            body_injection = "      data: __baseBody(),\n"
+        elif build and method == 'POST':
+            # Không trích được body → base hợp lệ (+ FK nếu cần).
+            parts = ['...__baseBody()'] + ([fk_extra] if fk_extra else [])
+            body_injection = f"      data: {{ {', '.join(parts)} }},\n"
+
+    # 409: dùng giá trị unique CỐ ĐỊNH (thay __uatRand) để 2 lần POST xung đột.
+    pre_request = ''
+    if is_conflict and body_injection:
+        body_injection = body_injection.replace('__uatRand()', f"'dup-{tc_id}'")
+        data_only = body_injection.strip().rstrip(',')  # "data: {...}"
+        pre_request = (
+            f"    // 409: POST lần 1 tạo bản ghi (để lần 2 trùng unique)\n"
+            f"    await request.{method.lower()}(apiUrl, {{ headers: {{ Authorization: `Bearer ${{token}}`, 'Content-Type': 'application/json' }}, {data_only}, failOnStatusCode: false }});\n"
+        )
 
     # Wire query string từ steps (vd "GET ?status=INVALID") vào URL nếu path chưa có query.
     # Generator cũ bỏ sót → URL không param → endpoint validate không kích hoạt (false 200).
@@ -227,9 +282,16 @@ def gen_api_test(tc: dict, cfg: dict) -> str:
     # JS-escape path (defensive): backslash + single quote → endpoint string luôn hợp lệ, không phá compile.
     path_js = path.replace('\\', '\\\\').replace("'", "\\'")
 
-    # Test mong 401 (no JWT / expired / tampered) → gửi token hỏng để kích hoạt 401 thật
-    # (generator cũ luôn gửi token admin hợp lệ → 200/400, không bao giờ 401).
-    token_expr = "getToken() + '.TAMPERED'" if expected_status == '[401]' else "getToken()"
+    # Token theo kịch bản:
+    # - mong 401 → token tamper (no JWT/expired/tampered) để kích hoạt 401 thật.
+    # - mong 403 → token low-priv (approver1) từ beforeAll → VIEWER/OFFICER bị từ chối ghi/admin.
+    # - còn lại → admin token (getToken).
+    if expected_status == '[401]':
+        token_expr = "getToken() + '.TAMPERED'"
+    elif expected_status == '[403, 404]':
+        token_expr = "(__lowToken || getToken())"
+    else:
+        token_expr = "getToken()"
 
     return f"""  test('{tc_id}-API: [{priority}] {title}', async ({{ request }}) => {{
 {data_setup}    // Pre: {pre or '-'}
@@ -239,7 +301,7 @@ def gen_api_test(tc: dict, cfg: dict) -> str:
     const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
     const apiUrl = baseUrl.replace(/\\/$/, '') + (endpoint.startsWith('/api') ? endpoint : '/api/v1' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
     const token = {token_expr};
-    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
+{pre_request}    // Chỉ skip khi app không phản hồi (network error) — không skip khi assertion fail
     let response: any;
     try {{
       response = await request.{method.lower()}(apiUrl, {{
@@ -395,6 +457,28 @@ function __baseBody(): Record<string, unknown> {{
 }}
 
 test.describe('{feature.upper()} — UAT API smoke layer', () => {{
+  // Fixtures dùng chung: token low-priv (cho test 403) + seed petition/incident (cho FK FROM_*).
+  let __lowToken = '';
+  let __seedPetitionId = '';
+  let __seedPetitionUpdatedAt = '';
+  let __seedIncidentId = '';
+  let __seedIncidentUpdatedAt = '';
+  test.beforeAll(async ({{ request }}) => {{
+    const base = (process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000').replace(/\\/$/, '') + '/api/v1';
+    try {{
+      const r = await request.post(base + '/auth/login', {{ data: {{ username: process.env.LOWPRIV_USERNAME || 'approver1@pc02.local', password: process.env.LOWPRIV_PASSWORD || '6!rrw@ILte62' }}, failOnStatusCode: false }});
+      if (r.ok()) {{ const d: any = await r.json(); __lowToken = ((d.data && d.data.accessToken) || d.accessToken) || ''; }}
+    }} catch (_e) {{ /* low-token optional */ }}
+    const auth = {{ Authorization: `Bearer ${{getToken()}}`, 'Content-Type': 'application/json' }};
+    try {{
+      const r = await request.post(base + '/petitions', {{ headers: auth, data: {{ senderIsAnonymous: true, receivedDate: '2026-05-30', petitionType: 'TO_CAO' }}, failOnStatusCode: false }});
+      if (r.ok()) {{ const d: any = await r.json(); const o = d.data || d; __seedPetitionId = o.id || ''; __seedPetitionUpdatedAt = o.updatedAt || ''; }}
+    }} catch (_e) {{ /* seed optional */ }}
+    try {{
+      const r = await request.post(base + '/incidents', {{ headers: auth, data: {{ name: 'Seed ' + __uatRand() }}, failOnStatusCode: false }});
+      if (r.ok()) {{ const d: any = await r.json(); const o = d.data || d; __seedIncidentId = o.id || ''; __seedIncidentUpdatedAt = o.updatedAt || ''; }}
+    }} catch (_e) {{ /* seed optional */ }}
+  }});
 {''.join(api_blocks)}
 }});
 """
