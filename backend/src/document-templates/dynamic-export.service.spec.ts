@@ -1,5 +1,6 @@
 import { Writable } from 'stream';
 import PizZip from 'pizzip';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { DynamicExportService } from './dynamic-export.service';
 
 /** Dựng .docx tối thiểu hợp lệ cho docxtemplater (đủ Content_Types + rels + document.xml). */
@@ -172,6 +173,96 @@ describe('DynamicExportService', () => {
       const r = await svc.getExportReadiness('DON_THU', { senderName: '' });
       const m = r.items[0].missing[0];
       expect(m).toMatchObject({ field: 'ghiTen', savable: true, column: 'senderName' });
+    });
+  });
+
+  // ── exportBatchByCode (IN ĐỒNG LOẠT động — PR4 thay BatchExportService tĩnh) ──────
+  describe('exportBatchByCode', () => {
+    let svc: DynamicExportService;
+    let prisma: any;
+    let docNums: any;
+    let commitCount: number;
+    // Mẫu DON_THU không có biến required → assertRequiredSatisfied pass cho mọi record.
+    const TPL = { id: 'bn', code: 'BIEN_NHAN', entityType: 'DON_THU', status: 'active', needsNumber: true, numberSeriesId: 'BIEN_NHAN', fileSha: 'sha', variables: [], fileBytes: makeDocx('So {soVanBan}') };
+
+    beforeEach(() => {
+      commitCount = 0;
+      prisma = {
+        documentTemplate: { findFirst: jest.fn().mockResolvedValue(TPL) },
+        documentRenderLog: { create: jest.fn().mockResolvedValue({}) },
+        $queryRawUnsafe: jest.fn().mockResolvedValue([]),
+        $transaction: jest.fn(async (fn: any) => fn(prisma)),
+      };
+      docNums = { commitWithTx: jest.fn().mockImplementation(async () => ({ number: `BN-${++commitCount}` })) };
+      svc = new DynamicExportService(prisma, docNums, { merge: jest.fn() } as any);
+    });
+
+    /** Đọc manifest.json trong ZIP mà res.send nhận được. */
+    function readManifest(res: any) {
+      const buf = res.send.mock.calls[0][0] as Buffer;
+      return JSON.parse(new PizZip(buf).file('manifest.json')!.asText());
+    }
+
+    it('[P1] dedup petitionIds trùng → 1 đơn chỉ cấp 1 số (không nhảy số sổ)', async () => {
+      const res = plainRes();
+      const load = jest.fn(async (id: string) => ({ id, senderName: 'A' }));
+      await svc.exportBatchByCode('DON_THU', 'BIEN_NHAN', ['p1', 'p1', 'p1'], load, 'u1', res);
+      expect(docNums.commitWithTx).toHaveBeenCalledTimes(1); // 3 id trùng → cấp đúng 1 số
+      const man = readManifest(res);
+      expect(man.total).toBe(1);
+      expect(man.items.filter((i: any) => i.ok)).toHaveLength(1);
+    });
+
+    it('1 hồ sơ lỗi nghiệp vụ (thiếu trường) → manifest ok:false, lô VẪN tiếp tục', async () => {
+      const res = plainRes();
+      const load = jest.fn(async (id: string) => {
+        if (id === 'bad') throw new BadRequestException('Thiếu thông tin bắt buộc: Họ tên');
+        return { id, senderName: 'A' };
+      });
+      await svc.exportBatchByCode('DON_THU', 'BIEN_NHAN', ['good', 'bad'], load, 'u1', res);
+      const man = readManifest(res);
+      expect(man.items.find((i: any) => i.id === 'good').ok).toBe(true);
+      const bad = man.items.find((i: any) => i.id === 'bad');
+      expect(bad.ok).toBe(false);
+      expect(bad.error).toContain('Họ tên');
+    });
+
+    it('[P2] hồ sơ ngoài scope (Forbidden) / không tồn tại (NotFound) → message TRUNG LẬP (chống IDOR-enum)', async () => {
+      const res = plainRes();
+      const load = jest.fn(async (id: string) => {
+        if (id === 'forbidden') throw new ForbiddenException('Bạn không có quyền truy cập bản ghi này');
+        if (id === 'missing') throw new NotFoundException('Đơn thư không tồn tại (id: missing)');
+        return { id, senderName: 'A' };
+      });
+      await svc.exportBatchByCode('DON_THU', 'BIEN_NHAN', ['forbidden', 'missing'], load, 'u1', res);
+      const man = readManifest(res);
+      const msgs = man.items.map((i: any) => i.error);
+      // KHÔNG để lộ "không có quyền" vs "không tồn tại" (phân biệt id thật) → cùng 1 message.
+      expect(new Set(msgs).size).toBe(1);
+      expect(msgs[0]).not.toContain('quyền');
+      expect(msgs[0]).not.toContain('không tồn tại (id');
+    });
+
+    it('[P2] lỗi HỆ THỐNG (không phải nghiệp vụ) → rethrow ABORT lô (không che bằng ok:false)', async () => {
+      const res = plainRes();
+      const load = jest.fn(async () => { throw new Error('DB connection lost'); });
+      await expect(
+        svc.exportBatchByCode('DON_THU', 'BIEN_NHAN', ['p1'], load, 'u1', res),
+      ).rejects.toThrow('DB connection lost');
+      expect(res.send).not.toHaveBeenCalled(); // không trả ZIP giả "thành công"
+    });
+
+    it('mẫu không tồn tại → BadRequest', async () => {
+      prisma.documentTemplate.findFirst.mockResolvedValue(null);
+      await expect(
+        svc.exportBatchByCode('DON_THU', 'KHONG_CO', ['p1'], jest.fn(), 'u1', plainRes()),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('danh sách rỗng → BadRequest', async () => {
+      await expect(
+        svc.exportBatchByCode('DON_THU', 'BIEN_NHAN', [], jest.fn(), 'u1', plainRes()),
+      ).rejects.toThrow('trống');
     });
   });
 });

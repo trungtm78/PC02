@@ -1,4 +1,10 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { Response } from 'express';
 import { createHash } from 'crypto';
 import archiver from 'archiver';
@@ -297,6 +303,9 @@ export class DynamicExportService {
     if (!entityIds.length) {
       throw new BadRequestException('Danh sách hồ sơ trống');
     }
+    // Dedup id trùng → 1 đơn chỉ cấp 1 số văn bản (tránh nhảy/lãng phí số sổ — đối xứng
+    // với reject templateIds trùng ở exportEntityDocuments).
+    const ids = [...new Set(entityIds)];
     const template = await this.prisma.documentTemplate.findFirst({
       where: { entityType, code, deletedAt: null, status: 'active' },
     });
@@ -306,7 +315,7 @@ export class DynamicExportService {
 
     const rendered: RenderedTemplate[] = [];
     const manifest: Array<{ id: string; ok: boolean; documentNumber?: string; error?: string }> = [];
-    for (const id of entityIds) {
+    for (const id of ids) {
       try {
         const record = await loadRecord(id);
         this.assertRequiredSatisfied(entityType, record, [template], {});
@@ -315,8 +324,19 @@ export class DynamicExportService {
         );
         rendered.push({ ...r, filename: sanitizeFilename(`${code}_${r.documentNumber ?? id}.docx`) });
         manifest.push({ id, ok: true, documentNumber: r.documentNumber });
-      } catch (e: any) {
-        manifest.push({ id, ok: false, error: e?.message ?? 'Lỗi không xác định' });
+      } catch (e) {
+        // Lỗi NGHIỆP VỤ (thiếu trường bắt buộc) → ghi manifest, lô tiếp tục.
+        if (e instanceof BadRequestException) {
+          manifest.push({ id, ok: false, error: e.message });
+        } else if (e instanceof ForbiddenException || e instanceof NotFoundException) {
+          // Ngoài scope / không tồn tại → message TRUNG LẬP (chống IDOR-enumeration: không
+          // để client phân biệt id thật-ngoài-quyền vs id không tồn tại).
+          manifest.push({ id, ok: false, error: 'Không xử lý được hồ sơ (không tồn tại hoặc ngoài phạm vi)' });
+        } else {
+          // Lỗi HỆ THỐNG (DB down, series cấu hình sai…) → rethrow để ABORT lô + trả 5xx thật,
+          // KHÔNG che bằng "ok:false" khiến người dùng tưởng đã xuất.
+          throw e;
+        }
       }
     }
 
