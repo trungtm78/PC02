@@ -100,6 +100,13 @@ if ! npx ts-node prisma/seed-document-numbers.ts; then
 fi
 log "Document-numbers seed complete"
 
+# 7c. Seed bộ mẫu chứng từ chuẩn VU_AN/VU_VIEC (idempotent, create-if-absent, không ghi đè bản admin).
+# NON-FATAL: template không cản boot — fail chỉ cảnh báo, không abort deploy.
+log "Seeding document templates (VU_AN/VU_VIEC)..."
+if ! npx ts-node prisma/seed-document-templates.ts; then
+    log "WARN: document-templates seed failed — tiếp tục deploy (non-fatal)"
+fi
+
 # 8. Restart backend service
 sudo systemctl restart pc02-backend
 log "pc02-backend restarted"

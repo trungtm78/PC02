@@ -28,7 +28,8 @@
     "db:seed:crimes": "ts-node prisma/seed-crimes-blhs2015.ts",
     "db:seed:wards": "ts-node prisma/seed-wards.ts",
     "db:seed:admin-units": "ts-node prisma/seed-admin-units-runner.ts",
-    "db:seed:events": "ts-node prisma/seed-vn-events-runner.ts"
+    "db:seed:events": "ts-node prisma/seed-vn-events-runner.ts",
+    "db:seed:doc-templates": "ts-node prisma/seed-document-templates.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
