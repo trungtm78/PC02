@@ -35,6 +35,7 @@ import {
   DocumentExportService,
   DOC_TYPE_TO_SERIES,
   validateFieldsForDocType,
+  getMissingFieldsForDocType,
 } from './document-export.service';
 import type { DocumentType } from '../document-templates/docx-loader.service';
 import { sanitizeFilename } from '../common/utils/filename.util';
@@ -345,6 +346,22 @@ export class PetitionsService {
     this.checkRecordInScope(record, dataScope);
 
     return { success: true, data: record };
+  }
+
+  /**
+   * Per mẫu chứng từ (7 docType), trả trường còn THIẾU để in (FE hiện "Thiếu: X, Y" + cho bổ sung).
+   * Dùng `getMissingFieldsForDocType` (cùng quy tắc với validate khi xuất → 1 nguồn sự thật).
+   * Scope-checked qua getById.
+   */
+  async getExportReadiness(id: string, dataScope?: DataScope | null) {
+    const { data: petition } = await this.getById(id, dataScope);
+    const docTypes = Object.keys(DOC_TYPE_TO_SERIES) as DocumentType[];
+    const items = docTypes.map((docType) => {
+      const missing = getMissingFieldsForDocType(docType, petition as unknown as Record<string, unknown>);
+      return { docType, ready: missing.length === 0, missing };
+    });
+    // updatedAt để FE gửi kèm khi PUT bổ sung (optimistic-lock) — tránh 409.
+    return { success: true, data: { items, updatedAt: (petition as { updatedAt?: Date }).updatedAt } };
   }
 
   // ─────────────────────────────────────────────

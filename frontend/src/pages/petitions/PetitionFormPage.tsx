@@ -1099,6 +1099,17 @@ export function PetitionFormPage() {
             setExportModalForId(null);
             if (exportNavigateOnClose) navigate("/petitions");
           }}
+          onPetitionPatched={(updatedAt, fields) => {
+            // Popup vừa PUT bổ sung trường thiếu → đồng bộ form: refresh mốc optimistic-lock +
+            // các field vừa lưu. Cập nhật LUÔN savedSnapshotRef để form KHÔNG bị coi là dirty
+            // (các field đã lưu vào DB) → không chặn nút export cũ (ExportDocumentDropdown) (codex#2).
+            if (updatedAt) setRecordUpdatedAt(updatedAt);
+            setFormData((prev) => {
+              const next = { ...prev, ...(fields as Partial<typeof prev>) };
+              savedSnapshotRef.current = JSON.stringify(next);
+              return next;
+            });
+          }}
         />
       )}
     </div>
