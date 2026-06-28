@@ -8,7 +8,7 @@ import type { DocumentTemplate } from './types';
  * Tách helper tải/parse-lỗi blob ngay trong module document-templates để self-contained
  * (không phụ thuộc feature petitions).
  */
-export type ExportEntity = 'cases' | 'incidents';
+export type ExportEntity = 'cases' | 'incidents' | 'petitions';
 
 export interface ExportEntityDocumentsBody {
   templateIds: string[];
@@ -16,12 +16,26 @@ export interface ExportEntityDocumentsBody {
   manualValues?: Record<string, string>;
 }
 
+/**
+ * Đơn thư dùng route ĐỘNG RIÊNG (suffix `-dynamic`) để KHÔNG đè route tĩnh đang chạy prod
+ * (PR3 deferred-removal). cases/incidents dùng route chuẩn. export-templates + PUT /:id chung.
+ */
+function exportPath(entity: ExportEntity, id: string, base: 'export-documents' | 'export-readiness'): string {
+  const suffix = entity === 'petitions' ? `${base}-dynamic` : base;
+  return `/${entity}/${id}/${suffix}`;
+}
+
+/** Đường dẫn readiness (FE modal dùng) — petitions → -dynamic. */
+export function readinessPath(entity: ExportEntity, id: string): string {
+  return exportPath(entity, id, 'export-readiness');
+}
+
 export function exportEntityDocuments(
   entity: ExportEntity,
   id: string,
   body: ExportEntityDocumentsBody,
 ): Promise<AxiosResponse<Blob>> {
-  return api.post(`/${entity}/${id}/export-documents`, body, { responseType: 'blob' });
+  return api.post(exportPath(entity, id, 'export-documents'), body, { responseType: 'blob' });
 }
 
 /**

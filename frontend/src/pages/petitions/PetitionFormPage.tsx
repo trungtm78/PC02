@@ -18,7 +18,7 @@ import { DocNumberPreviewField } from "@/components/DocNumberPreviewField";
 import { documentNumbersApi } from "@/features/document-numbers/api";
 import { ExportDocumentDropdown } from "@/features/petitions/components/ExportDocumentDropdown";
 import { SaveSplitButton } from "@/features/petitions/components/SaveSplitButton";
-import { ExportDocumentsModal } from "@/features/petitions/components/ExportDocumentsModal";
+import { DynamicExportDocumentsModal } from "@/features/document-templates/components/DynamicExportDocumentsModal";
 import { useFormDefaults } from "@/hooks/useFormDefaults";
 import { today, toDateInput } from "@/lib/dates";
 import { LOAI_DON_OPTIONS } from "@/shared/enums/status-labels";
@@ -1093,13 +1093,14 @@ export function PetitionFormPage() {
 
       {/* Popup "Xuất chứng từ" sau "Lưu và xuất file" — đóng popup → về danh sách. */}
       {exportModalForId && (
-        <ExportDocumentsModal
-          petitionId={exportModalForId}
+        <DynamicExportDocumentsModal
+          entity="petitions"
+          entityId={exportModalForId}
           onClose={() => {
             setExportModalForId(null);
             if (exportNavigateOnClose) navigate("/petitions");
           }}
-          onPetitionPatched={(updatedAt, fields) => {
+          onEntityPatched={(updatedAt, fields) => {
             // Popup vừa PUT bổ sung trường thiếu → đồng bộ form: refresh mốc optimistic-lock +
             // các field vừa lưu. Cập nhật LUÔN savedSnapshotRef để form KHÔNG bị coi là dirty
             // (các field đã lưu vào DB) → không chặn nút export cũ (ExportDocumentDropdown) (codex#2).
