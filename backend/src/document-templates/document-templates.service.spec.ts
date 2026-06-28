@@ -116,6 +116,13 @@ describe('DocumentTemplatesService', () => {
     expect(arg.data.requiredVariables).toBeUndefined();
   });
 
+  it('update: DON_THU + requiredVariables → BadRequest (readiness chỉ VU_AN/VU_VIEC)', async () => {
+    mockPrisma.documentTemplate.findFirst.mockResolvedValueOnce({
+      id: 'd1', entityType: 'DON_THU', variables: [{ name: 'x', source: 'manual', label: 'x' }],
+    });
+    await expect(svc.update('d1', { requiredVariables: ['x'] } as any)).rejects.toThrow();
+  });
+
   it('softDelete: set deletedAt', async () => {
     mockPrisma.documentTemplate.findFirst.mockResolvedValueOnce({ id: 't1' });
     await svc.softDelete('t1');

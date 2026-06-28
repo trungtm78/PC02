@@ -105,6 +105,11 @@ export class DocumentTemplatesService {
     const { requiredVariables, ...rest } = dto as UpdateDocumentTemplateDto & { requiredVariables?: string[] };
     const data: Record<string, unknown> = { ...rest };
     if (requiredVariables !== undefined) {
+      // readiness chỉ áp dụng VU_AN/VU_VIEC (đơn thư dùng mẫu hardcode) → chặn cấu hình required
+      // cho DON_THU để khỏi tạo trạng thái vô tác dụng (codex PR3 #1).
+      if (existing.entityType === 'DON_THU') {
+        throw new BadRequestException('Không hỗ trợ cấu hình biến bắt buộc cho mẫu Đơn thư');
+      }
       const reqSet = new Set(requiredVariables);
       const vars = ((existing.variables as Array<{ name: string }>) ?? []).map((v) => ({
         ...v,
