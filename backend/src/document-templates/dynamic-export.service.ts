@@ -279,6 +279,71 @@ export class DynamicExportService {
     res.send(deliverable.buf);
   }
 
+  /**
+   * Xuất ĐỒNG LOẠT 1 mẫu (theo `code`) cho NHIỀU hồ sơ → ZIP (mỗi hồ sơ 1 file + manifest.json).
+   * Mỗi hồ sơ render trong tx RIÊNG → 1 hồ sơ lỗi (thiếu trường/ngoài scope) KHÔNG abort cả lô
+   * (ghi vào manifest). Thay BatchExportService tĩnh (PR4) — dùng mẫu .docx ĐỘNG trong DB.
+   * `loadRecord` do controller cấp (đã check RBAC scope) → DynamicExportService không phụ thuộc
+   * service hồ sơ (tránh cycle). KHÔNG nhận manualValues (batch không có popup bổ sung).
+   */
+  async exportBatchByCode(
+    entityType: EntityType,
+    code: string,
+    entityIds: string[],
+    loadRecord: (id: string) => Promise<any>,
+    actorId: string,
+    res: Response,
+  ): Promise<void> {
+    if (!entityIds.length) {
+      throw new BadRequestException('Danh sách hồ sơ trống');
+    }
+    const template = await this.prisma.documentTemplate.findFirst({
+      where: { entityType, code, deletedAt: null, status: 'active' },
+    });
+    if (!template) {
+      throw new BadRequestException(`Không tìm thấy mẫu chứng từ "${code}" cho loại hồ sơ này`);
+    }
+
+    const rendered: RenderedTemplate[] = [];
+    const manifest: Array<{ id: string; ok: boolean; documentNumber?: string; error?: string }> = [];
+    for (const id of entityIds) {
+      try {
+        const record = await loadRecord(id);
+        this.assertRequiredSatisfied(entityType, record, [template], {});
+        const r = await this.prisma.$transaction((tx: any) =>
+          this.renderTemplateInTx(tx, entityType, id, record, template, actorId, {}),
+        );
+        rendered.push({ ...r, filename: sanitizeFilename(`${code}_${r.documentNumber ?? id}.docx`) });
+        manifest.push({ id, ok: true, documentNumber: r.documentNumber });
+      } catch (e: any) {
+        manifest.push({ id, ok: false, error: e?.message ?? 'Lỗi không xác định' });
+      }
+    }
+
+    const zip = await this.buildBatchZip(rendered, manifest);
+    this.setDownloadHeaders(res, 'application/zip', `${code}_${this.dateStamp()}.zip`);
+    res.send(zip);
+  }
+
+  private buildBatchZip(
+    docs: RenderedTemplate[],
+    manifest: Array<{ id: string; ok: boolean; documentNumber?: string; error?: string }>,
+  ): Promise<Buffer> {
+    return new Promise<Buffer>((resolve, reject) => {
+      const archive = archiver('zip', { zlib: { level: 9 } });
+      const chunks: Buffer[] = [];
+      archive.on('data', (c: Buffer) => chunks.push(c));
+      archive.on('warning', (err) => this.logger.warn(`zip warning: ${err.message}`));
+      archive.on('error', reject);
+      archive.on('end', () => resolve(Buffer.concat(chunks)));
+      for (const d of docs) archive.append(d.buffer, { name: sanitizeFilename(d.filename) });
+      archive.append(JSON.stringify({ total: manifest.length, items: manifest }, null, 2), {
+        name: 'manifest.json',
+      });
+      void archive.finalize();
+    });
+  }
+
   private buildZipBuffer(docs: RenderedTemplate[]): Promise<Buffer> {
     return new Promise<Buffer>((resolve, reject) => {
       const archive = archiver('zip', { zlib: { level: 9 } });

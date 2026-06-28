@@ -4,10 +4,6 @@ import { PetitionsJourneyService } from './petitions-journey.service';
 import { PetitionsController } from './petitions.controller';
 import { PetitionsBulkController } from './bulk/petitions.bulk.controller';
 import { PetitionsBulkService } from './bulk/petitions.bulk.service';
-import { DocumentExportService } from './document-export.service';
-import { BatchExportService } from './batch-export.service';
-import { DocxMergeService } from './docx-merge.service';
-import { PetitionExportDocumentsService } from './petition-export-documents.service';
 import { AuditModule } from '../audit/audit.module';
 import { SettingsModule } from '../settings/settings.module';
 import { DeadlineRulesModule } from '../deadline-rules/deadline-rules.module';
@@ -25,10 +21,6 @@ import { DocumentTemplatesModule } from '../document-templates/document-template
   providers: [
     PetitionsService,
     PetitionsJourneyService,
-    DocumentExportService,
-    BatchExportService,
-    DocxMergeService,
-    PetitionExportDocumentsService,
     PetitionsBulkService,
   ],
   controllers: [PetitionsController, PetitionsBulkController],

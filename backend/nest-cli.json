@@ -6,11 +6,6 @@
     "deleteOutDir": true,
     "assets": [
       {
-        "include": "../templates/docx/*.docx",
-        "outDir": "dist/templates",
-        "watchAssets": true
-      },
-      {
         "include": "../templates/xlsx/*.xlsx",
         "outDir": "dist/templates",
         "watchAssets": true

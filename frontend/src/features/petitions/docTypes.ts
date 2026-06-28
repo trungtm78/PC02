@@ -1,8 +1,9 @@
 /**
- * Nguồn DUY NHẤT 7 loại chứng từ đơn thư (đồng bộ DOCUMENT_TYPES backend —
- * backend/src/document-templates/docx-loader.service.ts) + helper tải/lỗi blob.
- * Dùng chung cho: in từng (ExportDocumentDropdown), in đồng loạt (PetitionListPageShell),
- * xuất nhiều mẫu (ExportDocumentsModal). Tránh lặp 3 nơi.
+ * Nguồn 7 mã loại chứng từ đơn thư (khớp PETITION_DOC_TYPES backend —
+ * backend/src/document-templates/petition-seed.ts) + helper tải/lỗi blob.
+ * Dùng cho IN ĐỒNG LOẠT (PetitionListPageShell, ExportReportsPage) → POST
+ * /petitions/export-document-batch (engine ĐỘNG). In từng/nhiều mẫu cho 1 đơn dùng
+ * DynamicExportDocumentsModal (popup "In chứng từ").
  */
 export interface DocTypeOption {
   value: string;

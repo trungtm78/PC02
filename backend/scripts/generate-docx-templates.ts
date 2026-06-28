@@ -254,7 +254,9 @@ function buildDocument(spec: TemplateSpec): Document {
 }
 
 async function main() {
-  const outDir = path.resolve(__dirname, '..', 'templates', 'docx');
+  // PR4: 7 .docx mẫu đơn thư là SEED ASSET (prisma/seed-assets/petition-docx), không còn
+  // bundle vào dist qua nest-cli (engine tĩnh đã gỡ). Regenerate ghi thẳng vào seed asset.
+  const outDir = path.resolve(__dirname, '..', 'prisma', 'seed-assets', 'petition-docx');
   fs.mkdirSync(outDir, { recursive: true });
 
   for (const spec of ALL_TEMPLATES) {

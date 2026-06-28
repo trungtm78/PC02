@@ -184,13 +184,6 @@ describe('PetitionsService', () => {
         { provide: DeadlineRulesService, useValue: mockDeadlineRules },
         { provide: DocumentNumbersService, useValue: mockDocNums },
         { provide: EventEmitter2, useValue: { emit: jest.fn() } },
-        {
-          provide: require('./document-export.service').DocumentExportService,
-          useValue: {
-            renderDocxTemplate: jest.fn(() => Buffer.from('mock-docx')),
-            loader: { sha: jest.fn(() => 'tpl-sha') },
-          },
-        },
       ],
     }).compile();
 
@@ -1368,79 +1361,6 @@ describe('PetitionsService', () => {
   });
 
   // ── BUG-001 + BUG-002: DTO validation (class-validator) ───────────────────
-  // ── renderDocumentsAtomic (export nhiều mẫu, atomic) ─────────────────────────
-  describe('renderDocumentsAtomic (atomic multi-export)', () => {
-    const VALID_PETITION = {
-      id: 'p1',
-      senderName: 'Nguyễn Văn A',
-      summary: 'Nội dung đơn',
-      unit: 'u1',
-      assignedTeam: { id: 't1', code: 'Đ1', name: 'Đội 1', members: [] },
-      enteredBy: { firstName: 'B', lastName: 'C', rank: 'D' },
-    };
-
-    beforeEach(() => {
-      // Bỏ qua nội bộ getById (RBAC scope) — test atomic, không test scope.
-      jest.spyOn(service as any, 'getById').mockResolvedValue(VALID_PETITION);
-      mockPrisma.petition.findFirst.mockResolvedValue(VALID_PETITION as any);
-    });
-
-    // finalize giả: nối buffer N mẫu → 1 buffer deliverable.
-    const concatFinalize = (docs: Array<{ buffer: Buffer }>) =>
-      Buffer.concat(docs.map((d) => d.buffer));
-
-    it('render N mẫu + finalize trong ĐÚNG 1 transaction (atomic) → trả buffer, cấp N số', async () => {
-      const finalize = jest.fn(concatFinalize);
-      const out = await (service as any).renderDocumentsAtomic(
-        'p1', ['BIEN_NHAN', 'THONG_BAO_CHUYEN'], 'u1', null, finalize,
-      );
-      expect(Buffer.isBuffer(out)).toBe(true);
-      // Atomic: CẢ N render + finalize gói trong 1 $transaction → rollback nguyên khối nếu lỗi.
-      expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
-      expect(mockDocNums.commitWithTx).toHaveBeenCalledTimes(2);
-      // finalize nhận đúng N doc có documentNumber + filename.
-      expect(finalize).toHaveBeenCalledTimes(1);
-      expect(finalize.mock.calls[0][0]).toHaveLength(2);
-      expect(finalize.mock.calls[0][0][0]).toHaveProperty('documentNumber');
-      expect(finalize.mock.calls[0][0][0]).toHaveProperty('filename');
-    });
-
-    it('[F1] 1 mẫu thiếu trường bắt buộc → throw TRƯỚC transaction, 0 cấp số, finalize không chạy', async () => {
-      // PHIEU_DE_XUAT cần nhanThay+deXuat — fixture không có → fail pre-validate.
-      const finalize = jest.fn(concatFinalize);
-      await expect(
-        (service as any).renderDocumentsAtomic('p1', ['BIEN_NHAN', 'PHIEU_DE_XUAT'], 'u1', null, finalize),
-      ).rejects.toThrow();
-      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
-      expect(mockDocNums.commitWithTx).not.toHaveBeenCalled();
-      expect(finalize).not.toHaveBeenCalled();
-    });
-
-    it('[atomic] render lỗi GIỮA chừng → reject, toàn bộ vẫn trong 1 transaction (rollback)', async () => {
-      const docExport = (service as any).documentExport;
-      docExport.renderDocxTemplate
-        .mockReturnValueOnce(Buffer.from('ok-1'))
-        .mockImplementationOnce(() => { throw new Error('template hỏng'); });
-      await expect(
-        (service as any).renderDocumentsAtomic('p1', ['BIEN_NHAN', 'THONG_BAO_CHUYEN'], 'u1', null, concatFinalize),
-      ).rejects.toThrow('template hỏng');
-      // Chỉ 1 $transaction bao cả batch → số của mẫu 1 cũng rollback cùng (DB-level).
-      expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
-    });
-
-    it('[P2 đóng kín] finalize (gộp/zip) lỗi SAU render → reject trong CÙNG 1 transaction → rollback số', async () => {
-      const finalize = jest.fn(() => { throw new Error('gộp docx hỏng'); });
-      await expect(
-        (service as any).renderDocumentsAtomic('p1', ['BIEN_NHAN', 'THONG_BAO_CHUYEN'], 'u1', null, finalize),
-      ).rejects.toThrow('gộp docx hỏng');
-      // finalize chạy TRONG $transaction (sau khi render+cấp số) → throw kéo rollback
-      // cả N số văn bản (không gap). Bằng chứng: chỉ 1 $transaction bao trọn render+finalize.
-      expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
-      expect(mockDocNums.commitWithTx).toHaveBeenCalledTimes(2);
-      expect(finalize).toHaveBeenCalledTimes(1);
-    });
-  });
-
   describe('CreatePetitionDto validation', () => {
     it('BUG-001: fails validation when petitionType is missing', async () => {
       const dto = plainToClass(CreatePetitionDto, {

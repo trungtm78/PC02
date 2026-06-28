@@ -30,15 +30,6 @@ import { BcaExcelHelper } from '../common/bca-excel.helper';
 import { PETITION_STATUS_LABEL } from '../common/constants/status-labels.constants';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PetitionAssignedEvent } from '../notifications/events/notification.events';
-import { createHash } from 'crypto';
-import {
-  DocumentExportService,
-  DOC_TYPE_TO_SERIES,
-  validateFieldsForDocType,
-  getMissingFieldsForDocType,
-} from './document-export.service';
-import type { DocumentType } from '../document-templates/docx-loader.service';
-import { sanitizeFilename } from '../common/utils/filename.util';
 
 // Vietnamese labels for LoaiDon — Excel display consistency with PETITION_STATUS_LABEL.
 // Mirror frontend LOAI_DON_LABEL exactly (no drift). FE source:
@@ -61,7 +52,6 @@ export class PetitionsService {
     private readonly deadlineRules: DeadlineRulesService,
     private readonly docNums: DocumentNumbersService,
     private readonly eventEmitter: EventEmitter2,
-    private readonly documentExport: DocumentExportService,
   ) {}
 
   // ─────────────────────────────────────────────
@@ -346,22 +336,6 @@ export class PetitionsService {
     this.checkRecordInScope(record, dataScope);
 
     return { success: true, data: record };
-  }
-
-  /**
-   * Per mẫu chứng từ (7 docType), trả trường còn THIẾU để in (FE hiện "Thiếu: X, Y" + cho bổ sung).
-   * Dùng `getMissingFieldsForDocType` (cùng quy tắc với validate khi xuất → 1 nguồn sự thật).
-   * Scope-checked qua getById.
-   */
-  async getExportReadiness(id: string, dataScope?: DataScope | null) {
-    const { data: petition } = await this.getById(id, dataScope);
-    const docTypes = Object.keys(DOC_TYPE_TO_SERIES) as DocumentType[];
-    const items = docTypes.map((docType) => {
-      const missing = getMissingFieldsForDocType(docType, petition as unknown as Record<string, unknown>);
-      return { docType, ready: missing.length === 0, missing };
-    });
-    // updatedAt để FE gửi kèm khi PUT bổ sung (optimistic-lock) — tránh 409.
-    return { success: true, data: { items, updatedAt: (petition as { updatedAt?: Date }).updatedAt } };
   }
 
   // ─────────────────────────────────────────────
@@ -1562,50 +1536,6 @@ export class PetitionsService {
     res.send(buffer);
   }
 
-  // ─────────────────────────────────────────────
-  // EXPORT DOCUMENT (v0.47 PR2) — templated docx render via docxtemplater.
-  //   - getById enforces DataScope (RBAC)
-  //   - validateFieldsForDocType throws 400 if required fields missing (fail-closed)
-  //   - prisma.$transaction wraps row lock + commitWithTx (number allocation)
-  //     + render + DocumentRenderLog insert. Render throw rolls back number.
-  // ─────────────────────────────────────────────
-  async exportDocument(
-    id: string,
-    docType: DocumentType,
-    actorId: string,
-    dataScope: DataScope | null | undefined,
-    res: Response,
-  ): Promise<void> {
-    const { buffer, documentNumber, filename } = await this.exportDocumentToBuffer(
-      id,
-      docType,
-      actorId,
-      dataScope,
-    );
-    res.setHeader(
-      'Content-Type',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    );
-    // RFC 5987 encoding for non-ASCII filenames (Vietnamese prefix chars like Đ).
-    const asciiName = filename.replace(/[^\x20-\x7E]/g, '_');
-    res.setHeader(
-      'Content-Disposition',
-      `attachment; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(filename)}`,
-    );
-    res.setHeader('X-Document-Number', encodeURIComponent(documentNumber));
-    res.send(buffer);
-  }
-
-  /**
-   * Same render contract as exportDocument but returns the buffer instead of
-   * streaming to a Response. Used by BatchExportService to pipe N rendered
-   * docx into an archiver ZIP without needing N Response objects.
-   */
-  /**
-   * Load đơn thư đầy đủ shape cho placeholder (team members + leader rank — không
-   * có trong getById include mặc định). RBAC scope check qua getById. Tách ra để
-   * exportDocumentToBuffer + preValidateExportDocuments dùng chung (DRY).
-   */
   /**
    * Loader trung lập (public) cho xuất chứng từ ĐỘNG (codex P1#3 — tránh DynamicExportService phụ
    * thuộc method private gây module cycle). Controller load petition + include (enteredBy, assignedTeam
@@ -1641,169 +1571,6 @@ export class PetitionsService {
       throw new NotFoundException(`Đơn thư không tồn tại (id: ${id})`);
     }
     return petition;
-  }
-
-  /**
-   * Body 1 lần render TRONG transaction (cấp số + render + log). Tách để
-   * exportDocumentToBuffer (single) + renderDocumentsAtomic (multi, 1 tx) dùng chung.
-   * Throw ở đây → tx rollback → KHÔNG orphan số văn bản / DocumentRenderLog.
-   */
-  private async renderDocumentInTx(
-    tx: any,
-    id: string,
-    petition: any,
-    docType: DocumentType,
-    actorId: string,
-  ): Promise<{ buffer: Buffer; soVanBan: string; fileSha: string }> {
-    const numberSeries = DOC_TYPE_TO_SERIES[docType];
-    const teamCode = petition.assignedTeam?.code ?? 'Đ1';
-    // Row lock chống 2 export đồng thời cùng đơn cùng cấp số (race C2).
-    await tx.$queryRaw`SELECT id FROM petitions WHERE id = ${id} FOR UPDATE`;
-    const commit = await this.docNums.commitWithTx(
-      numberSeries,
-      { userId: actorId, petitionId: petition.id, departmentId: petition.unit ?? undefined },
-      tx,
-      { documentId: petition.id },
-    );
-    const placeholders = this.buildDocxPlaceholders(petition, commit.number, teamCode);
-    const escaped = this.escapeUserSuppliedTokens(placeholders);
-    const renderedBuf = this.documentExport.renderDocxTemplate(docType, escaped);
-    const sha = createHash('sha256').update(renderedBuf).digest('hex');
-    // templateSha lấy từ loader (đồng bộ, in-memory, KHÔNG DB) → ghi thẳng trong tx,
-    // bỏ update post-commit (tránh điểm lỗi sau khi đã cấp số — codex P2 final).
-    const templateSha = (this.documentExport as any).loader.sha(docType) as string;
-    await tx.documentRenderLog.create({
-      data: {
-        petitionId: petition.id,
-        documentType: docType,
-        templateSha,
-        renderedById: actorId,
-        generatedNumber: commit.number,
-        fileSha: sha,
-      },
-    });
-    return { buffer: renderedBuf, soVanBan: commit.number, fileSha: sha };
-  }
-
-  async exportDocumentToBuffer(
-    id: string,
-    docType: DocumentType,
-    actorId: string,
-    dataScope: DataScope | null | undefined,
-  ): Promise<{ buffer: Buffer; documentNumber: string; filename: string }> {
-    const petition = await this.loadPetitionForExport(id, dataScope);
-    validateFieldsForDocType(docType, petition as any);
-    const { buffer, soVanBan } = await this.prisma.$transaction((tx: any) =>
-      this.renderDocumentInTx(tx, id, petition, docType, actorId),
-    );
-    return { buffer, documentNumber: soVanBan, filename: sanitizeFilename(`${docType}_${soVanBan}.docx`) };
-  }
-
-  /**
-   * [P2 codex/atomic] Render N mẫu + FINALIZE (gộp .docx / đóng .zip) trong MỘT
-   * transaction. Pre-validate tất cả trước; render+cấp số N mẫu rồi gọi `finalize`
-   * NGAY trong tx. Bất kỳ lỗi (render, gộp, zip) → rollback HẾT → KHÔNG tiêu số văn
-   * bản nào (đóng kín gap số kể cả khi bước gộp/zip lỗi SAU render). Trả buffer
-   * deliverable cuối (1 .docx gộp hoặc .zip). templateSha ghi luôn trong tx → KHÔNG
-   * còn bước post-commit nào có thể giữ file lại sau khi đã cấp số.
-   */
-  async renderDocumentsAtomic(
-    id: string,
-    docTypes: DocumentType[],
-    actorId: string,
-    dataScope: DataScope | null | undefined,
-    finalize: (
-      docs: Array<{ buffer: Buffer; documentNumber: string; filename: string }>,
-    ) => Buffer | Promise<Buffer>,
-  ): Promise<Buffer> {
-    const petition = await this.loadPetitionForExport(id, dataScope);
-    for (const docType of docTypes) validateFieldsForDocType(docType, petition as any);
-    return this.prisma.$transaction(async (tx: any) => {
-      const out: Array<{ docType: DocumentType; buffer: Buffer; soVanBan: string; fileSha: string }> = [];
-      for (const docType of docTypes) {
-        const r = await this.renderDocumentInTx(tx, id, petition, docType, actorId);
-        out.push({ docType, ...r });
-      }
-      // Gộp/zip NGAY trong tx → lỗi ở đây cũng rollback số văn bản (P2 đóng kín).
-      return finalize(
-        out.map((r) => ({
-          buffer: r.buffer,
-          documentNumber: r.soVanBan,
-          filename: sanitizeFilename(`${r.docType}_${r.soVanBan}.docx`),
-        })),
-      );
-    });
-  }
-
-  private buildDocxPlaceholders(
-    petition: any,
-    soVanBan: string,
-    teamCode: string,
-  ): Record<string, string> {
-    const formatVNDate = (d: Date | string | null | undefined): string => {
-      if (!d) return '';
-      const date = d instanceof Date ? d : new Date(d);
-      return `ngày ${String(date.getDate()).padStart(2, '0')} tháng ${String(date.getMonth() + 1).padStart(2, '0')} năm ${date.getFullYear()}`;
-    };
-    const phoDoiLeader = petition.assignedTeam?.members?.find((m: any) => m.isLeader);
-    const phoDoiUser = phoDoiLeader?.user;
-    const phoDoiName = phoDoiUser
-      ? [phoDoiUser.rank, phoDoiUser.firstName, phoDoiUser.lastName].filter(Boolean).join(' ')
-      : '';
-
-    return {
-      soVanBan,
-      teamCode,
-      tenDoi: petition.assignedTeam?.name ?? '',
-      tenDoiPhongBan: 'ĐỘI THAM MƯU TỔNG HỢP',
-      diaDiem: 'Thành phố Hồ Chí Minh',
-      ngayPhatHanh: formatVNDate(new Date()),
-      ngayNhan: formatVNDate(petition.receivedDate),
-      ngayDon: formatVNDate(petition.petitionDate ?? petition.receivedDate),
-      loaiDon: petition.petitionType
-        ? LOAI_DON_LABEL_BE[petition.petitionType as LoaiDon] ?? ''
-        : '',
-      ghiTen: petition.senderName ?? '',
-      namSinh: petition.senderBirthYear ?? '',
-      diaChi: petition.senderAddress ?? '',
-      nguonDon: petition.nguonDon ?? petition.unit ?? '',
-      noiDung: petition.detailContent ?? petition.summary ?? '',
-      dinhKem: petition.attachmentsNote ?? '',
-      raSoatTrung: petition.raSoatTrung ?? 'Không',
-      baoCaoBGD: petition.baoCaoBanGiamDoc ? 'Có' : 'Không',
-      nhanThay: petition.nhanThay ?? '',
-      deXuat: petition.deXuat ?? '',
-      lyDoChuyen: petition.lyDoChuyen ?? '',
-      canCuPhapLy: petition.canCuPhapLy ?? '',
-      huongDanKhoiKien: petition.huongDanKhoiKien ?? '',
-      lyDoTraDon: petition.lyDoTraDon ?? '',
-      tenCanBoDeXuat: petition.enteredBy
-        ? [petition.enteredBy.rank, petition.enteredBy.firstName, petition.enteredBy.lastName]
-            .filter(Boolean)
-            .join(' ')
-        : '',
-      tenPhoDoiTruong: phoDoiName,
-      tenTruongPhong: '', // PR3 wires SystemSetting lookup; safe default
-    };
-  }
-
-  /**
-   * Defense against user-controlled docxtemplater injection. If senderName
-   * contains "{deXuat}" the engine would interpolate it without this guard.
-   * Replace `{` and `}` in every user-supplied field with the visually-similar
-   * Unicode brackets so the literal text survives but cannot match a tag.
-   * (Loader's nullGetter prevents [undefined] artifacts from escaped tokens.)
-   */
-  private escapeUserSuppliedTokens(
-    placeholders: Record<string, string>,
-  ): Record<string, string> {
-    const escape = (s: string): string =>
-      s.replace(/\{/g, '❴').replace(/\}/g, '❵');
-    const out: Record<string, string> = {};
-    for (const [k, v] of Object.entries(placeholders)) {
-      out[k] = typeof v === 'string' ? escape(v) : v;
-    }
-    return out;
   }
 
   // ─────────────────────────────────────────────

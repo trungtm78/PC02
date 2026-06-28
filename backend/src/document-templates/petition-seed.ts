@@ -1,8 +1,37 @@
-import { DocumentType } from './docx-loader.service';
 import { detectDocxVariables } from './docx-variables.util';
 import { normalizeDocxTags } from './docx-normalize.util';
 import { isCatalogField } from './field-catalog';
 import { TemplateVariable } from './entity-placeholders';
+
+/**
+ * 7 mã chứng từ Đơn thư (entityType=DON_THU). `code` template = mã này để cấp số/render-log
+ * tương thích. Trước đây sống trong docx-loader.service (engine tĩnh, đã gỡ ở PR4) — chuyển về
+ * đây làm nhà trung lập cho hệ ĐỘNG (seed dùng để duyệt 7 mẫu).
+ */
+export const PETITION_DOC_TYPES = [
+  'PHIEU_DE_XUAT',
+  'PHIEU_CHUYEN_NGUON_TIN',
+  'PHIEU_CHUYEN_DON',
+  'THONG_BAO_CHUYEN',
+  'THONG_BAO_HUONG_DAN',
+  'THONG_BAO_TRA_LAI',
+  'BIEN_NHAN',
+] as const;
+export type DocumentType = (typeof PETITION_DOC_TYPES)[number];
+
+/**
+ * Map docType → series cấp số (seed set `numberSeriesId` khi tạo mẫu). Series dùng chung:
+ * PHIEU_CHUYEN_NGUON_TIN + PHIEU_CHUYEN_DON → 'PHIEU_CHUYEN'; THONG_BAO_CHUYEN + THONG_BAO_TRA_LAI → 'THONG_BAO'.
+ */
+export const DOC_TYPE_TO_SERIES = {
+  PHIEU_DE_XUAT: 'PHIEU_DE_XUAT',
+  PHIEU_CHUYEN_NGUON_TIN: 'PHIEU_CHUYEN',
+  PHIEU_CHUYEN_DON: 'PHIEU_CHUYEN',
+  THONG_BAO_CHUYEN: 'THONG_BAO',
+  THONG_BAO_HUONG_DAN: 'HUONG_DAN',
+  THONG_BAO_TRA_LAI: 'THONG_BAO',
+  BIEN_NHAN: 'BIEN_NHAN',
+} as const satisfies Record<DocumentType, string>;
 
 /**
  * Metadata seed 7 mẫu Đơn thư tĩnh (backend/templates/docx/*.docx) vào hệ template ĐỘNG

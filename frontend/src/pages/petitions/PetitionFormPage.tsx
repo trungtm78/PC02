@@ -3,7 +3,7 @@
  * TASK-ID: TASK-2026-260202
  */
 
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { extractApiError } from "@/lib/api-errors";
@@ -16,7 +16,6 @@ import { CrimeSelect } from "@/components/CrimeSelect";
 import { PhoneInput } from "@/components/inputs/PhoneInput";
 import { DocNumberPreviewField } from "@/components/DocNumberPreviewField";
 import { documentNumbersApi } from "@/features/document-numbers/api";
-import { ExportDocumentDropdown } from "@/features/petitions/components/ExportDocumentDropdown";
 import { SaveSplitButton } from "@/features/petitions/components/SaveSplitButton";
 import { DynamicExportDocumentsModal } from "@/features/document-templates/components/DynamicExportDocumentsModal";
 import { useFormDefaults } from "@/hooks/useFormDefaults";
@@ -124,13 +123,9 @@ export function PetitionFormPage() {
   // "Lưu và xuất file" → đóng popup thì về danh sách; nút "In chứng từ" độc lập → ở lại form.
   const [exportNavigateOnClose, setExportNavigateOnClose] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(isEditMode);
-  // v0.47 PR3.1 review fix: snapshot of last saved formData so we can compute
-  // isDirty for ExportDocumentDropdown (block export when nội dung chưa lưu).
+  // Snapshot formData đã lưu gần nhất — cập nhật khi save/patch để onPetitionPatched (popup In
+  // chứng từ "Lưu bổ sung") không khiến form bị coi là dirty.
   const savedSnapshotRef = useRef<string>(JSON.stringify(INITIAL_FORM));
-  const isDirty = useMemo(
-    () => JSON.stringify(formData) !== savedSnapshotRef.current,
-    [formData],
-  );
   const [userOptions, setUserOptions] = useState<UserOption[]>([]);
   const [recordUpdatedAt, setRecordUpdatedAt] = useState<string | null>(null);
   const [isDraftLoading, setIsDraftLoading] = useState(!isEditMode);
@@ -1055,9 +1050,6 @@ export function PetitionFormPage() {
             label={isEditMode ? "Cập nhật" : "Lưu đơn thư"}
             idPrefix="btn-save"
           />
-          {isEditMode && id && (
-            <ExportDocumentDropdown petitionId={id} isDirty={isDirty} />
-          )}
           {canConvert && (
             <button
               type="button"
