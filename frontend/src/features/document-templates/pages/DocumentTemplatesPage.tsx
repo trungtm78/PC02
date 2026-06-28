@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
-import { listTemplates, deleteTemplate } from '../api';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { listTemplates, deleteTemplate, downloadTemplateFile, replaceTemplateFile } from '../api';
 import type { DocumentTemplate } from '../types';
 import { TemplateFormModal } from '../components/TemplateFormModal';
 import { TemplateRequiredModal } from '../components/TemplateRequiredModal';
@@ -17,6 +17,10 @@ export default function DocumentTemplatesPage() {
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [requiredFor, setRequiredFor] = useState<DocumentTemplate | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  // input ẩn để "Thay file" — lưu template đang thay.
+  const replaceInputRef = useRef<HTMLInputElement>(null);
+  const replaceForId = useRef<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -34,6 +38,43 @@ export default function DocumentTemplatesPage() {
   async function handleDelete(id: string) {
     await deleteTemplate(id);
     await load();
+  }
+
+  /** Tải file .docx mẫu về để sửa. */
+  async function handleDownload(t: DocumentTemplate) {
+    setBusyId(t.id);
+    try {
+      const blob = await downloadTemplateFile(t.id);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = t.fileName || `${t.code}.docx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  /** Mở hộp chọn file để thay file mẫu (re-detect + giữ mapping cũ). */
+  function openReplace(id: string) {
+    replaceForId.current = id;
+    replaceInputRef.current?.click();
+  }
+
+  async function handleReplacePicked(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    const id = replaceForId.current;
+    e.target.value = ''; // reset để chọn lại cùng file vẫn trigger
+    if (!file || !id) return;
+    setBusyId(id);
+    try {
+      await replaceTemplateFile(id, file);
+      await load();
+    } finally {
+      setBusyId(null);
+      replaceForId.current = null;
+    }
   }
 
   return (
@@ -99,17 +140,33 @@ export default function DocumentTemplatesPage() {
                 </span>
               </td>
               <td className="border px-3 py-2">
-                <div className="flex items-center gap-3">
-                  {t.entityType !== 'DON_THU' && (
-                    <button
-                      type="button"
-                      data-testid={`btn-required-${t.id}`}
-                      className="text-amber-700 hover:underline"
-                      onClick={() => setRequiredFor(t)}
-                    >
-                      Cấu hình bắt buộc
-                    </button>
-                  )}
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    data-testid={`btn-download-${t.id}`}
+                    className="text-blue-700 hover:underline disabled:opacity-50"
+                    disabled={busyId === t.id}
+                    onClick={() => void handleDownload(t)}
+                  >
+                    Tải file
+                  </button>
+                  <button
+                    type="button"
+                    data-testid={`btn-replace-${t.id}`}
+                    className="text-blue-700 hover:underline disabled:opacity-50"
+                    disabled={busyId === t.id}
+                    onClick={() => openReplace(t.id)}
+                  >
+                    Thay file
+                  </button>
+                  <button
+                    type="button"
+                    data-testid={`btn-required-${t.id}`}
+                    className="text-amber-700 hover:underline"
+                    onClick={() => setRequiredFor(t)}
+                  >
+                    Cấu hình bắt buộc
+                  </button>
                   <button
                     type="button"
                     className="text-red-600"
@@ -130,6 +187,16 @@ export default function DocumentTemplatesPage() {
           )}
         </tbody>
       </table>
+
+      {/* input ẩn dùng chung cho "Thay file" mọi hàng */}
+      <input
+        ref={replaceInputRef}
+        data-testid="replace-file-input"
+        type="file"
+        accept=".docx"
+        className="hidden"
+        onChange={(e) => void handleReplacePicked(e)}
+      />
 
       {showModal && (
         <TemplateFormModal
