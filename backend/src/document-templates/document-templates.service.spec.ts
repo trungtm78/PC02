@@ -41,8 +41,9 @@ describe('DocumentTemplatesService', () => {
     expect(data.fileSha).toBe(createHash('sha256').update(buf).digest('hex'));
     expect(data.variables).toEqual([
       // soVuAn thuộc catalog VU_AN → auto-điền; hoTenBiCan ngoài catalog → nhập tay.
-      { name: 'soVuAn', source: 'auto', label: 'soVuAn' },
-      { name: 'hoTenBiCan', source: 'manual', label: 'hoTenBiCan' },
+      // required:false mặc định (admin bật sau qua update.requiredVariables) — PR2.
+      { name: 'soVuAn', source: 'auto', label: 'soVuAn', required: false },
+      { name: 'hoTenBiCan', source: 'manual', label: 'hoTenBiCan', required: false },
     ]);
     expect(data.createdById).toBe('u1');
     expect(data.fileBytes).toBe(buf);
