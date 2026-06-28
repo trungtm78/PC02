@@ -28,6 +28,8 @@ export class DocumentTemplatesService {
       name,
       source: isAutoPlaceholder(entityType, name) ? 'auto' : 'manual',
       label: name,
+      // PR2: admin đánh dấu bắt buộc sau (qua update.requiredVariables). Mặc định không bắt buộc.
+      required: false,
     }));
   }
 
@@ -97,8 +99,20 @@ export class DocumentTemplatesService {
   }
 
   async update(id: string, dto: UpdateDocumentTemplateDto) {
-    await this.getById(id);
-    return this.prisma.documentTemplate.update({ where: { id }, data: { ...dto } });
+    const existing = await this.getById(id);
+    // PR2: requiredVariables (tên các biến BẮT BUỘC) — set lại cờ required trên variables hiện có,
+    // KHÔNG ghi cột không tồn tại. Tách khỏi phần spread vào prisma.
+    const { requiredVariables, ...rest } = dto as UpdateDocumentTemplateDto & { requiredVariables?: string[] };
+    const data: Record<string, unknown> = { ...rest };
+    if (requiredVariables !== undefined) {
+      const reqSet = new Set(requiredVariables);
+      const vars = ((existing.variables as Array<{ name: string }>) ?? []).map((v) => ({
+        ...v,
+        required: reqSet.has(v.name),
+      }));
+      data.variables = vars;
+    }
+    return this.prisma.documentTemplate.update({ where: { id }, data });
   }
 
   /** Thay file .docx: cập nhật bytes + sha + re-detect biến (phân loại theo entityType cũ). */
