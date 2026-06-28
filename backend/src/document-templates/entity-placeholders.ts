@@ -44,14 +44,30 @@ function caseMap(r: any): Record<string, string> {
   };
 }
 
+/** Nhãn tiếng Việt cho enum NguonPhatTin (Đ.144 BLTTHS) — render nhãn thay vì mã enum. */
+const NGUON_PHAT_TIN_LABEL: Record<string, string> = {
+  CA_NHAN_TO_GIAC: 'Cá nhân tố giác',
+  CO_QUAN_NHA_NUOC: 'Cơ quan nhà nước',
+  TO_CHUC: 'Tổ chức',
+  CA_NHAN_BAO_TIN: 'Cá nhân báo tin',
+  PHUONG_TIEN_TRUYEN_THONG: 'Phương tiện thông tin đại chúng',
+  VIEN_KIEM_SAT: 'Viện kiểm sát nhân dân',
+  THANH_TRA: 'Cơ quan thanh tra',
+  KIEM_TOAN: 'Cơ quan kiểm toán',
+  TOA_AN: 'Tòa án nhân dân',
+  CO_QUAN_KHAC: 'Cơ quan nhà nước khác',
+};
+
 function incidentMap(r: any): Record<string, string> {
   return {
     soVuViec: s(r.code),
     tenVuViec: s(r.name),
-    nguonTin: s(r.nguonPhatTin),
+    // nguonPhatTin là enum (Đ.144) → render NHÃN tiếng Việt, không phải mã enum (codex PR3).
+    nguonTin: NGUON_PHAT_TIN_LABEL[s(r.nguonPhatTin)] ?? s(r.nguonPhatTin),
     noiDung: s(r.description),
     trangThai: s(r.status),
-    ngayTiepNhan: fmtDate(r.fromDate),
+    // Ngày tiếp nhận nguồn tin = ngayDeXuat (Đ.146), KHÔNG phải fromDate (ngày bắt đầu vụ việc) — codex PR3.
+    ngayTiepNhan: fmtDate(r.ngayDeXuat),
     donViGiaiQuyet: s(r.donViGiaiQuyet),
     nguoiQuyetDinh: s(r.nguoiQuyetDinh),
     soQuyetDinh: s(r.soQuyetDinh),

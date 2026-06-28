@@ -8,6 +8,7 @@ import { buildTemplateDocx } from './seed-assets/document-templates/docx-builder
 import { TEMPLATE_SPECS } from './seed-assets/document-templates/registry';
 import { detectDocxVariables } from '../src/document-templates/docx-variables.util';
 import { isAutoPlaceholder, buildEntityPlaceholders } from '../src/document-templates/entity-placeholders';
+import { TEMPLATE_CATEGORIES } from '../src/document-templates/document-template.constants';
 
 describe('seed mẫu chứng từ — docx builder + registry', () => {
   it('mỗi mẫu build ra .docx hợp lệ (zip có word/document.xml) + có placeholder', async () => {
@@ -45,8 +46,8 @@ describe('seed mẫu chứng từ — docx builder + registry', () => {
     const spec = TEMPLATE_SPECS.find((s) => s.code === 'TB_KET_QUA_GIAI_QUYET')!;
     const buf = await buildTemplateDocx(spec.body);
     const record = {
-      code: 'VV-2026-00012', name: 'Tố giác đánh bạc', nguonPhatTin: 'Đơn tố giác',
-      donViGiaiQuyet: 'Đội 2', fromDate: new Date('2026-06-01'),
+      code: 'VV-2026-00012', name: 'Tố giác đánh bạc', nguonPhatTin: 'CA_NHAN_TO_GIAC',
+      donViGiaiQuyet: 'Đội 2', ngayDeXuat: new Date('2026-06-01'),
     };
     const auto = buildEntityPlaceholders('VU_VIEC', record);
     const manual = { diaDanh: 'TP. Hồ Chí Minh', nguoiNhan: 'Ông Nguyễn Văn B', ketQua: 'Đã khởi tố vụ án' };
@@ -57,6 +58,11 @@ describe('seed mẫu chứng từ — docx builder + registry', () => {
     expect(out).toContain('Tố giác đánh bạc');
     expect(out).toContain('Đội 2');
     expect(out).toContain('Đã khởi tố vụ án');
+    // nguonPhatTin enum → NHÃN tiếng Việt (codex PR3), không phải mã enum
+    expect(out).toContain('Cá nhân tố giác');
+    expect(out).not.toContain('CA_NHAN_TO_GIAC');
+    // ngayTiepNhan lấy từ ngayDeXuat (Đ.146) → có năm 2026
+    expect(out).toContain('năm 2026');
     expect(out).not.toMatch(/\{[a-zA-Z]/);
   });
 
@@ -73,7 +79,7 @@ describe('seed mẫu chứng từ — docx builder + registry', () => {
     expect(new Set(keys).size).toBe(keys.length);
     expect(TEMPLATE_SPECS.filter((s) => s.entityType === 'VU_AN').length).toBeGreaterThanOrEqual(1);
     expect(TEMPLATE_SPECS.filter((s) => s.entityType === 'VU_VIEC').length).toBeGreaterThanOrEqual(1);
-    const cats = new Set(['Quyết định', 'Lệnh', 'Biên bản', 'Thông báo', 'Giấy chứng nhận', 'Kết luận', 'Khác']);
-    for (const s of TEMPLATE_SPECS) expect(cats.has(s.category)).toBe(true);
+    // category mỗi mẫu PHẢI thuộc TEMPLATE_CATEGORIES backend (DTO @IsIn) — tránh seed giá trị admin không chọn lại được.
+    for (const s of TEMPLATE_SPECS) expect((TEMPLATE_CATEGORIES as readonly string[]).includes(s.category)).toBe(true);
   });
 });

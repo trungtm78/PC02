@@ -8,7 +8,7 @@ const ENTITY_OPTIONS: { value: string; label: string }[] = [
   { value: 'VU_VIEC', label: 'Vụ việc' },
   { value: 'DON_THU', label: 'Đơn thư' },
 ];
-const CATEGORY_OPTIONS = ['Quyết định', 'Biên bản', 'Lệnh', 'Thông báo', 'Giấy chứng nhận', 'Khác'];
+const CATEGORY_OPTIONS = ['Quyết định', 'Biên bản', 'Lệnh', 'Thông báo', 'Giấy chứng nhận', 'Kết luận', 'Khác'];
 
 interface Props {
   onClose: () => void;

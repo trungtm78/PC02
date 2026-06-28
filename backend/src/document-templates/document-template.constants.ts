@@ -9,6 +9,7 @@ export const TEMPLATE_CATEGORIES = [
   'Lệnh',
   'Thông báo',
   'Giấy chứng nhận',
+  'Kết luận',
   'Khác',
 ] as const;
 export type TemplateCategory = (typeof TEMPLATE_CATEGORIES)[number];
