@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Download, Pencil, Trash2, MoreVertical, Plus } from 'lucide-react';
-import { listTemplates, deleteTemplate, downloadTemplateFile } from '../api';
+import { listTemplates, downloadTemplateFile } from '../api';
 import type { DocumentTemplate } from '../types';
 import { TemplateFormModal } from '../components/TemplateFormModal';
 import { DropdownMenu, DropdownItem } from '@/components/shared/DropdownMenu';
 import { Button } from '@/components/ui/button';
 import { BTN_ICON_BLUE, BTN_ICON_SLATE } from '@/constants/styles';
+import { useDeleteResourceModal } from '@/features/_shared/modals/DeleteResourceModalProvider';
 
 const ENTITY_LABEL: Record<string, string> = {
   VU_AN: 'Vụ án',
@@ -21,6 +22,7 @@ export default function DocumentTemplatesPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [editFor, setEditFor] = useState<DocumentTemplate | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const deleteModal = useDeleteResourceModal();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -35,9 +37,14 @@ export default function DocumentTemplatesPage() {
     void load();
   }, [load]);
 
-  async function handleDelete(id: string) {
-    await deleteTemplate(id);
-    await load();
+  /** Mở modal xác nhận xóa chuẩn của app (confirm trước khi DELETE). */
+  function confirmDelete(t: DocumentTemplate) {
+    deleteModal.open({
+      resourceType: 'document-templates',
+      recordId: t.id,
+      recordLabel: `${t.name} (${t.code})`,
+      onSuccess: () => void load(),
+    });
   }
 
   /** Tải file .docx mẫu về để sửa. */
@@ -149,7 +156,7 @@ export default function DocumentTemplatesPage() {
                           danger
                           onClick={() => {
                             close();
-                            void handleDelete(t.id);
+                            confirmDelete(t);
                           }}
                         >
                           <Trash2 className="h-4 w-4" />

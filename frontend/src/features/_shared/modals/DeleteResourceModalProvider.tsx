@@ -32,7 +32,8 @@ export type DeleteResourceType =
   | 'incidents'
   | 'petitions'
   | 'lawyers'
-  | 'subjects';
+  | 'subjects'
+  | 'document-templates';
 
 export interface DeleteResourceArgs {
   resourceType: DeleteResourceType;
