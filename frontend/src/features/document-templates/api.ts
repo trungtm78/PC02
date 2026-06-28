@@ -24,7 +24,7 @@ export async function createTemplate(form: FormData): Promise<DocumentTemplate> 
 
 export async function updateTemplate(
   id: string,
-  dto: Partial<DocumentTemplate>,
+  dto: Partial<DocumentTemplate> & { requiredVariables?: string[] },
 ): Promise<DocumentTemplate> {
   const res = await api.patch(`/document-templates/${id}`, dto);
   return res.data as DocumentTemplate;

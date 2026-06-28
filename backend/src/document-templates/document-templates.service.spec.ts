@@ -97,6 +97,25 @@ describe('DocumentTemplatesService', () => {
     await expect(svc.getById('x')).rejects.toThrow();
   });
 
+  it('update: requiredVariables → set cờ required đúng biến, giữ name/source/label', async () => {
+    mockPrisma.documentTemplate.findFirst.mockResolvedValueOnce({
+      id: 't1',
+      variables: [
+        { name: 'tenVuAn', source: 'auto', label: 'Tên', required: false },
+        { name: 'toiDanh', source: 'auto', label: 'Tội danh', required: true },
+      ],
+    });
+    await svc.update('t1', { requiredVariables: ['tenVuAn'] } as any);
+    const arg = mockPrisma.documentTemplate.update.mock.calls[0][0];
+    expect(arg.where).toEqual({ id: 't1' });
+    expect(arg.data.variables).toEqual([
+      { name: 'tenVuAn', source: 'auto', label: 'Tên', required: true },
+      { name: 'toiDanh', source: 'auto', label: 'Tội danh', required: false },
+    ]);
+    // requiredVariables KHÔNG được spread thành cột Prisma.
+    expect(arg.data.requiredVariables).toBeUndefined();
+  });
+
   it('softDelete: set deletedAt', async () => {
     mockPrisma.documentTemplate.findFirst.mockResolvedValueOnce({ id: 't1' });
     await svc.softDelete('t1');
