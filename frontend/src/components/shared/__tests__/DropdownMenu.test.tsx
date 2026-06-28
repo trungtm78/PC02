@@ -49,4 +49,10 @@ describe('DropdownMenu', () => {
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(screen.queryByTestId('item-del')).not.toBeInTheDocument();
   });
+
+  it('mở → focus vào item đầu (a11y menu pattern)', () => {
+    setup();
+    fireEvent.click(screen.getByTestId('kebab'));
+    expect(screen.getByTestId('item-del')).toHaveFocus();
+  });
 });

@@ -80,7 +80,8 @@ export default function DocumentTemplatesPage() {
         </select>
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-slate-200">
+      {/* KHÔNG overflow-hidden: để menu kebab (Xoá) hàng cuối không bị bảng cắt (codex P2). */}
+      <div className="rounded-lg border border-slate-200">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-slate-600">
             <tr>
