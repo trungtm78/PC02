@@ -7,6 +7,7 @@ import {
   listExportTemplates,
   triggerDownload,
   parseBlobError,
+  readinessPath,
   type ExportEntity,
 } from '../export.api';
 import type { DocumentTemplate } from '../types';
@@ -45,7 +46,7 @@ export function DynamicExportDocumentsModal({ entity, entityId, onClose, onEntit
   const fieldMetaRef = useRef<Record<string, ReadinessMissing>>({});
 
   const fetchReadiness = useCallback(async (preserve = false) => {
-    const res = await api.get(`/${entity}/${entityId}/export-readiness`);
+    const res = await api.get(readinessPath(entity, entityId));
     const data = (res?.data as { data?: { items?: Array<{ templateId: string; ready: boolean; missing: ReadinessMissing[] }>; updatedAt?: string } } | undefined)?.data
       ?? (res?.data as { items?: Array<{ templateId: string; ready: boolean; missing: ReadinessMissing[] }>; updatedAt?: string } | undefined);
     const map: Record<string, ReadinessItem> = {};

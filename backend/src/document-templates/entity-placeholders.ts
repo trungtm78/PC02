@@ -1,115 +1,118 @@
-/**
- * Danh mục biến chuẩn (auto-map) cho template động vụ việc/vụ án.
- * - VU_AN ↔ model Case (/cases). VU_VIEC ↔ model Incident (/incidents).
- * - manualValues: bổ sung/ghi đè biến không thuộc catalog (biến nhập tay khi in).
- * - Escape token người dùng ({ } < >) chống injection docxtemplater.
- */
+import {
+  EntityType,
+  resolveField,
+  catalogKeys,
+  isCatalogField,
+} from './field-catalog';
+import { Delimiters, DEFAULT_DELIMITERS } from './docx-variables.util';
 
-function fmtDate(d: unknown): string {
-  if (!d) return '';
-  const date = d instanceof Date ? d : new Date(d as string);
-  if (Number.isNaN(date.getTime())) return '';
-  return `ngày ${String(date.getDate()).padStart(2, '0')} tháng ${String(date.getMonth() + 1).padStart(2, '0')} năm ${date.getFullYear()}`;
-}
+/**
+ * Cầu nối record → placeholder cho template động. Nguồn dữ liệu auto = Field Catalog
+ * (field-catalog.ts). Hai chế độ:
+ *  - buildEntityPlaceholders: map TẤT CẢ catalog key (placeholder = key) — giữ hành vi
+ *    cũ cho VU_AN/VU_VIEC + readiness.
+ *  - buildTemplatePlaceholders: MAPPING-DRIVEN theo `template.variables` (placeholder
+ *    tên tự do → field), escape theo cặp delimiter của template.
+ */
 
 function s(v: unknown): string {
   return v === null || v === undefined ? '' : String(v);
 }
 
-/** Họ tên đầy đủ từ User (firstName+lastName) — User KHÔNG có fullName (codex P2). */
-function personName(u: any): string {
-  if (!u) return '';
-  return [u.firstName, u.lastName].filter(Boolean).join(' ').trim();
-}
-
-/** Escape ký tự cú pháp docxtemplater trong giá trị user. */
-function esc(v: string): string {
+/** Escape token cú pháp docxtemplater mặc định `{ } < >` (homoglyph) — delimiter `{ }`. */
+function escDefault(v: string): string {
   return v.replace(/\{/g, '❴').replace(/\}/g, '❵').replace(/</g, '‹').replace(/>/g, '›');
 }
 
-function caseMap(r: any): Record<string, string> {
-  return {
-    soVuAn: s(r.caseCode),
-    tenVuAn: s(r.name),
-    toiDanh: s(r.crime),
-    trangThai: s(r.status),
-    ngayKhoiTo: fmtDate(r.ngayKhoiTo),
-    soQuyetDinhKhoiTo: s(r.soQuyetDinhKhoiTo),
-    soKLDT: s(r.soKLDT),
-    ngayKLDT: fmtDate(r.ngayKLDT),
-    soQDDinhChiVuAn: s(r.soQDDinhChiVuAn),
-    ngayDinhChiVuAn: fmtDate(r.ngayDinhChiVuAn),
-    dieuTraVien: personName(r.investigator),
-    donVi: s(r.unitRef?.name ?? r.unit ?? ''),
-  };
-}
-
-/** Nhãn tiếng Việt cho enum NguonPhatTin (Đ.144 BLTTHS) — render nhãn thay vì mã enum. */
-const NGUON_PHAT_TIN_LABEL: Record<string, string> = {
-  CA_NHAN_TO_GIAC: 'Cá nhân tố giác',
-  CO_QUAN_NHA_NUOC: 'Cơ quan nhà nước',
-  TO_CHUC: 'Tổ chức',
-  CA_NHAN_BAO_TIN: 'Cá nhân báo tin',
-  PHUONG_TIEN_TRUYEN_THONG: 'Phương tiện thông tin đại chúng',
-  VIEN_KIEM_SAT: 'Viện kiểm sát nhân dân',
-  THANH_TRA: 'Cơ quan thanh tra',
-  KIEM_TOAN: 'Cơ quan kiểm toán',
-  TOA_AN: 'Tòa án nhân dân',
-  CO_QUAN_KHAC: 'Cơ quan nhà nước khác',
-};
-
-function incidentMap(r: any): Record<string, string> {
-  return {
-    soVuViec: s(r.code),
-    tenVuViec: s(r.name),
-    // nguonPhatTin là enum (Đ.144) → render NHÃN tiếng Việt, không phải mã enum (codex PR3).
-    nguonTin: NGUON_PHAT_TIN_LABEL[s(r.nguonPhatTin)] ?? s(r.nguonPhatTin),
-    noiDung: s(r.description),
-    trangThai: s(r.status),
-    // Ngày tiếp nhận nguồn tin = ngayDeXuat (Đ.146), KHÔNG phải fromDate (ngày bắt đầu vụ việc) — codex PR3.
-    ngayTiepNhan: fmtDate(r.ngayDeXuat),
-    donViGiaiQuyet: s(r.donViGiaiQuyet),
-    nguoiQuyetDinh: s(r.nguoiQuyetDinh),
-    soQuyetDinh: s(r.soQuyetDinh),
-    ngayQuyetDinh: fmtDate(r.ngayQuyetDinh),
-    dieuTraVien: personName(r.investigator),
-  };
-}
-
-export function buildEntityPlaceholders(
-  entityType: 'VU_VIEC' | 'VU_AN',
-  record: any,
-  manualValues: Record<string, string> = {},
-): Record<string, string> {
-  const base = entityType === 'VU_AN' ? caseMap(record) : incidentMap(record);
-  const merged: Record<string, string> = { ...base, ...manualValues };
-  // escape mọi giá trị (cả manual) — giá trị do người dùng nhập.
-  const out: Record<string, string> = {};
-  for (const [k, v] of Object.entries(merged)) out[k] = esc(s(v));
+/**
+ * Escape giá trị người dùng theo CẶP DELIMITER của template (Q2 — không hardcode `{ }`).
+ * - `{ }`: dùng homoglyph (tương thích hành vi cũ).
+ * - delimiter khác: chèn ZWSP phá chuỗi delimiter trong giá trị → không tạo tag giả.
+ */
+export function escapeForDelimiters(v: string, d: Delimiters = DEFAULT_DELIMITERS): string {
+  if (!v) return v;
+  if (d.start === '{' && d.end === '}') return escDefault(v);
+  const ZWSP = String.fromCharCode(0x200b); // zero-width space — phá chuỗi delimiter, vô hình
+  const brk = (seq: string): string =>
+    seq.length <= 1 ? `${seq}${ZWSP}` : seq.split('').join(ZWSP);
+  let out = v;
+  if (d.start) out = out.split(d.start).join(brk(d.start));
+  if (d.end) out = out.split(d.end).join(brk(d.end));
   return out;
 }
 
 /**
- * Tập biến TỰ ĐIỀN (auto) cho từng loại hồ sơ = key catalog + `soVanBan` (số cấp lúc in).
- * Dùng để phân loại biến phát hiện trong .docx: thuộc tập này → auto, ngoài → nhập tay (manual).
+ * Map TẤT CẢ catalog key của entityType → giá trị (placeholder = key). Giữ NGUYÊN hành vi
+ * cũ (caseMap/incidentMap). manualValues bổ sung/ghi đè. Escape mặc định `{ }`.
  */
-const AUTO_PLACEHOLDER_KEYS: Record<'VU_AN' | 'VU_VIEC', readonly string[]> = {
-  VU_AN: [...Object.keys(caseMap({})), 'soVanBan'],
-  VU_VIEC: [...Object.keys(incidentMap({})), 'soVanBan'],
-};
+export function buildEntityPlaceholders(
+  entityType: EntityType,
+  record: any,
+  manualValues: Record<string, string> = {},
+): Record<string, string> {
+  const base: Record<string, string> = {};
+  for (const key of catalogKeys(entityType)) base[key] = resolveField(entityType, key, record);
+  const merged: Record<string, string> = { ...base, ...manualValues };
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(merged)) out[k] = escDefault(s(v));
+  return out;
+}
 
-/** Biến `name` có tự điền được cho `entityType` không (ngoài tập → phải nhập tay khi in). */
-export function isAutoPlaceholder(entityType: string, name: string): boolean {
-  const keys = AUTO_PLACEHOLDER_KEYS[entityType as 'VU_AN' | 'VU_VIEC'];
-  return keys ? keys.includes(name) : false;
+/** 1 biến template (cấu hình mapping admin khai). */
+export interface TemplateVariable {
+  name: string;
+  label?: string;
+  source: 'auto' | 'manual';
+  field?: string;
+  required?: boolean;
 }
 
 /**
- * PR2 — placeholder AUTO map tới CỘT đơn giản (text) trên hồ sơ → khi thiếu, FE cho "Lưu bổ sung"
- * PUT vào case/incident (persist). Placeholder ngoài map (relation/computed/enum/date như dieuTraVien,
- * soVuAn, nguonTin, ngày…) → savable=false → nhập tại popup làm manualValues override khi xuất.
+ * MAPPING-DRIVEN: dựng placeholder keyed theo `variable.name` (tên hiển thị tự do trong file).
+ *  - auto: giá trị = resolveField(field ?? name). Field đặc biệt `soVanBan` lấy từ
+ *    manualValues['soVanBan'] (số cấp lúc in).
+ *  - manual: giá trị = manualValues[name].
+ * Escape mọi giá trị theo cặp delimiter của template.
  */
-export const DYNAMIC_EXPORT_SAVABLE: Record<'VU_AN' | 'VU_VIEC', Record<string, { column: string; type: 'text' | 'textarea' }>> = {
+export function buildTemplatePlaceholders(
+  entityType: EntityType,
+  variables: TemplateVariable[],
+  record: any,
+  manualValues: Record<string, string> = {},
+  delimiters: Delimiters = DEFAULT_DELIMITERS,
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const v of variables) {
+    const fieldKey = v.field ?? v.name;
+    let raw: string;
+    if (v.source === 'manual') {
+      raw = manualValues[v.name] ?? '';
+    } else if (fieldKey === 'soVanBan') {
+      raw = manualValues['soVanBan'] ?? '';
+    } else {
+      // AUTO: manualValues[name] override (popup "bổ sung thông tin thiếu" điền auto-field rỗng);
+      // không có thì resolve từ record. KHÔNG để mất giá trị người dùng nhập (codex P1).
+      raw = manualValues[v.name] ?? resolveField(entityType, fieldKey, record);
+    }
+    out[v.name] = escapeForDelimiters(s(raw), delimiters);
+  }
+  return out;
+}
+
+/** Biến `name` có tự điền được cho `entityType` không (thuộc Field Catalog → auto). */
+export function isAutoPlaceholder(entityType: string, name: string): boolean {
+  return isCatalogField(entityType, name);
+}
+
+/**
+ * PR2 — placeholder AUTO map tới CỘT đơn giản (text) trên hồ sơ → khi thiếu, FE "Lưu bổ sung"
+ * PUT vào case/incident (persist). Ngoài map → savable=false → nhập tại popup (manualValues).
+ * (DON_THU bổ sung ở PR3.)
+ */
+export const DYNAMIC_EXPORT_SAVABLE: Record<
+  EntityType,
+  Record<string, { column: string; type: 'text' | 'textarea' }>
+> = {
   VU_AN: {
     tenVuAn: { column: 'name', type: 'text' },
     toiDanh: { column: 'crime', type: 'text' },
@@ -123,5 +126,16 @@ export const DYNAMIC_EXPORT_SAVABLE: Record<'VU_AN' | 'VU_VIEC', Record<string, 
     soQuyetDinh: { column: 'soQuyetDinh', type: 'text' },
     nguoiQuyetDinh: { column: 'nguoiQuyetDinh', type: 'text' },
     donViGiaiQuyet: { column: 'donViGiaiQuyet', type: 'text' },
+  },
+  // DON_THU: placeholder (catalog key) → cột phẳng Petition → FE "Lưu bổ sung vào đơn" PUT /petitions/:id.
+  DON_THU: {
+    ghiTen: { column: 'senderName', type: 'text' },
+    noiDung: { column: 'detailContent', type: 'textarea' },
+    nhanThay: { column: 'nhanThay', type: 'textarea' },
+    deXuat: { column: 'deXuat', type: 'textarea' },
+    lyDoChuyen: { column: 'lyDoChuyen', type: 'textarea' },
+    canCuPhapLy: { column: 'canCuPhapLy', type: 'textarea' },
+    huongDanKhoiKien: { column: 'huongDanKhoiKien', type: 'textarea' },
+    lyDoTraDon: { column: 'lyDoTraDon', type: 'textarea' },
   },
 };

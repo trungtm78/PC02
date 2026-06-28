@@ -7,8 +7,10 @@ import {
 import { createHash } from 'crypto';
 import PizZip from 'pizzip';
 import { PrismaService } from '../prisma/prisma.service';
-import { detectDocxVariables } from './docx-variables.util';
-import { isAutoPlaceholder } from './entity-placeholders';
+import { detectDocxVariables, Delimiters } from './docx-variables.util';
+import { normalizeDocxTags } from './docx-normalize.util';
+import { TemplateVariable } from './entity-placeholders';
+import { isCatalogField, assertFieldInCatalog, listCatalog, EntityType } from './field-catalog';
 import { CreateDocumentTemplateDto } from './dto/create-document-template.dto';
 import { UpdateDocumentTemplateDto } from './dto/update-document-template.dto';
 
@@ -18,19 +20,78 @@ type UploadFile = { buffer: Buffer; originalname: string };
 export class DocumentTemplatesService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /** Cặp delimiter của template (admin chọn lúc upload; mặc định `{ }`). Validate start≠end. */
+  private delimitersOf(delimStart?: string | null, delimEnd?: string | null): Delimiters {
+    const start = delimStart || '{';
+    const end = delimEnd || '}';
+    if (start === end) {
+      throw new BadRequestException('Ký tự mở và đóng placeholder phải khác nhau');
+    }
+    return { start, end };
+  }
+
   /**
-   * Biến phát hiện từ .docx → phân loại theo catalog của entityType:
-   * thuộc danh mục chuẩn (auto-điền từ record/số) = 'auto'; ngoài danh mục = 'manual'
-   * (admin/cán bộ nhập tay khi in — tránh placeholder render rỗng câm).
+   * Auto-suy mapping từ placeholder phát hiện: tên thuộc Field Catalog → source 'auto' +
+   * field=name; ngoài catalog → 'manual' (nhập tay khi in).
    */
-  private buildVariables(buffer: Buffer, entityType: string) {
-    return detectDocxVariables(buffer).map((name) => ({
-      name,
-      source: isAutoPlaceholder(entityType, name) ? 'auto' : 'manual',
-      label: name,
-      // PR2: admin đánh dấu bắt buộc sau (qua update.requiredVariables). Mặc định không bắt buộc.
-      required: false,
-    }));
+  private autoVariablesFromDetected(detected: string[], entityType: string): TemplateVariable[] {
+    return detected.map((name) => {
+      const auto = isCatalogField(entityType, name);
+      return {
+        name,
+        label: name,
+        source: auto ? ('auto' as const) : ('manual' as const),
+        ...(auto ? { field: name } : {}),
+        required: false,
+      };
+    });
+  }
+
+  /**
+   * Validate mapping CỨNG (codex P1#6): biến không trùng tên; auto phải có field hợp lệ
+   * (whitelist catalog); MỌI biến phải xuất hiện trong file (detected); MỌI placeholder
+   * trong file phải được khai báo. Sai → 400 rõ ràng (không để render rỗng câm).
+   */
+  private validateVariableMapping(
+    entityType: string,
+    variables: TemplateVariable[],
+    detected: string[],
+  ): TemplateVariable[] {
+    const detectedSet = new Set(detected);
+    const seen = new Set<string>();
+    const normalized: TemplateVariable[] = [];
+    for (const v of variables) {
+      if (!v || typeof v.name !== 'string' || v.name.trim() === '') {
+        throw new BadRequestException('Biến thiếu tên (name)');
+      }
+      if (seen.has(v.name)) {
+        throw new BadRequestException(`Biến trùng tên: "${v.name}"`);
+      }
+      seen.add(v.name);
+      if (!detectedSet.has(v.name)) {
+        throw new BadRequestException(`Biến "${v.name}" không có trong file mẫu`);
+      }
+      const source = v.source === 'manual' ? 'manual' : 'auto';
+      let field: string | undefined;
+      if (source === 'auto') {
+        field = v.field ?? v.name;
+        assertFieldInCatalog(entityType as EntityType, field); // 400 nếu ngoài whitelist
+      }
+      normalized.push({
+        name: v.name,
+        label: v.label ?? v.name,
+        source,
+        ...(field ? { field } : {}),
+        required: v.required === true,
+      });
+    }
+    // Mọi placeholder trong file phải được khai báo (không bỏ sót → tránh tag không map).
+    for (const name of detected) {
+      if (!seen.has(name)) {
+        throw new BadRequestException(`Placeholder "${name}" trong file chưa được khai báo mapping`);
+      }
+    }
+    return normalized;
   }
 
   /** [codex P2] Chặn file giả .docx: buffer phải là zip docx hợp lệ (có word/document.xml). */
@@ -43,14 +104,39 @@ export class DocumentTemplatesService {
     }
   }
 
+  /**
+   * Chuẩn hóa file (gộp run + strip proofErr) → detect theo delimiter → mapping (admin gửi
+   * hoặc auto-suy) → validate cứng. Trả buffer đã chuẩn hóa + variables chuẩn.
+   */
+  private prepareUpload(
+    rawBuffer: Buffer,
+    entityType: string,
+    delimiters: Delimiters,
+    adminVariables?: TemplateVariable[],
+  ): { buffer: Buffer; variables: TemplateVariable[] } {
+    this.assertValidDocx(rawBuffer);
+    const buffer = normalizeDocxTags(rawBuffer);
+    this.assertValidDocx(buffer);
+    const detected = detectDocxVariables(buffer, delimiters);
+    const variables =
+      adminVariables && adminVariables.length
+        ? this.validateVariableMapping(entityType, adminVariables, detected)
+        : this.autoVariablesFromDetected(detected, entityType);
+    return { buffer, variables };
+  }
+
   async create(dto: CreateDocumentTemplateDto, file: UploadFile, userId: string) {
-    this.assertValidDocx(file.buffer);
-    // needsNumber bật mà thiếu numberSeriesId → mẫu cấu hình sai (export sẽ luôn fail 400).
-    // Chặn ngay lúc tạo thay vì để chết khi in.
     if (dto.needsNumber && !dto.numberSeriesId) {
       throw new BadRequestException('Bật cấp số văn bản thì phải chọn chuỗi số (numberSeriesId)');
     }
-    const fileSha = createHash('sha256').update(file.buffer).digest('hex');
+    const delimiters = this.delimitersOf(dto.delimStart, dto.delimEnd);
+    const { buffer, variables } = this.prepareUpload(
+      file.buffer,
+      dto.entityType,
+      delimiters,
+      dto.variables as TemplateVariable[] | undefined,
+    );
+    const fileSha = createHash('sha256').update(buffer).digest('hex');
     try {
       return await this.prisma.documentTemplate.create({
         data: {
@@ -58,11 +144,14 @@ export class DocumentTemplatesService {
           name: dto.name,
           entityType: dto.entityType,
           category: dto.category,
-          // Buffer là Uint8Array runtime; cast giữ reference cho Prisma Bytes (v7 type khắt khe hơn).
-          fileBytes: file.buffer as unknown as Uint8Array<ArrayBuffer>,
+          fileBytes: buffer as unknown as Uint8Array<ArrayBuffer>,
           fileSha,
           fileName: file.originalname,
-          variables: this.buildVariables(file.buffer, dto.entityType),
+          // TemplateVariable[] → Prisma JSON (interface không có index signature; cast như fileBytes).
+          variables: variables as unknown as object[],
+          format: dto.format ?? 'DOCX',
+          delimStart: delimiters.start,
+          delimEnd: delimiters.end,
           needsNumber: dto.needsNumber ?? false,
           numberSeriesId: dto.numberSeriesId ?? null,
           sortOrder: dto.sortOrder ?? 0,
@@ -70,7 +159,6 @@ export class DocumentTemplatesService {
         },
       });
     } catch (e) {
-      // Partial unique [entityType, code] WHERE deletedAt IS NULL → P2002. Trả 409 thân thiện.
       if ((e as { code?: string })?.code === 'P2002') {
         throw new ConflictException('Mã mẫu đã tồn tại cho loại hồ sơ này');
       }
@@ -79,7 +167,6 @@ export class DocumentTemplatesService {
   }
 
   async list(filter: { entityType?: string; category?: string; status?: string }) {
-    // [codex P2] omit fileBytes — list chỉ cần metadata, không tải ≤5MB/mẫu vào JSON.
     return this.prisma.documentTemplate.findMany({
       where: {
         deletedAt: null,
@@ -100,38 +187,78 @@ export class DocumentTemplatesService {
 
   async update(id: string, dto: UpdateDocumentTemplateDto) {
     const existing = await this.getById(id);
-    // PR2: requiredVariables (tên các biến BẮT BUỘC) — set lại cờ required trên variables hiện có,
-    // KHÔNG ghi cột không tồn tại. Tách khỏi phần spread vào prisma.
-    const { requiredVariables, ...rest } = dto as UpdateDocumentTemplateDto & { requiredVariables?: string[] };
+    const {
+      requiredVariables,
+      variables: dtoVariables,
+      delimStart,
+      delimEnd,
+      ...rest
+    } = dto as UpdateDocumentTemplateDto & {
+      requiredVariables?: string[];
+      variables?: TemplateVariable[];
+      delimStart?: string;
+      delimEnd?: string;
+    };
     const data: Record<string, unknown> = { ...rest };
-    if (requiredVariables !== undefined) {
-      // readiness chỉ áp dụng VU_AN/VU_VIEC (đơn thư dùng mẫu hardcode) → chặn cấu hình required
-      // cho DON_THU để khỏi tạo trạng thái vô tác dụng (codex PR3 #1).
-      if (existing.entityType === 'DON_THU') {
-        throw new BadRequestException('Không hỗ trợ cấu hình biến bắt buộc cho mẫu Đơn thư');
-      }
-      const reqSet = new Set(requiredVariables);
-      const vars = ((existing.variables as Array<{ name: string }>) ?? []).map((v) => ({
-        ...v,
-        required: reqSet.has(v.name),
-      }));
-      data.variables = vars;
+
+    // Delimiter có thể đổi → tác động detect; tính delimiter hiệu lực.
+    const delimChanged = delimStart !== undefined || delimEnd !== undefined;
+    const delimiters = this.delimitersOf(
+      delimStart ?? existing.delimStart,
+      delimEnd ?? existing.delimEnd,
+    );
+    if (delimChanged) {
+      data.delimStart = delimiters.start;
+      data.delimEnd = delimiters.end;
     }
+
+    // Mapping mới do admin gửi HOẶC delimiter đổi → re-validate/re-detect theo file hiện tại.
+    if (dtoVariables !== undefined || delimChanged) {
+      const detected = detectDocxVariables(Buffer.from(existing.fileBytes), delimiters);
+      data.variables =
+        dtoVariables && dtoVariables.length
+          ? this.validateVariableMapping(existing.entityType, dtoVariables, detected)
+          : this.autoVariablesFromDetected(detected, existing.entityType);
+    }
+
+    // requiredVariables: set cờ required trên variables (đã update ở trên hoặc hiện có).
+    // Bỏ chặn DON_THU (codex/PR3): readiness áp dụng cho cả Đơn thư khi đã vào hệ động.
+    if (requiredVariables !== undefined) {
+      const reqSet = new Set(requiredVariables);
+      const baseVars = (data.variables as TemplateVariable[] | undefined) ??
+        ((existing.variables as TemplateVariable[] | null) ?? []);
+      data.variables = baseVars.map((v) => ({ ...v, required: reqSet.has(v.name) }));
+    }
+
     return this.prisma.documentTemplate.update({ where: { id }, data });
   }
 
-  /** Thay file .docx: cập nhật bytes + sha + re-detect biến (phân loại theo entityType cũ). */
+  /** Thay file .docx: chuẩn hóa + re-detect; GIỮ mapping cũ (field/label/required) cho biến trùng tên. */
   async replaceFile(id: string, file: UploadFile, _userId: string) {
     const existing = await this.getById(id);
+    const delimiters = this.delimitersOf(existing.delimStart, existing.delimEnd);
     this.assertValidDocx(file.buffer);
-    const fileSha = createHash('sha256').update(file.buffer).digest('hex');
+    const buffer = normalizeDocxTags(file.buffer);
+    this.assertValidDocx(buffer);
+    const detected = detectDocxVariables(buffer, delimiters);
+
+    const oldByName = new Map<string, TemplateVariable>(
+      ((existing.variables as TemplateVariable[] | null) ?? []).map((v) => [v.name, v]),
+    );
+    const merged = this.autoVariablesFromDetected(detected, existing.entityType).map((auto) => {
+      const old = oldByName.get(auto.name);
+      return old ? { ...auto, ...old } : auto; // giữ mapping cũ (field/label/required)
+    });
+    const variables = this.validateVariableMapping(existing.entityType, merged, detected);
+    const fileSha = createHash('sha256').update(buffer).digest('hex');
+
     return this.prisma.documentTemplate.update({
       where: { id },
       data: {
-        fileBytes: file.buffer as unknown as Uint8Array<ArrayBuffer>,
+        fileBytes: buffer as unknown as Uint8Array<ArrayBuffer>,
         fileSha,
         fileName: file.originalname,
-        variables: this.buildVariables(file.buffer, existing.entityType),
+        variables: variables as unknown as object[],
       },
     });
   }
@@ -139,5 +266,28 @@ export class DocumentTemplatesService {
   async softDelete(id: string) {
     await this.getById(id);
     await this.prisma.documentTemplate.update({ where: { id }, data: { deletedAt: new Date() } });
+  }
+
+  /** Danh mục trường khả dụng (whitelist) cho dropdown admin map placeholder→field. */
+  fieldCatalog(entityType: string) {
+    return listCatalog(entityType as EntityType);
+  }
+
+  /**
+   * Preview placeholder khi admin upload (chưa lưu): chuẩn hóa + detect theo delimiter +
+   * gợi ý mapping (auto-suy field từ catalog). UI hiển thị để admin chỉnh trước khi lưu.
+   */
+  previewVariables(file: UploadFile, entityType: string, delimStart?: string, delimEnd?: string) {
+    this.assertValidDocx(file.buffer);
+    const delimiters = this.delimitersOf(delimStart, delimEnd);
+    const buffer = normalizeDocxTags(file.buffer);
+    const detected = detectDocxVariables(buffer, delimiters);
+    return { detected, suggested: this.autoVariablesFromDetected(detected, entityType) };
+  }
+
+  /** File .docx (bytes + tên) để admin tải về sửa. */
+  async getFileForDownload(id: string): Promise<{ fileName: string; bytes: Buffer }> {
+    const t = await this.getById(id);
+    return { fileName: t.fileName, bytes: Buffer.from(t.fileBytes) };
   }
 }

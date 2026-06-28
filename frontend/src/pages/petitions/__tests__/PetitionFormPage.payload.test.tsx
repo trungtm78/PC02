@@ -229,9 +229,9 @@ describe('PetitionFormPage — petitionType payload (v0.37.2.4 P0 fix)', () => {
     fireEvent.click(screen.getByTestId('btn-save-top-caret'));
     fireEvent.click(screen.getByTestId('btn-save-top-item-export'));
 
-    // Popup "Xuất chứng từ" hiện; KHÔNG điều hướng về danh sách (route /petitions render "list").
+    // Popup "Xuất chứng từ" ĐỘNG hiện; KHÔNG điều hướng về danh sách (route /petitions render "list").
     await waitFor(() => {
-      expect(screen.getByTestId('export-documents-modal')).toBeInTheDocument();
+      expect(screen.getByTestId('dynamic-export-modal')).toBeInTheDocument();
     });
     expect(api.post).toHaveBeenCalledWith('/petitions', expect.anything());
     expect(screen.queryByText('list')).not.toBeInTheDocument();

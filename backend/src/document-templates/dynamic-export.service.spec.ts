@@ -111,4 +111,67 @@ describe('DynamicExportService', () => {
     const sent = res.send.mock.calls[0][0];
     expect(Buffer.isBuffer(sent)).toBe(true);
   });
+
+  describe('DON_THU (Đơn thư động — PR3)', () => {
+    const DT = {
+      id: 'd1', code: 'PHIEU_DE_XUAT', entityType: 'DON_THU', status: 'active',
+      needsNumber: true, numberSeriesId: 'PHIEU_DE_XUAT', fileSha: 'shaD',
+      fileBytes: makeDocx('Gui {ghiTen} so {soVanBan}'),
+      variables: [
+        { name: 'ghiTen', source: 'auto', field: 'ghiTen', required: true },
+        { name: 'soVanBan', source: 'auto', field: 'soVanBan', required: false },
+      ],
+    };
+
+    it('[codex P1#2] thiếu required (ghiTen rỗng, không manualValues) → throw TRƯỚC tx (0 cấp số)', async () => {
+      prisma.documentTemplate.findMany.mockResolvedValue([DT]);
+      await expect(
+        svc.exportEntityDocuments('DON_THU', 'p1', { senderName: '', unit: 'u1' }, ['d1'], 'merged', 'u1', {}, plainRes()),
+      ).rejects.toThrow(/bắt buộc/);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+      expect(docNums.commitWithTx).not.toHaveBeenCalled();
+    });
+
+    it('manualValues bổ sung required → qua validate, render OK', async () => {
+      prisma.documentTemplate.findMany.mockResolvedValue([DT]);
+      await svc.exportEntityDocuments('DON_THU', 'p1', { senderName: '', unit: 'u1' }, ['d1'], 'merged', 'u1', { ghiTen: 'Trần A' }, plainRes());
+      expect(docNums.commitWithTx).toHaveBeenCalledTimes(1);
+    });
+
+    it('render DON_THU: row-lock "petitions", commitWithTx idKey petitionId, renderLog.petitionId', async () => {
+      prisma.documentTemplate.findMany.mockResolvedValue([DT]);
+      await svc.exportEntityDocuments('DON_THU', 'p1', { senderName: 'Trần A', unit: 'u1' }, ['d1'], 'merged', 'u1', {}, plainRes());
+      expect(prisma.$queryRawUnsafe).toHaveBeenCalledWith(expect.stringContaining('FROM "petitions"'), 'p1');
+      expect(docNums.commitWithTx).toHaveBeenCalledWith(
+        'PHIEU_DE_XUAT', expect.objectContaining({ petitionId: 'p1' }), expect.anything(), expect.anything(),
+      );
+      expect(prisma.documentRenderLog.create.mock.calls[0][0].data.petitionId).toBe('p1');
+    });
+
+    it('[codex P2] soVanBan required KHÔNG chặn (engine cấp, bỏ khỏi validate)', async () => {
+      const T = { ...DT, variables: [{ name: 'soVanBan', source: 'auto', field: 'soVanBan', required: true }] };
+      prisma.documentTemplate.findMany.mockResolvedValue([T]);
+      // record rỗng + không manualValues → vẫn KHÔNG throw (soVanBan do engine cấp)
+      await svc.exportEntityDocuments('DON_THU', 'p1', { senderName: '', unit: 'u1' }, ['d1'], 'merged', 'u1', {}, plainRes());
+      expect(docNums.commitWithTx).toHaveBeenCalledTimes(1);
+    });
+
+    it('[codex P2] manualValues value non-string → KHÔNG crash 500 (String coerce)', async () => {
+      const T = { ...DT, variables: [{ name: 'ghiChu', source: 'manual', required: true }] };
+      prisma.documentTemplate.findMany.mockResolvedValue([T]);
+      // value là number → String(123)="123" non-empty → qua validate, không TypeError
+      await expect(
+        svc.exportEntityDocuments('DON_THU', 'p1', { unit: 'u1' }, ['d1'], 'merged', 'u1', { ghiChu: 123 as any }, plainRes()),
+      ).resolves.toBeUndefined();
+    });
+
+    it('readiness DON_THU: cột phẳng → savable=true + column (FE PUT lưu đơn)', async () => {
+      prisma.documentTemplate.findMany.mockResolvedValue([
+        { id: 'd1', code: 'PHIEU_DE_XUAT', variables: [{ name: 'ghiTen', source: 'auto', field: 'ghiTen', required: true }] },
+      ]);
+      const r = await svc.getExportReadiness('DON_THU', { senderName: '' });
+      const m = r.items[0].missing[0];
+      expect(m).toMatchObject({ field: 'ghiTen', savable: true, column: 'senderName' });
+    });
+  });
 });

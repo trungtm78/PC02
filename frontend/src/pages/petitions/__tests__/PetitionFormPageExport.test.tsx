@@ -27,11 +27,11 @@ vi.mock('@/features/document-numbers/api', () => ({
   documentNumbersApi: { draft: vi.fn().mockResolvedValue({ previewNumber: 'DT-2026-00001' }) },
 }));
 
-// Stub modal xuất chứng từ — kiểm tra wiring mở/đóng, không cần DOC_TYPES/blob.
-vi.mock('@/features/petitions/components/ExportDocumentsModal', () => ({
-  ExportDocumentsModal: ({ petitionId, onClose }: { petitionId: string; onClose: () => void }) => (
+// Stub modal xuất chứng từ ĐỘNG (PR3) — kiểm tra wiring mở/đóng, không cần fetch mẫu/blob.
+vi.mock('@/features/document-templates/components/DynamicExportDocumentsModal', () => ({
+  DynamicExportDocumentsModal: ({ entity, entityId, onClose }: { entity: string; entityId: string; onClose: () => void }) => (
     <div data-testid="export-documents-modal">
-      <span>pet:{petitionId}</span>
+      <span>{entity}:{entityId}</span>
       <button data-testid="stub-close" onClick={onClose}>x</button>
     </div>
   ),
@@ -76,7 +76,7 @@ describe('PetitionFormPage — nút "In chứng từ" độc lập (PR4)', () =>
     const btn = await screen.findByTestId('btn-print-docs');
     fireEvent.click(btn);
     const modal = await screen.findByTestId('export-documents-modal');
-    expect(modal).toHaveTextContent('pet:pet-1');
+    expect(modal).toHaveTextContent('petitions:pet-1');
     // KHÔNG gọi lưu khi chỉ In chứng từ.
     expect(api.post).not.toHaveBeenCalled();
     // Đóng popup → không điều hướng (route /petitions render "list").

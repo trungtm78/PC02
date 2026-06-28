@@ -2417,7 +2417,10 @@ model DocumentTemplate {
   fileBytes      Bytes
   fileSha        String
   fileName       String
-  variables      Json      @default("[]") // [{name, source:'auto'|'manual', label}]
+  variables      Json      @default("[]") // [{name, label, source:'auto'|'manual', field?, required?}]
+  format         String    @default("DOCX") // DOCX nay; mở XLSX/PDF sau (multi-format)
+  delimStart     String    @default("{") // ký tự mở placeholder (admin chọn lúc upload)
+  delimEnd       String    @default("}") // ký tự đóng placeholder
   needsNumber    Boolean   @default(false)
   numberSeriesId String? // FK lỏng tới DocumentNumberTemplate (cấp số khi needsNumber)
   status         String    @default("active")

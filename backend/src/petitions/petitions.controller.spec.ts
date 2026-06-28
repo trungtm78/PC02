@@ -20,11 +20,17 @@ const mockService = {
   listAssignments: jest.fn(),
   addAssignment: jest.fn(),
   removeAssignment: jest.fn(),
+  loadPetitionForExport: jest.fn(),
 };
 
 const mockJourneyService = { getJourney: jest.fn() };
 const mockBatchExport = { exportBatchToZip: jest.fn() };
 const mockExportDocs = { exportDocuments: jest.fn() };
+const mockDynamicExport = {
+  listExportableTemplates: jest.fn(),
+  getExportReadiness: jest.fn(),
+  exportEntityDocuments: jest.fn(),
+};
 
 describe('PetitionsController — delegation', () => {
   let controller: PetitionsController;
@@ -45,6 +51,10 @@ describe('PetitionsController — delegation', () => {
             .PetitionExportDocumentsService,
           mock: mockExportDocs,
         },
+        {
+          token: require('../document-templates/dynamic-export.service').DynamicExportService,
+          mock: mockDynamicExport,
+        },
       ],
     );
     controller = module.get(PetitionsController);
@@ -56,6 +66,34 @@ describe('PetitionsController — delegation', () => {
     const req = makeReq();
     await controller.getList({} as any, req);
     expect(mockService.getList).toHaveBeenCalledWith({}, req.dataScope);
+  });
+
+  describe('In chứng từ ĐỘNG (PR3)', () => {
+    it('listDynamicExportTemplates() → dynamicExport.listExportableTemplates(DON_THU)', () => {
+      controller.listDynamicExportTemplates();
+      expect(mockDynamicExport.listExportableTemplates).toHaveBeenCalledWith('DON_THU');
+    });
+
+    it('dynamicExportReadiness() load petition rồi getExportReadiness(DON_THU, record)', async () => {
+      const req = makeReq();
+      const petition = { id: 'p1' };
+      mockService.loadPetitionForExport.mockResolvedValue(petition);
+      await controller.dynamicExportReadiness('p1', req);
+      expect(mockService.loadPetitionForExport).toHaveBeenCalledWith('p1', req.dataScope);
+      expect(mockDynamicExport.getExportReadiness).toHaveBeenCalledWith('DON_THU', petition);
+    });
+
+    it('dynamicExportDocuments() load petition rồi exportEntityDocuments(DON_THU, ...)', async () => {
+      const req = makeReq();
+      const petition = { id: 'p1' };
+      mockService.loadPetitionForExport.mockResolvedValue(petition);
+      const res = {} as any;
+      const dto = { templateIds: ['t1'], mode: 'zip' as const, manualValues: { x: '1' } };
+      await controller.dynamicExportDocuments('p1', dto as any, req, res, mockUser as any);
+      expect(mockDynamicExport.exportEntityDocuments).toHaveBeenCalledWith(
+        'DON_THU', 'p1', petition, ['t1'], 'zip', expect.any(String), { x: '1' }, res,
+      );
+    });
   });
 
   it('exportDocuments() delegates to service với docTypes, mode, userId, scope, res', async () => {

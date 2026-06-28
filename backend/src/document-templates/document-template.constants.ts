@@ -13,3 +13,7 @@ export const TEMPLATE_CATEGORIES = [
   'Khác',
 ] as const;
 export type TemplateCategory = (typeof TEMPLATE_CATEGORIES)[number];
+
+/** Định dạng template hỗ trợ (vòng này chỉ DOCX; XLSX/PDF mở dần qua renderer/converter). */
+export const SUPPORTED_FORMATS = ['DOCX'] as const;
+export type SupportedFormat = (typeof SUPPORTED_FORMATS)[number];

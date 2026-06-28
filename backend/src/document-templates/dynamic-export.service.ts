@@ -1,19 +1,31 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Response } from 'express';
 import { createHash } from 'crypto';
-import PizZip from 'pizzip';
-import Docxtemplater from 'docxtemplater';
 import archiver from 'archiver';
 import { sanitizeFilename } from '../common/utils/filename.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { DocumentNumbersService } from '../document-numbers/document-numbers.service';
 import { DocxMergeService } from '../petitions/docx-merge.service';
-import { buildEntityPlaceholders, DYNAMIC_EXPORT_SAVABLE } from './entity-placeholders';
+import {
+  buildTemplatePlaceholders,
+  DYNAMIC_EXPORT_SAVABLE,
+  TemplateVariable,
+} from './entity-placeholders';
+import { resolveField } from './field-catalog';
+import { resolveRenderer } from './renderers';
 
 const DOCX_CONTENT_TYPE =
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
-type EntityType = 'VU_AN' | 'VU_VIEC';
+type EntityType = 'VU_AN' | 'VU_VIEC' | 'DON_THU';
+
+/** Bảng + cột FK render-log/cấp số theo loại hồ sơ (row-lock + commitWithTx idKey + renderLog). */
+const ENTITY_DB: Record<EntityType, { table: string; idField: 'caseId' | 'incidentId' | 'petitionId' }> = {
+  VU_AN: { table: 'cases', idField: 'caseId' },
+  VU_VIEC: { table: 'incidents', idField: 'incidentId' },
+  DON_THU: { table: 'petitions', idField: 'petitionId' },
+};
+
 interface RenderedTemplate {
   buffer: Buffer;
   documentNumber?: string;
@@ -56,6 +68,9 @@ export class DynamicExportService {
         fileName: true,
         fileSha: true,
         variables: true,
+        format: true,
+        delimStart: true,
+        delimEnd: true,
         needsNumber: true,
         numberSeriesId: true,
         status: true,
@@ -73,26 +88,69 @@ export class DynamicExportService {
    * `record` đã được controller load + check scope. `updatedAt` để FE PUT bổ sung không 409.
    */
   getExportReadiness(entityType: EntityType, record: any) {
-    const auto = buildEntityPlaceholders(entityType, record);
     const savableMap = DYNAMIC_EXPORT_SAVABLE[entityType] ?? {};
     return this.listExportableTemplates(entityType).then((templates) => {
       const items = templates.map((t) => {
-        const vars = (t.variables as Array<{ name: string; source: string; label?: string; required?: boolean }> | null) ?? [];
+        const vars = (t.variables as TemplateVariable[] | null) ?? [];
         const missing = [] as Array<{ field: string; label: string; type: 'text' | 'textarea'; savable: boolean; column?: string }>;
         for (const v of vars) {
           if (!v.required) continue;
-          const autoEmpty = v.source === 'auto' && (!auto[v.name] || auto[v.name].trim() === '');
+          // auto rỗng = resolveField (theo mapping field, fallback name) ra chuỗi rỗng.
+          const autoEmpty =
+            v.source === 'auto' && resolveField(entityType, v.field ?? v.name, record).trim() === '';
           if (autoEmpty || v.source === 'manual') {
             const sav = savableMap[v.name];
-            // savable=false cho dynamic: bổ sung tại popup làm manualValues override khi xuất (KHÔNG
-            // PUT vào hồ sơ — tránh mất dữ liệu do form case/incident map field khác cột). Giữ `type`.
-            missing.push({ field: v.name, label: v.label || v.name, type: sav?.type ?? 'text', savable: false });
+            // DON_THU: cột phẳng → savable=true (FE PUT /petitions/:id "Lưu bổ sung vào đơn").
+            // VU_AN/VU_VIEC: savable=false (form map field khác cột → chỉ manualValues override khi xuất).
+            const savable = entityType === 'DON_THU' && !!sav;
+            missing.push({
+              field: v.name,
+              label: v.label || v.name,
+              type: sav?.type ?? 'text',
+              savable,
+              ...(savable && sav ? { column: sav.column } : {}),
+            });
           }
         }
         return { templateId: t.id, code: t.code, ready: missing.length === 0, missing };
       });
       return { items, updatedAt: record?.updatedAt };
     });
+  }
+
+  /**
+   * [codex P1#2] Fail-closed: ném BadRequest nếu CÒN trường bắt buộc chưa đủ cho mẫu nào trong danh
+   * sách xuất. "Đủ" = manualValues[name] có giá trị (người dùng nhập tại popup) HOẶC (auto) resolveField
+   * ra giá trị từ hồ sơ. Chạy TRƯỚC transaction/cấp số.
+   */
+  private assertRequiredSatisfied(
+    entityType: EntityType,
+    record: any,
+    templates: any[],
+    manualValues: Record<string, string>,
+  ): void {
+    const missing = new Set<string>();
+    for (const t of templates) {
+      const vars = (t.variables as TemplateVariable[] | null) ?? [];
+      for (const v of vars) {
+        if (!v.required) continue;
+        if ((v.field ?? v.name) === 'soVanBan') continue; // số cấp lúc in, không validate required
+        // String() coerce — manualValues value có thể không phải string (codex P2: tránh .trim() crash 500).
+        const manual = String(manualValues[v.name] ?? '').trim();
+        if (manual) continue; // người dùng đã nhập tại popup
+        if (v.source === 'manual') {
+          missing.add(v.label || v.name);
+          continue;
+        }
+        const auto = resolveField(entityType, v.field ?? v.name, record).trim();
+        if (!auto) missing.add(v.label || v.name);
+      }
+    }
+    if (missing.size > 0) {
+      throw new BadRequestException(
+        `Thiếu thông tin bắt buộc để in: ${[...missing].join(', ')}. Vui lòng bổ sung trước khi xuất.`,
+      );
+    }
   }
 
   /** Render 1 template trong tx: cấp số (nếu cần) + docxtemplater trên bytes DB + render log. */
@@ -112,9 +170,9 @@ export class DynamicExportService {
         throw new BadRequestException(`Mẫu "${template.code}" bật cấp số nhưng chưa cấu hình series số văn bản`);
       }
       // Row lock chống cấp số trùng khi 2 export đồng thời cùng hồ sơ.
-      const table = entityType === 'VU_AN' ? 'cases' : 'incidents';
-      await tx.$queryRawUnsafe(`SELECT id FROM "${table}" WHERE id = $1 FOR UPDATE`, entityId);
-      const idKey = entityType === 'VU_AN' ? { caseId: entityId } : { incidentId: entityId };
+      const db = ENTITY_DB[entityType];
+      await tx.$queryRawUnsafe(`SELECT id FROM "${db.table}" WHERE id = $1 FOR UPDATE`, entityId);
+      const idKey = { [db.idField]: entityId };
       const commit = await this.docNums.commitWithTx(
         template.numberSeriesId, // = DocumentNumberTemplate.documentType (series key)
         { userId: actorId, departmentId: record.unit ?? record.unitId ?? undefined, ...idKey },
@@ -124,20 +182,27 @@ export class DynamicExportService {
       documentNumber = commit.number;
     }
 
-    const placeholders = buildEntityPlaceholders(entityType, record, {
-      ...manualValues,
-      ...(documentNumber ? { soVanBan: documentNumber } : {}),
-    });
+    const delimiters = { start: template.delimStart ?? '{', end: template.delimEnd ?? '}' };
+    const variables = (template.variables as TemplateVariable[] | null) ?? [];
+    const placeholders = buildTemplatePlaceholders(
+      entityType,
+      variables,
+      record,
+      { ...manualValues, ...(documentNumber ? { soVanBan: documentNumber } : {}) },
+      delimiters,
+    );
 
-    const zip = new PizZip(Buffer.from(template.fileBytes));
-    const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true, nullGetter: () => '' });
-    doc.render(placeholders);
-    const buffer = doc.getZip().generate({ type: 'nodebuffer' }) as Buffer;
+    const renderer = resolveRenderer(template.format);
+    const buffer = renderer.render({
+      buffer: Buffer.from(template.fileBytes),
+      data: placeholders,
+      delimiters,
+    });
     const fileSha = createHash('sha256').update(buffer).digest('hex');
 
     await tx.documentRenderLog.create({
       data: {
-        ...(entityType === 'VU_AN' ? { caseId: entityId } : { incidentId: entityId }),
+        [ENTITY_DB[entityType].idField]: entityId,
         documentType: template.code,
         templateSha: template.fileSha,
         renderedById: actorId,
@@ -169,6 +234,11 @@ export class DynamicExportService {
     if (templateIds.length !== new Set(templateIds).size) {
       throw new BadRequestException('templateIds không được trùng lặp');
     }
+    // [codex P2] soVanBan CHỈ do engine cấp (số văn bản) — strip khỏi manualValues để client
+    // không forge số văn bản (khi template có {soVanBan} mà needsNumber=false).
+    const { soVanBan: _ignored, ...manualSafe } = manualValues ?? {};
+    void _ignored;
+    manualValues = manualSafe;
     // Load + pre-validate templates (tồn tại, đúng entityType, active) TRƯỚC khi vào tx.
     const templates = await this.prisma.documentTemplate.findMany({
       where: { id: { in: templateIds }, deletedAt: null, status: 'active' },
@@ -181,6 +251,10 @@ export class DynamicExportService {
     }
     // Giữ thứ tự theo templateIds đầu vào.
     const ordered = templateIds.map((id) => templates.find((t) => t.id === id)!);
+
+    // [codex P1#2] Validate trường BẮT BUỘC TRƯỚC khi vào tx/cấp số (fail-closed, không cấp số rồi
+    // render rỗng câm). Required auto rỗng (không có manualValues override) hoặc manual chưa nhập → throw.
+    this.assertRequiredSatisfied(entityType, record, ordered, manualValues);
 
     const deliverable = await this.prisma.$transaction(async (tx: any) => {
       const rendered: RenderedTemplate[] = [];
