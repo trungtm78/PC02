@@ -4,6 +4,8 @@ export interface TemplateVariable {
   name: string;
   source: 'auto' | 'manual';
   label: string;
+  /** Bắt buộc khi in (readiness báo "Thiếu" nếu chưa có) — admin khai báo per biến. */
+  required?: boolean;
 }
 
 export interface DocumentTemplate {
