@@ -1099,6 +1099,12 @@ export function PetitionFormPage() {
             setExportModalForId(null);
             if (exportNavigateOnClose) navigate("/petitions");
           }}
+          onPetitionPatched={(updatedAt, fields) => {
+            // Popup vừa PUT bổ sung trường thiếu → đồng bộ form: refresh mốc optimistic-lock +
+            // các field vừa lưu, để lần lưu form sau không 409 và không ghi đè bổ sung.
+            if (updatedAt) setRecordUpdatedAt(updatedAt);
+            setFormData((prev) => ({ ...prev, ...(fields as Partial<typeof prev>) }));
+          }}
         />
       )}
     </div>

@@ -360,7 +360,8 @@ export class PetitionsService {
       const missing = getMissingFieldsForDocType(docType, petition as unknown as Record<string, unknown>);
       return { docType, ready: missing.length === 0, missing };
     });
-    return { success: true, data: { items } };
+    // updatedAt để FE gửi kèm khi PUT bổ sung (optimistic-lock) — tránh 409.
+    return { success: true, data: { items, updatedAt: (petition as { updatedAt?: Date }).updatedAt } };
   }
 
   // ─────────────────────────────────────────────
