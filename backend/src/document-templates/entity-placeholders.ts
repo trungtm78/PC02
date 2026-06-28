@@ -103,3 +103,25 @@ export function isAutoPlaceholder(entityType: string, name: string): boolean {
   const keys = AUTO_PLACEHOLDER_KEYS[entityType as 'VU_AN' | 'VU_VIEC'];
   return keys ? keys.includes(name) : false;
 }
+
+/**
+ * PR2 — placeholder AUTO map tới CỘT đơn giản (text) trên hồ sơ → khi thiếu, FE cho "Lưu bổ sung"
+ * PUT vào case/incident (persist). Placeholder ngoài map (relation/computed/enum/date như dieuTraVien,
+ * soVuAn, nguonTin, ngày…) → savable=false → nhập tại popup làm manualValues override khi xuất.
+ */
+export const DYNAMIC_EXPORT_SAVABLE: Record<'VU_AN' | 'VU_VIEC', Record<string, { column: string; type: 'text' | 'textarea' }>> = {
+  VU_AN: {
+    tenVuAn: { column: 'name', type: 'text' },
+    toiDanh: { column: 'crime', type: 'text' },
+    soQuyetDinhKhoiTo: { column: 'soQuyetDinhKhoiTo', type: 'text' },
+    soKLDT: { column: 'soKLDT', type: 'text' },
+    soQDDinhChiVuAn: { column: 'soQDDinhChiVuAn', type: 'text' },
+  },
+  VU_VIEC: {
+    tenVuViec: { column: 'name', type: 'text' },
+    noiDung: { column: 'description', type: 'textarea' },
+    soQuyetDinh: { column: 'soQuyetDinh', type: 'text' },
+    nguoiQuyetDinh: { column: 'nguoiQuyetDinh', type: 'text' },
+    donViGiaiQuyet: { column: 'donViGiaiQuyet', type: 'text' },
+  },
+};

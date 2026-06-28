@@ -83,6 +83,15 @@ export class IncidentsController {
     return this.dynamicExport.listExportableTemplates('VU_VIEC');
   }
 
+  // GET /api/v1/incidents/:id/export-readiness — trường còn thiếu để in per mẫu động (VU_VIEC).
+  @Get(':id/export-readiness')
+  @RequirePermissions({ action: 'read', subject: 'Incident' })
+  async exportReadiness(@Param('id') id: string, @Req() req: ScopedRequest) {
+    const loaded = await this.incidentsService.getById(id, req.dataScope);
+    const record = (loaded as { data?: unknown })?.data ?? loaded;
+    return this.dynamicExport.getExportReadiness('VU_VIEC', record);
+  }
+
   // GET /api/v1/incidents — Danh sách vụ việc
   @Get()
   @RequirePermissions({ action: 'read', subject: 'Incident' })

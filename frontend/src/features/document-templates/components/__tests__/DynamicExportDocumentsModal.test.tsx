@@ -2,113 +2,80 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { DynamicExportDocumentsModal } from '../DynamicExportDocumentsModal';
 import { listExportTemplates, exportEntityDocuments, triggerDownload } from '../../export.api';
+import { api } from '@/lib/api';
 import type { DocumentTemplate } from '../../types';
 
+vi.mock('@/lib/api', () => ({ api: { get: vi.fn(), put: vi.fn() } }));
 vi.mock('../../export.api', async () => {
   const actual = await vi.importActual<typeof import('../../export.api')>('../../export.api');
-  return {
-    ...actual,
-    listExportTemplates: vi.fn(),
-    exportEntityDocuments: vi.fn(),
-    triggerDownload: vi.fn(),
-  };
+  return { ...actual, listExportTemplates: vi.fn(), exportEntityDocuments: vi.fn(), triggerDownload: vi.fn() };
 });
 
+const mGet = vi.mocked(api.get);
 const mList = vi.mocked(listExportTemplates);
 const mExport = vi.mocked(exportEntityDocuments);
 const mDownload = vi.mocked(triggerDownload);
 
 function tpl(over: Partial<DocumentTemplate>): DocumentTemplate {
-  return {
-    id: 't1',
-    code: 'QD01',
-    name: 'Quyết định khởi tố',
-    entityType: 'VU_AN',
-    category: 'Quyết định',
-    fileName: 'qd.docx',
-    fileSha: 'sha',
-    variables: [],
-    needsNumber: false,
-    numberSeriesId: null,
-    status: 'active',
-    sortOrder: 0,
-    ...over,
-  };
+  return { id: 't1', code: 'QD01', name: 'Quyết định khởi tố', entityType: 'VU_AN', category: 'Quyết định', fileName: 'qd.docx', fileSha: 'sha', variables: [], needsNumber: false, numberSeriesId: null, status: 'active', sortOrder: 0, ...over };
+}
+// readiness GET → mặc định mọi mẫu đủ; override missing per templateId.
+function readiness(list: DocumentTemplate[], missingById: Record<string, Array<{ field: string; label: string; type: 'text' | 'textarea'; savable: boolean }>> = {}) {
+  return { data: { data: { updatedAt: '2026-06-28T00:00:00Z', items: list.map((t) => ({ templateId: t.id, ready: !(missingById[t.id]?.length), missing: missingById[t.id] ?? [] })) } } };
 }
 
-beforeEach(() => {
-  mList.mockReset();
-  mExport.mockReset();
-  mDownload.mockReset();
-});
+beforeEach(() => { mGet.mockReset(); mList.mockReset(); mExport.mockReset(); mDownload.mockReset(); });
 
 describe('DynamicExportDocumentsModal', () => {
-  it('fetch theo entityType + nhóm category + tick sẵn tất cả', async () => {
-    mList.mockResolvedValue([
-      tpl({ id: 't1', name: 'QĐ khởi tố', category: 'Quyết định' }),
-      tpl({ id: 't2', name: 'Biên bản A', category: 'Biên bản' }),
-    ]);
-    render(
-      <DynamicExportDocumentsModal entity="cases" entityId="c1" onClose={vi.fn()} />,
-    );
+  it('mọi mẫu đủ → load + tick sẵn tất cả', async () => {
+    const list = [tpl({ id: 't1', name: 'QĐ khởi tố' }), tpl({ id: 't2', name: 'Biên bản A', category: 'Biên bản' })];
+    mList.mockResolvedValue(list);
+    mGet.mockResolvedValue(readiness(list) as never);
+    render(<DynamicExportDocumentsModal entity="cases" entityId="c1" onClose={vi.fn()} />);
     await waitFor(() => expect(mList).toHaveBeenCalledWith('cases'));
-    expect(await screen.findByText('Quyết định')).toBeInTheDocument();
-    expect(screen.getByText('Biên bản')).toBeInTheDocument();
-    const cb1 = screen.getByTestId('dyn-export-checkbox-t1') as HTMLInputElement;
+    const cb1 = await screen.findByTestId('dyn-export-checkbox-t1') as HTMLInputElement;
     const cb2 = screen.getByTestId('dyn-export-checkbox-t2') as HTMLInputElement;
-    expect(cb1.checked).toBe(true);
+    await waitFor(() => expect(cb1.checked).toBe(true));
     expect(cb2.checked).toBe(true);
+    expect(screen.getByText('QĐ khởi tố')).toBeInTheDocument();
   });
 
-  it('hiện input biến nhập tay khi template đang chọn có biến manual; ẩn khi bỏ chọn', async () => {
-    mList.mockResolvedValue([
-      tpl({
-        id: 't1',
-        variables: [
-          { name: 'soVanBan', source: 'manual', label: 'Số văn bản' },
-          { name: 'caseCode', source: 'auto', label: 'Mã vụ án' },
-        ],
-      }),
-    ]);
-    render(
-      <DynamicExportDocumentsModal entity="cases" entityId="c1" onClose={vi.fn()} />,
-    );
-    expect(await screen.findByTestId('dyn-manual-soVanBan')).toBeInTheDocument();
-    // biến auto không render input
-    expect(screen.queryByTestId('dyn-manual-caseCode')).toBeNull();
-    // bỏ chọn template → input manual biến mất
-    fireEvent.click(screen.getByTestId('dyn-export-checkbox-t1'));
-    expect(screen.queryByTestId('dyn-manual-soVanBan')).toBeNull();
+  it('mẫu thiếu biến required → disabled + "Thiếu" + hiện ô nhập (manualValues)', async () => {
+    const list = [tpl({ id: 't1' })];
+    mList.mockResolvedValue(list);
+    mGet.mockResolvedValue(readiness(list, { t1: [{ field: 'soVanBan', label: 'Số văn bản', type: 'text', savable: false }] }) as never);
+    render(<DynamicExportDocumentsModal entity="cases" entityId="c1" onClose={vi.fn()} />);
+    const cb = await screen.findByTestId('dyn-export-checkbox-t1') as HTMLInputElement;
+    expect(cb).toBeDisabled();
+    expect(screen.getByTestId('dyn-export-missing-t1')).toHaveTextContent('Thiếu: Số văn bản');
+    expect(screen.getByTestId('dyn-export-fill-soVanBan')).toBeInTheDocument();
+    // dynamic non-savable → KHÔNG có nút "Lưu bổ sung"
+    expect(screen.queryByTestId('dyn-export-save-fill')).toBeNull();
   });
 
-  it('Xuất file: gọi exportEntityDocuments đúng templateIds/mode/manualValues + triggerDownload + onClose', async () => {
-    mList.mockResolvedValue([
-      tpl({ id: 't1', variables: [{ name: 'soVanBan', source: 'manual', label: 'Số văn bản' }] }),
-    ]);
+  it('nhập biến thiếu → mẫu mở lại → tick → Xuất file gửi manualValues', async () => {
+    const list = [tpl({ id: 't1' })];
+    mList.mockResolvedValue(list);
+    mGet.mockResolvedValue(readiness(list, { t1: [{ field: 'soVanBan', label: 'Số văn bản', type: 'text', savable: false }] }) as never);
     mExport.mockResolvedValue({ data: new Blob(), headers: {} } as never);
     const onClose = vi.fn();
-    render(
-      <DynamicExportDocumentsModal entity="cases" entityId="c1" onClose={onClose} />,
-    );
-    const input = await screen.findByTestId('dyn-manual-soVanBan');
+    render(<DynamicExportDocumentsModal entity="cases" entityId="c1" onClose={onClose} />);
+    const input = await screen.findByTestId('dyn-export-fill-soVanBan');
     fireEvent.change(input, { target: { value: '42/QD' } });
+    // nhập xong → mẫu effective-ready → enabled → tích
+    const cb = screen.getByTestId('dyn-export-checkbox-t1') as HTMLInputElement;
+    await waitFor(() => expect(cb).toBeEnabled());
+    fireEvent.click(cb);
     fireEvent.click(screen.getByTestId('dyn-export-confirm'));
-    await waitFor(() =>
-      expect(mExport).toHaveBeenCalledWith('cases', 'c1', {
-        templateIds: ['t1'],
-        mode: 'merged',
-        manualValues: { soVanBan: '42/QD' },
-      }),
-    );
+    await waitFor(() => expect(mExport).toHaveBeenCalledWith('cases', 'c1', expect.objectContaining({ templateIds: ['t1'], mode: 'merged', manualValues: expect.objectContaining({ soVanBan: '42/QD' }) })));
     await waitFor(() => expect(mDownload).toHaveBeenCalled());
     await waitFor(() => expect(onClose).toHaveBeenCalled());
   });
 
   it('không có mẫu → thông báo trống', async () => {
     mList.mockResolvedValue([]);
-    render(
-      <DynamicExportDocumentsModal entity="incidents" entityId="i1" onClose={vi.fn()} />,
-    );
+    mGet.mockResolvedValue(readiness([]) as never);
+    render(<DynamicExportDocumentsModal entity="incidents" entityId="i1" onClose={vi.fn()} />);
     expect(await screen.findByText(/Chưa có mẫu chứng từ/i)).toBeInTheDocument();
   });
 });

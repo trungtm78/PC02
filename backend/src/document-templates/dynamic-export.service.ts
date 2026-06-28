@@ -8,7 +8,7 @@ import { sanitizeFilename } from '../common/utils/filename.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { DocumentNumbersService } from '../document-numbers/document-numbers.service';
 import { DocxMergeService } from '../petitions/docx-merge.service';
-import { buildEntityPlaceholders } from './entity-placeholders';
+import { buildEntityPlaceholders, DYNAMIC_EXPORT_SAVABLE } from './entity-placeholders';
 
 const DOCX_CONTENT_TYPE =
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
@@ -62,6 +62,36 @@ export class DynamicExportService {
         sortOrder: true,
       },
       orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }],
+    });
+  }
+
+  /**
+   * PR2 — readiness per mẫu động: trường còn THIẾU để in (theo cờ `required` admin khai báo).
+   * - AUTO-required: tính qua buildEntityPlaceholders; rỗng = thiếu. savable nếu map tới cột đơn giản
+   *   (DYNAMIC_EXPORT_SAVABLE) → FE PUT lưu hồ sơ; ngoài map → savable=false → manualValues override.
+   * - MANUAL-required: luôn liệt kê (nhập tại popup làm manualValues, savable=false).
+   * `record` đã được controller load + check scope. `updatedAt` để FE PUT bổ sung không 409.
+   */
+  getExportReadiness(entityType: EntityType, record: any) {
+    const auto = buildEntityPlaceholders(entityType, record);
+    const savableMap = DYNAMIC_EXPORT_SAVABLE[entityType] ?? {};
+    return this.listExportableTemplates(entityType).then((templates) => {
+      const items = templates.map((t) => {
+        const vars = (t.variables as Array<{ name: string; source: string; label?: string; required?: boolean }> | null) ?? [];
+        const missing = [] as Array<{ field: string; label: string; type: 'text' | 'textarea'; savable: boolean; column?: string }>;
+        for (const v of vars) {
+          if (!v.required) continue;
+          const autoEmpty = v.source === 'auto' && (!auto[v.name] || auto[v.name].trim() === '');
+          if (autoEmpty || v.source === 'manual') {
+            const sav = savableMap[v.name];
+            // savable=false cho dynamic: bổ sung tại popup làm manualValues override khi xuất (KHÔNG
+            // PUT vào hồ sơ — tránh mất dữ liệu do form case/incident map field khác cột). Giữ `type`.
+            missing.push({ field: v.name, label: v.label || v.name, type: sav?.type ?? 'text', savable: false });
+          }
+        }
+        return { templateId: t.id, code: t.code, ready: missing.length === 0, missing };
+      });
+      return { items, updatedAt: record?.updatedAt };
     });
   }
 

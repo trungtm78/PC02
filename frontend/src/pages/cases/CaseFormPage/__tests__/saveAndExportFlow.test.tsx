@@ -23,6 +23,10 @@ vi.mock('../tabs', () => {
 vi.mock('@/lib/api', () => ({
   api: {
     get: vi.fn((url: string) => {
+      if (url.includes('/export-readiness')) {
+        // Mẫu 't1' đủ thông tin → ready (modal cho tick + xuất).
+        return Promise.resolve({ data: { data: { updatedAt: '2026-06-28T00:00:00Z', items: [{ templateId: 't1', ready: true, missing: [] }] } } });
+      }
       if (url.startsWith('/cases/')) {
         // Data ĐỦ: name→caseTitle, investigatorId→handler, metadata.receiveDate (quá khứ), caseProvenance.
         return Promise.resolve({ data: { data: { name: 'Vụ án test', caseProvenance: 'DIRECT_DISCOVERY', investigatorId: 'u1', updatedAt: '2026-06-28T00:00:00Z', metadata: { receiveDate: '2026-06-01' } } } });

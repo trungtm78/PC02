@@ -85,6 +85,15 @@ export class CasesController {
     return this.dynamicExport.listExportableTemplates('VU_AN');
   }
 
+  // GET /api/v1/cases/:id/export-readiness — trường còn thiếu để in per mẫu động (VU_AN).
+  @Get(':id/export-readiness')
+  @RequirePermissions({ action: 'read', subject: 'Case' })
+  async exportReadiness(@Param('id') id: string, @Req() req: ScopedRequest) {
+    const loaded = await this.casesService.getById(id, req.dataScope);
+    const record = (loaded as { data?: unknown })?.data ?? loaded;
+    return this.dynamicExport.getExportReadiness('VU_AN', record);
+  }
+
   // GET /api/v1/cases — Danh sách vụ án (paginated + filtered)
   @Get()
   @RequirePermissions({ action: 'read', subject: 'Case' })
