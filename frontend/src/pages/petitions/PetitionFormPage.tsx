@@ -24,6 +24,7 @@ import { today, toDateInput } from "@/lib/dates";
 import { LOAI_DON_OPTIONS } from "@/shared/enums/status-labels";
 import { LoaiDon } from "@/shared/enums/generated";
 import { EntityDocumentsTab } from "@/components/documents/EntityDocumentsTab";
+import { PetitionCreateDocumentsStage, type PetitionStageHandle } from "@/features/petitions/components/PetitionCreateDocumentsStage";
 import { PetitionAssignmentSection } from "./PetitionAssignmentSection";
 import { ConvertPetitionModal, type ConvertToIncidentPayload, type ConvertToCasePayload } from "./ConvertPetitionModal";
 
@@ -104,6 +105,16 @@ export function PetitionFormPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const isEditMode = !!id;
+  // PR2 — tạo mới đơn thư có đính file: sau khi POST tạo đơn, giữ id mới ở createdId →
+  // (1) lưu lần kế = PUT (không tạo đơn TRÙNG), (2) cho upload/retry file đã stage.
+  // effectiveEdit/effectiveId dùng trong saveOnly + validateForm.
+  const [createdId, setCreatedId] = useState<string | null>(null);
+  const effectiveId = id ?? createdId;
+  const effectiveEdit = isEditMode || createdId !== null;
+  const stageRef = useRef<PetitionStageHandle>(null);
+  // Khoá submit ĐỒNG BỘ (ref, không đợi re-render) — chặn 2 click nhanh/Enter chạy saveOnly
+  // song song trước khi createdId render → cả hai POST → tạo 2 đơn TRÙNG (Codex PR2).
+  const savingRef = useRef(false);
 
   const [formData, setFormData] = useState<FormData>(INITIAL_FORM);
   const [errors, setErrors] = useState<string[]>([]);
@@ -312,7 +323,8 @@ export function PetitionFormPage() {
     if (formData.senderPhone && !/^0\d{9}$/.test(formData.senderPhone))
       newErrors.push("Số điện thoại không đúng định dạng (10 số, bắt đầu bằng 0)");
     // Required-on-create (trừ nặc danh): SĐT nguyên đơn + Tội danh chính (theo hệ thống cũ).
-    if (!isEditMode && !anon) {
+    // effectiveEdit: sau khi đã tạo (createdId) thì coi như edit → không bắt lại field create-only.
+    if (!effectiveEdit && !anon) {
       if (!formData.senderPhone.trim()) newErrors.push("Số điện thoại nguyên đơn là bắt buộc (trừ đơn nặc danh)");
       if (!formData.crimeChinhId) newErrors.push("Tội danh chính là bắt buộc (trừ đơn nặc danh)");
     }
@@ -322,8 +334,10 @@ export function PetitionFormPage() {
 
   // Tách phần LƯU (không điều hướng) → trả { ok, id } để onSave/onSaveAndExport
   // quyết định điều hướng hay mở popup xuất chứng từ. [F2] create bắt id từ response.
-  const saveOnly = async (): Promise<{ ok: boolean; id: string | null }> => {
+  const saveOnly = async (): Promise<{ ok: boolean; id: string | null; uploadFailed?: number }> => {
+    if (savingRef.current) return { ok: false, id: null }; // đang lưu → bỏ qua click lặp
     if (!validateForm()) { window.scrollTo({ top: 0, behavior: "smooth" }); return { ok: false, id: null }; }
+    savingRef.current = true;
     setIsSubmitting(true);
     try {
       const payload = {
@@ -384,9 +398,9 @@ export function PetitionFormPage() {
       };
       let savedId: string | null;
       let savedUpdatedAt: string | undefined;
-      if (isEditMode) {
-        const res = await api.put(`/petitions/${id}`, { ...payload, expectedUpdatedAt: recordUpdatedAt ?? undefined });
-        savedId = id ?? null;
+      if (effectiveEdit) {
+        const res = await api.put(`/petitions/${effectiveId}`, { ...payload, expectedUpdatedAt: recordUpdatedAt ?? undefined });
+        savedId = effectiveId ?? null;
         savedUpdatedAt = (res?.data as { data?: { updatedAt?: string } } | undefined)?.data?.updatedAt;
       } else {
         const res = await api.post("/petitions", payload);
@@ -394,13 +408,22 @@ export function PetitionFormPage() {
         const data = (res?.data as { data?: { id?: string; updatedAt?: string } } | undefined)?.data;
         savedId = data?.id ?? null;
         savedUpdatedAt = data?.updatedAt;
+        // PR2: chuyển sang "effective edit" để lưu lần kế = PUT (không tạo đơn trùng).
+        if (savedId) setCreatedId(savedId);
       }
       // Refresh optimistic-lock baseline từ response: nếu không, lưu lần 2 (vd sau "Lưu và xuất
       // file" ở lại form) gửi recordUpdatedAt CŨ → BE P2025 → 409 "đã được chỉnh sửa bởi người
       // dùng khác" dù chỉ mình mình sửa. + snapshot để isDirty không lệch.
       if (savedUpdatedAt) setRecordUpdatedAt(savedUpdatedAt);
       savedSnapshotRef.current = JSON.stringify(formData);
-      return { ok: true, id: savedId };
+      // PR2: tạo mới có đính file → upload các file đã stage vào đơn vừa tạo (tuần tự).
+      // Upload-fail một phần → GIỮ file lỗi trong stage để retry, KHÔNG mất; báo uploadFailed.
+      let uploadFailed = 0;
+      if (savedId && stageRef.current?.hasStaged()) {
+        const r = await stageRef.current.uploadAll(savedId);
+        uploadFailed = r.failed.length;
+      }
+      return { ok: true, id: savedId, uploadFailed };
     } catch (err: unknown) {
       const status = (err as { response?: { status?: number } })?.response?.status;
       if (status === 409) {
@@ -411,6 +434,7 @@ export function PetitionFormPage() {
       }
       return { ok: false, id: null };
     } finally {
+      savingRef.current = false;
       setIsSubmitting(false);
     }
   };
@@ -418,13 +442,25 @@ export function PetitionFormPage() {
   // "Lưu" thường → lưu xong về danh sách (hành vi cũ).
   const onSave = async () => {
     const r = await saveOnly();
-    if (r.ok) navigate("/petitions");
+    if (!r.ok) return;
+    if (r.uploadFailed) {
+      // Đơn ĐÃ lưu (createdId set → lưu lại = PUT, không trùng); ở lại để retry upload.
+      setErrors([`Đã lưu đơn thư nhưng ${r.uploadFailed} file tải lên lỗi. Bấm "Thử lại tải lên" rồi lưu lại.`]);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+    navigate("/petitions");
   };
 
   // "Lưu và xuất file" → lưu xong mở popup xuất chứng từ (KHÔNG điều hướng tới khi đóng popup).
   const onSaveAndExport = async () => {
     const r = await saveOnly();
     if (!r.ok) return;
+    if (r.uploadFailed) {
+      setErrors([`Đã lưu đơn thư nhưng ${r.uploadFailed} file tải lên lỗi. Bấm "Thử lại tải lên" trước khi xuất.`]);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
     if (r.id) { setExportNavigateOnClose(true); setExportModalForId(r.id); }
     else navigate("/petitions"); // không lấy được id → về danh sách (degrade an toàn)
   };
@@ -861,9 +897,16 @@ export function PetitionFormPage() {
           </div>
         </div>
 
-        {/* Section 4b: Tài liệu thực tế — luôn hiển thị; EntityDocumentsTab tự guard khi chưa có petitionId */}
+        {/* Section 4b: Tài liệu thực tế.
+            - Edit (đã có id): EntityDocumentsTab (list + upload trực tiếp như cũ).
+            - Create (chưa có id): PetitionCreateDocumentsStage — cho ĐÍNH file ngay, tự upload sau khi Lưu.
+              Giữ stage suốt phiên create (kể cả sau createdId) để retry upload-fail không mất file. */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-          <EntityDocumentsTab entityKind="petition" entityId={id} />
+          {isEditMode ? (
+            <EntityDocumentsTab entityKind="petition" entityId={id} />
+          ) : (
+            <PetitionCreateDocumentsStage ref={stageRef} />
+          )}
         </div>
 
         {/* Section 5: Phân công xử lý */}
