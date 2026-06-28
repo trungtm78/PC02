@@ -248,7 +248,17 @@ export default function ExportReportsPage() {
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      showNotification('success', `Đã xuất ${selectedIds.length} biểu mẫu — tải về ${filename}`);
+      // Báo kết quả thật từ header backend (X-Batch-*): số đơn thành công/thất bại. Chi tiết
+      // per-đơn nằm trong manifest.json của file ZIP.
+      const hdr = (headers ?? {}) as Record<string, string>;
+      const total = Number(hdr['x-batch-total'] ?? selectedIds.length);
+      const failed = Number(hdr['x-batch-failed'] ?? 0);
+      const ok = Number(hdr['x-batch-ok'] ?? selectedIds.length);
+      if (failed > 0) {
+        showNotification('info', `Đã xuất ${ok}/${total} đơn — tải về ${filename}. ${failed} đơn thiếu thông tin bắt buộc (xem manifest.json trong file ZIP).`);
+      } else {
+        showNotification('success', `Đã xuất ${ok} đơn — tải về ${filename}`);
+      }
     } catch {
       showNotification('error', 'Xuất tài liệu đồng loạt thất bại. Kiểm tra các đơn đã chọn có đủ trường bắt buộc không.');
     } finally {

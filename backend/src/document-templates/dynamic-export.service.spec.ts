@@ -227,6 +227,20 @@ describe('DynamicExportService', () => {
       expect(bad.error).toContain('Họ tên');
     });
 
+    it('[P3] set header đếm X-Batch-Total/Ok/Failed để FE báo kết quả (1 ok + 1 fail)', async () => {
+      const res = plainRes();
+      const load = jest.fn(async (id: string) => {
+        if (id === 'bad') throw new BadRequestException('thiếu');
+        return { id, senderName: 'A' };
+      });
+      await svc.exportBatchByCode('DON_THU', 'BIEN_NHAN', ['good', 'bad'], load, 'u1', res);
+      const calls = (res.setHeader as jest.Mock).mock.calls;
+      const hdr = (name: string) => calls.find((c: any[]) => c[0] === name)?.[1];
+      expect(hdr('X-Batch-Total')).toBe('2');
+      expect(hdr('X-Batch-Ok')).toBe('1');
+      expect(hdr('X-Batch-Failed')).toBe('1');
+    });
+
     it('[P2] hồ sơ ngoài scope (Forbidden) / không tồn tại (NotFound) → message TRUNG LẬP (chống IDOR-enum)', async () => {
       const res = plainRes();
       const load = jest.fn(async (id: string) => {

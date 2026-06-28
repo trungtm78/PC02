@@ -346,6 +346,12 @@ export class DynamicExportService {
     }
 
     const zip = await this.buildBatchZip(rendered, manifest);
+    // Header đếm để FE báo "X/Y thành công, Z thất bại" mà KHÔNG cần unzip blob (chi tiết per-đơn
+    // vẫn ở manifest.json trong ZIP). Phải có Access-Control-Expose-Headers (main.ts) để FE đọc.
+    const okCount = manifest.filter((m) => m.ok).length;
+    res.setHeader('X-Batch-Total', String(manifest.length));
+    res.setHeader('X-Batch-Ok', String(okCount));
+    res.setHeader('X-Batch-Failed', String(manifest.length - okCount));
     this.setDownloadHeaders(res, 'application/zip', `${code}_${this.dateStamp()}.zip`);
     res.send(zip);
   }
