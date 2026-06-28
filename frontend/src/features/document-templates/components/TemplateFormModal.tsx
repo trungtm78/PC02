@@ -53,9 +53,20 @@ export function TemplateFormModal({ onClose, onSaved }: Props) {
     documentNumbersApi.listTemplates().then(setSeriesOptions).catch(() => setSeriesOptions([]));
   }, []);
 
-  // Danh mục field theo loại hồ sơ (cho dropdown map).
+  // Danh mục field theo loại hồ sơ (cho dropdown map). Guard chống response cũ resolve sau
+  // (đổi entity nhanh) ghi đè catalog của entity hiện tại → tránh dropdown sai catalog.
   useEffect(() => {
-    getFieldCatalog(entityType).then(setCatalog).catch(() => setCatalog([]));
+    let cancelled = false;
+    getFieldCatalog(entityType)
+      .then((c) => {
+        if (!cancelled) setCatalog(c);
+      })
+      .catch(() => {
+        if (!cancelled) setCatalog([]);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [entityType]);
 
   // Phát hiện placeholder khi đủ file + entity + delimiter → gợi ý mapping.
@@ -105,6 +116,8 @@ export function TemplateFormModal({ onClose, onSaved }: Props) {
     delimStart !== '' &&
     delimEnd !== '' &&
     delimStart !== delimEnd &&
+    delimStart.length <= 8 &&
+    delimEnd.length <= 8 && // khớp giới hạn BE @MaxLength(8) — chặn trước khi submit
     (!needsNumber || numberSeriesId !== '') &&
     !detecting &&
     !saving &&
@@ -219,6 +232,7 @@ export function TemplateFormModal({ onClose, onSaved }: Props) {
                 data-testid="template-delim-start"
                 className="w-1/2 rounded border px-3 py-2"
                 value={delimStart}
+                maxLength={8}
                 onChange={(e) => setDelimStart(e.target.value)}
                 placeholder="mở (vd [[)"
               />
@@ -226,6 +240,7 @@ export function TemplateFormModal({ onClose, onSaved }: Props) {
                 data-testid="template-delim-end"
                 className="w-1/2 rounded border px-3 py-2"
                 value={delimEnd}
+                maxLength={8}
                 onChange={(e) => setDelimEnd(e.target.value)}
                 placeholder="đóng (vd ]])"
               />
