@@ -47,6 +47,18 @@ describe('normalizeDocxTags', () => {
     expect(detectDocxVariables(normalizeDocxTags(buf))).toEqual(['soVuAn']);
   });
 
+  it('chuẩn hóa cả header/footer (khớp phạm vi detect)', () => {
+    const zip = new PizZip();
+    zip.file('word/document.xml', '<w:document><w:body><w:p><w:r><w:t>thân</w:t></w:r></w:p></w:body></w:document>');
+    // header có placeholder bị tách run
+    zip.file(
+      'word/header1.xml',
+      '<w:hdr><w:p><w:r><w:t>{tieu</w:t></w:r><w:r><w:t>De}</w:t></w:r></w:p></w:hdr>',
+    );
+    const out = normalizeDocxTags(zip.generate({ type: 'nodebuffer' }));
+    expect(detectDocxVariables(out)).toEqual(['tieuDe']);
+  });
+
   it('[review] buffer hỏng → trả lại nguyên buffer (không throw)', () => {
     const bad = Buffer.from('không phải docx');
     expect(normalizeDocxTags(bad)).toBe(bad);
