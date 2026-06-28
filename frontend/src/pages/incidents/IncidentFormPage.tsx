@@ -371,14 +371,20 @@ export function IncidentFormPage() {
         laCongNgheCaoVV: formData.laCongNgheCaoVV || undefined,
       };
       let savedId: string | null;
+      let savedUpdatedAt: string | undefined;
       if (isEditMode) {
-        await api.put(`/incidents/${id}`, { ...payload, expectedUpdatedAt: recordUpdatedAt ?? undefined });
+        const res = await api.put(`/incidents/${id}`, { ...payload, expectedUpdatedAt: recordUpdatedAt ?? undefined });
         savedId = id ?? null;
+        savedUpdatedAt = (res?.data as { data?: { updatedAt?: string } } | undefined)?.data?.updatedAt;
       } else {
         const res = await api.post('/incidents', payload);
-        // Envelope {success, data:{id}} (incidents.service.create) → bắt id để mở modal xuất chứng từ.
-        savedId = (res?.data as { data?: { id?: string } } | undefined)?.data?.id ?? null;
+        // Envelope {success, data:{id,updatedAt}} (incidents.service.create) → bắt id + updatedAt.
+        const data = (res?.data as { data?: { id?: string; updatedAt?: string } } | undefined)?.data;
+        savedId = data?.id ?? null;
+        savedUpdatedAt = data?.updatedAt;
       }
+      // Refresh optimistic-lock baseline từ response → lưu lần 2 không gửi recordUpdatedAt cũ gây 409.
+      if (savedUpdatedAt) setRecordUpdatedAt(savedUpdatedAt);
       return { ok: true, id: savedId };
     } catch (err: unknown) {
       const status = (err as { response?: { status?: number } })?.response?.status;

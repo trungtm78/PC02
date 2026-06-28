@@ -383,15 +383,22 @@ export function PetitionFormPage() {
         donViGiaiQuyet: formData.donViGiaiQuyet || undefined,
       };
       let savedId: string | null;
+      let savedUpdatedAt: string | undefined;
       if (isEditMode) {
-        await api.put(`/petitions/${id}`, { ...payload, expectedUpdatedAt: recordUpdatedAt ?? undefined });
+        const res = await api.put(`/petitions/${id}`, { ...payload, expectedUpdatedAt: recordUpdatedAt ?? undefined });
         savedId = id ?? null;
+        savedUpdatedAt = (res?.data as { data?: { updatedAt?: string } } | undefined)?.data?.updatedAt;
       } else {
         const res = await api.post("/petitions", payload);
-        // Envelope {success, data:{id}} — không auto-unwrap (xem lib/api).
-        savedId = (res?.data as { data?: { id?: string } } | undefined)?.data?.id ?? null;
+        // Envelope {success, data:{id,updatedAt}} — không auto-unwrap (xem lib/api).
+        const data = (res?.data as { data?: { id?: string; updatedAt?: string } } | undefined)?.data;
+        savedId = data?.id ?? null;
+        savedUpdatedAt = data?.updatedAt;
       }
-      // Refresh snapshot so officer can export right after Save without isDirty going stale.
+      // Refresh optimistic-lock baseline từ response: nếu không, lưu lần 2 (vd sau "Lưu và xuất
+      // file" ở lại form) gửi recordUpdatedAt CŨ → BE P2025 → 409 "đã được chỉnh sửa bởi người
+      // dùng khác" dù chỉ mình mình sửa. + snapshot để isDirty không lệch.
+      if (savedUpdatedAt) setRecordUpdatedAt(savedUpdatedAt);
       savedSnapshotRef.current = JSON.stringify(formData);
       return { ok: true, id: savedId };
     } catch (err: unknown) {
