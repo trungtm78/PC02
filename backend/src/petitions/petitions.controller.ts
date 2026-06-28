@@ -233,6 +233,14 @@ export class PetitionsController {
     );
   }
 
+  // GET /api/v1/petitions/:id/export-readiness — per mẫu, trường còn thiếu để in (FE hiện
+  // trước + cho bổ sung tại popup). Không xuất file; chỉ kiểm tra. read Petition + DataScope.
+  @Get(':id/export-readiness')
+  @RequirePermissions({ action: 'read', subject: 'Petition' })
+  async exportReadiness(@Param('id') id: string, @Req() req: ScopedRequest) {
+    return this.petitionsService.getExportReadiness(id, req.dataScope);
+  }
+
   // GET /api/v1/petitions/:id/export-document?docType=PHIEU_DE_XUAT — v0.47 PR2.
   // Renders one of 6 templated docx via DocxTemplateLoader + commitWithTx.
   // Audit row in DocumentRenderLog. Atomic — render throw rolls back number.

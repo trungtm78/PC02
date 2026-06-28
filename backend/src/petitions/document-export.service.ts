@@ -36,48 +36,79 @@ export const DOC_TYPE_TO_SERIES = {
  *   THONG_BAO_HUONG_DAN    → huongDanKhoiKien
  *   THONG_BAO_TRA_LAI      → lyDoTraDon
  */
+/** 1 trường còn thiếu để in 1 mẫu — đủ thông tin cho FE hiện nhãn + ô nhập (text/textarea). */
+export interface ExportMissingField {
+  field: string;
+  label: string;
+  type: 'text' | 'textarea';
+  /** true = cột đơn giản trên đơn → FE PUT lưu vào đơn (đơn thư: tất cả savable). */
+  savable: boolean;
+}
+
+/** Nhãn VN + kiểu input cho các trường validate khi xuất. `noiDung` map vào cột `detailContent`. */
+export const PETITION_EXPORT_FIELD_META: Record<string, { label: string; type: 'text' | 'textarea' }> = {
+  senderName: { label: 'Tên người gửi', type: 'text' },
+  detailContent: { label: 'Nội dung đơn thư', type: 'textarea' },
+  nhanThay: { label: 'Nhận thấy', type: 'textarea' },
+  deXuat: { label: 'Đề xuất', type: 'textarea' },
+  lyDoChuyen: { label: 'Lý do chuyển', type: 'textarea' },
+  canCuPhapLy: { label: 'Căn cứ pháp lý', type: 'textarea' },
+  huongDanKhoiKien: { label: 'Hướng dẫn khởi kiện', type: 'textarea' },
+  lyDoTraDon: { label: 'Lý do trả đơn', type: 'textarea' },
+};
+
+/**
+ * Hàm THUẦN: trả danh sách trường còn thiếu để in `docType` (KHÔNG throw). Dùng chung cho
+ * `validateFieldsForDocType` (throw khi xuất) + endpoint export-readiness (FE hiện trước).
+ * Quy tắc giữ nguyên (xem JSDoc trên).
+ */
+export function getMissingFieldsForDocType(
+  docType: DocumentType,
+  petition: Record<string, unknown>,
+): ExportMissingField[] {
+  const out: ExportMissingField[] = [];
+  const add = (field: string) => {
+    const meta = PETITION_EXPORT_FIELD_META[field];
+    out.push({ field, label: meta?.label ?? field, type: meta?.type ?? 'text', savable: true });
+  };
+  const empty = (v: unknown) => !v || String(v).trim() === '';
+
+  if (empty(petition.senderName)) add('senderName');
+  if (empty(petition.detailContent) && empty(petition.summary)) add('detailContent'); // noiDung → điền detailContent
+
+  switch (docType) {
+    case 'PHIEU_DE_XUAT':
+      if (empty(petition.nhanThay)) add('nhanThay');
+      if (empty(petition.deXuat)) add('deXuat');
+      break;
+    case 'PHIEU_CHUYEN_NGUON_TIN':
+      if (empty(petition.lyDoChuyen)) add('lyDoChuyen');
+      if (empty(petition.canCuPhapLy)) add('canCuPhapLy');
+      break;
+    case 'PHIEU_CHUYEN_DON':
+      if (empty(petition.lyDoChuyen)) add('lyDoChuyen');
+      break;
+    case 'THONG_BAO_HUONG_DAN':
+      if (empty(petition.huongDanKhoiKien)) add('huongDanKhoiKien');
+      break;
+    case 'THONG_BAO_TRA_LAI':
+      if (empty(petition.lyDoTraDon)) add('lyDoTraDon');
+      break;
+    case 'THONG_BAO_CHUYEN':
+    case 'BIEN_NHAN':
+      break;
+  }
+  return out;
+}
+
 export function validateFieldsForDocType(
   docType: DocumentType,
   petition: Record<string, unknown>,
 ): void {
-  const missing: string[] = [];
-
-  if (!petition.senderName || String(petition.senderName).trim() === '') {
-    missing.push('senderName');
-  }
-  if (!petition.detailContent && !petition.summary) {
-    missing.push('detailContent/summary (noiDung)');
-  }
-
-  switch (docType) {
-    case 'PHIEU_DE_XUAT':
-      if (!petition.nhanThay) missing.push('nhanThay');
-      if (!petition.deXuat) missing.push('deXuat');
-      break;
-    case 'PHIEU_CHUYEN_NGUON_TIN':
-      if (!petition.lyDoChuyen) missing.push('lyDoChuyen');
-      if (!petition.canCuPhapLy) missing.push('canCuPhapLy');
-      break;
-    case 'PHIEU_CHUYEN_DON':
-      if (!petition.lyDoChuyen) missing.push('lyDoChuyen');
-      break;
-    case 'THONG_BAO_CHUYEN':
-      // Recipient team named in the body — fail closed if assignedTeam not set.
-      break;
-    case 'THONG_BAO_HUONG_DAN':
-      if (!petition.huongDanKhoiKien) missing.push('huongDanKhoiKien');
-      break;
-    case 'THONG_BAO_TRA_LAI':
-      if (!petition.lyDoTraDon) missing.push('lyDoTraDon');
-      break;
-    case 'BIEN_NHAN':
-      // Biên nhận chỉ cần senderName + content — luôn có khi đơn đã tạo.
-      break;
-  }
-
+  const missing = getMissingFieldsForDocType(docType, petition);
   if (missing.length > 0) {
     throw new BadRequestException(
-      `Không thể xuất ${docType}: thiếu các trường bắt buộc — ${missing.join(', ')}`,
+      `Không thể xuất ${docType}: thiếu các trường bắt buộc — ${missing.map((m) => m.field).join(', ')}`,
     );
   }
 }
