@@ -112,6 +112,9 @@ export function PetitionFormPage() {
   const effectiveId = id ?? createdId;
   const effectiveEdit = isEditMode || createdId !== null;
   const stageRef = useRef<PetitionStageHandle>(null);
+  // Khoá submit ĐỒNG BỘ (ref, không đợi re-render) — chặn 2 click nhanh/Enter chạy saveOnly
+  // song song trước khi createdId render → cả hai POST → tạo 2 đơn TRÙNG (Codex PR2).
+  const savingRef = useRef(false);
 
   const [formData, setFormData] = useState<FormData>(INITIAL_FORM);
   const [errors, setErrors] = useState<string[]>([]);
@@ -332,7 +335,9 @@ export function PetitionFormPage() {
   // Tách phần LƯU (không điều hướng) → trả { ok, id } để onSave/onSaveAndExport
   // quyết định điều hướng hay mở popup xuất chứng từ. [F2] create bắt id từ response.
   const saveOnly = async (): Promise<{ ok: boolean; id: string | null; uploadFailed?: number }> => {
+    if (savingRef.current) return { ok: false, id: null }; // đang lưu → bỏ qua click lặp
     if (!validateForm()) { window.scrollTo({ top: 0, behavior: "smooth" }); return { ok: false, id: null }; }
+    savingRef.current = true;
     setIsSubmitting(true);
     try {
       const payload = {
@@ -429,6 +434,7 @@ export function PetitionFormPage() {
       }
       return { ok: false, id: null };
     } finally {
+      savingRef.current = false;
       setIsSubmitting(false);
     }
   };

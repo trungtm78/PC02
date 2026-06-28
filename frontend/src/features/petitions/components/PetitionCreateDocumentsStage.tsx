@@ -36,8 +36,11 @@ export const PetitionCreateDocumentsStage = forwardRef<PetitionStageHandle>(func
   const [hasFailure, setHasFailure] = useState(false);
   const lastIdRef = useRef<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  // Khoá upload ĐỒNG BỘ — chặn retry() và uploadAll() chạy song song trên cùng queue → POST trùng (Codex PR2).
+  const uploadingRef = useRef(false);
 
   const addFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (uploadingRef.current) return; // đang upload → không thêm (tránh mất file khi setQueued ghi đè)
     const files = e.target.files;
     if (!files || files.length === 0) return;
     setQueued((prev) => {
@@ -52,6 +55,8 @@ export const PetitionCreateDocumentsStage = forwardRef<PetitionStageHandle>(func
   // Upload tuần tự; trả về danh sách lỗi + GIỮ file lỗi trong queue (file ok bị loại khỏi queue).
   const doUpload = async (petitionId: string, files: File[]): Promise<{ uploaded: number; failed: string[] }> => {
     if (files.length === 0) return { uploaded: 0, failed: [] };
+    if (uploadingRef.current) return { uploaded: 0, failed: [] }; // đang upload → bỏ qua call trùng
+    uploadingRef.current = true;
     lastIdRef.current = petitionId;
     setUploading(true);
     setError("");
@@ -75,9 +80,11 @@ export const PetitionCreateDocumentsStage = forwardRef<PetitionStageHandle>(func
         remaining.push(file);
       }
     }
+    uploadingRef.current = false;
     setUploading(false);
     setProgress(null);
-    setQueued(remaining);
+    // Chỉ thay những file vừa upload: giữ file mới (nếu có) thêm trong lúc upload không bị mất.
+    setQueued((prev) => [...remaining, ...prev.filter((p) => !files.includes(p))]);
     setHasFailure(failedNames.length > 0);
     if (failedNames.length > 0) {
       setError(`${failedNames.length}/${files.length} file lỗi — bấm "Thử lại" để upload lại file còn lại.`);
@@ -144,13 +151,14 @@ export const PetitionCreateDocumentsStage = forwardRef<PetitionStageHandle>(func
             />
           </div>
         </div>
-        <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-300 rounded text-sm text-slate-700 hover:bg-slate-50 transition-colors">
+        <label className={`inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-300 rounded text-sm text-slate-700 transition-colors ${uploading ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:bg-slate-50"}`}>
           <Upload className="w-3.5 h-3.5" />
           Chọn file
           <input
             ref={fileRef}
             type="file"
             multiple
+            disabled={uploading}
             accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.mp4,.mp3,.txt"
             className="hidden"
             data-testid="stage-file-input"
