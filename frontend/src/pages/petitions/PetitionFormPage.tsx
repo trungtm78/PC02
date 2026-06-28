@@ -195,7 +195,9 @@ export function PetitionFormPage() {
     if (isEditMode) return;
     setIsDraftLoading(true);
     documentNumbersApi.draft('PETITION')
-      .then((r) => setFormData((prev) => ({ ...prev, stt: r.previewNumber })))
+      // Chỉ set preview khi stt CÒN RỖNG — tránh race: nếu user lưu nhanh (create đã set stt THẬT
+      // từ response) thì draft resolve muộn KHÔNG được ghi đè số thật bằng preview (codex).
+      .then((r) => setFormData((prev) => (prev.stt ? prev : { ...prev, stt: r.previewNumber })))
       .catch((err) => console.error('draft fetch failed:', err))
       .finally(() => setIsDraftLoading(false));
   }, [isEditMode]);
@@ -341,10 +343,11 @@ export function PetitionFormPage() {
     setIsSubmitting(true);
     try {
       const payload = {
-        // KHÔNG gửi stt: "Số tiếp nhận" là số TỰ ĐỘNG (khoá, không nhập tay) — chỉ là PREVIEW từ
-        // draft(). Gửi số preview → backend dùng nhánh dto.stt (bỏ qua commitWithTx, counter không
-        // tăng) → số draft kế tiếp TRÙNG → ConflictException 409 cho mọi create sau. Bỏ stt → backend
-        // tự cấp atomic (commitWithTx re-sync dbMax, không trùng). Edit: không gửi → giữ stt cũ.
+        // Gửi stt CHỈ khi SỬA (edit field stt = MANUAL, cho phép sửa). Khi TẠO mới: KHÔNG gửi —
+        // "Số tiếp nhận" tạo mới là số TỰ ĐỘNG (khoá), chỉ là PREVIEW từ draft(). Gửi số preview →
+        // backend vào nhánh dto.stt (bỏ qua commitWithTx, counter không tăng) → số kế tiếp TRÙNG →
+        // 409 cho create sau. Bỏ → backend tự cấp atomic (commitWithTx re-sync dbMax, không trùng).
+        ...(effectiveEdit ? { stt: formData.stt } : {}),
         receivedDate: formData.receivedDate,
         unit: formData.unit || undefined,
         assignedTeamId: formData.assignedTeamId || undefined,
@@ -430,14 +433,10 @@ export function PetitionFormPage() {
       }
       return { ok: true, id: savedId, uploadFailed };
     } catch (err: unknown) {
-      const status = (err as { response?: { status?: number } })?.response?.status;
-      // 409 CHỈ là optimistic-lock khi đang SỬA (effectiveEdit). Khi TẠO mới, 409 là lỗi khác
-      // (vd trùng số tiếp nhận) → hiển thị message THẬT của backend, không gán nhầm "người khác sửa".
-      if (status === 409 && effectiveEdit) {
-        setErrors(["Đơn thư đã được chỉnh sửa bởi người dùng khác. Vui lòng tải lại trang để xem phiên bản mới nhất trước khi chỉnh sửa."]);
-      } else {
-        setErrors(extractApiError(err, "Có lỗi xảy ra khi lưu đơn thư. Vui lòng thử lại.").messages);
-      }
+      // Luôn hiển thị MESSAGE THẬT của backend: phân biệt đúng "đã được chỉnh sửa bởi người dùng
+      // khác" (optimistic-lock P2025) vs "Số tiếp nhận đã tồn tại" (trùng số P2002) — không gán
+      // cứng 1 message cho mọi 409 (bug cũ làm tạo-mới hiểu nhầm thành optimistic-lock).
+      setErrors(extractApiError(err, "Có lỗi xảy ra khi lưu đơn thư. Vui lòng thử lại.").messages);
       window.scrollTo({ top: 0, behavior: "smooth" });
       return { ok: false, id: null };
     } finally {
