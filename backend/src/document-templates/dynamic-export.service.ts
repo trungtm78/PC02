@@ -17,7 +17,15 @@ import { resolveRenderer } from './renderers';
 const DOCX_CONTENT_TYPE =
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
-type EntityType = 'VU_AN' | 'VU_VIEC';
+type EntityType = 'VU_AN' | 'VU_VIEC' | 'DON_THU';
+
+/** Bảng + cột FK render-log/cấp số theo loại hồ sơ (row-lock + commitWithTx idKey + renderLog). */
+const ENTITY_DB: Record<EntityType, { table: string; idField: 'caseId' | 'incidentId' | 'petitionId' }> = {
+  VU_AN: { table: 'cases', idField: 'caseId' },
+  VU_VIEC: { table: 'incidents', idField: 'incidentId' },
+  DON_THU: { table: 'petitions', idField: 'petitionId' },
+};
+
 interface RenderedTemplate {
   buffer: Buffer;
   documentNumber?: string;
@@ -92,15 +100,55 @@ export class DynamicExportService {
             v.source === 'auto' && resolveField(entityType, v.field ?? v.name, record).trim() === '';
           if (autoEmpty || v.source === 'manual') {
             const sav = savableMap[v.name];
-            // savable=false cho dynamic: bổ sung tại popup làm manualValues override khi xuất (KHÔNG
-            // PUT vào hồ sơ — tránh mất dữ liệu do form case/incident map field khác cột). Giữ `type`.
-            missing.push({ field: v.name, label: v.label || v.name, type: sav?.type ?? 'text', savable: false });
+            // DON_THU: cột phẳng → savable=true (FE PUT /petitions/:id "Lưu bổ sung vào đơn").
+            // VU_AN/VU_VIEC: savable=false (form map field khác cột → chỉ manualValues override khi xuất).
+            const savable = entityType === 'DON_THU' && !!sav;
+            missing.push({
+              field: v.name,
+              label: v.label || v.name,
+              type: sav?.type ?? 'text',
+              savable,
+              ...(savable && sav ? { column: sav.column } : {}),
+            });
           }
         }
         return { templateId: t.id, code: t.code, ready: missing.length === 0, missing };
       });
       return { items, updatedAt: record?.updatedAt };
     });
+  }
+
+  /**
+   * [codex P1#2] Fail-closed: ném BadRequest nếu CÒN trường bắt buộc chưa đủ cho mẫu nào trong danh
+   * sách xuất. "Đủ" = manualValues[name] có giá trị (người dùng nhập tại popup) HOẶC (auto) resolveField
+   * ra giá trị từ hồ sơ. Chạy TRƯỚC transaction/cấp số.
+   */
+  private assertRequiredSatisfied(
+    entityType: EntityType,
+    record: any,
+    templates: any[],
+    manualValues: Record<string, string>,
+  ): void {
+    const missing = new Set<string>();
+    for (const t of templates) {
+      const vars = (t.variables as TemplateVariable[] | null) ?? [];
+      for (const v of vars) {
+        if (!v.required) continue;
+        const manual = (manualValues[v.name] ?? '').trim();
+        if (manual) continue; // người dùng đã nhập tại popup
+        if (v.source === 'manual') {
+          missing.add(v.label || v.name);
+          continue;
+        }
+        const auto = resolveField(entityType, v.field ?? v.name, record).trim();
+        if (!auto) missing.add(v.label || v.name);
+      }
+    }
+    if (missing.size > 0) {
+      throw new BadRequestException(
+        `Thiếu thông tin bắt buộc để in: ${[...missing].join(', ')}. Vui lòng bổ sung trước khi xuất.`,
+      );
+    }
   }
 
   /** Render 1 template trong tx: cấp số (nếu cần) + docxtemplater trên bytes DB + render log. */
@@ -120,9 +168,9 @@ export class DynamicExportService {
         throw new BadRequestException(`Mẫu "${template.code}" bật cấp số nhưng chưa cấu hình series số văn bản`);
       }
       // Row lock chống cấp số trùng khi 2 export đồng thời cùng hồ sơ.
-      const table = entityType === 'VU_AN' ? 'cases' : 'incidents';
-      await tx.$queryRawUnsafe(`SELECT id FROM "${table}" WHERE id = $1 FOR UPDATE`, entityId);
-      const idKey = entityType === 'VU_AN' ? { caseId: entityId } : { incidentId: entityId };
+      const db = ENTITY_DB[entityType];
+      await tx.$queryRawUnsafe(`SELECT id FROM "${db.table}" WHERE id = $1 FOR UPDATE`, entityId);
+      const idKey = { [db.idField]: entityId };
       const commit = await this.docNums.commitWithTx(
         template.numberSeriesId, // = DocumentNumberTemplate.documentType (series key)
         { userId: actorId, departmentId: record.unit ?? record.unitId ?? undefined, ...idKey },
@@ -152,7 +200,7 @@ export class DynamicExportService {
 
     await tx.documentRenderLog.create({
       data: {
-        ...(entityType === 'VU_AN' ? { caseId: entityId } : { incidentId: entityId }),
+        [ENTITY_DB[entityType].idField]: entityId,
         documentType: template.code,
         templateSha: template.fileSha,
         renderedById: actorId,
@@ -196,6 +244,10 @@ export class DynamicExportService {
     }
     // Giữ thứ tự theo templateIds đầu vào.
     const ordered = templateIds.map((id) => templates.find((t) => t.id === id)!);
+
+    // [codex P1#2] Validate trường BẮT BUỘC TRƯỚC khi vào tx/cấp số (fail-closed, không cấp số rồi
+    // render rỗng câm). Required auto rỗng (không có manualValues override) hoặc manual chưa nhập → throw.
+    this.assertRequiredSatisfied(entityType, record, ordered, manualValues);
 
     const deliverable = await this.prisma.$transaction(async (tx: any) => {
       const rendered: RenderedTemplate[] = [];

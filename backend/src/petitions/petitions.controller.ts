@@ -23,6 +23,8 @@ import { PetitionsJourneyService } from './petitions-journey.service';
 import { BatchExportService } from './batch-export.service';
 import { PetitionExportDocumentsService } from './petition-export-documents.service';
 import { ExportDocumentsDto } from './dto/export-documents.dto';
+import { DynamicExportService } from '../document-templates/dynamic-export.service';
+import { ExportEntityDocumentsDto } from '../document-templates/dto/export-entity-documents.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { DispatchGuard } from '../auth/guards/dispatch.guard';
@@ -47,7 +49,53 @@ export class PetitionsController {
     private readonly petitionsJourneyService: PetitionsJourneyService,
     private readonly batchExport: BatchExportService,
     private readonly exportDocsService: PetitionExportDocumentsService,
+    private readonly dynamicExport: DynamicExportService,
   ) {}
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // PR3 — In chứng từ ĐỘNG cho Đơn thư (engine động, mẫu .docx trong DB DON_THU).
+  // Route RIÊNG (suffix -dynamic / export-templates) để KHÔNG đè route tĩnh đang
+  // chạy prod; FE chọn gọi động/tĩnh qua feature flag. Quyền read Petition (như tĩnh).
+  // ─────────────────────────────────────────────────────────────────────────
+
+  // GET /api/v1/petitions/export-templates — danh sách mẫu chứng từ động (DON_THU) cho picker.
+  @Get('export-templates')
+  @RequirePermissions({ action: 'read', subject: 'Petition' })
+  listDynamicExportTemplates() {
+    return this.dynamicExport.listExportableTemplates('DON_THU');
+  }
+
+  // GET /api/v1/petitions/:id/export-readiness-dynamic — trường còn thiếu per mẫu động.
+  @Get(':id/export-readiness-dynamic')
+  @RequirePermissions({ action: 'read', subject: 'Petition' })
+  async dynamicExportReadiness(@Param('id') id: string, @Req() req: ScopedRequest) {
+    const petition = await this.petitionsService.loadPetitionForExport(id, req.dataScope);
+    return this.dynamicExport.getExportReadiness('DON_THU', petition);
+  }
+
+  // POST /api/v1/petitions/:id/export-documents-dynamic — xuất chứng từ động (gộp/zip).
+  @Post(':id/export-documents-dynamic')
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
+  @RequirePermissions({ action: 'read', subject: 'Petition' })
+  async dynamicExportDocuments(
+    @Param('id') id: string,
+    @Body() dto: ExportEntityDocumentsDto,
+    @Req() req: ScopedRequest,
+    @Res() res: Response,
+    @CurrentUser() user: AuthUser,
+  ): Promise<void> {
+    const petition = await this.petitionsService.loadPetitionForExport(id, req.dataScope);
+    await this.dynamicExport.exportEntityDocuments(
+      'DON_THU',
+      id,
+      petition,
+      dto.templateIds,
+      dto.mode ?? 'merged',
+      user.id,
+      dto.manualValues ?? {},
+      res,
+    );
+  }
 
   // GET /api/v1/petitions — Danh sách đơn thư
   @Get()

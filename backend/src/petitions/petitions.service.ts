@@ -1606,7 +1606,12 @@ export class PetitionsService {
    * có trong getById include mặc định). RBAC scope check qua getById. Tách ra để
    * exportDocumentToBuffer + preValidateExportDocuments dùng chung (DRY).
    */
-  private async loadPetitionForExport(
+  /**
+   * Loader trung lập (public) cho xuất chứng từ ĐỘNG (codex P1#3 — tránh DynamicExportService phụ
+   * thuộc method private gây module cycle). Controller load petition + include (enteredBy, assignedTeam
+   * members leader) khớp catalog DON_THU, rồi truyền record sang DynamicExportService (generic).
+   */
+  async loadPetitionForExport(
     id: string,
     dataScope: DataScope | null | undefined,
   ) {

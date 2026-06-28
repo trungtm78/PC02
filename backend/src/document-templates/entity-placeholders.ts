@@ -110,7 +110,7 @@ export function isAutoPlaceholder(entityType: string, name: string): boolean {
  * (DON_THU bổ sung ở PR3.)
  */
 export const DYNAMIC_EXPORT_SAVABLE: Record<
-  'VU_AN' | 'VU_VIEC',
+  EntityType,
   Record<string, { column: string; type: 'text' | 'textarea' }>
 > = {
   VU_AN: {
@@ -126,5 +126,16 @@ export const DYNAMIC_EXPORT_SAVABLE: Record<
     soQuyetDinh: { column: 'soQuyetDinh', type: 'text' },
     nguoiQuyetDinh: { column: 'nguoiQuyetDinh', type: 'text' },
     donViGiaiQuyet: { column: 'donViGiaiQuyet', type: 'text' },
+  },
+  // DON_THU: placeholder (catalog key) → cột phẳng Petition → FE "Lưu bổ sung vào đơn" PUT /petitions/:id.
+  DON_THU: {
+    ghiTen: { column: 'senderName', type: 'text' },
+    noiDung: { column: 'detailContent', type: 'textarea' },
+    nhanThay: { column: 'nhanThay', type: 'textarea' },
+    deXuat: { column: 'deXuat', type: 'textarea' },
+    lyDoChuyen: { column: 'lyDoChuyen', type: 'textarea' },
+    canCuPhapLy: { column: 'canCuPhapLy', type: 'textarea' },
+    huongDanKhoiKien: { column: 'huongDanKhoiKien', type: 'textarea' },
+    lyDoTraDon: { column: 'lyDoTraDon', type: 'textarea' },
   },
 };
