@@ -1,14 +1,18 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Response } from 'express';
 import { createHash } from 'crypto';
-import PizZip from 'pizzip';
-import Docxtemplater from 'docxtemplater';
 import archiver from 'archiver';
 import { sanitizeFilename } from '../common/utils/filename.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { DocumentNumbersService } from '../document-numbers/document-numbers.service';
 import { DocxMergeService } from '../petitions/docx-merge.service';
-import { buildEntityPlaceholders, DYNAMIC_EXPORT_SAVABLE } from './entity-placeholders';
+import {
+  buildTemplatePlaceholders,
+  DYNAMIC_EXPORT_SAVABLE,
+  TemplateVariable,
+} from './entity-placeholders';
+import { resolveField } from './field-catalog';
+import { resolveRenderer } from './renderers';
 
 const DOCX_CONTENT_TYPE =
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
@@ -56,6 +60,9 @@ export class DynamicExportService {
         fileName: true,
         fileSha: true,
         variables: true,
+        format: true,
+        delimStart: true,
+        delimEnd: true,
         needsNumber: true,
         numberSeriesId: true,
         status: true,
@@ -73,15 +80,16 @@ export class DynamicExportService {
    * `record` đã được controller load + check scope. `updatedAt` để FE PUT bổ sung không 409.
    */
   getExportReadiness(entityType: EntityType, record: any) {
-    const auto = buildEntityPlaceholders(entityType, record);
     const savableMap = DYNAMIC_EXPORT_SAVABLE[entityType] ?? {};
     return this.listExportableTemplates(entityType).then((templates) => {
       const items = templates.map((t) => {
-        const vars = (t.variables as Array<{ name: string; source: string; label?: string; required?: boolean }> | null) ?? [];
+        const vars = (t.variables as TemplateVariable[] | null) ?? [];
         const missing = [] as Array<{ field: string; label: string; type: 'text' | 'textarea'; savable: boolean; column?: string }>;
         for (const v of vars) {
           if (!v.required) continue;
-          const autoEmpty = v.source === 'auto' && (!auto[v.name] || auto[v.name].trim() === '');
+          // auto rỗng = resolveField (theo mapping field, fallback name) ra chuỗi rỗng.
+          const autoEmpty =
+            v.source === 'auto' && resolveField(entityType, v.field ?? v.name, record).trim() === '';
           if (autoEmpty || v.source === 'manual') {
             const sav = savableMap[v.name];
             // savable=false cho dynamic: bổ sung tại popup làm manualValues override khi xuất (KHÔNG
@@ -124,15 +132,22 @@ export class DynamicExportService {
       documentNumber = commit.number;
     }
 
-    const placeholders = buildEntityPlaceholders(entityType, record, {
-      ...manualValues,
-      ...(documentNumber ? { soVanBan: documentNumber } : {}),
-    });
+    const delimiters = { start: template.delimStart ?? '{', end: template.delimEnd ?? '}' };
+    const variables = (template.variables as TemplateVariable[] | null) ?? [];
+    const placeholders = buildTemplatePlaceholders(
+      entityType,
+      variables,
+      record,
+      { ...manualValues, ...(documentNumber ? { soVanBan: documentNumber } : {}) },
+      delimiters,
+    );
 
-    const zip = new PizZip(Buffer.from(template.fileBytes));
-    const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true, nullGetter: () => '' });
-    doc.render(placeholders);
-    const buffer = doc.getZip().generate({ type: 'nodebuffer' }) as Buffer;
+    const renderer = resolveRenderer(template.format);
+    const buffer = renderer.render({
+      buffer: Buffer.from(template.fileBytes),
+      data: placeholders,
+      delimiters,
+    });
     const fileSha = createHash('sha256').update(buffer).digest('hex');
 
     await tx.documentRenderLog.create({

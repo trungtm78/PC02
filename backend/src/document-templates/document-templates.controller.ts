@@ -8,11 +8,14 @@ import {
   Patch,
   Post,
   Query,
+  Res,
+  StreamableFile,
   UploadedFile,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import type { Response } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/permissions.decorator';
@@ -52,6 +55,27 @@ export class DocumentTemplatesController {
     return this.svc.list({ entityType, category, status });
   }
 
+  /** Danh mục trường khả dụng (whitelist) cho dropdown map placeholder→field. */
+  @Get('field-catalog')
+  @RequirePermissions({ action: 'read', subject: 'Setting' })
+  fieldCatalog(@Query('entityType') entityType: string) {
+    if (!entityType) throw new BadRequestException('Thiếu entityType');
+    return this.svc.fieldCatalog(entityType);
+  }
+
+  /** Preview placeholder của file upload (chưa lưu) + gợi ý mapping. */
+  @Post('detect')
+  @RequirePermissions({ action: 'write', subject: 'Setting' })
+  @UseInterceptors(FileInterceptor('file', DOCX_UPLOAD))
+  detect(
+    @Body() body: { entityType?: string; delimStart?: string; delimEnd?: string },
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) throw new BadRequestException('Thiếu file .docx');
+    if (!body.entityType) throw new BadRequestException('Thiếu entityType');
+    return this.svc.previewVariables(file, body.entityType, body.delimStart, body.delimEnd);
+  }
+
   @Post()
   @RequirePermissions({ action: 'write', subject: 'Setting' })
   @UseInterceptors(FileInterceptor('file', DOCX_UPLOAD))
@@ -68,6 +92,23 @@ export class DocumentTemplatesController {
   @RequirePermissions({ action: 'read', subject: 'Setting' })
   getById(@Param('id') id: string) {
     return this.svc.getById(id);
+  }
+
+  /** Tải file .docx mẫu về để admin sửa rồi upload đè (POST :id/file). */
+  @Get(':id/file')
+  @RequirePermissions({ action: 'read', subject: 'Setting' })
+  async download(
+    @Param('id') id: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile> {
+    const { fileName, bytes } = await this.svc.getFileForDownload(id);
+    const ascii = fileName.replace(/[^\x20-\x7E]/g, '_');
+    res.setHeader('Content-Type', DOCX_MIME);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(fileName)}`,
+    );
+    return new StreamableFile(bytes);
   }
 
   @Patch(':id')

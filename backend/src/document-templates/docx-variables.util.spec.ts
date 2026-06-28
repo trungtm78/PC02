@@ -29,4 +29,35 @@ describe('detectDocxVariables', () => {
   it('[review] buffer hỏng / không phải zip → [] (không throw)', () => {
     expect(detectDocxVariables(Buffer.from('không phải docx'))).toEqual([]);
   });
+
+  describe('delimiter động', () => {
+    it('delimiter [[ ]] (2 ký tự) trích đúng biến', () => {
+      const buf = makeDocx('Số [[soVuAn]] và [[tenVuAn]]');
+      expect(detectDocxVariables(buf, { start: '[[', end: ']]' })).toEqual(['soVuAn', 'tenVuAn']);
+    });
+
+    it('delimiter {{ }} trích đúng biến', () => {
+      const buf = makeDocx('a {{x}} b {{y}}');
+      expect(detectDocxVariables(buf, { start: '{{', end: '}}' })).toEqual(['x', 'y']);
+    });
+
+    it('delimiter « » với tên tiếng Việt có dấu + khoảng trắng', () => {
+      const buf = makeDocx('Kính gửi «Họ tên người gửi», nội dung «Tóm tắt»');
+      expect(detectDocxVariables(buf, { start: '«', end: '»' })).toEqual([
+        'Họ tên người gửi',
+        'Tóm tắt',
+      ]);
+    });
+
+    it('escape ký tự regex đặc biệt trong delimiter ([[ chứa [)', () => {
+      const buf = makeDocx('x [[a]] y [[b]]');
+      // không được hiểu [[ là character class → phải trả về đúng a, b
+      expect(detectDocxVariables(buf, { start: '[[', end: ']]' })).toEqual(['a', 'b']);
+    });
+
+    it('mặc định vẫn là { } (tương thích ngược) khi không truyền delimiter', () => {
+      const buf = makeDocx('giữ {soVuAn} nguyên');
+      expect(detectDocxVariables(buf)).toEqual(['soVuAn']);
+    });
+  });
 });

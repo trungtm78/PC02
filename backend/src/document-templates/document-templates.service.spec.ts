@@ -40,9 +40,9 @@ describe('DocumentTemplatesService', () => {
     const data = mockPrisma.documentTemplate.create.mock.calls[0][0].data;
     expect(data.fileSha).toBe(createHash('sha256').update(buf).digest('hex'));
     expect(data.variables).toEqual([
-      // soVuAn thuộc catalog VU_AN → auto-điền; hoTenBiCan ngoài catalog → nhập tay.
+      // soVuAn thuộc catalog VU_AN → auto-điền (field=name auto-suy); hoTenBiCan ngoài catalog → nhập tay.
       // required:false mặc định (admin bật sau qua update.requiredVariables) — PR2.
-      { name: 'soVuAn', source: 'auto', label: 'soVuAn', required: false },
+      { name: 'soVuAn', source: 'auto', label: 'soVuAn', field: 'soVuAn', required: false },
       { name: 'hoTenBiCan', source: 'manual', label: 'hoTenBiCan', required: false },
     ]);
     expect(data.createdById).toBe('u1');
@@ -116,11 +116,94 @@ describe('DocumentTemplatesService', () => {
     expect(arg.data.requiredVariables).toBeUndefined();
   });
 
-  it('update: DON_THU + requiredVariables → BadRequest (readiness chỉ VU_AN/VU_VIEC)', async () => {
+  it('update: DON_THU + requiredVariables → set required (đã bỏ chặn, Đơn thư vào hệ động)', async () => {
     mockPrisma.documentTemplate.findFirst.mockResolvedValueOnce({
       id: 'd1', entityType: 'DON_THU', variables: [{ name: 'x', source: 'manual', label: 'x' }],
     });
-    await expect(svc.update('d1', { requiredVariables: ['x'] } as any)).rejects.toThrow();
+    await svc.update('d1', { requiredVariables: ['x'] } as any);
+    const arg = mockPrisma.documentTemplate.update.mock.calls[0][0];
+    expect(arg.data.variables).toEqual([{ name: 'x', source: 'manual', label: 'x', required: true }]);
+  });
+
+  it('create: delimiter tùy chỉnh [[ ]] + admin variables mapping → lưu đúng', async () => {
+    await svc.create(
+      {
+        code: 'C', name: 'N', entityType: 'DON_THU', category: 'Khác',
+        delimStart: '[[', delimEnd: ']]',
+        variables: [{ name: 'Họ tên', source: 'auto', field: 'ghiTen' }],
+      } as any,
+      { buffer: docx('Kính gửi [[Họ tên]]'), originalname: 'a.docx' },
+      'u1',
+    );
+    const data = mockPrisma.documentTemplate.create.mock.calls[0][0].data;
+    expect(data.delimStart).toBe('[[');
+    expect(data.delimEnd).toBe(']]');
+    expect(data.variables).toEqual([
+      { name: 'Họ tên', label: 'Họ tên', source: 'auto', field: 'ghiTen', required: false },
+    ]);
+  });
+
+  it('create: admin map field NGOÀI catalog → BadRequest (whitelist)', async () => {
+    await expect(
+      svc.create(
+        {
+          code: 'C', name: 'N', entityType: 'DON_THU', category: 'Khác',
+          variables: [{ name: 'x', source: 'auto', field: 'hackField' }],
+        } as any,
+        { buffer: docx('a {x}'), originalname: 'a.docx' },
+        'u1',
+      ),
+    ).rejects.toThrow();
+    expect(mockPrisma.documentTemplate.create).not.toHaveBeenCalled();
+  });
+
+  it('create: placeholder trong file bị bỏ khỏi variables → BadRequest', async () => {
+    await expect(
+      svc.create(
+        {
+          code: 'C', name: 'N', entityType: 'DON_THU', category: 'Khác',
+          variables: [{ name: 'ghiTen', source: 'auto', field: 'ghiTen' }],
+        } as any,
+        { buffer: docx('{ghiTen} và {diaChi}'), originalname: 'a.docx' }, // diaChi bị bỏ
+        'u1',
+      ),
+    ).rejects.toThrow();
+  });
+
+  it('create: variable không có trong file → BadRequest', async () => {
+    await expect(
+      svc.create(
+        {
+          code: 'C', name: 'N', entityType: 'DON_THU', category: 'Khác',
+          variables: [{ name: 'ghiTen', source: 'auto', field: 'ghiTen' }, { name: 'khongCo', source: 'manual' }],
+        } as any,
+        { buffer: docx('{ghiTen}'), originalname: 'a.docx' },
+        'u1',
+      ),
+    ).rejects.toThrow();
+  });
+
+  it('create: delimStart === delimEnd → BadRequest', async () => {
+    await expect(
+      svc.create(
+        { code: 'C', name: 'N', entityType: 'VU_AN', category: 'Khác', delimStart: '|', delimEnd: '|' } as any,
+        { buffer: docx('x'), originalname: 'a.docx' },
+        'u1',
+      ),
+    ).rejects.toThrow();
+  });
+
+  it('replaceFile: giữ mapping cũ (label/required) cho biến trùng tên', async () => {
+    mockPrisma.documentTemplate.findFirst.mockResolvedValueOnce({
+      id: 't1', entityType: 'VU_AN', delimStart: '{', delimEnd: '}',
+      variables: [{ name: 'soVuAn', source: 'auto', field: 'soVuAn', label: 'Số VA tuỳ chỉnh', required: true }],
+    });
+    await svc.replaceFile('t1', { buffer: docx('{soVuAn} {tenVuAn}'), originalname: 'b.docx' }, 'u1');
+    const vars = mockPrisma.documentTemplate.update.mock.calls[0][0].data.variables;
+    const soVuAn = vars.find((v: any) => v.name === 'soVuAn');
+    expect(soVuAn).toMatchObject({ label: 'Số VA tuỳ chỉnh', required: true });
+    // biến mới tenVuAn auto-suy
+    expect(vars.find((v: any) => v.name === 'tenVuAn')).toMatchObject({ source: 'auto', field: 'tenVuAn' });
   });
 
   it('softDelete: set deletedAt', async () => {
