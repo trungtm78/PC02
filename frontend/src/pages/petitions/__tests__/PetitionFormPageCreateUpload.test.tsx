@@ -41,8 +41,6 @@ vi.mock('@/features/document-numbers/api', () => ({
 vi.mock('@/hooks/useCatalog', () => ({
   useCatalog: () => ({ options: [{ code: 'VAN_BAN', label: 'Văn bản' }] }),
 }));
-vi.mock('@/features/petitions/components/ExportDocumentsModal', () => ({ ExportDocumentsModal: () => null }));
-vi.mock('@/features/petitions/components/ExportDocumentDropdown', () => ({ ExportDocumentDropdown: () => null }));
 vi.mock('./PetitionAssignmentSection', () => ({ PetitionAssignmentSection: () => null }));
 vi.mock('@/components/FKSelect', () => ({ FKSelect: ({ testId }: { testId?: string }) => <div data-testid={testId} /> }));
 vi.mock('@/components/CrimeSelect', () => ({ CrimeSelect: ({ testId }: { testId?: string }) => <div data-testid={testId} /> }));

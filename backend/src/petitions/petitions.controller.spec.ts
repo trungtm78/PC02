@@ -24,8 +24,6 @@ const mockService = {
 };
 
 const mockJourneyService = { getJourney: jest.fn() };
-const mockBatchExport = { exportBatchToZip: jest.fn() };
-const mockExportDocs = { exportDocuments: jest.fn() };
 const mockDynamicExport = {
   listExportableTemplates: jest.fn(),
   getExportReadiness: jest.fn(),
@@ -42,15 +40,6 @@ describe('PetitionsController — delegation', () => {
       mockService,
       [
         { token: PetitionsJourneyService, mock: mockJourneyService },
-        {
-          token: require('./batch-export.service').BatchExportService,
-          mock: mockBatchExport,
-        },
-        {
-          token: require('./petition-export-documents.service')
-            .PetitionExportDocumentsService,
-          mock: mockExportDocs,
-        },
         {
           token: require('../document-templates/dynamic-export.service').DynamicExportService,
           mock: mockDynamicExport,
@@ -94,26 +83,6 @@ describe('PetitionsController — delegation', () => {
         'DON_THU', 'p1', petition, ['t1'], 'zip', expect.any(String), { x: '1' }, res,
       );
     });
-  });
-
-  it('exportDocuments() delegates to service với docTypes, mode, userId, scope, res', async () => {
-    const req = makeReq();
-    const res = { setHeader: jest.fn(), send: jest.fn() } as any;
-    await controller.exportDocuments(
-      'pet-1',
-      { docTypes: ['BIEN_NHAN', 'PHIEU_DE_XUAT'], mode: 'merged' } as any,
-      mockUser,
-      req,
-      res,
-    );
-    expect(mockExportDocs.exportDocuments).toHaveBeenCalledWith(
-      'pet-1',
-      ['BIEN_NHAN', 'PHIEU_DE_XUAT'],
-      'merged',
-      mockUser.id,
-      req.dataScope,
-      res,
-    );
   });
 
   it('create() delegates to service.create with dto, userId and audit info', async () => {

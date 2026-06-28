@@ -46,14 +46,6 @@ vi.mock('@/lib/api', () => ({
 vi.mock('@/features/document-numbers/api', () => ({
   documentNumbersApi: { draft: vi.fn().mockResolvedValue({ previewNumber: 'DT-2026-00001' }) },
 }));
-vi.mock('@/features/petitions/components/ExportDocumentsModal', () => ({
-  ExportDocumentsModal: ({ onClose }: { onClose: () => void }) => (
-    <div data-testid="export-documents-modal"><button data-testid="stub-close" onClick={onClose}>x</button></div>
-  ),
-}));
-vi.mock('@/features/petitions/components/ExportDocumentDropdown', () => ({
-  ExportDocumentDropdown: () => <div data-testid="export-dropdown-stub" />,
-}));
 vi.mock('./PetitionAssignmentSection', () => ({
   PetitionAssignmentSection: () => <div data-testid="assignment-stub" />,
 }));

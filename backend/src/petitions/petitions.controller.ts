@@ -20,9 +20,6 @@ import type { Response } from 'express';
 import type { ScopedRequest } from '../auth/interfaces/scoped-request.interface';
 import { PetitionsService } from './petitions.service';
 import { PetitionsJourneyService } from './petitions-journey.service';
-import { BatchExportService } from './batch-export.service';
-import { PetitionExportDocumentsService } from './petition-export-documents.service';
-import { ExportDocumentsDto } from './dto/export-documents.dto';
 import { DynamicExportService } from '../document-templates/dynamic-export.service';
 import { ExportEntityDocumentsDto } from '../document-templates/dto/export-entity-documents.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -47,15 +44,12 @@ export class PetitionsController {
   constructor(
     private readonly petitionsService: PetitionsService,
     private readonly petitionsJourneyService: PetitionsJourneyService,
-    private readonly batchExport: BatchExportService,
-    private readonly exportDocsService: PetitionExportDocumentsService,
     private readonly dynamicExport: DynamicExportService,
   ) {}
 
   // ─────────────────────────────────────────────────────────────────────────
-  // PR3 — In chứng từ ĐỘNG cho Đơn thư (engine động, mẫu .docx trong DB DON_THU).
-  // Route RIÊNG (suffix -dynamic / export-templates) để KHÔNG đè route tĩnh đang
-  // chạy prod; FE chọn gọi động/tĩnh qua feature flag. Quyền read Petition (như tĩnh).
+  // In chứng từ ĐỘNG cho Đơn thư (engine ĐỘNG duy nhất — mẫu .docx trong DB DON_THU).
+  // PR4 đã gỡ TOÀN BỘ engine tĩnh; các route này là chính thức. Quyền read Petition.
   // ─────────────────────────────────────────────────────────────────────────
 
   // GET /api/v1/petitions/export-templates — danh sách mẫu chứng từ động (DON_THU) cho picker.
@@ -65,16 +59,16 @@ export class PetitionsController {
     return this.dynamicExport.listExportableTemplates('DON_THU');
   }
 
-  // GET /api/v1/petitions/:id/export-readiness-dynamic — trường còn thiếu per mẫu động.
-  @Get(':id/export-readiness-dynamic')
+  // GET /api/v1/petitions/:id/export-readiness — trường còn thiếu per mẫu (engine động).
+  @Get(':id/export-readiness')
   @RequirePermissions({ action: 'read', subject: 'Petition' })
   async dynamicExportReadiness(@Param('id') id: string, @Req() req: ScopedRequest) {
     const petition = await this.petitionsService.loadPetitionForExport(id, req.dataScope);
     return this.dynamicExport.getExportReadiness('DON_THU', petition);
   }
 
-  // POST /api/v1/petitions/:id/export-documents-dynamic — xuất chứng từ động (gộp/zip).
-  @Post(':id/export-documents-dynamic')
+  // POST /api/v1/petitions/:id/export-documents — xuất chứng từ (engine động, gộp/zip).
+  @Post(':id/export-documents')
   @Throttle({ default: { ttl: 60000, limit: 5 } })
   @RequirePermissions({ action: 'read', subject: 'Petition' })
   async dynamicExportDocuments(
@@ -93,6 +87,35 @@ export class PetitionsController {
       dto.mode ?? 'merged',
       user.id,
       dto.manualValues ?? {},
+      res,
+    );
+  }
+
+  // POST /api/v1/petitions/export-document-batch — xuất ĐỒNG LOẠT 1 mẫu (theo code) cho
+  // NHIỀU đơn → ZIP (mỗi đơn 1 file + manifest.json). Engine ĐỘNG (mẫu .docx trong DB);
+  // mỗi đơn render trong tx riêng → 1 đơn lỗi không abort cả lô.
+  @Post('export-document-batch')
+  @Throttle({ default: { ttl: 60000, limit: 2 } })
+  @RequirePermissions({ action: 'read', subject: 'Petition' })
+  async exportDocumentBatch(
+    @Body() body: { docType: string; petitionIds: string[] },
+    @CurrentUser() user: AuthUser,
+    @Req() req: ScopedRequest,
+    @Res() res: Response,
+  ): Promise<void> {
+    const ids = body?.petitionIds;
+    if (!Array.isArray(ids) || ids.length === 0 || ids.length > 100) {
+      throw new BadRequestException('petitionIds phải là mảng 1..100 phần tử');
+    }
+    if (!body?.docType || typeof body.docType !== 'string') {
+      throw new BadRequestException('docType bắt buộc');
+    }
+    await this.dynamicExport.exportBatchByCode(
+      'DON_THU',
+      body.docType,
+      ids,
+      (id) => this.petitionsService.loadPetitionForExport(id, req.dataScope),
+      user.id,
       res,
     );
   }
@@ -220,109 +243,6 @@ export class PetitionsController {
     @Res() res: Response,
   ): Promise<void> {
     await this.petitionsService.exportToWord(id, req.dataScope, res);
-  }
-
-  // POST /api/v1/petitions/export-document-batch — v0.47 PR3 T14.
-  // Body: { docType, petitionIds: string[] } (1..100).
-  // Streams a ZIP of N rendered docx + manifest.json. Each petition renders
-  // in its own transaction so one failure doesn't abort the batch.
-  @Post('export-document-batch')
-  @Throttle({ default: { ttl: 60000, limit: 2 } })
-  @RequirePermissions({ action: 'read', subject: 'Petition' })
-  async exportDocumentBatch(
-    @Body() body: { docType: string; petitionIds: string[] },
-    @CurrentUser() user: AuthUser,
-    @Req() req: ScopedRequest,
-    @Res() res: Response,
-  ): Promise<void> {
-    const allowed = new Set([
-      'PHIEU_DE_XUAT',
-      'PHIEU_CHUYEN_NGUON_TIN',
-      'PHIEU_CHUYEN_DON',
-      'THONG_BAO_CHUYEN',
-      'THONG_BAO_HUONG_DAN',
-      'THONG_BAO_TRA_LAI',
-      'BIEN_NHAN',
-    ]);
-    if (!allowed.has(body.docType)) {
-      throw new BadRequestException(
-        `docType không hợp lệ. Cho phép: ${[...allowed].join(', ')}`,
-      );
-    }
-    await this.batchExport.exportBatchToZip(
-      body.petitionIds,
-      body.docType as any,
-      user.id,
-      req.dataScope,
-      res,
-    );
-  }
-
-  // POST /api/v1/petitions/:id/export-documents — xuất NHIỀU mẫu cho 1 đơn.
-  // Body: { docTypes: string[] (1..7), mode?: 'merged'|'zip' }. merged=1 .docx gộp
-  // (ngắt trang), zip=ZIP nhiều .docx. Validate+dedupe+pre-validate ở service.
-  @Post(':id/export-documents')
-  @Throttle({ default: { ttl: 60000, limit: 5 } })
-  @RequirePermissions({ action: 'read', subject: 'Petition' })
-  async exportDocuments(
-    @Param('id') id: string,
-    @Body() body: ExportDocumentsDto,
-    @CurrentUser() user: AuthUser,
-    @Req() req: ScopedRequest,
-    @Res() res: Response,
-  ): Promise<void> {
-    await this.exportDocsService.exportDocuments(
-      id,
-      body.docTypes,
-      body.mode,
-      user.id,
-      req.dataScope,
-      res,
-    );
-  }
-
-  // GET /api/v1/petitions/:id/export-readiness — per mẫu, trường còn thiếu để in (FE hiện
-  // trước + cho bổ sung tại popup). Không xuất file; chỉ kiểm tra. read Petition + DataScope.
-  @Get(':id/export-readiness')
-  @RequirePermissions({ action: 'read', subject: 'Petition' })
-  async exportReadiness(@Param('id') id: string, @Req() req: ScopedRequest) {
-    return this.petitionsService.getExportReadiness(id, req.dataScope);
-  }
-
-  // GET /api/v1/petitions/:id/export-document?docType=PHIEU_DE_XUAT — v0.47 PR2.
-  // Renders one of 6 templated docx via DocxTemplateLoader + commitWithTx.
-  // Audit row in DocumentRenderLog. Atomic — render throw rolls back number.
-  @Get(':id/export-document')
-  @Throttle({ default: { ttl: 60000, limit: 5 } })
-  @RequirePermissions({ action: 'read', subject: 'Petition' })
-  async exportDocument(
-    @Param('id') id: string,
-    @Query('docType') docType: string,
-    @CurrentUser() user: AuthUser,
-    @Req() req: ScopedRequest,
-    @Res() res: Response,
-  ): Promise<void> {
-    const allowed = new Set([
-      'PHIEU_DE_XUAT',
-      'PHIEU_CHUYEN_NGUON_TIN',
-      'PHIEU_CHUYEN_DON',
-      'THONG_BAO_CHUYEN',
-      'THONG_BAO_HUONG_DAN',
-      'THONG_BAO_TRA_LAI',
-      'BIEN_NHAN',
-    ]);
-    if (!allowed.has(docType)) {
-      throw new BadRequestException(
-        `docType không hợp lệ. Cho phép: ${[...allowed].join(', ')}`,
-      );
-    }
-    await this.petitionsService.exportDocument(
-      id,
-      docType as any,
-      user.id,
-      req.dataScope,
-      res,
-    );
   }
 
   // POST /api/v1/petitions — Tạo đơn thư mới

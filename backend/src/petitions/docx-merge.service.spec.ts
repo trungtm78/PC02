@@ -14,8 +14,9 @@ import { DocxMergeService } from './docx-merge.service';
  *   → N-1 page break, đúng 1 sectPr (của A), chứa nội dung cả N.
  */
 function tpl(name: string): Buffer {
+  // PR4: 7 .docx mẫu đơn thư chuyển thành seed asset (prisma/seed-assets/petition-docx).
   return fs.readFileSync(
-    path.join(__dirname, '../../templates/docx', `${name}.docx`),
+    path.join(__dirname, '../../prisma/seed-assets/petition-docx', `${name}.docx`),
   );
 }
 function docXml(buf: Buffer): string {

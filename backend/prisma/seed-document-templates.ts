@@ -19,13 +19,13 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { detectDocxVariables } from '../src/document-templates/docx-variables.util';
 import { isAutoPlaceholder } from '../src/document-templates/entity-placeholders';
-import { DOCUMENT_TYPES } from '../src/document-templates/docx-loader.service';
 import {
   buildPetitionSeedVariables,
   markRequiredByDocType,
   PETITION_SEED_META,
+  PETITION_DOC_TYPES,
+  DOC_TYPE_TO_SERIES,
 } from '../src/document-templates/petition-seed';
-import { DOC_TYPE_TO_SERIES } from '../src/petitions/document-export.service';
 import { buildTemplateDocx } from './seed-assets/document-templates/docx-builder';
 import { TEMPLATE_SPECS } from './seed-assets/document-templates/registry';
 
@@ -122,12 +122,13 @@ export async function seedDocumentTemplates(prisma: PrismaClient): Promise<{ cre
   return { created, skipped };
 }
 
-/** Thư mục 7 file .docx tĩnh Đơn thư (nguồn cutover sang hệ động). */
+/**
+ * Thư mục 7 file .docx mẫu Đơn thư — SEED ASSET (đi cùng prisma/, được deploy ship).
+ * __dirname = backend/prisma (ts-node) → backend/prisma/seed-assets/petition-docx.
+ * (Trước PR4 đọc từ backend/templates/docx + dist asset của engine tĩnh; engine tĩnh đã gỡ.)
+ */
 function resolvePetitionDocxDir(): string {
-  // prisma/ → backend/templates/docx (dev ts-node) | dist/templates/docx (prod, nếu copy)
-  const src = path.resolve(__dirname, '..', 'templates', 'docx');
-  if (fs.existsSync(src)) return src;
-  return path.resolve(__dirname, '..', '..', 'templates', 'docx');
+  return path.resolve(__dirname, 'seed-assets', 'petition-docx');
 }
 
 /**
@@ -153,7 +154,7 @@ export async function seedPetitionTemplates(
   }
 
   const dir = resolvePetitionDocxDir();
-  for (const docType of DOCUMENT_TYPES) {
+  for (const docType of PETITION_DOC_TYPES) {
     const file = path.join(dir, `${docType}.docx`);
     if (!fs.existsSync(file)) {
       console.warn(`⚠ Thiếu file ${file} — bỏ qua ${docType}.`);

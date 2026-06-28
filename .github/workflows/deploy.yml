@@ -67,32 +67,19 @@ jobs:
       - name: Build backend
         run: cd backend && npm run build
 
-      - name: Verify docx templates bundled in dist
+      - name: Verify xlsx templates bundled in dist
         run: |
-          # PR2 v0.47.0.2 incident: nest-cli.json outDir misconfig caused
-          # backend/dist/templates/docx/docx/ (double-nested) → DocxTemplateLoader
-          # refused to boot → prod 502. Fail fast here instead of in production.
-          #
-          # Verify EXACT 6 names (not just count) — adversarial review caught the
-          # case where a count-only check passes with a missing required name
-          # plus an unrelated extra .docx file. Names must match DOCUMENT_TYPES
-          # exactly (see backend/src/document-templates/docx-loader.service.ts).
-          REQUIRED_DOCX="PHIEU_DE_XUAT PHIEU_CHUYEN_NGUON_TIN PHIEU_CHUYEN_DON THONG_BAO_CHUYEN THONG_BAO_HUONG_DAN THONG_BAO_TRA_LAI"
+          # Báo cáo Phụ lục (.xlsx) vẫn dùng loader tĩnh (XlsxTemplateLoaderService) →
+          # phải có trong dist. Verify EXACT 6 tên (không chỉ đếm).
+          # (PR4 đã gỡ engine .docx tĩnh — 7 mẫu Đơn thư giờ là SEED ASSET trong
+          #  backend/prisma/seed-assets/petition-docx, nạp vào DB qua db:seed:doc-templates,
+          #  KHÔNG bundle vào dist nữa.)
           REQUIRED_XLSX="PHU_LUC_01 PHU_LUC_02 PHU_LUC_03 PHU_LUC_04 PHU_LUC_05 PHU_LUC_06"
-          ls -la backend/dist/templates/docx/ || {
-            echo "::error::backend/dist/templates/docx/ does not exist — nest build assets failed"
-            exit 1
-          }
           ls -la backend/dist/templates/xlsx/ || {
-            echo "::error::backend/dist/templates/xlsx/ does not exist — nest build assets failed (PR4)"
+            echo "::error::backend/dist/templates/xlsx/ does not exist — nest build assets failed"
             exit 1
           }
           MISSING=""
-          for name in $REQUIRED_DOCX; do
-            if [ ! -f "backend/dist/templates/docx/${name}.docx" ]; then
-              MISSING="${MISSING} docx/${name}.docx"
-            fi
-          done
           for name in $REQUIRED_XLSX; do
             if [ ! -f "backend/dist/templates/xlsx/${name}.xlsx" ]; then
               MISSING="${MISSING} xlsx/${name}.xlsx"
@@ -102,7 +89,7 @@ jobs:
             echo "::error::Missing templates in dist:${MISSING}"
             exit 1
           fi
-          echo "All 6 docx + 6 xlsx required templates present."
+          echo "All 6 xlsx required templates present."
 
       - name: Install frontend deps
         run: cd frontend && npm ci

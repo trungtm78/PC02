@@ -1,6 +1,6 @@
 /**
- * PR4 — nút "In chứng từ" độc lập trên chi tiết đơn thư (edit mode).
- * Mở ExportDocumentsModal (7 mẫu hardcode) KHÔNG cần lưu lại; đóng popup → ở lại form
+ * Nút "In chứng từ" độc lập trên chi tiết đơn thư (edit mode).
+ * Mở DynamicExportDocumentsModal (engine ĐỘNG) KHÔNG cần lưu lại; đóng popup → ở lại form
  * (KHÔNG điều hướng về danh sách như nhánh "Lưu và xuất file").
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -38,9 +38,6 @@ vi.mock('@/features/document-templates/components/DynamicExportDocumentsModal', 
 }));
 
 // Stub child nặng (tự fetch) để render edit mode không crash.
-vi.mock('@/features/petitions/components/ExportDocumentDropdown', () => ({
-  ExportDocumentDropdown: () => <div data-testid="export-dropdown-stub" />,
-}));
 vi.mock('./PetitionAssignmentSection', () => ({
   PetitionAssignmentSection: () => <div data-testid="assignment-stub" />,
 }));

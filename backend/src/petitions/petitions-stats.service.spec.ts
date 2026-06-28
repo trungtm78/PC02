@@ -18,7 +18,6 @@ import { AuditService } from '../audit/audit.service';
 import { SettingsService } from '../settings/settings.service';
 import { DeadlineRulesService } from '../deadline-rules/deadline-rules.service';
 import { DocumentNumbersService } from '../document-numbers/document-numbers.service';
-import { DocumentExportService } from './document-export.service';
 import { PetitionStatus } from '@prisma/client';
 
 const mockPrisma = {
@@ -47,7 +46,6 @@ describe('PetitionsService.getStats — status count aggregation (PR2/T2)', () =
           useValue: { generate: jest.fn(), commitWithTx: jest.fn() },
         },
         { provide: EventEmitter2, useValue: { emit: jest.fn() } },
-        { provide: DocumentExportService, useValue: { exportDocument: jest.fn() } },
       ],
     }).compile();
     service = module.get(PetitionsService);

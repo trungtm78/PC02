@@ -1,4 +1,10 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { Response } from 'express';
 import { createHash } from 'crypto';
 import archiver from 'archiver';
@@ -279,6 +285,90 @@ export class DynamicExportService {
     res.send(deliverable.buf);
   }
 
+  /**
+   * Xuất ĐỒNG LOẠT 1 mẫu (theo `code`) cho NHIỀU hồ sơ → ZIP (mỗi hồ sơ 1 file + manifest.json).
+   * Mỗi hồ sơ render trong tx RIÊNG → 1 hồ sơ lỗi (thiếu trường/ngoài scope) KHÔNG abort cả lô
+   * (ghi vào manifest). Thay BatchExportService tĩnh (PR4) — dùng mẫu .docx ĐỘNG trong DB.
+   * `loadRecord` do controller cấp (đã check RBAC scope) → DynamicExportService không phụ thuộc
+   * service hồ sơ (tránh cycle). KHÔNG nhận manualValues (batch không có popup bổ sung).
+   */
+  async exportBatchByCode(
+    entityType: EntityType,
+    code: string,
+    entityIds: string[],
+    loadRecord: (id: string) => Promise<any>,
+    actorId: string,
+    res: Response,
+  ): Promise<void> {
+    if (!entityIds.length) {
+      throw new BadRequestException('Danh sách hồ sơ trống');
+    }
+    // Dedup id trùng → 1 đơn chỉ cấp 1 số văn bản (tránh nhảy/lãng phí số sổ — đối xứng
+    // với reject templateIds trùng ở exportEntityDocuments).
+    const ids = [...new Set(entityIds)];
+    const template = await this.prisma.documentTemplate.findFirst({
+      where: { entityType, code, deletedAt: null, status: 'active' },
+    });
+    if (!template) {
+      throw new BadRequestException(`Không tìm thấy mẫu chứng từ "${code}" cho loại hồ sơ này`);
+    }
+    // Lỗi CẤU HÌNH mẫu (cấp số nhưng thiếu series) áp dụng cho MỌI hồ sơ trong lô → kiểm 1 lần
+    // TRƯỚC vòng lặp + abort (codex P2: nếu để per-record catch sẽ che lỗi cấu hình thành "ok:false").
+    if (template.needsNumber && !template.numberSeriesId) {
+      throw new BadRequestException(`Mẫu "${code}" bật cấp số nhưng chưa cấu hình series số văn bản`);
+    }
+
+    const rendered: RenderedTemplate[] = [];
+    const manifest: Array<{ id: string; ok: boolean; documentNumber?: string; error?: string }> = [];
+    for (const id of ids) {
+      try {
+        const record = await loadRecord(id);
+        this.assertRequiredSatisfied(entityType, record, [template], {});
+        const r = await this.prisma.$transaction((tx: any) =>
+          this.renderTemplateInTx(tx, entityType, id, record, template, actorId, {}),
+        );
+        rendered.push({ ...r, filename: sanitizeFilename(`${code}_${r.documentNumber ?? id}.docx`) });
+        manifest.push({ id, ok: true, documentNumber: r.documentNumber });
+      } catch (e) {
+        // Lỗi NGHIỆP VỤ (thiếu trường bắt buộc) → ghi manifest, lô tiếp tục.
+        if (e instanceof BadRequestException) {
+          manifest.push({ id, ok: false, error: e.message });
+        } else if (e instanceof ForbiddenException || e instanceof NotFoundException) {
+          // Ngoài scope / không tồn tại → message TRUNG LẬP (chống IDOR-enumeration: không
+          // để client phân biệt id thật-ngoài-quyền vs id không tồn tại).
+          manifest.push({ id, ok: false, error: 'Không xử lý được hồ sơ (không tồn tại hoặc ngoài phạm vi)' });
+        } else {
+          // Lỗi HỆ THỐNG (DB down, series cấu hình sai…) → rethrow để ABORT lô + trả 5xx thật,
+          // KHÔNG che bằng "ok:false" khiến người dùng tưởng đã xuất.
+          throw e;
+        }
+      }
+    }
+
+    const zip = await this.buildBatchZip(rendered, manifest);
+    this.setDownloadHeaders(res, 'application/zip', `${code}_${this.dateStamp()}.zip`);
+    res.send(zip);
+  }
+
+  private buildBatchZip(
+    docs: RenderedTemplate[],
+    manifest: Array<{ id: string; ok: boolean; documentNumber?: string; error?: string }>,
+  ): Promise<Buffer> {
+    return new Promise<Buffer>((resolve, reject) => {
+      const archive = archiver('zip', { zlib: { level: 9 } });
+      const chunks: Buffer[] = [];
+      archive.on('data', (c: Buffer) => chunks.push(c));
+      archive.on('warning', (err) => this.logger.warn(`zip warning: ${err.message}`));
+      archive.on('error', reject);
+      archive.on('end', () => resolve(Buffer.concat(chunks)));
+      for (const d of docs) archive.append(d.buffer, { name: sanitizeFilename(d.filename) });
+      archive.append(JSON.stringify({ total: manifest.length, items: manifest }, null, 2), {
+        name: 'manifest.json',
+      });
+      void archive.finalize();
+    });
+  }
+
   private buildZipBuffer(docs: RenderedTemplate[]): Promise<Buffer> {
     return new Promise<Buffer>((resolve, reject) => {
       const archive = archiver('zip', { zlib: { level: 9 } });
@@ -294,7 +384,9 @@ export class DynamicExportService {
 
   private setDownloadHeaders(res: Response, contentType: string, filename: string): void {
     res.setHeader('Content-Type', contentType);
-    const ascii = filename.replace(/[^\x20-\x7E]/g, '_');
+    // Strip non-ASCII + ký tự phá cú pháp header (" \ ; CR LF) → chống header/filename injection
+    // khi filename chứa giá trị do admin cấu hình (vd template.code) — codex P2.
+    const ascii = filename.replace(/[^\x20-\x7E]/g, '_').replace(/["\\;\r\n]/g, '_');
     res.setHeader(
       'Content-Disposition',
       `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(filename)}`,
