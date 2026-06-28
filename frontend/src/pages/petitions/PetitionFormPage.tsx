@@ -341,7 +341,10 @@ export function PetitionFormPage() {
     setIsSubmitting(true);
     try {
       const payload = {
-        stt: formData.stt,
+        // KHÔNG gửi stt: "Số tiếp nhận" là số TỰ ĐỘNG (khoá, không nhập tay) — chỉ là PREVIEW từ
+        // draft(). Gửi số preview → backend dùng nhánh dto.stt (bỏ qua commitWithTx, counter không
+        // tăng) → số draft kế tiếp TRÙNG → ConflictException 409 cho mọi create sau. Bỏ stt → backend
+        // tự cấp atomic (commitWithTx re-sync dbMax, không trùng). Edit: không gửi → giữ stt cũ.
         receivedDate: formData.receivedDate,
         unit: formData.unit || undefined,
         assignedTeamId: formData.assignedTeamId || undefined,
@@ -404,12 +407,14 @@ export function PetitionFormPage() {
         savedUpdatedAt = (res?.data as { data?: { updatedAt?: string } } | undefined)?.data?.updatedAt;
       } else {
         const res = await api.post("/petitions", payload);
-        // Envelope {success, data:{id,updatedAt}} — không auto-unwrap (xem lib/api).
-        const data = (res?.data as { data?: { id?: string; updatedAt?: string } } | undefined)?.data;
+        // Envelope {success, data:{id,updatedAt,stt}} — không auto-unwrap (xem lib/api).
+        const data = (res?.data as { data?: { id?: string; updatedAt?: string; stt?: string } } | undefined)?.data;
         savedId = data?.id ?? null;
         savedUpdatedAt = data?.updatedAt;
         // PR2: chuyển sang "effective edit" để lưu lần kế = PUT (không tạo đơn trùng).
         if (savedId) setCreatedId(savedId);
+        // Hiển thị SỐ TIẾP NHẬN THẬT do backend cấp (khác preview draft) để form khỏi lệch.
+        if (data?.stt) setFormData((p) => ({ ...p, stt: data.stt as string }));
       }
       // Refresh optimistic-lock baseline từ response: nếu không, lưu lần 2 (vd sau "Lưu và xuất
       // file" ở lại form) gửi recordUpdatedAt CŨ → BE P2025 → 409 "đã được chỉnh sửa bởi người
@@ -426,12 +431,14 @@ export function PetitionFormPage() {
       return { ok: true, id: savedId, uploadFailed };
     } catch (err: unknown) {
       const status = (err as { response?: { status?: number } })?.response?.status;
-      if (status === 409) {
+      // 409 CHỈ là optimistic-lock khi đang SỬA (effectiveEdit). Khi TẠO mới, 409 là lỗi khác
+      // (vd trùng số tiếp nhận) → hiển thị message THẬT của backend, không gán nhầm "người khác sửa".
+      if (status === 409 && effectiveEdit) {
         setErrors(["Đơn thư đã được chỉnh sửa bởi người dùng khác. Vui lòng tải lại trang để xem phiên bản mới nhất trước khi chỉnh sửa."]);
-        window.scrollTo({ top: 0, behavior: "smooth" });
       } else {
         setErrors(extractApiError(err, "Có lỗi xảy ra khi lưu đơn thư. Vui lòng thử lại.").messages);
       }
+      window.scrollTo({ top: 0, behavior: "smooth" });
       return { ok: false, id: null };
     } finally {
       savingRef.current = false;
