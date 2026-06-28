@@ -264,5 +264,14 @@ describe('DynamicExportService', () => {
         svc.exportBatchByCode('DON_THU', 'BIEN_NHAN', [], jest.fn(), 'u1', plainRes()),
       ).rejects.toThrow('trống');
     });
+
+    it('[P2] mẫu cấu hình sai (needsNumber nhưng thiếu series) → ABORT lô (không che per-record)', async () => {
+      prisma.documentTemplate.findFirst.mockResolvedValue({ ...TPL, numberSeriesId: null });
+      const load = jest.fn(async (id: string) => ({ id, senderName: 'A' }));
+      await expect(
+        svc.exportBatchByCode('DON_THU', 'BIEN_NHAN', ['p1', 'p2'], load, 'u1', plainRes()),
+      ).rejects.toThrow('chưa cấu hình series');
+      expect(load).not.toHaveBeenCalled(); // fail TRƯỚC vòng lặp
+    });
   });
 });

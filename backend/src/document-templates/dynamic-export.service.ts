@@ -312,6 +312,11 @@ export class DynamicExportService {
     if (!template) {
       throw new BadRequestException(`Không tìm thấy mẫu chứng từ "${code}" cho loại hồ sơ này`);
     }
+    // Lỗi CẤU HÌNH mẫu (cấp số nhưng thiếu series) áp dụng cho MỌI hồ sơ trong lô → kiểm 1 lần
+    // TRƯỚC vòng lặp + abort (codex P2: nếu để per-record catch sẽ che lỗi cấu hình thành "ok:false").
+    if (template.needsNumber && !template.numberSeriesId) {
+      throw new BadRequestException(`Mẫu "${code}" bật cấp số nhưng chưa cấu hình series số văn bản`);
+    }
 
     const rendered: RenderedTemplate[] = [];
     const manifest: Array<{ id: string; ok: boolean; documentNumber?: string; error?: string }> = [];
@@ -379,7 +384,9 @@ export class DynamicExportService {
 
   private setDownloadHeaders(res: Response, contentType: string, filename: string): void {
     res.setHeader('Content-Type', contentType);
-    const ascii = filename.replace(/[^\x20-\x7E]/g, '_');
+    // Strip non-ASCII + ký tự phá cú pháp header (" \ ; CR LF) → chống header/filename injection
+    // khi filename chứa giá trị do admin cấu hình (vd template.code) — codex P2.
+    const ascii = filename.replace(/[^\x20-\x7E]/g, '_').replace(/["\\;\r\n]/g, '_');
     res.setHeader(
       'Content-Disposition',
       `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(filename)}`,
