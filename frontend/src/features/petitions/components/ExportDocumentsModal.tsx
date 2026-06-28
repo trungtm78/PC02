@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { FileText, X, Loader2, AlertCircle } from "lucide-react";
 import { api } from "@/lib/api";
 import { extractApiError } from "@/lib/api-errors";
@@ -31,7 +31,11 @@ export function ExportDocumentsModal({ petitionId, onClose, onPetitionPatched }:
   const [isExporting, setIsExporting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const fetchReadiness = useCallback(async () => {
+  const prevReadyRef = useRef<Set<string>>(new Set());
+
+  // preserve=false (lần đầu): tick mọi mẫu đủ. preserve=true (sau khi lưu bổ sung): GIỮ lựa chọn
+  // của user (kể cả mẫu đủ user đã bỏ tick) + chỉ tự tick mẫu VỪA chuyển sang đủ (codex#1).
+  const fetchReadiness = useCallback(async (preserve = false) => {
     const res = await api.get(`/petitions/${petitionId}/export-readiness`);
     const data = (res?.data as { data?: { items?: Array<{ docType: string; ready: boolean; missing: ReadinessItem["missing"] }>; updatedAt?: string } })?.data;
     const map: Record<string, ReadinessItem> = {};
@@ -41,13 +45,21 @@ export function ExportDocumentsModal({ petitionId, onClose, onPetitionPatched }:
       if (it.ready) readyKeys.push(it.docType);
     }
     setReadiness(map);
-    setRecordUpdatedAt(data?.updatedAt);
-    setSelected(new Set(readyKeys)); // chỉ mẫu ĐỦ được tick (mẫu thiếu auto bỏ check)
+    if (data?.updatedAt) setRecordUpdatedAt(data.updatedAt);
+    const prevReady = prevReadyRef.current; // capture TRƯỚC khi gán lại (updater chạy async)
+    setSelected((prev) => {
+      if (!preserve) return new Set(readyKeys);
+      const newlyReady = readyKeys.filter((k) => !prevReady.has(k));
+      const next = new Set([...prev].filter((k) => readyKeys.includes(k)));
+      newlyReady.forEach((k) => next.add(k));
+      return next;
+    });
+    prevReadyRef.current = new Set(readyKeys);
   }, [petitionId]);
 
   useEffect(() => {
     setLoadingReadiness(true);
-    fetchReadiness().catch(() => setReadiness({})).finally(() => setLoadingReadiness(false));
+    fetchReadiness(false).catch(() => setReadiness({})).finally(() => setLoadingReadiness(false));
   }, [fetchReadiness]);
 
   const toggle = (key: string) =>
@@ -67,8 +79,10 @@ export function ExportDocumentsModal({ petitionId, onClose, onPetitionPatched }:
     try {
       const res = await api.put(`/petitions/${petitionId}`, { ...payload, expectedUpdatedAt: recordUpdatedAt });
       const newUpdatedAt = (res?.data as { data?: { updatedAt?: string } } | undefined)?.data?.updatedAt;
+      // Set NGAY từ response PUT: kể cả re-fetch lỗi thì recordUpdatedAt vẫn mới → retry không 409 (codex#3).
+      if (newUpdatedAt) setRecordUpdatedAt(newUpdatedAt);
       onPetitionPatched?.(newUpdatedAt, payload as Record<string, string>);
-      await fetchReadiness();
+      await fetchReadiness(true); // giữ lựa chọn user, chỉ tự tick mẫu vừa đủ
       setFillValues({});
     } catch (err) {
       setErrorMsg(extractApiError(err, "Không lưu được thông tin bổ sung.").messages.join(". "));

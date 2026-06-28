@@ -1101,9 +1101,14 @@ export function PetitionFormPage() {
           }}
           onPetitionPatched={(updatedAt, fields) => {
             // Popup vừa PUT bổ sung trường thiếu → đồng bộ form: refresh mốc optimistic-lock +
-            // các field vừa lưu, để lần lưu form sau không 409 và không ghi đè bổ sung.
+            // các field vừa lưu. Cập nhật LUÔN savedSnapshotRef để form KHÔNG bị coi là dirty
+            // (các field đã lưu vào DB) → không chặn nút export cũ (ExportDocumentDropdown) (codex#2).
             if (updatedAt) setRecordUpdatedAt(updatedAt);
-            setFormData((prev) => ({ ...prev, ...(fields as Partial<typeof prev>) }));
+            setFormData((prev) => {
+              const next = { ...prev, ...(fields as Partial<typeof prev>) };
+              savedSnapshotRef.current = JSON.stringify(next);
+              return next;
+            });
           }}
         />
       )}
