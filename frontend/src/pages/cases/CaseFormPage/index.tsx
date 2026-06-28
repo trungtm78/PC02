@@ -285,14 +285,21 @@ function CaseFormPage() {
         // documentIds: mediaFiles.map((m) => m.id),
       });
       let savedId: string | null;
+      let savedUpdatedAt: string | undefined;
       if (isEditMode) {
-        await api.put(`/cases/${id}`, { ...payload, expectedUpdatedAt: recordUpdatedAt ?? undefined });
+        const res = await api.put(`/cases/${id}`, { ...payload, expectedUpdatedAt: recordUpdatedAt ?? undefined });
         savedId = id ?? null;
+        savedUpdatedAt = (res?.data as { data?: { updatedAt?: string } } | undefined)?.data?.updatedAt;
       } else {
         const res = await api.post("/cases", payload);
-        // Envelope {success, data:{id}} (cases.service.create) → bắt id để mở modal xuất chứng từ.
-        savedId = (res?.data as { data?: { id?: string } } | undefined)?.data?.id ?? null;
+        // Envelope {success, data:{id,updatedAt}} (cases.service.create) → bắt id + updatedAt.
+        const data = (res?.data as { data?: { id?: string; updatedAt?: string } } | undefined)?.data;
+        savedId = data?.id ?? null;
+        savedUpdatedAt = data?.updatedAt;
       }
+      // Refresh optimistic-lock baseline từ response → lưu lần 2 (sau "Lưu và xuất file" ở lại form)
+      // không gửi recordUpdatedAt cũ gây 409 "đã được chỉnh sửa bởi người dùng khác".
+      if (savedUpdatedAt) setRecordUpdatedAt(savedUpdatedAt);
       localStorage.removeItem('caseFormDraft');
       setShowPreSaveSummary(false);
       // "Lưu và xuất file" → mở popup xuất chứng từ động (không alert/điều hướng ngay).
