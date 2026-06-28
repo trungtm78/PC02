@@ -148,6 +148,23 @@ describe('DynamicExportService', () => {
       expect(prisma.documentRenderLog.create.mock.calls[0][0].data.petitionId).toBe('p1');
     });
 
+    it('[codex P2] soVanBan required KHÔNG chặn (engine cấp, bỏ khỏi validate)', async () => {
+      const T = { ...DT, variables: [{ name: 'soVanBan', source: 'auto', field: 'soVanBan', required: true }] };
+      prisma.documentTemplate.findMany.mockResolvedValue([T]);
+      // record rỗng + không manualValues → vẫn KHÔNG throw (soVanBan do engine cấp)
+      await svc.exportEntityDocuments('DON_THU', 'p1', { senderName: '', unit: 'u1' }, ['d1'], 'merged', 'u1', {}, plainRes());
+      expect(docNums.commitWithTx).toHaveBeenCalledTimes(1);
+    });
+
+    it('[codex P2] manualValues value non-string → KHÔNG crash 500 (String coerce)', async () => {
+      const T = { ...DT, variables: [{ name: 'ghiChu', source: 'manual', required: true }] };
+      prisma.documentTemplate.findMany.mockResolvedValue([T]);
+      // value là number → String(123)="123" non-empty → qua validate, không TypeError
+      await expect(
+        svc.exportEntityDocuments('DON_THU', 'p1', { unit: 'u1' }, ['d1'], 'merged', 'u1', { ghiChu: 123 as any }, plainRes()),
+      ).resolves.toBeUndefined();
+    });
+
     it('readiness DON_THU: cột phẳng → savable=true + column (FE PUT lưu đơn)', async () => {
       prisma.documentTemplate.findMany.mockResolvedValue([
         { id: 'd1', code: 'PHIEU_DE_XUAT', variables: [{ name: 'ghiTen', source: 'auto', field: 'ghiTen', required: true }] },

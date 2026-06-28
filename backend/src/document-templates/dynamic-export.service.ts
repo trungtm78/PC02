@@ -134,7 +134,9 @@ export class DynamicExportService {
       const vars = (t.variables as TemplateVariable[] | null) ?? [];
       for (const v of vars) {
         if (!v.required) continue;
-        const manual = (manualValues[v.name] ?? '').trim();
+        if ((v.field ?? v.name) === 'soVanBan') continue; // số cấp lúc in, không validate required
+        // String() coerce — manualValues value có thể không phải string (codex P2: tránh .trim() crash 500).
+        const manual = String(manualValues[v.name] ?? '').trim();
         if (manual) continue; // người dùng đã nhập tại popup
         if (v.source === 'manual') {
           missing.add(v.label || v.name);
@@ -232,6 +234,11 @@ export class DynamicExportService {
     if (templateIds.length !== new Set(templateIds).size) {
       throw new BadRequestException('templateIds không được trùng lặp');
     }
+    // [codex P2] soVanBan CHỈ do engine cấp (số văn bản) — strip khỏi manualValues để client
+    // không forge số văn bản (khi template có {soVanBan} mà needsNumber=false).
+    const { soVanBan: _ignored, ...manualSafe } = manualValues ?? {};
+    void _ignored;
+    manualValues = manualSafe;
     // Load + pre-validate templates (tồn tại, đúng entityType, active) TRƯỚC khi vào tx.
     const templates = await this.prisma.documentTemplate.findMany({
       where: { id: { in: templateIds }, deletedAt: null, status: 'active' },

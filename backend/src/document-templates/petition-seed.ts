@@ -54,6 +54,14 @@ export function buildPetitionSeedVariables(
         `Cập nhật field-catalog hoặc sửa file mẫu trước khi seed.`,
     );
   }
+  // GATE 2 (codex P2): trường bắt buộc per docType PHẢI có placeholder trong file — không
+  // silently bỏ business-required (giữ đúng rule static getMissingFieldsForDocType).
+  const missingReq = required.filter((r) => !detected.includes(r));
+  if (missingReq.length > 0) {
+    throw new Error(
+      `Mẫu ${docType}: thiếu placeholder bắt buộc trong file — ${missingReq.join(', ')}.`,
+    );
+  }
   return detected.map((name) => ({
     name,
     label: name,
@@ -61,4 +69,16 @@ export function buildPetitionSeedVariables(
     field: name,
     required: required.includes(name),
   }));
+}
+
+/**
+ * (codex P1) Backfill cờ `required` lên `variables` ĐÃ CÓ trong DB (KHÔNG re-detect từ file đĩa —
+ * tránh ghi đè mapping admin đã sửa / lệch fileBytes thực). Chỉ set required theo rule docType.
+ */
+export function markRequiredByDocType(
+  docType: DocumentType,
+  variables: TemplateVariable[],
+): TemplateVariable[] {
+  const required = new Set(REQUIRED_BY_DOCTYPE[docType] ?? []);
+  return variables.map((v) => ({ ...v, required: required.has(v.name) }));
 }

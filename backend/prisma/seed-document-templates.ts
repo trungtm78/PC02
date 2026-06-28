@@ -22,6 +22,7 @@ import { isAutoPlaceholder } from '../src/document-templates/entity-placeholders
 import { DOCUMENT_TYPES } from '../src/document-templates/docx-loader.service';
 import {
   buildPetitionSeedVariables,
+  markRequiredByDocType,
   PETITION_SEED_META,
 } from '../src/document-templates/petition-seed';
 import { DOC_TYPE_TO_SERIES } from '../src/petitions/document-export.service';
@@ -168,10 +169,12 @@ export async function seedPetitionTemplates(
     });
     if (existing) {
       skipped++;
-      const curVars = (existing.variables as Array<{ required?: boolean }>) ?? [];
+      const curVars = (existing.variables as Array<{ name: string; required?: boolean }>) ?? [];
       const alreadyConfigured = curVars.some((v) => v.required === true);
       if (!alreadyConfigured) {
-        const vars = buildPetitionSeedVariables(docType, buffer);
+        // codex P1: backfill required TRÊN variables DB hiện có (KHÔNG re-detect file đĩa →
+        // không ghi đè mapping/fileBytes admin đã sửa).
+        const vars = markRequiredByDocType(docType, curVars as any);
         await (prisma as any).documentTemplate.update({
           where: { id: existing.id },
           data: { variables: vars },

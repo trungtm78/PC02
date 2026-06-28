@@ -1,5 +1,9 @@
 import PizZip from 'pizzip';
-import { buildPetitionSeedVariables, PETITION_SEED_META } from './petition-seed';
+import {
+  buildPetitionSeedVariables,
+  markRequiredByDocType,
+  PETITION_SEED_META,
+} from './petition-seed';
 
 /** docx tối thiểu chứa các placeholder cho trước. */
 function docx(text: string): Buffer {
@@ -21,7 +25,7 @@ describe('petition-seed', () => {
   it('required theo docType: PHIEU_DE_XUAT cần nhanThay + deXuat', () => {
     const vars = buildPetitionSeedVariables(
       'PHIEU_DE_XUAT',
-      docx('{ghiTen} {nhanThay} {deXuat} {dinhKem}'),
+      docx('{ghiTen} {noiDung} {nhanThay} {deXuat} {dinhKem}'),
     );
     const req = vars.filter((v) => v.required).map((v) => v.name);
     expect(req).toEqual(expect.arrayContaining(['ghiTen', 'nhanThay', 'deXuat']));
@@ -32,6 +36,24 @@ describe('petition-seed', () => {
     expect(() => buildPetitionSeedVariables('BIEN_NHAN', docx('{ghiTen} {khongCoTrongCatalog}'))).toThrow(
       /ngoài catalog DON_THU/,
     );
+  });
+
+  it('[codex P2] GATE: thiếu placeholder bắt buộc trong file → throw', () => {
+    // PHIEU_DE_XUAT cần nhanThay+deXuat; file chỉ có ghiTen+noiDung → thiếu → throw.
+    expect(() => buildPetitionSeedVariables('PHIEU_DE_XUAT', docx('{ghiTen} {noiDung}'))).toThrow(
+      /thiếu placeholder bắt buộc/,
+    );
+  });
+
+  it('[codex P1] markRequiredByDocType: set required theo tên TRÊN variables DB (không re-detect file)', () => {
+    const dbVars = [
+      { name: 'ghiTen', label: 'Tên tuỳ chỉnh', source: 'auto' as const, field: 'senderCustom', required: false },
+      { name: 'dinhKem', label: 'dinhKem', source: 'manual' as const },
+    ];
+    const out = markRequiredByDocType('BIEN_NHAN', dbVars);
+    // giữ nguyên mapping cũ (label/field admin sửa), chỉ đổi required
+    expect(out[0]).toMatchObject({ label: 'Tên tuỳ chỉnh', field: 'senderCustom', required: true });
+    expect(out[1].required).toBe(false);
   });
 
   it('PETITION_SEED_META đủ 7 docType với category hợp lệ', () => {
