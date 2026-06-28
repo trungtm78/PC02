@@ -68,12 +68,19 @@ export async function seedDocumentTemplates(prisma: PrismaClient): Promise<{ cre
     });
     if (existing) {
       skipped++;
-      // PR2: refresh CỜ `required` trên variables hiện có (không đụng file/nội dung admin đã sửa).
-      // An toàn vì admin-UI sửa required chưa có → không mất admin-edit. (Bỏ khi admin-UI ra.)
-      const req = new Set(REQUIRED_VARS[spec.code] ?? []);
-      const vars = ((existing.variables as Array<{ name: string }>) ?? []).map((v) => ({ ...v, required: req.has(v.name) }));
-      await (prisma as any).documentTemplate.update({ where: { id: existing.id }, data: { variables: vars } });
-      console.log(`  ↻ ${spec.entityType}/${spec.code} refresh required (${[...req].length} biến bắt buộc).`);
+      // PR2: BACKFILL cờ `required` mặc định CHỈ KHI mẫu CHƯA từng cấu hình required (mọi biến
+      // required falsy). Nếu admin/API đã set required (có ≥1 biến required:true) → GIỮ NGUYÊN,
+      // không ghi đè (tôn trọng contract "không ghi đè bản admin đã sửa" — codex PR2).
+      const curVars = (existing.variables as Array<{ name: string; required?: boolean }>) ?? [];
+      const alreadyConfigured = curVars.some((v) => v.required === true);
+      if (!alreadyConfigured) {
+        const req = new Set(REQUIRED_VARS[spec.code] ?? []);
+        const vars = curVars.map((v) => ({ ...v, required: req.has(v.name) }));
+        await (prisma as any).documentTemplate.update({ where: { id: existing.id }, data: { variables: vars } });
+        console.log(`  ↻ ${spec.entityType}/${spec.code} backfill required (${[...req].length} biến).`);
+      } else {
+        console.log(`  → ${spec.entityType}/${spec.code} đã có cấu hình required (admin) — giữ nguyên.`);
+      }
       continue;
     }
 
