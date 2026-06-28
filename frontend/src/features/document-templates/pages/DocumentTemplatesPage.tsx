@@ -83,7 +83,7 @@ export default function DocumentTemplatesPage() {
       {/* KHÔNG overflow-hidden: để menu kebab (Xoá) hàng cuối không bị bảng cắt (codex P2). */}
       <div className="rounded-lg border border-slate-200">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-slate-600">
+          <thead className="border-b-2 border-slate-200 bg-slate-100 text-slate-600">
             <tr>
               <th className="px-3 py-2.5 text-left font-medium">Mã</th>
               <th className="px-3 py-2.5 text-left font-medium">Tên mẫu</th>
@@ -94,9 +94,9 @@ export default function DocumentTemplatesPage() {
               <th className="px-3 py-2.5 text-right font-medium">Thao tác</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-slate-200">
             {items.map((t) => (
-              <tr key={t.id} className="hover:bg-slate-50/60">
+              <tr key={t.id} className="bg-white even:bg-slate-50 hover:bg-blue-50/60">
                 <td className="px-3 py-2.5 font-mono text-xs">{t.code}</td>
                 <td className="px-3 py-2.5">{t.name}</td>
                 <td className="px-3 py-2.5">{ENTITY_LABEL[t.entityType] ?? t.entityType}</td>
