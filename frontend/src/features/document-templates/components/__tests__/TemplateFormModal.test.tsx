@@ -25,7 +25,17 @@ beforeEach(() => {
     ],
   });
   mApi.createTemplate.mockResolvedValue({ id: 't1' } as never);
+  mApi.updateTemplate.mockResolvedValue({ id: 't9' } as never);
+  mApi.replaceTemplateFile.mockResolvedValue({ id: 't9' } as never);
 });
+
+const EDIT_TPL = {
+  id: 't9', code: 'QD_KT', name: 'QĐ khởi tố', entityType: 'VU_AN',
+  category: 'Quyết định', fileName: 'qd.docx', fileSha: 'x',
+  delimStart: '[[', delimEnd: ']]',
+  variables: [{ name: 'tenVuAn', source: 'auto' as const, label: 'tenVuAn', field: 'tenVuAn' }],
+  needsNumber: false, numberSeriesId: null, status: 'active', sortOrder: 0,
+} as const;
 
 function uploadFile() {
   const file = new File(['docx'], 'mau.docx', {
@@ -104,5 +114,39 @@ describe('TemplateFormModal', () => {
     fireEvent.click(screen.getByTestId('template-needs-number'));
     expect(await screen.findByTestId('template-number-series')).toBeInTheDocument();
     expect(screen.getByTestId('btn-save-template')).toBeDisabled();
+  });
+
+  describe('chế độ Sửa', () => {
+    it('pre-fill + tiêu đề "Sửa"; mã + loại read-only; hiện mapping sẵn (không cần file)', () => {
+      render(<TemplateFormModal template={EDIT_TPL as never} onClose={vi.fn()} onSaved={vi.fn()} />);
+      expect(screen.getByText('Sửa mẫu chứng từ')).toBeInTheDocument();
+      expect(screen.getByTestId('template-code-input')).toBeDisabled();
+      expect(screen.getByTestId('template-name-input')).toHaveValue('QĐ khởi tố');
+      expect(screen.getByTestId('template-entity-readonly')).toBeInTheDocument();
+      expect(screen.queryByTestId('template-entity-select')).not.toBeInTheDocument();
+      // mapping sẵn từ template (không cần upload)
+      expect(screen.getByTestId('var-row-tenVuAn')).toBeInTheDocument();
+    });
+
+    it('lưu không file mới → updateTemplate(id, {variables,...}); KHÔNG replaceTemplateFile', async () => {
+      const onSaved = vi.fn();
+      render(<TemplateFormModal template={EDIT_TPL as never} onClose={vi.fn()} onSaved={onSaved} />);
+      fireEvent.change(screen.getByTestId('template-name-input'), { target: { value: 'Tên mới' } });
+      fireEvent.click(screen.getByTestId('btn-save-template'));
+      await waitFor(() => expect(mApi.updateTemplate).toHaveBeenCalled());
+      expect(mApi.updateTemplate.mock.calls[0][0]).toBe('t9');
+      expect(mApi.updateTemplate.mock.calls[0][1]).toMatchObject({ name: 'Tên mới' });
+      expect(mApi.replaceTemplateFile).not.toHaveBeenCalled();
+      expect(onSaved).toHaveBeenCalled();
+    });
+
+    it('lưu có file mới → replaceTemplateFile THEN updateTemplate', async () => {
+      render(<TemplateFormModal template={EDIT_TPL as never} onClose={vi.fn()} onSaved={vi.fn()} />);
+      uploadFile();
+      await waitFor(() => screen.getByTestId('var-row-Họ tên')); // detect lại file mới
+      fireEvent.click(screen.getByTestId('btn-save-template'));
+      await waitFor(() => expect(mApi.updateTemplate).toHaveBeenCalled());
+      expect(mApi.replaceTemplateFile).toHaveBeenCalledWith('t9', expect.any(File));
+    });
   });
 });

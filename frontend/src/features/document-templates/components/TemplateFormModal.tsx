@@ -1,6 +1,13 @@
 import { useEffect, useState } from 'react';
-import { createTemplate, detectVariables, getFieldCatalog } from '../api';
-import type { FieldCatalogItem, TemplateVariable } from '../types';
+import { Upload } from 'lucide-react';
+import {
+  createTemplate,
+  detectVariables,
+  getFieldCatalog,
+  updateTemplate,
+  replaceTemplateFile,
+} from '../api';
+import type { DocumentTemplate, FieldCatalogItem, TemplateVariable } from '../types';
 import { documentNumbersApi } from '@/features/document-numbers/api';
 import type { DocumentNumberTemplate } from '@/features/document-numbers/types';
 
@@ -9,6 +16,9 @@ const ENTITY_OPTIONS: { value: string; label: string }[] = [
   { value: 'VU_VIEC', label: 'Vụ việc' },
   { value: 'DON_THU', label: 'Đơn thư' },
 ];
+const ENTITY_LABEL: Record<string, string> = Object.fromEntries(
+  ENTITY_OPTIONS.map((o) => [o.value, o.label]),
+);
 const CATEGORY_OPTIONS = ['Quyết định', 'Biên bản', 'Lệnh', 'Thông báo', 'Giấy chứng nhận', 'Kết luận', 'Khác'];
 
 /** Preset ký tự mở/đóng placeholder. 2 ký tự (`[[ ]]`, `«»`) ít bị Word tách run hơn. */
@@ -20,41 +30,52 @@ const DELIM_PRESETS: { label: string; start: string; end: string }[] = [
   { label: 'Tùy chỉnh', start: '', end: '' },
 ];
 
+function presetIndexFor(start: string, end: string): number {
+  const i = DELIM_PRESETS.findIndex((p) => p.start === start && p.end === end);
+  return i >= 0 ? i : DELIM_PRESETS.length - 1; // custom
+}
+
 interface Props {
   onClose: () => void;
   onSaved: () => void;
+  /** Có => chế độ SỬA (pre-fill, PATCH). Không => TẠO MỚI. */
+  template?: DocumentTemplate;
 }
 
-/** Modal admin: upload .docx + chọn delimiter + map placeholder→field (no-code) → tạo template động. */
-export function TemplateFormModal({ onClose, onSaved }: Props) {
-  const [code, setCode] = useState('');
-  const [name, setName] = useState('');
-  const [entityType, setEntityType] = useState('VU_AN');
-  const [category, setCategory] = useState('Quyết định');
-  const [needsNumber, setNeedsNumber] = useState(false);
-  const [numberSeriesId, setNumberSeriesId] = useState('');
+/** Modal admin: tạo/sửa template động — upload .docx + chọn delimiter + map placeholder→field (no-code). */
+export function TemplateFormModal({ onClose, onSaved, template }: Props) {
+  const isEdit = !!template;
+  const [code, setCode] = useState(template?.code ?? '');
+  const [name, setName] = useState(template?.name ?? '');
+  const [entityType, setEntityType] = useState<string>(template?.entityType ?? 'VU_AN');
+  const [category, setCategory] = useState(template?.category ?? 'Quyết định');
+  const [needsNumber, setNeedsNumber] = useState(template?.needsNumber ?? false);
+  const [numberSeriesId, setNumberSeriesId] = useState(template?.numberSeriesId ?? '');
   const [seriesOptions, setSeriesOptions] = useState<DocumentNumberTemplate[]>([]);
-  const [sortOrder, setSortOrder] = useState(0);
+  const [sortOrder, setSortOrder] = useState(template?.sortOrder ?? 0);
   const [file, setFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  // Delimiter (mặc định { }).
-  const [presetIdx, setPresetIdx] = useState(0);
-  const [delimStart, setDelimStart] = useState('{');
-  const [delimEnd, setDelimEnd] = useState('}');
+  const initStart = template?.delimStart ?? '{';
+  const initEnd = template?.delimEnd ?? '}';
+  const [presetIdx, setPresetIdx] = useState(presetIndexFor(initStart, initEnd));
+  const [delimStart, setDelimStart] = useState(initStart);
+  const [delimEnd, setDelimEnd] = useState(initEnd);
 
-  // Mapping biến phát hiện + danh mục field.
-  const [variables, setVariables] = useState<TemplateVariable[]>([]);
+  // Mapping biến + danh mục field. Edit: khởi từ template.variables.
+  const [variables, setVariables] = useState<TemplateVariable[]>(template?.variables ?? []);
   const [catalog, setCatalog] = useState<FieldCatalogItem[]>([]);
   const [detecting, setDetecting] = useState(false);
+
+  // Đổi delimiter chỉ cho phép khi tạo mới hoặc khi đã chọn file mới (cần detect lại).
+  const delimLocked = isEdit && !file;
 
   useEffect(() => {
     documentNumbersApi.listTemplates().then(setSeriesOptions).catch(() => setSeriesOptions([]));
   }, []);
 
-  // Danh mục field theo loại hồ sơ (cho dropdown map). Guard chống response cũ resolve sau
-  // (đổi entity nhanh) ghi đè catalog của entity hiện tại → tránh dropdown sai catalog.
+  // Danh mục field theo loại hồ sơ. Guard chống response cũ resolve sau.
   useEffect(() => {
     let cancelled = false;
     getFieldCatalog(entityType)
@@ -69,12 +90,13 @@ export function TemplateFormModal({ onClose, onSaved }: Props) {
     };
   }, [entityType]);
 
-  // Phát hiện placeholder khi đủ file + entity + delimiter → gợi ý mapping.
+  // Detect khi có FILE MỚI. Edit không file mới → giữ nguyên mapping của template.
   useEffect(() => {
-    if (!file || !delimStart || !delimEnd) {
-      setVariables([]);
+    if (!file) {
+      if (!isEdit) setVariables([]);
       return;
     }
+    if (!delimStart || !delimEnd) return;
     let cancelled = false;
     setDetecting(true);
     setError('');
@@ -94,7 +116,7 @@ export function TemplateFormModal({ onClose, onSaved }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [file, entityType, delimStart, delimEnd]);
+  }, [file, entityType, delimStart, delimEnd, isEdit]);
 
   function applyPreset(idx: number) {
     setPresetIdx(idx);
@@ -110,44 +132,62 @@ export function TemplateFormModal({ onClose, onSaved }: Props) {
   }
 
   const canSave =
-    !!file &&
+    (isEdit || !!file) &&
     code.trim() !== '' &&
     name.trim() !== '' &&
     delimStart !== '' &&
     delimEnd !== '' &&
     delimStart !== delimEnd &&
     delimStart.length <= 8 &&
-    delimEnd.length <= 8 && // khớp giới hạn BE @MaxLength(8) — chặn trước khi submit
+    delimEnd.length <= 8 &&
     (!needsNumber || numberSeriesId !== '') &&
     !detecting &&
     !saving &&
-    // mọi biến auto phải đã chọn field
     variables.every((v) => v.source !== 'auto' || !!v.field);
 
+  function parseErr(e: unknown): string {
+    return (
+      (e as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error
+        ?.message ?? 'Lưu mẫu thất bại'
+    );
+  }
+
   async function handleSave() {
-    if (!canSave || !file) return;
+    if (!canSave) return;
     setSaving(true);
     setError('');
     try {
-      const form = new FormData();
-      form.append('code', code.trim());
-      form.append('name', name.trim());
-      form.append('entityType', entityType);
-      form.append('category', category);
-      form.append('needsNumber', String(needsNumber));
-      if (needsNumber && numberSeriesId) form.append('numberSeriesId', numberSeriesId);
-      form.append('sortOrder', String(sortOrder));
-      form.append('delimStart', delimStart);
-      form.append('delimEnd', delimEnd);
-      form.append('variables', JSON.stringify(variables));
-      form.append('file', file);
-      await createTemplate(form);
+      if (isEdit && template) {
+        if (file) await replaceTemplateFile(template.id, file);
+        await updateTemplate(template.id, {
+          name: name.trim(),
+          category,
+          needsNumber,
+          numberSeriesId: needsNumber ? numberSeriesId : null,
+          sortOrder,
+          delimStart,
+          delimEnd,
+          variables,
+        });
+      } else {
+        if (!file) return;
+        const form = new FormData();
+        form.append('code', code.trim());
+        form.append('name', name.trim());
+        form.append('entityType', entityType);
+        form.append('category', category);
+        form.append('needsNumber', String(needsNumber));
+        if (needsNumber && numberSeriesId) form.append('numberSeriesId', numberSeriesId);
+        form.append('sortOrder', String(sortOrder));
+        form.append('delimStart', delimStart);
+        form.append('delimEnd', delimEnd);
+        form.append('variables', JSON.stringify(variables));
+        form.append('file', file);
+        await createTemplate(form);
+      }
       onSaved();
     } catch (e: unknown) {
-      const msg =
-        (e as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error
-          ?.message ?? 'Lưu mẫu thất bại';
-      setError(msg);
+      setError(parseErr(e));
     } finally {
       setSaving(false);
     }
@@ -159,13 +199,16 @@ export function TemplateFormModal({ onClose, onSaved }: Props) {
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
     >
       <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white p-5 shadow-xl">
-        <h2 className="mb-4 text-lg font-semibold">Thêm mẫu chứng từ</h2>
+        <h2 className="mb-4 text-lg font-semibold">
+          {isEdit ? 'Sửa mẫu chứng từ' : 'Thêm mẫu chứng từ'}
+        </h2>
 
         <label className="mb-1 block text-sm font-medium">Mã mẫu *</label>
         <input
           data-testid="template-code-input"
-          className="mb-3 w-full rounded border px-3 py-2"
+          className="mb-3 w-full rounded border px-3 py-2 disabled:bg-slate-100 disabled:text-slate-500"
           value={code}
+          disabled={isEdit}
           onChange={(e) => setCode(e.target.value)}
           placeholder="VD: QD-KTVA"
         />
@@ -182,18 +225,27 @@ export function TemplateFormModal({ onClose, onSaved }: Props) {
         <div className="mb-3 grid grid-cols-2 gap-3">
           <div>
             <label className="mb-1 block text-sm font-medium">Loại hồ sơ *</label>
-            <select
-              data-testid="template-entity-select"
-              className="w-full rounded border px-3 py-2"
-              value={entityType}
-              onChange={(e) => setEntityType(e.target.value)}
-            >
-              {ENTITY_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
+            {isEdit ? (
+              <input
+                data-testid="template-entity-readonly"
+                className="w-full rounded border bg-slate-100 px-3 py-2 text-slate-500"
+                value={ENTITY_LABEL[entityType] ?? entityType}
+                disabled
+              />
+            ) : (
+              <select
+                data-testid="template-entity-select"
+                className="w-full rounded border px-3 py-2"
+                value={entityType}
+                onChange={(e) => setEntityType(e.target.value)}
+              >
+                {ENTITY_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium">Danh mục *</label>
@@ -216,8 +268,9 @@ export function TemplateFormModal({ onClose, onSaved }: Props) {
           <label className="mb-1 block text-sm font-medium">Ký tự mở/đóng placeholder *</label>
           <select
             data-testid="template-delim-preset"
-            className="w-full rounded border px-3 py-2"
+            className="w-full rounded border px-3 py-2 disabled:bg-slate-100 disabled:text-slate-500"
             value={presetIdx}
+            disabled={delimLocked}
             onChange={(e) => applyPreset(Number(e.target.value))}
           >
             {DELIM_PRESETS.map((p, idx) => (
@@ -233,6 +286,7 @@ export function TemplateFormModal({ onClose, onSaved }: Props) {
                 className="w-1/2 rounded border px-3 py-2"
                 value={delimStart}
                 maxLength={8}
+                disabled={delimLocked}
                 onChange={(e) => setDelimStart(e.target.value)}
                 placeholder="mở (vd [[)"
               />
@@ -241,27 +295,51 @@ export function TemplateFormModal({ onClose, onSaved }: Props) {
                 className="w-1/2 rounded border px-3 py-2"
                 value={delimEnd}
                 maxLength={8}
+                disabled={delimLocked}
                 onChange={(e) => setDelimEnd(e.target.value)}
                 placeholder="đóng (vd ]])"
               />
             </div>
           )}
           <p className="mt-1 text-xs text-slate-500">
-            Mẹo: ký tự 2 chữ (`[[ ]]`, `« »`) ổn định hơn cho placeholder tiếng Việt có dấu.
+            {delimLocked
+              ? 'Đổi ký tự cần chọn file mới (để phát hiện lại biến).'
+              : 'Mẹo: ký tự 2 chữ ([[ ]], « ») ổn định hơn cho placeholder tiếng Việt có dấu.'}
           </p>
         </div>
 
-        <label className="mb-1 block text-sm font-medium">File mẫu (.docx) *</label>
-        <input
-          data-testid="template-file-input"
-          type="file"
-          accept=".docx"
-          className="mb-3 w-full text-sm"
-          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-        />
+        <label className="mb-1 block text-sm font-medium">
+          File mẫu (.docx) {isEdit ? '' : '*'}
+        </label>
+        <div className="mb-3 flex flex-wrap items-center gap-3">
+          <label
+            className={`inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-50 ${
+              saving ? 'pointer-events-none opacity-50' : ''
+            }`}
+          >
+            <Upload className="h-4 w-4" />
+            {isEdit ? 'Chọn file mới (tùy chọn)' : 'Chọn file .docx'}
+            <input
+              data-testid="template-file-input"
+              type="file"
+              accept=".docx"
+              className="hidden"
+              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            />
+          </label>
+          {file ? (
+            <span data-testid="template-file-name" className="text-sm text-slate-700">
+              {file.name} ✓
+            </span>
+          ) : (
+            isEdit && (
+              <span className="text-sm text-slate-500">Hiện tại: {template?.fileName}</span>
+            )
+          )}
+        </div>
 
-        {/* Bước map biến phát hiện → field (no-code) */}
-        {file && (
+        {/* Map biến → field (no-code) */}
+        {(file || (isEdit && variables.length > 0)) && (
           <div className="mb-3 rounded border border-slate-200 p-3">
             <div className="mb-2 text-sm font-medium">
               Khai báo biến {detecting && <span className="text-slate-400">(đang phát hiện…)</span>}
@@ -357,7 +435,7 @@ export function TemplateFormModal({ onClose, onSaved }: Props) {
             <select
               data-testid="template-number-series"
               className="w-full rounded border px-3 py-2"
-              value={numberSeriesId}
+              value={numberSeriesId ?? ''}
               onChange={(e) => setNumberSeriesId(e.target.value)}
             >
               <option value="">-- Chọn chuỗi số --</option>
@@ -395,7 +473,7 @@ export function TemplateFormModal({ onClose, onSaved }: Props) {
             disabled={!canSave}
             onClick={handleSave}
           >
-            Lưu
+            {isEdit ? 'Lưu thay đổi' : 'Lưu'}
           </button>
         </div>
       </div>

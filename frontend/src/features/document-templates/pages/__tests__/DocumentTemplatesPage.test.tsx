@@ -4,6 +4,9 @@ import * as api from '../../api';
 import DocumentTemplatesPage from '../DocumentTemplatesPage';
 
 vi.mock('../../api');
+vi.mock('@/features/document-numbers/api', () => ({
+  documentNumbersApi: { listTemplates: vi.fn().mockResolvedValue([]) },
+}));
 const mApi = vi.mocked(api);
 
 const DON_THU_TPL = {
@@ -16,18 +19,22 @@ beforeEach(() => {
   vi.clearAllMocks();
   mApi.listTemplates.mockResolvedValue([DON_THU_TPL as never]);
   mApi.downloadTemplateFile.mockResolvedValue(new Blob(['docx']) as never);
-  mApi.replaceTemplateFile.mockResolvedValue({ id: 'd1' } as never);
-  // jsdom: stub object URL
+  mApi.deleteTemplate.mockResolvedValue(undefined as never);
+  mApi.getFieldCatalog.mockResolvedValue([] as never);
   URL.createObjectURL = vi.fn(() => 'blob:x');
   URL.revokeObjectURL = vi.fn();
 });
 
 describe('DocumentTemplatesPage', () => {
-  it('DON_THU: nút "Cấu hình bắt buộc" hiện (đã bỏ ẩn) + Tải/Thay file', async () => {
+  it('actions: Tải file + Sửa inline + kebab; mở kebab → Xoá', async () => {
     render(<DocumentTemplatesPage />);
-    await waitFor(() => expect(screen.getByTestId('btn-required-d1')).toBeInTheDocument());
-    expect(screen.getByTestId('btn-download-d1')).toBeInTheDocument();
-    expect(screen.getByTestId('btn-replace-d1')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId('btn-download-d1')).toBeInTheDocument());
+    expect(screen.getByTestId('btn-edit-d1')).toBeInTheDocument();
+    expect(screen.getByTestId('btn-more-d1')).toBeInTheDocument();
+    // Xoá nằm trong kebab (ẩn cho tới khi mở)
+    expect(screen.queryByTestId('btn-delete-d1')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('btn-more-d1'));
+    expect(screen.getByTestId('btn-delete-d1')).toBeInTheDocument();
   });
 
   it('Tải file → gọi downloadTemplateFile', async () => {
@@ -37,14 +44,22 @@ describe('DocumentTemplatesPage', () => {
     await waitFor(() => expect(mApi.downloadTemplateFile).toHaveBeenCalledWith('d1'));
   });
 
-  it('Thay file: chọn file → gọi replaceTemplateFile + reload', async () => {
+  it('Sửa → mở modal chế độ Sửa (pre-fill, mã read-only)', async () => {
     render(<DocumentTemplatesPage />);
-    await waitFor(() => screen.getByTestId('btn-replace-d1'));
-    fireEvent.click(screen.getByTestId('btn-replace-d1'));
-    const input = screen.getByTestId('replace-file-input');
-    const file = new File(['x'], 'new.docx');
-    fireEvent.change(input, { target: { files: [file] } });
-    await waitFor(() => expect(mApi.replaceTemplateFile).toHaveBeenCalledWith('d1', file));
-    expect(mApi.listTemplates).toHaveBeenCalledTimes(2); // initial + reload
+    await waitFor(() => screen.getByTestId('btn-edit-d1'));
+    fireEvent.click(screen.getByTestId('btn-edit-d1'));
+    expect(await screen.findByTestId('template-form-modal')).toBeInTheDocument();
+    expect(screen.getByText('Sửa mẫu chứng từ')).toBeInTheDocument();
+    expect(screen.getByTestId('template-code-input')).toBeDisabled();
+    expect(screen.getByTestId('template-name-input')).toHaveValue('Biên nhận');
+  });
+
+  it('Xoá qua kebab → gọi deleteTemplate + reload', async () => {
+    render(<DocumentTemplatesPage />);
+    await waitFor(() => screen.getByTestId('btn-more-d1'));
+    fireEvent.click(screen.getByTestId('btn-more-d1'));
+    fireEvent.click(screen.getByTestId('btn-delete-d1'));
+    await waitFor(() => expect(mApi.deleteTemplate).toHaveBeenCalledWith('d1'));
+    await waitFor(() => expect(mApi.listTemplates).toHaveBeenCalledTimes(2));
   });
 });
