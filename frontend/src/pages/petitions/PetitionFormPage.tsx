@@ -195,7 +195,9 @@ export function PetitionFormPage() {
     if (isEditMode) return;
     setIsDraftLoading(true);
     documentNumbersApi.draft('PETITION')
-      .then((r) => setFormData((prev) => ({ ...prev, stt: r.previewNumber })))
+      // Chỉ set preview khi stt CÒN RỖNG — tránh race: nếu user lưu nhanh (create đã set stt THẬT
+      // từ response) thì draft resolve muộn KHÔNG được ghi đè số thật bằng preview (codex).
+      .then((r) => setFormData((prev) => (prev.stt ? prev : { ...prev, stt: r.previewNumber })))
       .catch((err) => console.error('draft fetch failed:', err))
       .finally(() => setIsDraftLoading(false));
   }, [isEditMode]);
@@ -341,7 +343,11 @@ export function PetitionFormPage() {
     setIsSubmitting(true);
     try {
       const payload = {
-        stt: formData.stt,
+        // Gửi stt CHỈ khi SỬA (edit field stt = MANUAL, cho phép sửa). Khi TẠO mới: KHÔNG gửi —
+        // "Số tiếp nhận" tạo mới là số TỰ ĐỘNG (khoá), chỉ là PREVIEW từ draft(). Gửi số preview →
+        // backend vào nhánh dto.stt (bỏ qua commitWithTx, counter không tăng) → số kế tiếp TRÙNG →
+        // 409 cho create sau. Bỏ → backend tự cấp atomic (commitWithTx re-sync dbMax, không trùng).
+        ...(effectiveEdit ? { stt: formData.stt } : {}),
         receivedDate: formData.receivedDate,
         unit: formData.unit || undefined,
         assignedTeamId: formData.assignedTeamId || undefined,
@@ -404,12 +410,14 @@ export function PetitionFormPage() {
         savedUpdatedAt = (res?.data as { data?: { updatedAt?: string } } | undefined)?.data?.updatedAt;
       } else {
         const res = await api.post("/petitions", payload);
-        // Envelope {success, data:{id,updatedAt}} — không auto-unwrap (xem lib/api).
-        const data = (res?.data as { data?: { id?: string; updatedAt?: string } } | undefined)?.data;
+        // Envelope {success, data:{id,updatedAt,stt}} — không auto-unwrap (xem lib/api).
+        const data = (res?.data as { data?: { id?: string; updatedAt?: string; stt?: string } } | undefined)?.data;
         savedId = data?.id ?? null;
         savedUpdatedAt = data?.updatedAt;
         // PR2: chuyển sang "effective edit" để lưu lần kế = PUT (không tạo đơn trùng).
         if (savedId) setCreatedId(savedId);
+        // Hiển thị SỐ TIẾP NHẬN THẬT do backend cấp (khác preview draft) để form khỏi lệch.
+        if (data?.stt) setFormData((p) => ({ ...p, stt: data.stt as string }));
       }
       // Refresh optimistic-lock baseline từ response: nếu không, lưu lần 2 (vd sau "Lưu và xuất
       // file" ở lại form) gửi recordUpdatedAt CŨ → BE P2025 → 409 "đã được chỉnh sửa bởi người
@@ -425,13 +433,11 @@ export function PetitionFormPage() {
       }
       return { ok: true, id: savedId, uploadFailed };
     } catch (err: unknown) {
-      const status = (err as { response?: { status?: number } })?.response?.status;
-      if (status === 409) {
-        setErrors(["Đơn thư đã được chỉnh sửa bởi người dùng khác. Vui lòng tải lại trang để xem phiên bản mới nhất trước khi chỉnh sửa."]);
-        window.scrollTo({ top: 0, behavior: "smooth" });
-      } else {
-        setErrors(extractApiError(err, "Có lỗi xảy ra khi lưu đơn thư. Vui lòng thử lại.").messages);
-      }
+      // Luôn hiển thị MESSAGE THẬT của backend: phân biệt đúng "đã được chỉnh sửa bởi người dùng
+      // khác" (optimistic-lock P2025) vs "Số tiếp nhận đã tồn tại" (trùng số P2002) — không gán
+      // cứng 1 message cho mọi 409 (bug cũ làm tạo-mới hiểu nhầm thành optimistic-lock).
+      setErrors(extractApiError(err, "Có lỗi xảy ra khi lưu đơn thư. Vui lòng thử lại.").messages);
+      window.scrollTo({ top: 0, behavior: "smooth" });
       return { ok: false, id: null };
     } finally {
       savingRef.current = false;
