@@ -85,6 +85,16 @@ describe('buildTemplatePlaceholders (mapping-driven)', () => {
     expect(p['Số']).toBe('123/PC02');
   });
 
+  it('[codex P1] auto-field rỗng: manualValues[name] override (popup bổ sung thông tin thiếu)', () => {
+    const p = buildTemplatePlaceholders(
+      'VU_AN',
+      [{ name: 'dieuTraVien', source: 'auto', field: 'dieuTraVien', required: true }],
+      {}, // record không có investigator → resolve rỗng
+      { dieuTraVien: 'Thiếu tá Nguyễn An' }, // người dùng nhập tại popup
+    );
+    expect(p.dieuTraVien).toBe('Thiếu tá Nguyễn An');
+  });
+
   it('fallback field=name khi thiếu field (tương thích template cũ)', () => {
     const p = buildTemplatePlaceholders(
       'VU_AN',

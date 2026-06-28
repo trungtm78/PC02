@@ -11,13 +11,16 @@ export interface TemplateVariableInput {
   required?: boolean;
 }
 
-/** Parse field `variables` (multipart gửi dạng JSON string); lỗi parse → undefined để @IsArray bắt. */
+/**
+ * Parse field `variables` (multipart gửi dạng JSON string). Lỗi parse → GIỮ NGUYÊN chuỗi
+ * để @IsArray fail → 400 (KHÔNG nuốt lỗi thành undefined rồi silent fallback auto-detect — codex P2).
+ */
 function parseVariables(value: unknown): unknown {
   if (typeof value !== 'string') return value;
   try {
     return JSON.parse(value);
   } catch {
-    return undefined;
+    return value;
   }
 }
 

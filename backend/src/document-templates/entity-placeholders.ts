@@ -90,7 +90,9 @@ export function buildTemplatePlaceholders(
     } else if (fieldKey === 'soVanBan') {
       raw = manualValues['soVanBan'] ?? '';
     } else {
-      raw = resolveField(entityType, fieldKey, record);
+      // AUTO: manualValues[name] override (popup "bổ sung thông tin thiếu" điền auto-field rỗng);
+      // không có thì resolve từ record. KHÔNG để mất giá trị người dùng nhập (codex P1).
+      raw = manualValues[v.name] ?? resolveField(entityType, fieldKey, record);
     }
     out[v.name] = escapeForDelimiters(s(raw), delimiters);
   }

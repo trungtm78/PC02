@@ -60,4 +60,13 @@ describe('detectDocxVariables', () => {
       expect(detectDocxVariables(buf)).toEqual(['soVuAn']);
     });
   });
+
+  it('[codex P2] quét cả header/footer (placeholder đầu/chân trang không bị bỏ sót)', () => {
+    const zip = new PizZip();
+    zip.file('word/document.xml', '<w:document><w:body><w:t>{trongThan}</w:t></w:body></w:document>');
+    zip.file('word/header1.xml', '<w:hdr><w:t>{tieuDe}</w:t></w:hdr>');
+    zip.file('word/footer1.xml', '<w:ftr><w:t>{chanTrang}</w:t></w:ftr>');
+    const names = detectDocxVariables(zip.generate({ type: 'nodebuffer' }));
+    expect(names).toEqual(expect.arrayContaining(['trongThan', 'tieuDe', 'chanTrang']));
+  });
 });

@@ -31,7 +31,13 @@ export function detectDocxVariables(
   let xml = '';
   try {
     const zip = new PizZip(buffer);
-    xml = zip.file('word/document.xml')?.asText() ?? '';
+    // Quét document.xml + header*/footer*.xml → placeholder ở đầu/chân trang cũng nhận
+    // (docxtemplater render mọi part bằng cùng data object) — tránh blank header/footer.
+    const parts = Object.keys(zip.files).filter((n) =>
+      /^word\/(document\.xml|header\d*\.xml|footer\d*\.xml)$/.test(n),
+    );
+    if (parts.length === 0 && zip.file('word/document.xml')) parts.push('word/document.xml');
+    xml = parts.map((n) => zip.file(n)?.asText() ?? '').join('\n');
   } catch {
     return [];
   }
