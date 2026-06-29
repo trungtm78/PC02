@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.69.0.2] - 2026-06-29
+
+### Added
+- **In đồng loạt chứng từ — báo số đơn thành công/thất bại**: trước đây "in đồng loạt" báo thành công chung chung dù vài đơn thiếu thông tin bắt buộc (ghi `ok:false` trong `manifest.json` nhưng FE không đọc). Nay backend trả header `X-Batch-Total`/`X-Batch-Ok`/`X-Batch-Failed` (+ `exposedHeaders` CORS để FE đọc cross-origin, fix luôn `Content-Disposition` chưa expose); FE (danh sách Đơn thư + Xuất báo cáo) báo "Đã xuất X/Y đơn, Z đơn thiếu thông tin bắt buộc (xem manifest.json trong file ZIP)". Chi tiết per-đơn vẫn nằm trong `manifest.json` của file ZIP.
+
 ## [0.69.0.1] - 2026-06-28
 
 ### Fixed
