@@ -65,7 +65,13 @@ async function bootstrap() {
           'http://localhost:5179',
           'http://localhost:8080',
         ];
-  app.enableCors({ origin: corsOrigins, credentials: true });
+  app.enableCors({
+    origin: corsOrigins,
+    credentials: true,
+    // Header tải file cần expose để FE đọc cross-origin (dev :5173→:3000). Content-Disposition
+    // cho filename; X-Batch-* cho kết quả in đồng loạt (số đơn thành công/thất bại).
+    exposedHeaders: ['Content-Disposition', 'X-Batch-Total', 'X-Batch-Ok', 'X-Batch-Failed'],
+  });
 
   const port = process.env.PORT ?? 3000;
   await app.listen(port);

@@ -422,7 +422,8 @@ export function PetitionListPageShell() {
         { docType, petitionIds: ids },
         { responseType: 'blob' },
       );
-      const cd = String((response.headers as Record<string, string>)['content-disposition'] ?? '');
+      const headers = response.headers as Record<string, string>;
+      const cd = String(headers['content-disposition'] ?? '');
       const m = cd.match(/filename="([^"]+)"/);
       const filename = m?.[1] ?? `${docType}_batch.zip`;
       url = URL.createObjectURL(response.data as Blob);
@@ -432,7 +433,19 @@ export function PetitionListPageShell() {
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      setTransientBanner({ kind: 'success', text: `Đã xuất ${ids.length} biểu mẫu Word → ${filename}` });
+      // Đọc kết quả thật từ header (backend X-Batch-*) → báo số đơn thành công/thất bại thay vì
+      // báo chung chung. Chi tiết per-đơn nằm trong manifest.json của file ZIP.
+      const total = Number(headers['x-batch-total'] ?? ids.length);
+      const failed = Number(headers['x-batch-failed'] ?? 0);
+      const ok = Number(headers['x-batch-ok'] ?? ids.length);
+      if (failed > 0) {
+        setTransientBanner({
+          kind: 'error',
+          text: `Đã xuất ${ok}/${total} đơn → ${filename}. ${failed} đơn thiếu thông tin bắt buộc (xem manifest.json trong file ZIP).`,
+        });
+      } else {
+        setTransientBanner({ kind: 'success', text: `Đã xuất ${ok} đơn → ${filename}` });
+      }
     } catch {
       setTransientBanner({ kind: 'error', text: 'Xuất Word đồng loạt thất bại. Kiểm tra kết nối và thử lại.' });
     } finally {
