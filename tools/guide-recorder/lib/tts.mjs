@@ -31,38 +31,56 @@ function estimateDuration(text) {
  * @param {string} outDir  thư mục ghi seg_000.mp3 ...
  * @returns {Promise<Array<{file:string|null, dur:number, tts:boolean}>>}
  */
-export async function synthSentences(sentences, outDir) {
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/** Tạo client Edge TTS mới đã cấu hình giọng/định dạng. */
+async function newClient() {
+  const tts = new MsEdgeTTS();
+  await tts.setMetadata(TTS.voice, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3);
+  return tts;
+}
+
+export async function synthSentences(sentences, outDir, maxRetry = 3) {
   fs.mkdirSync(outDir, { recursive: true });
   let tts = null;
   try {
-    tts = new MsEdgeTTS();
-    await tts.setMetadata(TTS.voice, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3);
+    tts = await newClient();
   } catch (e) {
     console.warn(`[tts] Không khởi tạo được Edge TTS (${e.message}) — dùng duration ước lượng, clip sẽ KHÔNG có tiếng.`);
     tts = null;
   }
 
+  const opts = {};
+  if (TTS.rate) opts.rate = TTS.rate;
+  if (TTS.pitch) opts.pitch = TTS.pitch;
+
   const results = [];
   for (let i = 0; i < sentences.length; i++) {
     const text = sentences[i];
     // toFile() coi tham số là THƯ MỤC và ghi ra <dir>/audio.mp3 — phải tạo dir trước.
-    const segDir = path.join(outDir, `seg_${String(i).padStart(3, '0')}`);
     if (!tts) {
       results.push({ file: null, dur: estimateDuration(text), tts: false });
       continue;
     }
-    try {
-      fs.mkdirSync(segDir, { recursive: true });
-      const opts = {};
-      if (TTS.rate) opts.rate = TTS.rate;
-      if (TTS.pitch) opts.pitch = TTS.pitch;
-      const { audioFilePath } = await tts.toFile(segDir, text, opts);
-      const dur = probeDuration(audioFilePath) ?? estimateDuration(text);
-      results.push({ file: audioFilePath, dur, tts: true });
-    } catch (e) {
-      console.warn(`[tts] Câu ${i} lỗi TTS (${e.message}) — bỏ tiếng câu này.`);
-      results.push({ file: null, dur: estimateDuration(text), tts: false });
+    let ok = null;
+    for (let attempt = 1; attempt <= maxRetry && !ok; attempt++) {
+      const segDir = path.join(outDir, `seg_${String(i).padStart(3, '0')}_a${attempt}`);
+      try {
+        fs.mkdirSync(segDir, { recursive: true });
+        const { audioFilePath } = await tts.toFile(segDir, text, opts);
+        const dur = probeDuration(audioFilePath) ?? estimateDuration(text);
+        ok = { file: audioFilePath, dur, tts: true };
+      } catch (e) {
+        // Edge TTS hay rớt stream giữa chừng — tạo lại client + backoff rồi thử lại.
+        if (attempt < maxRetry) {
+          await sleep(600 * attempt);
+          try { tts = await newClient(); } catch (_e) {}
+        } else {
+          console.warn(`[tts] Câu ${i} lỗi TTS sau ${maxRetry} lần (${e.message}) — bỏ tiếng câu này.`);
+        }
+      }
     }
+    results.push(ok || { file: null, dur: estimateDuration(text), tts: false });
   }
   return results;
 }

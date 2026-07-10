@@ -13,7 +13,7 @@ import { VIDEO, VIDEO_OUT, VTT_OUT, IMG_OUT, WORK_DIR, APP, ensureDirs } from '.
 import { synthSentences, probeDuration } from './tts.mjs';
 import { buildSrt, buildVtt } from './subtitles.mjs';
 import { composeClip, extractPoster } from './compose.mjs';
-import { injectAuth } from './auth.mjs';
+import { injectAuth, clearTokenCache } from './auth.mjs';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -43,6 +43,7 @@ const CURSOR_SCRIPT = `
  */
 export async function runClip(board, opts = {}) {
   ensureDirs();
+  clearTokenCache(); // token mới mỗi clip → không hết hạn giữa batch dài
   const workDir = path.join(WORK_DIR, board.slug);
   fs.rmSync(workDir, { recursive: true, force: true });
   fs.mkdirSync(workDir, { recursive: true });

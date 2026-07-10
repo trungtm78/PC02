@@ -26,7 +26,9 @@ async function preflight() {
 
 async function main() {
   await preflight();
-  const boards = only ? [findBoard(only)].filter(Boolean) : BOARDS;
+  const boards = only
+    ? only.split(',').map((s) => findBoard(s.trim())).filter(Boolean)
+    : BOARDS;
   if (!boards.length) {
     console.error(`Không tìm thấy clip khớp --only=${only}`);
     process.exit(1);
