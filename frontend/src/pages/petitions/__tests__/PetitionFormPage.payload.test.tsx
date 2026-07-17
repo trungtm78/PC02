@@ -16,6 +16,7 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { authStore, type AuthUser } from '@/stores/auth.store';
 import { api } from '@/lib/api';
+import { today } from '@/lib/dates';
 
 vi.mock('@/lib/api', () => ({
   api: {
@@ -261,6 +262,16 @@ describe('PetitionFormPage — YC1/2/6 (đơn vị + thẩm quyền + auto-fill 
     fireEvent.change(rec, { target: { value: '2026-03-15' } });
     expect((screen.getByTestId('field-ngayTiepNhanNguonTin') as HTMLInputElement).value).toBe('2026-03-15');
     expect((screen.getByTestId('field-ngayDeXuat') as HTMLInputElement).value).toBe('2026-03-15');
+  });
+
+  it('YC1: chấp nhận ngày mặc định (không sửa) → payload vẫn có ngayTiepNhanNguonTin & ngayDeXuat = today', async () => {
+    await renderForm();
+    await fillRequired(); // KHÔNG chạm field-receivedDate (giữ default today)
+    fireEvent.click(screen.getAllByRole('button', { name: /Lưu đơn thư/ })[0]);
+    await waitFor(() => expect(api.post).toHaveBeenCalled());
+    const [, body] = (api.post as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(body.ngayTiepNhanNguonTin).toBe(today());
+    expect(body.ngayDeXuat).toBe(today());
   });
 
   it('YC1: KHÔNG ghi đè Ngày đề xuất nếu đã nhập tay', async () => {

@@ -92,11 +92,12 @@ const INITIAL_FORM: FormData = {
   nhanThay: "", deXuat: "", raSoatTrung: "Không", baoCaoBanGiamDoc: false,
   senderIdNumber: "", senderIdIssueDate: "", senderIdIssuePlace: "",
   senderIsAnonymous: false, loaiThongTin: "", soPhieuChuyen: "",
-  ngayPhieuChuyen: "", ngayTiepNhanNguonTin: "", toiDanhBanDau: "",
+  // YC1: mặc định = ngày tiếp nhận (today) để khi chấp nhận ngày mặc định vẫn có giá trị.
+  ngayPhieuChuyen: "", ngayTiepNhanNguonTin: today(), toiDanhBanDau: "",
   crimeChinhId: "", noiXayRa: "", noiXayRaPhuongXa: "", ngayXayRa: "",
   loaiToiPham: "", phuongThucThuDoan: "", ngayGiaoDonViGiaiQuyet: "",
   laCongNgheCao: false, lanhDaoToTung: "", ketQuaXuLyKhac: "", thoiHanUTDT: "",
-  nguonDon: "", petitionDate: "", ngayDeXuat: "", phanLoaiNguonTin: "", dieuTraVien: "", donViGiaiQuyet: "",
+  nguonDon: "", petitionDate: "", ngayDeXuat: today(), phanLoaiNguonTin: "", dieuTraVien: "", donViGiaiQuyet: "",
   thuocThamQuyen: true, donViXuLy: "",
 };
 
@@ -615,13 +616,17 @@ export function PetitionFormPage() {
                   <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input type="date" value={formData.receivedDate} onChange={(e) => {
                     const v = e.target.value;
-                    // YC1: đổ ngày sang "Ngày tiếp nhận nguồn tin" & "Ngày đề xuất" nếu 2 ô đó đang TRỐNG.
-                    setFormData((prev) => ({
-                      ...prev,
-                      receivedDate: v,
-                      ngayTiepNhanNguonTin: prev.ngayTiepNhanNguonTin || v,
-                      ngayDeXuat: prev.ngayDeXuat || v,
-                    }));
+                    // YC1: "Ngày tiếp nhận nguồn tin" & "Ngày đề xuất" mirror theo Ngày tiếp nhận — cập nhật khi
+                    // đang trống HOẶC còn khớp giá trị cũ (chưa bị sửa tay); nếu đã sửa tay khác đi thì GIỮ nguyên.
+                    setFormData((prev) => {
+                      const mirror = (cur: string) => !cur || cur === prev.receivedDate;
+                      return {
+                        ...prev,
+                        receivedDate: v,
+                        ngayTiepNhanNguonTin: mirror(prev.ngayTiepNhanNguonTin) ? v : prev.ngayTiepNhanNguonTin,
+                        ngayDeXuat: mirror(prev.ngayDeXuat) ? v : prev.ngayDeXuat,
+                      };
+                    });
                   }} max={today()} className="w-full pl-9 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" data-testid="field-receivedDate" />
                 </div>
               </div>
