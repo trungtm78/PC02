@@ -28,6 +28,10 @@ Mục tiêu: 6 yêu cầu chỉnh form đơn thư + danh mục `DON_VI`. Chỉ l
 - ✅ M3 Frontend DONE: YC1 auto-fill, YC2 ẩn summary+nhãn "Nội dung", YC3 focus+Shift+Enter theo field lỗi, YC5 unit→DON_VI+hint, YC6 checkbox+Đơn vị xử lý (Team↔DON_VI), hook useTeamOptions. tsc -b 0.
 - ✅ M4 Tests DONE: FE petitions+hooks 129 xanh (+6 test mới YC1/2/6); sửa test cũ bỏ field-summary.
 - ✅ Verify LIVE (Playwright): auto-fill 2 ngày, summary ẩn, nhãn Nội dung, unit=DON_VI, đơn vị xử lý Team(checked)↔DON_VI(uncheck), focus=senderName khi lưu thiếu, tạo đơn thật persist thuocThamQuyen=false+donViXuLy trong DB.
-- ✅ /code-review: bắt bug edit-mode (reuse assignedTeamId — update() không xử lý + vượt kiểm quyền /assign). SỬA: refactor YC6 → cả 2 nhánh ghi `donViXuLy` (text; thuộc TQ=tên Tổ, không TQ=tên đơn vị), KHÔNG đụng assignedTeamId. Verified DB: checked→"Nhóm 1", unchecked→"Công an Quận 1".
-- Còn lại: /codex (cross-model), commit fix.
-- App dev đang chạy BE:3000 FE:5173.
+- ✅ /code-review: bắt bug edit-mode (reuse assignedTeamId). SỬA: YC6 ghi `donViXuLy` cả 2 nhánh (f1b98d0). Verified DB.
+- ✅ /codex (cross-model): bắt YC1 chỉ chạy onChange → chấp nhận ngày mặc định thì 2 ngày trống. SỬA: init today() + mirror-logic (fd792b7). Verified LIVE: chấp nhận mặc định → cả 3 ngày = today.
+
+## HOÀN TẤT — sẵn sàng cho anh review local (chưa deploy)
+- Commits nhánh feat/donthu-form-donvi: 8382913 (feature), f1b98d0 (fix review), fd792b7 (fix codex).
+- Tests: BE petitions 151, FE petitions+hooks 130, tsc BE/FE = 0. Verified LIVE cả create thuộc/không thuộc thẩm quyền + auto-fill + focus lỗi.
+- App dev đang chạy BE:3000 FE:5173 để anh mở /petitions/new kiểm tra.
