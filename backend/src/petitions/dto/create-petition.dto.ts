@@ -348,4 +348,16 @@ export class CreatePetitionDto {
   @IsString()
   @MaxLength(255)
   donViGiaiQuyet?: string;
+
+  // Thẩm quyền: true → xử lý nội bộ theo Tổ/Nhóm (assignedTeamId); false → chuyển đơn vị xử lý ngoài
+  @IsOptional()
+  @IsBoolean()
+  thuocThamQuyen?: boolean;
+
+  // Tên đơn vị xử lý (danh mục DON_VI) khi KHÔNG thuộc thẩm quyền
+  @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString()
+  @MaxLength(255)
+  donViXuLy?: string;
 }

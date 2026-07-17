@@ -28,6 +28,13 @@ const DIRECTORY_DATA: DirectoryEntry[] = [
   { type: 'PETITION_TYPE', code: 'KNG', name: 'Kiến nghị', order: 3 },
   { type: 'PETITION_TYPE', code: 'PA', name: 'Phản ánh', order: 4 },
 
+  // ── DON_VI (Đơn vị — dùng cho "Đơn vị tiếp nhận" & "Đơn vị xử lý" đơn thư) ─
+  { type: 'DON_VI', code: 'PC02', name: 'Phòng CSĐT - CA TP.HCM (PC02)', order: 1 },
+  { type: 'DON_VI', code: 'PC01', name: 'Văn phòng CQ CSĐT (PC01)', order: 2 },
+  { type: 'DON_VI', code: 'CAQ1', name: 'Công an Quận 1', order: 3 },
+  { type: 'DON_VI', code: 'CAQ3', name: 'Công an Quận 3', order: 4 },
+  { type: 'DON_VI', code: 'VKSTP', name: 'Viện kiểm sát nhân dân TP.HCM', order: 5 },
+
   // ── PRIORITY (Mức độ ưu tiên) ────────────────────────────────────────────
   { type: 'PRIORITY', code: 'CAO', name: 'Cao', order: 1 },
   { type: 'PRIORITY', code: 'TB', name: 'Trung bình', order: 2 },

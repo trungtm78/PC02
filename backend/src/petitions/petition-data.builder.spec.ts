@@ -97,4 +97,17 @@ describe('buildPetitionCreateData', () => {
     const withTeam = buildPetitionCreateData(baseDto, { ...ctx, effectiveAssignedTeamId: 'team-9' });
     expect(withTeam.assignedTeamId).toBe('team-9');
   });
+
+  it('thuocThamQuyen mặc định true; nhận false + donViXuLy khi KHÔNG thuộc thẩm quyền', () => {
+    const def = buildPetitionCreateData(baseDto, ctx);
+    expect(def.thuocThamQuyen).toBe(true);
+    expect(def.donViXuLy).toBeUndefined();
+
+    const outside = buildPetitionCreateData(
+      { ...baseDto, thuocThamQuyen: false, donViXuLy: 'Công an Quận 1' },
+      ctx,
+    );
+    expect(outside.thuocThamQuyen).toBe(false);
+    expect(outside.donViXuLy).toBe('Công an Quận 1');
+  });
 });

@@ -19,6 +19,9 @@ import {
 } from "@/shared/enums/status-labels";
 import type { LoaiNguonTin, NguonPhatTin } from "@/shared/enums/generated";
 import { useFormDefaults } from "@/hooks/useFormDefaults";
+import { useFormShortcuts } from "@/hooks/useFormShortcuts";
+import { useDeleteResourceModalSafe } from "@/features/_shared/modals/DeleteResourceModalProvider";
+import { IncidentStatus } from "@/shared/enums/generated";
 import { toDateInput } from "@/lib/dates";
 import { EntityDocumentsTab } from "@/components/documents/EntityDocumentsTab";
 
@@ -157,6 +160,8 @@ export function IncidentFormPage() {
   const [formData, setFormData] = useState<FormData>(INITIAL_FORM);
   const [errors, setErrors] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Trạng thái bản ghi (edit) — để gate phím tắt Xóa (F3) theo rule danh sách (chỉ TIEP_NHAN).
+  const [recordStatus, setRecordStatus] = useState("");
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [userOptions, setUserOptions] = useState<FKOption[]>([]);
   const [recordUpdatedAt, setRecordUpdatedAt] = useState<string | null>(null);
@@ -286,6 +291,7 @@ export function IncidentFormPage() {
             laCongNgheCaoVV: Boolean(d.laCongNgheCaoVV),
           });
           setRecordUpdatedAt((d.updatedAt as string) ?? null);
+          setRecordStatus((d.status as string) ?? "");
           // Auto-expand sections based on phase
           const phase = getPhaseForStatus(status);
           setSection2Open(true); // always expand in edit mode
@@ -419,6 +425,30 @@ export function IncidentFormPage() {
   };
 
   const handleCancel = () => { if (confirm("Bạn có chắc muốn hủy? Dữ liệu chưa lưu sẽ mất.")) navigate("/vu-viec"); };
+
+  // Phím tắt form: F2 Lưu, Esc Hủy, F4 In chứng từ, F3 Xóa (chỉ khi SỬA).
+  const deleteModal = useDeleteResourceModalSafe();
+  useFormShortcuts({
+    onSave: () => void onSave(),
+    onCancel: handleCancel,
+    onExportDocs: () => {
+      if (id) { setExportNavigateOnClose(false); setExportForId(id); }
+      else void onSaveAndExport();
+    },
+    onDelete: () => {
+      if (id && deleteModal) {
+        deleteModal.open({ resourceType: "incidents", recordId: id, onSuccess: () => navigate("/vu-viec") });
+      }
+    },
+    // Đồng bộ rule với danh sách: chỉ xóa khi trạng thái = Tiếp nhận (incidents/row-actions.ts).
+    canDelete: isEditMode && recordStatus === IncidentStatus.TIEP_NHAN,
+    onReset: () => {
+      // EDIT → route tạo mới (tránh ghi đè bản ghi cũ); CREATE → reload để sạch mọi state.
+      if (!confirm("Làm trống form và nhập lại từ đầu? Dữ liệu chưa lưu sẽ mất.")) return;
+      if (isEditMode) navigate("/vu-viec/new");
+      else window.location.reload();
+    },
+  });
   const update = <K extends keyof FormData>(field: K, value: FormData[K]) =>
     setFormData((prev) => ({ ...prev, [field]: value }));
 

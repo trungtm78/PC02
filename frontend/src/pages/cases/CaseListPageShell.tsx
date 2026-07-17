@@ -14,6 +14,7 @@
  */
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useListShortcuts } from '@/hooks/useListShortcuts';
 import { Folder, Plus, Clock, CheckCircle, XCircle, PauseCircle } from 'lucide-react';
 import axios from 'axios';
 import { api } from '@/lib/api';
@@ -134,6 +135,7 @@ export function CaseListPageShell() {
   const [tableState, setTableState] = useState<TableState>('loading');
   const [error, setError] = useState<string | undefined>();
   const [refetchCounter, setRefetchCounter] = useState(0);
+  useListShortcuts({ onNew: () => navigate('/cases/new'), onRefresh: () => setRefetchCounter((n) => n + 1) });
 
   // v0.63 PR1b — Action context (perms + modal openers).
   const { canDispatch, canEdit, canDelete } = usePermission();

@@ -3,7 +3,7 @@
  * TASK-ID: TASK-2026-260202
  */
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { extractApiError } from "@/lib/api-errors";
@@ -19,6 +19,9 @@ import { documentNumbersApi } from "@/features/document-numbers/api";
 import { SaveSplitButton } from "@/features/petitions/components/SaveSplitButton";
 import { DynamicExportDocumentsModal } from "@/features/document-templates/components/DynamicExportDocumentsModal";
 import { useFormDefaults } from "@/hooks/useFormDefaults";
+import { useTeamOptions } from "@/hooks/useTeamOptions";
+import { useFormShortcuts } from "@/hooks/useFormShortcuts";
+import { useDeleteResourceModalSafe } from "@/features/_shared/modals/DeleteResourceModalProvider";
 import { today, toDateInput } from "@/lib/dates";
 import { LOAI_DON_OPTIONS } from "@/shared/enums/status-labels";
 import { LoaiDon } from "@/shared/enums/generated";
@@ -77,6 +80,9 @@ interface FormData {
   phanLoaiNguonTin: string;
   dieuTraVien: string;
   donViGiaiQuyet: string;
+  // Thẩm quyền & đơn vị xử lý (form đăng ký đơn thư)
+  thuocThamQuyen: boolean;
+  donViXuLy: string;
 }
 
 const INITIAL_FORM: FormData = {
@@ -88,16 +94,47 @@ const INITIAL_FORM: FormData = {
   nhanThay: "", deXuat: "", raSoatTrung: "Không", baoCaoBanGiamDoc: false,
   senderIdNumber: "", senderIdIssueDate: "", senderIdIssuePlace: "",
   senderIsAnonymous: false, loaiThongTin: "", soPhieuChuyen: "",
-  ngayPhieuChuyen: "", ngayTiepNhanNguonTin: "", toiDanhBanDau: "",
+  // YC1: mặc định = ngày tiếp nhận (today) để khi chấp nhận ngày mặc định vẫn có giá trị.
+  ngayPhieuChuyen: "", ngayTiepNhanNguonTin: today(), toiDanhBanDau: "",
   crimeChinhId: "", noiXayRa: "", noiXayRaPhuongXa: "", ngayXayRa: "",
   loaiToiPham: "", phuongThucThuDoan: "", ngayGiaoDonViGiaiQuyet: "",
   laCongNgheCao: false, lanhDaoToTung: "", ketQuaXuLyKhac: "", thoiHanUTDT: "",
-  nguonDon: "", petitionDate: "", ngayDeXuat: "", phanLoaiNguonTin: "", dieuTraVien: "", donViGiaiQuyet: "",
+  nguonDon: "", petitionDate: "", ngayDeXuat: today(), phanLoaiNguonTin: "", dieuTraVien: "", donViGiaiQuyet: "",
+  thuocThamQuyen: true, donViXuLy: "",
 };
 
 function displayName(u: UserOption): string {
   const full = [u.firstName, u.lastName].filter(Boolean).join(" ");
   return full || u.username;
+}
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_RE = /^0\d{9}$/;
+
+/**
+ * Tính danh sách lỗi theo THỨ TỰ HIỂN THỊ trên form (trên → dưới) để:
+ * (1) focus field lỗi đầu tiên khi lưu, (2) Shift+Enter nhảy field lỗi kế tiếp.
+ * Lỗi gồm: trống bắt buộc VÀ sai định dạng (email/SĐT). summary KHÔNG còn bắt buộc (đã ẩn).
+ */
+function computeFormErrors(fd: FormData, effectiveEdit: boolean): { msgs: string[]; fields: string[] } {
+  const items: { msg: string; testid: string }[] = [];
+  const anon = fd.senderIsAnonymous;
+  if (!fd.receivedDate) items.push({ msg: "Ngày tiếp nhận là bắt buộc", testid: "field-receivedDate" });
+  else if (fd.receivedDate > today())
+    items.push({ msg: "Ngày tiếp nhận không được là ngày tương lai", testid: "field-receivedDate" });
+  if (!anon && !fd.senderName.trim()) items.push({ msg: "Tên người gửi là bắt buộc", testid: "field-senderName" });
+  if (!anon && !fd.senderAddress.trim()) items.push({ msg: "Địa chỉ người gửi là bắt buộc", testid: "field-senderAddress" });
+  if (!effectiveEdit && !anon && !fd.senderPhone.trim())
+    items.push({ msg: "Số điện thoại nguyên đơn là bắt buộc (trừ đơn nặc danh)", testid: "field-senderPhone" });
+  else if (fd.senderPhone && !PHONE_RE.test(fd.senderPhone))
+    items.push({ msg: "Số điện thoại không đúng định dạng (10 số, bắt đầu bằng 0)", testid: "field-senderPhone" });
+  if (fd.senderEmail && !EMAIL_RE.test(fd.senderEmail)) items.push({ msg: "Email không đúng định dạng", testid: "field-senderEmail" });
+  if (!fd.petitionType || !VALID_PETITION_TYPES.includes(fd.petitionType))
+    items.push({ msg: "Loại đơn thư là bắt buộc", testid: "field-petitionType" });
+  if (!effectiveEdit && !anon && !fd.crimeChinhId)
+    items.push({ msg: "Tội danh chính là bắt buộc (trừ đơn nặc danh)", testid: "field-crimeChinhId" });
+  if (!fd.detailContent.trim()) items.push({ msg: "Nội dung là bắt buộc", testid: "field-detailContent" });
+  return { msgs: items.map((i) => i.msg), fields: items.map((i) => i.testid) };
 }
 
 export function PetitionFormPage() {
@@ -117,6 +154,10 @@ export function PetitionFormPage() {
 
   const [formData, setFormData] = useState<FormData>(INITIAL_FORM);
   const [errors, setErrors] = useState<string[]>([]);
+  // Options Tổ/Nhóm cho "Đơn vị xử lý" khi thuộc thẩm quyền (YC6).
+  const { data: teamOptions = [] } = useTeamOptions();
+  // testid các field lỗi theo thứ tự hiển thị — focus field đầu + Shift+Enter nhảy field kế (YC3).
+  const errorFieldsRef = useRef<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   // Mở popup "Xuất chứng từ" sau "Lưu và xuất file" (giữ petitionId vừa lưu).
   const [exportModalForId, setExportModalForId] = useState<string | null>(null);
@@ -279,6 +320,8 @@ export function PetitionFormPage() {
           phanLoaiNguonTin: (d.phanLoaiNguonTin as string) ?? "",
           dieuTraVien: (d.dieuTraVien as string) ?? "",
           donViGiaiQuyet: (d.donViGiaiQuyet as string) ?? "",
+          thuocThamQuyen: (d.thuocThamQuyen as boolean) ?? true,
+          donViXuLy: (d.donViXuLy as string) ?? "",
         });
         setRecordUpdatedAt((d.updatedAt as string) ?? null);
         // Nhóm II: track linked IDs to show/hide convert button
@@ -298,42 +341,56 @@ export function PetitionFormPage() {
   }, [id, isEditMode]);
 
   const validateForm = (): boolean => {
-    const newErrors: string[] = [];
-    if (!formData.receivedDate) {
-      newErrors.push("Ngày tiếp nhận là bắt buộc");
-    } else if (formData.receivedDate > today()) {
-      // So sánh chuỗi YYYY-MM-DD theo today() (giờ VN) — nhất quán với `max={today()}` của input
-      // + default receivedDate. Tránh lệch biên múi giờ khi runtime TZ sau VN (vd CI chạy UTC).
-      newErrors.push("Ngày tiếp nhận không được là ngày tương lai");
+    // priority optional (backend @IsOptional); summary KHÔNG còn bắt buộc (đã ẩn — YC2).
+    const { msgs, fields } = computeFormErrors(formData, effectiveEdit);
+    setErrors(msgs);
+    errorFieldsRef.current = fields;
+    return msgs.length === 0;
+  };
+
+  /** Focus 1 field theo data-testid (input/select/textarea, hoặc trigger của CrimeSelect/FKSelect). */
+  const focusField = useCallback((testid: string) => {
+    const root = document.querySelector<HTMLElement>(`[data-testid="${testid}"]`);
+    let target: HTMLElement | null = null;
+    if (root) {
+      target = root.matches("input,select,textarea")
+        ? root
+        : root.querySelector<HTMLElement>("input,select,textarea");
     }
-    const anon = formData.senderIsAnonymous;
-    if (!anon && !formData.senderName.trim()) newErrors.push("Tên người gửi là bắt buộc");
-    if (!anon && !formData.senderAddress.trim()) newErrors.push("Địa chỉ người gửi là bắt buộc");
-    if (!formData.petitionType || !VALID_PETITION_TYPES.includes(formData.petitionType)) {
-      newErrors.push("Loại đơn thư là bắt buộc");
-    }
-    // priority là optional theo backend DTO (@IsOptional)
-    if (!formData.summary.trim()) newErrors.push("Tóm tắt nội dung là bắt buộc");
-    if (!formData.detailContent.trim()) newErrors.push("Nội dung chi tiết là bắt buộc");
-    if (formData.senderEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.senderEmail))
-      newErrors.push("Email không đúng định dạng");
-    if (formData.senderPhone && !/^0\d{9}$/.test(formData.senderPhone))
-      newErrors.push("Số điện thoại không đúng định dạng (10 số, bắt đầu bằng 0)");
-    // Required-on-create (trừ nặc danh): SĐT nguyên đơn + Tội danh chính (theo hệ thống cũ).
-    // effectiveEdit: sau khi đã tạo (createdId) thì coi như edit → không bắt lại field create-only.
-    if (!effectiveEdit && !anon) {
-      if (!formData.senderPhone.trim()) newErrors.push("Số điện thoại nguyên đơn là bắt buộc (trừ đơn nặc danh)");
-      if (!formData.crimeChinhId) newErrors.push("Tội danh chính là bắt buộc (trừ đơn nặc danh)");
-    }
-    setErrors(newErrors);
-    return newErrors.length === 0;
+    if (!target) target = document.querySelector<HTMLElement>(`[data-testid="${testid}-trigger"]`);
+    if (!target) target = root;
+    if (!target) return;
+    target.scrollIntoView({ block: "center", behavior: "smooth" });
+    if (target.tabIndex < 0 && !target.matches("input,select,textarea,button,a")) target.tabIndex = -1;
+    window.setTimeout(() => target?.focus?.(), 60);
+  }, []);
+
+  /** Shift+Enter → nhảy tới field LỖI kế tiếp (xoay vòng); hết lỗi thì để mặc định (xuống dòng). */
+  const handleFormKeyDown = (e: ReactKeyboardEvent<HTMLFormElement>) => {
+    if (!(e.shiftKey && e.key === "Enter")) return;
+    const { fields } = computeFormErrors(formData, effectiveEdit);
+    if (fields.length === 0) return;
+    e.preventDefault();
+    const activeTestid =
+      (document.activeElement as HTMLElement | null)
+        ?.closest("[data-testid]")
+        ?.getAttribute("data-testid") || "";
+    const baseTestid = activeTestid.replace(/-(trigger|search|dropdown|option-.*)$/, "");
+    const idx = fields.indexOf(baseTestid);
+    focusField(fields[(idx + 1) % fields.length]);
   };
 
   // Tách phần LƯU (không điều hướng) → trả { ok, id } để onSave/onSaveAndExport
   // quyết định điều hướng hay mở popup xuất chứng từ. [F2] create bắt id từ response.
   const saveOnly = async (): Promise<{ ok: boolean; id: string | null; uploadFailed?: number }> => {
     if (savingRef.current) return { ok: false, id: null }; // đang lưu → bỏ qua click lặp
-    if (!validateForm()) { window.scrollTo({ top: 0, behavior: "smooth" }); return { ok: false, id: null }; }
+    if (!validateForm()) {
+      // Focus field lỗi đầu tiên (thay vì chỉ scroll top) — YC3.
+      const first = errorFieldsRef.current[0];
+      if (first) focusField(first);
+      else window.scrollTo({ top: 0, behavior: "smooth" });
+      return { ok: false, id: null };
+    }
     savingRef.current = true;
     setIsSubmitting(true);
     try {
@@ -355,8 +412,12 @@ export function PetitionFormPage() {
         suspectedAddress: formData.suspectedAddress || undefined,
         petitionType: formData.petitionType || undefined,
         priority: formData.priority || undefined,
-        summary: formData.summary || undefined,
+        // YC2: ẩn ô Tóm tắt → tự lấy từ Nội dung (cắt 300) để danh sách vẫn có tóm tắt.
+        summary: (formData.detailContent || "").slice(0, 300) || undefined,
         detailContent: formData.detailContent || undefined,
+        // YC6: cả 2 nhánh ghi vào donViXuLy (thuộc TQ = tên Tổ/Nhóm; không TQ = tên đơn vị). Gửi null để xoá khi trống.
+        thuocThamQuyen: formData.thuocThamQuyen,
+        donViXuLy: formData.donViXuLy || null,
         attachmentsNote: formData.attachmentsNote || undefined,
         deadline: formData.deadline || undefined,
         assignedToId: formData.assignedToId || undefined,
@@ -476,6 +537,31 @@ export function PetitionFormPage() {
     if (confirm("Bạn có chắc chắn muốn hủy? Dữ liệu chưa lưu sẽ bị mất.")) navigate("/petitions");
   };
 
+  // Phím tắt form: F2 Lưu, Esc Hủy, F4 Xuất/In chứng từ, F3 Xóa (chỉ khi SỬA).
+  const deleteModal = useDeleteResourceModalSafe();
+  useFormShortcuts({
+    onSave: () => void onSave(),
+    onCancel: handleCancel,
+    onExportDocs: () => {
+      if (effectiveId) { setExportNavigateOnClose(false); setExportModalForId(effectiveId); }
+      else void onSaveAndExport();
+    },
+    onDelete: () => {
+      if (id && deleteModal) {
+        deleteModal.open({ resourceType: "petitions", recordId: id, onSuccess: () => navigate("/petitions") });
+      }
+    },
+    canDelete: isEditMode,
+    onReset: () => {
+      // Init màn hình: làm trống form, nhập lại từ đầu (form tạo mới sạch hoàn toàn).
+      // EDIT → sang route tạo mới (tránh ghi đè bản ghi cũ bằng dữ liệu trắng).
+      // CREATE → reload để xoá sạch mọi state phụ (kể cả file đã đính) — không sót như reset tay.
+      if (!confirm("Làm trống form và nhập lại từ đầu? Dữ liệu chưa lưu sẽ mất.")) return;
+      if (isEditMode) navigate("/petitions/new");
+      else window.location.reload();
+    },
+  });
+
   const update = (field: keyof FormData, value: string | boolean) =>
     setFormData((prev) => ({ ...prev, [field]: value }));
 
@@ -543,7 +629,7 @@ export function PetitionFormPage() {
         </div>
       )}
 
-      <form onSubmit={(e) => void handleSubmit(e)} className="space-y-6">
+      <form onSubmit={(e) => void handleSubmit(e)} onKeyDown={handleFormKeyDown} className="space-y-6">
         {/* Section 1: Thông tin tiếp nhận */}
         <div className="bg-white rounded-lg border border-slate-200 shadow-sm">
           <div className="border-b border-slate-200 px-6 py-4">
@@ -555,7 +641,20 @@ export function PetitionFormPage() {
                 <label className="block text-sm font-medium text-slate-700 mb-2">Ngày tiếp nhận <span className="text-red-500">*</span></label>
                 <div className="relative">
                   <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input type="date" value={formData.receivedDate} onChange={(e) => update("receivedDate", e.target.value)} max={today()} className="w-full pl-9 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" data-testid="field-receivedDate" />
+                  <input type="date" value={formData.receivedDate} onChange={(e) => {
+                    const v = e.target.value;
+                    // YC1: "Ngày tiếp nhận nguồn tin" & "Ngày đề xuất" mirror theo Ngày tiếp nhận — cập nhật khi
+                    // đang trống HOẶC còn khớp giá trị cũ (chưa bị sửa tay); nếu đã sửa tay khác đi thì GIỮ nguyên.
+                    setFormData((prev) => {
+                      const mirror = (cur: string) => !cur || cur === prev.receivedDate;
+                      return {
+                        ...prev,
+                        receivedDate: v,
+                        ngayTiepNhanNguonTin: mirror(prev.ngayTiepNhanNguonTin) ? v : prev.ngayTiepNhanNguonTin,
+                        ngayDeXuat: mirror(prev.ngayDeXuat) ? v : prev.ngayDeXuat,
+                      };
+                    });
+                  }} max={today()} className="w-full pl-9 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" data-testid="field-receivedDate" />
                 </div>
               </div>
               <div>
@@ -571,12 +670,13 @@ export function PetitionFormPage() {
               <div>
                 <FKSelect
                   label="Đơn vị tiếp nhận"
-                  directoryType="ORG"
+                  directoryType="DON_VI"
                   value={formData.unit}
                   onChange={(v) => update("unit", v)}
-                  placeholder="Chọn đơn vị"
+                  placeholder="Chọn đơn vị (bỏ trống = PC02)"
                   testId="field-unit"
                 />
+                <p className="mt-1 text-xs text-slate-500">Bỏ trống nghĩa là PC02 trực tiếp tiếp nhận.</p>
               </div>
             </div>
           </div>
@@ -870,13 +970,10 @@ export function PetitionFormPage() {
               <input type="checkbox" checked={formData.laCongNgheCao} onChange={(e) => update("laCongNgheCao", e.target.checked)} className="w-4 h-4" data-testid="field-laCongNgheCao" />
               Tội phạm công nghệ cao
             </label>
+            {/* YC2: ẩn ô "Tóm tắt nội dung" — khi lưu tự lấy tóm tắt từ Nội dung. */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Tóm tắt nội dung <span className="text-red-500">*</span></label>
-              <textarea value={formData.summary} onChange={(e) => update("summary", e.target.value)} rows={2} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Tóm tắt ngắn gọn nội dung đơn thư" data-testid="field-summary" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Nội dung chi tiết <span className="text-red-500">*</span></label>
-              <textarea value={formData.detailContent} onChange={(e) => update("detailContent", e.target.value)} rows={6} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Mô tả chi tiết đầy đủ nội dung đơn thư" data-testid="field-detailContent" />
+              <label className="block text-sm font-medium text-slate-700 mb-2">Nội dung <span className="text-red-500">*</span></label>
+              <textarea value={formData.detailContent} onChange={(e) => update("detailContent", e.target.value)} rows={6} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Mô tả đầy đủ nội dung đơn thư" data-testid="field-detailContent" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">
@@ -952,6 +1049,46 @@ export function PetitionFormPage() {
               <p className="text-xs text-slate-500 mt-1">Nội dung nghiệp vụ phục vụ xuất Phiếu đề xuất, Phiếu chuyển, Thông báo. Bắt buộc khi xuất Phiếu đề xuất.</p>
             </div>
             <div className="p-4 sm:p-6 space-y-4">
+              {/* YC6: thẩm quyền + đơn vị xử lý */}
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <label className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-3">
+                  <input
+                    type="checkbox"
+                    checked={formData.thuocThamQuyen}
+                    onChange={(e) => {
+                      // Đổi nguồn options → xoá lựa chọn cũ (tên tổ ≠ tên đơn vị ngoài).
+                      setFormData((prev) => ({ ...prev, thuocThamQuyen: e.target.checked, donViXuLy: "" }));
+                    }}
+                    className="w-4 h-4"
+                    data-testid="field-thuocThamQuyen"
+                  />
+                  Thuộc thẩm quyền (xử lý nội bộ theo Tổ/Nhóm)
+                </label>
+                {formData.thuocThamQuyen ? (
+                  <FKSelect
+                    label="Đơn vị xử lý"
+                    options={teamOptions}
+                    value={formData.donViXuLy}
+                    onChange={(v) => update("donViXuLy", v)}
+                    placeholder="Chọn Tổ/Nhóm xử lý"
+                    testId="field-donViXuLy"
+                  />
+                ) : (
+                  <FKSelect
+                    label="Đơn vị xử lý"
+                    directoryType="DON_VI"
+                    value={formData.donViXuLy}
+                    onChange={(v) => update("donViXuLy", v)}
+                    placeholder="Chọn đơn vị xử lý"
+                    testId="field-donViXuLy"
+                  />
+                )}
+                <p className="mt-1 text-xs text-slate-500">
+                  {formData.thuocThamQuyen
+                    ? "Thuộc thẩm quyền: chọn Tổ/Nhóm nội bộ thụ lý."
+                    : "Không thuộc thẩm quyền: chọn đơn vị xử lý để chuyển."}
+                </p>
+              </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Nhận thấy</label>
                 <textarea

@@ -10,10 +10,11 @@
  *
  * Petition không có phase tabs (đơn giản hơn Incident — single workflow).
  *
- * KHÔNG thay thế production PetitionListPage — feature-flag swap ở PR3 sau soak.
+ * v0.56: ĐÃ thay thế production PetitionListPage (route /petitions trỏ vào Shell này).
  */
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useListShortcuts } from '@/hooks/useListShortcuts';
 import { Mail, Plus, AlertCircle, X, Inbox, RefreshCw, CheckCircle, Archive, FileText, ChevronDown, Loader2 } from 'lucide-react';
 import axios from 'axios';
 import { api } from '@/lib/api';
@@ -133,6 +134,7 @@ export function PetitionListPageShell() {
   const [tableState, setTableState] = useState<TableState>('loading');
   const [error, setError] = useState<string | undefined>();
   const [refetchCounter, setRefetchCounter] = useState(0);
+  useListShortcuts({ onNew: () => navigate('/petitions/new'), onRefresh: () => setRefetchCounter((n) => n + 1) });
   const [transientBanner, setTransientBanner] = useState<{
     kind: 'success' | 'error';
     text: string;

@@ -42,4 +42,22 @@ describe('CreatePetitionDto — field-parity hệ thống cũ', () => {
     const fieldErr = errors.find((e) => e.property === 'thoiHanUTDT');
     expect(fieldErr).toBeDefined();
   });
+
+  it('accepts thuocThamQuyen (boolean) + donViXuLy (string); cả hai optional', async () => {
+    const withVals = plainToInstance(CreatePetitionDto, {
+      ...validBase,
+      thuocThamQuyen: false,
+      donViXuLy: 'Công an Quận 1',
+    });
+    expect((await validate(withVals)).find((e) => ['thuocThamQuyen', 'donViXuLy'].includes(e.property))).toBeUndefined();
+
+    const without = plainToInstance(CreatePetitionDto, { ...validBase });
+    expect((await validate(without)).find((e) => ['thuocThamQuyen', 'donViXuLy'].includes(e.property))).toBeUndefined();
+  });
+
+  it('rejects non-boolean thuocThamQuyen', async () => {
+    const dto = plainToInstance(CreatePetitionDto, { ...validBase, thuocThamQuyen: 'yes' as any });
+    const errors = await validate(dto);
+    expect(errors.find((e) => e.property === 'thuocThamQuyen')).toBeDefined();
+  });
 });

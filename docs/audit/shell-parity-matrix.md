@@ -208,3 +208,13 @@ All ❌ missing trong shell.
 ## Acceptance criteria
 
 After all PRs ship, this matrix must show **0 ❌ missing** rows for Cases/Incidents/Petitions/Comprehensive single-row actions + advanced filters. Bulk + chip baselines must remain ✅.
+
+---
+
+## v0.70.0.0 — Phím tắt danh sách (cross-cutting, không đổi feature parity)
+
+Bổ sung hook `useListShortcuts` (Alt+N thêm mới, Alt+R làm mới, Ctrl+K tìm kiếm)
+**đồng nhất** cho cả 4 shell (Cases, Comprehensive, Incidents, Petitions) +
+sửa 1 comment stale trong `PetitionListPageShell`. Đây là hành vi bàn phím
+xuyên suốt, **không thêm/bớt cột/lọc/bulk-action** nên **không thay đổi ma trận
+parity** ở trên — ghi nhận ở đây để thỏa gate `shell-parity-gate`.

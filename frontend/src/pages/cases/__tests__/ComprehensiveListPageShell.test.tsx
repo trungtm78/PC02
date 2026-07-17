@@ -12,6 +12,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, useLocation, Routes, Route } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { ComprehensiveListPageShell } from '../ComprehensiveListPageShell';
@@ -32,6 +33,7 @@ function renderWithRouter(initialEntries: string[] = ['/comprehensive']) {
     return null;
   }
   const result = render(
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
     <MemoryRouter initialEntries={initialEntries}>
       <AssignModalProvider>
         <DeleteResourceModalProvider>
@@ -47,7 +49,8 @@ function renderWithRouter(initialEntries: string[] = ['/comprehensive']) {
           </Routes>
         </DeleteResourceModalProvider>
       </AssignModalProvider>
-    </MemoryRouter>,
+    </MemoryRouter>
+    </QueryClientProvider>,
   );
   return { ...result, getLocation: () => lastLocation };
 }

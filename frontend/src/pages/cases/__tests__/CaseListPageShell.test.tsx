@@ -12,6 +12,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, useLocation, Routes, Route } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { CaseListPageShell } from '../CaseListPageShell';
@@ -33,6 +34,7 @@ function renderWithRouter(initialEntries: string[] = ['/cases']) {
     return null;
   }
   const result = render(
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
     <MemoryRouter initialEntries={initialEntries}>
       <AssignModalProvider>
         <DeleteResourceModalProvider>
@@ -43,7 +45,8 @@ function renderWithRouter(initialEntries: string[] = ['/cases']) {
           </Routes>
         </DeleteResourceModalProvider>
       </AssignModalProvider>
-    </MemoryRouter>,
+    </MemoryRouter>
+    </QueryClientProvider>,
   );
   return { ...result, getLocation: () => lastLocation };
 }

@@ -16,6 +16,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, useLocation, Routes, Route } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { IncidentListPageShell } from '../IncidentListPageShell';
@@ -36,6 +37,7 @@ function renderWithRouter(initialEntries: string[] = ['/incidents']) {
     return null;
   }
   const result = render(
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
     <MemoryRouter initialEntries={initialEntries}>
       <CompositeModalProvider>
         <Routes>
@@ -44,7 +46,8 @@ function renderWithRouter(initialEntries: string[] = ['/incidents']) {
           <Route path="/incidents/:id" element={<div>IncidentDetailPage</div>} />
         </Routes>
       </CompositeModalProvider>
-    </MemoryRouter>,
+    </MemoryRouter>
+    </QueryClientProvider>,
   );
   return { ...result, getLocation: () => lastLocation };
 }
