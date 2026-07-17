@@ -553,12 +553,12 @@ export function PetitionFormPage() {
     },
     canDelete: isEditMode,
     onReset: () => {
-      // Init màn hình: làm trống form về ban đầu (không rời trang).
-      if (confirm("Làm trống form và nhập lại từ đầu? Dữ liệu chưa lưu sẽ mất.")) {
-        setFormData(INITIAL_FORM);
-        setErrors([]);
-        setCreatedId(null);
-      }
+      // Init màn hình: làm trống form, nhập lại từ đầu (form tạo mới sạch hoàn toàn).
+      // EDIT → sang route tạo mới (tránh ghi đè bản ghi cũ bằng dữ liệu trắng).
+      // CREATE → reload để xoá sạch mọi state phụ (kể cả file đã đính) — không sót như reset tay.
+      if (!confirm("Làm trống form và nhập lại từ đầu? Dữ liệu chưa lưu sẽ mất.")) return;
+      if (isEditMode) navigate("/petitions/new");
+      else window.location.reload();
     },
   });
 

@@ -64,3 +64,5 @@ Plan: `~/.claude/plans/h-y-ph-n-t-ch-to-n-floofy-fairy.md`. Hạ tầng phím t�
 - ✅ Tests: registry/useFormShortcuts + wrap uy-thac test QueryClient. tsc 0. 269 form/list + 112 shortcut/hook xanh.
 - ✅ Verify LIVE: Alt+N từ trong ô tìm kiếm → /petitions/new; F8 → form về trắng.
 - Follow-up (ghi nhận): trang admin tạo-qua-modal (users/teams/danh-muc...) chưa nối Alt+N (mỗi trang handler modal riêng).
+- ✅ /codex bắt 3 bug F8 reset → FIX: edit-mode reset giữ id → F2 ghi đè bản ghi cũ bằng dữ liệu trắng; case sót subjects/vật chứng/media; petition sót file đính. Fix đồng nhất: EDIT→navigate route tạo mới (không ghi đè); CREATE→window.location.reload() (sạch mọi state kể cả file đính). Verified LIVE.
+- Alt+N và mọi phím tắt ĐỀU đổi được theo user tại Settings → Phím tắt (đã xác nhận với anh).

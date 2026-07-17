@@ -363,11 +363,12 @@ function CaseFormPage() {
     // Đồng bộ rule với danh sách: chỉ xóa khi trạng thái = Tiếp nhận (cases/row-actions.ts).
     canDelete: isEditMode && formData.status === CaseStatus.TIEP_NHAN,
     onReset: () => {
-      if (confirm("Làm trống form và nhập lại từ đầu? Dữ liệu chưa lưu sẽ mất.")) {
-        localStorage.removeItem("caseFormDraft");
-        setFormData(INITIAL_FORM_DATA);
-        setErrors({});
-      }
+      // EDIT → route tạo mới (tránh ghi đè bản ghi cũ + sót ĐTBS/vật chứng/media).
+      // CREATE → xoá draft + reload để sạch mọi state phụ.
+      if (!confirm("Làm trống form và nhập lại từ đầu? Dữ liệu chưa lưu sẽ mất.")) return;
+      if (isEditMode) { navigate("/cases/new"); return; }
+      localStorage.removeItem("caseFormDraft");
+      window.location.reload();
     },
   });
 
