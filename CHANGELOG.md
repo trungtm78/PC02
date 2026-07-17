@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.70.0.1] - 2026-07-18
+
+### Fixed
+- **Phân quyền OFFICER lưu hồ sơ**: role OFFICER được cấp `write/edit/delete` cho Đơn thư/Vụ việc/Vụ án trong `seed.ts` (trước đây chỉ `read` do seed cấp quyền ghi chưa từng chạy trên prod → 15/18 cán bộ không lưu được đơn thư, PermissionsGuard 403). Đã grant trực tiếp trên prod. DataScope vẫn giới hạn ghi trong phạm vi tổ/ĐTV; `restore` giữ riêng ADMIN.
+
+### Changed
+- **Phím tắt Thêm mới**: đổi mặc định `Alt+N` → `F6` (đồng bộ nhóm F-key F2/F3/F4/F8; tránh F12/F5/F11 do trình duyệt giữ cho DevTools/Reload/Fullscreen). Đổi lại được tại Settings → Phím tắt.
+
 ## [0.70.0.0] - 2026-07-18
 
 ### Added
