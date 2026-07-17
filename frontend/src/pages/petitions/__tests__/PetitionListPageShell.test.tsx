@@ -12,6 +12,7 @@ import { PetitionListPageShell } from '../PetitionListPageShell';
 import { PetitionStatus } from '@/shared/enums/generated';
 import { AssignModalProvider } from '@/features/_shared/modals/AssignModalProvider';
 import { DeleteResourceModalProvider } from '@/features/_shared/modals/DeleteResourceModalProvider';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 vi.mock('@/lib/api', () => ({
   api: {
@@ -27,6 +28,7 @@ function renderWithRouter(initialEntries: string[] = ['/petitions']) {
     return null;
   }
   const result = render(
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
     <MemoryRouter initialEntries={initialEntries}>
       <AssignModalProvider>
         <DeleteResourceModalProvider>
@@ -37,7 +39,8 @@ function renderWithRouter(initialEntries: string[] = ['/petitions']) {
           </Routes>
         </DeleteResourceModalProvider>
       </AssignModalProvider>
-    </MemoryRouter>,
+    </MemoryRouter>
+    </QueryClientProvider>,
   );
   return { ...result, getLocation: () => lastLocation };
 }

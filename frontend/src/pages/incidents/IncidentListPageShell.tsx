@@ -14,6 +14,7 @@
  */
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useListShortcuts } from '@/hooks/useListShortcuts';
 import { FileSearch, Plus, AlertCircle, X, Inbox, Search as SearchIcon, CheckCircle, PauseCircle } from 'lucide-react';
 import axios from 'axios';
 import { api } from '@/lib/api';
@@ -155,6 +156,7 @@ export function IncidentListPageShell() {
   const [stats, setStats] = useState<IncidentsStatsResponse | null>(null);
   const [tableState, setTableState] = useState<TableState>('loading');
   const [refetchCounter, setRefetchCounter] = useState(0);
+  useListShortcuts({ onNew: () => navigate('/vu-viec/new'), onRefresh: () => setRefetchCounter((n) => n + 1) });
   const [error, setError] = useState<string | undefined>();
 
   const abortRef = useRef<AbortController | null>(null);

@@ -14,6 +14,7 @@
  */
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useListShortcuts } from '@/hooks/useListShortcuts';
 import { Mail, Plus, AlertCircle, X, Inbox, RefreshCw, CheckCircle, Archive, FileText, ChevronDown, Loader2 } from 'lucide-react';
 import axios from 'axios';
 import { api } from '@/lib/api';
@@ -133,6 +134,7 @@ export function PetitionListPageShell() {
   const [tableState, setTableState] = useState<TableState>('loading');
   const [error, setError] = useState<string | undefined>();
   const [refetchCounter, setRefetchCounter] = useState(0);
+  useListShortcuts({ onNew: () => navigate('/petitions/new'), onRefresh: () => setRefetchCounter((n) => n + 1) });
   const [transientBanner, setTransientBanner] = useState<{
     kind: 'success' | 'error';
     text: string;
