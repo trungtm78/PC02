@@ -117,7 +117,6 @@ describe('PetitionFormPage — petitionType payload (v0.37.2.4 P0 fix)', () => {
     // v0.42: stt is now auto-generated (readonly DocNumberPreviewField), no manual fill needed.
     fireEvent.change(await screen.findByTestId('field-senderName'), { target: { value: 'UAT Test Sender' } });
     fireEvent.change(screen.getByTestId('field-senderAddress'), { target: { value: 'UAT address' } });
-    fireEvent.change(screen.getByTestId('field-summary'), { target: { value: 'UAT summary' } });
     fireEvent.change(screen.getByTestId('field-detailContent'), { target: { value: 'UAT detail' } });
     fireEvent.change(screen.getByTestId('field-petitionType'), { target: { value: 'TO_CAO' } });
     fireEvent.change(screen.getByTestId('field-priority'), { target: { value: 'Cao' } });
@@ -160,7 +159,6 @@ describe('PetitionFormPage — petitionType payload (v0.37.2.4 P0 fix)', () => {
     // Bắt buộc tối thiểu để qua validation
     fireEvent.change(await screen.findByTestId('field-senderName'), { target: { value: 'Người gửi' } });
     fireEvent.change(screen.getByTestId('field-senderAddress'), { target: { value: 'Địa chỉ' } });
-    fireEvent.change(screen.getByTestId('field-summary'), { target: { value: 'Tóm tắt' } });
     fireEvent.change(screen.getByTestId('field-detailContent'), { target: { value: 'Nội dung' } });
     fireEvent.change(screen.getByTestId('field-petitionType'), { target: { value: 'TO_CAO' } });
     fireEvent.change(screen.getByTestId('field-priority'), { target: { value: 'Cao' } });
@@ -198,7 +196,6 @@ describe('PetitionFormPage — petitionType payload (v0.37.2.4 P0 fix)', () => {
     // v0.42: stt is now auto-generated (readonly), no manual fill needed.
     fireEvent.change(await screen.findByTestId('field-senderName'), { target: { value: 'UAT Sender' } });
     fireEvent.change(screen.getByTestId('field-senderAddress'), { target: { value: 'UAT addr' } });
-    fireEvent.change(screen.getByTestId('field-summary'), { target: { value: 'sum' } });
     fireEvent.change(screen.getByTestId('field-detailContent'), { target: { value: 'detail' } });
     // Intentionally skip petitionType + priority
 
@@ -218,7 +215,6 @@ describe('PetitionFormPage — petitionType payload (v0.37.2.4 P0 fix)', () => {
     await renderForm();
     fireEvent.change(await screen.findByTestId('field-senderName'), { target: { value: 'Sender' } });
     fireEvent.change(screen.getByTestId('field-senderAddress'), { target: { value: 'addr' } });
-    fireEvent.change(screen.getByTestId('field-summary'), { target: { value: 'sum' } });
     fireEvent.change(screen.getByTestId('field-detailContent'), { target: { value: 'detail' } });
     fireEvent.change(screen.getByTestId('field-petitionType'), { target: { value: 'TO_CAO' } });
     fireEvent.change(screen.getByTestId('field-priority'), { target: { value: 'Cao' } });
@@ -235,5 +231,80 @@ describe('PetitionFormPage — petitionType payload (v0.37.2.4 P0 fix)', () => {
     });
     expect(api.post).toHaveBeenCalledWith('/petitions', expect.anything());
     expect(screen.queryByText('list')).not.toBeInTheDocument();
+  });
+});
+
+describe('PetitionFormPage — YC1/2/6 (đơn vị + thẩm quyền + auto-fill ngày)', () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+    localStorage.clear();
+    authStore.setProfile(SAMPLE_PROFILE);
+  });
+  afterEach(() => {
+    sessionStorage.clear();
+    localStorage.clear();
+    vi.clearAllMocks();
+  });
+
+  async function fillRequired() {
+    fireEvent.change(await screen.findByTestId('field-senderName'), { target: { value: 'Người gửi' } });
+    fireEvent.change(screen.getByTestId('field-senderAddress'), { target: { value: 'Địa chỉ' } });
+    fireEvent.change(screen.getByTestId('field-detailContent'), { target: { value: 'Nội dung đầy đủ của đơn thư' } });
+    fireEvent.change(screen.getByTestId('field-petitionType'), { target: { value: 'TO_CAO' } });
+    fireEvent.change(screen.getByTestId('field-senderPhone'), { target: { value: '0901234567' } });
+    fireEvent.change(screen.getByTestId('field-crimeChinhId'), { target: { value: 'crime-d173' } });
+  }
+
+  it('YC1: đổi Ngày tiếp nhận → tự điền Ngày tiếp nhận nguồn tin & Ngày đề xuất khi đang trống', async () => {
+    await renderForm();
+    const rec = await screen.findByTestId('field-receivedDate') as HTMLInputElement;
+    fireEvent.change(rec, { target: { value: '2026-03-15' } });
+    expect((screen.getByTestId('field-ngayTiepNhanNguonTin') as HTMLInputElement).value).toBe('2026-03-15');
+    expect((screen.getByTestId('field-ngayDeXuat') as HTMLInputElement).value).toBe('2026-03-15');
+  });
+
+  it('YC1: KHÔNG ghi đè Ngày đề xuất nếu đã nhập tay', async () => {
+    await renderForm();
+    fireEvent.change(await screen.findByTestId('field-ngayDeXuat'), { target: { value: '2026-01-01' } });
+    fireEvent.change(screen.getByTestId('field-receivedDate'), { target: { value: '2026-03-15' } });
+    expect((screen.getByTestId('field-ngayDeXuat') as HTMLInputElement).value).toBe('2026-01-01');
+    // ô còn trống thì vẫn được điền
+    expect((screen.getByTestId('field-ngayTiepNhanNguonTin') as HTMLInputElement).value).toBe('2026-03-15');
+  });
+
+  it('YC2: ẩn ô Tóm tắt; nhãn là "Nội dung"; vẫn có ô Nội dung', async () => {
+    await renderForm();
+    await screen.findByTestId('field-detailContent');
+    expect(screen.queryByTestId('field-summary')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Tóm tắt nội dung/i)).not.toBeInTheDocument();
+  });
+
+  it('YC2: summary payload tự lấy từ Nội dung (cắt 300)', async () => {
+    await renderForm();
+    await fillRequired();
+    fireEvent.click(screen.getAllByRole('button', { name: /Lưu đơn thư/ })[0]);
+    await waitFor(() => expect(api.post).toHaveBeenCalled());
+    const [, body] = (api.post as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(body.summary).toBe('Nội dung đầy đủ của đơn thư');
+  });
+
+  it('YC6: mặc định thuộc thẩm quyền → payload thuocThamQuyen=true', async () => {
+    await renderForm();
+    expect((await screen.findByTestId('field-thuocThamQuyen') as HTMLInputElement).checked).toBe(true);
+    await fillRequired();
+    fireEvent.click(screen.getAllByRole('button', { name: /Lưu đơn thư/ })[0]);
+    await waitFor(() => expect(api.post).toHaveBeenCalled());
+    const [, body] = (api.post as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(body.thuocThamQuyen).toBe(true);
+  });
+
+  it('YC6: bỏ tick thẩm quyền → payload thuocThamQuyen=false', async () => {
+    await renderForm();
+    await fillRequired();
+    fireEvent.click(await screen.findByTestId('field-thuocThamQuyen')); // uncheck
+    fireEvent.click(screen.getAllByRole('button', { name: /Lưu đơn thư/ })[0]);
+    await waitFor(() => expect(api.post).toHaveBeenCalled());
+    const [, body] = (api.post as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(body.thuocThamQuyen).toBe(false);
   });
 });

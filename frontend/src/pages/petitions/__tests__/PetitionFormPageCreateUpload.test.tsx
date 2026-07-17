@@ -72,7 +72,6 @@ describe('PetitionFormPage — tạo mới có đính file (PR2)', () => {
     // đơn nặc danh để bỏ qua field người gửi/SĐT/tội danh
     fireEvent.click(await screen.findByTestId('field-senderIsAnonymous'));
     fireEvent.change(screen.getByTestId('field-petitionType'), { target: { value: 'TO_CAO' } });
-    fireEvent.change(screen.getByTestId('field-summary'), { target: { value: 'tóm tắt' } });
     fireEvent.change(screen.getByTestId('field-detailContent'), { target: { value: 'chi tiết' } });
 
     // stage 1 file

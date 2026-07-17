@@ -88,5 +88,8 @@ export function buildPetitionCreateData(
     donViGiaiQuyet: dto.donViGiaiQuyet,
     // Fix bug rớt data: update ghi thoiHanUTDT (petitions.service ~618) nhưng create builder bỏ sót → mất khi tạo.
     thoiHanUTDT: toDate(dto.thoiHanUTDT),
+    // Thẩm quyền & đơn vị xử lý (form đăng ký đơn thư).
+    thuocThamQuyen: dto.thuocThamQuyen ?? true,
+    donViXuLy: dto.donViXuLy,
   };
 }

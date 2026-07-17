@@ -926,6 +926,9 @@ model Petition {
   legacyRaw              Json? // Toàn bộ field raw hệ cũ — không mất data (Codex P1#1; Petition không có metadata)
   // Field-parity hệ thống cũ — giai đoạn Ủy thác điều tra
   thoiHanUTDT            DateTime? // Thời hạn thực hiện Ủy thác điều tra (old: thoi_han_thuc_hien_uy_thac_dieu_tra)
+  // Thẩm quyền & đơn vị xử lý (form đăng ký đơn thư)
+  thuocThamQuyen        Boolean   @default(true) // Đơn thuộc thẩm quyền → xử lý nội bộ theo Tổ/Nhóm (assignedTeamId); false → chuyển đơn vị xử lý ngoài
+  donViXuLy             String? // Tên đơn vị xử lý (danh mục DON_VI) khi KHÔNG thuộc thẩm quyền
 
   crimeChinh Crime? @relation("PetitionCrimeChinh", fields: [crimeChinhId], references: [id], onDelete: SetNull)
 

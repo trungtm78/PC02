@@ -612,6 +612,9 @@ export class PetitionsService {
       ...(dto.phanLoaiNguonTin !== undefined && { phanLoaiNguonTin: dto.phanLoaiNguonTin }),
       ...(dto.dieuTraVien !== undefined && { dieuTraVien: dto.dieuTraVien }),
       ...(dto.donViGiaiQuyet !== undefined && { donViGiaiQuyet: dto.donViGiaiQuyet }),
+      // Thẩm quyền & đơn vị xử lý (form đăng ký đơn thư).
+      ...(dto.thuocThamQuyen !== undefined && { thuocThamQuyen: dto.thuocThamQuyen }),
+      ...(dto.donViXuLy !== undefined && { donViXuLy: dto.donViXuLy }),
     };
     const petitionInclude = {
       enteredBy: {

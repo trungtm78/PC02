@@ -68,6 +68,7 @@ const DIRECTORY_TYPE_LABELS: Record<string, string> = {
   AGE_GROUP:          'Nhóm tuổi',
   EDUCATION_LEVEL:    'Trình độ học vấn',
   ORG:                'Tổ chức/Đơn vị',
+  DON_VI:             'Đơn vị',
   // Legacy types still in DB
   LOCATION:           'Địa bàn (cũ)',
   STATUS:             'Trạng thái (cũ)',
@@ -126,7 +127,7 @@ export default function DirectoriesPage() {
       .then((res) => {
         const types: string[] = res.data ?? [];
         // Sort: priority types first, then alphabetical
-        const priority = ['WARD', 'PROVINCE', 'CRIME', 'INCIDENT_TYPE', 'PETITION_TYPE', 'PRIORITY', 'UNIT'];
+        const priority = ['WARD', 'PROVINCE', 'CRIME', 'INCIDENT_TYPE', 'PETITION_TYPE', 'DON_VI', 'PRIORITY', 'UNIT'];
         const sorted = [
           ...priority.filter(t => types.includes(t)),
           ...types.filter(t => !priority.includes(t)).sort(),
