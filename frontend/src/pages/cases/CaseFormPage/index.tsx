@@ -7,6 +7,7 @@ import { DynamicExportDocumentsModal } from "@/features/document-templates/compo
 import { useFormDefaults } from "@/hooks/useFormDefaults";
 import { useFormShortcuts } from "@/hooks/useFormShortcuts";
 import { useDeleteResourceModalSafe } from "@/features/_shared/modals/DeleteResourceModalProvider";
+import { CaseStatus } from "@/shared/enums/generated";
 import {
   X,
   Clock,
@@ -359,7 +360,8 @@ function CaseFormPage() {
         deleteModal.open({ resourceType: "cases", recordId: id, onSuccess: () => navigate("/cases") });
       }
     },
-    canDelete: isEditMode,
+    // Đồng bộ rule với danh sách: chỉ xóa khi trạng thái = Tiếp nhận (cases/row-actions.ts).
+    canDelete: isEditMode && formData.status === CaseStatus.TIEP_NHAN,
   });
 
   const handleSaveSubject = (subject: Subject) => {

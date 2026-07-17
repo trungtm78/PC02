@@ -21,6 +21,7 @@ import type { LoaiNguonTin, NguonPhatTin } from "@/shared/enums/generated";
 import { useFormDefaults } from "@/hooks/useFormDefaults";
 import { useFormShortcuts } from "@/hooks/useFormShortcuts";
 import { useDeleteResourceModalSafe } from "@/features/_shared/modals/DeleteResourceModalProvider";
+import { IncidentStatus } from "@/shared/enums/generated";
 import { toDateInput } from "@/lib/dates";
 import { EntityDocumentsTab } from "@/components/documents/EntityDocumentsTab";
 
@@ -159,6 +160,8 @@ export function IncidentFormPage() {
   const [formData, setFormData] = useState<FormData>(INITIAL_FORM);
   const [errors, setErrors] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Trạng thái bản ghi (edit) — để gate phím tắt Xóa (F3) theo rule danh sách (chỉ TIEP_NHAN).
+  const [recordStatus, setRecordStatus] = useState("");
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [userOptions, setUserOptions] = useState<FKOption[]>([]);
   const [recordUpdatedAt, setRecordUpdatedAt] = useState<string | null>(null);
@@ -288,6 +291,7 @@ export function IncidentFormPage() {
             laCongNgheCaoVV: Boolean(d.laCongNgheCaoVV),
           });
           setRecordUpdatedAt((d.updatedAt as string) ?? null);
+          setRecordStatus((d.status as string) ?? "");
           // Auto-expand sections based on phase
           const phase = getPhaseForStatus(status);
           setSection2Open(true); // always expand in edit mode
@@ -436,7 +440,8 @@ export function IncidentFormPage() {
         deleteModal.open({ resourceType: "incidents", recordId: id, onSuccess: () => navigate("/vu-viec") });
       }
     },
-    canDelete: isEditMode,
+    // Đồng bộ rule với danh sách: chỉ xóa khi trạng thái = Tiếp nhận (incidents/row-actions.ts).
+    canDelete: isEditMode && recordStatus === IncidentStatus.TIEP_NHAN,
   });
   const update = <K extends keyof FormData>(field: K, value: FormData[K]) =>
     setFormData((prev) => ({ ...prev, [field]: value }));
