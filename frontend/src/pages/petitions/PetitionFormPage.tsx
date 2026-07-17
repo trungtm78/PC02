@@ -20,6 +20,8 @@ import { SaveSplitButton } from "@/features/petitions/components/SaveSplitButton
 import { DynamicExportDocumentsModal } from "@/features/document-templates/components/DynamicExportDocumentsModal";
 import { useFormDefaults } from "@/hooks/useFormDefaults";
 import { useTeamOptions } from "@/hooks/useTeamOptions";
+import { useFormShortcuts } from "@/hooks/useFormShortcuts";
+import { useDeleteResourceModalSafe } from "@/features/_shared/modals/DeleteResourceModalProvider";
 import { today, toDateInput } from "@/lib/dates";
 import { LOAI_DON_OPTIONS } from "@/shared/enums/status-labels";
 import { LoaiDon } from "@/shared/enums/generated";
@@ -534,6 +536,23 @@ export function PetitionFormPage() {
   const handleCancel = () => {
     if (confirm("Bạn có chắc chắn muốn hủy? Dữ liệu chưa lưu sẽ bị mất.")) navigate("/petitions");
   };
+
+  // Phím tắt form: F2 Lưu, Esc Hủy, F4 Xuất/In chứng từ, F3 Xóa (chỉ khi SỬA).
+  const deleteModal = useDeleteResourceModalSafe();
+  useFormShortcuts({
+    onSave: () => void onSave(),
+    onCancel: handleCancel,
+    onExportDocs: () => {
+      if (effectiveId) { setExportNavigateOnClose(false); setExportModalForId(effectiveId); }
+      else void onSaveAndExport();
+    },
+    onDelete: () => {
+      if (id && deleteModal) {
+        deleteModal.open({ resourceType: "petitions", recordId: id, onSuccess: () => navigate("/petitions") });
+      }
+    },
+    canDelete: isEditMode,
+  });
 
   const update = (field: keyof FormData, value: string | boolean) =>
     setFormData((prev) => ({ ...prev, [field]: value }));

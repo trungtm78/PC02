@@ -35,3 +35,12 @@ Mục tiêu: 6 yêu cầu chỉnh form đơn thư + danh mục `DON_VI`. Chỉ l
 - Commits nhánh feat/donthu-form-donvi: 8382913 (feature), f1b98d0 (fix review), fd792b7 (fix codex).
 - Tests: BE petitions 151, FE petitions+hooks 130, tsc BE/FE = 0. Verified LIVE cả create thuộc/không thuộc thẩm quyền + auto-fill + focus lỗi.
 - App dev đang chạy BE:3000 FE:5173 để anh mở /petitions/new kiểm tra.
+
+---
+# PROGRESS 2 — Phím tắt toàn hệ thống (F2/F3/F4)
+Plan: `~/.claude/plans/h-y-ph-n-t-ch-to-n-floofy-fairy.md`. Hạ tầng phím tắt ĐÃ CÓ SẴN (registry/useShortcut/DB per-user/Settings/cheat-sheet) — task = hoàn thiện.
+- ✅ Pha 1a: registry.ts — save=F2, delete=F3(scope global), exportDocx=F4 MỚI; fireInInputs cho 3 action (R7); test guard chống trùng binding. registry test 28 xanh.
+- ✅ Pha 1b: hook `useFormShortcuts` (DRY) + `useDeleteResourceModalSafe` (no-throw). test 5 xanh.
+- ✅ Pha 1c: nối 3 form (Petition/Incident/Case). tsc 0, 272 test xanh. Verify LIVE: F2 lưu-trong-input, F4 export, F3 delete (edit), F3 no-op (create).
+- NEXT: Pha 2 nối danh sách (list shell), Pha 3 chi tiết + ShortcutHint. Rồi /codex + commit tổng.
+- App dev BE:3000 FE:5173 đang chạy.

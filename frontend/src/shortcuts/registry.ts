@@ -23,6 +23,7 @@ export type ShortcutAction =
   | 'export'
   | 'logout'
   | 'refreshList'
+  | 'exportDocx'
   | 'expandAbbreviation'
   | 'convertAddress'
   | 'toggleLegacyMode'
@@ -47,8 +48,10 @@ export const SHORTCUTS: Record<ShortcutAction, ShortcutDef> = {
     label: 'Lưu',
     description: 'Lưu hồ sơ đang mở',
     group: 'Trong form',
-    defaultBinding: 'Ctrl+Shift+S',
+    defaultBinding: 'F2',
     scope: 'form',
+    // F-key an toàn khi đang gõ trong ô nhập liệu → cho fire trong input để Lưu ngay không cần rời field.
+    fireInInputs: true,
   },
   saveDraft: {
     action: 'saveDraft',
@@ -84,11 +87,13 @@ export const SHORTCUTS: Record<ShortcutAction, ShortcutDef> = {
   },
   delete: {
     action: 'delete',
-    label: 'Xóa (cần chọn dòng)',
-    description: 'Xóa bản ghi đang xem',
-    group: 'Trong danh sách',
-    defaultBinding: 'Delete',
-    scope: 'list',
+    label: 'Xóa hồ sơ',
+    description: 'Xóa hồ sơ đang mở (form) hoặc dòng đang chọn (danh sách)',
+    group: 'Toàn cục',
+    defaultBinding: 'F3',
+    // global: dùng chung cho cả form (xóa record đang sửa) và danh sách (xóa dòng), handler theo từng trang.
+    scope: 'global',
+    fireInInputs: true,
   },
   export: {
     action: 'export',
@@ -97,6 +102,16 @@ export const SHORTCUTS: Record<ShortcutAction, ShortcutDef> = {
     group: 'Trong danh sách',
     defaultBinding: 'Ctrl+E',
     scope: 'list',
+  },
+  exportDocx: {
+    action: 'exportDocx',
+    label: 'Xuất/In chứng từ Word',
+    description: 'Mở In chứng từ (.docx) của hồ sơ đang mở',
+    group: 'Trong form',
+    defaultBinding: 'F4',
+    scope: 'form',
+    // F-key an toàn trong input → cho fire khi đang gõ để xuất ngay.
+    fireInInputs: true,
   },
   refreshList: {
     action: 'refreshList',

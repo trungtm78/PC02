@@ -5,6 +5,8 @@ import { documentNumbersApi } from "@/features/document-numbers/api";
 import { SaveSplitButton } from "@/features/petitions/components/SaveSplitButton";
 import { DynamicExportDocumentsModal } from "@/features/document-templates/components/DynamicExportDocumentsModal";
 import { useFormDefaults } from "@/hooks/useFormDefaults";
+import { useFormShortcuts } from "@/hooks/useFormShortcuts";
+import { useDeleteResourceModalSafe } from "@/features/_shared/modals/DeleteResourceModalProvider";
 import {
   X,
   Clock,
@@ -342,6 +344,23 @@ function CaseFormPage() {
       navigate(safeReturn);
     }
   };
+
+  // Phím tắt form: F2 Lưu, Esc Hủy, F4 In chứng từ, F3 Xóa (chỉ khi SỬA).
+  const deleteModal = useDeleteResourceModalSafe();
+  useFormShortcuts({
+    onSave: () => void handleSave(),
+    onCancel: handleCancel,
+    onExportDocs: () => {
+      if (id) { setExportNavigateOnClose(false); setExportForId(id); }
+      else void handleSaveAndExport();
+    },
+    onDelete: () => {
+      if (id && deleteModal) {
+        deleteModal.open({ resourceType: "cases", recordId: id, onSuccess: () => navigate("/cases") });
+      }
+    },
+    canDelete: isEditMode,
+  });
 
   const handleSaveSubject = (subject: Subject) => {
     if (editingSubject) {

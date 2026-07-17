@@ -152,3 +152,12 @@ export function useDeleteResourceModal(): DeleteResourceModalApi {
   }
   return ctx;
 }
+
+/**
+ * Biến thể KHÔNG ném lỗi — trả null nếu chưa có Provider.
+ * Dùng ở nơi tính năng là tùy chọn (vd phím tắt Xóa trên form) để component vẫn render
+ * được trong test/context không bọc Provider.
+ */
+export function useDeleteResourceModalSafe(): DeleteResourceModalApi | null {
+  return useContext(DeleteResourceContext);
+}

@@ -41,6 +41,34 @@ describe('SHORTCUTS registry', () => {
       expect(validGroups.has(SHORTCUTS[action].group)).toBe(true);
     }
   });
+
+  it('default F-key bindings theo yêu cầu: Lưu=F2, Xóa=F3, Xuất Word=F4', () => {
+    expect(SHORTCUTS.save.defaultBinding).toBe('F2');
+    expect(SHORTCUTS.delete.defaultBinding).toBe('F3');
+    expect(SHORTCUTS.exportDocx).toBeDefined();
+    expect(SHORTCUTS.exportDocx.defaultBinding).toBe('F4');
+  });
+
+  it('save/delete/exportDocx phải fireInInputs (F-key chạy cả khi đang gõ trong field)', () => {
+    expect(SHORTCUTS.save.fireInInputs).toBe(true);
+    expect(SHORTCUTS.delete.fireInInputs).toBe(true);
+    expect(SHORTCUTS.exportDocx.fireInInputs).toBe(true);
+  });
+
+  it('KHÔNG có 2 action trùng defaultBinding trong CÙNG scope (tránh xung đột dispatch)', () => {
+    const byScope = new Map<string, Map<string, string>>();
+    for (const action of ALL_ACTIONS) {
+      const def = SHORTCUTS[action];
+      const scopeMap = byScope.get(def.scope) ?? new Map<string, string>();
+      const clash = scopeMap.get(def.defaultBinding);
+      expect(
+        clash,
+        `Trùng phím ${def.defaultBinding} trong scope ${def.scope}: ${clash} & ${action}`,
+      ).toBeUndefined();
+      scopeMap.set(def.defaultBinding, action);
+      byScope.set(def.scope, scopeMap);
+    }
+  });
 });
 
 describe('serializeKey()', () => {
