@@ -44,3 +44,13 @@ Plan: `~/.claude/plans/h-y-ph-n-t-ch-to-n-floofy-fairy.md`. Hạ tầng phím t�
 - ✅ Pha 1c: nối 3 form (Petition/Incident/Case). tsc 0, 272 test xanh. Verify LIVE: F2 lưu-trong-input, F4 export, F3 delete (edit), F3 no-op (create).
 - NEXT: Pha 2 nối danh sách (list shell), Pha 3 chi tiết + ShortcutHint. Rồi /codex + commit tổng.
 - App dev BE:3000 FE:5173 đang chạy.
+- ✅ Pha 2: useListShortcuts + 4 list shell (Alt+N/Alt+R/Ctrl+K). commit f6c460f. Verified LIVE.
+- ✅ /codex: bắt 2 bug → fix (b1aa32e): (1) F3 xóa gate theo TIEP_NHAN (case/incident) khớp rule list; (2) ConvertPetitionModal thêm role=dialog để modal-guard chặn shortcut nền.
+- ✅ Pha 3: chi tiết page KHÔNG có action export/delete cấp hồ sơ (nằm ở form/list) → không cần nối; ShortcutHint bỏ (cheat-sheet `?` + trang cấu hình đã đủ discoverability).
+- Bug có sẵn (ĐÃ BÁO, chưa sửa - ngoài scope): IncidentFormPage:292 getPhaseForStatus(status) dùng window.status toàn cục.
+
+## HOÀN TẤT phím tắt — commits: 38019a4, f6c460f, b1aa32e (nhánh feat/donthu-form-donvi)
+- Forms: F2 Lưu, Esc Hủy, F4 In chứng từ, F3 Xóa (gate trạng thái) — chạy CẢ khi con trỏ trong field.
+- Lists: Alt+N thêm mới, Alt+R làm mới, Ctrl+K tìm kiếm.
+- User tự cấu hình tại Settings → Phím tắt (đã có sẵn), cheat-sheet phím `?`.
+- Tests xanh (registry/useFormShortcuts/useListShortcuts/form/list/settings), tsc 0.
