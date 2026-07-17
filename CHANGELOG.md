@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.70.0.0] - 2026-07-18
+
+### Added
+- **Đơn thư — Đơn vị tiếp nhận/xử lý theo danh mục + thẩm quyền**: danh mục `DON_VI` (Directory) quản lý tại `/danh-muc`; "Đơn vị tiếp nhận" nạp từ danh mục (bỏ trống = PC02); ô "Đơn vị xử lý" + checkbox "thuộc thẩm quyền" (check → Tổ/Nhóm, uncheck → danh mục). Petition +2 cột `thuocThamQuyen`, `donViXuLy` (migration `20260717000100`).
+- **Phím tắt toàn hệ thống** (mở rộng hạ tầng v0.13.7.0): mặc định F2 Lưu / F3 Xóa (gate theo trạng thái) / F4 In chứng từ Word / Esc Hủy trên form nhập liệu; Alt+N thêm mới / Alt+R làm mới / Ctrl+K tìm kiếm trên danh sách; F8 làm mới/nhập lại form. Tất cả `fireInInputs` (chạy cả khi con trỏ trong ô nhập); user tự cấu hình tại Settings → Phím tắt.
+- **Bộ tạo clip hướng dẫn** `tools/guide-recorder/` (Playwright + ffmpeg-static + msedge-tts) sinh trang HDSD HTML + 18 clip MP4 lồng tiếng Việt + phụ đề (sản phẩm xuất ra `C:\PC02\docs`, ngoài repo).
+
+### Changed
+- Form đăng ký đơn thư: tự điền Ngày tiếp nhận nguồn tin/Ngày đề xuất theo Ngày tiếp nhận; ẩn ô Tóm tắt (tự lấy từ Nội dung), đổi nhãn "Nội dung chi tiết" → "Nội dung"; lưu lỗi → focus field lỗi đầu, Shift+Enter nhảy field lỗi kế.
+
+### Fixed
+- Phím tắt list/form bị nuốt khi con trỏ trong ô nhập (thiếu `fireInInputs`). F3 xóa trên form nay tuân rule trạng thái (chỉ TIEP_NHAN cho vụ án/vụ việc). F8 reset an toàn (không ghi đè bản ghi khi Sửa). ConvertPetitionModal thêm `role="dialog"`.
+
 ## [0.69.0.2] - 2026-06-29
 
 ### Added
