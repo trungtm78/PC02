@@ -13,6 +13,9 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+const testQueryClient = () => new QueryClient({ defaultOptions: { queries: { retry: false } } });
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
 
 const mockApiGet = vi.fn();
@@ -74,6 +77,7 @@ function setupHappyFetch() {
 async function renderPage(initialEntry = '/uy-thac-dieu-tra') {
   const { default: Page } = await import('../UyThacDieuTraListPage');
   return render(
+    <QueryClientProvider client={testQueryClient()}>
     <MemoryRouter initialEntries={[initialEntry]}>
       <Routes>
         <Route path="/uy-thac-dieu-tra" element={<Page />} />
@@ -82,7 +86,8 @@ async function renderPage(initialEntry = '/uy-thac-dieu-tra') {
           element={<div data-testid="utdt-edit-route">EDIT</div>}
         />
       </Routes>
-    </MemoryRouter>,
+    </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 
@@ -331,6 +336,7 @@ describe('UyThacDieuTraListPage — PR3 shell refactor', () => {
     }
     const { default: Page } = await import('../UyThacDieuTraListPage');
     render(
+      <QueryClientProvider client={testQueryClient()}>
       <MemoryRouter initialEntries={['/uy-thac-dieu-tra?utdt_page=999']}>
         <Routes>
           <Route
@@ -343,7 +349,8 @@ describe('UyThacDieuTraListPage — PR3 shell refactor', () => {
             }
           />
         </Routes>
-      </MemoryRouter>,
+      </MemoryRouter>
+      </QueryClientProvider>,
     );
     await waitFor(() => {
       // After totalCount=20 ≤ 1 page resolves, page clamps to 1

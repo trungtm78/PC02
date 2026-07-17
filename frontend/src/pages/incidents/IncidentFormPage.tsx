@@ -442,6 +442,13 @@ export function IncidentFormPage() {
     },
     // Đồng bộ rule với danh sách: chỉ xóa khi trạng thái = Tiếp nhận (incidents/row-actions.ts).
     canDelete: isEditMode && recordStatus === IncidentStatus.TIEP_NHAN,
+    onReset: () => {
+      if (confirm("Làm trống form và nhập lại từ đầu? Dữ liệu chưa lưu sẽ mất.")) {
+        setFormData(INITIAL_FORM);
+        setErrors([]);
+        setRecordStatus("");
+      }
+    },
   });
   const update = <K extends keyof FormData>(field: K, value: FormData[K]) =>
     setFormData((prev) => ({ ...prev, [field]: value }));

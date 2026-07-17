@@ -24,6 +24,7 @@ export type ShortcutAction =
   | 'logout'
   | 'refreshList'
   | 'exportDocx'
+  | 'resetForm'
   | 'expandAbbreviation'
   | 'convertAddress'
   | 'toggleLegacyMode'
@@ -84,6 +85,8 @@ export const SHORTCUTS: Record<ShortcutAction, ShortcutDef> = {
     group: 'Trong danh sách',
     defaultBinding: 'Alt+N',
     scope: 'list',
+    // Modifier an toàn khi đang gõ → chạy kể cả khi con trỏ trong ô tìm kiếm/lọc.
+    fireInInputs: true,
   },
   delete: {
     action: 'delete',
@@ -102,6 +105,7 @@ export const SHORTCUTS: Record<ShortcutAction, ShortcutDef> = {
     group: 'Trong danh sách',
     defaultBinding: 'Ctrl+E',
     scope: 'list',
+    fireInInputs: true,
   },
   exportDocx: {
     action: 'exportDocx',
@@ -120,6 +124,16 @@ export const SHORTCUTS: Record<ShortcutAction, ShortcutDef> = {
     group: 'Trong danh sách',
     defaultBinding: 'Alt+R',
     scope: 'list',
+    fireInInputs: true,
+  },
+  resetForm: {
+    action: 'resetForm',
+    label: 'Làm mới / Nhập lại từ đầu',
+    description: 'Làm trống form đang nhập về trạng thái ban đầu',
+    group: 'Trong form',
+    defaultBinding: 'F8',
+    scope: 'form',
+    fireInInputs: true,
   },
   expandAbbreviation: {
     action: 'expandAbbreviation',

@@ -55,6 +55,19 @@ describe('SHORTCUTS registry', () => {
     expect(SHORTCUTS.exportDocx.fireInInputs).toBe(true);
   });
 
+  it('action list (newRecord/refreshList/export) fireInInputs — chạy kể cả khi con trỏ trong ô tìm kiếm', () => {
+    expect(SHORTCUTS.newRecord.fireInInputs).toBe(true);
+    expect(SHORTCUTS.refreshList.fireInInputs).toBe(true);
+    expect(SHORTCUTS.export.fireInInputs).toBe(true);
+  });
+
+  it('resetForm (init/làm trống form) tồn tại, default F8, fireInInputs', () => {
+    expect(SHORTCUTS.resetForm).toBeDefined();
+    expect(SHORTCUTS.resetForm.defaultBinding).toBe('F8');
+    expect(SHORTCUTS.resetForm.scope).toBe('form');
+    expect(SHORTCUTS.resetForm.fireInInputs).toBe(true);
+  });
+
   it('KHÔNG có 2 action trùng defaultBinding trong CÙNG scope (tránh xung đột dispatch)', () => {
     const byScope = new Map<string, Map<string, string>>();
     for (const action of ALL_ACTIONS) {

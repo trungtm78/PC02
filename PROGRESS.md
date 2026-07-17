@@ -54,3 +54,13 @@ Plan: `~/.claude/plans/h-y-ph-n-t-ch-to-n-floofy-fairy.md`. Hạ tầng phím t�
 - Lists: Alt+N thêm mới, Alt+R làm mới, Ctrl+K tìm kiếm.
 - User tự cấu hình tại Settings → Phím tắt (đã có sẵn), cheat-sheet phím `?`.
 - Tests xanh (registry/useFormShortcuts/useListShortcuts/form/list/settings), tsc 0.
+
+---
+# PROGRESS 3 — Fix Alt+N + thêm resetForm (init màn hình)
+- Nguyên nhân "Alt+N/thêm mới không chạy": action list thiếu fireInInputs → bị nuốt khi con trỏ trong ô tìm kiếm (useShortcut.ts:84).
+- ✅ registry: fireInInputs cho newRecord/refreshList/export; thêm action resetForm (F8, form, fireInInputs). Test 30 xanh.
+- ✅ useFormShortcuts: +onReset; 3 form (Petition/Incident/Case) reset về INITIAL_FORM (confirm, xóa errors/state phụ, không rời trang).
+- ✅ Nối Alt+N cho Ủy thác (UyThacDieuTraListPage). Bỏ Alt+R dashboard (tránh vỡ DashboardPage.test bare-render). Sửa comment stale PetitionListPageShell:13.
+- ✅ Tests: registry/useFormShortcuts + wrap uy-thac test QueryClient. tsc 0. 269 form/list + 112 shortcut/hook xanh.
+- ✅ Verify LIVE: Alt+N từ trong ô tìm kiếm → /petitions/new; F8 → form về trắng.
+- Follow-up (ghi nhận): trang admin tạo-qua-modal (users/teams/danh-muc...) chưa nối Alt+N (mỗi trang handler modal riêng).

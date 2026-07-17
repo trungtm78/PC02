@@ -16,11 +16,23 @@ beforeEach(() => {
 });
 
 describe('useFormShortcuts', () => {
-  it('đăng ký đủ 4 action save/cancel/exportDocx/delete', () => {
+  it('đăng ký đủ 5 action save/cancel/exportDocx/delete/resetForm', () => {
     renderHook(() =>
-      useFormShortcuts({ onSave: vi.fn(), onCancel: vi.fn(), onExportDocs: vi.fn(), onDelete: vi.fn(), canDelete: true }),
+      useFormShortcuts({ onSave: vi.fn(), onCancel: vi.fn(), onExportDocs: vi.fn(), onDelete: vi.fn(), canDelete: true, onReset: vi.fn() }),
     );
-    expect(calls.map((c) => c.action).sort()).toEqual(['cancel', 'delete', 'exportDocx', 'save']);
+    expect(calls.map((c) => c.action).sort()).toEqual(['cancel', 'delete', 'exportDocx', 'resetForm', 'save']);
+  });
+
+  it('resetForm disabled khi không truyền onReset; enabled khi có', () => {
+    renderHook(() => useFormShortcuts({ onSave: vi.fn() }));
+    expect(calls.find((c) => c.action === 'resetForm')?.enabled).toBe(false);
+    calls.length = 0;
+    const onReset = vi.fn();
+    renderHook(() => useFormShortcuts({ onReset }));
+    const r = calls.find((c) => c.action === 'resetForm');
+    expect(r?.enabled).toBe(true);
+    r?.handler();
+    expect(onReset).toHaveBeenCalledTimes(1);
   });
 
   it('delete DISABLED khi canDelete=false (form tạo mới)', () => {

@@ -552,6 +552,14 @@ export function PetitionFormPage() {
       }
     },
     canDelete: isEditMode,
+    onReset: () => {
+      // Init màn hình: làm trống form về ban đầu (không rời trang).
+      if (confirm("Làm trống form và nhập lại từ đầu? Dữ liệu chưa lưu sẽ mất.")) {
+        setFormData(INITIAL_FORM);
+        setErrors([]);
+        setCreatedId(null);
+      }
+    },
   });
 
   const update = (field: keyof FormData, value: string | boolean) =>

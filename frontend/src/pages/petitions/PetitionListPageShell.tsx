@@ -10,7 +10,7 @@
  *
  * Petition không có phase tabs (đơn giản hơn Incident — single workflow).
  *
- * KHÔNG thay thế production PetitionListPage — feature-flag swap ở PR3 sau soak.
+ * v0.56: ĐÃ thay thế production PetitionListPage (route /petitions trỏ vào Shell này).
  */
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';

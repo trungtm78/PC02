@@ -11,6 +11,8 @@ export interface FormShortcutHandlers {
   onDelete?: () => void;
   /** Cho phép Xóa (thường = chế độ SỬA; form TẠO mới không có gì để xóa). */
   canDelete?: boolean;
+  /** Làm mới / nhập lại từ đầu (F8) — làm trống form về trạng thái ban đầu. */
+  onReset?: () => void;
 }
 
 /**
@@ -24,9 +26,11 @@ export function useFormShortcuts({
   onExportDocs,
   onDelete,
   canDelete = false,
+  onReset,
 }: FormShortcutHandlers): void {
   useShortcut('save', () => onSave?.(), { enabled: !!onSave });
   useShortcut('cancel', () => onCancel?.(), { enabled: !!onCancel });
   useShortcut('exportDocx', () => onExportDocs?.(), { enabled: !!onExportDocs });
   useShortcut('delete', () => onDelete?.(), { enabled: !!onDelete && canDelete });
+  useShortcut('resetForm', () => onReset?.(), { enabled: !!onReset });
 }
