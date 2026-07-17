@@ -82,6 +82,25 @@ async function main() {
     });
   }
 
+  // ── Grant OFFICER role: write/edit/delete trên hồ sơ nghiệp vụ ──────────────
+  // Cán bộ phải tạo/sửa/xóa Đơn thư, Vụ việc, Vụ án của mình. DataScope
+  // (assertCreatorInScope/assertParentInScope) giới hạn ghi trong phạm vi tổ/ĐTV.
+  // Trước đây OFFICER chỉ có 'read' → 15/18 user prod không lưu được đơn thư
+  // (root cause 2026-07-17). 'restore' vẫn giữ riêng cho ADMIN.
+  const officerWritePerms = await prisma.permission.findMany({
+    where: {
+      action: { in: ['write', 'edit', 'delete'] },
+      subject: { in: ['Case', 'Incident', 'Petition'] },
+    },
+  });
+  for (const perm of officerWritePerms) {
+    await prisma.rolePermission.upsert({
+      where: { roleId_permissionId: { roleId: officerRole.id, permissionId: perm.id } },
+      update: {},
+      create: { roleId: officerRole.id, permissionId: perm.id },
+    });
+  }
+
   // ── DEADLINE_APPROVER role: separation-of-duties checker for legal rules ───
   const deadlineApproverRole = await prisma.role.upsert({
     where: { name: 'DEADLINE_APPROVER' },
