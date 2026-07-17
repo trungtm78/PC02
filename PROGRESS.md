@@ -28,5 +28,6 @@ Mục tiêu: 6 yêu cầu chỉnh form đơn thư + danh mục `DON_VI`. Chỉ l
 - ✅ M3 Frontend DONE: YC1 auto-fill, YC2 ẩn summary+nhãn "Nội dung", YC3 focus+Shift+Enter theo field lỗi, YC5 unit→DON_VI+hint, YC6 checkbox+Đơn vị xử lý (Team↔DON_VI), hook useTeamOptions. tsc -b 0.
 - ✅ M4 Tests DONE: FE petitions+hooks 129 xanh (+6 test mới YC1/2/6); sửa test cũ bỏ field-summary.
 - ✅ Verify LIVE (Playwright): auto-fill 2 ngày, summary ẩn, nhãn Nội dung, unit=DON_VI, đơn vị xử lý Team(checked)↔DON_VI(uncheck), focus=senderName khi lưu thiếu, tạo đơn thật persist thuocThamQuyen=false+donViXuLy trong DB.
-- Còn lại: /review + /codex (checkpoint), commit.
-- App dev đang chạy BE:3000 FE:5173 (bu7yzte0q).
+- ✅ /code-review: bắt bug edit-mode (reuse assignedTeamId — update() không xử lý + vượt kiểm quyền /assign). SỬA: refactor YC6 → cả 2 nhánh ghi `donViXuLy` (text; thuộc TQ=tên Tổ, không TQ=tên đơn vị), KHÔNG đụng assignedTeamId. Verified DB: checked→"Nhóm 1", unchecked→"Công an Quận 1".
+- Còn lại: /codex (cross-model), commit fix.
+- App dev đang chạy BE:3000 FE:5173.

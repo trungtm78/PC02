@@ -412,9 +412,9 @@ export function PetitionFormPage() {
         // YC2: ẩn ô Tóm tắt → tự lấy từ Nội dung (cắt 300) để danh sách vẫn có tóm tắt.
         summary: (formData.detailContent || "").slice(0, 300) || undefined,
         detailContent: formData.detailContent || undefined,
-        // YC6: thẩm quyền & đơn vị xử lý.
+        // YC6: cả 2 nhánh ghi vào donViXuLy (thuộc TQ = tên Tổ/Nhóm; không TQ = tên đơn vị). Gửi null để xoá khi trống.
         thuocThamQuyen: formData.thuocThamQuyen,
-        donViXuLy: formData.thuocThamQuyen ? undefined : (formData.donViXuLy || undefined),
+        donViXuLy: formData.donViXuLy || null,
         attachmentsNote: formData.attachmentsNote || undefined,
         deadline: formData.deadline || undefined,
         assignedToId: formData.assignedToId || undefined,
@@ -1024,14 +1024,8 @@ export function PetitionFormPage() {
                     type="checkbox"
                     checked={formData.thuocThamQuyen}
                     onChange={(e) => {
-                      const checked = e.target.checked;
-                      // Clear giá trị nhánh không dùng để không gửi nhầm lên backend.
-                      setFormData((prev) => ({
-                        ...prev,
-                        thuocThamQuyen: checked,
-                        assignedTeamId: checked ? prev.assignedTeamId : "",
-                        donViXuLy: checked ? "" : prev.donViXuLy,
-                      }));
+                      // Đổi nguồn options → xoá lựa chọn cũ (tên tổ ≠ tên đơn vị ngoài).
+                      setFormData((prev) => ({ ...prev, thuocThamQuyen: e.target.checked, donViXuLy: "" }));
                     }}
                     className="w-4 h-4"
                     data-testid="field-thuocThamQuyen"
@@ -1042,8 +1036,8 @@ export function PetitionFormPage() {
                   <FKSelect
                     label="Đơn vị xử lý"
                     options={teamOptions}
-                    value={formData.assignedTeamId}
-                    onChange={(v) => update("assignedTeamId", v)}
+                    value={formData.donViXuLy}
+                    onChange={(v) => update("donViXuLy", v)}
                     placeholder="Chọn Tổ/Nhóm xử lý"
                     testId="field-donViXuLy"
                   />
