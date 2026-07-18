@@ -19,6 +19,7 @@ import {
   useUserShortcutList,
   useUserShortcutMap,
 } from '@/hooks/useUserShortcuts';
+import { useShortcutHintsEnabled, setShortcutHintsEnabled } from '@/hooks/useShortcutHints';
 import { extractApiError } from '@/lib/api-errors';
 
 // Group ordering by frequency-of-use for case officer (per autoplan Design D9).
@@ -46,6 +47,7 @@ export function ShortcutsModule() {
   const remove = useDeleteUserShortcut();
   const resetAll = useResetUserShortcuts();
   const swap = useSwapUserShortcuts();
+  const hintsEnabled = useShortcutHintsEnabled();
 
   const [rowState, setRowState] = useState<Record<ShortcutAction, RowState>>(() =>
     Object.fromEntries(ALL_ACTIONS.map((a) => [a, { ...EMPTY_ROW }])) as Record<ShortcutAction, RowState>,
@@ -298,6 +300,27 @@ export function ShortcutsModule() {
           <RotateCcw className="w-4 h-4" />
           Reset toàn bộ
         </button>
+      </div>
+
+      {/* Toggle: hiện gợi ý phím tắt cạnh nút (localStorage, per-thiết-bị) */}
+      <div className="mb-4 flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+        <div>
+          <div className="text-sm font-medium text-slate-800">Hiện gợi ý phím tắt trên nút</div>
+          <div className="text-xs text-slate-500 mt-0.5">
+            Hiển thị phím tắt (vd Alt+N) cạnh nút Tạo mới/Lưu/Hủy. Chỉ trên máy tính; lưu riêng thiết bị này.
+          </div>
+        </div>
+        <label className="relative inline-flex items-center cursor-pointer shrink-0 ml-4">
+          <input
+            type="checkbox"
+            className="sr-only peer"
+            checked={hintsEnabled}
+            onChange={(e) => setShortcutHintsEnabled(e.target.checked)}
+            data-testid="shortcuts-hints-toggle"
+            aria-label="Hiện gợi ý phím tắt trên nút"
+          />
+          <div className="w-11 h-6 bg-slate-300 rounded-full peer peer-checked:bg-[#003973] peer-focus:ring-2 peer-focus:ring-[#003973] after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-5"></div>
+        </label>
       </div>
 
       <div className="relative mb-4">

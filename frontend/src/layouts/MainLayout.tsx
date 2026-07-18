@@ -11,7 +11,7 @@ import { useAddressConverter } from '@/hooks/useAddressConverter';
 import { AddressConversionDialog } from '@/components/AddressConversionDialog';
 import { useShortcut } from '@/hooks/useShortcut';
 import { useUserShortcutBroadcast } from '@/hooks/useUserShortcuts';
-import { ShortcutCheatSheet } from '@/components/ShortcutCheatSheet';
+import { ShortcutCheatSheet, CheatSheetButton } from '@/components/ShortcutCheatSheet';
 import { PwaUpdatePrompt } from '@/components/PwaUpdatePrompt';
 import { authStore } from '@/stores/auth.store';
 import { api } from '@/lib/api';
@@ -182,6 +182,9 @@ export function MainLayout() {
               <span className="font-medium md:hidden">{user.wardTeam.code}</span>
             </div>
           )}
+
+          {/* Chip gợi ý phím tắt — luôn hiện ở header (chỉ desktop) */}
+          <CheatSheetButton />
 
           {/* Notification bell */}
           <NotificationDropdown />
