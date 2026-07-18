@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.70.0.3] - 2026-07-18
+
+### Added
+- **Gợi ý phím tắt trên màn hình**: chip "⌨ Phím tắt (?)" luôn hiện ở header (chỉ desktop) mở bảng cheat-sheet; `<kbd>` phím tắt cạnh nút Tạo mới/Lưu/Hủy; `formatBinding` hiển thị đẹp (Shift+/ → ?, mũi tên); toggle bật/tắt gợi ý tại Settings → Phím tắt (mặc định BẬT, lưu per-thiết-bị).
+- **Phím "Lỗi tiếp theo" (Shift+Enter)**: đăng ký vào registry (hiện trong cheat-sheet + Settings, rebind được); hook chung `useFormErrorNavigation` cho CẢ 3 form (Đơn thư/Vụ việc/Vụ án) — focus ô lỗi đầu khi lưu chưa hợp lệ + nhảy tới ô lỗi kế.
+
+### Fixed
+- Phím `?` đóng được bảng cheat-sheet khi đang mở (trước bị guard "modal đang mở" của useShortcut nuốt).
+
 ## [0.70.0.2] - 2026-07-18
 
 ### Changed

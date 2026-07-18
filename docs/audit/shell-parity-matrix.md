@@ -218,3 +218,12 @@ Bổ sung hook `useListShortcuts` (Alt+N thêm mới, Alt+R làm mới, Ctrl+K t
 sửa 1 comment stale trong `PetitionListPageShell`. Đây là hành vi bàn phím
 xuyên suốt, **không thêm/bớt cột/lọc/bulk-action** nên **không thay đổi ma trận
 parity** ở trên — ghi nhận ở đây để thỏa gate `shell-parity-gate`.
+
+---
+
+## v0.70.0.3 — Gợi ý phím tắt cạnh nút (cross-cutting, không đổi feature parity)
+
+Thêm `<ShortcutHint action="newRecord" />` (hiện `<kbd>Alt+N</kbd>`) cạnh nút
+"Tạo mới" ở cả 4 shell (Cases, Comprehensive, Incidents, Petitions). Chỉ là gợi
+ý phím tắt hiển thị, **không thêm/bớt cột/lọc/bulk-action** nên **không đổi ma
+trận parity** — ghi nhận để thỏa gate `shell-parity-gate`.
