@@ -20,6 +20,7 @@ import {
 import type { LoaiNguonTin, NguonPhatTin } from "@/shared/enums/generated";
 import { useFormDefaults } from "@/hooks/useFormDefaults";
 import { useFormShortcuts } from "@/hooks/useFormShortcuts";
+import { useFormErrorNavigation } from "@/hooks/useFormErrorNavigation";
 import { useDeleteResourceModalSafe } from "@/features/_shared/modals/DeleteResourceModalProvider";
 import { IncidentStatus } from "@/shared/enums/generated";
 import { toDateInput } from "@/lib/dates";
@@ -305,19 +306,28 @@ export function IncidentFormPage() {
       .finally(() => setIsLoadingData(false));
   }, [id, isEditMode]);
 
-  const validateForm = (): boolean => {
-    const newErrors: string[] = [];
-    if (!formData.name.trim() || formData.name.length < 5) newErrors.push("Tên vụ việc phải có ít nhất 5 ký tự");
-    if (formData.fromDate && formData.toDate && new Date(formData.fromDate) > new Date(formData.toDate)) newErrors.push("Từ ngày không được lớn hơn Đến ngày (EC-05)");
-    setErrors(newErrors);
-    return newErrors.length === 0;
+  // Lỗi kèm testid theo THỨ TỰ hiển thị → dùng chung cho msgs + điều hướng ô lỗi.
+  const buildErrors = (): { msgs: string[]; fields: string[] } => {
+    const items: { msg: string; testid: string }[] = [];
+    if (!formData.name.trim() || formData.name.length < 5)
+      items.push({ msg: "Tên vụ việc phải có ít nhất 5 ký tự", testid: "field-name" });
+    if (formData.fromDate && formData.toDate && new Date(formData.fromDate) > new Date(formData.toDate))
+      items.push({ msg: "Từ ngày không được lớn hơn Đến ngày (EC-05)", testid: "field-fromDate" });
+    return { msgs: items.map((i) => i.msg), fields: items.map((i) => i.testid) };
   };
+  const validateForm = (): boolean => {
+    const { msgs } = buildErrors();
+    setErrors(msgs);
+    return msgs.length === 0;
+  };
+  // Focus ô lỗi đầu khi lưu + phím "Lỗi tiếp theo" (Shift+Enter) nhảy ô lỗi kế.
+  const { focusFirstError, handleFormKeyDown } = useFormErrorNavigation(() => buildErrors().fields);
 
   // Tách phần LƯU (không điều hướng) → trả { ok, id } để onSave/onSaveAndExport
   // quyết định điều hướng hay mở popup xuất chứng từ động.
   const doSave = async (): Promise<{ ok: boolean; id: string | null }> => {
     if (savingRef.current) return { ok: false, id: null }; // chống lưu chồng lấn
-    if (!validateForm()) { window.scrollTo({ top: 0, behavior: "smooth" }); return { ok: false, id: null }; }
+    if (!validateForm()) { if (!focusFirstError()) window.scrollTo({ top: 0, behavior: "smooth" }); return { ok: false, id: null }; }
     savingRef.current = true;
     setIsSubmitting(true);
     try {
@@ -508,7 +518,7 @@ export function IncidentFormPage() {
         </div>
       )}
 
-      <form onSubmit={(e) => void handleSubmit(e)} className="space-y-6">
+      <form onSubmit={(e) => void handleSubmit(e)} onKeyDown={handleFormKeyDown} className="space-y-6">
         {/* Submit ẩn: giữ hành vi Enter-to-submit của <form> sau khi nút Lưu chuyển sang
             SaveSplitButton (type=button). Không hiển thị, không phá layout. */}
         <button type="submit" className="hidden" aria-hidden="true" tabIndex={-1} disabled={isSubmitting} />

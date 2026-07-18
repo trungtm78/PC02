@@ -6,6 +6,7 @@ import { SaveSplitButton } from "@/features/petitions/components/SaveSplitButton
 import { DynamicExportDocumentsModal } from "@/features/document-templates/components/DynamicExportDocumentsModal";
 import { useFormDefaults } from "@/hooks/useFormDefaults";
 import { useFormShortcuts } from "@/hooks/useFormShortcuts";
+import { useFormErrorNavigation } from "@/hooks/useFormErrorNavigation";
 import { useDeleteResourceModalSafe } from "@/features/_shared/modals/DeleteResourceModalProvider";
 import { CaseStatus } from "@/shared/enums/generated";
 import {
@@ -214,33 +215,41 @@ function CaseFormPage() {
 
   // ─── Validation ────────────────────────────────────────────────────────
 
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {};
-    if (!formData.receiveDate) newErrors.receiveDate = "Vui lòng chọn ngày tiếp nhận";
-    if (formData.receiveDate && formData.receiveDate > today()) {
-      // So chuỗi YYYY-MM-DD theo giờ VN — nhất quán default + tránh lệch biên múi giờ (CI UTC).
-      newErrors.receiveDate = "Ngày tiếp nhận không được ở tương lai";
-    }
-    // v0.37.1 Decision 7A 10/10 — validation 10/10 (multi-channel error display)
-    if (!formData.caseProvenance) {
-      newErrors.caseProvenance = "Vui lòng chọn Nguồn vụ án (BLTTHS Đ.143)";
-    } else if (formData.caseProvenance === "FROM_PETITION" && !formData.linkedPetitionId) {
-      newErrors.linkedPetitionId = "Vui lòng chọn Đơn thư gốc";
-    } else if (formData.caseProvenance === "FROM_INCIDENT" && !formData.linkedIncidentId) {
-      newErrors.linkedIncidentId = "Vui lòng chọn Vụ việc gốc";
-    }
-    if (!formData.caseTitle.trim()) newErrors.caseTitle = "Vui lòng nhập tiêu đề hồ sơ";
-    if (!formData.handler) newErrors.handler = "Vui lòng chọn điều tra viên";
-    // v0.67.3 — UTDT requires donViGiao (originally enforced via throw in
-    // buildCreateCasePayload, which got swallowed by handleConfirmSave's catch
-    // and shown as generic "Lưu hồ sơ thất bại". Promote to validateForm so
-    // the field-specific message lands in the top-of-form error banner.
-    if (formData.caseProvenance === 'UY_THAC_DIEU_TRA' && !formData.utdt_donViGiao?.trim()) {
-      newErrors.utdt_donViGiao = "Vui lòng nhập Đơn vị giao ủy thác (tab Thông tin Ủy thác)";
-    }
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+  // Map field lỗi → data-testid để focus (field tab chính; utdt ở tab khác → bỏ qua, fallback scroll).
+  const ERROR_FIELD_TESTID: Record<string, string> = {
+    receiveDate: "input-receive-date",
+    caseProvenance: "select-case-provenance",
+    linkedPetitionId: "select-case-provenance",
+    linkedIncidentId: "select-case-provenance",
+    caseTitle: "input-case-title",
+    handler: "fk-handler",
   };
+  // Lỗi + testid theo THỨ TỰ hiển thị → dùng chung msgs (banner) + điều hướng ô lỗi.
+  const buildErrors = (): { errors: Record<string, string>; fields: string[] } => {
+    const errs: Record<string, string> = {};
+    const order: string[] = [];
+    const add = (key: string, msg: string) => { errs[key] = msg; order.push(key); };
+    if (!formData.receiveDate) add("receiveDate", "Vui lòng chọn ngày tiếp nhận");
+    else if (formData.receiveDate > today()) add("receiveDate", "Ngày tiếp nhận không được ở tương lai");
+    // v0.37.1 Decision 7A 10/10 — validation 10/10 (multi-channel error display)
+    if (!formData.caseProvenance) add("caseProvenance", "Vui lòng chọn Nguồn vụ án (BLTTHS Đ.143)");
+    else if (formData.caseProvenance === "FROM_PETITION" && !formData.linkedPetitionId) add("linkedPetitionId", "Vui lòng chọn Đơn thư gốc");
+    else if (formData.caseProvenance === "FROM_INCIDENT" && !formData.linkedIncidentId) add("linkedIncidentId", "Vui lòng chọn Vụ việc gốc");
+    if (!formData.caseTitle.trim()) add("caseTitle", "Vui lòng nhập tiêu đề hồ sơ");
+    if (!formData.handler) add("handler", "Vui lòng chọn điều tra viên");
+    // v0.67.3 — UTDT requires donViGiao (field-specific message ở banner; field ở tab Ủy thác).
+    if (formData.caseProvenance === 'UY_THAC_DIEU_TRA' && !formData.utdt_donViGiao?.trim())
+      add("utdt_donViGiao", "Vui lòng nhập Đơn vị giao ủy thác (tab Thông tin Ủy thác)");
+    const fields = [...new Set(order.map((k) => ERROR_FIELD_TESTID[k]).filter(Boolean))];
+    return { errors: errs, fields };
+  };
+  const validateForm = () => {
+    const { errors: errs } = buildErrors();
+    setErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
+  // Focus ô lỗi đầu khi lưu + phím "Lỗi tiếp theo" (Shift+Enter) nhảy ô lỗi kế.
+  const { focusFirstError, handleFormKeyDown } = useFormErrorNavigation(() => buildErrors().fields);
 
   // ─── Handlers ──────────────────────────────────────────────────────────
 
@@ -260,7 +269,7 @@ function CaseFormPage() {
 
   const beginSave = async () => {
     if (!validateForm()) {
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      if (!focusFirstError()) window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
     // Skip pre-save modal in edit mode (avoid friction for quick edits)
@@ -437,7 +446,7 @@ function CaseFormPage() {
   }
 
   return (
-    <div className="h-full flex flex-col bg-slate-50" data-testid="case-form-page">
+    <div className="h-full flex flex-col bg-slate-50" data-testid="case-form-page" onKeyDown={handleFormKeyDown}>
       {showDraftBanner && !isEditMode && (
         <div className="bg-amber-50 border-b border-amber-200 px-6 py-3 flex items-center justify-between">
           <span className="text-sm text-amber-800">Bản nháp được tìm thấy từ lần trước — dữ liệu đã được khôi phục.</span>
