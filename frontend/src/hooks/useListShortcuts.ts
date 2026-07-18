@@ -1,7 +1,7 @@
 import { useShortcut } from './useShortcut';
 
 export interface ListShortcutHandlers {
-  /** Thêm mới (F6) — thường điều hướng tới route .../new. */
+  /** Thêm mới (Alt+N) — thường điều hướng tới route .../new. */
   onNew?: () => void;
   /** Làm mới danh sách (Alt+R) — refetch dữ liệu. */
   onRefresh?: () => void;

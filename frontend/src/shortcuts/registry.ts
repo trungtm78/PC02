@@ -83,10 +83,10 @@ export const SHORTCUTS: Record<ShortcutAction, ShortcutDef> = {
     label: 'Thêm mới',
     description: 'Tạo bản ghi mới trên trang đang mở',
     group: 'Trong danh sách',
-    defaultBinding: 'F6',
+    defaultBinding: 'Alt+N',
     scope: 'list',
-    // F-key an toàn khi đang gõ (không sinh ký tự) → chạy kể cả khi con trỏ trong ô tìm kiếm/lọc.
-    // F6 thay Alt+N (dễ bấm hơn, đồng bộ nhóm F-key). F5/F11/F12 bị trình duyệt giữ nên tránh.
+    // Modifier an toàn khi đang gõ → chạy kể cả khi con trỏ trong ô tìm kiếm/lọc.
+    // Dùng Alt+N (không phải F-key): F6 focus thanh địa chỉ, F5/F11/F12 bị trình duyệt giữ.
     fireInInputs: true,
   },
   delete: {

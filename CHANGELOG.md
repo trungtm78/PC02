@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.70.0.2] - 2026-07-18
+
+### Changed
+- **Phím tắt Thêm mới quay lại `Alt+N`** (revert F6 ở 0.70.0.1): F6 focus thanh địa chỉ của trình duyệt nên không ổn định; Alt+N là modifier không xung đột phím trình duyệt và vẫn `fireInInputs` (chạy cả khi con trỏ trong ô tìm kiếm/lọc).
+
 ## [0.70.0.1] - 2026-07-18
 
 ### Fixed
