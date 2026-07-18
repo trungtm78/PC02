@@ -15,6 +15,7 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useListShortcuts } from '@/hooks/useListShortcuts';
+import { ShortcutHint } from '@/components/ShortcutCheatSheet';
 import { Folder, Plus, Clock, CheckCircle, XCircle, PauseCircle } from 'lucide-react';
 import axios from 'axios';
 import { api } from '@/lib/api';
@@ -425,6 +426,7 @@ export function CaseListPageShell() {
           >
             <Plus className="w-4 h-4" />
             <span>Tạo mới</span>
+            <ShortcutHint action="newRecord" className="ml-1" />
           </button>
         }
       />

@@ -1,45 +1,81 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useSyncExternalStore } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Keyboard, X, Settings } from 'lucide-react';
 import {
   ALL_ACTIONS,
   SHORTCUTS,
+  formatBinding,
+  serializeKey,
   type ShortcutAction,
   type ShortcutDef,
 } from '@/shortcuts/registry';
 import { useUserShortcutMap } from '@/hooks/useUserShortcuts';
 import { useShortcut } from '@/hooks/useShortcut';
+import { useShortcutHintsEnabled } from '@/hooks/useShortcutHints';
 
 const GROUP_ORDER = ['Trong form', 'Trong danh sách', 'Trong nhập liệu', 'Toàn cục'] as const;
 
 /**
+ * Store mở/đóng cheat-sheet ở cấp module (singleton — cheat-sheet mount 1 lần).
+ * Cho phép mở từ nhiều nơi (phím `?`, chip header) mà không cần Context Provider.
+ */
+let cheatSheetOpen = false;
+const listeners = new Set<() => void>();
+function emitCheatSheet() {
+  for (const l of listeners) l();
+}
+export function setCheatSheetOpen(value: boolean): void {
+  if (cheatSheetOpen === value) return;
+  cheatSheetOpen = value;
+  emitCheatSheet();
+}
+export function toggleCheatSheet(): void {
+  cheatSheetOpen = !cheatSheetOpen;
+  emitCheatSheet();
+}
+function subscribeCheatSheet(cb: () => void): () => void {
+  listeners.add(cb);
+  return () => listeners.delete(cb);
+}
+function getCheatSheetSnapshot(): boolean {
+  return cheatSheetOpen;
+}
+export function useCheatSheetOpen(): boolean {
+  return useSyncExternalStore(subscribeCheatSheet, getCheatSheetSnapshot, getCheatSheetSnapshot);
+}
+
+/**
  * Global keyboard cheat sheet — opens with the `showCheatSheet` shortcut
- * (default `Shift+Slash` aka `?`). Modal lists all bindings grouped by scope
- * with link to Settings for customization.
+ * (default `Shift+Slash` aka `?`) hoặc chip "Phím tắt" ở header. Modal liệt kê
+ * mọi binding theo nhóm + link tới Settings.
  *
- * Mounted once at the app root (App.tsx).
+ * Mounted once tại MainLayout.
  */
 export function ShortcutCheatSheet() {
-  const [open, setOpen] = useState(false);
+  const open = useCheatSheetOpen();
   const navigate = useNavigate();
   const map = useUserShortcutMap();
 
-  useShortcut('showCheatSheet', () => setOpen((v) => !v));
+  useShortcut('showCheatSheet', () => toggleCheatSheet());
 
-  // Esc-to-close handled here so we do NOT subscribe to the `cancel` shortcut
-  // (which would conflict with form-scope handlers).
+  const cheatBinding = map.get('showCheatSheet') ?? SHORTCUTS.showCheatSheet.defaultBinding;
+
+  // Đóng bằng Esc HOẶC bằng chính phím mở cheat-sheet (mặc định `?`). Xử lý ở
+  // capture-phase riêng vì `useShortcut('showCheatSheet')` scope global bị guard
+  // "modal đang mở" của useShortcut nuốt khi dialog hiển thị. Không subscribe
+  // `cancel` để tránh xung đột form-scope. Tôn trọng user rebind qua serializeKey.
   useEffect(() => {
     if (!open) return;
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      if (e.key === 'Escape' || serializeKey(e) === cheatBinding) {
         e.preventDefault();
         e.stopPropagation();
-        setOpen(false);
+        setCheatSheetOpen(false);
       }
     };
     window.addEventListener('keydown', handler, { capture: true });
     return () => window.removeEventListener('keydown', handler, { capture: true });
-  }, [open]);
+  }, [open, cheatBinding]);
 
   const grouped = useMemo(() => {
     const result: Record<string, ShortcutDef[]> = {};
@@ -59,7 +95,7 @@ export function ShortcutCheatSheet() {
       aria-modal="true"
       aria-labelledby="cheatsheet-title"
       className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100]"
-      onClick={() => setOpen(false)}
+      onClick={() => setCheatSheetOpen(false)}
     >
       <div
         className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto"
@@ -72,7 +108,7 @@ export function ShortcutCheatSheet() {
           </h2>
           <button
             type="button"
-            onClick={() => setOpen(false)}
+            onClick={() => setCheatSheetOpen(false)}
             className="text-slate-400 hover:text-slate-700"
             aria-label="Đóng"
             data-testid="cheatsheet-close"
@@ -91,7 +127,7 @@ export function ShortcutCheatSheet() {
                     <div key={def.action} className="flex items-center justify-between py-1">
                       <div className="text-sm text-slate-700">{def.label}</div>
                       <kbd className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-slate-50 px-2 py-0.5 font-mono text-xs text-slate-700">
-                        {binding}
+                        {formatBinding(binding)}
                       </kbd>
                     </div>
                   );
@@ -108,7 +144,7 @@ export function ShortcutCheatSheet() {
           <button
             type="button"
             onClick={() => {
-              setOpen(false);
+              setCheatSheetOpen(false);
               navigate('/cai-dat?module=shortcuts');
             }}
             className="text-sm text-[#003973] hover:underline flex items-center gap-1"
@@ -122,26 +158,52 @@ export function ShortcutCheatSheet() {
   );
 }
 
+/**
+ * Chip "Phím tắt" luôn hiển thị ở header (chỉ desktop). Bấm mở cheat-sheet.
+ * Điểm vào giúp EU biết hệ thống có phím tắt + xem toàn bộ.
+ */
+export function CheatSheetButton({ className }: { className?: string }) {
+  return (
+    <button
+      type="button"
+      onClick={() => toggleCheatSheet()}
+      title="Xem phím tắt (?)"
+      aria-label="Xem phím tắt"
+      data-testid="cheatsheet-open-btn"
+      className={`hidden lg:inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600 hover:bg-slate-50 hover:text-slate-800 ${
+        className ?? ''
+      }`}
+    >
+      <Keyboard className="w-4 h-4" />
+      <span className="hidden xl:inline">Phím tắt</span>
+      <kbd className="rounded border border-slate-300 bg-slate-50 px-1 font-mono text-[10px] leading-4">?</kbd>
+    </button>
+  );
+}
+
 interface ShortcutHintProps {
   action: ShortcutAction;
   className?: string;
 }
 
 /**
- * Inline `<kbd>` element showing the current binding for an action. Use beside
- * action buttons (e.g. Save, New) to expose the shortcut.
+ * Inline `<kbd>` hiển thị binding hiện tại của một action. Đặt cạnh nút hành
+ * động (Lưu, Tạo mới, Xuất...) để lộ phím tắt. Chỉ hiện trên desktop và khi
+ * user chưa tắt gợi ý (Settings → Phím tắt).
  */
 export function ShortcutHint({ action, className }: ShortcutHintProps) {
   const map = useUserShortcutMap();
+  const enabled = useShortcutHintsEnabled();
+  if (!enabled) return null;
   const binding = map.get(action) ?? SHORTCUTS[action].defaultBinding;
   return (
     <kbd
-      className={`inline-flex items-center gap-1 rounded border border-slate-200 bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-slate-500 ${
+      className={`hidden lg:inline-flex items-center gap-1 rounded border border-slate-200 bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-slate-500 ${
         className ?? ''
       }`}
       aria-hidden="true"
     >
-      {binding}
+      {formatBinding(binding)}
     </kbd>
   );
 }

@@ -25,6 +25,7 @@ export type ShortcutAction =
   | 'refreshList'
   | 'exportDocx'
   | 'resetForm'
+  | 'nextError'
   | 'expandAbbreviation'
   | 'convertAddress'
   | 'toggleLegacyMode'
@@ -134,6 +135,16 @@ export const SHORTCUTS: Record<ShortcutAction, ShortcutDef> = {
     group: 'Trong form',
     defaultBinding: 'F8',
     scope: 'form',
+    fireInInputs: true,
+  },
+  nextError: {
+    action: 'nextError',
+    label: 'Lỗi tiếp theo',
+    description: 'Nhảy tới ô nhập bị lỗi kế tiếp khi lưu chưa hợp lệ',
+    group: 'Trong form',
+    defaultBinding: 'Shift+Enter',
+    scope: 'form',
+    // Phải chạy khi con trỏ đang trong ô nhập (người dùng vừa gõ).
     fireInInputs: true,
   },
   expandAbbreviation: {
@@ -436,4 +447,50 @@ export function normalizeBindingText(input: string): string | null {
 
   const result = [...orderedMods, keyToken].join('+');
   return BINDING_REGEX.test(result) ? result : null;
+}
+
+/**
+ * Map một số key token sang ký hiệu dễ đọc khi HIỂN THỊ (không đổi binding).
+ */
+const KEY_DISPLAY: Record<string, string> = {
+  Slash: '/',
+  Comma: ',',
+  Period: '.',
+  Minus: '-',
+  Equal: '=',
+  Semicolon: ';',
+  Quote: "'",
+  Backquote: '`',
+  BracketLeft: '[',
+  BracketRight: ']',
+  Backslash: '\\',
+  ArrowUp: '↑',
+  ArrowDown: '↓',
+  ArrowLeft: '←',
+  ArrowRight: '→',
+  Escape: 'Esc',
+  Delete: 'Del',
+  Insert: 'Ins',
+  PageUp: 'PgUp',
+  PageDown: 'PgDn',
+};
+
+/** Tổ hợp đầy đủ có ký hiệu thân thiện hơn (vd Shift+/ = ?). */
+const BINDING_DISPLAY: Record<string, string> = {
+  'Shift+Slash': '?',
+};
+
+/**
+ * Chuyển binding canonical (`Shift+Slash`, `ArrowUp`, `Alt+N`) sang chuỗi
+ * HIỂN THỊ đẹp (`?`, `↑`, `Alt+N`). Chỉ để hiển thị — không dùng để so khớp.
+ */
+export function formatBinding(binding: string): string {
+  if (!binding) return '';
+  const whole = BINDING_DISPLAY[binding];
+  if (whole) return whole;
+  const parts = binding.split('+');
+  const key = parts[parts.length - 1];
+  const mods = parts.slice(0, -1);
+  const displayKey = KEY_DISPLAY[key] ?? key;
+  return [...mods, displayKey].join('+');
 }

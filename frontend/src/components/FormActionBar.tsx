@@ -150,6 +150,7 @@ export function FormActionBar({
               >
                 <X className="w-4 h-4" />
                 Huy
+                <ShortcutHint action="cancel" className="ml-1" />
               </button>
 
               <button

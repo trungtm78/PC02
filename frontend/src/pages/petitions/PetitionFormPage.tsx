@@ -3,7 +3,7 @@
  * TASK-ID: TASK-2026-260202
  */
 
-import { useState, useEffect, useRef, useCallback, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { extractApiError } from "@/lib/api-errors";
@@ -21,6 +21,7 @@ import { DynamicExportDocumentsModal } from "@/features/document-templates/compo
 import { useFormDefaults } from "@/hooks/useFormDefaults";
 import { useTeamOptions } from "@/hooks/useTeamOptions";
 import { useFormShortcuts } from "@/hooks/useFormShortcuts";
+import { useFormErrorNavigation } from "@/hooks/useFormErrorNavigation";
 import { useDeleteResourceModalSafe } from "@/features/_shared/modals/DeleteResourceModalProvider";
 import { today, toDateInput } from "@/lib/dates";
 import { LOAI_DON_OPTIONS } from "@/shared/enums/status-labels";
@@ -156,8 +157,10 @@ export function PetitionFormPage() {
   const [errors, setErrors] = useState<string[]>([]);
   // Options Tổ/Nhóm cho "Đơn vị xử lý" khi thuộc thẩm quyền (YC6).
   const { data: teamOptions = [] } = useTeamOptions();
-  // testid các field lỗi theo thứ tự hiển thị — focus field đầu + Shift+Enter nhảy field kế (YC3).
-  const errorFieldsRef = useRef<string[]>([]);
+  // Điều hướng ô lỗi: focus ô lỗi đầu khi lưu + phím "Lỗi tiếp theo" nhảy ô lỗi kế (YC3, hook chung).
+  const { focusFirstError, handleFormKeyDown } = useFormErrorNavigation(
+    () => computeFormErrors(formData, effectiveEdit).fields,
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   // Mở popup "Xuất chứng từ" sau "Lưu và xuất file" (giữ petitionId vừa lưu).
   const [exportModalForId, setExportModalForId] = useState<string | null>(null);
@@ -342,42 +345,9 @@ export function PetitionFormPage() {
 
   const validateForm = (): boolean => {
     // priority optional (backend @IsOptional); summary KHÔNG còn bắt buộc (đã ẩn — YC2).
-    const { msgs, fields } = computeFormErrors(formData, effectiveEdit);
+    const { msgs } = computeFormErrors(formData, effectiveEdit);
     setErrors(msgs);
-    errorFieldsRef.current = fields;
     return msgs.length === 0;
-  };
-
-  /** Focus 1 field theo data-testid (input/select/textarea, hoặc trigger của CrimeSelect/FKSelect). */
-  const focusField = useCallback((testid: string) => {
-    const root = document.querySelector<HTMLElement>(`[data-testid="${testid}"]`);
-    let target: HTMLElement | null = null;
-    if (root) {
-      target = root.matches("input,select,textarea")
-        ? root
-        : root.querySelector<HTMLElement>("input,select,textarea");
-    }
-    if (!target) target = document.querySelector<HTMLElement>(`[data-testid="${testid}-trigger"]`);
-    if (!target) target = root;
-    if (!target) return;
-    target.scrollIntoView({ block: "center", behavior: "smooth" });
-    if (target.tabIndex < 0 && !target.matches("input,select,textarea,button,a")) target.tabIndex = -1;
-    window.setTimeout(() => target?.focus?.(), 60);
-  }, []);
-
-  /** Shift+Enter → nhảy tới field LỖI kế tiếp (xoay vòng); hết lỗi thì để mặc định (xuống dòng). */
-  const handleFormKeyDown = (e: ReactKeyboardEvent<HTMLFormElement>) => {
-    if (!(e.shiftKey && e.key === "Enter")) return;
-    const { fields } = computeFormErrors(formData, effectiveEdit);
-    if (fields.length === 0) return;
-    e.preventDefault();
-    const activeTestid =
-      (document.activeElement as HTMLElement | null)
-        ?.closest("[data-testid]")
-        ?.getAttribute("data-testid") || "";
-    const baseTestid = activeTestid.replace(/-(trigger|search|dropdown|option-.*)$/, "");
-    const idx = fields.indexOf(baseTestid);
-    focusField(fields[(idx + 1) % fields.length]);
   };
 
   // Tách phần LƯU (không điều hướng) → trả { ok, id } để onSave/onSaveAndExport
@@ -385,10 +355,8 @@ export function PetitionFormPage() {
   const saveOnly = async (): Promise<{ ok: boolean; id: string | null; uploadFailed?: number }> => {
     if (savingRef.current) return { ok: false, id: null }; // đang lưu → bỏ qua click lặp
     if (!validateForm()) {
-      // Focus field lỗi đầu tiên (thay vì chỉ scroll top) — YC3.
-      const first = errorFieldsRef.current[0];
-      if (first) focusField(first);
-      else window.scrollTo({ top: 0, behavior: "smooth" });
+      // Focus ô lỗi đầu tiên (thay vì chỉ scroll top) — YC3.
+      if (!focusFirstError()) window.scrollTo({ top: 0, behavior: "smooth" });
       return { ok: false, id: null };
     }
     savingRef.current = true;

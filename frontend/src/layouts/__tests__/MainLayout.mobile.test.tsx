@@ -70,6 +70,7 @@ vi.mock('@/components/AddressConversionDialog', () => ({
 }));
 vi.mock('@/components/ShortcutCheatSheet', () => ({
   ShortcutCheatSheet: () => null,
+  CheatSheetButton: () => null,
 }));
 vi.mock('@/components/PwaUpdatePrompt', () => ({
   PwaUpdatePrompt: () => null,

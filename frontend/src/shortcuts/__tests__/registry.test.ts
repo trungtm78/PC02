@@ -5,6 +5,7 @@ import {
   BROWSER_RESERVED,
   SHORTCUTS,
   bindingMatches,
+  formatBinding,
   isBrowserReserved,
   normalizeBindingText,
   parseKey,
@@ -22,6 +23,14 @@ describe('SHORTCUTS registry', () => {
       expect(SHORTCUTS[action]).toBeDefined();
       expect(SHORTCUTS[action].defaultBinding).toMatch(BINDING_REGEX);
     }
+  });
+
+  it('nextError registered as form shortcut with Shift+Enter default', () => {
+    expect(SHORTCUTS.nextError).toBeDefined();
+    expect(SHORTCUTS.nextError.defaultBinding).toBe('Shift+Enter');
+    expect(SHORTCUTS.nextError.group).toBe('Trong form');
+    expect(SHORTCUTS.nextError.fireInInputs).toBe(true);
+    expect(BINDING_REGEX.test('Shift+Enter')).toBe(true);
   });
 
   it('all default bindings pass BINDING_REGEX', () => {
@@ -221,5 +230,36 @@ describe('normalizeBindingText() — text input mode', () => {
   it('forgives duplicate modifier (Ctrl+Ctrl+S → Ctrl+S — collapses duplicates)', () => {
     // Implementation is forgiving: duplicate Ctrl is folded into a single Ctrl modifier.
     expect(normalizeBindingText('Ctrl+Ctrl+S')).toBe('Ctrl+S');
+  });
+});
+
+describe('formatBinding (hiển thị đẹp)', () => {
+  it('giữ nguyên modifier + phím thường', () => {
+    expect(formatBinding('Alt+N')).toBe('Alt+N');
+    expect(formatBinding('Ctrl+E')).toBe('Ctrl+E');
+    expect(formatBinding('F2')).toBe('F2');
+    expect(formatBinding('Ctrl+Shift+Q')).toBe('Ctrl+Shift+Q');
+  });
+
+  it('tổ hợp đầy đủ có ký hiệu thân thiện: Shift+Slash → ?', () => {
+    expect(formatBinding('Shift+Slash')).toBe('?');
+  });
+
+  it('đổi named key sang ký hiệu: mũi tên, Escape, Slash', () => {
+    expect(formatBinding('ArrowUp')).toBe('↑');
+    expect(formatBinding('ArrowDown')).toBe('↓');
+    expect(formatBinding('Escape')).toBe('Esc');
+    expect(formatBinding('Slash')).toBe('/');
+    expect(formatBinding('Alt+ArrowLeft')).toBe('Alt+←');
+  });
+
+  it('chuỗi rỗng → rỗng', () => {
+    expect(formatBinding('')).toBe('');
+  });
+
+  it('mọi defaultBinding format được, không rỗng', () => {
+    for (const action of ALL_ACTIONS) {
+      expect(formatBinding(SHORTCUTS[action].defaultBinding)).toBeTruthy();
+    }
   });
 });
