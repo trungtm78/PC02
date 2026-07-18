@@ -25,6 +25,14 @@ describe('SHORTCUTS registry', () => {
     }
   });
 
+  it('nextError registered as form shortcut with Shift+Enter default', () => {
+    expect(SHORTCUTS.nextError).toBeDefined();
+    expect(SHORTCUTS.nextError.defaultBinding).toBe('Shift+Enter');
+    expect(SHORTCUTS.nextError.group).toBe('Trong form');
+    expect(SHORTCUTS.nextError.fireInInputs).toBe(true);
+    expect(BINDING_REGEX.test('Shift+Enter')).toBe(true);
+  });
+
   it('all default bindings pass BINDING_REGEX', () => {
     for (const action of ALL_ACTIONS) {
       expect(BINDING_REGEX.test(SHORTCUTS[action].defaultBinding)).toBe(true);

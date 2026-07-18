@@ -25,6 +25,7 @@ export type ShortcutAction =
   | 'refreshList'
   | 'exportDocx'
   | 'resetForm'
+  | 'nextError'
   | 'expandAbbreviation'
   | 'convertAddress'
   | 'toggleLegacyMode'
@@ -134,6 +135,16 @@ export const SHORTCUTS: Record<ShortcutAction, ShortcutDef> = {
     group: 'Trong form',
     defaultBinding: 'F8',
     scope: 'form',
+    fireInInputs: true,
+  },
+  nextError: {
+    action: 'nextError',
+    label: 'Lỗi tiếp theo',
+    description: 'Nhảy tới ô nhập bị lỗi kế tiếp khi lưu chưa hợp lệ',
+    group: 'Trong form',
+    defaultBinding: 'Shift+Enter',
+    scope: 'form',
+    // Phải chạy khi con trỏ đang trong ô nhập (người dùng vừa gõ).
     fireInInputs: true,
   },
   expandAbbreviation: {

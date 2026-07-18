@@ -21,6 +21,8 @@ import { DynamicExportDocumentsModal } from "@/features/document-templates/compo
 import { useFormDefaults } from "@/hooks/useFormDefaults";
 import { useTeamOptions } from "@/hooks/useTeamOptions";
 import { useFormShortcuts } from "@/hooks/useFormShortcuts";
+import { useUserShortcutMap } from "@/hooks/useUserShortcuts";
+import { SHORTCUTS, serializeKey } from "@/shortcuts/registry";
 import { useDeleteResourceModalSafe } from "@/features/_shared/modals/DeleteResourceModalProvider";
 import { today, toDateInput } from "@/lib/dates";
 import { LOAI_DON_OPTIONS } from "@/shared/enums/status-labels";
@@ -156,8 +158,11 @@ export function PetitionFormPage() {
   const [errors, setErrors] = useState<string[]>([]);
   // Options Tổ/Nhóm cho "Đơn vị xử lý" khi thuộc thẩm quyền (YC6).
   const { data: teamOptions = [] } = useTeamOptions();
-  // testid các field lỗi theo thứ tự hiển thị — focus field đầu + Shift+Enter nhảy field kế (YC3).
+  // testid các field lỗi theo thứ tự hiển thị — focus field đầu + phím "Lỗi tiếp theo" nhảy field kế (YC3).
   const errorFieldsRef = useRef<string[]>([]);
+  // Binding phím "Lỗi tiếp theo" (mặc định Shift+Enter, user đổi được ở Settings).
+  const shortcutMap = useUserShortcutMap();
+  const nextErrorBinding = shortcutMap.get("nextError") ?? SHORTCUTS.nextError.defaultBinding;
   const [isSubmitting, setIsSubmitting] = useState(false);
   // Mở popup "Xuất chứng từ" sau "Lưu và xuất file" (giữ petitionId vừa lưu).
   const [exportModalForId, setExportModalForId] = useState<string | null>(null);
@@ -365,9 +370,9 @@ export function PetitionFormPage() {
     window.setTimeout(() => target?.focus?.(), 60);
   }, []);
 
-  /** Shift+Enter → nhảy tới field LỖI kế tiếp (xoay vòng); hết lỗi thì để mặc định (xuống dòng). */
+  /** Phím "Lỗi tiếp theo" (mặc định Shift+Enter) → nhảy tới field LỖI kế tiếp (xoay vòng); hết lỗi thì để mặc định. */
   const handleFormKeyDown = (e: ReactKeyboardEvent<HTMLFormElement>) => {
-    if (!(e.shiftKey && e.key === "Enter")) return;
+    if (serializeKey(e.nativeEvent) !== nextErrorBinding) return;
     const { fields } = computeFormErrors(formData, effectiveEdit);
     if (fields.length === 0) return;
     e.preventDefault();
