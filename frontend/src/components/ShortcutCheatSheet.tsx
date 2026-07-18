@@ -5,6 +5,7 @@ import {
   ALL_ACTIONS,
   SHORTCUTS,
   formatBinding,
+  serializeKey,
   type ShortcutAction,
   type ShortcutDef,
 } from '@/shortcuts/registry';
@@ -57,12 +58,16 @@ export function ShortcutCheatSheet() {
 
   useShortcut('showCheatSheet', () => toggleCheatSheet());
 
-  // Esc-to-close handled here so we do NOT subscribe to the `cancel` shortcut
-  // (which would conflict with form-scope handlers).
+  const cheatBinding = map.get('showCheatSheet') ?? SHORTCUTS.showCheatSheet.defaultBinding;
+
+  // Đóng bằng Esc HOẶC bằng chính phím mở cheat-sheet (mặc định `?`). Xử lý ở
+  // capture-phase riêng vì `useShortcut('showCheatSheet')` scope global bị guard
+  // "modal đang mở" của useShortcut nuốt khi dialog hiển thị. Không subscribe
+  // `cancel` để tránh xung đột form-scope. Tôn trọng user rebind qua serializeKey.
   useEffect(() => {
     if (!open) return;
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      if (e.key === 'Escape' || serializeKey(e) === cheatBinding) {
         e.preventDefault();
         e.stopPropagation();
         setCheatSheetOpen(false);
@@ -70,7 +75,7 @@ export function ShortcutCheatSheet() {
     };
     window.addEventListener('keydown', handler, { capture: true });
     return () => window.removeEventListener('keydown', handler, { capture: true });
-  }, [open]);
+  }, [open, cheatBinding]);
 
   const grouped = useMemo(() => {
     const result: Record<string, ShortcutDef[]> = {};

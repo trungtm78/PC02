@@ -1,6 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, fireEvent, renderHook, act } from '@testing-library/react';
+import { render, screen, fireEvent, renderHook, act, cleanup } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
+  ShortcutCheatSheet,
   ShortcutHint,
   CheatSheetButton,
   useCheatSheetOpen,
@@ -17,11 +20,18 @@ vi.mock('@/hooks/useUserShortcuts', () => ({
       ['newRecord', 'Alt+N'],
       ['showCheatSheet', 'Shift+Slash'],
     ]),
+  getCaptureModeActive: () => false,
 }));
+
+function renderWithProviders(ui: React.ReactNode) {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(<QueryClientProvider client={qc}><MemoryRouter>{ui}</MemoryRouter></QueryClientProvider>);
+}
 
 beforeEach(() => {
   localStorage.clear();
   setCheatSheetOpen(false);
+  cleanup();
 });
 
 describe('ShortcutHint', () => {
@@ -57,5 +67,28 @@ describe('cheat-sheet store', () => {
     render(<CheatSheetButton />);
     fireEvent.click(screen.getByTestId('cheatsheet-open-btn'));
     expect(result.current).toBe(true);
+  });
+});
+
+describe('ShortcutCheatSheet modal', () => {
+  it('phím ? ĐÓNG cheat-sheet khi đang mở (không bị guard modal nuốt)', () => {
+    renderWithProviders(<ShortcutCheatSheet />);
+    act(() => setCheatSheetOpen(true));
+    expect(screen.getByRole('dialog')).toBeTruthy();
+    // `?` = Shift+Slash (serializeKey đọc e.code='Slash' + shiftKey)
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Slash', key: '?', shiftKey: true }));
+    });
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('Esc ĐÓNG cheat-sheet khi đang mở', () => {
+    renderWithProviders(<ShortcutCheatSheet />);
+    act(() => setCheatSheetOpen(true));
+    expect(screen.getByRole('dialog')).toBeTruthy();
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    });
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 });
