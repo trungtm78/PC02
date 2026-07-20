@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.70.1.0] - 2026-07-20
+
+### Changed
+- **Cập nhật CẢ 7 mẫu chứng từ Đơn thư theo bản chính thức PC01** (TT 128/2025/TT-BCA): Phiếu đề xuất, Phiếu chuyển nguồn tin (Mẫu 03), Phiếu chuyển đơn, Thông báo chuyển đơn, Thông báo hướng dẫn, Thông báo trả lại đơn, Giấy biên nhận (Mẫu 214). Giữ NGUYÊN bố cục/font/bảng chữ ký của bản PC01; dữ liệu điền tự động từ hồ sơ.
+- `REQUIRED_BY_DOCTYPE` khớp biểu mẫu mới: PC01 chuẩn hoá lý do chuyển/căn cứ pháp lý thành văn cố định → trường bắt buộc chuyển sang **đơn vị nhận chuyển** (`donViNhan`) và **nhận định** (`nhanThay`).
+
+### Added
+- Field-catalog Đơn thư **+11 biến** (không cần migration — cột đã có sẵn): `soCCCD`, `ngayCapCCCD`, `noiCapCCCD`, `gioTiepNhan`, `ngayNhanNgan`, `ngayDonNgan`, `donViNhan`, `vietTatCanBo` (viết tắt cán bộ tạo, dòng "Lưu:"), `chucVuCanBo`, `coQuan`, `noiTiepNhan`.
+- `tools/docx-templatize/` — bộ tách file nhiều chứng từ + thay dữ liệu mẫu bằng placeholder ở mức run (giữ nguyên định dạng Word), kèm `verify.mjs` chặn sót placeholder/lộ dữ liệu mẫu. Dùng lại khi PC01 phát hành biểu mẫu mới.
+- `SEED_TEMPLATES_FORCE_FILE=1` — chế độ opt-in đẩy file mẫu mới vào môi trường ĐÃ seed (mặc định vẫn create-if-absent, không đè bản admin tự sửa).
+
+### Fixed
+- Giấy biên nhận không còn **bịa giờ tiếp nhận**: `receivedDate` nhập dạng ngày nên phần giờ luôn 00:00 (và lệch timezone máy chủ) — nay giữ khung "…… giờ ……" như bản giấy để điền tay, chỉ in giờ khi hồ sơ có giờ thật.
+
 ## [0.70.0.3] - 2026-07-18
 
 ### Added
