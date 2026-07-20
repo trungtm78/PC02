@@ -137,5 +137,7 @@ export const DYNAMIC_EXPORT_SAVABLE: Record<
     canCuPhapLy: { column: 'canCuPhapLy', type: 'textarea' },
     huongDanKhoiKien: { column: 'huongDanKhoiKien', type: 'textarea' },
     lyDoTraDon: { column: 'lyDoTraDon', type: 'textarea' },
+    // Bộ mẫu PC01: đơn vị nhận chuyển đơn — bắt buộc ở Phiếu chuyển / Thông báo chuyển.
+    donViNhan: { column: 'donViXuLy', type: 'text' },
   },
 };
