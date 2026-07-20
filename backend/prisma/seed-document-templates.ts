@@ -137,12 +137,17 @@ function resolvePetitionDocxDir(): string {
  * - `needsNumber=true` + `numberSeriesId` theo DOC_TYPE_TO_SERIES (series dùng chung PHIEU_CHUYEN/THONG_BAO).
  * - GATE: buildPetitionSeedVariables throw nếu placeholder ngoài catalog DON_THU.
  * - Idempotent create-if-absent (KHÔNG ghi đè bản admin đã sửa); backfill required nếu chưa cấu hình.
+ * - `SEED_TEMPLATES_FORCE_FILE=1`: OPT-IN ghi đè fileBytes+variables của bản đã có từ
+ *   file trên đĩa. Dùng khi PC01 phát hành biểu mẫu mới (vd TT 128/2025/TT-BCA) và cần
+ *   đẩy vào môi trường đã seed. Mặc định TẮT để không xoá tuỳ chỉnh của admin.
  */
 export async function seedPetitionTemplates(
   prisma: PrismaClient,
-): Promise<{ created: number; skipped: number }> {
+): Promise<{ created: number; skipped: number; updated: number }> {
   let created = 0;
   let skipped = 0;
+  let updated = 0;
+  const forceFile = process.env.SEED_TEMPLATES_FORCE_FILE === '1';
 
   const admin = await (prisma as any).user.findFirst({
     where: { role: { name: { in: ['SUPER_ADMIN', 'ADMIN'] } } },
@@ -150,7 +155,7 @@ export async function seedPetitionTemplates(
   });
   if (!admin) {
     console.warn('⚠ Không tìm thấy ADMIN — bỏ qua seed mẫu Đơn thư (non-fatal).');
-    return { created, skipped };
+    return { created, skipped, updated };
   }
 
   const dir = resolvePetitionDocxDir();
@@ -168,6 +173,18 @@ export async function seedPetitionTemplates(
       where: { entityType: 'DON_THU', code: docType, deletedAt: null },
       select: { id: true, variables: true },
     });
+    if (existing && forceFile) {
+      // Ghi đè có chủ đích: dựng lại mapping từ file mới (GATE catalog bên trong).
+      const variables = buildPetitionSeedVariables(docType, buffer);
+      const fileSha = createHash('sha256').update(buffer).digest('hex');
+      await (prisma as any).documentTemplate.update({
+        where: { id: existing.id },
+        data: { fileBytes: buffer, fileSha, fileName: `${docType}.docx`, variables },
+      });
+      updated++;
+      console.log(`  ⇪ DON_THU/${docType} ĐÃ GHI ĐÈ file + mapping (force).`);
+      continue;
+    }
     if (existing) {
       skipped++;
       const curVars = (existing.variables as Array<{ name: string; required?: boolean }>) ?? [];
@@ -213,8 +230,10 @@ export async function seedPetitionTemplates(
     console.log(`  ✔ Tạo mẫu Đơn thư ${docType} — "${meta.name}" (${variables.length} biến, series ${numberSeriesId}).`);
   }
 
-  console.log(`\n✔ Seed mẫu Đơn thư: ${created} tạo mới, ${skipped} đã có.`);
-  return { created, skipped };
+  console.log(
+    `\n✔ Seed mẫu Đơn thư: ${created} tạo mới, ${updated} ghi đè (force), ${skipped} giữ nguyên.`,
+  );
+  return { created, skipped, updated };
 }
 
 // CLI entry

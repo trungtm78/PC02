@@ -43,6 +43,47 @@ function rankName(u: any): string {
   return [u.rank, u.firstName, u.lastName].filter(Boolean).join(' ').trim();
 }
 
+/** Ngày dạng ngắn d/M/yyyy — dùng khi mẫu đã có sẵn chữ "ngày" phía trước. */
+function fmtDateShort(d: unknown): string {
+  if (!d) return '';
+  const date = d instanceof Date ? d : new Date(d as string);
+  if (Number.isNaN(date.getTime())) return '';
+  return `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
+}
+
+/**
+ * Cụm "HH giờ mm" cho mục "Hồi ... " của Giấy biên nhận (Mẫu 214).
+ *
+ * `receivedDate` được nhập dạng NGÀY (YYYY-MM-DD) nên phần giờ thường là 00:00 —
+ * in ra "00 giờ 00" là BỊA số liệu trên văn bản tố tụng (và còn lệch theo timezone
+ * máy chủ). Khi không có giờ thật, trả về đúng khung để trống như bản giấy PC01
+ * để cán bộ điền tay.
+ */
+const KHUNG_GIO_TRONG = '…… giờ ……';
+function fmtGioPhut(d: unknown): string {
+  if (!d) return KHUNG_GIO_TRONG;
+  const date = d instanceof Date ? d : new Date(d as string);
+  if (Number.isNaN(date.getTime())) return KHUNG_GIO_TRONG;
+  const h = date.getHours();
+  const m = date.getMinutes();
+  if (h === 0 && m === 0) return KHUNG_GIO_TRONG; // chỉ có ngày, không có giờ thật
+  return `${String(h).padStart(2, '0')} giờ ${String(m).padStart(2, '0')}`;
+}
+
+/**
+ * Viết tắt tên cán bộ cho dòng "Lưu:" của văn bản — lấy chữ cái đầu của tên
+ * đệm + tên gọi. VD "Phạm Văn Huy" → "V.Huy".
+ */
+function abbrevName(u: any): string {
+  const full = personName(u);
+  if (!full) return '';
+  const parts = full.split(/\s+/).filter(Boolean);
+  const last = parts[parts.length - 1];
+  if (parts.length < 2) return last;
+  const middle = parts[parts.length - 2];
+  return `${middle.charAt(0).toUpperCase()}.${last}`;
+}
+
 /** Nhãn tiếng Việt cho enum NguonPhatTin (Đ.144 BLTTHS) — render nhãn thay vì mã enum. */
 const NGUON_PHAT_TIN_LABEL: Record<string, string> = {
   CA_NHAN_TO_GIAC: 'Cá nhân tố giác',
@@ -137,6 +178,29 @@ const DON_THU_FIELDS: FieldDef[] = [
   { key: 'tenCanBoDeXuat', label: 'Cán bộ đề xuất', group: 'Cán bộ', resolve: (r) => rankName(r.enteredBy) },
   { key: 'tenPhoDoiTruong', label: 'Phó đội trưởng', group: 'Cán bộ', resolve: (r) => rankName(r.assignedTeam?.members?.find((m: any) => m.isLeader)?.user) },
   { key: 'tenTruongPhong', label: 'Trưởng phòng', group: 'Cán bộ', resolve: () => '' },
+  // ── Bổ sung cho bộ mẫu PC01 (TT 128/2025/TT-BCA) ──────────────────────────
+  // Ngày dạng ngắn: mẫu PC01 viết "Ngày 13/7/2026, ..." (đã có chữ "ngày" sẵn)
+  { key: 'ngayNhanNgan', label: 'Ngày nhận (d/M/yyyy)', group: 'Mốc thời gian', resolve: (r) => fmtDateShort(r.receivedDate) },
+  { key: 'ngayDonNgan', label: 'Ngày đơn (d/M/yyyy)', group: 'Mốc thời gian', resolve: (r) => fmtDateShort(r.petitionDate ?? r.receivedDate) },
+  { key: 'gioTiepNhan', label: 'Giờ tiếp nhận', group: 'Mốc thời gian', resolve: (r) => fmtGioPhut(r.receivedDate) },
+  // Giấy tờ tuỳ thân người gửi (Giấy biên nhận — Mẫu 214)
+  { key: 'soCCCD', label: 'Số CCCD người gửi', group: 'Người gửi', resolve: (r) => s(r.senderIdNumber) },
+  { key: 'ngayCapCCCD', label: 'Ngày cấp CCCD', group: 'Người gửi', resolve: (r) => fmtDateShort(r.senderIdIssueDate) },
+  { key: 'noiCapCCCD', label: 'Nơi cấp CCCD', group: 'Người gửi', resolve: (r) => s(r.senderIdIssuePlace) },
+  // Đơn vị nhận chuyển đơn (Phiếu chuyển / Thông báo)
+  { key: 'donViNhan', label: 'Đơn vị nhận chuyển', group: 'Đơn vị', resolve: (r) => s(r.donViXuLy) },
+  // Viết tắt cán bộ soạn ở dòng "Lưu:" (vd V.Huy)
+  { key: 'vietTatCanBo', label: 'Viết tắt cán bộ', group: 'Cán bộ', resolve: (r) => abbrevName(r.enteredBy) },
+  // Hằng theo mẫu PC01 — sau này có thể chuyển sang SystemSetting
+  { key: 'chucVuCanBo', label: 'Chức danh/chức vụ cán bộ', group: 'Cán bộ', resolve: () => 'Cán bộ' },
+  { key: 'coQuan', label: 'Cơ quan', group: 'Đơn vị', resolve: () => 'Cơ quan CSĐT Công an TP Hồ Chí Minh' },
+  {
+    key: 'noiTiepNhan',
+    label: 'Nơi tiếp nhận đơn',
+    group: 'Đơn vị',
+    resolve: () =>
+      'trực ban Phòng Cảnh sát Hình sự Công an TP Hồ Chí Minh, số 459 Trần Hưng Đạo, phường Cầu Ông Lãnh, TP Hồ Chí Minh',
+  },
   SO_VAN_BAN,
 ];
 

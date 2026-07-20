@@ -57,11 +57,16 @@ export const PETITION_SEED_META: Record<
  */
 const REQUIRED_BY_DOCTYPE: Record<DocumentType, readonly string[]> = {
   PHIEU_DE_XUAT: ['ghiTen', 'noiDung', 'nhanThay', 'deXuat'],
-  PHIEU_CHUYEN_NGUON_TIN: ['ghiTen', 'noiDung', 'lyDoChuyen', 'canCuPhapLy'],
-  PHIEU_CHUYEN_DON: ['ghiTen', 'noiDung', 'lyDoChuyen'],
-  THONG_BAO_CHUYEN: ['ghiTen', 'noiDung'],
-  THONG_BAO_HUONG_DAN: ['ghiTen', 'noiDung', 'huongDanKhoiKien'],
-  THONG_BAO_TRA_LAI: ['ghiTen', 'noiDung', 'lyDoTraDon'],
+  // Bộ mẫu PC01 (TT 128/2025/TT-BCA) chuẩn hoá lý do chuyển + căn cứ pháp lý thành
+  // VĂN CỐ ĐỊNH trên biểu mẫu ("Xét thấy … không thuộc thẩm quyền giải quyết";
+  // "Căn cứ Điều 36, Điều 145 và Điều 146 BLTTHS"), nên không còn placeholder
+  // lyDoChuyen/canCuPhapLy/huongDanKhoiKien/lyDoTraDon. Thay vào đó, đơn vị nhận
+  // chuyển (donViNhan) và nhận định (nhanThay) mới là phần bắt buộc cán bộ điền.
+  PHIEU_CHUYEN_NGUON_TIN: ['ghiTen', 'noiDung', 'donViNhan'],
+  PHIEU_CHUYEN_DON: ['ghiTen', 'noiDung', 'donViNhan'],
+  THONG_BAO_CHUYEN: ['ghiTen', 'noiDung', 'donViNhan'],
+  THONG_BAO_HUONG_DAN: ['ghiTen', 'noiDung', 'nhanThay'],
+  THONG_BAO_TRA_LAI: ['ghiTen', 'noiDung', 'nhanThay'],
   BIEN_NHAN: ['ghiTen', 'noiDung'],
 };
 
