@@ -51,12 +51,23 @@ function fmtDateShort(d: unknown): string {
   return `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
 }
 
-/** Giờ dạng HH:mm — cho "Hồi ... giờ" của Giấy biên nhận (Mẫu 214). */
-function fmtTime(d: unknown): string {
-  if (!d) return '';
+/**
+ * Cụm "HH giờ mm" cho mục "Hồi ... " của Giấy biên nhận (Mẫu 214).
+ *
+ * `receivedDate` được nhập dạng NGÀY (YYYY-MM-DD) nên phần giờ thường là 00:00 —
+ * in ra "00 giờ 00" là BỊA số liệu trên văn bản tố tụng (và còn lệch theo timezone
+ * máy chủ). Khi không có giờ thật, trả về đúng khung để trống như bản giấy PC01
+ * để cán bộ điền tay.
+ */
+const KHUNG_GIO_TRONG = '…… giờ ……';
+function fmtGioPhut(d: unknown): string {
+  if (!d) return KHUNG_GIO_TRONG;
   const date = d instanceof Date ? d : new Date(d as string);
-  if (Number.isNaN(date.getTime())) return '';
-  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+  if (Number.isNaN(date.getTime())) return KHUNG_GIO_TRONG;
+  const h = date.getHours();
+  const m = date.getMinutes();
+  if (h === 0 && m === 0) return KHUNG_GIO_TRONG; // chỉ có ngày, không có giờ thật
+  return `${String(h).padStart(2, '0')} giờ ${String(m).padStart(2, '0')}`;
 }
 
 /**
@@ -171,7 +182,7 @@ const DON_THU_FIELDS: FieldDef[] = [
   // Ngày dạng ngắn: mẫu PC01 viết "Ngày 13/7/2026, ..." (đã có chữ "ngày" sẵn)
   { key: 'ngayNhanNgan', label: 'Ngày nhận (d/M/yyyy)', group: 'Mốc thời gian', resolve: (r) => fmtDateShort(r.receivedDate) },
   { key: 'ngayDonNgan', label: 'Ngày đơn (d/M/yyyy)', group: 'Mốc thời gian', resolve: (r) => fmtDateShort(r.petitionDate ?? r.receivedDate) },
-  { key: 'gioTiepNhan', label: 'Giờ tiếp nhận', group: 'Mốc thời gian', resolve: (r) => fmtTime(r.receivedDate) },
+  { key: 'gioTiepNhan', label: 'Giờ tiếp nhận', group: 'Mốc thời gian', resolve: (r) => fmtGioPhut(r.receivedDate) },
   // Giấy tờ tuỳ thân người gửi (Giấy biên nhận — Mẫu 214)
   { key: 'soCCCD', label: 'Số CCCD người gửi', group: 'Người gửi', resolve: (r) => s(r.senderIdNumber) },
   { key: 'ngayCapCCCD', label: 'Ngày cấp CCCD', group: 'Người gửi', resolve: (r) => fmtDateShort(r.senderIdIssueDate) },

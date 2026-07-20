@@ -92,6 +92,26 @@ describe('Bộ 7 mẫu chứng từ Đơn thư (PC01 / TT 128-2025)', () => {
     }
   });
 
+  describe('gioTiepNhan — KHÔNG bịa giờ trên văn bản tố tụng', () => {
+    const resolve = (r: any) =>
+      FIELD_CATALOG.DON_THU.find((f) => f.key === 'gioTiepNhan')!.resolve(r);
+
+    it('receivedDate chỉ có ngày (00:00) → giữ khung trống để điền tay', () => {
+      const d = new Date(2026, 6, 15, 0, 0, 0); // 15/7/2026 00:00 giờ máy
+      expect(resolve({ receivedDate: d })).toBe('…… giờ ……');
+    });
+
+    it('không có receivedDate → giữ khung trống', () => {
+      expect(resolve({})).toBe('…… giờ ……');
+      expect(resolve({ receivedDate: null })).toBe('…… giờ ……');
+    });
+
+    it('có giờ thật → in "HH giờ mm"', () => {
+      const d = new Date(2026, 6, 15, 9, 5, 0);
+      expect(resolve({ receivedDate: d })).toBe('09 giờ 05');
+    });
+  });
+
   it('BIEN_NHAN đúng Mẫu số 214 + có đủ mục CCCD/giờ tiếp nhận', () => {
     const buffer = fs.readFileSync(path.join(ASSET_DIR, 'BIEN_NHAN.docx'));
     const text = docText(renderer.render({ buffer, data: fakeData(), delimiters: DELIMS }));
