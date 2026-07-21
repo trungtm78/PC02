@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.70.4.0] - 2026-07-21
+
+### Added
+- **Bấm thẻ thống kê để lọc danh sách** (Vụ án, Vụ việc, Đơn thư): bấm "Đang xử lý", "Đang điều tra", "Xác minh"… là danh sách lọc ngay theo đúng nhóm trạng thái đó. Thẻ đang chọn có viền nổi bật và **không bấm lại được**; muốn xem lại tất cả thì bấm thẻ **"Tổng"**. Nút Back của trình duyệt quay lại được bộ lọc trước.
+- Số trên thẻ nay do **máy chủ đếm** (`byGroup`) từ đúng cùng điều kiện với danh sách, nên **số trên thẻ luôn khớp số dòng** khi bấm vào.
+
+### Fixed
+- **Số trên thẻ không khớp danh sách khi bật bộ lọc nâng cao.** Trước đây phần thống kê chỉ nhận mỗi ô tìm kiếm, nên lọc theo ngày/đơn vị thì thẻ vẫn hiện tổng cũ, bấm vào lại ra ít dòng hơn hẳn. Nay thống kê nhận cùng bộ lọc với danh sách; xoá hoặc đổi trạng thái hàng loạt cũng cập nhật lại số trên thẻ.
+- **Bộ lọc nâng cao đang lỗi ở cả 3 màn hình** (báo lỗi hoặc mất trắng danh sách): "Người gửi" (Đơn thư), "Điều tra viên" và "Tội danh" (Vụ án), "Từ khoá"/"Người tố giác"/"Đơn vị" (Vụ việc) — do tên tham số gửi lên không khớp máy chủ.
+  - Bỏ ô lọc **"Trạng thái"** trong bộ lọc nâng cao của Đơn thư (trùng với thanh trạng thái phía trên và là nguyên nhân gây lỗi) — lọc theo trạng thái dùng thanh chip hoặc thẻ thống kê.
+  - Bỏ ô lọc **"Từ khoá"** của Vụ việc (trùng với ô tìm kiếm trên thanh công cụ).
+  - Ô **"Người tố giác/báo tin"** của Vụ việc nay tra theo **CCCD hoặc số điện thoại** (dữ liệu không lưu tên người tố giác — nhãn cũ ghi "Tên hoặc CCCD" là không đúng).
+- **Lọc "quá hạn" làm mất điều kiện trạng thái đang chọn** — chọn quá hạn rồi bấm thẻ "Tạm đình chỉ" sẽ trả về mọi hồ sơ quá hạn thay vì đúng nhóm.
+- **Vụ việc: chọn 1 giai đoạn làm 3 thẻ còn lại về 0**, không còn chỗ bấm sang giai đoạn khác. Nay thẻ luôn đếm toàn bộ.
+- Vụ việc: thanh trạng thái và giai đoạn nay **loại trừ nhau**, không còn cảnh chip sáng mà danh sách không lọc theo chip đó.
+- **Lỗi máy chủ (500)** khi địa chỉ chứa tham số giai đoạn bất thường — nay báo lỗi 400 bình thường.
+
+### Security
+- Chặn tra cứu nhóm trạng thái theo chuỗi đặc biệt của JavaScript (`constructor`, `__proto__`) ở cả tầng kiểm tra dữ liệu vào lẫn tầng xử lý.
+
 ## [0.70.3.0] - 2026-07-21
 
 ### Added
