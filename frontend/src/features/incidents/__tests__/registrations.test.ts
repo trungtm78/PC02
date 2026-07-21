@@ -111,13 +111,23 @@ describe('incidentsRowActions', () => {
 });
 
 describe('incidentsListFilters', () => {
-  it('registers 4 fields', () => {
+  it('registers 3 fields', () => {
     expect(incidentsListFilters.all().map((f) => f.key)).toEqual([
-      'keyword',
       'loaiDonVu',
       'reporter',
       'unit',
     ]);
+  });
+
+  /**
+   * HỢP ĐỒNG ĐỔI CÓ CHỦ ĐÍCH (trước: có field 'keyword').
+   *
+   * `keyword` trùng chức năng với ô tìm kiếm trên thanh công cụ (cùng tra mã/tên), và
+   * param này KHÔNG có trong `QueryIncidentsDto` — mà backend bật `forbidNonWhitelisted`
+   * nên gửi lên là 400. Tức là dùng bộ lọc đó đang làm mất trắng danh sách.
+   */
+  it('KHÔNG còn field keyword (trùng ô tìm kiếm + gây 400)', () => {
+    expect(incidentsListFilters.all().find((f) => f.key === 'keyword')).toBeUndefined();
   });
 
   it('loaiDonVu is enumSelect with 3 options', () => {
@@ -129,7 +139,6 @@ describe('incidentsListFilters', () => {
 
   it('legacy testid pattern preserved', () => {
     expect(incidentsListFilters.all().map((f) => f.testid)).toEqual([
-      'filter-keyword',
       'filter-loai-don-vu',
       'filter-reporter',
       'filter-unit',

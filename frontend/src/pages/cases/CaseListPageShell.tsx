@@ -94,6 +94,17 @@ interface CasesStatsResponse {
 const PAGE_SIZE = 20;
 
 /**
+ * Giá trị "đang lọc bằng thứ khác" cho `activeValue` của thanh thẻ.
+ *
+ * Khi user lọc bằng CHIP trạng thái (không phải thẻ), nhóm là null → thẻ "Tổng"
+ * (filterValue null) sẽ tự sáng và bị khoá, dù danh sách ĐANG bị lọc. Vừa nói dối vừa
+ * khiến user không bấm "Tổng" để xoá lọc được. Sentinel này không khớp thẻ nào nên không
+ * thẻ nào sáng, và "Tổng" bấm được để xoá sạch.
+ */
+const OTHER_FILTER_ACTIVE = '__other__';
+
+
+/**
  * Số trên thẻ lấy thẳng từ `stats.byGroup` do server đếm — không cộng tay ở client nữa.
  * `filterValue` = khoá nhóm ở backend (`CASE_STATUS_GROUPS`). Thẻ "Tổng" mang `null`.
  */
@@ -192,6 +203,13 @@ export function CaseListPageShell() {
     [debouncedSearch, appliedFilters],
   );
 
+  /**
+   * Khoá deps theo GIÁ TRỊ chứ không theo tham chiếu: `appliedFilters` đổi identity mỗi
+   * lần URL đổi (react-router trả object mới), nên đưa thẳng `baseQueryParams` vào deps
+   * sẽ khiến stats refetch mỗi lần bấm thẻ/đổi trang → nháy khung xương.
+   */
+  const baseQueryKey = JSON.stringify(baseQueryParams);
+
   const handleCardSelect = useCallback(
     (value: string | null) => {
       url.setParams({ statusGroup: value, status: null, page: '1' }, { history: 'push' });
@@ -267,7 +285,12 @@ export function CaseListPageShell() {
       });
 
     return () => ctrl.abort();
-  }, [debouncedSearch]);
+    // `baseQueryKey` (chuỗi JSON) chứ không phải `baseQueryParams`: object đổi identity
+    // mỗi lần URL đổi nên dùng thẳng sẽ refetch stats mỗi lần bấm thẻ.
+    // `refetchCounter` cần có: xoá/đổi trạng thái hàng loạt mà chỉ refetch danh sách thì
+    // thẻ giữ số cũ → lệch với danh sách.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [baseQueryKey, refetchCounter]);
 
   const chipOptions = useMemo(
     () =>
@@ -456,7 +479,7 @@ export function CaseListPageShell() {
       <StatsCardsStrip
         cards={buildCasesCards(stats)}
         loading={stats == null}
-        activeValue={groupFilter}
+        activeValue={groupFilter ?? (statusFilter ? OTHER_FILTER_ACTIVE : null)}
         onCardSelect={handleCardSelect}
       />
       <ListPageShell.StatusChips

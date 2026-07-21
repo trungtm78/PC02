@@ -83,6 +83,24 @@ export class QueryIncidentsDto {
   @IsString()
   benVu?: string;
 
+  /**
+   * Bộ lọc "Người tố giác/báo tin" — tra theo CCCD hoặc SĐT.
+   *
+   * Schema Incident KHÔNG có cột TÊN người tố giác (chỉ `cmndNguoiToGiac`,
+   * `sdtNguoiToGiac`, `diaChiNguoiToGiac`), nên không thể tra theo tên.
+   * Trước đây FE gửi param này mà DTO không có → forbidNonWhitelisted trả 400.
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  reporter?: string;
+
+  /** Bộ lọc "Đơn vị" (text tự do). Trước đây FE gửi `unit` không có trong DTO → 400. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  donViGiaiQuyet?: string;
+
   @IsOptional()
   @IsString()
   tinhTrangHoSo?: string;

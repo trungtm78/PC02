@@ -112,6 +112,17 @@ interface IncidentsStatsResponse {
 const PAGE_SIZE = 20;
 
 /**
+ * Giá trị "đang lọc bằng thứ khác" cho `activeValue` của thanh thẻ.
+ *
+ * Khi user lọc bằng CHIP trạng thái (không phải thẻ), nhóm là null → thẻ "Tổng"
+ * (filterValue null) sẽ tự sáng và bị khoá, dù danh sách ĐANG bị lọc. Vừa nói dối vừa
+ * khiến user không bấm "Tổng" để xoá lọc được. Sentinel này không khớp thẻ nào nên không
+ * thẻ nào sáng, và "Tổng" bấm được để xoá sạch.
+ */
+const OTHER_FILTER_ACTIVE = '__other__';
+
+
+/**
  * 4 thẻ trạng thái của Vụ việc trùng KHÍT 4 giai đoạn BCA (`PHASE_STATUSES`), nên
  * `filterValue` dùng luôn khoá giai đoạn — không cần param lọc mới, tái dùng `phase`
  * mà backend đã có sẵn.
@@ -227,6 +238,27 @@ export function IncidentListPageShell() {
   });
   const appliedFilters = listFilters.applied;
 
+  /**
+   * Param dùng CHUNG cho cả request danh sách lẫn thống kê — một nguồn duy nhất thì số
+   * trên thẻ không lệch khỏi danh sách được.
+   *
+   * Tên param phải KHỚP `QueryIncidentsDto`. Trước đây gửi `keyword`/`reporter`/`unit`
+   * mà DTO không có → `forbidNonWhitelisted` trả 400, bộ lọc nâng cao GÃY hoàn toàn:
+   *  - `keyword` đã gỡ khỏi registry vì trùng chức năng với ô tìm kiếm trên thanh công cụ
+   *  - `reporter` nay tra theo CCCD/SĐT (schema không có cột TÊN người tố giác)
+   *  - `unit` → `donViGiaiQuyet` (cột text đơn vị thụ lý)
+   */
+  const baseQueryParams = useMemo(
+    () => ({
+      ...(debouncedSearch && { search: debouncedSearch }),
+      ...(appliedFilters.loaiDonVu && { loaiDonVu: appliedFilters.loaiDonVu }),
+      ...(appliedFilters.reporter && { reporter: appliedFilters.reporter }),
+      ...(appliedFilters.unit && { donViGiaiQuyet: appliedFilters.unit }),
+    }),
+    [debouncedSearch, appliedFilters],
+  );
+  const baseQueryKey = JSON.stringify(baseQueryParams);
+
   useEffect(() => {
     abortRef.current?.abort();
     const ctrl = new AbortController();
@@ -235,13 +267,9 @@ export function IncidentListPageShell() {
     setError(undefined);
 
     const params = {
+      ...baseQueryParams,
       ...(statusFilter && { status: statusFilter }),
       ...(phaseFilter && { phase: phaseFilter }),
-      ...(debouncedSearch && { search: debouncedSearch }),
-      ...(appliedFilters.keyword && { keyword: appliedFilters.keyword }),
-      ...(appliedFilters.loaiDonVu && { loaiDonVu: appliedFilters.loaiDonVu }),
-      ...(appliedFilters.reporter && { reporter: appliedFilters.reporter }),
-      ...(appliedFilters.unit && { unit: appliedFilters.unit }),
       limit: PAGE_SIZE,
       offset: (page - 1) * PAGE_SIZE,
     };
@@ -274,9 +302,8 @@ export function IncidentListPageShell() {
     const ctrl = new AbortController();
     // KHÔNG gửi `phase`: thẻ phải đếm toàn bộ, nếu lọc theo giai đoạn đang chọn thì 3 thẻ
     // kia về 0 và hết chỗ bấm sang. Backend cũng đã chặn `phase` ở DTO stats.
-    const statsParams = {
-      ...(debouncedSearch && { search: debouncedSearch }),
-    };
+    // Nhưng PHẢI gửi các bộ lọc còn lại, nếu không số trên thẻ lệch khỏi danh sách.
+    const statsParams = baseQueryParams;
     api
       .get<IncidentsStatsResponse>('/incidents/stats', { params: statsParams, signal: ctrl.signal })
       .then((statsRes) => {
@@ -290,7 +317,10 @@ export function IncidentListPageShell() {
 
     return () => ctrl.abort();
     // KHÔNG phụ thuộc phaseFilter → bấm thẻ không refetch stats (tránh nháy khung xương).
-  }, [debouncedSearch]);
+    // Khoá theo GIÁ TRỊ (`baseQueryKey`) vì `appliedFilters` đổi identity mỗi lần URL đổi.
+    // `refetchCounter`: xoá/đổi trạng thái hàng loạt cũng phải cập nhật lại số trên thẻ.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [baseQueryKey, refetchCounter]);
 
   const chipOptions = useMemo(
     () =>
@@ -436,7 +466,9 @@ export function IncidentListPageShell() {
 
   const handleStatusChange = useCallback(
     (value: string | null) => {
-      url.setParams({ status: value, page: '1' });
+      // Chip và thẻ/tab giai đoạn loại trừ nhau. Backend cho `phase` thắng `status`, nên
+      // để cả hai cùng bật thì chip sáng mà danh sách không lọc theo nó — giao diện nói dối.
+      url.setParams({ status: value, phase: null, page: '1' });
     },
     [url],
   );
@@ -444,7 +476,7 @@ export function IncidentListPageShell() {
   const handlePhaseChange = useCallback(
     (value: IncidentPhase | null) => {
       // history push để nút Back quay lại được giai đoạn trước (thẻ thống kê cũng gọi hàm này).
-      url.setParams({ phase: value, page: '1' }, { history: 'push' });
+      url.setParams({ phase: value, status: null, page: '1' }, { history: 'push' });
     },
     [url],
   );
@@ -496,7 +528,7 @@ export function IncidentListPageShell() {
       <StatsCardsStrip
         cards={buildIncidentsCards(stats)}
         loading={stats == null}
-        activeValue={phaseFilter}
+        activeValue={phaseFilter ?? (statusFilter ? OTHER_FILTER_ACTIVE : null)}
         onCardSelect={(v) => handlePhaseChange(v as IncidentPhase | null)}
       />
       {/* Phase tabs render giữa Header + StatusChips theo plan PR2 compound API */}
@@ -541,6 +573,7 @@ export function IncidentListPageShell() {
         onChange={handleStatusChange}
         totalCount={stats?.total}
         countsLoading={stats == null}
+        groupActive={phaseFilter != null}
       />
       <ListPageShell.Toolbar
         searchValue={searchQuery}

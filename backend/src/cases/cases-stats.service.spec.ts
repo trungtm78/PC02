@@ -145,4 +145,30 @@ describe('CasesService.getStats — status count aggregation (T15)', () => {
     expect(whereArg.OR).toBeDefined();
     expect(Array.isArray(whereArg.OR)).toBe(true);
   });
+  /**
+   * [P1] Trước đây getStats KHÔNG destructure `charges`, nên param lọt qua validation rồi
+   * bị bỏ qua im lặng: thẻ đếm mọi tội danh trong khi danh sách chỉ có tội danh đang lọc.
+   */
+  it('[P1] charges phải áp vào where của stats (khớp với getList)', async () => {
+    mockPrisma.case.groupBy.mockResolvedValue([]);
+    mockPrisma.case.count.mockResolvedValue(0);
+
+    await service.getStats({ charges: 'trộm cắp' } as never, null);
+
+    const whereArg = mockPrisma.case.groupBy.mock.calls[0][0].where;
+    expect(whereArg.crime).toEqual({ contains: 'trộm cắp', mode: 'insensitive' });
+  });
+
+  it('trả byGroup theo CASE_STATUS_GROUPS', async () => {
+    mockPrisma.case.groupBy.mockResolvedValue([
+      { status: 'DA_KET_LUAN', _count: { _all: 6 } },
+      { status: 'DA_LUU_TRU', _count: { _all: 4 } },
+    ]);
+    mockPrisma.case.count.mockResolvedValue(10);
+
+    const result = await service.getStats({}, null);
+
+    expect(result.byGroup['da-ket-luan']).toBe(10);
+    expect(result.byGroup['dang-dieu-tra']).toBe(0);
+  });
 });

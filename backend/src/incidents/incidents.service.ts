@@ -60,6 +60,8 @@ export class IncidentsService {
       wardTeamId,
       loaiDonVu,
       benVu,
+      reporter,
+      donViGiaiQuyet,
       tinhTrangHoSo,
       tinhTrangThoiHieu,
       canBoNhapId,
@@ -109,6 +111,23 @@ export class IncidentsService {
     if (unitId) where.unitId = unitId;
     if (loaiDonVu) where.loaiDonVu = loaiDonVu;
     if (benVu) where.benVu = benVu;
+    // Người tố giác: schema KHÔNG có cột TÊN, chỉ CCCD/SĐT → tra theo hai cột đó.
+    if (reporter) {
+      // AND lồng OR, KHÔNG gộp vào `where.OR` sẵn có: `search` cũng dùng OR, gộp chung sẽ
+      // biến "khớp tìm kiếm VÀ khớp người tố giác" thành "HOẶC" — nới lỏng bộ lọc.
+      where.AND = [
+        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+        {
+          OR: [
+            { cmndNguoiToGiac: { contains: reporter, mode: 'insensitive' } },
+            { sdtNguoiToGiac: { contains: reporter, mode: 'insensitive' } },
+          ],
+        },
+      ];
+    }
+    if (donViGiaiQuyet) {
+      where.donViGiaiQuyet = { contains: donViGiaiQuyet, mode: 'insensitive' };
+    }
     if (tinhTrangHoSo) where.tinhTrangHoSo = tinhTrangHoSo;
     if (tinhTrangThoiHieu) where.tinhTrangThoiHieu = tinhTrangThoiHieu;
     if (canBoNhapId) where.canBoNhapId = canBoNhapId;
@@ -123,7 +142,12 @@ export class IncidentsService {
     // Filter quá hạn — use TERMINAL_STATUSES constant
     if (overdue) {
       where.deadline = { lt: new Date() };
-      where.status = { notIn: TERMINAL_STATUSES };
+      // KHÔNG gán đè: sẽ xoá sổ điều kiện `phase` đã đặt ở trên → bấm thẻ giai đoạn khi
+      // đang lọc quá hạn sẽ trả về mọi hồ sơ quá hạn. Gộp in + notIn trong cùng filter.
+      where.status =
+        typeof where.status === 'string'
+          ? { equals: where.status, notIn: TERMINAL_STATUSES }
+          : { ...(where.status ?? {}), notIn: TERMINAL_STATUSES };
     }
 
     if (districtId) where.unitId = districtId;
@@ -949,6 +973,8 @@ export class IncidentsService {
       wardTeamId,
       loaiDonVu,
       benVu,
+      reporter,
+      donViGiaiQuyet,
       tinhTrangHoSo,
       tinhTrangThoiHieu,
       canBoNhapId,
@@ -984,6 +1010,23 @@ export class IncidentsService {
     if (unitId) where.unitId = unitId;
     if (loaiDonVu) where.loaiDonVu = loaiDonVu;
     if (benVu) where.benVu = benVu;
+    // Người tố giác: schema KHÔNG có cột TÊN, chỉ CCCD/SĐT → tra theo hai cột đó.
+    if (reporter) {
+      // AND lồng OR, KHÔNG gộp vào `where.OR` sẵn có: `search` cũng dùng OR, gộp chung sẽ
+      // biến "khớp tìm kiếm VÀ khớp người tố giác" thành "HOẶC" — nới lỏng bộ lọc.
+      where.AND = [
+        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+        {
+          OR: [
+            { cmndNguoiToGiac: { contains: reporter, mode: 'insensitive' } },
+            { sdtNguoiToGiac: { contains: reporter, mode: 'insensitive' } },
+          ],
+        },
+      ];
+    }
+    if (donViGiaiQuyet) {
+      where.donViGiaiQuyet = { contains: donViGiaiQuyet, mode: 'insensitive' };
+    }
     if (tinhTrangHoSo) where.tinhTrangHoSo = tinhTrangHoSo;
     if (tinhTrangThoiHieu) where.tinhTrangThoiHieu = tinhTrangThoiHieu;
     if (canBoNhapId) where.canBoNhapId = canBoNhapId;

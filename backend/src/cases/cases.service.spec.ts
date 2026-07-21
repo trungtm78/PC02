@@ -254,6 +254,36 @@ describe('CasesService', () => {
       );
     });
 
+    /**
+     * [P1] `overdue` trước đây GÁN ĐÈ `where.status`, xoá sổ điều kiện nhóm đặt trước đó.
+     * Hệ quả: thẻ "Tạm đình chỉ" hiện 3, bấm vào ra MỌI hồ sơ quá hạn chưa kết thúc —
+     * đúng cái bất biến "số thẻ = số dòng" mà tính năng này sinh ra để bảo đảm.
+     */
+    it('[P1] overdue + statusGroup → GIỮ cả hai điều kiện, không xoá nhóm', async () => {
+      mockPrisma.case.findMany.mockResolvedValue([]);
+      mockPrisma.case.count.mockResolvedValue(0);
+
+      await service.getList({ overdue: true, statusGroup: 'tam-dinh-chi' });
+
+      const where = mockPrisma.case.findMany.mock.calls[0][0].where;
+      expect(where.status.in).toEqual([CaseStatus.TAM_DINH_CHI]);
+      expect(where.status.notIn).toEqual(
+        expect.arrayContaining([CaseStatus.DA_KET_LUAN, CaseStatus.DA_LUU_TRU]),
+      );
+      expect(where.deadline).toEqual({ lt: expect.any(Date) });
+    });
+
+    it('[P1] overdue + status đơn lẻ → giữ cả hai (equals + notIn)', async () => {
+      mockPrisma.case.findMany.mockResolvedValue([]);
+      mockPrisma.case.count.mockResolvedValue(0);
+
+      await service.getList({ overdue: true, status: CaseStatus.DANG_DIEU_TRA });
+
+      const where = mockPrisma.case.findMany.mock.calls[0][0].where;
+      expect(where.status.equals).toBe(CaseStatus.DANG_DIEU_TRA);
+      expect(where.status.notIn).toBeDefined();
+    });
+
     it('should filter overdue cases', async () => {
       mockPrisma.case.findMany.mockResolvedValue([]);
       mockPrisma.case.count.mockResolvedValue(0);

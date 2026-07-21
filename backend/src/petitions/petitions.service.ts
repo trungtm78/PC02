@@ -123,9 +123,17 @@ export class PetitionsService {
 
     if (overdue) {
       where.deadline = { lt: new Date() };
-      if (!status) {
-        where.status = { notIn: [PetitionStatus.DA_GIAI_QUYET, PetitionStatus.DA_CHUYEN_VU_VIEC, PetitionStatus.DA_CHUYEN_VU_AN] };
-      }
+      // Guard `if (!status)` cũ KHÔNG chặn statusGroup → bấm thẻ khi đang lọc quá hạn sẽ
+      // mất điều kiện nhóm. Gộp bằng notIn thay vì gán đè (Prisma cho phép in + notIn).
+      const notTerminal = [
+        PetitionStatus.DA_GIAI_QUYET,
+        PetitionStatus.DA_CHUYEN_VU_VIEC,
+        PetitionStatus.DA_CHUYEN_VU_AN,
+      ];
+      where.status =
+        typeof where.status === 'string'
+          ? { equals: where.status, notIn: notTerminal }
+          : { ...(where.status ?? {}), notIn: notTerminal };
     }
 
     // v0.36.0.0: filter theo phường công tác (Team.wardId) — cross-ward view PC02/ADMIN

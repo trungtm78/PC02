@@ -190,9 +190,14 @@ export class CasesService {
     // Filter quá hạn
     if (overdue) {
       where.deadline = { lt: new Date() };
-      where.status = {
-        notIn: [CaseStatus.DA_KET_LUAN, CaseStatus.DA_LUU_TRU, CaseStatus.DINH_CHI],
-      };
+      // KHÔNG gán đè `where.status`: làm vậy sẽ xoá sổ điều kiện statusGroup/status đã đặt
+      // ở trên → bấm thẻ "Tạm đình chỉ" khi đang lọc quá hạn sẽ trả về MỌI hồ sơ quá hạn.
+      // Prisma cho phép gộp in/equals + notIn trong cùng một filter.
+      const notTerminal = [CaseStatus.DA_KET_LUAN, CaseStatus.DA_LUU_TRU, CaseStatus.DINH_CHI];
+      where.status =
+        typeof where.status === 'string'
+          ? { equals: where.status, notIn: notTerminal }
+          : { ...(where.status ?? {}), notIn: notTerminal };
     }
 
     if (capDoToiPham) {
@@ -344,6 +349,7 @@ export class CasesService {
   async getStats(query: QueryCasesStatsDto, dataScope?: DataScope | null) {
     const {
       search,
+      charges,
       investigatorId,
       unit,
       fromDate,
@@ -366,6 +372,12 @@ export class CasesService {
       deletedAt: null,
       caseType: caseType ?? CaseType.REGULAR,
     };
+
+    // PHẢI áp cùng điều kiện với getList, nếu không số trên thẻ đếm mọi tội danh trong
+    // khi danh sách chỉ có tội danh đang lọc → hai số lệch nhau.
+    if (charges) {
+      where.crime = { contains: charges, mode: 'insensitive' };
+    }
 
     if (search) {
       const isUtdt = (caseType ?? CaseType.REGULAR) === CaseType.UY_THAC_DIEU_TRA;

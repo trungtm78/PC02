@@ -95,6 +95,17 @@ interface PetitionsStatsResponse {
 const PAGE_SIZE = 20;
 
 /**
+ * Giá trị "đang lọc bằng thứ khác" cho `activeValue` của thanh thẻ.
+ *
+ * Khi user lọc bằng CHIP trạng thái (không phải thẻ), nhóm là null → thẻ "Tổng"
+ * (filterValue null) sẽ tự sáng và bị khoá, dù danh sách ĐANG bị lọc. Vừa nói dối vừa
+ * khiến user không bấm "Tổng" để xoá lọc được. Sentinel này không khớp thẻ nào nên không
+ * thẻ nào sáng, và "Tổng" bấm được để xoá sạch.
+ */
+const OTHER_FILTER_ACTIVE = '__other__';
+
+
+/**
  * Số trên thẻ lấy thẳng từ `stats.byGroup` do server đếm — KHÔNG cộng tay ở đây nữa.
  * Server đếm từ cùng một `where` với danh sách nên bấm thẻ ra đúng số dòng như thẻ hiển
  * thị. Cộng ở client thì frontend phải nắm nhóm gồm trạng thái nào (trùng lặp) và số dễ
@@ -203,6 +214,12 @@ export function PetitionListPageShell() {
     [debouncedSearch, appliedFilters],
   );
 
+  /**
+   * Khoá deps theo GIÁ TRỊ: `appliedFilters` đổi identity mỗi lần URL đổi, dùng thẳng
+   * object sẽ khiến stats refetch mỗi lần bấm thẻ.
+   */
+  const baseQueryKey = JSON.stringify(baseQueryParams);
+
   const handleCardSelect = useCallback(
     (value: string | null) => {
       // Thẻ và chip loại trừ nhau: chọn nhóm thì bỏ status đơn lẻ.
@@ -271,7 +288,10 @@ export function PetitionListPageShell() {
       });
 
     return () => ctrl.abort();
-  }, [debouncedSearch]);
+    // refetchCounter cần có: xoá/đổi trạng thái hàng loạt mà chỉ refetch danh sách thì
+    // thẻ giữ số cũ → lệch với danh sách.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [baseQueryKey, refetchCounter]);
 
   const chipOptions = useMemo(
     () =>
@@ -538,7 +558,7 @@ export function PetitionListPageShell() {
       <StatsCardsStrip
         cards={buildPetitionsCards(stats)}
         loading={stats == null}
-        activeValue={groupFilter}
+        activeValue={groupFilter ?? (statusFilter ? OTHER_FILTER_ACTIVE : null)}
         onCardSelect={handleCardSelect}
       />
       <ListPageShell.StatusChips

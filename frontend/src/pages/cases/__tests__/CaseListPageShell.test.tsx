@@ -76,6 +76,14 @@ const sampleStats = {
     DANG_XET_XU: 2,
     DA_LUU_TRU: 0,
   },
+  // byGroup do SERVER đếm. Thiếu field này thì 4 thẻ nhóm render khung xương vĩnh viễn
+  // và test vẫn pass vì không assert giá trị thẻ — "xanh giả".
+  byGroup: {
+    'dang-dieu-tra': 90, // 12+23+7+45+1+2
+    'da-ket-luan': 5, // 5+0
+    'dinh-chi': 2,
+    'tam-dinh-chi': 3,
+  },
 };
 
 describe('CaseListPageShell — initial mount + ready state', () => {
