@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.70.2.0] - 2026-07-21
+
+### Added
+- **Ô "Cán bộ đề xuất" trong mục Nội dung phiếu đề xuất** (Đơn thư): chọn từ danh sách cán bộ, **mặc định là người đang đăng nhập** và đổi được khi lập hộ cán bộ khác. Tên này in ở mục "Cán bộ đề xuất" của Phiếu đề xuất. Cột mới `Petition.canBoDeXuatId` (migration `20260721000100`).
+- **Xuất Word: chế độ "Tách từng file Word rời"** — mỗi mẫu 1 file `.docx` tải thẳng về máy, **không cần giải nén**, và là **MẶC ĐỊNH MỚI** (trước đây mặc định gộp 1 file). Áp dụng cho màn hình xuất chứng từ dùng chung của cả Đơn thư/Vụ việc/Vụ án. Vẫn giữ 2 lựa chọn "Gộp 1 file Word" và "Tải về 1 file nén .zip". Có tiến độ x/N; 1 mẫu lỗi không chặn các mẫu còn lại và báo rõ mẫu hỏng.
+- Biến mẫu chứng từ mới `{tenNguoiIn}` — luôn là người đang đăng nhập, để mẫu nào cần đích danh người thao tác thì gắn (phạm vi do template quyết định).
+
+### Changed
+- `{tenCanBoDeXuat}` và `{vietTatCanBo}` nay ưu tiên **cán bộ được chọn trên form** → người in → người tạo hồ sơ.
+- **Giấy biên nhận** chuyển sang `{tenNguoiIn}` cho dòng "Tôi:" và ô NGƯỜI GIAO — người trực tiếp nhận đơn mới ký, không phụ thuộc ô "Cán bộ đề xuất".
+- Xuất đúng 1 mẫu: tên file đặt theo **mã mẫu + số văn bản** (trước đây mọi file đều tên `ChungTu_<ngày>.docx` → tải nhiều file bị trùng tên).
+
 ## [0.70.1.1] - 2026-07-21
 
 ### Fixed
