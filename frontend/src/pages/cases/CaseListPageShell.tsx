@@ -87,26 +87,25 @@ interface CaseRow {
 interface CasesStatsResponse {
   total: number;
   byStatus: Record<CaseStatus, number>;
+  /** Số theo NHÓM trạng thái, do server đếm (CASE_STATUS_GROUPS). */
+  byGroup: Record<string, number>;
 }
 
 const PAGE_SIZE = 20;
 
+/**
+ * Số trên thẻ lấy thẳng từ `stats.byGroup` do server đếm — không cộng tay ở client nữa.
+ * `filterValue` = khoá nhóm ở backend (`CASE_STATUS_GROUPS`). Thẻ "Tổng" mang `null`.
+ */
 function buildCasesCards(stats: CasesStatsResponse | null): StatCard[] {
-  const by = stats?.byStatus;
-  const activeCount = by
-    ? ([CaseStatus.TIEP_NHAN, CaseStatus.DANG_XAC_MINH, CaseStatus.DA_XAC_MINH, CaseStatus.DANG_DIEU_TRA, CaseStatus.DANG_TRUY_TO, CaseStatus.DANG_XET_XU] as CaseStatus[]).reduce((s, k) => s + (by[k] ?? 0), 0)
-    : null;
-  const ketLuanCount = by
-    ? ([CaseStatus.DA_KET_LUAN, CaseStatus.DA_LUU_TRU] as CaseStatus[]).reduce((s, k) => s + (by[k] ?? 0), 0)
-    : null;
-  const dinhChiCount = by ? (by[CaseStatus.DINH_CHI] ?? 0) : null;
-  const tamDinhChiCount = by ? (by[CaseStatus.TAM_DINH_CHI] ?? 0) : null;
+  const g = stats?.byGroup;
+  const at = (key: string) => (g ? (g[key] ?? 0) : null);
   return [
-    { label: 'Tổng vụ án', value: stats?.total ?? null, icon: Folder, iconBgClass: 'bg-[#003973]/10', iconColorClass: 'text-[#003973]', valueColorClass: 'text-[#003973]' },
-    { label: 'Đang điều tra', value: activeCount, icon: Clock, iconBgClass: 'bg-amber-100', iconColorClass: 'text-amber-600', valueColorClass: 'text-amber-600' },
-    { label: 'Đã kết luận', value: ketLuanCount, icon: CheckCircle, iconBgClass: 'bg-green-100', iconColorClass: 'text-green-600', valueColorClass: 'text-green-600' },
-    { label: 'Đình chỉ', value: dinhChiCount, icon: XCircle, iconBgClass: 'bg-red-100', iconColorClass: 'text-red-600', valueColorClass: 'text-red-600' },
-    { label: 'Tạm đình chỉ', value: tamDinhChiCount, icon: PauseCircle, iconBgClass: 'bg-slate-100', iconColorClass: 'text-slate-600', valueColorClass: 'text-slate-600' },
+    { label: 'Tổng vụ án', value: stats?.total ?? null, filterValue: null, icon: Folder, iconBgClass: 'bg-[#003973]/10', iconColorClass: 'text-[#003973]', valueColorClass: 'text-[#003973]' },
+    { label: 'Đang điều tra', value: at('dang-dieu-tra'), filterValue: 'dang-dieu-tra', icon: Clock, iconBgClass: 'bg-amber-100', iconColorClass: 'text-amber-600', valueColorClass: 'text-amber-600' },
+    { label: 'Đã kết luận', value: at('da-ket-luan'), filterValue: 'da-ket-luan', icon: CheckCircle, iconBgClass: 'bg-green-100', iconColorClass: 'text-green-600', valueColorClass: 'text-green-600' },
+    { label: 'Đình chỉ', value: at('dinh-chi'), filterValue: 'dinh-chi', icon: XCircle, iconBgClass: 'bg-red-100', iconColorClass: 'text-red-600', valueColorClass: 'text-red-600' },
+    { label: 'Tạm đình chỉ', value: at('tam-dinh-chi'), filterValue: 'tam-dinh-chi', icon: PauseCircle, iconBgClass: 'bg-slate-100', iconColorClass: 'text-slate-600', valueColorClass: 'text-slate-600' },
   ];
 }
 
@@ -117,6 +116,8 @@ export function CaseListPageShell() {
   // AUTO-FIX #5: validate URL status param immediately at trust boundary.
   const rawStatus = url.getParam('status');
   const statusFilter = isValidCaseStatus(rawStatus) ? rawStatus : null;
+  // Nhóm trạng thái do bấm thẻ thống kê (backend validate bằng @IsIn).
+  const groupFilter = url.getParam('statusGroup');
   // /codex review fix: clamp page >= 1. URL như ?cases_page=0 hoặc =-1
   // gây offset âm → backend 400 → stuck error state forever.
   const page = Math.max(1, url.getNumberParam('page', 1));
@@ -172,6 +173,32 @@ export function CaseListPageShell() {
   });
   const appliedFilters = listFilters.applied;
 
+  /**
+   * Param dùng CHUNG cho cả request danh sách lẫn request thống kê — một nguồn duy nhất
+   * thì số trên thẻ không lệch khỏi danh sách được.
+   *
+   * Tên param phải KHỚP `QueryCasesDto`: `investigatorName` (không phải `investigator`).
+   * Backend bật `forbidNonWhitelisted` nên gửi sai tên là 400 — lỗi đang tồn tại.
+   */
+  const baseQueryParams = useMemo(
+    () => ({
+      ...(debouncedSearch && { search: debouncedSearch }),
+      ...(appliedFilters.fromDate && { fromDate: appliedFilters.fromDate }),
+      ...(appliedFilters.toDate && { toDate: appliedFilters.toDate }),
+      ...(appliedFilters.unit && { unit: appliedFilters.unit }),
+      ...(appliedFilters.investigator && { investigatorName: appliedFilters.investigator }),
+      ...(appliedFilters.charges && { charges: appliedFilters.charges }),
+    }),
+    [debouncedSearch, appliedFilters],
+  );
+
+  const handleCardSelect = useCallback(
+    (value: string | null) => {
+      url.setParams({ statusGroup: value, status: null, page: '1' }, { history: 'push' });
+    },
+    [url],
+  );
+
   // AUTO-FIX #1 (cont.): AbortController cancels in-flight requests on
   // dependency change → no stale state from late responses.
   const abortRef = useRef<AbortController | null>(null);
@@ -190,13 +217,9 @@ export function CaseListPageShell() {
     setError(undefined);
 
     const params = {
+      ...baseQueryParams,
       ...(statusFilter && { status: statusFilter }),
-      ...(debouncedSearch && { search: debouncedSearch }),
-      ...(appliedFilters.fromDate && { fromDate: appliedFilters.fromDate }),
-      ...(appliedFilters.toDate && { toDate: appliedFilters.toDate }),
-      ...(appliedFilters.unit && { unit: appliedFilters.unit }),
-      ...(appliedFilters.investigator && { investigator: appliedFilters.investigator }),
-      ...(appliedFilters.charges && { charges: appliedFilters.charges }),
+      ...(groupFilter && { statusGroup: groupFilter }),
       limit: PAGE_SIZE,
       offset: (page - 1) * PAGE_SIZE,
     };
@@ -208,7 +231,9 @@ export function CaseListPageShell() {
         setRows(listRes.data.data);
         setTotalCount(listRes.data.total);
         if (listRes.data.total === 0) {
-          setTableState(debouncedSearch || statusFilter ? 'empty-filtered' : 'empty');
+          setTableState(
+            debouncedSearch || statusFilter || groupFilter ? 'empty-filtered' : 'empty',
+          );
         } else {
           setTableState('ready');
         }
@@ -222,17 +247,14 @@ export function CaseListPageShell() {
 
     return () => ctrl.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, page, debouncedSearch, refetchCounter, appliedFilters]);
+  }, [statusFilter, groupFilter, page, debouncedSearch, refetchCounter, appliedFilters]);
 
-  // Fetch STATS — only on search change.
-  // AUTO-FIX #3: pass ALL non-status filters (currently just search; future
-  // investigator/unit/date filters auto-flow). Backend strips status.
+  // Stats dùng CHUNG baseQueryParams với danh sách (backend strip status/statusGroup).
+  // Trước đây chỉ truyền `search` nên bật bộ lọc nâng cao là số trên thẻ lệch khỏi danh
+  // sách. KHÔNG phụ thuộc groupFilter → bấm thẻ không refetch stats (tránh nháy skeleton).
   useEffect(() => {
     const ctrl = new AbortController();
-    const statsParams = {
-      ...(debouncedSearch && { search: debouncedSearch }),
-      // Pagination omitted — stats is aggregation, not paginated
-    };
+    const statsParams = baseQueryParams;
     api
       .get<CasesStatsResponse>('/cases/stats', { params: statsParams, signal: ctrl.signal })
       .then((statsRes) => {
@@ -273,7 +295,7 @@ export function CaseListPageShell() {
   selectionClearRef.current = selection.clear;
   useEffect(() => {
     selectionClearRef.current();
-  }, [statusFilter, page, debouncedSearch]);
+  }, [statusFilter, groupFilter, page, debouncedSearch]);
 
   const [transientBanner, setTransientBanner] = useState<{
     kind: 'success' | 'error';
@@ -384,7 +406,8 @@ export function CaseListPageShell() {
 
   const handleStatusChange = useCallback(
     (value: string | null) => {
-      url.setParams({ status: value, page: '1' });
+      // Chip và thẻ loại trừ nhau — chọn trạng thái đơn lẻ thì bỏ nhóm đang lọc.
+      url.setParams({ status: value, statusGroup: null, page: '1' });
     },
     [url],
   );
@@ -410,7 +433,7 @@ export function CaseListPageShell() {
 
   const appliedFilterCount = Object.values(appliedFilters).filter((v) => v && v !== '').length;
   const activeFilterCount =
-    (statusFilter ? 1 : 0) + (searchQuery ? 1 : 0) + appliedFilterCount;
+    (statusFilter ? 1 : 0) + (groupFilter ? 1 : 0) + (searchQuery ? 1 : 0) + appliedFilterCount;
 
   return (
     <ListPageShell>
@@ -430,13 +453,19 @@ export function CaseListPageShell() {
           </button>
         }
       />
-      <StatsCardsStrip cards={buildCasesCards(stats)} loading={stats == null} />
+      <StatsCardsStrip
+        cards={buildCasesCards(stats)}
+        loading={stats == null}
+        activeValue={groupFilter}
+        onCardSelect={handleCardSelect}
+      />
       <ListPageShell.StatusChips
         options={chipOptions}
         activeValue={statusFilter}
         onChange={handleStatusChange}
         totalCount={stats?.total}
         countsLoading={stats == null}
+        groupActive={groupFilter != null}
       />
       <ListPageShell.Toolbar
         searchValue={searchQuery}
