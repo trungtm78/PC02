@@ -390,6 +390,25 @@ describe('IncidentsService', () => {
       // status should not be set to an { in: [...] } filter
       expect(callArgs.where.status).toBeUndefined();
     });
+
+    /**
+     * [P1] Lỗi 500 CÓ THẬT trước bản vá: `PHASE_STATUSES[phase]` không chặn prototype
+     * chain, nên `?phase=constructor` trả về hàm Object — truthy nhưng không phải mảng —
+     * lọt xuống Prisma thành `{ in: [Function] }` và ném. Test cũ dùng 'invalid-phase'
+     * (không tồn tại trên prototype) nên lọt lưới.
+     */
+    it('[P1] phase leo prototype chain → bỏ qua, KHÔNG ném 500', async () => {
+      for (const evil of ['constructor', '__proto__', 'toString']) {
+        mockPrisma.incident.findMany.mockClear();
+        mockPrisma.incident.findMany.mockResolvedValue([]);
+        mockPrisma.incident.count.mockResolvedValue(0);
+
+        await service.getList({ phase: evil } as any);
+
+        const callArgs = mockPrisma.incident.findMany.mock.calls[0][0];
+        expect(callArgs.where.status).toBeUndefined();
+      }
+    });
   });
 
   // ── getById ───────────────────────────────────────────────────────────────

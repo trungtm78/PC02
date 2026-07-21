@@ -254,3 +254,35 @@ Comprehensive) **không đụng tới** — `export-word` chỉ bật khi adapte
 **Hạ tầng bulk dùng chung có thêm 1 field optional** `BulkAction.skipConfirm`
 (bỏ hộp xác nhận cho action tự mở UI kế tiếp). `undefined` → hành vi cũ nguyên vẹn,
 nên 5 màn đang dùng `BulkActionBar` không đổi parity.
+
+---
+
+## v0.70.4.0 — Thẻ thống kê bấm được để lọc (có đổi parity, cả 3 shell)
+
+**Ảnh hưởng CẢ BA shell**: `CaseListPageShell`, `IncidentListPageShell`,
+`PetitionListPageShell`. Đây là thay đổi parity thật, không phải refactor.
+
+**Thêm — thanh thẻ thống kê (`StatsCardsStrip`) nay là bộ lọc:** bấm thẻ lọc danh sách
+theo nhóm trạng thái tương ứng. Thẻ đang chọn nổi bật và `aria-disabled` (không bấm lại);
+thẻ "Tổng" bấm để bỏ lọc. Nút Back của trình duyệt quay lại được bộ lọc trước
+(`useListPageUrlState` thêm tuỳ chọn `history:'push'`).
+
+| Shell | Param lọc | Nguồn số trên thẻ |
+|---|---|---|
+| Vụ án | `cases_statusGroup` (mới) | `/cases/stats` → `byGroup` |
+| Đơn thư | `petitions_statusGroup` (mới) | `/petitions/stats` → `byGroup` |
+| Vụ việc | `incidents_phase` (**sẵn có**, không thêm param) | `/incidents/stats` → `byGroup` |
+
+**Gỡ khỏi bộ lọc nâng cao** (đều đang gây lỗi 400 vì param không có trong DTO):
+- Đơn thư: field `status` — ghi trùng key `petitions_status` của thanh chip, là gốc rễ
+  param `advancedStatus`. Lọc theo trạng thái nay dùng thanh chip hoặc thẻ.
+- Vụ việc: field `keyword` — trùng chức năng với ô tìm kiếm trên thanh công cụ.
+
+**Đổi tên param cho khớp DTO** (không đổi giao diện): `sender`→`senderName`,
+`investigator`→`investigatorName`, `unit`→`donViGiaiQuyet` (Vụ việc). Thêm `charges`
+(Vụ án) và `reporter` (Vụ việc, tra CCCD/SĐT) vào DTO.
+
+**Cột / chip / bulk action: KHÔNG đổi.** `StatsCardsStrip` chỉ bấm được khi trang truyền
+`onCardSelect`, nên 16+ trang khác đang dùng component này giữ nguyên DOM.
+`StatusChips` thêm prop optional `groupActive` (chip "Tất cả" không sáng khi đang lọc
+theo nhóm) — optional nên không đổi parity của shell nào khác.

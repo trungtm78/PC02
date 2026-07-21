@@ -27,6 +27,8 @@ import { BcaExcelHelper } from '../common/bca-excel.helper';
 import { CASE_STATUS_LABEL } from '../common/constants/status-labels.constants';
 import { ROLE_NAMES } from '../common/constants/role.constants';
 import { SETTINGS_KEY } from '../common/constants/settings-keys.constants';
+import { resolveGroup, countByGroup } from '../common/status-groups.util';
+import { CASE_STATUS_GROUPS } from './cases.constants';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CaseAssignedEvent, CaseCreatedEvent } from '../notifications/events/notification.events';
 
@@ -102,6 +104,8 @@ export class CasesService {
     const {
       search,
       status,
+      statusGroup,
+      charges,
       investigatorId,
       unit,
       fromDate,
@@ -146,8 +150,19 @@ export class CasesService {
       ];
     }
 
-    if (status) {
+    // Nhóm trạng thái (drill-down thẻ thống kê) THẮNG status đơn lẻ — giống semantic
+    // `phase` đã ship ở Vụ việc. `resolveGroup` chặn prototype chain.
+    const groupStatuses = resolveGroup(CASE_STATUS_GROUPS, statusGroup);
+    if (groupStatuses) {
+      where.status = { in: [...groupStatuses] };
+    } else if (status) {
       where.status = status;
+    }
+
+    // Tội danh — bộ lọc nâng cao "Tội danh" trước đây gửi param `charges` mà DTO KHÔNG có,
+    // nên `forbidNonWhitelisted` trả 400. Nay nhận thật.
+    if (charges) {
+      where.crime = { contains: charges, mode: 'insensitive' };
     }
 
     if (investigatorId) {
@@ -175,9 +190,14 @@ export class CasesService {
     // Filter quá hạn
     if (overdue) {
       where.deadline = { lt: new Date() };
-      where.status = {
-        notIn: [CaseStatus.DA_KET_LUAN, CaseStatus.DA_LUU_TRU, CaseStatus.DINH_CHI],
-      };
+      // KHÔNG gán đè `where.status`: làm vậy sẽ xoá sổ điều kiện statusGroup/status đã đặt
+      // ở trên → bấm thẻ "Tạm đình chỉ" khi đang lọc quá hạn sẽ trả về MỌI hồ sơ quá hạn.
+      // Prisma cho phép gộp in/equals + notIn trong cùng một filter.
+      const notTerminal = [CaseStatus.DA_KET_LUAN, CaseStatus.DA_LUU_TRU, CaseStatus.DINH_CHI];
+      where.status =
+        typeof where.status === 'string'
+          ? { equals: where.status, notIn: notTerminal }
+          : { ...(where.status ?? {}), notIn: notTerminal };
     }
 
     if (capDoToiPham) {
@@ -329,6 +349,7 @@ export class CasesService {
   async getStats(query: QueryCasesStatsDto, dataScope?: DataScope | null) {
     const {
       search,
+      charges,
       investigatorId,
       unit,
       fromDate,
@@ -351,6 +372,12 @@ export class CasesService {
       deletedAt: null,
       caseType: caseType ?? CaseType.REGULAR,
     };
+
+    // PHẢI áp cùng điều kiện với getList, nếu không số trên thẻ đếm mọi tội danh trong
+    // khi danh sách chỉ có tội danh đang lọc → hai số lệch nhau.
+    if (charges) {
+      where.crime = { contains: charges, mode: 'insensitive' };
+    }
 
     if (search) {
       const isUtdt = (caseType ?? CaseType.REGULAR) === CaseType.UY_THAC_DIEU_TRA;
@@ -478,7 +505,8 @@ export class CasesService {
       total += row._count._all;
     }
 
-    return { total, byStatus };
+    // byGroup sinh từ CÙNG `where` với danh sách → số trên thẻ khớp số dòng theo thiết kế.
+    return { total, byStatus, byGroup: countByGroup(CASE_STATUS_GROUPS, byStatus) };
   }
 
   // ─────────────────────────────────────────────

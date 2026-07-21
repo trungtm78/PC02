@@ -23,6 +23,7 @@ import { DocumentNumbersService } from '../document-numbers/document-numbers.ser
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { buildScopeFilter } from '../common/utils/scope-filter.util';
 import { TERMINAL_STATUSES, VALID_TRANSITIONS, PHASE_STATUSES } from './incidents.constants';
+import { resolveGroup, countByGroup } from '../common/status-groups.util';
 import { SettingsService } from '../settings/settings.service';
 import { DeadlineRulesService } from '../deadline-rules/deadline-rules.service';
 import { ROLE_NAMES } from '../common/constants/role.constants';
@@ -59,6 +60,8 @@ export class IncidentsService {
       wardTeamId,
       loaiDonVu,
       benVu,
+      reporter,
+      donViGiaiQuyet,
       tinhTrangHoSo,
       tinhTrangThoiHieu,
       canBoNhapId,
@@ -94,9 +97,13 @@ export class IncidentsService {
     }
 
     // Phase takes precedence over status (phase is a group of statuses)
-    // If both provided, phase wins — status is ignored
-    if (phase && PHASE_STATUSES[phase]) {
-      where.status = { in: PHASE_STATUSES[phase] };
+    // If both provided, phase wins — status is ignored.
+    // `resolveGroup` dùng hasOwnProperty: viết `PHASE_STATUSES[phase]` trần thì
+    // `?phase=constructor` trả về hàm Object — truthy nhưng không phải mảng — rồi lọt
+    // xuống Prisma thành `{ in: [Function] }` và ném lỗi 500.
+    const phaseStatuses = resolveGroup(PHASE_STATUSES, phase);
+    if (phaseStatuses) {
+      where.status = { in: [...phaseStatuses] };
     } else if (status) {
       where.status = status;
     }
@@ -104,6 +111,23 @@ export class IncidentsService {
     if (unitId) where.unitId = unitId;
     if (loaiDonVu) where.loaiDonVu = loaiDonVu;
     if (benVu) where.benVu = benVu;
+    // Người tố giác: schema KHÔNG có cột TÊN, chỉ CCCD/SĐT → tra theo hai cột đó.
+    if (reporter) {
+      // AND lồng OR, KHÔNG gộp vào `where.OR` sẵn có: `search` cũng dùng OR, gộp chung sẽ
+      // biến "khớp tìm kiếm VÀ khớp người tố giác" thành "HOẶC" — nới lỏng bộ lọc.
+      where.AND = [
+        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+        {
+          OR: [
+            { cmndNguoiToGiac: { contains: reporter, mode: 'insensitive' } },
+            { sdtNguoiToGiac: { contains: reporter, mode: 'insensitive' } },
+          ],
+        },
+      ];
+    }
+    if (donViGiaiQuyet) {
+      where.donViGiaiQuyet = { contains: donViGiaiQuyet, mode: 'insensitive' };
+    }
     if (tinhTrangHoSo) where.tinhTrangHoSo = tinhTrangHoSo;
     if (tinhTrangThoiHieu) where.tinhTrangThoiHieu = tinhTrangThoiHieu;
     if (canBoNhapId) where.canBoNhapId = canBoNhapId;
@@ -118,7 +142,12 @@ export class IncidentsService {
     // Filter quá hạn — use TERMINAL_STATUSES constant
     if (overdue) {
       where.deadline = { lt: new Date() };
-      where.status = { notIn: TERMINAL_STATUSES };
+      // KHÔNG gán đè: sẽ xoá sổ điều kiện `phase` đã đặt ở trên → bấm thẻ giai đoạn khi
+      // đang lọc quá hạn sẽ trả về mọi hồ sơ quá hạn. Gộp in + notIn trong cùng filter.
+      where.status =
+        typeof where.status === 'string'
+          ? { equals: where.status, notIn: TERMINAL_STATUSES }
+          : { ...(where.status ?? {}), notIn: TERMINAL_STATUSES };
     }
 
     if (districtId) where.unitId = districtId;
@@ -934,7 +963,8 @@ export class IncidentsService {
   async getStats(query: QueryIncidentsStatsDto, dataScope?: DataScope | null) {
     const {
       search,
-      phase,
+      // `phase` cố tình KHÔNG destructure — DTO đã chặn ở cổng, và thẻ thống kê phải
+      // đếm toàn bộ dataset chứ không tự lọc theo giai đoạn đang chọn.
       investigatorId,
       unitId,
       overdue,
@@ -943,6 +973,8 @@ export class IncidentsService {
       wardTeamId,
       loaiDonVu,
       benVu,
+      reporter,
+      donViGiaiQuyet,
       tinhTrangHoSo,
       tinhTrangThoiHieu,
       canBoNhapId,
@@ -971,14 +1003,30 @@ export class IncidentsService {
       ];
     }
 
-    // Phase is a group of statuses — KEEP since not status-direct (UI groups statuses).
-    if (phase && PHASE_STATUSES[phase]) {
-      where.status = { in: PHASE_STATUSES[phase] };
-    }
+    // KHÔNG lọc theo `phase` ở stats. Thẻ thống kê phải đếm TOÀN BỘ dataset, nếu không
+    // thì chọn 1 giai đoạn sẽ khiến 3 thẻ kia về 0 — người dùng hết chỗ bấm sang giai
+    // đoạn khác, drill-down mất ý nghĩa. `phase` cũng đã bị OmitType chặn ở DTO stats.
     if (investigatorId) where.investigatorId = investigatorId;
     if (unitId) where.unitId = unitId;
     if (loaiDonVu) where.loaiDonVu = loaiDonVu;
     if (benVu) where.benVu = benVu;
+    // Người tố giác: schema KHÔNG có cột TÊN, chỉ CCCD/SĐT → tra theo hai cột đó.
+    if (reporter) {
+      // AND lồng OR, KHÔNG gộp vào `where.OR` sẵn có: `search` cũng dùng OR, gộp chung sẽ
+      // biến "khớp tìm kiếm VÀ khớp người tố giác" thành "HOẶC" — nới lỏng bộ lọc.
+      where.AND = [
+        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+        {
+          OR: [
+            { cmndNguoiToGiac: { contains: reporter, mode: 'insensitive' } },
+            { sdtNguoiToGiac: { contains: reporter, mode: 'insensitive' } },
+          ],
+        },
+      ];
+    }
+    if (donViGiaiQuyet) {
+      where.donViGiaiQuyet = { contains: donViGiaiQuyet, mode: 'insensitive' };
+    }
     if (tinhTrangHoSo) where.tinhTrangHoSo = tinhTrangHoSo;
     if (tinhTrangThoiHieu) where.tinhTrangThoiHieu = tinhTrangThoiHieu;
     if (canBoNhapId) where.canBoNhapId = canBoNhapId;
@@ -1032,7 +1080,9 @@ export class IncidentsService {
       total += row._count._all;
     }
 
-    return { total, byStatus };
+    // byGroup dùng chính PHASE_STATUSES — 4 thẻ thống kê Vụ việc trùng khít 4 giai đoạn BCA,
+    // nên không cần bộ nhóm riêng.
+    return { total, byStatus, byGroup: countByGroup(PHASE_STATUSES, byStatus) };
   }
 
   // ─────────────────────────────────────────────

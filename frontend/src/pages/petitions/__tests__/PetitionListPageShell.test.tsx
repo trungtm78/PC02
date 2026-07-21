@@ -68,9 +68,17 @@ const exhaustiveByStatus: Record<PetitionStatus, number> = {
   DA_CHUYEN_VU_AN: 1,
 };
 
+// byGroup do SERVER đếm (PETITION_STATUS_GROUPS). Thiếu field này thì thẻ nhóm render
+// khung xương vĩnh viễn — fixture phải có, không thì test "xanh giả".
 const sampleStats = {
   total: 34,
   byStatus: exhaustiveByStatus,
+  byGroup: {
+    'moi-tiep-nhan': 8,
+    'dang-xu-ly': 17, // DANG_XU_LY 15 + CHO_PHE_DUYET 2
+    'da-giai-quyet': 8, // 4 + 3 + 1
+    'da-luu-don': 1,
+  },
 };
 
 describe('PetitionListPageShell — initial mount + ready state', () => {
@@ -237,5 +245,144 @@ describe('PetitionListPageShell — security + URL load', () => {
       (c) => c[0] === '/petitions',
     );
     expect(listCall?.[1]?.params.offset).toBe(20);
+  });
+});
+
+/**
+ * Drill-down: bấm thẻ thống kê để lọc danh sách.
+ *
+ * Thẻ gộp nhiều trạng thái ("Đang xử lý" = DANG_XU_LY + CHO_PHE_DUYET) nên gửi KEY nhóm
+ * (`statusGroup`) lên server, không gửi từng trạng thái.
+ */
+describe('PetitionListPageShell — drill-down thẻ thống kê', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (api.get as unknown as ReturnType<typeof vi.fn>).mockImplementation((url: string) => {
+      if (url === '/petitions') return Promise.resolve({ data: { data: [sampleRow], total: 1 } });
+      if (url === '/petitions/stats') return Promise.resolve({ data: sampleStats });
+      return Promise.reject(new Error('Unknown URL: ' + url));
+    });
+  });
+
+  /**
+   * Nhãn như "Đang xử lý" có ở CẢ thẻ thống kê lẫn chip trạng thái. Thẻ là <button> thường,
+   * chip là <button role="tab"> → lọc theo đó để nhắm đúng thẻ.
+   */
+  const cardButton = (label: string) => {
+    const btn = screen
+      .getAllByText(label)
+      .map((el) => el.closest('button'))
+      .find((b): b is HTMLButtonElement => b != null && b.getAttribute('role') !== 'tab');
+    if (!btn) throw new Error(`Không tìm thấy thẻ thống kê "${label}"`);
+    return btn;
+  };
+
+  it('thẻ hiển thị số từ byGroup của server (không cộng tay ở client)', async () => {
+    renderWithRouter();
+    await waitFor(() => expect(screen.getByText('17')).toBeInTheDocument()); // Đang xử lý
+    expect(within(cardButton('Đã giải quyết')).getByText('8')).toBeInTheDocument();
+  });
+
+  it('bấm thẻ → URL có statusGroup, page về 1, request gửi statusGroup KHÔNG gửi status', async () => {
+    const { getLocation } = renderWithRouter(['/petitions?petitions_page=3']);
+    await waitFor(() => expect(screen.getAllByText('Đang xử lý').length).toBeGreaterThan(0));
+
+    fireEvent.click(cardButton('Đang xử lý'));
+
+    await waitFor(() => expect(getLocation()).toContain('petitions_statusGroup=dang-xu-ly'));
+    expect(getLocation()).toContain('petitions_page=1');
+
+    await waitFor(() => {
+      const calls = (api.get as unknown as ReturnType<typeof vi.fn>).mock.calls.filter(
+        (c) => c[0] === '/petitions',
+      );
+      const last = calls[calls.length - 1];
+      expect(last?.[1]?.params.statusGroup).toBe('dang-xu-ly');
+      expect(last?.[1]?.params.status).toBeUndefined();
+    });
+  });
+
+  it('bấm thẻ "Tổng" → xoá lọc nhóm', async () => {
+    const { getLocation } = renderWithRouter(['/petitions?petitions_statusGroup=dang-xu-ly']);
+    await waitFor(() => expect(screen.getAllByText('Tổng đơn thư').length).toBeGreaterThan(0));
+
+    fireEvent.click(cardButton('Tổng đơn thư'));
+
+    await waitFor(() => expect(getLocation()).not.toContain('petitions_statusGroup'));
+  });
+
+  it('thẻ đang chọn KHÔNG bấm được (anh chốt) — không phát sinh request mới', async () => {
+    renderWithRouter(['/petitions?petitions_statusGroup=dang-xu-ly']);
+    await waitFor(() => expect(screen.getAllByText('Đang xử lý').length).toBeGreaterThan(0));
+    const before = (api.get as unknown as ReturnType<typeof vi.fn>).mock.calls.length;
+
+    const active = cardButton('Đang xử lý');
+    expect(active).toHaveAttribute('aria-disabled', 'true');
+    fireEvent.click(active);
+
+    expect((api.get as unknown as ReturnType<typeof vi.fn>).mock.calls.length).toBe(before);
+  });
+
+  it('chọn chip trạng thái → xoá nhóm đang lọc (hai control loại trừ nhau)', async () => {
+    const { getLocation } = renderWithRouter(['/petitions?petitions_statusGroup=dang-xu-ly']);
+    const chipBar = await screen.findByRole('tablist');
+    const chip = within(chipBar)
+      .getAllByRole('tab')
+      .find((t) => t.textContent?.includes('Lưu đơn'))!;
+
+    fireEvent.click(chip);
+
+    await waitFor(() => expect(getLocation()).not.toContain('petitions_statusGroup'));
+  });
+
+  /** Bấm thẻ chỉ được bắn lại DANH SÁCH — bắn lại stats sẽ nháy khung xương mỗi lần bấm. */
+  it('bấm thẻ KHÔNG gọi lại /petitions/stats', async () => {
+    renderWithRouter();
+    await waitFor(() => expect(screen.getAllByText('Đang xử lý').length).toBeGreaterThan(0));
+    const statsBefore = (api.get as unknown as ReturnType<typeof vi.fn>).mock.calls.filter(
+      (c) => c[0] === '/petitions/stats',
+    ).length;
+
+    fireEvent.click(cardButton('Đang xử lý'));
+
+    await waitFor(() => {
+      const calls = (api.get as unknown as ReturnType<typeof vi.fn>).mock.calls.filter(
+        (c) => c[0] === '/petitions',
+      );
+      expect(calls[calls.length - 1]?.[1]?.params.statusGroup).toBe('dang-xu-ly');
+    });
+    const statsAfter = (api.get as unknown as ReturnType<typeof vi.fn>).mock.calls.filter(
+      (c) => c[0] === '/petitions/stats',
+    ).length;
+    expect(statsAfter).toBe(statsBefore);
+  });
+
+  /**
+   * REGRESSION #2: trước đây gửi `sender` (DTO chỉ có `senderName`) và `advancedStatus`
+   * (DTO không có) → forbidNonWhitelisted trả 400, bộ lọc nâng cao gãy.
+   */
+  it('KHÔNG gửi param lạ khiến backend trả 400 (sender/advancedStatus)', async () => {
+    renderWithRouter(['/petitions?petitions_sender=Nguyen']);
+    await waitFor(() => {
+      const calls = (api.get as unknown as ReturnType<typeof vi.fn>).mock.calls.filter(
+        (c) => c[0] === '/petitions',
+      );
+      expect(calls.length).toBeGreaterThan(0);
+      const p = calls[calls.length - 1]?.[1]?.params ?? {};
+      expect(p.sender).toBeUndefined();
+      expect(p.advancedStatus).toBeUndefined();
+      expect(p.senderName).toBe('Nguyen');
+    });
+  });
+
+  /** REGRESSION #1: stats phải nhận cùng bộ lọc với danh sách, nếu không số thẻ lệch. */
+  it('stats nhận CÙNG bộ lọc nâng cao với danh sách', async () => {
+    renderWithRouter(['/petitions?petitions_sender=Nguyen']);
+    await waitFor(() => {
+      const statsCalls = (api.get as unknown as ReturnType<typeof vi.fn>).mock.calls.filter(
+        (c) => c[0] === '/petitions/stats',
+      );
+      expect(statsCalls[statsCalls.length - 1]?.[1]?.params.senderName).toBe('Nguyen');
+    });
   });
 });

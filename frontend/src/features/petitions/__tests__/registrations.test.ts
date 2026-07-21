@@ -57,21 +57,31 @@ describe('petitionsRowActions', () => {
 });
 
 describe('petitionsListFilters', () => {
-  it('registers 5 fields in legacy order', () => {
+  it('registers 4 fields in legacy order', () => {
     expect(petitionsListFilters.all().map((f) => f.key)).toEqual([
       'fromDate',
       'toDate',
       'sender',
-      'status',
       'unit',
     ]);
   });
 
-  it('status is enumSelect with all PetitionStatus values', () => {
-    const f = petitionsListFilters.all().find((x) => x.key === 'status')!;
-    expect(f.type).toBe('enumSelect');
-    expect(f.options).toBeDefined();
-    expect(f.options!.length).toBeGreaterThanOrEqual(7);
+  /**
+   * HỢP ĐỒNG ĐỔI CÓ CHỦ ĐÍCH (trước: có field 'status').
+   *
+   * Field đó khai `urlKey:'status'` nên `useListFilters` ghi vào `petitions_status` —
+   * ĐÚNG key mà thanh chip trạng thái đang dùng. Hai control cùng ghi một state, khiến
+   * trang gửi kèm param `advancedStatus` không tồn tại trong `QueryPetitionsDto`, mà
+   * backend bật `forbidNonWhitelisted` → 400. Tức là bộ lọc nâng cao ĐANG GÃY.
+   *
+   * Lọc theo trạng thái nay đã có thanh chip + thẻ thống kê bấm được nên field này thừa.
+   */
+  it('KHÔNG còn field status (trùng key với thanh chip → gây 400)', () => {
+    expect(petitionsListFilters.all().find((f) => f.key === 'status')).toBeUndefined();
+  });
+
+  it('không field nào ghi vào urlKey "status" của thanh chip', () => {
+    expect(petitionsListFilters.all().map((f) => f.urlKey)).not.toContain('status');
   });
 
   it('legacy testid pattern preserved', () => {
@@ -79,7 +89,6 @@ describe('petitionsListFilters', () => {
       'filter-from-date',
       'filter-to-date',
       'filter-sender',
-      'filter-status',
       'filter-unit',
     ]);
   });

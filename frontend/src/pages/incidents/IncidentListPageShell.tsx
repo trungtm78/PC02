@@ -105,28 +105,37 @@ interface IncidentRow {
 interface IncidentsStatsResponse {
   total: number;
   byStatus: Record<IncidentStatus, number>;
+  /** Số theo 4 giai đoạn BCA, do server đếm (PHASE_STATUSES). */
+  byGroup: Record<string, number>;
 }
 
 const PAGE_SIZE = 20;
 
+/**
+ * Giá trị "đang lọc bằng thứ khác" cho `activeValue` của thanh thẻ.
+ *
+ * Khi user lọc bằng CHIP trạng thái (không phải thẻ), nhóm là null → thẻ "Tổng"
+ * (filterValue null) sẽ tự sáng và bị khoá, dù danh sách ĐANG bị lọc. Vừa nói dối vừa
+ * khiến user không bấm "Tổng" để xoá lọc được. Sentinel này không khớp thẻ nào nên không
+ * thẻ nào sáng, và "Tổng" bấm được để xoá sạch.
+ */
+const OTHER_FILTER_ACTIVE = '__other__';
+
+
+/**
+ * 4 thẻ trạng thái của Vụ việc trùng KHÍT 4 giai đoạn BCA (`PHASE_STATUSES`), nên
+ * `filterValue` dùng luôn khoá giai đoạn — không cần param lọc mới, tái dùng `phase`
+ * mà backend đã có sẵn.
+ */
 function buildIncidentsCards(stats: IncidentsStatsResponse | null): StatCard[] {
-  const by = stats?.byStatus;
-  const tiepNhan = by ? (by[IncidentStatus.TIEP_NHAN] ?? 0) : null;
-  const xacMinh = by
-    ? ([IncidentStatus.DANG_XAC_MINH, IncidentStatus.DA_PHAN_CONG, IncidentStatus.QUA_HAN] as IncidentStatus[]).reduce((s, k) => s + (by[k] ?? 0), 0)
-    : null;
-  const ketQua = by
-    ? ([IncidentStatus.DA_CHUYEN_VU_AN, IncidentStatus.KHONG_KHOI_TO, IncidentStatus.CHUYEN_XPHC, IncidentStatus.PHAN_LOAI_DAN_SU, IncidentStatus.DA_CHUYEN_DON_VI, IncidentStatus.DA_NHAP_VU_KHAC, IncidentStatus.DA_GIAI_QUYET] as IncidentStatus[]).reduce((s, k) => s + (by[k] ?? 0), 0)
-    : null;
-  const tamDinhChi = by
-    ? ([IncidentStatus.TAM_DINH_CHI, IncidentStatus.PHUC_HOI_NGUON_TIN, IncidentStatus.TDC_HET_THOI_HIEU, IncidentStatus.TDC_HTH_KHONG_KT] as IncidentStatus[]).reduce((s, k) => s + (by[k] ?? 0), 0)
-    : null;
+  const g = stats?.byGroup;
+  const at = (key: string) => (g ? (g[key] ?? 0) : null);
   return [
-    { label: 'Tổng vụ việc', value: stats?.total ?? null, icon: FileSearch, iconBgClass: 'bg-[#003973]/10', iconColorClass: 'text-[#003973]', valueColorClass: 'text-[#003973]' },
-    { label: 'Tiếp nhận', value: tiepNhan, icon: Inbox, iconBgClass: 'bg-blue-100', iconColorClass: 'text-blue-600', valueColorClass: 'text-blue-600' },
-    { label: 'Xác minh', value: xacMinh, icon: SearchIcon, iconBgClass: 'bg-amber-100', iconColorClass: 'text-amber-600', valueColorClass: 'text-amber-600' },
-    { label: 'Kết quả', value: ketQua, icon: CheckCircle, iconBgClass: 'bg-green-100', iconColorClass: 'text-green-600', valueColorClass: 'text-green-600' },
-    { label: 'Tạm đình chỉ', value: tamDinhChi, icon: PauseCircle, iconBgClass: 'bg-slate-100', iconColorClass: 'text-slate-600', valueColorClass: 'text-slate-600' },
+    { label: 'Tổng vụ việc', value: stats?.total ?? null, filterValue: null, icon: FileSearch, iconBgClass: 'bg-[#003973]/10', iconColorClass: 'text-[#003973]', valueColorClass: 'text-[#003973]' },
+    { label: 'Tiếp nhận', value: at('tiep-nhan'), filterValue: 'tiep-nhan', icon: Inbox, iconBgClass: 'bg-blue-100', iconColorClass: 'text-blue-600', valueColorClass: 'text-blue-600' },
+    { label: 'Xác minh', value: at('xac-minh'), filterValue: 'xac-minh', icon: SearchIcon, iconBgClass: 'bg-amber-100', iconColorClass: 'text-amber-600', valueColorClass: 'text-amber-600' },
+    { label: 'Kết quả', value: at('ket-qua'), filterValue: 'ket-qua', icon: CheckCircle, iconBgClass: 'bg-green-100', iconColorClass: 'text-green-600', valueColorClass: 'text-green-600' },
+    { label: 'Tạm đình chỉ', value: at('tam-dinh-chi'), filterValue: 'tam-dinh-chi', icon: PauseCircle, iconBgClass: 'bg-slate-100', iconColorClass: 'text-slate-600', valueColorClass: 'text-slate-600' },
   ];
 }
 
@@ -229,6 +238,27 @@ export function IncidentListPageShell() {
   });
   const appliedFilters = listFilters.applied;
 
+  /**
+   * Param dùng CHUNG cho cả request danh sách lẫn thống kê — một nguồn duy nhất thì số
+   * trên thẻ không lệch khỏi danh sách được.
+   *
+   * Tên param phải KHỚP `QueryIncidentsDto`. Trước đây gửi `keyword`/`reporter`/`unit`
+   * mà DTO không có → `forbidNonWhitelisted` trả 400, bộ lọc nâng cao GÃY hoàn toàn:
+   *  - `keyword` đã gỡ khỏi registry vì trùng chức năng với ô tìm kiếm trên thanh công cụ
+   *  - `reporter` nay tra theo CCCD/SĐT (schema không có cột TÊN người tố giác)
+   *  - `unit` → `donViGiaiQuyet` (cột text đơn vị thụ lý)
+   */
+  const baseQueryParams = useMemo(
+    () => ({
+      ...(debouncedSearch && { search: debouncedSearch }),
+      ...(appliedFilters.loaiDonVu && { loaiDonVu: appliedFilters.loaiDonVu }),
+      ...(appliedFilters.reporter && { reporter: appliedFilters.reporter }),
+      ...(appliedFilters.unit && { donViGiaiQuyet: appliedFilters.unit }),
+    }),
+    [debouncedSearch, appliedFilters],
+  );
+  const baseQueryKey = JSON.stringify(baseQueryParams);
+
   useEffect(() => {
     abortRef.current?.abort();
     const ctrl = new AbortController();
@@ -237,13 +267,9 @@ export function IncidentListPageShell() {
     setError(undefined);
 
     const params = {
+      ...baseQueryParams,
       ...(statusFilter && { status: statusFilter }),
       ...(phaseFilter && { phase: phaseFilter }),
-      ...(debouncedSearch && { search: debouncedSearch }),
-      ...(appliedFilters.keyword && { keyword: appliedFilters.keyword }),
-      ...(appliedFilters.loaiDonVu && { loaiDonVu: appliedFilters.loaiDonVu }),
-      ...(appliedFilters.reporter && { reporter: appliedFilters.reporter }),
-      ...(appliedFilters.unit && { unit: appliedFilters.unit }),
       limit: PAGE_SIZE,
       offset: (page - 1) * PAGE_SIZE,
     };
@@ -274,10 +300,10 @@ export function IncidentListPageShell() {
   // Stats fetch: search + phase pass-through, status purposely stripped.
   useEffect(() => {
     const ctrl = new AbortController();
-    const statsParams = {
-      ...(phaseFilter && { phase: phaseFilter }),
-      ...(debouncedSearch && { search: debouncedSearch }),
-    };
+    // KHÔNG gửi `phase`: thẻ phải đếm toàn bộ, nếu lọc theo giai đoạn đang chọn thì 3 thẻ
+    // kia về 0 và hết chỗ bấm sang. Backend cũng đã chặn `phase` ở DTO stats.
+    // Nhưng PHẢI gửi các bộ lọc còn lại, nếu không số trên thẻ lệch khỏi danh sách.
+    const statsParams = baseQueryParams;
     api
       .get<IncidentsStatsResponse>('/incidents/stats', { params: statsParams, signal: ctrl.signal })
       .then((statsRes) => {
@@ -290,7 +316,11 @@ export function IncidentListPageShell() {
       });
 
     return () => ctrl.abort();
-  }, [debouncedSearch, phaseFilter]);
+    // KHÔNG phụ thuộc phaseFilter → bấm thẻ không refetch stats (tránh nháy khung xương).
+    // Khoá theo GIÁ TRỊ (`baseQueryKey`) vì `appliedFilters` đổi identity mỗi lần URL đổi.
+    // `refetchCounter`: xoá/đổi trạng thái hàng loạt cũng phải cập nhật lại số trên thẻ.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [baseQueryKey, refetchCounter]);
 
   const chipOptions = useMemo(
     () =>
@@ -436,14 +466,17 @@ export function IncidentListPageShell() {
 
   const handleStatusChange = useCallback(
     (value: string | null) => {
-      url.setParams({ status: value, page: '1' });
+      // Chip và thẻ/tab giai đoạn loại trừ nhau. Backend cho `phase` thắng `status`, nên
+      // để cả hai cùng bật thì chip sáng mà danh sách không lọc theo nó — giao diện nói dối.
+      url.setParams({ status: value, phase: null, page: '1' });
     },
     [url],
   );
 
   const handlePhaseChange = useCallback(
     (value: IncidentPhase | null) => {
-      url.setParams({ phase: value, page: '1' });
+      // history push để nút Back quay lại được giai đoạn trước (thẻ thống kê cũng gọi hàm này).
+      url.setParams({ phase: value, status: null, page: '1' }, { history: 'push' });
     },
     [url],
   );
@@ -492,7 +525,12 @@ export function IncidentListPageShell() {
           </button>
         }
       />
-      <StatsCardsStrip cards={buildIncidentsCards(stats)} loading={stats == null} />
+      <StatsCardsStrip
+        cards={buildIncidentsCards(stats)}
+        loading={stats == null}
+        activeValue={phaseFilter ?? (statusFilter ? OTHER_FILTER_ACTIVE : null)}
+        onCardSelect={(v) => handlePhaseChange(v as IncidentPhase | null)}
+      />
       {/* Phase tabs render giữa Header + StatusChips theo plan PR2 compound API */}
       <div
         role="tablist"
@@ -535,6 +573,7 @@ export function IncidentListPageShell() {
         onChange={handleStatusChange}
         totalCount={stats?.total}
         countsLoading={stats == null}
+        groupActive={phaseFilter != null}
       />
       <ListPageShell.Toolbar
         searchValue={searchQuery}

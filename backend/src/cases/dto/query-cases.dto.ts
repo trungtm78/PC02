@@ -13,6 +13,7 @@ import {
 import { Transform, Type } from 'class-transformer';
 import { CaseStatus, CapDoToiPham, CaseType, LoaiUyThac } from '@prisma/client';
 import { IsCatalogValue } from '../../common/validators/is-catalog-value.validator';
+import { CASE_STATUS_GROUP_KEYS } from '../cases.constants';
 
 export type TrangThaiPhanHoi = 'DA_PHAN_HOI' | 'KHONG_THUC_HIEN_DUOC' | 'QUA_HAN' | 'CHUA_PHAN_HOI';
 export { CaseType, LoaiUyThac };
@@ -28,6 +29,20 @@ export class QueryCasesDto {
   @IsOptional()
   @IsEnum(CaseStatus)
   status?: CaseStatus;
+
+  /**
+   * Nhóm trạng thái cho drill-down thẻ thống kê (vd 'dang-dieu-tra' gộp 6 trạng thái).
+   * Thắng `status` khi cả hai cùng có. `@IsIn` để chặn key rác ngay ở cổng.
+   */
+  @IsOptional()
+  @IsIn(CASE_STATUS_GROUP_KEYS)
+  statusGroup?: string;
+
+  /** Tội danh — bộ lọc nâng cao. Trước đây FE gửi mà DTO không có → 400. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  charges?: string;
 
   @IsOptional()
   @IsString()

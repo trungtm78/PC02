@@ -22,14 +22,8 @@ export interface IncidentFilterValue {
 const incidents = createListFilterRegistry<IncidentFilterValue>();
 
 incidents.registerMany([
-  {
-    key: 'keyword',
-    label: 'Từ khóa',
-    type: 'text',
-    urlKey: 'keyword',
-    testid: 'filter-keyword',
-    placeholder: 'Mã, tên, mô tả...',
-  },
+  // ĐÃ GỠ field 'keyword': trùng chức năng với ô tìm kiếm trên thanh công cụ (cùng tra
+  // mã/tên), và param `keyword` không có trong QueryIncidentsDto nên đang trả 400.
   {
     key: 'loaiDonVu',
     label: 'Loại nguồn tin',
@@ -48,7 +42,9 @@ incidents.registerMany([
     type: 'text',
     urlKey: 'reporter',
     testid: 'filter-reporter',
-    placeholder: 'Tên hoặc CCCD',
+    // Nhãn cũ ghi "Tên hoặc CCCD" là SAI: schema Incident không có cột tên người tố giác
+    // (chỉ cmndNguoiToGiac / sdtNguoiToGiac / diaChiNguoiToGiac).
+    placeholder: 'CCCD hoặc số điện thoại',
   },
   {
     key: 'unit',

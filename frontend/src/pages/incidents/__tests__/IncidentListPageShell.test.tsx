@@ -86,6 +86,13 @@ const exhaustiveByStatus: Record<IncidentStatus, number> = {
 const sampleStats = {
   total: 35,
   byStatus: exhaustiveByStatus,
+  // byGroup = 4 giai đoạn BCA, do SERVER đếm (PHASE_STATUSES).
+  byGroup: {
+    'tiep-nhan': 5,
+    'xac-minh': 16, // 12+3+1
+    'ket-qua': 12, // 4+8
+    'tam-dinh-chi': 2,
+  },
 };
 
 describe('IncidentListPageShell — initial mount + ready state', () => {

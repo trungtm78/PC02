@@ -28,6 +28,8 @@ import { DeadlineRulesService } from '../deadline-rules/deadline-rules.service';
 import { DocumentNumbersService } from '../document-numbers/document-numbers.service';
 import { BcaExcelHelper } from '../common/bca-excel.helper';
 import { PETITION_STATUS_LABEL } from '../common/constants/status-labels.constants';
+import { resolveGroup, countByGroup } from '../common/status-groups.util';
+import { PETITION_STATUS_GROUPS } from './petitions.constants';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PetitionAssignedEvent } from '../notifications/events/notification.events';
 
@@ -61,6 +63,7 @@ export class PetitionsService {
     const {
       search,
       status,
+      statusGroup,
       unit,
       senderName,
       fromDate,
@@ -86,7 +89,13 @@ export class PetitionsService {
       ];
     }
 
-    if (status) {
+    // Nhóm trạng thái (drill-down thẻ thống kê) THẮNG status đơn lẻ — giống semantic
+    // `phase` đã ship ở Vụ việc. `resolveGroup` chặn prototype chain, KHÔNG viết
+    // `PETITION_STATUS_GROUPS[statusGroup]` trần (sẽ trả hàm Object → Prisma ném 500).
+    const groupStatuses = resolveGroup(PETITION_STATUS_GROUPS, statusGroup);
+    if (groupStatuses) {
+      where.status = { in: [...groupStatuses] };
+    } else if (status) {
       where.status = status;
     }
 
@@ -114,9 +123,17 @@ export class PetitionsService {
 
     if (overdue) {
       where.deadline = { lt: new Date() };
-      if (!status) {
-        where.status = { notIn: [PetitionStatus.DA_GIAI_QUYET, PetitionStatus.DA_CHUYEN_VU_VIEC, PetitionStatus.DA_CHUYEN_VU_AN] };
-      }
+      // Guard `if (!status)` cũ KHÔNG chặn statusGroup → bấm thẻ khi đang lọc quá hạn sẽ
+      // mất điều kiện nhóm. Gộp bằng notIn thay vì gán đè (Prisma cho phép in + notIn).
+      const notTerminal = [
+        PetitionStatus.DA_GIAI_QUYET,
+        PetitionStatus.DA_CHUYEN_VU_VIEC,
+        PetitionStatus.DA_CHUYEN_VU_AN,
+      ];
+      where.status =
+        typeof where.status === 'string'
+          ? { equals: where.status, notIn: notTerminal }
+          : { ...(where.status ?? {}), notIn: notTerminal };
     }
 
     // v0.36.0.0: filter theo phường công tác (Team.wardId) — cross-ward view PC02/ADMIN
@@ -1786,7 +1803,9 @@ export class PetitionsService {
       total += row._count._all;
     }
 
-    return { total, byStatus };
+    // byGroup sinh từ CÙNG `where` với danh sách → số trên thẻ khớp số dòng theo thiết kế.
+    // Nhờ vậy frontend không cần biết nhóm gồm những trạng thái nào (chống trùng lặp).
+    return { total, byStatus, byGroup: countByGroup(PETITION_STATUS_GROUPS, byStatus) };
   }
 
   // ── Nhóm V — Search nghi phạm theo tên/CCCD ────────────────────────────────

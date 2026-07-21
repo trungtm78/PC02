@@ -14,6 +14,8 @@ import { QueryCasesDto } from './query-cases.dto';
 
 export class QueryCasesStatsDto extends OmitType(QueryCasesDto, [
   'status',
+  // Xem chú thích ở QueryPetitionsStatsDto — thẻ không được tự lọc chính nó.
+  'statusGroup',
   'limit',
   'offset',
   'sortBy',

@@ -33,6 +33,12 @@ export interface StatusChipsProps {
   totalCount?: number;
   /** Khi true, hiển thị skeleton thay vì count number. */
   countsLoading?: boolean;
+  /**
+   * Đang lọc theo NHÓM trạng thái (bấm thẻ thống kê) — lúc đó không status đơn lẻ nào
+   * được chọn nên `activeValue` là null, và chip "Tất cả" sẽ sáng lên: đó là nói dối,
+   * vì danh sách đang bị lọc. Cờ này tắt trạng thái sáng của chip "Tất cả".
+   */
+  groupActive?: boolean;
 }
 
 export function StatusChips({
@@ -41,6 +47,7 @@ export function StatusChips({
   onChange,
   totalCount,
   countsLoading,
+  groupActive = false,
 }: StatusChipsProps) {
   const { tableId } = useListPageShellContext();
 
@@ -70,7 +77,8 @@ export function StatusChips({
     label: string,
     count: number | undefined,
   ) => {
-    const isActive = activeValue === value;
+    // Chip "Tất cả" (value === null) không được sáng khi đang lọc theo nhóm.
+    const isActive = activeValue === value && !(value === null && groupActive);
     return (
       <button
         key={value ?? '__all__'}
