@@ -8,7 +8,7 @@ import {
 import { Response } from 'express';
 import { createHash } from 'crypto';
 import archiver from 'archiver';
-import { sanitizeFilename } from '../common/utils/filename.util';
+import { sanitizeFilename, buildDocumentFilename, dedupeFilenames } from '../common/utils/filename.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { DocumentNumbersService } from '../document-numbers/document-numbers.service';
 import { DocxMergeService } from '../petitions/docx-merge.service';
@@ -25,12 +25,32 @@ const DOCX_CONTENT_TYPE =
 
 type EntityType = 'VU_AN' | 'VU_VIEC' | 'DON_THU';
 
-/** Bảng + cột FK render-log/cấp số theo loại hồ sơ (row-lock + commitWithTx idKey + renderLog). */
-const ENTITY_DB: Record<EntityType, { table: string; idField: 'caseId' | 'incidentId' | 'petitionId' }> = {
-  VU_AN: { table: 'cases', idField: 'caseId' },
-  VU_VIEC: { table: 'incidents', idField: 'incidentId' },
-  DON_THU: { table: 'petitions', idField: 'petitionId' },
+/**
+ * Bảng + cột FK render-log/cấp số theo loại hồ sơ (row-lock + commitWithTx idKey + renderLog).
+ *
+ * `codeField` = cột mã hồ sơ hiển thị cho người đọc, dùng đặt tên file xuất ra. Mỗi entity
+ * một tên cột khác nhau — thiếu map này thì tên file mất phần mã, đúng cái bug cần sửa:
+ *   Petition.stt (DT-2026-36679) · Case.caseCode (NULLABLE) · Incident.code
+ */
+const ENTITY_DB: Record<
+  EntityType,
+  { table: string; idField: 'caseId' | 'incidentId' | 'petitionId'; codeField: string }
+> = {
+  VU_AN: { table: 'cases', idField: 'caseId', codeField: 'caseCode' },
+  VU_VIEC: { table: 'incidents', idField: 'incidentId', codeField: 'code' },
+  DON_THU: { table: 'petitions', idField: 'petitionId', codeField: 'stt' },
 };
+
+/** 1 dòng manifest = 1 cặp (hồ sơ × mẫu). `code` BẮT BUỘC: cùng 1 `id` xuất hiện M lần. */
+interface BatchManifestItem {
+  id: string;
+  code: string;
+  ok: boolean;
+  documentNumber?: string;
+  error?: string;
+  /** true = lỗi hệ thống (không phải thiếu dữ liệu) → FE phải báo lỗi, không báo thành công. */
+  systemError?: boolean;
+}
 
 interface RenderedTemplate {
   buffer: Buffer;
@@ -241,7 +261,15 @@ export class DynamicExportService {
       documentNumber,
       fileSha,
       code: template.code,
-      filename: sanitizeFilename(`${template.code}_${documentNumber ?? template.code}.docx`),
+      // Tên "nhìn là hiểu": DT-2026-36679_Phiếu đề xuất_0012.docx.
+      // (Trước đây `${code}_${documentNumber ?? code}.docx` → mẫu KHÔNG cấp số ra
+      //  "PHIEU_DE_XUAT_PHIEU_DE_XUAT.docx", và không có mã hồ sơ nên xuất hàng loạt
+      //  xong không biết file nào của đơn nào.)
+      filename: buildDocumentFilename({
+        recordCode: record?.[ENTITY_DB[entityType].codeField],
+        templateName: template.name,
+        documentNumber,
+      }),
     };
   }
 
@@ -331,29 +359,140 @@ export class DynamicExportService {
     actorId: string,
     res: Response,
   ): Promise<void> {
+    return this.exportBatchByCodes(entityType, [code], entityIds, loadRecord, actorId, res);
+  }
+
+  /** Trần SỐ FILE 1 lô = N hồ sơ × M mẫu. UAT TC-PET-120 chốt 100 file < 30s; vượt xa hơn
+   *  sẽ đụng timeout gateway và giữ response mở hàng phút. */
+  private static readonly MAX_BATCH_FILES = 100;
+
+  /**
+   * Xuất ĐỒNG LOẠT M mẫu × N hồ sơ → 1 ZIP (mỗi cặp 1 file + manifest.json).
+   *
+   * Mỗi (hồ sơ × mẫu) render trong tx RIÊNG → 1 cặp lỗi (thiếu trường/ngoài scope) KHÔNG
+   * abort cả lô, và KHÔNG rollback số văn bản của cặp đã thành công. Đây là lý do KHÔNG
+   * gom M mẫu của cùng 1 hồ sơ vào một tx.
+   *
+   * `loadRecord` do controller cấp (đã check RBAC scope) → service không phụ thuộc service
+   * hồ sơ (tránh cycle). KHÔNG nhận manualValues (batch không có popup bổ sung).
+   */
+  async exportBatchByCodes(
+    entityType: EntityType,
+    codes: string[],
+    entityIds: string[],
+    loadRecord: (id: string) => Promise<any>,
+    actorId: string,
+    res: Response,
+  ): Promise<void> {
     if (!entityIds.length) {
       throw new BadRequestException('Danh sách hồ sơ trống');
     }
-    // Dedup id trùng → 1 đơn chỉ cấp 1 số văn bản (tránh nhảy/lãng phí số sổ — đối xứng
+    if (!codes.length) {
+      throw new BadRequestException('Chưa chọn mẫu chứng từ');
+    }
+    // Dedup id/code trùng → 1 cặp chỉ cấp 1 số văn bản (tránh nhảy/lãng phí số sổ — đối xứng
     // với reject templateIds trùng ở exportEntityDocuments).
     const ids = [...new Set(entityIds)];
-    const template = await this.prisma.documentTemplate.findFirst({
-      where: { entityType, code, deletedAt: null, status: 'active' },
+    const wantedCodes = [...new Set(codes)];
+
+    // Trần đặt TRƯỚC mọi truy vấn/cấp số: vượt trần thì không được tiêu số nào.
+    const fileCount = ids.length * wantedCodes.length;
+    if (fileCount > DynamicExportService.MAX_BATCH_FILES) {
+      throw new BadRequestException(
+        `Lô quá lớn: ${ids.length} hồ sơ × ${wantedCodes.length} mẫu = ${fileCount} file ` +
+          `(tối đa ${DynamicExportService.MAX_BATCH_FILES}). Vui lòng chia nhỏ.`,
+      );
+    }
+
+    const templates = await this.prisma.documentTemplate.findMany({
+      where: { entityType, code: { in: wantedCodes }, deletedAt: null, status: 'active' },
     });
-    if (!template) {
-      throw new BadRequestException(`Không tìm thấy mẫu chứng từ "${code}" cho loại hồ sơ này`);
+    const missing = wantedCodes.filter((c) => !templates.some((t: any) => t.code === c));
+    if (missing.length) {
+      throw new BadRequestException(
+        `Không tìm thấy mẫu chứng từ "${missing.join('", "')}" cho loại hồ sơ này`,
+      );
     }
-    // Lỗi CẤU HÌNH mẫu (cấp số nhưng thiếu series) áp dụng cho MỌI hồ sơ trong lô → kiểm 1 lần
-    // TRƯỚC vòng lặp + abort (codex P2: nếu để per-record catch sẽ che lỗi cấu hình thành "ok:false").
-    if (template.needsNumber && !template.numberSeriesId) {
-      throw new BadRequestException(`Mẫu "${code}" bật cấp số nhưng chưa cấu hình series số văn bản`);
+    // Lỗi CẤU HÌNH mẫu (cấp số nhưng thiếu series) áp dụng cho MỌI hồ sơ → kiểm TOÀN BỘ mẫu
+    // TRƯỚC vòng lặp. Kiểm muộn (khi tới lượt mẫu thứ 2) sẽ throw SAU KHI mẫu thứ 1 đã commit
+    // số → đốt số sổ rồi trả 5xx, số không rollback được vì tx đã đóng.
+    for (const t of templates) {
+      if (t.needsNumber && !t.numberSeriesId) {
+        throw new BadRequestException(
+          `Mẫu "${t.code}" bật cấp số nhưng chưa cấu hình series số văn bản`,
+        );
+      }
     }
+    // Giữ thứ tự người dùng chọn.
+    const ordered = wantedCodes.map((c) => templates.find((t: any) => t.code === c)!);
 
     // Người in — dùng chung cho cả lô (1 query).
     const ctx = await this.loadActorContext(actorId);
 
+    // Nạp mỗi hồ sơ ĐÚNG 1 LẦN rồi dùng lại cho cả M mẫu (trước đây N×M lần loadRecord,
+    // mỗi lần là 1 query nested include). Cache chỉ sống trong 1 request của 1 actor nên
+    // không nới lỏng kiểm tra phạm vi dữ liệu.
+    const recordCache = new Map<string, Promise<any>>();
+    const loadOnce = (id: string) => {
+      let p = recordCache.get(id);
+      if (!p) {
+        p = loadRecord(id);
+        recordCache.set(id, p);
+      }
+      return p;
+    };
+
     const rendered: RenderedTemplate[] = [];
-    const manifest: Array<{ id: string; ok: boolean; documentNumber?: string; error?: string }> = [];
+    const manifest: BatchManifestItem[] = [];
+    for (const template of ordered) {
+      const part = await this.renderOneCode(entityType, template, ids, loadOnce, actorId, ctx);
+      rendered.push(...part.rendered);
+      manifest.push(...part.manifest);
+    }
+
+    let zip: Buffer;
+    try {
+      zip = await this.buildBatchZip(rendered, manifest);
+    } catch (e) {
+      // Số văn bản đã commit trước bước này. Không giao được file thì phải ghi lại để
+      // quản trị đối soát sổ, KHÔNG để mất dấu lặng lẽ.
+      const burned = manifest.filter((m) => m.ok && m.documentNumber).map((m) => `${m.code}:${m.documentNumber}`);
+      this.logger.error(
+        `Đóng gói ZIP thất bại SAU KHI đã cấp ${burned.length} số văn bản: ${burned.join(', ')}`,
+      );
+      throw e;
+    }
+    // Header đếm để FE báo kết quả mà KHÔNG cần unzip blob (chi tiết từng cặp vẫn ở
+    // manifest.json). Phải có Access-Control-Expose-Headers (main.ts) để FE đọc.
+    // LƯU Ý: Total/Ok/Failed đếm theo SỐ FILE (N×M), không phải số hồ sơ — thêm
+    // X-Batch-Records để FE hiển thị đúng "x file / y hồ sơ".
+    const okCount = manifest.filter((m) => m.ok).length;
+    res.setHeader('X-Batch-Total', String(manifest.length));
+    res.setHeader('X-Batch-Ok', String(okCount));
+    res.setHeader('X-Batch-Failed', String(manifest.length - okCount));
+    res.setHeader('X-Batch-Records', String(ids.length));
+    // Phân biệt "thiếu dữ liệu nghiệp vụ" (người dùng tự sửa được) với "lỗi hệ thống"
+    // (phải báo quản trị) — vì cả hai đều ra ok:false trong manifest.
+    res.setHeader('X-Batch-System-Error', String(manifest.filter((m) => m.systemError).length));
+    const zipStem = ordered.length === 1 ? ordered[0].code : 'ChungTu';
+    this.setDownloadHeaders(res, 'application/zip', `${zipStem}_${this.dateStamp()}.zip`);
+    res.send(zip);
+  }
+
+  /**
+   * Render 1 mẫu cho N hồ sơ. Thân vòng lặp nguyên bản của exportBatchByCode — tách ra để
+   * exportBatchByCodes gọi lại M lần, KHÔNG đổi ngữ nghĩa cấp số / transaction / phân loại lỗi.
+   */
+  private async renderOneCode(
+    entityType: EntityType,
+    template: any,
+    ids: string[],
+    loadRecord: (id: string) => Promise<any>,
+    actorId: string,
+    ctx: ResolveContext,
+  ): Promise<{ rendered: RenderedTemplate[]; manifest: BatchManifestItem[] }> {
+    const rendered: RenderedTemplate[] = [];
+    const manifest: BatchManifestItem[] = [];
     for (const id of ids) {
       try {
         const record = await loadRecord(id);
@@ -361,33 +500,48 @@ export class DynamicExportService {
         const r = await this.prisma.$transaction((tx: any) =>
           this.renderTemplateInTx(tx, entityType, id, record, template, actorId, {}, ctx),
         );
-        rendered.push({ ...r, filename: sanitizeFilename(`${code}_${r.documentNumber ?? id}.docx`) });
-        manifest.push({ id, ok: true, documentNumber: r.documentNumber });
+        // renderTemplateInTx đã đặt tên "Mã hồ sơ_Tên mẫu_Số VB" — KHÔNG ghi đè bằng
+        // `${code}_${id}` nữa (fallback cũ rơi về UUID thô, người dùng không đọc được).
+        rendered.push(r);
+        manifest.push({ id, code: template.code, ok: true, documentNumber: r.documentNumber });
       } catch (e) {
         // Lỗi NGHIỆP VỤ (thiếu trường bắt buộc) → ghi manifest, lô tiếp tục.
         if (e instanceof BadRequestException) {
-          manifest.push({ id, ok: false, error: e.message });
+          manifest.push({ id, code: template.code, ok: false, error: e.message });
         } else if (e instanceof ForbiddenException || e instanceof NotFoundException) {
           // Ngoài scope / không tồn tại → message TRUNG LẬP (chống IDOR-enumeration: không
           // để client phân biệt id thật-ngoài-quyền vs id không tồn tại).
-          manifest.push({ id, ok: false, error: 'Không xử lý được hồ sơ (không tồn tại hoặc ngoài phạm vi)' });
+          manifest.push({
+            id,
+            code: template.code,
+            ok: false,
+            error: 'Không xử lý được hồ sơ (không tồn tại hoặc ngoài phạm vi)',
+          });
         } else {
-          // Lỗi HỆ THỐNG (DB down, series cấu hình sai…) → rethrow để ABORT lô + trả 5xx thật,
-          // KHÔNG che bằng "ok:false" khiến người dùng tưởng đã xuất.
-          throw e;
+          // Lỗi HỆ THỐNG ở cặp này KHÔNG được ABORT cả lô.
+          //
+          // Số văn bản của các cặp TRƯỚC đã commit ở tx riêng — throw ra ngoài sẽ trả 5xx,
+          // client không nhận file nào, và những số đó CHÁY VĨNH VIỄN (không rollback được).
+          // Vì vậy: ghi manifest, đánh dấu systemError để header/FE báo lỗi THẬT (không để
+          // người dùng tưởng đã xuất trọn vẹn), và vẫn giao ZIP chứa các file đã cấp số.
+          //
+          // Bản thân cặp lỗi thì an toàn: cấp số + render + renderLog nằm CÙNG một tx nên
+          // số của chính nó được rollback.
+          const msg = e instanceof Error ? e.message : String(e);
+          this.logger.error(
+            `Lỗi hệ thống khi xuất chứng từ ${template.code} cho hồ sơ ${id}: ${msg}`,
+          );
+          manifest.push({
+            id,
+            code: template.code,
+            ok: false,
+            systemError: true,
+            error: 'Lỗi hệ thống khi tạo chứng từ này. Vui lòng thử lại hoặc báo quản trị.',
+          });
         }
       }
     }
-
-    const zip = await this.buildBatchZip(rendered, manifest);
-    // Header đếm để FE báo "X/Y thành công, Z thất bại" mà KHÔNG cần unzip blob (chi tiết per-đơn
-    // vẫn ở manifest.json trong ZIP). Phải có Access-Control-Expose-Headers (main.ts) để FE đọc.
-    const okCount = manifest.filter((m) => m.ok).length;
-    res.setHeader('X-Batch-Total', String(manifest.length));
-    res.setHeader('X-Batch-Ok', String(okCount));
-    res.setHeader('X-Batch-Failed', String(manifest.length - okCount));
-    this.setDownloadHeaders(res, 'application/zip', `${code}_${this.dateStamp()}.zip`);
-    res.send(zip);
+    return { rendered, manifest };
   }
 
   private buildBatchZip(
@@ -401,7 +555,12 @@ export class DynamicExportService {
       archive.on('warning', (err) => this.logger.warn(`zip warning: ${err.message}`));
       archive.on('error', reject);
       archive.on('end', () => resolve(Buffer.concat(chunks)));
-      for (const d of docs) archive.append(d.buffer, { name: sanitizeFilename(d.filename) });
+      // Dedup: archiver KHÔNG chặn entry trùng tên → công cụ giải nén ghi đè, mất file âm thầm.
+      // Tên nay dựa trên template.name (không unique) nên trùng là có thật.
+      // KHÔNG sanitize lại: `filename` đã sạch từ buildDocumentFilename, mà sanitize lần 2
+      // cắt ở 200 ký tự TÍNH CẢ đuôi → xén mất ".docx", file trong ZIP không mở được.
+      const names = dedupeFilenames(docs.map((d) => d.filename));
+      docs.forEach((d, i) => archive.append(d.buffer, { name: names[i] }));
       archive.append(JSON.stringify({ total: manifest.length, items: manifest }, null, 2), {
         name: 'manifest.json',
       });
@@ -417,7 +576,12 @@ export class DynamicExportService {
       archive.on('warning', (err) => this.logger.warn(`zip warning: ${err.message}`));
       archive.on('error', reject);
       archive.on('end', () => resolve(Buffer.concat(chunks)));
-      for (const d of docs) archive.append(d.buffer, { name: sanitizeFilename(d.filename) });
+      // Dedup như buildBatchZip: 2 mẫu khác id nhưng trùng `name` (admin upload bản mới)
+      // trong cùng 1 hồ sơ sẽ ra 2 entry cùng tên nếu không xử lý.
+      // KHÔNG sanitize lại: `filename` đã sạch từ buildDocumentFilename, mà sanitize lần 2
+      // cắt ở 200 ký tự TÍNH CẢ đuôi → xén mất ".docx", file trong ZIP không mở được.
+      const names = dedupeFilenames(docs.map((d) => d.filename));
+      docs.forEach((d, i) => archive.append(d.buffer, { name: names[i] }));
       void archive.finalize();
     });
   }

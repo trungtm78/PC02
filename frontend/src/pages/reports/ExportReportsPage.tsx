@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { resolveFilename } from "@/features/document-templates/export.api";
 import {
   Search,
   Download,
@@ -238,9 +239,10 @@ export default function ExportReportsPage() {
         { responseType: 'blob' },
       );
       const headers = response.headers ?? {};
-      const cd = String(headers["content-disposition"] || "");
-      const m = cd.match(/filename="([^"]+)"/);
-      const filename = m?.[1] ?? `${docType}_batch.zip`;
+      const filename = resolveFilename(
+        headers as Record<string, unknown>,
+        `${docType}_batch.zip`,
+      );
       url = URL.createObjectURL(response.data);
       const a = document.createElement("a");
       a.href = url;

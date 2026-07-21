@@ -11,6 +11,7 @@
  * backend rights check at /lawyers/bulk-delete route.
  */
 import { api } from '@/lib/api';
+import { resolveFilename } from '@/features/document-templates/export.api';
 import type { BulkAdapter, BulkAction, BulkResult } from '../types';
 
 interface LawyerRow {
@@ -42,9 +43,10 @@ const exportAction: BulkAction<LawyerRow> = {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    const cd = (response.headers['content-disposition'] as string) ?? '';
-    const filenameMatch = /filename="([^"]+)"/.exec(cd);
-    link.download = filenameMatch?.[1] ?? `LuatSu_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    link.download = resolveFilename(
+      response.headers as Record<string, unknown>,
+      `LuatSu_${new Date().toISOString().slice(0, 10)}.xlsx`,
+    );
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

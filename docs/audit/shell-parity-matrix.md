@@ -147,6 +147,7 @@
 | `btn-batch-export` | ✅ via v0.61 BulkActionBar |
 | `btn-batch-clear` | ✅ via v0.61 useBulkSelection |
 | `btn-guide` | ✅ giữ trong shell (verify) |
+| Xuất Word hàng loạt | ✅ v0.70.3.0 — **chuyển** từ dropdown header sang BulkActionBar (`export-word`) |
 
 ---
 
@@ -227,3 +228,29 @@ Thêm `<ShortcutHint action="newRecord" />` (hiện `<kbd>Alt+N</kbd>`) cạnh n
 "Tạo mới" ở cả 4 shell (Cases, Comprehensive, Incidents, Petitions). Chỉ là gợi
 ý phím tắt hiển thị, **không thêm/bớt cột/lọc/bulk-action** nên **không đổi ma
 trận parity** — ghi nhận để thỏa gate `shell-parity-gate`.
+
+---
+
+## v0.70.3.0 — Xuất Word hàng loạt: DỜI vị trí + MỞ RỘNG (có đổi parity)
+
+**Chỉ ảnh hưởng `PetitionListPageShell`.** Đây là thay đổi parity thật, không phải
+refactor, nên ghi nhận đầy đủ:
+
+**Gỡ khỏi header:** dropdown "Xuất Word (N)" màu hổ phách (`FileText` + `ChevronDown`,
+danh sách 7 mã cứng từ `features/petitions/docTypes.ts` — file này đã xoá vì mồ côi).
+Dropdown chỉ chọn được **1 mẫu** cho N đơn.
+
+**Thêm vào thanh chọn:** bulk action `export-word` ("Xuất Word", `variant:'outline'`,
+quyền `petitions/view`). Bấm → mở `BatchExportDocumentsModal` chọn **nhiều mẫu một
+lượt** (danh sách lấy ĐỘNG từ CSDL qua `listExportTemplates`) → 1 file ZIP.
+
+**Không mất tính năng nào**: modal mới là bản mở rộng thực sự của dropdown cũ
+(1 mẫu → M mẫu). Để cả hai lối vào sẽ gây rối vì chúng làm hai việc khác nhau.
+
+**Cột / bộ lọc / chip: KHÔNG đổi.** Các shell còn lại (Cases, Incidents,
+Comprehensive) **không đụng tới** — `export-word` chỉ bật khi adapter được truyền
+`onExportWord`, mặc định tắt.
+
+**Hạ tầng bulk dùng chung có thêm 1 field optional** `BulkAction.skipConfirm`
+(bỏ hộp xác nhận cho action tự mở UI kế tiếp). `undefined` → hành vi cũ nguyên vẹn,
+nên 5 màn đang dùng `BulkActionBar` không đổi parity.
