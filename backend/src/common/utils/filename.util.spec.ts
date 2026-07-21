@@ -1,4 +1,4 @@
-import { sanitizeFilename } from './filename.util';
+import { sanitizeFilename, buildDocumentFilename, dedupeFilenames } from './filename.util';
 
 describe('sanitizeFilename', () => {
   it('strips path separators / and \\', () => {
@@ -44,5 +44,117 @@ describe('sanitizeFilename', () => {
 
   it('keeps a single dot for extension separation', () => {
     expect(sanitizeFilename('phieu-de-xuat.docx')).toBe('phieu-de-xuat.docx');
+  });
+});
+
+/**
+ * Tên file chứng từ = `Mã hồ sơ_Tên mẫu_Số văn bản`.docx — anh chốt phải "nhìn là hiểu".
+ * Quy tắc CỨNG: thành phần rỗng biến mất CÙNG dấu phân cách của nó (không `_` thừa
+ * đầu/cuối, không `__` giữa). Giữ dấu tiếng Việt (dùng template.name, không dùng code).
+ */
+describe('buildDocumentFilename', () => {
+  it('đủ 3 thành phần → Mã_Tên mẫu_Số', () => {
+    expect(
+      buildDocumentFilename({
+        recordCode: 'DT-2026-36679',
+        templateName: 'Phiếu đề xuất',
+        documentNumber: '0012',
+      }),
+    ).toBe('DT-2026-36679_Phiếu đề xuất_0012.docx');
+  });
+
+  it('THIẾU mã hồ sơ → KHÔNG có "_" mở đầu', () => {
+    const out = buildDocumentFilename({
+      templateName: 'Phiếu đề xuất',
+      documentNumber: '0012',
+    });
+    expect(out).toBe('Phiếu đề xuất_0012.docx');
+    expect(out.startsWith('_')).toBe(false);
+  });
+
+  it('THIẾU số văn bản → không có "_" thừa ở cuối', () => {
+    expect(
+      buildDocumentFilename({ recordCode: 'DT-2026-36679', templateName: 'Giấy biên nhận' }),
+    ).toBe('DT-2026-36679_Giấy biên nhận.docx');
+  });
+
+  it('thiếu CẢ HAI → chỉ còn tên mẫu', () => {
+    expect(buildDocumentFilename({ templateName: 'Phiếu đề xuất' })).toBe('Phiếu đề xuất.docx');
+  });
+
+  it('chuỗi rỗng/khoảng trắng cũng bị coi là thiếu (không sinh "__")', () => {
+    const out = buildDocumentFilename({
+      recordCode: '   ',
+      templateName: 'Phiếu đề xuất',
+      documentNumber: '',
+    });
+    expect(out).toBe('Phiếu đề xuất.docx');
+    expect(out).not.toContain('__');
+  });
+
+  it('GIỮ dấu tiếng Việt (không bỏ dấu)', () => {
+    const out = buildDocumentFilename({ templateName: 'Thông báo trả lại đơn' });
+    expect(out).toBe('Thông báo trả lại đơn.docx');
+  });
+
+  it('số văn bản lấy PHẦN SỐ ĐẦU: "0012/ĐX-PC02-Đ1" → "0012"', () => {
+    // '/' bị sanitizeFilename xoá → để nguyên sẽ dính liền "0012ĐX-PC02-Đ1".
+    expect(
+      buildDocumentFilename({
+        recordCode: 'DT-2026-36679',
+        templateName: 'Phiếu đề xuất',
+        documentNumber: '0012/ĐX-PC02-Đ1',
+      }),
+    ).toBe('DT-2026-36679_Phiếu đề xuất_0012.docx');
+  });
+
+  it('vẫn đi qua sanitizeFilename (chặn path traversal trong tên mẫu)', () => {
+    const out = buildDocumentFilename({ templateName: '../../evil' });
+    expect(out).not.toContain('..');
+    expect(out).not.toContain('/');
+  });
+
+  it('không có thành phần nào → fallback an toàn, vẫn đuôi .docx', () => {
+    expect(buildDocumentFilename({})).toBe('untitled.docx');
+  });
+
+  it('nhận extension khác .docx', () => {
+    expect(buildDocumentFilename({ templateName: 'Phụ lục', ext: 'xlsx' })).toBe('Phụ lục.xlsx');
+  });
+});
+
+/**
+ * archiver KHÔNG chặn entry trùng tên (ghi 2 entry cùng tên → công cụ giải nén ghi đè).
+ * Tên cũ dùng template.code (unique) nên không trùng; tên mới dùng template.name →
+ * 2 mẫu khác id trùng name là có thật (admin upload bản mới).
+ */
+describe('dedupeFilenames', () => {
+  it('tên trùng → thêm hậu tố -2, -3 TRƯỚC phần mở rộng', () => {
+    expect(dedupeFilenames(['a.docx', 'a.docx', 'a.docx'])).toEqual([
+      'a.docx',
+      'a-2.docx',
+      'a-3.docx',
+    ]);
+  });
+
+  it('giữ nguyên khi không trùng', () => {
+    expect(dedupeFilenames(['a.docx', 'b.docx'])).toEqual(['a.docx', 'b.docx']);
+  });
+
+  it('phân biệt hoa/thường theo kiểu Windows (case-insensitive)', () => {
+    // Windows/NTFS coi A.docx và a.docx là MỘT file → phải dedup.
+    expect(dedupeFilenames(['A.docx', 'a.docx'])).toEqual(['A.docx', 'a-2.docx']);
+  });
+
+  it('không đụng tên file không có phần mở rộng', () => {
+    expect(dedupeFilenames(['manifest', 'manifest'])).toEqual(['manifest', 'manifest-2']);
+  });
+
+  it('hậu tố sinh ra mà lại trùng tên có sẵn → nhảy tiếp', () => {
+    expect(dedupeFilenames(['a.docx', 'a-2.docx', 'a.docx'])).toEqual([
+      'a.docx',
+      'a-2.docx',
+      'a-3.docx',
+    ]);
   });
 });

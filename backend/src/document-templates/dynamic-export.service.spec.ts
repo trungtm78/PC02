@@ -192,7 +192,12 @@ describe('DynamicExportService', () => {
     beforeEach(() => {
       commitCount = 0;
       prisma = {
-        documentTemplate: { findFirst: jest.fn().mockResolvedValue(TPL) },
+        // exportBatchByCode nay delegate sang exportBatchByCodes (dùng findMany).
+        // findFirst giữ lại để các test override `findFirst` cũ vẫn có hiệu lực.
+        documentTemplate: {
+          findFirst: jest.fn().mockResolvedValue(TPL),
+          findMany: jest.fn().mockResolvedValue([TPL]),
+        },
         documentRenderLog: { create: jest.fn().mockResolvedValue({}) },
         user: {
           findUnique: jest.fn().mockResolvedValue({ firstName: 'Văn', lastName: 'In', rank: 'Trung tá' }),
@@ -274,7 +279,7 @@ describe('DynamicExportService', () => {
     });
 
     it('mẫu không tồn tại → BadRequest', async () => {
-      prisma.documentTemplate.findFirst.mockResolvedValue(null);
+      prisma.documentTemplate.findMany.mockResolvedValue([]);
       await expect(
         svc.exportBatchByCode('DON_THU', 'KHONG_CO', ['p1'], jest.fn(), 'u1', plainRes()),
       ).rejects.toThrow(BadRequestException);
@@ -287,12 +292,142 @@ describe('DynamicExportService', () => {
     });
 
     it('[P2] mẫu cấu hình sai (needsNumber nhưng thiếu series) → ABORT lô (không che per-record)', async () => {
-      prisma.documentTemplate.findFirst.mockResolvedValue({ ...TPL, numberSeriesId: null });
+      prisma.documentTemplate.findMany.mockResolvedValue([{ ...TPL, numberSeriesId: null }]);
       const load = jest.fn(async (id: string) => ({ id, senderName: 'A' }));
       await expect(
         svc.exportBatchByCode('DON_THU', 'BIEN_NHAN', ['p1', 'p2'], load, 'u1', plainRes()),
       ).rejects.toThrow('chưa cấu hình series');
       expect(load).not.toHaveBeenCalled(); // fail TRƯỚC vòng lặp
+    });
+  });
+
+  /**
+   * N hồ sơ × M mẫu → 1 ZIP. Bản mở rộng của exportBatchByCode (hàm cũ delegate sang đây
+   * nên 8 test ở trên phải giữ xanh).
+   */
+  describe('exportBatchByCodes (N hồ sơ × M mẫu)', () => {
+    let svc: DynamicExportService;
+    let prisma: any;
+    let docNums: any;
+    let commitCount: number;
+    const mkTpl = (id: string, code: string, name: string, over: any = {}) => ({
+      id, code, name, entityType: 'DON_THU', status: 'active',
+      needsNumber: true, numberSeriesId: code, fileSha: 'sha', variables: [],
+      fileBytes: makeDocx('So {soVanBan}'), ...over,
+    });
+    const BN = mkTpl('bn', 'BIEN_NHAN', 'Giấy biên nhận');
+    const DX = mkTpl('dx', 'PHIEU_DE_XUAT', 'Phiếu đề xuất');
+
+    beforeEach(() => {
+      commitCount = 0;
+      prisma = {
+        documentTemplate: {
+          findFirst: jest.fn().mockResolvedValue(BN),
+          findMany: jest.fn().mockResolvedValue([BN, DX]),
+        },
+        documentRenderLog: { create: jest.fn().mockResolvedValue({}) },
+        user: {
+          findUnique: jest.fn().mockResolvedValue({ firstName: 'Văn', lastName: 'In', rank: 'Trung tá' }),
+        },
+        $queryRawUnsafe: jest.fn().mockResolvedValue([]),
+        $transaction: jest.fn(async (fn: any) => fn(prisma)),
+      };
+      docNums = { commitWithTx: jest.fn().mockImplementation(async () => ({ number: `${++commitCount}` })) };
+      svc = new DynamicExportService(prisma, docNums, { merge: jest.fn() } as any);
+    });
+
+    function readZip(res: any) {
+      return new PizZip(res.send.mock.calls[0][0] as Buffer);
+    }
+    function readManifest(res: any) {
+      return JSON.parse(readZip(res).file('manifest.json')!.asText());
+    }
+    const loadOk = () => jest.fn(async (id: string) => ({ id, stt: `DT-2026-${id}`, senderName: 'A' }));
+
+    it('2 mẫu × 3 hồ sơ → 6 file trong ZIP, tên có Mã hồ sơ + Tên mẫu', async () => {
+      const res = plainRes();
+      await svc.exportBatchByCodes(
+        'DON_THU', ['BIEN_NHAN', 'PHIEU_DE_XUAT'], ['p1', 'p2', 'p3'], loadOk(), 'u1', res,
+      );
+      const names = Object.keys(readZip(res).files).filter((n) => n.endsWith('.docx'));
+      expect(names).toHaveLength(6);
+      expect(names).toContain('DT-2026-p1_Giấy biên nhận_1.docx');
+      expect(names.some((n) => n.includes('Phiếu đề xuất'))).toBe(true);
+      expect(docNums.commitWithTx).toHaveBeenCalledTimes(6);
+    });
+
+    it('manifest có trường `code` — 1 id xuất hiện M lần nên thiếu code sẽ trùng khoá', async () => {
+      const res = plainRes();
+      await svc.exportBatchByCodes('DON_THU', ['BIEN_NHAN', 'PHIEU_DE_XUAT'], ['p1'], loadOk(), 'u1', res);
+      const man = readManifest(res);
+      expect(man.items).toHaveLength(2);
+      expect(man.items.map((i: any) => i.code).sort()).toEqual(['BIEN_NHAN', 'PHIEU_DE_XUAT']);
+      expect(man.items.every((i: any) => i.id === 'p1')).toBe(true);
+    });
+
+    it('[P1] mẫu THỨ HAI thiếu series → 400 TRƯỚC mọi loadRecord, KHÔNG cấp số nào', async () => {
+      // Nếu kiểm muộn: mẫu 1 đã commit số rồi mẫu 2 mới throw → ĐỐT SỐ SỔ rồi trả 500,
+      // số đã cấp không rollback được vì tx đã đóng.
+      prisma.documentTemplate.findMany.mockResolvedValue([BN, { ...DX, numberSeriesId: null }]);
+      const load = loadOk();
+      await expect(
+        svc.exportBatchByCodes('DON_THU', ['BIEN_NHAN', 'PHIEU_DE_XUAT'], ['p1'], load, 'u1', plainRes()),
+      ).rejects.toThrow('chưa cấu hình series');
+      expect(load).not.toHaveBeenCalled();
+      expect(docNums.commitWithTx).not.toHaveBeenCalled();
+    });
+
+    it('[P1] 1 mẫu lỗi nghiệp vụ ở 1 hồ sơ → mẫu KIA CỦA CHÍNH hồ sơ đó vẫn ra file', async () => {
+      // Khoá lỗi tx-granularity: gom M mẫu vào 1 tx sẽ rollback số của mẫu đã thành công.
+      const spy = jest
+        .spyOn(svc as any, 'assertRequiredSatisfied')
+        .mockImplementation((_e: any, _r: any, tpls: any) => {
+          if (tpls[0].code === 'PHIEU_DE_XUAT') throw new BadRequestException('Thiếu: Nhận thấy');
+        });
+      const res = plainRes();
+      await svc.exportBatchByCodes('DON_THU', ['BIEN_NHAN', 'PHIEU_DE_XUAT'], ['p1'], loadOk(), 'u1', res);
+      const man = readManifest(res);
+      expect(man.items.find((i: any) => i.code === 'BIEN_NHAN').ok).toBe(true);
+      expect(man.items.find((i: any) => i.code === 'PHIEU_DE_XUAT').ok).toBe(false);
+      expect(Object.keys(readZip(res).files).filter((n) => n.endsWith('.docx'))).toHaveLength(1);
+      spy.mockRestore();
+    });
+
+    it('[P1] N×M vượt 100 file → 400 TRƯỚC khi cấp số', async () => {
+      const ids = Array.from({ length: 51 }, (_, i) => `p${i}`);
+      const load = loadOk();
+      await expect(
+        svc.exportBatchByCodes('DON_THU', ['BIEN_NHAN', 'PHIEU_DE_XUAT'], ids, load, 'u1', plainRes()),
+      ).rejects.toThrow(/100/);
+      expect(docNums.commitWithTx).not.toHaveBeenCalled();
+      expect(load).not.toHaveBeenCalled();
+    });
+
+    it('danh sách mẫu rỗng → 400', async () => {
+      await expect(
+        svc.exportBatchByCodes('DON_THU', [], ['p1'], loadOk(), 'u1', plainRes()),
+      ).rejects.toThrow(/mẫu/i);
+    });
+
+    it('có mã mẫu không tồn tại → 400 nêu đúng mã sai', async () => {
+      prisma.documentTemplate.findMany.mockResolvedValue([BN]);
+      await expect(
+        svc.exportBatchByCodes('DON_THU', ['BIEN_NHAN', 'KHONG_CO'], ['p1'], loadOk(), 'u1', plainRes()),
+      ).rejects.toThrow('KHONG_CO');
+    });
+
+    it('dedup mã mẫu trùng → không cấp số 2 lần cho cùng 1 mẫu', async () => {
+      const res = plainRes();
+      await svc.exportBatchByCodes('DON_THU', ['BIEN_NHAN', 'BIEN_NHAN'], ['p1'], loadOk(), 'u1', res);
+      expect(docNums.commitWithTx).toHaveBeenCalledTimes(1);
+    });
+
+    it('header X-Batch-* đếm theo SỐ FILE (N×M), có thêm X-Batch-Records', async () => {
+      const res = plainRes();
+      await svc.exportBatchByCodes('DON_THU', ['BIEN_NHAN', 'PHIEU_DE_XUAT'], ['p1', 'p2'], loadOk(), 'u1', res);
+      expect(res.setHeader).toHaveBeenCalledWith('X-Batch-Total', '4');
+      expect(res.setHeader).toHaveBeenCalledWith('X-Batch-Ok', '4');
+      expect(res.setHeader).toHaveBeenCalledWith('X-Batch-Records', '2');
     });
   });
 });

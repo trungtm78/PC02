@@ -69,8 +69,15 @@ async function bootstrap() {
     origin: corsOrigins,
     credentials: true,
     // Header tải file cần expose để FE đọc cross-origin (dev :5173→:3000). Content-Disposition
-    // cho filename; X-Batch-* cho kết quả in đồng loạt (số đơn thành công/thất bại).
-    exposedHeaders: ['Content-Disposition', 'X-Batch-Total', 'X-Batch-Ok', 'X-Batch-Failed'],
+    // cho filename; X-Batch-* cho kết quả in đồng loạt (Total/Ok/Failed đếm theo SỐ FILE
+    // = N hồ sơ × M mẫu; X-Batch-Records là số hồ sơ, để FE hiển thị đúng "x file / y hồ sơ").
+    exposedHeaders: [
+      'Content-Disposition',
+      'X-Batch-Total',
+      'X-Batch-Ok',
+      'X-Batch-Failed',
+      'X-Batch-Records',
+    ],
   });
 
   const port = process.env.PORT ?? 3000;

@@ -98,7 +98,7 @@ export class PetitionsController {
   @Throttle({ default: { ttl: 60000, limit: 2 } })
   @RequirePermissions({ action: 'read', subject: 'Petition' })
   async exportDocumentBatch(
-    @Body() body: { docType: string; petitionIds: string[] },
+    @Body() body: { docType?: string; docTypes?: string[]; petitionIds: string[] },
     @CurrentUser() user: AuthUser,
     @Req() req: ScopedRequest,
     @Res() res: Response,
@@ -107,12 +107,19 @@ export class PetitionsController {
     if (!Array.isArray(ids) || ids.length === 0 || ids.length > 100) {
       throw new BadRequestException('petitionIds phải là mảng 1..100 phần tử');
     }
-    if (!body?.docType || typeof body.docType !== 'string') {
-      throw new BadRequestException('docType bắt buộc');
+    // `docTypes` (nhiều mẫu) là dạng mới; `docType` (1 mẫu) giữ nguyên cho client cũ
+    // (ExportReportsPage + bộ UAT đang gửi dạng này) — KHÔNG phá contract.
+    const codes = Array.isArray(body?.docTypes)
+      ? body.docTypes
+      : body?.docType
+        ? [body.docType]
+        : [];
+    if (!codes.length || codes.some((c) => !c || typeof c !== 'string')) {
+      throw new BadRequestException('docType hoặc docTypes bắt buộc');
     }
-    await this.dynamicExport.exportBatchByCode(
+    await this.dynamicExport.exportBatchByCodes(
       'DON_THU',
-      body.docType,
+      codes,
       ids,
       (id) => this.petitionsService.loadPetitionForExport(id, req.dataScope),
       user.id,
