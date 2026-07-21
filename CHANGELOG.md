@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.70.3.0] - 2026-07-21
+
+### Added
+- **Xuất Word hàng loạt từ thanh chọn** (Đơn thư): tích nhiều đơn → thanh dưới cùng hiện nút **"Xuất Word"** (cạnh Xuất Excel/Xóa) → chọn **nhiều mẫu chứng từ một lượt** → tải về **1 file ZIP**. Trước đây chức năng này nằm ở dropdown màu hổ phách trên header và **chỉ chọn được 1 mẫu**; dropdown đó đã được gỡ để tránh hai lối vào làm hai việc khác nhau.
+- Danh sách mẫu trong popup lấy **động từ CSDL** (mẫu admin cấu hình), không còn dùng danh sách 7 mã cứng trong mã nguồn.
+- Header `X-Batch-Records` và `X-Batch-System-Error` để giao diện báo đúng "x file / y hồ sơ" và phân biệt lỗi thiếu dữ liệu với lỗi hệ thống.
+
+### Changed
+- **Tên file Word xuất ra nay "nhìn là hiểu"**: `Mã hồ sơ_Tên mẫu_Số văn bản.docx` — ví dụ `DT-2026-36679_Phiếu đề xuất_0012.docx`, **giữ nguyên dấu tiếng Việt**. Thành phần nào không có thì biến mất cùng dấu phân cách của nó (không còn `_` thừa ở đầu/cuối). Áp dụng cho cả file tải rời lẫn file bên trong ZIP.
+- Giới hạn mỗi lô: **số hồ sơ × số mẫu ≤ 100 file**, báo rõ ngay trên popup trước khi gửi đi.
+
+### Fixed
+- **Tên file mất dấu tiếng Việt** ở mọi luồng tải file: giao diện chỉ đọc bản dự phòng ASCII của tiêu đề `Content-Disposition` (đã bị thay dấu thành `_`) nên "Phiếu đề xuất" ra `Phi__u ____ xu_t`. Nay đọc bản `filename*=UTF-8''` trước. Gộp 7 chỗ trùng lặp về một hàm dùng chung (đơn thư, vụ việc, vụ án, luật sư, đối tượng, báo cáo).
+- **Mẫu không cấp số ra tên file lặp mã** (`PHIEU_DE_XUAT_PHIEU_DE_XUAT.docx`), và file trong ZIP hàng loạt rơi về mã định danh nội bộ khó đọc.
+- **Mất số văn bản khi lỗi hệ thống giữa chừng**: trước đây lô đang chạy gặp lỗi hệ thống sẽ dừng và trả lỗi, trong khi số văn bản của các chứng từ đã tạo xong thì đã vào sổ và **không thu hồi được** — người dùng không nhận được file nào. Nay vẫn giao đủ các file đã tạo, đồng thời báo rõ có lỗi hệ thống.
+- **Bấm nút xuất 2 lần liên tiếp có thể cấp số văn bản 2 lần** cho cùng bộ hồ sơ — đã khoá chặt.
+- **Tên mẫu dài (văn bản pháp lý) bị cắt mất đuôi `.docx`** khiến Windows không mở được file.
+- **Số văn bản không nằm ở đầu chuỗi** (ví dụ `ĐX-PC02/0012`) bị lấy nhầm phần đầu, làm mọi file trùng tên nhau.
+- Lỗi nghiệp vụ (lô quá lớn, mẫu chưa cấu hình số) trước bị báo chung chung "kiểm tra kết nối"; nay hiện **đúng nguyên nhân**, và popup **không tự đóng** khi xuất lỗi nên không mất lựa chọn mẫu.
+- Bấm "Xuất Word" không còn xoá các dòng đã tích trước khi người dùng kịp chọn mẫu.
+
+### Performance
+- Xuất hàng loạt nhiều mẫu: mỗi hồ sơ chỉ đọc CSDL **1 lần** dùng chung cho mọi mẫu (trước đây đọc lại theo từng mẫu).
+
 ## [0.70.2.0] - 2026-07-21
 
 ### Added
