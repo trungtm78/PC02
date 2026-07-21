@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.70.1.1] - 2026-07-21
+
+### Fixed
+- **Giấy biên nhận in NGƯỢC người ký**: nay **NGƯỜI GIAO = cán bộ (người in)**, **NGƯỜI NHẬN = người đứng đơn** (bản mẫu PC01 ghi ngược so với nghiệp vụ PC02). Phần thân bài giữ nguyên.
+- **Tên cán bộ trên chứng từ = NGƯỜI ĐANG ĐĂNG NHẬP** (người bấm In), không còn lấy người TẠO hồ sơ (`enteredBy`): áp dụng cho "Cán bộ đề xuất" (Phiếu đề xuất) và viết tắt ở dòng "Lưu:". Fallback về người tạo khi thiếu dữ liệu để không in dòng ký rỗng.
+- **Tên Phó đội trưởng chưa từng in ra** (bug có sẵn): `loadPetitionForExport` lọc `members.where.isLeader` nhưng không `select isLeader` → resolver `find(m => m.isLeader)` luôn `undefined`.
+- Kiểm tra "thiếu thông tin bắt buộc" dùng cùng ngữ cảnh với lúc render → không báo thiếu sai với các trường phụ thuộc người in.
+
 ## [0.70.1.0] - 2026-07-20
 
 ### Changed
