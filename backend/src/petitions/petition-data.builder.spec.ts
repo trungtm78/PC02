@@ -31,6 +31,18 @@ const ctx = {
 };
 
 describe('buildPetitionCreateData', () => {
+  // Cán bộ đề xuất: FE mặc định gửi người đăng nhập, nhưng nếu client cũ/không
+  // gửi thì phải tự lấy actor — không để trống làm bản in mất tên người ký.
+  it('canBoDeXuatId: FE không gửi → mặc định người tạo (actor)', () => {
+    const data = buildPetitionCreateData(baseDto, ctx);
+    expect(data.canBoDeXuatId).toBe('user-1');
+  });
+
+  it('canBoDeXuatId: FE gửi cán bộ khác → GIỮ nguyên lựa chọn (lập hộ)', () => {
+    const data = buildPetitionCreateData({ ...baseDto, canBoDeXuatId: 'user-9' }, ctx);
+    expect(data.canBoDeXuatId).toBe('user-9');
+  });
+
   it('GIỮ field v0.47 khi create (fix bug rớt data)', () => {
     const data = buildPetitionCreateData(baseDto, ctx);
     expect(data.nhanThay).toBe('Có dấu hiệu tội phạm');

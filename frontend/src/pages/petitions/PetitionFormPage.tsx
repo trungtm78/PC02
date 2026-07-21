@@ -47,7 +47,7 @@ interface FormData {
   senderEmail: string; suspectedPerson: string; suspectedAddress: string;
   petitionType: string; priority: string; summary: string;
   detailContent: string; attachmentsNote: string; deadline: string;
-  assignedToId: string; notes: string;
+  assignedToId: string; canBoDeXuatId: string; notes: string;
   // v0.47 PR3.1 — Nội dung phiếu đề xuất (T11)
   nhanThay: string;
   deXuat: string;
@@ -91,7 +91,7 @@ const INITIAL_FORM: FormData = {
   senderName: "", senderBirthYear: "", senderAddress: "", senderPhone: "",
   senderEmail: "", suspectedPerson: "", suspectedAddress: "", petitionType: "",
   priority: "", summary: "", detailContent: "", attachmentsNote: "",
-  deadline: "", assignedToId: "", notes: "",
+  deadline: "", assignedToId: "", canBoDeXuatId: "", notes: "",
   nhanThay: "", deXuat: "", raSoatTrung: "Không", baoCaoBanGiamDoc: false,
   senderIdNumber: "", senderIdIssueDate: "", senderIdIssuePlace: "",
   senderIsAnonymous: false, loaiThongTin: "", soPhieuChuyen: "",
@@ -251,8 +251,11 @@ export function PetitionFormPage() {
       receivedDate:   prev.receivedDate   || defaults.today,
       unit:           prev.unit           || defaults.primaryTeamName  || "",
       assignedTeamId: prev.assignedTeamId || defaults.primaryTeamId    || "",
+      // Cán bộ đề xuất mặc định = người đang đăng nhập (KHÁC assignedToId ở trên —
+      // phân công là quyết định của điều phối, còn đề xuất là người tự ký).
+      canBoDeXuatId:  prev.canBoDeXuatId  || defaults.userId           || "",
     }));
-  }, [isEditMode, defaults.isLoaded, defaults.today, defaults.primaryTeamId, defaults.primaryTeamName]);
+  }, [isEditMode, defaults.isLoaded, defaults.today, defaults.primaryTeamId, defaults.primaryTeamName, defaults.userId]);
 
   // Load users for FKSelect
   useEffect(() => {
@@ -291,6 +294,7 @@ export function PetitionFormPage() {
           attachmentsNote: (d.attachmentsNote as string) ?? "",
           deadline: toDateInput(d.deadline as string | null | undefined),
           assignedToId: d.assignedToId ? String(d.assignedToId) : "",
+          canBoDeXuatId: d.canBoDeXuatId ? String(d.canBoDeXuatId) : "",
           notes: (d.notes as string) ?? "",
           nhanThay: (d.nhanThay as string) ?? "",
           deXuat: (d.deXuat as string) ?? "",
@@ -389,6 +393,7 @@ export function PetitionFormPage() {
         attachmentsNote: formData.attachmentsNote || undefined,
         deadline: formData.deadline || undefined,
         assignedToId: formData.assignedToId || undefined,
+        canBoDeXuatId: formData.canBoDeXuatId || undefined,
         notes: formData.notes || undefined,
         // v0.47 PR3.1 review fix: send empty strings explicitly so backend can
         // clear previously-saved nội dung phiếu đề xuất when officer wipes a field.
@@ -1055,6 +1060,27 @@ export function PetitionFormPage() {
                   {formData.thuocThamQuyen
                     ? "Thuộc thẩm quyền: chọn Tổ/Nhóm nội bộ thụ lý."
                     : "Không thuộc thẩm quyền: chọn đơn vị xử lý để chuyển."}
+                </p>
+              </div>
+              {/* Cán bộ ĐỀ XUẤT — người ký mục "Cán bộ đề xuất" trên Phiếu đề xuất.
+                  Mặc định người đang đăng nhập, cho phép chọn cán bộ khác (in hộ). */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Cán bộ đề xuất</label>
+                <select
+                  value={formData.canBoDeXuatId}
+                  onChange={(e) => update("canBoDeXuatId", e.target.value)}
+                  className="w-full px-4 py-2.5 text-base sm:text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  data-testid="field-canBoDeXuatId"
+                >
+                  <option value="">-- Chọn cán bộ --</option>
+                  {userOptions.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {displayName(u)}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-slate-500">
+                  Tên in ở mục "Cán bộ đề xuất" của Phiếu đề xuất. Mặc định là bạn; đổi nếu lập hộ cán bộ khác.
                 </p>
               </div>
               <div>

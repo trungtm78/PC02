@@ -189,10 +189,20 @@ const DON_THU_FIELDS: FieldDef[] = [
   // có ngữ cảnh (vd kiểm tra readiness) để không bị rỗng.
   {
     key: 'tenCanBoDeXuat',
-    label: 'Cán bộ đề xuất (người in)',
+    label: 'Cán bộ đề xuất',
     group: 'Cán bộ',
-    // Fallback theo GIÁ TRỊ (không theo object): actor có thể tồn tại nhưng
-    // trống họ tên → vẫn phải lùi về người tạo hồ sơ, tránh in dòng ký rỗng.
+    // Ưu tiên cán bộ ĐƯỢC CHỌN trên form → người đang in → người tạo hồ sơ.
+    // Fallback theo GIÁ TRỊ (không theo object): người dùng có thể tồn tại nhưng
+    // trống họ tên → vẫn phải lùi tiếp, tránh in dòng ký rỗng.
+    resolve: (r, ctx) => rankName(r.canBoDeXuat) || rankName(ctx?.actor) || rankName(r.enteredBy),
+  },
+  {
+    key: 'tenNguoiIn',
+    label: 'Người in văn bản',
+    group: 'Cán bộ',
+    // LUÔN là người đang đăng nhập — cho mẫu cần đích danh người thao tác
+    // (vd Giấy biên nhận: người trực tiếp nhận đơn mới ký), không phụ thuộc
+    // ô "Cán bộ đề xuất". Mẫu nào cần thì gắn {tenNguoiIn} thay {tenCanBoDeXuat}.
     resolve: (r, ctx) => rankName(ctx?.actor) || rankName(r.enteredBy),
   },
   { key: 'tenPhoDoiTruong', label: 'Phó đội trưởng', group: 'Cán bộ', resolve: (r) => rankName(r.assignedTeam?.members?.find((m: any) => m.isLeader)?.user) },
@@ -211,9 +221,10 @@ const DON_THU_FIELDS: FieldDef[] = [
   // Viết tắt cán bộ soạn ở dòng "Lưu:" (vd V.Huy)
   {
     key: 'vietTatCanBo',
-    label: 'Viết tắt cán bộ (người in)',
+    label: 'Viết tắt cán bộ',
     group: 'Cán bộ',
-    resolve: (r, ctx) => abbrevName(ctx?.actor) || abbrevName(r.enteredBy),
+    // Cùng thứ tự ưu tiên với tenCanBoDeXuat để một bản in nhất quán MỘT người.
+    resolve: (r, ctx) => abbrevName(r.canBoDeXuat) || abbrevName(ctx?.actor) || abbrevName(r.enteredBy),
   },
   // Hằng theo mẫu PC01 — sau này có thể chuyển sang SystemSetting
   { key: 'chucVuCanBo', label: 'Chức danh/chức vụ cán bộ', group: 'Cán bộ', resolve: () => 'Cán bộ' },

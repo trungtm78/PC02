@@ -49,6 +49,8 @@ export function buildPetitionCreateData(
     status: dto.status ?? PetitionStatus.MOI_TIEP_NHAN,
 
     // v0.47 — Phiếu đề xuất / nghiệp vụ (TRƯỚC ĐÂY BỊ RỚT khi create — nay persist).
+    // Cán bộ đề xuất: FE không gửi thì mặc định người tạo đơn (actor).
+    canBoDeXuatId: dto.canBoDeXuatId || ctx.actorId,
     nhanThay: dto.nhanThay,
     deXuat: dto.deXuat,
     raSoatTrung: dto.raSoatTrung,

@@ -140,6 +140,13 @@ export class CreatePetitionDto {
   @IsString()
   assignedToId?: string;
 
+  // Cán bộ ĐỀ XUẤT — người ký mục "Cán bộ đề xuất" trên Phiếu đề xuất.
+  // FE mặc định điền người đang đăng nhập, cho phép đổi sang cán bộ khác.
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  canBoDeXuatId?: string;
+
   // FK Team (Petition.assignedTeamId) — paired with `unit` text label.
   // FE pre-fills both so DataScope team-filter matches the user's primary team.
   @IsOptional()

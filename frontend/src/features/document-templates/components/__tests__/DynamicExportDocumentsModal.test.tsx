@@ -72,6 +72,67 @@ describe('DynamicExportDocumentsModal', () => {
     await waitFor(() => expect(onClose).toHaveBeenCalled());
   });
 
+  // Anh yêu cầu: mặc định TÁCH thành nhiều file Word rời (không phải .zip, không
+  // phải gộp) — mỗi mẫu 1 request → 1 file .docx tải về.
+  describe('chế độ xuất', () => {
+    async function renderVoi2Mau(onClose = vi.fn()) {
+      const list = [tpl({ id: 't1', name: 'QĐ khởi tố' }), tpl({ id: 't2', name: 'Biên bản A' })];
+      mList.mockResolvedValue(list);
+      mGet.mockResolvedValue(readiness(list) as never);
+      render(<DynamicExportDocumentsModal entity="cases" entityId="c1" onClose={onClose} />);
+      await screen.findByTestId('dyn-export-checkbox-t1');
+      return onClose;
+    }
+
+    it('MẶC ĐỊNH chọn "Tách từng file Word rời"', async () => {
+      await renderVoi2Mau();
+      expect((screen.getByTestId('dyn-export-mode-separate') as HTMLInputElement).checked).toBe(true);
+      expect((screen.getByTestId('dyn-export-mode-merged') as HTMLInputElement).checked).toBe(false);
+      expect((screen.getByTestId('dyn-export-mode-zip') as HTMLInputElement).checked).toBe(false);
+    });
+
+    it('tách: 2 mẫu → gọi API 2 LẦN (mỗi lần 1 mẫu) và tải 2 file', async () => {
+      mExport.mockResolvedValue({ data: new Blob(), headers: {} } as never);
+      const onClose = await renderVoi2Mau();
+      fireEvent.click(screen.getByTestId('dyn-export-confirm'));
+      await waitFor(() => expect(mExport).toHaveBeenCalledTimes(2));
+      expect(mExport.mock.calls[0][2]).toEqual(expect.objectContaining({ templateIds: ['t1'], mode: 'merged' }));
+      expect(mExport.mock.calls[1][2]).toEqual(expect.objectContaining({ templateIds: ['t2'], mode: 'merged' }));
+      await waitFor(() => expect(mDownload).toHaveBeenCalledTimes(2));
+      await waitFor(() => expect(onClose).toHaveBeenCalled());
+    });
+
+    it('tách: 1 mẫu lỗi → vẫn tải mẫu còn lại + báo rõ mẫu hỏng, KHÔNG đóng modal', async () => {
+      mExport
+        .mockRejectedValueOnce(new Error('boom'))
+        .mockResolvedValueOnce({ data: new Blob(), headers: {} } as never);
+      const onClose = await renderVoi2Mau();
+      fireEvent.click(screen.getByTestId('dyn-export-confirm'));
+      await waitFor(() => expect(mDownload).toHaveBeenCalledTimes(1)); // mẫu t2 vẫn tải
+      const err = await screen.findByTestId('dyn-export-error');
+      expect(err.textContent).toContain('QĐ khởi tố');
+      expect(onClose).not.toHaveBeenCalled();
+    });
+
+    it('chọn "Gộp 1 file Word" → chỉ 1 request kèm cả 2 mẫu', async () => {
+      mExport.mockResolvedValue({ data: new Blob(), headers: {} } as never);
+      await renderVoi2Mau();
+      fireEvent.click(screen.getByTestId('dyn-export-mode-merged'));
+      fireEvent.click(screen.getByTestId('dyn-export-confirm'));
+      await waitFor(() => expect(mExport).toHaveBeenCalledTimes(1));
+      expect(mExport.mock.calls[0][2]).toEqual(expect.objectContaining({ templateIds: ['t1', 't2'], mode: 'merged' }));
+    });
+
+    it('chọn ".zip" → 1 request mode=zip', async () => {
+      mExport.mockResolvedValue({ data: new Blob(), headers: {} } as never);
+      await renderVoi2Mau();
+      fireEvent.click(screen.getByTestId('dyn-export-mode-zip'));
+      fireEvent.click(screen.getByTestId('dyn-export-confirm'));
+      await waitFor(() => expect(mExport).toHaveBeenCalledTimes(1));
+      expect(mExport.mock.calls[0][2]).toEqual(expect.objectContaining({ mode: 'zip' }));
+    });
+  });
+
   it('không có mẫu → thông báo trống', async () => {
     mList.mockResolvedValue([]);
     mGet.mockResolvedValue(readiness([]) as never);
