@@ -92,6 +92,65 @@ describe('Bộ 7 mẫu chứng từ Đơn thư (PC01 / TT 128-2025)', () => {
     }
   });
 
+  describe('Chữ ký đúng người (chống in ngược)', () => {
+    /** Lấy đoạn text nằm giữa 2 mốc — để khẳng định tên nằm ĐÚNG khối chữ ký. */
+    const between = (text: string, from: string, to?: string) => {
+      const i = text.indexOf(from);
+      expect(i).toBeGreaterThanOrEqual(0);
+      const j = to ? text.indexOf(to, i) : -1;
+      return text.slice(i, j >= 0 ? j : undefined);
+    };
+
+    it('BIEN_NHAN: NGƯỜI GIAO = cán bộ (người in), NGƯỜI NHẬN = người đứng đơn', () => {
+      const buffer = fs.readFileSync(path.join(ASSET_DIR, 'BIEN_NHAN.docx'));
+      const text = docText(renderer.render({ buffer, data: fakeData(), delimiters: DELIMS }));
+
+      const khoiGiao = between(text, 'NGƯỜI GIAO', 'NGƯỜI NHẬN');
+      expect(khoiGiao).toContain('«tenCanBoDeXuat»');
+      expect(khoiGiao).not.toContain('«ghiTen»');
+
+      const khoiNhan = between(text, 'NGƯỜI NHẬN');
+      expect(khoiNhan).toContain('«ghiTen»');
+      expect(khoiNhan).not.toContain('«tenCanBoDeXuat»');
+    });
+
+    it('PHIEU_DE_XUAT: tên người in nằm dưới "CÁN BỘ ĐỀ XUẤT"', () => {
+      const buffer = fs.readFileSync(path.join(ASSET_DIR, 'PHIEU_DE_XUAT.docx'));
+      const text = docText(renderer.render({ buffer, data: fakeData(), delimiters: DELIMS }));
+      expect(between(text, 'CÁN BỘ ĐỀ XUẤT')).toContain('«tenCanBoDeXuat»');
+    });
+  });
+
+  describe('Tên cán bộ = NGƯỜI IN (không phải người tạo hồ sơ)', () => {
+    const nguoiTao = { firstName: 'Văn', lastName: 'Tạo', rank: 'Đại úy' };
+    const nguoiIn = { firstName: 'Văn', lastName: 'In', rank: 'Trung tá' };
+    const resolve = (key: string, record: any, ctx?: any) =>
+      FIELD_CATALOG.DON_THU.find((f) => f.key === key)!.resolve(record, ctx);
+
+    it('có người đăng nhập → in tên NGƯỜI ĐĂNG NHẬP', () => {
+      expect(resolve('tenCanBoDeXuat', { enteredBy: nguoiTao }, { actor: nguoiIn })).toBe('Trung tá Văn In');
+      expect(resolve('vietTatCanBo', { enteredBy: nguoiTao }, { actor: nguoiIn })).toBe('V.In');
+    });
+
+    it('không có ngữ cảnh → fallback người tạo hồ sơ (không để rỗng)', () => {
+      expect(resolve('tenCanBoDeXuat', { enteredBy: nguoiTao })).toBe('Đại úy Văn Tạo');
+      expect(resolve('vietTatCanBo', { enteredBy: nguoiTao })).toBe('V.Tạo');
+    });
+
+    it('cả hai đều thiếu → rỗng, không crash', () => {
+      expect(resolve('tenCanBoDeXuat', {}, {})).toBe('');
+      expect(resolve('vietTatCanBo', {})).toBe('');
+    });
+
+    // codex: actor TỒN TẠI nhưng trống họ tên (user thiếu dữ liệu) — fallback phải
+    // theo GIÁ TRỊ, không theo object, nếu không dòng ký in rỗng dù có người tạo.
+    it('actor tồn tại nhưng trống tên → vẫn lùi về người tạo hồ sơ', () => {
+      const actorRong = { firstName: null, lastName: null, rank: null };
+      expect(resolve('tenCanBoDeXuat', { enteredBy: nguoiTao }, { actor: actorRong })).toBe('Đại úy Văn Tạo');
+      expect(resolve('vietTatCanBo', { enteredBy: nguoiTao }, { actor: actorRong })).toBe('V.Tạo');
+    });
+  });
+
   describe('gioTiepNhan — KHÔNG bịa giờ trên văn bản tố tụng', () => {
     const resolve = (r: any) =>
       FIELD_CATALOG.DON_THU.find((f) => f.key === 'gioTiepNhan')!.resolve(r);

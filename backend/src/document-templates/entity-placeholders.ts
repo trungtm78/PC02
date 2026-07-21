@@ -1,5 +1,6 @@
 import {
   EntityType,
+  ResolveContext,
   resolveField,
   catalogKeys,
   isCatalogField,
@@ -80,6 +81,8 @@ export function buildTemplatePlaceholders(
   record: any,
   manualValues: Record<string, string> = {},
   delimiters: Delimiters = DEFAULT_DELIMITERS,
+  /** Ngữ cảnh render (người đang đăng nhập) — cho các dòng ký "cán bộ thực hiện". */
+  ctx?: ResolveContext,
 ): Record<string, string> {
   const out: Record<string, string> = {};
   for (const v of variables) {
@@ -92,7 +95,7 @@ export function buildTemplatePlaceholders(
     } else {
       // AUTO: manualValues[name] override (popup "bổ sung thông tin thiếu" điền auto-field rỗng);
       // không có thì resolve từ record. KHÔNG để mất giá trị người dùng nhập (codex P1).
-      raw = manualValues[v.name] ?? resolveField(entityType, fieldKey, record);
+      raw = manualValues[v.name] ?? resolveField(entityType, fieldKey, record, ctx);
     }
     out[v.name] = escapeForDelimiters(s(raw), delimiters);
   }

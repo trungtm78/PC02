@@ -38,6 +38,10 @@ describe('DynamicExportService', () => {
     prisma = {
       documentTemplate: { findMany: jest.fn() },
       documentRenderLog: { create: jest.fn().mockResolvedValue({}) },
+      // Người đang đăng nhập — nạp cho ngữ cảnh render (dòng ký in tên NGƯỜI IN).
+      user: {
+        findUnique: jest.fn().mockResolvedValue({ firstName: 'Văn', lastName: 'In', rank: 'Trung tá' }),
+      },
       $queryRawUnsafe: jest.fn().mockResolvedValue([]),
       $transaction: jest.fn(async (fn: any) => fn(prisma)),
     };
@@ -190,6 +194,9 @@ describe('DynamicExportService', () => {
       prisma = {
         documentTemplate: { findFirst: jest.fn().mockResolvedValue(TPL) },
         documentRenderLog: { create: jest.fn().mockResolvedValue({}) },
+        user: {
+          findUnique: jest.fn().mockResolvedValue({ firstName: 'Văn', lastName: 'In', rank: 'Trung tá' }),
+        },
         $queryRawUnsafe: jest.fn().mockResolvedValue([]),
         $transaction: jest.fn(async (fn: any) => fn(prisma)),
       };

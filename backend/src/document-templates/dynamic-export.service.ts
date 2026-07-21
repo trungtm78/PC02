@@ -17,7 +17,7 @@ import {
   DYNAMIC_EXPORT_SAVABLE,
   TemplateVariable,
 } from './entity-placeholders';
-import { resolveField } from './field-catalog';
+import { ResolveContext, resolveField } from './field-catalog';
 import { resolveRenderer } from './renderers';
 
 const DOCX_CONTENT_TYPE =
@@ -134,6 +134,9 @@ export class DynamicExportService {
     record: any,
     templates: any[],
     manualValues: Record<string, string>,
+    /** PHẢI cùng ngữ cảnh với lúc render — nếu không, biến phụ thuộc người in
+     *  (tenCanBoDeXuat/vietTatCanBo) bị coi là rỗng → báo "thiếu bắt buộc" SAI. */
+    ctx?: ResolveContext,
   ): void {
     const missing = new Set<string>();
     for (const t of templates) {
@@ -148,7 +151,7 @@ export class DynamicExportService {
           missing.add(v.label || v.name);
           continue;
         }
-        const auto = resolveField(entityType, v.field ?? v.name, record).trim();
+        const auto = resolveField(entityType, v.field ?? v.name, record, ctx).trim();
         if (!auto) missing.add(v.label || v.name);
       }
     }
@@ -157,6 +160,19 @@ export class DynamicExportService {
         `Thiếu thông tin bắt buộc để in: ${[...missing].join(', ')}. Vui lòng bổ sung trước khi xuất.`,
       );
     }
+  }
+
+  /**
+   * Nạp thông tin người đang đăng nhập cho ngữ cảnh render (1 query, ngoài tx).
+   * Không tìm thấy → trả `{}` để resolver fallback về người tạo hồ sơ.
+   */
+  private async loadActorContext(actorId: string | undefined): Promise<ResolveContext> {
+    if (!actorId) return {};
+    const actor = await this.prisma.user.findUnique({
+      where: { id: actorId },
+      select: { firstName: true, lastName: true, rank: true },
+    });
+    return { actor: actor ?? null };
   }
 
   /** Render 1 template trong tx: cấp số (nếu cần) + docxtemplater trên bytes DB + render log. */
@@ -168,6 +184,8 @@ export class DynamicExportService {
     template: any,
     actorId: string,
     manualValues: Record<string, string>,
+    /** Người đang đăng nhập — để các dòng ký in tên NGƯỜI IN, không phải người tạo hồ sơ. */
+    ctx?: ResolveContext,
   ): Promise<RenderedTemplate> {
     let documentNumber: string | undefined;
     if (template.needsNumber) {
@@ -196,6 +214,7 @@ export class DynamicExportService {
       record,
       { ...manualValues, ...(documentNumber ? { soVanBan: documentNumber } : {}) },
       delimiters,
+      ctx,
     );
 
     const renderer = resolveRenderer(template.format);
@@ -258,15 +277,19 @@ export class DynamicExportService {
     // Giữ thứ tự theo templateIds đầu vào.
     const ordered = templateIds.map((id) => templates.find((t) => t.id === id)!);
 
+    // Người đang đăng nhập — các dòng ký ("Cán bộ đề xuất", "NGƯỜI GIAO", dòng "Lưu:")
+    // phải in tên NGƯỜI IN, không phải người tạo hồ sơ (enteredBy). Nạp 1 lần, ngoài tx.
+    const ctx = await this.loadActorContext(actorId);
+
     // [codex P1#2] Validate trường BẮT BUỘC TRƯỚC khi vào tx/cấp số (fail-closed, không cấp số rồi
     // render rỗng câm). Required auto rỗng (không có manualValues override) hoặc manual chưa nhập → throw.
-    this.assertRequiredSatisfied(entityType, record, ordered, manualValues);
+    this.assertRequiredSatisfied(entityType, record, ordered, manualValues, ctx);
 
     const deliverable = await this.prisma.$transaction(async (tx: any) => {
       const rendered: RenderedTemplate[] = [];
       for (const t of ordered) {
         rendered.push(
-          await this.renderTemplateInTx(tx, entityType, entityId, record, t, actorId, manualValues),
+          await this.renderTemplateInTx(tx, entityType, entityId, record, t, actorId, manualValues, ctx),
         );
       }
       // finalize TRONG tx → lỗi gộp/zip cũng rollback số.
@@ -318,14 +341,17 @@ export class DynamicExportService {
       throw new BadRequestException(`Mẫu "${code}" bật cấp số nhưng chưa cấu hình series số văn bản`);
     }
 
+    // Người in — dùng chung cho cả lô (1 query).
+    const ctx = await this.loadActorContext(actorId);
+
     const rendered: RenderedTemplate[] = [];
     const manifest: Array<{ id: string; ok: boolean; documentNumber?: string; error?: string }> = [];
     for (const id of ids) {
       try {
         const record = await loadRecord(id);
-        this.assertRequiredSatisfied(entityType, record, [template], {});
+        this.assertRequiredSatisfied(entityType, record, [template], {}, ctx);
         const r = await this.prisma.$transaction((tx: any) =>
-          this.renderTemplateInTx(tx, entityType, id, record, template, actorId, {}),
+          this.renderTemplateInTx(tx, entityType, id, record, template, actorId, {}, ctx),
         );
         rendered.push({ ...r, filename: sanitizeFilename(`${code}_${r.documentNumber ?? id}.docx`) });
         manifest.push({ id, ok: true, documentNumber: r.documentNumber });
