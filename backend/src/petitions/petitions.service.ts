@@ -376,6 +376,16 @@ export class PetitionsService {
       }
     }
 
+    // Cán bộ đề xuất (ký Phiếu đề xuất) — chặn id rác trước khi ghi FK.
+    if (dto.canBoDeXuatId) {
+      const canBo = await this.prisma.user.findUnique({
+        where: { id: dto.canBoDeXuatId },
+      });
+      if (!canBo) {
+        throw new BadRequestException('Cán bộ đề xuất không tồn tại');
+      }
+    }
+
     // Auto-calculate deadline by petition type — days read from SystemSettings (GAP-7)
     let computedDeadline: Date | undefined;
     let deadlineSettingKey: string | undefined;
@@ -557,6 +567,7 @@ export class PetitionsService {
       ...(dto.notes !== undefined && { notes: dto.notes }),
       ...(dto.status !== undefined && { status: dto.status }),
       // v0.47 PR3.1 — Nội dung phiếu đề xuất + cross-doc business fields
+      ...(dto.canBoDeXuatId !== undefined && { canBoDeXuatId: dto.canBoDeXuatId || null }),
       ...(dto.nhanThay !== undefined && { nhanThay: dto.nhanThay }),
       ...(dto.deXuat !== undefined && { deXuat: dto.deXuat }),
       ...(dto.raSoatTrung !== undefined && { raSoatTrung: dto.raSoatTrung }),
@@ -621,6 +632,9 @@ export class PetitionsService {
         select: { id: true, firstName: true, lastName: true, username: true },
       },
       assignedTo: {
+        select: { id: true, firstName: true, lastName: true, username: true },
+      },
+      canBoDeXuat: {
         select: { id: true, firstName: true, lastName: true, username: true },
       },
     } as const;
@@ -1553,6 +1567,8 @@ export class PetitionsService {
       where: { id, deletedAt: null },
       include: {
         enteredBy: { select: { firstName: true, lastName: true, rank: true } },
+        // Cán bộ đề xuất được CHỌN trên form — ưu tiên hơn người in khi render.
+        canBoDeXuat: { select: { firstName: true, lastName: true, rank: true } },
         assignedTeam: {
           select: {
             id: true,

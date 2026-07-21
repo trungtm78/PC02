@@ -115,6 +115,7 @@ model User {
   cases                           Case[]
   petitionsEntered                Petition[]                @relation("PetitionEnteredBy")
   petitionsAssigned               Petition[]                @relation("PetitionAssignedTo")
+  petitionsCanBoDeXuat            Petition[]                @relation("PetitionCanBoDeXuat")
   incidentsAssigned               Incident[]                @relation("IncidentInvestigator")
   incidentsCanBoNhap              Incident[]                @relation("IncidentCanBoNhap")
   incidentsCreated                Incident[]                @relation("IncidentCreatedBy")
@@ -854,6 +855,10 @@ model Petition {
   // Phân công
   deadline         DateTime?
   assignedToId     String? // FK → users
+  // Cán bộ ĐỀ XUẤT — người ký mục "Cán bộ đề xuất" trên Phiếu đề xuất.
+  // Mặc định = người tạo đơn nhưng CHO PHÉP chọn cán bộ khác (khác assignedToId
+  // là quyết định phân công, và khác enteredById bị ép = actor chống giả mạo).
+  canBoDeXuatId    String? // FK → users
   notes            String?
   // Trạng thái
   status           PetitionStatus @default(MOI_TIEP_NHAN)
@@ -867,6 +872,7 @@ model Petition {
 
   enteredBy      User?     @relation("PetitionEnteredBy", fields: [enteredById], references: [id], onDelete: SetNull)
   assignedTo     User?     @relation("PetitionAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+  canBoDeXuat    User?     @relation("PetitionCanBoDeXuat", fields: [canBoDeXuatId], references: [id], onDelete: SetNull)
   linkedCase     Case?     @relation("PetitionLinkedCase", fields: [linkedCaseId], references: [id], onDelete: SetNull)
   linkedIncident Incident? @relation("PetitionLinkedIncident", fields: [linkedIncidentId], references: [id], onDelete: SetNull)
   // v0.37.1: reverse side of Case.linkedPetition (CaseSourcePetition relation)

@@ -29,6 +29,12 @@ interface Props {
 
 interface ReadinessMissing { field: string; label: string; type: 'text' | 'textarea'; savable: boolean; column?: string }
 
+/** separate = nhiều file .docx rời (mặc định) · merged = gộp 1 file · zip = 1 file nén */
+type ExportMode = 'separate' | 'merged' | 'zip';
+
+/** Chờ giữa 2 lần tải để trình duyệt không chặn "tải nhiều file". */
+const DOWNLOAD_GAP_MS = 300;
+
 export function DynamicExportDocumentsModal({ entity, entityId, onClose, onEntityPatched }: Props) {
   const [templates, setTemplates] = useState<DocumentTemplate[]>([]);
   const [readiness, setReadiness] = useState<Record<string, ReadinessItem>>({});
@@ -38,8 +44,11 @@ export function DynamicExportDocumentsModal({ entity, entityId, onClose, onEntit
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [fillValues, setFillValues] = useState<Record<string, string>>({});
   const [savingFill, setSavingFill] = useState(false);
-  const [mode, setMode] = useState<'merged' | 'zip'>('merged');
+  // 'separate' = tải về NHIỀU FILE WORD RỜI (mặc định) — gọi API từng mẫu, mỗi
+  // mẫu 1 .docx; KHÔNG phải .zip nên không cần giải nén.
+  const [mode, setMode] = useState<ExportMode>('separate');
   const [isExporting, setIsExporting] = useState(false);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const prevReadyRef = useRef<Set<string>>(new Set());
   // map field → {savable, column} để onSaveFill tách PUT vs manualValues.
@@ -120,20 +129,65 @@ export function DynamicExportDocumentsModal({ entity, entityId, onClose, onEntit
     }
   }
 
+  async function describeError(err: unknown, fallback: string): Promise<string> {
+    const parsed = await parseBlobError(err);
+    return extractApiError(parsed, fallback).messages.join('. ');
+  }
+
+  /**
+   * Tách thành NHIỀU FILE WORD RỜI: gọi API lần lượt từng mẫu (mỗi request trả
+   * đúng 1 .docx) rồi tải về từng file. Một mẫu lỗi KHÔNG chặn các mẫu còn lại —
+   * báo rõ mẫu nào hỏng thay vì im lặng.
+   */
+  async function exportSeparateFiles(picked: DocumentTemplate[]): Promise<void> {
+    const failed: string[] = [];
+    for (let i = 0; i < picked.length; i++) {
+      const t = picked[i];
+      try {
+        const response = await exportEntityDocuments(entity, entityId, {
+          templateIds: [t.id],
+          mode: 'merged', // 1 mẫu → server trả đúng 1 file .docx
+          manualValues: fillValues,
+        });
+        triggerDownload(response, 'merged');
+      } catch (err) {
+        failed.push(`${t.name}: ${await describeError(err, 'lỗi không xác định')}`);
+      }
+      setProgress({ done: i + 1, total: picked.length });
+      if (i < picked.length - 1) await new Promise((r) => setTimeout(r, DOWNLOAD_GAP_MS));
+    }
+    if (failed.length) {
+      throw new Error(`Không xuất được ${failed.length}/${picked.length} mẫu — ${failed.join(' | ')}`);
+    }
+  }
+
   async function handleExport() {
     if (selected.size === 0 || isExporting) return;
     setIsExporting(true);
     setErrorMsg(null);
+    setProgress(null);
     try {
-      const templateIds = templates.filter((t) => selected.has(t.id)).map((t) => t.id);
-      const response = await exportEntityDocuments(entity, entityId, { templateIds, mode, manualValues: fillValues });
-      triggerDownload(response, mode);
+      const picked = templates.filter((t) => selected.has(t.id));
+      if (mode === 'separate') {
+        await exportSeparateFiles(picked);
+      } else {
+        const response = await exportEntityDocuments(entity, entityId, {
+          templateIds: picked.map((t) => t.id),
+          mode,
+          manualValues: fillValues,
+        });
+        triggerDownload(response, mode);
+      }
       onClose();
     } catch (err) {
-      const parsed = await parseBlobError(err);
-      setErrorMsg(extractApiError(parsed, 'Không xuất được chứng từ. Vui lòng kiểm tra các trường nghiệp vụ bắt buộc.').messages.join('. '));
+      setErrorMsg(
+        err instanceof Error && err.message.startsWith('Không xuất được')
+          ? err.message
+          : await describeError(err, 'Không xuất được chứng từ. Vui lòng kiểm tra các trường nghiệp vụ bắt buộc.'),
+      );
     } finally {
       setIsExporting(false);
+      setProgress(null);
     }
   }
 
@@ -180,14 +234,24 @@ export function DynamicExportDocumentsModal({ entity, entityId, onClose, onEntit
             <fieldset className="mt-4">
               <legend className="text-sm font-medium text-slate-700 mb-1">Định dạng xuất</legend>
               <label className="flex items-center gap-2 py-1 cursor-pointer text-sm">
+                <input type="radio" name="dyn-export-mode" data-testid="dyn-export-mode-separate" checked={mode === 'separate'} onChange={() => setMode('separate')} className="accent-blue-600" />
+                Tách từng file Word rời <span className="text-xs text-slate-500">(mỗi mẫu 1 file .docx, không cần giải nén)</span>
+              </label>
+              <label className="flex items-center gap-2 py-1 cursor-pointer text-sm">
                 <input type="radio" name="dyn-export-mode" data-testid="dyn-export-mode-merged" checked={mode === 'merged'} onChange={() => setMode('merged')} className="accent-blue-600" />
                 Gộp 1 file Word <span className="text-xs text-slate-500">(nhiều mẫu → 1 file, ngắt trang)</span>
               </label>
               <label className="flex items-center gap-2 py-1 cursor-pointer text-sm">
                 <input type="radio" name="dyn-export-mode" data-testid="dyn-export-mode-zip" checked={mode === 'zip'} onChange={() => setMode('zip')} className="accent-blue-600" />
-                Tách – file ZIP <span className="text-xs text-slate-500">(mỗi mẫu 1 file Word)</span>
+                Tải về 1 file nén .zip <span className="text-xs text-slate-500">(tiện khi chọn nhiều mẫu)</span>
               </label>
             </fieldset>
+
+            {progress && (
+              <div data-testid="dyn-export-progress" className="mt-2 text-xs text-slate-600">
+                Đang tải {progress.done}/{progress.total} file…
+              </div>
+            )}
 
             {errorMsg && (
               <div data-testid="dyn-export-error" role="alert" className="mt-3 flex items-start gap-2 rounded bg-red-50 px-3 py-2 text-sm text-red-700">

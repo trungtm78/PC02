@@ -294,14 +294,22 @@ export class DynamicExportService {
       }
       // finalize TRONG tx → lỗi gộp/zip cũng rollback số.
       if (mode === 'merged') {
-        return { buf: this.docxMerge.merge(rendered.map((r) => r.buffer)), zip: false };
+        // Đúng 1 mẫu → không cần merge (giữ nguyên file gốc, tránh xử lý thừa)
+        // và giữ luôn tên file theo mẫu để tải nhiều file rời không bị trùng tên.
+        const buf =
+          rendered.length === 1
+            ? rendered[0].buffer
+            : this.docxMerge.merge(rendered.map((r) => r.buffer));
+        return { buf, zip: false, singleName: rendered.length === 1 ? rendered[0].filename : undefined };
       }
-      return { buf: await this.buildZipBuffer(rendered), zip: true };
+      return { buf: await this.buildZipBuffer(rendered), zip: true, singleName: undefined };
     });
 
     const baseName = `ChungTu_${this.dateStamp()}`;
     if (!deliverable.zip) {
-      this.setDownloadHeaders(res, DOCX_CONTENT_TYPE, `${baseName}.docx`);
+      // FE chế độ "tách từng file Word rời" gọi lần lượt 1 mẫu/lần → tên file phải
+      // theo mã mẫu + số văn bản, nếu không mọi file tải về đều trùng tên.
+      this.setDownloadHeaders(res, DOCX_CONTENT_TYPE, deliverable.singleName ?? `${baseName}.docx`);
     } else {
       this.setDownloadHeaders(res, 'application/zip', `${baseName}.zip`);
     }

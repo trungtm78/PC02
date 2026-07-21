@@ -149,6 +149,27 @@ describe('Bộ 7 mẫu chứng từ Đơn thư (PC01 / TT 128-2025)', () => {
       expect(resolve('tenCanBoDeXuat', { enteredBy: nguoiTao }, { actor: actorRong })).toBe('Đại úy Văn Tạo');
       expect(resolve('vietTatCanBo', { enteredBy: nguoiTao }, { actor: actorRong })).toBe('V.Tạo');
     });
+
+    // Ô "Cán bộ đề xuất" chọn trên form THẮNG cả người in — đây là điểm mấu chốt:
+    // cán bộ A in hộ cho B thì văn bản vẫn phải ghi B.
+    const canBoChon = { firstName: 'Văn', lastName: 'Chọn', rank: 'Thiếu tá' };
+
+    it('có cán bộ ĐƯỢC CHỌN → thắng cả người in lẫn người tạo', () => {
+      const record = { canBoDeXuat: canBoChon, enteredBy: nguoiTao };
+      expect(resolve('tenCanBoDeXuat', record, { actor: nguoiIn })).toBe('Thiếu tá Văn Chọn');
+      expect(resolve('vietTatCanBo', record, { actor: nguoiIn })).toBe('V.Chọn');
+    });
+
+    it('không chọn cán bộ → vẫn lùi về người in', () => {
+      expect(resolve('tenCanBoDeXuat', { enteredBy: nguoiTao }, { actor: nguoiIn })).toBe('Trung tá Văn In');
+    });
+
+    it('tenNguoiIn LUÔN là người đăng nhập, không bị ô "Cán bộ đề xuất" đè', () => {
+      const record = { canBoDeXuat: canBoChon, enteredBy: nguoiTao };
+      expect(resolve('tenNguoiIn', record, { actor: nguoiIn })).toBe('Trung tá Văn In');
+      // không có người in → lùi về người tạo
+      expect(resolve('tenNguoiIn', record)).toBe('Đại úy Văn Tạo');
+    });
   });
 
   describe('gioTiepNhan — KHÔNG bịa giờ trên văn bản tố tụng', () => {
