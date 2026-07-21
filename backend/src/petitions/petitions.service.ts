@@ -28,6 +28,8 @@ import { DeadlineRulesService } from '../deadline-rules/deadline-rules.service';
 import { DocumentNumbersService } from '../document-numbers/document-numbers.service';
 import { BcaExcelHelper } from '../common/bca-excel.helper';
 import { PETITION_STATUS_LABEL } from '../common/constants/status-labels.constants';
+import { resolveGroup } from '../common/status-groups.util';
+import { PETITION_STATUS_GROUPS } from './petitions.constants';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PetitionAssignedEvent } from '../notifications/events/notification.events';
 
@@ -61,6 +63,7 @@ export class PetitionsService {
     const {
       search,
       status,
+      statusGroup,
       unit,
       senderName,
       fromDate,
@@ -86,7 +89,13 @@ export class PetitionsService {
       ];
     }
 
-    if (status) {
+    // Nhóm trạng thái (drill-down thẻ thống kê) THẮNG status đơn lẻ — giống semantic
+    // `phase` đã ship ở Vụ việc. `resolveGroup` chặn prototype chain, KHÔNG viết
+    // `PETITION_STATUS_GROUPS[statusGroup]` trần (sẽ trả hàm Object → Prisma ném 500).
+    const groupStatuses = resolveGroup(PETITION_STATUS_GROUPS, statusGroup);
+    if (groupStatuses) {
+      where.status = { in: [...groupStatuses] };
+    } else if (status) {
       where.status = status;
     }
 

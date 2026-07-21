@@ -27,6 +27,8 @@ import { BcaExcelHelper } from '../common/bca-excel.helper';
 import { CASE_STATUS_LABEL } from '../common/constants/status-labels.constants';
 import { ROLE_NAMES } from '../common/constants/role.constants';
 import { SETTINGS_KEY } from '../common/constants/settings-keys.constants';
+import { resolveGroup } from '../common/status-groups.util';
+import { CASE_STATUS_GROUPS } from './cases.constants';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CaseAssignedEvent, CaseCreatedEvent } from '../notifications/events/notification.events';
 
@@ -102,6 +104,8 @@ export class CasesService {
     const {
       search,
       status,
+      statusGroup,
+      charges,
       investigatorId,
       unit,
       fromDate,
@@ -146,8 +150,19 @@ export class CasesService {
       ];
     }
 
-    if (status) {
+    // Nhóm trạng thái (drill-down thẻ thống kê) THẮNG status đơn lẻ — giống semantic
+    // `phase` đã ship ở Vụ việc. `resolveGroup` chặn prototype chain.
+    const groupStatuses = resolveGroup(CASE_STATUS_GROUPS, statusGroup);
+    if (groupStatuses) {
+      where.status = { in: [...groupStatuses] };
+    } else if (status) {
       where.status = status;
+    }
+
+    // Tội danh — bộ lọc nâng cao "Tội danh" trước đây gửi param `charges` mà DTO KHÔNG có,
+    // nên `forbidNonWhitelisted` trả 400. Nay nhận thật.
+    if (charges) {
+      where.crime = { contains: charges, mode: 'insensitive' };
     }
 
     if (investigatorId) {

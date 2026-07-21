@@ -227,6 +227,51 @@ describe('PetitionsService', () => {
       expect(callArgs.where.status).toBe(PetitionStatus.DANG_XU_LY);
     });
 
+    /**
+     * Drill-down thẻ thống kê: thẻ gộp nhiều trạng thái ("Đang xử lý" = DANG_XU_LY +
+     * CHO_PHE_DUYET) nên client gửi KEY nhóm, server giải nghĩa.
+     */
+    it('lọc theo statusGroup → where.status = { in: [...] }', async () => {
+      mockPrisma.petition.findMany.mockResolvedValue([]);
+      mockPrisma.petition.count.mockResolvedValue(0);
+
+      await service.getList({ statusGroup: 'dang-xu-ly' });
+
+      const callArgs = mockPrisma.petition.findMany.mock.calls[0][0];
+      expect(callArgs.where.status).toEqual({
+        in: [PetitionStatus.DANG_XU_LY, PetitionStatus.CHO_PHE_DUYET],
+      });
+    });
+
+    it('có CẢ statusGroup lẫn status → NHÓM thắng (giống semantic phase đã ship)', async () => {
+      mockPrisma.petition.findMany.mockResolvedValue([]);
+      mockPrisma.petition.count.mockResolvedValue(0);
+
+      await service.getList({
+        statusGroup: 'da-giai-quyet',
+        status: PetitionStatus.MOI_TIEP_NHAN,
+      });
+
+      const callArgs = mockPrisma.petition.findMany.mock.calls[0][0];
+      expect(callArgs.where.status).toEqual({
+        in: [
+          PetitionStatus.DA_GIAI_QUYET,
+          PetitionStatus.DA_CHUYEN_VU_VIEC,
+          PetitionStatus.DA_CHUYEN_VU_AN,
+        ],
+      });
+    });
+
+    it('[P1] statusGroup leo prototype (constructor) → BỎ QUA, không lọt xuống Prisma', async () => {
+      mockPrisma.petition.findMany.mockResolvedValue([]);
+      mockPrisma.petition.count.mockResolvedValue(0);
+
+      await service.getList({ statusGroup: 'constructor' });
+
+      const callArgs = mockPrisma.petition.findMany.mock.calls[0][0];
+      expect(callArgs.where.status).toBeUndefined();
+    });
+
     it('should always exclude soft-deleted records', async () => {
       mockPrisma.petition.findMany.mockResolvedValue([]);
       mockPrisma.petition.count.mockResolvedValue(0);

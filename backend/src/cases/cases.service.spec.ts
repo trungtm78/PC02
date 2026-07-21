@@ -200,6 +200,60 @@ describe('CasesService', () => {
       );
     });
 
+    /** Drill-down thẻ thống kê: thẻ "Đang điều tra" gộp 6 trạng thái. */
+    it('lọc theo statusGroup → where.status = { in: [...] }', async () => {
+      mockPrisma.case.findMany.mockResolvedValue([]);
+      mockPrisma.case.count.mockResolvedValue(0);
+
+      await service.getList({ statusGroup: 'da-ket-luan' });
+
+      expect(mockPrisma.case.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            status: { in: [CaseStatus.DA_KET_LUAN, CaseStatus.DA_LUU_TRU] },
+          }),
+        }),
+      );
+    });
+
+    it('có CẢ statusGroup lẫn status → NHÓM thắng', async () => {
+      mockPrisma.case.findMany.mockResolvedValue([]);
+      mockPrisma.case.count.mockResolvedValue(0);
+
+      await service.getList({ statusGroup: 'dinh-chi', status: CaseStatus.DANG_DIEU_TRA });
+
+      expect(mockPrisma.case.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ status: { in: [CaseStatus.DINH_CHI] } }),
+        }),
+      );
+    });
+
+    it('[P1] statusGroup leo prototype (constructor) → BỎ QUA, không lọt xuống Prisma', async () => {
+      mockPrisma.case.findMany.mockResolvedValue([]);
+      mockPrisma.case.count.mockResolvedValue(0);
+
+      await service.getList({ statusGroup: '__proto__' });
+
+      const callArgs = mockPrisma.case.findMany.mock.calls[0][0];
+      expect(callArgs.where.status).toBeUndefined();
+    });
+
+    it('lọc "Tội danh" (charges) — trước đây gửi lên là 400 vì DTO thiếu field', async () => {
+      mockPrisma.case.findMany.mockResolvedValue([]);
+      mockPrisma.case.count.mockResolvedValue(0);
+
+      await service.getList({ charges: 'trộm cắp' });
+
+      expect(mockPrisma.case.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            crime: { contains: 'trộm cắp', mode: 'insensitive' },
+          }),
+        }),
+      );
+    });
+
     it('should filter overdue cases', async () => {
       mockPrisma.case.findMany.mockResolvedValue([]);
       mockPrisma.case.count.mockResolvedValue(0);

@@ -5,11 +5,13 @@ import {
   Min,
   Max,
   IsEnum,
+  IsIn,
   IsDateString,
   IsBoolean,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import { PetitionStatus } from './create-petition.dto';
+import { PETITION_STATUS_GROUP_KEYS } from '../petitions.constants';
 
 export class QueryPetitionsDto {
   @IsOptional()
@@ -19,6 +21,17 @@ export class QueryPetitionsDto {
   @IsOptional()
   @IsEnum(PetitionStatus)
   status?: PetitionStatus;
+
+  /**
+   * Nhóm trạng thái cho drill-down thẻ thống kê (vd 'dang-xu-ly' = DANG_XU_LY +
+   * CHO_PHE_DUYET). Thắng `status` khi cả hai cùng có.
+   *
+   * `@IsIn` chứ không phải `@IsString`: chặn key rác ngay ở cổng, fail-fast 400 thay vì
+   * để lọt xuống service.
+   */
+  @IsOptional()
+  @IsIn(PETITION_STATUS_GROUP_KEYS)
+  statusGroup?: string;
 
   @IsOptional()
   @IsString()
