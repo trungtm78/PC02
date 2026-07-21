@@ -141,6 +141,14 @@ describe('Bộ 7 mẫu chứng từ Đơn thư (PC01 / TT 128-2025)', () => {
       expect(resolve('tenCanBoDeXuat', {}, {})).toBe('');
       expect(resolve('vietTatCanBo', {})).toBe('');
     });
+
+    // codex: actor TỒN TẠI nhưng trống họ tên (user thiếu dữ liệu) — fallback phải
+    // theo GIÁ TRỊ, không theo object, nếu không dòng ký in rỗng dù có người tạo.
+    it('actor tồn tại nhưng trống tên → vẫn lùi về người tạo hồ sơ', () => {
+      const actorRong = { firstName: null, lastName: null, rank: null };
+      expect(resolve('tenCanBoDeXuat', { enteredBy: nguoiTao }, { actor: actorRong })).toBe('Đại úy Văn Tạo');
+      expect(resolve('vietTatCanBo', { enteredBy: nguoiTao }, { actor: actorRong })).toBe('V.Tạo');
+    });
   });
 
   describe('gioTiepNhan — KHÔNG bịa giờ trên văn bản tố tụng', () => {

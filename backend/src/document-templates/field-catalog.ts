@@ -191,7 +191,9 @@ const DON_THU_FIELDS: FieldDef[] = [
     key: 'tenCanBoDeXuat',
     label: 'Cán bộ đề xuất (người in)',
     group: 'Cán bộ',
-    resolve: (r, ctx) => rankName(ctx?.actor ?? r.enteredBy),
+    // Fallback theo GIÁ TRỊ (không theo object): actor có thể tồn tại nhưng
+    // trống họ tên → vẫn phải lùi về người tạo hồ sơ, tránh in dòng ký rỗng.
+    resolve: (r, ctx) => rankName(ctx?.actor) || rankName(r.enteredBy),
   },
   { key: 'tenPhoDoiTruong', label: 'Phó đội trưởng', group: 'Cán bộ', resolve: (r) => rankName(r.assignedTeam?.members?.find((m: any) => m.isLeader)?.user) },
   { key: 'tenTruongPhong', label: 'Trưởng phòng', group: 'Cán bộ', resolve: () => '' },
@@ -211,7 +213,7 @@ const DON_THU_FIELDS: FieldDef[] = [
     key: 'vietTatCanBo',
     label: 'Viết tắt cán bộ (người in)',
     group: 'Cán bộ',
-    resolve: (r, ctx) => abbrevName(ctx?.actor ?? r.enteredBy),
+    resolve: (r, ctx) => abbrevName(ctx?.actor) || abbrevName(r.enteredBy),
   },
   // Hằng theo mẫu PC01 — sau này có thể chuyển sang SystemSetting
   { key: 'chucVuCanBo', label: 'Chức danh/chức vụ cán bộ', group: 'Cán bộ', resolve: () => 'Cán bộ' },
