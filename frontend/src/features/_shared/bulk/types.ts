@@ -60,6 +60,15 @@ export interface BulkAction<TRow = unknown, TResult = unknown> {
    */
   allowsAllMatchingFilter: boolean;
   /**
+   * Bỏ hộp thoại xác nhận, chạy `execute` ngay khi bấm.
+   *
+   * Dành cho action tự mở UI riêng ngay sau đó (vd "Xuất Word" mở modal chọn mẫu) —
+   * bắt user xác nhận rồi mới cho chọn mẫu là 2 hộp thoại liên tiếp vô nghĩa.
+   * KHÔNG bỏ qua `handleExecute`: `selection.clear()` / `onSuccess` / `onError` vẫn chạy.
+   * `undefined` → giữ nguyên hành vi cũ cho mọi action hiện có.
+   */
+  skipConfirm?: boolean;
+  /**
    * Execute action với selected ids + optional reason. Returns BulkResult (read-from-API).
    * Export action có thể return void (xlsx stream downloaded directly).
    */

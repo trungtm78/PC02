@@ -55,18 +55,20 @@ export function BulkActionBar<TRow = unknown>({
   const count = selection.count;
   const ids = Array.from(selection.selectedIds);
 
-  const handleExecute = async () => {
-    if (!pendingAction) return;
+  // Nhận `action` qua tham số (không đọc `pendingAction` từ state) để nhánh skipConfirm
+  // dùng chung ĐÚNG đường này — nếu không sẽ mất clear/onSuccess/onError và biến promise
+  // reject thành unhandled rejection.
+  const executeAction = async (action: BulkAction<TRow>, reasonText: string) => {
     setExecuting(true);
     try {
-      const result = await pendingAction.execute({
+      const result = await action.execute({
         ids,
-        reason: reason.trim() || undefined,
+        reason: reasonText.trim() || undefined,
       });
       selection.clear();
-      onSuccess?.(result, pendingAction);
+      onSuccess?.(result, action);
     } catch (err) {
-      onError?.(err, pendingAction);
+      onError?.(err, action);
     } finally {
       setExecuting(false);
       setPendingAction(null);
@@ -75,10 +77,24 @@ export function BulkActionBar<TRow = unknown>({
     }
   };
 
+  const handleExecute = async () => {
+    if (!pendingAction) return;
+    await executeAction(pendingAction, reason);
+  };
+
   const openConfirm = (action: BulkAction<TRow>) => {
     setPendingAction(action);
     setReason('');
     setAcknowledgedLargeSet(false);
+  };
+
+  // skipConfirm: bỏ ConfirmModal nhưng vẫn đi qua executeAction (giữ clear/onSuccess/onError).
+  const runAction = (action: BulkAction<TRow>) => {
+    if (action.skipConfirm) {
+      void executeAction(action, '');
+      return;
+    }
+    openConfirm(action);
   };
 
   // Escalating friction thresholds.
@@ -133,12 +149,12 @@ export function BulkActionBar<TRow = unknown>({
                   <button
                     key={action.key}
                     type="button"
-                    onClick={() => openConfirm(action)}
-                    disabled={disabledForMode}
-                    aria-disabled={disabledForMode}
+                    onClick={() => runAction(action)}
+                    disabled={disabledForMode || executing}
+                    aria-disabled={disabledForMode || executing}
                     title={
                       disabledForMode
-                        ? 'Chỉ áp dụng cho Xuất Excel khi chọn tất cả theo lọc'
+                        ? `"${action.label}" không dùng được khi chọn tất cả theo lọc`
                         : undefined
                     }
                     className={[

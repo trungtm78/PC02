@@ -47,14 +47,41 @@ export async function listExportTemplates(entity: ExportEntity): Promise<Documen
   return (res.data ?? []) as DocumentTemplate[];
 }
 
-/** Lấy filename từ header content-disposition; fallback theo mode. */
+/**
+ * Lấy filename từ header content-disposition; fallback theo mode.
+ *
+ * PHẢI đọc `filename*=UTF-8''` TRƯỚC: `triggerDownload` đặt tên file bằng
+ * `a.download = <chuỗi này>`, mà cách đó khiến trình duyệt BỎ QUA hoàn toàn
+ * Content-Disposition — tên trên đĩa chính là chuỗi hàm này trả về. Nhánh
+ * `filename="..."` là bản dự phòng ASCII, backend đã thay mọi ký tự non-ASCII
+ * bằng `_` (chống header injection), nên đọc nhánh đó thì "Phiếu đề xuất"
+ * thành "Phi__u ____ xu_t".
+ *
+ * Dùng chung cho MỌI luồng tải file (xuất chứng từ, Excel, báo cáo) — trước đây
+ * 7 chỗ copy cùng một regex và cùng mất dấu.
+ */
 export function resolveFilename(
   headers: Record<string, unknown> | undefined,
-  mode: 'merged' | 'zip',
+  /** `'merged'`/`'zip'` dùng tên mặc định ChungTu.*; chuỗi khác được coi là tên dự phòng. */
+  modeOrFallback: 'merged' | 'zip' | (string & {}) = 'merged',
 ): string {
   const cd = String((headers ?? {})['content-disposition'] ?? '');
+  const star = cd.match(/filename\*=UTF-8''([^;]+)/i);
+  if (star?.[1]) {
+    try {
+      return decodeURIComponent(star[1].trim());
+    } catch {
+      // Percent-encoding hỏng → lùi về nhánh ASCII thay vì ném lỗi giữa lúc tải file.
+    }
+  }
   const m = cd.match(/filename="([^"]+)"/);
-  return m?.[1] ?? (mode === 'merged' ? 'ChungTu.docx' : 'ChungTu.zip');
+  const fallback =
+    modeOrFallback === 'merged'
+      ? 'ChungTu.docx'
+      : modeOrFallback === 'zip'
+        ? 'ChungTu.zip'
+        : modeOrFallback;
+  return m?.[1] ?? fallback;
 }
 
 /** Kích hoạt tải file blob về máy người dùng. */

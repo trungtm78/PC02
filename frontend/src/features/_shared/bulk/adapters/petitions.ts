@@ -1,4 +1,5 @@
 import { api } from '@/lib/api';
+import { resolveFilename } from '@/features/document-templates/export.api';
 import type { BulkAdapter, BulkAction, BulkResult } from '../types';
 
 interface AssignParams {
@@ -30,15 +31,42 @@ const exportAction: BulkAction<PetitionRow> = {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    const cd = (response.headers['content-disposition'] as string) ?? '';
-    const filenameMatch = /filename="([^"]+)"/.exec(cd);
-    link.download = filenameMatch?.[1] ?? `DonThu_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    link.download = resolveFilename(
+      response.headers as Record<string, unknown>,
+      `DonThu_${new Date().toISOString().slice(0, 10)}.xlsx`,
+    );
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
   },
 };
+
+/**
+ * Xuất Word chứng từ cho các đơn đã tích. Chỉ CHỤP ids rồi mở modal chọn mẫu —
+ * việc gọi API do trang danh sách làm (nó giữ banner kết quả + trạng thái đang xuất).
+ *
+ * `allowsAllMatchingFilter: false` — KHÔNG như Xuất Excel: xuất Word CẤP SỐ VĂN BẢN,
+ * mà số đã vào sổ thì không rút lại được. Đây chỉ là lớp chắn thứ nhất và KHÔNG đủ:
+ * `toggleOne` đặt lại mode='page' nhưng giữ nguyên selectedIds, nên chọn-tất-cả rồi bỏ
+ * tick 1 dòng vẫn lọt. Chặn thật nằm ở modal (trần N×M) + backend (cap 100).
+ */
+function buildExportWordAction(
+  onPick: (ids: string[]) => void,
+): BulkAction<PetitionRow> {
+  return {
+    key: 'export-word',
+    label: 'Xuất Word',
+    variant: 'outline',
+    permission: { resource: 'petitions', action: 'view' },
+    requiresPreview: false,
+    allowsAllMatchingFilter: false,
+    skipConfirm: true,
+    execute: async ({ ids }) => {
+      onPick(ids);
+    },
+  };
+}
 
 const assignAction: BulkAction<PetitionRow> = {
   key: 'assign',
@@ -101,8 +129,11 @@ export function buildPetitionsAdapter(opts?: {
   enableAssign?: boolean;
   enableDelete?: boolean;
   enableRestore?: boolean;
+  /** Bật "Xuất Word": nhận ids đã chụp để trang danh sách mở modal chọn mẫu. */
+  onExportWord?: (ids: string[]) => void;
 }): BulkAdapter<PetitionRow> {
   const actions: BulkAction<PetitionRow>[] = [exportAction];
+  if (opts?.onExportWord) actions.push(buildExportWordAction(opts.onExportWord));
   if (opts?.enableAssign) actions.push(assignAction);
   if (opts?.enableDelete) actions.push(deleteAction);
   if (opts?.enableRestore) actions.push(restoreAction);

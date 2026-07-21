@@ -61,6 +61,38 @@ describe('document-templates export.api', () => {
     expect(resolveFilename(undefined, 'zip')).toBe('ChungTu.zip');
   });
 
+  /**
+   * Tải file đi qua `a.download = <chuỗi JS>` (triggerDownload) nên trình duyệt BỎ QUA
+   * Content-Disposition — tên file trên đĩa chính là chuỗi resolveFilename trả về.
+   * Nhánh `filename="..."` đã bị backend thay mọi ký tự non-ASCII bằng `_`, nên phải
+   * đọc `filename*=UTF-8''` thì tên tiếng Việt mới tới được đĩa.
+   */
+  describe('resolveFilename giữ dấu tiếng Việt', () => {
+    it('ƯU TIÊN filename*=UTF-8 thay vì nhánh ASCII đã bị băm', () => {
+      const cd =
+        'attachment; filename="DT-2026-36679_Phi__u ____ xu_t_0012.docx"; ' +
+        "filename*=UTF-8''DT-2026-36679_Phi%E1%BA%BFu%20%C4%91%E1%BB%81%20xu%E1%BA%A5t_0012.docx";
+      expect(resolveFilename({ 'content-disposition': cd }, 'merged')).toBe(
+        'DT-2026-36679_Phiếu đề xuất_0012.docx',
+      );
+    });
+
+    it('chỉ có filename* (không có nhánh ASCII) vẫn đọc được', () => {
+      const cd = "attachment; filename*=UTF-8''Gi%E1%BA%A5y%20bi%C3%AAn%20nh%E1%BA%ADn.docx";
+      expect(resolveFilename({ 'content-disposition': cd }, 'merged')).toBe('Giấy biên nhận.docx');
+    });
+
+    it('filename* hỏng (percent-encoding sai) → lùi về nhánh ASCII, KHÔNG ném lỗi', () => {
+      const cd = 'attachment; filename="fallback.docx"; filename*=UTF-8\'\'%E0%A4%A';
+      expect(resolveFilename({ 'content-disposition': cd }, 'merged')).toBe('fallback.docx');
+    });
+
+    it('không nuốt mất phần sau dấu ; của filename*', () => {
+      const cd = "attachment; filename*=UTF-8''ChungTu_20260721.zip";
+      expect(resolveFilename({ 'content-disposition': cd }, 'zip')).toBe('ChungTu_20260721.zip');
+    });
+  });
+
   it('parseBlobError: blob JSON lỗi được parse thành object để đọc message', async () => {
     const blob = new Blob([JSON.stringify({ message: 'Thiếu biến bắt buộc' })], {
       type: 'application/json',
