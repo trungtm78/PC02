@@ -72,9 +72,9 @@ const DOCS = [
     src: SRC_DEXUAT,
     blocks: [0, 20],
     rules: [soVanBan('ĐX'), ...COMMON],
-    // Cột "CÁN BỘ ĐỀ XUẤT" trong bảng chữ ký đang trống → chèn tên, canh ngang
-    // hàng với tên ở cột "PHÓ ĐỘI TRƯỞNG" (cùng offset +7 đoạn).
-    insertEmpty: [{ anchor: 'CÁN BỘ ĐỀ XUẤT', offset: 7, to: '{tenCanBoDeXuat}' }],
+    // Cột "CÁN BỘ ĐỀ XUẤT" trong bảng chữ ký đang trống → đặt tên NGƯỜI IN, canh
+    // ngang hàng với tên ở cột "PHÓ ĐỘI TRƯỞNG" (cùng offset +7 đoạn).
+    setText: [{ anchor: 'CÁN BỘ ĐỀ XUẤT', offset: 7, to: '{tenCanBoDeXuat}' }],
   },
   { code: 'PHIEU_CHUYEN_NGUON_TIN', src: SRC_DEXUAT, blocks: [65, 82], rules: [soVanBan('PC'), ...COMMON] },
   { code: 'PHIEU_CHUYEN_DON', src: SRC_DEXUAT, blocks: [84, 100], rules: [soVanBan('PC'), ...COMMON] },
@@ -86,6 +86,14 @@ const DOCS = [
     src: SRC_BIENBAN,
     blocks: null, // dùng cả file
     dropParagraphs: [/^Đồng thời, bà Trang đề nghị/], // câu thuộc nội dung mẫu
+    // Nghiệp vụ PC02: CƠ QUAN giao giấy biên nhận cho người đứng đơn → NGƯỜI GIAO
+    // là cán bộ (người in), NGƯỜI NHẬN là người đứng đơn. Bản mẫu PC01 ghi ngược
+    // nên phải hoán đổi (chạy sau rule chung, chỉ đụng KHỐI CHỮ KÝ — dòng thân bài
+    // "Tôi: {tenCanBoDeXuat}" và "Họ và tên: {ghiTen}" giữ nguyên).
+    setText: [
+      { anchor: 'NGƯỜI GIAO', offset: 7, to: '{tenCanBoDeXuat}' },
+      { anchor: 'NGƯỜI NHẬN', offset: 7, to: '{ghiTen}' },
+    ],
     rules: [
       { find: /Hồi\s+giờ\s+ngày 15 tháng 7 năm 2026/, to: 'Hồi {gioTiepNhan} {ngayNhan}' },
       {
@@ -118,6 +126,13 @@ function fillEmptyParagraph(pXml, text) {
   return pXml.replace(/<\/w:p>$/, `${run}</w:p>`);
 }
 
+/** Đặt NỘI DUNG cho một đoạn — dù đoạn đang trống hay đã có chữ (giữ định dạng). */
+function setParagraphText(pXml, text) {
+  const cur = paragraphText(pXml);
+  if (!cur.trim()) return fillEmptyParagraph(pXml, text);
+  return applyRules(pXml, [{ whole: /[\s\S]+/, to: text }]);
+}
+
 function processDoc(doc) {
   const zip = readDocx(doc.src);
   const [prefix, bodyInner, suffix] = splitBody(getDocumentXml(zip));
@@ -143,14 +158,14 @@ function processDoc(doc) {
     kept.push({ p, out: applyRules(p, doc.rules) });
   });
 
-  // Chèn tên vào ô chữ ký còn trống
-  for (const ins of doc.insertEmpty ?? []) {
+  // Đặt tên vào ô chữ ký (theo neo + offset) — chạy SAU rule chung nên ghi đè được.
+  for (const ins of doc.setText ?? []) {
     const anchorIdx = kept.findIndex((k) => k.out && paragraphText(k.out).trim() === ins.anchor);
     const target = anchorIdx >= 0 ? kept[anchorIdx + ins.offset] : null;
-    if (target && target.out && !paragraphText(target.out).trim()) {
-      target.out = fillEmptyParagraph(target.out, ins.to);
+    if (target && target.out) {
+      target.out = setParagraphText(target.out, ins.to);
     } else {
-      console.warn(`  ! ${doc.code}: không chèn được "${ins.to}" (neo "${ins.anchor}")`);
+      console.warn(`  ! ${doc.code}: không đặt được "${ins.to}" (neo "${ins.anchor}")`);
     }
   }
 

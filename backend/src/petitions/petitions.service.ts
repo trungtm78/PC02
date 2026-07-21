@@ -1561,6 +1561,10 @@ export class PetitionsService {
             members: {
               where: { isLeader: true },
               select: {
+                // PHẢI select isLeader: resolver `tenPhoDoiTruong` dùng
+                // members.find(m => m.isLeader); thiếu cờ này thì find() luôn
+                // undefined → tên Phó đội trưởng in ra RỖNG.
+                isLeader: true,
                 user: {
                   select: { firstName: true, lastName: true, rank: true },
                 },

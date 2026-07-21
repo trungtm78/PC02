@@ -12,11 +12,21 @@ import { BadRequestException } from '@nestjs/common';
 
 export type EntityType = 'VU_AN' | 'VU_VIEC' | 'DON_THU';
 
+/**
+ * Ngữ cảnh lúc render — dữ liệu KHÔNG nằm trong record.
+ * `actor` = người đang đăng nhập (người bấm In). Dùng cho các dòng ký "cán bộ
+ * thực hiện": người in mới là người ký, không phải người tạo đơn (`enteredBy`).
+ */
+export interface ResolveContext {
+  actor?: { firstName?: string | null; lastName?: string | null; rank?: string | null } | null;
+}
+
 export interface FieldDef {
   key: string;
   label: string;
   group: string;
-  resolve: (record: any) => string;
+  /** `ctx` optional — resolver cũ chỉ dùng `record` vẫn chạy nguyên trạng. */
+  resolve: (record: any, ctx?: ResolveContext) => string;
 }
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -175,7 +185,14 @@ const DON_THU_FIELDS: FieldDef[] = [
   { key: 'canCuPhapLy', label: 'Căn cứ pháp lý', group: 'Nghiệp vụ', resolve: (r) => s(r.canCuPhapLy) },
   { key: 'huongDanKhoiKien', label: 'Hướng dẫn khởi kiện', group: 'Nghiệp vụ', resolve: (r) => s(r.huongDanKhoiKien) },
   { key: 'lyDoTraDon', label: 'Lý do trả đơn', group: 'Nghiệp vụ', resolve: (r) => s(r.lyDoTraDon) },
-  { key: 'tenCanBoDeXuat', label: 'Cán bộ đề xuất', group: 'Cán bộ', resolve: (r) => rankName(r.enteredBy) },
+  // Người KÝ = người đang đăng nhập (bấm In). Fallback người tạo đơn khi không
+  // có ngữ cảnh (vd kiểm tra readiness) để không bị rỗng.
+  {
+    key: 'tenCanBoDeXuat',
+    label: 'Cán bộ đề xuất (người in)',
+    group: 'Cán bộ',
+    resolve: (r, ctx) => rankName(ctx?.actor ?? r.enteredBy),
+  },
   { key: 'tenPhoDoiTruong', label: 'Phó đội trưởng', group: 'Cán bộ', resolve: (r) => rankName(r.assignedTeam?.members?.find((m: any) => m.isLeader)?.user) },
   { key: 'tenTruongPhong', label: 'Trưởng phòng', group: 'Cán bộ', resolve: () => '' },
   // ── Bổ sung cho bộ mẫu PC01 (TT 128/2025/TT-BCA) ──────────────────────────
@@ -190,7 +207,12 @@ const DON_THU_FIELDS: FieldDef[] = [
   // Đơn vị nhận chuyển đơn (Phiếu chuyển / Thông báo)
   { key: 'donViNhan', label: 'Đơn vị nhận chuyển', group: 'Đơn vị', resolve: (r) => s(r.donViXuLy) },
   // Viết tắt cán bộ soạn ở dòng "Lưu:" (vd V.Huy)
-  { key: 'vietTatCanBo', label: 'Viết tắt cán bộ', group: 'Cán bộ', resolve: (r) => abbrevName(r.enteredBy) },
+  {
+    key: 'vietTatCanBo',
+    label: 'Viết tắt cán bộ (người in)',
+    group: 'Cán bộ',
+    resolve: (r, ctx) => abbrevName(ctx?.actor ?? r.enteredBy),
+  },
   // Hằng theo mẫu PC01 — sau này có thể chuyển sang SystemSetting
   { key: 'chucVuCanBo', label: 'Chức danh/chức vụ cán bộ', group: 'Cán bộ', resolve: () => 'Cán bộ' },
   { key: 'coQuan', label: 'Cơ quan', group: 'Đơn vị', resolve: () => 'Cơ quan CSĐT Công an TP Hồ Chí Minh' },
@@ -215,10 +237,15 @@ function findField(entityType: EntityType, field: string): FieldDef | undefined 
   return FIELD_CATALOG[entityType]?.find((f) => f.key === field);
 }
 
-/** Resolve giá trị 1 field từ record. Field ngoài catalog → '' (an toàn). */
-export function resolveField(entityType: EntityType, field: string, record: any): string {
+/** Resolve giá trị 1 field từ record (+ ngữ cảnh). Field ngoài catalog → '' (an toàn). */
+export function resolveField(
+  entityType: EntityType,
+  field: string,
+  record: any,
+  ctx?: ResolveContext,
+): string {
   const def = findField(entityType, field);
-  return def ? s(def.resolve(record)) : '';
+  return def ? s(def.resolve(record, ctx)) : '';
 }
 
 /** Danh mục {key,label,group} cho dropdown admin (KHÔNG kèm resolve). */
