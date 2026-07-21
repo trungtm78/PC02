@@ -1,6 +1,4 @@
 import { createListFilterRegistry } from '@/features/_shared/list-filters/registry';
-import { PetitionStatus } from '@/shared/enums/generated';
-import { PETITION_STATUS_LABEL } from '@/shared/enums/status-labels';
 
 /**
  * v0.65 PR3 — Petitions advanced filter fields registration.
@@ -44,17 +42,11 @@ petitions.registerMany([
     testid: 'filter-sender',
     placeholder: 'Tên người gửi đơn',
   },
-  {
-    key: 'status',
-    label: 'Trạng thái',
-    type: 'enumSelect',
-    urlKey: 'status',
-    testid: 'filter-status',
-    options: Object.values(PetitionStatus).map((v) => ({
-      value: v,
-      label: PETITION_STATUS_LABEL[v],
-    })),
-  },
+  // ĐÃ GỠ field 'status'. Nó khai `urlKey:'status'` nên `useListFilters` ghi vào
+  // `petitions_status` — ĐÚNG key mà thanh chip đang dùng. Hai control cùng ghi một
+  // state, khiến trang gửi kèm param `advancedStatus` không có trong DTO, và
+  // `forbidNonWhitelisted` trả 400 → bộ lọc nâng cao gãy.
+  // Lọc theo trạng thái nay đã có thanh chip + thẻ thống kê bấm được, nên field này thừa.
   {
     key: 'unit',
     label: 'Đơn vị',

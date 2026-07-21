@@ -88,26 +88,29 @@ interface PetitionRow {
 interface PetitionsStatsResponse {
   total: number;
   byStatus: Record<PetitionStatus, number>;
+  /** Số theo NHÓM trạng thái, do server đếm (PETITION_STATUS_GROUPS). */
+  byGroup: Record<string, number>;
 }
 
 const PAGE_SIZE = 20;
 
+/**
+ * Số trên thẻ lấy thẳng từ `stats.byGroup` do server đếm — KHÔNG cộng tay ở đây nữa.
+ * Server đếm từ cùng một `where` với danh sách nên bấm thẻ ra đúng số dòng như thẻ hiển
+ * thị. Cộng ở client thì frontend phải nắm nhóm gồm trạng thái nào (trùng lặp) và số dễ
+ * lệch khỏi danh sách.
+ *
+ * `filterValue` = khoá nhóm ở backend (`PETITION_STATUS_GROUPS`). Thẻ "Tổng" mang `null`.
+ */
 function buildPetitionsCards(stats: PetitionsStatsResponse | null): StatCard[] {
-  const by = stats?.byStatus;
-  const moiTiepNhan = by ? (by[PetitionStatus.MOI_TIEP_NHAN] ?? 0) : null;
-  const dangXuLy = by
-    ? ([PetitionStatus.DANG_XU_LY, PetitionStatus.CHO_PHE_DUYET] as PetitionStatus[]).reduce((s, k) => s + (by[k] ?? 0), 0)
-    : null;
-  const daGiaiQuyet = by
-    ? ([PetitionStatus.DA_GIAI_QUYET, PetitionStatus.DA_CHUYEN_VU_VIEC, PetitionStatus.DA_CHUYEN_VU_AN] as PetitionStatus[]).reduce((s, k) => s + (by[k] ?? 0), 0)
-    : null;
-  const daLuuDon = by ? (by[PetitionStatus.DA_LUU_DON] ?? 0) : null;
+  const g = stats?.byGroup;
+  const at = (key: string) => (g ? (g[key] ?? 0) : null);
   return [
-    { label: 'Tổng đơn thư', value: stats?.total ?? null, icon: Mail, iconBgClass: 'bg-[#003973]/10', iconColorClass: 'text-[#003973]', valueColorClass: 'text-[#003973]' },
-    { label: 'Mới tiếp nhận', value: moiTiepNhan, icon: Inbox, iconBgClass: 'bg-blue-100', iconColorClass: 'text-blue-600', valueColorClass: 'text-blue-600' },
-    { label: 'Đang xử lý', value: dangXuLy, icon: RefreshCw, iconBgClass: 'bg-amber-100', iconColorClass: 'text-amber-600', valueColorClass: 'text-amber-600' },
-    { label: 'Đã giải quyết', value: daGiaiQuyet, icon: CheckCircle, iconBgClass: 'bg-green-100', iconColorClass: 'text-green-600', valueColorClass: 'text-green-600' },
-    { label: 'Lưu đơn', value: daLuuDon, icon: Archive, iconBgClass: 'bg-slate-100', iconColorClass: 'text-slate-600', valueColorClass: 'text-slate-600' },
+    { label: 'Tổng đơn thư', value: stats?.total ?? null, filterValue: null, icon: Mail, iconBgClass: 'bg-[#003973]/10', iconColorClass: 'text-[#003973]', valueColorClass: 'text-[#003973]' },
+    { label: 'Mới tiếp nhận', value: at('moi-tiep-nhan'), filterValue: 'moi-tiep-nhan', icon: Inbox, iconBgClass: 'bg-blue-100', iconColorClass: 'text-blue-600', valueColorClass: 'text-blue-600' },
+    { label: 'Đang xử lý', value: at('dang-xu-ly'), filterValue: 'dang-xu-ly', icon: RefreshCw, iconBgClass: 'bg-amber-100', iconColorClass: 'text-amber-600', valueColorClass: 'text-amber-600' },
+    { label: 'Đã giải quyết', value: at('da-giai-quyet'), filterValue: 'da-giai-quyet', icon: CheckCircle, iconBgClass: 'bg-green-100', iconColorClass: 'text-green-600', valueColorClass: 'text-green-600' },
+    { label: 'Lưu đơn', value: at('da-luu-don'), filterValue: 'da-luu-don', icon: Archive, iconBgClass: 'bg-slate-100', iconColorClass: 'text-slate-600', valueColorClass: 'text-slate-600' },
   ];
 }
 
@@ -122,6 +125,9 @@ export function PetitionListPageShell() {
 
   const rawStatus = url.getParam('status');
   const statusFilter = isValidPetitionStatus(rawStatus) ? rawStatus : null;
+  // Nhóm trạng thái do bấm thẻ thống kê. Backend validate bằng @IsIn nên key rác → 400;
+  // ở đây chỉ cần đọc nguyên văn.
+  const groupFilter = url.getParam('statusGroup');
   const page = Math.max(1, url.getNumberParam('page', 1));
   const searchQuery = url.getParam('q') ?? '';
 
@@ -177,6 +183,38 @@ export function PetitionListPageShell() {
   });
   const appliedFilters = listFilters.applied;
 
+  /**
+   * Param dùng CHUNG cho cả request danh sách lẫn request thống kê.
+   *
+   * Trước đây hai chỗ dựng hai object riêng và stats chỉ có `search` → bật bộ lọc nâng cao
+   * là số trên thẻ không còn khớp danh sách. Một nguồn duy nhất thì không lệch lại được.
+   *
+   * Tên param phải KHỚP `QueryPetitionsDto`: `senderName` (không phải `sender`). Backend
+   * bật `forbidNonWhitelisted` nên gửi sai tên là 400 — đây chính là lỗi đang tồn tại.
+   */
+  const baseQueryParams = useMemo(
+    () => ({
+      ...(debouncedSearch && { search: debouncedSearch }),
+      ...(appliedFilters.fromDate && { fromDate: appliedFilters.fromDate }),
+      ...(appliedFilters.toDate && { toDate: appliedFilters.toDate }),
+      ...(appliedFilters.sender && { senderName: appliedFilters.sender }),
+      ...(appliedFilters.unit && { unit: appliedFilters.unit }),
+    }),
+    [debouncedSearch, appliedFilters],
+  );
+
+  const handleCardSelect = useCallback(
+    (value: string | null) => {
+      // Thẻ và chip loại trừ nhau: chọn nhóm thì bỏ status đơn lẻ.
+      // `history:'push'` để nút Back quay lại được bộ lọc trước.
+      url.setParams(
+        { statusGroup: value, status: null, page: '1' },
+        { history: 'push' },
+      );
+    },
+    [url],
+  );
+
   useEffect(() => {
     abortRef.current?.abort();
     const ctrl = new AbortController();
@@ -185,13 +223,9 @@ export function PetitionListPageShell() {
     setError(undefined);
 
     const params = {
+      ...baseQueryParams,
       ...(statusFilter && { status: statusFilter }),
-      ...(debouncedSearch && { search: debouncedSearch }),
-      ...(appliedFilters.fromDate && { fromDate: appliedFilters.fromDate }),
-      ...(appliedFilters.toDate && { toDate: appliedFilters.toDate }),
-      ...(appliedFilters.sender && { sender: appliedFilters.sender }),
-      ...(appliedFilters.status && { advancedStatus: appliedFilters.status }),
-      ...(appliedFilters.unit && { unit: appliedFilters.unit }),
+      ...(groupFilter && { statusGroup: groupFilter }),
       limit: PAGE_SIZE,
       offset: (page - 1) * PAGE_SIZE,
     };
@@ -203,7 +237,9 @@ export function PetitionListPageShell() {
         setRows(listRes.data.data);
         setTotalCount(listRes.data.total);
         if (listRes.data.total === 0) {
-          setTableState(debouncedSearch || statusFilter ? 'empty-filtered' : 'empty');
+          setTableState(
+            debouncedSearch || statusFilter || groupFilter ? 'empty-filtered' : 'empty',
+          );
         } else {
           setTableState('ready');
         }
@@ -216,13 +252,14 @@ export function PetitionListPageShell() {
 
     return () => ctrl.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, page, debouncedSearch, refetchCounter, appliedFilters]);
+  }, [statusFilter, groupFilter, page, debouncedSearch, refetchCounter, appliedFilters]);
 
   useEffect(() => {
     const ctrl = new AbortController();
-    const statsParams = {
-      ...(debouncedSearch && { search: debouncedSearch }),
-    };
+    // Stats dùng CHUNG baseQueryParams với danh sách (trừ status/statusGroup do backend
+    // strip): trước đây chỉ truyền `search`, nên bật lọc ngày là thẻ hiện một đằng danh
+    // sách một nẻo. KHÔNG phụ thuộc groupFilter → bấm thẻ không refetch stats.
+    const statsParams = baseQueryParams;
     api
       .get<PetitionsStatsResponse>('/petitions/stats', { params: statsParams, signal: ctrl.signal })
       .then((statsRes) => {
@@ -262,8 +299,9 @@ export function PetitionListPageShell() {
   const selectionClearRef = useRef(selection.clear);
   selectionClearRef.current = selection.clear;
   useEffect(() => {
+    // Đổi bộ lọc → bỏ chọn, tránh thao tác hàng loạt lên các dòng không còn hiển thị.
     selectionClearRef.current();
-  }, [statusFilter, page, debouncedSearch]);
+  }, [statusFilter, groupFilter, page, debouncedSearch]);
   const handleBulkSuccess = useCallback(
     (result: BulkResult | void, action: BulkAction<PetitionRow>) => {
       if (action.key === 'export') {
@@ -378,7 +416,8 @@ export function PetitionListPageShell() {
 
   const handleStatusChange = useCallback(
     (value: string | null) => {
-      url.setParams({ status: value, page: '1' });
+      // Chip và thẻ loại trừ nhau — chọn trạng thái đơn lẻ thì bỏ nhóm đang lọc.
+      url.setParams({ status: value, statusGroup: null, page: '1' });
     },
     [url],
   );
@@ -404,7 +443,7 @@ export function PetitionListPageShell() {
 
   const appliedFilterCount = Object.values(appliedFilters).filter((v) => v && v !== '').length;
   const activeFilterCount =
-    (statusFilter ? 1 : 0) + (searchQuery ? 1 : 0) + appliedFilterCount;
+    (statusFilter ? 1 : 0) + (groupFilter ? 1 : 0) + (searchQuery ? 1 : 0) + appliedFilterCount;
 
   // Xuất Word đồng loạt — mẫu lấy ĐỘNG từ DB qua BatchExportDocumentsModal
   // (không còn dùng danh sách DOC_TYPES hardcode).
@@ -496,13 +535,19 @@ export function PetitionListPageShell() {
           </div>
         }
       />
-      <StatsCardsStrip cards={buildPetitionsCards(stats)} loading={stats == null} />
+      <StatsCardsStrip
+        cards={buildPetitionsCards(stats)}
+        loading={stats == null}
+        activeValue={groupFilter}
+        onCardSelect={handleCardSelect}
+      />
       <ListPageShell.StatusChips
         options={chipOptions}
         activeValue={statusFilter}
         onChange={handleStatusChange}
         totalCount={stats?.total}
         countsLoading={stats == null}
+        groupActive={groupFilter != null}
       />
       <ListPageShell.Toolbar
         searchValue={searchQuery}

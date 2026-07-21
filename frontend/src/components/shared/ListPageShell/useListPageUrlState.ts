@@ -17,11 +17,22 @@
 import { useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
+/**
+ * `history: 'push'` tạo một mục lịch sử để nút Back của trình duyệt quay lại được bộ lọc
+ * trước. Mặc định vẫn là `'replace'` như cũ — gõ tìm kiếm hay đổi trang mà đẩy lịch sử
+ * thì bấm Back sẽ phải bấm hàng chục lần mới thoát khỏi trang.
+ *
+ * Dùng `'push'` cho thao tác NGƯỜI DÙNG CHỦ Ý làm và mong quay lại được: bấm thẻ thống kê.
+ */
+export interface UrlWriteOptions {
+  history?: 'push' | 'replace';
+}
+
 export interface ListPageUrlState {
   getParam(key: string): string | null;
   getNumberParam(key: string, defaultValue: number): number;
-  setParam(key: string, value: string | null): void;
-  setParams(updates: Record<string, string | null>): void;
+  setParam(key: string, value: string | null, options?: UrlWriteOptions): void;
+  setParams(updates: Record<string, string | null>, options?: UrlWriteOptions): void;
   clearAll(): void;
 }
 
@@ -45,7 +56,7 @@ export function useListPageUrlState(prefix: string): ListPageUrlState {
   );
 
   const setParam = useCallback(
-    (key: string, value: string | null) => {
+    (key: string, value: string | null, options?: UrlWriteOptions) => {
       setSearchParams(
         (prev) => {
           const next = new URLSearchParams(prev);
@@ -57,14 +68,14 @@ export function useListPageUrlState(prefix: string): ListPageUrlState {
           }
           return next;
         },
-        { replace: true },
+        { replace: options?.history !== 'push' },
       );
     },
     [setSearchParams, fullKey],
   );
 
   const setParams = useCallback(
-    (updates: Record<string, string | null>) => {
+    (updates: Record<string, string | null>, options?: UrlWriteOptions) => {
       setSearchParams(
         (prev) => {
           const next = new URLSearchParams(prev);
@@ -78,7 +89,7 @@ export function useListPageUrlState(prefix: string): ListPageUrlState {
           }
           return next;
         },
-        { replace: true },
+        { replace: options?.history !== 'push' },
       );
     },
     [setSearchParams, fullKey],
