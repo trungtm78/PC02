@@ -133,4 +133,28 @@ describe('IncidentsService.getStats — status count aggregation (PR2/T1)', () =
       expect(result.byStatus[status]).toBe(0);
     });
   });
+
+  /**
+   * REGRESSION: trước bản vá, getStats giữ `phase` trong where. Hệ quả: chọn 1 giai đoạn
+   * thì 3 thẻ kia về 0 và `total` chỉ còn total-trong-giai-đoạn → người dùng hết chỗ bấm
+   * sang giai đoạn khác, drill-down mất ý nghĩa.
+   */
+  it('[P1] phase KHÔNG thu hẹp where của stats — thẻ phải đếm toàn bộ', async () => {
+    mockPrisma.incident.groupBy.mockResolvedValue([]);
+    await service.getStats({ phase: 'xac-minh' } as never, null);
+    const whereArg = mockPrisma.incident.groupBy.mock.calls[0][0].where;
+    expect(whereArg.status).toBeUndefined();
+  });
+
+  it('trả byGroup theo 4 giai đoạn BCA, nhất quán với byStatus', async () => {
+    mockPrisma.incident.groupBy.mockResolvedValue([
+      { status: IncidentStatus.DANG_XAC_MINH, _count: { _all: 4 } },
+      { status: IncidentStatus.DA_PHAN_CONG, _count: { _all: 3 } },
+      { status: IncidentStatus.TIEP_NHAN, _count: { _all: 2 } },
+    ]);
+    const result = await service.getStats({}, null);
+    expect(result.byGroup['xac-minh']).toBe(7); // 4 + 3
+    expect(result.byGroup['tiep-nhan']).toBe(2);
+    expect(result.byGroup['ket-qua']).toBe(0); // có key, không phải undefined
+  });
 });

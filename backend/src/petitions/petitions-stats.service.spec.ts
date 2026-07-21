@@ -84,6 +84,41 @@ describe('PetitionsService.getStats — status count aggregation (PR2/T2)', () =
     expect((mockPrisma.petition as any).count).toBeUndefined();
   });
 
+  /**
+   * `byGroup` là mấu chốt của drill-down: thẻ thống kê gộp nhiều trạng thái, nếu để
+   * frontend tự cộng thì nó BUỘC phải nắm thành viên nhóm (trùng lặp), và số trên thẻ
+   * dễ lệch khỏi số dòng thực tế. Server đếm từ CÙNG một `where` với danh sách →
+   * khớp theo thiết kế, không nhờ cẩn thận.
+   */
+  it('trả thêm byGroup, nhất quán với byStatus', async () => {
+    mockPrisma.petition.groupBy.mockResolvedValue([
+      { status: PetitionStatus.DANG_XU_LY, _count: { _all: 3 } },
+      { status: PetitionStatus.CHO_PHE_DUYET, _count: { _all: 2 } },
+      { status: PetitionStatus.DA_GIAI_QUYET, _count: { _all: 10 } },
+    ]);
+
+    const result = await service.getStats({}, null);
+
+    expect(result.byGroup['dang-xu-ly']).toBe(5); // 3 + 2
+    expect(result.byGroup['da-giai-quyet']).toBe(10);
+  });
+
+  it('byGroup có ĐỦ mọi key nhóm, nhóm rỗng = 0 (không để thẻ treo khung xương)', async () => {
+    mockPrisma.petition.groupBy.mockResolvedValue([]);
+    const result = await service.getStats({}, null);
+    expect(Object.keys(result.byGroup).sort()).toEqual([
+      'da-giai-quyet', 'da-luu-don', 'dang-xu-ly', 'moi-tiep-nhan',
+    ]);
+    Object.values(result.byGroup).forEach((v) => expect(v).toBe(0));
+  });
+
+  it('getStats BỎ QUA statusGroup — thẻ không được tự lọc chính nó về 0', async () => {
+    mockPrisma.petition.groupBy.mockResolvedValue([]);
+    await service.getStats({ statusGroup: 'dang-xu-ly' } as never, null);
+    const whereArg = mockPrisma.petition.groupBy.mock.calls[0][0].where;
+    expect(whereArg.status).toBeUndefined();
+  });
+
   it('exclude soft-deleted records (deletedAt: null)', async () => {
     mockPrisma.petition.groupBy.mockResolvedValue([]);
     await service.getStats({}, null);

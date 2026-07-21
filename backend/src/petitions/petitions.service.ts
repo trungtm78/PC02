@@ -28,7 +28,7 @@ import { DeadlineRulesService } from '../deadline-rules/deadline-rules.service';
 import { DocumentNumbersService } from '../document-numbers/document-numbers.service';
 import { BcaExcelHelper } from '../common/bca-excel.helper';
 import { PETITION_STATUS_LABEL } from '../common/constants/status-labels.constants';
-import { resolveGroup } from '../common/status-groups.util';
+import { resolveGroup, countByGroup } from '../common/status-groups.util';
 import { PETITION_STATUS_GROUPS } from './petitions.constants';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PetitionAssignedEvent } from '../notifications/events/notification.events';
@@ -1795,7 +1795,9 @@ export class PetitionsService {
       total += row._count._all;
     }
 
-    return { total, byStatus };
+    // byGroup sinh từ CÙNG `where` với danh sách → số trên thẻ khớp số dòng theo thiết kế.
+    // Nhờ vậy frontend không cần biết nhóm gồm những trạng thái nào (chống trùng lặp).
+    return { total, byStatus, byGroup: countByGroup(PETITION_STATUS_GROUPS, byStatus) };
   }
 
   // ── Nhóm V — Search nghi phạm theo tên/CCCD ────────────────────────────────

@@ -14,6 +14,9 @@ import { QueryPetitionsDto } from './query-petitions.dto';
 
 export class QueryPetitionsStatsDto extends OmitType(QueryPetitionsDto, [
   'status',
+  // Nhóm trạng thái phải bị chặn: thẻ thống kê mà tự lọc theo nhóm đang chọn thì các
+  // nhóm khác về 0 → người dùng hết chỗ bấm sang, drill-down mất ý nghĩa.
+  'statusGroup',
   'limit',
   'offset',
   'sortBy',

@@ -14,6 +14,9 @@ import { QueryIncidentsDto } from './query-incidents.dto';
 
 export class QueryIncidentsStatsDto extends OmitType(QueryIncidentsDto, [
   'status',
+  // `phase` là nhóm trạng thái của Vụ việc — chặn vì lý do y hệt statusGroup:
+  // thẻ thống kê phải đếm toàn bộ, không tự lọc theo nhóm đang chọn.
+  'phase',
   'limit',
   'offset',
   'sortBy',

@@ -23,6 +23,7 @@ import { DocumentNumbersService } from '../document-numbers/document-numbers.ser
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { buildScopeFilter } from '../common/utils/scope-filter.util';
 import { TERMINAL_STATUSES, VALID_TRANSITIONS, PHASE_STATUSES } from './incidents.constants';
+import { resolveGroup, countByGroup } from '../common/status-groups.util';
 import { SettingsService } from '../settings/settings.service';
 import { DeadlineRulesService } from '../deadline-rules/deadline-rules.service';
 import { ROLE_NAMES } from '../common/constants/role.constants';
@@ -94,9 +95,13 @@ export class IncidentsService {
     }
 
     // Phase takes precedence over status (phase is a group of statuses)
-    // If both provided, phase wins — status is ignored
-    if (phase && PHASE_STATUSES[phase]) {
-      where.status = { in: PHASE_STATUSES[phase] };
+    // If both provided, phase wins — status is ignored.
+    // `resolveGroup` dùng hasOwnProperty: viết `PHASE_STATUSES[phase]` trần thì
+    // `?phase=constructor` trả về hàm Object — truthy nhưng không phải mảng — rồi lọt
+    // xuống Prisma thành `{ in: [Function] }` và ném lỗi 500.
+    const phaseStatuses = resolveGroup(PHASE_STATUSES, phase);
+    if (phaseStatuses) {
+      where.status = { in: [...phaseStatuses] };
     } else if (status) {
       where.status = status;
     }
@@ -934,7 +939,8 @@ export class IncidentsService {
   async getStats(query: QueryIncidentsStatsDto, dataScope?: DataScope | null) {
     const {
       search,
-      phase,
+      // `phase` cố tình KHÔNG destructure — DTO đã chặn ở cổng, và thẻ thống kê phải
+      // đếm toàn bộ dataset chứ không tự lọc theo giai đoạn đang chọn.
       investigatorId,
       unitId,
       overdue,
@@ -971,10 +977,9 @@ export class IncidentsService {
       ];
     }
 
-    // Phase is a group of statuses — KEEP since not status-direct (UI groups statuses).
-    if (phase && PHASE_STATUSES[phase]) {
-      where.status = { in: PHASE_STATUSES[phase] };
-    }
+    // KHÔNG lọc theo `phase` ở stats. Thẻ thống kê phải đếm TOÀN BỘ dataset, nếu không
+    // thì chọn 1 giai đoạn sẽ khiến 3 thẻ kia về 0 — người dùng hết chỗ bấm sang giai
+    // đoạn khác, drill-down mất ý nghĩa. `phase` cũng đã bị OmitType chặn ở DTO stats.
     if (investigatorId) where.investigatorId = investigatorId;
     if (unitId) where.unitId = unitId;
     if (loaiDonVu) where.loaiDonVu = loaiDonVu;
@@ -1032,7 +1037,9 @@ export class IncidentsService {
       total += row._count._all;
     }
 
-    return { total, byStatus };
+    // byGroup dùng chính PHASE_STATUSES — 4 thẻ thống kê Vụ việc trùng khít 4 giai đoạn BCA,
+    // nên không cần bộ nhóm riêng.
+    return { total, byStatus, byGroup: countByGroup(PHASE_STATUSES, byStatus) };
   }
 
   // ─────────────────────────────────────────────

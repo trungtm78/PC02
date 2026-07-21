@@ -27,7 +27,7 @@ import { BcaExcelHelper } from '../common/bca-excel.helper';
 import { CASE_STATUS_LABEL } from '../common/constants/status-labels.constants';
 import { ROLE_NAMES } from '../common/constants/role.constants';
 import { SETTINGS_KEY } from '../common/constants/settings-keys.constants';
-import { resolveGroup } from '../common/status-groups.util';
+import { resolveGroup, countByGroup } from '../common/status-groups.util';
 import { CASE_STATUS_GROUPS } from './cases.constants';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CaseAssignedEvent, CaseCreatedEvent } from '../notifications/events/notification.events';
@@ -493,7 +493,8 @@ export class CasesService {
       total += row._count._all;
     }
 
-    return { total, byStatus };
+    // byGroup sinh từ CÙNG `where` với danh sách → số trên thẻ khớp số dòng theo thiết kế.
+    return { total, byStatus, byGroup: countByGroup(CASE_STATUS_GROUPS, byStatus) };
   }
 
   // ─────────────────────────────────────────────
