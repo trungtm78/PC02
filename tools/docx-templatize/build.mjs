@@ -91,7 +91,7 @@ const DOCS = [
     // nên phải hoán đổi (chạy sau rule chung, chỉ đụng KHỐI CHỮ KÝ — dòng thân bài
     // "Tôi: {tenCanBoDeXuat}" và "Họ và tên: {ghiTen}" giữ nguyên).
     setText: [
-      { anchor: 'NGƯỜI GIAO', offset: 7, to: '{tenCanBoDeXuat}' },
+      { anchor: 'NGƯỜI GIAO', offset: 7, to: '{tenNguoiIn}' },
       { anchor: 'NGƯỜI NHẬN', offset: 7, to: '{ghiTen}' },
     ],
     rules: [
@@ -100,7 +100,10 @@ const DOCS = [
         find: 'trực ban Phòng Cảnh sát Hình sự Công an TP Hồ Chí Minh, số 459 Trần Hưng Đạo, phường Cầu Ông Lãnh, TP Hồ Chí Minh.',
         to: '{noiTiepNhan}',
       },
-      { label: /^Tôi:\s*/, to: '{tenCanBoDeXuat}' },
+      // Giấy biên nhận do NGƯỜI TRỰC TIẾP NHẬN ĐƠN ký → dùng {tenNguoiIn} (luôn là
+      // người đang đăng nhập), KHÔNG dùng {tenCanBoDeXuat} vì biến đó ưu tiên
+      // "Cán bộ đề xuất" chọn trên form (người có thể không phải người nhận đơn).
+      { label: /^Tôi:\s*/, to: '{tenNguoiIn}' },
       { label: /^Chức danh tư pháp\/Chức vụ:\s*/, to: '{chucVuCanBo}' },
       { find: 'thuộc Cơ quan CSĐT Công an TP Hồ Chí Minh', to: 'thuộc {coQuan}' },
       { find: 'đơn(*) Trình báo của:', to: 'đơn(*) {loaiDon} của:' },
@@ -112,7 +115,7 @@ const DOCS = [
       { label: /^Tóm tắt nội dung đơn:\s*/, to: '{noiDung}' },
       { label: /^Tài liệu, đồ vật kèm theo:\s*/, to: '{dinhKem}' },
       { find: 'Nguyễn Võ Uyên Trang', to: '{ghiTen}', all: true },
-      { find: 'Phạm Văn Huy', to: '{tenCanBoDeXuat}', all: true },
+      { find: 'Phạm Văn Huy', to: '{tenNguoiIn}', all: true },
     ],
   },
 ];

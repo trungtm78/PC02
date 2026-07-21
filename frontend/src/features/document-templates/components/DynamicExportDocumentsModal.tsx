@@ -51,6 +51,10 @@ export function DynamicExportDocumentsModal({ entity, entityId, onClose, onEntit
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const prevReadyRef = useRef<Set<string>>(new Set());
+  // Đóng modal giữa lúc đang tải nhiều file → DỪNG vòng lặp và không setState nữa
+  // (tránh tải tiếp file user đã huỷ + cảnh báo update sau unmount).
+  const cancelledRef = useRef(false);
+  useEffect(() => () => { cancelledRef.current = true; }, []);
   // map field → {savable, column} để onSaveFill tách PUT vs manualValues.
   const fieldMetaRef = useRef<Record<string, ReadinessMissing>>({});
 
@@ -142,6 +146,7 @@ export function DynamicExportDocumentsModal({ entity, entityId, onClose, onEntit
   async function exportSeparateFiles(picked: DocumentTemplate[]): Promise<void> {
     const failed: string[] = [];
     for (let i = 0; i < picked.length; i++) {
+      if (cancelledRef.current) return; // user đã đóng modal → dừng hẳn
       const t = picked[i];
       try {
         const response = await exportEntityDocuments(entity, entityId, {
@@ -149,10 +154,13 @@ export function DynamicExportDocumentsModal({ entity, entityId, onClose, onEntit
           mode: 'merged', // 1 mẫu → server trả đúng 1 file .docx
           manualValues: fillValues,
         });
+        if (cancelledRef.current) return;
         triggerDownload(response, 'merged');
       } catch (err) {
+        if (cancelledRef.current) return;
         failed.push(`${t.name}: ${await describeError(err, 'lỗi không xác định')}`);
       }
+      if (cancelledRef.current) return;
       setProgress({ done: i + 1, total: picked.length });
       if (i < picked.length - 1) await new Promise((r) => setTimeout(r, DOWNLOAD_GAP_MS));
     }
@@ -178,16 +186,20 @@ export function DynamicExportDocumentsModal({ entity, entityId, onClose, onEntit
         });
         triggerDownload(response, mode);
       }
+      if (cancelledRef.current) return;
       onClose();
     } catch (err) {
+      if (cancelledRef.current) return;
       setErrorMsg(
         err instanceof Error && err.message.startsWith('Không xuất được')
           ? err.message
           : await describeError(err, 'Không xuất được chứng từ. Vui lòng kiểm tra các trường nghiệp vụ bắt buộc.'),
       );
     } finally {
-      setIsExporting(false);
-      setProgress(null);
+      if (!cancelledRef.current) {
+        setIsExporting(false);
+        setProgress(null);
+      }
     }
   }
 
