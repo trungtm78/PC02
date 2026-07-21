@@ -65,8 +65,12 @@ export function resolveFilename(
   /** `'merged'`/`'zip'` dùng tên mặc định ChungTu.*; chuỗi khác được coi là tên dự phòng. */
   modeOrFallback: 'merged' | 'zip' | (string & {}) = 'merged',
 ): string {
-  const cd = String((headers ?? {})['content-disposition'] ?? '');
-  const star = cd.match(/filename\*=UTF-8''([^;]+)/i);
+  // Tên header không phân biệt hoa/thường (axios thường hạ chữ, fetch/proxy thì không).
+  const raw = headers ?? {};
+  const key = Object.keys(raw).find((k) => k.toLowerCase() === 'content-disposition');
+  const cd = String(key ? raw[key] : '');
+  // RFC 5987 cho phép thẻ ngôn ngữ giữa 2 dấu nháy: filename*=UTF-8'vi'Phi%E1%BA%BFu.docx
+  const star = cd.match(/filename\*=UTF-8'[^']*'([^;]+)/i);
   if (star?.[1]) {
     try {
       return decodeURIComponent(star[1].trim());

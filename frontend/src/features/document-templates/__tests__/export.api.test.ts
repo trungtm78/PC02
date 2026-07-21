@@ -91,6 +91,20 @@ describe('document-templates export.api', () => {
       const cd = "attachment; filename*=UTF-8''ChungTu_20260721.zip";
       expect(resolveFilename({ 'content-disposition': cd }, 'zip')).toBe('ChungTu_20260721.zip');
     });
+
+    it('[P3] chấp nhận thẻ ngôn ngữ RFC 5987: UTF-8\'vi\'…', () => {
+      const cd = "attachment; filename*=UTF-8'vi'Phi%E1%BA%BFu.docx";
+      expect(resolveFilename({ 'content-disposition': cd }, 'merged')).toBe('Phiếu.docx');
+    });
+
+    it('[P3] tên header viết HOA vẫn đọc được (fetch/proxy không hạ chữ)', () => {
+      const cd = "attachment; filename*=UTF-8''Gi%E1%BA%A5y.docx";
+      expect(resolveFilename({ 'Content-Disposition': cd }, 'merged')).toBe('Giấy.docx');
+    });
+
+    it('tên dự phòng tuỳ biến (dùng chung cho luồng xuất Excel)', () => {
+      expect(resolveFilename({}, 'DonThu_2026-07-21.xlsx')).toBe('DonThu_2026-07-21.xlsx');
+    });
   });
 
   it('parseBlobError: blob JSON lỗi được parse thành object để đọc message', async () => {

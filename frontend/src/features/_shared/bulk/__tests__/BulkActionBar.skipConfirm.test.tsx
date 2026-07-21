@@ -58,21 +58,42 @@ describe('BulkActionBar — skipConfirm', () => {
     expect(screen.queryByText('Xác nhận')).toBeNull();
   });
 
-  it('skipConfirm VẪN gọi selection.clear() và onSuccess (không đi đường tắt)', async () => {
-    const clear = vi.fn();
+  it('skipConfirm VẪN gọi onSuccess (không đi đường tắt bỏ qua handleExecute)', async () => {
     const onSuccess = vi.fn();
     const action = baseAction({ skipConfirm: true, execute: vi.fn().mockResolvedValue(undefined) });
     render(
       <BulkActionBar
-        selection={makeSelection(['p1'], clear)}
+        selection={makeSelection(['p1'])}
         adapter={makeAdapter(action)}
         pageRows={[]}
         onSuccess={onSuccess}
       />,
     );
     fireEvent.click(screen.getByText('Thao tác'));
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+  });
+
+  it('[P2] skipConfirm KHÔNG xoá lựa chọn — action mới chỉ mở UI, chưa thao tác gì', async () => {
+    // Xoá ở đây thì user bấm Hủy trong modal chọn mẫu sẽ mất sạch các dòng vừa tích.
+    const clear = vi.fn();
+    const action = baseAction({ skipConfirm: true, execute: vi.fn().mockResolvedValue(undefined) });
+    render(
+      <BulkActionBar selection={makeSelection(['p1'], clear)} adapter={makeAdapter(action)} pageRows={[]} />,
+    );
+    fireEvent.click(screen.getByText('Thao tác'));
+    await waitFor(() => expect(action.execute).toHaveBeenCalled());
+    expect(clear).not.toHaveBeenCalled();
+  });
+
+  it('action THƯỜNG vẫn xoá lựa chọn sau khi thực thi xong (hành vi cũ giữ nguyên)', async () => {
+    const clear = vi.fn();
+    const action = baseAction({ execute: vi.fn().mockResolvedValue(undefined) });
+    render(
+      <BulkActionBar selection={makeSelection(['p1'], clear)} adapter={makeAdapter(action)} pageRows={[]} />,
+    );
+    fireEvent.click(screen.getByText('Thao tác'));
+    fireEvent.click(await screen.findByText('Xác nhận'));
     await waitFor(() => expect(clear).toHaveBeenCalled());
-    expect(onSuccess).toHaveBeenCalled();
   });
 
   it('skipConfirm: execute reject → onError chạy, KHÔNG thành unhandled rejection', async () => {
@@ -102,7 +123,7 @@ describe('BulkActionBar — skipConfirm', () => {
     expect(execute).not.toHaveBeenCalled();
   });
 
-  it('ids truyền vào execute là bản CHỤP — clear() sau đó không ảnh hưởng', async () => {
+  it('ids truyền vào execute là bản CHỤP đầy đủ', async () => {
     let captured: string[] | null = null;
     const action = baseAction({
       skipConfirm: true,
@@ -110,12 +131,10 @@ describe('BulkActionBar — skipConfirm', () => {
         captured = ids;
       }),
     });
-    const clear = vi.fn();
     render(
-      <BulkActionBar selection={makeSelection(['a', 'b', 'c'], clear)} adapter={makeAdapter(action)} pageRows={[]} />,
+      <BulkActionBar selection={makeSelection(['a', 'b', 'c'])} adapter={makeAdapter(action)} pageRows={[]} />,
     );
     fireEvent.click(screen.getByText('Thao tác'));
-    await waitFor(() => expect(clear).toHaveBeenCalled());
-    expect(captured).toEqual(['a', 'b', 'c']);
+    await waitFor(() => expect(captured).toEqual(['a', 'b', 'c']));
   });
 });

@@ -269,13 +269,35 @@ describe('DynamicExportService', () => {
       expect(msgs[0]).not.toContain('không tồn tại (id');
     });
 
-    it('[P2] lỗi HỆ THỐNG (không phải nghiệp vụ) → rethrow ABORT lô (không che bằng ok:false)', async () => {
+    /**
+     * HỢP ĐỒNG ĐỔI CÓ CHỦ ĐÍCH (trước: rethrow abort cả lô).
+     *
+     * Rethrow làm CHÁY số văn bản: cặp trước đã commit ở tx riêng, trả 5xx thì client
+     * không nhận file nào mà số thì không rollback được. Nay: ghi manifest + cờ
+     * X-Batch-System-Error rồi VẪN giao ZIP các file đã cấp số.
+     *
+     * Yêu cầu "không che thành công giả" vẫn được giữ — nhưng bằng header/manifest chứ
+     * không bằng cách vứt bỏ số đã cấp.
+     */
+    it('[P1] lỗi HỆ THỐNG → KHÔNG vứt số đã cấp: ghi manifest + cờ lỗi, vẫn giao ZIP', async () => {
       const res = plainRes();
-      const load = jest.fn(async () => { throw new Error('DB connection lost'); });
-      await expect(
-        svc.exportBatchByCode('DON_THU', 'BIEN_NHAN', ['p1'], load, 'u1', res),
-      ).rejects.toThrow('DB connection lost');
-      expect(res.send).not.toHaveBeenCalled(); // không trả ZIP giả "thành công"
+      const load = jest.fn(async (id: string) => {
+        if (id === 'p2') throw new Error('DB connection lost');
+        return { id, stt: `DT-${id}`, senderName: 'A' };
+      });
+      await svc.exportBatchByCode('DON_THU', 'BIEN_NHAN', ['p1', 'p2'], load, 'u1', res);
+
+      // p1 đã cấp số → file của nó PHẢI được giao, không bị vứt cùng lỗi của p2.
+      expect(res.send).toHaveBeenCalled();
+      const man = readManifest(res);
+      expect(man.items.find((i: any) => i.id === 'p1').ok).toBe(true);
+      const bad = man.items.find((i: any) => i.id === 'p2');
+      expect(bad.ok).toBe(false);
+      expect(bad.systemError).toBe(true);
+      // Không lộ chi tiết hạ tầng ra client.
+      expect(bad.error).not.toContain('DB connection lost');
+      // FE phải phân biệt được lỗi hệ thống với lỗi thiếu dữ liệu.
+      expect(res.setHeader).toHaveBeenCalledWith('X-Batch-System-Error', '1');
     });
 
     it('mẫu không tồn tại → BadRequest', async () => {

@@ -29,7 +29,8 @@ import { useBulkSelection } from '@/features/_shared/bulk/useBulkSelection';
 import { BulkActionBar } from '@/features/_shared/bulk/BulkActionBar';
 import { buildPetitionsAdapter } from '@/features/_shared/bulk/adapters/petitions';
 import { BatchExportDocumentsModal } from '@/features/document-templates/components/BatchExportDocumentsModal';
-import { resolveFilename } from '@/features/document-templates/export.api';
+import { resolveFilename, parseBlobError } from '@/features/document-templates/export.api';
+import { extractApiError } from '@/lib/api-errors';
 import type { BulkAction, BulkResult } from '@/features/_shared/bulk/types';
 import {
   PETITION_STATUS_CHIPS,
@@ -440,7 +441,13 @@ export function PetitionListPageShell() {
       const failed = Number(headers['x-batch-failed'] ?? 0);
       const ok = Number(headers['x-batch-ok'] ?? total);
       const records = Number(headers['x-batch-records'] ?? ids.length);
-      if (failed > 0) {
+      const sysErrors = Number(headers['x-batch-system-error'] ?? 0);
+      if (sysErrors > 0) {
+        setTransientBanner({
+          kind: 'error',
+          text: `Đã xuất ${ok}/${total} file (${records} đơn) → ${filename}. ${sysErrors} file lỗi hệ thống — vui lòng báo quản trị (chi tiết trong manifest.json).`,
+        });
+      } else if (failed > 0) {
         setTransientBanner({
           kind: 'error',
           text: `Đã xuất ${ok}/${total} file (${records} đơn) → ${filename}. ${failed} file thiếu thông tin bắt buộc (xem manifest.json trong ZIP).`,
@@ -451,8 +458,15 @@ export function PetitionListPageShell() {
           text: `Đã xuất ${ok} file cho ${records} đơn → ${filename}`,
         });
       }
-    } catch {
-      setTransientBanner({ kind: 'error', text: 'Xuất Word đồng loạt thất bại. Kiểm tra kết nối và thử lại.' });
+    } catch (e) {
+      // Thân lỗi về dạng Blob (responseType:'blob') → phải parse mới đọc được message
+      // nghiệp vụ thật ("Lô quá lớn…", "Mẫu X chưa cấu hình series…"). Báo "kiểm tra kết
+      // nối" cho mọi lỗi khiến người dùng thử lại vô ích.
+      const parsed = await parseBlobError(e);
+      const msg = extractApiError(parsed, 'Xuất Word đồng loạt thất bại. Vui lòng thử lại.').message;
+      setTransientBanner({ kind: 'error', text: msg });
+      // NÉM lại để modal giữ nguyên lựa chọn mẫu thay vì tự đóng như đã thành công.
+      throw new Error(msg);
     } finally {
       if (url) URL.revokeObjectURL(url);
       setIsBatchExporting(false);

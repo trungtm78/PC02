@@ -109,6 +109,42 @@ describe('BatchExportDocumentsModal', () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
+  it('[P2] hiện MESSAGE THẬT từ backend, không nuốt thành "kiểm tra kết nối"', async () => {
+    mList.mockResolvedValue(TWO);
+    render(
+      <BatchExportDocumentsModal
+        entity="petitions" entityIds={['p1']} onClose={vi.fn()}
+        onConfirm={vi.fn().mockRejectedValue(new Error('Mẫu "BIEN_NHAN" chưa cấu hình series số văn bản'))}
+      />,
+    );
+    fireEvent.click(await screen.findByTestId('batch-export-checkbox-t1'));
+    fireEvent.click(screen.getByTestId('batch-export-confirm'));
+    expect(await screen.findByTestId('batch-export-error')).toHaveTextContent('chưa cấu hình series');
+  });
+
+  /**
+   * Bấm 2 lần trong CÙNG một tick: state `submitting` chưa flush nên cả hai handler đều
+   * thấy false. Khoá phải là ref (đồng bộ), nếu không sẽ gửi 2 request → CẤP SỐ 2 LẦN
+   * cho cùng bộ hồ sơ, mà số đã vào sổ thì không rút lại được.
+   */
+  it('[P1] bấm 2 lần liên tiếp chỉ gửi ĐÚNG 1 request (khoá đồng bộ)', async () => {
+    mList.mockResolvedValue(TWO);
+    let resolveIt: () => void = () => {};
+    const onConfirm = vi.fn(() => new Promise<void>((r) => { resolveIt = r; }));
+    render(
+      <BatchExportDocumentsModal
+        entity="petitions" entityIds={['p1']} onClose={vi.fn()} onConfirm={onConfirm}
+      />,
+    );
+    fireEvent.click(await screen.findByTestId('batch-export-checkbox-t1'));
+    const btn = screen.getByTestId('batch-export-confirm');
+    fireEvent.click(btn);
+    fireEvent.click(btn);
+    fireEvent.click(btn);
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+    resolveIt();
+  });
+
   it('không có mẫu nào → thông báo trống', async () => {
     mList.mockResolvedValue([]);
     render(

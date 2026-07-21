@@ -121,6 +121,43 @@ describe('buildDocumentFilename', () => {
   it('nhận extension khác .docx', () => {
     expect(buildDocumentFilename({ templateName: 'Phụ lục', ext: 'xlsx' })).toBe('Phụ lục.xlsx');
   });
+
+  it('[P2] tên RẤT dài vẫn GIỮ được phần mở rộng (cắt theo stem, không cắt cả tên)', () => {
+    // Tên mẫu kiểu văn bản pháp lý dễ chạm ngưỡng 200 ký tự. Cắt sau khi nối đuôi sẽ
+    // xén mất ".docx" → Windows không mở được file.
+    const out = buildDocumentFilename({
+      recordCode: 'DT-2026-36679',
+      templateName:
+        'Thông báo về việc tiếp nhận, thụ lý giải quyết tố giác, tin báo về tội phạm và kiến nghị khởi tố theo quy định tại Điều 147 Bộ luật Tố tụng hình sự năm 2015 sửa đổi bổ sung năm 2021 của Cơ quan điều tra',
+      documentNumber: '0012',
+    });
+    expect(out.endsWith('.docx')).toBe(true);
+    expect(out.length).toBeLessThanOrEqual(200);
+  });
+
+  it('[P2] số văn bản KHÔNG nằm ở segment đầu vẫn lấy đúng phần số', () => {
+    // Series do admin cấu hình, thứ tự segment không cố định. split('/')[0] sẽ ra
+    // "DX-PC02" — giống hệt nhau ở mọi hồ sơ, mất phần định danh thật.
+    expect(
+      buildDocumentFilename({
+        recordCode: 'DT-2026-36679',
+        templateName: 'Phiếu đề xuất',
+        documentNumber: 'ĐX-PC02/0012',
+      }),
+    ).toBe('DT-2026-36679_Phiếu đề xuất_0012.docx');
+  });
+
+  it('[P2] ext bẩn được làm sạch (không tái chèn path separator sau khi stem đã sạch)', () => {
+    const out = buildDocumentFilename({ templateName: 'A', ext: '../evil' });
+    expect(out).not.toContain('/');
+    expect(out).not.toContain('..');
+  });
+
+  it('số văn bản không có chữ số nào → giữ segment đầu, không rỗng', () => {
+    expect(
+      buildDocumentFilename({ templateName: 'Phiếu', documentNumber: 'ABC/XYZ' }),
+    ).toBe('Phiếu_ABC.docx');
+  });
 });
 
 /**

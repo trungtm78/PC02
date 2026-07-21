@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Modal } from '@/components/shared/Modal';
 import { listExportTemplates, type ExportEntity } from '../export.api';
 import type { DocumentTemplate } from '../types';
@@ -63,14 +63,23 @@ export function BatchExportDocumentsModal({ entity, entityIds, onClose, onConfir
       return next;
     });
 
+  // Khoá bằng ref, KHÔNG bằng state: state chưa flush kịp giữa 2 sự kiện click trong cùng
+  // một tick → cả hai handler đều thấy submitting=false và gửi 2 request, CẤP SỐ 2 LẦN
+  // cho cùng bộ hồ sơ. Số đã vào sổ thì không rút lại được.
+  const inFlightRef = useRef(false);
+
   const handleConfirm = async () => {
-    if (!codes.length || overLimit || submitting) return;
+    if (!codes.length || overLimit || inFlightRef.current) return;
+    inFlightRef.current = true;
     setSubmitting(true);
+    setError(null);
     try {
       await onConfirm(entityIds, codes);
       onClose();
-    } catch {
-      setError('Xuất file thất bại. Kiểm tra kết nối và thử lại.');
+    } catch (e) {
+      // Giữ modal MỞ để người dùng thấy lỗi và không mất lựa chọn mẫu.
+      setError(e instanceof Error ? e.message : 'Xuất file thất bại. Vui lòng thử lại.');
+      inFlightRef.current = false;
       setSubmitting(false);
     }
   };

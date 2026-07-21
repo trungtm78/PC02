@@ -79,14 +79,33 @@ export interface DocumentFilenameParts {
  * và `resolveFilename` phía frontend đọc `filename*=UTF-8''` để dấu tới được đĩa.
  */
 export function buildDocumentFilename(parts: DocumentFilenameParts): string {
-  const ext = parts.ext ?? 'docx';
-  // Số văn bản "0012/ĐX-PC02-Đ1" → "0012": '/' bị sanitizeFilename XOÁ (không thay bằng
-  // ký tự khác), để nguyên sẽ dính liền thành "0012ĐX-PC02-Đ1" — vô nghĩa với người đọc.
-  const shortNumber = parts.documentNumber?.split('/')[0]?.trim();
-  const stem = [parts.recordCode?.trim(), parts.templateName?.trim(), shortNumber]
+  // ext cũng phải sạch: caller truyền '../evil' sẽ tái chèn path separator SAU khi stem
+  // đã được làm sạch.
+  const ext = sanitizeFilename(parts.ext ?? 'docx').replace(/[.\s]/g, '') || 'docx';
+  const stem = [parts.recordCode?.trim(), parts.templateName?.trim(), shortDocNumber(parts.documentNumber)]
     .filter((p): p is string => !!p)
     .join('_');
-  return `${sanitizeFilename(stem)}.${ext}`;
+  // Cắt theo STEM (chừa chỗ cho ".ext"), KHÔNG cắt cả tên đã có đuôi — cắt sau khi nối
+  // sẽ xén mất chính phần mở rộng và file không mở được.
+  const maxStem = MAX_LEN - ext.length - 1;
+  const clean = sanitizeFilename(stem).slice(0, maxStem);
+  return `${clean}.${ext}`;
+}
+
+/**
+ * Rút phần SỐ từ số văn bản để đưa vào tên file.
+ *
+ * Không dùng `split('/')[0]`: series do admin cấu hình, thứ tự segment không cố định.
+ * `"0012/ĐX-PC02-Đ1"` → `"0012"` nhưng `"ĐX-PC02/0012"` cũng phải ra `"0012"` — nếu lấy
+ * segment đầu sẽ ra `"ĐX-PC02"`, giống hệt nhau ở mọi hồ sơ và MẤT phần định danh thật.
+ */
+function shortDocNumber(raw?: string | null): string | undefined {
+  const s = raw?.trim();
+  if (!s) return undefined;
+  // Nhóm chữ số dài nhất là số thứ tự trong sổ (0012, 00015…).
+  const groups = s.match(/\d+/g);
+  if (!groups?.length) return s.split('/')[0]?.trim() || undefined;
+  return groups.reduce((a, b) => (b.length >= a.length ? b : a));
 }
 
 /**

@@ -65,7 +65,10 @@ export function BulkActionBar<TRow = unknown>({
         ids,
         reason: reasonText.trim() || undefined,
       });
-      selection.clear();
+      // Action skipConfirm chỉ MỞ UI kế tiếp (modal chọn mẫu), chưa thao tác gì lên dữ liệu
+      // → xoá lựa chọn ở đây là sai thời điểm: user bấm Hủy trong modal sẽ mất sạch 40 dòng
+      // vừa tích. Action thật sự thực thi (Xoá, Phân công) vẫn xoá như cũ.
+      if (!action.skipConfirm) selection.clear();
       onSuccess?.(result, action);
     } catch (err) {
       onError?.(err, action);
