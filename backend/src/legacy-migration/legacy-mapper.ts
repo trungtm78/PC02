@@ -324,7 +324,9 @@ function buildIncident(rec: LegacyRecord): Record<string, unknown> {
   return clean({
     // Các cột dưới đây nhánh Đơn thư đã đọc từ lâu, nhánh Vụ việc thì không —
     // nên hồ sơ vào hệ thống mà mọi ô nghiệp vụ đều trống. Xem bảng rà soát 80 cột.
-    nguonPhatTin: s(rec.nguon_don),
+    // `nguonPhatTin` là ENUM (NguonPhatTin) chứ không phải chữ tự do — đổ tên đơn vị
+    // vào đó là Prisma từ chối cả bản ghi. Nguồn đơn thực chất là đơn vị chuyển đến.
+    chuyenTuDonVi: s(rec.nguon_don),
     tinhTrangHoSo: s(rec.tinh_trang),
     diaChiNguoiToGiac: s(rec['dia-chi-bi-hai']),
     ngayDeXuat: parseLegacyDate(rec.ngay_de_xuat),

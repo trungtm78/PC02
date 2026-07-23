@@ -222,7 +222,7 @@ describe('Chuẩn hoá — đọc nốt các cột nhánh Đơn thư đã đọc
   it('Vụ việc: nội dung, nguồn tin, tình trạng được điền', () => {
     const r = decomposeLegacyRecord({ ...rec, phan_loai_nguon_tin_ban_dau: 'vu-viec-ban-dau', tinh_trang: 'Đang xác minh' });
     expect(r.incident!.description).toBe(rec.tom_tat_noi_dung);
-    expect(r.incident!.nguonPhatTin).toBe('Công an quận 8');
+    expect(r.incident!.chuyenTuDonVi).toBe("Công an quận 8");
     expect(r.incident!.tinhTrangHoSo).toBe('Đang xác minh');
     expect(r.incident!.diaChiNguoiToGiac).toBe('Hans Christian Ehm Hansen (QT: Đan Mạch)');
   });
