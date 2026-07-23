@@ -25,7 +25,6 @@ const FK_RELATIONS: Record<string, string> = {
   investigatorId: 'investigator',
   assignedTeamId: 'assignedTeam',
   importedById: 'importedBy',
-  crimeChinhId: 'crimeChinh',
 };
 
 function toRelationConnect(data: Record<string, unknown>): Record<string, unknown> {
@@ -68,10 +67,13 @@ export class LegacyMigrationService {
 
   // Resolve crimeChinhLegacyValue → crimeChinhId qua master Crime (theo legacyValue).
   // tx phải được truyền từ $transaction để đảm bảo đọc trong cùng boundary.
-  private async resolveCrime(tx: any, data: Record<string, unknown>): Promise<void> {
+  private async resolveCrime(tx: any, data: Record<string, unknown>, target: 'petition' | 'case' = 'petition'): Promise<void> {
     const lv = data.crimeChinhLegacyValue as number | undefined;
     delete data.crimeChinhLegacyValue;
-    if (lv === undefined) return;
+    // Bảng Vụ án KHÔNG có cột `crimeChinhId` (chỉ Đơn thư có). Gán vào là Prisma ném
+    // "Unknown argument" và mất trắng bản ghi — đây chính là lỗi làm hỏng 48 hồ sơ có
+    // tội danh. Tội danh của Vụ án vẫn còn nguyên trong `legacyRaw`.
+    if (target === 'case' || lv === undefined) return;
     const crime = await tx.crime.findFirst({ where: { legacyValue: lv } });
     if (crime) data.crimeChinhId = crime.id;
   }
@@ -177,7 +179,7 @@ export class LegacyMigrationService {
           let caseRow: { id: string } | undefined;
           if (d.case) {
             const data = { ...d.case };
-            await this.resolveCrime(tx, data);
+            await this.resolveCrime(tx, data, 'case');
             // Provenance: ưu tiên liên kết 1→nhiều cùng record; else hint (vd UY_THAC); else TRANSFERRED.
             // Set rõ cả 2 FK (null khi không dùng) để thỏa CHECK case_provenance_fk_consistency.
             let caseProvenance: string;

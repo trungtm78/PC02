@@ -160,17 +160,27 @@ describe('LegacyMigrationService', () => {
       expect(res.created.incidents).toBe(1);
     });
 
-    it('resolve crimeChinhLegacyValue → crimeChinhId qua tx (không dùng this.prisma)', async () => {
-      const crimeObj = { id: 'crime-95' };
-      mockTx.crime.findFirst.mockResolvedValue(crimeObj);
-      await service.commit([caseRec], 'actor-1');
+    it('ĐƠN THƯ: resolve crimeChinhLegacyValue → crimeChinhId qua tx (không dùng this.prisma)', async () => {
+      mockTx.crime.findFirst.mockResolvedValue({ id: 'crime-95' });
+      await service.commit([{ ...petitionRec, toi_danh_chinh_blhs2015: '95' }], 'actor-1');
       // tx.crime.findFirst phải được gọi (không phải mockPrisma.crime.findFirst)
       expect(mockTx.crime.findFirst).toHaveBeenCalledWith({ where: { legacyValue: 95 } });
       expect(mockPrisma.crime.findFirst).not.toHaveBeenCalled();
-      const createArgs = mockTx.case.create.mock.calls[0][0].data;
-      // Khoá ngoại được truyền dạng `connect` để không trộn hai kiểu đầu vào của Prisma.
-      expect(createArgs.crimeChinh).toEqual({ connect: { id: 'crime-95' } });
+      const createArgs = mockTx.petition.create.mock.calls[0][0].data;
+      expect(createArgs.crimeChinhId).toBe('crime-95');
       expect(createArgs.crimeChinhLegacyValue).toBeUndefined();
+    });
+
+    it('VỤ ÁN: KHÔNG gán crimeChinhId — bảng Vụ án không có cột đó', async () => {
+      // Gán vào khiến Prisma ném "Unknown argument" và mất trắng bản ghi: đây chính là
+      // lỗi làm hỏng 48 hồ sơ có tội danh trên dữ liệu thật. Tội danh vẫn còn ở legacyRaw.
+      mockTx.crime.findFirst.mockResolvedValue({ id: 'crime-95' });
+      await service.commit([caseRec], 'actor-1');
+      const createArgs = mockTx.case.create.mock.calls[0][0].data;
+      expect(createArgs.crimeChinhId).toBeUndefined();
+      expect(createArgs.crimeChinh).toBeUndefined();
+      expect(createArgs.crimeChinhLegacyValue).toBeUndefined();
+      expect(createArgs.legacyRaw).toBeDefined();
     });
 
     it('record không có id → skip (skipped++)', async () => {
