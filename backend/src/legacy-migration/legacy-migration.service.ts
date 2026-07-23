@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
-import { decomposeLegacyRecord, type LegacyRecord } from './legacy-mapper';
+import { decomposeLegacyRecord, legacyKey, type LegacyRecord } from './legacy-mapper';
 import { buildMigrationReport, type MigrationReport } from './migration-report';
 
 // Provenance import (Case/Incident có cột; Petition KHÔNG có → không set). actorId = người chạy di trú.
@@ -10,6 +10,33 @@ const IMPORTED = (actorId: string) => ({
   importedAt: new Date(),
   importedById: actorId,
 });
+
+
+/**
+ * Đổi khoá ngoại dạng số sang dạng `connect` cho Vụ việc/Vụ án.
+ *
+ * Khi trong cùng một lệnh có BẤT KỲ trường quan hệ nào (ví dụ `linkedPetition: {connect}`),
+ * Prisma chuyển sang kiểu đầu vào nghiêm ngặt và TỪ CHỐI mọi khoá ngoại dạng số còn lại
+ * ("Unknown argument `createdById`"). Trộn hai kiểu là hỏng — nên quy về một kiểu.
+ * Giá trị rỗng thì bỏ hẳn: gán `connect` với id rỗng sẽ ném lỗi khoá ngoại.
+ */
+const FK_RELATIONS: Record<string, string> = {
+  createdById: 'createdBy',
+  investigatorId: 'investigator',
+  assignedTeamId: 'assignedTeam',
+  importedById: 'importedBy',
+};
+
+function toRelationConnect(data: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...data };
+  for (const [scalar, relation] of Object.entries(FK_RELATIONS)) {
+    if (!(scalar in out)) continue;
+    const id = out[scalar];
+    delete out[scalar];
+    if (typeof id === 'string' && id.trim()) out[relation] = { connect: { id } };
+  }
+  return out;
+}
 
 export interface CommitResult {
   created: {
@@ -40,10 +67,13 @@ export class LegacyMigrationService {
 
   // Resolve crimeChinhLegacyValue → crimeChinhId qua master Crime (theo legacyValue).
   // tx phải được truyền từ $transaction để đảm bảo đọc trong cùng boundary.
-  private async resolveCrime(tx: any, data: Record<string, unknown>): Promise<void> {
+  private async resolveCrime(tx: any, data: Record<string, unknown>, target: 'petition' | 'case' = 'petition'): Promise<void> {
     const lv = data.crimeChinhLegacyValue as number | undefined;
     delete data.crimeChinhLegacyValue;
-    if (lv === undefined) return;
+    // Bảng Vụ án KHÔNG có cột `crimeChinhId` (chỉ Đơn thư có). Gán vào là Prisma ném
+    // "Unknown argument" và mất trắng bản ghi — đây chính là lỗi làm hỏng 48 hồ sơ có
+    // tội danh. Tội danh của Vụ án vẫn còn nguyên trong `legacyRaw`.
+    if (target === 'case' || lv === undefined) return;
     const crime = await tx.crime.findFirst({ where: { legacyValue: lv } });
     if (crime) data.crimeChinhId = crime.id;
   }
@@ -63,13 +93,25 @@ export class LegacyMigrationService {
     let skipped = 0;
 
     for (const rec of records) {
-      const legacyId = rec.id == null ? '' : String(rec.id).trim();
+      // Khoá PHẢI kèm tên collection nguồn — `ho_so.id` [1,2,3,4] trùng 100% với `ho_so_doi_1`,
+      // khoá trần sẽ ghi đè hồ sơ 2017 bằng hồ sơ 2026. Cùng hàm với mapper để tra cứu và ghi
+      // không bao giờ lệch nhau.
+      const legacyId = legacyKey(rec) ?? '';
       if (!legacyId) {
         skipped++;
         continue;
       }
       try {
         const d = decomposeLegacyRecord(rec);
+        // KHÔNG bịa ngày: hồ sơ thiếu ngày bắt buộc bị chặn lại và đếm được, thay vì mang
+        // ngày hôm nay (~4.400 hồ sơ nguồn không parse được ngày).
+        if (d.petition && !(d.petition.receivedDate instanceof Date)) {
+          errors.push({
+            legacyId,
+            message: 'MISSING_REQUIRED_DATE: receivedDate — không parse được ngày tiếp nhận, bỏ qua để không bịa ngày',
+          });
+          continue;
+        }
         if (
           !d.petition &&
           !d.incident &&
@@ -101,7 +143,7 @@ export class LegacyMigrationService {
               const row = await tx.petition.create({
                 data: {
                   stt: `DT-LEGACY-${legacyId}`,
-                  receivedDate: (data.receivedDate as Date) ?? new Date(),
+                  receivedDate: data.receivedDate as Date,
                   senderName: (data.senderName as string) ?? '(di trú)',
                   status: 'MOI_TIEP_NHAN',
                   ...data,
@@ -115,11 +157,20 @@ export class LegacyMigrationService {
             const data = { ...d.incident };
             const existing = await tx.incident.findFirst({ where: { legacySourceId: legacyId } });
             if (existing) {
-              await tx.incident.update({ where: { id: existing.id }, data });
+              await tx.incident.update({ where: { id: existing.id }, data: toRelationConnect(data) });
               linkedIncidentId = existing.id;
             } else {
               const row = await tx.incident.create({
-                data: { code: `VV-LEGACY-${legacyId}`, status: 'TIEP_NHAN', ...IMPORTED(actorId), ...data },
+                data: {
+                  code: `VV-LEGACY-${legacyId}`,
+                  status: 'TIEP_NHAN',
+                  // Cột mảng NOT NULL nhưng KHÔNG có default ở tầng CSDL — không truyền
+                  // tường minh là dính NullConstraintViolation. Đặt TRƯỚC ...data để bản
+                  // ghi nào có giá trị thật vẫn ghi đè được.
+                  lyDoKhongKhoiTo: [],
+                  lyDoTamDinhChiVuViec: [],
+                  ...toRelationConnect({ ...IMPORTED(actorId), ...data }),
+                },
               });
               linkedIncidentId = row.id;
               d2.incidents++;
@@ -128,30 +179,41 @@ export class LegacyMigrationService {
           let caseRow: { id: string } | undefined;
           if (d.case) {
             const data = { ...d.case };
-            await this.resolveCrime(tx, data);
+            await this.resolveCrime(tx, data, 'case');
             // Provenance: ưu tiên liên kết 1→nhiều cùng record; else hint (vd UY_THAC); else TRANSFERRED.
             // Set rõ cả 2 FK (null khi không dùng) để thỏa CHECK case_provenance_fk_consistency.
             let caseProvenance: string;
-            let link: { linkedPetitionId: string | null; linkedIncidentId: string | null };
+            // Case.linkedPetition/linkedIncident là quan hệ 1-1, Prisma KHÔNG nhận khoá
+            // ngoại dạng vô hướng ở đây — phải dùng `connect`. Truyền `linkedPetitionId: <id>`
+            // ném "Unknown argument", làm hỏng đúng những bản ghi sinh CẢ đơn thư LẪN vụ án
+            // trong cùng một hồ sơ (48 hồ sơ trên dữ liệu thật).
+            let link: Record<string, unknown>;
             if (linkedPetitionId) {
               caseProvenance = 'FROM_PETITION';
-              link = { linkedPetitionId, linkedIncidentId: null };
+              link = { linkedPetition: { connect: { id: linkedPetitionId } } };
             } else if (linkedIncidentId) {
               caseProvenance = 'FROM_INCIDENT';
-              link = { linkedPetitionId: null, linkedIncidentId };
+              link = { linkedIncident: { connect: { id: linkedIncidentId } } };
             } else {
               caseProvenance = d.caseProvenanceHint ?? 'TRANSFERRED';
-              link = { linkedPetitionId: null, linkedIncidentId: null };
+              link = {};
             }
             const existing = await tx.case.findFirst({ where: { legacySourceId: legacyId } });
             if (existing) {
               caseRow = await tx.case.update({
                 where: { id: existing.id },
-                data: { caseProvenance, ...link, ...data },
+                data: { caseProvenance, ...link, ...toRelationConnect(data) },
               });
             } else {
               caseRow = await tx.case.create({
-                data: { status: 'TIEP_NHAN', caseProvenance, ...link, ...IMPORTED(actorId), ...data },
+                data: {
+                  status: 'TIEP_NHAN',
+                  caseProvenance,
+                  ...link,
+                  // Xem ghi chú ở phần tạo Vụ việc: mảng NOT NULL không có default.
+                  lyDoTamDinhChiVuAn: [],
+                  ...toRelationConnect({ ...IMPORTED(actorId), ...data }),
+                },
               });
               d2.cases++;
             }

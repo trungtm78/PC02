@@ -90,6 +90,29 @@ export function parseLegacyBool(v: unknown): boolean | undefined {
   return undefined;
 }
 
+// Epoch giây hệ cũ: dải hợp lệ + độ lệch phải bù. Xem giải thích trong parseLegacyDate.
+const LEGACY_EPOCH_MIN = 946684800; // 2000-01-01T00:00:00Z
+const LEGACY_EPOCH_MAX = 2524608000; // 2050-01-01T00:00:00Z
+export const LEGACY_EPOCH_SHIFT_SECONDS = 50400; // +14h — đo khớp 100,00% trên 53.795/53.796 hồ sơ
+
+/**
+ * Khoá chống trùng khi di trú. PHẢI kèm tên collection nguồn.
+ *
+ * Đo thực tế trên dump: `ho_so.id` = [1,2,3,4] TRÙNG 100% với id của `ho_so_doi_1`
+ * (chạy liên tục 1…53.820). Vì `legacySourceId` là `@unique` trên từng bảng, khoá trần
+ * khiến 4 hồ sơ 01/2026 GHI ĐÈ 4 hồ sơ 2017 — mất dữ liệu im lặng.
+ *
+ * Không có `__sourceCollection` thì giữ khoá trần để tương thích ngược (bộ test golden/expert
+ * hiện có dùng id trần). Công cụ nạp LUÔN gắn trường này; preflight chặn bằng `legacyKeyVersion`
+ * nếu sổ chạy ghi phiên bản khoá khác với phiên bản đang chạy.
+ */
+export function legacyKey(rec: LegacyRecord): string | undefined {
+  const id = s(rec.id);
+  if (id === undefined) return undefined;
+  const col = s(rec.__sourceCollection);
+  return col ? `${col}:${id}` : id;
+}
+
 // Chuyển ngày hệ thống cũ (dd/mm/yyyy, yyyy-mm-dd, hoặc Excel serial) → Date.
 // Dùng roundtrip check để từ chối ngày âm lịch/overflow (vd 31/02/2025 → wrap sang 3/3 mà không bị bắt).
 export function parseLegacyDate(v: unknown): Date | undefined {
@@ -98,6 +121,23 @@ export function parseLegacyDate(v: unknown): Date | undefined {
   if (typeof v === 'number' && v >= 36526 && v <= 54789) {
     const d = new Date(Date.UTC(1899, 11, 30) + v * 86400000);
     if (!Number.isNaN(d.getTime())) return d;
+  }
+  // Epoch giây (dump MongoDB hệ cũ). Dải ≈ 2000-01-01 → 2050-01-01, KHÔNG chồng lấn dải Excel serial
+  // ở trên (54789 ≪ 946684800) nên hai nhánh không tranh nhau. Chỉ nhận NUMBER, cùng lý do như trên.
+  //
+  // LỆCH MÚI GIỜ +14h — đo trên 53.796 hồ sơ có đủ ngay/thang/nam để đối chiếu:
+  //   đọc theo UTC    → khớp      0 (0,00%)
+  //   epoch +7h  (VN) → khớp      0 (0,00%)
+  //   epoch +50400s   → khớp 53.795 (100,00%)
+  // `value % 86400 = 36000` (10:00 UTC) ở 100,00% giá trị — dấu hiệu PHP cũ trừ offset +7 HAI LẦN,
+  // nhất quán với sentinel rỗng -25200. Sentinel 0 / -25200 nằm ngoài dải nên tự rơi về undefined.
+  if (typeof v === 'number' && v >= LEGACY_EPOCH_MIN && v <= LEGACY_EPOCH_MAX) {
+    const shifted = new Date((v + LEGACY_EPOCH_SHIFT_SECONDS) * 1000);
+    if (Number.isNaN(shifted.getTime())) return undefined;
+    // Cắt về nửa đêm UTC: ngày nghiệp vụ, không phải mốc thời gian.
+    return new Date(
+      Date.UTC(shifted.getUTCFullYear(), shifted.getUTCMonth(), shifted.getUTCDate()),
+    );
   }
   const str = s(v);
   if (!str) return undefined;
@@ -119,6 +159,52 @@ export function parseLegacyDate(v: unknown): Date | undefined {
   return d;
 }
 
+/**
+ * Chuẩn hoá phân loại nguồn tin.
+ *
+ * Mapper chỉ nhận 11 giá trị chuẩn (dạng slug), nhưng dump thật có 16 cách viết —
+ * 721 hồ sơ rơi ra ngoài, không sinh được thực thể nào: `huong-dan` (539),
+ * `"vụ việc"` có dấu (89), `""` (85), `"vụ việc "` thừa khoảng trắng (7), `"vụ án"` (1).
+ *
+ * Hai bước: (1) bỏ dấu + trim + gộp khoảng trắng thành slug rồi tra bảng biến thể;
+ * (2) nếu vẫn trống thì dùng `rec.loai` làm NGUỒN DỰ PHÒNG — trường này mapper chưa hề
+ * đọc, mà nó sạch hơn (12 giá trị so với 16).
+ */
+const stripDiacritics = (v: string): string =>
+  v
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D');
+
+const toSlug = (v: string): string =>
+  // Gạch dưới cũng là dấu phân cách: hệ cũ ghi cả `don_thu` lẫn `don-cong-van-ban-dau`.
+  stripDiacritics(v).toLowerCase().trim().replace(/[\s_]+/g, '-');
+
+// Biến thể quan sát được trong dump → giá trị chuẩn mapper đang hiểu.
+const PHAN_LOAI_ALIAS: Record<string, string> = {
+  'vu-viec': 'vu-viec-ban-dau',
+  'vu-an': 'vu-an-ban-dau',
+  don: 'don-cong-van-ban-dau',
+  'don-thu': 'don-cong-van-ban-dau',
+  'huong-dan': 'huong-dan-ban-dau',
+  'tra-ho-so': 'tra-ho-so-ban-dau',
+  // Hồ sơ do công an phường/xã lập — vẫn là vụ án / vụ việc, chỉ khác nơi lập.
+  'vu-an-phuong-xa': 'vu-an-ban-dau',
+  'vu-viec-phuong-xa': 'vu-viec-ban-dau',
+};
+
+export function normalizePhanLoai(rec: LegacyRecord): string | undefined {
+  for (const raw of [rec.phan_loai_nguon_tin_ban_dau, rec.loai]) {
+    const str = s(raw);
+    if (str === undefined) continue;
+    const slug = toSlug(str);
+    const resolved = PHAN_LOAI_ALIAS[slug] ?? slug;
+    if (ALL_PHAN_LOAI.has(resolved)) return resolved;
+  }
+  return undefined;
+}
+
 const PHAN_LOAI_DON = new Set(['don-cong-van-ban-dau']);
 const PHAN_LOAI_VU_VIEC = new Set(['vu-viec-ban-dau', 'vu-viec-nguon-tin']);
 const PHAN_LOAI_VU_AN = new Set(['vu-an-ban-dau']);
@@ -131,10 +217,46 @@ const PHAN_LOAI_LAWYER = new Set(['luat-su']);
 const PHAN_LOAI_TRA_HO_SO = new Set(['tra-ho-so-ban-dau']);
 const PHAN_LOAI_CONG_VAN_TDC = new Set(['cong-van-don-doc-phuc-hoi-tdc']);
 
+// Tập hợp mọi giá trị hợp lệ — dùng cho normalizePhanLoai để quyết định có nhận hay không.
+const ALL_PHAN_LOAI = new Set<string>([
+  ...PHAN_LOAI_DON,
+  ...PHAN_LOAI_VU_VIEC,
+  ...PHAN_LOAI_VU_AN,
+  ...PHAN_LOAI_GUIDANCE,
+  ...PHAN_LOAI_EXCHANGE,
+  ...PHAN_LOAI_PROPOSAL,
+  ...PHAN_LOAI_UY_THAC,
+  ...PHAN_LOAI_LAWYER,
+  ...PHAN_LOAI_TRA_HO_SO,
+  ...PHAN_LOAI_CONG_VAN_TDC,
+]);
+
+
+/**
+ * Chủ sở hữu và tổ phụ trách — do BỘ NẠP tính sẵn rồi gắn vào bản ghi dưới dạng khoá `__`.
+ *
+ * Mapper là hàm thuần, không tra được CSDL, nên không tự đổi `nguoi_them` (số) thành id
+ * người dùng hay `don_vi_giai_quyet` (chuỗi) thành id tổ được. Bộ nạp nạp sẵn bảng tra cứu
+ * rồi truyền xuống qua ba khoá này.
+ *
+ * Vì sao BẮT BUỘC phải có: theo scope-filter, Vụ việc/Vụ án lọc theo `investigatorId`,
+ * Đơn thư lọc theo `enteredById`. Bản ghi không gắn ai vẫn hiện với PC02 nhưng ẩn hoàn
+ * toàn với cán bộ tổ — nghĩa là di trú xong mà cán bộ không thấy hồ sơ của chính mình.
+ */
+const ownership = (rec: LegacyRecord) => ({
+  enteredById: s(rec.__enteredById),
+  createdById: s(rec.__createdById),
+  investigatorId: s(rec.__investigatorId),
+  assignedTeamId: s(rec.__assignedTeamId),
+});
+
 // Field tiếp nhận chung (người gửi / nội dung) — dùng cho Petition.
 function buildPetition(rec: LegacyRecord): Record<string, unknown> {
+  const own = ownership(rec);
   return clean({
-    legacySourceId: s(rec.id),
+    legacySourceId: legacyKey(rec),
+    enteredById: own.enteredById,
+    assignedTeamId: own.assignedTeamId,
     senderName: s(rec.ten_ca_nhan_co_quan_to_chuc_cung_cap),
     senderPhone: s(rec.so_dien_thoai_nguyen_don),
     senderBirthYear: s(rec.sinh_nam_nguoi_to_giac),
@@ -173,8 +295,12 @@ function buildPetition(rec: LegacyRecord): Record<string, unknown> {
 }
 
 function buildIncident(rec: LegacyRecord): Record<string, unknown> {
+  const own = ownership(rec);
   return clean({
-    legacySourceId: s(rec.id),
+    legacySourceId: legacyKey(rec),
+    createdById: own.createdById,
+    investigatorId: own.investigatorId,
+    assignedTeamId: own.assignedTeamId,
     name: s(rec.tom_tat_noi_dung) ?? 'Vụ việc di trú ' + s(rec.id),
     description: s(rec.tom_tat_noi_dung),
     diaChiXayRa: s(rec.noi_xay_ra),
@@ -202,8 +328,12 @@ function buildIncident(rec: LegacyRecord): Record<string, unknown> {
 }
 
 function buildCase(rec: LegacyRecord): Record<string, unknown> {
+  const own = ownership(rec);
   return clean({
-    legacySourceId: s(rec.id),
+    legacySourceId: legacyKey(rec),
+    createdById: own.createdById,
+    investigatorId: own.investigatorId,
+    assignedTeamId: own.assignedTeamId,
     name: s(rec.tom_tat_noi_dung) ?? 'Vụ án di trú ' + s(rec.id),
     soQuyetDinhKhoiTo: s(rec.quyet_dinh_khoi_to_vu_an),
     ngayKhoiTo: parseLegacyDate(rec.ngay_quyet_dinh_khoi_to_vu_an),
@@ -241,7 +371,7 @@ function buildCase(rec: LegacyRecord): Record<string, unknown> {
 // huong-dan-ban-dau → GuidanceRecord. guidedPerson + guidanceContent là NOT NULL → fallback.
 function buildGuidance(rec: LegacyRecord): Record<string, unknown> {
   return clean({
-    legacySourceId: s(rec.id),
+    legacySourceId: legacyKey(rec),
     guidedPerson: s(rec.ten_ca_nhan_co_quan_to_chuc_cung_cap) ?? '(di trú)',
     guidedPersonPhone: s(rec.so_dien_thoai_nguyen_don),
     subject: s(rec.loai_thong_tin),
@@ -255,7 +385,7 @@ function buildGuidance(rec: LegacyRecord): Record<string, unknown> {
 // trao-doi-chuyen-an → Exchange. Không có cột NOT NULL ngoài default.
 function buildExchange(rec: LegacyRecord): Record<string, unknown> {
   return clean({
-    legacySourceId: s(rec.id),
+    legacySourceId: legacyKey(rec),
     recordCode: s(rec.so_phieu_chuyen),
     recordType: s(rec.loai_thong_tin),
     senderUnit: s(rec.ten_ca_nhan_co_quan_to_chuc_cung_cap),
@@ -269,7 +399,7 @@ function buildExchange(rec: LegacyRecord): Record<string, unknown> {
 // deterministic ở commit (DX-LEGACY-<id>) để idempotent.
 function buildProposal(rec: LegacyRecord): Record<string, unknown> {
   return clean({
-    legacySourceId: s(rec.id),
+    legacySourceId: legacyKey(rec),
     content: s(rec.tom_tat_noi_dung) ?? '(di trú — không có nội dung)',
     unit: s(rec.don_vi_giai_quyet),
     notes: s(rec.nhan_xet),
@@ -281,7 +411,7 @@ function buildProposal(rec: LegacyRecord): Record<string, unknown> {
 // sinh ở commit (host Case).
 function buildLawyer(rec: LegacyRecord): Record<string, unknown> {
   return clean({
-    legacySourceId: s(rec.id),
+    legacySourceId: legacyKey(rec),
     fullName: s(rec.ten_ca_nhan_co_quan_to_chuc_cung_cap) ?? 'Luật sư (di trú)',
     phone: s(rec.so_dien_thoai_nguyen_don),
     legacyRaw: { ...rec },
@@ -392,7 +522,7 @@ export const MAPPED_LEGACY_KEYS: ReadonlySet<string> = new Set([
 
 export function decomposeLegacyRecord(rec: LegacyRecord): DecomposedEntities {
   const warnings: string[] = [];
-  const phanLoai = s(rec.phan_loai_nguon_tin_ban_dau);
+  const phanLoai = normalizePhanLoai(rec);
   const out: DecomposedEntities = { warnings };
 
   const hasKhoiTo = !!s(rec.quyet_dinh_khoi_to_vu_an);
@@ -453,5 +583,21 @@ export function decomposeLegacyRecord(rec: LegacyRecord): DecomposedEntities {
     if (stat) out.statistic = stat;
   }
 
+  keepSingleLegacyRaw(out);
   return out;
+}
+
+/**
+ * Một record cũ có thể sinh nhiều thực thể, mà builder nào cũng gắn `legacyRaw: {...rec}`.
+ * Bản thô ~6,7KB × 53.820 hồ sơ × 3 thực thể ≈ 1,1GB JSONB thừa. Giữ đúng MỘT bản ở thực thể
+ * "chủ" (ưu tiên theo thứ tự dưới); các thực thể còn lại tra ngược qua `legacySourceId`.
+ */
+function keepSingleLegacyRaw(out: DecomposedEntities): void {
+  const owners = [out.case, out.incident, out.petition, out.guidance, out.exchange, out.proposal, out.lawyer];
+  let kept = false;
+  for (const e of owners) {
+    if (!e || !('legacyRaw' in e)) continue;
+    if (kept) delete e.legacyRaw;
+    else kept = true;
+  }
 }

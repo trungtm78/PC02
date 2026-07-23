@@ -15,7 +15,7 @@ interface DirectoryEntry {
   order: number;
 }
 
-const DIRECTORY_DATA: DirectoryEntry[] = [
+export const DIRECTORY_DATA: DirectoryEntry[] = [
   // ── INCIDENT_TYPE (Loại vụ việc) ─────────────────────────────────────────
   { type: 'INCIDENT_TYPE', code: 'VPHC', name: 'Vi phạm hành chính', order: 1 },
   { type: 'INCIDENT_TYPE', code: 'TCDS', name: 'Tranh chấp dân sự', order: 2 },
@@ -59,6 +59,53 @@ const DIRECTORY_DATA: DirectoryEntry[] = [
   { type: 'EDUCATION_LEVEL', code: 'CD', name: 'Cao đẳng', order: 4 },
   { type: 'EDUCATION_LEVEL', code: 'DH', name: 'Đại học', order: 5 },
   { type: 'EDUCATION_LEVEL', code: 'SDH', name: 'Sau đại học', order: 6 },
+
+  // ── DISTRICT (Quận/Huyện CŨ — đã bãi bỏ 01/7/2025) ───────────────────────
+  // Subject.districtId là "legacy only": mô hình 2 cấp không còn quận/huyện, nhưng
+  // hồ sơ 2016-2025 vẫn trỏ về đây nên danh mục PHẢI tồn tại thì màn hình mới hiện
+  // đúng tên. Runner ở cuối file tự đặt isActive=false cho toàn bộ nhóm này.
+  // 22 đơn vị lấy nguyên từ bảng chi_nhanh hệ cũ (loai_don_vi=5).
+  { type: 'DISTRICT', code: 'Q1', name: 'Quận 1', order: 1 },
+  { type: 'DISTRICT', code: 'Q3', name: 'Quận 3', order: 2 },
+  { type: 'DISTRICT', code: 'Q4', name: 'Quận 4', order: 3 },
+  { type: 'DISTRICT', code: 'Q5', name: 'Quận 5', order: 4 },
+  { type: 'DISTRICT', code: 'Q6', name: 'Quận 6', order: 5 },
+  { type: 'DISTRICT', code: 'Q7', name: 'Quận 7', order: 6 },
+  { type: 'DISTRICT', code: 'Q8', name: 'Quận 8', order: 7 },
+  { type: 'DISTRICT', code: 'Q10', name: 'Quận 10', order: 8 },
+  { type: 'DISTRICT', code: 'Q11', name: 'Quận 11', order: 9 },
+  { type: 'DISTRICT', code: 'Q12', name: 'Quận 12', order: 10 },
+  { type: 'DISTRICT', code: 'BTAN', name: 'Bình Tân', order: 11 },
+  { type: 'DISTRICT', code: 'TPHU', name: 'Tân Phú', order: 12 },
+  { type: 'DISTRICT', code: 'BTHANH', name: 'Bình Thạnh', order: 13 },
+  { type: 'DISTRICT', code: 'PNHUAN', name: 'Phú Nhuận', order: 14 },
+  { type: 'DISTRICT', code: 'TBI', name: 'Tân Bình', order: 15 },
+  { type: 'DISTRICT', code: 'GVAP', name: 'Gò Vấp', order: 16 },
+  { type: 'DISTRICT', code: 'NHBE', name: 'Nhà Bè', order: 17 },
+  { type: 'DISTRICT', code: 'CCHI', name: 'Củ Chi', order: 18 },
+  { type: 'DISTRICT', code: 'HMON', name: 'Hóc Môn', order: 19 },
+  { type: 'DISTRICT', code: 'BCHANH', name: 'Bình Chánh', order: 20 },
+  { type: 'DISTRICT', code: 'THUDUC', name: 'Thủ Đức', order: 21 },
+  { type: 'DISTRICT', code: 'CGIO', name: 'Cần Giờ', order: 22 },
+
+  // ── OCCUPATION (Nghề nghiệp) ─────────────────────────────────────────────
+  // Subject.occupationId trỏ tới directories(type=OCCUPATION) nhưng danh mục này
+  // TRƯỚC ĐÂY KHÔNG ĐƯỢC SEED → ô chọn nghề nghiệp rỗng trên mọi môi trường.
+  // Giá trị lấy nguyên từ dropdown `nghe_nghiep` của hệ thống cũ (7 lựa chọn).
+  { type: 'OCCUPATION', code: 'CN', name: 'Công nhân', order: 1 },
+  { type: 'OCCUPATION', code: 'ND', name: 'Nông dân', order: 2 },
+  { type: 'OCCUPATION', code: 'HSSV', name: 'Học sinh, sinh viên', order: 3 },
+  { type: 'OCCUPATION', code: 'CCVC', name: 'Công chức, viên chức', order: 4 },
+  { type: 'OCCUPATION', code: 'LDTD', name: 'Lao động tự do', order: 5 },
+  { type: 'OCCUPATION', code: 'KHONG', name: 'Không nghề nghiệp', order: 6 },
+  { type: 'OCCUPATION', code: 'KHAC', name: 'Nghề khác', order: 7 },
+
+  // ── NATIONALITY (Quốc tịch) ──────────────────────────────────────────────
+  // Subject.nationalityId trỏ tới directories(type=NATIONALITY) — cũng chưa từng
+  // được seed. Hệ cũ chỉ phân biệt Việt Nam / người nước ngoài (`tieu_chi_khac`).
+  { type: 'NATIONALITY', code: 'VN', name: 'Việt Nam', order: 1 },
+  { type: 'NATIONALITY', code: 'NN', name: 'Người nước ngoài', order: 2 },
+  { type: 'NATIONALITY', code: 'KXD', name: 'Chưa xác định', order: 3 },
 
   // ── CAN_CU_KHOI_TO (Căn cứ khởi tố vụ án — BLTTHS Đ.143) ──────────────────
   // PR 4 v0.38.3.0 — Hybrid pattern: code = CaseProvenance enum value (Prisma).

@@ -122,6 +122,30 @@ describe('LegacyMigrationService', () => {
       expect(res.errors).toHaveLength(0);
     });
 
+    // P1-3: trước đây `receivedDate ?? new Date()` gán NGÀY HÔM NAY cho hồ sơ 2017 khi
+    // không parse được ngày (~4.400 hồ sơ) → sai hạn xử lý, sai KPI, sai lọc theo năm.
+    it('thiếu ngày tiếp nhận → KHÔNG tạo, ghi lỗi, không bịa ngày hôm nay', async () => {
+      const res = await service.commit(
+        [{ id: 'L-404', phan_loai_nguon_tin_ban_dau: 'don-cong-van-ban-dau', ten_ca_nhan_co_quan_to_chuc_cung_cap: 'B' }],
+        'actor-1',
+      );
+      expect(mockTx.petition.create).not.toHaveBeenCalled();
+      expect(res.created.petitions).toBe(0);
+      expect(res.errors).toHaveLength(1);
+      expect(res.errors[0].legacyId).toBe('L-404');
+      expect(res.errors[0].message).toContain('MISSING_REQUIRED_DATE');
+    });
+
+    // P1-1: khoá phải kèm tên collection, nếu không hồ sơ ho_so:1 ghi đè ho_so_doi_1:1.
+    it('record có __sourceCollection → tra cứu VÀ ghi cùng một khoá có tiền tố', async () => {
+      await service.commit(
+        [{ ...petitionRec, id: 1, __sourceCollection: 'ho_so' }],
+        'actor-1',
+      );
+      expect(mockTx.petition.findFirst).toHaveBeenCalledWith({ where: { legacySourceId: 'ho_so:1' } });
+      expect(mockTx.petition.create.mock.calls[0][0].data.legacySourceId).toBe('ho_so:1');
+    });
+
     it('update petition khi legacySourceId đã tồn tại (idempotent)', async () => {
       mockTx.petition.findFirst.mockResolvedValue({ id: 'existing-p1' });
       const res = await service.commit([petitionRec], 'actor-1');
@@ -136,16 +160,27 @@ describe('LegacyMigrationService', () => {
       expect(res.created.incidents).toBe(1);
     });
 
-    it('resolve crimeChinhLegacyValue → crimeChinhId qua tx (không dùng this.prisma)', async () => {
-      const crimeObj = { id: 'crime-95' };
-      mockTx.crime.findFirst.mockResolvedValue(crimeObj);
-      await service.commit([caseRec], 'actor-1');
+    it('ĐƠN THƯ: resolve crimeChinhLegacyValue → crimeChinhId qua tx (không dùng this.prisma)', async () => {
+      mockTx.crime.findFirst.mockResolvedValue({ id: 'crime-95' });
+      await service.commit([{ ...petitionRec, toi_danh_chinh_blhs2015: '95' }], 'actor-1');
       // tx.crime.findFirst phải được gọi (không phải mockPrisma.crime.findFirst)
       expect(mockTx.crime.findFirst).toHaveBeenCalledWith({ where: { legacyValue: 95 } });
       expect(mockPrisma.crime.findFirst).not.toHaveBeenCalled();
-      const createArgs = mockTx.case.create.mock.calls[0][0].data;
+      const createArgs = mockTx.petition.create.mock.calls[0][0].data;
       expect(createArgs.crimeChinhId).toBe('crime-95');
       expect(createArgs.crimeChinhLegacyValue).toBeUndefined();
+    });
+
+    it('VỤ ÁN: KHÔNG gán crimeChinhId — bảng Vụ án không có cột đó', async () => {
+      // Gán vào khiến Prisma ném "Unknown argument" và mất trắng bản ghi: đây chính là
+      // lỗi làm hỏng 48 hồ sơ có tội danh trên dữ liệu thật. Tội danh vẫn còn ở legacyRaw.
+      mockTx.crime.findFirst.mockResolvedValue({ id: 'crime-95' });
+      await service.commit([caseRec], 'actor-1');
+      const createArgs = mockTx.case.create.mock.calls[0][0].data;
+      expect(createArgs.crimeChinhId).toBeUndefined();
+      expect(createArgs.crimeChinh).toBeUndefined();
+      expect(createArgs.crimeChinhLegacyValue).toBeUndefined();
+      expect(createArgs.legacyRaw).toBeDefined();
     });
 
     it('record không có id → skip (skipped++)', async () => {
@@ -158,7 +193,7 @@ describe('LegacyMigrationService', () => {
       mockTx.petition.create
         .mockRejectedValueOnce(new Error('DB timeout'))
         .mockResolvedValueOnce({ id: 'p2' });
-      const rec2: LegacyRecord = { id: 'L-002', phan_loai_nguon_tin_ban_dau: 'don-cong-van-ban-dau', ten_ca_nhan_co_quan_to_chuc_cung_cap: 'B' };
+      const rec2: LegacyRecord = { id: 'L-002', phan_loai_nguon_tin_ban_dau: 'don-cong-van-ban-dau', ten_ca_nhan_co_quan_to_chuc_cung_cap: 'B', ngay_tiep_nhan_nguon_tin: '15/04/2025' };
       const res = await service.commit([petitionRec, rec2], 'actor-1');
       expect(res.errors).toHaveLength(1);
       expect(res.errors[0].legacyId).toBe('L-001');
@@ -185,7 +220,7 @@ describe('LegacyMigrationService', () => {
       await service.commit([caseRec], 'actor-1');
       const data = mockTx.case.create.mock.calls[0][0].data;
       expect(data.importedFrom).toBe('legacy-db');
-      expect(data.importedById).toBe('actor-1');
+      expect(data.importedBy).toEqual({ connect: { id: 'actor-1' } });
       expect(data.importedAt).toBeInstanceOf(Date);
     });
 
@@ -212,14 +247,16 @@ describe('LegacyMigrationService', () => {
         id: 'L-010',
         phan_loai_nguon_tin_ban_dau: 'don-cong-van-ban-dau',
         ten_ca_nhan_co_quan_to_chuc_cung_cap: 'A',
+        ngay_tiep_nhan_nguon_tin: '15/04/2025',
         quyet_dinh_khoi_to_vu_an: 'QĐ-1',
       };
       await service.commit([rec], 'actor-1');
       expect(mockTx.petition.create).toHaveBeenCalledTimes(1);
       const caseData = mockTx.case.create.mock.calls[0][0].data;
       expect(caseData.caseProvenance).toBe('FROM_PETITION');
-      expect(caseData.linkedPetitionId).toBe('p1');
-      expect(caseData.linkedIncidentId).toBeNull();
+      // Quan hệ 1-1 phải nối bằng `connect`, không truyền khoá ngoại vô hướng.
+      expect(caseData.linkedPetition).toEqual({ connect: { id: 'p1' } });
+      expect(caseData.linkedIncident).toBeUndefined();
     });
 
     it('Vụ việc + QĐ khởi tố → Case FROM_INCIDENT + linkedIncidentId', async () => {
@@ -232,16 +269,16 @@ describe('LegacyMigrationService', () => {
       await service.commit([rec], 'actor-1');
       const caseData = mockTx.case.create.mock.calls[0][0].data;
       expect(caseData.caseProvenance).toBe('FROM_INCIDENT');
-      expect(caseData.linkedIncidentId).toBe('i1');
-      expect(caseData.linkedPetitionId).toBeNull();
+      expect(caseData.linkedIncident).toEqual({ connect: { id: 'i1' } });
+      expect(caseData.linkedPetition).toBeUndefined();
     });
 
     it('Vụ án standalone (không petition/incident) → TRANSFERRED, không link', async () => {
       await service.commit([caseRec], 'actor-1');
       const caseData = mockTx.case.create.mock.calls[0][0].data;
       expect(caseData.caseProvenance).toBe('TRANSFERRED');
-      expect(caseData.linkedPetitionId).toBeNull();
-      expect(caseData.linkedIncidentId).toBeNull();
+      expect(caseData.linkedPetition).toBeUndefined();
+      expect(caseData.linkedIncident).toBeUndefined();
     });
 
     it('Ủy thác điều tra → Case provenance UY_THAC_DIEU_TRA + caseType, không link', async () => {
@@ -254,7 +291,7 @@ describe('LegacyMigrationService', () => {
       const caseData = mockTx.case.create.mock.calls[0][0].data;
       expect(caseData.caseProvenance).toBe('UY_THAC_DIEU_TRA');
       expect(caseData.caseType).toBe('UY_THAC_DIEU_TRA');
-      expect(caseData.linkedPetitionId).toBeNull();
+      expect(caseData.linkedPetition).toBeUndefined();
     });
   });
 
