@@ -11,6 +11,34 @@ const IMPORTED = (actorId: string) => ({
   importedById: actorId,
 });
 
+
+/**
+ * Đổi khoá ngoại dạng số sang dạng `connect` cho Vụ việc/Vụ án.
+ *
+ * Khi trong cùng một lệnh có BẤT KỲ trường quan hệ nào (ví dụ `linkedPetition: {connect}`),
+ * Prisma chuyển sang kiểu đầu vào nghiêm ngặt và TỪ CHỐI mọi khoá ngoại dạng số còn lại
+ * ("Unknown argument `createdById`"). Trộn hai kiểu là hỏng — nên quy về một kiểu.
+ * Giá trị rỗng thì bỏ hẳn: gán `connect` với id rỗng sẽ ném lỗi khoá ngoại.
+ */
+const FK_RELATIONS: Record<string, string> = {
+  createdById: 'createdBy',
+  investigatorId: 'investigator',
+  assignedTeamId: 'assignedTeam',
+  importedById: 'importedBy',
+  crimeChinhId: 'crimeChinh',
+};
+
+function toRelationConnect(data: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...data };
+  for (const [scalar, relation] of Object.entries(FK_RELATIONS)) {
+    if (!(scalar in out)) continue;
+    const id = out[scalar];
+    delete out[scalar];
+    if (typeof id === 'string' && id.trim()) out[relation] = { connect: { id } };
+  }
+  return out;
+}
+
 export interface CommitResult {
   created: {
     petitions: number;
@@ -127,7 +155,7 @@ export class LegacyMigrationService {
             const data = { ...d.incident };
             const existing = await tx.incident.findFirst({ where: { legacySourceId: legacyId } });
             if (existing) {
-              await tx.incident.update({ where: { id: existing.id }, data });
+              await tx.incident.update({ where: { id: existing.id }, data: toRelationConnect(data) });
               linkedIncidentId = existing.id;
             } else {
               const row = await tx.incident.create({
@@ -139,8 +167,7 @@ export class LegacyMigrationService {
                   // ghi nào có giá trị thật vẫn ghi đè được.
                   lyDoKhongKhoiTo: [],
                   lyDoTamDinhChiVuViec: [],
-                  ...IMPORTED(actorId),
-                  ...data,
+                  ...toRelationConnect({ ...IMPORTED(actorId), ...data }),
                 },
               });
               linkedIncidentId = row.id;
@@ -173,7 +200,7 @@ export class LegacyMigrationService {
             if (existing) {
               caseRow = await tx.case.update({
                 where: { id: existing.id },
-                data: { caseProvenance, ...link, ...data },
+                data: { caseProvenance, ...link, ...toRelationConnect(data) },
               });
             } else {
               caseRow = await tx.case.create({
@@ -183,8 +210,7 @@ export class LegacyMigrationService {
                   ...link,
                   // Xem ghi chú ở phần tạo Vụ việc: mảng NOT NULL không có default.
                   lyDoTamDinhChiVuAn: [],
-                  ...IMPORTED(actorId),
-                  ...data,
+                  ...toRelationConnect({ ...IMPORTED(actorId), ...data }),
                 },
               });
               d2.cases++;

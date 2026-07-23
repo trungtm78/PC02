@@ -168,7 +168,8 @@ describe('LegacyMigrationService', () => {
       expect(mockTx.crime.findFirst).toHaveBeenCalledWith({ where: { legacyValue: 95 } });
       expect(mockPrisma.crime.findFirst).not.toHaveBeenCalled();
       const createArgs = mockTx.case.create.mock.calls[0][0].data;
-      expect(createArgs.crimeChinhId).toBe('crime-95');
+      // Khoá ngoại được truyền dạng `connect` để không trộn hai kiểu đầu vào của Prisma.
+      expect(createArgs.crimeChinh).toEqual({ connect: { id: 'crime-95' } });
       expect(createArgs.crimeChinhLegacyValue).toBeUndefined();
     });
 
@@ -209,7 +210,7 @@ describe('LegacyMigrationService', () => {
       await service.commit([caseRec], 'actor-1');
       const data = mockTx.case.create.mock.calls[0][0].data;
       expect(data.importedFrom).toBe('legacy-db');
-      expect(data.importedById).toBe('actor-1');
+      expect(data.importedBy).toEqual({ connect: { id: 'actor-1' } });
       expect(data.importedAt).toBeInstanceOf(Date);
     });
 
