@@ -18,6 +18,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { LegacyMigrationService } from '../legacy-migration.service';
 import type { LegacyRecord } from '../legacy-mapper';
 import { normalizeVi } from './org-mapper';
+import { inferClass, needsInference } from './infer-class';
 
 const DEFAULT_BATCH = 500;
 
@@ -72,6 +73,23 @@ export async function loadLookups(prisma: PrismaClient): Promise<Lookups> {
  * `nguoi_them` khớp `thanh_vien.id` 100,00% trên toàn bộ 53.820 hồ sơ (0 mồ côi), nên
  * đây là căn cứ đáng tin để gán người. Không tra được thì để TRỐNG, không gán bừa.
  */
+/**
+ * Hồ sơ không có BẤT KỲ trường phân loại nào (`phan_loai_nguon_tin_ban_dau` lẫn `loai`
+ * đều rỗng) thì tự suy từ dấu hiệu nghiệp vụ, thay vì bỏ rơi. Ghi lại căn cứ và độ tin
+ * cậy vào chính bản ghi để báo cáo Excel liệt kê được, và để người duyệt lật lại.
+ */
+export function attachInferredClass(rec: LegacyRecord): LegacyRecord {
+  if (!needsInference(rec)) return rec;
+  const inf = inferClass(rec);
+  return {
+    ...rec,
+    phan_loai_nguon_tin_ban_dau: inf.phanLoai,
+    __inferredClass: inf.phanLoai,
+    __inferredConfidence: inf.confidence,
+    __inferredReason: inf.reason,
+  };
+}
+
 export function attachOwnership(rec: LegacyRecord, lk: Lookups): LegacyRecord {
   const ownerId = rec.nguoi_them == null ? '' : String(rec.nguoi_them).trim();
   const userId = ownerId ? lk.userByLegacyId.get(ownerId) : undefined;
@@ -136,7 +154,7 @@ async function main(): Promise<void> {
         select: { sourceFile: true, raw: true },
       });
       const records: LegacyRecord[] = rows.map((r) =>
-        attachOwnership({ ...(r.raw as LegacyRecord), __sourceCollection: r.sourceFile }, lk),
+        attachOwnership(attachInferredClass({ ...(r.raw as LegacyRecord), __sourceCollection: r.sourceFile }), lk),
       );
 
       const res = await service.commit(records, actorId);

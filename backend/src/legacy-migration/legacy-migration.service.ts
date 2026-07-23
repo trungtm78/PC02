@@ -154,16 +154,20 @@ export class LegacyMigrationService {
             // Provenance: ưu tiên liên kết 1→nhiều cùng record; else hint (vd UY_THAC); else TRANSFERRED.
             // Set rõ cả 2 FK (null khi không dùng) để thỏa CHECK case_provenance_fk_consistency.
             let caseProvenance: string;
-            let link: { linkedPetitionId: string | null; linkedIncidentId: string | null };
+            // Case.linkedPetition/linkedIncident là quan hệ 1-1, Prisma KHÔNG nhận khoá
+            // ngoại dạng vô hướng ở đây — phải dùng `connect`. Truyền `linkedPetitionId: <id>`
+            // ném "Unknown argument", làm hỏng đúng những bản ghi sinh CẢ đơn thư LẪN vụ án
+            // trong cùng một hồ sơ (48 hồ sơ trên dữ liệu thật).
+            let link: Record<string, unknown>;
             if (linkedPetitionId) {
               caseProvenance = 'FROM_PETITION';
-              link = { linkedPetitionId, linkedIncidentId: null };
+              link = { linkedPetition: { connect: { id: linkedPetitionId } } };
             } else if (linkedIncidentId) {
               caseProvenance = 'FROM_INCIDENT';
-              link = { linkedPetitionId: null, linkedIncidentId };
+              link = { linkedIncident: { connect: { id: linkedIncidentId } } };
             } else {
               caseProvenance = d.caseProvenanceHint ?? 'TRANSFERRED';
-              link = { linkedPetitionId: null, linkedIncidentId: null };
+              link = {};
             }
             const existing = await tx.case.findFirst({ where: { legacySourceId: legacyId } });
             if (existing) {

@@ -243,8 +243,9 @@ describe('LegacyMigrationService', () => {
       expect(mockTx.petition.create).toHaveBeenCalledTimes(1);
       const caseData = mockTx.case.create.mock.calls[0][0].data;
       expect(caseData.caseProvenance).toBe('FROM_PETITION');
-      expect(caseData.linkedPetitionId).toBe('p1');
-      expect(caseData.linkedIncidentId).toBeNull();
+      // Quan hệ 1-1 phải nối bằng `connect`, không truyền khoá ngoại vô hướng.
+      expect(caseData.linkedPetition).toEqual({ connect: { id: 'p1' } });
+      expect(caseData.linkedIncident).toBeUndefined();
     });
 
     it('Vụ việc + QĐ khởi tố → Case FROM_INCIDENT + linkedIncidentId', async () => {
@@ -257,16 +258,16 @@ describe('LegacyMigrationService', () => {
       await service.commit([rec], 'actor-1');
       const caseData = mockTx.case.create.mock.calls[0][0].data;
       expect(caseData.caseProvenance).toBe('FROM_INCIDENT');
-      expect(caseData.linkedIncidentId).toBe('i1');
-      expect(caseData.linkedPetitionId).toBeNull();
+      expect(caseData.linkedIncident).toEqual({ connect: { id: 'i1' } });
+      expect(caseData.linkedPetition).toBeUndefined();
     });
 
     it('Vụ án standalone (không petition/incident) → TRANSFERRED, không link', async () => {
       await service.commit([caseRec], 'actor-1');
       const caseData = mockTx.case.create.mock.calls[0][0].data;
       expect(caseData.caseProvenance).toBe('TRANSFERRED');
-      expect(caseData.linkedPetitionId).toBeNull();
-      expect(caseData.linkedIncidentId).toBeNull();
+      expect(caseData.linkedPetition).toBeUndefined();
+      expect(caseData.linkedIncident).toBeUndefined();
     });
 
     it('Ủy thác điều tra → Case provenance UY_THAC_DIEU_TRA + caseType, không link', async () => {
@@ -279,7 +280,7 @@ describe('LegacyMigrationService', () => {
       const caseData = mockTx.case.create.mock.calls[0][0].data;
       expect(caseData.caseProvenance).toBe('UY_THAC_DIEU_TRA');
       expect(caseData.caseType).toBe('UY_THAC_DIEU_TRA');
-      expect(caseData.linkedPetitionId).toBeNull();
+      expect(caseData.linkedPetition).toBeUndefined();
     });
   });
 
