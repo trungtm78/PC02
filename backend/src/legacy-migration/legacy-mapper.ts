@@ -581,8 +581,43 @@ export const MAPPED_LEGACY_KEYS: ReadonlySet<string> = new Set([
   'ngay_tra_ket_qua_uy_thac',
 ]);
 
+/**
+ * Bảng `TamDinhChi_vu_viec_21` của hệ cũ là danh sách vụ việc ĐÃ TẠM ĐÌNH CHỈ, cấu trúc
+ * khác hẳn `ho_so_doi_1` (cột riêng: tam_dinh_chi_so, ly_do, dtv, ksv…). Không có khoá nối
+ * tới hồ sơ đã di trú nên coi là vụ việc riêng, trạng thái TAM_DINH_CHI.
+ */
+function buildTamDinhChiIncident(rec: LegacyRecord): Record<string, unknown> {
+  const own = ownership(rec);
+  const noiDung = s(rec.noi_dung);
+  const dieu = s(rec.dieu);
+  return clean({
+    legacySourceId: legacyKey(rec),
+    name: noiDung ? (noiDung.length > 120 ? noiDung.slice(0, 117).trimEnd() + '…' : noiDung) : 'Vụ việc TĐC ' + s(rec.id),
+    description: noiDung,
+    status: 'TAM_DINH_CHI',
+    // Incident không có cột tội danh riêng — ghi điều luật vào phần mô tả để không mất.
+    tinhTrangHoSo: dieu ? `Tạm đình chỉ theo Điều ${dieu}` : undefined,
+    soQuyetDinhTamDinhChiVV: s(rec.tam_dinh_chi_so),
+    ngayTamDinhChiVV: parseLegacyDate(rec.tam_dinh_chi_time),
+    canCuTamDinhChi: s(rec.ly_do),
+    createdById: own.createdById,
+    investigatorId: own.investigatorId,
+    assignedTeamId: own.assignedTeamId,
+    // Cột mảng NOT NULL không default.
+    lyDoKhongKhoiTo: [],
+    lyDoTamDinhChiVuViec: [],
+    legacyRaw: { ...rec },
+  });
+}
+
 export function decomposeLegacyRecord(rec: LegacyRecord): DecomposedEntities {
   const warnings: string[] = [];
+
+  // Nhánh riêng cho bảng tạm đình chỉ — nhận diện theo tên collection, không theo phân loại.
+  if (s(rec.__sourceCollection) === 'TamDinhChi_vu_viec_21') {
+    return { warnings: [], incident: buildTamDinhChiIncident(rec) };
+  }
+
   const phanLoai = normalizePhanLoai(rec);
   const out: DecomposedEntities = { warnings };
 

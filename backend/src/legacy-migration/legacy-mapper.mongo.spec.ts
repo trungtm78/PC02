@@ -232,3 +232,43 @@ describe('Chuẩn hoá — đọc nốt các cột nhánh Đơn thư đã đọc
     expect((r.case!.name as string).length).toBeLessThanOrEqual(121);
   });
 });
+
+describe('TamDinhChi_vu_viec_21 — vụ việc tạm đình chỉ (bảng riêng)', () => {
+  const rec = {
+    id: 1,
+    __sourceCollection: 'TamDinhChi_vu_viec_21',
+    noi_dung: 'Lừa đảo chiếm đoạt tài sản ngày 17/02/2020 tại 309 Tên Lửa, phường Bình Trị Đông',
+    dieu: 174,
+    tam_dinh_chi_so: 37,
+    tam_dinh_chi_time: '2020-06-18',
+    ly_do: 'Điểm a Khoản 1, Điều 148 BLTTHS',
+    dtv: 'Hùng',
+    ksv: 'Thuân',
+  };
+
+  it('nhận diện theo tên collection, tạo Incident trạng thái TAM_DINH_CHI', () => {
+    const r = decomposeLegacyRecord(rec);
+    expect(r.incident).toBeDefined();
+    expect(r.case).toBeUndefined();
+    expect(r.incident!.status).toBe('TAM_DINH_CHI');
+  });
+
+  it('khoá kèm tên collection để không đụng ho_so_doi_1', () => {
+    expect(decomposeLegacyRecord(rec).incident!.legacySourceId).toBe('TamDinhChi_vu_viec_21:1');
+  });
+
+  it('điền số/ngày QĐ tạm đình chỉ và căn cứ', () => {
+    const i = decomposeLegacyRecord(rec).incident!;
+    expect(i.soQuyetDinhTamDinhChiVV).toBe('37');
+    expect(i.ngayTamDinhChiVV).toBeInstanceOf(Date);
+    expect((i.ngayTamDinhChiVV as Date).getUTCFullYear()).toBe(2020);
+    expect(i.canCuTamDinhChi).toBe('Điểm a Khoản 1, Điều 148 BLTTHS');
+  });
+
+  it('nội dung dài → tiêu đề ngắn, mô tả giữ toàn văn', () => {
+    const long = { ...rec, noi_dung: 'X'.repeat(300) };
+    const i = decomposeLegacyRecord(long).incident!;
+    expect((i.name as string).length).toBeLessThanOrEqual(121);
+    expect(i.description).toBe(long.noi_dung);
+  });
+});

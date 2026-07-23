@@ -133,7 +133,7 @@ async function main(): Promise<void> {
     // JSONB trong RAM cùng lúc.
     const idRows = await prisma.$queryRawUnsafe<{ id: string }[]>(
       `SELECT id FROM legacy_staging
-       WHERE "sourceFile" IN ('ho_so_doi_1','ho_so')
+       WHERE "sourceFile" IN ('ho_so_doi_1','ho_so','TamDinhChi_vu_viec_21')
        ${opts.year ? `AND raw->>'nam' = '${opts.year.replace(/'/g, "''")}'` : ''}
        ORDER BY NULLIF(regexp_replace(COALESCE(raw->>'nam',''), '\\D', '', 'g'), '')::int DESC NULLS LAST,
                 (raw->>'id')::text DESC
