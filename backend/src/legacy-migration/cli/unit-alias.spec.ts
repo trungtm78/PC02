@@ -1,4 +1,4 @@
-import { classifyUnitValue, groupRawValues } from './unit-alias';
+import { classifyUnitValue, groupRawValues, extractHinhSuArea } from './unit-alias';
 import { teamMatchKey } from './org-mapper';
 
 // Tập tổ giả lập đúng như sau khi sinh cây Tổ/Nhóm từ dữ liệu cũ.
@@ -76,6 +76,14 @@ describe('extractHinhSuArea — tổ hình sự theo địa bàn', () => {
 
   it('bỏ tiền tố PC02: "PC02 Cơ sở 1 (Bình Dương)" → Cơ sở 1', () => {
     expect(classifyUnitValue('PC02 Cơ sở 1 (Bình Dương)', T).kind).toBe('TEAM');
+  });
+
+  it('dữ liệu dạng Unicode tổ hợp (NFD) vẫn cắt được chữ "cũ"', () => {
+    // Chuỗi thật trong dump ở dạng NFD: "cũ" = c + u + dấu ngã rời (U+0303).
+    const nfd = 'Tổ hình sự khu vực 2 (TP. Thủ Đức cũ)'.normalize('NFD');
+    expect(nfd).not.toBe('Tổ hình sự khu vực 2 (TP. Thủ Đức cũ)'); // xác nhận đúng là NFD
+    expect(extractHinhSuArea(nfd)?.normalize('NFC')).toBe('Thủ Đức');
+    expect(classifyUnitValue(nfd, T).kind).toBe('TEAM');
   });
 
   it('KHÔNG nhận nhầm doanh nghiệp có chữ "khu vực 2"', () => {

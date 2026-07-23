@@ -60,7 +60,11 @@ export function extractHinhSuArea(raw: string): string | undefined {
   const norm = normalizeVi(raw).replace(/^bch\s+/, '');
   if (!/^to\s+h[i]nh\s+su\b/.test(norm)) return undefined;
 
-  const inParen = raw.match(/\(([^)]+)\)/)?.[1];
+  // Dữ liệu thật lưu ở dạng Unicode TỔ HỢP (NFD): "cũ" = c + u + dấu ngã rời. Cắt đuôi
+  // bằng chữ "cũ" sẽ trượt nếu không hợp nhất về NFC trước — lỗi này từng làm cả nhóm
+  // "Tổ hình sự khu vực N (… cũ)" rơi vào diện chưa phân loại.
+  const nfc = raw.normalize('NFC');
+  const inParen = nfc.match(/\(([^)]+)\)/)?.[1];
   if (inParen) {
     // "TP. Thủ Đức cũ" → "TP. Thủ Đức"; chữ "cũ" chỉ là ghi chú thời điểm.
     const cleaned = stripCityPrefix(inParen.replace(/\s*c[ũu]\s*$/i, ''));
@@ -68,7 +72,7 @@ export function extractHinhSuArea(raw: string): string | undefined {
   }
   // Bỏ cụm "Tổ hình sự" và phần "khu vực N" nếu có, còn lại là địa bàn.
   const rest = stripCityPrefix(
-    raw
+    nfc
       .replace(/^\s*bch\s+/i, '')
       .replace(/^\s*t[ổo]\s+h[ìíi]nh\s+s[ựu]\s*/i, '')
       .replace(/^kh[uư]\s*v[ựu]c\s*[0-9IVX]+\s*/i, '')
