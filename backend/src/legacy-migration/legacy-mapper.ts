@@ -294,9 +294,41 @@ function buildPetition(rec: LegacyRecord): Record<string, unknown> {
   });
 }
 
+/**
+ * Tiêu đề ngắn gọn cho Vụ án.
+ *
+ * Hệ cũ nhét CẢ đoạn diễn biến vào một ô, nên nếu bê nguyên sang `name` thì danh sách
+ * Vụ án chỉ toàn những dòng dài cả trang. Ở đây rút gọn: ưu tiên tội danh + nơi xảy ra,
+ * không có thì lấy câu đầu; toàn văn KHÔNG mất, nằm ở `metadata.description` ("Mô tả
+ * chi tiết" trên form).
+ */
+export function caseTitle(rec: LegacyRecord): string {
+  const toiDanh = s(rec['toi-danh-ban-dau']);
+  const noi = s(rec.noi_xay_ra) ?? s(rec.noi_xay_ra_phuong_xa);
+  const parts = [toiDanh, noi].filter(Boolean) as string[];
+  let head = parts.join(' — ');
+  if (!head) {
+    const full = s(rec.tom_tat_noi_dung);
+    if (!full) return 'Vụ án di trú ' + (s(rec.id) ?? '');
+    head = full.split(/(?<=[.;])\s/)[0] ?? full;
+  }
+  head = head.replace(/\s+/g, ' ').trim();
+  if (head.length <= 120) return head;
+  const cut = head.slice(0, 120);
+  const sp = cut.lastIndexOf(' ');
+  return (sp > 60 ? cut.slice(0, sp) : cut).trimEnd() + '…';
+}
+
 function buildIncident(rec: LegacyRecord): Record<string, unknown> {
   const own = ownership(rec);
   return clean({
+    // Các cột dưới đây nhánh Đơn thư đã đọc từ lâu, nhánh Vụ việc thì không —
+    // nên hồ sơ vào hệ thống mà mọi ô nghiệp vụ đều trống. Xem bảng rà soát 80 cột.
+    nguonPhatTin: s(rec.nguon_don),
+    tinhTrangHoSo: s(rec.tinh_trang),
+    diaChiNguoiToGiac: s(rec['dia-chi-bi-hai']),
+    ngayDeXuat: parseLegacyDate(rec.ngay_de_xuat),
+    ketQuaXuLy: s(rec.ket_qua_xu_ly_giai_quyet_khac),
     legacySourceId: legacyKey(rec),
     createdById: own.createdById,
     investigatorId: own.investigatorId,
@@ -334,9 +366,36 @@ function buildCase(rec: LegacyRecord): Record<string, unknown> {
     createdById: own.createdById,
     investigatorId: own.investigatorId,
     assignedTeamId: own.assignedTeamId,
-    name: s(rec.tom_tat_noi_dung) ?? 'Vụ án di trú ' + s(rec.id),
-    soQuyetDinhKhoiTo: s(rec.quyet_dinh_khoi_to_vu_an),
-    ngayKhoiTo: parseLegacyDate(rec.ngay_quyet_dinh_khoi_to_vu_an),
+    // Tiêu đề NGẮN GỌN để đọc được trên danh sách; toàn văn giữ ở metadata.description
+    // — đúng ô "Mô tả chi tiết" mà form Vụ án đã có sẵn.
+    name: caseTitle(rec),
+    crime: s(rec['toi-danh-ban-dau']),
+    loaiThongTin: s(rec.loai_thong_tin),
+    ngayTiepNhan: parseLegacyDate(rec.ngay_tiep_nhan_nguon_tin),
+    // Giao diện Vụ án đọc các ô này từ metadata (buildCreateCasePayload.ts) nên đổ vào đây
+    // là hiện ngay trên form, không phải đổi cấu trúc bảng.
+    metadata: clean({
+      description: s(rec.tom_tat_noi_dung),
+      nguonDon: s(rec.nguon_don),
+      nhanXet: s(rec.nhan_xet),
+      noiXayRa: s(rec.noi_xay_ra) ?? s(rec.noi_xay_ra_phuong_xa),
+      nghiVanDoiTuong: s(rec.nghi_van_doi_tuong),
+      biHai: s(rec['dia-chi-bi-hai']),
+      phuongThucThuDoan: s(rec.phuong_thuc_thu_doan),
+      ketQuaXuLyKhac: s(rec.ket_qua_xu_ly_giai_quyet_khac),
+      soPhieuChuyen: s(rec.so_phieu_chuyen),
+      damageAmount: parseLegacyNumber(rec.so_tien_bi_thiet_hai),
+      soLuongBiHai: parseLegacyNumber(rec.so_luong_bi_hai),
+      dieuTraVienText: s(rec.dieu_tra_vien),
+      sttCu: s(rec.stt_cu),
+      tinhTrang: s(rec.tinh_trang),
+      phanLoaiToiPhamLinhVuc: s(rec.phan_loai_toi_pham_theo_linh_vuc),
+      phanLoaiHoSoNoiBo: s(rec.phan_loai_ho_so_doi_1),
+      deXuatXuLy: s(rec.de_xuat),
+      yeuCauBoSung: s(rec.yeu_cau_bo_sung),
+    }),
+    soQuyetDinhKhoiTo: s(rec.quyet_dinh_khoi_to_vu_an) ?? s(rec.quyet_dinh_khong_khoi_to),
+    ngayKhoiTo: parseLegacyDate(rec.ngay_quyet_dinh_khoi_to_vu_an) ?? parseLegacyDate(rec.ngay_ra_quyet_dinh_khoi_to),
     soQDNhapVuAn: s(rec.quyet_dinh_nhap_vu_an),
     ngayNhapVuAn: parseLegacyDate(rec.ngay_nhap_vu_an),
     ghiChuNhapHoSo: s(rec.ghi_chu_nhap_ho_so),
