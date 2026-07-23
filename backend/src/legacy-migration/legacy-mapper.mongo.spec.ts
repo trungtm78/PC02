@@ -174,3 +174,101 @@ describe('P1-6 — gán chủ sở hữu và tổ (bộ nạp tính sẵn, mappe
     expect(r.case!.assignedTeamId).toBeUndefined();
   });
 });
+
+describe('Chuẩn hoá — đọc nốt các cột nhánh Đơn thư đã đọc mà Vụ án/Vụ việc bỏ sót', () => {
+  // Dữ liệu lấy từ hồ sơ thật ho_so_doi_1:460 (vụ Hans Christian Ehm Hansen).
+  const rec = {
+    id: 460,
+    __sourceCollection: 'ho_so_doi_1',
+    phan_loai_nguon_tin_ban_dau: 'vu-an-ban-dau',
+    tom_tat_noi_dung: 'Khoảng 4 giờ 30 phút ngày 03/12/2016, Hans Christian Ehm Hansen đi xe máy cùng bạn đến trước số 290B/5 Dương Bá Trạc, P1 Q8 thì dừng xe để sử dụng ĐTDĐ. Ngày 05/12/2016, CAQ8 khởi tố vụ án về tội "Cướp giật tài sản".',
+    'toi-danh-ban-dau': 'Cướp giật tài sản ',
+    'dia-chi-bi-hai': 'Hans Christian Ehm Hansen (QT: Đan Mạch)',
+    nguon_don: 'Công an quận 8',
+    nhan_xet: 'Vụ án "Cướp giật tài sản", đã rõ đối tượng, bị hại người nước ngoài.',
+    ket_qua_xu_ly_giai_quyet_khac: 'KLĐT ngày 22/02/2017',
+    dieu_tra_vien: 'Thanh',
+    stt_cu: 23,
+    so_tien_bi_thiet_hai: '6.000.000',
+  };
+
+  it('Vụ án: tội danh vào ô `crime` (trước đây 0% hồ sơ có tội danh)', () => {
+    expect(decomposeLegacyRecord(rec).case!.crime).toBe('Cướp giật tài sản');
+  });
+
+  it('Vụ án: tiêu đề NGẮN GỌN, không còn nguyên đoạn văn', () => {
+    const name = decomposeLegacyRecord(rec).case!.name as string;
+    expect(name.length).toBeLessThanOrEqual(121);
+    expect(name).toContain('Cướp giật tài sản');
+    expect(name).not.toContain('Hans Christian');
+  });
+
+  it('Vụ án: TOÀN VĂN giữ nguyên ở "Mô tả chi tiết" (metadata.description)', () => {
+    const meta = decomposeLegacyRecord(rec).case!.metadata as Record<string, unknown>;
+    expect(meta.description).toBe(rec.tom_tat_noi_dung);
+  });
+
+  it('Vụ án: các ô nghiệp vụ khác được điền, không còn trống', () => {
+    const meta = decomposeLegacyRecord(rec).case!.metadata as Record<string, unknown>;
+    expect(meta.nguonDon).toBe('Công an quận 8');
+    expect(meta.biHai).toBe('Hans Christian Ehm Hansen (QT: Đan Mạch)');
+    expect(meta.nhanXet).toContain('đã rõ đối tượng');
+    expect(meta.ketQuaXuLyKhac).toBe('KLĐT ngày 22/02/2017');
+    expect(meta.dieuTraVienText).toBe('Thanh');
+    expect(meta.sttCu).toBe('23');
+    expect(meta.damageAmount).toBe(6000000);
+  });
+
+  it('Vụ việc: nội dung, nguồn tin, tình trạng được điền', () => {
+    const r = decomposeLegacyRecord({ ...rec, phan_loai_nguon_tin_ban_dau: 'vu-viec-ban-dau', tinh_trang: 'Đang xác minh' });
+    expect(r.incident!.description).toBe(rec.tom_tat_noi_dung);
+    expect(r.incident!.chuyenTuDonVi).toBe("Công an quận 8");
+    expect(r.incident!.tinhTrangHoSo).toBe('Đang xác minh');
+    expect(r.incident!.diaChiNguoiToGiac).toBe('Hans Christian Ehm Hansen (QT: Đan Mạch)');
+  });
+
+  it('không có tội danh và nơi xảy ra → tiêu đề lấy câu đầu, vẫn ngắn', () => {
+    const r = decomposeLegacyRecord({ id: 9, phan_loai_nguon_tin_ban_dau: 'vu-an-ban-dau', tom_tat_noi_dung: 'A'.repeat(400) });
+    expect((r.case!.name as string).length).toBeLessThanOrEqual(121);
+  });
+});
+
+describe('TamDinhChi_vu_viec_21 — vụ việc tạm đình chỉ (bảng riêng)', () => {
+  const rec = {
+    id: 1,
+    __sourceCollection: 'TamDinhChi_vu_viec_21',
+    noi_dung: 'Lừa đảo chiếm đoạt tài sản ngày 17/02/2020 tại 309 Tên Lửa, phường Bình Trị Đông',
+    dieu: 174,
+    tam_dinh_chi_so: 37,
+    tam_dinh_chi_time: '2020-06-18',
+    ly_do: 'Điểm a Khoản 1, Điều 148 BLTTHS',
+    dtv: 'Hùng',
+    ksv: 'Thuân',
+  };
+
+  it('nhận diện theo tên collection, tạo Incident trạng thái TAM_DINH_CHI', () => {
+    const r = decomposeLegacyRecord(rec);
+    expect(r.incident).toBeDefined();
+    expect(r.case).toBeUndefined();
+    expect(r.incident!.status).toBe('TAM_DINH_CHI');
+  });
+
+  it('khoá kèm tên collection để không đụng ho_so_doi_1', () => {
+    expect(decomposeLegacyRecord(rec).incident!.legacySourceId).toBe('TamDinhChi_vu_viec_21:1');
+  });
+
+  it('điền số/ngày QĐ tạm đình chỉ và căn cứ', () => {
+    const i = decomposeLegacyRecord(rec).incident!;
+    expect(i.soQuyetDinhTamDinhChiVV).toBe('37');
+    expect(i.ngayTamDinhChiVV).toBeInstanceOf(Date);
+    expect((i.ngayTamDinhChiVV as Date).getUTCFullYear()).toBe(2020);
+    expect(i.canCuTamDinhChi).toBe('Điểm a Khoản 1, Điều 148 BLTTHS');
+  });
+
+  it('nội dung dài → tiêu đề ngắn, mô tả giữ toàn văn', () => {
+    const long = { ...rec, noi_dung: 'X'.repeat(300) };
+    const i = decomposeLegacyRecord(long).incident!;
+    expect((i.name as string).length).toBeLessThanOrEqual(121);
+    expect(i.description).toBe(long.noi_dung);
+  });
+});

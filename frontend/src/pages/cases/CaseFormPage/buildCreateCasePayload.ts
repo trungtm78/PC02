@@ -21,6 +21,20 @@ export interface EvidencePayload {
   code: string;
   name: string;
   description?: string;
+  nguonDon?: string;
+  nhanXet?: string;
+  biHai?: string;
+  noiXayRa?: string;
+  nghiVanDoiTuong?: string;
+  phuongThucThuDoan?: string;
+  ketQuaXuLyKhac?: string;
+  soPhieuChuyen?: string;
+  dieuTraVienText?: string;
+  sttCu?: string;
+  tinhTrang?: string;
+  phanLoaiToiPhamLinhVuc?: string;
+  deXuatXuLy?: string;
+  yeuCauBoSung?: string;
   quantity?: number;
   unit?: string;
   storageLocation?: string;
@@ -134,6 +148,20 @@ export function buildCreateCasePayload(
       caseClassification: formData.caseClassification,
       priority: formData.priority,
       description: formData.description,
+      nguonDon: formData.nguonDon || undefined,
+      nhanXet: formData.nhanXet || undefined,
+      biHai: formData.biHai || undefined,
+      noiXayRa: formData.noiXayRa || undefined,
+      nghiVanDoiTuong: formData.nghiVanDoiTuong || undefined,
+      phuongThucThuDoan: formData.phuongThucThuDoan || undefined,
+      ketQuaXuLyKhac: formData.ketQuaXuLyKhac || undefined,
+      soPhieuChuyen: formData.soPhieuChuyen || undefined,
+      dieuTraVienText: formData.dieuTraVienText || undefined,
+      sttCu: formData.sttCu || undefined,
+      tinhTrang: formData.tinhTrang || undefined,
+      phanLoaiToiPhamLinhVuc: formData.phanLoaiToiPhamLinhVuc || undefined,
+      deXuatXuLy: formData.deXuatXuLy || undefined,
+      yeuCauBoSung: formData.yeuCauBoSung || undefined,
       investigationStartDate: formData.investigationStartDate,
       prosecutionOfficeAssigned: formData.prosecutionOfficeAssigned,
       relatedCaseCode: formData.relatedCaseCode,
