@@ -136,3 +136,35 @@ describe('P2-2 — legacyRaw chỉ lưu MỘT bản', () => {
     expect(withRaw).toHaveLength(1);
   });
 });
+
+describe('P1-6 — gán chủ sở hữu và tổ (bộ nạp tính sẵn, mapper chỉ chuyển tiếp)', () => {
+  // scope-filter: Vụ việc/Vụ án lọc theo investigatorId, Đơn thư lọc theo enteredById.
+  // Không gắn ai thì hồ sơ ẩn hoàn toàn với cán bộ tổ.
+  const own = { __enteredById: 'u1', __createdById: 'u1', __investigatorId: 'u1', __assignedTeamId: 't9' };
+
+  it('Đơn thư nhận enteredById + assignedTeamId', () => {
+    const r = decomposeLegacyRecord({ id: 1, phan_loai_nguon_tin_ban_dau: 'don-cong-van-ban-dau', ...own });
+    expect(r.petition!.enteredById).toBe('u1');
+    expect(r.petition!.assignedTeamId).toBe('t9');
+  });
+
+  it('Vụ việc nhận createdById + investigatorId + assignedTeamId', () => {
+    const r = decomposeLegacyRecord({ id: 1, phan_loai_nguon_tin_ban_dau: 'vu-viec-ban-dau', ...own });
+    expect(r.incident!.investigatorId).toBe('u1');
+    expect(r.incident!.createdById).toBe('u1');
+    expect(r.incident!.assignedTeamId).toBe('t9');
+  });
+
+  it('Vụ án nhận đủ ba trường', () => {
+    const r = decomposeLegacyRecord({ id: 1, phan_loai_nguon_tin_ban_dau: 'vu-an-ban-dau', ...own });
+    expect(r.case!.investigatorId).toBe('u1');
+    expect(r.case!.createdById).toBe('u1');
+    expect(r.case!.assignedTeamId).toBe('t9');
+  });
+
+  it('không tra được người/tổ → KHÔNG gán bừa, để trống', () => {
+    const r = decomposeLegacyRecord({ id: 1, phan_loai_nguon_tin_ban_dau: 'vu-an-ban-dau' });
+    expect(r.case!.investigatorId).toBeUndefined();
+    expect(r.case!.assignedTeamId).toBeUndefined();
+  });
+});

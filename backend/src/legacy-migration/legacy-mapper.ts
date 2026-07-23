@@ -226,10 +226,32 @@ const ALL_PHAN_LOAI = new Set<string>([
   ...PHAN_LOAI_CONG_VAN_TDC,
 ]);
 
+
+/**
+ * Chủ sở hữu và tổ phụ trách — do BỘ NẠP tính sẵn rồi gắn vào bản ghi dưới dạng khoá `__`.
+ *
+ * Mapper là hàm thuần, không tra được CSDL, nên không tự đổi `nguoi_them` (số) thành id
+ * người dùng hay `don_vi_giai_quyet` (chuỗi) thành id tổ được. Bộ nạp nạp sẵn bảng tra cứu
+ * rồi truyền xuống qua ba khoá này.
+ *
+ * Vì sao BẮT BUỘC phải có: theo scope-filter, Vụ việc/Vụ án lọc theo `investigatorId`,
+ * Đơn thư lọc theo `enteredById`. Bản ghi không gắn ai vẫn hiện với PC02 nhưng ẩn hoàn
+ * toàn với cán bộ tổ — nghĩa là di trú xong mà cán bộ không thấy hồ sơ của chính mình.
+ */
+const ownership = (rec: LegacyRecord) => ({
+  enteredById: s(rec.__enteredById),
+  createdById: s(rec.__createdById),
+  investigatorId: s(rec.__investigatorId),
+  assignedTeamId: s(rec.__assignedTeamId),
+});
+
 // Field tiếp nhận chung (người gửi / nội dung) — dùng cho Petition.
 function buildPetition(rec: LegacyRecord): Record<string, unknown> {
+  const own = ownership(rec);
   return clean({
     legacySourceId: legacyKey(rec),
+    enteredById: own.enteredById,
+    assignedTeamId: own.assignedTeamId,
     senderName: s(rec.ten_ca_nhan_co_quan_to_chuc_cung_cap),
     senderPhone: s(rec.so_dien_thoai_nguyen_don),
     senderBirthYear: s(rec.sinh_nam_nguoi_to_giac),
@@ -268,8 +290,12 @@ function buildPetition(rec: LegacyRecord): Record<string, unknown> {
 }
 
 function buildIncident(rec: LegacyRecord): Record<string, unknown> {
+  const own = ownership(rec);
   return clean({
     legacySourceId: legacyKey(rec),
+    createdById: own.createdById,
+    investigatorId: own.investigatorId,
+    assignedTeamId: own.assignedTeamId,
     name: s(rec.tom_tat_noi_dung) ?? 'Vụ việc di trú ' + s(rec.id),
     description: s(rec.tom_tat_noi_dung),
     diaChiXayRa: s(rec.noi_xay_ra),
@@ -297,8 +323,12 @@ function buildIncident(rec: LegacyRecord): Record<string, unknown> {
 }
 
 function buildCase(rec: LegacyRecord): Record<string, unknown> {
+  const own = ownership(rec);
   return clean({
     legacySourceId: legacyKey(rec),
+    createdById: own.createdById,
+    investigatorId: own.investigatorId,
+    assignedTeamId: own.assignedTeamId,
     name: s(rec.tom_tat_noi_dung) ?? 'Vụ án di trú ' + s(rec.id),
     soQuyetDinhKhoiTo: s(rec.quyet_dinh_khoi_to_vu_an),
     ngayKhoiTo: parseLegacyDate(rec.ngay_quyet_dinh_khoi_to_vu_an),

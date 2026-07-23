@@ -131,7 +131,17 @@ export class LegacyMigrationService {
               linkedIncidentId = existing.id;
             } else {
               const row = await tx.incident.create({
-                data: { code: `VV-LEGACY-${legacyId}`, status: 'TIEP_NHAN', ...IMPORTED(actorId), ...data },
+                data: {
+                  code: `VV-LEGACY-${legacyId}`,
+                  status: 'TIEP_NHAN',
+                  // Cột mảng NOT NULL nhưng KHÔNG có default ở tầng CSDL — không truyền
+                  // tường minh là dính NullConstraintViolation. Đặt TRƯỚC ...data để bản
+                  // ghi nào có giá trị thật vẫn ghi đè được.
+                  lyDoKhongKhoiTo: [],
+                  lyDoTamDinhChiVuViec: [],
+                  ...IMPORTED(actorId),
+                  ...data,
+                },
               });
               linkedIncidentId = row.id;
               d2.incidents++;
@@ -163,7 +173,15 @@ export class LegacyMigrationService {
               });
             } else {
               caseRow = await tx.case.create({
-                data: { status: 'TIEP_NHAN', caseProvenance, ...link, ...IMPORTED(actorId), ...data },
+                data: {
+                  status: 'TIEP_NHAN',
+                  caseProvenance,
+                  ...link,
+                  // Xem ghi chú ở phần tạo Vụ việc: mảng NOT NULL không có default.
+                  lyDoTamDinhChiVuAn: [],
+                  ...IMPORTED(actorId),
+                  ...data,
+                },
               });
               d2.cases++;
             }
