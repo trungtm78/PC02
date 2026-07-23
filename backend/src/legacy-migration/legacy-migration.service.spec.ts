@@ -122,6 +122,30 @@ describe('LegacyMigrationService', () => {
       expect(res.errors).toHaveLength(0);
     });
 
+    // P1-3: trước đây `receivedDate ?? new Date()` gán NGÀY HÔM NAY cho hồ sơ 2017 khi
+    // không parse được ngày (~4.400 hồ sơ) → sai hạn xử lý, sai KPI, sai lọc theo năm.
+    it('thiếu ngày tiếp nhận → KHÔNG tạo, ghi lỗi, không bịa ngày hôm nay', async () => {
+      const res = await service.commit(
+        [{ id: 'L-404', phan_loai_nguon_tin_ban_dau: 'don-cong-van-ban-dau', ten_ca_nhan_co_quan_to_chuc_cung_cap: 'B' }],
+        'actor-1',
+      );
+      expect(mockTx.petition.create).not.toHaveBeenCalled();
+      expect(res.created.petitions).toBe(0);
+      expect(res.errors).toHaveLength(1);
+      expect(res.errors[0].legacyId).toBe('L-404');
+      expect(res.errors[0].message).toContain('MISSING_REQUIRED_DATE');
+    });
+
+    // P1-1: khoá phải kèm tên collection, nếu không hồ sơ ho_so:1 ghi đè ho_so_doi_1:1.
+    it('record có __sourceCollection → tra cứu VÀ ghi cùng một khoá có tiền tố', async () => {
+      await service.commit(
+        [{ ...petitionRec, id: 1, __sourceCollection: 'ho_so' }],
+        'actor-1',
+      );
+      expect(mockTx.petition.findFirst).toHaveBeenCalledWith({ where: { legacySourceId: 'ho_so:1' } });
+      expect(mockTx.petition.create.mock.calls[0][0].data.legacySourceId).toBe('ho_so:1');
+    });
+
     it('update petition khi legacySourceId đã tồn tại (idempotent)', async () => {
       mockTx.petition.findFirst.mockResolvedValue({ id: 'existing-p1' });
       const res = await service.commit([petitionRec], 'actor-1');
@@ -158,7 +182,7 @@ describe('LegacyMigrationService', () => {
       mockTx.petition.create
         .mockRejectedValueOnce(new Error('DB timeout'))
         .mockResolvedValueOnce({ id: 'p2' });
-      const rec2: LegacyRecord = { id: 'L-002', phan_loai_nguon_tin_ban_dau: 'don-cong-van-ban-dau', ten_ca_nhan_co_quan_to_chuc_cung_cap: 'B' };
+      const rec2: LegacyRecord = { id: 'L-002', phan_loai_nguon_tin_ban_dau: 'don-cong-van-ban-dau', ten_ca_nhan_co_quan_to_chuc_cung_cap: 'B', ngay_tiep_nhan_nguon_tin: '15/04/2025' };
       const res = await service.commit([petitionRec, rec2], 'actor-1');
       expect(res.errors).toHaveLength(1);
       expect(res.errors[0].legacyId).toBe('L-001');
@@ -212,6 +236,7 @@ describe('LegacyMigrationService', () => {
         id: 'L-010',
         phan_loai_nguon_tin_ban_dau: 'don-cong-van-ban-dau',
         ten_ca_nhan_co_quan_to_chuc_cung_cap: 'A',
+        ngay_tiep_nhan_nguon_tin: '15/04/2025',
         quyet_dinh_khoi_to_vu_an: 'QĐ-1',
       };
       await service.commit([rec], 'actor-1');

@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
-import { decomposeLegacyRecord, type LegacyRecord } from './legacy-mapper';
+import { decomposeLegacyRecord, legacyKey, type LegacyRecord } from './legacy-mapper';
 import { buildMigrationReport, type MigrationReport } from './migration-report';
 
 // Provenance import (Case/Incident có cột; Petition KHÔNG có → không set). actorId = người chạy di trú.
@@ -63,13 +63,25 @@ export class LegacyMigrationService {
     let skipped = 0;
 
     for (const rec of records) {
-      const legacyId = rec.id == null ? '' : String(rec.id).trim();
+      // Khoá PHẢI kèm tên collection nguồn — `ho_so.id` [1,2,3,4] trùng 100% với `ho_so_doi_1`,
+      // khoá trần sẽ ghi đè hồ sơ 2017 bằng hồ sơ 2026. Cùng hàm với mapper để tra cứu và ghi
+      // không bao giờ lệch nhau.
+      const legacyId = legacyKey(rec) ?? '';
       if (!legacyId) {
         skipped++;
         continue;
       }
       try {
         const d = decomposeLegacyRecord(rec);
+        // KHÔNG bịa ngày: hồ sơ thiếu ngày bắt buộc bị chặn lại và đếm được, thay vì mang
+        // ngày hôm nay (~4.400 hồ sơ nguồn không parse được ngày).
+        if (d.petition && !(d.petition.receivedDate instanceof Date)) {
+          errors.push({
+            legacyId,
+            message: 'MISSING_REQUIRED_DATE: receivedDate — không parse được ngày tiếp nhận, bỏ qua để không bịa ngày',
+          });
+          continue;
+        }
         if (
           !d.petition &&
           !d.incident &&
@@ -101,7 +113,7 @@ export class LegacyMigrationService {
               const row = await tx.petition.create({
                 data: {
                   stt: `DT-LEGACY-${legacyId}`,
-                  receivedDate: (data.receivedDate as Date) ?? new Date(),
+                  receivedDate: data.receivedDate as Date,
                   senderName: (data.senderName as string) ?? '(di trú)',
                   status: 'MOI_TIEP_NHAN',
                   ...data,
