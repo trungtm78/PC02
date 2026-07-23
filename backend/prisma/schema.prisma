@@ -544,14 +544,14 @@ model Case {
   updatedAt           DateTime      @updatedAt
 
   // TĐC tracking fields (Phụ lục 08)
-  laCongNgheCao         Boolean             @default(false)
+  laCongNgheCao         Boolean              @default(false)
   lyDoTamDinhChiText    String? // Backup của giá trị String cũ trước migration
   lyDoTamDinhChiVuAn    LyDoTamDinhChiVuAn[] // PR-8: MULTI — chọn nhiều lý do TĐC (Đ.229). Mảng rỗng = chưa chọn.
   soQuyetDinhTamDinhChi String?
   ngayTamDinhChi        DateTime?
-  soLanTamDinhChi       Int                 @default(0)
-  soLanGiaHan           Int                 @default(0)
-  daRaSoat              Boolean             @default(false)
+  soLanTamDinhChi       Int                  @default(0)
+  soLanGiaHan           Int                  @default(0)
+  daRaSoat              Boolean              @default(false)
   ngayRaSoat            DateTime?
   soQuyetDinhPhucHoi    String?
   ngayPhucHoi           DateTime?
@@ -933,8 +933,8 @@ model Petition {
   // Field-parity hệ thống cũ — giai đoạn Ủy thác điều tra
   thoiHanUTDT            DateTime? // Thời hạn thực hiện Ủy thác điều tra (old: thoi_han_thuc_hien_uy_thac_dieu_tra)
   // Thẩm quyền & đơn vị xử lý (form đăng ký đơn thư)
-  thuocThamQuyen        Boolean   @default(true) // Đơn thuộc thẩm quyền → xử lý nội bộ theo Tổ/Nhóm (assignedTeamId); false → chuyển đơn vị xử lý ngoài
-  donViXuLy             String? // Tên đơn vị xử lý (danh mục DON_VI) khi KHÔNG thuộc thẩm quyền
+  thuocThamQuyen         Boolean   @default(true) // Đơn thuộc thẩm quyền → xử lý nội bộ theo Tổ/Nhóm (assignedTeamId); false → chuyển đơn vị xử lý ngoài
+  donViXuLy              String? // Tên đơn vị xử lý (danh mục DON_VI) khi KHÔNG thuộc thẩm quyền
 
   crimeChinh Crime? @relation("PetitionCrimeChinh", fields: [crimeChinhId], references: [id], onDelete: SetNull)
 
@@ -1048,19 +1048,19 @@ model Incident {
   // PR-6 field-parity: QĐ không khởi tố RIÊNG (cũ tách số/ngày, khác soQuyetDinh chung) + cờ tạm dừng
   soQDKhongKhoiTo         String? // Số QĐ không khởi tố (old: quyet_dinh_khong_khoi_to)
   ngayQDKhongKhoiTo       DateTime? // Ngày QĐ không khởi tố (old: ngay_ra_quyet_dinh_khong_khoi_to)
-  xacDinhVuViecTamDung    Boolean   @default(false) // Cờ xác định vụ việc tạm dừng giải quyết (old: xac_dinh_vu_viec_tam_dung_giai_quyet)
+  xacDinhVuViecTamDung    Boolean                @default(false) // Cờ xác định vụ việc tạm dừng giải quyết (old: xac_dinh_vu_viec_tam_dung_giai_quyet)
   canCuTamDinhChi         String? // Căn cứ (text) tạm đình chỉ nguồn tin
   phanLoaiDanSuText       String? // Thông báo phân loại dân sự (số/ngày)
-  soLanGiaHan             Int                   @default(0) // Số lần đã gia hạn, tối đa 2 (Điều 147 khoản 2-3)
+  soLanGiaHan             Int                    @default(0) // Số lần đã gia hạn, tối đa 2 (Điều 147 khoản 2-3)
   ngayGiaHan              DateTime? // Ngày gia hạn gần nhất
   lyDoKhongKhoiTo         LyDoKhongKhoiTo[] // PR-8 MULTI: chọn nhiều căn cứ không khởi tố (Đ.157). Mảng rỗng=chưa chọn.
   lyDoTamDinhChiText      String? // Backup của giá trị String cũ trước migration
   lyDoTamDinhChiVuViec    LyDoTamDinhChiVuViec[] // PR-8 MULTI: chọn nhiều căn cứ TĐC vụ việc (Đ.148). Mảng rỗng=chưa chọn.
-  laCongNgheCaoVV         Boolean               @default(false)
+  laCongNgheCaoVV         Boolean                @default(false)
   soQuyetDinhTamDinhChiVV String?
   ngayTamDinhChiVV        DateTime?
-  soLanTamDinhChiVV       Int                   @default(0)
-  daRaSoatVV              Boolean               @default(false)
+  soLanTamDinhChiVV       Int                    @default(0)
+  daRaSoatVV              Boolean                @default(false)
   ngayRaSoatVV            DateTime?
   soQuyetDinhPhucHoiVV    String?
   ngayPhucHoiVV           DateTime?
@@ -1180,7 +1180,7 @@ model IncidentStatusHistory {
 // (migration 20260627000001_document_type_to_dynamic chuyển enum → TEXT).
 
 model Document {
-  id           String       @id @default(cuid())
+  id           String  @id @default(cuid())
   title        String // Tiêu đề tài liệu
   description  String? // Mô tả
   fileName     String // Tên file lưu trữ
@@ -1188,7 +1188,7 @@ model Document {
   mimeType     String // MIME type
   size         Int // Kích thước file (bytes)
   filePath     String // Đường dẫn file (local storage)
-  documentType String       @default("VAN_BAN") // danh mục động DOCUMENT_TYPE (Directory)
+  documentType String  @default("VAN_BAN") // danh mục động DOCUMENT_TYPE (Directory)
 
   // Liên kết
   caseId       String? // FK → cases (nullable)
@@ -2444,4 +2444,110 @@ model DocumentTemplate {
   @@index([entityType, status])
   @@index([category])
   @@map("document_templates")
+}
+
+// ═════════════════════════════════════════════════════════════════
+// Di trú dữ liệu hệ thống cũ (MongoDB dump pc02hcm.com → PostgreSQL)
+//
+//  105 .bson ─► stage ─► LegacyStaging ─┐
+//                                       ▼
+//   LegacyUnitAlias (có kiểm duyệt) ─► preflight ─► CHẶN nếu có lỗi
+//                                       ▼
+//                        legacy-mapper ─► import ─► bảng vận hành
+//                                       ▼           └► LegacyImportError
+//                                  reconcile ─► báo cáo trước/sau
+//
+// Bản thô là NGUỒN CHÂN LÝ: mọi biến đổi diễn ra SAU khi đã nạp vào LegacyStaging,
+// nên lỗi ánh xạ luôn chạy lại được mà không phải đọc lại 411MB BSON.
+// ═════════════════════════════════════════════════════════════════
+
+/// Một dòng = một document BSON NGUYÊN VĂN. Không cắt cột `_search`, không bỏ cột rỗng.
+model LegacyStaging {
+  id         String   @id @default(cuid())
+  runId      String
+  sourceFile String // "ho_so_doi_1.bson"
+  sourceId   String // rec.id ép về chuỗi
+  rowHash    String // sha256 của document — chống nạp trùng trong cùng lần chạy
+  raw        Json
+  createdAt  DateTime @default(now())
+
+  // Khoá tự nhiên: cùng id ở hai collection khác nhau là HAI bản ghi khác nhau
+  // (`ho_so.id` [1,2,3,4] trùng 100% với `ho_so_doi_1` — đo trên dump thật).
+  @@unique([sourceFile, sourceId])
+  @@index([runId])
+  @@map("legacy_staging")
+}
+
+/// Sổ theo dõi từng lần chạy: cho phép chạy tiếp sau khi tiến trình chết giữa chừng.
+model LegacyImportRun {
+  id               String    @id @default(cuid())
+  startedAt        DateTime  @default(now())
+  finishedAt       DateTime?
+  status           String    @default("RUNNING") // RUNNING | DONE | FAILED | ABORTED
+  sourceChecksums  Json      @default("{}") // {file: sha256} — chốt nguồn chân lý
+  // Phiên bản quy tắc sinh legacySourceId. Lệch phiên bản ⇒ TỪ CHỐI chạy tiếp,
+  // vì đổi quy tắc khoá giữa chừng sẽ nhân đôi toàn bộ 53.820 hồ sơ.
+  legacyKeyVersion String    @default("v2-collection-prefixed")
+  lastBatchNo      Int       @default(0)
+  counts           Json      @default("{}")
+  note             String?
+
+  @@index([status])
+  @@map("legacy_import_runs")
+}
+
+/// Bảng alias đơn vị — CÓ KIỂM DUYỆT.
+/// Đo trên 100% dữ liệu: `don_vi_giai_quyet` chỉ khớp tên đơn vị 28,82% (15.509/53.820).
+/// Trường này lẫn ba thứ khác nhau nên phải phân loại rõ trước khi ghi:
+///   TEAM          → tổ nội bộ, gán assignedTeamId
+///   EXTERNAL_ORG  → cơ quan ngoài (Công an quận X, PC01…), giữ ở cột text
+///   RESULT        → thực ra là KẾT QUẢ xử lý ("Trả đơn, hướng dẫn khởi kiện tại TAND")
+///   UNKNOWN       → chưa phân loại; preflight CHẶN nếu còn giá trị ≥100 hồ sơ ở nhóm này
+model LegacyUnitAlias {
+  id          String    @id @default(cuid())
+  rawValue    String    @unique // chuỗi gốc đã chuẩn hoá (bỏ dấu, gộp khoảng trắng, lowercase)
+  sampleRaw   String? // một bản gốc chưa chuẩn hoá để người duyệt dễ nhận ra
+  kind        String    @default("UNKNOWN")
+  teamId      String? // chỉ dùng khi kind = TEAM
+  recordCount Int       @default(0) // số hồ sơ mang giá trị này — để duyệt theo mức ảnh hưởng
+  note        String?
+  approvedBy  String?
+  approvedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([kind])
+  @@map("legacy_unit_aliases")
+}
+
+/// Bản ghi bị CHẶN — thà đếm được còn hơn bịa dữ liệu.
+/// Trước đây `receivedDate ?? new Date()` gán ngày hôm nay cho hồ sơ 2017 (~4.400 bản ghi).
+model LegacyImportError {
+  id         String   @id @default(cuid())
+  runId      String
+  sourceFile String
+  sourceId   String
+  reason     String // MISSING_REQUIRED_DATE | UNKNOWN_UNIT | UNKNOWN_CLASS | CRIME_AMBIGUOUS | ...
+  detail     Json     @default("{}")
+  createdAt  DateTime @default(now())
+
+  @@index([runId, reason])
+  @@map("legacy_import_errors")
+}
+
+/// Chẩn đoán phân tích trường — thay cho việc nhân đôi 275 cột thành `<cột>_raw`.
+/// Cho biết ngày "…/…/2020" là mất trắng hay còn giữ được độ chính xác tới NĂM.
+model LegacyFieldDiagnostic {
+  id        String   @id @default(cuid())
+  runId     String
+  field     String
+  raw       String
+  parsed    String?
+  precision String? // day | month | year | none
+  reason    String?
+  count     Int      @default(1)
+  createdAt DateTime @default(now())
+
+  @@index([runId, field])
+  @@map("legacy_field_diagnostics")
 }
