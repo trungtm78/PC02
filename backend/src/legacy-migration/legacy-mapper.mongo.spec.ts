@@ -117,6 +117,12 @@ describe('P1-5 — chuẩn hoá phân loại nguồn tin', () => {
     expect(r.warnings.length).toBeGreaterThan(0);
   });
 
+  it('`loai` dùng gạch dưới vẫn nhận (92 hồ sơ trên dữ liệu thật)', () => {
+    expect(decomposeLegacyRecord({ id: 1, loai: 'don_thu' }).petition).toBeDefined();
+    expect(decomposeLegacyRecord({ id: 1, loai: 'vu_an_phuong_xa' }).case).toBeDefined();
+    expect(decomposeLegacyRecord({ id: 1, loai: 'vu_viec_phuong_xa' }).incident).toBeDefined();
+  });
+
   it('HỒI QUY: giá trị chuẩn cũ vẫn nhận đúng', () => {
     expect(decomposeLegacyRecord({ id: 1, phan_loai_nguon_tin_ban_dau: 'don-cong-van-ban-dau' }).petition).toBeDefined();
     expect(decomposeLegacyRecord({ id: 1, phan_loai_nguon_tin_ban_dau: 'vu-viec-ban-dau' }).incident).toBeDefined();

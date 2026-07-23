@@ -178,15 +178,20 @@ const stripDiacritics = (v: string): string =>
     .replace(/Đ/g, 'D');
 
 const toSlug = (v: string): string =>
-  stripDiacritics(v).toLowerCase().trim().replace(/\s+/g, '-');
+  // Gạch dưới cũng là dấu phân cách: hệ cũ ghi cả `don_thu` lẫn `don-cong-van-ban-dau`.
+  stripDiacritics(v).toLowerCase().trim().replace(/[\s_]+/g, '-');
 
 // Biến thể quan sát được trong dump → giá trị chuẩn mapper đang hiểu.
 const PHAN_LOAI_ALIAS: Record<string, string> = {
   'vu-viec': 'vu-viec-ban-dau',
   'vu-an': 'vu-an-ban-dau',
   don: 'don-cong-van-ban-dau',
+  'don-thu': 'don-cong-van-ban-dau',
   'huong-dan': 'huong-dan-ban-dau',
   'tra-ho-so': 'tra-ho-so-ban-dau',
+  // Hồ sơ do công an phường/xã lập — vẫn là vụ án / vụ việc, chỉ khác nơi lập.
+  'vu-an-phuong-xa': 'vu-an-ban-dau',
+  'vu-viec-phuong-xa': 'vu-viec-ban-dau',
 };
 
 export function normalizePhanLoai(rec: LegacyRecord): string | undefined {
