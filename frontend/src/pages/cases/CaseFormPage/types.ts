@@ -67,6 +67,21 @@ export interface CaseFormData {
   expectedPetitionUpdatedAt: string; // Optimistic lock token (ISO 8601) khi link Petition
   expectedIncidentUpdatedAt: string; // Optimistic lock token (ISO 8601) khi link Incident
   autoLinkedIncidentId: string;      // Populated from API.autoLinkedIncident?.id (Branch 3 auto-create)
+  // ── Ô nghiệp vụ di trú từ hệ thống cũ (lưu trong Case.metadata) ──────────
+  nguonDon: string;                  // Nguồn đơn / nơi chuyển đến
+  nhanXet: string;                   // Nhận xét
+  biHai: string;                     // Bị hại
+  noiXayRa: string;                  // Nơi xảy ra
+  nghiVanDoiTuong: string;           // Nghi can
+  phuongThucThuDoan: string;         // Phương thức, thủ đoạn
+  ketQuaXuLyKhac: string;            // Kết quả xử lý khác
+  soPhieuChuyen: string;             // Số phiếu chuyển
+  dieuTraVienText: string;           // Điều tra viên (theo hệ cũ)
+  sttCu: string;                     // Số thứ tự hồ sơ cũ
+  tinhTrang: string;                 // Tình trạng hồ sơ
+  phanLoaiToiPhamLinhVuc: string;    // Phân loại tội phạm theo lĩnh vực
+  deXuatXuLy: string;                // Đề xuất xử lý
+  yeuCauBoSung: string;              // Yêu cầu bổ sung
   caseTitle: string;          // Tiêu đề hồ sơ (bắt buộc)
   description: string;        // Mô tả chi tiết
   status: string;             // Trạng thái
@@ -311,6 +326,21 @@ export const INITIAL_FORM_DATA: CaseFormData = {
   autoLinkedIncidentId: "",
   caseTitle: "",
   description: "",
+  nguonDon: "",
+  nhanXet: "",
+  biHai: "",
+  noiXayRa: "",
+  nghiVanDoiTuong: "",
+  phuongThucThuDoan: "",
+  ketQuaXuLyKhac: "",
+  soPhieuChuyen: "",
+  dieuTraVienText: "",
+  sttCu: "",
+  tinhTrang: "",
+  phanLoaiToiPhamLinhVuc: "",
+  deXuatXuLy: "",
+  yeuCauBoSung: "",
+
   status: "",
   priority: "",
   handler: "",
