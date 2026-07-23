@@ -122,6 +122,31 @@ export async function seedOrg(prisma: PrismaClient, dryRun: boolean): Promise<Or
     }
   }
 
+  // ── Các Đội chỉ xuất hiện trong hồ sơ, không có trong bảng đơn vị hệ cũ ───
+  // Bảng `chi_nhanh` chỉ liệt kê Đội 3-6, nhưng hồ sơ giao việc cho cả Đội 1/2/7/8/9 —
+  // riêng năm đội này chiếm ~18.300 hồ sơ (34%). Không tạo thì từng ấy hồ sơ vô chủ,
+  // cán bộ các đội đó đăng nhập vào sẽ không thấy hồ sơ nào của mình.
+  // Trên prod đã có sẵn "Đội 1 (TT)" và "Đội 2 (TT)" nên hai đội này chỉ khớp, không tạo lại.
+  for (const n of [1, 2, 7, 8, 9]) {
+    const name = `Đội ${n}`;
+    const key = teamScopedKey(1, name);
+    if (teamByKey.has(key)) {
+      rep.teamsExisting++;
+      continue;
+    }
+    const code = uniqueCode(`D${n}`, takenCodes);
+    takenCodes.add(code);
+    rep.teamsCreated++;
+    rep.teamsByKind['DOI_TU_HO_SO'] = (rep.teamsByKind['DOI_TU_HO_SO'] ?? 0) + 1;
+    if (!dryRun) {
+      const created = await prisma.team.create({
+        data: { name, code, level: 1, parentId: rootId, isActive: true, order: 100 + n },
+        select: { id: true },
+      });
+      teamByKey.set(key, created.id);
+    }
+  }
+
   // ── Người dùng ────────────────────────────────────────────────────────────
   const roles = await prisma.role.findMany({ select: { id: true, name: true } });
   const roleIdByName = new Map(roles.map((r) => [r.name, r.id]));
