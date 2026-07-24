@@ -46,6 +46,29 @@ describe('bocTenDanhSach — trường nghi vấn đối tượng (vai trò đã
   it('chuỗi rỗng → mảng rỗng', () => {
     expect(bocTenDanhSach('', 'SUSPECT')).toEqual([]);
   });
+
+  it('cắt đuôi "cùng đồng bọn / cùng N đối tượng"', () => {
+    expect(bocTenDanhSach('Nguyễn Hoàng Phong Thiện cùng đồng bọn', 'SUSPECT')[0].hoTen).toBe('Nguyễn Hoàng Phong Thiện');
+    expect(bocTenDanhSach('Nguyễn Tuyết Nga cùng 01 số đối tượng', 'SUSPECT')[0].hoTen).toBe('Nguyễn Tuyết Nga');
+  });
+
+  it('cắt đuôi "+ ĐB (ghi chú)"', () => {
+    expect(bocTenDanhSach('Trần Anh Kiệt + ĐB (chưa khởi tố bị can)', 'SUSPECT')[0].hoTen).toBe('Trần Anh Kiệt');
+  });
+
+  it('"nghi vấn là X (biệt danh) cùng đồng bọn" → X', () => {
+    expect(bocTenDanhSach('Nghi vấn là Nguyễn Hồng Thanh Cường (Cường xiếc) cùng đồng bọn', 'SUSPECT')[0].hoTen)
+      .toBe('Nguyễn Hồng Thanh Cường');
+  });
+
+  it('tên dài 6 chữ', () => {
+    expect(bocTenDanhSach('Hoàng Thị Tôn Nữ Thuỳ Trang', 'SUSPECT')[0].hoTen).toBe('Hoàng Thị Tôn Nữ Thuỳ Trang');
+  });
+
+  it('"Chưa rõ" / công ty → không tạo (không phải tên người)', () => {
+    expect(bocTenDanhSach('Chưa rõ', 'SUSPECT')).toEqual([]);
+    expect(bocTenDanhSach('Công ty TNHH Thương Mại Mỹ Duyên', 'SUSPECT')).toEqual([]);
+  });
 });
 
 describe('normalizeTen', () => {

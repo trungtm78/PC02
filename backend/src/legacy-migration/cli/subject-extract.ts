@@ -33,8 +33,8 @@ export interface DoiTuong {
 // Một từ trong tên người VN hoặc tên nước ngoài: bắt đầu bằng chữ IN HOA (có dấu), theo
 // sau là chữ thường/hoa. Chấp nhận cả tên viết hoa toàn bộ (ELENA) lẫn hoa đầu (Nguyễn).
 const TU_TEN = '[A-ZÀÁẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬÈÉẺẼẸÊẾỀỂỄỆÌÍỈĨỊÒÓỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÙÚỦŨỤƯỨỪỬỮỰỲÝỶỸỴĐ][a-zàáảãạăắằẳẵặâấầẩẫậèéẻẽẹêếềểễệìíỉĩịòóỏõọôốồổỗộơớờởỡợùúủũụưứừửữựỳýỷỹỵđA-ZÀÁẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬÈÉẺẼẸÊẾỀỂỄỆÌÍỈĨỊÒÓỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÙÚỦŨỤƯỨỪỬỮỰỲÝỶỸỴĐ]*';
-// Cụm tên: 2–5 từ. Người VN thường 3–4 từ; tên nước ngoài có thể dài hơn nhưng cắt ở 5.
-const TEN = `${TU_TEN}(?:\\s+${TU_TEN}){1,4}`;
+// Cụm tên: 2–6 từ. Người VN thường 3–4 từ; một số tên dài (vd "Hoàng Thị Tôn Nữ Thuỳ Trang").
+const TEN = `${TU_TEN}(?:\\s+${TU_TEN}){1,5}`;
 
 // "SN: 1998", "SN 1998", "sinh năm 1998", "sinh ngày ../../1998"
 const SN = '(?:SN|sinh\\s*năm|sinh\\s*ngày[^0-9]{0,12})[:\\s]*([0-9]{4})';
@@ -116,22 +116,29 @@ export function bocTenDanhSach(text: string, vaiTro: VaiTro): { hoTen: string; q
   if (!text || text.trim().length < 2) return [];
   const out: { hoTen: string; quocTich?: string; vaiTro: VaiTro }[] = [];
   const seen = new Set<string>();
-  const tenRe = new RegExp(`^(${TEN})$`);
+  // Bóc cụm tên Ở ĐẦU đoạn (không đòi cả đoạn là tên) — để bắt "X cùng đồng bọn", "X + ĐB".
+  const tenDauRe = new RegExp(`^(${TEN})`);
 
   for (let phan of text.split(/[,;\n]|\s+và\s+/)) {
     phan = phan.replace(CUM_DAN, '').trim();
     if (!phan) continue;
 
-    // Tách ngoặc: "(Philipin)" hoặc "(Nguyễn Ngọc Thuận)".
+    // Cắt đuôi "cùng đồng bọn / cùng 01 số đối tượng / + ĐB / cùng đồng phạm" — phần sau
+    // không phải tên, chỉ là ghi chú số lượng. Giữ lại cụm tên đứng trước.
+    phan = phan.replace(/\s*(?:cùng|\+)\s+.*$/i, '').trim();
+
+    // Tách ngoặc: "(Philipin)" hoặc "(Cường xiếc)" (biệt danh) — có thể nằm GIỮA sau khi cắt đuôi.
     let quocTich: string | undefined;
-    const ngoac = /^(.*?)\s*\(([^)]+)\)\s*$/.exec(phan);
+    const ngoac = /^(.*?)\s*\(([^)]+)\)/.exec(phan);
     if (ngoac) {
       const trong = ngoac[2].trim();
       if (QUOC_GIA.test(trong)) quocTich = trong;
       phan = ngoac[1].trim(); // phần trong ngoặc (tên gọi khác / quốc tịch) không đưa vào tên
     }
     phan = phan.replace(/[.\-–—:]+$/, '').trim();
-    if (!tenRe.test(phan)) continue; // không phải cụm tên hợp lệ (≥2 từ hoa) → bỏ
+    const m = tenDauRe.exec(phan);
+    if (!m) continue; // không mở đầu bằng cụm tên hợp lệ (≥2 từ hoa) → bỏ
+    phan = m[1].trim();
 
     const khoa = normalizeTen(phan);
     if (seen.has(khoa)) continue; // trùng trong cùng trường
