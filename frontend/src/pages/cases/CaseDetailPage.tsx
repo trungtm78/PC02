@@ -792,13 +792,14 @@ export default function CaseDetailPage() {
     if (!id) return;
     setLoadingDefendants(true);
     try {
-      // Tải song song nghi can (SUSPECT) và bị hại (VICTIM) — dữ liệu cũ có cả hai.
-      const [sus, vic] = await Promise.all([
-        api.get(`/subjects?caseId=${id}&type=SUSPECT&limit=200`),
-        api.get(`/subjects?caseId=${id}&type=VICTIM&limit=200`),
+      // Tải song song nghi can (SUSPECT) và bị hại (VICTIM). Dùng allSettled + limit ≤ 100
+      // (giới hạn API): nếu MỘT truy vấn lỗi thì cái còn lại vẫn hiển thị, không xoá cả hai.
+      const [susR, vicR] = await Promise.allSettled([
+        api.get(`/subjects?caseId=${id}&type=SUSPECT&limit=100`),
+        api.get(`/subjects?caseId=${id}&type=VICTIM&limit=100`),
       ]);
-      setDefendants((sus.data.data ?? []).map(subjectToDefendant));
-      setVictims((vic.data.data ?? []).map(subjectToDefendant));
+      setDefendants(susR.status === "fulfilled" ? (susR.value.data.data ?? []).map(subjectToDefendant) : []);
+      setVictims(vicR.status === "fulfilled" ? (vicR.value.data.data ?? []).map(subjectToDefendant) : []);
     } catch {
       setDefendants([]);
       setVictims([]);
