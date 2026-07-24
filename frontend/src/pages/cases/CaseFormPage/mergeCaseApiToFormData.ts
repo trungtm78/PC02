@@ -143,8 +143,11 @@ export function mergeCaseApiToFormData(
     incidentMethod:      meta.incidentMethod      ?? prev.incidentMethod,
     // Tab 3: Vụ án (criminalType restored via apiData.crime → not repeated here)
     criminalCode:            meta.criminalCode            ?? prev.criminalCode,
-    criminalDate:            meta.criminalDate            ?? prev.criminalDate,
-    criminalLocation:        meta.criminalLocation        ?? prev.criminalLocation,
+    // Bridge dữ liệu di trú: hồ sơ cũ ghi ngày khởi tố vào CỘT ngayKhoiTo và địa điểm vào
+    // metadata.noiXayRa (không phải metadata.criminalDate/criminalLocation). Lùi về nguồn di
+    // trú để section "Thông tin vụ án" hiện dữ liệu thay vì trống.
+    criminalDate:            meta.criminalDate ?? (apiData.ngayKhoiTo ? toDateInput(apiData.ngayKhoiTo as string) : undefined) ?? prev.criminalDate,
+    criminalLocation:        meta.criminalLocation ?? meta.noiXayRa ?? prev.criminalLocation,
     criminalSecondaryType:   meta.criminalSecondaryType   ?? prev.criminalSecondaryType,
     accusation:              meta.accusation              ?? prev.accusation,
     prosecutionOffice:       meta.prosecutionOffice       ?? prev.prosecutionOffice,
