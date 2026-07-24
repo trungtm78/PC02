@@ -1048,7 +1048,7 @@ export default function CaseDetailPage() {
             <h3 className="font-semibold text-slate-800 text-sm uppercase tracking-wide">Thông tin cơ bản</h3>
             <div className="space-y-2 text-sm">
               {[
-                { label: "Mã vụ án", value: id, icon: <Hash className="w-4 h-4 text-slate-400" /> },
+                { label: "Mã vụ án", value: caseData?.caseCode || "(chưa cấp)", icon: <Hash className="w-4 h-4 text-slate-400" /> },
                 { label: "Điều tra viên", value: investigatorName, icon: <User className="w-4 h-4 text-slate-400" /> },
                 { label: "Đơn vị", value: caseData?.unit ?? "—", icon: <Building2 className="w-4 h-4 text-slate-400" /> },
                 { label: "Ngày khởi tạo", value: createdAt, icon: <Calendar className="w-4 h-4 text-slate-400" /> },
