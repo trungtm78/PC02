@@ -1115,7 +1115,18 @@ export default function CaseDetailPage() {
           const chuaPhanVai = Array.isArray(meta.doiTuongChuaPhanVai)
             ? (meta.doiTuongChuaPhanVai as { hoTen?: string; namSinh?: number; diaChi?: string; cccd?: string }[])
             : [];
-          if (!desc && !nghiepVu.length && !chuaPhanVai.length) return null;
+          // Mốc tố tụng bóc tự động từ tóm tắt (công cụ enrich-totung) — mỗi ô kèm đoạn
+          // trích gốc để cán bộ đối chiếu; hiển thị nhãn "trích tự động" cảnh báo.
+          const nhanTrichTuDong: Record<string, string> = {
+            ngayKhoiTo: "Ngày khởi tố vụ án",
+            soQuyetDinhKhoiTo: "Số quyết định khởi tố",
+            chuyenVuAnChoCQK: "Chuyển vụ án cho CQĐT khác",
+          };
+          const trichTuDong = (meta.trichTuDong ?? {}) as Record<string, { giaTri?: unknown; dauVet?: unknown }>;
+          const mocToTung = Object.entries(nhanTrichTuDong)
+            .map(([key, label]) => ({ label, ...(trichTuDong[key] ?? {}) }))
+            .filter((r) => r.giaTri != null && String(r.giaTri).trim());
+          if (!desc && !nghiepVu.length && !chuaPhanVai.length && !mocToTung.length) return null;
           return (
             <>
               {desc && (
@@ -1138,6 +1149,33 @@ export default function CaseDetailPage() {
                       <div key={r.label} className="flex items-start gap-2">
                         <span className="text-slate-500 flex-shrink-0">{r.label}:</span>
                         <span className="font-medium text-slate-800 break-words">{r.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {mocToTung.length > 0 && (
+                <div className="bg-amber-50 rounded-lg border border-amber-200 p-5">
+                  <h3 className="font-semibold text-slate-800 mb-2 flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-amber-600" />
+                    Mốc tố tụng (trích tự động)
+                  </h3>
+                  <p className="text-xs text-slate-500 mb-3">
+                    Bóc từ tóm tắt hồ sơ cũ khi ô còn trống. Cán bộ đối chiếu đoạn trích gốc trước khi tin dùng.
+                  </p>
+                  <div className="space-y-2.5 text-sm">
+                    {mocToTung.map((r) => (
+                      <div key={r.label}>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-slate-500">{r.label}:</span>
+                          <span className="font-medium text-slate-800 break-words">{String(r.giaTri)}</span>
+                          <span className="text-[10px] uppercase tracking-wide bg-amber-200 text-amber-800 px-1.5 py-0.5 rounded">
+                            trích tự động
+                          </span>
+                        </div>
+                        {r.dauVet ? (
+                          <p className="text-xs text-slate-400 italic mt-0.5 break-words">“…{String(r.dauVet)}…”</p>
+                        ) : null}
                       </div>
                     ))}
                   </div>

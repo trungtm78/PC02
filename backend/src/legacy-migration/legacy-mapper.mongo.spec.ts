@@ -269,6 +269,56 @@ describe('TamDinhChi_vu_viec_21 — vụ việc tạm đình chỉ (bảng riên
     const long = { ...rec, noi_dung: 'X'.repeat(300) };
     const i = decomposeLegacyRecord(long).incident!;
     expect((i.name as string).length).toBeLessThanOrEqual(121);
-    expect(i.description).toBe(long.noi_dung);
+    // Mô tả giữ toàn văn nội dung + ghép thông tin ĐTV/KSV/cơ quan (không có ô riêng trên Incident).
+    expect(i.description).toContain(long.noi_dung);
+    expect(i.description).toContain('Điều tra viên: Hùng');
+  });
+});
+
+describe('Bổ sung sau rà từng key (field-map)', () => {
+  it('Vụ án: đọc nốt mốc tạm đình chỉ / thời hiệu vào ô sẵn có', () => {
+    const c = decomposeLegacyRecord({
+      id: 1, phan_loai_nguon_tin_ban_dau: 'vu-an-ban-dau',
+      quyet_dinh_tam_dinh_chi_vu_an: 'QĐ-15', ngay_tam_dinh_chi_vu_an: '10/05/2020',
+      ngay_het_thoi_hieu_truy_cuu_tnhs_vu_an: '01/01/2030',
+    }).case!;
+    expect(c.soQuyetDinhTamDinhChi).toBe('QĐ-15');
+    expect(c.ngayTamDinhChi).toBeInstanceOf(Date);
+    expect(c.ngayHetThoiHieu).toBeInstanceOf(Date);
+  });
+
+  it('Vụ án: mốc thống kê / không khởi tố / lịch sử → metadata', () => {
+    const meta = decomposeLegacyRecord({
+      id: 1, phan_loai_nguon_tin_ban_dau: 'vu-an-ban-dau',
+      ngay_ra_quyet_dinh_khong_khoi_to: '02/02/2021', quyet_dinh_khong_khoi_to: 'QĐ-KKT-3',
+      lich_su: [{ tu: 'Đội 4', den: 'Đội 8' }],
+    }).case!.metadata as Record<string, unknown>;
+    expect(meta.ngayKhongKhoiTo).toBeInstanceOf(Date);
+    expect(meta.soQDKhongKhoiTo).toBe('QĐ-KKT-3');
+    expect(Array.isArray(meta.lichSuChuyenDonVi)).toBe(true);
+  });
+
+  it('Hướng dẫn: có ngày (GuidanceRecord.date NOT NULL)', () => {
+    const g = decomposeLegacyRecord({
+      id: 1, phan_loai_nguon_tin_ban_dau: 'huong-dan', ngay_tiep_nhan_nguon_tin: '15/04/2025',
+    }).guidance!;
+    expect(g.date).toBeInstanceOf(Date);
+  });
+
+  it('Kiến nghị: có sentDate', () => {
+    const pr = decomposeLegacyRecord({
+      id: 1, phan_loai_nguon_tin_ban_dau: 'kien-nghi-vks', ngay_de_xuat: 1488967200,
+    }).proposal!;
+    expect(pr.sentDate).toBeInstanceOf(Date);
+  });
+
+  it('TĐC: điền ngày tiếp nhận và ghép ĐTV/KSV vào mô tả', () => {
+    const i = decomposeLegacyRecord({
+      id: 1, __sourceCollection: 'TamDinhChi_vu_viec_21', noi_dung: 'X',
+      tiep_nhan_ngay: 17, tiep_nhan_thang: 2, tiep_nhan_nam: 21, dtv: 'Hùng', ksv: 'Thuân',
+    }).incident!;
+    expect(i.ngayDeXuat).toBeInstanceOf(Date);
+    expect((i.ngayDeXuat as Date).getUTCFullYear()).toBe(2021);
+    expect(i.description).toContain('Kiểm sát viên: Thuân');
   });
 });

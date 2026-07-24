@@ -395,9 +395,23 @@ function buildCase(rec: LegacyRecord): Record<string, unknown> {
       phanLoaiHoSoNoiBo: s(rec.phan_loai_ho_so_doi_1),
       deXuatXuLy: s(rec.de_xuat),
       yeuCauBoSung: s(rec.yeu_cau_bo_sung),
+      // Bổ sung sau rà từng key: các mốc thống kê / thời hiệu / không khởi tố / lịch sử chuyển đơn vị.
+      ngayThongKe: parseLegacyDate(rec.ngay_thong_ke),
+      ngayKhongKhoiTo: parseLegacyDate(rec.ngay_ra_quyet_dinh_khong_khoi_to),
+      soQDKhongKhoiTo: s(rec.quyet_dinh_khong_khoi_to),
+      hetThoiHieuTnhs: s(rec.het_thoi_hieu_tnhs),
+      ngayHetHanVuAn: parseLegacyDate(rec.ngay_het_han_vu_an),
+      thoiGianHetThoiHieuTnhs: s(rec.thoi_gian_het_thoi_hieu_truy_cuu_tnhs),
+      dieuTraVienPhuongXa: s(rec.dieu_tra_vien_phuong_xa),
+      // Lịch sử chuyển đơn vị (mảng con) — giữ nguyên để cán bộ tra vết đường đi hồ sơ.
+      lichSuChuyenDonVi: Array.isArray(rec.lich_su) && rec.lich_su.length ? rec.lich_su : undefined,
     }),
     soQuyetDinhKhoiTo: s(rec.quyet_dinh_khoi_to_vu_an) ?? s(rec.quyet_dinh_khong_khoi_to),
     ngayKhoiTo: parseLegacyDate(rec.ngay_quyet_dinh_khoi_to_vu_an) ?? parseLegacyDate(rec.ngay_ra_quyet_dinh_khoi_to),
+    // Bổ sung sau rà từng key (field-map.ts): các mốc tạm đình chỉ / thời hiệu trước bị bỏ.
+    soQuyetDinhTamDinhChi: s(rec.quyet_dinh_tam_dinh_chi_vu_an),
+    ngayTamDinhChi: parseLegacyDate(rec.ngay_tam_dinh_chi_vu_an),
+    ngayHetThoiHieu: parseLegacyDate(rec.ngay_het_thoi_hieu_truy_cuu_tnhs_vu_an),
     soQDNhapVuAn: s(rec.quyet_dinh_nhap_vu_an),
     ngayNhapVuAn: parseLegacyDate(rec.ngay_nhap_vu_an),
     ghiChuNhapHoSo: s(rec.ghi_chu_nhap_ho_so),
@@ -436,6 +450,8 @@ function buildGuidance(rec: LegacyRecord): Record<string, unknown> {
     guidedPerson: s(rec.ten_ca_nhan_co_quan_to_chuc_cung_cap) ?? '(di trú)',
     guidedPersonPhone: s(rec.so_dien_thoai_nguyen_don),
     subject: s(rec.loai_thong_tin),
+    // GuidanceRecord.date NOT NULL — điền từ nguồn thật thay vì để service đặt mặc định.
+    date: parseLegacyDate(rec.ngay_tiep_nhan_nguon_tin) ?? parseLegacyDate(rec.ngay_de_xuat),
     guidanceContent: s(rec.tom_tat_noi_dung) ?? '(di trú — không có nội dung)',
     unit: s(rec.don_vi_giai_quyet),
     notes: s(rec.nhan_xet),
@@ -464,6 +480,7 @@ function buildProposal(rec: LegacyRecord): Record<string, unknown> {
     content: s(rec.tom_tat_noi_dung) ?? '(di trú — không có nội dung)',
     unit: s(rec.don_vi_giai_quyet),
     notes: s(rec.nhan_xet),
+    sentDate: parseLegacyDate(rec.ngay_tiep_nhan_nguon_tin) ?? parseLegacyDate(rec.ngay_de_xuat),
     legacyRaw: { ...rec },
   });
 }
@@ -590,13 +607,30 @@ function buildTamDinhChiIncident(rec: LegacyRecord): Record<string, unknown> {
   const own = ownership(rec);
   const noiDung = s(rec.noi_dung);
   const dieu = s(rec.dieu);
+  // Incident KHÔNG có metadata JSON (chỉ legacyRaw). Các key riêng của bảng TĐC không có
+  // ô tương ứng (dtv/ksv/cơ quan/ghi chú) — ghép vào mô tả để cán bộ đọc được, không mất.
+  const boSung = [
+    dieu ? `Điều luật: ${dieu}` : '',
+    s(rec.dtv) ? `Điều tra viên: ${s(rec.dtv)}` : '',
+    s(rec.ksv) ? `Kiểm sát viên: ${s(rec.ksv)}` : '',
+    s(rec.tam_dinh_chi_co_quan) ? `Cơ quan TĐC: ${s(rec.tam_dinh_chi_co_quan)}` : '',
+    s(rec.tiep_nhan_so) ? `Số tiếp nhận: ${s(rec.tiep_nhan_so)}/${s(rec.tiep_nhan_nam)}` : '',
+    s(rec.ghi_chu) ? `Ghi chú: ${s(rec.ghi_chu)}` : '',
+  ].filter(Boolean).join(' · ');
+  const moTa = [noiDung, boSung].filter(Boolean).join('\n\n');
+  // Ngày tiếp nhận: ghép tiep_nhan_ngay/thang/nam (nam là 2 chữ số cuối → +2000).
+  const tnNam = num(rec.tiep_nhan_nam);
+  const tnThang = num(rec.tiep_nhan_thang);
+  const tnNgay = num(rec.tiep_nhan_ngay);
+  const ngayTiepNhan =
+    tnNam && tnThang && tnNgay ? new Date(Date.UTC(tnNam < 100 ? 2000 + tnNam : tnNam, tnThang - 1, tnNgay)) : undefined;
   return clean({
     legacySourceId: legacyKey(rec),
     name: noiDung ? (noiDung.length > 120 ? noiDung.slice(0, 117).trimEnd() + '…' : noiDung) : 'Vụ việc TĐC ' + s(rec.id),
-    description: noiDung,
+    description: moTa,
     status: 'TAM_DINH_CHI',
-    // Incident không có cột tội danh riêng — ghi điều luật vào phần mô tả để không mất.
     tinhTrangHoSo: dieu ? `Tạm đình chỉ theo Điều ${dieu}` : undefined,
+    ngayDeXuat: ngayTiepNhan && !Number.isNaN(ngayTiepNhan.getTime()) ? ngayTiepNhan : undefined,
     soQuyetDinhTamDinhChiVV: s(rec.tam_dinh_chi_so),
     ngayTamDinhChiVV: parseLegacyDate(rec.tam_dinh_chi_time),
     canCuTamDinhChi: s(rec.ly_do),
