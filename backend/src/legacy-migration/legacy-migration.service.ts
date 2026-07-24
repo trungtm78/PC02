@@ -198,11 +198,23 @@ export class LegacyMigrationService {
               caseProvenance = d.caseProvenanceHint ?? 'TRANSFERRED';
               link = {};
             }
-            const existing = await tx.case.findFirst({ where: { legacySourceId: legacyId } });
+            const existing = await tx.case.findFirst({
+              where: { legacySourceId: legacyId },
+              select: { id: true, metadata: true },
+            });
             if (existing) {
+              // Nạp lại GHI ĐÈ cả cột metadata. Giữ lại `trichTuDong` (mốc tố tụng bóc tự
+              // động bởi enrich-totung) — nếu không, mỗi lần re-import lại xoá thầm lặng
+              // 619 ngày khởi tố / 634 chuyển vụ án cho tới khi chạy lại enrich.
+              const cu = toRelationConnect(data) as Record<string, unknown>;
+              const oldMeta = (existing.metadata ?? {}) as Record<string, unknown>;
+              const newMeta = (cu.metadata ?? {}) as Record<string, unknown>;
+              if (oldMeta.trichTuDong && !newMeta.trichTuDong) {
+                cu.metadata = { ...newMeta, trichTuDong: oldMeta.trichTuDong };
+              }
               caseRow = await tx.case.update({
                 where: { id: existing.id },
-                data: { caseProvenance, ...link, ...toRelationConnect(data) },
+                data: { caseProvenance, ...link, ...cu },
               });
             } else {
               caseRow = await tx.case.create({
