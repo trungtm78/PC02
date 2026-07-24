@@ -751,10 +751,12 @@ enum SubjectType {
 model Subject {
   id            String        @id @default(cuid())
   fullName      String
-  dateOfBirth   DateTime
+  // Nullable: dữ liệu cũ nhiều nghi can/bị hại CHỈ có tên (không SN/CCCD/địa chỉ). "Có gì điền đó" —
+  // để trống trung thực hơn bịa. Form nhập tay vẫn bắt buộc qua create-subject.dto.ts.
+  dateOfBirth   DateTime?
   gender        String        @default("MALE") // "MALE" | "FEMALE" | "OTHER"
-  idNumber      String // CCCD/CMND 9 or 12 digits (unique per type per case)
-  address       String
+  idNumber      String? // CCCD/CMND 9 or 12 digits (unique per type per case khi có giá trị)
+  address       String?
   phone         String?
   occupationId  String? // FK → directories (type=OCCUPATION)
   nationalityId String? // FK → directories (type=NATIONALITY)

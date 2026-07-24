@@ -56,6 +56,8 @@ interface Defendant {
   detentionLocation?: string;
   detentionDate?: string;
   detentionExpiry?: string;
+  notes?: string;
+  autoExtracted?: boolean; // trích tự động từ dữ liệu cũ — có thể chưa đủ định danh
 }
 
 interface CrimeOption {
@@ -108,9 +110,9 @@ function subjectToDefendant(s: any): Defendant {
   return {
     id: s.id,
     name: s.fullName,
-    idNumber: s.idNumber,
-    dateOfBirth: toDateInput(s.dateOfBirth),
-    address: s.address,
+    idNumber: s.idNumber ?? "",
+    dateOfBirth: s.dateOfBirth ? toDateInput(s.dateOfBirth) : "",
+    address: s.address ?? "",
     phone: s.phone ?? "",
     chargesAgainst: s.crimeId ?? "",
     chargesLabel: s.crime?.name ?? s.crimeId ?? "",
@@ -118,6 +120,8 @@ function subjectToDefendant(s: any): Defendant {
     detentionLocation: undefined,
     detentionDate: undefined,
     detentionExpiry: undefined,
+    notes: s.notes ?? "",
+    autoExtracted: typeof s.notes === "string" && s.notes.startsWith("Trích tự động"),
   };
 }
 
@@ -722,6 +726,7 @@ export default function CaseDetailPage() {
 
   // Defendants state
   const [defendants, setDefendants] = useState<Defendant[]>([]);
+  const [victims, setVictims] = useState<Defendant[]>([]); // bị hại (type=VICTIM)
   const [loadingDefendants, setLoadingDefendants] = useState(false);
   const [showDefendantModal, setShowDefendantModal] = useState(false);
   const [editingDefendant, setEditingDefendant] = useState<Defendant | null>(null);
@@ -787,10 +792,16 @@ export default function CaseDetailPage() {
     if (!id) return;
     setLoadingDefendants(true);
     try {
-      const res = await api.get(`/subjects?caseId=${id}&type=SUSPECT&limit=100`);
-      setDefendants((res.data.data ?? []).map(subjectToDefendant));
+      // Tải song song nghi can (SUSPECT) và bị hại (VICTIM) — dữ liệu cũ có cả hai.
+      const [sus, vic] = await Promise.all([
+        api.get(`/subjects?caseId=${id}&type=SUSPECT&limit=200`),
+        api.get(`/subjects?caseId=${id}&type=VICTIM&limit=200`),
+      ]);
+      setDefendants((sus.data.data ?? []).map(subjectToDefendant));
+      setVictims((vic.data.data ?? []).map(subjectToDefendant));
     } catch {
       setDefendants([]);
+      setVictims([]);
     } finally {
       setLoadingDefendants(false);
     }
@@ -1098,8 +1109,9 @@ export default function CaseDetailPage() {
           const desc = str(meta.description);
           const nghiepVu: { label: string; value: string }[] = [
             { label: "Nguồn đơn / nơi chuyển", value: str(meta.nguonDon) },
-            { label: "Bị hại", value: str(meta.biHai) },
-            { label: "Nghi can", value: str(meta.nghiVanDoiTuong) },
+            { label: "Địa chỉ bị hại", value: str(meta.biHai) },
+            { label: "Số lượng bị hại", value: str(meta.soLuongBiHai) },
+            { label: "Nghi can (ghi chú gốc)", value: str(meta.nghiVanDoiTuong) },
             { label: "Nơi xảy ra", value: str(meta.noiXayRa) },
             { label: "Phương thức, thủ đoạn", value: str(meta.phuongThucThuDoan) },
             { label: "Nhận xét", value: str(meta.nhanXet) },
@@ -1250,7 +1262,7 @@ export default function CaseDetailPage() {
     return (
     <div className="space-y-4" data-testid="tab-content-defendants">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-slate-600">Tổng cộng: <span className="font-semibold text-slate-800">{defendants.length}</span> bị can</p>
+        <p className="text-sm text-slate-600">Tổng cộng: <span className="font-semibold text-slate-800">{defendants.length}</span> bị can{victims.length > 0 && <> · <span className="font-semibold text-slate-800">{victims.length}</span> bị hại</>}</p>
         <button
           onClick={() => { setEditingDefendant(null); setShowDefendantModal(true); }}
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
@@ -1276,8 +1288,15 @@ export default function CaseDetailPage() {
                     <User className="w-5 h-5 text-red-600" />
                   </div>
                   <div>
-                    <p className="font-semibold text-slate-800">{d.name}</p>
-                    <p className="text-xs text-slate-500">CCCD: {d.idNumber}</p>
+                    <p className="font-semibold text-slate-800 flex items-center gap-2">
+                      {d.name}
+                      {d.autoExtracted && (
+                        <span className="text-[10px] uppercase tracking-wide bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded" title={d.notes}>
+                          trích tự động
+                        </span>
+                      )}
+                    </p>
+                    <p className="text-xs text-slate-500">CCCD: {d.idNumber || "—"}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -1306,7 +1325,7 @@ export default function CaseDetailPage() {
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div className="flex items-center gap-2 text-slate-600">
                   <Calendar className="w-3.5 h-3.5" />
-                  <span>Ngày sinh: {formatVNDate(d.dateOfBirth)}</span>
+                  <span>Ngày sinh: {d.dateOfBirth ? formatVNDate(d.dateOfBirth) : "—"}</span>
                 </div>
                 <div className="flex items-center gap-2 text-slate-600">
                   <Phone className="w-3.5 h-3.5" />
@@ -1331,6 +1350,46 @@ export default function CaseDetailPage() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Bị hại (VICTIM) — dữ liệu cũ có bị hại nhưng trước đây không hiển thị ở đâu. */}
+      {victims.length > 0 && (
+        <div className="pt-2">
+          <h3 className="font-semibold text-slate-800 mb-3 flex items-center gap-2">
+            <User className="w-4 h-4 text-emerald-600" />
+            Bị hại ({victims.length})
+          </h3>
+          <div className="space-y-3">
+            {victims.map((v) => (
+              <div key={v.id} className="bg-white border border-emerald-200 rounded-lg p-4" data-testid={`victim-card-${v.id}`}>
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-9 h-9 bg-emerald-100 rounded-full flex items-center justify-center flex-shrink-0">
+                    <User className="w-4 h-4 text-emerald-600" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-slate-800 flex items-center gap-2">
+                      {v.name}
+                      {v.autoExtracted && (
+                        <span className="text-[10px] uppercase tracking-wide bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded" title={v.notes}>
+                          trích tự động
+                        </span>
+                      )}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      {v.dateOfBirth ? `SN ${formatVNDate(v.dateOfBirth)}` : ""}{v.idNumber ? ` · CCCD ${v.idNumber}` : ""}
+                    </p>
+                  </div>
+                </div>
+                {v.address && (
+                  <div className="flex items-center gap-2 text-sm text-slate-600">
+                    <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
+                    <span className="truncate">{v.address}</span>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>

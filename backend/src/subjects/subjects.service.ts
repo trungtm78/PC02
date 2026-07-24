@@ -158,13 +158,17 @@ export class SubjectsService {
     // Same person can be both VICTIM and WITNESS (different type records)
     // But cannot have duplicate idNumber+type combination
     const subjectType = dto.type ?? SubjectType.SUSPECT;
-    const existing = await this.prisma.subject.findFirst({
-      where: { idNumber: dto.idNumber, type: subjectType, deletedAt: null },
-    });
-    if (existing) {
-      throw new ConflictException(
-        `Số CCCD/CMND "${dto.idNumber}" đã tồn tại với loại đối tượng này`,
-      );
+    // Chỉ kiểm trùng khi CÓ số định danh. Bản ghi di trú "chưa đủ định danh" (idNumber null)
+    // KHÔNG bị coi là trùng nhau — nhiều nghi can chỉ có tên vẫn cùng một vụ.
+    if (dto.idNumber) {
+      const existing = await this.prisma.subject.findFirst({
+        where: { idNumber: dto.idNumber, type: subjectType, deletedAt: null },
+      });
+      if (existing) {
+        throw new ConflictException(
+          `Số CCCD/CMND "${dto.idNumber}" đã tồn tại với loại đối tượng này`,
+        );
+      }
     }
 
     // Validate caseId
