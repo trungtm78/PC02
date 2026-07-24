@@ -47,13 +47,15 @@ const TEMPLATES: TemplateSpec[] = [
     yearPattern: 'YYYY',
   },
   {
-    name: 'Mã hồ sơ',
+    // Chuẩn mã vụ án: VA-<năm phát sinh>-<STT>. Vụ án di trú giữ STT cũ (VA-2017-9);
+    // vụ án mới dùng counter YEARLY (VA-2026-00082). Xem backfill-case-code.ts.
+    name: 'Mã vụ án',
     documentType: 'CASE',
-    prefix: 'HS',
+    prefix: 'VA',
     separator: '-',
     inputMode: 'AUTO',
     resetPeriod: 'YEARLY',
-    padding: 3,
+    padding: 5,
     yearPattern: 'YYYY',
   },
   {
@@ -168,6 +170,10 @@ const NEW_V047_SERIES = new Set([
   'BIEN_NHAN',
 ]);
 
+// Loại buộc cập-nhật-lại template khi seed (dù đã tồn tại) — để đổi chuẩn cũ sang chuẩn mới.
+// CASE: đổi "Mã hồ sơ" HS-YYYY-NNN → "Mã vụ án" VA-YYYY-NNNNN theo yêu cầu chuẩn hoá.
+const FORCE_REFRESH_TYPES = new Set<string>([...NEW_V047_SERIES, 'CASE']);
+
 function buildSegments(spec: TemplateSpec) {
   // v0.47 PR1 T4 — new series use [COUNTER, LITERAL prefix] order with no
   // explicit year segment (year is implicit via YEARLY reset). Produces
@@ -219,8 +225,8 @@ async function getMaxSeqForYear(prisma: PrismaClient, documentType: string, year
     }
 
     if (documentType === 'CASE') {
-      // caseCode was backfilled by migration 20260525000001
-      const casePrefix = `HS-${year}-`;
+      // Chuẩn mới VA-<năm>-<STT>; counter tiếp tục trên STT lớn nhất năm đó.
+      const casePrefix = `VA-${year}-`;
       const rows = await (prisma as any).case.findMany({
         where: { caseCode: { startsWith: casePrefix } },
         select: { caseCode: true },
@@ -238,7 +244,7 @@ function getPrefix(documentType: string): string {
   const map: Record<string, string> = {
     INCIDENT: 'VV',
     PETITION: 'DT',
-    CASE: 'HS',
+    CASE: 'VA',
     PROPOSAL: 'DX',
     DELEGATION: 'UT',
     EVIDENCE: 'VC',
@@ -286,17 +292,18 @@ export async function seedDocumentNumbers(prisma: PrismaClient): Promise<number>
       // that PR2's FORMULA-segment rewrite propagates to existing rows (skip
       // behavior would lock in the PR1 hardcoded "Đ1" suffix forever).
       // Legacy templates keep the skip-on-exists behavior to preserve admin edits.
-      if (NEW_V047_SERIES.has(spec.documentType)) {
+      if (FORCE_REFRESH_TYPES.has(spec.documentType)) {
         await (prisma as any).documentNumberTemplate.update({
           where: { id: existing.id },
           data: {
+            name: spec.name,
             segments: buildSegments(spec),
             counterConfig: buildCounterConfig(spec),
             separator: spec.separator,
             inputMode: spec.inputMode,
           },
         });
-        console.log(`  ↻ Refreshed v0.47 series "${spec.name}" (${spec.documentType})`);
+        console.log(`  ↻ Refreshed "${spec.name}" (${spec.documentType})`);
       } else {
         console.log(`  → Template "${spec.name}" (${spec.documentType}) already exists, skipping create`);
       }

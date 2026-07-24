@@ -1649,7 +1649,7 @@ export default function CaseDetailPage() {
                 </span>
               )}
             </div>
-            <p className="text-slate-500 text-sm">Mã vụ án: <span className="font-semibold text-blue-600">{id}</span></p>
+            <p className="text-slate-500 text-sm">Mã vụ án: <span className="font-semibold text-blue-600">{caseData?.caseCode || "(chưa cấp)"}</span></p>
           </div>
           <div className="flex gap-3">
             {canDispatch && (
