@@ -31,6 +31,7 @@ function mergeStatistic(
 
 type ApiCaseRecord = {
   name?: string | null;
+  caseCode?: string | null; // cột gốc (v0.42) — nguồn thật của mã vụ án
   crime?: string | null;
   status?: string | null;
   deadline?: string | null;
@@ -84,8 +85,11 @@ export function mergeCaseApiToFormData(
     linkedIncidentId:      apiData.linkedIncidentId      ?? prev.linkedIncidentId,
     sourceDocumentNote:    apiData.sourceDocumentNote    ?? prev.sourceDocumentNote,
     autoLinkedIncidentId:  apiData.autoLinkedIncident?.id ?? prev.autoLinkedIncidentId ?? '',
+    // caseCode PROMOTED thành cột gốc ở v0.42 (Case.caseCode @unique) — đọc GỐC trước, chỉ
+    // lùi về metadata cho hồ sơ cũ chưa promote. Trước đây chỉ đọc metadata.caseCode nên
+    // edit-mode luôn rỗng (bug): mọi vụ (kể cả di trú VA-/LS-) không hiện mã khi sửa.
+    caseCode:                    apiData.caseCode ?? meta.caseCode ?? prev.caseCode,
     // Metadata fields
-    caseCode:                    meta.caseCode                    ?? prev.caseCode,
     receiveDate:                 meta.receiveDate                 ?? prev.receiveDate,
     receiveTime:                 meta.receiveTime                 ?? prev.receiveTime,
     caseClassification:          meta.caseClassification          ?? prev.caseClassification,
