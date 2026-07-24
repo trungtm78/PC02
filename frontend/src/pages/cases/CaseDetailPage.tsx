@@ -1089,6 +1089,85 @@ export default function CaseDetailPage() {
           )}
         </div>
 
+        {/* Mô tả chi tiết + thông tin nghiệp vụ di trú — đọc từ caseData.metadata.
+            Trước đây trang chỉ hiện tên vụ án nên nội dung hồ sơ cũ (nằm trong metadata)
+            không thấy được, dù dữ liệu vẫn còn đủ. */}
+        {(() => {
+          const meta = (caseData?.metadata ?? {}) as Record<string, unknown>;
+          const str = (v: unknown) => (v == null ? "" : String(v).trim());
+          const desc = str(meta.description);
+          const nghiepVu: { label: string; value: string }[] = [
+            { label: "Nguồn đơn / nơi chuyển", value: str(meta.nguonDon) },
+            { label: "Bị hại", value: str(meta.biHai) },
+            { label: "Nghi can", value: str(meta.nghiVanDoiTuong) },
+            { label: "Nơi xảy ra", value: str(meta.noiXayRa) },
+            { label: "Phương thức, thủ đoạn", value: str(meta.phuongThucThuDoan) },
+            { label: "Nhận xét", value: str(meta.nhanXet) },
+            { label: "Kết quả xử lý khác", value: str(meta.ketQuaXuLyKhac) },
+            { label: "Số phiếu chuyển", value: str(meta.soPhieuChuyen) },
+            { label: "Điều tra viên (hệ cũ)", value: str(meta.dieuTraVienText) },
+            { label: "Số thứ tự hồ sơ cũ", value: str(meta.sttCu) },
+            { label: "Tình trạng hồ sơ", value: str(meta.tinhTrang) },
+            { label: "Phân loại tội phạm theo lĩnh vực", value: str(meta.phanLoaiToiPhamLinhVuc) },
+            { label: "Đề xuất xử lý", value: str(meta.deXuatXuLy) },
+            { label: "Yêu cầu bổ sung", value: str(meta.yeuCauBoSung) },
+          ].filter((r) => r.value);
+          const chuaPhanVai = Array.isArray(meta.doiTuongChuaPhanVai)
+            ? (meta.doiTuongChuaPhanVai as { hoTen?: string; namSinh?: number; diaChi?: string; cccd?: string }[])
+            : [];
+          if (!desc && !nghiepVu.length && !chuaPhanVai.length) return null;
+          return (
+            <>
+              {desc && (
+                <div className="bg-white rounded-lg border border-slate-200 p-5">
+                  <h3 className="font-semibold text-slate-800 mb-3 flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-blue-600" />
+                    Mô tả chi tiết
+                  </h3>
+                  <p className="text-slate-700 leading-relaxed text-sm whitespace-pre-wrap">{desc}</p>
+                </div>
+              )}
+              {nghiepVu.length > 0 && (
+                <div className="bg-white rounded-lg border border-slate-200 p-5">
+                  <h3 className="font-semibold text-slate-800 mb-3 flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-blue-600" />
+                    Thông tin nghiệp vụ
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                    {nghiepVu.map((r) => (
+                      <div key={r.label} className="flex items-start gap-2">
+                        <span className="text-slate-500 flex-shrink-0">{r.label}:</span>
+                        <span className="font-medium text-slate-800 break-words">{r.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {chuaPhanVai.length > 0 && (
+                <div className="bg-amber-50 rounded-lg border border-amber-200 p-5">
+                  <h3 className="font-semibold text-slate-800 mb-2 flex items-center gap-2">
+                    <User className="w-4 h-4 text-amber-600" />
+                    Đối tượng liên quan (trích tự động — cần phân vai)
+                  </h3>
+                  <p className="text-xs text-slate-500 mb-3">
+                    Bóc từ nội dung hồ sơ cũ, chưa xác định bị can hay bị hại. Cán bộ rà rồi thêm vào tab Bị can.
+                  </p>
+                  <div className="space-y-1.5 text-sm">
+                    {chuaPhanVai.map((d, i) => (
+                      <div key={i} className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
+                        <span className="font-medium text-slate-800">{d.hoTen}</span>
+                        {d.namSinh ? <span className="text-slate-500">SN {d.namSinh}</span> : null}
+                        {d.cccd ? <span className="text-slate-500">CCCD {d.cccd}</span> : null}
+                        {d.diaChi ? <span className="text-slate-500 break-words">· {d.diaChi}</span> : null}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          );
+        })()}
+
         {/* Đơn thư liên kết */}
         {caseData?.petitions && caseData.petitions.length > 0 && (
           <div className="bg-white rounded-lg border border-slate-200 p-5">
