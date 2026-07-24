@@ -48,6 +48,7 @@ export interface EvidencePayload {
 export interface CreateCasePayload {
   name: string;
   crime: string | null;
+  crimeChinhId?: string | null;
   status?: string;
   deadline: string | null;
   unit: string | null;
@@ -134,6 +135,7 @@ export function buildCreateCasePayload(
   const payload: CreateCasePayload = {
     name: formData.caseTitle,
     crime: formData.criminalType || null,
+    crimeChinhId: formData.crimeChinhId || null, // FK master Crime — tội danh chính
     status: formData.status || undefined,
     deadline: formData.investigationDeadline || null,
     unit: formData.supervisingUnit || null,

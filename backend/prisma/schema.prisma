@@ -289,6 +289,7 @@ model Crime {
 
   subjects       Subject[] // bị can/đối tượng gắn tội danh (FK thật)
   petitionsChinh Petition[] @relation("PetitionCrimeChinh") // đơn thư gắn tội danh chính
+  casesChinh     Case[]     @relation("CaseCrimeChinh") // vụ án gắn tội danh chính
 
   @@index([pc02Relevant])
   @@index([chapter])
@@ -508,7 +509,8 @@ enum CaseStatus {
 model Case {
   id                  String        @id @default(cuid())
   name                String
-  crime               String?
+  crime               String? // tội danh (text tự do — giữ tương thích cũ)
+  crimeChinhId        String? // FK → crimes (master Tội danh BLHS 2015) — chuẩn như Petition
   status              CaseStatus    @default(TIEP_NHAN)
   investigatorId      String? // FK → users (nullable)
   deadline            DateTime?
@@ -596,6 +598,7 @@ model Case {
   linkedIncident Incident? @relation("CaseSourceIncident", fields: [linkedIncidentId], references: [id], onDelete: Restrict)
 
   investigator    User?                     @relation(fields: [investigatorId], references: [id], onDelete: SetNull)
+  crimeChinh      Crime?                    @relation("CaseCrimeChinh", fields: [crimeChinhId], references: [id], onDelete: SetNull)
   assignedTeamId  String?
   assignedTeam    Team?                     @relation("CaseTeam", fields: [assignedTeamId], references: [id], onDelete: SetNull)
   statusHistory   CaseStatusHistory[]

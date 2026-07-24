@@ -38,6 +38,7 @@ import { IntegerInput } from "@/components/inputs/IntegerInput";
 import { Card, CardHeader, EmptyState, DataTable, ActionButtons, StatusBadge } from "@/components/shared";
 import type { ColumnDef } from "@/components/shared";
 import { FKSelect } from "@/components/FKSelect";
+import { CrimeSelect } from "@/components/CrimeSelect";
 import { ProvinceWardSelect } from "@/components/ProvinceWardSelect";
 import type { TabProps, Subject, Evidence, MediaFile } from "./types";
 import { EntityDocumentsTab } from "@/components/documents/EntityDocumentsTab";
@@ -724,13 +725,11 @@ export function TabCase({ formData, setFormData, errors, setErrors }: TabProps) 
           value={formData.criminalDate}
           onChange={(v) => update("criminalDate", v)}
         />
-        <FKSelect
+        <CrimeSelect
           label="Tội danh chính"
-          value={formData.criminalType}
-          onChange={(v) => update("criminalType", v)}
-          masterClassType="07"
-          placeholder="Tìm kiếm tội danh..."
-          canCreate={false}
+          value={formData.crimeChinhId}
+          onChange={(v) => update("crimeChinhId", v)}
+          placeholder="Tìm kiếm tội danh (BLHS 2015)..."
           testId="fk-criminal-type"
         />
         <FKSelect

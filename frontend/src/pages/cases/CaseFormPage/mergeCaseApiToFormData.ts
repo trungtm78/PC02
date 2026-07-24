@@ -33,6 +33,7 @@ type ApiCaseRecord = {
   name?: string | null;
   caseCode?: string | null; // cột gốc (v0.42) — nguồn thật của mã vụ án
   crime?: string | null;
+  crimeChinhId?: string | null; // FK master Crime (tội danh chính)
   status?: string | null;
   deadline?: string | null;
   unit?: string | null;
@@ -142,6 +143,7 @@ export function mergeCaseApiToFormData(
     incidentCause:       meta.incidentCause       ?? prev.incidentCause,
     incidentMethod:      meta.incidentMethod      ?? prev.incidentMethod,
     // Tab 3: Vụ án (criminalType restored via apiData.crime → not repeated here)
+    crimeChinhId:            (apiData.crimeChinhId as string) ?? prev.crimeChinhId, // FK master Crime
     criminalCode:            meta.criminalCode            ?? prev.criminalCode,
     // Bridge dữ liệu di trú: hồ sơ cũ ghi ngày khởi tố vào CỘT ngayKhoiTo và địa điểm vào
     // metadata.noiXayRa (không phải metadata.criminalDate/criminalLocation). Lùi về nguồn di

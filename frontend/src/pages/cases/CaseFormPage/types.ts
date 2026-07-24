@@ -187,6 +187,7 @@ export interface CaseFormData {
   criminalDate: string;
   criminalLocation: string;
   criminalType: string;
+  crimeChinhId: string; // FK master Crime — tội danh chính (chuẩn như Petition)
   criminalSecondaryType: string;
   accusation: string;
   prosecutionOffice: string;
@@ -409,6 +410,7 @@ export const INITIAL_FORM_DATA: CaseFormData = {
   criminalDate: "",
   criminalLocation: "",
   criminalType: "",
+  crimeChinhId: "",
   criminalSecondaryType: "",
   accusation: "",
   prosecutionOffice: "",
