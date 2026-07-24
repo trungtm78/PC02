@@ -63,13 +63,29 @@ describe('mergeCaseApiToFormData (v0.37.2.5 EditMode load fix)', () => {
       name: 'Existing title',
       status: 'TIEP_NHAN',
       caseProvenance: 'TRANSFERRED',
-      metadata: { caseCode: 'HS-2026-001', priority: 'Cao' },
+      metadata: { priority: 'Cao' },
     };
     const merged = mergeCaseApiToFormData(apiData, INITIAL_FORM_DATA);
     expect(merged.caseTitle).toBe('Existing title');
     expect(merged.status).toBe('TIEP_NHAN');
-    expect(merged.caseCode).toBe('HS-2026-001');
     expect(merged.priority).toBe('Cao');
     expect(merged.caseProvenance).toBe('TRANSFERRED');
+  });
+
+  it('regression: đọc caseCode từ CỘT GỐC (v0.42 promoted), không phải metadata', () => {
+    // Trước bug: chỉ đọc metadata.caseCode → edit-mode luôn rỗng. API thật trả caseCode ở gốc.
+    const merged = mergeCaseApiToFormData(
+      { name: 'X', caseCode: 'VA-2016-9', metadata: {} },
+      INITIAL_FORM_DATA,
+    );
+    expect(merged.caseCode).toBe('VA-2016-9');
+  });
+
+  it('lùi về metadata.caseCode cho hồ sơ cũ chưa promote', () => {
+    const merged = mergeCaseApiToFormData(
+      { name: 'X', metadata: { caseCode: 'HS-2026-001' } },
+      INITIAL_FORM_DATA,
+    );
+    expect(merged.caseCode).toBe('HS-2026-001');
   });
 });
