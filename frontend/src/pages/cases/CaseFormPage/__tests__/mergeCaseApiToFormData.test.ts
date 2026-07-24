@@ -29,6 +29,31 @@ describe('mergeCaseApiToFormData — Tab 2-9 restore from metadata', () => {
     expect(result.verdict).toBe('Có tội');
   });
 
+  it('Tab 3 bridge di trú: ngày khởi tố lùi về cột ngayKhoiTo khi metadata trống', () => {
+    const result = mergeCaseApiToFormData(
+      { ...baseApi, ngayKhoiTo: '2016-10-27T00:00:00.000Z', metadata: {} },
+      INITIAL_FORM_DATA,
+    );
+    expect(result.criminalDate).toBe('2016-10-27');
+  });
+
+  it('Tab 3 bridge di trú: địa điểm lùi về metadata.noiXayRa', () => {
+    const result = mergeCaseApiToFormData(
+      { ...baseApi, metadata: { noiXayRa: 'Quận 1, TP.HCM' } },
+      INITIAL_FORM_DATA,
+    );
+    expect(result.criminalLocation).toBe('Quận 1, TP.HCM');
+  });
+
+  it('Tab 3 bridge: metadata.criminalDate/Location vẫn ưu tiên (vụ mới)', () => {
+    const result = mergeCaseApiToFormData(
+      { ...baseApi, ngayKhoiTo: '2016-10-27T00:00:00.000Z', metadata: { criminalDate: '2020-01-01', criminalLocation: 'A', noiXayRa: 'B' } },
+      INITIAL_FORM_DATA,
+    );
+    expect(result.criminalDate).toBe('2020-01-01');
+    expect(result.criminalLocation).toBe('A');
+  });
+
   it('Tab 5: restores tdcIncidentCode from metadata', () => {
     const result = mergeCaseApiToFormData(
       { ...baseApi, metadata: { tdcIncidentCode: 'TDC-001', tdcSource: 'Nguồn A' } },
