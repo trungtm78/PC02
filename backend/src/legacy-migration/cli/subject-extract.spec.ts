@@ -1,4 +1,59 @@
-import { bocDoiTuong } from './subject-extract';
+import { bocDoiTuong, bocTenDanhSach, normalizeTen } from './subject-extract';
+
+describe('bocTenDanhSach — trường nghi vấn đối tượng (vai trò đã biết)', () => {
+  it('tách danh sách tên ngăn bởi dấu phẩy', () => {
+    const ds = bocTenDanhSach('Nguyễn Minh Trung, Lê Tiến Thành, Phạm Quốc Đình Chương', 'SUSPECT');
+    expect(ds.map((x) => x.hoTen)).toEqual([
+      'Nguyễn Minh Trung',
+      'Lê Tiến Thành',
+      'Phạm Quốc Đình Chương',
+    ]);
+    expect(ds.every((x) => x.vaiTro === 'SUSPECT')).toBe(true);
+  });
+
+  it('bắt quốc tịch trong ngoặc, bỏ ngoặc khỏi tên', () => {
+    const ds = bocTenDanhSach('BRIGOLA ROWENA BOLALIN (Philipin)', 'SUSPECT');
+    expect(ds[0].hoTen).toBe('BRIGOLA ROWENA BOLALIN');
+    expect(ds[0].quocTich).toBe('Philipin');
+  });
+
+  it('bỏ cụm dẫn "nghi vấn là"', () => {
+    const ds = bocTenDanhSach('nghi vấn là Nguyễn Thanh Tùng', 'SUSPECT');
+    expect(ds[0].hoTen).toBe('Nguyễn Thanh Tùng');
+  });
+
+  it('ngoặc không phải quốc gia (tên gọi khác) → bỏ ngoặc, không gán quốc tịch', () => {
+    const ds = bocTenDanhSach('Nguyễn Thị Luôn (Nguyễn Ngọc Thuận)', 'SUSPECT');
+    expect(ds[0].hoTen).toBe('Nguyễn Thị Luôn');
+    expect(ds[0].quocTich).toBeUndefined();
+  });
+
+  it('khử trùng tên trong cùng trường', () => {
+    const ds = bocTenDanhSach('Trần Văn A, Trần Văn A', 'SUSPECT');
+    expect(ds).toHaveLength(1);
+  });
+
+  it('bỏ token không phải tên (1 từ / rỗng)', () => {
+    const ds = bocTenDanhSach('Hùng, , 123, Nguyễn Văn B', 'SUSPECT');
+    expect(ds.map((x) => x.hoTen)).toEqual(['Nguyễn Văn B']);
+  });
+
+  it('vai trò VICTIM truyền qua', () => {
+    const ds = bocTenDanhSach('Lý Ngân Giang, Trần Thị Mãnh', 'VICTIM');
+    expect(ds.every((x) => x.vaiTro === 'VICTIM')).toBe(true);
+  });
+
+  it('chuỗi rỗng → mảng rỗng', () => {
+    expect(bocTenDanhSach('', 'SUSPECT')).toEqual([]);
+  });
+});
+
+describe('normalizeTen', () => {
+  it('bỏ dấu + chữ thường để khử trùng', () => {
+    expect(normalizeTen('Nguyễn Đình Trung')).toBe('nguyen dinh trung');
+    expect(normalizeTen('nguyen  dinh   trung')).toBe('nguyen dinh trung');
+  });
+});
 
 /** Dữ liệu test là tóm tắt THẬT trong dump prod local. */
 

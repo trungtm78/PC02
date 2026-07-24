@@ -94,6 +94,64 @@ function suyVaiTro(text: string, tenStart: number): VaiTro {
   return viHai > viCan ? 'VICTIM' : 'SUSPECT';
 }
 
+/** Cụm dẫn đứng trước tên trong trường nghi vấn — bỏ để không lẫn vào tên. */
+const CUM_DAN = /^(?:nghi\s*vấn(?:\s*(?:là|đối\s*tượng))?|đối\s*tượng|các\s*đối\s*tượng|gồm|:)\s*/i;
+
+/**
+ * Bóc DANH SÁCH TÊN từ TRƯỜNG CHUYÊN BIỆT (vd `nghi_van_doi_tuong`) — nơi vai trò đã biết
+ * chắc từ chính tên trường, nên KHÔNG cần "SN:" và KHÔNG lo vu oan.
+ *
+ * Nguồn thật là danh sách tên ngăn bởi dấu phẩy/chấm phẩy, phần lớn TÊN TRẦN (không SN/CCCD):
+ *   "Nguyễn Minh Trung, Lê Tiến Thành, Phạm Quốc"
+ *   "BRIGOLA ROWENA BOLALIN (Philipin)"
+ *   "nghi vấn là Nguyễn Thanh Tùng"
+ *   "Nguyễn Thị Luôn (Nguyễn Ngọc Thuận)"   ← ngoặc = tên gọi khác, không phải quốc tịch
+ *
+ * Nguyên tắc: chỉ nhận cụm ≥2 từ viết hoa hợp lệ. Ngoặc: nếu là 1 từ quốc gia đã biết → quốc
+ * tịch; còn lại bỏ (không đoán). Không rõ thì bỏ — trống trung thực hơn sai.
+ */
+const QUOC_GIA = /^(philipin|philippines|trung\s*quốc|hàn\s*quốc|nhật|mỹ|nga|anh|pháp|đài\s*loan|thái\s*lan|campuchia|lào|malaysia|nigeria|úc|đức|canada|ấn\s*độ)$/i;
+
+export function bocTenDanhSach(text: string, vaiTro: VaiTro): { hoTen: string; quocTich?: string; vaiTro: VaiTro }[] {
+  if (!text || text.trim().length < 2) return [];
+  const out: { hoTen: string; quocTich?: string; vaiTro: VaiTro }[] = [];
+  const seen = new Set<string>();
+  const tenRe = new RegExp(`^(${TEN})$`);
+
+  for (let phan of text.split(/[,;\n]|\s+và\s+/)) {
+    phan = phan.replace(CUM_DAN, '').trim();
+    if (!phan) continue;
+
+    // Tách ngoặc: "(Philipin)" hoặc "(Nguyễn Ngọc Thuận)".
+    let quocTich: string | undefined;
+    const ngoac = /^(.*?)\s*\(([^)]+)\)\s*$/.exec(phan);
+    if (ngoac) {
+      const trong = ngoac[2].trim();
+      if (QUOC_GIA.test(trong)) quocTich = trong;
+      phan = ngoac[1].trim(); // phần trong ngoặc (tên gọi khác / quốc tịch) không đưa vào tên
+    }
+    phan = phan.replace(/[.\-–—:]+$/, '').trim();
+    if (!tenRe.test(phan)) continue; // không phải cụm tên hợp lệ (≥2 từ hoa) → bỏ
+
+    const khoa = normalizeTen(phan);
+    if (seen.has(khoa)) continue; // trùng trong cùng trường
+    seen.add(khoa);
+    out.push({ hoTen: phan, quocTich, vaiTro });
+  }
+  return out;
+}
+
+/** Chuẩn hoá tên để khử trùng: bỏ dấu, gộp khoảng trắng, chữ thường. */
+export function normalizeTen(v: string): string {
+  return v
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/đ/gi, 'd')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 /**
  * Bóc mọi đối tượng có mẫu "Tên … SN: yyyy" trong đoạn văn.
  * Khử trùng NGAY trong một hồ sơ theo khoá định danh.
