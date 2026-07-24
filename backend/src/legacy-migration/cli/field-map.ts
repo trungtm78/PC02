@@ -18,7 +18,12 @@ import * as ExcelJS from 'exceljs';
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 
-type TrangThai = 'ĐÃ MAPPING' | 'CÓ DỮ LIỆU CHƯA MAPPING' | 'RỖNG (chưa mapping)' | 'RÁC — nền tảng cũ';
+type TrangThai =
+  | 'ĐÃ MAPPING'
+  | 'CÓ DỮ LIỆU CHƯA MAPPING'
+  | 'RỖNG (chưa mapping)'
+  | 'RÁC — nền tảng cũ'
+  | 'KỸ THUẬT — xử lý đường khác';
 
 /** Tiền tố/từ khoá của key rác từ nền tảng bán hàng cũ (không mang nghĩa nghiệp vụ án). */
 const RAC = [
@@ -34,6 +39,16 @@ const laRac = (k: string): boolean => RAC.some((r) => k.toLowerCase().includes(r
 
 /** Cột kỹ thuật — có ý nghĩa kỹ thuật, không phải nghiệp vụ, cố ý bỏ. */
 const KY_THUAT = new Set(['_id', 'id', '_add_time', '_update_time', 'add_time', 'ten_search']);
+
+/**
+ * Cột nghiệp vụ NHÌN có dữ liệu nhưng KHÔNG map qua mapper vì đã xử lý ở đường khác — ghi
+ * rõ để không hiểu nhầm là bỏ sót:
+ *   • don_vi_id / nguoi_them → giải quyết ở `seed-org.ts` (→ Team / createdBy), không qua mapper.
+ *   • stt → số thứ tự bản ghi cũ; sttCu đã lưu ở metadata, số này chỉ là chỉ mục nội bộ.
+ *   • nam / thang / ngay → phần TÁCH của ngày; ngày nghiệp vụ đã lấy từ trường epoch (đã map).
+ *   • da_nhan → cờ nội bộ "đã nhận" (5 hồ sơ), không có ô nghiệp vụ tương ứng.
+ */
+const XU_LY_DUONG_KHAC = new Set(['don_vi_id', 'nguoi_them', 'stt', 'nam', 'thang', 'ngay', 'da_nhan']);
 
 /**
  * Đọc mã builder → với mỗi key, field hệ mới nó đổ vào.
@@ -114,31 +129,37 @@ async function main(): Promise<void> {
         'CÓ DỮ LIỆU CHƯA MAPPING': 0,
         'RỖNG (chưa mapping)': 0,
         'RÁC — nền tảng cũ': 0,
+        'KỸ THUẬT — xử lý đường khác': 0,
       };
       for (const key of allKeys) {
         const soHoSo = cnt.get(key) ?? 0;
         const fields = keyToField.get(key) ?? [];
         let trangThai: TrangThai;
         if (fields.length) trangThai = 'ĐÃ MAPPING';
+        else if (XU_LY_DUONG_KHAC.has(key)) trangThai = 'KỸ THUẬT — xử lý đường khác';
         else if (KY_THUAT.has(key) || laRac(key)) trangThai = 'RÁC — nền tảng cũ';
         else if (soHoSo > 0) trangThai = 'CÓ DỮ LIỆU CHƯA MAPPING';
         else trangThai = 'RỖNG (chưa mapping)';
         dem[trangThai]++;
         const lb = label.get(key);
+        const ghiChu =
+          trangThai === 'RÁC — nền tảng cũ' ? '(bỏ — nền tảng bán hàng cũ)' :
+          trangThai === 'KỸ THUẬT — xử lý đường khác' ? '(seed-org / metadata / ngày epoch)' : '';
         out.push({
           key,
           nhan: lb?.ten ?? '',
           kieu: lb?.kieu ?? '',
           soHoSo,
-          fieldDich: fields.join(', ') || (trangThai === 'RÁC — nền tảng cũ' ? '(bỏ — nền tảng bán hàng cũ)' : ''),
+          fieldDich: fields.join(', ') || ghiChu,
           trangThai,
         });
       }
       const bac: Record<TrangThai, number> = {
         'CÓ DỮ LIỆU CHƯA MAPPING': 0,
         'ĐÃ MAPPING': 1,
-        'RỖNG (chưa mapping)': 2,
-        'RÁC — nền tảng cũ': 3,
+        'KỸ THUẬT — xử lý đường khác': 2,
+        'RỖNG (chưa mapping)': 3,
+        'RÁC — nền tảng cũ': 4,
       };
       out.sort((a, b) => bac[a.trangThai] - bac[b.trangThai] || b.soHoSo - a.soHoSo);
       tongKet[col] = dem;
@@ -161,6 +182,7 @@ async function main(): Promise<void> {
       const mau: Record<TrangThai, string> = {
         'CÓ DỮ LIỆU CHƯA MAPPING': 'FFFFC7CE',
         'ĐÃ MAPPING': 'FFC6EFCE',
+        'KỸ THUẬT — xử lý đường khác': 'FFDDEBF7',
         'RỖNG (chưa mapping)': 'FFF2F2F2',
         'RÁC — nền tảng cũ': 'FFEEEEEE',
       };
@@ -178,6 +200,7 @@ async function main(): Promise<void> {
       console.log(`${col}:`);
       console.log(`   đã mapping                 : ${d['ĐÃ MAPPING']}`);
       console.log(`   CÓ DỮ LIỆU CHƯA MAPPING    : ${d['CÓ DỮ LIỆU CHƯA MAPPING']}  ← cần bổ sung`);
+      console.log(`   kỹ thuật (xử lý đường khác): ${d['KỸ THUẬT — xử lý đường khác']}`);
       console.log(`   rỗng (chưa mapping)        : ${d['RỖNG (chưa mapping)']}`);
       console.log(`   rác nền tảng cũ            : ${d['RÁC — nền tảng cũ']}`);
     }
