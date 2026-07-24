@@ -287,6 +287,8 @@ export class CasesService {
           caseCode: true,
           name: true,
           crime: true,
+          crimeChinhId: true,
+          crimeChinh: { select: { id: true, code: true, name: true } },
           status: true,
           deadline: true,
           unit: true,
@@ -659,6 +661,7 @@ export class CasesService {
       where: { id, deletedAt: null },
       include: {
         statistic: true, // Thống kê mở rộng (case_statistics) — form load round-trip
+        crimeChinh: { select: { id: true, code: true, name: true, articleNo: true } }, // tội danh chính FK
         investigator: {
           select: {
             id: true,
@@ -871,6 +874,7 @@ export class CasesService {
     const baseCaseData = {
       name: dto.name,
       crime: dto.crime,
+      crimeChinhId: dto.crimeChinhId,
       status: dto.status ?? CaseStatus.TIEP_NHAN,
       investigatorId: dto.investigatorId,
       createdById: actorId, // v0.31.0.2: creator track
@@ -1228,6 +1232,7 @@ export class CasesService {
     const updateData: Prisma.CaseUncheckedUpdateInput = {
       ...(dto.name !== undefined && { name: dto.name }),
       ...(dto.crime !== undefined && { crime: dto.crime }),
+      ...(dto.crimeChinhId !== undefined && { crimeChinhId: dto.crimeChinhId || null }),
       ...(dto.status !== undefined && { status: dto.status }),
       ...(dto.investigatorId !== undefined && { investigatorId: dto.investigatorId }),
       ...(dto.deadline !== undefined && {

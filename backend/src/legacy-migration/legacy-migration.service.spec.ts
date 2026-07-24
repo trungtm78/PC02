@@ -171,14 +171,12 @@ describe('LegacyMigrationService', () => {
       expect(createArgs.crimeChinhLegacyValue).toBeUndefined();
     });
 
-    it('VỤ ÁN: KHÔNG gán crimeChinhId — bảng Vụ án không có cột đó', async () => {
-      // Gán vào khiến Prisma ném "Unknown argument" và mất trắng bản ghi: đây chính là
-      // lỗi làm hỏng 48 hồ sơ có tội danh trên dữ liệu thật. Tội danh vẫn còn ở legacyRaw.
+    it('VỤ ÁN: GÁN crimeChinhId — Case nay có cột FK master Crime (chuẩn như Petition)', async () => {
+      // Case.crimeChinhId đã thêm (migration case_crime_chinh_fk) → resolve tội danh chung.
       mockTx.crime.findFirst.mockResolvedValue({ id: 'crime-95' });
       await service.commit([caseRec], 'actor-1');
       const createArgs = mockTx.case.create.mock.calls[0][0].data;
-      expect(createArgs.crimeChinhId).toBeUndefined();
-      expect(createArgs.crimeChinh).toBeUndefined();
+      expect(createArgs.crimeChinhId).toBe('crime-95');
       expect(createArgs.crimeChinhLegacyValue).toBeUndefined();
       expect(createArgs.legacyRaw).toBeDefined();
     });

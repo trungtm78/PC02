@@ -149,6 +149,10 @@ export class CreateCaseDto {
   crime?: string;
 
   @IsOptional()
+  @IsString()
+  crimeChinhId?: string; // FK master Crime — tội danh chính (chuẩn như Petition)
+
+  @IsOptional()
   @IsEnum(CaseStatus)
   status?: CaseStatus;
 

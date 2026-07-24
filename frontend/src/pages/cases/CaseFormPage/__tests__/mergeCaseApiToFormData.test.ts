@@ -29,6 +29,14 @@ describe('mergeCaseApiToFormData — Tab 2-9 restore from metadata', () => {
     expect(result.verdict).toBe('Có tội');
   });
 
+  it('Tab 3: crimeChinhId nạp từ cột gốc (FK master Crime)', () => {
+    const result = mergeCaseApiToFormData(
+      { ...baseApi, crimeChinhId: 'crime-d173', metadata: {} },
+      INITIAL_FORM_DATA,
+    );
+    expect(result.crimeChinhId).toBe('crime-d173');
+  });
+
   it('Tab 3 bridge di trú: ngày khởi tố lùi về cột ngayKhoiTo khi metadata trống', () => {
     const result = mergeCaseApiToFormData(
       { ...baseApi, ngayKhoiTo: '2016-10-27T00:00:00.000Z', metadata: {} },

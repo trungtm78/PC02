@@ -1068,7 +1068,7 @@ export default function CaseDetailPage() {
             <h3 className="font-semibold text-slate-800 text-sm uppercase tracking-wide">Thông tin pháp lý</h3>
             <div className="space-y-2 text-sm">
               {[
-                { label: "Tội danh", value: caseData?.crime ?? "—" },
+                { label: "Tội danh", value: caseData?.crimeChinh?.name ?? caseData?.crime ?? "—" },
                 { label: "Trạng thái", value: caseData?.status ?? "—" },
                 { label: "Số bị can", value: `${caseData?.subjectsCount ?? defendants.length} người` },
               ].map((row) => (

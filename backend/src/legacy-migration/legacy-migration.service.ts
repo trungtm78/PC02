@@ -70,10 +70,8 @@ export class LegacyMigrationService {
   private async resolveCrime(tx: any, data: Record<string, unknown>, target: 'petition' | 'case' = 'petition'): Promise<void> {
     const lv = data.crimeChinhLegacyValue as number | undefined;
     delete data.crimeChinhLegacyValue;
-    // Bảng Vụ án KHÔNG có cột `crimeChinhId` (chỉ Đơn thư có). Gán vào là Prisma ném
-    // "Unknown argument" và mất trắng bản ghi — đây chính là lỗi làm hỏng 48 hồ sơ có
-    // tội danh. Tội danh của Vụ án vẫn còn nguyên trong `legacyRaw`.
-    if (target === 'case' || lv === undefined) return;
+    // Cả Đơn thư LẪN Vụ án nay đều có cột `crimeChinhId` (FK master Crime) → resolve chung.
+    if (lv === undefined) return;
     const crime = await tx.crime.findFirst({ where: { legacyValue: lv } });
     if (crime) data.crimeChinhId = crime.id;
   }
