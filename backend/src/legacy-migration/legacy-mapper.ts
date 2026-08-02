@@ -113,6 +113,24 @@ export function legacyKey(rec: LegacyRecord): string | undefined {
   return col ? `${col}:${id}` : id;
 }
 
+/**
+ * Field TRUY NGUYÊN hệ cũ (PR-2): STT sổ thụ lý + id số gốc + collection gốc.
+ * `legacyId`+`legacyCollection` collision-safe (id trùng giữa ho_so/ho_so_doi_1).
+ * `soHoSoCu` = STT hiển thị/tìm kiếm để tra ngược bản ghi gốc.
+ * CHỈ áp cho entity có cột (Case/Incident/Petition) — xem schema PR-2.
+ */
+export function traceFields(rec: LegacyRecord): {
+  soHoSoCu?: string;
+  legacyId?: number;
+  legacyCollection?: string;
+} {
+  const idStr = s(rec.id);
+  const legacyId = idStr !== undefined && /^\d+$/.test(idStr) ? Number(idStr) : undefined;
+  const legacyCollection = s(rec.__sourceCollection);
+  const soHoSoCu = s(rec.stt) ?? s(rec.stt_cu);
+  return { soHoSoCu, legacyId, legacyCollection };
+}
+
 // Chuyển ngày hệ thống cũ (dd/mm/yyyy, yyyy-mm-dd, hoặc Excel serial) → Date.
 // Dùng roundtrip check để từ chối ngày âm lịch/overflow (vd 31/02/2025 → wrap sang 3/3 mà không bị bắt).
 export function parseLegacyDate(v: unknown): Date | undefined {
@@ -255,6 +273,7 @@ function buildPetition(rec: LegacyRecord): Record<string, unknown> {
   const own = ownership(rec);
   return clean({
     legacySourceId: legacyKey(rec),
+    ...traceFields(rec),
     enteredById: own.enteredById,
     assignedTeamId: own.assignedTeamId,
     senderName: s(rec.ten_ca_nhan_co_quan_to_chuc_cung_cap),
@@ -332,6 +351,7 @@ function buildIncident(rec: LegacyRecord): Record<string, unknown> {
     ngayDeXuat: parseLegacyDate(rec.ngay_de_xuat),
     ketQuaXuLy: s(rec.ket_qua_xu_ly_giai_quyet_khac),
     legacySourceId: legacyKey(rec),
+    ...traceFields(rec),
     createdById: own.createdById,
     investigatorId: own.investigatorId,
     assignedTeamId: own.assignedTeamId,
@@ -365,6 +385,7 @@ function buildCase(rec: LegacyRecord): Record<string, unknown> {
   const own = ownership(rec);
   return clean({
     legacySourceId: legacyKey(rec),
+    ...traceFields(rec),
     createdById: own.createdById,
     investigatorId: own.investigatorId,
     assignedTeamId: own.assignedTeamId,
@@ -626,6 +647,7 @@ function buildTamDinhChiIncident(rec: LegacyRecord): Record<string, unknown> {
     tnNam && tnThang && tnNgay ? new Date(Date.UTC(tnNam < 100 ? 2000 + tnNam : tnNam, tnThang - 1, tnNgay)) : undefined;
   return clean({
     legacySourceId: legacyKey(rec),
+    ...traceFields(rec),
     name: noiDung ? (noiDung.length > 120 ? noiDung.slice(0, 117).trimEnd() + '…' : noiDung) : 'Vụ việc TĐC ' + s(rec.id),
     description: moTa,
     status: 'TAM_DINH_CHI',
