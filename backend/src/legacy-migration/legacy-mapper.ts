@@ -404,6 +404,15 @@ function buildCase(rec: LegacyRecord): Record<string, unknown> {
       noiXayRa: s(rec.noi_xay_ra) ?? s(rec.noi_xay_ra_phuong_xa),
       nghiVanDoiTuong: s(rec.nghi_van_doi_tuong),
       biHai: s(rec['dia-chi-bi-hai']),
+      // Người/cơ quan cung cấp (đồng thời bị hại) — hệ cũ có, trước đây KHÔNG map vào Case
+      // (chỉ Petition/Incident map) → mất hiển thị. Nay đưa vào metadata để surface.
+      tenCungCap: s(rec.ten_ca_nhan_co_quan_to_chuc_cung_cap),
+      sinhNamCungCap: s(rec.sinh_nam_nguoi_to_giac),
+      cccdCungCap: s(rec.so_cccd_nguyen_don),
+      ngayCapCccd: s(rec.ngay_cap_cccd_nguyen_don),
+      noiCapCccd: s(rec.noi_cap_cccd_nguyen_don),
+      sdtCungCap: s(rec.so_dien_thoai_nguyen_don),
+      diaChiCungCap: s(rec['dia-chi-bi-hai']),
       phuongThucThuDoan: s(rec.phuong_thuc_thu_doan),
       ketQuaXuLyKhac: s(rec.ket_qua_xu_ly_giai_quyet_khac),
       soPhieuChuyen: s(rec.so_phieu_chuyen),

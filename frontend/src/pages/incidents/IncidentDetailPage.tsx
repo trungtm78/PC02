@@ -180,11 +180,15 @@ export default function IncidentDetailPage() {
       <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-4">
         <h2 className="text-sm font-semibold text-slate-700 border-b pb-2">Thông tin chung</h2>
         <div className="grid grid-cols-2 gap-4">
-          {(incident as { soHoSoCu?: string; legacyId?: number }).soHoSoCu && (
+          {((incident as { soHoSoCu?: string; sttCu?: string }).soHoSoCu ||
+            (incident as { sttCu?: string }).sttCu) && (
             <Field
               label="Mã hồ sơ gốc (hệ cũ)"
-              value={`STT ${(incident as { soHoSoCu?: string }).soHoSoCu}` +
-                ((incident as { legacyId?: number }).legacyId ? ` · #${(incident as { legacyId?: number }).legacyId}` : '')}
+              value={[
+                (incident as { soHoSoCu?: string }).soHoSoCu ? `STT ${(incident as { soHoSoCu?: string }).soHoSoCu}` : null,
+                (incident as { sttCu?: string }).sttCu ? `STT cũ ${(incident as { sttCu?: string }).sttCu}` : null,
+                (incident as { legacyId?: number }).legacyId ? `#${(incident as { legacyId?: number }).legacyId}` : null,
+              ].filter(Boolean).join(' · ')}
               icon={<FileText className="w-3 h-3" />}
             />
           )}

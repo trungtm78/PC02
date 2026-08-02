@@ -24,7 +24,7 @@ const TABLES: Array<{ table: string; rawCol: string }> = [
 async function main(): Promise<void> {
   for (const { table, rawCol } of TABLES) {
     const pending = await prisma.$queryRawUnsafe<Array<{ n: bigint }>>(
-      `SELECT COUNT(*)::bigint n FROM "${table}" WHERE "legacySourceId" IS NOT NULL AND "legacyId" IS NULL`,
+      `SELECT COUNT(*)::bigint n FROM "${table}" WHERE "legacySourceId" IS NOT NULL AND ("legacyId" IS NULL OR "sttCu" IS NULL)`,
     );
     const n = Number(pending[0]?.n ?? 0);
     if (!APPLY) {
@@ -37,8 +37,9 @@ async function main(): Promise<void> {
          "legacyCollection" = CASE WHEN "legacySourceId" LIKE '%:%' THEN split_part("legacySourceId", ':', 1) ELSE NULL END,
          "legacyId" = CASE WHEN regexp_replace("legacySourceId", '^.*:', '') ~ '^[0-9]+$'
                            THEN regexp_replace("legacySourceId", '^.*:', '')::int ELSE NULL END,
-         "soHoSoCu" = COALESCE(${rawCol}->>'stt', ${rawCol}->>'stt_cu')
-       WHERE "legacySourceId" IS NOT NULL AND "legacyId" IS NULL`,
+         "soHoSoCu" = COALESCE(${rawCol}->>'stt', ${rawCol}->>'stt_cu'),
+         "sttCu" = ${rawCol}->>'stt_cu'
+       WHERE "legacySourceId" IS NOT NULL AND ("legacyId" IS NULL OR "sttCu" IS NULL)`,
     );
     console.log(`  [apply] ${table}: cập nhật ${updated} bản ghi`);
   }

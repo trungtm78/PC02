@@ -1050,11 +1050,34 @@ export default function CaseDetailPage() {
               {[
                 { label: "Mã vụ án", value: caseData?.caseCode || "(chưa cấp)", icon: <Hash className="w-4 h-4 text-slate-400" /> },
                 // Truy nguyên hệ cũ pc02hcm.com (chỉ hiện khi là bản ghi di trú)
-                ...((caseData as { soHoSoCu?: string; legacyId?: number; legacyCollection?: string } | undefined)?.soHoSoCu
+                ...((caseData as { soHoSoCu?: string; sttCu?: string; legacyId?: number } | undefined)?.soHoSoCu ||
+                (caseData as { sttCu?: string } | undefined)?.sttCu
                   ? [{
                       label: "Mã hồ sơ gốc (hệ cũ)",
-                      value: `STT ${(caseData as { soHoSoCu?: string }).soHoSoCu}` +
-                        ((caseData as { legacyId?: number }).legacyId ? ` · #${(caseData as { legacyId?: number }).legacyId}` : ''),
+                      value: [
+                        (caseData as { soHoSoCu?: string }).soHoSoCu ? `STT ${(caseData as { soHoSoCu?: string }).soHoSoCu}` : null,
+                        (caseData as { sttCu?: string }).sttCu ? `STT cũ ${(caseData as { sttCu?: string }).sttCu}` : null,
+                        (caseData as { legacyId?: number }).legacyId ? `#${(caseData as { legacyId?: number }).legacyId}` : null,
+                      ].filter(Boolean).join(' · '),
+                      icon: <Hash className="w-4 h-4 text-amber-500" />,
+                    }]
+                  : []),
+                // Người/cơ quan cung cấp, bị hại (từ hệ cũ — surface từ metadata di trú)
+                ...(((caseData as { metadata?: Record<string, unknown> } | undefined)?.metadata?.tenCungCap)
+                  ? [{
+                      label: "Người cung cấp / bị hại (hệ cũ)",
+                      value: [
+                        (caseData as { metadata?: Record<string, string> }).metadata?.tenCungCap,
+                        (caseData as { metadata?: Record<string, string> }).metadata?.sinhNamCungCap
+                          ? `SN ${(caseData as { metadata?: Record<string, string> }).metadata?.sinhNamCungCap}` : null,
+                      ].filter(Boolean).join(' · '),
+                      icon: <User className="w-4 h-4 text-amber-500" />,
+                    }]
+                  : []),
+                ...(((caseData as { metadata?: Record<string, string> } | undefined)?.metadata?.cccdCungCap)
+                  ? [{
+                      label: "CCCD người cung cấp (hệ cũ)",
+                      value: (caseData as { metadata?: Record<string, string> }).metadata?.cccdCungCap ?? "—",
                       icon: <Hash className="w-4 h-4 text-amber-500" />,
                     }]
                   : []),
