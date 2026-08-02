@@ -10,17 +10,22 @@ Quyền PROD: test local xong → tự áp prod, KHÔNG hỏi lại (prod chưa 
 
 ## Đã hoàn thành
 - [x] PR-0 export live Mongo (EJSON ngoài git) + đối soát — commit. 7 test.
-  - Phát hiện: bi_can=0 CẢ LIVE (nghi can chỉ ở text); coverage 98,5%; vấn đề = field-level.
-- [x] PR-1 sinh catalog field data-driven — commit. 5 test. 132 field ho_so + 33 bi_can + enum.
-  - `docs/legacy/field-catalog.generated.{md,json}` — nhãn/kiểu/bắt buộc/tần suất/enum.
+  - bi_can=0 CẢ LIVE (nghi can chỉ ở text); coverage 98,5%; vấn đề = field-level.
+- [x] PR-1 catalog 132 field + ma trận map (MAPPED 80/RESOLVE 5/UNMAPPED 47) — commit. 12 test.
+  - `docs/legacy/{field-catalog.generated,field-mapping}.{md,json}`. field-mapping.json = config builder.
+- [x] PR-2 schema truy nguyên — commit. tsc sạch. migration 20260803000000_legacy_traceability.
+  - +soHoSoCu/legacyId/legacyCollection (cases/petitions/incidents) + Subject/InvestigationSupplement khóa gốc + index.
 
 ## Đang làm dở
-Task: PR-1.b ma trận MAP field cũ↔hệ mới (`docs/legacy/field-mapping.json`+`.md`)
-Đã làm: có catalog 132 field. Cần: mỗi field → target (cột Prisma có sẵn / cột mới / metadata / bỏ),
-  seed từ mapping cũ (legacy-mapper.ts MAPPED_LEGACY_KEYS) + catalog, cờ UNMAPPED.
-BƯỚC TIẾP THEO: viết cli/build-field-mapping.ts đọc catalog.json + bảng seed known-mapping →
-  emit field-mapping.json (config cho builder PR-3) + field-mapping.md (review).
-File liên quan: backend/src/legacy-migration/legacy-mapper.ts (mapping hiện tại), docs/legacy/field-catalog.generated.json
+Task: PR-3 builder import DATA-DRIVEN (đọc field-mapping.json thay hardcode)
+Đã làm: có field-mapping.json (80 field có đích + RESOLVE) + schema truy nguyên sẵn sàng.
+BƯỚC TIẾP THEO:
+  1. cli/stage-ejson.ts: nạp EJSON dump → legacy_staging (snapshot-safe: truncate trước).
+  2. Enum crosswalk NgonNgu→Prisma enum (docs/legacy/enum-crosswalk) có đường lỗi UNKNOWN.
+  3. Viết builder đọc field-mapping.json: set cột theo byEntity[loai], gắn soHoSoCu(=stt)/legacyId(=id)/
+     legacyCollection; GIỮ safeguard control-flow cũ (prefix key, chặn thiếu ngày, FK, crime-resolve).
+  4. Subject từ text nghi_van_doi_tuong (giữ bocTenDanhSach) + gắn legacy truy nguyên.
+File liên quan: backend/src/legacy-migration/legacy-mapper.ts, legacy-migration.service.ts, docs/legacy/field-mapping.json
 
 ## Hàng đợi task kế tiếp
 1. PR-1.b ma trận map field (field-mapping.json)
