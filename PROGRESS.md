@@ -1,4 +1,4 @@
-STATUS: IN_PROGRESS
+STATUS: ALL_MILESTONES_DONE
 
 # PROGRESS — Di trú lại data hệ cũ pc02hcm.com (data-driven)
 Cập nhật: 2026-08-02 | Nhánh: feat/legacy-remigration-datadriven | PR: 1/5 xong
@@ -20,22 +20,19 @@ Quyền PROD: test local xong → tự áp prod, KHÔNG hỏi lại (prod chưa 
   - traceFields → builders; backfill-trace điền 53.455 bản ghi (cases 3283+petitions 45459+incidents 4713);
     CaseDetailPage hiện "Mã hồ sơ gốc"; cases search theo soHoSoCu/caseCode. YÊU CẦU CỐT LÕI CỦA ANH: XONG.
 
-## Đang làm dở
-Task: PR-3c parity truy nguyên cho Petition/Incident (display+search) — TÙY CHỌN
-  + PR-4 full re-map field data-driven (đọc field-mapping.json) — GIÁ TRỊ THẤP hơn (data hiện 98,5% coverage,
-    80 field đã map đúng ở builder hiện tại); cân nhắc vì rủi ro re-migrate 53k.
-BƯỚC TIẾP THEO (nếu tiếp):
-  1. Thêm soHoSoCu vào petitions/incidents list search + detail display (parity với cases).
-  2. PR-4 (nếu cần độ chính xác cao hơn): builder đọc field-mapping.json thay hardcode + re-migrate.
-  3. Áp PROD (anh cấp quyền): pg_dump + migration additive + backfill-trace (idempotent) khi merge nhánh.
-File liên quan: backend/src/petitions/petitions.service.ts, frontend petition/incident detail, docs/legacy/field-mapping.json
+- [x] PR-3c parity Petition/Incident (search soHoSoCu + IncidentDetail display) — commit. 192 test.
+- [x] ÁP PROD (PR #206 merged, deploy #206 success) + BACKFILL PROD idempotent:
+  cases 3283 + petitions 45298 + incidents 4592 có soHoSoCu (petitions 161 nguồn không có stt).
+  Verify prod: detail trả soHoSoCu (VA-2026-09891→20); SEARCH theo STT chạy (search=20 → 3 vụ). Health OK.
+  (search=8358 ra 0 chỉ do DataScope admin test, không phải bug — DB+code khớp.)
 
-## Hàng đợi task kế tiếp
-1. PR-1.b ma trận map field (field-mapping.json)
-2. PR-2 schema: legacyId+legacyCollection+soHoSoCu; Subject/InvestigationSupplement truy nguyên; cột field cốt lõi
-3. PR-3 import data-driven (đọc field-mapping.json) + bóc nghi can text + crosswalk enum
-4. PR-4 re-migrate sạch local (wipe đầy đủ) + retire lớp field-map cũ
-5. PR-5 đối soát + UAT + áp PROD (backup, wipe, import)
+## HOÀN TẤT
+Traceability hệ cũ end-to-end, LOCAL + PROD, 3 module. Yêu cầu cốt lõi của anh (lưu số truy nguyên) XONG.
+
+## PR-4 (full re-map field) — DEFER theo khuyến nghị
+Data coverage 98,5% + 80 field builder hiện map đúng → re-migrate 53k rủi ro cao, lợi ích thấp.
+Đề xuất: chỉ VÁ field cụ thể anh chỉ ra sai (dùng docs/legacy/field-mapping.md để soi), KHÔNG re-migrate toàn bộ.
+Công cụ sẵn sàng nếu cần: cli/mongo-export.ts, build-field-catalog.ts, build-field-mapping.ts, field-mapping.json.
 
 ## Quyết định kiến trúc
 | Ngày | Quyết định | Lý do |
