@@ -1097,6 +1097,7 @@ model Incident {
   sdtNguoiToGiac          String? // SĐT người tố giác
   diaChiNguoiToGiac       String? // Địa chỉ người tố giác
   cmndNguoiToGiac         String? // CCCD/CMND người tố giác
+  sinhNamNguoiToGiac      String? // Sinh năm người tố giác/cung cấp (hệ cũ) — trước KHÔNG map
 
   // Self-reference: nhập vào vụ khác
   mergedIntoId String?

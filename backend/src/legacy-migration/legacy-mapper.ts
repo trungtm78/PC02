@@ -360,6 +360,7 @@ function buildIncident(rec: LegacyRecord): Record<string, unknown> {
     diaChiXayRa: s(rec.noi_xay_ra),
     sdtNguoiToGiac: s(rec.so_dien_thoai_nguyen_don),
     cmndNguoiToGiac: s(rec.so_cccd_nguyen_don),
+    sinhNamNguoiToGiac: s(rec.sinh_nam_nguoi_to_giac),
     benVu: s(rec.ten_ca_nhan_co_quan_to_chuc_cung_cap),
     doiTuongCaNhan: s(rec.nghi_van_doi_tuong),
     donViGiaiQuyet: s(rec.don_vi_giai_quyet),

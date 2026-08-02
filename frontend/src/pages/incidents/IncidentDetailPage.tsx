@@ -6,7 +6,7 @@ import { IncidentStatus } from "@/shared/enums/generated";
 import { INCIDENT_STATUS_LABEL, INCIDENT_STATUS_BADGE, BADGE_DEFAULT } from "@/shared/enums/status-labels";
 import {
   ArrowLeft, Edit, Calendar, FileText, User, MapPin, Clock,
-  AlertCircle, Loader2, Target,
+  AlertCircle, Loader2, Target, Hash,
 } from "lucide-react";
 
 interface IncidentDetail {
@@ -191,6 +191,20 @@ export default function IncidentDetailPage() {
               ].filter(Boolean).join(' · ')}
               icon={<FileText className="w-3 h-3" />}
             />
+          )}
+          {(incident as { benVu?: string }).benVu && (
+            <Field
+              label="Người tố giác / cung cấp (bị hại)"
+              value={[
+                (incident as { benVu?: string }).benVu,
+                (incident as { sinhNamNguoiToGiac?: string }).sinhNamNguoiToGiac
+                  ? `SN ${(incident as { sinhNamNguoiToGiac?: string }).sinhNamNguoiToGiac}` : null,
+              ].filter(Boolean).join(' · ')}
+              icon={<User className="w-3 h-3" />}
+            />
+          )}
+          {(incident as { cmndNguoiToGiac?: string }).cmndNguoiToGiac && (
+            <Field label="CCCD người tố giác" value={(incident as { cmndNguoiToGiac?: string }).cmndNguoiToGiac} icon={<Hash className="w-3 h-3" />} />
           )}
           <Field label="Loại vụ việc" value={incident.incidentType} icon={<FileText className="w-3 h-3" />} />
           <Field label="Địa chỉ xảy ra" value={incident.diaChiXayRa} icon={<MapPin className="w-3 h-3" />} />
