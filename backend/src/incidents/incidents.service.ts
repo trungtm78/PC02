@@ -84,6 +84,7 @@ export class IncidentsService {
         { doiTuongCaNhan: { contains: search, mode: 'insensitive' } },
         { doiTuongToChuc: { contains: search, mode: 'insensitive' } },
         { description: { contains: search, mode: 'insensitive' } },
+        { soHoSoCu: { contains: search, mode: 'insensitive' } }, // truy nguyên: tìm theo STT hệ cũ
         {
           investigator: {
             OR: [
@@ -991,6 +992,7 @@ export class IncidentsService {
         { doiTuongCaNhan: { contains: search, mode: 'insensitive' } },
         { doiTuongToChuc: { contains: search, mode: 'insensitive' } },
         { description: { contains: search, mode: 'insensitive' } },
+        { soHoSoCu: { contains: search, mode: 'insensitive' } }, // truy nguyên: tìm theo STT hệ cũ
         {
           investigator: {
             OR: [

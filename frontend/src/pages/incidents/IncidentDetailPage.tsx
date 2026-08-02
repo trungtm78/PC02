@@ -180,6 +180,14 @@ export default function IncidentDetailPage() {
       <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-4">
         <h2 className="text-sm font-semibold text-slate-700 border-b pb-2">Thông tin chung</h2>
         <div className="grid grid-cols-2 gap-4">
+          {(incident as { soHoSoCu?: string; legacyId?: number }).soHoSoCu && (
+            <Field
+              label="Mã hồ sơ gốc (hệ cũ)"
+              value={`STT ${(incident as { soHoSoCu?: string }).soHoSoCu}` +
+                ((incident as { legacyId?: number }).legacyId ? ` · #${(incident as { legacyId?: number }).legacyId}` : '')}
+              icon={<FileText className="w-3 h-3" />}
+            />
+          )}
           <Field label="Loại vụ việc" value={incident.incidentType} icon={<FileText className="w-3 h-3" />} />
           <Field label="Địa chỉ xảy ra" value={incident.diaChiXayRa} icon={<MapPin className="w-3 h-3" />} />
           <Field label="Điều tra viên" value={investigatorName} icon={<User className="w-3 h-3" />} />
