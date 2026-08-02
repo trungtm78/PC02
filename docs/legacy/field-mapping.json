@@ -1,5 +1,5 @@
 {
-  "generatedAtIso": "2026-08-02T17:05:41.688Z",
+  "generatedAtIso": "2026-08-02T17:21:35.042Z",
   "phanLoaiToEntity": {
     "don-cong-van-ban-dau": "petition",
     "vu-viec-ban-dau": "incident",
@@ -45,7 +45,8 @@
       "ngay_xay_ra": "ngayXayRa",
       "noi_xay_ra_phuong_xa": "noiXayRaPhuongXa",
       "loai_toi_pham": "loaiToiPham",
-      "thoi_han_thuc_hien_uy_thac_dieu_tra": "thoiHanUTDT"
+      "thoi_han_thuc_hien_uy_thac_dieu_tra": "thoiHanUTDT",
+      "sinh_nam_nguoi_to_giac": "senderBirthYear"
     },
     "incident": {
       "tom_tat_noi_dung": "name",
@@ -517,8 +518,10 @@
       "label": "Sinh năm",
       "type": "text",
       "freq": 7266,
-      "klass": "UNMAPPED",
-      "targets": {},
+      "klass": "MAPPED",
+      "targets": {
+        "petition": "senderBirthYear"
+      },
       "note": null
     },
     {

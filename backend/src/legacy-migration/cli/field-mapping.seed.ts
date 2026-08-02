@@ -57,6 +57,7 @@ export const PETITION_MAP: Record<string, string> = {
   noi_xay_ra_phuong_xa: 'noiXayRaPhuongXa',
   loai_toi_pham: 'loaiToiPham',
   thoi_han_thuc_hien_uy_thac_dieu_tra: 'thoiHanUTDT',
+  sinh_nam_nguoi_to_giac: 'senderBirthYear',
 };
 
 /** legacyField → cột Prisma trên INCIDENT. */

@@ -1,14 +1,13 @@
 # Ma trận MAP field cũ → hệ mới (quyết định field)
 
 > Sinh từ catalog + `field-mapping.seed.ts`. Tổng 132 field ho_so / 54257 hồ sơ.
-> MAPPED 79 · RESOLVE 5 · DROP 0 · **UNMAPPED 48**
+> MAPPED 80 · RESOLVE 5 · DROP 0 · **UNMAPPED 47**
 
 ## ⚠️ UNMAPPED tần suất cao — CẦN QUYẾT (thêm cột / metadata / bỏ)
 
 | Field | Nhãn | Kiểu | Có DL | % | Đề xuất |
 |---|---|---|---|---|---|
 | `do_vat_tai_lieu_kem_theo` | Đồ vật, tài liệu kèm theo | textarea | 11040 | 20.3% | THÊM CỘT (dùng nhiều) |
-| `sinh_nam_nguoi_to_giac` | Sinh năm | text | 7266 | 13.4% | metadata |
 | `ngay_quyet_dinh_khoi_to_vu_an` | Ngày ra Quyết định Khởi tố vụ án | text | 84 | 0.2% | metadata |
 | `ngay_ra_quyet_dinh_khong_khoi_to` | Ngày ra Quyết định Không khởi tố | text | 42 | 0.1% | metadata |
 | `quyet_dinh_khong_khoi_to` | Quyết định Không khởi tố | text | 2 | 0.0% | metadata |
@@ -47,6 +46,7 @@
 | `bat_duoc_bao_nhieu_bang_nhom` | Bắt được bao nhiêu băng nhóm | number | 0 | 0.0% | metadata |
 | `so_luong_thuoc_no_thu_hoi` | Số lượng thuốc nổ thu hồi | number | 0 | 0.0% | metadata |
 | `xac_nhan_vu_viec_vphc` | Xác nhận vụ việc có vi phạm hành chính | checkbox | 0 | 0.0% | metadata |
+| `so_doi_tuong_vi_pham_hanh_chinh` | Số đối tượng vi phạm hành chính | number | 0 | 0.0% | metadata |
 
 ## Toàn bộ field (sắp theo tần suất)
 
@@ -87,7 +87,7 @@
 | `ngay_phieu_chuyen` | Ngày phiếu chuyển/ Công văn/ Ủy thác điều tra | 20.3% | MAPPED | petition.ngayPhieuChuyen |
 | `so_dien_thoai_nguyen_don` | Số điện thoại nguyên đơn | 14.8% | MAPPED | petition.senderPhone · incident.sdtNguoiToGiac |
 | `nghi_van_doi_tuong` | Nghi vấn đối tượng hoặc bị can | 14.0% | MAPPED | petition.suspectedPerson · incident.doiTuongCaNhan |
-| `sinh_nam_nguoi_to_giac` | Sinh năm | 13.4% | UNMAPPED | UNMAPPED |
+| `sinh_nam_nguoi_to_giac` | Sinh năm | 13.4% | MAPPED | petition.senderBirthYear |
 | `so_cccd_nguyen_don` | Số căn cước công dân | 6.3% | MAPPED | petition.senderIdNumber · incident.cmndNguoiToGiac |
 | `lanh_dao_to_tung` | Lãnh đạo phụ trách tố tụng | 6.1% | MAPPED | petition.lanhDaoToTung |
 | `dieu_tra_vien` | Điều tra viên thụ lý | 4.7% | MAPPED | petition.dieuTraVien |
