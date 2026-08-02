@@ -119,8 +119,8 @@ async function main(): Promise<void> {
   };
   fs.writeFileSync(path.join(outDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
 
-  // Report markdown vào repo (docs/legacy) — chỉ số liệu.
-  const repoDocs = path.resolve('docs/legacy');
+  // Report markdown vào repo (docs/legacy) — chỉ số liệu. Anchor repo-root theo __dirname.
+  const repoDocs = path.resolve(__dirname, '../../../../docs/legacy');
   fs.mkdirSync(repoDocs, { recursive: true });
   const biCan = reports.find((r) => r.name === 'bi_can');
   const lines = [
