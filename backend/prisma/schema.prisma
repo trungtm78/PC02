@@ -619,7 +619,8 @@ model Case {
   // v0.44 — Ủy Thác Điều Tra fields (nullable, chỉ relevant khi caseType = UY_THAC_DIEU_TRA)
   caseType          CaseType    @default(REGULAR) @map("case_type")
   legacySourceId    String? // Khóa gốc hệ thống cũ — idempotent di trú
-  soHoSoCu          String? // Số/STT hồ sơ hệ cũ — truy nguyên (hiển thị + tìm kiếm)
+  soHoSoCu          String? // STT thụ lý hệ cũ (trường `stt`) — truy nguyên (hiển thị + tìm kiếm)
+  sttCu             String? // STT cũ hơn (trường `stt_cu`) — hiển thị + tìm kiếm
   legacyId          Int? // id số gốc hệ cũ (kèm legacyCollection vì id trùng giữa collection)
   legacyCollection  String? // collection gốc: ho_so | ho_so_doi_1
   donViGiao         String?     @map("don_vi_giao") // Tên CQĐT/đơn vị ủy thác (PC01, CA quận X...)
@@ -657,6 +658,7 @@ model Case {
   @@index([thoiHanUyThac]) // v0.44
   @@index([donViGiao]) // v0.44
   @@index([soHoSoCu]) // truy nguyên hệ cũ
+  @@index([sttCu])
   @@index([legacyId, legacyCollection])
   @@map("cases")
 }
@@ -946,7 +948,8 @@ model Petition {
   dieuTraVien            String? // Điều tra viên thụ lý (old: dieu_tra_vien — free text, pattern như lanhDaoToTung)
   donViGiaiQuyet         String? // Đơn vị giải quyết (old: don_vi_giai_quyet — khác unit="Đơn vị tiếp nhận")
   legacySourceId         String? // Khóa gốc hệ thống cũ pc02hcm.com — idempotent di trú
-  soHoSoCu               String? // Số/STT hồ sơ hệ cũ — truy nguyên (hiển thị + tìm kiếm)
+  soHoSoCu               String? // STT thụ lý hệ cũ (trường `stt`) — truy nguyên
+  sttCu                  String? // STT cũ hơn (trường `stt_cu`)
   legacyId               Int? // id số gốc hệ cũ (kèm legacyCollection)
   legacyCollection       String? // collection gốc: ho_so | ho_so_doi_1
   legacyRaw              Json? // Toàn bộ field raw hệ cũ — không mất data (Codex P1#1; Petition không có metadata)
@@ -977,6 +980,7 @@ model Petition {
   @@index([deadlineRuleVersionId])
   @@index([crimeChinhId])
   @@index([soHoSoCu]) // truy nguyên hệ cũ
+  @@index([sttCu])
   @@index([legacyId, legacyCollection])
   @@map("petitions")
 }
@@ -1151,7 +1155,8 @@ model Incident {
   // v0.47 — Import audit (Track B xlsx import) — per-row provenance per Codex #3
   importedFrom   String?
   legacySourceId String? // Khóa gốc hệ thống cũ — idempotent di trú
-  soHoSoCu       String? // Số/STT hồ sơ hệ cũ — truy nguyên (hiển thị + tìm kiếm)
+  soHoSoCu       String? // STT thụ lý hệ cũ (trường `stt`) — truy nguyên
+  sttCu          String? // STT cũ hơn (trường `stt_cu`)
   legacyId       Int? // id số gốc hệ cũ (kèm legacyCollection)
   legacyCollection String? // collection gốc: ho_so | ho_so_doi_1
   legacyRaw      Json? // Toàn bộ field raw hệ cũ — không mất data (Codex P1#1; Incident không có metadata)
@@ -1174,6 +1179,7 @@ model Incident {
   @@index([giaHan1RuleVersionId])
   @@index([giaHan2RuleVersionId])
   @@index([soHoSoCu]) // truy nguyên hệ cũ
+  @@index([sttCu])
   @@index([legacyId, legacyCollection])
   @@map("incidents")
 }

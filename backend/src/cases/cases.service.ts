@@ -142,6 +142,7 @@ export class CasesService {
         { unit: { contains: search, mode: 'insensitive' } },
         { caseCode: { contains: search, mode: 'insensitive' } },
         { soHoSoCu: { contains: search, mode: 'insensitive' } }, // truy nguyên: tìm theo STT hệ cũ
+        { sttCu: { contains: search, mode: 'insensitive' } },
         ...(isUtdt
           ? [
               { donViGiao: { contains: search, mode: 'insensitive' as const } },
@@ -391,6 +392,7 @@ export class CasesService {
         { unit: { contains: search, mode: 'insensitive' } },
         { caseCode: { contains: search, mode: 'insensitive' } },
         { soHoSoCu: { contains: search, mode: 'insensitive' } }, // truy nguyên: tìm theo STT hệ cũ
+        { sttCu: { contains: search, mode: 'insensitive' } },
         ...(isUtdt
           ? [
               { donViGiao: { contains: search, mode: 'insensitive' as const } },
