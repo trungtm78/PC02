@@ -16,16 +16,19 @@ Quyền PROD: test local xong → tự áp prod, KHÔNG hỏi lại (prod chưa 
 - [x] PR-2 schema truy nguyên — commit. tsc sạch. migration 20260803000000_legacy_traceability.
   - +soHoSoCu/legacyId/legacyCollection (cases/petitions/incidents) + Subject/InvestigationSupplement khóa gốc + index.
 
+- [x] PR-3a+b TRUY NGUYÊN end-to-end (vụ án) — commit. Full BE 2850 test xanh, BE+FE tsc sạch.
+  - traceFields → builders; backfill-trace điền 53.455 bản ghi (cases 3283+petitions 45459+incidents 4713);
+    CaseDetailPage hiện "Mã hồ sơ gốc"; cases search theo soHoSoCu/caseCode. YÊU CẦU CỐT LÕI CỦA ANH: XONG.
+
 ## Đang làm dở
-Task: PR-3 builder import DATA-DRIVEN (đọc field-mapping.json thay hardcode)
-Đã làm: có field-mapping.json (80 field có đích + RESOLVE) + schema truy nguyên sẵn sàng.
-BƯỚC TIẾP THEO:
-  1. cli/stage-ejson.ts: nạp EJSON dump → legacy_staging (snapshot-safe: truncate trước).
-  2. Enum crosswalk NgonNgu→Prisma enum (docs/legacy/enum-crosswalk) có đường lỗi UNKNOWN.
-  3. Viết builder đọc field-mapping.json: set cột theo byEntity[loai], gắn soHoSoCu(=stt)/legacyId(=id)/
-     legacyCollection; GIỮ safeguard control-flow cũ (prefix key, chặn thiếu ngày, FK, crime-resolve).
-  4. Subject từ text nghi_van_doi_tuong (giữ bocTenDanhSach) + gắn legacy truy nguyên.
-File liên quan: backend/src/legacy-migration/legacy-mapper.ts, legacy-migration.service.ts, docs/legacy/field-mapping.json
+Task: PR-3c parity truy nguyên cho Petition/Incident (display+search) — TÙY CHỌN
+  + PR-4 full re-map field data-driven (đọc field-mapping.json) — GIÁ TRỊ THẤP hơn (data hiện 98,5% coverage,
+    80 field đã map đúng ở builder hiện tại); cân nhắc vì rủi ro re-migrate 53k.
+BƯỚC TIẾP THEO (nếu tiếp):
+  1. Thêm soHoSoCu vào petitions/incidents list search + detail display (parity với cases).
+  2. PR-4 (nếu cần độ chính xác cao hơn): builder đọc field-mapping.json thay hardcode + re-migrate.
+  3. Áp PROD (anh cấp quyền): pg_dump + migration additive + backfill-trace (idempotent) khi merge nhánh.
+File liên quan: backend/src/petitions/petitions.service.ts, frontend petition/incident detail, docs/legacy/field-mapping.json
 
 ## Hàng đợi task kế tiếp
 1. PR-1.b ma trận map field (field-mapping.json)
