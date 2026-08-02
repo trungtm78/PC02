@@ -1049,6 +1049,15 @@ export default function CaseDetailPage() {
             <div className="space-y-2 text-sm">
               {[
                 { label: "Mã vụ án", value: caseData?.caseCode || "(chưa cấp)", icon: <Hash className="w-4 h-4 text-slate-400" /> },
+                // Truy nguyên hệ cũ pc02hcm.com (chỉ hiện khi là bản ghi di trú)
+                ...((caseData as { soHoSoCu?: string; legacyId?: number; legacyCollection?: string } | undefined)?.soHoSoCu
+                  ? [{
+                      label: "Mã hồ sơ gốc (hệ cũ)",
+                      value: `STT ${(caseData as { soHoSoCu?: string }).soHoSoCu}` +
+                        ((caseData as { legacyId?: number }).legacyId ? ` · #${(caseData as { legacyId?: number }).legacyId}` : ''),
+                      icon: <Hash className="w-4 h-4 text-amber-500" />,
+                    }]
+                  : []),
                 { label: "Điều tra viên", value: investigatorName, icon: <User className="w-4 h-4 text-slate-400" /> },
                 { label: "Đơn vị", value: caseData?.unit ?? "—", icon: <Building2 className="w-4 h-4 text-slate-400" /> },
                 { label: "Ngày khởi tạo", value: createdAt, icon: <Calendar className="w-4 h-4 text-slate-400" /> },

@@ -4,7 +4,25 @@ import {
   parseLegacyNumber,
   parseLegacyBool,
   buildCaseStatistic,
+  traceFields,
 } from './legacy-mapper';
+
+describe('traceFields (truy nguyên hệ cũ PR-2)', () => {
+  it('lấy soHoSoCu=stt, legacyId=id (số), legacyCollection', () => {
+    const r = traceFields({ id: '12345', stt: 'DT-2020-001', __sourceCollection: 'ho_so_doi_1' } as any);
+    expect(r.soHoSoCu).toBe('DT-2020-001');
+    expect(r.legacyId).toBe(12345);
+    expect(r.legacyCollection).toBe('ho_so_doi_1');
+  });
+
+  it('id không phải số thuần → legacyId undefined (không ép bừa)', () => {
+    expect(traceFields({ id: 'abc' } as any).legacyId).toBeUndefined();
+  });
+
+  it('thiếu stt → fallback stt_cu', () => {
+    expect(traceFields({ id: '1', stt_cu: '99' } as any).soHoSoCu).toBe('99');
+  });
+});
 
 describe('parseLegacyNumber (tiền localized hệ cũ)', () => {
   it('phân tách nghìn kiểu VN 1.000.000 → 1000000', () => {

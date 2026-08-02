@@ -619,6 +619,9 @@ model Case {
   // v0.44 — Ủy Thác Điều Tra fields (nullable, chỉ relevant khi caseType = UY_THAC_DIEU_TRA)
   caseType          CaseType    @default(REGULAR) @map("case_type")
   legacySourceId    String? // Khóa gốc hệ thống cũ — idempotent di trú
+  soHoSoCu          String? // Số/STT hồ sơ hệ cũ — truy nguyên (hiển thị + tìm kiếm)
+  legacyId          Int? // id số gốc hệ cũ (kèm legacyCollection vì id trùng giữa collection)
+  legacyCollection  String? // collection gốc: ho_so | ho_so_doi_1
   donViGiao         String?     @map("don_vi_giao") // Tên CQĐT/đơn vị ủy thác (PC01, CA quận X...)
   soQuyetDinhUyThac String?     @unique @map("so_quyet_dinh_uy_thac") // Số QĐ/Phiếu ủy thác từ đơn vị giao (Mẫu 58 TT119/2021) — unique (NULL cho phép trùng theo chuẩn PG)
   ngayTiepNhan      DateTime?   @map("ngay_tiep_nhan") // Ngày tiếp nhận theo biên bản
@@ -653,6 +656,8 @@ model Case {
   @@index([caseType]) // v0.44
   @@index([thoiHanUyThac]) // v0.44
   @@index([donViGiao]) // v0.44
+  @@index([soHoSoCu]) // truy nguyên hệ cũ
+  @@index([legacyId, legacyCollection])
   @@map("cases")
 }
 
@@ -775,6 +780,12 @@ model Subject {
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
+  // Truy nguyên di trú (nghi can/bị hại bóc từ ho_so_doi_1.nghi_van_doi_tuong)
+  legacySourceId   String? // Khóa gốc hệ cũ (idempotent)
+  legacyId         Int? // id hồ sơ gốc chứa đối tượng
+  legacyCollection String? // collection gốc: ho_so | ho_so_doi_1
+  legacyRaw        Json? // Chuỗi gốc trích ra (nghi_van_doi_tuong) — không mất data
+
   case    Case     @relation(fields: [caseId], references: [id])
   crime   Crime?   @relation(fields: [crimeId], references: [id]) // FK thật → master Crime (optional)
   lawyers Lawyer[] // Lawyers assigned to this subject
@@ -784,6 +795,7 @@ model Subject {
   @@index([status])
   @@index([type])
   @@index([deletedAt])
+  @@index([legacySourceId])
   @@map("subjects")
 }
 
@@ -934,6 +946,9 @@ model Petition {
   dieuTraVien            String? // Điều tra viên thụ lý (old: dieu_tra_vien — free text, pattern như lanhDaoToTung)
   donViGiaiQuyet         String? // Đơn vị giải quyết (old: don_vi_giai_quyet — khác unit="Đơn vị tiếp nhận")
   legacySourceId         String? // Khóa gốc hệ thống cũ pc02hcm.com — idempotent di trú
+  soHoSoCu               String? // Số/STT hồ sơ hệ cũ — truy nguyên (hiển thị + tìm kiếm)
+  legacyId               Int? // id số gốc hệ cũ (kèm legacyCollection)
+  legacyCollection       String? // collection gốc: ho_so | ho_so_doi_1
   legacyRaw              Json? // Toàn bộ field raw hệ cũ — không mất data (Codex P1#1; Petition không có metadata)
   // Field-parity hệ thống cũ — giai đoạn Ủy thác điều tra
   thoiHanUTDT            DateTime? // Thời hạn thực hiện Ủy thác điều tra (old: thoi_han_thuc_hien_uy_thac_dieu_tra)
@@ -961,6 +976,8 @@ model Petition {
   @@index([assignedTeamId])
   @@index([deadlineRuleVersionId])
   @@index([crimeChinhId])
+  @@index([soHoSoCu]) // truy nguyên hệ cũ
+  @@index([legacyId, legacyCollection])
   @@map("petitions")
 }
 
@@ -1134,6 +1151,9 @@ model Incident {
   // v0.47 — Import audit (Track B xlsx import) — per-row provenance per Codex #3
   importedFrom   String?
   legacySourceId String? // Khóa gốc hệ thống cũ — idempotent di trú
+  soHoSoCu       String? // Số/STT hồ sơ hệ cũ — truy nguyên (hiển thị + tìm kiếm)
+  legacyId       Int? // id số gốc hệ cũ (kèm legacyCollection)
+  legacyCollection String? // collection gốc: ho_so | ho_so_doi_1
   legacyRaw      Json? // Toàn bộ field raw hệ cũ — không mất data (Codex P1#1; Incident không có metadata)
   importedAt     DateTime?
   importedById   String?
@@ -1153,6 +1173,8 @@ model Incident {
   @@index([deadlineRuleVersionId])
   @@index([giaHan1RuleVersionId])
   @@index([giaHan2RuleVersionId])
+  @@index([soHoSoCu]) // truy nguyên hệ cũ
+  @@index([legacyId, legacyCollection])
   @@map("incidents")
 }
 
@@ -1503,6 +1525,11 @@ model InvestigationSupplement {
   deadline       DateTime?
   createdById    String?
   createdAt      DateTime  @default(now())
+
+  // Truy nguyên di trú (dieu_tra_bo_sung hệ cũ)
+  legacySourceId   String? @unique // Khóa gốc hệ cũ (idempotent)
+  legacyId         Int? // id gốc hệ cũ
+  legacyCollection String? // collection gốc: dieu_tra_bo_sung | dieu_tra_bo_sung_doi_1
 
   case      Case  @relation(fields: [caseId], references: [id], onDelete: Cascade)
   createdBy User? @relation("SupplementCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)

@@ -1,0 +1,1490 @@
+{
+  "generatedAtIso": "2026-08-02T17:21:35.042Z",
+  "phanLoaiToEntity": {
+    "don-cong-van-ban-dau": "petition",
+    "vu-viec-ban-dau": "incident",
+    "vu-viec-nguon-tin": "incident",
+    "cong-van-don-doc-phuc-hoi-tdc": "incident",
+    "vu-an-ban-dau": "case",
+    "uy-thac-dieu-tra": "case",
+    "tra-ho-so-ban-dau": "case",
+    "huong-dan": "guidance",
+    "huong-dan-ban-dau": "guidance",
+    "trao-doi-chuyen-an": "exchange",
+    "kien-nghi-vks": "proposal",
+    "luat-su": "lawyer"
+  },
+  "byEntity": {
+    "petition": {
+      "ten_ca_nhan_co_quan_to_chuc_cung_cap": "senderName",
+      "so_dien_thoai_nguyen_don": "senderPhone",
+      "so_cccd_nguyen_don": "senderIdNumber",
+      "ngay_cap_cccd_nguyen_don": "senderIdIssueDate",
+      "noi_cap_cccd_nguyen_don": "senderIdIssuePlace",
+      "dia-chi-bi-hai": "senderAddress",
+      "nghi_van_doi_tuong": "suspectedPerson",
+      "tom_tat_noi_dung": "summary",
+      "nguon_don": "nguonDon",
+      "loai_thong_tin": "loaiThongTin",
+      "so_phieu_chuyen": "soPhieuChuyen",
+      "ngay_phieu_chuyen": "ngayPhieuChuyen",
+      "ngay_tiep_nhan_nguon_tin": "ngayTiepNhanNguonTin",
+      "toi-danh-ban-dau": "toiDanhBanDau",
+      "noi_xay_ra": "noiXayRa",
+      "ngay_giao_don_vi_giai_quyet": "ngayGiaoDonViGiaiQuyet",
+      "lanh_dao_to_tung": "lanhDaoToTung",
+      "ket_qua_xu_ly_giai_quyet_khac": "ketQuaXuLyKhac",
+      "ngay_viet_don": "petitionDate",
+      "nhan_xet": "nhanThay",
+      "ghi_chu_trung_don": "raSoatTrung",
+      "ngay_de_xuat": "ngayDeXuat",
+      "dieu_tra_vien": "dieuTraVien",
+      "truong_hop_bao_cao_ban_giam_doc": "baoCaoBanGiamDoc",
+      "phan_loai_toi_pham_cong_nghe_cao": "laCongNgheCao",
+      "phuong_thuc_thu_doan": "phuongThucThuDoan",
+      "ngay_xay_ra": "ngayXayRa",
+      "noi_xay_ra_phuong_xa": "noiXayRaPhuongXa",
+      "loai_toi_pham": "loaiToiPham",
+      "thoi_han_thuc_hien_uy_thac_dieu_tra": "thoiHanUTDT",
+      "sinh_nam_nguoi_to_giac": "senderBirthYear"
+    },
+    "incident": {
+      "tom_tat_noi_dung": "name",
+      "nguon_don": "chuyenTuDonVi",
+      "tinh_trang": "tinhTrangHoSo",
+      "dia-chi-bi-hai": "diaChiNguoiToGiac",
+      "ngay_de_xuat": "ngayDeXuat",
+      "noi_xay_ra": "diaChiXayRa",
+      "so_dien_thoai_nguyen_don": "sdtNguoiToGiac",
+      "so_cccd_nguyen_don": "cmndNguoiToGiac",
+      "ten_ca_nhan_co_quan_to_chuc_cung_cap": "benVu",
+      "nghi_van_doi_tuong": "doiTuongCaNhan",
+      "don_vi_giai_quyet": "donViGiaiQuyet",
+      "quyet_dinh_phan_cong_giai_quyet_nguon_tin": "soQDPhanCongNguonTin",
+      "ngay_ra_quyet_dinh_phan_cong_tin_bao": "ngayQDPhanCongNguonTin",
+      "can_cu_ra_quyet_dinh_khong_khoi_to": "canCuKhongKhoiTo",
+      "can_cu_tam_dinh_chi_nguon_tin": "canCuTamDinhChi",
+      "phan_loai_dan_su": "phanLoaiDanSuText",
+      "quyet_dinh_tam_dinh_chi_nguon_tin": "soQuyetDinhTamDinhChiVV",
+      "ngay_ra_quyet_dinh_tam_dinh_chi_nguon_tin": "ngayTamDinhChiVV",
+      "phuc_hoi_nguon_tin_toi_pham": "soQuyetDinhPhucHoiVV",
+      "ngay_phuc_hoi_nguon_tin_toi_pham": "ngayPhucHoiVV",
+      "ngay_thang_nam_het_thoi_hieu_vu_viec": "ngayHetThoiHieuVV",
+      "tien_do_khac_phuc_tdc": "tienDoKhacPhucTDC",
+      "vu_viec_chuyen_don_vi_khac": "chuyenDenDonVi"
+    },
+    "case": {
+      "toi-danh-ban-dau": "crime",
+      "quyet_dinh_khoi_to_vu_an": "soQuyetDinhKhoiTo",
+      "ngay_ra_quyet_dinh_khoi_to": "ngayKhoiTo",
+      "quyet_dinh_tam_dinh_chi_vu_an": "soQuyetDinhTamDinhChi",
+      "ngay_tam_dinh_chi_vu_an": "ngayTamDinhChi",
+      "ngay_het_thoi_hieu_truy_cuu_tnhs_vu_an": "ngayHetThoiHieu",
+      "quyet_dinh_nhap_vu_an": "soQDNhapVuAn",
+      "ngay_nhap_vu_an": "ngayNhapVuAn",
+      "ghi_chu_nhap_ho_so": "ghiChuNhapHoSo",
+      "quyet_dinh_tach_vu_an": "soQDTachVuAn",
+      "ngay_tach_ho_so": "ngayTachVuAn",
+      "dinh_chi_vu_an": "soQDDinhChiVuAn",
+      "chuyen_vu_an_cho_co_quan_khac": "chuyenVuAnChoCQK",
+      "so_ban_an_co_hieu_luc": "soBanAnCoHieuLuc",
+      "ket_luan_dieu_tra_vu_an": "soKLDT",
+      "ngay_ket_luan_dieu_tra": "ngayKLDT",
+      "quyet_dinh_dieu_tra_lai": "soQDDieuTraLai",
+      "quyet_dinh_tach_hanh_vi": "soQDTachHanhVi",
+      "ngay-quyet-dinh-tach-hanh-vi": "ngayTachHanhVi",
+      "can_cu_tam_dinh_chi_vu_an": "canCuTamDinhChiVuAn",
+      "can_cu_phuc_hoi_dieu_tra_vu_an": "canCuPhucHoiVuAn",
+      "ghi_chu_khac": "ghiChuKhac"
+    },
+    "caseStatistic": {
+      "so_luong_bi_hai": "soLuongBiHai",
+      "so_tien_bi_thiet_hai": "soTienBiThietHai",
+      "so_tien_thu_hoi": "soTienThuHoi",
+      "so_luong_sung_thu_hoi": "soSungThuHoi",
+      "so_doi_tuong": "soDoiTuong",
+      "so_doi_tuong_da_bat": "soDoiTuongDaBat",
+      "so_doi_tuong_bi_bat_trong_vu_an_khac": "soDoiTuongBiBatVuAnKhac",
+      "so_luong_nguoi_chet": "soLuongNguoiChet",
+      "so_nguoi_bi_thuong": "soNguoiBiThuong",
+      "ngay_thong_ke": "ngayThongKe",
+      "ngay_pham_toi_qua_tang": "ngayPhamToiQuaTang",
+      "ngay_nguoi_pham_toi_dau_thu": "ngayDauThu",
+      "ngay_nguoi_pham_toi_bi_bat_khan_cap": "ngayBatKhanCap",
+      "ngay_cqcsdt_phat_hien_co_dau_hieu_pham_toi": "ngayPhatHienDauHieu",
+      "ngay_thoi_diem_phan_cong_giai_quyet_to_giac": "ngayPhanCongGiaiQuyetToGiac",
+      "ngay_tiep_nhan_tin": "ngayTiepNhanTin",
+      "so_tien_thu_hoi_tai_san": "soTienThuHoi",
+      "su_dung_vu_khi_nong": "suDungVuKhiNong",
+      "dieu_tra_mo_rong": "dieuTraMoRong"
+    }
+  },
+  "resolve": {
+    "toi_danh_chinh_blhs2015": "crimeChinhId ← resolveCrime(ToiDanh.legacyValue), validate FK tồn tại",
+    "toi_danh_chinh": "crimeChinhId ← resolveCrime",
+    "toi_danh_khac": "toiDanhKhacIds[] ← resolveCrime nhiều",
+    "phan_loai_nguon_tin_ban_dau": "→ thực thể đích (PHAN_LOAI_TO_ENTITY) + caseProvenance/petitionType (crosswalk)",
+    "tinh_trang": "→ status enum (crosswalk NgonNgu tinh_trang_*)",
+    "don_vi_giai_quyet": "→ assignedTeamId (LegacyUnitAlias classification)",
+    "nguoi_them": "→ createdById/importedById (map thanh_vien→user)"
+  },
+  "rows": [
+    {
+      "field": "tom_tat_noi_dung",
+      "label": "Tóm tắt nội dung",
+      "type": "textarea",
+      "freq": 54205,
+      "klass": "MAPPED",
+      "targets": {
+        "petition": "summary",
+        "incident": "name"
+      },
+      "note": null
+    },
+    {
+      "field": "phan_loai_nguon_tin_ban_dau",
+      "label": "Phân loại ban đầu",
+      "type": "select",
+      "freq": 54163,
+      "klass": "RESOLVE",
+      "targets": {},
+      "note": "→ thực thể đích (PHAN_LOAI_TO_ENTITY) + caseProvenance/petitionType (crosswalk)"
+    },
+    {
+      "field": "don_vi_giai_quyet",
+      "label": "Đơn vị giải quyết",
+      "type": "text",
+      "freq": 53761,
+      "klass": "RESOLVE",
+      "targets": {},
+      "note": "→ assignedTeamId (LegacyUnitAlias classification)"
+    },
+    {
+      "field": "nguon_don",
+      "label": "Nguồn đơn/Đơn vị giao",
+      "type": "text",
+      "freq": 52765,
+      "klass": "MAPPED",
+      "targets": {
+        "petition": "nguonDon",
+        "incident": "chuyenTuDonVi"
+      },
+      "note": null
+    },
+    {
+      "field": "ten_ca_nhan_co_quan_to_chuc_cung_cap",
+      "label": "Tên cá nhân, cơ quan, tổ chức cung cấp, bị hại",
+      "type": "text",
+      "freq": 51255,
+      "klass": "MAPPED",
+      "targets": {
+        "petition": "senderName",
+        "incident": "benVu"
+      },
+      "note": null
+    },
+    {
+      "field": "nhan_xet",
+      "label": "Nhận xét",
+      "type": "textarea",
+      "freq": 50180,
+      "klass": "MAPPED",
+      "targets": {
+        "petition": "nhanThay"
+      },
+      "note": null
+    },
+    {
+      "field": "ngay_tiep_nhan_nguon_tin",
+      "label": "Ngày tiếp nhận (theo biên bản tiếp nhận nguồn tin)",
+      "type": "text",
+      "freq": 49147,
+      "klass": "MAPPED",
+      "targets": {
+        "petition": "ngayTiepNhanNguonTin"
+      },
+      "note": null
+    },
+    {
+      "field": "dia-chi-bi-hai",
+      "label": "Địa chỉ cá nhân, cơ quan, tổ chức cung cấp, bị hại",
+      "type": "text",
+      "freq": 47253,
+      "klass": "MAPPED",
+      "targets": {
+        "petition": "senderAddress",
+        "incident": "diaChiNguoiToGiac"
+      },
+      "note": null
+    },
+    {
+      "field": "loai_thong_tin",
+      "label": "Loại thông tin",
+      "type": "text",
+      "freq": 46259,
+      "klass": "MAPPED",
+      "targets": {
+        "petition": "loaiThongTin"
+      },
+      "note": null
+    },
+    {
+      "field": "ngay_viet_don",
+      "label": "Ngày viết đơn",
+      "type": "text",
+      "freq": 45916,
+      "klass": "MAPPED",
+      "targets": {
+        "petition": "petitionDate"
+      },
+      "note": null
+    },
+    {
+      "field": "ghi_chu_trung_don",
+      "label": "Ghi chú trùng đơn",
+      "type": "text",
+      "freq": 36263,
+      "klass": "MAPPED",
+      "targets": {
+        "petition": "raSoatTrung"
+      },
+      "note": null
+    },
+    {
+      "field": "truong_hop_bao_cao_ban_giam_doc",
+      "label": "Trường hợp báo cáo Ban Giám đốc",
+      "type": "text",
+      "freq": 34931,
+      "klass": "MAPPED",
+      "targets": {
+        "petition": "baoCaoBanGiamDoc"
+      },
+      "note": null
+    },
+    {
+      "field": "so_tien_bi_thiet_hai",
+      "label": "Số tiền bị thiệt hại (triệu Việt nam Đồng)",
+      "type": "number",
+      "freq": 31566,
+      "klass": "MAPPED",
+      "targets": {
+        "caseStatistic": "soTienBiThietHai"
+      },
+      "note": null
+    },
+    {
+      "field": "so_luong_bi_hai",
+      "label": "Số lượng người bị hại",
+      "type": "number",
+      "freq": 31565,
+      "klass": "MAPPED",
+      "targets": {
+        "caseStatistic": "soLuongBiHai"
+      },
+      "note": null
+    },
+    {
+      "field": "phuong_thuc_thu_doan",
+      "label": "Phương thức thủ đoạn",
+      "type": "text",
+      "freq": 31565,
+      "klass": "MAPPED",
+      "targets": {
+        "petition": "phuongThucThuDoan"
+      },
+      "note": null
+    },
+    {
+      "field": "ngay_giao_don_vi_giai_quyet",
+      "label": "Ngày giao đơn vị giải quyết",
+      "type": "text",
+      "freq": 26210,
+      "klass": "MAPPED",
+      "targets": {
+        "petition": "ngayGiaoDonViGiaiQuyet"
+      },
+      "note": null
+    },
+    {
+      "field": "toi-danh-ban-dau",
+      "label": "Tội danh cũ trước đây",
+      "type": "text",
+      "freq": 21854,
+      "klass": "MAPPED",
+      "targets": {
+        "petition": "toiDanhBanDau",
+        "case": "crime"
+      },
+      "note": null
+    },
+    {
+      "field": "ngay_thong_ke",
+      "label": "Ngày tổng hợp thống kê",
+      "type": "date",
+      "freq": 17831,
+      "klass": "MAPPED",
+      "targets": {
+        "caseStatistic": "ngayThongKe"
+      },
+      "note": null
+    },
+    {
+      "field": "ngay_thang_nam_het_thoi_hieu_vu_viec",
+      "label": "Ngày tháng năm hết thời hiệu truy cứu TNHS",
+      "type": "date",
+      "freq": 17791,
+      "klass": "MAPPED",
+      "targets": {
+        "incident": "ngayHetThoiHieuVV"
+      },
+      "note": null
+    },
+    {
+      "field": "ngay_het_thoi_hieu_truy_cuu_tnhs_vu_an",
+      "label": "Ngày hết thời hiệu truy cứu TNHS vụ án",
+      "type": "date",
+      "freq": 17790,
+      "klass": "MAPPED",
+      "targets": {
+        "case": "ngayHetThoiHieu"
+      },
+      "note": null
+    },
+    {
+      "field": "thoi_han_thuc_hien_uy_thac_dieu_tra",
+      "label": "Thời hạn thực hiện Uỷ thác điều tra",
+      "type": "date",
+      "freq": 17397,
+      "klass": "MAPPED",
+      "targets": {
+        "petition": "thoiHanUTDT"
+      },
+      "note": null
+    },
+    {
+      "field": "ngay_xay_ra",
+      "label": "Ngày tội phạm xảy ra",
+      "type": "date",
+      "freq": 17388,
+      "klass": "MAPPED",
+      "targets": {
+        "petition": "ngayXayRa"
+      },
+      "note": null
+    },
+    {
+      "field": "ngay_tiep_nhan_tin",
+      "label": "Ngày tiếp nhận tin khi đơn vị nhận được",
+      "type": "date",
+      "freq": 17388,
+      "klass": "MAPPED",
+      "targets": {
+        "caseStatistic": "ngayTiepNhanTin"
+      },
+      "note": null
+    },
+    {
+      "field": "ngay_nguoi_pham_toi_dau_thu",
+      "label": "Ngày người phạm tội đầu thú, tự thú",
+      "type": "date",
+      "freq": 16901,
+      "klass": "MAPPED",
+      "targets": {
+        "caseStatistic": "ngayDauThu"
+      },
+      "note": null
+    },
+    {
+      "field": "ngay_pham_toi_qua_tang",
+      "label": "Ngày người phạm tội bị bắt quả tang",
+      "type": "date",
+      "freq": 16901,
+      "klass": "MAPPED",
+      "targets": {
+        "caseStatistic": "ngayPhamToiQuaTang"
+      },
+      "note": null
+    },
+    {
+      "field": "ngay_nguoi_pham_toi_bi_bat_khan_cap",
+      "label": "Ngày Người phạm tội bị giữ trong các trường hợp khẩn cấp",
+      "type": "date",
+      "freq": 16901,
+      "klass": "MAPPED",
+      "targets": {
+        "caseStatistic": "ngayBatKhanCap"
+      },
+      "note": null
+    },
+    {
+      "field": "ngay_cqcsdt_phat_hien_co_dau_hieu_pham_toi",
+      "label": "Ngày CQCSĐT trực tiếp phát hiện có dấu hiệu tội phạm",
+      "type": "date",
+      "freq": 16901,
+      "klass": "MAPPED",
+      "targets": {
+        "caseStatistic": "ngayPhatHienDauHieu"
+      },
+      "note": null
+    },
+    {
+      "field": "ngay_thoi_diem_phan_cong_giai_quyet_to_giac",
+      "label": "Ngày Thời điểm phân công giải quyết tố giác, tin báo",
+      "type": "date",
+      "freq": 16901,
+      "klass": "MAPPED",
+      "targets": {
+        "caseStatistic": "ngayPhanCongGiaiQuyetToGiac"
+      },
+      "note": null
+    },
+    {
+      "field": "toi_danh_chinh_blhs2015",
+      "label": "Tội danh chính - BLHS 2015 (nhận định ban đầu)",
+      "type": "chon_toi_danh",
+      "freq": 16502,
+      "klass": "RESOLVE",
+      "targets": {},
+      "note": "crimeChinhId ← resolveCrime(ToiDanh.legacyValue), validate FK tồn tại"
+    },
+    {
+      "field": "ket_qua_xu_ly_giai_quyet_khac",
+      "label": "Kết quả xử lý, giải quyết khác",
+      "type": "textarea",
+      "freq": 13782,
+      "klass": "MAPPED",
+      "targets": {
+        "petition": "ketQuaXuLyKhac"
+      },
+      "note": null
+    },
+    {
+      "field": "so_phieu_chuyen",
+      "label": "Số phiếu chuyển/ Công văn/ Ủy thác điều tra",
+      "type": "text",
+      "freq": 11800,
+      "klass": "MAPPED",
+      "targets": {
+        "petition": "soPhieuChuyen"
+      },
+      "note": null
+    },
+    {
+      "field": "do_vat_tai_lieu_kem_theo",
+      "label": "Đồ vật, tài liệu kèm theo",
+      "type": "textarea",
+      "freq": 11040,
+      "klass": "UNMAPPED",
+      "targets": {},
+      "note": null
+    },
+    {
+      "field": "ngay_phieu_chuyen",
+      "label": "Ngày phiếu chuyển/ Công văn/ Ủy thác điều tra",
+      "type": "text",
+      "freq": 10995,
+      "klass": "MAPPED",
+      "targets": {
+        "petition": "ngayPhieuChuyen"
+      },
+      "note": null
+    },
+    {
+      "field": "so_dien_thoai_nguyen_don",
+      "label": "Số điện thoại nguyên đơn",
+      "type": "phone",
+      "freq": 8043,
+      "klass": "MAPPED",
+      "targets": {
+        "petition": "senderPhone",
+        "incident": "sdtNguoiToGiac"
+      },
+      "note": null
+    },
+    {
+      "field": "nghi_van_doi_tuong",
+      "label": "Nghi vấn đối tượng hoặc bị can",
+      "type": "text",
+      "freq": 7572,
+      "klass": "MAPPED",
+      "targets": {
+        "petition": "suspectedPerson",
+        "incident": "doiTuongCaNhan"
+      },
+      "note": null
+    },
+    {
+      "field": "sinh_nam_nguoi_to_giac",
+      "label": "Sinh năm",
+      "type": "text",
+      "freq": 7266,
+      "klass": "MAPPED",
+      "targets": {
+        "petition": "senderBirthYear"
+      },
+      "note": null
+    },
+    {
+      "field": "so_cccd_nguyen_don",
+      "label": "Số căn cước công dân",
+      "type": "text",
+      "freq": 3414,
+      "klass": "MAPPED",
+      "targets": {
+        "petition": "senderIdNumber",
+        "incident": "cmndNguoiToGiac"
+      },
+      "note": null
+    },
+    {
+      "field": "lanh_dao_to_tung",
+      "label": "Lãnh đạo phụ trách tố tụng",
+      "type": "text",
+      "freq": 3285,
+      "klass": "MAPPED",
+      "targets": {
+        "petition": "lanhDaoToTung"
+      },
+      "note": null
+    },
+    {
+      "field": "dieu_tra_vien",
+      "label": "Điều tra viên thụ lý",
+      "type": "text",
+      "freq": 2555,
+      "klass": "MAPPED",
+      "targets": {
+        "petition": "dieuTraVien"
+      },
+      "note": null
+    },
+    {
+      "field": "noi_cap_cccd_nguyen_don",
+      "label": "Nơi cấp CCCD",
+      "type": "text",
+      "freq": 2460,
+      "klass": "MAPPED",
+      "targets": {
+        "petition": "senderIdIssuePlace"
+      },
+      "note": null
+    },
+    {
+      "field": "ngay_cap_cccd_nguyen_don",
+      "label": "Ngày cấp CCCD",
+      "type": "text",
+      "freq": 2317,
+      "klass": "MAPPED",
+      "targets": {
+        "petition": "senderIdIssueDate"
+      },
+      "note": null
+    },
+    {
+      "field": "noi_xay_ra",
+      "label": "Nơi xảy ra tội phạm",
+      "type": "text",
+      "freq": 1783,
+      "klass": "MAPPED",
+      "targets": {
+        "petition": "noiXayRa",
+        "incident": "diaChiXayRa"
+      },
+      "note": null
+    },
+    {
+      "field": "ngay_ra_quyet_dinh_phan_cong_tin_bao",
+      "label": "Ngày ra Quyết định phân công giải quyết nguồn tin tội phạm",
+      "type": "text",
+      "freq": 1339,
+      "klass": "MAPPED",
+      "targets": {
+        "incident": "ngayQDPhanCongNguonTin"
+      },
+      "note": null
+    },
+    {
+      "field": "ghi_chu_khac",
+      "label": "Ghi chú khác",
+      "type": "textarea",
+      "freq": 858,
+      "klass": "MAPPED",
+      "targets": {
+        "case": "ghiChuKhac"
+      },
+      "note": null
+    },
+    {
+      "field": "phan_loai_toi_pham_cong_nghe_cao",
+      "label": "Bấm chọn nễu xác định đây là tội phạm công nghệ cao",
+      "type": "checkbox",
+      "freq": 582,
+      "klass": "MAPPED",
+      "targets": {
+        "petition": "laCongNgheCao"
+      },
+      "note": null
+    },
+    {
+      "field": "quyet_dinh_phan_cong_giai_quyet_nguon_tin",
+      "label": "Quyết định phân công giải quyết nguồn tin tội phạm",
+      "type": "text",
+      "freq": 443,
+      "klass": "MAPPED",
+      "targets": {
+        "incident": "soQDPhanCongNguonTin"
+      },
+      "note": null
+    },
+    {
+      "field": "quyet_dinh_khoi_to_vu_an",
+      "label": "Số Quyết định Khởi tố vụ án",
+      "type": "text",
+      "freq": 165,
+      "klass": "MAPPED",
+      "targets": {
+        "case": "soQuyetDinhKhoiTo"
+      },
+      "note": null
+    },
+    {
+      "field": "ngay_phuc_hoi_nguon_tin_toi_pham",
+      "label": "Ngày Phục hồi nguồn tin tội phạm",
+      "type": "text",
+      "freq": 95,
+      "klass": "MAPPED",
+      "targets": {
+        "incident": "ngayPhucHoiVV"
+      },
+      "note": null
+    },
+    {
+      "field": "ngay_quyet_dinh_khoi_to_vu_an",
+      "label": "Ngày ra Quyết định Khởi tố vụ án",
+      "type": "text",
+      "freq": 84,
+      "klass": "UNMAPPED",
+      "targets": {},
+      "note": null
+    },
+    {
+      "field": "ngay_ra_quyet_dinh_tam_dinh_chi_nguon_tin",
+      "label": "Ngày ra Quyết định Tạm đình chỉ nguồn tin",
+      "type": "text",
+      "freq": 70,
+      "klass": "MAPPED",
+      "targets": {
+        "incident": "ngayTamDinhChiVV"
+      },
+      "note": null
+    },
+    {
+      "field": "quyet_dinh_tam_dinh_chi_nguon_tin",
+      "label": "Quyết định Tạm đình chỉ nguồn tin",
+      "type": "text",
+      "freq": 66,
+      "klass": "MAPPED",
+      "targets": {
+        "incident": "soQuyetDinhTamDinhChiVV"
+      },
+      "note": null
+    },
+    {
+      "field": "can_cu_tam_dinh_chi_nguon_tin",
+      "label": "Căn cứ Tạm đình chỉ nguồn tin",
+      "type": "text",
+      "freq": 63,
+      "klass": "MAPPED",
+      "targets": {
+        "incident": "canCuTamDinhChi"
+      },
+      "note": null
+    },
+    {
+      "field": "phuc_hoi_nguon_tin_toi_pham",
+      "label": "Số Phục hồi nguồn tin tội phạm",
+      "type": "text",
+      "freq": 57,
+      "klass": "MAPPED",
+      "targets": {
+        "incident": "soQuyetDinhPhucHoiVV"
+      },
+      "note": null
+    },
+    {
+      "field": "toi_danh_chinh",
+      "label": "Tội danh chính khi khởi tố",
+      "type": "chon_toi_danh",
+      "freq": 49,
+      "klass": "RESOLVE",
+      "targets": {},
+      "note": "crimeChinhId ← resolveCrime"
+    },
+    {
+      "field": "ngay_ra_quyet_dinh_khong_khoi_to",
+      "label": "Ngày ra Quyết định Không khởi tố",
+      "type": "text",
+      "freq": 42,
+      "klass": "UNMAPPED",
+      "targets": {},
+      "note": null
+    },
+    {
+      "field": "phan_loai_dan_su",
+      "label": "Phân loại dân sự",
+      "type": "text",
+      "freq": 6,
+      "klass": "MAPPED",
+      "targets": {
+        "incident": "phanLoaiDanSuText"
+      },
+      "note": null
+    },
+    {
+      "field": "loai_toi_pham",
+      "label": "Phân loại tội phạm (Chỉ xác định sau khi có Quyết định khởi tố vụ án)",
+      "type": "select",
+      "freq": 4,
+      "klass": "MAPPED",
+      "targets": {
+        "petition": "loaiToiPham"
+      },
+      "note": null
+    },
+    {
+      "field": "quyet_dinh_khong_khoi_to",
+      "label": "Quyết định Không khởi tố",
+      "type": "text",
+      "freq": 2,
+      "klass": "UNMAPPED",
+      "targets": {},
+      "note": null
+    },
+    {
+      "field": "quyet_dinh_tam_dinh_chi_vu_an",
+      "label": "Số Quyết định Tạm đình chỉ vụ án",
+      "type": "text",
+      "freq": 1,
+      "klass": "MAPPED",
+      "targets": {
+        "case": "soQuyetDinhTamDinhChi"
+      },
+      "note": null
+    },
+    {
+      "field": "can_cu_ra_quyet_dinh_khong_khoi_to",
+      "label": "Căn cứ để ra Quyết định Không khởi tố",
+      "type": "text",
+      "freq": 1,
+      "klass": "MAPPED",
+      "targets": {
+        "incident": "canCuKhongKhoiTo"
+      },
+      "note": null
+    },
+    {
+      "field": "ngay_tam_dinh_chi_vu_an",
+      "label": "Ngày Quyết định tạm đình chỉ vụ án",
+      "type": "text",
+      "freq": 1,
+      "klass": "MAPPED",
+      "targets": {
+        "case": "ngayTamDinhChi"
+      },
+      "note": null
+    },
+    {
+      "field": "khac_phuc_ly_do_tdc",
+      "label": "Biên bản, báo cáo, kế hoạch khắc phục lý do TĐC vụ việc",
+      "type": "textarea",
+      "freq": 0,
+      "klass": "UNMAPPED",
+      "targets": {},
+      "note": null
+    },
+    {
+      "field": "tien_do_khac_phuc_tdc",
+      "label": "Tiến độ khắc phục TĐC vụ việc",
+      "type": "textarea",
+      "freq": 0,
+      "klass": "MAPPED",
+      "targets": {
+        "incident": "tienDoKhacPhucTDC"
+      },
+      "note": null
+    },
+    {
+      "field": "vu_viec_chuyen_don_vi_khac",
+      "label": "Chuyển vụ việc cho đơn vị khác",
+      "type": "text",
+      "freq": 0,
+      "klass": "MAPPED",
+      "targets": {
+        "incident": "chuyenDenDonVi"
+      },
+      "note": null
+    },
+    {
+      "field": "nhap_vao_vu_viec_so",
+      "label": "Nhập vào vụ việc hồ sơ khác",
+      "type": "text",
+      "freq": 0,
+      "klass": "UNMAPPED",
+      "targets": {},
+      "note": null
+    },
+    {
+      "field": "quyet_dinh_nhap_vu_an",
+      "label": "Số Quyết định nhập vụ án",
+      "type": "text",
+      "freq": 0,
+      "klass": "MAPPED",
+      "targets": {
+        "case": "soQDNhapVuAn"
+      },
+      "note": null
+    },
+    {
+      "field": "quyet_dinh_tach_vu_an",
+      "label": "Số Quyết định tách vụ án",
+      "type": "text",
+      "freq": 0,
+      "klass": "MAPPED",
+      "targets": {
+        "case": "soQDTachVuAn"
+      },
+      "note": null
+    },
+    {
+      "field": "khac_phuc_tdc_vu_an",
+      "label": "Biên bản, báo cáo, kế hoạch khắc phục lý do TĐC vụ án",
+      "type": "textarea",
+      "freq": 0,
+      "klass": "UNMAPPED",
+      "targets": {},
+      "note": null
+    },
+    {
+      "field": "bien_phap_khac_phuc_tdc_vu_an",
+      "label": "Biện pháp, tiến độ khắc phục lý do TĐC vụ án",
+      "type": "textarea",
+      "freq": 0,
+      "klass": "UNMAPPED",
+      "targets": {},
+      "note": null
+    },
+    {
+      "field": "quyet_dinh_phuc_hoi_vu_an",
+      "label": "Số Quyết định Phục hồi Vụ án",
+      "type": "text",
+      "freq": 0,
+      "klass": "UNMAPPED",
+      "targets": {},
+      "note": null
+    },
+    {
+      "field": "ket_luan_dieu_tra_vu_an",
+      "label": "Số KLĐT đề nghị truy tố",
+      "type": "text",
+      "freq": 0,
+      "klass": "MAPPED",
+      "targets": {
+        "case": "soKLDT"
+      },
+      "note": null
+    },
+    {
+      "field": "quyet_dinh_dieu_tra_lai",
+      "label": "Số Quyết định điều tra lại",
+      "type": "text",
+      "freq": 0,
+      "klass": "MAPPED",
+      "targets": {
+        "case": "soQDDieuTraLai"
+      },
+      "note": null
+    },
+    {
+      "field": "dinh_chi_vu_an",
+      "label": "Số Quyết định đình chỉ vụ án",
+      "type": "text",
+      "freq": 0,
+      "klass": "MAPPED",
+      "targets": {
+        "case": "soQDDinhChiVuAn"
+      },
+      "note": null
+    },
+    {
+      "field": "can_cu_phuc_hoi_dieu_tra_vu_an",
+      "label": "Căn cứ ra quyết định Phục hồi điều tra vụ án",
+      "type": "text",
+      "freq": 0,
+      "klass": "MAPPED",
+      "targets": {
+        "case": "canCuPhucHoiVuAn"
+      },
+      "note": null
+    },
+    {
+      "field": "chuyen_vu_an_cho_co_quan_khac",
+      "label": "Đã chuyển vụ án cho CQĐT khác",
+      "type": "text",
+      "freq": 0,
+      "klass": "MAPPED",
+      "targets": {
+        "case": "chuyenVuAnChoCQK"
+      },
+      "note": null
+    },
+    {
+      "field": "ghi_chu_nhap_ho_so",
+      "label": "Ghi chú nhập vào hồ sơ nào",
+      "type": "textarea",
+      "freq": 0,
+      "klass": "MAPPED",
+      "targets": {
+        "case": "ghiChuNhapHoSo"
+      },
+      "note": null
+    },
+    {
+      "field": "vat_chung",
+      "label": "Loại, đặc điểm đồ vật, tài liệu, vật chứng",
+      "type": "textarea",
+      "freq": 0,
+      "klass": "UNMAPPED",
+      "targets": {},
+      "note": null
+    },
+    {
+      "field": "lenh_nhap_kho",
+      "label": "Lệnh nhập, phiếu nhập kho",
+      "type": "text",
+      "freq": 0,
+      "klass": "UNMAPPED",
+      "targets": {},
+      "note": null
+    },
+    {
+      "field": "so_dang_ky_ho_so",
+      "label": "Số đăng ký hồ sơ nghiệp vụ",
+      "type": "text",
+      "freq": 0,
+      "klass": "UNMAPPED",
+      "targets": {},
+      "note": null
+    },
+    {
+      "field": "ho_so_luu",
+      "label": "Số hồ sơ lưu",
+      "type": "text",
+      "freq": 0,
+      "klass": "UNMAPPED",
+      "targets": {},
+      "note": null
+    },
+    {
+      "field": "don_vi_bao_quan_ho_so",
+      "label": "Đơn vị lưu giữ, bảo quản hồ sơ",
+      "type": "text",
+      "freq": 0,
+      "klass": "UNMAPPED",
+      "targets": {},
+      "note": null
+    },
+    {
+      "field": "toi_danh_khac",
+      "label": "Tội danh phụ khi khởi tố",
+      "type": "chon_nhieu_toi_danh",
+      "freq": 0,
+      "klass": "RESOLVE",
+      "targets": {},
+      "note": "toiDanhKhacIds[] ← resolveCrime nhiều"
+    },
+    {
+      "field": "ly_do_tam_dinh_chi",
+      "label": "Lý do tạm đình chỉ",
+      "type": "multi_select",
+      "freq": 0,
+      "klass": "UNMAPPED",
+      "targets": {},
+      "note": null
+    },
+    {
+      "field": "Noi_luu_tru_bao_quan_ke_bien_phong_toa",
+      "label": "Nơi lưu trữ, bảo quản, kê biên, phong tỏa",
+      "type": "text",
+      "freq": 0,
+      "klass": "UNMAPPED",
+      "targets": {},
+      "note": null
+    },
+    {
+      "field": "ngay_dang_ky_ho_so",
+      "label": "Ngày đăng ký hồ sơ nghiệp vụ",
+      "type": "text",
+      "freq": 0,
+      "klass": "UNMAPPED",
+      "targets": {},
+      "note": null
+    },
+    {
+      "field": "ngay_nop_luu_ho_so",
+      "label": "Ngày nộp lưu hồ sơ",
+      "type": "text",
+      "freq": 0,
+      "klass": "UNMAPPED",
+      "targets": {},
+      "note": null
+    },
+    {
+      "field": "ly_do_ra_quyet_dinh_khong_khoi_to_vu_an",
+      "label": "Lý do ra Quyết định không khởi tố vụ án",
+      "type": "multi_select",
+      "freq": 0,
+      "klass": "UNMAPPED",
+      "targets": {},
+      "note": null
+    },
+    {
+      "field": "ngay_nhap_vu_an",
+      "label": "Ngày tháng năm nhập vụ án",
+      "type": "text",
+      "freq": 0,
+      "klass": "MAPPED",
+      "targets": {
+        "case": "ngayNhapVuAn"
+      },
+      "note": null
+    },
+    {
+      "field": "ngay_tach_ho_so",
+      "label": "Ngày Quyết định tách hồ sơ",
+      "type": "text",
+      "freq": 0,
+      "klass": "MAPPED",
+      "targets": {
+        "case": "ngayTachVuAn"
+      },
+      "note": null
+    },
+    {
+      "field": "ngay_phuc_hoi_dieu_tra_vu_an",
+      "label": "Ngày Quyết định phục hồi điều tra vụ án",
+      "type": "text",
+      "freq": 0,
+      "klass": "UNMAPPED",
+      "targets": {},
+      "note": null
+    },
+    {
+      "field": "ngay_ket_luan_dieu_tra",
+      "label": "Ngày Kết luận điều tra vụ án",
+      "type": "text",
+      "freq": 0,
+      "klass": "MAPPED",
+      "targets": {
+        "case": "ngayKLDT"
+      },
+      "note": null
+    },
+    {
+      "field": "can_cu_tam_dinh_chi_vu_an",
+      "label": "Căn cứ tạm đình chỉ vụ án",
+      "type": "text",
+      "freq": 0,
+      "klass": "MAPPED",
+      "targets": {
+        "case": "canCuTamDinhChiVuAn"
+      },
+      "note": null
+    },
+    {
+      "field": "ly_do_tam_dinh_chi_vu_an",
+      "label": "Lý do tạm đình chỉ vụ án",
+      "type": "multi_select",
+      "freq": 0,
+      "klass": "UNMAPPED",
+      "targets": {},
+      "note": null
+    },
+    {
+      "field": "ngay_quyet_dinh_dieu_tra_lai",
+      "label": "Ngày Quyết định điều tra lại",
+      "type": "text",
+      "freq": 0,
+      "klass": "UNMAPPED",
+      "targets": {},
+      "note": null
+    },
+    {
+      "field": "ngay_quyet_dinh_dinh_chi_vu_an",
+      "label": "Ngày Quyết định đình chỉ vụ án",
+      "type": "text",
+      "freq": 0,
+      "klass": "UNMAPPED",
+      "targets": {},
+      "note": null
+    },
+    {
+      "field": "quyet_dinh_tach_hanh_vi",
+      "label": "Số Quyết định tách hành vi",
+      "type": "text",
+      "freq": 0,
+      "klass": "MAPPED",
+      "targets": {
+        "case": "soQDTachHanhVi"
+      },
+      "note": null
+    },
+    {
+      "field": "ngay-quyet-dinh-tach-hanh-vi",
+      "label": "Ngày Quyết định tách hành vi",
+      "type": "text",
+      "freq": 0,
+      "klass": "MAPPED",
+      "targets": {
+        "case": "ngayTachHanhVi"
+      },
+      "note": null
+    },
+    {
+      "field": "xac_nhan_ghi_am_ghi_hinh",
+      "label": "Bấm xác nhận nếu là nguồn tin có sử dụng Ghi âm, Ghi hình",
+      "type": "checkbox",
+      "freq": 0,
+      "klass": "UNMAPPED",
+      "targets": {},
+      "note": null
+    },
+    {
+      "field": "tong_so_bien_ban_ghi_loi_khai",
+      "label": "Tổng số biên bản ghi lời khai",
+      "type": "number",
+      "freq": 0,
+      "klass": "UNMAPPED",
+      "targets": {},
+      "note": null
+    },
+    {
+      "field": "so_bien_ban_ghi_loi_khai_co_ghi_am_ghi_hinh",
+      "label": "Số lượng biên bản ghi lời khai có ghi âm ghi hình",
+      "type": "number",
+      "freq": 0,
+      "klass": "UNMAPPED",
+      "targets": {},
+      "note": null
+    },
+    {
+      "field": "so_bi_can_co_ghi_am_ghi_hinh",
+      "label": "Số lượng bị can có ghi âm ghi hình",
+      "type": "number",
+      "freq": 0,
+      "klass": "UNMAPPED",
+      "targets": {},
+      "note": null
+    },
+    {
+      "field": "tong_so_bien_ban_hoi_cung_bi_can",
+      "label": "Tổng số biên bản hỏi cung bị can",
+      "type": "number",
+      "freq": 0,
+      "klass": "UNMAPPED",
+      "targets": {},
+      "note": null
+    },
+    {
+      "field": "tong_so_bien_ban_hoi_cung_co_ghi_am_ghi_hinh",
+      "label": "Tổng số biên bản hỏi cung có ghi âm ghi hình",
+      "type": "number",
+      "freq": 0,
+      "klass": "UNMAPPED",
+      "targets": {},
+      "note": null
+    },
+    {
+      "field": "xac_nhan_vks_yeu_cau_ghi_am_ghi_hinh",
+      "label": "Bấm xác nhận nếu VKS yêu cầu ghi âm ghi hình",
+      "type": "checkbox",
+      "freq": 0,
+      "klass": "UNMAPPED",
+      "targets": {},
+      "note": null
+    },
+    {
+      "field": "so_luong_bi_can_vks_yeu_cau_ghi_am_ghi_hinh",
+      "label": "Số lượng bị can VKS yêu cầu ghi âm ghi hình",
+      "type": "number",
+      "freq": 0,
+      "klass": "UNMAPPED",
+      "targets": {},
+      "note": null
+    },
+    {
+      "field": "xac_nhan_vu_an_da_duoc_xet_xu",
+      "label": "Xác nhận vụ án đã được xét xử",
+      "type": "checkbox",
+      "freq": 0,
+      "klass": "UNMAPPED",
+      "targets": {},
+      "note": null
+    },
+    {
+      "field": "so_ban_an_co_hieu_luc",
+      "label": "Số bản án của toàn án có hiệu lực",
+      "type": "text",
+      "freq": 0,
+      "klass": "MAPPED",
+      "targets": {
+        "case": "soBanAnCoHieuLuc"
+      },
+      "note": null
+    },
+    {
+      "field": "ngay_ban_an_co_hieu_luc",
+      "label": "Ngày tháng năm bản án của toà án có hiệu lực",
+      "type": "text",
+      "freq": 0,
+      "klass": "UNMAPPED",
+      "targets": {},
+      "note": null
+    },
+    {
+      "field": "vu_an_co_su_dung_ket_quả_ghi_am_ghi_hinh_trong_xet_xu",
+      "label": "Xác nhận trong đó: Vụ án có sử dụng kết quả Ghi âm ghi hình trong xét xử",
+      "type": "checkbox",
+      "freq": 0,
+      "klass": "UNMAPPED",
+      "targets": {},
+      "note": null
+    },
+    {
+      "field": "vu_an_khong_gagh_nhung_toa_an_yeu_cau_cung_cap_gagh",
+      "label": "Xác nhận trong đó: Vụ án không ghi âm ghi hình nhưng Tòa án yêu cầu cung cấp ghi âm ghi hình",
+      "type": "checkbox",
+      "freq": 0,
+      "klass": "UNMAPPED",
+      "targets": {},
+      "note": null
+    },
+    {
+      "field": "so_doi_tuong",
+      "label": "Số đối tượng phạm tội",
+      "type": "number",
+      "freq": 0,
+      "klass": "MAPPED",
+      "targets": {
+        "caseStatistic": "soDoiTuong"
+      },
+      "note": null
+    },
+    {
+      "field": "so_doi_tuong_da_bat",
+      "label": "Số đối tượng bắt được",
+      "type": "number",
+      "freq": 0,
+      "klass": "MAPPED",
+      "targets": {
+        "caseStatistic": "soDoiTuongDaBat"
+      },
+      "note": null
+    },
+    {
+      "field": "so_doi_tuong_bi_bat_trong_vu_an_khac",
+      "label": "Số đối tượng bị bắt trong vụ án khác",
+      "type": "number",
+      "freq": 0,
+      "klass": "MAPPED",
+      "targets": {
+        "caseStatistic": "soDoiTuongBiBatVuAnKhac"
+      },
+      "note": null
+    },
+    {
+      "field": "dieu_tra_mo_rong",
+      "label": "Điều tra mở rộng",
+      "type": "number",
+      "freq": 0,
+      "klass": "MAPPED",
+      "targets": {
+        "caseStatistic": "dieuTraMoRong"
+      },
+      "note": null
+    },
+    {
+      "field": "su_dung_vu_khi_nong",
+      "label": "Sử dụng vụ khí nóng",
+      "type": "text",
+      "freq": 0,
+      "klass": "MAPPED",
+      "targets": {
+        "caseStatistic": "suDungVuKhiNong"
+      },
+      "note": null
+    },
+    {
+      "field": "so_luong_nguoi_chet",
+      "label": "Số người chết",
+      "type": "number",
+      "freq": 0,
+      "klass": "MAPPED",
+      "targets": {
+        "caseStatistic": "soLuongNguoiChet"
+      },
+      "note": null
+    },
+    {
+      "field": "so_nguoi_bi_thuong",
+      "label": "Số người bị thương",
+      "type": "number",
+      "freq": 0,
+      "klass": "MAPPED",
+      "targets": {
+        "caseStatistic": "soNguoiBiThuong"
+      },
+      "note": null
+    },
+    {
+      "field": "co_bao_nhieu_bang_nhom",
+      "label": "Xác nhận có băng nhóm",
+      "type": "checkbox",
+      "freq": 0,
+      "klass": "UNMAPPED",
+      "targets": {},
+      "note": null
+    },
+    {
+      "field": "bat_duoc_bao_nhieu_bang_nhom",
+      "label": "Bắt được bao nhiêu băng nhóm",
+      "type": "number",
+      "freq": 0,
+      "klass": "UNMAPPED",
+      "targets": {},
+      "note": null
+    },
+    {
+      "field": "so_tien_thu_hoi",
+      "label": "Số tiền thu hồi được (triệu Việt Nam Đồng)",
+      "type": "number",
+      "freq": 0,
+      "klass": "MAPPED",
+      "targets": {
+        "caseStatistic": "soTienThuHoi"
+      },
+      "note": null
+    },
+    {
+      "field": "so_luong_sung_thu_hoi",
+      "label": "Số lượng súng thu hồi",
+      "type": "number",
+      "freq": 0,
+      "klass": "MAPPED",
+      "targets": {
+        "caseStatistic": "soSungThuHoi"
+      },
+      "note": null
+    },
+    {
+      "field": "so_luong_thuoc_no_thu_hoi",
+      "label": "Số lượng thuốc nổ thu hồi",
+      "type": "number",
+      "freq": 0,
+      "klass": "UNMAPPED",
+      "targets": {},
+      "note": null
+    },
+    {
+      "field": "xac_nhan_vu_viec_vphc",
+      "label": "Xác nhận vụ việc có vi phạm hành chính",
+      "type": "checkbox",
+      "freq": 0,
+      "klass": "UNMAPPED",
+      "targets": {},
+      "note": null
+    },
+    {
+      "field": "so_doi_tuong_vi_pham_hanh_chinh",
+      "label": "Số đối tượng vi phạm hành chính",
+      "type": "number",
+      "freq": 0,
+      "klass": "UNMAPPED",
+      "targets": {},
+      "note": null
+    },
+    {
+      "field": "so_doi_tuong_suu_tra_hiem_nghi",
+      "label": "Số đối tượng sưu tra/hiềm nghi",
+      "type": "number",
+      "freq": 0,
+      "klass": "UNMAPPED",
+      "targets": {},
+      "note": null
+    },
+    {
+      "field": "so_luong_nguoi_bi_phat_tien",
+      "label": "Số người bị phạt tiền",
+      "type": "number",
+      "freq": 0,
+      "klass": "UNMAPPED",
+      "targets": {},
+      "note": null
+    },
+    {
+      "field": "noi_xay_ra_phuong_xa",
+      "label": "Nơi xảy ra (cấp phường/xã)",
+      "type": "text",
+      "freq": 0,
+      "klass": "MAPPED",
+      "targets": {
+        "petition": "noiXayRaPhuongXa"
+      },
+      "note": null
+    },
+    {
+      "field": "xac_dinh_vu_viec_tam_dung_giai_quyet",
+      "label": "Xác định vụ việc này là vụ việc tạm dừng giải quyết (trước năm 2015)",
+      "type": "checkbox",
+      "freq": 0,
+      "klass": "UNMAPPED",
+      "targets": {},
+      "note": null
+    },
+    {
+      "field": "tong_so_tien_phat_hanh_chinh",
+      "label": "Tổng số tiền phạt hành chính (triệu Việt Nam Đồng)",
+      "type": "number",
+      "freq": 0,
+      "klass": "UNMAPPED",
+      "targets": {},
+      "note": null
+    },
+    {
+      "field": "xac_nhan_neu_la_vu_an_ghi_am_ghi_hinh",
+      "label": "Xác nhận nếu là Vụ án có sử dụng Ghi âm, Ghi hình",
+      "type": "checkbox",
+      "freq": 0,
+      "klass": "UNMAPPED",
+      "targets": {},
+      "note": null
+    },
+    {
+      "field": "ghi_am_ghi_hinh_da_duoc_xet_xu",
+      "label": "Xác nhận Trong đó: Số vụ án tiến hành Ghi âm, Ghi hình đã được xét xử",
+      "type": "checkbox",
+      "freq": 0,
+      "klass": "UNMAPPED",
+      "targets": {},
+      "note": null
+    },
+    {
+      "field": "dieu_tra_vien_phuong_xa",
+      "label": "Điều tra viên là trưởng - phó Công an phường thụ lý",
+      "type": "text",
+      "freq": 0,
+      "klass": "UNMAPPED",
+      "targets": {},
+      "note": null
+    }
+  ]
+}

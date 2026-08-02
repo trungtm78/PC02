@@ -140,6 +140,8 @@ export class CasesService {
         { name: { contains: search, mode: 'insensitive' } },
         { crime: { contains: search, mode: 'insensitive' } },
         { unit: { contains: search, mode: 'insensitive' } },
+        { caseCode: { contains: search, mode: 'insensitive' } },
+        { soHoSoCu: { contains: search, mode: 'insensitive' } }, // truy nguyên: tìm theo STT hệ cũ
         ...(isUtdt
           ? [
               { donViGiao: { contains: search, mode: 'insensitive' as const } },
@@ -387,6 +389,8 @@ export class CasesService {
         { name: { contains: search, mode: 'insensitive' } },
         { crime: { contains: search, mode: 'insensitive' } },
         { unit: { contains: search, mode: 'insensitive' } },
+        { caseCode: { contains: search, mode: 'insensitive' } },
+        { soHoSoCu: { contains: search, mode: 'insensitive' } }, // truy nguyên: tìm theo STT hệ cũ
         ...(isUtdt
           ? [
               { donViGiao: { contains: search, mode: 'insensitive' as const } },

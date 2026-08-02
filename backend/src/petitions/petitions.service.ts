@@ -86,6 +86,7 @@ export class PetitionsService {
         { senderName: { contains: search, mode: 'insensitive' } },
         { suspectedPerson: { contains: search, mode: 'insensitive' } },
         { summary: { contains: search, mode: 'insensitive' } },
+        { soHoSoCu: { contains: search, mode: 'insensitive' } }, // truy nguyên: tìm theo STT hệ cũ
       ];
     }
 
@@ -1743,6 +1744,7 @@ export class PetitionsService {
         { senderName: { contains: search, mode: 'insensitive' } },
         { suspectedPerson: { contains: search, mode: 'insensitive' } },
         { summary: { contains: search, mode: 'insensitive' } },
+        { soHoSoCu: { contains: search, mode: 'insensitive' } }, // truy nguyên: tìm theo STT hệ cũ
       ];
     }
 

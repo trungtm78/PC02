@@ -1,0 +1,2740 @@
+{
+  "generatedAtIso": "2026-08-02T16:56:28.654Z",
+  "source": "2026-08-02T16-29-57-078Z",
+  "totalHoSo": 54257,
+  "fields": {
+    "ho_so": [
+      {
+        "tenTruong": "ngay_tiep_nhan_nguon_tin",
+        "tenHienThi": "Ngày tiếp nhận (theo biên bản tiếp nhận nguồn tin)",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [
+          0
+        ],
+        "id": 1,
+        "conflicts": [],
+        "freq": 49147
+      },
+      {
+        "tenTruong": "ten_ca_nhan_co_quan_to_chuc_cung_cap",
+        "tenHienThi": "Tên cá nhân, cơ quan, tổ chức cung cấp, bị hại",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 2,
+        "conflicts": [],
+        "freq": 51255
+      },
+      {
+        "tenTruong": "tom_tat_noi_dung",
+        "tenHienThi": "Tóm tắt nội dung",
+        "kieuDuLieu": "textarea",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 4,
+        "conflicts": [],
+        "freq": 54205
+      },
+      {
+        "tenTruong": "quyet_dinh_phan_cong_giai_quyet_nguon_tin",
+        "tenHienThi": "Quyết định phân công giải quyết nguồn tin tội phạm",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 5,
+        "conflicts": [],
+        "freq": 443
+      },
+      {
+        "tenTruong": "quyet_dinh_khong_khoi_to",
+        "tenHienThi": "Quyết định Không khởi tố",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 6,
+        "conflicts": [],
+        "freq": 2
+      },
+      {
+        "tenTruong": "quyet_dinh_tam_dinh_chi_nguon_tin",
+        "tenHienThi": "Quyết định Tạm đình chỉ nguồn tin",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 8,
+        "conflicts": [],
+        "freq": 66
+      },
+      {
+        "tenTruong": "can_cu_tam_dinh_chi_nguon_tin",
+        "tenHienThi": "Căn cứ Tạm đình chỉ nguồn tin",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 9,
+        "conflicts": [],
+        "freq": 63
+      },
+      {
+        "tenTruong": "khac_phuc_ly_do_tdc",
+        "tenHienThi": "Biên bản, báo cáo, kế hoạch khắc phục lý do TĐC vụ việc",
+        "kieuDuLieu": "textarea",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 11,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "tien_do_khac_phuc_tdc",
+        "tenHienThi": "Tiến độ khắc phục TĐC vụ việc",
+        "kieuDuLieu": "textarea",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 12,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "phuc_hoi_nguon_tin_toi_pham",
+        "tenHienThi": "Số Phục hồi nguồn tin tội phạm",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 13,
+        "conflicts": [],
+        "freq": 57
+      },
+      {
+        "tenTruong": "vu_viec_chuyen_don_vi_khac",
+        "tenHienThi": "Chuyển vụ việc cho đơn vị khác",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 14,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "nhap_vao_vu_viec_so",
+        "tenHienThi": "Nhập vào vụ việc hồ sơ khác",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 15,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "phan_loai_dan_su",
+        "tenHienThi": "Phân loại dân sự",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 16,
+        "conflicts": [],
+        "freq": 6
+      },
+      {
+        "tenTruong": "quyet_dinh_khoi_to_vu_an",
+        "tenHienThi": "Số Quyết định Khởi tố vụ án",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 17,
+        "conflicts": [],
+        "freq": 165
+      },
+      {
+        "tenTruong": "quyet_dinh_nhap_vu_an",
+        "tenHienThi": "Số Quyết định nhập vụ án",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 19,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "quyet_dinh_tach_vu_an",
+        "tenHienThi": "Số Quyết định tách vụ án",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 21,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "quyet_dinh_tam_dinh_chi_vu_an",
+        "tenHienThi": "Số Quyết định Tạm đình chỉ vụ án",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 22,
+        "conflicts": [],
+        "freq": 1
+      },
+      {
+        "tenTruong": "nghi_van_doi_tuong",
+        "tenHienThi": "Nghi vấn đối tượng hoặc bị can",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 3,
+        "conflicts": [],
+        "freq": 7572
+      },
+      {
+        "tenTruong": "khac_phuc_tdc_vu_an",
+        "tenHienThi": "Biên bản, báo cáo, kế hoạch khắc phục lý do TĐC vụ án",
+        "kieuDuLieu": "textarea",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 24,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "bien_phap_khac_phuc_tdc_vu_an",
+        "tenHienThi": "Biện pháp, tiến độ khắc phục lý do TĐC vụ án",
+        "kieuDuLieu": "textarea",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 25,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "quyet_dinh_phuc_hoi_vu_an",
+        "tenHienThi": "Số Quyết định Phục hồi Vụ án",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 26,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "ket_luan_dieu_tra_vu_an",
+        "tenHienThi": "Số KLĐT đề nghị truy tố",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 28,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "quyet_dinh_dieu_tra_lai",
+        "tenHienThi": "Số Quyết định điều tra lại",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 30,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "dinh_chi_vu_an",
+        "tenHienThi": "Số Quyết định đình chỉ vụ án",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 31,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "can_cu_ra_quyet_dinh_khong_khoi_to",
+        "tenHienThi": "Căn cứ để ra Quyết định Không khởi tố",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 7,
+        "conflicts": [],
+        "freq": 1
+      },
+      {
+        "tenTruong": "can_cu_phuc_hoi_dieu_tra_vu_an",
+        "tenHienThi": "Căn cứ ra quyết định Phục hồi điều tra vụ án",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 27,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "chuyen_vu_an_cho_co_quan_khac",
+        "tenHienThi": "Đã chuyển vụ án cho CQĐT khác",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 32,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "ghi_chu_nhap_ho_so",
+        "tenHienThi": "Ghi chú nhập vào hồ sơ nào",
+        "kieuDuLieu": "textarea",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 20,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "vat_chung",
+        "tenHienThi": "Loại, đặc điểm đồ vật, tài liệu, vật chứng",
+        "kieuDuLieu": "textarea",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 33,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "lenh_nhap_kho",
+        "tenHienThi": "Lệnh nhập, phiếu nhập kho",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 34,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "so_dang_ky_ho_so",
+        "tenHienThi": "Số đăng ký hồ sơ nghiệp vụ",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 35,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "ho_so_luu",
+        "tenHienThi": "Số hồ sơ lưu",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 36,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "don_vi_bao_quan_ho_so",
+        "tenHienThi": "Đơn vị lưu giữ, bảo quản hồ sơ",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 37,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "dieu_tra_vien",
+        "tenHienThi": "Điều tra viên thụ lý",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [
+          1,
+          5,
+          6,
+          2
+        ],
+        "id": 38,
+        "conflicts": [],
+        "freq": 2555
+      },
+      {
+        "tenTruong": "lanh_dao_to_tung",
+        "tenHienThi": "Lãnh đạo phụ trách tố tụng",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [
+          1,
+          5,
+          6,
+          2
+        ],
+        "id": 40,
+        "conflicts": [],
+        "freq": 3285
+      },
+      {
+        "tenTruong": "ghi_chu_khac",
+        "tenHienThi": "Ghi chú khác",
+        "kieuDuLieu": "textarea",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 41,
+        "conflicts": [],
+        "freq": 858
+      },
+      {
+        "tenTruong": "nguon_don",
+        "tenHienThi": "Nguồn đơn/Đơn vị giao",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [
+          1,
+          5,
+          6,
+          2
+        ],
+        "id": 56,
+        "conflicts": [],
+        "freq": 52765
+      },
+      {
+        "tenTruong": "loai_thong_tin",
+        "tenHienThi": "Loại thông tin",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [
+          1,
+          5,
+          6,
+          2
+        ],
+        "id": 57,
+        "conflicts": [],
+        "freq": 46259
+      },
+      {
+        "tenTruong": "so_phieu_chuyen",
+        "tenHienThi": "Số phiếu chuyển/ Công văn/ Ủy thác điều tra",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [
+          1,
+          5,
+          6,
+          2
+        ],
+        "id": 58,
+        "conflicts": [],
+        "freq": 11800
+      },
+      {
+        "tenTruong": "ngay_phieu_chuyen",
+        "tenHienThi": "Ngày phiếu chuyển/ Công văn/ Ủy thác điều tra",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [
+          1,
+          5,
+          6,
+          2
+        ],
+        "id": 59,
+        "conflicts": [],
+        "freq": 10995
+      },
+      {
+        "tenTruong": "sinh_nam_nguoi_to_giac",
+        "tenHienThi": "Sinh năm",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 60,
+        "conflicts": [],
+        "freq": 7266
+      },
+      {
+        "tenTruong": "so_cccd_nguyen_don",
+        "tenHienThi": "Số căn cước công dân",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [
+          1,
+          5,
+          6,
+          2
+        ],
+        "id": 61,
+        "conflicts": [],
+        "freq": 3414
+      },
+      {
+        "tenTruong": "ngay_cap_cccd_nguyen_don",
+        "tenHienThi": "Ngày cấp CCCD",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [
+          1,
+          5,
+          6,
+          2
+        ],
+        "id": 62,
+        "conflicts": [],
+        "freq": 2317
+      },
+      {
+        "tenTruong": "noi_cap_cccd_nguyen_don",
+        "tenHienThi": "Nơi cấp CCCD",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [
+          1,
+          5,
+          6,
+          2
+        ],
+        "id": 63,
+        "conflicts": [],
+        "freq": 2460
+      },
+      {
+        "tenTruong": "do_vat_tai_lieu_kem_theo",
+        "tenHienThi": "Đồ vật, tài liệu kèm theo",
+        "kieuDuLieu": "textarea",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 64,
+        "conflicts": [],
+        "freq": 11040
+      },
+      {
+        "tenTruong": "ngay_viet_don",
+        "tenHienThi": "Ngày viết đơn",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [
+          1,
+          5,
+          6,
+          2
+        ],
+        "id": 65,
+        "conflicts": [],
+        "freq": 45916
+      },
+      {
+        "tenTruong": "nhan_xet",
+        "tenHienThi": "Nhận xét",
+        "kieuDuLieu": "textarea",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 66,
+        "conflicts": [],
+        "freq": 50180
+      },
+      {
+        "tenTruong": "don_vi_giai_quyet",
+        "tenHienThi": "Đơn vị giải quyết",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 67,
+        "conflicts": [],
+        "freq": 53761
+      },
+      {
+        "tenTruong": "ngay_giao_don_vi_giai_quyet",
+        "tenHienThi": "Ngày giao đơn vị giải quyết",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 68,
+        "conflicts": [],
+        "freq": 26210
+      },
+      {
+        "tenTruong": "toi-danh-ban-dau",
+        "tenHienThi": "Tội danh cũ trước đây",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [
+          1,
+          5,
+          6,
+          2
+        ],
+        "id": 69,
+        "conflicts": [],
+        "freq": 21854
+      },
+      {
+        "tenTruong": "ghi_chu_trung_don",
+        "tenHienThi": "Ghi chú trùng đơn",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 71,
+        "conflicts": [],
+        "freq": 36263
+      },
+      {
+        "tenTruong": "truong_hop_bao_cao_ban_giam_doc",
+        "tenHienThi": "Trường hợp báo cáo Ban Giám đốc",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 72,
+        "conflicts": [],
+        "freq": 34931
+      },
+      {
+        "tenTruong": "ket_qua_xu_ly_giai_quyet_khac",
+        "tenHienThi": "Kết quả xử lý, giải quyết khác",
+        "kieuDuLieu": "textarea",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [
+          0
+        ],
+        "id": 73,
+        "conflicts": [],
+        "freq": 13782
+      },
+      {
+        "tenTruong": "noi_xay_ra",
+        "tenHienThi": "Nơi xảy ra tội phạm",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 74,
+        "conflicts": [],
+        "freq": 1783
+      },
+      {
+        "tenTruong": "phan_loai_nguon_tin_ban_dau",
+        "tenHienThi": "Phân loại ban đầu",
+        "kieuDuLieu": "select",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [
+          {
+            "giaTri": "don-cong-van-ban-dau",
+            "tenHienThi": "Đơn, Công văn"
+          },
+          {
+            "giaTri": "vu-viec-ban-dau",
+            "tenHienThi": "Vụ việc"
+          },
+          {
+            "giaTri": "vu-viec-nguon-tin",
+            "tenHienThi": "Vụ việc (nguồn tin)"
+          },
+          {
+            "giaTri": "vu-an-ban-dau",
+            "tenHienThi": "Vụ án"
+          },
+          {
+            "giaTri": "tra-ho-so-ban-dau",
+            "tenHienThi": "Trả hồ sơ cho đơn vị chuyển"
+          },
+          {
+            "giaTri": "huong-dan-ban-dau",
+            "tenHienThi": "Hướng dẫn nghiệp vụ"
+          },
+          {
+            "giaTri": "trao-doi-chuyen-an",
+            "tenHienThi": "Trao đổi chuyển án"
+          },
+          {
+            "giaTri": "luat-su",
+            "tenHienThi": "Luật sư"
+          },
+          {
+            "giaTri": "uy-thac-dieu-tra",
+            "tenHienThi": "Ủy thác điều tra"
+          },
+          {
+            "giaTri": "kien-nghi-vks",
+            "tenHienThi": "Kiến nghị VKS"
+          },
+          {
+            "giaTri": "cong-van-don-doc-phuc-hoi-tdc",
+            "tenHienThi": "Công văn đôn đốc phục hồi TĐC"
+          }
+        ],
+        "hienThiForm": true,
+        "donViArr": [
+          1,
+          5,
+          6,
+          2
+        ],
+        "id": 76,
+        "conflicts": [],
+        "freq": 54163
+      },
+      {
+        "tenTruong": "ngay_ra_quyet_dinh_phan_cong_tin_bao",
+        "tenHienThi": "Ngày ra Quyết định phân công giải quyết nguồn tin tội phạm",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 77,
+        "conflicts": [],
+        "freq": 1339
+      },
+      {
+        "tenTruong": "ngay_nguoi_pham_toi_dau_thu",
+        "tenHienThi": "Ngày người phạm tội đầu thú, tự thú",
+        "kieuDuLieu": "date",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 78,
+        "conflicts": [],
+        "freq": 16901
+      },
+      {
+        "tenTruong": "ngay_pham_toi_qua_tang",
+        "tenHienThi": "Ngày người phạm tội bị bắt quả tang",
+        "kieuDuLieu": "date",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 79,
+        "conflicts": [],
+        "freq": 16901
+      },
+      {
+        "tenTruong": "ngay_nguoi_pham_toi_bi_bat_khan_cap",
+        "tenHienThi": "Ngày Người phạm tội bị giữ trong các trường hợp khẩn cấp",
+        "kieuDuLieu": "date",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 80,
+        "conflicts": [],
+        "freq": 16901
+      },
+      {
+        "tenTruong": "ngay_cqcsdt_phat_hien_co_dau_hieu_pham_toi",
+        "tenHienThi": "Ngày CQCSĐT trực tiếp phát hiện có dấu hiệu tội phạm",
+        "kieuDuLieu": "date",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 81,
+        "conflicts": [],
+        "freq": 16901
+      },
+      {
+        "tenTruong": "ngay_thong_ke",
+        "tenHienThi": "Ngày tổng hợp thống kê",
+        "kieuDuLieu": "date",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 82,
+        "conflicts": [],
+        "freq": 17831
+      },
+      {
+        "tenTruong": "ngay_xay_ra",
+        "tenHienThi": "Ngày tội phạm xảy ra",
+        "kieuDuLieu": "date",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 83,
+        "conflicts": [],
+        "freq": 17388
+      },
+      {
+        "tenTruong": "toi_danh_chinh",
+        "tenHienThi": "Tội danh chính khi khởi tố",
+        "kieuDuLieu": "chon_toi_danh",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 84,
+        "conflicts": [],
+        "freq": 49
+      },
+      {
+        "tenTruong": "toi_danh_khac",
+        "tenHienThi": "Tội danh phụ khi khởi tố",
+        "kieuDuLieu": "chon_nhieu_toi_danh",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 85,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "ngay_ra_quyet_dinh_khong_khoi_to",
+        "tenHienThi": "Ngày ra Quyết định Không khởi tố",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 87,
+        "conflicts": [],
+        "freq": 42
+      },
+      {
+        "tenTruong": "ngay_ra_quyet_dinh_tam_dinh_chi_nguon_tin",
+        "tenHienThi": "Ngày ra Quyết định Tạm đình chỉ nguồn tin",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 89,
+        "conflicts": [],
+        "freq": 70
+      },
+      {
+        "tenTruong": "so_luong_bi_hai",
+        "tenHienThi": "Số lượng người bị hại",
+        "kieuDuLieu": "number",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 90,
+        "conflicts": [],
+        "freq": 31565
+      },
+      {
+        "tenTruong": "so_tien_bi_thiet_hai",
+        "tenHienThi": "Số tiền bị thiệt hại (triệu Việt nam Đồng)",
+        "kieuDuLieu": "number",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 91,
+        "conflicts": [],
+        "freq": 31566
+      },
+      {
+        "tenTruong": "phuong_thuc_thu_doan",
+        "tenHienThi": "Phương thức thủ đoạn",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 92,
+        "conflicts": [],
+        "freq": 31565
+      },
+      {
+        "tenTruong": "dia-chi-bi-hai",
+        "tenHienThi": "Địa chỉ cá nhân, cơ quan, tổ chức cung cấp, bị hại",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 93,
+        "conflicts": [],
+        "freq": 47253
+      },
+      {
+        "tenTruong": "ngay_phuc_hoi_nguon_tin_toi_pham",
+        "tenHienThi": "Ngày Phục hồi nguồn tin tội phạm",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 94,
+        "conflicts": [],
+        "freq": 95
+      },
+      {
+        "tenTruong": "ly_do_tam_dinh_chi",
+        "tenHienThi": "Lý do tạm đình chỉ",
+        "kieuDuLieu": "multi_select",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [
+          {
+            "giaTri": "Do chưa có kết quả trưng cầu giám định",
+            "tenHienThi": "Do chưa có kết quả trưng cầu giám định"
+          },
+          {
+            "giaTri": "Do chưa có kết quả yêu cầu định giá tài sản",
+            "tenHienThi": "Do chưa có kết quả yêu cầu định giá tài sản"
+          },
+          {
+            "giaTri": "Do chưa có kết quả yêu cầu nước ngoài tương trợ tư pháp",
+            "tenHienThi": "Do chưa có kết quả yêu cầu nước ngoài tương trợ tư pháp"
+          },
+          {
+            "giaTri": "Đã yêu cầu cơ quan, tổ chức, cá nhân cung cấp tài liệu, đồ vật quan trọng có ý nghĩa quyết định đối với vụ việc nhưng chưa có kết quả",
+            "tenHienThi": "Đã yêu cầu cơ quan, tổ chức, cá nhân cung cấp tài liệu, đồ vật quan trọng có ý nghĩa quyết định đối với vụ việc nhưng chưa có kết quả"
+          },
+          {
+            "giaTri": "Do bất khả kháng do thiên tai, dịch bệnh",
+            "tenHienThi": "Do bất khả kháng do thiên tai, dịch bệnh"
+          },
+          {
+            "giaTri": "Căn cứ tạm đình chỉ khác",
+            "tenHienThi": "Căn cứ tạm đình chỉ khác"
+          }
+        ],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 95,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "phan_loai_toi_pham_cong_nghe_cao",
+        "tenHienThi": "Bấm chọn nễu xác định đây là tội phạm công nghệ cao",
+        "kieuDuLieu": "checkbox",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [
+          1,
+          5,
+          6,
+          2
+        ],
+        "id": 96,
+        "conflicts": [],
+        "freq": 582
+      },
+      {
+        "tenTruong": "Noi_luu_tru_bao_quan_ke_bien_phong_toa",
+        "tenHienThi": "Nơi lưu trữ, bảo quản, kê biên, phong tỏa",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 97,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "ngay_dang_ky_ho_so",
+        "tenHienThi": "Ngày đăng ký hồ sơ nghiệp vụ",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 98,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "ngay_nop_luu_ho_so",
+        "tenHienThi": "Ngày nộp lưu hồ sơ",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 99,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "ly_do_ra_quyet_dinh_khong_khoi_to_vu_an",
+        "tenHienThi": "Lý do ra Quyết định không khởi tố vụ án",
+        "kieuDuLieu": "multi_select",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [
+          {
+            "giaTri": "Không có sự việc phạm tội;",
+            "tenHienThi": "Không có sự việc phạm tội;"
+          },
+          {
+            "giaTri": "Hành vi không cấu thành tội phạm;",
+            "tenHienThi": "Hành vi không cấu thành tội phạm;"
+          },
+          {
+            "giaTri": "Người thực hiện hành vi nguy hiểm cho xã hội chưa đến tuổi chịu trách nhiệm hình sự;",
+            "tenHienThi": "Người thực hiện hành vi nguy hiểm cho xã hội chưa đến tuổi chịu trách nhiệm hình sự;"
+          },
+          {
+            "giaTri": "Người mà hành vi phạm tội của họ đã có bản án hoặc quyết định đình chỉ vụ án có hiệu lực pháp luật;",
+            "tenHienThi": "Người mà hành vi phạm tội của họ đã có bản án hoặc quyết định đình chỉ vụ án có hiệu lực pháp luật;"
+          },
+          {
+            "giaTri": "Đã hết thời hiệu truy cứu trách nhiệm hình sự;",
+            "tenHienThi": "Đã hết thời hiệu truy cứu trách nhiệm hình sự;"
+          },
+          {
+            "giaTri": "Tội phạm đã được đại xá;",
+            "tenHienThi": "Tội phạm đã được đại xá;"
+          },
+          {
+            "giaTri": "Người thực hiện hành vi nguy hiểm cho xã hội đã chết, trừ trường hợp cần tái thẩm đối với người khác;",
+            "tenHienThi": "Người thực hiện hành vi nguy hiểm cho xã hội đã chết, trừ trường hợp cần tái thẩm đối với người khác;"
+          },
+          {
+            "giaTri": "Tội phạm quy định tại khoản 1 các điều 134, 135, 136, 138, 139, 141, 143, 155, 156 và 226 của Bộ luật hình sự mà bị hại hoặc người đại diện của bị hại không yêu cầu khởi tố.",
+            "tenHienThi": "Tội phạm quy định tại khoản 1 các điều 134, 135, 136, 138, 139, 141, 143, 155, 156 và 226 của Bộ luật hình sự mà bị hại hoặc người đại diện của bị hại không yêu cầu khởi tố."
+          }
+        ],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 100,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "ngay_nhap_vu_an",
+        "tenHienThi": "Ngày tháng năm nhập vụ án",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 101,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "ngay_tach_ho_so",
+        "tenHienThi": "Ngày Quyết định tách hồ sơ",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 102,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "ngay_tam_dinh_chi_vu_an",
+        "tenHienThi": "Ngày Quyết định tạm đình chỉ vụ án",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 103,
+        "conflicts": [],
+        "freq": 1
+      },
+      {
+        "tenTruong": "ngay_phuc_hoi_dieu_tra_vu_an",
+        "tenHienThi": "Ngày Quyết định phục hồi điều tra vụ án",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 104,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "ngay_ket_luan_dieu_tra",
+        "tenHienThi": "Ngày Kết luận điều tra vụ án",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 105,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "ngay_quyet_dinh_khoi_to_vu_an",
+        "tenHienThi": "Ngày ra Quyết định Khởi tố vụ án",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 106,
+        "conflicts": [],
+        "freq": 84
+      },
+      {
+        "tenTruong": "ngay_thang_nam_het_thoi_hieu_vu_viec",
+        "tenHienThi": "Ngày tháng năm hết thời hiệu truy cứu TNHS",
+        "kieuDuLieu": "date",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 107,
+        "conflicts": [],
+        "freq": 17791
+      },
+      {
+        "tenTruong": "can_cu_tam_dinh_chi_vu_an",
+        "tenHienThi": "Căn cứ tạm đình chỉ vụ án",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 108,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "ly_do_tam_dinh_chi_vu_an",
+        "tenHienThi": "Lý do tạm đình chỉ vụ án",
+        "kieuDuLieu": "multi_select",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [
+          {
+            "giaTri": "Khi chưa xác định được bị can",
+            "tenHienThi": "Khi chưa xác định được bị can"
+          },
+          {
+            "giaTri": "Khi không biết rõ bị can đang ở đâu nhưng đã hết thời hạn điều tra vụ án",
+            "tenHienThi": "Khi không biết rõ bị can đang ở đâu nhưng đã hết thời hạn điều tra vụ án"
+          },
+          {
+            "giaTri": "Khi có kết luận giám định tư pháp xác định bị can bị bệnh tâm thần hoặc hiểm nghèo",
+            "tenHienThi": "Khi có kết luận giám định tư pháp xác định bị can bị bệnh tâm thần hoặc hiểm nghèo"
+          },
+          {
+            "giaTri": "Do chưa có kết quả trưng cầu giám định",
+            "tenHienThi": "Do chưa có kết quả trưng cầu giám định"
+          },
+          {
+            "giaTri": "Do chưa có kết quả yêu cầu định giá tài sản",
+            "tenHienThi": "Do chưa có kết quả yêu cầu định giá tài sản"
+          },
+          {
+            "giaTri": "Do chưa có kết quả yêu cầu nước ngoài tương trợ tư pháp",
+            "tenHienThi": "Do chưa có kết quả yêu cầu nước ngoài tương trợ tư pháp"
+          },
+          {
+            "giaTri": "Do bất khả kháng do thiên tai, dịch bệnh",
+            "tenHienThi": "Do bất khả kháng do thiên tai, dịch bệnh"
+          },
+          {
+            "giaTri": "Lý do khác",
+            "tenHienThi": "Lý do khác"
+          },
+          {
+            "giaTri": "Chưa xác định được bị can",
+            "tenHienThi": "Chưa xác định được bị can"
+          }
+        ],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 109,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "ngay_het_thoi_hieu_truy_cuu_tnhs_vu_an",
+        "tenHienThi": "Ngày hết thời hiệu truy cứu TNHS vụ án",
+        "kieuDuLieu": "date",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 110,
+        "conflicts": [],
+        "freq": 17790
+      },
+      {
+        "tenTruong": "ngay_quyet_dinh_dieu_tra_lai",
+        "tenHienThi": "Ngày Quyết định điều tra lại",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 112,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "ngay_quyet_dinh_dinh_chi_vu_an",
+        "tenHienThi": "Ngày Quyết định đình chỉ vụ án",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 113,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "quyet_dinh_tach_hanh_vi",
+        "tenHienThi": "Số Quyết định tách hành vi",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 114,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "ngay-quyet-dinh-tach-hanh-vi",
+        "tenHienThi": "Ngày Quyết định tách hành vi",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 115,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "xac_nhan_ghi_am_ghi_hinh",
+        "tenHienThi": "Bấm xác nhận nếu là nguồn tin có sử dụng Ghi âm, Ghi hình",
+        "kieuDuLieu": "checkbox",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 116,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "tong_so_bien_ban_ghi_loi_khai",
+        "tenHienThi": "Tổng số biên bản ghi lời khai",
+        "kieuDuLieu": "number",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 117,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "so_bien_ban_ghi_loi_khai_co_ghi_am_ghi_hinh",
+        "tenHienThi": "Số lượng biên bản ghi lời khai có ghi âm ghi hình",
+        "kieuDuLieu": "number",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 118,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "so_bi_can_co_ghi_am_ghi_hinh",
+        "tenHienThi": "Số lượng bị can có ghi âm ghi hình",
+        "kieuDuLieu": "number",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 119,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "tong_so_bien_ban_hoi_cung_bi_can",
+        "tenHienThi": "Tổng số biên bản hỏi cung bị can",
+        "kieuDuLieu": "number",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 120,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "tong_so_bien_ban_hoi_cung_co_ghi_am_ghi_hinh",
+        "tenHienThi": "Tổng số biên bản hỏi cung có ghi âm ghi hình",
+        "kieuDuLieu": "number",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 121,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "xac_nhan_vks_yeu_cau_ghi_am_ghi_hinh",
+        "tenHienThi": "Bấm xác nhận nếu VKS yêu cầu ghi âm ghi hình",
+        "kieuDuLieu": "checkbox",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 122,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "so_luong_bi_can_vks_yeu_cau_ghi_am_ghi_hinh",
+        "tenHienThi": "Số lượng bị can VKS yêu cầu ghi âm ghi hình",
+        "kieuDuLieu": "number",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 123,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "xac_nhan_vu_an_da_duoc_xet_xu",
+        "tenHienThi": "Xác nhận vụ án đã được xét xử",
+        "kieuDuLieu": "checkbox",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 124,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "so_ban_an_co_hieu_luc",
+        "tenHienThi": "Số bản án của toàn án có hiệu lực",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 125,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "ngay_ban_an_co_hieu_luc",
+        "tenHienThi": "Ngày tháng năm bản án của toà án có hiệu lực",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 126,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "vu_an_co_su_dung_ket_quả_ghi_am_ghi_hinh_trong_xet_xu",
+        "tenHienThi": "Xác nhận trong đó: Vụ án có sử dụng kết quả Ghi âm ghi hình trong xét xử",
+        "kieuDuLieu": "checkbox",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 127,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "vu_an_khong_gagh_nhung_toa_an_yeu_cau_cung_cap_gagh",
+        "tenHienThi": "Xác nhận trong đó: Vụ án không ghi âm ghi hình nhưng Tòa án yêu cầu cung cấp ghi âm ghi hình",
+        "kieuDuLieu": "checkbox",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 128,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "so_doi_tuong",
+        "tenHienThi": "Số đối tượng phạm tội",
+        "kieuDuLieu": "number",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 129,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "so_doi_tuong_da_bat",
+        "tenHienThi": "Số đối tượng bắt được",
+        "kieuDuLieu": "number",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 131,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "so_doi_tuong_bi_bat_trong_vu_an_khac",
+        "tenHienThi": "Số đối tượng bị bắt trong vụ án khác",
+        "kieuDuLieu": "number",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 132,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "dieu_tra_mo_rong",
+        "tenHienThi": "Điều tra mở rộng",
+        "kieuDuLieu": "number",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 133,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "su_dung_vu_khi_nong",
+        "tenHienThi": "Sử dụng vụ khí nóng",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 134,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "so_luong_nguoi_chet",
+        "tenHienThi": "Số người chết",
+        "kieuDuLieu": "number",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 135,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "so_nguoi_bi_thuong",
+        "tenHienThi": "Số người bị thương",
+        "kieuDuLieu": "number",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 136,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "loai_toi_pham",
+        "tenHienThi": "Phân loại tội phạm (Chỉ xác định sau khi có Quyết định khởi tố vụ án)",
+        "kieuDuLieu": "select",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [
+          {
+            "giaTri": "Ít nghiêm trọng",
+            "tenHienThi": "Ít nghiêm trọng"
+          },
+          {
+            "giaTri": "Nghiêm trọng",
+            "tenHienThi": "Nghiêm trọng"
+          },
+          {
+            "giaTri": "Rất nghiêm trọng",
+            "tenHienThi": "Rất nghiêm trọng"
+          },
+          {
+            "giaTri": "Đặc biệt nghiêm trọng",
+            "tenHienThi": "Đặc biệt nghiêm trọng"
+          }
+        ],
+        "hienThiForm": true,
+        "donViArr": [
+          0
+        ],
+        "id": 137,
+        "conflicts": [],
+        "freq": 4
+      },
+      {
+        "tenTruong": "co_bao_nhieu_bang_nhom",
+        "tenHienThi": "Xác nhận có băng nhóm",
+        "kieuDuLieu": "checkbox",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 138,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "bat_duoc_bao_nhieu_bang_nhom",
+        "tenHienThi": "Bắt được bao nhiêu băng nhóm",
+        "kieuDuLieu": "number",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 139,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "so_tien_thu_hoi",
+        "tenHienThi": "Số tiền thu hồi được (triệu Việt Nam Đồng)",
+        "kieuDuLieu": "number",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 140,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "so_luong_sung_thu_hoi",
+        "tenHienThi": "Số lượng súng thu hồi",
+        "kieuDuLieu": "number",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 141,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "so_luong_thuoc_no_thu_hoi",
+        "tenHienThi": "Số lượng thuốc nổ thu hồi",
+        "kieuDuLieu": "number",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 142,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "xac_nhan_vu_viec_vphc",
+        "tenHienThi": "Xác nhận vụ việc có vi phạm hành chính",
+        "kieuDuLieu": "checkbox",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 143,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "so_doi_tuong_vi_pham_hanh_chinh",
+        "tenHienThi": "Số đối tượng vi phạm hành chính",
+        "kieuDuLieu": "number",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 144,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "so_doi_tuong_suu_tra_hiem_nghi",
+        "tenHienThi": "Số đối tượng sưu tra/hiềm nghi",
+        "kieuDuLieu": "number",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 145,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "so_luong_nguoi_bi_phat_tien",
+        "tenHienThi": "Số người bị phạt tiền",
+        "kieuDuLieu": "number",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 146,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "thoi_han_thuc_hien_uy_thac_dieu_tra",
+        "tenHienThi": "Thời hạn thực hiện Uỷ thác điều tra",
+        "kieuDuLieu": "date",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 148,
+        "conflicts": [],
+        "freq": 17397
+      },
+      {
+        "tenTruong": "noi_xay_ra_phuong_xa",
+        "tenHienThi": "Nơi xảy ra (cấp phường/xã)",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 149,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "ngay_tiep_nhan_tin",
+        "tenHienThi": "Ngày tiếp nhận tin khi đơn vị nhận được",
+        "kieuDuLieu": "date",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 160,
+        "conflicts": [],
+        "freq": 17388
+      },
+      {
+        "tenTruong": "xac_dinh_vu_viec_tam_dung_giai_quyet",
+        "tenHienThi": "Xác định vụ việc này là vụ việc tạm dừng giải quyết (trước năm 2015)",
+        "kieuDuLieu": "checkbox",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 161,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "ngay_thoi_diem_phan_cong_giai_quyet_to_giac",
+        "tenHienThi": "Ngày Thời điểm phân công giải quyết tố giác, tin báo",
+        "kieuDuLieu": "date",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 172,
+        "conflicts": [],
+        "freq": 16901
+      },
+      {
+        "tenTruong": "toi_danh_chinh_blhs2015",
+        "tenHienThi": "Tội danh chính - BLHS 2015 (nhận định ban đầu)",
+        "kieuDuLieu": "chon_toi_danh",
+        "batBuoc": true,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 184,
+        "conflicts": [],
+        "freq": 16502
+      },
+      {
+        "tenTruong": "tong_so_tien_phat_hanh_chinh",
+        "tenHienThi": "Tổng số tiền phạt hành chính (triệu Việt Nam Đồng)",
+        "kieuDuLieu": "number",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 185,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "xac_nhan_neu_la_vu_an_ghi_am_ghi_hinh",
+        "tenHienThi": "Xác nhận nếu là Vụ án có sử dụng Ghi âm, Ghi hình",
+        "kieuDuLieu": "checkbox",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 186,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "ghi_am_ghi_hinh_da_duoc_xet_xu",
+        "tenHienThi": "Xác nhận Trong đó: Số vụ án tiến hành Ghi âm, Ghi hình đã được xét xử",
+        "kieuDuLieu": "checkbox",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 187,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "dieu_tra_vien_phuong_xa",
+        "tenHienThi": "Điều tra viên là trưởng - phó Công an phường thụ lý",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [
+          3
+        ],
+        "id": 188,
+        "conflicts": [],
+        "freq": 0
+      },
+      {
+        "tenTruong": "so_dien_thoai_nguyen_don",
+        "tenHienThi": "Số điện thoại nguyên đơn",
+        "kieuDuLieu": "phone",
+        "batBuoc": true,
+        "loai": "ho_so",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [
+          0
+        ],
+        "id": 189,
+        "conflicts": [],
+        "freq": 8043
+      }
+    ],
+    "bi_can": [
+      {
+        "tenTruong": "quyet_dinh_tam_dinh_chi_dieu_tra_bi_can",
+        "tenHienThi": "Số Quyết định Tạm đình chỉ bị can",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "bi_can",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 51,
+        "conflicts": []
+      },
+      {
+        "tenTruong": "can_cu_tam_dinh_chi_bi_can",
+        "tenHienThi": "Căn cứ tạm đình chỉ bị can",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "bi_can",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 52,
+        "conflicts": []
+      },
+      {
+        "tenTruong": "quyet_dinh_phuc_hoi_bi_can",
+        "tenHienThi": "Số Quyết định phục hồi bị can",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "bi_can",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 53,
+        "conflicts": []
+      },
+      {
+        "tenTruong": "quyet_dinh_dinh_chi_bi_can",
+        "tenHienThi": "Số Quyết định Đình chỉ Bị can",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "bi_can",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 54,
+        "conflicts": []
+      },
+      {
+        "tenTruong": "can_cu_ra_quyet_dinh_dinh_chi_bi_can",
+        "tenHienThi": "Căn cứ ra QĐ Đình chỉ điều tra bị can",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "bi_can",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 55,
+        "conflicts": []
+      },
+      {
+        "tenTruong": "quyet_dinh_khoi_to_bi_can",
+        "tenHienThi": "Quyết định Khởi tố bị can",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "bi_can",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 42,
+        "conflicts": []
+      },
+      {
+        "tenTruong": "ho_ten_bi_can",
+        "tenHienThi": "Họ tên Đối tượng, Bị can",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "bi_can",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 44,
+        "conflicts": []
+      },
+      {
+        "tenTruong": "ngay_thang_nam_sinh_bi_can",
+        "tenHienThi": "Ngày tháng năm sinh",
+        "kieuDuLieu": "date",
+        "batBuoc": false,
+        "loai": "bi_can",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 45,
+        "conflicts": []
+      },
+      {
+        "tenTruong": "ho_khau_thuong_tru_bi_can",
+        "tenHienThi": "Hộ khẩu thường trú",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "bi_can",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 46,
+        "conflicts": []
+      },
+      {
+        "tenTruong": "cho_o_hien_tai_bi_can",
+        "tenHienThi": "Chổ ở hiện tại",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "bi_can",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 47,
+        "conflicts": []
+      },
+      {
+        "tenTruong": "ngay_quyet_dinh_khoi_to_bi_can",
+        "tenHienThi": "Ngày Quyết định Khởi tố bị can",
+        "kieuDuLieu": "date",
+        "batBuoc": false,
+        "loai": "bi_can",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 43,
+        "conflicts": []
+      },
+      {
+        "tenTruong": "toi_danh_bi_can",
+        "tenHienThi": "Tội danh",
+        "kieuDuLieu": "chon_nhieu_toi_danh",
+        "batBuoc": false,
+        "loai": "bi_can",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 48,
+        "conflicts": []
+      },
+      {
+        "tenTruong": "lenh_tam_giam_bi_can",
+        "tenHienThi": "Lệnh tạm giam",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "bi_can",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 49,
+        "conflicts": []
+      },
+      {
+        "tenTruong": "ngay_lenh_tam_giam",
+        "tenHienThi": "Ngày Lệnh tạm giam",
+        "kieuDuLieu": "date",
+        "batBuoc": false,
+        "loai": "bi_can",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 162,
+        "conflicts": []
+      },
+      {
+        "tenTruong": "so_lenh_bat_bi_can_de_tam_giam",
+        "tenHienThi": "Số Lệnh bắt bị can để tạm giam",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "bi_can",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 163,
+        "conflicts": []
+      },
+      {
+        "tenTruong": "ngay_lenh_bat_bi_can_de_tam_giam",
+        "tenHienThi": "Ngày Lệnh bắt bị can để tạm giam",
+        "kieuDuLieu": "date",
+        "batBuoc": false,
+        "loai": "bi_can",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 164,
+        "conflicts": []
+      },
+      {
+        "tenTruong": "cac_truong_hop_nguoi_pham_toi_bi_tam_giu",
+        "tenHienThi": "Chọn các trường hợp người phạm tội bị tạm giữ, tạm giam",
+        "kieuDuLieu": "select",
+        "batBuoc": false,
+        "loai": "bi_can",
+        "options": [
+          {
+            "giaTri": "Người phạm tội tự thú",
+            "tenHienThi": "Người phạm tội tự thú"
+          },
+          {
+            "giaTri": "Người phạm tội bị bắt quả tang",
+            "tenHienThi": "Người phạm tội bị bắt quả tang"
+          },
+          {
+            "giaTri": "Người phạm tội bị giữ trong các trường hợp khẩn cấp",
+            "tenHienThi": "Người phạm tội bị giữ trong các trường hợp khẩn cấp"
+          },
+          {
+            "giaTri": "Người phạm tội bị bắt truy nã",
+            "tenHienThi": "Người phạm tội bị bắt truy nã"
+          },
+          {
+            "giaTri": "Bắt bị can, bị cáo để tạm giam",
+            "tenHienThi": "Bắt bị can, bị cáo để tạm giam"
+          }
+        ],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 165,
+        "conflicts": []
+      },
+      {
+        "tenTruong": "ngay_nguoi_pham_toi_bi_lap_bien_ban_tam_giu_tam_giam",
+        "tenHienThi": "Ngày người phạm tội bị lập biên bản tạm giữ, tạm giam",
+        "kieuDuLieu": "date",
+        "batBuoc": false,
+        "loai": "bi_can",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 166,
+        "conflicts": []
+      },
+      {
+        "tenTruong": "so_quyet_dinh_tam_giu",
+        "tenHienThi": "Số Quyết định tạm giữ",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "bi_can",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 167,
+        "conflicts": []
+      },
+      {
+        "tenTruong": "ngay_ra_quyet_dinh_tam_giu",
+        "tenHienThi": "Ngày ra Quyết định tạm giữ",
+        "kieuDuLieu": "date",
+        "batBuoc": false,
+        "loai": "bi_can",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 168,
+        "conflicts": []
+      },
+      {
+        "tenTruong": "ngay_quyet_dinh_tam_dinh_chi_dieu_tra_bi_can",
+        "tenHienThi": "Ngày Quyết định tạm đình chỉ điều tra bị can",
+        "kieuDuLieu": "date",
+        "batBuoc": false,
+        "loai": "bi_can",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 169,
+        "conflicts": []
+      },
+      {
+        "tenTruong": "ngay_quyet_dinh_phuc_hoi_dieu_tra_bi_can",
+        "tenHienThi": "Ngày Quyết định phục hồi điều tra bị can",
+        "kieuDuLieu": "date",
+        "batBuoc": false,
+        "loai": "bi_can",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 170,
+        "conflicts": []
+      },
+      {
+        "tenTruong": "ngay_quyet_dinh_dinh_chi_bi_can",
+        "tenHienThi": "Ngày Quyết định đình chỉ bị can",
+        "kieuDuLieu": "date",
+        "batBuoc": false,
+        "loai": "bi_can",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 171,
+        "conflicts": []
+      },
+      {
+        "tenTruong": "nghe_nghiep",
+        "tenHienThi": "Nghề nghiệp",
+        "kieuDuLieu": "select",
+        "batBuoc": false,
+        "loai": "bi_can",
+        "options": [
+          {
+            "giaTri": "Công nhân",
+            "tenHienThi": "Công nhân"
+          },
+          {
+            "giaTri": "Nông dân",
+            "tenHienThi": "Nông dân"
+          },
+          {
+            "giaTri": "Học sinh, sinh viên",
+            "tenHienThi": "Học sinh, sinh viên"
+          },
+          {
+            "giaTri": "Công chức, viên chức",
+            "tenHienThi": "Công chức, viên chức"
+          },
+          {
+            "giaTri": "Lao động tự do",
+            "tenHienThi": "Lao động tự do"
+          },
+          {
+            "giaTri": "Nghề khác",
+            "tenHienThi": "Nghề khác"
+          },
+          {
+            "giaTri": "Không có nghề nghiệp",
+            "tenHienThi": "Không có nghề nghiệp"
+          }
+        ],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 174,
+        "conflicts": []
+      },
+      {
+        "tenTruong": "nhom_tuoi",
+        "tenHienThi": "Nhóm tuổi",
+        "kieuDuLieu": "select",
+        "batBuoc": false,
+        "loai": "bi_can",
+        "options": [
+          {
+            "giaTri": "Dưới 14 tuổi",
+            "tenHienThi": "Dưới 14 tuổi"
+          },
+          {
+            "giaTri": "Từ đủ 14  đến dưới 16 tuổi",
+            "tenHienThi": "Từ đủ 14  đến dưới 16 tuổi"
+          },
+          {
+            "giaTri": "Từ đủ 16  đến dưới 18 tuổi",
+            "tenHienThi": "Từ đủ 16  đến dưới 18 tuổi"
+          },
+          {
+            "giaTri": "Từ đủ 18  đến dưới 30 tuổi",
+            "tenHienThi": "Từ đủ 18  đến dưới 30 tuổi"
+          },
+          {
+            "giaTri": "Từ đủ 30 tuổi trở lên",
+            "tenHienThi": "Từ đủ 30 tuổi trở lên"
+          }
+        ],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 175,
+        "conflicts": []
+      },
+      {
+        "tenTruong": "gioi_tinh",
+        "tenHienThi": "Giới tính",
+        "kieuDuLieu": "select",
+        "batBuoc": false,
+        "loai": "bi_can",
+        "options": [
+          {
+            "giaTri": "Nam",
+            "tenHienThi": "Nam"
+          },
+          {
+            "giaTri": "Nữ",
+            "tenHienThi": "Nữ"
+          }
+        ],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 176,
+        "conflicts": []
+      },
+      {
+        "tenTruong": "doi_tuong_co_tien_an_tien_su",
+        "tenHienThi": "Xác nhận Đối tượng có tiền án, tiền sự",
+        "kieuDuLieu": "checkbox",
+        "batBuoc": false,
+        "loai": "bi_can",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 177,
+        "conflicts": []
+      },
+      {
+        "tenTruong": "doi_tuong_co_su_dung_ma_tuy",
+        "tenHienThi": "Xác nhận Đối tượng có sử dụng chất ma túy",
+        "kieuDuLieu": "checkbox",
+        "batBuoc": false,
+        "loai": "bi_can",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 178,
+        "conflicts": []
+      },
+      {
+        "tenTruong": "doi_tuong_trong_dien_suu_tra",
+        "tenHienThi": "Xác nhận Đối tượng trong diện sưu tra",
+        "kieuDuLieu": "checkbox",
+        "batBuoc": false,
+        "loai": "bi_can",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 179,
+        "conflicts": []
+      },
+      {
+        "tenTruong": "tieu_chi_khac",
+        "tenHienThi": "Tiêu chí khác",
+        "kieuDuLieu": "select",
+        "batBuoc": false,
+        "loai": "bi_can",
+        "options": [
+          {
+            "giaTri": "Đảng viên",
+            "tenHienThi": "Đảng viên"
+          },
+          {
+            "giaTri": "Người nước ngoài",
+            "tenHienThi": "Người nước ngoài"
+          },
+          {
+            "giaTri": "Việt Nam",
+            "tenHienThi": "Việt Nam"
+          }
+        ],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 180,
+        "conflicts": []
+      },
+      {
+        "tenTruong": "Vks_khong_phe_chuan_lenh_giu_nguoi_trong_truong_hop_khan_cap",
+        "tenHienThi": "VKS không phê chuẩn lệnh giữ người trong trường hợp khẩn cấp",
+        "kieuDuLieu": "checkbox",
+        "batBuoc": false,
+        "loai": "bi_can",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 181,
+        "conflicts": []
+      },
+      {
+        "tenTruong": "vks_khong_phe_chuan_lenh_bat_nguoi_bi_giu_trong_truong_hop_khan_cap",
+        "tenHienThi": "VKS không phê chuẩn lệnh bắt người bị giữ trong trường hợp khẩn cấp",
+        "kieuDuLieu": "checkbox",
+        "batBuoc": false,
+        "loai": "bi_can",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 182,
+        "conflicts": []
+      },
+      {
+        "tenTruong": "vks_khong_phe_chuan_lenh_bat_bi_can_de_tam_giam",
+        "tenHienThi": "VKS không phê chuẩn lệnh bắt tạm giam",
+        "kieuDuLieu": "checkbox",
+        "batBuoc": false,
+        "loai": "bi_can",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 183,
+        "conflicts": []
+      }
+    ],
+    "dieu_tra_bo_sung": [
+      {
+        "tenTruong": "so_ket_luan_dieu_tra_bo_sung_gan_nhat",
+        "tenHienThi": "Số Kết luận điều tra bổ sung",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "dieu_tra_bo_sung",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 29,
+        "conflicts": []
+      },
+      {
+        "tenTruong": "ngay_ra_ket_luan_dieu_tra_bo_sung_gan_nhat",
+        "tenHienThi": "Ngày ra Kết luận điều tra bổ sung",
+        "kieuDuLieu": "date",
+        "batBuoc": false,
+        "loai": "dieu_tra_bo_sung",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 111,
+        "conflicts": []
+      },
+      {
+        "tenTruong": "so_quyet_dinh_dieu_tra_bo_sung",
+        "tenHienThi": "Số Quyết định điều tra bổ sung",
+        "kieuDuLieu": "text",
+        "batBuoc": false,
+        "loai": "dieu_tra_bo_sung",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 150,
+        "conflicts": []
+      },
+      {
+        "tenTruong": "ngay_quyet_dinh_dieu_tra_bo_sung_vks",
+        "tenHienThi": "Ngày trả hồ sơ điều tra bổ sung của Viện kiểm sát",
+        "kieuDuLieu": "date",
+        "batBuoc": false,
+        "loai": "dieu_tra_bo_sung",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 151,
+        "conflicts": []
+      },
+      {
+        "tenTruong": "ly_do_tra_ho_so_dieu_tra_bo_sung",
+        "tenHienThi": "Lý do trả hồ sơ điều tra bổ sung (Khoản 1 Điều 245 Bộ luật TTHS)",
+        "kieuDuLieu": "multi_select",
+        "batBuoc": false,
+        "loai": "dieu_tra_bo_sung",
+        "options": [
+          {
+            "giaTri": "a) Còn thiếu chứng cứ để chứng minh một trong những vấn đề quy định tại Điều 85 của Bộ luật này mà Viện kiểm sát không thể tự mình bổ sung được;",
+            "tenHienThi": "a) Còn thiếu chứng cứ để chứng minh một trong những vấn đề quy định tại Điều 85 của Bộ luật này mà Viện kiểm sát không thể tự mình bổ sung được;"
+          },
+          {
+            "giaTri": "b) Có căn cứ khởi tố bị can về một hay nhiều tội phạm khác;",
+            "tenHienThi": "b) Có căn cứ khởi tố bị can về một hay nhiều tội phạm khác;"
+          },
+          {
+            "giaTri": "c) Có người đồng phạm hoặc người phạm tội khác liên quan đến vụ án nhưng chưa được khởi tố bị can;",
+            "tenHienThi": "c) Có người đồng phạm hoặc người phạm tội khác liên quan đến vụ án nhưng chưa được khởi tố bị can;"
+          },
+          {
+            "giaTri": "d) Có vi phạm nghiêm trọng thủ tục tố tụng.",
+            "tenHienThi": "d) Có vi phạm nghiêm trọng thủ tục tố tụng."
+          },
+          {
+            "giaTri": "e) Căn cứ khác",
+            "tenHienThi": "e) Căn cứ khác"
+          }
+        ],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 154,
+        "conflicts": []
+      },
+      {
+        "tenTruong": "xac_nhan_neu_cqdt_ban_hanh_vb_de_nghi_vks_tra_ho_so_dtbs",
+        "tenHienThi": "Xác nhận nếu CQĐT ban hành VB đề nghị VKS trả hồ sơ ĐTBS",
+        "kieuDuLieu": "checkbox",
+        "batBuoc": false,
+        "loai": "dieu_tra_bo_sung",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 155,
+        "conflicts": []
+      },
+      {
+        "tenTruong": "xac_nhan_neu_cqdt_ban_hanh_vb_hoan_ho_so_de_tiep_tuc_de_nghi_truy_to",
+        "tenHienThi": "Xác nhận nếu CQĐT ban hành Văn bản hoàn hồ sơ để tiếp tục đề nghị truy tố",
+        "kieuDuLieu": "checkbox",
+        "batBuoc": false,
+        "loai": "dieu_tra_bo_sung",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 156,
+        "conflicts": []
+      },
+      {
+        "tenTruong": "xac_nhan_loi_dieu_tra_vien",
+        "tenHienThi": "Xác nhận nếu lỗi của Điều tra viên",
+        "kieuDuLieu": "checkbox",
+        "batBuoc": false,
+        "loai": "dieu_tra_bo_sung",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 157,
+        "conflicts": []
+      },
+      {
+        "tenTruong": "xac_nhan_loi_kiem_sat_vien",
+        "tenHienThi": "Xác nhận nếu lỗi của Kiểm sát viên",
+        "kieuDuLieu": "checkbox",
+        "batBuoc": false,
+        "loai": "dieu_tra_bo_sung",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 158,
+        "conflicts": []
+      },
+      {
+        "tenTruong": "ngay_tiep_nhan_an_dtbs",
+        "tenHienThi": "Ngày tiếp nhận án điều tra bổ sung",
+        "kieuDuLieu": "date",
+        "batBuoc": false,
+        "loai": "dieu_tra_bo_sung",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 159,
+        "conflicts": []
+      },
+      {
+        "tenTruong": "ngay_tra_ho_so_dieu_tra_bo_sung_cua_toa_an",
+        "tenHienThi": "Ngày trả hồ sơ điều tra bổ sung của Toà án",
+        "kieuDuLieu": "date",
+        "batBuoc": false,
+        "loai": "dieu_tra_bo_sung",
+        "options": [],
+        "hienThiForm": true,
+        "donViArr": [],
+        "id": 173,
+        "conflicts": []
+      }
+    ]
+  },
+  "enums": [
+    {
+      "ten": "tinh_trang_DonHang",
+      "values": {
+        "DonHang_moi": "Đơn hàng mới",
+        "thanh_cong": "Thành công",
+        "khach_huy": "Khách hủy"
+      }
+    },
+    {
+      "ten": "loai_ho_so",
+      "values": {
+        "vu_viec": "Vụ việc",
+        "vu_an": "Vụ án",
+        "khieu_nai": "Khiếu nại",
+        "to_cao": "Tố cáo",
+        "phan_loai_khac": "Phân loại khác"
+      }
+    },
+    {
+      "ten": "tinh_trang_phan_loai_khac",
+      "values": {
+        "uy_thac_dieu_tra": "Ủy thác điều tra",
+        "luat_su": "Luật sư",
+        "don_trung": "Đơn trùng",
+        "cac_truong_hop_khac": "Các trường hợp khác",
+        "kien_nghi_vks": "Kiến nghị VKS"
+      }
+    },
+    {
+      "ten": "tinh_trang_bi_can",
+      "values": {
+        "doi_tuong": "Đối tượng",
+        "bi_can": "Bị can",
+        "bi_can_tam_dinh_chi": "Bị can tạm đình chỉ",
+        "phuc_hoi_bi_can": "Phục hồi bị can",
+        "huy_khoi_to_bi_can": "Huỷ Khởi tố bị can",
+        "dinh_chi_bi_can": "Đình chỉ bị can",
+        "ket_luan_dieu_tra_truy_to_bi_can": "Kết luận điều tra truy tố bị can",
+        "chuyen_co_quan_khac": "Chuyển cơ quan khác",
+        "nhap_bi_can_vao_vu_an_khac": "Nhập bị can vào vụ án khác"
+      }
+    },
+    {
+      "ten": "tinh_trang_to_cao",
+      "values": {
+        "dang_xac_minh": "Đang xác minh",
+        "da_len_phan_cong": "Đã lên phân công",
+        "to_cao_dung": "Kết quả tố cáo đúng",
+        "to_cao_sai": "Kết quả tố cáo sai",
+        "chuyen_cơ_quan_khac": "Chuyển cơ quan khác",
+        "luu_don": "Lưu đơn",
+        "huong_dan_don": "Hướng dẫn đơn"
+      }
+    },
+    {
+      "ten": "tinh_trang_khieu_nai",
+      "values": {
+        "dang_xac_minh": "Đang xác minh",
+        "da_len_phan_cong": "Đã lên Phân công",
+        "khieu_nai_dung": "Kết quả khiếu nại đúng",
+        "khieu_nai_sai": "Kết quả khiếu nại sai",
+        "chuyen_co_quan_khac": "Chuyển cơ quan khác",
+        "luu_don": "Lưu đơn",
+        "huong_dan_don": "Hướng dẫn đơn"
+      }
+    },
+    {
+      "ten": "phan_loai_ho_so_doi_1",
+      "values": {
+        "don_thu": "Đơn thư đã phân loại",
+        "vu_viec_da_phan_loai": "Vụ việc đã phân loại",
+        "vu_an_da_phan_loai": "Vụ án đã phân loại",
+        "tra_ho_so": "Trả hồ sơ",
+        "huong_dan": "Hướng dẫn",
+        "trao_doi_chuyen_an": "Trao đổi chuyên án",
+        "luat_su": "Luật sư",
+        "uy_thac_dieu_tra": "Ủy thác điều tra",
+        "vu_viec_phuong_xa": "Vụ việc phường/xã",
+        "vu_an_phuong_xa": "Vụ án phường/xã",
+        "kien_nghi_vks": "Kiến nghị VKS"
+      }
+    },
+    {
+      "ten": "tinh_trang_ho_so",
+      "values": {
+        "0": "Chưa rõ",
+        "1": "Tổ tổng hợp đang quản lý",
+        "2": "Cán bộ đang quản lý",
+        "3": "Cán bộ báo mất, thất lạc hồ sơ có thể khắc phục ",
+        "4": "Cán bộ báo mất, thất lạc hồ sơ không thể khắc phục",
+        "5": "Cán bộ chuyển đơn vị chưa bàn giao",
+        "6": "Cán bộ qua đời không bàn giao hồ sơ",
+        "7": "Cán bộ nghỉ hưu chưa bàn giao hồ sơ",
+        "8": "Lý do khác (ghi chú lý do)",
+        "9": "Không thể rà soát do không có đủ thông tin dữ liệu",
+        "11": "Tạm đình chỉ đã nộp lưu PV06",
+        "12": "Trùng hồ sơ (ghi rõ hồ sơ bị trùng)"
+      }
+    },
+    {
+      "ten": "tinh_trang_vu_viec",
+      "values": {
+        "0": "Vụ việc đang xác minh",
+        "1": "Vụ việc đã lên phân công",
+        "2": "Vụ việc không khởi tố",
+        "3": "Vụ việc Tạm đình chỉ",
+        "4": "Vụ việc TĐC hết thời hiệu",
+        "5": "Vụ việc TĐC HTH không khởi tố",
+        "6": "Vụ việc đã chuyển đơn vị khác",
+        "7": "Đã nhập vào vụ việc khác",
+        "8": "Phân loại dân sự",
+        "9": "Ủy thác điều tra",
+        "10": "Luật sư",
+        "11": "Vụ việc chuyển XPHC",
+        "12": " Vụ việc phục hồi nguồn tin TP",
+        "13": "Phân loại khác"
+      }
+    },
+    {
+      "ten": "tinh_trang_vu_an",
+      "values": {
+        "0": "Vụ án đang điều tra",
+        "2": "Đã kết luận điều tra",
+        "3": "Điều tra bổ sung",
+        "4": "Điều tra lại",
+        "5": "Vụ án Tạm đình chỉ ",
+        "6": "Vụ án TĐC hết thời hiệu",
+        "7": "Vụ án TĐC HTH đã đình chỉ ",
+        "8": "Đình chỉ vụ án",
+        "9": "Vụ án đã chuyển đơn vị khác",
+        "10": "Đã nhập vào vụ án khác",
+        "11": "Vụ án phục hồi điều tra",
+        "12": "Vụ án đã được tách"
+      }
+    }
+  ]
+}
