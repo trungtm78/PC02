@@ -1,0 +1,2 @@
+ALTER TABLE "petitions" ADD COLUMN IF NOT EXISTS "metadata" JSONB;
+ALTER TABLE "incidents" ADD COLUMN IF NOT EXISTS "metadata" JSONB;

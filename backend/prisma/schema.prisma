@@ -952,7 +952,8 @@ model Petition {
   sttCu                  String? // STT cũ hơn (trường `stt_cu`)
   legacyId               Int? // id số gốc hệ cũ (kèm legacyCollection)
   legacyCollection       String? // collection gốc: ho_so | ho_so_doi_1
-  legacyRaw              Json? // Toàn bộ field raw hệ cũ — không mất data (Codex P1#1; Petition không có metadata)
+  legacyRaw              Json? // Toàn bộ field raw hệ cũ — không mất data (Codex P1#1)
+  metadata               Json? // Field hệ cũ dạng cấu trúc (mọi field tương ứng) — surface + editable
   // Field-parity hệ thống cũ — giai đoạn Ủy thác điều tra
   thoiHanUTDT            DateTime? // Thời hạn thực hiện Ủy thác điều tra (old: thoi_han_thuc_hien_uy_thac_dieu_tra)
   // Thẩm quyền & đơn vị xử lý (form đăng ký đơn thư)
@@ -1160,7 +1161,8 @@ model Incident {
   sttCu          String? // STT cũ hơn (trường `stt_cu`)
   legacyId       Int? // id số gốc hệ cũ (kèm legacyCollection)
   legacyCollection String? // collection gốc: ho_so | ho_so_doi_1
-  legacyRaw      Json? // Toàn bộ field raw hệ cũ — không mất data (Codex P1#1; Incident không có metadata)
+  legacyRaw      Json? // Toàn bộ field raw hệ cũ — không mất data (Codex P1#1)
+  metadata       Json? // Field hệ cũ dạng cấu trúc (mọi field tương ứng) — surface + editable
   importedAt     DateTime?
   importedById   String?
   importedBy     User?               @relation("IncidentImportedBy", fields: [importedById], references: [id], onDelete: SetNull)
