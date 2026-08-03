@@ -77,7 +77,14 @@ export interface CaseFormData {
   ketQuaXuLyKhac: string;            // Kết quả xử lý khác
   soPhieuChuyen: string;             // Số phiếu chuyển
   dieuTraVienText: string;           // Điều tra viên (theo hệ cũ)
-  sttCu: string;                     // Số thứ tự hồ sơ cũ
+  sttCu: string;                     // Số thứ tự hồ sơ cũ (stt_cu)
+  soHoSoCu: string;                  // STT thụ lý hệ cũ (stt) — chỉ đọc
+  tenCungCap: string;                // Tên cá nhân/cơ quan cung cấp, bị hại (hệ cũ)
+  sinhNamCungCap: string;            // Sinh năm người cung cấp
+  cccdCungCap: string;               // CCCD người cung cấp
+  ngayCapCccd: string;               // Ngày cấp CCCD
+  noiCapCccd: string;                // Nơi cấp CCCD
+  sdtCungCap: string;                // SĐT người cung cấp
   tinhTrang: string;                 // Tình trạng hồ sơ
   phanLoaiToiPhamLinhVuc: string;    // Phân loại tội phạm theo lĩnh vực
   deXuatXuLy: string;                // Đề xuất xử lý
@@ -337,6 +344,13 @@ export const INITIAL_FORM_DATA: CaseFormData = {
   soPhieuChuyen: "",
   dieuTraVienText: "",
   sttCu: "",
+  soHoSoCu: "",
+  tenCungCap: "",
+  sinhNamCungCap: "",
+  cccdCungCap: "",
+  ngayCapCccd: "",
+  noiCapCccd: "",
+  sdtCungCap: "",
   tinhTrang: "",
   phanLoaiToiPhamLinhVuc: "",
   deXuatXuLy: "",
