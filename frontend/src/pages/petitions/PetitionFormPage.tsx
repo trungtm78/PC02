@@ -606,6 +606,15 @@ export function PetitionFormPage() {
       )}
 
       <form onSubmit={(e) => void handleSubmit(e)} onKeyDown={handleFormKeyDown} className="space-y-6">
+        {/* Truy nguyên hệ cũ — STT + STT cũ (đơn thư di trú) */}
+        {isEditMode && legacyRaw && Boolean(legacyRaw.stt || legacyRaw.stt_cu) && (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-2 text-sm text-amber-800">
+            <span className="font-semibold">Mã hồ sơ gốc (hệ cũ):</span>{" "}
+            {legacyRaw.stt ? `STT ${String(legacyRaw.stt)}` : ""}
+            {legacyRaw.stt_cu ? ` · STT cũ ${String(legacyRaw.stt_cu)}` : ""}
+            <span className="text-amber-600"> — để tra lại dữ liệu hệ thống cũ</span>
+          </div>
+        )}
         {/* Section 1: Thông tin tiếp nhận */}
         <div className="bg-white rounded-lg border border-slate-200 shadow-sm">
           <div className="border-b border-slate-200 px-6 py-4">
