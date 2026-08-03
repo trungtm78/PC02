@@ -240,6 +240,29 @@ export class UpdateIncidentDto {
   @IsBoolean()
   xacDinhVuViecTamDung?: boolean;
 
+  // ── Field-parity ĐẦY ĐỦ (feat/legacy-field-parity): field intake hệ cũ Vụ việc ──
+  @IsOptional() @IsString() nhanXet?: string;
+  @IsOptional() @IsDateString() ngayTiepNhanNguonTin?: string;
+  @IsOptional() @IsString() loaiThongTin?: string;
+  @IsOptional() @IsDateString() ngayVietDon?: string;
+  @IsOptional() @IsString() ghiChuTrungDon?: string;
+  @IsOptional() @IsBoolean() baoCaoBanGiamDoc?: boolean;
+  @IsOptional() @IsDateString() ngayGiaoDonViGiaiQuyet?: string;
+  @IsOptional() @IsString() toiDanhBanDau?: string;
+  @IsOptional() @IsString() soPhieuChuyen?: string;
+  @IsOptional() @IsDateString() ngayPhieuChuyen?: string;
+  @IsOptional() @IsString() doVatTaiLieuKemTheo?: string;
+  @IsOptional() @IsString() phanLoaiToiPhamLinhVuc?: string;
+  @IsOptional() @IsString() phanLoaiHoSoNoiBo?: string;
+  @IsOptional() @IsString() lanhDaoToTung?: string;
+  @IsOptional() @IsString() dieuTraVien?: string;
+  @IsOptional() @IsString() dieuTraVienPhuongXa?: string;
+  @IsOptional() @IsString() noiCapCccd?: string;
+  @IsOptional() @IsDateString() ngayCapCccd?: string;
+  @IsOptional() @IsString() deXuat?: string;
+  @IsOptional() @IsString() yeuCauBoSung?: string;
+  @IsOptional() @IsString() ghiChuKhac?: string;
+
   // Field hệ cũ dạng cấu trúc (dynamic legacy fields) — MERGE ở service, không REPLACE.
   @IsOptional()
   @IsObject()

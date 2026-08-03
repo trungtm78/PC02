@@ -476,6 +476,28 @@ export class IncidentsService {
           ngayQDKhongKhoiTo: dto.ngayQDKhongKhoiTo ? new Date(dto.ngayQDKhongKhoiTo) : undefined,
           xacDinhVuViecTamDung: dto.xacDinhVuViecTamDung,
           laCongNgheCaoVV: dto.laCongNgheCaoVV,
+          // ── Field-parity ĐẦY ĐỦ (feat/legacy-field-parity) — field intake hệ cũ ──
+          nhanXet: dto.nhanXet,
+          ngayTiepNhanNguonTin: dto.ngayTiepNhanNguonTin ? new Date(dto.ngayTiepNhanNguonTin) : undefined,
+          loaiThongTin: dto.loaiThongTin,
+          ngayVietDon: dto.ngayVietDon ? new Date(dto.ngayVietDon) : undefined,
+          ghiChuTrungDon: dto.ghiChuTrungDon,
+          baoCaoBanGiamDoc: dto.baoCaoBanGiamDoc,
+          ngayGiaoDonViGiaiQuyet: dto.ngayGiaoDonViGiaiQuyet ? new Date(dto.ngayGiaoDonViGiaiQuyet) : undefined,
+          toiDanhBanDau: dto.toiDanhBanDau,
+          soPhieuChuyen: dto.soPhieuChuyen,
+          ngayPhieuChuyen: dto.ngayPhieuChuyen ? new Date(dto.ngayPhieuChuyen) : undefined,
+          doVatTaiLieuKemTheo: dto.doVatTaiLieuKemTheo,
+          phanLoaiToiPhamLinhVuc: dto.phanLoaiToiPhamLinhVuc,
+          phanLoaiHoSoNoiBo: dto.phanLoaiHoSoNoiBo,
+          lanhDaoToTung: dto.lanhDaoToTung,
+          dieuTraVien: dto.dieuTraVien,
+          dieuTraVienPhuongXa: dto.dieuTraVienPhuongXa,
+          noiCapCccd: dto.noiCapCccd,
+          ngayCapCccd: dto.ngayCapCccd ? new Date(dto.ngayCapCccd) : undefined,
+          deXuat: dto.deXuat,
+          yeuCauBoSung: dto.yeuCauBoSung,
+          ghiChuKhac: dto.ghiChuKhac,
           status: IncidentStatus.TIEP_NHAN,
         },
         include: {
@@ -550,6 +572,11 @@ export class IncidentsService {
       'soQuyetDinhTamDinhChiVV', 'soQuyetDinhPhucHoiVV',
       // PR-6 — QĐ không khởi tố riêng + cờ tạm dừng
       'soQDKhongKhoiTo', 'xacDinhVuViecTamDung',
+      // ── Field-parity ĐẦY ĐỦ (feat/legacy-field-parity) — field intake hệ cũ ──
+      'nhanXet', 'loaiThongTin', 'ghiChuTrungDon', 'baoCaoBanGiamDoc', 'toiDanhBanDau',
+      'soPhieuChuyen', 'doVatTaiLieuKemTheo', 'phanLoaiToiPhamLinhVuc', 'phanLoaiHoSoNoiBo',
+      'lanhDaoToTung', 'dieuTraVien', 'dieuTraVienPhuongXa', 'noiCapCccd', 'deXuat',
+      'yeuCauBoSung', 'ghiChuKhac',
     ];
     for (const f of fields) {
       if ((dto as Record<string, unknown>)[f] !== undefined) {
@@ -557,7 +584,9 @@ export class IncidentsService {
       }
     }
 
-    const dateFields = ['fromDate', 'toDate', 'deadline', 'ngayDeXuat', 'ngayQuyetDinh', 'ngayQDPhanCongNguonTin', 'ngayTamDinhChiVV', 'ngayPhucHoiVV', 'ngayHetThoiHieuVV', 'ngayQDKhongKhoiTo'];
+    const dateFields = ['fromDate', 'toDate', 'deadline', 'ngayDeXuat', 'ngayQuyetDinh', 'ngayQDPhanCongNguonTin', 'ngayTamDinhChiVV', 'ngayPhucHoiVV', 'ngayHetThoiHieuVV', 'ngayQDKhongKhoiTo',
+      // Field-parity đầy đủ — mốc ngày intake hệ cũ
+      'ngayTiepNhanNguonTin', 'ngayVietDon', 'ngayGiaoDonViGiaiQuyet', 'ngayPhieuChuyen', 'ngayCapCccd'];
     for (const f of dateFields) {
       if ((dto as Record<string, unknown>)[f] !== undefined) {
         const val = (dto as Record<string, unknown>)[f] as string | null;

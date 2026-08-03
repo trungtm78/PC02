@@ -93,5 +93,12 @@ export function buildPetitionCreateData(
     // Thẩm quyền & đơn vị xử lý (form đăng ký đơn thư).
     thuocThamQuyen: dto.thuocThamQuyen ?? true,
     donViXuLy: dto.donViXuLy,
+    // ── Field-parity ĐẦY ĐỦ (feat/legacy-field-parity) ──
+    phanLoaiToiPhamLinhVuc: dto.phanLoaiToiPhamLinhVuc,
+    phanLoaiHoSoNoiBo: dto.phanLoaiHoSoNoiBo,
+    ghiChuKhac: dto.ghiChuKhac,
+    yeuCauBoSung: dto.yeuCauBoSung,
+    soTienBiThietHai: dto.soTienBiThietHai,
+    soLuongBiHai: dto.soLuongBiHai,
   };
 }

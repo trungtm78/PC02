@@ -68,7 +68,7 @@ describe('field-parity — builder đổ cột mới (không sót data)', () => 
   });
 
   it('spec PARITY: mỗi field đều có col + type hợp lệ (không rỗng)', () => {
-    const types = new Set(['String', 'DateTime', 'Int', 'Boolean']);
+    const types = new Set(['String', 'DateTime', 'Int', 'Float', 'Boolean']);
     for (const e of ['petition', 'incident', 'case'] as const) {
       for (const c of PARITY[e]) {
         expect(c.field).toBeTruthy();
