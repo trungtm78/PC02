@@ -22,8 +22,31 @@ function label(key: string): string {
   return LEGACY_FIELD_LABELS[key] ?? key.replace(/_/g, " ");
 }
 
-function renderValue(v: unknown): string {
+// Field ngày hệ cũ (ngay_*, thời hạn, hết thời hiệu) lưu Unix timestamp (giây).
+const DATE_KEY = /(^|_)ngay|thoi_han|het_thoi_hieu|thoi_gian_het/i;
+
+/**
+ * Định dạng Unix timestamp (giây) hệ cũ → dd/mm/yyyy, KHỚP parseLegacyDate backend:
+ * cộng bù +50400s (14h) vì PHP cũ trừ offset +7h HAI LẦN, rồi lấy ngày theo UTC.
+ * Dải rộng 1990-2060 (panel tham khảo — rộng hơn cột typed 2000-2050). Ngoài dải → null.
+ */
+function formatLegacyUnixDate(v: number): string | null {
+  if (!Number.isFinite(v) || v < 631152000 || v > 2840140800) return null;
+  const d = new Date((v + 50400) * 1000);
+  if (Number.isNaN(d.getTime())) return null;
+  const dd = String(d.getUTCDate()).padStart(2, "0");
+  const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+  return `${dd}/${mm}/${d.getUTCFullYear()}`;
+}
+
+function renderValue(key: string, v: unknown): string {
   if (v == null) return "";
+  // Field ngày: timestamp (number hoặc chuỗi toàn số 9-10 chữ số) → dd/mm/yyyy.
+  if (DATE_KEY.test(key)) {
+    const num = typeof v === "number" ? v : typeof v === "string" && /^\d{9,10}$/.test(v.trim()) ? Number(v) : NaN;
+    const formatted = formatLegacyUnixDate(num);
+    if (formatted) return formatted;
+  }
   if (Array.isArray(v)) {
     // vd lich_su (mảng object) — nén gọn thành chuỗi đọc được
     return v
@@ -42,7 +65,7 @@ export function LegacyRawPanel({ raw }: { raw?: Record<string, unknown> | null }
   if (!raw || typeof raw !== "object") return null;
 
   const entries = Object.entries(raw)
-    .filter(([k, v]) => !isSystemKey(k) && renderValue(v).trim() !== "")
+    .filter(([k, v]) => !isSystemKey(k) && renderValue(k, v).trim() !== "")
     .sort((a, b) => label(a[0]).localeCompare(label(b[0]), "vi"));
 
   if (!entries.length) return null;
@@ -64,7 +87,7 @@ export function LegacyRawPanel({ raw }: { raw?: Record<string, unknown> | null }
           {entries.map(([k, v]) => (
             <div key={k} className="flex flex-col border-b border-amber-100 pb-1">
               <dt className="text-slate-500 text-xs">{label(k)}</dt>
-              <dd className="text-slate-800 whitespace-pre-wrap break-words">{renderValue(v)}</dd>
+              <dd className="text-slate-800 whitespace-pre-wrap break-words">{renderValue(k, v)}</dd>
             </div>
           ))}
         </dl>
