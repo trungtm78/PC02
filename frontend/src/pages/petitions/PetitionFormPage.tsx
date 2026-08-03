@@ -3,6 +3,7 @@
  * TASK-ID: TASK-2026-260202
  */
 
+import { LegacyRawPanel } from "@/components/LegacyRawPanel";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "@/lib/api";
@@ -154,6 +155,7 @@ export function PetitionFormPage() {
   const savingRef = useRef(false);
 
   const [formData, setFormData] = useState<FormData>(INITIAL_FORM);
+  const [legacyRaw, setLegacyRaw] = useState<Record<string, unknown> | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
   // Options Tổ/Nhóm cho "Đơn vị xử lý" khi thuộc thẩm quyền (YC6).
   const { data: teamOptions = [] } = useTeamOptions();
@@ -273,6 +275,7 @@ export function PetitionFormPage() {
       .get<{ success: boolean; data: Record<string, unknown> }>(`/petitions/${id}`)
       .then((res) => {
         const d = res.data.data;
+        setLegacyRaw((d.legacyRaw as Record<string, unknown>) ?? null);
         setFormData({
           stt: (d.stt as string) ?? "",
           receivedDate: d.receivedDate
@@ -1169,6 +1172,9 @@ export function PetitionFormPage() {
         {isEditMode && id && (
           <PetitionAssignmentSection petitionId={id} userOptions={userOptions} />
         )}
+
+        {/* Dữ liệu gốc hệ cũ — đầy đủ, tham khảo (pháp lý: không sót field) */}
+        {isEditMode && <LegacyRawPanel raw={legacyRaw} />}
 
         <div className="flex items-center justify-end gap-3 bg-white rounded-lg border border-slate-200 shadow-sm p-4 sm:p-6 flex-wrap">
           <button type="button" onClick={handleCancel} className="px-4 sm:px-6 py-2.5 min-h-[44px] border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors" data-testid="btn-cancel">
