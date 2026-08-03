@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { extractApiError } from "@/lib/api-errors";
 import { ArrowLeft, AlertCircle, Calendar, FileText, Loader2, ChevronDown, ChevronRight, Target } from "lucide-react";
+import { LegacyRawPanel } from "@/components/LegacyRawPanel";
 import { SaveSplitButton } from "@/features/petitions/components/SaveSplitButton";
 import { DynamicExportDocumentsModal } from "@/features/document-templates/components/DynamicExportDocumentsModal";
 import { DocNumberPreviewField } from "@/components/DocNumberPreviewField";
@@ -158,6 +159,7 @@ export function IncidentFormPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const isEditMode = !!id;
+  const [legacyRaw, setLegacyRaw] = useState<Record<string, unknown> | null>(null);
   const [formData, setFormData] = useState<FormData>(INITIAL_FORM);
   const [errors, setErrors] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -240,6 +242,7 @@ export function IncidentFormPage() {
       .then((res) => {
         const d = res.data.data;
         if (d) {
+          setLegacyRaw((d.legacyRaw as Record<string, unknown>) ?? null);
           setFormData({
             name: (d.name as string) ?? "",
             incidentType: (d.incidentType as string) ?? "",
@@ -519,6 +522,15 @@ export function IncidentFormPage() {
       )}
 
       <form onSubmit={(e) => void handleSubmit(e)} onKeyDown={handleFormKeyDown} className="space-y-6">
+        {/* Truy nguyên hệ cũ — STT + STT cũ (vụ việc di trú) */}
+        {isEditMode && legacyRaw && Boolean(legacyRaw.stt || legacyRaw.stt_cu) && (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-2 text-sm text-amber-800">
+            <span className="font-semibold">Mã hồ sơ gốc (hệ cũ):</span>{" "}
+            {legacyRaw.stt ? `STT ${String(legacyRaw.stt)}` : ""}
+            {legacyRaw.stt_cu ? ` · STT cũ ${String(legacyRaw.stt_cu)}` : ""}
+            <span className="text-amber-600"> — để tra lại dữ liệu hệ thống cũ</span>
+          </div>
+        )}
         {/* Submit ẩn: giữ hành vi Enter-to-submit của <form> sau khi nút Lưu chuyển sang
             SaveSplitButton (type=button). Không hiển thị, không phá layout. */}
         <button type="submit" className="hidden" aria-hidden="true" tabIndex={-1} disabled={isSubmitting} />
@@ -983,6 +995,9 @@ export function IncidentFormPage() {
         </div>
 
         {/* Actions */}
+        {/* Dữ liệu gốc hệ cũ — đầy đủ, tham khảo (pháp lý: không sót field) */}
+        {isEditMode && <LegacyRawPanel raw={legacyRaw} />}
+
         <div className="flex items-center justify-end gap-3 bg-white rounded-lg border border-slate-200 shadow-sm p-6">
           <button type="button" onClick={handleCancel} className="px-6 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50" data-testid="btn-cancel">Hủy</button>
           {isEditMode && id && (
