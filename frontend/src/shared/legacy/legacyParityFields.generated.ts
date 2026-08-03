@@ -1,24 +1,9 @@
 // AUTO-GENERATED từ backend field-parity.def.ts — KHÔNG sửa tay.
-// Regen: backend ts-node gen (xem commit field-parity).
+// CHỈ gồm CỘT MỚI (exists!=true); cột đã có ô form chính bị loại để tránh double-edit.
 export type ParityKind = "text"|"date"|"number"|"checkbox";
 export interface ParityFieldDef { col: string; kind: ParityKind; label: string; }
 export const LEGACY_PARITY_FIELDS: Record<"petition"|"incident"|"case", ParityFieldDef[]> = {
   "petition": [
-    {
-      "col": "dieuTraVien",
-      "kind": "text",
-      "label": "Điều tra viên thụ lý"
-    },
-    {
-      "col": "ngayDeXuat",
-      "kind": "date",
-      "label": "ngay_de_xuat"
-    },
-    {
-      "col": "deXuat",
-      "kind": "text",
-      "label": "de_xuat"
-    },
     {
       "col": "phanLoaiToiPhamLinhVuc",
       "kind": "text",
@@ -155,11 +140,6 @@ export const LEGACY_PARITY_FIELDS: Record<"petition"|"incident"|"case", ParityFi
       "col": "ghiChuKhac",
       "kind": "text",
       "label": "Ghi chú khác"
-    },
-    {
-      "col": "laCongNgheCaoVV",
-      "kind": "checkbox",
-      "label": "Bấm chọn nễu xác định đây là tội phạm công nghệ cao"
     }
   ],
   "case": [
@@ -302,16 +282,6 @@ export const LEGACY_PARITY_FIELDS: Record<"petition"|"incident"|"case", ParityFi
       "col": "yeuCauBoSung",
       "kind": "text",
       "label": "yeu_cau_bo_sung"
-    },
-    {
-      "col": "laCongNgheCao",
-      "kind": "checkbox",
-      "label": "Bấm chọn nễu xác định đây là tội phạm công nghệ cao"
-    },
-    {
-      "col": "thoiHanUyThac",
-      "kind": "date",
-      "label": "Thời hạn thực hiện Uỷ thác điều tra"
     }
   ]
 };
