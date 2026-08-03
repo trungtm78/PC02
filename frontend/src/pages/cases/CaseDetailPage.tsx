@@ -1,3 +1,4 @@
+import { LegacyRawPanel } from "@/components/LegacyRawPanel";
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { api } from "@/lib/api";
@@ -1094,6 +1095,9 @@ export default function CaseDetailPage() {
               ))}
             </div>
           </div>
+
+          {/* Dữ liệu gốc hệ cũ — đầy đủ mọi field, tham khảo (pháp lý: không sót field) */}
+          <LegacyRawPanel raw={(caseData as { legacyRaw?: Record<string, unknown> } | undefined)?.legacyRaw} />
 
           {/* Thông tin pháp lý */}
           <div className="bg-slate-50 rounded-lg p-5 space-y-3">

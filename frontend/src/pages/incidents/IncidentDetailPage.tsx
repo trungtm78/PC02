@@ -1,3 +1,4 @@
+import { LegacyRawPanel } from "@/components/LegacyRawPanel";
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "@/lib/api";
@@ -220,6 +221,8 @@ export default function IncidentDetailPage() {
             <p className="text-sm text-slate-800 whitespace-pre-wrap">{incident.description}</p>
           </div>
         )}
+        {/* Dữ liệu gốc hệ cũ — đầy đủ, tham khảo (pháp lý: không sót field) */}
+        <LegacyRawPanel raw={(incident as { legacyRaw?: Record<string, unknown> }).legacyRaw} />
       </div>
 
       {/* Kết quả xử lý */}

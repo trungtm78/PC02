@@ -1,3 +1,4 @@
+import { LegacyRawPanel } from "@/components/LegacyRawPanel";
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
@@ -168,6 +169,7 @@ function CaseFormPage() {
     }));
   }, [isEditMode, defaults.isLoaded, defaults.today, defaults.userId, defaults.primaryTeamId, defaults.primaryTeamName]);
   const [recordUpdatedAt, setRecordUpdatedAt] = useState<string | null>(null);
+  const [legacyRaw, setLegacyRaw] = useState<Record<string, unknown> | null>(null);
 
   // ─── Fetch danh sách điều tra viên từ API ──────────────────────────────
   const [handlerOptions, setHandlerOptions] = useState<{ value: string; label: string }[]>([]);
@@ -206,6 +208,7 @@ function CaseFormPage() {
         // which were previously omitted (caused PUT 400 on EditMode submit).
         setFormData((prev) => mergeCaseApiToFormData(d, prev));
         setRecordUpdatedAt((d.updatedAt as string) ?? null);
+        setLegacyRaw((d.legacyRaw as Record<string, unknown>) ?? null);
       })
       .catch((err) => {
         console.error("[CaseFormPage] Failed to load case:", err);
@@ -580,6 +583,8 @@ function CaseFormPage() {
               }}
             />
           )}
+          {/* Dữ liệu gốc hệ cũ — đầy đủ, tham khảo (pháp lý: không sót field) */}
+          {isEditMode && <LegacyRawPanel raw={legacyRaw} />}
         </div>
       </div>
 
