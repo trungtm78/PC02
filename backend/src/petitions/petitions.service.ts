@@ -547,6 +547,13 @@ export class PetitionsService {
     // v0.30: PETITION_UPDATED via wrapUpdate — full before/after for inline diff.
     const petitionData = {
       ...(dto.stt !== undefined && { stt: dto.stt }),
+      // MERGE metadata (dynamic legacy fields): giữ field cũ + ghi đè field sửa (an toàn data).
+      ...(dto.metadata !== undefined && {
+        metadata: {
+          ...((existing.metadata as Record<string, unknown> | null) ?? {}),
+          ...(dto.metadata as Record<string, unknown>),
+        } as Prisma.InputJsonValue,
+      }),
       ...(dto.receivedDate !== undefined && {
         receivedDate: new Date(dto.receivedDate),
       }),

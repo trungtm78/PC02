@@ -3,6 +3,7 @@
  * TASK-ID: TASK-2026-260202
  */
 
+import { DynamicLegacyFields } from "@/components/DynamicLegacyFields";
 import { LegacyRawPanel } from "@/components/LegacyRawPanel";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -156,6 +157,7 @@ export function PetitionFormPage() {
 
   const [formData, setFormData] = useState<FormData>(INITIAL_FORM);
   const [legacyRaw, setLegacyRaw] = useState<Record<string, unknown> | null>(null);
+  const [metaState, setMetaState] = useState<Record<string, unknown>>({});
   const [errors, setErrors] = useState<string[]>([]);
   // Options Tổ/Nhóm cho "Đơn vị xử lý" khi thuộc thẩm quyền (YC6).
   const { data: teamOptions = [] } = useTeamOptions();
@@ -276,6 +278,7 @@ export function PetitionFormPage() {
       .then((res) => {
         const d = res.data.data;
         setLegacyRaw((d.legacyRaw as Record<string, unknown>) ?? null);
+        setMetaState((d.metadata as Record<string, unknown>) ?? {});
         setFormData({
           stt: (d.stt as string) ?? "",
           receivedDate: d.receivedDate
@@ -375,6 +378,8 @@ export function PetitionFormPage() {
         // backend vào nhánh dto.stt (bỏ qua commitWithTx, counter không tăng) → số kế tiếp TRÙNG →
         // 409 cho create sau. Bỏ → backend tự cấp atomic (commitWithTx re-sync dbMax, không trùng).
         ...(effectiveEdit ? { stt: formData.stt } : {}),
+        // Trường hệ cũ động (editable) → backend MERGE vào metadata (giữ field cũ + sửa)
+        ...(effectiveEdit ? { metadata: metaState } : {}),
         receivedDate: formData.receivedDate,
         unit: formData.unit || undefined,
         assignedTeamId: formData.assignedTeamId || undefined,
@@ -1183,6 +1188,12 @@ export function PetitionFormPage() {
         )}
 
         {/* Dữ liệu gốc hệ cũ — đầy đủ, tham khảo (pháp lý: không sót field) */}
+        {isEditMode && (
+          <DynamicLegacyFields
+            values={metaState}
+            onChange={(k, v) => setMetaState((prev) => ({ ...prev, [k]: v }))}
+          />
+        )}
         {isEditMode && <LegacyRawPanel raw={legacyRaw} />}
 
         <div className="flex items-center justify-end gap-3 bg-white rounded-lg border border-slate-200 shadow-sm p-4 sm:p-6 flex-wrap">

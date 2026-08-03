@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { extractApiError } from "@/lib/api-errors";
 import { ArrowLeft, AlertCircle, Calendar, FileText, Loader2, ChevronDown, ChevronRight, Target } from "lucide-react";
+import { DynamicLegacyFields } from "@/components/DynamicLegacyFields";
 import { LegacyRawPanel } from "@/components/LegacyRawPanel";
 import { SaveSplitButton } from "@/features/petitions/components/SaveSplitButton";
 import { DynamicExportDocumentsModal } from "@/features/document-templates/components/DynamicExportDocumentsModal";
@@ -160,6 +161,7 @@ export function IncidentFormPage() {
   const { id } = useParams<{ id: string }>();
   const isEditMode = !!id;
   const [legacyRaw, setLegacyRaw] = useState<Record<string, unknown> | null>(null);
+  const [metaState, setMetaState] = useState<Record<string, unknown>>({});
   const [formData, setFormData] = useState<FormData>(INITIAL_FORM);
   const [errors, setErrors] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -243,6 +245,8 @@ export function IncidentFormPage() {
         const d = res.data.data;
         if (d) {
           setLegacyRaw((d.legacyRaw as Record<string, unknown>) ?? null);
+          setMetaState((d.metadata as Record<string, unknown>) ?? {});
+          setMetaState((d.metadata as Record<string, unknown>) ?? {});
           setFormData({
             name: (d.name as string) ?? "",
             incidentType: (d.incidentType as string) ?? "",
@@ -339,6 +343,8 @@ export function IncidentFormPage() {
       // are omitted rather than sent as "".
       const s = (v: string) => v || undefined;
       const payload = {
+        // Trường hệ cũ động (editable) → backend MERGE vào metadata
+        ...(isEditMode ? { metadata: metaState } : {}),
         name: formData.name,
         incidentType: s(formData.incidentType),
         description: s(formData.description),
@@ -995,7 +1001,13 @@ export function IncidentFormPage() {
         </div>
 
         {/* Actions */}
-        {/* Dữ liệu gốc hệ cũ — đầy đủ, tham khảo (pháp lý: không sót field) */}
+        {/* Trường hệ cũ chỉnh sửa được (mọi field cũ) + panel tham khảo đầy đủ */}
+        {isEditMode && (
+          <DynamicLegacyFields
+            values={metaState}
+            onChange={(k, v) => setMetaState((prev) => ({ ...prev, [k]: v }))}
+          />
+        )}
         {isEditMode && <LegacyRawPanel raw={legacyRaw} />}
 
         <div className="flex items-center justify-end gap-3 bg-white rounded-lg border border-slate-200 shadow-sm p-6">
