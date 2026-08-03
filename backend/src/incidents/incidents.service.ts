@@ -572,6 +572,14 @@ export class IncidentsService {
       updateData.lyDoTamDinhChiText = lyDoTDC;
     }
 
+    // MERGE metadata (dynamic legacy fields): giữ field cũ + ghi đè field sửa (an toàn data).
+    if (dto.metadata !== undefined) {
+      updateData.metadata = {
+        ...((existing.metadata as Record<string, unknown> | null) ?? {}),
+        ...(dto.metadata as Record<string, unknown>),
+      };
+    }
+
 
     // v0.30: INCIDENT_UPDATED via wrapUpdate — full before/after snapshot for inline diff.
     let record;

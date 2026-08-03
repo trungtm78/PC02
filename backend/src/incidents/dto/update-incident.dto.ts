@@ -5,6 +5,7 @@ import {
   IsEnum,
   IsBoolean,
   IsArray,
+  IsObject,
   MaxLength,
   MinLength,
 } from 'class-validator';
@@ -238,4 +239,9 @@ export class UpdateIncidentDto {
   @IsOptional()
   @IsBoolean()
   xacDinhVuViecTamDung?: boolean;
+
+  // Field hệ cũ dạng cấu trúc (dynamic legacy fields) — MERGE ở service, không REPLACE.
+  @IsOptional()
+  @IsObject()
+  metadata?: Record<string, unknown>;
 }

@@ -130,6 +130,7 @@ export function buildCreateCasePayload(
     subjects?: Subject[];
     evidences?: Evidence[];
     documentIds?: string[];
+    legacyMetadata?: Record<string, unknown>;
   },
 ): CreateCasePayload {
   const payload: CreateCasePayload = {
@@ -401,6 +402,11 @@ export function buildCreateCasePayload(
   const stat = buildStatisticPayload(formData.statistic as unknown as Record<string, unknown>);
   if (Object.keys(stat).length > 0) payload.statistic = stat;
 
+  // Gộp trường hệ cũ động (editable): field form/utdt THẮNG (ghi sau); giữ phần còn lại của legacy.
+  // Backend còn MERGE lần nữa với metadata trong DB → không mất field nào.
+  if (options?.legacyMetadata) {
+    payload.metadata = { ...options.legacyMetadata, ...payload.metadata };
+  }
   return payload;
 }
 

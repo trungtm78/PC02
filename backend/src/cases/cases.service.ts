@@ -1246,7 +1246,14 @@ export class CasesService {
       }),
       ...(dto.unit !== undefined && { unit: dto.unit }),
       ...(dto.subjectsCount !== undefined && { subjectsCount: dto.subjectsCount }),
-      ...(dto.metadata !== undefined && { metadata: dto.metadata as JsonInput }),
+      // MERGE (không REPLACE): giữ mọi field metadata cũ (di trú) + ghi đè field được sửa
+      // → sửa 1 field KHÔNG bao giờ xóa field khác (an toàn data pháp lý).
+      ...(dto.metadata !== undefined && {
+        metadata: {
+          ...((existing.metadata as Record<string, unknown> | null) ?? {}),
+          ...(dto.metadata as Record<string, unknown>),
+        } as JsonInput,
+      }),
       ...(dto.capDoToiPham !== undefined && { capDoToiPham: dto.capDoToiPham }),
       ...(dto.ngayKhoiTo !== undefined && {
         ngayKhoiTo: dto.ngayKhoiTo ? new Date(dto.ngayKhoiTo) : null,

@@ -1,3 +1,4 @@
+import { DynamicLegacyFields } from "@/components/DynamicLegacyFields";
 import { LegacyRawPanel } from "@/components/LegacyRawPanel";
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -170,6 +171,7 @@ function CaseFormPage() {
   }, [isEditMode, defaults.isLoaded, defaults.today, defaults.userId, defaults.primaryTeamId, defaults.primaryTeamName]);
   const [recordUpdatedAt, setRecordUpdatedAt] = useState<string | null>(null);
   const [legacyRaw, setLegacyRaw] = useState<Record<string, unknown> | null>(null);
+  const [metaState, setMetaState] = useState<Record<string, unknown>>({});
 
   // ─── Fetch danh sách điều tra viên từ API ──────────────────────────────
   const [handlerOptions, setHandlerOptions] = useState<{ value: string; label: string }[]>([]);
@@ -209,6 +211,8 @@ function CaseFormPage() {
         setFormData((prev) => mergeCaseApiToFormData(d, prev));
         setRecordUpdatedAt((d.updatedAt as string) ?? null);
         setLegacyRaw((d.legacyRaw as Record<string, unknown>) ?? null);
+        setMetaState((d.metadata as Record<string, unknown>) ?? {});
+        setMetaState((d.metadata as Record<string, unknown>) ?? {});
       })
       .catch((err) => {
         console.error("[CaseFormPage] Failed to load case:", err);
@@ -294,6 +298,7 @@ function CaseFormPage() {
       const payload = buildCreateCasePayload(formData, {
         subjects,
         evidences,
+        legacyMetadata: metaState, // gộp trường hệ cũ động (editable) — form field thắng, giữ phần còn lại
         // HOTFIX (codex P1): documentIds disabled. MediaFile.id local-only,
         // file chưa thực sự upload. Truyền fake IDs sẽ throw 400 ở backend.
         // Future PR: implement actual upload trong handleUploadMedia.
@@ -584,6 +589,12 @@ function CaseFormPage() {
             />
           )}
           {/* Dữ liệu gốc hệ cũ — đầy đủ, tham khảo (pháp lý: không sót field) */}
+          {isEditMode && (
+            <DynamicLegacyFields
+              values={metaState}
+              onChange={(k, v) => setMetaState((prev) => ({ ...prev, [k]: v }))}
+            />
+          )}
           {isEditMode && <LegacyRawPanel raw={legacyRaw} />}
         </div>
       </div>
