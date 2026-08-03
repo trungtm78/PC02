@@ -1,5 +1,6 @@
 // Lõi di trú: map 1 record hệ thống cũ (132 field flat, tên cột cũ) → các entity mới CÓ LIÊN KẾT.
 // Thuần (testable). Tội danh trả về crimeChinhLegacyValue (số) — commit resolve sang crimeChinhId qua master Crime.
+import { PARITY, type Entity as ParityEntity } from './field-parity.def';
 
 export type LegacyRecord = Record<string, unknown>;
 
@@ -268,10 +269,32 @@ const ownership = (rec: LegacyRecord) => ({
   assignedTeamId: s(rec.__assignedTeamId),
 });
 
+/**
+ * Cột field-parity: đổ MỌI field cũ có data vào cột typed đúng nghĩa của thực thể (spec
+ * `field-parity.spec.ts`, sinh từ ma trận data thật). Spread ĐẦU builder → assignment
+ * tường minh phía sau (nếu có) vẫn thắng. Field thủ tục leak chéo-giai-đoạn count nhỏ
+ * KHÔNG ở đây (giữ metadata/legacyRaw). legacyRaw luôn giữ bản gốc = không mất data.
+ */
+function parityColumns(rec: LegacyRecord, entity: ParityEntity): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const { field, col, type, textBool } of PARITY[entity]) {
+    let v: unknown;
+    switch (type) {
+      case 'String': v = s(rec[field]); break;
+      case 'DateTime': v = parseLegacyDate(rec[field]); break;
+      case 'Int': { const n = parseLegacyNumber(rec[field]); v = n === undefined ? undefined : Math.round(n); break; }
+      case 'Boolean': v = textBool ? boolFromText(rec[field]) : parseLegacyBool(rec[field]); break;
+    }
+    if (v !== undefined) out[col] = v;
+  }
+  return out;
+}
+
 // Field tiếp nhận chung (người gửi / nội dung) — dùng cho Petition.
 function buildPetition(rec: LegacyRecord): Record<string, unknown> {
   const own = ownership(rec);
   return clean({
+    ...parityColumns(rec, 'petition'),
     legacySourceId: legacyKey(rec),
     ...traceFields(rec),
     enteredById: own.enteredById,
@@ -341,6 +364,7 @@ export function caseTitle(rec: LegacyRecord): string {
 function buildIncident(rec: LegacyRecord): Record<string, unknown> {
   const own = ownership(rec);
   return clean({
+    ...parityColumns(rec, 'incident'),
     // Các cột dưới đây nhánh Đơn thư đã đọc từ lâu, nhánh Vụ việc thì không —
     // nên hồ sơ vào hệ thống mà mọi ô nghiệp vụ đều trống. Xem bảng rà soát 80 cột.
     // `nguonPhatTin` là ENUM (NguonPhatTin) chứ không phải chữ tự do — đổ tên đơn vị
@@ -385,6 +409,7 @@ function buildIncident(rec: LegacyRecord): Record<string, unknown> {
 function buildCase(rec: LegacyRecord): Record<string, unknown> {
   const own = ownership(rec);
   return clean({
+    ...parityColumns(rec, 'case'),
     legacySourceId: legacyKey(rec),
     ...traceFields(rec),
     createdById: own.createdById,

@@ -635,6 +635,37 @@ model Case {
   // Field-parity hệ thống cũ (PR-M2): ghi chú tự do + tội danh khác cấp vụ án (multi).
   ghiChuKhac     String?  @map("ghi_chu_khac") // old: ghi_chu_khac
   toiDanhKhacIds String[] @default([]) @map("toi_danh_khac_ids") // old: toi_danh_khac[] — FK crimes id (multi)
+
+  // Field-parity đầy đủ (feat/legacy-field-parity): promote field intake hệ cũ (trước ở metadata) → cột typed.
+  ngayDeXuat             DateTime? // old: ngay_de_xuat
+  moTaChiTiet            String? // old: tom_tat_noi_dung (toàn văn; name = tiêu đề rút gọn)
+  nguonDon               String? // old: nguon_don
+  tenCungCap             String? // old: ten_ca_nhan_co_quan_to_chuc_cung_cap
+  sinhNamCungCap         String? // old: sinh_nam_nguoi_to_giac
+  cccdCungCap            String? // old: so_cccd_nguyen_don
+  ngayCapCccd            DateTime? // old: ngay_cap_cccd_nguyen_don
+  noiCapCccd             String? // old: noi_cap_cccd_nguyen_don
+  sdtCungCap             String? // old: so_dien_thoai_nguyen_don
+  diaChiCungCap          String? // old: dia-chi-bi-hai
+  nghiVanDoiTuong        String? // old: nghi_van_doi_tuong
+  nhanXet                String? // old: nhan_xet
+  noiXayRa               String? // old: noi_xay_ra
+  phuongThucThuDoan      String? // old: phuong_thuc_thu_doan
+  ketQuaXuLyKhac         String? // old: ket_qua_xu_ly_giai_quyet_khac
+  soPhieuChuyen          String? // old: so_phieu_chuyen
+  ngayPhieuChuyen        DateTime? // old: ngay_phieu_chuyen
+  doVatTaiLieuKemTheo    String? // old: do_vat_tai_lieu_kem_theo
+  ngayVietDon            DateTime? // old: ngay_viet_don
+  ghiChuTrungDon         String? // old: ghi_chu_trung_don
+  baoCaoBanGiamDoc       Boolean? // old: truong_hop_bao_cao_ban_giam_doc
+  ngayGiaoDonViGiaiQuyet DateTime? // old: ngay_giao_don_vi_giai_quyet
+  lanhDaoToTung          String? // old: lanh_dao_to_tung
+  dieuTraVien            String? // old: dieu_tra_vien
+  phanLoaiToiPhamLinhVuc String? // old: phan_loai_toi_pham_theo_linh_vuc
+  phanLoaiHoSoNoiBo      String? // old: phan_loai_ho_so_doi_1
+  deXuat                 String? // old: de_xuat
+  yeuCauBoSung           String? // old: yeu_cau_bo_sung
+
   legacyRaw      Json?    @map("legacy_raw") // Toàn bộ field raw hệ cũ — không bao giờ mất data (Codex P1)
 
   // PR1 ListPageShell — composite cho /cases/stats hot path (groupBy status,
@@ -960,6 +991,14 @@ model Petition {
   thuocThamQuyen         Boolean   @default(true) // Đơn thuộc thẩm quyền → xử lý nội bộ theo Tổ/Nhóm (assignedTeamId); false → chuyển đơn vị xử lý ngoài
   donViXuLy              String? // Tên đơn vị xử lý (danh mục DON_VI) khi KHÔNG thuộc thẩm quyền
 
+  // Field-parity đầy đủ (feat/legacy-field-parity): field hệ cũ chưa có cột typed trên Đơn thư.
+  phanLoaiToiPhamLinhVuc String? // old: phan_loai_toi_pham_theo_linh_vuc
+  phanLoaiHoSoNoiBo      String? // old: phan_loai_ho_so_doi_1
+  ghiChuKhac             String? // old: ghi_chu_khac
+  yeuCauBoSung           String? // old: yeu_cau_bo_sung
+  soTienBiThietHai       Int? // old: so_tien_bi_thiet_hai (thiệt hại khai báo trong đơn)
+  soLuongBiHai           Int? // old: so_luong_bi_hai
+
   crimeChinh Crime? @relation("PetitionCrimeChinh", fields: [crimeChinhId], references: [id], onDelete: SetNull)
 
   // v0.47 — DocumentRenderLog reverse relation (audit trail per render).
@@ -1099,6 +1138,29 @@ model Incident {
   diaChiNguoiToGiac       String? // Địa chỉ người tố giác
   cmndNguoiToGiac         String? // CCCD/CMND người tố giác
   sinhNamNguoiToGiac      String? // Sinh năm người tố giác/cung cấp (hệ cũ) — trước KHÔNG map
+
+  // Field-parity đầy đủ (feat/legacy-field-parity): field intake hệ cũ Vụ việc trước CHỈ ở legacyRaw.
+  nhanXet                String? // old: nhan_xet
+  ngayTiepNhanNguonTin   DateTime? // old: ngay_tiep_nhan_nguon_tin
+  loaiThongTin           String? // old: loai_thong_tin
+  ngayVietDon            DateTime? // old: ngay_viet_don
+  ghiChuTrungDon         String? // old: ghi_chu_trung_don
+  baoCaoBanGiamDoc       Boolean? // old: truong_hop_bao_cao_ban_giam_doc
+  ngayGiaoDonViGiaiQuyet DateTime? // old: ngay_giao_don_vi_giai_quyet
+  toiDanhBanDau          String? // old: toi-danh-ban-dau
+  soPhieuChuyen          String? // old: so_phieu_chuyen
+  ngayPhieuChuyen        DateTime? // old: ngay_phieu_chuyen
+  doVatTaiLieuKemTheo    String? // old: do_vat_tai_lieu_kem_theo
+  phanLoaiToiPhamLinhVuc String? // old: phan_loai_toi_pham_theo_linh_vuc
+  phanLoaiHoSoNoiBo      String? // old: phan_loai_ho_so_doi_1
+  lanhDaoToTung          String? // old: lanh_dao_to_tung
+  dieuTraVien            String? // old: dieu_tra_vien
+  dieuTraVienPhuongXa    String? // old: dieu_tra_vien_phuong_xa
+  noiCapCccd             String? // old: noi_cap_cccd_nguyen_don
+  ngayCapCccd            DateTime? // old: ngay_cap_cccd_nguyen_don
+  deXuat                 String? // old: de_xuat
+  yeuCauBoSung           String? // old: yeu_cau_bo_sung
+  ghiChuKhac             String? // old: ghi_chu_khac
 
   // Self-reference: nhập vào vụ khác
   mergedIntoId String?
