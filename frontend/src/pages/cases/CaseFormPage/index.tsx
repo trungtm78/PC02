@@ -1,4 +1,6 @@
 import { DynamicLegacyFields } from "@/components/DynamicLegacyFields";
+import { LegacyParityFields } from "@/components/LegacyParityFields";
+import { LEGACY_PARITY_FIELDS } from "@/shared/legacy/legacyParityFields.generated";
 import { LegacyRawPanel } from "@/components/LegacyRawPanel";
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -172,6 +174,7 @@ function CaseFormPage() {
   const [recordUpdatedAt, setRecordUpdatedAt] = useState<string | null>(null);
   const [legacyRaw, setLegacyRaw] = useState<Record<string, unknown> | null>(null);
   const [metaState, setMetaState] = useState<Record<string, unknown>>({});
+  const [parityState, setParityState] = useState<Record<string, unknown>>({});
 
   // ─── Fetch danh sách điều tra viên từ API ──────────────────────────────
   const [handlerOptions, setHandlerOptions] = useState<{ value: string; label: string }[]>([]);
@@ -212,7 +215,9 @@ function CaseFormPage() {
         setRecordUpdatedAt((d.updatedAt as string) ?? null);
         setLegacyRaw((d.legacyRaw as Record<string, unknown>) ?? null);
         setMetaState((d.metadata as Record<string, unknown>) ?? {});
-        setMetaState((d.metadata as Record<string, unknown>) ?? {});
+        const ps: Record<string, unknown> = {};
+        for (const f of LEGACY_PARITY_FIELDS.case) if ((d as Record<string, unknown>)[f.col] != null) ps[f.col] = (d as Record<string, unknown>)[f.col];
+        setParityState(ps);
       })
       .catch((err) => {
         console.error("[CaseFormPage] Failed to load case:", err);
@@ -295,15 +300,19 @@ function CaseFormPage() {
       // v0.37.2.3: payload helper extracted + tested.
       // PR 1 v0.38.0.0: wire sub-entity arrays (subjects/evidences/mediaFiles → documentIds)
       // để fix bug data-loss — atomic create với Case trong cùng transaction.
-      const payload = buildCreateCasePayload(formData, {
-        subjects,
-        evidences,
-        legacyMetadata: metaState, // gộp trường hệ cũ động (editable) — form field thắng, giữ phần còn lại
-        // HOTFIX (codex P1): documentIds disabled. MediaFile.id local-only,
-        // file chưa thực sự upload. Truyền fake IDs sẽ throw 400 ở backend.
-        // Future PR: implement actual upload trong handleUploadMedia.
-        // documentIds: mediaFiles.map((m) => m.id),
-      });
+      const payload = {
+        ...buildCreateCasePayload(formData, {
+          subjects,
+          evidences,
+          legacyMetadata: metaState, // gộp trường hệ cũ động (editable) — form field thắng, giữ phần còn lại
+          // HOTFIX (codex P1): documentIds disabled. MediaFile.id local-only,
+          // file chưa thực sự upload. Truyền fake IDs sẽ throw 400 ở backend.
+          // Future PR: implement actual upload trong handleUploadMedia.
+          // documentIds: mediaFiles.map((m) => m.id),
+        }),
+        // Cột typed field-parity (di trú) → ghi thẳng cột (top-level)
+        ...parityState,
+      };
       let savedId: string | null;
       let savedUpdatedAt: string | undefined;
       if (isEditMode) {
@@ -586,6 +595,14 @@ function CaseFormPage() {
                   setMediaFiles(mediaFiles.filter((f) => f.id !== id));
                 }
               }}
+            />
+          )}
+          {/* Cột typed field-parity (di trú) — ô nhập chính thức, ghi thẳng cột */}
+          {isEditMode && (
+            <LegacyParityFields
+              entity="case"
+              values={parityState}
+              onChange={(col, v) => setParityState((prev) => ({ ...prev, [col]: v }))}
             />
           )}
           {/* Dữ liệu gốc hệ cũ — đầy đủ, tham khảo (pháp lý: không sót field) */}

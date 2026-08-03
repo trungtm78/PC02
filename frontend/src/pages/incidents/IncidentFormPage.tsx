@@ -4,6 +4,8 @@ import { api } from "@/lib/api";
 import { extractApiError } from "@/lib/api-errors";
 import { ArrowLeft, AlertCircle, Calendar, FileText, Loader2, ChevronDown, ChevronRight, Target } from "lucide-react";
 import { DynamicLegacyFields } from "@/components/DynamicLegacyFields";
+import { LegacyParityFields } from "@/components/LegacyParityFields";
+import { LEGACY_PARITY_FIELDS } from "@/shared/legacy/legacyParityFields.generated";
 import { LegacyRawPanel } from "@/components/LegacyRawPanel";
 import { SaveSplitButton } from "@/features/petitions/components/SaveSplitButton";
 import { DynamicExportDocumentsModal } from "@/features/document-templates/components/DynamicExportDocumentsModal";
@@ -162,6 +164,8 @@ export function IncidentFormPage() {
   const isEditMode = !!id;
   const [legacyRaw, setLegacyRaw] = useState<Record<string, unknown> | null>(null);
   const [metaState, setMetaState] = useState<Record<string, unknown>>({});
+  // Cột typed field-parity (di trú hệ cũ) — đọc/ghi cột thật, khác metaState (metadata JSON).
+  const [parityState, setParityState] = useState<Record<string, unknown>>({});
   const [formData, setFormData] = useState<FormData>(INITIAL_FORM);
   const [errors, setErrors] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -246,7 +250,9 @@ export function IncidentFormPage() {
         if (d) {
           setLegacyRaw((d.legacyRaw as Record<string, unknown>) ?? null);
           setMetaState((d.metadata as Record<string, unknown>) ?? {});
-          setMetaState((d.metadata as Record<string, unknown>) ?? {});
+          const ps: Record<string, unknown> = {};
+          for (const f of LEGACY_PARITY_FIELDS.incident) if (d[f.col] != null) ps[f.col] = d[f.col];
+          setParityState(ps);
           setFormData({
             name: (d.name as string) ?? "",
             incidentType: (d.incidentType as string) ?? "",
@@ -345,6 +351,8 @@ export function IncidentFormPage() {
       const payload = {
         // Trường hệ cũ động (editable) → backend MERGE vào metadata
         ...(isEditMode ? { metadata: metaState } : {}),
+        // Cột typed field-parity (di trú) → ghi thẳng cột (top-level)
+        ...parityState,
         name: formData.name,
         incidentType: s(formData.incidentType),
         description: s(formData.description),
@@ -1001,6 +1009,14 @@ export function IncidentFormPage() {
         </div>
 
         {/* Actions */}
+        {/* Cột typed field-parity (di trú) — ô nhập chính thức, ghi thẳng cột */}
+        {isEditMode && (
+          <LegacyParityFields
+            entity="incident"
+            values={parityState}
+            onChange={(col, v) => setParityState((prev) => ({ ...prev, [col]: v }))}
+          />
+        )}
         {/* Trường hệ cũ chỉnh sửa được (mọi field cũ) + panel tham khảo đầy đủ */}
         {isEditMode && (
           <DynamicLegacyFields

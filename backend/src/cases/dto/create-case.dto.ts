@@ -3,6 +3,7 @@ import {
   IsOptional,
   IsEnum,
   IsInt,
+  IsBoolean,
   IsDateString,
   IsObject,
   IsISO8601,
@@ -339,4 +340,34 @@ export class CreateCaseDto {
   @ArrayMaxSize(50, { message: 'documentIds[] tối đa 50 file' })
   @IsString({ each: true })
   documentIds?: string[];
+
+  // ── Field-parity ĐẦY ĐỦ (feat/legacy-field-parity): field intake hệ cũ → cột typed Vụ án ──
+  @IsOptional() @IsDateString() ngayDeXuat?: string;
+  @IsOptional() @IsString() moTaChiTiet?: string;
+  @IsOptional() @IsString() nguonDon?: string;
+  @IsOptional() @IsString() tenCungCap?: string;
+  @IsOptional() @IsString() sinhNamCungCap?: string;
+  @IsOptional() @IsString() cccdCungCap?: string;
+  @IsOptional() @IsDateString() ngayCapCccd?: string;
+  @IsOptional() @IsString() noiCapCccd?: string;
+  @IsOptional() @IsString() sdtCungCap?: string;
+  @IsOptional() @IsString() diaChiCungCap?: string;
+  @IsOptional() @IsString() nghiVanDoiTuong?: string;
+  @IsOptional() @IsString() nhanXet?: string;
+  @IsOptional() @IsString() noiXayRa?: string;
+  @IsOptional() @IsString() phuongThucThuDoan?: string;
+  @IsOptional() @IsString() ketQuaXuLyKhac?: string;
+  @IsOptional() @IsString() soPhieuChuyen?: string;
+  @IsOptional() @IsDateString() ngayPhieuChuyen?: string;
+  @IsOptional() @IsString() doVatTaiLieuKemTheo?: string;
+  @IsOptional() @IsDateString() ngayVietDon?: string;
+  @IsOptional() @IsString() ghiChuTrungDon?: string;
+  @IsOptional() @IsBoolean() baoCaoBanGiamDoc?: boolean;
+  @IsOptional() @IsDateString() ngayGiaoDonViGiaiQuyet?: string;
+  @IsOptional() @IsString() lanhDaoToTung?: string;
+  @IsOptional() @IsString() dieuTraVien?: string;
+  @IsOptional() @IsString() phanLoaiToiPhamLinhVuc?: string;
+  @IsOptional() @IsString() phanLoaiHoSoNoiBo?: string;
+  @IsOptional() @IsString() deXuat?: string;
+  @IsOptional() @IsString() yeuCauBoSung?: string;
 }

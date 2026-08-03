@@ -8,6 +8,7 @@ import {
   MaxLength,
   Matches,
   IsBoolean,
+  IsNumber,
   ValidateIf,
   IsIn,
 } from 'class-validator';
@@ -367,4 +368,12 @@ export class CreatePetitionDto {
   @IsString()
   @MaxLength(255)
   donViXuLy?: string;
+
+  // ── Field-parity ĐẦY ĐỦ (feat/legacy-field-parity): field hệ cũ chưa có cột trên Đơn thư ──
+  @IsOptional() @IsString() phanLoaiToiPhamLinhVuc?: string;
+  @IsOptional() @IsString() phanLoaiHoSoNoiBo?: string;
+  @IsOptional() @IsString() ghiChuKhac?: string;
+  @IsOptional() @IsString() yeuCauBoSung?: string;
+  @IsOptional() @IsNumber() soTienBiThietHai?: number;
+  @IsOptional() @IsNumber() soLuongBiHai?: number;
 }

@@ -1,0 +1,3563 @@
+{
+  "generatedAtIso": "2026-08-03T03:45:28.544Z",
+  "rows": [
+    {
+      "field": "id",
+      "label": "",
+      "kieu": "",
+      "total": 53173,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 45298,
+          "status": "DROP",
+          "column": null
+        },
+        {
+          "entity": "incident",
+          "count": 4592,
+          "status": "DROP",
+          "column": null
+        },
+        {
+          "entity": "case",
+          "count": 3283,
+          "status": "DROP",
+          "column": null
+        }
+      ]
+    },
+    {
+      "field": "_id",
+      "label": "",
+      "kieu": "",
+      "total": 53173,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 45298,
+          "status": "DROP",
+          "column": null
+        },
+        {
+          "entity": "incident",
+          "count": 4592,
+          "status": "DROP",
+          "column": null
+        },
+        {
+          "entity": "case",
+          "count": 3283,
+          "status": "DROP",
+          "column": null
+        }
+      ]
+    },
+    {
+      "field": "stt",
+      "label": "",
+      "kieu": "",
+      "total": 53173,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 45298,
+          "status": "DROP",
+          "column": null
+        },
+        {
+          "entity": "incident",
+          "count": 4592,
+          "status": "DROP",
+          "column": null
+        },
+        {
+          "entity": "case",
+          "count": 3283,
+          "status": "DROP",
+          "column": null
+        }
+      ]
+    },
+    {
+      "field": "_add_time",
+      "label": "",
+      "kieu": "",
+      "total": 53173,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 45298,
+          "status": "DROP",
+          "column": null
+        },
+        {
+          "entity": "incident",
+          "count": 4592,
+          "status": "DROP",
+          "column": null
+        },
+        {
+          "entity": "case",
+          "count": 3283,
+          "status": "DROP",
+          "column": null
+        }
+      ]
+    },
+    {
+      "field": "don_vi_id",
+      "label": "",
+      "kieu": "",
+      "total": 53173,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 45298,
+          "status": "DROP",
+          "column": null
+        },
+        {
+          "entity": "incident",
+          "count": 4592,
+          "status": "DROP",
+          "column": null
+        },
+        {
+          "entity": "case",
+          "count": 3283,
+          "status": "DROP",
+          "column": null
+        }
+      ]
+    },
+    {
+      "field": "nguoi_them",
+      "label": "",
+      "kieu": "",
+      "total": 53173,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 45298,
+          "status": "DROP",
+          "column": null
+        },
+        {
+          "entity": "incident",
+          "count": 4592,
+          "status": "DROP",
+          "column": null
+        },
+        {
+          "entity": "case",
+          "count": 3283,
+          "status": "DROP",
+          "column": null
+        }
+      ]
+    },
+    {
+      "field": "_update_time",
+      "label": "",
+      "kieu": "",
+      "total": 53173,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 45298,
+          "status": "DROP",
+          "column": null
+        },
+        {
+          "entity": "incident",
+          "count": 4592,
+          "status": "DROP",
+          "column": null
+        },
+        {
+          "entity": "case",
+          "count": 3283,
+          "status": "DROP",
+          "column": null
+        }
+      ]
+    },
+    {
+      "field": "ngay_de_xuat",
+      "label": "",
+      "kieu": "",
+      "total": 53173,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 45298,
+          "status": "OK",
+          "column": "receivedDate"
+        },
+        {
+          "entity": "incident",
+          "count": 4592,
+          "status": "OK",
+          "column": "ngayDeXuat"
+        },
+        {
+          "entity": "case",
+          "count": 3283,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        }
+      ]
+    },
+    {
+      "field": "nam",
+      "label": "",
+      "kieu": "",
+      "total": 53153,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 45298,
+          "status": "DROP",
+          "column": null
+        },
+        {
+          "entity": "incident",
+          "count": 4592,
+          "status": "DROP",
+          "column": null
+        },
+        {
+          "entity": "case",
+          "count": 3263,
+          "status": "DROP",
+          "column": null
+        }
+      ]
+    },
+    {
+      "field": "thang",
+      "label": "",
+      "kieu": "",
+      "total": 53153,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 45298,
+          "status": "DROP",
+          "column": null
+        },
+        {
+          "entity": "incident",
+          "count": 4592,
+          "status": "DROP",
+          "column": null
+        },
+        {
+          "entity": "case",
+          "count": 3263,
+          "status": "DROP",
+          "column": null
+        }
+      ]
+    },
+    {
+      "field": "ngay",
+      "label": "",
+      "kieu": "",
+      "total": 53150,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 45296,
+          "status": "DROP",
+          "column": null
+        },
+        {
+          "entity": "incident",
+          "count": 4592,
+          "status": "DROP",
+          "column": null
+        },
+        {
+          "entity": "case",
+          "count": 3262,
+          "status": "DROP",
+          "column": null
+        }
+      ]
+    },
+    {
+      "field": "tom_tat_noi_dung",
+      "label": "Tóm tắt nội dung",
+      "kieu": "textarea",
+      "total": 53123,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 45296,
+          "status": "OK",
+          "column": "summary"
+        },
+        {
+          "entity": "incident",
+          "count": 4591,
+          "status": "OK",
+          "column": "name"
+        },
+        {
+          "entity": "case",
+          "count": 3236,
+          "status": "METADATA_ONLY",
+          "column": "metadata.description",
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        }
+      ]
+    },
+    {
+      "field": "phan_loai_nguon_tin_ban_dau",
+      "label": "Phân loại ban đầu",
+      "kieu": "select",
+      "total": 53077,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 45255,
+          "status": "RESOLVE",
+          "column": null
+        },
+        {
+          "entity": "incident",
+          "count": 4564,
+          "status": "RESOLVE",
+          "column": null
+        },
+        {
+          "entity": "case",
+          "count": 3258,
+          "status": "RESOLVE",
+          "column": null
+        }
+      ]
+    },
+    {
+      "field": "loai",
+      "label": "",
+      "kieu": "",
+      "total": 53034,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 45187,
+          "status": "DROP",
+          "column": null
+        },
+        {
+          "entity": "incident",
+          "count": 4573,
+          "status": "DROP",
+          "column": null
+        },
+        {
+          "entity": "case",
+          "count": 3274,
+          "status": "DROP",
+          "column": null
+        }
+      ]
+    },
+    {
+      "field": "don_vi_giai_quyet",
+      "label": "Đơn vị giải quyết",
+      "kieu": "text",
+      "total": 52686,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 45280,
+          "status": "RESOLVE",
+          "column": null
+        },
+        {
+          "entity": "incident",
+          "count": 4196,
+          "status": "RESOLVE",
+          "column": null
+        },
+        {
+          "entity": "case",
+          "count": 3210,
+          "status": "RESOLVE",
+          "column": null
+        }
+      ]
+    },
+    {
+      "field": "nguon_don",
+      "label": "Nguồn đơn/Đơn vị giao",
+      "kieu": "text",
+      "total": 51681,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 45272,
+          "status": "OK",
+          "column": "nguonDon"
+        },
+        {
+          "entity": "incident",
+          "count": 3447,
+          "status": "OK",
+          "column": "chuyenTuDonVi"
+        },
+        {
+          "entity": "case",
+          "count": 2962,
+          "status": "METADATA_ONLY",
+          "column": "metadata.nguonDon",
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        }
+      ]
+    },
+    {
+      "field": "ten_ca_nhan_co_quan_to_chuc_cung_cap",
+      "label": "Tên cá nhân, cơ quan, tổ chức cung cấp, bị hại",
+      "kieu": "text",
+      "total": 50249,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 45259,
+          "status": "OK",
+          "column": "senderName"
+        },
+        {
+          "entity": "incident",
+          "count": 4262,
+          "status": "OK",
+          "column": "benVu"
+        },
+        {
+          "entity": "case",
+          "count": 728,
+          "status": "METADATA_ONLY",
+          "column": "metadata.tenCungCap",
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        }
+      ]
+    },
+    {
+      "field": "nhan_xet",
+      "label": "Nhận xét",
+      "kieu": "textarea",
+      "total": 49758,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 45093,
+          "status": "OK",
+          "column": "nhanThay"
+        },
+        {
+          "entity": "incident",
+          "count": 3397,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        },
+        {
+          "entity": "case",
+          "count": 1268,
+          "status": "METADATA_ONLY",
+          "column": "metadata.nhanXet",
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        }
+      ]
+    },
+    {
+      "field": "ngay_tiep_nhan_nguon_tin",
+      "label": "Ngày tiếp nhận (theo biên bản tiếp nhận nguồn tin)",
+      "kieu": "text",
+      "total": 48081,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 43202,
+          "status": "OK",
+          "column": "ngayTiepNhanNguonTin"
+        },
+        {
+          "entity": "incident",
+          "count": 3031,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        },
+        {
+          "entity": "case",
+          "count": 1848,
+          "status": "OK",
+          "column": "ngayTiepNhan"
+        }
+      ]
+    },
+    {
+      "field": "dia-chi-bi-hai",
+      "label": "Địa chỉ cá nhân, cơ quan, tổ chức cung cấp, bị hại",
+      "kieu": "text",
+      "total": 46832,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 44860,
+          "status": "OK",
+          "column": "senderAddress"
+        },
+        {
+          "entity": "incident",
+          "count": 704,
+          "status": "OK",
+          "column": "diaChiNguoiToGiac"
+        },
+        {
+          "entity": "case",
+          "count": 1268,
+          "status": "METADATA_ONLY",
+          "column": "metadata.biHai",
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        }
+      ]
+    },
+    {
+      "field": "loai_thong_tin",
+      "label": "Loại thông tin",
+      "kieu": "text",
+      "total": 45811,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 45220,
+          "status": "OK",
+          "column": "loaiThongTin"
+        },
+        {
+          "entity": "incident",
+          "count": 190,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        },
+        {
+          "entity": "case",
+          "count": 401,
+          "status": "OK",
+          "column": "loaiThongTin"
+        }
+      ]
+    },
+    {
+      "field": "ngay_viet_don",
+      "label": "Ngày viết đơn",
+      "kieu": "text",
+      "total": 45501,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 44863,
+          "status": "OK",
+          "column": "petitionDate"
+        },
+        {
+          "entity": "incident",
+          "count": 299,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        },
+        {
+          "entity": "case",
+          "count": 339,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        }
+      ]
+    },
+    {
+      "field": "stt_cu",
+      "label": "",
+      "kieu": "",
+      "total": 36269,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 31460,
+          "status": "DROP",
+          "column": null
+        },
+        {
+          "entity": "incident",
+          "count": 3323,
+          "status": "DROP",
+          "column": null
+        },
+        {
+          "entity": "case",
+          "count": 1486,
+          "status": "DROP",
+          "column": null
+        }
+      ]
+    },
+    {
+      "field": "ghi_chu_trung_don",
+      "label": "Ghi chú trùng đơn",
+      "kieu": "text",
+      "total": 35849,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 35417,
+          "status": "OK",
+          "column": "raSoatTrung"
+        },
+        {
+          "entity": "incident",
+          "count": 90,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        },
+        {
+          "entity": "case",
+          "count": 342,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        }
+      ]
+    },
+    {
+      "field": "truong_hop_bao_cao_ban_giam_doc",
+      "label": "Trường hợp báo cáo Ban Giám đốc",
+      "kieu": "text",
+      "total": 34518,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 34086,
+          "status": "OK",
+          "column": "baoCaoBanGiamDoc"
+        },
+        {
+          "entity": "incident",
+          "count": 89,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        },
+        {
+          "entity": "case",
+          "count": 343,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        }
+      ]
+    },
+    {
+      "field": "so_tien_bi_thiet_hai",
+      "label": "Số tiền bị thiệt hại (triệu Việt nam Đồng)",
+      "kieu": "number",
+      "total": 31566,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 31461,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "Int"
+          }
+        },
+        {
+          "entity": "case",
+          "count": 105,
+          "status": "METADATA_ONLY",
+          "column": "metadata.damageAmount",
+          "newColumn": {
+            "name": "?",
+            "type": "Int"
+          }
+        }
+      ]
+    },
+    {
+      "field": "so_luong_bi_hai",
+      "label": "Số lượng người bị hại",
+      "kieu": "number",
+      "total": 31565,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 31460,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "Int"
+          }
+        },
+        {
+          "entity": "case",
+          "count": 105,
+          "status": "METADATA_ONLY",
+          "column": "metadata.soLuongBiHai",
+          "newColumn": {
+            "name": "?",
+            "type": "Int"
+          }
+        }
+      ]
+    },
+    {
+      "field": "phuong_thuc_thu_doan",
+      "label": "Phương thức thủ đoạn",
+      "kieu": "text",
+      "total": 31565,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 31460,
+          "status": "OK",
+          "column": "phuongThucThuDoan"
+        },
+        {
+          "entity": "case",
+          "count": 105,
+          "status": "METADATA_ONLY",
+          "column": "metadata.phuongThucThuDoan",
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        }
+      ]
+    },
+    {
+      "field": "ngay_giao_don_vi_giai_quyet",
+      "label": "Ngày giao đơn vị giải quyết",
+      "kieu": "text",
+      "total": 26208,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 25350,
+          "status": "OK",
+          "column": "ngayGiaoDonViGiaiQuyet"
+        },
+        {
+          "entity": "incident",
+          "count": 666,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        },
+        {
+          "entity": "case",
+          "count": 192,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        }
+      ]
+    },
+    {
+      "field": "toi-danh-ban-dau",
+      "label": "Tội danh cũ trước đây",
+      "kieu": "text",
+      "total": 21218,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 15183,
+          "status": "OK",
+          "column": "toiDanhBanDau"
+        },
+        {
+          "entity": "incident",
+          "count": 3446,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        },
+        {
+          "entity": "case",
+          "count": 2589,
+          "status": "OK",
+          "column": "crime"
+        }
+      ]
+    },
+    {
+      "field": "tinh_trang",
+      "label": "",
+      "kieu": "",
+      "total": 16900,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 13838,
+          "status": "RESOLVE",
+          "column": null
+        },
+        {
+          "entity": "incident",
+          "count": 1265,
+          "status": "RESOLVE",
+          "column": null
+        },
+        {
+          "entity": "case",
+          "count": 1797,
+          "status": "RESOLVE",
+          "column": null
+        }
+      ]
+    },
+    {
+      "field": "toi_danh_chinh_blhs2015",
+      "label": "Tội danh chính - BLHS 2015 (nhận định ban đầu)",
+      "kieu": "chon_toi_danh",
+      "total": 16032,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 13305,
+          "status": "RESOLVE",
+          "column": null
+        },
+        {
+          "entity": "incident",
+          "count": 1110,
+          "status": "RESOLVE",
+          "column": null
+        },
+        {
+          "entity": "case",
+          "count": 1617,
+          "status": "RESOLVE",
+          "column": null
+        }
+      ]
+    },
+    {
+      "field": "ket_qua_xu_ly_giai_quyet_khac",
+      "label": "Kết quả xử lý, giải quyết khác",
+      "kieu": "textarea",
+      "total": 13770,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 11012,
+          "status": "OK",
+          "column": "ketQuaXuLyKhac"
+        },
+        {
+          "entity": "incident",
+          "count": 2541,
+          "status": "OK",
+          "column": "ketQuaXuLy"
+        },
+        {
+          "entity": "case",
+          "count": 217,
+          "status": "METADATA_ONLY",
+          "column": "metadata.ketQuaXuLyKhac",
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        }
+      ]
+    },
+    {
+      "field": "so_phieu_chuyen",
+      "label": "Số phiếu chuyển/ Công văn/ Ủy thác điều tra",
+      "kieu": "text",
+      "total": 11568,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 9797,
+          "status": "OK",
+          "column": "soPhieuChuyen"
+        },
+        {
+          "entity": "incident",
+          "count": 78,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        },
+        {
+          "entity": "case",
+          "count": 1693,
+          "status": "METADATA_ONLY",
+          "column": "metadata.soPhieuChuyen",
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        }
+      ]
+    },
+    {
+      "field": "ngay_phieu_chuyen",
+      "label": "Ngày phiếu chuyển/ Công văn/ Ủy thác điều tra",
+      "kieu": "text",
+      "total": 10694,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 8936,
+          "status": "OK",
+          "column": "ngayPhieuChuyen"
+        },
+        {
+          "entity": "incident",
+          "count": 81,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        },
+        {
+          "entity": "case",
+          "count": 1677,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        }
+      ]
+    },
+    {
+      "field": "do_vat_tai_lieu_kem_theo",
+      "label": "Đồ vật, tài liệu kèm theo",
+      "kieu": "textarea",
+      "total": 10659,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 10359,
+          "status": "OK",
+          "column": "attachmentsNote"
+        },
+        {
+          "entity": "incident",
+          "count": 47,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        },
+        {
+          "entity": "case",
+          "count": 253,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        }
+      ]
+    },
+    {
+      "field": "phan_loai_toi_pham_theo_linh_vuc",
+      "label": "",
+      "kieu": "",
+      "total": 8989,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 7489,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        },
+        {
+          "entity": "incident",
+          "count": 369,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        },
+        {
+          "entity": "case",
+          "count": 1131,
+          "status": "METADATA_ONLY",
+          "column": "metadata.phanLoaiToiPhamLinhVuc",
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        }
+      ]
+    },
+    {
+      "field": "so_dien_thoai_nguyen_don",
+      "label": "Số điện thoại nguyên đơn",
+      "kieu": "phone",
+      "total": 7594,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 6299,
+          "status": "OK",
+          "column": "senderPhone"
+        },
+        {
+          "entity": "incident",
+          "count": 774,
+          "status": "OK",
+          "column": "sdtNguoiToGiac"
+        },
+        {
+          "entity": "case",
+          "count": 521,
+          "status": "METADATA_ONLY",
+          "column": "metadata.sdtCungCap",
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        }
+      ]
+    },
+    {
+      "field": "sinh_nam_nguoi_to_giac",
+      "label": "Sinh năm",
+      "kieu": "text",
+      "total": 7130,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 5844,
+          "status": "OK",
+          "column": "senderBirthYear"
+        },
+        {
+          "entity": "incident",
+          "count": 854,
+          "status": "OK",
+          "column": "sinhNamNguoiToGiac"
+        },
+        {
+          "entity": "case",
+          "count": 432,
+          "status": "METADATA_ONLY",
+          "column": "metadata.sinhNamCungCap",
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        }
+      ]
+    },
+    {
+      "field": "nghi_van_doi_tuong",
+      "label": "Nghi vấn đối tượng hoặc bị can",
+      "kieu": "text",
+      "total": 6951,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 651,
+          "status": "OK",
+          "column": "suspectedPerson"
+        },
+        {
+          "entity": "incident",
+          "count": 4193,
+          "status": "OK",
+          "column": "doiTuongCaNhan"
+        },
+        {
+          "entity": "case",
+          "count": 2107,
+          "status": "METADATA_ONLY",
+          "column": "metadata.nghiVanDoiTuong",
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        }
+      ]
+    },
+    {
+      "field": "phan_loai_ho_so_doi_1",
+      "label": "",
+      "kieu": "",
+      "total": 5730,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 4305,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        },
+        {
+          "entity": "incident",
+          "count": 177,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        },
+        {
+          "entity": "case",
+          "count": 1248,
+          "status": "METADATA_ONLY",
+          "column": "metadata.phanLoaiHoSoNoiBo",
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        }
+      ]
+    },
+    {
+      "field": "lanh_dao_to_tung",
+      "label": "Lãnh đạo phụ trách tố tụng",
+      "kieu": "text",
+      "total": 3285,
+      "cells": [
+        {
+          "entity": "incident",
+          "count": 2641,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        },
+        {
+          "entity": "case",
+          "count": 644,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        }
+      ]
+    },
+    {
+      "field": "so_cccd_nguyen_don",
+      "label": "Số căn cước công dân",
+      "kieu": "text",
+      "total": 3281,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 2944,
+          "status": "OK",
+          "column": "senderIdNumber"
+        },
+        {
+          "entity": "incident",
+          "count": 75,
+          "status": "OK",
+          "column": "cmndNguoiToGiac"
+        },
+        {
+          "entity": "case",
+          "count": 262,
+          "status": "METADATA_ONLY",
+          "column": "metadata.cccdCungCap",
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        }
+      ]
+    },
+    {
+      "field": "dieu_tra_vien",
+      "label": "Điều tra viên thụ lý",
+      "kieu": "text",
+      "total": 2550,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 284,
+          "status": "FIX_BUILDER",
+          "column": "dieuTraVien"
+        },
+        {
+          "entity": "incident",
+          "count": 1816,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        },
+        {
+          "entity": "case",
+          "count": 450,
+          "status": "METADATA_ONLY",
+          "column": "metadata.dieuTraVienText",
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        }
+      ]
+    },
+    {
+      "field": "noi_cap_cccd_nguyen_don",
+      "label": "Nơi cấp CCCD",
+      "kieu": "text",
+      "total": 2392,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 2145,
+          "status": "OK",
+          "column": "senderIdIssuePlace"
+        },
+        {
+          "entity": "incident",
+          "count": 38,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        },
+        {
+          "entity": "case",
+          "count": 209,
+          "status": "METADATA_ONLY",
+          "column": "metadata.noiCapCccd",
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        }
+      ]
+    },
+    {
+      "field": "lich_su",
+      "label": "",
+      "kieu": "",
+      "total": 2359,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 2244,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        },
+        {
+          "entity": "incident",
+          "count": 15,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        },
+        {
+          "entity": "case",
+          "count": 100,
+          "status": "METADATA_ONLY",
+          "column": "metadata.lichSuChuyenDonVi",
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        }
+      ]
+    },
+    {
+      "field": "ngay_cap_cccd_nguyen_don",
+      "label": "Ngày cấp CCCD",
+      "kieu": "text",
+      "total": 2244,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 1994,
+          "status": "OK",
+          "column": "senderIdIssueDate"
+        },
+        {
+          "entity": "incident",
+          "count": 39,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        },
+        {
+          "entity": "case",
+          "count": 211,
+          "status": "METADATA_ONLY",
+          "column": "metadata.ngayCapCccd",
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        }
+      ]
+    },
+    {
+      "field": "noi_xay_ra",
+      "label": "Nơi xảy ra tội phạm",
+      "kieu": "text",
+      "total": 1759,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 138,
+          "status": "OK",
+          "column": "noiXayRa"
+        },
+        {
+          "entity": "incident",
+          "count": 9,
+          "status": "OK",
+          "column": "diaChiXayRa"
+        },
+        {
+          "entity": "case",
+          "count": 1612,
+          "status": "METADATA_ONLY",
+          "column": "metadata.noiXayRa",
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        }
+      ]
+    },
+    {
+      "field": "ngay_ra_quyet_dinh_phan_cong_tin_bao",
+      "label": "Ngày ra Quyết định phân công giải quyết nguồn tin tội phạm",
+      "kieu": "text",
+      "total": 1340,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 363,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        },
+        {
+          "entity": "incident",
+          "count": 911,
+          "status": "OK",
+          "column": "ngayQDPhanCongNguonTin"
+        },
+        {
+          "entity": "case",
+          "count": 66,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        }
+      ]
+    },
+    {
+      "field": "thoi_han_thuc_hien_uy_thac_dieu_tra",
+      "label": "Thời hạn thực hiện Uỷ thác điều tra",
+      "kieu": "date",
+      "total": 1135,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 1,
+          "status": "OK",
+          "column": "thoiHanUTDT"
+        },
+        {
+          "entity": "case",
+          "count": 1134,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "DateTime"
+          }
+        }
+      ]
+    },
+    {
+      "field": "yeu_cau_bo_sung",
+      "label": "",
+      "kieu": "",
+      "total": 871,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 3,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        },
+        {
+          "entity": "incident",
+          "count": 699,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        },
+        {
+          "entity": "case",
+          "count": 169,
+          "status": "METADATA_ONLY",
+          "column": "metadata.yeuCauBoSung",
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        }
+      ]
+    },
+    {
+      "field": "ghi_chu_khac",
+      "label": "Ghi chú khác",
+      "kieu": "textarea",
+      "total": 838,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 671,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        },
+        {
+          "entity": "incident",
+          "count": 114,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        },
+        {
+          "entity": "case",
+          "count": 53,
+          "status": "OK",
+          "column": "ghiChuKhac"
+        }
+      ]
+    },
+    {
+      "field": "phan_loai_toi_pham_cong_nghe_cao",
+      "label": "Bấm chọn nễu xác định đây là tội phạm công nghệ cao",
+      "kieu": "checkbox",
+      "total": 574,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 507,
+          "status": "OK",
+          "column": "laCongNgheCao"
+        },
+        {
+          "entity": "incident",
+          "count": 22,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "Boolean"
+          }
+        },
+        {
+          "entity": "case",
+          "count": 45,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "Boolean"
+          }
+        }
+      ]
+    },
+    {
+      "field": "de_xuat",
+      "label": "",
+      "kieu": "",
+      "total": 521,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 92,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        },
+        {
+          "entity": "incident",
+          "count": 373,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        },
+        {
+          "entity": "case",
+          "count": 56,
+          "status": "METADATA_ONLY",
+          "column": "metadata.deXuatXuLy",
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        }
+      ]
+    },
+    {
+      "field": "quyet_dinh_phan_cong_giai_quyet_nguon_tin",
+      "label": "Quyết định phân công giải quyết nguồn tin tội phạm",
+      "kieu": "text",
+      "total": 443,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 362,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        },
+        {
+          "entity": "incident",
+          "count": 17,
+          "status": "OK",
+          "column": "soQDPhanCongNguonTin"
+        },
+        {
+          "entity": "case",
+          "count": 64,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        }
+      ]
+    },
+    {
+      "field": "quyet_dinh_khoi_to_vu_an",
+      "label": "Số Quyết định Khởi tố vụ án",
+      "kieu": "text",
+      "total": 164,
+      "cells": [
+        {
+          "entity": "case",
+          "count": 164,
+          "status": "OK",
+          "column": "soQuyetDinhKhoiTo"
+        }
+      ]
+    },
+    {
+      "field": "ngay_thong_ke",
+      "label": "Ngày tổng hợp thống kê",
+      "kieu": "date",
+      "total": 153,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 126,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "DateTime"
+          }
+        },
+        {
+          "entity": "incident",
+          "count": 1,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "DateTime"
+          }
+        },
+        {
+          "entity": "case",
+          "count": 26,
+          "status": "METADATA_ONLY",
+          "column": "metadata.ngayThongKe",
+          "newColumn": {
+            "name": "?",
+            "type": "DateTime"
+          }
+        }
+      ]
+    },
+    {
+      "field": "ngay_thang_nam_het_thoi_hieu_vu_viec",
+      "label": "Ngày tháng năm hết thời hiệu truy cứu TNHS",
+      "kieu": "date",
+      "total": 132,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 104,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "DateTime"
+          }
+        },
+        {
+          "entity": "incident",
+          "count": 3,
+          "status": "OK",
+          "column": "ngayHetThoiHieuVV"
+        },
+        {
+          "entity": "case",
+          "count": 25,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "DateTime"
+          }
+        }
+      ]
+    },
+    {
+      "field": "ngay_het_thoi_hieu_truy_cuu_tnhs_vu_an",
+      "label": "Ngày hết thời hiệu truy cứu TNHS vụ án",
+      "kieu": "date",
+      "total": 130,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 104,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "DateTime"
+          }
+        },
+        {
+          "entity": "incident",
+          "count": 1,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "DateTime"
+          }
+        },
+        {
+          "entity": "case",
+          "count": 25,
+          "status": "OK",
+          "column": "ngayHetThoiHieu"
+        }
+      ]
+    },
+    {
+      "field": "ngay_ra_quyet_dinh_khoi_to",
+      "label": "",
+      "kieu": "",
+      "total": 110,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 28,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        },
+        {
+          "entity": "case",
+          "count": 82,
+          "status": "OK",
+          "column": "ngayKhoiTo"
+        }
+      ]
+    },
+    {
+      "field": "ngay_quyet_dinh_khoi_to_vu_an",
+      "label": "Ngày ra Quyết định Khởi tố vụ án",
+      "kieu": "text",
+      "total": 83,
+      "cells": [
+        {
+          "entity": "case",
+          "count": 83,
+          "status": "OK",
+          "column": "ngayKhoiTo"
+        }
+      ]
+    },
+    {
+      "field": "ngay_phuc_hoi_nguon_tin_toi_pham",
+      "label": "Ngày Phục hồi nguồn tin tội phạm",
+      "kieu": "text",
+      "total": 81,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 71,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        },
+        {
+          "entity": "case",
+          "count": 10,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        }
+      ]
+    },
+    {
+      "field": "ngay_ra_quyet_dinh_tam_dinh_chi_nguon_tin",
+      "label": "Ngày ra Quyết định Tạm đình chỉ nguồn tin",
+      "kieu": "text",
+      "total": 70,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 61,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        },
+        {
+          "entity": "case",
+          "count": 9,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        }
+      ]
+    },
+    {
+      "field": "quyet_dinh_tam_dinh_chi_nguon_tin",
+      "label": "Quyết định Tạm đình chỉ nguồn tin",
+      "kieu": "text",
+      "total": 66,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 57,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        },
+        {
+          "entity": "case",
+          "count": 9,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        }
+      ]
+    },
+    {
+      "field": "can_cu_tam_dinh_chi_nguon_tin",
+      "label": "Căn cứ Tạm đình chỉ nguồn tin",
+      "kieu": "text",
+      "total": 63,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 54,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        },
+        {
+          "entity": "case",
+          "count": 9,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        }
+      ]
+    },
+    {
+      "field": "phuc_hoi_nguon_tin_toi_pham",
+      "label": "Số Phục hồi nguồn tin tội phạm",
+      "kieu": "text",
+      "total": 57,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 48,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        },
+        {
+          "entity": "case",
+          "count": 9,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        }
+      ]
+    },
+    {
+      "field": "toi_danh_chinh",
+      "label": "Tội danh chính khi khởi tố",
+      "kieu": "chon_toi_danh",
+      "total": 48,
+      "cells": [
+        {
+          "entity": "case",
+          "count": 48,
+          "status": "RESOLVE",
+          "column": null
+        }
+      ]
+    },
+    {
+      "field": "het_thoi_hieu_tnhs",
+      "label": "",
+      "kieu": "",
+      "total": 29,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 28,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        },
+        {
+          "entity": "case",
+          "count": 1,
+          "status": "METADATA_ONLY",
+          "column": "metadata.hetThoiHieuTnhs",
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        }
+      ]
+    },
+    {
+      "field": "ngay_het_han_vu_an",
+      "label": "",
+      "kieu": "",
+      "total": 29,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 28,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        },
+        {
+          "entity": "case",
+          "count": 1,
+          "status": "METADATA_ONLY",
+          "column": "metadata.ngayHetHanVuAn",
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        }
+      ]
+    },
+    {
+      "field": "thoi_gian_het_thoi_hieu_truy_cuu_tnhs",
+      "label": "",
+      "kieu": "",
+      "total": 29,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 28,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        },
+        {
+          "entity": "case",
+          "count": 1,
+          "status": "METADATA_ONLY",
+          "column": "metadata.thoiGianHetThoiHieuTnhs",
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        }
+      ]
+    },
+    {
+      "field": "ngay_ra_quyet_dinh_khong_khoi_to",
+      "label": "Ngày ra Quyết định Không khởi tố",
+      "kieu": "text",
+      "total": 28,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 27,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        },
+        {
+          "entity": "case",
+          "count": 1,
+          "status": "METADATA_ONLY",
+          "column": "metadata.ngayKhongKhoiTo",
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        }
+      ]
+    },
+    {
+      "field": "phan_loai_dan_su",
+      "label": "Phân loại dân sự",
+      "kieu": "text",
+      "total": 6,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 6,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        }
+      ]
+    },
+    {
+      "field": "da_xoa",
+      "label": "",
+      "kieu": "",
+      "total": 4,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 4,
+          "status": "DROP",
+          "column": null
+        }
+      ]
+    },
+    {
+      "field": "da_nhan",
+      "label": "",
+      "kieu": "",
+      "total": 4,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 4,
+          "status": "DROP",
+          "column": null
+        }
+      ]
+    },
+    {
+      "field": "loai_toi_pham",
+      "label": "Phân loại tội phạm (Chỉ xác định sau khi có Quyết định khởi tố vụ án)",
+      "kieu": "select",
+      "total": 4,
+      "cells": [
+        {
+          "entity": "case",
+          "count": 4,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        }
+      ]
+    },
+    {
+      "field": "dieu_tra_vien_phuong_xa",
+      "label": "Điều tra viên là trưởng - phó Công an phường thụ lý",
+      "kieu": "text",
+      "total": 4,
+      "cells": [
+        {
+          "entity": "incident",
+          "count": 4,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        }
+      ]
+    },
+    {
+      "field": "quyet_dinh_khong_khoi_to",
+      "label": "Quyết định Không khởi tố",
+      "kieu": "text",
+      "total": 2,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 2,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        }
+      ]
+    },
+    {
+      "field": "can_cu_ra_quyet_dinh_khong_khoi_to",
+      "label": "Căn cứ để ra Quyết định Không khởi tố",
+      "kieu": "text",
+      "total": 1,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 1,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        }
+      ]
+    },
+    {
+      "field": "ngay_tam_dinh_chi_vu_an",
+      "label": "Ngày Quyết định tạm đình chỉ vụ án",
+      "kieu": "text",
+      "total": 1,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 1,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        }
+      ]
+    },
+    {
+      "field": "quyet_dinh_tam_dinh_chi_vu_an",
+      "label": "Số Quyết định Tạm đình chỉ vụ án",
+      "kieu": "text",
+      "total": 1,
+      "cells": [
+        {
+          "entity": "petition",
+          "count": 1,
+          "status": "NEEDS_COLUMN",
+          "column": null,
+          "newColumn": {
+            "name": "?",
+            "type": "String"
+          }
+        }
+      ]
+    }
+  ],
+  "needColumn": [
+    {
+      "field": "ngay_de_xuat",
+      "label": "",
+      "kieu": "",
+      "entity": "case",
+      "count": 3283,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "tom_tat_noi_dung",
+      "label": "Tóm tắt nội dung",
+      "kieu": "textarea",
+      "entity": "case",
+      "count": 3236,
+      "status": "METADATA_ONLY",
+      "column": "metadata.description",
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "nguon_don",
+      "label": "Nguồn đơn/Đơn vị giao",
+      "kieu": "text",
+      "entity": "case",
+      "count": 2962,
+      "status": "METADATA_ONLY",
+      "column": "metadata.nguonDon",
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "ten_ca_nhan_co_quan_to_chuc_cung_cap",
+      "label": "Tên cá nhân, cơ quan, tổ chức cung cấp, bị hại",
+      "kieu": "text",
+      "entity": "case",
+      "count": 728,
+      "status": "METADATA_ONLY",
+      "column": "metadata.tenCungCap",
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "nhan_xet",
+      "label": "Nhận xét",
+      "kieu": "textarea",
+      "entity": "incident",
+      "count": 3397,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "nhan_xet",
+      "label": "Nhận xét",
+      "kieu": "textarea",
+      "entity": "case",
+      "count": 1268,
+      "status": "METADATA_ONLY",
+      "column": "metadata.nhanXet",
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "ngay_tiep_nhan_nguon_tin",
+      "label": "Ngày tiếp nhận (theo biên bản tiếp nhận nguồn tin)",
+      "kieu": "text",
+      "entity": "incident",
+      "count": 3031,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "dia-chi-bi-hai",
+      "label": "Địa chỉ cá nhân, cơ quan, tổ chức cung cấp, bị hại",
+      "kieu": "text",
+      "entity": "case",
+      "count": 1268,
+      "status": "METADATA_ONLY",
+      "column": "metadata.biHai",
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "loai_thong_tin",
+      "label": "Loại thông tin",
+      "kieu": "text",
+      "entity": "incident",
+      "count": 190,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "ngay_viet_don",
+      "label": "Ngày viết đơn",
+      "kieu": "text",
+      "entity": "incident",
+      "count": 299,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "ngay_viet_don",
+      "label": "Ngày viết đơn",
+      "kieu": "text",
+      "entity": "case",
+      "count": 339,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "ghi_chu_trung_don",
+      "label": "Ghi chú trùng đơn",
+      "kieu": "text",
+      "entity": "incident",
+      "count": 90,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "ghi_chu_trung_don",
+      "label": "Ghi chú trùng đơn",
+      "kieu": "text",
+      "entity": "case",
+      "count": 342,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "truong_hop_bao_cao_ban_giam_doc",
+      "label": "Trường hợp báo cáo Ban Giám đốc",
+      "kieu": "text",
+      "entity": "incident",
+      "count": 89,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "truong_hop_bao_cao_ban_giam_doc",
+      "label": "Trường hợp báo cáo Ban Giám đốc",
+      "kieu": "text",
+      "entity": "case",
+      "count": 343,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "so_tien_bi_thiet_hai",
+      "label": "Số tiền bị thiệt hại (triệu Việt nam Đồng)",
+      "kieu": "number",
+      "entity": "petition",
+      "count": 31461,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "Int"
+      }
+    },
+    {
+      "field": "so_tien_bi_thiet_hai",
+      "label": "Số tiền bị thiệt hại (triệu Việt nam Đồng)",
+      "kieu": "number",
+      "entity": "case",
+      "count": 105,
+      "status": "METADATA_ONLY",
+      "column": "metadata.damageAmount",
+      "newColumn": {
+        "name": "?",
+        "type": "Int"
+      }
+    },
+    {
+      "field": "so_luong_bi_hai",
+      "label": "Số lượng người bị hại",
+      "kieu": "number",
+      "entity": "petition",
+      "count": 31460,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "Int"
+      }
+    },
+    {
+      "field": "so_luong_bi_hai",
+      "label": "Số lượng người bị hại",
+      "kieu": "number",
+      "entity": "case",
+      "count": 105,
+      "status": "METADATA_ONLY",
+      "column": "metadata.soLuongBiHai",
+      "newColumn": {
+        "name": "?",
+        "type": "Int"
+      }
+    },
+    {
+      "field": "phuong_thuc_thu_doan",
+      "label": "Phương thức thủ đoạn",
+      "kieu": "text",
+      "entity": "case",
+      "count": 105,
+      "status": "METADATA_ONLY",
+      "column": "metadata.phuongThucThuDoan",
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "ngay_giao_don_vi_giai_quyet",
+      "label": "Ngày giao đơn vị giải quyết",
+      "kieu": "text",
+      "entity": "incident",
+      "count": 666,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "ngay_giao_don_vi_giai_quyet",
+      "label": "Ngày giao đơn vị giải quyết",
+      "kieu": "text",
+      "entity": "case",
+      "count": 192,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "toi-danh-ban-dau",
+      "label": "Tội danh cũ trước đây",
+      "kieu": "text",
+      "entity": "incident",
+      "count": 3446,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "ket_qua_xu_ly_giai_quyet_khac",
+      "label": "Kết quả xử lý, giải quyết khác",
+      "kieu": "textarea",
+      "entity": "case",
+      "count": 217,
+      "status": "METADATA_ONLY",
+      "column": "metadata.ketQuaXuLyKhac",
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "so_phieu_chuyen",
+      "label": "Số phiếu chuyển/ Công văn/ Ủy thác điều tra",
+      "kieu": "text",
+      "entity": "incident",
+      "count": 78,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "so_phieu_chuyen",
+      "label": "Số phiếu chuyển/ Công văn/ Ủy thác điều tra",
+      "kieu": "text",
+      "entity": "case",
+      "count": 1693,
+      "status": "METADATA_ONLY",
+      "column": "metadata.soPhieuChuyen",
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "ngay_phieu_chuyen",
+      "label": "Ngày phiếu chuyển/ Công văn/ Ủy thác điều tra",
+      "kieu": "text",
+      "entity": "incident",
+      "count": 81,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "ngay_phieu_chuyen",
+      "label": "Ngày phiếu chuyển/ Công văn/ Ủy thác điều tra",
+      "kieu": "text",
+      "entity": "case",
+      "count": 1677,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "do_vat_tai_lieu_kem_theo",
+      "label": "Đồ vật, tài liệu kèm theo",
+      "kieu": "textarea",
+      "entity": "incident",
+      "count": 47,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "do_vat_tai_lieu_kem_theo",
+      "label": "Đồ vật, tài liệu kèm theo",
+      "kieu": "textarea",
+      "entity": "case",
+      "count": 253,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "phan_loai_toi_pham_theo_linh_vuc",
+      "label": "",
+      "kieu": "",
+      "entity": "petition",
+      "count": 7489,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "phan_loai_toi_pham_theo_linh_vuc",
+      "label": "",
+      "kieu": "",
+      "entity": "incident",
+      "count": 369,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "phan_loai_toi_pham_theo_linh_vuc",
+      "label": "",
+      "kieu": "",
+      "entity": "case",
+      "count": 1131,
+      "status": "METADATA_ONLY",
+      "column": "metadata.phanLoaiToiPhamLinhVuc",
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "so_dien_thoai_nguyen_don",
+      "label": "Số điện thoại nguyên đơn",
+      "kieu": "phone",
+      "entity": "case",
+      "count": 521,
+      "status": "METADATA_ONLY",
+      "column": "metadata.sdtCungCap",
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "sinh_nam_nguoi_to_giac",
+      "label": "Sinh năm",
+      "kieu": "text",
+      "entity": "case",
+      "count": 432,
+      "status": "METADATA_ONLY",
+      "column": "metadata.sinhNamCungCap",
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "nghi_van_doi_tuong",
+      "label": "Nghi vấn đối tượng hoặc bị can",
+      "kieu": "text",
+      "entity": "case",
+      "count": 2107,
+      "status": "METADATA_ONLY",
+      "column": "metadata.nghiVanDoiTuong",
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "phan_loai_ho_so_doi_1",
+      "label": "",
+      "kieu": "",
+      "entity": "petition",
+      "count": 4305,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "phan_loai_ho_so_doi_1",
+      "label": "",
+      "kieu": "",
+      "entity": "incident",
+      "count": 177,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "phan_loai_ho_so_doi_1",
+      "label": "",
+      "kieu": "",
+      "entity": "case",
+      "count": 1248,
+      "status": "METADATA_ONLY",
+      "column": "metadata.phanLoaiHoSoNoiBo",
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "lanh_dao_to_tung",
+      "label": "Lãnh đạo phụ trách tố tụng",
+      "kieu": "text",
+      "entity": "incident",
+      "count": 2641,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "lanh_dao_to_tung",
+      "label": "Lãnh đạo phụ trách tố tụng",
+      "kieu": "text",
+      "entity": "case",
+      "count": 644,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "so_cccd_nguyen_don",
+      "label": "Số căn cước công dân",
+      "kieu": "text",
+      "entity": "case",
+      "count": 262,
+      "status": "METADATA_ONLY",
+      "column": "metadata.cccdCungCap",
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "dieu_tra_vien",
+      "label": "Điều tra viên thụ lý",
+      "kieu": "text",
+      "entity": "incident",
+      "count": 1816,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "dieu_tra_vien",
+      "label": "Điều tra viên thụ lý",
+      "kieu": "text",
+      "entity": "case",
+      "count": 450,
+      "status": "METADATA_ONLY",
+      "column": "metadata.dieuTraVienText",
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "noi_cap_cccd_nguyen_don",
+      "label": "Nơi cấp CCCD",
+      "kieu": "text",
+      "entity": "incident",
+      "count": 38,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "noi_cap_cccd_nguyen_don",
+      "label": "Nơi cấp CCCD",
+      "kieu": "text",
+      "entity": "case",
+      "count": 209,
+      "status": "METADATA_ONLY",
+      "column": "metadata.noiCapCccd",
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "lich_su",
+      "label": "",
+      "kieu": "",
+      "entity": "petition",
+      "count": 2244,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "lich_su",
+      "label": "",
+      "kieu": "",
+      "entity": "incident",
+      "count": 15,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "lich_su",
+      "label": "",
+      "kieu": "",
+      "entity": "case",
+      "count": 100,
+      "status": "METADATA_ONLY",
+      "column": "metadata.lichSuChuyenDonVi",
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "ngay_cap_cccd_nguyen_don",
+      "label": "Ngày cấp CCCD",
+      "kieu": "text",
+      "entity": "incident",
+      "count": 39,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "ngay_cap_cccd_nguyen_don",
+      "label": "Ngày cấp CCCD",
+      "kieu": "text",
+      "entity": "case",
+      "count": 211,
+      "status": "METADATA_ONLY",
+      "column": "metadata.ngayCapCccd",
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "noi_xay_ra",
+      "label": "Nơi xảy ra tội phạm",
+      "kieu": "text",
+      "entity": "case",
+      "count": 1612,
+      "status": "METADATA_ONLY",
+      "column": "metadata.noiXayRa",
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "ngay_ra_quyet_dinh_phan_cong_tin_bao",
+      "label": "Ngày ra Quyết định phân công giải quyết nguồn tin tội phạm",
+      "kieu": "text",
+      "entity": "petition",
+      "count": 363,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "ngay_ra_quyet_dinh_phan_cong_tin_bao",
+      "label": "Ngày ra Quyết định phân công giải quyết nguồn tin tội phạm",
+      "kieu": "text",
+      "entity": "case",
+      "count": 66,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "thoi_han_thuc_hien_uy_thac_dieu_tra",
+      "label": "Thời hạn thực hiện Uỷ thác điều tra",
+      "kieu": "date",
+      "entity": "case",
+      "count": 1134,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "DateTime"
+      }
+    },
+    {
+      "field": "yeu_cau_bo_sung",
+      "label": "",
+      "kieu": "",
+      "entity": "petition",
+      "count": 3,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "yeu_cau_bo_sung",
+      "label": "",
+      "kieu": "",
+      "entity": "incident",
+      "count": 699,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "yeu_cau_bo_sung",
+      "label": "",
+      "kieu": "",
+      "entity": "case",
+      "count": 169,
+      "status": "METADATA_ONLY",
+      "column": "metadata.yeuCauBoSung",
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "ghi_chu_khac",
+      "label": "Ghi chú khác",
+      "kieu": "textarea",
+      "entity": "petition",
+      "count": 671,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "ghi_chu_khac",
+      "label": "Ghi chú khác",
+      "kieu": "textarea",
+      "entity": "incident",
+      "count": 114,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "phan_loai_toi_pham_cong_nghe_cao",
+      "label": "Bấm chọn nễu xác định đây là tội phạm công nghệ cao",
+      "kieu": "checkbox",
+      "entity": "incident",
+      "count": 22,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "Boolean"
+      }
+    },
+    {
+      "field": "phan_loai_toi_pham_cong_nghe_cao",
+      "label": "Bấm chọn nễu xác định đây là tội phạm công nghệ cao",
+      "kieu": "checkbox",
+      "entity": "case",
+      "count": 45,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "Boolean"
+      }
+    },
+    {
+      "field": "de_xuat",
+      "label": "",
+      "kieu": "",
+      "entity": "petition",
+      "count": 92,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "de_xuat",
+      "label": "",
+      "kieu": "",
+      "entity": "incident",
+      "count": 373,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "de_xuat",
+      "label": "",
+      "kieu": "",
+      "entity": "case",
+      "count": 56,
+      "status": "METADATA_ONLY",
+      "column": "metadata.deXuatXuLy",
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "quyet_dinh_phan_cong_giai_quyet_nguon_tin",
+      "label": "Quyết định phân công giải quyết nguồn tin tội phạm",
+      "kieu": "text",
+      "entity": "petition",
+      "count": 362,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "quyet_dinh_phan_cong_giai_quyet_nguon_tin",
+      "label": "Quyết định phân công giải quyết nguồn tin tội phạm",
+      "kieu": "text",
+      "entity": "case",
+      "count": 64,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "ngay_thong_ke",
+      "label": "Ngày tổng hợp thống kê",
+      "kieu": "date",
+      "entity": "petition",
+      "count": 126,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "DateTime"
+      }
+    },
+    {
+      "field": "ngay_thong_ke",
+      "label": "Ngày tổng hợp thống kê",
+      "kieu": "date",
+      "entity": "incident",
+      "count": 1,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "DateTime"
+      }
+    },
+    {
+      "field": "ngay_thong_ke",
+      "label": "Ngày tổng hợp thống kê",
+      "kieu": "date",
+      "entity": "case",
+      "count": 26,
+      "status": "METADATA_ONLY",
+      "column": "metadata.ngayThongKe",
+      "newColumn": {
+        "name": "?",
+        "type": "DateTime"
+      }
+    },
+    {
+      "field": "ngay_thang_nam_het_thoi_hieu_vu_viec",
+      "label": "Ngày tháng năm hết thời hiệu truy cứu TNHS",
+      "kieu": "date",
+      "entity": "petition",
+      "count": 104,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "DateTime"
+      }
+    },
+    {
+      "field": "ngay_thang_nam_het_thoi_hieu_vu_viec",
+      "label": "Ngày tháng năm hết thời hiệu truy cứu TNHS",
+      "kieu": "date",
+      "entity": "case",
+      "count": 25,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "DateTime"
+      }
+    },
+    {
+      "field": "ngay_het_thoi_hieu_truy_cuu_tnhs_vu_an",
+      "label": "Ngày hết thời hiệu truy cứu TNHS vụ án",
+      "kieu": "date",
+      "entity": "petition",
+      "count": 104,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "DateTime"
+      }
+    },
+    {
+      "field": "ngay_het_thoi_hieu_truy_cuu_tnhs_vu_an",
+      "label": "Ngày hết thời hiệu truy cứu TNHS vụ án",
+      "kieu": "date",
+      "entity": "incident",
+      "count": 1,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "DateTime"
+      }
+    },
+    {
+      "field": "ngay_ra_quyet_dinh_khoi_to",
+      "label": "",
+      "kieu": "",
+      "entity": "petition",
+      "count": 28,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "ngay_phuc_hoi_nguon_tin_toi_pham",
+      "label": "Ngày Phục hồi nguồn tin tội phạm",
+      "kieu": "text",
+      "entity": "petition",
+      "count": 71,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "ngay_phuc_hoi_nguon_tin_toi_pham",
+      "label": "Ngày Phục hồi nguồn tin tội phạm",
+      "kieu": "text",
+      "entity": "case",
+      "count": 10,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "ngay_ra_quyet_dinh_tam_dinh_chi_nguon_tin",
+      "label": "Ngày ra Quyết định Tạm đình chỉ nguồn tin",
+      "kieu": "text",
+      "entity": "petition",
+      "count": 61,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "ngay_ra_quyet_dinh_tam_dinh_chi_nguon_tin",
+      "label": "Ngày ra Quyết định Tạm đình chỉ nguồn tin",
+      "kieu": "text",
+      "entity": "case",
+      "count": 9,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "quyet_dinh_tam_dinh_chi_nguon_tin",
+      "label": "Quyết định Tạm đình chỉ nguồn tin",
+      "kieu": "text",
+      "entity": "petition",
+      "count": 57,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "quyet_dinh_tam_dinh_chi_nguon_tin",
+      "label": "Quyết định Tạm đình chỉ nguồn tin",
+      "kieu": "text",
+      "entity": "case",
+      "count": 9,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "can_cu_tam_dinh_chi_nguon_tin",
+      "label": "Căn cứ Tạm đình chỉ nguồn tin",
+      "kieu": "text",
+      "entity": "petition",
+      "count": 54,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "can_cu_tam_dinh_chi_nguon_tin",
+      "label": "Căn cứ Tạm đình chỉ nguồn tin",
+      "kieu": "text",
+      "entity": "case",
+      "count": 9,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "phuc_hoi_nguon_tin_toi_pham",
+      "label": "Số Phục hồi nguồn tin tội phạm",
+      "kieu": "text",
+      "entity": "petition",
+      "count": 48,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "phuc_hoi_nguon_tin_toi_pham",
+      "label": "Số Phục hồi nguồn tin tội phạm",
+      "kieu": "text",
+      "entity": "case",
+      "count": 9,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "het_thoi_hieu_tnhs",
+      "label": "",
+      "kieu": "",
+      "entity": "petition",
+      "count": 28,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "het_thoi_hieu_tnhs",
+      "label": "",
+      "kieu": "",
+      "entity": "case",
+      "count": 1,
+      "status": "METADATA_ONLY",
+      "column": "metadata.hetThoiHieuTnhs",
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "ngay_het_han_vu_an",
+      "label": "",
+      "kieu": "",
+      "entity": "petition",
+      "count": 28,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "ngay_het_han_vu_an",
+      "label": "",
+      "kieu": "",
+      "entity": "case",
+      "count": 1,
+      "status": "METADATA_ONLY",
+      "column": "metadata.ngayHetHanVuAn",
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "thoi_gian_het_thoi_hieu_truy_cuu_tnhs",
+      "label": "",
+      "kieu": "",
+      "entity": "petition",
+      "count": 28,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "thoi_gian_het_thoi_hieu_truy_cuu_tnhs",
+      "label": "",
+      "kieu": "",
+      "entity": "case",
+      "count": 1,
+      "status": "METADATA_ONLY",
+      "column": "metadata.thoiGianHetThoiHieuTnhs",
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "ngay_ra_quyet_dinh_khong_khoi_to",
+      "label": "Ngày ra Quyết định Không khởi tố",
+      "kieu": "text",
+      "entity": "petition",
+      "count": 27,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "ngay_ra_quyet_dinh_khong_khoi_to",
+      "label": "Ngày ra Quyết định Không khởi tố",
+      "kieu": "text",
+      "entity": "case",
+      "count": 1,
+      "status": "METADATA_ONLY",
+      "column": "metadata.ngayKhongKhoiTo",
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "phan_loai_dan_su",
+      "label": "Phân loại dân sự",
+      "kieu": "text",
+      "entity": "petition",
+      "count": 6,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "loai_toi_pham",
+      "label": "Phân loại tội phạm (Chỉ xác định sau khi có Quyết định khởi tố vụ án)",
+      "kieu": "select",
+      "entity": "case",
+      "count": 4,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "dieu_tra_vien_phuong_xa",
+      "label": "Điều tra viên là trưởng - phó Công an phường thụ lý",
+      "kieu": "text",
+      "entity": "incident",
+      "count": 4,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "quyet_dinh_khong_khoi_to",
+      "label": "Quyết định Không khởi tố",
+      "kieu": "text",
+      "entity": "petition",
+      "count": 2,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "can_cu_ra_quyet_dinh_khong_khoi_to",
+      "label": "Căn cứ để ra Quyết định Không khởi tố",
+      "kieu": "text",
+      "entity": "petition",
+      "count": 1,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "ngay_tam_dinh_chi_vu_an",
+      "label": "Ngày Quyết định tạm đình chỉ vụ án",
+      "kieu": "text",
+      "entity": "petition",
+      "count": 1,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    },
+    {
+      "field": "quyet_dinh_tam_dinh_chi_vu_an",
+      "label": "Số Quyết định Tạm đình chỉ vụ án",
+      "kieu": "text",
+      "entity": "petition",
+      "count": 1,
+      "status": "NEEDS_COLUMN",
+      "column": null,
+      "newColumn": {
+        "name": "?",
+        "type": "String"
+      }
+    }
+  ],
+  "needFix": [
+    {
+      "field": "dieu_tra_vien",
+      "label": "Điều tra viên thụ lý",
+      "entity": "petition",
+      "count": 284,
+      "status": "FIX_BUILDER",
+      "column": "dieuTraVien"
+    }
+  ]
+}
