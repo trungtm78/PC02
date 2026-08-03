@@ -327,6 +327,36 @@ export function TabInfo({ formData, setFormData, errors, setErrors, handlerOptio
               onChange={(v) => update("sttCu", v)}
             />
             <FormInput
+              label="Số thứ tự thụ lý (hệ cũ)"
+              value={formData.soHoSoCu}
+              onChange={(v) => update("soHoSoCu", v)}
+            />
+            <FormInput
+              label="Tên cá nhân/cơ quan cung cấp, bị hại"
+              value={formData.tenCungCap}
+              onChange={(v) => update("tenCungCap", v)}
+            />
+            <FormInput
+              label="Sinh năm (người cung cấp)"
+              value={formData.sinhNamCungCap}
+              onChange={(v) => update("sinhNamCungCap", v)}
+            />
+            <FormInput
+              label="Số CCCD (người cung cấp)"
+              value={formData.cccdCungCap}
+              onChange={(v) => update("cccdCungCap", v)}
+            />
+            <FormInput
+              label="Nơi cấp CCCD"
+              value={formData.noiCapCccd}
+              onChange={(v) => update("noiCapCccd", v)}
+            />
+            <FormInput
+              label="SĐT (người cung cấp)"
+              value={formData.sdtCungCap}
+              onChange={(v) => update("sdtCungCap", v)}
+            />
+            <FormInput
               label="Tình trạng hồ sơ"
               value={formData.tinhTrang}
               onChange={(v) => update("tinhTrang", v)}
