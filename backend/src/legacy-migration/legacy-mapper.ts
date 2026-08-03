@@ -275,7 +275,7 @@ const ownership = (rec: LegacyRecord) => ({
  * tường minh phía sau (nếu có) vẫn thắng. Field thủ tục leak chéo-giai-đoạn count nhỏ
  * KHÔNG ở đây (giữ metadata/legacyRaw). legacyRaw luôn giữ bản gốc = không mất data.
  */
-function parityColumns(rec: LegacyRecord, entity: ParityEntity): Record<string, unknown> {
+export function parityColumns(rec: LegacyRecord, entity: ParityEntity): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const { field, col, type, textBool } of PARITY[entity]) {
     let v: unknown;
@@ -283,6 +283,7 @@ function parityColumns(rec: LegacyRecord, entity: ParityEntity): Record<string, 
       case 'String': v = s(rec[field]); break;
       case 'DateTime': v = parseLegacyDate(rec[field]); break;
       case 'Int': { const n = parseLegacyNumber(rec[field]); v = n === undefined ? undefined : Math.round(n); break; }
+      case 'Float': v = parseLegacyNumber(rec[field]); break; // tiền — không round, không giới hạn Int
       case 'Boolean': v = textBool ? boolFromText(rec[field]) : parseLegacyBool(rec[field]); break;
     }
     if (v !== undefined) out[col] = v;

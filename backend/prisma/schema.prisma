@@ -996,7 +996,7 @@ model Petition {
   phanLoaiHoSoNoiBo      String? // old: phan_loai_ho_so_doi_1
   ghiChuKhac             String? // old: ghi_chu_khac
   yeuCauBoSung           String? // old: yeu_cau_bo_sung
-  soTienBiThietHai       Int? // old: so_tien_bi_thiet_hai (thiệt hại khai báo trong đơn)
+  soTienBiThietHai       Float? // old: so_tien_bi_thiet_hai (tiền VND — Float tránh tràn Int)
   soLuongBiHai           Int? // old: so_luong_bi_hai
 
   crimeChinh Crime? @relation("PetitionCrimeChinh", fields: [crimeChinhId], references: [id], onDelete: SetNull)

@@ -15,7 +15,7 @@
  * Kiểu parser suy từ `type`: String→s, DateTime→parseLegacyDate, Int→parseInt(round), Boolean→boolFromText.
  */
 
-export type ParityType = 'String' | 'DateTime' | 'Int' | 'Boolean';
+export type ParityType = 'String' | 'DateTime' | 'Int' | 'Float' | 'Boolean';
 export type Entity = 'petition' | 'incident' | 'case';
 
 export interface ParityCol {
@@ -44,7 +44,7 @@ export const PARITY: Record<Entity, ParityCol[]> = {
     { field: 'phan_loai_ho_so_doi_1', col: 'phanLoaiHoSoNoiBo', type: 'String' },
     { field: 'ghi_chu_khac', col: 'ghiChuKhac', type: 'String' },
     { field: 'yeu_cau_bo_sung', col: 'yeuCauBoSung', type: 'String' },
-    { field: 'so_tien_bi_thiet_hai', col: 'soTienBiThietHai', type: 'Int' },
+    { field: 'so_tien_bi_thiet_hai', col: 'soTienBiThietHai', type: 'Float' }, // tiền VND có thể > 2 tỷ (tràn Int)
     { field: 'so_luong_bi_hai', col: 'soLuongBiHai', type: 'Int' },
   ],
 
