@@ -1206,6 +1206,7 @@ export function PetitionFormPage() {
         {/* Dữ liệu gốc hệ cũ — đầy đủ, tham khảo (pháp lý: không sót field) */}
         {isEditMode && (
           <DynamicLegacyFields
+            entity="petition"
             values={metaState}
             onChange={(k, v) => setMetaState((prev) => ({ ...prev, [k]: v }))}
           />

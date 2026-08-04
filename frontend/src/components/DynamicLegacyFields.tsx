@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { ChevronDown, ChevronRight, Pencil } from "lucide-react";
 import { LEGACY_FIELD_LABELS } from "@/shared/legacy/legacyFieldLabels.generated";
+import { hasShownInput, type LegacyEntity } from "@/shared/legacy/shownFieldKeys";
 
 /**
- * DynamicLegacyFields — trường hệ cũ dạng ĐỘNG, CHỈNH SỬA ĐƯỢC (như form động TruongTuyChinh).
- * Render 1 input cho MỖI field metadata (mọi field cũ đã chuyển vào metadata), nhãn tiếng
- * Việt từ catalog. Sửa → onChange(key, value); form gộp vào payload.metadata (backend MERGE).
- * Đảm bảo mọi field cũ đều có ô nhập tương ứng, không thiếu field nào.
+ * DynamicLegacyFields — trường hệ cũ dạng ĐỘNG, CHỈNH SỬA ĐƯỢC (form động TruongTuyChinh).
+ * CHỈ render field hệ cũ CHƯA có ô nhập nơi khác (long-tail thủ tục) — field đã có cột/form
+ * chính thì KHÔNG lặp ở đây (dedup UI). Sửa → onChange(key, value) → payload.metadata (MERGE).
+ * Dữ liệu KHÔNG mất: field đã có ô hiện ở form chính; field còn lại vẫn ở LegacyRawPanel.
  */
 
 function isSystemKey(k: string): boolean {
@@ -28,9 +29,11 @@ function toText(v: unknown): string {
 }
 
 export function DynamicLegacyFields({
+  entity,
   values,
   onChange,
 }: {
+  entity: LegacyEntity;
   values: Record<string, unknown> | null | undefined;
   onChange: (key: string, value: string) => void;
 }) {
@@ -38,8 +41,9 @@ export function DynamicLegacyFields({
   if (!values || typeof values !== "object") return null;
 
   // Field mảng/object (lich_su…) không sửa inline → chỉ hiện read-only trong panel; ở đây bỏ.
+  // Bỏ field ĐÃ có ô nhập (cột/form chính) → chỉ giữ long-tail chưa có ô (dedup UI).
   const keys = Object.keys(values)
-    .filter((k) => !isSystemKey(k) && !Array.isArray(values[k]) && typeof values[k] !== "object")
+    .filter((k) => !isSystemKey(k) && !hasShownInput(entity, k) && !Array.isArray(values[k]) && typeof values[k] !== "object")
     .sort((a, b) => label(a).localeCompare(label(b), "vi"));
 
   if (!keys.length) return null;

@@ -1020,6 +1020,7 @@ export function IncidentFormPage() {
         {/* Trường hệ cũ chỉnh sửa được (mọi field cũ) + panel tham khảo đầy đủ */}
         {isEditMode && (
           <DynamicLegacyFields
+            entity="incident"
             values={metaState}
             onChange={(k, v) => setMetaState((prev) => ({ ...prev, [k]: v }))}
           />
