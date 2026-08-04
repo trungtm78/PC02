@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ChevronDown, ChevronRight, Database } from "lucide-react";
 import { LEGACY_PARITY_FIELDS, type ParityFieldDef } from "@/shared/legacy/legacyParityFields.generated";
+import { inMainForm } from "@/shared/legacy/shownFieldKeys";
 
 /**
  * LegacyParityFields — ô nhập CHÍNH THỨC cho các CỘT typed field-parity (di trú hệ cũ).
@@ -28,7 +29,9 @@ export function LegacyParityFields({
   onChange: (col: string, value: unknown) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const defs: ParityFieldDef[] = LEGACY_PARITY_FIELDS[entity] ?? [];
+  // Bỏ cột đã có ô ở FORM CHÍNH (vd Vụ án: nguonDon/nhanXet… render ở tab) → không hiện 2 ô.
+  // Incident/Petition: cột parity không ở form chính nên giữ nguyên (ô duy nhất).
+  const defs: ParityFieldDef[] = (LEGACY_PARITY_FIELDS[entity] ?? []).filter((d) => !inMainForm(entity, d.col));
   if (!defs.length) return null;
 
   const renderInput = (d: ParityFieldDef) => {
