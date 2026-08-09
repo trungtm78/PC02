@@ -892,6 +892,56 @@ describe('AdminService', () => {
       expect(result.name).toBe('New');
     });
 
+    // Renaming a built-in role breaks every guard that compares against
+    // ROLE_NAMES, and would also carry the role past the name-keyed delete
+    // guard — the same failure class that guard exists to prevent.
+    it.each(Object.values(ROLE_NAMES))(
+      'refuses to rename built-in system role %s',
+      async (systemRoleName) => {
+        mockPrisma.role.findUnique.mockResolvedValue({
+          id: 'sys-role',
+          name: systemRoleName,
+        });
+
+        await expect(
+          service.updateRole('sys-role', { name: 'RENAMED' }, 'req'),
+        ).rejects.toThrow(BadRequestException);
+        expect(mockPrisma.role.update).not.toHaveBeenCalled();
+      },
+    );
+
+    it.each(Object.values(ROLE_NAMES))(
+      'refuses to rename a custom role to the built-in name %s',
+      async (systemRoleName) => {
+        mockPrisma.role.findUnique.mockResolvedValue({
+          id: 'custom-role',
+          name: 'CUSTOM_ROLE',
+        });
+
+        await expect(
+          service.updateRole('custom-role', { name: systemRoleName }, 'req'),
+        ).rejects.toThrow(BadRequestException);
+        expect(mockPrisma.role.update).not.toHaveBeenCalled();
+      },
+    );
+
+    it('still allows editing the description of a built-in role', async () => {
+      mockPrisma.role.findUnique.mockResolvedValue({
+        id: 'sys-role',
+        name: ROLE_NAMES.ADMIN,
+      });
+      mockPrisma.role.update.mockResolvedValue({
+        id: 'sys-role',
+        name: ROLE_NAMES.ADMIN,
+      });
+
+      await service.updateRole('sys-role', { description: 'Mô tả mới' }, 'req');
+
+      expect(mockPrisma.role.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { description: 'Mô tả mới' } }),
+      );
+    });
+
     it('throws NotFoundException when role not found', async () => {
       mockPrisma.role.findUnique.mockResolvedValue(null);
       await expect(
@@ -989,6 +1039,29 @@ describe('AdminService', () => {
 
       await expect(service.deleteRole('missing', 'req')).rejects.toThrow(
         NotFoundException,
+      );
+    });
+
+    it('records the deletion with request metadata for the audit trail', async () => {
+      mockPrisma.role.findUnique.mockResolvedValue({
+        id: 'empty-role',
+        name: 'CUSTOM_ROLE',
+      });
+      mockPrisma.user.count.mockResolvedValue(0);
+      mockPrisma.role.delete.mockResolvedValue({});
+
+      await service.deleteRole('empty-role', 'req', {
+        ipAddress: '10.0.0.7',
+        userAgent: 'jest',
+      });
+
+      expect(mockAudit.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'ROLE_DELETED',
+          subjectId: 'empty-role',
+          ipAddress: '10.0.0.7',
+          userAgent: 'jest',
+        }),
       );
     });
 

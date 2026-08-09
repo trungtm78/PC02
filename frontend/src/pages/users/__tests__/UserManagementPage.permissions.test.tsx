@@ -50,6 +50,9 @@ const { apiState, patchSpy } = vi.hoisted(() => ({
     }>,
     rolePermissionsShouldFail: false,
     catalogShouldFail: false,
+    perRolePermissions: {} as Record<string, Array<{ action: string; subject: string }>>,
+    delayByRole: {} as Record<string, number>,
+    catalogCalls: 0,
   },
   patchSpy: vi.fn(() => Promise.resolve({ data: { success: true } })),
 }));
@@ -58,11 +61,20 @@ vi.mock('@/lib/api', () => ({
   api: {
     get: vi.fn((url: string) => {
       if (url.includes('/roles/') && url.includes('/permissions')) {
-        return apiState.rolePermissionsShouldFail
-          ? Promise.reject(axiosError(404, 'Vai trò không tồn tại', 'NOT_FOUND'))
-          : Promise.resolve({ data: apiState.rolePermissions });
+        if (apiState.rolePermissionsShouldFail) {
+          return Promise.reject(axiosError(404, 'Vai trò không tồn tại', 'NOT_FOUND'));
+        }
+        // Per-role payloads + optional delay, so a stale response can be made
+        // to land after a newer one (see FE-P9).
+        const roleId = url.split('/roles/')[1].split('/')[0];
+        const payload = apiState.perRolePermissions[roleId] ?? apiState.rolePermissions;
+        const delay = apiState.delayByRole[roleId] ?? 0;
+        return new Promise((resolve) =>
+          setTimeout(() => resolve({ data: payload }), delay),
+        );
       }
       if (url.includes('/admin/permissions')) {
+        apiState.catalogCalls += 1;
         return apiState.catalogShouldFail
           ? Promise.reject(axiosError(500, 'Lỗi máy chủ khi tải danh mục quyền'))
           : Promise.resolve({ data: CATALOG });
@@ -75,6 +87,12 @@ vi.mock('@/lib/api', () => ({
               name: 'INVESTIGATOR',
               description: 'Điều tra viên',
               _count: { users: 4 },
+            },
+            {
+              id: 'role-2',
+              name: 'TRUONG_DON_VI',
+              description: 'Trưởng đơn vị',
+              _count: { users: 2 },
             },
           ],
         });
@@ -120,6 +138,9 @@ describe('UserManagementPage — permission matrix', () => {
     apiState.rolePermissions = [{ action: 'read', subject: 'Case' }];
     apiState.rolePermissionsShouldFail = false;
     apiState.catalogShouldFail = false;
+    apiState.perRolePermissions = {};
+    apiState.delayByRole = {};
+    apiState.catalogCalls = 0;
   });
 
   it('FE-P1: builds the grid from the backend catalog, including subjects the old hardcoded list omitted', async () => {
@@ -245,6 +266,54 @@ describe('UserManagementPage — permission matrix', () => {
 
     await waitFor(() => expect(screen.queryByTestId('perm-diff')).not.toBeInTheDocument());
     expect(patchSpy).not.toHaveBeenCalled();
+  });
+
+  it('FE-P9: a stale response for a previously selected role never lands on the current one', async () => {
+    // Role 1 responds slowly; role 2 responds immediately. Selecting 1 then 2
+    // makes role 1's response arrive last. Without request sequencing it would
+    // overwrite both the matrix and the baseline — and because the baseline
+    // moved too, the confirm diff would claim "no changes" while Save wrote
+    // role 1's permissions onto role 2.
+    apiState.perRolePermissions = {
+      'role-1': [{ action: 'read', subject: 'Case' }],
+      'role-2': [{ action: 'write', subject: 'Setting' }],
+    };
+    apiState.delayByRole = { 'role-1': 120 };
+
+    render(
+      <MemoryRouter>
+        <UserManagementPage />
+      </MemoryRouter>,
+    );
+    fireEvent.click(await screen.findByRole('tab', { name: /Vai trò & Phân quyền/ }));
+    fireEvent.click(await screen.findByTestId('role-item-INVESTIGATOR'));
+    fireEvent.click(await screen.findByTestId('role-item-TRUONG_DON_VI'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('perm-Setting-write')).toBeChecked();
+    });
+
+    // Give role 1's slow response time to arrive and (incorrectly) apply.
+    await new Promise((r) => setTimeout(r, 250));
+
+    expect(screen.getByTestId('perm-Setting-write')).toBeChecked();
+    expect(screen.getByTestId('perm-Case-read')).not.toBeChecked();
+  });
+
+  it('FE-P10: returning to the roles tab keeps unsaved edits', async () => {
+    await renderRolesTab();
+    await waitFor(() => expect(screen.getByTestId('perm-Case-read')).toBeChecked());
+
+    fireEvent.click(screen.getByTestId('perm-Case-edit')); // unsaved edit
+    expect(screen.getByTestId('perm-Case-edit')).toBeChecked();
+
+    fireEvent.click(screen.getByRole('tab', { name: /Người dùng/ }));
+    fireEvent.click(screen.getByRole('tab', { name: /Vai trò & Phân quyền/ }));
+
+    // The catalog is fetched once; refetching it would churn array identity,
+    // re-run the load effect and silently drop the edit above.
+    await waitFor(() => expect(apiState.catalogCalls).toBe(1));
+    expect(screen.getByTestId('perm-Case-edit')).toBeChecked();
   });
 
   it('FE-P5: the confirm modal lists what will be added and removed', async () => {

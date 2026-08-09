@@ -112,8 +112,15 @@ export class AdminController {
   @Delete('roles/:id')
   @HttpCode(HttpStatus.OK)
   @RequirePermissions({ action: 'delete', subject: 'User' })
-  deleteRole(@Param('id') id: string, @CurrentUser() user: AuthUser) {
-    return this.adminService.deleteRole(id, user.id);
+  deleteRole(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthUser,
+    @Req() req: Request,
+  ) {
+    return this.adminService.deleteRole(id, user.id, {
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
   }
 
   // ── Permission Matrix ─────────────────────────────────

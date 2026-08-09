@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Users,
   Shield,
@@ -235,9 +235,22 @@ export default function UserManagementPage() {
     }
   }, []);
 
+  // The permission catalog is fixed for the session. Refetching it on every
+  // tab switch would hand `permCatalog` a new array identity, re-running the
+  // effect below and silently discarding unsaved checkbox edits.
+  const permCatalogLoaded = useRef(false);
+  // Monotonic request id — a response is only applied if it belongs to the
+  // most recent request. Without this, a slow response for a previously
+  // selected role lands on top of the currently selected one, and because it
+  // also overwrites the baseline, the confirm diff would report "no changes"
+  // while Save writes role A's permissions onto role B.
+  const permRequestSeq = useRef(0);
+
   const loadPermCatalog = useCallback(async () => {
+    if (permCatalogLoaded.current) return;
     try {
       const res = await api.get(`/admin/permissions`);
+      permCatalogLoaded.current = true;
       setPermCatalog((res.data ?? []) as PermRow[]);
     } catch (err: unknown) {
       setPermCatalog([]);
@@ -256,9 +269,11 @@ export default function UserManagementPage() {
   const loadPermissions = useCallback(
     async (roleId: string, catalog: PermRow[]) => {
       if (catalog.length === 0) return;
+      const seq = ++permRequestSeq.current;
       setPermLoading(true);
       try {
         const res = await api.get(`/admin/roles/${roleId}/permissions`);
+        if (seq !== permRequestSeq.current) return; // superseded by a newer role
         const granted = new Set(
           ((res.data ?? []) as PermRow[]).map((p) => permKey(p.subject, p.action)),
         );
@@ -271,11 +286,12 @@ export default function UserManagementPage() {
         setPermBaseline(matrix);
         setPermError('');
       } catch (err: unknown) {
+        if (seq !== permRequestSeq.current) return;
         setPermMatrix({});
         setPermBaseline({});
         setPermError(extractApiError(err, MESSAGES.perm.roleLoadFailed).message);
       } finally {
-        setPermLoading(false);
+        if (seq === permRequestSeq.current) setPermLoading(false);
       }
     },
     [],

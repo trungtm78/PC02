@@ -24,7 +24,6 @@ import {
 } from './dto/update-role-permissions.dto';
 import { QueryUsersDto } from './dto/query-users.dto';
 import { CreateDataGrantDto } from './dto/create-data-grant.dto';
-import { AccessLevel } from '@prisma/client';
 import {
   ROLE_NAMES,
   SYSTEM_ROLE_NAMES,
@@ -453,6 +452,21 @@ export class AdminService {
     if (!role) throw new NotFoundException(`Role #${id} không tồn tại`);
 
     if (dto.name && dto.name !== role.name) {
+      // Built-in roles are matched by name everywhere (ROLE_NAMES is DB wire
+      // format). Renaming one breaks every guard that compares against it and
+      // would also carry the role out of reach of the delete guard below.
+      if (SYSTEM_ROLE_NAMES.has(role.name)) {
+        throw new BadRequestException(
+          `Không thể đổi tên vai trò hệ thống "${role.name}". Tên vai trò này được tham chiếu trực tiếp trong các quy tắc phân quyền.`,
+        );
+      }
+      // Symmetric guard: a custom role must not be able to impersonate a
+      // built-in one by taking its name.
+      if (SYSTEM_ROLE_NAMES.has(dto.name)) {
+        throw new BadRequestException(
+          `"${dto.name}" là tên vai trò hệ thống, không thể dùng cho vai trò khác.`,
+        );
+      }
       const dup = await this.prisma.role.findFirst({
         where: { name: dto.name, id: { not: id } },
       });
@@ -468,7 +482,11 @@ export class AdminService {
     });
   }
 
-  async deleteRole(id: string, requesterId: string) {
+  async deleteRole(
+    id: string,
+    requesterId: string,
+    meta: { ipAddress?: string; userAgent?: string } = {},
+  ) {
     const role = await this.prisma.role.findUnique({ where: { id } });
     if (!role) throw new NotFoundException(`Role #${id} không tồn tại`);
 
@@ -496,6 +514,7 @@ export class AdminService {
       subject: 'Role',
       subjectId: id,
       metadata: { roleName: role.name },
+      ...meta,
     });
 
     return { message: 'Đã xóa role thành công' };
