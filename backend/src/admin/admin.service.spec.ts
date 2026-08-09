@@ -13,6 +13,7 @@ import { TeamsService } from '../teams/teams.service';
 import { EnrollmentService } from '../auth/services/enrollment.service';
 import { UserStatus } from './dto/create-user.dto';
 import { STRONG_PASSWORD_REGEX } from '../auth/constants/password.constants';
+import { ROLE_NAMES } from '../common/constants/role.constants';
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
@@ -830,6 +831,51 @@ describe('AdminService', () => {
     });
   });
 
+  // ── getRolePermissions ─────────────────────────────────────────────────────
+  // Regression guard: the frontend permission matrix used to call an endpoint
+  // that did not exist, swallow the 404, render an all-false matrix, and then
+  // PATCH that empty matrix back — wiping the role's permissions.
+
+  describe('getRolePermissions', () => {
+    it('returns flat {action, subject} pairs for the role', async () => {
+      mockPrisma.role.findUnique.mockResolvedValue({
+        id: 'r1',
+        name: 'INVESTIGATOR',
+        _count: { users: 2 },
+        permissions: [
+          { permission: { id: 'p1', action: 'read', subject: 'Case' } },
+          { permission: { id: 'p2', action: 'edit', subject: 'Document' } },
+        ],
+      });
+
+      const result = await service.getRolePermissions('r1');
+
+      expect(result).toEqual([
+        { action: 'read', subject: 'Case' },
+        { action: 'edit', subject: 'Document' },
+      ]);
+    });
+
+    it('returns an empty array when the role has no permissions', async () => {
+      mockPrisma.role.findUnique.mockResolvedValue({
+        id: 'r1',
+        name: 'INVESTIGATOR',
+        _count: { users: 0 },
+        permissions: [],
+      });
+
+      await expect(service.getRolePermissions('r1')).resolves.toEqual([]);
+    });
+
+    it('throws NotFoundException when the role does not exist', async () => {
+      mockPrisma.role.findUnique.mockResolvedValue(null);
+
+      await expect(service.getRolePermissions('missing')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
   // ── updateRole ────────────────────────────────────────────────────────────
 
   describe('updateRole', () => {
@@ -915,6 +961,10 @@ describe('AdminService', () => {
 
   describe('deleteRole', () => {
     it('EC-01: throws BadRequestException when role has users', async () => {
+      mockPrisma.role.findUnique.mockResolvedValue({
+        id: 'role-with-users',
+        name: 'CUSTOM_ROLE',
+      });
       mockPrisma.user.count.mockResolvedValue(3);
 
       await expect(
@@ -923,11 +973,41 @@ describe('AdminService', () => {
     });
 
     it('deletes role when no users assigned', async () => {
+      mockPrisma.role.findUnique.mockResolvedValue({
+        id: 'empty-role',
+        name: 'CUSTOM_ROLE',
+      });
       mockPrisma.user.count.mockResolvedValue(0);
       mockPrisma.role.delete.mockResolvedValue({});
 
       const result = await service.deleteRole('empty-role', 'req');
       expect(result.message).toContain('xóa role');
     });
+
+    it('throws NotFoundException when the role does not exist', async () => {
+      mockPrisma.role.findUnique.mockResolvedValue(null);
+
+      await expect(service.deleteRole('missing', 'req')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    // Guard rail: without this, a system role with zero users could be deleted,
+    // permanently breaking every guard that compares against ROLE_NAMES.
+    it.each(Object.values(ROLE_NAMES))(
+      'refuses to delete built-in system role %s even with no users',
+      async (systemRoleName) => {
+        mockPrisma.role.findUnique.mockResolvedValue({
+          id: 'sys-role',
+          name: systemRoleName,
+        });
+        mockPrisma.user.count.mockResolvedValue(0);
+
+        await expect(service.deleteRole('sys-role', 'req')).rejects.toThrow(
+          BadRequestException,
+        );
+        expect(mockPrisma.role.delete).not.toHaveBeenCalled();
+      },
+    );
   });
 });

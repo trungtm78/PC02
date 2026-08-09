@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Users,
   Shield,
@@ -75,16 +75,38 @@ type FormData = {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const ACTIONS = ['read', 'write', 'delete', 'export', 'approve'];
+// User-facing copy for the permission matrix. Kept as named constants (rather
+// than inline literals) so a future i18n pass has a single place to lift from.
+const MESSAGES = {
+  perm: {
+    catalogFailed:
+      'Không tải được danh mục quyền của hệ thống. Không thể chỉnh sửa phân quyền lúc này.',
+    roleLoadFailed:
+      'Không tải được quyền hiện tại của vai trò. Nút Lưu đã bị khóa để tránh ghi đè nhầm toàn bộ quyền.',
+    saveFailed: 'Lỗi khi lưu phân quyền.',
+    loading: 'Đang tải quyền…',
+    empty: 'Hệ thống chưa khai báo quyền nào.',
+    unavailable: 'Không áp dụng',
+    noChanges: 'Không có thay đổi nào.',
+  },
+} as const;
+
+// Display labels. The action/subject universe itself comes from the backend at
+// runtime — anything without a label here renders its raw key rather than being
+// dropped, so a newly seeded permission can never silently vanish from the grid.
 const ACTION_LABELS: Record<string, string> = {
   read: 'Xem',
   write: 'Thêm/Sửa',
+  edit: 'Sửa',
   delete: 'Xóa',
   export: 'Xuất',
   approve: 'Duyệt',
+  restore: 'Khôi phục',
+  withdraw_own: 'Thu hồi',
+  request_changes: 'Yêu cầu sửa',
+  review_reset_request: 'Duyệt reset',
 };
 
-const SUBJECTS = ['User', 'Role', 'Directory', 'Case', 'Petition', 'Incident', 'Report', 'AuditLog'];
 const SUBJECT_LABELS: Record<string, string> = {
   User: 'Người dùng',
   Role: 'Vai trò',
@@ -94,7 +116,17 @@ const SUBJECT_LABELS: Record<string, string> = {
   Incident: 'Vụ việc',
   Report: 'Báo cáo',
   AuditLog: 'Nhật ký',
+  Document: 'Tài liệu',
+  Subject: 'Đối tượng',
+  Lawyer: 'Luật sư',
+  Team: 'Tổ/Đội',
+  Setting: 'Cấu hình',
+  Calendar: 'Lịch công tác',
+  DeadlineRuleVersion: 'Quy tắc thời hạn',
+  EditWindowResetRequest: 'Yêu cầu reset thời hạn',
 };
+
+const permKey = (subject: string, action: string) => `${subject}:${action}`;
 
 const EMPTY_FORM: FormData = {
   workId: '',
@@ -159,6 +191,13 @@ export default function UserManagementPage() {
   const [permMatrix, setPermMatrix] = useState<Record<string, Record<string, boolean>>>({});
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   const [permSaving, setPermSaving] = useState(false);
+  // Permission universe declared by the backend. The grid is built from this,
+  // never from a hardcoded list — a hardcoded list silently drops every
+  // permission outside it when the matrix is saved back.
+  const [permCatalog, setPermCatalog] = useState<PermRow[]>([]);
+  const [permBaseline, setPermBaseline] = useState<Record<string, Record<string, boolean>>>({});
+  const [permLoading, setPermLoading] = useState(false);
+  const [permError, setPermError] = useState('');
 
   // ─── Data loading ──────────────────────────────────────────────────────────
 
@@ -196,23 +235,51 @@ export default function UserManagementPage() {
     }
   }, []);
 
-  const loadPermissions = useCallback(async (roleId: string) => {
+  const loadPermCatalog = useCallback(async () => {
     try {
-      const res = await api.get(`/admin/roles/${roleId}/permissions`);
-      const raw: PermRow[] = res.data ?? [];
-      const matrix: Record<string, Record<string, boolean>> = {};
-      SUBJECTS.forEach((s) => {
-        matrix[s] = {};
-        ACTIONS.forEach((a) => { matrix[s][a] = false; });
-      });
-      raw.forEach(({ subject, action }) => {
-        if (matrix[subject]) matrix[subject][action] = true;
-      });
-      setPermMatrix(matrix);
-    } catch {
-      // silently fail
+      const res = await api.get(`/admin/permissions`);
+      setPermCatalog((res.data ?? []) as PermRow[]);
+    } catch (err: unknown) {
+      setPermCatalog([]);
+      setPermError(extractApiError(err, MESSAGES.perm.catalogFailed).message);
     }
   }, []);
+
+  /**
+   * Load one role's granted permissions into the grid.
+   *
+   * Fail-closed on purpose: if this request fails we clear the matrix AND set
+   * permError, which disables the Save button. Previously the error was
+   * swallowed, leaving an all-false matrix that Save would happily persist —
+   * wiping every permission the role had.
+   */
+  const loadPermissions = useCallback(
+    async (roleId: string, catalog: PermRow[]) => {
+      if (catalog.length === 0) return;
+      setPermLoading(true);
+      try {
+        const res = await api.get(`/admin/roles/${roleId}/permissions`);
+        const granted = new Set(
+          ((res.data ?? []) as PermRow[]).map((p) => permKey(p.subject, p.action)),
+        );
+        const matrix: Record<string, Record<string, boolean>> = {};
+        catalog.forEach(({ subject, action }) => {
+          matrix[subject] ??= {};
+          matrix[subject][action] = granted.has(permKey(subject, action));
+        });
+        setPermMatrix(matrix);
+        setPermBaseline(matrix);
+        setPermError('');
+      } catch (err: unknown) {
+        setPermMatrix({});
+        setPermBaseline({});
+        setPermError(extractApiError(err, MESSAGES.perm.roleLoadFailed).message);
+      } finally {
+        setPermLoading(false);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     void loadUsers();
@@ -224,12 +291,15 @@ export default function UserManagementPage() {
   }, [loadRoles]);
 
   useEffect(() => {
-    if (activeTab === 'roles-permissions') void loadRoles();
-  }, [activeTab, loadRoles]);
+    if (activeTab === 'roles-permissions') {
+      void loadRoles();
+      void loadPermCatalog();
+    }
+  }, [activeTab, loadRoles, loadPermCatalog]);
 
   useEffect(() => {
-    if (selectedRole) void loadPermissions(selectedRole.id);
-  }, [selectedRole, loadPermissions]);
+    if (selectedRole) void loadPermissions(selectedRole.id, permCatalog);
+  }, [selectedRole, permCatalog, loadPermissions]);
 
   // ─── User handlers ─────────────────────────────────────────────────────────
 
@@ -369,6 +439,46 @@ export default function UserManagementPage() {
     }
   };
 
+  // ─── Permission matrix (grid derived from the backend catalog) ─────────────
+
+  const permSubjects = useMemo(
+    () => [...new Set(permCatalog.map((p) => p.subject))].sort(),
+    [permCatalog],
+  );
+
+  const permActions = useMemo(
+    () => [...new Set(permCatalog.map((p) => p.action))].sort(),
+    [permCatalog],
+  );
+
+  // Only action/subject pairs the backend actually declares are togglable.
+  // Rendering the full cartesian product would let an admin invent permissions
+  // that no guard checks, and PATCH would upsert them as real rows.
+  const permAvailable = useMemo(
+    () => new Set(permCatalog.map((p) => permKey(p.subject, p.action))),
+    [permCatalog],
+  );
+
+  const permDiff = useMemo(() => {
+    const added: string[] = [];
+    const removed: string[] = [];
+    permCatalog.forEach(({ subject, action }) => {
+      const before = permBaseline[subject]?.[action] ?? false;
+      const after = permMatrix[subject]?.[action] ?? false;
+      if (before === after) return;
+      const label = `${SUBJECT_LABELS[subject] ?? subject} — ${ACTION_LABELS[action] ?? action}`;
+      (after ? added : removed).push(label);
+    });
+    return { added, removed };
+  }, [permCatalog, permBaseline, permMatrix]);
+
+  // Fail-closed: never allow a save built on a matrix we could not load.
+  const permSaveBlocked =
+    permError !== '' || permLoading || permCatalog.length === 0 || !selectedRole;
+
+  // Only cells backed by a catalog entry render a checkbox, and the save
+  // payload is rebuilt from permCatalog — so a stray toggle can never reach
+  // the API as an undeclared permission.
   const handleTogglePerm = (subject: string, action: string) => {
     setPermMatrix((prev) => ({
       ...prev,
@@ -377,19 +487,17 @@ export default function UserManagementPage() {
   };
 
   const handleSavePermissions = async () => {
-    if (!selectedRole) return;
+    if (!selectedRole || permSaveBlocked) return;
     setPermSaving(true);
     try {
-      const permissions: { action: string; subject: string }[] = [];
-      SUBJECTS.forEach((s) => {
-        ACTIONS.forEach((a) => {
-          if (permMatrix[s]?.[a]) permissions.push({ action: a, subject: s });
-        });
-      });
+      const permissions = permCatalog
+        .filter(({ subject, action }) => permMatrix[subject]?.[action])
+        .map(({ subject, action }) => ({ action, subject }));
       await api.patch(`/admin/roles/${selectedRole.id}/permissions`, { permissions });
+      setPermBaseline(permMatrix);
       setShowSaveConfirm(false);
     } catch (err: unknown) {
-      alert(extractApiError(err, 'Lỗi khi lưu phân quyền.').message);
+      alert(extractApiError(err, MESSAGES.perm.saveFailed).message);
     } finally {
       setPermSaving(false);
     }
@@ -412,7 +520,7 @@ export default function UserManagementPage() {
                 const headers = ['STT', 'Username', 'Họ tên', 'Email', 'SĐT', 'Vai trò', 'Phòng ban', 'Trạng thái'];
                 const rows = users.map((u, i) => [
                   i + 1, u.username, u.fullName ?? `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim(),
-                  u.email, (u as any).phone ?? '', getRoleLabel(u.role?.name), u.department?.name ?? '',
+                  u.email, u.phone ?? '', getRoleLabel(u.role?.name), u.department?.name ?? '',
                   u.isActive ? 'Hoạt động' : 'Tạm khóa',
                 ]);
                 downloadCsv(rows, headers, `NguoiDung_${new Date().toISOString().slice(0, 10)}.csv`);
@@ -669,6 +777,7 @@ export default function UserManagementPage() {
                   {roles.map((role) => (
                     <button
                       key={role.id}
+                      data-testid={`role-item-${role.name}`}
                       onClick={() => setSelectedRole(role)}
                       className={`w-full text-left p-4 rounded-lg border-2 transition-all ${
                         selectedRole?.id === role.id
@@ -699,48 +808,83 @@ export default function UserManagementPage() {
                       Ma trận phân quyền: {getRoleLabel(selectedRole.name)}
                     </h3>
                     <button
+                      data-testid="save-permissions-btn"
                       onClick={() => setShowSaveConfirm(true)}
-                      className="flex items-center gap-2 px-4 py-2 bg-[#003973] text-white rounded-lg hover:bg-[#002a5c] transition-colors text-sm"
+                      disabled={permSaveBlocked}
+                      className="flex items-center gap-2 px-4 py-2 bg-[#003973] text-white rounded-lg hover:bg-[#002a5c] transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <Save className="w-4 h-4" />
                       Lưu thay đổi
                     </button>
                   </div>
 
-                  <div className="border border-slate-200 rounded-lg overflow-hidden">
+                  {permError && (
+                    <div
+                      data-testid="perm-error-banner"
+                      role="alert"
+                      className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex gap-3"
+                    >
+                      <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                      <p className="text-sm text-red-800">{permError}</p>
+                    </div>
+                  )}
+
+                  <div className="border border-slate-200 rounded-lg overflow-x-auto">
                     <table className="w-full">
                       <thead>
                         <tr className="bg-slate-50 border-b border-slate-200">
                           <th className="text-left py-3 px-4 font-semibold text-slate-700 text-sm">
                             Module
                           </th>
-                          {ACTIONS.map((a) => (
+                          {permActions.map((a) => (
                             <th key={a} className="text-center py-3 px-2 font-semibold text-slate-700 text-sm">
-                              {ACTION_LABELS[a]}
+                              {ACTION_LABELS[a] ?? a}
                             </th>
                           ))}
                         </tr>
                       </thead>
                       <tbody>
-                        {SUBJECTS.map((subject) => (
+                        {permSubjects.map((subject) => (
                           <tr key={subject} className="border-b border-slate-200 hover:bg-slate-50">
                             <td className="py-3 px-4 font-medium text-slate-800 text-sm">
                               {SUBJECT_LABELS[subject] ?? subject}
                             </td>
-                            {ACTIONS.map((action) => (
+                            {permActions.map((action) => (
                               <td key={action} className="py-3 px-2 text-center">
-                                <input
-                                  type="checkbox"
-                                  checked={permMatrix[subject]?.[action] ?? false}
-                                  onChange={() => handleTogglePerm(subject, action)}
-                                  className="w-4 h-4 rounded border-slate-300 text-[#003973] focus:ring-2 focus:ring-[#003973] cursor-pointer"
-                                />
+                                {permAvailable.has(permKey(subject, action)) ? (
+                                  <input
+                                    type="checkbox"
+                                    aria-label={`${SUBJECT_LABELS[subject] ?? subject} — ${ACTION_LABELS[action] ?? action}`}
+                                    data-testid={`perm-${subject}-${action}`}
+                                    checked={permMatrix[subject]?.[action] ?? false}
+                                    disabled={permSaveBlocked}
+                                    onChange={() => handleTogglePerm(subject, action)}
+                                    className="w-4 h-4 rounded border-slate-300 text-[#003973] focus:ring-2 focus:ring-[#003973] cursor-pointer disabled:cursor-not-allowed"
+                                  />
+                                ) : (
+                                  <span
+                                    className="text-slate-300 select-none"
+                                    title={MESSAGES.perm.unavailable}
+                                  >
+                                    —
+                                  </span>
+                                )}
                               </td>
                             ))}
                           </tr>
                         ))}
                       </tbody>
                     </table>
+                    {permLoading && (
+                      <p className="py-4 text-center text-sm text-slate-500">
+                        {MESSAGES.perm.loading}
+                      </p>
+                    )}
+                    {!permLoading && permCatalog.length === 0 && !permError && (
+                      <p className="py-4 text-center text-sm text-slate-500">
+                        {MESSAGES.perm.empty}
+                      </p>
+                    )}
                   </div>
 
                   <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg flex gap-3">
@@ -1026,10 +1170,46 @@ export default function UserManagementPage() {
               <h3 className="text-lg font-bold text-slate-800 text-center mb-2">
                 Xác nhận lưu thay đổi
               </h3>
-              <p className="text-slate-600 text-center mb-6">
+              <p className="text-slate-600 text-center mb-4">
                 Bạn có chắc chắn muốn lưu thay đổi phân quyền cho vai trò{' '}
                 <strong>{getRoleLabel(selectedRole?.name)}</strong>?
               </p>
+
+              {/* Explicit diff — an admin must see exactly what is being
+                  granted and revoked before a role-wide permission write. */}
+              <div data-testid="perm-diff" className="mb-6 text-sm">
+                {permDiff.added.length === 0 && permDiff.removed.length === 0 ? (
+                  <p className="text-center text-slate-500">{MESSAGES.perm.noChanges}</p>
+                ) : (
+                  <div className="space-y-3 max-h-48 overflow-y-auto">
+                    {permDiff.added.length > 0 && (
+                      <div>
+                        <p className="font-medium text-emerald-700 mb-1">
+                          Thêm {permDiff.added.length} quyền
+                        </p>
+                        <ul className="list-disc list-inside text-slate-600 space-y-0.5">
+                          {permDiff.added.map((label) => (
+                            <li key={label}>{label}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {permDiff.removed.length > 0 && (
+                      <div>
+                        <p className="font-medium text-red-700 mb-1">
+                          Gỡ {permDiff.removed.length} quyền
+                        </p>
+                        <ul className="list-disc list-inside text-slate-600 space-y-0.5">
+                          {permDiff.removed.map((label) => (
+                            <li key={label}>{label}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowSaveConfirm(false)}

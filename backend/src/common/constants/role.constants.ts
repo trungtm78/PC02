@@ -18,3 +18,14 @@ export const ROLE_NAMES = {
 } as const;
 
 export type RoleName = (typeof ROLE_NAMES)[keyof typeof ROLE_NAMES];
+
+/**
+ * Lookup set of the built-in role names above.
+ *
+ * These roles are referenced by name from guards, services and seed scripts,
+ * so they must never be deleted through the admin API — a missing row here
+ * silently disables every authorization check that compares against it.
+ */
+export const SYSTEM_ROLE_NAMES: ReadonlySet<string> = new Set<string>(
+  Object.values(ROLE_NAMES),
+);

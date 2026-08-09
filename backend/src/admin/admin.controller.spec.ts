@@ -1,3 +1,4 @@
+import { NotFoundException } from '@nestjs/common';
 import { buildControllerModule, makeReq, mockUser } from '../test-utils/controller-test-helpers';
 import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
@@ -13,6 +14,7 @@ const mockService = {
   updateRole: jest.fn(),
   deleteRole: jest.fn(),
   getAllPermissions: jest.fn(),
+  getRolePermissions: jest.fn(),
   updateRolePermissions: jest.fn(),
   listDataAccessGrants: jest.fn(),
   createDataAccessGrant: jest.fn(),
@@ -33,6 +35,27 @@ describe('AdminController — delegation', () => {
     mockService.getUsers.mockResolvedValue({ data: [] });
     await controller.getUsers({} as any);
     expect(mockService.getUsers).toHaveBeenCalled();
+  });
+
+  it('getRolePermissions() delegates to service.getRolePermissions with the role id', async () => {
+    mockService.getRolePermissions.mockResolvedValue([
+      { action: 'read', subject: 'Case' },
+    ]);
+
+    const result = await controller.getRolePermissions('role-1');
+
+    expect(mockService.getRolePermissions).toHaveBeenCalledWith('role-1');
+    expect(result).toEqual([{ action: 'read', subject: 'Case' }]);
+  });
+
+  it('getRolePermissions() propagates service errors instead of swallowing them', async () => {
+    mockService.getRolePermissions.mockRejectedValue(
+      new NotFoundException('Role #missing không tồn tại'),
+    );
+
+    await expect(controller.getRolePermissions('missing')).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
   it('createUser() delegates to service.createUser with userId and audit info', async () => {

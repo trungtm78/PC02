@@ -25,7 +25,10 @@ import {
 import { QueryUsersDto } from './dto/query-users.dto';
 import { CreateDataGrantDto } from './dto/create-data-grant.dto';
 import { AccessLevel } from '@prisma/client';
-import { ROLE_NAMES } from '../common/constants/role.constants';
+import {
+  ROLE_NAMES,
+  SYSTEM_ROLE_NAMES,
+} from '../common/constants/role.constants';
 
 @Injectable()
 export class AdminService {
@@ -465,8 +468,19 @@ export class AdminService {
     });
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async deleteRole(id: string, requesterId: string) {
+    const role = await this.prisma.role.findUnique({ where: { id } });
+    if (!role) throw new NotFoundException(`Role #${id} không tồn tại`);
+
+    // Guards and services compare roles by name (ROLE_NAMES is DB wire format).
+    // A built-in role with zero users would otherwise be deletable, silently
+    // disabling every authorization check that references it.
+    if (SYSTEM_ROLE_NAMES.has(role.name)) {
+      throw new BadRequestException(
+        `Không thể xóa vai trò hệ thống "${role.name}". Vai trò này được tham chiếu trực tiếp trong các quy tắc phân quyền.`,
+      );
+    }
+
     // EC-01: Chặn xóa role đang có user
     const userCount = await this.prisma.user.count({ where: { roleId: id } });
     if (userCount > 0) {
@@ -475,6 +489,15 @@ export class AdminService {
       );
     }
     await this.prisma.role.delete({ where: { id } });
+
+    await this.audit.log({
+      userId: requesterId,
+      action: 'ROLE_DELETED',
+      subject: 'Role',
+      subjectId: id,
+      metadata: { roleName: role.name },
+    });
+
     return { message: 'Đã xóa role thành công' };
   }
 
@@ -532,6 +555,25 @@ export class AdminService {
     return this.prisma.permission.findMany({
       orderBy: [{ subject: 'asc' }, { action: 'asc' }],
     });
+  }
+
+  /**
+   * Flat permission list for one role, in the exact `{ action, subject }` shape
+   * that `PATCH /admin/roles/:id/permissions` accepts.
+   *
+   * The admin permission matrix round-trips through these two endpoints, so
+   * they must agree on the payload shape. Returning the nested Prisma relation
+   * instead would force the UI to translate between two representations — the
+   * gap where the previous matrix silently lost permissions.
+   */
+  async getRolePermissions(
+    id: string,
+  ): Promise<Array<{ action: string; subject: string }>> {
+    const role = await this.getRoleById(id);
+    return role.permissions.map((rp) => ({
+      action: rp.permission.action,
+      subject: rp.permission.subject,
+    }));
   }
 
   // ──────────────────────────────────────────────────────

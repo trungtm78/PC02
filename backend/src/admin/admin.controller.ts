@@ -123,6 +123,14 @@ export class AdminController {
     return this.adminService.getAllPermissions();
   }
 
+  // Counterpart of PATCH below — the admin permission matrix reads through
+  // this route and writes through that one, so both speak {action, subject}.
+  @Get('roles/:id/permissions')
+  @RequirePermissions({ action: 'read', subject: 'User' })
+  getRolePermissions(@Param('id') id: string) {
+    return this.adminService.getRolePermissions(id);
+  }
+
   @Patch('roles/:id/permissions')
   @RequirePermissions({ action: 'write', subject: 'User' })
   updateRolePermissions(

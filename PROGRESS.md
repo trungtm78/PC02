@@ -1,48 +1,85 @@
-STATUS: ALL_MILESTONES_DONE
+# PROGRESS
+Cập nhật: 2026-08-10T00:35:00+07:00 | Milestone: M0/5 | Task: 1/1 của M0
 
-# PROGRESS — Di trú lại data hệ cũ pc02hcm.com (data-driven)
-Cập nhật: 2026-08-02 | Nhánh: feat/legacy-remigration-datadriven | PR: 1/5 xong
+> Nguồn sự thật về trạng thái thi công. Kế hoạch gốc: `~/.claude/plans/r-so-t-to-n-b-vast-minsky.md`
+> (đã qua `/plan-eng-review` + outside voice). Lịch sử đợt di trú legacy trước đó đã chuyển sang
+> [docs/legacy/PROGRESS-legacy-remigration.md](docs/legacy/PROGRESS-legacy-remigration.md).
 
-## Bối cảnh
-Migration cũ dùng mapping HARDCODE ~90 key → sai FIELD (không mất bản ghi: coverage 98,5%).
-Làm lại data-driven từ TruongTuyChinh(176)+NgonNgu(746), đối chiếu source PHP.
-Quyền PROD: test local xong → tự áp prod, KHÔNG hỏi lại (prod chưa vận hành). pg_dump trước.
+## Bản đồ milestone
+
+| MS | Tên | PR | Trạng thái |
+|----|-----|----|-----------|
+| M0 | Hồi sức — lỗi đang phá dữ liệu trên production | A1 | **1/1 xong** |
+| M0.5 | Governance — CI gate + ADR | B0a, B0b, B0c | chưa bắt đầu |
+| M1 | Mất dữ liệu / bảo mật còn lại + nền mobile | D1, A2, A3, A4, M1 | chưa bắt đầu |
+| M2 | Hạ tầng cờ tính năng | B1, B2, B3 | chưa bắt đầu |
+| M3 | Xóa mockup | C1–C12 | chưa bắt đầu |
+| M4 | Vòng đời dữ liệu | D2–D9 | chưa bắt đầu |
+| M5 | Dọn dẹp + gate API | E1–E6 | chưa bắt đầu |
 
 ## Đã hoàn thành
-- [x] PR-0 export live Mongo (EJSON ngoài git) + đối soát — commit. 7 test.
-  - bi_can=0 CẢ LIVE (nghi can chỉ ở text); coverage 98,5%; vấn đề = field-level.
-- [x] PR-1 catalog 132 field + ma trận map (MAPPED 80/RESOLVE 5/UNMAPPED 47) — commit. 12 test.
-  - `docs/legacy/{field-catalog.generated,field-mapping}.{md,json}`. field-mapping.json = config builder.
-- [x] PR-2 schema truy nguyên — commit. tsc sạch. migration 20260803000000_legacy_traceability.
-  - +soHoSoCu/legacyId/legacyCollection (cases/petitions/incidents) + Subject/InvestigationSupplement khóa gốc + index.
 
-- [x] PR-3a+b TRUY NGUYÊN end-to-end (vụ án) — commit. Full BE 2850 test xanh, BE+FE tsc sạch.
-  - traceFields → builders; backfill-trace điền 53.455 bản ghi (cases 3283+petitions 45459+incidents 4713);
-    CaseDetailPage hiện "Mã hồ sơ gốc"; cases search theo soHoSoCu/caseCode. YÊU CẦU CỐT LÕI CỦA ANH: XONG.
+- [x] **M0-T1 — PR-A1 `fix/admin-role-permission-matrix`** — chưa commit (đang ở working tree) — patch coverage: BE 100% dòng mới, FE 69/70 statement (1 guard chống race)
+  - BE: thêm `GET /admin/roles/:id/permissions` (`admin.controller.ts:127-132`, `admin.service.ts:getRolePermissions`)
+  - BE: `deleteRole` chặn xóa vai trò hệ thống trong `SYSTEM_ROLE_NAMES` + validate tồn tại + ghi audit `ROLE_DELETED`
+  - BE: thêm `SYSTEM_ROLE_NAMES` vào `common/constants/role.constants.ts`
+  - FE: ma trận quyền dựng động từ `GET /admin/permissions`, fail-closed khi load lỗi, modal xác nhận hiện diff thật
+  - Test: +8 BE (3 `getRolePermissions`, 4 role hệ thống, 1 NotFound), +2 BE controller, +8 FE
 
-- [x] PR-3c parity Petition/Incident (search soHoSoCu + IncidentDetail display) — commit. 192 test.
-- [x] ÁP PROD (PR #206 merged, deploy #206 success) + BACKFILL PROD idempotent:
-  cases 3283 + petitions 45298 + incidents 4592 có soHoSoCu (petitions 161 nguồn không có stt).
-  Verify prod: detail trả soHoSoCu (VA-2026-09891→20); SEARCH theo STT chạy (search=20 → 3 vụ). Health OK.
-  (search=8358 ra 0 chỉ do DataScope admin test, không phải bug — DB+code khớp.)
+## Đang làm dở
 
-## HOÀN TẤT
-Traceability hệ cũ end-to-end, LOCAL + PROD, 3 module. Yêu cầu cốt lõi của anh (lưu số truy nguyên) XONG.
+Task: M0-T1d — checkpoint PR-A1
+Đã làm: toàn bộ code + test đã xong và xanh. Full suite BE 218 suite/2867 test PASS, FE 150 file/1465 test PASS, `tsc --noEmit` (BE) + `tsc -b` (FE) sạch, eslint trên các file đã sửa exit 0.
+**BƯỚC TIẾP THEO:** commit PR-A1 lên nhánh `fix/admin-role-permission-matrix`, rồi chạy `/review` → `/codex` theo §4, xử lý hết finding, sau đó bắt đầu M0.5-T1 (PR-B0a `chore/ci-governance-gate`).
+File liên quan: `backend/src/admin/admin.{controller,service}.ts`, `backend/src/common/constants/role.constants.ts`, `frontend/src/pages/users/UserManagementPage.tsx`
 
-## PR-4 (full re-map field) — DEFER theo khuyến nghị
-Data coverage 98,5% + 80 field builder hiện map đúng → re-migrate 53k rủi ro cao, lợi ích thấp.
-Đề xuất: chỉ VÁ field cụ thể anh chỉ ra sai (dùng docs/legacy/field-mapping.md để soi), KHÔNG re-migrate toàn bộ.
-Công cụ sẵn sàng nếu cần: cli/mongo-export.ts, build-field-catalog.ts, build-field-mapping.ts, field-mapping.json.
+## Hàng đợi task kế tiếp
+
+1. M0.5-T1 — PR-B0a `chore/ci-governance-gate` (**blocking**): enum-literal grep guard, eslint `--max-warnings=0` không `--fix`, `gen:enums` + `git diff --exit-code`, mở rộng jest `roots` để `backend/test/` được chạy, mở rộng vitest `include` để `src/**/*.test.ts` ngoài `__tests__` được chạy, sửa CLAUDE.md:31.
+2. M0.5-T2 — PR-B0b `chore/ci-drift-and-e2e-scaffold` (`continue-on-error`): `prisma migrate diff`, Postgres service, project Playwright `e2e-new`, `tests/.env.test.example`.
+3. M0.5-T3 — PR-B0c `docs/adr-foundation`: `docs/adr/` + 12 ADR + CI nudge.
+4. M1-T1 — PR-D1 `feat/evidences-lifecycle` (phải trước A2).
+5. M1-T2 — PR-A2 `fix/case-update-subentity-dataloss`.
 
 ## Quyết định kiến trúc
-| Ngày | Quyết định | Lý do |
-| 2026-08-02 | Mapping = bảng DATA (field-mapping.json) builder đọc, KHÔNG imperative | data-driven, dễ review/sửa |
-| 2026-08-02 | Bỏ bi_can→Subject | bi_can rỗng cả live; nghi can chỉ ở text nghi_van_doi_tuong |
-| 2026-08-02 | Dump EJSON ngoài git (gitignore) | tránh lộ PII; repo chỉ giữ catalog/report metadata |
+
+| Ngày | Quyết định | Lý do | Ảnh hưởng |
+|------|-----------|-------|-----------|
+| 2026-08-10 | Cài Node.js LTS v24.19.0 qua winget | Máy chưa có Node → không chạy được test/lint/tsc, tức không thoả §3 | Môi trường dev cục bộ |
+| 2026-08-10 | Ma trận quyền FE dựng động từ `GET /admin/permissions`, không dùng danh sách cứng | Danh sách cứng cũ (8 subject × 5 action) bỏ sót 8/16 subject và 5/9 action thật, và chứa `export` không tồn tại → nút Lưu âm thầm xoá mọi quyền ngoài lưới | Mọi permission mới seed vào DB tự động xuất hiện trên lưới |
+| 2026-08-10 | Ô không có trong danh mục render `—` thay vì checkbox | Lưới đầy đủ cartesian cho phép admin tạo permission không guard nào kiểm, và `updateRolePermissions` sẽ upsert chúng thành row thật | Không sinh Permission rác |
+| 2026-08-10 | Fail-closed: load quyền lỗi → khoá nút Lưu | Trước đây lỗi bị nuốt, ma trận rỗng vẫn ghi đè được — đây chính là cơ chế gây mất quyền | Không thể ghi đè bằng dữ liệu chưa tải được |
+| 2026-08-10 | `deleteRole` ghi audit `ROLE_DELETED` | `requesterId` vốn bị `eslint-disable no-unused-vars`; xoá vai trò là thao tác an ninh phải có vết | Bỏ được 1 lint suppression (§5) |
+| 2026-08-10 | Chuyển `PROGRESS.md` cũ sang `docs/legacy/` thay vì ghi đè | §2 — bảo toàn dữ liệu khi spec mâu thuẫn | Lịch sử di trú legacy vẫn tra cứu được |
+
+## Assumption đã tự quyết
+
+| Điểm mơ hồ | Diễn giải đã chọn | Căn cứ |
+|---|---|---|
+| §4 yêu cầu message là hằng số/khoá i18n, nhưng repo không có hạ tầng i18n | Gom message của ma trận quyền vào hằng `MESSAGES` có namespace ở đầu file, không dựng framework i18n giữa PR | §4 "convention hiện có của repo thắng"; vẫn tạo được điểm neo cho lần i18n sau |
+| §3.4 "lint sạch" vs 59 lỗi lint có sẵn trong `admin.service.ts` | Diễn giải theo đúng chữ "không warning **mới**": chỉ đảm bảo dòng tôi thêm sạch, không reformat code cũ không liên quan | Reformat cả file làm diff phình và trộn mục đích, trái "1 branch = 1 mục đích". Nợ này giao cho PR-B0a — PR mà mục đích chính là bật lint |
+| Baseline test trong CLAUDE.md (1728 BE + 733 FE) | Đo lại thực tế: **2867 BE + 1457 FE** (trước khi tôi thêm test). Dùng số đo thật làm mốc | Chạy `npx jest` và `npx vitest run` trực tiếp |
 
 ## Trạng thái test
-Full suite: chưa chạy lại toàn bộ (mới thêm 12 test unit, đều PASS) | tsc: sạch
+
+Full suite: **PASS**
+- Backend: 218 suite / 2867 test — PASS
+- Frontend: 150 file / 1465 test — PASS
+- `tsc --noEmit` (BE): sạch · `tsc -b` (FE): sạch
+- eslint trên file đã sửa: exit 0
+
+Patch coverage: BE 100% dòng mới · FE 69/70 statement (chỉ dòng 490 — guard chống race trong `handleSavePermissions` — chưa phủ)
+Test fail: không
 
 ## Nợ kỹ thuật / rủi ro
-- Ma trận map 132 field cần đối chiếu PHP + review — làm ở PR-1.b.
-- Epoch +14h: xác minh lại từ dữ liệu ở PR-3.
+
+| # | Nội dung | Giao cho |
+|---|---|---|
+| ND-1 | `backend/src/admin/admin.service.ts` có **59 lỗi prettier** và `admin.service.spec.ts` có ~32 dòng lỗi `no-unsafe-*` — đều có sẵn, do CI chưa bao giờ chạy eslint | PR-B0a |
+| ND-2 | CLAUDE.md:31 tuyên bố "Verified by grep guard in CI" nhưng guard **không tồn tại** trong `.github/workflows/` | PR-B0a |
+| ND-3 | CLAUDE.md ghi baseline test 1728+733, thực tế 2867+1457 — cần sửa tài liệu | PR-B0a |
+| ND-4 | `backend/test/` không bao giờ chạy (`jest.rootDir = "src"`); `frontend/src/hooks/useMasterClassOptions.test.ts` không bao giờ chạy (vitest `include` chỉ nhận `__tests__/`) | PR-B0a |
+| ND-5 | Chạy song song jest (BE) và vitest (FE) trên máy này gây timeout giả ở test dùng `findBy*` — **luôn chạy tuần tự** | Ghi chú vận hành |
+| ND-6 | Tầng phân quyền FE vẫn là mock (`MOCK_ALL_PERMISSIONS` cấp toàn quyền cho mọi user, 252 call site) — người dùng chủ động hoãn; yêu cầu "không mockup" **chưa thoả mãn hoàn toàn** | Quyết lại sau M2 |
+| ND-7 | Cổng `prisma migrate diff` sẽ đỏ ngay do ≥6 partial index không biểu diễn được trong Prisma 7; PR-C4 còn cần thêm một cái nữa | PR-B0b (đặt `continue-on-error`) |
+| ND-8 | Gate API bằng feature flag sẽ làm hỏng app mobile đã cài (`mobile/lib` không đọc cờ, interceptor chỉ bắt 401, không có forced-update) | PR-M1 chặn cứng E4–E6 |
