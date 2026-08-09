@@ -42,7 +42,9 @@ const ALLOWED = [
   /(^|[\\/])shared[\\/]enums[\\/]/,
   /(^|[\\/])common[\\/]constants[\\/]/,
   /(^|[\\/])constants[\\/][^\\/]*constants\.ts$/,
-  /(^|[\\/])prisma[\\/]/,
+  // No `prisma/` entry. backend/prisma is outside SCAN_ROOTS so it never
+  // needed one, while the pattern *did* match backend/src/prisma — quietly
+  // exempting the PrismaService module from the guard.
   // Test files use literals as fixtures on purpose — asserting against a
   // constant would make the test tautological with the code it checks.
   /\.spec\.tsx?$/,
@@ -89,11 +91,77 @@ function walk(dir, out) {
   return out;
 }
 
+/**
+ * Blank out comments, preserving every line and column so reported positions
+ * still point at the real source.
+ *
+ * String-aware on purpose. A regex that just blanks from `//` to end of line
+ * also eats the `//` inside a URL literal, so
+ *
+ *     const u = 'http://x'; if (s === 'TIEP_NHAN') { ... }
+ *
+ * would have the comparison erased and the guard would never see it.
+ */
 function stripCommentsAndKeepPositions(source) {
-  // Replace comment bodies with spaces so line/column numbers stay intact.
-  return source
-    .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '))
-    .replace(/\/\/[^\n]*/g, (m) => m.replace(/[^\n]/g, ' '));
+  const out = [];
+  let i = 0;
+  let state = 'code'; // code | line | block | single | double | template
+  while (i < source.length) {
+    const ch = source[i];
+    const next = source[i + 1];
+    const keep = () => out.push(ch);
+    const blank = () => out.push(ch === '\n' ? '\n' : ' ');
+
+    switch (state) {
+      case 'code':
+        if (ch === '/' && next === '/') {
+          state = 'line';
+          blank();
+        } else if (ch === '/' && next === '*') {
+          state = 'block';
+          blank();
+        } else {
+          if (ch === "'") state = 'single';
+          else if (ch === '"') state = 'double';
+          else if (ch === '`') state = 'template';
+          keep();
+        }
+        break;
+      case 'line':
+        if (ch === '\n') state = 'code';
+        blank();
+        break;
+      case 'block':
+        if (ch === '*' && next === '/') {
+          out.push(' ');
+          i += 1;
+          out.push(' ');
+          state = 'code';
+          i += 1;
+          continue;
+        }
+        blank();
+        break;
+      case 'single':
+      case 'double':
+      case 'template': {
+        const quote = state === 'single' ? "'" : state === 'double' ? '"' : '`';
+        if (ch === '\\') {
+          keep();
+          i += 1;
+          if (i < source.length) out.push(source[i]);
+        } else if (ch === quote) {
+          state = 'code';
+          keep();
+        } else {
+          keep();
+        }
+        break;
+      }
+    }
+    i += 1;
+  }
+  return out.join('');
 }
 
 function findViolations(enumValues, roots = SCAN_ROOTS, baseDir = REPO_ROOT) {

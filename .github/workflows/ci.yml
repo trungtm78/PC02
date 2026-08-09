@@ -43,7 +43,7 @@ jobs:
       - name: Install frontend dependencies
         run: cd frontend && npm ci
 
-      # Whole-repo lint is ~9.3k problems of accumulated debt, so the gate is
+      # Whole-repo lint is ~11.5k problems of accumulated debt, so the gate is
       # monotonic instead: a file this branch touches may not get worse.
       - name: Lint ratchet on changed files
         run: node scripts/governance/lint-changed.cjs origin/main
@@ -52,14 +52,16 @@ jobs:
   # tree, and turning them into merge blockers before that is dealt with would
   # stop every PR on debt unrelated to it:
   #
+  #  - tests/ type-check: 9 errors across 6 generated UAT specs that CI does
+  #    not run — see ND-10 in PROGRESS.md. The live parts are already clean.
   #  - schema drift: production carries at least six partial indexes that
   #    Prisma 7 has no syntax for (20260516120000, 20260522131024,
   #    20260627130700), so `migrate diff` reports a difference that cannot be
   #    expressed in schema.prisma. Upcoming work adds another one.
-  #  - e2e: the tests/e2e-new suite is still empty. The 182 legacy specs are
-  #    deliberately not wired up — see tests/e2e-new/README.md.
   #
   # Flip continue-on-error off per check, as each becomes actionable.
+  # No e2e step here yet: tests/e2e-new has no specs, and Playwright exits
+  # non-zero on an empty project. It joins CI with its first spec.
   advisory:
     name: Advisory Checks (non-blocking)
     runs-on: ubuntu-latest
@@ -95,7 +97,7 @@ jobs:
       - name: Install root dependencies
         run: npm ci
 
-      # tests/ has never been type-checked. 11 errors remain, all in generated
+      # tests/ has never been type-checked. 9 errors remain, all in generated
       # UAT specs that CI does not run (missing variables the generator forgot
       # to declare, a duplicated object key, an absent jszip dependency) — see
       # tests/e2e-new/README.md for why that suite is not wired up. The live

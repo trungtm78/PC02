@@ -35,13 +35,19 @@ tests cannot see, because each piece works and only the seam is wrong:
 
 ## Running
 
+This directory has no specs yet, and Playwright exits non-zero on a project
+that matches nothing — hence `--pass-with-no-tests` below, and hence CI does
+not run this project yet. Drop both once the first spec lands.
+
 ```bash
 # against the local dev servers playwright.config.ts starts for you
-npx playwright test --project=e2e-new
+npx playwright test --project=e2e-new --pass-with-no-tests
 
-# against a deployed environment
+# against a deployed environment.
+# UAT_PROD goes in the shell, not in the file: playwright.config.ts reads it to
+# decide whether to load tests/.env.test at all.
 cp tests/.env.test.example tests/.env.test   # then fill it in
-UAT_PROD=1 npx playwright test --project=e2e-new
+UAT_PROD=1 npx playwright test --project=e2e-new --pass-with-no-tests
 ```
 
 ## Conventions

@@ -93,6 +93,29 @@ describe('enum-literal guard', () => {
       expect(hits).toEqual([]);
     });
 
+    it('ignores a block comment without swallowing the code after it', () => {
+      const hits = scanFixture(
+        {
+          'src/a.ts': `/* status === 'TIEP_NHAN' */ if (s === 'TIEP_NHAN') return 1;`,
+        },
+        ['TIEP_NHAN'],
+      );
+      expect(hits).toHaveLength(1);
+    });
+
+    it('does not treat // inside a string literal as the start of a comment', () => {
+      // A naive stripper blanks from the // in the URL to end of line, hiding
+      // the comparison that follows it.
+      const hits = scanFixture(
+        {
+          'src/a.ts': `const u = 'http://x'; if (s === 'TIEP_NHAN') return 1;`,
+        },
+        ['TIEP_NHAN'],
+      );
+      expect(hits).toHaveLength(1);
+      expect(hits[0].value).toBe('TIEP_NHAN');
+    });
+
     it('does not flag a string that is not an enum member', () => {
       const hits = scanFixture(
         { 'src/a.ts': `if (x === 'NOT_AN_ENUM_VALUE') return 1;` },
@@ -106,13 +129,23 @@ describe('enum-literal guard', () => {
       'src/common/constants/case.constants.ts',
       'src/pages/__tests__/thing.test.ts',
       'src/thing.spec.ts',
-      'prisma/seed.ts',
     ])('never flags %s, whose job is to spell values out', (rel) => {
       const hits = scanFixture(
         { [rel]: `if (c.status === 'TIEP_NHAN') return 1;` },
         ['TIEP_NHAN'],
       );
       expect(hits).toEqual([]);
+    });
+
+    it('does not exempt the PrismaService module', () => {
+      // An earlier allow-list entry meant for backend/prisma (which is not even
+      // scanned) also matched backend/src/prisma, silently switching the guard
+      // off for that module.
+      const hits = scanFixture(
+        { 'src/prisma/prisma.service.ts': `if (s === 'TIEP_NHAN') return 1;` },
+        ['TIEP_NHAN'],
+      );
+      expect(hits).toHaveLength(1);
     });
 
     it('matches the allow-list against the repo-relative path, not the absolute one', () => {

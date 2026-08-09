@@ -36,7 +36,7 @@ Internal case management system (NestJS backend + React frontend) for managing l
 `.github/workflows/ci.yml` job `Governance Gate` enforces what the sections above describe:
 - **Enum literals** — `node scripts/governance/check-enum-literals.cjs`
 - **Enum sync** — runs `gen:enums` and fails if `frontend/src/shared/enums/` changes, i.e. the committed generated file is stale
-- **Lint ratchet** — `node scripts/governance/lint-changed.cjs origin/main`. Whole-repo lint is ~9.3k problems of debt accumulated while CI never ran eslint, so the gate is monotonic: a file your branch touches may not carry more problems than `scripts/governance/lint-baseline.json` records; new files must be clean. Most are formatting — `npx eslint --fix <file>`.
+- **Lint ratchet** — `node scripts/governance/lint-changed.cjs origin/main`. Whole-repo lint is ~11.5k problems of debt accumulated while CI never ran eslint, so the gate is monotonic: a file your branch touches may not carry more problems than `scripts/governance/lint-baseline.json` records; new files must be clean. Most are formatting — `npx eslint --fix <file>`.
 - After cleaning debt, tighten the ratchets: `node scripts/governance/lint-changed.cjs --write-baseline` and `node scripts/governance/check-enum-literals.cjs --write-baseline`.
 
 ## Deploy Configuration

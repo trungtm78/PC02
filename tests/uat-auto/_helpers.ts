@@ -12,17 +12,17 @@ import { APIRequestContext, expect } from '@playwright/test';
  * including writes — at the live system. An explicit BASE_URL is cheap; an
  * accidental production run is not.
  */
-export const PROD_BASE = (() => {
+export function baseUrl(): string {
   const base = process.env.BASE_URL;
   if (!base) {
     throw new Error(
       'BASE_URL is not set. The UAT suite runs against a real deployment and has ' +
         'no default target — copy tests/.env.test.example to tests/.env.test and ' +
-        'set BASE_URL (that file is gitignored).',
+        'set BASE_URL (that file is gitignored, and UAT_PROD=1 goes in the shell).',
     );
   }
   return base;
-})();
+}
 
 export type Role = 'admin' | 'admin2' | 'officer1' | 'officer2' | 'approver1' | 'noauth';
 
@@ -42,7 +42,7 @@ export async function loginAs(role: Role, api: APIRequestContext): Promise<strin
   const cached = tokenCache.get(role);
   if (cached && Date.now() - cached.ts < TOKEN_TTL_MS) return cached.token;
   const c = CREDS[role];
-  const res = await api.post(`${PROD_BASE}/api/v1/auth/login`, {
+  const res = await api.post(`${baseUrl()}/api/v1/auth/login`, {
     data: { username: c.username, password: c.password },
   });
   if (!res.ok()) {
@@ -68,7 +68,7 @@ export async function call(api: APIRequestContext, opts: CallOpts) {
   const token = opts.role ? await loginAs(opts.role, api) : '';
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (token) headers.Authorization = `Bearer ${token}`;
-  let url = `${PROD_BASE}/api/v1${opts.path}`;
+  let url = `${baseUrl()}/api/v1${opts.path}`;
   if (opts.query) {
     const qs = new URLSearchParams(opts.query as any).toString();
     if (qs) url += `?${qs}`;
@@ -101,7 +101,7 @@ export async function createTestCase(api: APIRequestContext, opts?: {
   const role = opts?.role || 'admin';
   const tag = opts?.tag || `UAT-RUN-${Date.now()}`;
   const token = await loginAs(role, api);
-  const res = await api.fetch(`${PROD_BASE}/api/v1/cases`, {
+  const res = await api.fetch(`${baseUrl()}/api/v1/cases`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     data: {
@@ -121,7 +121,7 @@ export async function createTestCase(api: APIRequestContext, opts?: {
  */
 export async function smokeReachable(api: APIRequestContext, path: string, role: Role = 'admin') {
   const token = role !== 'noauth' ? await loginAs(role, api) : '';
-  const res = await api.fetch(`${PROD_BASE}/api/v1${path}`, {
+  const res = await api.fetch(`${baseUrl()}/api/v1${path}`, {
     method: 'GET',
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });

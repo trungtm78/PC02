@@ -122,6 +122,12 @@ export default defineConfig({
     // The narrower pattern silently skipped src/hooks/useMasterClassOptions.test.ts,
     // so a test file could be added and never run.
     include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
+    // Must stay above the Testing Library asyncUtilTimeout set in
+    // src/test-setup.ts. At the default 5000 the two are equal, so a slow
+    // `findBy*` trips vitest's own timeout first and reports a generic
+    // "Test timed out" instead of Testing Library's message naming the query
+    // and dumping the DOM.
+    testTimeout: 15_000,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html', 'lcov'],
