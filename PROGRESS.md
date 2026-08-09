@@ -10,7 +10,7 @@ Cập nhật: 2026-08-10T01:45:00+07:00 | Milestone: M0.5/5 | Task: 1/3 của M0
 | MS | Tên | PR | Trạng thái |
 |----|-----|----|-----------|
 | M0 | Hồi sức — lỗi đang phá dữ liệu trên production | A1 | **1/1 xong** |
-| M0.5 | Governance — CI gate + ADR | B0a, B0b, B0c | **1/3** (B0a xong) |
+| M0.5 | Governance — CI gate + ADR | B0a, B0b, B0c | **2/3** (B0a, B0b xong) |
 | M1 | Mất dữ liệu / bảo mật còn lại + nền mobile | D1, A2, A3, A4, M1 | chưa bắt đầu |
 | M2 | Hạ tầng cờ tính năng | B1, B2, B3 | chưa bắt đầu |
 | M3 | Xóa mockup | C1–C12 | chưa bắt đầu |
@@ -37,7 +37,18 @@ Cập nhật: 2026-08-10T01:45:00+07:00 | Milestone: M0.5/5 | Task: 1/3 của M0
 
 ## Đang làm dở
 
-Task: M0.5-T1e — checkpoint PR-B0a (**xong**, chờ commit cuối)
+Task: M0.5-T2 — PR-B0b `chore/ci-drift-and-e2e-scaffold` (**xong**)
+Đã làm: 2 commit (`030d3d2`, `80dd6c3`). `/review` xong — 7 finding, đã sửa hết. BE 221 suite/**2951** test PASS, FE 151 file/**1475** test PASS, 3 cổng governance xanh, collect Playwright từ **0 → 3849 test / 182 file**.
+**BƯỚC TIẾP THEO:** M0.5-T3 — PR-B0c `docs/adr-foundation`: tạo `docs/adr/` + template MADR + 12 ADR (danh sách ở mục "Quyết định kiến trúc" bên dưới + 12 quyết định trong kế hoạch gốc) + CI nudge khi PR đổi `schema.prisma` hoặc `feature-flags/` mà không chạm `docs/adr/`, theo khuôn `shell-parity-gate.yml`.
+
+### Finding đã xử lý ở checkpoint PR-B0b
+
+3 cái **do tôi gây ra**: `testMatch` trên `chromium` làm 134 spec mồ côi; `_helpers.ts` ném lỗi lúc import làm vỡ collect; `.env.test.example` chỉ dẫn đặt `UAT_PROD` sai chỗ.
+4 cái **có sẵn**: thiếu dependency `jszip` khiến **toàn bộ** khâu collect của Playwright chết (mọi project báo 0 test); allow-list `prisma/` miễn trừ nhầm `backend/src/prisma`; bộ lọc comment xoá nhầm `//` trong chuỗi; `asyncUtilTimeout` bằng đúng `testTimeout` mặc định nên vô hiệu.
+
+---
+
+Task: M0.5-T1e — checkpoint PR-B0a (**xong**)
 Đã làm: code xong; `/review` xong (4 finding, đã sửa hết, commit `90d01e7`); dọn nợ lint trên chính file mới của mình thay vì baseline hoá nó. BE 220 suite/**2949** test PASS, FE 151 file/**1475** test PASS, BE `tsc --noEmit` + FE `tsc -b` sạch, 3 cổng governance xanh.
 **BƯỚC TIẾP THEO:** sang M0.5-T2 (PR-B0b `chore/ci-drift-and-e2e-scaffold`) — xem mục 1 của hàng đợi.
 File liên quan: `.github/workflows/ci.yml`, `scripts/governance/*`, `backend/package.json`, `backend/test/`, `frontend/vite.config.ts`, `frontend/src/test-setup.ts`, `CLAUDE.md`
