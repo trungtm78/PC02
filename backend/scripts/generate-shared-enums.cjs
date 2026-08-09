@@ -220,6 +220,16 @@ function main() {
 }
 
 module.exports = {
+  // Exported so `test/enums-sync.spec.ts` asserts against the same list the
+  // generator actually emits. It used to keep a hand-copied mirror, which
+  // drifted (DocumentType stayed behind after it became a dynamic catalog)
+  // and went unnoticed because that spec was never picked up by jest.
+  SHARED_ENUMS,
+  // Same reason as SHARED_ENUMS: the sync spec used to keep its own copy of
+  // this parser, and it diverged — the copy only accepted UPPER_CASE values,
+  // so lowercase enums like DeadlineRuleStatus parsed as empty and looked
+  // "missing from the schema".
+  parseEnums,
   extractValidTransitions,
   emitTransitionsTypeScript,
 };

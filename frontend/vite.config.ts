@@ -118,7 +118,10 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test-setup.ts'],
-    include: ['src/**/__tests__/**/*.test.ts', 'src/**/__tests__/**/*.test.tsx'],
+    // Any *.test.ts(x) under src/, not only those inside a __tests__ folder.
+    // The narrower pattern silently skipped src/hooks/useMasterClassOptions.test.ts,
+    // so a test file could be added and never run.
+    include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html', 'lcov'],
