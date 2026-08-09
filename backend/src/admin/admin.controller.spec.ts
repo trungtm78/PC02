@@ -1,5 +1,9 @@
 import { NotFoundException } from '@nestjs/common';
-import { buildControllerModule, makeReq, mockUser } from '../test-utils/controller-test-helpers';
+import {
+  buildControllerModule,
+  makeReq,
+  mockUser,
+} from '../test-utils/controller-test-helpers';
 import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
 
@@ -26,7 +30,11 @@ describe('AdminController — delegation', () => {
   let controller: AdminController;
 
   beforeEach(async () => {
-    const module = await buildControllerModule(AdminController, AdminService, mockService);
+    const module = await buildControllerModule(
+      AdminController,
+      AdminService,
+      mockService,
+    );
     controller = module.get(AdminController);
     jest.clearAllMocks();
   });
@@ -70,7 +78,12 @@ describe('AdminController — delegation', () => {
 
   it('updateRolePermissions() delegates to service.updateRolePermissions', async () => {
     mockService.updateRolePermissions.mockResolvedValue({ success: true });
-    await controller.updateRolePermissions('role-1', {} as any, mockUser, makeReq());
+    await controller.updateRolePermissions(
+      'role-1',
+      {} as any,
+      mockUser,
+      makeReq(),
+    );
     expect(mockService.updateRolePermissions).toHaveBeenCalledWith(
       'role-1',
       {},
@@ -82,6 +95,9 @@ describe('AdminController — delegation', () => {
   it('resetUserTwoFa() delegates to service.adminResetTwoFa', async () => {
     mockService.adminResetTwoFa.mockResolvedValue({ success: true });
     await controller.resetUserTwoFa('user-2', mockUser);
-    expect(mockService.adminResetTwoFa).toHaveBeenCalledWith('user-2', mockUser.id);
+    expect(mockService.adminResetTwoFa).toHaveBeenCalledWith(
+      'user-2',
+      mockUser.id,
+    );
   });
 });

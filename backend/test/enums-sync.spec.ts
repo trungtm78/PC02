@@ -10,12 +10,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-const SCHEMA_PATH = path.resolve(
-  __dirname,
-  '..',
-  'prisma',
-  'schema.prisma',
-);
+const SCHEMA_PATH = path.resolve(__dirname, '..', 'prisma', 'schema.prisma');
 const FRONTEND_GENERATED = path.resolve(
   __dirname,
   '..',
@@ -31,14 +26,12 @@ const FRONTEND_GENERATED = path.resolve(
 // stayed in this list after migration 20260627000001 turned it into a dynamic
 // catalog, and nothing caught it because jest never picked this file up
 // (rootDir was "src"). Sharing the generator's list makes that impossible.
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const {
-  SHARED_ENUMS,
-  parseEnums: parseEnumsFromSchema,
-} = require('../scripts/generate-shared-enums.cjs') as {
-  SHARED_ENUMS: string[];
-  parseEnums: (source: string) => Record<string, string[]>;
-};
+
+const { SHARED_ENUMS, parseEnums: parseEnumsFromSchema } =
+  require('../scripts/generate-shared-enums.cjs') as {
+    SHARED_ENUMS: string[];
+    parseEnums: (source: string) => Record<string, string[]>;
+  };
 
 function parseEnumsFromGenerated(source: string): Record<string, string[]> {
   // Match: export const Name = { K: 'V', ... } as const;
@@ -83,7 +76,9 @@ describe('Shared enums sync — frontend generated.ts ↔ schema.prisma', () => 
   });
 
   it('parses schema.prisma without throwing', () => {
-    expect(Object.keys(schemaEnums).length).toBeGreaterThanOrEqual(SHARED_ENUMS.length);
+    expect(Object.keys(schemaEnums).length).toBeGreaterThanOrEqual(
+      SHARED_ENUMS.length,
+    );
   });
 
   it('frontend generated.ts has every whitelisted enum', () => {

@@ -21,14 +21,23 @@ Internal case management system (NestJS backend + React frontend) for managing l
 - Backend tests: `cd backend && npx jest --no-coverage`
 - Full test suite: `cd backend && npm test`
 - Frontend tests: `cd frontend && npx vitest run --no-coverage`
-- Test count: 1728 backend + 733 frontend = 2461 total
+- Type-check: `cd backend && npx tsc --noEmit` · `cd frontend && npx tsc -b` (**not** `--noEmit` — the frontend tsconfig is a solution file, so `--noEmit` is a no-op that always passes)
+- Test count: 2925 backend + 1475 frontend = 4400 total
+- Run the two suites **sequentially**. Running them concurrently starves the runner and makes `findBy*` queries in a handful of frontend tests time out spuriously.
 
 ## Shared Enum Infrastructure
 - **Generator**: `cd backend && npm run gen:enums` — re-generates `frontend/src/shared/enums/generated.ts` from `schema.prisma`. Runs automatically on `npm run build`.
 - **Frontend shared enums**: `frontend/src/shared/enums/` — typed constants for all Prisma enums + status labels + badge styles. Never hardcode enum string literals.
 - **Backend constants**: `backend/src/common/constants/` — `ROLE_NAMES`, `TOKEN_TYPE`, `SETTINGS_KEY`, `TWO_FA_METHOD`, `FCM_ERROR`, `EXPORT_FORMAT`. Constants with `WIRE FORMAT` JSDoc comment must never be renamed without migration.
 - **Status labels**: `frontend/src/shared/enums/status-labels.ts` — CASE/INCIDENT/PETITION status Vietnamese labels + Tailwind badge classes.
-- **Rule**: All enum comparisons must use constants/enum values, never string literals. Verified by grep guard in CI.
+- **Rule**: All enum comparisons must use constants/enum values, never string literals. Enforced by `scripts/governance/check-enum-literals.cjs` in the CI `Governance Gate` job. It ratchets against `scripts/governance/enum-literals-baseline.json`: the 57 pre-existing violations are recorded and may only shrink; a new one fails the build. Lowercase enum values (currently only `DeadlineRuleStatus`) are out of scope — they are indistinguishable from ordinary UI strings.
+
+## Governance Gate (CI)
+`.github/workflows/ci.yml` job `Governance Gate` enforces what the sections above describe:
+- **Enum literals** — `node scripts/governance/check-enum-literals.cjs`
+- **Enum sync** — runs `gen:enums` and fails if `frontend/src/shared/enums/` changes, i.e. the committed generated file is stale
+- **Lint ratchet** — `node scripts/governance/lint-changed.cjs origin/main`. Whole-repo lint is ~9.3k problems of debt accumulated while CI never ran eslint, so the gate is monotonic: a file your branch touches may not carry more problems than `scripts/governance/lint-baseline.json` records; new files must be clean. Most are formatting — `npx eslint --fix <file>`.
+- After cleaning debt, tighten the ratchets: `node scripts/governance/lint-changed.cjs --write-baseline` and `node scripts/governance/check-enum-literals.cjs --write-baseline`.
 
 ## Deploy Configuration
 

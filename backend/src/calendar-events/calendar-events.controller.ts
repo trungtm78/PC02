@@ -60,12 +60,19 @@ export class CalendarEventsController {
 
   @Get()
   @RequirePermissions({ action: 'read', subject: 'Calendar' })
-  async list(@Query('year') year: string | undefined, @Query('month') month: string | undefined, @Req() req: any) {
+  async list(
+    @Query('year') year: string | undefined,
+    @Query('month') month: string | undefined,
+    @Req() req: any,
+  ) {
     const now = new Date();
     const y = year ? Number(year) : now.getFullYear();
     const m = month ? Number(month) : undefined;
     const from = m !== undefined ? new Date(y, m - 1, 1) : new Date(y, 0, 1);
-    const to = m !== undefined ? new Date(y, m, 0, 23, 59, 59, 999) : new Date(y, 11, 31, 23, 59, 59, 999);
+    const to =
+      m !== undefined
+        ? new Date(y, m, 0, 23, 59, 59, 999)
+        : new Date(y, 11, 31, 23, 59, 59, 999);
     const currentUser = await this.resolveCurrentUser(req);
     return this.service.findInRange(from, to, currentUser);
   }
@@ -80,7 +87,11 @@ export class CalendarEventsController {
 
   @Patch(':id')
   @RequirePermissions({ action: 'edit', subject: 'Calendar' })
-  async update(@Param('id') id: string, @Body() dto: UpdateEventDto, @Req() req: any) {
+  async update(
+    @Param('id') id: string,
+    @Body() dto: UpdateEventDto,
+    @Req() req: any,
+  ) {
     const currentUser = await this.resolveCurrentUser(req);
     return this.service.update(id, dto, currentUser);
   }
@@ -100,7 +111,11 @@ export class CalendarEventsController {
   @Delete(':id/occurrence/:date')
   @HttpCode(HttpStatus.OK)
   @RequirePermissions({ action: 'delete', subject: 'Calendar' })
-  async excludeOccurrence(@Param('id') id: string, @Param('date') date: string, @Req() req: any) {
+  async excludeOccurrence(
+    @Param('id') id: string,
+    @Param('date') date: string,
+    @Req() req: any,
+  ) {
     const currentUser = await this.resolveCurrentUser(req);
     return this.service.excludeOccurrence(id, date, currentUser);
   }

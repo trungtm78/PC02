@@ -110,9 +110,15 @@ export class DeadlineRulesService {
       },
       orderBy: { ruleKey: 'asc' },
       include: {
-        proposedBy: { select: { id: true, firstName: true, lastName: true, username: true } },
-        reviewedBy: { select: { id: true, firstName: true, lastName: true, username: true } },
-        attachment: { select: { id: true, title: true, fileName: true, mimeType: true } },
+        proposedBy: {
+          select: { id: true, firstName: true, lastName: true, username: true },
+        },
+        reviewedBy: {
+          select: { id: true, firstName: true, lastName: true, username: true },
+        },
+        attachment: {
+          select: { id: true, title: true, fileName: true, mimeType: true },
+        },
       },
     });
     return { success: true, data: rules };
@@ -130,7 +136,12 @@ export class DeadlineRulesService {
     ]);
     return {
       success: true,
-      data: { active, submitted, approvedPending, needsDocumentation: needsDoc },
+      data: {
+        active,
+        submitted,
+        approvedPending,
+        needsDocumentation: needsDoc,
+      },
     };
   }
 
@@ -143,8 +154,12 @@ export class DeadlineRulesService {
       where: { ruleKey },
       orderBy: { createdAt: 'desc' },
       include: {
-        proposedBy: { select: { id: true, firstName: true, lastName: true, username: true } },
-        reviewedBy: { select: { id: true, firstName: true, lastName: true, username: true } },
+        proposedBy: {
+          select: { id: true, firstName: true, lastName: true, username: true },
+        },
+        reviewedBy: {
+          select: { id: true, firstName: true, lastName: true, username: true },
+        },
         attachment: { select: { id: true, title: true, fileName: true } },
       },
     });
@@ -157,7 +172,9 @@ export class DeadlineRulesService {
       where: { status: 'submitted' as DeadlineRuleStatus },
       orderBy: { proposedAt: 'asc' },
       include: {
-        proposedBy: { select: { id: true, firstName: true, lastName: true, username: true } },
+        proposedBy: {
+          select: { id: true, firstName: true, lastName: true, username: true },
+        },
         attachment: { select: { id: true, title: true, fileName: true } },
       },
     });
@@ -169,10 +186,16 @@ export class DeadlineRulesService {
     const v = await this.prisma.deadlineRuleVersion.findUnique({
       where: { id },
       include: {
-        proposedBy: { select: { id: true, firstName: true, lastName: true, username: true } },
-        reviewedBy: { select: { id: true, firstName: true, lastName: true, username: true } },
+        proposedBy: {
+          select: { id: true, firstName: true, lastName: true, username: true },
+        },
+        reviewedBy: {
+          select: { id: true, firstName: true, lastName: true, username: true },
+        },
         supersedes: true,
-        attachment: { select: { id: true, title: true, fileName: true, mimeType: true } },
+        attachment: {
+          select: { id: true, title: true, fileName: true, mimeType: true },
+        },
       },
     });
     if (!v) throw new NotFoundException(`Không tìm thấy phiên bản (id: ${id})`);
@@ -188,7 +211,9 @@ export class DeadlineRulesService {
       where,
       orderBy: [{ ruleKey: 'asc' }, { createdAt: 'desc' }],
       include: {
-        proposedBy: { select: { id: true, firstName: true, lastName: true, username: true } },
+        proposedBy: {
+          select: { id: true, firstName: true, lastName: true, username: true },
+        },
       },
     });
     return { success: true, data: rows };
@@ -203,22 +228,45 @@ export class DeadlineRulesService {
    * Also returns soonest 5 active incidents/petitions for context.
    */
   async previewImpact(id: string) {
-    const v = await this.prisma.deadlineRuleVersion.findUnique({ where: { id } });
+    const v = await this.prisma.deadlineRuleVersion.findUnique({
+      where: { id },
+    });
     if (!v) throw new NotFoundException(`Không tìm thấy phiên bản (id: ${id})`);
 
-    const isIncidentRule = ['THOI_HAN_XAC_MINH', 'THOI_HAN_GIA_HAN_1', 'THOI_HAN_GIA_HAN_2', 'SO_LAN_GIA_HAN_TOI_DA'].includes(v.ruleKey);
-    const isPetitionRule = ['THOI_HAN_TO_CAO', 'THOI_HAN_KHIEU_NAI', 'THOI_HAN_KIEN_NGHI', 'THOI_HAN_PHAN_ANH'].includes(v.ruleKey);
+    const isIncidentRule = [
+      'THOI_HAN_XAC_MINH',
+      'THOI_HAN_GIA_HAN_1',
+      'THOI_HAN_GIA_HAN_2',
+      'SO_LAN_GIA_HAN_TOI_DA',
+    ].includes(v.ruleKey);
+    const isPetitionRule = [
+      'THOI_HAN_TO_CAO',
+      'THOI_HAN_KHIEU_NAI',
+      'THOI_HAN_KIEN_NGHI',
+      'THOI_HAN_PHAN_ANH',
+    ].includes(v.ruleKey);
 
     const counts = { notAffected: 0, openWillReextend: 0, futureAll: 0 };
-    let soonestIncidents: { id: string; code: string; deadline: Date | null }[] = [];
-    let soonestPetitions: { id: string; stt: string; deadline: Date | null }[] = [];
+    let soonestIncidents: {
+      id: string;
+      code: string;
+      deadline: Date | null;
+    }[] = [];
+    let soonestPetitions: { id: string; stt: string; deadline: Date | null }[] =
+      [];
 
     if (isIncidentRule) {
       const [open, withSnapshot] = await Promise.all([
         this.prisma.incident.count({
-          where: { deletedAt: null, deadline: { not: null }, soLanGiaHan: { lt: 2 } },
+          where: {
+            deletedAt: null,
+            deadline: { not: null },
+            soLanGiaHan: { lt: 2 },
+          },
         }),
-        this.prisma.incident.count({ where: { deletedAt: null, deadlineRuleVersionId: { not: null } } }),
+        this.prisma.incident.count({
+          where: { deletedAt: null, deadlineRuleVersionId: { not: null } },
+        }),
       ]);
       counts.notAffected = withSnapshot;
       counts.openWillReextend = open;
@@ -262,10 +310,14 @@ export class DeadlineRulesService {
 
   async propose(dto: ProposeRuleDto, userId: string, meta?: AuditMeta) {
     if (!DEADLINE_RULE_KEY_SET.has(dto.ruleKey)) {
-      throw new BadRequestException(`'${dto.ruleKey}' is not a deadline rule key`);
+      throw new BadRequestException(
+        `'${dto.ruleKey}' is not a deadline rule key`,
+      );
     }
     if (dto.documentUrl) this.assertDocumentUrlSafe(dto.documentUrl);
-    const effectiveFrom = dto.effectiveFrom ? this.clampEffectiveFrom(new Date(dto.effectiveFrom)) : null;
+    const effectiveFrom = dto.effectiveFrom
+      ? this.clampEffectiveFrom(new Date(dto.effectiveFrom))
+      : null;
 
     const created = await this.prisma.deadlineRuleVersion.create({
       data: {
@@ -300,9 +352,17 @@ export class DeadlineRulesService {
     return { success: true, data: created, message: 'Đã tạo bản nháp đề xuất' };
   }
 
-  async updateDraft(id: string, dto: UpdateDraftDto, userId: string, meta?: AuditMeta) {
-    const existing = await this.prisma.deadlineRuleVersion.findUnique({ where: { id } });
-    if (!existing) throw new NotFoundException(`Không tìm thấy phiên bản (id: ${id})`);
+  async updateDraft(
+    id: string,
+    dto: UpdateDraftDto,
+    userId: string,
+    meta?: AuditMeta,
+  ) {
+    const existing = await this.prisma.deadlineRuleVersion.findUnique({
+      where: { id },
+    });
+    if (!existing)
+      throw new NotFoundException(`Không tìm thấy phiên bản (id: ${id})`);
     if (existing.status !== 'draft') {
       throw new ConflictException(
         `Chỉ có thể sửa bản nháp. Trạng thái hiện tại: ${existing.status}`,
@@ -317,8 +377,10 @@ export class DeadlineRulesService {
     if (dto.label !== undefined) data.label = dto.label;
     if (dto.legalBasis !== undefined) data.legalBasis = dto.legalBasis;
     if (dto.documentType !== undefined) data.documentType = dto.documentType;
-    if (dto.documentNumber !== undefined) data.documentNumber = dto.documentNumber;
-    if (dto.documentIssuer !== undefined) data.documentIssuer = dto.documentIssuer;
+    if (dto.documentNumber !== undefined)
+      data.documentNumber = dto.documentNumber;
+    if (dto.documentIssuer !== undefined)
+      data.documentIssuer = dto.documentIssuer;
     if (dto.documentDate !== undefined) {
       data.documentDate = dto.documentDate ? new Date(dto.documentDate) : null;
     }
@@ -338,7 +400,10 @@ export class DeadlineRulesService {
         : null;
     }
 
-    const updated = await this.prisma.deadlineRuleVersion.update({ where: { id }, data });
+    const updated = await this.prisma.deadlineRuleVersion.update({
+      where: { id },
+      data,
+    });
 
     await this.audit.log({
       userId,
@@ -354,10 +419,15 @@ export class DeadlineRulesService {
   }
 
   async submit(id: string, userId: string, meta?: AuditMeta) {
-    const existing = await this.prisma.deadlineRuleVersion.findUnique({ where: { id } });
-    if (!existing) throw new NotFoundException(`Không tìm thấy phiên bản (id: ${id})`);
+    const existing = await this.prisma.deadlineRuleVersion.findUnique({
+      where: { id },
+    });
+    if (!existing)
+      throw new NotFoundException(`Không tìm thấy phiên bản (id: ${id})`);
     if (existing.status !== 'draft') {
-      throw new ConflictException(`Chỉ có thể submit bản nháp. Trạng thái: ${existing.status}`);
+      throw new ConflictException(
+        `Chỉ có thể submit bản nháp. Trạng thái: ${existing.status}`,
+      );
     }
     if (existing.proposedById !== userId) {
       throw new ForbiddenException('Chỉ người đề xuất mới được gửi duyệt');
@@ -388,7 +458,11 @@ export class DeadlineRulesService {
         userAgent: meta?.userAgent,
       });
 
-      await this.notifyApprovers(updated, NotificationType.DEADLINE_RULE_SUBMITTED, userId);
+      await this.notifyApprovers(
+        updated,
+        NotificationType.DEADLINE_RULE_SUBMITTED,
+        userId,
+      );
 
       return { success: true, data: updated, message: 'Đã gửi duyệt' };
     } catch (e) {
@@ -410,8 +484,11 @@ export class DeadlineRulesService {
     return this.prisma.$transaction(
       async (tx) => {
         // Advisory lock per ruleKey — serializes approve+cron+race
-        const existing = await tx.deadlineRuleVersion.findUnique({ where: { id } });
-        if (!existing) throw new NotFoundException(`Không tìm thấy phiên bản (id: ${id})`);
+        const existing = await tx.deadlineRuleVersion.findUnique({
+          where: { id },
+        });
+        if (!existing)
+          throw new NotFoundException(`Không tìm thấy phiên bản (id: ${id})`);
         if (existing.status !== 'submitted') {
           throw new ConflictException(
             `Phiên bản này không còn là bản đang chờ duyệt (trạng thái: ${existing.status})`,
@@ -431,14 +508,19 @@ export class DeadlineRulesService {
 
         const now = new Date();
         const shouldActivateNow = effectiveFrom <= now;
-        const targetStatus: DeadlineRuleStatus = shouldActivateNow ? 'active' : 'approved';
+        const targetStatus: DeadlineRuleStatus = shouldActivateNow
+          ? 'active'
+          : 'approved';
 
         let supersedesId: string | null = null;
 
         if (shouldActivateNow) {
           // Supersede the current active version (if any) atomically
           const currentActive = await tx.deadlineRuleVersion.findFirst({
-            where: { ruleKey: existing.ruleKey, status: 'active' as DeadlineRuleStatus },
+            where: {
+              ruleKey: existing.ruleKey,
+              status: 'active' as DeadlineRuleStatus,
+            },
           });
           if (currentActive) {
             await tx.deadlineRuleVersion.update({
@@ -500,9 +582,13 @@ export class DeadlineRulesService {
         setImmediate(() => {
           this.notifyProposer(
             updated,
-            shouldActivateNow ? NotificationType.DEADLINE_RULE_ACTIVATED : NotificationType.DEADLINE_RULE_APPROVED,
+            shouldActivateNow
+              ? NotificationType.DEADLINE_RULE_ACTIVATED
+              : NotificationType.DEADLINE_RULE_APPROVED,
             userId,
-          ).catch((err) => this.logger.error(`notifyProposer failed: ${String(err)}`));
+          ).catch((err) =>
+            this.logger.error(`notifyProposer failed: ${String(err)}`),
+          );
         });
 
         return {
@@ -513,15 +599,28 @@ export class DeadlineRulesService {
             : `Đã duyệt — sẽ tự động hiệu lực từ ${effectiveFrom.toISOString().slice(0, 10)}`,
         };
       },
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 10000 },
+      {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+        timeout: 10000,
+      },
     );
   }
 
-  async reject(id: string, dto: RejectRuleDto, userId: string, meta?: AuditMeta) {
-    const existing = await this.prisma.deadlineRuleVersion.findUnique({ where: { id } });
-    if (!existing) throw new NotFoundException(`Không tìm thấy phiên bản (id: ${id})`);
+  async reject(
+    id: string,
+    dto: RejectRuleDto,
+    userId: string,
+    meta?: AuditMeta,
+  ) {
+    const existing = await this.prisma.deadlineRuleVersion.findUnique({
+      where: { id },
+    });
+    if (!existing)
+      throw new NotFoundException(`Không tìm thấy phiên bản (id: ${id})`);
     if (existing.status !== 'submitted') {
-      throw new ConflictException(`Chỉ có thể từ chối bản đang chờ duyệt. Trạng thái: ${existing.status}`);
+      throw new ConflictException(
+        `Chỉ có thể từ chối bản đang chờ duyệt. Trạng thái: ${existing.status}`,
+      );
     }
     if (existing.proposedById === userId) {
       throw new ForbiddenException(
@@ -531,7 +630,12 @@ export class DeadlineRulesService {
 
     const updated = await this.prisma.deadlineRuleVersion.update({
       where: { id, status: 'submitted' as DeadlineRuleStatus },
-      data: { status: 'rejected', reviewedById: userId, reviewedAt: new Date(), reviewNotes: dto.notes },
+      data: {
+        status: 'rejected',
+        reviewedById: userId,
+        reviewedAt: new Date(),
+        reviewNotes: dto.notes,
+      },
     });
 
     await this.audit.log({
@@ -545,7 +649,11 @@ export class DeadlineRulesService {
     });
 
     setImmediate(() => {
-      this.notifyProposer(updated, NotificationType.DEADLINE_RULE_REJECTED, userId).catch((err) =>
+      this.notifyProposer(
+        updated,
+        NotificationType.DEADLINE_RULE_REJECTED,
+        userId,
+      ).catch((err) =>
         this.logger.error(`notifyProposer failed: ${String(err)}`),
       );
     });
@@ -565,14 +673,22 @@ export class DeadlineRulesService {
    * Notification scheduling happens AFTER $transaction commits to avoid sending
    * for a transaction that ultimately failed.
    */
-  async withdraw(id: string, dto: WithdrawRuleDto, userId: string, meta?: AuditMeta) {
+  async withdraw(
+    id: string,
+    dto: WithdrawRuleDto,
+    userId: string,
+    meta?: AuditMeta,
+  ) {
     let updated: DeadlineRuleVersion;
     let ruleKey: string;
     try {
       const result = await this.prisma.$transaction(
         async (tx) => {
-          const existing = await tx.deadlineRuleVersion.findUnique({ where: { id } });
-          if (!existing) throw new NotFoundException(`Không tìm thấy phiên bản (id: ${id})`);
+          const existing = await tx.deadlineRuleVersion.findUnique({
+            where: { id },
+          });
+          if (!existing)
+            throw new NotFoundException(`Không tìm thấy phiên bản (id: ${id})`);
           if (existing.status !== 'submitted') {
             throw new ConflictException(
               `Chỉ có thể thu hồi bản đang chờ duyệt. Trạng thái: ${existing.status}`,
@@ -613,7 +729,10 @@ export class DeadlineRulesService {
 
           return { updated: u, ruleKey: existing.ruleKey };
         },
-        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 10000 },
+        {
+          isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+          timeout: 10000,
+        },
       );
       updated = result.updated;
       ruleKey = result.ruleKey;
@@ -634,7 +753,11 @@ export class DeadlineRulesService {
       );
     });
 
-    return { success: true, data: updated, message: 'Đã thu hồi — bạn có thể sửa và gửi lại' };
+    return {
+      success: true,
+      data: updated,
+      message: 'Đã thu hồi — bạn có thể sửa và gửi lại',
+    };
   }
 
   /**
@@ -645,13 +768,21 @@ export class DeadlineRulesService {
    *
    * Concurrency identical to withdraw + approve (lock on ruleKey).
    */
-  async requestChanges(id: string, dto: RequestChangesDto, userId: string, meta?: AuditMeta) {
+  async requestChanges(
+    id: string,
+    dto: RequestChangesDto,
+    userId: string,
+    meta?: AuditMeta,
+  ) {
     let updated: DeadlineRuleVersion;
     try {
       const result = await this.prisma.$transaction(
         async (tx) => {
-          const existing = await tx.deadlineRuleVersion.findUnique({ where: { id } });
-          if (!existing) throw new NotFoundException(`Không tìm thấy phiên bản (id: ${id})`);
+          const existing = await tx.deadlineRuleVersion.findUnique({
+            where: { id },
+          });
+          if (!existing)
+            throw new NotFoundException(`Không tìm thấy phiên bản (id: ${id})`);
           if (existing.status !== 'submitted') {
             throw new ConflictException(
               `Chỉ có thể yêu cầu sửa khi bản đang chờ duyệt. Trạng thái: ${existing.status}`,
@@ -693,7 +824,10 @@ export class DeadlineRulesService {
 
           return { updated: u };
         },
-        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 10000 },
+        {
+          isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+          timeout: 10000,
+        },
       );
       updated = result.updated;
     } catch (e) {
@@ -708,7 +842,9 @@ export class DeadlineRulesService {
 
     setImmediate(() => {
       this.notifyProposerChangesRequested(updated, userId).catch((err) =>
-        this.logger.error(`notifyProposerChangesRequested failed: ${String(err)}`),
+        this.logger.error(
+          `notifyProposerChangesRequested failed: ${String(err)}`,
+        ),
       );
     });
 
@@ -720,16 +856,23 @@ export class DeadlineRulesService {
   }
 
   async deleteDraft(id: string, userId: string, meta?: AuditMeta) {
-    const existing = await this.prisma.deadlineRuleVersion.findUnique({ where: { id } });
-    if (!existing) throw new NotFoundException(`Không tìm thấy phiên bản (id: ${id})`);
+    const existing = await this.prisma.deadlineRuleVersion.findUnique({
+      where: { id },
+    });
+    if (!existing)
+      throw new NotFoundException(`Không tìm thấy phiên bản (id: ${id})`);
     if (existing.status !== 'draft') {
-      throw new ConflictException(`Chỉ có thể xóa bản nháp. Trạng thái: ${existing.status}`);
+      throw new ConflictException(
+        `Chỉ có thể xóa bản nháp. Trạng thái: ${existing.status}`,
+      );
     }
     if (existing.proposedById !== userId) {
       throw new ForbiddenException('Chỉ người đề xuất mới được xóa bản nháp');
     }
 
-    await this.prisma.deadlineRuleVersion.delete({ where: { id, status: 'draft' as DeadlineRuleStatus } });
+    await this.prisma.deadlineRuleVersion.delete({
+      where: { id, status: 'draft' as DeadlineRuleStatus },
+    });
 
     await this.audit.log({
       userId,
@@ -753,9 +896,14 @@ export class DeadlineRulesService {
    * the daily cron and on demand. Processes versions in effectiveFrom ASC order
    * to handle multi-day catch-up correctly.
    */
-  async activateDueRules(now: Date = new Date()): Promise<{ activated: string[] }> {
+  async activateDueRules(
+    now: Date = new Date(),
+  ): Promise<{ activated: string[] }> {
     const dueVersions = await this.prisma.deadlineRuleVersion.findMany({
-      where: { status: 'approved' as DeadlineRuleStatus, effectiveFrom: { lte: now } },
+      where: {
+        status: 'approved' as DeadlineRuleStatus,
+        effectiveFrom: { lte: now },
+      },
       orderBy: [{ effectiveFrom: 'asc' }, { createdAt: 'asc' }],
     });
 
@@ -766,7 +914,10 @@ export class DeadlineRulesService {
           async (tx) => {
             await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${v.ruleKey}))`;
             const current = await tx.deadlineRuleVersion.findFirst({
-              where: { ruleKey: v.ruleKey, status: 'active' as DeadlineRuleStatus },
+              where: {
+                ruleKey: v.ruleKey,
+                status: 'active' as DeadlineRuleStatus,
+              },
             });
             if (current) {
               await tx.deadlineRuleVersion.update({
@@ -783,12 +934,19 @@ export class DeadlineRulesService {
                 action: DEADLINE_RULE_ACTIONS.ACTIVATED,
                 subject: 'DeadlineRuleVersion',
                 subjectId: v.id,
-                metadata: { ruleKey: v.ruleKey, by: 'cron', supersededVersionId: current?.id ?? null },
+                metadata: {
+                  ruleKey: v.ruleKey,
+                  by: 'cron',
+                  supersededVersionId: current?.id ?? null,
+                },
               },
               tx,
             );
           },
-          { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 10000 },
+          {
+            isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+            timeout: 10000,
+          },
         );
         activated.push(v.id);
 
@@ -803,7 +961,9 @@ export class DeadlineRulesService {
               link: `/admin/deadline-rules/version/${v.id}`,
               metadata: { ruleKey: v.ruleKey, versionId: v.id },
             })
-            .catch((err) => this.logger.error(`activate notification failed: ${String(err)}`));
+            .catch((err) =>
+              this.logger.error(`activate notification failed: ${String(err)}`),
+            );
         }
       } catch (err) {
         this.logger.error(`Failed to activate version ${v.id}: ${String(err)}`);
@@ -817,11 +977,21 @@ export class DeadlineRulesService {
    * Find submitted versions older than threshold and notify approvers. Called
    * by the daily stale-review cron.
    */
-  async notifyStaleSubmissions(thresholdHours = 24, now: Date = new Date()): Promise<{ notified: string[] }> {
+  async notifyStaleSubmissions(
+    thresholdHours = 24,
+    now: Date = new Date(),
+  ): Promise<{ notified: string[] }> {
     const cutoff = new Date(now.getTime() - thresholdHours * 60 * 60 * 1000);
     const stale = await this.prisma.deadlineRuleVersion.findMany({
-      where: { status: 'submitted' as DeadlineRuleStatus, proposedAt: { lte: cutoff } },
-      include: { proposedBy: { select: { firstName: true, lastName: true, username: true } } },
+      where: {
+        status: 'submitted' as DeadlineRuleStatus,
+        proposedAt: { lte: cutoff },
+      },
+      include: {
+        proposedBy: {
+          select: { firstName: true, lastName: true, username: true },
+        },
+      },
     });
     const notified: string[] = [];
     for (const v of stale) {
@@ -834,15 +1004,25 @@ export class DeadlineRulesService {
             title: 'Đề xuất chờ duyệt quá hạn',
             message: `Đề xuất cho '${v.ruleKey}' đã chờ duyệt hơn ${thresholdHours} giờ.`,
             link: `/admin/deadline-rules/version/${v.id}`,
-            metadata: { ruleKey: v.ruleKey, versionId: v.id, hoursWaiting: thresholdHours },
+            metadata: {
+              ruleKey: v.ruleKey,
+              versionId: v.id,
+              hoursWaiting: thresholdHours,
+            },
           })
-          .catch((err) => this.logger.error(`stale notification failed: ${String(err)}`));
+          .catch((err) =>
+            this.logger.error(`stale notification failed: ${String(err)}`),
+          );
       }
       await this.audit.log({
         action: DEADLINE_RULE_ACTIONS.STALE_REVIEW_NOTIFIED,
         subject: 'DeadlineRuleVersion',
         subjectId: v.id,
-        metadata: { ruleKey: v.ruleKey, approverCount: approvers.length, thresholdHours },
+        metadata: {
+          ruleKey: v.ruleKey,
+          approverCount: approvers.length,
+          thresholdHours,
+        },
       });
       notified.push(v.id);
     }
@@ -858,10 +1038,14 @@ export class DeadlineRulesService {
     const maxFuture = new Date(now.getTime() + this.MAX_FUTURE_DAYS * 86400000);
     const minPast = new Date(now.getTime() - this.MAX_PAST_DAYS * 86400000);
     if (date > maxFuture) {
-      throw new BadRequestException(`Ngày hiệu lực không được quá ${this.MAX_FUTURE_DAYS} ngày trong tương lai`);
+      throw new BadRequestException(
+        `Ngày hiệu lực không được quá ${this.MAX_FUTURE_DAYS} ngày trong tương lai`,
+      );
     }
     if (date < minPast) {
-      throw new BadRequestException(`Ngày hiệu lực không được lùi quá ${this.MAX_PAST_DAYS} ngày`);
+      throw new BadRequestException(
+        `Ngày hiệu lực không được lùi quá ${this.MAX_PAST_DAYS} ngày`,
+      );
     }
     return date;
   }
@@ -882,7 +1066,9 @@ export class DeadlineRulesService {
       throw new BadRequestException('URL không hợp lệ');
     }
     if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-      throw new BadRequestException('URL phải bắt đầu bằng http:// hoặc https://');
+      throw new BadRequestException(
+        'URL phải bắt đầu bằng http:// hoặc https://',
+      );
     }
     const host = parsed.hostname.toLowerCase();
     if (
@@ -895,7 +1081,9 @@ export class DeadlineRulesService {
       host.endsWith('.internal') ||
       host === '0.0.0.0'
     ) {
-      throw new BadRequestException('URL không được trỏ về localhost hoặc địa chỉ nội bộ');
+      throw new BadRequestException(
+        'URL không được trỏ về localhost hoặc địa chỉ nội bộ',
+      );
     }
   }
 
@@ -929,9 +1117,15 @@ export class DeadlineRulesService {
           title,
           message,
           link: `/admin/deadline-rules/version/${version.id}`,
-          metadata: { ruleKey: version.ruleKey, versionId: version.id, value: version.value },
+          metadata: {
+            ruleKey: version.ruleKey,
+            versionId: version.id,
+            value: version.value,
+          },
         })
-        .catch((err) => this.logger.error(`notifyApprovers failed: ${String(err)}`));
+        .catch((err) =>
+          this.logger.error(`notifyApprovers failed: ${String(err)}`),
+        );
     }
   }
 
@@ -956,14 +1150,18 @@ export class DeadlineRulesService {
         link: `/admin/deadline-rules/version/${version.id}`,
         metadata: { ruleKey: version.ruleKey, versionId: version.id },
       })
-      .catch((err) => this.logger.error(`notifyProposer failed: ${String(err)}`));
+      .catch((err) =>
+        this.logger.error(`notifyProposer failed: ${String(err)}`),
+      );
   }
 
   /**
    * Tell approvers the submitted proposal has been withdrawn by the proposer.
    * Their queue item is gone; nothing to act on. Includes proposer's reason.
    */
-  private async notifyApproversWithdrawn(version: DeadlineRuleVersion): Promise<void> {
+  private async notifyApproversWithdrawn(
+    version: DeadlineRuleVersion,
+  ): Promise<void> {
     const targets = (await this.findActiveApproverIds()).filter(
       (id) => id !== version.proposedById,
     );
@@ -981,7 +1179,9 @@ export class DeadlineRulesService {
           metadata: { ruleKey: version.ruleKey, versionId: version.id },
         })
         .catch((err) =>
-          this.logger.error(`notifyApproversWithdrawn (user=${userId}) failed: ${String(err)}`),
+          this.logger.error(
+            `notifyApproversWithdrawn (user=${userId}) failed: ${String(err)}`,
+          ),
         );
     }
   }
@@ -1005,7 +1205,9 @@ export class DeadlineRulesService {
         metadata: { ruleKey: version.ruleKey, versionId: version.id },
       })
       .catch((err) =>
-        this.logger.error(`notifyProposerChangesRequested failed: ${String(err)}`),
+        this.logger.error(
+          `notifyProposerChangesRequested failed: ${String(err)}`,
+        ),
       );
   }
 }

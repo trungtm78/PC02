@@ -134,7 +134,18 @@ export class AdminService {
     requesterId: string,
     tx: Prisma.TransactionClient,
     meta: { ipAddress?: string; userAgent?: string } = {},
-  ): Promise<{ id: string; username: string; email: string | null; firstName: string | null; lastName: string | null; workId: string | null; phone: string | null; isActive: boolean; role: { id: string; name: string }; createdAt: Date }> {
+  ): Promise<{
+    id: string;
+    username: string;
+    email: string | null;
+    firstName: string | null;
+    lastName: string | null;
+    workId: string | null;
+    phone: string | null;
+    isActive: boolean;
+    role: { id: string; name: string };
+    createdAt: Date;
+  }> {
     // Defensive: workId bắt buộc (DTO validator đã enforce, đây là safety net).
     if (!dto.workId) {
       throw new BadRequestException('Mã cán bộ (workId) là bắt buộc.');
@@ -160,7 +171,9 @@ export class AdminService {
       );
     }
 
-    const dupWorkId = await tx.user.findFirst({ where: { workId: dto.workId } });
+    const dupWorkId = await tx.user.findFirst({
+      where: { workId: dto.workId },
+    });
     if (dupWorkId) {
       throw new ConflictException(`Số hiệu ngành "${dto.workId}" đã tồn tại`);
     }
@@ -255,19 +268,24 @@ export class AdminService {
     if (!user) throw new NotFoundException(`User #${id} không tồn tại`);
 
     // v0.27 canonicalize email + phone (nếu provided) cho consistency.
-    const canonicalEmail = dto.email !== undefined
-      ? (dto.email?.trim().toLowerCase() || null)
-      : undefined;
-    const canonicalPhone = dto.phone !== undefined
-      ? (dto.phone ? canonicalizeVietnamPhone(dto.phone.replace(/[\s.-]/g, '')) : null)
-      : undefined;
+    const canonicalEmail =
+      dto.email !== undefined
+        ? dto.email?.trim().toLowerCase() || null
+        : undefined;
+    const canonicalPhone =
+      dto.phone !== undefined
+        ? dto.phone
+          ? canonicalizeVietnamPhone(dto.phone.replace(/[\s.-]/g, ''))
+          : null
+        : undefined;
 
     // EC-02: Check uniqueness on change
     if (canonicalEmail && canonicalEmail !== user.email) {
       const dup = await this.prisma.user.findFirst({
         where: { email: canonicalEmail, id: { not: id } },
       });
-      if (dup) throw new ConflictException(`Email "${canonicalEmail}" đã tồn tại`);
+      if (dup)
+        throw new ConflictException(`Email "${canonicalEmail}" đã tồn tại`);
     }
     if (dto.username && dto.username !== user.username) {
       const dup = await this.prisma.user.findFirst({
@@ -353,7 +371,10 @@ export class AdminService {
             'User vừa được admin khác cập nhật hoặc reset lại — vui lòng tải lại trang và thử lại',
           );
         }
-        const u = await tx.user.findUnique({ where: { id }, select: userSelect });
+        const u = await tx.user.findUnique({
+          where: { id },
+          select: userSelect,
+        });
         if (!u) {
           throw new NotFoundException(`User #${id} không tồn tại`);
         }
@@ -377,15 +398,25 @@ export class AdminService {
       // v0.30: non-reset branch — wrapUpdate captures full before/after for diff UI.
       return this.audit.wrapUpdate({
         tx,
-        fetchFn: () => tx.user.findUnique({ where: { id }, select: userSelect }) as Promise<unknown>,
+        fetchFn: () =>
+          tx.user.findUnique({
+            where: { id },
+            select: userSelect,
+          }) as Promise<unknown>,
         updateFn: () =>
-          tx.user.update({ where: { id }, data, select: userSelect }) as unknown as Promise<unknown>,
+          tx.user.update({
+            where: { id },
+            data,
+            select: userSelect,
+          }) as unknown as Promise<unknown>,
         action: 'USER_UPDATED',
         subject: 'User',
         subjectId: id,
         userId: requesterId,
         meta,
-      }) as unknown as typeof userSelect extends never ? never : Awaited<ReturnType<typeof tx.user.findUnique>>;
+      }) as unknown as typeof userSelect extends never
+        ? never
+        : Awaited<ReturnType<typeof tx.user.findUnique>>;
     });
 
     return tempPassword ? { ...updated, tempPassword } : updated;
@@ -617,7 +648,8 @@ export class AdminService {
     const grantee = await this.prisma.user.findUnique({
       where: { id: dto.granteeId },
     });
-    if (!grantee) throw new NotFoundException('Người được cấp quyền không tồn tại');
+    if (!grantee)
+      throw new NotFoundException('Người được cấp quyền không tồn tại');
 
     // Validate team exists
     const team = await this.prisma.team.findUnique({
@@ -723,7 +755,9 @@ export class AdminService {
     const isAdmin = revokerUser?.role?.name === ROLE_NAMES.ADMIN;
 
     if (!isGranter && !isLeader && !isAdmin) {
-      throw new ForbiddenException('Bạn không có quyền thu hồi quyền truy cập này');
+      throw new ForbiddenException(
+        'Bạn không có quyền thu hồi quyền truy cập này',
+      );
     }
 
     await this.prisma.dataAccessGrant.delete({ where: { id: grantId } });
@@ -757,7 +791,9 @@ export class AdminService {
 
   // ── 2FA Admin Reset ────────────────────────────────────────────────────────
   async adminResetTwoFa(targetUserId: string, adminUserId: string) {
-    const target = await this.prisma.user.findUnique({ where: { id: targetUserId } });
+    const target = await this.prisma.user.findUnique({
+      where: { id: targetUserId },
+    });
     if (!target) throw new NotFoundException('User không tồn tại');
 
     await this.prisma.user.update({

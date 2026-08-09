@@ -197,7 +197,9 @@ describe('AdminService', () => {
         username: 'newuser',
         email: 'new@pc02.local',
       });
-      mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(mockPrisma));
+      mockPrisma.$transaction.mockImplementation(async (fn: any) =>
+        fn(mockPrisma),
+      );
       mockEnrollmentService.generateEnrollmentLink.mockClear();
       mockEnrollmentService.generateEnrollmentLink.mockResolvedValue({
         url: 'http://prod.test/auth/enroll?token=fake-token&uid=new-id',
@@ -576,7 +578,11 @@ describe('AdminService', () => {
     it('throws NotFoundException when user not found', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
       await expect(
-        service.updateUser('bad-id', { firstName: 'X', workId: '278-001' }, 'req'),
+        service.updateUser(
+          'bad-id',
+          { firstName: 'X', workId: '278-001' },
+          'req',
+        ),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -588,7 +594,11 @@ describe('AdminService', () => {
       });
 
       await expect(
-        service.updateUser('u1', { email: 'dup@pc02.local', workId: '278-001' }, 'req'),
+        service.updateUser(
+          'u1',
+          { email: 'dup@pc02.local', workId: '278-001' },
+          'req',
+        ),
       ).rejects.toThrow(ConflictException);
     });
 
@@ -601,7 +611,11 @@ describe('AdminService', () => {
       });
 
       await expect(
-        service.updateUser('u1', { username: 'taken', workId: '278-001' }, 'req'),
+        service.updateUser(
+          'u1',
+          { username: 'taken', workId: '278-001' },
+          'req',
+        ),
       ).rejects.toThrow(ConflictException);
     });
 
@@ -739,7 +753,11 @@ describe('AdminService', () => {
         role: { id: 'r1', name: 'Admin' },
       });
 
-      await service.updateUser('u1', { status: UserStatus.INACTIVE, workId: '278-001' }, 'req');
+      await service.updateUser(
+        'u1',
+        { status: UserStatus.INACTIVE, workId: '278-001' },
+        'req',
+      );
       expect(mockPrisma.user.update).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({ isActive: false }),
@@ -756,7 +774,11 @@ describe('AdminService', () => {
         role: { id: 'r1', name: 'Admin' },
       });
 
-      await service.updateUser('u1', { canDispatch: true, workId: '278-001' }, 'req');
+      await service.updateUser(
+        'u1',
+        { canDispatch: true, workId: '278-001' },
+        'req',
+      );
       expect(mockPrisma.user.update).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
@@ -776,7 +798,11 @@ describe('AdminService', () => {
         role: { id: 'r1', name: 'Admin' },
       });
 
-      await service.updateUser('u1', { canDispatch: false, workId: '278-001' }, 'req');
+      await service.updateUser(
+        'u1',
+        { canDispatch: false, workId: '278-001' },
+        'req',
+      );
       expect(mockPrisma.user.update).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
@@ -998,7 +1024,10 @@ describe('AdminService', () => {
     // precisely how the broken frontend matrix wiped roles: it sent [] while
     // believing the payload was complete.
     it('refuses an empty permission list unless the caller opts in', async () => {
-      mockPrisma.role.findUnique.mockResolvedValue({ id: 'r1', name: 'CUSTOM' });
+      mockPrisma.role.findUnique.mockResolvedValue({
+        id: 'r1',
+        name: 'CUSTOM',
+      });
 
       await expect(
         service.updateRolePermissions('r1', { permissions: [] }, 'req'),

@@ -1,5 +1,5 @@
 # PROGRESS
-Cập nhật: 2026-08-10T00:35:00+07:00 | Milestone: M0/5 | Task: 1/1 của M0
+Cập nhật: 2026-08-10T01:45:00+07:00 | Milestone: M0.5/5 | Task: 1/3 của M0.5
 
 > Nguồn sự thật về trạng thái thi công. Kế hoạch gốc: `~/.claude/plans/r-so-t-to-n-b-vast-minsky.md`
 > (đã qua `/plan-eng-review` + outside voice). Lịch sử đợt di trú legacy trước đó đã chuyển sang
@@ -10,7 +10,7 @@ Cập nhật: 2026-08-10T00:35:00+07:00 | Milestone: M0/5 | Task: 1/1 của M0
 | MS | Tên | PR | Trạng thái |
 |----|-----|----|-----------|
 | M0 | Hồi sức — lỗi đang phá dữ liệu trên production | A1 | **1/1 xong** |
-| M0.5 | Governance — CI gate + ADR | B0a, B0b, B0c | chưa bắt đầu |
+| M0.5 | Governance — CI gate + ADR | B0a, B0b, B0c | **1/3** (B0a xong) |
 | M1 | Mất dữ liệu / bảo mật còn lại + nền mobile | D1, A2, A3, A4, M1 | chưa bắt đầu |
 | M2 | Hạ tầng cờ tính năng | B1, B2, B3 | chưa bắt đầu |
 | M3 | Xóa mockup | C1–C12 | chưa bắt đầu |
@@ -19,7 +19,16 @@ Cập nhật: 2026-08-10T00:35:00+07:00 | Milestone: M0/5 | Task: 1/1 của M0
 
 ## Đã hoàn thành
 
-- [x] **M0-T1 — PR-A1 `fix/admin-role-permission-matrix`** — chưa commit (đang ở working tree) — patch coverage: BE 100% dòng mới, FE 69/70 statement (1 guard chống race)
+- [x] **M0.5-T1 — PR-B0a `chore/ci-governance-gate`** — nhánh `chore/ci-governance-gate`
+  - CI job `Governance Gate` (`.github/workflows/ci.yml`): enum-literal guard → gen:enums drift → lint ratchet. Hai guard đầu **không cần dependency** nên fail nhanh trước `npm ci`.
+  - `scripts/governance/check-enum-literals.cjs` — hiện thực quy tắc CLAUDE.md:31 vốn chỉ là tuyên bố. Ratchet qua `enum-literals-baseline.json` (57 vi phạm sẵn có, chỉ được giảm). Dùng lại `parseEnums` của generator nên guard và codegen không thể lệch nhau.
+  - `scripts/governance/lint-changed.cjs` — ratchet đếm lỗi theo file qua `lint-baseline.json` (555 file / 9278 vấn đề). File đã đụng không được **tệ đi**; file mới phải sạch.
+  - Nối `backend/test/` vào jest roots và mở rộng vitest `include` → 2 file test chưa bao giờ chạy nay đã chạy; sửa 2 lỗi drift mà `enums-sync.spec.ts` phát hiện ngay khi được chạy.
+  - Dọn 117 lỗi lint trên các file PR-A1 đã đụng (`eslint --fix`), tuân đúng chính sách ratchet vừa đặt ra.
+  - Sửa 2 tuyên bố sai trong CLAUDE.md (grep guard "đã có", số test 2461) + bổ sung `tsc -b` và cảnh báo chạy tuần tự.
+  - Test: +7 BE cho chính guard (`test/governance-enum-literals.spec.ts`).
+
+- [x] **M0-T1 — PR-A1 `fix/admin-role-permission-matrix`** — 3 commit (`6ff8e67`, `98f9b7c`, `e64161c`) — patch coverage: BE 100% dòng mới, FE 69/70 statement (1 guard chống race)
   - BE: thêm `GET /admin/roles/:id/permissions` (`admin.controller.ts:127-132`, `admin.service.ts:getRolePermissions`)
   - BE: `deleteRole` chặn xóa vai trò hệ thống trong `SYSTEM_ROLE_NAMES` + validate tồn tại + ghi audit `ROLE_DELETED`
   - BE: thêm `SYSTEM_ROLE_NAMES` vào `common/constants/role.constants.ts`
@@ -28,12 +37,12 @@ Cập nhật: 2026-08-10T00:35:00+07:00 | Milestone: M0/5 | Task: 1/1 của M0
 
 ## Đang làm dở
 
-Task: M0-T1d — checkpoint PR-A1 (**gần xong**)
-Đã làm: code + test xong, `/review` xong (4 finding, đã sửa hết, commit `98f9b7c`), `/codex` xong (3 finding, đã sửa hết). Full suite BE 218 suite/**2885** test PASS, FE 150 file/**1469** test PASS, `tsc --noEmit` (BE) + `tsc -b` (FE) sạch, eslint trên file đã sửa không có lỗi mới.
-**BƯỚC TIẾP THEO:** commit lớp fix từ codex, rồi bắt đầu M0.5-T1 (PR-B0a `chore/ci-governance-gate`) — xem mục 1 của hàng đợi.
-File liên quan: `backend/src/admin/`, `backend/src/common/constants/role.constants.ts`, `backend/src/deadline-rules/deadline-rules.service.ts`, `backend/src/calendar-events/calendar-events.controller.ts`, `frontend/src/pages/users/UserManagementPage.tsx`, `frontend/src/shared/enums/roles.ts`
+Task: M0.5-T1e — checkpoint PR-B0a
+Đã làm: toàn bộ code PR-B0a xong; 3 bước của cổng governance chạy xanh cục bộ; BE tsc + FE `tsc -b` sạch; FE 151 file/1475 test PASS.
+**BƯỚC TIẾP THEO:** commit PR-B0a, chạy `/review` → `/codex` theo §4, xử lý hết finding, rồi sang M0.5-T2 (PR-B0b `chore/ci-drift-and-e2e-scaffold`).
+File liên quan: `.github/workflows/ci.yml`, `scripts/governance/*`, `backend/package.json`, `backend/test/`, `frontend/vite.config.ts`, `frontend/src/test-setup.ts`, `CLAUDE.md`
 
-### Finding đã xử lý ở checkpoint này
+### Finding đã xử lý ở checkpoint PR-A1
 
 `/review` (4):
 1. Race trong `loadPermissions` — response chậm của vai trò cũ đè lên vai trò đang chọn **và** đè cả baseline ⇒ diff báo "không có thay đổi" trong khi Lưu ghi quyền vai trò A sang B. Sửa bằng `permRequestSeq`.
@@ -48,8 +57,7 @@ File liên quan: `backend/src/admin/`, `backend/src/common/constants/role.consta
 
 ## Hàng đợi task kế tiếp
 
-1. M0.5-T1 — PR-B0a `chore/ci-governance-gate` (**blocking**): enum-literal grep guard, eslint `--max-warnings=0` không `--fix`, `gen:enums` + `git diff --exit-code`, mở rộng jest `roots` để `backend/test/` được chạy, mở rộng vitest `include` để `src/**/*.test.ts` ngoài `__tests__` được chạy, sửa CLAUDE.md:31.
-2. M0.5-T2 — PR-B0b `chore/ci-drift-and-e2e-scaffold` (`continue-on-error`): `prisma migrate diff`, Postgres service, project Playwright `e2e-new`, `tests/.env.test.example`.
+1. M0.5-T2 — PR-B0b `chore/ci-drift-and-e2e-scaffold` (`continue-on-error`): `prisma migrate diff`, Postgres service, project Playwright `e2e-new`, `tests/.env.test.example`.
 3. M0.5-T3 — PR-B0c `docs/adr-foundation`: `docs/adr/` + 12 ADR + CI nudge.
 4. M1-T1 — PR-D1 `feat/evidences-lifecycle` (phải trước A2).
 5. M1-T2 — PR-A2 `fix/case-update-subentity-dataloss`.
@@ -76,8 +84,9 @@ File liên quan: `backend/src/admin/`, `backend/src/common/constants/role.consta
 ## Trạng thái test
 
 Full suite: **PASS**
-- Backend: 218 suite / **2885** test — PASS
-- Frontend: 150 file / **1469** test — PASS
+- Backend: 220 suite / **2925** test — PASS (xem ND-9: 1 suite flaky ~1/4 lần, có sẵn từ trước)
+- Frontend: 151 file / **1475** test — PASS (3 lần chạy liên tiếp ổn định)
+- Cổng governance: enum guard ✅ · gen:enums drift ✅ · lint ratchet ✅
 - `tsc --noEmit` (BE): sạch · `tsc -b` (FE): sạch
 - eslint: không có lỗi mới trên dòng đã thêm (nợ lint có sẵn xem ND-1)
 
@@ -92,7 +101,8 @@ Test fail: không
 | ND-2 | CLAUDE.md:31 tuyên bố "Verified by grep guard in CI" nhưng guard **không tồn tại** trong `.github/workflows/` | PR-B0a |
 | ND-3 | CLAUDE.md ghi baseline test 1728+733, thực tế 2867+1457 — cần sửa tài liệu | PR-B0a |
 | ND-4 | `backend/test/` không bao giờ chạy (`jest.rootDir = "src"`); `frontend/src/hooks/useMasterClassOptions.test.ts` không bao giờ chạy (vitest `include` chỉ nhận `__tests__/`) | PR-B0a |
-| ND-5 | Chạy song song jest (BE) và vitest (FE) trên máy này gây timeout giả ở test dùng `findBy*` — **luôn chạy tuần tự** | Ghi chú vận hành |
+| ND-5 | Chạy song song jest (BE) và vitest (FE) trên máy này gây timeout giả ở test dùng `findBy*` — **luôn chạy tuần tự**. Đã giảm nhẹ bằng `asyncUtilTimeout: 5000` trong `frontend/src/test-setup.ts` | Ghi chú vận hành |
+| ND-9 | **`backend/src/auth/services/two-fa.service.spec.ts` flaky ~1/4 lần chạy full song song.** Không phải lỗi TOTP theo thời gian: là `invariant` rỗng từ `ScriptTransformer._buildTransformResult` của jest khi nạp `node_modules/otplib/dist/index.cjs` → dấu hiệu đua tranh cache giữa các worker. Pass 5/5 khi chạy riêng. **Có sẵn từ trước** — không file nào trong chuỗi phụ thuộc này bị đợt thi công chạm tới. Chưa sửa: chẩn đoán cache race của jest là việc riêng. Rủi ro: job `Backend Tests` trong CI có thể đỏ ngẫu nhiên. Hướng điều tra: `cacheDirectory` riêng cho từng workspace, hoặc rà `transformIgnorePatterns` (`node_modules/(?!(@otplib\|@noble)/)` không bao gồm `otplib` không có scope) | PR riêng |
 | ND-6 | Tầng phân quyền FE vẫn là mock (`MOCK_ALL_PERMISSIONS` cấp toàn quyền cho mọi user, 252 call site) — người dùng chủ động hoãn; yêu cầu "không mockup" **chưa thoả mãn hoàn toàn** | Quyết lại sau M2 |
 | ND-7 | Cổng `prisma migrate diff` sẽ đỏ ngay do ≥6 partial index không biểu diễn được trong Prisma 7; PR-C4 còn cần thêm một cái nữa | PR-B0b (đặt `continue-on-error`) |
 | ND-8 | Gate API bằng feature flag sẽ làm hỏng app mobile đã cài (`mobile/lib` không đọc cờ, interceptor chỉ bắt 401, không có forced-update) | PR-M1 chặn cứng E4–E6 |

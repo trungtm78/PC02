@@ -7,6 +7,47 @@ on:
     branches: [main]
 
 jobs:
+  # Enforces the rules the project documents but nothing checked. Ordered so
+  # the two dependency-free guards fail fast, before spending time on npm ci.
+  governance:
+    name: Governance Gate
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          # The lint ratchet diffs against the merge base with main.
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+
+      # CLAUDE.md has always claimed CI verified this. It did not, until now.
+      - name: Enum literals are not compared as strings
+        run: node scripts/governance/check-enum-literals.cjs
+
+      # generated.ts is committed, so a schema change without re-running the
+      # generator ships a frontend that disagrees with the database.
+      - name: Shared enums are in sync with schema.prisma
+        run: |
+          cd backend && npm run gen:enums
+          cd "$GITHUB_WORKSPACE"
+          git diff --exit-code -- frontend/src/shared/enums/ \
+            || { echo "::error::gen:enums produced changes — run 'cd backend && npm run gen:enums' and commit the result."; exit 1; }
+
+      - name: Install backend dependencies
+        run: cd backend && npm ci
+
+      - name: Install frontend dependencies
+        run: cd frontend && npm ci
+
+      # Whole-repo lint is ~9.3k problems of accumulated debt, so the gate is
+      # monotonic instead: a file this branch touches may not get worse.
+      - name: Lint ratchet on changed files
+        run: node scripts/governance/lint-changed.cjs origin/main
+
   test:
     name: Backend Tests
     runs-on: ubuntu-latest
