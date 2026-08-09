@@ -15,6 +15,12 @@ export const ROLE_NAMES = {
   SYSTEM: 'SYSTEM',
   INVESTIGATOR: 'INVESTIGATOR',
   HEAD_UNIT: 'TRUONG_DON_VI',
+  // Seeded by prisma/seed.ts and compared by name at runtime:
+  //   OFFICER            — bulk-import.controller.ts, calendar-events.controller.ts
+  //   DEADLINE_APPROVER  — deadline-rules.service.ts (approver lookup)
+  // They belong here so SYSTEM_ROLE_NAMES protects them from rename/delete.
+  OFFICER: 'OFFICER',
+  DEADLINE_APPROVER: 'DEADLINE_APPROVER',
 } as const;
 
 export type RoleName = (typeof ROLE_NAMES)[keyof typeof ROLE_NAMES];

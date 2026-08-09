@@ -88,6 +88,9 @@ const MESSAGES = {
     empty: 'Hệ thống chưa khai báo quyền nào.',
     unavailable: 'Không áp dụng',
     noChanges: 'Không có thay đổi nào.',
+    emptyWarning:
+      'Cảnh báo: vai trò này sẽ không còn quyền nào. Mọi người dùng thuộc vai trò sẽ mất toàn bộ quyền truy cập.',
+    retry: 'Thử lại',
   },
 } as const;
 
@@ -238,7 +241,12 @@ export default function UserManagementPage() {
   // The permission catalog is fixed for the session. Refetching it on every
   // tab switch would hand `permCatalog` a new array identity, re-running the
   // effect below and silently discarding unsaved checkbox edits.
-  const permCatalogLoaded = useRef(false);
+  //
+  // Tracked as a small state machine rather than a boolean: 'loading' also
+  // de-duplicates concurrent requests (two fast tab switches), and a failure
+  // returns to 'idle' so the user can retry instead of being stuck with an
+  // empty grid until a full page reload.
+  const permCatalogState = useRef<'idle' | 'loading' | 'loaded'>('idle');
   // Monotonic request id — a response is only applied if it belongs to the
   // most recent request. Without this, a slow response for a previously
   // selected role lands on top of the currently selected one, and because it
@@ -247,12 +255,15 @@ export default function UserManagementPage() {
   const permRequestSeq = useRef(0);
 
   const loadPermCatalog = useCallback(async () => {
-    if (permCatalogLoaded.current) return;
+    if (permCatalogState.current !== 'idle') return;
+    permCatalogState.current = 'loading';
     try {
       const res = await api.get(`/admin/permissions`);
-      permCatalogLoaded.current = true;
+      permCatalogState.current = 'loaded';
+      setPermError('');
       setPermCatalog((res.data ?? []) as PermRow[]);
     } catch (err: unknown) {
+      permCatalogState.current = 'idle'; // allow an explicit retry
       setPermCatalog([]);
       setPermError(extractApiError(err, MESSAGES.perm.catalogFailed).message);
     }
@@ -475,6 +486,13 @@ export default function UserManagementPage() {
     [permCatalog],
   );
 
+  const permGrantedCount = useMemo(
+    () =>
+      permCatalog.filter(({ subject, action }) => permMatrix[subject]?.[action])
+        .length,
+    [permCatalog, permMatrix],
+  );
+
   const permDiff = useMemo(() => {
     const added: string[] = [];
     const removed: string[] = [];
@@ -509,7 +527,12 @@ export default function UserManagementPage() {
       const permissions = permCatalog
         .filter(({ subject, action }) => permMatrix[subject]?.[action])
         .map(({ subject, action }) => ({ action, subject }));
-      await api.patch(`/admin/roles/${selectedRole.id}/permissions`, { permissions });
+      // The backend rejects an empty set unless the caller states the intent,
+      // so a client that lost its data can never silently strip a role.
+      await api.patch(`/admin/roles/${selectedRole.id}/permissions`, {
+        permissions,
+        ...(permissions.length === 0 && { allowEmpty: true }),
+      });
       setPermBaseline(permMatrix);
       setShowSaveConfirm(false);
     } catch (err: unknown) {
@@ -838,10 +861,21 @@ export default function UserManagementPage() {
                     <div
                       data-testid="perm-error-banner"
                       role="alert"
-                      className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex gap-3"
+                      className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex gap-3 items-start"
                     >
                       <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                      <p className="text-sm text-red-800">{permError}</p>
+                      <p className="text-sm text-red-800 flex-1">{permError}</p>
+                      <button
+                        data-testid="perm-retry-btn"
+                        onClick={() => {
+                          setPermError('');
+                          void loadPermCatalog();
+                          if (selectedRole) void loadPermissions(selectedRole.id, permCatalog);
+                        }}
+                        className="px-3 py-1 text-sm border border-red-300 text-red-800 rounded hover:bg-red-100 flex-shrink-0"
+                      >
+                        {MESSAGES.perm.retry}
+                      </button>
                     </div>
                   )}
 
@@ -1194,6 +1228,14 @@ export default function UserManagementPage() {
               {/* Explicit diff — an admin must see exactly what is being
                   granted and revoked before a role-wide permission write. */}
               <div data-testid="perm-diff" className="mb-6 text-sm">
+                {permGrantedCount === 0 && (
+                  <p
+                    data-testid="perm-empty-warning"
+                    className="mb-3 p-3 bg-red-50 border border-red-200 rounded text-red-800"
+                  >
+                    {MESSAGES.perm.emptyWarning}
+                  </p>
+                )}
                 {permDiff.added.length === 0 && permDiff.removed.length === 0 ? (
                   <p className="text-center text-slate-500">{MESSAGES.perm.noChanges}</p>
                 ) : (

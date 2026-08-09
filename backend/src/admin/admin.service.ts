@@ -533,6 +533,15 @@ export class AdminService {
     const role = await this.prisma.role.findUnique({ where: { id: roleId } });
     if (!role) throw new NotFoundException(`Role #${roleId} không tồn tại`);
 
+    // Guard the catastrophic case of this replace-all endpoint: an empty list
+    // revokes every permission the role has. A client that failed to load the
+    // current set must not be able to erase it by sending nothing.
+    if (dto.permissions.length === 0 && dto.allowEmpty !== true) {
+      throw new BadRequestException(
+        `Danh sách quyền rỗng sẽ thu hồi toàn bộ quyền của vai trò "${role.name}". Nếu đúng ý định, gửi kèm allowEmpty=true.`,
+      );
+    }
+
     // EC-05: Prevent admin from removing own critical permissions
     // (Allow but audit clearly)
 

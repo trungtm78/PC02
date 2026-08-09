@@ -993,6 +993,38 @@ describe('AdminService', () => {
         service.updateRolePermissions('bad', { permissions: [] }, 'req'),
       ).rejects.toThrow(NotFoundException);
     });
+
+    // This endpoint replaces the whole set, so [] revokes everything. That is
+    // precisely how the broken frontend matrix wiped roles: it sent [] while
+    // believing the payload was complete.
+    it('refuses an empty permission list unless the caller opts in', async () => {
+      mockPrisma.role.findUnique.mockResolvedValue({ id: 'r1', name: 'CUSTOM' });
+
+      await expect(
+        service.updateRolePermissions('r1', { permissions: [] }, 'req'),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('allows emptying a role when allowEmpty is set explicitly', async () => {
+      mockPrisma.role.findUnique
+        .mockResolvedValueOnce({ id: 'r1', name: 'CUSTOM' })
+        .mockResolvedValueOnce({
+          id: 'r1',
+          name: 'CUSTOM',
+          _count: { users: 0 },
+          permissions: [],
+        });
+      mockPrisma.$transaction.mockResolvedValue([]);
+
+      await service.updateRolePermissions(
+        'r1',
+        { permissions: [], allowEmpty: true },
+        'req',
+      );
+
+      expect(mockPrisma.$transaction).toHaveBeenCalled();
+    });
   });
 
   // ── getAllPermissions ──────────────────────────────────────────────────────

@@ -22,6 +22,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CalendarEventsService, CurrentUser } from './calendar-events.service';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
+import { ROLE_NAMES } from '../common/constants/role.constants';
 
 @Controller('calendar-events')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -39,9 +40,9 @@ export class CalendarEventsController {
    */
   private async resolveCurrentUser(req: any): Promise<CurrentUser> {
     const userId = req.user.id;
-    const roleName: string = req.user.role ?? 'OFFICER';
+    const roleName: string = req.user.role ?? ROLE_NAMES.OFFICER;
 
-    if (roleName === 'ADMIN') {
+    if (roleName === ROLE_NAMES.ADMIN) {
       return { id: userId, role: roleName };
     }
 

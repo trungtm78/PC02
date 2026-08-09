@@ -28,6 +28,7 @@ import {
   DEADLINE_RULE_KEY_SET,
   DEADLINE_RULE_ACTIONS,
 } from './constants/deadline-rule-keys.constants';
+import { ROLE_NAMES } from '../common/constants/role.constants';
 
 interface AuditMeta {
   ipAddress?: string;
@@ -902,7 +903,9 @@ export class DeadlineRulesService {
     const users = await this.prisma.user.findMany({
       where: {
         isActive: true,
-        role: { name: { in: ['DEADLINE_APPROVER', 'ADMIN'] } },
+        role: {
+          name: { in: [ROLE_NAMES.DEADLINE_APPROVER, ROLE_NAMES.ADMIN] },
+        },
       },
       select: { id: true },
     });

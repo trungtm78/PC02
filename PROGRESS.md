@@ -28,10 +28,23 @@ Cập nhật: 2026-08-10T00:35:00+07:00 | Milestone: M0/5 | Task: 1/1 của M0
 
 ## Đang làm dở
 
-Task: M0-T1d — checkpoint PR-A1
-Đã làm: toàn bộ code + test đã xong và xanh. Full suite BE 218 suite/2867 test PASS, FE 150 file/1465 test PASS, `tsc --noEmit` (BE) + `tsc -b` (FE) sạch, eslint trên các file đã sửa exit 0.
-**BƯỚC TIẾP THEO:** commit PR-A1 lên nhánh `fix/admin-role-permission-matrix`, rồi chạy `/review` → `/codex` theo §4, xử lý hết finding, sau đó bắt đầu M0.5-T1 (PR-B0a `chore/ci-governance-gate`).
-File liên quan: `backend/src/admin/admin.{controller,service}.ts`, `backend/src/common/constants/role.constants.ts`, `frontend/src/pages/users/UserManagementPage.tsx`
+Task: M0-T1d — checkpoint PR-A1 (**gần xong**)
+Đã làm: code + test xong, `/review` xong (4 finding, đã sửa hết, commit `98f9b7c`), `/codex` xong (3 finding, đã sửa hết). Full suite BE 218 suite/**2885** test PASS, FE 150 file/**1469** test PASS, `tsc --noEmit` (BE) + `tsc -b` (FE) sạch, eslint trên file đã sửa không có lỗi mới.
+**BƯỚC TIẾP THEO:** commit lớp fix từ codex, rồi bắt đầu M0.5-T1 (PR-B0a `chore/ci-governance-gate`) — xem mục 1 của hàng đợi.
+File liên quan: `backend/src/admin/`, `backend/src/common/constants/role.constants.ts`, `backend/src/deadline-rules/deadline-rules.service.ts`, `backend/src/calendar-events/calendar-events.controller.ts`, `frontend/src/pages/users/UserManagementPage.tsx`, `frontend/src/shared/enums/roles.ts`
+
+### Finding đã xử lý ở checkpoint này
+
+`/review` (4):
+1. Race trong `loadPermissions` — response chậm của vai trò cũ đè lên vai trò đang chọn **và** đè cả baseline ⇒ diff báo "không có thay đổi" trong khi Lưu ghi quyền vai trò A sang B. Sửa bằng `permRequestSeq`.
+2. `updateRole` cho đổi tên vai trò hệ thống ⇒ phá mọi so sánh `ROLE_NAMES` và lách được guard xoá. Chặn hai chiều.
+3. Đổi tab làm refetch danh mục ⇒ đổi identity mảng ⇒ effect chạy lại ⇒ mất chỉnh sửa chưa lưu. Chỉ nạp một lần.
+4. Audit `ROLE_DELETED` thiếu `ipAddress`/`userAgent`.
+
+`/codex` (3):
+5. `PATCH /admin/roles/:id/permissions` vẫn nhận mảng rỗng không điều kiện ⇒ đúng cơ chế đã gây mất quyền, chỉ là từ client khác. Thêm cờ `allowEmpty` bắt buộc + cảnh báo đỏ trong modal.
+6. `permCatalogLoaded` là boolean ⇒ hai request đồng thời, cái lỗi đến sau xoá danh mục nhưng ref vẫn `true` ⇒ **kẹt vĩnh viễn tới khi reload trang**. Đổi thành state machine `idle/loading/loaded` + nút "Thử lại".
+7. `SYSTEM_ROLE_NAMES` thiếu `OFFICER` và `DEADLINE_APPROVER` — hai vai trò seed thật và **được so sánh bằng chuỗi cứng** ở `deadline-rules.service.ts:905`, `calendar-events.controller.ts:42`, nên không được bảo vệ. Bổ sung vào `ROLE_NAMES` (cả BE lẫn FE) và thay chuỗi cứng bằng hằng số.
 
 ## Hàng đợi task kế tiếp
 
@@ -63,12 +76,12 @@ File liên quan: `backend/src/admin/admin.{controller,service}.ts`, `backend/src
 ## Trạng thái test
 
 Full suite: **PASS**
-- Backend: 218 suite / 2867 test — PASS
-- Frontend: 150 file / 1465 test — PASS
+- Backend: 218 suite / **2885** test — PASS
+- Frontend: 150 file / **1469** test — PASS
 - `tsc --noEmit` (BE): sạch · `tsc -b` (FE): sạch
-- eslint trên file đã sửa: exit 0
+- eslint: không có lỗi mới trên dòng đã thêm (nợ lint có sẵn xem ND-1)
 
-Patch coverage: BE 100% dòng mới · FE 69/70 statement (chỉ dòng 490 — guard chống race trong `handleSavePermissions` — chưa phủ)
+Patch coverage: BE 100% dòng mới · FE chỉ còn 1 guard chống race chưa phủ
 Test fail: không
 
 ## Nợ kỹ thuật / rủi ro

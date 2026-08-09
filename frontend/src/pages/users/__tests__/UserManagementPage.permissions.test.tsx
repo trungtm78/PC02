@@ -316,6 +316,49 @@ describe('UserManagementPage — permission matrix', () => {
     expect(screen.getByTestId('perm-Case-edit')).toBeChecked();
   });
 
+  it('FE-P11: a failed catalog load can be retried instead of locking the screen', async () => {
+    apiState.catalogShouldFail = true;
+
+    render(
+      <MemoryRouter>
+        <UserManagementPage />
+      </MemoryRouter>,
+    );
+    fireEvent.click(await screen.findByRole('tab', { name: /Vai trò & Phân quyền/ }));
+    fireEvent.click(await screen.findByTestId('role-item-INVESTIGATOR'));
+    await screen.findByTestId('perm-error-banner');
+
+    // Recover and retry — the grid must come back without a page reload.
+    apiState.catalogShouldFail = false;
+    fireEvent.click(screen.getByTestId('perm-retry-btn'));
+
+    expect(await screen.findByTestId('perm-Case-read')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.queryByTestId('perm-error-banner')).not.toBeInTheDocument(),
+    );
+  });
+
+  it('FE-P12: warns before stripping a role down to zero permissions', async () => {
+    await renderRolesTab();
+    await waitFor(() => expect(screen.getByTestId('perm-Case-read')).toBeChecked());
+
+    fireEvent.click(screen.getByTestId('perm-Case-read')); // revoke the only grant
+    fireEvent.click(screen.getByTestId('save-permissions-btn'));
+
+    expect(await screen.findByTestId('perm-empty-warning')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Xác nhận' }));
+    await waitFor(() => expect(patchSpy).toHaveBeenCalledTimes(1));
+    const [, body] = patchSpy.mock.calls[0] as unknown as [
+      string,
+      { permissions: unknown[]; allowEmpty?: boolean },
+    ];
+    // The backend rejects an empty set without this flag, so an accidental
+    // wipe from a client that lost its data is impossible.
+    expect(body.permissions).toHaveLength(0);
+    expect(body.allowEmpty).toBe(true);
+  });
+
   it('FE-P5: the confirm modal lists what will be added and removed', async () => {
     await renderRolesTab();
 
