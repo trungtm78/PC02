@@ -35,17 +35,20 @@ const SCAN_ROOTS = [
  * Files that are allowed to spell enum values out, because defining them is
  * their whole job.
  */
+// Anchored with (^|/) so a directory still matches when it is the first
+// segment of the relative path — the patterns must not depend on the scan
+// roots happening to nest them one level deep.
 const ALLOWED = [
-  /[\\/]shared[\\/]enums[\\/]/,
-  /[\\/]common[\\/]constants[\\/]/,
-  /[\\/]constants[\\/][^\\/]*constants\.ts$/,
-  /[\\/]prisma[\\/]/,
+  /(^|[\\/])shared[\\/]enums[\\/]/,
+  /(^|[\\/])common[\\/]constants[\\/]/,
+  /(^|[\\/])constants[\\/][^\\/]*constants\.ts$/,
+  /(^|[\\/])prisma[\\/]/,
   // Test files use literals as fixtures on purpose — asserting against a
   // constant would make the test tautological with the code it checks.
   /\.spec\.tsx?$/,
   /\.test\.tsx?$/,
-  /[\\/]__tests__[\\/]/,
-  /[\\/]test-utils[\\/]/,
+  /(^|[\\/])__tests__[\\/]/,
+  /(^|[\\/])test-utils[\\/]/,
 ];
 
 const SCAN_EXT = new Set(['.ts', '.tsx']);
@@ -93,13 +96,16 @@ function stripCommentsAndKeepPositions(source) {
     .replace(/\/\/[^\n]*/g, (m) => m.replace(/[^\n]/g, ' '));
 }
 
-function findViolations(enumValues) {
+function findViolations(enumValues, roots = SCAN_ROOTS, baseDir = REPO_ROOT) {
   const violations = [];
-  const files = SCAN_ROOTS.filter(fs.existsSync).flatMap((root) => walk(root, []));
+  const files = roots.filter(fs.existsSync).flatMap((root) => walk(root, []));
 
   for (const file of files) {
-    const rel = path.relative(REPO_ROOT, file).replace(/\\/g, '/');
-    if (ALLOWED.some((re) => re.test(file))) continue;
+    const rel = path.relative(baseDir, file).replace(/\\/g, '/');
+    // Matched against the repo-relative path, never the absolute one: a
+    // checkout directory that happens to contain a segment like "prisma" or
+    // "test-utils" would otherwise switch the guard off for the whole repo.
+    if (ALLOWED.some((re) => re.test(rel))) continue;
 
     const lines = stripCommentsAndKeepPositions(
       fs.readFileSync(file, 'utf8'),

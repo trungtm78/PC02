@@ -24,11 +24,32 @@ const path = require('path');
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
 const BASELINE_PATH = path.join(__dirname, 'lint-baseline.json');
 
-/** Workspaces with their own eslint config. */
+/**
+ * Workspaces with their own eslint config.
+ *
+ * `scan` is the single source of truth for the gate's territory: the baseline
+ * is generated from exactly these directories, and only changed files inside
+ * them are checked. If the two ever diverged, a file could be linted with no
+ * baseline entry to compare against — it would fail at `0 → n` with no way to
+ * record it, since --write-baseline would not visit it either.
+ */
 const WORKSPACES = [
-  { prefix: 'backend/', dir: path.join(REPO_ROOT, 'backend'), scan: ['src', 'test'] },
+  {
+    prefix: 'backend/',
+    dir: path.join(REPO_ROOT, 'backend'),
+    scan: ['src', 'test', 'prisma', 'scripts'],
+  },
   { prefix: 'frontend/', dir: path.join(REPO_ROOT, 'frontend'), scan: ['src'] },
 ];
+
+/** Is this repo-relative path inside a workspace directory the gate covers? */
+function ownedBy(ws, relPath) {
+  if (!relPath.startsWith(ws.prefix)) return false;
+  const inWorkspace = relPath.slice(ws.prefix.length);
+  return ws.scan.some(
+    (dir) => inWorkspace === dir || inWorkspace.startsWith(`${dir}/`),
+  );
+}
 
 /**
  * Resolve eslint's JS entry point and run it with the current node binary.
@@ -92,10 +113,28 @@ function lintCounts(ws, targets) {
   const res = spawnSync(
     process.execPath,
     [eslintBin(ws.dir), '--format', 'json', ...targets],
-    { cwd: ws.dir, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 },
+    { cwd: ws.dir, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 },
   );
+
+  // Fail loudly rather than reporting "nothing wrong". eslint exits 1 when it
+  // finds problems (normal here) and 2 on a fatal error; anything else, or a
+  // spawn failure, or unparseable output, means we have no idea what the real
+  // counts are — and a gate that silently passes is worse than no gate.
+  if (res.error) {
+    throw new Error(`eslint failed to start in ${ws.dir}: ${res.error.message}`);
+  }
+  if (res.status !== 0 && res.status !== 1) {
+    throw new Error(
+      `eslint exited with ${res.status} in ${ws.dir}:\n${(res.stderr || '').trim().slice(0, 2000)}`,
+    );
+  }
   const raw = (res.stdout || '').trim();
-  if (!raw) return {};
+  if (!raw) {
+    throw new Error(
+      `eslint produced no output in ${ws.dir} (exit ${res.status}). ` +
+        'Refusing to treat that as "no problems".',
+    );
+  }
   const counts = {};
   for (const entry of JSON.parse(raw)) {
     const rel = path
@@ -150,10 +189,13 @@ function main() {
   }
 
   const changed = changedFiles(baseRef).filter(
-    (f) => /\.(ts|tsx)$/.test(f) && fs.existsSync(path.join(REPO_ROOT, f)),
+    (f) =>
+      /\.(ts|tsx)$/.test(f) &&
+      fs.existsSync(path.join(REPO_ROOT, f)) &&
+      WORKSPACES.some((ws) => ownedBy(ws, f)),
   );
   if (changed.length === 0) {
-    console.log(`Lint ratchet: no TypeScript changes vs ${baseRef}.`);
+    console.log(`Lint ratchet: no covered TypeScript changes vs ${baseRef}.`);
     return;
   }
 
@@ -161,7 +203,7 @@ function main() {
   const current = {};
   for (const ws of WORKSPACES) {
     const owned = changed
-      .filter((f) => f.startsWith(ws.prefix))
+      .filter((f) => ownedBy(ws, f))
       .map((f) => f.slice(ws.prefix.length));
     Object.assign(current, lintCounts(ws, owned));
   }
@@ -202,4 +244,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { resolveBaseRef, changedFiles, lintCounts, WORKSPACES };
+module.exports = { resolveBaseRef, changedFiles, lintCounts, ownedBy, WORKSPACES };

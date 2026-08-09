@@ -21,13 +21,33 @@ const GUARD_PATH = path.join(
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const guard = require(GUARD_PATH) as {
   parseEnumValues: (schemaSource: string) => Set<string>;
-  findViolations: (values: Set<string>) => Array<{
-    file: string;
-    line: number;
-    value: string;
-    text: string;
-  }>;
+  findViolations: (
+    values: Set<string>,
+    roots?: string[],
+    baseDir?: string,
+  ) => Array<{ file: string; line: number; value: string; text: string }>;
 };
+
+/**
+ * Scan a throwaway tree instead of the real source.
+ *
+ * Asserting that production code still contains a violation would make the
+ * suite fail the moment somebody does what the guard's own error message tells
+ * them to do.
+ */
+function scanFixture(files: Record<string, string>, values: string[]) {
+  const root = fs.mkdtempSync(path.join(require('os').tmpdir(), 'enum-guard-'));
+  try {
+    for (const [rel, content] of Object.entries(files)) {
+      const full = path.join(root, rel);
+      fs.mkdirSync(path.dirname(full), { recursive: true });
+      fs.writeFileSync(full, content);
+    }
+    return guard.findViolations(new Set(values), [root], root);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+}
 
 describe('enum-literal guard', () => {
   describe('parseEnumValues', () => {
@@ -65,31 +85,58 @@ describe('enum-literal guard', () => {
   });
 
   describe('findViolations', () => {
-    it('flags a comparison against a known enum value', () => {
-      const hits = guard.findViolations(new Set(['TIEP_NHAN']));
-      // The repo genuinely contains these today; the baseline is what keeps
-      // them from failing CI. If this ever returns nothing, the scanner has
-      // stopped looking at the source tree.
-      expect(hits.length).toBeGreaterThan(0);
-      expect(hits.every((h) => h.value === 'TIEP_NHAN')).toBe(true);
+    it.each([
+      ['equality', `if (c.status === 'TIEP_NHAN') return 1;`],
+      ['inequality', `if (c.status !== 'TIEP_NHAN') return 1;`],
+      ['reversed operands', `if ('TIEP_NHAN' === c.status) return 1;`],
+      ['switch case', `switch (s) { case 'TIEP_NHAN': break; }`],
+      ['array membership', `if (list.includes('TIEP_NHAN')) return 1;`],
+    ])('flags a %s comparison', (_label, code) => {
+      const hits = scanFixture({ 'src/a.ts': code }, ['TIEP_NHAN']);
+      expect(hits).toHaveLength(1);
+      expect(hits[0].value).toBe('TIEP_NHAN');
     });
 
-    it('does not flag a value that is not an enum member', () => {
-      expect(guard.findViolations(new Set(['NOT_AN_ENUM_VALUE_XYZ']))).toEqual([]);
-    });
-
-    it('never flags the generated enum file or shared constants', () => {
-      const values = guard.parseEnumValues(
-        fs.readFileSync(
-          path.join(REPO_ROOT, 'backend', 'prisma', 'schema.prisma'),
-          'utf8',
-        ),
+    it('ignores an enum value that is only mentioned in a comment', () => {
+      const hits = scanFixture(
+        { 'src/a.ts': `// status === 'TIEP_NHAN' is handled elsewhere\nconst x = 1;` },
+        ['TIEP_NHAN'],
       );
-      const files = guard.findViolations(values).map((h) => h.file);
-      expect(files.some((f) => f.includes('shared/enums/'))).toBe(false);
-      expect(files.some((f) => f.includes('common/constants/'))).toBe(false);
-      expect(files.some((f) => f.includes('__tests__/'))).toBe(false);
-      expect(files.some((f) => /\.(spec|test)\.tsx?$/.test(f))).toBe(false);
+      expect(hits).toEqual([]);
+    });
+
+    it('does not flag a string that is not an enum member', () => {
+      const hits = scanFixture(
+        { 'src/a.ts': `if (x === 'NOT_AN_ENUM_VALUE') return 1;` },
+        ['TIEP_NHAN'],
+      );
+      expect(hits).toEqual([]);
+    });
+
+    it.each([
+      'src/shared/enums/generated.ts',
+      'src/common/constants/case.constants.ts',
+      'src/pages/__tests__/thing.test.ts',
+      'src/thing.spec.ts',
+      'prisma/seed.ts',
+    ])('never flags %s, whose job is to spell values out', (rel) => {
+      const hits = scanFixture(
+        { [rel]: `if (c.status === 'TIEP_NHAN') return 1;` },
+        ['TIEP_NHAN'],
+      );
+      expect(hits).toEqual([]);
+    });
+
+    it('matches the allow-list against the repo-relative path, not the absolute one', () => {
+      // The fixture root itself lives under a temp directory. If the allow-list
+      // were applied to absolute paths, an unlucky checkout directory could
+      // switch the guard off for the entire repo.
+      const hits = scanFixture(
+        { 'src/app/service.ts': `if (c.status === 'TIEP_NHAN') return 1;` },
+        ['TIEP_NHAN'],
+      );
+      expect(hits).toHaveLength(1);
+      expect(hits[0].file).toBe('src/app/service.ts');
     });
   });
 
