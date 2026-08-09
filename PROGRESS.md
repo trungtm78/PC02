@@ -1,5 +1,5 @@
 # PROGRESS
-Cập nhật: 2026-08-10T01:45:00+07:00 | Milestone: M0.5/5 | Task: 1/3 của M0.5
+Cập nhật: 2026-08-10T02:40:00+07:00 | Milestone: M0.5/5 | Task: 2/3 của M0.5
 
 > Nguồn sự thật về trạng thái thi công. Kế hoạch gốc: `~/.claude/plans/r-so-t-to-n-b-vast-minsky.md`
 > (đã qua `/plan-eng-review` + outside voice). Lịch sử đợt di trú legacy trước đó đã chuyển sang
@@ -78,10 +78,15 @@ Tự phát hiện thêm: 3 file test mới của chính tôi bị baseline hoá 
 
 ## Hàng đợi task kế tiếp
 
-1. M0.5-T2 — PR-B0b `chore/ci-drift-and-e2e-scaffold` (`continue-on-error`): `prisma migrate diff`, Postgres service, project Playwright `e2e-new`, `tests/.env.test.example`.
-3. M0.5-T3 — PR-B0c `docs/adr-foundation`: `docs/adr/` + 12 ADR + CI nudge.
-4. M1-T1 — PR-D1 `feat/evidences-lifecycle` (phải trước A2).
-5. M1-T2 — PR-A2 `fix/case-update-subentity-dataloss`.
+1. M0.5-T3 — PR-B0c `docs/adr-foundation`: `docs/adr/` + template MADR + 12 ADR + CI nudge theo khuôn `shell-parity-gate.yml`.
+2. M1-T1 — PR-D1 `feat/evidences-lifecycle` (**phải trước A2** — nếu A2 chặn `evidences[]` khi chưa có module thay thế thì cán bộ mất luôn đường nhập vật chứng lúc sửa hồ sơ).
+3. M1-T2 — PR-A2 `fix/case-update-subentity-dataloss` (FE + BE **cùng một PR**).
+4. M1-T3 — PR-A3 `fix/create-endpoints-datascope` (4 service: subjects, lawyers, investigation-supplements, exchanges).
+5. M1-T4 — PR-A4 `fix/seed-endpoints-and-settings-validation` (dùng chuỗi **có dấu** `'ngày'`/`'lần'`/`'giờ'`; trần theo unit, `giờ` → 8760).
+6. M1-T5 — PR-M1 `feat/mobile-feature-flag-awareness` (**chặn cứng** E4–E6).
+
+### Nhánh đã tạo (chưa mở PR, chưa push)
+`fix/admin-role-permission-matrix` → `chore/ci-governance-gate` → `chore/ci-drift-and-e2e-scaffold` (xếp chồng, mỗi nhánh dựa trên nhánh trước). Khi mở PR cần tách hoặc merge tuần tự theo đúng thứ tự này.
 
 ## Quyết định kiến trúc
 
