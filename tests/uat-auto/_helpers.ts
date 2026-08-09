@@ -4,7 +4,25 @@
  */
 import { APIRequestContext, expect } from '@playwright/test';
 
-export const PROD_BASE = process.env.BASE_URL || 'http://171.244.40.245';
+/**
+ * Target deployment for the UAT suite.
+ *
+ * No default. This used to fall back to the production IP, so `npx playwright
+ * test tests/uat-auto` with an empty environment aimed 781 test cases —
+ * including writes — at the live system. An explicit BASE_URL is cheap; an
+ * accidental production run is not.
+ */
+export const PROD_BASE = (() => {
+  const base = process.env.BASE_URL;
+  if (!base) {
+    throw new Error(
+      'BASE_URL is not set. The UAT suite runs against a real deployment and has ' +
+        'no default target — copy tests/.env.test.example to tests/.env.test and ' +
+        'set BASE_URL (that file is gitignored).',
+    );
+  }
+  return base;
+})();
 
 export type Role = 'admin' | 'admin2' | 'officer1' | 'officer2' | 'approver1' | 'noauth';
 

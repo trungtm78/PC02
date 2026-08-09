@@ -48,6 +48,81 @@ jobs:
       - name: Lint ratchet on changed files
         run: node scripts/governance/lint-changed.cjs origin/main
 
+  # Reports only, for now. Both checks are known to be red against the current
+  # tree, and turning them into merge blockers before that is dealt with would
+  # stop every PR on debt unrelated to it:
+  #
+  #  - schema drift: production carries at least six partial indexes that
+  #    Prisma 7 has no syntax for (20260516120000, 20260522131024,
+  #    20260627130700), so `migrate diff` reports a difference that cannot be
+  #    expressed in schema.prisma. Upcoming work adds another one.
+  #  - e2e: the tests/e2e-new suite is still empty. The 182 legacy specs are
+  #    deliberately not wired up — see tests/e2e-new/README.md.
+  #
+  # Flip continue-on-error off per check, as each becomes actionable.
+  advisory:
+    name: Advisory Checks (non-blocking)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: pc02_ci
+          POSTGRES_PASSWORD: pc02_ci
+          POSTGRES_DB: pc02_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U pc02_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        run: cd backend && npm ci
+
+      - name: Install root dependencies
+        run: npm ci
+
+      # tests/ has never been type-checked. 11 errors remain, all in generated
+      # UAT specs that CI does not run (missing variables the generator forgot
+      # to declare, a duplicated object key, an absent jszip dependency) — see
+      # tests/e2e-new/README.md for why that suite is not wired up. The live
+      # parts (global-setup, pages, helpers, e2e-new) are clean.
+      - name: Type-check tests/
+        continue-on-error: true
+        run: |
+          node backend/node_modules/typescript/bin/tsc --noEmit -p tsconfig.json \
+          && echo "tests/ type-checks clean." \
+          || echo "::warning::tests/ has type errors — expected while the generated UAT specs are unfixed."
+
+      # Compares the applied migration history against schema.prisma using a
+      # shadow database, catching a schema edited without a migration.
+      - name: Migration drift
+        continue-on-error: true
+        env:
+          SHADOW_DATABASE_URL: postgresql://pc02_ci:pc02_ci@localhost:5432/pc02_ci?schema=shadow
+        run: |
+          cd backend
+          npx prisma migrate diff \
+            --from-migrations ./prisma/migrations \
+            --to-schema-datamodel ./prisma/schema.prisma \
+            --shadow-database-url "$SHADOW_DATABASE_URL" \
+            --exit-code \
+          && echo "No drift." \
+          || echo "::warning::Schema drift detected — expected while the partial-index gap is open."
+
   test:
     name: Backend Tests
     runs-on: ubuntu-latest
