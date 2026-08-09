@@ -1,7 +1,7 @@
 {
   "note": "Per-file eslint problem counts (errors + warnings). Ratchet: a touched file may not exceed its entry; files absent here must be clean. Regenerate only to record improvements.",
   "generatedFrom": "scripts/governance/lint-changed.cjs --write-baseline",
-  "totalProblems": 11535,
+  "totalProblems": 11527,
   "files": {
     "backend/prisma/cleanup-crime.ts": 7,
     "backend/prisma/data/blhs2015-crimes.ts": 950,
@@ -512,8 +512,6 @@
     "backend/src/xlsx-imports/xlsx-parser.service.spec.ts": 21,
     "backend/src/xlsx-imports/xlsx-parser.service.ts": 10,
     "backend/test/admin-api.e2e-spec.ts": 50,
-    "backend/test/enums-sync.spec.ts": 1,
-    "backend/test/governance-enum-literals.spec.ts": 7,
     "frontend/src/components/__tests__/ChangePasswordModal.test.tsx": 2,
     "frontend/src/components/__tests__/TempPasswordHandoverModal.test.tsx": 1,
     "frontend/src/components/ActionMenuPortal.tsx": 2,

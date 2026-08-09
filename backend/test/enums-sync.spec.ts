@@ -27,11 +27,10 @@ const FRONTEND_GENERATED = path.resolve(
 // catalog, and nothing caught it because jest never picked this file up
 // (rootDir was "src"). Sharing the generator's list makes that impossible.
 
-const { SHARED_ENUMS, parseEnums: parseEnumsFromSchema } =
-  require('../scripts/generate-shared-enums.cjs') as {
-    SHARED_ENUMS: string[];
-    parseEnums: (source: string) => Record<string, string[]>;
-  };
+import {
+  SHARED_ENUMS,
+  parseEnums as parseEnumsFromSchema,
+} from '../scripts/generate-shared-enums.cjs';
 
 function parseEnumsFromGenerated(source: string): Record<string, string[]> {
   // Match: export const Name = { K: 'V', ... } as const;

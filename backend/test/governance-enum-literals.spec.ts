@@ -8,25 +8,11 @@
  * fixtures in tests).
  */
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
+import * as guard from '../../scripts/governance/check-enum-literals.cjs';
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
-const GUARD_PATH = path.join(
-  REPO_ROOT,
-  'scripts',
-  'governance',
-  'check-enum-literals.cjs',
-);
-
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const guard = require(GUARD_PATH) as {
-  parseEnumValues: (schemaSource: string) => Set<string>;
-  findViolations: (
-    values: Set<string>,
-    roots?: string[],
-    baseDir?: string,
-  ) => Array<{ file: string; line: number; value: string; text: string }>;
-};
 
 /**
  * Scan a throwaway tree instead of the real source.
@@ -36,7 +22,7 @@ const guard = require(GUARD_PATH) as {
  * them to do.
  */
 function scanFixture(files: Record<string, string>, values: string[]) {
-  const root = fs.mkdtempSync(path.join(require('os').tmpdir(), 'enum-guard-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'enum-guard-'));
   try {
     for (const [rel, content] of Object.entries(files)) {
       const full = path.join(root, rel);
@@ -99,7 +85,9 @@ describe('enum-literal guard', () => {
 
     it('ignores an enum value that is only mentioned in a comment', () => {
       const hits = scanFixture(
-        { 'src/a.ts': `// status === 'TIEP_NHAN' is handled elsewhere\nconst x = 1;` },
+        {
+          'src/a.ts': `// status === 'TIEP_NHAN' is handled elsewhere\nconst x = 1;`,
+        },
         ['TIEP_NHAN'],
       );
       expect(hits).toEqual([]);

@@ -7,33 +7,15 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
+import * as ratchet from '../../scripts/governance/lint-changed.cjs';
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
-const SCRIPT_PATH = path.join(
-  REPO_ROOT,
-  'scripts',
-  'governance',
-  'lint-changed.cjs',
-);
 const BASELINE_PATH = path.join(
   REPO_ROOT,
   'scripts',
   'governance',
   'lint-baseline.json',
 );
-
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const ratchet = require(SCRIPT_PATH) as {
-  ownedBy: (
-    ws: { prefix: string; scan: string[] },
-    relPath: string,
-  ) => boolean;
-  lintCounts: (
-    ws: { dir: string; prefix: string },
-    targets: string[],
-  ) => Record<string, number>;
-  WORKSPACES: Array<{ prefix: string; dir: string; scan: string[] }>;
-};
 
 const backend = ratchet.WORKSPACES.find((w) => w.prefix === 'backend/')!;
 const frontend = ratchet.WORKSPACES.find((w) => w.prefix === 'frontend/')!;

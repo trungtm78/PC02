@@ -37,10 +37,20 @@ Cập nhật: 2026-08-10T01:45:00+07:00 | Milestone: M0.5/5 | Task: 1/3 của M0
 
 ## Đang làm dở
 
-Task: M0.5-T1e — checkpoint PR-B0a
-Đã làm: toàn bộ code PR-B0a xong; 3 bước của cổng governance chạy xanh cục bộ; BE tsc + FE `tsc -b` sạch; FE 151 file/1475 test PASS.
-**BƯỚC TIẾP THEO:** commit PR-B0a, chạy `/review` → `/codex` theo §4, xử lý hết finding, rồi sang M0.5-T2 (PR-B0b `chore/ci-drift-and-e2e-scaffold`).
+Task: M0.5-T1e — checkpoint PR-B0a (**xong**, chờ commit cuối)
+Đã làm: code xong; `/review` xong (4 finding, đã sửa hết, commit `90d01e7`); dọn nợ lint trên chính file mới của mình thay vì baseline hoá nó. BE 220 suite/**2949** test PASS, FE 151 file/**1475** test PASS, BE `tsc --noEmit` + FE `tsc -b` sạch, 3 cổng governance xanh.
+**BƯỚC TIẾP THEO:** sang M0.5-T2 (PR-B0b `chore/ci-drift-and-e2e-scaffold`) — xem mục 1 của hàng đợi.
 File liên quan: `.github/workflows/ci.yml`, `scripts/governance/*`, `backend/package.json`, `backend/test/`, `frontend/vite.config.ts`, `frontend/src/test-setup.ts`, `CLAUDE.md`
+
+### Finding đã xử lý ở checkpoint PR-B0a
+
+`/review` (4) — đều nằm trong chính công cụ governance, 2 cái làm cổng **im lặng đi qua**:
+1. Ratchet lint quét `backend/**` nhưng baseline chỉ sinh từ `src`+`test` ⇒ `prisma/seed.ts` (62 lỗi) fail `0 → 62` và `--write-baseline` không ghi nổi. Gộp về một nguồn sự thật `ownedBy()`, mở rộng sang `prisma/` + `scripts/`.
+2. `lintCounts` coi stdout rỗng là "không lỗi" và bỏ qua exit code ⇒ eslint crash thì cổng báo xanh. Nay phân biệt exit 1 (có lỗi, bình thường) với lỗi thật và ném exception.
+3. Spec khẳng định source production **vẫn còn** vi phạm ⇒ ai làm đúng hướng dẫn của guard sẽ làm đỏ test. Chuyển sang quét cây fixture tạm.
+4. Allow-list khớp trên đường dẫn tuyệt đối ⇒ thư mục checkout chứa segment `prisma`/`test-utils` sẽ tắt guard toàn repo. Đổi sang đường dẫn tương đối + neo `(^|/)`.
+
+Tự phát hiện thêm: 3 file test mới của chính tôi bị baseline hoá 7 lỗi lint thay vì dọn — đúng kiểu tự miễn trừ mà chính sách này cấm. Đã khai báo kiểu cho 2 script CommonJS (`test/governance-scripts.d.ts`) để dùng `import` thật thay `require()` + `any`; cả 4 file mới nay 0 lỗi.
 
 ### Finding đã xử lý ở checkpoint PR-A1
 
