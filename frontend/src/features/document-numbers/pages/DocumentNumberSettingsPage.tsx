@@ -17,6 +17,117 @@ const INPUT_MODE_CLASSES: Record<string, string> = {
   AUTO_WITH_OVERRIDE: 'bg-amber-100 text-amber-700',
 };
 
+/**
+ * The logs tab said "Chức năng xem lịch sử đang phát triển" while
+ * `documentNumbersApi.getLogs()` had been implemented and unused the whole
+ * time. Nothing needed developing; the tab just never called it.
+ */
+function LogsTab() {
+  const [page, setPage] = useState(1);
+  const pageSize = 20;
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: DOC_NUM_QUERY_KEYS.logs({ page, pageSize }),
+    queryFn: () => documentNumbersApi.getLogs({ page, pageSize }),
+  });
+
+  if (isLoading) {
+    return <p className="py-6 text-center text-sm text-gray-500">Đang tải…</p>;
+  }
+
+  if (error) {
+    return (
+      <p
+        role="alert"
+        className="py-6 text-center text-sm text-red-600"
+        data-testid="logs-error"
+      >
+        Không tải được lịch sử cấp số.
+      </p>
+    );
+  }
+
+  const items = data?.items ?? [];
+  const total = data?.total ?? 0;
+  const lastPage = Math.max(1, Math.ceil(total / pageSize));
+
+  if (items.length === 0) {
+    return (
+      <p
+        className="py-10 text-center text-sm text-gray-400"
+        data-testid="logs-empty"
+      >
+        Chưa có số nào được cấp.
+      </p>
+    );
+  }
+
+  return (
+    <div data-testid="logs-tab">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-gray-200 text-left text-gray-500">
+            <th className="py-2 pr-4 font-medium">Số đã cấp</th>
+            <th className="py-2 pr-4 font-medium">Loại chứng từ</th>
+            <th className="py-2 pr-4 font-medium">Trạng thái</th>
+            <th className="py-2 pr-4 font-medium">Thời điểm</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((log) => (
+            <tr
+              key={log.id}
+              className="border-b border-gray-100"
+              data-testid={`log-row-${log.id}`}
+            >
+              <td className="py-2 pr-4 font-mono">{log.generatedNumber}</td>
+              <td className="py-2 pr-4">{log.documentType}</td>
+              <td className="py-2 pr-4">
+                {log.isDraft ? (
+                  <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">
+                    Nháp — chưa gắn chứng từ
+                  </span>
+                ) : (
+                  <span className="rounded bg-green-100 px-1.5 py-0.5 text-xs text-green-700">
+                    Đã dùng
+                  </span>
+                )}
+              </td>
+              <td className="py-2 pr-4 text-gray-600">
+                {new Date(log.createdAt).toLocaleString('vi-VN')}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <div className="mt-4 flex items-center justify-between text-sm text-gray-600">
+        <span>
+          Trang {page}/{lastPage} — {total} bản ghi
+        </span>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            disabled={page <= 1}
+            onClick={() => setPage((p) => p - 1)}
+            className="rounded border border-gray-300 px-3 py-1 disabled:opacity-40"
+          >
+            Trước
+          </button>
+          <button
+            type="button"
+            disabled={page >= lastPage}
+            onClick={() => setPage((p) => p + 1)}
+            className="rounded border border-gray-300 px-3 py-1 disabled:opacity-40"
+          >
+            Sau
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function InputModeBadge({ id, mode }: { id: string; mode: string }) {
   return (
     <span
@@ -235,11 +346,7 @@ export default function DocumentNumberSettingsPage() {
         </>
       )}
 
-      {activeTab === 'logs' && (
-        <div className="text-center py-10 text-gray-400">
-          <p>Chức năng xem lịch sử đang phát triển</p>
-        </div>
-      )}
+      {activeTab === 'logs' && <LogsTab />}
 
       {modalOpen && (
         <TemplateFormModal

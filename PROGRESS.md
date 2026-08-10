@@ -39,6 +39,15 @@ Cập nhật: 2026-08-10T03:15:00+07:00 | Milestone: M1/5 | Task: 0/5 của M1
 
 ## Đang làm dở
 
+Task: M3-T4 — PR-C12 (một phần) `fix/dead-controls` (**code xong, chờ `/codex`**)
+Đã làm: tab "Lịch sử" ở `DocumentNumberSettingsPage` ghi **"Chức năng xem lịch sử đang phát triển"** trong khi `documentNumbersApi.getLogs()` đã hiện thực xong và **không ai gọi**. Không có gì cần phát triển — tab chỉ là chưa từng gọi hàm đó. Nay là bảng thật: số đã cấp, loại chứng từ, trạng thái (nháp / đã dùng), thời điểm, kèm phân trang; có trạng thái rỗng và trạng thái lỗi riêng biệt (lỗi tải **không** hiện thành bảng rỗng).
+Test: +4.
+Kiểm: FE **157 file / 1525 test** PASS, tsc sạch, 3 cổng xanh.
+**Còn lại của C12** (chưa làm, tách vì đụng file khác): nút "Xuất Excel" ở `PetitionGuidancePage` và nút "Xem chi tiết" trùng chức năng ở `UserManagementPage`.
+**BƯỚC TIẾP THEO:** `/codex` cho PR-C12, rồi phần còn lại của M3.
+
+---
+
 Task: M3-T3 — PR-C8 `fix/other-classification-real-fields` (**code xong, chờ `/codex`**)
 Đã làm: `OtherClassificationPage` có **ba** bộ lọc không bao giờ khớp được gì:
 - **Lọc ngày** so `reportedDate` (đã format `dd/MM/yyyy` để hiển thị) với giá trị `<input type="date">` (`yyyy-MM-dd`) bằng phép so chuỗi. `"10/08/2026" < "2026-08-01"` là **true** vì `'1' < '2'` ⇒ đặt "từ ngày" loại sạch mọi dòng, đặt "đến ngày" không loại gì. Thêm `reportedDateISO` riêng cho việc lọc.
@@ -353,7 +362,7 @@ Tự phát hiện thêm: 3 file test mới của chính tôi bị baseline hoá 
 
 Full suite: **PASS**
 - Backend: 226 suite / **3078** test — PASS (xem ND-9: 1 suite flaky ~1/6 lần, có sẵn từ trước)
-- Frontend: 157 file / **1521** test — PASS (3 lần chạy liên tiếp ổn định)
+- Frontend: 157 file / **1525** test — PASS (3 lần chạy liên tiếp ổn định)
 - Cổng governance: enum guard ✅ · gen:enums drift ✅ · lint ratchet ✅ (baseline 8.945 sau ADR-0015)
 - `tsc --noEmit` (BE): sạch · `tsc -b` (FE): sạch
 - eslint: không có lỗi mới trên dòng đã thêm (nợ lint có sẵn xem ND-1)
