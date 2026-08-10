@@ -44,9 +44,17 @@ Task: M2-T3 — PR-B3 `refactor/feature-registry-codegen` (**code xong, chờ `/
 - **`scripts/generate-feature-registry.cjs`** quét mọi `src/**/feature.manifest.ts` → sinh `feature-registry.generated.ts`, `FEATURE_REGISTRY` chỉ còn re-export. Nối vào `npm run build` cạnh `gen:enums`, **commit file sinh ra** đúng khuôn `generated.ts` hiện có, + bước kiểm drift trong CI.
 - **Sửa bug đang sống:** thêm `backend/src/edit-window/feature.manifest.ts` key `edit-window-requests`. FE có module + mục menu "Yêu cầu reset thời hạn", BE chưa từng có key ⇒ `listAll()` không trả về ⇒ **mục menu biến mất, chỉ vào được bằng gõ URL**. Đây là lần thứ 3 của cùng một lỗi (sau `comprehensive` và `document-templates`) — nên registry chuyển sang codegen chứ không vá lẻ.
 - **Cổng parity `test/feature-registry-parity.spec.ts`**: khẳng định **FE ⊆ BE** (không phải bằng nhau — BE có module hạ tầng không màn hình, thế là đúng), và mọi manifest trên đĩa đều nằm trong registry sinh ra. Spec cũ chỉ so **số đếm**, mà đếm thì không bao giờ bắt được module chưa từng được thêm. Khi hỏng, thông báo nêu **tên thư mục** cần sửa. Có thêm một test chống "đếm 0 nên qua vô nghĩa".
-- Registry: 37 wire tay → **39** sinh tự động (thêm `edit-window` và `uy-thac-dieu-tra`).
+- Registry: **38** wire tay → **39** sinh tự động. Đối chiếu từng tên: **không mất manifest nào**, thêm đúng `EDIT_WINDOW_MANIFEST`. (Commit message ghi "37 → 39" là đếm sai; `uy-thac-dieu-tra` vốn đã có trong danh sách cũ.)
 Kiểm: BE **226 suite / 3077 test** PASS, FE **154 file / 1504 test** PASS, tsc sạch, 3 cổng xanh.
-**BƯỚC TIẾP THEO:** `/codex` cho PR-B3, rồi M2-T2 (PR-B2 — trang `/admin/tinh-nang`, là phần M2 còn lại).
+**BƯỚC TIẾP THEO:** M2-T2 (PR-B2 — trang `/admin/tinh-nang`, là phần M2 còn lại).
+
+### Finding đã xử lý ở checkpoint `/codex` PR-B3
+
+**Không có [P1].** Codex đối chiếu từng tên và xác nhận: registry cũ **38** mục (không phải 37 như commit message tôi ghi), mới 39, **không mất mục nào**, thêm đúng `EDIT_WINDOW_MANIFEST`; `UY_THAC_DIEU_TRA_MANIFEST` vốn đã có sẵn. Mọi manifest BE hiện tại đều khớp regex của generator, và dạng không khớp (`satisfies`, không chú kiểu, default export) sẽ làm generator **ném lỗi to** chứ không bỏ sót âm thầm. Bước kiểm drift trong CI hoạt động đúng.
+
+Đã sửa 1 [P2]: cổng parity **bỏ qua** manifest FE mà nó không parse được (nháy đôi, template literal, hằng), mà khẳng định `> 10` vẫn qua ⇒ đúng kiểu "qua vô nghĩa" mà chính cổng này sinh ra để chặn. Nay nhận cả 3 kiểu nháy và **nêu tên** module không đọc được thay vì lờ đi.
+
+Hai [P2] ghi nợ — cả hai là lỗ **có sẵn** mà bản vá của tôi làm lộ ra chứ không tạo ra:
 
 ---
 
@@ -281,7 +289,7 @@ Tự phát hiện thêm: 3 file test mới của chính tôi bị baseline hoá 
 ## Trạng thái test
 
 Full suite: **PASS**
-- Backend: 226 suite / **3077** test — PASS (xem ND-9: 1 suite flaky ~1/6 lần, có sẵn từ trước)
+- Backend: 226 suite / **3078** test — PASS (xem ND-9: 1 suite flaky ~1/6 lần, có sẵn từ trước)
 - Frontend: 154 file / **1504** test — PASS (3 lần chạy liên tiếp ổn định)
 - Cổng governance: enum guard ✅ · gen:enums drift ✅ · lint ratchet ✅ (baseline 8.945 sau ADR-0015)
 - `tsc --noEmit` (BE): sạch · `tsc -b` (FE): sạch
@@ -307,6 +315,8 @@ Test fail: không
 | ND-18 | **Đổi cha (reparenting) chỉ kiểm cha cũ, không kiểm cha mới.** `subjects.update`, `lawyers.update`, `documents.update` xác nhận cha mới *tồn tại* nhưng không kiểm nó có trong phạm vi ghi ⇒ bản ghi con đang trong tầm có thể bị chuyển sang vụ án ngoài tầm. `documents` còn tách được thành mồ côi | PR riêng — cùng lớp với A3 nhưng là đường `update`, không phải `create` |
 | ND-19 | **Nạp cha và tạo con là hai câu lệnh rời ở cả 6 service vừa vá.** Phân công có thể đổi giữa lúc kiểm và lúc ghi ⇒ ghi bằng scope cũ. Cách sửa: gộp nạp/kiểm/tạo vào một transaction có điều kiện phiên bản, như `withCaseLock` của module vật chứng (ADR-0016) | PR riêng |
 | ND-20 | **Người không phải cán bộ phường, chỉ cần có 1 tổ ghi được, là ghi được lên mọi bản ghi cha chưa phân công** trong toàn hệ thống (`unassigned` branch trong `assertParentInScope`). Đúng thiết kế cho luồng "nhận việc từ intake", nhưng phạm vi rộng hơn mức cần và không có gì giới hạn theo nguồn gốc bản ghi | Cần quyết chính sách |
+| ND-22 | **Menu chỉ kiểm cờ tính năng, không kiểm quyền.** Sau khi `edit-window-requests` được đăng ký, mục "Yêu cầu reset thời hạn" hiện cho **mọi** user đã đăng nhập (cờ default-allow), nhưng endpoint đòi `review_reset_request:EditWindowResetRequest` ⇒ bấm vào là 403. Lỗ này có sẵn ở mọi mục menu; trước đây không thấy vì mục này vốn đã ẩn do bug. Liên quan ND-6 (tầng phân quyền FE vẫn là mock) | Quyết cùng ND-6 sau M2 |
+| ND-23 | **`edit-window-requests` chưa gate API.** `EditWindowController` không có `@FeatureFlag(...)`, route FE luôn đăng ký ⇒ tắt cờ chỉ ẩn menu, gõ URL và gọi API vẫn chạy. Đúng thiết kế hiện tại (gate API là Wave 5 / E4–E6, đang bị PR-M1 chặn cứng), ghi lại để không nhầm là đã gate | PR-E5 |
 | ND-21 | **`ensureFresh()` nuốt lỗi refresh**, nên `PATCH /feature-flags/:key` báo thành công dù cache không đọc lại được, và guard cục bộ phục vụ giá trị cũ trong cửa sổ backoff. `POST /refresh` cũng trả `success: true` sau một lần đọc hỏng. Cùng với đó, cache là process-local nên nhiều instance sẽ lệch tới 30s (ADR-0009 đã chấp nhận giả định 1 instance — cần xem lại nếu scale ngang) | PR riêng |
 | ND-16 | **Bị hại và nhân chứng của hồ sơ đã tạo không có màn hình nào để thêm.** Form tạo có đủ 4 loại (Bị can/Bị hại/Luật sư/Nhân chứng), nhưng trang chi tiết chỉ có tab Bị can (`POST /subjects` với `type:"SUSPECT"` cứng, `CaseDetailPage.tsx:907`) và tab Luật sư. Trước PR-A2 thì mọi loại đều "nhập được" ở chế độ sửa nhưng bị vứt im lặng — nay bảng chỉ đường nói rõ khoảng trống thay vì gửi người dùng tới tab không tạo được thứ họ cần | PR-D2 (form tạo độc lập subjects) |
 | ND-14 ✅ | **ĐÃ XỬ LÝ ở PR-A3 (ADR-0017).** **`assertParentInScope` bỏ qua toàn bộ kiểm tra khi `scope.canDispatch`, kể cả `operation: 'write'`** (`scope-filter.util.ts:104`). `canDispatch` được mô tả là quyền đọc toàn cục + quyền phân công, không phải quyền sửa mọi hồ sơ — nhưng thực tế người điều phối tạo/sửa/xóa/khôi phục được bản ghi con của **mọi** vụ án. Ảnh hưởng cả 12 resource, không riêng vật chứng | PR-A3 (PR chuyên về DataScope) |

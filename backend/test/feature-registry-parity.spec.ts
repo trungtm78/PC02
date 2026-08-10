@@ -26,9 +26,22 @@ const FE_FEATURES_DIR = path.join(
   'features',
 );
 
-/** Read `key: '...'` out of a frontend feature manifest. */
-function frontendKeys(): { key: string; module: string }[] {
-  const out: { key: string; module: string }[] = [];
+/**
+ * Read the `key` out of every frontend feature manifest.
+ *
+ * Returns unparsed modules separately rather than dropping them. Skipping a
+ * file it cannot read would make this gate pass for the one module most likely
+ * to be broken — the same "passes vacuously" failure it exists to prevent.
+ * Accepts single quotes, double quotes and backticks; anything else is
+ * reported, not ignored.
+ */
+function readFrontendManifests(): {
+  parsed: { key: string; module: string }[];
+  unparsed: string[];
+} {
+  const parsed: { key: string; module: string }[] = [];
+  const unparsed: string[] = [];
+
   for (const entry of fs.readdirSync(FE_FEATURES_DIR, {
     withFileTypes: true,
   })) {
@@ -39,11 +52,17 @@ function frontendKeys(): { key: string; module: string }[] {
       'feature.manifest.ts',
     );
     if (!fs.existsSync(manifest)) continue;
+
     const source = fs.readFileSync(manifest, 'utf8');
-    const match = source.match(/key:\s*'([^']+)'/);
-    if (match) out.push({ key: match[1], module: entry.name });
+    const match = source.match(/\bkey:\s*['"`]([^'"`]+)['"`]/);
+    if (match) parsed.push({ key: match[1], module: entry.name });
+    else unparsed.push(entry.name);
   }
-  return out;
+  return { parsed, unparsed };
+}
+
+function frontendKeys(): { key: string; module: string }[] {
+  return readFrontendManifests().parsed;
 }
 
 describe('feature registry parity (FE ⊆ BE)', () => {
@@ -57,6 +76,13 @@ describe('feature registry parity (FE ⊆ BE)', () => {
 
   it('finds frontend manifests at all — a silent zero would pass vacuously', () => {
     expect(frontendKeys().length).toBeGreaterThan(10);
+  });
+
+  it('could read every frontend manifest it found', () => {
+    // A manifest whose key this gate cannot parse is invisible to the subset
+    // check above, so the module most likely to be misconfigured is exactly
+    // the one that would slip through. Name it instead of skipping it.
+    expect(readFrontendManifests().unparsed).toEqual([]);
   });
 
   it('backend keys are unique', () => {
