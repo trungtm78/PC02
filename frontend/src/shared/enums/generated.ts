@@ -285,3 +285,9 @@ export const LoaiUyThac = {
   UY_THAC_GIAI_QUYET: 'UY_THAC_GIAI_QUYET',
 } as const;
 export type LoaiUyThac = (typeof LoaiUyThac)[keyof typeof LoaiUyThac];
+
+export const PetitionDuplicateDecision = {
+  DA_HOP_NHAT: 'DA_HOP_NHAT',
+  KHONG_TRUNG: 'KHONG_TRUNG',
+} as const;
+export type PetitionDuplicateDecision = (typeof PetitionDuplicateDecision)[keyof typeof PetitionDuplicateDecision];

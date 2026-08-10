@@ -19,8 +19,18 @@ import { QueryPetitionsStatsDto } from './dto/query-petitions-stats.dto';
 import { ConvertToIncidentDto } from './dto/convert-incident.dto';
 import { ConvertToCaseDto } from './dto/convert-case.dto';
 import { AssignPetitionDto } from './dto/assign-petition.dto';
+import {
+  DecideDuplicateDto,
+  RevertDuplicateDto,
+} from './dto/decide-duplicate.dto';
 import { ExportPetitionsQueryDto } from './dto/export-petitions-query.dto';
-import { Prisma, LoaiDon, PetitionStatus, CaseStatus } from '@prisma/client';
+import {
+  Prisma,
+  LoaiDon,
+  PetitionStatus,
+  CaseStatus,
+  PetitionDuplicateDecision,
+} from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { buildPetitionScopeFilter } from '../common/utils/scope-filter.util';
 import { SettingsService } from '../settings/settings.service';
@@ -147,7 +157,11 @@ export class PetitionsService {
     const scopeFilter = buildPetitionScopeFilter(dataScope);
     if (scopeFilter) {
       where.AND = [
-        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+        ...(Array.isArray(where.AND)
+          ? where.AND
+          : where.AND
+            ? [where.AND]
+            : []),
         scopeFilter as Prisma.PetitionWhereInput,
       ];
     }
@@ -226,8 +240,10 @@ export class PetitionsService {
     if (!dataScope) return;
     if (dataScope.canDispatch) return; // dispatcher: full read access
     const { userIds, teamIds } = dataScope;
-    const ownerMatch = record.enteredById && userIds.includes(record.enteredById);
-    const teamMatch = record.assignedTeamId && teamIds.includes(record.assignedTeamId);
+    const ownerMatch =
+      record.enteredById && userIds.includes(record.enteredById);
+    const teamMatch =
+      record.assignedTeamId && teamIds.includes(record.assignedTeamId);
     const unassignedMatch = !record.assignedTeamId && teamIds.length > 0;
     if (!ownerMatch && !teamMatch && !unassignedMatch) {
       throw new ForbiddenException('Bạn không có quyền truy cập bản ghi này');
@@ -256,7 +272,9 @@ export class PetitionsService {
         orConditions.push({ enteredById: { in: dataScope.userIds } });
       }
       if (dataScope.writableTeamIds.length > 0) {
-        orConditions.push({ assignedTeamId: { in: dataScope.writableTeamIds } });
+        orConditions.push({
+          assignedTeamId: { in: dataScope.writableTeamIds },
+        });
         if (!dataScope.isWardOfficer) {
           orConditions.push({ assignedTeamId: null });
         }
@@ -304,11 +322,14 @@ export class PetitionsService {
   ) {
     if (!dataScope) return;
     const { userIds, writableTeamIds, isWardOfficer } = dataScope;
-    const ownerMatch = record.enteredById && userIds.includes(record.enteredById);
-    const teamMatch = record.assignedTeamId && writableTeamIds.includes(record.assignedTeamId);
+    const ownerMatch =
+      record.enteredById && userIds.includes(record.enteredById);
+    const teamMatch =
+      record.assignedTeamId && writableTeamIds.includes(record.assignedTeamId);
     // P2-001 fix: ward officer EXCLUDED from intake (unassigned) per scope-filter design intent.
     // Without this, WO could convert unassigned petition if they obtain ID (even though list filter hides it).
-    const unassignedMatch = !record.assignedTeamId && writableTeamIds.length > 0 && !isWardOfficer;
+    const unassignedMatch =
+      !record.assignedTeamId && writableTeamIds.length > 0 && !isWardOfficer;
     if (!ownerMatch && !teamMatch && !unassignedMatch) {
       throw new ForbiddenException('Bạn không có quyền chỉnh sửa bản ghi này');
     }
@@ -368,7 +389,8 @@ export class PetitionsService {
   ) {
     // v0.33.0.0: ward officer auto-set assignedTeamId
     const effectiveAssignedTeamId =
-      (dataScope?.isWardOfficer ? dataScope.wardTeamId : null) ?? dto.assignedTeamId;
+      (dataScope?.isWardOfficer ? dataScope.wardTeamId : null) ??
+      dto.assignedTeamId;
     // Validate receivedDate is not in the future
     const receivedDate = new Date(dto.receivedDate);
     const today = new Date();
@@ -381,8 +403,11 @@ export class PetitionsService {
 
     // Check manual stt uniqueness OUTSIDE tx (read-only, safe)
     if (dto.stt) {
-      const dup = await this.prisma.petition.findUnique({ where: { stt: dto.stt } });
-      if (dup) throw new ConflictException(`Số tiếp nhận "${dto.stt}" đã tồn tại`);
+      const dup = await this.prisma.petition.findUnique({
+        where: { stt: dto.stt },
+      });
+      if (dup)
+        throw new ConflictException(`Số tiếp nhận "${dto.stt}" đã tồn tại`);
     }
 
     // Validate assignedToId if provided
@@ -443,7 +468,11 @@ export class PetitionsService {
       if (dto.stt) {
         resolvedStt = dto.stt;
       } else {
-        const { number, logId } = await this.docNums.commitWithTx('PETITION', { userId: actorId }, tx);
+        const { number, logId } = await this.docNums.commitWithTx(
+          'PETITION',
+          { userId: actorId },
+          tx,
+        );
         resolvedStt = number;
         const rec = await tx.petition.create({
           // Builder DUY NHẤT — gồm cả field v0.47 (trước bị rớt) + field-parity. Xem petition-data.builder.ts.
@@ -456,14 +485,27 @@ export class PetitionsService {
           }),
           include: {
             enteredBy: {
-              select: { id: true, firstName: true, lastName: true, username: true },
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                username: true,
+              },
             },
             assignedTo: {
-              select: { id: true, firstName: true, lastName: true, username: true },
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                username: true,
+              },
             },
           },
         });
-        await tx.documentNumberLog.update({ where: { id: logId }, data: { documentId: rec.id } });
+        await tx.documentNumberLog.update({
+          where: { id: logId },
+          data: { documentId: rec.id },
+        });
         return rec;
       }
       return tx.petition.create({
@@ -476,10 +518,20 @@ export class PetitionsService {
         }),
         include: {
           enteredBy: {
-            select: { id: true, firstName: true, lastName: true, username: true },
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              username: true,
+            },
           },
           assignedTo: {
-            select: { id: true, firstName: true, lastName: true, username: true },
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              username: true,
+            },
           },
         },
       });
@@ -494,7 +546,10 @@ export class PetitionsService {
         stt: record.stt,
         senderName: record.senderName,
         status: record.status,
-        ...(deadlineSettingKey !== undefined && { deadlineDays, deadlineSettingKey }),
+        ...(deadlineSettingKey !== undefined && {
+          deadlineDays,
+          deadlineSettingKey,
+        }),
       },
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
@@ -551,7 +606,7 @@ export class PetitionsService {
       ...(dto.metadata !== undefined && {
         metadata: {
           ...((existing.metadata as Record<string, unknown> | null) ?? {}),
-          ...(dto.metadata as Record<string, unknown>),
+          ...dto.metadata,
         } as Prisma.InputJsonValue,
       }),
       ...(dto.receivedDate !== undefined && {
@@ -593,7 +648,9 @@ export class PetitionsService {
       ...(dto.notes !== undefined && { notes: dto.notes }),
       ...(dto.status !== undefined && { status: dto.status }),
       // v0.47 PR3.1 — Nội dung phiếu đề xuất + cross-doc business fields
-      ...(dto.canBoDeXuatId !== undefined && { canBoDeXuatId: dto.canBoDeXuatId || null }),
+      ...(dto.canBoDeXuatId !== undefined && {
+        canBoDeXuatId: dto.canBoDeXuatId || null,
+      }),
       ...(dto.nhanThay !== undefined && { nhanThay: dto.nhanThay }),
       ...(dto.deXuat !== undefined && { deXuat: dto.deXuat }),
       ...(dto.raSoatTrung !== undefined && { raSoatTrung: dto.raSoatTrung }),
@@ -614,50 +671,96 @@ export class PetitionsService {
       }),
       ...(dto.lyDoTraDon !== undefined && { lyDoTraDon: dto.lyDoTraDon }),
       // ── Field-parity hệ thống cũ (giai đoạn tiếp nhận) ──
-      ...(dto.senderIdNumber !== undefined && { senderIdNumber: dto.senderIdNumber }),
-      ...(dto.senderIdIssueDate !== undefined && {
-        senderIdIssueDate: dto.senderIdIssueDate ? new Date(dto.senderIdIssueDate) : null,
+      ...(dto.senderIdNumber !== undefined && {
+        senderIdNumber: dto.senderIdNumber,
       }),
-      ...(dto.senderIdIssuePlace !== undefined && { senderIdIssuePlace: dto.senderIdIssuePlace }),
-      ...(dto.senderIsAnonymous !== undefined && { senderIsAnonymous: dto.senderIsAnonymous }),
+      ...(dto.senderIdIssueDate !== undefined && {
+        senderIdIssueDate: dto.senderIdIssueDate
+          ? new Date(dto.senderIdIssueDate)
+          : null,
+      }),
+      ...(dto.senderIdIssuePlace !== undefined && {
+        senderIdIssuePlace: dto.senderIdIssuePlace,
+      }),
+      ...(dto.senderIsAnonymous !== undefined && {
+        senderIsAnonymous: dto.senderIsAnonymous,
+      }),
       ...(dto.loaiThongTin !== undefined && { loaiThongTin: dto.loaiThongTin }),
-      ...(dto.soPhieuChuyen !== undefined && { soPhieuChuyen: dto.soPhieuChuyen }),
+      ...(dto.soPhieuChuyen !== undefined && {
+        soPhieuChuyen: dto.soPhieuChuyen,
+      }),
       ...(dto.ngayPhieuChuyen !== undefined && {
-        ngayPhieuChuyen: dto.ngayPhieuChuyen ? new Date(dto.ngayPhieuChuyen) : null,
+        ngayPhieuChuyen: dto.ngayPhieuChuyen
+          ? new Date(dto.ngayPhieuChuyen)
+          : null,
       }),
       ...(dto.ngayTiepNhanNguonTin !== undefined && {
-        ngayTiepNhanNguonTin: dto.ngayTiepNhanNguonTin ? new Date(dto.ngayTiepNhanNguonTin) : null,
+        ngayTiepNhanNguonTin: dto.ngayTiepNhanNguonTin
+          ? new Date(dto.ngayTiepNhanNguonTin)
+          : null,
       }),
-      ...(dto.toiDanhBanDau !== undefined && { toiDanhBanDau: dto.toiDanhBanDau }),
-      ...(dto.crimeChinhId !== undefined && { crimeChinhId: dto.crimeChinhId || null }),
+      ...(dto.toiDanhBanDau !== undefined && {
+        toiDanhBanDau: dto.toiDanhBanDau,
+      }),
+      ...(dto.crimeChinhId !== undefined && {
+        crimeChinhId: dto.crimeChinhId || null,
+      }),
       ...(dto.noiXayRa !== undefined && { noiXayRa: dto.noiXayRa }),
-      ...(dto.noiXayRaPhuongXa !== undefined && { noiXayRaPhuongXa: dto.noiXayRaPhuongXa }),
+      ...(dto.noiXayRaPhuongXa !== undefined && {
+        noiXayRaPhuongXa: dto.noiXayRaPhuongXa,
+      }),
       ...(dto.ngayXayRa !== undefined && {
         ngayXayRa: dto.ngayXayRa ? new Date(dto.ngayXayRa) : null,
       }),
       ...(dto.loaiToiPham !== undefined && { loaiToiPham: dto.loaiToiPham }),
-      ...(dto.phuongThucThuDoan !== undefined && { phuongThucThuDoan: dto.phuongThucThuDoan }),
-      ...(dto.ngayGiaoDonViGiaiQuyet !== undefined && {
-        ngayGiaoDonViGiaiQuyet: dto.ngayGiaoDonViGiaiQuyet ? new Date(dto.ngayGiaoDonViGiaiQuyet) : null,
+      ...(dto.phuongThucThuDoan !== undefined && {
+        phuongThucThuDoan: dto.phuongThucThuDoan,
       }),
-      ...(dto.laCongNgheCao !== undefined && { laCongNgheCao: dto.laCongNgheCao }),
-      ...(dto.lanhDaoToTung !== undefined && { lanhDaoToTung: dto.lanhDaoToTung }),
-      ...(dto.ketQuaXuLyKhac !== undefined && { ketQuaXuLyKhac: dto.ketQuaXuLyKhac }),
-      ...(dto.thoiHanUTDT !== undefined && { thoiHanUTDT: dto.thoiHanUTDT ? new Date(dto.thoiHanUTDT) : null }),
+      ...(dto.ngayGiaoDonViGiaiQuyet !== undefined && {
+        ngayGiaoDonViGiaiQuyet: dto.ngayGiaoDonViGiaiQuyet
+          ? new Date(dto.ngayGiaoDonViGiaiQuyet)
+          : null,
+      }),
+      ...(dto.laCongNgheCao !== undefined && {
+        laCongNgheCao: dto.laCongNgheCao,
+      }),
+      ...(dto.lanhDaoToTung !== undefined && {
+        lanhDaoToTung: dto.lanhDaoToTung,
+      }),
+      ...(dto.ketQuaXuLyKhac !== undefined && {
+        ketQuaXuLyKhac: dto.ketQuaXuLyKhac,
+      }),
+      ...(dto.thoiHanUTDT !== undefined && {
+        thoiHanUTDT: dto.thoiHanUTDT ? new Date(dto.thoiHanUTDT) : null,
+      }),
       // Field-parity bổ sung tab "Thông tin" form cũ /doi-1/Them (2026-06-26).
-      ...(dto.ngayDeXuat !== undefined && { ngayDeXuat: dto.ngayDeXuat ? new Date(dto.ngayDeXuat) : null }),
-      ...(dto.phanLoaiNguonTin !== undefined && { phanLoaiNguonTin: dto.phanLoaiNguonTin }),
+      ...(dto.ngayDeXuat !== undefined && {
+        ngayDeXuat: dto.ngayDeXuat ? new Date(dto.ngayDeXuat) : null,
+      }),
+      ...(dto.phanLoaiNguonTin !== undefined && {
+        phanLoaiNguonTin: dto.phanLoaiNguonTin,
+      }),
       ...(dto.dieuTraVien !== undefined && { dieuTraVien: dto.dieuTraVien }),
-      ...(dto.donViGiaiQuyet !== undefined && { donViGiaiQuyet: dto.donViGiaiQuyet }),
+      ...(dto.donViGiaiQuyet !== undefined && {
+        donViGiaiQuyet: dto.donViGiaiQuyet,
+      }),
       // Thẩm quyền & đơn vị xử lý (form đăng ký đơn thư).
-      ...(dto.thuocThamQuyen !== undefined && { thuocThamQuyen: dto.thuocThamQuyen }),
+      ...(dto.thuocThamQuyen !== undefined && {
+        thuocThamQuyen: dto.thuocThamQuyen,
+      }),
       ...(dto.donViXuLy !== undefined && { donViXuLy: dto.donViXuLy }),
       // ── Field-parity ĐẦY ĐỦ (feat/legacy-field-parity) ──
-      ...(dto.phanLoaiToiPhamLinhVuc !== undefined && { phanLoaiToiPhamLinhVuc: dto.phanLoaiToiPhamLinhVuc }),
-      ...(dto.phanLoaiHoSoNoiBo !== undefined && { phanLoaiHoSoNoiBo: dto.phanLoaiHoSoNoiBo }),
+      ...(dto.phanLoaiToiPhamLinhVuc !== undefined && {
+        phanLoaiToiPhamLinhVuc: dto.phanLoaiToiPhamLinhVuc,
+      }),
+      ...(dto.phanLoaiHoSoNoiBo !== undefined && {
+        phanLoaiHoSoNoiBo: dto.phanLoaiHoSoNoiBo,
+      }),
       ...(dto.ghiChuKhac !== undefined && { ghiChuKhac: dto.ghiChuKhac }),
       ...(dto.yeuCauBoSung !== undefined && { yeuCauBoSung: dto.yeuCauBoSung }),
-      ...(dto.soTienBiThietHai !== undefined && { soTienBiThietHai: dto.soTienBiThietHai }),
+      ...(dto.soTienBiThietHai !== undefined && {
+        soTienBiThietHai: dto.soTienBiThietHai,
+      }),
       ...(dto.soLuongBiHai !== undefined && { soLuongBiHai: dto.soLuongBiHai }),
     };
     const petitionInclude = {
@@ -684,7 +787,9 @@ export class PetitionsService {
           this.prisma.petition.update({
             where: {
               id,
-              ...(dto.expectedUpdatedAt ? { updatedAt: new Date(dto.expectedUpdatedAt) } : {}),
+              ...(dto.expectedUpdatedAt
+                ? { updatedAt: new Date(dto.expectedUpdatedAt) }
+                : {}),
             },
             data: petitionData,
             include: petitionInclude,
@@ -709,13 +814,22 @@ export class PetitionsService {
         where: { id: actorId },
         select: { firstName: true, lastName: true },
       });
-      const byUserName = actor ? `${actor.firstName ?? ''} ${actor.lastName ?? ''}`.trim() : '';
+      const byUserName = actor
+        ? `${actor.firstName ?? ''} ${actor.lastName ?? ''}`.trim()
+        : '';
       const petitionTitle = existing.senderName
         ? `${existing.petitionType} - ${existing.senderName}`
-        : (existing as any).stt ?? id;
-      this.eventEmitter.emit('petition.assigned', new PetitionAssignedEvent(
-        id, petitionTitle, dto.assignedToId, actorId, byUserName,
-      ));
+        : ((existing as any).stt ?? id);
+      this.eventEmitter.emit(
+        'petition.assigned',
+        new PetitionAssignedEvent(
+          id,
+          petitionTitle,
+          dto.assignedToId,
+          actorId,
+          byUserName,
+        ),
+      );
     }
 
     // Log separate PETITION_STATUS_CHANGED event for timeline queries
@@ -838,7 +952,9 @@ export class PetitionsService {
       await this.prisma.petition.update({
         where: {
           id: petitionId,
-          ...(dto.expectedUpdatedAt ? { updatedAt: new Date(dto.expectedUpdatedAt) } : {}),
+          ...(dto.expectedUpdatedAt
+            ? { updatedAt: new Date(dto.expectedUpdatedAt) }
+            : {}),
         },
         data: {
           linkedIncidentId: incident.id,
@@ -930,42 +1046,42 @@ export class PetitionsService {
     // Create Case and update Petition atomically in one transaction
     let caseRecord;
     try {
-    [caseRecord] = await this.prisma.$transaction(async (tx) => {
-      const newCase = await tx.case.create({
-        data: {
-          name: dto.caseName,
-          crime: dto.crime,
-          unit: dto.jurisdiction,
-          status: CaseStatus.TIEP_NHAN,
-          // v0.37.1 PR-AUDIT — close provenance gap: convertToCase was creating Case
-          // without caseProvenance, which would fail NOT NULL contract in PR-PROV-2.
-          caseProvenance: 'FROM_PETITION' as const,
-          linkedPetitionId: petitionId,
-        },
-      });
+      [caseRecord] = await this.prisma.$transaction(async (tx) => {
+        const newCase = await tx.case.create({
+          data: {
+            name: dto.caseName,
+            crime: dto.crime,
+            unit: dto.jurisdiction,
+            status: CaseStatus.TIEP_NHAN,
+            // v0.37.1 PR-AUDIT — close provenance gap: convertToCase was creating Case
+            // without caseProvenance, which would fail NOT NULL contract in PR-PROV-2.
+            caseProvenance: 'FROM_PETITION' as const,
+            linkedPetitionId: petitionId,
+          },
+        });
 
-      await tx.petition.update({
-        where: {
-          id: petitionId,
-          // P1-002 fix: always-lock (was conditional). DTO requires expectedUpdatedAt.
-          updatedAt: new Date(dto.expectedUpdatedAt),
-        },
-        data: {
-          linkedCaseId: newCase.id,
-          status: PetitionStatus.DA_CHUYEN_VU_AN,
-        },
-      });
+        await tx.petition.update({
+          where: {
+            id: petitionId,
+            // P1-002 fix: always-lock (was conditional). DTO requires expectedUpdatedAt.
+            updatedAt: new Date(dto.expectedUpdatedAt),
+          },
+          data: {
+            linkedCaseId: newCase.id,
+            status: PetitionStatus.DA_CHUYEN_VU_AN,
+          },
+        });
 
-      // v0.52 Cycle 4 — Document handoff: petition-linked tài liệu re-link sang case mới
-      // trong CÙNG transaction. petitionId giữ làm provenance, caseId set để Case tab
-      // "Tài liệu" hiển thị evidence của đơn gốc. Soft-deleted documents bỏ qua.
-      await tx.document.updateMany({
-        where: { petitionId, deletedAt: null },
-        data: { caseId: newCase.id },
-      });
+        // v0.52 Cycle 4 — Document handoff: petition-linked tài liệu re-link sang case mới
+        // trong CÙNG transaction. petitionId giữ làm provenance, caseId set để Case tab
+        // "Tài liệu" hiển thị evidence của đơn gốc. Soft-deleted documents bỏ qua.
+        await tx.document.updateMany({
+          where: { petitionId, deletedAt: null },
+          data: { caseId: newCase.id },
+        });
 
-      return [newCase];
-    });
+        return [newCase];
+      });
     } catch (e) {
       // P1-002: P2025 = row not found với updatedAt mismatch → race detected.
       // P2002 = unique constraint violation (partial index on linkedCaseId) → race detected at DB.
@@ -1024,12 +1140,16 @@ export class PetitionsService {
         },
       },
     });
-    if (!existing) throw new NotFoundException(`Đơn thư không tồn tại (id: ${id})`);
+    if (!existing)
+      throw new NotFoundException(`Đơn thư không tồn tại (id: ${id})`);
 
     const team = await this.prisma.team.findFirst({
       where: { id: dto.assignedTeamId, isActive: true },
     });
-    if (!team) throw new BadRequestException(`Tổ không tồn tại hoặc đã ngừng hoạt động (id: ${dto.assignedTeamId})`);
+    if (!team)
+      throw new BadRequestException(
+        `Tổ không tồn tại hoặc đã ngừng hoạt động (id: ${dto.assignedTeamId})`,
+      );
 
     // I.1: auto-assign to leader when assignedToId not provided
     let resolvedAssignedToId: string | null = dto.assignedToId ?? null;
@@ -1037,7 +1157,10 @@ export class PetitionsService {
       const member = await this.prisma.userTeam.findFirst({
         where: { userId: dto.assignedToId, teamId: dto.assignedTeamId },
       });
-      if (!member) throw new BadRequestException('Cán bộ xử lý không thuộc tổ được chỉ định');
+      if (!member)
+        throw new BadRequestException(
+          'Cán bộ xử lý không thuộc tổ được chỉ định',
+        );
     } else {
       // Auto-detect leader
       const members = await this.prisma.userTeam.findMany({
@@ -1048,7 +1171,9 @@ export class PetitionsService {
       if (leader) {
         resolvedAssignedToId = leader.userId;
       } else {
-        console.warn(`[PetitionsService] assignPetition: team ${dto.assignedTeamId} has no leader — assignedToId left null`);
+        console.warn(
+          `[PetitionsService] assignPetition: team ${dto.assignedTeamId} has no leader — assignedToId left null`,
+        );
       }
     }
 
@@ -1056,7 +1181,9 @@ export class PetitionsService {
       await this.prisma.petition.update({
         where: {
           id,
-          ...(dto.expectedUpdatedAt ? { updatedAt: dto.expectedUpdatedAt } : {}),
+          ...(dto.expectedUpdatedAt
+            ? { updatedAt: dto.expectedUpdatedAt }
+            : {}),
         },
         data: {
           assignedTeamId: dto.assignedTeamId,
@@ -1091,7 +1218,10 @@ export class PetitionsService {
 
     // v0.36.0.0: emit PETITION_ESCALATED_FROM_WARD khi ward team → non-ward team
     const existingWithTeam = existing as typeof existing & {
-      assignedTeam: { wardId: string | null; ward: { name: string } | null } | null;
+      assignedTeam: {
+        wardId: string | null;
+        ward: { name: string } | null;
+      } | null;
     };
     const wasInWardTeam = existingWithTeam.assignedTeam?.wardId != null;
     const isReassigning = dto.assignedTeamId !== existing.assignedTeamId;
@@ -1133,7 +1263,12 @@ export class PetitionsService {
     const where: Prisma.PetitionWhereInput = { deletedAt: null };
 
     if (query.ids) {
-      where.id = { in: query.ids.split(',').map((s) => s.trim()).filter(Boolean) };
+      where.id = {
+        in: query.ids
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean),
+      };
     }
     if (query.fromDate) {
       where.receivedDate = {
@@ -1151,14 +1286,18 @@ export class PetitionsService {
       where.unit = { contains: query.unit, mode: 'insensitive' };
     }
     if (query.status) {
-      where.status = query.status as Parameters<typeof buildPetitionScopeFilter>[0] extends never ? never : string as any;
+      where.status = query.status as any;
     }
 
     // Apply data scope filter
     const scopeFilter = buildPetitionScopeFilter(dataScope);
     if (scopeFilter) {
       where.AND = [
-        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+        ...(Array.isArray(where.AND)
+          ? where.AND
+          : where.AND
+            ? [where.AND]
+            : []),
         scopeFilter as Prisma.PetitionWhereInput,
       ];
     }
@@ -1186,14 +1325,29 @@ export class PetitionsService {
 
     const COL_COUNT = 10;
     const COLUMN_HEADERS = [
-      'STT', 'Mã đơn', 'Ngày tiếp nhận', 'Người gửi', 'Địa chỉ',
-      'Nội dung tóm tắt', 'Phân loại', 'Trạng thái', 'ĐTV phụ trách', 'Ghi chú',
+      'STT',
+      'Mã đơn',
+      'Ngày tiếp nhận',
+      'Người gửi',
+      'Địa chỉ',
+      'Nội dung tóm tắt',
+      'Phân loại',
+      'Trạng thái',
+      'ĐTV phụ trách',
+      'Ghi chú',
     ];
     const COLUMN_WIDTHS = [6, 18, 16, 20, 25, 40, 18, 20, 20, 25];
 
-    const fromStr = query.fromDate ? new Date(query.fromDate).toLocaleDateString('vi-VN') : '';
-    const toStr = query.toDate ? new Date(query.toDate).toLocaleDateString('vi-VN') : '';
-    const period = fromStr && toStr ? `Từ ngày ${fromStr} đến ngày ${toStr}` : 'Tất cả thời gian';
+    const fromStr = query.fromDate
+      ? new Date(query.fromDate).toLocaleDateString('vi-VN')
+      : '';
+    const toStr = query.toDate
+      ? new Date(query.toDate).toLocaleDateString('vi-VN')
+      : '';
+    const period =
+      fromStr && toStr
+        ? `Từ ngày ${fromStr} đến ngày ${toStr}`
+        : 'Tất cả thời gian';
 
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Danh sách đơn thư');
@@ -1236,12 +1390,23 @@ export class PetitionsService {
         action: 'PETITION_EXPORTED',
         subject: 'Petition',
         subjectId: 'bulk',
-        metadata: { count: records.length, filters: { fromDate: query.fromDate, toDate: query.toDate, unit: query.unit, status: query.status } },
+        metadata: {
+          count: records.length,
+          filters: {
+            fromDate: query.fromDate,
+            toDate: query.toDate,
+            unit: query.unit,
+            status: query.status,
+          },
+        },
       });
     }
 
     const filename = `DanhSachDonThu_${new Date().toISOString().slice(0, 10)}.xlsx`;
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
 
     try {
@@ -1279,14 +1444,24 @@ export class PetitionsService {
     if (query.unitId) where.unit = query.unitId;
     if (query.fromDate || query.toDate) {
       where.createdAt = {};
-      if (query.fromDate) (where.createdAt as Prisma.DateTimeFilter).gte = new Date(query.fromDate);
-      if (query.toDate) (where.createdAt as Prisma.DateTimeFilter).lte = new Date(query.toDate + 'T23:59:59.999Z');
+      if (query.fromDate)
+        (where.createdAt as Prisma.DateTimeFilter).gte = new Date(
+          query.fromDate,
+        );
+      if (query.toDate)
+        (where.createdAt as Prisma.DateTimeFilter).lte = new Date(
+          query.toDate + 'T23:59:59.999Z',
+        );
     }
 
     const scopeFilter = buildPetitionScopeFilter(dataScope);
     if (scopeFilter) {
       where.AND = [
-        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+        ...(Array.isArray(where.AND)
+          ? where.AND
+          : where.AND
+            ? [where.AND]
+            : []),
         scopeFilter as Prisma.PetitionWhereInput,
       ];
     }
@@ -1309,19 +1484,37 @@ export class PetitionsService {
 
     const COL_COUNT = 8;
     const HEADERS = [
-      'STT', 'Số đơn', 'Người gửi', 'Loại đơn', 'Tóm tắt',
-      'Phường/Xã', 'Ngày tiếp nhận', 'Trạng thái',
+      'STT',
+      'Số đơn',
+      'Người gửi',
+      'Loại đơn',
+      'Tóm tắt',
+      'Phường/Xã',
+      'Ngày tiếp nhận',
+      'Trạng thái',
     ];
     const WIDTHS = [6, 18, 22, 16, 40, 18, 16, 22];
 
-    const fromStr = query.fromDate ? new Date(query.fromDate).toLocaleDateString('vi-VN') : '';
-    const toStr = query.toDate ? new Date(query.toDate).toLocaleDateString('vi-VN') : '';
-    const period = fromStr && toStr ? `Từ ngày ${fromStr} đến ngày ${toStr}` : 'Tất cả thời gian';
+    const fromStr = query.fromDate
+      ? new Date(query.fromDate).toLocaleDateString('vi-VN')
+      : '';
+    const toStr = query.toDate
+      ? new Date(query.toDate).toLocaleDateString('vi-VN')
+      : '';
+    const period =
+      fromStr && toStr
+        ? `Từ ngày ${fromStr} đến ngày ${toStr}`
+        : 'Tất cả thời gian';
 
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Đơn thư theo phường xã');
 
-    BcaExcelHelper.addHeader(sheet, COL_COUNT, 'DANH SÁCH ĐƠN THƯ THEO PHƯỜNG/XÃ', period);
+    BcaExcelHelper.addHeader(
+      sheet,
+      COL_COUNT,
+      'DANH SÁCH ĐƠN THƯ THEO PHƯỜNG/XÃ',
+      period,
+    );
     const headerRow = sheet.getRow(7);
     BcaExcelHelper.addColumnHeaders(headerRow, HEADERS, WIDTHS);
 
@@ -1331,11 +1524,13 @@ export class PetitionsService {
         idx + 1,
         rec.stt ?? '',
         rec.senderName ?? '',
-        rec.petitionType ? (LOAI_DON_LABEL_BE[rec.petitionType] ?? rec.petitionType) : '',
+        rec.petitionType
+          ? (LOAI_DON_LABEL_BE[rec.petitionType] ?? rec.petitionType)
+          : '',
         rec.summary ?? '',
         wardName,
         rec.receivedDate ? rec.receivedDate.toLocaleDateString('vi-VN') : '',
-        PETITION_STATUS_LABEL[rec.status as PetitionStatus] ?? rec.status ?? '',
+        PETITION_STATUS_LABEL[rec.status] ?? rec.status ?? '',
       ]);
       BcaExcelHelper.styleDataRow(dataRow, idx % 2 === 1, COL_COUNT);
     });
@@ -1345,7 +1540,10 @@ export class PetitionsService {
     BcaExcelHelper.setPrintSetup(sheet);
 
     const filename = `DonThuPhuongXa_${new Date().toISOString().slice(0, 10)}.xlsx`;
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
 
     try {
@@ -1446,8 +1644,7 @@ export class PetitionsService {
         // Cross-team groups are the ones worth seeing: the same person filing
         // to two units is exactly what a duplicate check is for, and it is
         // invisible when the scope filter runs before the grouping.
-        crossTeam:
-          new Set(items.map((i) => i.assignedTeamId ?? '')).size > 1,
+        crossTeam: new Set(items.map((i) => i.assignedTeamId ?? '')).size > 1,
         score: scoreDuplicateGroup(items),
         items,
       };
@@ -1483,7 +1680,11 @@ export class PetitionsService {
     const scopeFilter = buildPetitionScopeFilter(dataScope);
     if (scopeFilter) {
       where.AND = [
-        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+        ...(Array.isArray(where.AND)
+          ? where.AND
+          : where.AND
+            ? [where.AND]
+            : []),
         scopeFilter as Prisma.PetitionWhereInput,
       ];
     }
@@ -1491,7 +1692,12 @@ export class PetitionsService {
   }
 
   async exportDuplicates(
-    query: { status?: string; criteria?: string; fromDate?: string; toDate?: string },
+    query: {
+      status?: string;
+      criteria?: string;
+      fromDate?: string;
+      toDate?: string;
+    },
     dataScope: DataScope | null | undefined,
     res: Response,
   ): Promise<void> {
@@ -1518,35 +1724,56 @@ export class PetitionsService {
 
     // Step 2: fetch petitions whose dupKey value is in dupValues. If no duplicate groups
     // were found, return an empty Excel rather than the entire petition list.
-    const records = dupValues.length > 0
-      ? await this.prisma.petition.findMany({
-          where: { ...where, [dupKey]: { in: dupValues } },
-          take: 500,
-          orderBy: [{ [dupKey]: 'asc' }, { receivedDate: 'desc' }],
-          select: {
-            id: true,
-            stt: true,
-            senderName: true,
-            summary: true,
-            receivedDate: true,
-            status: true,
-            assignedTo: { select: { firstName: true, lastName: true } },
-          },
-        })
-      : [];
+    const records =
+      dupValues.length > 0
+        ? await this.prisma.petition.findMany({
+            where: { ...where, [dupKey]: { in: dupValues } },
+            take: 500,
+            orderBy: [{ [dupKey]: 'asc' }, { receivedDate: 'desc' }],
+            select: {
+              id: true,
+              stt: true,
+              senderName: true,
+              summary: true,
+              receivedDate: true,
+              status: true,
+              assignedTo: { select: { firstName: true, lastName: true } },
+            },
+          })
+        : [];
 
     const COL_COUNT = 7;
-    const HEADERS = ['STT', 'Mã đơn', 'Người nộp', 'Tóm tắt nội dung', 'Ngày tiếp nhận', 'Trạng thái', 'ĐTV xử lý'];
+    const HEADERS = [
+      'STT',
+      'Mã đơn',
+      'Người nộp',
+      'Tóm tắt nội dung',
+      'Ngày tiếp nhận',
+      'Trạng thái',
+      'ĐTV xử lý',
+    ];
     const WIDTHS = [6, 18, 22, 45, 16, 20, 22];
 
-    const fromStr = query.fromDate ? new Date(query.fromDate).toLocaleDateString('vi-VN') : '';
-    const toStr = query.toDate ? new Date(query.toDate).toLocaleDateString('vi-VN') : '';
-    const period = fromStr && toStr ? `Từ ngày ${fromStr} đến ngày ${toStr}` : 'Tất cả thời gian';
+    const fromStr = query.fromDate
+      ? new Date(query.fromDate).toLocaleDateString('vi-VN')
+      : '';
+    const toStr = query.toDate
+      ? new Date(query.toDate).toLocaleDateString('vi-VN')
+      : '';
+    const period =
+      fromStr && toStr
+        ? `Từ ngày ${fromStr} đến ngày ${toStr}`
+        : 'Tất cả thời gian';
 
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Đơn trùng lặp');
 
-    BcaExcelHelper.addHeader(sheet, COL_COUNT, 'DANH SÁCH ĐƠN TRÙNG LẶP', period);
+    BcaExcelHelper.addHeader(
+      sheet,
+      COL_COUNT,
+      'DANH SÁCH ĐƠN TRÙNG LẶP',
+      period,
+    );
 
     const headerRow = sheet.getRow(7);
     BcaExcelHelper.addColumnHeaders(headerRow, HEADERS, WIDTHS);
@@ -1561,7 +1788,7 @@ export class PetitionsService {
         rec.senderName ?? '',
         rec.summary ?? '',
         rec.receivedDate ? rec.receivedDate.toLocaleDateString('vi-VN') : '',
-        PETITION_STATUS_LABEL[rec.status as PetitionStatus] ?? rec.status ?? '',
+        PETITION_STATUS_LABEL[rec.status] ?? rec.status ?? '',
         assignedName,
       ]);
       BcaExcelHelper.styleDataRow(dataRow, idx % 2 === 1, COL_COUNT);
@@ -1572,7 +1799,10 @@ export class PetitionsService {
     BcaExcelHelper.setPrintSetup(sheet);
 
     const filename = `DonTrungLap_${new Date().toISOString().slice(0, 10)}.xlsx`;
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
 
     try {
@@ -1602,7 +1832,10 @@ export class PetitionsService {
       petitionType?: string | null;
       summary?: string | null;
       status?: string | null;
-      assignedTo?: { firstName?: string | null; lastName?: string | null } | null;
+      assignedTo?: {
+        firstName?: string | null;
+        lastName?: string | null;
+      } | null;
     };
 
     const doc = new Document({
@@ -1628,7 +1861,9 @@ export class PetitionsService {
                 new TextRun({ text: 'Ngày tiếp nhận: ', bold: true }),
                 new TextRun(
                   petition.receivedDate
-                    ? new Date(petition.receivedDate).toLocaleDateString('vi-VN')
+                    ? new Date(petition.receivedDate).toLocaleDateString(
+                        'vi-VN',
+                      )
                     : '',
                 ),
               ],
@@ -1703,7 +1938,9 @@ export class PetitionsService {
       include: {
         enteredBy: { select: { firstName: true, lastName: true, rank: true } },
         // Cán bộ đề xuất được CHỌN trên form — ưu tiên hơn người in khi render.
-        canBoDeXuat: { select: { firstName: true, lastName: true, rank: true } },
+        canBoDeXuat: {
+          select: { firstName: true, lastName: true, rank: true },
+        },
         assignedTeam: {
           select: {
             id: true,
@@ -1794,7 +2031,11 @@ export class PetitionsService {
   // ─────────────────────────────────────────────
   // LIST DELETED — paginated với enriched delete audit
   // ─────────────────────────────────────────────
-  async listDeleted(query: { limit?: number; offset?: number; search?: string }) {
+  async listDeleted(query: {
+    limit?: number;
+    offset?: number;
+    search?: string;
+  }) {
     const limit = Math.min(query.limit ?? 20, 100);
     const offset = query.offset ?? 0;
     const search = query.search?.trim();
@@ -1816,21 +2057,36 @@ export class PetitionsService {
         skip: offset,
         take: limit,
         include: {
-          enteredBy: { select: { id: true, firstName: true, lastName: true, username: true } },
+          enteredBy: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              username: true,
+            },
+          },
         },
       }),
       this.prisma.petition.count({ where }),
     ]);
 
     const ids = data.map((c) => c.id);
-    const deleteAudits = ids.length > 0
-      ? await this.prisma.$queryRaw<Array<{ subjectId: string; userId: string | null; metadata: unknown; createdAt: Date }>>`
+    const deleteAudits =
+      ids.length > 0
+        ? await this.prisma.$queryRaw<
+            Array<{
+              subjectId: string;
+              userId: string | null;
+              metadata: unknown;
+              createdAt: Date;
+            }>
+          >`
           SELECT DISTINCT ON ("subjectId") "subjectId", "userId", metadata, "createdAt"
           FROM "audit_logs"
           WHERE action = 'PETITION_DELETED' AND "subjectId" = ANY(${ids})
           ORDER BY "subjectId", "createdAt" DESC
         `
-      : [];
+        : [];
     const audMap = new Map(deleteAudits.map((a) => [a.subjectId, a]));
 
     return {
@@ -1851,7 +2107,8 @@ export class PetitionsService {
   // - Strips status filter (counts BY status, not filtered by it)
   // ─────────────────────────────────────────────
   async getStats(query: QueryPetitionsStatsDto, dataScope?: DataScope | null) {
-    const { search, unit, senderName, fromDate, toDate, overdue, wardTeamId } = query;
+    const { search, unit, senderName, fromDate, toDate, overdue, wardTeamId } =
+      query;
 
     const where: Prisma.PetitionWhereInput = { deletedAt: null };
 
@@ -1867,7 +2124,8 @@ export class PetitionsService {
     }
 
     if (unit) where.unit = { contains: unit, mode: 'insensitive' };
-    if (senderName) where.senderName = { contains: senderName, mode: 'insensitive' };
+    if (senderName)
+      where.senderName = { contains: senderName, mode: 'insensitive' };
 
     if (fromDate) {
       where.receivedDate = {
@@ -1898,12 +2156,18 @@ export class PetitionsService {
     const scopeFilter = buildPetitionScopeFilter(dataScope);
     if (scopeFilter) {
       where.AND = [
-        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+        ...(Array.isArray(where.AND)
+          ? where.AND
+          : where.AND
+            ? [where.AND]
+            : []),
         scopeFilter as Prisma.PetitionWhereInput,
       ];
     }
 
-    const byStatus: Record<PetitionStatus, number> = Object.values(PetitionStatus).reduce(
+    const byStatus: Record<PetitionStatus, number> = Object.values(
+      PetitionStatus,
+    ).reduce(
       (acc, status) => {
         acc[status] = 0;
         return acc;
@@ -1925,14 +2189,25 @@ export class PetitionsService {
 
     // byGroup sinh từ CÙNG `where` với danh sách → số trên thẻ khớp số dòng theo thiết kế.
     // Nhờ vậy frontend không cần biết nhóm gồm những trạng thái nào (chống trùng lặp).
-    return { total, byStatus, byGroup: countByGroup(PETITION_STATUS_GROUPS, byStatus) };
+    return {
+      total,
+      byStatus,
+      byGroup: countByGroup(PETITION_STATUS_GROUPS, byStatus),
+    };
   }
 
   // ── Nhóm V — Search nghi phạm theo tên/CCCD ────────────────────────────────
   async suspectSearch(
     q: string,
     _dataScope?: DataScope | null,
-  ): Promise<Array<{ name: string; idNumber: string; crimes: string[]; sources: Array<{ type: string; stt: string }> }>> {
+  ): Promise<
+    Array<{
+      name: string;
+      idNumber: string;
+      crimes: string[];
+      sources: Array<{ type: string; stt: string }>;
+    }>
+  > {
     if (!q?.trim()) return [];
 
     const petitions = await this.prisma.petition.findMany({
@@ -1954,11 +2229,24 @@ export class PetitionsService {
       orderBy: { receivedDate: 'desc' },
     });
 
-    const byKey = new Map<string, { name: string; idNumber: string; crimes: string[]; sources: Array<{ type: string; stt: string }> }>();
+    const byKey = new Map<
+      string,
+      {
+        name: string;
+        idNumber: string;
+        crimes: string[];
+        sources: Array<{ type: string; stt: string }>;
+      }
+    >();
     for (const p of petitions) {
       const key = p.senderIdNumber?.trim() || p.senderName;
       if (!byKey.has(key)) {
-        byKey.set(key, { name: p.senderName, idNumber: p.senderIdNumber ?? '', crimes: [], sources: [] });
+        byKey.set(key, {
+          name: p.senderName,
+          idNumber: p.senderIdNumber ?? '',
+          crimes: [],
+          sources: [],
+        });
       }
       const entry = byKey.get(key)!;
       if (p.toiDanhBanDau?.trim() && !entry.crimes.includes(p.toiDanhBanDau)) {
@@ -1975,7 +2263,15 @@ export class PetitionsService {
     q: string,
     excludeId?: string,
     _dataScope?: DataScope | null,
-  ): Promise<Array<{ id: string; stt: string; senderName: string; receivedDate: Date; summary: string | null }>> {
+  ): Promise<
+    Array<{
+      id: string;
+      stt: string;
+      senderName: string;
+      receivedDate: Date;
+      summary: string | null;
+    }>
+  > {
     if (!q?.trim()) return [];
 
     const where: Prisma.PetitionWhereInput = {
@@ -2014,39 +2310,66 @@ export class PetitionsService {
     actorId: string,
     _dataScope?: DataScope | null,
   ) {
-    const petition = await this.prisma.petition.findFirst({ where: { id: petitionId, deletedAt: null } });
-    if (!petition) throw new NotFoundException(`Đơn thư không tồn tại (id: ${petitionId})`);
+    const petition = await this.prisma.petition.findFirst({
+      where: { id: petitionId, deletedAt: null },
+    });
+    if (!petition)
+      throw new NotFoundException(`Đơn thư không tồn tại (id: ${petitionId})`);
 
     const existing = await this.prisma.petitionAssignment.findUnique({
       where: { petitionId_userId: { petitionId, userId } },
     });
-    if (existing) throw new ConflictException(`Cán bộ đã được phân công cho đơn thư này`);
+    if (existing)
+      throw new ConflictException(`Cán bộ đã được phân công cho đơn thư này`);
 
-    return this.prisma.petitionAssignment.create({
-      data: { petitionId, userId, role, assignedById: actorId },
-      include: {
-        user: { select: { id: true, firstName: true, lastName: true, email: true, username: true } },
-        assignedBy: { select: { id: true, firstName: true, lastName: true, username: true } },
-      },
-    }).catch((err: any) => {
-      if (err?.code === 'P2002') throw new ConflictException(`Cán bộ đã được phân công cho đơn thư này`);
-      if (err?.code === 'P2003') throw new NotFoundException(`Cán bộ không tồn tại (userId: ${userId})`);
-      throw err;
-    });
+    return this.prisma.petitionAssignment
+      .create({
+        data: { petitionId, userId, role, assignedById: actorId },
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              username: true,
+            },
+          },
+          assignedBy: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              username: true,
+            },
+          },
+        },
+      })
+      .catch((err: any) => {
+        if (err?.code === 'P2002')
+          throw new ConflictException(
+            `Cán bộ đã được phân công cho đơn thư này`,
+          );
+        if (err?.code === 'P2003')
+          throw new NotFoundException(
+            `Cán bộ không tồn tại (userId: ${userId})`,
+          );
+        throw err;
+      });
   }
 
-  async removeAssignment(
-    petitionId: string,
-    userId: string,
-    _actorId: string,
-  ) {
-    const petition = await this.prisma.petition.findFirst({ where: { id: petitionId, deletedAt: null } });
-    if (!petition) throw new NotFoundException(`Đơn thư không tồn tại (id: ${petitionId})`);
+  async removeAssignment(petitionId: string, userId: string, _actorId: string) {
+    const petition = await this.prisma.petition.findFirst({
+      where: { id: petitionId, deletedAt: null },
+    });
+    if (!petition)
+      throw new NotFoundException(`Đơn thư không tồn tại (id: ${petitionId})`);
 
     const existing = await this.prisma.petitionAssignment.findUnique({
       where: { petitionId_userId: { petitionId, userId } },
     });
-    if (!existing) throw new NotFoundException(`Cán bộ chưa được phân công cho đơn thư này`);
+    if (!existing)
+      throw new NotFoundException(`Cán bộ chưa được phân công cho đơn thư này`);
 
     await this.prisma.petitionAssignment.delete({
       where: { petitionId_userId: { petitionId, userId } },
@@ -2054,24 +2377,298 @@ export class PetitionsService {
     return { success: true };
   }
 
-  async listAssignments(
-    petitionId: string,
-    _dataScope?: DataScope | null,
-  ) {
-    const petition = await this.prisma.petition.findFirst({ where: { id: petitionId, deletedAt: null } });
-    if (!petition) throw new NotFoundException(`Đơn thư không tồn tại (id: ${petitionId})`);
+  async listAssignments(petitionId: string, _dataScope?: DataScope | null) {
+    const petition = await this.prisma.petition.findFirst({
+      where: { id: petitionId, deletedAt: null },
+    });
+    if (!petition)
+      throw new NotFoundException(`Đơn thư không tồn tại (id: ${petitionId})`);
 
     return this.prisma.petitionAssignment.findMany({
       where: { petitionId },
       include: {
-        user: { select: { id: true, firstName: true, lastName: true, email: true, username: true } },
-        assignedBy: { select: { id: true, firstName: true, lastName: true, username: true } },
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            username: true,
+          },
+        },
+        assignedBy: {
+          select: { id: true, firstName: true, lastName: true, username: true },
+        },
       },
       orderBy: { assignedAt: 'asc' },
     });
   }
-}
 
+  // ── C4: quyết định đơn trùng ──────────────────────────────────────────────
+
+  /**
+   * Record an officer's conclusion about a suspected-duplicate pair.
+   *
+   * `DA_HOP_NHAT` does NOT delete anything. Under the Law on Complaints and the
+   * Law on Denunciations each petition carries its own duty to accept, its own
+   * deadline and its own written reply to its own sender; deleting the
+   * secondary would delete a legal obligation, not tidy up a table. It moves to
+   * DA_LUU_DON and keeps a link to the primary, so the file stays findable and
+   * its sender stays answerable.
+   *
+   * `KHONG_TRUNG` is stored rather than treated as "dismiss". It is the record
+   * that somebody looked and concluded two people sharing a name are two
+   * people. Without it the same pair surfaces at the next sweep and the next
+   * officer starts from nothing.
+   *
+   * Both petitions are audited under their own subjectId, so the decision shows
+   * up on both files' history rather than only on the one that was kept.
+   */
+  async decideDuplicate(
+    dto: DecideDuplicateDto,
+    actorId: string,
+    dataScope: DataScope | null | undefined,
+    meta?: { ipAddress?: string; userAgent?: string },
+  ) {
+    if (dto.primaryPetitionId === dto.duplicatePetitionId) {
+      throw new BadRequestException(
+        'Không thể đánh dấu một đơn trùng với chính nó',
+      );
+    }
+
+    const scopeFilter = buildPetitionScopeFilter(dataScope);
+    const both = await this.prisma.petition.findMany({
+      where: {
+        id: { in: [dto.primaryPetitionId, dto.duplicatePetitionId] },
+        deletedAt: null,
+        ...scopeFilter,
+      },
+      select: {
+        id: true,
+        stt: true,
+        status: true,
+        senderName: true,
+        senderPhone: true,
+        senderAddress: true,
+        suspectedPerson: true,
+      },
+    });
+    // Both must be in scope, and the error does not say which one was missing:
+    // naming it would let a caller probe for petitions outside their unit one
+    // id at a time.
+    if (both.length !== 2) {
+      throw new NotFoundException(
+        'Không tìm thấy đơn thư, hoặc đơn nằm ngoài phạm vi dữ liệu của bạn',
+      );
+    }
+
+    const primary = both.find((p) => p.id === dto.primaryPetitionId)!;
+    const duplicate = both.find((p) => p.id === dto.duplicatePetitionId)!;
+
+    const existing = await this.prisma.petitionDuplicateLink.findFirst({
+      where: { duplicatePetitionId: duplicate.id, revertedAt: null },
+    });
+    if (existing) {
+      throw new ConflictException(
+        `Đơn ${duplicate.stt} đã có quyết định trùng đang hiệu lực — hoàn tác quyết định cũ trước.`,
+      );
+    }
+
+    // Scored on the same criteria the suggestion screen used, and kept: a year
+    // from now "khớp 3/4 tiêu chí" is the only thing explaining the call.
+    const score = scoreDuplicateGroup([primary, duplicate]);
+    const merging = dto.decision === PetitionDuplicateDecision.DA_HOP_NHAT;
+
+    const link = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.petitionDuplicateLink.create({
+        data: {
+          primaryPetitionId: primary.id,
+          duplicatePetitionId: duplicate.id,
+          decision: dto.decision,
+          reason: dto.reason,
+          matchedCriteria: score.matched,
+          comparedCriteria: score.compared,
+          decidedById: actorId,
+        },
+      });
+
+      if (merging) {
+        await tx.petition.update({
+          where: { id: duplicate.id },
+          data: { status: PetitionStatus.DA_LUU_DON },
+        });
+      }
+
+      return created;
+    });
+
+    const shared = {
+      linkId: link.id,
+      decision: dto.decision,
+      reason: dto.reason,
+      matched: score.matched,
+      compared: score.compared,
+      primaryStt: primary.stt,
+      duplicateStt: duplicate.stt,
+    };
+    const rows: Array<[string, 'primary' | 'duplicate']> = [
+      [primary.id, 'primary'],
+      [duplicate.id, 'duplicate'],
+    ];
+    for (const [subjectId, role] of rows) {
+      await this.audit.log({
+        userId: actorId,
+        action: 'PETITION_DUPLICATE_DECIDED',
+        subject: 'Petition',
+        subjectId,
+        metadata: {
+          ...shared,
+          role,
+          ...(role === 'duplicate' && merging
+            ? { newStatus: PetitionStatus.DA_LUU_DON }
+            : {}),
+        },
+        ipAddress: meta?.ipAddress,
+        userAgent: meta?.userAgent,
+      });
+    }
+
+    return { ...link, primary, duplicate, score };
+  }
+
+  /**
+   * Undo a decision without erasing that it was made.
+   *
+   * The row stays and gains who reverted it, when and why. The partial unique
+   * index only counts links with `revertedAt IS NULL`, so the pair can be
+   * decided again. A hard delete would leave the next officer looking at a pair
+   * with no history and no idea it had already been argued over once.
+   */
+  async revertDuplicate(
+    linkId: string,
+    dto: RevertDuplicateDto,
+    actorId: string,
+    dataScope: DataScope | null | undefined,
+    meta?: { ipAddress?: string; userAgent?: string },
+  ) {
+    const scopeFilter = buildPetitionScopeFilter(dataScope);
+    const link = await this.prisma.petitionDuplicateLink.findFirst({
+      where: {
+        id: linkId,
+        revertedAt: null,
+        duplicatePetition: { deletedAt: null, ...scopeFilter },
+      },
+      include: {
+        primaryPetition: { select: { id: true, stt: true } },
+        duplicatePetition: { select: { id: true, stt: true, status: true } },
+      },
+    });
+    if (!link) {
+      throw new NotFoundException(
+        'Không tìm thấy quyết định đang hiệu lực, hoặc nằm ngoài phạm vi dữ liệu của bạn',
+      );
+    }
+
+    const wasMerged = link.decision === PetitionDuplicateDecision.DA_HOP_NHAT;
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const u = await tx.petitionDuplicateLink.update({
+        where: { id: link.id },
+        data: {
+          revertedAt: new Date(),
+          revertedById: actorId,
+          revertReason: dto.revertReason,
+        },
+      });
+      if (
+        wasMerged &&
+        link.duplicatePetition.status === PetitionStatus.DA_LUU_DON
+      ) {
+        // Back to newly-received. Only the status this merge set is undone;
+        // anything the officer changed in between is theirs to sort out, and
+        // guessing further would be inventing history.
+        await tx.petition.update({
+          where: { id: link.duplicatePetitionId },
+          data: { status: PetitionStatus.MOI_TIEP_NHAN },
+        });
+      }
+      return u;
+    });
+
+    const shared = {
+      linkId: link.id,
+      revertReason: dto.revertReason,
+      previousDecision: link.decision,
+      primaryStt: link.primaryPetition.stt,
+      duplicateStt: link.duplicatePetition.stt,
+    };
+    for (const subjectId of [
+      link.primaryPetitionId,
+      link.duplicatePetitionId,
+    ]) {
+      await this.audit.log({
+        userId: actorId,
+        action: 'PETITION_DUPLICATE_REVERTED',
+        subject: 'Petition',
+        subjectId,
+        metadata: shared,
+        ipAddress: meta?.ipAddress,
+        userAgent: meta?.userAgent,
+      });
+    }
+
+    return updated;
+  }
+
+  /** Decisions already on record, so the screen stops re-suggesting settled pairs. */
+  async listDuplicateLinks(
+    query: {
+      includeReverted?: string | boolean;
+      limit?: number;
+      offset?: number;
+    },
+    dataScope: DataScope | null | undefined,
+  ) {
+    const scopeFilter = buildPetitionScopeFilter(dataScope);
+    const includeReverted =
+      query.includeReverted === true || query.includeReverted === 'true';
+    const limit = Math.min(Number(query.limit) || 50, 100);
+    const offset = Math.max(Number(query.offset) || 0, 0);
+
+    const where: Prisma.PetitionDuplicateLinkWhereInput = {
+      ...(includeReverted ? {} : { revertedAt: null }),
+      duplicatePetition: { deletedAt: null, ...scopeFilter },
+    };
+
+    const [data, total] = await Promise.all([
+      this.prisma.petitionDuplicateLink.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+        skip: offset,
+        include: {
+          primaryPetition: {
+            select: { id: true, stt: true, senderName: true, status: true },
+          },
+          duplicatePetition: {
+            select: { id: true, stt: true, senderName: true, status: true },
+          },
+          decidedBy: {
+            select: {
+              id: true,
+              username: true,
+              firstName: true,
+              lastName: true,
+            },
+          },
+        },
+      }),
+      this.prisma.petitionDuplicateLink.count({ where }),
+    ]);
+
+    return { data, total, limit, offset };
+  }
+}
 
 /** Criteria the duplicate check can group on. */
 export type DupKey =
