@@ -39,6 +39,19 @@ Cập nhật: 2026-08-10T03:15:00+07:00 | Milestone: M1/5 | Task: 0/5 của M1
 
 ## Đang làm dở
 
+Task: M2-T2 — PR-B2 `feat/feature-flags-admin-page` (**code xong, chờ `/codex`** — đóng M2)
+Đã làm:
+- Module FE mới `features/feature-flags/` + trang `/admin/tinh-nang`. Nhóm theo `domain`; **domain lạ rơi vào nhóm "Khác" chứ không bị lọc mất** — lọc đi là giấu một tính năng đang chạy khỏi đúng màn hình duy nhất tắt được nó (có test).
+- Cờ lõi: nút **disabled** + nhãn "Lõi — không thể tắt", đọc từ `isCore` server trả về nên FE **không giữ bản sao thứ hai** của danh sách lõi.
+- Tắt thì hỏi xác nhận, nêu rõ hệ quả (mục menu biến mất với mọi người, ai đang mở màn hình đó sẽ nhận thông báo). Bật lại **không** hỏi — chiều đó an toàn.
+- Lỗi hiển thị **banner** với thông điệp thật từ server, không `alert()`, không báo thành công khi hỏng. Sau mỗi PATCH gọi `refresh()` của context nên sidebar cập nhật ngay.
+- Quyền dùng `role === ADMIN` chứ **không** `hasPermission` — tầng quyền FE vẫn là mock trả `true` cho mọi người (ND-6), gắn vào đó là "trông như có kiểm mà không kiểm gì". BE mới là cổng thật (`write:FeatureFlag`).
+- Sửa `featureRegistry.test.tsx` vốn hardcode 24 key ⇒ module thứ 25 làm test đỏ. Kế hoạch đã cảnh báo trước điều này.
+Kiểm: BE **226 suite / 3078 test** PASS, FE **155 file / 1511 test** PASS, tsc sạch, 3 cổng xanh.
+**BƯỚC TIẾP THEO:** `/codex` cho PR-B2. Sau đó M2 đóng; sang M3 (C1–C12 — xóa mockup).
+
+---
+
 Task: M2-T3 — PR-B3 `refactor/feature-registry-codegen` (**code xong, chờ `/codex`**)
 Đã làm:
 - **`scripts/generate-feature-registry.cjs`** quét mọi `src/**/feature.manifest.ts` → sinh `feature-registry.generated.ts`, `FEATURE_REGISTRY` chỉ còn re-export. Nối vào `npm run build` cạnh `gen:enums`, **commit file sinh ra** đúng khuôn `generated.ts` hiện có, + bước kiểm drift trong CI.
@@ -290,7 +303,7 @@ Tự phát hiện thêm: 3 file test mới của chính tôi bị baseline hoá 
 
 Full suite: **PASS**
 - Backend: 226 suite / **3078** test — PASS (xem ND-9: 1 suite flaky ~1/6 lần, có sẵn từ trước)
-- Frontend: 154 file / **1504** test — PASS (3 lần chạy liên tiếp ổn định)
+- Frontend: 155 file / **1511** test — PASS (3 lần chạy liên tiếp ổn định)
 - Cổng governance: enum guard ✅ · gen:enums drift ✅ · lint ratchet ✅ (baseline 8.945 sau ADR-0015)
 - `tsc --noEmit` (BE): sạch · `tsc -b` (FE): sạch
 - eslint: không có lỗi mới trên dòng đã thêm (nợ lint có sẵn xem ND-1)
