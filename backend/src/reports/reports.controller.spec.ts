@@ -30,7 +30,9 @@ describe('ReportsController — delegation', () => {
     })
       .overrideGuard(require('../auth/guards/jwt-auth.guard').JwtAuthGuard)
       .useValue({ canActivate: () => true })
-      .overrideGuard(require('../auth/guards/permissions.guard').PermissionsGuard)
+      .overrideGuard(
+        require('../auth/guards/permissions.guard').PermissionsGuard,
+      )
       .useValue({ canActivate: () => true })
       .compile();
     controller = module.get(ReportsController);
@@ -51,13 +53,31 @@ describe('ReportsController — delegation', () => {
 
   it('getOverdue() delegates to service.getOverdue with filter params', async () => {
     mockReportsService.getOverdue.mockResolvedValue({ data: [] });
-    await controller.getOverdue({ search: 'foo', recordType: 'CASE', priority: 'HIGH', minDaysOverdue: 7 });
-    expect(mockReportsService.getOverdue).toHaveBeenCalledWith('foo', 'CASE', 'HIGH', 7);
+    await controller.getOverdue({
+      search: 'foo',
+      recordType: 'CASE',
+      priority: 'HIGH',
+      minDaysOverdue: 7,
+    });
+    expect(mockReportsService.getOverdue).toHaveBeenCalledWith(
+      'foo',
+      'CASE',
+      'HIGH',
+      7,
+    );
   });
 
   it('getDistrictStats() delegates to service.getDistrictStats', async () => {
     mockReportsService.getDistrictStats.mockResolvedValue({ data: [] });
-    await controller.getDistrictStats({ fromDate: '2025-01-01', toDate: '2025-12-31', district: 'D1' });
-    expect(mockReportsService.getDistrictStats).toHaveBeenCalledWith('2025-01-01', '2025-12-31', 'D1');
+    await controller.getDistrictStats({
+      fromDate: '2025-01-01',
+      toDate: '2025-12-31',
+      district: 'D1',
+    });
+    expect(mockReportsService.getDistrictStats).toHaveBeenCalledWith(
+      '2025-01-01',
+      '2025-12-31',
+      'D1',
+    );
   });
 });

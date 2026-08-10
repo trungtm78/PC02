@@ -119,11 +119,7 @@ function setXlsxHeaders(res: Response, filename: string): void {
 
 @Injectable()
 export class PhuLuc16ExportService {
-  async export(
-    loai: number,
-    data: any[],
-    res: Response,
-  ): Promise<void> {
+  async export(loai: number, data: any[], res: Response): Promise<void> {
     const filename = `PhuLuc${loai}_PC02_${Date.now()}.xlsx`;
     setXlsxHeaders(res, filename);
 
@@ -161,8 +157,7 @@ export class PhuLuc16ExportService {
   // ── Incidents sheet (PL1, PL2, PL3) ────────────────────────────────────────
 
   private async _writeIncidents(
-    sheet: // eslint-disable-next-line @typescript-eslint/no-explicit-any
-any,
+    sheet: any,
     data: any[],
     title: string,
     period: string,
@@ -173,13 +168,18 @@ any,
     const colCount = headers.length;
 
     // BCA header block (rows 1-6)
-    BcaExcelHelper.addHeader(sheet as unknown as ExcelJS.Worksheet, colCount, title, period);
+    BcaExcelHelper.addHeader(
+      sheet as unknown as ExcelJS.Worksheet,
+      colCount,
+      title,
+      period,
+    );
     BcaExcelHelper.setPrintSetup(sheet as unknown as ExcelJS.Worksheet);
 
     // Column header row (row 7)
     const headerRow = sheet.getRow(7);
     BcaExcelHelper.addColumnHeaders(headerRow, headers, widths);
-    await (headerRow as any).commit?.();
+    await headerRow.commit?.();
 
     // Data rows starting at row 8
     let rowIdx = 8;
@@ -234,7 +234,7 @@ any,
         colCount,
       );
 
-      await (row as any).commit?.();
+      await row.commit?.();
       rowIdx++;
     }
 
@@ -246,15 +246,14 @@ any,
       colCount,
     );
 
-    await (sheet as any).commit?.();
+    await sheet.commit?.();
   }
 
   // ── Cases sheet (PL4, PL5, PL6) ────────────────────────────────────────────
   // PL4-6 expand multi-subject cases to one row per subject (SUSPECT type).
 
   private async _writeCases(
-    sheet: // eslint-disable-next-line @typescript-eslint/no-explicit-any
-any,
+    sheet: any,
     data: any[],
     title: string,
     period: string,
@@ -265,32 +264,38 @@ any,
     const colCount = headers.length;
 
     // BCA header block (rows 1-6)
-    BcaExcelHelper.addHeader(sheet as unknown as ExcelJS.Worksheet, colCount, title, period);
+    BcaExcelHelper.addHeader(
+      sheet as unknown as ExcelJS.Worksheet,
+      colCount,
+      title,
+      period,
+    );
     BcaExcelHelper.setPrintSetup(sheet as unknown as ExcelJS.Worksheet);
 
     // Column header row (row 7)
     const headerRow = sheet.getRow(7);
     BcaExcelHelper.addColumnHeaders(headerRow, headers, widths);
-    await (headerRow as any).commit?.();
+    await headerRow.commit?.();
 
     // Data rows starting at row 8
     let rowIdx = 8;
     let stt = 1;
 
     for (const c of data) {
-      const subjects: any[] = c.subjects && c.subjects.length > 0 ? c.subjects : [null];
+      const subjects: any[] =
+        c.subjects && c.subjects.length > 0 ? c.subjects : [null];
 
       for (let si = 0; si < subjects.length; si++) {
         const subj = subjects[si];
         const row = sheet.getRow(rowIdx);
 
         const baseValues = [
-          si === 0 ? stt : '',           // STT only on first subject row
+          si === 0 ? stt : '', // STT only on first subject row
           caseCode(c.id),
           c.name ?? '',
-          subj ? subj.fullName ?? '' : '',
+          subj ? (subj.fullName ?? '') : '',
           subj ? fmtYear(subj.dateOfBirth) : '',
-          subj ? subj.address ?? '' : '',
+          subj ? (subj.address ?? '') : '',
           subj ? (subj.crimeId ?? '') : (c.crime ?? ''),
           c.capDoToiPham ?? '',
           fmtDate(c.createdAt),
@@ -330,7 +335,7 @@ any,
           colCount,
         );
 
-        await (row as any).commit?.();
+        await row.commit?.();
         rowIdx++;
       }
 
@@ -345,6 +350,6 @@ any,
       colCount,
     );
 
-    await (sheet as any).commit?.();
+    await sheet.commit?.();
   }
 }

@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /**
  * TdacExportService Unit Tests
  *
@@ -36,7 +34,7 @@ const mockWorkbook = {
     readFile: jest.fn().mockResolvedValue(undefined),
     write: jest.fn().mockResolvedValue(undefined),
   },
-  worksheets: [mockWorksheet] as typeof mockWorksheet[],
+  worksheets: [mockWorksheet] as (typeof mockWorksheet)[],
 };
 
 jest.mock('exceljs', () => ({
@@ -61,8 +59,22 @@ function makeDraft(overrides: Record<string, unknown> = {}) {
     loaiBaoCao: 'VU_AN',
     computedData: {
       rows: [
-        { rowKey: '1', total: 10, byTeam: [{ teamId: 'to4', value: 4 }, { teamId: 'to5', value: 6 }] },
-        { rowKey: '2', total: 5, byTeam: [{ teamId: 'to4', value: 2 }, { teamId: 'to5', value: 3 }] },
+        {
+          rowKey: '1',
+          total: 10,
+          byTeam: [
+            { teamId: 'to4', value: 4 },
+            { teamId: 'to5', value: 6 },
+          ],
+        },
+        {
+          rowKey: '2',
+          total: 5,
+          byTeam: [
+            { teamId: 'to4', value: 2 },
+            { teamId: 'to5', value: 3 },
+          ],
+        },
       ],
     },
     adjustedData: null,

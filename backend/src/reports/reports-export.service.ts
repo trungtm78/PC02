@@ -72,7 +72,11 @@ const WHITE_ARGB = 'FFFFFFFF';
 function applyNavyHeader(cell: ExcelJS.Cell, text: string) {
   cell.value = text;
   cell.font = { bold: true, color: { argb: WHITE_ARGB }, size: 13 };
-  cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: NAVY_ARGB } };
+  cell.fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: NAVY_ARGB },
+  };
   cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
 }
 
@@ -81,11 +85,21 @@ function applyColumnHeaders(row: ExcelJS.Row, headers: string[]) {
     const cell = row.getCell(i + 1);
     cell.value = h;
     cell.font = { bold: true, color: { argb: WHITE_ARGB } };
-    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: NAVY_ARGB } };
-    cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+    cell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: NAVY_ARGB },
+    };
+    cell.alignment = {
+      horizontal: 'center',
+      vertical: 'middle',
+      wrapText: true,
+    };
     cell.border = {
-      top: { style: 'thin' }, left: { style: 'thin' },
-      bottom: { style: 'thin' }, right: { style: 'thin' },
+      top: { style: 'thin' },
+      left: { style: 'thin' },
+      bottom: { style: 'thin' },
+      right: { style: 'thin' },
     };
   });
   row.height = 22;
@@ -93,8 +107,10 @@ function applyColumnHeaders(row: ExcelJS.Row, headers: string[]) {
 
 function borderCell(cell: ExcelJS.Cell) {
   cell.border = {
-    top: { style: 'thin' }, left: { style: 'thin' },
-    bottom: { style: 'thin' }, right: { style: 'thin' },
+    top: { style: 'thin' },
+    left: { style: 'thin' },
+    bottom: { style: 'thin' },
+    right: { style: 'thin' },
   };
 }
 
@@ -118,7 +134,14 @@ export class ReportsExportService {
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Báo cáo tháng');
     const COL_COUNT = 6;
-    const HEADERS = ['Đơn vị', 'Đơn thư', 'Vụ việc', 'Vụ án', 'Đã giải quyết', 'Tỷ lệ %'];
+    const HEADERS = [
+      'Đơn vị',
+      'Đơn thư',
+      'Vụ việc',
+      'Vụ án',
+      'Đã giải quyết',
+      'Tỷ lệ %',
+    ];
     const WIDTHS = [20, 12, 12, 12, 16, 12];
 
     const title = data.month
@@ -140,20 +163,34 @@ export class ReportsExportService {
       const total = row.donThu + row.vuViec + row.vuAn;
       const tyLe = total > 0 ? Math.round((row.daGiaiQuyet / total) * 100) : 0;
       const excelRow = sheet.getRow(idx + 8);
-      const values = [row.month, row.donThu, row.vuViec, row.vuAn, row.daGiaiQuyet, tyLe];
+      const values = [
+        row.month,
+        row.donThu,
+        row.vuViec,
+        row.vuAn,
+        row.daGiaiQuyet,
+        tyLe,
+      ];
       BcaExcelHelper.styleDataRow(excelRow, idx % 2 === 0, COL_COUNT);
       values.forEach((v, ci) => {
         const cell = excelRow.getCell(ci + 1);
         cell.value = v;
-        cell.alignment = { horizontal: ci === 0 ? 'left' : 'center', vertical: 'middle' };
+        cell.alignment = {
+          horizontal: ci === 0 ? 'left' : 'center',
+          vertical: 'middle',
+        };
       });
     });
 
     // Totals row
     const totalsRowIdx = data.data.length + 8;
     const totalsRow = sheet.getRow(totalsRowIdx);
-    const grandTotal = data.totals.donThu + data.totals.vuViec + data.totals.vuAn;
-    const grandTyLe = grandTotal > 0 ? Math.round((data.totals.daGiaiQuyet / grandTotal) * 100) : 0;
+    const grandTotal =
+      data.totals.donThu + data.totals.vuViec + data.totals.vuAn;
+    const grandTyLe =
+      grandTotal > 0
+        ? Math.round((data.totals.daGiaiQuyet / grandTotal) * 100)
+        : 0;
     BcaExcelHelper.styleDataRow(totalsRow, false, COL_COUNT);
     [
       'TỔNG CỘNG',
@@ -166,7 +203,10 @@ export class ReportsExportService {
       const cell = totalsRow.getCell(ci + 1);
       cell.value = v;
       cell.font = { bold: true, size: 11 };
-      cell.alignment = { horizontal: ci === 0 ? 'left' : 'center', vertical: 'middle' };
+      cell.alignment = {
+        horizontal: ci === 0 ? 'left' : 'center',
+        vertical: 'middle',
+      };
     });
 
     // BCA footer
@@ -175,7 +215,12 @@ export class ReportsExportService {
 
     const filename = `BaoCaoThang_${data.year}${data.month ? '_T' + data.month : ''}_${Date.now()}.xlsx`;
     setXlsxHeaders(res, filename);
-    try { await workbook.xlsx.write(res); } catch (err) { if (!res.headersSent) res.status(500).json({ error: 'Export failed' }); else res.destroy(); }
+    try {
+      await workbook.xlsx.write(res);
+    } catch (err) {
+      if (!res.headersSent) res.status(500).json({ error: 'Export failed' });
+      else res.destroy();
+    }
   }
 
   // ── Quarterly export ────────────────────────────────────────────────────────
@@ -184,7 +229,14 @@ export class ReportsExportService {
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Báo cáo quý');
     const COL_COUNT = 6;
-    const HEADERS = ['Kỳ', 'Đơn thư', 'Vụ việc', 'Vụ án', 'Đã giải quyết', 'Tỷ lệ %'];
+    const HEADERS = [
+      'Kỳ',
+      'Đơn thư',
+      'Vụ việc',
+      'Vụ án',
+      'Đã giải quyết',
+      'Tỷ lệ %',
+    ];
     const WIDTHS = [20, 12, 12, 12, 16, 12];
 
     const title = data.quarter
@@ -203,17 +255,31 @@ export class ReportsExportService {
       const tyLe = total > 0 ? Math.round((row.daGiaiQuyet / total) * 100) : 0;
       const excelRow = sheet.getRow(idx + 8);
       BcaExcelHelper.styleDataRow(excelRow, idx % 2 === 0, COL_COUNT);
-      [row.quarter, row.donThu, row.vuViec, row.vuAn, row.daGiaiQuyet, tyLe].forEach((v, ci) => {
+      [
+        row.quarter,
+        row.donThu,
+        row.vuViec,
+        row.vuAn,
+        row.daGiaiQuyet,
+        tyLe,
+      ].forEach((v, ci) => {
         const cell = excelRow.getCell(ci + 1);
         cell.value = v;
-        cell.alignment = { horizontal: ci === 0 ? 'left' : 'center', vertical: 'middle' };
+        cell.alignment = {
+          horizontal: ci === 0 ? 'left' : 'center',
+          vertical: 'middle',
+        };
       });
     });
 
     const totalsRowIdx = data.data.length + 8;
     const totalsRow = sheet.getRow(totalsRowIdx);
-    const grandTotal = data.totals.donThu + data.totals.vuViec + data.totals.vuAn;
-    const grandTyLe = grandTotal > 0 ? Math.round((data.totals.daGiaiQuyet / grandTotal) * 100) : 0;
+    const grandTotal =
+      data.totals.donThu + data.totals.vuViec + data.totals.vuAn;
+    const grandTyLe =
+      grandTotal > 0
+        ? Math.round((data.totals.daGiaiQuyet / grandTotal) * 100)
+        : 0;
     BcaExcelHelper.styleDataRow(totalsRow, false, COL_COUNT);
     [
       'TỔNG CỘNG',
@@ -226,7 +292,10 @@ export class ReportsExportService {
       const cell = totalsRow.getCell(ci + 1);
       cell.value = v;
       cell.font = { bold: true, size: 11 };
-      cell.alignment = { horizontal: ci === 0 ? 'left' : 'center', vertical: 'middle' };
+      cell.alignment = {
+        horizontal: ci === 0 ? 'left' : 'center',
+        vertical: 'middle',
+      };
     });
 
     BcaExcelHelper.addFooter(sheet, totalsRowIdx + 2, COL_COUNT);
@@ -234,7 +303,12 @@ export class ReportsExportService {
 
     const filename = `BaoCaoQuy_${data.year}${data.quarter ? '_Q' + data.quarter : ''}_${Date.now()}.xlsx`;
     setXlsxHeaders(res, filename);
-    try { await workbook.xlsx.write(res); } catch (err) { if (!res.headersSent) res.status(500).json({ error: 'Export failed' }); else res.destroy(); }
+    try {
+      await workbook.xlsx.write(res);
+    } catch (err) {
+      if (!res.headersSent) res.status(500).json({ error: 'Export failed' });
+      else res.destroy();
+    }
   }
 
   // ── Stat48 export ───────────────────────────────────────────────────────────
@@ -255,9 +329,17 @@ export class ReportsExportService {
       BcaExcelHelper.addHeader(sheet, COL_COUNT, stat48Title, stat48Period);
 
       // Row 7: column headers
-      BcaExcelHelper.addColumnHeaders(sheet.getRow(7), [
-        'Tên trường', 'Loại', 'Tổng/Giá trị', 'Số lượng/Tần suất', 'Thiếu dữ liệu',
-      ], [28, 14, 22, 18, 16]);
+      BcaExcelHelper.addColumnHeaders(
+        sheet.getRow(7),
+        [
+          'Tên trường',
+          'Loại',
+          'Tổng/Giá trị',
+          'Số lượng/Tần suất',
+          'Thiếu dữ liệu',
+        ],
+        [28, 14, 22, 18, 16],
+      );
       sheet.getRow(7).height = 22;
 
       let rowIdx = 8;
@@ -275,7 +357,10 @@ export class ReportsExportService {
             const cell = row.getCell(ci + 1);
             cell.value = v;
             borderCell(cell);
-            cell.alignment = { vertical: 'middle', horizontal: ci < 2 ? 'left' : 'center' };
+            cell.alignment = {
+              vertical: 'middle',
+              horizontal: ci < 2 ? 'left' : 'center',
+            };
           });
         } else {
           // categorical: one row per distribution entry
@@ -283,14 +368,21 @@ export class ReportsExportService {
           const entries = Object.entries(dist);
           if (entries.length === 0) {
             const row = sheet.getRow(rowIdx++);
-            [field.field, 'Phân loại', '(không có dữ liệu)', 0, field.nullCount].forEach(
-              (v, ci) => {
-                const cell = row.getCell(ci + 1);
-                cell.value = v;
-                borderCell(cell);
-                cell.alignment = { vertical: 'middle', horizontal: ci < 2 ? 'left' : 'center' };
-              },
-            );
+            [
+              field.field,
+              'Phân loại',
+              '(không có dữ liệu)',
+              0,
+              field.nullCount,
+            ].forEach((v, ci) => {
+              const cell = row.getCell(ci + 1);
+              cell.value = v;
+              borderCell(cell);
+              cell.alignment = {
+                vertical: 'middle',
+                horizontal: ci < 2 ? 'left' : 'center',
+              };
+            });
           } else {
             entries.forEach(([value, count], entryIdx) => {
               const row = sheet.getRow(rowIdx++);
@@ -304,7 +396,11 @@ export class ReportsExportService {
                 const cell = row.getCell(ci + 1);
                 cell.value = v;
                 borderCell(cell);
-                cell.alignment = { vertical: 'middle', horizontal: ci < 2 ? 'left' : 'center', wrapText: true };
+                cell.alignment = {
+                  vertical: 'middle',
+                  horizontal: ci < 2 ? 'left' : 'center',
+                  wrapText: true,
+                };
               });
             });
           }
@@ -316,6 +412,11 @@ export class ReportsExportService {
 
     const filename = `Stat48_${data.fromDate}_${data.toDate}${data.isDraft ? '_DRAFT' : ''}_${Date.now()}.xlsx`;
     setXlsxHeaders(res, filename);
-    try { await workbook.xlsx.write(res); } catch (err) { if (!res.headersSent) res.status(500).json({ error: "Export failed" }); else res.destroy(); }
+    try {
+      await workbook.xlsx.write(res);
+    } catch (err) {
+      if (!res.headersSent) res.status(500).json({ error: 'Export failed' });
+      else res.destroy();
+    }
   }
 }

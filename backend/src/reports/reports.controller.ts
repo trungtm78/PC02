@@ -6,7 +6,15 @@ import { ReportsExportService } from './reports-export.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/permissions.decorator';
-import { IsOptional, IsInt, IsString, IsDateString, IsIn, Min, Max } from 'class-validator';
+import {
+  IsOptional,
+  IsInt,
+  IsString,
+  IsDateString,
+  IsIn,
+  Min,
+  Max,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { EXPORT_FORMAT } from '../common/constants/export-format.constants';
 
@@ -120,7 +128,11 @@ export class ReportsController {
   @Get('district-stats')
   @RequirePermissions({ action: 'read', subject: 'Case' })
   getDistrictStats(@Query() query: QueryDistrictStatsDto) {
-    return this.reportsService.getDistrictStats(query.fromDate, query.toDate, query.district);
+    return this.reportsService.getDistrictStats(
+      query.fromDate,
+      query.toDate,
+      query.district,
+    );
   }
 
   // GET /api/v1/reports/overdue
@@ -147,7 +159,10 @@ export class ReportsController {
   // GET /api/v1/reports/quarterly/export
   @Get('quarterly/export')
   @Throttle({ default: { ttl: 60000, limit: 5 } })
-  async exportQuarterly(@Query() query: QueryQuarterlyDto, @Res() res: Response) {
+  async exportQuarterly(
+    @Query() query: QueryQuarterlyDto,
+    @Res() res: Response,
+  ) {
     const year = query.year ?? new Date().getFullYear();
     const data = await this.reportsService.getQuarterly(year, query.quarter);
     await this.reportsExportService.exportQuarterly(data as any, res);

@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /**
  * ReportsService Unit Tests
  *
@@ -39,7 +37,10 @@ function makeCaseWithStat48(stat48: Record<string, unknown>) {
   return { metadata: { stat48 } };
 }
 
-function makeOverdueCase(daysOverdue: number, overrides: Record<string, unknown> = {}) {
+function makeOverdueCase(
+  daysOverdue: number,
+  overrides: Record<string, unknown> = {},
+) {
   const now = new Date();
   const deadline = new Date(now.getTime() - daysOverdue * 24 * 60 * 60 * 1000);
   return {
@@ -164,8 +165,12 @@ describe('ReportsService', () => {
         makeOverdueCase(15),
       ]);
       const result = await service.getOverdue();
-      expect(result.data[0].daysOverdue).toBeGreaterThan(result.data[1].daysOverdue);
-      expect(result.data[1].daysOverdue).toBeGreaterThan(result.data[2].daysOverdue);
+      expect(result.data[0].daysOverdue).toBeGreaterThan(
+        result.data[1].daysOverdue,
+      );
+      expect(result.data[1].daysOverdue).toBeGreaterThan(
+        result.data[2].daysOverdue,
+      );
     });
 
     it('filters by minDaysOverdue', async () => {
@@ -174,8 +179,13 @@ describe('ReportsService', () => {
         makeOverdueCase(10),
         makeOverdueCase(25),
       ]);
-      const result = await service.getOverdue(undefined, undefined, undefined, 7);
-      expect(result.data.every(r => r.daysOverdue >= 7)).toBe(true);
+      const result = await service.getOverdue(
+        undefined,
+        undefined,
+        undefined,
+        7,
+      );
+      expect(result.data.every((r) => r.daysOverdue >= 7)).toBe(true);
       expect(result.data).toHaveLength(2);
     });
 
@@ -190,7 +200,9 @@ describe('ReportsService', () => {
       const withInvestigator = await service.getOverdue();
       expect(withInvestigator.data[0].assignedTo).toBe('Nguyễn Văn A');
 
-      mockPrisma.case.findMany.mockResolvedValue([makeOverdueCase(5, { investigator: null })]);
+      mockPrisma.case.findMany.mockResolvedValue([
+        makeOverdueCase(5, { investigator: null }),
+      ]);
       const withoutInvestigator = await service.getOverdue();
       expect(withoutInvestigator.data[0].assignedTo).toBe('Chưa phân công');
     });
@@ -216,7 +228,9 @@ describe('ReportsService', () => {
 
       const group2 = result.groups.find((g) => g.name === 'Nhóm 2: Tội phạm');
       expect(group2).toBeDefined();
-      const thietHaiField = group2!.fields.find((f) => f.field === 'Thiệt hại (VNĐ)');
+      const thietHaiField = group2!.fields.find(
+        (f) => f.field === 'Thiệt hại (VNĐ)',
+      );
       expect(thietHaiField).toBeDefined();
       expect(thietHaiField!.type).toBe('numeric');
       expect(thietHaiField!.total).toBe(3000000);
@@ -236,7 +250,9 @@ describe('ReportsService', () => {
 
       const group1 = result.groups.find((g) => g.name === 'Nhóm 1: Nguồn tin');
       expect(group1).toBeDefined();
-      const loaiNguonTinField = group1!.fields.find((f) => f.field === 'Loại nguồn tin');
+      const loaiNguonTinField = group1!.fields.find(
+        (f) => f.field === 'Loại nguồn tin',
+      );
       expect(loaiNguonTinField).toBeDefined();
       expect(loaiNguonTinField!.type).toBe('categorical');
       expect(loaiNguonTinField!.distribution).toEqual({
@@ -355,9 +371,9 @@ describe('ReportsService', () => {
       const result = await service.getStat48('2025-01-01', '2025-12-31');
 
       const anyField = result.groups[0].fields[0];
-      expect(anyField).toHaveProperty('field');      // NOT fieldName
-      expect(anyField).toHaveProperty('dataCount');  // NOT count
-      expect(anyField).toHaveProperty('nullCount');  // NOT missing/missingCount
+      expect(anyField).toHaveProperty('field'); // NOT fieldName
+      expect(anyField).toHaveProperty('dataCount'); // NOT count
+      expect(anyField).toHaveProperty('nullCount'); // NOT missing/missingCount
       expect(anyField).not.toHaveProperty('fieldName');
       expect(anyField).not.toHaveProperty('count');
     });
@@ -386,7 +402,7 @@ describe('ReportsService', () => {
       const result = await service.getStat48('2025-01-01', '2025-12-31');
 
       const group = result.groups[0];
-      expect(group).toHaveProperty('name');        // NOT groupName
+      expect(group).toHaveProperty('name'); // NOT groupName
       expect(group).not.toHaveProperty('groupName');
       expect(group).not.toHaveProperty('groupIndex');
     });
@@ -404,7 +420,11 @@ describe('ReportsService', () => {
     });
 
     it('passes metadata.ward filter when district param is provided', async () => {
-      await service.getDistrictStats('2026-01-01', '2026-01-03', 'Phường Bến Nghé');
+      await service.getDistrictStats(
+        '2026-01-01',
+        '2026-01-03',
+        'Phường Bến Nghé',
+      );
 
       // Case count should be called with metadata ward filter
       const caseCalls = mockPrisma.case.count.mock.calls;
@@ -436,7 +456,11 @@ describe('ReportsService', () => {
     });
 
     it('returns correct structure in response', async () => {
-      const result = await service.getDistrictStats('2026-01-01', '2026-01-02', 'Phường 2');
+      const result = await service.getDistrictStats(
+        '2026-01-01',
+        '2026-01-02',
+        'Phường 2',
+      );
 
       expect(result.success).toBe(true);
       expect(result.data).toHaveProperty('daily');
@@ -444,5 +468,94 @@ describe('ReportsService', () => {
       expect(result.data).toHaveProperty('caseStatus');
       expect(result.filters.district).toBe('Phường 2');
     });
+  });
+});
+
+/**
+ * `tableRows` and `summary` are what the monthly report screen has been
+ * reading since it was written — and the backend never returned either, so the
+ * "Tồn đầu kỳ / Phát sinh / Đã giải quyết / Tồn cuối kỳ" table rendered its
+ * empty branch on every load and the totals row showed zeroes. It looked like
+ * a period with no activity rather than a missing API.
+ */
+describe('ReportsService.getMonthly — tableRows and summary', () => {
+  let service: ReportsService;
+
+  beforeEach(async () => {
+    const moduleRef = await Test.createTestingModule({
+      providers: [
+        ReportsService,
+        { provide: PrismaService, useValue: mockPrisma },
+      ],
+    }).compile();
+    service = moduleRef.get(ReportsService);
+    jest.clearAllMocks();
+    mockPrisma.petition.count.mockResolvedValue(0);
+    mockPrisma.incident.count.mockResolvedValue(0);
+    mockPrisma.case.count.mockResolvedValue(0);
+  });
+
+  it('returns the three rows the table renders', async () => {
+    const res = await service.getMonthly(2026, 8);
+
+    expect(res.tableRows.map((r) => r.label)).toEqual([
+      'Đơn thư',
+      'Vụ việc',
+      'Vụ án',
+    ]);
+    expect(res.summary).toBeDefined();
+  });
+
+  it('computes tồn cuối kỳ as opening + new - resolved', async () => {
+    // 5 open at the start, 10 arrived, 3 resolved → 12 still open.
+    mockPrisma.petition.count.mockResolvedValue(5);
+    mockPrisma.incident.count.mockResolvedValue(0);
+    mockPrisma.case.count.mockResolvedValue(0);
+
+    const res = await service.getMonthly(2026, 8);
+    const donThu = res.tableRows[0];
+
+    expect(donThu.tonCuoiKy).toBe(
+      Math.max(0, donThu.tonDauKy + donThu.phatSinh - donThu.daGiaiQuyet),
+    );
+  });
+
+  it('never reports a negative backlog', async () => {
+    // More resolved than opened+arrived is possible across period boundaries;
+    // a negative "tồn cuối kỳ" would be nonsense on a report.
+    mockPrisma.petition.count.mockResolvedValue(50);
+    const res = await service.getMonthly(2026, 8);
+
+    for (const row of res.tableRows) {
+      expect(row.tonCuoiKy).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  it('reports 0% rather than NaN for an empty period', async () => {
+    mockPrisma.petition.count.mockResolvedValue(0);
+    mockPrisma.incident.count.mockResolvedValue(0);
+    mockPrisma.case.count.mockResolvedValue(0);
+
+    const res = await service.getMonthly(2026, 8);
+
+    expect(res.summary.tyLe).toBe(0);
+    for (const row of res.tableRows) {
+      expect(Number.isNaN(row.tyLe)).toBe(false);
+    }
+  });
+
+  it('summary is the sum of the rows, with its own recomputed rate', async () => {
+    mockPrisma.petition.count.mockResolvedValue(4);
+    mockPrisma.incident.count.mockResolvedValue(4);
+    mockPrisma.case.count.mockResolvedValue(4);
+
+    const res = await service.getMonthly(2026, 8);
+    const sum = (k: 'tonDauKy' | 'phatSinh' | 'daGiaiQuyet' | 'tonCuoiKy') =>
+      res.tableRows.reduce((a, r) => a + r[k], 0);
+
+    expect(res.summary.tonDauKy).toBe(sum('tonDauKy'));
+    expect(res.summary.phatSinh).toBe(sum('phatSinh'));
+    expect(res.summary.daGiaiQuyet).toBe(sum('daGiaiQuyet'));
+    expect(res.summary.tonCuoiKy).toBe(sum('tonCuoiKy'));
   });
 });

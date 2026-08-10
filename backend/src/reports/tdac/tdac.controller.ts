@@ -19,7 +19,11 @@ import { RequirePermissions } from '../../auth/decorators/permissions.decorator'
 import { TdacService } from './tdac.service';
 import { TdacDraftService } from './tdac-draft.service';
 import { TdacExportService } from './tdac-export.service';
-import { CreateDraftDto, AdjustDraftDto, RejectDraftDto } from './dto/create-draft.dto';
+import {
+  CreateDraftDto,
+  AdjustDraftDto,
+  RejectDraftDto,
+} from './dto/create-draft.dto';
 
 class QueryTdacDto {
   @IsDateString()
@@ -61,7 +65,11 @@ export class TdacController {
     @Req() req: AuthenticatedRequest,
   ) {
     const teamIds = this.parseTeamIds(query.teamIds, req);
-    return this.tdacService.computeTdcVuAn(new Date(query.fromDate), new Date(query.toDate), teamIds);
+    return this.tdacService.computeTdcVuAn(
+      new Date(query.fromDate),
+      new Date(query.toDate),
+      teamIds,
+    );
   }
 
   @Get('vu-viec')
@@ -71,7 +79,11 @@ export class TdacController {
     @Req() req: AuthenticatedRequest,
   ) {
     const teamIds = this.parseTeamIds(query.teamIds, req);
-    return this.tdacService.computeTdcVuViec(new Date(query.fromDate), new Date(query.toDate), teamIds);
+    return this.tdacService.computeTdcVuViec(
+      new Date(query.fromDate),
+      new Date(query.toDate),
+      teamIds,
+    );
   }
 
   // ─────────────────────────────────────────────
@@ -80,7 +92,10 @@ export class TdacController {
 
   @Post('drafts')
   @RequirePermissions({ action: 'write', subject: 'Report' })
-  async createDraft(@Body() dto: CreateDraftDto, @Req() req: AuthenticatedRequest) {
+  async createDraft(
+    @Body() dto: CreateDraftDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
     this.validateTeamIdsAccess(dto.teamIds, req);
     return this.draftService.create(dto, req.user.id);
   }
@@ -116,7 +131,10 @@ export class TdacController {
 
   @Post('drafts/:id/submit-review')
   @RequirePermissions({ action: 'write', subject: 'Report' })
-  async submitReview(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
+  async submitReview(
+    @Param('id') id: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
     return this.draftService.submitReview(id, req.user.id);
   }
 
@@ -154,10 +172,7 @@ export class TdacController {
 
   @Get('drafts/:id/export')
   @RequirePermissions({ action: 'read', subject: 'Case' })
-  async exportDraft(
-    @Param('id') id: string,
-    @Res() res: Response,
-  ) {
+  async exportDraft(@Param('id') id: string, @Res() res: Response) {
     const draft = await this.draftService.findOne(id);
     return this.exportService.export(draft, res);
   }
@@ -166,11 +181,14 @@ export class TdacController {
   // Helpers
   // ─────────────────────────────────────────────
 
-  private parseTeamIds(teamIdsRaw: string | undefined, req: AuthenticatedRequest): string[] {
+  private parseTeamIds(
+    teamIdsRaw: string | undefined,
+    req: AuthenticatedRequest,
+  ): string[] {
     const requestedIds = teamIdsRaw
       ? teamIdsRaw
           .split(',')
-          .map(s => s.trim())
+          .map((s) => s.trim())
           .filter(Boolean)
       : [];
 
@@ -178,14 +196,17 @@ export class TdacController {
     return requestedIds;
   }
 
-  private validateTeamIdsAccess(teamIds: string[], req: AuthenticatedRequest): void {
+  private validateTeamIdsAccess(
+    teamIds: string[],
+    req: AuthenticatedRequest,
+  ): void {
     // canDispatch = admin/dispatch officer — bypass scope check
     if (req.user?.canDispatch) return;
 
     const allowedTeamIds: string[] = req.user?.teamIds ?? [];
     if (allowedTeamIds.length === 0) return; // no restriction if no team scope
 
-    const forbidden = teamIds.filter(id => !allowedTeamIds.includes(id));
+    const forbidden = teamIds.filter((id) => !allowedTeamIds.includes(id));
     if (forbidden.length > 0) {
       throw new ForbiddenException(
         `You do not have access to team(s): ${forbidden.join(', ')}`,

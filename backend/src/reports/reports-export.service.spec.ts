@@ -20,7 +20,13 @@ const mockSheet = {
     border: {},
   }),
   getRow: jest.fn().mockReturnValue({
-    getCell: jest.fn().mockReturnValue({ value: null, font: {}, fill: {}, alignment: {}, border: {} }),
+    getCell: jest.fn().mockReturnValue({
+      value: null,
+      font: {},
+      fill: {},
+      alignment: {},
+      border: {},
+    }),
     height: 0,
   }),
   columns: [],
@@ -58,9 +64,21 @@ describe('ReportsExportService', () => {
     service = new ReportsExportService();
     jest.clearAllMocks();
     // Re-setup mocks after clear
-    mockSheet.getCell.mockReturnValue({ value: null, font: {}, fill: {}, alignment: {}, border: {} });
+    mockSheet.getCell.mockReturnValue({
+      value: null,
+      font: {},
+      fill: {},
+      alignment: {},
+      border: {},
+    });
     mockSheet.getRow.mockReturnValue({
-      getCell: jest.fn().mockReturnValue({ value: null, font: {}, fill: {}, alignment: {}, border: {} }),
+      getCell: jest.fn().mockReturnValue({
+        value: null,
+        font: {},
+        fill: {},
+        alignment: {},
+        border: {},
+      }),
       height: 0,
     });
     mockWorkbook.addWorksheet.mockReturnValue(mockSheet);

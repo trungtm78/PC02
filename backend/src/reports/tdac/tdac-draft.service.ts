@@ -27,10 +27,15 @@ export class TdacDraftService {
     });
   }
 
-  async findAll(filters: { loaiBaoCao?: string; status?: string }): Promise<ReportTdcDraft[]> {
+  async findAll(filters: {
+    loaiBaoCao?: string;
+    status?: string;
+  }): Promise<ReportTdcDraft[]> {
     return this.prisma.reportTdcDraft.findMany({
       where: {
-        ...(filters.loaiBaoCao ? { loaiBaoCao: filters.loaiBaoCao as any } : {}),
+        ...(filters.loaiBaoCao
+          ? { loaiBaoCao: filters.loaiBaoCao as any }
+          : {}),
         ...(filters.status ? { status: filters.status as any } : {}),
       },
       orderBy: { createdAt: 'desc' },
@@ -38,12 +43,18 @@ export class TdacDraftService {
   }
 
   async findOne(id: string): Promise<ReportTdcDraft> {
-    const draft = await this.prisma.reportTdcDraft.findUnique({ where: { id } });
+    const draft = await this.prisma.reportTdcDraft.findUnique({
+      where: { id },
+    });
     if (!draft) throw new NotFoundException(`ReportTdcDraft #${id} not found`);
     return draft;
   }
 
-  async update(id: string, dto: AdjustDraftDto, _userId: string): Promise<ReportTdcDraft> {
+  async update(
+    id: string,
+    dto: AdjustDraftDto,
+    _userId: string,
+  ): Promise<ReportTdcDraft> {
     const draft = await this.findOne(id);
     if (draft.status === ReportTdcStatus.FINALIZED) {
       throw new BadRequestException('Cannot update a FINALIZED draft');
@@ -51,7 +62,9 @@ export class TdacDraftService {
     return this.prisma.reportTdcDraft.update({
       where: { id },
       data: {
-        ...(dto.adjustedData !== undefined ? { adjustedData: dto.adjustedData } : {}),
+        ...(dto.adjustedData !== undefined
+          ? { adjustedData: dto.adjustedData }
+          : {}),
         ...(dto.notes !== undefined ? { notes: dto.notes } : {}),
       },
     });
@@ -60,7 +73,9 @@ export class TdacDraftService {
   async submitReview(id: string, userId: string): Promise<ReportTdcDraft> {
     const draft = await this.findOne(id);
     if (draft.status !== ReportTdcStatus.DRAFT) {
-      throw new BadRequestException(`Cannot submit review: draft is in status ${draft.status}`);
+      throw new BadRequestException(
+        `Cannot submit review: draft is in status ${draft.status}`,
+      );
     }
     return this.prisma.reportTdcDraft.update({
       where: { id },
@@ -75,7 +90,9 @@ export class TdacDraftService {
   async approve(id: string, userId: string): Promise<ReportTdcDraft> {
     const draft = await this.findOne(id);
     if (draft.status !== ReportTdcStatus.REVIEWING) {
-      throw new BadRequestException(`Cannot approve: draft is in status ${draft.status}`);
+      throw new BadRequestException(
+        `Cannot approve: draft is in status ${draft.status}`,
+      );
     }
     return this.prisma.reportTdcDraft.update({
       where: { id },
@@ -87,10 +104,16 @@ export class TdacDraftService {
     });
   }
 
-  async reject(id: string, userId: string, reason: string): Promise<ReportTdcDraft> {
+  async reject(
+    id: string,
+    userId: string,
+    reason: string,
+  ): Promise<ReportTdcDraft> {
     const draft = await this.findOne(id);
     if (draft.status !== ReportTdcStatus.REVIEWING) {
-      throw new BadRequestException(`Cannot reject: draft is in status ${draft.status}`);
+      throw new BadRequestException(
+        `Cannot reject: draft is in status ${draft.status}`,
+      );
     }
     return this.prisma.reportTdcDraft.update({
       where: { id },
@@ -108,7 +131,9 @@ export class TdacDraftService {
   async reopen(id: string, _userId: string): Promise<ReportTdcDraft> {
     const draft = await this.findOne(id);
     if (draft.status !== ReportTdcStatus.REJECTED) {
-      throw new BadRequestException(`Cannot reopen: draft is in status ${draft.status}`);
+      throw new BadRequestException(
+        `Cannot reopen: draft is in status ${draft.status}`,
+      );
     }
     return this.prisma.reportTdcDraft.update({
       where: { id },
@@ -133,13 +158,18 @@ export class TdacDraftService {
 
     if (result.count === 0) {
       // Either not found or not in APPROVED state
-      const draft = await this.prisma.reportTdcDraft.findUnique({ where: { id } });
-      if (!draft) throw new NotFoundException(`ReportTdcDraft #${id} not found`);
+      const draft = await this.prisma.reportTdcDraft.findUnique({
+        where: { id },
+      });
+      if (!draft)
+        throw new NotFoundException(`ReportTdcDraft #${id} not found`);
       throw new ConflictException(
         `Cannot finalize: draft is in status ${draft.status} (expected APPROVED). Concurrent modification detected.`,
       );
     }
 
-    return this.prisma.reportTdcDraft.findUnique({ where: { id } }) as Promise<ReportTdcDraft>;
+    return this.prisma.reportTdcDraft.findUnique({
+      where: { id },
+    }) as Promise<ReportTdcDraft>;
   }
 }

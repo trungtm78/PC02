@@ -12,7 +12,11 @@
  */
 
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { TdacDraftService } from './tdac-draft.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -33,28 +37,30 @@ const mockPrisma = {
 const USER_ID = 'user-abc';
 const DRAFT_ID = 'draft-001';
 
-function makeDraft(overrides: Partial<{
-  id: string;
-  status: string;
-  loaiBaoCao: string;
-  fromDate: Date;
-  toDate: Date;
-  teamIds: string[];
-  computedData: object;
-  adjustedData: object | null;
-  notes: string | null;
-  createdById: string;
-  reviewedById: string | null;
-  reviewedAt: Date | null;
-  approvedById: string | null;
-  approvedAt: Date | null;
-  rejectedById: string | null;
-  rejectedAt: Date | null;
-  rejectedReason: string | null;
-  finalizedAt: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
-}> = {}) {
+function makeDraft(
+  overrides: Partial<{
+    id: string;
+    status: string;
+    loaiBaoCao: string;
+    fromDate: Date;
+    toDate: Date;
+    teamIds: string[];
+    computedData: object;
+    adjustedData: object | null;
+    notes: string | null;
+    createdById: string;
+    reviewedById: string | null;
+    reviewedAt: Date | null;
+    approvedById: string | null;
+    approvedAt: Date | null;
+    rejectedById: string | null;
+    rejectedAt: Date | null;
+    rejectedReason: string | null;
+    finalizedAt: Date | null;
+    createdAt: Date;
+    updatedAt: Date;
+  }> = {},
+) {
   return {
     id: DRAFT_ID,
     status: 'DRAFT',
@@ -108,13 +114,21 @@ describe('TdacDraftService', () => {
       const reviewingDraft = makeDraft({ status: 'REVIEWING' });
       mockPrisma.reportTdcDraft.findUnique.mockResolvedValue(reviewingDraft);
 
-      await expect(service.submitReview(DRAFT_ID, USER_ID)).rejects.toThrow(BadRequestException);
-      await expect(service.submitReview(DRAFT_ID, USER_ID)).rejects.toThrow(/REVIEWING/);
+      await expect(service.submitReview(DRAFT_ID, USER_ID)).rejects.toThrow(
+        BadRequestException,
+      );
+      await expect(service.submitReview(DRAFT_ID, USER_ID)).rejects.toThrow(
+        /REVIEWING/,
+      );
     });
 
     it('UT-001b: succeeds and sets status=REVIEWING when draft is DRAFT', async () => {
       const draft = makeDraft({ status: 'DRAFT' });
-      const updated = makeDraft({ status: 'REVIEWING', reviewedById: USER_ID, reviewedAt: new Date() });
+      const updated = makeDraft({
+        status: 'REVIEWING',
+        reviewedById: USER_ID,
+        reviewedAt: new Date(),
+      });
 
       mockPrisma.reportTdcDraft.findUnique.mockResolvedValue(draft);
       mockPrisma.reportTdcDraft.update.mockResolvedValue(updated);
@@ -125,15 +139,22 @@ describe('TdacDraftService', () => {
       expect(mockPrisma.reportTdcDraft.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: DRAFT_ID },
-          data: expect.objectContaining({ status: 'REVIEWING', reviewedById: USER_ID }),
+          data: expect.objectContaining({
+            status: 'REVIEWING',
+            reviewedById: USER_ID,
+          }),
         }),
       );
     });
 
     it('UT-001c: throws BadRequestException if draft is FINALIZED', async () => {
-      mockPrisma.reportTdcDraft.findUnique.mockResolvedValue(makeDraft({ status: 'FINALIZED' }));
+      mockPrisma.reportTdcDraft.findUnique.mockResolvedValue(
+        makeDraft({ status: 'FINALIZED' }),
+      );
 
-      await expect(service.submitReview(DRAFT_ID, USER_ID)).rejects.toThrow(BadRequestException);
+      await expect(service.submitReview(DRAFT_ID, USER_ID)).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 
@@ -144,13 +165,19 @@ describe('TdacDraftService', () => {
       const draftDraft = makeDraft({ status: 'DRAFT' });
       mockPrisma.reportTdcDraft.findUnique.mockResolvedValue(draftDraft);
 
-      await expect(service.approve(DRAFT_ID, USER_ID)).rejects.toThrow(BadRequestException);
+      await expect(service.approve(DRAFT_ID, USER_ID)).rejects.toThrow(
+        BadRequestException,
+      );
       await expect(service.approve(DRAFT_ID, USER_ID)).rejects.toThrow(/DRAFT/);
     });
 
     it('UT-002b: succeeds and sets status=APPROVED when draft is REVIEWING', async () => {
       const reviewing = makeDraft({ status: 'REVIEWING' });
-      const approved = makeDraft({ status: 'APPROVED', approvedById: USER_ID, approvedAt: new Date() });
+      const approved = makeDraft({
+        status: 'APPROVED',
+        approvedById: USER_ID,
+        approvedAt: new Date(),
+      });
 
       mockPrisma.reportTdcDraft.findUnique.mockResolvedValue(reviewing);
       mockPrisma.reportTdcDraft.update.mockResolvedValue(approved);
@@ -160,15 +187,22 @@ describe('TdacDraftService', () => {
       expect(result.status).toBe('APPROVED');
       expect(mockPrisma.reportTdcDraft.update).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ status: 'APPROVED', approvedById: USER_ID }),
+          data: expect.objectContaining({
+            status: 'APPROVED',
+            approvedById: USER_ID,
+          }),
         }),
       );
     });
 
     it('UT-002c: throws if draft is REJECTED', async () => {
-      mockPrisma.reportTdcDraft.findUnique.mockResolvedValue(makeDraft({ status: 'REJECTED' }));
+      mockPrisma.reportTdcDraft.findUnique.mockResolvedValue(
+        makeDraft({ status: 'REJECTED' }),
+      );
 
-      await expect(service.approve(DRAFT_ID, USER_ID)).rejects.toThrow(BadRequestException);
+      await expect(service.approve(DRAFT_ID, USER_ID)).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 
@@ -182,7 +216,9 @@ describe('TdacDraftService', () => {
         makeDraft({ status: 'FINALIZED' }),
       );
 
-      await expect(service.finalize(DRAFT_ID, USER_ID)).rejects.toThrow(ConflictException);
+      await expect(service.finalize(DRAFT_ID, USER_ID)).rejects.toThrow(
+        ConflictException,
+      );
     });
 
     it('UT-003b: throws ConflictException if draft is in DRAFT status (concurrent modification)', async () => {
@@ -191,18 +227,25 @@ describe('TdacDraftService', () => {
         makeDraft({ status: 'DRAFT' }),
       );
 
-      await expect(service.finalize(DRAFT_ID, USER_ID)).rejects.toThrow(ConflictException);
+      await expect(service.finalize(DRAFT_ID, USER_ID)).rejects.toThrow(
+        ConflictException,
+      );
     });
 
     it('UT-003c: throws NotFoundException if draft does not exist at all', async () => {
       mockPrisma.reportTdcDraft.updateMany.mockResolvedValue({ count: 0 });
       mockPrisma.reportTdcDraft.findUnique.mockResolvedValue(null);
 
-      await expect(service.finalize(DRAFT_ID, USER_ID)).rejects.toThrow(NotFoundException);
+      await expect(service.finalize(DRAFT_ID, USER_ID)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('UT-008: finalize succeeds and returns FINALIZED draft when status is APPROVED', async () => {
-      const finalizedDraft = makeDraft({ status: 'FINALIZED', finalizedAt: new Date() });
+      const finalizedDraft = makeDraft({
+        status: 'FINALIZED',
+        finalizedAt: new Date(),
+      });
 
       mockPrisma.reportTdcDraft.updateMany.mockResolvedValue({ count: 1 });
       mockPrisma.reportTdcDraft.findUnique.mockResolvedValue(finalizedDraft);
@@ -256,9 +299,13 @@ describe('TdacDraftService', () => {
     });
 
     it('UT-004b: throws BadRequestException if draft is not REVIEWING', async () => {
-      mockPrisma.reportTdcDraft.findUnique.mockResolvedValue(makeDraft({ status: 'DRAFT' }));
+      mockPrisma.reportTdcDraft.findUnique.mockResolvedValue(
+        makeDraft({ status: 'DRAFT' }),
+      );
 
-      await expect(service.reject(DRAFT_ID, USER_ID, 'reason')).rejects.toThrow(BadRequestException);
+      await expect(service.reject(DRAFT_ID, USER_ID, 'reason')).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 
@@ -298,15 +345,23 @@ describe('TdacDraftService', () => {
     });
 
     it('UT-005b: throws BadRequestException if draft is not REJECTED', async () => {
-      mockPrisma.reportTdcDraft.findUnique.mockResolvedValue(makeDraft({ status: 'DRAFT' }));
+      mockPrisma.reportTdcDraft.findUnique.mockResolvedValue(
+        makeDraft({ status: 'DRAFT' }),
+      );
 
-      await expect(service.reopen(DRAFT_ID, USER_ID)).rejects.toThrow(BadRequestException);
+      await expect(service.reopen(DRAFT_ID, USER_ID)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('UT-005c: throws BadRequestException if draft is FINALIZED', async () => {
-      mockPrisma.reportTdcDraft.findUnique.mockResolvedValue(makeDraft({ status: 'FINALIZED' }));
+      mockPrisma.reportTdcDraft.findUnique.mockResolvedValue(
+        makeDraft({ status: 'FINALIZED' }),
+      );
 
-      await expect(service.reopen(DRAFT_ID, USER_ID)).rejects.toThrow(BadRequestException);
+      await expect(service.reopen(DRAFT_ID, USER_ID)).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 
@@ -343,7 +398,9 @@ describe('TdacDraftService', () => {
 
   describe('update', () => {
     it('UT-007: throws BadRequestException when trying to update a FINALIZED draft', async () => {
-      mockPrisma.reportTdcDraft.findUnique.mockResolvedValue(makeDraft({ status: 'FINALIZED' }));
+      mockPrisma.reportTdcDraft.findUnique.mockResolvedValue(
+        makeDraft({ status: 'FINALIZED' }),
+      );
 
       await expect(
         service.update(DRAFT_ID, { adjustedData: {} } as any, USER_ID),
@@ -357,7 +414,11 @@ describe('TdacDraftService', () => {
       mockPrisma.reportTdcDraft.findUnique.mockResolvedValue(draft);
       mockPrisma.reportTdcDraft.update.mockResolvedValue(updated);
 
-      const result = await service.update(DRAFT_ID, { notes: 'Updated notes' } as any, USER_ID);
+      const result = await service.update(
+        DRAFT_ID,
+        { notes: 'Updated notes' } as any,
+        USER_ID,
+      );
 
       expect(result.notes).toBe('Updated notes');
     });
@@ -369,7 +430,9 @@ describe('TdacDraftService', () => {
     it('throws NotFoundException when draft does not exist', async () => {
       mockPrisma.reportTdcDraft.findUnique.mockResolvedValue(null);
 
-      await expect(service.findOne('nonexistent')).rejects.toThrow(NotFoundException);
+      await expect(service.findOne('nonexistent')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('returns draft when found', async () => {

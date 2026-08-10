@@ -25,33 +25,69 @@ const STAT_GROUPS = [
   {
     name: 'Nhóm 1: Nguồn tin',
     fields: [
-      'Loại nguồn tin', 'Nguồn gốc', 'Loại người báo tin', 'Hình thức tiếp nhận',
-      'Mức độ khẩn', 'Đơn vị tiếp báo', 'Ngày xảy ra vụ việc', 'Giờ xảy ra vụ việc',
-      'Tỉnh/Thành phố', 'Quận/Huyện', 'Phường/Xã', 'Phân loại ban đầu',
+      'Loại nguồn tin',
+      'Nguồn gốc',
+      'Loại người báo tin',
+      'Hình thức tiếp nhận',
+      'Mức độ khẩn',
+      'Đơn vị tiếp báo',
+      'Ngày xảy ra vụ việc',
+      'Giờ xảy ra vụ việc',
+      'Tỉnh/Thành phố',
+      'Quận/Huyện',
+      'Phường/Xã',
+      'Phân loại ban đầu',
     ],
   },
   {
     name: 'Nhóm 2: Tội phạm',
     fields: [
-      'Tội danh chính', 'Tội danh phụ', 'Lĩnh vực', 'Phương thức thủ đoạn',
-      'Thiệt hại (VNĐ)', 'Đã thu hồi (VNĐ)', 'Số bị hại', 'Số người chết',
-      'Số người bị thương', 'Thiệt hại tài sản', 'Tội phạm có tổ chức', 'Tái phạm',
+      'Tội danh chính',
+      'Tội danh phụ',
+      'Lĩnh vực',
+      'Phương thức thủ đoạn',
+      'Thiệt hại (VNĐ)',
+      'Đã thu hồi (VNĐ)',
+      'Số bị hại',
+      'Số người chết',
+      'Số người bị thương',
+      'Thiệt hại tài sản',
+      'Tội phạm có tổ chức',
+      'Tái phạm',
     ],
   },
   {
     name: 'Nhóm 3: Đối tượng',
     fields: [
-      'Số đối tượng', 'Đã bắt giữ', 'Đã tạm giam', 'Giới tính',
-      'Độ tuổi', 'Dân tộc', 'Quốc tịch', 'Nghề nghiệp',
-      'Trình độ học vấn', 'Tiền án tiền sự', 'Liên quan ma túy', 'Sử dụng vũ khí',
+      'Số đối tượng',
+      'Đã bắt giữ',
+      'Đã tạm giam',
+      'Giới tính',
+      'Độ tuổi',
+      'Dân tộc',
+      'Quốc tịch',
+      'Nghề nghiệp',
+      'Trình độ học vấn',
+      'Tiền án tiền sự',
+      'Liên quan ma túy',
+      'Sử dụng vũ khí',
     ],
   },
   {
     name: 'Nhóm 4: Kết quả',
     fields: [
-      'Trạng thái xử lý', 'Kết quả điều tra', 'Kết quả truy tố', 'Kết quả xét xử',
-      'Mức án', 'Ngày kết thúc', 'Số ngày xử lý', 'Chứng cứ thu thập',
-      'Số nhân chứng', 'Tài sản thu giữ', 'Chuyển vụ án', 'Đã báo cáo',
+      'Trạng thái xử lý',
+      'Kết quả điều tra',
+      'Kết quả truy tố',
+      'Kết quả xét xử',
+      'Mức án',
+      'Ngày kết thúc',
+      'Số ngày xử lý',
+      'Chứng cứ thu thập',
+      'Số nhân chứng',
+      'Tài sản thu giữ',
+      'Chuyển vụ án',
+      'Đã báo cáo',
     ],
   },
 ];
@@ -132,16 +168,115 @@ export class ReportsService {
       { donThu: 0, vuViec: 0, vuAn: 0, daGiaiQuyet: 0 },
     );
 
-    return { success: true, data, totals, year, month };
+    // ── tableRows / summary ──────────────────────────────────────────────
+    //
+    // The frontend has been reading `reportData.tableRows` and
+    // `reportData.summary` since it was written; the backend never returned
+    // either, so the "Tồn đầu kỳ / Phát sinh / Đã giải quyết / Tồn cuối kỳ"
+    // table rendered its empty branch on every load and the totals row showed
+    // zeroes. It looked like a report with no data rather than a missing API.
+    //
+    // Six queries total, not three more per month: the existing loop is
+    // already 12 × 6, and PERF-002 was exactly this pattern growing.
+    const periodStart = new Date(year, (month ?? 1) - 1, 1);
+    const periodEnd = month
+      ? new Date(year, month, 0, 23, 59, 59, 999)
+      : new Date(year, 12, 0, 23, 59, 59, 999);
+
+    const openWhere = (statuses: unknown) => ({
+      deletedAt: null,
+      createdAt: { lt: periodStart },
+      status: statuses as never,
+    });
+
+    const [petitionOpening, incidentOpening, caseOpening] = await Promise.all([
+      this.prisma.petition.count({
+        where: openWhere({ notIn: [PetitionStatus.DA_GIAI_QUYET] }),
+      }),
+      this.prisma.incident.count({
+        where: openWhere({ notIn: [IncidentStatus.DA_GIAI_QUYET] }),
+      }),
+      this.prisma.case.count({
+        where: openWhere({
+          notIn: [CaseStatus.DA_KET_LUAN, CaseStatus.DA_LUU_TRU],
+        }),
+      }),
+    ]);
+
+    const resolvedInPeriod = await Promise.all([
+      this.prisma.petition.count({
+        where: {
+          deletedAt: null,
+          updatedAt: { gte: periodStart, lte: periodEnd },
+          status: PetitionStatus.DA_GIAI_QUYET,
+        },
+      }),
+      this.prisma.incident.count({
+        where: {
+          deletedAt: null,
+          updatedAt: { gte: periodStart, lte: periodEnd },
+          status: IncidentStatus.DA_GIAI_QUYET,
+        },
+      }),
+      this.prisma.case.count({
+        where: {
+          deletedAt: null,
+          updatedAt: { gte: periodStart, lte: periodEnd },
+          status: { in: [CaseStatus.DA_KET_LUAN, CaseStatus.DA_LUU_TRU] },
+        },
+      }),
+    ]);
+
+    const buildRow = (
+      label: string,
+      tonDauKy: number,
+      phatSinh: number,
+      daGiaiQuyet: number,
+    ) => {
+      const denominator = tonDauKy + phatSinh;
+      return {
+        label,
+        tonDauKy,
+        phatSinh,
+        daGiaiQuyet,
+        tonCuoiKy: Math.max(0, denominator - daGiaiQuyet),
+        // Guard the divide: an empty period is 0%, not NaN rendered as "NaN%".
+        tyLe:
+          denominator === 0 ? 0 : Math.round((daGiaiQuyet / denominator) * 100),
+      };
+    };
+
+    const tableRows = [
+      buildRow('Đơn thư', petitionOpening, totals.donThu, resolvedInPeriod[0]),
+      buildRow('Vụ việc', incidentOpening, totals.vuViec, resolvedInPeriod[1]),
+      buildRow('Vụ án', caseOpening, totals.vuAn, resolvedInPeriod[2]),
+    ];
+
+    const summary = tableRows.reduce(
+      (acc, r) => {
+        const next = {
+          tonDauKy: acc.tonDauKy + r.tonDauKy,
+          phatSinh: acc.phatSinh + r.phatSinh,
+          daGiaiQuyet: acc.daGiaiQuyet + r.daGiaiQuyet,
+          tonCuoiKy: acc.tonCuoiKy + r.tonCuoiKy,
+          tyLe: 0,
+        };
+        const denom = next.tonDauKy + next.phatSinh;
+        next.tyLe =
+          denom === 0 ? 0 : Math.round((next.daGiaiQuyet / denom) * 100);
+        return next;
+      },
+      { tonDauKy: 0, phatSinh: 0, daGiaiQuyet: 0, tonCuoiKy: 0, tyLe: 0 },
+    );
+
+    return { success: true, data, totals, tableRows, summary, year, month };
   }
 
   // ─────────────────────────────────────────────
   // GET /api/v1/reports/quarterly?year=&quarter=
   // ─────────────────────────────────────────────
   async getQuarterly(year: number, quarter?: number) {
-    const quarters = quarter
-      ? [quarter]
-      : [1, 2, 3, 4];
+    const quarters = quarter ? [quarter] : [1, 2, 3, 4];
 
     const QUARTER_MONTHS: Record<number, number[]> = {
       1: [1, 2, 3],
@@ -218,8 +353,14 @@ export class ReportsService {
   // GET /api/v1/reports/district-stats?fromDate=&toDate=&district=
   // Lưu ý: district = tên phường/xã (cải cách hành chính 2025 — không còn cấp quận/huyện)
   // ─────────────────────────────────────────────
-  async getDistrictStats(fromDate?: string, toDate?: string, district?: string) {
-    const from = fromDate ? new Date(fromDate) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  async getDistrictStats(
+    fromDate?: string,
+    toDate?: string,
+    district?: string,
+  ) {
+    const from = fromDate
+      ? new Date(fromDate)
+      : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     const to = toDate ? new Date(toDate + 'T23:59:59.999Z') : new Date();
 
     // Ward filter: Case stores province/ward in metadata JSON field
@@ -229,7 +370,9 @@ export class ReportsService {
       : {};
 
     // Daily breakdown for date range
-    const dayCount = Math.ceil((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24));
+    const dayCount = Math.ceil(
+      (to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24),
+    );
     const limitDays = Math.min(dayCount, 31); // max 31 days for chart
 
     const dailyData = await Promise.all(
@@ -242,11 +385,17 @@ export class ReportsService {
 
         const [petitions, incidents, cases] = await Promise.all([
           this.prisma.petition.count({
-            where: { deletedAt: null, createdAt: { gte: dayStart, lte: dayEnd } },
+            where: {
+              deletedAt: null,
+              createdAt: { gte: dayStart, lte: dayEnd },
+            },
             // Note: Petition has no direct ward field — not filtered by ward yet
           }),
           this.prisma.incident.count({
-            where: { deletedAt: null, createdAt: { gte: dayStart, lte: dayEnd } },
+            where: {
+              deletedAt: null,
+              createdAt: { gte: dayStart, lte: dayEnd },
+            },
             // Note: Incident has no direct ward field — not filtered by ward yet
           }),
           this.prisma.case.count({
@@ -259,7 +408,10 @@ export class ReportsService {
         ]);
 
         return {
-          date: dayStart.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }),
+          date: dayStart.toLocaleDateString('vi-VN', {
+            day: '2-digit',
+            month: '2-digit',
+          }),
           count: petitions + incidents + cases,
           details: { petitions, incidents, cases },
         };
@@ -310,7 +462,14 @@ export class ReportsService {
       DA_XAC_MINH: 'Đã xác minh',
     };
 
-    const COLORS = ['#1B2B4E', '#D4AF37', '#64748B', '#10B981', '#F59E0B', '#EF4444'];
+    const COLORS = [
+      '#1B2B4E',
+      '#D4AF37',
+      '#64748B',
+      '#10B981',
+      '#F59E0B',
+      '#EF4444',
+    ];
 
     return {
       success: true,
@@ -327,115 +486,158 @@ export class ReportsService {
           color: COLORS[idx % COLORS.length],
         })),
       },
-      filters: { fromDate: from.toISOString(), toDate: to.toISOString(), district },
+      filters: {
+        fromDate: from.toISOString(),
+        toDate: to.toISOString(),
+        district,
+      },
     };
   }
 
   // ─────────────────────────────────────────────
   // GET /api/v1/reports/overdue
   // ─────────────────────────────────────────────
-  async getOverdue(search?: string, recordType?: string, priority?: string, minDaysOverdue?: number) {
+  async getOverdue(
+    search?: string,
+    recordType?: string,
+    priority?: string,
+    minDaysOverdue?: number,
+  ) {
     const now = new Date();
 
-    const overdueCases = recordType && recordType !== 'case' ? [] : await this.prisma.case.findMany({
-      where: {
-        deletedAt: null,
-        deadline: { lt: now },
-        status: {
-          notIn: [CaseStatus.DA_KET_LUAN, CaseStatus.DA_LUU_TRU, CaseStatus.DINH_CHI],
-        },
-        ...(search && {
-          OR: [
-            { name: { contains: search, mode: 'insensitive' } },
-            { unit: { contains: search, mode: 'insensitive' } },
-          ],
-        }),
-      },
-      select: {
-        id: true,
-        name: true,
-        deadline: true,
-        createdAt: true,
-        unit: true,
-        status: true,
-        investigator: { select: { id: true, firstName: true, lastName: true } },
-      },
-      orderBy: { deadline: 'asc' },
-    });
+    const overdueCases =
+      recordType && recordType !== 'case'
+        ? []
+        : await this.prisma.case.findMany({
+            where: {
+              deletedAt: null,
+              deadline: { lt: now },
+              status: {
+                notIn: [
+                  CaseStatus.DA_KET_LUAN,
+                  CaseStatus.DA_LUU_TRU,
+                  CaseStatus.DINH_CHI,
+                ],
+              },
+              ...(search && {
+                OR: [
+                  { name: { contains: search, mode: 'insensitive' } },
+                  { unit: { contains: search, mode: 'insensitive' } },
+                ],
+              }),
+            },
+            select: {
+              id: true,
+              name: true,
+              deadline: true,
+              createdAt: true,
+              unit: true,
+              status: true,
+              investigator: {
+                select: { id: true, firstName: true, lastName: true },
+              },
+            },
+            orderBy: { deadline: 'asc' },
+          });
 
-    const overdueIncidents = recordType && recordType !== 'incident' ? [] : await this.prisma.incident.findMany({
-      where: {
-        deletedAt: null,
-        deadline: { lt: now },
-        status: {
-          notIn: [IncidentStatus.DA_GIAI_QUYET, IncidentStatus.DA_CHUYEN_VU_AN],
-        },
-        ...(search && {
-          OR: [
-            { name: { contains: search, mode: 'insensitive' } },
-            { unitId: { contains: search, mode: 'insensitive' } },
-          ],
-        }),
-      },
-      select: {
-        id: true,
-        name: true,
-        deadline: true,
-        createdAt: true,
-        unitId: true,
-        status: true,
-        investigator: { select: { id: true, firstName: true, lastName: true } },
-      },
-      orderBy: { deadline: 'asc' },
-    });
+    const overdueIncidents =
+      recordType && recordType !== 'incident'
+        ? []
+        : await this.prisma.incident.findMany({
+            where: {
+              deletedAt: null,
+              deadline: { lt: now },
+              status: {
+                notIn: [
+                  IncidentStatus.DA_GIAI_QUYET,
+                  IncidentStatus.DA_CHUYEN_VU_AN,
+                ],
+              },
+              ...(search && {
+                OR: [
+                  { name: { contains: search, mode: 'insensitive' } },
+                  { unitId: { contains: search, mode: 'insensitive' } },
+                ],
+              }),
+            },
+            select: {
+              id: true,
+              name: true,
+              deadline: true,
+              createdAt: true,
+              unitId: true,
+              status: true,
+              investigator: {
+                select: { id: true, firstName: true, lastName: true },
+              },
+            },
+            orderBy: { deadline: 'asc' },
+          });
 
-    const overduePetitions = recordType && recordType !== 'petition' ? [] : await this.prisma.petition.findMany({
-      where: {
-        deletedAt: null,
-        deadline: { lt: now },
-        status: {
-          notIn: [PetitionStatus.DA_GIAI_QUYET, PetitionStatus.DA_CHUYEN_VU_AN, PetitionStatus.DA_CHUYEN_VU_VIEC],
-        },
-        ...(search && {
-          OR: [
-            { senderName: { contains: search, mode: 'insensitive' } },
-            { summary: { contains: search, mode: 'insensitive' } },
-            { unit: { contains: search, mode: 'insensitive' } },
-          ],
-        }),
-      },
-      select: {
-        id: true,
-        stt: true,
-        summary: true,
-        deadline: true,
-        receivedDate: true,
-        unit: true,
-        status: true,
-        priority: true,
-        assignedTo: { select: { id: true, firstName: true, lastName: true } },
-      },
-      orderBy: { deadline: 'asc' },
-    });
+    const overduePetitions =
+      recordType && recordType !== 'petition'
+        ? []
+        : await this.prisma.petition.findMany({
+            where: {
+              deletedAt: null,
+              deadline: { lt: now },
+              status: {
+                notIn: [
+                  PetitionStatus.DA_GIAI_QUYET,
+                  PetitionStatus.DA_CHUYEN_VU_AN,
+                  PetitionStatus.DA_CHUYEN_VU_VIEC,
+                ],
+              },
+              ...(search && {
+                OR: [
+                  { senderName: { contains: search, mode: 'insensitive' } },
+                  { summary: { contains: search, mode: 'insensitive' } },
+                  { unit: { contains: search, mode: 'insensitive' } },
+                ],
+              }),
+            },
+            select: {
+              id: true,
+              stt: true,
+              summary: true,
+              deadline: true,
+              receivedDate: true,
+              unit: true,
+              status: true,
+              priority: true,
+              assignedTo: {
+                select: { id: true, firstName: true, lastName: true },
+              },
+            },
+            orderBy: { deadline: 'asc' },
+          });
 
     const toOverdueRecord = (item: any, type: string) => {
       const deadline = new Date(item.deadline);
-      const daysOverdue = Math.floor((now.getTime() - deadline.getTime()) / (1000 * 60 * 60 * 24));
-      const computedPriority = daysOverdue > 30 ? 'critical' : daysOverdue > 14 ? 'high' : 'medium';
+      const daysOverdue = Math.floor(
+        (now.getTime() - deadline.getTime()) / (1000 * 60 * 60 * 24),
+      );
+      const computedPriority =
+        daysOverdue > 30 ? 'critical' : daysOverdue > 14 ? 'high' : 'medium';
 
       return {
         id: item.id,
         recordType: type,
-        recordNumber: item.stt ?? item.code ?? item.id.slice(0, 8).toUpperCase(),
+        recordNumber:
+          item.stt ?? item.code ?? item.id.slice(0, 8).toUpperCase(),
         title: item.name ?? item.summary ?? `Đơn thư ${item.stt}`,
         assignedTo: item.investigator
           ? `${item.investigator.firstName ?? ''} ${item.investigator.lastName ?? ''}`.trim()
           : item.assignedTo
-          ? `${item.assignedTo.firstName ?? ''} ${item.assignedTo.lastName ?? ''}`.trim()
-          : 'Chưa phân công',
+            ? `${item.assignedTo.firstName ?? ''} ${item.assignedTo.lastName ?? ''}`.trim()
+            : 'Chưa phân công',
         unit: item.unit ?? item.unitId ?? '',
         dueDate: deadline.toISOString(),
-        receivedDate: (item.createdAt ?? item.receivedDate ?? new Date()).toISOString(),
+        receivedDate: (
+          item.createdAt ??
+          item.receivedDate ??
+          new Date()
+        ).toISOString(),
         daysOverdue,
         status: item.status,
         priority: item.priority ?? computedPriority,
@@ -498,7 +700,9 @@ export class ReportsService {
         const values = cases
           .map((c) => {
             const meta = c.metadata as Record<string, unknown> | null;
-            const stat48 = meta?.['stat48'] as Record<string, unknown> | undefined;
+            const stat48 = meta?.['stat48'] as
+              | Record<string, unknown>
+              | undefined;
             return stat48?.[field];
           })
           .filter((v) => v != null && v !== '');

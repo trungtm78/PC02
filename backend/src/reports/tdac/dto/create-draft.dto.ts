@@ -1,4 +1,10 @@
-import { IsEnum, IsDateString, IsArray, IsOptional, IsString } from 'class-validator';
+import {
+  IsEnum,
+  IsDateString,
+  IsArray,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 
 export class CreateDraftDto {
   @IsEnum(['VU_AN', 'VU_VIEC'])

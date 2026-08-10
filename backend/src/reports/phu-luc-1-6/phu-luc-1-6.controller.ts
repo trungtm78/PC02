@@ -1,11 +1,4 @@
-import {
-  Controller,
-  Get,
-  Query,
-  Req,
-  Res,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Query, Req, Res, UseGuards } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import {
@@ -67,10 +60,7 @@ export class PhuLuc16Controller {
    */
   @Get('preview')
   @RequirePermissions({ action: 'read', subject: 'Case' })
-  async preview(
-    @Query() query: PhuLuc16QueryDto,
-    @Req() _req: ScopedRequest,
-  ) {
+  async preview(@Query() query: PhuLuc16QueryDto, @Req() _req: ScopedRequest) {
     return this.phuLuc16Service.getForLoai(query.loai, {
       loai: query.loai,
       fromDate: query.fromDate,

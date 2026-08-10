@@ -39,6 +39,17 @@ Cập nhật: 2026-08-10T03:15:00+07:00 | Milestone: M1/5 | Task: 0/5 của M1
 
 ## Đang làm dở
 
+Task: M3-T6 — PR-C6 `feat/reports-period-and-delta` (**code xong, chờ `/codex`**)
+Đã làm: `getMonthly` trả thêm **`tableRows`** và **`summary`** — hai field mà `MonthlyReportPage` **đã đọc từ khi được viết** nhưng BE chưa từng trả. Hệ quả: bảng "Tồn đầu kỳ / Phát sinh / Đã giải quyết / Tồn cuối kỳ" luôn render nhánh rỗng và dòng tổng luôn bằng 0 — trông như kỳ báo cáo không có hoạt động, chứ không như một API còn thiếu.
+- Đúng **6 truy vấn**, không nhân thêm vào vòng lặp 12 tháng đang có (12 × 6). PERF-002 chính là mẫu này phình ra.
+- `tonCuoiKy` chặn dưới ở 0 — tồn âm là vô nghĩa trên báo cáo.
+- Tỷ lệ khi mẫu số 0 trả **0%**, không phải `NaN` hiện thành "NaN%".
+Test: +5.
+Kiểm: BE **226 suite / 3087 test** PASS, FE **158 file / 1538 test** PASS, tsc sạch, 3 cổng xanh, baseline lint **8.036**.
+**BƯỚC TIẾP THEO:** `/codex` cho PR-C6, rồi C3/C4/C5 (trùng đơn) và C9/C10/C11.
+
+---
+
 ### Finding đã xử lý ở checkpoint `/codex` gộp cho cả M3 (C1, C2, C7, C8, C12)
 
 Codex mở đầu bằng **"Not merge-ready"** — và đúng. Ba [P1], tất cả đều là **bản vá của tôi chưa thật sự chạy được**:
@@ -385,7 +396,7 @@ Tự phát hiện thêm: 3 file test mới của chính tôi bị baseline hoá 
 ## Trạng thái test
 
 Full suite: **PASS**
-- Backend: 226 suite / **3082** test — PASS (xem ND-9: 1 suite flaky ~1/6 lần, có sẵn từ trước)
+- Backend: 226 suite / **3087** test — PASS (xem ND-9: 1 suite flaky ~1/6 lần, có sẵn từ trước)
 - Frontend: 158 file / **1538** test — PASS (3 lần chạy liên tiếp ổn định)
 - Cổng governance: enum guard ✅ · gen:enums drift ✅ · lint ratchet ✅ (baseline 8.945 sau ADR-0015)
 - `tsc --noEmit` (BE): sạch · `tsc -b` (FE): sạch

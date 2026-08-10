@@ -40,17 +40,37 @@ describe('PhuLuc16Controller — delegation', () => {
   it('preview() delegates to phuLuc16Service.getForLoai', async () => {
     mockService.getForLoai.mockResolvedValue({ data: [], total: 0 });
     const mockReq = { user: { id: 'u1' } } as any;
-    await controller.preview({ loai: 1, fromDate: '2026-01-01', toDate: '2026-12-31' } as any, mockReq);
-    expect(mockService.getForLoai).toHaveBeenCalledWith(1, expect.objectContaining({ loai: 1 }));
+    await controller.preview(
+      { loai: 1, fromDate: '2026-01-01', toDate: '2026-12-31' } as any,
+      mockReq,
+    );
+    expect(mockService.getForLoai).toHaveBeenCalledWith(
+      1,
+      expect.objectContaining({ loai: 1 }),
+    );
   });
 
   it('export() delegates to both services', async () => {
-    mockService.getForLoai.mockResolvedValue({ data: [{ id: 'r1' }], total: 1 });
+    mockService.getForLoai.mockResolvedValue({
+      data: [{ id: 'r1' }],
+      total: 1,
+    });
     mockExportService.export.mockResolvedValue(undefined);
     const mockReq = { user: { id: 'u1' } } as any;
     const mockRes = { setHeader: jest.fn(), end: jest.fn() } as any;
-    await controller.export({ loai: 1, fromDate: '2026-01-01', toDate: '2026-12-31' } as any, mockReq, mockRes);
-    expect(mockService.getForLoai).toHaveBeenCalledWith(1, expect.objectContaining({ loai: 1 }));
-    expect(mockExportService.export).toHaveBeenCalledWith(1, [{ id: 'r1' }], mockRes);
+    await controller.export(
+      { loai: 1, fromDate: '2026-01-01', toDate: '2026-12-31' } as any,
+      mockReq,
+      mockRes,
+    );
+    expect(mockService.getForLoai).toHaveBeenCalledWith(
+      1,
+      expect.objectContaining({ loai: 1 }),
+    );
+    expect(mockExportService.export).toHaveBeenCalledWith(
+      1,
+      [{ id: 'r1' }],
+      mockRes,
+    );
   });
 });
