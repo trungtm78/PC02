@@ -13,6 +13,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { api } from "@/lib/api";
+import { StatCard, type StatTone } from '@/components/shared/StatCard';
 
 export default function MonthlyReportPage() {
   const [selectedMonth, setSelectedMonth] = useState("2026-02");
@@ -39,11 +40,15 @@ export default function MonthlyReportPage() {
 
   const chartData = reportData?.data ?? [];
 
-  const stats = [
-    { label: "Tổng đơn thư", value: reportData?.totals?.donThu ?? 0, change: "+12%", color: "blue" },
-    { label: "Tổng vụ việc", value: reportData?.totals?.vuViec ?? 0, change: "+8%", color: "purple" },
-    { label: "Tổng vụ án", value: reportData?.totals?.vuAn ?? 0, change: "+15%", color: "red" },
-    { label: "Đã giải quyết", value: reportData?.totals?.daGiaiQuyet ?? 0, change: "+10%", color: "green" },
+  // The `change` values here were hardcoded — "+12%" appeared beside a real
+  // total every month, for every user, forever. A number that never moves
+  // still reads as a measurement, which makes it worse than showing none.
+  // Real deltas need `previousTotals` from the backend (PR-C6).
+  const stats: { label: string; value: number; tone: StatTone }[] = [
+    { label: "Tổng đơn thư", value: reportData?.totals?.donThu ?? 0, tone: "blue" },
+    { label: "Tổng vụ việc", value: reportData?.totals?.vuViec ?? 0, tone: "purple" },
+    { label: "Tổng vụ án", value: reportData?.totals?.vuAn ?? 0, tone: "red" },
+    { label: "Đã giải quyết", value: reportData?.totals?.daGiaiQuyet ?? 0, tone: "green" },
   ];
 
   return (
@@ -123,16 +128,14 @@ export default function MonthlyReportPage() {
         <>
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            {stats.map((stat, index) => (
-              <div key={index} className="bg-white border border-slate-200 rounded-lg p-6">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-slate-600">{stat.label}</span>
-                  <span className={`text-xs font-medium px-2 py-1 bg-${stat.color}-100 text-${stat.color}-700 rounded`}>
-                    {stat.change}
-                  </span>
-                </div>
-                <div className={`text-3xl font-bold text-${stat.color}-600`}>{stat.value}</div>
-              </div>
+            {stats.map((stat) => (
+              <StatCard
+                key={stat.label}
+                label={stat.label}
+                value={stat.value}
+                tone={stat.tone}
+                testId={`stat-${stat.tone}`}
+              />
             ))}
           </div>
 

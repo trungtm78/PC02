@@ -16,6 +16,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { api } from "@/lib/api";
+import { StatCard, type StatTone } from '@/components/shared/StatCard';
 
 export default function QuarterlyReportPage() {
   const [selectedQuarter, setSelectedQuarter] = useState("Q1-2026");
@@ -49,11 +50,19 @@ export default function QuarterlyReportPage() {
     { name: "Vụ án", value: reportData?.totals?.vuAn ?? 0, color: "#ef4444" },
   ];
 
-  const stats = [
-    { label: "Tổng hồ sơ tiếp nhận", value: (reportData?.totals?.donThu ?? 0) + (reportData?.totals?.vuViec ?? 0) + (reportData?.totals?.vuAn ?? 0), change: "+18%", color: "blue" },
-    { label: "Đã giải quyết", value: reportData?.totals?.daGiaiQuyet ?? 0, change: "+17%", color: "green" },
-    { label: "Đang xử lý", value: reportData?.totals?.dangXuLy ?? 0, change: "+5%", color: "amber" },
-    { label: "Quá hạn", value: reportData?.totals?.quaHan ?? 0, change: "-12%", color: "red" },
+  // Hardcoded deltas removed — see StatCard's `change` docstring.
+  const stats: { label: string; value: number; tone: StatTone }[] = [
+    {
+      label: "Tổng hồ sơ tiếp nhận",
+      value:
+        (reportData?.totals?.donThu ?? 0) +
+        (reportData?.totals?.vuViec ?? 0) +
+        (reportData?.totals?.vuAn ?? 0),
+      tone: "blue",
+    },
+    { label: "Đã giải quyết", value: reportData?.totals?.daGiaiQuyet ?? 0, tone: "green" },
+    { label: "Đang xử lý", value: reportData?.totals?.dangXuLy ?? 0, tone: "amber" },
+    { label: "Quá hạn", value: reportData?.totals?.quaHan ?? 0, tone: "red" },
   ];
 
   return (
@@ -133,16 +142,14 @@ export default function QuarterlyReportPage() {
         <>
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            {stats.map((stat, index) => (
-              <div key={index} className="bg-white border border-slate-200 rounded-lg p-6">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-slate-600">{stat.label}</span>
-                  <span className={`text-xs font-medium px-2 py-1 bg-${stat.color}-100 text-${stat.color}-700 rounded`}>
-                    {stat.change}
-                  </span>
-                </div>
-                <div className={`text-3xl font-bold text-${stat.color}-600`}>{stat.value}</div>
-              </div>
+            {stats.map((stat) => (
+              <StatCard
+                key={stat.label}
+                label={stat.label}
+                value={stat.value}
+                tone={stat.tone}
+                testId={`stat-${stat.tone}`}
+              />
             ))}
           </div>
 

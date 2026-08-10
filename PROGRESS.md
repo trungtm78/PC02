@@ -39,6 +39,17 @@ Cập nhật: 2026-08-10T03:15:00+07:00 | Milestone: M1/5 | Task: 0/5 của M1
 
 ## Đang làm dở
 
+Task: M3-T5 — PR-C7 `fix/reports-dynamic-period` (**code xong, chờ `/codex`**)
+Đã làm: hai lỗi trên **cả ba** trang báo cáo.
+- **Thẻ KPI mất màu trên production.** `` className={`text-${stat.color}-600`} `` — Tailwind JIT quét **tên class đầy đủ trong source**, chuỗi ghép lúc chạy không bao giờ nằm trong lượt quét đó, nên các class này **không có trong stylesheet bản build**. Dev thấy bình thường vì bản dev quét lỏng hơn — đó là lý do không ai bắt được. Rút `<StatCard>` dùng chung, bản đồ màu **tĩnh**, mọi class viết nguyên văn.
+- **Số phần trăm bịa.** `change: "+12%"`, `"+18%"`, `"-12%"`… đứng cạnh tổng số thật, cố định vĩnh viễn cho mọi tháng và mọi người dùng. Một con số không bao giờ đổi vẫn đọc như một phép đo, nên tệ hơn là không hiện gì. Đã bỏ; `change` giờ là prop tùy chọn, chỉ hiện khi có số thật (BE cấp `previousTotals` ở PR-C6).
+- Bắt được thêm `color: "orange"` ở `OverdueRecordsPage` — không có trong bảng màu, tức mất màu ở lớp thứ hai.
+Test: 10 test khẳng định **tên class thật sự phát ra**, gồm một assert `not.toContain('${')` — chính là hình dạng của bug.
+Kiểm: FE **158 file / 1535 test** PASS, tsc sạch, 3 cổng xanh.
+**BƯỚC TIẾP THEO:** `/codex` cho PR-C7.
+
+---
+
 Task: M3-T4 — PR-C12 (một phần) `fix/dead-controls` (**code xong, chờ `/codex`**)
 Đã làm: tab "Lịch sử" ở `DocumentNumberSettingsPage` ghi **"Chức năng xem lịch sử đang phát triển"** trong khi `documentNumbersApi.getLogs()` đã hiện thực xong và **không ai gọi**. Không có gì cần phát triển — tab chỉ là chưa từng gọi hàm đó. Nay là bảng thật: số đã cấp, loại chứng từ, trạng thái (nháp / đã dùng), thời điểm, kèm phân trang; có trạng thái rỗng và trạng thái lỗi riêng biệt (lỗi tải **không** hiện thành bảng rỗng).
 Test: +4.
@@ -362,7 +373,7 @@ Tự phát hiện thêm: 3 file test mới của chính tôi bị baseline hoá 
 
 Full suite: **PASS**
 - Backend: 226 suite / **3078** test — PASS (xem ND-9: 1 suite flaky ~1/6 lần, có sẵn từ trước)
-- Frontend: 157 file / **1525** test — PASS (3 lần chạy liên tiếp ổn định)
+- Frontend: 158 file / **1535** test — PASS (3 lần chạy liên tiếp ổn định)
 - Cổng governance: enum guard ✅ · gen:enums drift ✅ · lint ratchet ✅ (baseline 8.945 sau ADR-0015)
 - `tsc --noEmit` (BE): sạch · `tsc -b` (FE): sạch
 - eslint: không có lỗi mới trên dòng đã thêm (nợ lint có sẵn xem ND-1)
