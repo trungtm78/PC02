@@ -48,6 +48,26 @@ function renderPage() {
   );
 }
 
+/**
+ * Fill everything `validate()` requires, so submit actually reaches the API.
+ */
+async function fillRequiredFields() {
+  await userEvent.type(
+    screen.getByPlaceholderText(/VD: KN-/i),
+    'KN-2026-001',
+  );
+  await userEvent.click(
+    await screen.findByTestId('proposal-related-case-trigger'),
+  );
+  await userEvent.click(
+    await screen.findByTestId('proposal-related-case-option-case-uuid-1'),
+  );
+  await userEvent.type(
+    screen.getByPlaceholderText(/Trình bày chi tiết/i),
+    'Nội dung kiến nghị thử nghiệm',
+  );
+}
+
 /** Open the create dialog. */
 async function openForm() {
   const button = await screen.findByRole('button', { name: /Tạo kiến nghị/i });
@@ -77,6 +97,10 @@ describe('ProsecutorProposalPage — create dialog', () => {
   });
 
   it('does not claim success when the request fails', async () => {
+    // The form has to be filled in first. An earlier version of this test
+    // clicked submit on an empty form: validation returned before api.post
+    // was ever reached, so the assertion below would have passed against the
+    // old catch-shows-success code too — a test that measured nothing.
     vi.mocked(api.post).mockRejectedValue({
       isAxiosError: true,
       response: { data: { error: { message: 'Vụ án không tồn tại' } } },
@@ -84,15 +108,32 @@ describe('ProsecutorProposalPage — create dialog', () => {
 
     renderPage();
     await openForm();
+    await fillRequiredFields();
 
-    await userEvent.click(await screen.findByTestId('proposal-submit'));
+    await userEvent.click(screen.getByTestId('proposal-submit'));
 
-    // Whatever else happens, the dialog must not report a success it did not
-    // get. Validation may block first — that is also not a false success.
-    await waitFor(() => {
-      expect(
-        screen.queryByText(/thành công/i),
-      ).not.toBeInTheDocument();
-    });
+    // It must have actually tried.
+    await waitFor(() => expect(api.post).toHaveBeenCalled());
+    // And then said so, without a success message and without closing.
+    expect(await screen.findByTestId('proposal-submit-error')).toHaveTextContent(
+      'Vụ án không tồn tại',
+    );
+    expect(screen.queryByText(/thành công/i)).not.toBeInTheDocument();
+    expect(screen.getByTestId('proposal-submit')).toBeInTheDocument();
+  });
+
+  it('closes only on success', async () => {
+    vi.mocked(api.post).mockResolvedValue({ data: { success: true } } as never);
+
+    renderPage();
+    await openForm();
+    await fillRequiredFields();
+
+    await userEvent.click(screen.getByTestId('proposal-submit'));
+
+    await waitFor(() => expect(api.post).toHaveBeenCalled());
+    await waitFor(() =>
+      expect(screen.queryByTestId('proposal-submit')).not.toBeInTheDocument(),
+    );
   });
 });

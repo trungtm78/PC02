@@ -1,77 +1,122 @@
 /**
- * Three filters on this screen could never match anything.
+ * Filters on this screen that could never match anything.
  *
- * - The date range compared `reportedDate` (dd/MM/yyyy, formatted for
- *   display) against an `<input type="date">` value (yyyy-MM-dd) with `<`.
- *   String comparison across two formats is nonsense: "10/08/2026" sorts
- *   before "2026-08-01" because '1' < '2'.
- * - `ward` was hardcoded to "" on every row, so the ward filter and the ward
- *   half of the search matched nothing, ever.
- * - `category` options were a fixed list of a different taxonomy entirely
- *   ("Vụ án hình sự", "Đơn thư khiếu nại") while the field itself was mapped
- *   from `crime`.
+ * - The date range compared `reportedDate` (dd/MM/yyyy, formatted for display)
+ *   against an `<input type="date">` value (yyyy-MM-dd) with `<`. Comparing
+ *   two formats as strings is nonsense: "10/08/2026" sorts before "2026-08-01"
+ *   because '1' < '2', so a start date removed every row and an end date
+ *   removed none.
+ * - `ward` was hardcoded to "" on every row while the dropdown offered three
+ *   invented wards. The real value lives on `subjects.wardId` and has to be
+ *   filtered server-side, so the control is gone (ND-25) rather than left
+ *   looking usable.
+ * - `category` options were a fixed list of a different taxonomy while the
+ *   field was mapped from `crime`.
  *
- * These test the comparison rules directly; the page wiring is covered by
- * typecheck plus the page's own render tests.
+ * These import the page's own functions. An earlier version reimplemented the
+ * rules here, which meant reverting the page would have left every test green.
  */
 import { describe, it, expect } from 'vitest';
+import {
+  applyFilters,
+  deriveCategories,
+  type FilterData,
+  type OtherCase,
+} from '../otherClassificationFilters';
 
-/** The comparison the page performs, extracted to be assertable. */
-function inRange(iso: string, from: string, to: string): boolean {
-  if (from && iso < from) return false;
-  if (to && iso > to) return false;
-  return true;
+const EMPTY: FilterData = {
+  quickSearch: '',
+  fromDate: '',
+  toDate: '',
+  district: '',
+  status: '',
+  category: '',
+};
+
+function row(over: Partial<OtherCase> = {}): OtherCase {
+  return {
+    id: 'c1',
+    stt: 1,
+    caseName: 'Vụ án A',
+    type: 'Trộm cắp',
+    district: 'Quận 1',
+    reportedBy: 'Nguyễn Văn B',
+    reportedDate: '10/08/2026',
+    reportedDateISO: '2026-08-10',
+    status: 'pending',
+    statusLabel: 'Tiếp nhận',
+    category: 'Trộm cắp',
+    ...over,
+  };
 }
 
-/** What the old code compared. */
-function inRangeOld(display: string, from: string, to: string): boolean {
-  if (from && display < from) return false;
-  if (to && display > to) return false;
-  return true;
-}
-
-describe('date range filter', () => {
-  const iso = '2026-08-10';
-  const display = '10/08/2026';
-
+describe('applyFilters — date range', () => {
   it('keeps a row inside the range', () => {
-    expect(inRange(iso, '2026-08-01', '2026-08-31')).toBe(true);
+    expect(
+      applyFilters([row()], {
+        ...EMPTY,
+        fromDate: '2026-08-01',
+        toDate: '2026-08-31',
+      }),
+    ).toHaveLength(1);
   });
 
   it('drops a row before the start', () => {
-    expect(inRange(iso, '2026-09-01', '')).toBe(false);
+    expect(
+      applyFilters([row()], { ...EMPTY, fromDate: '2026-09-01' }),
+    ).toHaveLength(0);
   });
 
   it('drops a row after the end', () => {
-    expect(inRange(iso, '', '2026-08-09')).toBe(false);
+    expect(
+      applyFilters([row()], { ...EMPTY, toDate: '2026-08-09' }),
+    ).toHaveLength(0);
   });
 
-  it('the old comparison got the same case wrong', () => {
-    // Regression anchor: the display format sorts before any yyyy-… bound,
-    // so "from" excluded everything and "to" excluded nothing.
-    expect(inRangeOld(display, '2026-08-01', '')).toBe(false);
-    expect(inRangeOld(display, '', '2026-08-09')).toBe(true);
+  it('compares the ISO field, not the displayed dd/MM/yyyy', () => {
+    // The regression in one assertion: a row whose display string sorts
+    // "before" the bound is still kept, because the comparison no longer
+    // touches that string.
+    const r = row({ reportedDate: '10/08/2026', reportedDateISO: '2026-08-10' });
+    expect(applyFilters([r], { ...EMPTY, fromDate: '2026-08-01' })).toHaveLength(
+      1,
+    );
   });
 
   it('an empty bound does not filter', () => {
-    expect(inRange(iso, '', '')).toBe(true);
+    expect(applyFilters([row()], EMPTY)).toHaveLength(1);
   });
 
-  it('a row with no date is excluded once a lower bound is set', () => {
-    expect(inRange('', '2026-01-01', '')).toBe(false);
+  it('a row with no usable date is excluded once a lower bound is set', () => {
+    expect(
+      applyFilters([row({ reportedDateISO: '' })], {
+        ...EMPTY,
+        fromDate: '2026-01-01',
+      }),
+    ).toHaveLength(0);
   });
 });
 
-describe('category options derived from the rows', () => {
-  function categoriesOf(rows: { category: string }[]): string[] {
-    return [...new Set(rows.map((r) => r.category).filter(Boolean))].sort(
-      (a, b) => a.localeCompare(b, 'vi'),
-    );
-  }
+describe('applyFilters — search and exact matches', () => {
+  it('searches the case name and the type', () => {
+    const rows = [row({ caseName: 'Vụ án A' }), row({ id: 'c2', stt: 2, caseName: 'Vụ án B' })];
+    expect(applyFilters(rows, { ...EMPTY, quickSearch: 'án b' })).toHaveLength(1);
+  });
 
+  it('filters by district, status and category exactly', () => {
+    const rows = [row(), row({ id: 'c2', stt: 2, district: 'Quận 3' })];
+    expect(applyFilters(rows, { ...EMPTY, district: 'Quận 3' })).toHaveLength(1);
+    expect(applyFilters(rows, { ...EMPTY, status: 'resolved' })).toHaveLength(0);
+    expect(applyFilters(rows, { ...EMPTY, category: 'Trộm cắp' })).toHaveLength(
+      2,
+    );
+  });
+});
+
+describe('deriveCategories', () => {
   it('offers exactly what the data contains, deduplicated and sorted', () => {
     expect(
-      categoriesOf([
+      deriveCategories([
         { category: 'Trộm cắp tài sản' },
         { category: 'Cố ý gây thương tích' },
         { category: 'Trộm cắp tài sản' },
@@ -80,12 +125,12 @@ describe('category options derived from the rows', () => {
   });
 
   it('drops empty values rather than offering a blank option', () => {
-    expect(categoriesOf([{ category: '' }, { category: 'Khác' }])).toEqual([
+    expect(deriveCategories([{ category: '' }, { category: 'Khác' }])).toEqual([
       'Khác',
     ]);
   });
 
-  it('is empty when there are no rows, so the control shows nothing to pick', () => {
-    expect(categoriesOf([])).toEqual([]);
+  it('is empty when there are no rows', () => {
+    expect(deriveCategories([])).toEqual([]);
   });
 });

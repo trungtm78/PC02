@@ -39,7 +39,20 @@ Cập nhật: 2026-08-10T03:15:00+07:00 | Milestone: M1/5 | Task: 0/5 của M1
 
 ## Đang làm dở
 
-Task: M3-T5 — PR-C7 `fix/reports-dynamic-period` (**code xong, chờ `/codex`**)
+### Finding đã xử lý ở checkpoint `/codex` gộp cho cả M3 (C1, C2, C7, C8, C12)
+
+Codex mở đầu bằng **"Not merge-ready"** — và đúng. Ba [P1], tất cả đều là **bản vá của tôi chưa thật sự chạy được**:
+
+1. **Ô chọn vụ án ở kiến nghị không tải được trên production.** Tôi gọi `/cases?limit=200` trong khi DTO chặn `@Max(100)` ⇒ 400, lỗi bị nuốt, ô chọn bắt buộc luôn rỗng ⇒ **không tạo được kiến nghị**. Tôi tự phát hiện trước khi codex trả lời và đã hạ xuống 100; codex chỉ thêm rằng 100 vẫn cắt mất vụ án cũ — `FKSelection` có ô tìm trong dropdown nên vẫn tìm được trong 100 bản mới nhất, nhưng quá 100 thì cần tìm phía server ⇒ **ND-24**.
+2. **Sửa vụ án liên quan vẫn báo thành công giả.** `proposals.update` nhận `relatedCaseId` rồi **bỏ qua** — whitelist dừng ở `caseType`. Đúng hình dạng bug tôi vừa sửa ở đường tạo, còn nguyên ở đường sửa. Nay ghi thật, kèm **kiểm phạm vi trên vụ án đích** (đổi cha là ghi vào *cả hai* hồ sơ, kiểm cha cũ thôi thì chưa đủ) — chính là ND-18 áp cho riêng module này.
+3. **Bản vá "phường" của tôi đọc một trường hệ thống không hề lưu.** `metadata.ward` không tồn tại: địa điểm lưu ở `metadata.noiXayRa`, còn phường thật nằm ở `subjects.wardId` và BE lọc **qua subjects**. Tức tôi thay một nguồn sai bằng một nguồn sai khác. Ô chọn cũng vẫn là 3 phường bịa. Đã **gỡ hẳn** control + trường `ward`, kèm ghi chú tại chỗ chỉ sang cách đúng ⇒ **ND-25**.
+
+Hai [P2] + một [P3], sửa hết:
+- **Lệch múi giờ**: `createdAt.slice(0,10)` cắt theo UTC trong khi hiển thị theo `Asia/Ho_Chi_Minh` ⇒ bản ghi lúc `20:00Z` hiện 11/08 mà lọc như 10/08. Dùng `toDateInput`.
+- **Test "không báo thành công khi hỏng" chưa hề submit** — form trống nên validate chặn trước, `api.post` không bao giờ được gọi ⇒ test đó **xanh cả với code cũ**. Nay điền đủ trường, khẳng định `api.post` **đã** được gọi, rồi mới kiểm lỗi hiện ra và modal còn mở.
+- **Test bộ lọc kiểm bản sao, không kiểm code thật** — đã tách `applyFilters`/`deriveCategories` ra `otherClassificationFilters.ts` và test import chính nó.
+
+Task: M3-T5 — PR-C7 `fix/reports-dynamic-period` (**xong — qua `/codex` gộp M3**)
 Đã làm: hai lỗi trên **cả ba** trang báo cáo.
 - **Thẻ KPI mất màu trên production.** `` className={`text-${stat.color}-600`} `` — Tailwind JIT quét **tên class đầy đủ trong source**, chuỗi ghép lúc chạy không bao giờ nằm trong lượt quét đó, nên các class này **không có trong stylesheet bản build**. Dev thấy bình thường vì bản dev quét lỏng hơn — đó là lý do không ai bắt được. Rút `<StatCard>` dùng chung, bản đồ màu **tĩnh**, mọi class viết nguyên văn.
 - **Số phần trăm bịa.** `change: "+12%"`, `"+18%"`, `"-12%"`… đứng cạnh tổng số thật, cố định vĩnh viễn cho mọi tháng và mọi người dùng. Một con số không bao giờ đổi vẫn đọc như một phép đo, nên tệ hơn là không hiện gì. Đã bỏ; `change` giờ là prop tùy chọn, chỉ hiện khi có số thật (BE cấp `previousTotals` ở PR-C6).
@@ -50,7 +63,7 @@ Kiểm: FE **158 file / 1535 test** PASS, tsc sạch, 3 cổng xanh.
 
 ---
 
-Task: M3-T4 — PR-C12 (một phần) `fix/dead-controls` (**code xong, chờ `/codex`**)
+Task: M3-T4 — PR-C12 (một phần) `fix/dead-controls` (**xong — qua `/codex` gộp M3**)
 Đã làm: tab "Lịch sử" ở `DocumentNumberSettingsPage` ghi **"Chức năng xem lịch sử đang phát triển"** trong khi `documentNumbersApi.getLogs()` đã hiện thực xong và **không ai gọi**. Không có gì cần phát triển — tab chỉ là chưa từng gọi hàm đó. Nay là bảng thật: số đã cấp, loại chứng từ, trạng thái (nháp / đã dùng), thời điểm, kèm phân trang; có trạng thái rỗng và trạng thái lỗi riêng biệt (lỗi tải **không** hiện thành bảng rỗng).
 Test: +4.
 Kiểm: FE **157 file / 1525 test** PASS, tsc sạch, 3 cổng xanh.
@@ -59,7 +72,7 @@ Kiểm: FE **157 file / 1525 test** PASS, tsc sạch, 3 cổng xanh.
 
 ---
 
-Task: M3-T3 — PR-C8 `fix/other-classification-real-fields` (**code xong, chờ `/codex`**)
+Task: M3-T3 — PR-C8 `fix/other-classification-real-fields` (**xong — qua `/codex` gộp M3**)
 Đã làm: `OtherClassificationPage` có **ba** bộ lọc không bao giờ khớp được gì:
 - **Lọc ngày** so `reportedDate` (đã format `dd/MM/yyyy` để hiển thị) với giá trị `<input type="date">` (`yyyy-MM-dd`) bằng phép so chuỗi. `"10/08/2026" < "2026-08-01"` là **true** vì `'1' < '2'` ⇒ đặt "từ ngày" loại sạch mọi dòng, đặt "đến ngày" không loại gì. Thêm `reportedDateISO` riêng cho việc lọc.
 - **Lọc phường**: `ward` được gán cứng `""` cho mọi dòng ⇒ ô lọc và nửa "tìm theo phường" của ô tìm kiếm không khớp được gì. Nay lấy từ `metadata.ward`, khớp nguồn mà `reports.service.ts` đang dùng.
@@ -71,7 +84,7 @@ Kiểm: FE **157 file / 1521 test** PASS, tsc sạch, 3 cổng xanh.
 
 ---
 
-Task: M3-T2 — PR-C2 `fix/proposal-false-success` (**code xong, chờ `/codex`**)
+Task: M3-T2 — PR-C2 `fix/proposal-false-success` (**xong — qua `/codex` gộp M3**)
 Đã làm: `ProsecutorProposalPage` là ví dụ rõ nhất của "báo thành công khi hỏng" — khối `catch` hiện **đúng thông báo thành công** như nhánh thành công rồi đóng hộp thoại. Cộng với `relatedCaseId` mang **mã vụ án người dùng gõ** vào một khóa ngoại (luôn P2003), chức năng này **chưa từng ghi được một dòng nào** mà lần nào cũng báo thành công.
 - Ô nhập tự do → `FKSelection` nạp vụ án thật, gửi **id**.
 - `catch` → `extractApiError` + banner đỏ, **không** gọi `onSaved()`/`onClose()`; nút Lưu disable khi đang gửi.
@@ -82,7 +95,7 @@ Kiểm: FE **156 file / 1512 test** PASS, tsc sạch, 3 cổng xanh.
 
 ---
 
-Task: M3-T1 — PR-C1 `refactor/settings-remove-mock-modules` (**code xong, chờ `/codex`**)
+Task: M3-T1 — PR-C1 `refactor/settings-remove-mock-modules` (**xong — qua `/codex` gộp M3**)
 Đã làm: xoá 3 tab mockup khỏi `SettingsPage`:
 - **Người dùng** — chỉ là một nút điều hướng sang `/nguoi-dung`.
 - **Phân quyền** — liệt kê 4 vai trò **bịa** (`admin/investigator/secretary/viewer`), không phải `ROLE_NAMES` thật, và không lưu đi đâu cả.
@@ -122,7 +135,7 @@ Codex xác nhận parity không vỡ: key `feature-flags` có sẵn ở BE và n
 
 ---
 
-Task: M2-T3 — PR-B3 `refactor/feature-registry-codegen` (**code xong, chờ `/codex`**)
+Task: M2-T3 — PR-B3 `refactor/feature-registry-codegen` (**xong — qua `/codex`**)
 Đã làm:
 - **`scripts/generate-feature-registry.cjs`** quét mọi `src/**/feature.manifest.ts` → sinh `feature-registry.generated.ts`, `FEATURE_REGISTRY` chỉ còn re-export. Nối vào `npm run build` cạnh `gen:enums`, **commit file sinh ra** đúng khuôn `generated.ts` hiện có, + bước kiểm drift trong CI.
 - **Sửa bug đang sống:** thêm `backend/src/edit-window/feature.manifest.ts` key `edit-window-requests`. FE có module + mục menu "Yêu cầu reset thời hạn", BE chưa từng có key ⇒ `listAll()` không trả về ⇒ **mục menu biến mất, chỉ vào được bằng gõ URL**. Đây là lần thứ 3 của cùng một lỗi (sau `comprehensive` và `document-templates`) — nên registry chuyển sang codegen chứ không vá lẻ.
@@ -206,7 +219,7 @@ Kiểm: BE **224 suite / 3049 test** PASS, FE **153 file / 1494 test** PASS, tsc
 
 ---
 
-Task: M1-T3 — PR-A3 `fix/create-endpoints-datascope` (**code xong, chờ `/codex`**)
+Task: M1-T3 — PR-A3 `fix/create-endpoints-datascope` (**xong — qua `/codex`**)
 Đã làm:
 - **ND-14 đã quyết và sửa (ADR-0017):** `canDispatch` chỉ còn bỏ qua kiểm tra ở `operation:'read'`. Trước đó cả 3 hàm `assertParentInScope`/`assertPetitionParentInScope`/`assertCreatorInScope` đều thoát sớm bất kể read hay write ⇒ mọi người điều phối tạo/sửa/xóa/khôi phục được bản ghi con của **mọi** vụ án. Phân công **không** phụ thuộc lối tắt này (`PATCH /:id/assign` + 3 endpoint bulk-assign có `DispatchGuard` riêng, `assignCase()` không nhận scope) nên siết lại không đụng nghiệp vụ. **Cảnh báo vận hành:** ai đang dùng tài khoản `canDispatch` để sửa hồ sơ tổ khác sẽ nhận 403 — cách xử lý đúng là cấp WRITE grant cho tổ đó, không phải mở lại lối tắt.
 - `POST /subjects` và `POST /lawyers`: thêm `dataScope` + `assertParentInScope(caseRecord, scope, 'write')`. Đường đọc và đường sửa vốn đã kiểm, riêng `create` thì không — biết id vụ án là gắn được người vào hồ sơ tổ khác.
@@ -372,8 +385,8 @@ Tự phát hiện thêm: 3 file test mới của chính tôi bị baseline hoá 
 ## Trạng thái test
 
 Full suite: **PASS**
-- Backend: 226 suite / **3078** test — PASS (xem ND-9: 1 suite flaky ~1/6 lần, có sẵn từ trước)
-- Frontend: 158 file / **1535** test — PASS (3 lần chạy liên tiếp ổn định)
+- Backend: 226 suite / **3082** test — PASS (xem ND-9: 1 suite flaky ~1/6 lần, có sẵn từ trước)
+- Frontend: 158 file / **1538** test — PASS (3 lần chạy liên tiếp ổn định)
 - Cổng governance: enum guard ✅ · gen:enums drift ✅ · lint ratchet ✅ (baseline 8.945 sau ADR-0015)
 - `tsc --noEmit` (BE): sạch · `tsc -b` (FE): sạch
 - eslint: không có lỗi mới trên dòng đã thêm (nợ lint có sẵn xem ND-1)
@@ -400,6 +413,8 @@ Test fail: không
 | ND-20 | **Người không phải cán bộ phường, chỉ cần có 1 tổ ghi được, là ghi được lên mọi bản ghi cha chưa phân công** trong toàn hệ thống (`unassigned` branch trong `assertParentInScope`). Đúng thiết kế cho luồng "nhận việc từ intake", nhưng phạm vi rộng hơn mức cần và không có gì giới hạn theo nguồn gốc bản ghi | Cần quyết chính sách |
 | ND-22 | **Menu chỉ kiểm cờ tính năng, không kiểm quyền.** Sau khi `edit-window-requests` được đăng ký, mục "Yêu cầu reset thời hạn" hiện cho **mọi** user đã đăng nhập (cờ default-allow), nhưng endpoint đòi `review_reset_request:EditWindowResetRequest` ⇒ bấm vào là 403. Lỗ này có sẵn ở mọi mục menu; trước đây không thấy vì mục này vốn đã ẩn do bug. Liên quan ND-6 (tầng phân quyền FE vẫn là mock) | Quyết cùng ND-6 sau M2 |
 | ND-23 | **`edit-window-requests` chưa gate API.** `EditWindowController` không có `@FeatureFlag(...)`, route FE luôn đăng ký ⇒ tắt cờ chỉ ẩn menu, gõ URL và gọi API vẫn chạy. Đúng thiết kế hiện tại (gate API là Wave 5 / E4–E6, đang bị PR-M1 chặn cứng), ghi lại để không nhầm là đã gate | PR-E5 |
+| ND-24 | **Ô chọn vụ án chỉ tải 100 bản mới nhất** (`GET /cases` chặn `@Max(100)`). `FKSelection` có ô tìm nhưng tìm trên dữ liệu **đã tải**, nên quá 100 vụ án là không gắn được kiến nghị vào vụ cũ. Cần ô chọn tìm phía server | PR riêng |
+| ND-25 | **Lọc theo phường/xã đã gỡ khỏi trang "phân loại khác".** Giá trị thật nằm ở `subjects.wardId`, BE lọc qua quan hệ subjects (`GET /cases?wardId=`), không lọc được trên dữ liệu đã tải. Ô cũ có 3 phường bịa và so với một trường luôn rỗng. Muốn khôi phục thì phải: (a) ô chọn phường lấy từ admin-units, (b) truyền `wardId` xuống server | PR riêng |
 | ND-21 | **`ensureFresh()` nuốt lỗi refresh**, nên `PATCH /feature-flags/:key` báo thành công dù cache không đọc lại được, và guard cục bộ phục vụ giá trị cũ trong cửa sổ backoff. `POST /refresh` cũng trả `success: true` sau một lần đọc hỏng. Cùng với đó, cache là process-local nên nhiều instance sẽ lệch tới 30s (ADR-0009 đã chấp nhận giả định 1 instance — cần xem lại nếu scale ngang) | PR riêng |
 | ND-16 | **Bị hại và nhân chứng của hồ sơ đã tạo không có màn hình nào để thêm.** Form tạo có đủ 4 loại (Bị can/Bị hại/Luật sư/Nhân chứng), nhưng trang chi tiết chỉ có tab Bị can (`POST /subjects` với `type:"SUSPECT"` cứng, `CaseDetailPage.tsx:907`) và tab Luật sư. Trước PR-A2 thì mọi loại đều "nhập được" ở chế độ sửa nhưng bị vứt im lặng — nay bảng chỉ đường nói rõ khoảng trống thay vì gửi người dùng tới tab không tạo được thứ họ cần | PR-D2 (form tạo độc lập subjects) |
 | ND-14 ✅ | **ĐÃ XỬ LÝ ở PR-A3 (ADR-0017).** **`assertParentInScope` bỏ qua toàn bộ kiểm tra khi `scope.canDispatch`, kể cả `operation: 'write'`** (`scope-filter.util.ts:104`). `canDispatch` được mô tả là quyền đọc toàn cục + quyền phân công, không phải quyền sửa mọi hồ sơ — nhưng thực tế người điều phối tạo/sửa/xóa/khôi phục được bản ghi con của **mọi** vụ án. Ảnh hưởng cả 12 resource, không riêng vật chứng | PR-A3 (PR chuyên về DataScope) |

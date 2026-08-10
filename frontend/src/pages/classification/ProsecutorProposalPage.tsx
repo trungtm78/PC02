@@ -670,7 +670,11 @@ function ProposalFormModal({
       try {
         const res = await api.get<{
           data?: { id: string; name: string; caseCode?: string }[];
-        }>("/cases?limit=200");
+          // 100 is the endpoint's hard cap (@Max(100) on QueryCasesDto.limit).
+          // Asking for more is a 400, which would leave this list empty and the
+          // form unsubmittable — the exact failure this PR set out to remove.
+          // Above 100 cases the picker needs server-side search: ND-24.
+        }>("/cases?limit=100&sortBy=createdAt&sortOrder=desc");
         if (cancelled) return;
         setCaseOptions(
           (res.data?.data ?? []).map((c) => ({

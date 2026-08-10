@@ -232,9 +232,35 @@ export class ProposalsService {
       assertCreatorInScope(existing.createdById, dataScope, 'write');
     }
 
+    // Reassigning the related case is a write against BOTH files: the one it
+    // is leaving and the one it is joining. The old-parent check above is not
+    // enough — without this an in-scope proposal could be moved onto any case
+    // in the system. And until now the field was simply dropped from the
+    // update, so the form reported success and the relationship never moved.
+    if (
+      dto.relatedCaseId !== undefined &&
+      dto.relatedCaseId !== existing.relatedCaseId
+    ) {
+      if (dto.relatedCaseId) {
+        const target = await this.prisma.case.findFirst({
+          where: { id: dto.relatedCaseId, deletedAt: null },
+          select: { id: true, assignedTeamId: true, investigatorId: true },
+        });
+        if (!target) {
+          throw new BadRequestException(
+            `Vụ án không tồn tại (id: ${dto.relatedCaseId})`,
+          );
+        }
+        assertParentInScope(target, dataScope, 'write');
+      }
+    }
+
     const record = await this.prisma.proposal.update({
       where: { id },
       data: {
+        ...(dto.relatedCaseId !== undefined && {
+          relatedCaseId: dto.relatedCaseId || null,
+        }),
         ...(dto.content !== undefined && { content: dto.content }),
         ...(dto.status !== undefined && {
           status: dto.status,

@@ -288,3 +288,114 @@ describe('ProposalsService — create scope', () => {
     expect(mockPrisma.case.findFirst).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * `PUT /proposals/:id` accepted `relatedCaseId` and dropped it: the update
+ * whitelist ended at `caseType`. The form reported success and the
+ * relationship never moved — the same false-success shape the create path had.
+ */
+describe('ProposalsService — reassigning the related case', () => {
+  let service: ProposalsService;
+
+  const existing = {
+    id: 'p1',
+    relatedCaseId: 'case-old',
+    relatedCase: {
+      id: 'case-old',
+      assignedTeamId: 'team-A',
+      investigatorId: 'inv-A',
+    },
+    createdById: 'actor-1',
+  };
+
+  const scopeA = {
+    teamIds: ['team-A'],
+    writableTeamIds: ['team-A'],
+    userIds: ['inv-A'],
+    writableUserIds: ['inv-A'],
+  } as never;
+
+  beforeEach(async () => {
+    const moduleRef = await Test.createTestingModule({
+      providers: [
+        ProposalsService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: AuditService, useValue: mockAudit },
+        { provide: DocumentNumbersService, useValue: mockDocNums },
+      ],
+    }).compile();
+    service = moduleRef.get(ProposalsService);
+    jest.clearAllMocks();
+    mockPrisma.proposal.findFirst.mockResolvedValue(existing);
+    mockPrisma.proposal.update.mockResolvedValue({ id: 'p1' });
+  });
+
+  it('writes the new relatedCaseId instead of silently dropping it', async () => {
+    mockPrisma.case.findFirst.mockResolvedValue({
+      id: 'case-new',
+      assignedTeamId: 'team-A',
+      investigatorId: 'inv-A',
+    });
+
+    await service.update(
+      'p1',
+      { relatedCaseId: 'case-new' } as never,
+      'actor-1',
+      undefined,
+      scopeA,
+    );
+
+    expect(mockPrisma.proposal.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ relatedCaseId: 'case-new' }),
+      }),
+    );
+  });
+
+  it('refuses to move a proposal onto another team’s case', async () => {
+    // The old-parent check alone is not enough: reassignment is a write
+    // against the file it joins as well as the one it leaves.
+    mockPrisma.case.findFirst.mockResolvedValue({
+      id: 'case-new',
+      assignedTeamId: 'team-B',
+      investigatorId: 'inv-B',
+    });
+
+    await expect(
+      service.update(
+        'p1',
+        { relatedCaseId: 'case-new' } as never,
+        'actor-1',
+        undefined,
+        scopeA,
+      ),
+    ).rejects.toThrow(ForbiddenException);
+    expect(mockPrisma.proposal.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects a target case that does not exist with 400', async () => {
+    mockPrisma.case.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service.update(
+        'p1',
+        { relatedCaseId: 'khong-co' } as never,
+        'actor-1',
+        undefined,
+        scopeA,
+      ),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('does not look up a case when relatedCaseId is unchanged', async () => {
+    await service.update(
+      'p1',
+      { relatedCaseId: 'case-old' } as never,
+      'actor-1',
+      undefined,
+      scopeA,
+    );
+
+    expect(mockPrisma.case.findFirst).not.toHaveBeenCalled();
+  });
+});
