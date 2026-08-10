@@ -1,5 +1,10 @@
 import type { FeatureMenuEntry } from '@/lib/features/moduleTypes';
 
+// ND-22: the flag says the module is part of this deployment; `requires` says
+// this user may open the screen. Both must be true. Entries the seed defines no
+// subject for stay flag-only — a grant to check would have to be invented.
+
+
 export const adminMenu: FeatureMenuEntry[] = [
   {
     section: 'admin',
@@ -7,6 +12,7 @@ export const adminMenu: FeatureMenuEntry[] = [
     label: 'Người dùng',
     path: '/nguoi-dung',
     icon: 'User',
+    requires: { resource: 'users' },
   },
   {
     section: 'admin',
@@ -14,6 +20,7 @@ export const adminMenu: FeatureMenuEntry[] = [
     label: 'Quy tắc thời hạn',
     path: '/admin/deadline-rules',
     icon: 'ClipboardList',
+    requires: { resource: 'settings' },
   },
   {
     section: 'admin',
@@ -28,6 +35,7 @@ export const adminMenu: FeatureMenuEntry[] = [
     label: 'Cấu hình admin',
     path: '/admin/settings',
     icon: 'Settings',
+    requires: { resource: 'settings' },
   },
   {
     section: 'admin',

@@ -3,6 +3,7 @@ import type { ComponentType } from 'react';
 import { FEATURE_MODULES } from './featureRegistry';
 import { useFeatureFlagsContext } from './FeatureFlagsContext';
 import { iconFor } from './iconRegistry';
+import { usePermission } from '@/hooks/usePermission';
 import type { FeatureMenuEntry } from './moduleTypes';
 
 type Icon = ComponentType<{ className?: string }>;
@@ -62,19 +63,49 @@ function resolve(entry: FeatureMenuEntry): ResolvedMenuItem {
 }
 
 /**
- * Build menu sections from the feature registry, gated by feature flags.
+ * Keep the entries this user may actually open, children included.
+ *
+ * A parent whose children are all filtered out is dropped too — unless it has
+ * a path of its own, in which case it is still a real destination and only
+ * loses its submenu.
+ */
+function filterByPermission(
+  entries: FeatureMenuEntry[],
+  allowed: (entry: FeatureMenuEntry) => boolean,
+): FeatureMenuEntry[] {
+  const kept: FeatureMenuEntry[] = [];
+  for (const entry of entries) {
+    if (!allowed(entry)) continue;
+    if (!entry.children) {
+      kept.push(entry);
+      continue;
+    }
+    const children = filterByPermission(entry.children, allowed);
+    if (children.length === 0 && !entry.path) continue;
+    kept.push({ ...entry, children });
+  }
+  return kept;
+}
+
+/**
+ * Build menu sections from the feature registry, gated by feature flags AND by
+ * what the user may open.
  *
  * - Iterates every FeatureModule (auto-discovered at build time)
  * - Skips features whose flag is off (once the flag fetch has settled)
+ * - Drops entries whose `requires` grant the user does not hold (ND-22)
  * - Groups remaining menu entries by their declared section
  * - Returns sections in the canonical order defined by SECTION_META
  * - Drops empty sections so the sidebar doesn't render bare headers
  *
- * While flags are still loading we optimistically include every feature's
- * menu to avoid a flicker.
+ * Both gates are optimistic while their source is still loading, to avoid a
+ * flicker — and, for permissions, to avoid an empty sidebar in the window
+ * between sign-in and `/auth/me` landing. An empty sidebar reads as a broken
+ * app, not as a permission decision.
  */
 export function useMenuSections(): ResolvedMenuSection[] {
   const { flags, isLoading } = useFeatureFlagsContext();
+  const { hasPermission, isHydrated } = usePermission();
 
   return useMemo(() => {
     const bySection = new Map<SectionId, ResolvedMenuItem[]>();
@@ -84,7 +115,17 @@ export function useMenuSections(): ResolvedMenuSection[] {
         const flag = flags.get(feature.manifest.key);
         if (!flag || !flag.enabled) continue;
       }
-      for (const entry of feature.menu ?? []) {
+      const visible = isHydrated
+        ? filterByPermission(feature.menu ?? [], (entry) =>
+            entry.requires
+              ? hasPermission(
+                  entry.requires.resource,
+                  entry.requires.action ?? 'view',
+                )
+              : true,
+          )
+        : (feature.menu ?? []);
+      for (const entry of visible) {
         const list = bySection.get(entry.section) ?? [];
         list.push(resolve(entry));
         bySection.set(entry.section, list);
@@ -101,5 +142,5 @@ export function useMenuSections(): ResolvedMenuSection[] {
           .sort((a, b) => a.order - b.order),
       }))
       .filter((s) => s.items.length > 0);
-  }, [flags, isLoading]);
+  }, [flags, isLoading, hasPermission, isHydrated]);
 }

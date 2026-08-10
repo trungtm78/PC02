@@ -114,6 +114,18 @@ export function usePermission() {
     canDelete,
     canView,
     canDispatch,
+    /**
+     * True once `/auth/me` has been cached, i.e. the permission set is the
+     * user's real one rather than the empty set the JWT fallback yields.
+     *
+     * Controls do NOT need this — hiding a button for the moment between
+     * sign-in and hydration is the correct behaviour, and showing a forbidden
+     * one is the bug this hook replaces. The sidebar does: an empty permission
+     * set there means an empty sidebar, which reads as a broken app rather
+     * than as a permission decision. It waits, the way it already waits on
+     * the feature flags.
+     */
+    isHydrated: rawProfile !== null,
     userRole: user?.role ?? null,
   };
 }
