@@ -7,7 +7,6 @@ import { Route } from 'react-router-dom';
 // F1 swap (v0.56): ComprehensiveListPageShell (PR2 ListPageShell) replaces legacy.
 const ComprehensiveListPage = lazy(() => import('@/pages/cases/ComprehensiveListPageShell'));
 const InitialCasesPage = lazy(() => import('@/pages/cases/InitialCasesPage'));
-const JourneyPage = lazy(() => import('@/pages/journey/JourneyPage'));
 
 const wrap = (node: ReactElement): ReactElement => <Suspense fallback={null}>{node}</Suspense>;
 
@@ -22,11 +21,6 @@ export function renderComprehensiveRoutes(): ReactElement[] {
       key="comprehensive-initial"
       path="/initial-cases"
       element={wrap(<InitialCasesPage />)}
-    />,
-    <Route
-      key="journey"
-      path="/journey"
-      element={wrap(<JourneyPage />)}
     />,
   ];
 }

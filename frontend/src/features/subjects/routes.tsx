@@ -1,5 +1,5 @@
 import { lazy, Suspense, type ReactElement } from 'react';
-import { Route } from 'react-router-dom';
+import { Navigate, Route } from 'react-router-dom';
 
 // F1 swap (v0.56): ObjectListPageShell (PR5 ListPageShell + bulk-delete v0.51).
 // Polymorphic — single component handles SUSPECT/VICTIM/WITNESS via prop.
@@ -17,7 +17,10 @@ const wrap = (node: ReactElement): ReactElement => (
 
 export function renderSubjectsRoutes(): ReactElement[] {
   return [
-    <Route key="objects" path="/objects" element={wrap(<ObjectListPageShell subjectType="SUSPECT" />)} />,
+    // E1 — `/objects` và `/people/suspects` là cùng một màn hình dưới hai
+    // đường dẫn. Giữ cả hai nghĩa là hai URL cho một thứ; bookmark cũ vẫn phải
+    // sống, nên chuyển hướng thay vì render lần thứ hai.
+    <Route key="objects" path="/objects" element={<Navigate to="/people/suspects" replace />} />,
     <Route key="suspects" path="/people/suspects" element={wrap(<ObjectListPageShell subjectType="SUSPECT" />)} />,
     <Route key="victims" path="/people/victims" element={wrap(<ObjectListPageShell subjectType="VICTIM" />)} />,
     <Route key="witnesses" path="/people/witnesses" element={wrap(<ObjectListPageShell subjectType="WITNESS" />)} />,
