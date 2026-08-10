@@ -135,7 +135,7 @@
       "^.+\\.(t|j)s$": "ts-jest"
     },
     "transformIgnorePatterns": [
-      "node_modules/(?!(@otplib|@noble)/)"
+      "node_modules/(?!(@otplib|@noble|@scure|@tokenizer|@borewit)/|(file-type|strtok3|token-types|uint8array-extras|peek-readable)/)"
     ],
     "collectCoverageFrom": [
       "**/*.(t|j)s"

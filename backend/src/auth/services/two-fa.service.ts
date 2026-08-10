@@ -12,6 +12,7 @@ import {
   verify as totpVerify,
   generateURI as totpGenerateURI,
 } from 'otplib';
+
 import * as QRCode from 'qrcode';
 import * as crypto from 'crypto';
 import * as fs from 'fs';
@@ -33,6 +34,31 @@ import {
   TwoFaMethod,
 } from '../../common/constants/two-fa-methods.constants';
 
+/**
+ * The three otplib entry points this service uses, behind one seam.
+ *
+ * ND-9: the spec used to reach otplib with `jest.mock('otplib', ...)`. Under a
+ * full parallel run that mock intermittently did not apply — jest matched the
+ * module by a resolved-path ID that did not always agree between the spec and
+ * this file — and the real implementation then ran against the fixture's
+ * 10-byte secret: `SecretTooShortError`, roughly one run in six, for months.
+ *
+ * Overriding a field cannot miss the way module-ID matching can, so the spec
+ * assigns `totp` directly and never mocks the package. Production wiring is
+ * unchanged: the default below is the real library.
+ */
+export interface TotpLib {
+  generateSecret: typeof totpGenerateSecret;
+  verify: typeof totpVerify;
+  generateURI: typeof totpGenerateURI;
+}
+
+export const REAL_TOTP: TotpLib = {
+  generateSecret: totpGenerateSecret,
+  verify: totpVerify,
+  generateURI: totpGenerateURI,
+};
+
 const SETUP_PENDING_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const BACKUP_CODE_COUNT = 10;
 // Match the cost of real entries so bcrypt.compare against the dummy takes the
@@ -51,6 +77,9 @@ const DUMMY_BCRYPT_HASH = bcrypt.hashSync(
 @Injectable()
 export class TwoFaService {
   private readonly privateKey: string;
+
+  /** Swapped by the spec; see the note on {@link REAL_TOTP}. */
+  protected totp: TotpLib = REAL_TOTP;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -110,7 +139,7 @@ export class TwoFaService {
     }
 
     // Generate TOTP secret
-    const secret = totpGenerateSecret();
+    const secret = this.totp.generateSecret();
     const encryptedSecret = this.encryption.encrypt(secret);
 
     // Generate BACKUP_CODE_COUNT backup codes (12-char hex each). Hash with
@@ -137,7 +166,7 @@ export class TwoFaService {
       },
     });
 
-    const otpUri = totpGenerateURI({
+    const otpUri = this.totp.generateURI({
       label: user.email ?? user.username,
       issuer: 'PC02',
       secret,
@@ -169,7 +198,7 @@ export class TwoFaService {
 
     const secret = this.encryption.decrypt(user.totpSecret);
     // epochTolerance: 30 (seconds) = accept ±30s clock drift. Valid otplib v13 option (verified types-BBT_82HF.d.ts).
-    const verifyResult = await totpVerify({
+    const verifyResult = await this.totp.verify({
       token,
       secret,
       strategy: 'totp',
@@ -343,7 +372,7 @@ export class TwoFaService {
     if (!user.totpEnabled || !user.totpSecret) return false;
 
     const secret = this.encryption.decrypt(user.totpSecret);
-    const totpResult = await totpVerify({
+    const totpResult = await this.totp.verify({
       token: code,
       secret,
       strategy: 'totp',

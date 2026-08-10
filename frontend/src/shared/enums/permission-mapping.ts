@@ -34,7 +34,33 @@ const SUBJECT_TO_RESOURCE: Readonly<Record<string, PermissionResource>> = {
   // module PR-D1 had just built. It has no dedicated frontend resource, so it
   // rides with the case file it belongs to.
   Evidence: PERMISSION_RESOURCE.CASES,
+  // The remaining seed subjects, mapped to the screen that renders them.
+  // Leaving them out was not neutral: an unmapped subject silently becomes
+  // "no permission", so DEADLINE_APPROVER mapped to an empty set entirely.
+  Document: PERMISSION_RESOURCE.CASES,
+  Team: PERMISSION_RESOURCE.USERS,
+  Role: PERMISSION_RESOURCE.USERS,
+  AuditLog: PERMISSION_RESOURCE.REPORTS,
+  DeadlineRuleVersion: PERMISSION_RESOURCE.SETTINGS,
+  FeatureFlag: PERMISSION_RESOURCE.SETTINGS,
+  EditWindowResetRequest: PERMISSION_RESOURCE.SETTINGS,
 };
+
+/**
+ * Backend actions with no frontend equivalent, listed rather than ignored.
+ *
+ * These belong to workflow screens that check the role or call the endpoint
+ * directly — `restore` on `/admin/khoi-phuc`, the deadline-rule approval
+ * flow, and the edit-window review queue. Naming them is what stops the
+ * "every action is covered" claim from being quietly false.
+ */
+const ACTIONS_WITHOUT_UI_EQUIVALENT = [
+  'restore',
+  'approve',
+  'request_changes',
+  'withdraw_own',
+  'review_reset_request',
+];
 
 /**
  * Subjects where the backend has no `edit` permission at all, so `write`
@@ -104,3 +130,4 @@ export function toPermissionSet(
 export const MAPPED_SUBJECTS = Object.keys(SUBJECT_TO_RESOURCE);
 export const MAPPED_ACTIONS = Object.keys(ACTION_TO_ACTION);
 export const WRITE_IMPLIES_EDIT_SUBJECTS = [...WRITE_ALSO_MEANS_EDIT];
+export const UNMAPPED_ACTIONS = ACTIONS_WITHOUT_UI_EQUIVALENT;

@@ -6,19 +6,45 @@ import {
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 
-jest.mock('otplib', () => ({
-  generateSecret: jest.fn().mockReturnValue('JBSWY3DPEHPK3PXP'),
-  generateURI: jest
-    .fn()
-    .mockReturnValue(
-      'otpauth://totp/PC02:user@test.com?secret=JBSWY3DPEHPK3PXP&issuer=PC02',
-    ),
-  verify: jest.fn().mockResolvedValue({ valid: true }),
-  generate: jest.fn().mockResolvedValue('123456'),
-}));
+/**
+ * ND-9: this used to be `jest.mock('otplib', ...)`. Under a full parallel run
+ * the mock intermittently did not apply — jest's module-ID matching did not
+ * always agree between this file and the service — and the real library then
+ * ran against the fixture's 10-byte secret, failing six tests with
+ * `SecretTooShortError` about one run in six. The service exposes the three
+ * entry points as a swappable field for exactly this reason; assigning a field
+ * cannot miss the way module resolution can.
+ */
+function makeTotpStub() {
+  return {
+    generateSecret: jest.fn().mockReturnValue('JBSWY3DPEHPK3PXP'),
+    generateURI: jest
+      .fn()
+      .mockReturnValue(
+        'otpauth://totp/PC02:user@test.com?secret=JBSWY3DPEHPK3PXP&issuer=PC02',
+      ),
+    verify: jest.fn().mockResolvedValue({ valid: true }),
+  };
+}
 jest.mock('qrcode', () => ({
   toDataURL: jest.fn().mockResolvedValue('data:image/png;base64,fake'),
 }));
+
+/**
+ * `makeService` stubs `fs.readFileSync` so the service can "read" a signing
+ * key that does not exist on disk. `fs` is a core module, so that stub is
+ * installed on the object the whole worker process shares — including jest
+ * itself, which reads its transform cache through `fs.readFileSync`. Nothing
+ * restored it (the config sets no `restoreMocks`), so it stayed installed for
+ * every test file that ran after this one in the same worker.
+ *
+ * That is the ND-9 flake: whether a later file was already resident in jest's
+ * in-memory caches decided whether it survived a stubbed `readFileSync`, and
+ * worker scheduling decides that differently on every run.
+ */
+afterEach(() => {
+  jest.restoreAllMocks();
+});
 
 // Minimal mock builder for TwoFaService
 function makeUser(overrides: Record<string, any> = {}) {
@@ -90,6 +116,7 @@ function makeService(
   // Patch fs.readFileSync so we don't need actual key files in tests
   jest.spyOn(require('fs'), 'readFileSync').mockReturnValue('FAKE_PRIVATE_KEY');
 
+  const totp = makeTotpStub();
   const { TwoFaService } = require('./two-fa.service');
   const svc = new TwoFaService(
     prisma,
@@ -102,8 +129,11 @@ function makeService(
     settings,
   );
 
+  svc.totp = totp;
+
   return {
     svc,
+    totp,
     prisma,
     encryption,
     otpCode,

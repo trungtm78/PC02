@@ -107,6 +107,12 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    // `permission-mapping.test.ts` reads the backend permission seed with
+    // `?raw` so the frontend mapping cannot silently drift from it. Vite
+    // refuses to serve a file outside the project root unless it is allowed
+    // here. `node:fs` would avoid this, but only by adding `node` to the app
+    // tsconfig's `types`, which changes global typing for the whole project.
+    fs: { allow: ['.', '../backend/prisma'] },
     proxy: {
       '/api': {
         target: 'http://localhost:3000',

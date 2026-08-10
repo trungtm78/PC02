@@ -4,8 +4,12 @@ node_modules
 
 /generated/prisma
 
-# Stryker mutation testing artifacts
+# Stryker mutation testing artifacts.
+# Anchored with a leading slash: unanchored `reports/` matches a directory of
+# that name at ANY depth, so it also swallowed `src/reports/` — the TDAC source
+# module. New files there were silently untracked, `git add` refused them, and
+# `git status` said nothing. The output directory this was written for is
+# `backend/reports/`, which does not currently exist.
 .stryker-tmp/
-reports/mutation/
-reports/
+/reports/
 .jest-cache/

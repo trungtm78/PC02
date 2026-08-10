@@ -10,17 +10,29 @@ interface CacheEntry {
   expiresAt: number;
 }
 
-function withTimeout<T>(
+/**
+ * The timer used to be neither cleared nor unref'd, so a query that beat the
+ * timeout still left a live handle for the full `ms`. Under jest that is the
+ * "worker process has failed to exit gracefully" warning on every run; in the
+ * server it is a handle held open per TDAC query for no reason.
+ *
+ * `withParserTimeout` in `xlsx-imports/hostile-xlsx-guard.ts` already had the
+ * correct shape — clear on both settle paths, and unref so a pending timeout
+ * never by itself keeps the process alive.
+ */
+export function withTimeout<T>(
   promise: Promise<T>,
   ms: number,
   label: string,
 ): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error(`Query timeout: ${label}`)), ms),
-    ),
-  ]);
+  let timer: NodeJS.Timeout | undefined;
+  const timeout = new Promise<T>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`Query timeout: ${label}`)), ms);
+    timer.unref?.();
+  });
+  return Promise.race([promise, timeout]).finally(() => {
+    if (timer) clearTimeout(timer);
+  });
 }
 
 @Injectable()

@@ -11,10 +11,16 @@
  * invisible. This is the translation, and these are its edges.
  */
 import { describe, it, expect } from 'vitest';
+// Vite's `?raw` rather than `node:fs`: the frontend tsconfig lists its `types`
+// explicitly and does not include `node`, and adding it would change global
+// typing for the whole app project just to read one file in one test.
+import seed from '../../../../../backend/prisma/seed-permissions.ts?raw';
 import {
   toPermissionSet,
   MAPPED_SUBJECTS,
   MAPPED_ACTIONS,
+  UNMAPPED_ACTIONS,
+  WRITE_IMPLIES_EDIT_SUBJECTS,
 } from '../permission-mapping';
 
 describe('toPermissionSet', () => {
@@ -47,7 +53,7 @@ describe('toPermissionSet', () => {
 
   it('drops a subject the frontend does not know rather than guessing', () => {
     expect(
-      toPermissionSet([{ action: 'read', subject: 'FeatureFlag' }]),
+      toPermissionSet([{ action: 'read', subject: 'KhongTonTai' }]),
     ).toEqual({});
   });
 
@@ -77,29 +83,41 @@ describe('toPermissionSet', () => {
   });
 });
 
-describe('mapping tables', () => {
-  it('covers every action the backend seeds except restore', () => {
-    // If the backend gains an action, this list is where it has to be
-    // acknowledged — otherwise that permission silently maps to nothing.
-    expect(MAPPED_ACTIONS.sort()).toEqual(
-      ['delete', 'edit', 'read', 'write'].sort(),
-    );
+describe('mapping tables stay in step with the backend seed', () => {
+  // The previous version of this suite compared the mapping against a
+  // hand-written list, so it passed while eight subjects were unmapped and
+  // its claim to cover "every action except restore" was simply false. It
+  // reads the seed now, which is the only thing that can go out of date.
+  const body = seed.split('DEFAULT_ROLE_GRANTS')[0];
+  const pairs = [
+    ...body.matchAll(/\{\s*action:\s*'([a-z_]+)',\s*subject:\s*'([A-Za-z]+)'/g),
+  ];
+  const seedSubjects = [...new Set(pairs.map((m) => m[2]))];
+  const seedActions = [...new Set(pairs.map((m) => m[1]))];
+
+  it('parses the seed at all — a silent zero would pass vacuously', () => {
+    expect(seedSubjects.length).toBeGreaterThan(10);
+    expect(seedActions.length).toBeGreaterThan(4);
   });
 
-  it('maps every resource the frontend can render', () => {
-    for (const subject of [
-      'Case',
-      'Petition',
-      'Incident',
-      'Subject',
-      'User',
-      'Setting',
-      'Lawyer',
-      'Directory',
-      'Report',
-      'Calendar',
-    ]) {
-      expect(MAPPED_SUBJECTS).toContain(subject);
+  it('maps every subject the backend seeds', () => {
+    const missing = seedSubjects.filter((s) => !MAPPED_SUBJECTS.includes(s));
+    expect(missing).toEqual([]);
+  });
+
+  it('accounts for every action — mapped, or named as having no UI', () => {
+    const unaccounted = seedActions.filter(
+      (a) => !MAPPED_ACTIONS.includes(a) && !UNMAPPED_ACTIONS.includes(a),
+    );
+    expect(unaccounted).toEqual([]);
+  });
+
+  it('only claims write-implies-edit for subjects the seed gives no edit row', () => {
+    for (const subject of WRITE_IMPLIES_EDIT_SUBJECTS) {
+      const hasEdit = pairs.some(
+        (m) => m[2] === subject && m[1] === 'edit',
+      );
+      expect({ subject, hasEdit }).toEqual({ subject, hasEdit: false });
     }
   });
 });
