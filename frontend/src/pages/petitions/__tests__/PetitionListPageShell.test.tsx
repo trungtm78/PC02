@@ -8,6 +8,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, useLocation, Routes, Route } from 'react-router-dom';
 import { api } from '@/lib/api';
+import { useListShortcuts } from '@/hooks/useListShortcuts';
 import { PetitionListPageShell } from '../PetitionListPageShell';
 import { PetitionStatus } from '@/shared/enums/generated';
 import { AssignModalProvider } from '@/features/_shared/modals/AssignModalProvider';
@@ -36,6 +37,10 @@ vi.mock('@/stores/auth.store', () => ({
     getProfileRaw: vi.fn(() => null),
     onTokenChanged: vi.fn(() => () => {}),
   },
+}));
+
+vi.mock('@/hooks/useListShortcuts', () => ({
+  useListShortcuts: vi.fn(),
 }));
 
 vi.mock('@/lib/api', () => ({
@@ -443,5 +448,20 @@ describe('PetitionListPageShell — a user who may not create', () => {
     await waitFor(() => expect(api.get).toHaveBeenCalled());
 
     expect(screen.queryByText('Tạo đơn thư mới')).not.toBeInTheDocument();
+  });
+
+  it('hands the Alt+N shortcut no handler, which unregisters it', () => {
+    // The three doors this gate covers are the button, the empty-state CTA and
+    // Alt+N. The first two are assertable by absence in the DOM; the shortcut
+    // is not rendered, and pressing it in jsdom does not reach
+    // react-hotkeys-hook, so a keyboard test here would pass whether or not
+    // the gate existed — it would assert nothing. The contract that IS
+    // checkable is the one this file owns: the shell passes no `onNew`.
+    // `useListShortcuts` already has its own test proving an absent `onNew`
+    // leaves `newRecord` disabled.
+    renderWithRouter();
+
+    const call = vi.mocked(useListShortcuts).mock.calls.at(-1)?.[0];
+    expect(call?.onNew).toBeUndefined();
   });
 });

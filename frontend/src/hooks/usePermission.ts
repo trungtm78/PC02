@@ -124,8 +124,16 @@ export function usePermission() {
      * set there means an empty sidebar, which reads as a broken app rather
      * than as a permission decision. It waits, the way it already waits on
      * the feature flags.
+     *
+     * Derived from the parsed profile, not from "a string is present": a
+     * malformed cache entry, or one written by an older build with no
+     * `permissions` field, would otherwise report hydrated and collapse the
+     * sidebar to nothing. Those are indistinguishable from not-yet-loaded from
+     * here, and not-yet-loaded is the safer of the two readings.
      */
-    isHydrated: rawProfile !== null,
+    isHydrated: Array.isArray(
+      (user as { permissions?: BackendPermission[] } | null)?.permissions,
+    ),
     userRole: user?.role ?? null,
   };
 }

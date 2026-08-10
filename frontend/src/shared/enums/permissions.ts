@@ -17,6 +17,11 @@ export const PERMISSION_RESOURCE = {
   DIRECTORIES: 'directories',
   REPORTS: 'reports',
   CALENDAR: 'calendar',
+  // Its own key, not folded into REPORTS: the activity log is the only screen
+  // the backend authorises with `read:AuditLog`, and every other report screen
+  // is authorised with `read:Case`. One key for both made `can('reports')` true
+  // for either grant.
+  AUDIT_LOGS: 'audit-logs',
 } as const;
 
 export type PermissionResource =

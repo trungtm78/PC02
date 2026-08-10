@@ -48,7 +48,7 @@ function Field({ label, value, icon }: { label: string; value?: string | null; i
 export default function IncidentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { canEdit } = usePermission();
+  const { canEdit, canCreate } = usePermission();
 
   const [incident, setIncident] = useState<IncidentDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -151,7 +151,10 @@ export default function IncidentDetailPage() {
             </button>
           )}
           {/* PR 3 v0.38.2.0 — Entry path 2: Khởi tố thành vụ án từ IncidentDetailPage */}
-          {canEdit('incidents') && (
+          {/* Two grants, because the action needs both: it edits this incident
+              AND creates a case. Checking only the first sent an incident editor
+              without `write:Case` into the case form to be refused on save. */}
+          {canEdit('incidents') && canCreate('cases') && (
             <button
               onClick={() => {
                 if (window.confirm(

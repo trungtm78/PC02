@@ -32,6 +32,7 @@ import {
 import { api } from '@/lib/api';
 import { useFormDefaults } from '@/hooks/useFormDefaults';
 import { today, formatVNDate } from '@/lib/dates';
+import { downloadCsv } from '@/lib/csv';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -169,6 +170,41 @@ export default function PetitionGuidancePage() {
   const todayCount = filteredData.filter((g) => g.date === today()).length;
 
   // ── Handlers ───────────────────────────────────────────────────────────────
+
+  /**
+   * "Xuất Excel" had no `onClick` at all — the button rendered, took the
+   * pointer, and did nothing. It exports what the user is looking at: the
+   * filtered rows, in the table's column order, not the whole collection.
+   */
+  const handleExport = () => {
+    downloadCsv(
+      filteredData.map((g) => [
+        g.stt,
+        formatVNDate(g.date),
+        g.subject,
+        g.unit,
+        g.createdBy,
+        g.guidedPerson,
+        g.guidedPersonPhone,
+        g.statusLabel,
+        g.guidanceContent,
+        g.notes,
+      ]),
+      [
+        'STT',
+        'Ngày',
+        'Vấn đề',
+        'Đơn vị',
+        'Người nhập',
+        'Người được hướng dẫn',
+        'Điện thoại',
+        'Trạng thái',
+        'Nội dung hướng dẫn',
+        'Ghi chú',
+      ],
+      `huong-dan-don-thu-${today()}.csv`,
+    );
+  };
 
   const handleResetFilters = () => {
     setFilters({ quickSearch: '', fromDate: '', toDate: '', unit: '', status: '' });
@@ -370,7 +406,9 @@ export default function PetitionGuidancePage() {
 
           <button
             data-testid="export-excel-btn"
-            className="flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            onClick={handleExport}
+            disabled={filteredData.length === 0}
+            className="flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Download className="w-4 h-4" />
             Xuất Excel

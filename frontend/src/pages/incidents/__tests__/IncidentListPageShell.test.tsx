@@ -19,6 +19,7 @@ import { render, screen, fireEvent, waitFor, within } from '@testing-library/rea
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, useLocation, Routes, Route } from 'react-router-dom';
 import { api } from '@/lib/api';
+import { useListShortcuts } from '@/hooks/useListShortcuts';
 import { IncidentListPageShell } from '../IncidentListPageShell';
 import { IncidentStatus } from '@/shared/enums/generated';
 import { CompositeModalProvider } from '@/features/_shared/modals/CompositeModalProvider';
@@ -45,6 +46,10 @@ vi.mock('@/stores/auth.store', () => ({
     getProfileRaw: vi.fn(() => null),
     onTokenChanged: vi.fn(() => () => {}),
   },
+}));
+
+vi.mock('@/hooks/useListShortcuts', () => ({
+  useListShortcuts: vi.fn(),
 }));
 
 vi.mock('@/lib/api', () => ({
@@ -389,5 +394,19 @@ describe('IncidentListPageShell — a user who may not create', () => {
     await waitFor(() => expect(api.get).toHaveBeenCalled());
 
     expect(screen.queryByText('Tạo vụ việc mới')).not.toBeInTheDocument();
+  });
+
+  it('hands the Alt+N shortcut no handler, which unregisters it', () => {
+    // The three doors this gate covers are the button, the empty-state CTA and
+    // Alt+N. The first two are assertable by absence in the DOM; the shortcut
+    // is not rendered, and pressing it in jsdom does not reach
+    // react-hotkeys-hook, so a keyboard test here would pass whether or not
+    // the gate existed. The contract that IS checkable is the one this file
+    // owns: the shell passes no `onNew`. `useListShortcuts` has its own test
+    // proving an absent `onNew` leaves `newRecord` disabled.
+    renderWithRouter();
+
+    const call = vi.mocked(useListShortcuts).mock.calls.at(-1)?.[0];
+    expect(call?.onNew).toBeUndefined();
   });
 });

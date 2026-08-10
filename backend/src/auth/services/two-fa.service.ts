@@ -78,8 +78,16 @@ const DUMMY_BCRYPT_HASH = bcrypt.hashSync(
 export class TwoFaService {
   private readonly privateKey: string;
 
-  /** Swapped by the spec; see the note on {@link REAL_TOTP}. */
-  protected totp: TotpLib = REAL_TOTP;
+  /**
+   * Swapped by the spec; see the note on {@link REAL_TOTP}.
+   *
+   * Public, not `protected`. The spec assigns it from outside the class rather
+   * than subclassing, so `protected` described an access pattern nobody uses —
+   * and only type-checked by accident, because the spec reaches the class
+   * through an untyped `require`. Naming the visibility the code actually
+   * relies on is the honest version.
+   */
+  totp: TotpLib = REAL_TOTP;
 
   constructor(
     private readonly prisma: PrismaService,
