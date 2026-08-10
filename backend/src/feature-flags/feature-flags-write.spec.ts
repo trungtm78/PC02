@@ -14,6 +14,7 @@ import { FEATURE_REGISTRY } from './feature-registry';
 const mockPrisma = {
   featureFlag: {
     findMany: jest.fn().mockResolvedValue([]),
+    findUnique: jest.fn().mockResolvedValue(null),
     upsert: jest.fn(),
     update: jest.fn(),
   },
@@ -42,6 +43,7 @@ describe('FeatureFlagsService.setEnabled', () => {
     jest.clearAllMocks();
     delete process.env.ENABLED_FEATURES;
     mockPrisma.featureFlag.findMany.mockResolvedValue([]);
+    mockPrisma.featureFlag.findUnique.mockResolvedValue(null);
     mockPrisma.$transaction.mockImplementation(
       (fn: (tx: typeof mockPrisma) => unknown) => fn(mockPrisma),
     );
@@ -119,7 +121,9 @@ describe('FeatureFlagsService.setEnabled', () => {
         enabled: true,
       },
     ]);
-    await service.isEnabled(NON_CORE_KEY); // prime the cache
+    // `before` is read inside the transaction now, not from the cache: the
+    // cache can be a TTL stale and a fresh DB has no row at all.
+    mockPrisma.featureFlag.findUnique.mockResolvedValue({ enabled: true });
 
     await service.setEnabled(NON_CORE_KEY, false, {
       id: 'actor-1',
@@ -191,6 +195,34 @@ describe('core features cannot be switched off from the database either', () => 
     for (const key of CORE_FEATURE_KEYS) {
       await expect(service.isEnabled(key)).resolves.toBe(true);
     }
+  });
+
+  it('stays enabled even when ENABLED_FEATURES forgets to list it', async () => {
+    // The whitelist used to be checked before the core rule, so an env var
+    // that simply omitted `admin` locked the admin screen away — and the
+    // write API then refused to restore it, because the key was "outside the
+    // build". Two guards that cancel each other out.
+    process.env.ENABLED_FEATURES = 'cases';
+    const moduleRef = await Test.createTestingModule({
+      providers: [
+        FeatureFlagsService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: AuditService, useValue: mockAudit },
+      ],
+    }).compile();
+    const scoped = moduleRef.get(FeatureFlagsService);
+    mockPrisma.featureFlag.findMany.mockResolvedValue([]);
+
+    for (const key of CORE_FEATURE_KEYS) {
+      await expect(scoped.isEnabled(key)).resolves.toBe(true);
+    }
+
+    const keys = (await scoped.listAll()).map((f) => f.key);
+    for (const key of CORE_FEATURE_KEYS) {
+      expect(keys).toContain(key);
+    }
+
+    delete process.env.ENABLED_FEATURES;
   });
 
   it('every core key exists in the registry — a typo here disables nothing', () => {

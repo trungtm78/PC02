@@ -1,6 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { FeatureFlagsService } from './feature-flags.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { CORE_FEATURE_KEYS } from './core-features.constants';
+import { AuditService } from '../audit/audit.service';
 import { FEATURE_REGISTRY } from './feature-registry';
 
 type FlagRow = {
@@ -25,7 +27,12 @@ const row = (overrides: Partial<FlagRow> = {}): FlagRow => ({
 describe('FeatureFlagsService', () => {
   let service: FeatureFlagsService;
   let prisma: {
-    featureFlag: { findMany: jest.Mock; update: jest.Mock; upsert: jest.Mock };
+    featureFlag: {
+      findMany: jest.Mock;
+      findUnique: jest.Mock;
+      update: jest.Mock;
+      upsert: jest.Mock;
+    };
     $transaction: jest.Mock;
   };
   const originalEnv = process.env['ENABLED_FEATURES'];
@@ -39,6 +46,7 @@ describe('FeatureFlagsService', () => {
     prisma = {
       featureFlag: {
         findMany: jest.fn().mockResolvedValue([]),
+        findUnique: jest.fn().mockResolvedValue(null),
         update: jest.fn(),
         upsert: jest.fn(),
       },
@@ -50,6 +58,10 @@ describe('FeatureFlagsService', () => {
       providers: [
         FeatureFlagsService,
         { provide: PrismaService, useValue: prisma },
+        // Required now, not @Optional(): the module did not import
+        // AuditModule, so the optional hedge meant every flag change
+        // committed with no audit trail at all.
+        { provide: AuditService, useValue: { log: jest.fn() } },
       ],
     }).compile();
     service = module.get(FeatureFlagsService);
@@ -197,15 +209,34 @@ describe('FeatureFlagsService', () => {
       expect(petitions?.enabled).toBe(true);
     });
 
-    it('filters by build whitelist even when DB is empty', async () => {
+    it('filters by build whitelist, but never drops a core key', async () => {
+      // The whitelist used to be absolute. An ENABLED_FEATURES that simply
+      // forgot `admin` or `feature-flags` produced the exact lockout the core
+      // list exists to prevent: sidebar entry gone, and the write API then
+      // refusing to restore it because the key was "outside the build".
       process.env['ENABLED_FEATURES'] = 'cases,petitions';
       await build();
       prisma.featureFlag.findMany.mockResolvedValue([]);
+
       const all = await service.listAll();
-      const keys = all.map((f) => f.key).sort();
-      expect(keys).toEqual(['cases', 'petitions']);
-      // Both default-allow because DB is empty
+      const keys = all.map((f) => f.key);
+
+      expect(keys).toEqual(expect.arrayContaining(['cases', 'petitions']));
+      for (const core of CORE_FEATURE_KEYS) {
+        expect(keys).toContain(core);
+      }
+      // Everything default-allows because the DB is empty.
       expect(all.every((f) => f.enabled)).toBe(true);
+    });
+
+    it('excludes a non-core key that the whitelist omits', async () => {
+      process.env['ENABLED_FEATURES'] = 'cases';
+      await build();
+      prisma.featureFlag.findMany.mockResolvedValue([]);
+
+      const keys = (await service.listAll()).map((f) => f.key);
+
+      expect(keys).not.toContain('petitions');
     });
 
     it('respects DB enabled=false even under whitelist', async () => {
@@ -215,8 +246,8 @@ describe('FeatureFlagsService', () => {
         row({ key: 'cases', enabled: false }),
       ]);
       const all = await service.listAll();
-      expect(all.length).toBe(1);
-      expect(all[0].enabled).toBe(false);
+      const cases = all.find((f) => f.key === 'cases');
+      expect(cases?.enabled).toBe(false);
     });
   });
 

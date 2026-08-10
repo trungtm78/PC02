@@ -2,7 +2,6 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
-  Optional,
   OnModuleInit,
   Logger,
 } from '@nestjs/common';
@@ -44,14 +43,15 @@ export class FeatureFlagsService implements OnModuleInit {
   constructor(
     private readonly prisma: PrismaService,
     /**
-     * Optional on purpose. This module is `@Global` and supplies an
-     * `APP_GUARD`, so it is constructed very early; a hard dependency on
-     * AuditModule risks a circular graph that only shows up as a boot failure.
-     * `@Optional()` keeps the app bootable, and the flag-write path is the
-     * only thing that uses it — a missing audit logger there is visible in the
-     * tests rather than at 3am.
+     * Required, not optional.
+     *
+     * This was `@Optional()` as a hedge against a circular graph — but
+     * FeatureFlagsModule did not import AuditModule, and sibling modules do
+     * not share providers, so the hedge meant the dependency was always
+     * undefined and every flag change committed with no audit trail. A
+     * missing logger has to be a boot failure, not a silent one.
      */
-    @Optional() private readonly audit?: AuditService,
+    private readonly audit: AuditService,
   ) {
     const envList = process.env['ENABLED_FEATURES'];
     this.buildWhitelist =
@@ -122,14 +122,6 @@ export class FeatureFlagsService implements OnModuleInit {
   }
 
   /**
-   * Is the feature key enabled for this request? Semantics:
-   *  1. If a build whitelist is set (`ENABLED_FEATURES` env) and the key
-   *     is not in it, return false. Whitelist is the first gate.
-   *  2. If the DB has a row, respect `enabled`.
-   *  3. If the DB has no row, default-allow (so a fresh module code-ships
-   *     before its seed runs without locking users out).
-   */
-  /**
    * The one place that decides whether a flag counts as on.
    *
    * `isEnabled()` and `listAll()` used to answer this question separately, and
@@ -146,10 +138,23 @@ export class FeatureFlagsService implements OnModuleInit {
     return row.enabled;
   }
 
+  /**
+   * Is this key shipped by this build?
+   *
+   * Core keys always are, whatever `ENABLED_FEATURES` says. The whitelist used
+   * to be checked first, which meant an env var that simply forgot `admin` or
+   * `feature-flags` produced the exact lockout the core list exists to
+   * prevent — sidebar entry gone, and the write API then refusing to turn it
+   * back on because the key was "outside the build". You cannot ship a build
+   * without auth; treating that as configurable was the mistake.
+   */
+  private shippedInThisBuild(key: string): boolean {
+    if (isCoreFeature(key)) return true;
+    return !this.buildWhitelist || this.buildWhitelist.has(key);
+  }
+
   async isEnabled(key: string): Promise<boolean> {
-    if (this.buildWhitelist && !this.buildWhitelist.has(key)) {
-      return false;
-    }
+    if (!this.shippedInThisBuild(key)) return false;
     await this.ensureFresh();
     return this.effectiveEnabled(key, this.cache.get(key));
   }
@@ -171,9 +176,7 @@ export class FeatureFlagsService implements OnModuleInit {
 
     const result: FeatureFlagDto[] = [];
     for (const manifest of FEATURE_REGISTRY) {
-      if (this.buildWhitelist && !this.buildWhitelist.has(manifest.key)) {
-        continue;
-      }
+      if (!this.shippedInThisBuild(manifest.key)) continue;
       const row = this.cache.get(manifest.key);
       const enabled = this.effectiveEnabled(manifest.key, row);
       if (row) {
@@ -229,15 +232,23 @@ export class FeatureFlagsService implements OnModuleInit {
         `Không thể tắt tính năng lõi "${manifest.label}" — tắt nó thì không còn đường bật lại.`,
       );
     }
-    if (this.buildWhitelist && !this.buildWhitelist.has(key)) {
+    if (!this.shippedInThisBuild(key)) {
       throw new BadRequestException(
         `Tính năng "${manifest.label}" không có trong gói build này (ENABLED_FEATURES), bật/tắt ở đây không có tác dụng.`,
       );
     }
 
-    const before = this.cache.get(key)?.enabled;
-
     const row = await this.prisma.$transaction(async (tx) => {
+      // Read `before` inside the transaction, not from the local cache. The
+      // cache can be up to a TTL stale, and on a fresh database a
+      // default-enabled flag has no row at all — the audit entry then said
+      // `before: undefined` for a change that was really true → false.
+      const previous = await tx.featureFlag.findUnique({
+        where: { key },
+        select: { enabled: true },
+      });
+      const before = this.effectiveEnabled(key, previous ?? undefined);
+
       const updated = await tx.featureFlag.upsert({
         where: { key },
         update: { enabled },
@@ -249,7 +260,7 @@ export class FeatureFlagsService implements OnModuleInit {
           enabled,
         },
       });
-      await this.audit?.log(
+      await this.audit.log(
         {
           userId: actor?.id ?? 'system',
           action: enabled ? 'FEATURE_FLAG_ENABLED' : 'FEATURE_FLAG_DISABLED',

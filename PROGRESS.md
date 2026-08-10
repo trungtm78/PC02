@@ -37,7 +37,7 @@ Cập nhật: 2026-08-10T03:15:00+07:00 | Milestone: M1/5 | Task: 0/5 của M1
 
 ## Đang làm dở
 
-Task: M2-T1 — PR-B1 `feat/feature-flags-write-api` (**code xong, chờ `/codex`**)
+Task: M2-T1 — PR-B1 `feat/feature-flags-write-api` (**xong — qua `/codex`**)
 Đã làm:
 - **`PATCH /feature-flags/:key`** + **`POST /feature-flags/refresh`**, cả hai gắn `write:FeatureFlag`. **Cạm bẫy đã tránh:** quyền đặt ở **từng route**, không ở cấp class — `GET /feature-flags` được **mọi** user gọi mỗi lần tải trang để dựng sidebar, gắn quyền ở class là menu trống cho ai không có quyền và họ sẽ tưởng hệ thống hỏng.
 - **`setEnabled` từ dead code thành đường ghi thật:** `update` → **`upsert`** (bản cũ ném P2025 với mọi cờ mà lần seed đầu chưa tạo, tức mọi cờ thêm sau đó); 3 validate fail-fast (key ngoài registry → 404, cờ lõi + `false` → 400, key ngoài `ENABLED_FEATURES` → 400); **audit trong cùng transaction** — cờ đổi mà không có ai chịu trách nhiệm còn tệ hơn cờ không đổi.
@@ -45,8 +45,19 @@ Task: M2-T1 — PR-B1 `feat/feature-flags-write-api` (**code xong, chờ `/codex
 - **`effectiveEnabled()` là nguồn duy nhất** cho cả `isEnabled()` lẫn `listAll()`. Trước đó hai hàm tự trả lời riêng, mà hai bản sao của một quy tắc thì sẽ lệch.
 - **`AuditService` tiêm `@Optional()`** — module này `@Global` + cấp `APP_GUARD` nên dựng rất sớm; phụ thuộc cứng vào `AuditModule` có nguy cơ đồ thị vòng, mà biểu hiện chỉ là app không boot được.
 - Quyền `write:FeatureFlag` vào `seed-permissions.ts` ⇒ runner ở `deploy.sh` tự cấp cho ADMIN. **Không** thêm `read:FeatureFlag` — đọc phải mở cho mọi người, xem ghi chú trong seed.
-Kiểm: BE **225 suite / 3066 test** PASS, FE **154 file / 1504 test** PASS, tsc sạch, 3 cổng xanh, baseline lint **8.386**.
-**BƯỚC TIẾP THEO:** `/codex` cho PR-B1, rồi M2-T2 (PR-B2 — trang `/admin/tinh-nang`).
+Kiểm: BE **225 suite / 3073 test** PASS, FE **154 file / 1504 test** PASS, tsc sạch, 3 cổng xanh, baseline lint **8.386**.
+**BƯỚC TIẾP THEO:** M2-T2 (PR-B2 — trang `/admin/tinh-nang`).
+
+### Finding đã xử lý ở checkpoint `/codex` PR-B1
+
+Hai [P1], cả hai đều là **lỗi trong chính bản vá của tôi**, và cả hai đều thuộc loại "hàng rào có mà không chạy":
+
+1. **Whitelist chạy trước bảo vệ cờ lõi ⇒ hai hàng rào triệt tiêu nhau.** `isEnabled()` kiểm `ENABLED_FEATURES` **trước** `effectiveEnabled()`, còn `listAll()` thì loại thẳng key không có trong whitelist. Nên một biến môi trường chỉ đơn giản **quên** liệt kê `admin` hoặc `feature-flags` là tạo ra đúng cái khoá cứng mà danh sách lõi sinh ra để chặn — mất mục sidebar, rồi API ghi lại từ chối bật lại vì "key ngoài gói build". Sửa: thêm `shippedInThisBuild()`, cờ lõi **luôn** thuộc mọi gói build. Không thể ship một bản build không có `auth`; coi đó là thứ cấu hình được mới là chỗ sai.
+2. **`@Optional()` của tôi khiến audit KHÔNG BAO GIỜ chạy, chứ không phải "chạy khi có".** `FeatureFlagsModule` không import `AuditModule`, mà module anh em thì không chia sẻ provider — nên `audit` luôn `undefined` và `this.audit?.log()` lặng lẽ bỏ qua. Tôi đã tự biện minh là "phòng đồ thị vòng"; codex kiểm và khẳng định **không có vòng nào**. Sửa: import `AuditModule`, bỏ `@Optional()`, thiếu là **không boot được**.
+
+Ba [P2]: `before` trong audit lấy từ cache có thể cũ ⇒ nay đọc trong chính transaction (trên DB mới thì bản ghi chưa tồn tại, trước đây ghi `before: undefined` cho một thay đổi thật sự là true→false). Hai cái còn lại ghi nợ: cache là process-local (ADR-0009 đã chấp nhận giả định 1 instance) và `ensureFresh()` nuốt lỗi nên `PATCH` vẫn báo thành công dù refresh hỏng → **ND-21**.
+
+Codex cũng xác nhận: `GET /feature-flags` vẫn gọi được khi không có `write:FeatureFlag`; không có đường ghi thay thế nào lọt lưới; và khi audit hỏng thì transaction **có** rollback cờ.
 
 **Ghi nhận ND-9 tái diễn:** một lần chạy full suite đỏ 1 suite/21 test, chạy lại xanh ngay. Đúng dấu hiệu đua tranh cache transform của jest đã ghi ở ND-9, không liên quan thay đổi này.
 
@@ -257,7 +268,7 @@ Tự phát hiện thêm: 3 file test mới của chính tôi bị baseline hoá 
 ## Trạng thái test
 
 Full suite: **PASS**
-- Backend: 225 suite / **3066** test — PASS (xem ND-9: 1 suite flaky ~1/6 lần, có sẵn từ trước)
+- Backend: 225 suite / **3073** test — PASS (xem ND-9: 1 suite flaky ~1/6 lần, có sẵn từ trước)
 - Frontend: 154 file / **1504** test — PASS (3 lần chạy liên tiếp ổn định)
 - Cổng governance: enum guard ✅ · gen:enums drift ✅ · lint ratchet ✅ (baseline 8.945 sau ADR-0015)
 - `tsc --noEmit` (BE): sạch · `tsc -b` (FE): sạch
@@ -283,6 +294,7 @@ Test fail: không
 | ND-18 | **Đổi cha (reparenting) chỉ kiểm cha cũ, không kiểm cha mới.** `subjects.update`, `lawyers.update`, `documents.update` xác nhận cha mới *tồn tại* nhưng không kiểm nó có trong phạm vi ghi ⇒ bản ghi con đang trong tầm có thể bị chuyển sang vụ án ngoài tầm. `documents` còn tách được thành mồ côi | PR riêng — cùng lớp với A3 nhưng là đường `update`, không phải `create` |
 | ND-19 | **Nạp cha và tạo con là hai câu lệnh rời ở cả 6 service vừa vá.** Phân công có thể đổi giữa lúc kiểm và lúc ghi ⇒ ghi bằng scope cũ. Cách sửa: gộp nạp/kiểm/tạo vào một transaction có điều kiện phiên bản, như `withCaseLock` của module vật chứng (ADR-0016) | PR riêng |
 | ND-20 | **Người không phải cán bộ phường, chỉ cần có 1 tổ ghi được, là ghi được lên mọi bản ghi cha chưa phân công** trong toàn hệ thống (`unassigned` branch trong `assertParentInScope`). Đúng thiết kế cho luồng "nhận việc từ intake", nhưng phạm vi rộng hơn mức cần và không có gì giới hạn theo nguồn gốc bản ghi | Cần quyết chính sách |
+| ND-21 | **`ensureFresh()` nuốt lỗi refresh**, nên `PATCH /feature-flags/:key` báo thành công dù cache không đọc lại được, và guard cục bộ phục vụ giá trị cũ trong cửa sổ backoff. `POST /refresh` cũng trả `success: true` sau một lần đọc hỏng. Cùng với đó, cache là process-local nên nhiều instance sẽ lệch tới 30s (ADR-0009 đã chấp nhận giả định 1 instance — cần xem lại nếu scale ngang) | PR riêng |
 | ND-16 | **Bị hại và nhân chứng của hồ sơ đã tạo không có màn hình nào để thêm.** Form tạo có đủ 4 loại (Bị can/Bị hại/Luật sư/Nhân chứng), nhưng trang chi tiết chỉ có tab Bị can (`POST /subjects` với `type:"SUSPECT"` cứng, `CaseDetailPage.tsx:907`) và tab Luật sư. Trước PR-A2 thì mọi loại đều "nhập được" ở chế độ sửa nhưng bị vứt im lặng — nay bảng chỉ đường nói rõ khoảng trống thay vì gửi người dùng tới tab không tạo được thứ họ cần | PR-D2 (form tạo độc lập subjects) |
 | ND-14 ✅ | **ĐÃ XỬ LÝ ở PR-A3 (ADR-0017).** **`assertParentInScope` bỏ qua toàn bộ kiểm tra khi `scope.canDispatch`, kể cả `operation: 'write'`** (`scope-filter.util.ts:104`). `canDispatch` được mô tả là quyền đọc toàn cục + quyền phân công, không phải quyền sửa mọi hồ sơ — nhưng thực tế người điều phối tạo/sửa/xóa/khôi phục được bản ghi con của **mọi** vụ án. Ảnh hưởng cả 12 resource, không riêng vật chứng | PR-A3 (PR chuyên về DataScope) |
 | ND-15 | **Đường đọc chi tiết trả 403 cho bản ghi ngoài phạm vi và 404 cho bản ghi không tồn tại**, tức lộ sự tồn tại của hồ sơ tổ khác. Mẫu này dùng thống nhất toàn hệ thống nên phải quyết một lần (đưa scope vào `where` rồi trả 404 cho cả hai), không sửa lẻ từng module | Quyết cùng PR-A3 |
