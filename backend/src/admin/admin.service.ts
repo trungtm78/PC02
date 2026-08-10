@@ -28,6 +28,7 @@ import {
   ROLE_NAMES,
   SYSTEM_ROLE_NAMES,
 } from '../common/constants/role.constants';
+import { CreateRoleDto } from './dto/create-role.dto';
 
 @Injectable()
 export class AdminService {
@@ -477,7 +478,78 @@ export class AdminService {
     return role;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  /**
+   * D4 — tạo vai trò mới.
+   *
+   * Trước đây chỉ sửa được vai trò có sẵn: muốn thêm một vai mới phải vào thẳng
+   * cơ sở dữ liệu. Màn hình phân quyền vì thế mô tả một hệ thống chỉ đúng một
+   * nửa — sửa được, không thêm được.
+   */
+  async createRole(dto: CreateRoleDto, requesterId: string) {
+    // Tên vai trò hệ thống được so khớp bằng chuỗi ở guard và ở seed phân quyền,
+    // nên một vai trò tự tạo mang tên đó sẽ mạo danh được vai trò thật.
+    if (SYSTEM_ROLE_NAMES.has(dto.name)) {
+      throw new BadRequestException(
+        `"${dto.name}" là tên vai trò hệ thống, không thể dùng cho vai trò mới.`,
+      );
+    }
+
+    const dup = await this.prisma.role.findFirst({ where: { name: dto.name } });
+    if (dup) {
+      throw new ConflictException(`Tên vai trò "${dto.name}" đã tồn tại`);
+    }
+
+    let sourcePermissionIds: string[] = [];
+    if (dto.copyPermissionsFromRoleId) {
+      const source = await this.prisma.role.findUnique({
+        where: { id: dto.copyPermissionsFromRoleId },
+        include: { permissions: { select: { permissionId: true } } },
+      });
+      if (!source) {
+        throw new BadRequestException(
+          `Vai trò nguồn không tồn tại (id: ${dto.copyPermissionsFromRoleId})`,
+        );
+      }
+      sourcePermissionIds = source.permissions.map((p) => p.permissionId);
+    }
+
+    // Vai trò và bộ quyền của nó phải cùng ghi hoặc cùng không: một vai trò tạo
+    // xong mà lệnh cấp quyền hỏng sẽ là vai trò rỗng, và người mang nó đăng
+    // nhập vào một hệ thống trống — im lặng, khó lần ra.
+    const created = await this.prisma.$transaction(async (tx) => {
+      const role = await tx.role.create({
+        data: { name: dto.name, description: dto.description ?? null },
+      });
+      if (sourcePermissionIds.length > 0) {
+        await tx.rolePermission.createMany({
+          data: sourcePermissionIds.map((permissionId) => ({
+            roleId: role.id,
+            permissionId,
+          })),
+        });
+      }
+      return role;
+    });
+
+    await this.audit.log({
+      userId: requesterId,
+      action: 'ROLE_CREATED',
+      subject: 'Role',
+      subjectId: created.id,
+      metadata: {
+        name: created.name,
+        description: created.description,
+        copiedFromRoleId: dto.copyPermissionsFromRoleId ?? null,
+        copiedPermissionCount: sourcePermissionIds.length,
+      },
+    });
+
+    return {
+      ...created,
+      permissionCount: sourcePermissionIds.length,
+    };
+  }
+
   async updateRole(id: string, dto: UpdateRoleDto, requesterId: string) {
     const role = await this.prisma.role.findUnique({ where: { id } });
     if (!role) throw new NotFoundException(`Role #${id} không tồn tại`);
@@ -504,13 +576,31 @@ export class AdminService {
       if (dup) throw new ConflictException(`Tên role "${dto.name}" đã tồn tại`);
     }
 
-    return this.prisma.role.update({
+    const updated = await this.prisma.role.update({
       where: { id },
       data: {
         ...(dto.name && { name: dto.name }),
         ...(dto.description !== undefined && { description: dto.description }),
       },
     });
+
+    // `requesterId` was accepted and never used: renaming a role or rewriting
+    // its description left no trace, on a screen whose whole subject is who is
+    // allowed to do what. Every other write on this service audits.
+    await this.audit.log({
+      userId: requesterId,
+      action: 'ROLE_UPDATED',
+      subject: 'Role',
+      subjectId: id,
+      metadata: {
+        previousName: role.name,
+        name: updated.name,
+        previousDescription: role.description,
+        description: updated.description,
+      },
+    });
+
+    return updated;
   }
 
   async deleteRole(

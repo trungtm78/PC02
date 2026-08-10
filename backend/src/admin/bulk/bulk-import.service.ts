@@ -48,7 +48,8 @@ export interface PreviewResult {
 
 const TEMP_DIR = process.env.BULK_IMPORT_TEMP_DIR || '/tmp/pc02-bulk';
 const MAX_ROWS = Number(process.env.BULK_IMPORT_MAX_ROWS || 100);
-const MAX_FILE_SIZE_BYTES = Number(process.env.BULK_IMPORT_MAX_FILE_SIZE_MB || 2) * 1024 * 1024;
+const MAX_FILE_SIZE_BYTES =
+  Number(process.env.BULK_IMPORT_MAX_FILE_SIZE_MB || 2) * 1024 * 1024;
 const PREVIEW_TOKEN_TTL_MS = 30 * 60 * 1000; // 30 phút
 const JOB_TTL_MS = 24 * 60 * 60 * 1000; // 24h
 
@@ -65,7 +66,12 @@ export class BulkImportService {
    * Admin có thể edit rows trong UI rồi POST confirm với previewToken.
    */
   async previewUpload(
-    file: { buffer: Buffer; originalname: string; size: number; mimetype: string },
+    file: {
+      buffer: Buffer;
+      originalname: string;
+      size: number;
+      mimetype: string;
+    },
     actorId: string,
   ): Promise<PreviewResult> {
     if (file.size > MAX_FILE_SIZE_BYTES) {
@@ -84,8 +90,15 @@ export class BulkImportService {
     // Magic-byte validation cho xlsx (= ZIP magic 50 4B 03 04)
     if (isXlsx) {
       const magic = file.buffer.subarray(0, 4);
-      if (magic[0] !== 0x50 || magic[1] !== 0x4b || magic[2] !== 0x03 || magic[3] !== 0x04) {
-        throw new BadRequestException('File xlsx không hợp lệ (magic byte mismatch).');
+      if (
+        magic[0] !== 0x50 ||
+        magic[1] !== 0x4b ||
+        magic[2] !== 0x03 ||
+        magic[3] !== 0x04
+      ) {
+        throw new BadRequestException(
+          'File xlsx không hợp lệ (magic byte mismatch).',
+        );
       }
     }
 
@@ -103,7 +116,10 @@ export class BulkImportService {
     // Save original file → temp dir cho confirm bước sau
     await fs.mkdir(TEMP_DIR, { recursive: true });
     const previewToken = crypto.randomUUID();
-    const tempFilePath = path.join(TEMP_DIR, `${previewToken}.${isXlsx ? 'xlsx' : 'csv'}`);
+    const tempFilePath = path.join(
+      TEMP_DIR,
+      `${previewToken}.${isXlsx ? 'xlsx' : 'csv'}`,
+    );
     await fs.writeFile(tempFilePath, file.buffer, { mode: 0o600 });
 
     // Validate rows + enrich với roleId/departmentId
@@ -155,11 +171,17 @@ export class BulkImportService {
         })
       : [];
     const existingUsernames = new Set(existingUsers.map((u) => u.username));
-    const existingEmails = new Set(existingUsers.map((u) => u.email).filter(Boolean));
-    const existingWorkIds = new Set(existingUsers.map((u) => u.workId).filter(Boolean));
+    const existingEmails = new Set(
+      existingUsers.map((u) => u.email).filter(Boolean),
+    );
+    const existingWorkIds = new Set(
+      existingUsers.map((u) => u.workId).filter(Boolean),
+    );
 
     // Resolve role + department names
-    const roles = await this.prisma.role.findMany({ select: { id: true, name: true } });
+    const roles = await this.prisma.role.findMany({
+      select: { id: true, name: true },
+    });
     const roleNameMap = new Map(roles.map((r) => [r.name.toLowerCase(), r.id]));
     const defaultRoleId =
       roles.find((r) => r.name === ROLE_NAMES.INVESTIGATOR)?.id ?? roles[0]?.id;
@@ -168,7 +190,9 @@ export class BulkImportService {
       where: { type: 'DEPARTMENT' },
       select: { id: true, name: true },
     });
-    const deptNameMap = new Map(departments.map((d) => [d.name.toLowerCase(), d.id]));
+    const deptNameMap = new Map(
+      departments.map((d) => [d.name.toLowerCase(), d.id]),
+    );
 
     // Cross-batch dup tracking
     const seenUsernames = new Set<string>();
@@ -199,13 +223,17 @@ export class BulkImportService {
         errors.push('Thiếu username (tài khoản đăng nhập)');
       } else {
         if (!/^[a-z0-9_]{3,20}$/.test(raw.username)) {
-          errors.push(`Username "${raw.username}" sai định dạng (3-20 ký tự chữ thường + số + _)`);
+          errors.push(
+            `Username "${raw.username}" sai định dạng (3-20 ký tự chữ thường + số + _)`,
+          );
         }
         if (existingUsernames.has(raw.username)) {
           errors.push(`Username "${raw.username}" đã tồn tại trong DB`);
         }
         if (seenUsernames.has(raw.username)) {
-          errors.push(`Username "${raw.username}" trùng với dòng khác trong file`);
+          errors.push(
+            `Username "${raw.username}" trùng với dòng khác trong file`,
+          );
         } else {
           seenUsernames.add(raw.username);
         }
@@ -238,7 +266,9 @@ export class BulkImportService {
       if (raw.roleName) {
         roleId = roleNameMap.get(raw.roleName.toLowerCase()) ?? null;
         if (!roleId) {
-          warnings.push(`Vai trò "${raw.roleName}" không tồn tại — dùng mặc định OFFICER`);
+          warnings.push(
+            `Vai trò "${raw.roleName}" không tồn tại — dùng mặc định OFFICER`,
+          );
           roleId = defaultRoleId ?? null;
         }
       } else {
@@ -251,9 +281,12 @@ export class BulkImportService {
       // Resolve department (optional)
       let departmentId: string | null = null;
       if (raw.departmentName) {
-        departmentId = deptNameMap.get(raw.departmentName.toLowerCase()) ?? null;
+        departmentId =
+          deptNameMap.get(raw.departmentName.toLowerCase()) ?? null;
         if (!departmentId) {
-          warnings.push(`Đơn vị "${raw.departmentName}" không tồn tại — bỏ qua`);
+          warnings.push(
+            `Đơn vị "${raw.departmentName}" không tồn tại — bỏ qua`,
+          );
         }
       }
 
@@ -316,7 +349,9 @@ export class BulkImportService {
   }
 
   async getJob(jobId: string, actorId: string, isAdmin: boolean) {
-    const job = await this.prisma.bulkImportJob.findUnique({ where: { id: jobId } });
+    const job = await this.prisma.bulkImportJob.findUnique({
+      where: { id: jobId },
+    });
     if (!job) throw new NotFoundException('Job không tồn tại');
     // IDOR fix: only generator can read job. Admin role không bypass (E6).
     if (job.generatedBy !== actorId && !isAdmin) {

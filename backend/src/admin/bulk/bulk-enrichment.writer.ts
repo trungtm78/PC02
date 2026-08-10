@@ -40,7 +40,11 @@ export async function buildEnrichedFile(
   let dataSheet: ExcelJS.Worksheet | null = null;
   for (const ws of wb.worksheets) {
     const name = ws.name.toLowerCase();
-    if (name.includes('hướng dẫn') || name.includes('huong dan') || name.includes('instruction'))
+    if (
+      name.includes('hướng dẫn') ||
+      name.includes('huong dan') ||
+      name.includes('instruction')
+    )
       continue;
     dataSheet = ws;
     break;
@@ -72,9 +76,14 @@ export async function buildEnrichedFile(
     } else if (outcome.enrollmentUrl) {
       row.getCell(linkCol).value = sanitizeForExcel(outcome.enrollmentUrl);
       const expiry =
-        outcome.expiresAt instanceof Date ? outcome.expiresAt : new Date(outcome.expiresAt ?? Date.now());
+        outcome.expiresAt instanceof Date
+          ? outcome.expiresAt
+          : new Date(outcome.expiresAt ?? Date.now());
       row.getCell(expiryCol).value = sanitizeForExcel(
-        expiry.toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' }),
+        expiry.toLocaleString('vi-VN', {
+          dateStyle: 'short',
+          timeStyle: 'short',
+        }),
       );
     }
     row.commit();

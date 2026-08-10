@@ -31,7 +31,8 @@ import { BulkImportService } from './bulk-import.service';
 import { BulkImportProcessor } from './bulk-import.processor';
 import { BulkImportConfirmDto } from '../dto/bulk-import.dto';
 
-const MAX_FILE_SIZE_BYTES = Number(process.env.BULK_IMPORT_MAX_FILE_SIZE_MB || 2) * 1024 * 1024;
+const MAX_FILE_SIZE_BYTES =
+  Number(process.env.BULK_IMPORT_MAX_FILE_SIZE_MB || 2) * 1024 * 1024;
 
 @Controller('admin/users/bulk-import')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -56,7 +57,8 @@ export class BulkImportController {
     @UploadedFile() file: Express.Multer.File | undefined,
     @CurrentUser() user: AuthUser,
   ) {
-    if (!file) throw new BadRequestException('Thiếu file upload (field "file")');
+    if (!file)
+      throw new BadRequestException('Thiếu file upload (field "file")');
     return this.bulkService.previewUpload(file, user.id);
   }
 
@@ -64,10 +66,17 @@ export class BulkImportController {
   @HttpCode(HttpStatus.ACCEPTED)
   @RequirePermissions({ action: 'write', subject: 'User' })
   @Throttle({ default: { ttl: 60000, limit: 5 } })
-  async confirm(@Body() dto: BulkImportConfirmDto, @CurrentUser() user: AuthUser) {
-    const originalBuffer = await this.bulkService.loadOriginalFile(dto.previewToken);
+  async confirm(
+    @Body() dto: BulkImportConfirmDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    const originalBuffer = await this.bulkService.loadOriginalFile(
+      dto.previewToken,
+    );
     if (!originalBuffer) {
-      throw new NotFoundException('Preview token hết hạn hoặc không tồn tại. Vui lòng upload lại.');
+      throw new NotFoundException(
+        'Preview token hết hạn hoặc không tồn tại. Vui lòng upload lại.',
+      );
     }
 
     const sha256 = this.bulkService.computeSha256(originalBuffer);
@@ -174,7 +183,9 @@ export class BulkJobsController {
     // IDOR fix per autoplan E6: ONLY generator can download. Admin role no bypass.
     const job = await this.bulkService.getJob(jobId, user.id, false);
     if (!job.enrichedFilePath) {
-      throw new NotFoundException('File chưa sẵn sàng. Job đang xử lý hoặc đã hết hạn.');
+      throw new NotFoundException(
+        'File chưa sẵn sàng. Job đang xử lý hoặc đã hết hạn.',
+      );
     }
 
     let buffer: Buffer;
@@ -291,15 +302,25 @@ export class BulkImportTemplateController {
     guide.addRow(['HƯỚNG DẪN IMPORT USER']);
     guide.addRow(['']);
     guide.addRow(['1. Điền danh sách cán bộ vào sheet "Danh sách"']);
-    guide.addRow(['2. Bắt buộc: Username + ít nhất 1 trong (Số hiệu / SĐT / Email)']);
-    guide.addRow(['3. Vai trò: OFFICER, INVESTIGATOR, TEAM_LEADER, ADMIN (theo seed)']);
-    guide.addRow(['4. Upload file → preview → confirm → tải file Excel có link đăng ký']);
-    guide.addRow(['5. Link hết hạn sau 72h — copy paste vào Zalo/SMS gửi cán bộ ngay']);
+    guide.addRow([
+      '2. Bắt buộc: Username + ít nhất 1 trong (Số hiệu / SĐT / Email)',
+    ]);
+    guide.addRow([
+      '3. Vai trò: OFFICER, INVESTIGATOR, TEAM_LEADER, ADMIN (theo seed)',
+    ]);
+    guide.addRow([
+      '4. Upload file → preview → confirm → tải file Excel có link đăng ký',
+    ]);
+    guide.addRow([
+      '5. Link hết hạn sau 72h — copy paste vào Zalo/SMS gửi cán bộ ngay',
+    ]);
 
     const buffer = Buffer.from(await wb.xlsx.writeBuffer());
     res.set({
-      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'Content-Disposition': 'attachment; filename="pc02-user-import-template.xlsx"',
+      'Content-Type':
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition':
+        'attachment; filename="pc02-user-import-template.xlsx"',
       'Content-Length': buffer.length.toString(),
     });
     res.send(buffer);

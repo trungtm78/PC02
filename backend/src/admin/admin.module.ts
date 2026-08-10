@@ -15,7 +15,12 @@ import {
 
 @Module({
   imports: [AuditModule, TeamsModule, forwardRef(() => AuthModule)],
-  providers: [AdminService, BulkImportService, BulkImportProcessor, EnrollmentPdfService],
+  providers: [
+    AdminService,
+    BulkImportService,
+    BulkImportProcessor,
+    EnrollmentPdfService,
+  ],
   controllers: [
     AdminController,
     BulkImportController,

@@ -27,6 +27,7 @@ import {
 import { QueryUsersDto } from './dto/query-users.dto';
 import { CreateDataGrantDto } from './dto/create-data-grant.dto';
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
+import { CreateRoleDto } from './dto/create-role.dto';
 @Controller('admin')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class AdminController {
@@ -97,6 +98,13 @@ export class AdminController {
   @RequirePermissions({ action: 'read', subject: 'User' })
   getRoleById(@Param('id') id: string) {
     return this.adminService.getRoleById(id);
+  }
+
+  @Post('roles')
+  @HttpCode(HttpStatus.CREATED)
+  @RequirePermissions({ action: 'write', subject: 'User' })
+  createRole(@Body() dto: CreateRoleDto, @CurrentUser() user: AuthUser) {
+    return this.adminService.createRole(dto, user.id);
   }
 
   @Patch('roles/:id')

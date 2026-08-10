@@ -53,7 +53,14 @@ export class BulkImportProcessor {
     generatePdfs: boolean,
   ): void {
     this.queue.push(() =>
-      this.processJob(jobId, rows, actorId, originalFilePath, originalFormat, generatePdfs),
+      this.processJob(
+        jobId,
+        rows,
+        actorId,
+        originalFilePath,
+        originalFormat,
+        generatePdfs,
+      ),
     );
     this.tick();
   }
@@ -100,7 +107,13 @@ export class BulkImportProcessor {
           error: row.errors.join('; '),
         });
         errorCount++;
-        await this.updateProgress(jobId, i + 1, successCount, errorCount, outcomes);
+        await this.updateProgress(
+          jobId,
+          i + 1,
+          successCount,
+          errorCount,
+          outcomes,
+        );
         continue;
       }
       try {
@@ -132,17 +145,28 @@ export class BulkImportProcessor {
         });
         successCount++;
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Lỗi không xác định';
+        const message =
+          err instanceof Error ? err.message : 'Lỗi không xác định';
         outcomes.push({ rowIndex: row.rowIndex, error: message });
         errorCount++;
       }
-      await this.updateProgress(jobId, i + 1, successCount, errorCount, outcomes);
+      await this.updateProgress(
+        jobId,
+        i + 1,
+        successCount,
+        errorCount,
+        outcomes,
+      );
     }
 
     // Gen enriched file
     try {
       const originalBuffer = await fs.readFile(originalFilePath);
-      const enrichedBuffer = await buildEnrichedFile(originalBuffer, outcomes, originalFormat);
+      const enrichedBuffer = await buildEnrichedFile(
+        originalBuffer,
+        outcomes,
+        originalFormat,
+      );
       const enrichedPath = path.join(
         TEMP_DIR,
         `${jobId}-enriched.${originalFormat}`,
@@ -153,7 +177,10 @@ export class BulkImportProcessor {
         data: { enrichedFilePath: enrichedPath, originalFilePath },
       });
     } catch (err) {
-      this.logger.error(`Enriched file gen failed jobId=${jobId}`, err as Error);
+      this.logger.error(
+        `Enriched file gen failed jobId=${jobId}`,
+        err as Error,
+      );
     }
 
     // Gen PDF ZIP (optional, blocking but acceptable)
@@ -226,9 +253,10 @@ export class BulkImportProcessor {
           phone: row.phone,
           departmentName: row.departmentName,
           enrollmentUrl: outcome.enrollmentUrl,
-          expiresAt: outcome.expiresAt instanceof Date
-            ? outcome.expiresAt
-            : new Date(outcome.expiresAt ?? Date.now()),
+          expiresAt:
+            outcome.expiresAt instanceof Date
+              ? outcome.expiresAt
+              : new Date(outcome.expiresAt ?? Date.now()),
         });
         const safeName = (row.fullName ?? row.username ?? `row-${row.rowIndex}`)
           .replace(/[^a-zA-Z0-9À-ỹ\s_-]/g, '')
