@@ -24,15 +24,22 @@ interface OtherCase {
   stt: number;
   caseName: string;
   type: string;
-  location: string;
   ward: string;
   district: string;
   reportedBy: string;
+  /** dd/MM/yyyy — chỉ để hiển thị. */
   reportedDate: string;
+  /**
+   * yyyy-MM-dd, dùng cho bộ lọc.
+   *
+   * Bộ lọc trước so `reportedDate` (dd/MM/yyyy) với giá trị của <input
+   * type="date"> (yyyy-MM-dd) bằng phép so chuỗi, nên nó chưa bao giờ lọc
+   * đúng — "10/08/2026" < "2026-08-01" là true vì '1' < '2'.
+   */
+  reportedDateISO: string;
   status: "pending" | "processing" | "resolved" | "archived";
   statusLabel: string;
   category: string;
-  notes: string;
 }
 
 interface FilterData {
@@ -45,14 +52,6 @@ interface FilterData {
   category: string;
 }
 
-const categories = [
-  "Chưa phân loại",
-  "Vụ án hình sự",
-  "Vụ việc dân sự",
-  "Đơn thư khiếu nại",
-  "Hồ sơ lưu trữ",
-  "Khác",
-];
 
 export default function OtherClassificationPage() {
   const navigate = useNavigate();
@@ -82,11 +81,15 @@ export default function OtherClassificationPage() {
           stt: i + 1,
           caseName: c.name,
           type: c.crime ?? "Khác",
-          location: "",
-          ward: "",
+          // Nguồn địa điểm là metadata.ward, khớp với reports.service.ts —
+          // trước đây hai trường này cứng bằng chuỗi rỗng, nên ô lọc "Phường"
+          // và phần tìm theo phường không bao giờ khớp được gì.
+          ward: (c.metadata?.ward as string | undefined) ?? "",
           district: c.unit ?? "",
           reportedBy: c.investigator ? `${c.investigator.firstName ?? ""} ${c.investigator.lastName ?? ""}`.trim() : "",
           reportedDate: formatVNDate(c.createdAt),
+          reportedDateISO:
+            typeof c.createdAt === "string" ? c.createdAt.slice(0, 10) : "",
           status: (() => {
             const m: Record<string, string> = {
               [CaseStatus.TIEP_NHAN]: "pending",
@@ -99,7 +102,6 @@ export default function OtherClassificationPage() {
           })() as OtherCase["status"],
           statusLabel: CASE_STATUS_LABEL[c.status as CaseStatus] ?? c.status ?? "",
           category: c.crime ?? "Khác",
-          notes: "",
         }));
         setAllData(mapped);
       } catch {
@@ -110,6 +112,18 @@ export default function OtherClassificationPage() {
     };
     fetch();
   }, []);
+
+  // Danh mục suy ra từ chính dữ liệu đang có. Danh sách cứng trước đây là một
+  // phân loại khác hẳn ("Vụ án hình sự", "Đơn thư khiếu nại"…) trong khi
+  // `category` được map từ `c.crime` — nên ô lọc này chưa bao giờ khớp giá trị
+  // nào, giống hệt bộ lọc phường và bộ lọc ngày.
+  const categories = useMemo(
+    () =>
+      [...new Set(allData.map((d) => d.category).filter(Boolean))].sort((a, b) =>
+        a.localeCompare(b, "vi"),
+      ),
+    [allData],
+  );
 
   const filteredData = useMemo(() => {
     return allData.filter((item) => {
@@ -123,8 +137,10 @@ export default function OtherClassificationPage() {
         if (!matchesSearch) return false;
       }
 
-      if (filters.fromDate && item.reportedDate < filters.fromDate) return false;
-      if (filters.toDate && item.reportedDate > filters.toDate) return false;
+      // So trên chuỗi ISO, không phải chuỗi đã format hiển thị.
+      if (filters.fromDate && item.reportedDateISO < filters.fromDate)
+        return false;
+      if (filters.toDate && item.reportedDateISO > filters.toDate) return false;
       if (filters.ward && item.ward !== filters.ward) return false;
       if (filters.district && item.district !== filters.district) return false;
       if (filters.status && item.status !== filters.status) return false;

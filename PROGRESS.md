@@ -39,6 +39,18 @@ Cập nhật: 2026-08-10T03:15:00+07:00 | Milestone: M1/5 | Task: 0/5 của M1
 
 ## Đang làm dở
 
+Task: M3-T3 — PR-C8 `fix/other-classification-real-fields` (**code xong, chờ `/codex`**)
+Đã làm: `OtherClassificationPage` có **ba** bộ lọc không bao giờ khớp được gì:
+- **Lọc ngày** so `reportedDate` (đã format `dd/MM/yyyy` để hiển thị) với giá trị `<input type="date">` (`yyyy-MM-dd`) bằng phép so chuỗi. `"10/08/2026" < "2026-08-01"` là **true** vì `'1' < '2'` ⇒ đặt "từ ngày" loại sạch mọi dòng, đặt "đến ngày" không loại gì. Thêm `reportedDateISO` riêng cho việc lọc.
+- **Lọc phường**: `ward` được gán cứng `""` cho mọi dòng ⇒ ô lọc và nửa "tìm theo phường" của ô tìm kiếm không khớp được gì. Nay lấy từ `metadata.ward`, khớp nguồn mà `reports.service.ts` đang dùng.
+- **Lọc danh mục**: danh sách cứng là một phân loại **khác hẳn** ("Vụ án hình sự", "Đơn thư khiếu nại"…) trong khi `category` map từ `c.crime` ⇒ cũng không khớp. Nay suy ra từ chính dữ liệu đang có.
+Bỏ `location`/`notes` — luôn rỗng, không nơi nào dùng.
+Test: 9 test cho quy tắc so sánh, gồm một test **neo hồi quy** khẳng định phép so cũ sai đúng ở đâu.
+Kiểm: FE **157 file / 1521 test** PASS, tsc sạch, 3 cổng xanh.
+**BƯỚC TIẾP THEO:** `/codex` cho PR-C8, rồi C12 (các nút chết).
+
+---
+
 Task: M3-T2 — PR-C2 `fix/proposal-false-success` (**code xong, chờ `/codex`**)
 Đã làm: `ProsecutorProposalPage` là ví dụ rõ nhất của "báo thành công khi hỏng" — khối `catch` hiện **đúng thông báo thành công** như nhánh thành công rồi đóng hộp thoại. Cộng với `relatedCaseId` mang **mã vụ án người dùng gõ** vào một khóa ngoại (luôn P2003), chức năng này **chưa từng ghi được một dòng nào** mà lần nào cũng báo thành công.
 - Ô nhập tự do → `FKSelection` nạp vụ án thật, gửi **id**.
@@ -341,7 +353,7 @@ Tự phát hiện thêm: 3 file test mới của chính tôi bị baseline hoá 
 
 Full suite: **PASS**
 - Backend: 226 suite / **3078** test — PASS (xem ND-9: 1 suite flaky ~1/6 lần, có sẵn từ trước)
-- Frontend: 156 file / **1512** test — PASS (3 lần chạy liên tiếp ổn định)
+- Frontend: 157 file / **1521** test — PASS (3 lần chạy liên tiếp ổn định)
 - Cổng governance: enum guard ✅ · gen:enums drift ✅ · lint ratchet ✅ (baseline 8.945 sau ADR-0015)
 - `tsc --noEmit` (BE): sạch · `tsc -b` (FE): sạch
 - eslint: không có lỗi mới trên dòng đã thêm (nợ lint có sẵn xem ND-1)
