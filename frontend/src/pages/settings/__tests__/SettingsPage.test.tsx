@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router';
+// react-router-dom, not react-router: the app imports from the former
+// everywhere (93 files), and mixing the two gives the tree two router
+// instances, so <Link> finds a null context and every test here fails.
+import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import SettingsPage from '../SettingsPage';
 import { api } from '@/lib/api';
@@ -72,27 +75,43 @@ describe('SettingsPage', () => {
 
   it('should render all menu items in sidebar', () => {
     renderWithRouter(<SettingsPage />);
-    
-    const menuItems = ['NgườI dùng', 'Phân quyền', 'Danh mục', 'Tham số', 'Thông báo', 'Bảo mật'];
-    menuItems.forEach(item => {
+
+    const menuItems = ['Danh mục', 'Thông báo', 'Bảo mật'];
+    menuItems.forEach((item) => {
       expect(screen.getByText(item)).toBeInTheDocument();
     });
   });
 
-  it('should display user management module by default', () => {
+  // Three tabs here were mockups: a button that navigated away, four invented
+  // roles that are not the real ROLE_NAMES and saved nowhere, and five
+  // hardcoded parameter values with no endpoint behind them. They are gone,
+  // and the sidebar points at the screens that actually do the job.
+  it('no longer offers the mock Phân quyền and Tham số tabs', () => {
     renderWithRouter(<SettingsPage />);
-    
-    expect(screen.getByText('Quản lý ngườI dùng')).toBeInTheDocument();
+
+    expect(screen.queryByTestId('settings-menu-permissions')).toBeNull();
+    expect(screen.queryByTestId('settings-menu-parameters')).toBeNull();
+    expect(screen.queryByTestId('settings-menu-users')).toBeNull();
   });
 
-  it('should switch to permissions module when clicking menu', async () => {
+  it('links to the real user and system-parameter screens instead', () => {
     renderWithRouter(<SettingsPage />);
-    
-    fireEvent.click(screen.getByTestId('settings-menu-permissions'));
-    
-    await waitFor(() => {
-      expect(screen.getByText('Phân quyền hệ thống')).toBeInTheDocument();
-    });
+
+    expect(screen.getByTestId('settings-link-users')).toHaveAttribute(
+      'href',
+      '/nguoi-dung',
+    );
+    expect(screen.getByTestId('settings-link-admin')).toHaveAttribute(
+      'href',
+      '/admin/settings',
+    );
+  });
+
+  it('has no mojibake left in the sidebar', () => {
+    // The removed tabs carried "NgườI dùng" / "ThờI gian" — a broken
+    // lower-case i that also made the strings unsearchable.
+    renderWithRouter(<SettingsPage />);
+    expect(document.body.textContent).not.toMatch(/ườI|ờI |ốI |ạI /);
   });
 
   it('should switch to directories module when clicking menu', async () => {
@@ -102,16 +121,6 @@ describe('SettingsPage', () => {
     
     await waitFor(() => {
       expect(screen.getByText('Danh mục hệ thống')).toBeInTheDocument();
-    });
-  });
-
-  it('should switch to parameters module when clicking menu', async () => {
-    renderWithRouter(<SettingsPage />);
-    
-    fireEvent.click(screen.getByTestId('settings-menu-parameters'));
-    
-    await waitFor(() => {
-      expect(screen.getByText('Tham số hệ thống')).toBeInTheDocument();
     });
   });
 
@@ -135,33 +144,6 @@ describe('SettingsPage', () => {
     });
   });
 
-  it('should render user management table with correct headers', () => {
-    renderWithRouter(<SettingsPage />);
-    
-    const headers = ['Tên', 'Email', 'Vai trò', 'Trạng thái', 'Thao tác'];
-    headers.forEach(header => {
-      expect(screen.getByText(header)).toBeInTheDocument();
-    });
-  });
-
-  it('should render navigate-to-users button in user management', () => {
-    renderWithRouter(<SettingsPage />);
-    expect(screen.getByText('Đến trang Quản lý người dùng')).toBeInTheDocument();
-  });
-
-  it('should render role selector in permissions module', async () => {
-    renderWithRouter(<SettingsPage />);
-    
-    fireEvent.click(screen.getByTestId('settings-menu-permissions'));
-    
-    await waitFor(() => {
-      // Check for role options in select
-      expect(screen.getByText('Quản trị viên')).toBeInTheDocument();
-      expect(screen.getByText('Điều tra viên')).toBeInTheDocument();
-      expect(screen.getByText('Thư ký')).toBeInTheDocument();
-    });
-  });
-
   it('should render directories with counts', async () => {
     renderWithRouter(<SettingsPage />);
 
@@ -176,18 +158,6 @@ describe('SettingsPage', () => {
       // CRIME type: count=12 → "12 mục"; INCIDENT_TYPE → "Loại vụ việc"
       expect(screen.getByText('12 mục')).toBeInTheDocument();
       expect(screen.getByText('Loại vụ việc')).toBeInTheDocument();
-    });
-  });
-
-  it('should render parameters with input fields', async () => {
-    renderWithRouter(<SettingsPage />);
-    
-    fireEvent.click(screen.getByTestId('settings-menu-parameters'));
-    
-    await waitFor(() => {
-      expect(screen.getByText('Kích thước file tối đa')).toBeInTheDocument();
-      expect(screen.getByText('ThờI gian hết phiên (phút)')).toBeInTheDocument();
-      expect(screen.getByText('Số mục mỗi trang')).toBeInTheDocument();
     });
   });
 

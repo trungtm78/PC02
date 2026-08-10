@@ -39,6 +39,19 @@ Cập nhật: 2026-08-10T03:15:00+07:00 | Milestone: M1/5 | Task: 0/5 của M1
 
 ## Đang làm dở
 
+Task: M3-T1 — PR-C1 `refactor/settings-remove-mock-modules` (**code xong, chờ `/codex`**)
+Đã làm: xoá 3 tab mockup khỏi `SettingsPage`:
+- **Người dùng** — chỉ là một nút điều hướng sang `/nguoi-dung`.
+- **Phân quyền** — liệt kê 4 vai trò **bịa** (`admin/investigator/secretary/viewer`), không phải `ROLE_NAMES` thật, và không lưu đi đâu cả.
+- **Tham số** — 5 giá trị cứng (`max_file_size`, `session_timeout`, …) không có endpoint nào phía sau.
+Thay bằng khối "Quản trị (trang riêng)" ở cuối sidebar với 2 link thật (`/nguoi-dung`, `/admin/settings`). Sửa mojibake `ngườI`/`ThờI`/`NgườI` + thêm test chặn nó quay lại.
+**Bug có sẵn phát hiện được:** `SettingsPage.test.tsx` bọc `MemoryRouter` từ `react-router` trong khi app dùng `react-router-dom` ở **93** file. Hai instance router khác nhau ⇒ `<Link>` đầu tiên thêm vào là toàn bộ 15 test đỏ với `Cannot destructure property 'basename'`. Đã sửa test cho khớp app.
+Test: xoá 7 test vốn khẳng định đúng hành vi mockup, thêm 4 test cho hành vi mới (không còn tab mock, có link thật, hết mojibake).
+Kiểm: BE **226 suite / 3078 test** PASS, FE **155 file / 1510 test** PASS, tsc sạch, 3 cổng xanh.
+**BƯỚC TIẾP THEO:** `/codex` cho PR-C1, rồi C2 (`fix/proposal-false-success`).
+
+---
+
 Task: M2-T2 — PR-B2 `feat/feature-flags-admin-page` (**xong — qua `/codex`**; M2 đóng)
 Đã làm:
 - Module FE mới `features/feature-flags/` + trang `/admin/tinh-nang`. Nhóm theo `domain`; **domain lạ rơi vào nhóm "Khác" chứ không bị lọc mất** — lọc đi là giấu một tính năng đang chạy khỏi đúng màn hình duy nhất tắt được nó (có test).
@@ -317,7 +330,7 @@ Tự phát hiện thêm: 3 file test mới của chính tôi bị baseline hoá 
 
 Full suite: **PASS**
 - Backend: 226 suite / **3078** test — PASS (xem ND-9: 1 suite flaky ~1/6 lần, có sẵn từ trước)
-- Frontend: 155 file / **1514** test — PASS (3 lần chạy liên tiếp ổn định)
+- Frontend: 155 file / **1510** test — PASS (3 lần chạy liên tiếp ổn định)
 - Cổng governance: enum guard ✅ · gen:enums drift ✅ · lint ratchet ✅ (baseline 8.945 sau ADR-0015)
 - `tsc --noEmit` (BE): sạch · `tsc -b` (FE): sạch
 - eslint: không có lỗi mới trên dòng đã thêm (nợ lint có sẵn xem ND-1)
