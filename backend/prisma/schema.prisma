@@ -190,6 +190,9 @@ model User {
   recordReturnsMade    RecordReturn[] @relation("RecordReturnedBy")
   recordReturnReverts  RecordReturn[] @relation("RecordReturnRevertedBy")
 
+  // D7/D8 — lịch sử xuất báo cáo.
+  reportExports ReportExportLog[] @relation("ReportExportedBy")
+
 }
 
 // Magic link enrollment audit (post-/autoplan).
@@ -2808,4 +2811,48 @@ model RecordReturn {
   @@index([returnType])
   @@index([bulkOperationId])
   @@map("record_returns")
+}
+
+/// Ai đã xuất báo cáo nào, lúc nào, cho kỳ nào, bao nhiêu dòng.
+///
+/// D7/D8 — trước đây xuất Phụ lục là một hành động không để lại dấu vết nào:
+/// file rời khỏi hệ thống và không ai biết nó đã rời đi. Với số liệu tố tụng,
+/// "ai cầm bản này" là câu hỏi có thật.
+///
+/// KHÔNG có checksum. Bộ xuất ghi thẳng ra `res` bằng streaming writer, đúng
+/// như thiết kế: gom cả file vào bộ nhớ để băm là mở lại đúng rủi ro OOM mà kế
+/// hoạch đã cảnh báo với bộ dữ liệu lớn. Ghi lại "ai, gì, khi nào, bao nhiêu
+/// dòng" là thứ trả lời được câu hỏi thực tế, mà không đánh đổi bằng bộ nhớ.
+model ReportExportLog {
+  id String @id @default(cuid())
+
+  /// Loại báo cáo: `PHU_LUC_1`..`PHU_LUC_6`, `TDAC`, `MONTHLY`...
+  reportType String
+
+  /// Phạm vi kỳ báo cáo, nếu báo cáo có kỳ.
+  periodStart DateTime?
+  periodEnd   DateTime?
+
+  /// Số dòng dữ liệu đã ghi ra file.
+  rowCount Int @default(0)
+
+  /// Tên file đã trả về, để đối chiếu với bản người dùng đang giữ.
+  fileName String
+
+  /// Kết quả: bắt đầu ghi rồi hỏng giữa chừng vẫn là một lần dữ liệu rời hệ
+  /// thống một phần — phải phân biệt được với một lần xuất trọn vẹn.
+  succeeded Boolean @default(true)
+  errorText String?
+
+  exportedById String?
+  exportedBy   User?   @relation("ReportExportedBy", fields: [exportedById], references: [id], onDelete: SetNull)
+
+  ipAddress String?
+  userAgent String?
+
+  createdAt DateTime @default(now())
+
+  @@index([reportType, createdAt(sort: Desc)])
+  @@index([exportedById])
+  @@map("report_export_logs")
 }

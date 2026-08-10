@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useCallback } from "react";
 import { BulkOperationsPanel } from './BulkOperationsPanel';
+import { ExportHistoryPanel } from './ExportHistoryPanel';
 import { api } from "@/lib/api";
 import { getRoleLabel } from "@/shared/enums/role-labels";
 import { getAuditActionLabel } from "@/shared/enums/audit-action-labels";
@@ -135,7 +136,7 @@ export function auditLogToEntry(log: any): LogEntry {
 }
 
 export default function ActivityLogPage() {
-  const [tab, setTab] = useState<'logs' | 'bulk'>('logs');
+  const [tab, setTab] = useState<'logs' | 'bulk' | 'exports'>('logs');
   const [showAdvancedFilter, setShowAdvancedFilter] = useState(false);
   const [showDetailDrawer, setShowDetailDrawer] = useState(false);
   const [selectedLog, setSelectedLog] = useState<LogEntry | null>(null);
@@ -302,6 +303,7 @@ export default function ActivityLogPage() {
         {([
           ['logs', 'Nhật ký từng thao tác'],
           ['bulk', 'Thao tác hàng loạt'],
+          ['exports', 'Lịch sử xuất báo cáo'],
         ] as const).map(([key, label]) => (
           <button
             key={key}
@@ -322,6 +324,8 @@ export default function ActivityLogPage() {
 
       {tab === 'bulk' ? (
         <BulkOperationsPanel />
+      ) : tab === 'exports' ? (
+        <ExportHistoryPanel />
       ) : (
       <>
 
