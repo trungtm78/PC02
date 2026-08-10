@@ -37,7 +37,7 @@ Cập nhật: 2026-08-10T03:15:00+07:00 | Milestone: M1/5 | Task: 0/5 của M1
 
 ## Đang làm dở
 
-Task: M1-T1 — PR-D1 `feat/evidences-lifecycle` (**code + sửa review xong, chờ `/codex`**)
+Task: M1-T1 — PR-D1 `feat/evidences-lifecycle` (**xong — qua `/review` và `/codex`**)
 Đã làm: module `backend/src/evidences/` CRUD + soft-delete + restore, tab "Vật chứng" ở trang chi tiết vụ án, `cases.getById()` include evidences (**không** include ở `getList` — N+1, có comment cảnh báo tại chỗ), constants `EVIDENCE_STATUS` 2 phía (`Evidence.status` là `String`, **không** phải Prisma enum nên `gen:enums` không sinh), permission Evidence + runner seed chạy trong `deploy.sh`.
 Kiểm: BE **223 suite / 2985 test** PASS, FE **152 file / 1485 test** PASS, `tsc --noEmit` + `tsc -b` sạch, 3 cổng governance xanh.
 **BƯỚC TIẾP THEO:** chạy `/codex` cho PR-D1 theo §4, rồi commit. Sau đó M1-T2 (PR-A2) — D1 đã lên nên A2 không còn cắt đường nhập vật chứng.
@@ -54,6 +54,24 @@ Bảy cái, đều **do tôi gây ra** trong chính PR này:
 7. `makeReq()`/`mockUser` trả `any` ⇒ lây `no-unsafe-*` sang mọi spec controller gọi chúng. Đổi sang `ScopedRequest`/`AuthUser` thật.
 
 Kèm quyết định governance: **ADR-0015** — tắt họ `no-unsafe-*` cho file test. Lý do: `@types/jest` khai `expect.objectContaining()` trả `any`, nên rule bắn vì cú pháp matcher chuẩn chứ không vì test viết ẩu; né rule đồng nghĩa với viết assertion yếu hơn. Mã sản phẩm giữ nguyên toàn bộ rule. Baseline ratchet 11.507 → **8.945**.
+
+### Finding đã xử lý ở checkpoint `/codex` PR-D1
+
+Codex CLI treo 2 lần ở `codex review` (diff `main...HEAD` = 402KB/79 file vì chưa PR nào merge). Chạy được bằng cách thu hẹp về đúng diff PR-D1 và đưa prompt qua **stdin** (`codex exec -`) — truyền 120KB qua argv thì Windows trả `Argument list too long`. Ghi lại vì sẽ gặp lại ở mọi checkpoint sau.
+
+Kết quả: 6×[P1] + 2×[P2]. Sáu cái sửa trong vòng này:
+
+1. **[P1] Quyền của OFFICER vẫn không tới production.** Runner chỉ cấp cho ADMIN; grant OFFICER nằm trong `seed.ts` mà deploy không chạy. Tức là tôi mới sửa được nửa lỗi ở vòng trước — module 403 với đúng những người nó phục vụ. Thêm `DEFAULT_ROLE_GRANTS` khai báo được, runner áp **chỉ cho permission nó vừa tạo** trong lần chạy đó, nên admin đã chủ động thu hồi quyền nào thì lần deploy sau không âm thầm cấp lại.
+2. **[P1] Vụ án đã xóa mềm không kéo theo vật chứng.** List/detail/restore chưa hề kiểm `case.deletedAt` ⇒ xóa vụ án xong vật chứng vẫn đọc/sửa được, và khôi phục sinh ra con sống dưới cha đã xóa. Thêm `LIVE_CASE` vào cả 4 đường đọc.
+3. **[P1] Đua tranh mã vật chứng.** Kiểm-rồi-ghi tách rời ở `create`/`update`/`restore`. Đóng bằng `withCaseLock` — `SELECT … FOR UPDATE` trên hàng vụ án cha, kiểm và ghi cùng transaction. **Không** thêm partial unique index: bảng đã có dữ liệu chưa từng bị ràng buộc trong nền 53k bản ghi legacy, `CREATE UNIQUE INDEX` sẽ hỏng nếu đang có cặp trùng, và chọn bỏ bản nào là quyết định về hồ sơ pháp lý — **ADR-0016** ghi rõ điều kiện chuyển sang index thật.
+4. **[P1] `check-enum-literals.cjs` chỉ nhớ 1 ký tự trước.** `return /["']/…` không được nhận là regex ⇒ dấu nháy mở chuỗi ⇒ comment phía sau bị quét như code ⇒ **báo sai trên cổng chặn**. Thêm nhận diện theo từ khóa (`return`/`throw`/`typeof`/…), xử lý `i++ / 2`, và cho chuỗi chưa đóng dừng ở cuối dòng thay vì nuốt tới hết file. +4 test. (Tôi tự tìm ra cái này song song với codex — trùng khớp.)
+5. **[P1] Bước seed trong `deploy.sh` không có giới hạn thời gian** ⇒ một khóa DB treo là treo cả job deploy vô hạn. Bọc `timeout 300`.
+6. **[P2] Miễn trừ lint cho file test rộng hơn phần bị loại khỏi build.** `tsconfig.build.json` chỉ loại `**/*spec.ts`, nên `test-utils/` và `*.test.ts` vẫn biên dịch vào `dist` — miễn trừ của ADR-0015 chỉ chính đáng nếu chúng không ship. Loại đúng cùng tập hợp.
+
+Hai cái **không** sửa trong PR này, có lý do:
+
+- **[P1] `assertParentInScope` bỏ qua mọi kiểm tra khi `canDispatch`**, kể cả thao tác ghi. Đúng, nhưng đây là hành vi dùng chung của **cả 12 resource**, không phải hồi quy của D1. Sửa ở đây sẽ đổi ngữ nghĩa phân quyền cho toàn hệ thống trong một PR về vật chứng. → ND-14, xử lý ở PR-A3 (PR chuyên về DataScope).
+- **[P2] `getById` trả 403 cho ngoài phạm vi và 404 cho không tồn tại**, tức lộ sự tồn tại của bản ghi. Đúng, nhưng mọi module khác đang theo đúng mẫu này; đổi riêng một module tạo ra bất nhất. → ND-15, quyết một lần cho toàn hệ thống.
 
 ---
 
@@ -138,7 +156,7 @@ Tự phát hiện thêm: 3 file test mới của chính tôi bị baseline hoá 
 ## Trạng thái test
 
 Full suite: **PASS**
-- Backend: 223 suite / **2985** test — PASS (xem ND-9: 1 suite flaky ~1/6 lần, có sẵn từ trước)
+- Backend: 223 suite / **2994** test — PASS (xem ND-9: 1 suite flaky ~1/6 lần, có sẵn từ trước)
 - Frontend: 152 file / **1485** test — PASS (3 lần chạy liên tiếp ổn định)
 - Cổng governance: enum guard ✅ · gen:enums drift ✅ · lint ratchet ✅ (baseline 8.945 sau ADR-0015)
 - `tsc --noEmit` (BE): sạch · `tsc -b` (FE): sạch
@@ -159,6 +177,9 @@ Test fail: không
 | ND-10 | **6 spec UAT tự sinh không type-check được** (9 lỗi, đã bớt 2 sau khi thêm `jszip`): `cases-uat.api` (shorthand `linkedIncidentId` không có biến), `petitions-uat.api` (×4, `senderName`/`receivedDate` — `__baseBody()` đã có `receivedDate`, thiếu `senderName`), `petitions-uat-security.api` (`senderIsAnonymous` khai 2 lần + mojibake tiếng Việt), `export-chung-tu-dong-uat.api` + `petition-export-uat.api` (thiếu dependency `jszip`), `document-numbers-uat-2.e2e` (implicit any), `system-wide-uat.e2e` (possibly null). Generator quên khai báo biến ⇒ chạy sẽ `ReferenceError`. Chưa sửa vì phải nối fixture cho từng file và suite này đã bị loại khỏi CI. Đang là bước **advisory** trong job `Advisory Checks` | PR triage suite UAT |
 | ND-11 | **Đã xoá** `tests/fixtures/data-factory-cases.ts` — file tự sinh với placeholder `⚠️ Chưa có fixture nào define` chèn thẳng vào tên hàm, `path = ""`, `fixture_id`. Không parse được, không ai import. Nếu generator UAT chạy lại với danh sách fixture rỗng thì nó sẽ sinh lại — cần sửa generator | PR triage suite UAT |
 | ND-12 | **`tests/global-setup.ts` từng nhúng sẵn 5 mật khẩu trong source** và `tests/uat-auto/_helpers.ts` mặc định trỏ IP production `171.244.40.245`. Đã sửa ở PR-B0b (bắt buộc lấy từ env, thiếu thì ném lỗi rõ ràng). **Cần đối chiếu**: 5 mật khẩu đó có phải credential thật đang dùng không — nếu có, phải đổi vì chúng nằm trong git history | Cần người xác nhận |
+| ND-13 | **`Evidence` chưa có ràng buộc DB cho `(caseId, code)` khi bản ghi còn sống.** Bất biến hiện thi hành bằng khóa hàng vụ án cha (`withCaseLock`) — đủ chặn đua tranh, nhưng chỉ đúng khi mọi đường ghi đều đi qua đó, và người sửa DB trực tiếp bằng `psql` vẫn tạo được bản trùng. Chưa thêm partial unique index vì bảng đã có dữ liệu chưa từng bị ràng buộc trong nền 53k bản ghi legacy: nếu đang có cặp trùng thì `CREATE UNIQUE INDEX` hỏng và deploy đứng, mà chọn bỏ bản nào là quyết định về hồ sơ pháp lý. **Việc cần làm:** chạy câu đối soát trong ADR-0016 §"Điều kiện chuyển sang index thật"; nếu rỗng thì thêm index luôn | Cần người giữ hồ sơ quyết |
+| ND-14 | **`assertParentInScope` bỏ qua toàn bộ kiểm tra khi `scope.canDispatch`, kể cả `operation: 'write'`** (`scope-filter.util.ts:104`). `canDispatch` được mô tả là quyền đọc toàn cục + quyền phân công, không phải quyền sửa mọi hồ sơ — nhưng thực tế người điều phối tạo/sửa/xóa/khôi phục được bản ghi con của **mọi** vụ án. Ảnh hưởng cả 12 resource, không riêng vật chứng | PR-A3 (PR chuyên về DataScope) |
+| ND-15 | **Đường đọc chi tiết trả 403 cho bản ghi ngoài phạm vi và 404 cho bản ghi không tồn tại**, tức lộ sự tồn tại của hồ sơ tổ khác. Mẫu này dùng thống nhất toàn hệ thống nên phải quyết một lần (đưa scope vào `where` rồi trả 404 cho cả hai), không sửa lẻ từng module | Quyết cùng PR-A3 |
 | ND-9 (cập nhật) | **`two-fa.service.spec.ts` flaky ~1/6 lần chạy full — CHƯA sửa được, đã điều tra kỹ.** Đã thử và **loại bỏ** các giả thuyết: (a) `cacheDirectory` riêng cho backend — đã áp dụng, giảm va chạm giữa các tiến trình jest nhưng không dứt vì đua tranh nằm **giữa các worker trong cùng một lần chạy**; (b) `maxWorkers=4` — giảm tỷ lệ nhưng vẫn đỏ 1/6, và trên runner CI 4 nhân thì `50%`=2 worker còn ít hơn 4 nên giữ nguyên `50%`; (c) bỏ `transformIgnorePatterns` — **làm hỏng một suite khác** (2976 vs 2981), hoàn tác; (d) `globalSetup` hâm cache — **vô tác dụng**, vì globalSetup dùng `require` thuần của Node, không đi qua `ScriptTransformer` nên không ghi mục cache nào; đã gỡ thay vì để lại file giả vờ sửa. Hướng còn lại chưa thử: mock `otplib` trong spec (làm yếu test), hoặc chờ bản jest vá đua tranh ghi cache trên Windows. **Rủi ro CI: job `Backend Tests` có thể đỏ ngẫu nhiên ~1/6 lần.** | PR riêng |
 | ND-9 (gốc) | **`backend/src/auth/services/two-fa.service.spec.ts` flaky ~1/4 lần chạy full song song.** Không phải lỗi TOTP theo thời gian: là `invariant` rỗng từ `ScriptTransformer._buildTransformResult` của jest khi nạp `node_modules/otplib/dist/index.cjs` → dấu hiệu đua tranh cache giữa các worker. Pass 5/5 khi chạy riêng. **Có sẵn từ trước** — không file nào trong chuỗi phụ thuộc này bị đợt thi công chạm tới. Chưa sửa: chẩn đoán cache race của jest là việc riêng. Rủi ro: job `Backend Tests` trong CI có thể đỏ ngẫu nhiên. Hướng điều tra: `cacheDirectory` riêng cho từng workspace, hoặc rà `transformIgnorePatterns` (`node_modules/(?!(@otplib\|@noble)/)` không bao gồm `otplib` không có scope) | PR riêng |
 | ND-6 | Tầng phân quyền FE vẫn là mock (`MOCK_ALL_PERMISSIONS` cấp toàn quyền cho mọi user, 252 call site) — người dùng chủ động hoãn; yêu cầu "không mockup" **chưa thoả mãn hoàn toàn** | Quyết lại sau M2 |

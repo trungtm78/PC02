@@ -33,6 +33,16 @@ export class EvidencesService {
     private readonly audit: AuditService,
   ) {}
 
+  /**
+   * A soft-deleted case takes its evidence with it.
+   *
+   * Without this, deleting a case left its seized items listable, editable and
+   * restorable — and a restore could put a live child under a parent that no
+   * longer exists as far as every other screen is concerned. `case` is a
+   * required relation on Evidence, so filtering on it never hides an orphan.
+   */
+  private static readonly LIVE_CASE = { case: { deletedAt: null } } as const;
+
   /** Shared shape so list, detail and mutations agree on what a client gets. */
   private static readonly SELECT = {
     id: true,
@@ -53,6 +63,16 @@ export class EvidencesService {
     updatedAt: true,
     case: { select: { id: true, name: true, caseCode: true, status: true } },
   } satisfies Prisma.EvidenceSelect;
+
+  /** Parent-case predicate: live case, plus the caller's scope when they have one. */
+  private static caseFilter(
+    dataScope?: DataScope | null,
+  ): Prisma.CaseWhereInput {
+    const scope = buildScopeFilter(dataScope);
+    return scope
+      ? { AND: [scope, EvidencesService.LIVE_CASE.case] }
+      : { ...EvidencesService.LIVE_CASE.case };
+  }
 
   // ─────────────────────────────────────────────
   // GET LIST
@@ -83,8 +103,7 @@ export class EvidencesService {
     if (status) where.status = status;
     if (evidenceType) where.evidenceType = evidenceType;
 
-    const caseScope = buildScopeFilter(dataScope);
-    if (caseScope) where.case = caseScope;
+    where.case = EvidencesService.caseFilter(dataScope);
 
     const [data, total] = await Promise.all([
       this.prisma.evidence.findMany({
@@ -111,7 +130,7 @@ export class EvidencesService {
   // ─────────────────────────────────────────────
   async getById(id: string, dataScope?: DataScope | null) {
     const record = await this.prisma.evidence.findFirst({
-      where: { id, deletedAt: null },
+      where: { id, deletedAt: null, ...EvidencesService.LIVE_CASE },
       include: {
         case: {
           select: {
@@ -133,6 +152,30 @@ export class EvidencesService {
     assertParentInScope(record.case, dataScope);
 
     return { success: true, data: record };
+  }
+
+  /**
+   * Serialise evidence writes within one case, then run `fn`.
+   *
+   * `code` is unique per case, but that invariant lives in application code:
+   * `Evidence` has no partial unique index, and adding one would fail the
+   * migration outright if any of the 53k legacy rows already collide — a
+   * reconciliation decision that belongs to the people who own the records,
+   * not to this PR. See PROGRESS.md ND-13.
+   *
+   * Without serialisation the check and the write are two statements, so two
+   * concurrent requests both read "no duplicate" and both insert. Taking a row
+   * lock on the parent case makes evidence writes for that case queue behind
+   * each other; writes to other cases are unaffected.
+   */
+  private async withCaseLock<T>(
+    caseId: string,
+    fn: (tx: Prisma.TransactionClient) => Promise<T>,
+  ): Promise<T> {
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM cases WHERE id = ${caseId} FOR UPDATE`;
+      return fn(tx);
+    });
   }
 
   /** Load the parent case and assert the caller may write to it. */
@@ -170,33 +213,35 @@ export class EvidencesService {
     // Mã vật chứng phải duy nhất trong phạm vi một vụ án — hai vụ khác nhau
     // được phép đánh trùng số, nhưng trùng trong cùng hồ sơ thì không phân biệt
     // nổi khi đối chiếu với biên bản nhập kho.
-    const duplicate = await this.prisma.evidence.findFirst({
-      where: { caseId: dto.caseId, code: dto.code, deletedAt: null },
-      select: { id: true },
-    });
-    if (duplicate) {
-      throw new ConflictException(
-        `Mã vật chứng "${dto.code}" đã tồn tại trong vụ án này`,
-      );
-    }
+    const record = await this.withCaseLock(dto.caseId, async (tx) => {
+      const duplicate = await tx.evidence.findFirst({
+        where: { caseId: dto.caseId, code: dto.code, deletedAt: null },
+        select: { id: true },
+      });
+      if (duplicate) {
+        throw new ConflictException(
+          `Mã vật chứng "${dto.code}" đã tồn tại trong vụ án này`,
+        );
+      }
 
-    const record = await this.prisma.evidence.create({
-      data: {
-        code: dto.code,
-        name: dto.name,
-        description: dto.description,
-        quantity: dto.quantity ?? 1,
-        unit: dto.unit ?? 'cái',
-        storageLocation: dto.storageLocation,
-        receivedDate: dto.receivedDate ? new Date(dto.receivedDate) : null,
-        status: dto.status ?? EVIDENCE_STATUS.THU_GIU,
-        evidenceType: dto.evidenceType,
-        entryOrder: dto.entryOrder,
-        warehouseReceipt: dto.warehouseReceipt,
-        caseId: dto.caseId,
-        createdById: actorId,
-      },
-      select: EvidencesService.SELECT,
+      return tx.evidence.create({
+        data: {
+          code: dto.code,
+          name: dto.name,
+          description: dto.description,
+          quantity: dto.quantity ?? 1,
+          unit: dto.unit ?? 'cái',
+          storageLocation: dto.storageLocation,
+          receivedDate: dto.receivedDate ? new Date(dto.receivedDate) : null,
+          status: dto.status ?? EVIDENCE_STATUS.THU_GIU,
+          evidenceType: dto.evidenceType,
+          entryOrder: dto.entryOrder,
+          warehouseReceipt: dto.warehouseReceipt,
+          caseId: dto.caseId,
+          createdById: actorId,
+        },
+        select: EvidencesService.SELECT,
+      });
     });
 
     await this.audit.log({
@@ -229,47 +274,51 @@ export class EvidencesService {
     const { data: existing } = await this.getById(id, dataScope);
     assertParentInScope(existing.case, dataScope, 'write');
 
-    if (dto.code && dto.code !== existing.code) {
-      const duplicate = await this.prisma.evidence.findFirst({
-        where: {
-          caseId: existing.caseId,
-          code: dto.code,
-          deletedAt: null,
-          NOT: { id },
-        },
-        select: { id: true },
-      });
-      if (duplicate) {
-        throw new ConflictException(
-          `Mã vật chứng "${dto.code}" đã tồn tại trong vụ án này`,
-        );
+    const record = await this.withCaseLock(existing.caseId, async (tx) => {
+      if (dto.code && dto.code !== existing.code) {
+        const duplicate = await tx.evidence.findFirst({
+          where: {
+            caseId: existing.caseId,
+            code: dto.code,
+            deletedAt: null,
+            NOT: { id },
+          },
+          select: { id: true },
+        });
+        if (duplicate) {
+          throw new ConflictException(
+            `Mã vật chứng "${dto.code}" đã tồn tại trong vụ án này`,
+          );
+        }
       }
-    }
 
-    const record = await this.prisma.evidence.update({
-      where: { id },
-      data: {
-        ...(dto.code !== undefined && { code: dto.code }),
-        ...(dto.name !== undefined && { name: dto.name }),
-        ...(dto.description !== undefined && { description: dto.description }),
-        ...(dto.quantity !== undefined && { quantity: dto.quantity }),
-        ...(dto.unit !== undefined && { unit: dto.unit }),
-        ...(dto.storageLocation !== undefined && {
-          storageLocation: dto.storageLocation,
-        }),
-        ...(dto.receivedDate !== undefined && {
-          receivedDate: dto.receivedDate ? new Date(dto.receivedDate) : null,
-        }),
-        ...(dto.status !== undefined && { status: dto.status }),
-        ...(dto.evidenceType !== undefined && {
-          evidenceType: dto.evidenceType,
-        }),
-        ...(dto.entryOrder !== undefined && { entryOrder: dto.entryOrder }),
-        ...(dto.warehouseReceipt !== undefined && {
-          warehouseReceipt: dto.warehouseReceipt,
-        }),
-      },
-      select: EvidencesService.SELECT,
+      return tx.evidence.update({
+        where: { id },
+        data: {
+          ...(dto.code !== undefined && { code: dto.code }),
+          ...(dto.name !== undefined && { name: dto.name }),
+          ...(dto.description !== undefined && {
+            description: dto.description,
+          }),
+          ...(dto.quantity !== undefined && { quantity: dto.quantity }),
+          ...(dto.unit !== undefined && { unit: dto.unit }),
+          ...(dto.storageLocation !== undefined && {
+            storageLocation: dto.storageLocation,
+          }),
+          ...(dto.receivedDate !== undefined && {
+            receivedDate: dto.receivedDate ? new Date(dto.receivedDate) : null,
+          }),
+          ...(dto.status !== undefined && { status: dto.status }),
+          ...(dto.evidenceType !== undefined && {
+            evidenceType: dto.evidenceType,
+          }),
+          ...(dto.entryOrder !== undefined && { entryOrder: dto.entryOrder }),
+          ...(dto.warehouseReceipt !== undefined && {
+            warehouseReceipt: dto.warehouseReceipt,
+          }),
+        },
+        select: EvidencesService.SELECT,
+      });
     });
 
     await this.audit.log({
@@ -358,8 +407,7 @@ export class EvidencesService {
       }),
     };
 
-    const caseScope = buildScopeFilter(dataScope);
-    if (caseScope) where.case = caseScope;
+    where.case = EvidencesService.caseFilter(dataScope);
 
     const [data, total] = await Promise.all([
       this.prisma.evidence.findMany({
@@ -383,7 +431,13 @@ export class EvidencesService {
     dataScope?: DataScope | null,
   ) {
     const existing = await this.prisma.evidence.findFirst({
-      where: { id, deletedAt: { not: null } },
+      where: {
+        id,
+        deletedAt: { not: null },
+        // Restoring under a deleted case would produce a live child nothing
+        // can navigate to. Undelete the case first.
+        ...EvidencesService.LIVE_CASE,
+      },
       include: {
         case: {
           select: {
@@ -403,31 +457,33 @@ export class EvidencesService {
 
     assertParentInScope(existing.case, dataScope, 'write');
 
-    // Uniqueness is checked among live rows only, so a replacement can be
-    // created under the same code while the original sits soft-deleted.
-    // Restoring blindly would then leave two live VC-001 in one case, which is
-    // exactly what the constraint exists to prevent.
-    const clash = await this.prisma.evidence.findFirst({
-      where: {
-        caseId: existing.caseId,
-        code: existing.code,
-        deletedAt: null,
-        NOT: { id },
-      },
-      select: { id: true },
-    });
-    if (clash) {
-      throw new ConflictException(
-        `Không thể khôi phục: mã vật chứng "${existing.code}" đang được dùng bởi một bản ghi khác trong vụ án này. Hãy đổi mã bản ghi đó trước.`,
-      );
-    }
-
     const hoursAfterDeletion =
       (Date.now() - existing.deletedAt!.getTime()) / 3_600_000;
 
-    // One transaction: a restore without its audit entry is worse than no
-    // restore, because the record reappears with nothing explaining why.
-    await this.prisma.$transaction(async (tx) => {
+    // One transaction, holding the case lock: the clash check and the restore
+    // must not be separable, or a concurrent create can take the code between
+    // them. The audit entry belongs in here too — a restore without one is
+    // worse than no restore, because the record reappears unexplained.
+    await this.withCaseLock(existing.caseId, async (tx) => {
+      // Uniqueness is checked among live rows only, so a replacement can be
+      // created under the same code while the original sits soft-deleted.
+      // Restoring blindly would then leave two live VC-001 in one case, which
+      // is exactly what the rule exists to prevent.
+      const clash = await tx.evidence.findFirst({
+        where: {
+          caseId: existing.caseId,
+          code: existing.code,
+          deletedAt: null,
+          NOT: { id },
+        },
+        select: { id: true },
+      });
+      if (clash) {
+        throw new ConflictException(
+          `Không thể khôi phục: mã vật chứng "${existing.code}" đang được dùng bởi một bản ghi khác trong vụ án này. Hãy đổi mã bản ghi đó trước.`,
+        );
+      }
+
       await tx.evidence.update({
         where: { id, deletedAt: { not: null } },
         data: { deletedAt: null },

@@ -108,6 +108,32 @@ function walk(dir, out) {
  * so every comment after it stops being blanked and their contents are scanned
  * as code — a false positive, on a blocking gate, that the author cannot fix.
  */
+/**
+ * Keywords after which a `/` begins a regex literal rather than division.
+ *
+ * Punctuation alone is not enough. `return /["']/.test(x)` puts a quote inside
+ * a regex that the punctuation set does not recognise as a regex at all, so the
+ * quote opens a string — and because an unterminated string used to run to the
+ * end of the file, every enum comparison below it stopped being scanned. A
+ * blocking gate that silently passes is worse than no gate.
+ */
+const REGEX_MAY_START_AFTER_WORD = new Set([
+  'return',
+  'typeof',
+  'instanceof',
+  'case',
+  'throw',
+  'delete',
+  'void',
+  'await',
+  'yield',
+  'new',
+  'in',
+  'of',
+  'do',
+  'else',
+]);
+
 /** Characters after which a `/` begins a regex literal rather than division. */
 const REGEX_MAY_START_AFTER = new Set([
   '',
@@ -141,6 +167,13 @@ function stripCommentsAndKeepPositions(source) {
   // where a value may begin — after `=`, `(`, `,`, `[`, `{`, `:`, `!`, `&`,
   // `|`, `?`, `;`, `return` — and is division otherwise.
   let prevCode = '';
+  // Trailing identifier of code seen so far, so `return /re/` is told apart
+  // from `total / count`. Whitespace does not clear it; any other non-word
+  // character does.
+  let prevWord = '';
+  let wordOpen = false;
+  // True right after a `++` or `--`, where a following `/` is division.
+  let postfixUpdate = false;
   while (i < source.length) {
     const ch = source[i];
     const next = source[i + 1];
@@ -159,10 +192,31 @@ function stripCommentsAndKeepPositions(source) {
           if (ch === "'") state = 'single';
           else if (ch === '"') state = 'double';
           else if (ch === '`') state = 'template';
-          else if (ch === '/' && REGEX_MAY_START_AFTER.has(prevCode)) {
+          else if (
+            ch === '/' &&
+            !postfixUpdate &&
+            (REGEX_MAY_START_AFTER.has(prevCode) ||
+              REGEX_MAY_START_AFTER_WORD.has(prevWord))
+          ) {
             state = 'regex';
           }
+          // `i++ / 2` and `n-- / 2` are division. Without this the trailing `+`
+          // or `-` of the update operator reads as a place where a value may
+          // begin, so the `/` opens a regex that runs to the next slash.
+          if (ch === '+' || ch === '-') postfixUpdate = prevCode === ch;
+          else if (!/\s/.test(ch)) postfixUpdate = false;
           if (!/\s/.test(ch)) prevCode = ch;
+          if (/\s/.test(ch)) {
+            // Whitespace ends the word but keeps it readable, so `return /re/`
+            // still sees "return" once the slash arrives.
+            wordOpen = false;
+          } else if (/[A-Za-z0-9_$]/.test(ch)) {
+            prevWord = wordOpen ? prevWord + ch : ch;
+            wordOpen = true;
+          } else {
+            prevWord = '';
+            wordOpen = false;
+          }
           keep();
         }
         break;
@@ -214,6 +268,13 @@ function stripCommentsAndKeepPositions(source) {
           i += 1;
           if (i < source.length) out.push(source[i]);
         } else if (ch === quote) {
+          state = 'code';
+          keep();
+        } else if (ch === '\n' && state !== 'template') {
+          // Only template literals legally span lines. An unterminated ' or "
+          // is a syntax error, and letting it run to EOF would silently switch
+          // the guard off for every line below it. Recover at the newline so a
+          // mis-parse costs one line, not one file.
           state = 'code';
           keep();
         } else {

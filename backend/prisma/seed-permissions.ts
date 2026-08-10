@@ -201,3 +201,53 @@ export const SEED_PERMISSIONS: readonly SeedPermission[] = [
     description: 'Duyệt/từ chối yêu cầu reset bộ đếm sửa dữ liệu cấp phường',
   },
 ];
+
+/**
+ * Which non-admin roles a permission belongs to by default.
+ *
+ * ADMIN is not listed: it gets everything, unconditionally.
+ *
+ * This exists because `seed.ts` — the only place these grants used to live —
+ * never runs on deploy. A PR that adds a permission and grants it to OFFICER in
+ * seed.ts ships an endpoint that 403s for every officer in production until
+ * somebody notices and clicks through the role-permission UI. Evidence hit
+ * exactly that: read and write rows existed, and no officer could use either.
+ *
+ * `seed-permissions-runner.ts` applies these ONLY to permissions it creates on
+ * that run. A permission that already existed is left alone, so an admin who
+ * deliberately revoked something in the UI does not get it handed back on the
+ * next deploy.
+ */
+export const DEFAULT_ROLE_GRANTS: Readonly<Record<string, readonly string[]>> =
+  {
+    OFFICER: [
+      // Read: the dispatcher workflow. Mirrors the officerReadPerms block in seed.ts.
+      'read:Team',
+      'read:User',
+      'read:Case',
+      'read:Petition',
+      'read:Incident',
+      'read:DeadlineRuleVersion',
+      'read:Calendar',
+      'read:Evidence',
+      // Write/edit/delete on the officer's own case files. DataScope keeps this
+      // inside their team; `restore` stays with ADMIN.
+      'write:Case',
+      'edit:Case',
+      'delete:Case',
+      'write:Incident',
+      'edit:Incident',
+      'delete:Incident',
+      'write:Petition',
+      'edit:Petition',
+      'delete:Petition',
+      'write:Evidence',
+      'edit:Evidence',
+      'delete:Evidence',
+    ],
+  };
+
+/** `action:subject` key, the shape DEFAULT_ROLE_GRANTS uses. */
+export function permissionKey(action: string, subject: string): string {
+  return `${action}:${subject}`;
+}

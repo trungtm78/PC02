@@ -140,9 +140,12 @@ fi
 # prod, and PermissionsGuard (no ADMIN bypass) 403s it for EVERY user.
 # That is ISSUE-001: `Setting` was missing and /admin/settings was dead for all
 # roles. This runner only upserts permissions and grants them to ADMIN.
+# The timeout is not decoration: this opens a DB connection and upserts rows,
+# so a lock held by a long-running query would otherwise hang the deploy job
+# with no upper bound. Failing loudly after 5 minutes beats hanging forever.
 log "Syncing permission registry..."
-if ! npx ts-node prisma/seed-permissions-runner.ts; then
-    log "ERROR: permission seed failed — new endpoints would 403 for every user"
+if ! timeout 300 npx ts-node prisma/seed-permissions-runner.ts; then
+    log "ERROR: permission seed failed or timed out — new endpoints would 403 for every user"
     exit 1
 fi
 

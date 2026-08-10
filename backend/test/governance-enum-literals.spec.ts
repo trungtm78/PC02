@@ -141,6 +141,61 @@ describe('enum-literal guard', () => {
       expect(hits).toHaveLength(1);
     });
 
+    it('recognises a regex that follows a keyword, not just punctuation', () => {
+      // `return /["']/` puts a quote inside a regex the punctuation-only rule
+      // did not classify as a regex, so the quote opened a string. Everything
+      // after it — including plain comments — was scanned as code, and the
+      // gate reported a violation on a comment that the author cannot remove.
+      const hits = scanFixture(
+        {
+          'src/a.ts': [
+            `export function f(x: string) {`,
+            `  return /["']/.test(x);`,
+            `}`,
+            `// vô hại: status === 'TIEP_NHAN'`,
+            `export const ok = 1;`,
+          ].join('\n'),
+        },
+        ['TIEP_NHAN'],
+      );
+      expect(hits).toEqual([]);
+    });
+
+    it('still sees a real comparison on the same line as a keyword regex', () => {
+      const hits = scanFixture(
+        {
+          'src/a.ts': `export const f = (x: string, s: string) =>\n  /["']/.test(x) && s === 'TIEP_NHAN';`,
+        },
+        ['TIEP_NHAN'],
+      );
+      expect(hits).toHaveLength(1);
+    });
+
+    it('treats a slash after a postfix ++ as division', () => {
+      // `i++ / 2` ends in `+`, which is a place a value may begin, so without
+      // the postfix check the `/` opened a regex that ran to the next slash
+      // and swallowed the comparison behind it.
+      const hits = scanFixture(
+        {
+          'src/a.ts': `let i = 0;\nconst r = i++ / 2;\nif (s === 'TIEP_NHAN') return r;`,
+        },
+        ['TIEP_NHAN'],
+      );
+      expect(hits).toHaveLength(1);
+    });
+
+    it('does not let an unterminated quote hide the rest of the file', () => {
+      // Recovering at the newline bounds a mis-parse to one line. Letting the
+      // string run to EOF would switch the gate off for everything below it.
+      const hits = scanFixture(
+        {
+          'src/a.ts': `const broken = 'oops;\nif (s === 'TIEP_NHAN') return 1;`,
+        },
+        ['TIEP_NHAN'],
+      );
+      expect(hits).toHaveLength(1);
+    });
+
     it('does not treat // inside a string literal as the start of a comment', () => {
       // A naive stripper blanks from the // in the URL to end of line, hiding
       // the comparison that follows it.

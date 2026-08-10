@@ -22,8 +22,26 @@ const mockPrisma = {
   case: {
     findFirst: jest.fn(),
   },
-  $transaction: jest.fn(),
+  $queryRaw: jest.fn(),
+  // Writes run inside withCaseLock, which takes a row lock on the parent case
+  // and hands the callback a transaction client. Running the callback against
+  // the same mock keeps the assertions below pointed at one set of spies.
+  $transaction: jest.fn((fn: unknown) =>
+    typeof fn === 'function'
+      ? (fn as (tx: typeof mockPrisma) => unknown)(mockPrisma)
+      : undefined,
+  ),
 };
+
+/** Re-arm $transaction after jest.clearAllMocks() drops the implementation. */
+function armTransaction() {
+  mockPrisma.$transaction.mockImplementation((fn: unknown) =>
+    typeof fn === 'function'
+      ? (fn as (tx: typeof mockPrisma) => unknown)(mockPrisma)
+      : undefined,
+  );
+  mockPrisma.$queryRaw.mockResolvedValue([{ id: 'case-a' }]);
+}
 
 const mockAudit = { log: jest.fn().mockResolvedValue(undefined) };
 
@@ -78,6 +96,7 @@ describe('EvidencesService', () => {
     }).compile();
     service = module.get(EvidencesService);
     jest.clearAllMocks();
+    armTransaction();
   });
 
   // ── getById ───────────────────────────────────────────────────────────────
@@ -144,6 +163,24 @@ describe('EvidencesService', () => {
       expect(arg.where.case).toBeDefined();
     });
 
+    it('hides evidence whose parent case is soft-deleted', async () => {
+      // Deleting a case used to leave its seized items listable, because the
+      // scope filter was the only thing ever put on `case`.
+      await service.getList({});
+
+      const arg = firstArg<FindManyArgs>(mockPrisma.evidence.findMany);
+      expect(arg.where.case).toEqual({ deletedAt: null });
+    });
+
+    it('keeps the deleted-case filter when a scope is also applied', async () => {
+      await service.getList({}, SCOPE_TEAM_A);
+
+      const arg = firstArg<FindManyArgs>(mockPrisma.evidence.findMany);
+      expect(arg.where.case).toEqual({
+        AND: [expect.anything(), { deletedAt: null }],
+      });
+    });
+
     it('searches across code, name, storage location and receipt number', async () => {
       await service.getList({ search: 'dao' });
 
@@ -195,6 +232,19 @@ describe('EvidencesService', () => {
           ipAddress: '10.0.0.1',
         }),
       );
+    });
+
+    it('serialises the duplicate check and the insert behind a row lock', async () => {
+      // Two concurrent requests both read "no duplicate" and both inserted.
+      // The lock on the parent case makes evidence writes for that case queue.
+      mockPrisma.case.findFirst.mockResolvedValue(CASE_A);
+      mockPrisma.evidence.findFirst.mockResolvedValue(null);
+      mockPrisma.evidence.create.mockResolvedValue({ id: 'ev-1' });
+
+      await service.create(dto, 'actor-1');
+
+      expect(mockPrisma.$transaction).toHaveBeenCalled();
+      expect(mockPrisma.$queryRaw).toHaveBeenCalled();
     });
 
     it('rejects a case that does not exist', async () => {
@@ -366,14 +416,11 @@ describe('EvidencesService', () => {
       mockPrisma.evidence.findFirst
         .mockResolvedValueOnce(deleted)
         .mockResolvedValueOnce(null); // no live record holds the code
-      const tx = { evidence: { update: jest.fn().mockResolvedValue({}) } };
-      mockPrisma.$transaction.mockImplementation(
-        async (fn: (t: typeof tx) => Promise<unknown>) => fn(tx),
-      );
+      mockPrisma.evidence.update.mockResolvedValue({});
 
       await service.restore('ev-1', 'Xóa nhầm khi nhập liệu', 'actor-1');
 
-      expect(tx.evidence.update).toHaveBeenCalledWith(
+      expect(mockPrisma.evidence.update).toHaveBeenCalledWith(
         expect.objectContaining({ data: { deletedAt: null } }),
       );
       expect(mockAudit.log).toHaveBeenCalledWith(
@@ -384,8 +431,21 @@ describe('EvidencesService', () => {
             hoursAfterDeletion: 2,
           }),
         }),
-        tx,
+        mockPrisma,
       );
+    });
+
+    it('takes a row lock on the parent case before checking the code', async () => {
+      // The clash check and the restore have to be inseparable. Without the
+      // lock a concurrent create can take the code between them.
+      mockPrisma.evidence.findFirst
+        .mockResolvedValueOnce(deleted)
+        .mockResolvedValueOnce(null);
+      mockPrisma.evidence.update.mockResolvedValue({});
+
+      await service.restore('ev-1', 'Xóa nhầm khi nhập liệu', 'actor-1');
+
+      expect(mockPrisma.$queryRaw).toHaveBeenCalled();
     });
 
     it('refuses to restore when the code is now taken by a live record', async () => {
@@ -399,24 +459,38 @@ describe('EvidencesService', () => {
       await expect(
         service.restore('ev-1', 'lý do đủ dài để qua validator', 'actor-1'),
       ).rejects.toThrow(ConflictException);
-      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+      expect(mockPrisma.evidence.update).not.toHaveBeenCalled();
     });
 
     it('throws NotFoundException when the record is not deleted', async () => {
-      mockPrisma.evidence.findFirst.mockResolvedValue(null);
+      mockPrisma.evidence.findFirst.mockReset().mockResolvedValue(null);
 
       await expect(
         service.restore('ev-1', 'lý do đủ dài', 'a'),
       ).rejects.toThrow(NotFoundException);
     });
 
+    it('will not restore under a soft-deleted case', async () => {
+      // The parent filter lives in the query, so a deleted case makes the
+      // lookup miss entirely rather than producing a live orphan child.
+      mockPrisma.evidence.findFirst.mockReset().mockResolvedValue(null);
+
+      await expect(
+        service.restore('ev-1', 'lý do đủ dài', 'a'),
+      ).rejects.toThrow(NotFoundException);
+      const arg = firstArg<{ where: Record<string, unknown> }>(
+        mockPrisma.evidence.findFirst,
+      );
+      expect(arg.where.case).toEqual({ deletedAt: null });
+    });
+
     it('refuses to restore evidence outside the caller scope', async () => {
-      mockPrisma.evidence.findFirst.mockResolvedValue(deleted);
+      mockPrisma.evidence.findFirst.mockReset().mockResolvedValue(deleted);
 
       await expect(
         service.restore('ev-1', 'lý do đủ dài', 'a', undefined, SCOPE_TEAM_B),
       ).rejects.toThrow(ForbiddenException);
-      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+      expect(mockPrisma.evidence.update).not.toHaveBeenCalled();
     });
   });
 
