@@ -23,6 +23,13 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { today } from "@/lib/dates";
+import {
+  MAX_UPLOAD_BYTES,
+  MAX_UPLOAD_LABEL,
+  ALLOWED_MEDIA_EXTENSIONS,
+  ALLOWED_MEDIA_LABEL,
+  acceptAttr,
+} from '@/shared/upload-limits';
 import { useShortcut } from "@/hooks/useShortcut";
 import { FormInput, FormSelect, FormTextarea, FormCurrency, FormPhone } from "@/components/form";
 import { DocNumberPreviewField } from "@/components/DocNumberPreviewField";
@@ -1791,17 +1798,21 @@ export function TabMedia({
   const [isDragging, setIsDragging] = useState(false);
   const [recordDate, setRecordDate] = useState(today());
 
-  const allowedTypes = ["mp3", "mp4", "avi", "wav", "mov", "wmv"];
+  // Was a hand-written six-format list at 100MB. The endpoint takes two
+  // formats at 10MB, so every AVI/WAV/MOV/WMV the browser waved through was
+  // rejected by multer after the upload finished. These come from the mirror
+  // that `upload-limits.test.ts` checks against the controller.
+  const allowedTypes = ALLOWED_MEDIA_EXTENSIONS;
 
   const handleFiles = (files: File[]) => {
     files.forEach((file) => {
       const ext = file.name.split(".").pop()?.toLowerCase();
-      if (!ext || !allowedTypes.includes(ext)) {
-        alert(`File "${file.name}" không đúng định dạng. Chỉ nhận: ${allowedTypes.join(", ").toUpperCase()}`);
+      if (!ext || !(allowedTypes as readonly string[]).includes(ext)) {
+        alert(`File "${file.name}" không đúng định dạng. Chỉ nhận: ${ALLOWED_MEDIA_LABEL}`);
         return;
       }
-      if (file.size > 100 * 1024 * 1024) {
-        alert(`File "${file.name}" vượt quá 100MB`);
+      if (file.size > MAX_UPLOAD_BYTES) {
+        alert(`File "${file.name}" vượt quá ${MAX_UPLOAD_LABEL}`);
         return;
       }
       onUpload(file);
@@ -1814,7 +1825,7 @@ export function TabMedia({
 
       <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-2 mb-4">
         <Video className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
-        <p className="text-sm text-blue-800">File ghi âm/ghi hình là chứng cứ quan trọng. Dung lượng tối đa 100MB/file. Định dạng: MP3, MP4, AVI, WAV, MOV, WMV.</p>
+        <p className="text-sm text-blue-800">File ghi âm/ghi hình là chứng cứ quan trọng. Dung lượng tối đa {MAX_UPLOAD_LABEL}/file. Định dạng: {ALLOWED_MEDIA_LABEL}.</p>
       </div>
 
       {/* Record date */}
@@ -1846,7 +1857,7 @@ export function TabMedia({
         <input
           id="media-upload-input-tab"
           type="file"
-          accept=".mp3,.mp4,.avi,.wav,.mov,.wmv"
+          accept={acceptAttr(ALLOWED_MEDIA_EXTENSIONS)}
           multiple
           className="hidden"
           onChange={(e) => e.target.files && handleFiles(Array.from(e.target.files))}
@@ -1854,7 +1865,7 @@ export function TabMedia({
         />
         <Upload className="w-8 h-8 text-blue-400 mx-auto mb-2" />
         <p className="text-sm font-medium text-slate-700">Kéo thả file vào đây hoặc click để chọn</p>
-        <p className="text-xs text-slate-500 mt-1">MP3, MP4, AVI, WAV, MOV, WMV (Tối đa 100MB)</p>
+        <p className="text-xs text-slate-500 mt-1">{ALLOWED_MEDIA_LABEL} (Tối đa {MAX_UPLOAD_LABEL})</p>
       </div>
 
       {mediaFiles.length === 0 ? (

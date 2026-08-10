@@ -201,20 +201,14 @@ export const SUBJECT_TYPE_COLORS: Record<string, string> = {
   "Nhân chứng": "bg-slate-100 text-slate-700",
 };
 
-export const BUSINESS_FILES = [
-  { name: "Biên bản khám nghiệm hiện trường", date: "10/02/2026", status: "Đã hoàn thành" },
-  { name: "Biên bản lấy lời khai", date: "11/02/2026", status: "Đang thực hiện" },
-  { name: "Kết luận giám định", date: "", status: "Chưa có" },
-  { name: "Quyết định khởi tố", date: "", status: "Chưa có" },
-  { name: "Lệnh bắt tạm giam", date: "", status: "Chưa có" },
-  { name: "Biên bản đối chất", date: "", status: "Chưa có" },
-];
-
-export const FILE_STATUS_COLORS: Record<string, string> = {
-  "Đã hoàn thành": "bg-green-100 text-green-700",
-  "Đang thực hiện": "bg-blue-100 text-blue-700",
-  "Chưa có": "bg-slate-100 text-slate-700",
-};
+/*
+ * `BUSINESS_FILES` and `FILE_STATUS_COLORS` lived here: six invented case
+ * documents with hardcoded February 2026 dates, and the badge palette for
+ * their invented statuses. Nothing imported either — they were a mock left
+ * behind after the screen that used them was replaced by the real documents
+ * tab. Removed rather than wired up; the real list comes from
+ * `GET /documents?caseId=`.
+ */
 
 // ─── Đơn vị options — values khớp với field unit lưu plain string trong DB ───
 
