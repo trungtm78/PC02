@@ -5,6 +5,7 @@ import { api } from "@/lib/api";
 import { extractApiError } from "@/lib/api-errors";
 import { today, toDateInput, formatVNDate, formatVNDateTime, formatVNTime } from "@/lib/dates";
 import { usePermission } from "@/hooks/usePermission";
+import { CaseEvidenceTab } from "./CaseEvidenceTab";
 import { AssignModal } from "@/components/AssignModal";
 import { CrimeSelect } from "@/components/CrimeSelect";
 import {
@@ -36,6 +37,7 @@ import {
   Gavel,
   BookOpen,
   Info,
+  Package,
   Briefcase,
   CheckCircle,
   Map,
@@ -694,12 +696,13 @@ function ConclusionModal({
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 
-type DetailTabId = "info" | "defendants" | "lawyers" | "timeline" | "conclusion" | "journey";
+type DetailTabId = "info" | "defendants" | "lawyers" | "evidence" | "timeline" | "conclusion" | "journey";
 
 const DETAIL_TABS: { id: DetailTabId; label: string; icon: React.ReactNode }[] = [
   { id: "info", label: "Thông tin chung", icon: <Info className="w-4 h-4" /> },
   { id: "defendants", label: "Bị can", icon: <Users className="w-4 h-4" /> },
   { id: "lawyers", label: "Luật sư", icon: <Briefcase className="w-4 h-4" /> },
+  { id: "evidence", label: "Vật chứng", icon: <Package className="w-4 h-4" /> },
   { id: "timeline", label: "Tiến trình điều tra", icon: <Clock className="w-4 h-4" /> },
   { id: "conclusion", label: "Kết luận điều tra", icon: <FileText className="w-4 h-4" /> },
   { id: "journey", label: "Hành trình", icon: <Map className="w-4 h-4" /> },
@@ -714,7 +717,7 @@ export default function CaseDetailPage() {
   // Đọc activeTab từ navigation state (khi navigate từ CaseListPage action menu)
   const initialTab = (() => {
     const stateTab = (location.state as { activeTab?: string } | null)?.activeTab;
-    const validTabs: DetailTabId[] = ["info", "defendants", "lawyers", "timeline", "conclusion", "journey"];
+    const validTabs: DetailTabId[] = ["info", "defendants", "lawyers", "evidence", "timeline", "conclusion", "journey"];
     return (validTabs.includes(stateTab as DetailTabId) ? stateTab : "info") as DetailTabId;
   })();
 
@@ -1794,6 +1797,7 @@ export default function CaseDetailPage() {
           {activeTab === "info" && renderInfoTab()}
           {activeTab === "defendants" && renderDefendantsTab()}
           {activeTab === "lawyers" && renderLawyersTab()}
+          {activeTab === "evidence" && id && <CaseEvidenceTab caseId={id} />}
           {activeTab === "timeline" && renderTimelineTab()}
           {activeTab === "conclusion" && renderConclusionTab()}
           {activeTab === "journey" && renderJourneyTab()}

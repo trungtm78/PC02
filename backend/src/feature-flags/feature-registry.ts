@@ -16,6 +16,7 @@ import { ADMIN_MANIFEST } from '../admin/feature.manifest';
 import { DIRECTORY_MANIFEST } from '../directory/feature.manifest';
 import { CASES_MANIFEST } from '../cases/feature.manifest';
 import { SUBJECTS_MANIFEST } from '../subjects/feature.manifest';
+import { EVIDENCES_MANIFEST } from '../evidences/feature.manifest';
 import { LAWYERS_MANIFEST } from '../lawyers/feature.manifest';
 import { PETITIONS_MANIFEST } from '../petitions/feature.manifest';
 import { INCIDENTS_MANIFEST } from '../incidents/feature.manifest';
@@ -55,6 +56,7 @@ export const FEATURE_REGISTRY: readonly FeatureManifest[] = [
   DIRECTORY_MANIFEST,
   CASES_MANIFEST,
   SUBJECTS_MANIFEST,
+  EVIDENCES_MANIFEST,
   LAWYERS_MANIFEST,
   PETITIONS_MANIFEST,
   INCIDENTS_MANIFEST,

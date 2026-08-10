@@ -140,6 +140,7 @@
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node",
-    "maxWorkers": "50%"
+    "maxWorkers": "50%",
+    "cacheDirectory": "<rootDir>/../.jest-cache"
   }
 }

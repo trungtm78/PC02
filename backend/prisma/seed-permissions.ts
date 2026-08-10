@@ -79,6 +79,12 @@ export const SEED_PERMISSIONS: readonly SeedPermission[] = [
   { action: 'edit', subject: 'Lawyer' },
   { action: 'delete', subject: 'Lawyer' },
 
+  // ── Evidence (Vật chứng) ───────────────────────────────────────────────
+  { action: 'read', subject: 'Evidence' },
+  { action: 'write', subject: 'Evidence' },
+  { action: 'edit', subject: 'Evidence' },
+  { action: 'delete', subject: 'Evidence' },
+
   // ── Team — needed for dispatcher to read teams when assigning ─────────
   { action: 'read', subject: 'Team' },
   { action: 'write', subject: 'Team' },
@@ -87,38 +93,111 @@ export const SEED_PERMISSIONS: readonly SeedPermission[] = [
 
   // ── Report TĐC ────────────────────────────────────────────────────────
   { action: 'read', subject: 'Report', description: 'Xem báo cáo TĐC' },
-  { action: 'write', subject: 'Report', description: 'Tạo và điều chỉnh báo cáo TĐC' },
-  { action: 'approve', subject: 'Report', description: 'Phê duyệt và khóa báo cáo TĐC' },
+  {
+    action: 'write',
+    subject: 'Report',
+    description: 'Tạo và điều chỉnh báo cáo TĐC',
+  },
+  {
+    action: 'approve',
+    subject: 'Report',
+    description: 'Phê duyệt và khóa báo cáo TĐC',
+  },
 
   // ── DeadlineRuleVersion — maker/checker workflow for legal deadlines ──
-  { action: 'read', subject: 'DeadlineRuleVersion', description: 'Xem quy tắc thời hạn xử lý' },
-  { action: 'write', subject: 'DeadlineRuleVersion', description: 'Đề xuất sửa quy tắc thời hạn (maker)' },
-  { action: 'approve', subject: 'DeadlineRuleVersion', description: 'Duyệt và kích hoạt quy tắc thời hạn (checker)' },
-  { action: 'withdraw_own', subject: 'DeadlineRuleVersion', description: 'Thu hồi đề xuất quy tắc của chính mình (maker)' },
-  { action: 'request_changes', subject: 'DeadlineRuleVersion', description: 'Yêu cầu sửa đổi đề xuất quy tắc (checker)' },
+  {
+    action: 'read',
+    subject: 'DeadlineRuleVersion',
+    description: 'Xem quy tắc thời hạn xử lý',
+  },
+  {
+    action: 'write',
+    subject: 'DeadlineRuleVersion',
+    description: 'Đề xuất sửa quy tắc thời hạn (maker)',
+  },
+  {
+    action: 'approve',
+    subject: 'DeadlineRuleVersion',
+    description: 'Duyệt và kích hoạt quy tắc thời hạn (checker)',
+  },
+  {
+    action: 'withdraw_own',
+    subject: 'DeadlineRuleVersion',
+    description: 'Thu hồi đề xuất quy tắc của chính mình (maker)',
+  },
+  {
+    action: 'request_changes',
+    subject: 'DeadlineRuleVersion',
+    description: 'Yêu cầu sửa đổi đề xuất quy tắc (checker)',
+  },
 
   // ── Calendar (PR 1 v0.16.0.0) — replaces 'Case' gate on /calendar/events.
   // PR 2 adds POST/PATCH/DELETE on /calendar-events with these subjects.
-  { action: 'read', subject: 'Calendar', description: 'Xem lịch + sự kiện calendar' },
-  { action: 'write', subject: 'Calendar', description: 'Tạo sự kiện calendar (PR 2)' },
-  { action: 'edit', subject: 'Calendar', description: 'Sửa sự kiện calendar (PR 2)' },
-  { action: 'delete', subject: 'Calendar', description: 'Xóa sự kiện calendar (PR 2)' },
+  {
+    action: 'read',
+    subject: 'Calendar',
+    description: 'Xem lịch + sự kiện calendar',
+  },
+  {
+    action: 'write',
+    subject: 'Calendar',
+    description: 'Tạo sự kiện calendar (PR 2)',
+  },
+  {
+    action: 'edit',
+    subject: 'Calendar',
+    description: 'Sửa sự kiện calendar (PR 2)',
+  },
+  {
+    action: 'delete',
+    subject: 'Calendar',
+    description: 'Xóa sự kiện calendar (PR 2)',
+  },
 
   // ── Setting (v0.21.3.0 — fix ISSUE-001) ────────────────────────────────
   // /api/v1/settings GET/PUT/POST. Missing from seed pre-v0.21.3.0 caused
   // /admin/settings to 403 for every role including super-admin.
-  { action: 'read', subject: 'Setting', description: 'Xem cấu hình hệ thống (system settings page)' },
-  { action: 'write', subject: 'Setting', description: 'Sửa cấu hình hệ thống + seed defaults' },
+  {
+    action: 'read',
+    subject: 'Setting',
+    description: 'Xem cấu hình hệ thống (system settings page)',
+  },
+  {
+    action: 'write',
+    subject: 'Setting',
+    description: 'Sửa cấu hình hệ thống + seed defaults',
+  },
 
   // ── Restore (v0.32.0.0) — khôi phục records đã soft-delete ────────────
   // Gắn duy nhất cho ADMIN qua role-permission mapping (xem grant block below).
   // Missing seed → @RequirePermissions trả 403 cho mọi user kể cả ADMIN.
-  { action: 'restore', subject: 'Case', description: 'Khôi phục vụ án đã xóa mềm' },
-  { action: 'restore', subject: 'Incident', description: 'Khôi phục vụ việc đã xóa mềm' },
-  { action: 'restore', subject: 'Petition', description: 'Khôi phục đơn thư đã xóa mềm' },
+  {
+    action: 'restore',
+    subject: 'Case',
+    description: 'Khôi phục vụ án đã xóa mềm',
+  },
+  {
+    action: 'restore',
+    subject: 'Incident',
+    description: 'Khôi phục vụ việc đã xóa mềm',
+  },
+  {
+    action: 'restore',
+    subject: 'Petition',
+    description: 'Khôi phục đơn thư đã xóa mềm',
+  },
+  {
+    action: 'restore',
+    subject: 'Evidence',
+    description: 'Khôi phục vật chứng đã xóa mềm',
+  },
 
   // ── Edit window reset request review (v0.33.0.0 Phase 5b) ─────────────
   // ADMIN + HEAD_UNIT review reset requests. ADMIN auto-grant via seed.ts ALL block.
   // HEAD_UNIT grant via admin role-permission UI sau (defer per autoplan).
-  { action: 'review_reset_request', subject: 'EditWindowResetRequest', description: 'Duyệt/từ chối yêu cầu reset bộ đếm sửa dữ liệu cấp phường' },
+  {
+    action: 'review_reset_request',
+    subject: 'EditWindowResetRequest',
+    description: 'Duyệt/từ chối yêu cầu reset bộ đếm sửa dữ liệu cấp phường',
+  },
 ];

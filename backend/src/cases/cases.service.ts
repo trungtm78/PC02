@@ -690,6 +690,32 @@ export class CasesService {
             createdAt: true,
           },
         },
+        // Vật chứng nhập ở form tạo vụ án được ghi từ lâu nhưng chưa từng
+        // được đọc ra — không có `include` nào trong toàn bộ codebase. Đây là
+        // đường đọc đầu tiên.
+        //
+        // CHỈ ở getById. KHÔNG thêm vào getList: một vụ án có thể mang hàng
+        // chục vật chứng, và include trên danh sách sẽ thành N+1 trên mọi
+        // trang danh sách vụ án.
+        evidences: {
+          where: { deletedAt: null },
+          orderBy: { createdAt: 'asc' },
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            description: true,
+            quantity: true,
+            unit: true,
+            storageLocation: true,
+            receivedDate: true,
+            status: true,
+            evidenceType: true,
+            entryOrder: true,
+            warehouseReceipt: true,
+            createdAt: true,
+          },
+        },
       },
     });
 

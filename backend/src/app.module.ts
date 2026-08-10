@@ -13,6 +13,7 @@ import { DirectoryModule } from './directory/directory.module';
 import { AddressMappingModule } from './address-mapping/address-mapping.module';
 import { CasesModule } from './cases/cases.module';
 import { SubjectsModule } from './subjects/subjects.module';
+import { EvidencesModule } from './evidences/evidences.module';
 import { LawyersModule } from './lawyers/lawyers.module';
 import { PetitionsModule } from './petitions/petitions.module';
 import { IncidentsModule } from './incidents/incidents.module';
@@ -81,6 +82,7 @@ import { CatalogModule } from './catalog/catalog.module';
     AddressMappingModule,
     CasesModule,
     SubjectsModule,
+    EvidencesModule,
     LawyersModule,
     PetitionsModule,
     IncidentsModule,
