@@ -37,6 +37,28 @@ Cập nhật: 2026-08-10T03:15:00+07:00 | Milestone: M1/5 | Task: 0/5 của M1
 
 ## Đang làm dở
 
+Task: M1-T5 — PR-M1 `feat/mobile-feature-flag-awareness` (**làm được 2/3 — phần mobile BỊ CHẶN, xem bên dưới**)
+
+Đã làm (đều kiểm chứng được, có test):
+- **BE — `FeatureFlagGuard` trả thân lỗi phân biệt được.** Trước: `throw new NotFoundException()` trần ⇒ client không tài nào phân biệt "tính năng bị tắt" với "không tìm thấy bản ghi". Giữ nguyên **404** (mã trạng thái riêng sẽ giúp người ngoài dò được module nào đang tắt) nhưng thân lỗi nay có `error: 'FEATURE_DISABLED'`, `feature: <key>`, và câu tiếng Việt lấy `label` từ manifest. Hằng `FEATURE_DISABLED_ERROR` đánh dấu **WIRE FORMAT** — APK đã cài mang bản sao của chuỗi này, đổi tên là client cũ lặng lẽ quay về hiện 404 thô.
+- **Web — `lib/feature-disabled.ts` + nhánh trong interceptor.** Nhận cả hai hình dạng thân lỗi Nest có thể sinh ra (phẳng và lồng dưới `message`), phát sự kiện `pc02:feature-disabled`.
+- **Web — hết cờ cũ.** `FeatureFlagsContext` trước chỉ fetch **một lần lúc mount**, nên admin tắt module xong mọi tab đang mở vẫn hiện menu trỏ tới route đã 404. Nay refetch khi (a) có request trả `FEATURE_DISABLED` — bằng chứng cờ đã cũ, và (b) tab được đưa lại lên trước.
+
+**🚫 CHẶN — phần mobile chưa làm: máy này không có Flutter/Dart.**
+`command -v flutter dart` → không có. `mobile/test/` có sẵn bộ test nhưng **không chạy được**. Viết Dart mà không compile hay test nổi, vào đúng module đang **chặn cứng E4–E6**, là tạo ra sự tự tin giả — nên tôi dừng lại thay vì đẩy code không kiểm chứng.
+
+Phần còn thiếu, đặc tả sẵn để làm khi có toolchain:
+1. `mobile/lib/core/api/feature_flags_api.dart` — gọi `GET /feature-flags` lúc khởi động + cache.
+2. `api_client.dart::_onError` — hiện chỉ bắt 401. Thêm nhánh đọc `error == 'FEATURE_DISABLED'` → màn "Tính năng tạm tắt" thay vì để `Lỗi: DioException ... 404` lọt ra UI (`case_detail_screen.dart:32`).
+3. Ẩn mục điều hướng theo cờ.
+4. Version gate: gọi `/api/v1/health`, so phiên bản tối thiểu → màn buộc cập nhật. **Không có nó thì APK đã cài không có đường cứu** khi gate API bật.
+
+**Điều kiện để mở khoá E4–E6 vẫn nguyên:** chưa có 4 mục trên trên production thì không được merge PR gate API nào.
+Kiểm: BE **224 suite / 3052 test** PASS, FE **154 file / 1504 test** PASS, tsc sạch cả hai, 3 cổng governance xanh.
+**BƯỚC TIẾP THEO:** cần Flutter SDK để hoàn tất PR-M1. Trong lúc chờ, M2 (B1/B2/B3 — hạ tầng cờ) không phụ thuộc mobile và làm được ngay.
+
+---
+
 Task: M1-T4 — PR-A4 `fix/seed-endpoints-and-settings-validation` (**xong — qua `/codex`**)
 Đã làm:
 - **`SeedEndpointGuard`** áp lên 4 endpoint nạp dữ liệu mẫu. Hai điều kiện đồng thời: `ALLOW_SEED_ENDPOINTS==='true'` (so khớp **đúng chuỗi**, để `1`/`yes`/`TRUE` không vô tình mở cổng) **và** vai trò ADMIN. Trước đó `POST /notifications/seed` **không có decorator quyền nào cả**, còn `/directories/seed` chỉ cần `write:Directory` — quyền mà nhiều vai trò đang có. `POST /address-mappings/seed/:id/cancel` **cố ý không gate**: hủy job đang treo phải gọi được. `test-fixtures` đã có `TestModeGuard` riêng nên không đụng.
@@ -220,8 +242,8 @@ Tự phát hiện thêm: 3 file test mới của chính tôi bị baseline hoá 
 ## Trạng thái test
 
 Full suite: **PASS**
-- Backend: 224 suite / **3049** test — PASS (xem ND-9: 1 suite flaky ~1/6 lần, có sẵn từ trước)
-- Frontend: 153 file / **1494** test — PASS (3 lần chạy liên tiếp ổn định)
+- Backend: 224 suite / **3052** test — PASS (xem ND-9: 1 suite flaky ~1/6 lần, có sẵn từ trước)
+- Frontend: 154 file / **1504** test — PASS (3 lần chạy liên tiếp ổn định)
 - Cổng governance: enum guard ✅ · gen:enums drift ✅ · lint ratchet ✅ (baseline 8.945 sau ADR-0015)
 - `tsc --noEmit` (BE): sạch · `tsc -b` (FE): sạch
 - eslint: không có lỗi mới trên dòng đã thêm (nợ lint có sẵn xem ND-1)

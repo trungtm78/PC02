@@ -21,6 +21,7 @@ import {
 } from '../FeatureFlagsContext';
 import { api } from '../../api';
 import { authStore } from '@/stores/auth.store';
+import { FEATURE_DISABLED_EVENT } from '@/lib/feature-disabled';
 
 function Probe() {
   const { flags, isLoading, error } = useFeatureFlagsContext();
@@ -175,5 +176,70 @@ describe('FeatureFlagsProvider network behavior', () => {
     );
     expect(api.get).toHaveBeenCalledTimes(4); // 1 initial + 3 retries
     expect(authStore.clearTokens).not.toHaveBeenCalled();
+  });
+});
+
+
+/**
+ * Flags were fetched once at mount and never again, so an administrator
+ * turning a module off left every open tab with a sidebar advertising routes
+ * that now 404 — and the user only found out by clicking one.
+ */
+describe('FeatureFlagsProvider — staleness triggers', () => {
+  beforeEach(() => {
+    // mockReset, not just mockResolvedValue: the suite above queues
+    // mockRejectedValueOnce values, and an unconsumed queue is served first —
+    // the provider then burns its whole retry schedule before settling.
+    vi.mocked(api.get).mockReset();
+    vi.mocked(api.get).mockResolvedValue({ data: [] });
+  });
+
+  it('refetches when a request comes back FEATURE_DISABLED', async () => {
+    render(
+      <FeatureFlagsProvider>
+        <Probe />
+      </FeatureFlagsProvider>,
+    );
+    await waitFor(() => expect(api.get).toHaveBeenCalledTimes(1));
+
+    window.dispatchEvent(new CustomEvent(FEATURE_DISABLED_EVENT));
+
+    await waitFor(() => expect(api.get).toHaveBeenCalledTimes(2));
+  });
+
+  it('refetches when a backgrounded tab comes back to the front', async () => {
+    render(
+      <FeatureFlagsProvider>
+        <Probe />
+      </FeatureFlagsProvider>,
+    );
+    await waitFor(() => expect(api.get).toHaveBeenCalledTimes(1));
+
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      get: () => 'visible',
+    });
+    document.dispatchEvent(new Event('visibilitychange'));
+
+    await waitFor(() => expect(api.get).toHaveBeenCalledTimes(2));
+  });
+
+  it('does not refetch when the tab is being hidden', async () => {
+    render(
+      <FeatureFlagsProvider>
+        <Probe />
+      </FeatureFlagsProvider>,
+    );
+    await waitFor(() => expect(api.get).toHaveBeenCalledTimes(1));
+
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      get: () => 'hidden',
+    });
+    document.dispatchEvent(new Event('visibilitychange'));
+
+    // Give a rejected refetch a chance to land before asserting it did not.
+    await new Promise((r) => setTimeout(r, 20));
+    expect(api.get).toHaveBeenCalledTimes(1);
   });
 });

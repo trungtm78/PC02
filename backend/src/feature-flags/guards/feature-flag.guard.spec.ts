@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { FeatureFlagGuard } from './feature-flag.guard';
+import { FeatureFlagGuard, FEATURE_DISABLED_ERROR } from './feature-flag.guard';
 import { FeatureFlagsService } from '../feature-flags.service';
 import { FEATURE_FLAG_KEY } from '../decorators/feature-flag.decorator';
 
@@ -52,6 +52,49 @@ describe('FeatureFlagGuard', () => {
     await expect(guard.canActivate(authedContext())).rejects.toBeInstanceOf(
       NotFoundException,
     );
+  });
+
+  // A bare 404 is indistinguishable from "record not found", so every client
+  // showed the wrong thing — the mobile app put `Lỗi: DioException ... 404`
+  // in front of an officer who had done nothing wrong. The status stays 404;
+  // the body is what carries the difference.
+  it('carries a distinguishable error code, not a bare 404', async () => {
+    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue('cases');
+    featureFlags.isEnabled.mockResolvedValue(false);
+
+    await expect(guard.canActivate(authedContext())).rejects.toMatchObject({
+      response: {
+        statusCode: 404,
+        error: FEATURE_DISABLED_ERROR,
+        feature: 'cases',
+      },
+    });
+  });
+
+  it('names the feature in Vietnamese so the client can show it verbatim', async () => {
+    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue('cases');
+    featureFlags.isEnabled.mockResolvedValue(false);
+
+    await expect(guard.canActivate(authedContext())).rejects.toMatchObject({
+      response: { message: expect.stringContaining('đang tắt') as string },
+    });
+  });
+
+  it('falls back to the raw key when the manifest has no label', async () => {
+    // A flag can exist in the database without a manifest entry — that is the
+    // FE/BE mismatch this project has hit three times. It must not crash the
+    // guard.
+    jest
+      .spyOn(reflector, 'getAllAndOverride')
+      .mockReturnValue('khong-co-manifest');
+    featureFlags.isEnabled.mockResolvedValue(false);
+
+    await expect(guard.canActivate(authedContext())).rejects.toMatchObject({
+      response: {
+        feature: 'khong-co-manifest',
+        message: expect.stringContaining('khong-co-manifest') as string,
+      },
+    });
   });
 
   it('skips the flag check when request.user is null (anonymous)', async () => {

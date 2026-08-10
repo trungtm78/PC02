@@ -1,5 +1,10 @@
 import axios from 'axios';
 import type { AuthUser } from '@/stores/auth.store';
+import {
+  extractFeatureDisabled,
+  isFeatureDisabledError,
+  FEATURE_DISABLED_EVENT,
+} from './feature-disabled';
 
 export const api = axios.create({
   baseURL: '/api/v1',
@@ -24,6 +29,18 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
+    // A disabled feature answers 404 with a distinguishable body. Without this
+    // branch every gated route rendered whatever generic message the calling
+    // screen shows for "not found", which reads as data loss rather than a
+    // switch somebody flipped. Broadcast it so the shell can say so plainly
+    // and re-read the flags, since the sidebar is now out of date.
+    if (isFeatureDisabledError(error) && typeof window !== 'undefined') {
+      const detail = extractFeatureDisabled(error);
+      window.dispatchEvent(
+        new CustomEvent(FEATURE_DISABLED_EVENT, { detail }),
+      );
+    }
+
     const original = error.config as typeof error.config & { _retry?: boolean };
     const url = original?.url ?? '';
     const isAuthEndpoint =
