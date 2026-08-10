@@ -38,33 +38,139 @@ export class EditWindowService {
       });
       if (team?.editWindowHours != null) return team.editWindowHours;
     }
-    return this.settings.getNumericValue(SETTINGS_KEY.THOI_HAN_EDIT_VU_VAN, 168);
+    return this.settings.getNumericValue(
+      SETTINGS_KEY.THOI_HAN_EDIT_VU_VAN,
+      168,
+    );
   }
 
   async isAfterEditWindow(record: {
     createdAt: Date;
     assignedTeamId: string | null;
-    assignedTeam?: { wardId: string | null; editWindowHours: number | null } | null;
+    assignedTeam?: {
+      wardId: string | null;
+      editWindowHours: number | null;
+    } | null;
   }): Promise<boolean> {
     // Phase 5-lite: chỉ áp window cho records của ward team (assignedTeam.wardId != null)
     if (!record.assignedTeam?.wardId) return false;
     const window =
       record.assignedTeam.editWindowHours ??
-      (await this.settings.getNumericValue(SETTINGS_KEY.THOI_HAN_EDIT_VU_VAN, 168));
+      (await this.settings.getNumericValue(
+        SETTINGS_KEY.THOI_HAN_EDIT_VU_VAN,
+        168,
+      ));
     const hoursElapsed = (Date.now() - record.createdAt.getTime()) / 3_600_000;
     return hoursElapsed > window;
   }
 
+  /**
+   * D3 — hồ sơ này còn sửa được không, và đã xin mở lại chưa.
+   *
+   * Màn hình chi tiết cần biết ba thứ để hiện banner: đã quá hạn sửa chưa, còn
+   * bao lâu, và người này đã có yêu cầu đang chờ duyệt chưa — không có cái thứ
+   * ba thì người dùng bấm xin lại lần nữa, rồi lần nữa.
+   *
+   * KIỂM TỔ trước khi trả bất cứ gì. Không kiểm thì endpoint này trở thành cách
+   * đọc `createdAt` của hồ sơ tổ khác: chỉ cần đoán id rồi đọc `hoursElapsed`
+   * ngược ra. Cùng một câu kiểm mà `createResetRequest` đã dùng.
+   */
+  async getStatus(
+    actorId: string,
+    subjectType: 'Case' | 'Incident' | 'Petition',
+    subjectId: string,
+  ) {
+    const subjectTeamId = await this.getSubjectAssignedTeamId(
+      subjectType,
+      subjectId,
+    );
+    if (subjectTeamId === null) {
+      throw new NotFoundException(
+        `${subjectType} không tồn tại hoặc chưa gán cho tổ nào.`,
+      );
+    }
+    const userTeams = await this.prisma.userTeam.findMany({
+      where: { userId: actorId },
+      select: { teamId: true },
+    });
+    if (!new Set(userTeams.map((ut) => ut.teamId)).has(subjectTeamId)) {
+      throw new ForbiddenException('Bạn không thuộc tổ quản lý record này.');
+    }
+
+    const record = await this.loadSubjectForWindow(subjectType, subjectId);
+    if (!record) {
+      throw new NotFoundException(`${subjectType} không tồn tại.`);
+    }
+
+    const locked = await this.isAfterEditWindow(record);
+    const windowHours = await this.getEditWindow(record.assignedTeamId);
+    const hoursElapsed = (Date.now() - record.createdAt.getTime()) / 3_600_000;
+
+    const pending = await this.prisma.editWindowResetRequest.findFirst({
+      where: {
+        subjectType,
+        subjectId,
+        requestedById: actorId,
+        status: 'PENDING',
+      },
+      select: { id: true, createdAt: true },
+    });
+
+    return {
+      locked,
+      windowHours,
+      hoursElapsed: Math.floor(hoursElapsed),
+      hoursRemaining: locked
+        ? 0
+        : Math.max(0, Math.ceil(windowHours - hoursElapsed)),
+      pendingRequest: pending,
+    };
+  }
+
+  /** Chỉ các trường `isAfterEditWindow` cần — không kéo cả bản ghi ra. */
+  private async loadSubjectForWindow(
+    subjectType: 'Case' | 'Incident' | 'Petition',
+    subjectId: string,
+  ) {
+    const select = {
+      createdAt: true,
+      assignedTeamId: true,
+      assignedTeam: { select: { wardId: true, editWindowHours: true } },
+    };
+    if (subjectType === 'Case') {
+      return this.prisma.case.findUnique({ where: { id: subjectId }, select });
+    }
+    if (subjectType === 'Incident') {
+      return this.prisma.incident.findUnique({
+        where: { id: subjectId },
+        select,
+      });
+    }
+    return this.prisma.petition.findUnique({
+      where: { id: subjectId },
+      select,
+    });
+  }
+
   async createResetRequest(
     actorId: string,
-    dto: { subjectType: 'Case' | 'Incident' | 'Petition'; subjectId: string; reason: string },
+    dto: {
+      subjectType: 'Case' | 'Incident' | 'Petition';
+      subjectId: string;
+      reason: string;
+    },
   ) {
     // CODEX HIGH 1: verify subject tồn tại + user có quyền truy cập subject
     // Chỉ ward officer (assignedTeam in user's writable teams) mới được tạo request.
-    const subjectTeamId = await this.getSubjectAssignedTeamId(dto.subjectType, dto.subjectId);
+    const subjectTeamId = await this.getSubjectAssignedTeamId(
+      dto.subjectType,
+      dto.subjectId,
+    );
     if (subjectTeamId === null) {
       // Hoặc subject không tồn tại, hoặc unassigned. Cả 2 trường hợp đều reject.
-      throw new NotFoundException(`${dto.subjectType} không tồn tại hoặc chưa gán cho tổ nào.`);
+      throw new NotFoundException(
+        `${dto.subjectType} không tồn tại hoặc chưa gán cho tổ nào.`,
+      );
     }
     const userTeams = await this.prisma.userTeam.findMany({
       where: { userId: actorId },
@@ -99,7 +205,10 @@ export class EditWindowService {
       });
       return { success: true, data: created, message: 'Đã gửi yêu cầu reset' };
     } catch (err) {
-      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === 'P2002'
+      ) {
         const existing = await this.prisma.editWindowResetRequest.findFirst({
           where: {
             subjectType: dto.subjectType,
@@ -111,19 +220,23 @@ export class EditWindowService {
         return {
           success: true,
           data: existing,
-          message: 'Bạn đã gửi yêu cầu reset cho record này, đang chờ admin duyệt.',
+          message:
+            'Bạn đã gửi yêu cầu reset cho record này, đang chờ admin duyệt.',
         };
       }
       throw err;
     }
   }
 
-  async list(query: {
-    status?: 'PENDING' | 'APPROVED' | 'REJECTED' | 'ALL';
-    limit?: number;
-    offset?: number;
-    countOnly?: boolean;
-  }, user: AuthUser) {
+  async list(
+    query: {
+      status?: 'PENDING' | 'APPROVED' | 'REJECTED' | 'ALL';
+      limit?: number;
+      offset?: number;
+      countOnly?: boolean;
+    },
+    user: AuthUser,
+  ) {
     const where: Prisma.EditWindowResetRequestWhereInput = {};
     if (query.status && query.status !== 'ALL') where.status = query.status;
 
@@ -155,7 +268,10 @@ export class EditWindowService {
         });
         let count = 0;
         for (const r of all) {
-          const teamId = await this.getSubjectAssignedTeamId(r.subjectType, r.subjectId);
+          const teamId = await this.getSubjectAssignedTeamId(
+            r.subjectType,
+            r.subjectId,
+          );
           if (teamId && postFilterSubjectTeamIds.has(teamId)) count++;
         }
         return { success: true, count };
@@ -173,8 +289,22 @@ export class EditWindowService {
         skip: offset,
         take: limit,
         include: {
-          requestedBy: { select: { id: true, username: true, firstName: true, lastName: true } },
-          reviewedBy: { select: { id: true, username: true, firstName: true, lastName: true } },
+          requestedBy: {
+            select: {
+              id: true,
+              username: true,
+              firstName: true,
+              lastName: true,
+            },
+          },
+          reviewedBy: {
+            select: {
+              id: true,
+              username: true,
+              firstName: true,
+              lastName: true,
+            },
+          },
         },
       }),
       this.prisma.editWindowResetRequest.count({ where }),
@@ -184,7 +314,10 @@ export class EditWindowService {
     if (postFilterSubjectTeamIds) {
       const filtered: typeof data = [];
       for (const r of data) {
-        const teamId = await this.getSubjectAssignedTeamId(r.subjectType, r.subjectId);
+        const teamId = await this.getSubjectAssignedTeamId(
+          r.subjectType,
+          r.subjectId,
+        );
         if (teamId && postFilterSubjectTeamIds.has(teamId)) filtered.push(r);
       }
       data = filtered;
@@ -204,7 +337,9 @@ export class EditWindowService {
     meta?: { ipAddress?: string; userAgent?: string },
   ) {
     if (user.role !== ROLE_NAMES.ADMIN && user.role !== ROLE_NAMES.HEAD_UNIT) {
-      throw new ForbiddenException('Chỉ ADMIN hoặc Trưởng đơn vị mới được duyệt yêu cầu reset.');
+      throw new ForbiddenException(
+        'Chỉ ADMIN hoặc Trưởng đơn vị mới được duyệt yêu cầu reset.',
+      );
     }
 
     const requests = await this.prisma.editWindowResetRequest.findMany({
@@ -229,7 +364,10 @@ export class EditWindowService {
         descendants.forEach((id) => descendantTeamIds.add(id));
       }
       for (const req of requests) {
-        const subjectTeamId = await this.getSubjectAssignedTeamId(req.subjectType, req.subjectId);
+        const subjectTeamId = await this.getSubjectAssignedTeamId(
+          req.subjectType,
+          req.subjectId,
+        );
         if (!subjectTeamId || !descendantTeamIds.has(subjectTeamId)) {
           throw new ForbiddenException(
             `Không có quyền duyệt yêu cầu ${req.id} (subject ngoài tổ con của bạn).`,
@@ -272,7 +410,11 @@ export class EditWindowService {
       }
     });
 
-    return { success: true, message: `Đã duyệt ${requests.length} yêu cầu reset`, count: requests.length };
+    return {
+      success: true,
+      message: `Đã duyệt ${requests.length} yêu cầu reset`,
+      count: requests.length,
+    };
   }
 
   async reject(
@@ -282,19 +424,28 @@ export class EditWindowService {
     meta?: { ipAddress?: string; userAgent?: string },
   ) {
     if (user.role !== ROLE_NAMES.ADMIN && user.role !== ROLE_NAMES.HEAD_UNIT) {
-      throw new ForbiddenException('Chỉ ADMIN hoặc Trưởng đơn vị mới được từ chối.');
+      throw new ForbiddenException(
+        'Chỉ ADMIN hoặc Trưởng đơn vị mới được từ chối.',
+      );
     }
     const req = await this.prisma.editWindowResetRequest.findFirst({
       where: { id: requestId, status: 'PENDING' },
     });
     if (!req) {
-      throw new NotFoundException('Yêu cầu không tồn tại hoặc đã được duyệt/từ chối.');
+      throw new NotFoundException(
+        'Yêu cầu không tồn tại hoặc đã được duyệt/từ chối.',
+      );
     }
 
     await this.prisma.$transaction(async (tx) => {
       await tx.editWindowResetRequest.update({
         where: { id: requestId, status: 'PENDING' },
-        data: { status: 'REJECTED', reviewedById: user.id, reviewNote, reviewedAt: new Date() },
+        data: {
+          status: 'REJECTED',
+          reviewedById: user.id,
+          reviewNote,
+          reviewedAt: new Date(),
+        },
       });
       await this.audit.log(
         {
@@ -302,7 +453,12 @@ export class EditWindowService {
           action: 'RESET_REQUEST_REJECTED',
           subject: req.subjectType,
           subjectId: req.subjectId,
-          metadata: { requestId, reviewNote, previousStatus: 'PENDING', requesterId: req.requestedById },
+          metadata: {
+            requestId,
+            reviewNote,
+            previousStatus: 'PENDING',
+            requesterId: req.requestedById,
+          },
           ipAddress: meta?.ipAddress,
           userAgent: meta?.userAgent,
         },

@@ -1,4 +1,15 @@
-import { Controller, Get, Post, Body, Param, Query, Req, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Query,
+  Req,
+  UseGuards,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
 import type { ScopedRequest } from '../auth/interfaces/scoped-request.interface';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
@@ -6,7 +17,10 @@ import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { EditWindowService } from './edit-window.service';
 import { CreateResetRequestDto } from './dto/create-reset-request.dto';
-import { BulkApproveDto, RejectRequestDto } from './dto/review-reset-request.dto';
+import {
+  BulkApproveDto,
+  RejectRequestDto,
+} from './dto/review-reset-request.dto';
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
 
 @Controller('edit-window')
@@ -15,6 +29,26 @@ export class EditWindowController {
   constructor(private readonly editWindow: EditWindowService) {}
 
   // POST /api/v1/edit-window/requests — any authenticated user
+  /**
+   * D3 — trạng thái cửa sổ sửa của một hồ sơ, cho banner ở trang chi tiết.
+   *
+   * `read:Case` như `POST requests`: bất kỳ ai đọc được hồ sơ đều cần biết nó
+   * còn sửa được không. Việc chặn theo tổ nằm trong service.
+   */
+  @Get('status')
+  @RequirePermissions({ action: 'read', subject: 'Case' })
+  status(
+    @Query()
+    query: { subjectType: 'Case' | 'Incident' | 'Petition'; subjectId: string },
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.editWindow.getStatus(
+      user.id,
+      query.subjectType,
+      query.subjectId,
+    );
+  }
+
   @Post('requests')
   @HttpCode(HttpStatus.CREATED)
   @RequirePermissions({ action: 'read', subject: 'Case' }) // any read perm = any user
@@ -27,9 +61,18 @@ export class EditWindowController {
 
   // GET /api/v1/edit-window/requests — admin/HEAD_UNIT see queue
   @Get('requests')
-  @RequirePermissions({ action: 'review_reset_request', subject: 'EditWindowResetRequest' })
+  @RequirePermissions({
+    action: 'review_reset_request',
+    subject: 'EditWindowResetRequest',
+  })
   list(
-    @Query() query: { status?: 'PENDING' | 'APPROVED' | 'REJECTED' | 'ALL'; limit?: string; offset?: string; countOnly?: string },
+    @Query()
+    query: {
+      status?: 'PENDING' | 'APPROVED' | 'REJECTED' | 'ALL';
+      limit?: string;
+      offset?: string;
+      countOnly?: string;
+    },
     @CurrentUser() user: AuthUser,
   ) {
     return this.editWindow.list(
@@ -46,7 +89,10 @@ export class EditWindowController {
   // POST /api/v1/edit-window/requests/bulk-approve
   @Post('requests/bulk-approve')
   @HttpCode(HttpStatus.OK)
-  @RequirePermissions({ action: 'review_reset_request', subject: 'EditWindowResetRequest' })
+  @RequirePermissions({
+    action: 'review_reset_request',
+    subject: 'EditWindowResetRequest',
+  })
   bulkApprove(
     @Body() dto: BulkApproveDto,
     @CurrentUser() user: AuthUser,
@@ -61,7 +107,10 @@ export class EditWindowController {
   // POST /api/v1/edit-window/requests/:id/reject
   @Post('requests/:id/reject')
   @HttpCode(HttpStatus.OK)
-  @RequirePermissions({ action: 'review_reset_request', subject: 'EditWindowResetRequest' })
+  @RequirePermissions({
+    action: 'review_reset_request',
+    subject: 'EditWindowResetRequest',
+  })
   reject(
     @Param('id') id: string,
     @Body() dto: RejectRequestDto,

@@ -43,6 +43,7 @@ import {
   Map,
 } from "lucide-react";
 import { HoSoJourney } from "@/components/HoSoJourney/HoSoJourney";
+import { EditWindowBanner } from '@/components/shared/EditWindowBanner';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -1656,6 +1657,8 @@ export default function CaseDetailPage() {
 
   return (
     <div className="p-6 space-y-6" data-testid="case-detail-page">
+      {/* D3 — nói trước, thay vì để người dùng gõ xong rồi mới bị từ chối. */}
+      {id && <EditWindowBanner subjectType="Case" subjectId={id} />}
       {/* Back */}
       <button
         onClick={() => navigate("/cases")}

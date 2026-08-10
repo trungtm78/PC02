@@ -2,7 +2,9 @@ import { IsString, IsIn, MinLength, MaxLength } from 'class-validator';
 
 export class CreateResetRequestDto {
   @IsString()
-  @IsIn(['Case', 'Incident', 'Petition'], { message: 'subjectType phải là Case | Incident | Petition' })
+  @IsIn(['Case', 'Incident', 'Petition'], {
+    message: 'subjectType phải là Case | Incident | Petition',
+  })
   subjectType: 'Case' | 'Incident' | 'Petition';
 
   @IsString()

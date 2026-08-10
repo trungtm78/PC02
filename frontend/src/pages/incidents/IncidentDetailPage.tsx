@@ -9,6 +9,7 @@ import {
   ArrowLeft, Edit, Calendar, FileText, User, MapPin, Clock,
   AlertCircle, Loader2, Target, Hash,
 } from "lucide-react";
+import { EditWindowBanner } from '@/components/shared/EditWindowBanner';
 
 interface IncidentDetail {
   id: string;
@@ -120,6 +121,8 @@ export default function IncidentDetailPage() {
 
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
+      {/* D3 — nói trước, thay vì để người dùng gõ xong rồi mới bị từ chối. */}
+      {id && <EditWindowBanner subjectType="Incident" subjectId={id} />}
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-3">

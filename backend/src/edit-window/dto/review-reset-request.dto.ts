@@ -1,4 +1,10 @@
-import { IsString, IsArray, ArrayMinSize, IsOptional, MaxLength } from 'class-validator';
+import {
+  IsString,
+  IsArray,
+  ArrayMinSize,
+  IsOptional,
+  MaxLength,
+} from 'class-validator';
 
 export class BulkApproveDto {
   @IsArray()
