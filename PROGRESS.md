@@ -1,5 +1,5 @@
 # PROGRESS
-Cập nhật: 2026-08-10T02:40:00+07:00 | Milestone: M0.5/5 | Task: 2/3 của M0.5
+Cập nhật: 2026-08-10T03:15:00+07:00 | Milestone: M1/5 | Task: 0/5 của M1
 
 > Nguồn sự thật về trạng thái thi công. Kế hoạch gốc: `~/.claude/plans/r-so-t-to-n-b-vast-minsky.md`
 > (đã qua `/plan-eng-review` + outside voice). Lịch sử đợt di trú legacy trước đó đã chuyển sang
@@ -10,7 +10,7 @@ Cập nhật: 2026-08-10T02:40:00+07:00 | Milestone: M0.5/5 | Task: 2/3 của M0
 | MS | Tên | PR | Trạng thái |
 |----|-----|----|-----------|
 | M0 | Hồi sức — lỗi đang phá dữ liệu trên production | A1 | **1/1 xong** |
-| M0.5 | Governance — CI gate + ADR | B0a, B0b, B0c | **2/3** (B0a, B0b xong) |
+| M0.5 | Governance — CI gate + ADR | B0a, B0b, B0c | **3/3 xong** |
 | M1 | Mất dữ liệu / bảo mật còn lại + nền mobile | D1, A2, A3, A4, M1 | chưa bắt đầu |
 | M2 | Hạ tầng cờ tính năng | B1, B2, B3 | chưa bắt đầu |
 | M3 | Xóa mockup | C1–C12 | chưa bắt đầu |
@@ -36,6 +36,14 @@ Cập nhật: 2026-08-10T02:40:00+07:00 | Milestone: M0.5/5 | Task: 2/3 của M0
   - Test: +8 BE (3 `getRolePermissions`, 4 role hệ thống, 1 NotFound), +2 BE controller, +8 FE
 
 ## Đang làm dở
+
+Task: M0.5-T3 — PR-B0c `docs/adr-foundation` (**xong**)
+Đã làm: `docs/adr/` + template MADR + README danh mục + **14 ADR** + workflow `adr-nudge.yml` (cảnh báo, không chặn) + trỏ dẫn trong CLAUDE.md. Kiểm: 0 link hỏng, 0 số hiệu trùng. BE 221 suite/2951 test PASS, FE 151 file/1475 test PASS, 3 cổng governance xanh.
+**BƯỚC TIẾP THEO:** M1-T1 — PR-D1 `feat/evidences-lifecycle`. Xem mục 2 hàng đợi. Nhớ: D1 **phải trước** A2.
+
+ADR đã ghi: 0001 cờ lõi compile-time · 0002 `caseId` giữ NOT NULL · 0003 model quyết định trùng đơn · 0004 không có `POST /settings` · 0005 danh mục seed-only · 0006 xoá 3 tab mockup · 0007 gate cấp class · 0008 mobile chặn gate API · 0009 cache một-instance · 0010 `ALTER TYPE` một chiều · 0011 chấp nhận drift partial index · 0012 lint ratchet · 0013 bộ UAT cũ không vào CI · 0014 RLS chỉ 2 bảng.
+
+---
 
 Task: M0.5-T2 — PR-B0b `chore/ci-drift-and-e2e-scaffold` (**xong**)
 Đã làm: 2 commit (`030d3d2`, `80dd6c3`). `/review` xong — 7 finding, đã sửa hết. BE 221 suite/**2951** test PASS, FE 151 file/**1475** test PASS, 3 cổng governance xanh, collect Playwright từ **0 → 3849 test / 182 file**.
@@ -78,7 +86,7 @@ Tự phát hiện thêm: 3 file test mới của chính tôi bị baseline hoá 
 
 ## Hàng đợi task kế tiếp
 
-1. M0.5-T3 — PR-B0c `docs/adr-foundation`: `docs/adr/` + template MADR + 12 ADR + CI nudge theo khuôn `shell-parity-gate.yml`.
+1. M1-T1 — PR-D1 `feat/evidences-lifecycle` (**phải trước A2**).
 2. M1-T1 — PR-D1 `feat/evidences-lifecycle` (**phải trước A2** — nếu A2 chặn `evidences[]` khi chưa có module thay thế thì cán bộ mất luôn đường nhập vật chứng lúc sửa hồ sơ).
 3. M1-T2 — PR-A2 `fix/case-update-subentity-dataloss` (FE + BE **cùng một PR**).
 4. M1-T3 — PR-A3 `fix/create-endpoints-datascope` (4 service: subjects, lawyers, investigation-supplements, exchanges).

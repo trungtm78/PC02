@@ -39,6 +39,13 @@ Internal case management system (NestJS backend + React frontend) for managing l
 - **Lint ratchet** — `node scripts/governance/lint-changed.cjs origin/main`. Whole-repo lint is ~11.5k problems of debt accumulated while CI never ran eslint, so the gate is monotonic: a file your branch touches may not carry more problems than `scripts/governance/lint-baseline.json` records; new files must be clean. Most are formatting — `npx eslint --fix <file>`.
 - After cleaning debt, tighten the ratchets: `node scripts/governance/lint-changed.cjs --write-baseline` and `node scripts/governance/check-enum-literals.cjs --write-baseline`.
 
+`Advisory Checks` (non-blocking) runs the checks that are known-red against the current tree — `prisma migrate diff` and a type-check of `tests/`. See [ADR-0011](docs/adr/0011-partial-index-drift-is-accepted.md).
+
+## Architecture Decision Records
+[docs/adr/](docs/adr/) records why a decision was made **and why the alternatives were rejected** — the part that stops someone "fixing" a deliberate constraint six months from now. Start at [docs/adr/README.md](docs/adr/README.md); copy `0000-template.md` for a new one. `adr-nudge.yml` warns (does not block) when a PR touches `schema.prisma` or `feature-flags/` without an ADR; bypass with `[adr-skip]` in the PR title.
+
+Load-bearing ones to read before touching the relevant area: [0002](docs/adr/0002-subject-lawyer-caseid-stays-required.md) (why `caseId` cannot go nullable — it reopens a patched security hole), [0008](docs/adr/0008-mobile-blocks-api-gating.md) (why API gating is blocked on mobile work), [0010](docs/adr/0010-alter-type-add-value-is-one-way.md) (why adding an enum value cannot be rolled back).
+
 ## Deploy Configuration
 
 - **Platform**: Viettel Cloud VM (171.244.40.245), Ubuntu 24.04 LTS
