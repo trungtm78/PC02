@@ -66,6 +66,7 @@ const SHARED_ENUMS = [
   'CaseType', // v0.44 — UTDT
   'LoaiUyThac', // v0.44 — UTDT loại ủy thác
   'PetitionDuplicateDecision', // C4 — quyết định đơn trùng
+  'RecordReturnType', // C9 — lý do trả hồ sơ
 ];
 
 function parseEnums(schemaSource) {

@@ -186,6 +186,10 @@ model User {
   petitionDuplicateDecisions PetitionDuplicateLink[] @relation("PetitionDuplicateDecidedBy")
   petitionDuplicateReverts   PetitionDuplicateLink[] @relation("PetitionDuplicateRevertedBy")
 
+  // C9 — ai trả hồ sơ / ai hoàn tác.
+  recordReturnsMade    RecordReturn[] @relation("RecordReturnedBy")
+  recordReturnReverts  RecordReturn[] @relation("RecordReturnRevertedBy")
+
 }
 
 // Magic link enrollment audit (post-/autoplan).
@@ -696,6 +700,9 @@ model Case {
   @@index([sttCu])
   @@index([legacyId, legacyCollection])
   @@map("cases")
+  // C9 — trả hồ sơ cho đơn vị chuyển đến.
+  recordReturns RecordReturn[] @relation("CaseRecordReturns")
+
 }
 
 // ─────────────────────────────────────────────
@@ -1098,6 +1105,9 @@ model Petition {
   @@index([sttCu])
   @@index([legacyId, legacyCollection])
   @@map("petitions")
+  // C9 — trả hồ sơ cho đơn vị chuyển đến.
+  recordReturns RecordReturn[] @relation("PetitionRecordReturns")
+
 }
 
 // ─────────────────────────────────────────────
@@ -1322,6 +1332,9 @@ model Incident {
   @@index([sttCu])
   @@index([legacyId, legacyCollection])
   @@map("incidents")
+  // C9 — trả hồ sơ cho đơn vị chuyển đến.
+  recordReturns RecordReturn[] @relation("IncidentRecordReturns")
+
 }
 
 // ─────────────────────────────────────────────
@@ -2728,4 +2741,71 @@ model LegacyFieldDiagnostic {
 
   @@index([runId, field])
   @@map("legacy_field_diagnostics")
+}
+
+/// Lý do trả hồ sơ về đơn vị chuyển.
+enum RecordReturnType {
+  KHONG_THUOC_THAM_QUYEN /// Không thuộc thẩm quyền giải quyết
+  THIEU_TAI_LIEU /// Hồ sơ thiếu tài liệu, chưa đủ căn cứ thụ lý
+  TRUNG_HO_SO /// Trùng với hồ sơ đơn vị đang thụ lý
+  SAI_DIA_BAN /// Sai địa bàn
+  LY_DO_KHAC /// Lý do khác — bắt buộc ghi rõ trong `reason`
+  /// Không đặt tên `KHAC`: cổng enum-literal so khớp theo GIÁ TRỊ, nên một giá
+  /// trị tên `KHAC` biến mọi chuỗi 'KHAC' không liên quan trong repo (vd
+  /// `legacy-migration/cli/seed-org.ts`) thành vi phạm mới.
+
+  @@map("record_return_type")
+}
+
+/// Trả hồ sơ cho đơn vị đã chuyển đến.
+///
+/// Một bản ghi trỏ tới ĐÚNG MỘT hồ sơ — vụ án, vụ việc hoặc đơn thư. Ràng buộc
+/// `num_nonnulls(...) = 1` nằm ở tầng CSDL vì đây là bất biến của dữ liệu, không
+/// phải quy ước của ứng dụng: người sửa bằng `psql` cũng không tạo được bản ghi
+/// trỏ tới hai hồ sơ hoặc không trỏ tới hồ sơ nào.
+///
+/// Không xoá khi hoàn tác — `revertedAt` cùng lý do hoàn tác được ghi lại, vì
+/// trả hồ sơ rồi rút lại là việc phải giải trình được.
+model RecordReturn {
+  id String @id @default(cuid())
+
+  caseId     String?
+  case       Case?     @relation("CaseRecordReturns", fields: [caseId], references: [id], onDelete: Cascade)
+  incidentId String?
+  incident   Incident? @relation("IncidentRecordReturns", fields: [incidentId], references: [id], onDelete: Cascade)
+  petitionId String?
+  petition   Petition? @relation("PetitionRecordReturns", fields: [petitionId], references: [id], onDelete: Cascade)
+
+  returnType RecordReturnType
+
+  /// Bắt buộc: trả hồ sơ là một quyết định tố tụng, phải nêu căn cứ.
+  reason String
+
+  /// Đơn vị nhận lại hồ sơ.
+  toUnit String
+
+  /// Số văn bản trả hồ sơ, nếu đã phát hành.
+  documentNo String?
+
+  returnedAt   DateTime @default(now())
+  returnedById String?
+  returnedBy   User?    @relation("RecordReturnedBy", fields: [returnedById], references: [id], onDelete: SetNull)
+
+  revertedAt   DateTime?
+  revertedById String?
+  revertedBy   User?     @relation("RecordReturnRevertedBy", fields: [revertedById], references: [id], onDelete: SetNull)
+  revertReason String?
+
+  /// Gom nhóm khi trả hàng loạt, để đối chiếu với `BulkOperation`.
+  bulkOperationId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([caseId])
+  @@index([incidentId])
+  @@index([petitionId])
+  @@index([returnType])
+  @@index([bulkOperationId])
+  @@map("record_returns")
 }

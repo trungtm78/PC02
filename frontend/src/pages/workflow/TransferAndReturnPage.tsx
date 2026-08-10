@@ -6,7 +6,7 @@
  * data-testid added for E2E/UAT automation per OPENCODE_QA_GATE.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Search,
@@ -23,7 +23,10 @@ import {
   Info,
 } from 'lucide-react';
 import { api } from '@/lib/api';
-import { formatVNDate } from '../../lib/dates';
+import { formatVNDate, today } from '../../lib/dates';
+import { downloadCsv } from '@/lib/csv';
+import { extractApiError } from '@/lib/api-errors';
+import { RecordReturnType } from '@/shared/enums/generated';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -39,6 +42,20 @@ interface CaseRecord {
   statusColor: string;
   assignedTo: string;
   isClosed?: boolean;
+}
+
+
+/** Loại hồ sơ trên bảng ↔ tham số `target` của `POST /workflow/returns`. */
+const RETURN_TARGET_BY_TYPE: Record<CaseRecord['recordType'], 'case' | 'incident' | 'petition'> = {
+  'Vụ án': 'case',
+  'Vụ việc': 'incident',
+  'Đơn thư': 'petition',
+};
+
+interface ReturnBulkResult {
+  succeeded: { id: string }[];
+  skipped: { id: string; message?: string }[];
+  failed: { id: string; error: string }[];
 }
 
 // ─── Status label maps ────────────────────────────────────────────────────────
@@ -143,8 +160,7 @@ export default function TransferAndReturnPage() {
   const [allData, setAllData] = useState<CaseRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchAll = async () => {
+  const fetchAll = useCallback(async () => {
       setLoading(true);
       try {
         const [casesRes, incidentsRes, petitionsRes] = await Promise.all([
@@ -156,7 +172,10 @@ export default function TransferAndReturnPage() {
           id: c.id,
           stt: i + 1,
           recordType: 'Vụ án' as const,
-          recordCode: c.id.slice(0, 8).toUpperCase(),
+          // Mã hồ sơ thật do hệ thống cấp. Trước đây cột này hiện 8 ký tự đầu
+          // của id — một chuỗi không tra được ở đâu, và không khớp với con số
+          // ghi trên bìa hồ sơ giấy.
+          recordCode: c.caseCode ?? c.id.slice(0, 8).toUpperCase(),
           name: c.name,
           currentTeam: c.unit ?? '',
           createdDate: formatVNDate(c.createdAt),
@@ -197,9 +216,11 @@ export default function TransferAndReturnPage() {
       } finally {
         setLoading(false);
       }
-    };
-    fetchAll();
   }, []);
+
+  useEffect(() => {
+    void fetchAll();
+  }, [fetchAll]);
 
   // ── Auto-select từ navigation state ───────────────────────────────────────
   useEffect(() => {
@@ -263,6 +284,26 @@ export default function TransferAndReturnPage() {
 
     return matchesQuickSearch && matchesType && matchesTeam && matchesStatus;
   });
+
+  /**
+   * "Xuất Excel" chưa từng có `onClick`. Xuất đúng những dòng người dùng đang
+   * nhìn (đã lọc), theo thứ tự cột của bảng — không phải toàn bộ dữ liệu.
+   */
+  const handleExport = () => {
+    downloadCsv(
+      filteredRecords.map((r) => [
+        r.recordType,
+        r.recordCode,
+        r.name,
+        r.currentTeam,
+        r.assignedTo,
+        r.status,
+        r.createdDate,
+      ]),
+      ['Loại hồ sơ', 'Mã hồ sơ', 'Tên', 'Đơn vị hiện tại', 'Người thụ lý', 'Trạng thái', 'Ngày tạo'],
+      `luan-chuyen-tra-ho-so-${today()}.csv`,
+    );
+  };
 
   const totalPages = Math.max(1, Math.ceil(filteredRecords.length / PAGE_SIZE));
   const displayedRecords = filteredRecords.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
@@ -401,13 +442,16 @@ export default function TransferAndReturnPage() {
           <div className="flex items-center gap-2">
             <button
               data-testid="export-excel-btn"
-              className="flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              onClick={handleExport}
+              disabled={filteredRecords.length === 0}
+              className="flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Download className="w-4 h-4" />
               Xuất Excel
             </button>
             <button
               data-testid="refresh-btn"
+              onClick={() => void fetchAll()}
               className="px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
             >
               <RotateCcw className="w-4 h-4" />
@@ -672,7 +716,12 @@ export default function TransferAndReturnPage() {
       {showReturnModal && (
         <ReturnModal
           selectedRecords={getSelectedRecordsInfo()}
-          onClose={() => { setShowReturnModal(false); setSelectedRecords([]); }}
+          onClose={() => { setShowReturnModal(false); }}
+          onDone={() => {
+            setShowReturnModal(false);
+            setSelectedRecords([]);
+            void fetchAll();
+          }}
         />
       )}
     </div>
@@ -979,139 +1028,221 @@ function TransferModal({ selectedRecords, onClose }: { selectedRecords: CaseReco
 
 // ─── ReturnModal ──────────────────────────────────────────────────────────────
 
-function ReturnModal({ selectedRecords, onClose }: { selectedRecords: CaseRecord[]; onClose: () => void }) {
-  const [formData, setFormData] = useState({ returnType: '', receivingUnit: '', reason: '', notes: '' });
-  const [errors, setErrors] = useState<{ returnType?: string; receivingUnit?: string; reason?: string }>({});
+function ReturnModal({
+  selectedRecords,
+  onClose,
+  onDone,
+}: {
+  selectedRecords: CaseRecord[];
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  /**
+   * Bản trước kết thúc bằng `alert("Đã trả N hồ sơ ... thành công!")` mà không
+   * gọi API nào. Người dùng tin là xong, hệ thống không ghi gì — và hồ sơ vẫn
+   * nằm nguyên ở đơn vị cũ.
+   *
+   * Một lần chỉ trả MỘT loại hồ sơ: lý do trả và đơn vị nhận lại thường khác
+   * nhau theo loại, gộp chung là mời người dùng gắn nhầm căn cứ cho nửa số hồ sơ.
+   */
+  const types = [...new Set(selectedRecords.map((r) => r.recordType))];
+  const mixed = types.length > 1;
 
-  const handleSubmit = () => {
-    const newErrors: typeof errors = {};
-    if (!formData.returnType) newErrors.returnType = 'Vui lòng chọn loại trả';
-    if (!formData.receivingUnit) newErrors.receivingUnit = 'Vui lòng nhập đơn vị nhận trả';
-    if (!formData.reason) newErrors.reason = 'Vui lòng nhập lý do trả hồ sơ';
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      return;
+  const [returnType, setReturnType] = useState<RecordReturnType | ''>('');
+  const [toUnit, setToUnit] = useState('');
+  const [reason, setReason] = useState('');
+  const [documentNo, setDocumentNo] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [result, setResult] = useState<ReturnBulkResult | null>(null);
+
+  const codeOf = (id: string) => selectedRecords.find((r) => r.id === id)?.recordCode ?? id;
+  const invalid = mixed || !returnType || toUnit.trim().length < 2 || reason.trim().length < 10;
+
+  const submit = async () => {
+    setErr(null);
+    setSaving(true);
+    try {
+      const res = await api.post('/workflow/returns', {
+        target: RETURN_TARGET_BY_TYPE[types[0]],
+        ids: selectedRecords.map((r) => r.id),
+        returnType,
+        reason: reason.trim(),
+        toUnit: toUnit.trim(),
+        ...(documentNo.trim() ? { documentNo: documentNo.trim() } : {}),
+      });
+      setResult((res.data?.data ?? res.data) as ReturnBulkResult);
+    } catch (e) {
+      // Báo lỗi rồi DỪNG — không đóng modal, không nói thành công.
+      setErr(extractApiError(e, 'Trả hồ sơ thất bại').message);
+    } finally {
+      setSaving(false);
     }
-    alert(`Đã trả ${selectedRecords.length} hồ sơ về ${formData.receivingUnit} thành công!`);
-    onClose();
   };
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" data-testid="return-modal">
-      <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-hidden">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Trả hồ sơ"
+        className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto"
+      >
         <div className="border-b border-slate-200 px-6 py-4 flex items-center justify-between">
           <div>
             <h2 className="font-bold text-slate-800">Trả hồ sơ</h2>
-            <p className="text-sm text-slate-600 mt-1">Đang trả {selectedRecords.length} hồ sơ về đơn vị</p>
+            <p className="text-sm text-slate-600 mt-1">
+              Đang trả {selectedRecords.length} hồ sơ về đơn vị đã chuyển đến
+            </p>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
+          <button
+            onClick={() => (result ? onDone() : onClose())}
+            aria-label="Đóng"
+            className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+          >
             <X className="w-5 h-5 text-slate-600" />
           </button>
         </div>
 
-        <div className="p-6 space-y-4 overflow-y-auto max-h-[calc(90vh-200px)]">
-          {/* Danh sách hồ sơ */}
-          <div>
-            <h3 className="text-sm font-medium text-slate-700 mb-3">Danh sách hồ sơ được chọn ({selectedRecords.length})</h3>
-            <div className="space-y-2 max-h-40 overflow-y-auto border border-slate-200 rounded-lg p-3 bg-slate-50">
-              {selectedRecords.map((record) => (
-                <div key={record.id} className="flex items-center justify-between gap-2 text-sm bg-white p-2 rounded border border-slate-200">
-                  <div className="flex items-center gap-2">
-                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                      record.recordType === 'Đơn thư' ? 'bg-blue-100 text-blue-700'
-                        : record.recordType === 'Vụ việc' ? 'bg-purple-100 text-purple-700'
-                        : 'bg-red-100 text-red-700'
-                    }`}>
-                      {record.recordType}
-                    </span>
-                    <span className="font-medium text-blue-600">{record.recordCode}</span>
-                  </div>
-                  <span className="text-slate-600 text-xs">{record.currentTeam}</span>
-                </div>
-              ))}
-            </div>
+        {result ? (
+          <div className="px-6 py-4 space-y-3" data-testid="return-result">
+            <p className="text-sm">
+              <b className="text-green-700">{result.succeeded.length} hồ sơ</b> đã trả.
+              {result.skipped.length > 0 && (
+                <>
+                  {' '}
+                  <b className="text-amber-700">{result.skipped.length}</b> bỏ qua.
+                </>
+              )}
+              {result.failed.length > 0 && (
+                <>
+                  {' '}
+                  <b className="text-red-700">{result.failed.length}</b> lỗi.
+                </>
+              )}
+            </p>
+            {result.skipped.length > 0 && (
+              <ul className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-1">
+                {result.skipped.map((sk) => (
+                  <li key={sk.id}>
+                    <b>{codeOf(sk.id)}</b>: {sk.message ?? 'Bỏ qua'}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {result.failed.length > 0 && (
+              <ul className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-3 space-y-1">
+                {result.failed.map((f) => (
+                  <li key={f.id}>
+                    <b>{codeOf(f.id)}</b>: {f.error}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
+        ) : (
+          <div className="px-6 py-4 space-y-4">
+            {mixed && (
+              <p className="text-sm text-red-600" data-testid="mixed-error">
+                Đang chọn nhiều loại hồ sơ ({types.join(', ')}). Mỗi lần chỉ trả được một loại —
+                lý do trả và đơn vị nhận lại khác nhau theo loại.
+              </p>
+            )}
 
-          {/* Loại trả */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Loại trả hồ sơ <span className="text-red-500">*</span></label>
-            <select
-              data-testid="return-type-select"
-              value={formData.returnType}
-              onChange={(e) => { setFormData({ ...formData, returnType: e.target.value }); setErrors({ ...errors, returnType: undefined }); }}
-              className={`w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 bg-white ${errors.returnType ? 'border-red-300 focus:ring-red-500' : 'border-slate-300 focus:ring-blue-500'}`}
+            <label className="block text-sm">
+              <span className="block font-medium text-slate-700 mb-1.5">
+                Loại trả <span className="text-red-500">*</span>
+              </span>
+              <select
+                value={returnType}
+                onChange={(e) => setReturnType(e.target.value as RecordReturnType)}
+                data-testid="select-return-type"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+              >
+                <option value="">-- Chọn loại trả --</option>
+                <option value={RecordReturnType.KHONG_THUOC_THAM_QUYEN}>Không thuộc thẩm quyền</option>
+                <option value={RecordReturnType.THIEU_TAI_LIEU}>Thiếu tài liệu</option>
+                <option value={RecordReturnType.TRUNG_HO_SO}>Trùng hồ sơ</option>
+                <option value={RecordReturnType.SAI_DIA_BAN}>Sai địa bàn</option>
+                <option value={RecordReturnType.LY_DO_KHAC}>Lý do khác</option>
+              </select>
+            </label>
+
+            <label className="block text-sm">
+              <span className="block font-medium text-slate-700 mb-1.5">
+                Đơn vị nhận lại <span className="text-red-500">*</span>
+              </span>
+              <input
+                value={toUnit}
+                onChange={(e) => setToUnit(e.target.value)}
+                data-testid="input-to-unit"
+                placeholder="Tên đơn vị đã chuyển hồ sơ đến"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+              />
+            </label>
+
+            <label className="block text-sm">
+              <span className="block font-medium text-slate-700 mb-1.5">
+                Lý do trả <span className="text-red-500">*</span>
+              </span>
+              <textarea
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                rows={3}
+                data-testid="input-reason"
+                placeholder="Căn cứ trả hồ sơ"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+              />
+              <span className="text-xs text-slate-500">
+                Tối thiểu 10 ký tự — trả hồ sơ là quyết định tố tụng, phải nêu căn cứ.
+              </span>
+            </label>
+
+            <label className="block text-sm">
+              <span className="block font-medium text-slate-700 mb-1.5">Số văn bản trả (nếu có)</span>
+              <input
+                value={documentNo}
+                onChange={(e) => setDocumentNo(e.target.value)}
+                data-testid="input-document-no"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+              />
+            </label>
+
+            {err && (
+              <p className="text-sm text-red-600" data-testid="submit-error">
+                {err}
+              </p>
+            )}
+          </div>
+        )}
+
+        <div className="border-t border-slate-200 px-6 py-4 flex justify-end gap-2">
+          {result ? (
+            <button
+              onClick={onDone}
+              data-testid="btn-close-result"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
             >
-              <option value="">Chọn loại trả</option>
-              <option value="Trả về đơn vị cấp trên">Trả về đơn vị cấp trên</option>
-              <option value="Trả về Viện Kiểm sát">Trả về Viện Kiểm sát</option>
-              <option value="Trả về đơn vị khác">Trả về đơn vị khác</option>
-              <option value="Trả về người gửi">Trả về người gửi</option>
-              <option value="Lưu hồ sơ">Lưu hồ sơ</option>
-            </select>
-            {errors.returnType && <p className="text-xs text-red-600 mt-1">{errors.returnType}</p>}
-          </div>
-
-          {/* Đơn vị nhận trả */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Đơn vị nhận trả <span className="text-red-500">*</span></label>
-            <input
-              data-testid="return-receiving-unit-input"
-              type="text"
-              value={formData.receivingUnit}
-              onChange={(e) => { setFormData({ ...formData, receivingUnit: e.target.value }); setErrors({ ...errors, receivingUnit: undefined }); }}
-              className={`w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 ${errors.receivingUnit ? 'border-red-300 focus:ring-red-500' : 'border-slate-300 focus:ring-blue-500'}`}
-              placeholder="Nhập tên đơn vị nhận trả hồ sơ"
-            />
-            {errors.receivingUnit && <p className="text-xs text-red-600 mt-1">{errors.receivingUnit}</p>}
-          </div>
-
-          {/* Lý do trả */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Lý do trả hồ sơ <span className="text-red-500">*</span></label>
-            <textarea
-              data-testid="return-reason-textarea"
-              value={formData.reason}
-              onChange={(e) => { setFormData({ ...formData, reason: e.target.value }); setErrors({ ...errors, reason: undefined }); }}
-              rows={4}
-              className={`w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 ${errors.reason ? 'border-red-300 focus:ring-red-500' : 'border-slate-300 focus:ring-blue-500'}`}
-              placeholder="Nhập lý do cụ thể tại sao cần trả hồ sơ..."
-            />
-            {errors.reason && <p className="text-xs text-red-600 mt-1">{errors.reason}</p>}
-          </div>
-
-          {/* Ghi chú */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Ghi chú bổ sung</label>
-            <textarea
-              data-testid="return-notes-textarea"
-              value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              rows={2}
-              className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Các ghi chú khác..."
-            />
-          </div>
-
-          {/* Lưu ý */}
-          <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg flex items-start gap-2">
-            <AlertTriangle className="w-5 h-5 text-purple-600 flex-shrink-0 mt-0.5" />
-            <div className="text-sm text-purple-800">
-              <p className="font-medium mb-1">Lưu ý:</p>
-              <p>Sau khi trả hồ sơ, trạng thái hồ sơ sẽ được cập nhật thành &quot;Đã trả&quot; và hồ sơ sẽ không còn thuộc quyền quản lý của đơn vị hiện tại.</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="border-t border-slate-200 px-6 py-4 flex justify-end gap-3">
-          <button onClick={onClose} className="px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors">Hủy</button>
-          <button
-            data-testid="submit-return-btn"
-            onClick={handleSubmit}
-            className="px-4 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium"
-          >
-            <CornerUpLeft className="w-4 h-4 inline mr-2" />
-            Lưu trả hồ sơ
-          </button>
+              Xong
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={onClose}
+                className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50"
+              >
+                Huỷ
+              </button>
+              <button
+                onClick={() => void submit()}
+                disabled={invalid || saving}
+                data-testid="btn-submit-return"
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {saving ? 'Đang trả…' : 'Xác nhận trả hồ sơ'}
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>

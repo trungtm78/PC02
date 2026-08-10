@@ -7,6 +7,18 @@ import { PetitionDuplicateDecision, PetitionStatus } from '@prisma/client';
 import { PetitionsService } from './petitions.service';
 
 /**
+ * First argument of a mock call, typed loosely on purpose.
+ *
+ * `jest.fn(async () => …)` infers a zero-length argument tuple, so reading
+ * `mock.calls[0][0]` stops type-checking — and the arguments are exactly what
+ * these tests assert on. Adding a dummy parameter to every mock just to widen
+ * the tuple trades a type error for an unused-variable one.
+ */
+function firstArg(mock: jest.Mock): any {
+  return mock.mock.calls[0][0];
+}
+
+/**
  * C4. The screen used to offer "hợp nhất" as if it meant "delete the other
  * one". Under the Law on Complaints and the Law on Denunciations it cannot:
  * each petition carries its own duty to accept, its own deadline and its own
@@ -35,15 +47,13 @@ const DUPLICATE = {
 };
 
 function makeService(overrides: Record<string, any> = {}) {
-  // Typed as `(args: any) => Promise<any>` rather than `async () => …`: an
-  // argument-less mock infers a zero-length tuple, so `mock.calls[0][0]` stops
-  // type-checking — and the calls are exactly what these tests assert on.
-  const fn = (impl: (args: any) => any) =>
-    jest.fn((args: any) => Promise.resolve(impl(args)));
+  const fn = (impl: () => any) => jest.fn(() => Promise.resolve(impl()));
+  // The return values are deliberately fixed rather than echoing the input:
+  // every assertion in this file reads the recorded call, not the reply.
   const tx = {
     petitionDuplicateLink: {
-      create: fn(({ data }: any) => ({ id: 'link-1', ...data })),
-      update: fn(({ data }: any) => ({ id: 'link-1', ...data })),
+      create: fn(() => ({ id: 'link-1' })),
+      update: fn(() => ({ id: 'link-1' })),
     },
     petition: { update: fn(() => ({})) },
   };
@@ -111,7 +121,7 @@ describe('decideDuplicate', () => {
 
     await svc.decideDuplicate(DTO, 'user-1', null);
 
-    const data = tx.petitionDuplicateLink.create.mock.calls[0][0].data;
+    const data = firstArg(tx.petitionDuplicateLink.create as jest.Mock).data;
     expect(data.matchedCriteria).toBe(4);
     expect(data.comparedCriteria).toBe(4);
     expect(data.reason).toBe(DTO.reason);
@@ -147,7 +157,7 @@ describe('decideDuplicate', () => {
   it('refuses when either petition is outside the caller scope', async () => {
     // Only one of the two came back from the scoped query.
     const { svc } = makeService({
-      petition: { findMany: jest.fn((_a: any) => Promise.resolve([PRIMARY])) },
+      petition: { findMany: jest.fn(() => Promise.resolve([PRIMARY])) },
     });
 
     await expect(svc.decideDuplicate(DTO, 'user-1', null)).rejects.toThrow(
@@ -158,7 +168,7 @@ describe('decideDuplicate', () => {
   it('does not say which petition was out of scope', async () => {
     // Naming it turns this endpoint into a probe for records in other units.
     const { svc } = makeService({
-      petition: { findMany: jest.fn((_a: any) => Promise.resolve([PRIMARY])) },
+      petition: { findMany: jest.fn(() => Promise.resolve([PRIMARY])) },
     });
 
     await expect(svc.decideDuplicate(DTO, 'user-1', null)).rejects.toThrow(
@@ -169,7 +179,7 @@ describe('decideDuplicate', () => {
   it('refuses a second live decision on the same petition', async () => {
     const { svc } = makeService({
       petitionDuplicateLink: {
-        findFirst: jest.fn((_a: any) => Promise.resolve({ id: 'existing' })),
+        findFirst: jest.fn(() => Promise.resolve({ id: 'existing' })),
       },
     });
 
@@ -183,7 +193,7 @@ describe('revertDuplicate', () => {
   function makeRevertService(link: any) {
     const { svc, prisma, audit, tx } = makeService({
       petitionDuplicateLink: {
-        findFirst: jest.fn((_a: any) => Promise.resolve(link)),
+        findFirst: jest.fn(() => Promise.resolve(link)),
       },
     });
     return { svc, prisma, audit, tx };
@@ -214,7 +224,7 @@ describe('revertDuplicate', () => {
       null,
     );
 
-    const data = tx.petitionDuplicateLink.update.mock.calls[0][0].data;
+    const data = firstArg(tx.petitionDuplicateLink.update as jest.Mock).data;
     expect(data.revertedById).toBe('user-2');
     expect(data.revertReason).toBe('Xác minh lại: hai người khác nhau.');
     expect(data.revertedAt).toBeInstanceOf(Date);
@@ -290,7 +300,7 @@ describe('revertDuplicate', () => {
     expect(
       audit.log.mock.calls.map((c: any[]) => c[0].subjectId).sort(),
     ).toEqual(['p-1', 'p-2']);
-    expect(audit.log.mock.calls[0][0].action).toBe(
+    expect(firstArg(audit.log as jest.Mock).action).toBe(
       'PETITION_DUPLICATE_REVERTED',
     );
   });
@@ -316,7 +326,8 @@ describe('listDuplicateLinks', () => {
     await svc.listDuplicateLinks({}, null);
 
     expect(
-      prisma.petitionDuplicateLink.findMany.mock.calls[0][0].where.revertedAt,
+      firstArg(prisma.petitionDuplicateLink.findMany as jest.Mock).where
+        .revertedAt,
     ).toBeNull();
   });
 
@@ -326,7 +337,8 @@ describe('listDuplicateLinks', () => {
     await svc.listDuplicateLinks({ includeReverted: 'true' }, null);
 
     expect(
-      prisma.petitionDuplicateLink.findMany.mock.calls[0][0].where.revertedAt,
+      firstArg(prisma.petitionDuplicateLink.findMany as jest.Mock).where
+        .revertedAt,
     ).toBeUndefined();
   });
 
@@ -335,8 +347,8 @@ describe('listDuplicateLinks', () => {
 
     await svc.listDuplicateLinks({ limit: 5000 }, null);
 
-    expect(prisma.petitionDuplicateLink.findMany.mock.calls[0][0].take).toBe(
-      100,
-    );
+    expect(
+      firstArg(prisma.petitionDuplicateLink.findMany as jest.Mock).take,
+    ).toBe(100);
   });
 });

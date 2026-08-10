@@ -37,6 +37,7 @@ import { MASTER_CLASS_MANIFEST } from '../master-class/feature.manifest';
 import { NOTIFICATIONS_MANIFEST } from '../notifications/feature.manifest';
 import { PETITIONS_MANIFEST } from '../petitions/feature.manifest';
 import { PROPOSALS_MANIFEST } from '../proposals/feature.manifest';
+import { RECORD_RETURNS_MANIFEST } from '../record-returns/feature.manifest';
 import { REPORTS_MANIFEST } from '../reports/feature.manifest';
 import { TDAC_MANIFEST } from '../reports/tdac/feature.manifest';
 import { SETTINGS_MANIFEST } from '../settings/feature.manifest';
@@ -78,6 +79,7 @@ export const GENERATED_FEATURE_REGISTRY: readonly FeatureManifest[] = [
   NOTIFICATIONS_MANIFEST,
   PETITIONS_MANIFEST,
   PROPOSALS_MANIFEST,
+  RECORD_RETURNS_MANIFEST,
   REPORTS_MANIFEST,
   TDAC_MANIFEST,
   SETTINGS_MANIFEST,
