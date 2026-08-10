@@ -37,6 +37,16 @@ Cập nhật: 2026-08-10T03:15:00+07:00 | Milestone: M1/5 | Task: 0/5 của M1
 
 ## Đang làm dở
 
+Task: M1-T2 — PR-A2 `fix/case-update-subentity-dataloss` (**code xong, chờ `/review` + `/codex`**)
+Đã làm: `UpdateCaseDto` = `OmitType(PartialType(CreateCaseDto), ['subjects','evidences','documentIds'])` rồi khai lại 3 field với `@Equals(undefined)` kèm **thông điệp tiếng Việt chỉ sang endpoint đúng** — chỉ omit không thì `forbidNonWhitelisted` trả "property subjects should not exist", đúng nhưng không nói người dùng phải làm gì. FE: `buildCreateCasePayload` nhận `mode:'create'|'update'`, mode update bỏ 3 mảng (mặc định vẫn `create` nên mọi lời gọi cũ không đổi).
+**Quan trọng — không chỉ dời chỗ mất dữ liệu:** nếu chỉ sửa payload thì hai tab "ĐTBS"/"Vật chứng" ở chế độ sửa vẫn cho nhập, và giờ FE lặng lẽ vứt đi thay vì BE. Nên ở chế độ sửa: tab ĐTBS thay bằng bảng chỉ đường sang tab thật ở trang chi tiết; tab Vật chứng **nhúng thẳng `CaseEvidenceTab`** của D1 — lưu ngay khi thêm dòng, không chờ bấm Lưu. Chế độ tạo giữ nguyên vì đó là nơi 3 mảng thực sự được ghi.
+Kiểm: BE **223 suite / 2999 test** PASS, FE **153 file / 1492 test** PASS, `tsc --noEmit` + `tsc -b` sạch, 3 cổng governance xanh.
+**BƯỚC TIẾP THEO:** `/review` rồi `/codex` cho PR-A2. Sau đó M1-T3 (PR-A3).
+
+**Sai sót đã tự phát hiện và khắc phục trong lúc làm:** tôi ghi đè mất `update-case.dto.spec.ts` vốn đã có 9 test (regression TAM_DINH_CHI/PHUC_HOI v0.37.2.6). Phát hiện vì tổng số test giảm 9 so với dự kiến chứ không phải vì có test đỏ — suite vẫn báo xanh. Đã khôi phục từ `git show HEAD:` và nối 5 test mới vào cuối. **Bài học ghi lại:** đối chiếu tổng số test sau mỗi lần thêm, vì mất test không làm CI đỏ.
+
+---
+
 Task: M1-T1 — PR-D1 `feat/evidences-lifecycle` (**xong — qua `/review` và `/codex`**)
 Đã làm: module `backend/src/evidences/` CRUD + soft-delete + restore, tab "Vật chứng" ở trang chi tiết vụ án, `cases.getById()` include evidences (**không** include ở `getList` — N+1, có comment cảnh báo tại chỗ), constants `EVIDENCE_STATUS` 2 phía (`Evidence.status` là `String`, **không** phải Prisma enum nên `gen:enums` không sinh), permission Evidence + runner seed chạy trong `deploy.sh`.
 Kiểm: BE **223 suite / 2985 test** PASS, FE **152 file / 1485 test** PASS, `tsc --noEmit` + `tsc -b` sạch, 3 cổng governance xanh.

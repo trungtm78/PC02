@@ -56,7 +56,9 @@ describe('UpdateCaseDto — TAM_DINH_CHI / PHUC_HOI fields (v0.37.2.6 P1 fix)', 
       caseProvenance: 'DIRECT_DISCOVERY',
     });
     const errors = await validate(dto);
-    expect(errors.find((e) => e.property === 'soQuyetDinhTamDinhChi')).toBeUndefined();
+    expect(
+      errors.find((e) => e.property === 'soQuyetDinhTamDinhChi'),
+    ).toBeUndefined();
     expect(errors.find((e) => e.property === 'ngayTamDinhChi')).toBeUndefined();
   });
 
@@ -70,7 +72,9 @@ describe('UpdateCaseDto — TAM_DINH_CHI / PHUC_HOI fields (v0.37.2.6 P1 fix)', 
     const errors = await validate(dto);
     expect(errors.find((e) => e.property === 'daRaSoat')).toBeUndefined();
     expect(errors.find((e) => e.property === 'ngayRaSoat')).toBeUndefined();
-    expect(errors.find((e) => e.property === 'soQuyetDinhPhucHoi')).toBeUndefined();
+    expect(
+      errors.find((e) => e.property === 'soQuyetDinhPhucHoi'),
+    ).toBeUndefined();
   });
 
   it('accepts ketQuaPhucHoiVuAn enum', async () => {
@@ -79,7 +83,9 @@ describe('UpdateCaseDto — TAM_DINH_CHI / PHUC_HOI fields (v0.37.2.6 P1 fix)', 
       caseProvenance: 'DIRECT_DISCOVERY',
     });
     const errors = await validate(dto);
-    expect(errors.find((e) => e.property === 'ketQuaPhucHoiVuAn')).toBeUndefined();
+    expect(
+      errors.find((e) => e.property === 'ketQuaPhucHoiVuAn'),
+    ).toBeUndefined();
   });
 
   // PR-3 (2026-06-26) — 4 field TĐC vụ án còn sót: form GỬI khi EDIT → trước 400 (forbidNonWhitelisted).
@@ -93,9 +99,15 @@ describe('UpdateCaseDto — TAM_DINH_CHI / PHUC_HOI fields (v0.37.2.6 P1 fix)', 
     });
     const errors = await validate(dto);
     expect(errors.find((e) => e.property === 'ngayPhucHoi')).toBeUndefined();
-    expect(errors.find((e) => e.property === 'ngayHetThoiHieu')).toBeUndefined();
-    expect(errors.find((e) => e.property === 'tdcKhacPhucLyDoBienPhap')).toBeUndefined();
-    expect(errors.find((e) => e.property === 'tdcKhacPhucBienBan')).toBeUndefined();
+    expect(
+      errors.find((e) => e.property === 'ngayHetThoiHieu'),
+    ).toBeUndefined();
+    expect(
+      errors.find((e) => e.property === 'tdcKhacPhucLyDoBienPhap'),
+    ).toBeUndefined();
+    expect(
+      errors.find((e) => e.property === 'tdcKhacPhucBienBan'),
+    ).toBeUndefined();
   });
 
   it('rejects invalid ketQuaPhucHoiVuAn enum value', async () => {
@@ -119,5 +131,57 @@ describe('UpdateCaseDto — TAM_DINH_CHI / PHUC_HOI fields (v0.37.2.6 P1 fix)', 
     const err = errors.find((e) => e.property === 'daRaSoat');
     expect(err).toBeDefined();
     expect(err?.constraints).toHaveProperty('isBoolean');
+  });
+});
+
+/**
+ * PR-A2 — `PUT /cases/:id` used to accept `subjects[]`, `evidences[]` and
+ * `documentIds[]`, return 200, and write none of them.
+ *
+ * `create()` hands those arrays to `createSubEntitiesInTransaction`;
+ * `update()` never called it. So an officer who added a piece of seized
+ * evidence while editing a case was told it saved and it was not. On a legal
+ * record, silently discarding an entry is worse than refusing it.
+ */
+describe('UpdateCaseDto — sub-entity arrays are refused, not ignored', () => {
+  const base = { name: 'Vụ án thí nghiệm', caseProvenance: 'DIRECT_DISCOVERY' };
+
+  it.each([
+    ['subjects', [{ fullName: 'Nguyễn Văn A', type: 'BI_CAN' }]],
+    ['evidences', [{ code: 'VC-001', name: 'Dao' }]],
+    ['documentIds', ['doc-1']],
+  ])(
+    'rejects %s with a message that names the right endpoint',
+    async (field, value) => {
+      const dto = plainToInstance(UpdateCaseDto, { ...base, [field]: value });
+      const errors = await validate(dto);
+
+      const err = errors.find((e) => e.property === field);
+      expect(err).toBeDefined();
+      // The point of the custom message: tell the caller where the data goes.
+      const text = Object.values(err?.constraints ?? {}).join(' ');
+      expect(text).toMatch(/trang chi tiết|POST \//);
+    },
+  );
+
+  it('accepts an ordinary edit that carries none of them', async () => {
+    const dto = plainToInstance(UpdateCaseDto, {
+      ...base,
+      note: 'Cập nhật tiến độ',
+    });
+    const errors = await validate(dto);
+
+    for (const field of ['subjects', 'evidences', 'documentIds']) {
+      expect(errors.find((e) => e.property === field)).toBeUndefined();
+    }
+  });
+
+  it('rejects an empty array too — sending [] is still a caller mistake', async () => {
+    // An empty array reads as "remove everything", which this endpoint has
+    // never done. Accepting it silently would be the same bug in a new shape.
+    const dto = plainToInstance(UpdateCaseDto, { ...base, evidences: [] });
+    const errors = await validate(dto);
+
+    expect(errors.find((e) => e.property === 'evidences')).toBeDefined();
   });
 });

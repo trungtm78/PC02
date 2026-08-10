@@ -32,6 +32,8 @@ import type { TabItem } from "@/components/shared/TabBar";
 import type { TabId, Subject, Evidence, MediaFile, CaseFormData } from "./types";
 import { INITIAL_FORM_DATA } from "./types";
 import { buildCreateCasePayload } from "./buildCreateCasePayload";
+import { EditModeSubEntityNotice } from "./EditModeSubEntityNotice";
+import CaseEvidenceTab from "../CaseEvidenceTab";
 import { hydrateFormFromUrl } from "./hydrateFormFromUrl"; // PR 3 + hotfix #112
 import { PreSaveSummaryModal } from "./PreSaveSummaryModal"; // PR 3 v0.38.2.0
 import { mergeCaseApiToFormData } from "./mergeCaseApiToFormData";
@@ -302,6 +304,10 @@ function CaseFormPage() {
       // để fix bug data-loss — atomic create với Case trong cùng transaction.
       const payload = {
         ...buildCreateCasePayload(formData, {
+          // Edit mode drops the sub-entity arrays: PUT /cases/:id never wrote
+          // them and now refuses them, so the tabs on the detail page are the
+          // only way to add a person or an item to an existing case.
+          mode: isEditMode ? 'update' : 'create',
           subjects,
           evidences,
           legacyMetadata: metaState, // gộp trường hệ cũ động (editable) — form field thắng, giữ phần còn lại
@@ -558,7 +564,10 @@ function CaseFormPage() {
           {activeTab === "uy-thac" && <TabUyThac {...tabProps} />}
           {activeTab === "incident" && <TabIncident {...tabProps} />}
           {activeTab === "case" && <TabCase {...tabProps} />}
-          {activeTab === "subjects" && (
+          {activeTab === "subjects" && isEditMode && id && (
+            <EditModeSubEntityNotice caseId={id} kind="subjects" />
+          )}
+          {activeTab === "subjects" && !isEditMode && (
             <TabSubjects
               subjects={subjects}
               onAdd={() => { setEditingSubject(null); setShowSubjectModal(true); }}
@@ -572,7 +581,13 @@ function CaseFormPage() {
           )}
           {activeTab === "incident-tdc" && <TabIncidentTDC {...tabProps} />}
           {activeTab === "case-tdc" && <TabCaseTDC {...tabProps} />}
-          {activeTab === "evidence" && (
+          {/* Edit mode gets the real thing: CaseEvidenceTab talks to
+              /evidences directly, so a row is saved when it is added rather
+              than waiting for a Lưu that used to discard it. */}
+          {activeTab === "evidence" && isEditMode && id && (
+            <CaseEvidenceTab caseId={id} />
+          )}
+          {activeTab === "evidence" && !isEditMode && (
             <TabEvidence
               evidences={evidences}
               onAdd={() => { setEditingEvidence(null); setShowEvidenceModal(true); }}
