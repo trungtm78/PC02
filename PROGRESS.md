@@ -37,13 +37,22 @@ Cập nhật: 2026-08-10T03:15:00+07:00 | Milestone: M1/5 | Task: 0/5 của M1
 
 ## Đang làm dở
 
-Task: M1-T2 — PR-A2 `fix/case-update-subentity-dataloss` (**code xong, chờ `/review` + `/codex`**)
+Task: M1-T2 — PR-A2 `fix/case-update-subentity-dataloss` (**xong — qua `/codex`**)
 Đã làm: `UpdateCaseDto` = `OmitType(PartialType(CreateCaseDto), ['subjects','evidences','documentIds'])` rồi khai lại 3 field với `@Equals(undefined)` kèm **thông điệp tiếng Việt chỉ sang endpoint đúng** — chỉ omit không thì `forbidNonWhitelisted` trả "property subjects should not exist", đúng nhưng không nói người dùng phải làm gì. FE: `buildCreateCasePayload` nhận `mode:'create'|'update'`, mode update bỏ 3 mảng (mặc định vẫn `create` nên mọi lời gọi cũ không đổi).
 **Quan trọng — không chỉ dời chỗ mất dữ liệu:** nếu chỉ sửa payload thì hai tab "ĐTBS"/"Vật chứng" ở chế độ sửa vẫn cho nhập, và giờ FE lặng lẽ vứt đi thay vì BE. Nên ở chế độ sửa: tab ĐTBS thay bằng bảng chỉ đường sang tab thật ở trang chi tiết; tab Vật chứng **nhúng thẳng `CaseEvidenceTab`** của D1 — lưu ngay khi thêm dòng, không chờ bấm Lưu. Chế độ tạo giữ nguyên vì đó là nơi 3 mảng thực sự được ghi.
 Kiểm: BE **223 suite / 2999 test** PASS, FE **153 file / 1492 test** PASS, `tsc --noEmit` + `tsc -b` sạch, 3 cổng governance xanh.
 **BƯỚC TIẾP THEO:** `/review` rồi `/codex` cho PR-A2. Sau đó M1-T3 (PR-A3).
 
 **Sai sót đã tự phát hiện và khắc phục trong lúc làm:** tôi ghi đè mất `update-case.dto.spec.ts` vốn đã có 9 test (regression TAM_DINH_CHI/PHUC_HOI v0.37.2.6). Phát hiện vì tổng số test giảm 9 so với dự kiến chứ không phải vì có test đỏ — suite vẫn báo xanh. Đã khôi phục từ `git show HEAD:` và nối 5 test mới vào cuối. **Bài học ghi lại:** đối chiếu tổng số test sau mỗi lần thêm, vì mất test không làm CI đỏ.
+
+### Finding đã xử lý ở checkpoint `/codex` PR-A2
+
+Codex xác nhận 3 điểm tôi lo là **không** có vấn đề: `@Equals(undefined)` cư xử đúng (thiếu/`undefined` qua; `null`, `[]`, mảng có phần tử đều bị chặn) và vẫn whitelist được property; `OmitType(PartialType(...))` giữ nguyên metadata validate/transform của mọi field không bị omit; không sinh đường 400 mới cho luồng sửa thường; route + state của `Link` hợp lệ. Thêm 2 finding:
+
+1. **[P1] Tab "Ghi âm, ghi hình" vẫn vứt file — đúng anh em sinh đôi của bug tôi vừa sửa, trong cùng một form.** `handleUploadMedia` chỉ dựng metadata cục bộ (kể cả `uploader: "Nguyễn Văn A"` cứng), `documentIds` thì bị vô hiệu từ trước, mà Lưu vẫn báo thành công rồi điều hướng đi. Sửa: chế độ sửa dùng `EntityDocumentsTab` **có sẵn và chạy thật**; chế độ tạo thay bằng bảng nói thẳng "tài liệu đính kèm sau khi lưu hồ sơ" — trung thực và không mất gì, vì trước nay chưa từng lưu được gì. Xoá hẳn `handleUploadMedia` và state `mediaFiles`.
+2. **[P2] Bảng chỉ đường gộp mọi loại đối tượng về tab "Bị can"**, trong khi editor cũ có 4 loại và tab đích `POST /subjects` với `type: "SUSPECT"` cứng. Sửa: nêu đúng 2 đích có thật (Bị can, Luật sư) và **nói rõ** bị hại/nhân chứng của hồ sơ đã tạo hiện chưa có màn hình → ND-16.
+
+**Lỗi có sẵn phát hiện nhờ vòng này:** `Card` (`components/shared/CardSection.tsx`) không nhận `data-testid` nên thuộc tính bị bỏ, tức test hook mà `EntityDocumentsTab` khai báo **chưa từng render ở bất kỳ đâu**. Hệ quả: test `does NOT render EntityDocumentsTab in create mode` của `IncidentFormPage` xanh **vì lý do sai** — component vẫn luôn render, chỉ là không có testid. Đã cho `Card` chuyển tiếp `data-testid` và sửa test khẳng định đúng ý định vốn ghi ngay trong code (`luôn hiển thị; EntityDocumentsTab tự guard`).
 
 ---
 
@@ -166,8 +175,8 @@ Tự phát hiện thêm: 3 file test mới của chính tôi bị baseline hoá 
 ## Trạng thái test
 
 Full suite: **PASS**
-- Backend: 223 suite / **2994** test — PASS (xem ND-9: 1 suite flaky ~1/6 lần, có sẵn từ trước)
-- Frontend: 152 file / **1485** test — PASS (3 lần chạy liên tiếp ổn định)
+- Backend: 223 suite / **2999** test — PASS (xem ND-9: 1 suite flaky ~1/6 lần, có sẵn từ trước)
+- Frontend: 153 file / **1494** test — PASS (3 lần chạy liên tiếp ổn định)
 - Cổng governance: enum guard ✅ · gen:enums drift ✅ · lint ratchet ✅ (baseline 8.945 sau ADR-0015)
 - `tsc --noEmit` (BE): sạch · `tsc -b` (FE): sạch
 - eslint: không có lỗi mới trên dòng đã thêm (nợ lint có sẵn xem ND-1)
@@ -188,6 +197,7 @@ Test fail: không
 | ND-11 | **Đã xoá** `tests/fixtures/data-factory-cases.ts` — file tự sinh với placeholder `⚠️ Chưa có fixture nào define` chèn thẳng vào tên hàm, `path = ""`, `fixture_id`. Không parse được, không ai import. Nếu generator UAT chạy lại với danh sách fixture rỗng thì nó sẽ sinh lại — cần sửa generator | PR triage suite UAT |
 | ND-12 | **`tests/global-setup.ts` từng nhúng sẵn 5 mật khẩu trong source** và `tests/uat-auto/_helpers.ts` mặc định trỏ IP production `171.244.40.245`. Đã sửa ở PR-B0b (bắt buộc lấy từ env, thiếu thì ném lỗi rõ ràng). **Cần đối chiếu**: 5 mật khẩu đó có phải credential thật đang dùng không — nếu có, phải đổi vì chúng nằm trong git history | Cần người xác nhận |
 | ND-13 | **`Evidence` chưa có ràng buộc DB cho `(caseId, code)` khi bản ghi còn sống.** Bất biến hiện thi hành bằng khóa hàng vụ án cha (`withCaseLock`) — đủ chặn đua tranh, nhưng chỉ đúng khi mọi đường ghi đều đi qua đó, và người sửa DB trực tiếp bằng `psql` vẫn tạo được bản trùng. Chưa thêm partial unique index vì bảng đã có dữ liệu chưa từng bị ràng buộc trong nền 53k bản ghi legacy: nếu đang có cặp trùng thì `CREATE UNIQUE INDEX` hỏng và deploy đứng, mà chọn bỏ bản nào là quyết định về hồ sơ pháp lý. **Việc cần làm:** chạy câu đối soát trong ADR-0016 §"Điều kiện chuyển sang index thật"; nếu rỗng thì thêm index luôn | Cần người giữ hồ sơ quyết |
+| ND-16 | **Bị hại và nhân chứng của hồ sơ đã tạo không có màn hình nào để thêm.** Form tạo có đủ 4 loại (Bị can/Bị hại/Luật sư/Nhân chứng), nhưng trang chi tiết chỉ có tab Bị can (`POST /subjects` với `type:"SUSPECT"` cứng, `CaseDetailPage.tsx:907`) và tab Luật sư. Trước PR-A2 thì mọi loại đều "nhập được" ở chế độ sửa nhưng bị vứt im lặng — nay bảng chỉ đường nói rõ khoảng trống thay vì gửi người dùng tới tab không tạo được thứ họ cần | PR-D2 (form tạo độc lập subjects) |
 | ND-14 | **`assertParentInScope` bỏ qua toàn bộ kiểm tra khi `scope.canDispatch`, kể cả `operation: 'write'`** (`scope-filter.util.ts:104`). `canDispatch` được mô tả là quyền đọc toàn cục + quyền phân công, không phải quyền sửa mọi hồ sơ — nhưng thực tế người điều phối tạo/sửa/xóa/khôi phục được bản ghi con của **mọi** vụ án. Ảnh hưởng cả 12 resource, không riêng vật chứng | PR-A3 (PR chuyên về DataScope) |
 | ND-15 | **Đường đọc chi tiết trả 403 cho bản ghi ngoài phạm vi và 404 cho bản ghi không tồn tại**, tức lộ sự tồn tại của hồ sơ tổ khác. Mẫu này dùng thống nhất toàn hệ thống nên phải quyết một lần (đưa scope vào `where` rồi trả 404 cho cả hai), không sửa lẻ từng module | Quyết cùng PR-A3 |
 | ND-9 (cập nhật) | **`two-fa.service.spec.ts` flaky ~1/6 lần chạy full — CHƯA sửa được, đã điều tra kỹ.** Đã thử và **loại bỏ** các giả thuyết: (a) `cacheDirectory` riêng cho backend — đã áp dụng, giảm va chạm giữa các tiến trình jest nhưng không dứt vì đua tranh nằm **giữa các worker trong cùng một lần chạy**; (b) `maxWorkers=4` — giảm tỷ lệ nhưng vẫn đỏ 1/6, và trên runner CI 4 nhân thì `50%`=2 worker còn ít hơn 4 nên giữ nguyên `50%`; (c) bỏ `transformIgnorePatterns` — **làm hỏng một suite khác** (2976 vs 2981), hoàn tác; (d) `globalSetup` hâm cache — **vô tác dụng**, vì globalSetup dùng `require` thuần của Node, không đi qua `ScriptTransformer` nên không ghi mục cache nào; đã gỡ thay vì để lại file giả vờ sửa. Hướng còn lại chưa thử: mock `otplib` trong spec (làm yếu test), hoặc chờ bản jest vá đua tranh ghi cache trên Windows. **Rủi ro CI: job `Backend Tests` có thể đỏ ngẫu nhiên ~1/6 lần.** | PR riêng |

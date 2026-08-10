@@ -108,6 +108,28 @@ describe('CaseFormPage — sub-entity tabs in edit mode', () => {
     expect(screen.queryByTestId('local-tab-evidence')).not.toBeInTheDocument();
   });
 
+  it('gives edit mode the real document uploader instead of the fake media tab', async () => {
+    // handleUploadMedia only built local metadata and documentIds was never
+    // sent, so every "uploaded" file was announced as saved and discarded.
+    renderAt('/cases/case-1/edit', '/cases/:id/edit');
+
+    await openTab(/Ghi âm, ghi hình/);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('entity-documents-case')).toBeInTheDocument();
+    });
+  });
+
+  it('tells the truth in create mode: there is no case to attach a file to yet', async () => {
+    renderAt('/cases/new', '/cases/new');
+
+    await openTab(/Ghi âm, ghi hình/);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('create-mode-media-notice')).toBeInTheDocument();
+    });
+  });
+
   it('keeps the local editors on create, where the arrays are actually written', async () => {
     renderAt('/cases/new', '/cases/new');
 
