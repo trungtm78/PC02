@@ -184,6 +184,31 @@ export class PetitionsController {
     } : undefined);
   }
 
+  /**
+   * GET /api/v1/petitions/duplicates — candidate duplicate groups.
+   *
+   * The screen used to fetch `/petitions?limit=100` and label everything it
+   * got back as a duplicate. This returns actual groups with a match score,
+   * so the UI can say "khớp 3/4 tiêu chí" instead of inventing a percentage.
+   */
+  @Get('duplicates')
+  @RequirePermissions({ action: 'read', subject: 'Petition' })
+  @Throttle({ default: { ttl: 60000, limit: 20 } })
+  findDuplicates(
+    @Query()
+    query: {
+      status?: string;
+      criteria?: string;
+      fromDate?: string;
+      toDate?: string;
+      limit?: number;
+      offset?: number;
+    },
+    @Req() req: ScopedRequest,
+  ) {
+    return this.petitionsService.findDuplicateGroups(query, req.dataScope);
+  }
+
   // GET /api/v1/petitions/export/duplicates — Xuất danh sách đơn trùng lặp ra Excel
   @Get('export/duplicates')
   @HttpCode(HttpStatus.OK)

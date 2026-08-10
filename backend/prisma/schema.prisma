@@ -1015,6 +1015,12 @@ model Petition {
   @@index([receivedDate])
   @@index([deadline])
   @@index([senderName])
+  // Duplicate detection groups on these. Only senderName had an index; the
+  // others forced a sequential scan of the whole table per GROUP BY, and the
+  // gin trigram index that exists for search does not serve GROUP BY at all.
+  @@index([senderPhone])
+  @@index([senderAddress])
+  @@index([suspectedPerson])
   @@index([deletedAt])
   @@index([assignedTeamId])
   @@index([deadlineRuleVersionId])

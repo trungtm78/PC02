@@ -1360,22 +1360,126 @@ export class PetitionsService {
   // ─────────────────────────────────────────────
   // EXPORT DUPLICATES (Đơn trùng lặp)
   // ─────────────────────────────────────────────
-  async exportDuplicates(
-    query: { status?: string; criteria?: string; fromDate?: string; toDate?: string },
+  /**
+   * Candidate duplicate groups, with a real match score.
+   *
+   * The export path grouped on ONE column and matched the string exactly, so
+   * two unrelated citizens who happen to share a name — "Nguyễn Văn A" is not
+   * rare in Vietnam — were reported as the same person filing twice. On a
+   * legal record that is an accusation, not a hint, so a group now carries
+   * `{ matched, compared }`: how many of the comparable criteria actually
+   * agree. The caller decides what threshold means anything.
+   *
+   * Returns groups, not a flat list, and takes a page: the export truncated
+   * silently at 500 rows, which reads as "that is all of them".
+   */
+  async findDuplicateGroups(
+    query: {
+      status?: string;
+      criteria?: string;
+      fromDate?: string;
+      toDate?: string;
+      limit?: number;
+      offset?: number;
+    },
     dataScope: DataScope | null | undefined,
-    res: Response,
-  ): Promise<void> {
+  ) {
+    const where = this.buildDuplicateWhere(query, dataScope);
+    const dupKey = resolveDuplicateKey(query.criteria);
+
+    const groups: Array<Record<string, unknown>> = await (
+      this.prisma.petition.groupBy as any
+    )({
+      by: [dupKey],
+      where: { ...where, [dupKey]: { notIn: [''] } },
+      _count: { _all: true },
+      having: { [dupKey]: { _count: { gt: 1 } } },
+      orderBy: { [dupKey]: 'asc' },
+    });
+
+    const dupValues = groups
+      .map((g) => g[dupKey])
+      .filter((v): v is string => typeof v === 'string' && v.length > 0);
+
+    const totalGroups = dupValues.length;
+    const limit = Math.min(query.limit ?? 20, 100);
+    const offset = query.offset ?? 0;
+    const pageValues = dupValues.slice(offset, offset + limit);
+
+    if (pageValues.length === 0) {
+      return { success: true, data: [], total: totalGroups, limit, offset };
+    }
+
+    const records = await this.prisma.petition.findMany({
+      where: { ...where, [dupKey]: { in: pageValues } },
+      orderBy: [{ [dupKey]: 'asc' }, { receivedDate: 'desc' }],
+      select: {
+        id: true,
+        stt: true,
+        senderName: true,
+        senderPhone: true,
+        senderAddress: true,
+        suspectedPerson: true,
+        summary: true,
+        receivedDate: true,
+        status: true,
+        assignedTeamId: true,
+        assignedTo: { select: { firstName: true, lastName: true } },
+      },
+    });
+
+    const byValue = new Map<string, typeof records>();
+    for (const r of records) {
+      const key = (r as unknown as Record<string, unknown>)[dupKey];
+      if (typeof key !== 'string') continue;
+      const list = byValue.get(key) ?? [];
+      list.push(r);
+      byValue.set(key, list);
+    }
+
+    const data = pageValues.map((value) => {
+      const items = byValue.get(value) ?? [];
+      return {
+        key: dupKey,
+        value,
+        count: items.length,
+        // Cross-team groups are the ones worth seeing: the same person filing
+        // to two units is exactly what a duplicate check is for, and it is
+        // invisible when the scope filter runs before the grouping.
+        crossTeam:
+          new Set(items.map((i) => i.assignedTeamId ?? '')).size > 1,
+        score: scoreDuplicateGroup(items),
+        items,
+      };
+    });
+
+    return { success: true, data, total: totalGroups, limit, offset };
+  }
+
+  /** Shared filter for both the duplicate API and the Excel export. */
+  private buildDuplicateWhere(
+    query: { status?: string; fromDate?: string; toDate?: string },
+    dataScope: DataScope | null | undefined,
+  ): Prisma.PetitionWhereInput {
     const where: Prisma.PetitionWhereInput = { deletedAt: null };
-    if (query.status && (Object.values(PetitionStatus) as string[]).includes(query.status)) {
+    if (
+      query.status &&
+      (Object.values(PetitionStatus) as string[]).includes(query.status)
+    ) {
       where.status = query.status as PetitionStatus;
     }
     if (query.fromDate) {
-      where.receivedDate = { ...(where.receivedDate as any), gte: new Date(query.fromDate) };
+      where.receivedDate = {
+        ...(where.receivedDate as any),
+        gte: new Date(query.fromDate),
+      };
     }
     if (query.toDate) {
-      where.receivedDate = { ...(where.receivedDate as any), lte: new Date(query.toDate + 'T23:59:59.999Z') };
+      where.receivedDate = {
+        ...(where.receivedDate as any),
+        lte: new Date(query.toDate + 'T23:59:59.999Z'),
+      };
     }
-
     const scopeFilter = buildPetitionScopeFilter(dataScope);
     if (scopeFilter) {
       where.AND = [
@@ -1383,21 +1487,19 @@ export class PetitionsService {
         scopeFilter as Prisma.PetitionWhereInput,
       ];
     }
+    return where;
+  }
 
-    // Resolve criteria → groupBy key. Default to senderName.
-    // Accepts both English field names and Vietnamese UI labels for compatibility.
-    type DupKey = 'senderName' | 'senderPhone' | 'senderAddress' | 'suspectedPerson';
-    const CRITERIA_MAP: Record<string, DupKey> = {
-      senderName: 'senderName',
-      'Họ tên': 'senderName',
-      senderPhone: 'senderPhone',
-      'Số điện thoại': 'senderPhone',
-      senderAddress: 'senderAddress',
-      'Địa chỉ': 'senderAddress',
-      suspectedPerson: 'suspectedPerson',
-      'Bị đơn trùng': 'suspectedPerson',
-    };
-    const dupKey: DupKey = (query.criteria && CRITERIA_MAP[query.criteria]) || 'senderName';
+  async exportDuplicates(
+    query: { status?: string; criteria?: string; fromDate?: string; toDate?: string },
+    dataScope: DataScope | null | undefined,
+    res: Response,
+  ): Promise<void> {
+    // Same filter and same criteria resolution as findDuplicateGroups: one
+    // definition, so the export and the screen can never disagree about what
+    // counts as a duplicate.
+    const where = this.buildDuplicateWhere(query, dataScope);
+    const dupKey = resolveDuplicateKey(query.criteria);
 
     // Step 1: find duplicate values within the filtered scope (count >= 2, non-null/non-empty).
     const groups = await (this.prisma.petition.groupBy as any)({
@@ -1968,4 +2070,60 @@ export class PetitionsService {
       orderBy: { assignedAt: 'asc' },
     });
   }
+}
+
+
+/** Criteria the duplicate check can group on. */
+export type DupKey =
+  | 'senderName'
+  | 'senderPhone'
+  | 'senderAddress'
+  | 'suspectedPerson';
+
+const CRITERIA_MAP: Record<string, DupKey> = {
+  senderName: 'senderName',
+  'Họ tên': 'senderName',
+  senderPhone: 'senderPhone',
+  'Số điện thoại': 'senderPhone',
+  senderAddress: 'senderAddress',
+  'Địa chỉ': 'senderAddress',
+  suspectedPerson: 'suspectedPerson',
+  'Bị đơn trùng': 'suspectedPerson',
+};
+
+export function resolveDuplicateKey(criteria?: string): DupKey {
+  return (criteria && CRITERIA_MAP[criteria]) || 'senderName';
+}
+
+/** Every field the score looks at, beyond the one that formed the group. */
+const SCORED_FIELDS: DupKey[] = [
+  'senderName',
+  'senderPhone',
+  'senderAddress',
+  'suspectedPerson',
+];
+
+/**
+ * How many criteria actually agree across a candidate group.
+ *
+ * `compared` counts only the fields where EVERY item has a value — a field
+ * nobody filled in is not evidence either way, and counting it as a mismatch
+ * would make sparse records look less alike than they are.
+ */
+export function scoreDuplicateGroup(
+  items: Array<Partial<Record<DupKey, string | null>>>,
+): { matched: number; compared: number } {
+  if (items.length < 2) return { matched: 0, compared: 0 };
+
+  let matched = 0;
+  let compared = 0;
+
+  for (const field of SCORED_FIELDS) {
+    const values = items.map((i) => (i[field] ?? '').trim().toLowerCase());
+    if (values.some((v) => v === '')) continue;
+    compared += 1;
+    if (new Set(values).size === 1) matched += 1;
+  }
+
+  return { matched, compared };
 }

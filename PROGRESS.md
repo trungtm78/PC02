@@ -39,6 +39,19 @@ Cập nhật: 2026-08-10T03:15:00+07:00 | Milestone: M1/5 | Task: 0/5 của M1
 
 ## Đang làm dở
 
+Task: M3-T7 — PR-C3 `feat/petition-duplicates-api` (**code xong, chờ `/codex`**)
+Đã làm: `GET /petitions/duplicates` — nhóm đơn nghi trùng, **có điểm khớp thật**.
+- **Vì sao phải nâng cấp, không chỉ trích hàm ra dùng chung:** thuật toán cũ gộp **một cột**, khớp **chuỗi chính xác**, rồi coi mọi bản trong nhóm là trùng. "Nguyễn Văn A" không hiếm ở Việt Nam ⇒ hai công dân không liên quan bị trình bày như một người nộp hai lần. Trên hồ sơ pháp lý đó là **quy kết**, không phải gợi ý. Nay mỗi nhóm mang `{matched, compared}` — bao nhiêu tiêu chí **thực sự so được** thì khớp. Trường mà **không phải ai cũng điền** thì không tính, vì ô trống không phải bằng chứng theo chiều nào cả.
+- **Phân trang thật** thay cho `take: 500` cắt cụt im lặng (500 dòng trông như "chỉ có bấy nhiêu").
+- **`crossTeam`**: đánh dấu nhóm trải trên nhiều tổ — chính là thứ đáng phát hiện nhất, mà lại vô hình khi bộ lọc phạm vi chạy trước groupBy.
+- `buildDuplicateWhere` + `resolveDuplicateKey` dùng chung cho cả API lẫn xuất Excel ⇒ hai đường không thể bất đồng về "thế nào là trùng".
+- **+3 btree index** (`senderPhone`, `senderAddress`, `suspectedPerson`) + migration viết tay. Chỉ `senderName` có index; index gin trigram đang có là để ILIKE, **không phục vụ GROUP BY**. Ghi rõ trong migration vì sao không dùng `CONCURRENTLY`.
+Test: +14 cho thuật toán chấm điểm, gồm đúng ca "hai người trùng tên".
+Kiểm: BE **227 suite / 3101 test** PASS, tsc sạch, 3 cổng xanh.
+**BƯỚC TIẾP THEO:** `/codex` cho PR-C3, rồi C4 (quyết định hợp nhất) và C5 (viết lại trang).
+
+---
+
 Task: M3-T6 — PR-C6 `feat/reports-period-and-delta` (**code xong, chờ `/codex`**)
 Đã làm: `getMonthly` trả thêm **`tableRows`** và **`summary`** — hai field mà `MonthlyReportPage` **đã đọc từ khi được viết** nhưng BE chưa từng trả. Hệ quả: bảng "Tồn đầu kỳ / Phát sinh / Đã giải quyết / Tồn cuối kỳ" luôn render nhánh rỗng và dòng tổng luôn bằng 0 — trông như kỳ báo cáo không có hoạt động, chứ không như một API còn thiếu.
 - Đúng **6 truy vấn**, không nhân thêm vào vòng lặp 12 tháng đang có (12 × 6). PERF-002 chính là mẫu này phình ra.
@@ -396,7 +409,7 @@ Tự phát hiện thêm: 3 file test mới của chính tôi bị baseline hoá 
 ## Trạng thái test
 
 Full suite: **PASS**
-- Backend: 226 suite / **3087** test — PASS (xem ND-9: 1 suite flaky ~1/6 lần, có sẵn từ trước)
+- Backend: 227 suite / **3101** test — PASS (xem ND-9: 1 suite flaky ~1/6 lần, có sẵn từ trước)
 - Frontend: 158 file / **1538** test — PASS (3 lần chạy liên tiếp ổn định)
 - Cổng governance: enum guard ✅ · gen:enums drift ✅ · lint ratchet ✅ (baseline 8.945 sau ADR-0015)
 - `tsc --noEmit` (BE): sạch · `tsc -b` (FE): sạch
