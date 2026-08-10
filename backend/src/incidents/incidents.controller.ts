@@ -39,8 +39,10 @@ import { DeleteIncidentDto } from './dto/delete-incident.dto';
 import { RestoreIncidentDto } from './dto/restore-incident.dto'; // v0.32.0.0
 import { ListLinkableIncidentDto } from './dto/list-linkable.dto'; // v0.37.1.1 PROV-004
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
+import { FeatureFlag } from '../feature-flags/decorators/feature-flag.decorator';
 
 @Controller('incidents')
+@FeatureFlag('incidents')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class IncidentsController {
   constructor(

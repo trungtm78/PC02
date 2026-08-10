@@ -22,7 +22,9 @@ import { CreateSubjectDto } from './dto/create-subject.dto';
 import { UpdateSubjectDto } from './dto/update-subject.dto';
 import { QuerySubjectsDto } from './dto/query-subjects.dto';
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
+import { FeatureFlag } from '../feature-flags/decorators/feature-flag.decorator';
 @Controller('subjects')
+@FeatureFlag('subjects')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class SubjectsController {
   constructor(private readonly subjectsService: SubjectsService) {}

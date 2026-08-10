@@ -22,7 +22,9 @@ import { CreateLawyerDto } from './dto/create-lawyer.dto';
 import { UpdateLawyerDto } from './dto/update-lawyer.dto';
 import { QueryLawyersDto } from './dto/query-lawyers.dto';
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
+import { FeatureFlag } from '../feature-flags/decorators/feature-flag.decorator';
 @Controller('lawyers')
+@FeatureFlag('lawyers')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class LawyersController {
   constructor(private readonly lawyersService: LawyersService) {}

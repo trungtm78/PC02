@@ -20,8 +20,10 @@ import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
 import { CreateDelegationDto } from './dto/create-delegation.dto';
+import { FeatureFlag } from '../feature-flags/decorators/feature-flag.decorator';
 
 @Controller('delegations')
+@FeatureFlag('delegations')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class DelegationsController {
   constructor(private readonly delegationsService: DelegationsService) {}

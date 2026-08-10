@@ -24,8 +24,10 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
 import { CreateProposalDto } from './dto/create-proposal.dto';
 import { QueryProposalsDto } from './dto/query-proposals.dto';
+import { FeatureFlag } from '../feature-flags/decorators/feature-flag.decorator';
 
 @Controller('proposals')
+@FeatureFlag('proposals')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class ProposalsController {
   constructor(private readonly proposalsService: ProposalsService) {}

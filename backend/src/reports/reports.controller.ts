@@ -17,6 +17,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { EXPORT_FORMAT } from '../common/constants/export-format.constants';
+import { FeatureFlag } from '../feature-flags/decorators/feature-flag.decorator';
 
 class QueryMonthlyDto {
   @IsOptional()
@@ -101,6 +102,7 @@ class Stat48QueryDto {
 }
 
 @Controller('reports')
+@FeatureFlag('reports')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class ReportsController {
   constructor(

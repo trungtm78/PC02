@@ -8,8 +8,10 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
 import { CreateGuidanceDto } from './dto/create-guidance.dto';
 import { QueryGuidanceDto } from './dto/query-guidance.dto';
+import { FeatureFlag } from '../feature-flags/decorators/feature-flag.decorator';
 
 @Controller('guidance')
+@FeatureFlag('guidance')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class GuidanceController {
   constructor(private readonly guidanceService: GuidanceService) {}

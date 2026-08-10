@@ -42,7 +42,9 @@ import {
 import { RestorePetitionDto } from './dto/restore-petition.dto'; // v0.32.0.0
 import { ListLinkableDto } from './dto/list-linkable.dto'; // v0.37.1
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
+import { FeatureFlag } from '../feature-flags/decorators/feature-flag.decorator';
 @Controller('petitions')
+@FeatureFlag('petitions')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class PetitionsController {
   constructor(

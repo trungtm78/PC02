@@ -23,8 +23,10 @@ import {
   CreateExchangeDto,
   CreateExchangeMessageDto,
 } from './dto/create-exchange.dto';
+import { FeatureFlag } from '../feature-flags/decorators/feature-flag.decorator';
 
 @Controller('exchanges')
+@FeatureFlag('exchanges')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class ExchangesController {
   constructor(private readonly exchangesService: ExchangesService) {}

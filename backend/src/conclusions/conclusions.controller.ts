@@ -20,8 +20,10 @@ import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
 import { CreateConclusionDto } from './dto/create-conclusion.dto';
+import { FeatureFlag } from '../feature-flags/decorators/feature-flag.decorator';
 
 @Controller('conclusions')
+@FeatureFlag('conclusions')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class ConclusionsController {
   constructor(private readonly conclusionsService: ConclusionsService) {}

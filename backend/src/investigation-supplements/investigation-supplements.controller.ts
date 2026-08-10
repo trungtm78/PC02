@@ -24,8 +24,10 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
 import { UpdateInvestigationSupplementDto } from './dto/update-investigation-supplement.dto';
 import { CreateInvestigationSupplementDto } from './dto/create-investigation-supplement.dto';
+import { FeatureFlag } from '../feature-flags/decorators/feature-flag.decorator';
 
 @Controller('investigation-supplements')
+@FeatureFlag('investigation-supplements')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class InvestigationSupplementsController {
   constructor(private readonly service: InvestigationSupplementsService) {}
