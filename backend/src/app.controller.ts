@@ -1,4 +1,12 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Logger, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Logger,
+  Post,
+} from '@nestjs/common';
 import { AppService } from './app.service';
 
 @Controller()
@@ -13,7 +21,11 @@ export class AppController {
   }
 
   @Get('health')
-  health(): { status: string; timestamp: string; minMobileVersion: string | null } {
+  health(): {
+    status: string;
+    timestamp: string;
+    minMobileVersion: string | null;
+  } {
     return {
       status: 'ok',
       timestamp: new Date().toISOString(),
