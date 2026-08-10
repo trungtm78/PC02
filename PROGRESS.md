@@ -497,3 +497,42 @@ Test fail: không
 | ND-6 ✅ | **ĐÃ XỬ LÝ ở Phase 1.** Tầng phân quyền FE vẫn là mock (`MOCK_ALL_PERMISSIONS` cấp toàn quyền cho mọi user, 252 call site) — người dùng chủ động hoãn; yêu cầu "không mockup" **chưa thoả mãn hoàn toàn** | Quyết lại sau M2 |
 | ND-7 | Cổng `prisma migrate diff` sẽ đỏ ngay do ≥6 partial index không biểu diễn được trong Prisma 7; PR-C4 còn cần thêm một cái nữa | PR-B0b (đặt `continue-on-error`) |
 | ND-8 | Gate API bằng feature flag sẽ làm hỏng app mobile đã cài (`mobile/lib` không đọc cờ, interceptor chỉ bắt 401, không có forced-update) | PR-M1 chặn cứng E4–E6 |
+
+---
+
+## Trạng thái sau đợt thi công M4 + M5 (phiên này)
+
+**M0–M4 XONG HẾT. M5 xong phần mã; còn E3 và điều kiện vận hành cho E6.**
+
+| Mốc | Trạng thái |
+|---|---|
+| M0, M0.5, M1, M2, M3 | ✅ hết |
+| ND-6, ND-9, ND-16, ND-18, ND-19, ND-22 | ✅ |
+| M4 — D2, D3, D4, D5, D6, D7, D8, D9 | ✅ hết |
+| M5 — PR-M1-mobile (4 việc Dart) | ✅ mobile 107 test |
+| M5 — E1 (xoá mã chết), E2 | ✅ |
+| M5 — E4, E5, E6 (gate API 18 controller) | ✅ **mã xong**, xem điều kiện merge E6 bên dưới |
+| M5 — E3 (restore 9 child entity) | ❌ **chưa làm** |
+| UAT 4 đợt + `UAT-COVERAGE.md` + merge | ❌ **chưa làm** |
+
+### Điều kiện merge còn treo — E6
+
+Mã đã có (`cases`, `incidents`, `petitions`, `calendar`, `teams`, `reports` mang
+`@FeatureFlag`). **Chưa merge được** cho tới khi PR-M1-mobile lên production VÀ tỷ lệ APK cũ đủ
+thấp. **Ngưỡng chưa ấn định** — cần người quyết một con số, không phải việc code.
+
+### Nợ mới phát hiện trong phiên
+
+| # | Nội dung |
+|---|---|
+| ND-26 | `prisma migrate deploy` **không dựng được DB trắng**: lịch sử migration mở đầu bằng `ALTER TABLE "cases"` và không migration nào tạo bảng `cases`. Dựng VM mới theo `docs/DEPLOY.md` sẽ hỏng. Có sẵn từ trước. Cách sửa: chụp một migration baseline từ `schema.prisma` rồi `prisma migrate resolve --applied` trên prod. |
+| ND-27 | `.gitignore` gốc có `*.png` không neo → nuốt ảnh tài liệu; `backend/.gitignore` có `reports/` không neo → nuốt `src/reports/` là mã nguồn. **Đã sửa cả hai**, ghi lại vì cùng một lớp lỗi có thể tái diễn với pattern khác. |
+| ND-28 | Tạo đơn thư trả **404 `No active template for documentType: PETITION`** khi `document_number_templates` chưa seed. Một thao tác *tạo* trả "không tìm thấy" là thông báo sai loại — nên là 500 hoặc 400 kèm câu hướng dẫn seed. |
+| ND-29 | 3 module (`calendar-events`, `event-categories`, `event-reminders`) đã gate API từ trước mà manifest **không khai** `gating`. `feature-gating.spec.ts` bắt được khi kiểm chiều ngược. Đã khai. |
+
+### Môi trường chạy thật (dựng trong phiên)
+
+Postgres dev `localhost:55432` (docker `pc02-dev-db`), backend `:3000`, frontend `:5173`.
+Khoá JWT dev ở `backend/.dev-keys/` (đã ignore) — **không** ghi đè `backend/keys/public.pem` của repo.
+Seed cần cho luồng chạy được: `seed.ts`, `seed-crimes-blhs2015.ts`, `seed-document-numbers.ts`,
+`seed-document-templates.ts`.
