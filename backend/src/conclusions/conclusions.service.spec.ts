@@ -17,6 +17,12 @@ const mockPrisma = {
     update: jest.fn(),
   },
   case: { findFirst: jest.fn() },
+  // ND-19: create now loads the parent and inserts the child inside one
+  // transaction with the parent row locked, so the mock has to provide
+  // `$transaction`. Running the callback against the same mock keeps every
+  // existing expectation pointed at the same jest.fn()s.
+  $transaction: jest.fn((cb: (tx: unknown) => unknown) => cb(mockPrisma)),
+  $queryRawUnsafe: jest.fn(),
 };
 const mockAudit = { log: jest.fn() };
 

@@ -11,7 +11,10 @@ import { UpdateSubjectDto } from './dto/update-subject.dto';
 import { QuerySubjectsDto } from './dto/query-subjects.dto';
 import { Prisma, SubjectStatus, SubjectType } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
-import { assertParentInScope, buildScopeFilter } from '../common/utils/scope-filter.util';
+import {
+  assertParentInScope,
+  buildScopeFilter,
+} from '../common/utils/scope-filter.util';
 
 @Injectable()
 export class SubjectsService {
@@ -54,7 +57,7 @@ export class SubjectsService {
     }
 
     if (status) where.status = status;
-    if (type) where.type = type;    // TASK-2026-261225: filter by SubjectType
+    if (type) where.type = type; // TASK-2026-261225: filter by SubjectType
     if (caseId) where.caseId = caseId;
     if (crimeId) where.crimeId = crimeId;
     if (districtId) where.districtId = districtId;
@@ -79,8 +82,16 @@ export class SubjectsService {
       (where as any).case = caseScope;
     }
 
-    const allowedSortFields = ['createdAt', 'updatedAt', 'fullName', 'dateOfBirth', 'status'];
-    const orderByField = allowedSortFields.includes(sortBy) ? sortBy : 'createdAt';
+    const allowedSortFields = [
+      'createdAt',
+      'updatedAt',
+      'fullName',
+      'dateOfBirth',
+      'status',
+    ];
+    const orderByField = allowedSortFields.includes(sortBy)
+      ? sortBy
+      : 'createdAt';
 
     const [data, total] = await Promise.all([
       this.prisma.subject.findMany({
@@ -99,7 +110,7 @@ export class SubjectsService {
           wardId: true,
           caseId: true,
           crimeId: true,
-          type: true,    // TASK-2026-261225
+          type: true, // TASK-2026-261225
           status: true,
           notes: true,
           createdAt: true,
@@ -132,7 +143,13 @@ export class SubjectsService {
       where: { id, deletedAt: null },
       include: {
         case: {
-          select: { id: true, name: true, status: true, assignedTeamId: true, investigatorId: true },
+          select: {
+            id: true,
+            name: true,
+            status: true,
+            assignedTeamId: true,
+            investigatorId: true,
+          },
         },
       },
     });
@@ -190,7 +207,9 @@ export class SubjectsService {
         where: { id: dto.crimeId, isActive: true },
       });
       if (!crimeRecord) {
-        throw new BadRequestException(`Tội danh không tồn tại (id: ${dto.crimeId})`);
+        throw new BadRequestException(
+          `Tội danh không tồn tại (id: ${dto.crimeId})`,
+        );
       }
     }
 
@@ -209,7 +228,7 @@ export class SubjectsService {
         districtName: dto.districtName ?? null,
         caseId: dto.caseId,
         crimeId: dto.crimeId,
-        type: dto.type ?? SubjectType.SUSPECT,  // TASK-2026-261225
+        type: dto.type ?? SubjectType.SUSPECT, // TASK-2026-261225
         status: dto.status ?? SubjectStatus.INVESTIGATING,
         notes: dto.notes,
       },
@@ -223,7 +242,11 @@ export class SubjectsService {
       action: 'SUBJECT_CREATED',
       subject: 'Subject',
       subjectId: record.id,
-      metadata: { fullName: record.fullName, idNumber: record.idNumber, caseId: record.caseId },
+      metadata: {
+        fullName: record.fullName,
+        idNumber: record.idNumber,
+        caseId: record.caseId,
+      },
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
     });
@@ -248,7 +271,12 @@ export class SubjectsService {
     const targetType = dto.type ?? existing.type;
     if (dto.idNumber && dto.idNumber !== existing.idNumber) {
       const dup = await this.prisma.subject.findFirst({
-        where: { idNumber: dto.idNumber, type: targetType, deletedAt: null, NOT: { id } },
+        where: {
+          idNumber: dto.idNumber,
+          type: targetType,
+          deletedAt: null,
+          NOT: { id },
+        },
       });
       if (dup) {
         throw new ConflictException(
@@ -263,8 +291,15 @@ export class SubjectsService {
         where: { id: dto.caseId, deletedAt: null },
       });
       if (!caseRecord) {
-        throw new BadRequestException(`Vụ án không tồn tại (id: ${dto.caseId})`);
+        throw new BadRequestException(
+          `Vụ án không tồn tại (id: ${dto.caseId})`,
+        );
       }
+      // ND-18: cha MỚI cũng phải nằm trong phạm vi ghi của người gọi.
+      // Trước đây chỉ kiểm cha CŨ, nên cán bộ tổ A sửa một bản ghi của mình rồi
+      // gán sang vụ án của tổ B là chuyển được dữ liệu ra ngoài phạm vi — không
+      // câu lệnh nào chặn, và không dấu vết nào cho thấy chuyện đó vừa xảy ra.
+      assertParentInScope(caseRecord, dataScope, 'write');
     }
 
     // Validate crimeId if provided — FK tới master Crime (BLHS 2015).
@@ -273,7 +308,9 @@ export class SubjectsService {
         where: { id: dto.crimeId, isActive: true },
       });
       if (!crimeRecord) {
-        throw new BadRequestException(`Tội danh không tồn tại (id: ${dto.crimeId})`);
+        throw new BadRequestException(
+          `Tội danh không tồn tại (id: ${dto.crimeId})`,
+        );
       }
     }
 
@@ -281,19 +318,27 @@ export class SubjectsService {
       where: { id },
       data: {
         ...(dto.fullName !== undefined && { fullName: dto.fullName }),
-        ...(dto.dateOfBirth !== undefined && { dateOfBirth: new Date(dto.dateOfBirth) }),
+        ...(dto.dateOfBirth !== undefined && {
+          dateOfBirth: new Date(dto.dateOfBirth),
+        }),
         ...(dto.gender !== undefined && { gender: dto.gender }),
         ...(dto.idNumber !== undefined && { idNumber: dto.idNumber }),
         ...(dto.address !== undefined && { address: dto.address }),
         ...(dto.phone !== undefined && { phone: dto.phone }),
-        ...(dto.occupationId !== undefined && { occupationId: dto.occupationId }),
-        ...(dto.nationalityId !== undefined && { nationalityId: dto.nationalityId }),
+        ...(dto.occupationId !== undefined && {
+          occupationId: dto.occupationId,
+        }),
+        ...(dto.nationalityId !== undefined && {
+          nationalityId: dto.nationalityId,
+        }),
         ...(dto.districtId !== undefined && { districtId: dto.districtId }),
         ...(dto.wardId !== undefined && { wardId: dto.wardId }),
-        ...(dto.districtName !== undefined && { districtName: dto.districtName }),
+        ...(dto.districtName !== undefined && {
+          districtName: dto.districtName,
+        }),
         ...(dto.caseId !== undefined && { caseId: dto.caseId }),
         ...(dto.crimeId !== undefined && { crimeId: dto.crimeId }),
-        ...(dto.type !== undefined && { type: dto.type }),  // TASK-2026-261225
+        ...(dto.type !== undefined && { type: dto.type }), // TASK-2026-261225
         ...(dto.status !== undefined && { status: dto.status }),
         ...(dto.notes !== undefined && { notes: dto.notes }),
       },
@@ -307,12 +352,23 @@ export class SubjectsService {
       action: 'SUBJECT_UPDATED',
       subject: 'Subject',
       subjectId: id,
-      metadata: { before: { fullName: existing.fullName, idNumber: existing.idNumber, status: existing.status }, after: dto },
+      metadata: {
+        before: {
+          fullName: existing.fullName,
+          idNumber: existing.idNumber,
+          status: existing.status,
+        },
+        after: dto,
+      },
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
     });
 
-    return { success: true, data: record, message: 'Cập nhật đối tượng thành công' };
+    return {
+      success: true,
+      data: record,
+      message: 'Cập nhật đối tượng thành công',
+    };
   }
 
   // ─────────────────────────────────────────────
