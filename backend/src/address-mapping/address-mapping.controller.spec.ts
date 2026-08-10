@@ -28,15 +28,27 @@ describe('AddressMappingController — delegation', () => {
   });
 
   it('findAll() delegates to service.findAll', async () => {
-    mockService.findAll.mockResolvedValue({ data: [], total: 0, limit: 50, offset: 0 });
+    mockService.findAll.mockResolvedValue({
+      data: [],
+      total: 0,
+      limit: 50,
+      offset: 0,
+    });
     await controller.findAll({} as any);
     expect(mockService.findAll).toHaveBeenCalledWith({});
   });
 
   it('lookup() delegates to service.lookup', async () => {
-    const mapping = { oldWard: 'phường 14', oldDistrict: 'quận phú nhuận', newWard: 'phường phú nhuận' };
+    const mapping = {
+      oldWard: 'phường 14',
+      oldDistrict: 'quận phú nhuận',
+      newWard: 'phường phú nhuận',
+    };
     mockService.lookup.mockResolvedValue(mapping);
-    const result = await controller.lookup({ ward: 'phường 14', district: 'quận phú nhuận' } as any);
+    const result = await controller.lookup({
+      ward: 'phường 14',
+      district: 'quận phú nhuận',
+    } as any);
     expect(mockService.lookup).toHaveBeenCalled();
     expect(result).toEqual(mapping);
   });
@@ -50,7 +62,12 @@ describe('AddressMappingController — delegation', () => {
   });
 
   it('create() delegates to service.create with dto', async () => {
-    const dto = { oldWard: 'phường 14', oldDistrict: 'quận phú nhuận', newWard: 'phường phú nhuận', province: 'HCM' };
+    const dto = {
+      oldWard: 'phường 14',
+      oldDistrict: 'quận phú nhuận',
+      newWard: 'phường phú nhuận',
+      province: 'HCM',
+    };
     mockService.create.mockResolvedValue({ id: 'm1', ...dto });
     await controller.create(dto as any);
     expect(mockService.create).toHaveBeenCalledWith(dto);
@@ -59,7 +76,9 @@ describe('AddressMappingController — delegation', () => {
   it('update() delegates to service.update with id and dto', async () => {
     mockService.update.mockResolvedValue({ id: 'm1', needsReview: true });
     await controller.update('m1', { needsReview: true } as any);
-    expect(mockService.update).toHaveBeenCalledWith('m1', { needsReview: true });
+    expect(mockService.update).toHaveBeenCalledWith('m1', {
+      needsReview: true,
+    });
   });
 
   it('remove() delegates to service.remove with id', async () => {
@@ -69,14 +88,20 @@ describe('AddressMappingController — delegation', () => {
   });
 
   it('startSeed() uppercases province + passes user id to service', async () => {
-    mockService.startSeedJob.mockResolvedValue({ jobId: 'job1', statusUrl: '/x' });
+    mockService.startSeedJob.mockResolvedValue({
+      jobId: 'job1',
+      statusUrl: '/x',
+    });
     const req = { user: { id: 'admin-001' } };
     await controller.startSeed('hcm', req as any);
     expect(mockService.startSeedJob).toHaveBeenCalledWith('HCM', 'admin-001');
   });
 
   it('seedStatus() delegates to service.getSeedJobStatus', async () => {
-    mockService.getSeedJobStatus.mockResolvedValue({ id: 'job1', status: 'running' });
+    mockService.getSeedJobStatus.mockResolvedValue({
+      id: 'job1',
+      status: 'running',
+    });
     await controller.seedStatus('job1');
     expect(mockService.getSeedJobStatus).toHaveBeenCalledWith('job1');
   });

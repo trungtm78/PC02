@@ -229,6 +229,42 @@ describe('SettingsService', () => {
       expect(result.message).toContain('8760');
     });
 
+    // parseInt stops at the first bad character: '480abc' became 480 and
+    // '0x10' became 0, so malformed input was accepted and silently rewritten
+    // while the error text promised an integer.
+    it.each(['480abc', '0x10', '4 8 0', 'e5', '-', ''])(
+      'rejects malformed input %p instead of parsing a prefix',
+      async (bad) => {
+        mockPrisma.systemSetting.findUnique.mockResolvedValue(
+          makeSetting('THOI_HAN_EDIT_VU_VAN', '168', 'giờ'),
+        );
+
+        const result = await service.updateValue('THOI_HAN_EDIT_VU_VAN', bad);
+
+        expect(result.success).toBe(false);
+        expect(mockPrisma.systemSetting.update).not.toHaveBeenCalled();
+      },
+    );
+
+    it('still accepts padded and zero-prefixed numbers', async () => {
+      const existing = makeSetting('THOI_HAN_EDIT_VU_VAN', '168', 'giờ');
+      mockPrisma.systemSetting.findUnique.mockResolvedValue(existing);
+      mockPrisma.systemSetting.update.mockResolvedValue({
+        ...existing,
+        value: '480',
+      });
+
+      const result = await service.updateValue(
+        'THOI_HAN_EDIT_VU_VAN',
+        ' 0480 ',
+      );
+
+      expect(result.success).toBe(true);
+      expect(mockPrisma.systemSetting.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { value: '480' } }),
+      );
+    });
+
     it('leaves a non-numeric unit alone rather than guessing a ceiling', async () => {
       const existing = makeSetting('MOT_CAI_GI_DO', 'abc', 'văn bản');
       mockPrisma.systemSetting.findUnique.mockResolvedValue(existing);

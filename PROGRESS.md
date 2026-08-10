@@ -37,13 +37,20 @@ Cập nhật: 2026-08-10T03:15:00+07:00 | Milestone: M1/5 | Task: 0/5 của M1
 
 ## Đang làm dở
 
-Task: M1-T4 — PR-A4 `fix/seed-endpoints-and-settings-validation` (**code xong, chờ `/codex`**)
+Task: M1-T4 — PR-A4 `fix/seed-endpoints-and-settings-validation` (**xong — qua `/codex`**)
 Đã làm:
 - **`SeedEndpointGuard`** áp lên 4 endpoint nạp dữ liệu mẫu. Hai điều kiện đồng thời: `ALLOW_SEED_ENDPOINTS==='true'` (so khớp **đúng chuỗi**, để `1`/`yes`/`TRUE` không vô tình mở cổng) **và** vai trò ADMIN. Trước đó `POST /notifications/seed` **không có decorator quyền nào cả**, còn `/directories/seed` chỉ cần `write:Directory` — quyền mà nhiều vai trò đang có. `POST /address-mappings/seed/:id/cancel` **cố ý không gate**: hủy job đang treo phải gọi được. `test-fixtures` đã có `TestModeGuard` riêng nên không đụng.
 - **Trần thời hạn theo đơn vị.** Trước: chỉ `'ngày'`/`'lần'` bị chặn ở 365, còn **`'giờ'` không được validate gì cả** — mà `THOI_HAN_XOA_VU_AN` và `THOI_HAN_EDIT_VU_VAN` đều dùng đơn vị này. Nếu áp 365 cho giờ thì còn tệ hơn không có: `THOI_HAN_EDIT_VU_VAN` mặc định 168h, cơ sở pháp lý BLTTHS Đ.147 là 20 ngày = **480h**, tức 365 sẽ âm thầm cắt cửa sổ xuống dưới mức luật cho phép. Nay `ngày`→365, `lần`→365, `giờ`→**8760**; đơn vị không có trong bảng thì không phải số, để nguyên. Thông điệp lỗi có nêu đơn vị.
 - `docs/DEPLOY.md`: mục `ALLOW_SEED_ENDPOINTS` — để TẮT trên production.
-Kiểm: BE **224 suite / 3040 test** PASS, FE **153 file / 1494 test** PASS, tsc sạch, 3 cổng xanh, baseline lint 8.488 → **8.470**.
-**BƯỚC TIẾP THEO:** `/codex` cho PR-A4, rồi M1-T5 (PR-M1 — mobile, chặn cứng E4–E6).
+Kiểm: BE **224 suite / 3049 test** PASS, FE **153 file / 1494 test** PASS, tsc sạch, 3 cổng xanh, baseline lint 8.488 → **8.392**.
+**BƯỚC TIẾP THEO:** M1-T5 (PR-M1 — mobile, chặn cứng E4–E6).
+
+### Finding đã xử lý ở checkpoint `/codex` PR-A4
+
+**Không có [P1].** Codex xác nhận 4 điểm tôi cần chắc: thứ tự guard đúng (global → class → route, nên `JwtAuthGuard` chạy trước và `req.user` đã có); `role` là **tên** vai trò (`user.role.name` ở `jwt.strategy.ts:71`) nên so với `ROLE_NAMES.ADMIN` là khớp; cả 5 giá trị seed mặc định đều nằm trong trần mới; không còn seed endpoint nào khác bị bỏ sót. Hai [P2] đã sửa:
+
+1. **`POST /address-mappings/seed/:id/cancel` ai có `write:Directory` cũng hủy được job của người khác**, không kiểm sở hữu — tức DoS lên một tiến trình nhập liệu có thể đã chạy hàng giờ. Tôi đã cố ý **không** áp `SeedEndpointGuard` ở đây (hủy job treo phải gọi được trên production, nơi cờ env tắt), nhưng "không gate hoàn toàn" là quá tay. Thêm `SeedCancelGuard`: **chỉ kiểm vai trò ADMIN**, không kiểm cờ env — giữ đúng ý định ban đầu mà vẫn đóng lỗ.
+2. **`parseInt` cắt tiền tố** ⇒ `'480abc'` thành 480, `'0x10'` thành 0 — đầu vào rác được nhận rồi âm thầm viết lại, trong khi thông điệp lỗi hứa là số nguyên. Đổi sang khớp **cả chuỗi** rồi mới chuyển đổi; vẫn nhận số thập phân và cắt phần lẻ vì đó là chuẩn hoá có sẵn và có test riêng.
 
 ---
 
@@ -213,7 +220,7 @@ Tự phát hiện thêm: 3 file test mới của chính tôi bị baseline hoá 
 ## Trạng thái test
 
 Full suite: **PASS**
-- Backend: 223 suite / **3029** test — PASS (xem ND-9: 1 suite flaky ~1/6 lần, có sẵn từ trước)
+- Backend: 224 suite / **3049** test — PASS (xem ND-9: 1 suite flaky ~1/6 lần, có sẵn từ trước)
 - Frontend: 153 file / **1494** test — PASS (3 lần chạy liên tiếp ổn định)
 - Cổng governance: enum guard ✅ · gen:enums drift ✅ · lint ratchet ✅ (baseline 8.945 sau ADR-0015)
 - `tsc --noEmit` (BE): sạch · `tsc -b` (FE): sạch

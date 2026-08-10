@@ -1,6 +1,6 @@
 import { ForbiddenException } from '@nestjs/common';
 import type { ExecutionContext } from '@nestjs/common';
-import { SeedEndpointGuard } from './seed-endpoint.guard';
+import { SeedEndpointGuard, SeedCancelGuard } from './seed-endpoint.guard';
 import { ROLE_NAMES } from '../constants/role.constants';
 
 /**
@@ -74,5 +74,43 @@ describe('SeedEndpointGuard', () => {
     expect(() =>
       guard.canActivate(contextFor({ role: ROLE_NAMES.ADMIN })),
     ).toThrow(/ALLOW_SEED_ENDPOINTS/);
+  });
+});
+
+/**
+ * Cancelling has to work where seeding does not — a job stuck on production is
+ * exactly what somebody needs to stop, and ALLOW_SEED_ENDPOINTS is off there.
+ * But it was reachable by anyone holding `write:Directory`, with no ownership
+ * check: a denial of service against an import that may have run for an hour.
+ */
+describe('SeedCancelGuard', () => {
+  const guard = new SeedCancelGuard();
+  const original = process.env.ALLOW_SEED_ENDPOINTS;
+
+  function contextFor(user?: { role?: string }): ExecutionContext {
+    return {
+      switchToHttp: () => ({ getRequest: () => ({ user }) }),
+    } as unknown as ExecutionContext;
+  }
+
+  afterEach(() => {
+    if (original === undefined) delete process.env.ALLOW_SEED_ENDPOINTS;
+    else process.env.ALLOW_SEED_ENDPOINTS = original;
+  });
+
+  it('lets an admin cancel even where seeding is disabled — the production case', () => {
+    delete process.env.ALLOW_SEED_ENDPOINTS;
+
+    expect(guard.canActivate(contextFor({ role: ROLE_NAMES.ADMIN }))).toBe(
+      true,
+    );
+  });
+
+  it('does not let an ordinary officer cancel somebody else’s import', () => {
+    process.env.ALLOW_SEED_ENDPOINTS = 'true';
+
+    expect(() =>
+      guard.canActivate(contextFor({ role: ROLE_NAMES.OFFICER })),
+    ).toThrow(ForbiddenException);
   });
 });

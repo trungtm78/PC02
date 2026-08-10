@@ -66,7 +66,10 @@ export class SettingsService {
   async getValue(key: string): Promise<string | null> {
     assertNotDeadlineKey(key);
 
-    if (Date.now() - this.cacheTimestamp < this.CACHE_TTL_MS && this.cache.has(key)) {
+    if (
+      Date.now() - this.cacheTimestamp < this.CACHE_TTL_MS &&
+      this.cache.has(key)
+    ) {
       return this.cache.get(key) ?? null;
     }
 
@@ -110,7 +113,9 @@ export class SettingsService {
   ) {
     assertNotDeadlineKey(key);
 
-    const existing = await this.prisma.systemSetting.findUnique({ where: { key } });
+    const existing = await this.prisma.systemSetting.findUnique({
+      where: { key },
+    });
     if (!existing) {
       return { success: false, message: `Cấu hình '${key}' không tồn tại` };
     }
@@ -118,8 +123,14 @@ export class SettingsService {
     let normalizedValue = value;
     const max = NUMERIC_UNIT_MAX[existing.unit ?? ''];
     if (max !== undefined) {
-      const num = parseInt(value, 10);
-      if (isNaN(num) || num < 0 || num > max) {
+      // Whole-string match, not parseInt's prefix parse. `parseInt('480abc')`
+      // is 480 and `parseInt('0x10')` is 0, so malformed input used to be
+      // accepted and silently rewritten while the error text promised an
+      // integer. A decimal is still allowed and truncated — that normalisation
+      // predates this and is covered by its own test.
+      const wellFormed = /^\s*\d+(\.\d+)?\s*$/.test(value);
+      const num = wellFormed ? Math.trunc(Number(value)) : NaN;
+      if (!wellFormed || Number.isNaN(num) || num < 0 || num > max) {
         return {
           success: false,
           message: `Giá trị phải là số nguyên từ 0 đến ${max} (${existing.unit})`,
@@ -152,7 +163,11 @@ export class SettingsService {
       });
     }
 
-    return { success: true, data: updated, message: 'Cập nhật cấu hình thành công' };
+    return {
+      success: true,
+      data: updated,
+      message: 'Cập nhật cấu hình thành công',
+    };
   }
 
   /**
@@ -161,15 +176,46 @@ export class SettingsService {
    */
   async seed() {
     const defaults = [
-      { key: SETTINGS_KEY.TWO_FA_ENABLED, value: 'false', label: 'Bật xác thực 2 lớp (2FA)', unit: null, legalBasis: null },
-      { key: SETTINGS_KEY.CANH_BAO_SAP_HAN, value: '7', label: 'Ngưỡng cảnh báo sắp đến hạn (app mobile)', unit: 'ngày', legalBasis: null },
-      { key: SETTINGS_KEY.THOI_HAN_XOA_VU_VIEC, value: '180', label: 'Số ngày giữ vụ việc đã xóa mềm', unit: 'ngày', legalBasis: 'Quy chế nội bộ' },
+      {
+        key: SETTINGS_KEY.TWO_FA_ENABLED,
+        value: 'false',
+        label: 'Bật xác thực 2 lớp (2FA)',
+        unit: null,
+        legalBasis: null,
+      },
+      {
+        key: SETTINGS_KEY.CANH_BAO_SAP_HAN,
+        value: '7',
+        label: 'Ngưỡng cảnh báo sắp đến hạn (app mobile)',
+        unit: 'ngày',
+        legalBasis: null,
+      },
+      {
+        key: SETTINGS_KEY.THOI_HAN_XOA_VU_VIEC,
+        value: '180',
+        label: 'Số ngày giữ vụ việc đã xóa mềm',
+        unit: 'ngày',
+        legalBasis: 'Quy chế nội bộ',
+      },
       // v0.31.0.2: số giờ creator có thể tự xóa vụ án (status=TIEP_NHAN). Ngoài window → chỉ ADMIN.
-      { key: SETTINGS_KEY.THOI_HAN_XOA_VU_AN, value: '72', label: 'Số giờ creator được tự xóa vụ án sau khi tạo', unit: 'giờ', legalBasis: 'Quy chế nội bộ' },
+      {
+        key: SETTINGS_KEY.THOI_HAN_XOA_VU_AN,
+        value: '72',
+        label: 'Số giờ creator được tự xóa vụ án sau khi tạo',
+        unit: 'giờ',
+        legalBasis: 'Quy chế nội bộ',
+      },
       // v0.33.0.0 Phase 5-lite: edit window cho ward officer
       // v0.36.0.0: bump default 24h → 168h (7 ngày) per /autoplan UC1 — BLTTHS Đ.147
       // cho 20 ngày verify tin báo, 24h là quá ngắn cho điều tra thực tế.
-      { key: SETTINGS_KEY.THOI_HAN_EDIT_VU_VAN, value: '168', label: 'Số giờ cán bộ phường khuyến nghị sửa dữ liệu (warning-only, override per-Team). Default 168h = 7 ngày (BLTTHS Đ.147 verify 20 ngày).', unit: 'giờ', legalBasis: 'BLTTHS Đ.147 + Quy chế nội bộ' },
+      {
+        key: SETTINGS_KEY.THOI_HAN_EDIT_VU_VAN,
+        value: '168',
+        label:
+          'Số giờ cán bộ phường khuyến nghị sửa dữ liệu (warning-only, override per-Team). Default 168h = 7 ngày (BLTTHS Đ.147 verify 20 ngày).',
+        unit: 'giờ',
+        legalBasis: 'BLTTHS Đ.147 + Quy chế nội bộ',
+      },
     ];
 
     for (const d of defaults) {
@@ -186,6 +232,9 @@ export class SettingsService {
       where: { key: { in: [...DEADLINE_RULE_KEYS] } },
     });
 
-    return { success: true, message: `Seeded ${defaults.length} ops settings (deadline rules managed by DeadlineRulesService)` };
+    return {
+      success: true,
+      message: `Seeded ${defaults.length} ops settings (deadline rules managed by DeadlineRulesService)`,
+    };
   }
 }

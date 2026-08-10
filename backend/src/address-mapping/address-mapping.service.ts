@@ -1,9 +1,17 @@
-import { Injectable, NotFoundException, ConflictException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  Logger,
+} from '@nestjs/common';
 import { mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateAddressMappingDto } from './dto/create-address-mapping.dto';
-import { QueryAddressMappingDto, LookupAddressMappingDto } from './dto/query-address-mapping.dto';
+import {
+  QueryAddressMappingDto,
+  LookupAddressMappingDto,
+} from './dto/query-address-mapping.dto';
 
 // Province code → /api/v1 numeric code (provinces.open-api.vn).
 // HCM = 79 is the only fully-tested entry; HN/DN/HP/CT to be enabled by follow-up PRs
@@ -26,7 +34,14 @@ export class AddressMappingService {
   constructor(private readonly prisma: PrismaService) {}
 
   async findAll(query: QueryAddressMappingDto) {
-    const { province, search, needsReview, isActive, limit = 50, offset = 0 } = query;
+    const {
+      province,
+      search,
+      needsReview,
+      isActive,
+      limit = 50,
+      offset = 0,
+    } = query;
     const where: Record<string, unknown> = {};
     if (province) where.province = province;
     if (needsReview !== undefined) where.needsReview = needsReview;
@@ -34,12 +49,23 @@ export class AddressMappingService {
     if (search) {
       where.OR = [
         { oldWard: { contains: search.toLowerCase(), mode: 'insensitive' } },
-        { oldDistrict: { contains: search.toLowerCase(), mode: 'insensitive' } },
+        {
+          oldDistrict: { contains: search.toLowerCase(), mode: 'insensitive' },
+        },
         { newWard: { contains: search.toLowerCase(), mode: 'insensitive' } },
       ];
     }
     const [data, total] = await Promise.all([
-      this.prisma.addressMapping.findMany({ where, orderBy: [{ province: 'asc' }, { oldDistrict: 'asc' }, { oldWard: 'asc' }], take: limit, skip: offset }),
+      this.prisma.addressMapping.findMany({
+        where,
+        orderBy: [
+          { province: 'asc' },
+          { oldDistrict: 'asc' },
+          { oldWard: 'asc' },
+        ],
+        take: limit,
+        skip: offset,
+      }),
       this.prisma.addressMapping.count({ where }),
     ]);
     return { data, total, limit, offset };
@@ -97,20 +123,36 @@ export class AddressMappingService {
 
   async create(dto: CreateAddressMappingDto) {
     const existing = await this.prisma.addressMapping.findUnique({
-      where: { oldWard_oldDistrict_province: { oldWard: dto.oldWard, oldDistrict: dto.oldDistrict, province: dto.province } },
+      where: {
+        oldWard_oldDistrict_province: {
+          oldWard: dto.oldWard,
+          oldDistrict: dto.oldDistrict,
+          province: dto.province,
+        },
+      },
     });
-    if (existing) throw new ConflictException(`Mapping "${dto.oldWard}, ${dto.oldDistrict}" đã tồn tại`);
+    if (existing)
+      throw new ConflictException(
+        `Mapping "${dto.oldWard}, ${dto.oldDistrict}" đã tồn tại`,
+      );
     return this.prisma.addressMapping.create({ data: dto });
   }
 
   async update(id: string, dto: Partial<CreateAddressMappingDto>) {
-    const existing = await this.prisma.addressMapping.findUnique({ where: { id } });
+    const existing = await this.prisma.addressMapping.findUnique({
+      where: { id },
+    });
     if (!existing) throw new NotFoundException(`Mapping #${id} không tồn tại`);
-    return this.prisma.addressMapping.update({ where: { id }, data: { ...dto, updatedAt: new Date() } });
+    return this.prisma.addressMapping.update({
+      where: { id },
+      data: { ...dto, updatedAt: new Date() },
+    });
   }
 
   async remove(id: string) {
-    const existing = await this.prisma.addressMapping.findUnique({ where: { id } });
+    const existing = await this.prisma.addressMapping.findUnique({
+      where: { id },
+    });
     if (!existing) throw new NotFoundException(`Mapping #${id} không tồn tại`);
     await this.prisma.addressMapping.delete({ where: { id } });
     return { message: `Đã xóa mapping #${id}` };
@@ -126,13 +168,17 @@ export class AddressMappingService {
   async startSeedJob(province: string, triggeredBy: string) {
     const apiCode = PROVINCE_API_CODE[province];
     if (!apiCode) {
-      throw new ConflictException(`Province '${province}' chưa được hỗ trợ. Hỗ trợ: ${Object.keys(PROVINCE_API_CODE).join(', ')}`);
+      throw new ConflictException(
+        `Province '${province}' chưa được hỗ trợ. Hỗ trợ: ${Object.keys(PROVINCE_API_CODE).join(', ')}`,
+      );
     }
     const running = await this.prisma.addressSeedJob.findFirst({
       where: { province, status: { in: ['queued', 'running'] } },
     });
     if (running) {
-      throw new ConflictException(`Đang có job chạy cho ${province} (id=${running.id}, status=${running.status})`);
+      throw new ConflictException(
+        `Đang có job chạy cho ${province} (id=${running.id}, status=${running.status})`,
+      );
     }
     const job = await this.prisma.addressSeedJob.create({
       data: { province, status: 'queued', triggeredBy },
@@ -143,7 +189,10 @@ export class AddressMappingService {
         this.logger.error(`Seed job ${job.id} crashed: ${err?.message ?? err}`);
       });
     });
-    return { jobId: job.id, statusUrl: `/address-mappings/seed/status/${job.id}` };
+    return {
+      jobId: job.id,
+      statusUrl: `/address-mappings/seed/status/${job.id}`,
+    };
   }
 
   async getSeedJobStatus(id: string) {
@@ -162,7 +211,10 @@ export class AddressMappingService {
       where: { id },
       data: { cancelToken: 'requested' },
     });
-    return { ok: true, message: 'Cancellation requested. Worker sẽ dừng ở batch tiếp theo.' };
+    return {
+      ok: true,
+      message: 'Cancellation requested. Worker sẽ dừng ở batch tiếp theo.',
+    };
   }
 
   /**
@@ -171,7 +223,11 @@ export class AddressMappingService {
    * responses to backend/prisma/data/snapshots/{province}-v1-{ts}.json
    * for offline reproducibility (Codex/CEO finding).
    */
-  private async runSeedJob(jobId: string, apiCode: number, province: string): Promise<void> {
+  private async runSeedJob(
+    jobId: string,
+    apiCode: number,
+    province: string,
+  ): Promise<void> {
     const errors: Array<{ wardCode?: number; error: string }> = [];
     let mapped = 0;
     let needsReviewCount = 0;
@@ -191,19 +247,30 @@ export class AddressMappingService {
       });
       if (!v1Res.ok) throw new Error(`v1 API HTTP ${v1Res.status}`);
       const v1Data = (await v1Res.json()) as {
-        districts: Array<{ name: string; wards: Array<{ name: string; code: number }> }>;
+        districts: Array<{
+          name: string;
+          wards: Array<{ name: string; code: number }>;
+        }>;
       };
 
       // Snapshot raw response for reproducibility.
       try {
         mkdirSync(SNAPSHOT_DIR, { recursive: true });
-        const snapPath = join(SNAPSHOT_DIR, `${province}-v1-${Date.now()}.json`);
+        const snapPath = join(
+          SNAPSHOT_DIR,
+          `${province}-v1-${Date.now()}.json`,
+        );
         writeFileSync(snapPath, JSON.stringify(v1Data, null, 2));
       } catch (snapErr: any) {
-        this.logger.warn(`Snapshot write failed (non-fatal): ${snapErr.message}`);
+        this.logger.warn(
+          `Snapshot write failed (non-fatal): ${snapErr.message}`,
+        );
       }
 
-      total = (v1Data.districts ?? []).reduce((acc, d) => acc + (d.wards?.length ?? 0), 0);
+      total = (v1Data.districts ?? []).reduce(
+        (acc, d) => acc + (d.wards?.length ?? 0),
+        0,
+      );
       await this.prisma.addressSeedJob.update({
         where: { id: jobId },
         data: { totalWards: total },
@@ -214,11 +281,19 @@ export class AddressMappingService {
         const oldDistrictName = district.name.toLowerCase().trim();
         for (const ward of district.wards ?? []) {
           // Honor cancellation between every ward (cheap check, ~1ms DB query).
-          const job = await this.prisma.addressSeedJob.findUnique({ where: { id: jobId } });
+          const job = await this.prisma.addressSeedJob.findUnique({
+            where: { id: jobId },
+          });
           if (job?.cancelToken === 'requested') {
             await this.prisma.addressSeedJob.update({
               where: { id: jobId },
-              data: { status: 'cancelled', completedAt: new Date(), errorLog: JSON.stringify(errors), mappedCount: mapped, needsReview: needsReviewCount },
+              data: {
+                status: 'cancelled',
+                completedAt: new Date(),
+                errorLog: JSON.stringify(errors),
+                mappedCount: mapped,
+                needsReview: needsReviewCount,
+              },
             });
             this.logger.log(`Seed job ${jobId} cancelled at ward ${ward.code}`);
             return;
@@ -237,10 +312,15 @@ export class AddressMappingService {
               },
             );
             if (!v2Res.ok) {
-              errors.push({ wardCode: oldWardCode, error: `v2 HTTP ${v2Res.status}` });
+              errors.push({
+                wardCode: oldWardCode,
+                error: `v2 HTTP ${v2Res.status}`,
+              });
               continue;
             }
-            const matches = (await v2Res.json()) as Array<{ ward: { name: string; code: number } }>;
+            const matches = (await v2Res.json()) as Array<{
+              ward: { name: string; code: number };
+            }>;
             if (!matches || matches.length === 0) {
               continue;
             }
@@ -255,7 +335,13 @@ export class AddressMappingService {
               : 'API-seeded từ provinces.open-api.vn v2';
 
             await this.prisma.addressMapping.upsert({
-              where: { oldWard_oldDistrict_province: { oldWard: oldWardName, oldDistrict: oldDistrictName, province } },
+              where: {
+                oldWard_oldDistrict_province: {
+                  oldWard: oldWardName,
+                  oldDistrict: oldDistrictName,
+                  province,
+                },
+              },
               create: {
                 oldWard: oldWardName,
                 oldDistrict: oldDistrictName,
@@ -284,11 +370,18 @@ export class AddressMappingService {
             if (mapped % 25 === 0) {
               await this.prisma.addressSeedJob.update({
                 where: { id: jobId },
-                data: { mappedCount: mapped, errorCount: errors.length, needsReview: needsReviewCount },
+                data: {
+                  mappedCount: mapped,
+                  errorCount: errors.length,
+                  needsReview: needsReviewCount,
+                },
               });
             }
           } catch (err: any) {
-            errors.push({ wardCode: oldWardCode, error: err?.message ?? String(err) });
+            errors.push({
+              wardCode: oldWardCode,
+              error: err?.message ?? String(err),
+            });
           }
 
           // Polite throttle between API calls. Codex flagged 50ms as overly polite;
@@ -305,10 +398,14 @@ export class AddressMappingService {
           mappedCount: mapped,
           errorCount: errors.length,
           needsReview: needsReviewCount,
-          errorLog: errors.length ? JSON.stringify(errors).slice(0, 5000) : null,
+          errorLog: errors.length
+            ? JSON.stringify(errors).slice(0, 5000)
+            : null,
         },
       });
-      this.logger.log(`Seed job ${jobId} completed: ${mapped} mapped, ${errors.length} errors, ${needsReviewCount} need review`);
+      this.logger.log(
+        `Seed job ${jobId} completed: ${mapped} mapped, ${errors.length} errors, ${needsReviewCount} need review`,
+      );
     } catch (err: any) {
       this.logger.error(`Seed job ${jobId} failed: ${err?.message ?? err}`);
       await this.prisma.addressSeedJob.update({
@@ -319,7 +416,10 @@ export class AddressMappingService {
           mappedCount: mapped,
           errorCount: errors.length,
           needsReview: needsReviewCount,
-          errorLog: JSON.stringify({ fatalError: err?.message ?? String(err), partial: errors.slice(0, 50) }).slice(0, 5000),
+          errorLog: JSON.stringify({
+            fatalError: err?.message ?? String(err),
+            partial: errors.slice(0, 50),
+          }).slice(0, 5000),
         },
       });
     }

@@ -63,7 +63,9 @@ describe('AddressMappingService', () => {
       mockPrisma.addressMapping.count.mockResolvedValue(0);
       await service.findAll({ province: 'HCM', limit: 50, offset: 0 });
       expect(mockPrisma.addressMapping.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: expect.objectContaining({ province: 'HCM' }) }),
+        expect.objectContaining({
+          where: expect.objectContaining({ province: 'HCM' }),
+        }),
       );
     });
   });
@@ -71,7 +73,11 @@ describe('AddressMappingService', () => {
   describe('lookup', () => {
     it('finds mapping case-insensitively', async () => {
       mockPrisma.addressMapping.findFirst.mockResolvedValue(SAMPLE_MAPPING);
-      const result = await service.lookup({ ward: 'Phường 14', district: 'Quận Phú Nhuận', province: 'HCM' });
+      const result = await service.lookup({
+        ward: 'Phường 14',
+        district: 'Quận Phú Nhuận',
+        province: 'HCM',
+      });
       expect(result).toEqual(SAMPLE_MAPPING);
       expect(mockPrisma.addressMapping.findFirst).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -86,8 +92,14 @@ describe('AddressMappingService', () => {
     it('uses district-level fallback when ward not in DB but district is unambiguous', async () => {
       // phường 14 not in DB but all phường of quận phú nhuận → same newWard
       mockPrisma.addressMapping.findFirst.mockResolvedValue(null); // no exact match
-      mockPrisma.addressMapping.findMany.mockResolvedValue([{ newWard: 'phường phú nhuận' }]); // 1 distinct newWard
-      const result = await service.lookup({ ward: 'phường 14', district: 'quận phú nhuận', province: 'HCM' });
+      mockPrisma.addressMapping.findMany.mockResolvedValue([
+        { newWard: 'phường phú nhuận' },
+      ]); // 1 distinct newWard
+      const result = await service.lookup({
+        ward: 'phường 14',
+        district: 'quận phú nhuận',
+        province: 'HCM',
+      });
       expect(result).not.toBeNull();
       expect(result?.newWard).toBe('phường phú nhuận');
     });
@@ -95,7 +107,10 @@ describe('AddressMappingService', () => {
     it('returns null when no mapping found and district is ambiguous', async () => {
       mockPrisma.addressMapping.findFirst.mockResolvedValue(null);
       mockPrisma.addressMapping.findMany.mockResolvedValue([]); // no district records
-      const result = await service.lookup({ ward: 'phường xyz', district: 'quận abc' });
+      const result = await service.lookup({
+        ward: 'phường xyz',
+        district: 'quận abc',
+      });
       expect(result).toBeNull();
     });
   });
@@ -105,18 +120,24 @@ describe('AddressMappingService', () => {
       mockPrisma.addressMapping.findUnique.mockResolvedValue(null);
       mockPrisma.addressMapping.create.mockResolvedValue(SAMPLE_MAPPING);
       const result = await service.create({
-        oldWard: 'phường 14', oldDistrict: 'quận phú nhuận',
-        newWard: 'phường phú nhuận', province: 'HCM',
+        oldWard: 'phường 14',
+        oldDistrict: 'quận phú nhuận',
+        newWard: 'phường phú nhuận',
+        province: 'HCM',
       });
       expect(result).toEqual(SAMPLE_MAPPING);
     });
 
     it('throws ConflictException for duplicate', async () => {
       mockPrisma.addressMapping.findUnique.mockResolvedValue(SAMPLE_MAPPING);
-      await expect(service.create({
-        oldWard: 'phường 14', oldDistrict: 'quận phú nhuận',
-        newWard: 'phường phú nhuận', province: 'HCM',
-      })).rejects.toThrow(ConflictException);
+      await expect(
+        service.create({
+          oldWard: 'phường 14',
+          oldDistrict: 'quận phú nhuận',
+          newWard: 'phường phú nhuận',
+          province: 'HCM',
+        }),
+      ).rejects.toThrow(ConflictException);
     });
   });
 
@@ -130,7 +151,9 @@ describe('AddressMappingService', () => {
 
     it('throws NotFoundException for missing mapping', async () => {
       mockPrisma.addressMapping.findUnique.mockResolvedValue(null);
-      await expect(service.remove('nonexistent')).rejects.toThrow(NotFoundException);
+      await expect(service.remove('nonexistent')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -146,7 +169,9 @@ describe('AddressMappingService', () => {
     });
 
     it('rejects unknown province with ConflictException', async () => {
-      await expect(service.startSeedJob('UNKNOWN', 'admin-001')).rejects.toThrow(ConflictException);
+      await expect(
+        service.startSeedJob('UNKNOWN', 'admin-001'),
+      ).rejects.toThrow(ConflictException);
     });
 
     it('rejects when job already running for province (concurrency lock)', async () => {
@@ -155,12 +180,18 @@ describe('AddressMappingService', () => {
         province: 'HCM',
         status: 'running',
       });
-      await expect(service.startSeedJob('HCM', 'admin-001')).rejects.toThrow(ConflictException);
+      await expect(service.startSeedJob('HCM', 'admin-001')).rejects.toThrow(
+        ConflictException,
+      );
     });
 
     it('creates queued job + returns jobId when no conflict', async () => {
       mockPrisma.addressSeedJob.findFirst.mockResolvedValue(null);
-      mockPrisma.addressSeedJob.create.mockResolvedValue({ id: 'new-job', province: 'HCM', status: 'queued' });
+      mockPrisma.addressSeedJob.create.mockResolvedValue({
+        id: 'new-job',
+        province: 'HCM',
+        status: 'queued',
+      });
       const result = await service.startSeedJob('HCM', 'admin-001');
       expect(result.jobId).toBe('new-job');
       expect(result.statusUrl).toContain('/seed/status/new-job');
@@ -172,21 +203,34 @@ describe('AddressMappingService', () => {
 
   describe('cancelSeedJob', () => {
     beforeEach(() => {
-      mockPrisma.addressSeedJob = mockPrisma.addressSeedJob || { findUnique: jest.fn(), update: jest.fn() };
+      mockPrisma.addressSeedJob = mockPrisma.addressSeedJob || {
+        findUnique: jest.fn(),
+        update: jest.fn(),
+      };
     });
 
     it('throws NotFoundException for unknown job', async () => {
       mockPrisma.addressSeedJob.findUnique.mockResolvedValue(null);
-      await expect(service.cancelSeedJob('missing')).rejects.toThrow(NotFoundException);
+      await expect(service.cancelSeedJob('missing')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('rejects already-completed jobs with ConflictException', async () => {
-      mockPrisma.addressSeedJob.findUnique.mockResolvedValue({ id: 'j1', status: 'completed' });
-      await expect(service.cancelSeedJob('j1')).rejects.toThrow(ConflictException);
+      mockPrisma.addressSeedJob.findUnique.mockResolvedValue({
+        id: 'j1',
+        status: 'completed',
+      });
+      await expect(service.cancelSeedJob('j1')).rejects.toThrow(
+        ConflictException,
+      );
     });
 
     it('sets cancelToken when running', async () => {
-      mockPrisma.addressSeedJob.findUnique.mockResolvedValue({ id: 'j1', status: 'running' });
+      mockPrisma.addressSeedJob.findUnique.mockResolvedValue({
+        id: 'j1',
+        status: 'running',
+      });
       mockPrisma.addressSeedJob.update.mockResolvedValue({});
       const result = await service.cancelSeedJob('j1');
       expect(result.ok).toBe(true);
@@ -217,7 +261,9 @@ describe('AddressMappingService', () => {
         updatedAt: new Date(),
       });
       const result = await service.lookup({
-        ward: 'Phường 5', district: 'Quận 3', province: 'HCM',
+        ward: 'Phường 5',
+        district: 'Quận 3',
+        province: 'HCM',
       });
       expect(result).not.toBeNull();
       expect(result!.newWard).toBe('phường bàn cờ');
