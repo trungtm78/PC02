@@ -192,6 +192,17 @@ export const SEED_PERMISSIONS: readonly SeedPermission[] = [
     description: 'Khôi phục vật chứng đã xóa mềm',
   },
 
+  // ── Feature flags (PR-B1) ─────────────────────────────────────────────
+  // Only 'write'. Reading is deliberately NOT permission-gated: every
+  // authenticated user calls GET /feature-flags on page load to build the
+  // sidebar, so requiring a permission there would empty the menu for anyone
+  // who lacks it and read as a broken system.
+  {
+    action: 'write',
+    subject: 'FeatureFlag',
+    description: 'Bật/tắt tính năng và làm mới bộ nhớ đệm cờ',
+  },
+
   // ── Edit window reset request review (v0.33.0.0 Phase 5b) ─────────────
   // ADMIN + HEAD_UNIT review reset requests. ADMIN auto-grant via seed.ts ALL block.
   // HEAD_UNIT grant via admin role-permission UI sau (defer per autoplan).

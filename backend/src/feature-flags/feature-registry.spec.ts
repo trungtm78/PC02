@@ -1,6 +1,10 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { FEATURE_REGISTRY, getManifest, getManifestsByDomain } from './feature-registry';
+import {
+  FEATURE_REGISTRY,
+  getManifest,
+  getManifestsByDomain,
+} from './feature-registry';
 
 describe('FEATURE_REGISTRY', () => {
   it('has unique keys', () => {

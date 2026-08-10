@@ -37,6 +37,21 @@ Cập nhật: 2026-08-10T03:15:00+07:00 | Milestone: M1/5 | Task: 0/5 của M1
 
 ## Đang làm dở
 
+Task: M2-T1 — PR-B1 `feat/feature-flags-write-api` (**code xong, chờ `/codex`**)
+Đã làm:
+- **`PATCH /feature-flags/:key`** + **`POST /feature-flags/refresh`**, cả hai gắn `write:FeatureFlag`. **Cạm bẫy đã tránh:** quyền đặt ở **từng route**, không ở cấp class — `GET /feature-flags` được **mọi** user gọi mỗi lần tải trang để dựng sidebar, gắn quyền ở class là menu trống cho ai không có quyền và họ sẽ tưởng hệ thống hỏng.
+- **`setEnabled` từ dead code thành đường ghi thật:** `update` → **`upsert`** (bản cũ ném P2025 với mọi cờ mà lần seed đầu chưa tạo, tức mọi cờ thêm sau đó); 3 validate fail-fast (key ngoài registry → 404, cờ lõi + `false` → 400, key ngoài `ENABLED_FEATURES` → 400); **audit trong cùng transaction** — cờ đổi mà không có ai chịu trách nhiệm còn tệ hơn cờ không đổi.
+- **Chống khoá cứng 3 lớp** (`CORE_FEATURE_KEYS`, compile-time theo ADR-0001): `effectiveEnabled()` ép `true` cho cờ lõi nên `UPDATE feature_flags SET enabled=false WHERE key='admin'` chạy tay cũng **không** khoá được ai; `setEnabled` từ chối; DTO trả `isCore` để UI vô hiệu hoá nút. Có test khẳng định **mọi** core key tồn tại trong registry — gõ sai một chữ là hàng rào biến mất trong im lặng.
+- **`effectiveEnabled()` là nguồn duy nhất** cho cả `isEnabled()` lẫn `listAll()`. Trước đó hai hàm tự trả lời riêng, mà hai bản sao của một quy tắc thì sẽ lệch.
+- **`AuditService` tiêm `@Optional()`** — module này `@Global` + cấp `APP_GUARD` nên dựng rất sớm; phụ thuộc cứng vào `AuditModule` có nguy cơ đồ thị vòng, mà biểu hiện chỉ là app không boot được.
+- Quyền `write:FeatureFlag` vào `seed-permissions.ts` ⇒ runner ở `deploy.sh` tự cấp cho ADMIN. **Không** thêm `read:FeatureFlag` — đọc phải mở cho mọi người, xem ghi chú trong seed.
+Kiểm: BE **225 suite / 3066 test** PASS, FE **154 file / 1504 test** PASS, tsc sạch, 3 cổng xanh, baseline lint **8.386**.
+**BƯỚC TIẾP THEO:** `/codex` cho PR-B1, rồi M2-T2 (PR-B2 — trang `/admin/tinh-nang`).
+
+**Ghi nhận ND-9 tái diễn:** một lần chạy full suite đỏ 1 suite/21 test, chạy lại xanh ngay. Đúng dấu hiệu đua tranh cache transform của jest đã ghi ở ND-9, không liên quan thay đổi này.
+
+---
+
 Task: M1-T5 — PR-M1 `feat/mobile-feature-flag-awareness` (**làm được 2/3 — phần mobile BỊ CHẶN, xem bên dưới**)
 
 Đã làm (đều kiểm chứng được, có test):
@@ -242,7 +257,7 @@ Tự phát hiện thêm: 3 file test mới của chính tôi bị baseline hoá 
 ## Trạng thái test
 
 Full suite: **PASS**
-- Backend: 224 suite / **3052** test — PASS (xem ND-9: 1 suite flaky ~1/6 lần, có sẵn từ trước)
+- Backend: 225 suite / **3066** test — PASS (xem ND-9: 1 suite flaky ~1/6 lần, có sẵn từ trước)
 - Frontend: 154 file / **1504** test — PASS (3 lần chạy liên tiếp ổn định)
 - Cổng governance: enum guard ✅ · gen:enums drift ✅ · lint ratchet ✅ (baseline 8.945 sau ADR-0015)
 - `tsc --noEmit` (BE): sạch · `tsc -b` (FE): sạch
