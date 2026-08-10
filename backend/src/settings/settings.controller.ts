@@ -13,6 +13,7 @@ import { SettingsService } from './settings.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/permissions.decorator';
+import { SeedEndpointGuard } from '../common/guards/seed-endpoint.guard';
 
 @Controller('settings')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -52,6 +53,7 @@ export class SettingsController {
 
   // POST /api/v1/settings/seed — seed defaults (admin only)
   @Post('seed')
+  @UseGuards(SeedEndpointGuard)
   @RequirePermissions({ action: 'write', subject: 'Setting' })
   seed() {
     return this.settingsService.seed();

@@ -194,3 +194,24 @@ ssh pc02@171.244.40.245 "ls -1dt /home/pc02/releases/*/ | tail -n +3 | xargs rm 
 - `webfactory/ssh-agent` chạy key in-memory chỉ trong job duration
 - VM authorized_keys giới hạn theo IP của GitHub Actions runners (Microsoft Azure) — không cần thêm restriction
 - Sau khi key compromise: generate keypair mới, paste vào VM, update GitHub Secret, revoke old key
+
+### `ALLOW_SEED_ENDPOINTS` — để TẮT trên production
+
+Bốn endpoint nạp dữ liệu mẫu (`POST /directories/seed`, `/notifications/seed`,
+`/settings/seed`, `/address-mappings/seed/:province`) chỉ dùng cho cài đặt lần
+đầu. Chúng ghi hàng loạt, có cái chạy lâu, và `/settings/seed` **ghi đè cấu hình**
+mà nhiều chỗ khác đang đọc.
+
+`SeedEndpointGuard` yêu cầu **đồng thời** hai điều kiện:
+
+1. `ALLOW_SEED_ENDPOINTS=true` trong môi trường, và
+2. người gọi có vai trò `ADMIN`.
+
+Biến này **không đặt** trên production, nên cả bốn endpoint trả 403 bất kể ai
+gọi. Chỉ bật tạm khi dựng máy mới, xong thì bỏ đi và restart service.
+
+Chỉ so khớp đúng chuỗi `'true'` — `1`, `yes`, `TRUE` đều bị coi là tắt, để một
+dòng `.env` viết vội không vô tình mở cổng.
+
+`POST /address-mappings/seed/:id/cancel` **không** bị gate: hủy một job đang chạy
+phải luôn gọi được bởi người nhìn thấy nó treo.

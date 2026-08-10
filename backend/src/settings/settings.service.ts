@@ -23,6 +23,28 @@ function assertNotDeadlineKey(key: string): void {
   }
 }
 
+/**
+ * Upper bound per unit for numeric settings.
+ *
+ * Two problems with the old single 365 ceiling on `'ngày'` and `'lần'`:
+ *
+ *   - `'giờ'` was not in the list at all, so hour settings had **no**
+ *     validation. `THOI_HAN_XOA_VU_AN` and `THOI_HAN_EDIT_VU_VAN` both use it.
+ *   - Applying 365 to hours would have been worse than nothing:
+ *     `THOI_HAN_EDIT_VU_VAN` defaults to 168h and its legal basis is BLTTHS
+ *     Đ.147 (20 days = 480h), so a 365 ceiling would silently cut the window
+ *     below what the law allows.
+ *
+ * 8760 = one year in hours, the same span 365 expresses for days.
+ *
+ * A unit absent from this map is not numeric (free text) and is left alone.
+ */
+const NUMERIC_UNIT_MAX: Readonly<Record<string, number>> = {
+  ngày: 365,
+  lần: 365,
+  giờ: 8760,
+};
+
 @Injectable()
 export class SettingsService {
   private cache: Map<string, string> = new Map();
@@ -94,10 +116,14 @@ export class SettingsService {
     }
 
     let normalizedValue = value;
-    if (existing.unit === 'ngày' || existing.unit === 'lần') {
+    const max = NUMERIC_UNIT_MAX[existing.unit ?? ''];
+    if (max !== undefined) {
       const num = parseInt(value, 10);
-      if (isNaN(num) || num < 0 || num > 365) {
-        return { success: false, message: `Giá trị phải là số nguyên từ 0 đến 365` };
+      if (isNaN(num) || num < 0 || num > max) {
+        return {
+          success: false,
+          message: `Giá trị phải là số nguyên từ 0 đến ${max} (${existing.unit})`,
+        };
       }
       normalizedValue = String(num);
     }

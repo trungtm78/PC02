@@ -15,6 +15,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { QueryNotificationsDto } from './dto/query-notifications.dto';
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
+import { SeedEndpointGuard } from '../common/guards/seed-endpoint.guard';
 
 @Controller('notifications')
 @UseGuards(JwtAuthGuard)
@@ -38,6 +39,7 @@ export class NotificationsController {
 
   /** POST /api/v1/notifications/seed — tạo thông báo demo (chỉ nếu chưa có) */
   @Post('seed')
+  @UseGuards(SeedEndpointGuard)
   @HttpCode(HttpStatus.OK)
   seedDemo(@CurrentUser() user: AuthUser) {
     return this.notificationsService.seedDemoForUser(user.id);

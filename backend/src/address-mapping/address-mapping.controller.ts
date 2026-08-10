@@ -5,6 +5,7 @@ import { QueryAddressMappingDto, LookupAddressMappingDto } from './dto/query-add
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/permissions.decorator';
+import { SeedEndpointGuard } from '../common/guards/seed-endpoint.guard';
 
 @Controller('address-mappings')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -54,6 +55,7 @@ export class AddressMappingController {
   // to track progress, /seed/:id/cancel to abort.
 
   @Post('seed/:province')
+  @UseGuards(SeedEndpointGuard)
   @HttpCode(HttpStatus.ACCEPTED) // 202: accepted, processing
   @RequirePermissions({ action: 'write', subject: 'Directory' })
   startSeed(@Param('province') province: string, @Req() req: any) {

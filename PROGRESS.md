@@ -37,6 +37,16 @@ Cập nhật: 2026-08-10T03:15:00+07:00 | Milestone: M1/5 | Task: 0/5 của M1
 
 ## Đang làm dở
 
+Task: M1-T4 — PR-A4 `fix/seed-endpoints-and-settings-validation` (**code xong, chờ `/codex`**)
+Đã làm:
+- **`SeedEndpointGuard`** áp lên 4 endpoint nạp dữ liệu mẫu. Hai điều kiện đồng thời: `ALLOW_SEED_ENDPOINTS==='true'` (so khớp **đúng chuỗi**, để `1`/`yes`/`TRUE` không vô tình mở cổng) **và** vai trò ADMIN. Trước đó `POST /notifications/seed` **không có decorator quyền nào cả**, còn `/directories/seed` chỉ cần `write:Directory` — quyền mà nhiều vai trò đang có. `POST /address-mappings/seed/:id/cancel` **cố ý không gate**: hủy job đang treo phải gọi được. `test-fixtures` đã có `TestModeGuard` riêng nên không đụng.
+- **Trần thời hạn theo đơn vị.** Trước: chỉ `'ngày'`/`'lần'` bị chặn ở 365, còn **`'giờ'` không được validate gì cả** — mà `THOI_HAN_XOA_VU_AN` và `THOI_HAN_EDIT_VU_VAN` đều dùng đơn vị này. Nếu áp 365 cho giờ thì còn tệ hơn không có: `THOI_HAN_EDIT_VU_VAN` mặc định 168h, cơ sở pháp lý BLTTHS Đ.147 là 20 ngày = **480h**, tức 365 sẽ âm thầm cắt cửa sổ xuống dưới mức luật cho phép. Nay `ngày`→365, `lần`→365, `giờ`→**8760**; đơn vị không có trong bảng thì không phải số, để nguyên. Thông điệp lỗi có nêu đơn vị.
+- `docs/DEPLOY.md`: mục `ALLOW_SEED_ENDPOINTS` — để TẮT trên production.
+Kiểm: BE **224 suite / 3040 test** PASS, FE **153 file / 1494 test** PASS, tsc sạch, 3 cổng xanh, baseline lint 8.488 → **8.470**.
+**BƯỚC TIẾP THEO:** `/codex` cho PR-A4, rồi M1-T5 (PR-M1 — mobile, chặn cứng E4–E6).
+
+---
+
 Task: M1-T3 — PR-A3 `fix/create-endpoints-datascope` (**code xong, chờ `/codex`**)
 Đã làm:
 - **ND-14 đã quyết và sửa (ADR-0017):** `canDispatch` chỉ còn bỏ qua kiểm tra ở `operation:'read'`. Trước đó cả 3 hàm `assertParentInScope`/`assertPetitionParentInScope`/`assertCreatorInScope` đều thoát sớm bất kể read hay write ⇒ mọi người điều phối tạo/sửa/xóa/khôi phục được bản ghi con của **mọi** vụ án. Phân công **không** phụ thuộc lối tắt này (`PATCH /:id/assign` + 3 endpoint bulk-assign có `DispatchGuard` riêng, `assignCase()` không nhận scope) nên siết lại không đụng nghiệp vụ. **Cảnh báo vận hành:** ai đang dùng tài khoản `canDispatch` để sửa hồ sơ tổ khác sẽ nhận 403 — cách xử lý đúng là cấp WRITE grant cho tổ đó, không phải mở lại lối tắt.

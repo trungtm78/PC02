@@ -17,6 +17,7 @@ import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { CreateDirectoryDto } from './dto/create-directory.dto';
 import { QueryDirectoryDto } from './dto/query-directory.dto';
+import { SeedEndpointGuard } from '../common/guards/seed-endpoint.guard';
 
 @Controller('directories')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -67,6 +68,7 @@ export class DirectoryController {
   }
 
   @Post('seed')
+  @UseGuards(SeedEndpointGuard)
   @RequirePermissions({ action: 'write', subject: 'Directory' })
   seed() {
     return this.directoryService.seedSampleData();
