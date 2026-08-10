@@ -154,7 +154,12 @@ export function PetitionListPageShell() {
   const [tableState, setTableState] = useState<TableState>('loading');
   const [error, setError] = useState<string | undefined>();
   const [refetchCounter, setRefetchCounter] = useState(0);
-  useListShortcuts({ onNew: () => navigate('/petitions/new'), onRefresh: () => setRefetchCounter((n) => n + 1) });
+const { canDispatch, canCreate, canEdit, canDelete } = usePermission();
+  // A user without `write` on this resource saw "Tạo mới", the Alt+N shortcut
+  // and the empty-state button, and got a 403 from the form they were sent to.
+  // All three are the same grant, so all three are gated on it.
+  const canCreateItem = canCreate('petitions');
+  useListShortcuts({ onNew: canCreateItem ? () => navigate('/petitions/new') : undefined, onRefresh: () => setRefetchCounter((n) => n + 1) });
   const [transientBanner, setTransientBanner] = useState<{
     kind: 'success' | 'error';
     text: string;
@@ -163,8 +168,7 @@ export function PetitionListPageShell() {
   const abortRef = useRef<AbortController | null>(null);
 
   // v0.65 PR3 — Action context + advanced filter state.
-  const { canDispatch, canEdit, canDelete } = usePermission();
-  const assignModal = useAssignModal();
+    const assignModal = useAssignModal();
   const deleteModal = useDeleteResourceModal();
   const actionCtx: ActionContext = useMemo(
     () => ({
@@ -542,10 +546,12 @@ export function PetitionListPageShell() {
           /* Nút "Xuất Word" nay nằm ở THANH CHỌN dưới cùng (cùng chỗ Xuất Excel/Xóa), cho
              chọn NHIỀU mẫu một lượt. Dropdown hổ phách cũ ở đây chỉ chọn được 1 mẫu và bị
              khuất trên header → đã gỡ để tránh hai lối vào làm hai việc khác nhau. */
-          <div className="flex items-center gap-2">
+          canCreateItem ? (
+            <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => navigate('/petitions/new')}
+              data-testid="btn-create-petition"
               className={`${BTN_PRIMARY} ${A11Y_FOCUS_RING} flex items-center gap-2`}
             >
               <Plus className="w-4 h-4" />
@@ -553,6 +559,7 @@ export function PetitionListPageShell() {
               <ShortcutHint action="newRecord" className="ml-1" />
             </button>
           </div>
+          ) : null
         }
       />
       <StatsCardsStrip
@@ -624,7 +631,7 @@ export function PetitionListPageShell() {
           title: 'Chưa có đơn thư nào',
           description: 'Tiếp nhận đơn thư đầu tiên để bắt đầu.',
           actionLabel: 'Tạo đơn thư mới',
-          onAction: () => navigate('/petitions/new'),
+          onAction: canCreateItem ? () => navigate('/petitions/new') : undefined,
         }}
         emptyFilteredState={{ onClearFilters: handleResetFilters }}
         onRowClick={(r) => navigate(`/petitions/${r.id}`)}

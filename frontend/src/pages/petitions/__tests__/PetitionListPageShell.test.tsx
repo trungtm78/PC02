@@ -14,6 +14,30 @@ import { AssignModalProvider } from '@/features/_shared/modals/AssignModalProvid
 import { DeleteResourceModalProvider } from '@/features/_shared/modals/DeleteResourceModalProvider';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
+// `vi.mock` is hoisted above ordinary declarations, so the mutable the mocked
+// store reads has to be hoisted with it. Tests flip `auth.granted` to check
+// both sides of the permission gate.
+const auth = vi.hoisted(() => ({
+  granted: [{ action: 'read', subject: 'Petition' },
+          { action: 'write', subject: 'Petition' },
+          { action: 'edit', subject: 'Petition' },
+          { action: 'delete', subject: 'Petition' },] as { action: string; subject: string }[] | null,
+}));
+const FULL_PERMISSIONS = auth.granted;
+
+// The permission layer is real now: with no auth store the shell sees no user,
+// so "Tạo mới", the Alt+N shortcut and the empty-state CTA are all correctly
+// hidden. This test covers the case of a user who may create.
+vi.mock('@/stores/auth.store', () => ({
+  authStore: {
+    getUser: vi.fn(() => auth.granted === null
+      ? null
+      : { email: 'officer@test.local', role: 'OFFICER', permissions: auth.granted }),
+    getProfileRaw: vi.fn(() => null),
+    onTokenChanged: vi.fn(() => () => {}),
+  },
+}));
+
 vi.mock('@/lib/api', () => ({
   api: {
     get: vi.fn(),
@@ -384,5 +408,40 @@ describe('PetitionListPageShell — drill-down thẻ thống kê', () => {
       );
       expect(statsCalls[statsCalls.length - 1]?.[1]?.params.senderName).toBe('Nguyen');
     });
+  });
+});
+
+
+/**
+ * PR-F1 gated three entry points on the same `write` grant: the header button,
+ * the Alt+N shortcut and the empty-state CTA. Asserting the granted case only
+ * would have passed just as well before the gate existed, so this asserts the
+ * denied case — the one the change is actually for.
+ */
+describe('PetitionListPageShell — a user who may not create', () => {
+  beforeEach(() => {
+    auth.granted = [{ action: 'read', subject: 'Petition' }];
+    (api.get as unknown as ReturnType<typeof vi.fn>).mockImplementation((url: string) => {
+      if (url.includes('/stats')) return Promise.resolve({ data: { total: 0, byStatus: {}, byGroup: {} } });
+      return Promise.resolve({ data: { data: [], total: 0, page: 1, limit: 20 } });
+    });
+  });
+
+  afterEach(() => {
+    auth.granted = FULL_PERMISSIONS;
+  });
+
+  it('hides the header create button', async () => {
+    renderWithRouter();
+    await waitFor(() => expect(api.get).toHaveBeenCalled());
+
+    expect(screen.queryByTestId('btn-create-petition')).not.toBeInTheDocument();
+  });
+
+  it('hides the empty-state call to action', async () => {
+    renderWithRouter();
+    await waitFor(() => expect(api.get).toHaveBeenCalled());
+
+    expect(screen.queryByText('Tạo đơn thư mới')).not.toBeInTheDocument();
   });
 });

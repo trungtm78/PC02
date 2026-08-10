@@ -148,14 +148,14 @@ export function CaseListPageShell() {
   const [tableState, setTableState] = useState<TableState>('loading');
   const [error, setError] = useState<string | undefined>();
   const [refetchCounter, setRefetchCounter] = useState(0);
-  useListShortcuts({ onNew: () => navigate('/cases/new'), onRefresh: () => setRefetchCounter((n) => n + 1) });
-
-  // v0.63 PR1b — Action context (perms + modal openers).
-  const { canDispatch, canCreate, canEdit, canDelete } = usePermission();
+const { canDispatch, canCreate, canEdit, canDelete } = usePermission();
   // "Tạo mới" was unconditional: a user without write:Case saw the button and
   // got a 403 from the form they were sent to.
   const canCreateCase = canCreate('cases');
-  const assignModal = useAssignModal();
+  useListShortcuts({ onNew: canCreateCase ? () => navigate('/cases/new') : undefined, onRefresh: () => setRefetchCounter((n) => n + 1) });
+
+  // v0.63 PR1b — Action context (perms + modal openers).
+    const assignModal = useAssignModal();
   const deleteModal = useDeleteResourceModal();
   const actionCtx: ActionContext = useMemo(
     () => ({
@@ -551,7 +551,7 @@ export function CaseListPageShell() {
           title: 'Chưa có vụ án nào',
           description: 'Tạo vụ án đầu tiên để bắt đầu.',
           actionLabel: 'Tạo vụ án mới',
-          onAction: () => navigate('/cases/new'),
+          onAction: canCreateCase ? () => navigate('/cases/new') : undefined,
         }}
         emptyFilteredState={{ onClearFilters: handleResetFilters }}
         onRowClick={(r) => navigate(`/cases/${r.id}`)}

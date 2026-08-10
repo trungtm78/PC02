@@ -19,6 +19,29 @@ import { ComprehensiveListPageShell } from '../ComprehensiveListPageShell';
 import { AssignModalProvider } from '@/features/_shared/modals/AssignModalProvider';
 import { DeleteResourceModalProvider } from '@/features/_shared/modals/DeleteResourceModalProvider';
 
+// The permission layer is real now: with no auth store the shell sees no user,
+// so "Tạo mới", the Alt+N shortcut and the empty-state CTA are all correctly
+// hidden. All three go to /cases/new, so all three read the case grant.
+const auth = vi.hoisted(() => ({
+  granted: [
+    { action: 'read', subject: 'Case' },
+    { action: 'write', subject: 'Case' },
+    { action: 'edit', subject: 'Case' },
+    { action: 'delete', subject: 'Case' },
+  ] as { action: string; subject: string }[] | null,
+}));
+const FULL_PERMISSIONS = auth.granted;
+
+vi.mock('@/stores/auth.store', () => ({
+  authStore: {
+    getUser: vi.fn(() => auth.granted === null
+      ? null
+      : { email: 'officer@test.local', role: 'OFFICER', permissions: auth.granted }),
+    getProfileRaw: vi.fn(() => null),
+    onTokenChanged: vi.fn(() => () => {}),
+  },
+}));
+
 vi.mock('@/lib/api', () => ({
   api: {
     get: vi.fn(),
@@ -262,5 +285,38 @@ describe('ComprehensiveListPageShell — empty + error + security', () => {
     expect(dataCallPaths).toContain('/incidents');
     expect(dataCallPaths).not.toContain('/cases');
     expect(dataCallPaths).not.toContain('/petitions');
+  });
+});
+
+
+/**
+ * PR-F1 gated the header button, the Alt+N shortcut and the empty-state CTA on
+ * `write:Case`. Asserting the granted case only would have passed just as well
+ * before the gate existed, so this asserts the denied case.
+ */
+describe('ComprehensiveListPageShell — a user who may not create', () => {
+  beforeEach(() => {
+    auth.granted = [{ action: 'read', subject: 'Case' }];
+    (api.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      data: { data: [], total: 0, page: 1, limit: 20 },
+    });
+  });
+
+  afterEach(() => {
+    auth.granted = FULL_PERMISSIONS;
+  });
+
+  it('hides the header create button', async () => {
+    renderWithRouter();
+    await waitFor(() => expect(api.get).toHaveBeenCalled());
+
+    expect(screen.queryByTestId('btn-create-comprehensive')).not.toBeInTheDocument();
+  });
+
+  it('hides the empty-state call to action', async () => {
+    renderWithRouter();
+    await waitFor(() => expect(api.get).toHaveBeenCalled());
+
+    expect(screen.queryByText('Tạo vụ án mới')).not.toBeInTheDocument();
   });
 });

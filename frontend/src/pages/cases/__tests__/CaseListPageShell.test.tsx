@@ -20,20 +20,24 @@ import { CaseStatus } from '@/shared/enums/generated';
 import { AssignModalProvider } from '@/features/_shared/modals/AssignModalProvider';
 import { DeleteResourceModalProvider } from '@/features/_shared/modals/DeleteResourceModalProvider';
 
+// `vi.mock` is hoisted above ordinary declarations, so the mutable the mocked
+// store reads has to be hoisted with it. Tests flip `auth.granted` to check
+// both sides of the permission gate.
+const auth = vi.hoisted(() => ({
+  granted: [{ action: 'read', subject: 'Case' },
+          { action: 'write', subject: 'Case' },
+          { action: 'edit', subject: 'Case' },
+          { action: 'delete', subject: 'Case' },] as { action: string; subject: string }[] | null,
+}));
+const FULL_PERMISSIONS = auth.granted;
+
 // The permission layer is real now: with no auth store the shell sees no user,
 // so "Tạo mới" is correctly hidden. The test needs a user who may create.
 vi.mock('@/stores/auth.store', () => ({
   authStore: {
-    getUser: vi.fn(() => ({
-      email: 'officer@test.local',
-      role: 'OFFICER',
-      permissions: [
-        { action: 'read', subject: 'Case' },
-        { action: 'write', subject: 'Case' },
-        { action: 'edit', subject: 'Case' },
-        { action: 'delete', subject: 'Case' },
-      ],
-    })),
+    getUser: vi.fn(() => auth.granted === null
+      ? null
+      : { email: 'officer@test.local', role: 'OFFICER', permissions: auth.granted }),
     getProfileRaw: vi.fn(() => null),
     onTokenChanged: vi.fn(() => () => {}),
   },
@@ -302,5 +306,40 @@ describe('CaseListPageShell — URL state load from query params', () => {
       (c) => c[0] === '/cases',
     );
     expect(listCall?.[1]?.params.offset).toBe(20);
+  });
+});
+
+
+/**
+ * PR-F1 gated three entry points on the same `write` grant: the header button,
+ * the Alt+N shortcut and the empty-state CTA. Asserting the granted case only
+ * would have passed just as well before the gate existed, so this asserts the
+ * denied case — the one the change is actually for.
+ */
+describe('CaseListPageShell — a user who may not create', () => {
+  beforeEach(() => {
+    auth.granted = [{ action: 'read', subject: 'Case' }];
+    (api.get as unknown as ReturnType<typeof vi.fn>).mockImplementation((url: string) => {
+      if (url.includes('/stats')) return Promise.resolve({ data: { total: 0, byStatus: {}, byGroup: {} } });
+      return Promise.resolve({ data: { data: [], total: 0, page: 1, limit: 20 } });
+    });
+  });
+
+  afterEach(() => {
+    auth.granted = FULL_PERMISSIONS;
+  });
+
+  it('hides the header create button', async () => {
+    renderWithRouter();
+    await waitFor(() => expect(api.get).toHaveBeenCalled());
+
+    expect(screen.queryByTestId('btn-create-case')).not.toBeInTheDocument();
+  });
+
+  it('hides the empty-state call to action', async () => {
+    renderWithRouter();
+    await waitFor(() => expect(api.get).toHaveBeenCalled());
+
+    expect(screen.queryByText('Tạo vụ án mới')).not.toBeInTheDocument();
   });
 });

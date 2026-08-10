@@ -36,7 +36,11 @@ describe('runtime dependencies load under jest', () => {
     expect(RUNTIME_DEPENDENCIES.length).toBeGreaterThan(30);
   });
 
-  it.each(RUNTIME_DEPENDENCIES)('requires %s without a SyntaxError', (name) => {
-    expect(() => require(name)).not.toThrow();
+  it.each(RUNTIME_DEPENDENCIES)('loads %s without a SyntaxError', (name) => {
+    // `jest.requireActual` rather than bare `require`: it goes through the same
+    // jest module runtime — so it exercises the transform config this test is
+    // about — while `import()` is not supported by that runtime and bare
+    // `require` trips the repo's ban on require-style imports.
+    expect(() => jest.requireActual(name)).not.toThrow();
   });
 });
