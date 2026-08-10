@@ -17,11 +17,25 @@ import { QueryCasesDto } from './dto/query-cases.dto';
 import { QueryCasesStatsDto } from './dto/query-cases-stats.dto';
 import { AssignCaseDto } from './dto/assign-case.dto';
 import type { DeleteCasePreflightResponse } from './dto/delete-case-preflight.response';
-import { Prisma, CaseStatus, PetitionStatus, LoaiDon, CapDoToiPham, LyDoTamDinhChiVuAn, KetQuaPhucHoiVuAn, CaseProvenance, SubjectType, CaseType } from '@prisma/client';
+import {
+  Prisma,
+  CaseStatus,
+  PetitionStatus,
+  LoaiDon,
+  CapDoToiPham,
+  LyDoTamDinhChiVuAn,
+  KetQuaPhucHoiVuAn,
+  CaseProvenance,
+  SubjectType,
+  CaseType,
+} from '@prisma/client';
 import { TrangThaiPhanHoi } from './dto/query-cases.dto';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { buildScopeFilter } from '../common/utils/scope-filter.util';
-import { buildIncidentFromCase, shouldAutoCreateIncident } from '../common/utils/incident-factory.util';
+import {
+  buildIncidentFromCase,
+  shouldAutoCreateIncident,
+} from '../common/utils/incident-factory.util';
 import { DocumentNumbersService } from '../document-numbers/document-numbers.service';
 import { BcaExcelHelper } from '../common/bca-excel.helper';
 import { CASE_STATUS_LABEL } from '../common/constants/status-labels.constants';
@@ -30,7 +44,11 @@ import { SETTINGS_KEY } from '../common/constants/settings-keys.constants';
 import { resolveGroup, countByGroup } from '../common/status-groups.util';
 import { CASE_STATUS_GROUPS } from './cases.constants';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { CaseAssignedEvent, CaseCreatedEvent } from '../notifications/events/notification.events';
+import { CaseStatusChangedEvent } from '../notifications/events/notification.events';
+import {
+  CaseAssignedEvent,
+  CaseCreatedEvent,
+} from '../notifications/events/notification.events';
 
 type JsonInput = Prisma.InputJsonValue;
 type PrismaTx = Prisma.TransactionClient;
@@ -52,7 +70,9 @@ export function computeTrangThaiPhanHoi(c: ComputeInput): TrangThaiPhanHoi {
   return 'CHUA_PHAN_HOI';
 }
 
-export function buildTrangThaiFilter(state: TrangThaiPhanHoi): Prisma.CaseWhereInput {
+export function buildTrangThaiFilter(
+  state: TrangThaiPhanHoi,
+): Prisma.CaseWhereInput {
   switch (state) {
     case 'DA_PHAN_HOI':
       return { ketQuaUyThac: { not: null }, ngayTraKetQua: { not: null } };
@@ -76,7 +96,9 @@ export function buildTrangThaiFilter(state: TrangThaiPhanHoi): Prisma.CaseWhereI
       return {
         NOT: [
           { ketQuaUyThac: { not: null }, ngayTraKetQua: { not: null } },
-          { metadata: { path: ['lyDoKhongThucHienDuoc'], not: Prisma.JsonNull } },
+          {
+            metadata: { path: ['lyDoKhongThucHienDuoc'], not: Prisma.JsonNull },
+          },
           { thoiHanUyThac: { lt: new Date() }, ketQuaUyThac: null },
         ],
       };
@@ -135,7 +157,8 @@ export class CasesService {
     };
 
     if (search) {
-      const isUtdt = (caseType ?? CaseType.REGULAR) === CaseType.UY_THAC_DIEU_TRA;
+      const isUtdt =
+        (caseType ?? CaseType.REGULAR) === CaseType.UY_THAC_DIEU_TRA;
       where.OR = [
         { name: { contains: search, mode: 'insensitive' } },
         { crime: { contains: search, mode: 'insensitive' } },
@@ -146,8 +169,18 @@ export class CasesService {
         ...(isUtdt
           ? [
               { donViGiao: { contains: search, mode: 'insensitive' as const } },
-              { soQuyetDinhUyThac: { contains: search, mode: 'insensitive' as const } },
-              { metadata: { path: ['nghiVanDoiTuong'], string_contains: search } },
+              {
+                soQuyetDinhUyThac: {
+                  contains: search,
+                  mode: 'insensitive' as const,
+                },
+              },
+              {
+                metadata: {
+                  path: ['nghiVanDoiTuong'],
+                  string_contains: search,
+                },
+              },
             ]
           : []),
       ];
@@ -196,7 +229,11 @@ export class CasesService {
       // KHÔNG gán đè `where.status`: làm vậy sẽ xoá sổ điều kiện statusGroup/status đã đặt
       // ở trên → bấm thẻ "Tạm đình chỉ" khi đang lọc quá hạn sẽ trả về MỌI hồ sơ quá hạn.
       // Prisma cho phép gộp in/equals + notIn trong cùng một filter.
-      const notTerminal = [CaseStatus.DA_KET_LUAN, CaseStatus.DA_LUU_TRU, CaseStatus.DINH_CHI];
+      const notTerminal = [
+        CaseStatus.DA_KET_LUAN,
+        CaseStatus.DA_LUU_TRU,
+        CaseStatus.DINH_CHI,
+      ];
       where.status =
         typeof where.status === 'string'
           ? { equals: where.status, notIn: notTerminal }
@@ -217,7 +254,11 @@ export class CasesService {
     if (trangThaiPhanHoi) {
       const stateFilter = buildTrangThaiFilter(trangThaiPhanHoi);
       where.AND = [
-        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+        ...(Array.isArray(where.AND)
+          ? where.AND
+          : where.AND
+            ? [where.AND]
+            : []),
         stateFilter,
       ];
     }
@@ -273,14 +314,26 @@ export class CasesService {
     const scopeFilter = buildScopeFilter(dataScope);
     if (scopeFilter) {
       where.AND = [
-        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+        ...(Array.isArray(where.AND)
+          ? where.AND
+          : where.AND
+            ? [where.AND]
+            : []),
         scopeFilter as Prisma.CaseWhereInput,
       ];
     }
 
     // Validate sortBy against allowed fields
-    const allowedSortFields = ['createdAt', 'updatedAt', 'name', 'deadline', 'status'];
-    const orderByField = allowedSortFields.includes(sortBy) ? sortBy : 'createdAt';
+    const allowedSortFields = [
+      'createdAt',
+      'updatedAt',
+      'name',
+      'deadline',
+      'status',
+    ];
+    const orderByField = allowedSortFields.includes(sortBy)
+      ? sortBy
+      : 'createdAt';
 
     const [data, total] = await Promise.all([
       this.prisma.case.findMany({
@@ -385,7 +438,8 @@ export class CasesService {
     }
 
     if (search) {
-      const isUtdt = (caseType ?? CaseType.REGULAR) === CaseType.UY_THAC_DIEU_TRA;
+      const isUtdt =
+        (caseType ?? CaseType.REGULAR) === CaseType.UY_THAC_DIEU_TRA;
       where.OR = [
         { name: { contains: search, mode: 'insensitive' } },
         { crime: { contains: search, mode: 'insensitive' } },
@@ -396,8 +450,18 @@ export class CasesService {
         ...(isUtdt
           ? [
               { donViGiao: { contains: search, mode: 'insensitive' as const } },
-              { soQuyetDinhUyThac: { contains: search, mode: 'insensitive' as const } },
-              { metadata: { path: ['nghiVanDoiTuong'], string_contains: search } },
+              {
+                soQuyetDinhUyThac: {
+                  contains: search,
+                  mode: 'insensitive' as const,
+                },
+              },
+              {
+                metadata: {
+                  path: ['nghiVanDoiTuong'],
+                  string_contains: search,
+                },
+              },
             ]
           : []),
       ];
@@ -424,18 +488,27 @@ export class CasesService {
       // KHÔNG strip status notIn vì overdue logic exclude terminal states.
       // Counts vẫn group by status, nhưng terminal states sẽ là 0 trong response.
       where.status = {
-        notIn: [CaseStatus.DA_KET_LUAN, CaseStatus.DA_LUU_TRU, CaseStatus.DINH_CHI],
+        notIn: [
+          CaseStatus.DA_KET_LUAN,
+          CaseStatus.DA_LUU_TRU,
+          CaseStatus.DINH_CHI,
+        ],
       };
     }
 
     if (capDoToiPham) where.capDoToiPham = capDoToiPham;
 
-    if (donViGiao) where.donViGiao = { contains: donViGiao, mode: 'insensitive' };
+    if (donViGiao)
+      where.donViGiao = { contains: donViGiao, mode: 'insensitive' };
     if (loaiUyThac) where.loaiUyThac = loaiUyThac;
     if (trangThaiPhanHoi) {
       const stateFilter = buildTrangThaiFilter(trangThaiPhanHoi);
       where.AND = [
-        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+        ...(Array.isArray(where.AND)
+          ? where.AND
+          : where.AND
+            ? [where.AND]
+            : []),
         stateFilter,
       ];
     }
@@ -482,13 +555,19 @@ export class CasesService {
     const scopeFilter = buildScopeFilter(dataScope);
     if (scopeFilter) {
       where.AND = [
-        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+        ...(Array.isArray(where.AND)
+          ? where.AND
+          : where.AND
+            ? [where.AND]
+            : []),
         scopeFilter as Prisma.CaseWhereInput,
       ];
     }
 
     // Initialize all CaseStatus keys to 0 → exhaustive response shape
-    const byStatus: Record<CaseStatus, number> = Object.values(CaseStatus).reduce(
+    const byStatus: Record<CaseStatus, number> = Object.values(
+      CaseStatus,
+    ).reduce(
       (acc, status) => {
         acc[status] = 0;
         return acc;
@@ -514,7 +593,11 @@ export class CasesService {
     }
 
     // byGroup sinh từ CÙNG `where` với danh sách → số trên thẻ khớp số dòng theo thiết kế.
-    return { total, byStatus, byGroup: countByGroup(CASE_STATUS_GROUPS, byStatus) };
+    return {
+      total,
+      byStatus,
+      byGroup: countByGroup(CASE_STATUS_GROUPS, byStatus),
+    };
   }
 
   // ─────────────────────────────────────────────
@@ -561,18 +644,23 @@ export class CasesService {
       ];
     }
     if (investigatorId) baseWhere.investigatorId = investigatorId;
-    if (donViGiao) baseWhere.donViGiao = { contains: donViGiao, mode: 'insensitive' };
+    if (donViGiao)
+      baseWhere.donViGiao = { contains: donViGiao, mode: 'insensitive' };
     if (loaiUyThac) baseWhere.loaiUyThac = loaiUyThac;
 
     if (ngayTiepNhanFrom) {
       baseWhere.ngayTiepNhan = {
-        ...(baseWhere.ngayTiepNhan as Prisma.DateTimeNullableFilter | undefined),
+        ...(baseWhere.ngayTiepNhan as
+          | Prisma.DateTimeNullableFilter
+          | undefined),
         gte: new Date(ngayTiepNhanFrom),
       };
     }
     if (ngayTiepNhanTo) {
       baseWhere.ngayTiepNhan = {
-        ...(baseWhere.ngayTiepNhan as Prisma.DateTimeNullableFilter | undefined),
+        ...(baseWhere.ngayTiepNhan as
+          | Prisma.DateTimeNullableFilter
+          | undefined),
         lte: new Date(ngayTiepNhanTo + 'T23:59:59Z'),
       };
     }
@@ -606,7 +694,11 @@ export class CasesService {
         const stateWhere: Prisma.CaseWhereInput = {
           ...baseWhere,
           AND: [
-            ...(Array.isArray(baseWhere.AND) ? baseWhere.AND : baseWhere.AND ? [baseWhere.AND] : []),
+            ...(Array.isArray(baseWhere.AND)
+              ? baseWhere.AND
+              : baseWhere.AND
+                ? [baseWhere.AND]
+                : []),
             stateFilter,
           ],
         };
@@ -640,8 +732,7 @@ export class CasesService {
       record.investigatorId && userIds.includes(record.investigatorId);
     const teamMatch =
       record.assignedTeamId && teamIds.includes(record.assignedTeamId);
-    const unassignedMatch =
-      !record.assignedTeamId && teamIds.length > 0;
+    const unassignedMatch = !record.assignedTeamId && teamIds.length > 0;
 
     if (!ownerMatch && !teamMatch && !unassignedMatch) {
       throw new ForbiddenException('Bạn không có quyền truy cập bản ghi này');
@@ -654,9 +745,12 @@ export class CasesService {
   ) {
     if (!dataScope) return;
     const { userIds, writableTeamIds } = dataScope;
-    const ownerMatch = record.investigatorId && userIds.includes(record.investigatorId);
-    const teamMatch = record.assignedTeamId && writableTeamIds.includes(record.assignedTeamId);
-    const unassignedMatch = !record.assignedTeamId && writableTeamIds.length > 0;
+    const ownerMatch =
+      record.investigatorId && userIds.includes(record.investigatorId);
+    const teamMatch =
+      record.assignedTeamId && writableTeamIds.includes(record.assignedTeamId);
+    const unassignedMatch =
+      !record.assignedTeamId && writableTeamIds.length > 0;
     if (!ownerMatch && !teamMatch && !unassignedMatch) {
       throw new ForbiddenException('Bạn không có quyền chỉnh sửa bản ghi này');
     }
@@ -667,7 +761,9 @@ export class CasesService {
       where: { id, deletedAt: null },
       include: {
         statistic: true, // Thống kê mở rộng (case_statistics) — form load round-trip
-        crimeChinh: { select: { id: true, code: true, name: true, articleNo: true } }, // tội danh chính FK
+        crimeChinh: {
+          select: { id: true, code: true, name: true, articleNo: true },
+        }, // tội danh chính FK
         investigator: {
           select: {
             id: true,
@@ -738,7 +834,10 @@ export class CasesService {
       select: { id: true, code: true, name: true },
     });
 
-    return { success: true, data: { ...record, autoLinkedIncident: autoLinkedIncident ?? null } };
+    return {
+      success: true,
+      data: { ...record, autoLinkedIncident: autoLinkedIncident ?? null },
+    };
   }
 
   // ─────────────────────────────────────────────
@@ -786,7 +885,11 @@ export class CasesService {
     caseId: string,
     dto: CreateCaseDto,
     actorId: string,
-  ): Promise<{ subjectsCreated: number; evidencesCreated: number; documentsLinked: number }> {
+  ): Promise<{
+    subjectsCreated: number;
+    evidencesCreated: number;
+    documentsLinked: number;
+  }> {
     let subjectsCreated = 0;
     let evidencesCreated = 0;
     let documentsLinked = 0;
@@ -912,55 +1015,133 @@ export class CasesService {
       createdById: actorId, // v0.31.0.2: creator track
       deadline: dto.deadline ? new Date(dto.deadline) : undefined,
       unit: dto.unit,
-      ...(effectiveAssignedTeamId !== undefined && { assignedTeamId: effectiveAssignedTeamId }),
+      ...(effectiveAssignedTeamId !== undefined && {
+        assignedTeamId: effectiveAssignedTeamId,
+      }),
       subjectsCount: dto.subjectsCount ?? 0,
       ...(dto.capDoToiPham !== undefined && { capDoToiPham: dto.capDoToiPham }),
-      ...(dto.ngayKhoiTo !== undefined && { ngayKhoiTo: new Date(dto.ngayKhoiTo) }),
+      ...(dto.ngayKhoiTo !== undefined && {
+        ngayKhoiTo: new Date(dto.ngayKhoiTo),
+      }),
       // ── Field-parity: số QĐ giai đoạn vụ án ──
-      ...(dto.soQuyetDinhKhoiTo !== undefined && { soQuyetDinhKhoiTo: dto.soQuyetDinhKhoiTo }),
+      ...(dto.soQuyetDinhKhoiTo !== undefined && {
+        soQuyetDinhKhoiTo: dto.soQuyetDinhKhoiTo,
+      }),
       ...(dto.soQDNhapVuAn !== undefined && { soQDNhapVuAn: dto.soQDNhapVuAn }),
-      ...(dto.ngayNhapVuAn !== undefined && { ngayNhapVuAn: dto.ngayNhapVuAn ? new Date(dto.ngayNhapVuAn) : null }),
-      ...(dto.ghiChuNhapHoSo !== undefined && { ghiChuNhapHoSo: dto.ghiChuNhapHoSo }),
+      ...(dto.ngayNhapVuAn !== undefined && {
+        ngayNhapVuAn: dto.ngayNhapVuAn ? new Date(dto.ngayNhapVuAn) : null,
+      }),
+      ...(dto.ghiChuNhapHoSo !== undefined && {
+        ghiChuNhapHoSo: dto.ghiChuNhapHoSo,
+      }),
       ...(dto.soQDTachVuAn !== undefined && { soQDTachVuAn: dto.soQDTachVuAn }),
-      ...(dto.ngayTachVuAn !== undefined && { ngayTachVuAn: dto.ngayTachVuAn ? new Date(dto.ngayTachVuAn) : null }),
-      ...(dto.soQDTachHanhVi !== undefined && { soQDTachHanhVi: dto.soQDTachHanhVi }),
-      ...(dto.ngayTachHanhVi !== undefined && { ngayTachHanhVi: dto.ngayTachHanhVi ? new Date(dto.ngayTachHanhVi) : null }),
-      ...(dto.soQDDinhChiVuAn !== undefined && { soQDDinhChiVuAn: dto.soQDDinhChiVuAn }),
-      ...(dto.ngayDinhChiVuAn !== undefined && { ngayDinhChiVuAn: dto.ngayDinhChiVuAn ? new Date(dto.ngayDinhChiVuAn) : null }),
-      ...(dto.chuyenVuAnChoCQK !== undefined && { chuyenVuAnChoCQK: dto.chuyenVuAnChoCQK }),
-      ...(dto.soBanAnCoHieuLuc !== undefined && { soBanAnCoHieuLuc: dto.soBanAnCoHieuLuc }),
-      ...(dto.ngayBanAnCoHieuLuc !== undefined && { ngayBanAnCoHieuLuc: dto.ngayBanAnCoHieuLuc ? new Date(dto.ngayBanAnCoHieuLuc) : null }),
-      ...(dto.canCuTamDinhChiVuAn !== undefined && { canCuTamDinhChiVuAn: dto.canCuTamDinhChiVuAn }),
-      ...(dto.canCuPhucHoiVuAn !== undefined && { canCuPhucHoiVuAn: dto.canCuPhucHoiVuAn }),
+      ...(dto.ngayTachVuAn !== undefined && {
+        ngayTachVuAn: dto.ngayTachVuAn ? new Date(dto.ngayTachVuAn) : null,
+      }),
+      ...(dto.soQDTachHanhVi !== undefined && {
+        soQDTachHanhVi: dto.soQDTachHanhVi,
+      }),
+      ...(dto.ngayTachHanhVi !== undefined && {
+        ngayTachHanhVi: dto.ngayTachHanhVi
+          ? new Date(dto.ngayTachHanhVi)
+          : null,
+      }),
+      ...(dto.soQDDinhChiVuAn !== undefined && {
+        soQDDinhChiVuAn: dto.soQDDinhChiVuAn,
+      }),
+      ...(dto.ngayDinhChiVuAn !== undefined && {
+        ngayDinhChiVuAn: dto.ngayDinhChiVuAn
+          ? new Date(dto.ngayDinhChiVuAn)
+          : null,
+      }),
+      ...(dto.chuyenVuAnChoCQK !== undefined && {
+        chuyenVuAnChoCQK: dto.chuyenVuAnChoCQK,
+      }),
+      ...(dto.soBanAnCoHieuLuc !== undefined && {
+        soBanAnCoHieuLuc: dto.soBanAnCoHieuLuc,
+      }),
+      ...(dto.ngayBanAnCoHieuLuc !== undefined && {
+        ngayBanAnCoHieuLuc: dto.ngayBanAnCoHieuLuc
+          ? new Date(dto.ngayBanAnCoHieuLuc)
+          : null,
+      }),
+      ...(dto.canCuTamDinhChiVuAn !== undefined && {
+        canCuTamDinhChiVuAn: dto.canCuTamDinhChiVuAn,
+      }),
+      ...(dto.canCuPhucHoiVuAn !== undefined && {
+        canCuPhucHoiVuAn: dto.canCuPhucHoiVuAn,
+      }),
       // ── PR-3 — field tab "Vụ án TĐC" (persist khi CREATE; update có ở block ~1222) ──
-      ...(dto.soQuyetDinhTamDinhChi !== undefined && { soQuyetDinhTamDinhChi: dto.soQuyetDinhTamDinhChi }),
-      ...(dto.ngayTamDinhChi !== undefined && { ngayTamDinhChi: dto.ngayTamDinhChi ? new Date(dto.ngayTamDinhChi) : null }),
-      ...(dto.lyDoTamDinhChiVuAn !== undefined && { lyDoTamDinhChiVuAn: dto.lyDoTamDinhChiVuAn }),
-      ...(dto.ngayHetThoiHieu !== undefined && { ngayHetThoiHieu: dto.ngayHetThoiHieu ? new Date(dto.ngayHetThoiHieu) : null }),
-      ...(dto.soQuyetDinhPhucHoi !== undefined && { soQuyetDinhPhucHoi: dto.soQuyetDinhPhucHoi }),
-      ...(dto.ngayPhucHoi !== undefined && { ngayPhucHoi: dto.ngayPhucHoi ? new Date(dto.ngayPhucHoi) : null }),
-      ...(dto.tdcKhacPhucLyDoBienPhap !== undefined && { tdcKhacPhucLyDoBienPhap: dto.tdcKhacPhucLyDoBienPhap }),
-      ...(dto.tdcKhacPhucBienBan !== undefined && { tdcKhacPhucBienBan: dto.tdcKhacPhucBienBan }),
+      ...(dto.soQuyetDinhTamDinhChi !== undefined && {
+        soQuyetDinhTamDinhChi: dto.soQuyetDinhTamDinhChi,
+      }),
+      ...(dto.ngayTamDinhChi !== undefined && {
+        ngayTamDinhChi: dto.ngayTamDinhChi
+          ? new Date(dto.ngayTamDinhChi)
+          : null,
+      }),
+      ...(dto.lyDoTamDinhChiVuAn !== undefined && {
+        lyDoTamDinhChiVuAn: dto.lyDoTamDinhChiVuAn,
+      }),
+      ...(dto.ngayHetThoiHieu !== undefined && {
+        ngayHetThoiHieu: dto.ngayHetThoiHieu
+          ? new Date(dto.ngayHetThoiHieu)
+          : null,
+      }),
+      ...(dto.soQuyetDinhPhucHoi !== undefined && {
+        soQuyetDinhPhucHoi: dto.soQuyetDinhPhucHoi,
+      }),
+      ...(dto.ngayPhucHoi !== undefined && {
+        ngayPhucHoi: dto.ngayPhucHoi ? new Date(dto.ngayPhucHoi) : null,
+      }),
+      ...(dto.tdcKhacPhucLyDoBienPhap !== undefined && {
+        tdcKhacPhucLyDoBienPhap: dto.tdcKhacPhucLyDoBienPhap,
+      }),
+      ...(dto.tdcKhacPhucBienBan !== undefined && {
+        tdcKhacPhucBienBan: dto.tdcKhacPhucBienBan,
+      }),
       // ── Field-parity KLĐT + QĐ điều tra lại (PR-M2: trước đây RỚT ở create — update có) ──
       ...(dto.soKLDT !== undefined && { soKLDT: dto.soKLDT }),
-      ...(dto.ngayKLDT !== undefined && { ngayKLDT: dto.ngayKLDT ? new Date(dto.ngayKLDT) : null }),
-      ...(dto.soQDDieuTraLai !== undefined && { soQDDieuTraLai: dto.soQDDieuTraLai }),
-      ...(dto.ngayQDDieuTraLai !== undefined && { ngayQDDieuTraLai: dto.ngayQDDieuTraLai ? new Date(dto.ngayQDDieuTraLai) : null }),
+      ...(dto.ngayKLDT !== undefined && {
+        ngayKLDT: dto.ngayKLDT ? new Date(dto.ngayKLDT) : null,
+      }),
+      ...(dto.soQDDieuTraLai !== undefined && {
+        soQDDieuTraLai: dto.soQDDieuTraLai,
+      }),
+      ...(dto.ngayQDDieuTraLai !== undefined && {
+        ngayQDDieuTraLai: dto.ngayQDDieuTraLai
+          ? new Date(dto.ngayQDDieuTraLai)
+          : null,
+      }),
       // ── PR-M2: ghi chú tự do + tội danh khác (multi) ──
       ...(dto.ghiChuKhac !== undefined && { ghiChuKhac: dto.ghiChuKhac }),
-      ...(dto.toiDanhKhacIds !== undefined && { toiDanhKhacIds: dto.toiDanhKhacIds }),
-      ...(scrubbedMetadata !== undefined && { metadata: scrubbedMetadata as JsonInput }),
+      ...(dto.toiDanhKhacIds !== undefined && {
+        toiDanhKhacIds: dto.toiDanhKhacIds,
+      }),
+      ...(scrubbedMetadata !== undefined && {
+        metadata: scrubbedMetadata as JsonInput,
+      }),
       caseProvenance: effectiveProvenance, // v0.37.2: required (Contract phase enforces non-null)
-      ...(dto.sourceDocumentNote !== undefined && { sourceDocumentNote: dto.sourceDocumentNote }),
+      ...(dto.sourceDocumentNote !== undefined && {
+        sourceDocumentNote: dto.sourceDocumentNote,
+      }),
       // v0.44 — UTDT fields
       ...(dto.caseType !== undefined && { caseType: dto.caseType }),
       ...(dto.donViGiao !== undefined && { donViGiao: dto.donViGiao }),
-      ...(dto.soQuyetDinhUyThac !== undefined && { soQuyetDinhUyThac: dto.soQuyetDinhUyThac }),
-      ...(dto.ngayTiepNhan !== undefined && { ngayTiepNhan: new Date(dto.ngayTiepNhan) }),
-      ...(dto.thoiHanUyThac !== undefined && { thoiHanUyThac: new Date(dto.thoiHanUyThac) }),
+      ...(dto.soQuyetDinhUyThac !== undefined && {
+        soQuyetDinhUyThac: dto.soQuyetDinhUyThac,
+      }),
+      ...(dto.ngayTiepNhan !== undefined && {
+        ngayTiepNhan: new Date(dto.ngayTiepNhan),
+      }),
+      ...(dto.thoiHanUyThac !== undefined && {
+        thoiHanUyThac: new Date(dto.thoiHanUyThac),
+      }),
       ...(dto.loaiUyThac !== undefined && { loaiUyThac: dto.loaiUyThac }),
       ...(dto.ketQuaUyThac !== undefined && { ketQuaUyThac: dto.ketQuaUyThac }),
-      ...(dto.ngayTraKetQua !== undefined && { ngayTraKetQua: new Date(dto.ngayTraKetQua) }),
+      ...(dto.ngayTraKetQua !== undefined && {
+        ngayTraKetQua: new Date(dto.ngayTraKetQua),
+      }),
       ...(dto.loaiThongTin !== undefined && { loaiThongTin: dto.loaiThongTin }),
     };
 
@@ -979,7 +1160,9 @@ export class CasesService {
           petitionScopeOR.push({ enteredById: { in: dataScope.userIds } });
         }
         if (dataScope.writableTeamIds.length > 0) {
-          petitionScopeOR.push({ assignedTeamId: { in: dataScope.writableTeamIds } });
+          petitionScopeOR.push({
+            assignedTeamId: { in: dataScope.writableTeamIds },
+          });
           if (!dataScope.isWardOfficer) {
             petitionScopeOR.push({ assignedTeamId: null });
           }
@@ -987,7 +1170,8 @@ export class CasesService {
       }
 
       const caseRecord = await this.prisma.$transaction(async (tx) => {
-        const { number: caseCode, logId: caseCodeLogId } = await this.docNums.commitWithTx('CASE', { userId: actorId }, tx);
+        const { number: caseCode, logId: caseCodeLogId } =
+          await this.docNums.commitWithTx('CASE', { userId: actorId }, tx);
 
         const petition = await tx.petition.findFirst({
           where: {
@@ -998,11 +1182,15 @@ export class CasesService {
         });
         if (!petition) {
           // Consistent 404 — no enumeration leak (not-found vs out-of-scope indistinguishable)
-          throw new NotFoundException('Đơn thư không tồn tại hoặc không nằm trong phạm vi của bạn');
+          throw new NotFoundException(
+            'Đơn thư không tồn tại hoặc không nằm trong phạm vi của bạn',
+          );
         }
         if (petition.linkedCaseId) {
           // Đơn thư trong phạm vi nhưng đã liên kết vụ án khác → 409 (rõ nghĩa hơn 404)
-          throw new ConflictException('Đơn thư đã được liên kết với vụ án khác');
+          throw new ConflictException(
+            'Đơn thư đã được liên kết với vụ án khác',
+          );
         }
 
         const newCase = await tx.case.create({
@@ -1010,7 +1198,10 @@ export class CasesService {
           include: caseInclude,
         });
 
-        await tx.documentNumberLog.update({ where: { id: caseCodeLogId }, data: { documentId: newCase.id } });
+        await tx.documentNumberLog.update({
+          where: { id: caseCodeLogId },
+          data: { documentId: newCase.id },
+        });
 
         // PR 1 v0.38.0.0: atomic create sub-entities trong cùng transaction
         await this.createSubEntitiesInTransaction(tx, newCase.id, dto, actorId);
@@ -1045,13 +1236,25 @@ export class CasesService {
         action: 'CASE_CREATED',
         subject: 'Case',
         subjectId: caseRecord.id,
-        metadata: { name: caseRecord.name, status: caseRecord.status, caseProvenance: effectiveProvenance, linkedPetitionId: dto.linkedPetitionId },
+        metadata: {
+          name: caseRecord.name,
+          status: caseRecord.status,
+          caseProvenance: effectiveProvenance,
+          linkedPetitionId: dto.linkedPetitionId,
+        },
         ipAddress: meta?.ipAddress,
         userAgent: meta?.userAgent,
       });
 
-      this.eventEmitter.emit('case.created', new CaseCreatedEvent(caseRecord.id, caseRecord.caseCode ?? '', actorId));
-      return { success: true, data: caseRecord, message: 'Tạo vụ án thành công' };
+      this.eventEmitter.emit(
+        'case.created',
+        new CaseCreatedEvent(caseRecord.id, caseRecord.caseCode ?? '', actorId),
+      );
+      return {
+        success: true,
+        data: caseRecord,
+        message: 'Tạo vụ án thành công',
+      };
     }
 
     // ── FROM_INCIDENT: link existing Incident (IDOR-safe + optimistic lock) ──
@@ -1062,7 +1265,9 @@ export class CasesService {
           incidentScopeOR.push({ investigatorId: { in: dataScope.userIds } });
         }
         if (dataScope.writableTeamIds.length > 0) {
-          incidentScopeOR.push({ assignedTeamId: { in: dataScope.writableTeamIds } });
+          incidentScopeOR.push({
+            assignedTeamId: { in: dataScope.writableTeamIds },
+          });
           if (!dataScope.isWardOfficer) {
             incidentScopeOR.push({ assignedTeamId: null });
           }
@@ -1070,7 +1275,8 @@ export class CasesService {
       }
 
       const caseRecord = await this.prisma.$transaction(async (tx) => {
-        const { number: caseCode, logId: caseCodeLogId } = await this.docNums.commitWithTx('CASE', { userId: actorId }, tx);
+        const { number: caseCode, logId: caseCodeLogId } =
+          await this.docNums.commitWithTx('CASE', { userId: actorId }, tx);
 
         const incident = await tx.incident.findFirst({
           where: {
@@ -1081,7 +1287,9 @@ export class CasesService {
           },
         });
         if (!incident) {
-          throw new NotFoundException('Vụ việc không tồn tại hoặc không nằm trong phạm vi của bạn');
+          throw new NotFoundException(
+            'Vụ việc không tồn tại hoặc không nằm trong phạm vi của bạn',
+          );
         }
 
         const newCase = await tx.case.create({
@@ -1089,7 +1297,10 @@ export class CasesService {
           include: caseInclude,
         });
 
-        await tx.documentNumberLog.update({ where: { id: caseCodeLogId }, data: { documentId: newCase.id } });
+        await tx.documentNumberLog.update({
+          where: { id: caseCodeLogId },
+          data: { documentId: newCase.id },
+        });
 
         // PR 1 v0.38.0.0: atomic create sub-entities trong cùng transaction
         await this.createSubEntitiesInTransaction(tx, newCase.id, dto, actorId);
@@ -1120,13 +1331,25 @@ export class CasesService {
         action: 'CASE_CREATED',
         subject: 'Case',
         subjectId: caseRecord.id,
-        metadata: { name: caseRecord.name, status: caseRecord.status, caseProvenance: effectiveProvenance, linkedIncidentId: dto.linkedIncidentId },
+        metadata: {
+          name: caseRecord.name,
+          status: caseRecord.status,
+          caseProvenance: effectiveProvenance,
+          linkedIncidentId: dto.linkedIncidentId,
+        },
         ipAddress: meta?.ipAddress,
         userAgent: meta?.userAgent,
       });
 
-      this.eventEmitter.emit('case.created', new CaseCreatedEvent(caseRecord.id, caseRecord.caseCode ?? '', actorId));
-      return { success: true, data: caseRecord, message: 'Tạo vụ án thành công' };
+      this.eventEmitter.emit(
+        'case.created',
+        new CaseCreatedEvent(caseRecord.id, caseRecord.caseCode ?? '', actorId),
+      );
+      return {
+        success: true,
+        data: caseRecord,
+        message: 'Tạo vụ án thành công',
+      };
     }
 
     // ── DIRECT_DISCOVERY / TRANSFERRED / OTHER_LEGAL_SOURCE ──
@@ -1136,8 +1359,10 @@ export class CasesService {
     // Link is stored one-way: Incident.linkedCaseId = caseRecord.id (set after Case creation).
     // NOTE: audit log fires outside the transaction (post-commit side-effect). This is intentional:
     // the incident exists at that point, so the audit is accurate even if the process crashes here.
-    const needsAutoIncident =
-      shouldAutoCreateIncident(effectiveProvenance, (dto.metadata ?? {}) as Record<string, unknown>);
+    const needsAutoIncident = shouldAutoCreateIncident(
+      effectiveProvenance,
+      dto.metadata ?? {},
+    );
 
     let autoIncidentId: string | null = null;
     let autoIncidentCode: string | null = null;
@@ -1145,16 +1370,25 @@ export class CasesService {
     let record!: Awaited<ReturnType<typeof this.prisma.case.create>>;
     try {
       record = await this.prisma.$transaction(async (tx: any) => {
-        const caseDocType = effectiveProvenance === CaseProvenance.UY_THAC_DIEU_TRA ? 'UTDT' : 'CASE';
-        const { number: caseCode, logId: caseCodeLogId } = await this.docNums.commitWithTx(caseDocType, { userId: actorId }, tx);
+        const caseDocType =
+          effectiveProvenance === CaseProvenance.UY_THAC_DIEU_TRA
+            ? 'UTDT'
+            : 'CASE';
+        const { number: caseCode, logId: caseCodeLogId } =
+          await this.docNums.commitWithTx(caseDocType, { userId: actorId }, tx);
 
         let incidentLogId: string | null = null;
         if (needsAutoIncident) {
-          const { number: incCode, logId: incLogId } = await this.docNums.commitWithTx('INCIDENT', { userId: actorId }, tx);
+          const { number: incCode, logId: incLogId } =
+            await this.docNums.commitWithTx(
+              'INCIDENT',
+              { userId: actorId },
+              tx,
+            );
           incidentLogId = incLogId;
           const incData = buildIncidentFromCase({
             rawName: dto.name,
-            meta: (dto.metadata ?? {}) as Record<string, unknown>,
+            meta: dto.metadata ?? {},
             code: incCode,
             userId: actorId,
             investigatorId: actorId,
@@ -1164,11 +1398,25 @@ export class CasesService {
           autoIncidentId = newInc.id;
           autoIncidentCode = incCode;
           autoIncidentName = newInc.name;
-          await tx.documentNumberLog.update({ where: { id: incidentLogId }, data: { documentId: newInc.id } });
+          await tx.documentNumberLog.update({
+            where: { id: incidentLogId },
+            data: { documentId: newInc.id },
+          });
         }
-        const caseRecord = await tx.case.create({ data: { ...baseCaseData, caseCode }, include: caseInclude });
-        await tx.documentNumberLog.update({ where: { id: caseCodeLogId }, data: { documentId: caseRecord.id } });
-        await this.createSubEntitiesInTransaction(tx, caseRecord.id, dto, actorId);
+        const caseRecord = await tx.case.create({
+          data: { ...baseCaseData, caseCode },
+          include: caseInclude,
+        });
+        await tx.documentNumberLog.update({
+          where: { id: caseCodeLogId },
+          data: { documentId: caseRecord.id },
+        });
+        await this.createSubEntitiesInTransaction(
+          tx,
+          caseRecord.id,
+          dto,
+          actorId,
+        );
         if (autoIncidentId) {
           await tx.incident.update({
             where: { id: autoIncidentId },
@@ -1179,7 +1427,10 @@ export class CasesService {
       });
     } catch (e: any) {
       // P2002 = unique constraint: trùng mã vụ việc (concurrent) HOẶC số quyết định ủy thác (Mẫu 58)
-      if (e?.code === 'P2002') throw new ConflictException('Trùng mã vụ việc hoặc số quyết định ủy thác');
+      if (e?.code === 'P2002')
+        throw new ConflictException(
+          'Trùng mã vụ việc hoặc số quyết định ủy thác',
+        );
       throw e;
     }
 
@@ -1200,17 +1451,32 @@ export class CasesService {
       action: 'CASE_CREATED',
       subject: 'Case',
       subjectId: record.id,
-      metadata: { name: record.name, status: record.status, caseProvenance: effectiveProvenance },
+      metadata: {
+        name: record.name,
+        status: record.status,
+        caseProvenance: effectiveProvenance,
+      },
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
     });
 
-    this.eventEmitter.emit('case.created', new CaseCreatedEvent(record.id, (record as any).caseCode ?? '', actorId));
+    this.eventEmitter.emit(
+      'case.created',
+      new CaseCreatedEvent(record.id, (record as any).caseCode ?? '', actorId),
+    );
 
     const autoLinkedIncident = autoIncidentId
-      ? { id: autoIncidentId, code: autoIncidentCode ?? '', name: autoIncidentName ?? dto.name }
+      ? {
+          id: autoIncidentId,
+          code: autoIncidentCode ?? '',
+          name: autoIncidentName ?? dto.name,
+        }
       : null;
-    return { success: true, data: { ...record, autoLinkedIncident }, message: 'Tạo vụ án thành công' };
+    return {
+      success: true,
+      data: { ...record, autoLinkedIncident },
+      message: 'Tạo vụ án thành công',
+    };
   }
 
   // ─────────────────────────────────────────────
@@ -1246,8 +1512,13 @@ export class CasesService {
     const MIGRATION_DATE = new Date('2026-04-30');
     let tamDinhChiWarning: string | undefined;
 
-    if (dto.status === CaseStatus.TAM_DINH_CHI && dto.status !== existing.status) {
-      const lyDo = (dto as UpdateCaseDto & { lyDoTamDinhChiVuAn?: LyDoTamDinhChiVuAn[] }).lyDoTamDinhChiVuAn;
+    if (
+      dto.status === CaseStatus.TAM_DINH_CHI &&
+      dto.status !== existing.status
+    ) {
+      const lyDo = (
+        dto as UpdateCaseDto & { lyDoTamDinhChiVuAn?: LyDoTamDinhChiVuAn[] }
+      ).lyDoTamDinhChiVuAn;
       if (!lyDo || lyDo.length === 0) {
         if (existing.createdAt < MIGRATION_DATE) {
           // Soft-warn: case pre-dates migration — allow but warn (90-day grace period)
@@ -1264,20 +1535,26 @@ export class CasesService {
     const updateData: Prisma.CaseUncheckedUpdateInput = {
       ...(dto.name !== undefined && { name: dto.name }),
       ...(dto.crime !== undefined && { crime: dto.crime }),
-      ...(dto.crimeChinhId !== undefined && { crimeChinhId: dto.crimeChinhId || null }),
+      ...(dto.crimeChinhId !== undefined && {
+        crimeChinhId: dto.crimeChinhId || null,
+      }),
       ...(dto.status !== undefined && { status: dto.status }),
-      ...(dto.investigatorId !== undefined && { investigatorId: dto.investigatorId }),
+      ...(dto.investigatorId !== undefined && {
+        investigatorId: dto.investigatorId,
+      }),
       ...(dto.deadline !== undefined && {
         deadline: dto.deadline ? new Date(dto.deadline) : null,
       }),
       ...(dto.unit !== undefined && { unit: dto.unit }),
-      ...(dto.subjectsCount !== undefined && { subjectsCount: dto.subjectsCount }),
+      ...(dto.subjectsCount !== undefined && {
+        subjectsCount: dto.subjectsCount,
+      }),
       // MERGE (không REPLACE): giữ mọi field metadata cũ (di trú) + ghi đè field được sửa
       // → sửa 1 field KHÔNG bao giờ xóa field khác (an toàn data pháp lý).
       ...(dto.metadata !== undefined && {
         metadata: {
           ...((existing.metadata as Record<string, unknown> | null) ?? {}),
-          ...(dto.metadata as Record<string, unknown>),
+          ...dto.metadata,
         } as JsonInput,
       }),
       ...(dto.capDoToiPham !== undefined && { capDoToiPham: dto.capDoToiPham }),
@@ -1285,35 +1562,80 @@ export class CasesService {
         ngayKhoiTo: dto.ngayKhoiTo ? new Date(dto.ngayKhoiTo) : null,
       }),
       // ── Field-parity: số QĐ giai đoạn vụ án ──
-      ...(dto.soQuyetDinhKhoiTo !== undefined && { soQuyetDinhKhoiTo: dto.soQuyetDinhKhoiTo }),
+      ...(dto.soQuyetDinhKhoiTo !== undefined && {
+        soQuyetDinhKhoiTo: dto.soQuyetDinhKhoiTo,
+      }),
       ...(dto.soQDNhapVuAn !== undefined && { soQDNhapVuAn: dto.soQDNhapVuAn }),
-      ...(dto.ngayNhapVuAn !== undefined && { ngayNhapVuAn: dto.ngayNhapVuAn ? new Date(dto.ngayNhapVuAn) : null }),
-      ...(dto.ghiChuNhapHoSo !== undefined && { ghiChuNhapHoSo: dto.ghiChuNhapHoSo }),
+      ...(dto.ngayNhapVuAn !== undefined && {
+        ngayNhapVuAn: dto.ngayNhapVuAn ? new Date(dto.ngayNhapVuAn) : null,
+      }),
+      ...(dto.ghiChuNhapHoSo !== undefined && {
+        ghiChuNhapHoSo: dto.ghiChuNhapHoSo,
+      }),
       ...(dto.soQDTachVuAn !== undefined && { soQDTachVuAn: dto.soQDTachVuAn }),
-      ...(dto.ngayTachVuAn !== undefined && { ngayTachVuAn: dto.ngayTachVuAn ? new Date(dto.ngayTachVuAn) : null }),
-      ...(dto.soQDTachHanhVi !== undefined && { soQDTachHanhVi: dto.soQDTachHanhVi }),
-      ...(dto.ngayTachHanhVi !== undefined && { ngayTachHanhVi: dto.ngayTachHanhVi ? new Date(dto.ngayTachHanhVi) : null }),
-      ...(dto.soQDDinhChiVuAn !== undefined && { soQDDinhChiVuAn: dto.soQDDinhChiVuAn }),
-      ...(dto.ngayDinhChiVuAn !== undefined && { ngayDinhChiVuAn: dto.ngayDinhChiVuAn ? new Date(dto.ngayDinhChiVuAn) : null }),
-      ...(dto.chuyenVuAnChoCQK !== undefined && { chuyenVuAnChoCQK: dto.chuyenVuAnChoCQK }),
-      ...(dto.soBanAnCoHieuLuc !== undefined && { soBanAnCoHieuLuc: dto.soBanAnCoHieuLuc }),
-      ...(dto.ngayBanAnCoHieuLuc !== undefined && { ngayBanAnCoHieuLuc: dto.ngayBanAnCoHieuLuc ? new Date(dto.ngayBanAnCoHieuLuc) : null }),
-      ...(dto.canCuTamDinhChiVuAn !== undefined && { canCuTamDinhChiVuAn: dto.canCuTamDinhChiVuAn }),
-      ...(dto.canCuPhucHoiVuAn !== undefined && { canCuPhucHoiVuAn: dto.canCuPhucHoiVuAn }),
+      ...(dto.ngayTachVuAn !== undefined && {
+        ngayTachVuAn: dto.ngayTachVuAn ? new Date(dto.ngayTachVuAn) : null,
+      }),
+      ...(dto.soQDTachHanhVi !== undefined && {
+        soQDTachHanhVi: dto.soQDTachHanhVi,
+      }),
+      ...(dto.ngayTachHanhVi !== undefined && {
+        ngayTachHanhVi: dto.ngayTachHanhVi
+          ? new Date(dto.ngayTachHanhVi)
+          : null,
+      }),
+      ...(dto.soQDDinhChiVuAn !== undefined && {
+        soQDDinhChiVuAn: dto.soQDDinhChiVuAn,
+      }),
+      ...(dto.ngayDinhChiVuAn !== undefined && {
+        ngayDinhChiVuAn: dto.ngayDinhChiVuAn
+          ? new Date(dto.ngayDinhChiVuAn)
+          : null,
+      }),
+      ...(dto.chuyenVuAnChoCQK !== undefined && {
+        chuyenVuAnChoCQK: dto.chuyenVuAnChoCQK,
+      }),
+      ...(dto.soBanAnCoHieuLuc !== undefined && {
+        soBanAnCoHieuLuc: dto.soBanAnCoHieuLuc,
+      }),
+      ...(dto.ngayBanAnCoHieuLuc !== undefined && {
+        ngayBanAnCoHieuLuc: dto.ngayBanAnCoHieuLuc
+          ? new Date(dto.ngayBanAnCoHieuLuc)
+          : null,
+      }),
+      ...(dto.canCuTamDinhChiVuAn !== undefined && {
+        canCuTamDinhChiVuAn: dto.canCuTamDinhChiVuAn,
+      }),
+      ...(dto.canCuPhucHoiVuAn !== undefined && {
+        canCuPhucHoiVuAn: dto.canCuPhucHoiVuAn,
+      }),
       // ── Field-parity KLĐT + QĐ điều tra lại ──
       ...(dto.soKLDT !== undefined && { soKLDT: dto.soKLDT }),
-      ...(dto.ngayKLDT !== undefined && { ngayKLDT: dto.ngayKLDT ? new Date(dto.ngayKLDT) : null }),
-      ...(dto.soQDDieuTraLai !== undefined && { soQDDieuTraLai: dto.soQDDieuTraLai }),
-      ...(dto.ngayQDDieuTraLai !== undefined && { ngayQDDieuTraLai: dto.ngayQDDieuTraLai ? new Date(dto.ngayQDDieuTraLai) : null }),
+      ...(dto.ngayKLDT !== undefined && {
+        ngayKLDT: dto.ngayKLDT ? new Date(dto.ngayKLDT) : null,
+      }),
+      ...(dto.soQDDieuTraLai !== undefined && {
+        soQDDieuTraLai: dto.soQDDieuTraLai,
+      }),
+      ...(dto.ngayQDDieuTraLai !== undefined && {
+        ngayQDDieuTraLai: dto.ngayQDDieuTraLai
+          ? new Date(dto.ngayQDDieuTraLai)
+          : null,
+      }),
       // ── PR-M2: ghi chú tự do + tội danh khác (multi) ──
       ...(dto.ghiChuKhac !== undefined && { ghiChuKhac: dto.ghiChuKhac }),
-      ...(dto.toiDanhKhacIds !== undefined && { toiDanhKhacIds: dto.toiDanhKhacIds }),
+      ...(dto.toiDanhKhacIds !== undefined && {
+        toiDanhKhacIds: dto.toiDanhKhacIds,
+      }),
       // ── TĐC fields ──────────────────────────────────────────────────────────
       ...((dto as Record<string, unknown>).lyDoTamDinhChiVuAn !== undefined && {
-        lyDoTamDinhChiVuAn: (dto as Record<string, unknown>).lyDoTamDinhChiVuAn as LyDoTamDinhChiVuAn[],
+        lyDoTamDinhChiVuAn: (dto as Record<string, unknown>)
+          .lyDoTamDinhChiVuAn as LyDoTamDinhChiVuAn[],
       }),
-      ...((dto as Record<string, unknown>).soQuyetDinhTamDinhChi !== undefined && {
-        soQuyetDinhTamDinhChi: (dto as Record<string, unknown>).soQuyetDinhTamDinhChi as string | null,
+      ...((dto as Record<string, unknown>).soQuyetDinhTamDinhChi !==
+        undefined && {
+        soQuyetDinhTamDinhChi: (dto as Record<string, unknown>)
+          .soQuyetDinhTamDinhChi as string | null,
       }),
       ...((dto as Record<string, unknown>).ngayTamDinhChi !== undefined && {
         ngayTamDinhChi: (dto as Record<string, unknown>).ngayTamDinhChi
@@ -1321,7 +1643,8 @@ export class CasesService {
           : null,
       }),
       ...((dto as Record<string, unknown>).laCongNgheCao !== undefined && {
-        laCongNgheCao: (dto as Record<string, unknown>).laCongNgheCao as boolean,
+        laCongNgheCao: (dto as Record<string, unknown>)
+          .laCongNgheCao as boolean,
       }),
       ...((dto as Record<string, unknown>).soLanGiaHan !== undefined && {
         soLanGiaHan: (dto as Record<string, unknown>).soLanGiaHan as number,
@@ -1335,7 +1658,8 @@ export class CasesService {
           : null,
       }),
       ...((dto as Record<string, unknown>).soQuyetDinhPhucHoi !== undefined && {
-        soQuyetDinhPhucHoi: (dto as Record<string, unknown>).soQuyetDinhPhucHoi as string | null,
+        soQuyetDinhPhucHoi: (dto as Record<string, unknown>)
+          .soQuyetDinhPhucHoi as string | null,
       }),
       ...((dto as Record<string, unknown>).ngayPhucHoi !== undefined && {
         ngayPhucHoi: (dto as Record<string, unknown>).ngayPhucHoi
@@ -1343,10 +1667,12 @@ export class CasesService {
           : null,
       }),
       ...((dto as Record<string, unknown>).ketQuaPhucHoiVuAn !== undefined && {
-        ketQuaPhucHoiVuAn: (dto as Record<string, unknown>).ketQuaPhucHoiVuAn as KetQuaPhucHoiVuAn | null,
+        ketQuaPhucHoiVuAn: (dto as Record<string, unknown>)
+          .ketQuaPhucHoiVuAn as KetQuaPhucHoiVuAn | null,
       }),
       ...((dto as Record<string, unknown>).lyDoTamDinhChiText !== undefined && {
-        lyDoTamDinhChiText: (dto as Record<string, unknown>).lyDoTamDinhChiText as string | null,
+        lyDoTamDinhChiText: (dto as Record<string, unknown>)
+          .lyDoTamDinhChiText as string | null,
       }),
       // Field-parity tab "Vụ án TĐC" — persist khi EDIT (trước service chưa spread → không lưu được).
       ...((dto as Record<string, unknown>).ngayHetThoiHieu !== undefined && {
@@ -1354,16 +1680,21 @@ export class CasesService {
           ? new Date((dto as Record<string, unknown>).ngayHetThoiHieu as string)
           : null,
       }),
-      ...((dto as Record<string, unknown>).tdcKhacPhucLyDoBienPhap !== undefined && {
-        tdcKhacPhucLyDoBienPhap: (dto as Record<string, unknown>).tdcKhacPhucLyDoBienPhap as string | null,
+      ...((dto as Record<string, unknown>).tdcKhacPhucLyDoBienPhap !==
+        undefined && {
+        tdcKhacPhucLyDoBienPhap: (dto as Record<string, unknown>)
+          .tdcKhacPhucLyDoBienPhap as string | null,
       }),
       ...((dto as Record<string, unknown>).tdcKhacPhucBienBan !== undefined && {
-        tdcKhacPhucBienBan: (dto as Record<string, unknown>).tdcKhacPhucBienBan as string | null,
+        tdcKhacPhucBienBan: (dto as Record<string, unknown>)
+          .tdcKhacPhucBienBan as string | null,
       }),
       // v0.44.2 — UTDT top-level fields (persist through edit mode)
       ...(dto.caseType !== undefined && { caseType: dto.caseType }),
       ...(dto.donViGiao !== undefined && { donViGiao: dto.donViGiao }),
-      ...(dto.soQuyetDinhUyThac !== undefined && { soQuyetDinhUyThac: dto.soQuyetDinhUyThac }),
+      ...(dto.soQuyetDinhUyThac !== undefined && {
+        soQuyetDinhUyThac: dto.soQuyetDinhUyThac,
+      }),
       ...(dto.ngayTiepNhan !== undefined && {
         ngayTiepNhan: dto.ngayTiepNhan ? new Date(dto.ngayTiepNhan) : null,
       }),
@@ -1377,38 +1708,79 @@ export class CasesService {
       }),
       ...(dto.loaiThongTin !== undefined && { loaiThongTin: dto.loaiThongTin }),
       // ── Field-parity ĐẦY ĐỦ (feat/legacy-field-parity): field intake hệ cũ → cột typed ──
-      ...(dto.ngayDeXuat !== undefined && { ngayDeXuat: dto.ngayDeXuat ? new Date(dto.ngayDeXuat) : null }),
+      ...(dto.ngayDeXuat !== undefined && {
+        ngayDeXuat: dto.ngayDeXuat ? new Date(dto.ngayDeXuat) : null,
+      }),
       ...(dto.moTaChiTiet !== undefined && { moTaChiTiet: dto.moTaChiTiet }),
       ...(dto.nguonDon !== undefined && { nguonDon: dto.nguonDon }),
       ...(dto.tenCungCap !== undefined && { tenCungCap: dto.tenCungCap }),
-      ...(dto.sinhNamCungCap !== undefined && { sinhNamCungCap: dto.sinhNamCungCap }),
+      ...(dto.sinhNamCungCap !== undefined && {
+        sinhNamCungCap: dto.sinhNamCungCap,
+      }),
       ...(dto.cccdCungCap !== undefined && { cccdCungCap: dto.cccdCungCap }),
-      ...(dto.ngayCapCccd !== undefined && { ngayCapCccd: dto.ngayCapCccd ? new Date(dto.ngayCapCccd) : null }),
+      ...(dto.ngayCapCccd !== undefined && {
+        ngayCapCccd: dto.ngayCapCccd ? new Date(dto.ngayCapCccd) : null,
+      }),
       ...(dto.noiCapCccd !== undefined && { noiCapCccd: dto.noiCapCccd }),
       ...(dto.sdtCungCap !== undefined && { sdtCungCap: dto.sdtCungCap }),
-      ...(dto.diaChiCungCap !== undefined && { diaChiCungCap: dto.diaChiCungCap }),
-      ...(dto.nghiVanDoiTuong !== undefined && { nghiVanDoiTuong: dto.nghiVanDoiTuong }),
+      ...(dto.diaChiCungCap !== undefined && {
+        diaChiCungCap: dto.diaChiCungCap,
+      }),
+      ...(dto.nghiVanDoiTuong !== undefined && {
+        nghiVanDoiTuong: dto.nghiVanDoiTuong,
+      }),
       ...(dto.nhanXet !== undefined && { nhanXet: dto.nhanXet }),
       ...(dto.noiXayRa !== undefined && { noiXayRa: dto.noiXayRa }),
-      ...(dto.phuongThucThuDoan !== undefined && { phuongThucThuDoan: dto.phuongThucThuDoan }),
-      ...(dto.ketQuaXuLyKhac !== undefined && { ketQuaXuLyKhac: dto.ketQuaXuLyKhac }),
-      ...(dto.soPhieuChuyen !== undefined && { soPhieuChuyen: dto.soPhieuChuyen }),
-      ...(dto.ngayPhieuChuyen !== undefined && { ngayPhieuChuyen: dto.ngayPhieuChuyen ? new Date(dto.ngayPhieuChuyen) : null }),
-      ...(dto.doVatTaiLieuKemTheo !== undefined && { doVatTaiLieuKemTheo: dto.doVatTaiLieuKemTheo }),
-      ...(dto.ngayVietDon !== undefined && { ngayVietDon: dto.ngayVietDon ? new Date(dto.ngayVietDon) : null }),
-      ...(dto.ghiChuTrungDon !== undefined && { ghiChuTrungDon: dto.ghiChuTrungDon }),
-      ...(dto.baoCaoBanGiamDoc !== undefined && { baoCaoBanGiamDoc: dto.baoCaoBanGiamDoc }),
-      ...(dto.ngayGiaoDonViGiaiQuyet !== undefined && { ngayGiaoDonViGiaiQuyet: dto.ngayGiaoDonViGiaiQuyet ? new Date(dto.ngayGiaoDonViGiaiQuyet) : null }),
-      ...(dto.lanhDaoToTung !== undefined && { lanhDaoToTung: dto.lanhDaoToTung }),
+      ...(dto.phuongThucThuDoan !== undefined && {
+        phuongThucThuDoan: dto.phuongThucThuDoan,
+      }),
+      ...(dto.ketQuaXuLyKhac !== undefined && {
+        ketQuaXuLyKhac: dto.ketQuaXuLyKhac,
+      }),
+      ...(dto.soPhieuChuyen !== undefined && {
+        soPhieuChuyen: dto.soPhieuChuyen,
+      }),
+      ...(dto.ngayPhieuChuyen !== undefined && {
+        ngayPhieuChuyen: dto.ngayPhieuChuyen
+          ? new Date(dto.ngayPhieuChuyen)
+          : null,
+      }),
+      ...(dto.doVatTaiLieuKemTheo !== undefined && {
+        doVatTaiLieuKemTheo: dto.doVatTaiLieuKemTheo,
+      }),
+      ...(dto.ngayVietDon !== undefined && {
+        ngayVietDon: dto.ngayVietDon ? new Date(dto.ngayVietDon) : null,
+      }),
+      ...(dto.ghiChuTrungDon !== undefined && {
+        ghiChuTrungDon: dto.ghiChuTrungDon,
+      }),
+      ...(dto.baoCaoBanGiamDoc !== undefined && {
+        baoCaoBanGiamDoc: dto.baoCaoBanGiamDoc,
+      }),
+      ...(dto.ngayGiaoDonViGiaiQuyet !== undefined && {
+        ngayGiaoDonViGiaiQuyet: dto.ngayGiaoDonViGiaiQuyet
+          ? new Date(dto.ngayGiaoDonViGiaiQuyet)
+          : null,
+      }),
+      ...(dto.lanhDaoToTung !== undefined && {
+        lanhDaoToTung: dto.lanhDaoToTung,
+      }),
       ...(dto.dieuTraVien !== undefined && { dieuTraVien: dto.dieuTraVien }),
-      ...(dto.phanLoaiToiPhamLinhVuc !== undefined && { phanLoaiToiPhamLinhVuc: dto.phanLoaiToiPhamLinhVuc }),
-      ...(dto.phanLoaiHoSoNoiBo !== undefined && { phanLoaiHoSoNoiBo: dto.phanLoaiHoSoNoiBo }),
+      ...(dto.phanLoaiToiPhamLinhVuc !== undefined && {
+        phanLoaiToiPhamLinhVuc: dto.phanLoaiToiPhamLinhVuc,
+      }),
+      ...(dto.phanLoaiHoSoNoiBo !== undefined && {
+        phanLoaiHoSoNoiBo: dto.phanLoaiHoSoNoiBo,
+      }),
       ...(dto.deXuat !== undefined && { deXuat: dto.deXuat }),
       ...(dto.yeuCauBoSung !== undefined && { yeuCauBoSung: dto.yeuCauBoSung }),
     };
 
     // Auto-set ngayTamDinhChi and increment soLanTamDinhChi when transitioning TO TAM_DINH_CHI
-    if (dto.status === CaseStatus.TAM_DINH_CHI && dto.status !== existing.status) {
+    if (
+      dto.status === CaseStatus.TAM_DINH_CHI &&
+      dto.status !== existing.status
+    ) {
       if (!updateData.ngayTamDinhChi) {
         updateData.ngayTamDinhChi = new Date();
       }
@@ -1426,7 +1798,12 @@ export class CasesService {
             where: { id },
             include: {
               investigator: {
-                select: { id: true, firstName: true, lastName: true, username: true },
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  username: true,
+                },
               },
             },
           }),
@@ -1434,12 +1811,19 @@ export class CasesService {
           this.prisma.case.update({
             where: {
               id,
-              ...(dto.expectedUpdatedAt ? { updatedAt: new Date(dto.expectedUpdatedAt) } : {}),
+              ...(dto.expectedUpdatedAt
+                ? { updatedAt: new Date(dto.expectedUpdatedAt) }
+                : {}),
             },
             data: updateData,
             include: {
               investigator: {
-                select: { id: true, firstName: true, lastName: true, username: true },
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  username: true,
+                },
               },
             },
           }),
@@ -1473,8 +1857,10 @@ export class CasesService {
     // model in v0.37.1 forbids creating Petition records as a side-effect of
     // Case mutations). If a caller sends metadata.petitionType but no Petition
     // is linked, the value is silently ignored.
-    const updatedMetadata = dto.metadata as Record<string, unknown> | undefined;
-    const newPetitionType = updatedMetadata?.petitionType as LoaiDon | undefined;
+    const updatedMetadata = dto.metadata;
+    const newPetitionType = updatedMetadata?.petitionType as
+      | LoaiDon
+      | undefined;
     if (newPetitionType !== undefined) {
       const linkedPetition = await this.prisma.petition.findFirst({
         where: { linkedCaseId: id, deletedAt: null },
@@ -1513,6 +1899,24 @@ export class CasesService {
         ipAddress: meta?.ipAddress,
         userAgent: meta?.userAgent,
       });
+
+      // D6 — phát sau khi đã ghi, bọc try/catch: hỏng gửi thông báo không được
+      // kéo đổ việc đã commit. Handler cho sự kiện này tồn tại từ lâu nhưng
+      // chưa từng có ai phát — hai nửa cùng hỏng, không nửa nào báo lỗi.
+      try {
+        this.eventEmitter.emit(
+          'case.status_changed',
+          new CaseStatusChangedEvent(
+            id,
+            existing.caseCode ?? '',
+            existing.investigatorId ?? actorId ?? '',
+            existing.status,
+            dto.status,
+          ),
+        );
+      } catch {
+        // Không có logger trên nhánh này; nuốt là đúng chỗ.
+      }
     }
 
     // v0.30: CASE_UPDATED audit moved into wrapUpdate above. KEEP CASE_STATUS_CHANGED + PETITION_AUTO_CREATED.
@@ -1740,7 +2144,10 @@ export class CasesService {
         lawyers: { where: { deletedAt: null }, select: { id: true } },
         conclusions: { where: { deletedAt: null }, select: { id: true } },
         documents: { where: { deletedAt: null }, select: { id: true } },
-        linkedIncidents: { where: { deletedAt: null }, select: { id: true, code: true, name: true } },
+        linkedIncidents: {
+          where: { deletedAt: null },
+          select: { id: true, code: true, name: true },
+        },
       },
     });
     if (!existing) {
@@ -1761,17 +2168,25 @@ export class CasesService {
         `Trạng thái hiện tại không cho phép xóa (chỉ Tiếp nhận). Hiện: ${CASE_STATUS_LABEL[existing.status] ?? existing.status}.`,
       );
     }
-    if (blockers.subjects > 0) reasonsIfBlocked.push(`${blockers.subjects} đối tượng đang liên kết.`);
-    if (blockers.lawyers > 0) reasonsIfBlocked.push(`${blockers.lawyers} luật sư đang liên kết.`);
-    if (blockers.conclusions > 0) reasonsIfBlocked.push(`${blockers.conclusions} kết luận điều tra.`);
-    if (blockers.documents > 0) reasonsIfBlocked.push(`${blockers.documents} tài liệu đính kèm.`);
+    if (blockers.subjects > 0)
+      reasonsIfBlocked.push(`${blockers.subjects} đối tượng đang liên kết.`);
+    if (blockers.lawyers > 0)
+      reasonsIfBlocked.push(`${blockers.lawyers} luật sư đang liên kết.`);
+    if (blockers.conclusions > 0)
+      reasonsIfBlocked.push(`${blockers.conclusions} kết luận điều tra.`);
+    if (blockers.documents > 0)
+      reasonsIfBlocked.push(`${blockers.documents} tài liệu đính kèm.`);
 
     return {
       canDelete: reasonsIfBlocked.length === 0,
       status: existing.status,
       blockers,
       willUnlink: {
-        incidents: existing.linkedIncidents as Array<{ id: string; code: string; name: string }>,
+        incidents: existing.linkedIncidents as Array<{
+          id: string;
+          code: string;
+          name: string;
+        }>,
       },
       reasonsIfBlocked,
     };
@@ -1842,7 +2257,11 @@ export class CasesService {
   // ─────────────────────────────────────────────
   // LIST DELETED — paginated list deleted Cases + enriched delete audit
   // ─────────────────────────────────────────────
-  async listDeleted(query: { limit?: number; offset?: number; search?: string }) {
+  async listDeleted(query: {
+    limit?: number;
+    offset?: number;
+    search?: string;
+  }) {
     const limit = Math.min(query.limit ?? 20, 100);
     const offset = query.offset ?? 0;
     const search = query.search?.trim();
@@ -1864,7 +2283,14 @@ export class CasesService {
         skip: offset,
         take: limit,
         include: {
-          createdBy: { select: { id: true, firstName: true, lastName: true, username: true } },
+          createdBy: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              username: true,
+            },
+          },
         },
       }),
       this.prisma.case.count({ where }),
@@ -1872,14 +2298,22 @@ export class CasesService {
 
     // Enrich với audit của delete gần nhất (batched, single query — no N+1)
     const ids = data.map((c) => c.id);
-    const deleteAudits = ids.length > 0
-      ? await this.prisma.$queryRaw<Array<{ subjectId: string; userId: string | null; metadata: unknown; createdAt: Date }>>`
+    const deleteAudits =
+      ids.length > 0
+        ? await this.prisma.$queryRaw<
+            Array<{
+              subjectId: string;
+              userId: string | null;
+              metadata: unknown;
+              createdAt: Date;
+            }>
+          >`
           SELECT DISTINCT ON ("subjectId") "subjectId", "userId", metadata, "createdAt"
           FROM "audit_logs"
           WHERE action = 'CASE_DELETED' AND "subjectId" = ANY(${ids})
           ORDER BY "subjectId", "createdAt" DESC
         `
-      : [];
+        : [];
     const audMap = new Map(deleteAudits.map((a) => [a.subjectId, a]));
 
     return {
@@ -1912,25 +2346,34 @@ export class CasesService {
         },
       },
     });
-    if (!existing) throw new NotFoundException(`Vụ án không tồn tại (id: ${id})`);
+    if (!existing)
+      throw new NotFoundException(`Vụ án không tồn tại (id: ${id})`);
 
     const team = await this.prisma.team.findFirst({
       where: { id: dto.assignedTeamId, isActive: true },
     });
-    if (!team) throw new BadRequestException(`Tổ điều tra không tồn tại hoặc đã ngừng hoạt động (id: ${dto.assignedTeamId})`);
+    if (!team)
+      throw new BadRequestException(
+        `Tổ điều tra không tồn tại hoặc đã ngừng hoạt động (id: ${dto.assignedTeamId})`,
+      );
 
     if (dto.investigatorId) {
       const member = await this.prisma.userTeam.findFirst({
         where: { userId: dto.investigatorId, teamId: dto.assignedTeamId },
       });
-      if (!member) throw new BadRequestException('Điều tra viên không thuộc tổ được chỉ định');
+      if (!member)
+        throw new BadRequestException(
+          'Điều tra viên không thuộc tổ được chỉ định',
+        );
     }
 
     try {
       await this.prisma.case.update({
         where: {
           id,
-          ...(dto.expectedUpdatedAt ? { updatedAt: dto.expectedUpdatedAt } : {}),
+          ...(dto.expectedUpdatedAt
+            ? { updatedAt: dto.expectedUpdatedAt }
+            : {}),
         },
         data: {
           assignedTeamId: dto.assignedTeamId,
@@ -1967,16 +2410,28 @@ export class CasesService {
         where: { id: actorId },
         select: { firstName: true, lastName: true },
       });
-      const byUserName = actor ? `${actor.firstName ?? ''} ${actor.lastName ?? ''}`.trim() : '';
-      this.eventEmitter.emit('case.assigned', new CaseAssignedEvent(
-        id, existing.caseCode ?? '', dto.investigatorId, actorId, byUserName,
-      ));
+      const byUserName = actor
+        ? `${actor.firstName ?? ''} ${actor.lastName ?? ''}`.trim()
+        : '';
+      this.eventEmitter.emit(
+        'case.assigned',
+        new CaseAssignedEvent(
+          id,
+          existing.caseCode ?? '',
+          dto.investigatorId,
+          actorId,
+          byUserName,
+        ),
+      );
     }
 
     // v0.35a: emit CASE_ESCALATED_FROM_WARD nếu ward team → non-ward team.
     // Scope filter (v0.33) tự lock CAP ra khỏi access. Audit cho supervisor visibility.
     const existingWithTeam = existing as typeof existing & {
-      assignedTeam: { wardId: string | null; ward: { name: string } | null } | null;
+      assignedTeam: {
+        wardId: string | null;
+        ward: { name: string } | null;
+      } | null;
     };
     const wasInWardTeam = existingWithTeam.assignedTeam?.wardId != null;
     const isReassigning = dto.assignedTeamId !== existing.assignedTeamId;
@@ -2082,7 +2537,12 @@ export class CasesService {
   }
 
   private async _exportCases(
-    query: { unitId?: string; fromDate?: string; toDate?: string; category?: string },
+    query: {
+      unitId?: string;
+      fromDate?: string;
+      toDate?: string;
+      category?: string;
+    },
     dataScope: DataScope | null | undefined,
     res: Response,
     title: string,
@@ -2090,18 +2550,29 @@ export class CasesService {
   ): Promise<void> {
     const where: Prisma.CaseWhereInput = { deletedAt: null };
     if (query.unitId) where.unit = query.unitId;
-    if (query.category) where.crime = { contains: query.category, mode: 'insensitive' };
+    if (query.category)
+      where.crime = { contains: query.category, mode: 'insensitive' };
     if (query.fromDate) {
-      where.createdAt = { ...(where.createdAt as any), gte: new Date(query.fromDate) };
+      where.createdAt = {
+        ...(where.createdAt as any),
+        gte: new Date(query.fromDate),
+      };
     }
     if (query.toDate) {
-      where.createdAt = { ...(where.createdAt as any), lte: new Date(query.toDate + 'T23:59:59.999Z') };
+      where.createdAt = {
+        ...(where.createdAt as any),
+        lte: new Date(query.toDate + 'T23:59:59.999Z'),
+      };
     }
 
     const scopeFilter = buildScopeFilter(dataScope);
     if (scopeFilter) {
       where.AND = [
-        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+        ...(Array.isArray(where.AND)
+          ? where.AND
+          : where.AND
+            ? [where.AND]
+            : []),
         scopeFilter as Prisma.CaseWhereInput,
       ];
     }
@@ -2122,12 +2593,28 @@ export class CasesService {
     });
 
     const COL_COUNT = 8;
-    const HEADERS = ['STT', 'Mã vụ án', 'Tên vụ án', 'Loại tội phạm', 'Phường/Xã', 'ĐTV phụ trách', 'Ngày tiếp nhận', 'Trạng thái'];
+    const HEADERS = [
+      'STT',
+      'Mã vụ án',
+      'Tên vụ án',
+      'Loại tội phạm',
+      'Phường/Xã',
+      'ĐTV phụ trách',
+      'Ngày tiếp nhận',
+      'Trạng thái',
+    ];
     const WIDTHS = [6, 18, 30, 20, 20, 20, 16, 20];
 
-    const fromStr = query.fromDate ? new Date(query.fromDate).toLocaleDateString('vi-VN') : '';
-    const toStr = query.toDate ? new Date(query.toDate).toLocaleDateString('vi-VN') : '';
-    const period = fromStr && toStr ? `Từ ngày ${fromStr} đến ngày ${toStr}` : 'Tất cả thời gian';
+    const fromStr = query.fromDate
+      ? new Date(query.fromDate).toLocaleDateString('vi-VN')
+      : '';
+    const toStr = query.toDate
+      ? new Date(query.toDate).toLocaleDateString('vi-VN')
+      : '';
+    const period =
+      fromStr && toStr
+        ? `Từ ngày ${fromStr} đến ngày ${toStr}`
+        : 'Tất cả thời gian';
 
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Danh sách vụ án');
@@ -2149,7 +2636,7 @@ export class CasesService {
         rec.unit ?? '',
         investigatorName,
         rec.createdAt ? rec.createdAt.toLocaleDateString('vi-VN') : '',
-        CASE_STATUS_LABEL[rec.status as CaseStatus] ?? rec.status ?? '',
+        CASE_STATUS_LABEL[rec.status] ?? rec.status ?? '',
       ]);
       BcaExcelHelper.styleDataRow(dataRow, idx % 2 === 1, COL_COUNT);
     });
@@ -2158,7 +2645,10 @@ export class CasesService {
     BcaExcelHelper.addFooter(sheet, lastDataRow + 2, COL_COUNT);
     BcaExcelHelper.setPrintSetup(sheet);
 
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
 
     try {

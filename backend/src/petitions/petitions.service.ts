@@ -41,6 +41,7 @@ import { PETITION_STATUS_LABEL } from '../common/constants/status-labels.constan
 import { resolveGroup, countByGroup } from '../common/status-groups.util';
 import { PETITION_STATUS_GROUPS } from './petitions.constants';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { PetitionReceivedEvent } from '../notifications/events/notification.events';
 import { PetitionAssignedEvent } from '../notifications/events/notification.events';
 
 // Vietnamese labels for LoaiDon — Excel display consistency with PETITION_STATUS_LABEL.
@@ -554,6 +555,24 @@ export class PetitionsService {
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
     });
+
+    // D6 — phát sự kiện SAU khi nghiệp vụ đã ghi xong, và bọc try/catch: hỏng
+    // gửi thông báo không được kéo đổ việc đã commit. Trước đây handler tồn tại
+    // nhưng không ai phát — hai nửa cùng hỏng, và không nửa nào báo lỗi.
+    try {
+      this.eventEmitter.emit(
+        'petition.received',
+        new PetitionReceivedEvent(
+          record.id,
+          record.stt ?? record.senderName,
+          actorId,
+        ),
+      );
+    } catch (err) {
+      // Không có logger trên service này; nuốt lỗi ở đây là đúng chỗ —
+      // thông báo hỏng không được kéo đổ đơn thư đã ghi xong.
+      void err;
+    }
 
     return { success: true, data: record, message: 'Tạo đơn thư thành công' };
   }

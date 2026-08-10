@@ -1,4 +1,7 @@
-import { buildControllerModule, mockUser } from '../test-utils/controller-test-helpers';
+import {
+  buildControllerModule,
+  mockUser,
+} from '../test-utils/controller-test-helpers';
 import { NotificationsController } from './notifications.controller';
 import { NotificationsService } from './notifications.service';
 
@@ -16,7 +19,11 @@ describe('NotificationsController — delegation', () => {
   let controller: NotificationsController;
 
   beforeEach(async () => {
-    const module = await buildControllerModule(NotificationsController, NotificationsService, mockService);
+    const module = await buildControllerModule(
+      NotificationsController,
+      NotificationsService,
+      mockService,
+    );
     controller = module.get(NotificationsController);
     jest.clearAllMocks();
   });
