@@ -10,6 +10,7 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  Patch,
 } from '@nestjs/common';
 import type { ScopedRequest } from '../auth/interfaces/scoped-request.interface';
 import {
@@ -21,6 +22,7 @@ import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
+import { UpdateInvestigationSupplementDto } from './dto/update-investigation-supplement.dto';
 import { CreateInvestigationSupplementDto } from './dto/create-investigation-supplement.dto';
 
 @Controller('investigation-supplements')
@@ -51,6 +53,23 @@ export class InvestigationSupplementsController {
     @Req() req: ScopedRequest,
   ) {
     return this.service.create(
+      dto,
+      user.id,
+      { ipAddress: req.ip, userAgent: req.headers['user-agent'] },
+      req.dataScope,
+    );
+  }
+
+  @Patch(':id')
+  @RequirePermissions({ action: 'edit', subject: 'Case' })
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateInvestigationSupplementDto,
+    @CurrentUser() user: AuthUser,
+    @Req() req: ScopedRequest,
+  ) {
+    return this.service.update(
+      id,
       dto,
       user.id,
       { ipAddress: req.ip, userAgent: req.headers['user-agent'] },

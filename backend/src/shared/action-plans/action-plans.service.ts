@@ -3,6 +3,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { TienDoKhacPhuc } from '@prisma/client';
 import { CreateActionPlanDto } from './dto/create-action-plan.dto';
 import type { DataScope } from '../../auth/services/unit-scope.service';
+import { UpdateActionPlanDto } from './dto/update-action-plan.dto';
 import { assertParentInScope } from '../../common/utils/scope-filter.util';
 
 const PARENT_SCOPE_SELECT = {
@@ -83,6 +84,39 @@ export class ActionPlansService {
     });
   }
 
+  /**
+   * D5 — sửa kế hoạch khắc phục.
+   *
+   * Trước đây chỉ tạo và xoá được: nhập sai một trường thì cách duy nhất là xoá
+   * rồi tạo lại, làm mất dấu vết và mất cả id mà nơi khác đang tham chiếu.
+   *
+   * Kiểm phạm vi trên cha của CHÍNH bản ghi, bằng cùng câu kiểm mà `delete`
+   * dùng — sửa và xoá là hai mức tác động khác nhau nhưng cùng một câu hỏi về
+   * thẩm quyền.
+   */
+  async update(id: string, dto: UpdateActionPlanDto, scope?: DataScope | null) {
+    const record = await this.prisma.suspensionActionPlan.findUnique({
+      where: { id },
+      include: {
+        case: { select: PARENT_SCOPE_SELECT },
+        incident: { select: PARENT_SCOPE_SELECT },
+      },
+    });
+    if (!record)
+      throw new NotFoundException(
+        `Kế hoạch khắc phục không tồn tại (id: ${id})`,
+      );
+    assertParentInScope(record.case ?? record.incident ?? null, scope, 'write');
+
+    return this.prisma.suspensionActionPlan.update({
+      where: { id },
+      data: {
+        ...dto,
+        ...(dto.ngayLap ? { ngayLap: new Date(dto.ngayLap) } : {}),
+      },
+    });
+  }
+
   async delete(id: string, scope?: DataScope | null) {
     const record = await this.prisma.suspensionActionPlan.findUnique({
       where: { id },
@@ -91,7 +125,10 @@ export class ActionPlansService {
         incident: { select: PARENT_SCOPE_SELECT },
       },
     });
-    if (!record) throw new NotFoundException(`Kế hoạch khắc phục không tồn tại (id: ${id})`);
+    if (!record)
+      throw new NotFoundException(
+        `Kế hoạch khắc phục không tồn tại (id: ${id})`,
+      );
     assertParentInScope(record.case ?? record.incident ?? null, scope, 'write');
     return this.prisma.suspensionActionPlan.delete({ where: { id } });
   }
@@ -101,7 +138,8 @@ export class ActionPlansService {
       where: { id: caseId },
       select: PARENT_SCOPE_SELECT,
     });
-    if (!parent) throw new NotFoundException(`Vụ án không tồn tại (id: ${caseId})`);
+    if (!parent)
+      throw new NotFoundException(`Vụ án không tồn tại (id: ${caseId})`);
     return parent;
   }
 
@@ -110,7 +148,8 @@ export class ActionPlansService {
       where: { id: incidentId },
       select: PARENT_SCOPE_SELECT,
     });
-    if (!parent) throw new NotFoundException(`Vụ việc không tồn tại (id: ${incidentId})`);
+    if (!parent)
+      throw new NotFoundException(`Vụ việc không tồn tại (id: ${incidentId})`);
     return parent;
   }
 }

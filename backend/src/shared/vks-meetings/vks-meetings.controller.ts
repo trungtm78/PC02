@@ -9,6 +9,7 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  Patch,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
@@ -17,6 +18,7 @@ import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import type { AuthUser } from '../../auth/interfaces/auth-user.interface';
 import type { ScopedRequest } from '../../auth/interfaces/scoped-request.interface';
 import { VksMeetingsService } from './vks-meetings.service';
+import { UpdateVksMeetingDto } from './dto/update-vks-meeting.dto';
 import { CreateVksMeetingDto } from './dto/create-vks-meeting.dto';
 
 @Controller('cases/:caseId/vks-meetings')
@@ -38,7 +40,22 @@ export class CaseVksMeetingsController {
     @CurrentUser() user: AuthUser,
     @Req() req: ScopedRequest,
   ) {
-    return this.vksMeetingsService.createForCase(caseId, dto, user.id, req.dataScope);
+    return this.vksMeetingsService.createForCase(
+      caseId,
+      dto,
+      user.id,
+      req.dataScope,
+    );
+  }
+
+  @Patch(':id')
+  @RequirePermissions({ action: 'edit', subject: 'Case' })
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateVksMeetingDto,
+    @Req() req: ScopedRequest,
+  ) {
+    return this.vksMeetingsService.update(id, dto, req.dataScope);
   }
 
   @Delete(':id')
@@ -57,7 +74,10 @@ export class IncidentVksMeetingsController {
   @Get()
   @RequirePermissions({ action: 'read', subject: 'Case' })
   findAll(@Param('incidentId') incidentId: string, @Req() req: ScopedRequest) {
-    return this.vksMeetingsService.findAllForIncident(incidentId, req.dataScope);
+    return this.vksMeetingsService.findAllForIncident(
+      incidentId,
+      req.dataScope,
+    );
   }
 
   @Post()
@@ -68,7 +88,22 @@ export class IncidentVksMeetingsController {
     @CurrentUser() user: AuthUser,
     @Req() req: ScopedRequest,
   ) {
-    return this.vksMeetingsService.createForIncident(incidentId, dto, user.id, req.dataScope);
+    return this.vksMeetingsService.createForIncident(
+      incidentId,
+      dto,
+      user.id,
+      req.dataScope,
+    );
+  }
+
+  @Patch(':id')
+  @RequirePermissions({ action: 'edit', subject: 'Case' })
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateVksMeetingDto,
+    @Req() req: ScopedRequest,
+  ) {
+    return this.vksMeetingsService.update(id, dto, req.dataScope);
   }
 
   @Delete(':id')

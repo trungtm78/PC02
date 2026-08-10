@@ -14,6 +14,7 @@ import {
 } from '../common/utils/scope-filter.util';
 import { IsOptional, IsString, IsInt, Min } from 'class-validator';
 import { Type } from 'class-transformer';
+import { UpdateInvestigationSupplementDto } from './dto/update-investigation-supplement.dto';
 
 export class QueryInvestigationSupplementsDto {
   @IsOptional() @IsString() caseId?: string;
@@ -149,6 +150,49 @@ export class InvestigationSupplementsService {
       data: record,
       message: 'Tạo quyết định điều tra bổ sung thành công',
     };
+  }
+
+  /**
+   * D5 — sửa quyết định điều tra bổ sung.
+   *
+   * Trước đây chỉ tạo và xoá được: nhập sai một trường thì phải xoá rồi tạo
+   * lại, mất dấu vết và mất cả id mà nơi khác đang tham chiếu.
+   *
+   * `caseId` không nhận ở đây (DTO đã `OmitType`): đổi cha là thao tác riêng và
+   * phải kiểm phạm vi cả cha cũ lẫn cha mới — nhận nó trong bản cập nhật là mở
+   * lại đúng lỗ ND-18.
+   */
+  async update(
+    id: string,
+    dto: UpdateInvestigationSupplementDto,
+    actorId: string,
+    meta?: { ipAddress?: string; userAgent?: string },
+    dataScope?: DataScope | null,
+  ) {
+    const { data: existing } = await this.getById(id, dataScope);
+    assertParentInScope(existing.case, dataScope, 'write');
+
+    const record = await this.prisma.investigationSupplement.update({
+      where: { id },
+      data: {
+        ...dto,
+        ...(dto.decisionDate
+          ? { decisionDate: new Date(dto.decisionDate) }
+          : {}),
+      },
+    });
+
+    await this.audit.log({
+      userId: actorId,
+      action: 'INVESTIGATION_SUPPLEMENT_UPDATED',
+      subject: 'InvestigationSupplement',
+      subjectId: id,
+      metadata: { changedFields: Object.keys(dto) },
+      ipAddress: meta?.ipAddress,
+      userAgent: meta?.userAgent,
+    });
+
+    return { data: record };
   }
 
   async delete(

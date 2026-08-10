@@ -9,6 +9,7 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  Patch,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
@@ -17,6 +18,7 @@ import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import type { AuthUser } from '../../auth/interfaces/auth-user.interface';
 import type { ScopedRequest } from '../../auth/interfaces/scoped-request.interface';
 import { ActionPlansService } from './action-plans.service';
+import { UpdateActionPlanDto } from './dto/update-action-plan.dto';
 import { CreateActionPlanDto } from './dto/create-action-plan.dto';
 
 @Controller('cases/:caseId/action-plans')
@@ -38,7 +40,22 @@ export class CaseActionPlansController {
     @CurrentUser() user: AuthUser,
     @Req() req: ScopedRequest,
   ) {
-    return this.actionPlansService.createForCase(caseId, dto, user.id, req.dataScope);
+    return this.actionPlansService.createForCase(
+      caseId,
+      dto,
+      user.id,
+      req.dataScope,
+    );
+  }
+
+  @Patch(':id')
+  @RequirePermissions({ action: 'edit', subject: 'Case' })
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateActionPlanDto,
+    @Req() req: ScopedRequest,
+  ) {
+    return this.actionPlansService.update(id, dto, req.dataScope);
   }
 
   @Delete(':id')
@@ -57,7 +74,10 @@ export class IncidentActionPlansController {
   @Get()
   @RequirePermissions({ action: 'read', subject: 'Case' })
   findAll(@Param('incidentId') incidentId: string, @Req() req: ScopedRequest) {
-    return this.actionPlansService.findAllForIncident(incidentId, req.dataScope);
+    return this.actionPlansService.findAllForIncident(
+      incidentId,
+      req.dataScope,
+    );
   }
 
   @Post()
@@ -68,7 +88,22 @@ export class IncidentActionPlansController {
     @CurrentUser() user: AuthUser,
     @Req() req: ScopedRequest,
   ) {
-    return this.actionPlansService.createForIncident(incidentId, dto, user.id, req.dataScope);
+    return this.actionPlansService.createForIncident(
+      incidentId,
+      dto,
+      user.id,
+      req.dataScope,
+    );
+  }
+
+  @Patch(':id')
+  @RequirePermissions({ action: 'edit', subject: 'Case' })
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateActionPlanDto,
+    @Req() req: ScopedRequest,
+  ) {
+    return this.actionPlansService.update(id, dto, req.dataScope);
   }
 
   @Delete(':id')
