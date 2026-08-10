@@ -39,6 +39,17 @@ Cập nhật: 2026-08-10T03:15:00+07:00 | Milestone: M1/5 | Task: 0/5 của M1
 
 ## Đang làm dở
 
+Task: M3-T2 — PR-C2 `fix/proposal-false-success` (**code xong, chờ `/codex`**)
+Đã làm: `ProsecutorProposalPage` là ví dụ rõ nhất của "báo thành công khi hỏng" — khối `catch` hiện **đúng thông báo thành công** như nhánh thành công rồi đóng hộp thoại. Cộng với `relatedCaseId` mang **mã vụ án người dùng gõ** vào một khóa ngoại (luôn P2003), chức năng này **chưa từng ghi được một dòng nào** mà lần nào cũng báo thành công.
+- Ô nhập tự do → `FKSelection` nạp vụ án thật, gửi **id**.
+- `catch` → `extractApiError` + banner đỏ, **không** gọi `onSaved()`/`onClose()`; nút Lưu disable khi đang gửi.
+- `relatedCaseId` được map từ API để form sửa chọn sẵn đúng dòng.
+Test: 2 test mới (không còn ô text mã vụ án; hỏng thì không có chữ "thành công" nào xuất hiện).
+Kiểm: FE **156 file / 1512 test** PASS, tsc sạch, 3 cổng xanh.
+**BƯỚC TIẾP THEO:** `/codex` cho PR-C2, rồi C8 / C12 (các nút chết, filter ngày so chuỗi sai).
+
+---
+
 Task: M3-T1 — PR-C1 `refactor/settings-remove-mock-modules` (**code xong, chờ `/codex`**)
 Đã làm: xoá 3 tab mockup khỏi `SettingsPage`:
 - **Người dùng** — chỉ là một nút điều hướng sang `/nguoi-dung`.
@@ -330,7 +341,7 @@ Tự phát hiện thêm: 3 file test mới của chính tôi bị baseline hoá 
 
 Full suite: **PASS**
 - Backend: 226 suite / **3078** test — PASS (xem ND-9: 1 suite flaky ~1/6 lần, có sẵn từ trước)
-- Frontend: 155 file / **1510** test — PASS (3 lần chạy liên tiếp ổn định)
+- Frontend: 156 file / **1512** test — PASS (3 lần chạy liên tiếp ổn định)
 - Cổng governance: enum guard ✅ · gen:enums drift ✅ · lint ratchet ✅ (baseline 8.945 sau ADR-0015)
 - `tsc --noEmit` (BE): sạch · `tsc -b` (FE): sạch
 - eslint: không có lỗi mới trên dòng đã thêm (nợ lint có sẵn xem ND-1)

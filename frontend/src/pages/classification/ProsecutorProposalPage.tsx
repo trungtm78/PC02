@@ -28,6 +28,8 @@ import {
   PROPOSAL_STATUS_LABEL,
 } from "@/shared/enums/proposal-status";
 import { CASE_TYPE, type CaseType } from "@/shared/enums/case-types";
+import { FKSelection } from '@/components/FKSelection';
+import { extractApiError } from '@/lib/api-errors';
 
 type ProposalStatusLabel = (typeof PROPOSAL_STATUS_LABEL)[ProposalStatus];
 
@@ -36,6 +38,7 @@ interface Proposal {
   stt: number;
   proposalNumber: string;
   relatedCase: string;
+  relatedCaseId: string;
   caseType: CaseType;
   content: string;
   createdDate: string;
@@ -89,6 +92,9 @@ export default function ProsecutorProposalPage() {
           stt: i + 1,
           proposalNumber: p.proposalNumber,
           relatedCase: p.relatedCase?.name ?? "",
+          // Carried so the edit form can pre-select the real row rather than
+          // re-deriving an id from a display name.
+          relatedCaseId: p.relatedCase?.id ?? "",
           caseType: (p.caseType ?? CASE_TYPE.CASE) as CaseType,
           content: p.content,
           createdDate: formatVNDate(p.createdAt),
@@ -636,6 +642,7 @@ function ProposalFormModal({
   const [formData, setFormData] = useState(() => ({
     proposalNumber: proposal?.proposalNumber || "",
     relatedCase: proposal?.relatedCase || "",
+    relatedCaseId: proposal?.relatedCaseId ?? "",
     caseType: proposal?.caseType || "",
     content: proposal?.content || "",
     unit: proposal?.unit || (isCreate ? (defaults.primaryTeamName ?? "") : ""),
@@ -647,6 +654,43 @@ function ProposalFormModal({
   }));
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [submitError, setSubmitError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  // The related case is a foreign key, so the field has to offer real rows
+  // rather than a free-text box whose contents can never satisfy it.
+  const [caseOptions, setCaseOptions] = useState<
+    { value: string; label: string }[]
+  >([]);
+  const [casesLoading, setCasesLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await api.get<{
+          data?: { id: string; name: string; caseCode?: string }[];
+        }>("/cases?limit=200");
+        if (cancelled) return;
+        setCaseOptions(
+          (res.data?.data ?? []).map((c) => ({
+            value: c.id,
+            label: c.caseCode ? `${c.caseCode} — ${c.name}` : c.name,
+          })),
+        );
+      } catch {
+        // Leave the list empty; FKSelection shows "không có lựa chọn" and the
+        // required validation still blocks submit, so nothing is written with
+        // a bad id.
+        if (!cancelled) setCaseOptions([]);
+      } finally {
+        if (!cancelled) setCasesLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const validate = () => {
     const newErrors: Record<string, string> = {};
@@ -655,8 +699,8 @@ function ProposalFormModal({
       newErrors.proposalNumber = "Vui lòng nhập mã kiến nghị";
     }
 
-    if (!formData.relatedCase.trim()) {
-      newErrors.relatedCase = "Vui lòng nhập mã hồ sơ liên quan";
+    if (!formData.relatedCaseId.trim()) {
+      newErrors.relatedCase = "Vui lòng chọn hồ sơ liên quan";
     }
 
     if (!formData.content.trim()) {
@@ -679,6 +723,9 @@ function ProposalFormModal({
     if (!validate()) {
       return;
     }
+    if (submitting) return;
+    setSubmitting(true);
+    setSubmitError("");
 
     try {
       const payload = {
@@ -686,25 +733,31 @@ function ProposalFormModal({
         content: formData.content,
         unit: formData.unit,
         caseType: formData.caseType,
-        relatedCaseId: formData.relatedCase,
+        // The real case id, not the code the user typed. This field is a
+        // foreign key; a code like "VA-2026-001" can never satisfy it.
+        relatedCaseId: formData.relatedCaseId || undefined,
       };
 
       if (proposal) {
         await api.put(`/proposals/${proposal.id}`, payload);
-        alert("Đã cập nhật kiến nghị thành công!");
       } else {
         await api.post("/proposals", payload);
-        alert("Đã tạo kiến nghị mới thành công!");
       }
       onSaved();
-    } catch {
-      if (proposal) {
-        alert("Đã cập nhật kiến nghị thành công!");
-      } else {
-        alert("Đã tạo kiến nghị mới thành công!");
-      }
+      onClose();
+    } catch (e: unknown) {
+      // The catch used to show the SAME success alert as the happy path, so
+      // every failure was announced as a success and the dialog closed on it.
+      // Combined with relatedCaseId carrying a typed case code into a foreign
+      // key — always a P2003 — this feature reported success on every single
+      // use and never once wrote a row.
+      setSubmitError(
+        extractApiError(e, "Không lưu được kiến nghị. Vui lòng thử lại.")
+          .message,
+      );
+    } finally {
+      setSubmitting(false);
     }
-    onClose();
   };
 
   return (
@@ -762,28 +815,31 @@ function ProposalFormModal({
               </select>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Mã hồ sơ liên quan <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={formData.relatedCase}
-                onChange={(e) => {
-                  setFormData({ ...formData, relatedCase: e.target.value });
-                  if (errors.relatedCase) setErrors({ ...errors, relatedCase: "" });
-                }}
-                className={`w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 ${
-                  errors.relatedCase
-                    ? "border-red-300 focus:ring-red-500"
-                    : "border-slate-300 focus:ring-[#003973]"
-                }`}
-                placeholder="VD: VA-2026-001"
-              />
-              {errors.relatedCase && (
-                <p className="text-xs text-red-600 mt-1">{errors.relatedCase}</p>
-              )}
-            </div>
+            {submitError && (
+              <div
+                role="alert"
+                data-testid="proposal-submit-error"
+                className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800"
+              >
+                {submitError}
+              </div>
+            )}
+
+            <FKSelection
+              label="Hồ sơ liên quan"
+              required
+              resource="cases"
+              testId="proposal-related-case"
+              value={formData.relatedCaseId}
+              error={errors.relatedCase}
+              loading={casesLoading}
+              options={caseOptions}
+              placeholder="Chọn vụ án…"
+              onChange={(value: string) => {
+                setFormData({ ...formData, relatedCaseId: value });
+                if (errors.relatedCase) setErrors({ ...errors, relatedCase: "" });
+              }}
+            />
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">Loại hồ sơ</label>
@@ -914,7 +970,9 @@ function ProposalFormModal({
           </button>
           <button
             onClick={handleSubmit}
-            className="px-4 py-2.5 bg-[#003973] text-white rounded-lg hover:bg-[#002d5c] transition-colors font-medium"
+            disabled={submitting}
+            data-testid="proposal-submit"
+            className="px-4 py-2.5 bg-[#003973] text-white rounded-lg hover:bg-[#002d5c] transition-colors font-medium disabled:opacity-50"
           >
             {proposal ? "Cập nhật" : "Lưu"}
           </button>
