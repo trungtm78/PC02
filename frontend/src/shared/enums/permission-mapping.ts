@@ -30,7 +30,22 @@ const SUBJECT_TO_RESOURCE: Readonly<Record<string, PermissionResource>> = {
   Directory: PERMISSION_RESOURCE.DIRECTORIES,
   Report: PERMISSION_RESOURCE.REPORTS,
   Calendar: PERMISSION_RESOURCE.CALENDAR,
+  // Evidence was missing, which silently discarded OFFICER's full grant on the
+  // module PR-D1 had just built. It has no dedicated frontend resource, so it
+  // rides with the case file it belongs to.
+  Evidence: PERMISSION_RESOURCE.CASES,
 };
+
+/**
+ * Subjects where the backend has no `edit` permission at all, so `write`
+ * authorises modification as well as creation.
+ *
+ * A single global `write → create` table got this wrong: somebody holding
+ * `write:Setting` failed every `canEdit('settings')` check while the API
+ * allowed the call. The backend's own permission list is the authority here —
+ * these are the subjects that never got an `edit` row.
+ */
+const WRITE_ALSO_MEANS_EDIT = new Set(['Setting', 'Report', 'Directory', 'User']);
 
 /**
  * `read` becomes `view`; `write` becomes `create`. The other two already
@@ -73,7 +88,13 @@ export function toPermissionSet(
     if (!resource || !mapped) continue;
 
     const list = set[resource] ?? [];
-    if (!list.includes(mapped)) list.push(mapped);
+    const grant = (a: PermissionAction) => {
+      if (!list.includes(a)) list.push(a);
+    };
+    grant(mapped);
+    if (action === 'write' && WRITE_ALSO_MEANS_EDIT.has(subject)) {
+      grant(PERMISSION_ACTION.EDIT);
+    }
     set[resource] = list;
   }
   return set;
@@ -82,3 +103,4 @@ export function toPermissionSet(
 /** Exported for the spec that checks this stays in step with the backend seed. */
 export const MAPPED_SUBJECTS = Object.keys(SUBJECT_TO_RESOURCE);
 export const MAPPED_ACTIONS = Object.keys(ACTION_TO_ACTION);
+export const WRITE_IMPLIES_EDIT_SUBJECTS = [...WRITE_ALSO_MEANS_EDIT];

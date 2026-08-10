@@ -7,7 +7,10 @@ vi.mock('@/lib/api', () => ({
 }));
 
 vi.mock('@/stores/auth.store', () => ({
-  authStore: { getUser: vi.fn() },
+  authStore: {
+    // usePermission subscribes to the store now instead of snapshotting it.
+    getProfileRaw: vi.fn(() => null),
+    onTokenChanged: vi.fn(() => () => {}), getUser: vi.fn() },
 }));
 
 const refresh = vi.fn().mockResolvedValue(undefined);

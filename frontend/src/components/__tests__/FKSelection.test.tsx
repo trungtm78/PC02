@@ -6,6 +6,9 @@ import { authStore } from '@/stores/auth.store';
 // Mock auth store
 vi.mock('@/stores/auth.store', () => ({
   authStore: {
+    // usePermission subscribes to the store now instead of snapshotting it.
+    getProfileRaw: vi.fn(() => null),
+    onTokenChanged: vi.fn(() => () => {}),
     getUser: vi.fn(),
   },
 }));
@@ -22,7 +25,16 @@ describe('FKSelection', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(authStore.getUser).mockReturnValue({ email: 'admin@test.com', role: 'admin' });
+    vi.mocked(authStore.getUser).mockReturnValue({ email: 'admin@test.com', role: 'admin' ,
+      // Real permissions now: the layer used to grant everything to everyone,
+      // so a fixture with no permissions still passed every check.
+      permissions: [
+        { action: 'read', subject: 'Case' },
+        { action: 'write', subject: 'Case' },
+        { action: 'edit', subject: 'Case' },
+        { action: 'delete', subject: 'Case' },
+      ],
+    });
   });
 
   it('should render FKSelection with label', () => {

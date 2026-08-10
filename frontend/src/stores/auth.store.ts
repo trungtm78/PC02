@@ -116,6 +116,18 @@ export const authStore = {
     dispatchTokenChanged();
   },
 
+  /**
+   * The raw cached profile string.
+   *
+   * `useSyncExternalStore` compares snapshots by reference and re-renders
+   * forever if the snapshot is a fresh object each call — which `getProfile()`
+   * is, since it parses JSON. The string from sessionStorage is stable, so
+   * consumers snapshot this and parse in a memo.
+   */
+  getProfileRaw(): string | null {
+    return sessionStorage.getItem(PROFILE_KEY);
+  },
+
   getProfile(): AuthUser | null {
     const raw = sessionStorage.getItem(PROFILE_KEY);
     if (!raw) return null;

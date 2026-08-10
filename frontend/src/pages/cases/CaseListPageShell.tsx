@@ -151,7 +151,10 @@ export function CaseListPageShell() {
   useListShortcuts({ onNew: () => navigate('/cases/new'), onRefresh: () => setRefetchCounter((n) => n + 1) });
 
   // v0.63 PR1b — Action context (perms + modal openers).
-  const { canDispatch, canEdit, canDelete } = usePermission();
+  const { canDispatch, canCreate, canEdit, canDelete } = usePermission();
+  // "Tạo mới" was unconditional: a user without write:Case saw the button and
+  // got a 403 from the form they were sent to.
+  const canCreateCase = canCreate('cases');
   const assignModal = useAssignModal();
   const deleteModal = useDeleteResourceModal();
   const actionCtx: ActionContext = useMemo(
@@ -465,15 +468,18 @@ export function CaseListPageShell() {
         title="Danh sách vụ án"
         subtitle="Quản lý toàn bộ vụ án trong hệ thống"
         actions={
-          <button
-            type="button"
-            onClick={() => navigate('/cases/new')}
-            className={`${BTN_PRIMARY} ${A11Y_FOCUS_RING} flex items-center gap-2`}
-          >
-            <Plus className="w-4 h-4" />
-            <span>Tạo mới</span>
-            <ShortcutHint action="newRecord" className="ml-1" />
-          </button>
+          canCreateCase ? (
+            <button
+              type="button"
+              onClick={() => navigate('/cases/new')}
+              data-testid="btn-create-case"
+              className={`${BTN_PRIMARY} ${A11Y_FOCUS_RING} flex items-center gap-2`}
+            >
+              <Plus className="w-4 h-4" />
+              <span>Tạo mới</span>
+              <ShortcutHint action="newRecord" className="ml-1" />
+            </button>
+          ) : null
         }
       />
       <StatsCardsStrip

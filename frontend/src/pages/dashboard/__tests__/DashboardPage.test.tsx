@@ -6,6 +6,9 @@ import { authStore } from '@/stores/auth.store';
 // Mock auth store
 vi.mock('@/stores/auth.store', () => ({
   authStore: {
+    // usePermission subscribes to the store now instead of snapshotting it.
+    getProfileRaw: vi.fn(() => null),
+    onTokenChanged: vi.fn(() => () => {}),
     getUser: vi.fn(),
   },
 }));

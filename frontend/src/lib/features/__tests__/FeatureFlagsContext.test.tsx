@@ -9,6 +9,9 @@ vi.mock('../../api', () => ({
 // Mock authStore so 401 handling can be observed.
 vi.mock('@/stores/auth.store', () => ({
   authStore: {
+    // usePermission subscribes to the store now instead of snapshotting it.
+    getProfileRaw: vi.fn(() => null),
+    onTokenChanged: vi.fn(() => () => {}),
     clearTokens: vi.fn(),
     getUser: vi.fn(),
   },

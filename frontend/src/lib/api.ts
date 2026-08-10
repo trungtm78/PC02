@@ -57,6 +57,11 @@ api.interceptors.response.use(
         const { data } = await api.post('/auth/refresh', { refreshToken });
         // Update sessionStorage AND notify subscribers (useAuthHydration may need to re-fetch profile)
         sessionStorage.setItem('accessToken', data.accessToken);
+        // Drop the cached profile too. It carries the permission set, and
+        // hydration skips whenever a cached profile exists — so without this a
+        // revoked permission stayed live on the UI for the whole tab session
+        // while the backend had already started answering 403.
+        sessionStorage.removeItem('authProfile');
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent('pc02:auth-token-changed'));
         }

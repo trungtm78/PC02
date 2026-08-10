@@ -146,8 +146,13 @@ const EMPTY_FORM: FormData = {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function UserManagementPage() {
-  const { canEdit } = usePermission();
+  // Gating the row click alone was not enough: Thêm người dùng, Import Excel,
+  // xoá và reset mật khẩu/2FA all stayed live for an OFFICER holding only
+  // read:User, so the screen offered actions the API answers with 403.
+  const { canCreate, canEdit, canDelete } = usePermission();
   const canEditRow = canEdit('users');
+  const canCreateUser = canCreate('users');
+  const canDeleteUser = canDelete('users');
   const [activeTab, setActiveTab] = useState<'users-list' | 'roles-permissions'>('users-list');
 
   // --- Users state ---
@@ -569,6 +574,7 @@ export default function UserManagementPage() {
               <Download className="w-4 h-4" />
               Xuất Excel
             </button>
+            {canCreateUser && (
             <button
               onClick={() => setShowBulkImport(true)}
               data-testid="btn-bulk-import"
@@ -577,6 +583,8 @@ export default function UserManagementPage() {
               <Upload className="w-4 h-4" />
               Import Excel
             </button>
+            )}
+            {canCreateUser && (
             <button
               onClick={handleOpenAddModal}
               data-testid="btn-add-user"
@@ -585,6 +593,7 @@ export default function UserManagementPage() {
               <Plus className="w-4 h-4" />
               Thêm người dùng
             </button>
+            )}
           </div>
         </div>
 
@@ -705,14 +714,17 @@ export default function UserManagementPage() {
                           >
                             <Eye className="w-4 h-4 text-slate-600" />
                           </button>
+                          {canEditRow && (
                           <button
                             onClick={() => handleOpenEditModal(user)}
+                            data-testid={`btn-edit-${user.id}`}
                             className="p-1.5 hover:bg-slate-100 rounded transition-colors"
                             title="Chỉnh sửa"
                           >
                             <Edit2 className="w-4 h-4 text-slate-600" />
                           </button>
-                          {user.totpEnabled && (
+                          )}
+                          {canEditRow && user.totpEnabled && (
                             <button
                               onClick={() => handleReset2Fa(user)}
                               className="p-1.5 hover:bg-amber-50 rounded transition-colors"
@@ -722,14 +734,19 @@ export default function UserManagementPage() {
                             </button>
                           )}
                           {/* F1: admin reset password — generates new temp pw, shown ONCE */}
+                          {canEditRow && (
                           <button
                             onClick={() => void handleResetPassword(user)}
+                            data-testid={`btn-reset-password-${user.id}`}
                             className="p-1.5 hover:bg-amber-50 rounded transition-colors"
                             title="Đặt lại mật khẩu (tạo mật khẩu tạm mới)"
                           >
                             <KeyRound className="w-4 h-4 text-amber-700" />
                           </button>
+                          )}
+                          {canDeleteUser && (
                           <button
+                            data-testid={`btn-delete-${user.id}`}
                             onClick={() => {
                               setDeletingUser(user);
                               setShowDeleteConfirm(true);
@@ -739,6 +756,7 @@ export default function UserManagementPage() {
                           >
                             <Trash2 className="w-4 h-4 text-red-600" />
                           </button>
+                          )}
                         </div>
                       </td>
                       <td className="py-4 px-6">

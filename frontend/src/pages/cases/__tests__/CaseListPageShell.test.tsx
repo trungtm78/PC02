@@ -20,6 +20,25 @@ import { CaseStatus } from '@/shared/enums/generated';
 import { AssignModalProvider } from '@/features/_shared/modals/AssignModalProvider';
 import { DeleteResourceModalProvider } from '@/features/_shared/modals/DeleteResourceModalProvider';
 
+// The permission layer is real now: with no auth store the shell sees no user,
+// so "Tạo mới" is correctly hidden. The test needs a user who may create.
+vi.mock('@/stores/auth.store', () => ({
+  authStore: {
+    getUser: vi.fn(() => ({
+      email: 'officer@test.local',
+      role: 'OFFICER',
+      permissions: [
+        { action: 'read', subject: 'Case' },
+        { action: 'write', subject: 'Case' },
+        { action: 'edit', subject: 'Case' },
+        { action: 'delete', subject: 'Case' },
+      ],
+    })),
+    getProfileRaw: vi.fn(() => null),
+    onTokenChanged: vi.fn(() => () => {}),
+  },
+}));
+
 vi.mock('@/lib/api', () => ({
   api: {
     get: vi.fn(),

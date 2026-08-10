@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useSyncExternalStore } from 'react';
 import { authStore } from '@/stores/auth.store';
 import { ROLE_NAMES } from '@/shared/enums/roles';
 import {
@@ -25,12 +25,40 @@ export type { PermissionAction, PermissionResource };
  * them. A brief moment with a control hidden is correct; a brief moment with
  * a forbidden control shown is the bug this replaces.
  */
+/** Stable subscriber so useSyncExternalStore does not resubscribe each render. */
+const subscribeToAuth = (onChange: () => void) =>
+  authStore.onTokenChanged(onChange);
+
 export function usePermission() {
-  // One source, not two. `getUser()` already returns the cached profile when
-  // there is one and falls back to the JWT payload otherwise — and the JWT
-  // carries no permissions, so an unhydrated session yields an empty set.
-  // That is the fail-closed behaviour we want, for free.
-  const user = authStore.getUser();
+  // Subscribed, not snapshotted. Reading the store once meant a component
+  // mounted before `/auth/me` resolved kept the JWT fallback's empty set —
+  // permanently, until something unrelated re-rendered it. The controls stayed
+  // hidden for the whole session. `setProfile` emits AUTH_TOKEN_EVENT, so
+  // useSyncExternalStore re-reads on hydration and on any later change.
+  //
+  // One source, not two: `getUser()` returns the cached profile when there is
+  // one and falls back to the JWT otherwise — and the JWT carries no
+  // permissions, so an unhydrated session yields an empty set. Fail-closed for
+  // free.
+  const rawProfile = useSyncExternalStore(
+    subscribeToAuth,
+    () => authStore.getProfileRaw(),
+    () => null,
+  );
+  const user = useMemo(() => {
+    // Parse the snapshot we subscribed to, rather than calling getUser() and
+    // listing rawProfile as a dependency it never reads — that reads as a lie
+    // to anyone maintaining this, and to the exhaustive-deps rule.
+    if (rawProfile) {
+      try {
+        return JSON.parse(rawProfile) as ReturnType<typeof authStore.getUser>;
+      } catch {
+        return null;
+      }
+    }
+    // No cached profile: fall back to the JWT, which carries no permissions.
+    return authStore.getUser();
+  }, [rawProfile]);
 
   const permissionSet = useMemo(
     () =>
@@ -43,9 +71,12 @@ export function usePermission() {
   const hasPermission = useCallback(
     (resource: string, action: PermissionAction): boolean => {
       if (!user) return false;
-      // ADMIN keeps the blanket pass: the backend seeds every permission to
-      // ADMIN anyway, so denying here would only desynchronise the two.
-      if (user.role?.toUpperCase() === ROLE_NAMES.ADMIN) return true;
+      // No ADMIN shortcut. PermissionsGuard deliberately has none either — it
+      // reads live rolePermission rows, so an admin whose role lost a
+      // permission in the role editor is denied by the API. A frontend
+      // shortcut would have shown them the button anyway. The seed grants
+      // ADMIN every permission, so in practice nothing changes; what changes
+      // is that the two sides now agree.
       const permissions = permissionSet[resource as PermissionResource];
       if (!permissions) return false;
       return permissions.includes(action);

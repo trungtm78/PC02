@@ -68,17 +68,21 @@ Vòng review khắt khe nhất từ đầu dự án. Tôi commit khi **chưa đ�
 
 **Sai sót của riêng tôi cần ghi lại:** tôi lặp lại con số "48 file / 252 chỗ dùng" từ kế hoạch gốc **mà không kiểm chứng**, trong commit message và trong comment code. Thực tế là **17 file**. Phải sửa các chỗ đã viết.
 
-**BƯỚC TIẾP THEO (theo thứ tự):**
-1. Sửa finding #1 — gate các nút thật (đây mới là nội dung của PR), bắt đầu từ `UserManagementPage`, `CaseListPageShell`, danh sách petitions/incidents.
-2. Sửa #2 bằng `authStore.onTokenChanged` + `useSyncExternalStore`.
-3. Sửa #3: thêm ánh xạ theo từng subject, không phải một bảng action toàn cục.
-4. Sửa #4: xoá `authProfile` trong nhánh refresh 401 của `lib/api.ts` (giống `setTokens` đã làm ở PR-B2).
-5. Sửa #5: bỏ lối tắt ADMIN, hoặc thêm bypass ADMIN vào `PermissionsGuard` — chọn **một** nguồn sự thật.
-6. Sửa #6: thêm `Evidence` (+ các subject FE có màn hình) vào bảng ánh xạ.
-7. Sửa #7: kiểm `tsc` trên `auth.service.spec.ts`.
-8. Sửa test ánh xạ: **đọc `seed-permissions.ts` thật** rồi so, thay vì danh sách viết tay.
-9. Sửa con số 48/252 → 17 trong comment và PROGRESS.
-Sau đó mới sang ND-22 và Phase 2 (M3 còn lại).
+**Đã sửa 6/7 finding (commit tiếp theo):**
+- #1 ✅ gate nút thật: `UserManagementPage` (Thêm/Import/Sửa/Reset mật khẩu/Reset 2FA/Xoá), `CaseListPageShell` (Tạo mới).
+- #2 ✅ `useSyncExternalStore` + `authStore.onTokenChanged`. Thêm `getProfileRaw()` trả **chuỗi thô** vì `useSyncExternalStore` so snapshot theo tham chiếu — `getProfile()` parse JSON mỗi lần sẽ render vô hạn.
+- #3 ✅ `WRITE_ALSO_MEANS_EDIT` theo từng subject (`Setting`, `Report`, `Directory`, `User` không có permission `edit`, nên `write` bao cả sửa).
+- #4 ✅ xoá `authProfile` trong nhánh refresh 401 của `lib/api.ts`.
+- #5 ✅ **bỏ lối tắt ADMIN ở FE** (không thêm bypass ở BE) — BE cố ý không có bypass và seed đã cấp ADMIN mọi quyền, nên thực tế không đổi gì mà hai bên hết mâu thuẫn.
+- #6 ✅ thêm `Evidence` vào bảng ánh xạ (gắn với resource `cases`).
+- #7 ⏳ chưa kiểm: codex nói spec auth gán vào field `private readonly` là lỗi TS, nhưng `tsc --noEmit` của tôi xanh — cần xác minh false positive hay tsconfig không cover.
+
+**BƯỚC TIẾP THEO:**
+1. Kiểm finding #7.
+2. Sửa test ánh xạ: **đọc `seed-permissions.ts` thật** rồi so, thay vì danh sách viết tay (test hiện tại xanh trong khi vẫn thiếu 8 subject).
+3. Rà nốt các nút chưa gate ở danh sách petitions/incidents.
+4. Chạy lại `/codex` cho PR-F1 — vòng trước tìm 7×[P1], đừng coi là đã sạch khi chưa chạy lại.
+5. Rồi ND-22 và Phase 2 (M3 còn lại: C4, C5, C9, C10, C11, C12-rest).
 
 ---
 
