@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, Lock, RefreshCw, ShieldAlert } from 'lucide-react';
 import { api } from '@/lib/api';
 import { extractApiError } from '@/lib/api-errors';
@@ -44,12 +44,29 @@ export default function FeatureFlagsAdminPage() {
   const { flags, isLoading, error, refresh } = useFeatureFlagsContext();
   const [saving, setSaving] = useState<string | null>(null);
   const [banner, setBanner] = useState<string>('');
+  const [warning, setWarning] = useState<string>('');
+  const inFlight = useRef(false);
+  const confirmRef = useRef<HTMLButtonElement>(null);
   const [pending, setPending] = useState<PendingChange | null>(null);
-  const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  // Read synchronously in the initial state, not in an effect. An effect
+  // renders once before it runs, which flashed the "chỉ quản trị viên" panel
+  // at admins on every visit. A lazy initialiser is still fail-closed: if the
+  // store has no user yet, this is false and stays false until a re-render.
+  const [isAdmin] = useState<boolean>(
+    () => authStore.getUser()?.role === ROLE_NAMES.ADMIN,
+  );
 
+  // Escape closes the dialog and focus starts on the destructive button, so
+  // a keyboard user is not left tabbing through switches behind an open modal.
   useEffect(() => {
-    setIsAdmin(authStore.getUser()?.role === ROLE_NAMES.ADMIN);
-  }, []);
+    if (!pending) return;
+    confirmRef.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !inFlight.current) setPending(null);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [pending]);
 
   const grouped = useMemo(() => {
     const byDomain = new Map<string, FeatureFlag[]>();
@@ -73,19 +90,40 @@ export default function FeatureFlagsAdminPage() {
 
   const apply = useCallback(
     async (flag: FeatureFlag, next: boolean) => {
+      // Ref, not state: two clicks in the same tick both read the old state
+      // and both fire. Every toggle is disabled while this is set, so the
+      // whole page serialises rather than only the row being saved.
+      if (inFlight.current) return;
+      inFlight.current = true;
       setSaving(flag.key);
       setBanner('');
+      setWarning('');
+
       try {
         await api.patch(`/feature-flags/${flag.key}`, { enabled: next });
-        // Re-read rather than patching local state: the server may have
-        // refused in a way that still returns 200 for a different key, and
-        // the sidebar reads the same context.
-        await refresh();
       } catch (e: unknown) {
         setBanner(
           extractApiError(e, 'Không đổi được trạng thái tính năng.').message,
         );
+        inFlight.current = false;
+        setSaving(null);
+        setPending(null);
+        return;
+      }
+
+      // Separate from the PATCH on purpose. The write has committed by now;
+      // a failed re-read is a display problem, not a failed change. Reporting
+      // it as "không đổi được" while the server had already switched the flag
+      // is the worst of both — the operator retries a change that already
+      // happened.
+      try {
+        await refresh();
+      } catch {
+        setWarning(
+          'Đã đổi trạng thái thành công, nhưng chưa tải lại được danh sách. Bấm Làm mới để xem trạng thái mới nhất.',
+        );
       } finally {
+        inFlight.current = false;
         setSaving(null);
         setPending(null);
       }
@@ -135,6 +173,17 @@ export default function FeatureFlagsAdminPage() {
         >
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
           {banner}
+        </div>
+      )}
+
+      {warning && (
+        <div
+          role="status"
+          data-testid="feature-flags-warning"
+          className="mb-4 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"
+        >
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          {warning}
         </div>
       )}
 
@@ -190,7 +239,7 @@ export default function FeatureFlagsAdminPage() {
                   role="switch"
                   aria-checked={flag.enabled}
                   aria-label={flag.label}
-                  disabled={flag.isCore || saving === flag.key}
+                  disabled={flag.isCore || saving !== null}
                   onClick={() =>
                     flag.enabled
                       ? setPending({ flag, next: false })
@@ -214,11 +263,15 @@ export default function FeatureFlagsAdminPage() {
         <div
           role="dialog"
           aria-modal="true"
+          aria-labelledby="feature-flags-confirm-title"
           data-testid="feature-flags-confirm"
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
         >
           <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
-            <h3 className="text-lg font-semibold text-slate-900">
+            <h3
+              id="feature-flags-confirm-title"
+              className="text-lg font-semibold text-slate-900"
+            >
               Tắt &ldquo;{pending.flag.label}&rdquo;?
             </h3>
             <p className="mt-2 text-sm text-slate-600">
@@ -237,6 +290,7 @@ export default function FeatureFlagsAdminPage() {
               <button
                 type="button"
                 data-testid="feature-flags-confirm-ok"
+                ref={confirmRef}
                 disabled={saving !== null}
                 onClick={() => void apply(pending.flag, pending.next)}
                 className="rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"

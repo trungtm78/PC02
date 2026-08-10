@@ -39,7 +39,7 @@ Cập nhật: 2026-08-10T03:15:00+07:00 | Milestone: M1/5 | Task: 0/5 của M1
 
 ## Đang làm dở
 
-Task: M2-T2 — PR-B2 `feat/feature-flags-admin-page` (**code xong, chờ `/codex`** — đóng M2)
+Task: M2-T2 — PR-B2 `feat/feature-flags-admin-page` (**xong — qua `/codex`**; M2 đóng)
 Đã làm:
 - Module FE mới `features/feature-flags/` + trang `/admin/tinh-nang`. Nhóm theo `domain`; **domain lạ rơi vào nhóm "Khác" chứ không bị lọc mất** — lọc đi là giấu một tính năng đang chạy khỏi đúng màn hình duy nhất tắt được nó (có test).
 - Cờ lõi: nút **disabled** + nhãn "Lõi — không thể tắt", đọc từ `isCore` server trả về nên FE **không giữ bản sao thứ hai** của danh sách lõi.
@@ -48,7 +48,21 @@ Task: M2-T2 — PR-B2 `feat/feature-flags-admin-page` (**code xong, chờ `/code
 - Quyền dùng `role === ADMIN` chứ **không** `hasPermission` — tầng quyền FE vẫn là mock trả `true` cho mọi người (ND-6), gắn vào đó là "trông như có kiểm mà không kiểm gì". BE mới là cổng thật (`write:FeatureFlag`).
 - Sửa `featureRegistry.test.tsx` vốn hardcode 24 key ⇒ module thứ 25 làm test đỏ. Kế hoạch đã cảnh báo trước điều này.
 Kiểm: BE **226 suite / 3078 test** PASS, FE **155 file / 1511 test** PASS, tsc sạch, 3 cổng xanh.
-**BƯỚC TIẾP THEO:** `/codex` cho PR-B2. Sau đó M2 đóng; sang M3 (C1–C12 — xóa mockup).
+**BƯỚC TIẾP THEO:** M3 (C1–C12 — xóa mockup).
+
+### Finding đã xử lý ở checkpoint `/codex` PR-B2
+
+Ba [P1], trong đó **một cái là bug auth store có sẵn, ảnh hưởng toàn app**:
+
+1. **`setTokens()` không xoá profile đã cache, mà `getUser()` ưu tiên profile hơn JWT.** Đăng nhập bằng tài khoản quyền thấp **đè lên** phiên admin đang có thì danh tính admin vẫn còn ⇒ mọi chỗ trong app kiểm `role === ADMIN` đều đọc sai, không riêng trang này. Sửa ở gốc: `setTokens` xoá profile.
+2. **PATCH thành công + refresh hỏng ⇒ báo "Không đổi được…" và giữ trạng thái cũ**, trong khi server đã ghi rồi. Người vận hành sẽ thử lại một thay đổi đã xảy ra. Tách hai `try` riêng: lỗi refresh nay là **cảnh báo** ("đã đổi thành công, chưa tải lại được"), không phải báo lỗi.
+3. **Không khoá toàn cục khi đang ghi** — chỉ dòng đang lưu bị disable, nên bấm dòng khác vẫn chạy và `finally` của request này mở khoá trong khi request kia còn bay. Thêm `useRef` làm mutex + disable **mọi** toggle khi đang lưu.
+
+Kèm [P2] về a11y hộp thoại: thêm `aria-labelledby`, focus vào nút xác nhận khi mở, Escape để đóng.
+
+Còn 1 [P2] ghi nợ: mục menu hiện với mọi user đã đăng nhập vì menu chỉ lái theo cờ, không theo quyền — đã ghi ở **ND-22**, phải quyết cùng ND-6.
+
+Codex xác nhận parity không vỡ: key `feature-flags` có sẵn ở BE và nằm trong registry sinh ra.
 
 ---
 
@@ -303,7 +317,7 @@ Tự phát hiện thêm: 3 file test mới của chính tôi bị baseline hoá 
 
 Full suite: **PASS**
 - Backend: 226 suite / **3078** test — PASS (xem ND-9: 1 suite flaky ~1/6 lần, có sẵn từ trước)
-- Frontend: 155 file / **1511** test — PASS (3 lần chạy liên tiếp ổn định)
+- Frontend: 155 file / **1514** test — PASS (3 lần chạy liên tiếp ổn định)
 - Cổng governance: enum guard ✅ · gen:enums drift ✅ · lint ratchet ✅ (baseline 8.945 sau ADR-0015)
 - `tsc --noEmit` (BE): sạch · `tsc -b` (FE): sạch
 - eslint: không có lỗi mới trên dòng đã thêm (nợ lint có sẵn xem ND-1)

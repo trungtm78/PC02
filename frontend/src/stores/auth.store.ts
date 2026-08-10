@@ -78,6 +78,13 @@ export const authStore = {
   setTokens(accessToken: string, refreshToken: string) {
     sessionStorage.setItem('accessToken', accessToken);
     localStorage.setItem('refreshToken', refreshToken);
+    // Drop the cached profile: it belongs to whoever was signed in before.
+    // `getUser()` prefers the profile over the JWT, so leaving it meant that
+    // signing in as a lesser-privileged user on top of an existing session
+    // kept the previous identity — including its role — until something else
+    // happened to refetch. Every `role === ADMIN` check in the app reads
+    // through here.
+    sessionStorage.removeItem(PROFILE_KEY);
     dispatchTokenChanged();
   },
 

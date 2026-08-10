@@ -154,4 +154,58 @@ describe('FeatureFlagsAdminPage', () => {
     expect(await screen.findByTestId('flag-row-la-hoac')).toBeInTheDocument();
     expect(screen.getByText('Khác')).toBeInTheDocument();
   });
+  it('does not report failure when the PATCH succeeded but the reload did not', async () => {
+    // The write has committed by then. Saying "không đổi được" makes the
+    // operator retry a change that already happened.
+    setFlags([flag({ key: 'kpi', label: 'KPI', enabled: false })]);
+    vi.mocked(api.patch).mockResolvedValue({ data: {} } as never);
+    refresh.mockRejectedValueOnce(new Error('mang loi'));
+
+    render(<FeatureFlagsAdminPage />);
+    await userEvent.click(await screen.findByRole('switch', { name: 'KPI' }));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('feature-flags-warning')).toBeInTheDocument(),
+    );
+    expect(screen.queryByTestId('feature-flags-error')).not.toBeInTheDocument();
+  });
+
+  it('locks every toggle while one save is in flight, not just its own row', async () => {
+    setFlags([
+      flag({ key: 'kpi', label: 'KPI', enabled: false }),
+      flag({ key: 'journey', label: 'Hành trình', enabled: false }),
+    ]);
+    let release: (() => void) | undefined;
+    vi.mocked(api.patch).mockImplementation(
+      () =>
+        new Promise((res) => {
+          release = () => res({ data: {} } as never);
+        }),
+    );
+
+    render(<FeatureFlagsAdminPage />);
+    await userEvent.click(await screen.findByRole('switch', { name: 'KPI' }));
+
+    await waitFor(() =>
+      expect(screen.getByRole('switch', { name: 'Hành trình' })).toBeDisabled(),
+    );
+    release?.();
+  });
+
+  it('Escape closes the confirmation without switching anything off', async () => {
+    setFlags([flag({ key: 'kpi', label: 'KPI', enabled: true })]);
+
+    render(<FeatureFlagsAdminPage />);
+    await userEvent.click(await screen.findByRole('switch', { name: 'KPI' }));
+    expect(screen.getByTestId('feature-flags-confirm')).toBeInTheDocument();
+
+    await userEvent.keyboard('{Escape}');
+
+    await waitFor(() =>
+      expect(
+        screen.queryByTestId('feature-flags-confirm'),
+      ).not.toBeInTheDocument(),
+    );
+    expect(api.patch).not.toHaveBeenCalled();
+  });
 });
