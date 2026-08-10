@@ -13,8 +13,16 @@ export class AppController {
   }
 
   @Get('health')
-  health(): { status: string; timestamp: string } {
-    return { status: 'ok', timestamp: new Date().toISOString() };
+  health(): { status: string; timestamp: string; minMobileVersion: string | null } {
+    return {
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      // PR-M1 — phiên bản di động tối thiểu. Ứng dụng đã cài đọc mốc này để
+      // biết mình đã quá cũ; đây là ĐƯỜNG CỨU DUY NHẤT cho một APK không hiểu
+      // `FEATURE_DISABLED`, vì không deploy nào sửa được app trên máy người
+      // dùng. Để trống nghĩa là không ép cập nhật — client cho đi tiếp.
+      minMobileVersion: process.env.MIN_MOBILE_VERSION ?? null,
+    };
   }
 
   // Sprint 3 / S3.4 — CSP violation report endpoint.
