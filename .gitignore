@@ -57,3 +57,4 @@ docs/legacy/*.ejsonl
 # khi mở nó ra trên máy khác.
 !docs/huong-dan-su-dung/anh/
 !docs/huong-dan-su-dung/anh/*.png
+docs/huong-dan-su-dung/index.inline.html

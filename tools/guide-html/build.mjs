@@ -14,6 +14,18 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = process.env.GUIDE_OUT || path.resolve(__dirname, '../../docs/huong-dan-su-dung');
 const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'manifest.json'), 'utf8'));
 
+/**
+ * `--inline` embeds every screenshot as a data URI so the page is one file.
+ * The hosted copy needs it (nothing can fetch a sibling folder); the repo copy
+ * does not, and would be a 8MB diff on every re-record if it did.
+ */
+const INLINE = process.argv.includes('--inline');
+const srcFor = (image) => {
+  if (!INLINE) return `anh/${image}`;
+  const buf = fs.readFileSync(path.join(ROOT, 'anh', image));
+  return `data:image/png;base64,${buf.toString('base64')}`;
+};
+
 const esc = (s) =>
   String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -63,9 +75,8 @@ const body = chapters
     ${s.how ? `<p class="how"><b>Thao tác:</b> ${esc(s.how)}</p>` : ''}
     ${s.data ? `<p class="data">Dữ liệu trong ảnh: ${esc(s.data)}</p>` : ''}
     ${s.ok ? '' : `<p class="err">Bước này không chạy được khi ghi hướng dẫn: ${esc(s.error)}</p>`}
-    <figure><a href="anh/${esc(s.image)}" target="_blank" rel="noopener">
-      <img src="anh/${esc(s.image)}" alt="${esc(s.title)}" loading="lazy">
-    </a><figcaption>Ảnh chụp thật · bấm để xem cỡ đầy đủ</figcaption></figure>
+    <figure><img src="${srcFor(s.image)}" alt="${esc(s.title)}" loading="lazy">
+    <figcaption>Ảnh chụp thật trong lần ghi này</figcaption></figure>
   </article>`,
     )
     .join('')}
@@ -83,25 +94,28 @@ const html = `<title>Hướng dẫn sử dụng — Hệ thống quản lý vụ
   :root{
     --bg:#f7f6f2; --panel:#fff; --ink:#1c1f24; --muted:#5b6472; --line:#e3e1da;
     --brand:#003973; --accent:#b58a2f; --err:#b42318; --code:#f2f1ec;
+    --banner:#003973; --on-banner:#ffffff;
   }
-  :root:not([data-theme="light"]){ }
   @media (prefers-color-scheme: dark){
     :root:not([data-theme="light"]){
       --bg:#14171c; --panel:#1b1f26; --ink:#e9ecf1; --muted:#9aa4b2; --line:#2a3039;
       --brand:#7fb0e8; --accent:#d9b45f; --err:#ff8a80; --code:#232830;
+      --banner:#0b2745; --on-banner:#e9ecf1;
     }
   }
   :root[data-theme="dark"]{
     --bg:#14171c; --panel:#1b1f26; --ink:#e9ecf1; --muted:#9aa4b2; --line:#2a3039;
     --brand:#7fb0e8; --accent:#d9b45f; --err:#ff8a80; --code:#232830;
+    --banner:#0b2745; --on-banner:#e9ecf1;
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--ink);
     font:16px/1.65 "Segoe UI",system-ui,-apple-system,"Noto Sans",sans-serif;}
   .wrap{max-width:1180px;margin:0 auto;padding:0 20px}
-  header.top{background:var(--brand);color:#fff;padding:38px 0 30px}
-  :root:not([data-theme="light"]) header.top{background:#0b2745}
-  @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) header.top{background:#0b2745}}
+  /* Banner colour lives in tokens, not in a media block: a colour whose only
+     definition sits behind [data-theme] never applies in the un-stamped
+     "system" state, which is what most viewers actually get. */
+  header.top{background:var(--banner);color:var(--on-banner);padding:38px 0 30px}
   header.top h1{margin:0 0 6px;font-size:30px;letter-spacing:-.2px}
   header.top p{margin:0;opacity:.85;max-width:70ch}
   .meta{margin-top:18px;font-size:13px;opacity:.8}
@@ -116,7 +130,9 @@ const html = `<title>Hướng dẫn sử dụng — Hệ thống quản lý vụ
   nav.toc a:hover{color:var(--brand);text-decoration:underline}
   nav.toc ul ul a{font-size:13px;color:var(--muted);padding-left:24px}
   .n{display:inline-block;width:20px;height:20px;line-height:20px;text-align:center;font-size:11px;
-    border-radius:4px;background:var(--brand);color:#fff;margin-right:8px;font-weight:700}
+    border-radius:4px;background:var(--brand);color:var(--panel);margin-right:8px;font-weight:700}
+  a:focus-visible,img:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
   .intro{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--accent);
     border-radius:8px;padding:18px 20px;margin-bottom:28px}
   .intro h3{margin:0 0 8px;font-size:17px}
@@ -137,9 +153,11 @@ const html = `<title>Hướng dẫn sử dụng — Hệ thống quản lý vụ
   .data{font-size:14px;background:var(--code);border-radius:6px;padding:8px 12px;display:inline-block}
   .err{color:var(--err);font-weight:600}
   figure{margin:14px 0 0}
-  figure img{width:100%;height:auto;display:block;border:1px solid var(--line);border-radius:8px;background:#fff}
+  figure img{width:100%;height:auto;display:block;border:1px solid var(--line);border-radius:8px;
+    background:var(--panel)}
   figcaption{margin-top:6px;font-size:12px;color:var(--muted)}
   table.facts{border-collapse:collapse;width:100%;margin-top:10px;font-size:14px}
+  table.facts{font-variant-numeric:tabular-nums}
   table.facts td{border:1px solid var(--line);padding:7px 10px;vertical-align:top}
   table.facts td:first-child{color:var(--muted);width:34%}
   .foot{border-top:1px solid var(--line);margin-top:34px;padding-top:18px;color:var(--muted);font-size:13px}
@@ -182,5 +200,7 @@ const html = `<title>Hướng dẫn sử dụng — Hệ thống quản lý vụ
   </main>
 </div>`;
 
-fs.writeFileSync(path.join(ROOT, 'index.html'), html, 'utf8');
-console.log(`Đã sinh ${path.join(ROOT, 'index.html')} — ${manifest.steps.length} bước, ${chapters.length} chương`);
+const outFile = path.join(ROOT, INLINE ? 'index.inline.html' : 'index.html');
+fs.writeFileSync(outFile, html, 'utf8');
+const mb = (fs.statSync(outFile).size / 1048576).toFixed(1);
+console.log(`Đã sinh ${outFile} — ${manifest.steps.length} bước, ${chapters.length} chương, ${mb} MB`);

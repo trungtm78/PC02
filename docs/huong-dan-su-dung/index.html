@@ -4,25 +4,28 @@
   :root{
     --bg:#f7f6f2; --panel:#fff; --ink:#1c1f24; --muted:#5b6472; --line:#e3e1da;
     --brand:#003973; --accent:#b58a2f; --err:#b42318; --code:#f2f1ec;
+    --banner:#003973; --on-banner:#ffffff;
   }
-  :root:not([data-theme="light"]){ }
   @media (prefers-color-scheme: dark){
     :root:not([data-theme="light"]){
       --bg:#14171c; --panel:#1b1f26; --ink:#e9ecf1; --muted:#9aa4b2; --line:#2a3039;
       --brand:#7fb0e8; --accent:#d9b45f; --err:#ff8a80; --code:#232830;
+      --banner:#0b2745; --on-banner:#e9ecf1;
     }
   }
   :root[data-theme="dark"]{
     --bg:#14171c; --panel:#1b1f26; --ink:#e9ecf1; --muted:#9aa4b2; --line:#2a3039;
     --brand:#7fb0e8; --accent:#d9b45f; --err:#ff8a80; --code:#232830;
+    --banner:#0b2745; --on-banner:#e9ecf1;
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--ink);
     font:16px/1.65 "Segoe UI",system-ui,-apple-system,"Noto Sans",sans-serif;}
   .wrap{max-width:1180px;margin:0 auto;padding:0 20px}
-  header.top{background:var(--brand);color:#fff;padding:38px 0 30px}
-  :root:not([data-theme="light"]) header.top{background:#0b2745}
-  @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) header.top{background:#0b2745}}
+  /* Banner colour lives in tokens, not in a media block: a colour whose only
+     definition sits behind [data-theme] never applies in the un-stamped
+     "system" state, which is what most viewers actually get. */
+  header.top{background:var(--banner);color:var(--on-banner);padding:38px 0 30px}
   header.top h1{margin:0 0 6px;font-size:30px;letter-spacing:-.2px}
   header.top p{margin:0;opacity:.85;max-width:70ch}
   .meta{margin-top:18px;font-size:13px;opacity:.8}
@@ -37,7 +40,9 @@
   nav.toc a:hover{color:var(--brand);text-decoration:underline}
   nav.toc ul ul a{font-size:13px;color:var(--muted);padding-left:24px}
   .n{display:inline-block;width:20px;height:20px;line-height:20px;text-align:center;font-size:11px;
-    border-radius:4px;background:var(--brand);color:#fff;margin-right:8px;font-weight:700}
+    border-radius:4px;background:var(--brand);color:var(--panel);margin-right:8px;font-weight:700}
+  a:focus-visible,img:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
   .intro{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--accent);
     border-radius:8px;padding:18px 20px;margin-bottom:28px}
   .intro h3{margin:0 0 8px;font-size:17px}
@@ -58,9 +63,11 @@
   .data{font-size:14px;background:var(--code);border-radius:6px;padding:8px 12px;display:inline-block}
   .err{color:var(--err);font-weight:600}
   figure{margin:14px 0 0}
-  figure img{width:100%;height:auto;display:block;border:1px solid var(--line);border-radius:8px;background:#fff}
+  figure img{width:100%;height:auto;display:block;border:1px solid var(--line);border-radius:8px;
+    background:var(--panel)}
   figcaption{margin-top:6px;font-size:12px;color:var(--muted)}
   table.facts{border-collapse:collapse;width:100%;margin-top:10px;font-size:14px}
+  table.facts{font-variant-numeric:tabular-nums}
   table.facts td{border:1px solid var(--line);padding:7px 10px;vertical-align:top}
   table.facts td:first-child{color:var(--muted);width:34%}
   .foot{border-top:1px solid var(--line);margin-top:34px;padding-top:18px;color:var(--muted);font-size:13px}
@@ -109,9 +116,8 @@
     <p class="how"><b>Thao tác:</b> Ô đầu nhận số hiệu cán bộ, số điện thoại, email hoặc tên đăng nhập — dùng cái nào cũng được. Nếu tài khoản đã bật xác thực hai lớp, sau bước này sẽ có màn nhập mã.</p>
     
     
-    <figure><a href="anh/01-dang-nhap.png" target="_blank" rel="noopener">
-      <img src="anh/01-dang-nhap.png" alt="Đăng nhập hệ thống" loading="lazy">
-    </a><figcaption>Ảnh chụp thật · bấm để xem cỡ đầy đủ</figcaption></figure>
+    <figure><img src="anh/01-dang-nhap.png" alt="Đăng nhập hệ thống" loading="lazy">
+    <figcaption>Ảnh chụp thật trong lần ghi này</figcaption></figure>
   </article>
   <article class="step" id="02-tong-quan">
     <h3>Màn hình Tổng quan</h3>
@@ -119,9 +125,8 @@
     <p class="how"><b>Thao tác:</b> Thanh bên trái gom màn hình theo nhóm nghiệp vụ. Mục nào tổ chức chưa bật, hoặc tài khoản không có quyền, sẽ không hiện — nên hai người khác quyền sẽ thấy hai thanh bên khác nhau.</p>
     
     
-    <figure><a href="anh/02-tong-quan.png" target="_blank" rel="noopener">
-      <img src="anh/02-tong-quan.png" alt="Màn hình Tổng quan" loading="lazy">
-    </a><figcaption>Ảnh chụp thật · bấm để xem cỡ đầy đủ</figcaption></figure>
+    <figure><img src="anh/02-tong-quan.png" alt="Màn hình Tổng quan" loading="lazy">
+    <figcaption>Ảnh chụp thật trong lần ghi này</figcaption></figure>
   </article>
 </section>
 <section class="chapter" id="ch-1">
@@ -137,9 +142,8 @@
     <p class="how"><b>Thao tác:</b> Vào Nghiệp vụ chính → Đơn thư → Tiếp nhận đơn mới. Ô có dấu * là bắt buộc.</p>
     
     
-    <figure><a href="anh/03-don-thu-form-trong.png" target="_blank" rel="noopener">
-      <img src="anh/03-don-thu-form-trong.png" alt="Mở phiếu tiếp nhận đơn thư" loading="lazy">
-    </a><figcaption>Ảnh chụp thật · bấm để xem cỡ đầy đủ</figcaption></figure>
+    <figure><img src="anh/03-don-thu-form-trong.png" alt="Mở phiếu tiếp nhận đơn thư" loading="lazy">
+    <figcaption>Ảnh chụp thật trong lần ghi này</figcaption></figure>
   </article>
   <article class="step" id="04-don-thu-da-dien">
     <h3>Điền thông tin người gửi và nội dung</h3>
@@ -147,9 +151,8 @@
     <p class="how"><b>Thao tác:</b> Nội dung nên ghi đúng lời trình bày của công dân, không tóm tắt lại theo cách hiểu của người nhập — đây là căn cứ để phân loại và xác định thẩm quyền về sau.</p>
     <p class="data">Dữ liệu trong ảnh: Người gửi: Trần Thị Bích Ngọc · ĐT 0903221847 · Tội danh: Điều 174 · Tội lừa đảo chiếm đoạt tài sản</p>
     
-    <figure><a href="anh/04-don-thu-da-dien.png" target="_blank" rel="noopener">
-      <img src="anh/04-don-thu-da-dien.png" alt="Điền thông tin người gửi và nội dung" loading="lazy">
-    </a><figcaption>Ảnh chụp thật · bấm để xem cỡ đầy đủ</figcaption></figure>
+    <figure><img src="anh/04-don-thu-da-dien.png" alt="Điền thông tin người gửi và nội dung" loading="lazy">
+    <figcaption>Ảnh chụp thật trong lần ghi này</figcaption></figure>
   </article>
   <article class="step" id="05-don-thu-da-luu">
     <h3>Lưu đơn — hệ thống cấp số tiếp nhận</h3>
@@ -157,9 +160,8 @@
     <p class="how"><b>Thao tác:</b> Bấm Lưu. Nếu còn ô bắt buộc chưa điền, hệ thống sẽ chỉ thẳng vào ô đó thay vì báo lỗi chung.</p>
     
     
-    <figure><a href="anh/05-don-thu-da-luu.png" target="_blank" rel="noopener">
-      <img src="anh/05-don-thu-da-luu.png" alt="Lưu đơn — hệ thống cấp số tiếp nhận" loading="lazy">
-    </a><figcaption>Ảnh chụp thật · bấm để xem cỡ đầy đủ</figcaption></figure>
+    <figure><img src="anh/05-don-thu-da-luu.png" alt="Lưu đơn — hệ thống cấp số tiếp nhận" loading="lazy">
+    <figcaption>Ảnh chụp thật trong lần ghi này</figcaption></figure>
   </article>
   <article class="step" id="06-danh-sach-don-thu">
     <h3>Đơn vừa nhập đã nằm trong sổ</h3>
@@ -167,9 +169,8 @@
     <p class="how"><b>Thao tác:</b> Các thẻ số phía trên vừa là thống kê vừa là bộ lọc: bấm vào thẻ sẽ lọc danh sách theo đúng trạng thái đó. Ô tìm kiếm tìm theo số tiếp nhận, tên người gửi và nội dung.</p>
     
     
-    <figure><a href="anh/06-danh-sach-don-thu.png" target="_blank" rel="noopener">
-      <img src="anh/06-danh-sach-don-thu.png" alt="Đơn vừa nhập đã nằm trong sổ" loading="lazy">
-    </a><figcaption>Ảnh chụp thật · bấm để xem cỡ đầy đủ</figcaption></figure>
+    <figure><img src="anh/06-danh-sach-don-thu.png" alt="Đơn vừa nhập đã nằm trong sổ" loading="lazy">
+    <figcaption>Ảnh chụp thật trong lần ghi này</figcaption></figure>
   </article>
 </section>
 <section class="chapter" id="ch-2">
@@ -185,9 +186,8 @@
     <p class="how"><b>Thao tác:</b> Vào Nghiệp vụ chính → Vụ việc → Thêm vụ việc mới.</p>
     <p class="data">Dữ liệu trong ảnh: Tên vụ việc: Xác minh tin báo chiếm đoạt tài sản qua mạng tại phường Bến Thành</p>
     
-    <figure><a href="anh/07-vu-viec-form.png" target="_blank" rel="noopener">
-      <img src="anh/07-vu-viec-form.png" alt="Lập vụ việc để xác minh nguồn tin" loading="lazy">
-    </a><figcaption>Ảnh chụp thật · bấm để xem cỡ đầy đủ</figcaption></figure>
+    <figure><img src="anh/07-vu-viec-form.png" alt="Lập vụ việc để xác minh nguồn tin" loading="lazy">
+    <figcaption>Ảnh chụp thật trong lần ghi này</figcaption></figure>
   </article>
   <article class="step" id="07b-vu-viec-da-luu">
     <h3>Lưu vụ việc — hệ thống cấp mã và tính thời hạn</h3>
@@ -195,9 +195,8 @@
     <p class="how"><b>Thao tác:</b> Bấm Lưu vụ việc. Các thông tin còn thiếu có thể bổ sung dần trong quá trình xác minh.</p>
     
     
-    <figure><a href="anh/07b-vu-viec-da-luu.png" target="_blank" rel="noopener">
-      <img src="anh/07b-vu-viec-da-luu.png" alt="Lưu vụ việc — hệ thống cấp mã và tính thời hạn" loading="lazy">
-    </a><figcaption>Ảnh chụp thật · bấm để xem cỡ đầy đủ</figcaption></figure>
+    <figure><img src="anh/07b-vu-viec-da-luu.png" alt="Lưu vụ việc — hệ thống cấp mã và tính thời hạn" loading="lazy">
+    <figcaption>Ảnh chụp thật trong lần ghi này</figcaption></figure>
   </article>
   <article class="step" id="08-danh-sach-vu-viec">
     <h3>Bốn giai đoạn xác minh</h3>
@@ -205,9 +204,8 @@
     <p class="how"><b>Thao tác:</b> Bấm một thẻ để chỉ xem hồ sơ ở giai đoạn đó.</p>
     
     
-    <figure><a href="anh/08-danh-sach-vu-viec.png" target="_blank" rel="noopener">
-      <img src="anh/08-danh-sach-vu-viec.png" alt="Bốn giai đoạn xác minh" loading="lazy">
-    </a><figcaption>Ảnh chụp thật · bấm để xem cỡ đầy đủ</figcaption></figure>
+    <figure><img src="anh/08-danh-sach-vu-viec.png" alt="Bốn giai đoạn xác minh" loading="lazy">
+    <figcaption>Ảnh chụp thật trong lần ghi này</figcaption></figure>
   </article>
 </section>
 <section class="chapter" id="ch-3">
@@ -223,9 +221,8 @@
     <p class="how"><b>Thao tác:</b> Vào Nghiệp vụ chính → Quản lý vụ án → Khởi tố vụ án mới.</p>
     <p class="data">Dữ liệu trong ảnh: Tiêu đề: Vụ án lừa đảo chiếm đoạt tài sản qua mạng — phường Bến Thành · khởi tố từ: VV-2026-00001— Xác minh tin báo chiếm đoạt tài sản qua mạng tại phường</p>
     
-    <figure><a href="anh/09-vu-an-form.png" target="_blank" rel="noopener">
-      <img src="anh/09-vu-an-form.png" alt="Khởi tố — lập hồ sơ vụ án" loading="lazy">
-    </a><figcaption>Ảnh chụp thật · bấm để xem cỡ đầy đủ</figcaption></figure>
+    <figure><img src="anh/09-vu-an-form.png" alt="Khởi tố — lập hồ sơ vụ án" loading="lazy">
+    <figcaption>Ảnh chụp thật trong lần ghi này</figcaption></figure>
   </article>
   <article class="step" id="09b-vu-an-da-luu">
     <h3>Lưu hồ sơ vụ án</h3>
@@ -233,9 +230,8 @@
     <p class="how"><b>Thao tác:</b> Điều tra viên chính là bắt buộc — hồ sơ không có người chịu trách nhiệm thì không vào sổ được.</p>
     
     
-    <figure><a href="anh/09b-vu-an-da-luu.png" target="_blank" rel="noopener">
-      <img src="anh/09b-vu-an-da-luu.png" alt="Lưu hồ sơ vụ án" loading="lazy">
-    </a><figcaption>Ảnh chụp thật · bấm để xem cỡ đầy đủ</figcaption></figure>
+    <figure><img src="anh/09b-vu-an-da-luu.png" alt="Lưu hồ sơ vụ án" loading="lazy">
+    <figcaption>Ảnh chụp thật trong lần ghi này</figcaption></figure>
   </article>
   <article class="step" id="09c-vu-an-xac-nhan">
     <h3>Hồ sơ đã vào sổ</h3>
@@ -243,9 +239,8 @@
     <p class="how"><b>Thao tác:</b> Bấm Xác nhận lưu. Bấm Quay lại sửa nếu còn chỗ cần chỉnh.</p>
     
     
-    <figure><a href="anh/09c-vu-an-xac-nhan.png" target="_blank" rel="noopener">
-      <img src="anh/09c-vu-an-xac-nhan.png" alt="Hồ sơ đã vào sổ" loading="lazy">
-    </a><figcaption>Ảnh chụp thật · bấm để xem cỡ đầy đủ</figcaption></figure>
+    <figure><img src="anh/09c-vu-an-xac-nhan.png" alt="Hồ sơ đã vào sổ" loading="lazy">
+    <figcaption>Ảnh chụp thật trong lần ghi này</figcaption></figure>
   </article>
   <article class="step" id="10-danh-sach-vu-an">
     <h3>Sổ vụ án</h3>
@@ -253,9 +248,8 @@
     <p class="how"><b>Thao tác:</b> Bấm vào một dòng để mở hồ sơ. Nút ba chấm cuối dòng gom các thao tác nhanh: phân công, đổi trạng thái, xóa.</p>
     
     
-    <figure><a href="anh/10-danh-sach-vu-an.png" target="_blank" rel="noopener">
-      <img src="anh/10-danh-sach-vu-an.png" alt="Sổ vụ án" loading="lazy">
-    </a><figcaption>Ảnh chụp thật · bấm để xem cỡ đầy đủ</figcaption></figure>
+    <figure><img src="anh/10-danh-sach-vu-an.png" alt="Sổ vụ án" loading="lazy">
+    <figcaption>Ảnh chụp thật trong lần ghi này</figcaption></figure>
   </article>
 </section>
 <section class="chapter" id="ch-4">
@@ -271,9 +265,8 @@
     <p class="how"><b>Thao tác:</b> Vào Nghiệp vụ chính → Đối tượng liên quan, rồi chọn nhóm cần xem.</p>
     
     
-    <figure><a href="anh/11-doi-tuong.png" target="_blank" rel="noopener">
-      <img src="anh/11-doi-tuong.png" alt="Đối tượng liên quan" loading="lazy">
-    </a><figcaption>Ảnh chụp thật · bấm để xem cỡ đầy đủ</figcaption></figure>
+    <figure><img src="anh/11-doi-tuong.png" alt="Đối tượng liên quan" loading="lazy">
+    <figcaption>Ảnh chụp thật trong lần ghi này</figcaption></figure>
   </article>
   <article class="step" id="12-tai-lieu">
     <h3>Tài liệu hồ sơ</h3>
@@ -281,9 +274,8 @@
     <p class="how"><b>Thao tác:</b> Hệ thống nhận PDF, Word, Excel, ảnh, MP4 và MP3, tối đa 10MB mỗi file.</p>
     
     
-    <figure><a href="anh/12-tai-lieu.png" target="_blank" rel="noopener">
-      <img src="anh/12-tai-lieu.png" alt="Tài liệu hồ sơ" loading="lazy">
-    </a><figcaption>Ảnh chụp thật · bấm để xem cỡ đầy đủ</figcaption></figure>
+    <figure><img src="anh/12-tai-lieu.png" alt="Tài liệu hồ sơ" loading="lazy">
+    <figcaption>Ảnh chụp thật trong lần ghi này</figcaption></figure>
   </article>
 </section>
 <section class="chapter" id="ch-5">
@@ -299,9 +291,8 @@
     <p class="how"><b>Thao tác:</b> Vào Báo cáo &amp; Thống kê → Báo cáo tháng, chọn kỳ rồi xuất file.</p>
     
     
-    <figure><a href="anh/13-bao-cao-thang.png" target="_blank" rel="noopener">
-      <img src="anh/13-bao-cao-thang.png" alt="Báo cáo tháng" loading="lazy">
-    </a><figcaption>Ảnh chụp thật · bấm để xem cỡ đầy đủ</figcaption></figure>
+    <figure><img src="anh/13-bao-cao-thang.png" alt="Báo cáo tháng" loading="lazy">
+    <figcaption>Ảnh chụp thật trong lần ghi này</figcaption></figure>
   </article>
   <article class="step" id="14-nhat-ky">
     <h3>Nhật ký hoạt động</h3>
@@ -309,9 +300,8 @@
     <p class="how"><b>Thao tác:</b> Vào Báo cáo &amp; Thống kê → Nhật ký hoạt động; lọc theo người thực hiện hoặc theo loại hồ sơ.</p>
     
     
-    <figure><a href="anh/14-nhat-ky.png" target="_blank" rel="noopener">
-      <img src="anh/14-nhat-ky.png" alt="Nhật ký hoạt động" loading="lazy">
-    </a><figcaption>Ảnh chụp thật · bấm để xem cỡ đầy đủ</figcaption></figure>
+    <figure><img src="anh/14-nhat-ky.png" alt="Nhật ký hoạt động" loading="lazy">
+    <figcaption>Ảnh chụp thật trong lần ghi này</figcaption></figure>
   </article>
 </section>
 <section class="chapter" id="ch-6">
@@ -327,9 +317,8 @@
     <p class="how"><b>Thao tác:</b> Vào Quản trị → Người dùng. Thẻ Vai trò &amp; Phân quyền là ma trận quyền theo từng vai.</p>
     
     
-    <figure><a href="anh/15-nguoi-dung.png" target="_blank" rel="noopener">
-      <img src="anh/15-nguoi-dung.png" alt="Người dùng và phân quyền" loading="lazy">
-    </a><figcaption>Ảnh chụp thật · bấm để xem cỡ đầy đủ</figcaption></figure>
+    <figure><img src="anh/15-nguoi-dung.png" alt="Người dùng và phân quyền" loading="lazy">
+    <figcaption>Ảnh chụp thật trong lần ghi này</figcaption></figure>
   </article>
   <article class="step" id="16-tinh-nang">
     <h3>Bật/tắt tính năng</h3>
@@ -337,9 +326,8 @@
     <p class="how"><b>Thao tác:</b> Vào Quản trị → Bật/tắt tính năng. Sáu phân hệ lõi không tắt được, để tránh tự khóa mình ra ngoài.</p>
     
     
-    <figure><a href="anh/16-tinh-nang.png" target="_blank" rel="noopener">
-      <img src="anh/16-tinh-nang.png" alt="Bật/tắt tính năng" loading="lazy">
-    </a><figcaption>Ảnh chụp thật · bấm để xem cỡ đầy đủ</figcaption></figure>
+    <figure><img src="anh/16-tinh-nang.png" alt="Bật/tắt tính năng" loading="lazy">
+    <figcaption>Ảnh chụp thật trong lần ghi này</figcaption></figure>
   </article>
 </section>
     <section class="chapter">
