@@ -39,7 +39,7 @@ Cập nhật: 2026-08-10T03:15:00+07:00 | Milestone: M1/5 | Task: 0/5 của M1
 
 ## Đang làm dở
 
-Task: Phase 0 + Phase 1 — môi trường Flutter và **quyền frontend thật** (**code xong, chờ `/codex`**)
+Task: Phase 0 + Phase 1 — môi trường Flutter (**XONG**) và quyền frontend thật (**CHƯA XONG — xem finding bên dưới**)
 
 **Phase 0 — Flutter (mở khóa toàn bộ M5).** `winget` không có gói Google.Flutter ⇒ dùng cách chính thức thứ hai: clone kênh stable về `C:\srclutter` (không cần quyền admin). `flutter test` trên `mobile/` chạy được: **96 test**.
 - Sửa 1 test đỏ **có sẵn**: `petitions_api_test.dart` stub `limit: 20` trong khi `getPetitions()` khai mặc định `limit: 50` ⇒ mock không khớp, mocktail trả `null`, test chết vì `type 'Null' is not a subtype of Future<Response>` chứ không phải vì bộ lọc trạng thái mà nó tuyên bố kiểm. Test sai về giá trị mặc định, không phải code sai.
@@ -52,7 +52,33 @@ Task: Phase 0 + Phase 1 — môi trường Flutter và **quyền frontend thật
 - Subject/action không ánh xạ được thì **bỏ**, không đoán: một resource FE không biết thì không render được, mà bịa câu trả lời cho nó chính là cách một mockup bắt đầu.
 Test: +9 FE (tầng ánh xạ) +3 BE (`/auth/me` trả quyền); sửa 5 test cũ vốn khẳng định hành vi "ai cũng có mọi quyền".
 Kiểm: BE **227 suite / 3104 test** PASS, FE **159 file / 1547 test** PASS, **mobile 96 test** PASS, tsc sạch, 3 cổng xanh.
-**BƯỚC TIẾP THEO:** `/codex` cho PR-F1. Sau đó **ND-22** (menu lái theo cờ, không theo quyền) rồi Phase 2 (M3 còn lại: C4, C5, C9, C10, C11, C12-rest).
+### Finding `/codex` PR-F1 — **7×[P1], PR NÀY CHƯA XONG**
+
+Vòng review khắt khe nhất từ đầu dự án. Tôi commit khi **chưa đạt** điều đã tuyên bố. Phải sửa hết trước khi coi Phase 1 là xong:
+
+1. **[P1] Tôi đổi cái *hook*, không gate các *nút*.** Tuyên bố "UI thôi nói dối" **không thành hiện thực**: `UserManagementPage` chỉ gate click-vào-dòng; nút Thêm người dùng, nhập hàng loạt, sửa, reset mật khẩu/2FA, xoá vẫn bật cho OFFICER chỉ có `read:User`. Nút tạo ở danh sách vụ án/đơn thư/vụ việc cũng vô điều kiện. **Đây là finding quan trọng nhất** — phần còn lại vô nghĩa nếu không làm cái này.
+2. **[P1] `usePermission()` không phản ứng.** Chỉ chụp `authStore.getUser()` một lần, **không subscribe** `AUTH_TOKEN_EVENT`. `/auth/me` xong thì component đã mount vẫn giữ tập quyền rỗng của JWT ⇒ điều khiển bị chặn **vĩnh viễn** cho tới khi có render vì lý do khác.
+3. **[P1] `write → create` sai ở phạm vi toàn cục.** BE dùng `write` cho **cả tạo lẫn sửa** với `Directory`, `Setting`, `User`, `Report` — các subject này **không có** permission `edit`. Nên người có `write:Directory` trượt `canEdit(...)` dù BE cho phép.
+4. **[P1] Profile cache cũ suốt cả phiên tab.** `useAuthHydration` bỏ qua khi đã có cache; đường refresh 401 thay access token nhưng **không** xoá `authProfile` ⇒ quyền bị thu hồi vẫn sống trên UI tới khi đăng xuất.
+5. **[P1] Lối tắt ADMIN bất nhất với BE.** `PermissionsGuard` **không** có bypass ADMIN — nó đọc `rolePermission` thật. Màn hình sửa quyền vai trò có thể gỡ quyền của ADMIN ⇒ FE trả `true`, API trả 403.
+6. **[P1] OFFICER mất quyền UI** ở `objects`, `lawyers`, `directories`, `reports`, `settings`; `users` và `calendar` còn view-only. **Quyền `Evidence` đầy đủ của OFFICER bị vứt** vì Evidence không có trong bảng ánh xạ — đây là hồi quy thật do chính tôi vừa thêm module vật chứng ở PR-D1.
+7. **[P1] Spec auth gán trực tiếp vào field `private readonly`** — codex nói là lỗi TS. `tsc --noEmit` của tôi **xanh**, nên cần kiểm lại: hoặc false positive, hoặc tsconfig không cover file đó.
+
+[P2]: bảng ánh xạ bỏ sót `AuditLog`, `Role`, `Document`, `Evidence`, `Team`, `DeadlineRuleVersion`, `FeatureFlag`, `EditWindowResetRequest` và các action `approve`, `withdraw_own`, `request_changes`, `review_reset_request` ⇒ **`DEADLINE_APPROVER` ánh xạ ra tập rỗng**. Test ánh xạ của tôi so với **danh sách viết tay**, không so với seed BE ⇒ nó xanh trong khi mọi thiếu sót trên vẫn tồn tại; lời khẳng định "phủ mọi action trừ restore" là **sai**.
+
+**Sai sót của riêng tôi cần ghi lại:** tôi lặp lại con số "48 file / 252 chỗ dùng" từ kế hoạch gốc **mà không kiểm chứng**, trong commit message và trong comment code. Thực tế là **17 file**. Phải sửa các chỗ đã viết.
+
+**BƯỚC TIẾP THEO (theo thứ tự):**
+1. Sửa finding #1 — gate các nút thật (đây mới là nội dung của PR), bắt đầu từ `UserManagementPage`, `CaseListPageShell`, danh sách petitions/incidents.
+2. Sửa #2 bằng `authStore.onTokenChanged` + `useSyncExternalStore`.
+3. Sửa #3: thêm ánh xạ theo từng subject, không phải một bảng action toàn cục.
+4. Sửa #4: xoá `authProfile` trong nhánh refresh 401 của `lib/api.ts` (giống `setTokens` đã làm ở PR-B2).
+5. Sửa #5: bỏ lối tắt ADMIN, hoặc thêm bypass ADMIN vào `PermissionsGuard` — chọn **một** nguồn sự thật.
+6. Sửa #6: thêm `Evidence` (+ các subject FE có màn hình) vào bảng ánh xạ.
+7. Sửa #7: kiểm `tsc` trên `auth.service.spec.ts`.
+8. Sửa test ánh xạ: **đọc `seed-permissions.ts` thật** rồi so, thay vì danh sách viết tay.
+9. Sửa con số 48/252 → 17 trong comment và PROGRESS.
+Sau đó mới sang ND-22 và Phase 2 (M3 còn lại).
 
 ---
 
