@@ -11,6 +11,7 @@ import { UpdateSubjectDto } from './dto/update-subject.dto';
 import { QuerySubjectsDto } from './dto/query-subjects.dto';
 import { Prisma, SubjectStatus, SubjectType } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
+import { withParentLock } from '../common/utils/parent-lock.util';
 import {
   assertParentInScope,
   buildScopeFilter,
@@ -189,53 +190,67 @@ export class SubjectsService {
       }
     }
 
-    // Validate caseId
-    const caseRecord = await this.prisma.case.findFirst({
-      where: { id: dto.caseId, deletedAt: null },
-    });
-    if (!caseRecord) {
-      throw new BadRequestException(`Vụ án không tồn tại (id: ${dto.caseId})`);
-    }
-    // getById() and update() have checked this since they were written;
-    // create() never did, so an officer could attach a suspect to another
-    // team's case simply by knowing its id.
-    assertParentInScope(caseRecord, dataScope, 'write');
+    // ND-19: nạp cha và ghi con trong CÙNG một transaction, cha bị khoá.
+    // Hai câu lệnh rời để lại một khe: giữa lúc kiểm và lúc ghi, vụ án có thể
+    // bị xoá mềm — bản ghi con rơi vào hồ sơ đã xoá, không màn hình nào liệt kê
+    // và không cascade nào chạm tới.
+    const record = await withParentLock(
+      this.prisma,
+      'case',
+      dto.caseId,
+      async (tx) => {
+        // Validate caseId
+        const caseRecord = await tx.case.findFirst({
+          where: { id: dto.caseId, deletedAt: null },
+        });
+        if (!caseRecord) {
+          throw new BadRequestException(
+            `Vụ án không tồn tại (id: ${dto.caseId})`,
+          );
+        }
+        // getById() and update() have checked this since they were written;
+        // create() never did, so an officer could attach a suspect to another
+        // team's case simply by knowing its id.
+        assertParentInScope(caseRecord, dataScope, 'write');
 
-    // Validate crimeId nếu có — FK tới master Crime (BLHS 2015). Optional: nhân chứng/bị hại bỏ trống.
-    if (dto.crimeId) {
-      const crimeRecord = await this.prisma.crime.findFirst({
-        where: { id: dto.crimeId, isActive: true },
-      });
-      if (!crimeRecord) {
-        throw new BadRequestException(
-          `Tội danh không tồn tại (id: ${dto.crimeId})`,
-        );
-      }
-    }
+        // Validate crimeId nếu có — FK tới master Crime (BLHS 2015). Optional: nhân chứng/bị hại bỏ trống.
+        if (dto.crimeId) {
+          const crimeRecord = await tx.crime.findFirst({
+            where: { id: dto.crimeId, isActive: true },
+          });
+          if (!crimeRecord) {
+            throw new BadRequestException(
+              `Tội danh không tồn tại (id: ${dto.crimeId})`,
+            );
+          }
+        }
 
-    const record = await this.prisma.subject.create({
-      data: {
-        fullName: dto.fullName,
-        dateOfBirth: new Date(dto.dateOfBirth),
-        gender: dto.gender ?? 'MALE',
-        idNumber: dto.idNumber,
-        address: dto.address,
-        phone: dto.phone,
-        occupationId: dto.occupationId,
-        nationalityId: dto.nationalityId,
-        districtId: dto.districtId,
-        wardId: dto.wardId,
-        districtName: dto.districtName ?? null,
-        caseId: dto.caseId,
-        crimeId: dto.crimeId,
-        type: dto.type ?? SubjectType.SUSPECT, // TASK-2026-261225
-        status: dto.status ?? SubjectStatus.INVESTIGATING,
-        notes: dto.notes,
+        const record = await tx.subject.create({
+          data: {
+            fullName: dto.fullName,
+            dateOfBirth: new Date(dto.dateOfBirth),
+            gender: dto.gender ?? 'MALE',
+            idNumber: dto.idNumber,
+            address: dto.address,
+            phone: dto.phone,
+            occupationId: dto.occupationId,
+            nationalityId: dto.nationalityId,
+            districtId: dto.districtId,
+            wardId: dto.wardId,
+            districtName: dto.districtName ?? null,
+            caseId: dto.caseId,
+            crimeId: dto.crimeId,
+            type: dto.type ?? SubjectType.SUSPECT, // TASK-2026-261225
+            status: dto.status ?? SubjectStatus.INVESTIGATING,
+            notes: dto.notes,
+          },
+          include: {
+            case: { select: { id: true, name: true, status: true } },
+          },
+        });
+        return record;
       },
-      include: {
-        case: { select: { id: true, name: true, status: true } },
-      },
-    });
+    );
 
     await this.audit.log({
       userId: actorId,

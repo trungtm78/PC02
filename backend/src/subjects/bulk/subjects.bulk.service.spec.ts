@@ -63,7 +63,9 @@ describe('SubjectsBulkService.bulkDelete — v0.51', () => {
   });
 
   it('skips out-of-scope với PERMISSION', async () => {
-    mockPrisma.subject.findMany.mockResolvedValue([{ id: 's-1', fullName: 'A' }]);
+    mockPrisma.subject.findMany.mockResolvedValue([
+      { id: 's-1', fullName: 'A' },
+    ]);
     const result = await service.bulkDelete({
       ids: ['s-1', 's-2'],
       reason: 'gỡ trùng lặp',
@@ -77,7 +79,12 @@ describe('SubjectsBulkService.bulkDelete — v0.51', () => {
 
   it('rejects empty + > 100', async () => {
     await expect(
-      service.bulkDelete({ ids: [], reason: 'ok 10 chars', actorId: 'a', dataScope: adminScope }),
+      service.bulkDelete({
+        ids: [],
+        reason: 'ok 10 chars',
+        actorId: 'a',
+        dataScope: adminScope,
+      }),
     ).rejects.toThrow(BadRequestException);
     await expect(
       service.bulkDelete({

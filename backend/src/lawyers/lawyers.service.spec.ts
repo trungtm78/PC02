@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /**
  * lawyers.service.spec.ts
  * TASK-2026-261225 — Unit tests for LawyersService
@@ -19,6 +18,13 @@ import { AuditService } from '../audit/audit.service';
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
 const mockPrisma = {
+  // ND-19: create loads the parent and inserts the child inside one transaction
+  // with the parent row locked, so the mock provides `$transaction`. Running the
+  // callback against the same mock keeps every existing expectation pointed at
+  // the same jest.fn()s.
+  $transaction: jest.fn((cb: (tx: unknown) => unknown) => cb(mockPrisma)),
+  $queryRawUnsafe: jest.fn(),
+
   lawyer: {
     findMany: jest.fn(),
     count: jest.fn(),
@@ -167,7 +173,6 @@ describe('LawyersService', () => {
 
       await service.getList({ sortBy: 'maliciousField' });
 
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       const callArg = mockPrisma.lawyer.findMany.mock.calls[0][0] as {
         orderBy: Record<string, string>;
       };
@@ -180,7 +185,6 @@ describe('LawyersService', () => {
 
       await service.getList({ sortBy: 'fullName', sortOrder: 'asc' });
 
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       const callArg = mockPrisma.lawyer.findMany.mock.calls[0][0] as {
         orderBy: Record<string, string>;
       };
@@ -239,8 +243,14 @@ describe('LawyersService', () => {
         ...FAKE_LAWYER,
         case: { assignedTeamId: 'team-X', investigatorId: 'user-X' },
       });
-      const scope = { userIds: ['u1'], teamIds: ['t1'], writableTeamIds: ['t1'] };
-      await expect(service.getById('law-001', scope)).rejects.toThrow('Bạn không có quyền truy cập bản ghi này');
+      const scope = {
+        userIds: ['u1'],
+        teamIds: ['t1'],
+        writableTeamIds: ['t1'],
+      };
+      await expect(service.getById('law-001', scope)).rejects.toThrow(
+        'Bạn không có quyền truy cập bản ghi này',
+      );
     });
 
     it('passes scope check when investigatorId matches', async () => {

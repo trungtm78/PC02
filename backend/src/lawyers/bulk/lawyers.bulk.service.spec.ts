@@ -22,8 +22,16 @@ describe('LawyersBulkService.bulkDelete — v0.51', () => {
     mockPrisma = {
       lawyer: {
         findMany: jest.fn().mockResolvedValue([
-          { id: 'l-1', fullName: 'A', case: { id: 'c-1', assignedTeamId: 't-1', investigatorId: 'u-1' } },
-          { id: 'l-2', fullName: 'B', case: { id: 'c-2', assignedTeamId: 't-2', investigatorId: 'u-2' } },
+          {
+            id: 'l-1',
+            fullName: 'A',
+            case: { id: 'c-1', assignedTeamId: 't-1', investigatorId: 'u-1' },
+          },
+          {
+            id: 'l-2',
+            fullName: 'B',
+            case: { id: 'c-2', assignedTeamId: 't-2', investigatorId: 'u-2' },
+          },
         ]),
       },
       $executeRaw: jest.fn().mockResolvedValue(1),
@@ -64,7 +72,11 @@ describe('LawyersBulkService.bulkDelete — v0.51', () => {
 
   it('skips out-of-scope với PERMISSION', async () => {
     mockPrisma.lawyer.findMany.mockResolvedValue([
-      { id: 'l-1', fullName: 'A', case: { id: 'c-1', assignedTeamId: 't-1', investigatorId: 'u-1' } },
+      {
+        id: 'l-1',
+        fullName: 'A',
+        case: { id: 'c-1', assignedTeamId: 't-1', investigatorId: 'u-1' },
+      },
     ]);
     const result = await service.bulkDelete({
       ids: ['l-1', 'l-2'],
@@ -79,7 +91,12 @@ describe('LawyersBulkService.bulkDelete — v0.51', () => {
 
   it('rejects empty + > 100 ids', async () => {
     await expect(
-      service.bulkDelete({ ids: [], reason: 'ok 10 chars', actorId: 'a', dataScope: adminScope }),
+      service.bulkDelete({
+        ids: [],
+        reason: 'ok 10 chars',
+        actorId: 'a',
+        dataScope: adminScope,
+      }),
     ).rejects.toThrow(BadRequestException);
     await expect(
       service.bulkDelete({

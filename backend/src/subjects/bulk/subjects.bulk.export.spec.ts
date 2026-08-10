@@ -1,9 +1,6 @@
 /**
  * SubjectsBulkService.bulkExport — F5 tests.
  */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException } from '@nestjs/common';
@@ -50,7 +47,12 @@ describe('SubjectsBulkService.bulkExport — F5', () => {
 
   it('throws BadRequestException when ids empty', async () => {
     await expect(
-      service.bulkExport({ ids: [], dataScope: null, res: mockRes(), actorId: 'u1' }),
+      service.bulkExport({
+        ids: [],
+        dataScope: null,
+        res: mockRes(),
+        actorId: 'u1',
+      }),
     ).rejects.toThrow(BadRequestException);
   });
 

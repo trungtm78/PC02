@@ -66,10 +66,15 @@ export class SubjectsBulkService {
       idempotencyKey: input.idempotencyKey,
     });
 
-    const result = await runBulk<{ subjectId: string }, Prisma.TransactionClient>({
+    const result = await runBulk<
+      { subjectId: string },
+      Prisma.TransactionClient
+    >({
       ids: input.ids,
       prisma: this.prisma as unknown as {
-        $transaction: <R>(cb: (tx: Prisma.TransactionClient) => Promise<R>) => Promise<R>;
+        $transaction: <R>(
+          cb: (tx: Prisma.TransactionClient) => Promise<R>,
+        ) => Promise<R>;
       },
       preflight: async (ids) => {
         // Xoá là thao tác ghi: dùng writableTeamIds, không phải teamIds đọc.
@@ -78,7 +83,9 @@ export class SubjectsBulkService {
           where: {
             id: { in: ids },
             deletedAt: null,
-            ...(scopeFilter ? { case: scopeFilter as Prisma.CaseWhereInput } : {}),
+            ...(scopeFilter
+              ? { case: scopeFilter as Prisma.CaseWhereInput }
+              : {}),
           },
           select: { id: true },
         });
@@ -128,7 +135,9 @@ export class SubjectsBulkService {
             message: 'Đối tượng đã được xóa bởi người khác',
           })),
       ],
-      failed: result.failed.filter((f) => !f.error.startsWith(CONCURRENT_PREFIX)),
+      failed: result.failed.filter(
+        (f) => !f.error.startsWith(CONCURRENT_PREFIX),
+      ),
     };
     await this.audit.completeBulk(bulkOperationId, {
       succeeded: reclassified.succeeded.length,
@@ -218,7 +227,9 @@ export class SubjectsBulkService {
         type: SUBJECT_TYPE_LABEL[rec.type] ?? rec.type,
         status: rec.status,
         idNumber: rec.idNumber ?? '',
-        dateOfBirth: rec.dateOfBirth ? rec.dateOfBirth.toISOString().slice(0, 10) : '',
+        dateOfBirth: rec.dateOfBirth
+          ? rec.dateOfBirth.toISOString().slice(0, 10)
+          : '',
         gender: rec.gender,
         phone: rec.phone ?? '',
         address: rec.address ?? '',
