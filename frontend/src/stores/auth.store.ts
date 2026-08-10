@@ -41,6 +41,14 @@ export interface AuthUser {
   // v0.35a additive: missing fields → undefined, components use optional chaining
   isWardOfficer?: boolean;
   wardTeam?: AuthWardTeam | null;
+  /**
+   * What this user may actually do, from `/auth/me`.
+   *
+   * Optional because the JWT fallback carries no permissions — and that is
+   * the point: an unhydrated session yields an empty set, so `usePermission`
+   * fails closed instead of falling back to the old grant-everything mock.
+   */
+  permissions?: { action: string; subject: string }[];
 }
 
 /** Minimal subset decoded from JWT — used as fallback when profile not yet hydrated. */

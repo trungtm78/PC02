@@ -1,7 +1,4 @@
-import {
-  resolveDuplicateKey,
-  scoreDuplicateGroup,
-} from './petitions.service';
+import { resolveDuplicateKey, scoreDuplicateGroup } from './petitions.service';
 
 /**
  * The duplicate check grouped on ONE column with an exact string match, and
@@ -52,8 +49,18 @@ describe('scoreDuplicateGroup', () => {
     // A blank column is not evidence either way. Counting it against the
     // group would make sparse legacy records look less alike than they are.
     const score = scoreDuplicateGroup([
-      { senderName: 'A', senderPhone: '090', senderAddress: '', suspectedPerson: '' },
-      { senderName: 'A', senderPhone: '090', senderAddress: '', suspectedPerson: '' },
+      {
+        senderName: 'A',
+        senderPhone: '090',
+        senderAddress: '',
+        suspectedPerson: '',
+      },
+      {
+        senderName: 'A',
+        senderPhone: '090',
+        senderAddress: '',
+        suspectedPerson: '',
+      },
     ]);
 
     expect(score).toEqual({ matched: 2, compared: 2 });

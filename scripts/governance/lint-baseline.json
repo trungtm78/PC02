@@ -1,7 +1,7 @@
 {
   "note": "Per-file eslint problem counts (errors + warnings). Ratchet: a touched file may not exceed its entry; files absent here must be clean. Regenerate only to record improvements.",
   "generatedFrom": "scripts/governance/lint-changed.cjs --write-baseline",
-  "totalProblems": 8036,
+  "totalProblems": 7921,
   "files": {
     "backend/prisma/cleanup-crime.ts": 7,
     "backend/prisma/data/blhs2015-crimes.ts": 950,
@@ -77,8 +77,7 @@
     "backend/src/auth/auth.controller.spec.ts": 28,
     "backend/src/auth/auth.controller.ts": 3,
     "backend/src/auth/auth.module.ts": 2,
-    "backend/src/auth/auth.service.spec.ts": 72,
-    "backend/src/auth/auth.service.ts": 44,
+    "backend/src/auth/auth.service.ts": 2,
     "backend/src/auth/dto/change-password.dto.ts": 1,
     "backend/src/auth/dto/first-login-change-password.dto.ts": 1,
     "backend/src/auth/dto/login.dto.spec.ts": 7,
@@ -394,7 +393,7 @@
     "backend/src/petitions/petitions.controller.ts": 37,
     "backend/src/petitions/petitions.module.ts": 1,
     "backend/src/petitions/petitions.service.spec.ts": 86,
-    "backend/src/petitions/petitions.service.ts": 218,
+    "backend/src/petitions/petitions.service.ts": 217,
     "backend/src/proposals/dto/create-proposal.dto.ts": 2,
     "backend/src/proposals/proposals.service.spec.ts": 3,
     "backend/src/proposals/proposals.service.ts": 25,

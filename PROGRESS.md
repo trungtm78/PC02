@@ -39,6 +39,23 @@ Cập nhật: 2026-08-10T03:15:00+07:00 | Milestone: M1/5 | Task: 0/5 của M1
 
 ## Đang làm dở
 
+Task: Phase 0 + Phase 1 — môi trường Flutter và **quyền frontend thật** (**code xong, chờ `/codex`**)
+
+**Phase 0 — Flutter (mở khóa toàn bộ M5).** `winget` không có gói Google.Flutter ⇒ dùng cách chính thức thứ hai: clone kênh stable về `C:\srclutter` (không cần quyền admin). `flutter test` trên `mobile/` chạy được: **96 test**.
+- Sửa 1 test đỏ **có sẵn**: `petitions_api_test.dart` stub `limit: 20` trong khi `getPetitions()` khai mặc định `limit: 50` ⇒ mock không khớp, mocktail trả `null`, test chết vì `type 'Null' is not a subtype of Future<Response>` chứ không phải vì bộ lọc trạng thái mà nó tuyên bố kiểm. Test sai về giá trị mặc định, không phải code sai.
+- **Chạy mobile test:** `$env:Path = "C:\srclutterin;$env:Path"; cd mobile; flutter test`
+
+**Phase 1 — ND-6: bỏ `MOCK_ALL_PERMISSIONS`.** Tầng quyền FE là một hằng số cấp **mọi quyền cho mọi người**, dùng ở 48 file / 252 chỗ gồm cả xóa hàng loạt. BE là cổng thật duy nhất nên không có lỗ bảo mật trực tiếp — thứ người dùng nhận được là **nút họ không được bấm**, bấm vào thì 403.
+- BE: `getProfile()` trả thêm `permissions: [{action, subject}]`.
+- FE: `shared/enums/permission-mapping.ts` dịch từ vựng BE (`read|write|edit|delete` × `Case|Petition|…`) sang từ vựng FE (`view|create|edit|delete` × `cases|petitions|…`). **Hai hệ chưa bao giờ dùng chung từ vựng** — khi câu trả lời luôn là `true` thì khoảng cách đó vô hình.
+- **Một nguồn, không phải hai:** ban đầu tôi đọc cả `getUser()` lẫn `getProfile()` ⇒ **32 test đỏ** vì mock chỉ stub `getUser`. Nhưng `getUser()` vốn đã trả profile khi có cache và rơi về JWT khi không — mà JWT **không mang quyền**, nên phiên chưa hydrate tự động ra tập rỗng. Đó đúng là hành vi fail-closed cần có, miễn phí.
+- Subject/action không ánh xạ được thì **bỏ**, không đoán: một resource FE không biết thì không render được, mà bịa câu trả lời cho nó chính là cách một mockup bắt đầu.
+Test: +9 FE (tầng ánh xạ) +3 BE (`/auth/me` trả quyền); sửa 5 test cũ vốn khẳng định hành vi "ai cũng có mọi quyền".
+Kiểm: BE **227 suite / 3104 test** PASS, FE **159 file / 1547 test** PASS, **mobile 96 test** PASS, tsc sạch, 3 cổng xanh.
+**BƯỚC TIẾP THEO:** `/codex` cho PR-F1. Sau đó **ND-22** (menu lái theo cờ, không theo quyền) rồi Phase 2 (M3 còn lại: C4, C5, C9, C10, C11, C12-rest).
+
+---
+
 Task: M3-T7 — PR-C3 `feat/petition-duplicates-api` (**code xong, chờ `/codex`**)
 Đã làm: `GET /petitions/duplicates` — nhóm đơn nghi trùng, **có điểm khớp thật**.
 - **Vì sao phải nâng cấp, không chỉ trích hàm ra dùng chung:** thuật toán cũ gộp **một cột**, khớp **chuỗi chính xác**, rồi coi mọi bản trong nhóm là trùng. "Nguyễn Văn A" không hiếm ở Việt Nam ⇒ hai công dân không liên quan bị trình bày như một người nộp hai lần. Trên hồ sơ pháp lý đó là **quy kết**, không phải gợi ý. Nay mỗi nhóm mang `{matched, compared}` — bao nhiêu tiêu chí **thực sự so được** thì khớp. Trường mà **không phải ai cũng điền** thì không tính, vì ô trống không phải bằng chứng theo chiều nào cả.
@@ -409,8 +426,8 @@ Tự phát hiện thêm: 3 file test mới của chính tôi bị baseline hoá 
 ## Trạng thái test
 
 Full suite: **PASS**
-- Backend: 227 suite / **3101** test — PASS (xem ND-9: 1 suite flaky ~1/6 lần, có sẵn từ trước)
-- Frontend: 158 file / **1538** test — PASS (3 lần chạy liên tiếp ổn định)
+- Backend: 227 suite / **3104** test — PASS (xem ND-9: 1 suite flaky ~1/6 lần, có sẵn từ trước)
+- Frontend: 159 file / **1547** test · Mobile: **96** test (mới chạy được) — PASS (3 lần chạy liên tiếp ổn định)
 - Cổng governance: enum guard ✅ · gen:enums drift ✅ · lint ratchet ✅ (baseline 8.945 sau ADR-0015)
 - `tsc --noEmit` (BE): sạch · `tsc -b` (FE): sạch
 - eslint: không có lỗi mới trên dòng đã thêm (nợ lint có sẵn xem ND-1)
@@ -445,6 +462,6 @@ Test fail: không
 | ND-15 | **Đường đọc chi tiết trả 403 cho bản ghi ngoài phạm vi và 404 cho bản ghi không tồn tại**, tức lộ sự tồn tại của hồ sơ tổ khác. Mẫu này dùng thống nhất toàn hệ thống nên phải quyết một lần (đưa scope vào `where` rồi trả 404 cho cả hai), không sửa lẻ từng module | Quyết cùng PR-A3 |
 | ND-9 (cập nhật) | **`two-fa.service.spec.ts` flaky ~1/6 lần chạy full — CHƯA sửa được, đã điều tra kỹ.** Đã thử và **loại bỏ** các giả thuyết: (a) `cacheDirectory` riêng cho backend — đã áp dụng, giảm va chạm giữa các tiến trình jest nhưng không dứt vì đua tranh nằm **giữa các worker trong cùng một lần chạy**; (b) `maxWorkers=4` — giảm tỷ lệ nhưng vẫn đỏ 1/6, và trên runner CI 4 nhân thì `50%`=2 worker còn ít hơn 4 nên giữ nguyên `50%`; (c) bỏ `transformIgnorePatterns` — **làm hỏng một suite khác** (2976 vs 2981), hoàn tác; (d) `globalSetup` hâm cache — **vô tác dụng**, vì globalSetup dùng `require` thuần của Node, không đi qua `ScriptTransformer` nên không ghi mục cache nào; đã gỡ thay vì để lại file giả vờ sửa. Hướng còn lại chưa thử: mock `otplib` trong spec (làm yếu test), hoặc chờ bản jest vá đua tranh ghi cache trên Windows. **Rủi ro CI: job `Backend Tests` có thể đỏ ngẫu nhiên ~1/6 lần.** | PR riêng |
 | ND-9 (gốc) | **`backend/src/auth/services/two-fa.service.spec.ts` flaky ~1/4 lần chạy full song song.** Không phải lỗi TOTP theo thời gian: là `invariant` rỗng từ `ScriptTransformer._buildTransformResult` của jest khi nạp `node_modules/otplib/dist/index.cjs` → dấu hiệu đua tranh cache giữa các worker. Pass 5/5 khi chạy riêng. **Có sẵn từ trước** — không file nào trong chuỗi phụ thuộc này bị đợt thi công chạm tới. Chưa sửa: chẩn đoán cache race của jest là việc riêng. Rủi ro: job `Backend Tests` trong CI có thể đỏ ngẫu nhiên. Hướng điều tra: `cacheDirectory` riêng cho từng workspace, hoặc rà `transformIgnorePatterns` (`node_modules/(?!(@otplib\|@noble)/)` không bao gồm `otplib` không có scope) | PR riêng |
-| ND-6 | Tầng phân quyền FE vẫn là mock (`MOCK_ALL_PERMISSIONS` cấp toàn quyền cho mọi user, 252 call site) — người dùng chủ động hoãn; yêu cầu "không mockup" **chưa thoả mãn hoàn toàn** | Quyết lại sau M2 |
+| ND-6 ✅ | **ĐÃ XỬ LÝ ở Phase 1.** Tầng phân quyền FE vẫn là mock (`MOCK_ALL_PERMISSIONS` cấp toàn quyền cho mọi user, 252 call site) — người dùng chủ động hoãn; yêu cầu "không mockup" **chưa thoả mãn hoàn toàn** | Quyết lại sau M2 |
 | ND-7 | Cổng `prisma migrate diff` sẽ đỏ ngay do ≥6 partial index không biểu diễn được trong Prisma 7; PR-C4 còn cần thêm một cái nữa | PR-B0b (đặt `continue-on-error`) |
 | ND-8 | Gate API bằng feature flag sẽ làm hỏng app mobile đã cài (`mobile/lib` không đọc cờ, interceptor chỉ bắt 401, không có forced-update) | PR-M1 chặn cứng E4–E6 |
