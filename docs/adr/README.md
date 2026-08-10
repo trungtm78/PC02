@@ -43,6 +43,7 @@ Không sửa ADR đã chấp nhận — viết cái mới và đánh dấu cái 
 | [0014](0014-rls-only-on-users-and-audit-logs.md) | RLS chỉ có trên 2 bảng; model mới không thêm policy | Đã chấp nhận |
 | [0015](0015-no-unsafe-rules-off-in-test-files.md) | Tắt họ `no-unsafe-*` trong file test (matcher Jest trả `any`) | Đã chấp nhận |
 | [0016](0016-evidence-code-uniqueness-by-row-lock.md) | Mã vật chứng duy nhất bằng khóa hàng, chưa dùng partial unique index | Đã chấp nhận (tạm thời) |
+| [0017](0017-candispatch-does-not-grant-write.md) | `canDispatch` cho quyền đọc toàn hệ thống, **không** cho quyền ghi | Đã chấp nhận |
 
 ## Cổng CI
 

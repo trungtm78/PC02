@@ -1,7 +1,7 @@
 {
   "note": "Per-file eslint problem counts (errors + warnings). Ratchet: a touched file may not exceed its entry; files absent here must be clean. Regenerate only to record improvements.",
   "generatedFrom": "scripts/governance/lint-changed.cjs --write-baseline",
-  "totalProblems": 8939,
+  "totalProblems": 8859,
   "files": {
     "backend/prisma/cleanup-crime.ts": 7,
     "backend/prisma/data/blhs2015-crimes.ts": 950,
@@ -162,7 +162,6 @@
     "backend/src/common/utils/incident-factory.util.ts": 10,
     "backend/src/common/utils/sanitize.util.ts": 1,
     "backend/src/common/utils/scope-filter.util.expert.spec.ts": 30,
-    "backend/src/common/utils/scope-filter.util.spec.ts": 51,
     "backend/src/common/utils/scope-filter.util.ts": 19,
     "backend/src/common/utils/xlsx-formula-escape.util.spec.ts": 1,
     "backend/src/common/validators/__tests__/is-catalog-value.validator.spec.ts": 1,
@@ -295,10 +294,7 @@
     "backend/src/incidents/incidents.module.ts": 1,
     "backend/src/incidents/incidents.service.spec.ts": 107,
     "backend/src/incidents/incidents.service.ts": 256,
-    "backend/src/investigation-supplements/investigation-supplements.controller.spec.ts": 1,
-    "backend/src/investigation-supplements/investigation-supplements.controller.ts": 7,
-    "backend/src/investigation-supplements/investigation-supplements.service.spec.ts": 9,
-    "backend/src/investigation-supplements/investigation-supplements.service.ts": 13,
+    "backend/src/investigation-supplements/investigation-supplements.service.ts": 1,
     "backend/src/kpi/feature.manifest.ts": 2,
     "backend/src/kpi/kpi.controller.spec.ts": 4,
     "backend/src/kpi/kpi.service.spec.ts": 12,

@@ -2,6 +2,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import {
   ConflictException,
+  ForbiddenException,
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
@@ -302,6 +303,42 @@ describe('SubjectsService', () => {
           userAgent: 'jest',
         }),
       );
+    });
+
+    // getById() and update() have always checked the parent case against the
+    // caller's scope. create() did not, so knowing a case id was enough to
+    // attach a person to another team's file.
+    it('refuses to attach a subject to another team’s case', async () => {
+      mockPrisma.case.findFirst.mockResolvedValue({
+        ...FAKE_CASE,
+        assignedTeamId: 'team-B',
+        investigatorId: 'inv-B',
+      });
+
+      await expect(
+        service.create(BASE_CREATE_DTO, 'actor-1', undefined, {
+          teamIds: ['team-A'],
+          writableTeamIds: ['team-A'],
+          userIds: ['inv-A'],
+        } as never),
+      ).rejects.toThrow(ForbiddenException);
+      expect(mockPrisma.subject.create).not.toHaveBeenCalled();
+    });
+
+    it('allows a subject on a case inside the caller’s writable team', async () => {
+      mockPrisma.case.findFirst.mockResolvedValue({
+        ...FAKE_CASE,
+        assignedTeamId: 'team-A',
+        investigatorId: 'inv-A',
+      });
+
+      await service.create(BASE_CREATE_DTO, 'actor-1', undefined, {
+        teamIds: ['team-A'],
+        writableTeamIds: ['team-A'],
+        userIds: ['inv-A'],
+      } as never);
+
+      expect(mockPrisma.subject.create).toHaveBeenCalledTimes(1);
     });
 
     it('EC-04: throws ConflictException on duplicate idNumber', async () => {

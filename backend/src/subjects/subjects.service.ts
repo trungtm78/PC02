@@ -153,6 +153,7 @@ export class SubjectsService {
     dto: CreateSubjectDto,
     actorId: string,
     meta?: { ipAddress?: string; userAgent?: string },
+    dataScope?: DataScope | null,
   ) {
     // EC-04: Check duplicate idNumber within same type
     // Same person can be both VICTIM and WITNESS (different type records)
@@ -178,6 +179,10 @@ export class SubjectsService {
     if (!caseRecord) {
       throw new BadRequestException(`Vụ án không tồn tại (id: ${dto.caseId})`);
     }
+    // getById() and update() have checked this since they were written;
+    // create() never did, so an officer could attach a suspect to another
+    // team's case simply by knowing its id.
+    assertParentInScope(caseRecord, dataScope, 'write');
 
     // Validate crimeId nếu có — FK tới master Crime (BLHS 2015). Optional: nhân chứng/bị hại bỏ trống.
     if (dto.crimeId) {

@@ -124,6 +124,7 @@ export class LawyersService {
     dto: CreateLawyerDto,
     actorId: string,
     meta?: { ipAddress?: string; userAgent?: string },
+    dataScope?: DataScope | null,
   ) {
     // Check duplicate barNumber
     const existing = await this.prisma.lawyer.findFirst({
@@ -142,6 +143,10 @@ export class LawyersService {
     if (!caseRecord) {
       throw new BadRequestException(`Vụ án không tồn tại (id: ${dto.caseId})`);
     }
+    // Same gap as subjects: the read and update paths check scope, create did
+    // not, so a defence lawyer could be registered against any case in the
+    // system by id alone.
+    assertParentInScope(caseRecord, dataScope, 'write');
 
     // Validate subjectId if provided (EC-01: lawyer can defend multiple suspects — same lawyer re-assigned means new record)
     if (dto.subjectId) {

@@ -8,6 +8,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import {
   ConflictException,
+  ForbiddenException,
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
@@ -256,6 +257,27 @@ describe('LawyersService', () => {
   // ── create ──────────────────────────────────────────────────────────────────
 
   describe('create', () => {
+    // Same gap as subjects: read and update checked the parent case, create
+    // did not, so a defence lawyer could be registered against any case in
+    // the system given only its id.
+    it('refuses to register a lawyer on another team’s case', async () => {
+      mockPrisma.lawyer.findFirst.mockResolvedValue(null);
+      mockPrisma.case.findFirst.mockResolvedValue({
+        ...FAKE_CASE,
+        assignedTeamId: 'team-B',
+        investigatorId: 'inv-B',
+      });
+
+      await expect(
+        service.create(BASE_CREATE_DTO, ACTOR_ID, undefined, {
+          teamIds: ['team-A'],
+          writableTeamIds: ['team-A'],
+          userIds: ['inv-A'],
+        } as never),
+      ).rejects.toThrow(ForbiddenException);
+      expect(mockPrisma.lawyer.create).not.toHaveBeenCalled();
+    });
+
     it('creates lawyer successfully with all fields', async () => {
       mockPrisma.lawyer.findFirst.mockResolvedValue(null); // no dup barNumber
       mockPrisma.case.findFirst.mockResolvedValue(FAKE_CASE); // case exists

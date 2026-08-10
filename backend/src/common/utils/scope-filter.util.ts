@@ -90,6 +90,27 @@ export function buildPetitionScopeFilter(
 }
 
 /**
+ * Does `canDispatch` let this operation through?
+ *
+ * `canDispatch` is defined as "read all + assign/reassign any record"
+ * (`unit-scope.service.ts`). It was short-circuiting writes too, which gave
+ * every dispatcher create/edit/delete/restore rights over all 12 scoped
+ * resources — far past what the flag is meant to grant, and invisible because
+ * nothing ever denied them.
+ *
+ * Assignment does not depend on this bypass: `PATCH /:id/assign` and the three
+ * bulk-assign endpoints have their own `DispatchGuard`, and `assignCase()` does
+ * not take a scope at all. So writes fall through to the ordinary team and
+ * owner checks.
+ */
+function dispatcherMayBypass(
+  scope: DataScope,
+  operation: 'read' | 'write',
+): boolean {
+  return scope.canDispatch === true && operation === 'read';
+}
+
+/**
  * Throws 403 if the child record's parent (Case or Incident) is out of scope.
  * Pass the parent object (from an include) containing assignedTeamId + investigatorId.
  * If parent is null/undefined (orphan record), check passes silently.
@@ -101,7 +122,7 @@ export function assertParentInScope(
   operation: 'read' | 'write' = 'read',
 ): void {
   if (!scope) return;
-  if (scope.canDispatch) return;
+  if (dispatcherMayBypass(scope, operation)) return;
   // P0-001 fix: null parent = orphan record (caseId+incidentId both null on Document/VKS/ActionPlan/Delegation).
   // Previously: silent pass → cross-tenant data leak. Now: deny by default. Admin (scope=null) bypassed above.
   if (!parent) {
@@ -137,7 +158,7 @@ export function assertPetitionParentInScope(
   operation: 'read' | 'write' = 'read',
 ): void {
   if (!scope) return;
-  if (scope.canDispatch) return;
+  if (dispatcherMayBypass(scope, operation)) return;
   if (!parent) {
     recordDenial('petition-parent-null');
     throw new ForbiddenException(
@@ -172,7 +193,7 @@ export function assertCreatorInScope(
   operation: 'read' | 'write' = 'read',
 ): void {
   if (!scope) return;
-  if (scope.canDispatch) return;
+  if (dispatcherMayBypass(scope, operation)) return;
   if (!createdById) {
     throw new ForbiddenException(FORBIDDEN_MSG);
   }
