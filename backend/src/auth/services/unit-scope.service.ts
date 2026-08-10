@@ -5,10 +5,21 @@ import { AccessLevel } from '@prisma/client';
 import { ROLE_NAMES } from '../../common/constants/role.constants';
 
 export interface DataScope {
-  teamIds: string[];        // All readable teams (own + READ grants + WRITE grants)
+  teamIds: string[]; // All readable teams (own + READ grants + WRITE grants)
   userIds: string[];
   writableTeamIds: string[]; // Writable teams (own + WRITE grants only) — GAP-9
-  canDispatch?: boolean;     // Supplementary: read all + assign/reassign any record
+  /**
+   * Members of the WRITABLE teams, plus the caller.
+   *
+   * `userIds` spans every *readable* team. The write checks treat a matching
+   * investigator/entrant/creator as an owner who may mutate, so using `userIds`
+   * there let a READ-only grant edit records — `writableTeamIds` was ignored on
+   * that branch. Optional only so hand-built scopes in older tests still
+   * compile; when it is absent the write helpers treat the owner set as empty
+   * rather than falling back to `userIds`. An incomplete scope should deny.
+   */
+  writableUserIds?: string[];
+  canDispatch?: boolean; // Supplementary: read all + assign/reassign any record
   // v0.33.0.0: true nếu user thuộc ≥1 Team có wardId set (= cán bộ phường).
   // Ward officer scope strict: KHÔNG thấy unassigned (intake) records — codex Crit 1.
   isWardOfficer?: boolean;
@@ -79,7 +90,11 @@ export class UnitScopeService {
 
     // All readable teams = own + READ grants + WRITE grants
     const allReadTeamIds = [
-      ...new Set([...ownTeamIds, ...readOnlyGrantTeamIds, ...writeGrantTeamIds]),
+      ...new Set([
+        ...ownTeamIds,
+        ...readOnlyGrantTeamIds,
+        ...writeGrantTeamIds,
+      ]),
     ];
     // All writable teams = own + WRITE grants only (READ grants cannot write)
     const allWriteTeamIds = [...new Set([...ownTeamIds, ...writeGrantTeamIds])];
@@ -92,6 +107,19 @@ export class UnitScopeService {
       userIds.push(userId);
     }
 
+    // Users of WRITABLE teams only.
+    //
+    // `userIds` spans every readable team, and the write checks treat a
+    // matching investigator/entrant as an "owner" who may mutate. That made a
+    // READ-only grant enough to edit any record whose investigator happened to
+    // belong to that team — `writableTeamIds` was doing nothing on the owner
+    // branch. The caller is always included: everyone may edit their own work.
+    const writableUserIds =
+      await this.teamsService.getUserIdsForTeams(allWriteTeamIds);
+    if (!writableUserIds.includes(userId)) {
+      writableUserIds.push(userId);
+    }
+
     // v0.33.0.0: detect ward team membership (Team.wardId != null)
     // userTeams already loaded with .team relation. Find first ward team.
     const wardTeamUt = userTeams.find((ut) => ut.team.wardId !== null);
@@ -102,6 +130,7 @@ export class UnitScopeService {
       teamIds: allReadTeamIds,
       userIds,
       writableTeamIds: allWriteTeamIds,
+      writableUserIds,
       canDispatch,
       isWardOfficer,
       wardTeamId,

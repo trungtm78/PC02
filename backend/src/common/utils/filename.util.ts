@@ -81,8 +81,13 @@ export interface DocumentFilenameParts {
 export function buildDocumentFilename(parts: DocumentFilenameParts): string {
   // ext cũng phải sạch: caller truyền '../evil' sẽ tái chèn path separator SAU khi stem
   // đã được làm sạch.
-  const ext = sanitizeFilename(parts.ext ?? 'docx').replace(/[.\s]/g, '') || 'docx';
-  const stem = [parts.recordCode?.trim(), parts.templateName?.trim(), shortDocNumber(parts.documentNumber)]
+  const ext =
+    sanitizeFilename(parts.ext ?? 'docx').replace(/[.\s]/g, '') || 'docx';
+  const stem = [
+    parts.recordCode?.trim(),
+    parts.templateName?.trim(),
+    shortDocNumber(parts.documentNumber),
+  ]
     .filter((p): p is string => !!p)
     .join('_');
   // Cắt theo STEM (chừa chỗ cho ".ext"), KHÔNG cắt cả tên đã có đuôi — cắt sau khi nối

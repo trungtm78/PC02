@@ -74,7 +74,10 @@ export class EnrollmentService {
       metadata: { expiresAt, channelHint },
     });
 
-    const baseUrl = this.config.get<string>('APP_BASE_URL', 'http://171.244.40.245');
+    const baseUrl = this.config.get<string>(
+      'APP_BASE_URL',
+      'http://171.244.40.245',
+    );
     const url = `${baseUrl}/auth/enroll?token=${encodeURIComponent(rawToken)}&uid=${userId}`;
     return { url, qrPayload: url, expiresAt };
   }

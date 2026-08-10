@@ -8,7 +8,10 @@ const OTP_TTL_MS = 15 * 60 * 1000; // 15 minutes (matches password reset email t
 export class OtpCodeService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async invalidatePrior(userId: string, purpose: string = 'TWO_FA'): Promise<void> {
+  async invalidatePrior(
+    userId: string,
+    purpose: string = 'TWO_FA',
+  ): Promise<void> {
     await this.prisma.otpCode.updateMany({
       where: { userId, usedAt: null, purpose },
       data: { usedAt: new Date() },
@@ -38,7 +41,11 @@ export class OtpCodeService {
     return code;
   }
 
-  async verify(userId: string, plaintext: string, purpose: string = 'TWO_FA'): Promise<boolean> {
+  async verify(
+    userId: string,
+    plaintext: string,
+    purpose: string = 'TWO_FA',
+  ): Promise<boolean> {
     const record = await this.prisma.otpCode.findFirst({
       where: {
         userId,

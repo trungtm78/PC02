@@ -1,13 +1,23 @@
 import { OtpCodeService } from './otp-code.service';
 
-function makeRecord(overrides: Partial<{
-  id: string; userId: string; codeHash: string; salt: string;
-  expiresAt: Date; usedAt: Date | null; createdAt: Date;
-}> = {}) {
+function makeRecord(
+  overrides: Partial<{
+    id: string;
+    userId: string;
+    codeHash: string;
+    salt: string;
+    expiresAt: Date;
+    usedAt: Date | null;
+    createdAt: Date;
+  }> = {},
+) {
   const salt = 'aabbccddeeff00112233445566778899';
   const code = '123456';
   const crypto = require('crypto');
-  const codeHash = crypto.createHash('sha256').update(salt + code).digest('hex');
+  const codeHash = crypto
+    .createHash('sha256')
+    .update(salt + code)
+    .digest('hex');
   return {
     id: 'otp-1',
     userId: 'user-1',

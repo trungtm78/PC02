@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Response } from 'express';
 import * as ExcelJS from 'exceljs';
 import { PrismaService } from '../prisma/prisma.service';
@@ -7,7 +11,11 @@ import { CreateProposalDto } from './dto/create-proposal.dto';
 import { QueryProposalsDto } from './dto/query-proposals.dto';
 import { ProposalStatus, Prisma } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
-import { assertParentInScope, assertCreatorInScope, buildScopeFilter } from '../common/utils/scope-filter.util';
+import {
+  assertParentInScope,
+  assertCreatorInScope,
+  buildScopeFilter,
+} from '../common/utils/scope-filter.util';
 import { BcaExcelHelper } from '../common/bca-excel.helper';
 import { PROPOSAL_STATUS_LABEL } from '../common/constants/status-labels.constants';
 import { DocumentNumbersService } from '../document-numbers/document-numbers.service';
@@ -33,8 +41,16 @@ export class ProposalsService {
       ];
     }
     if (status) where.status = status as ProposalStatus;
-    if (fromDate) where.createdAt = { ...(where.createdAt as any), gte: new Date(fromDate) };
-    if (toDate) where.createdAt = { ...(where.createdAt as any), lte: new Date(toDate + 'T23:59:59.999Z') };
+    if (fromDate)
+      where.createdAt = {
+        ...(where.createdAt as any),
+        gte: new Date(fromDate),
+      };
+    if (toDate)
+      where.createdAt = {
+        ...(where.createdAt as any),
+        lte: new Date(toDate + 'T23:59:59.999Z'),
+      };
 
     if (dataScope) {
       const { userIds, teamIds } = dataScope;
@@ -45,7 +61,8 @@ export class ProposalsService {
         const caseScope = buildScopeFilter(dataScope);
         const conditions: any[] = [];
         if (caseScope) conditions.push({ relatedCase: caseScope });
-        if (userIds.length > 0) conditions.push({ relatedCase: null, createdById: { in: userIds } });
+        if (userIds.length > 0)
+          conditions.push({ relatedCase: null, createdById: { in: userIds } });
         if (conditions.length > 0) (where as any).OR = conditions;
       }
     }
@@ -54,7 +71,14 @@ export class ProposalsService {
       this.prisma.proposal.findMany({
         where,
         include: {
-          createdBy: { select: { id: true, firstName: true, lastName: true, username: true } },
+          createdBy: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              username: true,
+            },
+          },
           relatedCase: { select: { id: true, name: true } },
         },
         orderBy: { createdAt: 'desc' },
@@ -64,18 +88,34 @@ export class ProposalsService {
       this.prisma.proposal.count({ where }),
     ]);
 
-    return { success: true, data, total, page: Math.floor(offset / limit) + 1, pageSize: limit };
+    return {
+      success: true,
+      data,
+      total,
+      page: Math.floor(offset / limit) + 1,
+      pageSize: limit,
+    };
   }
 
   async getById(id: string, dataScope?: DataScope | null) {
     const record = await this.prisma.proposal.findFirst({
       where: { id, deletedAt: null },
       include: {
-        createdBy: { select: { id: true, firstName: true, lastName: true, username: true } },
-        relatedCase: { select: { id: true, name: true, assignedTeamId: true, investigatorId: true } },
+        createdBy: {
+          select: { id: true, firstName: true, lastName: true, username: true },
+        },
+        relatedCase: {
+          select: {
+            id: true,
+            name: true,
+            assignedTeamId: true,
+            investigatorId: true,
+          },
+        },
       },
     });
-    if (!record) throw new NotFoundException(`Đề xuất không tồn tại (id: ${id})`);
+    if (!record)
+      throw new NotFoundException(`Đề xuất không tồn tại (id: ${id})`);
     if (record.relatedCase) {
       assertParentInScope(record.relatedCase, dataScope);
     } else {
@@ -84,12 +124,36 @@ export class ProposalsService {
     return { success: true, data: record };
   }
 
-  async create(dto: CreateProposalDto, actorId: string, meta?: { ipAddress?: string; userAgent?: string }) {
+  async create(
+    dto: CreateProposalDto,
+    actorId: string,
+    meta?: { ipAddress?: string; userAgent?: string },
+    dataScope?: DataScope | null,
+  ) {
+    // Same shape as delegations: relatedCaseId is optional, and when supplied
+    // it was written with no existence or scope check.
+    if (dto.relatedCaseId) {
+      const parentCase = await this.prisma.case.findFirst({
+        where: { id: dto.relatedCaseId, deletedAt: null },
+        select: { id: true, assignedTeamId: true, investigatorId: true },
+      });
+      if (!parentCase) {
+        throw new BadRequestException(
+          `Vụ án không tồn tại (id: ${dto.relatedCaseId})`,
+        );
+      }
+      assertParentInScope(parentCase, dataScope, 'write');
+    }
+
     let resolvedProposalNumber: string | undefined = dto.proposalNumber;
 
     const record = await this.prisma.$transaction(async (tx: any) => {
       if (!resolvedProposalNumber) {
-        const { number, logId } = await this.docNums.commitWithTx('PROPOSAL', { userId: actorId }, tx);
+        const { number, logId } = await this.docNums.commitWithTx(
+          'PROPOSAL',
+          { userId: actorId },
+          tx,
+        );
         resolvedProposalNumber = number;
         const rec = await tx.proposal.create({
           data: {
@@ -102,14 +166,21 @@ export class ProposalsService {
             status: dto.status ?? ProposalStatus.CHO_GUI,
             sentDate: dto.sentDate ? new Date(dto.sentDate) : undefined,
             response: dto.response,
-            responseDate: dto.responseDate ? new Date(dto.responseDate) : undefined,
+            responseDate: dto.responseDate
+              ? new Date(dto.responseDate)
+              : undefined,
             notes: dto.notes,
           },
           include: {
-            createdBy: { select: { id: true, firstName: true, lastName: true } },
+            createdBy: {
+              select: { id: true, firstName: true, lastName: true },
+            },
           },
         });
-        await tx.documentNumberLog.update({ where: { id: logId }, data: { documentId: rec.id } });
+        await tx.documentNumberLog.update({
+          where: { id: logId },
+          data: { documentId: rec.id },
+        });
         return rec;
       }
       return tx.proposal.create({
@@ -123,7 +194,9 @@ export class ProposalsService {
           status: dto.status ?? ProposalStatus.CHO_GUI,
           sentDate: dto.sentDate ? new Date(dto.sentDate) : undefined,
           response: dto.response,
-          responseDate: dto.responseDate ? new Date(dto.responseDate) : undefined,
+          responseDate: dto.responseDate
+            ? new Date(dto.responseDate)
+            : undefined,
           notes: dto.notes,
         },
         include: {
@@ -145,7 +218,13 @@ export class ProposalsService {
     return { success: true, data: record, message: 'Tạo đề xuất thành công' };
   }
 
-  async update(id: string, dto: Partial<CreateProposalDto>, actorId: string, meta?: { ipAddress?: string; userAgent?: string }, dataScope?: DataScope | null) {
+  async update(
+    id: string,
+    dto: Partial<CreateProposalDto>,
+    actorId: string,
+    meta?: { ipAddress?: string; userAgent?: string },
+    dataScope?: DataScope | null,
+  ) {
     const { data: existing } = await this.getById(id, dataScope);
     if (existing.relatedCase) {
       assertParentInScope(existing.relatedCase, dataScope, 'write');
@@ -157,10 +236,16 @@ export class ProposalsService {
       where: { id },
       data: {
         ...(dto.content !== undefined && { content: dto.content }),
-        ...(dto.status !== undefined && { status: dto.status as ProposalStatus }),
-        ...(dto.sentDate !== undefined && { sentDate: dto.sentDate ? new Date(dto.sentDate) : null }),
+        ...(dto.status !== undefined && {
+          status: dto.status,
+        }),
+        ...(dto.sentDate !== undefined && {
+          sentDate: dto.sentDate ? new Date(dto.sentDate) : null,
+        }),
         ...(dto.response !== undefined && { response: dto.response }),
-        ...(dto.responseDate !== undefined && { responseDate: dto.responseDate ? new Date(dto.responseDate) : null }),
+        ...(dto.responseDate !== undefined && {
+          responseDate: dto.responseDate ? new Date(dto.responseDate) : null,
+        }),
         ...(dto.notes !== undefined && { notes: dto.notes }),
         ...(dto.unit !== undefined && { unit: dto.unit }),
         ...(dto.caseType !== undefined && { caseType: dto.caseType }),
@@ -172,15 +257,27 @@ export class ProposalsService {
       action: 'PROPOSAL_UPDATED',
       subject: 'Proposal',
       subjectId: id,
-      metadata: { before: { status: existing.status, content: existing.content }, after: dto },
+      metadata: {
+        before: { status: existing.status, content: existing.content },
+        after: dto,
+      },
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
     });
 
-    return { success: true, data: record, message: 'Cập nhật đề xuất thành công' };
+    return {
+      success: true,
+      data: record,
+      message: 'Cập nhật đề xuất thành công',
+    };
   }
 
-  async delete(id: string, actorId: string, meta?: { ipAddress?: string; userAgent?: string }, dataScope?: DataScope | null) {
+  async delete(
+    id: string,
+    actorId: string,
+    meta?: { ipAddress?: string; userAgent?: string },
+    dataScope?: DataScope | null,
+  ) {
     const { data: existing } = await this.getById(id, dataScope);
     if (existing.relatedCase) {
       assertParentInScope(existing.relatedCase, dataScope, 'write');
@@ -188,7 +285,10 @@ export class ProposalsService {
       assertCreatorInScope(existing.createdById, dataScope, 'write');
     }
 
-    await this.prisma.proposal.update({ where: { id }, data: { deletedAt: new Date() } });
+    await this.prisma.proposal.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
 
     await this.audit.log({
       userId: actorId,
@@ -207,15 +307,28 @@ export class ProposalsService {
   // EXPORT TO EXCEL (Danh sách kiến nghị VKS)
   // ─────────────────────────────────────────────
   async exportToExcel(
-    query: { status?: string; unit?: string; fromDate?: string; toDate?: string },
+    query: {
+      status?: string;
+      unit?: string;
+      fromDate?: string;
+      toDate?: string;
+    },
     dataScope: DataScope | null | undefined,
     res: Response,
   ): Promise<void> {
     const where: Prisma.ProposalWhereInput = { deletedAt: null };
     if (query.status) where.status = query.status as ProposalStatus;
     if (query.unit) where.unit = { contains: query.unit, mode: 'insensitive' };
-    if (query.fromDate) where.createdAt = { ...(where.createdAt as any), gte: new Date(query.fromDate) };
-    if (query.toDate) where.createdAt = { ...(where.createdAt as any), lte: new Date(query.toDate + 'T23:59:59.999Z') };
+    if (query.fromDate)
+      where.createdAt = {
+        ...(where.createdAt as any),
+        gte: new Date(query.fromDate),
+      };
+    if (query.toDate)
+      where.createdAt = {
+        ...(where.createdAt as any),
+        lte: new Date(query.toDate + 'T23:59:59.999Z'),
+      };
 
     if (dataScope) {
       const { userIds, teamIds } = dataScope;
@@ -226,7 +339,8 @@ export class ProposalsService {
         const caseScope = buildScopeFilter(dataScope);
         const conditions: any[] = [];
         if (caseScope) conditions.push({ relatedCase: caseScope });
-        if (userIds.length > 0) conditions.push({ relatedCase: null, createdById: { in: userIds } });
+        if (userIds.length > 0)
+          conditions.push({ relatedCase: null, createdById: { in: userIds } });
         if (conditions.length > 0) (where as any).OR = conditions;
       }
     }
@@ -242,17 +356,39 @@ export class ProposalsService {
     });
 
     const COL_COUNT = 9;
-    const HEADERS = ['STT', 'Mã kiến nghị', 'Hồ sơ liên quan', 'Nội dung', 'Đơn vị VKS', 'Người soạn', 'Ngày gửi', 'Trạng thái', 'Phản hồi'];
+    const HEADERS = [
+      'STT',
+      'Mã kiến nghị',
+      'Hồ sơ liên quan',
+      'Nội dung',
+      'Đơn vị VKS',
+      'Người soạn',
+      'Ngày gửi',
+      'Trạng thái',
+      'Phản hồi',
+    ];
     const WIDTHS = [6, 18, 25, 40, 20, 20, 14, 18, 35];
 
-    const fromStr = query.fromDate ? new Date(query.fromDate).toLocaleDateString('vi-VN') : '';
-    const toStr = query.toDate ? new Date(query.toDate).toLocaleDateString('vi-VN') : '';
-    const period = fromStr && toStr ? `Từ ngày ${fromStr} đến ngày ${toStr}` : 'Tất cả thời gian';
+    const fromStr = query.fromDate
+      ? new Date(query.fromDate).toLocaleDateString('vi-VN')
+      : '';
+    const toStr = query.toDate
+      ? new Date(query.toDate).toLocaleDateString('vi-VN')
+      : '';
+    const period =
+      fromStr && toStr
+        ? `Từ ngày ${fromStr} đến ngày ${toStr}`
+        : 'Tất cả thời gian';
 
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Danh sách kiến nghị VKS');
 
-    BcaExcelHelper.addHeader(sheet, COL_COUNT, 'DANH SÁCH KIẾN NGHỊ VKS', period);
+    BcaExcelHelper.addHeader(
+      sheet,
+      COL_COUNT,
+      'DANH SÁCH KIẾN NGHỊ VKS',
+      period,
+    );
 
     const headerRow = sheet.getRow(7);
     BcaExcelHelper.addColumnHeaders(headerRow, HEADERS, WIDTHS);
@@ -269,7 +405,7 @@ export class ProposalsService {
         rec.unit ?? '',
         creatorName,
         rec.sentDate ? rec.sentDate.toLocaleDateString('vi-VN') : '',
-        PROPOSAL_STATUS_LABEL[rec.status as ProposalStatus] ?? rec.status ?? '',
+        PROPOSAL_STATUS_LABEL[rec.status] ?? rec.status ?? '',
         rec.response ?? '',
       ]);
       BcaExcelHelper.styleDataRow(dataRow, idx % 2 === 1, COL_COUNT);
@@ -280,7 +416,10 @@ export class ProposalsService {
     BcaExcelHelper.setPrintSetup(sheet);
 
     const filename = `KienNghiVKS_${new Date().toISOString().slice(0, 10)}.xlsx`;
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
 
     try {

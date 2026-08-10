@@ -1,13 +1,24 @@
-import { BadRequestException, ConflictException, ForbiddenException, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 
 jest.mock('otplib', () => ({
   generateSecret: jest.fn().mockReturnValue('JBSWY3DPEHPK3PXP'),
-  generateURI: jest.fn().mockReturnValue('otpauth://totp/PC02:user@test.com?secret=JBSWY3DPEHPK3PXP&issuer=PC02'),
+  generateURI: jest
+    .fn()
+    .mockReturnValue(
+      'otpauth://totp/PC02:user@test.com?secret=JBSWY3DPEHPK3PXP&issuer=PC02',
+    ),
   verify: jest.fn().mockResolvedValue({ valid: true }),
   generate: jest.fn().mockResolvedValue('123456'),
 }));
-jest.mock('qrcode', () => ({ toDataURL: jest.fn().mockResolvedValue('data:image/png;base64,fake') }));
+jest.mock('qrcode', () => ({
+  toDataURL: jest.fn().mockResolvedValue('data:image/png;base64,fake'),
+}));
 
 // Minimal mock builder for TwoFaService
 function makeUser(overrides: Record<string, any> = {}) {
@@ -29,7 +40,10 @@ function makeUser(overrides: Record<string, any> = {}) {
   };
 }
 
-function makeService(userOverride: Record<string, any> = {}, extraMocks: Record<string, any> = {}) {
+function makeService(
+  userOverride: Record<string, any> = {},
+  extraMocks: Record<string, any> = {},
+) {
   const user = makeUser(userOverride);
 
   const prisma = {
@@ -77,9 +91,28 @@ function makeService(userOverride: Record<string, any> = {}, extraMocks: Record<
   jest.spyOn(require('fs'), 'readFileSync').mockReturnValue('FAKE_PRIVATE_KEY');
 
   const { TwoFaService } = require('./two-fa.service');
-  const svc = new TwoFaService(prisma, jwtService, config, audit, encryption, otpCode, emailSvc, settings);
+  const svc = new TwoFaService(
+    prisma,
+    jwtService,
+    config,
+    audit,
+    encryption,
+    otpCode,
+    emailSvc,
+    settings,
+  );
 
-  return { svc, prisma, encryption, otpCode, emailSvc, audit, settings, jwtService, ...extraMocks };
+  return {
+    svc,
+    prisma,
+    encryption,
+    otpCode,
+    emailSvc,
+    audit,
+    settings,
+    jwtService,
+    ...extraMocks,
+  };
 }
 
 describe('TwoFaService.verify()', () => {
@@ -87,10 +120,18 @@ describe('TwoFaService.verify()', () => {
 
   it('totp method: valid code → returns TokenPair and logs USER_2FA_VERIFIED + USER_LOGIN', async () => {
     const { svc, audit } = makeService({ totpEnabled: true });
-    const result = await svc.verify('user-1', { code: '123456', method: 'totp' }, meta);
+    const result = await svc.verify(
+      'user-1',
+      { code: '123456', method: 'totp' },
+      meta,
+    );
     expect(result).toHaveProperty('accessToken');
-    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: 'USER_2FA_VERIFIED' }));
-    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: 'USER_LOGIN' }));
+    expect(audit.log).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'USER_2FA_VERIFIED' }),
+    );
+    expect(audit.log).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'USER_LOGIN' }),
+    );
   });
 
   // C2 critical: 2FA verify must re-check mustChangePassword AFTER OTP success.
@@ -104,7 +145,11 @@ describe('TwoFaService.verify()', () => {
     });
     jwtService.signAsync.mockResolvedValue('CHANGE_PW_TOKEN');
 
-    const result = await svc.verify('user-1', { code: '123456', method: 'totp' }, meta);
+    const result = await svc.verify(
+      'user-1',
+      { code: '123456', method: 'totp' },
+      meta,
+    );
 
     expect(result).toEqual(
       expect.objectContaining({
@@ -113,7 +158,7 @@ describe('TwoFaService.verify()', () => {
         changePasswordToken: 'CHANGE_PW_TOKEN',
       }),
     );
-    expect((result as any).accessToken).toBeUndefined();
+    expect(result.accessToken).toBeUndefined();
   });
 
   it('audits USER_LOGIN_BLOCKED_PENDING_PASSWORD_CHANGE when blocking post-OTP', async () => {
@@ -171,38 +216,60 @@ describe('TwoFaService.verify()', () => {
   it('totp method: replayed code (0 rows updated) → throws ForbiddenException', async () => {
     const { svc, prisma } = makeService({ totpEnabled: true });
     prisma.$executeRaw.mockResolvedValue(0);
-    await expect(svc.verify('user-1', { code: '123456', method: 'totp' }, meta)).rejects.toThrow(ForbiddenException);
+    await expect(
+      svc.verify('user-1', { code: '123456', method: 'totp' }, meta),
+    ).rejects.toThrow(ForbiddenException);
   });
 
   it('email_otp method: valid OTP → returns TokenPair', async () => {
     const { svc } = makeService({ totpEnabled: false });
-    const result = await svc.verify('user-1', { code: '654321', method: 'email_otp' }, meta);
+    const result = await svc.verify(
+      'user-1',
+      { code: '654321', method: 'email_otp' },
+      meta,
+    );
     expect(result).toHaveProperty('accessToken');
   });
 
   it('email_otp method: wrong OTP → throws 401, logs USER_2FA_FAILED', async () => {
     const { svc, otpCode, audit } = makeService({ totpEnabled: false });
     otpCode.verify.mockResolvedValue(false);
-    await expect(svc.verify('user-1', { code: '000000', method: 'email_otp' }, meta)).rejects.toThrow(UnauthorizedException);
-    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: 'USER_2FA_FAILED' }));
+    await expect(
+      svc.verify('user-1', { code: '000000', method: 'email_otp' }, meta),
+    ).rejects.toThrow(UnauthorizedException);
+    expect(audit.log).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'USER_2FA_FAILED' }),
+    );
   });
 
   it('backup method: correct backup code → removes from arrays, returns TokenPair', async () => {
     const code = 'abc123def456';
     const hash = bcrypt.hashSync(code, 4); // cost 4 for test speed; prod uses 12
-    const { svc, prisma } = makeService({ backupCodes: [hash], backupCodeSalts: [''] });
+    const { svc, prisma } = makeService({
+      backupCodes: [hash],
+      backupCodeSalts: [''],
+    });
     const result = await svc.verify('user-1', { code, method: 'backup' }, meta);
     expect(result).toHaveProperty('accessToken');
     expect(prisma.user.update).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ backupCodes: [], backupCodeSalts: [] }) }),
+      expect.objectContaining({
+        data: expect.objectContaining({ backupCodes: [], backupCodeSalts: [] }),
+      }),
     );
   });
 
   it('backup method: wrong code → throws 401, logs USER_2FA_FAILED', async () => {
     const hash = bcrypt.hashSync('rightcode', 4);
-    const { svc, audit } = makeService({ backupCodes: [hash], backupCodeSalts: [''] });
-    await expect(svc.verify('user-1', { code: 'wrongcode', method: 'backup' }, meta)).rejects.toThrow(UnauthorizedException);
-    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: 'USER_2FA_FAILED' }));
+    const { svc, audit } = makeService({
+      backupCodes: [hash],
+      backupCodeSalts: [''],
+    });
+    await expect(
+      svc.verify('user-1', { code: 'wrongcode', method: 'backup' }, meta),
+    ).rejects.toThrow(UnauthorizedException);
+    expect(audit.log).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'USER_2FA_FAILED' }),
+    );
   });
 
   it('backup method: mixed array (legacy sha256 + bcrypt) → only bcrypt entry can match', async () => {
@@ -227,17 +294,28 @@ describe('TwoFaService.verify()', () => {
       backupCodeSalts: ['', '', ''],
     });
     await expect(
-      svc.verify('user-1', { code: 'whateverlegacycode', method: 'backup' }, meta),
+      svc.verify(
+        'user-1',
+        { code: 'whateverlegacycode', method: 'backup' },
+        meta,
+      ),
     ).rejects.toThrow(UnauthorizedException);
-    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: 'USER_2FA_FAILED' }));
+    expect(audit.log).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'USER_2FA_FAILED' }),
+    );
   });
 
   it('backup method: empty array → returns 401 without bcrypt comparisons', async () => {
-    const { svc, audit } = makeService({ backupCodes: [], backupCodeSalts: [] });
+    const { svc, audit } = makeService({
+      backupCodes: [],
+      backupCodeSalts: [],
+    });
     await expect(
       svc.verify('user-1', { code: 'anycode', method: 'backup' }, meta),
     ).rejects.toThrow(UnauthorizedException);
-    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: 'USER_2FA_FAILED' }));
+    expect(audit.log).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'USER_2FA_FAILED' }),
+    );
   });
 });
 
@@ -265,11 +343,21 @@ describe('TwoFaService.setupTotp()', () => {
     });
     // After reset, findUnique returns fresh user without pending
     prisma.user.findUnique
-      .mockResolvedValueOnce(makeUser({ totpEnabled: false, totpSetupPending: true, totpSetupPendingAt: old }))
-      .mockResolvedValue(makeUser({ totpEnabled: false, totpSetupPending: false }));
+      .mockResolvedValueOnce(
+        makeUser({
+          totpEnabled: false,
+          totpSetupPending: true,
+          totpSetupPendingAt: old,
+        }),
+      )
+      .mockResolvedValue(
+        makeUser({ totpEnabled: false, totpSetupPending: false }),
+      );
 
     // Mock QRCode and authenticator
-    jest.spyOn(require('qrcode'), 'toDataURL').mockResolvedValue('data:image/png;base64,fake');
+    jest
+      .spyOn(require('qrcode'), 'toDataURL')
+      .mockResolvedValue('data:image/png;base64,fake');
     const result = await svc.setupTotp('user-1');
     expect(result).toHaveProperty('qrCodeDataUrl');
     expect(result.backupCodes).toHaveLength(10);
@@ -290,14 +378,20 @@ describe('TwoFaService.adminResetTwoFa()', () => {
       }),
     );
     expect(audit.log).toHaveBeenCalledWith(
-      expect.objectContaining({ action: 'ADMIN_2FA_RESET', subjectId: 'user-1', userId: 'admin-1' }),
+      expect.objectContaining({
+        action: 'ADMIN_2FA_RESET',
+        subjectId: 'user-1',
+        userId: 'admin-1',
+      }),
     );
   });
 
   it('throws BadRequestException when user not found', async () => {
     const { svc, prisma } = makeService();
     prisma.user.findUnique.mockResolvedValue(null);
-    await expect(svc.adminResetTwoFa('nonexistent', 'admin-1')).rejects.toThrow(BadRequestException);
+    await expect(svc.adminResetTwoFa('nonexistent', 'admin-1')).rejects.toThrow(
+      BadRequestException,
+    );
   });
 });
 
@@ -305,13 +399,19 @@ describe('TwoFaService.disableTotp()', () => {
   it('throws BadRequestException when TWO_FA_ENABLED=true', async () => {
     const { svc, settings } = makeService();
     settings.getValue.mockResolvedValue('true');
-    await expect(svc.disableTotp('user-1')).rejects.toThrow(BadRequestException);
+    await expect(svc.disableTotp('user-1')).rejects.toThrow(
+      BadRequestException,
+    );
   });
 
   it('P3-002: resets TOTP fields when user totpEnabled=false (idempotent, no code needed)', async () => {
     const { svc, prisma } = makeService();
     // Simulate user that already has 2FA disabled — disable should be no-op without code
-    prisma.user.findUnique.mockResolvedValue({ totpEnabled: false, totpSecret: null, lastTotpCode: null });
+    prisma.user.findUnique.mockResolvedValue({
+      totpEnabled: false,
+      totpSecret: null,
+      lastTotpCode: null,
+    });
     await svc.disableTotp('user-1');
     expect(prisma.user.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -327,6 +427,8 @@ describe('TwoFaService.disableTotp()', () => {
       totpSecret: 'encrypted-secret',
       lastTotpCode: null,
     });
-    await expect(svc.disableTotp('user-1')).rejects.toThrow('Vui lòng nhập mã TOTP hiện tại');
+    await expect(svc.disableTotp('user-1')).rejects.toThrow(
+      'Vui lòng nhập mã TOTP hiện tại',
+    );
   });
 });

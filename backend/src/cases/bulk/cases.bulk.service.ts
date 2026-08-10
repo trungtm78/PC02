@@ -394,7 +394,8 @@ export class CasesBulkService {
           where: {
             id: { in: ids },
             deletedAt: null,
-            ...buildScopeFilter(input.dataScope),
+            // Xoá là thao tác ghi: dùng writableTeamIds, không phải teamIds đọc.
+            ...buildScopeFilter(input.dataScope, 'write'),
           },
           include: {
             subjects: { where: { deletedAt: null }, select: { id: true } },

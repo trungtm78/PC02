@@ -7,7 +7,11 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { generateSecret as totpGenerateSecret, verify as totpVerify, generateURI as totpGenerateURI } from 'otplib';
+import {
+  generateSecret as totpGenerateSecret,
+  verify as totpVerify,
+  generateURI as totpGenerateURI,
+} from 'otplib';
 import * as QRCode from 'qrcode';
 import * as crypto from 'crypto';
 import * as fs from 'fs';
@@ -66,10 +70,19 @@ export class TwoFaService {
   }
 
   // ── Setup TOTP ─────────────────────────────────────────────────────────────
-  async setupTotp(userId: string): Promise<{ qrCodeDataUrl: string; backupCodes: string[] }> {
+  async setupTotp(
+    userId: string,
+  ): Promise<{ qrCodeDataUrl: string; backupCodes: string[] }> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, email: true, username: true, totpEnabled: true, totpSetupPending: true, totpSetupPendingAt: true },
+      select: {
+        id: true,
+        email: true,
+        username: true,
+        totpEnabled: true,
+        totpSetupPending: true,
+        totpSetupPendingAt: true,
+      },
     });
     if (!user) throw new UnauthorizedException();
 
@@ -83,10 +96,16 @@ export class TwoFaService {
       if (age > SETUP_PENDING_TTL_MS) {
         await this.prisma.user.update({
           where: { id: userId },
-          data: { totpSetupPending: false, totpSecret: null, totpSetupPendingAt: null },
+          data: {
+            totpSetupPending: false,
+            totpSecret: null,
+            totpSetupPendingAt: null,
+          },
         });
       } else {
-        throw new ConflictException('Setup đang chờ xác nhận. Kiểm tra QR code trước đó.');
+        throw new ConflictException(
+          'Setup đang chờ xác nhận. Kiểm tra QR code trước đó.',
+        );
       }
     }
 
@@ -118,7 +137,12 @@ export class TwoFaService {
       },
     });
 
-    const otpUri = totpGenerateURI({ label: user.email ?? user.username, issuer: 'PC02', secret, strategy: 'totp' });
+    const otpUri = totpGenerateURI({
+      label: user.email ?? user.username,
+      issuer: 'PC02',
+      secret,
+      strategy: 'totp',
+    });
     const qrCodeDataUrl = await QRCode.toDataURL(otpUri);
 
     return { qrCodeDataUrl, backupCodes: plainCodes };
@@ -128,17 +152,29 @@ export class TwoFaService {
   async verifySetup(userId: string, token: string): Promise<void> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, email: true, totpSetupPending: true, totpSecret: true },
+      select: {
+        id: true,
+        email: true,
+        totpSetupPending: true,
+        totpSecret: true,
+      },
     });
     if (!user) throw new UnauthorizedException();
 
     if (!user.totpSetupPending || !user.totpSecret) {
-      throw new BadRequestException('Chưa khởi tạo setup TOTP. Gọi /auth/2fa/setup trước.');
+      throw new BadRequestException(
+        'Chưa khởi tạo setup TOTP. Gọi /auth/2fa/setup trước.',
+      );
     }
 
     const secret = this.encryption.decrypt(user.totpSecret);
     // epochTolerance: 30 (seconds) = accept ±30s clock drift. Valid otplib v13 option (verified types-BBT_82HF.d.ts).
-    const verifyResult = await totpVerify({ token, secret, strategy: 'totp', epochTolerance: 30 });
+    const verifyResult = await totpVerify({
+      token,
+      secret,
+      strategy: 'totp',
+      epochTolerance: 30,
+    });
     if (!verifyResult.valid) {
       throw new BadRequestException('Mã TOTP không hợp lệ');
     }
@@ -295,14 +331,24 @@ export class TwoFaService {
   }
 
   private async verifyTotp(
-    user: { id: string; totpEnabled: boolean; totpSecret: string | null; lastTotpCode: string | null },
+    user: {
+      id: string;
+      totpEnabled: boolean;
+      totpSecret: string | null;
+      lastTotpCode: string | null;
+    },
     code: string,
     meta: { ipAddress?: string; userAgent?: string },
   ): Promise<boolean> {
     if (!user.totpEnabled || !user.totpSecret) return false;
 
     const secret = this.encryption.decrypt(user.totpSecret);
-    const totpResult = await totpVerify({ token: code, secret, strategy: 'totp', epochTolerance: 30 });
+    const totpResult = await totpVerify({
+      token: code,
+      secret,
+      strategy: 'totp',
+      epochTolerance: 30,
+    });
     if (!totpResult.valid) return false;
 
     // Atomic replay protection — UPDATE only if lastTotpCode != code
@@ -342,8 +388,10 @@ export class TwoFaService {
     //   array length, and compare a dummy hash for non-bcrypt slots so every
     //   iteration takes a real bcrypt verification's worth of time.
     for (let i = 0; i < BACKUP_CODE_COUNT; i++) {
-      const stored = i < user.backupCodes.length ? user.backupCodes[i] : undefined;
-      const target = stored && stored.startsWith('$2') ? stored : DUMMY_BCRYPT_HASH;
+      const stored =
+        i < user.backupCodes.length ? user.backupCodes[i] : undefined;
+      const target =
+        stored && stored.startsWith('$2') ? stored : DUMMY_BCRYPT_HASH;
       const isMatch = await bcrypt.compare(code, target);
       // Only accept the match if we compared against the user's real stored
       // entry — never count a successful dummy-hash compare (impossible by
@@ -369,9 +417,12 @@ export class TwoFaService {
   // from silently disabling 2FA (e.g., XSS / leaked log token theft). Pattern matches
   // GitHub/Google: disable second factor requires proving you still have it.
   async disableTotp(userId: string, currentTotpCode?: string): Promise<void> {
-    const is2FAEnabled = await this.settings.getValue(SETTINGS_KEY.TWO_FA_ENABLED) === 'true';
+    const is2FAEnabled =
+      (await this.settings.getValue(SETTINGS_KEY.TWO_FA_ENABLED)) === 'true';
     if (is2FAEnabled) {
-      throw new BadRequestException('Không thể tắt 2FA khi hệ thống yêu cầu 2FA bắt buộc');
+      throw new BadRequestException(
+        'Không thể tắt 2FA khi hệ thống yêu cầu 2FA bắt buộc',
+      );
     }
 
     // P3-002: require current TOTP code IF user currently has TOTP enabled.
@@ -387,7 +438,12 @@ export class TwoFaService {
         );
       }
       const verified = await this.verifyTotp(
-        { id: userId, totpEnabled: true, totpSecret: user.totpSecret, lastTotpCode: user.lastTotpCode },
+        {
+          id: userId,
+          totpEnabled: true,
+          totpSecret: user.totpSecret,
+          lastTotpCode: user.lastTotpCode,
+        },
         currentTotpCode,
         { ipAddress: undefined, userAgent: undefined },
       );
@@ -419,8 +475,13 @@ export class TwoFaService {
   }
 
   // ── Admin Reset ────────────────────────────────────────────────────────────
-  async adminResetTwoFa(targetUserId: string, adminUserId: string): Promise<{ success: boolean }> {
-    const target = await this.prisma.user.findUnique({ where: { id: targetUserId } });
+  async adminResetTwoFa(
+    targetUserId: string,
+    adminUserId: string,
+  ): Promise<{ success: boolean }> {
+    const target = await this.prisma.user.findUnique({
+      where: { id: targetUserId },
+    });
     if (!target) throw new BadRequestException('User không tồn tại');
 
     await this.prisma.user.update({
@@ -456,7 +517,9 @@ export class TwoFaService {
   //                                            clear twoFaSetupRequired, trả TokenPair
   // ──────────────────────────────────────────────────────────────────────────
 
-  async initialSetup(userId: string): Promise<{ qrCodeDataUrl: string; backupCodes: string[] }> {
+  async initialSetup(
+    userId: string,
+  ): Promise<{ qrCodeDataUrl: string; backupCodes: string[] }> {
     // Reuse logic của setupTotp — không cần thêm gì khác, user state giống nhau.
     return this.setupTotp(userId);
   }
@@ -504,8 +567,14 @@ export class TwoFaService {
     role: { name: string };
     refreshTokenHash?: string | null;
   }): Promise<TokenPair> {
-    const accessExpiry = this.config.get<string>('JWT_ACCESS_TOKEN_EXPIRES_IN', '15m');
-    const refreshExpiry = this.config.get<string>('JWT_REFRESH_TOKEN_EXPIRES_IN', '7d');
+    const accessExpiry = this.config.get<string>(
+      'JWT_ACCESS_TOKEN_EXPIRES_IN',
+      '15m',
+    );
+    const refreshExpiry = this.config.get<string>(
+      'JWT_REFRESH_TOKEN_EXPIRES_IN',
+      '7d',
+    );
 
     const payload = {
       sub: user.id,
@@ -520,11 +589,14 @@ export class TwoFaService {
         privateKey: this.privateKey,
         expiresIn: accessExpiry as any,
       }),
-      this.jwtService.signAsync({ ...payload, type: TOKEN_TYPE.REFRESH } as object, {
-        algorithm: 'RS256',
-        privateKey: this.privateKey,
-        expiresIn: refreshExpiry as any,
-      }),
+      this.jwtService.signAsync(
+        { ...payload, type: TOKEN_TYPE.REFRESH } as object,
+        {
+          algorithm: 'RS256',
+          privateKey: this.privateKey,
+          expiresIn: refreshExpiry as any,
+        },
+      ),
     ]);
 
     const refreshHash = await bcrypt.hash(refreshToken, getBcryptCost());

@@ -15,7 +15,11 @@ const mockService = {
 };
 
 function makeReq(dataScope: unknown = null) {
-  return { dataScope, ip: '127.0.0.1', headers: { 'user-agent': 'test' } } as any;
+  return {
+    dataScope,
+    ip: '127.0.0.1',
+    headers: { 'user-agent': 'test' },
+  } as any;
 }
 
 describe('ExchangesController — dataScope wiring', () => {
@@ -28,7 +32,9 @@ describe('ExchangesController — dataScope wiring', () => {
     })
       .overrideGuard(require('../auth/guards/jwt-auth.guard').JwtAuthGuard)
       .useValue({ canActivate: () => true })
-      .overrideGuard(require('../auth/guards/permissions.guard').PermissionsGuard)
+      .overrideGuard(
+        require('../auth/guards/permissions.guard').PermissionsGuard,
+      )
       .useValue({ canActivate: () => true })
       .compile();
 

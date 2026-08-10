@@ -283,7 +283,8 @@ export class PetitionsBulkService {
       },
       preflight: async (ids) => {
         const inScope = await this.prisma.petition.findMany({
-          where: { id: { in: ids }, deletedAt: null, ...buildPetitionScopeFilter(input.dataScope) },
+          // Xoá là thao tác ghi: dùng writableTeamIds, không phải teamIds đọc.
+          where: { id: { in: ids }, deletedAt: null, ...buildPetitionScopeFilter(input.dataScope, 'write') },
           select: { id: true },
         });
         const inScopeSet = new Set(inScope.map((p) => p.id));

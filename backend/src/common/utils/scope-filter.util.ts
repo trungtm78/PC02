@@ -7,7 +7,8 @@ const NO_ACCESS_SENTINEL = '__no_access__';
 // Sprint 3 / S3.3 — module-level metrics hook. Service-level inject sẽ khó vì
 // scope-filter là pure utility. Wire qua module-level singleton (set bởi
 // metrics.service onModuleInit) — keep utility pure cho test.
-let denialCounter: { inc: (labels: { resource: string }) => void } | null = null;
+let denialCounter: { inc: (labels: { resource: string }) => void } | null =
+  null;
 export function setScopeDenialCounter(counter: typeof denialCounter): void {
   denialCounter = counter;
 }
@@ -25,23 +26,35 @@ function recordDenial(resource: string): void {
  *
  * Returns null for admin (no filter needed).
  * Returns impossible filter for empty scope (no access).
+ *
+ * Pass `operation: 'write'` when the filter gates a mutation. The bulk delete
+ * endpoints used the read filter, which meant two things at once: a READ-only
+ * grant on another team was enough to soft-delete that team's records, and a
+ * dispatcher got `null` — no filter at all — and could delete anything. The
+ * write variant mirrors `assertParentInScope`: `writableTeamIds`, and no
+ * dispatcher bypass.
  */
 export function buildScopeFilter(
   scope: DataScope | null | undefined,
+  operation: 'read' | 'write' = 'read',
 ): Record<string, unknown> | null {
   // null scope = admin, no filtering
   if (scope === null || scope === undefined) return null;
   // dispatcher: full read access — sees all records regardless of team
-  if (scope.canDispatch) return null;
+  if (dispatcherMayBypass(scope, operation)) return null;
 
   const conditions: Record<string, unknown>[] = [];
+  const teamIds =
+    operation === 'write'
+      ? (scope.writableTeamIds ?? scope.teamIds)
+      : scope.teamIds;
 
   if (scope.userIds.length > 0) {
     conditions.push({ investigatorId: { in: scope.userIds } });
   }
 
-  if (scope.teamIds.length > 0) {
-    conditions.push({ assignedTeamId: { in: scope.teamIds } });
+  if (teamIds.length > 0) {
+    conditions.push({ assignedTeamId: { in: teamIds } });
     // v0.33.0.0 codex Crit 1: ward officer EXCLUDED từ intake (unassigned records).
     // Cán bộ phường chỉ thấy records assignedTeamId IN ward team mình.
     // PC02 user (non-ward) vẫn thấy intake để claim/assign.
@@ -64,18 +77,23 @@ export function buildScopeFilter(
  */
 export function buildPetitionScopeFilter(
   scope: DataScope | null | undefined,
+  operation: 'read' | 'write' = 'read',
 ): Record<string, unknown> | null {
   if (scope === null || scope === undefined) return null;
-  if (scope.canDispatch) return null;
+  if (dispatcherMayBypass(scope, operation)) return null;
 
   const conditions: Record<string, unknown>[] = [];
+  const teamIds =
+    operation === 'write'
+      ? (scope.writableTeamIds ?? scope.teamIds)
+      : scope.teamIds;
 
   if (scope.userIds.length > 0) {
     conditions.push({ enteredById: { in: scope.userIds } });
   }
 
-  if (scope.teamIds.length > 0) {
-    conditions.push({ assignedTeamId: { in: scope.teamIds } });
+  if (teamIds.length > 0) {
+    conditions.push({ assignedTeamId: { in: teamIds } });
     // v0.33.0.0 codex Crit 1: ward officer EXCLUDED từ intake — same as buildScopeFilter
     if (!scope.isWardOfficer) {
       conditions.push({ assignedTeamId: null });
@@ -111,13 +129,37 @@ function dispatcherMayBypass(
 }
 
 /**
+ * Which user ids count as "owner" for this operation.
+ *
+ * `userIds` spans every *readable* team, because that is what reads need. The
+ * write checks then treated a matching investigator/entrant/creator as an owner
+ * entitled to mutate — so a READ-only grant on a team was enough to edit any
+ * record whose investigator belonged to it, and `writableTeamIds` was doing
+ * nothing on that branch.
+ *
+ * Writes use `writableUserIds` instead. When it is absent — only hand-built
+ * scopes in older tests, never the interceptor — the fallback is the caller
+ * alone rather than `userIds`: an incomplete scope should deny, not widen.
+ */
+function effectiveUserIdsFor(
+  scope: DataScope,
+  operation: 'read' | 'write',
+): string[] {
+  if (operation === 'read') return scope.userIds;
+  return scope.writableUserIds ?? [];
+}
+
+/**
  * Throws 403 if the child record's parent (Case or Incident) is out of scope.
  * Pass the parent object (from an include) containing assignedTeamId + investigatorId.
  * If parent is null/undefined (orphan record), check passes silently.
  * Pass operation='write' on mutation paths — uses writableTeamIds instead of teamIds.
  */
 export function assertParentInScope(
-  parent: { assignedTeamId?: string | null; investigatorId?: string | null } | null | undefined,
+  parent:
+    | { assignedTeamId?: string | null; investigatorId?: string | null }
+    | null
+    | undefined,
   scope: DataScope | null | undefined,
   operation: 'read' | 'write' = 'read',
 ): void {
@@ -128,20 +170,31 @@ export function assertParentInScope(
   if (!parent) {
     recordDenial('parent-null');
     throw new ForbiddenException(
-      operation === 'write' ? 'Bạn không có quyền chỉnh sửa bản ghi này' : FORBIDDEN_MSG,
+      operation === 'write'
+        ? 'Bạn không có quyền chỉnh sửa bản ghi này'
+        : FORBIDDEN_MSG,
     );
   }
   const { userIds, teamIds, writableTeamIds } = scope;
-  const effectiveTeamIds = operation === 'write' ? (writableTeamIds ?? teamIds) : teamIds;
-  const ownerMatch = parent.investigatorId ? userIds.includes(parent.investigatorId) : false;
-  const teamMatch = parent.assignedTeamId ? effectiveTeamIds.includes(parent.assignedTeamId) : false;
+  const effectiveTeamIds =
+    operation === 'write' ? (writableTeamIds ?? teamIds) : teamIds;
+  const effectiveUserIds = effectiveUserIdsFor(scope, operation);
+  const ownerMatch = parent.investigatorId
+    ? effectiveUserIds.includes(parent.investigatorId)
+    : false;
+  const teamMatch = parent.assignedTeamId
+    ? effectiveTeamIds.includes(parent.assignedTeamId)
+    : false;
   // v0.33.0.0 codex HIGH 5: ward officer KHÔNG được pass unassigned parent (same logic as buildScopeFilter)
-  const isWardOfficer = (scope as any).isWardOfficer === true;
-  const unassigned = !parent.assignedTeamId && effectiveTeamIds.length > 0 && !isWardOfficer;
+  const isWardOfficer = scope.isWardOfficer === true;
+  const unassigned =
+    !parent.assignedTeamId && effectiveTeamIds.length > 0 && !isWardOfficer;
   if (!ownerMatch && !teamMatch && !unassigned) {
     recordDenial('parent');
     throw new ForbiddenException(
-      operation === 'write' ? 'Bạn không có quyền chỉnh sửa bản ghi này' : FORBIDDEN_MSG,
+      operation === 'write'
+        ? 'Bạn không có quyền chỉnh sửa bản ghi này'
+        : FORBIDDEN_MSG,
     );
   }
 }
@@ -153,7 +206,10 @@ export function assertParentInScope(
  * write operation uses writableTeamIds.
  */
 export function assertPetitionParentInScope(
-  parent: { assignedTeamId?: string | null; enteredById?: string | null } | null | undefined,
+  parent:
+    | { assignedTeamId?: string | null; enteredById?: string | null }
+    | null
+    | undefined,
   scope: DataScope | null | undefined,
   operation: 'read' | 'write' = 'read',
 ): void {
@@ -162,19 +218,30 @@ export function assertPetitionParentInScope(
   if (!parent) {
     recordDenial('petition-parent-null');
     throw new ForbiddenException(
-      operation === 'write' ? 'Bạn không có quyền chỉnh sửa bản ghi này' : FORBIDDEN_MSG,
+      operation === 'write'
+        ? 'Bạn không có quyền chỉnh sửa bản ghi này'
+        : FORBIDDEN_MSG,
     );
   }
   const { userIds, teamIds, writableTeamIds } = scope;
-  const effectiveTeamIds = operation === 'write' ? (writableTeamIds ?? teamIds) : teamIds;
-  const ownerMatch = parent.enteredById ? userIds.includes(parent.enteredById) : false;
-  const teamMatch = parent.assignedTeamId ? effectiveTeamIds.includes(parent.assignedTeamId) : false;
-  const isWardOfficer = (scope as any).isWardOfficer === true;
-  const unassigned = !parent.assignedTeamId && effectiveTeamIds.length > 0 && !isWardOfficer;
+  const effectiveTeamIds =
+    operation === 'write' ? (writableTeamIds ?? teamIds) : teamIds;
+  const effectiveUserIds = effectiveUserIdsFor(scope, operation);
+  const ownerMatch = parent.enteredById
+    ? effectiveUserIds.includes(parent.enteredById)
+    : false;
+  const teamMatch = parent.assignedTeamId
+    ? effectiveTeamIds.includes(parent.assignedTeamId)
+    : false;
+  const isWardOfficer = scope.isWardOfficer === true;
+  const unassigned =
+    !parent.assignedTeamId && effectiveTeamIds.length > 0 && !isWardOfficer;
   if (!ownerMatch && !teamMatch && !unassigned) {
     recordDenial('petition-parent');
     throw new ForbiddenException(
-      operation === 'write' ? 'Bạn không có quyền chỉnh sửa bản ghi này' : FORBIDDEN_MSG,
+      operation === 'write'
+        ? 'Bạn không có quyền chỉnh sửa bản ghi này'
+        : FORBIDDEN_MSG,
     );
   }
 }
@@ -198,12 +265,20 @@ export function assertCreatorInScope(
     throw new ForbiddenException(FORBIDDEN_MSG);
   }
   const { userIds, teamIds, writableTeamIds } = scope;
-  const effectiveTeamIds = operation === 'write' ? (writableTeamIds ?? teamIds) : teamIds;
-  const isDenyAll = userIds.length === 0 && effectiveTeamIds.length === 0;
-  if (isDenyAll || (userIds.length > 0 && !userIds.includes(createdById))) {
+  const effectiveTeamIds =
+    operation === 'write' ? (writableTeamIds ?? teamIds) : teamIds;
+  const effectiveUserIds = effectiveUserIdsFor(scope, operation);
+  const isDenyAll =
+    effectiveUserIds.length === 0 && effectiveTeamIds.length === 0;
+  if (
+    isDenyAll ||
+    (effectiveUserIds.length > 0 && !effectiveUserIds.includes(createdById))
+  ) {
     recordDenial('creator');
     throw new ForbiddenException(
-      operation === 'write' ? 'Bạn không có quyền chỉnh sửa bản ghi này' : FORBIDDEN_MSG,
+      operation === 'write'
+        ? 'Bạn không có quyền chỉnh sửa bản ghi này'
+        : FORBIDDEN_MSG,
     );
   }
 }

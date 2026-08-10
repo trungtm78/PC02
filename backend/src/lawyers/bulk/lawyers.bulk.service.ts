@@ -68,7 +68,8 @@ export class LawyersBulkService {
       },
       preflight: async (ids) => {
         // Scope check qua parent case (assertParentInScope pattern).
-        const scopeFilter = buildScopeFilter(input.dataScope);
+        // Xoá là thao tác ghi: dùng writableTeamIds, không phải teamIds đọc.
+        const scopeFilter = buildScopeFilter(input.dataScope, 'write');
         const inScope = await this.prisma.lawyer.findMany({
           where: {
             id: { in: ids },

@@ -45,7 +45,21 @@ Task: M1-T3 — PR-A3 `fix/create-endpoints-datascope` (**code xong, chờ `/cod
 - **`exchanges` không cần sửa:** model `Exchange` không có vụ án cha, chỉ neo `createdById` — mà người tạo luôn là chính người gọi, nên không có gì để kiểm. Kế hoạch xếp nó vào A3 theo một giả định không đúng; ghi lại thay vì thêm một lệnh kiểm vô nghĩa.
 - **`POST /documents` đã đúng từ trước** (`documents.service.ts:181,193` kiểm cả `caseId` lẫn `incidentId`) — mục "mở issue riêng" trong kế hoạch coi như đóng.
 Kiểm: BE **223 suite / 3010 test** PASS, FE **153 file / 1494 test** PASS, tsc sạch cả hai, 3 cổng governance xanh, baseline lint 8.939 → **8.859**.
-**BƯỚC TIẾP THEO:** `/codex` cho PR-A3, rồi M1-T4 (PR-A4).
+**BƯỚC TIẾP THEO:** M1-T4 (PR-A4).
+
+### Finding đã xử lý ở checkpoint `/codex` PR-A3
+
+Codex trả 6×[P1] + 2×[P2]. Bốn cái sửa trong vòng này, hai cái ghi nợ có lý do, một cái tôi đã tự tìm và sửa trước khi codex trả lời.
+
+1. **[P1] Grant CHỈ-ĐỌC vẫn ghi được, qua nhánh "chủ sở hữu".** `userIds` gom thành viên của **mọi tổ đọc được**, mà đường ghi lại coi khớp investigator/enteredById/createdById là chủ sở hữu được phép sửa ⇒ `writableTeamIds` hoàn toàn vô nghĩa trên nhánh đó. Thêm `writableUserIds` (thành viên các tổ **ghi được**, luôn gồm chính người gọi) và cho đường ghi dùng nó. Thiếu trường này thì tập chủ sở hữu là **rỗng**, không phải quay về `userIds` — scope không đầy đủ thì phải từ chối.
+2. **[P1] Bulk-delete dùng bộ lọc đọc** ⇒ quyền chỉ-đọc trên tổ khác vẫn xóa hàng loạt được, và `canDispatch` thì xóa được tất cả. **Tôi tự tìm ra cái này trong lúc chờ codex**, kết quả trùng khớp. `buildScopeFilter`/`buildPetitionScopeFilter` nay nhận `operation`; 5 preflight xóa chuyển sang `'write'`. Bulk-**assign** giữ nguyên lối tắt vì đó đúng là thứ `canDispatch` cấp.
+3. **[P1] Ba đường tạo con của vụ án vẫn chưa kiểm scope:** `conclusions` (kết luận điều tra), `delegations` và `proposals` (cả hai qua `relatedCaseId` tùy chọn). Đã thêm kiểm tồn tại + kiểm scope.
+4. **[P1] `POST /exchanges/:id/messages` chỉ kiểm tồn tại** ⇒ biết id là chèn tin nhắn vào luồng trao đổi của người khác. Thêm `assertCreatorInScope(..., 'write')`.
+5. **[P1] ADR-0017 của tôi ghi sai sự thật** — đã đính chính ngay trong ADR và ghi thành ND-17.
+6. **[P1] Đổi cha chỉ kiểm cha cũ** → ND-18. Không sửa ở đây vì là đường `update`, còn PR này là `create`; gộp vào sẽ làm diff bảo mật khó rà.
+7. **[P2] Nạp cha và tạo con là hai câu lệnh rời** → ND-19. **[P2] Ai có ≥1 tổ ghi được thì ghi được lên mọi bản ghi chưa phân công** → ND-20 (cần quyết chính sách, không phải lỗi code).
+
+Codex cũng xác nhận: **không** có cron/migration/event handler/importer nào gọi các đường vừa siết, và người tạo vẫn tự sửa được bản ghi của mình.
 
 **Bẫy đã gặp:** thêm `.rejects.toThrow(ForbiddenException)` vào một spec **chưa import `ForbiddenException`** làm jest **giết cả tiến trình** (dump uncaught exception, không có báo cáo test nào). Triệu chứng trông như lỗi hạ tầng chứ không như test đỏ. Kiểm import trước khi nghi ngờ chỗ khác.
 
@@ -189,7 +203,7 @@ Tự phát hiện thêm: 3 file test mới của chính tôi bị baseline hoá 
 ## Trạng thái test
 
 Full suite: **PASS**
-- Backend: 223 suite / **3010** test — PASS (xem ND-9: 1 suite flaky ~1/6 lần, có sẵn từ trước)
+- Backend: 223 suite / **3029** test — PASS (xem ND-9: 1 suite flaky ~1/6 lần, có sẵn từ trước)
 - Frontend: 153 file / **1494** test — PASS (3 lần chạy liên tiếp ổn định)
 - Cổng governance: enum guard ✅ · gen:enums drift ✅ · lint ratchet ✅ (baseline 8.945 sau ADR-0015)
 - `tsc --noEmit` (BE): sạch · `tsc -b` (FE): sạch
@@ -211,6 +225,10 @@ Test fail: không
 | ND-11 | **Đã xoá** `tests/fixtures/data-factory-cases.ts` — file tự sinh với placeholder `⚠️ Chưa có fixture nào define` chèn thẳng vào tên hàm, `path = ""`, `fixture_id`. Không parse được, không ai import. Nếu generator UAT chạy lại với danh sách fixture rỗng thì nó sẽ sinh lại — cần sửa generator | PR triage suite UAT |
 | ND-12 | **`tests/global-setup.ts` từng nhúng sẵn 5 mật khẩu trong source** và `tests/uat-auto/_helpers.ts` mặc định trỏ IP production `171.244.40.245`. Đã sửa ở PR-B0b (bắt buộc lấy từ env, thiếu thì ném lỗi rõ ràng). **Cần đối chiếu**: 5 mật khẩu đó có phải credential thật đang dùng không — nếu có, phải đổi vì chúng nằm trong git history | Cần người xác nhận |
 | ND-13 | **`Evidence` chưa có ràng buộc DB cho `(caseId, code)` khi bản ghi còn sống.** Bất biến hiện thi hành bằng khóa hàng vụ án cha (`withCaseLock`) — đủ chặn đua tranh, nhưng chỉ đúng khi mọi đường ghi đều đi qua đó, và người sửa DB trực tiếp bằng `psql` vẫn tạo được bản trùng. Chưa thêm partial unique index vì bảng đã có dữ liệu chưa từng bị ràng buộc trong nền 53k bản ghi legacy: nếu đang có cặp trùng thì `CREATE UNIQUE INDEX` hỏng và deploy đứng, mà chọn bỏ bản nào là quyết định về hồ sơ pháp lý. **Việc cần làm:** chạy câu đối soát trong ADR-0016 §"Điều kiện chuyển sang index thật"; nếu rỗng thì thêm index luôn | Cần người giữ hồ sơ quyết |
+| ND-17 | **`cases.service.ts` tự viết lại logic scope và cố ý bỏ qua khi `canDispatch`** ở hai chỗ: liên kết đơn thư (`if (dataScope && !dataScope.canDispatch)`) và liên kết vụ việc khi tạo vụ án. Hai chỗ đó **chuyển trạng thái** bản ghi được liên kết ⇒ là ghi thật, chéo tổ. Nằm ngoài `scope-filter.util.ts` nên ADR-0017 không chạm tới. Bản đầu ADR-0017 nói "phân công là đường ghi chéo tổ duy nhất" — **sai**, đã đính chính trong chính ADR | PR riêng (đụng luồng tạo vụ án, rủi ro riêng) |
+| ND-18 | **Đổi cha (reparenting) chỉ kiểm cha cũ, không kiểm cha mới.** `subjects.update`, `lawyers.update`, `documents.update` xác nhận cha mới *tồn tại* nhưng không kiểm nó có trong phạm vi ghi ⇒ bản ghi con đang trong tầm có thể bị chuyển sang vụ án ngoài tầm. `documents` còn tách được thành mồ côi | PR riêng — cùng lớp với A3 nhưng là đường `update`, không phải `create` |
+| ND-19 | **Nạp cha và tạo con là hai câu lệnh rời ở cả 6 service vừa vá.** Phân công có thể đổi giữa lúc kiểm và lúc ghi ⇒ ghi bằng scope cũ. Cách sửa: gộp nạp/kiểm/tạo vào một transaction có điều kiện phiên bản, như `withCaseLock` của module vật chứng (ADR-0016) | PR riêng |
+| ND-20 | **Người không phải cán bộ phường, chỉ cần có 1 tổ ghi được, là ghi được lên mọi bản ghi cha chưa phân công** trong toàn hệ thống (`unassigned` branch trong `assertParentInScope`). Đúng thiết kế cho luồng "nhận việc từ intake", nhưng phạm vi rộng hơn mức cần và không có gì giới hạn theo nguồn gốc bản ghi | Cần quyết chính sách |
 | ND-16 | **Bị hại và nhân chứng của hồ sơ đã tạo không có màn hình nào để thêm.** Form tạo có đủ 4 loại (Bị can/Bị hại/Luật sư/Nhân chứng), nhưng trang chi tiết chỉ có tab Bị can (`POST /subjects` với `type:"SUSPECT"` cứng, `CaseDetailPage.tsx:907`) và tab Luật sư. Trước PR-A2 thì mọi loại đều "nhập được" ở chế độ sửa nhưng bị vứt im lặng — nay bảng chỉ đường nói rõ khoảng trống thay vì gửi người dùng tới tab không tạo được thứ họ cần | PR-D2 (form tạo độc lập subjects) |
 | ND-14 ✅ | **ĐÃ XỬ LÝ ở PR-A3 (ADR-0017).** **`assertParentInScope` bỏ qua toàn bộ kiểm tra khi `scope.canDispatch`, kể cả `operation: 'write'`** (`scope-filter.util.ts:104`). `canDispatch` được mô tả là quyền đọc toàn cục + quyền phân công, không phải quyền sửa mọi hồ sơ — nhưng thực tế người điều phối tạo/sửa/xóa/khôi phục được bản ghi con của **mọi** vụ án. Ảnh hưởng cả 12 resource, không riêng vật chứng | PR-A3 (PR chuyên về DataScope) |
 | ND-15 | **Đường đọc chi tiết trả 403 cho bản ghi ngoài phạm vi và 404 cho bản ghi không tồn tại**, tức lộ sự tồn tại của hồ sơ tổ khác. Mẫu này dùng thống nhất toàn hệ thống nên phải quyết một lần (đưa scope vào `where` rồi trả 404 cho cả hai), không sửa lẻ từng module | Quyết cùng PR-A3 |

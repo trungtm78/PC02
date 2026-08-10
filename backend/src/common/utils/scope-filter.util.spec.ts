@@ -8,6 +8,74 @@ import {
 } from './scope-filter.util';
 
 describe('buildScopeFilter', () => {
+  // The bulk delete endpoints gated a mutation with the read filter. Two
+  // consequences: a READ-only grant on another team was enough to soft-delete
+  // that team's records, and a dispatcher got null — no filter at all — and
+  // could bulk-delete anything in the system.
+  describe('operation: "write"', () => {
+    it('filters on writableTeamIds, not the wider read set', () => {
+      const filter = buildScopeFilter(
+        {
+          userIds: [],
+          teamIds: ['t-read', 't-write'],
+          writableTeamIds: ['t-write'],
+        },
+        'write',
+      ) as { OR: { assignedTeamId?: { in: string[] } }[] };
+
+      const teamCondition = filter.OR.find((c) => c.assignedTeamId?.in);
+      expect(teamCondition?.assignedTeamId?.in).toEqual(['t-write']);
+    });
+
+    it('does NOT return an unfiltered query for a dispatcher', () => {
+      expect(
+        buildScopeFilter(
+          {
+            userIds: ['u1'],
+            teamIds: ['t1'],
+            writableTeamIds: ['t1'],
+            canDispatch: true,
+          },
+          'write',
+        ),
+      ).not.toBeNull();
+    });
+
+    it('denies everything when the caller has no writable team and owns nothing', () => {
+      expect(
+        buildScopeFilter(
+          { userIds: [], teamIds: ['t-read'], writableTeamIds: [] },
+          'write',
+        ),
+      ).toEqual({ id: '__no_access__' });
+    });
+
+    it('applies the same rule to petitions', () => {
+      expect(
+        buildPetitionScopeFilter(
+          {
+            userIds: [],
+            teamIds: ['t1'],
+            writableTeamIds: [],
+            canDispatch: true,
+          },
+          'write',
+        ),
+      ).toEqual({ id: '__no_access__' });
+    });
+
+    it('leaves read mode exactly as it was', () => {
+      expect(
+        buildScopeFilter({
+          userIds: ['u1'],
+          teamIds: ['t1'],
+          writableTeamIds: [],
+          canDispatch: true,
+        }),
+      ).toBeNull();
+    });
+  });
+
   it('returns null for null scope (admin passthrough)', () => {
     expect(buildScopeFilter(null)).toBeNull();
   });
@@ -250,6 +318,55 @@ describe('assertParentInScope', () => {
   // 12 scoped resources, with nothing anywhere denying them. Reassignment is
   // unaffected: PATCH /:id/assign and the bulk-assign endpoints carry their own
   // DispatchGuard and never consult a scope.
+  // `userIds` spans every readable team, because that is what reads need. The
+  // write path treated a matching investigator as an owner entitled to mutate,
+  // so a READ-only grant on a team was enough to edit any record whose
+  // investigator sat in it — writableTeamIds was doing nothing on that branch.
+  it('does NOT let a READ-only grant write via the owner branch', () => {
+    expect(() =>
+      assertParentInScope(
+        { assignedTeamId: 'read-team', investigatorId: 'colleague' },
+        {
+          // colleague is readable (same read-team) but not writable
+          userIds: ['me', 'colleague'],
+          writableUserIds: ['me'],
+          teamIds: ['read-team'],
+          writableTeamIds: [],
+        },
+        'write',
+      ),
+    ).toThrow(ForbiddenException);
+  });
+
+  it('still lets someone write a record they own', () => {
+    expect(() =>
+      assertParentInScope(
+        { assignedTeamId: 'read-team', investigatorId: 'me' },
+        {
+          userIds: ['me', 'colleague'],
+          writableUserIds: ['me'],
+          teamIds: ['read-team'],
+          writableTeamIds: [],
+        },
+        'write',
+      ),
+    ).not.toThrow();
+  });
+
+  it('reads are unaffected: the whole readable set still matches', () => {
+    expect(() =>
+      assertParentInScope(
+        { assignedTeamId: 'read-team', investigatorId: 'colleague' },
+        {
+          userIds: ['me', 'colleague'],
+          writableUserIds: ['me'],
+          teamIds: ['read-team'],
+          writableTeamIds: [],
+        },
+      ),
+    ).not.toThrow();
+  });
+
   it('does NOT let a dispatcher write outside their team', () => {
     expect(() =>
       assertParentInScope(
@@ -438,6 +555,7 @@ describe('assertCreatorInScope', () => {
 describe('assertParentInScope (write operation)', () => {
   const writeScope = {
     userIds: ['u1'],
+    writableUserIds: ['u1'],
     teamIds: ['t1', 'read-team'],
     writableTeamIds: ['t1'],
   };
@@ -500,6 +618,7 @@ describe('assertParentInScope (write operation)', () => {
 describe('assertCreatorInScope (write operation)', () => {
   const writeScope = {
     userIds: ['u1', 'u2'],
+    writableUserIds: ['u1', 'u2'],
     teamIds: ['t1', 'read-team'],
     writableTeamIds: ['t1'],
   };
@@ -683,6 +802,7 @@ describe('assertPetitionParentInScope', () => {
   it('write operation uses writableTeamIds (not teamIds)', () => {
     const writeScope = {
       userIds: ['u1'],
+      writableUserIds: ['u1'],
       teamIds: ['read-team'],
       writableTeamIds: ['write-team'],
     } as any;
@@ -707,6 +827,7 @@ describe('assertPetitionParentInScope', () => {
   it('write operation: creator (enteredById match) passes even on write', () => {
     const writeScope = {
       userIds: ['u1'],
+      writableUserIds: ['u1'],
       teamIds: ['read-team'],
       writableTeamIds: [],
     } as any;

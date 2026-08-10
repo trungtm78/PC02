@@ -31,6 +31,15 @@ này.** `PATCH /:id/assign` và ba endpoint `bulk-assign` đều có `DispatchGu
 riêng, và `assignCase()` thậm chí không nhận tham số scope. Nghĩa là siết chỗ
 này không đụng gì tới nghiệp vụ phân công.
 
+> **Đính chính (2026-08-10, sau vòng review độc lập).** Bản đầu của ADR này nói
+> phân công là đường ghi chéo tổ **duy nhất**. Sai. `cases.service.ts` còn tự
+> viết lại logic scope và **cố ý bỏ qua** khi `canDispatch` ở hai chỗ: liên kết
+> đơn thư khi tạo vụ án (`if (dataScope && !dataScope.canDispatch)`) và liên kết
+> vụ việc tương ứng. Hai chỗ đó **chuyển trạng thái** bản ghi được liên kết, tức
+> là ghi thật. Chúng nằm ngoài `scope-filter.util.ts` nên quyết định trong ADR
+> này không chạm tới — ghi lại thành **ND-17**, xử lý riêng vì đụng vào luồng
+> tạo vụ án là việc có rủi ro riêng, không nên gộp vào đây.
+
 ## Quyết định
 
 Lối tắt `canDispatch` chỉ áp dụng cho `operation === 'read'`:

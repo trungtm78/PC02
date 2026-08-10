@@ -1,4 +1,17 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, Req, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  Query,
+  Req,
+  UseGuards,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
 import type { ScopedRequest } from '../auth/interfaces/scoped-request.interface';
 import { ConclusionsService, QueryConclusionsDto } from './conclusions.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -27,20 +40,49 @@ export class ConclusionsController {
 
   @Post()
   @RequirePermissions({ action: 'write', subject: 'Case' })
-  create(@Body() dto: CreateConclusionDto, @CurrentUser() user: AuthUser, @Req() req: ScopedRequest) {
-    return this.conclusionsService.create(dto, user.id, { ipAddress: req.ip, userAgent: req.headers['user-agent'] });
+  create(
+    @Body() dto: CreateConclusionDto,
+    @CurrentUser() user: AuthUser,
+    @Req() req: ScopedRequest,
+  ) {
+    return this.conclusionsService.create(
+      dto,
+      user.id,
+      { ipAddress: req.ip, userAgent: req.headers['user-agent'] },
+      req.dataScope,
+    );
   }
 
   @Put(':id')
   @RequirePermissions({ action: 'edit', subject: 'Case' })
-  update(@Param('id') id: string, @Body() dto: Partial<CreateConclusionDto>, @CurrentUser() user: AuthUser, @Req() req: ScopedRequest) {
-    return this.conclusionsService.update(id, dto, user.id, { ipAddress: req.ip, userAgent: req.headers['user-agent'] }, req.dataScope);
+  update(
+    @Param('id') id: string,
+    @Body() dto: Partial<CreateConclusionDto>,
+    @CurrentUser() user: AuthUser,
+    @Req() req: ScopedRequest,
+  ) {
+    return this.conclusionsService.update(
+      id,
+      dto,
+      user.id,
+      { ipAddress: req.ip, userAgent: req.headers['user-agent'] },
+      req.dataScope,
+    );
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
   @RequirePermissions({ action: 'delete', subject: 'Case' })
-  delete(@Param('id') id: string, @CurrentUser() user: AuthUser, @Req() req: ScopedRequest) {
-    return this.conclusionsService.delete(id, user.id, { ipAddress: req.ip, userAgent: req.headers['user-agent'] }, req.dataScope);
+  delete(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthUser,
+    @Req() req: ScopedRequest,
+  ) {
+    return this.conclusionsService.delete(
+      id,
+      user.id,
+      { ipAddress: req.ip, userAgent: req.headers['user-agent'] },
+      req.dataScope,
+    );
   }
 }
