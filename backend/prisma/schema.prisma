@@ -182,6 +182,10 @@ model User {
   petitionAssignmentsMade         PetitionAssignment[]      @relation("PetitionAssignmentAssignedBy")
 
   @@map("users")
+  // C4 — ai quyết định / ai hoàn tác một liên kết đơn trùng.
+  petitionDuplicateDecisions PetitionDuplicateLink[] @relation("PetitionDuplicateDecidedBy")
+  petitionDuplicateReverts   PetitionDuplicateLink[] @relation("PetitionDuplicateRevertedBy")
+
 }
 
 // Magic link enrollment audit (post-/autoplan).
@@ -877,6 +881,66 @@ enum PetitionStatus {
   @@map("petition_status")
 }
 
+/// Quyết định của cán bộ về một nhóm đơn bị nghi trùng.
+///
+/// `DA_HOP_NHAT` **không xoá** đơn nào. Theo Luật Khiếu nại và Luật Tố cáo, mỗi
+/// đơn phát sinh nghĩa vụ thụ lý, thời hạn giải quyết và văn bản trả lời cho
+/// người gửi **của riêng nó**; xoá đơn trùng là xoá một nghĩa vụ pháp lý, không
+/// phải dọn dữ liệu. Đơn phụ chuyển sang `DA_LUU_DON` và giữ liên kết tới đơn
+/// chính, nên hồ sơ vẫn tra được và vẫn trả lời được người gửi.
+///
+/// `KHONG_TRUNG` cũng được lưu, không phải bỏ qua: nó là bằng chứng cán bộ đã
+/// xem và kết luận hai công dân trùng tên là hai người khác nhau. Không lưu thì
+/// nhóm đó nổi lên lại ở lần rà sau, và người sau lại phải xét từ đầu.
+enum PetitionDuplicateDecision {
+  DA_HOP_NHAT /// Xác nhận trùng — gộp về đơn chính
+  KHONG_TRUNG /// Xác nhận KHÔNG trùng — hai hồ sơ độc lập
+
+  @@map("petition_duplicate_decision")
+}
+
+model PetitionDuplicateLink {
+  id String @id @default(cuid())
+
+  /// Đơn chính — đơn được giữ làm hồ sơ dẫn.
+  primaryPetitionId String
+  primaryPetition   Petition @relation("DuplicatePrimary", fields: [primaryPetitionId], references: [id], onDelete: Cascade)
+
+  /// Đơn phụ — bị đánh dấu trùng. KHÔNG bị xoá.
+  duplicatePetitionId String
+  duplicatePetition   Petition @relation("DuplicateOf", fields: [duplicatePetitionId], references: [id], onDelete: Cascade)
+
+  decision PetitionDuplicateDecision
+
+  /// Bắt buộc: gắn nhãn "trùng" lên hồ sơ pháp lý là một cáo buộc, phải có lý do.
+  reason String
+
+  /// Tiêu chí đã khớp / đã so sánh lúc quyết định (vd 3/4), lưu lại để về sau
+  /// còn biết quyết định dựa trên bằng chứng gì.
+  matchedCriteria  Int
+  comparedCriteria Int
+
+  decidedById String?
+  decidedBy   User?   @relation("PetitionDuplicateDecidedBy", fields: [decidedById], references: [id], onDelete: SetNull)
+
+  /// Hoàn tác. Bản ghi vẫn nằm lại — ai hoàn tác, lúc nào, vì sao.
+  revertedAt     DateTime?
+  revertedById   String?
+  revertedBy     User?     @relation("PetitionDuplicateRevertedBy", fields: [revertedById], references: [id], onDelete: SetNull)
+  revertReason   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// Một đơn chỉ có một quyết định đang hiệu lực. Partial index (`WHERE
+  /// reverted_at IS NULL`) không biểu diễn được trong Prisma — nó nằm trong
+  /// migration SQL, và độ lệch đã được chấp nhận ở ADR-0011.
+  @@index([primaryPetitionId])
+  @@index([duplicatePetitionId])
+  @@index([decision])
+  @@map("petition_duplicate_links")
+}
+
 model Petition {
   id               String         @id @default(cuid())
   // Số tiếp nhận — duy nhất, format: DT-{YEAR}-{SEQ}
@@ -936,6 +1000,11 @@ model Petition {
 
   // v0.36.0.0 Phase 5-lite: warning flag (audit-only)
   editedAfterWindow Boolean @default(false)
+
+  // C4 — quyết định đơn trùng. Hai chiều: đơn này có thể là đơn chính của
+  // nhóm, hoặc là đơn phụ đã bị gộp vào đơn khác.
+  duplicateLinksAsPrimary   PetitionDuplicateLink[] @relation("DuplicatePrimary")
+  duplicateLinksAsDuplicate PetitionDuplicateLink[] @relation("DuplicateOf")
 
   // v0.47 — Nội dung nghiệp vụ cho Document Template Engine (6 doc types).
   // Free-text business fields, optional vì doc type khác nhau dùng subset khác nhau.
