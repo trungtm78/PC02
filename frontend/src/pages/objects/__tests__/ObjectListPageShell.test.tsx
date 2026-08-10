@@ -44,6 +44,14 @@ vi.mock('@/lib/api', () => ({
 vi.mock('@/hooks/usePermission', () => ({
   usePermission: () => ({
     hasPermission: vi.fn().mockReturnValue(true),
+    // D2 — the shell gates its new "Thêm …" button on `canCreate`.
+    canCreate: vi.fn().mockReturnValue(true),
+    canEdit: vi.fn().mockReturnValue(true),
+    canDelete: vi.fn().mockReturnValue(true),
+    canView: vi.fn().mockReturnValue(true),
+    canDispatch: false,
+    isHydrated: true,
+    userRole: 'ADMIN',
   }),
 }));
 

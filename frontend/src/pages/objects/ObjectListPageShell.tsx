@@ -19,6 +19,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import {
+  Plus,
   Users,
   UserCheck,
   UserX,
@@ -46,8 +47,10 @@ import {
   SubjectType,
   SUBJECT_STATUS_LABEL,
 } from '@/shared/enums/subject-status';
-import { A11Y_FOCUS_RING } from '@/constants/styles';
+import { A11Y_FOCUS_RING, BTN_PRIMARY } from '@/constants/styles';
 import { formatVNDate } from '@/lib/dates';
+import { usePermission } from '@/hooks/usePermission';
+import { useNavigate } from 'react-router-dom';
 
 interface Subject {
   id: string;
@@ -122,7 +125,15 @@ interface Props {
   subjectType?: SubjectType;
 }
 
+const CREATE_PATH: Record<string, string> = {
+  [SubjectType.SUSPECT]: '/people/suspects/new',
+  [SubjectType.VICTIM]: '/people/victims/new',
+  [SubjectType.WITNESS]: '/people/witnesses/new',
+};
+
 export function ObjectListPageShell({ subjectType = SubjectType.SUSPECT }: Props) {
+  const navigate = useNavigate();
+  const { canCreate } = usePermission();
   const cfg = TYPE_CONFIG[subjectType];
   const url = useListPageUrlState(cfg.urlPrefix);
 
@@ -309,6 +320,21 @@ export function ObjectListPageShell({ subjectType = SubjectType.SUSPECT }: Props
           icon={Icon}
           title={cfg.pageTitle}
           subtitle={cfg.pageSubtitle}
+          actions={
+            /* D2/ND-16 — ba màn hình này trước đây chỉ liệt kê, không có đường
+               nào tạo mới. Gate trên chính quyền mà `POST /subjects` đòi. */
+            canCreate('objects') ? (
+              <button
+                type="button"
+                onClick={() => navigate(`${CREATE_PATH[subjectType]}`)}
+                data-testid="btn-create-subject"
+                className={`${BTN_PRIMARY} ${A11Y_FOCUS_RING} flex items-center gap-2`}
+              >
+                <Plus className="w-4 h-4" />
+                <span>Thêm {cfg.resourceLabel}</span>
+              </button>
+            ) : null
+          }
         />
         <ListPageShell.StatusChips
           options={chipOptions}

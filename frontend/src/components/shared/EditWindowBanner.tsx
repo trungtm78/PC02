@@ -8,7 +8,7 @@
  * Không hiện gì khi hồ sơ còn sửa được: một dải thông báo thường trực nói
  * "còn 143 giờ" chỉ dạy người dùng bỏ qua chỗ đó.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Lock, Clock, Send } from 'lucide-react';
 import { api } from '@/lib/api';
 import { extractApiError } from '@/lib/api-errors';
@@ -36,22 +36,30 @@ export function EditWindowBanner({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    try {
-      const res = await api.get(
-        `/edit-window/status?subjectType=${subjectType}&subjectId=${encodeURIComponent(subjectId)}`,
-      );
-      setStatus((res.data?.data ?? res.data) as Status);
-    } catch {
-      // Không hiện lỗi: banner là thông tin phụ. Hỏng thì im lặng, chứ không
-      // dựng một dải đỏ lên đầu trang chi tiết vì một câu hỏi phụ thất bại.
-      setStatus(null);
-    }
-  }, [subjectType, subjectId]);
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    // `alive` chứ không phải một `useCallback` gọi từ effect: khi người dùng
+    // chuyển sang hồ sơ khác trước lúc câu trả lời về, ghi state của hồ sơ cũ
+    // lên màn hình mới là một banner nói sai về hồ sơ đang mở.
+    let alive = true;
+    void (async () => {
+      try {
+        const res = await api.get(
+          `/edit-window/status?subjectType=${subjectType}&subjectId=${encodeURIComponent(subjectId)}`,
+        );
+        if (alive) setStatus((res.data?.data ?? res.data) as Status);
+      } catch {
+        // Im lặng có chủ ý: banner là thông tin phụ. Một câu hỏi phụ thất bại
+        // không đáng dựng dải đỏ lên đầu trang chi tiết.
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [subjectType, subjectId, reloadToken]);
+
+  const load = () => setReloadToken((n) => n + 1);
 
   if (!status?.locked) return null;
 
@@ -68,7 +76,7 @@ export function EditWindowBanner({
     setSaving(false);
     setAsking(false);
     setReason('');
-    void load();
+    load();
   };
 
   return (
