@@ -37,6 +37,17 @@ jobs:
           git diff --exit-code -- frontend/src/shared/enums/ \
             || { echo "::error::gen:enums produced changes — run 'cd backend && npm run gen:enums' and commit the result."; exit 1; }
 
+      # Same contract as the enums above: the generated registry is committed,
+      # so a new feature.manifest.ts without a regenerate ships a backend that
+      # has never heard of a module the frontend already shows a menu item for.
+      # That failure mode has reached production three times.
+      - name: Feature registry is in sync with the manifests on disk
+        run: |
+          cd backend && npm run gen:feature-registry
+          cd "$GITHUB_WORKSPACE"
+          git diff --exit-code -- backend/src/feature-flags/feature-registry.generated.ts \
+            || { echo "::error::A feature.manifest.ts was added or renamed — run 'cd backend && npm run gen:feature-registry' and commit the result."; exit 1; }
+
       - name: Install backend dependencies
         run: cd backend && npm ci
 

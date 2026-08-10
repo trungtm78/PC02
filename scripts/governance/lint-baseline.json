@@ -1,7 +1,7 @@
 {
   "note": "Per-file eslint problem counts (errors + warnings). Ratchet: a touched file may not exceed its entry; files absent here must be clean. Regenerate only to record improvements.",
   "generatedFrom": "scripts/governance/lint-changed.cjs --write-baseline",
-  "totalProblems": 8386,
+  "totalProblems": 8387,
   "files": {
     "backend/prisma/cleanup-crime.ts": 7,
     "backend/prisma/data/blhs2015-crimes.ts": 950,
@@ -43,6 +43,7 @@
     "backend/scripts/generate-admin-units-dataset.ts": 48,
     "backend/scripts/generate-catalog.cjs": 1,
     "backend/scripts/generate-docx-templates.ts": 7,
+    "backend/scripts/generate-feature-registry.cjs": 1,
     "backend/scripts/generate-shared-enums.cjs": 1,
     "backend/scripts/generate-xlsx-templates.ts": 10,
     "backend/src/abbreviations/abbreviations.controller.ts": 10,

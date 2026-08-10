@@ -6,7 +6,7 @@
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
-    "build": "npm run gen:enums && npm run gen:catalog && nest build",
+    "build": "npm run gen:enums && npm run gen:feature-registry && npm run gen:catalog && nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",
@@ -21,6 +21,7 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "gen:enums": "node scripts/generate-shared-enums.cjs",
+    "gen:feature-registry": "node scripts/generate-feature-registry.cjs",
     "gen:catalog": "node scripts/generate-catalog.cjs",
     "db:seed": "ts-node prisma/seed.ts",
     "db:seed:sample": "ts-node prisma/seed-sample-data.ts",

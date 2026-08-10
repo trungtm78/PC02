@@ -1,3 +1,5 @@
+STATUS: IN_PROGRESS
+
 # PROGRESS
 Cập nhật: 2026-08-10T03:15:00+07:00 | Milestone: M1/5 | Task: 0/5 của M1
 
@@ -36,6 +38,17 @@ Cập nhật: 2026-08-10T03:15:00+07:00 | Milestone: M1/5 | Task: 0/5 của M1
   - Test: +8 BE (3 `getRolePermissions`, 4 role hệ thống, 1 NotFound), +2 BE controller, +8 FE
 
 ## Đang làm dở
+
+Task: M2-T3 — PR-B3 `refactor/feature-registry-codegen` (**code xong, chờ `/codex`**)
+Đã làm:
+- **`scripts/generate-feature-registry.cjs`** quét mọi `src/**/feature.manifest.ts` → sinh `feature-registry.generated.ts`, `FEATURE_REGISTRY` chỉ còn re-export. Nối vào `npm run build` cạnh `gen:enums`, **commit file sinh ra** đúng khuôn `generated.ts` hiện có, + bước kiểm drift trong CI.
+- **Sửa bug đang sống:** thêm `backend/src/edit-window/feature.manifest.ts` key `edit-window-requests`. FE có module + mục menu "Yêu cầu reset thời hạn", BE chưa từng có key ⇒ `listAll()` không trả về ⇒ **mục menu biến mất, chỉ vào được bằng gõ URL**. Đây là lần thứ 3 của cùng một lỗi (sau `comprehensive` và `document-templates`) — nên registry chuyển sang codegen chứ không vá lẻ.
+- **Cổng parity `test/feature-registry-parity.spec.ts`**: khẳng định **FE ⊆ BE** (không phải bằng nhau — BE có module hạ tầng không màn hình, thế là đúng), và mọi manifest trên đĩa đều nằm trong registry sinh ra. Spec cũ chỉ so **số đếm**, mà đếm thì không bao giờ bắt được module chưa từng được thêm. Khi hỏng, thông báo nêu **tên thư mục** cần sửa. Có thêm một test chống "đếm 0 nên qua vô nghĩa".
+- Registry: 37 wire tay → **39** sinh tự động (thêm `edit-window` và `uy-thac-dieu-tra`).
+Kiểm: BE **226 suite / 3077 test** PASS, FE **154 file / 1504 test** PASS, tsc sạch, 3 cổng xanh.
+**BƯỚC TIẾP THEO:** `/codex` cho PR-B3, rồi M2-T2 (PR-B2 — trang `/admin/tinh-nang`, là phần M2 còn lại).
+
+---
 
 Task: M2-T1 — PR-B1 `feat/feature-flags-write-api` (**xong — qua `/codex`**)
 Đã làm:
@@ -268,7 +281,7 @@ Tự phát hiện thêm: 3 file test mới của chính tôi bị baseline hoá 
 ## Trạng thái test
 
 Full suite: **PASS**
-- Backend: 225 suite / **3073** test — PASS (xem ND-9: 1 suite flaky ~1/6 lần, có sẵn từ trước)
+- Backend: 226 suite / **3077** test — PASS (xem ND-9: 1 suite flaky ~1/6 lần, có sẵn từ trước)
 - Frontend: 154 file / **1504** test — PASS (3 lần chạy liên tiếp ổn định)
 - Cổng governance: enum guard ✅ · gen:enums drift ✅ · lint ratchet ✅ (baseline 8.945 sau ADR-0015)
 - `tsc --noEmit` (BE): sạch · `tsc -b` (FE): sạch
