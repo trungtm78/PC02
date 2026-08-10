@@ -27,7 +27,11 @@ describe('AuditService', () => {
 
   describe('log()', () => {
     it('writes audit row via $executeRaw', async () => {
-      await service.log({ userId: 'u1', action: 'TEST_ACTION', metadata: { foo: 'bar' } });
+      await service.log({
+        userId: 'u1',
+        action: 'TEST_ACTION',
+        metadata: { foo: 'bar' },
+      });
       expect(mockPrisma.$executeRaw).toHaveBeenCalled();
     });
 
@@ -70,7 +74,9 @@ describe('AuditService', () => {
     it('returns the after-value from updateFn', async () => {
       const after = { id: 'u1', email: 'new@pc02.local' };
       const result = await service.wrapUpdate({
-        fetchFn: jest.fn().mockResolvedValue({ id: 'u1', email: 'old@pc02.local' }),
+        fetchFn: jest
+          .fn()
+          .mockResolvedValue({ id: 'u1', email: 'old@pc02.local' }),
         updateFn: jest.fn().mockResolvedValue(after),
         action: 'USER_UPDATED',
         subject: 'User',
@@ -162,7 +168,9 @@ describe('AuditService', () => {
       // Implementation should escape these wildcards; verify by checking the where
       // clause stringifies with escaped versions (or doesn't include raw unescaped).
       await service.findAll({ search: '100%_test' });
-      const callArg = JSON.stringify(mockPrisma.auditLog.findMany.mock.calls[0][0]);
+      const callArg = JSON.stringify(
+        mockPrisma.auditLog.findMany.mock.calls[0][0],
+      );
       // After escape, raw '100%_test' should NOT appear (would appear as 100\%\_test)
       expect(callArg).not.toMatch(/"100%_test"/);
     });
@@ -193,11 +201,11 @@ describe('AuditService', () => {
       // First call: INSERT throws unique constraint violation (P2002).
       // Should catch + SELECT existing row + return its id, not throw.
       const existingId = 'bulk-op-existing-123';
-      mockPrisma.$executeRaw = jest
-        .fn()
-        .mockRejectedValueOnce(
-          Object.assign(new Error('Unique constraint failed'), { code: 'P2002' }),
-        );
+      mockPrisma.$executeRaw = jest.fn().mockRejectedValueOnce(
+        Object.assign(new Error('Unique constraint failed'), {
+          code: 'P2002',
+        }),
+      );
       mockPrisma.$queryRaw = jest
         .fn()
         .mockResolvedValueOnce([{ id: existingId }]);

@@ -1,4 +1,9 @@
-import { sanitizePII, computeFieldDiff, PII_PATTERN, sanitizeMetadataRecursive } from './audit.utils';
+import {
+  sanitizePII,
+  computeFieldDiff,
+  PII_PATTERN,
+  sanitizeMetadataRecursive,
+} from './audit.utils';
 
 describe('audit.utils', () => {
   describe('PII_PATTERN', () => {
@@ -87,7 +92,9 @@ describe('audit.utils', () => {
       const diff = computeFieldDiff(before, after);
       expect(diff).toHaveLength(2);
       expect(diff[0].changeType).toBe('added');
-      expect(diff.find((d) => d.field === 'email')?.newValue).toBe('admin@pc02.local');
+      expect(diff.find((d) => d.field === 'email')?.newValue).toBe(
+        'admin@pc02.local',
+      );
     });
 
     it('detects REMOVED fields (after=null)', () => {
@@ -119,8 +126,18 @@ describe('audit.utils', () => {
     });
 
     it('skips metadata fields (id, createdAt, updatedAt)', () => {
-      const before = { id: 'u1', email: 'admin@pc02.local', createdAt: '2026-01-01', updatedAt: '2026-01-01' };
-      const after = { id: 'u1', email: 'new@pc02.local', createdAt: '2026-01-01', updatedAt: '2026-05-20' };
+      const before = {
+        id: 'u1',
+        email: 'admin@pc02.local',
+        createdAt: '2026-01-01',
+        updatedAt: '2026-01-01',
+      };
+      const after = {
+        id: 'u1',
+        email: 'new@pc02.local',
+        createdAt: '2026-01-01',
+        updatedAt: '2026-05-20',
+      };
       const diff = computeFieldDiff(before, after);
       expect(diff).toHaveLength(1);
       expect(diff[0].field).toBe('email');
@@ -150,8 +167,16 @@ describe('audit.utils', () => {
 
     it('strips PII keys recursively in nested before/after objects', () => {
       const input = {
-        before: { email: 'a@b.com', passwordHash: 'old_hash', totpSecret: 'secret' },
-        after: { email: 'a@b.com', passwordHash: 'new_hash', totpSecret: 'secret2' },
+        before: {
+          email: 'a@b.com',
+          passwordHash: 'old_hash',
+          totpSecret: 'secret',
+        },
+        after: {
+          email: 'a@b.com',
+          passwordHash: 'new_hash',
+          totpSecret: 'secret2',
+        },
         identifier: '277-001',
       };
       const result = sanitizeMetadataRecursive(input) as any;

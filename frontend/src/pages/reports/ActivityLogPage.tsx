@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useCallback } from "react";
+import { BulkOperationsPanel } from './BulkOperationsPanel';
 import { api } from "@/lib/api";
 import { getRoleLabel } from "@/shared/enums/role-labels";
 import { getAuditActionLabel } from "@/shared/enums/audit-action-labels";
@@ -134,6 +135,7 @@ export function auditLogToEntry(log: any): LogEntry {
 }
 
 export default function ActivityLogPage() {
+  const [tab, setTab] = useState<'logs' | 'bulk'>('logs');
   const [showAdvancedFilter, setShowAdvancedFilter] = useState(false);
   const [showDetailDrawer, setShowDetailDrawer] = useState(false);
   const [selectedLog, setSelectedLog] = useState<LogEntry | null>(null);
@@ -293,6 +295,35 @@ export default function ActivityLogPage() {
           Theo dõi và truy vết các thao tác trong hệ thống
         </p>
       </div>
+
+      {/* D9 — hai hình dạng dữ liệu khác nhau nên là hai thẻ, không trộn một
+          bảng: nhật ký là một dòng mỗi hồ sơ, mẻ là một dòng mỗi lần chạy. */}
+      <div className="flex gap-1 border-b border-slate-200" role="tablist">
+        {([
+          ['logs', 'Nhật ký từng thao tác'],
+          ['bulk', 'Thao tác hàng loạt'],
+        ] as const).map(([key, label]) => (
+          <button
+            key={key}
+            role="tab"
+            aria-selected={tab === key}
+            onClick={() => setTab(key)}
+            data-testid={`tab-${key}`}
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
+              tab === key
+                ? 'border-blue-600 text-blue-700'
+                : 'border-transparent text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'bulk' ? (
+        <BulkOperationsPanel />
+      ) : (
+      <>
 
       {/* Thống kê */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -850,6 +881,8 @@ export default function ActivityLogPage() {
             </div>
           </div>
         </>
+      )}
+      </>
       )}
     </div>
   );
