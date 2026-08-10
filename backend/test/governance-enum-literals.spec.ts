@@ -103,6 +103,44 @@ describe('enum-literal guard', () => {
       expect(hits).toHaveLength(1);
     });
 
+    it('does not let a quote inside a regex literal desync the scanner', () => {
+      // `/[&<>"']/g` contains both quote characters. Without regex awareness
+      // the apostrophe opens a string that never closes, so every comment
+      // afterwards stops being blanked and its contents get scanned as code —
+      // a false positive on a blocking gate, which the author cannot fix.
+      const hits = scanFixture(
+        {
+          'src/a.ts': [
+            `const RE = /[&<>"']/g;`,
+            `// nothing here: status === 'TIEP_NHAN'`,
+            `export const x = RE;`,
+          ].join('\n'),
+        },
+        ['TIEP_NHAN'],
+      );
+      expect(hits).toEqual([]);
+    });
+
+    it('still sees a real comparison that follows a regex literal', () => {
+      const hits = scanFixture(
+        {
+          'src/a.ts': `const RE = /[a-z']/g;\nif (s === 'TIEP_NHAN') return RE;`,
+        },
+        ['TIEP_NHAN'],
+      );
+      expect(hits).toHaveLength(1);
+    });
+
+    it('treats a slash after an identifier as division, not a regex', () => {
+      const hits = scanFixture(
+        {
+          'src/a.ts': `const half = total / 2;\nif (s === 'TIEP_NHAN') return half;`,
+        },
+        ['TIEP_NHAN'],
+      );
+      expect(hits).toHaveLength(1);
+    });
+
     it('does not treat // inside a string literal as the start of a comment', () => {
       // A naive stripper blanks from the // in the URL to end of line, hiding
       // the comparison that follows it.

@@ -27,6 +27,23 @@ const mockPrisma = {
 
 const mockAudit = { log: jest.fn().mockResolvedValue(undefined) };
 
+/**
+ * First argument of a mock's first call, typed.
+ *
+ * Reading `mock.calls[0][0]` directly yields `any`, which turns every
+ * subsequent assertion into an unchecked one and buries the spec in
+ * no-unsafe-* errors.
+ */
+function firstArg<T>(mock: jest.Mock): T {
+  return mock.mock.calls[0][0] as T;
+}
+
+type FindManyArgs = {
+  where: Record<string, unknown> & { case?: unknown; OR?: unknown[] };
+  take?: number;
+  skip?: number;
+};
+
 /** A case belonging to team-A, investigated by inv-1. */
 const CASE_A = {
   id: 'case-a',
@@ -123,14 +140,14 @@ describe('EvidencesService', () => {
     it('applies the data scope through the parent case', async () => {
       await service.getList({}, SCOPE_TEAM_A);
 
-      const [[arg]] = mockPrisma.evidence.findMany.mock.calls;
+      const arg = firstArg<FindManyArgs>(mockPrisma.evidence.findMany);
       expect(arg.where.case).toBeDefined();
     });
 
     it('searches across code, name, storage location and receipt number', async () => {
       await service.getList({ search: 'dao' });
 
-      const [[arg]] = mockPrisma.evidence.findMany.mock.calls;
+      const arg = firstArg<FindManyArgs>(mockPrisma.evidence.findMany);
       expect(arg.where.OR).toHaveLength(4);
     });
 
@@ -141,7 +158,7 @@ describe('EvidencesService', () => {
         evidenceType: 'vũ khí',
       });
 
-      const [[arg]] = mockPrisma.evidence.findMany.mock.calls;
+      const arg = firstArg<FindManyArgs>(mockPrisma.evidence.findMany);
       expect(arg.where).toMatchObject({
         caseId: 'case-a',
         status: EVIDENCE_STATUS.DA_GIAM_DINH,
@@ -283,7 +300,13 @@ describe('EvidencesService', () => {
       });
 
       await expect(
-        service.update('ev-1', { name: 'X' }, 'actor-1', undefined, SCOPE_TEAM_B),
+        service.update(
+          'ev-1',
+          { name: 'X' },
+          'actor-1',
+          undefined,
+          SCOPE_TEAM_B,
+        ),
       ).rejects.toThrow(ForbiddenException);
       expect(mockPrisma.evidence.update).not.toHaveBeenCalled();
     });
@@ -340,7 +363,9 @@ describe('EvidencesService', () => {
     };
 
     it('clears deletedAt and audits the reason inside one transaction', async () => {
-      mockPrisma.evidence.findFirst.mockResolvedValue(deleted);
+      mockPrisma.evidence.findFirst
+        .mockResolvedValueOnce(deleted)
+        .mockResolvedValueOnce(null); // no live record holds the code
       const tx = { evidence: { update: jest.fn().mockResolvedValue({}) } };
       mockPrisma.$transaction.mockImplementation(
         async (fn: (t: typeof tx) => Promise<unknown>) => fn(tx),
@@ -363,12 +388,26 @@ describe('EvidencesService', () => {
       );
     });
 
+    it('refuses to restore when the code is now taken by a live record', async () => {
+      // Uniqueness is only checked among live rows, so a replacement can be
+      // created under the same code while the original sits deleted. Restoring
+      // blindly would leave two live VC-001 in one case.
+      mockPrisma.evidence.findFirst
+        .mockResolvedValueOnce(deleted)
+        .mockResolvedValueOnce({ id: 'ev-replacement' });
+
+      await expect(
+        service.restore('ev-1', 'lý do đủ dài để qua validator', 'actor-1'),
+      ).rejects.toThrow(ConflictException);
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    });
+
     it('throws NotFoundException when the record is not deleted', async () => {
       mockPrisma.evidence.findFirst.mockResolvedValue(null);
 
-      await expect(service.restore('ev-1', 'lý do đủ dài', 'a')).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.restore('ev-1', 'lý do đủ dài', 'a'),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('refuses to restore evidence outside the caller scope', async () => {
@@ -390,7 +429,7 @@ describe('EvidencesService', () => {
 
       await service.listDeleted({}, SCOPE_TEAM_A);
 
-      const [[arg]] = mockPrisma.evidence.findMany.mock.calls;
+      const arg = firstArg<FindManyArgs>(mockPrisma.evidence.findMany);
       expect(arg.where.deletedAt).toEqual({ not: null });
       expect(arg.where.case).toBeDefined();
     });
@@ -401,7 +440,7 @@ describe('EvidencesService', () => {
 
       await service.listDeleted({ limit: 5000 });
 
-      const [[arg]] = mockPrisma.evidence.findMany.mock.calls;
+      const arg = firstArg<FindManyArgs>(mockPrisma.evidence.findMany);
       expect(arg.take).toBe(100);
     });
   });

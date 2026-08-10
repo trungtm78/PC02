@@ -37,11 +37,31 @@ Cập nhật: 2026-08-10T03:15:00+07:00 | Milestone: M1/5 | Task: 0/5 của M1
 
 ## Đang làm dở
 
+Task: M1-T1 — PR-D1 `feat/evidences-lifecycle` (**code + sửa review xong, chờ `/codex`**)
+Đã làm: module `backend/src/evidences/` CRUD + soft-delete + restore, tab "Vật chứng" ở trang chi tiết vụ án, `cases.getById()` include evidences (**không** include ở `getList` — N+1, có comment cảnh báo tại chỗ), constants `EVIDENCE_STATUS` 2 phía (`Evidence.status` là `String`, **không** phải Prisma enum nên `gen:enums` không sinh), permission Evidence + runner seed chạy trong `deploy.sh`.
+Kiểm: BE **223 suite / 2985 test** PASS, FE **152 file / 1485 test** PASS, `tsc --noEmit` + `tsc -b` sạch, 3 cổng governance xanh.
+**BƯỚC TIẾP THEO:** chạy `/codex` cho PR-D1 theo §4, rồi commit. Sau đó M1-T2 (PR-A2) — D1 đã lên nên A2 không còn cắt đường nhập vật chứng.
+
+### Finding đã xử lý ở checkpoint PR-D1
+
+Bảy cái, đều **do tôi gây ra** trong chính PR này:
+1. `QueryDeletedEvidencesDto` thiếu ⇒ endpoint `listDeleted` nhận query không validate.
+2. **Permission mới sẽ 403 cho mọi người trên production** — `deploy.sh` không chạy `db:seed`, nên `seed-permissions.ts` không bao giờ tới prod. Đây đúng lớp lỗi ISSUE-001. Thêm `seed-permissions-runner.ts` (idempotent) + bước 9b-2 trong `deploy.sh`, fatal nếu hỏng.
+3. Evidence chưa có trong danh sách quyền của `OFFICER` ⇒ đúng vai trò dùng module nhiều nhất lại không đọc được.
+4. Form sửa gửi `''` cho ô đã xoá trắng thay vì `null` ⇒ không xoá được giá trị. Thêm `orNull()` + nới DTO cho nullable.
+5. `restore()` không kiểm trùng `code` ⇒ khôi phục có thể tạo 2 vật chứng cùng mã trong một vụ án. Nay ném `ConflictException`.
+6. Bộ lọc comment của enum guard mất đồng bộ khi gặp dấu nháy trong regex literal ⇒ **báo sai trên một cổng chặn**. Sửa thành máy trạng thái nhận biết cả chuỗi lẫn regex, +3 test.
+7. `makeReq()`/`mockUser` trả `any` ⇒ lây `no-unsafe-*` sang mọi spec controller gọi chúng. Đổi sang `ScopedRequest`/`AuthUser` thật.
+
+Kèm quyết định governance: **ADR-0015** — tắt họ `no-unsafe-*` cho file test. Lý do: `@types/jest` khai `expect.objectContaining()` trả `any`, nên rule bắn vì cú pháp matcher chuẩn chứ không vì test viết ẩu; né rule đồng nghĩa với viết assertion yếu hơn. Mã sản phẩm giữ nguyên toàn bộ rule. Baseline ratchet 11.507 → **8.945**.
+
+---
+
 Task: M0.5-T3 — PR-B0c `docs/adr-foundation` (**xong**)
 Đã làm: `docs/adr/` + template MADR + README danh mục + **14 ADR** + workflow `adr-nudge.yml` (cảnh báo, không chặn) + trỏ dẫn trong CLAUDE.md. Kiểm: 0 link hỏng, 0 số hiệu trùng. BE 221 suite/2951 test PASS, FE 151 file/1475 test PASS, 3 cổng governance xanh.
 **BƯỚC TIẾP THEO:** M1-T1 — PR-D1 `feat/evidences-lifecycle`. Xem mục 2 hàng đợi. Nhớ: D1 **phải trước** A2.
 
-ADR đã ghi: 0001 cờ lõi compile-time · 0002 `caseId` giữ NOT NULL · 0003 model quyết định trùng đơn · 0004 không có `POST /settings` · 0005 danh mục seed-only · 0006 xoá 3 tab mockup · 0007 gate cấp class · 0008 mobile chặn gate API · 0009 cache một-instance · 0010 `ALTER TYPE` một chiều · 0011 chấp nhận drift partial index · 0012 lint ratchet · 0013 bộ UAT cũ không vào CI · 0014 RLS chỉ 2 bảng.
+ADR đã ghi: 0001 cờ lõi compile-time · 0002 `caseId` giữ NOT NULL · 0003 model quyết định trùng đơn · 0004 không có `POST /settings` · 0005 danh mục seed-only · 0006 xoá 3 tab mockup · 0007 gate cấp class · 0008 mobile chặn gate API · 0009 cache một-instance · 0010 `ALTER TYPE` một chiều · 0011 chấp nhận drift partial index · 0012 lint ratchet · 0013 bộ UAT cũ không vào CI · 0014 RLS chỉ 2 bảng · 0015 `no-unsafe-*` tắt trong file test.
 
 ---
 
@@ -118,9 +138,9 @@ Tự phát hiện thêm: 3 file test mới của chính tôi bị baseline hoá 
 ## Trạng thái test
 
 Full suite: **PASS**
-- Backend: 220 suite / **2925** test — PASS (xem ND-9: 1 suite flaky ~1/4 lần, có sẵn từ trước)
-- Frontend: 151 file / **1475** test — PASS (3 lần chạy liên tiếp ổn định)
-- Cổng governance: enum guard ✅ · gen:enums drift ✅ · lint ratchet ✅
+- Backend: 223 suite / **2985** test — PASS (xem ND-9: 1 suite flaky ~1/6 lần, có sẵn từ trước)
+- Frontend: 152 file / **1485** test — PASS (3 lần chạy liên tiếp ổn định)
+- Cổng governance: enum guard ✅ · gen:enums drift ✅ · lint ratchet ✅ (baseline 8.945 sau ADR-0015)
 - `tsc --noEmit` (BE): sạch · `tsc -b` (FE): sạch
 - eslint: không có lỗi mới trên dòng đã thêm (nợ lint có sẵn xem ND-1)
 

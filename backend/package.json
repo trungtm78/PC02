@@ -29,7 +29,8 @@
     "db:seed:wards": "ts-node prisma/seed-wards.ts",
     "db:seed:admin-units": "ts-node prisma/seed-admin-units-runner.ts",
     "db:seed:events": "ts-node prisma/seed-vn-events-runner.ts",
-    "db:seed:doc-templates": "ts-node prisma/seed-document-templates.ts"
+    "db:seed:doc-templates": "ts-node prisma/seed-document-templates.ts",
+    "db:seed:permissions": "ts-node prisma/seed-permissions-runner.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",

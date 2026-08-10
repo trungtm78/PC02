@@ -8,7 +8,9 @@ import { Transform } from 'class-transformer';
  * trail says why a piece of evidence came back rather than only that it did.
  */
 export class RestoreEvidenceDto {
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
   @IsString({ message: 'Lý do khôi phục phải là chuỗi ký tự' })
   @IsNotEmpty({ message: 'Lý do khôi phục bắt buộc' })
   @MinLength(10, { message: 'Lý do khôi phục phải có ít nhất 10 ký tự' })

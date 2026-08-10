@@ -22,6 +22,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CreateEvidenceDto } from './dto/create-evidence.dto';
 import { UpdateEvidenceDto } from './dto/update-evidence.dto';
 import { QueryEvidencesDto } from './dto/query-evidences.dto';
+import { QueryDeletedEvidencesDto } from './dto/query-deleted-evidences.dto';
 import { RestoreEvidenceDto } from './dto/restore-evidence.dto';
 
 @Controller('evidences')
@@ -41,7 +42,7 @@ export class EvidencesController {
   @Get('admin/deleted')
   @RequirePermissions({ action: 'restore', subject: 'Evidence' })
   listDeleted(
-    @Query() query: { limit?: number; offset?: number; search?: string },
+    @Query() query: QueryDeletedEvidencesDto,
     @Req() req: ScopedRequest,
   ) {
     return this.evidencesService.listDeleted(query, req.dataScope);

@@ -132,18 +132,23 @@ export function CaseEvidenceTab({ caseId }: { caseId: string }) {
     }
     setSaving(true);
     try {
+      // Blanked optional fields go as null, not undefined. `undefined` is
+      // dropped when the body is serialised, and the backend only writes keys
+      // that are `!== undefined` — so clearing a value would silently keep the
+      // old one while the UI reported success.
+      const orNull = (v: string) => (v.trim() === '' ? null : v.trim());
       const payload = {
         code: form.code.trim(),
         name: form.name.trim(),
-        description: form.description.trim() || undefined,
+        description: orNull(form.description),
         quantity: Number(form.quantity) || 1,
         unit: form.unit.trim() || 'cái',
-        storageLocation: form.storageLocation.trim() || undefined,
-        receivedDate: form.receivedDate || undefined,
+        storageLocation: orNull(form.storageLocation),
+        receivedDate: orNull(form.receivedDate),
         status: form.status,
-        evidenceType: form.evidenceType.trim() || undefined,
-        entryOrder: form.entryOrder.trim() || undefined,
-        warehouseReceipt: form.warehouseReceipt.trim() || undefined,
+        evidenceType: orNull(form.evidenceType),
+        entryOrder: orNull(form.entryOrder),
+        warehouseReceipt: orNull(form.warehouseReceipt),
       };
       if (editing) {
         await api.put(`/evidences/${editing.id}`, payload);

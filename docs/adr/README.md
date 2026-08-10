@@ -41,6 +41,7 @@ Không sửa ADR đã chấp nhận — viết cái mới và đánh dấu cái 
 | [0012](0012-lint-ratchet-instead-of-clean-slate.md) | Cổng lint là ratchet đơn điệu | Đã chấp nhận |
 | [0013](0013-legacy-uat-suite-not-in-ci.md) | Bộ UAT cũ không vào CI; spec mới ở `tests/e2e-new` | Đã chấp nhận |
 | [0014](0014-rls-only-on-users-and-audit-logs.md) | RLS chỉ có trên 2 bảng; model mới không thêm policy | Đã chấp nhận |
+| [0015](0015-no-unsafe-rules-off-in-test-files.md) | Tắt họ `no-unsafe-*` trong file test (matcher Jest trả `any`) | Đã chấp nhận |
 
 ## Cổng CI
 

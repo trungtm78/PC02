@@ -209,7 +209,11 @@ export class EvidencesService {
       userAgent: meta?.userAgent,
     });
 
-    return { success: true, data: record, message: 'Thêm vật chứng thành công' };
+    return {
+      success: true,
+      data: record,
+      message: 'Thêm vật chứng thành công',
+    };
   }
 
   // ─────────────────────────────────────────────
@@ -398,6 +402,25 @@ export class EvidencesService {
     }
 
     assertParentInScope(existing.case, dataScope, 'write');
+
+    // Uniqueness is checked among live rows only, so a replacement can be
+    // created under the same code while the original sits soft-deleted.
+    // Restoring blindly would then leave two live VC-001 in one case, which is
+    // exactly what the constraint exists to prevent.
+    const clash = await this.prisma.evidence.findFirst({
+      where: {
+        caseId: existing.caseId,
+        code: existing.code,
+        deletedAt: null,
+        NOT: { id },
+      },
+      select: { id: true },
+    });
+    if (clash) {
+      throw new ConflictException(
+        `Không thể khôi phục: mã vật chứng "${existing.code}" đang được dùng bởi một bản ghi khác trong vụ án này. Hãy đổi mã bản ghi đó trước.`,
+      );
+    }
 
     const hoursAfterDeletion =
       (Date.now() - existing.deletedAt!.getTime()) / 3_600_000;

@@ -156,6 +156,27 @@ describe('CaseEvidenceTab', () => {
     expect(body).not.toHaveProperty('caseId');
   });
 
+  it('sends null, not undefined, when an optional field is cleared', async () => {
+    // `undefined` is dropped during JSON serialisation and the backend only
+    // writes keys that are `!== undefined` — so a cleared field would keep its
+    // old value while the UI reported success.
+    render(<CaseEvidenceTab caseId="case-1" />);
+    await screen.findByTestId('evidence-row-ev-1');
+
+    fireEvent.click(screen.getByTestId('edit-evidence-ev-1'));
+    const storage = screen.getByDisplayValue('Kho A');
+    fireEvent.change(storage, { target: { value: '' } });
+    fireEvent.click(screen.getByTestId('save-evidence-btn'));
+
+    await waitFor(() => expect(putSpy).toHaveBeenCalledTimes(1));
+    const [, body] = putSpy.mock.calls[0] as unknown as [
+      string,
+      Record<string, unknown>,
+    ];
+    expect(body.storageLocation).toBeNull();
+    expect('storageLocation' in body).toBe(true);
+  });
+
   it('keeps the form open and shows the server message when saving fails', async () => {
     postSpy.mockRejectedValueOnce(
       axiosError(409, 'Mã vật chứng "VC-002" đã tồn tại trong vụ án này') as never,

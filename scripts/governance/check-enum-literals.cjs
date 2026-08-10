@@ -95,17 +95,52 @@ function walk(dir, out) {
  * Blank out comments, preserving every line and column so reported positions
  * still point at the real source.
  *
- * String-aware on purpose. A regex that just blanks from `//` to end of line
- * also eats the `//` inside a URL literal, so
+ * Tracks strings AND regex literals. Two failure modes it exists to avoid:
  *
- *     const u = 'http://x'; if (s === 'TIEP_NHAN') { ... }
+ *   const u = 'http://x'; if (s === 'TIEP_NHAN') { ... }
  *
- * would have the comparison erased and the guard would never see it.
+ * A naive stripper blanks from the `//` in the URL to end of line and never
+ * sees the comparison — a false negative.
+ *
+ *   const RE = /[&<>"']/g;   // note the quote characters inside
+ *
+ * Without regex awareness that apostrophe opens a "string" that never closes,
+ * so every comment after it stops being blanked and their contents are scanned
+ * as code — a false positive, on a blocking gate, that the author cannot fix.
  */
+/** Characters after which a `/` begins a regex literal rather than division. */
+const REGEX_MAY_START_AFTER = new Set([
+  '',
+  '=',
+  '(',
+  ',',
+  '[',
+  '{',
+  ':',
+  '!',
+  '&',
+  '|',
+  '?',
+  ';',
+  '+',
+  '-',
+  '*',
+  '%',
+  '<',
+  '>',
+  '~',
+  '^',
+]);
+
 function stripCommentsAndKeepPositions(source) {
   const out = [];
+  let inCharClass = false;
   let i = 0;
-  let state = 'code'; // code | line | block | single | double | template
+  let state = 'code'; // code | line | block | single | double | template | regex
+  // Last significant character of code seen so far. A `/` starts a regex only
+  // where a value may begin — after `=`, `(`, `,`, `[`, `{`, `:`, `!`, `&`,
+  // `|`, `?`, `;`, `return` — and is division otherwise.
+  let prevCode = '';
   while (i < source.length) {
     const ch = source[i];
     const next = source[i + 1];
@@ -124,6 +159,34 @@ function stripCommentsAndKeepPositions(source) {
           if (ch === "'") state = 'single';
           else if (ch === '"') state = 'double';
           else if (ch === '`') state = 'template';
+          else if (ch === '/' && REGEX_MAY_START_AFTER.has(prevCode)) {
+            state = 'regex';
+          }
+          if (!/\s/.test(ch)) prevCode = ch;
+          keep();
+        }
+        break;
+      case 'regex':
+        if (ch === '\\') {
+          keep();
+          i += 1;
+          if (i < source.length) out.push(source[i]);
+        } else if (ch === '[') {
+          inCharClass = true;
+          keep();
+        } else if (ch === ']') {
+          inCharClass = false;
+          keep();
+        } else if (ch === '/' && !inCharClass) {
+          state = 'code';
+          prevCode = ch;
+          keep();
+        } else if (ch === '\n') {
+          // An unterminated regex is a syntax error; recover rather than
+          // swallowing the rest of the file.
+          state = 'code';
+          keep();
+        } else {
           keep();
         }
         break;

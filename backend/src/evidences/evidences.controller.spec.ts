@@ -109,7 +109,12 @@ describe('EvidencesController — delegation', () => {
     mockService.restore.mockResolvedValue({ success: true });
     const req = makeReq();
 
-    await controller.restore('ev-1', { reason: 'Xóa nhầm khi nhập' }, mockUser, req);
+    await controller.restore(
+      'ev-1',
+      { reason: 'Xóa nhầm khi nhập' },
+      mockUser,
+      req,
+    );
 
     expect(mockService.restore).toHaveBeenCalledWith(
       'ev-1',

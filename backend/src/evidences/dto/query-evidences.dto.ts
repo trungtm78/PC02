@@ -15,7 +15,9 @@ export class QueryEvidencesDto {
   caseId?: string;
 
   @IsOptional()
-  @IsIn(EVIDENCE_STATUS_VALUES, { message: 'Trạng thái vật chứng không hợp lệ' })
+  @IsIn(EVIDENCE_STATUS_VALUES, {
+    message: 'Trạng thái vật chứng không hợp lệ',
+  })
   status?: EvidenceStatus;
 
   @IsOptional()
