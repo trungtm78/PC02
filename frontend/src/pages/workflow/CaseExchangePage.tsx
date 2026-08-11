@@ -28,6 +28,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { extractApiError } from '@/lib/api-errors';
 import { formatVNDate, formatVNTime, formatVNDateTime } from '../../lib/dates';
 import { authStore } from '@/stores/auth.store';
 import { downloadCsv } from '@/lib/csv';
@@ -497,6 +498,7 @@ function CreateExchangeModal({
     attachments: [] as File[],
   });
   const [errors, setErrors] = useState<{ recordCode?: string; receiverUnit?: string; content?: string; attachment?: string }>({});
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   /** EC-01: Validate file size ≤ 10MB */
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -533,8 +535,10 @@ function CreateExchangeModal({
         content: formData.content,
       });
       onClose();
-    } catch {
-      // keep modal open on error
+    } catch (e) {
+      // Giữ modal mở là đúng — nhưng phải NÓI vì sao. Modal đứng im sau khi bấm
+      // Tạo trông y hệt nút hỏng: người dùng bấm lại, hoặc bỏ đi tưởng đã lưu.
+      setSubmitError(extractApiError(e, 'Không tạo được trao đổi').message);
     }
   };
 
@@ -654,6 +658,12 @@ function CreateExchangeModal({
           </div>
         </div>
 
+        {submitError && (
+          <p className="mx-6 mb-2 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700" data-testid="exchange-submit-error">
+            {submitError}
+          </p>
+        )}
+
         <div className="border-t border-slate-200 px-6 py-4 flex justify-end gap-3">
           <button onClick={onClose} className="px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors">Hủy</button>
           <button
@@ -687,6 +697,7 @@ function ThreadModal({
   const [newMessage, setNewMessage] = useState('');
   const [attachments, setAttachments] = useState<File[]>([]);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
+  const [sendError, setSendError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
 
   /** EC-01: Validate file size ≤ 10MB */
@@ -710,12 +721,15 @@ function ThreadModal({
       return;
     }
     setSending(true);
+    setSendError(null);
     try {
       await onSend(exchange.id, newMessage.trim());
       setNewMessage('');
       setAttachments([]);
-    } catch {
-      // silently fail
+    } catch (e) {
+      // Không xoá ô nhập: tin nhắn chưa gửi được thì người dùng phải còn nội dung
+      // để gửi lại. Nuốt lỗi ở đây làm tin nhắn biến mất như thể đã gửi xong.
+      setSendError(extractApiError(e, 'Không gửi được tin nhắn').message);
     } finally {
       setSending(false);
     }
@@ -795,6 +809,12 @@ function ThreadModal({
             <div data-testid="thread-attachment-error" className="mb-3 flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
               <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
               <p className="text-sm text-red-700">{attachmentError}</p>
+            </div>
+          )}
+          {sendError && (
+            <div data-testid="thread-send-error" className="mb-3 flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+              <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
+              <p className="text-sm text-red-700">{sendError}</p>
             </div>
           )}
           {attachments.length > 0 && (

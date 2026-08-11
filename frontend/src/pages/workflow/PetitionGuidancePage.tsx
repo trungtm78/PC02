@@ -30,6 +30,7 @@ import {
   UserCheck,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { extractApiError } from '@/lib/api-errors';
 import { useFormDefaults } from '@/hooks/useFormDefaults';
 import { today, formatVNDate } from '@/lib/dates';
 import { downloadCsv } from '@/lib/csv';
@@ -109,6 +110,7 @@ export default function PetitionGuidancePage() {
   });
 
   const [formErrors, setFormErrors] = useState<FormErrors>({});
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // ── Real data state ────────────────────────────────────────────────────────
   const [allGuidances, setAllGuidances] = useState<GuidanceRecord[]>([]);
@@ -256,6 +258,7 @@ export default function PetitionGuidancePage() {
   };
 
   const handleSave = async () => {
+    setSaveError(null);
     const errors: FormErrors = {};
     // EC-04: Hướng dẫn đơn có thể không có thông tin liên lạc — phone is optional
     if (!formData.guidedPerson.trim()) errors.guidedPerson = 'Vui lòng nhập tên người được hướng dẫn';
@@ -286,8 +289,11 @@ export default function PetitionGuidancePage() {
         });
       }
       await fetchGuidances();
-    } catch {
-      // silently fail — form stays open so user sees no crash
+    } catch (e) {
+      // Trước đây chỉ nuốt lỗi rồi vẫn chạy tiếp xuống dưới ⇒ modal ĐÓNG như
+      // thể đã lưu xong. Phải báo lỗi và DỪNG, không đóng form.
+      setSaveError(extractApiError(e, 'Không lưu được phiếu hướng dẫn').message);
+      return;
     }
     setShowGuidanceModal(false);
     setSelectedGuidance(null);
@@ -751,6 +757,12 @@ export default function PetitionGuidancePage() {
                 </div>
               )}
             </div>
+
+            {saveError && (
+              <p className="mx-6 mb-2 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700" data-testid="guidance-save-error">
+                {saveError}
+              </p>
+            )}
 
             {/* Footer */}
             <div className="p-6 border-t border-slate-200 flex items-center justify-end gap-3 flex-shrink-0">

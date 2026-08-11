@@ -15,7 +15,7 @@ Cập nhật: sau 26 commit của đợt M4 + M5.
 | Hạng mục | Kết quả |
 |---|---|
 | Backend | 241 suite / **3250** test PASS |
-| Frontend | 167 file / **1619** test PASS |
+| Frontend | 168 file / **1623** test PASS |
 | Mobile | **107** test PASS |
 | `tsc --noEmit` (BE) | sạch |
 | `tsc -b` (FE) | sạch |
@@ -37,18 +37,37 @@ Cập nhật: sau 26 commit của đợt M4 + M5.
 
 ---
 
-## 2. Grep chốt chặn của kế hoạch — MỘT PHẦN
+## 2. Grep chốt chặn của kế hoạch — ĐÃ SOÁT ĐỦ 4/4
+
+Đã soát từng chỗ, không chỉ đếm.
 
 | # | Chốt | Kết quả |
 |---|---|---|
 | 3 | `(bg\|text\|border\|ring)-${` — class Tailwind ghép mảnh | ✅ **SẠCH**. Một kết quả duy nhất nằm trong *comment* của `StatCard.tsx` giải thích chính luật này. |
-| 1 | `<button` không có `onClick` | ⚠️ **CHƯA SOÁT**. Heuristic thô đếm 57 — phần lớn gần như chắc chắn là dương tính giả (`type="submit"`, nút bên trong `<form onSubmit>`, nút chỉ có `onKeyDown`). Cần một lượt soát từng chỗ; **chưa làm**. |
-| 2 | `alert(` trong `handleSubmit` không kèm gọi API | ⚠️ **CHƯA SOÁT**. 42 lời gọi `alert(` trên toàn bộ `src`. Ba chỗ tệ nhất đã sửa ở đợt này (đơn trùng lặp, trả hồ sơ, xuất Excel hướng dẫn), nhưng 42 chỗ còn lại chưa được phân loại "thông báo lỗi hợp lệ" và "báo thành công giả". |
-| 4 | `catch` không `extractApiError` trong handler lưu | ⚠️ **CHƯA SOÁT**. Cần đọc từng handler. |
+| 1 | `<button` không có `onClick` | ✅ **SẠCH**. Quét chính xác còn 6 ứng viên, **cả 6 là dương tính giả**: 2 chỗ do regex của chính tôi cắt nhầm ở dấu `>` trong `page >= totalPages` và trong `<body>` của một comment; `components/ui/button.tsx` truyền `{...props}` nên handler đến từ nơi gọi; 2 chỗ trong `PetitionFormPage` cố ý dùng `onMouseDown` (phải bắn **trước** `blur` thì mới chọn được mục trong dropdown). |
+| 2 | `alert(` trong `handleSubmit` không kèm gọi API | ✅ **SẠCH**. Chỉ còn **một** `alert` báo thành công, ở [CaseFormPage/index.tsx:350](frontend/src/pages/cases/CaseFormPage/index.tsx#L350) — và nó nằm sau `api.post('/cases', payload)` thật, trong `try` có `catch` xử lý 409 và lỗi khác. Số còn lại đều là **thông báo lỗi hoặc chặn thao tác**, hợp lệ. |
+| 4 | `catch` không `extractApiError` trong handler lưu | ✅ **SẠCH — sau khi sửa 4 chỗ thật.** Xem bảng dưới. |
 
-**Vì sao không tự tuyên bố PASS:** ba chốt còn lại cần đọc mã từng chỗ, không phải đếm.
-Ghi "PASS" dựa trên một con số grep là đúng cái kiểu tự tin không có cơ sở mà cả đợt
-thi công này đang gỡ bỏ.
+### Chốt #4 — 4 lỗi thật đã sửa
+
+Quét 24 `catch` im lặng trong file có gọi `api.post/put/patch/delete`. Phần lớn hợp lệ
+(poll thông báo, banner phụ, tải danh mục nền). **Bốn** chỗ nằm đúng trên đường lưu và
+tự ghi trong comment rằng chúng cố tình im:
+
+| Nơi | Comment cũ | Người dùng thấy gì | Đã sửa |
+|---|---|---|---|
+| `PetitionGuidancePage` `handleSave` | *"silently fail — form stays open so user sees no crash"* | **Tệ nhất**: `catch` không `return`, nên lưu hỏng mà **modal vẫn đóng** — không phân biệt được với lưu xong | `setSaveError(...)` + `return`; ô `guidance-save-error` |
+| `InvestigationDelegationPage` `handleSave` | *"keep modal open on error"* | Nút Lưu trông như hỏng; người dùng bấm lại nhiều lần | ô `delegation-save-error` |
+| `CaseExchangePage` `handleSubmit` | *"keep modal open on error"* | Như trên | ô `exchange-submit-error` |
+| `CaseExchangePage` `handleSendMessage` | *"silently fail"* | Tin nhắn biến mất khỏi ô nhập như thể đã gửi | ô `thread-send-error`, giữ nguyên nội dung đã nhập |
+
+`TransferAndReturnPage:836` là **dương tính giả** — nó gom lỗi vào `failed[]` và hiện panel
+kết quả thật (`✗ Thất bại: <mã hồ sơ>`).
+
+Chốt bằng test: [save-errors-surface.test.tsx](frontend/src/pages/workflow/__tests__/save-errors-surface.test.tsx) — 4 test, mỗi test khẳng định đúng phần vừa thêm.
+
+**Vì sao đây là cùng một lỗi gốc với `alert("thành công")`:** giao diện nói dối. Chỉ khác
+là nói dối bằng cách im lặng thay vì bằng lời.
 
 ---
 
