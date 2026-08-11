@@ -1,7 +1,7 @@
 /**
  * The frontend permission layer was `MOCK_ALL_PERMISSIONS`: a constant granting
- * every action on every resource to every user, consulted in 48 files and 252
- * call sites including bulk delete. The backend guard was the only real gate,
+ * every action on every resource to every user, consulted across 17 files
+ * including bulk delete. The backend guard was the only real gate,
  * so nothing was insecure — what users got was buttons they were not allowed
  * to press, and a 403 when they pressed one.
  *
@@ -15,6 +15,7 @@ import { describe, it, expect } from 'vitest';
 // explicitly and does not include `node`, and adding it would change global
 // typing for the whole app project just to read one file in one test.
 import seed from '../../../../../backend/prisma/seed-permissions.ts?raw';
+import permissionsSource from '../permissions.ts?raw';
 import {
   toPermissionSet,
   MAPPED_SUBJECTS,
@@ -119,5 +120,16 @@ describe('mapping tables stay in step with the backend seed', () => {
       );
       expect({ subject, hasEdit }).toEqual({ subject, hasEdit: false });
     }
+  });
+});
+
+describe('the all-permissive mock stays deleted', () => {
+  it('exports no constant that grants every action to everyone', () => {
+    // `MOCK_ALL_PERMISSIONS` lived on as dead code with a doc comment still
+    // announcing "Currently mock (all-permissive)" long after `usePermission`
+    // stopped reading it. Dead code that advertises itself as the permission
+    // source is an invitation to import it back.
+    expect(permissionsSource).not.toContain('MOCK_ALL_PERMISSIONS');
+    expect(permissionsSource).not.toMatch(/mock \(all-permissive\)/i);
   });
 });

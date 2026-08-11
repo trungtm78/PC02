@@ -10,11 +10,11 @@ import { ROLE_NAMES } from '@/shared/enums/roles';
 /**
  * Turn modules on and off.
  *
- * Access is checked on `role === ADMIN`, not `hasPermission`. The frontend
- * permission layer is still `MOCK_ALL_PERMISSIONS` — it returns true for
- * everyone — so gating on it here would look like a check and be none
- * (ND-6). The backend is the real gate either way: PATCH requires
- * `write:FeatureFlag`.
+ * Access is checked on `role === ADMIN`, not `hasPermission`. The reason is no
+ * longer that permissions are mocked — ND-6 replaced that layer with the real
+ * grants from `/auth/me`. It is that no seeded permission subject corresponds
+ * to this screen, so `hasPermission` has nothing true to say about it. The
+ * backend is the real gate either way: PATCH requires `write:FeatureFlag`.
  */
 
 /** Vietnamese names for the backend `domain` values. */
