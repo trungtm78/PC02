@@ -46,6 +46,38 @@ Backend systemd unit chạy từ `/home/pc02/current/backend/` (theo symlink).
 
 Public key tương ứng phải được paste vào `/home/pc02/.ssh/authorized_keys` trên VM.
 
+## Baseline migration (ND-26)
+
+Lịch sử migration mở đầu bằng `ALTER TABLE "cases"` mà **không migration nào tạo
+bảng `cases`** — toàn bộ 93 migration được commit một lượt trong initial commit,
+schema trước đó chỉ tồn tại trong DB dựng bằng `prisma db push` và chưa từng vào
+git. Hậu quả: `prisma migrate deploy` **không dựng nổi DB trắng**, migration đầu
+tiên chết ngay với `relation "cases" does not exist`.
+
+`prisma/migrations/00000000000000_baseline/` vá đúng chỗ đó. Đã kiểm chứng: DB
+trắng → `migrate deploy` → **94/94 migration áp dụng sạch**.
+
+**Với DB đang chạy (prod, dev, hoặc bất kỳ DB nào đã có dữ liệu)** — chạy MỘT
+LẦN, trước lần deploy đầu tiên sau khi merge:
+
+```bash
+cd /home/pc02/current/backend
+npx prisma migrate resolve --applied 00000000000000_baseline
+```
+
+Lệnh này chỉ **ghi thêm một dòng** vào `_prisma_migrations`; nó không chạy SQL
+nào và không đụng dữ liệu. Bỏ qua bước này thì lần `migrate deploy` kế tiếp sẽ
+cố chạy baseline trên DB đã có sẵn bảng và **fail**.
+
+> **Drift còn lại:** so schema dựng-từ-migration với `schema.prisma` còn **46
+> câu lệnh** khác biệt, trong đó **29** dính tới bảng/index do chính migration
+> tạo ra — tức là drift có sẵn mà [ADR-0011](adr/0011-partial-index-drift-is-accepted.md)
+> đã chấp nhận (ví dụ: `otp_codes` được migration tạo mà thiếu cột `purpose`;
+> `NotificationType` thiếu 4 giá trị). **17 câu còn lại chưa được quy trách
+> nhiệm từng cái** — chưa phân định được là drift có sẵn hay do baseline dựng
+> chưa khớp. Baseline làm cho phép đo này **lần đầu tiên chạy được**; trước đó
+> `migrate diff --from-migrations` chết ngay từ migration thứ nhất.
+
 ## First-time setup checklist
 
 ### Trên VM (làm 1 lần)
