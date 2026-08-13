@@ -527,7 +527,7 @@ thấp. **Ngưỡng chưa ấn định** — cần người quyết một con s�
 |---|---|
 | ND-26 | `prisma migrate deploy` **không dựng được DB trắng**: lịch sử migration mở đầu bằng `ALTER TABLE "cases"` và không migration nào tạo bảng `cases`. Dựng VM mới theo `docs/DEPLOY.md` sẽ hỏng. Có sẵn từ trước. Cách sửa: chụp một migration baseline từ `schema.prisma` rồi `prisma migrate resolve --applied` trên prod. |
 | ND-27 | `.gitignore` gốc có `*.png` không neo → nuốt ảnh tài liệu; `backend/.gitignore` có `reports/` không neo → nuốt `src/reports/` là mã nguồn. **Đã sửa cả hai**, ghi lại vì cùng một lớp lỗi có thể tái diễn với pattern khác. |
-| ND-28 | Tạo đơn thư trả **404 `No active template for documentType: PETITION`** khi `document_number_templates` chưa seed. Một thao tác *tạo* trả "không tìm thấy" là thông báo sai loại — nên là 500 hoặc 400 kèm câu hướng dẫn seed. |
+| ND-28 | ✅ **ĐÃ SỬA.** Nay là **503** kèm câu tiếng Việt nói rõ đây là thiếu cấu hình (không phải lỗi dữ liệu người dùng nhập) và chỉ đúng lệnh sửa. Cả ba nơi gọi `findActiveTemplate` đều là đường *sinh số để tạo* hồ sơ, không nơi nào là tra cứu, nên đổi loại lỗi an toàn. **Suýt viết sai chỉ dẫn:** tên script là `db:seed:doc-templates`, KHÔNG phải `db:seed:document-templates` như tên file gợi ý — đã thêm test đọc `package.json` thật để chỉ dẫn không thể trôi khỏi hiện thực. |
 | ND-29 | 3 module (`calendar-events`, `event-categories`, `event-reminders`) đã gate API từ trước mà manifest **không khai** `gating`. `feature-gating.spec.ts` bắt được khi kiểm chiều ngược. Đã khai. |
 
 ### Môi trường chạy thật (dựng trong phiên)

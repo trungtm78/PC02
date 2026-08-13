@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException } from '@nestjs/common';
+import { NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+// `?raw` không có ở jest; đọc package.json qua require để kiểm tên script thật.
+const pkgJson: string = JSON.stringify(
+  jest.requireActual('../../package.json'),
+);
 import { DocumentNumbersService } from './document-numbers.service';
 import { PrismaService } from '../prisma/prisma.service';
 import type { ResolutionContext } from './types';
@@ -76,7 +80,9 @@ describe('DocumentNumbersService', () => {
 
   describe('draft()', () => {
     it('returns preview number without acquiring lock', async () => {
-      mockPrisma.documentNumberTemplate.findFirst.mockResolvedValue(mockTemplate);
+      mockPrisma.documentNumberTemplate.findFirst.mockResolvedValue(
+        mockTemplate,
+      );
       mockPrisma.documentNumberCounter.findUnique.mockResolvedValue({
         currentValue: 5,
       });
@@ -90,7 +96,9 @@ describe('DocumentNumbersService', () => {
     });
 
     it('returns next = 1 when no counter exists yet (cold start)', async () => {
-      mockPrisma.documentNumberTemplate.findFirst.mockResolvedValue(mockTemplate);
+      mockPrisma.documentNumberTemplate.findFirst.mockResolvedValue(
+        mockTemplate,
+      );
       mockPrisma.documentNumberCounter.findUnique.mockResolvedValue(null);
       mockPrisma.documentNumberLog.create.mockResolvedValue({ id: 'log-001' });
 
@@ -98,11 +106,29 @@ describe('DocumentNumbersService', () => {
       expect(result.previewNumber).toMatch(/^VV-\d{4}-00001$/);
     });
 
-    it('throws when no active template found for documentType', async () => {
+    it('reports missing config as 503 with the fix, not 404', async () => {
+      // ND-28. Trước đây là 404 kèm câu tiếng Anh. Cả ba nơi gọi đều đang SINH
+      // SỐ ĐỂ TẠO hồ sơ, nên 404 nói rằng thứ đang tạo không tồn tại — vô
+      // nghĩa. Cái thiếu là cấu hình hệ thống. Người vận hành gặp lỗi này lúc
+      // dựng máy mới, nên thông điệp phải nói ra cách sửa.
       mockPrisma.documentNumberTemplate.findFirst.mockResolvedValue(null);
-      await expect(service.draft('INCIDENT', ctx)).rejects.toThrow(
-        'No active template for documentType: INCIDENT',
+
+      await expect(service.draft('INCIDENT', ctx)).rejects.toBeInstanceOf(
+        ServiceUnavailableException,
       );
+      await expect(service.draft('INCIDENT', ctx)).rejects.toThrow(
+        /npm run db:seed:doc-templates/,
+      );
+    });
+
+    it('gọi đúng tên script seed có thật trong package.json', () => {
+      // Một chỉ dẫn sai còn tệ hơn không chỉ dẫn: người vận hành gõ theo rồi
+      // nhận "Missing script". Tên đúng là `db:seed:doc-templates`, KHÔNG phải
+      // `db:seed:document-templates` như tên file gợi ý.
+      const scripts = (
+        JSON.parse(pkgJson) as { scripts: Record<string, string> }
+      ).scripts;
+      expect(scripts).toHaveProperty('db:seed:doc-templates');
     });
   });
 
@@ -111,7 +137,9 @@ describe('DocumentNumbersService', () => {
       mockPrisma.$transaction.mockImplementation(async (fn: any) =>
         fn(mockPrisma),
       );
-      mockPrisma.documentNumberTemplate.findFirst.mockResolvedValue(mockTemplate);
+      mockPrisma.documentNumberTemplate.findFirst.mockResolvedValue(
+        mockTemplate,
+      );
       mockPrisma.$executeRaw.mockResolvedValue(1);
       mockPrisma.$queryRaw.mockResolvedValue([{ id: 'counter-001' }]);
       mockPrisma.documentNumberCounter.findUnique.mockResolvedValue({
@@ -126,7 +154,7 @@ describe('DocumentNumbersService', () => {
 
       expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
       expect(mockPrisma.$executeRaw).toHaveBeenCalledTimes(1); // cold-start upsert
-      expect(mockPrisma.$queryRaw).toHaveBeenCalledTimes(1);   // FOR UPDATE
+      expect(mockPrisma.$queryRaw).toHaveBeenCalledTimes(1); // FOR UPDATE
       expect(result.number).toMatch(/^VV-\d{4}-\d{5}$/);
       expect(result.logId).toBe('log-001');
     });
@@ -135,7 +163,9 @@ describe('DocumentNumbersService', () => {
       mockPrisma.$transaction.mockImplementation(async (fn: any) =>
         fn(mockPrisma),
       );
-      mockPrisma.documentNumberTemplate.findFirst.mockResolvedValue(mockTemplate);
+      mockPrisma.documentNumberTemplate.findFirst.mockResolvedValue(
+        mockTemplate,
+      );
       mockPrisma.$executeRaw.mockResolvedValue(1);
       mockPrisma.$queryRaw.mockResolvedValue([{ id: 'counter-001' }]);
       mockPrisma.documentNumberCounter.findUnique.mockResolvedValue({
@@ -146,7 +176,9 @@ describe('DocumentNumbersService', () => {
       });
       mockPrisma.documentNumberLog.create.mockResolvedValue({ id: 'log-002' });
 
-      const result = await service.commit('INCIDENT', ctx, { draftPreview: 'VV-2026-00005' });
+      const result = await service.commit('INCIDENT', ctx, {
+        draftPreview: 'VV-2026-00005',
+      });
       expect(result.changed).toBe(true);
     });
 
@@ -157,7 +189,9 @@ describe('DocumentNumbersService', () => {
       mockPrisma.$transaction.mockImplementation(async (fn: any) =>
         fn(mockPrisma),
       );
-      mockPrisma.documentNumberTemplate.findFirst.mockResolvedValue(mockTemplate);
+      mockPrisma.documentNumberTemplate.findFirst.mockResolvedValue(
+        mockTemplate,
+      );
       mockPrisma.$executeRaw.mockResolvedValue(1);
       mockPrisma.$queryRaw.mockResolvedValue([{ id: 'counter-001' }]);
       mockPrisma.documentNumberCounter.findUnique.mockResolvedValue({
@@ -188,7 +222,9 @@ describe('DocumentNumbersService', () => {
       mockPrisma.$transaction.mockImplementation(async (fn: any) =>
         fn(mockPrisma),
       );
-      mockPrisma.documentNumberTemplate.findFirst.mockResolvedValue(cappedTemplate);
+      mockPrisma.documentNumberTemplate.findFirst.mockResolvedValue(
+        cappedTemplate,
+      );
       mockPrisma.$executeRaw.mockResolvedValue(1);
       mockPrisma.$queryRaw.mockResolvedValue([{ id: 'counter-001' }]);
       mockPrisma.documentNumberCounter.findUnique.mockResolvedValue({
@@ -203,20 +239,35 @@ describe('DocumentNumbersService', () => {
     it('wraps counter back to minValue when resetPeriod is MAX_NUMBER', async () => {
       const wrapTemplate = {
         ...mockTemplate,
-        counterConfig: { resetPeriod: 'MAX_NUMBER', minValue: 1, maxValue: 5, padding: 5 },
+        counterConfig: {
+          resetPeriod: 'MAX_NUMBER',
+          minValue: 1,
+          maxValue: 5,
+          padding: 5,
+        },
       };
-      mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(mockPrisma));
-      mockPrisma.documentNumberTemplate.findFirst.mockResolvedValue(wrapTemplate);
+      mockPrisma.$transaction.mockImplementation(async (fn: any) =>
+        fn(mockPrisma),
+      );
+      mockPrisma.documentNumberTemplate.findFirst.mockResolvedValue(
+        wrapTemplate,
+      );
       mockPrisma.$executeRaw.mockResolvedValue(1);
       mockPrisma.$queryRaw.mockResolvedValue([{ id: 'counter-001' }]);
-      mockPrisma.documentNumberCounter.findUnique.mockResolvedValue({ currentValue: 5 });
-      mockPrisma.documentNumberCounter.update.mockResolvedValue({ currentValue: 1 });
+      mockPrisma.documentNumberCounter.findUnique.mockResolvedValue({
+        currentValue: 5,
+      });
+      mockPrisma.documentNumberCounter.update.mockResolvedValue({
+        currentValue: 1,
+      });
       mockPrisma.documentNumberLog.create.mockResolvedValue({ id: 'log-wrap' });
 
       const result = await service.commit('INCIDENT', ctx);
 
       expect(mockPrisma.documentNumberCounter.update).toHaveBeenCalledWith(
-        expect.objectContaining({ data: expect.objectContaining({ currentValue: 1 }) }),
+        expect.objectContaining({
+          data: expect.objectContaining({ currentValue: 1 }),
+        }),
       );
       expect(result.number).toMatch(/^VV-\d{4}-00001$/);
     });
@@ -224,7 +275,9 @@ describe('DocumentNumbersService', () => {
 
   describe('preview()', () => {
     it('returns preview number without creating a log entry', async () => {
-      mockPrisma.documentNumberTemplate.findFirst.mockResolvedValue(mockTemplate);
+      mockPrisma.documentNumberTemplate.findFirst.mockResolvedValue(
+        mockTemplate,
+      );
       mockPrisma.documentNumberCounter.findUnique.mockResolvedValue({
         currentValue: 10,
       });
@@ -262,7 +315,9 @@ describe('DocumentNumbersService', () => {
           create: jest.fn().mockResolvedValue({ id: 'log-tx-001' }),
         },
       };
-      mockPrisma.documentNumberTemplate.findFirst.mockResolvedValue(mockTemplate);
+      mockPrisma.documentNumberTemplate.findFirst.mockResolvedValue(
+        mockTemplate,
+      );
 
       const result = await service.commitWithTx('INCIDENT', ctx, mockTx);
 
@@ -286,9 +341,13 @@ describe('DocumentNumbersService', () => {
           create: jest.fn().mockResolvedValue({ id: 'log-tx-002' }),
         },
       };
-      mockPrisma.documentNumberTemplate.findFirst.mockResolvedValue(mockTemplate);
+      mockPrisma.documentNumberTemplate.findFirst.mockResolvedValue(
+        mockTemplate,
+      );
 
-      await service.commitWithTx('INCIDENT', ctx, mockTx, { documentId: 'doc-abc' });
+      await service.commitWithTx('INCIDENT', ctx, mockTx, {
+        documentId: 'doc-abc',
+      });
 
       expect(mockTx.documentNumberLog.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -309,7 +368,9 @@ describe('DocumentNumbersService', () => {
           create: jest.fn().mockResolvedValue({ id: 'log-tx-003' }),
         },
       };
-      mockPrisma.documentNumberTemplate.findFirst.mockResolvedValue(mockTemplate);
+      mockPrisma.documentNumberTemplate.findFirst.mockResolvedValue(
+        mockTemplate,
+      );
 
       const result = await service.commitWithTx('INCIDENT', ctx, mockTx, {
         draftPreview: 'VV-2026-00005',
@@ -320,7 +381,12 @@ describe('DocumentNumbersService', () => {
     it('throws when counter exceeds maxValue and resetPeriod is not MAX_NUMBER', async () => {
       const cappedTemplate = {
         ...mockTemplate,
-        counterConfig: { resetPeriod: 'YEARLY', minValue: 1, maxValue: 5, padding: 5 },
+        counterConfig: {
+          resetPeriod: 'YEARLY',
+          minValue: 1,
+          maxValue: 5,
+          padding: 5,
+        },
       };
       const mockTx = {
         $executeRaw: jest.fn().mockResolvedValue(1),
@@ -331,17 +397,24 @@ describe('DocumentNumbersService', () => {
         },
         documentNumberLog: { create: jest.fn() },
       };
-      mockPrisma.documentNumberTemplate.findFirst.mockResolvedValue(cappedTemplate);
-
-      await expect(service.commitWithTx('INCIDENT', ctx, mockTx)).rejects.toThrow(
-        'Đã hết số trong kỳ này',
+      mockPrisma.documentNumberTemplate.findFirst.mockResolvedValue(
+        cappedTemplate,
       );
+
+      await expect(
+        service.commitWithTx('INCIDENT', ctx, mockTx),
+      ).rejects.toThrow('Đã hết số trong kỳ này');
     });
 
     it('wraps counter back to minValue when resetPeriod is MAX_NUMBER', async () => {
       const wrapTemplate = {
         ...mockTemplate,
-        counterConfig: { resetPeriod: 'MAX_NUMBER', minValue: 1, maxValue: 5, padding: 5 },
+        counterConfig: {
+          resetPeriod: 'MAX_NUMBER',
+          minValue: 1,
+          maxValue: 5,
+          padding: 5,
+        },
       };
       const mockTx = {
         $executeRaw: jest.fn().mockResolvedValue(1),
@@ -350,29 +423,42 @@ describe('DocumentNumbersService', () => {
           findUnique: jest.fn().mockResolvedValue({ currentValue: 5 }),
           update: jest.fn().mockResolvedValue({ currentValue: 1 }),
         },
-        documentNumberLog: { create: jest.fn().mockResolvedValue({ id: 'log-wrap-tx' }) },
+        documentNumberLog: {
+          create: jest.fn().mockResolvedValue({ id: 'log-wrap-tx' }),
+        },
       };
-      mockPrisma.documentNumberTemplate.findFirst.mockResolvedValue(wrapTemplate);
+      mockPrisma.documentNumberTemplate.findFirst.mockResolvedValue(
+        wrapTemplate,
+      );
 
       const result = await service.commitWithTx('INCIDENT', ctx, mockTx);
 
       expect(mockTx.documentNumberCounter.update).toHaveBeenCalledWith(
-        expect.objectContaining({ data: expect.objectContaining({ currentValue: 1 }) }),
+        expect.objectContaining({
+          data: expect.objectContaining({ currentValue: 1 }),
+        }),
       );
       expect(result.number).toMatch(/^VV-\d{4}-00001$/);
     });
 
-    it('throws NotFoundException when no active template found', async () => {
+    it('throws ServiceUnavailableException when no active template found', async () => {
       mockPrisma.documentNumberTemplate.findFirst.mockResolvedValue(null);
-      const mockTx = { $executeRaw: jest.fn(), $queryRaw: jest.fn(), documentNumberCounter: {}, documentNumberLog: {} };
+      const mockTx = {
+        $executeRaw: jest.fn(),
+        $queryRaw: jest.fn(),
+        documentNumberCounter: {},
+        documentNumberLog: {},
+      };
 
-      await expect(service.commitWithTx('INCIDENT', ctx, mockTx)).rejects.toThrow(
-        'No active template for documentType: INCIDENT',
-      );
+      await expect(
+        service.commitWithTx('INCIDENT', ctx, mockTx),
+      ).rejects.toBeInstanceOf(ServiceUnavailableException);
     });
 
     it('v0.66.2 drift fix: bumps nextValue past DB max when counter is behind', async () => {
-      mockPrisma.documentNumberTemplate.findFirst.mockResolvedValue(mockTemplate);
+      mockPrisma.documentNumberTemplate.findFirst.mockResolvedValue(
+        mockTemplate,
+      );
       const mockTx = {
         $executeRaw: jest.fn().mockResolvedValue(1),
         $queryRaw: jest
@@ -394,7 +480,9 @@ describe('DocumentNumbersService', () => {
 
       // Counter should be bumped to 146 (DB max 145 + 1), not 125 (counter 124 + 1).
       expect(mockTx.documentNumberCounter.update).toHaveBeenCalledWith(
-        expect.objectContaining({ data: expect.objectContaining({ currentValue: 146 }) }),
+        expect.objectContaining({
+          data: expect.objectContaining({ currentValue: 146 }),
+        }),
       );
       expect(result.number).toMatch(/^VV-\d{4}-00146$/);
     });
@@ -409,7 +497,9 @@ describe('DocumentNumbersService', () => {
           { type: 'COUNTER' },
         ],
       };
-      mockPrisma.documentNumberTemplate.findFirst.mockResolvedValue(petitionTemplate);
+      mockPrisma.documentNumberTemplate.findFirst.mockResolvedValue(
+        petitionTemplate,
+      );
       const mockTx = {
         $executeRaw: jest.fn().mockResolvedValue(1),
         $queryRaw: jest
@@ -431,7 +521,9 @@ describe('DocumentNumbersService', () => {
 
       // Counter phải được bump tới 200 (DB max 199 + 1), không phải 1 (counter 0 + 1)
       expect(mockTx.documentNumberCounter.update).toHaveBeenCalledWith(
-        expect.objectContaining({ data: expect.objectContaining({ currentValue: 200 }) }),
+        expect.objectContaining({
+          data: expect.objectContaining({ currentValue: 200 }),
+        }),
       );
       expect(result.number).toMatch(/^DT-\d{4}-00200$/);
     });
@@ -439,7 +531,9 @@ describe('DocumentNumbersService', () => {
 
   describe('getTemplates()', () => {
     it('returns all templates ordered by creation date descending', async () => {
-      mockPrisma.documentNumberTemplate.findMany.mockResolvedValue([mockTemplate]);
+      mockPrisma.documentNumberTemplate.findMany.mockResolvedValue([
+        mockTemplate,
+      ]);
 
       const result = await service.getTemplates();
 
@@ -472,13 +566,17 @@ describe('DocumentNumbersService', () => {
 
   describe('updateTemplate()', () => {
     it('updates template fields by id', async () => {
-      mockPrisma.documentNumberTemplate.findFirst.mockResolvedValue(mockTemplate);
+      mockPrisma.documentNumberTemplate.findFirst.mockResolvedValue(
+        mockTemplate,
+      );
       mockPrisma.documentNumberTemplate.update.mockResolvedValue({
         ...mockTemplate,
         name: 'Updated',
       });
 
-      const result = await service.updateTemplate(TEMPLATE_ID, { name: 'Updated' } as any);
+      const result = await service.updateTemplate(TEMPLATE_ID, {
+        name: 'Updated',
+      } as any);
 
       expect(result.name).toBe('Updated');
       expect(mockPrisma.documentNumberTemplate.update).toHaveBeenCalledWith({
@@ -490,15 +588,17 @@ describe('DocumentNumbersService', () => {
     it('throws NotFoundException when template does not exist', async () => {
       mockPrisma.documentNumberTemplate.findFirst.mockResolvedValue(null);
 
-      await expect(service.updateTemplate('no-such-id', {} as any)).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.updateTemplate('no-such-id', {} as any),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 
   describe('deleteTemplate()', () => {
     it('deletes template by id', async () => {
-      mockPrisma.documentNumberTemplate.findFirst.mockResolvedValue(mockTemplate);
+      mockPrisma.documentNumberTemplate.findFirst.mockResolvedValue(
+        mockTemplate,
+      );
       mockPrisma.documentNumberTemplate.delete.mockResolvedValue(mockTemplate);
 
       await service.deleteTemplate(TEMPLATE_ID);
@@ -511,7 +611,9 @@ describe('DocumentNumbersService', () => {
     it('throws NotFoundException when template does not exist', async () => {
       mockPrisma.documentNumberTemplate.findFirst.mockResolvedValue(null);
 
-      await expect(service.deleteTemplate('no-such-id')).rejects.toThrow(NotFoundException);
+      await expect(service.deleteTemplate('no-such-id')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -547,7 +649,12 @@ describe('DocumentNumbersService', () => {
       mockPrisma.documentNumberLog.findMany.mockResolvedValue([]);
       mockPrisma.documentNumberLog.count.mockResolvedValue(0);
 
-      await service.getLogs({ fromDate: from, toDate: to, page: 1, pageSize: 20 });
+      await service.getLogs({
+        fromDate: from,
+        toDate: to,
+        page: 1,
+        pageSize: 20,
+      });
 
       expect(mockPrisma.documentNumberLog.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
