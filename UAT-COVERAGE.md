@@ -14,8 +14,8 @@ Cập nhật: sau 26 commit của đợt M4 + M5.
 
 | Hạng mục | Kết quả |
 |---|---|
-| Backend | 241 suite / **3250** test PASS |
-| Frontend | 168 file / **1623** test PASS |
+| Backend | 241 suite / **3251** test PASS |
+| Frontend | 168 file / **1624** test PASS |
 | Mobile | **107** test PASS |
 | `tsc --noEmit` (BE) | sạch |
 | `tsc -b` (FE) | sạch |
@@ -116,7 +116,7 @@ Bốn đợt dưới đây **chưa ai chạy**. Mỗi kịch bản cần một n
 | # | Nội dung | Ai quyết |
 |---|---|---|
 | E6 | Mã gate API cho `cases`/`incidents`/`petitions`/`calendar`/`teams`/`reports` **đã có**. Merge cần PR-M1-mobile lên production **và** tỷ lệ APK cũ đủ thấp. **Ngưỡng chưa ấn định.** | Người vận hành |
-| ND-26 | ✅ **ĐÃ SỬA.** `prisma/migrations/00000000000000_baseline/` — kiểm chứng: DB trắng → `migrate deploy` → **94/94 sạch** (trước đó chết ở migration thứ nhất). **Việc còn lại của người vận hành:** chạy một lần `npx prisma migrate resolve --applied 00000000000000_baseline` trên DB đang chạy trước lần deploy kế tiếp — chỉ ghi 1 dòng, không đụng dữ liệu. Drift còn lại 46 câu, 29 câu thuộc bảng do migration tạo (ADR-0011); **17 câu chưa quy trách nhiệm từng cái**. Xem `docs/DEPLOY.md`. | Người vận hành chạy `migrate resolve` |
+| ND-26 | ✅ **ĐÃ SỬA.** `prisma/migrations/00000000000000_baseline/` — kiểm chứng: DB trắng → `migrate deploy` → **94/94 sạch** (trước đó chết ở migration thứ nhất). **Việc còn lại của người vận hành:** chạy một lần `npx prisma migrate resolve --applied 00000000000000_baseline` trên DB đang chạy trước lần deploy kế tiếp — chỉ ghi 1 dòng, không đụng dữ liệu. Drift còn lại 46 câu — **đã quy trách nhiệm đủ 46/46: tất cả đều do migration, không câu nào do baseline** (ADR-0011). Xem `docs/DEPLOY.md`. | Người vận hành chạy `migrate resolve` |
 | ND-12 | 5 mật khẩu từng nằm trong git history — có phải credential thật đang dùng không | Cần người xác nhận |
 | ND-13 | Mã vật chứng trùng trong 53k bản ghi legacy — chọn bỏ bản nào | Người giữ hồ sơ |
 | ND-20 | "Ai có ≥1 tổ ghi được thì ghi được mọi bản ghi chưa phân công" — đúng hay quá rộng | Quyết chính sách |

@@ -69,14 +69,27 @@ Lệnh này chỉ **ghi thêm một dòng** vào `_prisma_migrations`; nó khôn
 nào và không đụng dữ liệu. Bỏ qua bước này thì lần `migrate deploy` kế tiếp sẽ
 cố chạy baseline trên DB đã có sẵn bảng và **fail**.
 
-> **Drift còn lại:** so schema dựng-từ-migration với `schema.prisma` còn **46
-> câu lệnh** khác biệt, trong đó **29** dính tới bảng/index do chính migration
-> tạo ra — tức là drift có sẵn mà [ADR-0011](adr/0011-partial-index-drift-is-accepted.md)
-> đã chấp nhận (ví dụ: `otp_codes` được migration tạo mà thiếu cột `purpose`;
-> `NotificationType` thiếu 4 giá trị). **17 câu còn lại chưa được quy trách
-> nhiệm từng cái** — chưa phân định được là drift có sẵn hay do baseline dựng
-> chưa khớp. Baseline làm cho phép đo này **lần đầu tiên chạy được**; trước đó
-> `migrate diff --from-migrations` chết ngay từ migration thứ nhất.
+> **Drift còn lại — đã quy trách nhiệm đủ 46/46.** So schema dựng-từ-migration
+> với `schema.prisma` còn **46 câu lệnh** khác biệt. Đã soát từng câu:
+> **tất cả 46 đều do migration, không câu nào do baseline.** Đây đúng là drift
+> có sẵn mà [ADR-0011](adr/0011-partial-index-drift-is-accepted.md) đã chấp
+> nhận, nay lần đầu đo được thành con số.
+>
+> Tập trung ở vài chỗ: `deadline_rule_versions` (9 câu — khoá ngoại khai
+> `SET NULL` trong schema mà migration tạo bằng `RESTRICT`), `incidents` (7),
+> `NotificationType` (4 giá trị enum schema có mà không migration nào thêm),
+> `edit_window_reset_requests` (2 — migration đặt tên index ngắn `ewrr_*`,
+> schema muốn tên mặc định của Prisma). `otp_codes` được migration tạo mà thiếu
+> hẳn cột `purpose`.
+>
+> **Cách kiểm lại bất cứ lúc nào:** dựng DB trắng → `migrate deploy` →
+> `prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma
+> --script`. Lưu ý khi so bằng script: banner "Update available" của Prisma CLI
+> lẫn vào stdout, đừng đếm nhầm thành câu lệnh SQL.
+>
+> Baseline làm phép đo này **lần đầu tiên chạy được** — trước đó
+> `migrate diff --from-migrations` chết ngay từ migration thứ nhất, đó chính là
+> lý do `Advisory Checks` known-red.
 
 ## First-time setup checklist
 

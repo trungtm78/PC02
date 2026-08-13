@@ -1,4 +1,8 @@
 STATUS: BLOCKED
+BLOCKED_REASON: Hết việc code. Năm mục còn lại cần người: chạy lại /codex cho PR-F1;
+kiểm tay 4 đợt UAT; `migrate resolve --applied 00000000000000_baseline` trên DB thật;
+ngưỡng tỷ lệ APK cũ cho E6; ND-12 (mật khẩu trong git history), ND-13 (mã vật chứng
+trùng trong 53k dòng legacy), ND-20 (chính sách ghi bản ghi chưa phân công).
 
 # PROGRESS
 Cập nhật: 2026-08-10T03:15:00+07:00 | Milestone: M1/5 | Task: 0/5 của M1
