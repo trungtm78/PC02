@@ -42,8 +42,8 @@ function makeActionPlans(record: unknown) {
       update: jest.fn(() => Promise.resolve({ id: 'ap-1' })),
     },
   };
-  const svc = Object.create(ActionPlansService.prototype) as ActionPlansService;
-  (svc as any).prisma = prisma;
+  // Qua constructor thật — xem ghi chú ở `bulk-operations.spec.ts`.
+  const svc = new ActionPlansService(prisma as never);
   return { svc, prisma };
 }
 
@@ -100,10 +100,7 @@ describe('VksMeetingsService.update', () => {
         update: jest.fn(() => Promise.resolve({ id: 'vks-1' })),
       },
     };
-    const svc = Object.create(
-      VksMeetingsService.prototype,
-    ) as VksMeetingsService;
-    (svc as any).prisma = prisma;
+    const svc = new VksMeetingsService(prisma as never);
     return { svc, prisma };
   }
 

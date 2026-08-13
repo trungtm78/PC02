@@ -21,8 +21,12 @@ describe('JwtStrategy', () => {
   beforeEach(() => {
     // Create strategy instance by calling validate directly
     // We bypass the constructor's file read by creating a minimal instance
-    strategy = Object.create(JwtStrategy.prototype);
-    (strategy as any).prisma = mockPrisma;
+    // Constructor thật + khoá công khai có trong repo — xem ghi chú ở
+    // `two-fa-token.guard.spec.ts`.
+    strategy = new JwtStrategy(
+      { get: (_k: string, d?: string) => d ?? './keys/public.pem' } as never,
+      mockPrisma as never,
+    );
     jest.clearAllMocks();
   });
 

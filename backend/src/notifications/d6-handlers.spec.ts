@@ -28,12 +28,19 @@ function makeService(over: Record<string, unknown> = {}) {
   };
   const logger = { error: jest.fn(), debug: jest.fn() };
 
-  const svc = Object.create(
-    NotificationEventService.prototype,
-  ) as NotificationEventService;
-  (svc as any).recipients = recipients;
-  (svc as any).logger = logger;
-  (svc as any).sendInApp = sendInApp;
+  // `recipients` đi qua constructor thật — xem ghi chú ở
+  // `bulk-operations.spec.ts`. `prisma` và `sse` không nằm trên đường đi của
+  // ba handler này.
+  const svc = new NotificationEventService(
+    undefined as never,
+    undefined as never,
+    recipients as never,
+  );
+  // `logger` và `sendInApp` là thành viên nội bộ, không phải dependency tiêm
+  // vào — không có đường nào khác ngoài thay thẳng.
+  const internals = svc as unknown as Record<string, unknown>;
+  internals.logger = logger;
+  internals.sendInApp = sendInApp;
   Object.assign(svc as object, over);
   return { svc, sendInApp, recipients, logger };
 }

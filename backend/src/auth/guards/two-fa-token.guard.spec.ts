@@ -4,12 +4,19 @@ import { TwoFaTokenGuard } from './two-fa-token.guard';
 const mockJwt = { verify: jest.fn() };
 const mockPrisma = { user: { findUnique: jest.fn() } };
 
+// ConfigService thật trỏ vào khoá công khai CÓ TRONG REPO, để constructor
+// chạy nguyên vẹn thay vì bị `Object.create` nhảy qua. Giá trị khoá không ảnh
+// hưởng gì ở đây (jwtService là mock), nhưng đi qua constructor thì việc đổi
+// tên field hay thêm dependency mới lập tức làm spec không biên dịch — đúng
+// chỗ mà `(g as any).publicKey = 'FAKE_KEY'` bịt mất.
+const realKeyConfig = { get: (_k: string, d?: string) => d ?? './keys/public.pem' };
+
 function makeGuard() {
-  const g = Object.create(TwoFaTokenGuard.prototype);
-  (g as any).jwtService = mockJwt;
-  (g as any).prisma = mockPrisma;
-  (g as any).publicKey = 'FAKE_KEY';
-  return g as TwoFaTokenGuard;
+  return new TwoFaTokenGuard(
+    mockJwt as never,
+    realKeyConfig as never,
+    mockPrisma as never,
+  );
 }
 
 function makeCtx(headers: Record<string, string> = {}): ExecutionContext {

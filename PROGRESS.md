@@ -1,4 +1,4 @@
-STATUS: IN_PROGRESS
+STATUS: BLOCKED
 
 # PROGRESS
 Cập nhật: 2026-08-10T03:15:00+07:00 | Milestone: M1/5 | Task: 0/5 của M1
@@ -52,7 +52,7 @@ Task: Phase 0 + Phase 1 — môi trường Flutter (**XONG**) và quyền fronte
 - Subject/action không ánh xạ được thì **bỏ**, không đoán: một resource FE không biết thì không render được, mà bịa câu trả lời cho nó chính là cách một mockup bắt đầu.
 Test: +9 FE (tầng ánh xạ) +3 BE (`/auth/me` trả quyền); sửa 5 test cũ vốn khẳng định hành vi "ai cũng có mọi quyền".
 Kiểm: BE **227 suite / 3104 test** PASS, FE **159 file / 1547 test** PASS, **mobile 96 test** PASS, tsc sạch, 3 cổng xanh.
-### Finding `/codex` PR-F1 — **7×[P1], PR NÀY CHƯA XONG**
+### Finding `/codex` PR-F1 — **7×[P1], ĐÃ XONG 7/7**
 
 Vòng review khắt khe nhất từ đầu dự án. Tôi commit khi **chưa đạt** điều đã tuyên bố. Phải sửa hết trước khi coi Phase 1 là xong:
 
@@ -75,14 +75,14 @@ Vòng review khắt khe nhất từ đầu dự án. Tôi commit khi **chưa đ�
 - #4 ✅ xoá `authProfile` trong nhánh refresh 401 của `lib/api.ts`.
 - #5 ✅ **bỏ lối tắt ADMIN ở FE** (không thêm bypass ở BE) — BE cố ý không có bypass và seed đã cấp ADMIN mọi quyền, nên thực tế không đổi gì mà hai bên hết mâu thuẫn.
 - #6 ✅ thêm `Evidence` vào bảng ánh xạ (gắn với resource `cases`).
-- #7 ⏳ chưa kiểm: codex nói spec auth gán vào field `private readonly` là lỗi TS, nhưng `tsc --noEmit` của tôi xanh — cần xác minh false positive hay tsconfig không cover.
+- #7 ✅ **codex đúng về bản chất, sai về cơ chế.** Không phải lỗi TS — là `as any` **bịt** lỗi TS lại. `tsc` của tôi xanh vì phép kiểm không nhìn xuyên được qua cast, không phải vì codex báo nhầm. 26 chỗ trong 12 spec dùng `Object.create(X.prototype)` rồi chọc thẳng vào dependency `private readonly`. Tác hại thật: đổi tên `prisma` trong service thì spec vẫn biên dịch, vẫn xanh, mà tiêm vào một field không còn tồn tại. Đã chuyển 11 spec sang constructor thật (2 guard + jwt strategy dùng `keys/public.pem` CÓ trong repo nên constructor chạy nguyên vẹn). **Hai ngoại lệ có lý do, đã ghi tại chỗ:** `auth.service.spec.ts` (constructor đọc `keys/private.pem` — khoá bí mật không nằm trong repo, đúng như vậy) và các chỗ thay *state nội bộ* (`running`, `logger`, `sendInApp`) chứ không phải dependency.
 
-**BƯỚC TIẾP THEO:**
-1. Kiểm finding #7.
-2. Sửa test ánh xạ: **đọc `seed-permissions.ts` thật** rồi so, thay vì danh sách viết tay (test hiện tại xanh trong khi vẫn thiếu 8 subject).
-3. Rà nốt các nút chưa gate ở danh sách petitions/incidents.
-4. Chạy lại `/codex` cho PR-F1 — vòng trước tìm 7×[P1], đừng coi là đã sạch khi chưa chạy lại.
-5. Rồi ND-22 và Phase 2 (M3 còn lại: C4, C5, C9, C10, C11, C12-rest).
+**BƯỚC TIẾP THEO — đã xong hết:**
+1. ✅ Finding #7 (xem trên).
+2. ✅ Test ánh xạ đọc `seed-permissions.ts` thật qua `?raw`, không còn danh sách viết tay.
+3. ✅ Nút tạo đã gate ở cả ba: `CaseListPageShell`, `PetitionListPageShell`, `IncidentListPageShell` (kèm cả phím tắt Alt+N).
+4. ⏳ `/codex` cho PR-F1 — **chưa chạy lại**. Đừng coi là sạch khi chưa chạy.
+5. ✅ ND-22 và Phase 2 (C4, C5, C9, C10, C11, C12-rest) đã xong ở các đợt sau.
 
 ---
 

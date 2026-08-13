@@ -35,12 +35,13 @@ const mockAuthService = {
 };
 
 function makeService(): EnrollmentService {
-  const svc = Object.create(EnrollmentService.prototype);
-  svc.prisma = mockPrisma;
-  svc.audit = mockAudit;
-  svc.config = mockConfig;
-  svc.authService = mockAuthService;
-  return svc as EnrollmentService;
+  // Qua constructor thật — xem ghi chú ở `audit/bulk-operations.spec.ts`.
+  return new EnrollmentService(
+    mockPrisma as never,
+    mockAudit as never,
+    mockConfig as never,
+    mockAuthService as never,
+  );
 }
 
 const META = { ipAddress: '10.0.0.5', userAgent: 'jest' };

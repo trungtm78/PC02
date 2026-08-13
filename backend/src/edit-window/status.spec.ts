@@ -33,14 +33,19 @@ function makeService(over: Record<string, unknown> = {}) {
     },
     ...over,
   };
-  const svc = Object.create(EditWindowService.prototype) as EditWindowService;
-  (svc as any).prisma = prisma;
-  (svc as any).settings = {
-    getNumericValue: jest.fn(() => Promise.resolve(168)),
-  };
-  (svc as any).getSubjectAssignedTeamId = jest.fn(() =>
-    Promise.resolve('team-a'),
+  // Dependency đi qua constructor thật — xem ghi chú ở
+  // `bulk-operations.spec.ts`. `audit` và `teamsService` không nằm trên đường
+  // đi của `getStatus`.
+  const svc = new EditWindowService(
+    prisma as never,
+    undefined as never,
+    { getNumericValue: jest.fn(() => Promise.resolve(168)) } as never,
+    undefined as never,
   );
+  // Đây KHÔNG cùng loại với việc chọc dependency: nó thay một phương thức nội
+  // bộ để tách `getStatus` khỏi phép tra tổ, và không có đường nào khác.
+  (svc as unknown as Record<string, unknown>).getSubjectAssignedTeamId =
+    jest.fn(() => Promise.resolve('team-a'));
   return { svc, prisma };
 }
 

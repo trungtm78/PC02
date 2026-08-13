@@ -36,9 +36,15 @@ function makeService(over: Record<string, any> = {}) {
     ...over,
   };
   const audit = { log: jest.fn(() => Promise.resolve(undefined)) };
-  const svc = Object.create(AdminService.prototype) as AdminService;
-  (svc as any).prisma = prisma;
-  (svc as any).audit = audit;
+  // Qua constructor thật — xem ghi chú ở `bulk-operations.spec.ts`. Hai dep
+  // sau `createRole` không đụng tới; truyền `undefined` để nếu sau này nó bắt
+  // đầu dùng thì test chết ngay chứ không âm thầm chạy với dep rỗng.
+  const svc = new AdminService(
+    prisma as never,
+    audit as never,
+    undefined as never,
+    undefined as never,
+  );
   return { svc, prisma, audit, tx };
 }
 

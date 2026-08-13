@@ -16,8 +16,10 @@ function makeService(over: Record<string, any> = {}) {
     },
     ...over,
   };
-  const svc = Object.create(AuditService.prototype) as AuditService;
-  (svc as any).prisma = prisma;
+  // Qua constructor thật, không `Object.create` + chọc field: chọc field bằng
+  // `as any` tắt kiểm kiểu ở đúng chỗ cần nhất — đổi tên `prisma` trong service
+  // thì spec vẫn biên dịch và vẫn xanh, chỉ tiêm vào một field không còn nữa.
+  const svc = new AuditService(prisma as never);
   return { svc, prisma };
 }
 

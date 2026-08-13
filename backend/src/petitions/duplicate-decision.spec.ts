@@ -71,9 +71,16 @@ function makeService(overrides: Record<string, any> = {}) {
   };
   const audit = { log: fn(() => undefined) };
 
-  const svc = Object.create(PetitionsService.prototype) as PetitionsService;
-  (svc as any).prisma = prisma;
-  (svc as any).audit = audit;
+  // Qua constructor thật — xem ghi chú ở `bulk-operations.spec.ts`. Bốn dep
+  // sau không nằm trên đường đi của quyết định trùng đơn.
+  const svc = new PetitionsService(
+    prisma as never,
+    audit as never,
+    undefined as never,
+    undefined as never,
+    undefined as never,
+    undefined as never,
+  );
   return { svc, prisma, audit, tx };
 }
 

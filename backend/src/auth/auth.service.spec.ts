@@ -40,6 +40,12 @@ const mockMetrics = {
   auditLog: { inc: jest.fn() },
 };
 
+// Spec DUY NHẤT còn né constructor, và có lý do thật: `AuthService` đọc
+// `keys/private.pem` ngay trong constructor, mà khoá bí mật KHÔNG nằm trong
+// repo — đúng như vậy. Chạy constructor thật ở đây nghĩa là hoặc commit khoá,
+// hoặc sinh cặp khoá mỗi lần chạy test. Cả hai đều tệ hơn.
+// Đánh đổi phải nói ra: thêm dependency vào constructor sẽ KHÔNG làm spec này
+// hỏng biên dịch — nó chỉ hỏng lúc chạy, nếu code mới thực sự dùng tới.
 function makeService(): AuthService {
   const svc = Object.create(AuthService.prototype);
   svc.prisma = mockPrisma;
