@@ -238,7 +238,38 @@ tắt chặn được request từ APK cũ. Trước [ADR-0018](docs/adr/0018-fe
 giả định đó **sai**; nay đã kiểm từng cờ một. Điều kiện còn lại của E6 (tỷ lệ APK
 cũ đủ thấp) là quyết định của người vận hành, không phải việc code.
 
-### Đợt 5 — M4 + M5
+### Đợt 5 — xin mở lại quyền sửa — **4/4 XANH (API)**
+
+[`tests/e2e-new/uat-wave5-edit-window.api.spec.ts`](tests/e2e-new/uat-wave5-edit-window.api.spec.ts)
+
+Hai điểm đáng chặn nhất đều là loại **rò rỉ**, không phải loại crash:
+
+- [x] `GET /edit-window/status` với hồ sơ **không tồn tại** → 4xx. Trả 200 kèm
+      trạng thái bịa cho id bất kỳ biến endpoint này thành công cụ dò **thời điểm
+      tạo hồ sơ của tổ khác**
+- [x] `subjectType` lạ → 4xx (chỉ nhận `Case | Incident | Petition`)
+- [x] `POST /edit-window/requests` payload rỗng → 400, không tạo yêu cầu trống
+      nằm im trong hàng chờ duyệt
+- [x] Trường lạ → 400
+
+### Tổng kết bộ UAT tự động
+
+**34 kiểm chạy trên hệ thật**, thay cho ô tick chờ người bấm:
+
+| Bộ | Kết quả |
+|---|---|
+| Đợt 1 — ma trận phân quyền (API) | 3/3 |
+| Đợt 2 — bảo mật, phần đơn-tài-khoản (API) | 3/3 |
+| Đợt 3 — hạ tầng cờ (API) | 4/4 |
+| Đợt 5 — xin mở lại quyền sửa (API) | 4/4 |
+| Gate API 15 cờ E4/E5/E6 | 16/16 |
+| Đợt 4 — xoá mockup (trình duyệt) | 5/5 |
+
+**30 bộ API chạy chung một lượt: 30/30 xanh.** Điều này cũng khẳng định lại chẩn
+đoán trước: các lần "chạy chung thì đỏ" là do **máy chủ FE tự chết**, không phải
+do test giao thoa nhau. Bộ Đợt 4 cần FE sống mới chạy được.
+
+### Đợt 5 — M4 + M5 (phần chưa tự động hoá)
 - [ ] Tắt cờ `lawyers` → `GET /lawyers` trả **404 kèm `error: 'FEATURE_DISABLED'`** (không phải 404 trần)
 - [ ] Mobile: tắt cờ → app hiện màn "Tính năng tạm tắt", **không** hiện `Lỗi: DioException`
 - [ ] Mobile: đặt `MIN_MOBILE_VERSION` cao hơn bản đang cài → app hiện màn buộc cập nhật
