@@ -68,15 +68,14 @@ test.describe('Đợt 3 — hạ tầng cờ tính năng', () => {
 });
 
 test.describe('Đợt 5 — gate API trả đúng hình dạng lỗi', () => {
-  // 🔴 ĐANG HỎNG THẬT — đo được 8/8 lần: tắt cờ KHÔNG chặn được request.
+  // ĐÃ SỬA (ADR-0018). Trước đây test này đỏ 8/8 lần: `FeatureFlagGuard` đọc
+  // `request.user` mà nó chạy TRƯỚC `JwtAuthGuard` cấp controller nên giá trị đó
+  // luôn `undefined` ⇒ cờ tắt không chặn được gì. Nay guard tự xác thực token.
   //
-  // KHÔNG dùng `test.fail()` ở đây. Tôi đã thử, và `test.fail()` gọi ở phạm vi
-  // `describe` áp cho MỌI test trong khối — test "bật lại rồi thì hết 404" vốn
-  // xanh liền báo "Expected to fail, but passed", và tôi đọc nhầm thành "test
-  // cờ đã xanh" rồi rút lại một kết luận đúng. Nếu muốn đánh dấu, phải đặt
-  // `test.fail()` BÊN TRONG thân test này, không phải ngoài describe.
-  //
-  // Chi tiết nguyên nhân và cách sửa: mục Đợt 3 trong `UAT-COVERAGE.md`.
+  // Sửa xong lỗi thứ nhất mới lộ ra lỗi thứ hai: filter ngoại lệ ghi đè `code`
+  // bằng `NOT_FOUND` và nuốt mất `FEATURE_DISABLED` — mã mà web và mobile đều
+  // rẽ nhánh theo. Cả hai đã sửa; khẳng định `FEATURE_DISABLED` bên dưới chính
+  // là chốt cho lỗi thứ hai.
   test('tắt cờ lawyers → GET /lawyers trả 404 KÈM error FEATURE_DISABLED', async () => {
     // 404 trần và 404-vì-tắt-cờ trông giống hệt nhau với người dùng, nhưng
     // khác nhau hoàn toàn với app mobile: một cái là "không có dữ liệu", cái

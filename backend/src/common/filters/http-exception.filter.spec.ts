@@ -111,7 +111,9 @@ describe('GlobalExceptionFilter', () => {
     let loggerErrorSpy: jest.SpyInstance;
 
     beforeEach(() => {
-      loggerErrorSpy = jest.spyOn(Logger.prototype, 'error').mockImplementation();
+      loggerErrorSpy = jest
+        .spyOn(Logger.prototype, 'error')
+        .mockImplementation();
     });
 
     afterEach(() => {
@@ -169,4 +171,55 @@ describe('GlobalExceptionFilter', () => {
       expect(allArgs).toContain('something threw a string');
     });
   });
+});
+
+describe('mã máy-đọc-được do nơi ném đặt riêng', () => {
+  /**
+   * `code` mặc định lấy từ `HttpStatus[status]`, nên "tính năng bị tắt" và
+   * "không tìm thấy bản ghi" đều ra `NOT_FOUND`. Web và mobile đều rẽ nhánh
+   * theo `FEATURE_DISABLED`; mã bị nuốt thì app đã cài hiện lỗi chung.
+   *
+   * Lỗi này vô hình suốt thời gian dài vì gate cờ chưa bao giờ chạy tới đây
+   * (ADR-0018) — sửa xong lỗi thứ nhất mới lộ ra lỗi thứ hai.
+   */
+  it('giữ FEATURE_DISABLED thay vì ghi đè bằng NOT_FOUND', () => {
+    const filter = new GlobalExceptionFilter();
+    const json = jest.fn();
+    const host = makeHost(json);
+
+    filter.catch(
+      new NotFoundException({
+        statusCode: 404,
+        error: 'FEATURE_DISABLED',
+        feature: 'lawyers',
+        message: 'Tính năng "Luật sư" hiện đang tắt',
+      }),
+      host,
+    );
+
+    expect(json.mock.calls[0][0].error.code).toBe('FEATURE_DISABLED');
+    expect(json.mock.calls[0][0].error.message).toContain('Luật sư');
+  });
+
+  it('KHÔNG lấy trường `error` văn xuôi của ngoại lệ Nest mặc định', () => {
+    // `new NotFoundException('msg')` sinh ra `{ error: 'Not Found' }`. Lấy bừa
+    // sẽ đổi `code` của mọi lỗi sẵn có và phá hợp đồng client đang dựa vào.
+    const filter = new GlobalExceptionFilter();
+    const json = jest.fn();
+    const host = makeHost(json);
+
+    filter.catch(new NotFoundException('Không tìm thấy hồ sơ'), host);
+
+    expect(json.mock.calls[0][0].error.code).toBe('NOT_FOUND');
+  });
+
+  function makeHost(json: jest.Mock) {
+    const status = jest.fn(() => ({ json }));
+    return {
+      switchToHttp: () => ({
+        getResponse: () => ({ status }),
+        getRequest: () => ({ url: '/api/v1/lawyers' }),
+      }),
+    } as never;
+  }
 });

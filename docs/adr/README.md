@@ -44,7 +44,7 @@ Không sửa ADR đã chấp nhận — viết cái mới và đánh dấu cái 
 | [0015](0015-no-unsafe-rules-off-in-test-files.md) | Tắt họ `no-unsafe-*` trong file test (matcher Jest trả `any`) | Đã chấp nhận |
 | [0016](0016-evidence-code-uniqueness-by-row-lock.md) | Mã vật chứng duy nhất bằng khóa hàng, chưa dùng partial unique index | Đã chấp nhận (tạm thời) |
 | [0017](0017-candispatch-does-not-grant-write.md) | `canDispatch` cho quyền đọc toàn hệ thống, **không** cho quyền ghi | Đã chấp nhận |
-| [0018](0018-feature-flag-guard-must-not-read-request-user.md) | `FeatureFlagGuard` phải tự xác thực token, không đọc `request.user` — gate cờ hiện **không chặn được** (đo 8/8) | Đề xuất |
+| [0018](0018-feature-flag-guard-must-not-read-request-user.md) | `FeatureFlagGuard` phải tự xác thực token, không đọc `request.user` | Đã chấp nhận |
 
 ## Cổng CI
 

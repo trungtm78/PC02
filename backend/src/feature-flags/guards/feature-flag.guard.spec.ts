@@ -4,19 +4,37 @@ import { Reflector } from '@nestjs/core';
 import { FeatureFlagGuard, FEATURE_DISABLED_ERROR } from './feature-flag.guard';
 import { FeatureFlagsService } from '../feature-flags.service';
 import { FEATURE_FLAG_KEY } from '../decorators/feature-flag.decorator';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
+
+/** Header mang token hợp lệ — `JwtService` được mock nên nội dung không quan trọng. */
+const AUTHED = { authorization: 'Bearer valid-token' };
 
 describe('FeatureFlagGuard', () => {
   let guard: FeatureFlagGuard;
   let reflector: Reflector;
   let featureFlags: { isEnabled: jest.Mock };
+  let jwtService: { verify: jest.Mock };
 
   beforeEach(async () => {
     featureFlags = { isEnabled: jest.fn() };
+    jwtService = { verify: jest.fn(() => ({ sub: 'u-1' })) };
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         FeatureFlagGuard,
         Reflector,
         { provide: FeatureFlagsService, useValue: featureFlags },
+        // Guard tự xác thực token (ADR-0018) nên cần hai dependency này.
+        // `ConfigService` trỏ vào khoá công khai CÓ TRONG REPO để constructor
+        // chạy nguyên vẹn; `JwtService` là thật, ta điều khiển kết quả bằng
+        // token truyền vào chứ không bằng mock.
+        {
+          provide: ConfigService,
+          useValue: {
+            get: (_k: string, d?: string) => d ?? './keys/public.pem',
+          },
+        },
+        { provide: JwtService, useValue: jwtService },
       ],
     }).compile();
     guard = module.get(FeatureFlagGuard);
@@ -31,7 +49,7 @@ describe('FeatureFlagGuard', () => {
     }) as unknown as ExecutionContext;
 
   const authedContext = (): ExecutionContext =>
-    mockContextWith({ user: { id: 'user-1' } });
+    mockContextWith({ headers: AUTHED });
 
   it('allows routes that are not gated on a feature flag', async () => {
     jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(undefined);
@@ -97,29 +115,36 @@ describe('FeatureFlagGuard', () => {
     });
   });
 
-  // ⚠️ HAI TEST DƯỚI ĐÂY KHẲNG ĐỊNH LỐI TẮT LÀ ĐÚNG — và đó là lý do lỗi sống
-  // sót. Ý định (chặn người CHƯA đăng nhập dò cờ qua 404-vs-401) hợp lý, nên
-  // test xanh và không ai nghi ngờ. Nhưng chúng mô tả một điều kiện mà trong
-  // ứng dụng thật xảy ra với MỌI request: `FeatureFlagGuard` là `APP_GUARD`
-  // toàn cục nên chạy trước `JwtAuthGuard` cấp controller ⇒ `request.user` luôn
-  // `undefined` ⇒ lối tắt luôn được dùng ⇒ cờ không bao giờ chặn được gì.
-  // Đo trên máy chủ thật: 8/8 vòng tắt cờ mà API vẫn trả 200.
-  // Xem describe cuối file, và mục Đợt 3 trong `UAT-COVERAGE.md`.
-  it('skips the flag check when request.user is null (anonymous)', async () => {
+  // Lối tắt cho người CHƯA đăng nhập vẫn giữ — ý định đúng: không cho dò cờ
+  // nào đang bật bằng cách so 404 (tắt) với 401 (bật).
+  //
+  // Cái đã đổi (ADR-0018): "đã đăng nhập" nay xác định bằng TOKEN HỢP LỆ, không
+  // bằng `request.user`. Guard này là `APP_GUARD` toàn cục nên chạy TRƯỚC
+  // `JwtAuthGuard` cấp controller — đọc `request.user` ở đây luôn thấy
+  // `undefined`, và cờ tắt không bao giờ chặn được gì (đo 8/8 lần trên máy chủ
+  // thật). Hai test cũ khẳng định hành vi đó là đúng, nên lỗi sống sót qua 4400
+  // test: một test xanh khẳng định chính cái làm hỏng hệ thống.
+  it('bỏ qua kiểm cờ khi không có token (người chưa đăng nhập)', async () => {
     jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue('cases');
     featureFlags.isEnabled.mockResolvedValue(false);
-    // No user on the request — should NOT 404, pass through so the
-    // downstream JwtAuthGuard can 401 uniformly. Otherwise anon callers
-    // can probe enabled vs disabled features by response code.
-    const ctx = mockContextWith({ user: null });
+
+    const ctx = mockContextWith({ headers: {} });
+
     await expect(guard.canActivate(ctx)).resolves.toBe(true);
     expect(featureFlags.isEnabled).not.toHaveBeenCalled();
   });
 
-  it('skips the flag check when request.user is missing entirely', async () => {
+  it('bỏ qua kiểm cờ khi token hỏng — không phải chỉ khi thiếu token', async () => {
+    // Nếu chỉ kiểm header CÓ MẶT thì kẻ dò gửi "Bearer x" là qua được lối tắt và
+    // lỗ 404-vs-401 còn nguyên. Phải verify chữ ký thật.
     jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue('cases');
     featureFlags.isEnabled.mockResolvedValue(false);
-    const ctx = mockContextWith({});
+    jwtService.verify.mockImplementation(() => {
+      throw new Error('invalid signature');
+    });
+
+    const ctx = mockContextWith({ headers: { authorization: 'Bearer rác' } });
+
     await expect(guard.canActivate(ctx)).resolves.toBe(true);
     expect(featureFlags.isEnabled).not.toHaveBeenCalled();
   });
@@ -160,6 +185,16 @@ describe('FeatureFlagGuard — cờ tắt phải CHẶN được (điều kiện
         FeatureFlagGuard,
         Reflector,
         { provide: FeatureFlagsService, useValue: featureFlags },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: (_k: string, d?: string) => d ?? './keys/public.pem',
+          },
+        },
+        {
+          provide: JwtService,
+          useValue: { verify: jest.fn(() => ({ sub: 'u-1' })) },
+        },
       ],
     }).compile();
     guard = module.get(FeatureFlagGuard);
@@ -175,22 +210,16 @@ describe('FeatureFlagGuard — cờ tắt phải CHẶN được (điều kiện
   // ở phạm vi describe thì nó áp cho mọi test trong khối, và một test vốn xanh
   // sẽ báo "expected to fail but passed" — tôi đã mắc đúng bẫy đó với
   // `test.fail()` bên Playwright và suýt rút lại một kết luận đúng.
-  it.failing(
-    'chặn request khi cờ tắt, kể cả khi request.user chưa được gán',
-    async () => {
-      const ctx = mockContextWith({ headers: { authorization: 'Bearer x' } });
+  it('chặn request khi cờ tắt dù request.user chưa được gán', async () => {
+    const ctx = mockContextWith({ headers: AUTHED });
 
-      await expect(guard.canActivate(ctx)).rejects.toThrow(NotFoundException);
-    },
-  );
+    await expect(guard.canActivate(ctx)).rejects.toThrow(NotFoundException);
+  });
 
   it('vẫn chặn đúng khi request.user ĐÃ được gán (đường đi hiện hoạt động)', async () => {
     // Nửa còn lại của bằng chứng: logic kiểm cờ tự nó đúng. Hỏng nằm ở chỗ
     // trong ứng dụng thật nó không bao giờ chạy tới đây.
-    const ctx = mockContextWith({
-      headers: { authorization: 'Bearer x' },
-      user: { id: 'u-1' },
-    });
+    const ctx = mockContextWith({ headers: AUTHED, user: { id: 'u-1' } });
 
     await expect(guard.canActivate(ctx)).rejects.toThrow(NotFoundException);
   });

@@ -148,65 +148,37 @@ BASE_URL=http://localhost:5173 UAT_PROD=1   ADMIN_USERNAME=<user> ADMIN_PASSWORD
 > (`curl -s -o /dev/null -w '%{http_code}' http://localhost:5173/`). Một máy chủ
 > chết làm bộ test đỏ theo kiểu trông y hệt lỗi đăng nhập của ứng dụng.
 >
-> **2. 🔴 GATE CỜ TÍNH NĂNG KHÔNG CHẶN ĐƯỢC — đo 8/8. CHẶN MERGE E6.**
+> **2. ✅ GATE CỜ TÍNH NĂNG — ĐÃ SỬA. Hai lỗi, lỗi sau bị lỗi trước che.**
 >
-> Phép đo bằng `curl`, 8 vòng liên tiếp, mỗi vòng: `PATCH {enabled:false}` →
-> poll `GET /lawyers` mỗi 2 giây trong 42 giây → `PATCH {enabled:true}`.
-> **Kết quả: 0/8 chặn được.** Không vòng nào thấy 404. TTL tài liệu là 30 giây.
+> **Lỗi 1 — gate không bao giờ chạy.** `FeatureFlagGuard` đọc `request.user`, mà
+> nó đăng ký `APP_GUARD` toàn cục nên chạy TRƯỚC `JwtAuthGuard` cấp controller
+> ⇒ giá trị đó luôn `undefined` ⇒ `if (!request.user) return true` luôn thoát sớm
+> ⇒ `isEnabled()` không bao giờ được gọi. Đo trước khi sửa: **0/8 chặn được**.
+> Nay guard **tự xác thực bearer token** (RS256, cùng khoá công khai). Đo sau khi
+> sửa: **5/5 chặn được**, 0–1 giây. Xem [ADR-0018](docs/adr/0018-feature-flag-guard-must-not-read-request-user.md).
 >
-> **Nguyên nhân (khớp với mã):** `FeatureFlagGuard` đăng ký `APP_GUARD` toàn cục
-> nên chạy TRƯỚC `JwtAuthGuard` cấp controller (`@UseGuards(JwtAuthGuard, ...)`).
-> Cả dự án chỉ có hai `APP_GUARD`: `ThrottlerGuard` và `FeatureFlagGuard` — không
-> có `JwtAuthGuard` toàn cục. Nên khi `FeatureFlagGuard.canActivate` chạy,
-> `request.user` luôn `undefined`, và dòng `if (!request.user) return true` luôn
-> thoát sớm ⇒ `isEnabled()` không bao giờ được gọi.
+> **Lỗi 2 — chỉ lộ ra sau khi sửa lỗi 1.** `GlobalExceptionFilter` đặt
+> `code = HttpStatus[status]`, ghi đè `FEATURE_DISABLED` thành `NOT_FOUND` — đúng
+> mã mà web và mobile rẽ nhánh theo để nói "tính năng đang tắt" thay vì hiện lỗi
+> chung. Suốt thời gian gate không chạy, không ai thấy được lỗi này. Filter nay
+> giữ mã do nơi ném đặt riêng, **chỉ khi khớp UPPER_SNAKE**: ngoại lệ mặc định
+> của Nest cũng có trường `error` nhưng là văn xuôi (`'Not Found'`), lấy bừa sẽ
+> phá `code` của mọi lỗi sẵn có.
 >
-> ### Tôi đã kết luận đúng, rồi RÚT LẠI SAI, rồi xác nhận lại. Ghi cả ba bước.
+> **Kiểm chứng trên máy chủ thật:**
+> `GET /lawyers` khi cờ tắt → `404` + `{"code":"FEATURE_DISABLED","message":"Tính
+> năng \"Luật sư\" hiện đang tắt"}`; gọi **không token** → `401` chứ không 404,
+> nên ý định chống dò cờ giữ nguyên; bật lại → `200`.
 >
-> 1. Lập luận từ mã ⇒ "gate không bao giờ chạy". **Đúng.**
-> 2. Đánh dấu test bằng `test.fail()` để tự kiểm. Nhận *"Expected to fail, but
->    passed"* ⇒ tôi tưởng test cờ đã xanh ⇒ **rút lại kết luận đúng**.
-> 3. Đo bằng `curl` 8 vòng ⇒ 0/8 ⇒ kết luận gốc đúng. Và hiểu ra bước 2 sai ở
->    đâu: **`test.fail()` gọi ở phạm vi `describe` áp cho MỌI test trong khối.**
->    Cái "xanh ngoài dự kiến" là test *"bật lại rồi thì hết 404"* — vốn luôn xanh
->    vì cờ không bao giờ chặn. Tôi đọc báo cáo của test KIA thành báo cáo của test
->    này.
+> **Bài học:** một lỗi có thể che lỗi khác. Gate không chạy thì hình dạng lỗi của
+> nó không bao giờ được ai nhìn thấy. Đừng dừng ở bản vá đầu — chạy lại đường đi
+> đầy đủ mới biết còn gì phía sau.
 >
-> **Bài học thật, khác với bài học tôi rút ở bước 2:** công cụ tự-kiểm cũng cần
-> được kiểm. `test.fail()` là ý tưởng đúng, nhưng đặt sai phạm vi thì nó tạo ra
-> một tín hiệu *nghe như* bác bỏ. Thứ cứu được là phép đo độc lập không qua
-> Playwright — 8 vòng `curl` thô, không framework, không phạm vi ẩn.
->
-> **Hệ quả:** gate API của **E4, E5, E6 là no-op**. "Đã gate" trong PROGRESS.md
-> chỉ đúng ở mức *decorator đã gắn*, không ở mức *có hiệu lực*.
-> **E6 bị chặn cho tới khi sửa và có test chứng minh cờ tắt ⇒ 404.**
->
-> **Vì sao 4400 test không bắt được:** `feature-gating.spec.ts` kiểm
-> *manifest ⇔ decorator khớp nhau* — tức decorator có được GẮN không. Không test
-> nào kiểm cờ tắt thì request có bị CHẶN không.
->
-> **Cách sửa (chưa làm):** ý định của dòng `if (!request.user)` — chặn rò rỉ
-> 404-vs-401 cho người chưa đăng nhập — là hợp lý, đừng bỏ. Nhưng phải lấy danh
-> tính theo cách không phụ thuộc thứ tự guard: tự xác thực token trong
-> `FeatureFlagGuard`, hoặc đăng ký `JwtAuthGuard` toàn cục trước nó.
->
-> **Đã quét xem lỗi này còn ở đâu nữa — KHÔNG. Phạm vi chỉ một chỗ.**
-> Toàn dự án có đúng ba thành phần đăng ký toàn cục: `ThrottlerGuard`,
-> `FeatureFlagGuard` (hai `APP_GUARD`) và `DataScopeInterceptor`
-> (`APP_INTERCEPTOR`). `DataScopeInterceptor` cũng đọc `request.user`, nhưng
-> **interceptor chạy SAU guard** trong NestJS, nên lúc nó chạy thì
-> `JwtAuthGuard` cấp controller đã gán `user` xong — và nó vẫn xử lý trường hợp
-> thiếu `user` một cách an toàn (`user?.id && user?.role`, không có thì scope
-> deny-all). An toàn.
->
-> Nói cách khác lỗi nằm ở **guard toàn cục đọc thứ do guard cấp controller
-> tạo ra** — chỉ `FeatureFlagGuard` rơi vào đúng thế đó. Bản vá không cần lan
-> ra chỗ nào khác.
->
-> **Bằng chứng chạy được đã có:** `feature-flag.guard.spec.ts` cuối file — một
-> `it.failing` (cờ tắt + chưa có `user` ⇒ phải chặn, đang đỏ) và một test thường
-> (cờ tắt + đã có `user` ⇒ chặn đúng). Hai cái tách bạch: logic đúng, chỗ nối
-> sai. CI đỏ ngay khi ai sửa xong, buộc bỏ `.failing`.
+> **Vì sao 4400 test không bắt được lỗi 1:** `feature-gating.spec.ts` kiểm
+> *manifest ⇔ decorator khớp nhau* — tức decorator có được GẮN không. Tệ hơn,
+> `feature-flag.guard.spec.ts` có hai test **khẳng định lối tắt là đúng**. Một
+> test xanh khẳng định chính cái làm hỏng hệ thống. Hai test đó nay viết lại theo
+> ngữ nghĩa mới (không token / token hỏng ⇒ bỏ qua; token hợp lệ ⇒ chặn).
 >
 > Đã kiểm chứng bước dọn có tác dụng: sau mọi lần chạy, `GET /lawyers` trả 200 —
 > cờ được bật lại, môi trường không bị bỏ lại ở trạng thái hỏng.

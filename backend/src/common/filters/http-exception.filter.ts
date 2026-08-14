@@ -30,9 +30,32 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
       if (typeof exceptionResponse === 'string') {
         message = exceptionResponse;
-      } else if (typeof exceptionResponse === 'object' && exceptionResponse !== null) {
+      } else if (
+        typeof exceptionResponse === 'object' &&
+        exceptionResponse !== null
+      ) {
         const res = exceptionResponse as Record<string, unknown>;
         message = (res.message as string) || exception.message;
+
+        // Giữ MÃ MÁY-ĐỌC-ĐƯỢC do nơi ném đặt riêng, ví dụ `FEATURE_DISABLED`.
+        //
+        // Vì sao cần: `code` mặc định lấy từ `HttpStatus[status]`, nên một tính
+        // năng bị tắt và một bản ghi không tồn tại đều ra `NOT_FOUND`. Web
+        // (`lib/api.ts`) và mobile (`api_client.dart`) đều rẽ nhánh theo
+        // `FEATURE_DISABLED` để nói "tính năng đang tắt" thay vì hiện lỗi chung
+        // — mã bị nuốt thì app đã cài hiển thị `Lỗi: DioException ... 404` cho
+        // cán bộ không làm gì sai.
+        //
+        // Chỉ nhận dạng UPPER_SNAKE: ngoại lệ mặc định của Nest cũng có trường
+        // `error`, nhưng là văn xuôi (`'Not Found'`, `'Unauthorized'`). Lấy bừa
+        // sẽ đổi `code` của MỌI lỗi sẵn có từ `NOT_FOUND` thành `Not Found` và
+        // phá hợp đồng mà client đang dựa vào.
+        if (
+          typeof res.error === 'string' &&
+          /^[A-Z][A-Z0-9_]*$/.test(res.error)
+        ) {
+          code = res.error;
+        }
 
         // Preserve validation error details from ValidationPipe
         if (Array.isArray(res.message)) {
@@ -45,7 +68,10 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     // P1-004: log stack trace server-side for ALL non-HttpException + HttpException 5xx.
     // Stack NEVER leaked to client (response shape unchanged). Cause chain walked.
     if (!(exception instanceof HttpException) || status >= 500) {
-      this.logger.error('Unhandled exception', this.formatErrorWithCauseChain(exception));
+      this.logger.error(
+        'Unhandled exception',
+        this.formatErrorWithCauseChain(exception),
+      );
     }
 
     response.status(status).json({
@@ -74,7 +100,9 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     while (current !== undefined && current !== null && depth < MAX_DEPTH) {
       const prefix = depth === 0 ? '' : `Caused by: `;
       if (current instanceof Error) {
-        parts.push(`${prefix}${current.stack ?? `${current.name}: ${current.message}`}`);
+        parts.push(
+          `${prefix}${current.stack ?? `${current.name}: ${current.message}`}`,
+        );
         current = (current as Error & { cause?: unknown }).cause;
       } else {
         parts.push(`${prefix}${String(current)}`);
