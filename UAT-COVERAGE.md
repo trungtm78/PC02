@@ -148,13 +148,29 @@ BASE_URL=http://localhost:5173 UAT_PROD=1   ADMIN_USERNAME=<user> ADMIN_PASSWORD
 > (`curl -s -o /dev/null -w '%{http_code}' http://localhost:5173/`). Một máy chủ
 > chết làm bộ test đỏ theo kiểu trông y hệt lỗi đăng nhập của ứng dụng.
 >
-> **2. Test tắt cờ `lawyers` CHẬP CHỜN — chưa giải.**
-> Có lần xanh, có lần hết 40 giây chờ vẫn chưa thấy 404 — kể cả khi chạy **riêng
-> file** với backend còn sống. TTL tài liệu ghi 30 giây, nên 40 giây lẽ ra đủ.
-> **Chưa xác định được** là cờ lan chậm hơn TTL trong một số điều kiện, hay
-> `PATCH` không phải lúc nào cũng ăn. Đây có thể là chuyện vận hành thật đáng
-> biết (tắt một cờ mà quá 40 giây chưa có hiệu lực), nên **không tự kết luận là
-> lỗi test**. Cần một phiên dò riêng.
+> **2. ⚠️ TẮT CỜ CÓ THỂ KHÔNG CÓ HIỆU LỰC — nghi vấn nghiêm trọng, CHƯA giải.**
+>
+> Đo trực tiếp bằng `curl`, không qua Playwright:
+> - `PATCH /feature-flags/lawyers {enabled:false}` → **200**, thân trả về xác nhận
+>   đã lưu (`"enabled":false`).
+> - Rồi poll `GET /lawyers` mỗi 2 giây trong **84 giây**: **luôn 200**, chưa bao
+>   giờ thành 404.
+>
+> TTL cache tài liệu ghi **30 giây**, nên 84 giây lẽ ra thừa sức. Trước đó test
+> này có **một lần xanh**, nên không phải chưa bao giờ chạy.
+>
+> **Vì sao nghiêm trọng:** nếu tắt cờ không chắc chắn có hiệu lực thì toàn bộ
+> gate API của E4/E5/E6 không đáng tin — mà E6 đang được coi là cơ chế bảo vệ khi
+> gate `cases`/`incidents`/`petitions`. Điều kiện merge E6 dựa trên giả định gate
+> hoạt động.
+>
+> **Chưa kết luận là lỗi**, vì đây là máy chủ dev chạy `--watch` (có thể đã khởi
+> động lại giữa chừng và reset cache theo cách không đại diện cho production).
+> Cần dò trên môi trường giống production trước khi coi là bug.
+>
+> **Việc cần làm:** dựng backend chế độ production (không `--watch`), lặp lại
+> đúng phép đo trên. Nếu vẫn không có hiệu lực trong 60 giây ⇒ **chặn merge E6**
+> cho tới khi sửa.
 >
 > Đã kiểm chứng bước dọn có tác dụng: sau mọi lần chạy, `GET /lawyers` trả 200 —
 > cờ được bật lại, môi trường không bị bỏ lại ở trạng thái hỏng.
