@@ -77,7 +77,7 @@ cố chạy baseline trên DB đã có sẵn bảng và **fail**.
 >
 > Tập trung ở vài chỗ: `deadline_rule_versions` (9 câu — khoá ngoại khai
 > `SET NULL` trong schema mà migration tạo bằng `RESTRICT`), `incidents` (7),
-> `NotificationType` (4 giá trị enum schema có mà không migration nào thêm),
+> ~~`NotificationType` (4 giá trị)~~ — **ĐÃ SỬA**, xem dưới,
 > `edit_window_reset_requests` (2 — migration đặt tên index ngắn `ewrr_*`,
 > schema muốn tên mặc định của Prisma). `otp_codes` được migration tạo mà thiếu
 > hẳn cột `purpose`.
@@ -86,6 +86,20 @@ cố chạy baseline trên DB đã có sẵn bảng và **fail**.
 > `prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma
 > --script`. Lưu ý khi so bằng script: banner "Update available" của Prisma CLI
 > lẫn vào stdout, đừng đếm nhầm thành câu lệnh SQL.
+>
+> **Một mục trong danh sách drift hoá ra là BUG THẬT, không phải drift chấp nhận
+> được.** `NotificationType` thiếu 4 giá trị (`CASE_OVERDUE`, `PETITION_OVERDUE`,
+> `INCIDENT_DEADLINE_NEAR`, `INCIDENT_OVERDUE`) mà `deadline.scheduler.ts` **đang
+> phát mỗi ngày lúc 7:00**. Trên DB dựng từ lịch sử migration — tức mọi máy mới,
+> CI, hoặc VM dựng theo tài liệu này — mỗi lần scheduler chạy là một lỗi enum
+> Postgres, và người vận hành chỉ thấy nó im lặng hỏng.
+>
+> Vì sao chưa ai gặp: DB đang chạy được dựng bằng `prisma db push` (áp thẳng
+> schema) nên CÓ đủ giá trị. Chỉ DB dựng từ migration mới thiếu — mà cho tới
+> ND-26 thì **không ai dựng nổi một DB như vậy**. Baseline vừa mở đường dựng DB
+> trắng thì lỗi này lộ ra ngay.
+>
+> Đã sửa: `20260814000000_notification_type_missing_values`. Drift 46 → 43 câu.
 >
 > Baseline làm phép đo này **lần đầu tiên chạy được** — trước đó
 > `migrate diff --from-migrations` chết ngay từ migration thứ nhất, đó chính là
