@@ -132,26 +132,29 @@ BASE_URL=http://localhost:5173 UAT_PROD=1   ADMIN_USERNAME=<user> ADMIN_PASSWORD
 > **Tắt một cờ mất tới 30 giây mới có hiệu lực, không phải tức thì.** Lần viết
 > đầu tôi khẳng định 404 ngay sau `PATCH`, test đỏ, và tôi suýt ghi đó là lỗi gate.
 
-> ⚠️ **Chạy riêng từng file thì xanh; chạy CHUNG cả thư mục `e2e-new` thì đỏ
-> 2/8. NGUYÊN NHÂN CHƯA XÁC ĐỊNH.**
+> ### Hai vấn đề của chính bộ test — một đã giải, một chưa
 >
-> Ghi lại cả những giả thuyết đã BỊ BÁC BỎ, để người sau không dò lại đường cụt:
+> **1. Đợt 4 đỏ khi chạy chung — ĐÃ GIẢI. Là môi trường, không phải mã.**
+> Máy chủ dev frontend **tự chết giữa chừng**. Bằng chứng dứt điểm:
+> `net::ERR_CONNECTION_REFUSED at http://localhost:5173/login`, và kiểm trực tiếp
+> sau đó `FE:000` trong khi `BE:200`. Log Vite khởi động sạch rồi dừng, không lỗi.
+> Không liên quan gì tới throttle đăng nhập hay thứ tự chạy — hai giả thuyết đó
+> **đều đã bị bác bỏ bằng thí nghiệm**:
+> - Giảm 5 lần đăng nhập xuống 1 rồi chờ hết cửa sổ 60s → vẫn đỏ.
+> - Loại riêng test tắt cờ ra khỏi lần chạy → vẫn đỏ, và lần này lộ ra
+>   `CONNECTION_REFUSED` thay vì `waitForURL timeout`, chính là đầu mối.
 >
-> - ~~Throttle đăng nhập (15 lần/60s) bị vượt~~ — **đã bác bỏ.** Đã giảm bộ Đợt 4
->   từ 5 lần đăng nhập xuống 1 (`beforeAll` + trang dùng chung + `mode: 'serial'`),
->   rồi chờ hết hẳn cửa sổ 60 giây mới chạy: **vẫn đỏ đúng 2 test đó.** Bộ đếm
->   throttle không phải nguyên nhân.
-> - Hai test đỏ là: `lawyers` không thành 404 trong 40s chờ (Đợt 3), và
->   `waitForURL('**/dashboard')` hết giờ ở bước đăng nhập của Đợt 4.
-> - Điểm khác biệt duy nhất còn lại giữa "chạy riêng" và "chạy chung" là **thứ
->   tự**: `uat-wave3` chạy trước `uat-wave4` và có tắt/bật cờ `lawyers` ở giữa.
->   Có liên quan hay không thì **chưa kiểm chứng** — nêu ra như hướng dò tiếp,
->   không phải như kết luận.
+> Hệ quả cho người chạy: **kiểm máy chủ còn sống ngay trước khi chạy**
+> (`curl -s -o /dev/null -w '%{http_code}' http://localhost:5173/`). Một máy chủ
+> chết làm bộ test đỏ theo kiểu trông y hệt lỗi đăng nhập của ứng dụng.
 >
-> **Vì sao không đoán bừa:** trong đợt này đã ba lần một chẩn đoán vội được ghi
-> vào tài liệu rồi hoá ra sai (panel "bị ẩn theo quyền" — thật ra thiếu bước bấm
-> tab; gate cờ "hỏng" — thật ra TTL 30s là chủ ý; và chính mục throttle này).
-> Mỗi lần như vậy tốn của người đọc sau một cuộc săn lỗi không tồn tại.
+> **2. Test tắt cờ `lawyers` CHẬP CHỜN — chưa giải.**
+> Có lần xanh, có lần hết 40 giây chờ vẫn chưa thấy 404 — kể cả khi chạy **riêng
+> file** với backend còn sống. TTL tài liệu ghi 30 giây, nên 40 giây lẽ ra đủ.
+> **Chưa xác định được** là cờ lan chậm hơn TTL trong một số điều kiện, hay
+> `PATCH` không phải lúc nào cũng ăn. Đây có thể là chuyện vận hành thật đáng
+> biết (tắt một cờ mà quá 40 giây chưa có hiệu lực), nên **không tự kết luận là
+> lỗi test**. Cần một phiên dò riêng.
 >
 > Đã kiểm chứng bước dọn có tác dụng: sau mọi lần chạy, `GET /lawyers` trả 200 —
 > cờ được bật lại, môi trường không bị bỏ lại ở trạng thái hỏng.
