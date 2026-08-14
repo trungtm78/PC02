@@ -540,3 +540,5 @@ Postgres dev `localhost:55432` (docker `pc02-dev-db`), backend `:3000`, frontend
 Khoá JWT dev ở `backend/.dev-keys/` (đã ignore) — **không** ghi đè `backend/keys/public.pem` của repo.
 Seed cần cho luồng chạy được: `seed.ts`, `seed-crimes-blhs2015.ts`, `seed-document-numbers.ts`,
 `seed-document-templates.ts`.
+
+STATUS: BLOCKED

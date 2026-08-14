@@ -87,12 +87,15 @@ test.describe('Đợt 4 — xoá mockup', () => {
     // nói. Danh sách loại phải đến TỪ REGISTRY của máy chủ; viết cứng trong UI
     // chính là cách nó trôi khỏi thứ thực sự khôi phục được.
     await page.goto('/admin/khoi-phuc', { waitUntil: 'networkidle' });
-    await page.waitForTimeout(1500);
 
-    const other = page.getByTestId('other-restore-panel');
-    if ((await other.count()) === 0) {
-      test.skip(true, 'Thẻ "Khác" không hiển thị cho tài khoản này (cần quyền restore)');
-    }
+    // Panel nằm sau tab "Khác", mặc định CHƯA chọn — phải bấm tab trước. Lần
+    // chạy đầu tôi bỏ qua bước này rồi kết luận nhầm là panel bị ẩn theo quyền;
+    // một ghi chú như vậy sẽ đẩy người đọc đi săn lỗi phân quyền không tồn tại.
+    await page.getByTestId('tab-others').click();
+
+    await expect(page.getByTestId('other-restore-panel')).toBeVisible({
+      timeout: 10_000,
+    });
     const select = page.getByTestId('restore-resource');
     await expect(select).toBeVisible({ timeout: 10_000 });
     const options = await select.locator('option').count();
