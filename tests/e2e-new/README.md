@@ -82,7 +82,7 @@ BASE_URL=http://localhost:3000 API_URL=http://localhost:3000 UAT_PROD=1   ADMIN_
 
 Bộ Đợt 4 cần `BASE_URL` trỏ vào frontend (`:5173`) và FE phải đang chạy.
 
-### Hai cái bẫy đã trả giá để biết
+### Ba cái bẫy đã trả giá để biết
 
 1. **Máy chủ FE tự chết** làm cả bộ Đợt 4 đỏ với `waitForURL timeout` — trông y
    hệt lỗi đăng nhập của ứng dụng. **Kiểm server còn sống trước khi kết luận:**
@@ -90,6 +90,9 @@ Bộ Đợt 4 cần `BASE_URL` trỏ vào frontend (`:5173`) và FE phải đang
 2. **`test.fail()` đặt ở phạm vi `describe` áp cho MỌI test trong khối.** Một
    test vốn xanh sẽ báo "Expected to fail, but passed", và người đọc dễ tưởng
    test *khác* đã xanh. Nếu cần đánh dấu, đặt **bên trong** thân test.
+3. **Thứ tự seed quan trọng, và hỏng thì im lặng.** `db:seed:doc-templates`
+   chạy trước khi `db:seed` thành công sẽ tạo **0 mẫu mà vẫn exit 0**. Hệ quả
+   chỉ hiện ra rất xa sau đó: tạo đơn thư trả 503 (ND-28). Luôn `db:seed` trước.
 
 ### CI
 
@@ -113,8 +116,12 @@ sẽ 404 mọi lời gọi API — một cách hỏng trông y hệt backend ch�
 | Tên | Loại | Giá trị |
 |---|---|---|
 | `UAT_API_ENABLED` | Variable | `true` |
-| `UAT_ADMIN_USERNAME` | Secret | tài khoản dùng **riêng** cho test |
-| `UAT_ADMIN_PASSWORD` | Secret | mật khẩu của tài khoản đó |
+| `UAT_ADMIN_PASSWORD` | Secret | mật khẩu bất kỳ ≥ 8 ký tự |
+
+**Chỉ một secret.** CI tự dựng tài khoản của nó: `prisma/seed.ts` tạo cố định
+`username: admin` với mật khẩu lấy từ `SEED_ADMIN_PASSWORD`, và job dùng chung
+secret đó cho cả seed lẫn đăng nhập test. Không cần một tài khoản có sẵn trên
+môi trường nào, và DB là DB dùng riêng cho một lần chạy.
 
 Thiết kế "tự bỏ qua" là cố ý: `global-setup` không có credential mặc định (mật khẩu
 mặc định là mật khẩu bị commit), nên nếu job cứ chạy khi thiếu secret thì nó đỏ mỗi

@@ -152,7 +152,16 @@ jobs:
       - name: Build backend
         run: cd backend && npx prisma generate && npm run build
 
+      # THỨ TỰ QUAN TRỌNG, và cách nó hỏng thì im lặng: `db:seed:doc-templates`
+      # chạy trước khi `db:seed` thành công sẽ tạo 0 mẫu MÀ VẪN exit 0. Hệ quả
+      # chỉ hiện ra sau đó rất xa — tạo đơn thư trả 503 (ND-28).
+      #
+      # `db:seed` đòi SEED_ADMIN_PASSWORD (cố ý: không có mật khẩu mặc định).
+      # Dùng chung secret với đăng nhập test, nên CI tự dựng tài khoản của nó —
+      # không cần một tài khoản có sẵn trên môi trường nào.
       - name: Migrate + seed
+        env:
+          SEED_ADMIN_PASSWORD: ${{ secrets.UAT_ADMIN_PASSWORD }}
         run: |
           cd backend
           npx prisma migrate deploy
@@ -169,7 +178,7 @@ jobs:
           BASE_URL: http://localhost:3000
           API_URL: http://localhost:3000
           UAT_PROD: '1'
-          ADMIN_USERNAME: ${{ secrets.UAT_ADMIN_USERNAME }}
+          ADMIN_USERNAME: admin # `prisma/seed.ts` tạo cố định username này
           ADMIN_PASSWORD: ${{ secrets.UAT_ADMIN_PASSWORD }}
         run: |
           npx playwright install --with-deps chromium
@@ -229,7 +238,16 @@ jobs:
       - name: Build backend
         run: cd backend && npx prisma generate && npm run build
 
+      # THỨ TỰ QUAN TRỌNG, và cách nó hỏng thì im lặng: `db:seed:doc-templates`
+      # chạy trước khi `db:seed` thành công sẽ tạo 0 mẫu MÀ VẪN exit 0. Hệ quả
+      # chỉ hiện ra sau đó rất xa — tạo đơn thư trả 503 (ND-28).
+      #
+      # `db:seed` đòi SEED_ADMIN_PASSWORD (cố ý: không có mật khẩu mặc định).
+      # Dùng chung secret với đăng nhập test, nên CI tự dựng tài khoản của nó —
+      # không cần một tài khoản có sẵn trên môi trường nào.
       - name: Migrate + seed
+        env:
+          SEED_ADMIN_PASSWORD: ${{ secrets.UAT_ADMIN_PASSWORD }}
         run: |
           cd backend
           npx prisma migrate deploy
@@ -243,9 +261,9 @@ jobs:
           BASE_URL: http://localhost:5173
           API_URL: http://localhost:3000
           UAT_PROD: '1'
-          ADMIN_USERNAME: ${{ secrets.UAT_ADMIN_USERNAME }}
+          ADMIN_USERNAME: admin # `prisma/seed.ts` tạo cố định username này
           ADMIN_PASSWORD: ${{ secrets.UAT_ADMIN_PASSWORD }}
-          UAT_USER: ${{ secrets.UAT_ADMIN_USERNAME }}
+          UAT_USER: admin
           UAT_PASS: ${{ secrets.UAT_ADMIN_PASSWORD }}
         run: |
           npx playwright install --with-deps chromium
