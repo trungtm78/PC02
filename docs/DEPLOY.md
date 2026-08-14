@@ -79,8 +79,8 @@ cố chạy baseline trên DB đã có sẵn bảng và **fail**.
 > `SET NULL` trong schema mà migration tạo bằng `RESTRICT`), `incidents` (7),
 > ~~`NotificationType` (4 giá trị)~~ — **ĐÃ SỬA**, xem dưới,
 > `edit_window_reset_requests` (2 — migration đặt tên index ngắn `ewrr_*`,
-> schema muốn tên mặc định của Prisma). `otp_codes` được migration tạo mà thiếu
-> hẳn cột `purpose`.
+> schema muốn tên mặc định của Prisma). ~~`otp_codes` thiếu cột `purpose`~~ —
+> **ĐÃ SỬA**, xem dưới.
 >
 > **Cách kiểm lại bất cứ lúc nào:** dựng DB trắng → `migrate deploy` →
 > `prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma
@@ -99,7 +99,21 @@ cố chạy baseline trên DB đã có sẵn bảng và **fail**.
 > ND-26 thì **không ai dựng nổi một DB như vậy**. Baseline vừa mở đường dựng DB
 > trắng thì lỗi này lộ ra ngay.
 >
-> Đã sửa: `20260814000000_notification_type_missing_values`. Drift 46 → 43 câu.
+> **Mục thứ hai cũng là bug thật, và nặng hơn.** `otp_codes` thiếu hẳn cột
+> `purpose`, mà `otp-code.service.ts` **ghi** cột đó mỗi lần sinh OTP và truy
+> vấn theo nó. Trên DB dựng từ migration, mọi lần sinh OTP đều lỗi
+> `column purpose does not exist` ⇒ **2FA và đặt lại mật khẩu hỏng hoàn toàn**
+> ⇒ người dùng bật 2FA **không đăng nhập được**. Không phải suy giảm nhẹ — là
+> mất đường vào hệ thống.
+>
+> Đã sửa: `20260814000000_notification_type_missing_values` và
+> `20260814000001_otp_codes_purpose_column`. Drift **46 → 42** câu.
+>
+> **Bài học chung của hai cái:** danh sách "drift đã chấp nhận" không phải danh
+> sách an toàn. Nó là danh sách **chưa ai đi tới cuối** — và hai mục đầu tiên
+> tôi truy đều là bug thật, một cái làm hỏng scheduler hằng ngày, một cái chặn
+> đăng nhập. Bốn mục còn lại (khoá ngoại `SET NULL` vs `RESTRICT`, tên index)
+> **chưa được truy từng cái**.
 >
 > Baseline làm phép đo này **lần đầu tiên chạy được** — trước đó
 > `migrate diff --from-migrations` chết ngay từ migration thứ nhất, đó chính là
