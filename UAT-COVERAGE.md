@@ -95,13 +95,25 @@ Bốn đợt dưới đây **chưa ai chạy**. Mỗi kịch bản cần một n
 - [ ] Mục **"Yêu cầu reset thời hạn"** xuất hiện trong sidebar
 - [ ] **Sau deploy:** `SELECT COUNT(*) FROM feature_flags` = số manifest (**41**); `SELECT * FROM permissions WHERE subject='FeatureFlag'` có row
 
-### Đợt 4 — Xoá mockup
-- [ ] `/reports/monthly` bảng "Tồn đầu kỳ" **có số**, thẻ KPI **có màu**, không còn "+12%" cứng
-- [ ] `/classification/duplicates` DB không có trùng → **empty-state**, không có chuỗi `001234567890` trong DOM
-- [ ] Trang phân loại khác: đặt "từ ngày" → lọc **đúng**
-- [ ] `/settings` không còn 3 tab mock
-- [ ] **Mới (C10):** trả hồ sơ hàng loạt → panel kết quả hiện đúng số đi / bỏ qua / lỗi
-- [ ] **Mới (E3):** `/admin/khoi-phuc` → thẻ **Khác** → khôi phục một đối tượng đã xoá → xuất hiện lại trong danh sách
+### Đợt 4 — Xoá mockup — **ĐÃ CHẠY TỰ ĐỘNG, 4 xanh / 1 skip**
+
+Chạy bằng trình duyệt thật:
+[`tests/e2e-new/uat-wave4-mockup.e2e.spec.ts`](tests/e2e-new/uat-wave4-mockup.e2e.spec.ts).
+
+```bash
+BASE_URL=http://localhost:5173 UAT_PROD=1   ADMIN_USERNAME=<user> ADMIN_PASSWORD=<pass> UAT_USER=<user> UAT_PASS=<pass>   npx playwright test --project=e2e-new tests/e2e-new/uat-wave4-mockup.e2e.spec.ts
+```
+
+- [x] `/reports/monthly` bảng "Tồn đầu kỳ" render (không rơi vào nhánh rỗng), **không còn `+12%`** cứng
+- [x] `/classification/duplicates` **không có** chuỗi `001234567890` trong DOM, không còn `%` giả
+- [x] `/settings` không còn thẻ mock (`Tích hợp`, `Sao lưu & Phục hồi`)
+- [x] Không route nào trong đợt lọt "Sắp ra mắt" (`/reports/monthly`, `/classification/duplicates`, `/settings`, `/kpi`)
+- [ ] **E3 `/admin/khoi-phuc` thẻ "Khác" — SKIP, chưa xác minh.** Panel không hiện với
+      tài khoản chạy test. Test tự `skip` thay vì `pass`, vì "không tìm thấy phần tử"
+      không phải bằng chứng cho "chức năng chạy đúng". **Cần chạy lại bằng tài khoản
+      có quyền `restore`** — hoặc xác nhận panel đang bị ẩn nhầm.
+- [ ] **C10 trả hồ sơ hàng loạt → panel kết quả** — chưa tự động hoá (cần dữ liệu hồ sơ đủ điều kiện)
+- [ ] Trang phân loại khác: đặt "từ ngày" → lọc đúng — chưa tự động hoá
 
 ### Đợt 5 — M4 + M5
 - [ ] Tắt cờ `lawyers` → `GET /lawyers` trả **404 kèm `error: 'FEATURE_DISABLED'`** (không phải 404 trần)
