@@ -183,6 +183,28 @@ BASE_URL=http://localhost:5173 UAT_PROD=1   ADMIN_USERNAME=<user> ADMIN_PASSWORD
 > Đã kiểm chứng bước dọn có tác dụng: sau mọi lần chạy, `GET /lawyers` trả 200 —
 > cờ được bật lại, môi trường không bị bỏ lại ở trạng thái hỏng.
 
+### Gate API E4/E5/E6 — **15/15 cờ CHẶN THẬT, đã kiểm từng cái**
+
+[`tests/e2e-new/uat-gate-all-flags.api.spec.ts`](tests/e2e-new/uat-gate-all-flags.api.spec.ts) —
+mỗi cờ: tắt → gọi endpoint → phải **404 + `FEATURE_DISABLED`** → bật lại. **16/16 xanh**
+(15 cờ + 1 test khẳng định mọi cờ đã được bật lại).
+
+| Đợt | Cờ đã kiểm |
+|---|---|
+| E4 | `lawyers`, `kpi`, `document-numbers` |
+| E5 | `subjects`, `documents`, `guidance`, `exchanges`, `delegations`, `proposals`, `conclusions` |
+| **E6** | **`cases`, `incidents`, `petitions`**, `teams`, `reports` |
+
+**Vì sao bộ này cần tồn tại dù đã có `feature-gating.spec.ts`:** spec đơn vị kiểm
+*manifest ⇔ decorator khớp nhau* — tức decorator có được **gắn** không. Nó xanh
+suốt trong khi gate là no-op hoàn toàn. Một cổng kiểm "đã gắn nhãn chưa" không
+thay được một cổng kiểm "có chặn không".
+
+**Ý nghĩa với điều kiện merge E6:** cả ba đợt gate đều dựa thẳng vào giả định cờ
+tắt chặn được request từ APK cũ. Trước [ADR-0018](docs/adr/0018-feature-flag-guard-must-not-read-request-user.md)
+giả định đó **sai**; nay đã kiểm từng cờ một. Điều kiện còn lại của E6 (tỷ lệ APK
+cũ đủ thấp) là quyết định của người vận hành, không phải việc code.
+
 ### Đợt 5 — M4 + M5
 - [ ] Tắt cờ `lawyers` → `GET /lawyers` trả **404 kèm `error: 'FEATURE_DISABLED'`** (không phải 404 trần)
 - [ ] Mobile: tắt cờ → app hiện màn "Tính năng tạm tắt", **không** hiện `Lỗi: DioException`
