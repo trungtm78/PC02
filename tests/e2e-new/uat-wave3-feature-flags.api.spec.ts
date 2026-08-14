@@ -68,13 +68,15 @@ test.describe('Đợt 3 — hạ tầng cờ tính năng', () => {
 });
 
 test.describe('Đợt 5 — gate API trả đúng hình dạng lỗi', () => {
-  // ⚠️ TEST NÀY CHẬP CHỜN — có lần xanh, có lần đỏ, trên cùng một mã và cùng
-  // một máy chủ. Xem mục Đợt 3 trong `UAT-COVERAGE.md`.
+  // 🔴 ĐANG HỎNG THẬT — đo được 8/8 lần: tắt cờ KHÔNG chặn được request.
   //
-  // Đừng vội kết luận "gate hỏng" khi thấy nó đỏ: tôi đã kết luận như vậy một
-  // lần, dựa trên chuỗi suy luận từ mã (guard toàn cục chạy trước guard cấp
-  // controller ⇒ `request.user` undefined ⇒ gate bị bỏ qua), rồi chính test này
-  // xanh ngay sau đó và bác bỏ nó. Nguyên nhân thật vẫn CHƯA biết.
+  // KHÔNG dùng `test.fail()` ở đây. Tôi đã thử, và `test.fail()` gọi ở phạm vi
+  // `describe` áp cho MỌI test trong khối — test "bật lại rồi thì hết 404" vốn
+  // xanh liền báo "Expected to fail, but passed", và tôi đọc nhầm thành "test
+  // cờ đã xanh" rồi rút lại một kết luận đúng. Nếu muốn đánh dấu, phải đặt
+  // `test.fail()` BÊN TRONG thân test này, không phải ngoài describe.
+  //
+  // Chi tiết nguyên nhân và cách sửa: mục Đợt 3 trong `UAT-COVERAGE.md`.
   test('tắt cờ lawyers → GET /lawyers trả 404 KÈM error FEATURE_DISABLED', async () => {
     // 404 trần và 404-vì-tắt-cờ trông giống hệt nhau với người dùng, nhưng
     // khác nhau hoàn toàn với app mobile: một cái là "không có dữ liệu", cái

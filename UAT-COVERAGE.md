@@ -148,36 +148,47 @@ BASE_URL=http://localhost:5173 UAT_PROD=1   ADMIN_USERNAME=<user> ADMIN_PASSWORD
 > (`curl -s -o /dev/null -w '%{http_code}' http://localhost:5173/`). Một máy chủ
 > chết làm bộ test đỏ theo kiểu trông y hệt lỗi đăng nhập của ứng dụng.
 >
-> **2. ⚠️ GATE CỜ TÍNH NĂNG CHẬP CHỜN — nguyên nhân CHƯA BIẾT.**
+> **2. 🔴 GATE CỜ TÍNH NĂNG KHÔNG CHẶN ĐƯỢC — đo 8/8. CHẶN MERGE E6.**
 >
-> Cùng một mã, cùng một máy chủ, cùng một lệnh: có lần cờ tắt chặn được (404),
-> có lần không (200 suốt 84 giây dù `PATCH` đã lưu `enabled:false`).
+> Phép đo bằng `curl`, 8 vòng liên tiếp, mỗi vòng: `PATCH {enabled:false}` →
+> poll `GET /lawyers` mỗi 2 giây trong 42 giây → `PATCH {enabled:true}`.
+> **Kết quả: 0/8 chặn được.** Không vòng nào thấy 404. TTL tài liệu là 30 giây.
 >
-> **Tôi đã kết luận sai về việc này MỘT LẦN — ghi lại để không ai lặp lại:**
-> Tôi lập luận từ mã rằng gate *không bao giờ* chạy: `FeatureFlagGuard` là
-> `APP_GUARD` toàn cục nên chạy trước `JwtAuthGuard` cấp controller ⇒
-> `request.user` luôn `undefined` ⇒ dòng `if (!request.user) return true` luôn
-> thoát sớm. Chuỗi đó nghe khép kín, tôi đã ghi là "xác nhận từ mã" và đánh dấu
-> **chặn merge E6**.
+> **Nguyên nhân (khớp với mã):** `FeatureFlagGuard` đăng ký `APP_GUARD` toàn cục
+> nên chạy TRƯỚC `JwtAuthGuard` cấp controller (`@UseGuards(JwtAuthGuard, ...)`).
+> Cả dự án chỉ có hai `APP_GUARD`: `ThrottlerGuard` và `FeatureFlagGuard` — không
+> có `JwtAuthGuard` toàn cục. Nên khi `FeatureFlagGuard.canActivate` chạy,
+> `request.user` luôn `undefined`, và dòng `if (!request.user) return true` luôn
+> thoát sớm ⇒ `isEnabled()` không bao giờ được gọi.
 >
-> Rồi tôi đánh dấu test bằng `test.fail()` (nghĩa là "phải đỏ"), chạy lại, và
-> nhận **"Expected to fail, but passed"**. Test XANH. Lập luận của tôi sai ở đâu
-> đó — có thể ở giả định về thứ tự guard của NestJS, có thể ở chỗ khác. **Chưa
-> biết.**
+> ### Tôi đã kết luận đúng, rồi RÚT LẠI SAI, rồi xác nhận lại. Ghi cả ba bước.
 >
-> **Bài học đáng giữ hơn cả phát hiện:** một chuỗi suy luận từ mã nghe khép kín
-> vẫn có thể sai, và nó thuyết phục hơn hẳn một quan sát rời rạc — nên nguy hiểm
-> hơn. Thứ bác bỏ nó không phải suy nghĩ thêm, mà là **cho nó một cách để tự sai**
-> (`test.fail()`). Nếu tôi chỉ ghi kết luận rồi dừng, một khẳng định sai đã nằm
-> lại trong repo dưới nhãn "xác nhận".
+> 1. Lập luận từ mã ⇒ "gate không bao giờ chạy". **Đúng.**
+> 2. Đánh dấu test bằng `test.fail()` để tự kiểm. Nhận *"Expected to fail, but
+>    passed"* ⇒ tôi tưởng test cờ đã xanh ⇒ **rút lại kết luận đúng**.
+> 3. Đo bằng `curl` 8 vòng ⇒ 0/8 ⇒ kết luận gốc đúng. Và hiểu ra bước 2 sai ở
+>    đâu: **`test.fail()` gọi ở phạm vi `describe` áp cho MỌI test trong khối.**
+>    Cái "xanh ngoài dự kiến" là test *"bật lại rồi thì hết 404"* — vốn luôn xanh
+>    vì cờ không bao giờ chặn. Tôi đọc báo cáo của test KIA thành báo cáo của test
+>    này.
 >
-> **Trạng thái đúng:** gate cờ **đôi khi** hoạt động, đôi khi không. Chưa xác định
-> nguyên nhân, chưa biết tần suất. **Chưa chặn merge E6** — nhưng E6 cũng **không
-> được coi là an toàn** cho tới khi có bộ chạy lặp đủ nhiều để đo tỷ lệ, rồi truy
-> ra nguyên nhân.
+> **Bài học thật, khác với bài học tôi rút ở bước 2:** công cụ tự-kiểm cũng cần
+> được kiểm. `test.fail()` là ý tưởng đúng, nhưng đặt sai phạm vi thì nó tạo ra
+> một tín hiệu *nghe như* bác bỏ. Thứ cứu được là phép đo độc lập không qua
+> Playwright — 8 vòng `curl` thô, không framework, không phạm vi ẩn.
 >
-> **Việc cần làm:** chạy riêng test này ~20 vòng liên tiếp, ghi tỷ lệ xanh/đỏ.
-> Có tỷ lệ rồi mới đi tìm nguyên nhân — không đoán trước.
+> **Hệ quả:** gate API của **E4, E5, E6 là no-op**. "Đã gate" trong PROGRESS.md
+> chỉ đúng ở mức *decorator đã gắn*, không ở mức *có hiệu lực*.
+> **E6 bị chặn cho tới khi sửa và có test chứng minh cờ tắt ⇒ 404.**
+>
+> **Vì sao 4400 test không bắt được:** `feature-gating.spec.ts` kiểm
+> *manifest ⇔ decorator khớp nhau* — tức decorator có được GẮN không. Không test
+> nào kiểm cờ tắt thì request có bị CHẶN không.
+>
+> **Cách sửa (chưa làm):** ý định của dòng `if (!request.user)` — chặn rò rỉ
+> 404-vs-401 cho người chưa đăng nhập — là hợp lý, đừng bỏ. Nhưng phải lấy danh
+> tính theo cách không phụ thuộc thứ tự guard: tự xác thực token trong
+> `FeatureFlagGuard`, hoặc đăng ký `JwtAuthGuard` toàn cục trước nó.
 >
 > Đã kiểm chứng bước dọn có tác dụng: sau mọi lần chạy, `GET /lawyers` trả 200 —
 > cờ được bật lại, môi trường không bị bỏ lại ở trạng thái hỏng.
