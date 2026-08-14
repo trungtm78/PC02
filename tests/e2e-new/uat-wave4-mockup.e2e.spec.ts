@@ -25,23 +25,26 @@ async function login(page: Page) {
   await page.waitForURL('**/dashboard', { timeout: 40_000 });
 }
 
-// GIỚI HẠN ĐÃ BIẾT — đọc trước khi thêm test vào file này.
-// `POST /auth/login` bị chặn ở 15 lần/60 giây (`@Throttle` trong
-// `auth.controller.ts`). Mỗi test dưới đây đăng nhập lại, cộng thêm global-setup
-// và retry của Playwright, nên chạy file này CÙNG LÚC với các spec khác sẽ vượt
-// ngưỡng: đăng nhập nhận 429, trang không chuyển, và test đỏ với
-// `waitForURL timeout` — trông y hệt lỗi ứng dụng dù ứng dụng không sao.
-//
-// Chạy RIÊNG file này thì 5/5 xanh. Muốn chạy chung cả thư mục thì phải đăng
-// nhập MỘT lần rồi tái dùng `storageState`, chưa làm.
-test.beforeEach(async ({ page }) => {
+// `POST /auth/login` bị chặn 15 lần/60 giây (`@Throttle` trong
+// `auth.controller.ts`). Đăng nhập lại ở MỖI test làm cả thư mục vượt ngưỡng:
+// đăng nhập nhận 429, trang không chuyển, test đỏ với `waitForURL timeout` —
+// trông y hệt lỗi ứng dụng dù ứng dụng không sao. Nên: đăng nhập MỘT lần, dùng
+// chung một trang cho cả nhóm, và chạy nối tiếp để thứ tự xác định.
+test.describe.configure({ mode: 'serial' });
+
+let page: Page;
+
+test.beforeAll(async ({ browser }) => {
+  page = await browser.newPage();
   await login(page);
 });
 
+test.afterAll(async () => {
+  await page?.close();
+});
+
 test.describe('Đợt 4 — xoá mockup', () => {
-  test('báo cáo tháng: bảng tồn kỳ có số thật, không còn "+12%" cứng', async ({
-    page,
-  }) => {
+  test('báo cáo tháng: bảng tồn kỳ có số thật, không còn "+12%" cứng', async () => {
     // Bảng "Tồn đầu kỳ / Phát sinh / Đã giải quyết / Tồn cuối kỳ" từng luôn
     // render nhánh rỗng vì BE chưa trả `tableRows`/`summary` — trông như kỳ báo
     // cáo không có hoạt động, chứ không như một API còn thiếu. Và thẻ KPI mang
@@ -59,9 +62,7 @@ test.describe('Đợt 4 — xoá mockup', () => {
     ).toBeVisible({ timeout: 15_000 });
   });
 
-  test('trang đơn trùng: không còn công dân bịa "001234567890"', async ({
-    page,
-  }) => {
+  test('trang đơn trùng: không còn công dân bịa "001234567890"', async () => {
     // Trang từng gán nhãn "trùng" cho MỌI đơn và hiển thị một công dân bịa
     // (`Nguyễn Văn A — CCCD 001234567890`). Trên hồ sơ pháp lý, gắn nhãn trùng
     // sai cho hai công dân khác nhau là một quy kết, không phải gợi ý.
@@ -77,7 +78,7 @@ test.describe('Đợt 4 — xoá mockup', () => {
     );
   });
 
-  test('cài đặt: không còn ba thẻ mockup', async ({ page }) => {
+  test('cài đặt: không còn ba thẻ mockup', async () => {
     await page.goto('/settings', { waitUntil: 'networkidle' });
     await page.waitForTimeout(1000);
 
@@ -89,9 +90,7 @@ test.describe('Đợt 4 — xoá mockup', () => {
     }
   });
 
-  test('khôi phục hồ sơ con: thẻ "Khác" liệt kê loại từ máy chủ', async ({
-    page,
-  }) => {
+  test('khôi phục hồ sơ con: thẻ "Khác" liệt kê loại từ máy chủ', async () => {
     // E3. Chín loại có xoá mềm mà không có đường khôi phục — "mềm" chỉ là cách
     // nói. Danh sách loại phải đến TỪ REGISTRY của máy chủ; viết cứng trong UI
     // chính là cách nó trôi khỏi thứ thực sự khôi phục được.
@@ -111,7 +110,7 @@ test.describe('Đợt 4 — xoá mockup', () => {
     expect(options, 'ô chọn loại phải có mục, không rỗng').toBeGreaterThan(0);
   });
 
-  test('không màn nào của đợt này lọt "Sắp ra mắt"', async ({ page }) => {
+  test('không màn nào của đợt này lọt "Sắp ra mắt"', async () => {
     // `ComingSoonPage` đã bị xoá cả thư mục ở E1. Nếu chuỗi này quay lại trên
     // bất kỳ route nào dưới đây thì có route đang trỏ vào một vỏ rỗng.
     for (const route of [

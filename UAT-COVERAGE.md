@@ -95,7 +95,7 @@ Bốn đợt dưới đây **chưa ai chạy**. Mỗi kịch bản cần một n
 - [ ] Mục **"Yêu cầu reset thời hạn"** xuất hiện trong sidebar
 - [ ] **Sau deploy:** `SELECT COUNT(*) FROM feature_flags` = số manifest (**41**); `SELECT * FROM permissions WHERE subject='FeatureFlag'` có row
 
-### Đợt 4 — Xoá mockup — **ĐÃ CHẠY TỰ ĐỘNG, 5/5 XANH**
+### Đợt 4 — Xoá mockup — **5/5 XANH khi chạy riêng file**
 
 Chạy bằng trình duyệt thật:
 [`tests/e2e-new/uat-wave4-mockup.e2e.spec.ts`](tests/e2e-new/uat-wave4-mockup.e2e.spec.ts).
@@ -116,7 +116,7 @@ BASE_URL=http://localhost:5173 UAT_PROD=1   ADMIN_USERNAME=<user> ADMIN_PASSWORD
 - [ ] **C10 trả hồ sơ hàng loạt → panel kết quả** — chưa tự động hoá (cần dữ liệu hồ sơ đủ điều kiện)
 - [ ] Trang phân loại khác: đặt "từ ngày" → lọc đúng — chưa tự động hoá
 
-### Đợt 3 — hạ tầng cờ — **ĐÃ CHẠY TỰ ĐỘNG (API), 3/3 XANH**
+### Đợt 3 — hạ tầng cờ — **3/3 XANH khi chạy riêng file**
 
 [`tests/e2e-new/uat-wave3-feature-flags.api.spec.ts`](tests/e2e-new/uat-wave3-feature-flags.api.spec.ts)
 
@@ -132,11 +132,25 @@ BASE_URL=http://localhost:5173 UAT_PROD=1   ADMIN_USERNAME=<user> ADMIN_PASSWORD
 > **Tắt một cờ mất tới 30 giây mới có hiệu lực, không phải tức thì.** Lần viết
 > đầu tôi khẳng định 404 ngay sau `PATCH`, test đỏ, và tôi suýt ghi đó là lỗi gate.
 
-> ⚠️ **Chạy chung cả thư mục `e2e-new` thì ĐỎ, và đó là lỗi test chứ không phải
-> lỗi ứng dụng.** `POST /auth/login` bị chặn 15 lần/60 giây; bộ Đợt 4 đăng nhập
-> lại ở mỗi test nên chạy chung sẽ vượt ngưỡng → 429 → `waitForURL timeout`.
-> Chạy **riêng từng file** thì cả hai xanh. Cần đăng nhập một lần rồi tái dùng
-> `storageState` — **chưa làm**.
+> ⚠️ **Chạy riêng từng file thì xanh; chạy CHUNG cả thư mục `e2e-new` thì còn
+> ĐỎ 2/8 — chưa xử lý xong, và đây là lỗi bộ test chứ không phải lỗi ứng dụng.**
+>
+> Đã sửa một nửa: bộ Đợt 4 nay đăng nhập **một lần** (`beforeAll` + trang dùng
+> chung + `mode: 'serial'`) thay vì mỗi test, giảm từ 5 lần đăng nhập xuống 1.
+> Vẫn chưa đủ. Hai nguyên nhân còn lại:
+>
+> 1. **`POST /auth/login` chặn 15 lần/60 giây** và bộ đếm tính theo phút chứ
+>    không theo lần chạy — chạy lại liên tiếp trong cùng một phút vẫn vượt
+>    ngưỡng, và biểu hiện là `waitForURL timeout` trông y hệt lỗi đăng nhập của
+>    ứng dụng. Cách đúng: dựng `storageState` một lần ở global-setup rồi mọi
+>    spec tái dùng, thay vì mỗi file tự đăng nhập.
+> 2. **Test cờ `lawyers` nhạy thời gian.** Chạy riêng thì xanh, chạy chung thì
+>    hết 40s chờ vẫn chưa thấy 404. Chưa xác định được là TTL dài hơn 30s trong
+>    điều kiện đó, hay `PATCH` bị ảnh hưởng bởi chính lần chạy trước. **Chưa
+>    kết luận** — không ghi là đã hiểu khi chưa hiểu.
+>
+> Đã kiểm chứng bước dọn có tác dụng: sau mọi lần chạy, `GET /lawyers` trả 200
+> (cờ được bật lại), không để môi trường hỏng cho lần sau.
 
 ### Đợt 5 — M4 + M5
 - [ ] Tắt cờ `lawyers` → `GET /lawyers` trả **404 kèm `error: 'FEATURE_DISABLED'`** (không phải 404 trần)
