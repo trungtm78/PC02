@@ -58,3 +58,42 @@ UAT_PROD=1 npx playwright test --project=e2e-new --pass-with-no-tests
   legacy suite's central mistake.
 - No credential or host defaults. Read them from the environment and fail loudly
   when they are missing.
+
+
+## Trạng thái hiện tại (cập nhật)
+
+**5 spec / 34 kiểm, tất cả xanh khi chạy tay.** Kết quả và bằng chứng:
+[`UAT-COVERAGE.md`](../../UAT-COVERAGE.md).
+
+| Spec | Nội dung | Cần gì để chạy |
+|---|---|---|
+| `uat-wave1-permission-matrix.api.spec.ts` | Ma trận phân quyền không rỗng | BE |
+| `uat-wave2-security.api.spec.ts` | Mất dữ liệu im lặng, seed endpoint | BE |
+| `uat-wave3-feature-flags.api.spec.ts` | Hạ tầng cờ, hình dạng lỗi | BE |
+| `uat-wave5-edit-window.api.spec.ts` | Xin mở lại quyền sửa | BE |
+| `uat-gate-all-flags.api.spec.ts` | **15 cờ E4/E5/E6 chặn thật** | BE |
+| `uat-wave4-mockup.e2e.spec.ts` | Xoá mockup, qua trình duyệt | BE + **FE** |
+
+### Cách chạy tay
+
+```bash
+BASE_URL=http://localhost:3000 API_URL=http://localhost:3000 UAT_PROD=1   ADMIN_USERNAME=<user> ADMIN_PASSWORD=<pass>   npx playwright test --project=e2e-new
+```
+
+Bộ Đợt 4 cần `BASE_URL` trỏ vào frontend (`:5173`) và FE phải đang chạy.
+
+### Hai cái bẫy đã trả giá để biết
+
+1. **Máy chủ FE tự chết** làm cả bộ Đợt 4 đỏ với `waitForURL timeout` — trông y
+   hệt lỗi đăng nhập của ứng dụng. **Kiểm server còn sống trước khi kết luận:**
+   `curl -s -o /dev/null -w '%{http_code}' http://localhost:5173/`.
+2. **`test.fail()` đặt ở phạm vi `describe` áp cho MỌI test trong khối.** Một
+   test vốn xanh sẽ báo "Expected to fail, but passed", và người đọc dễ tưởng
+   test *khác* đã xanh. Nếu cần đánh dấu, đặt **bên trong** thân test.
+
+### Vì sao chưa vào CI
+
+Không phải vì thiếu spec nữa — xem khối comment trong
+[`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) trên job `advisory`.
+Tóm tắt: cần một job riêng có `services: postgres`, boot backend, seed đủ 4 script,
+và một cặp secret cho tài khoản dùng riêng cho test.

@@ -71,8 +71,25 @@ jobs:
   #    expressed in schema.prisma. Upcoming work adds another one.
   #
   # Flip continue-on-error off per check, as each becomes actionable.
-  # No e2e step here yet: tests/e2e-new has no specs, and Playwright exits
-  # non-zero on an empty project. It joins CI with its first spec.
+  # e2e-new CHƯA vào CI — và lý do đã đổi, đừng đọc theo bản cũ.
+  #
+  # Comment trước ghi "has no specs ... joins CI with its first spec". Điều kiện
+  # đó đã đạt: nay có 5 spec / 34 kiểm, tất cả xanh khi chạy tay
+  # (`UAT-COVERAGE.md`). Cái chặn bây giờ là HẠ TẦNG, không phải thiếu spec:
+  #
+  #   1. Chúng gọi API thật, nên cần backend chạy + Postgres + `migrate deploy`
+  #      + seed (`seed.ts`, `seed-permissions.ts`, `seed-feature-flags.ts`,
+  #      `seed-document-templates.ts`). Thiếu seed cuối thì tạo đơn thư trả 503.
+  #   2. `tests/global-setup.ts` đòi ADMIN_USERNAME/ADMIN_PASSWORD từ môi trường
+  #      — cố ý, không có default (mật khẩu mặc định là mật khẩu bị commit).
+  #      CI cần một cặp secret cho tài khoản dùng riêng cho test.
+  #   3. Bộ Đợt 4 còn cần frontend chạy; ba bộ kia chỉ cần backend.
+  #   4. Bộ gate cờ BẬT/TẮT feature flag thật rồi bật lại. An toàn trên DB dùng
+  #      riêng cho một lần chạy; KHÔNG được trỏ vào DB dùng chung.
+  #
+  # Việc cần làm để nối: một job riêng có `services: postgres`, boot backend,
+  # seed, rồi `npx playwright test --project=e2e-new`. Chạy tách khỏi job
+  # `test` để một lỗi hạ tầng CI không che mất kết quả unit test.
   advisory:
     name: Advisory Checks (non-blocking)
     runs-on: ubuntu-latest
