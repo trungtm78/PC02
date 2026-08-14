@@ -68,6 +68,13 @@ test.describe('Đợt 3 — hạ tầng cờ tính năng', () => {
 });
 
 test.describe('Đợt 5 — gate API trả đúng hình dạng lỗi', () => {
+  // ⚠️ TEST NÀY CHẬP CHỜN — có lần xanh, có lần đỏ, trên cùng một mã và cùng
+  // một máy chủ. Xem mục Đợt 3 trong `UAT-COVERAGE.md`.
+  //
+  // Đừng vội kết luận "gate hỏng" khi thấy nó đỏ: tôi đã kết luận như vậy một
+  // lần, dựa trên chuỗi suy luận từ mã (guard toàn cục chạy trước guard cấp
+  // controller ⇒ `request.user` undefined ⇒ gate bị bỏ qua), rồi chính test này
+  // xanh ngay sau đó và bác bỏ nó. Nguyên nhân thật vẫn CHƯA biết.
   test('tắt cờ lawyers → GET /lawyers trả 404 KÈM error FEATURE_DISABLED', async () => {
     // 404 trần và 404-vì-tắt-cờ trông giống hệt nhau với người dùng, nhưng
     // khác nhau hoàn toàn với app mobile: một cái là "không có dữ liệu", cái

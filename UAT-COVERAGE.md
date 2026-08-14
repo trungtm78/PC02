@@ -148,41 +148,36 @@ BASE_URL=http://localhost:5173 UAT_PROD=1   ADMIN_USERNAME=<user> ADMIN_PASSWORD
 > (`curl -s -o /dev/null -w '%{http_code}' http://localhost:5173/`). Một máy chủ
 > chết làm bộ test đỏ theo kiểu trông y hệt lỗi đăng nhập của ứng dụng.
 >
-> **2. 🔴 GATE CỜ TÍNH NĂNG KHÔNG BAO GIỜ CHẠY — xác nhận từ mã. CHẶN MERGE E6.**
+> **2. ⚠️ GATE CỜ TÍNH NĂNG CHẬP CHỜN — nguyên nhân CHƯA BIẾT.**
 >
-> Chuỗi suy luận khép kín, mỗi mắt xích kiểm được:
-> 1. `FeatureFlagGuard` đăng ký **toàn cục** (`APP_GUARD` trong `feature-flags.module.ts`).
-> 2. `JwtAuthGuard` **không** đăng ký toàn cục — chỉ là provider trong `auth.module.ts`,
->    và được gắn ở **cấp controller**: `@UseGuards(JwtAuthGuard, PermissionsGuard)`.
->    Toàn bộ `APP_GUARD` của dự án chỉ có hai: `ThrottlerGuard` và `FeatureFlagGuard`.
-> 3. NestJS chạy guard **toàn cục TRƯỚC** guard cấp controller.
-> 4. ⇒ Khi `FeatureFlagGuard.canActivate` chạy, `request.user` **luôn** `undefined`.
-> 5. ⇒ Dòng `if (!request.user) return true;` **luôn** thoát sớm.
-> 6. ⇒ `isEnabled()` **không bao giờ được gọi**. Cờ tắt hay bật không thay đổi gì.
+> Cùng một mã, cùng một máy chủ, cùng một lệnh: có lần cờ tắt chặn được (404),
+> có lần không (200 suốt 84 giây dù `PATCH` đã lưu `enabled:false`).
 >
-> Khớp với phép đo: `PATCH` lưu `enabled:false` thật, mà `GET /lawyers` trả 200
-> suốt 84 giây — vì không có gì đọc cờ đó cả.
+> **Tôi đã kết luận sai về việc này MỘT LẦN — ghi lại để không ai lặp lại:**
+> Tôi lập luận từ mã rằng gate *không bao giờ* chạy: `FeatureFlagGuard` là
+> `APP_GUARD` toàn cục nên chạy trước `JwtAuthGuard` cấp controller ⇒
+> `request.user` luôn `undefined` ⇒ dòng `if (!request.user) return true` luôn
+> thoát sớm. Chuỗi đó nghe khép kín, tôi đã ghi là "xác nhận từ mã" và đánh dấu
+> **chặn merge E6**.
 >
-> **Đính chính của tôi:** ở bản ghi trước tôi viết "test này đã xanh một lần" và
-> dùng nó làm lý do chưa kết luận. Đọc lại output: spec có 4 test, các lần chạy
-> báo "1 failed, 3 passed" — ba test xanh là ba test KHÁC. Test cờ **chưa từng
-> xanh**. Tôi đã đọc nhầm con số tổng thành con số của test đó.
+> Rồi tôi đánh dấu test bằng `test.fail()` (nghĩa là "phải đỏ"), chạy lại, và
+> nhận **"Expected to fail, but passed"**. Test XANH. Lập luận của tôi sai ở đâu
+> đó — có thể ở giả định về thứ tự guard của NestJS, có thể ở chỗ khác. **Chưa
+> biết.**
 >
-> **Hệ quả:** gate API của **E4, E5, E6 hiện là no-op**. Mọi khẳng định "đã gate"
-> trong PROGRESS.md và kế hoạch chỉ đúng ở mức *decorator đã gắn*, không đúng ở
-> mức *có hiệu lực*. Điều kiện merge E6 dựa thẳng trên giả định gate hoạt động ⇒
-> **E6 bị chặn cho tới khi sửa và có test chứng minh gate thật sự chặn.**
+> **Bài học đáng giữ hơn cả phát hiện:** một chuỗi suy luận từ mã nghe khép kín
+> vẫn có thể sai, và nó thuyết phục hơn hẳn một quan sát rời rạc — nên nguy hiểm
+> hơn. Thứ bác bỏ nó không phải suy nghĩ thêm, mà là **cho nó một cách để tự sai**
+> (`test.fail()`). Nếu tôi chỉ ghi kết luận rồi dừng, một khẳng định sai đã nằm
+> lại trong repo dưới nhãn "xác nhận".
 >
-> **Vì sao test đơn vị không bắt được:** `feature-gating.spec.ts` kiểm
-> *manifest ⇔ decorator khớp nhau*, tức là kiểm decorator có được **gắn** không.
-> Không có test nào kiểm cờ tắt thì request có bị **chặn** không. Từng mảnh đúng,
-> chỗ nối sai — đúng loại lỗi mà chỉ chạy thật mới thấy.
+> **Trạng thái đúng:** gate cờ **đôi khi** hoạt động, đôi khi không. Chưa xác định
+> nguyên nhân, chưa biết tần suất. **Chưa chặn merge E6** — nhưng E6 cũng **không
+> được coi là an toàn** cho tới khi có bộ chạy lặp đủ nhiều để đo tỷ lệ, rồi truy
+> ra nguyên nhân.
 >
-> **Cách sửa (chưa làm):** ý định của dòng đó là chặn rò rỉ 404-vs-401 cho người
-> chưa đăng nhập — hợp lý, đừng bỏ. Nhưng phải lấy danh tính theo cách không phụ
-> thuộc thứ tự guard: tự xác thực token trong `FeatureFlagGuard`, hoặc đăng ký
-> `JwtAuthGuard` toàn cục trước nó. Kèm test chứng minh **cờ tắt ⇒ 404** trên một
-> request đã đăng nhập.
+> **Việc cần làm:** chạy riêng test này ~20 vòng liên tiếp, ghi tỷ lệ xanh/đỏ.
+> Có tỷ lệ rồi mới đi tìm nguyên nhân — không đoán trước.
 >
 > Đã kiểm chứng bước dọn có tác dụng: sau mọi lần chạy, `GET /lawyers` trả 200 —
 > cờ được bật lại, môi trường không bị bỏ lại ở trạng thái hỏng.

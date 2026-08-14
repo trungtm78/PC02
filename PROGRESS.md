@@ -1,12 +1,12 @@
 STATUS: BLOCKED
-BLOCKED_REASON: 🔴 MỚI: gate cờ tính năng (E4/E5/E6) KHÔNG BAO GIỜ CHẠY — `FeatureFlagGuard`
-là APP_GUARD toàn cục nên chạy trước `JwtAuthGuard` cấp controller, `request.user` luôn
-undefined, dòng `if (!request.user) return true` luôn thoát sớm, `isEnabled()` không bao giờ
-được gọi. Xác nhận từ mã + đo bằng curl. CHẶN MERGE E6. Chi tiết + cách sửa: UAT-COVERAGE.md.
-Ngoài mục đó: hết việc code. Năm mục còn lại cần người: chạy lại /codex cho PR-F1;
-kiểm tay 4 đợt UAT; `migrate resolve --applied 00000000000000_baseline` trên DB thật;
-ngưỡng tỷ lệ APK cũ cho E6; ND-12 (mật khẩu trong git history), ND-13 (mã vật chứng
-trùng trong 53k dòng legacy), ND-20 (chính sách ghi bản ghi chưa phân công).
+BLOCKED_REASON: Hết việc code, trừ một nghi vấn đang mở: gate cờ tính năng (E4/E5/E6)
+CHẬP CHỜN — có lần chặn được, có lần không, cùng mã cùng máy chủ. Nguyên nhân chưa biết.
+(Tôi đã một lần kết luận "gate không bao giờ chạy, chặn merge E6" dựa trên suy luận từ mã;
+chính test đó xanh ngay sau và bác bỏ. Đừng lặp lại.) Việc cần làm: chạy lặp ~20 vòng để đo
+tỷ lệ trước khi đoán nguyên nhân. Chi tiết: UAT-COVERAGE.md.
+Ngoài mục đó, phần còn lại cần người: chạy lại /codex cho PR-F1; kiểm tay đợt 1/2/5;
+`migrate resolve --applied 00000000000000_baseline` trên DB thật; ngưỡng APK cũ cho E6;
+ND-12, ND-13, ND-20.
 
 # PROGRESS
 Cập nhật: 2026-08-10T03:15:00+07:00 | Milestone: M1/5 | Task: 0/5 của M1
