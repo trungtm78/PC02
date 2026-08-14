@@ -24,7 +24,9 @@ export class CreateSubjectDto {
 
   @IsString()
   @IsNotEmpty({ message: 'Số CCCD/CMND không được để trống' })
-  @Matches(/^\d{9}$|^\d{12}$/, { message: 'Số CCCD/CMND phải có 9 hoặc 12 chữ số' })
+  @Matches(/^\d{9}$|^\d{12}$/, {
+    message: 'Số CCCD/CMND phải có 9 hoặc 12 chữ số',
+  })
   idNumber: string;
 
   @IsString()

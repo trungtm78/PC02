@@ -1,4 +1,12 @@
 {
   "extends": "./tsconfig.json",
-  "exclude": ["node_modules", "test", "dist", "**/*spec.ts"]
+  "comment": "ADR-0015 turns the no-unsafe-* rules off for *.spec.ts, *.test.ts and test-utils/. That exemption is only defensible if none of those files ship, so the build must exclude exactly the same set. Before this, **/*spec.ts alone was excluded and test-utils/ was compiled into dist.",
+  "exclude": [
+    "node_modules",
+    "test",
+    "dist",
+    "**/*spec.ts",
+    "**/*.test.ts",
+    "**/test-utils/**"
+  ]
 }

@@ -15,6 +15,16 @@
 export interface PermissionDeclaration {
   action: string;
   subject: string;
+  /**
+   * `'api'` = controller của phân hệ này mang `@FeatureFlag(key)`, nên tắt cờ
+   * là chặn luôn đường API chứ không chỉ giấu menu.
+   *
+   * Khai ở đây để `feature-gating.spec.ts` kiểm được HAI CHIỀU: manifest nói
+   * gate mà controller không có decorator (tắt cờ nhưng API vẫn mở), và
+   * decorator có mà manifest không nói (không ai biết phân hệ này tắt được
+   * bằng cờ). Một chiều thôi thì nửa còn lại trôi đi trong im lặng.
+   */
+  gating?: 'api';
 }
 
 export interface FeatureManifest {
@@ -28,4 +38,15 @@ export interface FeatureManifest {
   domain: string;
   /** Permissions this module owns — used by seed script + admin UI. */
   permissions?: PermissionDeclaration[];
+
+  /**
+   * `'api'` = controller của phân hệ này mang `@FeatureFlag(key)`, nên tắt cờ
+   * là chặn luôn đường API chứ không chỉ giấu menu.
+   *
+   * Khai ở đây để `feature-gating.spec.ts` kiểm được HAI CHIỀU: manifest nói
+   * gate mà controller không có decorator (tắt cờ nhưng API vẫn mở), và
+   * decorator có mà manifest không khai (không ai biết phân hệ này tắt được
+   * bằng cờ). Kiểm một chiều thôi thì nửa còn lại trôi đi trong im lặng.
+   */
+  gating?: 'api';
 }

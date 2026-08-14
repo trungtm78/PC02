@@ -25,6 +25,9 @@ Object.defineProperty(window, 'matchMedia', {
 // Mock dependencies that touch network or browser APIs
 vi.mock('@/stores/auth.store', () => ({
   authStore: {
+    // usePermission subscribes to the store now instead of snapshotting it.
+    getProfileRaw: vi.fn(() => null),
+    onTokenChanged: vi.fn(() => () => {}),
     getUser: () => ({ email: 'test@pc02.local', role: 'INVESTIGATOR' }),
     clearTokens: vi.fn(),
   },

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
 /**
  * SettingsService Unit Tests
  *
@@ -29,7 +28,14 @@ const mockPrisma = {
 };
 
 function makeSetting(key: string, value: string, unit: string | null = 'ngày') {
-  return { id: `setting-${key}`, key, value, label: `Label for ${key}`, unit, legalBasis: null };
+  return {
+    id: `setting-${key}`,
+    key,
+    value,
+    label: `Label for ${key}`,
+    unit,
+    legalBasis: null,
+  };
 }
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -37,7 +43,10 @@ const { AuditService } = require('../audit/audit.service');
 
 describe('SettingsService', () => {
   let service: SettingsService;
-  const mockAudit = { log: jest.fn().mockResolvedValue(undefined), wrapUpdate: jest.fn() };
+  const mockAudit = {
+    log: jest.fn().mockResolvedValue(undefined),
+    wrapUpdate: jest.fn(),
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -57,7 +66,9 @@ describe('SettingsService', () => {
 
   describe('getAll', () => {
     it('returns all settings', async () => {
-      mockPrisma.systemSetting.findMany.mockResolvedValue([makeSetting('TWO_FA_ENABLED', 'false', null)]);
+      mockPrisma.systemSetting.findMany.mockResolvedValue([
+        makeSetting('TWO_FA_ENABLED', 'false', null),
+      ]);
       const result = await service.getAll();
       expect(result.success).toBe(true);
       expect(result.data).toHaveLength(1);
@@ -66,7 +77,9 @@ describe('SettingsService', () => {
 
   describe('getValue (non-deadline keys)', () => {
     it('returns the value for an ops key', async () => {
-      mockPrisma.systemSetting.findMany.mockResolvedValue([makeSetting('TWO_FA_ENABLED', 'true', null)]);
+      mockPrisma.systemSetting.findMany.mockResolvedValue([
+        makeSetting('TWO_FA_ENABLED', 'true', null),
+      ]);
       expect(await service.getValue('TWO_FA_ENABLED')).toBe('true');
     });
 
@@ -95,13 +108,23 @@ describe('SettingsService', () => {
       await expect(service.getValue(key)).rejects.toThrow(BadRequestException);
     });
 
-    it.each(deadlineKeys)('getNumericValue throws BadRequest for %s', async (key) => {
-      await expect(service.getNumericValue(key, 20)).rejects.toThrow(BadRequestException);
-    });
+    it.each(deadlineKeys)(
+      'getNumericValue throws BadRequest for %s',
+      async (key) => {
+        await expect(service.getNumericValue(key, 20)).rejects.toThrow(
+          BadRequestException,
+        );
+      },
+    );
 
-    it.each(deadlineKeys)('updateValue throws BadRequest for %s', async (key) => {
-      await expect(service.updateValue(key, '25')).rejects.toThrow(BadRequestException);
-    });
+    it.each(deadlineKeys)(
+      'updateValue throws BadRequest for %s',
+      async (key) => {
+        await expect(service.updateValue(key, '25')).rejects.toThrow(
+          BadRequestException,
+        );
+      },
+    );
 
     it('error message hints at the correct migration', async () => {
       try {
@@ -122,7 +145,10 @@ describe('SettingsService', () => {
     it('updates and normalizes numeric value for unit=ngày', async () => {
       const existing = makeSetting('CANH_BAO_SAP_HAN', '7', 'ngày');
       mockPrisma.systemSetting.findUnique.mockResolvedValue(existing);
-      mockPrisma.systemSetting.update.mockResolvedValue({ ...existing, value: '10' });
+      mockPrisma.systemSetting.update.mockResolvedValue({
+        ...existing,
+        value: '10',
+      });
 
       const result = await service.updateValue('CANH_BAO_SAP_HAN', '10');
       expect(result.success).toBe(true);
@@ -134,16 +160,122 @@ describe('SettingsService', () => {
     it('normalizes float to int (3.7 → 3)', async () => {
       const existing = makeSetting('CANH_BAO_SAP_HAN', '7', 'ngày');
       mockPrisma.systemSetting.findUnique.mockResolvedValue(existing);
-      mockPrisma.systemSetting.update.mockResolvedValue({ ...existing, value: '3' });
+      mockPrisma.systemSetting.update.mockResolvedValue({
+        ...existing,
+        value: '3',
+      });
       await service.updateValue('CANH_BAO_SAP_HAN', '3.7');
-      expect(mockPrisma.systemSetting.update.mock.calls[0][0].data.value).toBe('3');
+      expect(mockPrisma.systemSetting.update.mock.calls[0][0].data.value).toBe(
+        '3',
+      );
     });
 
     it('rejects values out of range (>365)', async () => {
-      mockPrisma.systemSetting.findUnique.mockResolvedValue(makeSetting('CANH_BAO_SAP_HAN', '7', 'ngày'));
+      mockPrisma.systemSetting.findUnique.mockResolvedValue(
+        makeSetting('CANH_BAO_SAP_HAN', '7', 'ngày'),
+      );
       const result = await service.updateValue('CANH_BAO_SAP_HAN', '999');
       expect(result.success).toBe(false);
       expect(mockPrisma.systemSetting.update).not.toHaveBeenCalled();
+    });
+
+    // `giờ` was not in the validated set at all, so hour settings took any
+    // string. Applying the 365 ceiling to them would have been worse than
+    // nothing: THOI_HAN_EDIT_VU_VAN defaults to 168h and its legal basis is
+    // BLTTHS Đ.147 (20 days = 480h), so 365 would silently cut the window
+    // below what the law allows.
+    it('accepts 480 hours — BLTTHS Đ.147 is 20 days, which a 365 ceiling would cut', async () => {
+      const existing = makeSetting('THOI_HAN_EDIT_VU_VAN', '168', 'giờ');
+      mockPrisma.systemSetting.findUnique.mockResolvedValue(existing);
+      mockPrisma.systemSetting.update.mockResolvedValue({
+        ...existing,
+        value: '480',
+      });
+
+      const result = await service.updateValue('THOI_HAN_EDIT_VU_VAN', '480');
+
+      expect(result.success).toBe(true);
+    });
+
+    it('still bounds hours — 99999 is rejected', async () => {
+      mockPrisma.systemSetting.findUnique.mockResolvedValue(
+        makeSetting('THOI_HAN_EDIT_VU_VAN', '168', 'giờ'),
+      );
+
+      const result = await service.updateValue('THOI_HAN_EDIT_VU_VAN', '99999');
+
+      expect(result.success).toBe(false);
+      expect(mockPrisma.systemSetting.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects a non-numeric value for an hour setting', async () => {
+      mockPrisma.systemSetting.findUnique.mockResolvedValue(
+        makeSetting('THOI_HAN_EDIT_VU_VAN', '168', 'giờ'),
+      );
+
+      const result = await service.updateValue('THOI_HAN_EDIT_VU_VAN', 'sớm');
+
+      expect(result.success).toBe(false);
+    });
+
+    it('names the unit in the error, so 8760 does not read as an arbitrary number', async () => {
+      mockPrisma.systemSetting.findUnique.mockResolvedValue(
+        makeSetting('THOI_HAN_EDIT_VU_VAN', '168', 'giờ'),
+      );
+
+      const result = await service.updateValue('THOI_HAN_EDIT_VU_VAN', '99999');
+
+      expect(result.message).toContain('giờ');
+      expect(result.message).toContain('8760');
+    });
+
+    // parseInt stops at the first bad character: '480abc' became 480 and
+    // '0x10' became 0, so malformed input was accepted and silently rewritten
+    // while the error text promised an integer.
+    it.each(['480abc', '0x10', '4 8 0', 'e5', '-', ''])(
+      'rejects malformed input %p instead of parsing a prefix',
+      async (bad) => {
+        mockPrisma.systemSetting.findUnique.mockResolvedValue(
+          makeSetting('THOI_HAN_EDIT_VU_VAN', '168', 'giờ'),
+        );
+
+        const result = await service.updateValue('THOI_HAN_EDIT_VU_VAN', bad);
+
+        expect(result.success).toBe(false);
+        expect(mockPrisma.systemSetting.update).not.toHaveBeenCalled();
+      },
+    );
+
+    it('still accepts padded and zero-prefixed numbers', async () => {
+      const existing = makeSetting('THOI_HAN_EDIT_VU_VAN', '168', 'giờ');
+      mockPrisma.systemSetting.findUnique.mockResolvedValue(existing);
+      mockPrisma.systemSetting.update.mockResolvedValue({
+        ...existing,
+        value: '480',
+      });
+
+      const result = await service.updateValue(
+        'THOI_HAN_EDIT_VU_VAN',
+        ' 0480 ',
+      );
+
+      expect(result.success).toBe(true);
+      expect(mockPrisma.systemSetting.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { value: '480' } }),
+      );
+    });
+
+    it('leaves a non-numeric unit alone rather than guessing a ceiling', async () => {
+      const existing = makeSetting('MOT_CAI_GI_DO', 'abc', 'văn bản');
+      mockPrisma.systemSetting.findUnique.mockResolvedValue(existing);
+      mockPrisma.systemSetting.update.mockResolvedValue({
+        ...existing,
+        value: 'xyz',
+      });
+
+      const result = await service.updateValue('MOT_CAI_GI_DO', 'xyz');
+
+      expect(result.success).toBe(true);
     });
   });
 
@@ -152,13 +284,17 @@ describe('SettingsService', () => {
       await service.seed();
       expect(mockPrisma.systemSetting.upsert).toHaveBeenCalled();
       expect(mockPrisma.systemSetting.deleteMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: expect.objectContaining({ key: expect.any(Object) }) }),
+        expect.objectContaining({
+          where: expect.objectContaining({ key: expect.any(Object) }),
+        }),
       );
     });
 
     it('seeds exactly the 4 ops settings (incl. THOI_HAN_XOA_VU_AN v0.31.0.2)', async () => {
       await service.seed();
-      const upsertCalls = mockPrisma.systemSetting.upsert.mock.calls.map((c) => c[0].where.key);
+      const upsertCalls = mockPrisma.systemSetting.upsert.mock.calls.map(
+        (c) => c[0].where.key,
+      );
       expect(upsertCalls).toContain('TWO_FA_ENABLED');
       expect(upsertCalls).toContain('CANH_BAO_SAP_HAN');
       expect(upsertCalls).toContain('THOI_HAN_XOA_VU_VIEC');

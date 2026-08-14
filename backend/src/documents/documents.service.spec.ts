@@ -465,7 +465,15 @@ describe('DocumentsService', () => {
           petition: { id: 'petition-1', stt: 'DT-2026-00001' },
           uploadedBy: { id: 'user-1', fullName: 'Test User', username: 'testuser' },
         });
-        const scope = { userIds: ['user-1'], teamIds: ['team-A'], writableTeamIds: ['team-A'] };
+        // writableUserIds is what the write path matches on now: `userIds`
+        // spans every readable team, so using it let a READ-only grant mutate.
+        // The caller is always in it — everyone may edit their own work.
+        const scope = {
+          userIds: ['user-1'],
+          writableUserIds: ['user-1'],
+          teamIds: ['team-A'],
+          writableTeamIds: ['team-A'],
+        };
 
         const result = await service.create(petitionDto, 'user-1', undefined, scope as any);
 

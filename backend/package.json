@@ -6,7 +6,7 @@
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
-    "build": "npm run gen:enums && npm run gen:catalog && nest build",
+    "build": "npm run gen:enums && npm run gen:feature-registry && npm run gen:catalog && nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",
@@ -21,6 +21,7 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "gen:enums": "node scripts/generate-shared-enums.cjs",
+    "gen:feature-registry": "node scripts/generate-feature-registry.cjs",
     "gen:catalog": "node scripts/generate-catalog.cjs",
     "db:seed": "ts-node prisma/seed.ts",
     "db:seed:sample": "ts-node prisma/seed-sample-data.ts",
@@ -29,7 +30,8 @@
     "db:seed:wards": "ts-node prisma/seed-wards.ts",
     "db:seed:admin-units": "ts-node prisma/seed-admin-units-runner.ts",
     "db:seed:events": "ts-node prisma/seed-vn-events-runner.ts",
-    "db:seed:doc-templates": "ts-node prisma/seed-document-templates.ts"
+    "db:seed:doc-templates": "ts-node prisma/seed-document-templates.ts",
+    "db:seed:permissions": "ts-node prisma/seed-permissions-runner.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
@@ -125,20 +127,22 @@
     "rootDir": "src",
     "roots": [
       "<rootDir>",
-      "<rootDir>/../prisma"
+      "<rootDir>/../prisma",
+      "<rootDir>/../test"
     ],
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
     },
     "transformIgnorePatterns": [
-      "node_modules/(?!(@otplib|@noble)/)"
+      "node_modules/(?!(@otplib|@noble|@scure|@tokenizer|@borewit)/|(file-type|strtok3|token-types|uint8array-extras|peek-readable)/)"
     ],
     "collectCoverageFrom": [
       "**/*.(t|j)s"
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node",
-    "maxWorkers": "50%"
+    "maxWorkers": "50%",
+    "cacheDirectory": "<rootDir>/../.jest-cache"
   }
 }

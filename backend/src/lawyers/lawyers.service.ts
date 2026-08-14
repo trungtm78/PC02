@@ -11,7 +11,11 @@ import { UpdateLawyerDto } from './dto/update-lawyer.dto';
 import { QueryLawyersDto } from './dto/query-lawyers.dto';
 import { Prisma } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
-import { assertParentInScope, buildScopeFilter } from '../common/utils/scope-filter.util';
+import { withParentLock } from '../common/utils/parent-lock.util';
+import {
+  assertParentInScope,
+  buildScopeFilter,
+} from '../common/utils/scope-filter.util';
 
 @Injectable()
 export class LawyersService {
@@ -103,7 +107,15 @@ export class LawyersService {
     const record = await this.prisma.lawyer.findFirst({
       where: { id, deletedAt: null },
       include: {
-        case: { select: { id: true, name: true, status: true, assignedTeamId: true, investigatorId: true } },
+        case: {
+          select: {
+            id: true,
+            name: true,
+            status: true,
+            assignedTeamId: true,
+            investigatorId: true,
+          },
+        },
         subject: { select: { id: true, fullName: true, type: true } },
       },
     });
@@ -124,6 +136,7 @@ export class LawyersService {
     dto: CreateLawyerDto,
     actorId: string,
     meta?: { ipAddress?: string; userAgent?: string },
+    dataScope?: DataScope | null,
   ) {
     // Check duplicate barNumber
     const existing = await this.prisma.lawyer.findFirst({
@@ -135,40 +148,58 @@ export class LawyersService {
       );
     }
 
-    // Validate caseId
-    const caseRecord = await this.prisma.case.findFirst({
-      where: { id: dto.caseId, deletedAt: null },
-    });
-    if (!caseRecord) {
-      throw new BadRequestException(`Vụ án không tồn tại (id: ${dto.caseId})`);
-    }
+    // ND-19: nạp cha và ghi con trong CÙNG một transaction, cha bị khoá.
+    // Hai câu lệnh rời để lại một khe: giữa lúc kiểm và lúc ghi, vụ án có thể
+    // bị xoá mềm — bản ghi con rơi vào hồ sơ đã xoá, không màn hình nào liệt kê
+    // và không cascade nào chạm tới.
+    const record = await withParentLock(
+      this.prisma,
+      'case',
+      dto.caseId,
+      async (tx) => {
+        // Validate caseId
+        const caseRecord = await tx.case.findFirst({
+          where: { id: dto.caseId, deletedAt: null },
+        });
+        if (!caseRecord) {
+          throw new BadRequestException(
+            `Vụ án không tồn tại (id: ${dto.caseId})`,
+          );
+        }
+        // Same gap as subjects: the read and update paths check scope, create did
+        // not, so a defence lawyer could be registered against any case in the
+        // system by id alone.
+        assertParentInScope(caseRecord, dataScope, 'write');
 
-    // Validate subjectId if provided (EC-01: lawyer can defend multiple suspects — same lawyer re-assigned means new record)
-    if (dto.subjectId) {
-      const subjectRecord = await this.prisma.subject.findFirst({
-        where: { id: dto.subjectId, caseId: dto.caseId, deletedAt: null },
-      });
-      if (!subjectRecord) {
-        throw new BadRequestException(
-          `Bị can không tồn tại trong vụ án (subjectId: ${dto.subjectId})`,
-        );
-      }
-    }
+        // Validate subjectId if provided (EC-01: lawyer can defend multiple suspects — same lawyer re-assigned means new record)
+        if (dto.subjectId) {
+          const subjectRecord = await tx.subject.findFirst({
+            where: { id: dto.subjectId, caseId: dto.caseId, deletedAt: null },
+          });
+          if (!subjectRecord) {
+            throw new BadRequestException(
+              `Bị can không tồn tại trong vụ án (subjectId: ${dto.subjectId})`,
+            );
+          }
+        }
 
-    const record = await this.prisma.lawyer.create({
-      data: {
-        fullName: dto.fullName,
-        lawFirm: dto.lawFirm,
-        barNumber: dto.barNumber,
-        phone: dto.phone,
-        caseId: dto.caseId,
-        subjectId: dto.subjectId ?? null,
+        const record = await tx.lawyer.create({
+          data: {
+            fullName: dto.fullName,
+            lawFirm: dto.lawFirm,
+            barNumber: dto.barNumber,
+            phone: dto.phone,
+            caseId: dto.caseId,
+            subjectId: dto.subjectId ?? null,
+          },
+          include: {
+            case: { select: { id: true, name: true, status: true } },
+            subject: { select: { id: true, fullName: true, type: true } },
+          },
+        });
+        return record;
       },
-      include: {
-        case: { select: { id: true, name: true, status: true } },
-        subject: { select: { id: true, fullName: true, type: true } },
-      },
-    });
+    );
 
     await this.audit.log({
       userId: actorId,
@@ -222,6 +253,11 @@ export class LawyersService {
           `Vụ án không tồn tại (id: ${dto.caseId})`,
         );
       }
+      // ND-18: cha MỚI cũng phải nằm trong phạm vi ghi của người gọi.
+      // Trước đây chỉ kiểm cha CŨ, nên cán bộ tổ A sửa một bản ghi của mình rồi
+      // gán sang vụ án của tổ B là chuyển được dữ liệu ra ngoài phạm vi — không
+      // câu lệnh nào chặn, và không dấu vết nào cho thấy chuyện đó vừa xảy ra.
+      assertParentInScope(caseRecord, dataScope, 'write');
     }
 
     // Validate subjectId if provided
@@ -260,7 +296,14 @@ export class LawyersService {
       action: 'LAWYER_UPDATED',
       subject: 'Lawyer',
       subjectId: id,
-      metadata: { before: { fullName: existing.fullName, barNumber: existing.barNumber, caseId: existing.caseId }, after: dto },
+      metadata: {
+        before: {
+          fullName: existing.fullName,
+          barNumber: existing.barNumber,
+          caseId: existing.caseId,
+        },
+        after: dto,
+      },
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
     });

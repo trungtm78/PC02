@@ -207,11 +207,15 @@ export function ComprehensiveListPageShell() {
   const abortRef = useRef<AbortController | null>(null);
 
   // v0.66 PR4 — Action context + advanced filters.
-  const { canDispatch, canEdit, canDelete } = usePermission();
+  const { canDispatch, canCreate, canEdit, canDelete } = usePermission();
+  // The button, the Alt+N shortcut and the empty-state CTA all go to
+  // /cases/new, so all three answer to the case grant — not to the mixed
+  // edit permission the row actions use.
+  const canCreateCase = canCreate('cases');
   const assignModal = useAssignModal();
   const deleteModal = useDeleteResourceModal();
   const [refetchCounter, setRefetchCounter] = useState(0);
-  useListShortcuts({ onNew: () => navigate('/cases/new'), onRefresh: () => setRefetchCounter((n) => n + 1) });
+  useListShortcuts({ onNew: canCreateCase ? () => navigate('/cases/new') : undefined, onRefresh: () => setRefetchCounter((n) => n + 1) });
   const actionCtx: ActionContext = useMemo(
     () => ({
       navigate,
@@ -367,7 +371,7 @@ export function ComprehensiveListPageShell() {
 
     void fetchAll();
     return () => ctrl.abort();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [typeFilter, page, debouncedSearch, refetchCounter, appliedFilters]);
 
   // Stats fan-out CHỈ khi typeFilter được chọn — single-type mode cần stats endpoint
@@ -545,15 +549,18 @@ export function ComprehensiveListPageShell() {
         title="Tra cứu tổng hợp"
         subtitle="Tổng hợp Vụ án, Vụ việc và Đơn thư trên một danh sách duy nhất"
         actions={
-          <button
-            type="button"
-            onClick={() => navigate('/cases/new')}
-            className={`${BTN_PRIMARY} ${A11Y_FOCUS_RING} flex items-center gap-2`}
-          >
-            <Plus className="w-4 h-4" />
-            <span>Tạo mới</span>
-            <ShortcutHint action="newRecord" className="ml-1" />
-          </button>
+          canCreateCase ? (
+            <button
+              type="button"
+              onClick={() => navigate('/cases/new')}
+              data-testid="btn-create-comprehensive"
+              className={`${BTN_PRIMARY} ${A11Y_FOCUS_RING} flex items-center gap-2`}
+            >
+              <Plus className="w-4 h-4" />
+              <span>Tạo mới</span>
+              <ShortcutHint action="newRecord" className="ml-1" />
+            </button>
+          ) : null
         }
       />
       <ListPageShell.StatusChips
@@ -591,7 +598,7 @@ export function ComprehensiveListPageShell() {
           title: 'Chưa có hồ sơ nào',
           description: 'Tạo hồ sơ đầu tiên trong hệ thống.',
           actionLabel: 'Tạo vụ án mới',
-          onAction: () => navigate('/cases/new'),
+          onAction: canCreateCase ? () => navigate('/cases/new') : undefined,
         }}
         emptyFilteredState={{ onClearFilters: handleResetFilters }}
         onRowClick={handleRowClick}

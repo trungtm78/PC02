@@ -57,7 +57,7 @@ describe('xlsx-formula-escape', () => {
       };
       const escaped = escapeXlsxRow(row);
       expect(escaped.stt).toBe(1);
-      expect(escaped.name).toBe("'=HYPERLINK(\"evil\")");
+      expect(escaped.name).toBe('\'=HYPERLINK("evil")');
       expect(escaped.date).toBeInstanceOf(Date);
       expect(escaped.notes).toBe('OK');
       expect(escaped.empty).toBe('');

@@ -24,6 +24,7 @@ import type { AuthUser } from '../auth/interfaces/auth-user.interface';
 import { DocumentTemplatesService } from './document-templates.service';
 import { CreateDocumentTemplateDto } from './dto/create-document-template.dto';
 import { UpdateDocumentTemplateDto } from './dto/update-document-template.dto';
+import { FeatureFlag } from '../feature-flags/decorators/feature-flag.decorator';
 
 const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
@@ -41,6 +42,7 @@ const DOCX_UPLOAD = {
 };
 
 @Controller('document-templates')
+@FeatureFlag('document-templates')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class DocumentTemplatesController {
   constructor(private readonly svc: DocumentTemplatesService) {}

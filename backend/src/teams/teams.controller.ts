@@ -20,8 +20,10 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CreateTeamDto } from './dto/create-team.dto';
 import { UpdateTeamDto } from './dto/update-team.dto';
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
+import { FeatureFlag } from '../feature-flags/decorators/feature-flag.decorator';
 
 @Controller('teams')
+@FeatureFlag('teams')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class TeamsController {
   constructor(private readonly teamsService: TeamsService) {}

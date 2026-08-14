@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /**
  * PhuLuc16Service Unit Tests
  *
@@ -46,7 +44,10 @@ function makeIncident(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function makeCase(overrides: Record<string, unknown> = {}, subjects: any[] = []) {
+function makeCase(
+  overrides: Record<string, unknown> = {},
+  subjects: any[] = [],
+) {
   return {
     id: 'case-abcdef12',
     name: 'Vụ án test',
@@ -115,9 +116,7 @@ describe('PhuLuc16Service', () => {
   // ── Test 2: getForLoai(4) includes subjects and actionPlans ───────────────
 
   it('getForLoai(4) includes subjects (SUSPECT only) and actionPlans', async () => {
-    mockPrisma.case.findMany.mockResolvedValue([
-      makeCase({}, [makeSubject()]),
-    ]);
+    mockPrisma.case.findMany.mockResolvedValue([makeCase({}, [makeSubject()])]);
     mockPrisma.case.count.mockResolvedValue(1);
 
     await service.getForLoai(4, { loai: 4 });

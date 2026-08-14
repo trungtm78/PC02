@@ -1,4 +1,8 @@
-import { buildControllerModule, makeReq, mockUser } from '../test-utils/controller-test-helpers';
+import {
+  buildControllerModule,
+  makeReq,
+  mockUser,
+} from '../test-utils/controller-test-helpers';
 import { InvestigationSupplementsController } from './investigation-supplements.controller';
 import { InvestigationSupplementsService } from './investigation-supplements.service';
 
@@ -37,6 +41,7 @@ describe('InvestigationSupplementsController — delegation', () => {
       {},
       mockUser.id,
       expect.objectContaining({ ipAddress: '127.0.0.1' }),
+      req.dataScope,
     );
   });
 

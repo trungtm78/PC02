@@ -30,8 +30,10 @@ import {
   UserCheck,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { extractApiError } from '@/lib/api-errors';
 import { useFormDefaults } from '@/hooks/useFormDefaults';
 import { today, formatVNDate } from '@/lib/dates';
+import { downloadCsv } from '@/lib/csv';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -108,6 +110,7 @@ export default function PetitionGuidancePage() {
   });
 
   const [formErrors, setFormErrors] = useState<FormErrors>({});
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // ── Real data state ────────────────────────────────────────────────────────
   const [allGuidances, setAllGuidances] = useState<GuidanceRecord[]>([]);
@@ -170,6 +173,41 @@ export default function PetitionGuidancePage() {
 
   // ── Handlers ───────────────────────────────────────────────────────────────
 
+  /**
+   * "Xuất Excel" had no `onClick` at all — the button rendered, took the
+   * pointer, and did nothing. It exports what the user is looking at: the
+   * filtered rows, in the table's column order, not the whole collection.
+   */
+  const handleExport = () => {
+    downloadCsv(
+      filteredData.map((g) => [
+        g.stt,
+        formatVNDate(g.date),
+        g.subject,
+        g.unit,
+        g.createdBy,
+        g.guidedPerson,
+        g.guidedPersonPhone,
+        g.statusLabel,
+        g.guidanceContent,
+        g.notes,
+      ]),
+      [
+        'STT',
+        'Ngày',
+        'Vấn đề',
+        'Đơn vị',
+        'Người nhập',
+        'Người được hướng dẫn',
+        'Điện thoại',
+        'Trạng thái',
+        'Nội dung hướng dẫn',
+        'Ghi chú',
+      ],
+      `huong-dan-don-thu-${today()}.csv`,
+    );
+  };
+
   const handleResetFilters = () => {
     setFilters({ quickSearch: '', fromDate: '', toDate: '', unit: '', status: '' });
   };
@@ -220,6 +258,7 @@ export default function PetitionGuidancePage() {
   };
 
   const handleSave = async () => {
+    setSaveError(null);
     const errors: FormErrors = {};
     // EC-04: Hướng dẫn đơn có thể không có thông tin liên lạc — phone is optional
     if (!formData.guidedPerson.trim()) errors.guidedPerson = 'Vui lòng nhập tên người được hướng dẫn';
@@ -250,8 +289,11 @@ export default function PetitionGuidancePage() {
         });
       }
       await fetchGuidances();
-    } catch {
-      // silently fail — form stays open so user sees no crash
+    } catch (e) {
+      // Trước đây chỉ nuốt lỗi rồi vẫn chạy tiếp xuống dưới ⇒ modal ĐÓNG như
+      // thể đã lưu xong. Phải báo lỗi và DỪNG, không đóng form.
+      setSaveError(extractApiError(e, 'Không lưu được phiếu hướng dẫn').message);
+      return;
     }
     setShowGuidanceModal(false);
     setSelectedGuidance(null);
@@ -370,7 +412,9 @@ export default function PetitionGuidancePage() {
 
           <button
             data-testid="export-excel-btn"
-            className="flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            onClick={handleExport}
+            disabled={filteredData.length === 0}
+            className="flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Download className="w-4 h-4" />
             Xuất Excel
@@ -713,6 +757,12 @@ export default function PetitionGuidancePage() {
                 </div>
               )}
             </div>
+
+            {saveError && (
+              <p className="mx-6 mb-2 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700" data-testid="guidance-save-error">
+                {saveError}
+              </p>
+            )}
 
             {/* Footer */}
             <div className="p-6 border-t border-slate-200 flex items-center justify-end gap-3 flex-shrink-0">

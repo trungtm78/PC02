@@ -3,6 +3,7 @@ import axios from 'axios';
 import { api } from '../api';
 import { authStore } from '@/stores/auth.store';
 import type { FeatureFlag } from './types';
+import { FEATURE_DISABLED_EVENT } from '@/lib/feature-disabled';
 
 interface FeatureFlagsContextValue {
   flags: Map<string, FeatureFlag>;
@@ -83,6 +84,28 @@ export function FeatureFlagsProvider({ children, initialFlags }: Props) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Flags were fetched once at mount and never again, so an administrator
+  // turning a module off left every open tab with a sidebar advertising
+  // routes that now 404. Two cheap triggers close that window: a request
+  // that came back FEATURE_DISABLED proves the cached set is stale, and
+  // returning to a backgrounded tab is the moment a user is most likely to
+  // click something they last saw an hour ago.
+  useEffect(() => {
+    const refetch = () => {
+      void load();
+    };
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') refetch();
+    };
+
+    window.addEventListener(FEATURE_DISABLED_EVENT, refetch);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      window.removeEventListener(FEATURE_DISABLED_EVENT, refetch);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [load]);
 
   return (
     <FeatureFlagsContext.Provider

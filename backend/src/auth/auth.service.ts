@@ -1,4 +1,10 @@
-import { Injectable, UnauthorizedException, BadRequestException, ConflictException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  BadRequestException,
+  ConflictException,
+  Logger,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
@@ -95,16 +101,17 @@ export class AuthService {
     // Phone field KHÔNG @unique (vợ chồng share), nên dùng findFirst với
     // orderBy deterministic. Email/workId/username @unique → findUnique safe.
     const { field, value } = classifyIdentifier(dto.username);
-    let user = field === 'phone'
-      ? await this.prisma.user.findFirst({
-          where: { phone: value },
-          orderBy: { id: 'asc' },
-          include: { role: true },
-        })
-      : await this.prisma.user.findUnique({
-          where: { [field]: value } as any,
-          include: { role: true },
-        });
+    let user =
+      field === 'phone'
+        ? await this.prisma.user.findFirst({
+            where: { phone: value },
+            orderBy: { id: 'asc' },
+            include: { role: true },
+          })
+        : await this.prisma.user.findUnique({
+            where: { [field]: value } as any,
+            include: { role: true },
+          });
 
     // v0.28 workId fallback chain — Mã cán bộ độ dài tùy ý có thể mistake là phone
     // (9+ digits) hoặc username (shape không xác định). Khi primary miss, defensive
@@ -152,16 +159,24 @@ export class AuthService {
         data: {
           failedLoginAttempts: newAttempts,
           lastFailedLoginAt: now,
-          lockedUntil: willLock ? new Date(now.getTime() + LOCKOUT_DURATION_MS) : user.lockedUntil,
+          lockedUntil: willLock
+            ? new Date(now.getTime() + LOCKOUT_DURATION_MS)
+            : user.lockedUntil,
         },
       });
 
-      this.metrics.loginAttempts.inc({ result: willLock ? 'locked' : 'failure' });
+      this.metrics.loginAttempts.inc({
+        result: willLock ? 'locked' : 'failure',
+      });
       // v0.27: audit metadata rename email → identifier + shape (field từ classifier).
       await this.auditService.log({
         userId: user.id,
         action: willLock ? 'USER_LOGIN_LOCKED' : 'USER_LOGIN_FAILED',
-        metadata: { identifier: dto.username, shape: field, attempts: newAttempts },
+        metadata: {
+          identifier: dto.username,
+          shape: field,
+          attempts: newAttempts,
+        },
         ipAddress: meta.ipAddress,
         userAgent: meta.userAgent,
       });
@@ -169,14 +184,17 @@ export class AuthService {
     }
 
     // 2FA check — if enabled, return pending token instead of full TokenPair
-    const is2FAEnabled = (await this.settingsService.getValue(SETTINGS_KEY.TWO_FA_ENABLED)) === 'true';
+    const is2FAEnabled =
+      (await this.settingsService.getValue(SETTINGS_KEY.TWO_FA_ENABLED)) ===
+      'true';
 
     // Sprint 2 / S2.4 — setup mandate: nếu user chưa enable totp nhưng 2FA
     // bắt buộc (system-wide OR per-user flag), return setup-pending response để
     // frontend redirect tới /auth/2fa-setup. KHÔNG bypass — login chưa hoàn tất.
     const needsSetup =
       !user.totpEnabled &&
-      (is2FAEnabled || (user as { twoFaSetupRequired?: boolean }).twoFaSetupRequired === true);
+      (is2FAEnabled ||
+        (user as { twoFaSetupRequired?: boolean }).twoFaSetupRequired === true);
     if (needsSetup) {
       const setupJti = crypto.randomUUID();
       const twoFaSetupToken = await this.jwtService.signAsync(
@@ -186,7 +204,11 @@ export class AuthService {
           jti: setupJti,
           tokenVersion: user.tokenVersion,
         } as object,
-        { algorithm: 'RS256', privateKey: this.privateKey, expiresIn: '15m' as StringValue },
+        {
+          algorithm: 'RS256',
+          privateKey: this.privateKey,
+          expiresIn: '15m' as StringValue,
+        },
       );
       this.metrics.loginAttempts.inc({ result: '2fa_setup_required' });
       await this.auditService.log({
@@ -218,7 +240,11 @@ export class AuthService {
           jti,
           tokenVersion: user.tokenVersion,
         } as object,
-        { algorithm: 'RS256', privateKey: this.privateKey, expiresIn: '5m' as StringValue },
+        {
+          algorithm: 'RS256',
+          privateKey: this.privateKey,
+          expiresIn: '5m' as StringValue,
+        },
       );
       await this.auditService.log({
         userId: user.id,
@@ -535,7 +561,10 @@ export class AuthService {
     );
 
     // Rotate: store new refresh token hash
-    const newRefreshHash = await bcrypt.hash(tokens.refreshToken, getBcryptCost());
+    const newRefreshHash = await bcrypt.hash(
+      tokens.refreshToken,
+      getBcryptCost(),
+    );
     await this.prisma.user.update({
       where: { id: user.id },
       data: { refreshTokenHash: newRefreshHash },
@@ -560,15 +589,22 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
 
     if (!user || !user.isActive) {
-      throw new UnauthorizedException('Tài khoản không tồn tại hoặc đã bị vô hiệu hóa');
+      throw new UnauthorizedException(
+        'Tài khoản không tồn tại hoặc đã bị vô hiệu hóa',
+      );
     }
 
     // Guard: accounts without local password (OAuth/SSO) have no hash to compare
     if (!user.passwordHash) {
-      throw new BadRequestException('Tài khoản này không sử dụng đăng nhập bằng mật khẩu');
+      throw new BadRequestException(
+        'Tài khoản này không sử dụng đăng nhập bằng mật khẩu',
+      );
     }
 
-    const currentValid = await bcrypt.compare(dto.currentPassword, user.passwordHash);
+    const currentValid = await bcrypt.compare(
+      dto.currentPassword,
+      user.passwordHash,
+    );
     if (!currentValid) {
       throw new UnauthorizedException('Mật khẩu hiện tại không đúng');
     }
@@ -585,16 +621,23 @@ export class AuthService {
     await this.prisma.$transaction(async (tx) => {
       await tx.user.update({
         where: { id: userId },
-        data: { passwordHash: newHash, refreshTokenHash: null, tokenVersion: { increment: 1 } },
+        data: {
+          passwordHash: newHash,
+          refreshTokenHash: null,
+          tokenVersion: { increment: 1 },
+        },
       });
-      await this.auditService.log({
-        userId,
-        action: 'PASSWORD_CHANGED',
-        subject: 'User',
-        subjectId: userId,
-        ipAddress: meta.ipAddress,
-        userAgent: meta.userAgent,
-      }, tx);
+      await this.auditService.log(
+        {
+          userId,
+          action: 'PASSWORD_CHANGED',
+          subject: 'User',
+          subjectId: userId,
+          ipAddress: meta.ipAddress,
+          userAgent: meta.userAgent,
+        },
+        tx,
+      );
     });
 
     return { success: true, message: 'Mật khẩu đã được cập nhật thành công' };
@@ -617,7 +660,11 @@ export class AuthService {
     }
   }
 
-  async resetPassword(email: string, otp: string, newPassword: string): Promise<void> {
+  async resetPassword(
+    email: string,
+    otp: string,
+    newPassword: string,
+  ): Promise<void> {
     const GENERIC_ERROR = 'Mã xác nhận không hợp lệ hoặc đã hết hạn';
 
     const user = await this.prisma.user.findUnique({ where: { email } });
@@ -625,7 +672,11 @@ export class AuthService {
       throw new BadRequestException(GENERIC_ERROR); // same error as wrong OTP — no enum leak
     }
 
-    const valid = await this.otpCodeService.verify(user.id, otp, 'PASSWORD_RESET');
+    const valid = await this.otpCodeService.verify(
+      user.id,
+      otp,
+      'PASSWORD_RESET',
+    );
     if (!valid) {
       throw new BadRequestException(GENERIC_ERROR);
     }
@@ -637,7 +688,7 @@ export class AuthService {
       data: {
         passwordHash,
         tokenVersion: { increment: 1 }, // invalidate all existing JWTs (web + mobile)
-        refreshTokenHash: null,          // invalidate refresh tokens
+        refreshTokenHash: null, // invalidate refresh tokens
         // H5: self-reset legitimately satisfies the "user owns their own
         // password" invariant. If admin had previously set mustChangePassword=true
         // and the user goes through forgot-password instead of the forced flow,
@@ -672,7 +723,14 @@ export class AuthService {
             team: {
               // v0.35a: derive ward officer identity from team.wardId
               include: {
-                ward: { select: { id: true, name: true, officialCode: true, code: true } },
+                ward: {
+                  select: {
+                    id: true,
+                    name: true,
+                    officialCode: true,
+                    code: true,
+                  },
+                },
               },
             },
           },
@@ -696,8 +754,8 @@ export class AuthService {
     const primaryTeam = leaderTeam
       ? { teamId: leaderTeam.teamId, teamName: leaderTeam.teamName }
       : teams.length > 0
-      ? { teamId: teams[0].teamId, teamName: teams[0].teamName }
-      : null;
+        ? { teamId: teams[0].teamId, teamName: teams[0].teamName }
+        : null;
 
     // v0.35a: ward officer identity — first active UserTeam có team.wardId set.
     // Stale handling (Phase 3 Codex #7): inactive team → wardTeam=null.
@@ -713,10 +771,26 @@ export class AuthService {
         }
       : null;
 
+    // The frontend permission layer was MOCK_ALL_PERMISSIONS — a constant that
+    // returned true for every user, used in 48 files / 252 call sites including
+    // bulk delete. The backend PermissionsGuard was the only real gate, so
+    // there was no direct security hole; what users got instead was buttons
+    // they were not allowed to press, and a 403 when they pressed them.
+    // Shipping the real set here is what lets the UI stop lying.
+    const rolePerms = await this.prisma.rolePermission.findMany({
+      where: { roleId: user.roleId },
+      include: { permission: { select: { action: true, subject: true } } },
+    });
+    const permissions = rolePerms.map((rp) => ({
+      action: rp.permission.action,
+      subject: rp.permission.subject,
+    }));
+
     return {
       id: user.id,
       email: user.email,
       username: user.username,
+      permissions,
       firstName: user.firstName,
       lastName: user.lastName,
       role: user.role.name,
@@ -761,11 +835,14 @@ export class AuthService {
         privateKey: this.privateKey,
         expiresIn: accessExpiry as StringValue,
       }),
-      this.jwtService.signAsync({ ...payload, type: TOKEN_TYPE.REFRESH } as object, {
-        algorithm: 'RS256',
-        privateKey: this.privateKey,
-        expiresIn: refreshExpiry as StringValue,
-      }),
+      this.jwtService.signAsync(
+        { ...payload, type: TOKEN_TYPE.REFRESH } as object,
+        {
+          algorithm: 'RS256',
+          privateKey: this.privateKey,
+          expiresIn: refreshExpiry as StringValue,
+        },
+      ),
     ]);
 
     return { accessToken, refreshToken, expiresIn: accessExpiry };

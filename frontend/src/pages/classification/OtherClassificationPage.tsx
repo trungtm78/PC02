@@ -17,42 +17,18 @@ import {
   FolderOpen,
 } from "lucide-react";
 import { api } from "@/lib/api";
-import { formatVNDate } from "../../lib/dates";
+import { toDateInput, formatVNDate } from "../../lib/dates";
+import {
+  applyFilters,
+  deriveCategories,
+  type FilterData,
+  type OtherCase,
+} from "./otherClassificationFilters";
 
-interface OtherCase {
-  id: string;
-  stt: number;
-  caseName: string;
-  type: string;
-  location: string;
-  ward: string;
-  district: string;
-  reportedBy: string;
-  reportedDate: string;
-  status: "pending" | "processing" | "resolved" | "archived";
-  statusLabel: string;
-  category: string;
-  notes: string;
-}
 
-interface FilterData {
-  quickSearch: string;
-  fromDate: string;
-  toDate: string;
-  ward: string;
-  district: string;
-  status: string;
-  category: string;
-}
 
-const categories = [
-  "Chưa phân loại",
-  "Vụ án hình sự",
-  "Vụ việc dân sự",
-  "Đơn thư khiếu nại",
-  "Hồ sơ lưu trữ",
-  "Khác",
-];
+
+
 
 export default function OtherClassificationPage() {
   const navigate = useNavigate();
@@ -66,7 +42,6 @@ export default function OtherClassificationPage() {
     quickSearch: "",
     fromDate: "",
     toDate: "",
-    ward: "",
     district: "",
     status: "",
     category: "",
@@ -82,11 +57,14 @@ export default function OtherClassificationPage() {
           stt: i + 1,
           caseName: c.name,
           type: c.crime ?? "Khác",
-          location: "",
-          ward: "",
           district: c.unit ?? "",
           reportedBy: c.investigator ? `${c.investigator.firstName ?? ""} ${c.investigator.lastName ?? ""}`.trim() : "",
           reportedDate: formatVNDate(c.createdAt),
+          // toDateInput, not a raw slice of the UTC string: the row is
+          // displayed with formatVNDate (Asia/Ho_Chi_Minh), so a record created
+          // at 2026-08-10T20:00:00Z shows as 11/08 while a UTC slice would
+          // filter it as 10/08 — visibly filtered out on the day it shows.
+          reportedDateISO: toDateInput(c.createdAt),
           status: (() => {
             const m: Record<string, string> = {
               [CaseStatus.TIEP_NHAN]: "pending",
@@ -99,7 +77,6 @@ export default function OtherClassificationPage() {
           })() as OtherCase["status"],
           statusLabel: CASE_STATUS_LABEL[c.status as CaseStatus] ?? c.status ?? "",
           category: c.crime ?? "Khác",
-          notes: "",
         }));
         setAllData(mapped);
       } catch {
@@ -111,35 +88,22 @@ export default function OtherClassificationPage() {
     fetch();
   }, []);
 
-  const filteredData = useMemo(() => {
-    return allData.filter((item) => {
-      if (filters.quickSearch) {
-        const searchLower = filters.quickSearch.toLowerCase();
-        const matchesSearch =
-          String(item.stt).toLowerCase().includes(searchLower) ||
-          item.caseName.toLowerCase().includes(searchLower) ||
-          item.type.toLowerCase().includes(searchLower) ||
-          item.ward.toLowerCase().includes(searchLower);
-        if (!matchesSearch) return false;
-      }
+  // Danh mục suy ra từ chính dữ liệu đang có. Danh sách cứng trước đây là một
+  // phân loại khác hẳn ("Vụ án hình sự", "Đơn thư khiếu nại"…) trong khi
+  // `category` được map từ `c.crime` — nên ô lọc này chưa bao giờ khớp giá trị
+  // nào, giống hệt bộ lọc phường và bộ lọc ngày.
+  const categories = useMemo(() => deriveCategories(allData), [allData]);
 
-      if (filters.fromDate && item.reportedDate < filters.fromDate) return false;
-      if (filters.toDate && item.reportedDate > filters.toDate) return false;
-      if (filters.ward && item.ward !== filters.ward) return false;
-      if (filters.district && item.district !== filters.district) return false;
-      if (filters.status && item.status !== filters.status) return false;
-      if (filters.category && item.category !== filters.category) return false;
-
-      return true;
-    });
-  }, [allData, filters]);
+  const filteredData = useMemo(
+    () => applyFilters(allData, filters),
+    [allData, filters],
+  );
 
   const handleResetFilters = () => {
     setFilters({
       quickSearch: "",
       fromDate: "",
       toDate: "",
-      ward: "",
       district: "",
       status: "",
       category: "",
@@ -366,16 +330,13 @@ export default function OtherClassificationPage() {
                 <label className="block text-sm font-medium text-slate-700 mb-2">Phường/Xã</label>
                 <div className="relative">
                   <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <select
-                    value={filters.ward}
-                    onChange={(e) => setFilters({ ...filters, ward: e.target.value })}
-                    className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] bg-white"
-                  >
-                    <option value="">Tất cả</option>
-                    <option value="Phường 2">Phường 2</option>
-                    <option value="Phường 4">Phường 4</option>
-                    <option value="Phường 6">Phường 6</option>
-                  </select>
+                  <p className="rounded border border-dashed border-slate-300 px-3 py-2 text-xs text-slate-500">
+                    Lọc theo phường/xã đã gỡ: giá trị thật nằm ở
+                    <code className="mx-1">subjects.wardId</code> và phải lọc ở
+                    phía server (<code>GET /cases?wardId=</code>), không phải trên
+                    dữ liệu đã tải. Ô cũ chỉ có 3 phường bịa và so với một trường
+                    luôn rỗng — xem ND-25.
+                  </p>
                 </div>
               </div>
 
@@ -502,9 +463,8 @@ export default function OtherClassificationPage() {
                       <div className="flex flex-col gap-0.5">
                         <div className="flex items-center gap-1.5">
                           <MapPin className="w-3.5 h-3.5 text-green-600" />
-                          <span className="text-sm font-medium text-slate-800">{item.ward}</span>
+                          <span className="text-sm font-medium text-slate-800">{item.district}</span>
                         </div>
-                        <span className="text-xs text-slate-500">{item.district}</span>
                       </div>
                     </td>
                     <td className="px-4 py-3">

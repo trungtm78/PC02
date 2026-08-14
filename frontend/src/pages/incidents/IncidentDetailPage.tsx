@@ -9,6 +9,7 @@ import {
   ArrowLeft, Edit, Calendar, FileText, User, MapPin, Clock,
   AlertCircle, Loader2, Target, Hash,
 } from "lucide-react";
+import { EditWindowBanner } from '@/components/shared/EditWindowBanner';
 
 interface IncidentDetail {
   id: string;
@@ -48,7 +49,7 @@ function Field({ label, value, icon }: { label: string; value?: string | null; i
 export default function IncidentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { canEdit } = usePermission();
+  const { canEdit, canCreate } = usePermission();
 
   const [incident, setIncident] = useState<IncidentDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -120,6 +121,8 @@ export default function IncidentDetailPage() {
 
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
+      {/* D3 — nói trước, thay vì để người dùng gõ xong rồi mới bị từ chối. */}
+      {id && <EditWindowBanner subjectType="Incident" subjectId={id} />}
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -151,7 +154,10 @@ export default function IncidentDetailPage() {
             </button>
           )}
           {/* PR 3 v0.38.2.0 — Entry path 2: Khởi tố thành vụ án từ IncidentDetailPage */}
-          {canEdit('incidents') && (
+          {/* Two grants, because the action needs both: it edits this incident
+              AND creates a case. Checking only the first sent an incident editor
+              without `write:Case` into the case form to be refused on save. */}
+          {canEdit('incidents') && canCreate('cases') && (
             <button
               onClick={() => {
                 if (window.confirm(

@@ -19,12 +19,12 @@ export class NotificationSseService implements OnModuleDestroy {
     this.streams.get(userId)!.add(subject);
 
     const notify$ = subject.pipe(
-      map(() => ({ data: { type: 'unread-count-update' } } as MessageEvent)),
+      map(() => ({ data: { type: 'unread-count-update' } }) as MessageEvent),
     );
 
     // D4: heartbeat every 30s — keeps connection alive through NAT/firewall
     const heartbeat$ = interval(30_000).pipe(
-      map(() => ({ data: { type: 'heartbeat' } } as MessageEvent)),
+      map(() => ({ data: { type: 'heartbeat' } }) as MessageEvent),
     );
 
     return new Observable<MessageEvent>((observer) => {

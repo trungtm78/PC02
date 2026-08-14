@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "@/lib/api";
+import { usePermission } from "@/hooks/usePermission";
 import { extractApiError } from "@/lib/api-errors";
 import { ArrowLeft, AlertCircle, Calendar, FileText, Loader2, ChevronDown, ChevronRight, Target } from "lucide-react";
 import { DynamicLegacyFields } from "@/components/DynamicLegacyFields";
@@ -160,6 +161,7 @@ function CollapsibleSection({
 
 export function IncidentFormPage() {
   const navigate = useNavigate();
+  const { canCreate } = usePermission();
   const { id } = useParams<{ id: string }>();
   const isEditMode = !!id;
   const [legacyRaw, setLegacyRaw] = useState<Record<string, unknown> | null>(null);
@@ -887,7 +889,10 @@ export function IncidentFormPage() {
           </div>
 
           {/* Entry path 3 — Button "Khởi tố thành vụ án" (anh confirm) */}
-          {!isEditMode || !id ? null : (
+          {/* Also needs `write:Case`: the button leads to the case form, which
+              refuses to save without it. Showing it regardless spent the user's
+              time before telling them no. */}
+          {!isEditMode || !id || !canCreate('cases') ? null : (
             <div className="mt-6 pt-6 border-t border-slate-200">
               <p className="text-sm text-slate-600 mb-3">
                 ℹ️ Nếu đã quyết định khởi tố, click nút bên dưới để tạo hồ sơ vụ án:

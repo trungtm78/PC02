@@ -10,12 +10,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-const SCHEMA_PATH = path.resolve(
-  __dirname,
-  '..',
-  'prisma',
-  'schema.prisma',
-);
+const SCHEMA_PATH = path.resolve(__dirname, '..', 'prisma', 'schema.prisma');
 const FRONTEND_GENERATED = path.resolve(
   __dirname,
   '..',
@@ -27,51 +22,15 @@ const FRONTEND_GENERATED = path.resolve(
   'generated.ts',
 );
 
-// Mirror generator whitelist — keep in sync with scripts/generate-shared-enums.cjs
-const SHARED_ENUMS = [
-  'CaseStatus',
-  'IncidentStatus',
-  'PetitionStatus',
-  'SubjectType',
-  'SubjectStatus',
-  'ProposalStatus',
-  'GuidanceStatus',
-  'ExchangeStatus',
-  'DelegationStatus',
-  'ConclusionStatus',
-  'AccessLevel',
-  'ReportTdcStatus',
-  'ReportTdcType',
-  'TienDoKhacPhuc',
-  'LyDoKhongKhoiTo',
-  'LyDoTamDinhChiVuAn',
-  'KetQuaPhucHoiVuAn',
-  'LyDoTamDinhChiVuViec',
-  'KetQuaPhucHoiVuViec',
-  'LoaiDon',
-  'LoaiNguonTin',
-  'CapDoToiPham',
-  'NotificationType',
-  'DocumentType',
-];
+// Imported, not copied. A hand-mirrored copy drifted once already: DocumentType
+// stayed in this list after migration 20260627000001 turned it into a dynamic
+// catalog, and nothing caught it because jest never picked this file up
+// (rootDir was "src"). Sharing the generator's list makes that impossible.
 
-function parseEnumsFromSchema(source: string): Record<string, string[]> {
-  const enumPattern = /enum\s+(\w+)\s*\{([\s\S]*?)\}/g;
-  const result: Record<string, string[]> = {};
-  let match: RegExpExecArray | null;
-  while ((match = enumPattern.exec(source)) !== null) {
-    const [, name, body] = match;
-    const values: string[] = [];
-    for (const rawLine of body.split('\n')) {
-      const noComment = rawLine.replace(/\/\/.*/, '').trim();
-      if (!noComment || noComment.startsWith('@@')) continue;
-      const identMatch = noComment.match(/^([A-Z][A-Z0-9_]*)$/);
-      if (identMatch) values.push(identMatch[1]);
-    }
-    if (values.length > 0) result[name] = values;
-  }
-  return result;
-}
+import {
+  SHARED_ENUMS,
+  parseEnums as parseEnumsFromSchema,
+} from '../scripts/generate-shared-enums.cjs';
 
 function parseEnumsFromGenerated(source: string): Record<string, string[]> {
   // Match: export const Name = { K: 'V', ... } as const;
@@ -83,7 +42,12 @@ function parseEnumsFromGenerated(source: string): Record<string, string[]> {
     const values: string[] = [];
     for (const rawLine of body.split('\n')) {
       const trimmed = rawLine.trim();
-      const valueMatch = trimmed.match(/^([A-Z][A-Z0-9_]*):\s*['"]([^'"]+)['"],?$/);
+      // Both cases: the generator emits UPPER_CASE for most enums but keeps
+      // lowercase for status-style ones (DeadlineRuleStatus). An UPPER-only
+      // pattern parsed those as empty and reported them as missing.
+      const valueMatch = trimmed.match(
+        /^([A-Za-z][A-Za-z0-9_]*):\s*['"]([^'"]+)['"],?$/,
+      );
       if (valueMatch) {
         const [, key, value] = valueMatch;
         if (key !== value) {
@@ -111,7 +75,9 @@ describe('Shared enums sync — frontend generated.ts ↔ schema.prisma', () => 
   });
 
   it('parses schema.prisma without throwing', () => {
-    expect(Object.keys(schemaEnums).length).toBeGreaterThanOrEqual(SHARED_ENUMS.length);
+    expect(Object.keys(schemaEnums).length).toBeGreaterThanOrEqual(
+      SHARED_ENUMS.length,
+    );
   });
 
   it('frontend generated.ts has every whitelisted enum', () => {

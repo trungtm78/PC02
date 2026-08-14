@@ -7,6 +7,362 @@ on:
     branches: [main]
 
 jobs:
+  # Enforces the rules the project documents but nothing checked. Ordered so
+  # the two dependency-free guards fail fast, before spending time on npm ci.
+  governance:
+    name: Governance Gate
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          # The lint ratchet diffs against the merge base with main.
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+
+      # CLAUDE.md has always claimed CI verified this. It did not, until now.
+      - name: Enum literals are not compared as strings
+        run: node scripts/governance/check-enum-literals.cjs
+
+      # generated.ts is committed, so a schema change without re-running the
+      # generator ships a frontend that disagrees with the database.
+      - name: Shared enums are in sync with schema.prisma
+        run: |
+          cd backend && npm run gen:enums
+          cd "$GITHUB_WORKSPACE"
+          git diff --exit-code -- frontend/src/shared/enums/ \
+            || { echo "::error::gen:enums produced changes — run 'cd backend && npm run gen:enums' and commit the result."; exit 1; }
+
+      # Same contract as the enums above: the generated registry is committed,
+      # so a new feature.manifest.ts without a regenerate ships a backend that
+      # has never heard of a module the frontend already shows a menu item for.
+      # That failure mode has reached production three times.
+      - name: Feature registry is in sync with the manifests on disk
+        run: |
+          cd backend && npm run gen:feature-registry
+          cd "$GITHUB_WORKSPACE"
+          git diff --exit-code -- backend/src/feature-flags/feature-registry.generated.ts \
+            || { echo "::error::A feature.manifest.ts was added or renamed — run 'cd backend && npm run gen:feature-registry' and commit the result."; exit 1; }
+
+      - name: Install backend dependencies
+        run: cd backend && npm ci
+
+      - name: Install frontend dependencies
+        run: cd frontend && npm ci
+
+      # Whole-repo lint is ~11.5k problems of accumulated debt, so the gate is
+      # monotonic instead: a file this branch touches may not get worse.
+      - name: Lint ratchet on changed files
+        run: node scripts/governance/lint-changed.cjs origin/main
+
+  # Reports only, for now. Both checks are known to be red against the current
+  # tree, and turning them into merge blockers before that is dealt with would
+  # stop every PR on debt unrelated to it:
+  #
+  #  - tests/ type-check: 9 errors across 6 generated UAT specs that CI does
+  #    not run — see ND-10 in PROGRESS.md. The live parts are already clean.
+  #  - schema drift: production carries at least six partial indexes that
+  #    Prisma 7 has no syntax for (20260516120000, 20260522131024,
+  #    20260627130700), so `migrate diff` reports a difference that cannot be
+  #    expressed in schema.prisma. Upcoming work adds another one.
+  #
+  # Flip continue-on-error off per check, as each becomes actionable.
+  # e2e-new CHƯA vào CI — và lý do đã đổi, đừng đọc theo bản cũ.
+  #
+  # Comment trước ghi "has no specs ... joins CI with its first spec". Điều kiện
+  # đó đã đạt: nay có 5 spec / 34 kiểm, tất cả xanh khi chạy tay
+  # (`UAT-COVERAGE.md`). Cái chặn bây giờ là HẠ TẦNG, không phải thiếu spec:
+  #
+  #   1. Chúng gọi API thật, nên cần backend chạy + Postgres + `migrate deploy`
+  #      + seed (`seed.ts`, `seed-permissions.ts`, `seed-feature-flags.ts`,
+  #      `seed-document-templates.ts`). Thiếu seed cuối thì tạo đơn thư trả 503.
+  #   2. `tests/global-setup.ts` đòi ADMIN_USERNAME/ADMIN_PASSWORD từ môi trường
+  #      — cố ý, không có default (mật khẩu mặc định là mật khẩu bị commit).
+  #      CI cần một cặp secret cho tài khoản dùng riêng cho test.
+  #   3. Bộ Đợt 4 còn cần frontend chạy; ba bộ kia chỉ cần backend.
+  #   4. Bộ gate cờ BẬT/TẮT feature flag thật rồi bật lại. An toàn trên DB dùng
+  #      riêng cho một lần chạy; KHÔNG được trỏ vào DB dùng chung.
+  #
+  # Việc cần làm để nối: một job riêng có `services: postgres`, boot backend,
+  # seed, rồi `npx playwright test --project=e2e-new`. Chạy tách khỏi job
+  # `test` để một lỗi hạ tầng CI không che mất kết quả unit test.
+  # ─── UAT API trên hệ thật ────────────────────────────────────────────────
+  # ĐÃ CHẠY THỬ END-TO-END trên máy local trước khi commit, không phải công thức
+  # viết theo trí nhớ: DB trắng → migrate deploy (94/94) → 3 seed → boot
+  # `dist/src/main.js` → 30/30 spec xanh. Lần chạy thử đầu HỎNG ở bước seed
+  # (thiếu SEED_ADMIN_PASSWORD) — đó là lý do biến đó có mặt bên dưới.
+  # 30 kiểm gọi API thật: ma trận phân quyền không rỗng, mất dữ liệu im lặng,
+  # hạ tầng cờ, xin mở lại quyền sửa, và 15 cờ E4/E5/E6 CHẶN thật.
+  #
+  # Vì sao cần dù đã có 3255 unit test: `feature-gating.spec.ts` kiểm
+  # *manifest ⇔ decorator khớp nhau* — tức decorator có được GẮN không. Nó xanh
+  # suốt trong khi gate là no-op hoàn toàn (ADR-0018). Một cổng kiểm "đã gắn
+  # nhãn chưa" không thay được một cổng kiểm "có chặn không".
+  #
+  # TỰ BỎ QUA khi chưa có secret, thay vì đỏ mỗi lần chạy: `global-setup` cố ý
+  # không có credential mặc định (mật khẩu mặc định là mật khẩu bị commit). Job
+  # này im lặng cho tới khi ai đó tạo `UAT_ADMIN_USERNAME`/`UAT_ADMIN_PASSWORD`
+  # cho một tài khoản dùng RIÊNG cho test — sau đó nó chạy mà không cần sửa gì.
+  #
+  # `continue-on-error` theo đúng nếp của repo: vào CI ở chế độ không chặn
+  # trước, gỡ ra khi đã chạy ổn định vài vòng.
+  #
+  # KHÔNG chạy `uat-wave4-mockup` ở đây — bộ đó cần frontend chạy, là việc của
+  # một job khác.
+  uat-api:
+    name: UAT API (non-blocking)
+    runs-on: ubuntu-latest
+    if: ${{ vars.UAT_API_ENABLED == 'true' }}
+    continue-on-error: true
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: pc02_ci
+          POSTGRES_PASSWORD: pc02_ci
+          POSTGRES_DB: pc02_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U pc02_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://pc02_ci:pc02_ci@localhost:5432/pc02_ci?schema=public
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: cd backend && npm ci && cd .. && npm ci
+
+      # Baseline ND-26 làm bước này chạy được trên DB trắng. Trước khi có nó,
+      # `migrate deploy` chết ngay ở migration đầu: không migration nào tạo bảng
+      # `cases`. Xem docs/DEPLOY.md mục "Baseline migration (ND-26)".
+      - name: Build backend
+        run: cd backend && npx prisma generate && npm run build
+
+      # THỨ TỰ QUAN TRỌNG, và cách nó hỏng thì im lặng: `db:seed:doc-templates`
+      # chạy trước khi `db:seed` thành công sẽ tạo 0 mẫu MÀ VẪN exit 0. Hệ quả
+      # chỉ hiện ra sau đó rất xa — tạo đơn thư trả 503 (ND-28).
+      #
+      # `db:seed` đòi SEED_ADMIN_PASSWORD (cố ý: không có mật khẩu mặc định).
+      # Dùng chung secret với đăng nhập test, nên CI tự dựng tài khoản của nó —
+      # không cần một tài khoản có sẵn trên môi trường nào.
+      - name: Migrate + seed
+        env:
+          SEED_ADMIN_PASSWORD: ${{ secrets.UAT_ADMIN_PASSWORD }}
+        run: |
+          cd backend
+          npx prisma migrate deploy
+          npm run db:seed
+          npm run db:seed:features
+          npm run db:seed:doc-templates
+
+      # Khởi động backend và chạy test trong CÙNG một step, cố ý: tiến trình nền
+      # sống sót qua ranh giới step là thứ không đáng tin — nó thường chạy, và
+      # khi không thì lỗi hiện ra dưới dạng "connection refused" trông y hệt lỗi
+      # ứng dụng. Đợt này đã mất vài vòng vì đúng cái nhầm lẫn đó ở máy local.
+      - name: Boot backend + chạy UAT API specs
+        env:
+          BASE_URL: http://localhost:3000
+          API_URL: http://localhost:3000
+          UAT_PROD: '1'
+          ADMIN_USERNAME: admin # `prisma/seed.ts` tạo cố định username này
+          ADMIN_PASSWORD: ${{ secrets.UAT_ADMIN_PASSWORD }}
+        run: |
+          npx playwright install --with-deps chromium
+          node backend/dist/src/main.js &
+          BACKEND_PID=$!
+          trap 'kill $BACKEND_PID 2>/dev/null || true' EXIT
+          for i in $(seq 1 60); do
+            curl -sf http://localhost:3000/api/v1/health >/dev/null && break
+            if [ "$i" = "60" ]; then echo "::error::backend không lên sau 120s"; exit 1; fi
+            sleep 2
+          done
+          npx playwright test --project=e2e-new --workers=1 --grep-invert "Đợt 4"
+
+  # ─── UAT qua trình duyệt (bộ Đợt 4 — xoá mockup) ─────────────────────────
+  # Tách khỏi `uat-api` vì nó cần THÊM frontend chạy. Giữ riêng để một lỗi khởi
+  # động frontend không làm mất luôn tín hiệu của 30 kiểm API.
+  #
+  # Dùng `npm run dev` chứ không `vite preview`: frontend gọi `/api/v1` tương
+  # đối và dựa vào `server.proxy` của vite trỏ sang :3000. `vite preview` KHÔNG
+  # áp `server.proxy` (nó đọc `preview.proxy`), nên bản build tĩnh sẽ 404 mọi
+  # lời gọi API — một cách hỏng trông y hệt backend chết.
+  uat-e2e:
+    name: UAT trình duyệt (non-blocking)
+    runs-on: ubuntu-latest
+    if: ${{ vars.UAT_API_ENABLED == 'true' }}
+    continue-on-error: true
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: pc02_ci
+          POSTGRES_PASSWORD: pc02_ci
+          POSTGRES_DB: pc02_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U pc02_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://pc02_ci:pc02_ci@localhost:5432/pc02_ci?schema=public
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: cd backend && npm ci && cd ../frontend && npm ci && cd .. && npm ci
+
+      - name: Build backend
+        run: cd backend && npx prisma generate && npm run build
+
+      # THỨ TỰ QUAN TRỌNG, và cách nó hỏng thì im lặng: `db:seed:doc-templates`
+      # chạy trước khi `db:seed` thành công sẽ tạo 0 mẫu MÀ VẪN exit 0. Hệ quả
+      # chỉ hiện ra sau đó rất xa — tạo đơn thư trả 503 (ND-28).
+      #
+      # `db:seed` đòi SEED_ADMIN_PASSWORD (cố ý: không có mật khẩu mặc định).
+      # Dùng chung secret với đăng nhập test, nên CI tự dựng tài khoản của nó —
+      # không cần một tài khoản có sẵn trên môi trường nào.
+      - name: Migrate + seed
+        env:
+          SEED_ADMIN_PASSWORD: ${{ secrets.UAT_ADMIN_PASSWORD }}
+        run: |
+          cd backend
+          npx prisma migrate deploy
+          npm run db:seed
+          npm run db:seed:features
+          npm run db:seed:doc-templates
+
+      # Cả ba tiến trình trong CÙNG một step — xem ghi chú ở job `uat-api`.
+      - name: Boot backend + frontend, chạy bộ Đợt 4
+        env:
+          BASE_URL: http://localhost:5173
+          API_URL: http://localhost:3000
+          UAT_PROD: '1'
+          ADMIN_USERNAME: admin # `prisma/seed.ts` tạo cố định username này
+          ADMIN_PASSWORD: ${{ secrets.UAT_ADMIN_PASSWORD }}
+          UAT_USER: admin
+          UAT_PASS: ${{ secrets.UAT_ADMIN_PASSWORD }}
+        run: |
+          npx playwright install --with-deps chromium
+          node backend/dist/src/main.js &
+          BE=$!
+          (cd frontend && npm run dev -- --port 5173) &
+          FE=$!
+          trap 'kill $BE $FE 2>/dev/null || true' EXIT
+          for i in $(seq 1 60); do
+            curl -sf http://localhost:3000/api/v1/health >/dev/null               && curl -sf http://localhost:5173/ >/dev/null && break
+            if [ "$i" = "60" ]; then echo "::error::backend hoặc frontend không lên sau 120s"; exit 1; fi
+            sleep 2
+          done
+          npx playwright test --project=e2e-new --workers=1 --grep "Đợt 4"
+
+  advisory:
+    name: Advisory Checks (non-blocking)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: pc02_ci
+          POSTGRES_PASSWORD: pc02_ci
+          POSTGRES_DB: pc02_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U pc02_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        run: cd backend && npm ci
+
+      - name: Install root dependencies
+        run: npm ci
+
+      # tests/ has never been type-checked. 9 errors remain, all in generated
+      # UAT specs that CI does not run (missing variables the generator forgot
+      # to declare, a duplicated object key, an absent jszip dependency) — see
+      # tests/e2e-new/README.md for why that suite is not wired up. The live
+      # parts (global-setup, pages, helpers, e2e-new) are clean.
+      - name: Type-check tests/
+        continue-on-error: true
+        run: |
+          node backend/node_modules/typescript/bin/tsc --noEmit -p tsconfig.json \
+          && echo "tests/ type-checks clean." \
+          || echo "::warning::tests/ has type errors — expected while the generated UAT specs are unfixed."
+
+      # Ratchet drift: drift được phép GIỮ NGUYÊN hoặc GIẢM, không được mọc
+      # thêm. Danh sách "drift đã chấp nhận" từng giấu HAI bug thật —
+      # `NotificationType` thiếu 4 giá trị (scheduler lỗi enum mỗi ngày) và
+      # `otp_codes.purpose` (2FA hỏng hoàn toàn) — cả hai chỉ hại trên DB dựng
+      # từ migration, tức mọi máy mới. Cổng này bắt câu drift MỚI, là dấu hiệu
+      # ai đó sửa schema.prisma mà quên viết migration.
+      #
+      # Vẫn `continue-on-error` như các check khác trong job này; gỡ ra khi đã
+      # chạy ổn định vài vòng.
+      - name: Drift ratchet (migration ↔ schema)
+        continue-on-error: true
+        env:
+          DATABASE_URL: postgresql://pc02_ci:pc02_ci@localhost:5432/pc02_ci?schema=public
+        run: |
+          cd backend && npx prisma generate && cd ..
+          node scripts/governance/check-migration-drift.cjs             || echo "::warning::Drift migration ↔ schema mọc thêm — xem log."
+
+      # Compares the applied migration history against schema.prisma using a
+      # shadow database, catching a schema edited without a migration.
+      - name: Migration drift
+        continue-on-error: true
+        env:
+          SHADOW_DATABASE_URL: postgresql://pc02_ci:pc02_ci@localhost:5432/pc02_ci?schema=shadow
+        run: |
+          cd backend
+          npx prisma migrate diff \
+            --from-migrations ./prisma/migrations \
+            --to-schema-datamodel ./prisma/schema.prisma \
+            --shadow-database-url "$SHADOW_DATABASE_URL" \
+            --exit-code \
+          && echo "No drift." \
+          || echo "::warning::Schema drift detected — expected while the partial-index gap is open."
+
   test:
     name: Backend Tests
     runs-on: ubuntu-latest

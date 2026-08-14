@@ -35,6 +35,26 @@ export interface FeatureModule {
   menu?: FeatureMenuEntry[];
 }
 
+/**
+ * The permission a menu entry answers to.
+ *
+ * ND-22: the sidebar filtered on feature flags alone, so a module switched on
+ * for the unit listed its screens for everybody — including users the backend
+ * would answer 403. Two different questions were being asked with one answer:
+ * "is this module part of this deployment" (the flag) and "may this user open
+ * it" (the grant).
+ *
+ * Optional on purpose. An entry with no `requires` is governed by its flag
+ * alone, which is right for modules the seed defines no subject for — gating
+ * those would mean inventing a grant to check.
+ */
+export interface FeatureMenuPermission {
+  /** Frontend resource key, e.g. `cases`. See `PERMISSION_RESOURCE`. */
+  resource: string;
+  /** Defaults to `view`. */
+  action?: 'view' | 'create' | 'edit' | 'delete';
+}
+
 export interface FeatureMenuEntry {
   /** Which top-level sidebar section this entry belongs to. */
   section:
@@ -51,6 +71,8 @@ export interface FeatureMenuEntry {
   icon?: string;
   badge?: string;
   children?: FeatureMenuEntry[];
+  /** Hide this entry unless the user holds this grant. See the type's note. */
+  requires?: FeatureMenuPermission;
   /**
    * Sort order within the section (ascending). Lower = earlier.
    * Default 100. Use lower values (e.g. 10) to surface an item above

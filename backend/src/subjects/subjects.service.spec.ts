@@ -1,7 +1,7 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { Test, TestingModule } from '@nestjs/testing';
 import {
   ConflictException,
+  ForbiddenException,
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
@@ -13,6 +13,13 @@ import { SubjectStatus } from '@prisma/client';
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
 const mockPrisma = {
+  // ND-19: create loads the parent and inserts the child inside one transaction
+  // with the parent row locked, so the mock provides `$transaction`. Running the
+  // callback against the same mock keeps every existing expectation pointed at
+  // the same jest.fn()s.
+  $transaction: jest.fn((cb: (tx: unknown) => unknown) => cb(mockPrisma)),
+  $queryRawUnsafe: jest.fn(),
+
   subject: {
     findMany: jest.fn(),
     count: jest.fn(),
@@ -60,7 +67,12 @@ const FAKE_SUBJECT = {
 };
 
 const FAKE_CASE = { id: 'case-001', name: 'Vụ án A', deletedAt: null };
-const FAKE_CRIME = { id: 'crime-001', type: 'CRIME', name: 'Trộm cắp', isActive: true };
+const FAKE_CRIME = {
+  id: 'crime-001',
+  type: 'CRIME',
+  name: 'Trộm cắp',
+  isActive: true,
+};
 
 const BASE_CREATE_DTO = {
   fullName: 'Nguyễn Văn A',
@@ -177,7 +189,10 @@ describe('SubjectsService', () => {
 
       expect(mockPrisma.subject.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: expect.objectContaining({ districtId: 'd-01', wardId: 'w-01' }),
+          where: expect.objectContaining({
+            districtId: 'd-01',
+            wardId: 'w-01',
+          }),
         }),
       );
     });
@@ -243,9 +258,7 @@ describe('SubjectsService', () => {
     it('throws NotFoundException with subject id in message', async () => {
       mockPrisma.subject.findFirst.mockResolvedValue(null);
 
-      await expect(service.getById('bad-id')).rejects.toThrow(
-        /bad-id/,
-      );
+      await expect(service.getById('bad-id')).rejects.toThrow(/bad-id/);
     });
 
     it('throws ForbiddenException when parent case is out of scope', async () => {
@@ -253,8 +266,14 @@ describe('SubjectsService', () => {
         ...FAKE_SUBJECT,
         case: { assignedTeamId: 'team-X', investigatorId: 'user-X' },
       });
-      const scope = { userIds: ['u1'], teamIds: ['t1'], writableTeamIds: ['t1'] };
-      await expect(service.getById('sub-001', scope)).rejects.toThrow('Bạn không có quyền truy cập bản ghi này');
+      const scope = {
+        userIds: ['u1'],
+        teamIds: ['t1'],
+        writableTeamIds: ['t1'],
+      };
+      await expect(service.getById('sub-001', scope)).rejects.toThrow(
+        'Bạn không có quyền truy cập bản ghi này',
+      );
     });
 
     it('passes scope check when parent case team matches', async () => {
@@ -304,28 +323,67 @@ describe('SubjectsService', () => {
       );
     });
 
+    // getById() and update() have always checked the parent case against the
+    // caller's scope. create() did not, so knowing a case id was enough to
+    // attach a person to another team's file.
+    it('refuses to attach a subject to another team’s case', async () => {
+      mockPrisma.case.findFirst.mockResolvedValue({
+        ...FAKE_CASE,
+        assignedTeamId: 'team-B',
+        investigatorId: 'inv-B',
+      });
+
+      await expect(
+        service.create(BASE_CREATE_DTO, 'actor-1', undefined, {
+          teamIds: ['team-A'],
+          writableTeamIds: ['team-A'],
+          userIds: ['inv-A'],
+        } as never),
+      ).rejects.toThrow(ForbiddenException);
+      expect(mockPrisma.subject.create).not.toHaveBeenCalled();
+    });
+
+    it('allows a subject on a case inside the caller’s writable team', async () => {
+      mockPrisma.case.findFirst.mockResolvedValue({
+        ...FAKE_CASE,
+        assignedTeamId: 'team-A',
+        investigatorId: 'inv-A',
+      });
+
+      await service.create(BASE_CREATE_DTO, 'actor-1', undefined, {
+        teamIds: ['team-A'],
+        writableTeamIds: ['team-A'],
+        userIds: ['inv-A'],
+      } as never);
+
+      expect(mockPrisma.subject.create).toHaveBeenCalledTimes(1);
+    });
+
     it('EC-04: throws ConflictException on duplicate idNumber', async () => {
       mockPrisma.subject.findFirst.mockResolvedValue(FAKE_SUBJECT); // dup found
 
-      await expect(
-        service.create(BASE_CREATE_DTO, 'actor-1'),
-      ).rejects.toThrow(ConflictException);
+      await expect(service.create(BASE_CREATE_DTO, 'actor-1')).rejects.toThrow(
+        ConflictException,
+      );
     });
 
     it('EC-04: ConflictException message contains idNumber', async () => {
       mockPrisma.subject.findFirst.mockResolvedValue(FAKE_SUBJECT);
 
       await expect(
-        service.create({ ...BASE_CREATE_DTO, idNumber: '012345678901' }, 'actor-1'),
+        service.create(
+          { ...BASE_CREATE_DTO, idNumber: '012345678901' },
+          'actor-1',
+        ),
       ).rejects.toThrow(/012345678901/);
     });
 
     it('throws BadRequestException when case does not exist', async () => {
       mockPrisma.case.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.create(BASE_CREATE_DTO, 'actor-1'),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.create(BASE_CREATE_DTO, 'actor-1')).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('EC-03: allows linking to case with any non-deleted status', async () => {
@@ -341,9 +399,9 @@ describe('SubjectsService', () => {
     it('throws BadRequestException when crime not found in master', async () => {
       mockPrisma.crime.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.create(BASE_CREATE_DTO, 'actor-1'),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.create(BASE_CREATE_DTO, 'actor-1')).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('defaults status to INVESTIGATING when not provided', async () => {
@@ -415,7 +473,10 @@ describe('SubjectsService', () => {
     });
 
     it('stores null districtName when not provided', async () => {
-      mockPrisma.subject.create.mockResolvedValue({ ...FAKE_SUBJECT, districtName: null });
+      mockPrisma.subject.create.mockResolvedValue({
+        ...FAKE_SUBJECT,
+        districtName: null,
+      });
 
       await service.create(BASE_CREATE_DTO, 'actor-1');
 
@@ -528,11 +589,7 @@ describe('SubjectsService', () => {
     });
 
     it('converts dateOfBirth string to Date object', async () => {
-      await service.update(
-        'sub-001',
-        { dateOfBirth: '1995-06-15' },
-        'actor-1',
-      );
+      await service.update('sub-001', { dateOfBirth: '1995-06-15' }, 'actor-1');
 
       const callArg = mockPrisma.subject.update.mock.calls[0][0];
       expect(callArg.data.dateOfBirth).toBeInstanceOf(Date);
@@ -544,7 +601,10 @@ describe('SubjectsService', () => {
   describe('delete', () => {
     beforeEach(() => {
       mockPrisma.subject.findFirst.mockResolvedValue(FAKE_SUBJECT);
-      mockPrisma.subject.update.mockResolvedValue({ ...FAKE_SUBJECT, deletedAt: new Date() });
+      mockPrisma.subject.update.mockResolvedValue({
+        ...FAKE_SUBJECT,
+        deletedAt: new Date(),
+      });
     });
 
     it('soft-deletes subject (sets deletedAt, does not hard delete)', async () => {
@@ -677,7 +737,9 @@ describe('SubjectsService', () => {
 
       await service.getList({});
 
-      const callArg = mockPrisma.subject.findMany.mock.calls[0][0] as { where: Record<string, unknown> };
+      const callArg = mockPrisma.subject.findMany.mock.calls[0][0] as {
+        where: Record<string, unknown>;
+      };
       expect(callArg.where).not.toHaveProperty('type');
     });
   });
@@ -699,7 +761,10 @@ describe('SubjectsService', () => {
       });
 
       await expect(
-        service.create({ ...BASE_CREATE_DTO, type: 'SUSPECT' as any }, 'actor-1'),
+        service.create(
+          { ...BASE_CREATE_DTO, type: 'SUSPECT' as any },
+          'actor-1',
+        ),
       ).rejects.toThrow(ConflictException);
     });
 
@@ -718,7 +783,10 @@ describe('SubjectsService', () => {
     it('EC-04: stamps correct type on created record', async () => {
       mockPrisma.subject.findFirst.mockResolvedValue(null);
 
-      await service.create({ ...BASE_CREATE_DTO, type: 'VICTIM' as any }, 'actor-1');
+      await service.create(
+        { ...BASE_CREATE_DTO, type: 'VICTIM' as any },
+        'actor-1',
+      );
 
       expect(mockPrisma.subject.create).toHaveBeenCalledWith(
         expect.objectContaining({

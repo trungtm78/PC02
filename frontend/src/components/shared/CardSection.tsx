@@ -11,10 +11,26 @@ import {
 interface CardProps {
   children: ReactNode;
   className?: string;
+  /**
+   * Forwarded to the wrapper element.
+   *
+   * Callers were already passing this — `EntityDocumentsTab` sets one from
+   * `ENTITY_COPY[kind].testId` — but `Card` dropped every prop it did not name,
+   * so the attribute never reached the DOM and the hook silently did nothing.
+   */
+  "data-testid"?: string;
 }
 
-export function Card({ children, className = "" }: CardProps) {
-  return <div className={`${CARD_BASE} ${className}`}>{children}</div>;
+export function Card({
+  children,
+  className = "",
+  "data-testid": testId,
+}: CardProps) {
+  return (
+    <div className={`${CARD_BASE} ${className}`} data-testid={testId}>
+      {children}
+    </div>
+  );
 }
 
 // ─── CardHeader ─────────────────────────────────────────────────────────────

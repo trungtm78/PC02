@@ -1,19 +1,28 @@
 import { CaseProvenance } from '@prisma/client';
-import { shouldAutoCreateIncident, buildIncidentFromCase } from './incident-factory.util';
+import {
+  shouldAutoCreateIncident,
+  buildIncidentFromCase,
+} from './incident-factory.util';
 
 describe('shouldAutoCreateIncident', () => {
   it.each([
-    [CaseProvenance.DIRECT_DISCOVERY,    { incidentDate: '2026-01-01' },     true],
-    [CaseProvenance.TRANSFERRED,          { incidentType: 'Trộm cắp' },      true],
-    [CaseProvenance.SELF_SURRENDER,       { incidentDescription: 'Mô tả' },  true],
-    [CaseProvenance.PROSECUTOR_PROPOSAL,  { incidentLocation: '123 Đường' }, true],
-    [CaseProvenance.OTHER_LEGAL_SOURCE,   { incidentDate: '2026-01-01' },    true],
-    ['FROM_INCIDENT',                     { incidentDate: '2026-01-01' },    false],
-    ['FROM_PETITION',                     { incidentDate: '2026-01-01' },    false],
-    [CaseProvenance.DIRECT_DISCOVERY,    {},                                  false],
-    [CaseProvenance.DIRECT_DISCOVERY,    null,                                false],
+    [CaseProvenance.DIRECT_DISCOVERY, { incidentDate: '2026-01-01' }, true],
+    [CaseProvenance.TRANSFERRED, { incidentType: 'Trộm cắp' }, true],
+    [CaseProvenance.SELF_SURRENDER, { incidentDescription: 'Mô tả' }, true],
+    [
+      CaseProvenance.PROSECUTOR_PROPOSAL,
+      { incidentLocation: '123 Đường' },
+      true,
+    ],
+    [CaseProvenance.OTHER_LEGAL_SOURCE, { incidentDate: '2026-01-01' }, true],
+    ['FROM_INCIDENT', { incidentDate: '2026-01-01' }, false],
+    ['FROM_PETITION', { incidentDate: '2026-01-01' }, false],
+    [CaseProvenance.DIRECT_DISCOVERY, {}, false],
+    [CaseProvenance.DIRECT_DISCOVERY, null, false],
   ] as const)('%s + meta present=%s → %s', (provenance, meta, expected) => {
-    expect(shouldAutoCreateIncident(provenance as string, meta as any)).toBe(expected);
+    expect(shouldAutoCreateIncident(provenance as string, meta as any)).toBe(
+      expected,
+    );
   });
 });
 
@@ -56,7 +65,10 @@ describe('buildIncidentFromCase', () => {
   });
 
   it('maps incidentDate to fromDate as Date object', () => {
-    const result = buildIncidentFromCase({ ...baseInput, meta: { incidentDate: '2026-01-15' } });
+    const result = buildIncidentFromCase({
+      ...baseInput,
+      meta: { incidentDate: '2026-01-15' },
+    });
     expect(result.fromDate).toEqual(new Date('2026-01-15'));
   });
 
@@ -66,22 +78,34 @@ describe('buildIncidentFromCase', () => {
   });
 
   it('returns fromDate = undefined when incidentDate is an invalid string (guards Prisma 500)', () => {
-    const result = buildIncidentFromCase({ ...baseInput, meta: { incidentDate: 'not-a-date' } });
+    const result = buildIncidentFromCase({
+      ...baseInput,
+      meta: { incidentDate: 'not-a-date' },
+    });
     expect(result.fromDate).toBeUndefined();
   });
 
   it('maps incidentLocation to diaChiXayRa', () => {
-    const result = buildIncidentFromCase({ ...baseInput, meta: { incidentLocation: '123 Đường Abc' } });
+    const result = buildIncidentFromCase({
+      ...baseInput,
+      meta: { incidentLocation: '123 Đường Abc' },
+    });
     expect(result.diaChiXayRa).toBe('123 Đường Abc');
   });
 
   it('sets investigatorId from input.investigatorId', () => {
-    const result = buildIncidentFromCase({ ...baseInput, investigatorId: 'inv-id-42' });
+    const result = buildIncidentFromCase({
+      ...baseInput,
+      investigatorId: 'inv-id-42',
+    });
     expect(result.investigatorId).toBe('inv-id-42');
   });
 
   it('sets assignedTeamId from input.assignedTeamId when provided', () => {
-    const result = buildIncidentFromCase({ ...baseInput, assignedTeamId: 'team-99' });
+    const result = buildIncidentFromCase({
+      ...baseInput,
+      assignedTeamId: 'team-99',
+    });
     expect(result.assignedTeamId).toBe('team-99');
   });
 
@@ -97,7 +121,10 @@ describe('buildIncidentFromCase', () => {
   });
 
   it('sets code from input.code', () => {
-    const result = buildIncidentFromCase({ ...baseInput, code: 'VV-2026-00099' });
+    const result = buildIncidentFromCase({
+      ...baseInput,
+      code: 'VV-2026-00099',
+    });
     expect(result.code).toBe('VV-2026-00099');
   });
 });

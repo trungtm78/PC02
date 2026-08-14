@@ -24,8 +24,11 @@ import {
 } from './dto/update-role-permissions.dto';
 import { QueryUsersDto } from './dto/query-users.dto';
 import { CreateDataGrantDto } from './dto/create-data-grant.dto';
-import { AccessLevel } from '@prisma/client';
-import { ROLE_NAMES } from '../common/constants/role.constants';
+import {
+  ROLE_NAMES,
+  SYSTEM_ROLE_NAMES,
+} from '../common/constants/role.constants';
+import { CreateRoleDto } from './dto/create-role.dto';
 
 @Injectable()
 export class AdminService {
@@ -132,7 +135,18 @@ export class AdminService {
     requesterId: string,
     tx: Prisma.TransactionClient,
     meta: { ipAddress?: string; userAgent?: string } = {},
-  ): Promise<{ id: string; username: string; email: string | null; firstName: string | null; lastName: string | null; workId: string | null; phone: string | null; isActive: boolean; role: { id: string; name: string }; createdAt: Date }> {
+  ): Promise<{
+    id: string;
+    username: string;
+    email: string | null;
+    firstName: string | null;
+    lastName: string | null;
+    workId: string | null;
+    phone: string | null;
+    isActive: boolean;
+    role: { id: string; name: string };
+    createdAt: Date;
+  }> {
     // Defensive: workId bắt buộc (DTO validator đã enforce, đây là safety net).
     if (!dto.workId) {
       throw new BadRequestException('Mã cán bộ (workId) là bắt buộc.');
@@ -158,7 +172,9 @@ export class AdminService {
       );
     }
 
-    const dupWorkId = await tx.user.findFirst({ where: { workId: dto.workId } });
+    const dupWorkId = await tx.user.findFirst({
+      where: { workId: dto.workId },
+    });
     if (dupWorkId) {
       throw new ConflictException(`Số hiệu ngành "${dto.workId}" đã tồn tại`);
     }
@@ -253,19 +269,24 @@ export class AdminService {
     if (!user) throw new NotFoundException(`User #${id} không tồn tại`);
 
     // v0.27 canonicalize email + phone (nếu provided) cho consistency.
-    const canonicalEmail = dto.email !== undefined
-      ? (dto.email?.trim().toLowerCase() || null)
-      : undefined;
-    const canonicalPhone = dto.phone !== undefined
-      ? (dto.phone ? canonicalizeVietnamPhone(dto.phone.replace(/[\s.-]/g, '')) : null)
-      : undefined;
+    const canonicalEmail =
+      dto.email !== undefined
+        ? dto.email?.trim().toLowerCase() || null
+        : undefined;
+    const canonicalPhone =
+      dto.phone !== undefined
+        ? dto.phone
+          ? canonicalizeVietnamPhone(dto.phone.replace(/[\s.-]/g, ''))
+          : null
+        : undefined;
 
     // EC-02: Check uniqueness on change
     if (canonicalEmail && canonicalEmail !== user.email) {
       const dup = await this.prisma.user.findFirst({
         where: { email: canonicalEmail, id: { not: id } },
       });
-      if (dup) throw new ConflictException(`Email "${canonicalEmail}" đã tồn tại`);
+      if (dup)
+        throw new ConflictException(`Email "${canonicalEmail}" đã tồn tại`);
     }
     if (dto.username && dto.username !== user.username) {
       const dup = await this.prisma.user.findFirst({
@@ -351,7 +372,10 @@ export class AdminService {
             'User vừa được admin khác cập nhật hoặc reset lại — vui lòng tải lại trang và thử lại',
           );
         }
-        const u = await tx.user.findUnique({ where: { id }, select: userSelect });
+        const u = await tx.user.findUnique({
+          where: { id },
+          select: userSelect,
+        });
         if (!u) {
           throw new NotFoundException(`User #${id} không tồn tại`);
         }
@@ -375,15 +399,25 @@ export class AdminService {
       // v0.30: non-reset branch — wrapUpdate captures full before/after for diff UI.
       return this.audit.wrapUpdate({
         tx,
-        fetchFn: () => tx.user.findUnique({ where: { id }, select: userSelect }) as Promise<unknown>,
+        fetchFn: () =>
+          tx.user.findUnique({
+            where: { id },
+            select: userSelect,
+          }) as Promise<unknown>,
         updateFn: () =>
-          tx.user.update({ where: { id }, data, select: userSelect }) as unknown as Promise<unknown>,
+          tx.user.update({
+            where: { id },
+            data,
+            select: userSelect,
+          }) as unknown as Promise<unknown>,
         action: 'USER_UPDATED',
         subject: 'User',
         subjectId: id,
         userId: requesterId,
         meta,
-      }) as unknown as typeof userSelect extends never ? never : Awaited<ReturnType<typeof tx.user.findUnique>>;
+      }) as unknown as typeof userSelect extends never
+        ? never
+        : Awaited<ReturnType<typeof tx.user.findUnique>>;
     });
 
     return tempPassword ? { ...updated, tempPassword } : updated;
@@ -444,29 +478,148 @@ export class AdminService {
     return role;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  /**
+   * D4 — tạo vai trò mới.
+   *
+   * Trước đây chỉ sửa được vai trò có sẵn: muốn thêm một vai mới phải vào thẳng
+   * cơ sở dữ liệu. Màn hình phân quyền vì thế mô tả một hệ thống chỉ đúng một
+   * nửa — sửa được, không thêm được.
+   */
+  async createRole(dto: CreateRoleDto, requesterId: string) {
+    // Tên vai trò hệ thống được so khớp bằng chuỗi ở guard và ở seed phân quyền,
+    // nên một vai trò tự tạo mang tên đó sẽ mạo danh được vai trò thật.
+    if (SYSTEM_ROLE_NAMES.has(dto.name)) {
+      throw new BadRequestException(
+        `"${dto.name}" là tên vai trò hệ thống, không thể dùng cho vai trò mới.`,
+      );
+    }
+
+    const dup = await this.prisma.role.findFirst({ where: { name: dto.name } });
+    if (dup) {
+      throw new ConflictException(`Tên vai trò "${dto.name}" đã tồn tại`);
+    }
+
+    let sourcePermissionIds: string[] = [];
+    if (dto.copyPermissionsFromRoleId) {
+      const source = await this.prisma.role.findUnique({
+        where: { id: dto.copyPermissionsFromRoleId },
+        include: { permissions: { select: { permissionId: true } } },
+      });
+      if (!source) {
+        throw new BadRequestException(
+          `Vai trò nguồn không tồn tại (id: ${dto.copyPermissionsFromRoleId})`,
+        );
+      }
+      sourcePermissionIds = source.permissions.map((p) => p.permissionId);
+    }
+
+    // Vai trò và bộ quyền của nó phải cùng ghi hoặc cùng không: một vai trò tạo
+    // xong mà lệnh cấp quyền hỏng sẽ là vai trò rỗng, và người mang nó đăng
+    // nhập vào một hệ thống trống — im lặng, khó lần ra.
+    const created = await this.prisma.$transaction(async (tx) => {
+      const role = await tx.role.create({
+        data: { name: dto.name, description: dto.description ?? null },
+      });
+      if (sourcePermissionIds.length > 0) {
+        await tx.rolePermission.createMany({
+          data: sourcePermissionIds.map((permissionId) => ({
+            roleId: role.id,
+            permissionId,
+          })),
+        });
+      }
+      return role;
+    });
+
+    await this.audit.log({
+      userId: requesterId,
+      action: 'ROLE_CREATED',
+      subject: 'Role',
+      subjectId: created.id,
+      metadata: {
+        name: created.name,
+        description: created.description,
+        copiedFromRoleId: dto.copyPermissionsFromRoleId ?? null,
+        copiedPermissionCount: sourcePermissionIds.length,
+      },
+    });
+
+    return {
+      ...created,
+      permissionCount: sourcePermissionIds.length,
+    };
+  }
+
   async updateRole(id: string, dto: UpdateRoleDto, requesterId: string) {
     const role = await this.prisma.role.findUnique({ where: { id } });
     if (!role) throw new NotFoundException(`Role #${id} không tồn tại`);
 
     if (dto.name && dto.name !== role.name) {
+      // Built-in roles are matched by name everywhere (ROLE_NAMES is DB wire
+      // format). Renaming one breaks every guard that compares against it and
+      // would also carry the role out of reach of the delete guard below.
+      if (SYSTEM_ROLE_NAMES.has(role.name)) {
+        throw new BadRequestException(
+          `Không thể đổi tên vai trò hệ thống "${role.name}". Tên vai trò này được tham chiếu trực tiếp trong các quy tắc phân quyền.`,
+        );
+      }
+      // Symmetric guard: a custom role must not be able to impersonate a
+      // built-in one by taking its name.
+      if (SYSTEM_ROLE_NAMES.has(dto.name)) {
+        throw new BadRequestException(
+          `"${dto.name}" là tên vai trò hệ thống, không thể dùng cho vai trò khác.`,
+        );
+      }
       const dup = await this.prisma.role.findFirst({
         where: { name: dto.name, id: { not: id } },
       });
       if (dup) throw new ConflictException(`Tên role "${dto.name}" đã tồn tại`);
     }
 
-    return this.prisma.role.update({
+    const updated = await this.prisma.role.update({
       where: { id },
       data: {
         ...(dto.name && { name: dto.name }),
         ...(dto.description !== undefined && { description: dto.description }),
       },
     });
+
+    // `requesterId` was accepted and never used: renaming a role or rewriting
+    // its description left no trace, on a screen whose whole subject is who is
+    // allowed to do what. Every other write on this service audits.
+    await this.audit.log({
+      userId: requesterId,
+      action: 'ROLE_UPDATED',
+      subject: 'Role',
+      subjectId: id,
+      metadata: {
+        previousName: role.name,
+        name: updated.name,
+        previousDescription: role.description,
+        description: updated.description,
+      },
+    });
+
+    return updated;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async deleteRole(id: string, requesterId: string) {
+  async deleteRole(
+    id: string,
+    requesterId: string,
+    meta: { ipAddress?: string; userAgent?: string } = {},
+  ) {
+    const role = await this.prisma.role.findUnique({ where: { id } });
+    if (!role) throw new NotFoundException(`Role #${id} không tồn tại`);
+
+    // Guards and services compare roles by name (ROLE_NAMES is DB wire format).
+    // A built-in role with zero users would otherwise be deletable, silently
+    // disabling every authorization check that references it.
+    if (SYSTEM_ROLE_NAMES.has(role.name)) {
+      throw new BadRequestException(
+        `Không thể xóa vai trò hệ thống "${role.name}". Vai trò này được tham chiếu trực tiếp trong các quy tắc phân quyền.`,
+      );
+    }
+
     // EC-01: Chặn xóa role đang có user
     const userCount = await this.prisma.user.count({ where: { roleId: id } });
     if (userCount > 0) {
@@ -475,6 +628,16 @@ export class AdminService {
       );
     }
     await this.prisma.role.delete({ where: { id } });
+
+    await this.audit.log({
+      userId: requesterId,
+      action: 'ROLE_DELETED',
+      subject: 'Role',
+      subjectId: id,
+      metadata: { roleName: role.name },
+      ...meta,
+    });
+
     return { message: 'Đã xóa role thành công' };
   }
 
@@ -490,6 +653,15 @@ export class AdminService {
   ) {
     const role = await this.prisma.role.findUnique({ where: { id: roleId } });
     if (!role) throw new NotFoundException(`Role #${roleId} không tồn tại`);
+
+    // Guard the catastrophic case of this replace-all endpoint: an empty list
+    // revokes every permission the role has. A client that failed to load the
+    // current set must not be able to erase it by sending nothing.
+    if (dto.permissions.length === 0 && dto.allowEmpty !== true) {
+      throw new BadRequestException(
+        `Danh sách quyền rỗng sẽ thu hồi toàn bộ quyền của vai trò "${role.name}". Nếu đúng ý định, gửi kèm allowEmpty=true.`,
+      );
+    }
 
     // EC-05: Prevent admin from removing own critical permissions
     // (Allow but audit clearly)
@@ -534,6 +706,25 @@ export class AdminService {
     });
   }
 
+  /**
+   * Flat permission list for one role, in the exact `{ action, subject }` shape
+   * that `PATCH /admin/roles/:id/permissions` accepts.
+   *
+   * The admin permission matrix round-trips through these two endpoints, so
+   * they must agree on the payload shape. Returning the nested Prisma relation
+   * instead would force the UI to translate between two representations — the
+   * gap where the previous matrix silently lost permissions.
+   */
+  async getRolePermissions(
+    id: string,
+  ): Promise<Array<{ action: string; subject: string }>> {
+    const role = await this.getRoleById(id);
+    return role.permissions.map((rp) => ({
+      action: rp.permission.action,
+      subject: rp.permission.subject,
+    }));
+  }
+
   // ──────────────────────────────────────────────────────
   // DATA ACCESS GRANTS
   // ──────────────────────────────────────────────────────
@@ -547,7 +738,8 @@ export class AdminService {
     const grantee = await this.prisma.user.findUnique({
       where: { id: dto.granteeId },
     });
-    if (!grantee) throw new NotFoundException('Người được cấp quyền không tồn tại');
+    if (!grantee)
+      throw new NotFoundException('Người được cấp quyền không tồn tại');
 
     // Validate team exists
     const team = await this.prisma.team.findUnique({
@@ -653,7 +845,9 @@ export class AdminService {
     const isAdmin = revokerUser?.role?.name === ROLE_NAMES.ADMIN;
 
     if (!isGranter && !isLeader && !isAdmin) {
-      throw new ForbiddenException('Bạn không có quyền thu hồi quyền truy cập này');
+      throw new ForbiddenException(
+        'Bạn không có quyền thu hồi quyền truy cập này',
+      );
     }
 
     await this.prisma.dataAccessGrant.delete({ where: { id: grantId } });
@@ -687,7 +881,9 @@ export class AdminService {
 
   // ── 2FA Admin Reset ────────────────────────────────────────────────────────
   async adminResetTwoFa(targetUserId: string, adminUserId: string) {
-    const target = await this.prisma.user.findUnique({ where: { id: targetUserId } });
+    const target = await this.prisma.user.findUnique({
+      where: { id: targetUserId },
+    });
     if (!target) throw new NotFoundException('User không tồn tại');
 
     await this.prisma.user.update({

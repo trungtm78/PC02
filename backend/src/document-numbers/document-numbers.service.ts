@@ -1,10 +1,21 @@
 import { randomUUID } from 'crypto';
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { resolveSource } from './source-resolver';
 import { formatValue } from './formula-engine';
 import { computePeriodKey } from './period-key.util';
-import type { ResolutionContext, Segment, CounterConfig, CommitResult, DraftResult } from './types';
+import type {
+  ResolutionContext,
+  Segment,
+  CounterConfig,
+  CommitResult,
+  DraftResult,
+} from './types';
 import type { CreateTemplateDto } from './dto/create-template.dto';
 import type { UpdateTemplateDto } from './dto/update-template.dto';
 
@@ -26,7 +37,10 @@ interface CommitOptions {
 export class DocumentNumbersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async draft(documentType: string, ctx: ResolutionContext): Promise<DraftResult> {
+  async draft(
+    documentType: string,
+    ctx: ResolutionContext,
+  ): Promise<DraftResult> {
     const template = await this.findActiveTemplate(documentType);
     const config = template.counterConfig as unknown as CounterConfig;
     const periodKey = computePeriodKey(config.resetPeriod, new Date());
@@ -138,7 +152,8 @@ export class DocumentNumbersService {
     return {
       number,
       logId,
-      changed: options.draftPreview !== undefined && options.draftPreview !== number,
+      changed:
+        options.draftPreview !== undefined && options.draftPreview !== number,
     };
   }
 
@@ -242,15 +257,20 @@ export class DocumentNumbersService {
     return {
       number,
       logId: log.id,
-      changed: options.draftPreview !== undefined && options.draftPreview !== number,
+      changed:
+        options.draftPreview !== undefined && options.draftPreview !== number,
     };
   }
 
-  async preview(templateId: string, ctx: ResolutionContext): Promise<{ previewNumber: string }> {
+  async preview(
+    templateId: string,
+    ctx: ResolutionContext,
+  ): Promise<{ previewNumber: string }> {
     const template = await this.prisma.documentNumberTemplate.findFirst({
       where: { id: templateId, isActive: true },
     });
-    if (!template) throw new NotFoundException(`Template not found: ${templateId}`);
+    if (!template)
+      throw new NotFoundException(`Template not found: ${templateId}`);
 
     const config = template.counterConfig as unknown as CounterConfig;
     const periodKey = computePeriodKey(config.resetPeriod, new Date());
@@ -302,7 +322,8 @@ export class DocumentNumbersService {
     const template = await this.prisma.documentNumberTemplate.findFirst({
       where: { id: templateId },
     });
-    if (!template) throw new NotFoundException(`Template not found: ${templateId}`);
+    if (!template)
+      throw new NotFoundException(`Template not found: ${templateId}`);
 
     const config = template.counterConfig as unknown as CounterConfig;
     const periodKey = computePeriodKey(config.resetPeriod, new Date());
@@ -323,7 +344,8 @@ export class DocumentNumbersService {
     const template = await this.prisma.documentNumberTemplate.findFirst({
       where: { id: templateId },
     });
-    if (!template) throw new NotFoundException(`Template not found: ${templateId}`);
+    if (!template)
+      throw new NotFoundException(`Template not found: ${templateId}`);
 
     const config = template.counterConfig as unknown as CounterConfig;
     const periodKey = computePeriodKey(config.resetPeriod, new Date());
@@ -360,14 +382,21 @@ export class DocumentNumbersService {
   }
 
   async updateTemplate(id: string, dto: UpdateTemplateDto) {
-    const existing = await this.prisma.documentNumberTemplate.findFirst({ where: { id } });
+    const existing = await this.prisma.documentNumberTemplate.findFirst({
+      where: { id },
+    });
     if (!existing) throw new NotFoundException(`Template not found: ${id}`);
     // Same Json column cast — see createTemplate comment above.
-    return this.prisma.documentNumberTemplate.update({ where: { id }, data: dto as any });
+    return this.prisma.documentNumberTemplate.update({
+      where: { id },
+      data: dto as any,
+    });
   }
 
   async deleteTemplate(id: string) {
-    const existing = await this.prisma.documentNumberTemplate.findFirst({ where: { id } });
+    const existing = await this.prisma.documentNumberTemplate.findFirst({
+      where: { id },
+    });
     if (!existing) throw new NotFoundException(`Template not found: ${id}`);
     return this.prisma.documentNumberTemplate.delete({ where: { id } });
   }
@@ -402,7 +431,20 @@ export class DocumentNumbersService {
       where: { documentType, isActive: true },
     });
     if (!template) {
-      throw new NotFoundException(`No active template for documentType: ${documentType}`);
+      // ND-28. Trước đây là 404 "No active template for documentType: X".
+      //
+      // Hai chỗ sai. Thứ nhất, sai loại lỗi: cả ba nơi gọi hàm này đều đang
+      // SINH SỐ ĐỂ TẠO hồ sơ, nên 404 nói với người dùng rằng thứ họ đang tạo
+      // không tồn tại — vô nghĩa. Cái thiếu là CẤU HÌNH của hệ thống, không
+      // phải hồ sơ. Thứ hai, thông điệp tiếng Anh không nói phải làm gì; người
+      // vận hành gặp nó lúc dựng máy mới sẽ đi tìm bug trong mã.
+      //
+      // 503: hệ thống chưa sẵn sàng, và sẽ sẵn sàng sau khi seed — đúng như vậy.
+      throw new ServiceUnavailableException(
+        `Hệ thống chưa có mẫu cấp số đang hoạt động cho loại "${documentType}", ` +
+          `nên chưa cấp được số hồ sơ. Đây là thiếu cấu hình, không phải lỗi dữ liệu bạn nhập. ` +
+          `Người quản trị cần chạy: npm run db:seed:doc-templates`,
+      );
     }
     return template;
   }
@@ -431,7 +473,8 @@ export class DocumentNumbersService {
   ): string[] {
     return segments.map((seg, i) => {
       if (seg.type === 'LITERAL') return seg.value ?? '';
-      if (seg.type === 'COUNTER') return String(counterValue).padStart(padding, '0');
+      if (seg.type === 'COUNTER')
+        return String(counterValue).padStart(padding, '0');
       if (seg.type === 'FORMULA') {
         const raw = formulaValues.get(i);
         if (raw === undefined) return '';

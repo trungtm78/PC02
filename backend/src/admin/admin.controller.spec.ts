@@ -1,4 +1,9 @@
-import { buildControllerModule, makeReq, mockUser } from '../test-utils/controller-test-helpers';
+import { NotFoundException } from '@nestjs/common';
+import {
+  buildControllerModule,
+  makeReq,
+  mockUser,
+} from '../test-utils/controller-test-helpers';
 import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
 
@@ -13,6 +18,7 @@ const mockService = {
   updateRole: jest.fn(),
   deleteRole: jest.fn(),
   getAllPermissions: jest.fn(),
+  getRolePermissions: jest.fn(),
   updateRolePermissions: jest.fn(),
   listDataAccessGrants: jest.fn(),
   createDataAccessGrant: jest.fn(),
@@ -24,7 +30,11 @@ describe('AdminController — delegation', () => {
   let controller: AdminController;
 
   beforeEach(async () => {
-    const module = await buildControllerModule(AdminController, AdminService, mockService);
+    const module = await buildControllerModule(
+      AdminController,
+      AdminService,
+      mockService,
+    );
     controller = module.get(AdminController);
     jest.clearAllMocks();
   });
@@ -33,6 +43,27 @@ describe('AdminController — delegation', () => {
     mockService.getUsers.mockResolvedValue({ data: [] });
     await controller.getUsers({} as any);
     expect(mockService.getUsers).toHaveBeenCalled();
+  });
+
+  it('getRolePermissions() delegates to service.getRolePermissions with the role id', async () => {
+    mockService.getRolePermissions.mockResolvedValue([
+      { action: 'read', subject: 'Case' },
+    ]);
+
+    const result = await controller.getRolePermissions('role-1');
+
+    expect(mockService.getRolePermissions).toHaveBeenCalledWith('role-1');
+    expect(result).toEqual([{ action: 'read', subject: 'Case' }]);
+  });
+
+  it('getRolePermissions() propagates service errors instead of swallowing them', async () => {
+    mockService.getRolePermissions.mockRejectedValue(
+      new NotFoundException('Role #missing không tồn tại'),
+    );
+
+    await expect(controller.getRolePermissions('missing')).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
   it('createUser() delegates to service.createUser with userId and audit info', async () => {
@@ -47,7 +78,12 @@ describe('AdminController — delegation', () => {
 
   it('updateRolePermissions() delegates to service.updateRolePermissions', async () => {
     mockService.updateRolePermissions.mockResolvedValue({ success: true });
-    await controller.updateRolePermissions('role-1', {} as any, mockUser, makeReq());
+    await controller.updateRolePermissions(
+      'role-1',
+      {} as any,
+      mockUser,
+      makeReq(),
+    );
     expect(mockService.updateRolePermissions).toHaveBeenCalledWith(
       'role-1',
       {},
@@ -59,6 +95,9 @@ describe('AdminController — delegation', () => {
   it('resetUserTwoFa() delegates to service.adminResetTwoFa', async () => {
     mockService.adminResetTwoFa.mockResolvedValue({ success: true });
     await controller.resetUserTwoFa('user-2', mockUser);
-    expect(mockService.adminResetTwoFa).toHaveBeenCalledWith('user-2', mockUser.id);
+    expect(mockService.adminResetTwoFa).toHaveBeenCalledWith(
+      'user-2',
+      mockUser.id,
+    );
   });
 });

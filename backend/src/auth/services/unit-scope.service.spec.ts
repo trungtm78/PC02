@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { Test, TestingModule } from '@nestjs/testing';
 import { UnitScopeService } from './unit-scope.service';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -124,9 +123,9 @@ describe('UnitScopeService', () => {
 
       const result = await service.resolveScope('user-1', 'OFFICER');
 
-      expect(result!.teamIds).toContain('write-team');          // readable
+      expect(result!.teamIds).toContain('write-team'); // readable
       expect(result!.writableTeamIds).toContain('write-team'); // also writable
-      expect(result!.writableTeamIds).toContain('own-team');   // own team writable
+      expect(result!.writableTeamIds).toContain('own-team'); // own team writable
     });
 
     it('READ grant: team appears in teamIds but NOT in writableTeamIds', async () => {
@@ -141,9 +140,9 @@ describe('UnitScopeService', () => {
 
       const result = await service.resolveScope('user-1', 'OFFICER');
 
-      expect(result!.teamIds).toContain('readonly-team');           // readable
+      expect(result!.teamIds).toContain('readonly-team'); // readable
       expect(result!.writableTeamIds).not.toContain('readonly-team'); // NOT writable
-      expect(result!.writableTeamIds).toContain('own-team');         // own team writable
+      expect(result!.writableTeamIds).toContain('own-team'); // own team writable
     });
 
     it('own teams always in writableTeamIds regardless of grants', async () => {
@@ -170,7 +169,9 @@ describe('UnitScopeService', () => {
 
       const result = await service.resolveScope('user-1', 'OFFICER');
 
-      expect(result!.writableTeamIds).toEqual(expect.arrayContaining(['team-a', 'team-b']));
+      expect(result!.writableTeamIds).toEqual(
+        expect.arrayContaining(['team-a', 'team-b']),
+      );
       expect(result!.writableTeamIds).toHaveLength(2);
     });
   });
@@ -202,10 +203,7 @@ describe('UnitScopeService', () => {
       mockPrisma.userTeam.findMany.mockResolvedValue([
         { teamId: 'to-1', team: { level: 1 } },
       ]);
-      mockTeamsService.getDescendantIds.mockResolvedValue([
-        'ward-1',
-        'ward-2',
-      ]);
+      mockTeamsService.getDescendantIds.mockResolvedValue(['ward-1', 'ward-2']);
       mockPrisma.dataAccessGrant.findMany.mockResolvedValue([]);
       mockTeamsService.getUserIdsForTeams.mockResolvedValue(['u1', 'u2']);
 

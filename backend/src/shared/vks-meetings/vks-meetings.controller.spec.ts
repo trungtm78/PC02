@@ -1,5 +1,11 @@
-import { buildControllerModule, mockUser } from '../../test-utils/controller-test-helpers';
-import { CaseVksMeetingsController, IncidentVksMeetingsController } from './vks-meetings.controller';
+import {
+  buildControllerModule,
+  mockUser,
+} from '../../test-utils/controller-test-helpers';
+import {
+  CaseVksMeetingsController,
+  IncidentVksMeetingsController,
+} from './vks-meetings.controller';
 import { VksMeetingsService } from './vks-meetings.service';
 
 const mockService = {
@@ -16,7 +22,11 @@ describe('CaseVksMeetingsController — delegation', () => {
   let controller: CaseVksMeetingsController;
 
   beforeEach(async () => {
-    const module = await buildControllerModule(CaseVksMeetingsController, VksMeetingsService, mockService);
+    const module = await buildControllerModule(
+      CaseVksMeetingsController,
+      VksMeetingsService,
+      mockService,
+    );
     controller = module.get(CaseVksMeetingsController);
     jest.clearAllMocks();
   });
@@ -30,7 +40,12 @@ describe('CaseVksMeetingsController — delegation', () => {
   it('create() delegates to service.createForCase with caseId, dto, userId, dataScope', async () => {
     mockService.createForCase.mockResolvedValue({ data: { id: 'vm-1' } });
     await controller.create('case-1', {} as any, mockUser, mockReq);
-    expect(mockService.createForCase).toHaveBeenCalledWith('case-1', {}, mockUser.id, null);
+    expect(mockService.createForCase).toHaveBeenCalledWith(
+      'case-1',
+      {},
+      mockUser.id,
+      null,
+    );
   });
 
   it('delete() delegates to service.delete with id + dataScope', async () => {
@@ -44,7 +59,11 @@ describe('IncidentVksMeetingsController — delegation', () => {
   let controller: IncidentVksMeetingsController;
 
   beforeEach(async () => {
-    const module = await buildControllerModule(IncidentVksMeetingsController, VksMeetingsService, mockService);
+    const module = await buildControllerModule(
+      IncidentVksMeetingsController,
+      VksMeetingsService,
+      mockService,
+    );
     controller = module.get(IncidentVksMeetingsController);
     jest.clearAllMocks();
   });
@@ -58,6 +77,11 @@ describe('IncidentVksMeetingsController — delegation', () => {
   it('create() delegates to service.createForIncident with incidentId, dto, userId, dataScope', async () => {
     mockService.createForIncident.mockResolvedValue({ data: { id: 'vm-2' } });
     await controller.create('inc-1', {} as any, mockUser, mockReq);
-    expect(mockService.createForIncident).toHaveBeenCalledWith('inc-1', {}, mockUser.id, null);
+    expect(mockService.createForIncident).toHaveBeenCalledWith(
+      'inc-1',
+      {},
+      mockUser.id,
+      null,
+    );
   });
 });

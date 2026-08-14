@@ -22,7 +22,9 @@ import { CreateLawyerDto } from './dto/create-lawyer.dto';
 import { UpdateLawyerDto } from './dto/update-lawyer.dto';
 import { QueryLawyersDto } from './dto/query-lawyers.dto';
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
+import { FeatureFlag } from '../feature-flags/decorators/feature-flag.decorator';
 @Controller('lawyers')
+@FeatureFlag('lawyers')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class LawyersController {
   constructor(private readonly lawyersService: LawyersService) {}
@@ -49,10 +51,15 @@ export class LawyersController {
     @CurrentUser() user: AuthUser,
     @Req() req: ScopedRequest,
   ) {
-    return this.lawyersService.create(dto, user.id, {
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
-    });
+    return this.lawyersService.create(
+      dto,
+      user.id,
+      {
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      },
+      req.dataScope,
+    );
   }
 
   // PUT /api/lawyers/:id — Cập nhật luật sư
@@ -64,10 +71,16 @@ export class LawyersController {
     @CurrentUser() user: AuthUser,
     @Req() req: ScopedRequest,
   ) {
-    return this.lawyersService.update(id, dto, user.id, {
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
-    }, req.dataScope);
+    return this.lawyersService.update(
+      id,
+      dto,
+      user.id,
+      {
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      },
+      req.dataScope,
+    );
   }
 
   // DELETE /api/lawyers/:id — Xóa luật sư (soft delete)
@@ -79,9 +92,14 @@ export class LawyersController {
     @CurrentUser() user: AuthUser,
     @Req() req: ScopedRequest,
   ) {
-    return this.lawyersService.delete(id, user.id, {
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
-    }, req.dataScope);
+    return this.lawyersService.delete(
+      id,
+      user.id,
+      {
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      },
+      req.dataScope,
+    );
   }
 }

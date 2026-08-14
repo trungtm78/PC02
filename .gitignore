@@ -50,3 +50,11 @@ temp_failed.json
 legacy-dumps/
 docs/legacy/*.ejsonl
 **/*.ejsonl
+
+# Ảnh hướng dẫn sử dụng là sản phẩm, không phải rác build.
+# `*.png` ở trên chặn theo mọi độ sâu, nên phải mở lại đúng thư mục này —
+# nếu không thì trang HDSD commit lên sẽ toàn ảnh vỡ, và không ai biết cho tới
+# khi mở nó ra trên máy khác.
+!docs/huong-dan-su-dung/anh/
+!docs/huong-dan-su-dung/anh/*.png
+docs/huong-dan-su-dung/index.inline.html

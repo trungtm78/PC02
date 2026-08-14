@@ -1,12 +1,20 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { CreateInvestigationSupplementDto } from './dto/create-investigation-supplement.dto';
 import { Prisma } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
-import { assertParentInScope, buildScopeFilter } from '../common/utils/scope-filter.util';
+import {
+  assertParentInScope,
+  buildScopeFilter,
+} from '../common/utils/scope-filter.util';
 import { IsOptional, IsString, IsInt, Min } from 'class-validator';
 import { Type } from 'class-transformer';
+import { UpdateInvestigationSupplementDto } from './dto/update-investigation-supplement.dto';
 
 export class QueryInvestigationSupplementsDto {
   @IsOptional() @IsString() caseId?: string;
@@ -22,7 +30,10 @@ export class InvestigationSupplementsService {
     private readonly audit: AuditService,
   ) {}
 
-  async getList(query: QueryInvestigationSupplementsDto, dataScope?: DataScope | null) {
+  async getList(
+    query: QueryInvestigationSupplementsDto,
+    dataScope?: DataScope | null,
+  ) {
     const { caseId, type, limit = 50, offset = 0 } = query;
     const where: Prisma.InvestigationSupplementWhereInput = {};
 
@@ -38,7 +49,14 @@ export class InvestigationSupplementsService {
       this.prisma.investigationSupplement.findMany({
         where,
         include: {
-          createdBy: { select: { id: true, firstName: true, lastName: true, username: true } },
+          createdBy: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              username: true,
+            },
+          },
         },
         orderBy: { createdAt: 'desc' },
         take: limit,
@@ -54,16 +72,48 @@ export class InvestigationSupplementsService {
     const record = await this.prisma.investigationSupplement.findUnique({
       where: { id },
       include: {
-        createdBy: { select: { id: true, firstName: true, lastName: true, username: true } },
-        case: { select: { id: true, name: true, status: true, assignedTeamId: true, investigatorId: true } },
+        createdBy: {
+          select: { id: true, firstName: true, lastName: true, username: true },
+        },
+        case: {
+          select: {
+            id: true,
+            name: true,
+            status: true,
+            assignedTeamId: true,
+            investigatorId: true,
+          },
+        },
       },
     });
-    if (!record) throw new NotFoundException(`Quyết định điều tra bổ sung không tồn tại (id: ${id})`);
+    if (!record)
+      throw new NotFoundException(
+        `Quyết định điều tra bổ sung không tồn tại (id: ${id})`,
+      );
     assertParentInScope(record.case, dataScope);
     return { success: true, data: record };
   }
 
-  async create(dto: CreateInvestigationSupplementDto, actorId: string, meta?: { ipAddress?: string; userAgent?: string }) {
+  async create(
+    dto: CreateInvestigationSupplementDto,
+    actorId: string,
+    meta?: { ipAddress?: string; userAgent?: string },
+    dataScope?: DataScope | null,
+  ) {
+    // Two gaps here, not one. The caseId was never checked for existence, so a
+    // bad id surfaced as a raw foreign-key error and a 500 instead of a 400.
+    // And the scope was never checked at all, so a supplementary-investigation
+    // decision — a procedural document with a deadline attached — could be
+    // filed against any case in the system.
+    const parentCase = await this.prisma.case.findFirst({
+      where: { id: dto.caseId, deletedAt: null },
+      select: { id: true, assignedTeamId: true, investigatorId: true },
+    });
+    if (!parentCase) {
+      throw new BadRequestException(`Vụ án không tồn tại (id: ${dto.caseId})`);
+    }
+    assertParentInScope(parentCase, dataScope, 'write');
+
     const record = await this.prisma.investigationSupplement.create({
       data: {
         caseId: dto.caseId,
@@ -75,7 +125,9 @@ export class InvestigationSupplementsService {
         createdById: actorId,
       },
       include: {
-        createdBy: { select: { id: true, firstName: true, lastName: true, username: true } },
+        createdBy: {
+          select: { id: true, firstName: true, lastName: true, username: true },
+        },
       },
     });
 
@@ -84,15 +136,71 @@ export class InvestigationSupplementsService {
       action: 'INVESTIGATION_SUPPLEMENT_CREATED',
       subject: 'InvestigationSupplement',
       subjectId: record.id,
-      metadata: { caseId: dto.caseId, type: dto.type, decisionNumber: dto.decisionNumber },
+      metadata: {
+        caseId: dto.caseId,
+        type: dto.type,
+        decisionNumber: dto.decisionNumber,
+      },
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
     });
 
-    return { success: true, data: record, message: 'Tạo quyết định điều tra bổ sung thành công' };
+    return {
+      success: true,
+      data: record,
+      message: 'Tạo quyết định điều tra bổ sung thành công',
+    };
   }
 
-  async delete(id: string, actorId: string, meta?: { ipAddress?: string; userAgent?: string }, dataScope?: DataScope | null) {
+  /**
+   * D5 — sửa quyết định điều tra bổ sung.
+   *
+   * Trước đây chỉ tạo và xoá được: nhập sai một trường thì phải xoá rồi tạo
+   * lại, mất dấu vết và mất cả id mà nơi khác đang tham chiếu.
+   *
+   * `caseId` không nhận ở đây (DTO đã `OmitType`): đổi cha là thao tác riêng và
+   * phải kiểm phạm vi cả cha cũ lẫn cha mới — nhận nó trong bản cập nhật là mở
+   * lại đúng lỗ ND-18.
+   */
+  async update(
+    id: string,
+    dto: UpdateInvestigationSupplementDto,
+    actorId: string,
+    meta?: { ipAddress?: string; userAgent?: string },
+    dataScope?: DataScope | null,
+  ) {
+    const { data: existing } = await this.getById(id, dataScope);
+    assertParentInScope(existing.case, dataScope, 'write');
+
+    const record = await this.prisma.investigationSupplement.update({
+      where: { id },
+      data: {
+        ...dto,
+        ...(dto.decisionDate
+          ? { decisionDate: new Date(dto.decisionDate) }
+          : {}),
+      },
+    });
+
+    await this.audit.log({
+      userId: actorId,
+      action: 'INVESTIGATION_SUPPLEMENT_UPDATED',
+      subject: 'InvestigationSupplement',
+      subjectId: id,
+      metadata: { changedFields: Object.keys(dto) },
+      ipAddress: meta?.ipAddress,
+      userAgent: meta?.userAgent,
+    });
+
+    return { data: record };
+  }
+
+  async delete(
+    id: string,
+    actorId: string,
+    meta?: { ipAddress?: string; userAgent?: string },
+    dataScope?: DataScope | null,
+  ) {
     const { data: existing } = await this.getById(id, dataScope);
     assertParentInScope(existing.case, dataScope, 'write');
 
@@ -108,6 +216,9 @@ export class InvestigationSupplementsService {
       userAgent: meta?.userAgent,
     });
 
-    return { success: true, message: 'Xóa quyết định điều tra bổ sung thành công' };
+    return {
+      success: true,
+      message: 'Xóa quyết định điều tra bổ sung thành công',
+    };
   }
 }

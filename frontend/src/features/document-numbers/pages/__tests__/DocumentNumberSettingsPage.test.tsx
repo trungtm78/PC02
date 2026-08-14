@@ -7,9 +7,11 @@ import { MemoryRouter } from 'react-router-dom';
 vi.mock('../../api', () => ({
   documentNumbersApi: {
     listTemplates: vi.fn(),
+    getLogs: vi.fn(),
   },
   DOC_NUM_QUERY_KEYS: {
     templates: ['document-numbers', 'templates'],
+    logs: (params?: object) => ['document-numbers', 'logs', params],
   },
 }));
 
@@ -119,6 +121,80 @@ describe('DocumentNumberSettingsPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('docnum-empty-state')).toBeInTheDocument();
+    });
+  });
+
+  /**
+   * The tab said "Chức năng xem lịch sử đang phát triển" while
+   * documentNumbersApi.getLogs() had been implemented and unused the whole
+   * time. Nothing needed developing; the tab just never called it.
+   */
+  describe('logs tab', () => {
+    async function openLogs() {
+      const tab = await screen.findByRole('button', { name: /Lịch sử/i });
+      tab.click();
+    }
+
+    it('no longer claims the feature is under development', async () => {
+      vi.mocked(documentNumbersApi.getLogs).mockResolvedValue({
+        items: [],
+        total: 0,
+        page: 1,
+        pageSize: 20,
+      });
+      renderPage();
+      await openLogs();
+
+      await waitFor(() =>
+        expect(screen.queryByText(/đang phát triển/i)).not.toBeInTheDocument(),
+      );
+    });
+
+    it('renders the rows the API returns', async () => {
+      vi.mocked(documentNumbersApi.getLogs).mockResolvedValue({
+        items: [
+          {
+            id: 'log-1',
+            templateId: 'tpl-001',
+            generatedNumber: 'VA-2026-00001',
+            documentType: 'CASE',
+            userId: 'u1',
+            isDraft: false,
+            createdAt: '2026-08-10T03:00:00Z',
+          },
+        ],
+        total: 1,
+        page: 1,
+        pageSize: 20,
+      });
+      renderPage();
+      await openLogs();
+
+      expect(await screen.findByTestId('log-row-log-1')).toBeInTheDocument();
+      expect(screen.getByText('VA-2026-00001')).toBeInTheDocument();
+    });
+
+    it('says so plainly when nothing has been issued yet', async () => {
+      vi.mocked(documentNumbersApi.getLogs).mockResolvedValue({
+        items: [],
+        total: 0,
+        page: 1,
+        pageSize: 20,
+      });
+      renderPage();
+      await openLogs();
+
+      expect(await screen.findByTestId('logs-empty')).toBeInTheDocument();
+    });
+
+    it('surfaces a load failure instead of an empty table', async () => {
+      vi.mocked(documentNumbersApi.getLogs).mockRejectedValue(
+        new Error('mang loi'),
+      );
+      renderPage();
+      await openLogs();
+
+      expect(await screen.findByTestId('logs-error')).toBeInTheDocument();
     });
   });
 });

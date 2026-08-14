@@ -8,6 +8,7 @@
  * Frontend gating: defense in depth. Backend @RequirePermissions guards API.
  */
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { OtherRestorePanel } from './OtherRestorePanel';
 import { api } from '@/lib/api';
 import { authStore } from '@/stores/auth.store';
 import { RotateCcw, X, AlertTriangle, FileText, ShieldAlert, Search } from 'lucide-react';
@@ -78,6 +79,7 @@ export default function RestorePage() {
   const isAdmin = profile?.role === 'ADMIN';
 
   const [tab, setTab] = useState<TabKey>('cases');
+  const [showOthers, setShowOthers] = useState(false);
   const [rows, setRows] = useState<DeletedRow[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -125,7 +127,7 @@ export default function RestorePage() {
     document.addEventListener('keydown', onKey);
     setTimeout(() => textareaRef.current?.focus(), 50);
     return () => document.removeEventListener('keydown', onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [target, restoring]);
 
   const openRestoreModal = (row: DeletedRow, btn: HTMLButtonElement | null) => {
@@ -226,7 +228,7 @@ export default function RestorePage() {
         {(Object.keys(TAB_META) as TabKey[]).map((key) => (
           <button
             key={key}
-            onClick={() => { setTab(key); setSearch(''); }}
+            onClick={() => { setTab(key); setSearch(''); setShowOthers(false); }}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
               tab === key
                 ? 'border-blue-600 text-blue-700'
@@ -237,7 +239,25 @@ export default function RestorePage() {
             {TAB_META[key].label}
           </button>
         ))}
+        {/* E3 — chín loại hồ sơ con có xoá mềm mà chưa từng có đường khôi
+            phục. Gom vào một tab với ô chọn loại, chứ không thêm chín tab vào
+            một màn hình quản trị hiếm dùng. */}
+        <button
+          onClick={() => setShowOthers(true)}
+          data-testid="tab-others"
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            showOthers
+              ? 'border-blue-600 text-blue-700'
+              : 'border-transparent text-slate-600 hover:text-slate-800 hover:border-slate-300'
+          }`}
+        >
+          Khác
+        </button>
       </div>
+
+      {showOthers && <OtherRestorePanel />}
+      {!showOthers && (
+      <>
 
       {/* Search */}
       <div className="relative max-w-md">
@@ -397,6 +417,8 @@ export default function RestorePage() {
             </div>
           </div>
         </div>
+      )}
+      </>
       )}
     </div>
   );

@@ -20,10 +20,12 @@ import { DocumentNumbersService } from './document-numbers.service';
 import { DraftNumberDto, CommitNumberDto } from './dto/draft-commit.dto';
 import { CreateTemplateDto } from './dto/create-template.dto';
 import { UpdateTemplateDto } from './dto/update-template.dto';
+import { FeatureFlag } from '../feature-flags/decorators/feature-flag.decorator';
 
 const ADMIN_ROLES = ['ADMIN', 'SUPER_ADMIN'];
 
 @Controller('document-numbers')
+@FeatureFlag('document-numbers')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class DocumentNumbersController {
   constructor(private readonly service: DocumentNumbersService) {}

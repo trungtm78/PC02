@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /**
  * NotificationsService Unit Tests
  *
@@ -78,7 +76,9 @@ describe('NotificationsService', () => {
     mockPrisma.notification.findMany.mockResolvedValue([]);
     mockPrisma.notification.count.mockResolvedValue(0);
     mockPrisma.notification.findFirst.mockResolvedValue(null);
-    mockPrisma.notification.update.mockResolvedValue(makeNotification({ isRead: true }));
+    mockPrisma.notification.update.mockResolvedValue(
+      makeNotification({ isRead: true }),
+    );
     mockPrisma.notification.updateMany.mockResolvedValue({ count: 0 });
     mockPrisma.notification.delete.mockResolvedValue({});
     mockPrisma.notification.deleteMany.mockResolvedValue({ count: 0 });
@@ -90,7 +90,7 @@ describe('NotificationsService', () => {
     it('returns required response shape', async () => {
       mockPrisma.notification.findMany.mockResolvedValue([makeNotification()]);
       mockPrisma.notification.count
-        .mockResolvedValueOnce(1)  // total
+        .mockResolvedValueOnce(1) // total
         .mockResolvedValueOnce(1); // unreadCount
 
       const result = await service.getList('user-1', { limit: 20, offset: 0 });
@@ -105,14 +105,22 @@ describe('NotificationsService', () => {
     });
 
     it('passes unreadOnly:true filter to Prisma when requested', async () => {
-      await service.getList('user-1', { unreadOnly: true, limit: 20, offset: 0 });
+      await service.getList('user-1', {
+        unreadOnly: true,
+        limit: 20,
+        offset: 0,
+      });
 
       const callArgs = mockPrisma.notification.findMany.mock.calls[0][0];
       expect(callArgs.where).toMatchObject({ userId: 'user-1', isRead: false });
     });
 
     it('does not add isRead filter when unreadOnly is false', async () => {
-      await service.getList('user-1', { unreadOnly: false, limit: 20, offset: 0 });
+      await service.getList('user-1', {
+        unreadOnly: false,
+        limit: 20,
+        offset: 0,
+      });
 
       const callArgs = mockPrisma.notification.findMany.mock.calls[0][0];
       expect(callArgs.where).not.toHaveProperty('isRead');
@@ -135,8 +143,15 @@ describe('NotificationsService', () => {
     // D10 fix: update must always be called — even when isRead=true —
     // so that acknowledgedAt is set and pushNextRetryAt is cleared.
     it('still calls update with acknowledgedAt when notification is already read (D10 fix)', async () => {
-      const alreadyRead = makeNotification({ isRead: true, readAt: new Date() });
-      const updated = makeNotification({ isRead: true, acknowledgedAt: new Date(), pushNextRetryAt: null });
+      const alreadyRead = makeNotification({
+        isRead: true,
+        readAt: new Date(),
+      });
+      const updated = makeNotification({
+        isRead: true,
+        acknowledgedAt: new Date(),
+        pushNextRetryAt: null,
+      });
       mockPrisma.notification.findFirst.mockResolvedValue(alreadyRead);
       mockPrisma.notification.update.mockResolvedValue(updated);
 
@@ -158,7 +173,11 @@ describe('NotificationsService', () => {
     it('calls prisma.update with isRead=true + acknowledgedAt + pushNextRetryAt=null when unread', async () => {
       const unread = makeNotification({ isRead: false });
       mockPrisma.notification.findFirst.mockResolvedValue(unread);
-      const updated = makeNotification({ isRead: true, acknowledgedAt: new Date(), pushNextRetryAt: null });
+      const updated = makeNotification({
+        isRead: true,
+        acknowledgedAt: new Date(),
+        pushNextRetryAt: null,
+      });
       mockPrisma.notification.update.mockResolvedValue(updated);
 
       const result = await service.markAsRead('notif-1', 'user-1');

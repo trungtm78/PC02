@@ -62,7 +62,9 @@ describe('RecipientResolverService', () => {
           }),
         }),
       );
-      expect(result).toEqual(expect.arrayContaining(['member-1', 'member-2', 'grantee-1']));
+      expect(result).toEqual(
+        expect.arrayContaining(['member-1', 'member-2', 'grantee-1']),
+      );
     });
 
     it('always includes directUserId even if admin-filtered from team list', async () => {

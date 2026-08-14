@@ -35,10 +35,16 @@ import { ExportPetitionsQueryDto } from './dto/export-petitions-query.dto';
 import { ConvertToIncidentDto } from './dto/convert-incident.dto';
 import { ConvertToCaseDto } from './dto/convert-case.dto';
 import { AssignPetitionDto } from './dto/assign-petition.dto';
+import {
+  DecideDuplicateDto,
+  RevertDuplicateDto,
+} from './dto/decide-duplicate.dto';
 import { RestorePetitionDto } from './dto/restore-petition.dto'; // v0.32.0.0
 import { ListLinkableDto } from './dto/list-linkable.dto'; // v0.37.1
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
+import { FeatureFlag } from '../feature-flags/decorators/feature-flag.decorator';
 @Controller('petitions')
+@FeatureFlag('petitions')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class PetitionsController {
   constructor(
@@ -62,8 +68,14 @@ export class PetitionsController {
   // GET /api/v1/petitions/:id/export-readiness — trường còn thiếu per mẫu (engine động).
   @Get(':id/export-readiness')
   @RequirePermissions({ action: 'read', subject: 'Petition' })
-  async dynamicExportReadiness(@Param('id') id: string, @Req() req: ScopedRequest) {
-    const petition = await this.petitionsService.loadPetitionForExport(id, req.dataScope);
+  async dynamicExportReadiness(
+    @Param('id') id: string,
+    @Req() req: ScopedRequest,
+  ) {
+    const petition = await this.petitionsService.loadPetitionForExport(
+      id,
+      req.dataScope,
+    );
     return this.dynamicExport.getExportReadiness('DON_THU', petition);
   }
 
@@ -78,7 +90,10 @@ export class PetitionsController {
     @Res() res: Response,
     @CurrentUser() user: AuthUser,
   ): Promise<void> {
-    const petition = await this.petitionsService.loadPetitionForExport(id, req.dataScope);
+    const petition = await this.petitionsService.loadPetitionForExport(
+      id,
+      req.dataScope,
+    );
     await this.dynamicExport.exportEntityDocuments(
       'DON_THU',
       id,
@@ -98,7 +113,8 @@ export class PetitionsController {
   @Throttle({ default: { ttl: 60000, limit: 2 } })
   @RequirePermissions({ action: 'read', subject: 'Petition' })
   async exportDocumentBatch(
-    @Body() body: { docType?: string; docTypes?: string[]; petitionIds: string[] },
+    @Body()
+    body: { docType?: string; docTypes?: string[]; petitionIds: string[] },
     @CurrentUser() user: AuthUser,
     @Req() req: ScopedRequest,
     @Res() res: Response,
@@ -162,7 +178,12 @@ export class PetitionsController {
     @Res() res: Response,
   ): Promise<void> {
     const user = (req as any).user as AuthUser | undefined;
-    await this.petitionsService.exportToExcel(query, req.dataScope, res, user?.id);
+    await this.petitionsService.exportToExcel(
+      query,
+      req.dataScope,
+      res,
+      user?.id,
+    );
   }
 
   // GET /api/v1/petitions/export/ward — Xuất danh sách đơn thư theo phường/xã ra Excel
@@ -177,11 +198,96 @@ export class PetitionsController {
     @Res() res: Response,
   ): Promise<void> {
     const user = (req as any).user as AuthUser | undefined;
-    await this.petitionsService.exportWardPetitions(query, req.dataScope, res, user ? {
-      userId: user.id,
+    await this.petitionsService.exportWardPetitions(
+      query,
+      req.dataScope,
+      res,
+      user
+        ? {
+            userId: user.id,
+            ipAddress: req.ip,
+            userAgent: req.headers['user-agent'],
+          }
+        : undefined,
+    );
+  }
+
+  /**
+   * GET /api/v1/petitions/duplicates — candidate duplicate groups.
+   *
+   * The screen used to fetch `/petitions?limit=100` and label everything it
+   * got back as a duplicate. This returns actual groups with a match score,
+   * so the UI can say "khớp 3/4 tiêu chí" instead of inventing a percentage.
+   */
+  @Get('duplicates')
+  @RequirePermissions({ action: 'read', subject: 'Petition' })
+  @Throttle({ default: { ttl: 60000, limit: 20 } })
+  findDuplicates(
+    @Query()
+    query: {
+      status?: string;
+      criteria?: string;
+      fromDate?: string;
+      toDate?: string;
+      limit?: number;
+      offset?: number;
+    },
+    @Req() req: ScopedRequest,
+  ) {
+    return this.petitionsService.findDuplicateGroups(query, req.dataScope);
+  }
+
+  /**
+   * POST /api/v1/petitions/duplicates/decide — record a duplicate conclusion.
+   *
+   * `edit` rather than `read`: this changes the status of a citizen's petition
+   * and puts an assertion about two people on the file. It is not a filter.
+   */
+  @Post('duplicates/decide')
+  @HttpCode(HttpStatus.CREATED)
+  @RequirePermissions({ action: 'edit', subject: 'Petition' })
+  decideDuplicate(
+    @Body() dto: DecideDuplicateDto,
+    @CurrentUser() user: AuthUser,
+    @Req() req: ScopedRequest,
+  ) {
+    return this.petitionsService.decideDuplicate(dto, user.id, req.dataScope, {
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
-    } : undefined);
+    });
+  }
+
+  /** POST /api/v1/petitions/duplicates/:id/revert — undo, keeping the record. */
+  @Post('duplicates/:id/revert')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions({ action: 'edit', subject: 'Petition' })
+  revertDuplicate(
+    @Param('id') id: string,
+    @Body() dto: RevertDuplicateDto,
+    @CurrentUser() user: AuthUser,
+    @Req() req: ScopedRequest,
+  ) {
+    return this.petitionsService.revertDuplicate(
+      id,
+      dto,
+      user.id,
+      req.dataScope,
+      {
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      },
+    );
+  }
+
+  /** GET /api/v1/petitions/duplicates/links — decisions already on record. */
+  @Get('duplicates/links')
+  @RequirePermissions({ action: 'read', subject: 'Petition' })
+  listDuplicateLinks(
+    @Query()
+    query: { includeReverted?: string; limit?: number; offset?: number },
+    @Req() req: ScopedRequest,
+  ) {
+    return this.petitionsService.listDuplicateLinks(query, req.dataScope);
   }
 
   // GET /api/v1/petitions/export/duplicates — Xuất danh sách đơn trùng lặp ra Excel
@@ -190,7 +296,13 @@ export class PetitionsController {
   @RequirePermissions({ action: 'read', subject: 'Petition' })
   @Throttle({ default: { ttl: 60000, limit: 5 } })
   async exportDuplicates(
-    @Query() query: { status?: string; criteria?: string; fromDate?: string; toDate?: string },
+    @Query()
+    query: {
+      status?: string;
+      criteria?: string;
+      fromDate?: string;
+      toDate?: string;
+    },
     @Req() req: ScopedRequest,
     @Res() res: Response,
   ): Promise<void> {
@@ -201,10 +313,7 @@ export class PetitionsController {
   @Get('suspect-search')
   @RequirePermissions({ action: 'read', subject: 'Petition' })
   @Throttle({ default: { ttl: 60000, limit: 5 } })
-  suspectSearch(
-    @Query() query: { q?: string },
-    @Req() req: ScopedRequest,
-  ) {
+  suspectSearch(@Query() query: { q?: string }, @Req() req: ScopedRequest) {
     return this.petitionsService.suspectSearch(query.q ?? '', req.dataScope);
   }
 
@@ -216,7 +325,11 @@ export class PetitionsController {
     @Query() query: { q?: string; excludeId?: string },
     @Req() req: ScopedRequest,
   ) {
-    return this.petitionsService.duplicateSearch(query.q ?? '', query.excludeId, req.dataScope);
+    return this.petitionsService.duplicateSearch(
+      query.q ?? '',
+      query.excludeId,
+      req.dataScope,
+    );
   }
 
   // GET /api/v1/petitions/:id/journey — Hành trình đơn thư
@@ -230,7 +343,12 @@ export class PetitionsController {
   ) {
     const safePage = Math.max(1, Number(page) || 1);
     const safeLimit = Math.min(200, Math.max(1, Number(limit) || 50));
-    return this.petitionsJourneyService.getJourney(id, req.dataScope ?? null, safePage, safeLimit);
+    return this.petitionsJourneyService.getJourney(
+      id,
+      req.dataScope ?? null,
+      safePage,
+      safeLimit,
+    );
   }
 
   // GET /api/v1/petitions/:id — Chi tiết đơn thư
@@ -260,10 +378,15 @@ export class PetitionsController {
     @CurrentUser() user: AuthUser,
     @Req() req: ScopedRequest,
   ) {
-    return this.petitionsService.create(dto, user.id, {
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
-    }, req.dataScope); // v0.33: ward officer auto-set
+    return this.petitionsService.create(
+      dto,
+      user.id,
+      {
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      },
+      req.dataScope,
+    ); // v0.33: ward officer auto-set
   }
 
   // PUT /api/v1/petitions/:id — Cập nhật đơn thư
@@ -275,10 +398,16 @@ export class PetitionsController {
     @CurrentUser() user: AuthUser,
     @Req() req: ScopedRequest,
   ) {
-    return this.petitionsService.update(id, dto, user.id, {
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
-    }, req.dataScope);
+    return this.petitionsService.update(
+      id,
+      dto,
+      user.id,
+      {
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      },
+      req.dataScope,
+    );
   }
 
   // DELETE /api/v1/petitions/:id — Xóa đơn thư (soft delete)
@@ -290,16 +419,23 @@ export class PetitionsController {
     @CurrentUser() user: AuthUser,
     @Req() req: ScopedRequest,
   ) {
-    return this.petitionsService.delete(id, user.id, {
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
-    }, req.dataScope);
+    return this.petitionsService.delete(
+      id,
+      user.id,
+      {
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      },
+      req.dataScope,
+    );
   }
 
   // GET /api/v1/petitions/admin/deleted — v0.32.0.0 list đơn thư đã xóa mềm (ADMIN)
   @Get('admin/deleted')
   @RequirePermissions({ action: 'restore', subject: 'Petition' })
-  listDeleted(@Query() query: { limit?: number; offset?: number; search?: string }) {
+  listDeleted(
+    @Query() query: { limit?: number; offset?: number; search?: string },
+  ) {
     return this.petitionsService.listDeleted({
       limit: query.limit ? Number(query.limit) : undefined,
       offset: query.offset ? Number(query.offset) : undefined,
@@ -332,10 +468,16 @@ export class PetitionsController {
     @CurrentUser() user: AuthUser,
     @Req() req: ScopedRequest,
   ) {
-    return this.petitionsService.convertToIncident(id, dto, user.id, {
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
-    }, req.dataScope);
+    return this.petitionsService.convertToIncident(
+      id,
+      dto,
+      user.id,
+      {
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      },
+      req.dataScope,
+    );
   }
 
   // POST /api/v1/petitions/:id/convert-case — Chuyển thành Vụ án
@@ -347,10 +489,16 @@ export class PetitionsController {
     @CurrentUser() user: AuthUser,
     @Req() req: ScopedRequest,
   ) {
-    return this.petitionsService.convertToCase(id, dto, user.id, {
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
-    }, req.dataScope);
+    return this.petitionsService.convertToCase(
+      id,
+      dto,
+      user.id,
+      {
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      },
+      req.dataScope,
+    );
   }
 
   // PATCH /api/v1/petitions/:id/assign — Phân công / tái phân công đơn thư (dispatcher only)

@@ -21,14 +21,32 @@ Internal case management system (NestJS backend + React frontend) for managing l
 - Backend tests: `cd backend && npx jest --no-coverage`
 - Full test suite: `cd backend && npm test`
 - Frontend tests: `cd frontend && npx vitest run --no-coverage`
-- Test count: 1728 backend + 733 frontend = 2461 total
+- Type-check: `cd backend && npx tsc --noEmit` · `cd frontend && npx tsc -b` (**not** `--noEmit` — the frontend tsconfig is a solution file, so `--noEmit` is a no-op that always passes)
+- Test count: 2925 backend + 1475 frontend = 4400 total
+- Run the two suites **sequentially**. Running them concurrently starves the runner and makes `findBy*` queries in a handful of frontend tests time out spuriously.
 
 ## Shared Enum Infrastructure
 - **Generator**: `cd backend && npm run gen:enums` — re-generates `frontend/src/shared/enums/generated.ts` from `schema.prisma`. Runs automatically on `npm run build`.
 - **Frontend shared enums**: `frontend/src/shared/enums/` — typed constants for all Prisma enums + status labels + badge styles. Never hardcode enum string literals.
 - **Backend constants**: `backend/src/common/constants/` — `ROLE_NAMES`, `TOKEN_TYPE`, `SETTINGS_KEY`, `TWO_FA_METHOD`, `FCM_ERROR`, `EXPORT_FORMAT`. Constants with `WIRE FORMAT` JSDoc comment must never be renamed without migration.
 - **Status labels**: `frontend/src/shared/enums/status-labels.ts` — CASE/INCIDENT/PETITION status Vietnamese labels + Tailwind badge classes.
-- **Rule**: All enum comparisons must use constants/enum values, never string literals. Verified by grep guard in CI.
+- **Rule**: All enum comparisons must use constants/enum values, never string literals. Enforced by `scripts/governance/check-enum-literals.cjs` in the CI `Governance Gate` job. It ratchets against `scripts/governance/enum-literals-baseline.json`: the 57 pre-existing violations are recorded and may only shrink; a new one fails the build. Lowercase enum values (currently only `DeadlineRuleStatus`) are out of scope — they are indistinguishable from ordinary UI strings.
+
+## Governance Gate (CI)
+`.github/workflows/ci.yml` job `Governance Gate` enforces what the sections above describe:
+- **Enum literals** — `node scripts/governance/check-enum-literals.cjs`
+- **Enum sync** — runs `gen:enums` and fails if `frontend/src/shared/enums/` changes, i.e. the committed generated file is stale
+- **Lint ratchet** — `node scripts/governance/lint-changed.cjs origin/main`. Whole-repo lint is ~11.5k problems of debt accumulated while CI never ran eslint, so the gate is monotonic: a file your branch touches may not carry more problems than `scripts/governance/lint-baseline.json` records; new files must be clean. Most are formatting — `npx eslint --fix <file>`.
+- After cleaning debt, tighten the ratchets: `node scripts/governance/lint-changed.cjs --write-baseline` and `node scripts/governance/check-enum-literals.cjs --write-baseline`.
+
+`Advisory Checks` (non-blocking) runs the checks that are known-red against the current tree — `prisma migrate diff` and a type-check of `tests/`. See [ADR-0011](docs/adr/0011-partial-index-drift-is-accepted.md).
+
+- **Drift ratchet** — `node scripts/governance/check-migration-drift.cjs` (cần `DATABASE_URL` trỏ vào DB **dùng riêng**; script chạy `migrate deploy` lên đó). Drift được phép giữ nguyên hoặc giảm, **không được mọc thêm**. Danh sách "drift đã chấp nhận" từng giấu hai bug thật — `NotificationType` thiếu 4 giá trị và `otp_codes.purpose` — cả hai chỉ hại trên DB dựng từ migration. Siết bằng `--write-baseline`.
+
+## Architecture Decision Records
+[docs/adr/](docs/adr/) records why a decision was made **and why the alternatives were rejected** — the part that stops someone "fixing" a deliberate constraint six months from now. Start at [docs/adr/README.md](docs/adr/README.md); copy `0000-template.md` for a new one. `adr-nudge.yml` warns (does not block) when a PR touches `schema.prisma` or `feature-flags/` without an ADR; bypass with `[adr-skip]` in the PR title.
+
+Load-bearing ones to read before touching the relevant area: [0002](docs/adr/0002-subject-lawyer-caseid-stays-required.md) (why `caseId` cannot go nullable — it reopens a patched security hole), [0008](docs/adr/0008-mobile-blocks-api-gating.md) (why API gating is blocked on mobile work), [0010](docs/adr/0010-alter-type-add-value-is-one-way.md) (why adding an enum value cannot be rolled back).
 
 ## Deploy Configuration
 

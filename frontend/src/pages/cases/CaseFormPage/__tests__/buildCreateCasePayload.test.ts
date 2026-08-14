@@ -299,3 +299,75 @@ describe('buildCreateCasePayload — PR-M2 ghiChuKhac/toiDanhKhacIds + 3 cờ x�
     expect('coSuDungKQGhiAmTrongXetXu' in stat).toBe(false); // false không gửi (giữ nullable)
   });
 });
+
+describe('buildCreateCasePayload — mode:"update" drops the sub-entity arrays', () => {
+  // PUT /cases/:id read subjects[]/evidences[]/documentIds[] off the DTO and
+  // ignored them: adding evidence on the edit form returned 200 and wrote
+  // nothing. The backend now refuses them, so the builder has to stop sending
+  // them — otherwise every edit-mode save becomes a 400, which is worse than
+  // the bug it replaces.
+  const subject = {
+    id: 'sub-1',
+    name: 'Nguyễn Văn A',
+    dateOfBirth: '1990-01-01',
+    gender: 'M',
+    idNumber: '123456789',
+    address: 'Hà Nội',
+    phone: '0901234567',
+    occupation: 'occ-1',
+    nationality: 'nat-1',
+    type: 'Bị can',
+    criminalRecord: '',
+    crimeId: 'crime-1',
+  } as never;
+
+  const evidence = {
+    id: 'ev-1',
+    code: 'VC-001',
+    name: 'Dao',
+    quantity: 1,
+    unit: 'cái',
+  } as never;
+
+  it('omits subjects and evidences when mode is "update"', () => {
+    const payload = buildCreateCasePayload(baseValid, {
+      mode: 'update',
+      subjects: [subject],
+      evidences: [evidence],
+    });
+
+    expect(payload.subjects).toBeUndefined();
+    expect(payload.evidences).toBeUndefined();
+    expect(payload.documentIds).toBeUndefined();
+  });
+
+  it('still sends them on create, which is where they are written', () => {
+    const payload = buildCreateCasePayload(baseValid, {
+      mode: 'create',
+      subjects: [subject],
+      evidences: [evidence],
+    });
+
+    expect(payload.subjects).toHaveLength(1);
+    expect(payload.evidences).toHaveLength(1);
+  });
+
+  it('defaults to create when no mode is given, so existing callers are unchanged', () => {
+    const payload = buildCreateCasePayload(baseValid, {
+      subjects: [subject],
+      evidences: [evidence],
+    });
+
+    expect(payload.subjects).toHaveLength(1);
+    expect(payload.evidences).toHaveLength(1);
+  });
+
+  it('leaves the rest of the payload alone in update mode', () => {
+    const payload = buildCreateCasePayload(baseValid, {
+      mode: 'update',
+      subjects: [subject],
+    });
+
+    expect(payload.name).toBe(baseValid.caseTitle);
+  });
+});

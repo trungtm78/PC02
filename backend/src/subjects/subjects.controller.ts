@@ -22,7 +22,9 @@ import { CreateSubjectDto } from './dto/create-subject.dto';
 import { UpdateSubjectDto } from './dto/update-subject.dto';
 import { QuerySubjectsDto } from './dto/query-subjects.dto';
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
+import { FeatureFlag } from '../feature-flags/decorators/feature-flag.decorator';
 @Controller('subjects')
+@FeatureFlag('subjects')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class SubjectsController {
   constructor(private readonly subjectsService: SubjectsService) {}
@@ -49,10 +51,15 @@ export class SubjectsController {
     @CurrentUser() user: AuthUser,
     @Req() req: ScopedRequest,
   ) {
-    return this.subjectsService.create(dto, user.id, {
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
-    });
+    return this.subjectsService.create(
+      dto,
+      user.id,
+      {
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      },
+      req.dataScope,
+    );
   }
 
   // PUT /api/subjects/:id — Cập nhật đối tượng
@@ -64,10 +71,16 @@ export class SubjectsController {
     @CurrentUser() user: AuthUser,
     @Req() req: ScopedRequest,
   ) {
-    return this.subjectsService.update(id, dto, user.id, {
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
-    }, req.dataScope);
+    return this.subjectsService.update(
+      id,
+      dto,
+      user.id,
+      {
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      },
+      req.dataScope,
+    );
   }
 
   // DELETE /api/subjects/:id — Xóa đối tượng (soft delete)
@@ -79,9 +92,14 @@ export class SubjectsController {
     @CurrentUser() user: AuthUser,
     @Req() req: ScopedRequest,
   ) {
-    return this.subjectsService.delete(id, user.id, {
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
-    }, req.dataScope);
+    return this.subjectsService.delete(
+      id,
+      user.id,
+      {
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      },
+      req.dataScope,
+    );
   }
 }

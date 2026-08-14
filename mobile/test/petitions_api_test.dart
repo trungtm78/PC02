@@ -40,8 +40,12 @@ void main() {
     });
 
     test('passes status filter', () async {
+      // limit 50, not 20: that is getPetitions()'s declared default. The stub
+      // said 20, so it never matched, mocktail returned null, and the test
+      // died on "type 'Null' is not a subtype of Future<Response>" rather
+      // than on anything to do with the status filter it claims to check.
       when(() => mockDio.get('/petitions',
-              queryParameters: {'status': 'CHO_XU_LY', 'offset': 0, 'limit': 20}))
+              queryParameters: {'status': 'CHO_XU_LY', 'offset': 0, 'limit': 50}))
           .thenAnswer((_) async => Response(
                 data: {'data': []},
                 statusCode: 200,

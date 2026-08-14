@@ -24,7 +24,9 @@ export class TotpEncryptionService implements OnModuleInit {
 
     const enabled = await this.settings.getValue(SETTINGS_KEY.TWO_FA_ENABLED);
     if (enabled === 'true' && !keyHex) {
-      throw new Error('TOTP_ENCRYPTION_KEY is required when TWO_FA_ENABLED=true');
+      throw new Error(
+        'TOTP_ENCRYPTION_KEY is required when TWO_FA_ENABLED=true',
+      );
     }
   }
 

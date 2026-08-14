@@ -1,6 +1,14 @@
-import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  OnModuleInit,
+  Logger,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { FEATURE_REGISTRY } from './feature-registry';
+import { AuditService } from '../audit/audit.service';
+import { FEATURE_REGISTRY, getManifest } from './feature-registry';
+import { isCoreFeature } from './core-features.constants';
 
 export interface FeatureFlagDto {
   key: string;
@@ -9,12 +17,17 @@ export interface FeatureFlagDto {
   enabled: boolean;
   domain: string | null;
   rolloutPct: number;
+  /**
+   * True for flags that cannot be switched off. Sent so the admin screen can
+   * render the toggle disabled instead of offering an action the API will
+   * refuse — and so nobody has to keep a second copy of the list in the
+   * frontend.
+   */
+  isCore?: boolean;
 }
 
 // Happy-path cache window — after this we try a refresh.
-const CACHE_TTL_MS = Number(
-  process.env['FEATURE_FLAG_CACHE_TTL_MS'] ?? 30_000,
-);
+const CACHE_TTL_MS = Number(process.env['FEATURE_FLAG_CACHE_TTL_MS'] ?? 30_000);
 // On a failed refresh we don't want to hammer the DB every request. Serve
 // the stale cache for this window before the next retry.
 const RETRY_BACKOFF_MS = 5_000;
@@ -27,11 +40,28 @@ export class FeatureFlagsService implements OnModuleInit {
   private refreshing: Promise<void> | null = null;
   private readonly buildWhitelist: Set<string> | null;
 
-  constructor(private readonly prisma: PrismaService) {
+  constructor(
+    private readonly prisma: PrismaService,
+    /**
+     * Required, not optional.
+     *
+     * This was `@Optional()` as a hedge against a circular graph — but
+     * FeatureFlagsModule did not import AuditModule, and sibling modules do
+     * not share providers, so the hedge meant the dependency was always
+     * undefined and every flag change committed with no audit trail. A
+     * missing logger has to be a boot failure, not a silent one.
+     */
+    private readonly audit: AuditService,
+  ) {
     const envList = process.env['ENABLED_FEATURES'];
     this.buildWhitelist =
       envList && envList.trim().length > 0
-        ? new Set(envList.split(',').map((s) => s.trim()).filter(Boolean))
+        ? new Set(
+            envList
+              .split(',')
+              .map((s) => s.trim())
+              .filter(Boolean),
+          )
         : null;
   }
 
@@ -92,21 +122,41 @@ export class FeatureFlagsService implements OnModuleInit {
   }
 
   /**
-   * Is the feature key enabled for this request? Semantics:
-   *  1. If a build whitelist is set (`ENABLED_FEATURES` env) and the key
-   *     is not in it, return false. Whitelist is the first gate.
-   *  2. If the DB has a row, respect `enabled`.
-   *  3. If the DB has no row, default-allow (so a fresh module code-ships
-   *     before its seed runs without locking users out).
+   * The one place that decides whether a flag counts as on.
+   *
+   * `isEnabled()` and `listAll()` used to answer this question separately, and
+   * two copies of a rule drift. Core keys are forced true here so that a
+   * hand-edited row — `UPDATE feature_flags SET enabled=false WHERE key='admin'`
+   * — cannot lock everyone out of the screen that would undo it.
    */
+  private effectiveEnabled(
+    key: string,
+    row: { enabled: boolean } | undefined,
+  ): boolean {
+    if (isCoreFeature(key)) return true;
+    if (!row) return true; // default-allow unseeded features
+    return row.enabled;
+  }
+
+  /**
+   * Is this key shipped by this build?
+   *
+   * Core keys always are, whatever `ENABLED_FEATURES` says. The whitelist used
+   * to be checked first, which meant an env var that simply forgot `admin` or
+   * `feature-flags` produced the exact lockout the core list exists to
+   * prevent — sidebar entry gone, and the write API then refusing to turn it
+   * back on because the key was "outside the build". You cannot ship a build
+   * without auth; treating that as configurable was the mistake.
+   */
+  private shippedInThisBuild(key: string): boolean {
+    if (isCoreFeature(key)) return true;
+    return !this.buildWhitelist || this.buildWhitelist.has(key);
+  }
+
   async isEnabled(key: string): Promise<boolean> {
-    if (this.buildWhitelist && !this.buildWhitelist.has(key)) {
-      return false;
-    }
+    if (!this.shippedInThisBuild(key)) return false;
     await this.ensureFresh();
-    const flag = this.cache.get(key);
-    if (!flag) return true; // default-allow unseeded features
-    return flag.enabled;
+    return this.effectiveEnabled(key, this.cache.get(key));
   }
 
   /**
@@ -126,32 +176,105 @@ export class FeatureFlagsService implements OnModuleInit {
 
     const result: FeatureFlagDto[] = [];
     for (const manifest of FEATURE_REGISTRY) {
-      if (this.buildWhitelist && !this.buildWhitelist.has(manifest.key)) {
-        continue;
-      }
+      if (!this.shippedInThisBuild(manifest.key)) continue;
       const row = this.cache.get(manifest.key);
+      const enabled = this.effectiveEnabled(manifest.key, row);
       if (row) {
-        result.push(row);
+        // Same rule as isEnabled(), not a second copy of it: a core key reads
+        // as on here even when its row says otherwise, so the admin screen and
+        // the guard never disagree about what is running.
+        result.push({ ...row, enabled, isCore: isCoreFeature(manifest.key) });
       } else {
-        // Default-allow synthetic entry — mirrors isEnabled() semantics.
         result.push({
           key: manifest.key,
           label: manifest.label,
           description: manifest.description ?? null,
-          enabled: true,
+          enabled,
           domain: manifest.domain,
           rolloutPct: 100,
+          isCore: isCoreFeature(manifest.key),
         });
       }
     }
     return result;
   }
 
-  async setEnabled(key: string, enabled: boolean): Promise<FeatureFlagDto> {
-    const row = await this.prisma.featureFlag.update({
-      where: { key },
-      data: { enabled },
+  /**
+   * Flip a flag.
+   *
+   * Three validations, all fail-fast, all before anything is written:
+   *
+   *   - Unknown key → 404. The registry is compiled in, so a key that is not
+   *     in it does not exist in this build; accepting it would create a row
+   *     nothing ever reads.
+   *   - Core key + `enabled: false` → 400. See CORE_FEATURE_KEYS: switching
+   *     one off removes the means of switching it back on.
+   *   - Key outside `ENABLED_FEATURES` → 400. The build does not ship it, so
+   *     enabling it in the database changes nothing and reads as a bug report
+   *     later.
+   *
+   * `upsert`, not `update`: the old version threw P2025 for any flag the seed
+   * had not created yet, which is every flag added since the first seed ran.
+   * The audit entry goes in the same transaction — a flag that changed with no
+   * record of who changed it is worse than one that did not change.
+   */
+  async setEnabled(
+    key: string,
+    enabled: boolean,
+    actor?: { id: string; ipAddress?: string; userAgent?: string },
+  ): Promise<FeatureFlagDto> {
+    const manifest = getManifest(key);
+    if (!manifest) {
+      throw new NotFoundException(`Tính năng "${key}" không tồn tại`);
+    }
+    if (!enabled && isCoreFeature(key)) {
+      throw new BadRequestException(
+        `Không thể tắt tính năng lõi "${manifest.label}" — tắt nó thì không còn đường bật lại.`,
+      );
+    }
+    if (!this.shippedInThisBuild(key)) {
+      throw new BadRequestException(
+        `Tính năng "${manifest.label}" không có trong gói build này (ENABLED_FEATURES), bật/tắt ở đây không có tác dụng.`,
+      );
+    }
+
+    const row = await this.prisma.$transaction(async (tx) => {
+      // Read `before` inside the transaction, not from the local cache. The
+      // cache can be up to a TTL stale, and on a fresh database a
+      // default-enabled flag has no row at all — the audit entry then said
+      // `before: undefined` for a change that was really true → false.
+      const previous = await tx.featureFlag.findUnique({
+        where: { key },
+        select: { enabled: true },
+      });
+      const before = this.effectiveEnabled(key, previous ?? undefined);
+
+      const updated = await tx.featureFlag.upsert({
+        where: { key },
+        update: { enabled },
+        create: {
+          key,
+          label: manifest.label,
+          description: manifest.description ?? null,
+          domain: manifest.domain,
+          enabled,
+        },
+      });
+      await this.audit.log(
+        {
+          userId: actor?.id ?? 'system',
+          action: enabled ? 'FEATURE_FLAG_ENABLED' : 'FEATURE_FLAG_DISABLED',
+          subject: 'FeatureFlag',
+          subjectId: key,
+          metadata: { key, label: manifest.label, before, after: enabled },
+          ipAddress: actor?.ipAddress,
+          userAgent: actor?.userAgent,
+        },
+        tx,
+      );
+      return updated;
     });
+
     // Drop TTL to force the next ensureFresh() to actually refresh.
     this.cacheExpiresAt = 0;
     await this.ensureFresh();
@@ -159,10 +282,17 @@ export class FeatureFlagsService implements OnModuleInit {
       key: row.key,
       label: row.label,
       description: row.description,
-      enabled: row.enabled,
+      enabled: this.effectiveEnabled(row.key, row),
       domain: row.domain,
       rolloutPct: row.rolloutPct,
+      isCore: isCoreFeature(row.key),
     };
+  }
+
+  /** Re-read the table now, ignoring the TTL. */
+  async forceRefresh(): Promise<void> {
+    this.cacheExpiresAt = 0;
+    await this.ensureFresh();
   }
 
   /** Test-only: force cache reset. */

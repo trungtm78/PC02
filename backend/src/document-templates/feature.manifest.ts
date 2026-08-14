@@ -11,6 +11,9 @@ export const DOCUMENT_TEMPLATES_MANIFEST: FeatureManifest = {
   label: 'Quản lý mẫu chứng từ',
   description: 'Admin tải mẫu .docx động cho Vụ việc/Vụ án/Đơn thư (xuất chứng từ động)',
   domain: 'org-domain',
+  /// E5 — đợt rủi ro trung bình. Controller mang @FeatureFlag cùng key — `feature-gating.spec.ts`
+  /// kiểm hai bên khớp nhau theo cả hai chiều.
+  gating: 'api',
   permissions: [
     { action: 'read', subject: 'Setting' },
     { action: 'write', subject: 'Setting' },

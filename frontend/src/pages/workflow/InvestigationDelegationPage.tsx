@@ -32,6 +32,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { extractApiError } from '@/lib/api-errors';
 import { downloadCsv } from '@/lib/csv';
 import { today, toDateInput, formatVNDate } from '@/lib/dates';
 
@@ -111,6 +112,7 @@ export default function InvestigationDelegationPage() {
   });
 
   const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // ── Real data state ────────────────────────────────────────────────────────
   const [allDelegations, setAllDelegations] = useState<Delegation[]>([]);
@@ -254,6 +256,7 @@ export default function InvestigationDelegationPage() {
 
   const handleSave = async () => {
     if (!validateForm()) return;
+    setSaveError(null);
     try {
       const dto = {
         delegationNumber: formData.delegationNumber,
@@ -269,8 +272,10 @@ export default function InvestigationDelegationPage() {
         await api.put(`/delegations/${selectedDelegation.id}`, dto);
       }
       await fetchDelegations();
-    } catch {
-      // keep modal open on error
+    } catch (e) {
+      // Giữ modal mở là đúng — nhưng im lặng thì người dùng chỉ thấy nút Lưu
+      // không làm gì, và bấm lại nhiều lần.
+      setSaveError(extractApiError(e, 'Không lưu được ủy thác').message);
       return;
     }
     setShowDelegationModal(false);
@@ -808,6 +813,12 @@ export default function InvestigationDelegationPage() {
                 </div>
               )}
             </div>
+
+            {saveError && (
+              <p className="mx-6 mb-2 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700" data-testid="delegation-save-error">
+                {saveError}
+              </p>
+            )}
 
             {/* Footer */}
             <div className="p-6 border-t border-slate-200 flex items-center justify-end gap-3 flex-shrink-0">

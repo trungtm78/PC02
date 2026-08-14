@@ -23,7 +23,10 @@ export class EnrollmentPdfService {
     const candidates = [
       path.resolve(__dirname, '../../../assets/fonts/BeVietnamPro-Regular.ttf'),
       path.resolve(__dirname, '../../assets/fonts/BeVietnamPro-Regular.ttf'),
-      path.resolve(process.cwd(), 'backend/assets/fonts/BeVietnamPro-Regular.ttf'),
+      path.resolve(
+        process.cwd(),
+        'backend/assets/fonts/BeVietnamPro-Regular.ttf',
+      ),
       path.resolve(process.cwd(), 'assets/fonts/BeVietnamPro-Regular.ttf'),
     ];
     for (const p of candidates) {
@@ -42,7 +45,14 @@ export class EnrollmentPdfService {
     enrollmentUrl: string;
     expiresAt: Date;
   }): Promise<Buffer> {
-    const { fullName, workId, phone, departmentName, enrollmentUrl, expiresAt } = params;
+    const {
+      fullName,
+      workId,
+      phone,
+      departmentName,
+      enrollmentUrl,
+      expiresAt,
+    } = params;
 
     const doc = new PDFDocument({ size: 'A6', margin: 16, layout: 'portrait' });
     const chunks: Buffer[] = [];
@@ -59,8 +69,14 @@ export class EnrollmentPdfService {
     }
 
     // Header
-    doc.fontSize(10).fillColor('#003973').text('PC02 — CÔNG AN TP HCM', { align: 'center' });
-    doc.fontSize(8).fillColor('#666').text('Hệ thống quản lý vụ án', { align: 'center' });
+    doc
+      .fontSize(10)
+      .fillColor('#003973')
+      .text('PC02 — CÔNG AN TP HCM', { align: 'center' });
+    doc
+      .fontSize(8)
+      .fillColor('#666')
+      .text('Hệ thống quản lý vụ án', { align: 'center' });
     doc.moveDown(0.5);
     doc
       .strokeColor('#003973')
@@ -91,11 +107,14 @@ export class EnrollmentPdfService {
     doc.y += qrWidth + 8;
 
     // URL text fallback
-    doc.fontSize(6).fillColor('#666').text(enrollmentUrl, doc.page.margins.left, doc.y, {
-      width: doc.page.width - doc.page.margins.left - doc.page.margins.right,
-      align: 'center',
-      lineGap: 0,
-    });
+    doc
+      .fontSize(6)
+      .fillColor('#666')
+      .text(enrollmentUrl, doc.page.margins.left, doc.y, {
+        width: doc.page.width - doc.page.margins.left - doc.page.margins.right,
+        align: 'center',
+        lineGap: 0,
+      });
     doc.moveDown(0.5);
 
     // Expiry warning
@@ -103,14 +122,20 @@ export class EnrollmentPdfService {
       dateStyle: 'short',
       timeStyle: 'short',
     });
-    doc.fontSize(7).fillColor('#dc2626').text(`Link hết hạn: ${expFormatted} (72h từ lúc tạo)`, {
-      align: 'center',
-    });
+    doc
+      .fontSize(7)
+      .fillColor('#dc2626')
+      .text(`Link hết hạn: ${expFormatted} (72h từ lúc tạo)`, {
+        align: 'center',
+      });
 
     doc.moveDown(0.3);
-    doc.fontSize(6).fillColor('#999').text('Quét QR hoặc mở link → tự đặt mật khẩu lần đầu', {
-      align: 'center',
-    });
+    doc
+      .fontSize(6)
+      .fillColor('#999')
+      .text('Quét QR hoặc mở link → tự đặt mật khẩu lần đầu', {
+        align: 'center',
+      });
 
     doc.end();
     return donePromise;

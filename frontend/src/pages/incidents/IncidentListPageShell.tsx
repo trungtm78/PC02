@@ -166,15 +166,19 @@ export function IncidentListPageShell() {
   const [stats, setStats] = useState<IncidentsStatsResponse | null>(null);
   const [tableState, setTableState] = useState<TableState>('loading');
   const [refetchCounter, setRefetchCounter] = useState(0);
-  useListShortcuts({ onNew: () => navigate('/vu-viec/new'), onRefresh: () => setRefetchCounter((n) => n + 1) });
+const { canDispatch, canCreate, canEdit, canDelete } = usePermission();
+  // A user without `write` on this resource saw "Tạo mới", the Alt+N shortcut
+  // and the empty-state button, and got a 403 from the form they were sent to.
+  // All three are the same grant, so all three are gated on it.
+  const canCreateItem = canCreate('incidents');
+  useListShortcuts({ onNew: canCreateItem ? () => navigate('/vu-viec/new') : undefined, onRefresh: () => setRefetchCounter((n) => n + 1) });
   const [error, setError] = useState<string | undefined>();
 
   const abortRef = useRef<AbortController | null>(null);
 
   // v0.64 PR2 — Action context (perms + modal openers).
   // v0.67 PR1 PR2-bis — wire StatusTransition + Prosecute modals.
-  const { canDispatch, canEdit, canDelete } = usePermission();
-  const assignModal = useAssignModal();
+    const assignModal = useAssignModal();
   const deleteModal = useDeleteResourceModal();
   const statusTransitionModal = useStatusTransitionModal();
   const prosecuteModal = useProsecuteModal();
@@ -514,15 +518,18 @@ export function IncidentListPageShell() {
         title="Danh sách vụ việc"
         subtitle="Nguồn tin tội phạm (Đ.144 BLTTHS) — tiếp nhận, xác minh, kết quả"
         actions={
-          <button
-            type="button"
-            onClick={() => navigate('/incidents/new')}
-            className={`${BTN_PRIMARY} ${A11Y_FOCUS_RING} flex items-center gap-2`}
-          >
-            <Plus className="w-4 h-4" />
-            <span>Tạo mới</span>
-            <ShortcutHint action="newRecord" className="ml-1" />
-          </button>
+          canCreateItem ? (
+            <button
+              type="button"
+              onClick={() => navigate('/incidents/new')}
+              data-testid="btn-create-incident"
+              className={`${BTN_PRIMARY} ${A11Y_FOCUS_RING} flex items-center gap-2`}
+            >
+              <Plus className="w-4 h-4" />
+              <span>Tạo mới</span>
+              <ShortcutHint action="newRecord" className="ml-1" />
+            </button>
+          ) : null
         }
       />
       <StatsCardsStrip
@@ -630,7 +637,7 @@ export function IncidentListPageShell() {
           title: 'Chưa có vụ việc nào',
           description: 'Tạo vụ việc đầu tiên để bắt đầu xác minh nguồn tin.',
           actionLabel: 'Tạo vụ việc mới',
-          onAction: () => navigate('/incidents/new'),
+          onAction: canCreateItem ? () => navigate('/incidents/new') : undefined,
         }}
         emptyFilteredState={{ onClearFilters: handleResetFilters }}
         onRowClick={(r) => navigate(`/incidents/${r.id}`)}

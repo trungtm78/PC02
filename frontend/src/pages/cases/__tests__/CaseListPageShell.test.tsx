@@ -15,10 +15,38 @@ import { render, screen, fireEvent, waitFor, within } from '@testing-library/rea
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, useLocation, Routes, Route } from 'react-router-dom';
 import { api } from '@/lib/api';
+import { useListShortcuts } from '@/hooks/useListShortcuts';
 import { CaseListPageShell } from '../CaseListPageShell';
 import { CaseStatus } from '@/shared/enums/generated';
 import { AssignModalProvider } from '@/features/_shared/modals/AssignModalProvider';
 import { DeleteResourceModalProvider } from '@/features/_shared/modals/DeleteResourceModalProvider';
+
+// `vi.mock` is hoisted above ordinary declarations, so the mutable the mocked
+// store reads has to be hoisted with it. Tests flip `auth.granted` to check
+// both sides of the permission gate.
+const auth = vi.hoisted(() => ({
+  granted: [{ action: 'read', subject: 'Case' },
+          { action: 'write', subject: 'Case' },
+          { action: 'edit', subject: 'Case' },
+          { action: 'delete', subject: 'Case' },] as { action: string; subject: string }[] | null,
+}));
+const FULL_PERMISSIONS = auth.granted;
+
+// The permission layer is real now: with no auth store the shell sees no user,
+// so "Tạo mới" is correctly hidden. The test needs a user who may create.
+vi.mock('@/stores/auth.store', () => ({
+  authStore: {
+    getUser: vi.fn(() => auth.granted === null
+      ? null
+      : { email: 'officer@test.local', role: 'OFFICER', permissions: auth.granted }),
+    getProfileRaw: vi.fn(() => null),
+    onTokenChanged: vi.fn(() => () => {}),
+  },
+}));
+
+vi.mock('@/hooks/useListShortcuts', () => ({
+  useListShortcuts: vi.fn(),
+}));
 
 vi.mock('@/lib/api', () => ({
   api: {
@@ -283,5 +311,54 @@ describe('CaseListPageShell — URL state load from query params', () => {
       (c) => c[0] === '/cases',
     );
     expect(listCall?.[1]?.params.offset).toBe(20);
+  });
+});
+
+
+/**
+ * PR-F1 gated three entry points on the same `write` grant: the header button,
+ * the Alt+N shortcut and the empty-state CTA. Asserting the granted case only
+ * would have passed just as well before the gate existed, so this asserts the
+ * denied case — the one the change is actually for.
+ */
+describe('CaseListPageShell — a user who may not create', () => {
+  beforeEach(() => {
+    auth.granted = [{ action: 'read', subject: 'Case' }];
+    (api.get as unknown as ReturnType<typeof vi.fn>).mockImplementation((url: string) => {
+      if (url.includes('/stats')) return Promise.resolve({ data: { total: 0, byStatus: {}, byGroup: {} } });
+      return Promise.resolve({ data: { data: [], total: 0, page: 1, limit: 20 } });
+    });
+  });
+
+  afterEach(() => {
+    auth.granted = FULL_PERMISSIONS;
+  });
+
+  it('hides the header create button', async () => {
+    renderWithRouter();
+    await waitFor(() => expect(api.get).toHaveBeenCalled());
+
+    expect(screen.queryByTestId('btn-create-case')).not.toBeInTheDocument();
+  });
+
+  it('hides the empty-state call to action', async () => {
+    renderWithRouter();
+    await waitFor(() => expect(api.get).toHaveBeenCalled());
+
+    expect(screen.queryByText('Tạo vụ án mới')).not.toBeInTheDocument();
+  });
+
+  it('hands the Alt+N shortcut no handler, which unregisters it', () => {
+    // The three doors this gate covers are the button, the empty-state CTA and
+    // Alt+N. The first two are assertable by absence in the DOM; the shortcut
+    // is not rendered, and pressing it in jsdom does not reach
+    // react-hotkeys-hook, so a keyboard test here would pass whether or not
+    // the gate existed. The contract that IS checkable is the one this file
+    // owns: the shell passes no `onNew`. `useListShortcuts` has its own test
+    // proving an absent `onNew` leaves `newRecord` disabled.
+    renderWithRouter();
+
+    const call = vi.mocked(useListShortcuts).mock.calls.at(-1)?.[0];
+    expect(call?.onNew).toBeUndefined();
   });
 });

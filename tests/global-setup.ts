@@ -6,13 +6,29 @@ import { request, FullConfig } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
 
+/** Read a required credential, failing with a message that says how to fix it. */
+function requireEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(
+      `[UAT global-setup] ${name} is not set. UAT runs against a real deployment, ` +
+        'so credentials must come from the environment: copy tests/.env.test.example ' +
+        'to tests/.env.test and fill it in (that file is gitignored).',
+    );
+  }
+  return value;
+}
+
 async function globalSetup(_config: FullConfig): Promise<void> {
   // UAT_PROD=1 bắt buộc — không login với credentials thật khi chạy local dev tests
   if (!process.env.UAT_PROD) return;
 
+  // No credential defaults. A password baked into a source file is a password
+  // committed to the repo, and a default that silently works is one nobody
+  // notices is being used. Copy tests/.env.test.example to tests/.env.test.
   const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
-  const username = process.env.ADMIN_USERNAME || 'admin@pc02.local';
-  const password = process.env.ADMIN_PASSWORD || '68@Love2love68';
+  const username = requireEnv('ADMIN_USERNAME');
+  const password = requireEnv('ADMIN_PASSWORD');
 
   console.log(`[UAT global-setup] Login ${username} @ ${baseUrl}`);
 
@@ -51,13 +67,21 @@ async function globalSetup(_config: FullConfig): Promise<void> {
       console.warn('[UAT global-setup] Admin login failed — kiểm tra username/password field');
     }
 
-    // Pre-fetch tokens cho 4 roles còn lại, lưu vào files riêng
-    const extraAccounts = [
-      { key: 'admin2', user: process.env.ADMIN2_USERNAME || 'admin2@pc02.local', pass: process.env.ADMIN2_PASSWORD || 'isP$sT4N@o71' },
-      { key: 'officer1', user: process.env.OFFICER1_USERNAME || 'officer1@pc02.local', pass: process.env.OFFICER1_PASSWORD || '8I@&5c1gHmfy' },
-      { key: 'officer2', user: process.env.OFFICER2_USERNAME || 'officer2@pc02.local', pass: process.env.OFFICER2_PASSWORD || '4TMa3hq*x3$v' },
-      { key: 'approver1', user: process.env.APPROVER1_USERNAME || 'approver1@pc02.local', pass: process.env.APPROVER1_PASSWORD || '6!rrw@ILte62' },
-    ];
+    // Pre-fetch tokens cho 4 roles còn lại, lưu vào files riêng.
+    // Accounts without credentials in the environment are skipped rather than
+    // attempted with a built-in password.
+    const extraAccounts: Array<{ key: string; user: string; pass: string }> = [];
+    for (const [key, prefix] of [
+      ['admin2', 'ADMIN2'],
+      ['officer1', 'OFFICER1'],
+      ['officer2', 'OFFICER2'],
+      ['approver1', 'APPROVER1'],
+    ]) {
+      const user = process.env[`${prefix}_USERNAME`];
+      const pass = process.env[`${prefix}_PASSWORD`];
+      if (user && pass) extraAccounts.push({ key, user, pass });
+    }
+
     for (const acc of extraAccounts) {
       const t = await loginAs(acc.user, acc.pass);
       if (t) {

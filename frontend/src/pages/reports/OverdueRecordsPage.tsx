@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { formatVNDate } from "../../lib/dates";
+import { StatCard, type StatTone } from '@/components/shared/StatCard';
 
 interface OverdueRecord {
   id: string;
@@ -221,22 +222,23 @@ export default function OverdueRecordsPage() {
     }
   };
 
-  const stats = [
-    { label: "Tổng hồ sơ trễ hạn", value: filteredRecords.length, color: "red" },
+  const stats: { label: string; value: number; tone: StatTone }[] = [
+    { label: "Tổng hồ sơ trễ hạn", value: filteredRecords.length, tone: "red" },
     {
       label: "Nghiêm trọng (≥7 ngày)",
       value: filteredRecords.filter((r) => r.daysOverdue >= 7).length,
-      color: "red",
+      tone: "red",
     },
     {
       label: "Cao (3-6 ngày)",
       value: filteredRecords.filter((r) => r.daysOverdue >= 3 && r.daysOverdue < 7).length,
-      color: "orange",
+      // orange was never a tone the map had — it rendered colourless twice over.
+      tone: "amber",
     },
     {
       label: "Trung bình (<3 ngày)",
       value: filteredRecords.filter((r) => r.daysOverdue < 3).length,
-      color: "amber",
+      tone: "amber",
     },
   ];
 
@@ -264,16 +266,15 @@ export default function OverdueRecordsPage() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        {stats.map((stat, index) => (
-          <div key={index} className="bg-white border border-slate-200 rounded-lg p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-slate-600 mb-1">{stat.label}</p>
-                <p className={`text-3xl font-bold text-${stat.color}-600`}>{stat.value}</p>
-              </div>
-              <AlertTriangle className={`w-8 h-8 text-${stat.color}-600`} />
-            </div>
-          </div>
+        {stats.map((stat) => (
+          <StatCard
+            key={stat.label}
+            label={stat.label}
+            value={stat.value}
+            tone={stat.tone}
+            icon={<AlertTriangle className="h-8 w-8 text-slate-300" />}
+            testId={`stat-${stat.tone}`}
+          />
         ))}
       </div>
 

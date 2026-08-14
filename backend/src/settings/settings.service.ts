@@ -23,6 +23,28 @@ function assertNotDeadlineKey(key: string): void {
   }
 }
 
+/**
+ * Upper bound per unit for numeric settings.
+ *
+ * Two problems with the old single 365 ceiling on `'ngày'` and `'lần'`:
+ *
+ *   - `'giờ'` was not in the list at all, so hour settings had **no**
+ *     validation. `THOI_HAN_XOA_VU_AN` and `THOI_HAN_EDIT_VU_VAN` both use it.
+ *   - Applying 365 to hours would have been worse than nothing:
+ *     `THOI_HAN_EDIT_VU_VAN` defaults to 168h and its legal basis is BLTTHS
+ *     Đ.147 (20 days = 480h), so a 365 ceiling would silently cut the window
+ *     below what the law allows.
+ *
+ * 8760 = one year in hours, the same span 365 expresses for days.
+ *
+ * A unit absent from this map is not numeric (free text) and is left alone.
+ */
+const NUMERIC_UNIT_MAX: Readonly<Record<string, number>> = {
+  ngày: 365,
+  lần: 365,
+  giờ: 8760,
+};
+
 @Injectable()
 export class SettingsService {
   private cache: Map<string, string> = new Map();
@@ -44,7 +66,10 @@ export class SettingsService {
   async getValue(key: string): Promise<string | null> {
     assertNotDeadlineKey(key);
 
-    if (Date.now() - this.cacheTimestamp < this.CACHE_TTL_MS && this.cache.has(key)) {
+    if (
+      Date.now() - this.cacheTimestamp < this.CACHE_TTL_MS &&
+      this.cache.has(key)
+    ) {
       return this.cache.get(key) ?? null;
     }
 
@@ -88,16 +113,28 @@ export class SettingsService {
   ) {
     assertNotDeadlineKey(key);
 
-    const existing = await this.prisma.systemSetting.findUnique({ where: { key } });
+    const existing = await this.prisma.systemSetting.findUnique({
+      where: { key },
+    });
     if (!existing) {
       return { success: false, message: `Cấu hình '${key}' không tồn tại` };
     }
 
     let normalizedValue = value;
-    if (existing.unit === 'ngày' || existing.unit === 'lần') {
-      const num = parseInt(value, 10);
-      if (isNaN(num) || num < 0 || num > 365) {
-        return { success: false, message: `Giá trị phải là số nguyên từ 0 đến 365` };
+    const max = NUMERIC_UNIT_MAX[existing.unit ?? ''];
+    if (max !== undefined) {
+      // Whole-string match, not parseInt's prefix parse. `parseInt('480abc')`
+      // is 480 and `parseInt('0x10')` is 0, so malformed input used to be
+      // accepted and silently rewritten while the error text promised an
+      // integer. A decimal is still allowed and truncated — that normalisation
+      // predates this and is covered by its own test.
+      const wellFormed = /^\s*\d+(\.\d+)?\s*$/.test(value);
+      const num = wellFormed ? Math.trunc(Number(value)) : NaN;
+      if (!wellFormed || Number.isNaN(num) || num < 0 || num > max) {
+        return {
+          success: false,
+          message: `Giá trị phải là số nguyên từ 0 đến ${max} (${existing.unit})`,
+        };
       }
       normalizedValue = String(num);
     }
@@ -126,7 +163,11 @@ export class SettingsService {
       });
     }
 
-    return { success: true, data: updated, message: 'Cập nhật cấu hình thành công' };
+    return {
+      success: true,
+      data: updated,
+      message: 'Cập nhật cấu hình thành công',
+    };
   }
 
   /**
@@ -135,15 +176,46 @@ export class SettingsService {
    */
   async seed() {
     const defaults = [
-      { key: SETTINGS_KEY.TWO_FA_ENABLED, value: 'false', label: 'Bật xác thực 2 lớp (2FA)', unit: null, legalBasis: null },
-      { key: SETTINGS_KEY.CANH_BAO_SAP_HAN, value: '7', label: 'Ngưỡng cảnh báo sắp đến hạn (app mobile)', unit: 'ngày', legalBasis: null },
-      { key: SETTINGS_KEY.THOI_HAN_XOA_VU_VIEC, value: '180', label: 'Số ngày giữ vụ việc đã xóa mềm', unit: 'ngày', legalBasis: 'Quy chế nội bộ' },
+      {
+        key: SETTINGS_KEY.TWO_FA_ENABLED,
+        value: 'false',
+        label: 'Bật xác thực 2 lớp (2FA)',
+        unit: null,
+        legalBasis: null,
+      },
+      {
+        key: SETTINGS_KEY.CANH_BAO_SAP_HAN,
+        value: '7',
+        label: 'Ngưỡng cảnh báo sắp đến hạn (app mobile)',
+        unit: 'ngày',
+        legalBasis: null,
+      },
+      {
+        key: SETTINGS_KEY.THOI_HAN_XOA_VU_VIEC,
+        value: '180',
+        label: 'Số ngày giữ vụ việc đã xóa mềm',
+        unit: 'ngày',
+        legalBasis: 'Quy chế nội bộ',
+      },
       // v0.31.0.2: số giờ creator có thể tự xóa vụ án (status=TIEP_NHAN). Ngoài window → chỉ ADMIN.
-      { key: SETTINGS_KEY.THOI_HAN_XOA_VU_AN, value: '72', label: 'Số giờ creator được tự xóa vụ án sau khi tạo', unit: 'giờ', legalBasis: 'Quy chế nội bộ' },
+      {
+        key: SETTINGS_KEY.THOI_HAN_XOA_VU_AN,
+        value: '72',
+        label: 'Số giờ creator được tự xóa vụ án sau khi tạo',
+        unit: 'giờ',
+        legalBasis: 'Quy chế nội bộ',
+      },
       // v0.33.0.0 Phase 5-lite: edit window cho ward officer
       // v0.36.0.0: bump default 24h → 168h (7 ngày) per /autoplan UC1 — BLTTHS Đ.147
       // cho 20 ngày verify tin báo, 24h là quá ngắn cho điều tra thực tế.
-      { key: SETTINGS_KEY.THOI_HAN_EDIT_VU_VAN, value: '168', label: 'Số giờ cán bộ phường khuyến nghị sửa dữ liệu (warning-only, override per-Team). Default 168h = 7 ngày (BLTTHS Đ.147 verify 20 ngày).', unit: 'giờ', legalBasis: 'BLTTHS Đ.147 + Quy chế nội bộ' },
+      {
+        key: SETTINGS_KEY.THOI_HAN_EDIT_VU_VAN,
+        value: '168',
+        label:
+          'Số giờ cán bộ phường khuyến nghị sửa dữ liệu (warning-only, override per-Team). Default 168h = 7 ngày (BLTTHS Đ.147 verify 20 ngày).',
+        unit: 'giờ',
+        legalBasis: 'BLTTHS Đ.147 + Quy chế nội bộ',
+      },
     ];
 
     for (const d of defaults) {
@@ -160,6 +232,9 @@ export class SettingsService {
       where: { key: { in: [...DEADLINE_RULE_KEYS] } },
     });
 
-    return { success: true, message: `Seeded ${defaults.length} ops settings (deadline rules managed by DeadlineRulesService)` };
+    return {
+      success: true,
+      message: `Seeded ${defaults.length} ops settings (deadline rules managed by DeadlineRulesService)`,
+    };
   }
 }

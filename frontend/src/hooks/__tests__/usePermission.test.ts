@@ -7,6 +7,11 @@ import { authStore } from '@/stores/auth.store';
 vi.mock('@/stores/auth.store', () => ({
   authStore: {
     getUser: vi.fn(),
+    // The hook subscribes now instead of snapshotting: a component mounted
+    // before /auth/me resolved used to keep the JWT fallback's empty set for
+    // the rest of the session.
+    getProfileRaw: vi.fn(() => null),
+    onTokenChanged: vi.fn(() => () => {}),
   },
 }));
 
@@ -21,7 +26,18 @@ describe('usePermission', () => {
 
   describe('hasPermission', () => {
     it('should return true for admin role on any permission', () => {
-      vi.mocked(authStore.getUser).mockReturnValue({ email: 'admin@test.com', role: 'admin' });
+      // No ADMIN shortcut any more: PermissionsGuard has none either, so an
+      // admin whose role lost a permission is denied by the API. The seed
+      // grants ADMIN everything, which is what this fixture reflects.
+      vi.mocked(authStore.getUser).mockReturnValue({
+        email: 'admin@test.com',
+        role: 'admin',
+        permissions: [
+          { action: 'write', subject: 'Case' },
+          { action: 'delete', subject: 'Case' },
+          { action: 'edit', subject: 'User' },
+        ],
+      });
       
       const { result } = renderHook(() => usePermission());
       
@@ -31,7 +47,21 @@ describe('usePermission', () => {
     });
 
     it('should return true for specific permission when user has it', () => {
-      vi.mocked(authStore.getUser).mockReturnValue({ email: 'user@test.com', role: 'investigator' });
+      vi.mocked(authStore.getUser).mockReturnValue({
+        email: 'user@test.com',
+        role: 'investigator',
+        // Real shape from /auth/me. Before this the permission layer was a
+        // constant granting everything to everyone, so a user object with no
+        // permissions still passed every check.
+        permissions: [
+          { action: 'read', subject: 'Case' },
+          { action: 'write', subject: 'Case' },
+          { action: 'edit', subject: 'Case' },
+          { action: 'delete', subject: 'Case' },
+          { action: 'read', subject: 'Calendar' },
+          { action: 'write', subject: 'Calendar' },
+        ],
+      });
       
       const { result } = renderHook(() => usePermission());
       
@@ -40,7 +70,21 @@ describe('usePermission', () => {
     });
 
     it('should return false for unknown resource', () => {
-      vi.mocked(authStore.getUser).mockReturnValue({ email: 'user@test.com', role: 'investigator' });
+      vi.mocked(authStore.getUser).mockReturnValue({
+        email: 'user@test.com',
+        role: 'investigator',
+        // Real shape from /auth/me. Before this the permission layer was a
+        // constant granting everything to everyone, so a user object with no
+        // permissions still passed every check.
+        permissions: [
+          { action: 'read', subject: 'Case' },
+          { action: 'write', subject: 'Case' },
+          { action: 'edit', subject: 'Case' },
+          { action: 'delete', subject: 'Case' },
+          { action: 'read', subject: 'Calendar' },
+          { action: 'write', subject: 'Calendar' },
+        ],
+      });
       
       const { result } = renderHook(() => usePermission());
       
@@ -58,7 +102,21 @@ describe('usePermission', () => {
 
   describe('canCreate', () => {
     it('should return true when user has create permission', () => {
-      vi.mocked(authStore.getUser).mockReturnValue({ email: 'user@test.com', role: 'investigator' });
+      vi.mocked(authStore.getUser).mockReturnValue({
+        email: 'user@test.com',
+        role: 'investigator',
+        // Real shape from /auth/me. Before this the permission layer was a
+        // constant granting everything to everyone, so a user object with no
+        // permissions still passed every check.
+        permissions: [
+          { action: 'read', subject: 'Case' },
+          { action: 'write', subject: 'Case' },
+          { action: 'edit', subject: 'Case' },
+          { action: 'delete', subject: 'Case' },
+          { action: 'read', subject: 'Calendar' },
+          { action: 'write', subject: 'Calendar' },
+        ],
+      });
       
       const { result } = renderHook(() => usePermission());
       
@@ -79,7 +137,21 @@ describe('usePermission', () => {
 
   describe('canEdit', () => {
     it('should return true when user has edit permission', () => {
-      vi.mocked(authStore.getUser).mockReturnValue({ email: 'user@test.com', role: 'investigator' });
+      vi.mocked(authStore.getUser).mockReturnValue({
+        email: 'user@test.com',
+        role: 'investigator',
+        // Real shape from /auth/me. Before this the permission layer was a
+        // constant granting everything to everyone, so a user object with no
+        // permissions still passed every check.
+        permissions: [
+          { action: 'read', subject: 'Case' },
+          { action: 'write', subject: 'Case' },
+          { action: 'edit', subject: 'Case' },
+          { action: 'delete', subject: 'Case' },
+          { action: 'read', subject: 'Calendar' },
+          { action: 'write', subject: 'Calendar' },
+        ],
+      });
       
       const { result } = renderHook(() => usePermission());
       
@@ -89,7 +161,21 @@ describe('usePermission', () => {
 
   describe('canDelete', () => {
     it('should return true when user has delete permission', () => {
-      vi.mocked(authStore.getUser).mockReturnValue({ email: 'user@test.com', role: 'investigator' });
+      vi.mocked(authStore.getUser).mockReturnValue({
+        email: 'user@test.com',
+        role: 'investigator',
+        // Real shape from /auth/me. Before this the permission layer was a
+        // constant granting everything to everyone, so a user object with no
+        // permissions still passed every check.
+        permissions: [
+          { action: 'read', subject: 'Case' },
+          { action: 'write', subject: 'Case' },
+          { action: 'edit', subject: 'Case' },
+          { action: 'delete', subject: 'Case' },
+          { action: 'read', subject: 'Calendar' },
+          { action: 'write', subject: 'Calendar' },
+        ],
+      });
       
       const { result } = renderHook(() => usePermission());
       
@@ -99,7 +185,21 @@ describe('usePermission', () => {
 
   describe('canView', () => {
     it('should return true when user has view permission', () => {
-      vi.mocked(authStore.getUser).mockReturnValue({ email: 'user@test.com', role: 'investigator' });
+      vi.mocked(authStore.getUser).mockReturnValue({
+        email: 'user@test.com',
+        role: 'investigator',
+        // Real shape from /auth/me. Before this the permission layer was a
+        // constant granting everything to everyone, so a user object with no
+        // permissions still passed every check.
+        permissions: [
+          { action: 'read', subject: 'Case' },
+          { action: 'write', subject: 'Case' },
+          { action: 'edit', subject: 'Case' },
+          { action: 'delete', subject: 'Case' },
+          { action: 'read', subject: 'Calendar' },
+          { action: 'write', subject: 'Calendar' },
+        ],
+      });
       
       const { result } = renderHook(() => usePermission());
       
@@ -141,7 +241,21 @@ describe('usePermission', () => {
 
   describe('userRole', () => {
     it('should return user role', () => {
-      vi.mocked(authStore.getUser).mockReturnValue({ email: 'user@test.com', role: 'investigator' });
+      vi.mocked(authStore.getUser).mockReturnValue({
+        email: 'user@test.com',
+        role: 'investigator',
+        // Real shape from /auth/me. Before this the permission layer was a
+        // constant granting everything to everyone, so a user object with no
+        // permissions still passed every check.
+        permissions: [
+          { action: 'read', subject: 'Case' },
+          { action: 'write', subject: 'Case' },
+          { action: 'edit', subject: 'Case' },
+          { action: 'delete', subject: 'Case' },
+          { action: 'read', subject: 'Calendar' },
+          { action: 'write', subject: 'Calendar' },
+        ],
+      });
       
       const { result } = renderHook(() => usePermission());
       

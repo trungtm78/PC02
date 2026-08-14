@@ -31,13 +31,37 @@ export interface ParseResult {
 }
 
 const HEADER_MAP: Record<string, string[]> = {
-  fullName: ['ho ten', 'ho va ten', 'fullname', 'full name', 'ho ten can bo', 'ten', 'name'],
-  workId: ['so hieu', 'so hieu nganh', 'ma can bo', 'workid', 'work id', 'ma so', 'so hieu nganh ca'],
+  fullName: [
+    'ho ten',
+    'ho va ten',
+    'fullname',
+    'full name',
+    'ho ten can bo',
+    'ten',
+    'name',
+  ],
+  workId: [
+    'so hieu',
+    'so hieu nganh',
+    'ma can bo',
+    'workid',
+    'work id',
+    'ma so',
+    'so hieu nganh ca',
+  ],
   phone: ['so dien thoai', 'sdt', 'phone', 'dien thoai', 'mobile', 'so dt'],
   email: ['email', 'thu dien tu', 'mail', 'thu'],
   username: ['username', 'tai khoan', 'ten dang nhap', 'tai khoan dang nhap'],
   roleName: ['vai tro', 'role', 'quyen', 'chuc danh'],
-  departmentName: ['don vi', 'phong ban', 'department', 'to', 'to/doi', 'don vi cong tac', 'doi'],
+  departmentName: [
+    'don vi',
+    'phong ban',
+    'department',
+    'to',
+    'to/doi',
+    'don vi cong tac',
+    'doi',
+  ],
   position: ['chuc vu', 'position', 'vi tri'],
 };
 
@@ -56,7 +80,8 @@ function detectField(header: string): string | null {
   const norm = normalize(header);
   for (const [field, candidates] of Object.entries(HEADER_MAP)) {
     if (candidates.includes(norm)) return field;
-    if (candidates.some((c) => norm === c || norm.startsWith(c + ' '))) return field;
+    if (candidates.some((c) => norm === c || norm.startsWith(c + ' ')))
+      return field;
   }
   return null;
 }
@@ -82,7 +107,8 @@ export function sanitizeForExcel(value: unknown): string {
 function pickDataSheet(wb: ExcelJS.Workbook): ExcelJS.Worksheet | null {
   for (const ws of wb.worksheets) {
     const nameNorm = normalize(ws.name);
-    if (nameNorm.includes('huong dan') || nameNorm.includes('instruction')) continue;
+    if (nameNorm.includes('huong dan') || nameNorm.includes('instruction'))
+      continue;
     const row1 = ws.getRow(1);
     let matchCount = 0;
     row1.eachCell({ includeEmpty: false }, (cell) => {
@@ -130,7 +156,9 @@ export async function parseBulkImportFile(
     const field = detectField(val);
     if (field) {
       if (Object.values(columnFieldMap).includes(field)) {
-        warnings.push(`Cột "${val}" trùng field "${field}" — chỉ lấy cột đầu tiên`);
+        warnings.push(
+          `Cột "${val}" trùng field "${field}" — chỉ lấy cột đầu tiên`,
+        );
         return;
       }
       columnFieldMap[colIdx] = field;
@@ -154,8 +182,13 @@ export async function parseBulkImportFile(
       if (typeof val === 'object' && val !== null) {
         if ('result' in val && val.result !== undefined) val = val.result;
         else if ('text' in val) val = (val as { text: string }).text;
-        else if ('richText' in val && Array.isArray((val as { richText: { text: string }[] }).richText)) {
-          val = (val as { richText: { text: string }[] }).richText.map((rt) => rt.text).join('');
+        else if (
+          'richText' in val &&
+          Array.isArray((val as { richText: { text: string }[] }).richText)
+        ) {
+          val = (val as { richText: { text: string }[] }).richText
+            .map((rt) => rt.text)
+            .join('');
         }
       }
       if (val === null || val === undefined || val === '') continue;
@@ -192,7 +225,9 @@ export function splitFullName(fullName: string | null | undefined): {
 /**
  * Normalize phone: strip whitespace/dash/dot. Validate shape ≥9 digits.
  */
-export function normalizePhone(phone: string | null | undefined): string | null {
+export function normalizePhone(
+  phone: string | null | undefined,
+): string | null {
   if (!phone) return null;
   const cleaned = String(phone).replace(/[\s.\-()]/g, '');
   if (!/^\+?[0-9]{9,15}$/.test(cleaned)) return null;

@@ -33,6 +33,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as crypto from 'crypto';
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
+import { FeatureFlag } from '../feature-flags/decorators/feature-flag.decorator';
 // Max file size: 10MB
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
@@ -57,6 +58,7 @@ const ALLOWED_MIME_TYPES = [
 const MAGIC_BYTE_BYPASS = new Set(['text/plain']);
 
 @Controller('documents')
+@FeatureFlag('documents')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class DocumentsController {
   constructor(private readonly documentsService: DocumentsService) {}

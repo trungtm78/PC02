@@ -15,6 +15,7 @@ import { useNavigate } from 'react-router-dom';
 import { Search, RotateCw, AlertCircle, FilePlus2, FileEdit } from 'lucide-react';
 import { CaseProvenance } from '@/shared/enums/generated';
 import { api } from '@/lib/api';
+import { usePermission } from '@/hooks/usePermission';
 import { formatVNDate } from '../../../lib/dates';
 
 const RETRY_BEFORE_FALLBACK = 2;
@@ -448,6 +449,12 @@ function LinkableEntityPicker<T extends { id: string; updatedAt: string }>({
 
 function PetitionEmptyState() {
   const navigate = useNavigate();
+  // "Tiếp nhận Đơn thư mới" sent the user straight to the petition form. Without
+  // `write:Petition` that form 403s on save, after they have retyped the whole
+  // record. The other two exits this panel offers still work, so hiding one
+  // leaves the user with a route forward.
+  const { canCreate } = usePermission();
+  const canCreatePetition = canCreate('petitions');
   return (
     <div className="mt-1 p-3 bg-gray-50 border border-gray-200 rounded-md text-sm space-y-3">
       <div className="text-gray-700">
@@ -457,13 +464,16 @@ function PetitionEmptyState() {
         ℹ️ Đơn thư đã link với Vụ án khác sẽ không hiện ở đây.
       </div>
       <div className="space-y-1 pt-1">
-        <button
-          type="button"
-          onClick={() => navigate('/petitions/new')}
-          className="w-full inline-flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-md"
-        >
-          <FilePlus2 className="w-3.5 h-3.5" /> Tiếp nhận Đơn thư mới
-        </button>
+        {canCreatePetition && (
+          <button
+            type="button"
+            onClick={() => navigate('/petitions/new')}
+            data-testid="btn-provenance-create-petition"
+            className="w-full inline-flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-md"
+          >
+            <FilePlus2 className="w-3.5 h-3.5" /> Tiếp nhận Đơn thư mới
+          </button>
+        )}
         <p className="text-xs text-gray-600 px-1">
           Hoặc đổi <strong>Nguồn vụ án</strong> ở trên sang nguồn khác, hoặc chọn
           "Nguồn pháp lý khác" và ghi chú trong khung "Ghi chú nguồn".

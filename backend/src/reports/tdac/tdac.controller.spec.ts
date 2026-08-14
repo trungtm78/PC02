@@ -52,11 +52,13 @@ const mockExportService = {
 const DRAFT_ID = 'draft-001';
 const USER_ID = 'user-abc';
 
-function makeReq(overrides: Partial<{
-  id: string;
-  canDispatch: boolean;
-  teamIds: string[];
-}> = {}) {
+function makeReq(
+  overrides: Partial<{
+    id: string;
+    canDispatch: boolean;
+    teamIds: string[];
+  }> = {},
+) {
   return {
     user: {
       id: USER_ID,
@@ -125,7 +127,11 @@ describe('TdacController', () => {
 
       const req = makeReq({ canDispatch: true });
       const result = await controller.getVuAn(
-        { fromDate: '2025-01-01', toDate: '2025-12-31', teamIds: 'team-1,team-2' } as any,
+        {
+          fromDate: '2025-01-01',
+          toDate: '2025-12-31',
+          teamIds: 'team-1,team-2',
+        } as any,
         req,
       );
 
@@ -162,7 +168,11 @@ describe('TdacController', () => {
 
       const req = makeReq({ canDispatch: true });
       const result = await controller.getVuViec(
-        { fromDate: '2025-01-01', toDate: '2025-12-31', teamIds: 'team-1' } as any,
+        {
+          fromDate: '2025-01-01',
+          toDate: '2025-12-31',
+          teamIds: 'team-1',
+        } as any,
         req,
       );
 
@@ -213,7 +223,14 @@ describe('TdacController', () => {
       const req = makeReq({ canDispatch: false, teamIds: ['team-1'] });
 
       await expect(
-        controller.getVuAn({ fromDate: '2025-01-01', toDate: '2025-12-31', teamIds: 'team-2' } as any, req),
+        controller.getVuAn(
+          {
+            fromDate: '2025-01-01',
+            toDate: '2025-12-31',
+            teamIds: 'team-2',
+          } as any,
+          req,
+        ),
       ).rejects.toThrow(ForbiddenException);
 
       expect(mockTdacService.computeTdcVuAn).not.toHaveBeenCalled();
@@ -223,16 +240,33 @@ describe('TdacController', () => {
       const req = makeReq({ canDispatch: false, teamIds: ['team-1'] });
 
       await expect(
-        controller.getVuAn({ fromDate: '2025-01-01', toDate: '2025-12-31', teamIds: 'team-1,team-99' } as any, req),
+        controller.getVuAn(
+          {
+            fromDate: '2025-01-01',
+            toDate: '2025-12-31',
+            teamIds: 'team-1,team-99',
+          } as any,
+          req,
+        ),
       ).rejects.toThrow(ForbiddenException);
     });
 
     it('allows access when requested teamIds are a subset of user teamIds', async () => {
       mockTdacService.computeTdcVuAn.mockResolvedValue(MOCK_REPORT_DATA);
-      const req = makeReq({ canDispatch: false, teamIds: ['team-1', 'team-2'] });
+      const req = makeReq({
+        canDispatch: false,
+        teamIds: ['team-1', 'team-2'],
+      });
 
       await expect(
-        controller.getVuAn({ fromDate: '2025-01-01', toDate: '2025-12-31', teamIds: 'team-1' } as any, req),
+        controller.getVuAn(
+          {
+            fromDate: '2025-01-01',
+            toDate: '2025-12-31',
+            teamIds: 'team-1',
+          } as any,
+          req,
+        ),
       ).resolves.toBe(MOCK_REPORT_DATA);
     });
 
@@ -242,7 +276,14 @@ describe('TdacController', () => {
       const req = makeReq({ canDispatch: false, teamIds: [] });
 
       await expect(
-        controller.getVuAn({ fromDate: '2025-01-01', toDate: '2025-12-31', teamIds: 'any-team' } as any, req),
+        controller.getVuAn(
+          {
+            fromDate: '2025-01-01',
+            toDate: '2025-12-31',
+            teamIds: 'any-team',
+          } as any,
+          req,
+        ),
       ).resolves.toBe(MOCK_REPORT_DATA);
     });
   });
@@ -256,7 +297,14 @@ describe('TdacController', () => {
 
       // Requests team-99 which is not in user.teamIds — should still succeed
       await expect(
-        controller.getVuAn({ fromDate: '2025-01-01', toDate: '2025-12-31', teamIds: 'team-99' } as any, req),
+        controller.getVuAn(
+          {
+            fromDate: '2025-01-01',
+            toDate: '2025-12-31',
+            teamIds: 'team-99',
+          } as any,
+          req,
+        ),
       ).resolves.toBe(MOCK_REPORT_DATA);
 
       expect(mockTdacService.computeTdcVuAn).toHaveBeenCalledWith(
@@ -297,7 +345,9 @@ describe('TdacController', () => {
       };
       const req = makeReq({ canDispatch: false, teamIds: ['team-1'] });
 
-      await expect(controller.createDraft(dto as any, req)).rejects.toThrow(ForbiddenException);
+      await expect(controller.createDraft(dto as any, req)).rejects.toThrow(
+        ForbiddenException,
+      );
       expect(mockDraftService.create).not.toHaveBeenCalled();
     });
   });
@@ -311,7 +361,10 @@ describe('TdacController', () => {
 
       const result = await controller.listDrafts('VU_AN', 'DRAFT');
 
-      expect(mockDraftService.findAll).toHaveBeenCalledWith({ loaiBaoCao: 'VU_AN', status: 'DRAFT' });
+      expect(mockDraftService.findAll).toHaveBeenCalledWith({
+        loaiBaoCao: 'VU_AN',
+        status: 'DRAFT',
+      });
       expect(result).toEqual(drafts);
     });
 
@@ -320,7 +373,10 @@ describe('TdacController', () => {
 
       await controller.listDrafts(undefined, undefined);
 
-      expect(mockDraftService.findAll).toHaveBeenCalledWith({ loaiBaoCao: undefined, status: undefined });
+      expect(mockDraftService.findAll).toHaveBeenCalledWith({
+        loaiBaoCao: undefined,
+        status: undefined,
+      });
     });
   });
 
@@ -336,7 +392,11 @@ describe('TdacController', () => {
 
       const result = await controller.updateDraft(DRAFT_ID, dto as any, req);
 
-      expect(mockDraftService.update).toHaveBeenCalledWith(DRAFT_ID, dto, USER_ID);
+      expect(mockDraftService.update).toHaveBeenCalledWith(
+        DRAFT_ID,
+        dto,
+        USER_ID,
+      );
       expect(result).toEqual(updated);
     });
   });
@@ -351,7 +411,10 @@ describe('TdacController', () => {
       const req = makeReq();
       const result = await controller.submitReview(DRAFT_ID, req);
 
-      expect(mockDraftService.submitReview).toHaveBeenCalledWith(DRAFT_ID, USER_ID);
+      expect(mockDraftService.submitReview).toHaveBeenCalledWith(
+        DRAFT_ID,
+        USER_ID,
+      );
       expect(result.status).toBe('REVIEWING');
     });
   });
@@ -364,9 +427,17 @@ describe('TdacController', () => {
       mockDraftService.reject.mockResolvedValue(rejected);
 
       const req = makeReq();
-      const result = await controller.reject(DRAFT_ID, { reason: 'Số liệu sai' }, req);
+      const result = await controller.reject(
+        DRAFT_ID,
+        { reason: 'Số liệu sai' },
+        req,
+      );
 
-      expect(mockDraftService.reject).toHaveBeenCalledWith(DRAFT_ID, USER_ID, 'Số liệu sai');
+      expect(mockDraftService.reject).toHaveBeenCalledWith(
+        DRAFT_ID,
+        USER_ID,
+        'Số liệu sai',
+      );
       expect(result.status).toBe('REJECTED');
     });
   });

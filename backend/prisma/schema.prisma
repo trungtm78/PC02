@@ -182,6 +182,17 @@ model User {
   petitionAssignmentsMade         PetitionAssignment[]      @relation("PetitionAssignmentAssignedBy")
 
   @@map("users")
+  // C4 — ai quyết định / ai hoàn tác một liên kết đơn trùng.
+  petitionDuplicateDecisions PetitionDuplicateLink[] @relation("PetitionDuplicateDecidedBy")
+  petitionDuplicateReverts   PetitionDuplicateLink[] @relation("PetitionDuplicateRevertedBy")
+
+  // C9 — ai trả hồ sơ / ai hoàn tác.
+  recordReturnsMade    RecordReturn[] @relation("RecordReturnedBy")
+  recordReturnReverts  RecordReturn[] @relation("RecordReturnRevertedBy")
+
+  // D7/D8 — lịch sử xuất báo cáo.
+  reportExports ReportExportLog[] @relation("ReportExportedBy")
+
 }
 
 // Magic link enrollment audit (post-/autoplan).
@@ -692,6 +703,9 @@ model Case {
   @@index([sttCu])
   @@index([legacyId, legacyCollection])
   @@map("cases")
+  // C9 — trả hồ sơ cho đơn vị chuyển đến.
+  recordReturns RecordReturn[] @relation("CaseRecordReturns")
+
 }
 
 // ─────────────────────────────────────────────
@@ -877,6 +891,66 @@ enum PetitionStatus {
   @@map("petition_status")
 }
 
+/// Quyết định của cán bộ về một nhóm đơn bị nghi trùng.
+///
+/// `DA_HOP_NHAT` **không xoá** đơn nào. Theo Luật Khiếu nại và Luật Tố cáo, mỗi
+/// đơn phát sinh nghĩa vụ thụ lý, thời hạn giải quyết và văn bản trả lời cho
+/// người gửi **của riêng nó**; xoá đơn trùng là xoá một nghĩa vụ pháp lý, không
+/// phải dọn dữ liệu. Đơn phụ chuyển sang `DA_LUU_DON` và giữ liên kết tới đơn
+/// chính, nên hồ sơ vẫn tra được và vẫn trả lời được người gửi.
+///
+/// `KHONG_TRUNG` cũng được lưu, không phải bỏ qua: nó là bằng chứng cán bộ đã
+/// xem và kết luận hai công dân trùng tên là hai người khác nhau. Không lưu thì
+/// nhóm đó nổi lên lại ở lần rà sau, và người sau lại phải xét từ đầu.
+enum PetitionDuplicateDecision {
+  DA_HOP_NHAT /// Xác nhận trùng — gộp về đơn chính
+  KHONG_TRUNG /// Xác nhận KHÔNG trùng — hai hồ sơ độc lập
+
+  @@map("petition_duplicate_decision")
+}
+
+model PetitionDuplicateLink {
+  id String @id @default(cuid())
+
+  /// Đơn chính — đơn được giữ làm hồ sơ dẫn.
+  primaryPetitionId String
+  primaryPetition   Petition @relation("DuplicatePrimary", fields: [primaryPetitionId], references: [id], onDelete: Cascade)
+
+  /// Đơn phụ — bị đánh dấu trùng. KHÔNG bị xoá.
+  duplicatePetitionId String
+  duplicatePetition   Petition @relation("DuplicateOf", fields: [duplicatePetitionId], references: [id], onDelete: Cascade)
+
+  decision PetitionDuplicateDecision
+
+  /// Bắt buộc: gắn nhãn "trùng" lên hồ sơ pháp lý là một cáo buộc, phải có lý do.
+  reason String
+
+  /// Tiêu chí đã khớp / đã so sánh lúc quyết định (vd 3/4), lưu lại để về sau
+  /// còn biết quyết định dựa trên bằng chứng gì.
+  matchedCriteria  Int
+  comparedCriteria Int
+
+  decidedById String?
+  decidedBy   User?   @relation("PetitionDuplicateDecidedBy", fields: [decidedById], references: [id], onDelete: SetNull)
+
+  /// Hoàn tác. Bản ghi vẫn nằm lại — ai hoàn tác, lúc nào, vì sao.
+  revertedAt     DateTime?
+  revertedById   String?
+  revertedBy     User?     @relation("PetitionDuplicateRevertedBy", fields: [revertedById], references: [id], onDelete: SetNull)
+  revertReason   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// Một đơn chỉ có một quyết định đang hiệu lực. Partial index (`WHERE
+  /// reverted_at IS NULL`) không biểu diễn được trong Prisma — nó nằm trong
+  /// migration SQL, và độ lệch đã được chấp nhận ở ADR-0011.
+  @@index([primaryPetitionId])
+  @@index([duplicatePetitionId])
+  @@index([decision])
+  @@map("petition_duplicate_links")
+}
+
 model Petition {
   id               String         @id @default(cuid())
   // Số tiếp nhận — duy nhất, format: DT-{YEAR}-{SEQ}
@@ -936,6 +1010,11 @@ model Petition {
 
   // v0.36.0.0 Phase 5-lite: warning flag (audit-only)
   editedAfterWindow Boolean @default(false)
+
+  // C4 — quyết định đơn trùng. Hai chiều: đơn này có thể là đơn chính của
+  // nhóm, hoặc là đơn phụ đã bị gộp vào đơn khác.
+  duplicateLinksAsPrimary   PetitionDuplicateLink[] @relation("DuplicatePrimary")
+  duplicateLinksAsDuplicate PetitionDuplicateLink[] @relation("DuplicateOf")
 
   // v0.47 — Nội dung nghiệp vụ cho Document Template Engine (6 doc types).
   // Free-text business fields, optional vì doc type khác nhau dùng subset khác nhau.
@@ -1015,6 +1094,12 @@ model Petition {
   @@index([receivedDate])
   @@index([deadline])
   @@index([senderName])
+  // Duplicate detection groups on these. Only senderName had an index; the
+  // others forced a sequential scan of the whole table per GROUP BY, and the
+  // gin trigram index that exists for search does not serve GROUP BY at all.
+  @@index([senderPhone])
+  @@index([senderAddress])
+  @@index([suspectedPerson])
   @@index([deletedAt])
   @@index([assignedTeamId])
   @@index([deadlineRuleVersionId])
@@ -1023,6 +1108,9 @@ model Petition {
   @@index([sttCu])
   @@index([legacyId, legacyCollection])
   @@map("petitions")
+  // C9 — trả hồ sơ cho đơn vị chuyển đến.
+  recordReturns RecordReturn[] @relation("PetitionRecordReturns")
+
 }
 
 // ─────────────────────────────────────────────
@@ -1247,6 +1335,9 @@ model Incident {
   @@index([sttCu])
   @@index([legacyId, legacyCollection])
   @@map("incidents")
+  // C9 — trả hồ sơ cho đơn vị chuyển đến.
+  recordReturns RecordReturn[] @relation("IncidentRecordReturns")
+
 }
 
 // ─────────────────────────────────────────────
@@ -2653,4 +2744,115 @@ model LegacyFieldDiagnostic {
 
   @@index([runId, field])
   @@map("legacy_field_diagnostics")
+}
+
+/// Lý do trả hồ sơ về đơn vị chuyển.
+enum RecordReturnType {
+  KHONG_THUOC_THAM_QUYEN /// Không thuộc thẩm quyền giải quyết
+  THIEU_TAI_LIEU /// Hồ sơ thiếu tài liệu, chưa đủ căn cứ thụ lý
+  TRUNG_HO_SO /// Trùng với hồ sơ đơn vị đang thụ lý
+  SAI_DIA_BAN /// Sai địa bàn
+  LY_DO_KHAC /// Lý do khác — bắt buộc ghi rõ trong `reason`
+  /// Không đặt tên `KHAC`: cổng enum-literal so khớp theo GIÁ TRỊ, nên một giá
+  /// trị tên `KHAC` biến mọi chuỗi 'KHAC' không liên quan trong repo (vd
+  /// `legacy-migration/cli/seed-org.ts`) thành vi phạm mới.
+
+  @@map("record_return_type")
+}
+
+/// Trả hồ sơ cho đơn vị đã chuyển đến.
+///
+/// Một bản ghi trỏ tới ĐÚNG MỘT hồ sơ — vụ án, vụ việc hoặc đơn thư. Ràng buộc
+/// `num_nonnulls(...) = 1` nằm ở tầng CSDL vì đây là bất biến của dữ liệu, không
+/// phải quy ước của ứng dụng: người sửa bằng `psql` cũng không tạo được bản ghi
+/// trỏ tới hai hồ sơ hoặc không trỏ tới hồ sơ nào.
+///
+/// Không xoá khi hoàn tác — `revertedAt` cùng lý do hoàn tác được ghi lại, vì
+/// trả hồ sơ rồi rút lại là việc phải giải trình được.
+model RecordReturn {
+  id String @id @default(cuid())
+
+  caseId     String?
+  case       Case?     @relation("CaseRecordReturns", fields: [caseId], references: [id], onDelete: Cascade)
+  incidentId String?
+  incident   Incident? @relation("IncidentRecordReturns", fields: [incidentId], references: [id], onDelete: Cascade)
+  petitionId String?
+  petition   Petition? @relation("PetitionRecordReturns", fields: [petitionId], references: [id], onDelete: Cascade)
+
+  returnType RecordReturnType
+
+  /// Bắt buộc: trả hồ sơ là một quyết định tố tụng, phải nêu căn cứ.
+  reason String
+
+  /// Đơn vị nhận lại hồ sơ.
+  toUnit String
+
+  /// Số văn bản trả hồ sơ, nếu đã phát hành.
+  documentNo String?
+
+  returnedAt   DateTime @default(now())
+  returnedById String?
+  returnedBy   User?    @relation("RecordReturnedBy", fields: [returnedById], references: [id], onDelete: SetNull)
+
+  revertedAt   DateTime?
+  revertedById String?
+  revertedBy   User?     @relation("RecordReturnRevertedBy", fields: [revertedById], references: [id], onDelete: SetNull)
+  revertReason String?
+
+  /// Gom nhóm khi trả hàng loạt, để đối chiếu với `BulkOperation`.
+  bulkOperationId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([caseId])
+  @@index([incidentId])
+  @@index([petitionId])
+  @@index([returnType])
+  @@index([bulkOperationId])
+  @@map("record_returns")
+}
+
+/// Ai đã xuất báo cáo nào, lúc nào, cho kỳ nào, bao nhiêu dòng.
+///
+/// D7/D8 — trước đây xuất Phụ lục là một hành động không để lại dấu vết nào:
+/// file rời khỏi hệ thống và không ai biết nó đã rời đi. Với số liệu tố tụng,
+/// "ai cầm bản này" là câu hỏi có thật.
+///
+/// KHÔNG có checksum. Bộ xuất ghi thẳng ra `res` bằng streaming writer, đúng
+/// như thiết kế: gom cả file vào bộ nhớ để băm là mở lại đúng rủi ro OOM mà kế
+/// hoạch đã cảnh báo với bộ dữ liệu lớn. Ghi lại "ai, gì, khi nào, bao nhiêu
+/// dòng" là thứ trả lời được câu hỏi thực tế, mà không đánh đổi bằng bộ nhớ.
+model ReportExportLog {
+  id String @id @default(cuid())
+
+  /// Loại báo cáo: `PHU_LUC_1`..`PHU_LUC_6`, `TDAC`, `MONTHLY`...
+  reportType String
+
+  /// Phạm vi kỳ báo cáo, nếu báo cáo có kỳ.
+  periodStart DateTime?
+  periodEnd   DateTime?
+
+  /// Số dòng dữ liệu đã ghi ra file.
+  rowCount Int @default(0)
+
+  /// Tên file đã trả về, để đối chiếu với bản người dùng đang giữ.
+  fileName String
+
+  /// Kết quả: bắt đầu ghi rồi hỏng giữa chừng vẫn là một lần dữ liệu rời hệ
+  /// thống một phần — phải phân biệt được với một lần xuất trọn vẹn.
+  succeeded Boolean @default(true)
+  errorText String?
+
+  exportedById String?
+  exportedBy   User?   @relation("ReportExportedBy", fields: [exportedById], references: [id], onDelete: SetNull)
+
+  ipAddress String?
+  userAgent String?
+
+  createdAt DateTime @default(now())
+
+  @@index([reportType, createdAt(sort: Desc)])
+  @@index([exportedById])
+  @@map("report_export_logs")
 }

@@ -35,6 +35,7 @@ import { AssignCaseDto } from './dto/assign-case.dto';
 import { DeleteCaseDto } from './dto/delete-case.dto'; // v0.31.0.2
 import { RestoreCaseDto } from './dto/restore-case.dto'; // v0.32.0.0
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
+import { FeatureFlag } from '../feature-flags/decorators/feature-flag.decorator';
 
 class TdcBackfillDto {
   // PR-3 catalog: validate lý do TĐC vụ án qua danh mục (trước đây không có validation).
@@ -43,6 +44,7 @@ class TdcBackfillDto {
 }
 
 @Controller('cases')
+@FeatureFlag('cases')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class CasesController {
   constructor(

@@ -32,4 +32,24 @@ export default tseslint.config(
       "prettier/prettier": ["error", { endOfLine: "auto" }],
     },
   },
+  {
+    // Test files: the no-unsafe-* family is a poor fit here.
+    //
+    // Jest types `expect.objectContaining()`, `expect.any()` and
+    // `mock.calls` as `any`, so idiomatic matchers trip these rules by
+    // construction. Enforcing them does not make a spec safer — it makes it
+    // worse, by pushing authors toward weaker assertions or blanket
+    // suppressions. They stay on for everything the application actually
+    // ships.
+    //
+    // Prettier and the correctness rules still apply.
+    files: ['**/*.spec.ts', '**/*.test.ts', '**/test-utils/**/*.ts'],
+    rules: {
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-unsafe-return': 'off',
+      '@typescript-eslint/no-unsafe-argument': 'off',
+    },
+  },
 );

@@ -133,6 +133,22 @@ if ! npx ts-node prisma/seed-features-if-empty.ts; then
     # Non-fatal: deploy continues. Sidebar may be empty if fresh DB + seed failed.
 fi
 
+# 9b-2. Idempotent permission seed AFTER health check.
+# deploy.sh never runs `npm run db:seed` — it must not, because seed.ts touches
+# user accounts and needs SEED_ADMIN_PASSWORD. So a release that adds a new
+# @RequirePermissions ships an endpoint whose permission row does not exist in
+# prod, and PermissionsGuard (no ADMIN bypass) 403s it for EVERY user.
+# That is ISSUE-001: `Setting` was missing and /admin/settings was dead for all
+# roles. This runner only upserts permissions and grants them to ADMIN.
+# The timeout is not decoration: this opens a DB connection and upserts rows,
+# so a lock held by a long-running query would otherwise hang the deploy job
+# with no upper bound. Failing loudly after 5 minutes beats hanging forever.
+log "Syncing permission registry..."
+if ! timeout 300 npx ts-node prisma/seed-permissions-runner.ts; then
+    log "ERROR: permission seed failed or timed out — new endpoints would 403 for every user"
+    exit 1
+fi
+
 # 9c. v0.37.0.2 — idempotent admin-units seed AFTER health check.
 # seedAdminUnits skip nếu ledger version đã ACTIVE → no-op for steady state.
 # Imports v2025-1300 lần đầu (fresh DB) hoặc khi dataset version bump (next release).

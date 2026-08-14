@@ -1,0 +1,61 @@
+name: ADR Nudge
+
+# Warns when a PR changes something architectural without recording why.
+#
+# A warning, not a block: not every schema change is a decision — adding a
+# nullable column rarely is. The point is to make "should this have an ADR?"
+# a question somebody actually asks, rather than one nobody remembers.
+#
+# Bypass: put "[adr-skip]" in the PR title (case-insensitive).
+#
+# Same shape as shell-parity-gate.yml, which does block. The difference is
+# deliberate: that one guards a matrix that must stay exact, this one guards
+# a judgement call.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "backend/prisma/schema.prisma"
+      - "backend/src/feature-flags/**"
+      - "docs/adr/**"
+
+jobs:
+  adr-nudge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          fetch-depth: 0
+
+      - name: Check for an accompanying ADR
+        run: |
+          set -euo pipefail
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          if echo "$PR_TITLE" | grep -iE '\[adr-skip\]' >/dev/null; then
+            echo "::notice::ADR nudge skipped via [adr-skip] in PR title."
+            exit 0
+          fi
+
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          CHANGED=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
+
+          ARCH=$(echo "$CHANGED" \
+            | grep -E '^(backend/prisma/schema\.prisma|backend/src/feature-flags/)' || true)
+
+          if [ -z "$ARCH" ]; then
+            echo "No architectural paths changed. Pass."
+            exit 0
+          fi
+
+          echo "Architectural files changed:"
+          echo "$ARCH"
+
+          ADR=$(echo "$CHANGED" | grep -E '^docs/adr/' || true)
+
+          if [ -z "$ADR" ]; then
+            echo "::warning::This PR changes schema.prisma or feature-flags/ without touching docs/adr/. If it encodes a decision someone could reasonably reverse later, copy docs/adr/0000-template.md and write down why. If it does not, add [adr-skip] to the PR title."
+          else
+            echo "ADR updated alongside the change. Pass."
+          fi

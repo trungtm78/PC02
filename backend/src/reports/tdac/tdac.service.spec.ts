@@ -45,7 +45,11 @@ function mockVuAnQueryResults({
   row2Sub = [] as { lyDo: string | null; teamId: string | null; cnt: bigint }[],
   row3 = [] as { teamId: string | null; cnt: bigint }[],
   row31 = [] as { teamId: string | null; cnt: bigint }[],
-  row33Sub = [] as { ketQua: string | null; teamId: string | null; cnt: bigint }[],
+  row33Sub = [] as {
+    ketQua: string | null;
+    teamId: string | null;
+    cnt: bigint;
+  }[],
   row4 = [] as { teamId: string | null; cnt: bigint }[],
   row5Cases = [] as {
     id: string;
@@ -59,16 +63,16 @@ function mockVuAnQueryResults({
   row5Action = [] as { caseId: string; teamId: string | null }[],
 } = {}) {
   mockPrisma.$queryRaw
-    .mockResolvedValueOnce(row1)     // [0] row1
-    .mockResolvedValueOnce(row2)     // [1] row2
-    .mockResolvedValueOnce(row2Sub)  // [2] row2Sub
-    .mockResolvedValueOnce(row3)     // [3] row3
-    .mockResolvedValueOnce(row31)    // [4] row31
+    .mockResolvedValueOnce(row1) // [0] row1
+    .mockResolvedValueOnce(row2) // [1] row2
+    .mockResolvedValueOnce(row2Sub) // [2] row2Sub
+    .mockResolvedValueOnce(row3) // [3] row3
+    .mockResolvedValueOnce(row31) // [4] row31
     .mockResolvedValueOnce(row33Sub) // [5] row33Sub
-    .mockResolvedValueOnce(row4)     // [6] row4
+    .mockResolvedValueOnce(row4) // [6] row4
     .mockResolvedValueOnce(row5Cases) // [7] row5Cases
     // Only called if row5Cases is non-empty:
-    .mockResolvedValueOnce(row5Vks)   // [8] row5Vks
+    .mockResolvedValueOnce(row5Vks) // [8] row5Vks
     .mockResolvedValueOnce(row5Action); // [9] row5Action
 }
 
@@ -148,9 +152,30 @@ describe('TdacService', () => {
         row3: [{ teamId: 'team-1', cnt: 2n }],
         row4: [{ teamId: 'team-1', cnt: 1n }],
         row5Cases: [
-          { id: 'c1', teamId: 'team-1', laCongNgheCao: false, soLanGiaHan: 0, daRaSoat: false, lyDo: null },
-          { id: 'c2', teamId: 'team-1', laCongNgheCao: true, soLanGiaHan: 2, daRaSoat: true, lyDo: 'CHUA_XAC_DINH_BI_CAN' },
-          { id: 'c3', teamId: 'team-2', laCongNgheCao: false, soLanGiaHan: 0, daRaSoat: false, lyDo: null },
+          {
+            id: 'c1',
+            teamId: 'team-1',
+            laCongNgheCao: false,
+            soLanGiaHan: 0,
+            daRaSoat: false,
+            lyDo: null,
+          },
+          {
+            id: 'c2',
+            teamId: 'team-1',
+            laCongNgheCao: true,
+            soLanGiaHan: 2,
+            daRaSoat: true,
+            lyDo: 'CHUA_XAC_DINH_BI_CAN',
+          },
+          {
+            id: 'c3',
+            teamId: 'team-2',
+            laCongNgheCao: false,
+            soLanGiaHan: 0,
+            daRaSoat: false,
+            lyDo: null,
+          },
         ],
       });
 
@@ -292,7 +317,9 @@ describe('TdacService', () => {
       await service.computeTdcVuViec(FROM, TO, TEAM_IDS);
 
       // Should have made additional DB calls (cache miss for vu-viec)
-      expect(mockPrisma.$queryRaw.mock.calls.length).toBeGreaterThan(callsAfterVuAn);
+      expect(mockPrisma.$queryRaw.mock.calls.length).toBeGreaterThan(
+        callsAfterVuAn,
+      );
     });
   });
 });

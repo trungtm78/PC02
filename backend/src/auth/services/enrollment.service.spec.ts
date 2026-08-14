@@ -15,7 +15,9 @@ const mockTx = {
 const mockPrisma = {
   user: { findUnique: jest.fn(), update: jest.fn() },
   enrollmentTokenAudit: { create: jest.fn() },
-  $transaction: jest.fn((cb: (tx: typeof mockTx) => Promise<unknown>) => cb(mockTx)),
+  $transaction: jest.fn((cb: (tx: typeof mockTx) => Promise<unknown>) =>
+    cb(mockTx),
+  ),
 };
 const mockAudit = { log: jest.fn() };
 const mockConfig = {
@@ -33,12 +35,13 @@ const mockAuthService = {
 };
 
 function makeService(): EnrollmentService {
-  const svc = Object.create(EnrollmentService.prototype);
-  (svc as any).prisma = mockPrisma;
-  (svc as any).audit = mockAudit;
-  (svc as any).config = mockConfig;
-  (svc as any).authService = mockAuthService;
-  return svc as EnrollmentService;
+  // Qua constructor thật — xem ghi chú ở `audit/bulk-operations.spec.ts`.
+  return new EnrollmentService(
+    mockPrisma as never,
+    mockAudit as never,
+    mockConfig as never,
+    mockAuthService as never,
+  );
 }
 
 const META = { ipAddress: '10.0.0.5', userAgent: 'jest' };
@@ -63,12 +66,16 @@ describe('EnrollmentService.generateEnrollmentLink', () => {
 
   it('returns URL chứa uid + token query params', async () => {
     const result = await service.generateEnrollmentLink('u1', 'admin1');
-    expect(result.url).toMatch(/^http:\/\/prod\.test\/auth\/enroll\?token=[A-Za-z0-9_-]+&uid=u1$/);
+    expect(result.url).toMatch(
+      /^http:\/\/prod\.test\/auth\/enroll\?token=[A-Za-z0-9_-]+&uid=u1$/,
+    );
   });
 
   it('expiresAt = now + 72h', async () => {
     const result = await service.generateEnrollmentLink('u1', 'admin1');
-    expect(result.expiresAt).toEqual(new Date(NOW.getTime() + ENROLLMENT_TTL_MS));
+    expect(result.expiresAt).toEqual(
+      new Date(NOW.getTime() + ENROLLMENT_TTL_MS),
+    );
   });
 
   it('persists hash + expiry trên user record', async () => {
@@ -147,7 +154,10 @@ describe('EnrollmentService.consumeEnrollmentToken', () => {
   });
 
   it('rejects when user inactive', async () => {
-    mockPrisma.user.findUnique.mockResolvedValue({ ...baseUser, isActive: false });
+    mockPrisma.user.findUnique.mockResolvedValue({
+      ...baseUser,
+      isActive: false,
+    });
     await expect(
       service.consumeEnrollmentToken('u1', 'token', 'NewPass1!', META),
     ).rejects.toThrow(UnauthorizedException);
@@ -194,7 +204,12 @@ describe('EnrollmentService.consumeEnrollmentToken', () => {
     mockPrisma.user.findUnique.mockResolvedValue(baseUser);
     bcryptCompare.mockResolvedValue(true);
 
-    await service.consumeEnrollmentToken('u1', 'valid-token', 'StrongPass1!', META);
+    await service.consumeEnrollmentToken(
+      'u1',
+      'valid-token',
+      'StrongPass1!',
+      META,
+    );
 
     expect(mockTx.user.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -226,7 +241,12 @@ describe('EnrollmentService.consumeEnrollmentToken', () => {
     mockPrisma.user.findUnique.mockResolvedValue(baseUser);
     bcryptCompare.mockResolvedValue(true);
 
-    await service.consumeEnrollmentToken('u1', 'valid-token', 'StrongPass1!', META);
+    await service.consumeEnrollmentToken(
+      'u1',
+      'valid-token',
+      'StrongPass1!',
+      META,
+    );
 
     expect(mockAudit.log).toHaveBeenCalledWith(
       expect.objectContaining({

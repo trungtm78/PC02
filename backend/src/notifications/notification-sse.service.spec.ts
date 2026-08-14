@@ -39,18 +39,29 @@ describe('NotificationSseService', () => {
       }
     };
 
-    service.createStream('user-1').pipe(take(1)).subscribe({ next: onNext, error: done });
-    service.createStream('user-1').pipe(take(1)).subscribe({ next: onNext, error: done });
+    service
+      .createStream('user-1')
+      .pipe(take(1))
+      .subscribe({ next: onNext, error: done });
+    service
+      .createStream('user-1')
+      .pipe(take(1))
+      .subscribe({ next: onNext, error: done });
 
     service.notifyUser('user-1');
   });
 
   it('does not emit to a different user when notifyUser is called', (done) => {
     let user2Received = false;
-    service.createStream('user-2').pipe(take(1)).subscribe({
-      next: () => { user2Received = true; },
-      error: done,
-    });
+    service
+      .createStream('user-2')
+      .pipe(take(1))
+      .subscribe({
+        next: () => {
+          user2Received = true;
+        },
+        error: done,
+      });
 
     service.notifyUser('user-1');
 

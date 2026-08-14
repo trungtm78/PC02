@@ -32,6 +32,9 @@ import type { TabItem } from "@/components/shared/TabBar";
 import type { TabId, Subject, Evidence, MediaFile, CaseFormData } from "./types";
 import { INITIAL_FORM_DATA } from "./types";
 import { buildCreateCasePayload } from "./buildCreateCasePayload";
+import { EditModeSubEntityNotice, CreateModeMediaNotice } from "./EditModeSubEntityNotice";
+import CaseEvidenceTab from "../CaseEvidenceTab";
+import { EntityDocumentsTab } from "@/components/documents/EntityDocumentsTab";
 import { hydrateFormFromUrl } from "./hydrateFormFromUrl"; // PR 3 + hotfix #112
 import { PreSaveSummaryModal } from "./PreSaveSummaryModal"; // PR 3 v0.38.2.0
 import { mergeCaseApiToFormData } from "./mergeCaseApiToFormData";
@@ -45,11 +48,10 @@ import {
   TabEvidence,
   TabBusinessFiles,
   TabStatistics,
-  TabMedia,
   TabUyThac,
 } from "./tabs";
 import { SubjectModal, EvidenceModal } from "./modals";
-import { formatVNDateTime, today } from "@/lib/dates";
+import { today } from "@/lib/dates";
 
 // ─── Tab Configuration ──────────────────────────────────────────────────────
 
@@ -85,7 +87,11 @@ function CaseFormPage() {
 
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [evidences, setEvidences] = useState<Evidence[]>([]);
-  const [mediaFiles, setMediaFiles] = useState<MediaFile[]>([]);
+  // Always empty now: nothing in the create flow collects files, because
+  // nothing in the create flow could ever upload them. PreSaveSummaryModal
+  // hides its attachment line when the list is empty, so its contract is
+  // unchanged.
+  const mediaFiles: MediaFile[] = [];
   // PR 3 v0.38.2.0 — Pre-save summary modal state
   const [showPreSaveSummary, setShowPreSaveSummary] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -302,6 +308,10 @@ function CaseFormPage() {
       // để fix bug data-loss — atomic create với Case trong cùng transaction.
       const payload = {
         ...buildCreateCasePayload(formData, {
+          // Edit mode drops the sub-entity arrays: PUT /cases/:id never wrote
+          // them and now refuses them, so the tabs on the detail page are the
+          // only way to add a person or an item to an existing case.
+          mode: isEditMode ? 'update' : 'create',
           subjects,
           evidences,
           legacyMetadata: metaState, // gộp trường hệ cũ động (editable) — form field thắng, giữ phần còn lại
@@ -418,18 +428,10 @@ function CaseFormPage() {
     setEditingEvidence(null);
   };
 
-  const handleUploadMedia = (file: File) => {
-    const newFile: MediaFile = {
-      id: `MF-${Date.now()}`,
-      name: file.name,
-      type: file.type,
-      size: `${(file.size / 1024 / 1024).toFixed(2)} MB`,
-      uploadDate: formatVNDateTime(new Date()),
-      uploader: "Nguyễn Văn A",
-      recordDate: defaults.today,
-    };
-    setMediaFiles([...mediaFiles, newFile]);
-  };
+  // handleUploadMedia removed with the fake media tab: it built local-only
+  // metadata (including a hardcoded uploader name) for a file that was never
+  // uploaded, and documentIds was never transmitted. Real uploads now go
+  // through EntityDocumentsTab in edit mode.
 
   // ─── Dynamic tab list — UTDT tab inserted at position 2 when relevant ──
 
@@ -558,7 +560,10 @@ function CaseFormPage() {
           {activeTab === "uy-thac" && <TabUyThac {...tabProps} />}
           {activeTab === "incident" && <TabIncident {...tabProps} />}
           {activeTab === "case" && <TabCase {...tabProps} />}
-          {activeTab === "subjects" && (
+          {activeTab === "subjects" && isEditMode && id && (
+            <EditModeSubEntityNotice caseId={id} kind="subjects" />
+          )}
+          {activeTab === "subjects" && !isEditMode && (
             <TabSubjects
               subjects={subjects}
               onAdd={() => { setEditingSubject(null); setShowSubjectModal(true); }}
@@ -572,7 +577,13 @@ function CaseFormPage() {
           )}
           {activeTab === "incident-tdc" && <TabIncidentTDC {...tabProps} />}
           {activeTab === "case-tdc" && <TabCaseTDC {...tabProps} />}
-          {activeTab === "evidence" && (
+          {/* Edit mode gets the real thing: CaseEvidenceTab talks to
+              /evidences directly, so a row is saved when it is added rather
+              than waiting for a Lưu that used to discard it. */}
+          {activeTab === "evidence" && isEditMode && id && (
+            <CaseEvidenceTab caseId={id} />
+          )}
+          {activeTab === "evidence" && !isEditMode && (
             <TabEvidence
               evidences={evidences}
               onAdd={() => { setEditingEvidence(null); setShowEvidenceModal(true); }}
@@ -586,17 +597,16 @@ function CaseFormPage() {
           )}
           {activeTab === "business-files" && <TabBusinessFiles caseId={isEditMode ? id : undefined} />}
           {activeTab === "statistics" && <TabStatistics {...tabProps} />}
-          {activeTab === "media" && (
-            <TabMedia
-              mediaFiles={mediaFiles}
-              onUpload={handleUploadMedia}
-              onDelete={(id) => {
-                if (confirm("Bạn có chắc muốn xóa file này?")) {
-                  setMediaFiles(mediaFiles.filter((f) => f.id !== id));
-                }
-              }}
-            />
+          {/* Same bug as the sub-entity tabs, found reviewing their fix:
+              handleUploadMedia only ever built local metadata and documentIds
+              was never transmitted, so every attached file was announced as
+              saved and thrown away. Edit mode gets the real uploader; create
+              mode says plainly that files are attached after the case exists,
+              which is the truth and loses nothing that was ever kept. */}
+          {activeTab === "media" && isEditMode && id && (
+            <EntityDocumentsTab entityKind="case" entityId={id} />
           )}
+          {activeTab === "media" && !isEditMode && <CreateModeMediaNotice />}
           {/* Cột typed field-parity (di trú) — ô nhập chính thức, ghi thẳng cột */}
           {isEditMode && (
             <LegacyParityFields

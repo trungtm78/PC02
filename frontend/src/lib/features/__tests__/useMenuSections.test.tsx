@@ -1,10 +1,33 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { FeatureFlagsProvider } from '../FeatureFlagsContext';
 import { useMenuSections } from '../useMenuSections';
 import { FEATURE_MODULES } from '../featureRegistry';
 import type { FeatureFlag } from '../types';
+
+// ND-22 — the sidebar now asks two questions, so the tests need to control both.
+// With no cached profile `isHydrated` is false and the permission gate stays
+// open, which is what every test above relies on.
+const auth = vi.hoisted(() => ({
+  profile: null as string | null,
+}));
+
+vi.mock('@/stores/auth.store', () => ({
+  authStore: {
+    getProfileRaw: vi.fn(() => auth.profile),
+    getUser: vi.fn(() => (auth.profile ? JSON.parse(auth.profile) : null)),
+    onTokenChanged: vi.fn(() => () => {}),
+  },
+}));
+
+function signInWith(permissions: { action: string; subject: string }[]) {
+  auth.profile = JSON.stringify({
+    email: 'officer@test.local',
+    role: 'OFFICER',
+    permissions,
+  });
+}
 
 function makeFlag(key: string, enabled: boolean): FeatureFlag {
   return {
@@ -32,6 +55,20 @@ function Probe() {
       ))}
     </ul>
   );
+}
+
+/** Same, but flattens children so the nested entries can be asserted on. */
+function DeepProbe() {
+  const sections = useMenuSections();
+  const ids: string[] = [];
+  const walk = (items: { id: string; children?: { id: string }[] }[]) => {
+    for (const item of items) {
+      ids.push(item.id);
+      if (item.children) walk(item.children as { id: string }[]);
+    }
+  };
+  sections.forEach((s) => walk(s.items));
+  return <div data-testid="all-ids">{ids.join(',')}</div>;
 }
 
 const allFeaturesEnabled = (): FeatureFlag[] =>
@@ -139,5 +176,96 @@ describe('useMenuSections', () => {
     );
     const business = screen.getByText(/^Nghiệp vụ chính:/);
     expect(business.textContent).not.toContain('cases');
+  });
+});
+
+
+/**
+ * ND-22: the sidebar filtered on feature flags alone, so a module switched on
+ * for the unit advertised its screens to everybody — including users the API
+ * answers 403. The flag says the module ships; the grant says the user may
+ * open it. These are the two answers being kept apart.
+ */
+describe('useMenuSections — permission gate', () => {
+  afterEach(() => {
+    auth.profile = null;
+  });
+
+  it('hides an entry the user holds no grant for', () => {
+    signInWith([{ action: 'read', subject: 'Petition' }]);
+
+    render(
+      <Wrapper flags={allFeaturesEnabled()}>
+        <DeepProbe />
+      </Wrapper>,
+    );
+
+    const ids = screen.getByTestId('all-ids').textContent!.split(',');
+    expect(ids).toContain('petitions-list');
+    expect(ids).not.toContain('cases-list');
+    expect(ids).not.toContain('incidents-list');
+  });
+
+  it('hides a create entry from someone who may only read', () => {
+    signInWith([{ action: 'read', subject: 'Petition' }]);
+
+    render(
+      <Wrapper flags={allFeaturesEnabled()}>
+        <DeepProbe />
+      </Wrapper>,
+    );
+
+    const ids = screen.getByTestId('all-ids').textContent!.split(',');
+    expect(ids).toContain('petitions-list');
+    expect(ids).not.toContain('petitions-new');
+  });
+
+  it('drops a parent whose children are all filtered out', () => {
+    // `cases` is a pure grouping entry — no path of its own — so leaving it
+    // would render a menu that opens to nothing.
+    signInWith([{ action: 'read', subject: 'Petition' }]);
+
+    render(
+      <Wrapper flags={allFeaturesEnabled()}>
+        <DeepProbe />
+      </Wrapper>,
+    );
+
+    expect(screen.getByTestId('all-ids').textContent!.split(',')).not.toContain(
+      'cases',
+    );
+  });
+
+  it('keeps entries that declare no grant — those are flag-governed only', () => {
+    signInWith([{ action: 'read', subject: 'Petition' }]);
+
+    render(
+      <Wrapper flags={allFeaturesEnabled()}>
+        <DeepProbe />
+      </Wrapper>,
+    );
+
+    // `dashboard` has no `requires`: the seed defines no subject for it, so a
+    // grant to check would have to be invented.
+    expect(screen.getByTestId('all-ids').textContent!.split(',')).toContain(
+      'dashboard',
+    );
+  });
+
+  it('shows everything while the profile has not loaded yet', () => {
+    // The window between sign-in and `/auth/me` landing. An empty sidebar there
+    // reads as a broken app rather than as a permission decision, so the gate
+    // stays open until the answer is real — the same way it waits on flags.
+    auth.profile = null;
+
+    render(
+      <Wrapper flags={allFeaturesEnabled()}>
+        <DeepProbe />
+      </Wrapper>,
+    );
+
+    const ids = screen.getByTestId('all-ids').textContent!.split(',');
+    expect(ids).toContain('cases-list');
+    expect(ids).toContain('petitions-list');
   });
 });

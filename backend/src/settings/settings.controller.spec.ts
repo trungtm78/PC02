@@ -13,7 +13,11 @@ describe('SettingsController — delegation', () => {
   let controller: SettingsController;
 
   beforeEach(async () => {
-    const module = await buildControllerModule(SettingsController, SettingsService, mockService);
+    const module = await buildControllerModule(
+      SettingsController,
+      SettingsService,
+      mockService,
+    );
     controller = module.get(SettingsController);
     jest.clearAllMocks();
   });
@@ -32,7 +36,11 @@ describe('SettingsController — delegation', () => {
 
   it('updateValue() delegates to service.updateValue with key, value, userId, meta', async () => {
     mockService.updateValue.mockResolvedValue({ success: true });
-    const mockReq = { ip: '127.0.0.1', headers: { 'user-agent': 'jest' }, user: { sub: 'admin' } } as any;
+    const mockReq = {
+      ip: '127.0.0.1',
+      headers: { 'user-agent': 'jest' },
+      user: { sub: 'admin' },
+    } as any;
     await controller.updateValue('DEADLINE_DAYS', '30', mockReq);
     expect(mockService.updateValue).toHaveBeenCalledWith(
       'DEADLINE_DAYS',

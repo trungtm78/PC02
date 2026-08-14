@@ -46,6 +46,92 @@ Backend systemd unit chạy từ `/home/pc02/current/backend/` (theo symlink).
 
 Public key tương ứng phải được paste vào `/home/pc02/.ssh/authorized_keys` trên VM.
 
+## Baseline migration (ND-26)
+
+Lịch sử migration mở đầu bằng `ALTER TABLE "cases"` mà **không migration nào tạo
+bảng `cases`** — toàn bộ 93 migration được commit một lượt trong initial commit,
+schema trước đó chỉ tồn tại trong DB dựng bằng `prisma db push` và chưa từng vào
+git. Hậu quả: `prisma migrate deploy` **không dựng nổi DB trắng**, migration đầu
+tiên chết ngay với `relation "cases" does not exist`.
+
+`prisma/migrations/00000000000000_baseline/` vá đúng chỗ đó. Đã kiểm chứng: DB
+trắng → `migrate deploy` → **94/94 migration áp dụng sạch**.
+
+**Với DB đang chạy (prod, dev, hoặc bất kỳ DB nào đã có dữ liệu)** — chạy MỘT
+LẦN, trước lần deploy đầu tiên sau khi merge:
+
+```bash
+cd /home/pc02/current/backend
+npx prisma migrate resolve --applied 00000000000000_baseline
+```
+
+Lệnh này chỉ **ghi thêm một dòng** vào `_prisma_migrations`; nó không chạy SQL
+nào và không đụng dữ liệu. Bỏ qua bước này thì lần `migrate deploy` kế tiếp sẽ
+cố chạy baseline trên DB đã có sẵn bảng và **fail**.
+
+> **Drift còn lại — đã quy trách nhiệm đủ 46/46.** So schema dựng-từ-migration
+> với `schema.prisma` còn **46 câu lệnh** khác biệt. Đã soát từng câu:
+> **tất cả 46 đều do migration, không câu nào do baseline.** Đây đúng là drift
+> có sẵn mà [ADR-0011](adr/0011-partial-index-drift-is-accepted.md) đã chấp
+> nhận, nay lần đầu đo được thành con số.
+>
+> Tập trung ở vài chỗ: `deadline_rule_versions` (9 câu — khoá ngoại khai
+> `SET NULL` trong schema mà migration tạo bằng `RESTRICT`), `incidents` (7),
+> ~~`NotificationType` (4 giá trị)~~ — **ĐÃ SỬA**, xem dưới,
+> `edit_window_reset_requests` (2 — migration đặt tên index ngắn `ewrr_*`,
+> schema muốn tên mặc định của Prisma). ~~`otp_codes` thiếu cột `purpose`~~ —
+> **ĐÃ SỬA**, xem dưới.
+>
+> **Cách kiểm lại bất cứ lúc nào:** dựng DB trắng → `migrate deploy` →
+> `prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma
+> --script`. Lưu ý khi so bằng script: banner "Update available" của Prisma CLI
+> lẫn vào stdout, đừng đếm nhầm thành câu lệnh SQL.
+>
+> **Một mục trong danh sách drift hoá ra là BUG THẬT, không phải drift chấp nhận
+> được.** `NotificationType` thiếu 4 giá trị (`CASE_OVERDUE`, `PETITION_OVERDUE`,
+> `INCIDENT_DEADLINE_NEAR`, `INCIDENT_OVERDUE`) mà `deadline.scheduler.ts` **đang
+> phát mỗi ngày lúc 7:00**. Trên DB dựng từ lịch sử migration — tức mọi máy mới,
+> CI, hoặc VM dựng theo tài liệu này — mỗi lần scheduler chạy là một lỗi enum
+> Postgres, và người vận hành chỉ thấy nó im lặng hỏng.
+>
+> Vì sao chưa ai gặp: DB đang chạy được dựng bằng `prisma db push` (áp thẳng
+> schema) nên CÓ đủ giá trị. Chỉ DB dựng từ migration mới thiếu — mà cho tới
+> ND-26 thì **không ai dựng nổi một DB như vậy**. Baseline vừa mở đường dựng DB
+> trắng thì lỗi này lộ ra ngay.
+>
+> **Mục thứ hai cũng là bug thật, và nặng hơn.** `otp_codes` thiếu hẳn cột
+> `purpose`, mà `otp-code.service.ts` **ghi** cột đó mỗi lần sinh OTP và truy
+> vấn theo nó. Trên DB dựng từ migration, mọi lần sinh OTP đều lỗi
+> `column purpose does not exist` ⇒ **2FA và đặt lại mật khẩu hỏng hoàn toàn**
+> ⇒ người dùng bật 2FA **không đăng nhập được**. Không phải suy giảm nhẹ — là
+> mất đường vào hệ thống.
+>
+> Đã sửa: `20260814000000_notification_type_missing_values` và
+> `20260814000001_otp_codes_purpose_column`. Drift **46 → 42** câu.
+>
+> ### Đã truy HẾT danh sách drift — 2 bug thật, phần còn lại vô hại có chứng minh
+>
+> Danh sách "drift đã chấp nhận" không phải danh sách an toàn. Nó là danh sách
+> **chưa ai đi tới cuối**. Nay đã đi hết:
+>
+> | Nhóm | Kết luận |
+> |---|---|
+> | `NotificationType` thiếu 4 giá trị | 🔴 **BUG** — scheduler phát mỗi ngày ⇒ lỗi enum. Đã sửa |
+> | `otp_codes` thiếu cột `purpose` | 🔴 **BUG** — 2FA/đặt lại mật khẩu hỏng hoàn toàn. Đã sửa |
+> | FK `deadline_rule_versions` (9 câu) | ✅ vô hại — migration ĐÃ tạo đúng `ON DELETE SET NULL` (`confdeltype='n'`); khác biệt duy nhất là `ON UPDATE CASCADE` vs NO ACTION, mà `users.id`/`documents.id` là **cuid không bao giờ đổi** ⇒ nhánh đó là mã chết |
+> | `edit_window_reset_requests` (2 câu) | ✅ vô hại — chỉ **đổi tên** constraint `ewrr_*` → tên mặc định Prisma |
+> | `TIMESTAMP` → `TIMESTAMP(3)` | ✅ vô hại — DB lưu độ chính xác **cao hơn** schema yêu cầu; Prisma đọc bình thường, không mất dữ liệu |
+> | `DROP DEFAULT` trên cột mảng | ✅ vô hại — DB có `DEFAULT '{}'` mà schema không khai; cột `NOT NULL` nên có default là **an toàn hơn** không có |
+>
+> **Cách phân biệt:** hai cái đầu là *thiếu thứ mã đang dùng* — chạy là hỏng.
+> Bốn cái sau là *khác biệt trong siêu dữ liệu* mà không đường mã nào chạm tới.
+> Câu hỏi phân loại đúng không phải "schema có khớp không" mà là **"có đường mã
+> nào đi qua chỗ lệch này không"**.
+>
+> Baseline làm phép đo này **lần đầu tiên chạy được** — trước đó
+> `migrate diff --from-migrations` chết ngay từ migration thứ nhất, đó chính là
+> lý do `Advisory Checks` known-red.
+
 ## First-time setup checklist
 
 ### Trên VM (làm 1 lần)
@@ -194,3 +280,24 @@ ssh pc02@171.244.40.245 "ls -1dt /home/pc02/releases/*/ | tail -n +3 | xargs rm 
 - `webfactory/ssh-agent` chạy key in-memory chỉ trong job duration
 - VM authorized_keys giới hạn theo IP của GitHub Actions runners (Microsoft Azure) — không cần thêm restriction
 - Sau khi key compromise: generate keypair mới, paste vào VM, update GitHub Secret, revoke old key
+
+### `ALLOW_SEED_ENDPOINTS` — để TẮT trên production
+
+Bốn endpoint nạp dữ liệu mẫu (`POST /directories/seed`, `/notifications/seed`,
+`/settings/seed`, `/address-mappings/seed/:province`) chỉ dùng cho cài đặt lần
+đầu. Chúng ghi hàng loạt, có cái chạy lâu, và `/settings/seed` **ghi đè cấu hình**
+mà nhiều chỗ khác đang đọc.
+
+`SeedEndpointGuard` yêu cầu **đồng thời** hai điều kiện:
+
+1. `ALLOW_SEED_ENDPOINTS=true` trong môi trường, và
+2. người gọi có vai trò `ADMIN`.
+
+Biến này **không đặt** trên production, nên cả bốn endpoint trả 403 bất kể ai
+gọi. Chỉ bật tạm khi dựng máy mới, xong thì bỏ đi và restart service.
+
+Chỉ so khớp đúng chuỗi `'true'` — `1`, `yes`, `TRUE` đều bị coi là tắt, để một
+dòng `.env` viết vội không vô tình mở cổng.
+
+`POST /address-mappings/seed/:id/cancel` **không** bị gate: hủy một job đang chạy
+phải luôn gọi được bởi người nhìn thấy nó treo.

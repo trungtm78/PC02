@@ -1,0 +1,234 @@
+{
+  "note": "Pre-existing enum-literal comparisons. Ratchet: this list may shrink, never grow. Regenerate only when removing entries.",
+  "generatedFrom": "scripts/governance/check-enum-literals.cjs --write-baseline",
+  "violations": [
+    {
+      "file": "backend/src/calendar-events/calendar-events.service.ts",
+      "value": "SYSTEM"
+    },
+    {
+      "file": "backend/src/calendar-events/calendar-events.service.ts",
+      "value": "TEAM"
+    },
+    {
+      "file": "backend/src/calendar-events/calendar-events.service.ts",
+      "value": "PERSONAL"
+    },
+    {
+      "file": "backend/src/cases/cases.service.ts",
+      "value": "QUA_HAN"
+    },
+    {
+      "file": "backend/src/legacy-migration/cli/enrich-subjects.ts",
+      "value": "VICTIM"
+    },
+    {
+      "file": "frontend/src/components/cases/TdcBackfillBanner.tsx",
+      "value": "TAM_DINH_CHI"
+    },
+    {
+      "file": "frontend/src/features/uy-thac-dieu-tra/UyThacDieuTraListPage.tsx",
+      "value": "QUA_HAN"
+    },
+    {
+      "file": "frontend/src/features/uy-thac-dieu-tra/UyThacDieuTraListPage.tsx",
+      "value": "QUA_HAN"
+    },
+    {
+      "file": "frontend/src/features/_shared/bulk/adapters/cases.ts",
+      "value": "TIEP_NHAN"
+    },
+    {
+      "file": "frontend/src/features/_shared/bulk/adapters/incidents.ts",
+      "value": "TIEP_NHAN"
+    },
+    {
+      "file": "frontend/src/features/_shared/modals/StatusTransitionModalProvider.tsx",
+      "value": "KHONG_KHOI_TO"
+    },
+    {
+      "file": "frontend/src/pages/admin/edit-window-requests/EditWindowRequestsPage.tsx",
+      "value": "PENDING"
+    },
+    {
+      "file": "frontend/src/pages/admin/edit-window-requests/EditWindowRequestsPage.tsx",
+      "value": "PENDING"
+    },
+    {
+      "file": "frontend/src/pages/admin/edit-window-requests/EditWindowRequestsPage.tsx",
+      "value": "PENDING"
+    },
+    {
+      "file": "frontend/src/pages/admin/edit-window-requests/EditWindowRequestsPage.tsx",
+      "value": "PENDING"
+    },
+    {
+      "file": "frontend/src/pages/admin/edit-window-requests/EditWindowRequestsPage.tsx",
+      "value": "PENDING"
+    },
+    {
+      "file": "frontend/src/pages/admin/edit-window-requests/EditWindowRequestsPage.tsx",
+      "value": "PENDING"
+    },
+    {
+      "file": "frontend/src/pages/admin/edit-window-requests/EditWindowRequestsPage.tsx",
+      "value": "PENDING"
+    },
+    {
+      "file": "frontend/src/pages/admin/edit-window-requests/EditWindowRequestsPage.tsx",
+      "value": "APPROVED"
+    },
+    {
+      "file": "frontend/src/pages/admin/edit-window-requests/EditWindowRequestsPage.tsx",
+      "value": "PENDING"
+    },
+    {
+      "file": "frontend/src/pages/admin/edit-window-requests/EditWindowRequestsPage.tsx",
+      "value": "APPROVED"
+    },
+    {
+      "file": "frontend/src/pages/admin/edit-window-requests/EditWindowRequestsPage.tsx",
+      "value": "REJECTED"
+    },
+    {
+      "file": "frontend/src/pages/admin/edit-window-requests/EditWindowRequestsPage.tsx",
+      "value": "PENDING"
+    },
+    {
+      "file": "frontend/src/pages/calendar/CalendarPage.tsx",
+      "value": "TEAM"
+    },
+    {
+      "file": "frontend/src/pages/calendar/CalendarPage.tsx",
+      "value": "PERSONAL"
+    },
+    {
+      "file": "frontend/src/pages/calendar/CalendarPage.tsx",
+      "value": "SYSTEM"
+    },
+    {
+      "file": "frontend/src/pages/calendar/CalendarPage.tsx",
+      "value": "TEAM"
+    },
+    {
+      "file": "frontend/src/pages/calendar/CalendarPage.tsx",
+      "value": "PERSONAL"
+    },
+    {
+      "file": "frontend/src/pages/calendar/components/CreateEventModal.tsx",
+      "value": "PERSONAL"
+    },
+    {
+      "file": "frontend/src/pages/calendar/components/CreateEventModal.tsx",
+      "value": "SYSTEM"
+    },
+    {
+      "file": "frontend/src/pages/calendar/utils/filterEvents.ts",
+      "value": "SYSTEM"
+    },
+    {
+      "file": "frontend/src/pages/calendar/utils/filterEvents.ts",
+      "value": "SYSTEM"
+    },
+    {
+      "file": "frontend/src/pages/cases/CaseFormPage/buildCreateCasePayload.ts",
+      "value": "FROM_PETITION"
+    },
+    {
+      "file": "frontend/src/pages/cases/CaseFormPage/buildCreateCasePayload.ts",
+      "value": "FROM_INCIDENT"
+    },
+    {
+      "file": "frontend/src/pages/cases/CaseFormPage/buildCreateCasePayload.ts",
+      "value": "UY_THAC_DIEU_TRA"
+    },
+    {
+      "file": "frontend/src/pages/cases/CaseFormPage/hydrateFormFromUrl.ts",
+      "value": "UY_THAC_DIEU_TRA"
+    },
+    {
+      "file": "frontend/src/pages/cases/CaseFormPage/index.tsx",
+      "value": "UY_THAC_DIEU_TRA"
+    },
+    {
+      "file": "frontend/src/pages/cases/CaseFormPage/index.tsx",
+      "value": "FROM_PETITION"
+    },
+    {
+      "file": "frontend/src/pages/cases/CaseFormPage/index.tsx",
+      "value": "FROM_INCIDENT"
+    },
+    {
+      "file": "frontend/src/pages/cases/CaseFormPage/index.tsx",
+      "value": "UY_THAC_DIEU_TRA"
+    },
+    {
+      "file": "frontend/src/pages/cases/CaseFormPage/index.tsx",
+      "value": "UY_THAC_DIEU_TRA"
+    },
+    {
+      "file": "frontend/src/pages/cases/CaseFormPage/index.tsx",
+      "value": "UY_THAC_DIEU_TRA"
+    },
+    {
+      "file": "frontend/src/pages/cases/CaseFormPage/index.tsx",
+      "value": "UY_THAC_DIEU_TRA"
+    },
+    {
+      "file": "frontend/src/pages/cases/CaseFormPage/tabs.tsx",
+      "value": "FROM_PETITION"
+    },
+    {
+      "file": "frontend/src/pages/cases/CaseFormPage/tabs.tsx",
+      "value": "FROM_INCIDENT"
+    },
+    {
+      "file": "frontend/src/pages/cases/CaseFormPage/tabs.tsx",
+      "value": "UY_THAC_DIEU_TRA"
+    },
+    {
+      "file": "frontend/src/pages/cases/CaseFormPage/tabs.tsx",
+      "value": "UY_THAC_DIEU_TRA"
+    },
+    {
+      "file": "frontend/src/pages/cases/utils/case-provenance-mapper.ts",
+      "value": "FROM_INCIDENT"
+    },
+    {
+      "file": "frontend/src/pages/cases/utils/case-provenance-mapper.ts",
+      "value": "VU_VIEC"
+    },
+    {
+      "file": "frontend/src/pages/reports/TdacDraftDetailPage.tsx",
+      "value": "VU_AN"
+    },
+    {
+      "file": "frontend/src/pages/reports/TdacDraftsPage.tsx",
+      "value": "VU_AN"
+    },
+    {
+      "file": "frontend/src/pages/reports/TdacReportPage.tsx",
+      "value": "VU_AN"
+    },
+    {
+      "file": "frontend/src/pages/reports/TdacReportPage.tsx",
+      "value": "VU_AN"
+    },
+    {
+      "file": "frontend/src/pages/reports/TdacReportPage.tsx",
+      "value": "VU_AN"
+    },
+    {
+      "file": "frontend/src/pages/workflow/CaseExchangePage.tsx",
+      "value": "OPEN"
+    },
+    {
+      "file": "frontend/src/pages/workflow/CaseExchangePage.tsx",
+      "value": "CLOSED"
+    },
+    {
+      "file": "frontend/src/pages/workflow/CaseExchangePage.tsx",
+      "value": "OPEN"
+    }
+  ]
+}

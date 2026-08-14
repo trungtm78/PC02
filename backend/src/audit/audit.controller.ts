@@ -30,7 +30,9 @@ export class AuditController {
       subject: query.subject,
       search: query.search,
       // v0.29 fix: normalize date-only input để dateTo `2026-05-20` cover hết ngày.
-      dateFrom: query.dateFrom ? normalizeStartOfDay(query.dateFrom) : undefined,
+      dateFrom: query.dateFrom
+        ? normalizeStartOfDay(query.dateFrom)
+        : undefined,
       dateTo: query.dateTo ? normalizeEndOfDay(query.dateTo) : undefined,
       limit: query.limit,
       offset: query.offset,
@@ -68,7 +70,9 @@ export class AuditController {
       subjectId: query.subjectId,
       subject: query.subject,
       search: query.search,
-      dateFrom: query.dateFrom ? normalizeStartOfDay(query.dateFrom) : undefined,
+      dateFrom: query.dateFrom
+        ? normalizeStartOfDay(query.dateFrom)
+        : undefined,
       dateTo: query.dateTo ? normalizeEndOfDay(query.dateTo) : undefined,
       limit: 10000,
       offset: 0,
@@ -91,11 +95,15 @@ export class AuditController {
 
     // Stream header + rows.
     res.write('﻿'); // BOM for Excel UTF-8
-    res.write('Thời gian,Người dùng,Action,Subject,SubjectID,Số trường thay đổi,IP\n');
+    res.write(
+      'Thời gian,Người dùng,Action,Subject,SubjectID,Số trường thay đổi,IP\n',
+    );
     for (const row of data) {
       const user = (row as any).user;
       const userName = user
-        ? `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.username || ''
+        ? `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() ||
+          user.username ||
+          ''
         : '';
       const changedCount = (row as any).changedFields?.length ?? 0;
       const cols = [

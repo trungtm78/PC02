@@ -1,4 +1,9 @@
-import { Injectable, Logger, OnModuleInit, ServiceUnavailableException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleInit,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { Response } from 'express';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -95,7 +100,9 @@ export class TdacExportService implements OnModuleInit {
 
     const worksheet = workbook.worksheets[0];
     if (!worksheet) {
-      throw new ServiceUnavailableException('Template file is invalid: no worksheets found');
+      throw new ServiceUnavailableException(
+        'Template file is invalid: no worksheets found',
+      );
     }
 
     // Fill cells

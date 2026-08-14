@@ -396,8 +396,18 @@ describe('IncidentFormPage — Tài liệu section (Cycle 10)', () => {
     vi.clearAllMocks();
   });
 
-  it('does NOT render EntityDocumentsTab in create mode (no incidentId)', async () => {
+  it('renders EntityDocumentsTab in create mode but guarded, not hidden', async () => {
+    // This test used to assert the tab was absent, and passed for the wrong
+    // reason: `Card` dropped every prop it did not name, so the data-testid
+    // never reached the DOM anywhere. The form has always rendered the tab
+    // unconditionally — see the comment at IncidentFormPage.tsx: "luôn hiển
+    // thị; EntityDocumentsTab tự guard khi chưa có incidentId". Now that the
+    // testid works, assert what the component is actually meant to do.
     await renderForm();
-    expect(screen.queryByTestId('entity-documents-incident')).toBeNull();
+
+    expect(screen.getByTestId('entity-documents-incident')).toBeInTheDocument();
+    expect(
+      screen.getByText('Lưu vụ việc trước để tải lên tài liệu'),
+    ).toBeInTheDocument();
   });
 });

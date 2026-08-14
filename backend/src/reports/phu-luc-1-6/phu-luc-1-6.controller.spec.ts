@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { PhuLuc16Controller } from './phu-luc-1-6.controller';
 import { PhuLuc16Service } from './phu-luc-1-6.service';
+import { ReportExportLogService } from '../export-history/report-export-log.service';
 import { PhuLuc16ExportService } from './phu-luc-1-6-export.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
@@ -9,6 +10,7 @@ const mockService = {
   getForLoai: jest.fn(),
 };
 
+const mockExportLog = { record: jest.fn(() => Promise.resolve(undefined)) };
 const mockExportService = {
   export: jest.fn(),
 };
@@ -22,6 +24,9 @@ describe('PhuLuc16Controller — delegation', () => {
       providers: [
         { provide: PhuLuc16Service, useValue: mockService },
         { provide: PhuLuc16ExportService, useValue: mockExportService },
+        // D7 — the export is logged now; the log must never break the export,
+        // so the mock records calls and resolves.
+        { provide: ReportExportLogService, useValue: mockExportLog },
       ],
     })
       .overrideGuard(JwtAuthGuard)
@@ -40,17 +45,39 @@ describe('PhuLuc16Controller — delegation', () => {
   it('preview() delegates to phuLuc16Service.getForLoai', async () => {
     mockService.getForLoai.mockResolvedValue({ data: [], total: 0 });
     const mockReq = { user: { id: 'u1' } } as any;
-    await controller.preview({ loai: 1, fromDate: '2026-01-01', toDate: '2026-12-31' } as any, mockReq);
-    expect(mockService.getForLoai).toHaveBeenCalledWith(1, expect.objectContaining({ loai: 1 }));
+    await controller.preview(
+      { loai: 1, fromDate: '2026-01-01', toDate: '2026-12-31' } as any,
+      mockReq,
+    );
+    expect(mockService.getForLoai).toHaveBeenCalledWith(
+      1,
+      expect.objectContaining({ loai: 1 }),
+    );
   });
 
   it('export() delegates to both services', async () => {
-    mockService.getForLoai.mockResolvedValue({ data: [{ id: 'r1' }], total: 1 });
+    mockService.getForLoai.mockResolvedValue({
+      data: [{ id: 'r1' }],
+      total: 1,
+    });
     mockExportService.export.mockResolvedValue(undefined);
-    const mockReq = { user: { id: 'u1' } } as any;
+    const mockReq = { user: { id: 'u1' }, ip: '127.0.0.1', headers: {} } as any;
     const mockRes = { setHeader: jest.fn(), end: jest.fn() } as any;
-    await controller.export({ loai: 1, fromDate: '2026-01-01', toDate: '2026-12-31' } as any, mockReq, mockRes);
-    expect(mockService.getForLoai).toHaveBeenCalledWith(1, expect.objectContaining({ loai: 1 }));
-    expect(mockExportService.export).toHaveBeenCalledWith(1, [{ id: 'r1' }], mockRes);
+    // D7 — the endpoint now takes the acting user so the export can be logged.
+    await controller.export(
+      { loai: 1, fromDate: '2026-01-01', toDate: '2026-12-31' } as any,
+      { id: 'u1' } as any,
+      mockReq,
+      mockRes,
+    );
+    expect(mockService.getForLoai).toHaveBeenCalledWith(
+      1,
+      expect.objectContaining({ loai: 1 }),
+    );
+    expect(mockExportService.export).toHaveBeenCalledWith(
+      1,
+      [{ id: 'r1' }],
+      mockRes,
+    );
   });
 });

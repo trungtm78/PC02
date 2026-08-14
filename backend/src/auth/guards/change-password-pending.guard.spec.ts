@@ -13,10 +13,13 @@ const mockConfig = {
 
 function makeGuard() {
   // Bypass constructor (which reads public key file).
-  const g = Object.create(ChangePasswordPendingGuard.prototype);
-  (g as any).jwtService = mockJwt;
-  (g as any).prisma = mockPrisma;
-  (g as any).publicKey = 'FAKE_PUBLIC_KEY';
+  // Constructor thật + khoá công khai có trong repo — xem ghi chú ở
+  // `two-fa-token.guard.spec.ts`.
+  const g = new ChangePasswordPendingGuard(
+    mockJwt as never,
+    { get: (_k: string, d?: string) => d ?? './keys/public.pem' } as never,
+    mockPrisma as never,
+  );
   return g as ChangePasswordPendingGuard;
 }
 

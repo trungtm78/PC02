@@ -14,7 +14,11 @@ describe('AuditController — delegation', () => {
   let controller: AuditController;
 
   beforeEach(async () => {
-    const module = await buildControllerModule(AuditController, AuditService, mockService);
+    const module = await buildControllerModule(
+      AuditController,
+      AuditService,
+      mockService,
+    );
     controller = module.get(AuditController);
     jest.clearAllMocks();
   });
@@ -49,7 +53,10 @@ describe('AuditController — delegation', () => {
   });
 
   it('actions() delegates to service.distinctActions', async () => {
-    mockService.distinctActions.mockResolvedValue(['USER_CREATED', 'CASE_CREATED']);
+    mockService.distinctActions.mockResolvedValue([
+      'USER_CREATED',
+      'CASE_CREATED',
+    ]);
     const result = await controller.actions();
     expect(result).toEqual(['USER_CREATED', 'CASE_CREATED']);
   });

@@ -107,6 +107,16 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    // Two tests read a backend source file with `?raw` so a frontend mirror
+    // cannot silently drift from it: the permission seed, and the upload
+    // limits in documents.controller.ts. Vite refuses to serve outside the
+    // project root unless the path is allowed here.
+    // `permission-mapping.test.ts` reads the backend permission seed with
+    // `?raw` so the frontend mapping cannot silently drift from it. Vite
+    // refuses to serve a file outside the project root unless it is allowed
+    // here. `node:fs` would avoid this, but only by adding `node` to the app
+    // tsconfig's `types`, which changes global typing for the whole project.
+    fs: { allow: ['.', '../backend/prisma', '../backend/src/documents'] },
     proxy: {
       '/api': {
         target: 'http://localhost:3000',
@@ -118,7 +128,16 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test-setup.ts'],
-    include: ['src/**/__tests__/**/*.test.ts', 'src/**/__tests__/**/*.test.tsx'],
+    // Any *.test.ts(x) under src/, not only those inside a __tests__ folder.
+    // The narrower pattern silently skipped src/hooks/useMasterClassOptions.test.ts,
+    // so a test file could be added and never run.
+    include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
+    // Must stay above the Testing Library asyncUtilTimeout set in
+    // src/test-setup.ts. At the default 5000 the two are equal, so a slow
+    // `findBy*` trips vitest's own timeout first and reports a generic
+    // "Test timed out" instead of Testing Library's message naming the query
+    // and dumping the DOM.
+    testTimeout: 15_000,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html', 'lcov'],

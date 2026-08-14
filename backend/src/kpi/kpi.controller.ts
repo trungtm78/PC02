@@ -5,8 +5,10 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import type { ScopedRequest } from '../auth/interfaces/scoped-request.interface';
+import { FeatureFlag } from '../feature-flags/decorators/feature-flag.decorator';
 
 @Controller('kpi')
+@FeatureFlag('kpi')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class KpiController {
   constructor(private readonly kpiService: KpiService) {}

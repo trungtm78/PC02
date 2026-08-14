@@ -77,7 +77,9 @@ export class NotificationEventService {
   @OnEvent('utdt.assigned', { async: true })
   async onUydtAssigned(event: UydtAssignedEvent): Promise<void> {
     try {
-      const targets = [event.toUserId, ...event.toLeaderUserIds].filter(Boolean);
+      const targets = [event.toUserId, ...event.toLeaderUserIds].filter(
+        Boolean,
+      );
       await Promise.all(
         targets.map((uid) =>
           this.sendInApp({
@@ -116,21 +118,78 @@ export class NotificationEventService {
     }
   }
 
-  // ── Stub handlers — implement in next sprint (D12) ─────────────────────
-
+  /**
+   * D6 — ba handler này từng chỉ gọi `logger.debug`, và KHÔNG emitter nào phát
+   * ba sự kiện đó. Tức là hai nửa cùng hỏng, và không nửa nào báo lỗi: hệ thống
+   * trông như có thông báo, người dùng không bao giờ nhận được cái nào, và
+   * không có dòng log nào nói tại sao.
+   *
+   * Bọc try/catch giống `onCaseCreated`: hỏng gửi thông báo không được kéo đổ
+   * nghiệp vụ đã commit xong.
+   */
   @OnEvent('case.status_changed', { async: true })
   async onCaseStatusChanged(event: CaseStatusChangedEvent): Promise<void> {
-    this.logger.debug(`case.status_changed stub: ${event.caseCode}`);
+    try {
+      // Gửi cho người đang thụ lý, không phải cả tổ: đổi trạng thái là việc của
+      // hồ sơ cụ thể, phát cho cả tổ chỉ tạo nhiễu rồi ai cũng tắt chuông.
+      if (!event.toUserId) return;
+      await this.sendInApp({
+        toUserId: event.toUserId,
+        type: NotificationType.CASE_STATUS_CHANGED,
+        title: 'Vụ án đổi trạng thái',
+        message: `Vụ án ${event.caseCode}: ${event.oldStatus} → ${event.newStatus}`,
+        link: `/cases/${event.caseId}`,
+        metadata: {
+          caseId: event.caseId,
+          oldStatus: event.oldStatus,
+          newStatus: event.newStatus,
+        },
+      });
+    } catch (err) {
+      this.logger.error('onCaseStatusChanged failed', err);
+    }
   }
 
   @OnEvent('petition.received', { async: true })
   async onPetitionReceived(event: PetitionReceivedEvent): Promise<void> {
-    this.logger.debug(`petition.received stub: ${event.petitionId}`);
+    try {
+      const leaderIds = await this.recipients.getAllHeadUnits();
+      await Promise.all(
+        leaderIds.map((uid) =>
+          this.sendInApp({
+            toUserId: uid,
+            type: NotificationType.PETITION_RECEIVED,
+            title: 'Đơn thư mới tiếp nhận',
+            message: `Đơn thư ${event.petitionTitle} vừa được tiếp nhận`,
+            link: `/petitions/${event.petitionId}`,
+            metadata: { petitionId: event.petitionId },
+          }),
+        ),
+      );
+    } catch (err) {
+      this.logger.error('onPetitionReceived failed', err);
+    }
   }
 
   @OnEvent('incident.created', { async: true })
   async onIncidentCreated(event: IncidentCreatedEvent): Promise<void> {
-    this.logger.debug(`incident.created stub: ${event.incidentId}`);
+    try {
+      const leaderIds = await this.recipients.getAllHeadUnits();
+      await Promise.all(
+        leaderIds.map((uid) =>
+          this.sendInApp({
+            toUserId: uid,
+            type: NotificationType.INCIDENT_CREATED,
+            title: 'Vụ việc mới được lập',
+            message: `Vụ việc ${event.incidentName} vừa được lập`,
+            link: `/vu-viec/${event.incidentId}`,
+            metadata: { incidentId: event.incidentId },
+          }),
+        ),
+      );
+    } catch (err) {
+      this.logger.error('onIncidentCreated failed', err);
+    }
   }
 
   // ── Shared helper ──────────────────────────────────────────────────────

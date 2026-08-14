@@ -99,9 +99,9 @@ describe('VksMeetingsService', () => {
     it('UT-001: throws NotFoundException when case does not exist', async () => {
       mockPrisma.case.findUnique.mockResolvedValue(null);
 
-      await expect(service.createForCase(CASE_ID, MEETING_DTO as any, USER_ID)).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.createForCase(CASE_ID, MEETING_DTO as any, USER_ID),
+      ).rejects.toThrow(NotFoundException);
       expect(mockPrisma.vksMeetingRecord.create).not.toHaveBeenCalled();
     });
 
@@ -110,7 +110,11 @@ describe('VksMeetingsService', () => {
       const created = makeMeetingRecord();
       mockPrisma.vksMeetingRecord.create.mockResolvedValue(created);
 
-      const result = await service.createForCase(CASE_ID, MEETING_DTO as any, USER_ID);
+      const result = await service.createForCase(
+        CASE_ID,
+        MEETING_DTO as any,
+        USER_ID,
+      );
 
       expect(result).toEqual(created);
       expect(mockPrisma.vksMeetingRecord.create).toHaveBeenCalledWith(
@@ -150,10 +154,17 @@ describe('VksMeetingsService', () => {
 
     it('UT-004: creates record with correct incidentId and null caseId', async () => {
       mockPrisma.incident.findUnique.mockResolvedValue({ id: INCIDENT_ID });
-      const created = makeMeetingRecord({ incidentId: INCIDENT_ID, caseId: null });
+      const created = makeMeetingRecord({
+        incidentId: INCIDENT_ID,
+        caseId: null,
+      });
       mockPrisma.vksMeetingRecord.create.mockResolvedValue(created);
 
-      const result = await service.createForIncident(INCIDENT_ID, MEETING_DTO as any, USER_ID);
+      const result = await service.createForIncident(
+        INCIDENT_ID,
+        MEETING_DTO as any,
+        USER_ID,
+      );
 
       expect(result).toEqual(created);
       expect(mockPrisma.vksMeetingRecord.create).toHaveBeenCalledWith(
@@ -175,12 +186,17 @@ describe('VksMeetingsService', () => {
     it('UT-005: throws NotFoundException when case does not exist', async () => {
       mockPrisma.case.findUnique.mockResolvedValue(null);
 
-      await expect(service.findAllForCase(CASE_ID)).rejects.toThrow(NotFoundException);
+      await expect(service.findAllForCase(CASE_ID)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('UT-005b: returns records ordered by ngayTrao desc and includes createdBy', async () => {
       mockPrisma.case.findUnique.mockResolvedValue({ id: CASE_ID });
-      const records = [makeMeetingRecord(), makeMeetingRecord({ id: 'record-002' })];
+      const records = [
+        makeMeetingRecord(),
+        makeMeetingRecord({ id: 'record-002' }),
+      ];
       mockPrisma.vksMeetingRecord.findMany.mockResolvedValue(records);
 
       const result = await service.findAllForCase(CASE_ID);
@@ -213,12 +229,16 @@ describe('VksMeetingsService', () => {
     it('UT-006: throws NotFoundException when incident does not exist', async () => {
       mockPrisma.incident.findUnique.mockResolvedValue(null);
 
-      await expect(service.findAllForIncident(INCIDENT_ID)).rejects.toThrow(NotFoundException);
+      await expect(service.findAllForIncident(INCIDENT_ID)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('UT-006b: returns records for incident with correct query', async () => {
       mockPrisma.incident.findUnique.mockResolvedValue({ id: INCIDENT_ID });
-      const records = [makeMeetingRecord({ incidentId: INCIDENT_ID, caseId: null })];
+      const records = [
+        makeMeetingRecord({ incidentId: INCIDENT_ID, caseId: null }),
+      ];
       mockPrisma.vksMeetingRecord.findMany.mockResolvedValue(records);
 
       const result = await service.findAllForIncident(INCIDENT_ID);
@@ -239,7 +259,9 @@ describe('VksMeetingsService', () => {
     it('UT-007: throws NotFoundException when record does not exist', async () => {
       mockPrisma.vksMeetingRecord.findUnique.mockResolvedValue(null);
 
-      await expect(service.delete(RECORD_ID)).rejects.toThrow(NotFoundException);
+      await expect(service.delete(RECORD_ID)).rejects.toThrow(
+        NotFoundException,
+      );
       expect(mockPrisma.vksMeetingRecord.delete).not.toHaveBeenCalled();
     });
 
@@ -278,8 +300,16 @@ describe('VksMeetingsService', () => {
   // ─── DataScope enforcement (CSO finding F2 — IDOR) ────────────────────────
 
   describe('DataScope enforcement', () => {
-    const otherTeamCase = { id: CASE_ID, assignedTeamId: 'team-B', investigatorId: 'user-2' };
-    const otherTeamIncident = { id: INCIDENT_ID, assignedTeamId: 'team-B', investigatorId: 'user-2' };
+    const otherTeamCase = {
+      id: CASE_ID,
+      assignedTeamId: 'team-B',
+      investigatorId: 'user-2',
+    };
+    const otherTeamIncident = {
+      id: INCIDENT_ID,
+      assignedTeamId: 'team-B',
+      investigatorId: 'user-2',
+    };
 
     it('createForCase: denies cross-team write', async () => {
       mockPrisma.case.findUnique.mockResolvedValue(otherTeamCase);
@@ -292,20 +322,29 @@ describe('VksMeetingsService', () => {
     it('createForIncident: denies cross-team write', async () => {
       mockPrisma.incident.findUnique.mockResolvedValue(otherTeamIncident);
       await expect(
-        service.createForIncident(INCIDENT_ID, MEETING_DTO as any, USER_ID, scopeTeamA),
+        service.createForIncident(
+          INCIDENT_ID,
+          MEETING_DTO as any,
+          USER_ID,
+          scopeTeamA,
+        ),
       ).rejects.toThrow(ForbiddenException);
       expect(mockPrisma.vksMeetingRecord.create).not.toHaveBeenCalled();
     });
 
     it('findAllForCase: denies cross-team read', async () => {
       mockPrisma.case.findUnique.mockResolvedValue(otherTeamCase);
-      await expect(service.findAllForCase(CASE_ID, scopeTeamA)).rejects.toThrow(ForbiddenException);
+      await expect(service.findAllForCase(CASE_ID, scopeTeamA)).rejects.toThrow(
+        ForbiddenException,
+      );
       expect(mockPrisma.vksMeetingRecord.findMany).not.toHaveBeenCalled();
     });
 
     it('findAllForIncident: denies cross-team read', async () => {
       mockPrisma.incident.findUnique.mockResolvedValue(otherTeamIncident);
-      await expect(service.findAllForIncident(INCIDENT_ID, scopeTeamA)).rejects.toThrow(ForbiddenException);
+      await expect(
+        service.findAllForIncident(INCIDENT_ID, scopeTeamA),
+      ).rejects.toThrow(ForbiddenException);
       expect(mockPrisma.vksMeetingRecord.findMany).not.toHaveBeenCalled();
     });
 
@@ -315,7 +354,9 @@ describe('VksMeetingsService', () => {
         case: otherTeamCase,
         incident: null,
       });
-      await expect(service.delete(RECORD_ID, scopeTeamA)).rejects.toThrow(ForbiddenException);
+      await expect(service.delete(RECORD_ID, scopeTeamA)).rejects.toThrow(
+        ForbiddenException,
+      );
       expect(mockPrisma.vksMeetingRecord.delete).not.toHaveBeenCalled();
     });
 
@@ -329,7 +370,9 @@ describe('VksMeetingsService', () => {
 
     it('matching team allows access', async () => {
       mockPrisma.case.findUnique.mockResolvedValue({
-        id: CASE_ID, assignedTeamId: 'team-A', investigatorId: 'user-1',
+        id: CASE_ID,
+        assignedTeamId: 'team-A',
+        investigatorId: 'user-1',
       });
       mockPrisma.vksMeetingRecord.create.mockResolvedValue(makeMeetingRecord());
       await expect(

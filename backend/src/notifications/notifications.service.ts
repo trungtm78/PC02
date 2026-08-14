@@ -63,8 +63,12 @@ export class NotificationsService {
       where: { id },
       data: {
         isRead: true,
-        readAt: (notification as Record<string, unknown>).readAt as Date | null ?? now,
-        acknowledgedAt: (notification as Record<string, unknown>).acknowledgedAt as Date | null ?? now,
+        readAt:
+          ((notification as Record<string, unknown>).readAt as Date | null) ??
+          now,
+        acknowledgedAt:
+          ((notification as Record<string, unknown>)
+            .acknowledgedAt as Date | null) ?? now,
         pushNextRetryAt: null,
       },
     });
@@ -75,7 +79,12 @@ export class NotificationsService {
   async markAllAsRead(userId: string) {
     const result = await this.prisma.notification.updateMany({
       where: { userId, isRead: false },
-      data: { isRead: true, readAt: new Date(), acknowledgedAt: new Date(), pushNextRetryAt: null },
+      data: {
+        isRead: true,
+        readAt: new Date(),
+        acknowledgedAt: new Date(),
+        pushNextRetryAt: null,
+      },
     });
     return { success: true, updatedCount: result.count };
   }
@@ -109,7 +118,7 @@ export class NotificationsService {
         title: dto.title,
         message: dto.message,
         link: dto.link,
-        metadata: dto.metadata as Prisma.InputJsonValue ?? Prisma.JsonNull,
+        metadata: (dto.metadata as Prisma.InputJsonValue) ?? Prisma.JsonNull,
       },
     });
     return notification;
@@ -117,7 +126,9 @@ export class NotificationsService {
 
   // ── SEED DEMO NOTIFICATIONS (for initial testing) ────────────────────────
   async seedDemoForUser(userId: string) {
-    const existing = await this.prisma.notification.count({ where: { userId } });
+    const existing = await this.prisma.notification.count({
+      where: { userId },
+    });
     if (existing > 0) return { seeded: false };
 
     const demos = [

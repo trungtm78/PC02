@@ -1,6 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { FeatureFlagsService } from './feature-flags.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { CORE_FEATURE_KEYS } from './core-features.constants';
+import { AuditService } from '../audit/audit.service';
 import { FEATURE_REGISTRY } from './feature-registry';
 
 type FlagRow = {
@@ -24,7 +26,15 @@ const row = (overrides: Partial<FlagRow> = {}): FlagRow => ({
 
 describe('FeatureFlagsService', () => {
   let service: FeatureFlagsService;
-  let prisma: { featureFlag: { findMany: jest.Mock; update: jest.Mock } };
+  let prisma: {
+    featureFlag: {
+      findMany: jest.Mock;
+      findUnique: jest.Mock;
+      update: jest.Mock;
+      upsert: jest.Mock;
+    };
+    $transaction: jest.Mock;
+  };
   const originalEnv = process.env['ENABLED_FEATURES'];
 
   afterEach(() => {
@@ -36,13 +46,22 @@ describe('FeatureFlagsService', () => {
     prisma = {
       featureFlag: {
         findMany: jest.fn().mockResolvedValue([]),
+        findUnique: jest.fn().mockResolvedValue(null),
         update: jest.fn(),
+        upsert: jest.fn(),
       },
+      // setEnabled writes the flag and its audit entry in one transaction, so
+      // the mock has to hand the callback something to write through.
+      $transaction: jest.fn((fn: (tx: unknown) => unknown) => fn(prisma)),
     };
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         FeatureFlagsService,
         { provide: PrismaService, useValue: prisma },
+        // Required now, not @Optional(): the module did not import
+        // AuditModule, so the optional hedge meant every flag change
+        // committed with no audit trail at all.
+        { provide: AuditService, useValue: { log: jest.fn() } },
       ],
     }).compile();
     service = module.get(FeatureFlagsService);
@@ -148,9 +167,7 @@ describe('FeatureFlagsService', () => {
       await service.isEnabled('cases'); // rebuilds cache
       // Now expire TTL by advancing state, next refresh fails
       (service as unknown as { cacheExpiresAt: number }).cacheExpiresAt = 0;
-      prisma.featureFlag.findMany.mockRejectedValueOnce(
-        new Error('db blip'),
-      );
+      prisma.featureFlag.findMany.mockRejectedValueOnce(new Error('db blip'));
       // Should NOT throw — stale cache served
       expect(await service.isEnabled('cases')).toBe(true);
     });
@@ -192,15 +209,34 @@ describe('FeatureFlagsService', () => {
       expect(petitions?.enabled).toBe(true);
     });
 
-    it('filters by build whitelist even when DB is empty', async () => {
+    it('filters by build whitelist, but never drops a core key', async () => {
+      // The whitelist used to be absolute. An ENABLED_FEATURES that simply
+      // forgot `admin` or `feature-flags` produced the exact lockout the core
+      // list exists to prevent: sidebar entry gone, and the write API then
+      // refusing to restore it because the key was "outside the build".
       process.env['ENABLED_FEATURES'] = 'cases,petitions';
       await build();
       prisma.featureFlag.findMany.mockResolvedValue([]);
+
       const all = await service.listAll();
-      const keys = all.map((f) => f.key).sort();
-      expect(keys).toEqual(['cases', 'petitions']);
-      // Both default-allow because DB is empty
+      const keys = all.map((f) => f.key);
+
+      expect(keys).toEqual(expect.arrayContaining(['cases', 'petitions']));
+      for (const core of CORE_FEATURE_KEYS) {
+        expect(keys).toContain(core);
+      }
+      // Everything default-allows because the DB is empty.
       expect(all.every((f) => f.enabled)).toBe(true);
+    });
+
+    it('excludes a non-core key that the whitelist omits', async () => {
+      process.env['ENABLED_FEATURES'] = 'cases';
+      await build();
+      prisma.featureFlag.findMany.mockResolvedValue([]);
+
+      const keys = (await service.listAll()).map((f) => f.key);
+
+      expect(keys).not.toContain('petitions');
     });
 
     it('respects DB enabled=false even under whitelist', async () => {
@@ -210,24 +246,29 @@ describe('FeatureFlagsService', () => {
         row({ key: 'cases', enabled: false }),
       ]);
       const all = await service.listAll();
-      expect(all.length).toBe(1);
-      expect(all[0].enabled).toBe(false);
+      const cases = all.find((f) => f.key === 'cases');
+      expect(cases?.enabled).toBe(false);
     });
   });
 
   describe('setEnabled', () => {
-    it('updates DB and refreshes cache', async () => {
+    it('writes the flag and refreshes the cache', async () => {
       delete process.env['ENABLED_FEATURES'];
       await build();
-      prisma.featureFlag.update.mockResolvedValue(row({ enabled: false }));
+      prisma.featureFlag.upsert.mockResolvedValue(row({ enabled: false }));
       prisma.featureFlag.findMany.mockResolvedValue([row({ enabled: false })]);
 
       const result = await service.setEnabled('cases', false);
       expect(result.enabled).toBe(false);
-      expect(prisma.featureFlag.update).toHaveBeenCalledWith({
-        where: { key: 'cases' },
-        data: { enabled: false },
-      });
+      // upsert, not update: `update` threw P2025 for any flag the first seed
+      // had not created, which is every flag added since.
+      expect(prisma.featureFlag.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { key: 'cases' },
+          update: { enabled: false },
+        }),
+      );
+      expect(prisma.featureFlag.update).not.toHaveBeenCalled();
       expect(await service.isEnabled('cases')).toBe(false);
     });
   });

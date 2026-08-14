@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /**
  * ActionPlansService Unit Tests
  *
@@ -120,11 +118,14 @@ describe('ActionPlansService', () => {
     });
 
     it('creates plan with caseId set and incidentId=null', async () => {
-      mockPrisma.suspensionActionPlan.create.mockResolvedValue(makeActionPlan());
+      mockPrisma.suspensionActionPlan.create.mockResolvedValue(
+        makeActionPlan(),
+      );
 
       await service.createForCase('case-1', makeDto(), 'user-1');
 
-      const callData = mockPrisma.suspensionActionPlan.create.mock.calls[0][0].data;
+      const callData =
+        mockPrisma.suspensionActionPlan.create.mock.calls[0][0].data;
       expect(callData.caseId).toBe('case-1');
       expect(callData.incidentId).toBeNull();
       expect(callData.createdById).toBe('user-1');
@@ -148,7 +149,8 @@ describe('ActionPlansService', () => {
 
       await service.createForIncident('incident-1', makeDto(), 'user-1');
 
-      const callData = mockPrisma.suspensionActionPlan.create.mock.calls[0][0].data;
+      const callData =
+        mockPrisma.suspensionActionPlan.create.mock.calls[0][0].data;
       expect(callData.incidentId).toBe('incident-1');
       expect(callData.caseId).toBeNull();
     });
@@ -194,7 +196,9 @@ describe('ActionPlansService', () => {
     it('throws NotFoundException when plan does not exist', async () => {
       mockPrisma.suspensionActionPlan.findUnique.mockResolvedValue(null);
 
-      await expect(service.delete('nonexistent-plan')).rejects.toThrow(NotFoundException);
+      await expect(service.delete('nonexistent-plan')).rejects.toThrow(
+        NotFoundException,
+      );
       expect(mockPrisma.suspensionActionPlan.delete).not.toHaveBeenCalled();
     });
 
@@ -202,7 +206,11 @@ describe('ActionPlansService', () => {
       const plan = makeActionPlan();
       mockPrisma.suspensionActionPlan.findUnique.mockResolvedValue({
         ...plan,
-        case: { id: 'case-1', assignedTeamId: 'team-A', investigatorId: 'user-1' },
+        case: {
+          id: 'case-1',
+          assignedTeamId: 'team-A',
+          investigatorId: 'user-1',
+        },
         incident: null,
       });
       mockPrisma.suspensionActionPlan.delete.mockResolvedValue(plan);
@@ -218,8 +226,16 @@ describe('ActionPlansService', () => {
   // ── DataScope enforcement (CSO finding F1/F2 — IDOR) ──────────────────────
 
   describe('DataScope enforcement', () => {
-    const otherTeamCase = { id: 'case-1', assignedTeamId: 'team-B', investigatorId: 'user-2' };
-    const otherTeamIncident = { id: 'incident-1', assignedTeamId: 'team-B', investigatorId: 'user-2' };
+    const otherTeamCase = {
+      id: 'case-1',
+      assignedTeamId: 'team-B',
+      investigatorId: 'user-2',
+    };
+    const otherTeamIncident = {
+      id: 'incident-1',
+      assignedTeamId: 'team-B',
+      investigatorId: 'user-2',
+    };
 
     beforeEach(() => {
       mockPrisma.case.findUnique.mockResolvedValue(otherTeamCase);
@@ -235,18 +251,27 @@ describe('ActionPlansService', () => {
 
     it('createForIncident: denies cross-team write', async () => {
       await expect(
-        service.createForIncident('incident-1', makeDto(), 'user-1', scopeTeamA),
+        service.createForIncident(
+          'incident-1',
+          makeDto(),
+          'user-1',
+          scopeTeamA,
+        ),
       ).rejects.toThrow(ForbiddenException);
       expect(mockPrisma.suspensionActionPlan.create).not.toHaveBeenCalled();
     });
 
     it('findAllForCase: denies cross-team read', async () => {
-      await expect(service.findAllForCase('case-1', scopeTeamA)).rejects.toThrow(ForbiddenException);
+      await expect(
+        service.findAllForCase('case-1', scopeTeamA),
+      ).rejects.toThrow(ForbiddenException);
       expect(mockPrisma.suspensionActionPlan.findMany).not.toHaveBeenCalled();
     });
 
     it('findAllForIncident: denies cross-team read', async () => {
-      await expect(service.findAllForIncident('incident-1', scopeTeamA)).rejects.toThrow(ForbiddenException);
+      await expect(
+        service.findAllForIncident('incident-1', scopeTeamA),
+      ).rejects.toThrow(ForbiddenException);
       expect(mockPrisma.suspensionActionPlan.findMany).not.toHaveBeenCalled();
     });
 
@@ -256,7 +281,9 @@ describe('ActionPlansService', () => {
         case: otherTeamCase,
         incident: null,
       });
-      await expect(service.delete('plan-1', scopeTeamA)).rejects.toThrow(ForbiddenException);
+      await expect(service.delete('plan-1', scopeTeamA)).rejects.toThrow(
+        ForbiddenException,
+      );
       expect(mockPrisma.suspensionActionPlan.delete).not.toHaveBeenCalled();
     });
 
@@ -266,12 +293,16 @@ describe('ActionPlansService', () => {
         case: null,
         incident: otherTeamIncident,
       });
-      await expect(service.delete('plan-1', scopeTeamA)).rejects.toThrow(ForbiddenException);
+      await expect(service.delete('plan-1', scopeTeamA)).rejects.toThrow(
+        ForbiddenException,
+      );
       expect(mockPrisma.suspensionActionPlan.delete).not.toHaveBeenCalled();
     });
 
     it('null scope (admin) bypasses all checks', async () => {
-      mockPrisma.suspensionActionPlan.create.mockResolvedValue(makeActionPlan());
+      mockPrisma.suspensionActionPlan.create.mockResolvedValue(
+        makeActionPlan(),
+      );
       await expect(
         service.createForCase('case-1', makeDto(), 'admin-id', null),
       ).resolves.toBeDefined();
@@ -280,9 +311,13 @@ describe('ActionPlansService', () => {
 
     it('matching team allows access', async () => {
       mockPrisma.case.findUnique.mockResolvedValue({
-        id: 'case-1', assignedTeamId: 'team-A', investigatorId: 'user-1',
+        id: 'case-1',
+        assignedTeamId: 'team-A',
+        investigatorId: 'user-1',
       });
-      mockPrisma.suspensionActionPlan.create.mockResolvedValue(makeActionPlan());
+      mockPrisma.suspensionActionPlan.create.mockResolvedValue(
+        makeActionPlan(),
+      );
       await expect(
         service.createForCase('case-1', makeDto(), 'user-1', scopeTeamA),
       ).resolves.toBeDefined();

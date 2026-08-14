@@ -30,7 +30,9 @@ export function buildIncidentFromCase(
       const d = new Date(String(meta.incidentDate));
       return isNaN(d.getTime()) ? undefined : d;
     })(),
-    diaChiXayRa: meta.incidentLocation ? String(meta.incidentLocation) : undefined,
+    diaChiXayRa: meta.incidentLocation
+      ? String(meta.incidentLocation)
+      : undefined,
     description: parts.length > 0 ? parts.join('\n\n') : undefined,
     deadline: null,
     canBoNhapId: userId,
@@ -53,7 +55,7 @@ export function shouldAutoCreateIncident(
   metadata: Record<string, unknown> | null | undefined,
 ): boolean {
   if (!BRANCH3_PROVENANCES.has(provenance)) return false;
-  const meta = (metadata ?? {}) as Record<string, unknown>;
+  const meta = metadata ?? {};
   return !!(
     meta.incidentDate ||
     meta.incidentType ||

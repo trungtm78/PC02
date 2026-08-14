@@ -285,3 +285,18 @@ export const LoaiUyThac = {
   UY_THAC_GIAI_QUYET: 'UY_THAC_GIAI_QUYET',
 } as const;
 export type LoaiUyThac = (typeof LoaiUyThac)[keyof typeof LoaiUyThac];
+
+export const PetitionDuplicateDecision = {
+  DA_HOP_NHAT: 'DA_HOP_NHAT',
+  KHONG_TRUNG: 'KHONG_TRUNG',
+} as const;
+export type PetitionDuplicateDecision = (typeof PetitionDuplicateDecision)[keyof typeof PetitionDuplicateDecision];
+
+export const RecordReturnType = {
+  KHONG_THUOC_THAM_QUYEN: 'KHONG_THUOC_THAM_QUYEN',
+  THIEU_TAI_LIEU: 'THIEU_TAI_LIEU',
+  TRUNG_HO_SO: 'TRUNG_HO_SO',
+  SAI_DIA_BAN: 'SAI_DIA_BAN',
+  LY_DO_KHAC: 'LY_DO_KHAC',
+} as const;
+export type RecordReturnType = (typeof RecordReturnType)[keyof typeof RecordReturnType];

@@ -14,7 +14,8 @@
  * Strategy: pattern-based (regex) thay vì literal allow-list. Future-proof khi
  * Prisma schema thêm fields mới có shape `*Hash`, `*Secret`, `*Token`, etc.
  */
-export const PII_PATTERN = /(hash|secret|token|password|backup_?code|recovery|otp_?code|2fa)/i;
+export const PII_PATTERN =
+  /(hash|secret|token|password|backup_?code|recovery|otp_?code|2fa)/i;
 
 /**
  * Bỏ tất cả PII keys khỏi flat object.

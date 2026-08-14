@@ -17,7 +17,12 @@ const mockTx = {
 };
 const mockPrisma = {
   user: { findUnique: jest.fn(), findFirst: jest.fn(), update: jest.fn() },
-  $transaction: jest.fn((cb: (tx: typeof mockTx) => Promise<unknown>) => cb(mockTx)),
+  // getProfile now ships the user's real permission set: the frontend layer
+  // was a constant granting everything to everyone (252 call sites).
+  rolePermission: { findMany: jest.fn().mockResolvedValue([]) },
+  $transaction: jest.fn((cb: (tx: typeof mockTx) => Promise<unknown>) =>
+    cb(mockTx),
+  ),
 };
 const mockAudit = { log: jest.fn() };
 const mockOtpCodeService = { generate: jest.fn(), verify: jest.fn() };
@@ -35,18 +40,24 @@ const mockMetrics = {
   auditLog: { inc: jest.fn() },
 };
 
+// Spec DUY NHẤT còn né constructor, và có lý do thật: `AuthService` đọc
+// `keys/private.pem` ngay trong constructor, mà khoá bí mật KHÔNG nằm trong
+// repo — đúng như vậy. Chạy constructor thật ở đây nghĩa là hoặc commit khoá,
+// hoặc sinh cặp khoá mỗi lần chạy test. Cả hai đều tệ hơn.
+// Đánh đổi phải nói ra: thêm dependency vào constructor sẽ KHÔNG làm spec này
+// hỏng biên dịch — nó chỉ hỏng lúc chạy, nếu code mới thực sự dùng tới.
 function makeService(): AuthService {
   const svc = Object.create(AuthService.prototype);
-  (svc as any).prisma = mockPrisma;
-  (svc as any).auditService = mockAudit;
-  (svc as any).otpCodeService = mockOtpCodeService;
-  (svc as any).emailService = mockEmailService;
-  (svc as any).settingsService = mockSettingsService;
-  (svc as any).jwtService = mockJwtService;
-  (svc as any).configService = mockConfigService;
-  (svc as any).metrics = mockMetrics;
-  (svc as any).privateKey = 'TEST_PRIVATE_KEY';
-  (svc as any).logger = { error: jest.fn() };
+  svc.prisma = mockPrisma;
+  svc.auditService = mockAudit;
+  svc.otpCodeService = mockOtpCodeService;
+  svc.emailService = mockEmailService;
+  svc.settingsService = mockSettingsService;
+  svc.jwtService = mockJwtService;
+  svc.configService = mockConfigService;
+  svc.metrics = mockMetrics;
+  svc.privateKey = 'TEST_PRIVATE_KEY';
+  svc.logger = { error: jest.fn() };
   return svc as AuthService;
 }
 
@@ -188,7 +199,12 @@ describe('AuthService.firstLoginChangePassword (D1 / new endpoint)', () => {
   it('throws when user not found or inactive', async () => {
     mockPrisma.user.findUnique.mockResolvedValue(null);
     await expect(
-      (service as any).firstLoginChangePassword('u1', 0, { newPassword: 'New@2026A' }, META),
+      (service as any).firstLoginChangePassword(
+        'u1',
+        0,
+        { newPassword: 'New@2026A' },
+        META,
+      ),
     ).rejects.toThrow(UnauthorizedException);
   });
 
@@ -198,7 +214,12 @@ describe('AuthService.firstLoginChangePassword (D1 / new endpoint)', () => {
       mustChangePassword: false,
     });
     await expect(
-      (service as any).firstLoginChangePassword('u1', 0, { newPassword: 'New@2026A' }, META),
+      (service as any).firstLoginChangePassword(
+        'u1',
+        0,
+        { newPassword: 'New@2026A' },
+        META,
+      ),
     ).rejects.toThrow(BadRequestException);
   });
 
@@ -206,7 +227,12 @@ describe('AuthService.firstLoginChangePassword (D1 / new endpoint)', () => {
     mockPrisma.user.findUnique.mockResolvedValue(baseUser);
     bcryptCompare.mockResolvedValue(true); // newPassword matches current hash
     await expect(
-      (service as any).firstLoginChangePassword('u1', 0, { newPassword: 'TempThatWas@123' }, META),
+      (service as any).firstLoginChangePassword(
+        'u1',
+        0,
+        { newPassword: 'TempThatWas@123' },
+        META,
+      ),
     ).rejects.toThrow(BadRequestException);
     expect(mockPrisma.$transaction).not.toHaveBeenCalled();
   });
@@ -234,8 +260,8 @@ describe('AuthService.firstLoginChangePassword (D1 / new endpoint)', () => {
         refreshTokenHash: null,
       }),
     });
-    expect((result as any).accessToken).toBeDefined();
-    expect((result as any).refreshToken).toBeDefined();
+    expect(result.accessToken).toBeDefined();
+    expect(result.refreshToken).toBeDefined();
   });
 
   // Codex challenge #3 + review round 2 #A: optimistic-lock WHERE uses the
@@ -435,9 +461,9 @@ describe('AuthService.refreshToken (Codex challenge #4 — tokenVersion enforcem
     });
     mockPrisma.user.findUnique.mockResolvedValue(baseUser); // tokenVersion: 5
 
-    await expect(
-      service.refreshToken('legacy.token', META),
-    ).rejects.toThrow(UnauthorizedException);
+    await expect(service.refreshToken('legacy.token', META)).rejects.toThrow(
+      UnauthorizedException,
+    );
   });
 });
 
@@ -451,30 +477,53 @@ describe('AuthService.changePassword', () => {
   });
 
   it('returns success and clears refreshTokenHash on correct password', async () => {
-    mockPrisma.user.findUnique.mockResolvedValue({ id: 'u1', isActive: true, passwordHash: HASHED });
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: 'u1',
+      isActive: true,
+      passwordHash: HASHED,
+    });
     bcryptCompare
-      .mockResolvedValueOnce(true)  // currentPassword check
+      .mockResolvedValueOnce(true) // currentPassword check
       .mockResolvedValueOnce(false); // same-as-old check (newPassword !== currentPassword hash)
     mockTx.user.update.mockResolvedValue({});
     mockAudit.log.mockResolvedValue(undefined);
 
-    const result = await service.changePassword('u1', { currentPassword: 'Old@1234', newPassword: 'New@5678A' }, META);
+    const result = await service.changePassword(
+      'u1',
+      { currentPassword: 'Old@1234', newPassword: 'New@5678A' },
+      META,
+    );
 
     expect(result.success).toBe(true);
     expect(mockTx.user.update).toHaveBeenCalledWith({
       where: { id: 'u1' },
-      data: { passwordHash: HASHED, refreshTokenHash: null, tokenVersion: { increment: 1 } },
+      data: {
+        passwordHash: HASHED,
+        refreshTokenHash: null,
+        tokenVersion: { increment: 1 },
+      },
     });
-    expect(mockAudit.log).toHaveBeenCalledWith(expect.objectContaining({ action: 'PASSWORD_CHANGED' }), mockTx);
+    expect(mockAudit.log).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'PASSWORD_CHANGED' }),
+      mockTx,
+    );
   });
 
   it('wraps DB update and audit log in a transaction', async () => {
-    mockPrisma.user.findUnique.mockResolvedValue({ id: 'u1', isActive: true, passwordHash: HASHED });
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: 'u1',
+      isActive: true,
+      passwordHash: HASHED,
+    });
     bcryptCompare.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
     mockTx.user.update.mockResolvedValue({});
     mockAudit.log.mockResolvedValue(undefined);
 
-    await service.changePassword('u1', { currentPassword: 'Old@1234', newPassword: 'New@5678A' }, META);
+    await service.changePassword(
+      'u1',
+      { currentPassword: 'Old@1234', newPassword: 'New@5678A' },
+      META,
+    );
 
     expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
     expect(mockTx.user.update).toHaveBeenCalled();
@@ -482,11 +531,19 @@ describe('AuthService.changePassword', () => {
   });
 
   it('throws UnauthorizedException when current password is wrong', async () => {
-    mockPrisma.user.findUnique.mockResolvedValue({ id: 'u1', isActive: true, passwordHash: HASHED });
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: 'u1',
+      isActive: true,
+      passwordHash: HASHED,
+    });
     bcryptCompare.mockResolvedValue(false);
 
     await expect(
-      service.changePassword('u1', { currentPassword: 'Wrong@1', newPassword: 'New@5678A' }, META),
+      service.changePassword(
+        'u1',
+        { currentPassword: 'Wrong@1', newPassword: 'New@5678A' },
+        META,
+      ),
     ).rejects.toThrow(UnauthorizedException);
     expect(mockPrisma.$transaction).not.toHaveBeenCalled();
   });
@@ -495,48 +552,86 @@ describe('AuthService.changePassword', () => {
     mockPrisma.user.findUnique.mockResolvedValue(null);
 
     await expect(
-      service.changePassword('ghost', { currentPassword: 'Any@1234', newPassword: 'New@5678A' }, META),
+      service.changePassword(
+        'ghost',
+        { currentPassword: 'Any@1234', newPassword: 'New@5678A' },
+        META,
+      ),
     ).rejects.toThrow(UnauthorizedException);
   });
 
   it('throws UnauthorizedException when user is inactive', async () => {
-    mockPrisma.user.findUnique.mockResolvedValue({ id: 'u1', isActive: false, passwordHash: HASHED });
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: 'u1',
+      isActive: false,
+      passwordHash: HASHED,
+    });
 
     await expect(
-      service.changePassword('u1', { currentPassword: 'Any@1234', newPassword: 'New@5678A' }, META),
+      service.changePassword(
+        'u1',
+        { currentPassword: 'Any@1234', newPassword: 'New@5678A' },
+        META,
+      ),
     ).rejects.toThrow(UnauthorizedException);
   });
 
   it('throws BadRequestException when user has no local password (OAuth/SSO account)', async () => {
-    mockPrisma.user.findUnique.mockResolvedValue({ id: 'u1', isActive: true, passwordHash: null });
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: 'u1',
+      isActive: true,
+      passwordHash: null,
+    });
 
     await expect(
-      service.changePassword('u1', { currentPassword: 'Any@1234', newPassword: 'New@5678A' }, META),
+      service.changePassword(
+        'u1',
+        { currentPassword: 'Any@1234', newPassword: 'New@5678A' },
+        META,
+      ),
     ).rejects.toThrow(BadRequestException);
     expect(mockPrisma.$transaction).not.toHaveBeenCalled();
   });
 
   it('throws BadRequestException when newPassword is same as currentPassword (bcrypt compare)', async () => {
-    mockPrisma.user.findUnique.mockResolvedValue({ id: 'u1', isActive: true, passwordHash: HASHED });
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: 'u1',
+      isActive: true,
+      passwordHash: HASHED,
+    });
     bcryptCompare
-      .mockResolvedValueOnce(true)  // currentPassword check passes
+      .mockResolvedValueOnce(true) // currentPassword check passes
       .mockResolvedValueOnce(true); // same-as-old check: new == old hash
 
     await expect(
-      service.changePassword('u1', { currentPassword: 'Same@1234', newPassword: 'Same@1234' }, META),
+      service.changePassword(
+        'u1',
+        { currentPassword: 'Same@1234', newPassword: 'Same@1234' },
+        META,
+      ),
     ).rejects.toThrow(BadRequestException);
     expect(mockPrisma.$transaction).not.toHaveBeenCalled();
   });
 
   it('always includes refreshTokenHash: null in the DB update', async () => {
-    mockPrisma.user.findUnique.mockResolvedValue({ id: 'u2', isActive: true, passwordHash: HASHED });
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: 'u2',
+      isActive: true,
+      passwordHash: HASHED,
+    });
     bcryptCompare.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
     mockTx.user.update.mockResolvedValue({});
     mockAudit.log.mockResolvedValue(undefined);
 
-    await service.changePassword('u2', { currentPassword: 'Old@1234', newPassword: 'Diff@9999' }, META);
+    await service.changePassword(
+      'u2',
+      { currentPassword: 'Old@1234', newPassword: 'Diff@9999' },
+      META,
+    );
 
-    const updateCall = mockTx.user.update.mock.calls[0][0] as { data: Record<string, unknown> };
+    const updateCall = mockTx.user.update.mock.calls[0][0] as {
+      data: Record<string, unknown>;
+    };
     expect(updateCall.data).toHaveProperty('refreshTokenHash', null);
   });
 });
@@ -554,14 +649,20 @@ describe('forgotPassword + resetPassword', () => {
   it('forgotPassword with unknown email should NOT throw (silent)', async () => {
     mockPrisma.user.findUnique.mockResolvedValue(null);
 
-    await expect(service.forgotPassword('unknown@email.com')).resolves.toBeUndefined();
+    await expect(
+      service.forgotPassword('unknown@email.com'),
+    ).resolves.toBeUndefined();
     expect(mockOtpCodeService.generate).not.toHaveBeenCalled();
     expect(mockEmailService.sendPasswordResetEmail).not.toHaveBeenCalled();
   });
 
   // Test 2: resetPassword with expired/wrong OTP returns BadRequestException
   it('resetPassword with wrong OTP should throw BadRequestException', async () => {
-    mockPrisma.user.findUnique.mockResolvedValue({ id: 'u1', isActive: true, passwordHash: HASHED });
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: 'u1',
+      isActive: true,
+      passwordHash: HASHED,
+    });
     mockOtpCodeService.verify.mockResolvedValue(false);
 
     await expect(
@@ -572,7 +673,11 @@ describe('forgotPassword + resetPassword', () => {
 
   // Test 3: resetPassword increments tokenVersion
   it('resetPassword should increment tokenVersion', async () => {
-    mockPrisma.user.findUnique.mockResolvedValue({ id: 'u1', isActive: true, passwordHash: HASHED });
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: 'u1',
+      isActive: true,
+      passwordHash: HASHED,
+    });
     mockOtpCodeService.verify.mockResolvedValue(true);
     mockPrisma.user.update.mockResolvedValue({});
     mockAudit.log.mockResolvedValue(undefined);
@@ -588,7 +693,11 @@ describe('forgotPassword + resetPassword', () => {
 
   // Test 4: resetPassword clears refreshTokenHash
   it('resetPassword should clear refreshTokenHash', async () => {
-    mockPrisma.user.findUnique.mockResolvedValue({ id: 'u1', isActive: true, passwordHash: HASHED });
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: 'u1',
+      isActive: true,
+      passwordHash: HASHED,
+    });
     mockOtpCodeService.verify.mockResolvedValue(true);
     mockPrisma.user.update.mockResolvedValue({});
     mockAudit.log.mockResolvedValue(undefined);
@@ -608,7 +717,9 @@ describe('forgotPassword + resetPassword', () => {
 
     await expect(
       service.resetPassword('ghost@example.com', '123456', 'NewPass@1'),
-    ).rejects.toThrow(new BadRequestException('Mã xác nhận không hợp lệ hoặc đã hết hạn'));
+    ).rejects.toThrow(
+      new BadRequestException('Mã xác nhận không hợp lệ hoặc đã hết hạn'),
+    );
   });
 });
 
@@ -620,19 +731,26 @@ describe('AuthService.getProfile', () => {
     jest.clearAllMocks();
   });
 
-  function userFixture(opts: {
-    teams?: Array<{
-      teamId: string;
-      teamName: string;
-      isLeader: boolean;
-      joinedAt?: Date;
-      teamCode?: string;
-      teamIsActive?: boolean;
-      wardId?: string | null;
-      ward?: { id: string; name: string; officialCode: string | null; code: string } | null;
-    }>;
-    isActive?: boolean;
-  } = {}) {
+  function userFixture(
+    opts: {
+      teams?: Array<{
+        teamId: string;
+        teamName: string;
+        isLeader: boolean;
+        joinedAt?: Date;
+        teamCode?: string;
+        teamIsActive?: boolean;
+        wardId?: string | null;
+        ward?: {
+          id: string;
+          name: string;
+          officialCode: string | null;
+          code: string;
+        } | null;
+      }>;
+      isActive?: boolean;
+    } = {},
+  ) {
     return {
       id: 'u1',
       email: 'a@b.com',
@@ -662,8 +780,18 @@ describe('AuthService.getProfile', () => {
     mockPrisma.user.findUnique.mockResolvedValue(
       userFixture({
         teams: [
-          { teamId: 't1', teamName: 'Đội 1', isLeader: false, joinedAt: new Date('2024-01-01') },
-          { teamId: 't2', teamName: 'Đội 2', isLeader: true, joinedAt: new Date('2024-06-01') },
+          {
+            teamId: 't1',
+            teamName: 'Đội 1',
+            isLeader: false,
+            joinedAt: new Date('2024-01-01'),
+          },
+          {
+            teamId: 't2',
+            teamName: 'Đội 2',
+            isLeader: true,
+            joinedAt: new Date('2024-06-01'),
+          },
         ],
       }),
     );
@@ -678,8 +806,18 @@ describe('AuthService.getProfile', () => {
     mockPrisma.user.findUnique.mockResolvedValue(
       userFixture({
         teams: [
-          { teamId: 't1', teamName: 'Đội 1', isLeader: false, joinedAt: new Date('2024-01-01') },
-          { teamId: 't2', teamName: 'Đội 2', isLeader: false, joinedAt: new Date('2024-06-01') },
+          {
+            teamId: 't1',
+            teamName: 'Đội 1',
+            isLeader: false,
+            joinedAt: new Date('2024-01-01'),
+          },
+          {
+            teamId: 't2',
+            teamName: 'Đội 2',
+            isLeader: false,
+            joinedAt: new Date('2024-06-01'),
+          },
         ],
       }),
     );
@@ -708,19 +846,27 @@ describe('AuthService.getProfile', () => {
     const profile = await service.getProfile('u1');
 
     expect(profile.primaryTeam).toEqual({ teamId: 't1', teamName: 'Đội 1' });
-    expect(profile.teams).toEqual([{ teamId: 't1', teamName: 'Đội 1', isLeader: false }]);
+    expect(profile.teams).toEqual([
+      { teamId: 't1', teamName: 'Đội 1', isLeader: false },
+    ]);
   });
 
   it('throws UnauthorizedException when user not found', async () => {
     mockPrisma.user.findUnique.mockResolvedValue(null);
 
-    await expect(service.getProfile('ghost')).rejects.toThrow(UnauthorizedException);
+    await expect(service.getProfile('ghost')).rejects.toThrow(
+      UnauthorizedException,
+    );
   });
 
   it('throws UnauthorizedException when user is inactive', async () => {
-    mockPrisma.user.findUnique.mockResolvedValue(userFixture({ isActive: false }));
+    mockPrisma.user.findUnique.mockResolvedValue(
+      userFixture({ isActive: false }),
+    );
 
-    await expect(service.getProfile('u1')).rejects.toThrow(UnauthorizedException);
+    await expect(service.getProfile('u1')).rejects.toThrow(
+      UnauthorizedException,
+    );
   });
 
   it('returns role name and canDispatch flag', async () => {
@@ -841,7 +987,12 @@ describe('AuthService.getProfile', () => {
               teamName: 'Tổ CAP Tân Định',
               isLeader: false,
               wardId: 'ward-td',
-              ward: { id: 'ward-td', name: 'Phường Tân Định', officialCode: '27295', code: 'X' },
+              ward: {
+                id: 'ward-td',
+                name: 'Phường Tân Định',
+                officialCode: '27295',
+                code: 'X',
+              },
               joinedAt: new Date('2024-06-01'),
             },
           ],
@@ -903,7 +1054,10 @@ describe('AuthService.login (account lockout — Sprint 1 S1.2)', () => {
     bcryptCompare.mockResolvedValue(false);
 
     await expect(
-      service.login({ username: 'cb@pc02.local', password: 'wrong' } as any, META),
+      service.login(
+        { username: 'cb@pc02.local', password: 'wrong' } as any,
+        META,
+      ),
     ).rejects.toThrow(UnauthorizedException);
 
     expect(mockPrisma.user.update).toHaveBeenCalledWith(
@@ -925,7 +1079,10 @@ describe('AuthService.login (account lockout — Sprint 1 S1.2)', () => {
     bcryptCompare.mockResolvedValue(false);
 
     await expect(
-      service.login({ username: 'cb@pc02.local', password: 'wrong' } as any, META),
+      service.login(
+        { username: 'cb@pc02.local', password: 'wrong' } as any,
+        META,
+      ),
     ).rejects.toThrow(UnauthorizedException);
 
     const expectedLockUntil = new Date(NOW.getTime() + 15 * 60 * 1000);
@@ -949,7 +1106,10 @@ describe('AuthService.login (account lockout — Sprint 1 S1.2)', () => {
     bcryptCompare.mockResolvedValue(false);
 
     await expect(
-      service.login({ username: 'cb@pc02.local', password: 'wrong' } as any, META),
+      service.login(
+        { username: 'cb@pc02.local', password: 'wrong' } as any,
+        META,
+      ),
     ).rejects.toThrow();
 
     expect(mockAudit.log).toHaveBeenCalledWith(
@@ -972,7 +1132,10 @@ describe('AuthService.login (account lockout — Sprint 1 S1.2)', () => {
 
     // Verify: response message phải KHÔNG chứa từ "khoá" hoặc "locked"
     await expect(
-      service.login({ username: 'cb@pc02.local', password: 'correct' } as any, META),
+      service.login(
+        { username: 'cb@pc02.local', password: 'correct' } as any,
+        META,
+      ),
     ).rejects.toThrow('Invalid credentials');
 
     // Skip bcrypt khi locked để tránh slow-down attacker (rate-limit per-account đã handle).
@@ -987,7 +1150,10 @@ describe('AuthService.login (account lockout — Sprint 1 S1.2)', () => {
     bcryptCompare.mockResolvedValue(false);
 
     await expect(
-      service.login({ username: 'nonexistent@pc02.local', password: 'attempt' } as any, META),
+      service.login(
+        { username: 'nonexistent@pc02.local', password: 'attempt' } as any,
+        META,
+      ),
     ).rejects.toThrow('Invalid credentials');
 
     // Dummy bcrypt phải được gọi để equalize timing
@@ -1281,10 +1447,7 @@ describe('AuthService.login (multi-field identifier — post-/autoplan)', () => 
 
   it('login bằng workId XXX-XXX → query workId field', async () => {
     mockPrisma.user.findUnique.mockResolvedValue(baseUser);
-    await service.login(
-      { username: '277-794', password: 'pw' } as any,
-      META,
-    );
+    await service.login({ username: '277-794', password: 'pw' } as any, META);
     expect(mockPrisma.user.findUnique).toHaveBeenCalledWith(
       expect.objectContaining({ where: { workId: '277-794' } }),
     );
@@ -1320,10 +1483,7 @@ describe('AuthService.login (multi-field identifier — post-/autoplan)', () => 
 
   it('login bằng username (fallback) → query username field', async () => {
     mockPrisma.user.findUnique.mockResolvedValue(baseUser);
-    await service.login(
-      { username: 'cb.tungh', password: 'pw' } as any,
-      META,
-    );
+    await service.login({ username: 'cb.tungh', password: 'pw' } as any, META);
     expect(mockPrisma.user.findUnique).toHaveBeenCalledWith(
       expect.objectContaining({ where: { username: 'cb.tungh' } }),
     );
@@ -1390,7 +1550,10 @@ describe('AuthService.login (multi-field identifier — post-/autoplan)', () => 
     bcryptCompare.mockResolvedValue(false);
 
     await expect(
-      service.login({ username: 'admin@pc02.local', password: 'pw' } as any, META),
+      service.login(
+        { username: 'admin@pc02.local', password: 'pw' } as any,
+        META,
+      ),
     ).rejects.toThrow('Invalid credentials');
 
     // Chỉ 1 call (primary email), không fallback workId.
@@ -1398,5 +1561,70 @@ describe('AuthService.login (multi-field identifier — post-/autoplan)', () => 
     expect(mockPrisma.user.findUnique).toHaveBeenCalledWith(
       expect.objectContaining({ where: { email: 'admin@pc02.local' } }),
     );
+  });
+});
+
+/**
+ * The frontend permission layer was `MOCK_ALL_PERMISSIONS`: a constant that
+ * granted every action on every resource to every user, consulted in 48 files
+ * and 252 call sites including bulk delete. The backend guard was the only
+ * real gate, so nothing was insecure — users simply saw buttons they were not
+ * allowed to press. `/auth/me` shipping the real set is what lets the UI stop
+ * lying.
+ */
+describe('AuthService.getProfile — permissions', () => {
+  let service: AuthService;
+
+  const USER = {
+    id: 'u1',
+    email: 'a@b.c',
+    username: 'ab',
+    firstName: 'A',
+    lastName: 'B',
+    isActive: true,
+    roleId: 'role-1',
+    role: { name: 'OFFICER' },
+    canDispatch: false,
+    userTeams: [],
+  };
+
+  beforeEach(() => {
+    service = makeService();
+    jest.clearAllMocks();
+    mockPrisma.user.findUnique.mockResolvedValue(USER);
+  });
+
+  it('returns the role permissions in the shape the frontend maps from', async () => {
+    mockPrisma.rolePermission.findMany.mockResolvedValue([
+      { permission: { action: 'read', subject: 'Case' } },
+      { permission: { action: 'write', subject: 'Case' } },
+    ]);
+
+    const profile = await service.getProfile('u1');
+
+    expect(profile.permissions).toEqual([
+      { action: 'read', subject: 'Case' },
+      { action: 'write', subject: 'Case' },
+    ]);
+  });
+
+  it('scopes the lookup to the user’s own role', async () => {
+    mockPrisma.rolePermission.findMany.mockResolvedValue([]);
+
+    await service.getProfile('u1');
+
+    expect(mockPrisma.rolePermission.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { roleId: 'role-1' } }),
+    );
+  });
+
+  it('returns an empty array for a role with no permissions, not undefined', async () => {
+    // The frontend fails closed on an empty set. Undefined would work too,
+    // but an explicit empty array says "we asked and the answer was none".
+    mockPrisma.rolePermission.findMany.mockResolvedValue([]);
+
+    const profile = await service.getProfile('u1');
+
+    expect(profile.permissions).toEqual([]);
   });
 });

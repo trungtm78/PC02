@@ -1,92 +1,29 @@
 /**
- * Central feature registry — imports every module's feature.manifest.ts
- * and exposes the full list.
+ * Central feature registry.
  *
- * When you add a new module: create `<module>/feature.manifest.ts`,
- * export the manifest, then append one import + one entry below.
- * The test `feature-registry.spec.ts` enforces (a) uniqueness of keys,
- * (b) that every manifest in the filesystem is wired up here.
+ * When you add a new module: create `<module>/feature.manifest.ts` and run
+ * `npm run gen:feature-registry`. Nothing else. The list below is generated,
+ * and CI fails if the committed generated file is stale.
  */
 
 import type { FeatureManifest } from './feature-manifest';
 
-import { AUTH_MANIFEST } from '../auth/feature.manifest';
-import { AUDIT_MANIFEST } from '../audit/feature.manifest';
-import { ADMIN_MANIFEST } from '../admin/feature.manifest';
-import { DIRECTORY_MANIFEST } from '../directory/feature.manifest';
-import { CASES_MANIFEST } from '../cases/feature.manifest';
-import { SUBJECTS_MANIFEST } from '../subjects/feature.manifest';
-import { LAWYERS_MANIFEST } from '../lawyers/feature.manifest';
-import { PETITIONS_MANIFEST } from '../petitions/feature.manifest';
-import { INCIDENTS_MANIFEST } from '../incidents/feature.manifest';
-import { DOCUMENTS_MANIFEST } from '../documents/feature.manifest';
-import { DASHBOARD_MANIFEST } from '../dashboard/feature.manifest';
-import { CALENDAR_MANIFEST } from '../calendar/feature.manifest';
-import { REPORTS_MANIFEST } from '../reports/feature.manifest';
-import { PROPOSALS_MANIFEST } from '../proposals/feature.manifest';
-import { GUIDANCE_MANIFEST } from '../guidance/feature.manifest';
-import { EXCHANGES_MANIFEST } from '../exchanges/feature.manifest';
-import { DELEGATIONS_MANIFEST } from '../delegations/feature.manifest';
-import { CONCLUSIONS_MANIFEST } from '../conclusions/feature.manifest';
-import { NOTIFICATIONS_MANIFEST } from '../notifications/feature.manifest';
-import { INVESTIGATION_SUPPLEMENTS_MANIFEST } from '../investigation-supplements/feature.manifest';
-import { MASTER_CLASS_MANIFEST } from '../master-class/feature.manifest';
-import { TEAMS_MANIFEST } from '../teams/feature.manifest';
-import { SETTINGS_MANIFEST } from '../settings/feature.manifest';
-import { WORKFLOW_MANIFEST } from '../workflow/feature.manifest';
-import { CLASSIFICATION_MANIFEST } from '../classification/feature.manifest';
-import { FEATURE_FLAGS_MANIFEST } from './feature.manifest';
-import { KPI_MANIFEST } from '../kpi/feature.manifest';
-import { TDAC_MANIFEST } from '../reports/tdac/feature.manifest';
-import { EVENT_CATEGORIES_MANIFEST } from '../event-categories/feature.manifest';
-import { CALENDAR_EVENTS_V2_MANIFEST } from '../calendar-events/feature.manifest';
-import { EVENT_REMINDERS_MANIFEST } from '../event-reminders/feature.manifest';
-import { ADMIN_UNITS_MANIFEST } from '../admin-units/feature.manifest'; // v0.34.0.0
-import { COMPREHENSIVE_MANIFEST } from '../comprehensive/feature.manifest'; // v0.37.2.1
-import { JOURNEY_MANIFEST } from '../journey/feature.manifest'; // v0.40.0.0
-import { DOCUMENT_NUMBERS_MANIFEST } from '../document-numbers/feature.manifest'; // v0.42.0.0
-import { UY_THAC_DIEU_TRA_MANIFEST } from '../uy-thac-dieu-tra/feature.manifest'; // v0.44
-import { DOCUMENT_TEMPLATES_MANIFEST } from '../document-templates/feature.manifest'; // v0.69 (fix: flag chưa seed → menu admin ẩn)
+import { GENERATED_FEATURE_REGISTRY } from './feature-registry.generated';
 
-export const FEATURE_REGISTRY: readonly FeatureManifest[] = [
-  AUTH_MANIFEST,
-  AUDIT_MANIFEST,
-  ADMIN_MANIFEST,
-  DIRECTORY_MANIFEST,
-  CASES_MANIFEST,
-  SUBJECTS_MANIFEST,
-  LAWYERS_MANIFEST,
-  PETITIONS_MANIFEST,
-  INCIDENTS_MANIFEST,
-  DOCUMENTS_MANIFEST,
-  DASHBOARD_MANIFEST,
-  CALENDAR_MANIFEST,
-  REPORTS_MANIFEST,
-  PROPOSALS_MANIFEST,
-  GUIDANCE_MANIFEST,
-  EXCHANGES_MANIFEST,
-  DELEGATIONS_MANIFEST,
-  CONCLUSIONS_MANIFEST,
-  NOTIFICATIONS_MANIFEST,
-  INVESTIGATION_SUPPLEMENTS_MANIFEST,
-  MASTER_CLASS_MANIFEST,
-  TEAMS_MANIFEST,
-  SETTINGS_MANIFEST,
-  WORKFLOW_MANIFEST,
-  CLASSIFICATION_MANIFEST,
-  FEATURE_FLAGS_MANIFEST,
-  KPI_MANIFEST,
-  TDAC_MANIFEST,
-  EVENT_CATEGORIES_MANIFEST,
-  CALENDAR_EVENTS_V2_MANIFEST,
-  EVENT_REMINDERS_MANIFEST,
-  ADMIN_UNITS_MANIFEST, // v0.34.0.0
-  COMPREHENSIVE_MANIFEST, // v0.37.2.1
-  JOURNEY_MANIFEST, // v0.40.0.0
-  DOCUMENT_NUMBERS_MANIFEST, // v0.42.0.0
-  UY_THAC_DIEU_TRA_MANIFEST, // v0.44
-  DOCUMENT_TEMPLATES_MANIFEST, // v0.69 — flag cho menu admin Mẫu chứng từ động
-] as const;
+/**
+ * The registry, generated from every `src/**\/feature.manifest.ts`.
+ *
+ * This used to be a hand-written import list. Three modules shipped without
+ * being added to it — `comprehensive`, `document-templates`, and
+ * `edit-window-requests` — and each time the symptom was a menu entry that
+ * silently disappeared, because `listAll()` builds its answer from here and a
+ * key that is not here does not exist as far as the frontend is concerned.
+ *
+ * Run `npm run gen:feature-registry` after adding a manifest; CI fails if the
+ * committed file is stale.
+ */
+export const FEATURE_REGISTRY: readonly FeatureManifest[] =
+  GENERATED_FEATURE_REGISTRY;
 
 export function getManifest(key: string): FeatureManifest | undefined {
   return FEATURE_REGISTRY.find((m) => m.key === key);

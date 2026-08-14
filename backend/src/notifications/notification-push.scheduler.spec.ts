@@ -36,7 +36,9 @@ describe('NotificationPushScheduler', () => {
       ],
     }).compile();
 
-    scheduler = module.get<NotificationPushScheduler>(NotificationPushScheduler);
+    scheduler = module.get<NotificationPushScheduler>(
+      NotificationPushScheduler,
+    );
   });
 
   afterEach(() => {
@@ -81,7 +83,10 @@ describe('NotificationPushScheduler', () => {
 
     await scheduler.runDispatcher();
 
-    expect(mockPush.sendToUser).toHaveBeenCalledWith('user-1', expect.objectContaining({ title: 'Test' }));
+    expect(mockPush.sendToUser).toHaveBeenCalledWith(
+      'user-1',
+      expect.objectContaining({ title: 'Test' }),
+    );
     const updateCall = mockPrisma.notification.update.mock.calls[0][0];
     expect(updateCall.data.pushRetryCount).toBe(1);
     expect(updateCall.data.pushNextRetryAt).not.toBeNull(); // should schedule next retry
@@ -155,12 +160,24 @@ describe('NotificationPushScheduler', () => {
 
   it('continues dispatching other notifications when one push fails', async () => {
     const notif1 = {
-      id: 'n1', userId: 'u1', title: 'T1', message: 'M1',
-      type: 'CASE_ASSIGNED', link: '/c/1', pushRetryCount: 0, pushMaxRetries: 3,
+      id: 'n1',
+      userId: 'u1',
+      title: 'T1',
+      message: 'M1',
+      type: 'CASE_ASSIGNED',
+      link: '/c/1',
+      pushRetryCount: 0,
+      pushMaxRetries: 3,
     };
     const notif2 = {
-      id: 'n2', userId: 'u2', title: 'T2', message: 'M2',
-      type: 'CASE_ASSIGNED', link: '/c/2', pushRetryCount: 0, pushMaxRetries: 3,
+      id: 'n2',
+      userId: 'u2',
+      title: 'T2',
+      message: 'M2',
+      type: 'CASE_ASSIGNED',
+      link: '/c/2',
+      pushRetryCount: 0,
+      pushMaxRetries: 3,
     };
     mockPrisma.notification.findMany.mockResolvedValue([notif1, notif2]);
     mockPush.sendToUser

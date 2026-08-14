@@ -1,4 +1,8 @@
-import { buildControllerModule, makeReq, mockUser } from '../test-utils/controller-test-helpers';
+import {
+  buildControllerModule,
+  makeReq,
+  mockUser,
+} from '../test-utils/controller-test-helpers';
 import { DelegationsController } from './delegations.controller';
 import { DelegationsService } from './delegations.service';
 
@@ -14,7 +18,11 @@ describe('DelegationsController — delegation', () => {
   let controller: DelegationsController;
 
   beforeEach(async () => {
-    const module = await buildControllerModule(DelegationsController, DelegationsService, mockService);
+    const module = await buildControllerModule(
+      DelegationsController,
+      DelegationsService,
+      mockService,
+    );
     controller = module.get(DelegationsController);
     jest.clearAllMocks();
   });
@@ -34,6 +42,7 @@ describe('DelegationsController — delegation', () => {
       {},
       mockUser.id,
       expect.objectContaining({ ipAddress: '127.0.0.1' }),
+      req.dataScope,
     );
   });
 

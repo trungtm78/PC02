@@ -4,6 +4,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../logging/log.dart';
 import 'api_base_url.dart';
 import 'refresh_decision.dart';
+import 'feature_disabled.dart';
 
 const _baseUrl = apiBaseUrl;
 
@@ -13,6 +14,13 @@ class ApiClient {
 
   bool _isRefreshing = false;
   Completer<void>? _refreshCompleter;
+
+  /// Được gọi khi một request trả về "phân hệ đang tắt".
+  ///
+  /// Là callback chứ không phải điều hướng thẳng: tầng API không nên biết gì về
+  /// cây màn hình, và một request nền không được phép kéo người dùng ra khỏi
+  /// việc họ đang làm.
+  void Function(FeatureDisabled)? onFeatureDisabled;
 
   ApiClient(this._storage) {
     _dio = Dio(BaseOptions(
@@ -45,6 +53,17 @@ class ApiClient {
     DioException err,
     ErrorInterceptorHandler handler,
   ) async {
+    // PR-M1 — phân hệ bị tắt phải phân biệt được với "không tìm thấy".
+    // Backend giữ 404 có chủ ý nên chỉ THÂN lỗi nói được điều đó; không đọc
+    // thân thì màn hình chi tiết hiện `Lỗi: DioException ... 404` cho một cán
+    // bộ không làm gì sai.
+    final disabled = readFeatureDisabled(err);
+    if (disabled != null) {
+      onFeatureDisabled?.call(disabled);
+      handler.next(err);
+      return;
+    }
+
     if (err.response?.statusCode != 401) {
       handler.next(err);
       return;

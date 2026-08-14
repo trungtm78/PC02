@@ -1,8 +1,13 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { sanitizePII, computeFieldDiff, ChangedField, sanitizeMetadataRecursive } from './audit.utils';
+import {
+  sanitizePII,
+  computeFieldDiff,
+  ChangedField,
+  sanitizeMetadataRecursive,
+} from './audit.utils';
 
 export interface AuditLogCreateInput {
   userId?: string;
@@ -143,10 +148,7 @@ export class AuditService {
       // P2002 = Prisma unique constraint violation. UNIQUE (actorId, idempotencyKey)
       // → caller retry trên cùng request → trả lại bulkOperationId hiện có.
       // KHÔNG có idempotencyKey → bug thực sự, rethrow.
-      if (
-        input.idempotencyKey &&
-        (e as { code?: string })?.code === 'P2002'
-      ) {
+      if (input.idempotencyKey && (e as { code?: string })?.code === 'P2002') {
         const existing = await this.prisma.$queryRaw<{ id: string }[]>`
           SELECT id FROM "bulk_operations"
           WHERE "actorId" = ${input.actorId}
@@ -231,15 +233,8 @@ export class AuditService {
   }
 
   async findAll(params: FindAllParams) {
-    const {
-      action,
-      userId,
-      subjectId,
-      subject,
-      search,
-      dateFrom,
-      dateTo,
-    } = params;
+    const { action, userId, subjectId, subject, search, dateFrom, dateTo } =
+      params;
 
     // v0.29: clamp limit. Public list path: [LIMIT_MIN, LIMIT_MAX=100].
     // Export path (forExport=true): up to LIMIT_EXPORT_MAX=10k for CSV bulk download.
@@ -289,7 +284,12 @@ export class AuditService {
         where,
         include: {
           user: {
-            select: { id: true, firstName: true, lastName: true, username: true },
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              username: true,
+            },
           },
         },
         // v0.29: bug fix — DESC để newest first (audit log convention)
@@ -370,5 +370,91 @@ export class AuditService {
       orderBy: { subject: 'asc' },
     });
     return rows.map((r) => r.subject!).filter(Boolean);
+  }
+
+  /**
+   * D9 — lịch sử thao tác hàng loạt.
+   *
+   * `BulkOperation` được ghi từ lâu nhưng chưa có đường đọc: mỗi lần xuất/gán/
+   * trả hàng loạt đều để lại một dòng, và cách duy nhất để xem là `psql`. Khi
+   * một mẻ 200 hồ sơ chạy nửa chừng, đây là chỗ duy nhất nói được mẻ đó gồm
+   * những gì.
+   *
+   * Đọc bằng Prisma client, KHÔNG mở rộng `GET /audit-logs`: nhật ký kiểm toán
+   * là dòng-mỗi-hồ-sơ, còn cái này là dòng-mỗi-mẻ. Nhét chung hai hình dạng vào
+   * một endpoint là buộc màn hình phải đoán nó đang xem loại nào.
+   */
+  async listBulkOperations(query: {
+    resource?: string;
+    action?: string;
+    actorId?: string;
+    limit?: number;
+    offset?: number;
+  }) {
+    const limit = Math.min(Number(query.limit) || 50, 100);
+    const offset = Math.max(Number(query.offset) || 0, 0);
+
+    const where: Prisma.BulkOperationWhereInput = {
+      ...(query.resource ? { resource: query.resource } : {}),
+      ...(query.action ? { action: query.action } : {}),
+      ...(query.actorId ? { actorId: query.actorId } : {}),
+    };
+
+    const [data, total] = await Promise.all([
+      this.prisma.bulkOperation.findMany({
+        where,
+        orderBy: { startedAt: 'desc' },
+        take: limit,
+        skip: offset,
+        include: {
+          actor: {
+            select: {
+              id: true,
+              username: true,
+              firstName: true,
+              lastName: true,
+            },
+          },
+        },
+      }),
+      this.prisma.bulkOperation.count({ where }),
+    ]);
+
+    return { data, total, limit, offset };
+  }
+
+  /**
+   * Một mẻ, kèm từng dòng nhật ký của nó.
+   *
+   * `auditItems` là thứ trả lời câu hỏi thật sự được hỏi sau một mẻ hỏng: hồ sơ
+   * NÀO đã đi, hồ sơ nào không. Con số tổng ở bản ghi mẻ không trả lời được.
+   */
+  async getBulkOperationById(id: string) {
+    const record = await this.prisma.bulkOperation.findUnique({
+      where: { id },
+      include: {
+        actor: {
+          select: { id: true, username: true, firstName: true, lastName: true },
+        },
+        auditItems: {
+          orderBy: { createdAt: 'asc' },
+          take: 500,
+          select: {
+            id: true,
+            action: true,
+            subject: true,
+            subjectId: true,
+            metadata: true,
+            createdAt: true,
+          },
+        },
+      },
+    });
+    if (!record) {
+      throw new NotFoundException(
+        `Không tìm thấy thao tác hàng loạt (id: ${id})`,
+      );
+    }
+    return record;
   }
 }

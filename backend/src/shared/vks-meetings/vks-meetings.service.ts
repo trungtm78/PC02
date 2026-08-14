@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateVksMeetingDto } from './dto/create-vks-meeting.dto';
 import type { DataScope } from '../../auth/services/unit-scope.service';
+import { UpdateVksMeetingDto } from './dto/update-vks-meeting.dto';
 import { assertParentInScope } from '../../common/utils/scope-filter.util';
 
 const PARENT_SCOPE_SELECT = {
@@ -80,6 +81,37 @@ export class VksMeetingsService {
     });
   }
 
+  /**
+   * D5 — sửa biên bản họp VKS.
+   *
+   * Trước đây chỉ tạo và xoá được: nhập sai một trường thì cách duy nhất là xoá
+   * rồi tạo lại, làm mất dấu vết và mất cả id mà nơi khác đang tham chiếu.
+   *
+   * Kiểm phạm vi trên cha của CHÍNH bản ghi, bằng cùng câu kiểm mà `delete`
+   * dùng — sửa và xoá là hai mức tác động khác nhau nhưng cùng một câu hỏi về
+   * thẩm quyền.
+   */
+  async update(id: string, dto: UpdateVksMeetingDto, scope?: DataScope | null) {
+    const record = await this.prisma.vksMeetingRecord.findUnique({
+      where: { id },
+      include: {
+        case: { select: PARENT_SCOPE_SELECT },
+        incident: { select: PARENT_SCOPE_SELECT },
+      },
+    });
+    if (!record)
+      throw new NotFoundException(`Biên bản họp VKS không tồn tại (id: ${id})`);
+    assertParentInScope(record.case ?? record.incident ?? null, scope, 'write');
+
+    return this.prisma.vksMeetingRecord.update({
+      where: { id },
+      data: {
+        ...dto,
+        ...(dto.ngayTrao ? { ngayTrao: new Date(dto.ngayTrao) } : {}),
+      },
+    });
+  }
+
   async delete(id: string, scope?: DataScope | null) {
     const record = await this.prisma.vksMeetingRecord.findUnique({
       where: { id },
@@ -88,7 +120,10 @@ export class VksMeetingsService {
         incident: { select: PARENT_SCOPE_SELECT },
       },
     });
-    if (!record) throw new NotFoundException(`Biên bản gặp gỡ VKS không tồn tại (id: ${id})`);
+    if (!record)
+      throw new NotFoundException(
+        `Biên bản gặp gỡ VKS không tồn tại (id: ${id})`,
+      );
     assertParentInScope(record.case ?? record.incident ?? null, scope, 'write');
     return this.prisma.vksMeetingRecord.delete({ where: { id } });
   }
@@ -98,7 +133,8 @@ export class VksMeetingsService {
       where: { id: caseId },
       select: PARENT_SCOPE_SELECT,
     });
-    if (!parent) throw new NotFoundException(`Vụ án không tồn tại (id: ${caseId})`);
+    if (!parent)
+      throw new NotFoundException(`Vụ án không tồn tại (id: ${caseId})`);
     return parent;
   }
 
@@ -107,7 +143,8 @@ export class VksMeetingsService {
       where: { id: incidentId },
       select: PARENT_SCOPE_SELECT,
     });
-    if (!parent) throw new NotFoundException(`Vụ việc không tồn tại (id: ${incidentId})`);
+    if (!parent)
+      throw new NotFoundException(`Vụ việc không tồn tại (id: ${incidentId})`);
     return parent;
   }
 }

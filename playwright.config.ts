@@ -34,6 +34,14 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
+      // Catch-all for the legacy suite. It deliberately has no testMatch:
+      // narrowing it to tests/e2e orphaned 134 spec files that no other project
+      // claims (uat-auto 113, uat 12, non "-uat" api 9), which is worse than
+      // the duplicate collection it was meant to avoid.
+      //
+      // e2e-new is excluded so the gated project below is the only thing that
+      // runs it.
+      testIgnore: '**/tests/e2e-new/**',
       use: { ...devices['Desktop Chrome'] },
     },
     // Dual-layer UAT runner (v0.68 — uat-test-runner skill)
@@ -46,6 +54,13 @@ export default defineConfig({
     {
       name: 'e2e-chromium',
       testMatch: '**/tests/e2e/*-uat.e2e.spec.ts',
+      use: { ...devices['Desktop Chrome'] },
+    },
+    // The only project CI gates on. Kept apart from the legacy suite, which
+    // cannot be switched on as-is — see tests/e2e-new/README.md.
+    {
+      name: 'e2e-new',
+      testMatch: '**/tests/e2e-new/*.spec.ts',
       use: { ...devices['Desktop Chrome'] },
     },
   ],

@@ -41,6 +41,14 @@ export interface AuthUser {
   // v0.35a additive: missing fields → undefined, components use optional chaining
   isWardOfficer?: boolean;
   wardTeam?: AuthWardTeam | null;
+  /**
+   * What this user may actually do, from `/auth/me`.
+   *
+   * Optional because the JWT fallback carries no permissions — and that is
+   * the point: an unhydrated session yields an empty set, so `usePermission`
+   * fails closed instead of falling back to the old grant-everything mock.
+   */
+  permissions?: { action: string; subject: string }[];
 }
 
 /** Minimal subset decoded from JWT — used as fallback when profile not yet hydrated. */
@@ -78,6 +86,13 @@ export const authStore = {
   setTokens(accessToken: string, refreshToken: string) {
     sessionStorage.setItem('accessToken', accessToken);
     localStorage.setItem('refreshToken', refreshToken);
+    // Drop the cached profile: it belongs to whoever was signed in before.
+    // `getUser()` prefers the profile over the JWT, so leaving it meant that
+    // signing in as a lesser-privileged user on top of an existing session
+    // kept the previous identity — including its role — until something else
+    // happened to refetch. Every `role === ADMIN` check in the app reads
+    // through here.
+    sessionStorage.removeItem(PROFILE_KEY);
     dispatchTokenChanged();
   },
 
@@ -99,6 +114,18 @@ export const authStore = {
   setProfile(profile: AuthUser) {
     sessionStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
     dispatchTokenChanged();
+  },
+
+  /**
+   * The raw cached profile string.
+   *
+   * `useSyncExternalStore` compares snapshots by reference and re-renders
+   * forever if the snapshot is a fresh object each call — which `getProfile()`
+   * is, since it parses JSON. The string from sessionStorage is stable, so
+   * consumers snapshot this and parse in a memo.
+   */
+  getProfileRaw(): string | null {
+    return sessionStorage.getItem(PROFILE_KEY);
   },
 
   getProfile(): AuthUser | null {

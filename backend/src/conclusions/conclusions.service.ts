@@ -1,10 +1,18 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { CreateConclusionDto } from './dto/create-conclusion.dto';
 import { ConclusionStatus, Prisma } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
-import { assertParentInScope, buildScopeFilter } from '../common/utils/scope-filter.util';
+import { withParentLock } from '../common/utils/parent-lock.util';
+import {
+  assertParentInScope,
+  buildScopeFilter,
+} from '../common/utils/scope-filter.util';
 import { IsOptional, IsString, IsInt, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -60,27 +68,61 @@ export class ConclusionsService {
         case: { select: { assignedTeamId: true, investigatorId: true } },
       },
     });
-    if (!record) throw new NotFoundException(`Kết luận không tồn tại (id: ${id})`);
+    if (!record)
+      throw new NotFoundException(`Kết luận không tồn tại (id: ${id})`);
     assertParentInScope(record.case, dataScope);
     return { success: true, data: record };
   }
 
-  async create(dto: CreateConclusionDto, actorId: string, meta?: { ipAddress?: string; userAgent?: string }) {
-    const record = await this.prisma.conclusion.create({
-      data: {
-        caseId: dto.caseId,
-        type: dto.type,
-        content: dto.content,
-        authorId: actorId,
-        approvedById: dto.approvedById,
-        status: dto.status ?? ConclusionStatus.DU_THAO,
-        notes: dto.notes,
+  async create(
+    dto: CreateConclusionDto,
+    actorId: string,
+    meta?: { ipAddress?: string; userAgent?: string },
+    dataScope?: DataScope | null,
+  ) {
+    // A conclusion is the investigation's closing document. It was writable
+    // against any case in the system: the caseId went straight into the insert
+    // with no existence check and no scope check.
+    // ND-19: nạp cha và ghi con phải nằm trong CÙNG một transaction, với cha
+    // bị khoá. Trước đây là hai câu lệnh rời — giữa hai câu đó cha có thể bị
+    // xoá mềm, và bản ghi con rơi vào một hồ sơ đã xoá: có trong bảng, không
+    // có ở bất kỳ màn hình nào, và không cascade nào chạm tới.
+    const record = await withParentLock(
+      this.prisma,
+      'case',
+      dto.caseId,
+      async (tx) => {
+        const parentCase = await tx.case.findFirst({
+          where: { id: dto.caseId, deletedAt: null },
+          select: { id: true, assignedTeamId: true, investigatorId: true },
+        });
+        if (!parentCase) {
+          throw new BadRequestException(
+            `Vụ án không tồn tại (id: ${dto.caseId})`,
+          );
+        }
+        assertParentInScope(parentCase, dataScope, 'write');
+
+        const record = await tx.conclusion.create({
+          data: {
+            caseId: dto.caseId,
+            type: dto.type,
+            content: dto.content,
+            authorId: actorId,
+            approvedById: dto.approvedById,
+            status: dto.status ?? ConclusionStatus.DU_THAO,
+            notes: dto.notes,
+          },
+          include: {
+            author: { select: { id: true, firstName: true, lastName: true } },
+            approvedBy: {
+              select: { id: true, firstName: true, lastName: true },
+            },
+          },
+        });
+        return record;
       },
-      include: {
-        author: { select: { id: true, firstName: true, lastName: true } },
-        approvedBy: { select: { id: true, firstName: true, lastName: true } },
-      },
-    });
+    );
 
     await this.audit.log({
       userId: actorId,
@@ -95,7 +137,13 @@ export class ConclusionsService {
     return { success: true, data: record, message: 'Tạo kết luận thành công' };
   }
 
-  async update(id: string, dto: Partial<CreateConclusionDto>, actorId: string, meta?: { ipAddress?: string; userAgent?: string }, dataScope?: DataScope | null) {
+  async update(
+    id: string,
+    dto: Partial<CreateConclusionDto>,
+    actorId: string,
+    meta?: { ipAddress?: string; userAgent?: string },
+    dataScope?: DataScope | null,
+  ) {
     const { data: existing } = await this.getById(id, dataScope);
     assertParentInScope(existing.case, dataScope, 'write');
 
@@ -104,8 +152,12 @@ export class ConclusionsService {
       data: {
         ...(dto.type !== undefined && { type: dto.type }),
         ...(dto.content !== undefined && { content: dto.content }),
-        ...(dto.status !== undefined && { status: dto.status as ConclusionStatus }),
-        ...(dto.approvedById !== undefined && { approvedById: dto.approvedById }),
+        ...(dto.status !== undefined && {
+          status: dto.status,
+        }),
+        ...(dto.approvedById !== undefined && {
+          approvedById: dto.approvedById,
+        }),
         ...(dto.notes !== undefined && { notes: dto.notes }),
       },
       include: {
@@ -119,19 +171,34 @@ export class ConclusionsService {
       action: 'CONCLUSION_UPDATED',
       subject: 'Conclusion',
       subjectId: id,
-      metadata: { before: { type: existing.type, status: existing.status }, after: dto },
+      metadata: {
+        before: { type: existing.type, status: existing.status },
+        after: dto,
+      },
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
     });
 
-    return { success: true, data: record, message: 'Cập nhật kết luận thành công' };
+    return {
+      success: true,
+      data: record,
+      message: 'Cập nhật kết luận thành công',
+    };
   }
 
-  async delete(id: string, actorId: string, meta?: { ipAddress?: string; userAgent?: string }, dataScope?: DataScope | null) {
+  async delete(
+    id: string,
+    actorId: string,
+    meta?: { ipAddress?: string; userAgent?: string },
+    dataScope?: DataScope | null,
+  ) {
     const { data: existing } = await this.getById(id, dataScope);
     assertParentInScope(existing.case, dataScope, 'write');
 
-    await this.prisma.conclusion.update({ where: { id }, data: { deletedAt: new Date() } });
+    await this.prisma.conclusion.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
 
     await this.audit.log({
       userId: actorId,

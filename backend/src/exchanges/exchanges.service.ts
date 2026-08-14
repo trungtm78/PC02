@@ -1,7 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
-import { CreateExchangeDto, CreateExchangeMessageDto } from './dto/create-exchange.dto';
+import {
+  CreateExchangeDto,
+  CreateExchangeMessageDto,
+} from './dto/create-exchange.dto';
 import { ExchangeStatus, Prisma } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { assertCreatorInScope } from '../common/utils/scope-filter.util';
@@ -55,7 +58,9 @@ export class ExchangesService {
           messages: {
             orderBy: { createdAt: 'desc' },
             take: 1,
-            include: { sender: { select: { id: true, firstName: true, lastName: true } } },
+            include: {
+              sender: { select: { id: true, firstName: true, lastName: true } },
+            },
           },
           _count: { select: { messages: true } },
         },
@@ -73,7 +78,13 @@ export class ExchangesService {
       lastMessageTime: ex.messages[0]?.createdAt ?? null,
     }));
 
-    return { success: true, data: enriched, total, page: Math.floor(offset / limit) + 1, pageSize: limit };
+    return {
+      success: true,
+      data: enriched,
+      total,
+      page: Math.floor(offset / limit) + 1,
+      pageSize: limit,
+    };
   }
 
   async getById(id: string, dataScope?: DataScope | null) {
@@ -83,11 +94,14 @@ export class ExchangesService {
         createdBy: { select: { id: true, firstName: true, lastName: true } },
         messages: {
           orderBy: { createdAt: 'asc' },
-          include: { sender: { select: { id: true, firstName: true, lastName: true } } },
+          include: {
+            sender: { select: { id: true, firstName: true, lastName: true } },
+          },
         },
       },
     });
-    if (!record) throw new NotFoundException(`Trao đổi không tồn tại (id: ${id})`);
+    if (!record)
+      throw new NotFoundException(`Trao đổi không tồn tại (id: ${id})`);
     assertCreatorInScope(record.createdById, dataScope);
     return { success: true, data: record };
   }
@@ -97,14 +111,20 @@ export class ExchangesService {
 
     const messages = await this.prisma.exchangeMessage.findMany({
       where: { exchangeId },
-      include: { sender: { select: { id: true, firstName: true, lastName: true } } },
+      include: {
+        sender: { select: { id: true, firstName: true, lastName: true } },
+      },
       orderBy: { createdAt: 'asc' },
     });
 
     return { success: true, data: messages };
   }
 
-  async create(dto: CreateExchangeDto, actorId: string, meta?: { ipAddress?: string; userAgent?: string }) {
+  async create(
+    dto: CreateExchangeDto,
+    actorId: string,
+    meta?: { ipAddress?: string; userAgent?: string },
+  ) {
     const record = await this.prisma.exchange.create({
       data: {
         recordCode: dto.recordCode,
@@ -115,7 +135,9 @@ export class ExchangesService {
         createdById: actorId,
         status: dto.status ?? ExchangeStatus.OPEN,
       },
-      include: { createdBy: { select: { id: true, firstName: true, lastName: true } } },
+      include: {
+        createdBy: { select: { id: true, firstName: true, lastName: true } },
+      },
     });
 
     await this.audit.log({
@@ -131,9 +153,20 @@ export class ExchangesService {
     return { success: true, data: record, message: 'Tạo trao đổi thành công' };
   }
 
-  async addMessage(dto: CreateExchangeMessageDto, actorId: string) {
-    const exchange = await this.prisma.exchange.findFirst({ where: { id: dto.exchangeId, deletedAt: null } });
+  async addMessage(
+    dto: CreateExchangeMessageDto,
+    actorId: string,
+    dataScope?: DataScope | null,
+  ) {
+    const exchange = await this.prisma.exchange.findFirst({
+      where: { id: dto.exchangeId, deletedAt: null },
+      select: { id: true, createdById: true },
+    });
     if (!exchange) throw new NotFoundException(`Trao đổi không tồn tại`);
+    // Existence was the only check, so knowing an exchange id was enough to
+    // post into someone else's thread. Exchange has no parent case — it is
+    // anchored to its creator — so the creator scope is what applies.
+    assertCreatorInScope(exchange.createdById, dataScope, 'write');
 
     const message = await this.prisma.exchangeMessage.create({
       data: {
@@ -142,25 +175,40 @@ export class ExchangesService {
         content: dto.content,
         attachments: dto.attachments ?? [],
       },
-      include: { sender: { select: { id: true, firstName: true, lastName: true } } },
+      include: {
+        sender: { select: { id: true, firstName: true, lastName: true } },
+      },
     });
 
     // Update exchange updatedAt
-    await this.prisma.exchange.update({ where: { id: dto.exchangeId }, data: { updatedAt: new Date() } });
+    await this.prisma.exchange.update({
+      where: { id: dto.exchangeId },
+      data: { updatedAt: new Date() },
+    });
 
     return { success: true, data: message, message: 'Gửi tin nhắn thành công' };
   }
 
-  async update(id: string, dto: Partial<CreateExchangeDto>, actorId: string, meta?: { ipAddress?: string; userAgent?: string }, dataScope?: DataScope | null) {
+  async update(
+    id: string,
+    dto: Partial<CreateExchangeDto>,
+    actorId: string,
+    meta?: { ipAddress?: string; userAgent?: string },
+    dataScope?: DataScope | null,
+  ) {
     const { data: existing } = await this.getById(id, dataScope);
     assertCreatorInScope(existing.createdById, dataScope, 'write');
 
     const record = await this.prisma.exchange.update({
       where: { id },
       data: {
-        ...(dto.status !== undefined && { status: dto.status as ExchangeStatus }),
+        ...(dto.status !== undefined && {
+          status: dto.status,
+        }),
         ...(dto.subject !== undefined && { subject: dto.subject }),
-        ...(dto.receiverUnit !== undefined && { receiverUnit: dto.receiverUnit }),
+        ...(dto.receiverUnit !== undefined && {
+          receiverUnit: dto.receiverUnit,
+        }),
       },
     });
 
@@ -169,19 +217,38 @@ export class ExchangesService {
       action: 'EXCHANGE_UPDATED',
       subject: 'Exchange',
       subjectId: id,
-      metadata: { before: { status: existing.status, subject: existing.subject, receiverUnit: existing.receiverUnit }, after: dto },
+      metadata: {
+        before: {
+          status: existing.status,
+          subject: existing.subject,
+          receiverUnit: existing.receiverUnit,
+        },
+        after: dto,
+      },
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
     });
 
-    return { success: true, data: record, message: 'Cập nhật trao đổi thành công' };
+    return {
+      success: true,
+      data: record,
+      message: 'Cập nhật trao đổi thành công',
+    };
   }
 
-  async delete(id: string, actorId: string, meta?: { ipAddress?: string; userAgent?: string }, dataScope?: DataScope | null) {
+  async delete(
+    id: string,
+    actorId: string,
+    meta?: { ipAddress?: string; userAgent?: string },
+    dataScope?: DataScope | null,
+  ) {
     const { data: existing } = await this.getById(id, dataScope);
     assertCreatorInScope(existing.createdById, dataScope, 'write');
 
-    await this.prisma.exchange.update({ where: { id }, data: { deletedAt: new Date() } });
+    await this.prisma.exchange.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
 
     await this.audit.log({
       userId: actorId,

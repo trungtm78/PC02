@@ -1,10 +1,18 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { CreateDelegationDto } from './dto/create-delegation.dto';
 import { DelegationStatus, Prisma } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
-import { assertParentInScope, assertCreatorInScope, buildScopeFilter } from '../common/utils/scope-filter.util';
+import {
+  assertParentInScope,
+  assertCreatorInScope,
+  buildScopeFilter,
+} from '../common/utils/scope-filter.util';
 import { IsOptional, IsString, IsInt, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 import { DocumentNumbersService } from '../document-numbers/document-numbers.service';
@@ -41,8 +49,16 @@ export class DelegationsService {
       ];
     }
     if (status) where.status = status as DelegationStatus;
-    if (fromDate) where.createdAt = { ...(where.createdAt as any), gte: new Date(fromDate) };
-    if (toDate) where.createdAt = { ...(where.createdAt as any), lte: new Date(toDate + 'T23:59:59.999Z') };
+    if (fromDate)
+      where.createdAt = {
+        ...(where.createdAt as any),
+        gte: new Date(fromDate),
+      };
+    if (toDate)
+      where.createdAt = {
+        ...(where.createdAt as any),
+        lte: new Date(toDate + 'T23:59:59.999Z'),
+      };
 
     if (dataScope) {
       const { userIds, teamIds } = dataScope;
@@ -53,7 +69,8 @@ export class DelegationsService {
         const caseScope = buildScopeFilter(dataScope);
         const conditions: any[] = [];
         if (caseScope) conditions.push({ relatedCase: caseScope });
-        if (userIds.length > 0) conditions.push({ relatedCase: null, createdById: { in: userIds } });
+        if (userIds.length > 0)
+          conditions.push({ relatedCase: null, createdById: { in: userIds } });
         if (conditions.length > 0) (where as any).OR = conditions;
       }
     }
@@ -72,7 +89,13 @@ export class DelegationsService {
       this.prisma.delegation.count({ where }),
     ]);
 
-    return { success: true, data, total, page: Math.floor(offset / limit) + 1, pageSize: limit };
+    return {
+      success: true,
+      data,
+      total,
+      page: Math.floor(offset / limit) + 1,
+      pageSize: limit,
+    };
   }
 
   async getById(id: string, dataScope?: DataScope | null) {
@@ -80,10 +103,18 @@ export class DelegationsService {
       where: { id, deletedAt: null },
       include: {
         createdBy: { select: { id: true, firstName: true, lastName: true } },
-        relatedCase: { select: { id: true, name: true, assignedTeamId: true, investigatorId: true } },
+        relatedCase: {
+          select: {
+            id: true,
+            name: true,
+            assignedTeamId: true,
+            investigatorId: true,
+          },
+        },
       },
     });
-    if (!record) throw new NotFoundException(`Ủy thác không tồn tại (id: ${id})`);
+    if (!record)
+      throw new NotFoundException(`Ủy thác không tồn tại (id: ${id})`);
     if (record.relatedCase) {
       assertParentInScope(record.relatedCase, dataScope);
     } else {
@@ -92,17 +123,44 @@ export class DelegationsService {
     return { success: true, data: record };
   }
 
-  async create(dto: CreateDelegationDto, actorId: string, meta?: { ipAddress?: string; userAgent?: string }) {
+  async create(
+    dto: CreateDelegationDto,
+    actorId: string,
+    meta?: { ipAddress?: string; userAgent?: string },
+    dataScope?: DataScope | null,
+  ) {
+    // relatedCaseId is optional, so check it only when given — but when it is
+    // given it went straight into the insert, unchecked. A delegation could be
+    // filed against any case in the system.
+    if (dto.relatedCaseId) {
+      const parentCase = await this.prisma.case.findFirst({
+        where: { id: dto.relatedCaseId, deletedAt: null },
+        select: { id: true, assignedTeamId: true, investigatorId: true },
+      });
+      if (!parentCase) {
+        throw new BadRequestException(
+          `Vụ án không tồn tại (id: ${dto.relatedCaseId})`,
+        );
+      }
+      assertParentInScope(parentCase, dataScope, 'write');
+    }
+
     let resolvedDelegationNumber: string | undefined = dto.delegationNumber;
 
     const record = await this.prisma.$transaction(async (tx: any) => {
       if (!resolvedDelegationNumber) {
-        const { number, logId } = await this.docNums.commitWithTx('DELEGATION', { userId: actorId }, tx);
+        const { number, logId } = await this.docNums.commitWithTx(
+          'DELEGATION',
+          { userId: actorId },
+          tx,
+        );
         resolvedDelegationNumber = number;
         const rec = await tx.delegation.create({
           data: {
             delegationNumber: resolvedDelegationNumber,
-            delegationDate: dto.delegationDate ? new Date(dto.delegationDate) : new Date(),
+            delegationDate: dto.delegationDate
+              ? new Date(dto.delegationDate)
+              : new Date(),
             receivingUnit: dto.receivingUnit,
             content: dto.content,
             createdById: actorId,
@@ -112,17 +170,24 @@ export class DelegationsService {
             notes: dto.notes,
           },
           include: {
-            createdBy: { select: { id: true, firstName: true, lastName: true } },
+            createdBy: {
+              select: { id: true, firstName: true, lastName: true },
+            },
             relatedCase: { select: { id: true, name: true } },
           },
         });
-        await tx.documentNumberLog.update({ where: { id: logId }, data: { documentId: rec.id } });
+        await tx.documentNumberLog.update({
+          where: { id: logId },
+          data: { documentId: rec.id },
+        });
         return rec;
       }
       return tx.delegation.create({
         data: {
           delegationNumber: resolvedDelegationNumber,
-          delegationDate: dto.delegationDate ? new Date(dto.delegationDate) : new Date(),
+          delegationDate: dto.delegationDate
+            ? new Date(dto.delegationDate)
+            : new Date(),
           receivingUnit: dto.receivingUnit,
           content: dto.content,
           createdById: actorId,
@@ -153,16 +218,36 @@ export class DelegationsService {
         where: { id: actorId },
         select: { firstName: true, lastName: true },
       });
-      const byUserName = actor ? `${actor.firstName ?? ''} ${actor.lastName ?? ''}`.trim() : '';
-      this.eventEmitter.emit('utdt.assigned', new UydtAssignedEvent(
-        record.id, record.delegationNumber, dto.assignedToId, [], actorId, byUserName,
-      ));
+      const byUserName = actor
+        ? `${actor.firstName ?? ''} ${actor.lastName ?? ''}`.trim()
+        : '';
+      this.eventEmitter.emit(
+        'utdt.assigned',
+        new UydtAssignedEvent(
+          record.id,
+          record.delegationNumber,
+          dto.assignedToId,
+          [],
+          actorId,
+          byUserName,
+        ),
+      );
     }
 
-    return { success: true, data: record, message: 'Tạo ủy thác điều tra thành công' };
+    return {
+      success: true,
+      data: record,
+      message: 'Tạo ủy thác điều tra thành công',
+    };
   }
 
-  async update(id: string, dto: Partial<CreateDelegationDto>, actorId: string, meta?: { ipAddress?: string; userAgent?: string }, dataScope?: DataScope | null) {
+  async update(
+    id: string,
+    dto: Partial<CreateDelegationDto>,
+    actorId: string,
+    meta?: { ipAddress?: string; userAgent?: string },
+    dataScope?: DataScope | null,
+  ) {
     const { data: existing } = await this.getById(id, dataScope);
     if (existing.relatedCase) {
       assertParentInScope(existing.relatedCase, dataScope, 'write');
@@ -173,12 +258,20 @@ export class DelegationsService {
     const record = await this.prisma.delegation.update({
       where: { id },
       data: {
-        ...(dto.receivingUnit !== undefined && { receivingUnit: dto.receivingUnit }),
+        ...(dto.receivingUnit !== undefined && {
+          receivingUnit: dto.receivingUnit,
+        }),
         ...(dto.content !== undefined && { content: dto.content }),
-        ...(dto.status !== undefined && { status: dto.status as DelegationStatus }),
-        ...(dto.completedDate !== undefined && { completedDate: dto.completedDate ? new Date(dto.completedDate) : null }),
+        ...(dto.status !== undefined && {
+          status: dto.status,
+        }),
+        ...(dto.completedDate !== undefined && {
+          completedDate: dto.completedDate ? new Date(dto.completedDate) : null,
+        }),
         ...(dto.notes !== undefined && { notes: dto.notes }),
-        ...(dto.assignedToId !== undefined && { assignedToId: dto.assignedToId }),
+        ...(dto.assignedToId !== undefined && {
+          assignedToId: dto.assignedToId,
+        }),
       },
     });
 
@@ -187,26 +280,54 @@ export class DelegationsService {
       action: 'DELEGATION_UPDATED',
       subject: 'Delegation',
       subjectId: id,
-      metadata: { before: { status: existing.status, receivingUnit: existing.receivingUnit }, after: dto },
+      metadata: {
+        before: {
+          status: existing.status,
+          receivingUnit: existing.receivingUnit,
+        },
+        after: dto,
+      },
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
     });
 
-    if (dto.assignedToId && dto.assignedToId !== (existing as any).assignedToId) {
+    if (
+      dto.assignedToId &&
+      dto.assignedToId !== (existing as any).assignedToId
+    ) {
       const actor = await this.prisma.user.findUnique({
         where: { id: actorId },
         select: { firstName: true, lastName: true },
       });
-      const byUserName = actor ? `${actor.firstName ?? ''} ${actor.lastName ?? ''}`.trim() : '';
-      this.eventEmitter.emit('utdt.assigned', new UydtAssignedEvent(
-        id, existing.delegationNumber, dto.assignedToId, [], actorId, byUserName,
-      ));
+      const byUserName = actor
+        ? `${actor.firstName ?? ''} ${actor.lastName ?? ''}`.trim()
+        : '';
+      this.eventEmitter.emit(
+        'utdt.assigned',
+        new UydtAssignedEvent(
+          id,
+          existing.delegationNumber,
+          dto.assignedToId,
+          [],
+          actorId,
+          byUserName,
+        ),
+      );
     }
 
-    return { success: true, data: record, message: 'Cập nhật ủy thác thành công' };
+    return {
+      success: true,
+      data: record,
+      message: 'Cập nhật ủy thác thành công',
+    };
   }
 
-  async delete(id: string, actorId: string, meta?: { ipAddress?: string; userAgent?: string }, dataScope?: DataScope | null) {
+  async delete(
+    id: string,
+    actorId: string,
+    meta?: { ipAddress?: string; userAgent?: string },
+    dataScope?: DataScope | null,
+  ) {
     const { data: existing } = await this.getById(id, dataScope);
     if (existing.relatedCase) {
       assertParentInScope(existing.relatedCase, dataScope, 'write');
@@ -214,7 +335,10 @@ export class DelegationsService {
       assertCreatorInScope(existing.createdById, dataScope, 'write');
     }
 
-    await this.prisma.delegation.update({ where: { id }, data: { deletedAt: new Date() } });
+    await this.prisma.delegation.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
 
     await this.audit.log({
       userId: actorId,

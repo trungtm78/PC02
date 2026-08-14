@@ -27,6 +27,7 @@ import {
 import { QueryUsersDto } from './dto/query-users.dto';
 import { CreateDataGrantDto } from './dto/create-data-grant.dto';
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
+import { CreateRoleDto } from './dto/create-role.dto';
 @Controller('admin')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class AdminController {
@@ -99,6 +100,13 @@ export class AdminController {
     return this.adminService.getRoleById(id);
   }
 
+  @Post('roles')
+  @HttpCode(HttpStatus.CREATED)
+  @RequirePermissions({ action: 'write', subject: 'User' })
+  createRole(@Body() dto: CreateRoleDto, @CurrentUser() user: AuthUser) {
+    return this.adminService.createRole(dto, user.id);
+  }
+
   @Patch('roles/:id')
   @RequirePermissions({ action: 'write', subject: 'User' })
   updateRole(
@@ -112,8 +120,15 @@ export class AdminController {
   @Delete('roles/:id')
   @HttpCode(HttpStatus.OK)
   @RequirePermissions({ action: 'delete', subject: 'User' })
-  deleteRole(@Param('id') id: string, @CurrentUser() user: AuthUser) {
-    return this.adminService.deleteRole(id, user.id);
+  deleteRole(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthUser,
+    @Req() req: Request,
+  ) {
+    return this.adminService.deleteRole(id, user.id, {
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
   }
 
   // ── Permission Matrix ─────────────────────────────────
@@ -121,6 +136,14 @@ export class AdminController {
   @RequirePermissions({ action: 'read', subject: 'User' })
   getAllPermissions() {
     return this.adminService.getAllPermissions();
+  }
+
+  // Counterpart of PATCH below — the admin permission matrix reads through
+  // this route and writes through that one, so both speak {action, subject}.
+  @Get('roles/:id/permissions')
+  @RequirePermissions({ action: 'read', subject: 'User' })
+  getRolePermissions(@Param('id') id: string) {
+    return this.adminService.getRolePermissions(id);
   }
 
   @Patch('roles/:id/permissions')

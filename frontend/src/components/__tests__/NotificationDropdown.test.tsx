@@ -13,7 +13,10 @@ vi.mock('@/lib/api', () => ({
 }));
 
 vi.mock('@/stores/auth.store', () => ({
-  authStore: { getAccessToken: vi.fn().mockReturnValue('test-token') },
+  authStore: {
+    // usePermission subscribes to the store now instead of snapshotting it.
+    getProfileRaw: vi.fn(() => null),
+    onTokenChanged: vi.fn(() => () => {}), getAccessToken: vi.fn().mockReturnValue('test-token') },
 }));
 
 // Stub EventSource — prevents real SSE connections in tests

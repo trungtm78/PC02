@@ -15,9 +15,37 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, useLocation, Routes, Route } from 'react-router-dom';
 import { api } from '@/lib/api';
+import { useListShortcuts } from '@/hooks/useListShortcuts';
 import { ComprehensiveListPageShell } from '../ComprehensiveListPageShell';
 import { AssignModalProvider } from '@/features/_shared/modals/AssignModalProvider';
 import { DeleteResourceModalProvider } from '@/features/_shared/modals/DeleteResourceModalProvider';
+
+// The permission layer is real now: with no auth store the shell sees no user,
+// so "Tạo mới", the Alt+N shortcut and the empty-state CTA are all correctly
+// hidden. All three go to /cases/new, so all three read the case grant.
+const auth = vi.hoisted(() => ({
+  granted: [
+    { action: 'read', subject: 'Case' },
+    { action: 'write', subject: 'Case' },
+    { action: 'edit', subject: 'Case' },
+    { action: 'delete', subject: 'Case' },
+  ] as { action: string; subject: string }[] | null,
+}));
+const FULL_PERMISSIONS = auth.granted;
+
+vi.mock('@/stores/auth.store', () => ({
+  authStore: {
+    getUser: vi.fn(() => auth.granted === null
+      ? null
+      : { email: 'officer@test.local', role: 'OFFICER', permissions: auth.granted }),
+    getProfileRaw: vi.fn(() => null),
+    onTokenChanged: vi.fn(() => () => {}),
+  },
+}));
+
+vi.mock('@/hooks/useListShortcuts', () => ({
+  useListShortcuts: vi.fn(),
+}));
 
 vi.mock('@/lib/api', () => ({
   api: {
@@ -262,5 +290,52 @@ describe('ComprehensiveListPageShell — empty + error + security', () => {
     expect(dataCallPaths).toContain('/incidents');
     expect(dataCallPaths).not.toContain('/cases');
     expect(dataCallPaths).not.toContain('/petitions');
+  });
+});
+
+
+/**
+ * PR-F1 gated the header button, the Alt+N shortcut and the empty-state CTA on
+ * `write:Case`. Asserting the granted case only would have passed just as well
+ * before the gate existed, so this asserts the denied case.
+ */
+describe('ComprehensiveListPageShell — a user who may not create', () => {
+  beforeEach(() => {
+    auth.granted = [{ action: 'read', subject: 'Case' }];
+    (api.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      data: { data: [], total: 0, page: 1, limit: 20 },
+    });
+  });
+
+  afterEach(() => {
+    auth.granted = FULL_PERMISSIONS;
+  });
+
+  it('hides the header create button', async () => {
+    renderWithRouter();
+    await waitFor(() => expect(api.get).toHaveBeenCalled());
+
+    expect(screen.queryByTestId('btn-create-comprehensive')).not.toBeInTheDocument();
+  });
+
+  it('hides the empty-state call to action', async () => {
+    renderWithRouter();
+    await waitFor(() => expect(api.get).toHaveBeenCalled());
+
+    expect(screen.queryByText('Tạo vụ án mới')).not.toBeInTheDocument();
+  });
+
+  it('hands the Alt+N shortcut no handler, which unregisters it', () => {
+    // The three doors this gate covers are the button, the empty-state CTA and
+    // Alt+N. The first two are assertable by absence in the DOM; the shortcut
+    // is not rendered, and pressing it in jsdom does not reach
+    // react-hotkeys-hook, so a keyboard test here would pass whether or not
+    // the gate existed. The contract that IS checkable is the one this file
+    // owns: the shell passes no `onNew`. `useListShortcuts` has its own test
+    // proving an absent `onNew` leaves `newRecord` disabled.
+    renderWithRouter();
+
+    const call = vi.mocked(useListShortcuts).mock.calls.at(-1)?.[0];
+    expect(call?.onNew).toBeUndefined();
   });
 });

@@ -61,19 +61,27 @@ export class LawyersBulkService {
       idempotencyKey: input.idempotencyKey,
     });
 
-    const result = await runBulk<{ lawyerId: string }, Prisma.TransactionClient>({
+    const result = await runBulk<
+      { lawyerId: string },
+      Prisma.TransactionClient
+    >({
       ids: input.ids,
       prisma: this.prisma as unknown as {
-        $transaction: <R>(cb: (tx: Prisma.TransactionClient) => Promise<R>) => Promise<R>;
+        $transaction: <R>(
+          cb: (tx: Prisma.TransactionClient) => Promise<R>,
+        ) => Promise<R>;
       },
       preflight: async (ids) => {
         // Scope check qua parent case (assertParentInScope pattern).
-        const scopeFilter = buildScopeFilter(input.dataScope);
+        // Xoá là thao tác ghi: dùng writableTeamIds, không phải teamIds đọc.
+        const scopeFilter = buildScopeFilter(input.dataScope, 'write');
         const inScope = await this.prisma.lawyer.findMany({
           where: {
             id: { in: ids },
             deletedAt: null,
-            ...(scopeFilter ? { case: scopeFilter as Prisma.CaseWhereInput } : {}),
+            ...(scopeFilter
+              ? { case: scopeFilter as Prisma.CaseWhereInput }
+              : {}),
           },
           select: { id: true },
         });
@@ -123,7 +131,9 @@ export class LawyersBulkService {
             message: 'Luật sư đã được xóa bởi người khác',
           })),
       ],
-      failed: result.failed.filter((f) => !f.error.startsWith(CONCURRENT_PREFIX)),
+      failed: result.failed.filter(
+        (f) => !f.error.startsWith(CONCURRENT_PREFIX),
+      ),
     };
     await this.audit.completeBulk(bulkOperationId, {
       succeeded: reclassified.succeeded.length,

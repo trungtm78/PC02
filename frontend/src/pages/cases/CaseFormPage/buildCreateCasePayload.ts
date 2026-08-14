@@ -131,8 +131,18 @@ export function buildCreateCasePayload(
     evidences?: Evidence[];
     documentIds?: string[];
     legacyMetadata?: Record<string, unknown>;
+    /**
+     * Which endpoint the payload is for. Defaults to `'create'`.
+     *
+     * `PUT /cases/:id` does not accept the sub-entity arrays — `update()` never
+     * wrote them, so sending them used to return 200 and lose the data. The
+     * backend now refuses them outright, which means this builder has to stop
+     * sending them or every edit-mode save turns into a 400.
+     */
+    mode?: 'create' | 'update';
   },
 ): CreateCasePayload {
+  const isUpdate = options?.mode === 'update';
   const payload: CreateCasePayload = {
     name: formData.caseTitle,
     crime: formData.criminalType || null,
@@ -348,7 +358,7 @@ export function buildCreateCasePayload(
   // skip "Luật sư" (LAWYER không tồn tại trong Prisma SubjectType enum).
   // Lawyers nên submit qua separate Lawyer model API trong future PR.
   // Regression tested: buildCreateCasePayload.test.ts hotfix #112 describe block.
-  if (options?.subjects && options.subjects.length > 0) {
+  if (!isUpdate && options?.subjects && options.subjects.length > 0) {
     const validSubjects = options.subjects
       .filter((s) => s.type !== 'Luật sư') // LAWYER không có trong SubjectType
       .map((s) => {
@@ -374,7 +384,7 @@ export function buildCreateCasePayload(
     }
   }
 
-  if (options?.evidences && options.evidences.length > 0) {
+  if (!isUpdate && options?.evidences && options.evidences.length > 0) {
     payload.evidences = options.evidences.map((e) => ({
       code: e.code,
       name: e.name,

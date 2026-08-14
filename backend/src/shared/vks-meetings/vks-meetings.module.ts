@@ -1,6 +1,9 @@
 import { Module } from '@nestjs/common';
 import { VksMeetingsService } from './vks-meetings.service';
-import { CaseVksMeetingsController, IncidentVksMeetingsController } from './vks-meetings.controller';
+import {
+  CaseVksMeetingsController,
+  IncidentVksMeetingsController,
+} from './vks-meetings.controller';
 
 @Module({
   controllers: [CaseVksMeetingsController, IncidentVksMeetingsController],

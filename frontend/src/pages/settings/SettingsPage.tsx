@@ -7,7 +7,6 @@ import {
   Settings2,
   Bell,
   Lock,
-  Save,
   ChevronRight,
   KeyRound,
   Keyboard,
@@ -22,32 +21,15 @@ import { NotificationsModule } from './modules/NotificationsModule';
 import { Button } from '@/components/ui/button';
 import { TwoFaSetupModal } from '@/components/TwoFaSetupModal';
 import { ChangePasswordModal } from '@/components/ChangePasswordModal';
+import { Link } from 'react-router-dom';
 
 // Settings menu items
 const menuItems = [
-  {
-    id: 'users',
-    label: 'NgườI dùng',
-    icon: Users,
-    description: 'Quản lý tài khoản ngườI dùng hệ thống',
-  },
-  {
-    id: 'permissions',
-    label: 'Phân quyền',
-    icon: Shield,
-    description: 'Cấu hình vai trò và quyền hạn',
-  },
   {
     id: 'directories',
     label: 'Danh mục',
     icon: List,
     description: 'Quản lý danh mục dữ liệu',
-  },
-  {
-    id: 'parameters',
-    label: 'Tham số',
-    icon: Settings2,
-    description: 'Cấu hình tham số hệ thống',
   },
   {
     id: 'notifications',
@@ -87,141 +69,7 @@ const menuItems = [
   },
 ];
 
-// User Management Module — redirects to real admin page at /nguoi-dung
-function UserManagementModule() {
-  const goToUserAdmin = () => { window.location.href = '/nguoi-dung'; };
-  return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-xl font-semibold text-slate-900">Quản lý ngườI dùng</h2>
-        <Button onClick={goToUserAdmin}>
-          <Users className="w-4 h-4 mr-2" />
-          Đến trang Quản lý người dùng
-        </Button>
-      </div>
-      
-      <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-slate-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Tên</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Email</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Vai trò</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Trạng thái</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Thao tác</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-200">
-            {[
-              { name: 'Nguyễn Văn A', email: 'nguyenvana@pc02.gov.vn', role: 'Admin', status: 'Hoạt động' },
-              { name: 'Trần Thị B', email: 'tranthib@pc02.gov.vn', role: 'Điều tra viên', status: 'Hoạt động' },
-              { name: 'Lê Văn C', email: 'levanc@pc02.gov.vn', role: 'Thư ký', status: 'Tạm khóa' },
-            ].map((user, index) => (
-              <tr key={index} className="hover:bg-slate-50">
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">{user.name}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{user.email}</td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                    {user.role}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                    user.status === 'Hoạt động' 
-                      ? 'bg-green-100 text-green-800' 
-                      : 'bg-red-100 text-red-800'
-                  }`}>
-                    {user.status}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                  <button onClick={goToUserAdmin} className="text-blue-600 hover:text-blue-900 mr-3">Sửa</button>
-                  <button onClick={goToUserAdmin} className="text-red-600 hover:text-red-900">Xóa</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
 
-// Permissions Module
-function PermissionsModule() {
-  const [selectedRole, setSelectedRole] = useState('admin');
-  
-  const roles = [
-    { id: 'admin', name: 'Quản trị viên' },
-    { id: 'investigator', name: 'Điều tra viên' },
-    { id: 'secretary', name: 'Thư ký' },
-    { id: 'viewer', name: 'NgườI xem' },
-  ];
-
-  const permissions = [
-    { module: 'Vụ án', view: true, create: true, edit: true, delete: true },
-    { module: 'Đơn thư', view: true, create: true, edit: true, delete: false },
-    { module: 'Đối tượng', view: true, create: true, edit: true, delete: false },
-    { module: 'Báo cáo', view: true, create: true, edit: false, delete: false },
-    { module: 'Cài đặt', view: true, create: false, edit: false, delete: false },
-  ];
-
-  return (
-    <div className="space-y-6">
-      <h2 className="text-xl font-semibold text-slate-900">Phân quyền hệ thống</h2>
-      
-      <div className="flex gap-4 mb-6">
-        <select 
-          value={selectedRole}
-          onChange={(e) => setSelectedRole(e.target.value)}
-          className="px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          {roles.map((role) => (
-            <option key={role.id} value={role.id}>{role.name}</option>
-          ))}
-        </select>
-        <Button variant="outline">Thêm vai trò mới</Button>
-      </div>
-
-      <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-slate-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Module</th>
-              <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Xem</th>
-              <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Thêm</th>
-              <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Sửa</th>
-              <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Xóa</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-200">
-            {permissions.map((perm, index) => (
-              <tr key={index}>
-                <td className="px-6 py-4 text-sm text-slate-900">{perm.module}</td>
-                {['view', 'create', 'edit', 'delete'].map((action) => (
-                  <td key={action} className="px-6 py-4 text-center">
-                    <input 
-                      type="checkbox" 
-                      checked={perm[action as keyof typeof perm] as boolean}
-                      className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                    />
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      
-      <div className="flex justify-end">
-        <Button>
-          <Save className="w-4 h-4 mr-2" />
-          Lưu thay đổi
-        </Button>
-      </div>
-    </div>
-  );
-}
 
 // Directories Module
 const DIRECTORY_TYPE_CONFIG: Record<string, { label: string; legacy?: boolean }> = {
@@ -359,55 +207,6 @@ function DirectoriesModule() {
   );
 }
 
-// Parameters Module
-function ParametersModule() {
-  const parameters = [
-    { key: 'max_file_size', label: 'Kích thước file tối đa', value: '10MB', type: 'text' },
-    { key: 'session_timeout', label: 'ThờI gian hết phiên (phút)', value: '30', type: 'number' },
-    { key: 'items_per_page', label: 'Số mục mỗi trang', value: '20', type: 'number' },
-    { key: 'enable_notifications', label: 'Bật thông báo', value: 'true', type: 'boolean' },
-    { key: 'maintenance_mode', label: 'Chế độ bảo trì', value: 'false', type: 'boolean' },
-  ];
-
-  return (
-    <div className="space-y-6">
-      <h2 className="text-xl font-semibold text-slate-900">Tham số hệ thống</h2>
-      
-      <div className="bg-white rounded-lg border border-slate-200 divide-y divide-slate-200">
-        {parameters.map((param) => (
-          <div key={param.key} className="p-4 flex items-center justify-between">
-            <div>
-              <label className="font-medium text-slate-900">{param.label}</label>
-              <p className="text-sm text-slate-500">{param.key}</p>
-            </div>
-            <div>
-              {param.type === 'boolean' ? (
-                <input 
-                  type="checkbox" 
-                  checked={param.value === 'true'}
-                  className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                />
-              ) : (
-                <input
-                  type={param.type}
-                  value={param.value}
-                  className="px-3 py-1 border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-      
-      <div className="flex justify-end">
-        <Button>
-          <Save className="w-4 h-4 mr-2" />
-          Lưu thay đổi
-        </Button>
-      </div>
-    </div>
-  );
-}
 
 // Security Module
 function SecurityModule() {
@@ -452,18 +251,12 @@ function SecurityModule() {
 
 // Main Settings Page
 export default function SettingsPage() {
-  const [activeModule, setActiveModule] = useState('users');
+  const [activeModule, setActiveModule] = useState('directories');
 
   const renderModule = () => {
     switch (activeModule) {
-      case 'users':
-        return <UserManagementModule />;
-      case 'permissions':
-        return <PermissionsModule />;
       case 'directories':
         return <DirectoriesModule />;
-      case 'parameters':
-        return <ParametersModule />;
       case 'notifications':
         return <NotificationsModule />;
       case 'security':
@@ -477,7 +270,7 @@ export default function SettingsPage() {
       case 'event-categories':
         return <EventCategoriesModule />;
       default:
-        return <UserManagementModule />;
+        return <DirectoriesModule />;
     }
   };
 
@@ -517,6 +310,41 @@ export default function SettingsPage() {
                 );
               })}
             </ul>
+
+            {/* Three tabs used to live here — Người dùng, Phân quyền and
+                Tham số — and all three were mockups. The first was a button
+                that navigated away; the second listed four invented roles
+                (admin/investigator/secretary/viewer) that are not the real
+                ROLE_NAMES and saved nowhere; the third showed five hardcoded
+                parameter values with no endpoint behind them. Pointing at the
+                screens that do the job is honest; a tab that pretends is not. */}
+            <div className="mt-6 border-t border-slate-200 pt-4">
+              <p className="px-3 pb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                Quản trị (trang riêng)
+              </p>
+              <ul className="space-y-1">
+                <li>
+                  <Link
+                    to="/nguoi-dung"
+                    data-testid="settings-link-users"
+                    className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-slate-700 hover:bg-slate-50"
+                  >
+                    <Users className="h-5 w-5 text-slate-400" />
+                    <span className="font-medium">Người dùng &amp; phân quyền</span>
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    to="/admin/settings"
+                    data-testid="settings-link-admin"
+                    className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-slate-700 hover:bg-slate-50"
+                  >
+                    <Settings2 className="h-5 w-5 text-slate-400" />
+                    <span className="font-medium">Tham số hệ thống</span>
+                  </Link>
+                </li>
+              </ul>
+            </div>
           </nav>
         </aside>
 

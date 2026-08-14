@@ -1,4 +1,8 @@
-import { sanitizeFilename, buildDocumentFilename, dedupeFilenames } from './filename.util';
+import {
+  sanitizeFilename,
+  buildDocumentFilename,
+  dedupeFilenames,
+} from './filename.util';
 
 describe('sanitizeFilename', () => {
   it('strips path separators / and \\', () => {
@@ -74,12 +78,17 @@ describe('buildDocumentFilename', () => {
 
   it('THIẾU số văn bản → không có "_" thừa ở cuối', () => {
     expect(
-      buildDocumentFilename({ recordCode: 'DT-2026-36679', templateName: 'Giấy biên nhận' }),
+      buildDocumentFilename({
+        recordCode: 'DT-2026-36679',
+        templateName: 'Giấy biên nhận',
+      }),
     ).toBe('DT-2026-36679_Giấy biên nhận.docx');
   });
 
   it('thiếu CẢ HAI → chỉ còn tên mẫu', () => {
-    expect(buildDocumentFilename({ templateName: 'Phiếu đề xuất' })).toBe('Phiếu đề xuất.docx');
+    expect(buildDocumentFilename({ templateName: 'Phiếu đề xuất' })).toBe(
+      'Phiếu đề xuất.docx',
+    );
   });
 
   it('chuỗi rỗng/khoảng trắng cũng bị coi là thiếu (không sinh "__")', () => {
@@ -93,7 +102,9 @@ describe('buildDocumentFilename', () => {
   });
 
   it('GIỮ dấu tiếng Việt (không bỏ dấu)', () => {
-    const out = buildDocumentFilename({ templateName: 'Thông báo trả lại đơn' });
+    const out = buildDocumentFilename({
+      templateName: 'Thông báo trả lại đơn',
+    });
     expect(out).toBe('Thông báo trả lại đơn.docx');
   });
 
@@ -119,7 +130,9 @@ describe('buildDocumentFilename', () => {
   });
 
   it('nhận extension khác .docx', () => {
-    expect(buildDocumentFilename({ templateName: 'Phụ lục', ext: 'xlsx' })).toBe('Phụ lục.xlsx');
+    expect(
+      buildDocumentFilename({ templateName: 'Phụ lục', ext: 'xlsx' }),
+    ).toBe('Phụ lục.xlsx');
   });
 
   it('[P2] tên RẤT dài vẫn GIỮ được phần mở rộng (cắt theo stem, không cắt cả tên)', () => {
@@ -155,7 +168,10 @@ describe('buildDocumentFilename', () => {
 
   it('số văn bản không có chữ số nào → giữ segment đầu, không rỗng', () => {
     expect(
-      buildDocumentFilename({ templateName: 'Phiếu', documentNumber: 'ABC/XYZ' }),
+      buildDocumentFilename({
+        templateName: 'Phiếu',
+        documentNumber: 'ABC/XYZ',
+      }),
     ).toBe('Phiếu_ABC.docx');
   });
 });
@@ -180,11 +196,17 @@ describe('dedupeFilenames', () => {
 
   it('phân biệt hoa/thường theo kiểu Windows (case-insensitive)', () => {
     // Windows/NTFS coi A.docx và a.docx là MỘT file → phải dedup.
-    expect(dedupeFilenames(['A.docx', 'a.docx'])).toEqual(['A.docx', 'a-2.docx']);
+    expect(dedupeFilenames(['A.docx', 'a.docx'])).toEqual([
+      'A.docx',
+      'a-2.docx',
+    ]);
   });
 
   it('không đụng tên file không có phần mở rộng', () => {
-    expect(dedupeFilenames(['manifest', 'manifest'])).toEqual(['manifest', 'manifest-2']);
+    expect(dedupeFilenames(['manifest', 'manifest'])).toEqual([
+      'manifest',
+      'manifest-2',
+    ]);
   });
 
   it('hậu tố sinh ra mà lại trùng tên có sẵn → nhảy tiếp', () => {

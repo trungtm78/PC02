@@ -5,7 +5,9 @@ import { DelegationStatus } from '@prisma/client';
 export class CreateDelegationDto {
   // Số ủy thác — optional: engine sinh khi không cung cấp
   @IsOptional()
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() || undefined : value))
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim() || undefined : value,
+  )
   @IsString()
   delegationNumber?: string;
 
