@@ -91,6 +91,10 @@ jobs:
   # seed, rồi `npx playwright test --project=e2e-new`. Chạy tách khỏi job
   # `test` để một lỗi hạ tầng CI không che mất kết quả unit test.
   # ─── UAT API trên hệ thật ────────────────────────────────────────────────
+  # ĐÃ CHẠY THỬ END-TO-END trên máy local trước khi commit, không phải công thức
+  # viết theo trí nhớ: DB trắng → migrate deploy (94/94) → 3 seed → boot
+  # `dist/src/main.js` → 30/30 spec xanh. Lần chạy thử đầu HỎNG ở bước seed
+  # (thiếu SEED_ADMIN_PASSWORD) — đó là lý do biến đó có mặt bên dưới.
   # 30 kiểm gọi API thật: ma trận phân quyền không rỗng, mất dữ liệu im lặng,
   # hạ tầng cờ, xin mở lại quyền sửa, và 15 cờ E4/E5/E6 CHẶN thật.
   #

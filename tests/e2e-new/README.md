@@ -118,6 +118,10 @@ sẽ 404 mọi lời gọi API — một cách hỏng trông y hệt backend ch�
 | `UAT_API_ENABLED` | Variable | `true` |
 | `UAT_ADMIN_PASSWORD` | Secret | mật khẩu bất kỳ ≥ 8 ký tự |
 
+Công thức của hai job đã được **chạy thử end-to-end trên máy local**: DB trắng →
+`migrate deploy` (94/94) → 3 seed → boot `dist/src/main.js` → **30/30 spec xanh**.
+Không phải công thức viết theo trí nhớ.
+
 **Chỉ một secret.** CI tự dựng tài khoản của nó: `prisma/seed.ts` tạo cố định
 `username: admin` với mật khẩu lấy từ `SEED_ADMIN_PASSWORD`, và job dùng chung
 secret đó cho cả seed lẫn đăng nhập test. Không cần một tài khoản có sẵn trên
