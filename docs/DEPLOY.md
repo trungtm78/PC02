@@ -109,11 +109,24 @@ cố chạy baseline trên DB đã có sẵn bảng và **fail**.
 > Đã sửa: `20260814000000_notification_type_missing_values` và
 > `20260814000001_otp_codes_purpose_column`. Drift **46 → 42** câu.
 >
-> **Bài học chung của hai cái:** danh sách "drift đã chấp nhận" không phải danh
-> sách an toàn. Nó là danh sách **chưa ai đi tới cuối** — và hai mục đầu tiên
-> tôi truy đều là bug thật, một cái làm hỏng scheduler hằng ngày, một cái chặn
-> đăng nhập. Bốn mục còn lại (khoá ngoại `SET NULL` vs `RESTRICT`, tên index)
-> **chưa được truy từng cái**.
+> ### Đã truy HẾT danh sách drift — 2 bug thật, phần còn lại vô hại có chứng minh
+>
+> Danh sách "drift đã chấp nhận" không phải danh sách an toàn. Nó là danh sách
+> **chưa ai đi tới cuối**. Nay đã đi hết:
+>
+> | Nhóm | Kết luận |
+> |---|---|
+> | `NotificationType` thiếu 4 giá trị | 🔴 **BUG** — scheduler phát mỗi ngày ⇒ lỗi enum. Đã sửa |
+> | `otp_codes` thiếu cột `purpose` | 🔴 **BUG** — 2FA/đặt lại mật khẩu hỏng hoàn toàn. Đã sửa |
+> | FK `deadline_rule_versions` (9 câu) | ✅ vô hại — migration ĐÃ tạo đúng `ON DELETE SET NULL` (`confdeltype='n'`); khác biệt duy nhất là `ON UPDATE CASCADE` vs NO ACTION, mà `users.id`/`documents.id` là **cuid không bao giờ đổi** ⇒ nhánh đó là mã chết |
+> | `edit_window_reset_requests` (2 câu) | ✅ vô hại — chỉ **đổi tên** constraint `ewrr_*` → tên mặc định Prisma |
+> | `TIMESTAMP` → `TIMESTAMP(3)` | ✅ vô hại — DB lưu độ chính xác **cao hơn** schema yêu cầu; Prisma đọc bình thường, không mất dữ liệu |
+> | `DROP DEFAULT` trên cột mảng | ✅ vô hại — DB có `DEFAULT '{}'` mà schema không khai; cột `NOT NULL` nên có default là **an toàn hơn** không có |
+>
+> **Cách phân biệt:** hai cái đầu là *thiếu thứ mã đang dùng* — chạy là hỏng.
+> Bốn cái sau là *khác biệt trong siêu dữ liệu* mà không đường mã nào chạm tới.
+> Câu hỏi phân loại đúng không phải "schema có khớp không" mà là **"có đường mã
+> nào đi qua chỗ lệch này không"**.
 >
 > Baseline làm phép đo này **lần đầu tiên chạy được** — trước đó
 > `migrate diff --from-migrations` chết ngay từ migration thứ nhất, đó chính là
