@@ -51,20 +51,58 @@ function body(error: unknown): Record<string, unknown> | undefined {
   return data as Record<string, unknown>;
 }
 
+/**
+ * Mã nằm ở đâu trong thân lỗi — phải chấp nhận HAI dạng.
+ *
+ * `FeatureFlagGuard` ném `{ statusCode, error: 'FEATURE_DISABLED', feature,
+ * message }` (dạng phẳng). Nhưng `GlobalExceptionFilter` BỌC LẠI mọi
+ * `HttpException` thành `{ success: false, error: { code, message, details } }`
+ * — mã phẳng trở thành `error.code`.
+ *
+ * Client chỉ đọc dạng phẳng nên **chưa bao giờ nhận diện được** tính năng bị
+ * tắt: nó luôn rơi vào nhánh lỗi chung. Không ai thấy vì gate chưa bao giờ chạy
+ * (ADR-0018) — sửa gate xong mới lộ ra hợp đồng hai đầu không khớp nhau.
+ *
+ * Giữ cả hai nhánh chứ không chỉ đổi sang dạng bọc: dạng phẳng vẫn tới được
+ * client nếu có đường nào bỏ qua filter.
+ */
+function featureDisabledCode(b: Record<string, unknown> | undefined): unknown {
+  if (!b) return undefined;
+  if (b.error === FEATURE_DISABLED_ERROR) return b.error;
+  const nested = b.error;
+  if (nested && typeof nested === 'object') {
+    return (nested as Record<string, unknown>).code;
+  }
+  return undefined;
+}
+
 export function isFeatureDisabledError(error: unknown): boolean {
   const status = (error as MaybeAxiosError)?.response?.status;
   if (status !== 404) return false;
-  return body(error)?.error === FEATURE_DISABLED_ERROR;
+  return featureDisabledCode(body(error)) === FEATURE_DISABLED_ERROR;
 }
 
 export function extractFeatureDisabled(
   error: unknown,
 ): FeatureDisabledDetail {
   const b = body(error) ?? {};
-  const feature = typeof b.feature === 'string' ? b.feature : '';
-  const message =
+  // Dạng bọc đặt `message` bên trong `error`; dạng phẳng đặt ở ngoài.
+  const wrapped =
+    b.error && typeof b.error === 'object'
+      ? (b.error as Record<string, unknown>)
+      : {};
+  const feature =
+    typeof b.feature === 'string'
+      ? b.feature
+      : typeof wrapped.feature === 'string'
+        ? wrapped.feature
+        : '';
+  const rawMessage =
     typeof b.message === 'string' && b.message.length > 0
       ? b.message
-      : 'Tính năng này hiện đang tắt.';
+      : typeof wrapped.message === 'string'
+        ? wrapped.message
+        : '';
+  const message = rawMessage.length > 0 ? rawMessage : 'Tính năng này hiện đang tắt.';
   return { feature, message };
 }

@@ -198,6 +198,21 @@ BASE_URL=http://localhost:5173 UAT_PROD=1   ADMIN_USERNAME=<user> ADMIN_PASSWORD
 > của Nest cũng có trường `error` nhưng là văn xuôi (`'Not Found'`), lấy bừa sẽ
 > phá `code` của mọi lỗi sẵn có.
 >
+> **Lỗi 3 — chỉ lộ ra sau khi sửa lỗi 2.** Cả web lẫn mobile đọc mã ở dạng
+> **phẳng** (`body.error === 'FEATURE_DISABLED'`), đúng thứ `FeatureFlagGuard`
+> ném ra. Nhưng `GlobalExceptionFilter` **bọc mọi `HttpException`** thành
+> `{success, error:{code, message, details}}` — mã phẳng trở thành `error.code`.
+> Nghĩa là **hợp đồng hai đầu chưa bao giờ khớp nhau**: cả hai client luôn rơi
+> vào nhánh lỗi chung, không client nào từng nhận diện được "tính năng bị tắt".
+> Không ai thấy vì gate chưa bao giờ chạy. Nay cả hai chấp nhận **cả ba dạng**
+> (phẳng, lồng dưới `message`, và dạng bọc thật), có test dùng đúng thân lỗi đo
+> bằng `curl`. FE +4 test, mobile +2.
+>
+> **Ba lỗi xếp chồng, mỗi cái che cái sau.** Gate không chạy ⇒ không ai thấy mã
+> lỗi bị ghi đè ⇒ không ai thấy client đọc sai trường. Sửa từng lớp mới lộ lớp
+> tiếp theo. Đây là lý do một bản vá chưa chạy lại đường đi đầy đủ thì chưa
+> xong.
+>
 > **Kiểm chứng trên máy chủ thật:**
 > `GET /lawyers` khi cờ tắt → `404` + `{"code":"FEATURE_DISABLED","message":"Tính
 > năng \"Luật sư\" hiện đang tắt"}`; gọi **không token** → `401` chứ không 404,

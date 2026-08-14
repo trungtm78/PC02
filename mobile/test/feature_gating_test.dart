@@ -32,6 +32,36 @@ void main() {
       expect(res.message, contains('đang tắt'));
     });
 
+    test('đọc được dạng BỌC — dạng máy chủ thật trả về', () {
+      // `GlobalExceptionFilter` bọc mọi HttpException thành
+      // `{ success, error: { code, message, details } }`, nên mã phẳng mà
+      // `FeatureFlagGuard` ném ra trở thành `error.code`. App chỉ đọc dạng
+      // phẳng nên CHƯA BAO GIỜ nhận diện được — luôn hiện lỗi chung.
+      // Không ai thấy vì gate cờ chưa bao giờ chạy (ADR-0018).
+      // Thân lỗi dưới đây đo bằng curl trên máy chủ thật.
+      final res = readFeatureDisabled(_err(404, {
+        'success': false,
+        'error': {
+          'code': 'FEATURE_DISABLED',
+          'message': 'Tính năng "Luật sư" hiện đang tắt',
+          'details': [],
+        },
+        'path': '/api/v1/lawyers',
+      }));
+
+      expect(res, isNotNull);
+      expect(res!.message, contains('Luật sư'));
+    });
+
+    test('KHÔNG nhận nhầm 404 thường ở dạng bọc', () {
+      final res = readFeatureDisabled(_err(404, {
+        'success': false,
+        'error': {'code': 'NOT_FOUND', 'message': 'Không tìm thấy hồ sơ'},
+      }));
+
+      expect(res, isNull);
+    });
+
     test('reads the shape Nest nests under message', () {
       // Nest produces both, depending on how the exception was constructed.
       // Handling only one is how this works in testing and fails in the field.
