@@ -330,6 +330,23 @@ jobs:
           && echo "tests/ type-checks clean." \
           || echo "::warning::tests/ has type errors — expected while the generated UAT specs are unfixed."
 
+      # Ratchet drift: drift được phép GIỮ NGUYÊN hoặc GIẢM, không được mọc
+      # thêm. Danh sách "drift đã chấp nhận" từng giấu HAI bug thật —
+      # `NotificationType` thiếu 4 giá trị (scheduler lỗi enum mỗi ngày) và
+      # `otp_codes.purpose` (2FA hỏng hoàn toàn) — cả hai chỉ hại trên DB dựng
+      # từ migration, tức mọi máy mới. Cổng này bắt câu drift MỚI, là dấu hiệu
+      # ai đó sửa schema.prisma mà quên viết migration.
+      #
+      # Vẫn `continue-on-error` như các check khác trong job này; gỡ ra khi đã
+      # chạy ổn định vài vòng.
+      - name: Drift ratchet (migration ↔ schema)
+        continue-on-error: true
+        env:
+          DATABASE_URL: postgresql://pc02_ci:pc02_ci@localhost:5432/pc02_ci?schema=public
+        run: |
+          cd backend && npx prisma generate && cd ..
+          node scripts/governance/check-migration-drift.cjs             || echo "::warning::Drift migration ↔ schema mọc thêm — xem log."
+
       # Compares the applied migration history against schema.prisma using a
       # shadow database, catching a schema edited without a migration.
       - name: Migration drift

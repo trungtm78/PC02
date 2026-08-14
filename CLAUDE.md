@@ -41,6 +41,8 @@ Internal case management system (NestJS backend + React frontend) for managing l
 
 `Advisory Checks` (non-blocking) runs the checks that are known-red against the current tree — `prisma migrate diff` and a type-check of `tests/`. See [ADR-0011](docs/adr/0011-partial-index-drift-is-accepted.md).
 
+- **Drift ratchet** — `node scripts/governance/check-migration-drift.cjs` (cần `DATABASE_URL` trỏ vào DB **dùng riêng**; script chạy `migrate deploy` lên đó). Drift được phép giữ nguyên hoặc giảm, **không được mọc thêm**. Danh sách "drift đã chấp nhận" từng giấu hai bug thật — `NotificationType` thiếu 4 giá trị và `otp_codes.purpose` — cả hai chỉ hại trên DB dựng từ migration. Siết bằng `--write-baseline`.
+
 ## Architecture Decision Records
 [docs/adr/](docs/adr/) records why a decision was made **and why the alternatives were rejected** — the part that stops someone "fixing" a deliberate constraint six months from now. Start at [docs/adr/README.md](docs/adr/README.md); copy `0000-template.md` for a new one. `adr-nudge.yml` warns (does not block) when a PR touches `schema.prisma` or `feature-flags/` without an ADR; bypass with `[adr-skip]` in the PR title.
 
