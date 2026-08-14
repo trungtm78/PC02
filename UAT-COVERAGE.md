@@ -148,53 +148,41 @@ BASE_URL=http://localhost:5173 UAT_PROD=1   ADMIN_USERNAME=<user> ADMIN_PASSWORD
 > (`curl -s -o /dev/null -w '%{http_code}' http://localhost:5173/`). Một máy chủ
 > chết làm bộ test đỏ theo kiểu trông y hệt lỗi đăng nhập của ứng dụng.
 >
-> **2. ⚠️ TẮT CỜ CÓ THỂ KHÔNG CÓ HIỆU LỰC — nghi vấn nghiêm trọng, CHƯA giải.**
+> **2. 🔴 GATE CỜ TÍNH NĂNG KHÔNG BAO GIỜ CHẠY — xác nhận từ mã. CHẶN MERGE E6.**
 >
-> Đo trực tiếp bằng `curl`, không qua Playwright:
-> - `PATCH /feature-flags/lawyers {enabled:false}` → **200**, thân trả về xác nhận
->   đã lưu (`"enabled":false`).
-> - Rồi poll `GET /lawyers` mỗi 2 giây trong **84 giây**: **luôn 200**, chưa bao
->   giờ thành 404.
+> Chuỗi suy luận khép kín, mỗi mắt xích kiểm được:
+> 1. `FeatureFlagGuard` đăng ký **toàn cục** (`APP_GUARD` trong `feature-flags.module.ts`).
+> 2. `JwtAuthGuard` **không** đăng ký toàn cục — chỉ là provider trong `auth.module.ts`,
+>    và được gắn ở **cấp controller**: `@UseGuards(JwtAuthGuard, PermissionsGuard)`.
+>    Toàn bộ `APP_GUARD` của dự án chỉ có hai: `ThrottlerGuard` và `FeatureFlagGuard`.
+> 3. NestJS chạy guard **toàn cục TRƯỚC** guard cấp controller.
+> 4. ⇒ Khi `FeatureFlagGuard.canActivate` chạy, `request.user` **luôn** `undefined`.
+> 5. ⇒ Dòng `if (!request.user) return true;` **luôn** thoát sớm.
+> 6. ⇒ `isEnabled()` **không bao giờ được gọi**. Cờ tắt hay bật không thay đổi gì.
 >
-> TTL cache tài liệu ghi **30 giây**, nên 84 giây lẽ ra thừa sức. Trước đó test
-> này có **một lần xanh**, nên không phải chưa bao giờ chạy.
+> Khớp với phép đo: `PATCH` lưu `enabled:false` thật, mà `GET /lawyers` trả 200
+> suốt 84 giây — vì không có gì đọc cờ đó cả.
 >
-> **Vì sao nghiêm trọng:** nếu tắt cờ không chắc chắn có hiệu lực thì toàn bộ
-> gate API của E4/E5/E6 không đáng tin — mà E6 đang được coi là cơ chế bảo vệ khi
-> gate `cases`/`incidents`/`petitions`. Điều kiện merge E6 dựa trên giả định gate
-> hoạt động.
+> **Đính chính của tôi:** ở bản ghi trước tôi viết "test này đã xanh một lần" và
+> dùng nó làm lý do chưa kết luận. Đọc lại output: spec có 4 test, các lần chạy
+> báo "1 failed, 3 passed" — ba test xanh là ba test KHÁC. Test cờ **chưa từng
+> xanh**. Tôi đã đọc nhầm con số tổng thành con số của test đó.
 >
-> **Chưa kết luận là lỗi**, vì đây là máy chủ dev chạy `--watch` (có thể đã khởi
-> động lại giữa chừng và reset cache theo cách không đại diện cho production).
-> Cần dò trên môi trường giống production trước khi coi là bug.
+> **Hệ quả:** gate API của **E4, E5, E6 hiện là no-op**. Mọi khẳng định "đã gate"
+> trong PROGRESS.md và kế hoạch chỉ đúng ở mức *decorator đã gắn*, không đúng ở
+> mức *có hiệu lực*. Điều kiện merge E6 dựa thẳng trên giả định gate hoạt động ⇒
+> **E6 bị chặn cho tới khi sửa và có test chứng minh gate thật sự chặn.**
 >
-> **Đầu mối cụ thể — kiểm dòng này TRƯỚC:**
-> [`feature-flag.guard.ts`](backend/src/feature-flags/guards/feature-flag.guard.ts)
-> có `if (!request.user) return true;` — guard **bỏ qua kiểm cờ** khi
-> `request.user` chưa được gán. Mà `request.user` do `JwtAuthGuard` gán, và cả
-> hai đều đăng ký kiểu `APP_GUARD`. **Nếu `FeatureFlagGuard` chạy TRƯỚC
-> `JwtAuthGuard` thì `request.user` luôn `undefined` tại thời điểm đó ⇒ mọi cờ
-> đều được cho qua ⇒ toàn bộ gate là vô hiệu.**
+> **Vì sao test đơn vị không bắt được:** `feature-gating.spec.ts` kiểm
+> *manifest ⇔ decorator khớp nhau*, tức là kiểm decorator có được **gắn** không.
+> Không có test nào kiểm cờ tắt thì request có bị **chặn** không. Từng mảnh đúng,
+> chỗ nối sai — đúng loại lỗi mà chỉ chạy thật mới thấy.
 >
-> Comment ngay trên dòng đó viết "Decouples from APP_GUARD registration order" —
-> nhưng nó không tách rời khỏi thứ tự; nó biến gate thành no-op **mỗi khi guard
-> này chạy trước**. Ý định (chặn rò rỉ 404-vs-401 cho người chưa đăng nhập) là
-> đúng; cách hiện thực phụ thuộc vào đúng cái thứ tự mà nó tuyên bố không phụ
-> thuộc.
->
-> **Một dữ kiện NGƯỢC chiều, phải giữ:** test này đã **xanh một lần**. Nếu gate
-> luôn vô hiệu thì nó không thể xanh lần nào. Nên **chưa kết luận** — hoặc thứ tự
-> guard không cố định, hoặc còn yếu tố khác. Đây là giả thuyết mạnh nhất kèm
-> dòng mã cụ thể, không phải kết luận.
->
-> **Việc cần làm, theo thứ tự:**
-> 1. Xác định thứ tự chạy thật của `FeatureFlagGuard` và `JwtAuthGuard`
->    (log trong `canActivate`, hoặc kiểm thứ tự đăng ký `APP_GUARD`).
-> 2. Nếu `FeatureFlagGuard` chạy trước ⇒ đó là nguyên nhân. Sửa bằng cách bảo đảm
->    thứ tự, hoặc tự giải mã token trong guard thay vì dựa vào `request.user`.
-> 3. Dựng backend chế độ production (không `--watch`), lặp lại phép đo `curl`.
-> 4. Nếu tắt cờ vẫn không có hiệu lực trong 60 giây ⇒ **chặn merge E6**: điều kiện
->    merge của E6 dựa thẳng trên giả định gate hoạt động.
+> **Cách sửa (chưa làm):** ý định của dòng đó là chặn rò rỉ 404-vs-401 cho người
+> chưa đăng nhập — hợp lý, đừng bỏ. Nhưng phải lấy danh tính theo cách không phụ
+> thuộc thứ tự guard: tự xác thực token trong `FeatureFlagGuard`, hoặc đăng ký
+> `JwtAuthGuard` toàn cục trước nó. Kèm test chứng minh **cờ tắt ⇒ 404** trên một
+> request đã đăng nhập.
 >
 > Đã kiểm chứng bước dọn có tác dụng: sau mọi lần chạy, `GET /lawyers` trả 200 —
 > cờ được bật lại, môi trường không bị bỏ lại ở trạng thái hỏng.
