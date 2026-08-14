@@ -80,7 +80,24 @@ Bốn đợt dưới đây **chưa ai chạy**. Mỗi kịch bản cần một n
 - [ ] Ngắt mạng → nút Lưu **disabled**
 - [ ] **Trước khi merge:** `SELECT * FROM audit_logs WHERE action='ROLE_PERMISSIONS_UPDATED'` trên prod. Nếu đã có ai bấm Lưu ⇒ quyền đã mất ⇒ chạy lại `prisma/seed-permissions.ts` (idempotent).
 
-### Đợt 2 — Bảo mật + mất dữ liệu (rủi ro CAO)
+### Đợt 2 — Bảo mật + mất dữ liệu (rủi ro CAO) — **3/3 phần đơn-tài-khoản ĐÃ CHẠY**
+
+[`tests/e2e-new/uat-wave2-security.api.spec.ts`](tests/e2e-new/uat-wave2-security.api.spec.ts) — 3/3 xanh:
+
+- [x] `PUT /cases/:id` kèm `evidences[]` → **400** kèm câu chỉ đúng chỗ nhập thay thế.
+      Dùng id **không tồn tại** là cố ý: `ValidationPipe` chạy trước khi tra bản ghi,
+      nên 400 (chứ không phải 404) tự nó chứng minh payload bị chặn ở tầng kiểm tra —
+      và test hết phụ thuộc vào việc DB có sẵn vụ án. *Một test chỉ chạy khi có dữ liệu
+      là test sẽ im lặng biến mất trên DB trắng.*
+- [x] `POST /directories/seed` khi `ALLOW_SEED_ENDPOINTS` không bật → **403**
+- [x] Trường lạ trong payload → **400** (`forbidNonWhitelisted`), không âm thầm rơi mất
+
+**Chưa tự động hoá — cần hai tài khoản ở hai tổ khác nhau:** các kịch bản 403 chéo tổ
+(user tổ A `POST /subjects` với `caseId` tổ B; ND-18 đổi `caseId` sang vụ án tổ khác).
+Tạo tài khoản thử trên môi trường này là quyết định của người vận hành, không phải việc
+tôi tự làm.
+
+Danh sách gốc của đợt, giữ nguyên phần chưa chạy:
 - [ ] **Báo người vận hành TRƯỚC KHI merge**: ADR-0017 đổi ngữ nghĩa `canDispatch`. Ai đang dùng tài khoản điều phối để **sửa** hồ sơ tổ khác sẽ nhận 403. Cách xử lý đúng là cấp WRITE grant cho tổ đó, **không** mở lại lối tắt.
 - [ ] User tổ A → `POST /subjects` với `caseId` của tổ B → **403**
 - [ ] Thêm vật chứng khi sửa vụ án → **lưu được**
