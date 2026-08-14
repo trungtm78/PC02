@@ -116,6 +116,28 @@ BASE_URL=http://localhost:5173 UAT_PROD=1   ADMIN_USERNAME=<user> ADMIN_PASSWORD
 - [ ] **C10 trả hồ sơ hàng loạt → panel kết quả** — chưa tự động hoá (cần dữ liệu hồ sơ đủ điều kiện)
 - [ ] Trang phân loại khác: đặt "từ ngày" → lọc đúng — chưa tự động hoá
 
+### Đợt 3 — hạ tầng cờ — **ĐÃ CHẠY TỰ ĐỘNG (API), 3/3 XANH**
+
+[`tests/e2e-new/uat-wave3-feature-flags.api.spec.ts`](tests/e2e-new/uat-wave3-feature-flags.api.spec.ts)
+
+- [x] `GET /feature-flags` → 200, > 20 cờ (cờ rỗng ⇒ sidebar trống)
+- [x] `PATCH /feature-flags/auth {enabled:false}` → **400** (không tắt được cờ lõi)
+- [x] Tắt cờ `lawyers` → `GET /lawyers` **404 kèm `FEATURE_DISABLED`**, rồi bật lại và
+      kiểm chứng đã bật lại thật (test riêng, để bước dọn không chỉ là ý định tốt)
+
+> **Sự thật vận hành phát hiện khi viết test:** cờ được cache trong tiến trình,
+> TTL mặc định **30 giây** (`FEATURE_FLAG_CACHE_TTL_MS`), và `PATCH` **không**
+> xoá cache. Đây là chủ ý — cache nằm trong từng tiến trình nên nhiều instance
+> hội tụ bằng TTL, chứ không bằng một lệnh xoá chỉ tới được một instance.
+> **Tắt một cờ mất tới 30 giây mới có hiệu lực, không phải tức thì.** Lần viết
+> đầu tôi khẳng định 404 ngay sau `PATCH`, test đỏ, và tôi suýt ghi đó là lỗi gate.
+
+> ⚠️ **Chạy chung cả thư mục `e2e-new` thì ĐỎ, và đó là lỗi test chứ không phải
+> lỗi ứng dụng.** `POST /auth/login` bị chặn 15 lần/60 giây; bộ Đợt 4 đăng nhập
+> lại ở mỗi test nên chạy chung sẽ vượt ngưỡng → 429 → `waitForURL timeout`.
+> Chạy **riêng từng file** thì cả hai xanh. Cần đăng nhập một lần rồi tái dùng
+> `storageState` — **chưa làm**.
+
 ### Đợt 5 — M4 + M5
 - [ ] Tắt cờ `lawyers` → `GET /lawyers` trả **404 kèm `error: 'FEATURE_DISABLED'`** (không phải 404 trần)
 - [ ] Mobile: tắt cờ → app hiện màn "Tính năng tạm tắt", **không** hiện `Lỗi: DioException`

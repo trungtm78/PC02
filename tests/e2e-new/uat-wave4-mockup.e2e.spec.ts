@@ -25,6 +25,15 @@ async function login(page: Page) {
   await page.waitForURL('**/dashboard', { timeout: 40_000 });
 }
 
+// GIỚI HẠN ĐÃ BIẾT — đọc trước khi thêm test vào file này.
+// `POST /auth/login` bị chặn ở 15 lần/60 giây (`@Throttle` trong
+// `auth.controller.ts`). Mỗi test dưới đây đăng nhập lại, cộng thêm global-setup
+// và retry của Playwright, nên chạy file này CÙNG LÚC với các spec khác sẽ vượt
+// ngưỡng: đăng nhập nhận 429, trang không chuyển, và test đỏ với
+// `waitForURL timeout` — trông y hệt lỗi ứng dụng dù ứng dụng không sao.
+//
+// Chạy RIÊNG file này thì 5/5 xanh. Muốn chạy chung cả thư mục thì phải đăng
+// nhập MỘT lần rồi tái dùng `storageState`, chưa làm.
 test.beforeEach(async ({ page }) => {
   await login(page);
 });
