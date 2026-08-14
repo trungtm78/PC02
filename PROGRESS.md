@@ -1,11 +1,42 @@
 STATUS: BLOCKED
-BLOCKED_REASON: Hết việc code. Gate cờ tính năng (E4/E5/E6) ĐÃ SỬA — hai lỗi, lỗi sau bị
-lỗi trước che: (1) FeatureFlagGuard đọc request.user mà chạy trước JwtAuthGuard ⇒ gate không
-bao giờ chạy (đo 0/8); nay tự xác thực token (đo 5/5). (2) GlobalExceptionFilter ghi đè
-FEATURE_DISABLED thành NOT_FOUND ⇒ web/mobile không phân biệt được; nay giữ mã UPPER_SNAKE.
-ADR-0018. Phần còn lại cần người: chạy lại /codex cho PR-F1; kiểm tay đợt 1/2/5;
-`migrate resolve --applied 00000000000000_baseline` trên DB thật; ngưỡng APK cũ cho E6;
-ND-12, ND-13, ND-20.
+BLOCKED_REASON: Hết việc code làm được một mình. Phần còn lại cần người hoặc thiết bị.
+
+ĐÃ LÀM TRONG ĐỢT CUỐI (ngoài kế hoạch, lộ ra từ một test đỏ không bỏ qua):
+- 🔴→✅ Gate cờ E4/E5/E6 từng là NO-OP hoàn toàn. Hai lỗi, lỗi sau bị lỗi trước che:
+  (1) FeatureFlagGuard đọc `request.user` mà nó là APP_GUARD toàn cục nên chạy TRƯỚC
+      JwtAuthGuard cấp controller ⇒ giá trị luôn undefined ⇒ isEnabled() không bao giờ
+      được gọi. Đo trước: 0/8 chặn được. Nay guard tự xác thực token. Đo sau: 5/5.
+  (2) Sửa xong (1) mới lộ ra (2): GlobalExceptionFilter đặt code=HttpStatus[status],
+      ghi đè FEATURE_DISABLED thành NOT_FOUND ⇒ web/mobile không phân biệt được
+      "tính năng tắt" với "không tìm thấy". Nay giữ mã UPPER_SNAKE. → ADR-0018.
+- 34 kiểm UAT tự động thay cho ô tick chờ người bấm: Đợt 1 (3), Đợt 2 phần đơn-tài-khoản
+  (3), Đợt 3 (4), Đợt 4 qua trình duyệt (5), Đợt 5 (4), + 15 cờ E4/E5/E6 chặn thật (16).
+  30 bộ API chạy chung: 30/30 xanh. → UAT-COVERAGE.md
+- CI job `uat-api`, tự bỏ qua tới khi bật `UAT_API_ENABLED` + 2 secret. Chạy được là nhờ
+  baseline ND-26 — trước đó không job CI nào dựng nổi DB trắng.
+
+BÀI HỌC ĐẮT NHẤT: `feature-gating.spec.ts` kiểm *manifest ⇔ decorator khớp nhau* — tức
+decorator có được GẮN không. Nó xanh suốt trong khi gate không chặn gì. Tệ hơn,
+`feature-flag.guard.spec.ts` có hai test KHẲNG ĐỊNH lối tắt là đúng. Một test xanh khẳng
+định chính cái làm hỏng hệ thống. Một cổng kiểm "đã gắn nhãn chưa" không thay được một
+cổng kiểm "có chặn không".
+
+CẦN NGƯỜI (không phải việc code):
+1. Chạy lại `/codex` cho PR-F1 — vòng trước 7×[P1], chưa chạy lại kể từ đó.
+2. `npx prisma migrate resolve --applied 00000000000000_baseline` trên DB đang chạy,
+   MỘT LẦN trước lần deploy kế tiếp. Chỉ ghi 1 dòng, không đụng dữ liệu. Bỏ qua thì
+   deploy sau fail.
+3. Bật CI job: variable `UAT_API_ENABLED=true` + secret `UAT_ADMIN_USERNAME`/
+   `UAT_ADMIN_PASSWORD` cho một tài khoản dùng RIÊNG cho test.
+4. Hai tài khoản ở hai tổ khác nhau ⇒ mở khoá phần 403 chéo tổ của Đợt 2.
+5. Kiểm mắt: ma trận quyền hiện đúng; ngắt mạng ⇒ nút Lưu disabled.
+6. Thiết bị/emulator ⇒ 3 kịch bản mobile của Đợt 5.
+7. `SELECT * FROM audit_logs WHERE action='ROLE_PERMISSIONS_UPDATED'` trên production
+   TRƯỚC khi merge. Bộ Đợt 1 chặn nguyên nhân, không thay được bước phát hiện thiệt hại
+   đã xảy ra.
+8. Quyết định: ngưỡng tỷ lệ APK cũ cho E6 · ND-12 (mật khẩu trong git history) ·
+   ND-13 (mã vật chứng trùng trong 53k dòng legacy) · ND-20 (chính sách ghi bản ghi
+   chưa phân công).
 
 # PROGRESS
 Cập nhật: 2026-08-10T03:15:00+07:00 | Milestone: M1/5 | Task: 0/5 của M1
