@@ -25,11 +25,14 @@ async function login(page: Page) {
   await page.waitForURL('**/dashboard', { timeout: 40_000 });
 }
 
-// `POST /auth/login` bị chặn 15 lần/60 giây (`@Throttle` trong
-// `auth.controller.ts`). Đăng nhập lại ở MỖI test làm cả thư mục vượt ngưỡng:
-// đăng nhập nhận 429, trang không chuyển, test đỏ với `waitForURL timeout` —
-// trông y hệt lỗi ứng dụng dù ứng dụng không sao. Nên: đăng nhập MỘT lần, dùng
-// chung một trang cho cả nhóm, và chạy nối tiếp để thứ tự xác định.
+// Đăng nhập MỘT lần cho cả nhóm: `POST /auth/login` bị chặn 15 lần/60 giây
+// (`@Throttle` trong `auth.controller.ts`), nên đăng nhập lại ở mỗi test là lãng
+// phí hạn mức không vì lý do gì.
+//
+// LƯU Ý: việc này KHÔNG sửa được lỗi "chạy chung cả thư mục thì đỏ". Đã chờ hết
+// hẳn cửa sổ throttle rồi chạy lại — vẫn đỏ đúng hai test đó. Nguyên nhân thật
+// CHƯA xác định; xem mục Đợt 3 trong `UAT-COVERAGE.md`. Chạy riêng file này thì
+// 5/5 xanh.
 test.describe.configure({ mode: 'serial' });
 
 let page: Page;

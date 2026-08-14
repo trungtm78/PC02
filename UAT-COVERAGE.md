@@ -132,25 +132,29 @@ BASE_URL=http://localhost:5173 UAT_PROD=1   ADMIN_USERNAME=<user> ADMIN_PASSWORD
 > **Tắt một cờ mất tới 30 giây mới có hiệu lực, không phải tức thì.** Lần viết
 > đầu tôi khẳng định 404 ngay sau `PATCH`, test đỏ, và tôi suýt ghi đó là lỗi gate.
 
-> ⚠️ **Chạy riêng từng file thì xanh; chạy CHUNG cả thư mục `e2e-new` thì còn
-> ĐỎ 2/8 — chưa xử lý xong, và đây là lỗi bộ test chứ không phải lỗi ứng dụng.**
+> ⚠️ **Chạy riêng từng file thì xanh; chạy CHUNG cả thư mục `e2e-new` thì đỏ
+> 2/8. NGUYÊN NHÂN CHƯA XÁC ĐỊNH.**
 >
-> Đã sửa một nửa: bộ Đợt 4 nay đăng nhập **một lần** (`beforeAll` + trang dùng
-> chung + `mode: 'serial'`) thay vì mỗi test, giảm từ 5 lần đăng nhập xuống 1.
-> Vẫn chưa đủ. Hai nguyên nhân còn lại:
+> Ghi lại cả những giả thuyết đã BỊ BÁC BỎ, để người sau không dò lại đường cụt:
 >
-> 1. **`POST /auth/login` chặn 15 lần/60 giây** và bộ đếm tính theo phút chứ
->    không theo lần chạy — chạy lại liên tiếp trong cùng một phút vẫn vượt
->    ngưỡng, và biểu hiện là `waitForURL timeout` trông y hệt lỗi đăng nhập của
->    ứng dụng. Cách đúng: dựng `storageState` một lần ở global-setup rồi mọi
->    spec tái dùng, thay vì mỗi file tự đăng nhập.
-> 2. **Test cờ `lawyers` nhạy thời gian.** Chạy riêng thì xanh, chạy chung thì
->    hết 40s chờ vẫn chưa thấy 404. Chưa xác định được là TTL dài hơn 30s trong
->    điều kiện đó, hay `PATCH` bị ảnh hưởng bởi chính lần chạy trước. **Chưa
->    kết luận** — không ghi là đã hiểu khi chưa hiểu.
+> - ~~Throttle đăng nhập (15 lần/60s) bị vượt~~ — **đã bác bỏ.** Đã giảm bộ Đợt 4
+>   từ 5 lần đăng nhập xuống 1 (`beforeAll` + trang dùng chung + `mode: 'serial'`),
+>   rồi chờ hết hẳn cửa sổ 60 giây mới chạy: **vẫn đỏ đúng 2 test đó.** Bộ đếm
+>   throttle không phải nguyên nhân.
+> - Hai test đỏ là: `lawyers` không thành 404 trong 40s chờ (Đợt 3), và
+>   `waitForURL('**/dashboard')` hết giờ ở bước đăng nhập của Đợt 4.
+> - Điểm khác biệt duy nhất còn lại giữa "chạy riêng" và "chạy chung" là **thứ
+>   tự**: `uat-wave3` chạy trước `uat-wave4` và có tắt/bật cờ `lawyers` ở giữa.
+>   Có liên quan hay không thì **chưa kiểm chứng** — nêu ra như hướng dò tiếp,
+>   không phải như kết luận.
 >
-> Đã kiểm chứng bước dọn có tác dụng: sau mọi lần chạy, `GET /lawyers` trả 200
-> (cờ được bật lại), không để môi trường hỏng cho lần sau.
+> **Vì sao không đoán bừa:** trong đợt này đã ba lần một chẩn đoán vội được ghi
+> vào tài liệu rồi hoá ra sai (panel "bị ẩn theo quyền" — thật ra thiếu bước bấm
+> tab; gate cờ "hỏng" — thật ra TTL 30s là chủ ý; và chính mục throttle này).
+> Mỗi lần như vậy tốn của người đọc sau một cuộc săn lỗi không tồn tại.
+>
+> Đã kiểm chứng bước dọn có tác dụng: sau mọi lần chạy, `GET /lawyers` trả 200 —
+> cờ được bật lại, môi trường không bị bỏ lại ở trạng thái hỏng.
 
 ### Đợt 5 — M4 + M5
 - [ ] Tắt cờ `lawyers` → `GET /lawyers` trả **404 kèm `error: 'FEATURE_DISABLED'`** (không phải 404 trần)
