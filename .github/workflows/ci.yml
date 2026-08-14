@@ -183,6 +183,84 @@ jobs:
           done
           npx playwright test --project=e2e-new --workers=1 --grep-invert "Đợt 4"
 
+  # ─── UAT qua trình duyệt (bộ Đợt 4 — xoá mockup) ─────────────────────────
+  # Tách khỏi `uat-api` vì nó cần THÊM frontend chạy. Giữ riêng để một lỗi khởi
+  # động frontend không làm mất luôn tín hiệu của 30 kiểm API.
+  #
+  # Dùng `npm run dev` chứ không `vite preview`: frontend gọi `/api/v1` tương
+  # đối và dựa vào `server.proxy` của vite trỏ sang :3000. `vite preview` KHÔNG
+  # áp `server.proxy` (nó đọc `preview.proxy`), nên bản build tĩnh sẽ 404 mọi
+  # lời gọi API — một cách hỏng trông y hệt backend chết.
+  uat-e2e:
+    name: UAT trình duyệt (non-blocking)
+    runs-on: ubuntu-latest
+    if: ${{ vars.UAT_API_ENABLED == 'true' }}
+    continue-on-error: true
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: pc02_ci
+          POSTGRES_PASSWORD: pc02_ci
+          POSTGRES_DB: pc02_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U pc02_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://pc02_ci:pc02_ci@localhost:5432/pc02_ci?schema=public
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: cd backend && npm ci && cd ../frontend && npm ci && cd .. && npm ci
+
+      - name: Build backend
+        run: cd backend && npx prisma generate && npm run build
+
+      - name: Migrate + seed
+        run: |
+          cd backend
+          npx prisma migrate deploy
+          npm run db:seed
+          npm run db:seed:features
+          npm run db:seed:doc-templates
+
+      # Cả ba tiến trình trong CÙNG một step — xem ghi chú ở job `uat-api`.
+      - name: Boot backend + frontend, chạy bộ Đợt 4
+        env:
+          BASE_URL: http://localhost:5173
+          API_URL: http://localhost:3000
+          UAT_PROD: '1'
+          ADMIN_USERNAME: ${{ secrets.UAT_ADMIN_USERNAME }}
+          ADMIN_PASSWORD: ${{ secrets.UAT_ADMIN_PASSWORD }}
+          UAT_USER: ${{ secrets.UAT_ADMIN_USERNAME }}
+          UAT_PASS: ${{ secrets.UAT_ADMIN_PASSWORD }}
+        run: |
+          npx playwright install --with-deps chromium
+          node backend/dist/src/main.js &
+          BE=$!
+          (cd frontend && npm run dev -- --port 5173) &
+          FE=$!
+          trap 'kill $BE $FE 2>/dev/null || true' EXIT
+          for i in $(seq 1 60); do
+            curl -sf http://localhost:3000/api/v1/health >/dev/null               && curl -sf http://localhost:5173/ >/dev/null && break
+            if [ "$i" = "60" ]; then echo "::error::backend hoặc frontend không lên sau 120s"; exit 1; fi
+            sleep 2
+          done
+          npx playwright test --project=e2e-new --workers=1 --grep "Đợt 4"
+
   advisory:
     name: Advisory Checks (non-blocking)
     runs-on: ubuntu-latest

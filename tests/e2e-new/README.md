@@ -93,9 +93,20 @@ Bộ Đợt 4 cần `BASE_URL` trỏ vào frontend (`:5173`) và FE phải đang
 
 ### CI
 
-Job `uat-api` trong [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) đã
-có sẵn: `services: postgres` → migrate + seed → boot backend → chạy `--project=e2e-new`
-(trừ bộ Đợt 4, vốn cần frontend).
+Hai job trong [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml):
+
+| Job | Chạy gì | Cần gì |
+|---|---|---|
+| `uat-api` | 30 kiểm API (`--grep-invert "Đợt 4"`) | postgres + backend |
+| `uat-e2e` | Bộ Đợt 4 (`--grep "Đợt 4"`) | postgres + backend + **frontend** |
+
+Tách đôi cố ý: một lỗi khởi động frontend không được làm mất luôn tín hiệu của
+30 kiểm API.
+
+`uat-e2e` chạy frontend bằng `npm run dev`, **không** `vite preview`: frontend gọi
+`/api/v1` tương đối và dựa vào `server.proxy` của vite trỏ sang `:3000`.
+`vite preview` không áp `server.proxy` (nó đọc `preview.proxy`), nên bản build tĩnh
+sẽ 404 mọi lời gọi API — một cách hỏng trông y hệt backend chết.
 
 **Nó tự bỏ qua cho tới khi được bật.** Để chạy, cần ba thứ ở phía repo:
 
