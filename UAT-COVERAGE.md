@@ -168,9 +168,33 @@ BASE_URL=http://localhost:5173 UAT_PROD=1   ADMIN_USERNAME=<user> ADMIN_PASSWORD
 > động lại giữa chừng và reset cache theo cách không đại diện cho production).
 > Cần dò trên môi trường giống production trước khi coi là bug.
 >
-> **Việc cần làm:** dựng backend chế độ production (không `--watch`), lặp lại
-> đúng phép đo trên. Nếu vẫn không có hiệu lực trong 60 giây ⇒ **chặn merge E6**
-> cho tới khi sửa.
+> **Đầu mối cụ thể — kiểm dòng này TRƯỚC:**
+> [`feature-flag.guard.ts`](backend/src/feature-flags/guards/feature-flag.guard.ts)
+> có `if (!request.user) return true;` — guard **bỏ qua kiểm cờ** khi
+> `request.user` chưa được gán. Mà `request.user` do `JwtAuthGuard` gán, và cả
+> hai đều đăng ký kiểu `APP_GUARD`. **Nếu `FeatureFlagGuard` chạy TRƯỚC
+> `JwtAuthGuard` thì `request.user` luôn `undefined` tại thời điểm đó ⇒ mọi cờ
+> đều được cho qua ⇒ toàn bộ gate là vô hiệu.**
+>
+> Comment ngay trên dòng đó viết "Decouples from APP_GUARD registration order" —
+> nhưng nó không tách rời khỏi thứ tự; nó biến gate thành no-op **mỗi khi guard
+> này chạy trước**. Ý định (chặn rò rỉ 404-vs-401 cho người chưa đăng nhập) là
+> đúng; cách hiện thực phụ thuộc vào đúng cái thứ tự mà nó tuyên bố không phụ
+> thuộc.
+>
+> **Một dữ kiện NGƯỢC chiều, phải giữ:** test này đã **xanh một lần**. Nếu gate
+> luôn vô hiệu thì nó không thể xanh lần nào. Nên **chưa kết luận** — hoặc thứ tự
+> guard không cố định, hoặc còn yếu tố khác. Đây là giả thuyết mạnh nhất kèm
+> dòng mã cụ thể, không phải kết luận.
+>
+> **Việc cần làm, theo thứ tự:**
+> 1. Xác định thứ tự chạy thật của `FeatureFlagGuard` và `JwtAuthGuard`
+>    (log trong `canActivate`, hoặc kiểm thứ tự đăng ký `APP_GUARD`).
+> 2. Nếu `FeatureFlagGuard` chạy trước ⇒ đó là nguyên nhân. Sửa bằng cách bảo đảm
+>    thứ tự, hoặc tự giải mã token trong guard thay vì dựa vào `request.user`.
+> 3. Dựng backend chế độ production (không `--watch`), lặp lại phép đo `curl`.
+> 4. Nếu tắt cờ vẫn không có hiệu lực trong 60 giây ⇒ **chặn merge E6**: điều kiện
+>    merge của E6 dựa thẳng trên giả định gate hoạt động.
 >
 > Đã kiểm chứng bước dọn có tác dụng: sau mọi lần chạy, `GET /lawyers` trả 200 —
 > cờ được bật lại, môi trường không bị bỏ lại ở trạng thái hỏng.
