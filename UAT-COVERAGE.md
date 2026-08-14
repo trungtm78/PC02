@@ -75,8 +75,24 @@ là nói dối bằng cách im lặng thay vì bằng lời.
 
 Bốn đợt dưới đây **chưa ai chạy**. Mỗi kịch bản cần một người ngồi trước máy.
 
-### Đợt 1 — Hồi sức + governance (rủi ro thấp)
-- [ ] `/nguoi-dung` → thẻ Phân quyền → ma trận hiện **đúng** quyền hiện có
+### Đợt 1 — Hồi sức + governance — **phần API 3/3 XANH**
+
+[`tests/e2e-new/uat-wave1-permission-matrix.api.spec.ts`](tests/e2e-new/uat-wave1-permission-matrix.api.spec.ts)
+
+Hồi quy nguy hiểm nhất của đợt này không phải "màn hình hiển thị sai". Nó là: ma
+trận nạp về **rỗng**, người quản trị thấy bảng trống, bấm Lưu, và bản ghi rỗng đó
+**ghi đè toàn bộ quyền của vai trò**. Không ngoại lệ, không cảnh báo — chỉ có một
+hệ thống mà hôm sau không ai làm được gì.
+
+- [x] `GET /admin/permissions` không rỗng
+- [x] **MỌI** vai trò trả về quyền hiện có, không vai trò nào rỗng — kiểm từng cái
+      chứ không lấy mẫu: chỉ cần **một** vai trò nạp rỗng là đủ để ai đó mở đúng
+      vai trò đó và bấm Lưu
+- [x] Quyền có đủ `{action, subject}` — thiếu một trường thì mọi ô ma trận về
+      `false`, trông y hệt "vai trò này chưa có quyền gì"
+
+Bộ này chặn **nguyên nhân**. Nó **không thay được** bước kiểm thiệt hại đã xảy ra:
+- [ ] `/nguoi-dung` → thẻ Phân quyền → ma trận hiện **đúng** quyền hiện có (kiểm mắt)
 - [ ] Ngắt mạng → nút Lưu **disabled**
 - [ ] **Trước khi merge:** `SELECT * FROM audit_logs WHERE action='ROLE_PERMISSIONS_UPDATED'` trên prod. Nếu đã có ai bấm Lưu ⇒ quyền đã mất ⇒ chạy lại `prisma/seed-permissions.ts` (idempotent).
 
