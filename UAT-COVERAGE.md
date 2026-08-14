@@ -71,6 +71,34 @@ là nói dối bằng cách im lặng thay vì bằng lời.
 
 ---
 
+## 2b. Quét toàn bộ hợp đồng `WIRE FORMAT` — lớp lỗi đã được chặn hết
+
+Lỗi thứ ba của chuỗi gate cờ là một **hợp đồng hai đầu không khớp**: hai bên cùng
+tuyên bố `FEATURE_DISABLED` trong comment, mà một bên gửi `error.code` còn bên kia
+đọc `error`. Comment mô tả một hợp đồng **không bên nào thực hiện đúng**, và không
+gì bắt được vì mỗi bên tự nó vẫn nhất quán.
+
+Đã quét cả 10 chỗ khai `WIRE FORMAT` trong repo. Chỉ **ba** cái vượt ranh giới
+client ↔ server — tức chỉ ba cái có thể lệch mà vẫn biên dịch được:
+
+| Hợp đồng | Hai đầu | Chốt bằng gì |
+|---|---|---|
+| `FEATURE_DISABLED` | BE guard ↔ web ↔ mobile | ✅ **vừa sửa** — test dùng thân lỗi đo bằng `curl`; FE +4, mobile +2 |
+| Ánh xạ quyền | `permission-mapping.ts` ↔ `seed-permissions.ts` | ✅ test đọc **seed thật** qua `?raw`, không so với danh sách viết tay |
+| Giới hạn upload | `upload-limits.ts` ↔ `documents.controller.ts` | ✅ test đọc controller thật |
+
+`minMobileVersion` (mobile ↔ `/health`) cũng đã đối chiếu với thân JSON thật: **khớp**.
+
+Bảy chỗ còn lại (`ROLE_NAMES`, `SETTINGS_KEY`, `TOKEN_TYPE`, `TWO_FA_METHOD`, trạng
+thái vật chứng, tên vai trò) là hằng số **trong cùng một codebase** — đổi tên là hỏng
+biên dịch ngay, không lệch âm thầm được.
+
+**Kết luận:** lớp lỗi "hợp đồng khai một đằng, chạy một nẻo" đã được bao hết ở những
+chỗ nó có thể sống. Đây là kết quả **âm tính**, và nó đáng ghi vì nó nói cho người
+sau biết chỗ nào **không** cần đào lại.
+
+---
+
 ## 3. Kiểm tay theo đợt merge — CHƯA CHẠY
 
 Bốn đợt dưới đây **chưa ai chạy**. Mỗi kịch bản cần một người ngồi trước máy.
