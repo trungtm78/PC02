@@ -91,9 +91,23 @@ Bộ Đợt 4 cần `BASE_URL` trỏ vào frontend (`:5173`) và FE phải đang
    test vốn xanh sẽ báo "Expected to fail, but passed", và người đọc dễ tưởng
    test *khác* đã xanh. Nếu cần đánh dấu, đặt **bên trong** thân test.
 
-### Vì sao chưa vào CI
+### CI
 
-Không phải vì thiếu spec nữa — xem khối comment trong
-[`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) trên job `advisory`.
-Tóm tắt: cần một job riêng có `services: postgres`, boot backend, seed đủ 4 script,
-và một cặp secret cho tài khoản dùng riêng cho test.
+Job `uat-api` trong [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) đã
+có sẵn: `services: postgres` → migrate + seed → boot backend → chạy `--project=e2e-new`
+(trừ bộ Đợt 4, vốn cần frontend).
+
+**Nó tự bỏ qua cho tới khi được bật.** Để chạy, cần ba thứ ở phía repo:
+
+| Tên | Loại | Giá trị |
+|---|---|---|
+| `UAT_API_ENABLED` | Variable | `true` |
+| `UAT_ADMIN_USERNAME` | Secret | tài khoản dùng **riêng** cho test |
+| `UAT_ADMIN_PASSWORD` | Secret | mật khẩu của tài khoản đó |
+
+Thiết kế "tự bỏ qua" là cố ý: `global-setup` không có credential mặc định (mật khẩu
+mặc định là mật khẩu bị commit), nên nếu job cứ chạy khi thiếu secret thì nó đỏ mỗi
+vòng và người ta học cách phớt lờ CI.
+
+Job đặt `continue-on-error: true` theo đúng nếp của repo — vào ở chế độ không chặn
+trước, gỡ ra khi đã chạy ổn định vài vòng.

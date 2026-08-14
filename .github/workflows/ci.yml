@@ -90,6 +90,99 @@ jobs:
   # Việc cần làm để nối: một job riêng có `services: postgres`, boot backend,
   # seed, rồi `npx playwright test --project=e2e-new`. Chạy tách khỏi job
   # `test` để một lỗi hạ tầng CI không che mất kết quả unit test.
+  # ─── UAT API trên hệ thật ────────────────────────────────────────────────
+  # 30 kiểm gọi API thật: ma trận phân quyền không rỗng, mất dữ liệu im lặng,
+  # hạ tầng cờ, xin mở lại quyền sửa, và 15 cờ E4/E5/E6 CHẶN thật.
+  #
+  # Vì sao cần dù đã có 3255 unit test: `feature-gating.spec.ts` kiểm
+  # *manifest ⇔ decorator khớp nhau* — tức decorator có được GẮN không. Nó xanh
+  # suốt trong khi gate là no-op hoàn toàn (ADR-0018). Một cổng kiểm "đã gắn
+  # nhãn chưa" không thay được một cổng kiểm "có chặn không".
+  #
+  # TỰ BỎ QUA khi chưa có secret, thay vì đỏ mỗi lần chạy: `global-setup` cố ý
+  # không có credential mặc định (mật khẩu mặc định là mật khẩu bị commit). Job
+  # này im lặng cho tới khi ai đó tạo `UAT_ADMIN_USERNAME`/`UAT_ADMIN_PASSWORD`
+  # cho một tài khoản dùng RIÊNG cho test — sau đó nó chạy mà không cần sửa gì.
+  #
+  # `continue-on-error` theo đúng nếp của repo: vào CI ở chế độ không chặn
+  # trước, gỡ ra khi đã chạy ổn định vài vòng.
+  #
+  # KHÔNG chạy `uat-wave4-mockup` ở đây — bộ đó cần frontend chạy, là việc của
+  # một job khác.
+  uat-api:
+    name: UAT API (non-blocking)
+    runs-on: ubuntu-latest
+    if: ${{ vars.UAT_API_ENABLED == 'true' }}
+    continue-on-error: true
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: pc02_ci
+          POSTGRES_PASSWORD: pc02_ci
+          POSTGRES_DB: pc02_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U pc02_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://pc02_ci:pc02_ci@localhost:5432/pc02_ci?schema=public
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: cd backend && npm ci && cd .. && npm ci
+
+      # Baseline ND-26 làm bước này chạy được trên DB trắng. Trước khi có nó,
+      # `migrate deploy` chết ngay ở migration đầu: không migration nào tạo bảng
+      # `cases`. Xem docs/DEPLOY.md mục "Baseline migration (ND-26)".
+      - name: Build backend
+        run: cd backend && npx prisma generate && npm run build
+
+      - name: Migrate + seed
+        run: |
+          cd backend
+          npx prisma migrate deploy
+          npm run db:seed
+          npm run db:seed:features
+          npm run db:seed:doc-templates
+
+      # Khởi động backend và chạy test trong CÙNG một step, cố ý: tiến trình nền
+      # sống sót qua ranh giới step là thứ không đáng tin — nó thường chạy, và
+      # khi không thì lỗi hiện ra dưới dạng "connection refused" trông y hệt lỗi
+      # ứng dụng. Đợt này đã mất vài vòng vì đúng cái nhầm lẫn đó ở máy local.
+      - name: Boot backend + chạy UAT API specs
+        env:
+          BASE_URL: http://localhost:3000
+          API_URL: http://localhost:3000
+          UAT_PROD: '1'
+          ADMIN_USERNAME: ${{ secrets.UAT_ADMIN_USERNAME }}
+          ADMIN_PASSWORD: ${{ secrets.UAT_ADMIN_PASSWORD }}
+        run: |
+          npx playwright install --with-deps chromium
+          node backend/dist/src/main.js &
+          BACKEND_PID=$!
+          trap 'kill $BACKEND_PID 2>/dev/null || true' EXIT
+          for i in $(seq 1 60); do
+            curl -sf http://localhost:3000/api/v1/health >/dev/null && break
+            if [ "$i" = "60" ]; then echo "::error::backend không lên sau 120s"; exit 1; fi
+            sleep 2
+          done
+          npx playwright test --project=e2e-new --workers=1 --grep-invert "Đợt 4"
+
   advisory:
     name: Advisory Checks (non-blocking)
     runs-on: ubuntu-latest
