@@ -190,6 +190,24 @@ BASE_URL=http://localhost:5173 UAT_PROD=1   ADMIN_USERNAME=<user> ADMIN_PASSWORD
 > tính theo cách không phụ thuộc thứ tự guard: tự xác thực token trong
 > `FeatureFlagGuard`, hoặc đăng ký `JwtAuthGuard` toàn cục trước nó.
 >
+> **Đã quét xem lỗi này còn ở đâu nữa — KHÔNG. Phạm vi chỉ một chỗ.**
+> Toàn dự án có đúng ba thành phần đăng ký toàn cục: `ThrottlerGuard`,
+> `FeatureFlagGuard` (hai `APP_GUARD`) và `DataScopeInterceptor`
+> (`APP_INTERCEPTOR`). `DataScopeInterceptor` cũng đọc `request.user`, nhưng
+> **interceptor chạy SAU guard** trong NestJS, nên lúc nó chạy thì
+> `JwtAuthGuard` cấp controller đã gán `user` xong — và nó vẫn xử lý trường hợp
+> thiếu `user` một cách an toàn (`user?.id && user?.role`, không có thì scope
+> deny-all). An toàn.
+>
+> Nói cách khác lỗi nằm ở **guard toàn cục đọc thứ do guard cấp controller
+> tạo ra** — chỉ `FeatureFlagGuard` rơi vào đúng thế đó. Bản vá không cần lan
+> ra chỗ nào khác.
+>
+> **Bằng chứng chạy được đã có:** `feature-flag.guard.spec.ts` cuối file — một
+> `it.failing` (cờ tắt + chưa có `user` ⇒ phải chặn, đang đỏ) và một test thường
+> (cờ tắt + đã có `user` ⇒ chặn đúng). Hai cái tách bạch: logic đúng, chỗ nối
+> sai. CI đỏ ngay khi ai sửa xong, buộc bỏ `.failing`.
+>
 > Đã kiểm chứng bước dọn có tác dụng: sau mọi lần chạy, `GET /lawyers` trả 200 —
 > cờ được bật lại, môi trường không bị bỏ lại ở trạng thái hỏng.
 
