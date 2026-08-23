@@ -367,6 +367,7 @@ export function AppSidebar({ onClose, isMobileOpen = false }: AppSidebarProps = 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Tìm kiếm menu..."
+              aria-label="Tìm kiếm menu"
               className="w-full pl-8 pr-3 py-1.5 text-sm bg-white/10 border border-white/20 text-white placeholder:text-white/50 rounded focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
             />
           </div>
