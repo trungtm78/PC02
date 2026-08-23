@@ -666,6 +666,16 @@ model Case {
   deXuat                 String? // old: de_xuat
   yeuCauBoSung           String? // old: yeu_cau_bo_sung
 
+  // ── Consolidate epic (feat/consolidate-legacy-native-fields): native metadata → cột typed ──
+  // Trước đây các field này chỉ nằm trong Case.metadata JSON (không query được). Thăng thành
+  // cột chính thức: canonical store 1 nơi, queryable. Xem plan A0 (loại N).
+  reporterDateOfBirth          DateTime? // Ngày sinh người tố cáo/báo tin (gộp từ sinhNamCungCap year-only)
+  reporterDateOfBirthPrecision String?   // 'year' | 'date' — sinhNamCungCap cũ chỉ có năm → YYYY-01-01 + precision='year'
+  receiveDate                  DateTime? // Ngày tiếp nhận vụ án (nghiệp vụ; KHÁC ngayTiepNhan của UTDT)
+  caseClassification           String?   // Phân loại vụ án (native)
+  tinhTrang                    String?   // Tình trạng hồ sơ (native)
+  toiDanhBanDau                String?   // Tội danh ban đầu (native, cạnh cụm tội danh)
+
   legacyRaw      Json?    @map("legacy_raw") // Toàn bộ field raw hệ cũ — không bao giờ mất data (Codex P1)
 
   // PR1 ListPageShell — composite cho /cases/stats hot path (groupBy status,

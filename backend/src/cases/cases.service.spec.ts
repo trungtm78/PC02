@@ -661,6 +661,58 @@ describe('CasesService', () => {
       );
     });
 
+    // Consolidate epic: CREATE phải map field-parity intake + cột native N (trước đây RỚT ở create).
+    it('persists field-parity intake + cột native N khi create (P1 chống rớt-data)', async () => {
+      const tx = {
+        case: { create: jest.fn().mockResolvedValue({ ...mockCase, caseProvenance: 'DIRECT_DISCOVERY' }) },
+        incident: {
+          findFirst: jest.fn().mockResolvedValue(null),
+          findUnique: jest.fn().mockResolvedValue(null),
+          create: jest.fn(),
+          update: jest.fn(),
+        },
+        documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
+      };
+      mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
+
+      await service.create(
+        {
+          ...baseProvenanceDto,
+          caseProvenance: 'DIRECT_DISCOVERY' as any,
+          tenCungCap: 'Nguyễn Văn A',
+          cccdCungCap: '079123456789',
+          noiXayRa: 'Phường 1, Quận 3',
+          moTaChiTiet: 'Nội dung vụ việc',
+          nguonDon: 'Tố giác trực tiếp',
+          reporterDateOfBirth: '1985-01-01',
+          reporterDateOfBirthPrecision: 'year',
+          receiveDate: '2026-06-01',
+          caseClassification: 'Hình sự',
+          tinhTrang: 'Đang xử lý',
+          toiDanhBanDau: 'Trộm cắp tài sản',
+        } as any,
+        'actor-001',
+      );
+
+      expect(tx.case.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            tenCungCap: 'Nguyễn Văn A',
+            cccdCungCap: '079123456789',
+            noiXayRa: 'Phường 1, Quận 3',
+            moTaChiTiet: 'Nội dung vụ việc',
+            nguonDon: 'Tố giác trực tiếp',
+            reporterDateOfBirth: expect.any(Date),
+            reporterDateOfBirthPrecision: 'year',
+            receiveDate: expect.any(Date),
+            caseClassification: 'Hình sự',
+            tinhTrang: 'Đang xử lý',
+            toiDanhBanDau: 'Trộm cắp tài sản',
+          }),
+        }),
+      );
+    });
+
     // ── auto-create Incident from Case Tab Vụ việc (v0.40) ──────────────────
     describe('auto-create Incident from Case Tab Vụ việc', () => {
       const year = new Date().getFullYear();
