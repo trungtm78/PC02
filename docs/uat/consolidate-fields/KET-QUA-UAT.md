@@ -76,8 +76,23 @@ Lệnh dọn đã bị cơ chế an toàn của môi trường chặn lại — 
 
 | Việc | Trạng thái |
 |---|---|
-| BUG-002 dọn dữ liệu | **Chờ phê duyệt** — công cụ sẵn sàng, đã chạy thử chỉ-đọc |
-| Nhóm E2E xuyên module (Đơn thư→Vụ việc→Vụ án) | Đã hết bị BUG-001 chặn, **chưa chạy** |
+| BUG-002 dọn dữ liệu | **Chờ phê duyệt** — công cụ sẵn sàng, đã chạy thử chỉ-đọc; lệnh `--apply` bị cơ chế an toàn môi trường chặn |
+| Nhóm tích hợp xuyên module | ✅ **ĐÃ CHẠY — 12/12 đạt**, và lập tức tìm ra BUG-010 |
+
+### BUG-010 (mới, S2) — vụ án tạo qua chuyển đổi không có mã hồ sơ
+
+Nhóm tích hợp vừa gỡ chặn đã trả ngay giá trị: đường `convert-case` tạo Vụ án **không cấp mã hồ sơ**, trong khi đường tạo trực tiếp thì có. Đo trên dữ liệu: **18/196** vụ nguồn `FROM_PETITION` có `caseCode` rỗng.
+
+Hồ sơ tố tụng không có số thì không trích dẫn được trong văn bản và không tra được theo mã — hai việc cán bộ làm hằng ngày. Đã vá: cấp mã trong cùng giao dịch, kèm ca kiểm đơn vị chốt chặn.
+
+Điểm đáng chú ý về phương pháp: lỗi này **ẩn sau BUG-001**. Chừng nào bước tạo vụ án còn trả 500 thì không ai chạy được nhóm tích hợp, và không ai thấy nó. Một lỗi chặn không chỉ hỏng thứ nó chặn — nó còn che những lỗi phía sau.
+
+### Hai ca từng xanh-mà-rỗng đã siết lại
+
+| Ca | Trước | Sau |
+|---|---|---|
+| TC-189 | Đọc sai đường dẫn nên luôn thấy 0 nhóm số liệu | Đối chiếu **tổng = tổng các nhóm trạng thái** (2222 = 2222) |
+| TC-190 | So độ dài một trang, cả hai đều chạm trần 100 nên phép so vô nghĩa | So **tổng số thật** (2222 vs 1391) + kiểm mọi bản ghi trong tập lọc đúng trạng thái |
 | Quét tiếp cận thủ công | Chưa (phần tự động phủ ~57%) |
 | Ô "Số bị hại" trên form tạo mới | Không thấy trên tab mặc định — cần xác nhận có ở tab Thống kê |
 
