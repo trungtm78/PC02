@@ -298,4 +298,48 @@ describe('buildCreateCasePayload — PR-M2 ghiChuKhac/toiDanhKhacIds + 3 cờ x�
     expect(stat.khongGAGHNhungToaYeuCau).toBe(true);
     expect('coSuDungKQGhiAmTrongXetXu' in stat).toBe(false); // false không gửi (giữ nullable)
   });
+
+  // ── Consolidate epic: field promoted → cột typed TOP-LEVEL ──
+  describe('consolidate: promote → cột typed top-level', () => {
+    it('reporter (native) → cột tenCungCap top-level', () => {
+      const payload = buildCreateCasePayload({ ...baseValid, reporter: 'Nguyễn Văn A' });
+      expect(payload.tenCungCap).toBe('Nguyễn Văn A');
+    });
+
+    it('reporterIdNumber/reporterAddress/description → cột cccdCungCap/diaChiCungCap/moTaChiTiet', () => {
+      const payload = buildCreateCasePayload({
+        ...baseValid,
+        reporterIdNumber: '079123456789',
+        reporterAddress: '12 Lê Lợi',
+        description: 'Nội dung',
+      });
+      expect(payload.cccdCungCap).toBe('079123456789');
+      expect(payload.diaChiCungCap).toBe('12 Lê Lợi');
+      expect(payload.moTaChiTiet).toBe('Nội dung');
+    });
+
+    it('reporterDateOfBirth năm-only → YYYY-01-01 + precision year', () => {
+      const payload = buildCreateCasePayload({ ...baseValid, reporter: 'A', sinhNamCungCap: '1985' });
+      expect(payload.reporterDateOfBirth).toBe('1985-01-01');
+      expect(payload.reporterDateOfBirthPrecision).toBe('year');
+    });
+
+    it('reporterDateOfBirth ngày đầy đủ → precision date', () => {
+      const payload = buildCreateCasePayload({ ...baseValid, reporterDateOfBirth: '2001-03-15' });
+      expect(payload.reporterDateOfBirth).toBe('2001-03-15');
+      expect(payload.reporterDateOfBirthPrecision).toBe('date');
+    });
+
+    it('damageAmount → statistic.soTienBiThietHai (canonical)', () => {
+      const payload = buildCreateCasePayload({ ...baseValid, damageAmount: '5.500.000' });
+      const stat = payload.statistic as Record<string, unknown>;
+      expect(stat.soTienBiThietHai).toBe(5500000);
+    });
+
+    it('deXuatXuLy → cột deXuat; dieuTraVienText → cột dieuTraVien', () => {
+      const payload = buildCreateCasePayload({ ...baseValid, deXuatXuLy: 'Khởi tố', dieuTraVienText: 'Trần B' });
+      expect(payload.deXuat).toBe('Khởi tố');
+      expect(payload.dieuTraVien).toBe('Trần B');
+    });
+  });
 });

@@ -86,6 +86,7 @@ export interface CaseFormData {
   noiCapCccd: string;                // Nơi cấp CCCD
   sdtCungCap: string;                // SĐT người cung cấp
   tinhTrang: string;                 // Tình trạng hồ sơ
+  toiDanhBanDau: string;             // Tội danh ban đầu (native, cạnh cụm tội danh)
   phanLoaiToiPhamLinhVuc: string;    // Phân loại tội phạm theo lĩnh vực
   deXuatXuLy: string;                // Đề xuất xử lý
   yeuCauBoSung: string;              // Yêu cầu bổ sung
@@ -352,6 +353,7 @@ export const INITIAL_FORM_DATA: CaseFormData = {
   noiCapCccd: "",
   sdtCungCap: "",
   tinhTrang: "",
+  toiDanhBanDau: "",
   phanLoaiToiPhamLinhVuc: "",
   deXuatXuLy: "",
   yeuCauBoSung: "",
