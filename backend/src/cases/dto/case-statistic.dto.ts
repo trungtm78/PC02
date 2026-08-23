@@ -1,12 +1,13 @@
 import { IsBoolean, IsDateString, IsInt, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import { IsRealDateString } from '../../common/validators/is-real-date-string.validator';
 
 // Thống kê mở rộng (hybrid) — 1-1 với Case, lưu bảng case_statistics. Tất cả optional.
 export class CaseStatisticDto {
   // Hồ sơ nghiệp vụ
   @IsOptional() @IsString() soDangKyHoSo?: string;
-  @IsOptional() @IsDateString() ngayDangKyHoSo?: string;
+  @IsOptional() @IsRealDateString() ngayDangKyHoSo?: string;
   @IsOptional() @IsString() hoSoLuu?: string;
-  @IsOptional() @IsDateString() ngayNopLuuHoSo?: string;
+  @IsOptional() @IsRealDateString() ngayNopLuuHoSo?: string;
   @IsOptional() @IsString() donViBaoQuanHoSo?: string;
 
   // Ghi âm, ghi hình
@@ -52,13 +53,13 @@ export class CaseStatisticDto {
   @IsOptional() @IsBoolean() khongGAGHNhungToaYeuCau?: boolean;
 
   // Mốc thời gian thống kê
-  @IsOptional() @IsDateString() ngayThongKe?: string;
-  @IsOptional() @IsDateString() ngayPhanCongGiaiQuyetToGiac?: string;
-  @IsOptional() @IsDateString() ngayTiepNhanTin?: string;
-  @IsOptional() @IsDateString() ngayDauThu?: string;
-  @IsOptional() @IsDateString() ngayPhamToiQuaTang?: string;
-  @IsOptional() @IsDateString() ngayBatKhanCap?: string;
-  @IsOptional() @IsDateString() ngayPhatHienDauHieu?: string;
+  @IsOptional() @IsRealDateString() ngayThongKe?: string;
+  @IsOptional() @IsRealDateString() ngayPhanCongGiaiQuyetToGiac?: string;
+  @IsOptional() @IsRealDateString() ngayTiepNhanTin?: string;
+  @IsOptional() @IsRealDateString() ngayDauThu?: string;
+  @IsOptional() @IsRealDateString() ngayPhamToiQuaTang?: string;
+  @IsOptional() @IsRealDateString() ngayBatKhanCap?: string;
+  @IsOptional() @IsRealDateString() ngayPhatHienDauHieu?: string;
 }
 
 // Các field ngày trong CaseStatisticDto — dùng để convert string → Date ở service.

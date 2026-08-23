@@ -1,4 +1,5 @@
 import { IsString, IsOptional, IsDateString, MaxLength } from 'class-validator';
+import { IsRealDateString } from '../../common/validators/is-real-date-string.validator';
 
 /**
  * DTO dùng cho API Khởi tố vụ việc (AC-04)
@@ -18,7 +19,7 @@ export class ProsecuteIncidentDto {
 
   // Ngày quyết định khởi tố
   @IsOptional()
-  @IsDateString()
+  @IsRealDateString()
   prosecutionDate?: string;
 
   // Tội danh
