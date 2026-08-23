@@ -331,31 +331,8 @@ export function TabInfo({ formData, setFormData, errors, setErrors, handlerOptio
               value={formData.soHoSoCu}
               onChange={(v) => update("soHoSoCu", v)}
             />
-            <FormInput
-              label="Tên cá nhân/cơ quan cung cấp, bị hại"
-              value={formData.tenCungCap}
-              onChange={(v) => update("tenCungCap", v)}
-            />
-            <FormInput
-              label="Sinh năm (người cung cấp)"
-              value={formData.sinhNamCungCap}
-              onChange={(v) => update("sinhNamCungCap", v)}
-            />
-            <FormInput
-              label="Số CCCD (người cung cấp)"
-              value={formData.cccdCungCap}
-              onChange={(v) => update("cccdCungCap", v)}
-            />
-            <FormInput
-              label="Nơi cấp CCCD"
-              value={formData.noiCapCccd}
-              onChange={(v) => update("noiCapCccd", v)}
-            />
-            <FormInput
-              label="SĐT (người cung cấp)"
-              value={formData.sdtCungCap}
-              onChange={(v) => update("sdtCungCap", v)}
-            />
+            {/* Consolidate: các ô người cung cấp (tên/sinh năm/CCCD/SĐT) đã GỘP vào cụm
+                "Người tố cáo / Báo tin" bên dưới — cùng cột typed, không nhập 2 nơi. */}
             <FormInput
               label="Tình trạng hồ sơ"
               value={formData.tinhTrang}
@@ -478,6 +455,19 @@ export function TabInfo({ formData, setFormData, errors, setErrors, handlerOptio
             value={formData.reporterIdNumber}
             onChange={(v) => update("reporterIdNumber", v)}
             placeholder="Số CCCD/CMND"
+          />
+          <FormInput
+            label="Ngày cấp CCCD"
+            type="date"
+            icon={<Calendar className="w-4 h-4" />}
+            value={formData.ngayCapCccd}
+            onChange={(v) => update("ngayCapCccd", v)}
+          />
+          <FormInput
+            label="Nơi cấp CCCD"
+            value={formData.noiCapCccd}
+            onChange={(v) => update("noiCapCccd", v)}
+            placeholder="Nơi cấp CCCD"
           />
           <FormInput
             label="Ngày sinh"
