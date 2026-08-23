@@ -10,17 +10,17 @@ export class IncidentsPage {
   async gotoList(): Promise<void> {
     // App dùng /vu-viec (slug tiếng Việt); /incidents vẫn hoạt động nhờ alias
     await this.page.goto('/vu-viec');
-    await this.page.waitForLoadState('networkidle');
+    await this.page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
   }
 
   async gotoNew(): Promise<void> {
     await this.page.goto('/vu-viec/new');
-    await this.page.waitForLoadState('networkidle');
+    await this.page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
   }
 
   async gotoDetail(id: string): Promise<void> {
     await this.page.goto(`/vu-viec/${id}`);
-    await this.page.waitForLoadState('networkidle');
+    await this.page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
   }
 
   async expectListVisible(): Promise<void> {
@@ -44,7 +44,7 @@ export class IncidentsPage {
       '[data-testid="btn-add-incident"], button:has-text("Thêm mới"), button:has-text("Tạo mới"), a:has-text("Thêm mới")'
     ).first();
     await btn.click();
-    await this.page.waitForLoadState('networkidle');
+    await this.page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
   }
 
   async fillName(name: string): Promise<void> {

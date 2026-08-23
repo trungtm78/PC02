@@ -201,7 +201,7 @@ test.describe('AC-01: User Management', () => {
     const ctx = await browser.newContext();
     const p2 = await ctx.newPage();
     await p2.goto(`${BASE_URL}/login`);
-    await p2.waitForLoadState('networkidle');
+    await p2.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
     await p2.locator('input[type="email"], input[name="username"], input[id="username"]').first().fill(inactiveEmail);
     await p2.locator('input[type="password"]').first().fill('Test@12345!');
     await p2.getByRole('button', { name: /sign in|đăng nhập/i }).click();

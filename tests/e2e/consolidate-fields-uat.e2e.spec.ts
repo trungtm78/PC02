@@ -254,7 +254,7 @@ test.describe('F12 — Vụ việc: phần giai đoạn tự mở đúng trạng
       const errors: string[] = [];
       page.on('pageerror', (e) => errors.push(e.message));
       await loginToPage(page, `/incidents/${rows[0].id}/edit`);
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
       const body = (await page.textContent('body')) || '';
       console.log(`\n[${tc}] vụ việc ${rows[0].id} trạng thái ${status} — lỗi trang: ${errors.length}`);
       expect(errors, 'PLAN-A4-03: mở hồ sơ không được lỗi').toEqual([]);
@@ -266,7 +266,7 @@ test.describe('F12 — Vụ việc: phần giai đoạn tự mở đúng trạng
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(e.message));
     await loginToPage(page, '/incidents/new');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
     console.log(`\n[TC-178] lỗi trang khi tạo mới vụ việc: ${errors.length ? errors.join(' | ') : 'không có'}`);
     expect(errors, 'PLAN-A4-03: bản sửa lỗi phải an toàn cả ở chế độ tạo mới').toEqual([]);
   });

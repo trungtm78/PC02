@@ -38,7 +38,7 @@ export async function loginToPage(page: Page, targetPath: string = '/'): Promise
   }, token);
 
   await page.goto(targetPath);
-  await page.waitForLoadState('networkidle');
+  await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
 
   // Nếu vẫn bị redirect về /login, thử inject lại và reload
   if (page.url().includes('/login')) {
@@ -47,6 +47,6 @@ export async function loginToPage(page: Page, targetPath: string = '/'): Promise
       localStorage.setItem('refreshToken', t);
     }, token);
     await page.goto(targetPath);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
   }
 }

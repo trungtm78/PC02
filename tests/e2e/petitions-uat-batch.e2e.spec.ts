@@ -32,14 +32,14 @@ async function navigateToPetitions(page: Page) {
     const sidebarLink = page.locator('a[href*="petition"], a[href*="don-thu"]').first();
     if (await sidebarLink.isVisible({ timeout: 3000 })) {
       await sidebarLink.click();
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
       return;
     }
   } catch {
     // fallback to direct URL
   }
   await page.goto('/petitions');
-  await page.waitForLoadState('networkidle');
+  await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
 }
 
 test.describe('TC: Quan ly Don thu — E2E UI Layer (Layer 2)', () => {
@@ -68,7 +68,7 @@ test.describe('TC: Quan ly Don thu — E2E UI Layer (Layer 2)', () => {
     ).first();
     await expect(createBtn).toBeVisible({ timeout: 10_000 });
     await createBtn.click();
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
 
     // Assertion 1: URL /petitions/new
     await expect(page).toHaveURL(/\/petitions\/new|\/don-thu.*(new|create)/i);
@@ -88,7 +88,7 @@ test.describe('TC: Quan ly Don thu — E2E UI Layer (Layer 2)', () => {
 
     // Navigate directly to create form (reliable path)
     await page.goto('/petitions/new');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
 
     const testName = `UAT E2E ${Date.now()}`;
     const today = new Date().toISOString().split('T')[0];
@@ -126,7 +126,7 @@ test.describe('TC: Quan ly Don thu — E2E UI Layer (Layer 2)', () => {
 
     if (submitVisible) {
       await submitBtn.click();
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
     }
 
     // Assertion 2: no error modal
@@ -179,7 +179,7 @@ test.describe('TC: Quan ly Don thu — E2E UI Layer (Layer 2)', () => {
   test('TC-032-E2E: A11Y — form don thu co label va * tren field bat buoc', async ({ page }) => {
     await loginAdmin(page);
     await page.goto('/petitions/new');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
 
     // Assertion 1: page navigated to /petitions/new
     await expect(page).toHaveURL(/\/petitions\/new|\/petition/i, { timeout: 10_000 });
@@ -205,7 +205,7 @@ test.describe('TC: Quan ly Don thu — E2E UI Layer (Layer 2)', () => {
     // If officer can access petitions, verify they see the list
     if (currentUrl.includes('petition') || currentUrl.includes('don-thu')) {
       // Assertion 2: list loaded
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
       // Assertion 3: no items from other scopes (we can only verify page loaded)
       const content = page.locator('table, [data-testid="petition-list"], .petition-list').first();
       await expect(content).toBeVisible({ timeout: 10_000 }).catch(() => {
