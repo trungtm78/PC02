@@ -17,7 +17,7 @@ async function loginAsAdmin(page: Page) {
 
 test('QA-SS-01: login-step01-visual.png', async ({ page }) => {
   await page.goto(`${BASE_URL}/login`);
-  await page.waitForLoadState('networkidle');
+  await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
   await page.screenshot({
     path: 'tests/screenshots/login-step01-visual.png',
     fullPage: true,

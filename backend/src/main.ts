@@ -43,13 +43,13 @@ async function bootstrap() {
   );
 
   // Global exception filters — standardized error responses.
-  // NestJS resolves filters in REGISTRATION ORDER for specific @Catch types first,
-  // catch-all (@Catch() no-arg) là fallback. PrismaExceptionFilter specific cho
-  // PrismaClientKnownRequestError → match trước GlobalExceptionFilter generic.
-  // UAT Round 1 (TC-484, TC-622): P2003 không còn bubble lên 500.
+  // NestJS áp bộ lọc theo thứ tự NGƯỢC với lúc đăng ký: bộ đăng ký SAU được xét TRƯỚC.
+  // BUG-001 (UAT 2026-08-23): trước đây GlobalExceptionFilter (@Catch() bắt-tất-cả)
+  // đăng ký sau nên luôn thắng → PrismaExceptionFilter thành mã chết, mọi lỗi Prisma
+  // rơi xuống 500. Đặt bộ bắt-tất-cả TRƯỚC để bộ chuyên biệt được xét trước.
   app.useGlobalFilters(
-    new PrismaExceptionFilter(),
     new GlobalExceptionFilter(),
+    new PrismaExceptionFilter(),
   );
 
   // CORS: env CORS_ORIGIN overrides localhost defaults (required for production)

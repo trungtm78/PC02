@@ -289,6 +289,38 @@ async function main(): Promise<void> {
       rejects: rejects.slice(0, 500),
     };
     fs.writeFileSync(outPath, JSON.stringify(report, null, 2), 'utf8');
+
+    // BUG-004 (UAT 2026-08-23): tệp JSON là bản ghi TẠM — chạy xong là mất dấu, không ai
+    // truy được hồ sơ nào bị bỏ qua và vì sao. PLAN-B3 đòi hỏi sổ RÀ SOÁT ĐƯỢC, nên ghi
+    // thêm vào bảng bền vững. Không ghi ở chế độ chạy thử.
+    if (!dry) {
+      const runId = `consolidate-${new Date().toISOString()}`;
+      if (conflicts.length > 0) {
+        await prisma.migrationConflict.createMany({
+          data: conflicts.map((c) => ({
+            runId,
+            entity: 'Case',
+            recordId: c.caseId,
+            field: c.col,
+            colValue: c.colValue == null ? null : String(c.colValue),
+            metaValue: c.metaValue == null ? null : String(c.metaValue),
+          })),
+        });
+      }
+      if (rejects.length > 0) {
+        await prisma.migrationReject.createMany({
+          data: rejects.map((r) => ({
+            runId,
+            entity: 'Case',
+            recordId: r.caseId,
+            field: r.col,
+            rawValue: r.raw == null ? null : String(r.raw),
+            reason: r.reason,
+          })),
+        });
+      }
+      console.log(`Đã ghi sổ rà soát: ${conflicts.length} xung đột, ${rejects.length} bị từ chối (runId=${runId})`);
+    }
     console.log(`\n=== backfill-consolidate ${dry ? '(DRY-RUN) ' : ''}xong ===`);
     console.log(`scanned=${scanned} cases+${casesUpdated}(cells ${caseCellsSet}) stats+${statsUpserted}(cells ${statCellsSet})`);
     console.log(`CONFLICT=${conflicts.length} (cột đã có giá trị KHÁC metadata — KHÔNG đè, anh review) REJECT=${rejects.length} (không parse được)`);

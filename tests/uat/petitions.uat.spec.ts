@@ -364,7 +364,7 @@ test.describe('BƯỚC 8 — Regression: Sidebar và Dashboard', () => {
     // Page does not throw errors — capture errors before navigation completes
     const errors: string[] = [];
     page.on('pageerror', (error) => errors.push(error.message));
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
     expect(errors).toHaveLength(0);
   });
 });

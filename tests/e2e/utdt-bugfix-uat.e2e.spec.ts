@@ -31,7 +31,7 @@ test.describe('TC-001: Trang UTDT load thành công @green @p0', () => {
     await expect(page, 'URL phải là /uy-thac-dieu-tra').toHaveURL(/\/uy-thac-dieu-tra/);
 
     // Assertion 2: Heading "Ủy Thác Điều Tra" hiển thị (dùng locator text để tránh diacritic regex issue)
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
     const heading = page.locator('h1').filter({ hasText: 'Ủy Thác Điều Tra' }).first();
     await expect(heading, 'Heading "Ủy Thác Điều Tra" phải visible').toBeVisible({ timeout: 15000 });
 

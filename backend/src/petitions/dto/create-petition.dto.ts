@@ -16,6 +16,7 @@ import { Transform } from 'class-transformer';
 import { PetitionStatus, LoaiDon } from '@prisma/client';
 import { stripHtmlTags } from '../../common/utils/sanitize.util';
 import { IsCatalogValue } from '../../common/validators/is-catalog-value.validator';
+import { IsRealDateString } from '../../common/validators/is-real-date-string.validator';
 
 // Giá trị hợp lệ của discriminator "phân loại nguồn tin ban đầu" (khớp form cũ /doi-1/Them).
 // Bảo vệ integrity ở tầng API (FE đã giới hạn bằng <select>).
@@ -48,7 +49,7 @@ export class CreatePetitionDto {
   stt?: string;
 
   // Ngày tiếp nhận — bắt buộc, không được là tương lai
-  @IsDateString()
+  @IsRealDateString()
   receivedDate: string;
 
   // Tên người gửi — bắt buộc khi tạo mới, TRỪ đơn nặc danh (khớp validate FE).
@@ -134,7 +135,7 @@ export class CreatePetitionDto {
   attachmentsNote?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsRealDateString()
   deadline?: string;
 
   @IsOptional()
@@ -189,7 +190,7 @@ export class CreatePetitionDto {
   baoCaoBanGiamDoc?: boolean;
 
   @IsOptional()
-  @IsDateString()
+  @IsRealDateString()
   petitionDate?: string;
 
   @IsOptional()
@@ -235,7 +236,7 @@ export class CreatePetitionDto {
   senderIdNumber?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsRealDateString()
   senderIdIssueDate?: string;
 
   @IsOptional()
@@ -261,11 +262,11 @@ export class CreatePetitionDto {
   soPhieuChuyen?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsRealDateString()
   ngayPhieuChuyen?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsRealDateString()
   ngayTiepNhanNguonTin?: string;
 
   @IsOptional()
@@ -293,7 +294,7 @@ export class CreatePetitionDto {
   noiXayRaPhuongXa?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsRealDateString()
   ngayXayRa?: string;
 
   @IsOptional()
@@ -309,7 +310,7 @@ export class CreatePetitionDto {
   phuongThucThuDoan?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsRealDateString()
   ngayGiaoDonViGiaiQuyet?: string;
 
   @IsOptional()
@@ -330,12 +331,12 @@ export class CreatePetitionDto {
 
   // Field-parity hệ thống cũ — Ủy thác điều tra
   @IsOptional()
-  @IsDateString()
+  @IsRealDateString()
   thoiHanUTDT?: string;
 
   // ── Field-parity bổ sung tab "Thông tin" form cũ /doi-1/Them (2026-06-26) ──
   @IsOptional()
-  @IsDateString()
+  @IsRealDateString()
   ngayDeXuat?: string;
 
   @IsOptional()

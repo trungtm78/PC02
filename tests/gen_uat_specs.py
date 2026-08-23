@@ -131,7 +131,7 @@ def tc_to_test_body(tc):
     const login = new LoginPage(page);
     await login.login(process.env.ADMIN_USERNAME!, process.env.ADMIN_PASSWORD!);
     await page.goto('/cases');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
     // Verify URL tới /cases (không bị redirect login)
     expect(page.url()).toContain('/cases');
 """

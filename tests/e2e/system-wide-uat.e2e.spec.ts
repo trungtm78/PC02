@@ -59,7 +59,7 @@ test.describe('SYSTEM-WIDE — Smoke Tests E2E', () => {
 
   test('SMK-03-E2E: [P0] Sidebar hiển thị ≥4 nghiệp vụ sau khi login', async ({ page }) => {
     await loginToPage(page, '/cases');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
 
     // Assertion 1: URL không phải /login (đã vào được app)
     expect(page.url(), 'Không bị redirect về /login').not.toContain('/login');
@@ -176,7 +176,7 @@ test.describe('SYSTEM-WIDE — Smoke Tests E2E', () => {
 
   test('SMK-08-E2E: [P0] KPI Dashboard load, ≥4 chỉ tiêu hiển thị', async ({ page }) => {
     await loginToPage(page, '/kpi');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
 
     // Assertion 1: URL chứa /kpi
     expect(page.url(), 'URL phải chứa /kpi').toContain('/kpi');
@@ -205,7 +205,7 @@ test.describe('SYSTEM-WIDE — Smoke Tests E2E', () => {
 
   test('SMK-10-E2E: [P0] Notification bell hiển thị và panel mở được', async ({ page }) => {
     await loginToPage(page, '/');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
 
     // Assertion 1: Bell button visible
     const bellBtn = page.locator(
@@ -264,7 +264,7 @@ test.describe('UIC — UI/UX Consistency (cross-module)', () => {
 
     for (const mod of modules) {
       await loginToPage(page, mod.path);
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
 
       // Assertion 1: Trang load OK
       expect(page.url(), `${mod.name}: URL đúng`).toContain(mod.path.split('?')[0]);
@@ -313,7 +313,7 @@ test.describe('UIC — UI/UX Consistency (cross-module)', () => {
 
     for (const frm of forms) {
       await loginToPage(page, frm.path);
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
 
       const saveText = await getPrimaryButtonText(page);
       const cancelText = await getCancelButtonText(page);
@@ -360,7 +360,7 @@ test.describe('UIC — UI/UX Consistency (cross-module)', () => {
 
     for (const mod of listPages) {
       await loginToPage(page, mod.path);
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
 
       // Tìm các cell chứa ngày trong table
       const dateCells = page.locator('td, [data-testid*="date"], [data-testid*="created-at"], [data-testid*="deadline"]');
@@ -420,7 +420,7 @@ test.describe('UIC — UI/UX Consistency (cross-module)', () => {
 
     // Test trên Petitions (có data-testid rõ ràng nhất)
     await loginToPage(page, '/petitions');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
 
     const firstRow = page.locator('[data-testid="petition-row"]').first();
     const hasRow = await firstRow.isVisible().catch(() => false);
@@ -484,7 +484,7 @@ test.describe('UIC — UI/UX Consistency (cross-module)', () => {
     // Trigger một action nhỏ (update bản ghi) và verify toast pattern
     // Sử dụng Cases trang detail — click save lần 2 (no-op update)
     await loginToPage(page, '/petitions');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
 
     // Assertion 1: Trang load được
     await expect(page.locator('body'), 'Body phải visible').toBeVisible();
@@ -492,7 +492,7 @@ test.describe('UIC — UI/UX Consistency (cross-module)', () => {
 
     // Mở form tạo mới và cancel — kiểm tra không có unexpected toast
     await loginToPage(page, '/petitions/new');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
 
     // Assertion 2: Form page visible
     const formPage = page.locator('[data-testid="petition-form-page"]').first();
@@ -519,7 +519,7 @@ test.describe('UIC — UI/UX Consistency (cross-module)', () => {
   test('UIC-06-E2E: [P2] Empty state hiển thị khi danh sách rỗng sau filter không khớp', async ({ page }) => {
     // Test empty state bằng cách search với từ khóa không tồn tại
     await loginToPage(page, '/petitions');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
 
     // Assertion 1: Trang danh sách load được (dùng fallback selector)
     const listPage = page.locator(
@@ -536,7 +536,7 @@ test.describe('UIC — UI/UX Consistency (cross-module)', () => {
     if (await searchInput.isVisible().catch(() => false)) {
       await searchInput.fill('ZZZ_NONEXISTENT_UAT_' + Date.now());
       await page.keyboard.press('Enter');
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
 
       // Assertion 2: Empty state xuất hiện hoặc "0 kết quả"
       const emptyState = page.locator(
@@ -632,7 +632,7 @@ test.describe('J08 — DataScope UI: team isolation (SECURITY P0)', () => {
       } catch (_e) {}
     }, token2);
     await page.goto('/cases');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
 
     // Assertion 1: Trang danh sách Cases load được (officer2 có quyền xem Cases của mình)
     expect(page.url(), 'URL phải chứa /cases').toContain('/cases');

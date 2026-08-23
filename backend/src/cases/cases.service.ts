@@ -31,6 +31,7 @@ import { resolveGroup, countByGroup } from '../common/status-groups.util';
 import { CASE_STATUS_GROUPS } from './cases.constants';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CaseAssignedEvent, CaseCreatedEvent } from '../notifications/events/notification.events';
+import { toVnDateOnly } from '../common/utils/vn-date.util';
 
 type JsonInput = Prisma.InputJsonValue;
 type PrismaTx = Prisma.TransactionClient;
@@ -143,6 +144,12 @@ export class CasesService {
         { caseCode: { contains: search, mode: 'insensitive' } },
         { soHoSoCu: { contains: search, mode: 'insensitive' } }, // truy nguyên: tìm theo STT hệ cũ
         { sttCu: { contains: search, mode: 'insensitive' } },
+        // BUG-003 (UAT 2026-08-23): PLAN-B4 nêu đích danh "reporter name, cccd, sttCu,
+        // noiXayRa" là các tiêu chí phải tra được sau khi thăng lên cột typed. Trước đây
+        // chỉ sttCu/soHoSoCu có mặt → mục tiêu "cột typed queryable" mới đạt một nửa.
+        { tenCungCap: { contains: search, mode: 'insensitive' } },
+        { cccdCungCap: { contains: search, mode: 'insensitive' } },
+        { noiXayRa: { contains: search, mode: 'insensitive' } },
         ...(isUtdt
           ? [
               { donViGiao: { contains: search, mode: 'insensitive' as const } },
@@ -878,48 +885,53 @@ export class CasesService {
 
     // Common base case data shared across all branches (caseCode injected inside each tx)
     const baseCaseData = {
+      // BUG-001 (UAT 2026-08-23): `lyDoTamDinhChiVuAn` là cột mảng NOT NULL.
+      // Đường tạo mới trước đây KHÔNG map trường này → Prisma bỏ qua → vỡ ràng buộc
+      // NOT NULL → 500 cho MỌI lệnh tạo vụ án không gửi kèm trường. Luôn cấp mảng rỗng
+      // ("chưa chọn"); giá trị người dùng gửi vẫn được tôn trọng.
+      lyDoTamDinhChiVuAn: dto.lyDoTamDinhChiVuAn ?? [],
       name: dto.name,
       crime: dto.crime,
       crimeChinhId: dto.crimeChinhId,
       status: dto.status ?? CaseStatus.TIEP_NHAN,
       investigatorId: dto.investigatorId,
       createdById: actorId, // v0.31.0.2: creator track
-      deadline: dto.deadline ? new Date(dto.deadline) : undefined,
+      deadline: dto.deadline ? toVnDateOnly(dto.deadline) : undefined,
       unit: dto.unit,
       ...(effectiveAssignedTeamId !== undefined && { assignedTeamId: effectiveAssignedTeamId }),
       subjectsCount: dto.subjectsCount ?? 0,
       ...(dto.capDoToiPham !== undefined && { capDoToiPham: dto.capDoToiPham }),
-      ...(dto.ngayKhoiTo !== undefined && { ngayKhoiTo: new Date(dto.ngayKhoiTo) }),
+      ...(dto.ngayKhoiTo !== undefined && { ngayKhoiTo: toVnDateOnly(dto.ngayKhoiTo) }),
       // ── Field-parity: số QĐ giai đoạn vụ án ──
       ...(dto.soQuyetDinhKhoiTo !== undefined && { soQuyetDinhKhoiTo: dto.soQuyetDinhKhoiTo }),
       ...(dto.soQDNhapVuAn !== undefined && { soQDNhapVuAn: dto.soQDNhapVuAn }),
-      ...(dto.ngayNhapVuAn !== undefined && { ngayNhapVuAn: dto.ngayNhapVuAn ? new Date(dto.ngayNhapVuAn) : null }),
+      ...(dto.ngayNhapVuAn !== undefined && { ngayNhapVuAn: dto.ngayNhapVuAn ? toVnDateOnly(dto.ngayNhapVuAn) : null }),
       ...(dto.ghiChuNhapHoSo !== undefined && { ghiChuNhapHoSo: dto.ghiChuNhapHoSo }),
       ...(dto.soQDTachVuAn !== undefined && { soQDTachVuAn: dto.soQDTachVuAn }),
-      ...(dto.ngayTachVuAn !== undefined && { ngayTachVuAn: dto.ngayTachVuAn ? new Date(dto.ngayTachVuAn) : null }),
+      ...(dto.ngayTachVuAn !== undefined && { ngayTachVuAn: dto.ngayTachVuAn ? toVnDateOnly(dto.ngayTachVuAn) : null }),
       ...(dto.soQDTachHanhVi !== undefined && { soQDTachHanhVi: dto.soQDTachHanhVi }),
-      ...(dto.ngayTachHanhVi !== undefined && { ngayTachHanhVi: dto.ngayTachHanhVi ? new Date(dto.ngayTachHanhVi) : null }),
+      ...(dto.ngayTachHanhVi !== undefined && { ngayTachHanhVi: dto.ngayTachHanhVi ? toVnDateOnly(dto.ngayTachHanhVi) : null }),
       ...(dto.soQDDinhChiVuAn !== undefined && { soQDDinhChiVuAn: dto.soQDDinhChiVuAn }),
-      ...(dto.ngayDinhChiVuAn !== undefined && { ngayDinhChiVuAn: dto.ngayDinhChiVuAn ? new Date(dto.ngayDinhChiVuAn) : null }),
+      ...(dto.ngayDinhChiVuAn !== undefined && { ngayDinhChiVuAn: dto.ngayDinhChiVuAn ? toVnDateOnly(dto.ngayDinhChiVuAn) : null }),
       ...(dto.chuyenVuAnChoCQK !== undefined && { chuyenVuAnChoCQK: dto.chuyenVuAnChoCQK }),
       ...(dto.soBanAnCoHieuLuc !== undefined && { soBanAnCoHieuLuc: dto.soBanAnCoHieuLuc }),
-      ...(dto.ngayBanAnCoHieuLuc !== undefined && { ngayBanAnCoHieuLuc: dto.ngayBanAnCoHieuLuc ? new Date(dto.ngayBanAnCoHieuLuc) : null }),
+      ...(dto.ngayBanAnCoHieuLuc !== undefined && { ngayBanAnCoHieuLuc: dto.ngayBanAnCoHieuLuc ? toVnDateOnly(dto.ngayBanAnCoHieuLuc) : null }),
       ...(dto.canCuTamDinhChiVuAn !== undefined && { canCuTamDinhChiVuAn: dto.canCuTamDinhChiVuAn }),
       ...(dto.canCuPhucHoiVuAn !== undefined && { canCuPhucHoiVuAn: dto.canCuPhucHoiVuAn }),
       // ── PR-3 — field tab "Vụ án TĐC" (persist khi CREATE; update có ở block ~1222) ──
       ...(dto.soQuyetDinhTamDinhChi !== undefined && { soQuyetDinhTamDinhChi: dto.soQuyetDinhTamDinhChi }),
-      ...(dto.ngayTamDinhChi !== undefined && { ngayTamDinhChi: dto.ngayTamDinhChi ? new Date(dto.ngayTamDinhChi) : null }),
+      ...(dto.ngayTamDinhChi !== undefined && { ngayTamDinhChi: dto.ngayTamDinhChi ? toVnDateOnly(dto.ngayTamDinhChi) : null }),
       ...(dto.lyDoTamDinhChiVuAn !== undefined && { lyDoTamDinhChiVuAn: dto.lyDoTamDinhChiVuAn }),
-      ...(dto.ngayHetThoiHieu !== undefined && { ngayHetThoiHieu: dto.ngayHetThoiHieu ? new Date(dto.ngayHetThoiHieu) : null }),
+      ...(dto.ngayHetThoiHieu !== undefined && { ngayHetThoiHieu: dto.ngayHetThoiHieu ? toVnDateOnly(dto.ngayHetThoiHieu) : null }),
       ...(dto.soQuyetDinhPhucHoi !== undefined && { soQuyetDinhPhucHoi: dto.soQuyetDinhPhucHoi }),
-      ...(dto.ngayPhucHoi !== undefined && { ngayPhucHoi: dto.ngayPhucHoi ? new Date(dto.ngayPhucHoi) : null }),
+      ...(dto.ngayPhucHoi !== undefined && { ngayPhucHoi: dto.ngayPhucHoi ? toVnDateOnly(dto.ngayPhucHoi) : null }),
       ...(dto.tdcKhacPhucLyDoBienPhap !== undefined && { tdcKhacPhucLyDoBienPhap: dto.tdcKhacPhucLyDoBienPhap }),
       ...(dto.tdcKhacPhucBienBan !== undefined && { tdcKhacPhucBienBan: dto.tdcKhacPhucBienBan }),
       // ── Field-parity KLĐT + QĐ điều tra lại (PR-M2: trước đây RỚT ở create — update có) ──
       ...(dto.soKLDT !== undefined && { soKLDT: dto.soKLDT }),
-      ...(dto.ngayKLDT !== undefined && { ngayKLDT: dto.ngayKLDT ? new Date(dto.ngayKLDT) : null }),
+      ...(dto.ngayKLDT !== undefined && { ngayKLDT: dto.ngayKLDT ? toVnDateOnly(dto.ngayKLDT) : null }),
       ...(dto.soQDDieuTraLai !== undefined && { soQDDieuTraLai: dto.soQDDieuTraLai }),
-      ...(dto.ngayQDDieuTraLai !== undefined && { ngayQDDieuTraLai: dto.ngayQDDieuTraLai ? new Date(dto.ngayQDDieuTraLai) : null }),
+      ...(dto.ngayQDDieuTraLai !== undefined && { ngayQDDieuTraLai: dto.ngayQDDieuTraLai ? toVnDateOnly(dto.ngayQDDieuTraLai) : null }),
       // ── PR-M2: ghi chú tự do + tội danh khác (multi) ──
       ...(dto.ghiChuKhac !== undefined && { ghiChuKhac: dto.ghiChuKhac }),
       ...(dto.toiDanhKhacIds !== undefined && { toiDanhKhacIds: dto.toiDanhKhacIds }),
@@ -930,20 +942,20 @@ export class CasesService {
       ...(dto.caseType !== undefined && { caseType: dto.caseType }),
       ...(dto.donViGiao !== undefined && { donViGiao: dto.donViGiao }),
       ...(dto.soQuyetDinhUyThac !== undefined && { soQuyetDinhUyThac: dto.soQuyetDinhUyThac }),
-      ...(dto.ngayTiepNhan !== undefined && { ngayTiepNhan: new Date(dto.ngayTiepNhan) }),
-      ...(dto.thoiHanUyThac !== undefined && { thoiHanUyThac: new Date(dto.thoiHanUyThac) }),
+      ...(dto.ngayTiepNhan !== undefined && { ngayTiepNhan: toVnDateOnly(dto.ngayTiepNhan) }),
+      ...(dto.thoiHanUyThac !== undefined && { thoiHanUyThac: toVnDateOnly(dto.thoiHanUyThac) }),
       ...(dto.loaiUyThac !== undefined && { loaiUyThac: dto.loaiUyThac }),
       ...(dto.ketQuaUyThac !== undefined && { ketQuaUyThac: dto.ketQuaUyThac }),
-      ...(dto.ngayTraKetQua !== undefined && { ngayTraKetQua: new Date(dto.ngayTraKetQua) }),
+      ...(dto.ngayTraKetQua !== undefined && { ngayTraKetQua: toVnDateOnly(dto.ngayTraKetQua) }),
       ...(dto.loaiThongTin !== undefined && { loaiThongTin: dto.loaiThongTin }),
       // ── Field-parity intake hệ cũ → cột typed (P1: trước đây RỚT ở CREATE — chỉ UPDATE có) ──
-      ...(dto.ngayDeXuat !== undefined && { ngayDeXuat: dto.ngayDeXuat ? new Date(dto.ngayDeXuat) : null }),
+      ...(dto.ngayDeXuat !== undefined && { ngayDeXuat: dto.ngayDeXuat ? toVnDateOnly(dto.ngayDeXuat) : null }),
       ...(dto.moTaChiTiet !== undefined && { moTaChiTiet: dto.moTaChiTiet }),
       ...(dto.nguonDon !== undefined && { nguonDon: dto.nguonDon }),
       ...(dto.tenCungCap !== undefined && { tenCungCap: dto.tenCungCap }),
       ...(dto.sinhNamCungCap !== undefined && { sinhNamCungCap: dto.sinhNamCungCap }),
       ...(dto.cccdCungCap !== undefined && { cccdCungCap: dto.cccdCungCap }),
-      ...(dto.ngayCapCccd !== undefined && { ngayCapCccd: dto.ngayCapCccd ? new Date(dto.ngayCapCccd) : null }),
+      ...(dto.ngayCapCccd !== undefined && { ngayCapCccd: dto.ngayCapCccd ? toVnDateOnly(dto.ngayCapCccd) : null }),
       ...(dto.noiCapCccd !== undefined && { noiCapCccd: dto.noiCapCccd }),
       ...(dto.sdtCungCap !== undefined && { sdtCungCap: dto.sdtCungCap }),
       ...(dto.diaChiCungCap !== undefined && { diaChiCungCap: dto.diaChiCungCap }),
@@ -953,12 +965,12 @@ export class CasesService {
       ...(dto.phuongThucThuDoan !== undefined && { phuongThucThuDoan: dto.phuongThucThuDoan }),
       ...(dto.ketQuaXuLyKhac !== undefined && { ketQuaXuLyKhac: dto.ketQuaXuLyKhac }),
       ...(dto.soPhieuChuyen !== undefined && { soPhieuChuyen: dto.soPhieuChuyen }),
-      ...(dto.ngayPhieuChuyen !== undefined && { ngayPhieuChuyen: dto.ngayPhieuChuyen ? new Date(dto.ngayPhieuChuyen) : null }),
+      ...(dto.ngayPhieuChuyen !== undefined && { ngayPhieuChuyen: dto.ngayPhieuChuyen ? toVnDateOnly(dto.ngayPhieuChuyen) : null }),
       ...(dto.doVatTaiLieuKemTheo !== undefined && { doVatTaiLieuKemTheo: dto.doVatTaiLieuKemTheo }),
-      ...(dto.ngayVietDon !== undefined && { ngayVietDon: dto.ngayVietDon ? new Date(dto.ngayVietDon) : null }),
+      ...(dto.ngayVietDon !== undefined && { ngayVietDon: dto.ngayVietDon ? toVnDateOnly(dto.ngayVietDon) : null }),
       ...(dto.ghiChuTrungDon !== undefined && { ghiChuTrungDon: dto.ghiChuTrungDon }),
       ...(dto.baoCaoBanGiamDoc !== undefined && { baoCaoBanGiamDoc: dto.baoCaoBanGiamDoc }),
-      ...(dto.ngayGiaoDonViGiaiQuyet !== undefined && { ngayGiaoDonViGiaiQuyet: dto.ngayGiaoDonViGiaiQuyet ? new Date(dto.ngayGiaoDonViGiaiQuyet) : null }),
+      ...(dto.ngayGiaoDonViGiaiQuyet !== undefined && { ngayGiaoDonViGiaiQuyet: dto.ngayGiaoDonViGiaiQuyet ? toVnDateOnly(dto.ngayGiaoDonViGiaiQuyet) : null }),
       ...(dto.lanhDaoToTung !== undefined && { lanhDaoToTung: dto.lanhDaoToTung }),
       ...(dto.dieuTraVien !== undefined && { dieuTraVien: dto.dieuTraVien }),
       ...(dto.phanLoaiToiPhamLinhVuc !== undefined && { phanLoaiToiPhamLinhVuc: dto.phanLoaiToiPhamLinhVuc }),
@@ -966,9 +978,9 @@ export class CasesService {
       ...(dto.deXuat !== undefined && { deXuat: dto.deXuat }),
       ...(dto.yeuCauBoSung !== undefined && { yeuCauBoSung: dto.yeuCauBoSung }),
       // ── Consolidate epic: native metadata → cột typed (plan A0 loại N) ──
-      ...(dto.reporterDateOfBirth !== undefined && { reporterDateOfBirth: dto.reporterDateOfBirth ? new Date(dto.reporterDateOfBirth) : null }),
+      ...(dto.reporterDateOfBirth !== undefined && { reporterDateOfBirth: dto.reporterDateOfBirth ? toVnDateOnly(dto.reporterDateOfBirth) : null }),
       ...(dto.reporterDateOfBirthPrecision !== undefined && { reporterDateOfBirthPrecision: dto.reporterDateOfBirthPrecision }),
-      ...(dto.receiveDate !== undefined && { receiveDate: dto.receiveDate ? new Date(dto.receiveDate) : null }),
+      ...(dto.receiveDate !== undefined && { receiveDate: dto.receiveDate ? toVnDateOnly(dto.receiveDate) : null }),
       ...(dto.caseClassification !== undefined && { caseClassification: dto.caseClassification }),
       ...(dto.tinhTrang !== undefined && { tinhTrang: dto.tinhTrang }),
       ...(dto.toiDanhBanDau !== undefined && { toiDanhBanDau: dto.toiDanhBanDau }),
@@ -1278,7 +1290,7 @@ export class CasesService {
       ...(dto.status !== undefined && { status: dto.status }),
       ...(dto.investigatorId !== undefined && { investigatorId: dto.investigatorId }),
       ...(dto.deadline !== undefined && {
-        deadline: dto.deadline ? new Date(dto.deadline) : null,
+        deadline: dto.deadline ? toVnDateOnly(dto.deadline) : null,
       }),
       ...(dto.unit !== undefined && { unit: dto.unit }),
       ...(dto.subjectsCount !== undefined && { subjectsCount: dto.subjectsCount }),
@@ -1292,33 +1304,34 @@ export class CasesService {
       }),
       ...(dto.capDoToiPham !== undefined && { capDoToiPham: dto.capDoToiPham }),
       ...(dto.ngayKhoiTo !== undefined && {
-        ngayKhoiTo: dto.ngayKhoiTo ? new Date(dto.ngayKhoiTo) : null,
+        ngayKhoiTo: dto.ngayKhoiTo ? toVnDateOnly(dto.ngayKhoiTo) : null,
       }),
       // ── Field-parity: số QĐ giai đoạn vụ án ──
       ...(dto.soQuyetDinhKhoiTo !== undefined && { soQuyetDinhKhoiTo: dto.soQuyetDinhKhoiTo }),
       ...(dto.soQDNhapVuAn !== undefined && { soQDNhapVuAn: dto.soQDNhapVuAn }),
-      ...(dto.ngayNhapVuAn !== undefined && { ngayNhapVuAn: dto.ngayNhapVuAn ? new Date(dto.ngayNhapVuAn) : null }),
+      ...(dto.ngayNhapVuAn !== undefined && { ngayNhapVuAn: dto.ngayNhapVuAn ? toVnDateOnly(dto.ngayNhapVuAn) : null }),
       ...(dto.ghiChuNhapHoSo !== undefined && { ghiChuNhapHoSo: dto.ghiChuNhapHoSo }),
       ...(dto.soQDTachVuAn !== undefined && { soQDTachVuAn: dto.soQDTachVuAn }),
-      ...(dto.ngayTachVuAn !== undefined && { ngayTachVuAn: dto.ngayTachVuAn ? new Date(dto.ngayTachVuAn) : null }),
+      ...(dto.ngayTachVuAn !== undefined && { ngayTachVuAn: dto.ngayTachVuAn ? toVnDateOnly(dto.ngayTachVuAn) : null }),
       ...(dto.soQDTachHanhVi !== undefined && { soQDTachHanhVi: dto.soQDTachHanhVi }),
-      ...(dto.ngayTachHanhVi !== undefined && { ngayTachHanhVi: dto.ngayTachHanhVi ? new Date(dto.ngayTachHanhVi) : null }),
+      ...(dto.ngayTachHanhVi !== undefined && { ngayTachHanhVi: dto.ngayTachHanhVi ? toVnDateOnly(dto.ngayTachHanhVi) : null }),
       ...(dto.soQDDinhChiVuAn !== undefined && { soQDDinhChiVuAn: dto.soQDDinhChiVuAn }),
-      ...(dto.ngayDinhChiVuAn !== undefined && { ngayDinhChiVuAn: dto.ngayDinhChiVuAn ? new Date(dto.ngayDinhChiVuAn) : null }),
+      ...(dto.ngayDinhChiVuAn !== undefined && { ngayDinhChiVuAn: dto.ngayDinhChiVuAn ? toVnDateOnly(dto.ngayDinhChiVuAn) : null }),
       ...(dto.chuyenVuAnChoCQK !== undefined && { chuyenVuAnChoCQK: dto.chuyenVuAnChoCQK }),
       ...(dto.soBanAnCoHieuLuc !== undefined && { soBanAnCoHieuLuc: dto.soBanAnCoHieuLuc }),
-      ...(dto.ngayBanAnCoHieuLuc !== undefined && { ngayBanAnCoHieuLuc: dto.ngayBanAnCoHieuLuc ? new Date(dto.ngayBanAnCoHieuLuc) : null }),
+      ...(dto.ngayBanAnCoHieuLuc !== undefined && { ngayBanAnCoHieuLuc: dto.ngayBanAnCoHieuLuc ? toVnDateOnly(dto.ngayBanAnCoHieuLuc) : null }),
       ...(dto.canCuTamDinhChiVuAn !== undefined && { canCuTamDinhChiVuAn: dto.canCuTamDinhChiVuAn }),
       ...(dto.canCuPhucHoiVuAn !== undefined && { canCuPhucHoiVuAn: dto.canCuPhucHoiVuAn }),
       // ── Field-parity KLĐT + QĐ điều tra lại ──
       ...(dto.soKLDT !== undefined && { soKLDT: dto.soKLDT }),
-      ...(dto.ngayKLDT !== undefined && { ngayKLDT: dto.ngayKLDT ? new Date(dto.ngayKLDT) : null }),
+      ...(dto.ngayKLDT !== undefined && { ngayKLDT: dto.ngayKLDT ? toVnDateOnly(dto.ngayKLDT) : null }),
       ...(dto.soQDDieuTraLai !== undefined && { soQDDieuTraLai: dto.soQDDieuTraLai }),
-      ...(dto.ngayQDDieuTraLai !== undefined && { ngayQDDieuTraLai: dto.ngayQDDieuTraLai ? new Date(dto.ngayQDDieuTraLai) : null }),
+      ...(dto.ngayQDDieuTraLai !== undefined && { ngayQDDieuTraLai: dto.ngayQDDieuTraLai ? toVnDateOnly(dto.ngayQDDieuTraLai) : null }),
       // ── PR-M2: ghi chú tự do + tội danh khác (multi) ──
       ...(dto.ghiChuKhac !== undefined && { ghiChuKhac: dto.ghiChuKhac }),
       ...(dto.toiDanhKhacIds !== undefined && { toiDanhKhacIds: dto.toiDanhKhacIds }),
       // ── TĐC fields ──────────────────────────────────────────────────────────
+      // CHỈ ghi khi client thực sự gửi — sửa một trường KHÔNG được xoá trường khác.
       ...((dto as Record<string, unknown>).lyDoTamDinhChiVuAn !== undefined && {
         lyDoTamDinhChiVuAn: (dto as Record<string, unknown>).lyDoTamDinhChiVuAn as LyDoTamDinhChiVuAn[],
       }),
@@ -1375,25 +1388,25 @@ export class CasesService {
       ...(dto.donViGiao !== undefined && { donViGiao: dto.donViGiao }),
       ...(dto.soQuyetDinhUyThac !== undefined && { soQuyetDinhUyThac: dto.soQuyetDinhUyThac }),
       ...(dto.ngayTiepNhan !== undefined && {
-        ngayTiepNhan: dto.ngayTiepNhan ? new Date(dto.ngayTiepNhan) : null,
+        ngayTiepNhan: dto.ngayTiepNhan ? toVnDateOnly(dto.ngayTiepNhan) : null,
       }),
       ...(dto.thoiHanUyThac !== undefined && {
-        thoiHanUyThac: dto.thoiHanUyThac ? new Date(dto.thoiHanUyThac) : null,
+        thoiHanUyThac: dto.thoiHanUyThac ? toVnDateOnly(dto.thoiHanUyThac) : null,
       }),
       ...(dto.loaiUyThac !== undefined && { loaiUyThac: dto.loaiUyThac }),
       ...(dto.ketQuaUyThac !== undefined && { ketQuaUyThac: dto.ketQuaUyThac }),
       ...(dto.ngayTraKetQua !== undefined && {
-        ngayTraKetQua: dto.ngayTraKetQua ? new Date(dto.ngayTraKetQua) : null,
+        ngayTraKetQua: dto.ngayTraKetQua ? toVnDateOnly(dto.ngayTraKetQua) : null,
       }),
       ...(dto.loaiThongTin !== undefined && { loaiThongTin: dto.loaiThongTin }),
       // ── Field-parity ĐẦY ĐỦ (feat/legacy-field-parity): field intake hệ cũ → cột typed ──
-      ...(dto.ngayDeXuat !== undefined && { ngayDeXuat: dto.ngayDeXuat ? new Date(dto.ngayDeXuat) : null }),
+      ...(dto.ngayDeXuat !== undefined && { ngayDeXuat: dto.ngayDeXuat ? toVnDateOnly(dto.ngayDeXuat) : null }),
       ...(dto.moTaChiTiet !== undefined && { moTaChiTiet: dto.moTaChiTiet }),
       ...(dto.nguonDon !== undefined && { nguonDon: dto.nguonDon }),
       ...(dto.tenCungCap !== undefined && { tenCungCap: dto.tenCungCap }),
       ...(dto.sinhNamCungCap !== undefined && { sinhNamCungCap: dto.sinhNamCungCap }),
       ...(dto.cccdCungCap !== undefined && { cccdCungCap: dto.cccdCungCap }),
-      ...(dto.ngayCapCccd !== undefined && { ngayCapCccd: dto.ngayCapCccd ? new Date(dto.ngayCapCccd) : null }),
+      ...(dto.ngayCapCccd !== undefined && { ngayCapCccd: dto.ngayCapCccd ? toVnDateOnly(dto.ngayCapCccd) : null }),
       ...(dto.noiCapCccd !== undefined && { noiCapCccd: dto.noiCapCccd }),
       ...(dto.sdtCungCap !== undefined && { sdtCungCap: dto.sdtCungCap }),
       ...(dto.diaChiCungCap !== undefined && { diaChiCungCap: dto.diaChiCungCap }),
@@ -1403,12 +1416,12 @@ export class CasesService {
       ...(dto.phuongThucThuDoan !== undefined && { phuongThucThuDoan: dto.phuongThucThuDoan }),
       ...(dto.ketQuaXuLyKhac !== undefined && { ketQuaXuLyKhac: dto.ketQuaXuLyKhac }),
       ...(dto.soPhieuChuyen !== undefined && { soPhieuChuyen: dto.soPhieuChuyen }),
-      ...(dto.ngayPhieuChuyen !== undefined && { ngayPhieuChuyen: dto.ngayPhieuChuyen ? new Date(dto.ngayPhieuChuyen) : null }),
+      ...(dto.ngayPhieuChuyen !== undefined && { ngayPhieuChuyen: dto.ngayPhieuChuyen ? toVnDateOnly(dto.ngayPhieuChuyen) : null }),
       ...(dto.doVatTaiLieuKemTheo !== undefined && { doVatTaiLieuKemTheo: dto.doVatTaiLieuKemTheo }),
-      ...(dto.ngayVietDon !== undefined && { ngayVietDon: dto.ngayVietDon ? new Date(dto.ngayVietDon) : null }),
+      ...(dto.ngayVietDon !== undefined && { ngayVietDon: dto.ngayVietDon ? toVnDateOnly(dto.ngayVietDon) : null }),
       ...(dto.ghiChuTrungDon !== undefined && { ghiChuTrungDon: dto.ghiChuTrungDon }),
       ...(dto.baoCaoBanGiamDoc !== undefined && { baoCaoBanGiamDoc: dto.baoCaoBanGiamDoc }),
-      ...(dto.ngayGiaoDonViGiaiQuyet !== undefined && { ngayGiaoDonViGiaiQuyet: dto.ngayGiaoDonViGiaiQuyet ? new Date(dto.ngayGiaoDonViGiaiQuyet) : null }),
+      ...(dto.ngayGiaoDonViGiaiQuyet !== undefined && { ngayGiaoDonViGiaiQuyet: dto.ngayGiaoDonViGiaiQuyet ? toVnDateOnly(dto.ngayGiaoDonViGiaiQuyet) : null }),
       ...(dto.lanhDaoToTung !== undefined && { lanhDaoToTung: dto.lanhDaoToTung }),
       ...(dto.dieuTraVien !== undefined && { dieuTraVien: dto.dieuTraVien }),
       ...(dto.phanLoaiToiPhamLinhVuc !== undefined && { phanLoaiToiPhamLinhVuc: dto.phanLoaiToiPhamLinhVuc }),

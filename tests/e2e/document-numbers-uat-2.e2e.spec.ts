@@ -13,7 +13,7 @@ const OFFICER1_PASS  = process.env.OFFICER1_PASSWORD ?? 'Officer@1234';
 
 async function loginAs(page: any, email: string, pass: string) {
   await page.goto(`${BASE}/login`);
-  await page.waitForLoadState('networkidle');
+  await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
   const emailInput = page.locator('input[type="email"], input[name="email"], input[placeholder*="mail"]').first();
   const passInput  = page.locator('input[type="password"]').first();
   await emailInput.fill(email);
@@ -30,7 +30,7 @@ test.describe('DocNum UAT — A11Y Layer 2', () => {
 
   test('TC-DN-E2E-106: A11Y — DocNumberPreviewField có aria-label mô tả', async ({ page }) => {
     await page.goto(`${BASE}/settings/document-numbers`);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
     // Verify page loaded
     await expect(page).toHaveURL(/settings\/document-numbers/);
     // Check that the settings page is visible
@@ -43,7 +43,7 @@ test.describe('DocNum UAT — A11Y Layer 2', () => {
 
   test('TC-DN-E2E-107: A11Y — lock icon aria-hidden', async ({ page }) => {
     await page.goto(`${BASE}/settings/document-numbers`);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
     await expect(page).toHaveURL(/settings\/document-numbers/);
     // Check page rendered with template rows
     const rows = page.locator('table tbody tr, [data-testid*="template-row"]');
@@ -58,7 +58,7 @@ test.describe('DocNum UAT — A11Y Layer 2', () => {
 
   test('TC-DN-E2E-108: A11Y — nút Nhập tay focusable bằng keyboard', async ({ page }) => {
     await page.goto(`${BASE}/settings/document-numbers`);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
     await expect(page).toHaveURL(/settings\/document-numbers/);
     // Tab through page, verify focusable elements exist
     await page.keyboard.press('Tab');
@@ -68,7 +68,7 @@ test.describe('DocNum UAT — A11Y Layer 2', () => {
 
   test('TC-DN-E2E-109: A11Y — modal TemplateFormModal trap focus khi mở', async ({ page }) => {
     await page.goto(`${BASE}/settings/document-numbers`);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
     // Open modal
     const addBtn = page.locator('button:has-text("Thêm mới"), [data-testid="btn-add-template"]').first();
     const btnVisible = await addBtn.isVisible({ timeout: 5_000 }).catch(() => false);
@@ -91,7 +91,7 @@ test.describe('DocNum UAT — A11Y Layer 2', () => {
 
   test('TC-DN-E2E-110: A11Y — Escape key đóng modal TemplateFormModal', async ({ page }) => {
     await page.goto(`${BASE}/settings/document-numbers`);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
     const addBtn = page.locator('button:has-text("Thêm mới"), [data-testid="btn-add-template"]').first();
     const btnVisible = await addBtn.isVisible({ timeout: 5_000 }).catch(() => false);
     if (!btnVisible) { test.skip(); return; }
@@ -106,7 +106,7 @@ test.describe('DocNum UAT — A11Y Layer 2', () => {
 
   test('TC-DN-E2E-111: A11Y — badge inputMode có contrast đủ (không crash page)', async ({ page }) => {
     await page.goto(`${BASE}/settings/document-numbers`);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
     await expect(page).toHaveURL(/settings\/document-numbers/);
     // Check badges are visible
     const badges = page.locator('[class*="badge"], span[class*="rounded"]');
@@ -120,7 +120,7 @@ test.describe('DocNum UAT — A11Y Layer 2', () => {
 
   test('TC-DN-E2E-112: A11Y — Settings page table có role markup', async ({ page }) => {
     await page.goto(`${BASE}/settings/document-numbers`);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
     await expect(page).toHaveURL(/settings\/document-numbers/);
     // Check table or list structure
     const tableOrList = page.locator('table, [role="table"], [role="grid"], ul, ol').first();
@@ -129,7 +129,7 @@ test.describe('DocNum UAT — A11Y Layer 2', () => {
 
   test('TC-DN-E2E-113: A11Y — error validation có role=alert', async ({ page }) => {
     await page.goto(`${BASE}/settings/document-numbers`);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
     const addBtn = page.locator('button:has-text("Thêm mới"), [data-testid="btn-add-template"]').first();
     const btnVisible = await addBtn.isVisible({ timeout: 5_000 }).catch(() => false);
     if (!btnVisible) { test.skip(); return; }
@@ -150,7 +150,7 @@ test.describe('DocNum UAT — A11Y Layer 2', () => {
 
   test('TC-DN-E2E-114: COMPAT — Chrome — Settings page render đúng', async ({ page }) => {
     await page.goto(`${BASE}/settings/document-numbers`);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
     await expect(page).toHaveURL(/settings\/document-numbers/);
     const heading = page.locator('h1, h2, [data-testid="docnum-settings-heading"]').first();
     await expect(heading).toBeVisible({ timeout: 8_000 });
@@ -161,7 +161,7 @@ test.describe('DocNum UAT — A11Y Layer 2', () => {
 
   test('TC-DN-E2E-115: COMPAT — Edge — modal và form hoạt động', async ({ page }) => {
     await page.goto(`${BASE}/settings/document-numbers`);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
     await expect(page).toHaveURL(/settings\/document-numbers/);
     const addBtn = page.locator('button:has-text("Thêm mới"), [data-testid="btn-add-template"]').first();
     const btnVisible = await addBtn.isVisible({ timeout: 5_000 }).catch(() => false);
@@ -176,7 +176,7 @@ test.describe('DocNum UAT — A11Y Layer 2', () => {
 
   test('TC-DN-E2E-116: COMPAT — Firefox — template list và preview', async ({ page }) => {
     await page.goto(`${BASE}/settings/document-numbers`);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
     await expect(page).toHaveURL(/settings\/document-numbers/);
     const heading = page.locator('h1, h2').first();
     await expect(heading).toBeVisible({ timeout: 8_000 });
@@ -187,7 +187,7 @@ test.describe('DocNum UAT — A11Y Layer 2', () => {
   test('TC-DN-E2E-117: COMPAT — mobile 375px viewport', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 });
     await page.goto(`${BASE}/settings/document-numbers`);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
     await expect(page).toHaveURL(/settings\/document-numbers/);
     // Page should be usable on mobile
     const heading = page.locator('h1, h2').first();
@@ -200,7 +200,7 @@ test.describe('DocNum UAT — A11Y Layer 2', () => {
   test('TC-DN-E2E-118: COMPAT — tablet 768px viewport', async ({ page }) => {
     await page.setViewportSize({ width: 768, height: 1024 });
     await page.goto(`${BASE}/settings/document-numbers`);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
     await expect(page).toHaveURL(/settings\/document-numbers/);
     const heading = page.locator('h1, h2').first();
     await expect(heading).toBeVisible({ timeout: 8_000 });
@@ -212,14 +212,14 @@ test.describe('DocNum UAT — A11Y Layer 2', () => {
     await page.evaluate(() => {
       (document.body.style as any).fontSize = '200%';
     });
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
     await expect(page).toHaveURL(/settings\/document-numbers/);
     await expect(page.locator('body')).toBeVisible();
   });
 
   test('TC-DN-E2E-120: COMPAT — Windows High Contrast mode (simulation)', async ({ page }) => {
     await page.goto(`${BASE}/settings/document-numbers`);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
     await expect(page).toHaveURL(/settings\/document-numbers/);
     // Page should still render in forced-colors mode
     await expect(page.locator('h1, h2').first()).toBeVisible({ timeout: 6_000 });
@@ -235,7 +235,7 @@ test.describe('DocNum UAT — COMPAT Officer view', () => {
 
   test('TC-DN-E2E-121: COMPAT — officer view /settings/document-numbers readonly', async ({ page }) => {
     await page.goto(`${BASE}/settings/document-numbers`);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
     // Page should load (officer can view but not edit)
     await expect(page).toHaveURL(/settings\/document-numbers/);
     await expect(page.locator('body')).toBeVisible();

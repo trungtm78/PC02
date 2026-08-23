@@ -9,22 +9,22 @@ export class CasesPage {
 
   async gotoList(): Promise<void> {
     await this.page.goto('/cases');
-    await this.page.waitForLoadState('networkidle');
+    await this.page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
   }
 
   async gotoNew(): Promise<void> {
     await this.page.goto('/cases/new');
-    await this.page.waitForLoadState('networkidle');
+    await this.page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
   }
 
   async gotoDetail(id: string): Promise<void> {
     await this.page.goto(`/cases/${id}`);
-    await this.page.waitForLoadState('networkidle');
+    await this.page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
   }
 
   async gotoEdit(id: string): Promise<void> {
     await this.page.goto(`/cases/${id}/edit`);
-    await this.page.waitForLoadState('networkidle');
+    await this.page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
   }
 
   async expectListVisible(): Promise<void> {

@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react';
+import { type ReactNode, useId } from 'react';
 import {
   LABEL_BASE,
   ICON_INPUT_WRAPPER,
@@ -42,10 +42,14 @@ export function FormInteger({
   'data-testid': dataTestId,
 }: FormIntegerProps) {
   const hasIcon = !!icon;
+  // BUG-008 (UAT 2026-08-23): nhãn phải trỏ tới ô nhập (WCAG 2.2 — 1.3.1/3.3.2/4.1.2).
+  const fieldId = useId();
+  const errorId = error ? `${fieldId}-error` : undefined;
   const inputClass = getInputClass(!!error, hasIcon);
 
   const input = (
     <IntegerInput
+      id={fieldId}
       value={value}
       onValueChange={onChange}
       className={inputClass}
@@ -58,7 +62,7 @@ export function FormInteger({
 
   return (
     <div className={getColSpanClass(colSpan)}>
-      <label className={LABEL_BASE}>
+      <label className={LABEL_BASE} htmlFor={fieldId}>
         {label} {required && <span className="text-red-500">*</span>}
       </label>
       {hasIcon ? (
@@ -69,7 +73,7 @@ export function FormInteger({
       ) : (
         input
       )}
-      {error && <p className={FIELD_ERROR_TEXT} data-testid="field-error">{error}</p>}
+      {error && <p className={FIELD_ERROR_TEXT} id={errorId} data-testid="field-error">{error}</p>}
     </div>
   );
 }

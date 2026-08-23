@@ -11,6 +11,7 @@ import {
 import { LoaiNguonTin, LyDoKhongKhoiTo, LyDoTamDinhChiVuViec, NguonPhatTin, PhuongThucTiepNhan } from '@prisma/client';
 import { IsNguonPhatTinMatchLoaiDonVu } from '../../common/validators/nguon-phat-tin-match.validator';
 import { IsCatalogValue } from '../../common/validators/is-catalog-value.validator';
+import { IsRealDateString } from '../../common/validators/is-real-date-string.validator';
 
 export class CreateIncidentDto {
   // Tên vụ việc — bắt buộc, 5–255 ký tự (Table 2.2.A)
@@ -117,7 +118,7 @@ export class CreateIncidentDto {
   soQuyetDinh?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsRealDateString()
   ngayQuyetDinh?: string;
 
   // Field-parity hệ thống cũ (giai đoạn nguồn tin)
@@ -126,7 +127,7 @@ export class CreateIncidentDto {
   soQDPhanCongNguonTin?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsRealDateString()
   ngayQDPhanCongNguonTin?: string;
 
   @IsOptional()
@@ -220,7 +221,7 @@ export class CreateIncidentDto {
   soQuyetDinhTamDinhChiVV?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsRealDateString()
   ngayTamDinhChiVV?: string;
 
   @IsOptional()
@@ -228,12 +229,12 @@ export class CreateIncidentDto {
   soQuyetDinhPhucHoiVV?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsRealDateString()
   ngayPhucHoiVV?: string;
 
   // Field-parity tab "Vụ việc TĐC" form cũ (old: ngay_thang_nam_het_thoi_hieu_vu_viec)
   @IsOptional()
-  @IsDateString()
+  @IsRealDateString()
   ngayHetThoiHieuVV?: string;
 
   // PR-6 — QĐ không khởi tố riêng + cờ xác định tạm dừng (parity Vụ việc)
@@ -242,7 +243,7 @@ export class CreateIncidentDto {
   soQDKhongKhoiTo?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsRealDateString()
   ngayQDKhongKhoiTo?: string;
 
   @IsOptional()
@@ -254,15 +255,15 @@ export class CreateIncidentDto {
 
   // ── Field-parity ĐẦY ĐỦ (feat/legacy-field-parity): field intake hệ cũ Vụ việc ──
   @IsOptional() @IsString() nhanXet?: string;
-  @IsOptional() @IsDateString() ngayTiepNhanNguonTin?: string;
+  @IsOptional() @IsRealDateString() ngayTiepNhanNguonTin?: string;
   @IsOptional() @IsString() loaiThongTin?: string;
-  @IsOptional() @IsDateString() ngayVietDon?: string;
+  @IsOptional() @IsRealDateString() ngayVietDon?: string;
   @IsOptional() @IsString() ghiChuTrungDon?: string;
   @IsOptional() @IsBoolean() baoCaoBanGiamDoc?: boolean;
-  @IsOptional() @IsDateString() ngayGiaoDonViGiaiQuyet?: string;
+  @IsOptional() @IsRealDateString() ngayGiaoDonViGiaiQuyet?: string;
   @IsOptional() @IsString() toiDanhBanDau?: string;
   @IsOptional() @IsString() soPhieuChuyen?: string;
-  @IsOptional() @IsDateString() ngayPhieuChuyen?: string;
+  @IsOptional() @IsRealDateString() ngayPhieuChuyen?: string;
   @IsOptional() @IsString() doVatTaiLieuKemTheo?: string;
   @IsOptional() @IsString() phanLoaiToiPhamLinhVuc?: string;
   @IsOptional() @IsString() phanLoaiHoSoNoiBo?: string;
@@ -270,7 +271,7 @@ export class CreateIncidentDto {
   @IsOptional() @IsString() dieuTraVien?: string;
   @IsOptional() @IsString() dieuTraVienPhuongXa?: string;
   @IsOptional() @IsString() noiCapCccd?: string;
-  @IsOptional() @IsDateString() ngayCapCccd?: string;
+  @IsOptional() @IsRealDateString() ngayCapCccd?: string;
   @IsOptional() @IsString() deXuat?: string;
   @IsOptional() @IsString() yeuCauBoSung?: string;
   @IsOptional() @IsString() ghiChuKhac?: string;

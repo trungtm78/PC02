@@ -1,3 +1,4 @@
+import { IsRealDateString } from '../../common/validators/is-real-date-string.validator';
 import {
   IsString,
   IsOptional,
@@ -33,7 +34,7 @@ export class ConvertToCaseDto {
   prosecutionDecision?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsRealDateString()
   prosecutionDate?: string;
 
   // P1-002 fix: required (was optional) — prevents race when 2 user click convert simultaneously.

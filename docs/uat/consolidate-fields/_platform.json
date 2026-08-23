@@ -1,0 +1,54 @@
+{
+  "detected_at": "2026-08-23",
+  "detection_note": "Chỉ dùng để CHẠY test (plumbing). KHÔNG dùng codebase để suy ra hành vi mong đợi — oracle 100% từ plan.",
+  "platforms": ["web", "api"],
+  "packages": [
+    {
+      "name": "backend",
+      "path": "backend",
+      "kind": "api",
+      "framework": "NestJS + Prisma (PostgreSQL)",
+      "evidence": "backend/package.json scripts.start:dev = nest start --watch; backend/.env PORT=3000",
+      "buildCmds": {
+        "install": "npm ci",
+        "dev": "npm run start:dev",
+        "test": "npx jest --no-coverage"
+      }
+    },
+    {
+      "name": "frontend",
+      "path": "frontend",
+      "kind": "web",
+      "framework": "React + Vite",
+      "evidence": "frontend/package.json scripts.dev = vite",
+      "buildCmds": {
+        "install": "npm ci",
+        "dev": "npm run dev",
+        "test": "npx vitest run --no-coverage",
+        "typecheck": "npm run build"
+      }
+    }
+  ],
+  "apiBaseUrl": "http://localhost:3000/api/v1",
+  "webBaseUrl": "http://localhost:5173",
+  "database": {
+    "url_env": "backend/.env DATABASE_URL",
+    "host": "127.0.0.1",
+    "port": 5432,
+    "db": "pc02_db",
+    "note": "Chỉ thị toàn cục yêu cầu PostgreSQL 18 @5433; .env local đang trỏ 5432. Ghi nhận là environment finding, KHÔNG tự đổi."
+  },
+  "host": { "os": "win32", "iosPossible": false, "androidPossible": false },
+  "mobile": {
+    "applicable": false,
+    "reason": "Plan chỉ chạm web app (React SPA) + API (NestJS). Không có artifact Flutter/RN/Android/iOS trong phạm vi epic → 12 loại TC mobile-only = N/A có lý do."
+  },
+  "blockers": [
+    {
+      "id": "BLK-01",
+      "desc": "Backfill/di trú (J-ADM-01) là thao tác một-lần trên dữ liệu thật; UAT chỉ ĐỌC/ĐỐI SOÁT, không chạy lại backfill trên prod.",
+      "remediation": "Đối soát qua truy vấn chỉ-đọc + bảng conflict/reject; nếu cần chạy lại thì làm trên bản sao local."
+    }
+  ],
+  "evidence_profile": "signoff"
+}

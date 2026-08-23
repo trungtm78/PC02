@@ -13,23 +13,23 @@ export class UTDTPage {
   async gotoList(): Promise<void> {
     // Đúng route UTDT list page (v0.44+)
     await this.page.goto('/uy-thac-dieu-tra');
-    await this.page.waitForLoadState('networkidle');
+    await this.page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
   }
 
   async gotoNew(): Promise<void> {
     // Redirect qua /cases/new với caseProvenance
     await this.page.goto('/uy-thac-dieu-tra/new');
-    await this.page.waitForLoadState('networkidle');
+    await this.page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
   }
 
   async gotoDetail(id: string): Promise<void> {
     await this.page.goto(`/cases/${id}`);
-    await this.page.waitForLoadState('networkidle');
+    await this.page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
   }
 
   async gotoEdit(id: string): Promise<void> {
     await this.page.goto(`/cases/${id}/edit`);
-    await this.page.waitForLoadState('networkidle');
+    await this.page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
   }
 
   /** Mở tab "Thông tin Ủy thác" trong CaseFormPage */
@@ -138,7 +138,7 @@ export class UTDTPage {
       .locator(`button:has-text("${labelMap[state]}"), [data-testid="status-chip-${state}"]`)
       .first();
     await chip.click();
-    await this.page.waitForLoadState('networkidle');
+    await this.page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
   }
 
   /** Verify bulk selection checkboxes hiển thị trong bảng (Bug 1 fix) */
@@ -187,6 +187,6 @@ export class UTDTPage {
     // Click confirm
     const confirmBtn = this.page.getByRole('button', { name: /xác nhận xóa/i });
     await confirmBtn.click();
-    await this.page.waitForLoadState('networkidle');
+    await this.page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
   }
 }

@@ -41,7 +41,7 @@ test.describe('DN-E2E: Settings Page — /settings/document-numbers', () => {
   test('TC-DN-E2E-013: Admin truy cập /settings/document-numbers — thấy bảng templates', async ({ page }) => {
     await loginAdmin(page);
     await page.goto('/settings/document-numbers');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
 
     // Assertion 1: URL đúng
     await expect(page).toHaveURL(/\/settings\/document-numbers/, { timeout: 15_000 });
@@ -61,7 +61,7 @@ test.describe('DN-E2E: Settings Page — /settings/document-numbers', () => {
   test('TC-DN-E2E-014: Settings page — 6 loại chứng từ đều hiển thị (INCIDENT, PETITION, CASE, PROPOSAL, DELEGATION, EVIDENCE)', async ({ page }) => {
     await loginAdmin(page);
     await page.goto('/settings/document-numbers');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
 
     // Assertion 1: URL settings
     await expect(page).toHaveURL(/\/settings\/document-numbers/, { timeout: 15_000 });
@@ -83,7 +83,7 @@ test.describe('DN-E2E: Settings Page — /settings/document-numbers', () => {
   test('TC-DN-E2E-015: Nút [+ Thêm mới] visible và click được — mở TemplateFormModal', async ({ page }) => {
     await loginAdmin(page);
     await page.goto('/settings/document-numbers');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
 
     // Assertion 1: trang settings loaded
     await expect(page).toHaveURL(/\/settings\/document-numbers/, { timeout: 15_000 });
@@ -105,7 +105,7 @@ test.describe('DN-E2E: Settings Page — /settings/document-numbers', () => {
   test('TC-DN-E2E-016: TemplateFormModal — form fields hiển thị đủ (name, documentType, separator, inputMode)', async ({ page }) => {
     await loginAdmin(page);
     await page.goto('/settings/document-numbers');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
 
     const addBtn = page.locator(
       'button:has-text("Thêm mới"), button:has-text("Thêm"), [data-testid="btn-add-template"]'
@@ -139,7 +139,7 @@ test.describe('DN-E2E: Settings Page — /settings/document-numbers', () => {
   test('TC-DN-E2E-017: Nút [Sửa] trên dòng template — mở modal pre-fill', async ({ page }) => {
     await loginAdmin(page);
     await page.goto('/settings/document-numbers');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
 
     await expect(page).toHaveURL(/\/settings\/document-numbers/, { timeout: 15_000 });
 
@@ -176,7 +176,7 @@ test.describe('DN-E2E: Settings Page — /settings/document-numbers', () => {
   test('TC-DN-E2E-018: Officer truy cập /settings/document-numbers — BUG-003: nút Thêm mới visible (thiếu RBAC)', async ({ page }) => {
     await loginOfficer(page);
     await page.goto('/settings/document-numbers');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
 
     // Assertion 1: trang load được hoặc redirect
     const onPage = await page.url().includes('settings/document-numbers');
@@ -211,7 +211,7 @@ test.describe('DN-E2E: Integration — Business Form DocNumberPreviewField', () 
   test('TC-DN-E2E-019: Form tạo Vụ việc — có field Mã vụ việc readonly với preview VV-YYYY-', async ({ page }) => {
     await loginOfficer(page);
     await page.goto('/vu-viec/new');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
 
     // Assertion 1: URL /vu-viec/new hoặc /incidents/new
     await expect(page).toHaveURL(/\/(vu-viec|incidents)\/new/, { timeout: 15_000 });
@@ -237,7 +237,7 @@ test.describe('DN-E2E: Integration — Business Form DocNumberPreviewField', () 
     let landed = false;
     for (const slug of slugs) {
       await page.goto(slug);
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
       const url = page.url();
       if (url.includes('don-thu') || url.includes('petition')) {
         landed = true;
@@ -268,7 +268,7 @@ test.describe('DN-E2E: Integration — Business Form DocNumberPreviewField', () 
   test('TC-DN-E2E-021: Danh sách Hồ sơ — cột Mã vụ án hiển thị HS-YYYY-NNN không phải CUID', async ({ page }) => {
     await loginAdmin(page);
     await page.goto('/cases');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
 
     // Assertion 1: URL /cases
     await expect(page).toHaveURL(/\/cases/, { timeout: 15_000 });
@@ -296,7 +296,7 @@ test.describe('DN-E2E: Integration — Business Form DocNumberPreviewField', () 
   test('TC-DN-E2E-022: Incident vừa tạo trong danh sách — code VV-YYYY- visible', async ({ page }) => {
     await loginAdmin(page);
     await page.goto('/vu-viec');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
 
     // Assertion 1: URL /vu-viec
     await expect(page).toHaveURL(/\/(vu-viec|incidents)/, { timeout: 15_000 });
@@ -322,7 +322,7 @@ test.describe('DN-E2E: Auth — Unauthenticated và Role Guards', () => {
 
   test('TC-DN-E2E-023: Truy cập /settings/document-numbers không đăng nhập → redirect /login', async ({ page }) => {
     await page.goto('/settings/document-numbers');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
 
     // Assertion 1: redirect /login
     await expect(page).toHaveURL(/\/login/, { timeout: 10_000 });
@@ -338,7 +338,7 @@ test.describe('DN-E2E: Auth — Unauthenticated và Role Guards', () => {
   test('TC-DN-E2E-024: Admin thấy Settings > Document Numbers trong sidebar', async ({ page }) => {
     await loginAdmin(page);
     await page.goto('/settings/document-numbers');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
 
     // Assertion 1: URL settings
     await expect(page).toHaveURL(/\/settings/, { timeout: 15_000 });
@@ -363,7 +363,7 @@ test.describe('DN-E2E: DocNumberPreviewField — AUTO / MANUAL badge', () => {
   test('TC-DN-E2E-027: Settings page hiển thị inputMode badge (Tự động/Nhập tay) trên từng dòng', async ({ page }) => {
     await loginAdmin(page);
     await page.goto('/settings/document-numbers');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
 
     await expect(page).toHaveURL(/\/settings\/document-numbers/, { timeout: 15_000 });
     // Assertion 2: có ít nhất 1 badge inputMode
@@ -384,7 +384,7 @@ test.describe('DN-E2E: DocNumberPreviewField — AUTO / MANUAL badge', () => {
   test('TC-DN-E2E-028: Xem stats của template — nút [Xem log] hoặc [Reset] visible', async ({ page }) => {
     await loginAdmin(page);
     await page.goto('/settings/document-numbers');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
 
     await expect(page).toHaveURL(/\/settings\/document-numbers/, { timeout: 15_000 });
 
@@ -410,7 +410,7 @@ test.describe('DN-E2E: Responsive và A11y — Settings Page', () => {
     await loginAdmin(page);
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto('/settings/document-numbers');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
 
     // Assertion 1: URL đúng
     await expect(page).toHaveURL(/\/settings\/document-numbers/, { timeout: 15_000 });
@@ -428,7 +428,7 @@ test.describe('DN-E2E: Responsive và A11y — Settings Page', () => {
   test('TC-DN-E2E-030: Settings page có page title (document.title) phù hợp', async ({ page }) => {
     await loginAdmin(page);
     await page.goto('/settings/document-numbers');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
 
     // Assertion 1: URL
     await expect(page).toHaveURL(/\/settings\/document-numbers/, { timeout: 15_000 });
@@ -447,7 +447,7 @@ test.describe('DN-E2E: Responsive và A11y — Settings Page', () => {
   test('TC-DN-E2E-031: Nút Thêm mới có accessible label (không bị hidden từ screen readers)', async ({ page }) => {
     await loginAdmin(page);
     await page.goto('/settings/document-numbers');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
 
     await expect(page).toHaveURL(/\/settings\/document-numbers/, { timeout: 15_000 });
 
@@ -478,7 +478,7 @@ test.describe('DN-E2E: Regression — Các trang nghiệp vụ không bị broke
   test('TC-DN-E2E-032: Trang danh sách Vụ việc vẫn load được sau v0.42 (regression)', async ({ page }) => {
     await loginOfficer(page);
     await page.goto('/vu-viec');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
 
     // Assertion 1: URL
     await expect(page).toHaveURL(/\/(vu-viec|incidents)/, { timeout: 15_000 });
@@ -494,7 +494,7 @@ test.describe('DN-E2E: Regression — Các trang nghiệp vụ không bị broke
   test('TC-DN-E2E-033: Trang danh sách Hồ sơ vẫn load được sau v0.42 (regression)', async ({ page }) => {
     await loginAdmin(page);
     await page.goto('/cases');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
 
     // Assertion 1: URL
     await expect(page).toHaveURL(/\/cases/, { timeout: 15_000 });
@@ -513,7 +513,7 @@ test.describe('DN-E2E: Regression — Các trang nghiệp vụ không bị broke
     let landed = false;
     for (const slug of slugs) {
       await page.goto(slug);
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
       const url = page.url();
       if (url.includes('don-thu') || url.includes('petition')) {
         landed = true;

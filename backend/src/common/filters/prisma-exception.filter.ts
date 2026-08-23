@@ -50,6 +50,27 @@ export class PrismaExceptionFilter implements ExceptionFilter {
         code = 'RECORD_NOT_FOUND';
         message = 'Bản ghi không tồn tại hoặc đã bị xóa';
         break;
+      // BUG-001 (UAT 2026-08-23): thiếu giá trị cho cột NOT NULL từng trả 500
+      // "Internal server error" — người dùng không biết phải sửa gì (Nielsen #9).
+      case 'P2011': {
+        const target = (exception.meta as { target?: string[] | string } | undefined)?.target;
+        const fields = Array.isArray(target) ? target.join(', ') : (target ?? '');
+        status = HttpStatus.BAD_REQUEST;
+        code = 'NULL_CONSTRAINT';
+        message = fields
+          ? `Thiếu giá trị bắt buộc cho trường: ${fields}`
+          : 'Thiếu giá trị bắt buộc cho một trường của bản ghi';
+        break;
+      }
+      case 'P2012': {
+        const path = (exception.meta as { path?: string } | undefined)?.path;
+        status = HttpStatus.BAD_REQUEST;
+        code = 'MISSING_REQUIRED_VALUE';
+        message = path
+          ? `Thiếu giá trị bắt buộc: ${path}`
+          : 'Thiếu một giá trị bắt buộc trong dữ liệu gửi lên';
+        break;
+      }
       default:
         this.logger.error(
           `Unhandled Prisma error ${exception.code}`,
