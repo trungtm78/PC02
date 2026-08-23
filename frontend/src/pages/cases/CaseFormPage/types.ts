@@ -105,6 +105,7 @@ export interface CaseFormData {
   reporter: string;           // Họ và tên người báo tin
   reporterIdNumber: string;   // Số CMND/CCCD
   reporterDateOfBirth: string;// Ngày sinh
+  reporterDateOfBirthPrecision: string; // 'year' | 'date' — giữ ngữ nghĩa năm-only hệ cũ
   reporterGender: string;     // Giới tính
   reporterPhone: string;      // Số điện thoại
   reporterEmail: string;      // Email
@@ -368,6 +369,7 @@ export const INITIAL_FORM_DATA: CaseFormData = {
   reporter: "",
   reporterIdNumber: "",
   reporterDateOfBirth: "",
+  reporterDateOfBirthPrecision: "",
   reporterGender: "",
   reporterPhone: "",
   reporterEmail: "",

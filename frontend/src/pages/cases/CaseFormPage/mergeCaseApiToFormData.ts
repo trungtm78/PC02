@@ -144,6 +144,7 @@ export function mergeCaseApiToFormData(
     reporter:                    cs('tenCungCap')                 ?? meta.reporter                    ?? prev.reporter,
     reporterIdNumber:            cs('cccdCungCap')                ?? meta.reporterIdNumber            ?? prev.reporterIdNumber,
     reporterDateOfBirth:         cd('reporterDateOfBirth')        ?? meta.reporterDateOfBirth         ?? prev.reporterDateOfBirth,
+    reporterDateOfBirthPrecision: cs('reporterDateOfBirthPrecision') ?? (meta as Record<string,string>).reporterDateOfBirthPrecision ?? prev.reporterDateOfBirthPrecision,
     reporterGender:              meta.reporterGender              ?? prev.reporterGender,
     reporterPhone:               cs('sdtCungCap')                 ?? meta.reporterPhone               ?? prev.reporterPhone,
     reporterEmail:               meta.reporterEmail               ?? prev.reporterEmail,

@@ -11,8 +11,8 @@ describe('backfill-consolidate parsers', () => {
     it('parses ISO yyyy-mm-dd', () => {
       expect(parseDate('2022-03-04')?.toISOString()).toBe('2022-03-04T00:00:00.000Z');
     });
-    it('parses legacy unix epoch seconds', () => {
-      expect(parseDate('1600000000')).toBeInstanceOf(Date);
+    it('rejects raw epoch seconds (metadata không dùng epoch; tránh đoán sai mốc pháp lý)', () => {
+      expect(parseDate('1600000000')).toBeNull();
     });
     it('rejects multi-value / garbage', () => {
       expect(parseDate('24/12/2024 (Thiện); 16/01/2022 (Hoàng)')).toBeNull();
@@ -22,6 +22,10 @@ describe('backfill-consolidate parsers', () => {
     });
     it('rejects impossible day/month', () => {
       expect(parseDate('45/13/2020')).toBeNull();
+    });
+    it('rejects impossible calendar date (31/02 không cuộn sang tháng 3)', () => {
+      expect(parseDate('31/02/2025')).toBeNull();
+      expect(parseDate('31/04/2025')).toBeNull();
     });
   });
 
@@ -52,6 +56,11 @@ describe('backfill-consolidate parsers', () => {
     });
     it('int count parse', () => {
       expect(parseNum('12 người', true)).toBe(12);
+    });
+    it('rejects range / multi-số ("1-2", "5; 7") — không gộp thành số sai', () => {
+      expect(parseNum('1-2', true)).toBeNull();
+      expect(parseNum('5; 7', false)).toBeNull();
+      expect(parseNum('3 và 4', true)).toBeNull();
     });
     it('rejects non-numeric', () => {
       expect(parseNum('không rõ', false)).toBeNull();

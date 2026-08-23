@@ -330,6 +330,22 @@ describe('buildCreateCasePayload — PR-M2 ghiChuKhac/toiDanhKhacIds + 3 cờ x�
       expect(payload.reporterDateOfBirthPrecision).toBe('date');
     });
 
+    it('round-trip năm-only: load YYYY-01-01 + precision year → GIỮ year khi save (chống P0 codex)', () => {
+      // Mô phỏng edit: merge nạp reporterDateOfBirth='1985-01-01' + precision='year' từ cột.
+      const payload = buildCreateCasePayload({
+        ...baseValid,
+        reporterDateOfBirth: '1985-01-01',
+        reporterDateOfBirthPrecision: 'year',
+      });
+      expect(payload.reporterDateOfBirth).toBe('1985-01-01');
+      expect(payload.reporterDateOfBirthPrecision).toBe('year'); // KHÔNG tự nâng thành 'date'
+    });
+
+    it('Jan-1 không có precision đã load → date (mặc định an toàn)', () => {
+      const payload = buildCreateCasePayload({ ...baseValid, reporterDateOfBirth: '1990-01-01' });
+      expect(payload.reporterDateOfBirthPrecision).toBe('date');
+    });
+
     it('damageAmount → statistic.soTienBiThietHai (canonical)', () => {
       const payload = buildCreateCasePayload({ ...baseValid, damageAmount: '5.500.000' });
       const stat = payload.statistic as Record<string, unknown>;

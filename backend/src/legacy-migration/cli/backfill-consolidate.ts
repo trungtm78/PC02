@@ -21,9 +21,6 @@ import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import * as fs from 'fs';
 
-const LEGACY_EPOCH_MIN = 946684800; // 2000-01-01
-const LEGACY_EPOCH_MAX = 2524608000; // 2050-01-01
-
 /** Cột String đơn giản trên Case: candidate = key native (ưu tiên) rồi key cũ. */
 const STRING_COLS: Array<{ col: string; keys: string[] }> = [
   { col: 'tenCungCap', keys: ['reporter', 'tenCungCap'] },
@@ -90,22 +87,20 @@ export function parseDate(raw: unknown): Date | null {
   if (raw == null) return null;
   const s = String(raw).trim();
   if (s === '') return null;
-  // Unix timestamp giây (hệ cũ, sau +50400s offset đã xử lý ở nơi khác — ở đây nhận ISO hoặc epoch)
-  if (/^\d{9,10}$/.test(s)) {
-    const n = Number(s);
-    if (n >= LEGACY_EPOCH_MIN && n <= LEGACY_EPOCH_MAX) return new Date(n * 1000);
-    return null;
-  }
+  // Epoch giây: metadata (form ghi) KHÔNG dùng epoch; epoch thật nằm ở legacyRaw và cần
+  // +50400s shift theo legacy-mapper. Ở đây REJECT (log) để không đoán sai mốc pháp lý.
+  if (/^\d{9,10}$/.test(s)) return null;
   // Định dạng VN dd/mm/yyyy hoặc dd-mm-yyyy (metadata form ghi kiểu này) → lưu date-only UTC.
   const vn = s.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
   if (vn) {
     const day = Number(vn[1]);
     const mon = Number(vn[2]);
     const yr = Number(vn[3]);
-    if (day >= 1 && day <= 31 && mon >= 1 && mon <= 12 && yr >= 1900 && yr <= 2100) {
-      return new Date(Date.UTC(yr, mon - 1, day));
-    }
-    return null;
+    if (day < 1 || day > 31 || mon < 1 || mon > 12 || yr < 1900 || yr > 2100) return null;
+    const d = new Date(Date.UTC(yr, mon - 1, day));
+    // Round-trip validate: chặn ngày bất khả thi (31/02 → JS cuộn sang tháng 3) → reject.
+    if (d.getUTCFullYear() !== yr || d.getUTCMonth() !== mon - 1 || d.getUTCDate() !== day) return null;
+    return d;
   }
   // ISO yyyy-mm-dd... (chỉ nhận khi bắt đầu bằng năm 4 số, tránh nhầm dd-mm-yyyy)
   if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
@@ -129,17 +124,23 @@ export function parseDob(raw: unknown): { date: Date; precision: 'year' | 'date'
   return d ? { date: d, precision: 'date' } : null;
 }
 
-export function parseNum(raw: unknown, _int: boolean): number | null {
+export function parseNum(raw: unknown, int: boolean): number | null {
   if (raw == null) return null;
   // Nếu đã là number (metadata v0.39 lưu damageAmount dạng số) → dùng thẳng.
   if (typeof raw === 'number') return isNaN(raw) ? null : raw;
-  // VN dùng '.' NGĂN NGHÌN (5.500.000 = 5,5 triệu), tiền VND/đếm KHÔNG có thập phân
-  // → bỏ MỌI ký tự không phải chữ số (và dấu '-' đầu). Tránh parseFloat hiểu '.' là thập phân.
-  const neg = /^\s*-/.test(String(raw));
-  const digits = String(raw).replace(/[^\d]/g, '');
+  const s = String(raw).trim();
+  if (s === '') return null;
+  // REJECT giá trị đa-số/khoảng ("1-2", "5; 7", "3 và 4") — không gộp bừa thành 1 số sai.
+  const groups = s.match(/\d+(?:[.,]\d+)*/g) ?? [];
+  if (groups.length !== 1) return null;
+  const neg = /^\s*-/.test(s);
+  // VN dùng '.'/',' NGĂN NGHÌN (5.500.000 = 5,5 triệu); tiền VND/đếm KHÔNG thập phân → bỏ dấu ngăn.
+  const digits = groups[0].replace(/[^\d]/g, '');
   if (digits === '') return null;
-  const n = Number(digits) * (neg ? -1 : 1);
-  return isNaN(n) ? null : n;
+  let n = Number(digits) * (neg ? -1 : 1);
+  if (isNaN(n)) return null;
+  if (int) n = Math.trunc(n);
+  return n;
 }
 
 export function parseBool(raw: unknown): boolean | null {

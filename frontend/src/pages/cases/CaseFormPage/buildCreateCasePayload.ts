@@ -459,7 +459,10 @@ export function buildCreateCasePayload(
   payload.caseClassification = firstStr(formData.caseClassification);
   payload.tinhTrang = firstStr(formData.tinhTrang);
   payload.toiDanhBanDau = firstStr(formData.toiDanhBanDau);
-  // reporterDateOfBirth: merge native date + sinhNamCungCap year-only → kiểu native (Date)
+  // reporterDateOfBirth: merge native date + sinhNamCungCap year-only → kiểu native (Date).
+  // GIỮ ngữ nghĩa "năm-only": input là date (YYYY-MM-DD) không diễn đạt được năm-only, nên khi
+  // load năm-only ta hiện YYYY-01-01 + precision='year'. Round-trip: nếu value vẫn là YYYY-01-01
+  // và precision đã load = 'year' → giữ 'year' (không tự nâng thành 'date' làm sai nghĩa pháp lý).
   const dobRaw = firstStr(formData.reporterDateOfBirth, formData.sinhNamCungCap);
   if (dobRaw) {
     if (/^\d{4}$/.test(dobRaw)) {
@@ -467,12 +470,16 @@ export function buildCreateCasePayload(
       payload.reporterDateOfBirthPrecision = 'year';
     } else {
       payload.reporterDateOfBirth = dobRaw;
-      payload.reporterDateOfBirthPrecision = 'date';
+      const isJan1 = /^\d{4}-01-01$/.test(dobRaw);
+      payload.reporterDateOfBirthPrecision =
+        isJan1 && formData.reporterDateOfBirthPrecision === 'year' ? 'year' : 'date';
     }
   }
-  // Damage/victim → statistic (canonical case_statistics). Native damageAmount + stat_* → 1 nơi.
-  const damage = parseVND(formData.damageAmount) ?? (stat['soTienBiThietHai'] as number | undefined);
-  if (damage != null) {
+  // Damage → statistic (canonical case_statistics). Tab Thống kê (formData.statistic.soTienBiThietHai)
+  // LÀ nguồn chính đã ghi cột từ trước. damageAmount CHỈ seed khi tab TRỐNG (không đè giá trị tab đã
+  // sửa → tránh silent-loss codex P1). Vụ mới không có statistic → damageAmount điền.
+  const damage = parseVND(formData.damageAmount);
+  if (damage != null && stat['soTienBiThietHai'] == null) {
     payload.statistic = { ...(payload.statistic ?? {}), soTienBiThietHai: damage };
   }
 
