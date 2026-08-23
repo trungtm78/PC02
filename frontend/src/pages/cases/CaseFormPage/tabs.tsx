@@ -270,140 +270,167 @@ export function TabInfo({ formData, setFormData, errors, setErrors, handlerOptio
       {/* ── Nhóm 2: Tiêu đề & Mô tả ── */}
       <Card>
         <CardHeader title="Nội dung hồ sơ" />
-        <div className="space-y-4">
-          <FormInput
-            label="Tiêu đề hồ sơ"
-            required
-            value={formData.caseTitle}
-            onChange={(v) => update("caseTitle", v)}
-            error={errors.caseTitle}
-            placeholder="Nhập tiêu đề ngắn gọn về vụ án/vụ việc"
-            data-testid="input-case-title"
-          />
-          <FormTextarea
-            label="Mô tả chi tiết"
-            value={formData.description}
-            onChange={(v) => update("description", v)}
-            placeholder="Mô tả tóm tắt diễn biến và nội dung hồ sơ..."
-            rows={4}
-          />
-
-          {/* Ô nghiệp vụ di trú từ hệ thống cũ — dữ liệu nằm trong Case.metadata.
-              Không hiển thị thì cán bộ không thấy được phần lớn nội dung hồ sơ cũ. */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Reorg cluster theo dòng tố tụng (không đụng data — chỉ sắp xếp lại vị trí nhập cho logic). */}
+        <div className="space-y-6">
+          {/* ── Sự việc & mô tả ── */}
+          <div className="space-y-4">
             <FormInput
-              label="Nguồn đơn / nơi chuyển đến"
-              value={formData.nguonDon}
-              onChange={(v) => update("nguonDon", v)}
-            />
-            <FormInput
-              label="Bị hại"
-              value={formData.biHai}
-              onChange={(v) => update("biHai", v)}
-            />
-            <FormInput
-              label="Nơi xảy ra"
-              value={formData.noiXayRa}
-              onChange={(v) => update("noiXayRa", v)}
-            />
-            <FormInput
-              label="Nghi can"
-              value={formData.nghiVanDoiTuong}
-              onChange={(v) => update("nghiVanDoiTuong", v)}
-            />
-            <FormInput
-              label="Số phiếu chuyển"
-              value={formData.soPhieuChuyen}
-              onChange={(v) => update("soPhieuChuyen", v)}
-            />
-            <FormInput
-              label="Điều tra viên (theo hệ cũ)"
-              value={formData.dieuTraVienText}
-              onChange={(v) => update("dieuTraVienText", v)}
-            />
-            <FormInput
-              label="Số thứ tự hồ sơ cũ"
-              value={formData.sttCu}
-              onChange={(v) => update("sttCu", v)}
-            />
-            <FormInput
-              label="Số thứ tự thụ lý (hệ cũ)"
-              value={formData.soHoSoCu}
-              onChange={(v) => update("soHoSoCu", v)}
-            />
-            {/* Consolidate: các ô người cung cấp (tên/sinh năm/CCCD/SĐT) đã GỘP vào cụm
-                "Người tố cáo / Báo tin" bên dưới — cùng cột typed, không nhập 2 nơi. */}
-            <FormInput
-              label="Tình trạng hồ sơ"
-              value={formData.tinhTrang}
-              onChange={(v) => update("tinhTrang", v)}
-            />
-            <FormInput
-              label="Phân loại tội phạm theo lĩnh vực"
-              value={formData.phanLoaiToiPhamLinhVuc}
-              onChange={(v) => update("phanLoaiToiPhamLinhVuc", v)}
-            />
-          </div>
-          <FormTextarea
-            label="Nhận xét"
-            value={formData.nhanXet}
-            onChange={(v) => update("nhanXet", v)}
-            rows={3}
-          />
-          <FormTextarea
-            label="Phương thức, thủ đoạn"
-            value={formData.phuongThucThuDoan}
-            onChange={(v) => update("phuongThucThuDoan", v)}
-            rows={3}
-          />
-          <FormTextarea
-            label="Kết quả xử lý khác"
-            value={formData.ketQuaXuLyKhac}
-            onChange={(v) => update("ketQuaXuLyKhac", v)}
-            rows={3}
-          />
-          <FormTextarea
-            label="Đề xuất xử lý"
-            value={formData.deXuatXuLy}
-            onChange={(v) => update("deXuatXuLy", v)}
-            rows={3}
-          />
-          <FormTextarea
-            label="Yêu cầu bổ sung"
-            value={formData.yeuCauBoSung}
-            onChange={(v) => update("yeuCauBoSung", v)}
-            rows={3}
-          />
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FormCurrency
-              label="Thiệt hại ước tính (VNĐ)"
-              icon={<DollarSign className="w-4 h-4" />}
-              value={formData.damageAmount}
-              onChange={(v) => update("damageAmount", v)}
-              placeholder="0"
+              label="Tiêu đề hồ sơ"
+              required
+              value={formData.caseTitle}
+              onChange={(v) => update("caseTitle", v)}
+              error={errors.caseTitle}
+              placeholder="Nhập tiêu đề ngắn gọn về vụ án/vụ việc"
+              data-testid="input-case-title"
             />
             <FormTextarea
-              label="Mô tả thiệt hại"
-              value={formData.damageDescription}
-              onChange={(v) => update("damageDescription", v)}
-              placeholder="Chi tiết thiệt hại về người và tài sản..."
+              label="Mô tả chi tiết"
+              value={formData.description}
+              onChange={(v) => update("description", v)}
+              placeholder="Mô tả tóm tắt diễn biến và nội dung hồ sơ..."
+              rows={4}
+            />
+            <FormTextarea
+              label="Phương thức, thủ đoạn"
+              value={formData.phuongThucThuDoan}
+              onChange={(v) => update("phuongThucThuDoan", v)}
+              rows={3}
+            />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormInput
+                label="Nơi xảy ra"
+                value={formData.noiXayRa}
+                onChange={(v) => update("noiXayRa", v)}
+              />
+              <FormInput
+                label="Bị hại"
+                value={formData.biHai}
+                onChange={(v) => update("biHai", v)}
+              />
+              <FormInput
+                label="Nghi can"
+                value={formData.nghiVanDoiTuong}
+                onChange={(v) => update("nghiVanDoiTuong", v)}
+              />
+            </div>
+          </div>
+
+          {/* ── Tiếp nhận & truy nguyên hệ cũ ── */}
+          <div>
+            <p className="text-sm font-semibold text-slate-600 mb-2">Tiếp nhận & truy nguyên</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormInput
+                label="Nguồn đơn / nơi chuyển đến"
+                value={formData.nguonDon}
+                onChange={(v) => update("nguonDon", v)}
+              />
+              <FormInput
+                label="Số phiếu chuyển"
+                value={formData.soPhieuChuyen}
+                onChange={(v) => update("soPhieuChuyen", v)}
+              />
+              <FormInput
+                label="Điều tra viên (hệ cũ, tham chiếu)"
+                value={formData.dieuTraVienText}
+                onChange={(v) => update("dieuTraVienText", v)}
+              />
+              <FormInput
+                label="Số thứ tự hồ sơ cũ"
+                value={formData.sttCu}
+                onChange={(v) => update("sttCu", v)}
+              />
+              <FormInput
+                label="Số thứ tự thụ lý (hệ cũ)"
+                value={formData.soHoSoCu}
+                onChange={(v) => update("soHoSoCu", v)}
+              />
+            </div>
+          </div>
+
+          {/* ── Phân loại ── */}
+          <div>
+            <p className="text-sm font-semibold text-slate-600 mb-2">Phân loại</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormInput
+                label="Tình trạng hồ sơ"
+                value={formData.tinhTrang}
+                onChange={(v) => update("tinhTrang", v)}
+              />
+              <FormInput
+                label="Tội danh ban đầu"
+                value={formData.toiDanhBanDau}
+                onChange={(v) => update("toiDanhBanDau", v)}
+              />
+              <FormInput
+                label="Phân loại tội phạm theo lĩnh vực"
+                value={formData.phanLoaiToiPhamLinhVuc}
+                onChange={(v) => update("phanLoaiToiPhamLinhVuc", v)}
+              />
+            </div>
+          </div>
+
+          {/* ── Kết quả & xử lý ── */}
+          <div className="space-y-4">
+            <p className="text-sm font-semibold text-slate-600">Kết quả & xử lý</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormCurrency
+                label="Thiệt hại ước tính (VNĐ)"
+                icon={<DollarSign className="w-4 h-4" />}
+                value={formData.damageAmount}
+                onChange={(v) => update("damageAmount", v)}
+                placeholder="0"
+              />
+              <FormTextarea
+                label="Mô tả thiệt hại"
+                value={formData.damageDescription}
+                onChange={(v) => update("damageDescription", v)}
+                placeholder="Chi tiết thiệt hại về người và tài sản..."
+                rows={2}
+              />
+            </div>
+            <FormTextarea
+              label="Nhận xét"
+              value={formData.nhanXet}
+              onChange={(v) => update("nhanXet", v)}
+              rows={3}
+            />
+            <FormTextarea
+              label="Đề xuất xử lý"
+              value={formData.deXuatXuLy}
+              onChange={(v) => update("deXuatXuLy", v)}
+              rows={3}
+            />
+            <FormTextarea
+              label="Kết quả xử lý khác"
+              value={formData.ketQuaXuLyKhac}
+              onChange={(v) => update("ketQuaXuLyKhac", v)}
+              rows={3}
+            />
+            <FormTextarea
+              label="Yêu cầu bổ sung"
+              value={formData.yeuCauBoSung}
+              onChange={(v) => update("yeuCauBoSung", v)}
+              rows={3}
+            />
+          </div>
+
+          {/* ── Khác ── */}
+          <div className="space-y-4">
+            <FormInput
+              label="Mã vụ án liên quan"
+              icon={<Hash className="w-4 h-4" />}
+              value={formData.relatedCaseCode}
+              onChange={(v) => update("relatedCaseCode", v)}
+              placeholder="Nhập mã vụ án liên quan (nếu có)"
+            />
+            <FormTextarea
+              label="Ghi chú"
+              value={formData.note}
+              onChange={(v) => update("note", v)}
+              placeholder="Các lưu ý đặc biệt, cảnh báo nghiệp vụ..."
               rows={2}
             />
           </div>
-          <FormInput
-            label="Mã vụ án liên quan"
-            icon={<Hash className="w-4 h-4" />}
-            value={formData.relatedCaseCode}
-            onChange={(v) => update("relatedCaseCode", v)}
-            placeholder="Nhập mã vụ án liên quan (nếu có)"
-          />
-          <FormTextarea
-            label="Ghi chú"
-            value={formData.note}
-            onChange={(v) => update("note", v)}
-            placeholder="Các lưu ý đặc biệt, cảnh báo nghiệp vụ..."
-            rows={2}
-          />
         </div>
       </Card>
 
