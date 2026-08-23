@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.71.0.0] - 2026-08-23
+
+Đợt vá sinh ra từ một vòng UAT chạy trên dữ liệu di trú thật (3.740 vụ án · 46.135 đơn thư · 5.081 vụ việc) cho epic hợp nhất field cũ ↔ field mới. Tám lỗi tìm được, trong đó hai lỗi mức chặn.
+
+### Fixed
+- **Không tạo được vụ án mới bằng thông tin tối thiểu** — máy chủ trả lỗi 500 kèm thông báo "Internal server error" không cho biết phải sửa gì. Nguyên nhân: một cột danh sách bắt buộc không có giá trị mặc định và đường tạo mới bỏ qua nó. Đã vá theo cả lớp lỗi: quét ra **cả ba cột cùng dạng** trong toàn lược đồ và đặt mặc định, chặn tái phát ở lược đồ, và đường tạo luôn cấp giá trị. Lỗi này chặn cả luồng chuyển đơn thư thành vụ án.
+- **Lỗi cơ sở dữ liệu luôn hiện thành "Internal server error"** — bộ lọc lỗi chuyên biệt của hệ thống thực chất chưa từng chạy, vì bộ bắt-tất-cả được đăng ký sau nên luôn thắng. Nay lỗi thiếu giá trị bắt buộc trả về thông điệp nêu đúng tên trường.
+- **Vụ án tạo từ Đơn thư không có mã hồ sơ** — 18 vụ đã bị như vậy. Hồ sơ không có số thì không trích dẫn được trong văn bản và không tra được theo mã. Nay được cấp mã trong cùng giao dịch, giống hệt khi tạo trực tiếp.
+- **Ngày không có thật bị tự nắn sang ngày khác** — nhập ngày sinh 31/02/1985 thì hệ thống lưu thành 03/03/1985. Hồ sơ tố tụng khi ấy mang một ngày do máy suy ra chứ không do ai khai. Nay từ chối, áp cho **71 trường ngày** ở cả ba mô-đun.
+- **Không tra cứu được theo tên người tố cáo, số CCCD và nơi xảy ra** — ba tiêu chí này đã được đưa lên cột riêng ở đợt trước nhưng chưa nối vào tìm kiếm, nên nửa lợi ích của việc đó chưa tới tay người dùng. Đã bổ sung kèm chỉ mục.
+- **Mốc thời gian gửi kèm lệch giờ bị trôi một ngày** — hệ tích hợp gửi `2026-01-01T00:00:00+07:00` thì lưu thành 31/12/2025. Người dùng cuối không bị ảnh hưởng (biểu nhập gửi dạng ngày), nhưng mốc tố tụng của hệ tích hợp thì sai.
+- **Ô nhập không có nhãn đọc được bằng trình đọc màn hình** — 43 trên 44 ô của biểu Vụ án chỉ có chữ nằm cạnh về mặt thị giác. Vá ở component dùng chung nên **mọi biểu mẫu trong hệ thống** cùng được sửa.
+
+### Changed
+- **Sổ rà soát chuẩn hoá dữ liệu nay lưu bền vững trong cơ sở dữ liệu** thay vì một tệp tạm mất dấu sau khi chạy. Người vận hành tra được hồ sơ nào bị bỏ qua và vì lý do gì — hiện có 20 bản ghi, giải trình đủ 14 hồ sơ thiếu ngày sinh (giá trị gốc là đa giá trị kiểu `"1976; 1991"` hoặc rác, đều được giữ nguyên, không bịa).
+- **Gỡ ánh xạ sai khiến ô "Địa chỉ" hiển thị tên bị hại.** Trường `dia-chi-bi-hai` của hệ cũ mang nhãn là địa chỉ nhưng nội dung thực tế là tên người; đưa nó vào cột địa chỉ khiến 1.268 hồ sơ có ô "Địa chỉ" chứa tên bị hại, và cùng một trường hệ cũ hiện hai lần dưới hai nhãn. Ánh xạ đã gỡ nên lần di trú sau không tái tạo lỗi. **Phần dữ liệu đã lỡ ghi cần một lượt dọn có phê duyệt** — công cụ `audit-address-vs-bihai.ts` đã sẵn sàng, mặc định chỉ đọc.
+
+### Added
+- Bộ UAT cho epic hợp nhất field: 198 ca thiết kế (nguồn yêu cầu là kế hoạch, không phải mã nguồn), 95 ca chạy được — API 67/68, giao diện 16/16, tích hợp xuyên module 12/12.
+
 ## [0.70.4.0] - 2026-07-21
 
 ### Added
