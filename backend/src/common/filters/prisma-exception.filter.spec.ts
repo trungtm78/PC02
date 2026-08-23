@@ -90,4 +90,28 @@ describe('PrismaExceptionFilter', () => {
     expect(body).toHaveProperty('timestamp');
     expect(body).toHaveProperty('path');
   });
+
+  // BUG-001 (UAT epic hợp nhất field, 2026-08-23): tạo vụ án thiếu cột mảng NOT NULL
+  // trả 500 "Internal server error" — người dùng không biết phải sửa gì (Nielsen #9).
+  it('maps P2011 (null constraint) → 400 NULL_CONSTRAINT kèm tên trường', () => {
+    const err = new Prisma.PrismaClientKnownRequestError(
+      'Null constraint violation',
+      { code: 'P2011', clientVersion: '7.8.0', meta: { target: ['lyDoTamDinhChiVuAn'] } },
+    );
+    filter.catch(err, mockHost);
+    expect(mockResponse.status).toHaveBeenCalledWith(400);
+    const body = mockResponse.json.mock.calls[0][0];
+    expect(body.error.code).toBe('NULL_CONSTRAINT');
+    expect(body.error.message).toContain('lyDoTamDinhChiVuAn');
+  });
+
+  it('maps P2012 (missing required value) → 400 MISSING_REQUIRED_VALUE', () => {
+    const err = new Prisma.PrismaClientKnownRequestError(
+      'Missing a required value',
+      { code: 'P2012', clientVersion: '7.8.0', meta: { path: 'caseProvenance' } },
+    );
+    filter.catch(err, mockHost);
+    expect(mockResponse.status).toHaveBeenCalledWith(400);
+    expect(mockResponse.json.mock.calls[0][0].error.code).toBe('MISSING_REQUIRED_VALUE');
+  });
 });

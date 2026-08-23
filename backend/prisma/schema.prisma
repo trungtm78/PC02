@@ -96,8 +96,8 @@ model User {
   twoFaSetupRequired  Boolean   @default(true)
   totpSetupPending    Boolean   @default(false)
   totpSetupPendingAt  DateTime?
-  backupCodes         String[]
-  backupCodeSalts     String[]
+  backupCodes         String[] @default([])
+  backupCodeSalts     String[] @default([])
   lastTotpCode        String? // replay protection — last used TOTP code in current window
   twoFaSetupAt        DateTime?
   twoFaUsedAt         DateTime? // OV-002: marks twoFaToken as consumed, survives restart
@@ -548,7 +548,7 @@ model Case {
   // TĐC tracking fields (Phụ lục 08)
   laCongNgheCao         Boolean              @default(false)
   lyDoTamDinhChiText    String? // Backup của giá trị String cũ trước migration
-  lyDoTamDinhChiVuAn    LyDoTamDinhChiVuAn[] // PR-8: MULTI — chọn nhiều lý do TĐC (Đ.229). Mảng rỗng = chưa chọn.
+  lyDoTamDinhChiVuAn    LyDoTamDinhChiVuAn[] @default([]) // PR-8: MULTI — chọn nhiều lý do TĐC (Đ.229). Mảng rỗng = chưa chọn. @default([]) — BUG-001: thiếu mặc định làm CREATE vỡ ràng buộc NOT NULL.
   soQuyetDinhTamDinhChi String?
   ngayTamDinhChi        DateTime?
   soLanTamDinhChi       Int                  @default(0)
@@ -702,6 +702,9 @@ model Case {
   @@index([sttCu])
   @@index([legacyId, legacyCollection])
   @@map("cases")
+  @@index([tenCungCap])
+  @@index([cccdCungCap])
+  @@index([noiXayRa])
 }
 
 // ─────────────────────────────────────────────
@@ -2663,4 +2666,46 @@ model LegacyFieldDiagnostic {
 
   @@index([runId, field])
   @@map("legacy_field_diagnostics")
+}
+
+/// BUG-004 (UAT 2026-08-23): so ghi XUNG DOT khi chuan hoa du lieu he cu.
+/// PLAN-B3: cot da co gia tri KHAC metadata -> KHONG de, ghi lai de nguoi van hanh ra soat.
+model MigrationConflict {
+  id         String    @id @default(uuid())
+  runId      String
+  entity     String    @default("Case")
+  recordId   String
+  field      String
+  colValue   String?
+  metaValue  String?
+  resolvedAt DateTime?
+  resolvedBy String?
+  note       String?
+  createdAt  DateTime  @default(now())
+
+  @@index([runId])
+  @@index([recordId])
+  @@index([field])
+  @@map("migration_conflict")
+}
+
+/// BUG-004: so ghi GIA TRI BI TU CHOI (khong phan tich duoc) khi chuan hoa.
+/// PLAN-B3: cot de NULL + ghi lai gia tri goc — KHONG bia gia tri.
+model MigrationReject {
+  id         String    @id @default(uuid())
+  runId      String
+  entity     String    @default("Case")
+  recordId   String
+  field      String
+  rawValue   String?
+  reason     String
+  resolvedAt DateTime?
+  resolvedBy String?
+  note       String?
+  createdAt  DateTime  @default(now())
+
+  @@index([runId])
+  @@index([recordId])
+  @@index([reason])
+  @@map("migration_reject")
 }
