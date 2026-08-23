@@ -810,6 +810,26 @@ describe('PetitionsService', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
+    it('BUG-010: chuyển đổi phải CẤP MÃ HỒ SƠ cho vụ án mới, như đường tạo trực tiếp', async () => {
+      mockPrisma.petition.findFirst.mockResolvedValue(mockPetition);
+      const createMock = jest.fn().mockResolvedValue(mockCase);
+      mockPrisma.$transaction.mockImplementation(async (fn: any) => {
+        const tx = {
+          case: { create: createMock },
+          petition: { update: jest.fn().mockResolvedValue({ ...mockPetition, linkedCaseId: 'case-001' }) },
+          document: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
+          documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
+        };
+        return fn(tx);
+      });
+
+      await service.convertToCase('petition-001', validCaseDto, 'user-001');
+
+      // Hồ sơ tố tụng không có số thì không trích dẫn được trong văn bản.
+      const data = createMock.mock.calls[0][0].data;
+      expect(data.caseCode).toBeTruthy();
+    });
+
     it('should create a Case with correct fields', async () => {
       mockPrisma.petition.findFirst.mockResolvedValue(mockPetition);
       mockPrisma.$transaction.mockImplementation(async (fn: any) => {
@@ -825,6 +845,8 @@ describe('PetitionsService', () => {
             }),
           },
           document: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
+          // BUG-010: chuyển đổi phải cấp mã hồ sơ cho vụ án mới, như đường tạo trực tiếp.
+          documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
         };
         return fn(tx);
       });
@@ -853,6 +875,8 @@ describe('PetitionsService', () => {
           case: { create: jest.fn().mockResolvedValue(mockCase) },
           petition: { update: updateMock },
           document: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
+          // BUG-010: chuyển đổi phải cấp mã hồ sơ cho vụ án mới, như đường tạo trực tiếp.
+          documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
         };
         return fn(tx);
       });
@@ -915,6 +939,8 @@ describe('PetitionsService', () => {
             status: PetitionStatus.DA_CHUYEN_VU_AN,
           }) },
           document: { updateMany: updateManyMock },
+          // BUG-010: chuyển đổi phải cấp mã hồ sơ cho vụ án mới.
+          documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
         };
         return fn(tx);
       });

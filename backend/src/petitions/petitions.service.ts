@@ -931,17 +931,33 @@ export class PetitionsService {
     let caseRecord;
     try {
     [caseRecord] = await this.prisma.$transaction(async (tx) => {
+      // BUG-010 (UAT epic hợp nhất field, 2026-08-23): đường chuyển đổi trước đây tạo
+      // Vụ án KHÔNG cấp mã hồ sơ, trong khi đường tạo trực tiếp thì có. Hồ sơ tố tụng
+      // không có số thì không trích dẫn được trong văn bản và không tra được theo mã.
+      // Cấp mã trong CÙNG giao dịch, giống hệt cases.service.create().
+      const { number: caseCode, logId: caseCodeLogId } = await this.docNums.commitWithTx(
+        'CASE',
+        { userId: actorId },
+        tx,
+      );
+
       const newCase = await tx.case.create({
         data: {
           name: dto.caseName,
           crime: dto.crime,
           unit: dto.jurisdiction,
           status: CaseStatus.TIEP_NHAN,
+          caseCode,
           // v0.37.1 PR-AUDIT — close provenance gap: convertToCase was creating Case
           // without caseProvenance, which would fail NOT NULL contract in PR-PROV-2.
           caseProvenance: 'FROM_PETITION' as const,
           linkedPetitionId: petitionId,
         },
+      });
+
+      await tx.documentNumberLog.update({
+        where: { id: caseCodeLogId },
+        data: { documentId: newCase.id },
       });
 
       await tx.petition.update({
