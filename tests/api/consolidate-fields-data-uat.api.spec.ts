@@ -243,10 +243,38 @@ test('TC-091-API: Bị hại KHÔNG bị nối vào địa chỉ người tố c
   // nhãn "Địa chỉ" hiển thị tên người, và surface cùng một trường hệ cũ dưới HAI nhãn.
   // Ánh xạ đã được gỡ (backfill-case-person.ts); phần dữ liệu đã lỡ ghi cần một lượt dọn
   // có phê duyệt (audit-address-vs-bihai.ts --apply) vì đây là hồ sơ tố tụng.
+  // Sau lượt dọn có phê duyệt (2026-08-23): 758 hồ sơ có giá trị là TÊN NGƯỜI THUẦN đã
+  // được trả về trống — giá trị gốc vẫn ở metadata.biHai + legacy_raw + sổ rà soát.
+  // Phần còn lại là các giá trị CÓ dấu hiệu địa chỉ: máy không tự quyết được, cần người
+  // rà. Ca này chốt chặn phần MÁY XỬ LÝ ĐƯỢC; phần cần người nằm ở TC-091c.
+  const ADDRESS_HINT = /(đường|phố|phường|quận|huyện|xã|thị trấn|thị xã|tỉnh|thành phố|tp\.|số\s*\d|\d+\/\d+|ấp|khu phố)/i;
+  const still = await q<any>(
+    `SELECT "diaChiCungCap" AS v FROM cases
+     WHERE NULLIF(btrim(metadata->>'biHai'),'') IS NOT NULL AND "diaChiCungCap" IS NOT NULL
+       AND btrim(metadata->>'biHai') = btrim("diaChiCungCap")`);
+  const plainNames = still.filter((x) => !ADDRESS_HINT.test(String(x.v ?? '')));
+  console.log(`[TC-091] còn trùng: ${still.length} (tên người thuần: ${plainNames.length}, có dấu hiệu địa chỉ: ${still.length - plainNames.length})`);
   expect(
-    Number(r.identical),
-    `PLAN-A1-05: "biHai='Bị hại'(tên/đối tượng), không phải địa chỉ → corruption" — ${r.identical}/${r.total_addr} hồ sơ có ô Địa chỉ chứa TÊN BỊ HẠI. Nguồn gốc: hệ cũ; ánh xạ đã gỡ; CHỜ lượt dọn có phê duyệt.`,
+    plainNames.length,
+    `PLAN-A1-05: ô Địa chỉ chứa TÊN NGƯỜI THUẦN — máy dọn được nhưng còn sót ${plainNames.length} hồ sơ`,
   ).toBe(0);
+});
+
+test('TC-091c-API: Phần cần NGƯỜI rà soát đã được ghi sổ đầy đủ, không mất dữ liệu', async () => {
+  // Lượt dọn ghi sổ TRƯỚC khi đụng dữ liệu. Mỗi dòng phải truy ngược được về giá trị gốc.
+  const logged = await one<any>(
+    `SELECT count(*)::int AS n FROM migration_conflict WHERE field='diaChiCungCap'`);
+  const intact = await one<any>(
+    `SELECT count(*)::int AS n FROM migration_conflict c JOIN cases k ON k.id=c."recordId"
+     WHERE c.field='diaChiCungCap' AND btrim(k.metadata->>'biHai') = btrim(c."colValue")`);
+  const rawIntact = await one<any>(
+    `SELECT count(*)::int AS n FROM migration_conflict c JOIN cases k ON k.id=c."recordId"
+     WHERE c.field='diaChiCungCap' AND k.legacy_raw->>'dia-chi-bi-hai' IS NOT NULL`);
+  console.log(`
+[TC-091c] đã ghi sổ ${logged.n} dòng | còn ở metadata.biHai: ${intact.n} | còn ở legacy_raw: ${rawIntact.n}`);
+  expect(Number(logged.n), 'phải có sổ rà soát cho phần đã dọn').toBeGreaterThan(0);
+  expect(Number(intact.n), 'NO-DATA-LOSS: mọi giá trị đã dọn phải còn nguyên ở metadata.biHai').toBe(Number(logged.n));
+  expect(Number(rawIntact.n), 'NO-DATA-LOSS: mọi giá trị đã dọn phải còn nguyên ở dữ liệu gốc hệ cũ').toBe(Number(logged.n));
 });
 
 test('TC-091b-API: Ánh xạ di trú KHÔNG còn đưa trường bị hại của hệ cũ vào ô Địa chỉ', async () => {

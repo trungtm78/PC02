@@ -1,0 +1,172 @@
+{
+  "generatedAt": "2026-08-23T09:51:29.517Z",
+  "mode": "APPLY",
+  "tongHoSoCoDiaChi": 1304,
+  "trungKhopHoanToan": 1268,
+  "anToanDeDon": 758,
+  "canNguoiRaSoat": 510,
+  "mauAnToan": [
+    {
+      "caseCode": "2016-11",
+      "giaTri": "Lê Ngọc Phú"
+    },
+    {
+      "caseCode": "2016-12",
+      "giaTri": "Ngô Thị Quyên"
+    },
+    {
+      "caseCode": "2016-15",
+      "giaTri": "Đinh Quang Vũ (1988-đã chết)"
+    },
+    {
+      "caseCode": "2016-22",
+      "giaTri": "Lê Văn Minh"
+    },
+    {
+      "caseCode": "2020-87",
+      "giaTri": "Trần Phước Hải"
+    },
+    {
+      "caseCode": "2016-23",
+      "giaTri": "Hans Christian Ehm Hansen (QT: Đan Mạch)"
+    },
+    {
+      "caseCode": "2016-8",
+      "giaTri": "Phạm Hoàng Giang, Chaya Rivkah Coleman (QT: Mỹ), Nguyễn Văn Tèo, Nguyễn Thị Hiền, Phạm Thị Huỳnh Như, Nguyễn Trung Tín, Phạm Minh Thiện, Lê Nguyễn Kim Ngân"
+    },
+    {
+      "caseCode": "2017-103",
+      "giaTri": "HWANG SUNGJOON (QT: Hàn Quốc)"
+    },
+    {
+      "caseCode": "2017-107",
+      "giaTri": "Trịnh Minh Mẫn"
+    },
+    {
+      "caseCode": "2017-114",
+      "giaTri": "DANIEL MARTIN (QT: Mỹ)"
+    },
+    {
+      "caseCode": "2017-117",
+      "giaTri": "Siêu thị Auchan (ông JORGE FERNANDEZ ASENSIO (QT: Tây Ban Nha) làm đại diện theo PL)"
+    },
+    {
+      "caseCode": "2017-123",
+      "giaTri": "WONG SOOK HAN (QT: Malaysia)"
+    },
+    {
+      "caseCode": "2017-130",
+      "giaTri": "URPIS LUCIANO (QT: Italia), Nguyễn Thị Lan"
+    },
+    {
+      "caseCode": "2017-138",
+      "giaTri": "Công ty tài chính TNHH MTV Home Credit Việt Nam (100% vốn của Home Credit B.V-Hà Lan)"
+    },
+    {
+      "caseCode": "2017-143",
+      "giaTri": "Cty tài chính TNHH MTV Home Credit Việt Nam (Hà Lan)"
+    },
+    {
+      "caseCode": "2017-144",
+      "giaTri": "Công ty tài chính TNHH MTV Home Credit Việt Nam (100% vốn của Home Credit B.V-Hà Lan)"
+    },
+    {
+      "caseCode": "2017-146",
+      "giaTri": "TORBEN KGOGH VINGBORG (QT: Đan Mạch)"
+    },
+    {
+      "caseCode": "2017-151",
+      "giaTri": "JESSE MICHOV PEREIRA (QT: Ấn Độ)"
+    },
+    {
+      "caseCode": "2017-152",
+      "giaTri": "CHU HYEON JIN (QT: Hàn Quốc)"
+    },
+    {
+      "caseCode": "2017-156",
+      "giaTri": "Nguyễn Thị Minh Khánh (QT: Mỹ)"
+    }
+  ],
+  "mauCanRaSoat": [
+    {
+      "caseCode": "2026-9696",
+      "giaTri": "Bản Kiềng, xã Châu Tiến, tỉnh Nghệ An"
+    },
+    {
+      "caseCode": "2026-9700",
+      "giaTri": "61 Trần Quý Cáp, khu phố Đông Tân, phường Dĩ An, TP.Hồ Chí Minh"
+    },
+    {
+      "caseCode": "2026-9712",
+      "giaTri": "nhà trọ 64 đường số 3, khu phố Bình Đường 2, phường Dĩ An, Thành phố Hồ Chí Minh"
+    },
+    {
+      "caseCode": "2026-9723",
+      "giaTri": "300/34/21A Nguyễn Văn Linh, phường Tân Thuận, TP. Hồ Chí Minh"
+    },
+    {
+      "caseCode": "2026-9730",
+      "giaTri": "85A, đường 23, phường Tân Hưng, TP. Hồ Chí Minh"
+    },
+    {
+      "caseCode": "2026-9810",
+      "giaTri": "124, ấp 4, xã Long Can, tỉnh Tây Ninh"
+    },
+    {
+      "caseCode": "2017-113",
+      "giaTri": "Trung tâm Công nghệ sinh học TP.Hồ Chí Minh"
+    },
+    {
+      "caseCode": "2026-9822",
+      "giaTri": "345 lô B, cư xá Thanh Đa, phường Bình Quới, TP. Hồ Chí Minh"
+    },
+    {
+      "caseCode": "2026-9419",
+      "giaTri": "36/4 Nguyễn Ảnh Thủ, P.Tân Thới Hiệp, TP.HCM"
+    },
+    {
+      "caseCode": "2026-9426",
+      "giaTri": "101/82 Bùi Minh Trực, phường Bình Đông, TP. Hồ Chí Minh"
+    },
+    {
+      "caseCode": "2026-9432",
+      "giaTri": "284/28/5 Phan Đình Phùng, phường An Hội Tây, TP. Hồ Chí Minh"
+    },
+    {
+      "caseCode": "2026-9450",
+      "giaTri": "Căn hộ 07.06 tòa Aqua4 chung cư Vinhome Ba Son số 2 Tôn Đức Thắng, phường Sài Gòn, TP. Hồ Chí Minh"
+    },
+    {
+      "caseCode": "2026-9478",
+      "giaTri": "Công ty Luật TNHH Khang Trí - 160/25/27G Bùi Đình Tuý, phường Bình Thạnh, TPHCM"
+    },
+    {
+      "caseCode": "2026-9549",
+      "giaTri": "Khu phố Tân Hạnh, phường Phú Mỹ, TP. Hồ Chí Minh"
+    },
+    {
+      "caseCode": "2026-9595",
+      "giaTri": "16 đường số 3, khu phố 58, phường Tam Bình, TP. Hồ Chí Minh"
+    },
+    {
+      "caseCode": "2026-9614",
+      "giaTri": "68/6/2 Đường 9, khu phố 45, phường Linh Xuân, TP. Hồ Chí Minh"
+    },
+    {
+      "caseCode": "2026-9616",
+      "giaTri": "146 Thống Nhất, phường Gò Vấp, TP. Hồ Chí Minh"
+    },
+    {
+      "caseCode": "2026-9636",
+      "giaTri": "55 Nguyễn Bá Huân, phường An Khánh, Thành phố Hồ Chí Minh"
+    },
+    {
+      "caseCode": "2026-9644",
+      "giaTri": "79/13 khu phố Đông A, phường Đông Hòa, TP. Hồ Chí Minh"
+    },
+    {
+      "caseCode": "2026-9042",
+      "giaTri": "62/20 Trần Thánh Tông, Phường Tân Sơn, TP. Hồ Chí Minh"
+    }
+  ]
+}
