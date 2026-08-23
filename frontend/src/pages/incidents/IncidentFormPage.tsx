@@ -306,8 +306,8 @@ export function IncidentFormPage() {
           });
           setRecordUpdatedAt((d.updatedAt as string) ?? null);
           setRecordStatus((d.status as string) ?? "");
-          // Auto-expand sections based on phase
-          const phase = getPhaseForStatus(status);
+          // Auto-expand sections based on phase (fix: dùng status của record vừa tải, không phải biến ngoài rỗng)
+          const phase = getPhaseForStatus((d.status as string) ?? "");
           setSection2Open(true); // always expand in edit mode
           setSection3Open(phase === "ket-qua");
           setSection4Open(phase === "tam-dinh-chi");

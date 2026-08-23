@@ -111,6 +111,33 @@ export interface CreateCasePayload {
   ngayPhucHoi?: string;
   tdcKhacPhucLyDoBienPhap?: string;
   tdcKhacPhucBienBan?: string;
+
+  // ── Consolidate epic: field promoted → cột typed (top-level, backend map→cột) ──
+  tenCungCap?: string;
+  cccdCungCap?: string;
+  sdtCungCap?: string;
+  diaChiCungCap?: string;
+  moTaChiTiet?: string;
+  nguonDon?: string;
+  noiXayRa?: string;
+  nghiVanDoiTuong?: string;
+  nhanXet?: string;
+  phuongThucThuDoan?: string;
+  ketQuaXuLyKhac?: string;
+  soPhieuChuyen?: string;
+  ngayCapCccd?: string;
+  noiCapCccd?: string;
+  phanLoaiToiPhamLinhVuc?: string;
+  yeuCauBoSung?: string;
+  sttCu?: string;
+  deXuat?: string;
+  dieuTraVien?: string;
+  reporterDateOfBirth?: string;
+  reporterDateOfBirthPrecision?: string;
+  receiveDate?: string;
+  caseClassification?: string;
+  tinhTrang?: string;
+  toiDanhBanDau?: string;
 }
 
 /**
@@ -401,6 +428,60 @@ export function buildCreateCasePayload(
   // Thống kê mở rộng (hybrid) → payload.statistic (case_statistics). Chỉ gửi key có giá trị.
   const stat = buildStatisticPayload(formData.statistic as unknown as Record<string, unknown>);
   if (Object.keys(stat).length > 0) payload.statistic = stat;
+
+  // ── Consolidate epic: field promoted → cột typed (TOP-LEVEL, backend map→cột) ──
+  // Canonical = cột typed. Gửi từ form-key native (ưu tiên) → fallback key cũ hệ di trú.
+  // metadata vẫn ghi (block trên) = dual-write an toàn cửa sổ chuyển tiếp; PR sau ngừng metadata.
+  const firstStr = (...vals: unknown[]): string | undefined => {
+    for (const v of vals) if (v != null && String(v).trim() !== '') return String(v).trim();
+    return undefined;
+  };
+  payload.tenCungCap = firstStr(formData.reporter, formData.tenCungCap);
+  payload.cccdCungCap = firstStr(formData.reporterIdNumber, formData.cccdCungCap);
+  payload.sdtCungCap = firstStr(parsePhone(formData.reporterPhone), formData.sdtCungCap);
+  payload.diaChiCungCap = firstStr(formData.reporterAddress);
+  payload.moTaChiTiet = firstStr(formData.description);
+  payload.noiXayRa = firstStr(formData.noiXayRa, formData.specificAddress);
+  payload.nguonDon = firstStr(formData.nguonDon);
+  payload.nghiVanDoiTuong = firstStr(formData.nghiVanDoiTuong);
+  payload.nhanXet = firstStr(formData.nhanXet);
+  payload.phuongThucThuDoan = firstStr(formData.phuongThucThuDoan);
+  payload.ketQuaXuLyKhac = firstStr(formData.ketQuaXuLyKhac);
+  payload.soPhieuChuyen = firstStr(formData.soPhieuChuyen);
+  payload.ngayCapCccd = firstStr(formData.ngayCapCccd);
+  payload.noiCapCccd = firstStr(formData.noiCapCccd);
+  payload.phanLoaiToiPhamLinhVuc = firstStr(formData.phanLoaiToiPhamLinhVuc);
+  payload.yeuCauBoSung = firstStr(formData.yeuCauBoSung);
+  payload.sttCu = firstStr(formData.sttCu);
+  payload.deXuat = firstStr(formData.deXuatXuLy);
+  payload.dieuTraVien = firstStr(formData.dieuTraVienText); // R7: text hệ cũ; handler(FK) riêng
+  payload.receiveDate = firstStr(formData.receiveDate);
+  payload.caseClassification = firstStr(formData.caseClassification);
+  payload.tinhTrang = firstStr(formData.tinhTrang);
+  payload.toiDanhBanDau = firstStr(formData.toiDanhBanDau);
+  // reporterDateOfBirth: merge native date + sinhNamCungCap year-only → kiểu native (Date).
+  // GIỮ ngữ nghĩa "năm-only": input là date (YYYY-MM-DD) không diễn đạt được năm-only, nên khi
+  // load năm-only ta hiện YYYY-01-01 + precision='year'. Round-trip: nếu value vẫn là YYYY-01-01
+  // và precision đã load = 'year' → giữ 'year' (không tự nâng thành 'date' làm sai nghĩa pháp lý).
+  const dobRaw = firstStr(formData.reporterDateOfBirth, formData.sinhNamCungCap);
+  if (dobRaw) {
+    if (/^\d{4}$/.test(dobRaw)) {
+      payload.reporterDateOfBirth = `${dobRaw}-01-01`;
+      payload.reporterDateOfBirthPrecision = 'year';
+    } else {
+      payload.reporterDateOfBirth = dobRaw;
+      const isJan1 = /^\d{4}-01-01$/.test(dobRaw);
+      payload.reporterDateOfBirthPrecision =
+        isJan1 && formData.reporterDateOfBirthPrecision === 'year' ? 'year' : 'date';
+    }
+  }
+  // Damage → statistic (canonical case_statistics). Tab Thống kê (formData.statistic.soTienBiThietHai)
+  // LÀ nguồn chính đã ghi cột từ trước. damageAmount CHỈ seed khi tab TRỐNG (không đè giá trị tab đã
+  // sửa → tránh silent-loss codex P1). Vụ mới không có statistic → damageAmount điền.
+  const damage = parseVND(formData.damageAmount);
+  if (damage != null && stat['soTienBiThietHai'] == null) {
+    payload.statistic = { ...(payload.statistic ?? {}), soTienBiThietHai: damage };
+  }
 
   // Gộp trường hệ cũ động (editable): field form/utdt THẮNG (ghi sau); giữ phần còn lại của legacy.
   // Backend còn MERGE lần nữa với metadata trong DB → không mất field nào.

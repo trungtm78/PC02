@@ -256,4 +256,47 @@ describe('mergeCaseApiToFormData — FP Case số QĐ giai đoạn', () => {
     expect(result.soQuyetDinhKhoiTo).toBe('QD-OLD');
     expect(result.ghiChuNhapHoSo).toBe('Ghi chú cũ');
   });
+
+  // ── Consolidate epic: đọc CỘT trước → metadata fallback ──
+  describe('consolidate: đọc cột canonical', () => {
+    it('reporter nạp từ cột tenCungCap (ưu tiên hơn metadata)', () => {
+      const result = mergeCaseApiToFormData(
+        { ...baseApi, tenCungCap: 'Từ Cột', metadata: { reporter: 'Từ Metadata' } },
+        INITIAL_FORM_DATA,
+      );
+      expect(result.reporter).toBe('Từ Cột');
+    });
+
+    it('reporter fallback metadata khi cột NULL (vụ chưa backfill)', () => {
+      const result = mergeCaseApiToFormData(
+        { ...baseApi, tenCungCap: null, metadata: { reporter: 'Chỉ Metadata' } },
+        INITIAL_FORM_DATA,
+      );
+      expect(result.reporter).toBe('Chỉ Metadata');
+    });
+
+    it('reporterDateOfBirth nạp từ cột (date-input format)', () => {
+      const result = mergeCaseApiToFormData(
+        { ...baseApi, reporterDateOfBirth: '1985-01-01T00:00:00.000Z', metadata: {} },
+        INITIAL_FORM_DATA,
+      );
+      expect(result.reporterDateOfBirth).toBe('1985-01-01');
+    });
+
+    it('damageAmount nạp từ case_statistics.soTienBiThietHai', () => {
+      const result = mergeCaseApiToFormData(
+        { ...baseApi, statistic: { soTienBiThietHai: 5500000 }, metadata: {} },
+        INITIAL_FORM_DATA,
+      );
+      expect(result.damageAmount).toBe('5500000');
+    });
+
+    it('description nạp từ cột moTaChiTiet', () => {
+      const result = mergeCaseApiToFormData(
+        { ...baseApi, moTaChiTiet: 'Nội dung từ cột', metadata: {} },
+        INITIAL_FORM_DATA,
+      );
+      expect(result.description).toBe('Nội dung từ cột');
+    });
+  });
 });

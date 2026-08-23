@@ -65,6 +65,16 @@ export function mergeCaseApiToFormData(
   prev: CaseFormData,
 ): CaseFormData {
   const meta = (apiData.metadata ?? {}) as Record<string, string>;
+  // Consolidate epic: cột typed = canonical. Đọc CỘT trước → fallback metadata (vụ chưa backfill) → prev.
+  const col = apiData as unknown as Record<string, unknown>;
+  const cs = (k: string): string | undefined => {
+    const v = col[k];
+    return v == null || v === '' ? undefined : String(v);
+  };
+  const cd = (k: string): string | undefined => {
+    const v = col[k];
+    return v ? toDateInput(v as string) : undefined;
+  };
   return {
     ...prev,
     caseTitle:             apiData.name                  ?? prev.caseTitle,
@@ -90,48 +100,55 @@ export function mergeCaseApiToFormData(
     // lùi về metadata cho hồ sơ cũ chưa promote. Trước đây chỉ đọc metadata.caseCode nên
     // edit-mode luôn rỗng (bug): mọi vụ (kể cả di trú VA-/LS-) không hiện mã khi sửa.
     caseCode:                    apiData.caseCode ?? meta.caseCode ?? prev.caseCode,
-    // Metadata fields
-    receiveDate:                 meta.receiveDate                 ?? prev.receiveDate,
+    // Metadata fields (Consolidate: CỘT trước → metadata fallback → prev)
+    receiveDate:                 cd('receiveDate')                ?? meta.receiveDate                 ?? prev.receiveDate,
     receiveTime:                 meta.receiveTime                 ?? prev.receiveTime,
-    caseClassification:          meta.caseClassification          ?? prev.caseClassification,
+    caseClassification:          cs('caseClassification')         ?? meta.caseClassification          ?? prev.caseClassification,
     priority:                    meta.priority                    ?? prev.priority,
-    description:                 meta.description                 ?? prev.description,
-    nguonDon:                     meta.nguonDon                     ?? prev.nguonDon,
-    nhanXet:                      meta.nhanXet                      ?? prev.nhanXet,
+    description:                 cs('moTaChiTiet')                ?? meta.description ?? meta.moTaChiTiet ?? prev.description,
+    nguonDon:                     cs('nguonDon')                    ?? meta.nguonDon                     ?? prev.nguonDon,
+    nhanXet:                      cs('nhanXet')                     ?? meta.nhanXet                      ?? prev.nhanXet,
     biHai:                        meta.biHai                        ?? prev.biHai,
-    noiXayRa:                     meta.noiXayRa                     ?? prev.noiXayRa,
-    nghiVanDoiTuong:              meta.nghiVanDoiTuong              ?? prev.nghiVanDoiTuong,
-    phuongThucThuDoan:            meta.phuongThucThuDoan            ?? prev.phuongThucThuDoan,
-    ketQuaXuLyKhac:               meta.ketQuaXuLyKhac               ?? prev.ketQuaXuLyKhac,
-    soPhieuChuyen:                meta.soPhieuChuyen                ?? prev.soPhieuChuyen,
-    dieuTraVienText:              meta.dieuTraVienText              ?? prev.dieuTraVienText,
-    sttCu:                        meta.sttCu                        ?? prev.sttCu,
-    soHoSoCu:                     (apiData as { soHoSoCu?: string }).soHoSoCu ?? prev.soHoSoCu,
-    tenCungCap:                   meta.tenCungCap                   ?? prev.tenCungCap,
-    sinhNamCungCap:               meta.sinhNamCungCap               ?? prev.sinhNamCungCap,
-    cccdCungCap:                  meta.cccdCungCap                  ?? prev.cccdCungCap,
-    ngayCapCccd:                  meta.ngayCapCccd                  ?? prev.ngayCapCccd,
-    noiCapCccd:                   meta.noiCapCccd                   ?? prev.noiCapCccd,
-    sdtCungCap:                   meta.sdtCungCap                   ?? prev.sdtCungCap,
-    tinhTrang:                    meta.tinhTrang                    ?? prev.tinhTrang,
-    phanLoaiToiPhamLinhVuc:       meta.phanLoaiToiPhamLinhVuc       ?? prev.phanLoaiToiPhamLinhVuc,
-    deXuatXuLy:                   meta.deXuatXuLy                   ?? prev.deXuatXuLy,
-    yeuCauBoSung:                 meta.yeuCauBoSung                 ?? prev.yeuCauBoSung,
+    noiXayRa:                     cs('noiXayRa')                    ?? meta.noiXayRa ?? meta.specificAddress ?? prev.noiXayRa,
+    nghiVanDoiTuong:              cs('nghiVanDoiTuong')             ?? meta.nghiVanDoiTuong              ?? prev.nghiVanDoiTuong,
+    phuongThucThuDoan:            cs('phuongThucThuDoan')           ?? meta.phuongThucThuDoan            ?? prev.phuongThucThuDoan,
+    ketQuaXuLyKhac:               cs('ketQuaXuLyKhac')              ?? meta.ketQuaXuLyKhac               ?? prev.ketQuaXuLyKhac,
+    soPhieuChuyen:                cs('soPhieuChuyen')               ?? meta.soPhieuChuyen                ?? prev.soPhieuChuyen,
+    dieuTraVienText:              cs('dieuTraVien')                 ?? meta.dieuTraVienText              ?? prev.dieuTraVienText,
+    sttCu:                        cs('sttCu')                       ?? meta.sttCu                        ?? prev.sttCu,
+    soHoSoCu:                     cs('soHoSoCu')                    ?? prev.soHoSoCu,
+    tenCungCap:                   cs('tenCungCap')                  ?? meta.tenCungCap                   ?? prev.tenCungCap,
+    sinhNamCungCap:               cs('sinhNamCungCap')              ?? meta.sinhNamCungCap               ?? prev.sinhNamCungCap,
+    cccdCungCap:                  cs('cccdCungCap')                 ?? meta.cccdCungCap                  ?? prev.cccdCungCap,
+    ngayCapCccd:                  cd('ngayCapCccd')                 ?? meta.ngayCapCccd                  ?? prev.ngayCapCccd,
+    noiCapCccd:                   cs('noiCapCccd')                  ?? meta.noiCapCccd                   ?? prev.noiCapCccd,
+    sdtCungCap:                   cs('sdtCungCap')                  ?? meta.sdtCungCap                   ?? prev.sdtCungCap,
+    tinhTrang:                    cs('tinhTrang')                   ?? meta.tinhTrang                    ?? prev.tinhTrang,
+    toiDanhBanDau:                cs('toiDanhBanDau')               ?? (meta as Record<string,string>).toiDanhBanDau ?? prev.toiDanhBanDau,
+    phanLoaiToiPhamLinhVuc:       cs('phanLoaiToiPhamLinhVuc')      ?? meta.phanLoaiToiPhamLinhVuc       ?? prev.phanLoaiToiPhamLinhVuc,
+    deXuatXuLy:                   cs('deXuat')                      ?? meta.deXuatXuLy                   ?? prev.deXuatXuLy,
+    yeuCauBoSung:                 cs('yeuCauBoSung')                ?? meta.yeuCauBoSung                 ?? prev.yeuCauBoSung,
     investigationStartDate:      meta.investigationStartDate      ?? prev.investigationStartDate,
     prosecutionOfficeAssigned:   meta.prosecutionOfficeAssigned   ?? prev.prosecutionOfficeAssigned,
     relatedCaseCode:             meta.relatedCaseCode             ?? prev.relatedCaseCode,
     // v0.39 — damageAmount stored as number in BE since input-mask refactor.
     // Convert to string for form state (types.ts declares string).
-    damageAmount:                meta.damageAmount != null ? String(meta.damageAmount) : prev.damageAmount,
+    // damageAmount: canonical = case_statistics.soTienBiThietHai (cột) → fallback metadata.
+    damageAmount:                (() => {
+      const s = (apiData.statistic as Record<string, unknown> | null | undefined)?.['soTienBiThietHai'];
+      if (s != null) return String(s);
+      return meta.damageAmount != null ? String(meta.damageAmount) : prev.damageAmount;
+    })(),
     damageDescription:           meta.damageDescription           ?? prev.damageDescription,
     note:                        meta.note                        ?? prev.note,
-    reporter:                    meta.reporter                    ?? prev.reporter,
-    reporterIdNumber:            meta.reporterIdNumber            ?? prev.reporterIdNumber,
-    reporterDateOfBirth:         meta.reporterDateOfBirth         ?? prev.reporterDateOfBirth,
+    reporter:                    cs('tenCungCap')                 ?? meta.reporter                    ?? prev.reporter,
+    reporterIdNumber:            cs('cccdCungCap')                ?? meta.reporterIdNumber            ?? prev.reporterIdNumber,
+    reporterDateOfBirth:         cd('reporterDateOfBirth')        ?? meta.reporterDateOfBirth         ?? prev.reporterDateOfBirth,
+    reporterDateOfBirthPrecision: cs('reporterDateOfBirthPrecision') ?? (meta as Record<string,string>).reporterDateOfBirthPrecision ?? prev.reporterDateOfBirthPrecision,
     reporterGender:              meta.reporterGender              ?? prev.reporterGender,
-    reporterPhone:               meta.reporterPhone               ?? prev.reporterPhone,
+    reporterPhone:               cs('sdtCungCap')                 ?? meta.reporterPhone               ?? prev.reporterPhone,
     reporterEmail:               meta.reporterEmail               ?? prev.reporterEmail,
-    reporterAddress:             meta.reporterAddress             ?? prev.reporterAddress,
+    reporterAddress:             cs('diaChiCungCap')              ?? meta.reporterAddress             ?? prev.reporterAddress,
     reporterNationality:         meta.reporterNationality         ?? prev.reporterNationality,
     reporterOccupation:          meta.reporterOccupation          ?? prev.reporterOccupation,
     reporterRelationToCase:      meta.reporterRelationToCase      ?? prev.reporterRelationToCase,

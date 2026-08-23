@@ -370,4 +370,12 @@ export class CreateCaseDto {
   @IsOptional() @IsString() phanLoaiHoSoNoiBo?: string;
   @IsOptional() @IsString() deXuat?: string;
   @IsOptional() @IsString() yeuCauBoSung?: string;
+
+  // ── Consolidate epic: native metadata field → cột typed chính thức (plan A0 loại N) ──
+  @IsOptional() @IsDateString() reporterDateOfBirth?: string;
+  @IsOptional() @IsString() reporterDateOfBirthPrecision?: string;
+  @IsOptional() @IsDateString() receiveDate?: string;
+  @IsOptional() @IsString() caseClassification?: string;
+  @IsOptional() @IsString() tinhTrang?: string;
+  @IsOptional() @IsString() toiDanhBanDau?: string;
 }
