@@ -21,7 +21,17 @@ const MAP: Record<string, string> = {
   ngayCapCccd: 'ngay_cap_cccd_nguyen_don',
   noiCapCccd: 'noi_cap_cccd_nguyen_don',
   sdtCungCap: 'so_dien_thoai_nguyen_don',
-  diaChiCungCap: 'dia-chi-bi-hai',
+  // BUG-002 (UAT 2026-08-23) — ĐÃ GỠ ánh xạ `diaChiCungCap: 'dia-chi-bi-hai'`.
+  //
+  // Kiểm chứng tận nguồn: `legacy_raw['dia-chi-bi-hai']` của hệ cũ chứa TÊN BỊ HẠI
+  // (vd "Lê Ngọc Phú"), không phải địa chỉ — dù nhãn danh mục ghi là "Địa chỉ cá nhân,
+  // cơ quan, tổ chức cung cấp, bị hại". Đưa trường đó vào `diaChiCungCap` khiến ô mang
+  // nhãn "Địa chỉ" của NGƯỜI TỐ CÁO hiển thị tên bị hại ở 1.268 hồ sơ, và làm cùng một
+  // trường hệ cũ xuất hiện hai lần dưới hai nhãn khác nhau (`biHai` và `diaChiCungCap`)
+  // — trái chính mục tiêu "một khái niệm một ô" của epic hợp nhất field.
+  //
+  // Dữ liệu KHÔNG mất: nội dung vẫn nằm ở `metadata.biHai` và `legacy_raw`.
+  // Dọn dữ liệu đã lỡ ghi: `audit-address-vs-bihai.ts` (mặc định chỉ đọc).
 };
 
 async function main(): Promise<void> {
