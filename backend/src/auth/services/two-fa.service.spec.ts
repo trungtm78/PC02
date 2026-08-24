@@ -1,5 +1,6 @@
 import { BadRequestException, ConflictException, ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
+import { TOKEN_TYPE } from '../../common/constants/token-types.constants';
 
 jest.mock('otplib', () => ({
   generateSecret: jest.fn().mockReturnValue('JBSWY3DPEHPK3PXP'),
@@ -36,6 +37,7 @@ function makeService(userOverride: Record<string, any> = {}, extraMocks: Record<
     user: {
       findUnique: jest.fn().mockResolvedValue(user),
       update: jest.fn().mockResolvedValue(user),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
     },
     $executeRaw: jest.fn().mockResolvedValue(1),
   } as any;
@@ -387,5 +389,130 @@ describe('TwoFaService.completeInitialSetup() — cổng đổi mật khẩu', (
         data: expect.objectContaining({ twoFaSetupRequired: false }),
       }),
     );
+  });
+
+  // Ca kiểm CHẾT CÙNG cổng chặn. Ba ca trên vẫn xanh nếu vô hiệu hoá cổng
+  // (`if (user.mustChangePassword && false)`) — đã đo. Ca này thì không: nó
+  // khẳng định KHÔNG có token truy cập nào được ký, tức cổng thật sự chặn chứ
+  // không chỉ "có trả về thứ gì đó".
+  it('KHÔNG ký bất kỳ token truy cập nào khi còn phải đổi mật khẩu', async () => {
+    const { svc, jwtService } = makeService({
+      totpEnabled: false,
+      totpSetupPending: true,
+      totpSetupPendingAt: new Date(),
+      mustChangePassword: true,
+    });
+    await svc.completeInitialSetup('user-1', '123456', meta);
+    const signedTypes = jwtService.signAsync.mock.calls.map(
+      (c: unknown[]) => (c[0] as { type?: string }).type,
+    );
+    // Đúng MỘT chữ ký, và là token chờ đổi mật khẩu — không access, không refresh.
+    expect(signedTypes).toEqual([TOKEN_TYPE.CHANGE_PASSWORD_PENDING]);
+  });
+
+  it('mã TOTP sai → ném lỗi, KHÔNG xoá cờ, KHÔNG ký token nào', async () => {
+    const { svc, prisma, jwtService } = makeService({
+      totpEnabled: false,
+      totpSetupPending: true,
+      totpSetupPendingAt: new Date(),
+    });
+    // Mã sai: chặn ở verifySetup, mọi bước sau KHÔNG được chạy.
+    require('otplib').verify.mockResolvedValueOnce({ valid: false });
+
+    await expect(svc.completeInitialSetup('user-1', '000000', meta)).rejects.toThrow();
+
+    expect(prisma.user.update).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ twoFaSetupRequired: false }),
+      }),
+    );
+    expect(jwtService.signAsync).not.toHaveBeenCalled();
+  });
+});
+
+// ── Đường thiết lập lần đầu phải LẶP LẠI ĐƯỢC ────────────────────────────────
+//
+// setupTotp() ném 409 "đang chờ xác nhận" nếu totpSetupPending còn dưới 24 giờ.
+// Ở đường TỰ PHỤC VỤ điều đó hợp lý — người dùng đã đăng nhập, quay lại trang
+// cài đặt lúc nào cũng được. Ở đường THIẾT LẬP LẦN ĐẦU thì không: người dùng
+// CHƯA vào được hệ thống, thiết lập 2FA là cửa duy nhất. Một lần tải lại trang
+// (hoặc mở tab thứ hai, hoặc token 15 phút hết hạn rồi đăng nhập lại) sẽ khoá
+// tài khoản 24 giờ và không còn đường nào đi tiếp — đúng loại bế tắc mà bản vá
+// này sinh ra để xoá, chỉ dời sang màn kế tiếp.
+describe('TwoFaService.initialSetup() — phải lặp lại được', () => {
+  it('đang chờ xác nhận mà gọi lại → cấp mã QR MỚI, KHÔNG ném 409', async () => {
+    const { svc } = makeService({
+      totpEnabled: false,
+      totpSetupPending: true,
+      totpSetupPendingAt: new Date(), // vừa mới, còn xa mốc 24 giờ
+    });
+    const result = await svc.initialSetup('user-1');
+    expect(result).toHaveProperty('qrCodeDataUrl');
+    expect(result.backupCodes.length).toBeGreaterThan(0);
+  });
+
+  it('dọn trạng thái chờ trước khi cấp lại', async () => {
+    const { svc, prisma } = makeService({
+      totpEnabled: false,
+      totpSetupPending: true,
+      totpSetupPendingAt: new Date(),
+    });
+    await svc.initialSetup('user-1');
+    expect(prisma.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ totpSetupPending: false, totpSecret: null }),
+      }),
+    );
+  });
+
+  it('đường TỰ PHỤC VỤ vẫn giữ cổng 409 — chỉ đường lần đầu mới được cấp lại', async () => {
+    const { svc } = makeService({
+      totpEnabled: false,
+      totpSetupPending: true,
+      totpSetupPendingAt: new Date(),
+    });
+    await expect(svc.setupTotp('user-1')).rejects.toThrow('Setup đang chờ xác nhận');
+  });
+
+  it('2FA đã bật thì vẫn từ chối — không cho cấp lại đè lên bí mật đang dùng', async () => {
+    const { svc } = makeService({ totpEnabled: true });
+    await expect(svc.initialSetup('user-1')).rejects.toThrow('2FA đã được kích hoạt');
+  });
+});
+
+// ── Sổ đăng nhập của đường thiết lập lần đầu ─────────────────────────────────
+//
+// verify() ghi USER_LOGIN và đặt lastLoginAt khi đăng nhập hoàn tất.
+// completeInitialSetup() thì không — nên phiên tạo qua đường này vô hình với
+// mọi truy vấn tuân thủ. Đáng nói: chính lastLoginAt là bằng chứng dùng để đo
+// ra lỗi 238 tài khoản (0 tài khoản nào có lastLoginAt). Thiếu nó ở đây thì
+// phép đo ấy mù đúng vào đường vừa được sửa.
+describe('TwoFaService.completeInitialSetup() — sổ đăng nhập', () => {
+  const meta = { ipAddress: '127.0.0.1', userAgent: 'test' };
+
+  it('đăng nhập hoàn tất → ghi USER_LOGIN và đặt lastLoginAt', async () => {
+    const { svc, audit, prisma } = makeService({
+      totpEnabled: false,
+      totpSetupPending: true,
+      totpSetupPendingAt: new Date(),
+      mustChangePassword: false,
+    });
+    await svc.completeInitialSetup('user-1', '123456', meta);
+    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: 'USER_LOGIN' }));
+    expect(prisma.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ lastLoginAt: expect.any(Date) }),
+      }),
+    );
+  });
+
+  it('tài khoản bị khoá giữa chừng → từ chối, không phát hành token', async () => {
+    const { svc } = makeService({
+      totpEnabled: false,
+      totpSetupPending: true,
+      totpSetupPendingAt: new Date(),
+      isActive: false,
+    });
+    await expect(svc.completeInitialSetup('user-1', '123456', meta)).rejects.toThrow();
   });
 });

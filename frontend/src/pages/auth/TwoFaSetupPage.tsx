@@ -9,9 +9,9 @@
  * Luồng: quét QR → nhập mã 6 số → máy chủ bật totp, xoá cờ, trả cặp token thật
  * (hoặc token đổi mật khẩu nếu tài khoản còn phải đổi mật khẩu lần đầu).
  */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, Copy, Check, ShieldCheck } from 'lucide-react';
 
 import { authApi } from '@/lib/api';
@@ -22,31 +22,42 @@ import logoCA from '@/assets/logo-cong-an.png';
 export default function TwoFaSetupPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
   const twoFaSetupToken: string | undefined = (
     location.state as { twoFaSetupToken?: string } | null
   )?.twoFaSetupToken;
 
   const [code, setCode] = useState('');
   const [copied, setCopied] = useState(false);
+  const [showCodesFallback, setShowCodesFallback] = useState(false);
   const [savedAcknowledged, setSavedAcknowledged] = useState(false);
 
   // Tới thẳng URL này mà không qua đăng nhập thì không có token — quay lại.
-  if (!twoFaSetupToken) {
-    navigate('/login', { replace: true });
-    return null;
-  }
+  // Chuyển hướng trong useEffect, KHÔNG phải giữa lúc dựng giao diện: gọi
+  // navigate() lúc dựng là cập nhật component khác giữa chừng, và đặt `return`
+  // trước các hook làm số hook đổi giữa hai lần dựng (react-hooks/rules-of-hooks).
+  useEffect(() => {
+    if (!twoFaSetupToken) navigate('/login', { replace: true });
+  }, [twoFaSetupToken, navigate]);
 
   const setupQuery = useQuery({
-    queryKey: ['initial-2fa-setup'],
-    queryFn: async () => (await authApi.initialTwoFaSetup(twoFaSetupToken)).data,
+    // Khoá cache theo CHÍNH token. Dùng khoá cố định thì trên máy dùng chung,
+    // người thứ hai đăng nhập trong vòng vài phút sẽ thấy lại mã QR và mã dự
+    // phòng của người thứ nhất — lộ bí mật, và quét nhầm mã của người khác.
+    queryKey: ['initial-2fa-setup', twoFaSetupToken],
+    queryFn: async () => (await authApi.initialTwoFaSetup(twoFaSetupToken!)).data,
+    enabled: !!twoFaSetupToken,
     retry: false,
     refetchOnWindowFocus: false,
     staleTime: Infinity,
+    gcTime: 0, // không giữ mã dự phòng trong bộ nhớ sau khi rời trang
   });
 
   const verifyMutation = useMutation({
-    mutationFn: () => authApi.completeInitialTwoFaSetup(twoFaSetupToken, code.trim()),
+    mutationFn: () => authApi.completeInitialTwoFaSetup(twoFaSetupToken!, code.trim()),
     onSuccess: (response) => {
+      // Xoá mã dự phòng khỏi bộ nhớ đệm ngay khi xong việc.
+      queryClient.removeQueries({ queryKey: ['initial-2fa-setup', twoFaSetupToken] });
       const data = response.data;
       // Tài khoản vừa tạo thường còn cờ bắt đổi mật khẩu — máy chủ trả token đổi
       // mật khẩu thay vì cặp token thật. Không được coi đây là đăng nhập xong.
@@ -65,26 +76,47 @@ export default function TwoFaSetupPage() {
   const backupCodes = setupQuery.data?.backupCodes ?? [];
 
   const copyBackupCodes = async () => {
+    const text = backupCodes.join('\n');
+    // `navigator.clipboard` KHÔNG tồn tại ngoài ngữ cảnh bảo mật, và bản chạy
+    // thật đang phục vụ qua http:// — nên đây là đường chính, không phải đường
+    // hiếm. Thất bại thì mở ô văn bản chọn sẵn để người dùng tự chép, thay vì
+    // im lặng không có gì xảy ra.
     try {
-      await navigator.clipboard.writeText(backupCodes.join('\n'));
+      if (!navigator.clipboard) throw new Error('clipboard unavailable');
+      await navigator.clipboard.writeText(text);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Trình duyệt chặn clipboard — người dùng vẫn đọc và chép tay được.
+      setShowCodesFallback(true);
     }
   };
 
+  // Phiên thiết lập sống 15 phút — đủ để hết hạn trong lúc người dùng đi cài
+  // ứng dụng xác thực. Máy chủ trả 401 kèm chuỗi tiếng Anh; nếu để nguyên thì
+  // màn hình báo "Mã xác thực không đúng", tức đổ lỗi sai cho người dùng.
+  const isExpired = (err: unknown): boolean =>
+    (err as { response?: { status?: number } } | null)?.response?.status === 401;
+  const EXPIRED_MESSAGE =
+    'Phiên thiết lập đã hết hạn. Vui lòng đăng nhập lại để nhận mã QR mới.';
+
   const verifyError = verifyMutation.error
-    ? extractApiError(verifyMutation.error, 'Mã xác thực không đúng. Vui lòng thử lại.').message
+    ? isExpired(verifyMutation.error)
+      ? EXPIRED_MESSAGE
+      : extractApiError(verifyMutation.error, 'Mã xác thực không đúng. Vui lòng thử lại.').message
     : null;
   const setupError = setupQuery.error
-    ? extractApiError(setupQuery.error, 'Không tải được mã QR. Vui lòng đăng nhập lại.').message
+    ? isExpired(setupQuery.error)
+      ? EXPIRED_MESSAGE
+      : extractApiError(setupQuery.error, 'Không tải được mã QR. Vui lòng thử lại.').message
     : null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (code.trim() && savedAcknowledged) verifyMutation.mutate();
   };
+
+  // Không có token thì useEffect ở trên đang đưa về trang đăng nhập — không dựng gì.
+  if (!twoFaSetupToken) return null;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-100 via-blue-50 to-slate-50 flex items-center justify-center p-4">
@@ -125,7 +157,23 @@ export default function TwoFaSetupPage() {
               <div role="alert" className="mb-4 p-3 bg-red-50 border-l-4 border-red-500 rounded-r-lg">
                 <div className="flex items-start gap-2">
                   <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
-                  <p className="text-sm font-medium text-red-800">{setupError}</p>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-red-800">{setupError}</p>
+                    {/* Luôn phải có đường đi tiếp. Một màn hình lỗi không lối
+                        thoát chính là loại bế tắc mà bản vá này sinh ra để xoá. */}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        isExpired(setupQuery.error)
+                          ? navigate('/login', { replace: true })
+                          : setupQuery.refetch()
+                      }
+                      className="mt-2 text-sm font-medium text-[#003973] underline"
+                      data-testid="2fa-setup-retry"
+                    >
+                      {isExpired(setupQuery.error) ? 'Về trang đăng nhập' : 'Thử lại'}
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
@@ -166,6 +214,23 @@ export default function TwoFaSetupPage() {
                   {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                   {copied ? 'Đã sao chép' : 'Sao chép mã dự phòng'}
                 </button>
+
+                {showCodesFallback && (
+                  <div className="mb-4">
+                    <p className="text-xs text-slate-600 mb-1">
+                      Trình duyệt không cho sao chép tự động. Chọn toàn bộ ô dưới đây rồi
+                      chép lại (Ctrl+C):
+                    </p>
+                    <textarea
+                      readOnly
+                      value={backupCodes.join('\n')}
+                      onFocus={(e) => e.currentTarget.select()}
+                      rows={5}
+                      className="w-full px-3 py-2 font-mono text-sm border border-slate-300 rounded-lg"
+                      data-testid="2fa-setup-codes-fallback"
+                    />
+                  </div>
+                )}
 
                 <label className="flex items-start gap-2 mb-4 cursor-pointer">
                   <input

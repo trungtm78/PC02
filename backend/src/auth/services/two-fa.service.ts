@@ -66,7 +66,16 @@ export class TwoFaService {
   }
 
   // ── Setup TOTP ─────────────────────────────────────────────────────────────
-  async setupTotp(userId: string): Promise<{ qrCodeDataUrl: string; backupCodes: string[] }> {
+  /**
+   * @param allowRestart cho phép cấp lại mã QR khi đang có phiên thiết lập chờ.
+   *   Đường TỰ PHỤC VỤ để `false` (giữ cổng 409 — người dùng đã đăng nhập, quay
+   *   lại trang cài đặt lúc nào cũng được). Đường THIẾT LẬP LẦN ĐẦU để `true`:
+   *   ở đó 409 là khoá cứng 24 giờ vì thiết lập 2FA là cửa duy nhất vào hệ thống.
+   */
+  async setupTotp(
+    userId: string,
+    allowRestart = false,
+  ): Promise<{ qrCodeDataUrl: string; backupCodes: string[] }> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { id: true, email: true, username: true, totpEnabled: true, totpSetupPending: true, totpSetupPendingAt: true },
@@ -80,7 +89,7 @@ export class TwoFaService {
     // ISSUE-006: lazy cleanup of abandoned setup after 24h
     if (user.totpSetupPending && user.totpSetupPendingAt) {
       const age = Date.now() - user.totpSetupPendingAt.getTime();
-      if (age > SETUP_PENDING_TTL_MS) {
+      if (allowRestart || age > SETUP_PENDING_TTL_MS) {
         await this.prisma.user.update({
           where: { id: userId },
           data: { totpSetupPending: false, totpSecret: null, totpSetupPendingAt: null },
@@ -471,8 +480,19 @@ export class TwoFaService {
   // ──────────────────────────────────────────────────────────────────────────
 
   async initialSetup(userId: string): Promise<{ qrCodeDataUrl: string; backupCodes: string[] }> {
-    // Reuse logic của setupTotp — không cần thêm gì khác, user state giống nhau.
-    return this.setupTotp(userId);
+    // KHÁC đường tự phục vụ ở đúng một điểm, và điểm đó quan trọng:
+    // `setupTotp()` ném 409 "đang chờ xác nhận" nếu `totpSetupPending` còn dưới
+    // 24 giờ. Với người đã đăng nhập thì hợp lý — quay lại trang cài đặt lúc nào
+    // cũng được. Với người đang bị chặn ở cửa đăng nhập thì đó là KHOÁ CỨNG:
+    // thiết lập 2FA là đường duy nhất vào hệ thống, nên một lần tải lại trang,
+    // một tab thứ hai, hay token 15 phút hết hạn rồi đăng nhập lại đều khoá tài
+    // khoản 24 giờ mà không còn lối đi tiếp.
+    //
+    // Người dùng chưa xác nhận mã nào thì chưa có gì được bảo vệ: cấp lại mã QR
+    // mới. Mã cũ mất hiệu lực — đúng như mong đợi, vì màn hình đang hiện mã mới
+    // để quét. `setupTotp` vẫn từ chối khi 2FA ĐÃ bật, nên không có đường nào đè
+    // lên một bí mật đang dùng.
+    return this.setupTotp(userId, true);
   }
 
   async completeInitialSetup(
@@ -504,7 +524,9 @@ export class TwoFaService {
       where: { id: userId },
       include: { role: true },
     });
-    if (!user) throw new UnauthorizedException();
+    // Cùng phép kiểm như `verify()`: tài khoản có thể bị vô hiệu hoá TRONG lúc
+    // người dùng đang thiết lập (token thiết lập sống 15 phút).
+    if (!user || !user.isActive) throw new UnauthorizedException();
 
     // 4. Cùng cổng chặn C2 như `verify()`: tài khoản do quản trị tạo mang ĐỒNG THỜI
     //    mustChangePassword=true và twoFaSetupRequired=true. Thiếu cổng này thì
@@ -514,7 +536,25 @@ export class TwoFaService {
       return this.issueChangePasswordPending(user, meta, { postInitialSetup: true });
     }
 
-    // 5. Issue real TokenPair — login flow hoàn tất.
+    // 5. Đăng nhập hoàn tất — ghi sổ GIỐNG `verify()`. Thiếu hai dòng này thì
+    //    phiên tạo qua đường thiết lập lần đầu vô hình với mọi truy vấn tuân thủ,
+    //    và `lastLoginAt` — chính bằng chứng dùng để đo ra lỗi 238 tài khoản —
+    //    sẽ mù đúng vào đường vừa được sửa.
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { lastLoginAt: new Date() },
+    });
+    await this.audit.log({
+      userId,
+      action: 'USER_LOGIN',
+      subject: 'User',
+      subjectId: userId,
+      metadata: { email: user.email, role: user.role.name, postInitialSetup: true },
+      ipAddress: meta.ipAddress,
+      userAgent: meta.userAgent,
+    });
+
+    // 6. Issue real TokenPair — login flow hoàn tất.
     return this.generateTokenPair(user);
   }
 

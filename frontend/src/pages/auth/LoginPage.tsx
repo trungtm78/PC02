@@ -115,6 +115,10 @@ export default function LoginPage() {
     } else {
       clearEmail();
     }
+    // Xoá lỗi định tuyến của lần trước NGAY khi gửi lại. Nếu chỉ xoá trong
+    // onSuccess thì một lần sai mật khẩu sau đó vẫn hiện thông điệp cũ ("tải lại
+    // trang để cập nhật") — báo sai nguyên nhân cho người dùng.
+    setRoutingError(null);
     loginMutation.mutate(values);
   };
 

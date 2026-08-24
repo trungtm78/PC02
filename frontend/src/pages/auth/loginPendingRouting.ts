@@ -40,18 +40,23 @@ export function resolveLoginRoute(response: LoginResponseLike): LoginRoute {
     // Nhận diện theo TRƯỜNG token chứ không theo `reason`: token là thứ bước sau
     // thực sự cần, còn `reason` chỉ để hiển thị. Máy chủ đổi/bỏ `reason` cũng
     // không làm luồng chết.
-    if (response.changePasswordToken) {
-      return {
-        kind: 'navigate',
-        path: '/auth/first-login-change-password',
-        state: { changePasswordToken: response.changePasswordToken },
-      };
-    }
+    // Thứ tự đặt theo YÊU CẦU MẠNH TRƯỚC. Hôm nay máy chủ trả đúng một trường
+    // nên thứ tự không đổi kết quả; nhưng tài khoản do quản trị tạo mang đồng
+    // thời cả hai cờ, nên nếu về sau máy chủ trả kèm nhau thì đặt đổi-mật-khẩu
+    // trước sẽ bỏ qua bước bắt buộc thiết lập 2 lớp. Xếp 2 lớp lên đầu để cái
+    // giá của một thay đổi phía máy chủ không phải là một lỗ hổng âm thầm.
     if (response.twoFaSetupToken) {
       return {
         kind: 'navigate',
         path: '/auth/2fa-setup',
         state: { twoFaSetupToken: response.twoFaSetupToken },
+      };
+    }
+    if (response.changePasswordToken) {
+      return {
+        kind: 'navigate',
+        path: '/auth/first-login-change-password',
+        state: { changePasswordToken: response.changePasswordToken },
       };
     }
     if (response.twoFaToken) {
