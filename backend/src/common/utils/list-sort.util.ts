@@ -31,6 +31,13 @@ export interface BuildListOrderByOptions {
   defaultField: string;
   /** Trường có thể rỗng → hồ sơ trống bị đẩy xuống cuối. */
   nullableFields?: readonly string[];
+  /**
+   * Nắn tên trường người dùng gọi → cột thật dùng để sắp.
+   * Dùng khi cột sắp khác cột hiển thị: Đơn thư cho bấm cột "Ngày nhận"
+   * (`receivedDate`) nhưng phải sắp theo cột sinh `sortReceivedDate`.
+   * Áp SAU khi kiểm danh sách trắng, nên cột thật không cần lộ ra giao diện.
+   */
+  fieldAliases?: Readonly<Record<string, string>>;
   /** Khoá phụ giữ thứ tự ổn định khi trùng giá trị. Mặc định `'id'`. */
   tieBreakField?: string;
 }
@@ -41,12 +48,16 @@ export function buildListOrderBy({
   allowed,
   defaultField,
   nullableFields = [],
+  fieldAliases = {},
   tieBreakField = 'id',
 }: BuildListOrderByOptions): Record<string, unknown>[] {
   const direction: ListSortOrder = sortOrder === 'asc' ? 'asc' : 'desc';
 
-  const field =
-    sortBy && allowed.includes(sortBy) ? sortBy : defaultField;
+  // Kiểm danh sách trắng theo tên NGƯỜI DÙNG gửi...
+  const requested = sortBy && allowed.includes(sortBy) ? sortBy : defaultField;
+  // ...rồi mới nắn sang cột thật. Thứ tự này giữ cột nội bộ (vd cột sinh) khỏi lộ
+  // ra giao diện, và vẫn nắn được cả trường mặc định.
+  const field = fieldAliases[requested] ?? requested;
 
   const primary: Record<string, unknown> = nullableFields.includes(field)
     ? { [field]: { sort: direction, nulls: 'last' } }

@@ -219,8 +219,28 @@ describe('PetitionsService', () => {
       const callArgs = mockPrisma.petition.findMany.mock.calls[0][0];
       // Đo trên dữ liệu thật: cả 45.459 đơn thư có CÙNG một createdAt (ngày di trú),
       // nên sắp theo nó cho ra thứ tự ngẫu nhiên. receivedDate phủ 100% và có chỉ mục.
-      expect(callArgs.orderBy[0]).toEqual({ receivedDate: 'desc' });
+      //
+      // Sắp theo `sortReceivedDate` (cột SINH) chứ không phải `receivedDate` trực tiếp:
+      // 9 hồ sơ có ngày phi lý (năm 3023, 2925, 0225...) nhận NULL ở cột sinh nên chìm
+      // xuống cuối thay vì chiếm trọn màn hình đầu. Cột hiển thị vẫn là receivedDate.
+      expect(callArgs.orderBy[0]).toEqual({
+        sortReceivedDate: { sort: 'desc', nulls: 'last' },
+      });
       expect(JSON.stringify(callArgs.orderBy)).not.toContain('createdAt');
+    });
+
+    it('sắp theo ngày nhận thì hồ sơ ngày phi lý bị đẩy xuống CUỐI', async () => {
+      mockPrisma.petition.findMany.mockResolvedValue([]);
+      mockPrisma.petition.count.mockResolvedValue(0);
+
+      // Người dùng bấm cột "Ngày nhận" → gửi sortBy='receivedDate'.
+      await service.getList({ sortBy: 'receivedDate' });
+
+      const { orderBy } = mockPrisma.petition.findMany.mock.calls[0][0];
+      // Phải nắn sang cột sinh, nếu không 9 hồ sơ năm 3023 lại nổi lên đầu.
+      expect(orderBy[0]).toEqual({
+        sortReceivedDate: { sort: 'desc', nulls: 'last' },
+      });
     });
 
     it('có khoá phụ ổn định để phân trang không lặp/mất hồ sơ', async () => {
@@ -241,7 +261,10 @@ describe('PetitionsService', () => {
 
       const { orderBy } = mockPrisma.petition.findMany.mock.calls[0][0];
       expect(JSON.stringify(orderBy)).not.toContain('passwordHash');
-      expect(orderBy[0]).toEqual({ receivedDate: 'desc' });
+      // Rơi về mặc định, và mặc định vẫn được nắn sang cột sinh.
+      expect(orderBy[0]).toEqual({
+        sortReceivedDate: { sort: 'desc', nulls: 'last' },
+      });
     });
 
     it('should filter by search query', async () => {

@@ -169,7 +169,12 @@ export class PetitionsService {
         'senderName',
       ],
       defaultField: 'receivedDate',
-      nullableFields: ['deadline'], // receivedDate là NOT NULL nên không cần
+      nullableFields: ['deadline', 'sortReceivedDate'],
+      // Người dùng nói "ngày nhận", nhưng SẮP theo cột sinh `sortReceivedDate`: nó bằng
+      // `receivedDate` với ngày hợp lý và NULL với ngày phi lý (9 hồ sơ năm 3023, 2925,
+      // 0225...). Kèm NULLS LAST thì rác chìm xuống cuối thay vì chiếm màn hình đầu.
+      // Cột HIỂN THỊ vẫn là `receivedDate` gốc — không giấu dữ liệu, chỉ đổi thứ tự.
+      fieldAliases: { receivedDate: 'sortReceivedDate' },
     });
 
     const [data, total] = await Promise.all([

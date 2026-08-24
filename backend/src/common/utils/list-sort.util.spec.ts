@@ -101,6 +101,59 @@ describe('buildListOrderBy', () => {
     expect(result[result.length - 1]).toEqual({ id: 'desc' });
   });
 
+  // Có trường mà tên người dùng gọi KHÁC cột thật dùng để sắp. Ví dụ Đơn thư: người
+  // dùng bấm cột "Ngày nhận" (`receivedDate`), nhưng phải sắp theo cột sinh
+  // `sortReceivedDate` để 9 hồ sơ ngày phi lý chìm xuống cuối.
+  describe('nắn tên trường (fieldAliases)', () => {
+    it('trường có ánh xạ → sắp theo cột thật, không phải tên người dùng gửi', () => {
+      expect(
+        buildListOrderBy({
+          sortBy: 'receivedDate',
+          allowed: ALLOWED,
+          defaultField: 'receivedDate',
+          nullableFields: ['sortReceivedDate'],
+          fieldAliases: { receivedDate: 'sortReceivedDate' },
+        }),
+      ).toEqual([
+        { sortReceivedDate: { sort: 'desc', nulls: 'last' } },
+        { id: 'desc' },
+      ]);
+    });
+
+    it('ánh xạ áp cho CẢ trường mặc định, không chỉ trường người dùng chọn', () => {
+      const result = buildListOrderBy({
+        allowed: ALLOWED,
+        defaultField: 'receivedDate',
+        nullableFields: ['sortReceivedDate'],
+        fieldAliases: { receivedDate: 'sortReceivedDate' },
+      });
+      expect(result[0]).toEqual({ sortReceivedDate: { sort: 'desc', nulls: 'last' } });
+    });
+
+    it('trường không có ánh xạ → giữ nguyên', () => {
+      expect(
+        buildListOrderBy({
+          sortBy: 'deadline',
+          allowed: ALLOWED,
+          defaultField: 'receivedDate',
+          fieldAliases: { receivedDate: 'sortReceivedDate' },
+        })[0],
+      ).toEqual({ deadline: 'desc' });
+    });
+
+    // Danh sách trắng kiểm tên NGƯỜI DÙNG gửi, nắn tên xảy ra SAU. Nếu ngược lại thì
+    // cột sinh phải lọt vào danh sách trắng và lộ ra ngoài giao diện.
+    it('nắn tên xảy ra SAU khi kiểm danh sách trắng', () => {
+      const result = buildListOrderBy({
+        sortBy: 'sortReceivedDate', // tên cột thật — người dùng không được gọi thẳng
+        allowed: ALLOWED,
+        defaultField: 'deadline',
+        fieldAliases: { receivedDate: 'sortReceivedDate' },
+      });
+      expect(result[0]).toEqual({ deadline: 'desc' });
+    });
+  });
+
   it('sắp theo chính khoá phụ thì không lặp lại nó hai lần', () => {
     const result = buildListOrderBy({
       sortBy: 'id',
