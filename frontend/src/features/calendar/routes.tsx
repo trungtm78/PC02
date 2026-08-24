@@ -1,14 +1,12 @@
-import { lazy, Suspense, type ReactElement } from 'react';
+import { lazy, type ReactElement } from 'react';
 import { Route } from 'react-router-dom';
+import { wrapRoute } from '@/lib/features/wrapRoute';
 
 const CalendarPage = lazy(() => import('@/pages/calendar/CalendarPage'));
 
-const wrap = (node: ReactElement): ReactElement => (
-  <Suspense fallback={null}>{node}</Suspense>
-);
 
 export function renderCalendarRoutes(): ReactElement[] {
   return [
-    <Route key="calendar" path="/calendar" element={wrap(<CalendarPage />)} />,
+    <Route key="calendar" path="/calendar" element={wrapRoute(<CalendarPage />)} />,
   ];
 }
