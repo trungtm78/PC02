@@ -1,6 +1,6 @@
 # Shell Parity Matrix — Legacy (git 2cbdd90) vs Current Shells
 
-**Updated**: 2026-05-30 after v0.66 ship (PR1-PR4 complete).
+**Updated**: 2026-08-24 after v0.72.0.0 (sắp xếp danh sách). Trước đó: 2026-05-30 (v0.66).
 **Truth-of-record**: legacy commit `2cbdd90` (parent of `a8016b6` v0.57.0.0 deletion).
 **Method**: testid extraction + registry inspection.
 
@@ -16,6 +16,26 @@
 `.github/workflows/shell-parity-gate.yml`:
 - Any PR modifying `*ListPageShell.tsx` MUST also update this matrix file.
 - Bypass: `[parity-skip]` in PR title for refactor-only changes.
+
+## v0.72.0.0 — Sắp xếp danh sách (feat/list-sort-newest-first)
+
+Bổ sung năng lực MỚI cho cả ba shell, không có ở bản cũ (legacy `2cbdd90` cũng không có):
+
+| Năng lực | Cases | Incidents | Petitions | Ghi chú |
+|---|---|---|---|---|
+| Bấm tiêu đề cột để sắp | ✅ | ✅ | ✅ | `ColumnDef.sortKey` + `SortableHeader`, có `aria-sort` |
+| Thứ tự lưu trong địa chỉ trang | ✅ | ✅ | ✅ | `useListSort` (tiền tố riêng mỗi shell) |
+| Sắp mặc định mới→cũ theo ngày nhận | ✅ `ngayDeXuat` | ✅ `ngayDeXuat` | ✅ `receivedDate` | trước đây cả ba dùng `createdAt` |
+| Cột "Ngày tiếp nhận" | ✅ THÊM MỚI | ✅ THÊM MỚI | ✅ đã có ("Ngày nhận") | |
+| Cột "Ngày tạo" | ✅ đã có | ✅ đã có | ✅ THÊM MỚI | có chú giải: hồ sơ di trú cùng một ngày |
+| Đánh dấu ngày phi lý | ✅ | ✅ | ✅ | `DateCell`, ngoài khoảng 1900–2100 |
+
+**Không xoá năng lực nào.** Mọi hành động và bộ lọc sẵn có giữ nguyên; thay đổi chỉ thêm
+cột và khả năng sắp xếp.
+
+Cơ sở chọn trường sắp (đo trên dữ liệu thật 2026-08-24): `createdAt` giống hệt nhau ở toàn
+bộ hồ sơ di trú (45.459 đơn thư và 4.713 vụ việc cùng MỘT ngày), nên không dùng được.
+`cases.receiveDate` chỉ có 2/3.304 hồ sơ → phải dùng `ngayDeXuat` (98,8%).
 
 ## Summary (original audit, retained for reference)
 
