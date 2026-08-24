@@ -167,8 +167,10 @@ describe('LegacyMigrationService', () => {
       expect(mockTx.crime.findFirst).toHaveBeenCalledWith({ where: { legacyValue: 95 } });
       expect(mockPrisma.crime.findFirst).not.toHaveBeenCalled();
       const createArgs = mockTx.petition.create.mock.calls[0][0].data;
-      expect(createArgs.crimeChinh).toEqual({ connect: { id: 'crime-95' } });
-      expect(createArgs.crimeChinhId).toBeUndefined();
+      // Đơn thư dùng khoá ngoại vô hướng khắp payload → kiểu "unchecked", chỉ nhận
+      // `crimeChinhId`. Đưa quan hệ `crimeChinh` vào đây làm hỏng 4.915 đơn thư (đo 25/08).
+      expect(createArgs.crimeChinhId).toBe('crime-95');
+      expect(createArgs.crimeChinh).toBeUndefined();
       expect(createArgs.crimeChinhLegacyValue).toBeUndefined();
     });
 

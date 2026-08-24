@@ -73,11 +73,16 @@ export class LegacyMigrationService {
     // Cả Đơn thư LẪN Vụ án nay đều có cột `crimeChinhId` (FK master Crime) → resolve chung.
     if (lv === undefined) return;
     const crime = await tx.crime.findFirst({ where: { legacyValue: lv } });
-    // Nối bằng QUAN HỆ, không phải khoá ngoại vô hướng. Payload vụ án dùng `connect` cho
-    // createdBy/investigator/linkedPetition → Prisma chốt kiểu "checked" và từ chối
-    // `crimeChinhId` trong cùng payload. Dạng `connect` đúng ở CẢ hai kiểu, nên dùng chung
-    // cho đơn thư lẫn vụ án thay vì rẽ nhánh theo `target`.
-    if (crime) data.crimeChinh = { connect: { id: crime.id } };
+    if (!crime) return;
+    // Hai payload chốt HAI kiểu Prisma khác nhau, nên cách nối tội danh cũng phải khác —
+    // và mỗi kiểu TỪ CHỐI dạng của kiểu kia:
+    //   • Vụ án dùng `connect` cho createdBy/investigator/linkedPetition → kiểu "checked",
+    //     từ chối khoá ngoại vô hướng ("Unknown argument `crimeChinhId`").
+    //   • Đơn thư dùng khoá ngoại vô hướng → kiểu "unchecked", từ chối quan hệ `crimeChinh`.
+    // Đo trên dữ liệu thật 25/08: dùng chung một dạng làm hỏng 4.915 đơn thư; đây là lượt
+    // CẬP NHẬT nên hỏng nghĩa là sửa đổi ở hệ cũ không sang được hệ mới.
+    if (target === 'case') data.crimeChinh = { connect: { id: crime.id } };
+    else data.crimeChinhId = crime.id;
   }
 
   // Commit: upsert theo legacySourceId (idempotent re-run). Mỗi record 1 transaction nhỏ; lỗi 1 record không chặn record khác.
