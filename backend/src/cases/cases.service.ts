@@ -310,6 +310,7 @@ export class CasesService {
           deadline: true,
           unit: true,
           subjectsCount: true,
+          ngayDeXuat: true, // ngày tiếp nhận — trường sắp mặc định, cần cho cột danh sách
           createdAt: true,
           updatedAt: true,
           caseType: true,

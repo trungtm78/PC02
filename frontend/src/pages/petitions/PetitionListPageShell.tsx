@@ -22,6 +22,8 @@ import { api } from '@/lib/api';
 import {
   ListPageShell,
   useListPageUrlState,
+  useListSort,
+  DateCell,
   type ColumnDef,
   type TableState,
 } from '@/components/shared/ListPageShell';
@@ -133,6 +135,7 @@ function isOverdue(deadline?: string | null): boolean {
 export function PetitionListPageShell() {
   const navigate = useNavigate();
   const url = useListPageUrlState('petitions');
+  const sort = useListSort('petitions');
 
   const rawStatus = url.getParam('status');
   const statusFilter = isValidPetitionStatus(rawStatus) ? rawStatus : null;
@@ -243,6 +246,7 @@ export function PetitionListPageShell() {
       ...baseQueryParams,
       ...(statusFilter && { status: statusFilter }),
       ...(groupFilter && { statusGroup: groupFilter }),
+      ...sort.params,
       limit: PAGE_SIZE,
       offset: (page - 1) * PAGE_SIZE,
     };
@@ -413,11 +417,13 @@ export function PetitionListPageShell() {
       {
         key: 'receivedDate',
         header: 'Ngày nhận',
-        render: (r) => formatVNDate(r.receivedDate),
+        sortKey: 'receivedDate',
+        render: (r) => <DateCell value={r.receivedDate} />,
       },
       {
         key: 'deadline',
         header: 'Hạn xử lý',
+        sortKey: 'deadline',
         render: (r) => {
           if (!r.deadline) return '—';
           const overdue = isOverdue(r.deadline);
@@ -427,6 +433,18 @@ export function PetitionListPageShell() {
             </span>
           );
         },
+      },
+      {
+        key: 'createdAt',
+        header: 'Ngày tạo',
+        sortKey: 'createdAt',
+        // Hồ sơ di trú đều mang cùng một ngày tạo (ngày chuyển dữ liệu) — chú giải để
+        // cán bộ không tưởng là lỗi hiển thị.
+        render: (r) => (
+          <span title="Ngày nhập vào hệ thống. Hồ sơ di trú đều là ngày chuyển dữ liệu.">
+            {formatVNDate(r.createdAt)}
+          </span>
+        ),
       },
     ],
     [actionCtx],
@@ -615,6 +633,9 @@ export function PetitionListPageShell() {
         state={tableState}
         columns={columns}
         data={rows}
+        sortBy={sort.sortBy}
+        sortOrder={sort.sortOrder}
+        onSort={sort.onSort}
         rowKey={(r) => r.id}
         title="Danh sách đơn thư"
         sectionTitle="Danh sách đơn thư"
