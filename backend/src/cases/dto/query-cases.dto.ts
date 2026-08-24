@@ -132,7 +132,9 @@ export class QueryCasesDto {
   // Sort
   @IsOptional()
   @IsString()
-  sortBy?: string = 'createdAt';
+  // KHONG dat mac dinh o day: moi module co truong mac dinh rieng, quyet dinh o
+  // service qua buildListOrderBy. Dat mac dinh o DAY se de len mac dinh do.
+  sortBy?: string;
 
   @IsOptional()
   @Transform(({ value }) => value === 'asc' ? 'asc' : 'desc')

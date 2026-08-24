@@ -8,6 +8,7 @@ import {
 import { Response } from 'express';
 import * as ExcelJS from 'exceljs';
 import { PrismaService } from '../prisma/prisma.service';
+import { buildListOrderBy, type ListSortOrder } from '../common/utils/list-sort.util';
 import { AuditService } from '../audit/audit.service';
 import { buildCaseStatisticData } from './case-statistic.builder';
 import { SettingsService } from '../settings/settings.service';
@@ -124,7 +125,7 @@ export class CasesService {
       investigatorName,
       limit = 20,
       offset = 0,
-      sortBy = 'createdAt',
+      sortBy, // mac dinh do buildListOrderBy quyet dinh, KHONG dat o day
       sortOrder = 'desc',
     } = query;
 
@@ -278,9 +279,22 @@ export class CasesService {
       ];
     }
 
-    // Validate sortBy against allowed fields
-    const allowedSortFields = ['createdAt', 'updatedAt', 'name', 'deadline', 'status'];
-    const orderByField = allowedSortFields.includes(sortBy) ? sortBy : 'createdAt';
+    // Mặc định sắp theo NGÀY ĐỀ XUẤT. Nghe có vẻ sai so với "ngày tiếp nhận", nhưng
+    // đo trên dữ liệu thật: `receiveDate` — đúng cột mang tên tiếp nhận — chỉ có
+    // 2/3.304 hồ sơ (0,06%), còn `ngayDeXuat` phủ 98,8%. Sắp theo `receiveDate` sẽ cho
+    // một khối rỗng khổng lồ. `createdAt` thì cả bảng chỉ có 3 ngày khác nhau (di trú).
+    // UTDT dùng chung bảng và endpoint này (GET /cases?caseType=UY_THAC_DIEU_TRA) nên
+    // thừa hưởng cùng thứ tự; `ngayTiepNhan` riêng của UTDT chỉ phủ 12,5%.
+    const orderBy = buildListOrderBy({
+      sortBy,
+      sortOrder: sortOrder as ListSortOrder,
+      allowed: [
+        'createdAt', 'updatedAt', 'name', 'deadline', 'status',
+        'ngayDeXuat', 'receiveDate', 'ngayTiepNhan',
+      ],
+      defaultField: 'ngayDeXuat',
+      nullableFields: ['ngayDeXuat', 'receiveDate', 'ngayTiepNhan', 'deadline'],
+    });
 
     const [data, total] = await Promise.all([
       this.prisma.case.findMany({
@@ -320,7 +334,7 @@ export class CasesService {
             select: { id: true, firstName: true, lastName: true },
           },
         },
-        orderBy: { [orderByField]: sortOrder },
+        orderBy,
         take: limit,
         skip: offset,
       }),

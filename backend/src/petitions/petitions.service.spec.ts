@@ -206,6 +206,44 @@ describe('PetitionsService', () => {
       expect(result.total).toBe(1);
     });
 
+    // ── Thứ tự sắp xếp ────────────────────────────────────────────────────
+    // Ca kiểm ĐẶT ĐÚNG TẦNG: bộ ca kiểm của buildListOrderBy là hàm thuần, nó vẫn
+    // xanh kể cả khi service quên nối vào. Ca dưới đây khẳng định service THẬT SỰ
+    // truyền mệnh đề sắp xếp mới xuống Prisma.
+    it('mặc định sắp theo NGÀY NHẬN giảm dần, không phải ngày tạo', async () => {
+      mockPrisma.petition.findMany.mockResolvedValue([]);
+      mockPrisma.petition.count.mockResolvedValue(0);
+
+      await service.getList({});
+
+      const callArgs = mockPrisma.petition.findMany.mock.calls[0][0];
+      // Đo trên dữ liệu thật: cả 45.459 đơn thư có CÙNG một createdAt (ngày di trú),
+      // nên sắp theo nó cho ra thứ tự ngẫu nhiên. receivedDate phủ 100% và có chỉ mục.
+      expect(callArgs.orderBy[0]).toEqual({ receivedDate: 'desc' });
+      expect(JSON.stringify(callArgs.orderBy)).not.toContain('createdAt');
+    });
+
+    it('có khoá phụ ổn định để phân trang không lặp/mất hồ sơ', async () => {
+      mockPrisma.petition.findMany.mockResolvedValue([]);
+      mockPrisma.petition.count.mockResolvedValue(0);
+
+      await service.getList({});
+
+      const { orderBy } = mockPrisma.petition.findMany.mock.calls[0][0];
+      expect(orderBy[orderBy.length - 1]).toEqual({ id: 'desc' });
+    });
+
+    it('tên cột tuỳ tiện KHÔNG đi vào truy vấn', async () => {
+      mockPrisma.petition.findMany.mockResolvedValue([]);
+      mockPrisma.petition.count.mockResolvedValue(0);
+
+      await service.getList({ sortBy: 'passwordHash', sortOrder: 'desc' });
+
+      const { orderBy } = mockPrisma.petition.findMany.mock.calls[0][0];
+      expect(JSON.stringify(orderBy)).not.toContain('passwordHash');
+      expect(orderBy[0]).toEqual({ receivedDate: 'desc' });
+    });
+
     it('should filter by search query', async () => {
       mockPrisma.petition.findMany.mockResolvedValue([]);
       mockPrisma.petition.count.mockResolvedValue(0);

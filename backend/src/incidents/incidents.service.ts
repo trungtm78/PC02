@@ -8,6 +8,7 @@ import {
 import { Response } from 'express';
 import * as ExcelJS from 'exceljs';
 import { PrismaService } from '../prisma/prisma.service';
+import { buildListOrderBy, type ListSortOrder } from '../common/utils/list-sort.util';
 import { AuditService } from '../audit/audit.service';
 import { CreateIncidentDto } from './dto/create-incident.dto';
 import { UpdateIncidentDto } from './dto/update-incident.dto';
@@ -69,7 +70,7 @@ export class IncidentsService {
       toDateRange,
       limit = 20,
       offset = 0,
-      sortBy = 'createdAt',
+      sortBy, // mac dinh do buildListOrderBy quyet dinh, KHONG dat o day
       sortOrder = 'desc',
     } = query;
 
@@ -170,10 +171,21 @@ export class IncidentsService {
       ];
     }
 
-    const allowedSortFields = [
-      'createdAt', 'updatedAt', 'deadline', 'status', 'code', 'name', 'ngayDeXuat',
-    ];
-    const orderByField = allowedSortFields.includes(sortBy) ? sortBy : 'createdAt';
+    // Mặc định sắp theo NGÀY TIẾP NHẬN NGUỒN TIN. Ở bảng này cột đó tên là
+    // `ngayDeXuat` (lược đồ chú thích "Ngày tiếp nhận nguồn tin — Đ.146 BLTTHS") —
+    // KHÔNG phải `ngayTiepNhanNguonTin`, dù tên gọi gợi ý ngược lại. Đo trên dữ liệu
+    // thật: `ngayDeXuat` phủ 97,5% và có chỉ mục; `ngayTiepNhanNguonTin` chỉ 64,3% và
+    // không có chỉ mục. `createdAt` thì cả 4.713 vụ việc đều cùng một ngày (ngày di trú).
+    const orderBy = buildListOrderBy({
+      sortBy,
+      sortOrder: sortOrder as ListSortOrder,
+      allowed: [
+        'createdAt', 'updatedAt', 'deadline', 'status', 'code', 'name',
+        'ngayDeXuat', 'ngayTiepNhanNguonTin',
+      ],
+      defaultField: 'ngayDeXuat',
+      nullableFields: ['ngayDeXuat', 'ngayTiepNhanNguonTin', 'deadline'],
+    });
 
     const [data, total] = await Promise.all([
       this.prisma.incident.findMany({
@@ -218,7 +230,7 @@ export class IncidentsService {
             select: { id: true, firstName: true, lastName: true, username: true },
           },
         },
-        orderBy: { [orderByField]: sortOrder },
+        orderBy,
         take: limit,
         skip: offset,
       }),
