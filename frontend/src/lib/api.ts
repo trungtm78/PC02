@@ -66,7 +66,19 @@ export type ChangePasswordPending = {
   changePasswordToken: string;
   reason: 'MUST_CHANGE_PASSWORD';
 };
-export type LoginResponse = LoginSuccess | TwoFaPending | ChangePasswordPending;
+// S2.4: tài khoản mới phải thiết lập 2FA trước khi hoàn tất đăng nhập. Máy chủ đã
+// trả nhánh này từ v0.21 nhưng giao diện chưa từng khai — login rơi vào im lặng,
+// 238 tài khoản production không đăng nhập được lần nào (sửa 2026-08-24).
+export type TwoFaSetupPending = {
+  pending: true;
+  twoFaSetupToken: string;
+  reason: 'TWO_FA_SETUP_REQUIRED';
+};
+export type LoginResponse =
+  | LoginSuccess
+  | TwoFaPending
+  | ChangePasswordPending
+  | TwoFaSetupPending;
 
 export const authApi = {
   login: (username: string, password: string) =>
@@ -99,6 +111,22 @@ export const authApi = {
       '/auth/2fa/verify',
       { code, method },
       { headers: { Authorization: `Bearer ${twoFaToken}` } },
+    ),
+  // 2FA — thiết lập lần đầu (dùng twoFaSetupToken, user CHƯA đăng nhập xong).
+  // Khác cặp setupTotp/verifySetup bên dưới ở chỗ không cần accessToken, và
+  // bước verify trả thẳng TokenPair (hoặc changePasswordToken nếu còn phải đổi
+  // mật khẩu) — hoàn tất luôn luồng đăng nhập.
+  initialTwoFaSetup: (twoFaSetupToken: string) =>
+    api.post<{ qrCodeDataUrl: string; backupCodes: string[] }>(
+      '/auth/2fa/initial-setup',
+      {},
+      { headers: { Authorization: `Bearer ${twoFaSetupToken}` } },
+    ),
+  completeInitialTwoFaSetup: (twoFaSetupToken: string, token: string) =>
+    api.post<LoginSuccess | ChangePasswordPending>(
+      '/auth/2fa/initial-setup/verify',
+      { token },
+      { headers: { Authorization: `Bearer ${twoFaSetupToken}` } },
     ),
   // 2FA — self-service setup (uses accessToken, must be authenticated)
   setupTotp: () =>

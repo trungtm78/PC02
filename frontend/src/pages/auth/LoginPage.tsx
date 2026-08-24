@@ -6,10 +6,11 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { AlertCircle, CheckCircle2, Lock, User, Eye, EyeOff } from 'lucide-react';
 
-import { authApi, type LoginResponse } from '@/lib/api';
+import { authApi } from '@/lib/api';
 import { extractApiError } from '@/lib/api-errors';
 import { authStore } from '@/stores/auth.store';
 import logoCA from '@/assets/logo-cong-an.png';
+import { resolveLoginRoute, type LoginResponseLike } from './loginPendingRouting';
 
 /* ── Constants ────────────────────────────────────────────────── */
 
@@ -61,6 +62,10 @@ export default function LoginPage() {
   const successMessage = (location.state as { successMessage?: string })?.successMessage;
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  // Lỗi do phản hồi đăng nhập không nhận ra được (máy chủ mới hơn giao diện).
+  // Tách khỏi loginMutation.error vì đó là lỗi HTTP, còn đây là HTTP 200 nhưng
+  // hình dạng lạ — trước đây rơi vào im lặng.
+  const [routingError, setRoutingError] = useState<string | null>(null);
 
   const {
     register,
@@ -84,24 +89,22 @@ export default function LoginPage() {
     mutationFn: (values: LoginFormValues) =>
       authApi.login(values.username, values.password),
     onSuccess: (data) => {
-      const result = data.data as LoginResponse;
-      if ('pending' in result && result.pending) {
-        // D1: forced first-login password change (admin-set or admin-reset).
-        if ('reason' in result && result.reason === 'MUST_CHANGE_PASSWORD') {
-          navigate('/auth/first-login-change-password', {
-            state: { changePasswordToken: result.changePasswordToken },
-            replace: true,
-          });
+      // Toàn bộ quyết định điều hướng nằm ở resolveLoginRoute — hàm này bảo đảm
+      // MỌI phản hồi đều ra một kết quả, không có lối thoát im lặng (lỗi cũ:
+      // nhánh TWO_FA_SETUP_REQUIRED không khớp if nào → nút Đăng nhập "không ăn").
+      const route = resolveLoginRoute(data.data as LoginResponseLike);
+      setRoutingError(null);
+      switch (route.kind) {
+        case 'authenticated':
+          authStore.setTokens(route.accessToken, route.refreshToken);
+          navigate('/dashboard');
           return;
-        }
-        // 2FA pending — second factor required.
-        if ('twoFaToken' in result) {
-          navigate('/auth/2fa', { state: { twoFaToken: result.twoFaToken } });
+        case 'navigate':
+          navigate(route.path, { state: route.state, replace: true });
           return;
-        }
-      } else if ('accessToken' in result) {
-        authStore.setTokens(result.accessToken, result.refreshToken);
-        navigate('/dashboard');
+        case 'error':
+          setRoutingError(route.message);
+          return;
       }
     },
   });
@@ -179,14 +182,16 @@ export default function LoginPage() {
             )}
 
             {/* Thông báo lỗi */}
-            {loginMutation.isError && (
+            {(loginMutation.isError || routingError) && (
               <div
                 role="alert"
                 className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-r-lg"
               >
                 <div className="flex items-start gap-3">
                   <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                  <p className="text-sm font-medium text-red-800">{errorMessage}</p>
+                  <p className="text-sm font-medium text-red-800" data-testid="login-error">
+                    {routingError ?? errorMessage}
+                  </p>
                 </div>
               </div>
             )}

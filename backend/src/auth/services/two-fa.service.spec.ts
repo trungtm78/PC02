@@ -330,3 +330,62 @@ describe('TwoFaService.disableTotp()', () => {
     await expect(svc.disableTotp('user-1')).rejects.toThrow('Vui lòng nhập mã TOTP hiện tại');
   });
 });
+
+// ── Đối xứng cổng chặn đổi mật khẩu giữa hai đường hoàn tất đăng nhập ────────
+//
+// `verify()` đã có cổng C2 (kiểm mustChangePassword SAU khi OTP đúng). Đường
+// song song `completeInitialSetup()` — dùng cho tài khoản MỚI phải thiết lập 2FA
+// lần đầu — lại thiếu cổng đó. Tài khoản do quản trị tạo mang ĐỒNG THỜI
+// mustChangePassword=true và twoFaSetupRequired=true, nên đúng đường đó bị hở:
+// thiết lập 2FA xong là có phiên đầy đủ, mật khẩu tạm (đang là SỐ ĐIỆN THOẠI)
+// không bao giờ bị bắt đổi.
+describe('TwoFaService.completeInitialSetup() — cổng đổi mật khẩu', () => {
+  const meta = { ipAddress: '127.0.0.1', userAgent: 'test' };
+
+  it('mustChangePassword=false → trả cặp token thật, hoàn tất đăng nhập', async () => {
+    const { svc } = makeService({
+      totpEnabled: false,
+      totpSetupPending: true,
+      totpSetupPendingAt: new Date(),
+      mustChangePassword: false,
+    });
+    const result = await svc.completeInitialSetup('user-1', '123456', meta);
+    expect(result).toHaveProperty('accessToken');
+  });
+
+  it('mustChangePassword=true → KHÔNG trả cặp token, trả token đổi mật khẩu', async () => {
+    const { svc, jwtService } = makeService({
+      totpEnabled: false,
+      totpSetupPending: true,
+      totpSetupPendingAt: new Date(),
+      mustChangePassword: true,
+    });
+    jwtService.signAsync.mockResolvedValue('CHANGE_PW_TOKEN');
+
+    const result = await svc.completeInitialSetup('user-1', '123456', meta);
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        pending: true,
+        changePasswordToken: 'CHANGE_PW_TOKEN',
+        reason: 'MUST_CHANGE_PASSWORD',
+      }),
+    );
+    expect(result).not.toHaveProperty('accessToken');
+  });
+
+  it('vẫn xoá cờ twoFaSetupRequired kể cả khi còn phải đổi mật khẩu', async () => {
+    const { svc, prisma } = makeService({
+      totpEnabled: false,
+      totpSetupPending: true,
+      totpSetupPendingAt: new Date(),
+      mustChangePassword: true,
+    });
+    await svc.completeInitialSetup('user-1', '123456', meta);
+    expect(prisma.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ twoFaSetupRequired: false }),
+      }),
+    );
+  });
+});

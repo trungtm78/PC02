@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import LoginPage from '@/pages/auth/LoginPage';
 import TwoFaPage from '@/pages/auth/TwoFaPage';
+import TwoFaSetupPage from '@/pages/auth/TwoFaSetupPage';
 import ForgotPasswordPage from '@/pages/auth/ForgotPasswordPage';
 import FirstLoginChangePasswordPage from '@/pages/auth/FirstLoginChangePasswordPage';
 import EnrollPage from '@/pages/auth/EnrollPage';
@@ -34,6 +35,7 @@ function App() {
           {/* Public routes */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/auth/2fa" element={<TwoFaPage />} />
+          <Route path="/auth/2fa-setup" element={<TwoFaSetupPage />} />
           <Route path="/auth/first-login-change-password" element={<FirstLoginChangePasswordPage />} />
           <Route path="/auth/enroll" element={<EnrollPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />

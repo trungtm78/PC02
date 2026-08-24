@@ -248,36 +248,7 @@ export class TwoFaService {
     // skip the forced password change entirely (login returns twoFaToken,
     // 2FA verify returns full tokens — the change-pw gate never fires).
     if (user.mustChangePassword) {
-      const jti = crypto.randomUUID();
-      // Codex #2: bind to user.tokenVersion at issue time so a later admin
-      // reset invalidates this token via ChangePasswordPendingGuard.
-      const changePasswordToken = await this.jwtService.signAsync(
-        {
-          sub: user.id,
-          type: TOKEN_TYPE.CHANGE_PASSWORD_PENDING,
-          jti,
-          tokenVersion: user.tokenVersion,
-        } as object,
-        {
-          algorithm: 'RS256',
-          privateKey: this.privateKey,
-          expiresIn: '15m' as StringValue,
-        },
-      );
-      await this.audit.log({
-        userId,
-        action: 'USER_LOGIN_BLOCKED_PENDING_PASSWORD_CHANGE',
-        subject: 'User',
-        subjectId: userId,
-        metadata: { email: user.email, postOtp: true },
-        ipAddress: meta.ipAddress,
-        userAgent: meta.userAgent,
-      });
-      return {
-        pending: true,
-        changePasswordToken,
-        reason: 'MUST_CHANGE_PASSWORD',
-      };
+      return this.issueChangePasswordPending(user, meta, { postOtp: true });
     }
 
     // USER_LOGIN fires here (after both factors) — NOT in AuthService.login()
@@ -292,6 +263,49 @@ export class TwoFaService {
     });
 
     return this.generateTokenPair(user);
+  }
+
+  /**
+   * Phát hành token "chờ đổi mật khẩu" — cổng chặn dùng chung cho MỌI đường
+   * hoàn tất đăng nhập qua 2 lớp.
+   *
+   * Tách ra vì cổng này trước đây chỉ nằm trong `verify()`. Đường song song
+   * `completeInitialSetup()` thiếu nó, nên tài khoản do quản trị tạo (mang đồng
+   * thời mustChangePassword=true và twoFaSetupRequired=true) thiết lập 2FA xong
+   * là có phiên đầy đủ — mật khẩu tạm không bao giờ bị bắt đổi. Một cổng, hai
+   * chỗ gọi, không còn đường nào lọt.
+   */
+  private async issueChangePasswordPending(
+    user: { id: string; email: string | null; tokenVersion: number },
+    meta: { ipAddress?: string; userAgent?: string },
+    auditMetadata: Record<string, unknown> = {},
+  ): Promise<{ pending: true; changePasswordToken: string; reason: 'MUST_CHANGE_PASSWORD' }> {
+    const jti = crypto.randomUUID();
+    // Buộc theo tokenVersion lúc phát hành để lần đặt lại mật khẩu sau của quản
+    // trị sẽ vô hiệu token này qua ChangePasswordPendingGuard.
+    const changePasswordToken = await this.jwtService.signAsync(
+      {
+        sub: user.id,
+        type: TOKEN_TYPE.CHANGE_PASSWORD_PENDING,
+        jti,
+        tokenVersion: user.tokenVersion,
+      } as object,
+      {
+        algorithm: 'RS256',
+        privateKey: this.privateKey,
+        expiresIn: '15m' as StringValue,
+      },
+    );
+    await this.audit.log({
+      userId: user.id,
+      action: 'USER_LOGIN_BLOCKED_PENDING_PASSWORD_CHANGE',
+      subject: 'User',
+      subjectId: user.id,
+      metadata: { email: user.email, ...auditMetadata },
+      ipAddress: meta.ipAddress,
+      userAgent: meta.userAgent,
+    });
+    return { pending: true, changePasswordToken, reason: 'MUST_CHANGE_PASSWORD' };
   }
 
   private async verifyTotp(
@@ -465,7 +479,7 @@ export class TwoFaService {
     userId: string,
     token: string,
     meta: { ipAddress?: string; userAgent?: string },
-  ): Promise<TokenPair> {
+  ): Promise<TokenPair | ChangePasswordPendingResponse> {
     // 1. Verify TOTP code (same as verifySetup) — sẽ throw nếu invalid.
     await this.verifySetup(userId, token);
 
@@ -486,12 +500,21 @@ export class TwoFaService {
       userAgent: meta.userAgent,
     });
 
-    // 4. Issue real TokenPair — login flow hoàn tất.
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: { role: true },
     });
     if (!user) throw new UnauthorizedException();
+
+    // 4. Cùng cổng chặn C2 như `verify()`: tài khoản do quản trị tạo mang ĐỒNG THỜI
+    //    mustChangePassword=true và twoFaSetupRequired=true. Thiếu cổng này thì
+    //    thiết lập 2FA xong là có phiên đầy đủ và mật khẩu tạm không bao giờ bị
+    //    bắt đổi — đúng lỗ hổng mà chú thích C2 cảnh báo, chỉ ở đường song song.
+    if (user.mustChangePassword) {
+      return this.issueChangePasswordPending(user, meta, { postInitialSetup: true });
+    }
+
+    // 5. Issue real TokenPair — login flow hoàn tất.
     return this.generateTokenPair(user);
   }
 
