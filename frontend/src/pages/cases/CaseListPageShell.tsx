@@ -270,7 +270,7 @@ export function CaseListPageShell() {
 
     return () => ctrl.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, groupFilter, page, debouncedSearch, refetchCounter, appliedFilters]);
+  }, [statusFilter, groupFilter, page, debouncedSearch, refetchCounter, appliedFilters, sort.sortBy, sort.sortOrder]);
 
   // Stats dùng CHUNG baseQueryParams với danh sách (backend strip status/statusGroup).
   // Trước đây chỉ truyền `search` nên bật bộ lọc nâng cao là số trên thẻ lệch khỏi danh

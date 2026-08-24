@@ -1,22 +1,6 @@
 import { AlertTriangle } from 'lucide-react';
 import { formatVNDate } from '@/lib/dates';
-
-/**
- * Khoảng năm coi là hợp lý cho một mốc thời gian nghiệp vụ.
- * Phải KHỚP với biểu thức của cột sinh `petitions.sortReceivedDate`
- * (migration 20260824120000) — nếu lệch, hồ sơ sẽ bị đẩy xuống cuối mà KHÔNG
- * được đánh dấu, và cán bộ không hiểu vì sao nó nằm dưới cùng.
- */
-const MIN_YEAR = 1900;
-const MAX_YEAR = 2100;
-
-export function isImplausibleDate(value?: string | null): boolean {
-  if (!value) return false;
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return false;
-  const y = d.getFullYear();
-  return y < MIN_YEAR || y >= MAX_YEAR;
-}
+import { isImplausibleDate } from './implausibleDate';
 
 /**
  * Ô ngày trong bảng danh sách. Ngày phi lý được đánh dấu rõ.

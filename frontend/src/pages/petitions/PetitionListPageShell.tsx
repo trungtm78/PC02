@@ -273,7 +273,7 @@ export function PetitionListPageShell() {
 
     return () => ctrl.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, groupFilter, page, debouncedSearch, refetchCounter, appliedFilters]);
+  }, [statusFilter, groupFilter, page, debouncedSearch, refetchCounter, appliedFilters, sort.sortBy, sort.sortOrder]);
 
   useEffect(() => {
     const ctrl = new AbortController();

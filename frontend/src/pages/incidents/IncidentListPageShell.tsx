@@ -300,7 +300,7 @@ export function IncidentListPageShell() {
     return () => ctrl.abort();
     // refetchCounter forces refetch after bulk action success (declared below for hoisting OK at runtime)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, phaseFilter, page, debouncedSearch, refetchCounter, appliedFilters]);
+  }, [statusFilter, phaseFilter, page, debouncedSearch, refetchCounter, appliedFilters, sort.sortBy, sort.sortOrder]);
 
   // Stats fetch: search + phase pass-through, status purposely stripped.
   useEffect(() => {

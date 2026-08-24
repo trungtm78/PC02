@@ -54,7 +54,8 @@ export { useListSort } from './useListSort';
 export type { ListSort } from './useListSort';
 export { resolveNextSort } from './sortState';
 export type { SortState, SortDirection } from './sortState';
-export { DateCell, isImplausibleDate } from './DateCell';
+export { DateCell } from './DateCell';
+export { isImplausibleDate } from './implausibleDate';
 export { SortableHeader } from './SortableHeader';
 export type { ListPageUrlState } from './useListPageUrlState';
 // F3 shared utilities (post-PR5 cleanup) — see listPageUtils.ts
